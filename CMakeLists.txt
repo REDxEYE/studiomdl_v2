@@ -80,5 +80,21 @@ target_link_libraries(studiomdl_v2 PRIVATE
         shlwapi
         vstdlib_static
         )
+add_executable(dmxconvert
+        dmxconvert/dmxconvert.cpp
+        studiomdl/filesystem_init.cpp
+        )
+target_compile_definitions(dmxconvert PRIVATE -DSTATIC_TIER0)
+target_include_directories(dmxconvert PUBLIC include)
+target_link_libraries(dmxconvert PRIVATE
+        tier0
+        tier1
+        tier2
+        appframework
+        datamodel
+        dmserializers
+        mathlib
+        )
+
 add_dependencies(studiomdl_v2 copy_filesystem_stdio_v2 copy_vstdlib_v2)
 
