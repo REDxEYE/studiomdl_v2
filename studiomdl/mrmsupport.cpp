@@ -407,9 +407,9 @@ int closestNormal( int v, int n )
 }
 
 
-int AddToVlist(int v, int m, int n, int* t, int firstref)
+int AddToVlist(int v, int m, int n, std::array<uint32_t, MAXSTUDIOTEXCOORDS>& t, int firstref)
 {
-	v_unify_t *prev = NULL;
+	v_unify_t *prev = nullptr;
 	v_unify_t *cur = v_list[v];
 
 	while (cur)
@@ -494,14 +494,14 @@ void UnifyIndices( s_source_t *psource )
 	// create an list of all the 
 	for (i = 0; i < g_numfaces; i++)
 	{
-		uface.a = AddToVlist(g_face[i].a, g_face[i].material, g_face[i].na, (int*)g_face[i].ta, g_numverts);
-		uface.b = AddToVlist(g_face[i].b, g_face[i].material, g_face[i].nb, (int*)g_face[i].tb, g_numverts);
-		uface.c = AddToVlist(g_face[i].c, g_face[i].material, g_face[i].nc, (int*)g_face[i].tc, g_numverts);
+		uface.a = AddToVlist(g_face[i].a, g_face[i].material, g_face[i].na, g_face[i].ta, g_numverts);
+		uface.b = AddToVlist(g_face[i].b, g_face[i].material, g_face[i].nb, g_face[i].tb, g_numverts);
+		uface.c = AddToVlist(g_face[i].c, g_face[i].material, g_face[i].nc, g_face[i].tc, g_numverts);
 		uface.d = 0xFFFFFFFF;
 
 		if ( g_face[i].d != 0xFFFFFFFF )
 		{
-			uface.d = AddToVlist(g_face[i].d, g_face[i].material, g_face[i].nd, (int*)g_face[i].td, g_numverts);
+			uface.d = AddToVlist(g_face[i].d, g_face[i].material, g_face[i].nd, g_face[i].td, g_numverts);
 		}
 
 		// keep an original copy

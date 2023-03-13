@@ -57,7 +57,7 @@ typedef wchar_t wchar;
 #define _UNICODE
 #endif
 
-#if defined( POSIX )
+#ifdef POSIX
 #define _tcsstr strstr
 #define _tcsicmp stricmp
 #define _tcscmp strcmp
@@ -72,7 +72,7 @@ typedef wchar_t wchar;
 #define _tprintf printf
 #define _sntprintf _snprintf
 #define _T(s) s
-#else
+#elif defined(_WIN32)
 #include <tchar.h>
 #endif
 

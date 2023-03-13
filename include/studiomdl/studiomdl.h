@@ -15,8 +15,9 @@
 
 
 #include <vector>
+#include <deque>
 #include <array>
-#include <stdio.h>
+#include <cstdio>
 #include "tier0/basetypes.h"
 #include "tier1/utlvector.h"
 #include "tier1/utlsymbol.h"
@@ -71,7 +72,7 @@ class CDmeCombinationOperator;
 #define MAXSTUDIOACTIVITYMODIFIERS    128
 #define MAXSTUDIOTAGS            1024
 
-#define MAXSTUDIOSRCVERTS        (8*65536)
+#define MAXSTUDIOSRCVERTS        (8*65536*8)
 
 #ifndef EXTERN
 #define EXTERN extern
@@ -97,8 +98,6 @@ EXTERN    char sourcetexture[16][MAX_PATH];
 
 EXTERN    int numrep;
 
-EXTERN    int tag_reversed;
-EXTERN    int tag_normals;
 EXTERN    float normal_blend;
 EXTERN    int dump_hboxes;
 EXTERN    int ignore_warnings;
@@ -174,19 +173,18 @@ struct s_trianglevert_t {
 
 struct s_boneweight_t {
     int numbones;
-
-    int bone[MAXSTUDIOBONEWEIGHTS];
-    float weight[MAXSTUDIOBONEWEIGHTS];
+    std::array<int, MAXSTUDIOBONEWEIGHTS> bone;
+    std::array<float, MAXSTUDIOBONEWEIGHTS> weight;
 };
 
 struct s_tmpface_t {
-    int material;
-    unsigned long a, b, c, d;        //
-    unsigned long na, nb, nc, nd;    //
-    unsigned long ta[MAXSTUDIOTEXCOORDS];
-    unsigned long tb[MAXSTUDIOTEXCOORDS];
-    unsigned long tc[MAXSTUDIOTEXCOORDS];
-    unsigned long td[MAXSTUDIOTEXCOORDS]; // d used by subd quads, otherwise 0xFFFFFFFF
+    int material{};
+    uint32_t a, b, c, d;
+    uint32_t na, nb, nc, nd;
+    std::array<uint32_t, MAXSTUDIOTEXCOORDS> ta{0xFFFFFFFF};
+    std::array<uint32_t, MAXSTUDIOTEXCOORDS> tb{0xFFFFFFFF};
+    std::array<uint32_t, MAXSTUDIOTEXCOORDS> tc{0xFFFFFFFF};
+    std::array<uint32_t, MAXSTUDIOTEXCOORDS> td{0xFFFFFFFF}; // d used by subd quads, otherwise 0xFFFFFFFF
 
     s_tmpface_t() {
         a = b = c = d = 0xFFFFFFFF;
@@ -198,7 +196,7 @@ struct s_tmpface_t {
 struct s_face_t {
     s_face_t() { a = b = c = d = 0xFFFFFFFF; }
 
-    unsigned long a, b, c, d;        // d used by subd quads
+    uint32_t a, b, c, d;        // d used by subd quads
 };
 
 struct s_vertexinfo_t {
@@ -208,7 +206,7 @@ struct s_vertexinfo_t {
     Vector normal;
     Vector4D tangentS;
     int numTexcoord;
-    Vector2D texcoord[MAXSTUDIOTEXCOORDS];
+    std::array<Vector2D, MAXSTUDIOTEXCOORDS> texcoord;
     s_boneweight_t boneweight;
 };
 
@@ -246,7 +244,7 @@ struct s_bonetable_t {
     bool bDontCollapse;
     Vector posrange;
 };
-EXTERN    s_bonetable_t g_bonetable[MAXSTUDIOSRCBONES];
+EXTERN    std::array<s_bonetable_t, MAXSTUDIOSRCBONES> g_bonetable;
 
 extern int findGlobalBone(const char *name);    // finds a named bone in the global bone table
 
@@ -255,14 +253,14 @@ struct s_renamebone_t {
     char from[MAXSTUDIONAME];
     char to[MAXSTUDIONAME];
 };
-EXTERN s_renamebone_t g_renamedbone[MAXSTUDIOSRCBONES];
+EXTERN std::array<s_renamebone_t, MAXSTUDIOSRCBONES> g_renamedbone;
 
 const char *RenameBone(const char *pName); // returns new name if available, else return pName.
 
 EXTERN char g_szStripBonePrefix[MAXSTUDIOSRCBONES][MAXSTUDIONAME];
 EXTERN int g_numStripBonePrefixes;
 
-EXTERN s_renamebone_t g_szRenameBoneSubstr[MAXSTUDIOSRCBONES];
+EXTERN std::array<s_renamebone_t, MAXSTUDIOSRCBONES> g_szRenameBoneSubstr;
 EXTERN int g_numRenameBoneSubstr;
 
 EXTERN int g_numimportbones;
@@ -274,7 +272,7 @@ struct s_importbone_t {
     matrix3x4_t srcRealign;
     bool bUnlocked;
 };
-EXTERN s_importbone_t g_importbone[MAXSTUDIOSRCBONES];
+EXTERN std::array<s_importbone_t, MAXSTUDIOSRCBONES> g_importbone;
 
 
 EXTERN int g_numincludemodels;
@@ -301,7 +299,7 @@ struct s_hitboxset {
 
     int numhitboxes;
 
-    s_bbox_t hitbox[MAXSTUDIOSRCBONES];
+    std::array<s_bbox_t, MAXSTUDIOSRCBONES> hitbox;
 };
 
 extern std::vector<s_hitboxset> g_hitboxsets;
@@ -312,7 +310,7 @@ struct s_hitgroup_t {
     int group;
     char name[MAXSTUDIONAME];    // bone name
 };
-EXTERN s_hitgroup_t g_hitgroup[MAXSTUDIOSRCBONES];
+EXTERN std::array<s_hitgroup_t, MAXSTUDIOSRCBONES> g_hitgroup;
 
 
 struct s_bonecontroller_t {
@@ -324,7 +322,7 @@ struct s_bonecontroller_t {
     float end;
 };
 
-EXTERN s_bonecontroller_t g_bonecontroller[MAXSTUDIOSRCBONES];
+EXTERN std::array<s_bonecontroller_t, MAXSTUDIOSRCBONES> g_bonecontroller;
 EXTERN int g_numbonecontrollers;
 
 struct s_screenalignedbone_t {
@@ -332,7 +330,7 @@ struct s_screenalignedbone_t {
     int flags;
 };
 
-EXTERN s_screenalignedbone_t g_screenalignedbone[MAXSTUDIOSRCBONES];
+EXTERN std::array<s_screenalignedbone_t, MAXSTUDIOSRCBONES> g_screenalignedbone;
 EXTERN int g_numscreenalignedbones;
 
 struct s_worldalignedbone_t {
@@ -340,7 +338,7 @@ struct s_worldalignedbone_t {
     int flags;
 };
 
-EXTERN s_worldalignedbone_t g_worldalignedbone[MAXSTUDIOSRCBONES];
+EXTERN std::array<s_worldalignedbone_t, MAXSTUDIOSRCBONES> g_worldalignedbone;
 EXTERN int g_numworldalignedbones;
 
 struct s_attachment_t {
@@ -358,20 +356,20 @@ struct s_attachment_t {
 #define IS_ABSOLUTE        0x0001
 #define IS_RIGID        0x0002
 
-EXTERN s_attachment_t g_attachment[MAXSTUDIOSRCBONES];
+EXTERN std::array<s_attachment_t, MAXSTUDIOSRCBONES> g_attachment;
 EXTERN int g_numattachments;
 
 struct s_bonemerge_t {
     char bonename[MAXSTUDIONAME];
 };
 
-EXTERN CUtlVector<s_bonemerge_t> g_BoneMerge;
+EXTERN std::vector<s_bonemerge_t> g_BoneMerge;
 
 struct s_alwayssetup_t {
     char bonename[MAXSTUDIONAME];
 };
 
-EXTERN CUtlVector<s_alwayssetup_t> g_BoneAlwaysSetup;
+EXTERN std::vector<s_alwayssetup_t> g_BoneAlwaysSetup;
 
 struct s_mouth_t {
     char bonename[MAXSTUDIONAME];
@@ -380,7 +378,7 @@ struct s_mouth_t {
     int flexdesc;
 };
 
-EXTERN s_mouth_t g_mouth[MAXSTUDIOSRCBONES]; // ?? skins?
+EXTERN std::array<s_mouth_t, MAXSTUDIOSRCBONES> g_mouth; // ?? skins?
 EXTERN int g_nummouths;
 
 struct s_node_t {
@@ -954,8 +952,8 @@ struct s_source_t {
 
     // local skeleton hierarchy
     int numbones;
-    s_node_t localBone[MAXSTUDIOSRCBONES];
-    matrix3x4_t boneToPose[MAXSTUDIOSRCBONES];    // converts bone local data into initial pose data
+    std::array<s_node_t, MAXSTUDIOSRCBONES> localBone;
+    std::array<matrix3x4_t, MAXSTUDIOSRCBONES> boneToPose;    // converts bone local data into initial pose data
 
     // bone remapping
     int boneflags[MAXSTUDIOSRCBONES];    // attachment, vertex, etc flags for this bone
@@ -1498,7 +1496,7 @@ int AppendVTAtoOBJ(s_source_t *psource, char *filename, int frame);
 
 void Build_Reference(s_source_t *psource, const char *pAnimName);
 
-int Grab_Nodes(s_node_t *pnodes);
+int Grab_Nodes(std::array<s_node_t, MAXSTUDIOSRCBONES> &pnodes);
 
 void Grab_Animation(s_source_t *psource, const char *pAnimName);
 

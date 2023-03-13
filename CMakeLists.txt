@@ -2,11 +2,24 @@ cmake_minimum_required(VERSION 3.22)
 project(studiomdl_v2)
 
 set(CMAKE_CXX_STANDARD 14)
-if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-    set(PLATFORM_DEFINES COMPILER_MSVC64 COMPILER_MSVC)
-elseif (CMAKE_SIZEOF_VOID_P EQUAL 4)
-    set(PLATFORM_DEFINES COMPILER_MSVC32 COMPILER_MSVC _X86_)
-endif ()
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+        set(PLATFORM_DEFINES COMPILER_MSVC64 COMPILER_MSVC)
+    elseif (CMAKE_SIZEOF_VOID_P EQUAL 4)
+        set(PLATFORM_DEFINES COMPILER_MSVC32 COMPILER_MSVC _X86_)
+    endif ()
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+        set(PLATFORM_DEFINES LINUX COMPILER_GCC POSIX )
+    elseif (CMAKE_SIZEOF_VOID_P EQUAL 4)
+        set(PLATFORM_DEFINES LINUX COMPILER_GCC POSIX _X86_)
+    endif ()
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    # Do something on macOS
+else()
+    # Do something on other operating systems
+endif()
+
 
 add_compile_definitions(${PLATFORM_DEFINES} RAD_TELEMETRY_DISABLED _CRT_SECURE_NO_WARNINGS USE_MEM_DEBUG=0 _DLL_EXT=.dll)
 
@@ -33,6 +46,7 @@ add_subdirectory(libs/interfaces)
 add_subdirectory(libs/resourcefile)
 add_subdirectory(libs/filesystem)
 add_subdirectory(libs/vpklib)
+#add_subdirectory(libs/vphysics)
 
 
 add_executable(studiomdl_v2
@@ -80,6 +94,7 @@ target_link_libraries(studiomdl_v2 PRIVATE
         shlwapi
         vstdlib_static
         )
+
 add_executable(dmxconvert
         dmxconvert/dmxconvert.cpp
         studiomdl/filesystem_init.cpp

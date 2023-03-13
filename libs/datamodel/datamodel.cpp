@@ -1215,7 +1215,7 @@ bool CDataModel::Unserialize( CUtlBuffer &inBuf, const char *pEncodingName, cons
 
 		const char *pDestEncodingName = "binary";
 		char cmdline[ 2 * MAX_PATH + 256 ];
-		V_snprintf( cmdline, sizeof( cmdline ), "bin/dmxconvert -allowdebug -i \"%s\" -ie %s -o \"%s\" -oe %s -of %s", pFileName, header.encodingName, tempFileName, pDestEncodingName, pDestFormatName );
+		V_snprintf( cmdline, sizeof( cmdline ), "dmxconvert -allowdebug -i \"%s\" -ie %s -o \"%s\" -oe %s -of %s", pFileName, header.encodingName, tempFileName, pDestEncodingName, pDestFormatName );
 
 		IProcess *pProcess = g_pProcessUtils->StartProcess( cmdline, 0 );
 		if ( !pProcess )

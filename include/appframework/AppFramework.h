@@ -1,4 +1,4 @@
-//===== Copyright © 1996-2005, Valve Corporation, All rights reserved. ======//
+//===== Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. ======//
 //
 // Purpose: An application framework 
 //
@@ -95,7 +95,7 @@ void AppShutdown( CAppSystemGroup *pAppSystemGroup );
 #define DEFINE_CONSOLE_APPLICATION_OBJECT_GLOBALVAR( _globalVarName ) \
 	int main( int argc, char **argv )			\
 	{											\
-		return AppMain( argc, argv, &_globalVarName );	\
+		return AppMain( argc, argv, &(_globalVarName) );	\
 	}
 #else
 #define DEFINE_CONSOLE_APPLICATION_OBJECT_GLOBALVAR( _globalVarName ) \

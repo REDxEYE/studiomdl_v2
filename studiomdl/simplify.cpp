@@ -3702,7 +3702,7 @@ bool BoneHasAnimation( const char *pName )
 
 bool BoneIsBonemerge( char const *pname )
 {
-	for (int k = 0; k < g_BoneMerge.Count(); k++)
+	for (int k = 0; k < g_BoneMerge.size(); k++)
 	{
 		if ( !stricmp( g_BoneMerge[k].bonename, pname ) )
 		{
@@ -3714,7 +3714,7 @@ bool BoneIsBonemerge( char const *pname )
 
 bool BoneShouldAlwaysSetup( char const *pname )
 {
-	for (int k = 0; k < g_BoneAlwaysSetup.Count(); k++)
+	for (int k = 0; k < g_BoneAlwaysSetup.size(); k++)
 	{
 		if ( !stricmp( g_BoneAlwaysSetup[k].bonename, pname ) )
 		{
@@ -4356,7 +4356,7 @@ void TagUsedBones( )
 		}
 
 		// Tag all bones marked as being used by bonemerge
-		int nBoneMergeCount = g_BoneMerge.Count(); 
+		int nBoneMergeCount = g_BoneMerge.size();
 		for ( k = 0; k < nBoneMergeCount; ++k )
 		{
 			for ( j = 0; j < psource->numbones; j++ )
@@ -4383,7 +4383,7 @@ void TagUsedBones( )
 		// because they are intended to be used on data-driving bones that are aren't 
 		// necessarily moving vertices or part of a hierarchy. They are NOT guaranteed 
 		// to be positioned correctly relative to their parents!!!
-		int nBoneAlwaysSetupCount = g_BoneAlwaysSetup.Count(); 
+		int nBoneAlwaysSetupCount = g_BoneAlwaysSetup.size();
 		for ( k = 0; k < nBoneAlwaysSetupCount; ++k )
 		{
 			for ( j = 0; j < psource->numbones; j++ )
@@ -4514,7 +4514,7 @@ void InsertPredefinedBones( bool bUnlocked )
 	// ensure bonemerged bones are tagged
 	for ( i = 0; i < g_numbones; i++ )
 	{
-		for ( k = 0; k < g_BoneMerge.Count(); k++ )
+		for ( k = 0; k < g_BoneMerge.size(); k++ )
 		{
 			if ( !(g_bonetable[i].flags & BONE_USED_BY_BONE_MERGE) && !stricmp( g_BoneMerge[k].bonename, g_bonetable[i].name ) )
 			{
@@ -4526,7 +4526,7 @@ void InsertPredefinedBones( bool bUnlocked )
 	// ensure alwayssetup bones are tagged
 	for ( i = 0; i < g_numbones; i++ )
 	{
-		for ( k = 0; k < g_BoneAlwaysSetup.Count(); k++ )
+		for ( k = 0; k < g_BoneAlwaysSetup.size(); k++ )
 		{
 			if ( !(g_bonetable[i].flags & BONE_ALWAYS_SETUP) && !stricmp( g_BoneAlwaysSetup[k].bonename, g_bonetable[i].name ) )
 			{

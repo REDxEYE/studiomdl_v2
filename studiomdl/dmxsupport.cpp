@@ -1038,7 +1038,7 @@ static void HandleDmeJiggleBone(const CDmeDag *pDmeDag) {
 // Loads the skeletal hierarchy from the game model, returns bone count
 //-----------------------------------------------------------------------------
 static bool
-AddDagJoint(CDmeModel *pModel, CDmeDag *pDag, s_node_t *pNodes, int nParentIndex, BoneTransformMap_t &boneMap) {
+AddDagJoint(CDmeModel *pModel, CDmeDag *pDag, std::array<s_node_t,MAXSTUDIOSRCBONES> &pNodes, int nParentIndex, BoneTransformMap_t &boneMap) {
     CDmeTransform *pDmeTransform = pDag->GetTransform();
 
     if (!pDmeTransform)
@@ -1087,7 +1087,7 @@ AddDagJoint(CDmeModel *pModel, CDmeDag *pDag, s_node_t *pNodes, int nParentIndex
 //-----------------------------------------------------------------------------
 // Main entry point for loading the skeleton
 //-----------------------------------------------------------------------------
-static int LoadSkeleton(CDmeDag *pRoot, CDmeModel *pModel, s_node_t *pNodes, BoneTransformMap_t &boneMap) {
+static int LoadSkeleton(CDmeDag *pRoot, CDmeModel *pModel, std::array<s_node_t,MAXSTUDIOSRCBONES> &pNodes, BoneTransformMap_t &boneMap) {
     // Initialize bone indices
     boneMap.m_nBoneCount = 0;
     for (int i = 0; i < MAXSTUDIOSRCBONES; ++i) {
@@ -1095,7 +1095,7 @@ static int LoadSkeleton(CDmeDag *pRoot, CDmeModel *pModel, s_node_t *pNodes, Bon
         pNodes[i].parent = -1;
         boneMap.m_pnDmeModelToMdl[i] = -1;
         boneMap.m_pnMdlToDmeModel[i] = -1;
-        boneMap.m_ppTransforms[i] = NULL;
+        boneMap.m_ppTransforms[i] = nullptr;
     }
 
     // Don't create joints for the the root dag ever.. just deal with the children

@@ -2566,7 +2566,7 @@ namespace OptimizedModel {
 
     void COptimizedModel::WriteHeader(int vertCacheSize, int maxBonesPerVert,
                                       int maxBonesPerFace, int maxBonesPerStrip, int numBodyParts, long checkSum) {
-        FileHeader_t fileHeader;
+        FileHeader_t fileHeader{0};
 
         fileHeader.version = OPTIMIZED_MODEL_FILE_VERSION;
         fileHeader.vertCacheSize = vertCacheSize;
@@ -3068,17 +3068,13 @@ namespace OptimizedModel {
         FileHeader_t *header = (FileHeader_t *) m_FileBuffer->GetPointer(0);
         for (int bodyPartID = 0; bodyPartID < header->numBodyParts; bodyPartID++) {
             BodyPartHeader_t *bodyPart = header->pBodyPart(bodyPartID);
-            //		mstudiobodyparts_t *pStudioBodyPart = phdr->pBodypart( bodyPartID );
-            //		for( int lodID = 0; lodID < header->numLODs; lodID++ )
             int lodID = lod;
             {
                 for (int modelID = 0; modelID < bodyPart->numModels; modelID++) {
                     ModelHeader_t *model = bodyPart->pModel(modelID);
-                    //				mstudiomodel_t *pStudioModel = pStudioBodyPart->pModel( modelID );
                     ModelLODHeader_t *pLOD = model->pLOD(lodID);
                     for (int meshID = 0; meshID < pLOD->numMeshes; meshID++) {
                         MeshHeader_t *mesh = pLOD->pMesh(meshID);
-                        //					mstudiomesh_t *pStudioMesh = pStudioModel->pMesh( meshID );
                         for (int stripGroupID = 0; stripGroupID < mesh->numStripGroups; stripGroupID++) {
                             StripGroupHeader_t *pStripGroup = mesh->pStripGroup(stripGroupID);
                             for (int stripID = 0; stripID < pStripGroup->numStrips; stripID++) {
@@ -3159,7 +3155,7 @@ namespace OptimizedModel {
                             maxBonesPerFace, maxBonesPerStrip, pFileName);
 
         // The dude that does it all
-        TotalMeshStats_t stats;
+        TotalMeshStats_t stats{};
         ProcessModel(pHdr, pSrcBodyParts, stats, bForceSoftwareSkin, bHWFlex);
         stats.m_TotalMaterialReplacements = CalcNumMaterialReplacements();
 
@@ -3175,7 +3171,7 @@ namespace OptimizedModel {
         //	PrintVerts( pHdr, 1 );
 
         delete m_FileBuffer;
-        m_FileBuffer = NULL;
+        m_FileBuffer = nullptr;
 
         if (m_NumSkinnedAndFlexedVerts != 0) {
             MdlWarning(

@@ -21,7 +21,6 @@
 
 #undef GetCurrentDirectory
 
-#include <Shlwapi.h> // PathCanonicalize
 #include <cstdio>
 #include <cstdlib>
 #include <sys/stat.h>
@@ -135,8 +134,8 @@ float g_flDefaultFadeOutTime = 0.2f;
 float g_flCollisionPrecision = 0;
 
 char g_path[1024];
-Vector g_vecMinWorldspace = Vector(MIN_COORD_INTEGER, MIN_COORD_INTEGER, MIN_COORD_INTEGER);
-Vector g_vecMaxWorldspace = Vector(MAX_COORD_INTEGER, MAX_COORD_INTEGER, MAX_COORD_INTEGER);
+Vector g_vecMinWorldspace{MIN_COORD_INTEGER, MIN_COORD_INTEGER, MIN_COORD_INTEGER};
+Vector g_vecMaxWorldspace{MAX_COORD_INTEGER, MAX_COORD_INTEGER, MAX_COORD_INTEGER};
 DmElementHandle_t g_hDmeBoneFlexDriverList = DMELEMENT_HANDLE_INVALID;
 
 std::vector<CUtlString> g_AllowedActivityNames;
@@ -848,9 +847,7 @@ int MaterialToTexture(int material) {
 
 //Wrong name for the use of it.
 void scale_vertex(Vector &org) {
-    org[0] = org[0] * g_currentscale;
-    org[1] = org[1] * g_currentscale;
-    org[2] = org[2] * g_currentscale;
+    org*=g_currentscale;
 }
 
 
@@ -996,7 +993,7 @@ void Build_Reference(s_source_t *pSource, const char *pAnimName) {
 }
 
 
-int Grab_Nodes(s_node_t *pnodes) {
+int Grab_Nodes(std::array<s_node_t,MAXSTUDIOSRCBONES> &pnodes) {
     int index;
     char name[1024];
     int parent;
@@ -2055,9 +2052,9 @@ void AddBodyAttachments( s_source_t *pSource )
 //-----------------------------------------------------------------------------
 void AddBodyAttachments(s_source_t *pSource) {
     for (int i = 0; i < pSource->m_Attachments.Count(); ++i) {
-        if (g_numattachments >= ARRAYSIZE(g_attachment)) {
+        if (g_numattachments >= g_attachment.size()) {
             MdlWarning("Too Many Attachments (Max %d), Ignoring Attachment %s:%s\n",
-                       ARRAYSIZE(g_attachment), pSource->filename, pSource->m_Attachments[i].name);
+                       g_attachment.size(), pSource->filename, pSource->m_Attachments[i].name);
             continue;;
         }
 
@@ -7316,11 +7313,11 @@ void Cmd_BoneMerge() {
     if (g_bCreateMakefile)
         return;
 
-    int nIndex = g_BoneMerge.AddToTail();
+    g_BoneMerge.emplace_back();
 
     // bone name
     GetToken(false);
-    strcpyn(g_BoneMerge[nIndex].bonename, token);
+    strcpyn(g_BoneMerge.back().bonename, token);
 }
 
 //-----------------------------------------------------------------------------
@@ -7330,11 +7327,11 @@ void Cmd_BoneAlwaysSetup() {
     if (g_bCreateMakefile)
         return;
 
-    int nIndex = g_BoneAlwaysSetup.AddToTail();
+    g_BoneAlwaysSetup.emplace_back();
 
     // bone name
     GetToken(false);
-    strcpyn(g_BoneAlwaysSetup[nIndex].bonename, token);
+    strcpyn(g_BoneAlwaysSetup.back().bonename, token);
 }
 
 
@@ -10090,8 +10087,6 @@ bool CStudioMDLApp::ParseArguments() {
     eyeposition = Vector(0, 0, 0);
     gflags = 0;
     numrep = 0;
-    tag_reversed = 0;
-    tag_normals = 0;
 
     normal_blend = cos(DEG2RAD(2.0));
 
@@ -10281,12 +10276,6 @@ bool CStudioMDLApp::ParseArguments() {
                     }
                     printf("Using default texture: %s\n", defaulttexture);
                     numrep++;
-                    break;
-                case 'r':
-                    tag_reversed = 1;
-                    break;
-                case 'n':
-                    tag_normals = 1;
                     break;
                 case 'a':
                     i++;

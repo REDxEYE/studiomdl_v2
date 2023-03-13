@@ -14,6 +14,7 @@
 #endif
 
 #if defined( LINUX ) && ((__GNUC__ * 100) + __GNUC_MINOR__) >= 406
+#include <cstdarg>
 // based on some Jonathan Wakely macros on the net...
 #define GCC_DIAG_STR(s) #s
 #define GCC_DIAG_JOINSTR(x,y) GCC_DIAG_STR(x ## y)
