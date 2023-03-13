@@ -10,11 +10,11 @@
 	#endif
 #endif 
 
-#include "platform.h"
+#include "tier0/platform.h"
 
 // HACK: Need ShellExecute for PSD updates
 #ifdef IS_WINDOWS_PC
-#include <windows.h>
+#include <Windows.h>
 #include <shellapi.h>
 #pragma comment ( lib, "shell32"  )
 #endif
@@ -22,41 +22,26 @@
 #include "shaderapi/ishaderapi.h"
 #include "materialsystem_global.h"
 #include "itextureinternal.h"
-#include "utlsymbol.h"
-#include "time.h"
+#include "tier1/utlsymbol.h"
 #include <sys/types.h>
-#include <sys/stat.h>
 #include "bitmap/imageformat.h"
-#include "bitmap/tgaloader.h"
-#include "bitmap/tgawriter.h"
-#ifdef _WIN32
-#include "direct.h"
-#endif
-#include "colorspace.h"
-#include "string.h"
-#ifndef _PS3
+#include <cstring>
 #include <malloc.h>
-#endif
-#include <stdlib.h>
-#include "utlmemory.h"
+#include <cstdlib>
+#include "tier1/utlmemory.h"
 #include "IHardwareConfigInternal.h"
 #include "filesystem.h"
 #include "tier1/strtools.h"
 #include "vtf/vtf.h"
 #include "materialsystem/materialsystem_config.h"
-#include "mempool.h"
 #include "texturemanager.h"
-#include "utlbuffer.h"
+#include "tier1/utlbuffer.h"
 #include "pixelwriter.h"
 #include "tier1/callqueue.h"
 #include "tier1/UtlStringMap.h"
 #include "filesystem/IQueuedLoader.h"
 #include "tier2/fileutils.h"
-#include "filesystem.h"
-//#include "tier2/p4helpers.h"
 #include "tier2/tier2.h"
-//#include "p4lib/ip4.h"
-#include "ctype.h"
 #include "ifilelist.h"
 #include "tier0/icommandline.h"
 #include "datacache/imdlcache.h"
@@ -68,8 +53,6 @@
 
 #include "cmaterialsystem.h"
 
-// NOTE: This must be the last file included!!!
-// DISABLED #include "tier0/memdbgon.h"
 
 // this allows the command line to force the "all mips" flag to on for all textures
 bool g_bForceTextureAllMips = false;

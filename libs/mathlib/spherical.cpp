@@ -6,7 +6,7 @@
 
 #include <math.h>
 #include <float.h>	// needed for flt_epsilon
-#include "basetypes.h"
+#include "tier0/basetypes.h"
 #ifndef _PS3
 #include <memory.h>
 #endif

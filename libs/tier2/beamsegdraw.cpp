@@ -7,7 +7,7 @@
 
 #include "tier2/beamsegdraw.h"
 #include "materialsystem/imaterialvar.h"
-#include "convar.h"
+#include "tier1/convar.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 // DISABLED #include "tier0/memdbgon.h"

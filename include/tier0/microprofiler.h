@@ -7,7 +7,7 @@
 #ifndef TIER0MICROPROFILERHDR
 #define TIER0MICROPROFILERHDR
 
-#include "platform.h"
+#include "tier0/platform.h"
 
 
 // define this to 1 to enable microprofiler; 2 to enable miniprofiler

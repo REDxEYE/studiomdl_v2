@@ -19,13 +19,13 @@
 #include "materialsystem/imaterialsystem.h"
 #include "materialsystem/itexture.h"
 #include "materialsystem/imaterialproxyfactory.h"
-#include <string.h>
+#include <cstring>
 #include "materialsystem_global.h"
-#include <stdlib.h>
+#include <cstdlib>
 #include "shaderapi/ishaderapi.h"
 #include "imaterialinternal.h"
-#include "utlsymbol.h"
-#include "mempool.h"
+#include "tier1/utlsymbol.h"
+#include "tier1/mempool.h"
 #include "itextureinternal.h"
 #include "tier0/dbg.h"
 #include "tier0/vprof.h"
@@ -33,10 +33,8 @@
 #include "mathlib/vmatrix.h"
 #include "tier1/strtools.h"
 #include "tier1/keyvalues.h"
-#include "tier1/mempool.h"
 #include "texturemanager.h"
 #include "cdll_int.h"
-#include "tier1/utlmap.h"
 
 #define MATERIALVAR_CHAR_BUF_SIZE 512
 

@@ -1130,7 +1130,7 @@ struct s_flexkey_t {
     int weighttable;
 };
 EXTERN int g_numflexkeys;
-EXTERN s_flexkey_t g_flexkey[MAXSTUDIOFLEXKEYS];
+EXTERN std::array<s_flexkey_t, MAXSTUDIOFLEXKEYS> g_flexkey;
 EXTERN s_flexkey_t *g_defaultflexkey;
 
 #define MAX_OPS 512
@@ -1626,7 +1626,7 @@ EXTERN    int g_numnormals;
 EXTERN    CUtlVectorAuto<Vector> g_normal;
 
 extern int g_numtexcoords[MAXSTUDIOTEXCOORDS];
-extern	CUtlVectorAuto< Vector2D > g_texcoord[MAXSTUDIOTEXCOORDS];
+extern CUtlVectorAuto<Vector2D> g_texcoord[MAXSTUDIOTEXCOORDS];
 
 EXTERN    int g_numfaces;
 EXTERN    CUtlVectorAuto<s_tmpface_t> g_face;

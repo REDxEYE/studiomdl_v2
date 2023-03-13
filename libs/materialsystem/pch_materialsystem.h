@@ -1,4 +1,4 @@
-//========== Copyright © 2005, Valve Corporation, All rights reserved. ========
+//========== Copyright ï¿½ 2005, Valve Corporation, All rights reserved. ========
 //
 // Purpose:
 //
@@ -38,8 +38,8 @@
 #include "tier0/icommandline.h"
 #include "mathlib/vmatrix.h"
 #include "icvar.h"
-#include "keyvalues.h"
-#include "convar.h"
+#include "tier1/keyvalues.h"
+#include "tier1/convar.h"
 
 #include "tier2/tier2.h"
 #include "bitmap/imageformat.h"

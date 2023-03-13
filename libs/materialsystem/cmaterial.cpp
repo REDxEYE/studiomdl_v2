@@ -9,33 +9,27 @@
 #include "colorspace.h"
 #include "materialsystem/imaterialvar.h"
 #include "materialsystem/itexture.h"
-#include <string.h>
+#include <cstring>
 #include "materialsystem_global.h"
 #include "shaderapi/ishaderapi.h"
 #include "materialsystem/imaterialproxy.h"							   
 #include "shadersystem.h"
 #include "materialsystem/imaterialproxyfactory.h"
 #include "IHardwareConfigInternal.h"
-#include "utlsymbol.h"
-#if !defined( _PS3 )
+#include "tier1/utlsymbol.h"
 #include <malloc.h>
-#endif //!_PS3
 #include "filesystem.h"
-#include <keyvalues.h>
-#include "mempool.h"
-#include "shaderapi/ishaderutil.h"
+#include <tier1/keyvalues.h>
+#include "tier1/mempool.h"
 #include "vtf/vtf.h"
 #include "tier1/strtools.h"
-#include <ctype.h>
-#include "utlbuffer.h"
+#include "tier1/utlbuffer.h"
 #include "mathlib/vmatrix.h"
 #include "texturemanager.h"
 #include "itextureinternal.h"
-#include "mempool.h"
 #include "tier1/callqueue.h"
 #include "cmaterial_queuefriendly.h"
 #include "ifilelist.h"
-#include "tier0/icommandline.h"
 
 #ifndef M_PI
 #define M_PI		3.14159265358979323846	// matches value in gcc v2 math.h

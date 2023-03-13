@@ -10,7 +10,7 @@
 #include "materialsystem/MaterialSystemUtil.h"
 #include "materialsystem/itexture.h"
 #include "materialsystem/imesh.h"
-#include "utlsortvector.h"
+#include "tier1/utlsortvector.h"
 #include "materialsystem_global.h"
 #include "IHardwareConfigInternal.h"
 #include "pixelwriter.h"

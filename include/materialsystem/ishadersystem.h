@@ -1,4 +1,4 @@
-//===== Copyright © 1996-2005, Valve Corporation, All rights reserved. ======//
+//===== Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. ======//
 //
 // Purpose: 
 //
@@ -15,7 +15,7 @@
 #pragma once
 #endif
 
-#include "interface.h"
+#include "tier1/interface.h"
 #include <materialsystem/IShader.h>
 #include <materialsystem/ishadersystem_declarations.h>
 #include "shaderlib/shadercombosemantics.h"

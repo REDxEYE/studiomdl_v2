@@ -10,7 +10,7 @@
 #include "materialsystem/base_visuals_data_processor.h"
 #include "materialsystem_global.h"
 #include "tier0/vprof.h"
-#include "keyvalues.h"
+#include "tier1/keyvalues.h"
 #include "texturemanager.h"
 
 //#define WRITE_OUT_VTF_PRE_COMPRESS

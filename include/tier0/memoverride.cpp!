@@ -344,7 +344,7 @@ void *operator new[] ( unsigned int nSize, int nBlockUse_UNUSED, const char *pFi
 #undef PROTECTED_THINGS_ENABLE   // allow use of _vsnprintf
 
 #include <stdlib.h>
-#include "platform.h"
+#include "tier0/platform.h"
 extern "C" void __cdecl WriteMiniDump( void	);
 inline void __cdecl VPurecallHandler()
 {

@@ -8,7 +8,7 @@
 
 #if !defined(_STATIC_LINKED) || defined(_SHARED_LIB)
 
-#include "basetypes.h"
+#include "tier0/basetypes.h"
 #include "mathlib/vmatrix.h"
 #include "mathlib/mathlib.h"
 #include <string.h>

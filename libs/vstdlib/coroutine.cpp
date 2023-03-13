@@ -64,8 +64,6 @@ void OutputDebugStringA( const char *pchMsg ) { fprintf( stderr, pchMsg ); fflus
 #define CoroutineDbgMsg( pchMsg, ... )
 #endif // COROUTINE_TRACE
 
-// memdbgon must be the last include file in a .cpp file!!!
-//#include "tier0/memdbgon.h"
 
 #if defined( _MSC_VER ) && ( _MSC_VER >= 1900 ) && defined( PLATFORM_64BITS )
 //the VS2105 longjmp() seems to freak out jumping back into a coroutine (just like linux if _FORTIFY_SOURCE is defined)

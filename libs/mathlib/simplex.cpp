@@ -1,5 +1,5 @@
-#include <basetypes.h>
-#include <float.h>
+#include <tier0/basetypes.h>
+#include <cfloat>
 #include "simplex.h"
 
 // a nice tutorial on simplex method: http://math.uww.edu/~mcfarlat/ism.htm

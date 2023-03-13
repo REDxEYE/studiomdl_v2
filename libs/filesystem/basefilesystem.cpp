@@ -13,7 +13,7 @@
 #include "tier1/keyvalues.h"
 #include "tier0/icommandline.h"
 #include "tier0/stacktools.h"
-#include "generichash.h"
+#include "tier1/generichash.h"
 #include "tier1/utllinkedlist.h"
 #include "filesystem/IQueuedLoader.h"
 #include "filesystem/IXboxInstaller.h"
@@ -21,13 +21,7 @@
 #include "tier1/lzmaDecoder.h"
 #include "vstdlib/vstrtools.h"
 #include "zip_utils.h"
-#include "fmtstr.h"
-#ifdef _X360
-#include "xbox/xbox_launch.h"
-#include "xbox/xbox_console.h"
-#elif defined( _PS3 )
-#include <cell/sysmodule.h>
-#endif
+#include "tier1/fmtstr.h"
 
 #ifndef DEDICATED
 #include "keyvaluescompiler.h"

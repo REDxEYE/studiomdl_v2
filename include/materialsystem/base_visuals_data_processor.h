@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2013, Valve Corporation, All rights reserved. ============//
+//========= Copyright ï¿½ 1996-2013, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: Provide custom texture generation (compositing) 
 //
@@ -9,8 +9,8 @@
 #define BASE_VISUALS_DATA_PROCESSOR_H
 
 #include "ivisualsdataprocessor.h"
-#include "utlbuffer.h"
-#include "utlbufferutil.h"
+#include "tier1/utlbuffer.h"
+#include "tier1/utlbufferutil.h"
 
 
 // derive from and extend this class if you have additional items to compare in your Visuals Data Processor

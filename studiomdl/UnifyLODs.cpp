@@ -510,7 +510,7 @@ static s_mesh_t *FindMeshByMaterial( s_source_t *pSrc, int nMaterialID )
 	}
 	
 	// this mesh/material doesn't exist at this lod.
-	return NULL;
+	return nullptr;
 }
 
 
@@ -536,7 +536,7 @@ static s_mesh_t *FindOrCullMesh( int nLodID, s_source_t *pSrc, int nMaterialID )
 		if (!stricmp( baseRemovalName, baseMeshName ))
 		{
 			// mesh has been marked for removal
-			return NULL;
+			return nullptr;
 		}
 	}
 

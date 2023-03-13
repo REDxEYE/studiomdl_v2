@@ -5,7 +5,7 @@
 //==============================================================================
 
 #if defined (WIN32) && !defined( _X360 )
-#include <windows.h>
+#include <Windows.h>
 #elif defined( POSIX )
 #define _cdecl
 #endif
@@ -13,8 +13,8 @@
 #include "materialsystem_global.h"
 #include "shaderapi/ishaderapi.h"
 #include "texturemanager.h"
-#include "utlvector.h"
-#include "generichash.h"
+#include "tier1/utlvector.h"
+#include "tier1/generichash.h"
 #include "filesystem.h"
 #include "filesystem/IQueuedLoader.h"
 #include "tier2/fileutils.h"

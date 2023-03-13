@@ -30,4 +30,4 @@ extern IMemAlloc_CachedInterface_t PLATFORM_OVERRIDE_MEM_ALLOC_INTERNAL_PS3;
 #endif
 
 // Force-include delegation to platform.h
-#include "platform.h"
+#include "tier0/platform.h"

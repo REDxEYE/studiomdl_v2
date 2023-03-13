@@ -12,7 +12,7 @@
 #include "composite_texture.h"
 #include "materialsystem/base_visuals_data_processor.h"
 #include "materialsystem_global.h"
-#include "keyvalues.h"
+#include "tier1/keyvalues.h"
 #include "tier0/vprof.h"
 
 #ifndef DEDICATED

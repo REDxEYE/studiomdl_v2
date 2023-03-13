@@ -5,8 +5,8 @@
 //===========================================================================//
 
 #if defined(__SPU__)
-#include "platform.h"
-#include "basetypes.h"
+#include "tier0/platform.h"
+#include "tier0/basetypes.h"
 #include "mathlib/mathlib.h"
 #include "mathlib/math_pfns.h"
 // #include "mathlib/fltx4.h"

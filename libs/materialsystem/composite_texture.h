@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2013, Valve Corporation, All rights reserved. ============//
+//========= Copyright ï¿½ 1996-2013, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: Provide custom texture generation (compositing) 
 //
@@ -11,8 +11,8 @@
 #include "materialsystem/MaterialSystemUtil.h"
 #include "materialsystem/itexture.h"
 #include "materialsystem/icompositetexturegenerator.h"
-#include "utllinkedlist.h"
-#include "utlbuffer.h"
+#include "tier1/utllinkedlist.h"
+#include "tier1/utlbuffer.h"
 
 class IVisualsDataProcessor;
 class ITextureInternal;

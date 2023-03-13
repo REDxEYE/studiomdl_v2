@@ -11,9 +11,9 @@
 #include "materialsystem/MaterialSystemUtil.h"
 #include "materialsystem/icustommaterial.h"
 #include "materialsystem/icustommaterialmanager.h"
-#include "convar.h"
-#include "utlvector.h"
-#include "utlmap.h"
+#include "tier1/convar.h"
+#include "tier1/utlvector.h"
+#include "tier1/utlmap.h"
 
 //#define DISABLE_CUSTOM_MATERIAL_GENERATION
 

@@ -1,5 +1,5 @@
-#include <basetypes.h>
-#include <float.h>
+#include <tier0/basetypes.h>
+#include <cfloat>
 #include "tier1/utlvector.h"
 #include "eigen.h"
 #include "mathlib/aabb.h"

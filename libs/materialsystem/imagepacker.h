@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
@@ -14,8 +14,8 @@
 #pragma once
 #endif
 
-#include "utlvector.h"
-#include "utlrbtree.h"
+#include "tier1/utlvector.h"
+#include "tier1/utlrbtree.h"
 
 #define MAX_MAX_LIGHTMAP_WIDTH 2048
 

@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2013, Valve Corporation, All rights reserved. ============//
+//========= Copyright ï¿½ 1996-2013, Valve Corporation, All rights reserved. ============//
 //
 // Purpose:  
 //
@@ -8,7 +8,7 @@
 #ifndef IVISUALSDATAPROCESSOR_H
 #define IVISUALSDATAPROCESSOR_H
 
-#include "refcount.h"
+#include "tier1/refcount.h"
 
 class KeyValues;
 class CUtlBuffer;

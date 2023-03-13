@@ -147,8 +147,6 @@ enum RunMode {
     RUN_MODE_STRIP_VHV
 } g_eRunMode = RUN_MODE_BUILD;
 
-bool g_bNoP4 = false;
-
 bool g_bContentRootRelative = false;
 
 int g_numtexcoords[MAXSTUDIOTEXCOORDS];
@@ -159,7 +157,7 @@ std::vector<char> g_KeyValueText;
 std::vector<s_flexcontrollerremap_t> g_FlexControllerRemap;
 
 
-const char *g_szInCurrentSeqName = NULL;
+const char *g_szInCurrentSeqName = nullptr;
 
 //-----------------------------------------------------------------------------
 // Parsed data from a .qc or .dmx file
@@ -207,45 +205,26 @@ void Option_Flexrule(s_model_t * /* pmodel */, const char *name);
 //-----------------------------------------------------------------------------
 //  Stuff for writing a makefile to build models incrementally.
 //-----------------------------------------------------------------------------
-CUtlVector<CUtlSymbol> m_CreateMakefileDependencies;
+std::vector<CUtlSymbol> m_CreateMakefileDependencies;
 
 void CreateMakefile_AddDependency(const char *pFileName) {
-    EnsureDependencyFileCheckedIn(pFileName);
-
     if (!g_bCreateMakefile) {
         return;
     }
 
     CUtlSymbol sym(pFileName);
     int i;
-    for (i = 0; i < m_CreateMakefileDependencies.Count(); i++) {
+    for (i = 0; i < m_CreateMakefileDependencies.size(); i++) {
         if (m_CreateMakefileDependencies[i] == sym) {
             return;
         }
     }
-    m_CreateMakefileDependencies.AddToTail(sym);
-}
-
-void EnsureDependencyFileCheckedIn(const char *pFileName) {
-    // Early out: if no p4
-    if (g_bNoP4)
-        return;
-
-    char pFullPath[MAX_PATH];
-    if (!GetGlobalFilePath(pFileName, pFullPath, sizeof(pFullPath))) {
-        MdlWarning("Model dependency file '%s' is missing.\n", pFileName);
-        return;
-    }
-
-    Q_FixSlashes(pFullPath);
-    char bufCanonicalPath[MAX_PATH] = {0};
-    PathCanonicalize(bufCanonicalPath, pFullPath);
-//	CP4AutoAddFile p4_add_dep_file( bufCanonicalPath );
+    m_CreateMakefileDependencies.emplace_back(sym);
 }
 
 void
 StudioMdl_ScriptLoadedCallback(const char *pFilenameLoaded, const char *pIncludedFromFileName, int nIncludeLineNumber) {
-    EnsureDependencyFileCheckedIn(pFilenameLoaded);
+//    printf("Script loaded callback: %s",pFilenameLoaded);
 }
 
 void CreateMakefile_OutputMakefile(void) {
@@ -272,7 +251,7 @@ void CreateMakefile_OutputMakefile(void) {
 
     fprintf(fp, "%s:", mdlname);
     int i;
-    for (i = 0; i < m_CreateMakefileDependencies.Count(); i++) {
+    for (i = 0; i < m_CreateMakefileDependencies.size(); i++) {
         fprintf(fp, " %s", m_CreateMakefileDependencies[i].String());
     }
     fprintf(fp, "\n");
@@ -420,79 +399,72 @@ static CMdlLoggingListener s_MdlLoggingListener;
 
 #ifndef _DEBUG
 
-                                                                                                                        void MdlHandleCrash( const char *pMessage, bool bAssert )
-{
-	static LONG crashHandlerCount = 0;
-	if ( InterlockedIncrement( &crashHandlerCount ) == 1 )
-	{
-		MdlError( "'%s' (assert: %d)\n", pMessage, bAssert );
-	}
+void MdlHandleCrash(const char *pMessage, bool bAssert) {
+    static LONG crashHandlerCount = 0;
+    if (InterlockedIncrement(&crashHandlerCount) == 1) {
+        MdlError("'%s' (assert: %d)\n", pMessage, bAssert);
+    }
 
-	InterlockedDecrement( &crashHandlerCount );
+    InterlockedDecrement(&crashHandlerCount);
 }
 
 
 // This is called if we crash inside our crash handler. It just terminates the process immediately.
-LONG __stdcall MdlSecondExceptionFilter( struct _EXCEPTION_POINTERS *ExceptionInfo )
-{
-	TerminateProcess( GetCurrentProcess(), 2 );
-	return EXCEPTION_EXECUTE_HANDLER; // (never gets here anyway)
+LONG __stdcall MdlSecondExceptionFilter(struct _EXCEPTION_POINTERS *ExceptionInfo) {
+    TerminateProcess(GetCurrentProcess(), 2);
+    return EXCEPTION_EXECUTE_HANDLER; // (never gets here anyway)
 }
 
 
-void MdlExceptionFilter( unsigned long code )
-{
-	// This is called if we crash inside our crash handler. It just terminates the process immediately.
-	SetUnhandledExceptionFilter( MdlSecondExceptionFilter );
+void MdlExceptionFilter(unsigned long code) {
+    // This is called if we crash inside our crash handler. It just terminates the process immediately.
+    SetUnhandledExceptionFilter(MdlSecondExceptionFilter);
 
-	//DWORD code = ExceptionInfo->ExceptionRecord->ExceptionCode;
+    //DWORD code = ExceptionInfo->ExceptionRecord->ExceptionCode;
 
-	#define ERR_RECORD( name ) { name, #name }
-	struct
-	{
+#define ERR_RECORD(name) { name, #name }
+    struct {
         unsigned long code;
-		char *pReason;
-	} errors[] =
-	{
-		ERR_RECORD( EXCEPTION_ACCESS_VIOLATION ),
-		ERR_RECORD( EXCEPTION_ARRAY_BOUNDS_EXCEEDED ),
-		ERR_RECORD( EXCEPTION_BREAKPOINT ),
-		ERR_RECORD( EXCEPTION_DATATYPE_MISALIGNMENT ),
-		ERR_RECORD( EXCEPTION_FLT_DENORMAL_OPERAND ),
-		ERR_RECORD( EXCEPTION_FLT_DIVIDE_BY_ZERO ),
-		ERR_RECORD( EXCEPTION_FLT_INEXACT_RESULT ),
-		ERR_RECORD( EXCEPTION_FLT_INVALID_OPERATION ),
-		ERR_RECORD( EXCEPTION_FLT_OVERFLOW ),
-		ERR_RECORD( EXCEPTION_FLT_STACK_CHECK ),
-		ERR_RECORD( EXCEPTION_FLT_UNDERFLOW ),
-		ERR_RECORD( EXCEPTION_ILLEGAL_INSTRUCTION ),
-		ERR_RECORD( EXCEPTION_IN_PAGE_ERROR ),
-		ERR_RECORD( EXCEPTION_INT_DIVIDE_BY_ZERO ),
-		ERR_RECORD( EXCEPTION_INT_OVERFLOW ),
-		ERR_RECORD( EXCEPTION_INVALID_DISPOSITION ),
-		ERR_RECORD( EXCEPTION_NONCONTINUABLE_EXCEPTION ),
-		ERR_RECORD( EXCEPTION_PRIV_INSTRUCTION ),
-		ERR_RECORD( EXCEPTION_SINGLE_STEP ),
-		ERR_RECORD( EXCEPTION_STACK_OVERFLOW ),
-		ERR_RECORD( EXCEPTION_ACCESS_VIOLATION ),
-	};
+        char *pReason;
+    } errors[] =
+            {
+                    ERR_RECORD(EXCEPTION_ACCESS_VIOLATION),
+                    ERR_RECORD(EXCEPTION_ARRAY_BOUNDS_EXCEEDED),
+                    ERR_RECORD(EXCEPTION_BREAKPOINT),
+                    ERR_RECORD(EXCEPTION_DATATYPE_MISALIGNMENT),
+                    ERR_RECORD(EXCEPTION_FLT_DENORMAL_OPERAND),
+                    ERR_RECORD(EXCEPTION_FLT_DIVIDE_BY_ZERO),
+                    ERR_RECORD(EXCEPTION_FLT_INEXACT_RESULT),
+                    ERR_RECORD(EXCEPTION_FLT_INVALID_OPERATION),
+                    ERR_RECORD(EXCEPTION_FLT_OVERFLOW),
+                    ERR_RECORD(EXCEPTION_FLT_STACK_CHECK),
+                    ERR_RECORD(EXCEPTION_FLT_UNDERFLOW),
+                    ERR_RECORD(EXCEPTION_ILLEGAL_INSTRUCTION),
+                    ERR_RECORD(EXCEPTION_IN_PAGE_ERROR),
+                    ERR_RECORD(EXCEPTION_INT_DIVIDE_BY_ZERO),
+                    ERR_RECORD(EXCEPTION_INT_OVERFLOW),
+                    ERR_RECORD(EXCEPTION_INVALID_DISPOSITION),
+                    ERR_RECORD(EXCEPTION_NONCONTINUABLE_EXCEPTION),
+                    ERR_RECORD(EXCEPTION_PRIV_INSTRUCTION),
+                    ERR_RECORD(EXCEPTION_SINGLE_STEP),
+                    ERR_RECORD(EXCEPTION_STACK_OVERFLOW),
+                    ERR_RECORD(EXCEPTION_ACCESS_VIOLATION),
+            };
 
-	int nErrors = sizeof( errors ) / sizeof( errors[0] );
-	{
-		int i;
-		for ( i=0; i < nErrors; i++ )
-		{
-			if ( errors[i].code == code )
-				MdlHandleCrash( errors[i].pReason, true );
-		}
+    int nErrors = sizeof(errors) / sizeof(errors[0]);
+    {
+        int i;
+        for (i = 0; i < nErrors; i++) {
+            if (errors[i].code == code)
+                MdlHandleCrash(errors[i].pReason, true);
+        }
 
-		if ( i == nErrors )
-		{
-			MdlHandleCrash( "Unknown reason", true );
-		}
-	}
+        if (i == nErrors) {
+            MdlHandleCrash("Unknown reason", true);
+        }
+    }
 
-	TerminateProcess( GetCurrentProcess(), 1 );
+    TerminateProcess(GetCurrentProcess(), 1);
 }
 
 #endif
@@ -626,12 +598,12 @@ s_sourceanim_t *FindSourceAnim(s_source_t *pSource, const char *pAnimName) {
         if (!Q_stricmp(pAnimName, pAnim->animationname))
             return pAnim;
     }
-    return NULL;
+    return nullptr;
 }
 
 const s_sourceanim_t *FindSourceAnim(const s_source_t *pSource, const char *pAnimName) {
     if (!pAnimName[0])
-        return NULL;
+        return nullptr;
 
     int nCount = pSource->m_Animations.Count();
     for (int i = 0; i < nCount; ++i) {
@@ -639,12 +611,12 @@ const s_sourceanim_t *FindSourceAnim(const s_source_t *pSource, const char *pAni
         if (!Q_stricmp(pAnimName, pAnim->animationname))
             return pAnim;
     }
-    return NULL;
+    return nullptr;
 }
 
 s_sourceanim_t *FindOrAddSourceAnim(s_source_t *pSource, const char *pAnimName) {
     if (!pAnimName[0])
-        return NULL;
+        return nullptr;
 
     int nCount = pSource->m_Animations.Count();
     for (int i = 0; i < nCount; ++i) {
@@ -2634,43 +2606,7 @@ static void FlipFacing(s_source_t *pSrc) {
 
 // Processes source comment line and extracts information about the data file
 void ProcessSourceComment(s_source_t *psource, const char *pCommentString) {
-    if (const char *szSceneComment = StringAfterPrefix(pCommentString, "// SCENE=")) {
-        char szScene[1024];
-        Q_strncpy(szScene, szSceneComment, ARRAYSIZE(szScene));
-
-        Q_FixSlashes(szScene);
-
-        ProcessOriginalContentFile(psource->filename, szScene);
-    }
 }
-
-// Processes original content file "szOriginalContentFile" that was used to generate
-// data file "szDataFile"
-void ProcessOriginalContentFile(const char *szDataFile, const char *szOriginalContentFile) {
-    // Early out if no p4
-    if (g_bNoP4)
-        return;
-
-    const char *szContentDirRootEnd = strstr(szDataFile, "\\content\\");
-    const char *szSceneName = strstr(szOriginalContentFile, "\\content\\");
-    if (szContentDirRootEnd && szSceneName) {
-        char chScenePath[MAX_PATH] = {0};
-        Q_snprintf(chScenePath, sizeof(chScenePath) - 1, "%.*s%s",
-                   szContentDirRootEnd - szDataFile, szDataFile, szSceneName);
-        EnsureDependencyFileCheckedIn(chScenePath);
-    } else if (szContentDirRootEnd && !szSceneName) {
-        // Assume relative path
-        char chScenePath[MAX_PATH] = {0};
-        Q_snprintf(chScenePath, sizeof(chScenePath) - 1, "%.*s%s",
-                   max(strrchr(szDataFile, '\\'), strrchr(szDataFile, '/')) + 1 - szDataFile,
-                   szDataFile, szOriginalContentFile);
-        EnsureDependencyFileCheckedIn(chScenePath);
-    } else {
-        MdlWarning("ProcessOriginalContentFile for '%s' cannot detect scene source file from '%s'!\n", szDataFile,
-                   szOriginalContentFile);
-    }
-}
-
 
 //-----------------------------------------------------------------------------
 // Checks to see if the model source was already loaded
@@ -3280,27 +3216,40 @@ s_source_t *Load_Source(const char *name, const char *ext, bool reverse, bool is
     VectorCopy(g_defaultadjust, pSource->adjust);
     pSource->scale = 1.0f;
     pSource->rotation = g_defaultrotation;
+    typedef int (*load_proc)(s_source_t *);
 #ifdef FBX_SUPPORT
-
-    const char *load_extensions[] = {"fbx", "vrm", "dmx", "mpp", "smd", "sma", "phys", "vta", "obj", "xml", "fbx"};
-    int ( *load_procs[] )(s_source_t *) = {Load_FBX, Load_VRM, Load_DMX, Load_DMX, Load_SMD, Load_SMD, Load_SMD,
-                                           Load_VTA, Load_OBJ, Load_DMX, Load_FBX};s", "vta", "obj", "xml", "fbx"};
+    std::array<std::pair<const char *, load_proc>, 9> supported_formats = {
+             std::make_pair("fbx", Load_FBX),
+             std::make_pair("vrm", Load_VRM),
+             std::make_pair("dmx", Load_DMX),
+             std::make_pair("mpp", Load_DMX),
+             std::make_pair("smd", Load_SMD),
+             std::make_pair("sma", Load_SMD),
+             std::make_pair("phys", Load_SMD),
+             std::make_pair("vta", Load_VTA),
+             std::make_pair("obj", Load_OBJ),
+             std::make_pair("xml", Load_DMX),
+             std::make_pair("fbx", Load_FBX)
+     };
 #else
-    const char *load_extensions[] = {"vrm", "dmx", "mpp", "smd", "sma", "phys", "vta", "obj", "xml"};
-    int ( *load_procs[] )(s_source_t *) = {Load_VRM, Load_DMX, Load_DMX, Load_SMD, Load_SMD, Load_SMD,
-                                           Load_VTA, Load_OBJ, Load_DMX};
+    std::array<std::pair<const char *, load_proc>, 9> supported_formats = {
+            std::make_pair("vrm", Load_VRM),
+            std::make_pair("dmx", Load_DMX),
+            std::make_pair("mpp", Load_DMX),
+            std::make_pair("smd", Load_SMD),
+            std::make_pair("sma", Load_SMD),
+            std::make_pair("phys", Load_SMD),
+            std::make_pair("vta", Load_VTA),
+            std::make_pair("obj", Load_OBJ),
+            std::make_pair("xml", Load_DMX)
+    };
 #endif
-    COMPILE_TIME_ASSERT(ARRAYSIZE(load_extensions) == ARRAYSIZE(load_procs));
-    for (int kk = (g_bPreferFbx ? 0 : 1); kk < ARRAYSIZE(load_extensions); ++kk) {
-        if ((!result && xext[0] == '\0') || Q_stricmp(xext, load_extensions[kk]) == 0) {
-            Q_snprintf(g_szFilename, sizeof(g_szFilename), "%s%s.%s", cddir[numdirs], pTempName, load_extensions[kk]);
-            Q_strncpy(pSource->filename, g_szFilename, sizeof(pSource->filename));
-            result = (load_procs[kk])(pSource);
-
-            // Don't check in the mpp file
-            if (result && Q_stricmp(load_extensions[kk], "mpp")) {
-                EnsureDependencyFileCheckedIn(pSource->filename);
-            }
+    for (int fmt_id = (g_bPreferFbx ? 0 : 1); fmt_id < supported_formats.size(); ++fmt_id) {
+        if ((!result && xext[0] == '\0') || std::strcmp(xext, supported_formats[fmt_id].first) == 0) {
+            std::snprintf(g_szFilename, sizeof(g_szFilename), "%s%s.%s", cddir[numdirs], pTempName,
+                          supported_formats[fmt_id].first);
+            std::strncpy(pSource->filename, g_szFilename, sizeof(pSource->filename));
+            result = (supported_formats[fmt_id].second)(pSource);
         }
     }
 
@@ -3330,7 +3279,7 @@ s_sequence_t *LookupSequence(const char *name) {
         if (!Q_stricmp(g_sequence[i].name, name))
             return &g_sequence[i];
     }
-    return NULL;
+    return nullptr;
 }
 
 
@@ -3360,7 +3309,7 @@ s_animation_t *LookupAnimation(const char *name, int nFallbackRecursionDepth) {
         return LookupAnimation(g_szInCurrentSeqName, 1);
     }
 
-    return NULL;
+    return nullptr;
 }
 
 s_animation_t *LookupAnimation(const char *name) {
@@ -4436,7 +4385,7 @@ s_sequence_t *ProcessCmdSequence(const char *pSequenceName) {
             TokenError("Duplicate sequence name \"%s\"\n", pSequenceName);
         } else {
             panim->doesOverride = true;
-            return NULL;
+            return nullptr;
         }
     }
 
@@ -5846,7 +5795,7 @@ const s_sourceanim_t *GetNewStyleSourceVertexAnim(s_source_t *pSource, const cha
             return pSourceAnim;
     }
 
-    return NULL;
+    return nullptr;
 }
 
 
@@ -5894,9 +5843,9 @@ void Option_DmxEyelid(int imodel) {
 
     EyelidData_t eyelidData[3] =
             {
-                    {{-1, -1}, NULL, 0.0f, "lowerer"},
-                    {{-1, -1}, NULL, 0.0f, "neutral"},
-                    {{-1, -1}, NULL, 0.0f, "raiser"}
+                    {{-1, -1}, nullptr, 0.0f, "lowerer"},
+                    {{-1, -1}, nullptr, 0.0f, "neutral"},
+                    {{-1, -1}, nullptr, 0.0f, "raiser"}
             };
 
     CUtlString sRightEyeball;
@@ -9515,7 +9464,7 @@ void Cmd_Cloth() {
     // When reading, keep the CRLF; this will make ReadFile read it in binary format
     // and also append a couple 0s to the end of the buffer.
     CDmElement *pRoot;
-    if (g_pDataModel->RestoreFromFile(pFullPath, NULL, NULL, &pRoot) == DMFILEID_INVALID) {
+    if (g_pDataModel->RestoreFromFile(pFullPath, nullptr, nullptr, &pRoot) == DMFILEID_INVALID) {
         TokenError("Cannot read file %s", pFullPath);
         return;
     }
@@ -9541,7 +9490,7 @@ void Cmd_ClothPlaneCollision() {
         return;
     }
     CDmElement *pRoot;
-    if (g_pDataModel->RestoreFromFile(pFullPath, NULL, NULL, &pRoot) == DMFILEID_INVALID) {
+    if (g_pDataModel->RestoreFromFile(pFullPath, nullptr, nullptr, &pRoot) == DMFILEID_INVALID) {
         TokenError("Cannot read file %s", pFullPath);
         return;
     }
@@ -9879,7 +9828,7 @@ bool HandleMdlReport(int &returnValue) {
 
             if (pHdr->version == STUDIO_VERSION) {
                 int flags = SPEWPERFSTATS_SHOWPERF;
-                if (CommandLine()->CheckParm("-mdlreportspreadsheet", NULL)) {
+                if (CommandLine()->CheckParm("-mdlreportspreadsheet", nullptr)) {
                     flags |= SPEWPERFSTATS_SPREADSHEET;
                 }
                 SpewPerfStats(pHdr, pFilename, flags);
@@ -9956,10 +9905,9 @@ void UsageAndExit() {
 
 #ifndef _DEBUG
 
-                                                                                                                        LONG __stdcall VExceptionFilter( struct _EXCEPTION_POINTERS *ExceptionInfo )
-{
-	MdlExceptionFilter( ExceptionInfo->ExceptionRecord->ExceptionCode );
-	return EXCEPTION_EXECUTE_HANDLER; // (never gets here anyway)
+LONG __stdcall VExceptionFilter(struct _EXCEPTION_POINTERS *ExceptionInfo) {
+    MdlExceptionFilter(ExceptionInfo->ExceptionRecord->ExceptionCode);
+    return EXCEPTION_EXECUTE_HANDLER; // (never gets here anyway)
 }
 
 #endif
@@ -10042,7 +9990,7 @@ bool CStudioMDLApp::Create() {
     MathLib_Init(2.2f, 2.2f, 0.0f, 2.0f, false, false, false, false);
 
 #ifndef _DEBUG
-    SetUnhandledExceptionFilter( VExceptionFilter );
+    SetUnhandledExceptionFilter(VExceptionFilter);
 #endif
 
     if (CommandLine()->ParmCount() == 1) {
@@ -10443,7 +10391,7 @@ void ParseGameInfo() {
     gameinfoDefault.bSupportsDX8 = true;
 
     KeyValues *pKeyValues = new KeyValues("gameinfo.txt");
-    if (pKeyValues != NULL) {
+    if (pKeyValues != nullptr) {
         if (g_pFileSystem && pKeyValues->LoadFromFile(g_pFileSystem, "gameinfo.txt")) {
             g_gameinfo.bSupportsXBox360 = !!pKeyValues->GetInt("SupportsXBox360",
                                                                (int) gameinfoDefault.bSupportsXBox360);
@@ -10463,18 +10411,9 @@ void ParseGameInfo() {
 // The application object
 //-----------------------------------------------------------------------------
 int CStudioMDLApp::Main() {
-//	const bool bP4DLLExists = g_pFullFileSystem->FileExists( "p4lib.dll", "EXECUTABLE_PATH" );
-
-    // No p4 mode if specified on the command line or no p4lib.dll found
-//	if ( ( CommandLine()->FindParm( "-nop4" ) ) || ( !bP4DLLExists ) || CommandLine()->FindParm( "-nop4checkout" ) )
-//	{
-//		g_bNoP4 = true;
-//		g_p4factory->SetDummyMode( true );
-//	}
-
     g_numverts = g_numnormals = g_numfaces = 0;
-    for (int i = 0; i < MAXSTUDIOTEXCOORDS; ++i) {
-        g_numtexcoords[i] = 0;
+    for (int &g_numtexcoord: g_numtexcoords) {
+        g_numtexcoord = 0;
     }
 
     // Set the named changelist
@@ -10672,7 +10611,7 @@ bool WriteFileToDisk(const char *pFileName, const char *pPath, CUtlBuffer &buf) 
 bool WriteBufferToFile(CUtlBuffer &buf, const char *szFilebase, const char *szExt) {
     char szFilename[1024];
     Q_snprintf(szFilename, ARRAYSIZE(szFilename), "%s%s", szFilebase, szExt);
-    return WriteFileToDisk(szFilename, NULL, buf);
+    return WriteFileToDisk(szFilename, nullptr, buf);
 }
 
 
@@ -10685,7 +10624,7 @@ bool LoadBufferFromFile(CUtlBuffer &buffer, const char *szFilebase, const char *
     char szFilename[1024];
     Q_snprintf(szFilename, ARRAYSIZE(szFilename), "%s%s", szFilebase, szExt);
 
-    if (g_pFullFileSystem->ReadFile(szFilename, NULL, buffer))
+    if (g_pFullFileSystem->ReadFile(szFilename, nullptr, buffer))
         return true;
 
     if (bError)
@@ -10840,7 +10779,7 @@ int CStudioMDLApp::Main_MakeVsi() {
     sprintf(pExt, ".vsi");
 //	CP4AutoEditAddFile _auto_edit_vsi( g_path );
 
-    if (!WriteFileToDisk(g_path, NULL, bufMappingTable)) {
+    if (!WriteFileToDisk(g_path, nullptr, bufMappingTable)) {
         printf("ERROR: Failed to save '%s'!\n", g_path);
         return 1;
     } else if (!g_quiet) {
@@ -10901,28 +10840,28 @@ int CStudioMDLApp::Main_StripModel() {
 
     // Save mdl
     sprintf(pExt, ".mdl.strip");
-    if (!WriteFileToDisk(g_path, NULL, bufMDL)) {
+    if (!WriteFileToDisk(g_path, nullptr, bufMDL)) {
         printf("ERROR: Failed to save '%s'!\n", g_path);
         return 1;
     }
 
     // Save vvd
     sprintf(pExt, ".vvd.strip");
-    if (!WriteFileToDisk(g_path, NULL, bufVVD)) {
+    if (!WriteFileToDisk(g_path, nullptr, bufVVD)) {
         printf("ERROR: Failed to save '%s'!\n", g_path);
         return 1;
     }
 
     // Save vtx
     sprintf(pExt, ".vtx.strip");
-    if (!WriteFileToDisk(g_path, NULL, bufVTX)) {
+    if (!WriteFileToDisk(g_path, nullptr, bufVTX)) {
         printf("ERROR: Failed to save '%s'!\n", g_path);
         return 1;
     }
 
     // Save remapping data
     sprintf(pExt, ".info.strip");
-    if (!WriteFileToDisk(g_path, NULL, bufMappingTable)) {
+    if (!WriteFileToDisk(g_path, nullptr, bufMappingTable)) {
         printf("ERROR: Failed to save '%s'!\n", g_path);
         return 1;
     }

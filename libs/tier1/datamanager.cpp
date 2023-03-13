@@ -6,7 +6,7 @@
 //
 //=============================================================================//
 
-#include "basetypes.h"
+#include "tier0/basetypes.h"
 #include "datamanager.h"
 
 // NOTE: This has to be the last file included!

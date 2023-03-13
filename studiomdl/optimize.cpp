@@ -1431,7 +1431,7 @@ namespace OptimizedModel {
 		}
 
 		Assert( 0 );
-		return NULL;
+		return nullptr;
 	}
 
 	void ReportTopologyError( int a, int b, int c, CUtlVector<int> *indexMapping, CUtlVector<Vector> *posList )

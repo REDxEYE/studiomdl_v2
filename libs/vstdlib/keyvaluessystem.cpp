@@ -7,6 +7,7 @@
 
 #include <vstdlib/ikeyvaluessystem.h>
 #include <tier1/keyvalues.h>
+#include <tier0/platform.h>
 #include "tier1/mempool.h"
 #include "tier1/utlsymbol.h"
 #include "tier1/utlmap.h"

@@ -12,7 +12,7 @@
 
 #ifdef VTUNE_ENABLED
 
-#include "platform.h"
+#include "tier0/platform.h"
 #include "..\thirdparty\vtune\include\ittnotify.h"
 
 class VTuneInterface

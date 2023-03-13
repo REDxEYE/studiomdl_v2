@@ -4,16 +4,9 @@
 //
 //=====================================================================================//
 
-#include <math.h>
-#include <float.h>	// needed for flt_epsilon
-#include "basetypes.h"
-#include "tier0/dbg.h"
+#include "tier0/basetypes.h"
 #include "mathlib/mathlib.h"
-#include "mathlib/vector.h"
 #include "mathlib/ssemath.h"
-
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
 #include "noisedata.h"
 
 

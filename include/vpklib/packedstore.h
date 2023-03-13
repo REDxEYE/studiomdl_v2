@@ -20,7 +20,7 @@
 #include "tier1/utlvector.h"
 #include "tier1/utlsortvector.h"
 #include "tier1/utlmap.h"
-#include "tslist.h"
+#include "tier0/tslist.h"
 
 //#define VPK_ENABLE_SIGNING
 

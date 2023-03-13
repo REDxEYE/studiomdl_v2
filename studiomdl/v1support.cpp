@@ -116,7 +116,7 @@ static char* GetNextFaceItem(char* pCurrentItem)
 {
 	if (!pCurrentItem)
 	{
-		return NULL;
+		return nullptr;
 	}
 
 	char* pChar = pCurrentItem;
@@ -131,7 +131,7 @@ static char* GetNextFaceItem(char* pCurrentItem)
 
 	if (!pChar)
 	{
-		return NULL;
+		return nullptr;
 	}
 
 	while (*pChar == ' ')
@@ -141,7 +141,7 @@ static char* GetNextFaceItem(char* pCurrentItem)
 
 	if ((*pChar == 0) || (*pChar == '\n'))
 	{
-		return NULL;
+		return nullptr;
 	}
 	return pChar;
 }

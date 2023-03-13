@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: Client-server neutral sound interface
 //
@@ -13,7 +13,7 @@
 #endif
 
 
-#include "basetypes.h"
+#include "tier0/basetypes.h"
 #include "interface.h"
 #include "soundflags.h"
 #include "irecipientfilter.h"

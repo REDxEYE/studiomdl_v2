@@ -261,7 +261,7 @@ namespace OptimizedModel
 			}
 		}
 
-		return NULL;
+		return nullptr;
 	}
 
 	// Set the minimum one-ring index for each of the four vertices of a patch.

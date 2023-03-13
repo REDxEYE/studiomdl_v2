@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
@@ -18,7 +18,7 @@
 
 
 
-#include "tier0/platform.h"
+#include "platform.h"
 
 // First include standard libraries
 #include "tier0/valve_off.h"

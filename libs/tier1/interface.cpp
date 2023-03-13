@@ -15,15 +15,13 @@
 #undef PROTECTED_THINGS_ENABLE // from protected_things.h
 #endif
 
-#include <stdio.h>
+#include <cstdio>
 #include "tier1/interface.h"
-#include "basetypes.h"
+#include "tier0/basetypes.h"
 #include "tier0/dbg.h"
-#include <string.h>
-#include <stdlib.h>
+#include <cstring>
 #include "tier1/strtools.h"
 #include "tier0/icommandline.h"
-#include "tier0/dbg.h"
 #include "tier0/stacktools.h"
 #include "tier0/threadtools.h"
 #ifdef _WIN32

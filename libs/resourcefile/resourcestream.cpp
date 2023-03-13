@@ -11,8 +11,8 @@
 #include <sys/mman.h>
 #endif
 #include "resourcefile/resourcestream.h"
-#include "dbg.h"
-#include "memalloc.h"
+#include "tier0/dbg.h"
+#include "tier0/memalloc.h"
 
 
 CResourceStream::CResourceStream(  )

@@ -320,7 +320,7 @@ KeyValues* ReadKeyValuesFile( const char *pFilename )
 	// Read in the gameinfo.txt file and null-terminate it.
 	FILE *fp = fopen( pFilename, "rb" );
 	if ( !fp )
-		return NULL;
+		return nullptr;
 	CUtlVector<char> buf;
 	fseek( fp, 0, SEEK_END );
 	buf.SetSize( ftell( fp ) + 1 );
@@ -333,7 +333,7 @@ KeyValues* ReadKeyValuesFile( const char *pFilename )
 	if ( !kv->LoadFromBuffer( pFilename, buf.Base() ) )
 	{
 		kv->deleteThis();
-		return NULL;
+		return nullptr;
 	}
 	
 	return kv;

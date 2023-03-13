@@ -8,7 +8,7 @@
 
 // Avoid conflicts with MSVC headers and memdbgon.h
 #undef PROTECTED_THINGS_ENABLE
-#include "basetypes.h"
+#include "tier0/basetypes.h"
 
 #define _WIN32_DCOM
 #include <comdef.h>

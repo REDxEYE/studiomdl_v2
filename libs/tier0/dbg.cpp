@@ -6,7 +6,7 @@
 //
 //===========================================================================//
 
-#include "tier0/platform.h"
+#include "platform.h"
 
 #if defined( PLATFORM_WINDOWS_PC )
 #define WIN_32_LEAN_AND_MEAN

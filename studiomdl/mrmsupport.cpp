@@ -18,17 +18,14 @@
 #pragma warning( disable : 4305 )
 
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
 #include <sys/stat.h>
-#include <math.h>
 
-#include "common/cmdlib.h"
 #include "common/scriplib.h"
 #include "mathlib/mathlib.h"
 #include "studio.h"
 #include "studiomdl/studiomdl.h"
-//#include "..\..\dlls\activity.h"
 
 bool IsEnd( char const* pLine )
 {

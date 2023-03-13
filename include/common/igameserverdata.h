@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
@@ -11,8 +11,8 @@
 #pragma once
 #endif
 
-#include "interface.h"
-#include "netadr.h"
+#include "tier1/interface.h"
+#include "tier1/netadr.h"
 
 typedef unsigned int ra_listener_id;
 const ra_listener_id INVALID_LISTENER_ID = 0xffffffff;

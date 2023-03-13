@@ -73,12 +73,12 @@
 #ifdef SUPPORT_VPK
 #include "vpklib/packedstore.h"
 #endif
-#include <time.h>
-#include "refcount.h"
+#include <ctime>
+#include "tier1/refcount.h"
 #include "filesystem.h"
 #include "tier1/utlvector.h"
 #include "tier1/UtlStringMap.h"
-#include <stdarg.h>
+#include <cstdarg>
 #include "tier1/utlrbtree.h"
 #include "tier1/utlsymbol.h"
 #include "tier1/utllinkedlist.h"
@@ -87,18 +87,11 @@
 #include "bspfile.h"
 #include "tier1/utldict.h"
 #include "tier1/tier1.h"
-#include "byteswap.h"
+#include "tier1/byteswap.h"
 #include "threadsaferefcountedobject.h"
 #include "filetracker.h"
 
-#ifdef _PS3
-#include "ps3/ps3_platform.h"
-#include "ps3/ps3_core.h"
-#else
 #include "xbox/xboxstubs.h"
-#endif // _PS3
-
-//#include "tier0/memdbgon.h"
 
 #ifdef _WIN32
 #define CORRECT_PATH_SEPARATOR '\\'

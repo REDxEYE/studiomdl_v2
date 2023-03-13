@@ -31,7 +31,7 @@
 #include "mathlib/compressed_vector.h"
 #include "mathlib/ssemath.h"
 #include "mathlib/vector4d.h"
-#include "cache_hints.h"
+#include "tier0/cache_hints.h"
 
 //-----------------------------------------------------------------------------
 // Color writing class 

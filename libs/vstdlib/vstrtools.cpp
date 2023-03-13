@@ -3,33 +3,10 @@
 
 
 #if defined( _WIN32 ) && !defined( _X360 )
-#include <windows.h>
+#include <Windows.h>
 #endif
 #if defined(POSIX) && !defined(_PS3)
 #include <iconv.h>
-#endif
-
-#ifdef _PS3
-#include <cell/sysmodule.h>
-#include <cell/l10n.h>
-
-class DummyInitL10N
-{
-public:
-	DummyInitL10N()
-	{
-		int ret = cellSysmoduleLoadModule( CELL_SYSMODULE_L10N );
-		if( ret != CELL_OK )
-		{
-			Warning( "Cannot initialize l10n, unicode services will not work. Error %d\n", ret );
-		}
-	}
-	
-	~DummyInitL10N()
-	{
-		cellSysmoduleUnloadModule( CELL_SYSMODULE_L10N );
-	}
-}s_dummyInitL10N;
 #endif
 
 //-----------------------------------------------------------------------------
@@ -46,11 +23,6 @@ int V_UTF8ToUnicode( const char *pUTF8, wchar_t *pwchDest, int cubDestSizeInByte
 	pwchDest[0] = 0;
 #ifdef _WIN32
 	int cchResult = MultiByteToWideChar( CP_UTF8, 0, pUTF8, -1, pwchDest, cubDestSizeInBytes / sizeof(wchar_t) );
-#elif defined( _PS3 )
-	size_t cchResult = cubDestSizeInBytes / sizeof( uint16 ), cchSrc = V_strlen( pUTF8 ) + 1;
-	L10nResult result = UTF8stoUCS2s( ( const uint8 *) pUTF8, &cchSrc, ( uint16 * ) pwchDest, &cchResult );
-	Assert( result == ConversionOK );
-	cchResult *= sizeof( uint16 );
 #elif POSIX
 	iconv_t conv_t = iconv_open( "UTF-32LE", "UTF-8" );
 	int cchResult = -1;
@@ -89,10 +61,6 @@ int V_UnicodeToUTF8( const wchar_t *pUnicode, char *pUTF8, int cubDestSizeInByte
 
 #ifdef _WIN32
 	int cchResult = WideCharToMultiByte( CP_UTF8, 0, pUnicode, -1, pUTF8, cubDestSizeInBytes, NULL, NULL );
-#elif defined( _PS3 )
-	size_t cchResult = cubDestSizeInBytes, cchSrc = V_wcslen( pUnicode ) + 1;
-	L10nResult result = UCS2stoUTF8s( ( const uint16 *) pUnicode, &cchSrc, ( uint8 * ) pUTF8, &cchResult );
-	Assert( result == ConversionOK );
 #elif POSIX
 	int cchResult = 0;
 	if ( pUnicode && pUTF8 )
@@ -132,7 +100,7 @@ int V_UCS2ToUnicode( const ucs2 *pUCS2, wchar_t *pUnicode, int cubDestSizeInByte
 	AssertValidReadPtr(pUCS2);
 	
 	pUnicode[0] = 0;
-#if defined( _WIN32 ) || defined( _PS3 )
+#if defined( _WIN32 )
 	int lenUCS2 = V_wcslen( pUCS2 );
 	int cchResult = MIN( (lenUCS2+1)*( int )sizeof(ucs2), cubDestSizeInBytes );
 	V_wcsncpy( (wchar_t*)pUCS2, pUnicode, cchResult );
@@ -166,7 +134,7 @@ int V_UCS2ToUnicode( const ucs2 *pUCS2, wchar_t *pUnicode, int cubDestSizeInByte
 int V_UnicodeToUCS2( const wchar_t *pUnicode, int cubSrcInBytes, char *pUCS2, int cubDestSizeInBytes )
 {
 	 // TODO: MACMERGE: Figure out how to convert from 2-byte Win32 wchars to platform wchar_t type that can be 4 bytes
-#if defined( _WIN32 ) || defined( _PS3 )
+#if defined( _WIN32 )
 	int cchResult = MIN( cubSrcInBytes, cubDestSizeInBytes );
 	V_wcsncpy( (wchar_t*)pUCS2, pUnicode, cchResult );
 #elif defined (POSIX)
