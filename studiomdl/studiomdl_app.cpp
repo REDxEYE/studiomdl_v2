@@ -883,7 +883,7 @@ bool CStudioMDLApp::PreInit() {
     CreateInterfaceFn factory = GetFactory();
     ConnectTier1Libraries(&factory, 1);
     ConnectTier2Libraries(&factory, 1);
-    ConnectTier3Libraries(&factory, 1);
+//    ConnectTier3Libraries(&factory, 1);
 
     if (!g_pFullFileSystem || !g_pDataModel /*|| !g_pMaterialSystem || !g_pStudioRender*/ ) {
         Warning("StudioMDL is missing a required interface!\n");
@@ -903,7 +903,7 @@ bool CStudioMDLApp::PreInit() {
 }
 
 void CStudioMDLApp::PostShutdown() {
-    DisconnectTier3Libraries();
+//    DisconnectTier3Libraries();
     DisconnectTier2Libraries();
     DisconnectTier1Libraries();
 }

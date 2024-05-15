@@ -23,14 +23,11 @@ endif()
 add_compile_definitions(${PLATFORM_DEFINES} RAD_TELEMETRY_DISABLED _CRT_SECURE_NO_WARNINGS USE_MEM_DEBUG=0 _DLL_EXT=.dll)
 
 add_subdirectory(libs/appframework)
-add_subdirectory(libs/materialsystem)
 add_subdirectory(libs/nvtristriplib)
 add_subdirectory(libs/tier0)
 add_subdirectory(libs/tier1)
 add_subdirectory(libs/tier2)
-add_subdirectory(libs/tier3)
 add_subdirectory(libs/vstdlib)
-add_subdirectory(libs/bitmap)
 add_subdirectory(libs/mathlib)
 add_subdirectory(libs/datamodel)
 add_subdirectory(libs/movieobjects)
@@ -53,7 +50,6 @@ add_executable(studiomdl_v2
         studiomdl/perfstats.cpp
         studiomdl/collisionmodel.cpp
         studiomdl/collisionmodelsource.cpp
-        studiomdl/compileclothproxy.cpp
         studiomdl/hardwarematrixstate.cpp
         studiomdl/hardwarevertexcache.cpp
         studiomdl/objsupport.cpp
@@ -64,7 +60,6 @@ add_executable(studiomdl_v2
         studiomdl/UnifyLODs.cpp
         studiomdl/write.cpp
         studiomdl/studiomdl.cpp
-        studiomdl/studiobyteswap.cpp
         studiomdl/filesystem_init.cpp
         studiomdl/studiomdl_commands.cpp
         studiomdl/studiomdl_errors.cpp
@@ -77,7 +72,6 @@ target_link_libraries(studiomdl_v2 PRIVATE
         tier0
         tier1
         tier2
-        tier3
         mathlib
         utils
         datamodel
@@ -87,7 +81,6 @@ target_link_libraries(studiomdl_v2 PRIVATE
         mdlobjects
         dmeutils
         meshutils
-        resourcefile
         appframework
         nvtristriplib
         shlwapi

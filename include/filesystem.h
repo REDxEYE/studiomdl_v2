@@ -89,9 +89,6 @@ enum FileWarningLevel_t
 	// Report all open/close/read/write events to the console ( !slower! )
 	FILESYSTEM_WARNING_REPORTALLACCESSES_READWRITE,
 
-	// Report all open/close/read/write events and all async I/O file events to the console ( !slower(est)! )
-	FILESYSTEM_WARNING_REPORTALLACCESSES_ASYNC,
-
 };
 
 // search path filtering
@@ -298,43 +295,6 @@ typedef void *(*FSAllocFunc_t)( const char *pszFilename, unsigned nBytes );
 typedef void (*FSDirtyDiskReportFunc_t)();
 
 
-//-----------------------------------------------------------------------------
-// Asynchronous support types
-//-----------------------------------------------------------------------------
-DECLARE_POINTER_HANDLE(FSAsyncControl_t);
-DECLARE_POINTER_HANDLE(FSAsyncFile_t);
-const FSAsyncFile_t FS_INVALID_ASYNC_FILE = (FSAsyncFile_t)(0x0000ffff);
-
-
-//---------------------------------------------------------
-// Async file status
-//---------------------------------------------------------
-enum FSAsyncStatus_t
-{
-	FSASYNC_ERR_ALIGNMENT    = -6,	// read parameters invalid for unbuffered IO
-	FSASYNC_ERR_FAILURE      = -5,	// hard subsystem failure
-	FSASYNC_ERR_READING      = -4,	// read error on file
-	FSASYNC_ERR_NOMEMORY     = -3,	// out of memory for file read
-	FSASYNC_ERR_UNKNOWNID    = -2,	// caller's provided id is not recognized
-	FSASYNC_ERR_FILEOPEN     = -1,	// filename could not be opened (bad path, not exist, etc)
-	FSASYNC_OK               = 0,	// operation is successful
-	FSASYNC_STATUS_PENDING,			// file is properly queued, waiting for service
-	FSASYNC_STATUS_INPROGRESS,		// file is being accessed
-	FSASYNC_STATUS_ABORTED,			// file was aborted by caller
-	FSASYNC_STATUS_UNSERVICED,		// file is not yet queued
-};
-
-//---------------------------------------------------------
-// Async request flags
-//---------------------------------------------------------
-enum FSAsyncFlags_t
-{
-	FSASYNC_FLAGS_ALLOCNOFREE		= ( 1 << 0 ),	// do the allocation for dataPtr, but don't free
-	FSASYNC_FLAGS_FREEDATAPTR		= ( 1 << 1 ),	// free the memory for the dataPtr post callback
-	FSASYNC_FLAGS_SYNC				= ( 1 << 2 ),	// Actually perform the operation synchronously. Used to simplify client code paths
-	FSASYNC_FLAGS_NULLTERMINATE		= ( 1 << 3 ),	// allocate an extra byte and null terminate the buffer read in
-};
-
 //---------------------------------------------------------
 // Return value for CheckFileCRC.
 //---------------------------------------------------------
@@ -351,39 +311,6 @@ enum ECacheCRCType
 	k_eCacheCRCType_SingleFile,
 	k_eCacheCRCType_Directory,
 	k_eCacheCRCType_Directory_Recursive
-};
-
-//---------------------------------------------------------
-// Optional completion callback for each async file serviced (or failed)
-// call is not reentrant, async i/o guaranteed suspended until return
-// Note: If you change the signature of the callback, you will have to account for it in FileSystemV12 (toml [4/18/2005] )
-//---------------------------------------------------------
-struct FileAsyncRequest_t;
-typedef void (*FSAsyncCallbackFunc_t)(const FileAsyncRequest_t &request, int nBytesRead, FSAsyncStatus_t err);
-
-//-----------------------------------------------------------------------------
-// Used to add results from async directory scans
-//-----------------------------------------------------------------------------
-typedef void (*FSAsyncScanAddFunc_t)( void* pContext, char* pFoundPath, char* pFoundFile );
-typedef void (*FSAsyncScanCompleteFunc_t)( void* pContext, FSAsyncStatus_t err );
-
-//---------------------------------------------------------
-// Description of an async request
-//---------------------------------------------------------
-struct FileAsyncRequest_t
-{
-	FileAsyncRequest_t()	{ memset( this, 0, sizeof(*this) ); hSpecificAsyncFile = FS_INVALID_ASYNC_FILE;	}
-	const char *			pszFilename;		// file system name
-	void *					pData;				// optional, system will alloc/free if NULL
-	int						nOffset;			// optional initial seek_set, 0=beginning
-	int						nBytes;				// optional read clamp, -1=exist test, 0=full read
-	FSAsyncCallbackFunc_t	pfnCallback;		// optional completion callback
-	void *					pContext;			// caller's unique file identifier
-	int						priority;			// inter list priority, 0=lowest
-	unsigned				flags;				// behavior modifier
-	const char *			pszPathID;			// path ID (NOTE: this field is here to remain binary compatible with release HL2 filesystem interface)
-	FSAsyncFile_t			hSpecificAsyncFile; // Optional hint obtained using AsyncBeginRead()
-	FSAllocFunc_t			pfnAlloc;			// custom allocator. can be null. not compatible with FSASYNC_FLAGS_FREEDATAPTR
 };
 
 
@@ -688,42 +615,6 @@ public:
 	virtual bool				String( const FileNameHandle_t& handle, char *buf, int buflen ) = 0;
 
 	//--------------------------------------------------------
-	// Asynchronous file operations
-	//--------------------------------------------------------
-
-	//------------------------------------
-	// Global operations
-	//------------------------------------
-			FSAsyncStatus_t	AsyncRead( const FileAsyncRequest_t &request, FSAsyncControl_t *phControl = NULL )	{ return AsyncReadMultiple( &request, 1, phControl ); 	}
-	virtual FSAsyncStatus_t	AsyncReadMultiple( const FileAsyncRequest_t *pRequests, int nRequests,  FSAsyncControl_t *phControls = NULL ) = 0;
-	virtual FSAsyncStatus_t	AsyncAppend(const char *pFileName, const void *pSrc, int nSrcBytes, bool bFreeMemory, FSAsyncControl_t *pControl = NULL ) = 0;
-	virtual FSAsyncStatus_t	AsyncAppendFile(const char *pAppendToFileName, const char *pAppendFromFileName, FSAsyncControl_t *pControl = NULL ) = 0;
-	virtual void			AsyncFinishAll( int iToPriority = 0 ) = 0;
-	virtual void			AsyncFinishAllWrites() = 0;
-	virtual FSAsyncStatus_t	AsyncFlush() = 0;
-	virtual bool			AsyncSuspend() = 0;
-	virtual bool			AsyncResume() = 0;
-
-	//------------------------------------
-	// Functions to hold a file open if planning on doing mutiple reads. Use is optional,
-	// and is taken only as a hint
-	//------------------------------------
-	virtual FSAsyncStatus_t	AsyncBeginRead( const char *pszFile, FSAsyncFile_t *phFile ) = 0;
-	virtual FSAsyncStatus_t	AsyncEndRead( FSAsyncFile_t hFile ) = 0;
-
-	//------------------------------------
-	// Request management
-	//------------------------------------
-	virtual FSAsyncStatus_t	AsyncFinish( FSAsyncControl_t hControl, bool wait = true ) = 0;
-	virtual FSAsyncStatus_t	AsyncGetResult( FSAsyncControl_t hControl, void **ppData, int *pSize ) = 0;
-	virtual FSAsyncStatus_t	AsyncAbort( FSAsyncControl_t hControl ) = 0;
-	virtual FSAsyncStatus_t	AsyncStatus( FSAsyncControl_t hControl ) = 0;
-	// set a new priority for a file already in the queue
-	virtual FSAsyncStatus_t	AsyncSetPriority(FSAsyncControl_t hControl, int newPriority) = 0;
-	virtual void			AsyncAddRef( FSAsyncControl_t hControl ) = 0;
-	virtual void			AsyncRelease( FSAsyncControl_t hControl ) = 0;
-
-	//--------------------------------------------------------
 	// Remote resource management
 	//--------------------------------------------------------
 
@@ -821,14 +712,6 @@ public:
 	// Otherwise, it'll just fall through to the regular KeyValues loading routines
 	virtual KeyValues	*LoadKeyValues( KeyValuesPreloadType_t type, char const *filename, char const *pPathID = 0 ) = 0;
 	virtual bool		LoadKeyValues( KeyValues& head, KeyValuesPreloadType_t type, char const *filename, char const *pPathID = 0 ) = 0;
-
-	virtual FSAsyncStatus_t	AsyncWrite(const char *pFileName, const void *pSrc, int nSrcBytes, bool bFreeMemory, bool bAppend = false, FSAsyncControl_t *pControl = NULL ) = 0;
-	virtual FSAsyncStatus_t	AsyncWriteFile(const char *pFileName, const CUtlBuffer *pSrc, int nSrcBytes, bool bFreeMemory, bool bAppend = false, FSAsyncControl_t *pControl = NULL ) = 0;
-	// Async read functions with memory blame
-	FSAsyncStatus_t			AsyncReadCreditAlloc( const FileAsyncRequest_t &request, const char *pszFile, int line, FSAsyncControl_t *phControl = NULL )	{ return AsyncReadMultipleCreditAlloc( &request, 1, pszFile, line, phControl ); 	}
-	virtual FSAsyncStatus_t	AsyncReadMultipleCreditAlloc( const FileAsyncRequest_t *pRequests, int nRequests, const char *pszFile, int line, FSAsyncControl_t *phControls = NULL ) = 0;
-
-	virtual FSAsyncStatus_t AsyncDirectoryScan( const char* pSearchSpec, bool recurseFolders,  void* pContext, FSAsyncScanAddFunc_t pfnAdd, FSAsyncScanCompleteFunc_t pfnDone, FSAsyncControl_t *pControl = NULL ) = 0;
 
 	virtual bool			GetFileTypeForFullPath( char const *pFullPath, wchar_t *buf, size_t bufSizeInBytes ) = 0;
 
@@ -1003,15 +886,6 @@ inline unsigned IFileSystem::GetOptimalReadSize( FileHandle_t hFile, unsigned nL
 
 // We include this here so it'll catch compile errors in VMPI early.
 #include "filesystem_passthru.h"
-
-//-----------------------------------------------------------------------------
-// Async memory tracking
-//-----------------------------------------------------------------------------
-
-#if (defined(_DEBUG) || defined(USE_MEM_DEBUG))
-#define AsyncRead( a, b ) AsyncReadCreditAlloc( a, __FILE__, __LINE__, b )
-#define AsyncReadMutiple( a, b, c ) AsyncReadMultipleCreditAlloc( a, b, __FILE__, __LINE__, c )
-#endif
 
 //-----------------------------------------------------------------------------
 // Globals Exposed

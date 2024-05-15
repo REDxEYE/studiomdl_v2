@@ -15,7 +15,6 @@ add_library(mdlobjects
         dmeelementgroup.cpp
         dmebodypart.cpp
         dmehitbox.cpp
-        authphysfx.cpp
         dmeskinner.cpp
         dmemouth.cpp
         dmeanimblocksize.cpp

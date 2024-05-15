@@ -18,6 +18,7 @@
 #include "materialsystem/materialsystemutil.h"
 #include "tier1/utlmap.h"
 #include "videocache/iremotevideomaterial.h"
+#include "datamodel/dmelementfactoryhelper.h"
 
 
 //-----------------------------------------------------------------------------
@@ -39,7 +40,6 @@ class CDmeTrackGroup;
 class IMaterial;
 class CDmeChannelsClip;
 class CDmeAnimationSet;
-class CDmeMaterialOverlayFXClip;
 class DmeLog_TimeSelection_t;
 struct TimeSelection_t;
 struct Rect_t;
@@ -570,7 +570,6 @@ private:
 	CDmaTime								m_fadeInDuration;
 	CDmaTime								m_fadeOutDuration;
 
-	CDmaElement< CDmeMaterialOverlayFXClip >m_MaterialOverlayEffect;
 	CDmaVar< bool >							m_bIsUsingCachedVersion;
 
 	CDmaElementArray< CDmeAnimationSet >	m_AnimationSets;	// "animationSets"
@@ -585,7 +584,6 @@ private:
 	AVIMaterial_t							m_hCachedVersion;
 	bool									m_bReloadCachedVersion;
 	
-	CMaterialReference						m_FadeMaterial;
 
 	CDmaElementArray< CDmeCamera >			m_CameraStack;
 	int										m_nCurrentStackCamera;

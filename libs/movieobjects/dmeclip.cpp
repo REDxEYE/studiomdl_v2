@@ -1109,7 +1109,6 @@ IMPLEMENT_ELEMENT_FACTORY( DmeFilmClip, CDmeFilmClip );
 void CDmeFilmClip::OnConstruction()
 {
 	m_pRemoteVideoMaterial = NULL;
-	m_MaterialOverlayEffect.Init( this, "materialOverlay" );
 
 	m_MapName.Init( this, "mapname" );
 	m_Camera.Init( this, "camera" );
@@ -1473,110 +1472,27 @@ void CDmeFilmClip::Resolve()
 //-----------------------------------------------------------------------------
 void CDmeFilmClip::SetOverlay( const char *pMaterialName )
 {
-	if ( pMaterialName && pMaterialName[0] )
-	{
-		if ( !m_MaterialOverlayEffect.GetElement() )
-		{
-			m_MaterialOverlayEffect = CreateElement<CDmeMaterialOverlayFXClip>( "materialOverlay", GetFileId() );
-		}
 
-		m_MaterialOverlayEffect->SetOverlayEffect( pMaterialName );
-	}
-	else
-	{
-		m_MaterialOverlayEffect.Set( NULL );
-	}
 }
 
 IMaterial *CDmeFilmClip::GetOverlayMaterial()
 {
-	return m_MaterialOverlayEffect.GetElement() ? m_MaterialOverlayEffect->GetMaterial() : NULL;
+	return NULL;
 }
 
 float CDmeFilmClip::GetOverlayAlpha()
 {
-	return m_MaterialOverlayEffect.GetElement() ? m_MaterialOverlayEffect->GetAlpha() : 0.0f;
+	return  0.0f;
 }
 
 void CDmeFilmClip::SetOverlayAlpha( float alpha )
 {
-	if ( m_MaterialOverlayEffect.GetElement() )
-	{
-		m_MaterialOverlayEffect->SetAlpha( alpha );
-	}
 }
 
 bool CDmeFilmClip::HasOpaqueOverlay( void )
 {
-	if ( m_MaterialOverlayEffect->GetMaterial()->IsTranslucent() ||
-	   ( m_MaterialOverlayEffect->GetAlpha() < 1.0f ) )
-	{
-		return false;
-	}
-
 	return true;
 }
-
-void CDmeFilmClip::DrawOverlay( DmeTime_t time, Rect_t &currentRect, Rect_t &totalRect )
-{
-	if ( m_MaterialOverlayEffect.GetElement() )
-	{
-		m_MaterialOverlayEffect->ApplyEffect( ToChildMediaTime( time ), currentRect, totalRect, NULL );
-	}
-
-	float fade = 1.0f;
-	if ( time < GetStartTime() + m_fadeInDuration )
-	{
-		fade = ( time - GetStartTime() ) / m_fadeInDuration;
-	}
-	if ( time > GetEndTime() - m_fadeOutDuration )
-	{
-		fade = MIN( fade, ( GetEndTime() - time ) / m_fadeOutDuration );
-	}
-	if ( fade < 1.0f )
-	{
-		if ( !m_FadeMaterial.IsValid() )
-		{
-			m_FadeMaterial.Init( "engine\\singlecolor.vmt", NULL, false );
-		}
-
-		float r, g, b;
-		m_FadeMaterial->GetColorModulation( &r, &g, &b );
-		float a = m_FadeMaterial->GetAlphaModulation();
-
-		m_FadeMaterial->ColorModulate( 0.0f, 0.0f, 0.0f );
-		m_FadeMaterial->AlphaModulate( 1.0f - fade );
-
-		CMatRenderContextPtr pRenderContext( materials );
-		pRenderContext->Bind( m_FadeMaterial );
-
-		float w = currentRect.width;
-		float h = currentRect.height;
-
-		IMesh *pMesh = pRenderContext->GetDynamicMesh();
-		CMeshBuilder meshBuilder;
-		meshBuilder.Begin( pMesh, MATERIAL_TRIANGLE_STRIP, 2 );
-
-		meshBuilder.Position3f( 0.0f, 0.0f, 0.0f );
-		meshBuilder.AdvanceVertexF<VTX_HAVEPOS, 0>();
-
-		meshBuilder.Position3f( 0.0f, h, 0.0f );
-		meshBuilder.AdvanceVertexF<VTX_HAVEPOS, 0>();
-
-		meshBuilder.Position3f( w, 0.0f, 0.0f );
-		meshBuilder.AdvanceVertexF<VTX_HAVEPOS, 0>();
-
-		meshBuilder.Position3f( w, h, 0.0f );
-		meshBuilder.AdvanceVertexF<VTX_HAVEPOS, 0>();
-
-		meshBuilder.End();
-		pMesh->Draw();
-
-		m_FadeMaterial->ColorModulate( r, g, b );
-		m_FadeMaterial->AlphaModulate( a );
-	}
-}
-
 
 //-----------------------------------------------------------------------------
 // AVI tape out

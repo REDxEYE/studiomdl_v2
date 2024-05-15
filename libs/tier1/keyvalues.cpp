@@ -687,7 +687,7 @@ void KeyValues::ChainKeyValue( KeyValues* pChain )
 //-----------------------------------------------------------------------------
 // Purpose: Get the name of the current key section
 //-----------------------------------------------------------------------------
-const char *KeyValues::GetName( void ) const
+const char *KeyValues::GetName( ) const
 {
 	AssertMsg( this, "Member function called on NULL KeyValues" );
 	return this ? KeyValuesSystem()->GetStringForSymbol( MAKE_3_BYTES_FROM_1_AND_2( m_iKeyNameCaseSensitive1, m_iKeyNameCaseSensitive2 ) ) : "";

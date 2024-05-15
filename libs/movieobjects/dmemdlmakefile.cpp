@@ -131,13 +131,11 @@ IMPLEMENT_ELEMENT_FACTORY( DmeMDLMakefile, CDmeMDLMakefile );
 //-----------------------------------------------------------------------------
 void CDmeMDLMakefile::OnConstruction()
 {
-	m_hMDL = CreateElement< CDmeMDL >( "MDLMakefile Preview", DMFILEID_INVALID );
 	m_bFlushMDL = false;
 }
 
 void CDmeMDLMakefile::OnDestruction()
 {
-	DestroyElement( m_hMDL.Get() );
 }
 
 
@@ -203,41 +201,7 @@ void CDmeMDLMakefile::RemoveAllAnimations( )
 //-----------------------------------------------------------------------------
 CDmElement *CDmeMDLMakefile::CreateOutputElement( )
 {
-	if ( m_bFlushMDL )
-	{
-		// Flush the model out of the cache; detach it from the MDL
-		MDLHandle_t h = m_hMDL->GetMDL();
-		if ( h != MDLHANDLE_INVALID )
-		{
-			g_pMDLCache->Flush( h );
-		}
-		m_bFlushMDL = false;
-	}
-	m_hMDL->SetMDL( MDLHANDLE_INVALID );
-
-	// FIXME: Should we ask the tool (studiomdl) for this?
-	// Should we have output type names? Not sure yet..
-	// Doing the simplest thing first.
-	char pOutputName[MAX_PATH];
-	Q_FileBase( GetFileName(), pOutputName, sizeof(pOutputName) );
-	if ( !pOutputName[0] )
-		return m_hMDL.Get();
-
-	char pOutputDir[MAX_PATH];
-	GetOutputDirectory( pOutputDir, sizeof(pOutputDir) );
-	if ( !pOutputDir[0] )
-		return m_hMDL.Get();
-
-	Q_StripTrailingSlash( pOutputDir );
-	char pFullPath[MAX_PATH];
-	Q_snprintf( pFullPath, sizeof(pFullPath), "%s\\%s.mdl", pOutputDir, pOutputName );
-
-	char pRelativePath[MAX_PATH];
-	g_pFullFileSystem->FullPathToRelativePathEx( pFullPath, "GAME", pRelativePath, sizeof( pRelativePath ) );
-
-	MDLHandle_t h = g_pMDLCache->FindMDL( pRelativePath );
-	m_hMDL->SetMDL( h );
-	return m_hMDL.Get();	
+    return nullptr;
 }
 
 void CDmeMDLMakefile::DestroyOutputElement( CDmElement *pOutput )

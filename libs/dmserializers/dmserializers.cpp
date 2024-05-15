@@ -95,8 +95,8 @@ CDmElement *FindElementNamed( CDmrElementArray<> elements, const char *pTargetNa
 
 CDmElement *FindChannelsClipForChannel( CDmElement *pFilmClip, CDmElement *pChannel )
 {
-	const static CUtlSymbolLarge channelsClipSym = g_pDataModel->GetSymbol( "DmeChannelsClip" );
-	const static CUtlSymbolLarge channelsSym = g_pDataModel->GetSymbol( "channels" );
+	const CUtlSymbolLarge channelsClipSym = g_pDataModel->GetSymbol( "DmeChannelsClip" );
+	const CUtlSymbolLarge channelsSym = g_pDataModel->GetSymbol( "channels" );
 	DmAttributeReferenceIterator_t i = g_pDataModel->FirstAttributeReferencingElement( pChannel->GetHandle() );
 	while ( i != DMATTRIBUTE_REFERENCE_ITERATOR_INVALID )
 	{
@@ -117,8 +117,8 @@ CDmElement *FindChannelsClipForChannel( CDmElement *pFilmClip, CDmElement *pChan
 
 CDmElement *FindChannelTargettingElement( CDmElement *pTarget, const char *pTargetAttr, bool bFromTarget )
 {
-	const static CUtlSymbolLarge channelSym = g_pDataModel->GetSymbol( "DmeChannel" );
-	const static CUtlSymbolLarge fromElementSym = g_pDataModel->GetSymbol( bFromTarget ? "fromElement" : "toElement" );
+	const CUtlSymbolLarge channelSym = g_pDataModel->GetSymbol( "DmeChannel" );
+	const CUtlSymbolLarge fromElementSym = g_pDataModel->GetSymbol( bFromTarget ? "fromElement" : "toElement" );
 	DmAttributeReferenceIterator_t i = g_pDataModel->FirstAttributeReferencingElement( pTarget->GetHandle() );
 	for( ; i != DMATTRIBUTE_REFERENCE_ITERATOR_INVALID; i = g_pDataModel->NextAttributeReferencingElement( i ) )
 	{
@@ -184,10 +184,10 @@ void FixupRigGroups( CDmElement *pRig );
 
 bool Update19( CDmElement *pElement )
 {
-	const static CUtlSymbolLarge symDmeControlDisplaySet = g_pDataModel->GetSymbol( "DmeControlDisplaySet" );
-	const static CUtlSymbolLarge symDmeAnimationSet = g_pDataModel->GetSymbol( "DmeAnimationSet" );
-	const static CUtlSymbolLarge symDmeRig = g_pDataModel->GetSymbol( "DmeRig" );
-	const static CUtlSymbolLarge symDisplaySetAttr = g_pDataModel->GetSymbol( "displaySet" );
+	const CUtlSymbolLarge symDmeControlDisplaySet = g_pDataModel->GetSymbol( "DmeControlDisplaySet" );
+	const CUtlSymbolLarge symDmeAnimationSet = g_pDataModel->GetSymbol( "DmeAnimationSet" );
+	const CUtlSymbolLarge symDmeRig = g_pDataModel->GetSymbol( "DmeRig" );
+	const CUtlSymbolLarge symDisplaySetAttr = g_pDataModel->GetSymbol( "displaySet" );
 	
 	if ( pElement->GetType() == symDmeControlDisplaySet )
 	{
@@ -266,7 +266,7 @@ CDmElement *FindOrCreateControlGroup( CDmElement *pRig, CDmElement *pParentGroup
 
 void ReParentCongrolGroup( CDmElement *pControlGroup, CDmElement *pNewParent )
 {
-	const static CUtlSymbolLarge symChildren = g_pDataModel->GetSymbol( "children" );
+	const CUtlSymbolLarge symChildren = g_pDataModel->GetSymbol( "children" );
 
 	if ( ( pControlGroup == NULL ) || ( pNewParent == NULL ) )
 		return;
@@ -342,8 +342,8 @@ void SetControlGroupState( CDmElement *pRootControlGroup, const char *pGroupName
 
 void MoveRigControlsToGroup( CDmElement *pRig, CDmElement *pAnimSetElements, CDmElement *pRootGroup, const char *pSrcGroupName, const char *pDstGroupName, bool bTransformOnly )
 {	
-	const static CUtlSymbolLarge symDmeTransformControl = g_pDataModel->GetSymbol( "DmeTransformControl" );
-	const static CUtlSymbolLarge symElementList = g_pDataModel->GetSymbol( "elementList" );
+	const CUtlSymbolLarge symDmeTransformControl = g_pDataModel->GetSymbol( "DmeTransformControl" );
+	const CUtlSymbolLarge symElementList = g_pDataModel->GetSymbol( "elementList" );
 
 	// First find the specified source control group
 	CDmElement *pSrcGroup = pRootGroup;
@@ -419,8 +419,8 @@ void MoveRigControlsToGroup( CDmElement *pRig, CDmElement *pAnimSetElements, CDm
 
 void RemoveInvalidTransformControls( CDmElement *pAnimSet )
 {
-	const static CUtlSymbolLarge symDmeTransformControl = g_pDataModel->GetSymbol( "DmeTransformControl" );
-	const static CUtlSymbolLarge symControls = g_pDataModel->GetSymbol( "controls" );
+	const CUtlSymbolLarge symDmeTransformControl = g_pDataModel->GetSymbol( "DmeTransformControl" );
+	const CUtlSymbolLarge symControls = g_pDataModel->GetSymbol( "controls" );
 
 	CDmAttribute *pControlsAttr = pAnimSet->GetAttribute( "controls", AT_ELEMENT_ARRAY );
 	if ( pControlsAttr == NULL )
@@ -490,7 +490,7 @@ void RemoveInvalidTransformControls( CDmElement *pAnimSet )
 
 void FixupRigGroupsForAnimationSet( CDmElement *pRig, CDmElement *pAnimSetElements )
 {
-	const static CUtlSymbolLarge symDmeAnimationSet = g_pDataModel->GetSymbol( "DmeAnimationSet" );
+	const CUtlSymbolLarge symDmeAnimationSet = g_pDataModel->GetSymbol( "DmeAnimationSet" );
 
 	// Get the animation set
 	CDmElement *pAnimSet = pAnimSetElements->GetValueElement< CDmElement >( "animationSet" );
@@ -633,8 +633,8 @@ void FixupRigGroups( CDmElement *pRig )
 
 bool Update18( CDmElement *pElement )
 {
-	const static CUtlSymbolLarge symDmeAnimationSet = g_pDataModel->GetSymbol( "DmeAnimationSet" );
-	const static CUtlSymbolLarge symDmePreset = g_pDataModel->GetSymbol( "DmePreset" );
+	const CUtlSymbolLarge symDmeAnimationSet = g_pDataModel->GetSymbol( "DmeAnimationSet" );
+	const CUtlSymbolLarge symDmePreset = g_pDataModel->GetSymbol( "DmePreset" );
 
 	if ( pElement->GetType() == symDmeAnimationSet )
 	{
@@ -676,8 +676,8 @@ CDmElement *CollapseControlGroup( CDmElement *pControlGroup, CDmElement *pRootGr
 
 bool Update17( CDmElement *pElement )
 {
-	const static CUtlSymbolLarge symDmeAnimationSet = g_pDataModel->GetSymbol( "DmeAnimationSet" );
-	const static CUtlSymbolLarge symDmePreset = g_pDataModel->GetSymbol( "DmePreset" );
+	const CUtlSymbolLarge symDmeAnimationSet = g_pDataModel->GetSymbol( "DmeAnimationSet" );
+	const CUtlSymbolLarge symDmePreset = g_pDataModel->GetSymbol( "DmePreset" );
 
 	// If the element is an animation set iterate through its controls and unify the transform controls.
 	// Note that while the transform controls themselves would be visited they may be visited from the 
@@ -806,14 +806,14 @@ bool Update17( CDmElement *pElement )
 
 void UnifyTransformControl( CDmElement *pTransformControl, CDmElement *pAnimSet )
 {
-	const static CUtlSymbolLarge symDmeTransformControl = g_pDataModel->GetSymbol( "DmeTransformControl" );
-	const static CUtlSymbolLarge symDmeControlGroup = g_pDataModel->GetSymbol( "DmeControlGroup" );
-	const static CUtlSymbolLarge symDmeAnimationSet = g_pDataModel->GetSymbol( "DmeAnimationSet" );
-	const static CUtlSymbolLarge symDmeRigAnimSetElements = g_pDataModel->GetSymbol( "DmeRigAnimSetElements" );
-	const static CUtlSymbolLarge symDmeRig = g_pDataModel->GetSymbol( "DmeRig" );
-	const static CUtlSymbolLarge symControls = g_pDataModel->GetSymbol( "controls" );
-	const static CUtlSymbolLarge symElementList = g_pDataModel->GetSymbol( "elementList" );
-	const static CUtlSymbolLarge symDisplaySetElements = g_pDataModel->GetSymbol( "displaySetElements" );
+	const CUtlSymbolLarge symDmeTransformControl = g_pDataModel->GetSymbol( "DmeTransformControl" );
+	const CUtlSymbolLarge symDmeControlGroup = g_pDataModel->GetSymbol( "DmeControlGroup" );
+	const CUtlSymbolLarge symDmeAnimationSet = g_pDataModel->GetSymbol( "DmeAnimationSet" );
+	const CUtlSymbolLarge symDmeRigAnimSetElements = g_pDataModel->GetSymbol( "DmeRigAnimSetElements" );
+	const CUtlSymbolLarge symDmeRig = g_pDataModel->GetSymbol( "DmeRig" );
+	const CUtlSymbolLarge symControls = g_pDataModel->GetSymbol( "controls" );
+	const CUtlSymbolLarge symElementList = g_pDataModel->GetSymbol( "elementList" );
+	const CUtlSymbolLarge symDisplaySetElements = g_pDataModel->GetSymbol( "displaySetElements" );
 
 	if ( pTransformControl->GetType() == symDmeTransformControl )
 	{			
@@ -977,9 +977,9 @@ void UnifyTransformControl( CDmElement *pTransformControl, CDmElement *pAnimSet 
 
 void DestroyControl( CDmElement *pControl )
 {	
-	const static CUtlSymbolLarge symControls = g_pDataModel->GetSymbol( "controls" );
-	const static CUtlSymbolLarge symElementList = g_pDataModel->GetSymbol( "elementList" );
-	const static CUtlSymbolLarge symDisplaySetElements = g_pDataModel->GetSymbol( "displaySetElements" );
+	const CUtlSymbolLarge symControls = g_pDataModel->GetSymbol( "controls" );
+	const CUtlSymbolLarge symElementList = g_pDataModel->GetSymbol( "elementList" );
+	const CUtlSymbolLarge symDisplaySetElements = g_pDataModel->GetSymbol( "displaySetElements" );
 
 	if ( pControl == NULL )
 		return;
@@ -1058,8 +1058,8 @@ void DestroyControl( CDmElement *pControl )
 
 CDmElement *CollapseControlGroup( CDmElement *pControlGroup, CDmElement *pRootGroup )
 {
-	const static CUtlSymbolLarge symDmeControlGroup = g_pDataModel->GetSymbol( "DmeControlGroup" );
-	const static CUtlSymbolLarge symChildren = g_pDataModel->GetSymbol( "children" );
+	const CUtlSymbolLarge symDmeControlGroup = g_pDataModel->GetSymbol( "DmeControlGroup" );
+	const CUtlSymbolLarge symChildren = g_pDataModel->GetSymbol( "children" );
 
 	if ( pControlGroup->GetType() != symDmeControlGroup )
 		return NULL;
@@ -1201,7 +1201,7 @@ bool Update16( CDmElement *pElement )
 //-----------------------------------------------------------------------------
 bool IsRigConstraint( CDmElement *pElement )
 {
-	const static CUtlSymbolLarge rigSym[] = 
+	const CUtlSymbolLarge rigSym[] =
 	{
 		g_pDataModel->GetSymbol( "DmeRigPointConstraintOperator" ),
 		g_pDataModel->GetSymbol( "DmeRigOrientConstraintOperator" ),
@@ -1226,7 +1226,7 @@ bool IsRigConstraint( CDmElement *pElement )
 
 bool Update15( CDmElement *pElement )
 {
-	const static CUtlSymbolLarge dmeDagSym = g_pDataModel->GetSymbol( "DmeDag" );
+	const CUtlSymbolLarge dmeDagSym = g_pDataModel->GetSymbol( "DmeDag" );
 
 	if ( pElement->GetType() == dmeDagSym )
 	{
@@ -1274,7 +1274,7 @@ void CollectAnimSetsAndDestroyAnimSetGroups( CDmrElementArray< CDmElement > anim
 //-----------------------------------------------------------------------------
 bool Update14( CDmElement *pElement )
 {
-	const static CUtlSymbolLarge filmClipSym = g_pDataModel->GetSymbol( "DmeFilmClip" );
+	const CUtlSymbolLarge filmClipSym = g_pDataModel->GetSymbol( "DmeFilmClip" );
 	if ( pElement->GetType() == filmClipSym )
 	{
 		CDmrElementArray< CDmElement > animationSets( pElement, "animationSets", true );
@@ -1337,7 +1337,7 @@ void MoveBookmarksFromAnimSetGroups( CDmrElementArray< CDmElement > bookmarkSets
 //-----------------------------------------------------------------------------
 bool Update13( CDmElement *pElement )
 {
-	const static CUtlSymbolLarge filmClipSym = g_pDataModel->GetSymbol( "DmeFilmClip" );
+	const CUtlSymbolLarge filmClipSym = g_pDataModel->GetSymbol( "DmeFilmClip" );
 	if ( pElement->GetType() == filmClipSym )
 	{
 		pElement->SetValue( "activeBookmarkSet", 0 );
@@ -1360,11 +1360,11 @@ bool Update13( CDmElement *pElement )
 //-----------------------------------------------------------------------------
 bool Update12( CDmElement *pElement )
 {
-	const static CUtlSymbolLarge animSetSym = g_pDataModel->GetSymbol( "DmeAnimationSet" );
-	const static CUtlSymbolLarge animSetGroupSym = g_pDataModel->GetSymbol( "DmeAnimationSetGroup" );
-	const static CUtlSymbolLarge controlDisplaySetSym = g_pDataModel->GetSymbol( "DmeControlDisplaySet" );
-	const static CUtlSymbolLarge displaySetSym = g_pDataModel->GetSymbol( "displaySet" );
-	const static CUtlSymbolLarge controlsSym = g_pDataModel->GetSymbol( "controls" );
+	const CUtlSymbolLarge animSetSym = g_pDataModel->GetSymbol( "DmeAnimationSet" );
+	const CUtlSymbolLarge animSetGroupSym = g_pDataModel->GetSymbol( "DmeAnimationSetGroup" );
+	const CUtlSymbolLarge controlDisplaySetSym = g_pDataModel->GetSymbol( "DmeControlDisplaySet" );
+	const CUtlSymbolLarge displaySetSym = g_pDataModel->GetSymbol( "displaySet" );
+	const CUtlSymbolLarge controlsSym = g_pDataModel->GetSymbol( "controls" );
 
 	if ( pElement->GetType() == animSetGroupSym )
 	{
@@ -1453,7 +1453,7 @@ bool Update12( CDmElement *pElement )
 //-----------------------------------------------------------------------------
 bool Update11( CDmElement *pElement )
 {
-	const static CUtlSymbolLarge animSetSym = g_pDataModel->GetSymbol( "DmeAnimationSet" );
+	const CUtlSymbolLarge animSetSym = g_pDataModel->GetSymbol( "DmeAnimationSet" );
 
 	if ( pElement->GetType() == animSetSym )
 	{
@@ -1519,7 +1519,7 @@ bool Update11( CDmElement *pElement )
 //-----------------------------------------------------------------------------
 CDmElement *CreateControlGroup( const char *pchName, CDmElement *pParent )
 {
-	const static CUtlSymbolLarge controlGroupSym = g_pDataModel->GetSymbol( "DmeControlGroup" );
+	const CUtlSymbolLarge controlGroupSym = g_pDataModel->GetSymbol( "DmeControlGroup" );
 
 	CDmElement *pGroup = CreateElement< CDmElement >( "DmeControlGroup", pchName, pParent->GetFileId() );
 	pGroup->SetParity( pParent->GetParity() );
@@ -1627,8 +1627,8 @@ bool ConvertControlGroup_R( CDmrElementArray<> &animSetControls, CDmElement *pCo
 //-----------------------------------------------------------------------------
 bool Update10( CDmElement *pElement )
 {
-	const static CUtlSymbolLarge animSetSym = g_pDataModel->GetSymbol( "DmeAnimationSet" );
-	const static CUtlSymbolLarge presetSym = g_pDataModel->GetSymbol( "DmePreset" );
+	const CUtlSymbolLarge animSetSym = g_pDataModel->GetSymbol( "DmeAnimationSet" );
+	const CUtlSymbolLarge presetSym = g_pDataModel->GetSymbol( "DmePreset" );
 
 	if ( pElement->GetType() == animSetSym )
 	{
@@ -1766,7 +1766,7 @@ void ConvertSelectionGroup_R( CDmElement* pAnimSet, CDmElement *pParentControlGr
 //-----------------------------------------------------------------------------
 bool Update9( CDmElement *pElement )
 {
-	const static CUtlSymbolLarge animSetSym = g_pDataModel->GetSymbol( "DmeAnimationSet" );
+	const CUtlSymbolLarge animSetSym = g_pDataModel->GetSymbol( "DmeAnimationSet" );
 
 	if ( pElement->GetType() == animSetSym )
 	{
@@ -1813,7 +1813,7 @@ bool Update9( CDmElement *pElement )
 //-----------------------------------------------------------------------------
 bool Update8( CDmElement *pElement )
 {
-	const static CUtlSymbolLarge modelSetSym = g_pDataModel->GetSymbol( "DmeModel" );
+	const CUtlSymbolLarge modelSetSym = g_pDataModel->GetSymbol( "DmeModel" );
 
 	CUtlSymbolLarge typeSym = pElement->GetType();
 
@@ -1830,9 +1830,9 @@ bool Update8( CDmElement *pElement )
 
 			if ( pJointListAttr )
 			{
-				const static CUtlSymbolLarge transformSym = g_pDataModel->GetSymbol( "transform" );
-				const static CUtlSymbolLarge dmeJointSym = g_pDataModel->GetSymbol( "DmeJoint" );
-				const static CUtlSymbolLarge dmeDagSym = g_pDataModel->GetSymbol( "DmeDag" );
+				const CUtlSymbolLarge transformSym = g_pDataModel->GetSymbol( "transform" );
+				const CUtlSymbolLarge dmeJointSym = g_pDataModel->GetSymbol( "DmeJoint" );
+				const CUtlSymbolLarge dmeDagSym = g_pDataModel->GetSymbol( "DmeDag" );
 
 				CUtlVector< CDmElement * > refList;
 
@@ -1875,7 +1875,7 @@ bool Update8( CDmElement *pElement )
 //-----------------------------------------------------------------------------
 bool Update7( CDmElement *pElement )
 {
-	const static CUtlSymbolLarge animSetSym = g_pDataModel->GetSymbol( "DmeAnimationSet" );
+	const CUtlSymbolLarge animSetSym = g_pDataModel->GetSymbol( "DmeAnimationSet" );
 
 	CUtlSymbolLarge typeSym = pElement->GetType();
 
@@ -1915,7 +1915,7 @@ bool Update6( CDmElement *pElement )
 {
 	CUtlSymbolLarge typeSym = pElement->GetType();
 
-	const static CUtlSymbolLarge grainFXClipSym = g_pDataModel->GetSymbol( "DmeHSLGrainFXClip" );
+	const CUtlSymbolLarge grainFXClipSym = g_pDataModel->GetSymbol( "DmeHSLGrainFXClip" );
 	if ( typeSym == grainFXClipSym )
 	{
 		pElement->RemoveAttribute( "scale" );
@@ -1926,10 +1926,10 @@ bool Update6( CDmElement *pElement )
 		return true;
 	}
 
-	const static CUtlSymbolLarge dirLightSym = g_pDataModel->GetSymbol( "DmeDirectionalLight" );
-	const static CUtlSymbolLarge pointLightSym = g_pDataModel->GetSymbol( "DmePointLight" );
-	const static CUtlSymbolLarge spotLightSym = g_pDataModel->GetSymbol( "DmeSpotLight" );
-	const static CUtlSymbolLarge projLightSym = g_pDataModel->GetSymbol( "DmeProjectedLight" );
+	const CUtlSymbolLarge dirLightSym = g_pDataModel->GetSymbol( "DmeDirectionalLight" );
+	const CUtlSymbolLarge pointLightSym = g_pDataModel->GetSymbol( "DmePointLight" );
+	const CUtlSymbolLarge spotLightSym = g_pDataModel->GetSymbol( "DmeSpotLight" );
+	const CUtlSymbolLarge projLightSym = g_pDataModel->GetSymbol( "DmeProjectedLight" );
 	if ( typeSym == dirLightSym || typeSym == pointLightSym || typeSym == spotLightSym || typeSym == projLightSym )
 	{
 		Vector pos = pElement->GetValue< Vector >( "position" );
@@ -2010,8 +2010,8 @@ bool Update6( CDmElement *pElement )
 
 bool Update4( CDmElement *pElement )
 {
-	const static CUtlSymbolLarge filmClipSym = g_pDataModel->GetSymbol( "DmeFilmClip" );
-	const static CUtlSymbolLarge presetGroupSym = g_pDataModel->GetSymbol( "DmePresetGroup" );
+	const CUtlSymbolLarge filmClipSym = g_pDataModel->GetSymbol( "DmeFilmClip" );
+	const CUtlSymbolLarge presetGroupSym = g_pDataModel->GetSymbol( "DmePresetGroup" );
 
 	CUtlSymbolLarge typeSym = pElement->GetType();
 	if ( typeSym == presetGroupSym )
@@ -2117,7 +2117,7 @@ float GetDefaultControlValue( const char *pControlName )
 	// HACK - this is nasty, (and not 100% correct - the engineer's BrowInV is 1-way control) but it's either that or manually fix every preset file
 	// fortunately, even if this isn't perfect, it's almost undetectable
 	// we had to search the movies to find a spot where 0.0f wasn't a good enough default for every control, and the difference wasn't a big deal
-	const static char *s_2WayControls[] = 
+	const char *s_2WayControls[] =
 	{
 		"TongueWidth",
 		"TongueV",
@@ -2195,23 +2195,23 @@ bool UpdatePreset( CDmElement *pPreset )
 
 bool Update3( CDmElement *pElement )
 {
-	const static CUtlSymbolLarge animSetSym			= g_pDataModel->GetSymbol( "DmeAnimationSet" );
-	const static CUtlSymbolLarge presetSym			= g_pDataModel->GetSymbol( "DmePreset" );
-	const static CUtlSymbolLarge comboOpSym			= g_pDataModel->GetSymbol( "DmeCombinationOperator" );
+	const CUtlSymbolLarge animSetSym			= g_pDataModel->GetSymbol( "DmeAnimationSet" );
+	const CUtlSymbolLarge presetSym			= g_pDataModel->GetSymbol( "DmePreset" );
+	const CUtlSymbolLarge comboOpSym			= g_pDataModel->GetSymbol( "DmeCombinationOperator" );
 
-	const static CUtlSymbolLarge logLayerSym		= g_pDataModel->GetSymbol( "DmeLogLayer" );
-	const static CUtlSymbolLarge intLogLayerSym		= g_pDataModel->GetSymbol( "DmeIntLogLayer" );
-	const static CUtlSymbolLarge floatLogLayerSym	= g_pDataModel->GetSymbol( "DmeFloatLogLayer" );
-	const static CUtlSymbolLarge boolLogLayerSym	= g_pDataModel->GetSymbol( "DmeBoolLogLayer" );
-	const static CUtlSymbolLarge colorLogLayerSym	= g_pDataModel->GetSymbol( "DmeColorLogLayer" );
-	const static CUtlSymbolLarge vec2LogLayerSym	= g_pDataModel->GetSymbol( "DmeVector2LogLayer" );
-	const static CUtlSymbolLarge vec3LogLayerSym	= g_pDataModel->GetSymbol( "DmeVector3LogLayer" );
-	const static CUtlSymbolLarge vec4LogLayerSym	= g_pDataModel->GetSymbol( "DmeVector4LogLayer" );
-	const static CUtlSymbolLarge qangleLogLayerSym	= g_pDataModel->GetSymbol( "DmeQAngleLogLayer" );
-	const static CUtlSymbolLarge quatLogLayerSym	= g_pDataModel->GetSymbol( "DmeQuaternionLogLayer" );
-	const static CUtlSymbolLarge vmatrixLogLayerSym	= g_pDataModel->GetSymbol( "DmeVMatrixLogLayer" );
-	const static CUtlSymbolLarge stringLogLayerSym	= g_pDataModel->GetSymbol( "DmeStringLogLayer" );
-	const static CUtlSymbolLarge timeLogLayerSym	= g_pDataModel->GetSymbol( "DmeTimeLogLayer" );
+	const CUtlSymbolLarge logLayerSym		= g_pDataModel->GetSymbol( "DmeLogLayer" );
+	const CUtlSymbolLarge intLogLayerSym		= g_pDataModel->GetSymbol( "DmeIntLogLayer" );
+	const CUtlSymbolLarge floatLogLayerSym	= g_pDataModel->GetSymbol( "DmeFloatLogLayer" );
+	const CUtlSymbolLarge boolLogLayerSym	= g_pDataModel->GetSymbol( "DmeBoolLogLayer" );
+	const CUtlSymbolLarge colorLogLayerSym	= g_pDataModel->GetSymbol( "DmeColorLogLayer" );
+	const CUtlSymbolLarge vec2LogLayerSym	= g_pDataModel->GetSymbol( "DmeVector2LogLayer" );
+	const CUtlSymbolLarge vec3LogLayerSym	= g_pDataModel->GetSymbol( "DmeVector3LogLayer" );
+	const CUtlSymbolLarge vec4LogLayerSym	= g_pDataModel->GetSymbol( "DmeVector4LogLayer" );
+	const CUtlSymbolLarge qangleLogLayerSym	= g_pDataModel->GetSymbol( "DmeQAngleLogLayer" );
+	const CUtlSymbolLarge quatLogLayerSym	= g_pDataModel->GetSymbol( "DmeQuaternionLogLayer" );
+	const CUtlSymbolLarge vmatrixLogLayerSym	= g_pDataModel->GetSymbol( "DmeVMatrixLogLayer" );
+	const CUtlSymbolLarge stringLogLayerSym	= g_pDataModel->GetSymbol( "DmeStringLogLayer" );
+	const CUtlSymbolLarge timeLogLayerSym	= g_pDataModel->GetSymbol( "DmeTimeLogLayer" );
 
 	CUtlSymbolLarge typeSym = pElement->GetType();
 	if ( typeSym == logLayerSym
@@ -2494,7 +2494,7 @@ bool Update3( CDmElement *pElement )
 		CDmAttribute *pOperatorsAttr = pElement->GetAttribute( "operators" );
 		if ( pOperatorsAttr )
 		{
-			const static CUtlSymbolLarge balanceToStereoSym = g_pDataModel->GetSymbol( "DmeBalanceToStereoCalculatorOperator" );
+			const CUtlSymbolLarge balanceToStereoSym = g_pDataModel->GetSymbol( "DmeBalanceToStereoCalculatorOperator" );
 			CDmrElementArray<> operators( pOperatorsAttr );
 			int nOperators = operators.Count();
 			for ( int i = nOperators-1; i >= 0; --i )
@@ -2560,7 +2560,7 @@ bool Update2( CDmElement *pElement )
 	const char *g_pControlType[] = { "isPosition", "isOrientation" };
 	const char *g_pSuffix[] = { "pos", "rot" };
 
-	const static CUtlSymbolLarge animSetSym = g_pDataModel->GetSymbol( "DmeAnimationSet" );
+	const CUtlSymbolLarge animSetSym = g_pDataModel->GetSymbol( "DmeAnimationSet" );
 
 	CUtlSymbolLarge typeSym = pElement->GetType();
 	if ( typeSym == animSetSym )
@@ -2700,27 +2700,27 @@ bool Update1( CDmElement *pElement )
 {
 	// remove lights attribute from filmclips
 
-	const static CUtlSymbolLarge projectedLightSym		= g_pDataModel->GetSymbol( "DmeProjectedLight" );
-	const static CUtlSymbolLarge filmClipSym			= g_pDataModel->GetSymbol( "DmeFilmClip" );
-	const static CUtlSymbolLarge bookmarkSym			= g_pDataModel->GetSymbol( "DmeBookmark" );
-	const static CUtlSymbolLarge timeframeSym			= g_pDataModel->GetSymbol( "DmeTimeFrame" );
-	const static CUtlSymbolLarge timeSelectionSym		= g_pDataModel->GetSymbol( "DmeTimeSelection" );
-	const static CUtlSymbolLarge proceduralPresetSym	= g_pDataModel->GetSymbol( "DmeProceduralPresetSettings" );
-	const static CUtlSymbolLarge gameParticleSysSym		= g_pDataModel->GetSymbol( "DmeGameParticleSystem" );
-	const static CUtlSymbolLarge cameraSym				= g_pDataModel->GetSymbol( "DmeCamera" );
+	const CUtlSymbolLarge projectedLightSym		= g_pDataModel->GetSymbol( "DmeProjectedLight" );
+	const CUtlSymbolLarge filmClipSym			= g_pDataModel->GetSymbol( "DmeFilmClip" );
+	const CUtlSymbolLarge bookmarkSym			= g_pDataModel->GetSymbol( "DmeBookmark" );
+	const CUtlSymbolLarge timeframeSym			= g_pDataModel->GetSymbol( "DmeTimeFrame" );
+	const CUtlSymbolLarge timeSelectionSym		= g_pDataModel->GetSymbol( "DmeTimeSelection" );
+	const CUtlSymbolLarge proceduralPresetSym	= g_pDataModel->GetSymbol( "DmeProceduralPresetSettings" );
+	const CUtlSymbolLarge gameParticleSysSym		= g_pDataModel->GetSymbol( "DmeGameParticleSystem" );
+	const CUtlSymbolLarge cameraSym				= g_pDataModel->GetSymbol( "DmeCamera" );
 
-	const static CUtlSymbolLarge intCurveInfoSym		= g_pDataModel->GetSymbol( "DmeIntCurveInfo" );
-	const static CUtlSymbolLarge floatCurveInfoSym		= g_pDataModel->GetSymbol( "DmeFloatCurveInfo" );
-	const static CUtlSymbolLarge boolCurveInfoSym		= g_pDataModel->GetSymbol( "DmeBoolCurveInfo" );
-	const static CUtlSymbolLarge colorCurveInfoSym		= g_pDataModel->GetSymbol( "DmeColorCurveInfo" );
-	const static CUtlSymbolLarge vec2CurveInfoSym		= g_pDataModel->GetSymbol( "DmeVector2CurveInfo" );
-	const static CUtlSymbolLarge vec3CurveInfoSym		= g_pDataModel->GetSymbol( "DmeVector3CurveInfo" );
-	const static CUtlSymbolLarge vec4CurveInfoSym		= g_pDataModel->GetSymbol( "DmeVector4CurveInfo" );
-	const static CUtlSymbolLarge qangleCurveInfoSym		= g_pDataModel->GetSymbol( "DmeQAngleCurveInfo" );
-	const static CUtlSymbolLarge quatCurveInfoSym		= g_pDataModel->GetSymbol( "DmeQuaternionCurveInfo" );
-	const static CUtlSymbolLarge vmatrixCurveInfoSym	= g_pDataModel->GetSymbol( "DmeVMatrixCurveInfo" );
-	const static CUtlSymbolLarge stringCurveInfoSym		= g_pDataModel->GetSymbol( "DmeStringCurveInfo" );
-	const static CUtlSymbolLarge timeCurveInfoSym		= g_pDataModel->GetSymbol( "DmeTimeCurveInfo" );
+	const CUtlSymbolLarge intCurveInfoSym		= g_pDataModel->GetSymbol( "DmeIntCurveInfo" );
+	const CUtlSymbolLarge floatCurveInfoSym		= g_pDataModel->GetSymbol( "DmeFloatCurveInfo" );
+	const CUtlSymbolLarge boolCurveInfoSym		= g_pDataModel->GetSymbol( "DmeBoolCurveInfo" );
+	const CUtlSymbolLarge colorCurveInfoSym		= g_pDataModel->GetSymbol( "DmeColorCurveInfo" );
+	const CUtlSymbolLarge vec2CurveInfoSym		= g_pDataModel->GetSymbol( "DmeVector2CurveInfo" );
+	const CUtlSymbolLarge vec3CurveInfoSym		= g_pDataModel->GetSymbol( "DmeVector3CurveInfo" );
+	const CUtlSymbolLarge vec4CurveInfoSym		= g_pDataModel->GetSymbol( "DmeVector4CurveInfo" );
+	const CUtlSymbolLarge qangleCurveInfoSym		= g_pDataModel->GetSymbol( "DmeQAngleCurveInfo" );
+	const CUtlSymbolLarge quatCurveInfoSym		= g_pDataModel->GetSymbol( "DmeQuaternionCurveInfo" );
+	const CUtlSymbolLarge vmatrixCurveInfoSym	= g_pDataModel->GetSymbol( "DmeVMatrixCurveInfo" );
+	const CUtlSymbolLarge stringCurveInfoSym		= g_pDataModel->GetSymbol( "DmeStringCurveInfo" );
+	const CUtlSymbolLarge timeCurveInfoSym		= g_pDataModel->GetSymbol( "DmeTimeCurveInfo" );
 
 	CUtlSymbolLarge typeSym = pElement->GetType();
 	if ( typeSym == projectedLightSym )
@@ -2743,12 +2743,17 @@ bool Update1( CDmElement *pElement )
 	}
 	else if ( typeSym == timeframeSym )
 	{
-		pElement->RenameAttribute( "startTime", "start" );
-		pElement->RenameAttribute( "durationTime", "duration" );
-		pElement->RenameAttribute( "offsetTime", "offset" );
-		ChangeAttributeType( pElement, "start", AT_TIME );
-		ChangeAttributeType( pElement, "duration", AT_TIME );
-		ChangeAttributeType( pElement, "offset", AT_TIME );
+        if (pElement->RenameAttribute("startTime", "start")) {
+            ChangeAttributeType(pElement, "start", AT_TIME);
+        }
+
+        if (pElement->RenameAttribute("durationTime", "duration")) {
+            ChangeAttributeType(pElement, "duration", AT_TIME);
+        }
+
+        if (pElement->RenameAttribute("offsetTime", "offset")) {
+            ChangeAttributeType(pElement, "offset", AT_TIME);
+        }
 	}
 	else if ( typeSym == timeSelectionSym )
 	{
@@ -2850,7 +2855,7 @@ static char *s_RemapOperatorNameTable[]={
 
 bool Update5( CDmElement *pElement )
 {
-	const static CUtlSymbolLarge ParticleOperatorSym	= g_pDataModel->GetSymbol( "DmeParticleOperator" );
+	const CUtlSymbolLarge ParticleOperatorSym	= g_pDataModel->GetSymbol( "DmeParticleOperator" );
 
 	CUtlSymbolLarge typeSym = pElement->GetType();
 
@@ -2948,11 +2953,7 @@ ElementUpdateFunction MovieObjectsUpdateFunctionList[] =
 	Update1_R, Update2_R, Update3_R, Update4_R, Update6_R, Update7_R, Update8_R, Update9_R,
 	Update10_R, Update11_R, Update12_R, Update13_R, Update14_R, Update15_R, Update17_R, Update18_R, Update19_R, NULL
 };
-ElementUpdateFunction SFMSessionObjectsUpdateFunctionList[] =
-{
-	Update1_R, Update2_R, Update3_R, Update4_R, Update6_R, Update7_R, Update8_R, Update9_R,
-	Update10_R, Update11_R, Update12_R, Update13_R, Update14_R, Update15_R, Update16_R, Update17_R, Update18_R, Update19_R,  NULL
-};
+
 ElementUpdateFunction ParticleUpdateFunctionList[] = { Update5_R, NULL };
 
 
@@ -2962,16 +2963,38 @@ ElementUpdateFunction ParticleUpdateFunctionList[] = { Update5_R, NULL };
 
 DECLARE_FORMAT_UPDATER( dmx,				"Generic DMX",					"dmx", "binary",	MovieObjectsUpdateFunctionList )
 DECLARE_FORMAT_UPDATER( movieobjects,		"Generic MovieObjects",			"dmx", "binary",	MovieObjectsUpdateFunctionList )
-DECLARE_FORMAT_UPDATER( sfm,				"Generic SFM",					"dmx", "binary",	MovieObjectsUpdateFunctionList )
-DECLARE_FORMAT_UPDATER( sfm_settings,		"SFM Settings",					"dmx", "keyvalues2",MovieObjectsUpdateFunctionList )
-DECLARE_FORMAT_UPDATER( sfm_session,		"SFM Session",					"dmx", "binary",	SFMSessionObjectsUpdateFunctionList )
-DECLARE_FORMAT_UPDATER( sfm_trackgroup,		"SFM TrackGroup",				"dmx", "binary",	MovieObjectsUpdateFunctionList )
 DECLARE_FORMAT_UPDATER( pcf,				"Particle Configuration File",	"pcf", "binary",	ParticleUpdateFunctionList )
 DECLARE_FORMAT_UPDATER( preset,				"Preset File",					"dmx", "keyvalues2",PresetUpdateFunctionList )
 DECLARE_FORMAT_UPDATER( facial_animation,	"Facial Animation File",		"dmx", "binary",	MovieObjectsUpdateFunctionList )
-DECLARE_FORMAT_UPDATER( model,				"DMX Model",					"dmx", "binary",	MovieObjectsUpdateFunctionList )
+
+class CDmFormatUpdater_model : public IDmFormatUpdater {
+public:
+    CDmFormatUpdater_model() {}
+
+    virtual const char *GetName() const { return "model"; }
+
+    virtual const char *GetDescription() const { return "DMX Model"; }
+
+    virtual const char *GetExtension() const { return "dmx"; }
+
+    virtual const char *GetDefaultEncoding() const { return "binary"; }
+
+    virtual int GetCurrentVersion() const { return ARRAYSIZE(MovieObjectsUpdateFunctionList); }
+
+    virtual bool Update(CDmElement **ppRoot, int nSourceVersion) {
+        if (!ppRoot || !*ppRoot) return false;
+        if (nSourceVersion > GetCurrentVersion()) return false;
+        int nUpdater = MAX(0, nSourceVersion - 1);
+        bool bParity = true;
+        while (MovieObjectsUpdateFunctionList[nUpdater]) {
+            if (!MovieObjectsUpdateFunctionList[nUpdater](ppRoot, bParity))return false;
+            bParity = !bParity;
+            ++nUpdater;
+        }
+        return true;
+    }
+}; static CDmFormatUpdater_model s_FormatUpdatermodel;
 DECLARE_FORMAT_UPDATER( model_,				"DMX Model",					"dmx", "keyvalues2",	MovieObjectsUpdateFunctionList )
-DECLARE_FORMAT_UPDATER( ved,				"Vgui editor file",				"ved", "keyvalues2",	EmptyUpdateFunctionList )
 DECLARE_FORMAT_UPDATER( mks,				"Make sheet file",				"mks", "keyvalues2",	EmptyUpdateFunctionList )
 DECLARE_FORMAT_UPDATER( mp_preprocess,		"DMX Model Pipeline Preprocess File",				"mpp",				"keyvalues2",	EmptyUpdateFunctionList )
 DECLARE_FORMAT_UPDATER( mp_root,			"DMX Model Pipeline Root Script File",				"root",				"keyvalues2",	EmptyUpdateFunctionList )
@@ -2983,11 +3006,6 @@ DECLARE_FORMAT_UPDATER( mp_materialgroup,	"DMX Model Pipeline Material Group Scr
 DECLARE_FORMAT_UPDATER( mp_keyvalues,		"DMX Model Pipeline KeyValues Script File",			"keyvalues",		"keyvalues2",	EmptyUpdateFunctionList )
 DECLARE_FORMAT_UPDATER( mp_eyes,			"DMX Model Pipeline Eyes Script File",				"eyes",				"keyvalues2",	EmptyUpdateFunctionList )
 DECLARE_FORMAT_UPDATER( mp_bonemask,		"DMX Model Pipeline Bone Mask Script File",			"bonemask",			"keyvalues2",	EmptyUpdateFunctionList )
-DECLARE_FORMAT_UPDATER( gui,				"Compiled GUI file",			"gui", "keyvalues2",EmptyUpdateFunctionList )
-DECLARE_FORMAT_UPDATER( schema,				"Schema description file",		"sch", "keyvalues2",EmptyUpdateFunctionList )
-DECLARE_FORMAT_UPDATER( tex,				"Texture Configuration File",	"tex", "keyvalues2",EmptyUpdateFunctionList )
-DECLARE_FORMAT_UPDATER( world,				"World Files",					"wld", "binary",	EmptyUpdateFunctionList )
-DECLARE_FORMAT_UPDATER( worldnode,			"World Node Files",				"wnd", "binary",	EmptyUpdateFunctionList )
 
 //-----------------------------------------------------------------------------
 // The application object
@@ -3077,17 +3095,10 @@ InitReturnVal_t CDmSerializers::Init()
 	// install dmx format updaters
 	INSTALL_FORMAT_UPDATER( dmx );
 	INSTALL_FORMAT_UPDATER( movieobjects );
-	INSTALL_FORMAT_UPDATER( sfm );
-	INSTALL_FORMAT_UPDATER( sfm_settings );
-	INSTALL_FORMAT_UPDATER( sfm_session );
-	INSTALL_FORMAT_UPDATER( sfm_trackgroup );
 	INSTALL_FORMAT_UPDATER( pcf );
-	INSTALL_FORMAT_UPDATER( gui );
-	INSTALL_FORMAT_UPDATER( schema );
 	INSTALL_FORMAT_UPDATER( preset );
 	INSTALL_FORMAT_UPDATER( facial_animation );
 	INSTALL_FORMAT_UPDATER( model );
-	INSTALL_FORMAT_UPDATER( ved );
 	INSTALL_FORMAT_UPDATER( mks );
 	INSTALL_FORMAT_UPDATER( mp_preprocess );
 	INSTALL_FORMAT_UPDATER( mp_root );
@@ -3099,9 +3110,6 @@ InitReturnVal_t CDmSerializers::Init()
 	INSTALL_FORMAT_UPDATER( mp_keyvalues );
 	INSTALL_FORMAT_UPDATER( mp_eyes );
 	INSTALL_FORMAT_UPDATER( mp_bonemask );
-	INSTALL_FORMAT_UPDATER( tex );
-	INSTALL_FORMAT_UPDATER( world );
-	INSTALL_FORMAT_UPDATER( worldnode );
 
 	return INIT_OK; 
 }

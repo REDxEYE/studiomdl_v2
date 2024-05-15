@@ -14,11 +14,6 @@
 #include "movieobjects/dmemakefile.h"
 
 
-//-----------------------------------------------------------------------------
-// Forward declarations
-//-----------------------------------------------------------------------------
-class CDmeMDL;
-
 
 //-----------------------------------------------------------------------------
 // Describes a skin source for MDL makefiles
@@ -94,7 +89,6 @@ private:
 	virtual void DestroyOutputElement( CDmElement *pOutput );
 	virtual const char *GetOutputDirectoryID() { return "makefilegamedir:.."; }
 
-	CDmeHandle< CDmeMDL > m_hMDL;
 	bool m_bFlushMDL;
 };
 

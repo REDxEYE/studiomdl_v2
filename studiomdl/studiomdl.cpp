@@ -874,21 +874,7 @@ s_source_t *Load_Source(const char *name, const char *ext, bool reverse, bool is
     pSource->scale = 1.0f;
     pSource->rotation = g_defaultrotation;
     typedef int (*load_proc)(s_source_t *);
-#ifdef FBX_SUPPORT
-    std::array<std::pair<const char *, load_proc>, 9> supported_formats = {
-             std::make_pair("fbx", Load_FBX),
-             std::make_pair("vrm", Load_VRM),
-             std::make_pair("dmx", Load_DMX),
-             std::make_pair("mpp", Load_DMX),
-             std::make_pair("smd", Load_SMD),
-             std::make_pair("sma", Load_SMD),
-             std::make_pair("phys", Load_SMD),
-             std::make_pair("vta", Load_VTA),
-             std::make_pair("obj", Load_OBJ),
-             std::make_pair("xml", Load_DMX),
-             std::make_pair("fbx", Load_FBX)
-     };
-#else
+
     std::array<std::pair<const char *, load_proc>, 9> supported_formats = {
             std::make_pair("vrm", Load_VRM),
             std::make_pair("dmx", Load_DMX),
@@ -900,7 +886,6 @@ s_source_t *Load_Source(const char *name, const char *ext, bool reverse, bool is
             std::make_pair("obj", Load_OBJ),
             std::make_pair("xml", Load_DMX)
     };
-#endif
     for (int fmt_id = 0; fmt_id < supported_formats.size(); ++fmt_id) {
         if ((!result && xext[0] == '\0') || std::strcmp(xext, supported_formats[fmt_id].first) == 0) {
             std::snprintf(g_StudioMdlContext.szFilename, sizeof(g_StudioMdlContext.szFilename), "%s%s.%s", cddir[numdirs], pTempName,

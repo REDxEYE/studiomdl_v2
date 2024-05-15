@@ -1216,13 +1216,15 @@ CDmAttribute *CDmElement::FindAttribute( const char *pAttributeName ) const
 //-----------------------------------------------------------------------------
 // attribute renaming
 //-----------------------------------------------------------------------------
-void CDmElement::RenameAttribute( const char *pAttributeName, const char *pNewName )
+bool CDmElement::RenameAttribute( const char *pAttributeName, const char *pNewName )
 {
 	CDmAttribute *pAttr = FindAttribute( pAttributeName );
 	if ( pAttr )
 	{
 		pAttr->SetName( pNewName );
+        return true;
 	}
+    return false;
 }
 
 

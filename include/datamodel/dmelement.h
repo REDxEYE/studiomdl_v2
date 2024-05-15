@@ -215,7 +215,7 @@ public:
 	template< class E > CDmAttribute* AddAttributeElementArray( const char *pAttributeName );
 	void				RemoveAttribute( const char *pAttributeName );
 	void				RemoveAttributeByPtr( CDmAttribute *pAttributeName );
-	void				RenameAttribute( const char *pAttributeName, const char *pNewName );
+	bool				RenameAttribute( const char *pAttributeName, const char *pNewName );
 
 	// get attribute value
 	template< class T > const T& GetValue( const char *pAttributeName ) const;

@@ -16,7 +16,6 @@ add_library(movieobjects
         dmefaceset.cpp
         dmemakefileutils.cpp
         dmeusersettings.cpp
-        dmematerialoverlayfxclip.cpp
         dmetrackgroup.cpp
         dmegamemodel.cpp
         dmechannel.cpp
@@ -52,11 +51,10 @@ add_library(movieobjects
         dmevertexdata.cpp
         dmejoint.cpp
         dmetimeselection.cpp
-        dmesound.cpp
         dmeinput.cpp
+        dmesound.cpp
         dmemdlmakefile.cpp
         dmematerial.cpp
-        dmemdl.cpp
         dmemorphoperator.cpp
         dmedccmakefile.cpp
         dmeanimationset.cpp

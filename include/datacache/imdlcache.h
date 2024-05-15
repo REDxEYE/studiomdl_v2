@@ -341,24 +341,6 @@ public:
 	virtual void BeginCoarseLock() = 0;
 	virtual void EndCoarseLock() = 0;
 
-	virtual void ReloadVCollide( MDLHandle_t handle ) = 0;
-
-	virtual bool ReleaseAnimBlockAllocator() = 0;
-
-	virtual bool RestoreHardwareData( MDLHandle_t handle, FSAsyncControl_t *pAsyncVTXControl, FSAsyncControl_t *pAsyncVVDControl ) = 0;
-
-	virtual void DisableVCollideLoad() = 0;
-	virtual void EnableVCollideLoad() = 0;
-
-	virtual void DisableFileNotFoundWarnings() = 0;
-	virtual void EnableFileNotFoundWarnings() = 0;
-
-	virtual bool ProcessPendingHardwareRestore() = 0;
-
-	virtual void UnloadQueuedHardwareData( ) = 0;
-
-	virtual void DumpDictionaryState( ) = 0;
-
 	// ========================
 	// combined models
 

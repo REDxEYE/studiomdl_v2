@@ -97,9 +97,6 @@ public:
 	CDmeVertexData *GetBindBaseState();
 	const CDmeVertexData *GetBindBaseState() const;
 
-	// Draws the mesh
-	void Draw( const matrix3x4_t &shapeToWorld, CDmeDrawSettings *pDrawSettings = NULL );
-
 	// Compute triangulated indices
 	void ComputeTriangulatedIndices( const CDmeVertexData *pBaseState, const CDmeFaceSet *pFaceSet, int nFirstIndex, int *pIndices, int nOutCount ) const;
 
@@ -266,9 +263,6 @@ private:
 	VertexFormat_t ComputeHwMeshVertexFormat( void );
 	IMorph *CreateHwMorph( IMaterial *pMTL );
 	IMesh *CreateHwMesh( CDmeFaceSet *pFaceSet );
-
-	// Draws the mesh when it uses too many bones
-	void DrawDynamicMesh( CDmeFaceSet *pFaceSet, matrix3x4_t *pPoseToWorld, bool bHasActiveDeltaStates, CDmeDrawSettings *pDrawSettings = NULL );
 
 	// Build a map from vertex index to a list of triangles that share the vert.
 	void BuildTriangleMap( const CDmeVertexData *pBaseState, CDmeFaceSet* pFaceSet, CUtlVector<Triangle_t>& triangles, CUtlVector< CUtlVector<int> >* pVertToTriMap = NULL );
@@ -452,8 +446,6 @@ private:
 	// Return the distance between the two vertices in the specified base state, if the specified base state is NULL the current state is used
 	float DistanceBetween( int vIndex0, int vIndex1, const CDmeVertexData *pPassedBase = NULL ) const;
 
-	void DrawWireframeFaceSet( CDmeFaceSet *pFaceSet, matrix3x4_t *pPoseToWorld, bool bHasActiveDeltaStates, CDmeDrawSettings *pDrawSettings );
-
 	void ComputeNormalsFromPositions( CDmeVertexData *pBase, const Vector *pPosition, const CUtlVector<Triangle_t> &triangles, int nNormalCount, Vector *pNormals );
 
 	CDmaElement< CDmeVertexData > m_BindBaseState;
@@ -468,14 +460,6 @@ private:
 	// Cached-off map of fields->
 	CUtlVector< FaceSet_t > m_hwFaceSets;
 	
-	// Normal rendering materials
-	static bool s_bNormalMaterialInitialized;
-	static CMaterialReference s_NormalMaterial;
-
-	// Wireframe rendering materials
-	static bool s_bWireframeMaterialInitialized;
-	static CMaterialReference s_WireframeMaterial;
-
 	friend class CDmeMeshRenderInfo;
 
 #endif // #ifndef SWIG

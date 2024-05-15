@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright ï¿½ 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // A class representing an MDL
 //
@@ -16,7 +16,6 @@
 #include "datamodel/dmattributevar.h"
 #include "movieobjects/dmeshape.h"
 #include "datacache/imdlcache.h"
-#include "tier3/mdlutils.h"
 
 #include "mathlib/vector.h"
 #include <string>
@@ -29,7 +28,6 @@
 class CDmeTransform;
 class IMorph;
 class IMaterial;
-struct SubdivMesh_t;
 class IMesh;
 class CDmeDrawSettings;
 struct matrix3x4_t;
@@ -76,7 +74,6 @@ public:
 private:
 	void UpdateMDL();
 
-	CMDL m_MDL;
 	bool m_bDrawInEngine;
 	bool m_bZUp;
 };

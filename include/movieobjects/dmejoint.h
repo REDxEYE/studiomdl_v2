@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =====//
+//====== Copyright ï¿½ 1996-2004, Valve Corporation, All rights reserved. =====//
 //
 // Dme version of a joint of a skeletal model (gets compiled into a MDL)
 //
@@ -28,18 +28,6 @@ class CDmeDrawSettings;
 class CDmeJoint : public CDmeDag
 {
 	DEFINE_ELEMENT( CDmeJoint, CDmeDag );
-
-public:
-	virtual void Draw( CDmeDrawSettings *pDrawSettings = NULL );
-
-	static void DrawJointHierarchy( bool bDrawJoints );
-
-private:
-	void DrawJoints();
-
-	static bool sm_bDrawJoints;
-	static IMaterial *sm_pMatJoint;
-	CMaterialReference m_MatRefJoint;
 };
 
 

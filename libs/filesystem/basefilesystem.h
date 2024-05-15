@@ -177,7 +177,6 @@ void FixUpPathCaseForPS3( const char* pFilePath );
 #endif
 
 class IThreadPool;
-class CAsyncJobFuliller;
 class CBlockingFileItemList;
 class KeyValues;
 class CCompiledKeyValuesReader;
@@ -458,15 +457,6 @@ public:
 };
 
 
-//-----------------------------------------------------------------------------
-
-#ifdef AsyncRead
-#undef AsyncRead
-#undef AsyncReadMutiple
-#endif
-
-//-----------------------------------------------------------------------------
-
 abstract_class CBaseFileSystem : public CTier2AppSystem< IFileSystem >
 {
 	friend class CPackFileHandle;
@@ -487,9 +477,6 @@ public:
 	virtual void				*QueryInterface( const char *pInterfaceName );
 	virtual InitReturnVal_t		Init();
 	virtual void				Shutdown();
-
-	void						InitAsync();
-	void						ShutdownAsync();
 
 	void						ParsePathID( const char* &pFilename, const char* &pPathID, char tempPathID[MAX_PATH] );
 
@@ -614,32 +601,6 @@ public:
 	virtual void				UnloadModule( CSysModule *pModule );
 
 	//--------------------------------------------------------
-	// asynchronous file loading
-	//--------------------------------------------------------
-	virtual FSAsyncStatus_t		AsyncReadMultiple( const FileAsyncRequest_t *pRequests, int nRequests, FSAsyncControl_t *pControls );
-	virtual FSAsyncStatus_t		AsyncReadMultipleCreditAlloc( const FileAsyncRequest_t *pRequests, int nRequests, const char *pszFile, int line, FSAsyncControl_t *phControls = NULL );
-	virtual FSAsyncStatus_t		AsyncDirectoryScan( const char* pSearchSpec, bool recurseFolders, void* pContext, FSAsyncScanAddFunc_t pfnAdd, FSAsyncScanCompleteFunc_t pfnDone, FSAsyncControl_t *pControl = NULL );
-	virtual FSAsyncStatus_t		AsyncFinish( FSAsyncControl_t hControl, bool wait );
-	virtual FSAsyncStatus_t		AsyncGetResult( FSAsyncControl_t hControl, void **ppData, int *pSize );
-	virtual FSAsyncStatus_t		AsyncAbort( FSAsyncControl_t hControl );
-	virtual FSAsyncStatus_t		AsyncStatus( FSAsyncControl_t hControl );
-	virtual FSAsyncStatus_t		AsyncSetPriority(FSAsyncControl_t hControl, int newPriority);
-	virtual FSAsyncStatus_t		AsyncFlush();
-	virtual FSAsyncStatus_t		AsyncAppend(const char *pFileName, const void *pSrc, int nSrcBytes, bool bFreeMemory, FSAsyncControl_t *pControl) { return AsyncWrite( pFileName, pSrc, nSrcBytes, bFreeMemory, true, pControl); }
-	virtual FSAsyncStatus_t		AsyncWrite(const char *pFileName, const void *pSrc, int nSrcBytes, bool bFreeMemory, bool bAppend, FSAsyncControl_t *pControl);
-	virtual FSAsyncStatus_t		AsyncWriteFile(const char *pFileName, const CUtlBuffer *pSrc, int nSrcBytes, bool bFreeMemory, bool bAppend, FSAsyncControl_t *pControl);
-	virtual FSAsyncStatus_t		AsyncAppendFile(const char *pDestFileName, const char *pSrcFileName, FSAsyncControl_t *pControl);
-	virtual void				AsyncFinishAll( int iToPriority = INT_MIN );
-	virtual void				AsyncFinishAllWrites();
-	virtual bool				AsyncSuspend();
-	virtual bool				AsyncResume();
-
-	virtual void				AsyncAddRef( FSAsyncControl_t hControl );
-	virtual void				AsyncRelease( FSAsyncControl_t hControl );
-	virtual FSAsyncStatus_t		AsyncBeginRead( const char *pszFile, FSAsyncFile_t *phFile );
-	virtual FSAsyncStatus_t		AsyncEndRead( FSAsyncFile_t hFile );
-
-	//--------------------------------------------------------
 	// pack files
 	//--------------------------------------------------------
 	bool						AddPackFile( const char *pFileName, const char *pathID );
@@ -670,12 +631,6 @@ public:
 	virtual void				BeginMapAccess();
 	virtual void				EndMapAccess();
 	virtual bool				FullPathToRelativePathEx( const char *pFullpath, const char *pPathId, char *pRelative, int maxlen );
-
-	FSAsyncStatus_t				SyncRead( const FileAsyncRequest_t &request );
-	FSAsyncStatus_t				SyncWrite(const char *pszFilename, const void *pSrc, int nSrcBytes, bool bFreeMemory, bool bAppend );
-	FSAsyncStatus_t				SyncAppendFile(const char *pAppendToFileName, const char *pAppendFromFileName );
-	FSAsyncStatus_t				SyncGetFileSize( const FileAsyncRequest_t &request );
-	void						DoAsyncCallback( const FileAsyncRequest_t &request, void *pData, int nBytesRead, FSAsyncStatus_t result );
 
 	void						SetupPreloadData();
 	void						DiscardPreloadData();

@@ -771,8 +771,6 @@ InitReturnVal_t CBaseFileSystem::Init()
 		fprintf( m_pLogFile, "@echo on\n" );
 	}
 
-	InitAsync();
-
 	if ( IsGameConsole() )
 	{
 		BuildExcludeList();
@@ -860,8 +858,6 @@ InitReturnVal_t CBaseFileSystem::Init()
 
 void CBaseFileSystem::Shutdown()
 {
-	ShutdownAsync();
-//	m_FileTracker2.ShutdownAsync();
 
 #if !defined( _X360 ) && !defined( _PS3 )
 	if( m_pLogFile )
@@ -1381,7 +1377,6 @@ bool CBaseFileSystem::AddPackFile( const char *pFileName, const char *pathID )
 {
 	CHECK_DOUBLE_SLASHES( pFileName );
 
-	AsyncFinishAll();
 	return AddPackFileFromPath( "", pFileName, true, pathID );
 }
 
@@ -2317,8 +2312,6 @@ void CBaseFileSystem::AddPackFiles( const char *pPath, const CUtlSymbol &pathID,
 //-----------------------------------------------------------------------------
 void CBaseFileSystem::RemoveAllMapSearchPaths( void )
 {
-	AsyncFinishAll();
-
 	int c = m_SearchPaths.Count();
 	for ( int i = c - 1; i >= 0; i-- )
 	{
@@ -2664,8 +2657,6 @@ void CBaseFileSystem::PrintSearchPaths( void )
 //-----------------------------------------------------------------------------
 void CBaseFileSystem::AddSearchPathInternal( const char *pPath, const char *pathID, SearchPathAdd_t addType, bool bAddPackFiles, int iForceInsertIndex )
 {
-	AsyncFinishAll();
-
 	Assert( ThreadInMainThread() );
 
 	// Map pak files have their own handler
@@ -3273,8 +3264,6 @@ bool CBaseFileSystem::RemoveSearchPath( const char *pPath, const char *pathID )
 	char tempSymlinkBuffer[MAX_PATH];
 	pPath = V_FormatFilenameForSymlinking( tempSymlinkBuffer, pPath );
 
-	AsyncFinishAll();
-
 	char newPath[ MAX_FILEPATH ];
 	newPath[ 0 ] = 0;
 
@@ -3363,8 +3352,6 @@ bool CBaseFileSystem::RemoveSearchPath( const char *pPath, const char *pathID )
 //-----------------------------------------------------------------------------
 void CBaseFileSystem::RemoveSearchPaths( const char *pathID )
 {
-	AsyncFinishAll();
-
 	int nCount = m_SearchPaths.Count();
 	for (int i = nCount - 1; i >= 0; i--)
 	{
@@ -8234,8 +8221,6 @@ bool CBaseFileSystem::AddDLCSearchPaths()
 	{
 		return false;
 	}
-
-	AsyncFinishAll();
 
 	// have to add the DLC to achieve desired SP order DLCN..DLC1
 	for ( int iDLC = 0; iDLC < m_DLCContents.Count(); iDLC++ )

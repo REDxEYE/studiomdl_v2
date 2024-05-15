@@ -46,10 +46,6 @@ void CDmeMaterial::Resolve()
 {
 	BaseClass::Resolve();
 
-	if ( m_mtlName.IsDirty() )
-	{
-		m_mtlRef.Shutdown();
-	}
 }
 
 
@@ -68,22 +64,4 @@ void CDmeMaterial::SetMaterial( const char *pMaterialName )
 const char *CDmeMaterial::GetMaterialName() const
 {
 	return m_mtlName;
-}
-
-
-//-----------------------------------------------------------------------------
-// accessor for cached IMaterial
-//-----------------------------------------------------------------------------
-IMaterial *CDmeMaterial::GetCachedMTL()
-{
-	if ( !m_mtlRef.IsValid() )
-	{
-		const char *mtlName = m_mtlName.Get();
-		if ( mtlName == NULL )
-			return NULL;
-
-		m_mtlRef.Init( g_pMaterialSystem->FindMaterial( mtlName, NULL, false ) );
-	}
-
-	return (IMaterial * )m_mtlRef;
 }

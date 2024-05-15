@@ -326,7 +326,6 @@ void Cmd_MaxEyeDeflection() {
     g_flMaxEyeDeflection = cosf(verify_atof(token) * M_PI / 180.0f);
 }
 
-
 //-----------------------------------------------------------------------------
 // Cmd_AddSearchDir: add the custom defined path to an array that we will add to the search paths
 //-----------------------------------------------------------------------------
@@ -354,8 +353,8 @@ void Cmd_Illumposition() {
     if (TokenAvailable()) {
         GetToken(false);
 
-        Q_strncpy(g_attachment[g_numattachments].name, "__illumPosition", sizeof(g_attachment[g_numattachments].name));
-        Q_strncpy(g_attachment[g_numattachments].bonename, token, sizeof(g_attachment[g_numattachments].bonename));
+        strncpy(g_attachment[g_numattachments].name, "__illumPosition", sizeof(g_attachment[g_numattachments].name));
+        strncpy(g_attachment[g_numattachments].bonename, token, sizeof(g_attachment[g_numattachments].bonename));
         AngleMatrix(QAngle(0, 0, 0), illumposition, g_attachment[g_numattachments].local);
         g_attachment[g_numattachments].type |= IS_RIGID;
 
@@ -4443,219 +4442,6 @@ static bool s_bFlexClothBorderJoints = false;
 QAngle s_angClothPrerotate(0, 0, 0);
 
 
-CClothProxyCompiler *GetClothProxyCompiler() {
-    if (!g_pClothProxyCompiler) {
-        // just create a default cloth compiler with default options and start appending cloth to it
-        g_pClothProxyCompiler = new CClothProxyCompiler(new CAuthPhysFx);
-        CVClothProxyMeshOptions clothOptions;
-        clothOptions.m_bDriveMeshesWithBacksolvedJointsOnly = true;
-        g_pClothProxyCompiler->Init(clothOptions);
-    }
-    return g_pClothProxyCompiler;
-}
-
-CAuthPhysFx *GetAuthPhysFx() {
-    return GetClothProxyCompiler()->GetFx();
-}
-
-bool EatClothBool(const char *pName, bool &dst) {
-    if (!GetToken(true)) {
-        TokenError("Cloth bool value %s is missing\n", pName);
-        return false;
-    }
-    if (!V_stricmp(token, "true") || !V_stricmp(token, "on") || !V_stricmp(token, "yes")) {
-        dst = true;
-    } else if (!V_stricmp(token, "false") || !V_stricmp(token, "off") || !V_stricmp(token, "no")) {
-        dst = false;
-    } else {
-        int nBool;
-        if (sscanf(token, "%d", &nBool) != 1) {
-            TokenError("Cloth value %s is malformed \"%s\", must be a number\n", pName, token);
-            return false;
-        }
-        dst = nBool != 0;
-        if (nBool != 0 && nBool != 1) {
-            Warning("Please use true/false or 0/1 for value %s\n", pName);
-        }
-    }
-    return true;
-}
-
-bool EatClothFloat(const char *pName, float &dst) {
-    if (!GetToken(true)) {
-        TokenError("Cloth value %s is missing\n", pName);
-        return false;
-    }
-    if (sscanf(token, "%f", &dst) != 1) {
-        TokenError("Cloth value %s is malformed \"%s\", must be a number\n", pName, token);
-        return false;
-    }
-    return true;
-}
-
-
-void ParseClothKeyvalues() {
-    // Simply read in the block between { }s as text
-    // and plop it out unchanged into the .mdl file.
-    // Make sure to respect the fact that we may have nested {}s
-    int nLevel = 0;
-
-    Assert(token[0] == '{');
-
-    struct BoolVal_t {
-        const char *pKey;
-        bool *pBool;
-    };
-    struct FloatVal_t {
-        const char *pKey;
-        float *pFloat;
-    };
-
-    BoolVal_t boolVals[] = {
-            {"world_collision",    &GetAuthPhysFx()->m_bCanCollideWithWorldCapsulesAndSpheres},
-            {"add_stiffness_rods", &GetAuthPhysFx()->m_bAddStiffnessRods},
-            {"rigid_edge_hinges",  &GetAuthPhysFx()->m_bRigidEdgeHinges},
-            {"flex_borders",       &s_bFlexClothBorderJoints}
-    };
-    FloatVal_t floatVals[] = {
-            {"local_position",            &GetAuthPhysFx()->m_flLocalForce},
-            {"local_rotation",            &GetAuthPhysFx()->m_flLocalRotation},
-            {"surface_stretch",           &GetAuthPhysFx()->m_flDefaultSurfaceStretch},
-            {"thread_stretch",            &GetAuthPhysFx()->m_flDefaultThreadStretch},
-            {"gravity_scale",             &GetAuthPhysFx()->m_flDefaultGravityScale},
-            {"vel_air_drag",              &GetAuthPhysFx()->m_flDefaultVelAirDrag},
-            {"exp_air_drag",              &GetAuthPhysFx()->m_flDefaultExpAirDrag},
-            {"vel_quad_air_drag",         &GetAuthPhysFx()->m_flDefaultVelQuadAirDrag},
-            {"exp_quad_air_drag",         &GetAuthPhysFx()->m_flDefaultExpQuadAirDrag},
-            {"vel_rod_air_drag",          &GetAuthPhysFx()->m_flDefaultVelRodAirDrag},
-            {"exp_rod_air_drag",          &GetAuthPhysFx()->m_flDefaultExpRodAirDrag},
-            {"quad_vel_smooth_rate",      &GetAuthPhysFx()->m_flQuadVelocitySmoothRate},
-            {"rod_vel_smooth_rate",       &GetAuthPhysFx()->m_flRodVelocitySmoothRate},
-            {"windage",                   &GetAuthPhysFx()->m_flWindage},
-            {"wind_drag",                 &GetAuthPhysFx()->m_flWindDrag},
-            {"curvature",                 &GetAuthPhysFx()->m_flAddCurvature},
-            {"quad_velocity_smooth_rate", &GetAuthPhysFx()->m_flQuadVelocitySmoothRate},
-            {"rod_velocity_smooth_rate",  &GetAuthPhysFx()->m_flRodVelocitySmoothRate}
-
-    };
-
-
-    while (true) {
-        char *pToken = token;
-        if (pToken[0] == '{') {
-            nLevel++;
-            pToken++;
-        } else if (pToken[0] == '}') {
-            nLevel--;
-            pToken++;
-        }
-        if (*pToken) {
-            bool bFound = false;
-            for (int i = 0; !bFound && i < ARRAYSIZE(boolVals); ++i) {
-                if (!V_stricmp(pToken, boolVals[i].pKey)) {
-                    if (EatClothBool(boolVals[i].pKey, *boolVals[i].pBool)) {
-                        bFound = true;
-                        break;
-                    } else {
-                        return;
-                    }
-                }
-            }
-            for (int i = 0; !bFound && i < ARRAYSIZE(floatVals); ++i) {
-                if (!V_stricmp(pToken, floatVals[i].pKey)) {
-                    if (EatClothFloat(floatVals[i].pKey, *floatVals[i].pFloat)) {
-                        bFound = true;
-                        break;
-                    } else {
-                        return;
-                    }
-                }
-            }
-            if (!bFound) {
-                if (!V_stricmp(pToken, "prerotate")) {
-                    if (EatClothFloat(pToken, s_angClothPrerotate.x) && EatClothFloat(pToken, s_angClothPrerotate.y) &&
-                        EatClothFloat(pToken, s_angClothPrerotate.z)) {
-                        bFound = true;
-                    } else {
-                        return;
-                    }
-                } else {
-                    TokenError("Cloth keyvalue \"%s\" is not recognized\n", pToken);
-                    return;
-                }
-            }
-            if (pToken[V_strlen(pToken) - 1] == '}') {
-                nLevel--;
-            }
-        }
-        if (nLevel <= 0)
-            break;
-        if (!GetToken(true))
-            break;
-    }
-
-    if (nLevel > 0) {
-        TokenError("Cloth Keyvalue block missing matching braces.\n");
-    }
-}
-
-
-void Cmd_Cloth() {
-    if (!GetToken(false))
-        return;
-    if (*token == '{') {
-        ParseClothKeyvalues();
-        return;
-    }
-    // append cloth piece to the cloth builder
-    // use the full search tree, including mod hierarchy to find the file
-    char pFullPath[MAX_PATH];
-    if (!GetGlobalFilePath(token, pFullPath, sizeof(pFullPath))) {
-        TokenError("Cannot find file %s", token);
-        return;
-    }
-
-    // When reading, keep the CRLF; this will make ReadFile read it in binary format
-    // and also append a couple 0s to the end of the buffer.
-    CDmElement *pRoot;
-    if (g_pDataModel->RestoreFromFile(pFullPath, nullptr, nullptr, &pRoot) == DMFILEID_INVALID) {
-        TokenError("Cannot read file %s", pFullPath);
-        return;
-    }
-    // Load model info: LoadModelInfo( pRoot, pFullPath );
-    // Load constraints: LoadConstraints( pRoot );
-    //CDmeDag *pSkeleton = pRoot->GetValueElement< CDmeDag >( "skeleton" );
-    if (CDmeModel *pModel = pRoot->GetValueElement<CDmeModel>("model")) {
-        CVClothProxyMesh meshOptions;
-        meshOptions.m_bFlexClothBorders = s_bFlexClothBorderJoints;
-        GetClothProxyCompiler()->Append(pModel, .5f, meshOptions);
-        g_pDataModel->RemoveFileId(pRoot->GetFileId());
-    } else {
-        TokenError("File %d has no DmeModel in it\n", pFullPath);
-    }
-}
-
-void Cmd_ClothPlaneCollision() {
-    if (!GetToken(false))
-        return;
-    char pFullPath[MAX_PATH];
-    if (!GetGlobalFilePath(token, pFullPath, sizeof(pFullPath))) {
-        TokenError("Cannot find file %s", token);
-        return;
-    }
-    CDmElement *pRoot;
-    if (g_pDataModel->RestoreFromFile(pFullPath, nullptr, nullptr, &pRoot) == DMFILEID_INVALID) {
-        TokenError("Cannot read file %s", pFullPath);
-        return;
-    }
-    if (CDmeModel *pModel = pRoot->GetValueElement<CDmeModel>("model")) {
-        GetClothProxyCompiler()->AppendPlaneCollision(pModel);
-        g_pDataModel->RemoveFileId(pRoot->GetFileId());
-    } else {
-        TokenError("File %d has no DmeModel in it\n", pFullPath);
-    }
-}
-
 void Cmd_SetDefaultFadeInTime() {
     if (!GetToken(false))
         return;
@@ -7167,8 +6953,6 @@ MDLCommand_t g_Commands[] =
                 {"$lcaseallsequences",               Cmd_LCaseAllSequences,},
                 {"$defaultfadein",                   Cmd_SetDefaultFadeInTime,},
                 {"$defaultfadeout",                  Cmd_SetDefaultFadeOutTime,},
-                {"$cloth",                           Cmd_Cloth,},
-                {"$clothplanecollision",             Cmd_ClothPlaneCollision,},
                 {"$allowactivityname",               Cmd_AllowActivityName,},
                 {"$collisionprecision",              Cmd_CollisionPrecision,},
                 {"$erroronsequenceremappingfailure", Cmd_ErrorOnSeqRemapFail,},

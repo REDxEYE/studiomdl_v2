@@ -30,14 +30,12 @@ class CDmeMaterial : public CDmElement
 	DEFINE_ELEMENT( CDmeMaterial, CDmElement );
 
 public:
-	IMaterial *GetCachedMTL();
 	void SetMaterial( const char *pMaterialName );
 	const char *GetMaterialName() const;
 
 	virtual void Resolve();
 
 private:
-	CMaterialReference m_mtlRef;
 	CDmaString m_mtlName;
 };
 
