@@ -10,27 +10,7 @@ endif ()
 
 add_library(materialsystem
         MaterialSystemUtil.cpp
-        cmaterial.cpp
-        ctexture.cpp
-        CColorCorrection.cpp
-        CMaterialSubRect.cpp
-        texturemanager.cpp
-        shadersystem.cpp
-        cmaterialdict.cpp
-        cmaterialsystem.cpp
-        cmaterialvar.cpp
-        colorspace.cpp
-        occlusionquerymgr.cpp
-        morph.cpp
-        cmatnullrendercontext.cpp
-        cmatrendercontext.cpp
-        cmatqueuedrendercontext.cpp
-        composite_texture.cpp
-        custom_material.cpp
-        cmatlightmaps.cpp
-        imagepacker.cpp
-        materialsystem_global.cpp
-        )
+)
 target_include_directories(materialsystem PUBLIC ../../include)
 target_include_directories(materialsystem PRIVATE ../../include/materialsystem)
 target_compile_definitions(materialsystem PRIVATE -DSTATIC_TIER0)

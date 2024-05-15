@@ -19,19 +19,8 @@ set(VTSDLIB_SOURCE
         )
 
 add_library(vstdlib_static ${VTSDLIB_SOURCE})
-add_library(vstdlib_v2 SHARED ${VTSDLIB_SOURCE} processutils.cpp)
 
 target_include_directories(vstdlib_static PUBLIC ../../include)
 target_include_directories(vstdlib_static PRIVATE ../../include/vstdlib)
 target_compile_definitions(vstdlib_static PRIVATE -DVSTDLIB_DLL_EXPORT -DSTATIC_LINK -DSTATIC_TIER0)
 target_link_libraries(vstdlib_static PUBLIC tier0 tier1)
-
-target_include_directories(vstdlib_v2 PUBLIC ../../include)
-target_include_directories(vstdlib_v2 PRIVATE ../../include/vstdlib)
-target_compile_definitions(vstdlib_v2 PRIVATE -DVSTDLIB_DLL_EXPORT -DSTATIC_LINK -DSTATIC_TIER0)
-target_link_libraries(vstdlib_v2 PUBLIC tier0 tier1)
-add_custom_command(TARGET vstdlib_v2 POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:vstdlib_v2> ${CMAKE_BINARY_DIR}/
-        )
-
-add_custom_target(copy_vstdlib_v2 ALL DEPENDS vstdlib_v2)

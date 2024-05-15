@@ -17,10 +17,23 @@ add_library(filesystem_stdio_v2
         filesystem_stdio.cpp
         )
 
+add_library(filesystem_stdio_v2_static
+        STATIC
+        basefilesystem.cpp
+        basefilesystemasync.cpp
+        filetracker.cpp
+        filegroup.cpp
+        filesystem_stdio.cpp
+        )
+
 target_compile_definitions(filesystem_stdio_v2 PRIVATE -DDISABLE_ASYNC -DSTATIC_TIER0)
+target_compile_definitions(filesystem_stdio_v2_static PRIVATE -DDISABLE_ASYNC -DSTATIC_TIER0)
 target_include_directories(filesystem_stdio_v2 PUBLIC ../../include)
+target_include_directories(filesystem_stdio_v2_static PUBLIC ../../include)
 target_include_directories(filesystem_stdio_v2 PRIVATE ../../include/filesystem)
+target_include_directories(filesystem_stdio_v2_static PRIVATE ../../include/filesystem)
 target_link_libraries(filesystem_stdio_v2 PRIVATE tier0 tier1 tier2 vpklib utils)
+target_link_libraries(filesystem_stdio_v2_static PRIVATE tier0 tier1 tier2 vpklib utils)
 add_custom_command(TARGET filesystem_stdio_v2 POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:filesystem_stdio_v2> ${CMAKE_BINARY_DIR}/
         )

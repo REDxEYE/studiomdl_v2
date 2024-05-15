@@ -2130,7 +2130,7 @@ static void WriteVertices(studiohdr_t *phdr) {
         fileHeader->numLODVertexes[0] += pLodData->numvertices;
 
         if (!g_quiet) {
-            printf("vertices   %7d bytes (%d vertices)\n", (uintptr_t)(pData - cur), pLodData->numvertices);
+            printf("vertices   %7llu bytes (%d vertices)\n", (uintptr_t)(pData - cur), pLodData->numvertices);
         }
     }
 
@@ -2158,7 +2158,7 @@ static void WriteVertices(studiohdr_t *phdr) {
         }
 
         if (!g_quiet) {
-            printf("tangents   %7d bytes (%d vertices)\n", (uintptr_t)(pData - cur), pLodData->numvertices);
+            printf("tangents   %7llu bytes (%d vertices)\n", (uintptr_t)(pData - cur), pLodData->numvertices);
         }
     }
 
@@ -2204,7 +2204,7 @@ static void WriteVertices(studiohdr_t *phdr) {
                 pData = (byte *) pExtraTexcoord;
 
                 if (!g_quiet) {
-                    printf("extra vertex data   %7d bytes (%d vertices)\n", (uintptr_t)(pData - cur),
+                    printf("extra vertex data   %7llu bytes (%d vertices)\n", (uintptr_t)(pData - cur),
                            pLodData->numvertices);
                 }
             }
@@ -2213,7 +2213,7 @@ static void WriteVertices(studiohdr_t *phdr) {
     }
 
     if (!g_quiet) {
-        printf("total      %7d bytes\n", pData - pStart);
+        printf("total      %7lld bytes\n", pData - pStart);
     }
 
     // fileHeader->length = pData - pStart;
@@ -2589,7 +2589,7 @@ static void WriteModel(studiohdr_t *phdr) {
     }
 
     if (!g_quiet) {
-        printf("ik/pose    %7d bytes\n", (uintptr_t)(pData - cur));
+        printf("ik/pose    %7llu bytes\n", (uintptr_t)(pData - cur));
     }
     cur = (uintptr_t) pData;
 
@@ -2708,7 +2708,7 @@ static void WriteModel(studiohdr_t *phdr) {
         }
 
         if (!g_quiet) {
-            printf("eyeballs   %7d bytes (%d eyeballs)\n", (uintptr_t)(pData - cur), g_model[i]->numeyeballs);
+            printf("eyeballs   %7llu bytes (%d eyeballs)\n", (uintptr_t)(pData - cur), g_model[i]->numeyeballs);
         }
 
         // move flexes into individual meshes
@@ -2807,7 +2807,7 @@ static void WriteModel(studiohdr_t *phdr) {
         }
 
         if (!g_quiet) {
-            printf("flexes     %7d bytes (%d flexes)\n", (uintptr_t)(pData - cur), g_numflexkeys);
+            printf("flexes     %7llu bytes (%d flexes)\n", (uintptr_t)(pData - cur), g_numflexkeys);
         }
         cur = (uintptr_t) pData;
     }
@@ -3152,20 +3152,20 @@ void WriteModelFiles(void) {
 
     WriteBoneInfo(phdr);
     if (!g_quiet) {
-        printf("bones      %7d bytes (%d)\n", pData - pStart - total, g_numbones);
+        printf("bones      %7lld bytes (%d)\n", pData - pStart - total, g_numbones);
     }
     total = pData - pStart;
 
     pData = WriteAnimations(pData, pStart, phdr);
     if (!g_quiet) {
-        printf("animations %7d bytes (%d anims) (%d frames) [%d:%02d]\n", pData - pStart - total, g_numani, totalframes,
+        printf("animations %7lld bytes (%d anims) (%d frames) [%d:%02d]\n", pData - pStart - total, g_numani, totalframes,
                (int) totalseconds / 60, (int) totalseconds % 60);
     }
     total = pData - pStart;
 
     WriteSequenceInfo(phdr);
     if (!g_quiet) {
-        printf("sequences  %7d bytes (%d seq) \n", pData - pStart - total, g_sequence.Count());
+        printf("sequences  %7lld bytes (%d seq) \n", pData - pStart - total, g_sequence.Count());
     }
     total = pData - pStart;
 
@@ -3174,14 +3174,14 @@ void WriteModelFiles(void) {
 //    Msg("hdr@%p=%p\n", &phdr, phdr);
 
     if (!g_quiet) {
-        printf("models     %7d bytes\n", pData - pStart - total);
+        printf("models     %7lld bytes\n", pData - pStart - total);
     }
 
     total = pData - pStart;
 
     WriteTextures(phdr);
     if (!g_quiet) {
-        printf("textures   %7d bytes\n", pData - pStart - total);
+        printf("textures   %7lld bytes\n", pData - pStart - total);
     }
     total = pData - pStart;
 
@@ -3191,7 +3191,7 @@ void WriteModelFiles(void) {
 
     WriteKeyValues(phdr, &g_KeyValueText);
     if (!g_quiet) {
-        printf("keyvalues  %7d bytes\n", pData - pStart - total);
+        printf("keyvalues  %7lld bytes\n", pData - pStart - total);
     }
     total = pData - pStart;
 
@@ -3199,19 +3199,19 @@ void WriteModelFiles(void) {
     WriteBoneTransforms(phdr2, phdr->pBone(0));
 //    Msg("hdr@%p=%p\n", &phdr, phdr);
     if (!g_quiet) {
-        printf("bone transforms  %7d bytes\n", pData - pStart - total);
+        printf("bone transforms  %7lld bytes\n", pData - pStart - total);
     }
     total = pData - pStart;
 
     WriteBoneFlexDrivers(phdr2);
     if (!g_quiet) {
-        printf("bone flex driver %7d bytes\n", pData - pStart - total);
+        printf("bone flex driver %7lld bytes\n", pData - pStart - total);
     }
     total = pData - pStart;
 
     WriteBodyGroupPresets(phdr2);
     if (!g_quiet) {
-        printf("bodygroup presets %7d bytes\n", pData - pStart - total);
+        printf("bodygroup presets %7lld bytes\n", pData - pStart - total);
     }
     total = pData - pStart;
 
@@ -3232,7 +3232,7 @@ void WriteModelFiles(void) {
 //	Physics2Collision_Write();
 
     if (!g_quiet) {
-        printf("collision  %7d bytes\n", pData - pStart - total);
+        printf("collision  %7lld bytes\n", pData - pStart - total);
     }
 
     AssignMeshIDs(phdr);

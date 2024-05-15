@@ -78,7 +78,7 @@ IDataModel *g_pDataModel = &g_DataModel;
 
 
 //-----------------------------------------------------------------------------
-// Constructor, destructor 
+// Constructor, destructor
 //-----------------------------------------------------------------------------
 CDataModel::CDataModel() :
 	m_elementIds( 4096 ),
@@ -132,10 +132,10 @@ void *CDataModel::QueryInterface( const char *pInterfaceName )
 	return NULL;
 }
 
-	
+
 //-----------------------------------------------------------------------------
-// Purpose: 
-// Input  : *databasePath - 
+// Purpose:
+// Input  : *databasePath -
 // Output : Returns true on success, false on failure.
 //-----------------------------------------------------------------------------
 InitReturnVal_t CDataModel::Init( )
@@ -161,7 +161,7 @@ CUtlMap< CUtlSymbolLarge, int > g_typeHistogram( 0, 100, DefLessFunc( CUtlSymbol
 
 
 //-----------------------------------------------------------------------------
-// Purpose: 
+// Purpose:
 //-----------------------------------------------------------------------------
 void CDataModel::Shutdown()
 {
@@ -426,7 +426,7 @@ void CDataModel::DisplayMemoryStats( DmElementHandle_t hElement /*= DMELEMENT_HA
 		++nCount;
 	}
 	qsort( pSortInfo, nCount, sizeof(DmMemorySortInfo_t), DmMemorySortFunc );
-	     
+
 	int pTotals[ MEMORY_CATEGORY_COUNT ] = { 0 };
 	int nLastTwoSize = 0;
 	int nTotalSize = 0;
@@ -438,8 +438,8 @@ void CDataModel::DisplayMemoryStats( DmElementHandle_t hElement /*= DMELEMENT_HA
 		const DmMemoryInfo_t& info = typeHistogram.Element( pSortInfo[i].m_nIndex );
 		float flPercentOverhead = 1.0f - ( ( info.m_nSize != 0 ) ? ( (float)info.m_pCategories[MEMORY_CATEGORY_ATTRIBUTE_DATA] / (float)info.m_nSize ) : 0.0f );
 		flPercentOverhead *= 100.0f;
-		 
-		ConMsg( "%-40s\t%6d\t%9d\t\t%5.2f", typeHistogram.Key( pSortInfo[i].m_nIndex ).String(), 
+
+		ConMsg( "%-40s\t%6d\t%9d\t\t%5.2f", typeHistogram.Key( pSortInfo[i].m_nIndex ).String(),
 			info.m_nCount, info.m_nSize, flPercentOverhead );
 		int nTotal = 0;
 		for ( int j = 0; j < MEMORY_CATEGORY_COUNT; ++j )
@@ -462,7 +462,7 @@ void CDataModel::DisplayMemoryStats( DmElementHandle_t hElement /*= DMELEMENT_HA
 			nLastTwoSize += info.m_nSize;
 		}
 	}
-	  
+
 	ConMsg( "\n" );
 	ConMsg( "%-40s\t%6d\t%9d\t\t%5.2f", "Totals", nTotalCount, nTotalSize, 100.0f * ( 1.0f - (float)nTotalData / (float)nTotalSize ) );
 	for ( int j = 0; j < MEMORY_CATEGORY_COUNT; ++j )
@@ -519,16 +519,16 @@ void CDataModel::DumpSymbolTable()
 	ConMsg( "Datamodel symbol table: %d entries %I64u bytes\n", symbolCount, symbolBytes );
 
 	CUtlMap< CUtlSymbolLarge, int, int > symbolRefCountMap( 0, symbolCount, DefLessFunc( CUtlSymbolLarge ) );
-	
+
 	int nNumElements = (int)m_Handles.GetHandleCount();
 	for ( int iElement = 0; iElement < nNumElements; ++iElement )
 	{
 		CDmElement *pElement = m_Handles.GetHandle( iElement );
 		if ( pElement == NULL )
 			continue;
-			
+
 		IncrementSymbolRefCount( pElement->GetType(), symbolRefCountMap );
-	
+
 		for ( CDmAttribute *pAttr = pElement->FirstAttribute(); pAttr; pAttr = pAttr->NextAttribute() )
 		{
 			IncrementSymbolRefCount( pAttr->GetNameSymbol(), symbolRefCountMap );
@@ -539,7 +539,7 @@ void CDataModel::DumpSymbolTable()
 			}
 		}
 	}
-	
+
 	CUtlBuffer buf( 0, symbolBytes + ( symbolCount * 32 ), CUtlBuffer::TEXT_BUFFER );
 
 	buf.Printf( "Datamodel symbol table: %d entries %I64u bytes\n", symbolCount, symbolBytes );
@@ -548,7 +548,7 @@ void CDataModel::DumpSymbolTable()
 	m_SymbolTable.GetElements( 0, symbolCount, elements.Base() );
 	elements.Sort( CompareSymbolsAcending );
 
-	
+
 	buf.Printf( "Index      Address       References   String\n" );
 	for ( int i = 0; i < symbolCount; ++i )
 	{
@@ -559,7 +559,7 @@ void CDataModel::DumpSymbolTable()
 		const char *pString = symbol.String();
 		buf.Printf( "%05d,     0x%p,     %5d,      '%s'\n", i, pString, nRefCount, pString );
 	}
-	
+
 	int nFileIndex = 0;
 	int nMaxFileIndex = 1000;
 	const char baseFilename[] = "DatamodelSymbols";
@@ -574,7 +574,7 @@ void CDataModel::DumpSymbolTable()
 		if ( !g_pFullFileSystem->FileExists( filename ) )
 			break;
 		++nFileIndex;
-	}	
+	}
 
 	if ( nFileIndex < nMaxFileIndex )
 	{
@@ -701,7 +701,7 @@ bool CDataModel::IsEncodingBinary( const char *pEncodingName ) const
 		Warning("Serialize: File encoding %s is undefined!\n", pEncodingName );
 		return false;
 	}
-	return pSerializer->IsBinaryFormat(); 
+	return pSerializer->IsBinaryFormat();
 }
 
 bool CDataModel::DoesEncodingStoreVersionInFile( const char *pEncodingName ) const
@@ -712,7 +712,7 @@ bool CDataModel::DoesEncodingStoreVersionInFile( const char *pEncodingName ) con
 		Warning("Serialize: File encoding %s is undefined!\n", pEncodingName );
 		return false;
 	}
-	return pSerializer->StoresVersionInFile(); 
+	return pSerializer->StoresVersionInFile();
 }
 
 
@@ -776,7 +776,7 @@ void CDataModel::SetKeyValuesElementCallback( IElementForKeyValueCallback *pCall
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: 
+// Purpose:
 //-----------------------------------------------------------------------------
 const char *CDataModel::GetKeyValuesElementName( const char *pszKeyName, int iNestingLevel )
 {
@@ -860,7 +860,7 @@ bool CDataModel::SaveToFile( char const *pFileName, char const *pPathID, const c
 		SetFileModificationUTCTime( fileid, GetCurrentUTCTime() );
 	}
 
-	return true;	
+	return true;
 }
 
 DmFileId_t CDataModel::RestoreFromFile( char const *pFileName, char const *pPathID, const char *pEncodingHint, CDmElement **ppRoot, DmConflictResolution_t idConflictResolution /*= CR_DELETE_NEW*/, DmxHeader_t *pHeaderOut /*= NULL*/ )
@@ -932,7 +932,7 @@ DmFileId_t CDataModel::RestoreFromFile( char const *pFileName, char const *pPath
 			return DMFILEID_INVALID;
 	}
 
-	
+
 
 	*ppRoot = g_pDataModel->GetElement( hRootElement );
 
@@ -1013,7 +1013,7 @@ bool CDataModel::Serialize( CUtlBuffer &outBuf, const char *pEncodingName, const
 
 	if ( pSerializer->StoresVersionInFile() )
 	{
-		// Write the format name into the file using XML format so that 
+		// Write the format name into the file using XML format so that
 		// 3rd-party XML readers can read the file without fail
 
 		pActualOutBuf->Printf( "%s encoding %s %d format %s %d %s\n",
@@ -1132,7 +1132,7 @@ int CDataModel::GetCurrentFormatVersion( const char *pFormatName )
 }
 
 //-----------------------------------------------------------------------------
-// Unserializes, returns the root of the unserialized tree in ppRoot 
+// Unserializes, returns the root of the unserialized tree in ppRoot
 //-----------------------------------------------------------------------------
 bool CDataModel::Unserialize( CUtlBuffer &inBuf, const char *pEncodingName, const char *pRequiredFormat, const char *pUnused,
 							  const char *pFileName, DmConflictResolution_t idConflictResolution, DmElementHandle_t &hRoot )
@@ -1157,7 +1157,7 @@ bool CDataModel::Unserialize( CUtlBuffer &inBuf, const char *pEncodingName, cons
 
 	DmxHeader_t header;
 	bool bStoresVersionInFile = pSerializer->StoresVersionInFile();
-	bool bIsCurrentVersion = false; // for formats that don't store a format, files are currently always *not* 
+	bool bIsCurrentVersion = false; // for formats that don't store a format, files are currently always *not*
 									// at the current version since they need to be converted to dmx
 	const char *pDestFormatName;
 	if ( bStoresVersionInFile )
@@ -1188,82 +1188,81 @@ bool CDataModel::Unserialize( CUtlBuffer &inBuf, const char *pEncodingName, cons
 		Q_strncpy( header.encodingName, pSerializer->GetName(), sizeof(header.encodingName) );
 	}
 
-	// if we're not in dmxconvert, and we're not at the latest version, call dmxconvert and unserialize from the converted file
-	if ( !m_bOnlyCreateUntypedElements && !bIsCurrentVersion )
-	{
-		char path[ MAX_PATH ];
-		V_ExtractFilePath( pFileName, path, sizeof( path ) );
+//    g_pDataModel->Unserialize(inBuf, pEncodingName, pDestFormatName, nullptr, pFileName, CR_DELETE_NEW, hRoot);
 
-		if ( !V_IsAbsolutePath( path ) )
-		{
-			g_pFullFileSystem->GetCurrentDirectory( path, sizeof( path ) );
-		}
 
-		bool bFileFound = g_pFullFileSystem->FileExists( pFileName );
-		if ( !bFileFound )
-		{
-			char *pTempFileName = ( char* )stackalloc( MAX_PATH ); // NOTE - stackalloc frees on function return, not scope return
-			V_ComposeFileName( path, "_temp_input_file_.dmx", pTempFileName, MAX_PATH );
-			pFileName = pTempFileName;
-
-			g_pFullFileSystem->WriteFile( pFileName, NULL, inBuf );
-		}
-
-		char tempFileName[ MAX_PATH ];
-		V_ComposeFileName( path, "_temp_conversion_file_.dmx", tempFileName, sizeof( tempFileName ) );
-		V_RemoveDotSlashes( tempFileName );
-
-		const char *pDestEncodingName = "binary";
-		char cmdline[ 2 * MAX_PATH + 256 ];
-		V_snprintf( cmdline, sizeof( cmdline ), "dmxconvert -allowdebug -i \"%s\" -ie %s -o \"%s\" -oe %s -of %s", pFileName, header.encodingName, tempFileName, pDestEncodingName, pDestFormatName );
-
-		IProcess *pProcess = g_pProcessUtils->StartProcess( cmdline, 0 );
-		if ( !pProcess )
-		{
-			Warning( "Unerialize: Unable to start dmxconvert process\n" );
-			return false;
-		}
-
-		pProcess->WaitUntilComplete();
-		pProcess->Release();
-
-		bool bSuccess;
-		{
-			if ( !inBuf.IsText() )
-			{
-				CUtlStreamBuffer buf( tempFileName, NULL, CUtlBuffer::READ_ONLY );
-				if ( !buf.IsValid() )
-				{
-					Warning( "Unerialize: Unable to open temp file \"%s\"\n", tempFileName );
-					return false;
-				}
-
-				// yes, this passes in pFileName, even though it read from tempFileName - pFileName is only used for marking debug messages and setting fileid
-				bSuccess = Unserialize( buf, pDestEncodingName, pDestFormatName, pDestFormatName, pFileName, idConflictResolution, hRoot );
-
-			}
-			else
-			{
-				CUtlBuffer buf( 0, 0, CUtlBuffer::READ_ONLY );
-				if ( !g_pFullFileSystem->ReadFile( tempFileName, NULL, buf ) )
-				{
-					Warning( "Unerialize: Unable to open temp file \"%s\"\n", tempFileName );
-					return false;
-				}
-
-				// yes, this passes in pFileName, even though it read from tempFileName - pFileName is only used for marking debug messages and setting fileid
-				bSuccess = Unserialize( buf, pDestEncodingName, pDestFormatName, pDestFormatName, pFileName, idConflictResolution, hRoot );
-			}
-
-		}
-
-		if ( !bFileFound )
-		{
-			g_pFullFileSystem->RemoveFile( pFileName );
-		}
-		g_pFullFileSystem->RemoveFile( tempFileName );
-		return bSuccess;
-	}
+//     if we're not in dmxconvert, and we're not at the latest version, call dmxconvert and unserialize from the converted file
+//    if (!m_bOnlyCreateUntypedElements && !bIsCurrentVersion) {
+//
+//
+//        char path[MAX_PATH];
+//        V_ExtractFilePath(pFileName, path, sizeof(path));
+//
+//        if (!V_IsAbsolutePath(path)) {
+//            g_pFullFileSystem->GetCurrentDirectory(path, sizeof(path));
+//        }
+//
+//        bool bFileFound = g_pFullFileSystem->FileExists(pFileName);
+//        if (!bFileFound) {
+//            char *pTempFileName = (char *) stackalloc(
+//                    MAX_PATH); // NOTE - stackalloc frees on function return, not scope return
+//            V_ComposeFileName(path, "_temp_input_file_.dmx", pTempFileName, MAX_PATH);
+//            pFileName = pTempFileName;
+//
+//            g_pFullFileSystem->WriteFile(pFileName, NULL, inBuf);
+//        }
+//
+//        char tempFileName[MAX_PATH];
+//        V_ComposeFileName(path, "_temp_conversion_file_.dmx", tempFileName, sizeof(tempFileName));
+//        V_RemoveDotSlashes(tempFileName);
+//
+//        const char *pDestEncodingName = "binary";
+//        char cmdline[2 * MAX_PATH + 256];
+//        V_snprintf(cmdline, sizeof(cmdline), "dmxconvert -allowdebug -i \"%s\" -ie %s -o \"%s\" -oe %s -of %s",
+//                   pFileName, header.encodingName, tempFileName, pDestEncodingName, pDestFormatName);
+//
+//        IProcess *pProcess = g_pProcessUtils->StartProcess(cmdline, 0);
+//        if (!pProcess) {
+//            Warning("Unerialize: Unable to start dmxconvert process\n");
+//            return false;
+//        }
+//
+//        pProcess->WaitUntilComplete();
+//        pProcess->Release();
+//
+//        bool bSuccess;
+//        {
+//            if (!inBuf.IsText()) {
+//                CUtlStreamBuffer buf(tempFileName, NULL, CUtlBuffer::READ_ONLY);
+//                if (!buf.IsValid()) {
+//                    Warning("Unerialize: Unable to open temp file \"%s\"\n", tempFileName);
+//                    return false;
+//                }
+//
+//                // yes, this passes in pFileName, even though it read from tempFileName - pFileName is only used for marking debug messages and setting fileid
+//                bSuccess = Unserialize(buf, pDestEncodingName, pDestFormatName, pDestFormatName, pFileName,
+//                                       idConflictResolution, hRoot);
+//
+//            } else {
+//                CUtlBuffer buf(0, 0, CUtlBuffer::READ_ONLY);
+//                if (!g_pFullFileSystem->ReadFile(tempFileName, NULL, buf)) {
+//                    Warning("Unerialize: Unable to open temp file \"%s\"\n", tempFileName);
+//                    return false;
+//                }
+//
+//                // yes, this passes in pFileName, even though it read from tempFileName - pFileName is only used for marking debug messages and setting fileid
+//                bSuccess = Unserialize(buf, pDestEncodingName, pDestFormatName, pDestFormatName, pFileName,
+//                                       idConflictResolution, hRoot);
+//            }
+//
+//        }
+//
+//        if (!bFileFound) {
+//            g_pFullFileSystem->RemoveFile(pFileName);
+//        }
+//        g_pFullFileSystem->RemoveFile(tempFileName);
+//        return bSuccess;
+//    }
 
 	// advance the buffer the the end of the header
 	if ( bStoresVersionInFile )
@@ -1348,13 +1347,12 @@ int CDataModel::NumFileIds()
 	return m_openFiles.GetHandleCount();
 }
 
-DmFileId_t CDataModel::GetFileId( int i )
-{
-	Assert( i >= 0 && i < ( int )m_openFiles.GetHandleCount() );
-	if ( i < 0 || i >= ( int )m_openFiles.GetHandleCount() )
-		return DMFILEID_INVALID;
+DmFileId_t CDataModel::GetFileId(int i) {
+    Assert(i >= 0 && i < (int) m_openFiles.GetHandleCount());
+    if (i < 0 || i >= (int) m_openFiles.GetHandleCount())
+        return DMFILEID_INVALID;
 
-	return ( DmFileId_t )m_openFiles.GetHandleFromIndex( i );
+    return (DmFileId_t) m_openFiles.GetHandleFromIndex(i);
 }
 
 void CleanupFileName( char *pOutFileName, size_t nOutLen, const char *pInFileName )
@@ -1396,12 +1394,11 @@ DmFileId_t CDataModel::FindOrCreateFileId( const char *pFileName )
 	return fileid;
 }
 
-void CDataModel::RemoveFileId( DmFileId_t fileid )
-{
-	FileElementSet_t *fes = m_openFiles.GetHandle( fileid );
-	Assert( fes || fileid == DMFILEID_INVALID );
-	if ( !fes )
-		return;
+void CDataModel::RemoveFileId(DmFileId_t fileid) {
+    FileElementSet_t *fes = m_openFiles.GetHandle(fileid);
+    Assert(fes || fileid == DMFILEID_INVALID);
+    if (!fes)
+        return;
 
 	if ( fes->m_bLoaded )
 	{
@@ -1417,9 +1414,9 @@ DmFileId_t CDataModel::GetFileId( const char *pFileName )
 	char fixedFileName[ MAX_PATH ];
 	CleanupFileName( fixedFileName, sizeof( fixedFileName ), pFileName );
 
-	CUtlSymbolLarge filenameSym = m_SymbolTable.Find( fixedFileName );
-	if ( filenameSym == UTL_INVAL_SYMBOL_LARGE )
-		return DMFILEID_INVALID;
+    CUtlSymbolLarge filenameSym = m_SymbolTable.Find(fixedFileName);
+    if (filenameSym == UTL_INVAL_SYMBOL_LARGE)
+        return DMFILEID_INVALID;
 
 	int nFiles = m_openFiles.GetHandleCount();
 	for ( int i = 0; i < nFiles; ++i )
@@ -1441,12 +1438,11 @@ const char *CDataModel::GetFileName( DmFileId_t fileid )
 	return fes ? fes->m_filename.String() : NULL;
 }
 
-void CDataModel::SetFileName( DmFileId_t fileid, const char *pFileName )
-{
-	FileElementSet_t *fes = m_openFiles.GetHandle( fileid );
-	Assert( fes );
-	if ( !fes )
-		return;
+void CDataModel::SetFileName(DmFileId_t fileid, const char *pFileName) {
+    FileElementSet_t *fes = m_openFiles.GetHandle(fileid);
+    Assert(fes);
+    if (!fes)
+        return;
 
 	char pFixedFileName[ MAX_PATH ];
 	CleanupFileName( pFixedFileName, sizeof( pFixedFileName ), pFileName );
@@ -1522,9 +1518,8 @@ long CDataModel::GetCurrentUTCTime()
 	return _time32( NULL );
 }
 
-void CDataModel::UTCTimeToString( char *pString, int maxChars, long fileTime )
-{
-	return g_pFullFileSystem->FileTimeToString( pString, maxChars, fileTime );
+void CDataModel::UTCTimeToString(char *pString, int maxChars, long fileTime) {
+    return g_pFullFileSystem->FileTimeToString(pString, maxChars, fileTime);
 }
 
 bool CDataModel::IsFileLoaded( DmFileId_t fileid )
@@ -2127,8 +2122,8 @@ CDmAttribute *CDataModel::GetAttribute( DmAttributeReferenceIterator_t hAttrIter
 
 
 //-----------------------------------------------------------------------------
-// Purpose: 
-// Input  : buf - 
+// Purpose:
+// Input  : buf -
 // Output : IDmElementInternal
 //-----------------------------------------------------------------------------
 CDmElement *CDataModel::Unserialize( CUtlBuffer& buf )
@@ -2137,9 +2132,9 @@ CDmElement *CDataModel::Unserialize( CUtlBuffer& buf )
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: 
-// Input  : *element - 
-//			buf - 
+// Purpose:
+// Input  : *element -
+//			buf -
 //-----------------------------------------------------------------------------
 void CDataModel::Serialize( CDmElement *element, CUtlBuffer& buf )
 {
@@ -2160,11 +2155,11 @@ void CDataModel::SetDefaultElementFactory( IDmElementFactory *pFactory )
 	m_pDefaultFactory = pFactory ? pFactory : &s_DefaultElementFactory;
 }
 
-	
+
 //-----------------------------------------------------------------------------
-// Purpose: 
-// Input  : *elementName - 
-//			factory - 
+// Purpose:
+// Input  : *elementName -
+//			factory -
 //-----------------------------------------------------------------------------
 void CDataModel::AddElementFactory( CDmElementFactoryHelper *pFactoryHelper )
 {
@@ -2219,7 +2214,7 @@ char const *CDataModel::GetFactoryName( int index ) const
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: Creates a scene object 
+// Purpose: Creates a scene object
 //-----------------------------------------------------------------------------
 DmElementHandle_t CDataModel::CreateElement( CUtlSymbolLarge typeSymbol, const char *pElementName, DmFileId_t fileid, const DmObjectId_t *pObjectID )
 {
@@ -2259,7 +2254,7 @@ class CUndoCreateElement : public CUndoElement
 {
 	typedef CUndoElement BaseClass;
 public:
-	CUndoCreateElement() : 
+	CUndoCreateElement() :
 		BaseClass( "CUndoCreateElement" ),
 		m_bKill( false ),
 		m_hElement()
@@ -2376,7 +2371,7 @@ CDmElement* CDataModel::CreateElement( const DmElementReference_t &ref, const ch
 	CDisableUndoScopeGuard sg;
 
 	CDmElement *pElement = NULL;
-	
+
 	{
 		DMX_PROFILE_SCOPE( CreateElement_pFactoryCreate );
 		pElement = pFactory->Create( ref.m_hElement, pElementType, pElementName, fileid, *pObjectID );

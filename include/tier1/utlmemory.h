@@ -448,7 +448,11 @@ CUtlMemory<T,I>::~CUtlMemory()
 	Purge();
 
 #ifdef _DEBUG
+#ifdef _AMD64_
+	m_pMemory = reinterpret_cast< T* >( 0xFEFEBAADFEFEBAAD );
+#else
 	m_pMemory = reinterpret_cast< T* >( 0xFEFEBAAD );
+#endif
 	m_nAllocationCount = 0x7BADF00D;
 #endif
 }

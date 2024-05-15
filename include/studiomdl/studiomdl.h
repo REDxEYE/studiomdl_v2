@@ -1825,14 +1825,6 @@ short IsShort(int val);
 
 unsigned short IsUShort(int val);
 
-struct MDLCommand_t {
-    char *m_pName;
-
-    void (*m_pCmd)();
-
-    int m_nLastValidVersion;
-};
-
 //-----------------------------------------------------------------------------
 // Assigns a default contents to the entire model
 //-----------------------------------------------------------------------------
@@ -1875,5 +1867,10 @@ enum EyelidType_t {
 //-----------------------------------------------------------------------------
 extern s_model_t *g_pCurrentModel;
 
+
+int verify_atoi(const char *token);
+float verify_atof(const char *token);
+int LookupPoseParameter(const char *name);
+void ProcessModelName(const char *pModelName);
 
 #endif // STUDIOMDL_H

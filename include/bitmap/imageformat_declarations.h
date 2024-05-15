@@ -1,4 +1,4 @@
-//========== Copyright © Valve Corporation, All rights reserved. ========
+//========== Copyright ï¿½ Valve Corporation, All rights reserved. ========
 
 #ifndef IMAGEFORMAT_DECLARATIONS_HDR
 #define IMAGEFORMAT_DECLARATIONS_HDR
@@ -14,7 +14,7 @@ enum NormalDecodeMode_t
 // Forward declaration
 #ifdef _WIN32
 typedef enum _D3DFORMAT D3DFORMAT;
-typedef enum DXGI_FORMAT;
+enum DXGI_FORMAT;
 #endif
 
 //-----------------------------------------------------------------------------

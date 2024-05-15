@@ -357,7 +357,7 @@ protected:
 	typedef UtlLinkedListElem_t<T, S>  ListElem_t;
 
 	// constructs the class
-	I		AllocInternal( bool multilist = false ) RESTRICT;
+	I		AllocInternal( bool multilist = false );
 	void ConstructList();
 	
 	// Gets at the list element....
@@ -663,7 +663,7 @@ void CUtlLinkedList<T,S,ML,I,M>::PurgeAndDeleteElements()
 // Node allocation/deallocation
 //-----------------------------------------------------------------------------
 template <class T, class S, bool ML, class I, class M>
-I CUtlLinkedList<T,S,ML,I,M>::AllocInternal( bool multilist ) RESTRICT
+I CUtlLinkedList<T,S,ML,I,M>::AllocInternal( bool multilist )
 {
 	Assert( !multilist || ML );
 #ifdef MULTILIST_PEDANTIC_ASSERTS

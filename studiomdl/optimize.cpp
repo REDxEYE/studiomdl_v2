@@ -48,7 +48,6 @@
 
 
 bool g_bDumpGLViewFiles;
-extern bool g_IHVTest;
 
 // flush bones between strips rather than deallocating the LRU.
 #define USE_FLUSH
@@ -558,16 +557,16 @@ namespace OptimizedModel {
 
 
     void COptimizedModel::OutputMemoryUsage(void) {
-        printf("body parts:   %7d bytes\n", (uintptr_t) (m_ModelsOffset - m_BodyPartsOffset));
-        printf("models:       %7d bytes\n", (uintptr_t) (m_MeshesOffset - m_ModelsOffset));
-        printf("model LODs:   %7d bytes\n", (uintptr_t) (m_MeshesOffset - m_ModelLODsOffset));
-        printf("meshes:       %7d bytes\n", (uintptr_t) (m_StripGroupsOffset - m_MeshesOffset));
-        printf("strip groups: %7d bytes\n", (uintptr_t) (m_StripsOffset - m_StripGroupsOffset));
-        printf("strips:       %7d bytes\n", (uintptr_t) (m_VertsOffset - m_StripsOffset));
-        printf("verts:        %7d bytes\n", (uintptr_t) (m_IndicesOffset - m_VertsOffset));
-        printf("indices:      %7d bytes\n", (uintptr_t) (m_BoneStateChangesOffset - m_IndicesOffset));
-        printf("bone changes: %7d bytes\n", (uintptr_t) (m_EndOfFileOffset - m_BoneStateChangesOffset));
-        printf("everything:   %7d bytes\n", (uintptr_t) (m_EndOfFileOffset));
+        printf("body parts:   %7llu bytes\n", (uintptr_t) (m_ModelsOffset - m_BodyPartsOffset));
+        printf("models:       %7llu bytes\n", (uintptr_t) (m_MeshesOffset - m_ModelsOffset));
+        printf("model LODs:   %7llu bytes\n", (uintptr_t) (m_MeshesOffset - m_ModelLODsOffset));
+        printf("meshes:       %7llu bytes\n", (uintptr_t) (m_StripGroupsOffset - m_MeshesOffset));
+        printf("strip groups: %7llu bytes\n", (uintptr_t) (m_StripsOffset - m_StripGroupsOffset));
+        printf("strips:       %7llu bytes\n", (uintptr_t) (m_VertsOffset - m_StripsOffset));
+        printf("verts:        %7llu bytes\n", (uintptr_t) (m_IndicesOffset - m_VertsOffset));
+        printf("indices:      %7llu bytes\n", (uintptr_t) (m_BoneStateChangesOffset - m_IndicesOffset));
+        printf("bone changes: %7llu bytes\n", (uintptr_t) (m_EndOfFileOffset - m_BoneStateChangesOffset));
+        printf("everything:   %7llu bytes\n", (uintptr_t) (m_EndOfFileOffset));
     }
 
     void COptimizedModel::SanityCheckAgainstStudioHDR(studiohdr_t *phdr) {
@@ -3083,7 +3082,7 @@ namespace OptimizedModel {
                                      boneStateChangeID < pStrip->numBoneStateChanges; boneStateChangeID++) {
                                     BoneStateChangeHeader_t *pBoneStateChange = pStrip->pBoneStateChange(
                                             boneStateChangeID);
-                                    printf("bone change: hwid: %d boneid: %d (%s)\n",
+                                    printf("bone change: hwid: %llu boneid: %llu (%s)\n",
                                            (uintptr_t) pBoneStateChange->hardwareID,
                                            (uintptr_t) pBoneStateChange->newBoneID,
                                            g_bonetable[pBoneStateChange->newBoneID].name);
@@ -3224,7 +3223,7 @@ namespace OptimizedModel {
         //	for( i = 0; i < MAX_NUM_BONES_PER_VERT; i++ )
         for (i = 0; i < v->numBones; i++) {
             float boneWeight = GetOrigVertBoneWeightValue(pStudioModel, pStudioMesh, v, i);
-            printf("\tboneID[%d]: %d weight: %f (%s)\n", i, (uintptr_t) v->boneID[i], boneWeight,
+            printf("\tboneID[%d]: %llu weight: %f (%s)\n", i, (uintptr_t) v->boneID[i], boneWeight,
                    g_bonetable[v->boneID[i]].name);
         }
     }
