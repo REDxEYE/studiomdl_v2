@@ -9,10 +9,8 @@
 #include "studiomdl/studiomdl.h"
 #include "datamodel/idatamodel.h"
 
+extern StudioMdlContext g_StudioMdlContext;
 static bool g_bFirstWarning = true;
-extern bool g_bHasModelName;
-extern bool g_bNoWarnings;
-extern int g_maxWarnings;
 
 void TokenError(const char *fmt, ...) {
     static char output[1024];
@@ -41,7 +39,7 @@ void MdlError(const char *fmt, ...) {
     va_list args;
 
 //	Assert( 0 );
-    if (g_quiet) {
+    if (g_StudioMdlContext.quiet) {
         if (g_bFirstWarning) {
             printf("%s :\n", g_fullpath);
             g_bFirstWarning = false;
@@ -56,8 +54,8 @@ void MdlError(const char *fmt, ...) {
     // delete premature files
     // unforunately, content is built without verification
     // ensuring that targets are not available, prevents check-in
-    if (g_bHasModelName) {
-        if (g_quiet) {
+    if (g_StudioMdlContext.bHasModelName) {
+        if (g_StudioMdlContext.quiet) {
             printf("\t");
         }
 
@@ -84,24 +82,23 @@ void MdlError(const char *fmt, ...) {
         g_pDataModel->UnloadFile(g_pDataModel->GetFileId(i));
     }
 
-    if (g_parseable_completion_output) {
+    if (g_StudioMdlContext.parseable_completion_output) {
         printf("\nRESULT: ERROR\n");
     }
 
     exit(-1);
 }
 
-
 void MdlWarning(const char *fmt, ...) {
     va_list args;
     static char output[1024];
 
-    if (g_bNoWarnings || g_maxWarnings == 0)
+    if (g_StudioMdlContext.bNoWarnings || g_StudioMdlContext.g_maxWarnings == 0)
         return;
 
     ushort old = SetConsoleTextColor(1, 1, 0, 1);
 
-    if (g_quiet) {
+    if (g_StudioMdlContext.quiet) {
         if (g_bFirstWarning) {
             printf("%s :\n", g_fullpath);
             g_bFirstWarning = false;
@@ -115,11 +112,11 @@ void MdlWarning(const char *fmt, ...) {
             va_start(args, fmt);
     vprintf(fmt, args);
 
-    if (g_maxWarnings > 0)
-        g_maxWarnings--;
+    if (g_StudioMdlContext.g_maxWarnings > 0)
+        g_StudioMdlContext.g_maxWarnings--;
 
-    if (g_maxWarnings == 0) {
-        if (g_quiet) {
+    if (g_StudioMdlContext.g_maxWarnings == 0) {
+        if (g_StudioMdlContext.quiet) {
             printf("\t");
         }
         printf("suppressing further warnings...\n");
@@ -128,10 +125,8 @@ void MdlWarning(const char *fmt, ...) {
     RestoreConsoleTextColor(old);
 }
 
-
-
 void CMdlLoggingListener::Log(const LoggingContext_t *pContext, const tchar *pMessage) {
-    if (pContext->m_Severity == LS_MESSAGE && g_quiet) {
+    if (pContext->m_Severity == LS_MESSAGE && g_StudioMdlContext.quiet) {
         // suppress
     } else if (pContext->m_Severity == LS_WARNING) {
         MdlWarning("%s", pMessage);
@@ -146,13 +141,11 @@ void MdlHandleCrash(const char *pMessage, bool bAssert) {
     MdlError("'%s' (assert: %d)\n", pMessage, bAssert);
 }
 
-
 // This is called if we crash inside our crash handler. It just terminates the process immediately.
 LONG __stdcall MdlSecondExceptionFilter(struct _EXCEPTION_POINTERS *ExceptionInfo) {
     TerminateProcess(GetCurrentProcess(), 2);
     return EXCEPTION_EXECUTE_HANDLER; // (never gets here anyway)
 }
-
 
 void MdlExceptionFilter(unsigned long code) {
     // This is called if we crash inside our crash handler. It just terminates the process immediately.
@@ -203,4 +196,9 @@ void MdlExceptionFilter(unsigned long code) {
     }
 
     TerminateProcess(GetCurrentProcess(), 1);
+}
+
+LONG __stdcall VExceptionFilter(struct _EXCEPTION_POINTERS *ExceptionInfo) {
+    MdlExceptionFilter(ExceptionInfo->ExceptionRecord->ExceptionCode);
+    return EXCEPTION_EXECUTE_HANDLER; // (never gets here anyway)
 }

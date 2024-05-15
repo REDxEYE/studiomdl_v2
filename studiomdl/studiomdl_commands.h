@@ -8,6 +8,13 @@
 #include "studiomdl/studiomdl.h"
 
 s_source_t *FindCachedSource(const char *name, const char *xext);
+void AddBodyFlexData(s_source_t *pSource, int imodel);
+void AddBodyAttachments(s_source_t *pSource);
+void AddBodyFlexRules(s_source_t *pSource);
+void Option_Flexrule(s_model_t * pmodel , const char *name);
+int ParseAnimation(s_animation_t *panim, bool isAppend);
+int ParseEmpty(void);
+int ParseSequence(s_sequence_t *pseq, bool isAppend);
 
 struct MDLCommand_t {
     char *m_pName;

@@ -12,7 +12,8 @@
 #endif
 
 #include "tier1/smartptr.h"
-//#include "tier2/p4helpers.h"
+
+extern StudioMdlContext g_StudioMdlContext;
 
 class CFileBuffer
 {
@@ -41,7 +42,7 @@ public:
 #ifdef _DEBUG
 	void TestWritten( int EndOfFileOffset )
 	{
-		if ( !g_quiet )
+		if ( !g_StudioMdlContext.quiet )
 		{
 			printf( "testing to make sure that the whole file has been written\n" );
 		}

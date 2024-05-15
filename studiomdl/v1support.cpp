@@ -21,8 +21,9 @@
 #include <cstdlib>
 
 #include "common/scriplib.h"
-#include "mathlib/mathlib.h"
 #include "studiomdl/studiomdl.h"
+
+extern StudioMdlContext g_StudioMdlContext;
 
 int lookup_index(s_source_t *psource, int material, Vector &vertex, Vector &normal, Vector2D texcoord, int iCount,
                  const int *bones, const float *weights, int iExtras, const float *extras) {
@@ -30,13 +31,13 @@ int lookup_index(s_source_t *psource, int material, Vector &vertex, Vector &norm
 
     for (i = 0; i < g_numvlist; i++) {
         if (v_listdata[i].m == material
-            && DotProduct(g_normal[i], normal) > normal_blend
-            && VectorCompare(g_vertex[i], vertex)
-            && g_texcoord[0][i].x == texcoord[0]
-            && g_texcoord[0][i].y == texcoord[1]) {
-            if (g_bone[i].numbones == iCount) {
+            && DotProduct(g_StudioMdlContext.normal[i], normal) > normal_blend
+            && VectorCompare(g_StudioMdlContext.vertex[i], vertex)
+            && g_StudioMdlContext.texcoord[0][i].x == texcoord[0]
+            && g_StudioMdlContext.texcoord[0][i].y == texcoord[1]) {
+            if (g_StudioMdlContext.bone[i].numbones == iCount) {
                 for (j = 0; j < iCount; j++) {
-                    if (g_bone[i].bone[j] != bones[j] || g_bone[i].weight[j] != weights[j])
+                    if (g_StudioMdlContext.bone[i].bone[j] != bones[j] || g_StudioMdlContext.bone[i].weight[j] != weights[j])
                         break;
                 }
                 if (j == iCount) {
@@ -44,9 +45,9 @@ int lookup_index(s_source_t *psource, int material, Vector &vertex, Vector &norm
                     for (k = 0; k < (iExtras / 2); k++) {
                         if (v_listdata[i].t[k + 1] == -1) // Texcoord not set
                             break;
-                        if (g_texcoord[k + 1][i][0] != extras[k * 2])
+                        if (g_StudioMdlContext.texcoord[k + 1][i][0] != extras[k * 2])
                             break;
-                        if (g_texcoord[k + 1][i][1] != extras[k * 2 + 1])
+                        if (g_StudioMdlContext.texcoord[k + 1][i][1] != extras[k * 2 + 1])
                             break;
                     }
 
@@ -62,14 +63,14 @@ int lookup_index(s_source_t *psource, int material, Vector &vertex, Vector &norm
         MdlError("too many indices in source: \"%s\"\n", psource->filename);
     }
 
-    VectorCopy(vertex, g_vertex[i]);
-    VectorCopy(normal, g_normal[i]);
-    Vector2Copy(texcoord, g_texcoord[0][i]);
+    VectorCopy(vertex, g_StudioMdlContext.vertex[i]);
+    VectorCopy(normal, g_StudioMdlContext.normal[i]);
+    Vector2Copy(texcoord, g_StudioMdlContext.texcoord[0][i]);
 
-    g_bone[i].numbones = iCount;
+    g_StudioMdlContext.bone[i].numbones = iCount;
     for (j = 0; j < iCount; j++) {
-        g_bone[i].bone[j] = bones[j];
-        g_bone[i].weight[j] = weights[j];
+        g_StudioMdlContext.bone[i].bone[j] = bones[j];
+        g_StudioMdlContext.bone[i].weight[j] = weights[j];
     }
 
     v_listdata[i].v = i;
@@ -84,8 +85,8 @@ int lookup_index(s_source_t *psource, int material, Vector &vertex, Vector &norm
     }
     // Populate additional texcoords with any extra floats
     for (j = 0; j < (iExtras / 2); j++) {
-        g_texcoord[j + 1][i][0] = extras[j * 2];
-        g_texcoord[j + 1][i][1] = extras[j * 2 + 1];
+        g_StudioMdlContext.texcoord[j + 1][i][0] = extras[j * 2];
+        g_StudioMdlContext.texcoord[j + 1][i][1] = extras[j * 2 + 1];
         v_listdata[i].t[j + 1] = i;
     }
 
@@ -139,16 +140,16 @@ void ParseFaceData(s_source_t *psource, int material, s_face_t *pFace) {
     int bone;
 
     for (j = 0; j < 3; j++) {
-        memset(g_szLine, 0, sizeof(g_szLine));
+        memset(g_StudioMdlContext.szLine, 0, sizeof(g_StudioMdlContext.szLine));
 
         if (!GetLineInput()) {
-            MdlError("%s: error on g_szLine %d: %s", g_szFilename, g_iLinecount, g_szLine);
+            MdlError("%s: error on g_StudioMdlContext.szLine %d: %s", g_StudioMdlContext.szFilename, g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
         }
 
         iCount = 0;
         iExtras = 0;
 
-        i = sscanf(g_szLine, "%d %f %f %f %f %f %f %f %f",
+        i = sscanf(g_StudioMdlContext.szLine, "%d %f %f %f %f %f %f %f %f",
                    &bone,
                    &p[0], &p[1], &p[2],
                    &normal[0], &normal[1], &normal[2],
@@ -158,7 +159,7 @@ void ParseFaceData(s_source_t *psource, int material, s_face_t *pFace) {
             continue;
 
         if (bone < 0 || bone >= psource->numbones) {
-            MdlError("bogus bone index\n%d %s :\n%s", g_iLinecount, g_szFilename, g_szLine);
+            MdlError("bogus bone index\n%d %s :\n%s", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szFilename, g_StudioMdlContext.szLine);
         }
 
         //Scale face pos
@@ -166,7 +167,7 @@ void ParseFaceData(s_source_t *psource, int material, s_face_t *pFace) {
 
         // Parse bones.
         int k;
-        char *pItem = g_szLine;
+        char *pItem = g_StudioMdlContext.szLine;
         // Skip first 9 items already parsed via sscanf above
         for (k = 0; k < 9; k++) {
             pItem = GetNextFaceItem(pItem);
@@ -178,13 +179,13 @@ void ParseFaceData(s_source_t *psource, int material, s_face_t *pFace) {
                 for (k = 0; k < iCount && k < MAXSTUDIOSRCBONES; k++) {
                     pItem = GetNextFaceItem(pItem);
                     if (!pItem) {
-                        MdlError("Bone ID %d not found\n%d %s :\n%s", k, g_iLinecount, g_szFilename, g_szLine);
+                        MdlError("Bone ID %d not found\n%d %s :\n%s", k, g_StudioMdlContext.iLinecount, g_StudioMdlContext.szFilename, g_StudioMdlContext.szLine);
                     }
                     bones[k] = atoi(pItem);
 
                     pItem = GetNextFaceItem(pItem);
                     if (!pItem) {
-                        MdlError("Bone weight %d not found\n%d %s :\n%s", k, g_iLinecount, g_szFilename, g_szLine);
+                        MdlError("Bone weight %d not found\n%d %s :\n%s", k, g_StudioMdlContext.iLinecount, g_StudioMdlContext.szFilename, g_StudioMdlContext.szLine);
                     }
                     weights[k] = atof(pItem);
                 }
@@ -198,8 +199,8 @@ void ParseFaceData(s_source_t *psource, int material, s_face_t *pFace) {
                         for (int e = 0; e < iExtras; e++) {
                             pItem = GetNextFaceItem(pItem);
                             if (!pItem) {
-                                MdlError("Extra data item %d not found\n%d %s :\n%s", e, g_iLinecount, g_szFilename,
-                                         g_szLine);
+                                MdlError("Extra data item %d not found\n%d %s :\n%s", e, g_StudioMdlContext.iLinecount, g_StudioMdlContext.szFilename,
+                                         g_StudioMdlContext.szLine);
                             }
                             extras[e] = atof(pItem);
                         }
@@ -254,7 +255,7 @@ void Grab_Triangles(s_source_t *psource) {
     vmin[0] = vmin[1] = vmin[2] = 99999;
     vmax[0] = vmax[1] = vmax[2] = -99999;
 
-    g_numfaces = 0;
+    g_StudioMdlContext.numfaces = 0;
     g_numvlist = 0;
 
     //
@@ -269,18 +270,18 @@ void Grab_Triangles(s_source_t *psource) {
             break;
 
         // check for end
-        if (IsEnd(g_szLine))
+        if (IsEnd(g_StudioMdlContext.szLine))
             break;
 
         // Look for extra junk that we may want to avoid...
-        int nLineLength = strlen(g_szLine);
+        int nLineLength = strlen(g_StudioMdlContext.szLine);
         if (nLineLength >= sizeof(texturename)) {
-            MdlWarning("Unexpected data at line %d, (need a texture name) ignoring...\n", g_iLinecount);
+            MdlWarning("Unexpected data at line %d, (need a texture name) ignoring...\n", g_StudioMdlContext.iLinecount);
             continue;
         }
 
         // strip off trailing smag
-        strncpy(texturename, g_szLine, sizeof(texturename) - 1);
+        strncpy(texturename, g_StudioMdlContext.szLine, sizeof(texturename) - 1);
         for (i = strlen(texturename) - 1; i >= 0 && !isgraph(texturename[i]); i--) {
         }
         texturename[i + 1] = '\0';
@@ -327,14 +328,14 @@ void Grab_Triangles(s_source_t *psource) {
             continue;
         }
 
-        g_src_uface[g_numfaces] = f;
-        g_face[g_numfaces].material = material;
-        g_numfaces++;
+        g_StudioMdlContext.src_uface[g_StudioMdlContext.numfaces] = f;
+        g_StudioMdlContext.face[g_StudioMdlContext.numfaces].material = material;
+        g_StudioMdlContext.numfaces++;
     }
 
     for (int i = 0; i < MAXSTUDIOTEXCOORDS; ++i) {
-        if (g_texcoord[i].Count()) {
-            g_numtexcoords[i] = g_numvlist;
+        if (g_StudioMdlContext.texcoord[i].Count()) {
+            g_StudioMdlContext.numtexcoords[i] = g_numvlist;
         }
     }
 
@@ -352,14 +353,14 @@ int Load_SMD(s_source_t *psource) {
     if (!OpenGlobalFile(psource->filename))
         return 0;
 
-    if (!g_quiet) {
+    if (!g_StudioMdlContext.quiet) {
         printf("SMD MODEL %s\n", psource->filename);
     }
 
-    g_iLinecount = 0;
+    g_StudioMdlContext.iLinecount = 0;
 
     while (GetLineInput()) {
-        int numRead = sscanf(g_szLine, "%s %d", cmd, &option);
+        int numRead = sscanf(g_StudioMdlContext.szLine, "%s %d", cmd, &option);
 
         // Blank line
         if ((numRead == EOF) || (numRead == 0))
@@ -385,7 +386,7 @@ int Load_SMD(s_source_t *psource) {
             MdlWarning("unknown studio command \"%s\"\n", cmd);
         }
     }
-    fclose(g_fpInput);
+    fclose(g_StudioMdlContext.fpInput);
 
     return 1;
 }

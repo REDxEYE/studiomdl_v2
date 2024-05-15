@@ -42,6 +42,7 @@
 int totalframes = 0;
 float totalseconds = 0;
 extern int numcommandnodes;
+extern StudioMdlContext g_StudioMdlContext;
 
 // WriteFile is the only externally visible function in this file.
 // pData points to the current location in an output buffer and pStart is
@@ -240,14 +241,14 @@ static void WriteBoneInfo(studiohdr_t *phdr) {
 
     // save bone info
     pbone = (mstudiobone_t *) pData;
-    phdr->numbones = g_numbones;
+    phdr->numbones = g_StudioMdlContext.numbones;
     phdr->boneindex = pData - pStart;
 
     char *pSurfacePropName = GetDefaultSurfaceProp();
     AddToStringTable(phdr, &phdr->surfacepropindex, pSurfacePropName);
     phdr->contents = GetDefaultContents();
 
-    for (i = 0; i < g_numbones; i++) {
+    for (i = 0; i < g_StudioMdlContext.numbones; i++) {
         AddToStringTable(&pbone[i], &pbone[i].sznameindex, g_bonetable[i].name);
         pbone[i].parent = g_bonetable[i].parent;
         pbone[i].flags = g_bonetable[i].flags;
@@ -269,7 +270,7 @@ static void WriteBoneInfo(studiohdr_t *phdr) {
         pbone[i].contents = GetContents(g_bonetable[i].name);
     }
 
-    pData += g_numbones * sizeof(mstudiobone_t);
+    pData += g_StudioMdlContext.numbones * sizeof(mstudiobone_t);
     ALIGN4(pData);
 
     // save procedural bone info
@@ -451,7 +452,7 @@ static void WriteBoneInfo(studiohdr_t *phdr) {
     }
 
     // map g_bonecontroller to bones
-    for (i = 0; i < g_numbones; i++) {
+    for (i = 0; i < g_StudioMdlContext.numbones; i++) {
         for (j = 0; j < 6; j++) {
             pbone[i].bonecontroller[j] = -1;
         }
@@ -513,7 +514,7 @@ static void WriteBoneInfo(studiohdr_t *phdr) {
     ALIGN4(pData);
 
     // save hitbox sets
-    phdr->numhitboxsets = g_hitboxsets.size();
+    phdr->numhitboxsets = g_StudioMdlContext.hitboxsets.size();
 
     // Remember start spot
     mstudiohitboxset_t *hitboxset = (mstudiohitboxset_t *) pData;
@@ -522,8 +523,8 @@ static void WriteBoneInfo(studiohdr_t *phdr) {
     pData += phdr->numhitboxsets * sizeof(mstudiohitboxset_t);
     ALIGN4(pData);
 
-    for (int s = 0; s < g_hitboxsets.size(); s++, hitboxset++) {
-        s_hitboxset *set = &g_hitboxsets[s];
+    for (int s = 0; s < g_StudioMdlContext.hitboxsets.size(); s++, hitboxset++) {
+        s_hitboxset *set = &g_StudioMdlContext.hitboxsets[s];
 
         AddToStringTable(hitboxset, &hitboxset->sznameindex, set->hitboxsetname);
 
@@ -565,7 +566,7 @@ void LoadPreexistingSequenceOrder(const char *pFilename) {
     g_vecPreexistingSequences.RemoveAll();
 
     if (!FileExists(pFilename)) {
-        if (g_bErrorOnSeqRemapFail)
+        if (g_StudioMdlContext.errorOnSeqRemapFail)
             MdlError(
                     "This model requires a sequence remapping match. Please sync to the latest model on disk before recompiling.\n");
         return;
@@ -583,9 +584,9 @@ void LoadPreexistingSequenceOrder(const char *pFilename) {
             //Msg( "   Sequence %i : \"%s\"\n", i, pStudioHdr->pSeqdesc(i).pszLabel() );
             g_vecPreexistingSequences.AddToTail(pStudioHdr->pSeqdesc(i).pszLabel());
         }
-    } else if (g_bModelIntentionallyHasZeroSequences) {
+    } else if (g_StudioMdlContext.modelIntentionallyHasZeroSequences) {
         // some models like scaffolds, intentionally don't have input sequences. Not sure if this is the best way to allow this exception.
-    } else if (g_bErrorOnSeqRemapFail) {
+    } else if (g_StudioMdlContext.errorOnSeqRemapFail) {
         MdlError("Zero-size file or no sequences. This model requires a sequence remapping match.\n");
     } else {
         MdlWarning("Zero-size file or no sequences.\n");
@@ -863,7 +864,7 @@ static void WriteSequenceInfo(studiohdr_t *phdr) {
             // only check newer boneweights than the last one
             if (pseqdesc[k - m].pBoneweight(0) > pweight) {
                 pweight = pseqdesc[k - m].pBoneweight(0);
-                for (j = 0; j < g_numbones; j++) {
+                for (j = 0; j < g_StudioMdlContext.numbones; j++) {
                     // we're not walking the linear sequence list if we're remapping, so we need to remap this check
                     int nRemap = k;
                     if (bUseSeqOrderRemapping)
@@ -872,19 +873,19 @@ static void WriteSequenceInfo(studiohdr_t *phdr) {
                     if (g_sequence[i].weight[j] != g_sequence[nRemap].weight[j])
                         break;
                 }
-                if (j == g_numbones)
+                if (j == g_StudioMdlContext.numbones)
                     break;
             }
         }
 
         // check to see if all the bones matched
-        if (j < g_numbones) {
+        if (j < g_StudioMdlContext.numbones) {
             // allocate new block
             //printf("new %08x\n", pData );
             pweight = (float *) pData;
             pseqdesc->weightlistindex = (pData - pSequenceStart);
-            pData += g_numbones * sizeof(float);
-            for (j = 0; j < g_numbones; j++) {
+            pData += g_StudioMdlContext.numbones * sizeof(float);
+            for (j = 0; j < g_StudioMdlContext.numbones; j++) {
                 pweight[j] = g_sequence[i].weight[j];
             }
         } else {
@@ -1054,7 +1055,7 @@ void WriteRLEAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanimde
     mstudio_rle_anim_t *prevanim = nullptr;
 
     // save animation value info
-    for (j = 0; j < g_numbones; j++) {
+    for (j = 0; j < g_StudioMdlContext.numbones; j++) {
         // destanim->weight = srcanim->weight[j];
         // printf( "%s %.1f\n", g_bonetable[j].name, destanim->weight );
         destanim->flags = 0;
@@ -1174,7 +1175,7 @@ void WriteFrameAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanim
 
     // write flags and constants
     byte *flag = pData;
-    pData += g_numbones * sizeof(*flag);
+    pData += g_StudioMdlContext.numbones * sizeof(*flag);
 
     ALIGN4(pData);
 
@@ -1182,7 +1183,7 @@ void WriteFrameAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanim
     int framelength = 0;
     int iFrame = MIN(w * srcanim->sectionframes, srcanim->numframes - 1);
 
-    for (int j = 0; j < g_numbones; j++) {
+    for (int j = 0; j < g_StudioMdlContext.numbones; j++) {
         s_compressed_t *psrcdata = &srcanim->anim[w][j];
 
         if (psrcdata->num[3] == 0 && psrcdata->num[4] == 0 && psrcdata->num[5] == 0) {
@@ -1202,7 +1203,7 @@ void WriteFrameAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanim
             // no change
         } else if (psrcdata->num[0] <= 2 && psrcdata->num[1] <= 2 && psrcdata->num[2] <= 2) {
             // single frame
-            if (g_bAnimblockHighRes) {
+            if (g_StudioMdlContext.animblockHighRes) {
                 flag[j] |= STUDIO_FRAME_CONST_POS2;
                 *((Vector *) pData) = srcanim->sanim[iFrame][j].pos;
                 pData += sizeof(Vector);
@@ -1213,7 +1214,7 @@ void WriteFrameAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanim
             }
         } else {
             // multiple frames
-            if (g_bAnimblockHighRes) {
+            if (g_StudioMdlContext.animblockHighRes) {
                 flag[j] |= STUDIO_FRAME_ANIM_POS2;
                 framelength += sizeof(Vector);
             } else {
@@ -1239,7 +1240,7 @@ void WriteFrameAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanim
 
     /*
 	printf("%s (%d : %d %d):\n", srcanim->name, srcanim->numframes, iStartFrame, iEndFrame );
-	for (int j = 0; j < g_numbones; j++)
+	for (int j = 0; j < g_StudioMdlContext.numbones; j++)
 	{
 		s_compressed_t *psrcdata = &srcanim->anim[w][j];
 
@@ -1250,7 +1251,7 @@ void WriteFrameAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanim
 
     for (iFrame = iStartFrame; iFrame <= iEndFrame; iFrame++) {
         // save animation value info
-        for (int j = 0; j < g_numbones; j++) {
+        for (int j = 0; j < g_StudioMdlContext.numbones; j++) {
             if (flag[j] & STUDIO_FRAME_ANIM_ROT2) {
                 Quaternion q;
                 AngleQuaternion(srcanim->sanim[iFrame][j].rot, q);
@@ -1288,7 +1289,7 @@ void WriteAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanimdesc,
         byte *pStartSection = pData;
 
         // use frameanim if not lowres data
-        if (pExtData != nullptr && !g_bAnimblockLowRes) {
+        if (pExtData != nullptr && !g_StudioMdlContext.animblockLowRes) {
             srcanim->flags |= STUDIO_FRAMEANIM;
             destanimdesc->flags |= STUDIO_FRAMEANIM;
         }
@@ -1517,7 +1518,7 @@ static byte *WriteAnimations(byte *pData, byte *pStart, studiohdr_t *phdr) {
     pData += g_numani * sizeof(*panimdesc);
     ALIGN4(pData);
     //      ------------ ------- ------- : ------- (-------)
-    if (g_verbose) {
+    if (g_StudioMdlContext.verbose) {
         printf("   animation       x       y       ips    angle\n");
     }
 
@@ -1542,7 +1543,7 @@ static byte *WriteAnimations(byte *pData, byte *pStart, studiohdr_t *phdr) {
         // destanim->motiontype = srcanim->motiontype;
         // destanim->motionbone = srcanim->motionbone;
         // VectorCopy( srcanim->linearpos, destanim->linearpos );
-        if (g_verbose && (srcanim->numpiecewisekeys > 0)) {
+        if (g_StudioMdlContext.verbose && (srcanim->numpiecewisekeys > 0)) {
             j = srcanim->numpiecewisekeys - 1;
             if (srcanim->piecewisemove[j].pos[0] != 0 || srcanim->piecewisemove[j].pos[1] != 0) {
                 float t = (srcanim->numframes - 1) / srcanim->fps;
@@ -1581,13 +1582,13 @@ static byte *WriteAnimations(byte *pData, byte *pStart, studiohdr_t *phdr) {
         if (!pBlockStart || (g_bonesaveframe.Count() == 0 && srcanim->numframes == 1)) {
             // hack
             srcanim->disableAnimblocks = true;
-        } else if (g_bNoAnimblockStall) {
+        } else if (g_StudioMdlContext.noAnimblockStall) {
             srcanim->isFirstSectionLocal = true;
         }
 
         // make sure number of preload frames is initialized
         if (srcanim->numNostallFrames == 0) {
-            srcanim->numNostallFrames = srcanim->fps * g_flPreloadTime;
+            srcanim->numNostallFrames = srcanim->fps * g_StudioMdlContext.preloadTime;
         }
 
         // block zero is relative to me
@@ -1653,7 +1654,7 @@ static byte *WriteAnimations(byte *pData, byte *pStart, studiohdr_t *phdr) {
         //	printf("extra %d : %s\n", pData - (byte *)pAStart, srcanim->name);
     }
 
-    if (!g_quiet) {
+    if (!g_StudioMdlContext.quiet) {
         /*
 		for (i = 0; i < g_numanimblocks; i++)
 		{
@@ -1662,7 +1663,7 @@ static byte *WriteAnimations(byte *pData, byte *pStart, studiohdr_t *phdr) {
 		*/
     }
 
-    if (!g_quiet) {
+    if (!g_StudioMdlContext.quiet) {
         /*
 		printf("raw anim data %d : %d\n", rawanimbytes, animboneframes );
 		printf("pos  %d %d %d %d\n", numPos[0], numPos[1], numPos[2], numPos[3] );
@@ -1702,18 +1703,18 @@ static byte *WriteAnimations(byte *pData, byte *pStart, studiohdr_t *phdr) {
 
     // calculate what bones should be have zero frame saved out
     if (g_bonesaveframe.Count() == 0) {
-        for (j = 0; j < g_numbones; j++) {
-            if ((g_bonetable[j].parent == -1) || (g_bonetable[j].posrange.Length() >= g_flMinZeroFramePosDelta)) {
+        for (j = 0; j < g_StudioMdlContext.numbones; j++) {
+            if ((g_bonetable[j].parent == -1) || (g_bonetable[j].posrange.Length() >= g_StudioMdlContext.minZeroFramePosDelta)) {
                 g_bonetable[j].flags |= BONE_HAS_SAVEFRAME_POS;
             }
-            if (g_bZeroFramesHighres) {
+            if (g_StudioMdlContext.zeroFramesHighres) {
                 g_bonetable[j].flags |= BONE_HAS_SAVEFRAME_ROT64;
             } else {
                 g_bonetable[j].flags |= BONE_HAS_SAVEFRAME_ROT32;
             }
 
 
-            if ((!g_quiet) && (g_bonetable[j].flags &
+            if ((!g_StudioMdlContext.quiet) && (g_bonetable[j].flags &
                                (BONE_HAS_SAVEFRAME_POS | BONE_HAS_SAVEFRAME_ROT64 | BONE_HAS_SAVEFRAME_ROT32))) {
                 printf("$BoneSaveFrame \"%s\"", g_bonetable[j].name);
                 if (g_bonetable[j].flags & BONE_HAS_SAVEFRAME_POS) {
@@ -1739,7 +1740,7 @@ static byte *WriteAnimations(byte *pData, byte *pStart, studiohdr_t *phdr) {
                     g_bonetable[j].flags |= BONE_HAS_SAVEFRAME_POS;
                 }
                 if (g_bonesaveframe[i].bSaveRot) {
-                    if (g_bZeroFramesHighres) {
+                    if (g_StudioMdlContext.zeroFramesHighres) {
                         g_bonetable[j].flags |= BONE_HAS_SAVEFRAME_ROT64;
                     } else {
                         g_bonetable[j].flags |= BONE_HAS_SAVEFRAME_ROT32;
@@ -1753,7 +1754,7 @@ static byte *WriteAnimations(byte *pData, byte *pStart, studiohdr_t *phdr) {
         }
     }
 
-    for (j = 0; j < g_numbones; j++) {
+    for (j = 0; j < g_StudioMdlContext.numbones; j++) {
         ((mstudiobone_t *) phdr->pBone(j))->flags |= g_bonetable[j].flags;
     }
 
@@ -1779,9 +1780,9 @@ static byte *WriteAnimations(byte *pData, byte *pStart, studiohdr_t *phdr) {
             if (destanim->zeroframecount < 1)
                 destanim->zeroframecount = 1;
 
-            destanim->zeroframecount = MIN(destanim->zeroframecount, g_nMaxZeroFrames);
+            destanim->zeroframecount = MIN(destanim->zeroframecount, g_StudioMdlContext.maxZeroFrames);
 
-            for (j = 0; j < g_numbones; j++) {
+            for (j = 0; j < g_StudioMdlContext.numbones; j++) {
                 if (g_bonetable[j].flags & BONE_HAS_SAVEFRAME_POS) {
                     for (int n = 0; n < destanim->zeroframecount; n++) {
                         *(Vector48 *) pData = anim->sanim[destanim->zeroframespan * n][j].pos;
@@ -1891,7 +1892,7 @@ static void WriteBoneTransforms(studiohdr2_t *phdr, const mstudiobone_t *pBone) 
     SetIdentityMatrix(identity);
 
     int nTransformCount = 0;
-    for (int i = 0; i < g_numbones; i++) {
+    for (int i = 0; i < g_StudioMdlContext.numbones; i++) {
         if (g_bonetable[i].flags & BONE_ALWAYS_PROCEDURAL)
             continue;
         int nParent = g_bonetable[i].parent;
@@ -1910,7 +1911,7 @@ static void WriteBoneTransforms(studiohdr2_t *phdr, const mstudiobone_t *pBone) 
     phdr->srcbonetransformindex = pData - pStart;
     pData += nTransformCount * sizeof(mstudiosrcbonetransform_t);
     int bt = 0;
-    for (int i = 0; i < g_numbones; i++) {
+    for (int i = 0; i < g_StudioMdlContext.numbones; i++) {
         if (g_bonetable[i].flags & BONE_ALWAYS_PROCEDURAL)
             continue;
         int nParent = g_bonetable[i].parent;
@@ -1936,20 +1937,20 @@ static void WriteBoneTransforms(studiohdr2_t *phdr, const mstudiobone_t *pBone) 
     }
     ALIGN4(pData);
 
-    if (g_numbones > 1) {
+    if (g_StudioMdlContext.numbones > 1) {
         // write second bone table
         phdr->linearboneindex = pData - (byte *) phdr;
         mstudiolinearbone_t *pLinearBone = (mstudiolinearbone_t *) pData;
         pData += sizeof(*pLinearBone);
 
-        pLinearBone->numbones = g_numbones;
+        pLinearBone->numbones = g_StudioMdlContext.numbones;
 
 #define WRITE_BONE_BLOCK(type, srcfield, dest, destindex) \
         type *##dest = (type *)pData; \
         pLinearBone->##destindex = pData - (byte *)pLinearBone; \
-        pData += g_numbones * sizeof( *##dest ); \
+        pData += g_StudioMdlContext.numbones * sizeof( *##dest ); \
         ALIGN4( pData ); \
-        for ( int i = 0; i < g_numbones; i++) \
+        for ( int i = 0; i < g_StudioMdlContext.numbones; i++) \
             dest##[i] = pBone[i].##srcfield;
 
         WRITE_BONE_BLOCK(int, flags, pFlags, flagsindex);
@@ -1995,7 +1996,7 @@ static void WriteBoneFlexDrivers(studiohdr2_t *pStudioHdr2) {
     pStudioHdr2->m_nBoneFlexDriverCount = 0;
     pStudioHdr2->m_nBoneFlexDriverIndex = 0;
 
-    CDmeBoneFlexDriverList *pDmeBoneFlexDriverList = GetElement<CDmeBoneFlexDriverList>(g_hDmeBoneFlexDriverList);
+    CDmeBoneFlexDriverList *pDmeBoneFlexDriverList = GetElement<CDmeBoneFlexDriverList>(g_StudioMdlContext.hDmeBoneFlexDriverList);
     if (!pDmeBoneFlexDriverList)
         return;
 
@@ -2070,7 +2071,7 @@ static void WriteVertices(studiohdr_t *phdr) {
     Q_StripExtension(fileName, fileName, sizeof(fileName));
     strcat(fileName, ".vvd");
 
-    if (!g_quiet) {
+    if (!g_StudioMdlContext.quiet) {
         printf("---------------------\n");
         printf("writing %s:\n", fileName);
     }
@@ -2129,7 +2130,7 @@ static void WriteVertices(studiohdr_t *phdr) {
 
         fileHeader->numLODVertexes[0] += pLodData->numvertices;
 
-        if (!g_quiet) {
+        if (!g_StudioMdlContext.quiet) {
             printf("vertices   %7llu bytes (%d vertices)\n", (uintptr_t)(pData - cur), pLodData->numvertices);
         }
     }
@@ -2157,7 +2158,7 @@ static void WriteVertices(studiohdr_t *phdr) {
 #endif
         }
 
-        if (!g_quiet) {
+        if (!g_StudioMdlContext.quiet) {
             printf("tangents   %7llu bytes (%d vertices)\n", (uintptr_t)(pData - cur), pLodData->numvertices);
         }
     }
@@ -2203,7 +2204,7 @@ static void WriteVertices(studiohdr_t *phdr) {
 
                 pData = (byte *) pExtraTexcoord;
 
-                if (!g_quiet) {
+                if (!g_StudioMdlContext.quiet) {
                     printf("extra vertex data   %7llu bytes (%d vertices)\n", (uintptr_t)(pData - cur),
                            pLodData->numvertices);
                 }
@@ -2212,7 +2213,7 @@ static void WriteVertices(studiohdr_t *phdr) {
         pExtraheader->m_totalbytes = (uintptr_t)(pData - pExtraDataStart);
     }
 
-    if (!g_quiet) {
+    if (!g_StudioMdlContext.quiet) {
         printf("total      %7lld bytes\n", pData - pStart);
     }
 
@@ -2411,8 +2412,8 @@ static void WriteModel(studiohdr_t *phdr) {
         bool found = false;
 
         // See if this controller is in the remap table
-        for (k = 0; k < g_FlexControllerRemap.size(); ++k) {
-            s_flexcontrollerremap_t &remap = g_FlexControllerRemap[k];
+        for (k = 0; k < g_StudioMdlContext.FlexControllerRemap.size(); ++k) {
+            s_flexcontrollerremap_t &remap = g_StudioMdlContext.FlexControllerRemap[k];
             if (j == remap.m_Index || j == remap.m_LeftIndex || j == remap.m_RightIndex || j == remap.m_MultiIndex) {
                 AddToStringTable(pFlexControllerUI, &pFlexControllerUI->sznameindex, remap.m_Name);
 
@@ -2588,7 +2589,7 @@ static void WriteModel(studiohdr_t *phdr) {
         ppose[i].loop = g_pose[i].loop;
     }
 
-    if (!g_quiet) {
+    if (!g_StudioMdlContext.quiet) {
         printf("ik/pose    %7llu bytes\n", (uintptr_t)(pData - cur));
     }
     cur = (uintptr_t) pData;
@@ -2707,7 +2708,7 @@ static void WriteModel(studiohdr_t *phdr) {
             peyeball[j].lowerlidflexdesc = g_model[i]->eyeball[j].lowerlidflexdesc;
         }
 
-        if (!g_quiet) {
+        if (!g_StudioMdlContext.quiet) {
             printf("eyeballs   %7llu bytes (%d eyeballs)\n", (uintptr_t)(pData - cur), g_model[i]->numeyeballs);
         }
 
@@ -2806,7 +2807,7 @@ static void WriteModel(studiohdr_t *phdr) {
             }
         }
 
-        if (!g_quiet) {
+        if (!g_StudioMdlContext.quiet) {
             printf("flexes     %7llu bytes (%d flexes)\n", (uintptr_t)(pData - cur), g_numflexkeys);
         }
         cur = (uintptr_t) pData;
@@ -2885,7 +2886,7 @@ void LoadMaterials(studiohdr_t *phdr) {
 
 				pMaterial = g_pMaterialSystem->FindMaterial( szPath, TEXTURE_GROUP_OTHER, false );
 			}
-			if( IsErrorMaterial( pMaterial ) && !g_quiet )
+			if( IsErrorMaterial( pMaterial ) && !g_StudioMdlContext.quiet )
 			{
 				// hack - if it isn't found, go through the motions of looking for it again
 				// so that the materialsystem will give an error.
@@ -2955,9 +2956,9 @@ void WriteKeyValues(studiohdr_t *phdr, std::vector<char> *pKeyValue) {
 void CapKeyValues(void) {
     const char *headCap = "mdlkeyvalue\n{\n";
     const char *tailCap = "}\\n";
-    if (g_KeyValueText.size()) {
-        g_KeyValueText.insert(g_KeyValueText.begin(), headCap, headCap + std::strlen(headCap));
-        g_KeyValueText.insert(g_KeyValueText.end(), tailCap, tailCap + std::strlen(tailCap));
+    if (g_StudioMdlContext.KeyValueText.size()) {
+        g_StudioMdlContext.KeyValueText.insert(g_StudioMdlContext.KeyValueText.begin(), headCap, headCap + std::strlen(headCap));
+        g_StudioMdlContext.KeyValueText.insert(g_StudioMdlContext.KeyValueText.end(), tailCap, tailCap + std::strlen(tailCap));
     }
 }
 
@@ -2969,7 +2970,7 @@ void WriteQCPath(void) {
     if (Q_strlen(relative_qc_path) > 0) {
         char new_qcpath_block[2048];
         V_sprintf_safe(new_qcpath_block, "qc_path {\n\"value\" \"%s\" }\n", relative_qc_path);
-        g_KeyValueText.insert(g_KeyValueText.end(), new_qcpath_block, new_qcpath_block + std::strlen(new_qcpath_block));
+        g_StudioMdlContext.KeyValueText.insert(g_StudioMdlContext.KeyValueText.end(), new_qcpath_block, new_qcpath_block + std::strlen(new_qcpath_block));
     }
 }
 
@@ -3037,7 +3038,7 @@ void WriteModelFiles(void) {
 
         EnsureFileDirectoryExists(filename);
 
-        if (!g_bVerifyOnly) {
+        if (!g_StudioMdlContext.verifyOnly) {
 //			spFileBlockOut.Attach( g_p4factory->AccessFile( filename ) );
 //			spFileBlockOut->Edit();
             blockouthandle = SafeOpenWrite(filename);
@@ -3080,7 +3081,7 @@ void WriteModelFiles(void) {
     EnsureFileDirectoryExists(filename);
 
 
-    if (!g_quiet) {
+    if (!g_StudioMdlContext.quiet) {
         printf("---------------------\n");
         printf("writing %s:\n", filename);
     }
@@ -3088,13 +3089,13 @@ void WriteModelFiles(void) {
     LoadPreexistingSequenceOrder(filename);
 
 
-    if (g_parseable_completion_output) {
+    if (g_StudioMdlContext.parseable_completion_output) {
         char szRelativePath[260];
         V_MakeRelativePath(filename, getenv("VGAME"), szRelativePath, sizeof(szRelativePath));
         printf("\nOUTPUT MODEL: %s\n", szRelativePath);
     }
 
-    if (!g_bVerifyOnly) {
+    if (!g_StudioMdlContext.verifyOnly) {
 //		spFileModelOut.Attach( g_p4factory->AccessFile( filename ) );
 //		spFileModelOut->Edit();
         modelouthandle = SafeOpenWrite(filename);
@@ -3125,8 +3126,8 @@ void WriteModelFiles(void) {
     phdr->mass = GetCollisionModelMass();
     phdr->constdirectionallightdot = g_constdirectionalightdot;
 
-    if (g_numAllowedRootLODs > 0) {
-        phdr->numAllowedRootLODs = g_numAllowedRootLODs;
+    if (g_StudioMdlContext.numAllowedRootLODs > 0) {
+        phdr->numAllowedRootLODs = g_StudioMdlContext.numAllowedRootLODs;
     }
 
     pData = (byte *) phdr + sizeof(studiohdr_t);
@@ -3151,20 +3152,20 @@ void WriteModelFiles(void) {
     }
 
     WriteBoneInfo(phdr);
-    if (!g_quiet) {
-        printf("bones      %7lld bytes (%d)\n", pData - pStart - total, g_numbones);
+    if (!g_StudioMdlContext.quiet) {
+        printf("bones      %7lld bytes (%d)\n", pData - pStart - total, g_StudioMdlContext.numbones);
     }
     total = pData - pStart;
 
     pData = WriteAnimations(pData, pStart, phdr);
-    if (!g_quiet) {
+    if (!g_StudioMdlContext.quiet) {
         printf("animations %7lld bytes (%d anims) (%d frames) [%d:%02d]\n", pData - pStart - total, g_numani, totalframes,
                (int) totalseconds / 60, (int) totalseconds % 60);
     }
     total = pData - pStart;
 
     WriteSequenceInfo(phdr);
-    if (!g_quiet) {
+    if (!g_StudioMdlContext.quiet) {
         printf("sequences  %7lld bytes (%d seq) \n", pData - pStart - total, g_sequence.Count());
     }
     total = pData - pStart;
@@ -3173,14 +3174,14 @@ void WriteModelFiles(void) {
     WriteModel(phdr);
 //    Msg("hdr@%p=%p\n", &phdr, phdr);
 
-    if (!g_quiet) {
+    if (!g_StudioMdlContext.quiet) {
         printf("models     %7lld bytes\n", pData - pStart - total);
     }
 
     total = pData - pStart;
 
     WriteTextures(phdr);
-    if (!g_quiet) {
+    if (!g_StudioMdlContext.quiet) {
         printf("textures   %7lld bytes\n", pData - pStart - total);
     }
     total = pData - pStart;
@@ -3189,8 +3190,8 @@ void WriteModelFiles(void) {
 
     CapKeyValues();
 
-    WriteKeyValues(phdr, &g_KeyValueText);
-    if (!g_quiet) {
+    WriteKeyValues(phdr, &g_StudioMdlContext.KeyValueText);
+    if (!g_StudioMdlContext.quiet) {
         printf("keyvalues  %7lld bytes\n", pData - pStart - total);
     }
     total = pData - pStart;
@@ -3198,19 +3199,19 @@ void WriteModelFiles(void) {
 //    Msg("hdr@%p=%p\n", &phdr2, phdr2);
     WriteBoneTransforms(phdr2, phdr->pBone(0));
 //    Msg("hdr@%p=%p\n", &phdr, phdr);
-    if (!g_quiet) {
+    if (!g_StudioMdlContext.quiet) {
         printf("bone transforms  %7lld bytes\n", pData - pStart - total);
     }
     total = pData - pStart;
 
     WriteBoneFlexDrivers(phdr2);
-    if (!g_quiet) {
+    if (!g_StudioMdlContext.quiet) {
         printf("bone flex driver %7lld bytes\n", pData - pStart - total);
     }
     total = pData - pStart;
 
     WriteBodyGroupPresets(phdr2);
-    if (!g_quiet) {
+    if (!g_StudioMdlContext.quiet) {
         printf("bodygroup presets %7lld bytes\n", pData - pStart - total);
     }
     total = pData - pStart;
@@ -3225,13 +3226,13 @@ void WriteModelFiles(void) {
         phdr->checksum = (phdr->checksum << 1) + ((phdr->checksum & 0x8000000) ? 1 : 0) + *((long *) (pStart + i));
     }
 
-    if (g_bVerifyOnly)
+    if (g_StudioMdlContext.verifyOnly)
         return;
 
     CollisionModel_Write(phdr->checksum);
 //	Physics2Collision_Write();
 
-    if (!g_quiet) {
+    if (!g_StudioMdlContext.quiet) {
         printf("collision  %7lld bytes\n", pData - pStart - total);
     }
 
@@ -3258,7 +3259,7 @@ void WriteModelFiles(void) {
                 }
             }
         }
-        if (!g_quiet) {
+        if (!g_StudioMdlContext.quiet) {
             printf("cloth      %7d bytes\n", stream.GetTotalSize());
         }
         pData += stream.GetTotalSize();
@@ -3267,7 +3268,7 @@ void WriteModelFiles(void) {
 
 
     phdr->length = pData - pStart;
-    if (!g_quiet) {
+    if (!g_StudioMdlContext.quiet) {
         printf("total      %7d\n", phdr->length);
     }
 
@@ -3283,31 +3284,12 @@ void WriteModelFiles(void) {
     if (pBlockStart) {
         pblockhdr->length = pBlockData - pBlockStart;
 
-        if (g_bX360) {
-            // Before writing this .ani, write the byteswapped version
-            int outBaseSize = pblockhdr->length + BYTESWAP_ALIGNMENT_PADDING;
-            void *pOutBase = kalloc(1, outBaseSize);
-            int finalSize = StudioByteSwap::ByteswapANI(phdr, pOutBase, outBaseSize, pBlockStart, pblockhdr->length);
-            if (finalSize <= 0) {
-                MdlError("Aborted ANI byteswap on '%s':\n", g_animblockname);
-            }
-
-            char outname[MAX_PATH];
-            Q_StripExtension(g_animblockname, outname, sizeof(outname));
-            Q_strcat(outname, ".360.ani", sizeof(outname));
-
-            {
-//				CP4AutoEditAddFile autop4( outname );
-                SaveFile(outname, pOutBase, finalSize);
-            }
-        }
-
         SafeWrite(blockouthandle, pBlockStart, pblockhdr->length);
         g_pFileSystem->Close(blockouthandle);
 //		if ( spFileBlockOut.IsValid() ) spFileBlockOut->Add();
 
 
-        if (!g_quiet) {
+        if (!g_StudioMdlContext.quiet) {
             printf("---------------------\n");
             printf("writing %s:\n", g_animblockname);
             printf("blocks	   %7d\n", g_numanimblocks);
@@ -3358,18 +3340,11 @@ void WriteModelFiles(void) {
         }
     }
 
-    if (g_bX360) {
-        // now all files have been finalized and fixed up.
-        // re-open the files once more and swap all little-endian
-        // data to big-endian format to produce Xbox360 files.
-        WriteAllSwappedFiles(filename);
-    }
-
     // NOTE!  If you don't want to go through the effort of loading studiorender for perf reasons,
     // make sure spewFlags ends up being zero.
     unsigned int spewFlags = SPEWPERFSTATS_SHOWSTUDIORENDERWARNINGS;
 
-    if (g_bPerf) {
+    if (g_StudioMdlContext.perf) {
         spewFlags |= SPEWPERFSTATS_SHOWPERF;
     }
     if (spewFlags) {
@@ -4298,8 +4273,8 @@ bool FixupToSortedLODVertexes(studiohdr_t *pStudioHdr) {
     int i;
 
     const char *vtxPrefixes[] = {".dx90.vtx", ".dx80.vtx", ".sw.vtx"};
-    const int numPrefixes = (g_gameinfo.bSupportsDX8 && !g_bFastBuild) ? ARRAYSIZE(vtxPrefixes) : 1;
-    const int idxPrefixLodUsage = (g_gameinfo.bSupportsDX8 && !g_bFastBuild) ? 1 : 0;
+    const int numPrefixes = (g_gameinfo.bSupportsDX8 && !g_StudioMdlContext.fastBuild) ? ARRAYSIZE(vtxPrefixes) : 1;
+    const int idxPrefixLodUsage = (g_gameinfo.bSupportsDX8 && !g_StudioMdlContext.fastBuild) ? 1 : 0;
 
     strcpy(filename, gamedir);
 //	if( *g_pPlatformName )
@@ -4461,7 +4436,7 @@ bool Clamp_VVD_LODS(const char *fileName, int rootLOD, bool bExtraData) {
 
     Studio_LoadVertexes(pTempVvdHdr, pNewVvdHdr, rootLOD, true, bExtraData);
 
-    if (!g_quiet) {
+    if (!g_StudioMdlContext.quiet) {
         printf("---------------------\n");
         printf("writing %s:\n", fileName);
         printf("vertices   (%d vertices)\n", pNewVvdHdr->numLODVertexes[0]);
@@ -4687,7 +4662,7 @@ bool Clamp_VTX_LODS(const char *fileName, int rootLOD, studiohdr_t *pStudioHdr) 
 
     // pNewVtxHdr->length = newLen;
 
-    if (!g_quiet) {
+    if (!g_StudioMdlContext.quiet) {
         printf("writing %s:\n", fileName);
         printf("everything (%d bytes)\n", newLen);
     }
@@ -4709,10 +4684,10 @@ bool Clamp_RootLOD(studiohdr_t *phdr) {
     int i;
 
     const char *vtxPrefixes[] = {".dx90.vtx", ".dx80.vtx", ".sw.vtx"};
-    const int numPrefixes = (g_gameinfo.bSupportsDX8 && !g_bFastBuild) ? ARRAYSIZE(vtxPrefixes) : 1;
+    const int numPrefixes = (g_gameinfo.bSupportsDX8 && !g_StudioMdlContext.fastBuild) ? ARRAYSIZE(vtxPrefixes) : 1;
     bool bExtraData = (phdr->flags & STUDIOHDR_FLAGS_EXTRA_VERTEX_DATA) != 0;
 
-    int rootLOD = g_minLod;
+    int rootLOD = g_StudioMdlContext.minLod;
 
     if (rootLOD > g_ScriptLODs.Count() - 1) {
         rootLOD = g_ScriptLODs.Count() - 1;
@@ -4752,7 +4727,7 @@ bool Clamp_RootLOD(studiohdr_t *phdr) {
 //----------------------------------------------------------------------
 void WriteSwappedFile(char *srcname, char *outname, int(*pfnSwapFunc)(void *, int, const void *, int)) {
     if (FileExists(srcname)) {
-        if (!g_quiet) {
+        if (!g_StudioMdlContext.quiet) {
             printf("---------------------\n");
             printf("Generating Xbox360 file format for \"%s\":\n", srcname);
         }

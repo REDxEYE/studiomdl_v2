@@ -34,6 +34,8 @@
 #include "datamodel/dmelement.h"
 #include "common/physdll.h"
 
+extern StudioMdlContext g_StudioMdlContext;
+
 #ifdef MDLCOMPILE
 #include "mdlobjects/dmecollisionjoints.h"
 #endif // #ifdef MDLCOMPILE
@@ -687,7 +689,7 @@ void CJointedModel::ComputeMass(void) {
         pList = pList->m_pNext;
     }
 
-    if (!g_quiet) {
+    if (!g_StudioMdlContext.quiet) {
         printf("Computed Mass: %.2f kg\n", m_totalMass);
     }
 }
@@ -1299,7 +1301,7 @@ bool BuildConvexesForLists(CUtlVector<CPhysConvex *> &convexOut, const CUtlVecto
 // Output : int
 //-----------------------------------------------------------------------------
 int CJointedModel::ProcessJointedModel() {
-    if (!g_quiet) {
+    if (!g_StudioMdlContext.quiet) {
         printf("Processing jointed collision model\n");
     }
     // loop through each bone and form a collision model
@@ -1379,7 +1381,7 @@ int CJointedModel::ProcessJointedModel() {
             }
 
             CreateCollide(pPhys, convexOut.Base(), convexOut.Count(), bv);
-            if (!g_quiet) {
+            if (!g_StudioMdlContext.quiet) {
                 printf("%-24s (%3d verts, %d convex elements) volume: %4.2f\n", pPhys->m_name, vertCount,
                        convexOut.Count(), pPhys->m_volume);
             }
@@ -1629,7 +1631,7 @@ int CJointedModel::ProcessSingleBody() {
     }
 
     if (convexOut.Count()) {
-        if (!g_quiet) {
+        if (!g_StudioMdlContext.quiet) {
             printf("Model has %d convex sub-parts\n", convexOut.Count());
         }
 
@@ -1725,7 +1727,7 @@ void CCmd_JointConstrain(CJointedModel &joints, const char *pJointName, const ch
 
     int axis = -1;
     int jointIndex = joints.FindLocalBoneNamed(pJointName);
-    if (!g_bCreateMakefile && jointIndex < 0) {
+    if (!g_StudioMdlContext.createMakefile && jointIndex < 0) {
         MdlWarning("Can't find joint %s\n", pJointName);
         return;
     }
@@ -2254,7 +2256,7 @@ void CJointedModel::FixCollisionHierarchy() {
 
         pPhys = m_pCollisionList;
         int i;
-        for (i = 0; i < g_numbones; i++) {
+        for (i = 0; i < g_StudioMdlContext.numbones; i++) {
             g_bonetable[i].physicsBoneIndex = -1;
         }
         int index = 0;
@@ -2266,7 +2268,7 @@ void CJointedModel::FixCollisionHierarchy() {
             pPhys = pPhys->m_pNext;
             index++;
         }
-        for (i = 0; i < g_numbones; i++) {
+        for (i = 0; i < g_StudioMdlContext.numbones; i++) {
             // if no bone was set, set to parent bone
             if (g_bonetable[i].physicsBoneIndex < 0) {
                 int index = g_bonetable[i].parent;
@@ -2308,7 +2310,7 @@ void CollisionModel_Build(void) {
         g_JointedModel.ProcessSingleBody();
     }
     g_JointedModel.FixCollisionHierarchy();
-    if (!g_quiet) {
+    if (!g_StudioMdlContext.quiet) {
         printf("Collision model completed.\n");
     }
     g_JointedModel.ComputeMass();
@@ -2407,7 +2409,7 @@ void CollisionModel_Write(long checkSum) {
         float volume = TotalVolume(pPhys);
         if (volume <= 0)
             volume = 1;
-        if (!g_quiet) {
+        if (!g_StudioMdlContext.quiet) {
             printf("Collision model volume %.2f in^3\n", volume);
         }
 

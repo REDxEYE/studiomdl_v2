@@ -25,6 +25,7 @@
 #include "mathlib/vector.h"
 #include "studio.h"
 #include "datamodel/dmelementhandle.h"
+#include "worldsize.h"
 
 struct LodScriptData_t;
 struct s_flexkey_t;
@@ -124,9 +125,6 @@ EXTERN  bool g_bSkinnedLODs;
 
 EXTERN  byte g_constdirectionalightdot;
 
-// Methods associated with the key value text block
-extern std::vector<char> g_KeyValueText;
-
 int KeyValueTextSize(std::vector<char> *pKeyValue);
 
 const char *KeyValueText(std::vector<char> *pKeyValue);
@@ -151,6 +149,13 @@ inline T &CUtlVectorAuto<T>::operator[](int i) {
     return Base()[i];
 }
 
+//-----------------------------------------------------------------------------
+// Assigns a default surface property to the entire model
+//-----------------------------------------------------------------------------
+struct SurfacePropName_t {
+    char m_pJointName[128];
+    char m_pSurfaceProp[128];
+};
 
 //////////////////////////////////////////////////////////////////////////
 // Purpose: contains settings specified in gameinfo.txt
@@ -218,7 +223,6 @@ struct s_bonefixup_t {
     matrix3x4_t m;
 };
 
-EXTERN int g_numbones;
 struct s_bonetable_t {
     char name[MAXSTUDIONAME];    // bone name for symbolic links
     int parent;        // parent bone
@@ -301,8 +305,6 @@ struct s_hitboxset {
 
     std::array<s_bbox_t, MAXSTUDIOSRCBONES> hitbox;
 };
-
-extern std::vector<s_hitboxset> g_hitboxsets;
 
 EXTERN int g_numhitgroups;
 struct s_hitgroup_t {
@@ -1100,9 +1102,6 @@ struct s_flexcontrollerremap_t {
     int m_BlinkController;                // The global index of the Blink Up/Down Flex Controller
 };
 
-extern std::vector<s_flexcontrollerremap_t> g_FlexControllerRemap;
-
-
 struct s_flexkey_t {
     int flexdesc;
     int flexpair;
@@ -1336,6 +1335,37 @@ struct s_constraintboneslave_t {
     bool operator!=(const s_constraintboneslave_t &rhs) const { return !(*this == rhs); }
 };
 
+//-----------------------------------------------------------------------------
+// Clamp meshes into N vertex sizes so as to not overrun
+//-----------------------------------------------------------------------------
+// TODO: It may be better to go ahead and create a new "source", since there's other limits besides just vertices per mesh, such as total verts per model.
+class CClampedSource {
+public:
+    CClampedSource() : m_nummeshes(0) {};
+
+    void Init(int numvertices);;
+
+    // per material mesh
+    int m_nummeshes;
+    int m_meshindex[MAXSTUDIOSKINS];    // mesh to skin index
+    s_mesh_t m_mesh[MAXSTUDIOSKINS];
+
+    // vertices defined in "local" space (not remapped to global bones)
+    CUtlVector<int> m_nOrigMap; // maps the original index to the new index
+    CUtlVector<s_vertexinfo_t> m_vertex;
+    CUtlVector<s_face_t> m_face;
+    CUtlVector<s_sourceanim_t> m_Animations;
+
+    int AddNewVert(s_source_t *pOrigSource, int nVert, int nSrcMesh, int nDstMesh, int nPreOffset = 0);
+
+    void AddAnimations(const s_source_t *pOrigSource);
+
+    void DestroyAnimations(s_source_t *pNewSource);
+
+    void Copy(s_source_t *pOrigSource);
+
+    void CopyFlexKeys(const s_source_t *pOrigSource, s_source_t *pNewSource, int imodel);
+};
 
 //-----------------------------------------------------------------------------
 //
@@ -1608,27 +1638,6 @@ void MarkParentBoneLODs(void);
 
 extern bool GetLineInput(void);
 
-extern char g_szFilename[1024];
-extern FILE *g_fpInput;
-extern char g_szLine[4096];
-extern int g_iLinecount;
-
-extern int g_min_faces, g_max_faces;
-extern float g_min_resolution, g_max_resolution;
-
-EXTERN    int g_numverts;
-EXTERN    CUtlVectorAuto<Vector> g_vertex;
-EXTERN    CUtlVectorAuto<s_boneweight_t> g_bone;
-
-EXTERN    int g_numnormals;
-EXTERN    CUtlVectorAuto<Vector> g_normal;
-
-extern int g_numtexcoords[MAXSTUDIOTEXCOORDS];
-extern CUtlVectorAuto<Vector2D> g_texcoord[MAXSTUDIOTEXCOORDS];
-
-EXTERN    int g_numfaces;
-EXTERN    CUtlVectorAuto<s_tmpface_t> g_face;
-EXTERN    CUtlVectorAuto<s_face_t> g_src_uface;            // max res unified faces
 
 struct v_unify_t {
     int refcount;
@@ -1738,62 +1747,10 @@ private:
 
 EXTERN CUtlVector<LodScriptData_t> g_ScriptLODs;
 
-extern bool g_parseable_completion_output;
-extern bool g_collapse_bones_message;
-extern bool g_collapse_bones;
-extern bool g_collapse_bones_aggressive;
-extern bool g_quiet;
-extern bool g_verbose;
-extern bool g_bCheckLengths;
-extern bool g_bPrintBones;
-extern bool g_bPerf;
-extern bool g_bFast;
-extern bool g_bDumpGraph;
-extern bool g_bMultistageGraph;
-extern bool g_bCreateMakefile;
-extern bool g_bZBrush;
-extern bool g_bVerifyOnly;
-extern bool g_bUseBoneInBBox;
-extern bool g_bLockBoneLengths;
-extern bool g_bDefineBonesLockedByDefault;
-extern bool g_bX360;
-extern int g_minLod;
-extern bool g_bFastBuild;
-extern int g_numAllowedRootLODs;
-extern bool g_bBuildPreview;
-extern bool g_bPreserveTriangleOrder;
-extern bool g_bCenterBonesOnVerts;
-extern float g_flDefaultMotionRollback;
-extern int g_minSectionFrameLimit;
-extern int g_sectionFrames;
-extern bool g_bNoAnimblockStall;
-extern float g_flPreloadTime;
-extern bool g_bStripLods;
-extern bool g_bAnimblockHighRes;
-extern bool g_bAnimblockLowRes;
-extern int g_nMaxZeroFrames;
-extern bool g_bZeroFramesHighres;
-extern float g_flMinZeroFramePosDelta;
-
-extern Vector g_vecMinWorldspace;
-extern Vector g_vecMaxWorldspace;
-
-extern bool g_bLCaseAllSequences;
-
-extern bool g_bErrorOnSeqRemapFail;
-extern bool g_bModelIntentionallyHasZeroSequences;
-
-extern float g_flDefaultFadeInTime;
-extern float g_flDefaultFadeOutTime;
-
-extern float g_flCollisionPrecision;
-
 EXTERN CUtlVector<char *> g_collapse;
 
 extern float GetCollisionModelMass();
 
-// List of defined bone flex drivers
-extern DmElementHandle_t g_hDmeBoneFlexDriverList;
 
 // the first time these are called, the name of the model/QC file is printed so that when 
 // running in batch mode, no echo, when dumping to a file, it can be determined which file is broke.
@@ -1869,8 +1826,157 @@ extern s_model_t *g_pCurrentModel;
 
 
 int verify_atoi(const char *token);
+
 float verify_atof(const char *token);
+
 int LookupPoseParameter(const char *name);
+
 void ProcessModelName(const char *pModelName);
+
+struct StudioMdlContext {
+    unsigned parseable_completion_output: 1;
+    unsigned collapse_bones_message: 1;
+    unsigned collapse_bones: 1;
+    unsigned collapse_bones_aggressive: 1;
+    unsigned quiet: 1;
+    unsigned checkLengths: 1;
+    unsigned printBones: 1;
+    unsigned perf: 1;
+    unsigned dumpGraph: 1;
+    unsigned multistageGraph: 1;
+    unsigned verbose: 1;
+    unsigned createMakefile: 1;
+    unsigned ZBrush: 1;
+    unsigned verifyOnly: 1;
+    unsigned useBoneInBBox: 1;
+    unsigned lockBoneLengths: 1;
+    unsigned defineBonesLockedByDefault: 1;
+    unsigned fastBuild: 1;
+    unsigned X360: 1;
+    unsigned buildPreview: 1;
+    unsigned preserveTriangleOrder: 1;
+    unsigned centerBonesOnVerts: 1;
+    unsigned dumpMaterials: 1;
+    unsigned stripLods: 1;
+    unsigned noAnimblockStall: 1;
+    unsigned animblockHighRes: 1;
+    unsigned animblockLowRes: 1;
+    unsigned zeroFramesHighres: 1;
+    unsigned lCaseAllSequences: 1;
+    unsigned errorOnSeqRemapFail: 1;
+    unsigned modelIntentionallyHasZeroSequences: 1;
+    unsigned bContentRootRelative: 1;
+    unsigned bHasModelName: 1;
+    unsigned bMakeVsi: 1;
+    unsigned bNoWarnings: 1;
+    int g_maxWarnings = -1;
+    char g_path[1024];
+
+    int minLod;
+    int numAllowedRootLODs;
+    float defaultMotionRollback;
+    float CollisionPrecision;
+    int minSectionFrameLimit;
+    int sectionFrames;
+    float preloadTime;
+    int maxZeroFrames; // clamped from 1..4
+    float minZeroFramePosDelta;
+    float defaultFadeInTime;
+    float defaultFadeOutTime;
+    char szFilename[1024];
+    FILE *fpInput;
+    char szLine[4096];
+    int iLinecount;
+
+    Vector vecMinWorldspace;
+    Vector vecMaxWorldspace;
+    DmElementHandle_t hDmeBoneFlexDriverList;
+
+    int numtexcoords[MAXSTUDIOTEXCOORDS];
+    CUtlVectorAuto<Vector2D> texcoord[MAXSTUDIOTEXCOORDS];
+
+    std::vector<s_hitboxset> hitboxsets;
+    std::vector<char> KeyValueText;
+    std::vector<s_flexcontrollerremap_t> FlexControllerRemap;
+    std::vector<CUtlSymbol> CreateMakefileDependencies;
+    char pDefaultSurfaceProp[128];
+    CUtlVector<SurfacePropName_t> JointSurfaceProp;
+
+    char *szInCurrentSeqName;
+    std::vector<CUtlString> AllowedActivityNames;
+
+    int maxVertexLimit = MAXSTUDIOVERTS / 3;
+    int maxVertexClamp = MAXSTUDIOVERTS / 3;
+
+    int numverts = 0;
+    CUtlVectorAuto<Vector> vertex;
+    CUtlVectorAuto<s_boneweight_t> bone;
+
+    int numnormals = 0;
+    CUtlVectorAuto<Vector> normal;
+
+    int numfaces = 0;
+    CUtlVectorAuto<s_tmpface_t> face;
+    CUtlVectorAuto<s_face_t> src_uface;            // max res unified faces
+    int numbones=0;
+
+    StudioMdlContext()
+            : parseable_completion_output(0),
+              collapse_bones_message(0),
+              collapse_bones(0),
+              collapse_bones_aggressive(0),
+              quiet(0),
+              checkLengths(0),
+              printBones(0),
+              perf(0),
+              dumpGraph(0),
+              multistageGraph(0),
+              verbose(1),
+              createMakefile(0),
+              ZBrush(0),
+              verifyOnly(0),
+              useBoneInBBox(1),
+              lockBoneLengths(0),
+              defineBonesLockedByDefault(1),
+              fastBuild(0),
+              X360(0),
+              buildPreview(0),
+              preserveTriangleOrder(0),
+              centerBonesOnVerts(0),
+              dumpMaterials(0),
+              stripLods(0),
+              noAnimblockStall(0),
+              animblockHighRes(0),
+              animblockLowRes(0),
+              zeroFramesHighres(0),
+              lCaseAllSequences(0),
+              errorOnSeqRemapFail(0),
+              modelIntentionallyHasZeroSequences(0),
+              bContentRootRelative(0),
+              minLod(0),
+              numAllowedRootLODs(0),
+              bHasModelName(0),
+              bMakeVsi(0),
+              bNoWarnings(0),
+              defaultMotionRollback(0.3f),
+              minSectionFrameLimit(30),
+              sectionFrames(30),
+              preloadTime(1.0f),
+              maxZeroFrames(3),
+              minZeroFramePosDelta(2.0f),
+              defaultFadeInTime(0.2f),
+              defaultFadeOutTime(0.2f),
+              fpInput(nullptr),
+              iLinecount(0),
+              vecMinWorldspace(MIN_COORD_INTEGER, MIN_COORD_INTEGER, MIN_COORD_INTEGER),
+              vecMaxWorldspace(MAX_COORD_INTEGER, MAX_COORD_INTEGER, MAX_COORD_INTEGER),
+              hDmeBoneFlexDriverList(DMELEMENT_HANDLE_INVALID),
+              szInCurrentSeqName(nullptr) {
+        memset(szFilename, 0, sizeof(szFilename));
+        memset(szLine, 0, sizeof(szLine));
+        memset(numtexcoords, 0, sizeof(numtexcoords));
+        strncpy(pDefaultSurfaceProp, "default", sizeof(pDefaultSurfaceProp) - 1);
+    }
+};
 
 #endif // STUDIOMDL_H

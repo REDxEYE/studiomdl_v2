@@ -11,6 +11,7 @@ void TokenError(const char *fmt, ...);
 void MdlError(const char *fmt, ...);
 void MdlWarning(const char *fmt, ...);
 void MdlExceptionFilter(unsigned long code);
+long __stdcall VExceptionFilter(struct _EXCEPTION_POINTERS *ExceptionInfo);
 
 class CMdlLoggingListener : public CCmdLibStandardLoggingListener {
     virtual void Log(const LoggingContext_t *pContext, const tchar *pMessage);

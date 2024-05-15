@@ -2247,12 +2247,7 @@ void V_AppendSlash( char *pStr, int strSize, char separator )
 }
 
 
-#if defined(_MSC_VER) && _MSC_VER >= 1900
-bool
-#else
-void
-#endif
-V_MakeAbsolutePath( char *pOut, int outLen, const char *pPath, const char *pStartingDir )
+bool V_MakeAbsolutePath( char *pOut, int outLen, const char *pPath, const char *pStartingDir )
 {
 	if ( V_IsAbsolutePath( pPath ) )
 	{

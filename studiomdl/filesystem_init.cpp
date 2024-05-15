@@ -36,8 +36,6 @@
 #include "ps3_pathinfo.h"
 #endif
 
-#include "tier2/tier2.h"
-
 // memdbgon must be the last include file in a .cpp file!!!
 // DISABLED #include "tier0/memdbgon.h"
 

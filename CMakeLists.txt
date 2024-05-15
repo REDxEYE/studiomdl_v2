@@ -68,7 +68,9 @@ add_executable(studiomdl_v2
         studiomdl/filesystem_init.cpp
         studiomdl/studiomdl_commands.cpp
         studiomdl/studiomdl_errors.cpp
-        )
+        studiomdl/studiomdl_app.cpp
+        studiomdl/studiomdl_app.h
+)
 target_compile_definitions(studiomdl_v2 PRIVATE -DSTATIC_TIER0)
 target_include_directories(studiomdl_v2 PUBLIC include)
 target_link_libraries(studiomdl_v2 PRIVATE

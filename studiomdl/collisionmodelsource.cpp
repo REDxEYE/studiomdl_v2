@@ -9,6 +9,8 @@
 #include "studiomdl/studiomdl.h"
 #include "studiomdl/collisionmodelsource.h"
 
+extern StudioMdlContext g_StudioMdlContext;
+
 //-----------------------------------------------------------------------------
 // Purpose: Transforms the source's verts into "world" space
 // Input  : *psource - 
@@ -74,16 +76,16 @@ void CCollisionModelSource::ConvertToWorldSpace( CUtlVector<Vector> &worldVerts,
 		}
 	}
 
-	if ( g_flCollisionPrecision > 0 )
+	if ( g_StudioMdlContext.CollisionPrecision > 0 )
 	{
 #ifdef DEBUG
 		printf("Applying collision precision truncation: %f\n", g_flCollisionPrecision );
 #endif
 		for ( int i = 0; i < worldVerts.Count(); i++ )
 		{
-			worldVerts[i].x -= fmod( worldVerts[i].x, g_flCollisionPrecision );
-			worldVerts[i].y -= fmod( worldVerts[i].y, g_flCollisionPrecision );
-			worldVerts[i].z -= fmod( worldVerts[i].z, g_flCollisionPrecision );
+			worldVerts[i].x -= fmod( worldVerts[i].x, g_StudioMdlContext.CollisionPrecision );
+			worldVerts[i].y -= fmod( worldVerts[i].y, g_StudioMdlContext.CollisionPrecision );
+			worldVerts[i].z -= fmod( worldVerts[i].z, g_StudioMdlContext.CollisionPrecision );
 		}
 	}
 

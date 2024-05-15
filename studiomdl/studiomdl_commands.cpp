@@ -20,15 +20,8 @@
     #define strlwr _strlwr
 #endif
 
-extern bool g_bHasModelName;
-extern char s_pDefaultSurfaceProp[128];
 
-bool g_bContentRootRelative = false;
-std::vector<CUtlString> g_AllowedActivityNames;
-int g_maxVertexLimit = MAXSTUDIOVERTS / 3; // nasty wireframe limit
-int g_maxVertexClamp = MAXSTUDIOVERTS / 3; // nasty wireframe limit
-const char *g_szInCurrentSeqName = nullptr;
-
+extern StudioMdlContext g_StudioMdlContext;
 //-----------------------------------------------------------------------------
 // Parse contents flags
 //-----------------------------------------------------------------------------
@@ -70,7 +63,7 @@ void ProcessModelName(const char *pModelName) {
                  (sizeof(g_outname) / sizeof(g_outname)) - 1);
     }
 
-    g_bHasModelName = true;
+    g_StudioMdlContext.bHasModelName = true;
     Q_strncpy(g_outname, pModelName, sizeof(g_outname));
 }
 
@@ -179,11 +172,11 @@ void Cmd_BoneFlexDriver() {
     CDisableUndoScopeGuard undoDisable;    // Turn of Dme undo
 
     // Find or create the DmeBoneFlexDriverList
-    CDmeBoneFlexDriverList *pDmeBoneFlexDriverList = GetElement<CDmeBoneFlexDriverList>(g_hDmeBoneFlexDriverList);
+    CDmeBoneFlexDriverList *pDmeBoneFlexDriverList = GetElement<CDmeBoneFlexDriverList>(g_StudioMdlContext.hDmeBoneFlexDriverList);
     if (!pDmeBoneFlexDriverList) {
         pDmeBoneFlexDriverList = CreateElement<CDmeBoneFlexDriverList>("boneDriverFlexList", DMFILEID_INVALID);
         if (pDmeBoneFlexDriverList) {
-            g_hDmeBoneFlexDriverList = pDmeBoneFlexDriverList->GetHandle();
+            g_StudioMdlContext.hDmeBoneFlexDriverList = pDmeBoneFlexDriverList->GetHandle();
         }
     }
 
@@ -339,7 +332,7 @@ void Cmd_MaxEyeDeflection() {
 //-----------------------------------------------------------------------------
 void Cmd_AddSearchDir() {
     GetToken(false);
-    if (!g_quiet) {
+    if (!g_StudioMdlContext.quiet) {
         printf("New search path: %s\n", token);
     }
     CmdLib_AddNewSearchPath(token);
@@ -406,7 +399,7 @@ void Cmd_Phyname() {
 }
 
 void Cmd_PreserveTriangleOrder() {
-    g_bPreserveTriangleOrder = true;
+    g_StudioMdlContext.preserveTriangleOrder = true;
 }
 
 void Cmd_Autocenter() {
@@ -704,7 +697,7 @@ void AddFlexControllers(
             // See if we can add two more flex controllers
             if ((g_numflexcontrollers + 1) >= MAXSTUDIOFLEXCTRL)
                 MdlError("Line %d: Too many flex controllers, max %d, cannot add split control %s from source %s",
-                         g_iLinecount, MAXSTUDIOFLEXCTRL, remapControl.m_Name.Get(), pSource->filename);
+                         g_StudioMdlContext.iLinecount, MAXSTUDIOFLEXCTRL, remapControl.m_Name.Get(), pSource->filename);
 
             s_flexcontroller_t *pController;
 
@@ -752,7 +745,7 @@ void AddFlexControllers(
             // See if we can add one more flex controller
             if (g_numflexcontrollers >= MAXSTUDIOFLEXCTRL)
                 MdlError("Line %d: Too many flex controllers, max %d, cannot add control %s from source %s",
-                         g_iLinecount, MAXSTUDIOFLEXCTRL, remapControl.m_Name.Get(), pSource->filename);
+                         g_StudioMdlContext.iLinecount, MAXSTUDIOFLEXCTRL, remapControl.m_Name.Get(), pSource->filename);
 
             remapControl.m_Index = g_numflexcontrollers;
             r2i[i] = g_numflexcontrollers;
@@ -776,7 +769,7 @@ void AddFlexControllers(
             if (g_numflexcontrollers >= MAXSTUDIOFLEXCTRL)
                 MdlError(
                         "Line %d: Too many flex controllers, max %d, cannot add value control for nWay %s from source %s",
-                        g_iLinecount, MAXSTUDIOFLEXCTRL, remapControl.m_Name.Get(), pSource->filename);
+                        g_StudioMdlContext.iLinecount, MAXSTUDIOFLEXCTRL, remapControl.m_Name.Get(), pSource->filename);
 
             remapControl.m_MultiIndex = g_numflexcontrollers;
             s_flexcontroller_t *pController = &g_flexcontroller[g_numflexcontrollers++];
@@ -799,7 +792,7 @@ void AddFlexControllers(
             if (g_numflexcontrollers >= MAXSTUDIOFLEXCTRL)
                 MdlError(
                         "Line %d: Too many flex controllers, max %d, cannot add value control for nWay %s from source %s",
-                        g_iLinecount, MAXSTUDIOFLEXCTRL, remapControl.m_Name.Get(), pSource->filename);
+                        g_StudioMdlContext.iLinecount, MAXSTUDIOFLEXCTRL, remapControl.m_Name.Get(), pSource->filename);
 
             remapControl.m_BlinkController = g_numflexcontrollers;
             s_flexcontroller_t *pController = &g_flexcontroller[g_numflexcontrollers++];
@@ -827,8 +820,8 @@ void AddFlexControllers(
 void AddBodyFlexRemaps(s_source_t *pSource) {
     int nCount = pSource->m_FlexControllerRemaps.Count();
     for (int i = 0; i < nCount; ++i) {
-        g_FlexControllerRemap.emplace_back();
-        s_flexcontrollerremap_t &remap = g_FlexControllerRemap.back();
+        g_StudioMdlContext.FlexControllerRemap.emplace_back();
+        s_flexcontrollerremap_t &remap = g_StudioMdlContext.FlexControllerRemap.back();
         remap = pSource->m_FlexControllerRemaps[i];
     }
 }
@@ -846,7 +839,7 @@ void AddBodyFlexData(s_source_t *pSource, int imodel) {
 
         if (g_numflexkeys >= MAXSTUDIOFLEXKEYS)
             MdlError("Line %d: Too many flex keys, max %d, cannot add flexKey %s from source %s",
-                     g_iLinecount, MAXSTUDIOFLEXKEYS, key.animationname, pSource->filename);
+                     g_StudioMdlContext.iLinecount, MAXSTUDIOFLEXKEYS, key.animationname, pSource->filename);
 
         memcpy(&g_flexkey[g_numflexkeys], &key, sizeof(s_flexkey_t));
         g_flexkey[g_numflexkeys].imodel = imodel;
@@ -892,7 +885,7 @@ void Option_Eyeball(s_model_t *pmodel) {
             break;
         }
     }
-    if (!g_bCreateMakefile && i >= pmodel->source->numbones) {
+    if (!g_StudioMdlContext.createMakefile && i >= pmodel->source->numbones) {
         TokenError("unknown eyeball bone \"%s\"\n", token);
     }
 
@@ -939,7 +932,7 @@ void Option_Eyeball(s_model_t *pmodel) {
         }
     }
 
-    if (!g_bCreateMakefile && i >= pmodel->source->nummeshes) {
+    if (!g_StudioMdlContext.createMakefile && i >= pmodel->source->nummeshes) {
         TokenError("can't find eyeball texture \"%s\" on model\n", szMeshMaterial);
     }
 
@@ -1173,7 +1166,7 @@ void Option_DmxEyelid(int imodel) {
 
     s_source_t *pSource = Load_Source(sSourceFile.Get(), "dmx");
     if (!pSource) {
-        MdlError("(%d) : %s:  Cannot load source file \"%s\"\n", g_iLinecount, g_szLine, sSourceFile.Get());
+        MdlError("(%d) : %s:  Cannot load source file \"%s\"\n", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine, sSourceFile.Get());
         return;
     }
 
@@ -1211,8 +1204,8 @@ void Option_DmxEyelid(int imodel) {
                 GetToken(false);
                 eyelidData[i].m_pSourceAnim = GetNewStyleSourceVertexAnim(pSource, token);
                 if (eyelidData[i].m_pSourceAnim == NULL) {
-                    MdlError("(%d) : %s:  No DMX vertex animation named \"%s\" in source \"%s\"\n", g_iLinecount,
-                             g_szLine, token, sSourceFile.Get());
+                    MdlError("(%d) : %s:  No DMX vertex animation named \"%s\" in source \"%s\"\n", g_StudioMdlContext.iLinecount,
+                             g_StudioMdlContext.szLine, token, sSourceFile.Get());
                     return;
                 }
 
@@ -2064,7 +2057,7 @@ void AddBodyFlexRule(
         const CUtlVector<int> &pRemapSourceIndexToGlobalFlexControllerIndex) {
     if (g_numflexrules >= MAXSTUDIOFLEXRULES)
         MdlError("Line %d: Too many flex rules, max %d",
-                 g_iLinecount, MAXSTUDIOFLEXRULES);
+                 g_StudioMdlContext.iLinecount, MAXSTUDIOFLEXRULES);
 
     s_flexrule_t *pRule = &g_flexrule[g_numflexrules++];
     pRule->flex = nFlexDesc;
@@ -2507,7 +2500,7 @@ void Cmd_IKChain() {
         }
     }
     if (i < g_numikchains) {
-        if (!g_quiet) {
+        if (!g_StudioMdlContext.quiet) {
             printf("duplicate ikchain \"%s\" ignored\n", token);
         }
         while (TokenAvailable()) {
@@ -2702,7 +2695,7 @@ void Cmd_Gamma(void) {
 }
 
 void Cmd_TextureGroup() {
-    if (g_bCreateMakefile) {
+    if (g_StudioMdlContext.createMakefile) {
         return;
     }
     int i;
@@ -2760,13 +2753,13 @@ void Cmd_Hitgroup() {
 
 void Cmd_Hitbox() {
     bool autogenerated = false;
-    if (g_hitboxsets.size() == 0) {
-        g_hitboxsets.emplace_back();
+    if (g_StudioMdlContext.hitboxsets.size() == 0) {
+        g_StudioMdlContext.hitboxsets.emplace_back();
         autogenerated = true;
     }
 
     // Last one
-    s_hitboxset *set = &g_hitboxsets[g_hitboxsets.size() - 1];
+    s_hitboxset *set = &g_StudioMdlContext.hitboxsets[g_StudioMdlContext.hitboxsets.size() - 1];
     if (autogenerated) {
         memset(set, 0, sizeof(*set));
 
@@ -2830,8 +2823,8 @@ void Cmd_Hitbox() {
 
 void Cmd_HitboxSet(void) {
     // Add a new hitboxset
-    g_hitboxsets.emplace_back();
-    s_hitboxset *set = &g_hitboxsets.back();
+    g_StudioMdlContext.hitboxsets.emplace_back();
+    s_hitboxset *set = &g_StudioMdlContext.hitboxsets.back();
     GetToken(false);
     memset(set, 0, sizeof(*set));
     strcpy(set->hitboxsetname, token);
@@ -2841,7 +2834,7 @@ void Cmd_HitboxSet(void) {
 // Assigns a default surface property to the entire model
 //-----------------------------------------------------------------------------
 void SetDefaultSurfaceProp(const char *pSurfaceProperty) {
-    Q_strncpy(s_pDefaultSurfaceProp, pSurfaceProperty, sizeof(s_pDefaultSurfaceProp));
+    Q_strncpy(g_StudioMdlContext.pDefaultSurfaceProp, pSurfaceProperty, sizeof(g_StudioMdlContext.pDefaultSurfaceProp));
 }
 
 void Cmd_SurfaceProp() {
@@ -2903,7 +2896,7 @@ void Cmd_JointContents() {
 }
 
 void Cmd_BoneAlwaysSetup() {
-    if (g_bCreateMakefile)
+    if (g_StudioMdlContext.createMakefile)
         return;
 
     g_BoneAlwaysSetup.emplace_back();
@@ -2914,7 +2907,7 @@ void Cmd_BoneAlwaysSetup() {
 }
 
 void Internal_Cmd_Attachment(int nAttachmentTarget = g_numattachments) {
-    if (g_bCreateMakefile)
+    if (g_StudioMdlContext.createMakefile)
         return;
 
     // name
@@ -3001,7 +2994,7 @@ void Internal_Cmd_Attachment(int nAttachmentTarget = g_numattachments) {
 void Cmd_RedefineAttachment() {
     // find a pre-existing attachment of the given name and re-populate its values
 
-    if (g_bCreateMakefile)
+    if (g_StudioMdlContext.createMakefile)
         return;
 
     // name
@@ -3116,37 +3109,37 @@ s_source_t *FindCachedSource(const char *name, const char *xext) {
     int i;
     if (xext[0]) {
         // we know what extension is necessary. . look for it.
-        Q_snprintf(g_szFilename, sizeof(g_szFilename), "%s%s.%s", cddir[numdirs], name, xext);
+        Q_snprintf(g_StudioMdlContext.szFilename, sizeof(g_StudioMdlContext.szFilename), "%s%s.%s", cddir[numdirs], name, xext);
         for (i = 0; i < g_numsources; i++) {
-            if (!Q_stricmp(g_szFilename, g_source[i]->filename))
+            if (!Q_stricmp(g_StudioMdlContext.szFilename, g_source[i]->filename))
                 return g_source[i];
         }
     } else {
         // we don't know what extension to use, so look for all of 'em.
-        Q_snprintf(g_szFilename, sizeof(g_szFilename), "%s%s.vrm", cddir[numdirs], name);
+        Q_snprintf(g_StudioMdlContext.szFilename, sizeof(g_StudioMdlContext.szFilename), "%s%s.vrm", cddir[numdirs], name);
         for (i = 0; i < g_numsources; i++) {
-            if (!Q_stricmp(g_szFilename, g_source[i]->filename))
+            if (!Q_stricmp(g_StudioMdlContext.szFilename, g_source[i]->filename))
                 return g_source[i];
         }
-        Q_snprintf(g_szFilename, sizeof(g_szFilename), "%s%s.dmx", cddir[numdirs], name);
+        Q_snprintf(g_StudioMdlContext.szFilename, sizeof(g_StudioMdlContext.szFilename), "%s%s.dmx", cddir[numdirs], name);
         for (i = 0; i < g_numsources; i++) {
-            if (!Q_stricmp(g_szFilename, g_source[i]->filename))
+            if (!Q_stricmp(g_StudioMdlContext.szFilename, g_source[i]->filename))
                 return g_source[i];
         }
-        Q_snprintf(g_szFilename, sizeof(g_szFilename), "%s%s.smd", cddir[numdirs], name);
+        Q_snprintf(g_StudioMdlContext.szFilename, sizeof(g_StudioMdlContext.szFilename), "%s%s.smd", cddir[numdirs], name);
         for (i = 0; i < g_numsources; i++) {
-            if (!Q_stricmp(g_szFilename, g_source[i]->filename))
+            if (!Q_stricmp(g_StudioMdlContext.szFilename, g_source[i]->filename))
                 return g_source[i];
         }
 
-        Q_snprintf(g_szFilename, sizeof(g_szFilename), "%s%s.xml", cddir[numdirs], name);
+        Q_snprintf(g_StudioMdlContext.szFilename, sizeof(g_StudioMdlContext.szFilename), "%s%s.xml", cddir[numdirs], name);
         for (i = 0; i < g_numsources; i++) {
-            if (!Q_stricmp(g_szFilename, g_source[i]->filename))
+            if (!Q_stricmp(g_StudioMdlContext.szFilename, g_source[i]->filename))
                 return g_source[i];
         }
-        Q_snprintf(g_szFilename, sizeof(g_szFilename), "%s%s.obj", cddir[numdirs], name);
+        Q_snprintf(g_StudioMdlContext.szFilename, sizeof(g_StudioMdlContext.szFilename), "%s%s.obj", cddir[numdirs], name);
         for (i = 0; i < g_numsources; i++) {
-            if (!Q_stricmp(g_szFilename, g_source[i]->filename))
+            if (!Q_stricmp(g_StudioMdlContext.szFilename, g_source[i]->filename))
                 return g_source[i];
         }
         /*
@@ -3212,7 +3205,7 @@ static void Cmd_ReplaceModel(LodScriptData_t &lodData) {
     // Load the source right here baby! That way its bones will get converted
     if (!lodData.IsStrippedFromModel()) {
         newReplacement.m_pSource = Load_Source(newReplacement.GetDstName(), "smd", reverse, false);
-    } else if (!g_quiet) {
+    } else if (!g_StudioMdlContext.quiet) {
         printf("Stripped lod \"%s\" @ %.1f\n", newReplacement.GetDstName(), lodData.switchValue);
     }
 }
@@ -3314,7 +3307,7 @@ static void Cmd_RemoveMesh(LodScriptData_t &lodData) {
 void Cmd_LOD(const char *cmdname) {
     if (gflags & STUDIOHDR_FLAGS_HASSHADOWLOD) {
         MdlError("Model can only have one $shadowlod and it must be the last lod in the " SRC_FILE_EXT " (%d) : %s\n",
-                 g_iLinecount, g_szLine);
+                 g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
     }
 
     int i = g_ScriptLODs.AddToTail();
@@ -3333,7 +3326,7 @@ void Cmd_LOD(const char *cmdname) {
     if (isShadowCall) {
         if (TokenAvailable()) {
             GetToken(false);
-            MdlWarning("(%d) : %s:  Ignoring switch value on %s command line\n", cmdname, g_iLinecount, g_szLine);
+            MdlWarning("(%d) : %s:  Ignoring switch value on %s command line\n", cmdname, g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
         }
 
         // Disable facial animation by default
@@ -3343,20 +3336,20 @@ void Cmd_LOD(const char *cmdname) {
             GetToken(false);
             newLOD.switchValue = verify_atof(token);
             if (newLOD.switchValue < 0.0f) {
-                MdlError("Negative switch value reserved for $shadowlod (%d) : %s\n", g_iLinecount, g_szLine);
+                MdlError("Negative switch value reserved for $shadowlod (%d) : %s\n", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
             }
         } else {
-            MdlError("Expected LOD switch value (%d) : %s\n", g_iLinecount, g_szLine);
+            MdlError("Expected LOD switch value (%d) : %s\n", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
         }
     }
 
     GetToken(true);
     if (stricmp("{", token) != 0) {
-        MdlError("\"{\" expected while processing %s (%d) : %s", cmdname, g_iLinecount, g_szLine);
+        MdlError("\"{\" expected while processing %s (%d) : %s", cmdname, g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
     }
 
     // In case we are stripping all lods and it's not Lod0, strip it
-    if (i && g_bStripLods)
+    if (i && g_StudioMdlContext.stripLods)
         newLOD.StripFromModel(true);
 
     while (1) {
@@ -3389,7 +3382,7 @@ void Cmd_LOD(const char *cmdname) {
         } else if (stricmp("}", token) == 0) {
             break;
         } else {
-            MdlError("invalid input while processing %s (%d) : %s", cmdname, g_iLinecount, g_szLine);
+            MdlError("invalid input while processing %s (%d) : %s", cmdname, g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
         }
     }
 
@@ -3400,7 +3393,7 @@ void Cmd_LOD(const char *cmdname) {
 }
 
 void Cmd_ShadowLOD(void) {
-    if (!g_quiet) {
+    if (!g_StudioMdlContext.quiet) {
         printf("Processing $shadowlod\n");
     }
 
@@ -3471,7 +3464,7 @@ void Cmd_NoForcedFade() {
 // Indicates the model should not use the bone origin when calculating bboxes, sequence boxes, etc.
 //-----------------------------------------------------------------------------
 void Cmd_SkipBoneInBBox() {
-    g_bUseBoneInBBox = false;
+    g_StudioMdlContext.useBoneInBBox = false;
 }
 
 
@@ -3486,14 +3479,14 @@ void Cmd_ForcePhonemeCrossfade() {
 // Indicates the model should keep pre-defined bone lengths regardless of animation changes
 //-----------------------------------------------------------------------------
 void Cmd_LockBoneLengths() {
-    g_bLockBoneLengths = true;
+    g_StudioMdlContext.lockBoneLengths = true;
 }
 
 //-----------------------------------------------------------------------------
 // Indicates the model should replace pre-defined bone bind poses
 //-----------------------------------------------------------------------------
 void Cmd_UnlockDefineBones() {
-    g_bDefineBonesLockedByDefault = false;
+    g_StudioMdlContext.defineBonesLockedByDefault = false;
 }
 
 //-----------------------------------------------------------------------------
@@ -3509,7 +3502,7 @@ void Cmd_Obsolete() {
 //-----------------------------------------------------------------------------
 void Cmd_CenterBonesOnVerts() {
     // force centering on bones
-    g_bCenterBonesOnVerts = true;
+    g_StudioMdlContext.centerBonesOnVerts = true;
 }
 
 //-----------------------------------------------------------------------------
@@ -3517,7 +3510,7 @@ void Cmd_CenterBonesOnVerts() {
 //-----------------------------------------------------------------------------
 void Cmd_MotionExtractionRollBack() {
     GetToken(false);
-    g_flDefaultMotionRollback = atof(token);
+    g_StudioMdlContext.defaultMotionRollback = atof(token);
 }
 
 //-----------------------------------------------------------------------------
@@ -3525,9 +3518,9 @@ void Cmd_MotionExtractionRollBack() {
 //-----------------------------------------------------------------------------
 void Cmd_SectionFrames() {
     GetToken(false);
-    g_sectionFrames = atof(token);
+    g_StudioMdlContext.sectionFrames = atof(token);
     GetToken(false);
-    g_minSectionFrameLimit = atoi(token);
+    g_StudioMdlContext.minSectionFrameLimit = atoi(token);
 }
 
 
@@ -3536,22 +3529,22 @@ void Cmd_SectionFrames() {
 //-----------------------------------------------------------------------------
 void Cmd_ClampWorldspace() {
     GetToken(false);
-    g_vecMinWorldspace[0] = verify_atof(token);
+    g_StudioMdlContext.vecMinWorldspace[0] = verify_atof(token);
 
     GetToken(false);
-    g_vecMinWorldspace[1] = verify_atof(token);
+    g_StudioMdlContext.vecMinWorldspace[1] = verify_atof(token);
 
     GetToken(false);
-    g_vecMinWorldspace[2] = verify_atof(token);
+    g_StudioMdlContext.vecMinWorldspace[2] = verify_atof(token);
 
     GetToken(false);
-    g_vecMaxWorldspace[0] = verify_atof(token);
+    g_StudioMdlContext.vecMaxWorldspace[0] = verify_atof(token);
 
     GetToken(false);
-    g_vecMaxWorldspace[1] = verify_atof(token);
+    g_StudioMdlContext.vecMaxWorldspace[1] = verify_atof(token);
 
     GetToken(false);
-    g_vecMaxWorldspace[2] = verify_atof(token);
+    g_StudioMdlContext.vecMaxWorldspace[2] = verify_atof(token);
 }
 
 //-----------------------------------------------------------------------------
@@ -3736,7 +3729,7 @@ void Cmd_DefineBone() {
     GetToken(false);
     strcpyn(g_importbone[g_numimportbones].parent, token);
 
-    g_importbone[g_numimportbones].bUnlocked = !g_bDefineBonesLockedByDefault;
+    g_importbone[g_numimportbones].bUnlocked = !g_StudioMdlContext.defineBonesLockedByDefault;
 
     GetToken(false);
     if (!V_strcmp(token, "unlocked")) {
@@ -3793,7 +3786,7 @@ bool ParseJiggleAngleConstraint(s_jigglebone_t *jiggleInfo) {
     jiggleInfo->data.flags |= JIGGLE_HAS_ANGLE_CONSTRAINT;
 
     if (!GetToken(false)) {
-        MdlError("$jigglebone: expecting angle value\n", g_iLinecount, g_szLine);
+        MdlError("$jigglebone: expecting angle value\n", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
         return false;
     }
 
@@ -3806,14 +3799,14 @@ bool ParseJiggleYawConstraint(s_jigglebone_t *jiggleInfo) {
     jiggleInfo->data.flags |= JIGGLE_HAS_YAW_CONSTRAINT;
 
     if (!GetToken(false)) {
-        MdlError("$jigglebone: expecting minimum yaw value\n", g_iLinecount, g_szLine);
+        MdlError("$jigglebone: expecting minimum yaw value\n", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
         return false;
     }
 
     jiggleInfo->data.minYaw = verify_atof(token) * M_PI / 180.0f;
 
     if (!GetToken(false)) {
-        MdlError("$jigglebone: expecting maximum yaw value\n", g_iLinecount, g_szLine);
+        MdlError("$jigglebone: expecting maximum yaw value\n", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
         return false;
     }
 
@@ -3826,14 +3819,14 @@ bool ParseJigglePitchConstraint(s_jigglebone_t *jiggleInfo) {
     jiggleInfo->data.flags |= JIGGLE_HAS_PITCH_CONSTRAINT;
 
     if (!GetToken(false)) {
-        MdlError("$jigglebone: expecting minimum pitch value\n", g_iLinecount, g_szLine);
+        MdlError("$jigglebone: expecting minimum pitch value\n", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
         return false;
     }
 
     jiggleInfo->data.minPitch = verify_atof(token) * M_PI / 180.0f;
 
     if (!GetToken(false)) {
-        MdlError("$jigglebone: expecting maximum pitch value\n", g_iLinecount, g_szLine);
+        MdlError("$jigglebone: expecting maximum pitch value\n", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
         return false;
     }
 
@@ -3849,10 +3842,10 @@ void Grab_AxisInterpBones() {
     s_axisinterpbone_t *pBone = &g_axisinterpbones[g_numaxisinterpbones];
 
     while (GetLineInput()) {
-        if (IsEnd(g_szLine)) {
+        if (IsEnd(g_StudioMdlContext.szLine)) {
             return;
         }
-        int i = sscanf(g_szLine, "%1023s \"%[^\"]\" \"%[^\"]\" \"%[^\"]\" \"%[^\"]\" %d", cmd, pBone->bonename, tmp,
+        int i = sscanf(g_StudioMdlContext.szLine, "%1023s \"%[^\"]\" \"%[^\"]\" \"%[^\"]\" \"%[^\"]\" %d", cmd, pBone->bonename, tmp,
                        pBone->controlname, tmp, &pBone->axis);
         if (i == 6 && stricmp(cmd, "bone") == 0) {
             // printf( "\"%s\" \"%s\" \"%s\" \"%s\"\n", cmd, pBone->bonename, tmp, pBone->controlname );
@@ -3865,13 +3858,13 @@ void Grab_AxisInterpBones() {
         } else if (stricmp(cmd, "type") == 0) {
             // skip all type info
         } else if (stricmp(cmd, "basepos") == 0) {
-            i = sscanf(g_szLine, "basepos %f %f %f", &basepos.x, &basepos.y, &basepos.z);
+            i = sscanf(g_StudioMdlContext.szLine, "basepos %f %f %f", &basepos.x, &basepos.y, &basepos.z);
             // skip all type info
         } else if (stricmp(cmd, "axis") == 0) {
             Vector pos;
             QAngle rot;
             int j;
-            i = sscanf(g_szLine, "axis %d %f %f %f %f %f %f", &j, &pos[0], &pos[1], &pos[2], &rot[2], &rot[0], &rot[1]);
+            i = sscanf(g_StudioMdlContext.szLine, "axis %d %f %f %f %f %f %f", &j, &pos[0], &pos[1], &pos[2], &rot[2], &rot[0], &rot[1]);
             if (i == 7) {
                 VectorAdd(basepos, pos, pAxis->pos[j]);
                 AngleQuaternion(rot, pAxis->quat[j]);
@@ -3952,14 +3945,14 @@ bool ParseRigidJiggle(s_jigglebone_t *jiggleInfo) {
     bool gotOpenBracket = false;
     while (true) {
         if (GetToken(true) == false) {
-            MdlError("$jigglebone:is_rigid: parse error\n", g_iLinecount, g_szLine);
+            MdlError("$jigglebone:is_rigid: parse error\n", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
             return false;
         }
 
         if (!stricmp(token, "{")) {
             gotOpenBracket = true;
         } else if (!gotOpenBracket) {
-            MdlError("$jigglebone:is_rigid: missing '{'\n", g_iLinecount, g_szLine);
+            MdlError("$jigglebone:is_rigid: missing '{'\n", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
             return false;
         } else if (!stricmp(token, "}")) {
             // definition complete
@@ -3976,7 +3969,7 @@ bool ParseRigidJiggle(s_jigglebone_t *jiggleInfo) {
 
 float ParseJiggleStiffness(void) {
     if (!GetToken(false)) {
-        MdlError("$jigglebone: expecting stiffness value\n", g_iLinecount, g_szLine);
+        MdlError("$jigglebone: expecting stiffness value\n", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
         return 0.0f;
     }
 
@@ -3990,7 +3983,7 @@ float ParseJiggleStiffness(void) {
 
 float ParseJiggleDamping(void) {
     if (!GetToken(false)) {
-        MdlError("$jigglebone: expecting damping value\n", g_iLinecount, g_szLine);
+        MdlError("$jigglebone: expecting damping value\n", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
         return 0.0f;
     }
 
@@ -4011,14 +4004,14 @@ bool ParseBaseSpringJiggle(s_jigglebone_t *jiggleInfo) {
     bool gotOpenBracket = false;
     while (true) {
         if (GetToken(true) == false) {
-            MdlError("$jigglebone:is_rigid: parse error\n", g_iLinecount, g_szLine);
+            MdlError("$jigglebone:is_rigid: parse error\n", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
             return false;
         }
 
         if (!stricmp(token, "{")) {
             gotOpenBracket = true;
         } else if (!gotOpenBracket) {
-            MdlError("$jigglebone:is_rigid: missing '{'\n", g_iLinecount, g_szLine);
+            MdlError("$jigglebone:is_rigid: missing '{'\n", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
             return false;
         } else if (!stricmp(token, "}")) {
             // definition complete
@@ -4106,14 +4099,14 @@ bool ParseFlexibleJiggle(s_jigglebone_t *jiggleInfo) {
     bool gotOpenBracket = false;
     while (true) {
         if (GetToken(true) == false) {
-            MdlError("$jigglebone:is_flexible: parse error\n", g_iLinecount, g_szLine);
+            MdlError("$jigglebone:is_flexible: parse error\n", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
             return false;
         }
 
         if (!stricmp(token, "{")) {
             gotOpenBracket = true;
         } else if (!gotOpenBracket) {
-            MdlError("$jigglebone:is_flexible: missing '{'\n", g_iLinecount, g_szLine);
+            MdlError("$jigglebone:is_flexible: missing '{'\n", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
             return false;
         } else if (!stricmp(token, "}")) {
             // definition complete
@@ -4168,14 +4161,14 @@ void Cmd_JiggleBone(void) {
     bool gotOpenBracket = false;
     while (true) {
         if (GetToken(true) == false) {
-            MdlError("$jigglebone: parse error\n", g_iLinecount, g_szLine);
+            MdlError("$jigglebone: parse error\n", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
             return;
         }
 
         if (!stricmp(token, "{")) {
             gotOpenBracket = true;
         } else if (!gotOpenBracket) {
-            MdlError("$jigglebone: missing '{'\n", g_iLinecount, g_szLine);
+            MdlError("$jigglebone: missing '{'\n", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
             return;
         } else if (!stricmp(token, "}")) {
             // definition complete
@@ -4198,7 +4191,7 @@ void Cmd_JiggleBone(void) {
         }
     }
 
-    if (!g_quiet)
+    if (!g_StudioMdlContext.quiet)
         Msg("Marking bone %s as a jiggle bone\n", jiggleInfo->bonename);
 
     g_numjigglebones++;
@@ -4227,7 +4220,7 @@ void Cmd_CD() {
 }
 
 void Cmd_ContentRootRelative() {
-    g_bContentRootRelative = true;
+    g_StudioMdlContext.bContentRootRelative = true;
 }
 
 void Cmd_CDMaterials() {
@@ -4279,7 +4272,7 @@ void Cmd_ClipToTextures() {
 }
 
 void Cmd_CollapseBones() {
-    g_collapse_bones = true;
+    g_StudioMdlContext.collapse_bones = true;
 }
 
 void Cmd_SkinnedLODs() {
@@ -4287,18 +4280,18 @@ void Cmd_SkinnedLODs() {
 }
 
 void Cmd_CollapseBonesAggressive() {
-    g_collapse_bones = true;
-    g_collapse_bones_aggressive = true;
+    g_StudioMdlContext.collapse_bones = true;
+    g_StudioMdlContext.collapse_bones_aggressive = true;
 }
 
 void Cmd_AlwaysCollapse() {
-    g_collapse_bones = true;
+    g_StudioMdlContext.collapse_bones = true;
     GetToken(false);
     g_collapse.AddToTail(strdup(token));
 }
 
 void Cmd_CalcTransitions() {
-    g_bMultistageGraph = true;
+    g_StudioMdlContext.multistageGraph = true;
 }
 
 void ProcessStaticProp() {
@@ -4311,7 +4304,7 @@ void Cmd_StaticProp() {
 }
 
 void Cmd_ZBrush() {
-    g_bZBrush = true;
+    g_StudioMdlContext.ZBrush = true;
 }
 
 void Cmd_RealignBones() {
@@ -4385,7 +4378,7 @@ void Option_KeyValues(std::vector<char> *pKeyValue) {
 }
 
 void Cmd_KeyValues() {
-    Option_KeyValues(&g_KeyValueText);
+    Option_KeyValues(&g_StudioMdlContext.KeyValueText);
 }
 
 void Cmd_ConstDirectionalLight() {
@@ -4397,25 +4390,25 @@ void Cmd_ConstDirectionalLight() {
 
 void Cmd_MinLOD() {
     GetToken(false);
-    g_minLod = atoi(token);
+    g_StudioMdlContext.minLod = atoi(token);
 
     // "minlod" rules over "allowrootlods"
-    if (g_numAllowedRootLODs > 0 && g_numAllowedRootLODs < g_minLod) {
-        MdlWarning("$minlod %d overrides $allowrootlods %d, proceeding with $allowrootlods %d.\n", g_minLod,
-                   g_numAllowedRootLODs, g_minLod);
-        g_numAllowedRootLODs = g_minLod;
+    if (g_StudioMdlContext.numAllowedRootLODs > 0 && g_StudioMdlContext.numAllowedRootLODs < g_StudioMdlContext.minLod) {
+        MdlWarning("$minlod %d overrides $allowrootlods %d, proceeding with $allowrootlods %d.\n", g_StudioMdlContext.minLod,
+                   g_StudioMdlContext.numAllowedRootLODs, g_StudioMdlContext.minLod);
+        g_StudioMdlContext.numAllowedRootLODs = g_StudioMdlContext.minLod;
     }
 }
 
 void Cmd_AllowRootLODs() {
     GetToken(false);
-    g_numAllowedRootLODs = atoi(token);
+    g_StudioMdlContext.numAllowedRootLODs = atoi(token);
 
     // Root LOD restriction has to obey "minlod" request
-    if (g_numAllowedRootLODs > 0 && g_numAllowedRootLODs < g_minLod) {
+    if (g_StudioMdlContext.numAllowedRootLODs > 0 && g_StudioMdlContext.numAllowedRootLODs < g_StudioMdlContext.minLod) {
         MdlWarning("$allowrootlods %d is conflicting with $minlod %d, proceeding with $allowrootlods %d.\n",
-                   g_numAllowedRootLODs, g_minLod, g_minLod);
-        g_numAllowedRootLODs = g_minLod;
+                   g_StudioMdlContext.numAllowedRootLODs, g_StudioMdlContext.minLod, g_StudioMdlContext.minLod);
+        g_StudioMdlContext.numAllowedRootLODs = g_StudioMdlContext.minLod;
     }
 }
 
@@ -4667,46 +4660,46 @@ void Cmd_SetDefaultFadeInTime() {
     if (!GetToken(false))
         return;
 
-    g_flDefaultFadeInTime = verify_atof(token);
+    g_StudioMdlContext.defaultFadeInTime = verify_atof(token);
 }
 
 void Cmd_SetDefaultFadeOutTime() {
     if (!GetToken(false))
         return;
 
-    g_flDefaultFadeOutTime = verify_atof(token);
+    g_StudioMdlContext.defaultFadeOutTime = verify_atof(token);
 }
 
 void Cmd_LCaseAllSequences() {
-    g_bLCaseAllSequences = true;
+    g_StudioMdlContext.lCaseAllSequences = true;
 }
 
 void Cmd_AllowActivityName() {
     if (!GetToken(false))
         return;
 
-    g_AllowedActivityNames.emplace_back(token);
+    g_StudioMdlContext.AllowedActivityNames.emplace_back(token);
 }
 
 void Cmd_CollisionPrecision() {
     if (!GetToken(false))
         return;
 
-    g_flCollisionPrecision = verify_atof(token);
+    g_StudioMdlContext.CollisionPrecision = verify_atof(token);
 }
 
 void Cmd_ErrorOnSeqRemapFail() {
-    g_bErrorOnSeqRemapFail = true;
+    g_StudioMdlContext.errorOnSeqRemapFail = true;
 }
 
 
 void Cmd_SetModelIntentionallyHasZeroSequences() {
-    g_bModelIntentionallyHasZeroSequences = true;
+    g_StudioMdlContext.modelIntentionallyHasZeroSequences = true;
 }
 
 
 void Cmd_BoneMerge() {
-    if (g_bCreateMakefile)
+    if (g_StudioMdlContext.createMakefile)
         return;
 
     g_BoneMerge.emplace_back();
@@ -4895,21 +4888,21 @@ void Cmd_AnimBlockSize(void) {
     while (TokenAvailable()) {
         GetToken(false);
         if (!Q_stricmp(token, "nostall")) {
-            g_bNoAnimblockStall = true;
+            g_StudioMdlContext.noAnimblockStall = true;
         } else if (!Q_stricmp(token, "highres")) {
-            g_bAnimblockHighRes = true;
-            g_bAnimblockLowRes = false;
+            g_StudioMdlContext.animblockHighRes = true;
+            g_StudioMdlContext.animblockLowRes = false;
         } else if (!Q_stricmp(token, "lowres")) {
-            g_bAnimblockLowRes = true;
-            g_bAnimblockHighRes = false;
+            g_StudioMdlContext.animblockLowRes = true;
+            g_StudioMdlContext.animblockHighRes = false;
         } else if (!Q_stricmp(token, "numframes")) {
             GetToken(false);
-            g_nMaxZeroFrames = clamp(atoi(token), 1, 4);
+            g_StudioMdlContext.maxZeroFrames = clamp(atoi(token), 1, 4);
         } else if (!Q_stricmp(token, "cachehighres")) {
-            g_bZeroFramesHighres = true;
+            g_StudioMdlContext.zeroFramesHighres = true;
         } else if (!Q_stricmp(token, "posdelta")) {
             GetToken(false);
-            g_flMinZeroFramePosDelta = atof(token);
+            g_StudioMdlContext.minZeroFramePosDelta = atof(token);
         } else {
             MdlError("unknown option \"%s\" on $animblocksize command\n");
         }
@@ -4963,13 +4956,13 @@ void Cmd_AppendSource() {
 void Cmd_maxVerts() {
     // first limit
     GetToken(false);
-    g_maxVertexLimit = clamp(atoi(token), 1024, MAXSTUDIOVERTS);
-    g_maxVertexClamp = MIN(g_maxVertexLimit, MAXSTUDIOVERTS / 2);
+    g_StudioMdlContext.maxVertexLimit = clamp(atoi(token), 1024, MAXSTUDIOVERTS);
+    g_StudioMdlContext.maxVertexClamp = MIN(g_StudioMdlContext.maxVertexLimit, MAXSTUDIOVERTS / 2);
 
     if (TokenAvailable()) {
         // actual target limit
         GetToken(false);
-        g_maxVertexClamp = clamp(atoi(token), 1024, MAXSTUDIOVERTS);
+        g_StudioMdlContext.maxVertexClamp = clamp(atoi(token), 1024, MAXSTUDIOVERTS);
     }
 }
 
@@ -5006,7 +4999,7 @@ s_animation_t *LookupAnimation(const char *name, int nFallbackRecursionDepth) {
     // check optional fallbacks or reserved name syntax
 
     if (nFallbackRecursionDepth == 0 && !V_strcmp(name, "this")) {
-        return LookupAnimation(g_szInCurrentSeqName, 1);
+        return LookupAnimation(g_StudioMdlContext.szInCurrentSeqName, 1);
     }
 
     return nullptr;
@@ -5977,7 +5970,7 @@ bool ParseAnimationToken(s_animation_t *panim) {
             }
         }
 
-        if (!g_bCreateMakefile && panim->endframe < panim->startframe) {
+        if (!g_StudioMdlContext.createMakefile && panim->endframe < panim->startframe) {
             TokenError("end frame before start frame in %s", panim->name);
         }
 
@@ -5995,7 +5988,7 @@ bool ParseAnimationToken(s_animation_t *panim) {
             panim->startframe = pSourceAnim->startframe;
             panim->endframe = pSourceAnim->endframe;
 
-            if (!g_bCreateMakefile && panim->endframe < panim->startframe) {
+            if (!g_StudioMdlContext.createMakefile && panim->endframe < panim->startframe) {
                 TokenError("end frame before start frame in %s", panim->name);
             }
 
@@ -6167,7 +6160,7 @@ void Cmd_Animation() {
     panim->rotation = g_defaultrotation;
     panim->scale = 1.0f;
     panim->fps = 30.0;
-    panim->motionrollback = g_flDefaultMotionRollback;
+    panim->motionrollback = g_StudioMdlContext.defaultMotionRollback;
 
     ParseAnimation(panim, false);
 
@@ -6212,8 +6205,8 @@ s_sequence_t *ProcessCmdSequence(const char *pSequenceName) {
     pseq->groupsize[0] = 0;
     pseq->groupsize[1] = 0;
 
-    pseq->fadeintime = g_flDefaultFadeInTime;
-    pseq->fadeouttime = g_flDefaultFadeOutTime;
+    pseq->fadeintime = g_StudioMdlContext.defaultFadeInTime;
+    pseq->fadeouttime = g_StudioMdlContext.defaultFadeOutTime;
     return pseq;
 }
 
@@ -6226,9 +6219,9 @@ int Option_Activity(s_sequence_t *psequence) {
     GetToken(false);
     strcpy(psequence->activityname, token);
 
-    if (g_AllowedActivityNames.size()) {
-        if (std::find(g_AllowedActivityNames.begin(), g_AllowedActivityNames.end(), token) ==
-            g_AllowedActivityNames.end()) {
+    if (g_StudioMdlContext.AllowedActivityNames.size()) {
+        if (std::find(g_StudioMdlContext.AllowedActivityNames.begin(), g_StudioMdlContext.AllowedActivityNames.end(), token) ==
+            g_StudioMdlContext.AllowedActivityNames.end()) {
             MdlError("Unknown sequence activity \"%s\" in \"%s\".", token, psequence->name);
         }
     }
@@ -6287,7 +6280,7 @@ s_animation_t *ProcessImpliedAnimation(s_sequence_t *psequence, const char *file
     panim->scale = 1.0f;
     panim->rotation = g_defaultrotation;
     panim->fps = 30;
-    panim->motionrollback = g_flDefaultMotionRollback;
+    panim->motionrollback = g_StudioMdlContext.defaultMotionRollback;
 
     //panim->source = Load_Source( panim->filename, "smd" );
     panim->source = Load_Source(panim->filename, "");
@@ -6305,7 +6298,7 @@ s_animation_t *ProcessImpliedAnimation(s_sequence_t *psequence, const char *file
         Q_strncpy(panim->animationname, "", sizeof(panim->animationname));
     }
 
-    if (!g_bCreateMakefile && panim->endframe < panim->startframe) {
+    if (!g_StudioMdlContext.createMakefile && panim->endframe < panim->startframe) {
         TokenError("end frame before start frame in %s", panim->name);
     }
 
@@ -6405,7 +6398,7 @@ void ProcessSequence(s_sequence_t *pseq, int numblends, s_animation_t **animatio
 //-----------------------------------------------------------------------------
 int ParseSequence(s_sequence_t *pseq, bool isAppend) {
 
-    g_szInCurrentSeqName = pseq->name;
+    g_StudioMdlContext.szInCurrentSeqName = pseq->name;
 
     int depth = 0;
     s_animation_t *animations[64];
@@ -6682,7 +6675,7 @@ void Cmd_Sequence() {
     if (!GetToken(false))
         return;
 
-    if (g_bLCaseAllSequences)
+    if (g_StudioMdlContext.lCaseAllSequences)
         strlwr(token);
 
     // Find existing sequences
@@ -6820,7 +6813,7 @@ bool Grab_AimAtBones() {
     s_aimatbone_t *pAimAtBone(&g_aimatbones[g_numaimatbones]);
 
     // Already know it's <aimconstraint> in the first string, otherwise wouldn't be here
-    if (sscanf(g_szLine, "%*s %127s %127s %127s", pAimAtBone->bonename, pAimAtBone->parentname, pAimAtBone->aimname) ==
+    if (sscanf(g_StudioMdlContext.szLine, "%*s %127s %127s %127s", pAimAtBone->bonename, pAimAtBone->parentname, pAimAtBone->aimname) ==
         3) {
         g_numaimatbones++;
 
@@ -6828,16 +6821,16 @@ bool Grab_AimAtBones() {
         Vector vector;
 
         while (GetLineInput()) {
-            g_iLinecount++;
+            g_StudioMdlContext.iLinecount++;
 
-            if (IsEnd(g_szLine)) {
+            if (IsEnd(g_StudioMdlContext.szLine)) {
                 return false;
             }
 
-            if (sscanf(g_szLine, "%1024s %f %f %f", cmd, &vector[0], &vector[1], &vector[2]) != 4) {
+            if (sscanf(g_StudioMdlContext.szLine, "%1024s %f %f %f", cmd, &vector[0], &vector[1], &vector[2]) != 4) {
                 // Allow blank lines to be skipped without error
                 bool allSpace(true);
-                for (const char *pC(g_szLine); *pC != '\0' && pC < (g_szLine + 4096); ++pC) {
+                for (const char *pC(g_StudioMdlContext.szLine); *pC != '\0' && pC < (g_StudioMdlContext.szLine + 4096); ++pC) {
                     if (!V_isspace(*pC)) {
                         allSpace = false;
                         break;
@@ -6880,12 +6873,12 @@ void Grab_QuatInterpBones() {
     s_quatinterpbone_t *pBone = &g_quatinterpbones[g_numquatinterpbones];
 
     while (GetLineInput()) {
-        g_iLinecount++;
-        if (IsEnd(g_szLine)) {
+        g_StudioMdlContext.iLinecount++;
+        if (IsEnd(g_StudioMdlContext.szLine)) {
             return;
         }
 
-        int i = sscanf(g_szLine, "%s %s %s %s %s", cmd, pBone->bonename, pBone->parentname, pBone->controlparentname,
+        int i = sscanf(g_StudioMdlContext.szLine, "%s %s %s %s %s", cmd, pBone->bonename, pBone->parentname, pBone->controlparentname,
                        pBone->controlname);
 
         while (i == 4 && stricmp(cmd, "<aimconstraint>") == 0) {
@@ -6894,11 +6887,11 @@ void Grab_QuatInterpBones() {
                 return;
             }
 
-            // Grab_AimAtBones will read input into g_szLine same as here until it gets a line it doesn't understand, at which point
-            // it will exit leaving that line in g_szLine, so check for the end and scan the current buffer again and continue on with
+            // Grab_AimAtBones will read input into g_StudioMdlContext.szLine same as here until it gets a line it doesn't understand, at which point
+            // it will exit leaving that line in g_StudioMdlContext.szLine, so check for the end and scan the current buffer again and continue on with
             // the normal QuatInterpBones process
 
-            i = sscanf(g_szLine, "%s %s %s %s %s", cmd, pBone->bonename, pBone->parentname, pBone->controlparentname,
+            i = sscanf(g_StudioMdlContext.szLine, "%s %s %s %s %s", cmd, pBone->bonename, pBone->parentname, pBone->controlparentname,
                        pBone->controlname);
         }
 
@@ -6914,14 +6907,14 @@ void Grab_QuatInterpBones() {
             // any of these checks to be valid... Still kind of buggy as these checks
             // do case insensitive stricmp but then the sscanf does case sensitive
             // matching afterwards... Should probably change those to
-            // sscanf( g_szLine, "%*s %f ... ) etc...
+            // sscanf( g_StudioMdlContext.szLine, "%*s %f ... ) etc...
 
             if (stricmp(cmd, "<display>") == 0) {
                 // skip all display info
                 Vector size;
                 float distance;
 
-                i = sscanf(g_szLine, "<display> %f %f %f %f",
+                i = sscanf(g_StudioMdlContext.szLine, "<display> %f %f %f %f",
                            &size[0], &size[1], &size[2],
                            &distance);
 
@@ -6929,18 +6922,18 @@ void Grab_QuatInterpBones() {
                     pAxis->percentage = distance / 100.0;
                     pAxis->size = size;
                 } else {
-                    MdlError("Line %d: Unable to parse procedual <display> bone: %s", g_iLinecount, g_szLine);
+                    MdlError("Line %d: Unable to parse procedual <display> bone: %s", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
                 }
             } else if (stricmp(cmd, "<basepos>") == 0) {
-                i = sscanf(g_szLine, "<basepos> %f %f %f", &basepos.x, &basepos.y, &basepos.z);
+                i = sscanf(g_StudioMdlContext.szLine, "<basepos> %f %f %f", &basepos.x, &basepos.y, &basepos.z);
                 // skip all type info
             } else if (stricmp(cmd, "<rotateaxis>") == 0) {
-                i = sscanf(g_szLine, "%*s %f %f %f", &rotateaxis.x, &rotateaxis.y, &rotateaxis.z);
+                i = sscanf(g_StudioMdlContext.szLine, "%*s %f %f %f", &rotateaxis.x, &rotateaxis.y, &rotateaxis.z);
                 rotateaxis.x = DEG2RAD(rotateaxis.x);
                 rotateaxis.y = DEG2RAD(rotateaxis.y);
                 rotateaxis.z = DEG2RAD(rotateaxis.z);
             } else if (stricmp(cmd, "<jointorient>") == 0) {
-                i = sscanf(g_szLine, "%*s %f %f %f", &jointorient.x, &jointorient.y, &jointorient.z);
+                i = sscanf(g_StudioMdlContext.szLine, "%*s %f %f %f", &jointorient.x, &jointorient.y, &jointorient.z);
                 jointorient.x = DEG2RAD(jointorient.x);
                 jointorient.y = DEG2RAD(jointorient.y);
                 jointorient.z = DEG2RAD(jointorient.z);
@@ -6952,7 +6945,7 @@ void Grab_QuatInterpBones() {
 
                 QAngle rot;
                 int j;
-                i = sscanf(g_szLine, "<trigger> %f %f %f %f %f %f %f %f %f %f",
+                i = sscanf(g_StudioMdlContext.szLine, "<trigger> %f %f %f %f %f %f %f %f %f %f",
                            &tolerance,
                            &trigger.x, &trigger.y, &trigger.z,
                            &ang.x, &ang.y, &ang.z,
@@ -6991,15 +6984,15 @@ void Grab_QuatInterpBones() {
                     VectorAdd(basepos, pos, pAxis->pos[j]);
                     pAxis->quat[j] = q;
                 } else {
-                    MdlError("Line %d: Unable to parse procedual <trigger> bone: %s", g_iLinecount, g_szLine);
+                    MdlError("Line %d: Unable to parse procedual <trigger> bone: %s", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
                 }
             } else {
-                MdlError("Line %d: Unable to parse procedual bone data: %s", g_iLinecount, g_szLine);
+                MdlError("Line %d: Unable to parse procedual bone data: %s", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
             }
         } else {
             // Allow blank lines to be skipped without error
             bool allSpace(true);
-            for (const char *pC(g_szLine); *pC != '\0' && pC < (g_szLine + 4096); ++pC) {
+            for (const char *pC(g_StudioMdlContext.szLine); *pC != '\0' && pC < (g_StudioMdlContext.szLine + 4096); ++pC) {
                 if (!V_isspace(*pC)) {
                     allSpace = false;
                     break;
@@ -7007,7 +7000,7 @@ void Grab_QuatInterpBones() {
             }
 
             if (!allSpace) {
-                MdlError("Line %d: Unable to parse procedual bone data: %s", g_iLinecount, g_szLine);
+                MdlError("Line %d: Unable to parse procedual bone data: %s", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
             }
         }
     }
@@ -7026,7 +7019,7 @@ void Load_ProceduralBones() {
         return;
     }
 
-    g_iLinecount = 0;
+    g_StudioMdlContext.iLinecount = 0;
 
     char ext[32];
     Q_ExtractFileExtension(filename, ext, sizeof(ext));
@@ -7035,8 +7028,8 @@ void Load_ProceduralBones() {
         Grab_QuatInterpBones();
     } else {
         while (GetLineInput()) {
-            g_iLinecount++;
-            const int numRead = sscanf(g_szLine, "%s", cmd, &option);
+            g_StudioMdlContext.iLinecount++;
+            const int numRead = sscanf(g_StudioMdlContext.szLine, "%s", cmd, &option);
 
             // No Command Was Parsed, Blank Line Usually
             if ((numRead == EOF) || (numRead == 0))
@@ -7051,7 +7044,7 @@ void Load_ProceduralBones() {
             }
         }
     }
-    fclose(g_fpInput);
+    fclose(g_StudioMdlContext.fpInput);
 }
 
 //

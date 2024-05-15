@@ -29,7 +29,7 @@
 #include "studio.h"
 #include "tier1/characterset.h"
 #include "studiomdl/studiomdl.h"
-//#include "..\..\dlls\activity.h"
+extern StudioMdlContext g_StudioMdlContext;
 
 bool IsEnd( char const* pLine );
 int SortAndBalanceBones( int iCount, int iMaxCount, int bones[], float weights[] );
@@ -54,12 +54,12 @@ void ParseMtlLib( CUtlBuffer &buf )
 	int nCurrentMtl = -1;
 	while ( buf.IsValid() )
 	{
-		buf.GetLine( g_szLine, sizeof(g_szLine) );
+		buf.GetLine( g_StudioMdlContext.szLine, sizeof(g_StudioMdlContext.szLine) );
 
-		if ( !Q_strnicmp( g_szLine, "newmtl ", 7 ) )
+		if ( !Q_strnicmp( g_StudioMdlContext.szLine, "newmtl ", 7 ) )
 		{
 			char mtlName[1024];
-			if ( sscanf( g_szLine, "newmtl %s", mtlName ) == 1 )
+			if ( sscanf( g_StudioMdlContext.szLine, "newmtl %s", mtlName ) == 1 )
 			{
 				nCurrentMtl = g_MtlLib.AddToTail( );
 				g_MtlLib[nCurrentMtl].m_MtlName = mtlName;
@@ -68,14 +68,14 @@ void ParseMtlLib( CUtlBuffer &buf )
 			continue;
 		}
 
-		if ( !Q_strnicmp( g_szLine, "map_Kd ", 7 ) )
+		if ( !Q_strnicmp( g_StudioMdlContext.szLine, "map_Kd ", 7 ) )
 		{
 			if ( nCurrentMtl < 0 )
 				continue;
 
 			char tgaPath[MAX_PATH];
 			char tgaName[1024];
-			if ( sscanf( g_szLine, "map_Kd %s", tgaPath ) == 1 )
+			if ( sscanf( g_StudioMdlContext.szLine, "map_Kd %s", tgaPath ) == 1 )
 			{
 				Q_FileBase( tgaPath, tgaName, sizeof(tgaName) );
 				g_MtlLib[nCurrentMtl].m_TgaName = tgaName;
@@ -165,12 +165,12 @@ int Load_OBJ( s_source_t *psource )
 	char pFullDir[MAX_PATH];
 	Q_ExtractFilePath( pFullPath, pFullDir, sizeof(pFullDir) );
 
-	if( !g_quiet )
+	if( !g_StudioMdlContext.quiet )
 	{
 		printf( "grabbing %s\n", psource->filename );
 	}
 
-	g_iLinecount = 0;
+    g_StudioMdlContext.iLinecount = 0;
 
 	psource->numbones = 1;
 	strcpy( psource->localBone[0].name, "default" );
@@ -192,35 +192,35 @@ int Load_OBJ( s_source_t *psource )
 	{
 		Vector tmp;
 
-		if ( strncmp( g_szLine, "v ", 2 ) == 0 )
+		if ( strncmp( g_StudioMdlContext.szLine, "v ", 2 ) == 0 )
 		{
-			i = g_numverts++;
+			i = g_StudioMdlContext.numverts++;
 
-			sscanf( g_szLine, "v %f %f %f", &g_vertex[i].x, &g_vertex[i].y, &g_vertex[i].z );
-			g_bone[i].numbones = 1;
-			g_bone[i].bone[0] = 0;
-			g_bone[i].weight[0] = 1.0;
+			sscanf( g_StudioMdlContext.szLine, "v %f %f %f", &g_StudioMdlContext.vertex[i].x, &g_StudioMdlContext.vertex[i].y, &g_StudioMdlContext.vertex[i].z );
+			g_StudioMdlContext.bone[i].numbones = 1;
+			g_StudioMdlContext.bone[i].bone[0] = 0;
+			g_StudioMdlContext.bone[i].weight[0] = 1.0;
 			continue;
 		}
 		
-		if (strncmp( g_szLine, "vn ", 3 ) == 0)
+		if (strncmp( g_StudioMdlContext.szLine, "vn ", 3 ) == 0)
 		{
-			i = g_numnormals++;
-			sscanf( g_szLine, "vn %f %f %f", &g_normal[i].x, &g_normal[i].y, &g_normal[i].z );
+			i = g_StudioMdlContext.numnormals++;
+			sscanf( g_StudioMdlContext.szLine, "vn %f %f %f", &g_StudioMdlContext.normal[i].x, &g_StudioMdlContext.normal[i].y, &g_StudioMdlContext.normal[i].z );
 			continue;
 		}
 		
-		if (strncmp( g_szLine, "vt ", 3 ) == 0)
+		if (strncmp( g_StudioMdlContext.szLine, "vt ", 3 ) == 0)
 		{
-			i = g_numtexcoords[0]++;
-			sscanf( g_szLine, "vt %f %f", &g_texcoord[0][i].x, &g_texcoord[0][i].y );
-			g_texcoord[0][i].y = 1.0 - g_texcoord[0][i].y;
+			i = g_StudioMdlContext.numtexcoords[0]++;
+			sscanf( g_StudioMdlContext.szLine, "vt %f %f", &g_StudioMdlContext.texcoord[0][i].x, &g_StudioMdlContext.texcoord[0][i].y );
+			g_StudioMdlContext.texcoord[0][i].y = 1.0 - g_StudioMdlContext.texcoord[0][i].y;
 			continue;
 		}
 		
-		if ( !Q_strncmp( g_szLine, "mtllib ", 7 ) )
+		if ( !Q_strncmp( g_StudioMdlContext.szLine, "mtllib ", 7 ) )
 		{
-			sscanf( g_szLine, "mtllib %s", &cmd );
+			sscanf( g_StudioMdlContext.szLine, "mtllib %s", &cmd );
 			CUtlBuffer buf( 0, 0, CUtlBuffer::TEXT_BUFFER );
 
 			char pFullMtlLibPath[MAX_PATH];
@@ -232,9 +232,9 @@ int Load_OBJ( s_source_t *psource )
 			continue;
 		}
 
-		if (strncmp( g_szLine, "usemtl ", 7 ) == 0)
+		if (strncmp( g_StudioMdlContext.szLine, "usemtl ", 7 ) == 0)
 		{
-			sscanf( g_szLine, "usemtl %s", &cmd );
+			sscanf( g_StudioMdlContext.szLine, "usemtl %s", &cmd );
 
 			const char *pTexture = FindMtlEntry( cmd );
 			int texture = LookupTexture( pTexture );
@@ -243,7 +243,7 @@ int Load_OBJ( s_source_t *psource )
 			continue;
 		}
 
-		if (strncmp( g_szLine, "f ", 2 ) == 0)
+		if (strncmp( g_StudioMdlContext.szLine, "f ", 2 ) == 0)
 		{
 			if ( material < 0 )
 			{
@@ -259,28 +259,28 @@ int Load_OBJ( s_source_t *psource )
 			s_tmpface_t f;
 
 			// Are we specifying p only, p and t only, p and n only, or p and n and t?
-			char *pData = g_szLine + 2;
+			char *pData = g_StudioMdlContext.szLine + 2;
 			int nLen = Q_strlen( pData );
 
 			CUtlBuffer bufParse( pData, nLen, CUtlBuffer::TEXT_BUFFER | CUtlBuffer::READ_ONLY );
 
 			ParseVertex( bufParse, breakSet, v0, t0, n0 );
 			ParseVertex( bufParse, breakSet, v1, t1, n1 );
-			Assert( v0 <= g_numverts && t0 <= g_numtexcoords[0] && n0 <= g_numnormals );
-			Assert( v1 <= g_numverts && t1 <= g_numtexcoords[0] && n1 <= g_numnormals );
+			Assert( v0 <= g_StudioMdlContext.numverts && t0 <= g_StudioMdlContext.numtexcoords[0] && n0 <= g_StudioMdlContext.numnormals );
+			Assert( v1 <= g_StudioMdlContext.numverts && t1 <= g_StudioMdlContext.numtexcoords[0] && n1 <= g_StudioMdlContext.numnormals );
 			while ( bufParse.IsValid() )
 			{
 				if ( !ParseVertex( bufParse, breakSet, v2, t2, n2 ) )
 					break;
 
-				Assert( v2 <= g_numverts && t2 <= g_numtexcoords[0] && n2 <= g_numnormals );
+				Assert( v2 <= g_StudioMdlContext.numverts && t2 <= g_StudioMdlContext.numtexcoords[0] && n2 <= g_StudioMdlContext.numnormals );
 	
-				i = g_numfaces++;
+				i = g_StudioMdlContext.numfaces++;
 				f.material = material;
 				f.a = v0 - 1; f.na = (n0 > 0) ? n0 - 1 : 0, f.ta[0] = (t0 > 0) ? t0 - 1 : 0;
 				f.b = v2 - 1; f.nb = (n2 > 0) ? n2 - 1 : 0, f.tb[0] = (t2 > 0) ? t2 - 1 : 0;
 				f.c = v1 - 1; f.nc = (n1 > 0) ? n1 - 1 : 0, f.tc[0] = (t1 > 0) ? t1 - 1 : 0;
-				g_face[i] = f;
+				g_StudioMdlContext.face[i] = f;
 
 				v1 = v2; t1 = t2; n1 = n2;
 			}
@@ -292,7 +292,7 @@ int Load_OBJ( s_source_t *psource )
 
 	BuildIndividualMeshes( psource );
 
-	fclose( g_fpInput );
+	fclose( g_StudioMdlContext.fpInput );
 
 	return 1;
 }
@@ -313,52 +313,52 @@ int AppendVTAtoOBJ( s_source_t *psource, char *filename, int frame )
 	if ( !OpenGlobalFile( filename ) )
 		return 0;
 
-	if( !g_quiet )
+	if( !g_StudioMdlContext.quiet )
 	{
 		printf ("grabbing %s\n", filename );
 	}
 
-	g_iLinecount = 0;
+    g_StudioMdlContext.iLinecount = 0;
 
-	g_numverts = g_numnormals = g_numtexcoords[0] = g_numfaces = 0;
+	g_StudioMdlContext.numverts = g_StudioMdlContext.numnormals = g_StudioMdlContext.numtexcoords[0] = g_StudioMdlContext.numfaces = 0;
 
 	while ( GetLineInput() ) 
 	{
 		Vector tmp;
 
-		if (strncmp( g_szLine, "v ", 2 ) == 0)
+		if (strncmp( g_StudioMdlContext.szLine, "v ", 2 ) == 0)
 		{
-			i = g_numverts++;
+			i = g_StudioMdlContext.numverts++;
 
-			sscanf( g_szLine, "v %f %f %f", &tmp.x, &tmp.y, &tmp.z );
-			VectorTransform( tmp, m, g_vertex[i] );
+			sscanf( g_StudioMdlContext.szLine, "v %f %f %f", &tmp.x, &tmp.y, &tmp.z );
+			VectorTransform( tmp, m, g_StudioMdlContext.vertex[i] );
 
-			// printf("%f %f %f\n", g_vertex[i].x, g_vertex[i].y, g_vertex[i].z );
+			// printf("%f %f %f\n", g_StudioMdlContext.vertex[i].x, g_StudioMdlContext.vertex[i].y, g_StudioMdlContext.vertex[i].z );
 
-			g_bone[i].numbones = 1;
-			g_bone[i].bone[0] = 0;
-			g_bone[i].weight[0] = 1.0;
+			g_StudioMdlContext.bone[i].numbones = 1;
+			g_StudioMdlContext.bone[i].bone[0] = 0;
+			g_StudioMdlContext.bone[i].weight[0] = 1.0;
 		}
-		else if (strncmp( g_szLine, "vn ", 3 ) == 0)
+		else if (strncmp( g_StudioMdlContext.szLine, "vn ", 3 ) == 0)
 		{
-			i = g_numnormals++;
-			sscanf( g_szLine, "vn %f %f %f", &tmp.x, &tmp.y, &tmp.z );
-			VectorRotate( tmp, m, g_normal[i] );
+			i = g_StudioMdlContext.numnormals++;
+			sscanf( g_StudioMdlContext.szLine, "vn %f %f %f", &tmp.x, &tmp.y, &tmp.z );
+			VectorRotate( tmp, m, g_StudioMdlContext.normal[i] );
 		}
-		else if (strncmp( g_szLine, "vt ", 3 ) == 0)
+		else if (strncmp( g_StudioMdlContext.szLine, "vt ", 3 ) == 0)
 		{
-			i = g_numtexcoords[0]++;
-			sscanf( g_szLine, "vt %f %f", &g_texcoord[0][i].x, &g_texcoord[0][i].y );
+			i = g_StudioMdlContext.numtexcoords[0]++;
+			sscanf( g_StudioMdlContext.szLine, "vt %f %f", &g_StudioMdlContext.texcoord[0][i].x, &g_StudioMdlContext.texcoord[0][i].y );
 		}
-		else if (strncmp( g_szLine, "usemtl ", 7 ) == 0)
+		else if (strncmp( g_StudioMdlContext.szLine, "usemtl ", 7 ) == 0)
 		{
-			sscanf( g_szLine, "usemtl %s", &cmd );
+			sscanf( g_StudioMdlContext.szLine, "usemtl %s", &cmd );
 
 			int texture = LookupTexture( cmd );
 			psource->texmap[texture] = texture;	// hack, make it 1:1
 			material = UseTextureAsMaterial( texture );
 		}
-		else if (strncmp( g_szLine, "f ", 2 ) == 0)
+		else if (strncmp( g_StudioMdlContext.szLine, "f ", 2 ) == 0)
 		{
 			int v0, n0, t0;
 			int v1, n1, t1;
@@ -367,27 +367,27 @@ int AppendVTAtoOBJ( s_source_t *psource, char *filename, int frame )
 
 			s_tmpface_t f;
 
-			i = g_numfaces++;
+			i = g_StudioMdlContext.numfaces++;
 
-			j = sscanf( g_szLine, "f %d/%d/%d %d/%d/%d %d/%d/%d %d/%d/%d", &v0, &t0, &n0, &v1, &t1, &n1, &v2, &t2, &n2, &v3, &t3, &n3 );
+			j = sscanf( g_StudioMdlContext.szLine, "f %d/%d/%d %d/%d/%d %d/%d/%d %d/%d/%d", &v0, &t0, &n0, &v1, &t1, &n1, &v2, &t2, &n2, &v3, &t3, &n3 );
 
 			f.material = material;
 			f.a = v0 - 1; f.na = n0 - 1, f.ta[0] = 0;
 			f.b = v2 - 1; f.nb = n2 - 1, f.tb[0] = 0;
 			f.c = v1 - 1; f.nc = n1 - 1, f.tc[0] = 0;
 
-			Assert( v0 <= g_numverts && v1 <= g_numverts && v2 <= g_numverts );
-			Assert( n0 <= g_numnormals && n1 <= g_numnormals && n2 <= g_numnormals );
+			Assert( v0 <= g_StudioMdlContext.numverts && v1 <= g_StudioMdlContext.numverts && v2 <= g_StudioMdlContext.numverts );
+			Assert( n0 <= g_StudioMdlContext.numnormals && n1 <= g_StudioMdlContext.numnormals && n2 <= g_StudioMdlContext.numnormals );
 
-			g_face[i] = f;
+			g_StudioMdlContext.face[i] = f;
 
 			if (j == 12)
 			{
-				i = g_numfaces++;
+				i = g_StudioMdlContext.numfaces++;
 				f.a = v0 - 1; f.na = n0 - 1, f.ta[0] = 0;
 				f.b = v3 - 1; f.nb = n3 - 1, f.tb[0] = 0;
 				f.c = v2 - 1; f.nc = n2 - 1, f.tc[0] = 0;
-				g_face[i] = f;
+				g_StudioMdlContext.face[i] = f;
 			}
 		}
 	}
@@ -412,7 +412,7 @@ int AppendVTAtoOBJ( s_source_t *psource, char *filename, int frame )
 		BuildIndividualMeshes( psource );
 	}
 
-	// printf("%d %d : %d\n", g_numverts, g_numnormals, numvlist );
+	// printf("%d %d : %d\n", g_StudioMdlContext.numverts, g_StudioMdlContext.numnormals, numvlist );
 
 	int t = frame;
 	int count = g_numvlist;
@@ -422,11 +422,11 @@ int AppendVTAtoOBJ( s_source_t *psource, char *filename, int frame )
 	for (i = 0; i < count; i++)
 	{
 		pSourceAnim->vanim[t][i].vertex = i;
-		pSourceAnim->vanim[t][i].pos = g_vertex[v_listdata[i].v];
-		pSourceAnim->vanim[t][i].normal = g_normal[v_listdata[i].n];
+		pSourceAnim->vanim[t][i].pos = g_StudioMdlContext.vertex[v_listdata[i].v];
+		pSourceAnim->vanim[t][i].normal = g_StudioMdlContext.normal[v_listdata[i].n];
 	}
 
-	fclose( g_fpInput );
+	fclose( g_StudioMdlContext.fpInput );
 
 	return 1;
 }

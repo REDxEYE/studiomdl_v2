@@ -800,7 +800,7 @@ namespace OptimizedModel {
             *ppTopologyIndices = NULL;
 
         // Skip the tristripping phase if we're building in preview mode, rendering quads or not hardware skinning
-        if (bQuadSubd || g_bBuildPreview || !bIsHWSkinned || g_bPreserveTriangleOrder) {
+        if (bQuadSubd || g_StudioMdlContext.buildPreview || !bIsHWSkinned || g_StudioMdlContext.preserveTriangleOrder) {
             *pNumIndices = sourceIndices.Count();
             *ppIndices = new unsigned short[*pNumIndices];
             memcpy(*ppIndices, sourceIndices.Base(), (*pNumIndices) * sizeof(unsigned short));
@@ -2018,7 +2018,7 @@ namespace OptimizedModel {
         SetListsOnly(true);
 #endif // NVTRISTRIP
 
-        if (!g_quiet) {
+        if (!g_StudioMdlContext.quiet) {
             printf("---------------------\n");
             printf("Generating optimized mesh \"%s\":\n", fileName);
 #ifdef _DEBUG
@@ -2987,7 +2987,7 @@ namespace OptimizedModel {
         //	DebugCompareVerts( phdr );
         SanityCheckAgainstStudioHDR(pHdr);
 
-        if (!g_quiet) {
+        if (!g_StudioMdlContext.quiet) {
             OutputMemoryUsage();
         }
 
@@ -4136,7 +4136,7 @@ namespace OptimizedModel {
         strcat(filename, g_outname);
         Q_StripExtension(filename, filename, sizeof(filename));
 
-        if (g_gameinfo.bSupportsDX8 && !g_bFastBuild) {
+        if (g_gameinfo.bSupportsDX8 && !g_StudioMdlContext.fastBuild) {
             strcpy(tmpFileName, filename);
             strcat(tmpFileName, ".sw.vtx");
             strcpy(glViewFilename, filename);
@@ -4153,7 +4153,7 @@ namespace OptimizedModel {
                                                    tmpFileName, glViewFilename);
         }
 
-        if (g_gameinfo.bSupportsDX8 && !g_bFastBuild) {
+        if (g_gameinfo.bSupportsDX8 && !g_StudioMdlContext.fastBuild) {
             strcpy(tmpFileName, filename);
             strcat(tmpFileName, ".dx80.vtx");
             strcpy(glViewFilename, filename);

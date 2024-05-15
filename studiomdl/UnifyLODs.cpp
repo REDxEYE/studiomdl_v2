@@ -25,7 +25,7 @@
 // to ensure remapping logic does not introduce collapse anomalies
 //#define UNIQUE_VERTEXES_FOR_LOD
 
-
+extern StudioMdlContext g_StudioMdlContext;
 
 //-----------------------------------------------------------------------------
 // Forward declarations local to this file
@@ -53,7 +53,7 @@ static void ValidateBoneWeight(const s_boneweight_t &boneWeight) {
         Assert(boneWeight.numbones == 1);
     }
     for (i = 0; i < boneWeight.numbones; i++) {
-        Assert(boneWeight.bone[i] >= 0 && boneWeight.bone[i] < g_numbones);
+        Assert(boneWeight.bone[i] >= 0 && boneWeight.bone[i] < g_StudioMdlContext.numbones);
     }
 
     float weight = 0.0f;
@@ -1070,7 +1070,7 @@ static void CreateLODVertsInDictionary(int nLodID, const s_source_t *pRootLODSrc
     }
 
     int nNewVertsCreated = vertexDict.VertexCount() - nNumCurrentVerts;
-    if (!g_quiet && nNewVertsCreated) {
+    if (!g_StudioMdlContext.quiet && nNewVertsCreated) {
         printf("Lod %d: vertexes: %d (%d new)\n", nLodID, vertexDict.VertexCount(), nNewVertsCreated);
     }
 }
@@ -1146,14 +1146,14 @@ static void SetProcessedWithDictionary(s_model_t *pSrcModel, CVertexDictionary &
 // if there is no bone replacement.
 //-----------------------------------------------------------------------------
 static void BuildBoneLODMapping(CUtlVector<int> &boneMap, int lodID) {
-    boneMap.AddMultipleToTail(g_numbones);
+    boneMap.AddMultipleToTail(g_StudioMdlContext.numbones);
 
     Assert(lodID < g_ScriptLODs.Count());
     LodScriptData_t &scriptLOD = g_ScriptLODs[lodID];
 
     // First, create a direct mapping where no bones are collapsed
     int i;
-    for (i = 0; i < g_numbones; i++) {
+    for (i = 0; i < g_StudioMdlContext.numbones; i++) {
         boneMap[i] = i;
     }
 
@@ -1168,12 +1168,12 @@ static void BuildBoneLODMapping(CUtlVector<int> &boneMap, int lodID) {
             boneMap[j] = k;
         } else if (j == -1) {
             // FIXME: is this really an error?  It could just be  replacement command for bone that doesnt' exist anymore.
-            if (g_verbose) {
+            if (g_StudioMdlContext.verbose) {
                 MdlWarning("Couldn't replace unknown bone \"%s\" with \"%s\"\n", src, dst);
             }
         } else {
             // FIXME: is this really an error?  It could just be  replacement command for bone that doesnt' exist anymore.
-            if (g_verbose) {
+            if (g_StudioMdlContext.verbose) {
                 MdlWarning("Couldn't replace bone \"%s\" with unknown \"%s\"\n", src, dst);
             }
         }
@@ -1250,7 +1250,7 @@ static void UnifyModelLODs(s_model_t *pSrcModel) {
         // lookup the material used by this mesh
         int nMaterialID = pLOD0Source->meshindex[nMeshID];
         const char *pName = g_texture[nMaterialID].name;
-        if (!g_quiet) {
+        if (!g_StudioMdlContext.quiet) {
             printf("Processing LOD for material: %s\n", pName);
         }
         s_mesh_t *pLOD0Mesh = FindMeshByMaterial(pLOD0Source, nMaterialID);
@@ -1320,21 +1320,21 @@ static void PrintSpaces(int numSpaces) {
 
 static void SpewBoneInfo(int globalBoneID, int depth) {
     s_bonetable_t *pBone = &g_bonetable[globalBoneID];
-    if (g_bPrintBones) {
+    if (g_StudioMdlContext.printBones) {
         PrintSpaces(depth * 2);
         printf("%d \"%s\" ", depth, pBone->name);
     }
     int i;
     for (i = 0; i < 8; i++) {
         if (pBone->flags & (BONE_USED_BY_VERTEX_LOD0 << i)) {
-            if (g_bPrintBones) {
+            if (g_StudioMdlContext.printBones) {
                 printf("lod%d ", i);
             }
             g_NumBonesInLOD[i]++;
         }
     }
 
-    if (g_bPrintBones) {
+    if (g_StudioMdlContext.printBones) {
         if (pBone->flags & BONE_USED_BY_HITBOX)
             printf("hitbox ");
 
@@ -1348,7 +1348,7 @@ static void SpewBoneInfo(int globalBoneID, int depth) {
     }
 
     int j;
-    for (j = 0; j < g_numbones; j++) {
+    for (j = 0; j < g_StudioMdlContext.numbones; j++) {
         s_bonetable_t *pBone = &g_bonetable[j];
         if (pBone->parent == globalBoneID) {
             SpewBoneInfo(j, depth + 1);
@@ -1358,11 +1358,11 @@ static void SpewBoneInfo(int globalBoneID, int depth) {
 
 void SpewBoneUsageStats(void) {
     memset(g_NumBonesInLOD, 0, sizeof(int) * MAX_NUM_LODS);
-    if (g_numbones == 0) {
+    if (g_StudioMdlContext.numbones == 0) {
         return;
     }
     SpewBoneInfo(0, 0);
-    if (g_bPrintBones) {
+    if (g_StudioMdlContext.printBones) {
         int i;
         for (i = 0; i < g_ScriptLODs.Count(); i++) {
             printf("\t%d bones used in lod %d\n", g_NumBonesInLOD[i], i);
@@ -1372,7 +1372,7 @@ void SpewBoneUsageStats(void) {
 
 void MarkParentBoneLODs(void) {
     int i;
-    for (i = 0; i < g_numbones; i++) {
+    for (i = 0; i < g_StudioMdlContext.numbones; i++) {
         int flags = g_bonetable[i].flags;
         flags &= BONE_USED_BY_VERTEX_MASK;
         int globalBoneID = g_bonetable[i].parent;
@@ -1434,7 +1434,7 @@ static void ReplaceBonesRecursive(int globalBoneID, bool replaceThis,
 
     // find children and recurse.
     int i;
-    for (i = 0; i < g_numbones; i++) {
+    for (i = 0; i < g_StudioMdlContext.numbones; i++) {
         if (g_bonetable[i].parent == globalBoneID) {
             ReplaceBonesRecursive(i, true, boneReplacements, replacementName);
         }
