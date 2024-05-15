@@ -46,7 +46,6 @@ add_library(mdlobjects
         dmelodlist.cpp
         dmecollisionmodel.cpp
         dmebbox.cpp
-        physmodelsource.cpp
         dmesequence.cpp
         dmedefinebonelist.cpp
         dmebodygrouplist.cpp

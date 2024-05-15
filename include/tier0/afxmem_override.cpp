@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
@@ -313,7 +313,7 @@ int AFX_CDECL AfxNewHandler(size_t /* nSize */)
 _PNH _afxNewHandler = &AfxNewHandler;
 #endif
 
-_PNH AFXAPI AfxGetNewHandler(void)
+_PNH AFXAPI AfxGetNewHandler()
 {
 #ifdef _AFXDLL
 	AFX_MODULE_THREAD_STATE* pState = AfxGetModuleThreadState();

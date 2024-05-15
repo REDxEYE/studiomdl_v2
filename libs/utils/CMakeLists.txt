@@ -14,11 +14,9 @@ add_library(utils
         filesystem_helpers.cpp
         scriplib.cpp
         studio.cpp
-        collisionutils.cpp
         phonemeconverter.cpp
         interpolatortypes.cpp
-        zip_utils.cpp
-        )
+)
 target_include_directories(utils PUBLIC ../../include)
 target_include_directories(utils PRIVATE ../../include/common)
 target_compile_definitions(utils PRIVATE -DSTATIC_TIER0)

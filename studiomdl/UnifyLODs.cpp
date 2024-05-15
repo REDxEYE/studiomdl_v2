@@ -1303,7 +1303,7 @@ static void UnifyModelLODs(s_model_t *pSrcModel) {
 // Force the vertex array for a model to have all of the vertices that are needed
 // for all of the LODs of the model.
 //-----------------------------------------------------------------------------
-void UnifyLODs(void) {
+void UnifyLODs() {
     // todo: need to fixup the firstref/lastref stuff . . do we really need it anymore?
     for (int modelID = 0; modelID < g_nummodelsbeforeLOD; modelID++) {
         UnifyModelLODs(g_model[modelID]);
@@ -1356,7 +1356,7 @@ static void SpewBoneInfo(int globalBoneID, int depth) {
     }
 }
 
-void SpewBoneUsageStats(void) {
+void SpewBoneUsageStats() {
     memset(g_NumBonesInLOD, 0, sizeof(int) * MAX_NUM_LODS);
     if (g_StudioMdlContext.numbones == 0) {
         return;
@@ -1370,7 +1370,7 @@ void SpewBoneUsageStats(void) {
     }
 }
 
-void MarkParentBoneLODs(void) {
+void MarkParentBoneLODs() {
     int i;
     for (i = 0; i < g_StudioMdlContext.numbones; i++) {
         int flags = g_bonetable[i].flags;
@@ -1407,7 +1407,7 @@ static void GetLODSources(CUtlVector<s_source_t *> &lods, const s_model_t *pSrcM
 //-----------------------------------------------------------------------------
 // Creates models to store converted data for the various LODs
 //-----------------------------------------------------------------------------
-void LoadLODSources(void) {
+void LoadLODSources() {
     g_nummodelsbeforeLOD = g_nummodels;
     for (int modelID = 0; modelID < g_nummodelsbeforeLOD; modelID++) {
         if (!Q_stricmp(g_model[modelID]->name, "blank")) {
@@ -1452,7 +1452,7 @@ static void ConvertSingleBoneTreeCollapseToReplaceBones(CLodScriptReplacement_t 
     MdlWarning("Couldn't find bone %s for bonetreecollapse, skipping\n", boneTreeCollapse.GetSrcName());
 }
 
-void ConvertBoneTreeCollapsesToReplaceBones(void) {
+void ConvertBoneTreeCollapsesToReplaceBones() {
     int i;
     for (i = 0; i < g_ScriptLODs.Count(); i++) {
         LodScriptData_t &lod = g_ScriptLODs[i];
@@ -1505,7 +1505,7 @@ void FixupReplacedBonesForLOD(LodScriptData_t &lod) {
 */
 }
 
-void FixupReplacedBones(void) {
+void FixupReplacedBones() {
     int i;
     for (i = 0; i < g_ScriptLODs.Count(); i++) {
         FixupReplacedBonesForLOD(g_ScriptLODs[i]);

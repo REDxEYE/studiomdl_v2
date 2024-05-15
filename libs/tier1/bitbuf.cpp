@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
@@ -1240,7 +1240,7 @@ unsigned int old_bf_read::ReadBitLong(int numbits, bool bSigned)
 
 
 // Basic Coordinate Routines (these contain bit-field size AND fixed point scaling constants)
-float old_bf_read::ReadBitCoord (void)
+float old_bf_read::ReadBitCoord ()
 {
 #if defined( BB_PROFILING )
 	VPROF( "bf_write::ReadBitCoord" );
@@ -1404,7 +1404,7 @@ void old_bf_read::ReadBitVec3Coord( Vector& fa )
 		fa[2] = ReadBitCoord();
 }
 
-float old_bf_read::ReadBitNormal (void)
+float old_bf_read::ReadBitNormal ()
 {
 	// Read the sign bit
 	int	signbit = ReadOneBit();

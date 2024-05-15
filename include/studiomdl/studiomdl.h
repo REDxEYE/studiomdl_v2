@@ -1682,11 +1682,11 @@ public:
         strcpy(m_pDstName, pDstName);
     }
 
-    const char *GetSrcName(void) const {
+    const char *GetSrcName() const {
         return m_pSrcName;
     }
 
-    const char *GetDstName(void) const {
+    const char *GetDstName() const {
         return m_pDstName;
     }
 
@@ -1749,7 +1749,6 @@ EXTERN CUtlVector<LodScriptData_t> g_ScriptLODs;
 
 EXTERN CUtlVector<char *> g_collapse;
 
-extern float GetCollisionModelMass();
 
 
 // the first time these are called, the name of the model/QC file is printed so that when 

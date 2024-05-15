@@ -121,7 +121,7 @@ HRESULT PME::Init( void )
 //---------------------------------------------------------------------------
 // Close the device driver
 //---------------------------------------------------------------------------
-HRESULT PME::Close(void)
+HRESULT PME::Close()
 {
 	if (bDriverOpen == false)				// driver is not going
 		return E_DRIVER_NOT_OPEN;
@@ -375,7 +375,7 @@ HRESULT PME::WriteMSR(uint32 dw_reg, const uint64 & i64_value)
 // Return the frequency of the processor in Hz.
 //
 
-double PME::GetCPUClockSpeedFast(void)
+double PME::GetCPUClockSpeedFast()
 {
 	int64	i64_perf_start, i64_perf_freq, i64_perf_end;
 	int64	i64_clock_start,i64_clock_end;
@@ -417,7 +417,7 @@ double PME::GetCPUClockSpeedFast(void)
 
 
 // takes 1 second
-double PME::GetCPUClockSpeedSlow(void)
+double PME::GetCPUClockSpeedSlow()
 {
 
     if (m_CPUClockSpeed != 0)

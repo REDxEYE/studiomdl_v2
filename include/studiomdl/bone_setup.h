@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
@@ -13,7 +13,6 @@
 
 
 #include "studio.h"
-#include "cmodel.h"
 #include "bitvec.h"
 
 
@@ -71,7 +70,7 @@ class CBoneSetup;
 class IBoneSetup
 {
 public:
-	IBoneSetup( const CStudioHdr *pStudioHdr, int boneMask, const float poseParameter[], IPoseDebugger *pPoseDebugger = NULL );
+	IBoneSetup( const CStudioHdr *pStudioHdr, int boneMask, const float poseParameter[]);
 	~IBoneSetup( void );
 	void InitPose( BoneVector pos[], BoneQuaternionAligned q[] );
 	void AccumulatePose( BoneVector pos[], BoneQuaternion q[], int sequence, float cycle, float flWeight, float flTime, CIKContext *pIKContext );
@@ -449,22 +448,6 @@ private:
 	unsigned short	m_boneOutOffset;
 };
 
-void Studio_LockBoneCache();
-void Studio_UnlockBoneCache();
-
-CBoneCache *Studio_GetBoneCache( memhandle_t cacheHandle, bool bLock = false );
-void Studio_ReleaseBoneCache( memhandle_t cacheHandle );
-memhandle_t Studio_CreateBoneCache( bonecacheparams_t &params );
-void Studio_DestroyBoneCache( memhandle_t cacheHandle );
-void Studio_InvalidateBoneCacheIfNotMatching( memhandle_t cacheHandle, float flTimeValid );
-
-// Given a ray, trace for an intersection with this studiomodel.  Get the array of bones from StudioSetupHitboxBones
-bool TraceToStudio( class IPhysicsSurfaceProps *pProps, const Ray_t& ray, CStudioHdr *pStudioHdr, mstudiohitboxset_t *set, matrix3x4_t **hitboxbones, int fContentsMask, const Vector &vecOrigin, float flScale, trace_t &trace );
-// Given a ray, trace for an intersection with this studiomodel, bullets will hit bodyparts that result in higher damage
-bool TraceToStudioCsgoHitgroupsPriority( class IPhysicsSurfaceProps *pProps, const Ray_t& ray, CStudioHdr *pStudioHdr, mstudiohitboxset_t *set, matrix3x4_t **hitboxbones, int fContentsMask, const Vector &vecOrigin, float flScale, trace_t &trace );
-// TERROR: TraceToStudio variant that prioritizes hitgroups, so bullets can pass through arms and chest to hit the head, for instance
-bool TraceToStudioGrouped( IPhysicsSurfaceProps *pProps, const Ray_t& ray, CStudioHdr *pStudioHdr, mstudiohitboxset_t *set, 
-						  matrix3x4_t **hitboxbones, int fContentsMask, trace_t &tr, const CUtlVector< int > &sortedHitgroups );
 
 void QuaternionSM( float s, const Quaternion &p, const Quaternion &q, Quaternion &qt );
 void QuaternionMA( const Quaternion &p, float s, const Quaternion &q, Quaternion &qt );

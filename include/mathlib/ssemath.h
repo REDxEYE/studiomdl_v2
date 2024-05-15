@@ -5032,13 +5032,13 @@ public:
 	}
 
 	/// return the squared length of all 4 vectors
-	FORCEINLINE fltx4 length2(void) const
+	FORCEINLINE fltx4 length2() const
 	{
 		return (*this)*(*this);
 	}
 
 	/// return the approximate length of all 4 vectors. uses the sqrt approximation instruction
-	FORCEINLINE fltx4 length(void) const
+	FORCEINLINE fltx4 length() const
 	{
 		return SqrtEstSIMD(length2());
 	}

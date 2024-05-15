@@ -7,7 +7,6 @@
 #include <tier2/tier2.h>
 #include "tier0/dbg.h"
 #include "tier2/resourceprecacher.h"
-#include "resourcesystem/iresourcesystem.h"
 
 // NOTE: This has to be the last file included!
 // DISABLED #include "tier0/memdbgon.h"
@@ -64,22 +63,11 @@ void ConnectTier2Libraries( CreateInterfaceFn *pFactoryList, int nFactoryCount )
 		s_bPrecachesRegistered = true;
 	}
 
-	if ( g_pResourceSystem && !s_bResourceFCRegistered )
-	{
-		g_pResourceSystem->RegisterFrameCounter( &g_nResourceFrameCount );
-		s_bResourceFCRegistered = true;
-
-		CSchemaClassBindingBase::Install();
-	}
 }
 
 void DisconnectTier2Libraries()
 {
-	if ( g_pResourceSystem && s_bResourceFCRegistered )
-	{
-		g_pResourceSystem->UnregisterFrameCounter( &g_nResourceFrameCount );
-		s_bResourceFCRegistered = false;
-	}
+
 }
 
 

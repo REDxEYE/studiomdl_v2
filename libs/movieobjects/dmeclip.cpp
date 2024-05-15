@@ -78,27 +78,7 @@ void CDmeClip::SetClipColor( const Color& clr )
 	m_ClipColor.Set( clr );
 }
 
-Color CDmeClip::GetClipColor() const
-{
-	return m_ClipColor.Get();
-}
-
-
-//-----------------------------------------------------------------------------
-// Clip text
-//-----------------------------------------------------------------------------
-void CDmeClip::SetClipText( const char *pText )
-{
-	m_ClipText = pText;
-}
-
-const char*	CDmeClip::GetClipText() const
-{
-	return m_ClipText;
-}
-
-
-//-----------------------------------------------------------------------------
+//-------------------------------------
 // Returns the time frame
 //-----------------------------------------------------------------------------
 CDmeTimeFrame *CDmeClip::GetTimeFrame() const
@@ -1096,8 +1076,6 @@ IMPLEMENT_ELEMENT_FACTORY( DmeFilmClip, CDmeFilmClip );
 
 void CDmeFilmClip::OnConstruction()
 {
-	m_pRemoteVideoMaterial = NULL;
-
 	m_MapName.Init( this, "mapname" );
 	m_Camera.Init( this, "camera" );
 	m_MonitorCameras.Init( this, "monitorCameras" );
@@ -1118,7 +1096,6 @@ void CDmeFilmClip::OnConstruction()
 	m_ConCommands.Init( this, "concommands" );
 	m_ConVars.Init( this, "convars" );
 
-	m_hCachedVersion = AVIMATERIAL_INVALID;
 	m_bIsUsingCachedVersion = false;
 	m_bReloadCachedVersion = false;
 
@@ -1129,13 +1106,6 @@ void CDmeFilmClip::OnConstruction()
 
 void CDmeFilmClip::OnDestruction()
 {
-	AssignRemoteVideoMaterial( NULL );
-	if ( m_hCachedVersion != AVIMATERIAL_INVALID )
-	{
-		g_pAVI->DestroyAVIMaterial( m_hCachedVersion );
-		m_hCachedVersion = AVIMATERIAL_INVALID;
-	}
-
 	PurgeCameraStack();
 }
 
@@ -1339,89 +1309,10 @@ void CDmeFilmClip::OnAttributeChanged( CDmAttribute *pAttribute )
 	{
 		InvokeOnAttributeChangedOnReferrers( GetHandle(), pAttribute );
 	}
-	else if( pAttribute == m_bIsUsingCachedVersion.GetAttribute()  || pAttribute == m_AVIFile.GetAttribute() )
-	{
-		// video caching info has changed ...
-		UpdateRemoteVideoMaterialStatus();
-	}
-	
-}
-
-
-//-----------------------------------------------------------------------------
-// methods for dealing with remote cached video
-//-----------------------------------------------------------------------------
-void CDmeFilmClip::AssignRemoteVideoMaterial( IRemoteVideoMaterial *theMaterial )
-{
-	if ( theMaterial == m_pRemoteVideoMaterial ) return;		// no change
-
-	// ok, release any previous material
-	if ( m_pRemoteVideoMaterial != NULL )
-	{
-		m_pRemoteVideoMaterial->Release();
-	}
-
-	// assign the new material
-	m_pRemoteVideoMaterial = theMaterial;
-}
-
-
-void CDmeFilmClip::UpdateRemoteVideoMaterialStatus()
-{
-	// is the quicktime Video caching service available?   If not, we don't do anything...
-	if ( m_pRemoteVideoMaterial == NULL || !m_pRemoteVideoMaterial->IsInitialized() )
-	{
-		return;
-	}
-
-	// are we selecting to not used cached video?
-	if ( m_bIsUsingCachedVersion == false )
-	{
-		// check to see if we've gone from using cached video for this clip to off
-		if ( m_pRemoteVideoMaterial->IsRemoteVideoAvailable() && m_pRemoteVideoMaterial->IsConnectedToRemoteVideo() )
-		{
-			// turn off video caching for the specified clip
-			m_pRemoteVideoMaterial->DisconnectFromRemoteVideo();
-		}
-		return;
-	}
-	
-	// ok, we've selected to use a remotely cached video.  If the filename is setup correctly
-	// this should attempt to connect to the remote video
-	m_pRemoteVideoMaterial->ConnectToRemoteVideo( m_AVIFile.Get() );
 
 }
 
-bool CDmeFilmClip::HasRemoteVideo()
-{
-	// if we don't have a working connection, say we don't have any video
-	return  ( ( m_pRemoteVideoMaterial == NULL ) ? false : m_pRemoteVideoMaterial->IsRemoteVideoAvailable() );
-}
 
-bool CDmeFilmClip::GetCachedQTVideoFrameAt( float theTime )
-{
-	if ( m_pRemoteVideoMaterial == NULL )  return false;
-	
-	return m_pRemoteVideoMaterial->GetRemoteVideoFrame( theTime );
-}
-
-IMaterial* CDmeFilmClip::GetRemoteVideoMaterial()
-{
-	return ( m_pRemoteVideoMaterial == NULL ) ? NULL : m_pRemoteVideoMaterial->GetRemoteVideoFrameMaterial();
-}
-
-void CDmeFilmClip::GetRemoteVideoMaterialTexCoordRange( float *u, float *v )
-{
-	if ( m_pRemoteVideoMaterial == NULL )
-	{
-		*u = 0.0f;
-		*v = 0.0f;
-	}
-	else
-	{
-		m_pRemoteVideoMaterial->GetRemoteVideoFrameTextureCoordRange( *u, *v );
-	}
-}
 
 
 
@@ -1482,45 +1373,6 @@ bool CDmeFilmClip::HasOpaqueOverlay( void )
 	return true;
 }
 
-//-----------------------------------------------------------------------------
-// AVI tape out
-//-----------------------------------------------------------------------------
-void CDmeFilmClip::UseCachedVersion( bool bUseCachedVersion )
-{
-	m_bIsUsingCachedVersion = bUseCachedVersion;
-}
-
-bool CDmeFilmClip::IsUsingCachedVersion() const
-{
-	return m_bIsUsingCachedVersion;
-}
-
-AVIMaterial_t CDmeFilmClip::GetCachedAVI()
-{
-	if ( m_bReloadCachedVersion )
-	{
-		if ( g_pAVI )
-		{
-			if ( m_hCachedVersion != AVIMATERIAL_INVALID )
-			{
-				g_pAVI->DestroyAVIMaterial( m_hCachedVersion );
-				m_hCachedVersion = AVIMATERIAL_INVALID;
-			}
-			if ( m_AVIFile[0] )
-			{
-				m_hCachedVersion = g_pAVI->CreateAVIMaterial( m_AVIFile, m_AVIFile, "MOD" );
-			}
-		}
-		m_bReloadCachedVersion = false;
-	}
-	return m_hCachedVersion;
-}
-	
-void CDmeFilmClip::SetCachedAVI( const char *pAVIFile )
-{
-	m_AVIFile = pAVIFile;
-	m_bReloadCachedVersion = true;
-}
 
 
 //-----------------------------------------------------------------------------
@@ -1529,50 +1381,6 @@ void CDmeFilmClip::SetCachedAVI( const char *pAVIFile )
 CDmeCamera *CDmeFilmClip::GetCamera()
 {
 	return m_Camera;
-}
-
-void CDmeFilmClip::SetCamera( CDmeCamera *pCamera )
-{
-	m_Camera = pCamera;
-}
-
-
-//-----------------------------------------------------------------------------
-// Returns the monitor camera associated with the clip (for now, only 1 supported)
-//-----------------------------------------------------------------------------
-CDmeCamera *CDmeFilmClip::GetMonitorCamera()
-{
-	if ( m_nActiveMonitor < 0 )
-		return NULL;
-	return m_MonitorCameras[ m_nActiveMonitor ];
-}
-
-void CDmeFilmClip::AddMonitorCamera( CDmeCamera *pCamera )
-{
-	m_MonitorCameras.AddToTail( pCamera );
-}
-
-int CDmeFilmClip::FindMonitorCamera( CDmeCamera *pCamera )
-{
-	return m_MonitorCameras.Find( pCamera->GetHandle() );
-}
-
-void CDmeFilmClip::RemoveMonitorCamera( CDmeCamera *pCamera )
-{
-	int i = m_MonitorCameras.Find( pCamera->GetHandle() );
-	if ( i >= 0 )
-	{
-		if ( m_nActiveMonitor == i )
-		{
-			m_nActiveMonitor = -1;
-		}
-		m_MonitorCameras.FastRemove( i );
-	}
-}
-
-void CDmeFilmClip::SelectMonitorCamera( CDmeCamera *pCamera )
-{
-	m_nActiveMonitor = pCamera ? m_MonitorCameras.Find( pCamera->GetHandle() ) : -1;
 }
 
 
@@ -1588,28 +1396,6 @@ CDmeDag *CDmeFilmClip::GetScene( bool bCreateIfNull /*= false*/ )
 		m_Scene = pScene;
 	}
 	return pScene;
-}
-
-void CDmeFilmClip::SetScene( CDmeDag *pDag )
-{
-	m_Scene.Set( pDag );
-}
-
-
-//-----------------------------------------------------------------------------
-// helper for inputs and operators
-//-----------------------------------------------------------------------------
-int CDmeFilmClip::GetInputCount()
-{
-	return m_Inputs.Count();
-}
-
-CDmeInput *CDmeFilmClip::GetInput( int nIndex )
-{
-	if ( nIndex < 0 || nIndex >= m_Inputs.Count() )
-		return NULL;
-
-	return m_Inputs[ nIndex ];
 }
 
 void CDmeFilmClip::AddInput( CDmeInput *pInput )

@@ -39,13 +39,13 @@ class CUtlBuffer;
 
 /// 3d memcpy. Copy (up-to) 3 dimensional data with arbitrary source and destination
 /// strides. Optimizes to just a single memcpy when possible. For 2d data, set numslices to 1.
-void CopyMemory3D( void *pDestAdr, void const *pSrcAdr,		
+void CopyMemory3D( void *pDestAdr, void const *pSrcAdr,
 				   int nNumCols, int nNumRows, int nNumSlices, // dimensions of copy
 				   int nSrcBytesPerRow, int nSrcBytesPerSlice, // strides for source.
 				   int nDestBytesPerRow, int nDestBytesPerSlice // strides for dest
 	);
 
-	
+
 #define USE_FAST_CASE_CONVERSION 1
 #if USE_FAST_CASE_CONVERSION
 /// Faster conversion of an ascii char to upper case. This function does not obey locale or any language
@@ -145,31 +145,7 @@ inline wchar_t *_wcsupr( wchar_t *start )
 // there are some users of these via tier1 templates in used in tier0. but tier0 can't depend on vstdlib which means in tier0 we always need the inlined ones
 #if ( !defined( TIER0_DLL_EXPORT ) )
 
-#if !defined( _DEBUG ) && defined( _PS3 )
 
-#include "tier1/strtools_inlines.h"
-
-// To avoid cross-prx calls, making the V_* fucntions that don't do anything but debug checks and call through to the non V_* function
-// go ahead and call the non-V_* functions directly.
-#define V_memset(dest, fill, count)		memset   ((dest), (fill), (count))	
-#define V_memcpy(dest, src, count)		memcpy	((dest), (src), (count))	
-#define V_memmove(dest, src, count)		memmove	((dest), (src), (count))	
-#define V_memcmp(m1, m2, count)			memcmp	((m1), (m2), (count))		
-#define V_strcpy(dest, src)				strcpy	((dest), (src))			
-#define V_strcmp(s1, s2)				strcmp	((s1), (s2))			
-#define V_strupr(start)					strupr	((start))				
-#define V_strlower(start)				strlwr ((start))		
-#define V_wcslen(pwch)					wcslen	((pwch))
-#define V_wcsupr(start)					_wcsupr ((start))
-#define V_wcslower(start)				_wcslwr ((start))
-// To avoid cross-prx calls, using inline versions of these custom functions:
-#define V_strlen(str)					_V_strlen_inline	((str))				
-#define V_strrchr(s, c)					_V_strrchr_inline	((s), (c))				
-#define V_wcscmp(s1, s2)				_V_wcscmp_inline	((s1), (s2))			
-#define V_stricmp(s1, s2 )				_V_stricmp_inline	((s1), (s2) )			
-#define V_strstr(s1, search )			_V_strstr_inline	((s1), (search) )		
-
-#else
 
 #define V_memset(dest, fill, count)		_V_memset	((dest), (fill), static_cast<int>(count))
 #define V_memcpy(dest, src, count)		_V_memcpy	((dest), (src), static_cast<int>(count))
@@ -182,7 +158,7 @@ inline wchar_t *_wcsupr( wchar_t *start )
 #define V_strcmp(s1, s2)				_V_strcmp	((s1), (s2))
 #define V_wcscmp(s1, s2)				_V_wcscmp	((s1), (s2))
 #define V_stricmp(s1, s2 )				_V_stricmp	((s1), (s2) )
-#define V_stricmp_fast(s1, s2 )				_V_stricmp	((s1), (s2) )			
+#define V_stricmp_fast(s1, s2 )				_V_stricmp	((s1), (s2) )
 #define V_strstr(s1, search )			_V_strstr	((s1), (search) )
 #define V_strupr(start)					_V_strupr	((start))
 #define V_strupper(start)				_V_strupr	((start))
@@ -191,7 +167,6 @@ inline wchar_t *_wcsupr( wchar_t *start )
 #define V_wcsupr(start)					_V_wcsupr	((start))
 #define V_wcslower(start)				_V_wcslower ((start))
 
-#endif
 
 #else
 
@@ -282,9 +257,9 @@ inline bool V_isdigit( char c )
 	return c >= '0' && c <= '9';
 }
 
-inline bool V_iswdigit( int c ) 
-{ 
-	return ( ( (uint)( c - '0' ) ) < 10 ); 
+inline bool V_iswdigit( int c )
+{
+	return ( ( (uint)( c - '0' ) ) < 10 );
 }
 
 inline bool V_isempty( const char* pszString ) { return !pszString || !pszString[ 0 ]; }
@@ -331,13 +306,13 @@ inline bool V_iscntrl(char c) { return iscntrl( (unsigned char)c ) != 0; }
 
 inline bool V_isspace(int c)
 {
-	// The standard white-space characters are the following: space, tab, carriage-return, newline, vertical tab, and form-feed. In the C locale, V_isspace() returns true only for the standard white-space characters. 
+	// The standard white-space characters are the following: space, tab, carriage-return, newline, vertical tab, and form-feed. In the C locale, V_isspace() returns true only for the standard white-space characters.
 	//return c == ' ' || c == 9 /*horizontal tab*/ || c == '\r' || c == '\n' || c == 11 /*vertical tab*/ || c == '\f';
 	// codes of whitespace symbols: 9 HT, 10 \n, 11 VT, 12 form feed, 13 \r, 32 space
 
 	// easy to understand version, validated:
 	// return ((1 << (c-1)) & 0x80001F00) != 0 && ((c-1)&0xE0) == 0;
-	
+
 	// 5% faster on Core i7, 35% faster on Xbox360, no branches, validated:
 	#ifdef _X360
 	return ((1 << (c-1)) & 0x80001F00 & ~(-int((c-1)&0xE0))) != 0;
@@ -429,9 +404,9 @@ inline bool V_isstrlower( const char *pch )
 // This means the last parameter can usually be a sizeof() of a string.
 void V_strncpy( char *pDest, const char *pSrc, int maxLenInChars );
 // Ultimate safe strcpy function, for arrays only -- buffer size is inferred by the compiler
-template <size_t maxLenInChars> void V_strcpy_safe( OUT_Z_ARRAY char (&pDest)[maxLenInChars], const char *pSrc ) 
-{ 
-	V_strncpy( pDest, pSrc, static_cast<int>(maxLenInChars) ); 
+template <size_t maxLenInChars> void V_strcpy_safe( OUT_Z_ARRAY char (&pDest)[maxLenInChars], const char *pSrc )
+{
+	V_strncpy( pDest, pSrc, static_cast<int>(maxLenInChars) );
 }
 
 // A function which duplicates a string using new[] to allocate the new string.
@@ -477,22 +452,22 @@ template <size_t maxLenInChars> int V_sprintfcat_safe( INOUT_Z_ARRAY char (&pDes
 }
 
 void V_wcsncpy( OUT_Z_BYTECAP(maxLenInBytes) wchar_t *pDest, wchar_t const *pSrc, int maxLenInBytes );
-template <size_t maxLenInChars> void V_wcscpy_safe( OUT_Z_ARRAY wchar_t (&pDest)[maxLenInChars], wchar_t const *pSrc ) 
-{ 
-	V_wcsncpy( pDest, pSrc, maxLenInChars * sizeof(*pDest) ); 
+template <size_t maxLenInChars> void V_wcscpy_safe( OUT_Z_ARRAY wchar_t (&pDest)[maxLenInChars], wchar_t const *pSrc )
+{
+	V_wcsncpy( pDest, pSrc, maxLenInChars * sizeof(*pDest) );
 }
 
 #define COPY_ALL_CHARACTERS -1
 char *V_strncat( INOUT_Z_CAP(maxLenInBytes) char *, const char *, size_t maxLenInBytes, int nMaxCharsToCopy=COPY_ALL_CHARACTERS );
 template <size_t cchDest> char *V_strcat_safe( INOUT_Z_ARRAY char (&pDest)[cchDest], const char *pSrc, int nMaxCharsToCopy=COPY_ALL_CHARACTERS )
-{ 
-	return V_strncat( pDest, pSrc, static_cast<int>(cchDest), nMaxCharsToCopy ); 
+{
+	return V_strncat( pDest, pSrc, static_cast<int>(cchDest), nMaxCharsToCopy );
 }
 
 wchar_t *V_wcsncat( INOUT_Z_BYTECAP(maxLenInBytes) wchar_t *, const wchar_t *, int maxLenInBytes, int nMaxCharsToCopy=COPY_ALL_CHARACTERS );
 template <size_t cchDest> wchar_t *V_wcscat_safe( INOUT_Z_ARRAY wchar_t (&pDest)[cchDest], const wchar_t *pSrc, int nMaxCharsToCopy=COPY_ALL_CHARACTERS )
-{ 
-	return V_wcsncat( pDest, pSrc, static_cast<int>(cchDest), nMaxCharsToCopy ); 
+{
+	return V_wcsncat( pDest, pSrc, static_cast<int>(cchDest), nMaxCharsToCopy );
 }
 char *V_strnlwr(char *, size_t);
 
@@ -510,7 +485,7 @@ enum EStringConvertErrorPolicy
 	STRINGCONVERT_ASSERT_REPLACE =	_STRINGCONVERTFLAG_ASSERT + STRINGCONVERT_REPLACE,
 	STRINGCONVERT_ASSERT_SKIP =		_STRINGCONVERTFLAG_ASSERT + STRINGCONVERT_SKIP,
 	STRINGCONVERT_ASSERT_FAIL =		_STRINGCONVERTFLAG_ASSERT + STRINGCONVERT_FAIL,
-}; 
+};
 
 // Unicode (UTF-8, UTF-16, UTF-32) fundamental conversion functions.
 bool Q_IsValidUChar32( uchar32 uValue );
@@ -949,7 +924,7 @@ inline void V_RemoveFormatSpecifications( const char *pszFrom, char *pszTo, size
 // If pBreakCharacters == NULL, then the tokenizer will split tokens at the following characters:
 //    { } ( ) ' : 
 // White-space, '//' comments, and quoted strings are always handled.
-char const *V_ParseToken( char const *pStrIn, OUT_Z_CAP(bufsize) char *pToken, int bufsize, bool *pbOverflowed = NULL, struct characterset_t *pTokenBreakCharacters = NULL ); 
+char const *V_ParseToken( char const *pStrIn, OUT_Z_CAP(bufsize) char *pToken, int bufsize, bool *pbOverflowed = NULL, struct characterset_t *pTokenBreakCharacters = NULL );
 
 // Parses a single line, does not trim any whitespace from start or end.  Does not include the final '\n'.
 char const *V_ParseLine( char const *pStrIn, OUT_Z_CAP(bufsize) char *pToken, int bufsize, bool *pbOverflowed = NULL );
@@ -1039,7 +1014,7 @@ int V_GenerateUniqueNameIndex( const char *prefix, const NameArray &nameArray, i
 	int nNames = nameArray.Count();
 	for ( int i = 0; i < nNames; ++i )
 	{
-		int index = V_IndexAfterPrefix( nameArray[ i ], prefix, 1 ); // returns -1 if no match, 0 for exact match, N for 
+		int index = V_IndexAfterPrefix( nameArray[ i ], prefix, 1 ); // returns -1 if no match, 0 for exact match, N for
 		if ( index >= freeindex )
 		{
 			// TODO - check that there isn't more junk after the index in pElementName
@@ -1169,8 +1144,8 @@ struct TypeParserAdapter_t
 	static bool ParseFromString( const char *pString, void *pValue ) { return TypeParser_t<V>::ParseFromString( pString, ( V* )pValue ); }
 };
 
-template <> struct TypeParser_t< bool >		
-{															
+template <> struct TypeParser_t< bool >
+{
 	static int ComputeMaxStringSize( const bool *pValue ) { return 6; } //"false"
 
 	static bool WriteToString( const bool *pValue, OUT_Z_CAP(nBufLen) char *pBuf, int nBufLen )
@@ -1180,7 +1155,7 @@ template <> struct TypeParser_t< bool >
 	}
 
 	static bool ParseFromString( const char *pString, bool *pValue )
-	{ 
+	{
 		if ( !V_stricmp( pString, "true" ) )
 		{
 			*pValue = true;
@@ -1238,18 +1213,18 @@ DECLARE_POD_TYPE_PARSE( uint64, "%llu", 21 );
 DECLARE_POD_TYPE_PARSE( float32, "%f", 48 ); // -FLT32_MAX
 DECLARE_POD_TYPE_PARSE( float64, "%lf", 318 ); // -FLOAT64_MAX (it's got a lot of zeros)
 
-template <> struct TypeParser_t< Color >		
-{															
+template <> struct TypeParser_t< Color >
+{
 	static int ComputeMaxStringSize( const Color *pValue ) { return 18; } //{255 255 255 255}
 
 	static bool WriteToString( const Color *pValue, OUT_Z_CAP(nBufLen) char *pBuf, int nBufLen )
-	{ 
+	{
 		int nLenWritten = V_snprintf( pBuf, ( int )nBufLen, "{%d %d %d %d}", pValue->r(), pValue->g(), pValue->b(), pValue->a() );
 		return ( nLenWritten < nBufLen );
 	}
 
 	static bool ParseFromString( const char *pString, Color *pValue )
-	{ 
+	{
 		int r, g, b, a;
 		if ( sscanf( pString, "{%d %d %d %d}", &r, &g, &b, &a ) != 4 )
 			return false;
@@ -1377,7 +1352,7 @@ inline int	V_strcspn( const char *s1, const char *search )		{ return (int)( strc
 #define Q_strupr				V_strupr
 #define Q_strlower				V_strlower
 #define Q_wcslen				V_wcslen
-#define	Q_strncmp				V_strncmp 
+#define	Q_strncmp				V_strncmp
 #define	Q_strcasecmp			V_strcasecmp
 #define	Q_strncasecmp			V_strncasecmp
 #define	Q_strnicmp				V_strnicmp

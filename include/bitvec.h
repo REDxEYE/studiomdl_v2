@@ -277,8 +277,8 @@ public:
 	void	Copy( const CBitVecT<BASE_OPS> &other, int nBits=-1 );
 	bool	Compare( const CBitVecT<BASE_OPS> &other, int nBits=-1 ) const;
 
-	bool	IsAllClear(void) const;		// Are all bits zero?
-	bool	IsAllSet(void) const;		// Are all bits one?
+	bool	IsAllClear() const;		// Are all bits zero?
+	bool	IsAllSet() const;		// Are all bits one?
 
 	uint32	Get( uint32 bitNum ) const;
 	bool 	IsBitSet( int bitNum ) const;
@@ -315,7 +315,7 @@ class CVarBitVecBase
 {
 public:
 	bool	IsFixedSize() const			{ return false; }
-	int		GetNumBits(void) const		{ return m_numBits; }
+	int		GetNumBits() const		{ return m_numBits; }
 	void	Resize( int numBits, bool bClearAll = false );		// resizes bit array
 	
 	int 	GetNumDWords() const		{ return m_numInts; }
@@ -397,7 +397,7 @@ class CFixedBitVecBase
 {
 public:
 	bool	IsFixedSize() const								{ return true; }
-	int		GetNumBits(void) const							{ return NUM_BITS; }
+	int		GetNumBits() const							{ return NUM_BITS; }
 	void	Resize( int numBits, bool bClearAll = false )	{ Assert(numBits == NUM_BITS); if ( bClearAll ) Plat_FastMemset( m_Ints, 0, NUM_INTS * sizeof(uint32) ); }// for syntatic consistency (for when using templates)
 	
 	int 			GetNumDWords() const					{ return NUM_INTS; }
@@ -848,7 +848,7 @@ inline void CBitVecT<BASE_OPS>::CopyTo(CBitVecT *out) const
 // Output :
 //-----------------------------------------------------------------------------
 template <class BASE_OPS>
-inline bool CBitVecT<BASE_OPS>::IsAllClear(void) const
+inline bool CBitVecT<BASE_OPS>::IsAllClear() const
 {
 	// Number of available bits may be more than the number
 	// actually used, so make sure to mask out unused bits
@@ -871,7 +871,7 @@ inline bool CBitVecT<BASE_OPS>::IsAllClear(void) const
 // Output :
 //-----------------------------------------------------------------------------
 template <class BASE_OPS>
-inline bool CBitVecT<BASE_OPS>::IsAllSet(void) const
+inline bool CBitVecT<BASE_OPS>::IsAllSet() const
 {
 	// Number of available bits may be more than the number
 	// actually used, so make sure to mask out unused bits
@@ -1289,7 +1289,7 @@ FORCEINLINE_TEMPLATE void CBitVecT< CFixedBitVecBase<256> >::And(const CBitVecT 
 }
 
 template<> 
-FORCEINLINE_TEMPLATE  bool CBitVecT< CFixedBitVecBase<256> >::IsAllClear(void) const
+FORCEINLINE_TEMPLATE  bool CBitVecT< CFixedBitVecBase<256> >::IsAllClear() const
 {
 	const uint32 *pInts = Base();
 	return ( pInts[0] == 0 && pInts[1] == 0 && pInts[2] == 0 && pInts[3] == 0 && pInts[4] == 0 && pInts[5] == 0 && pInts[6] == 0 && pInts[7] == 0 );
@@ -1325,7 +1325,7 @@ FORCEINLINE_TEMPLATE  void CBitVecT< CFixedBitVecBase<128> >::And(const CBitVecT
 }
 
 template<> 
-FORCEINLINE_TEMPLATE  bool CBitVecT< CFixedBitVecBase<128> >::IsAllClear(void) const
+FORCEINLINE_TEMPLATE  bool CBitVecT< CFixedBitVecBase<128> >::IsAllClear() const
 {
 	const uint32 *pInts = Base();
 	return ( pInts[0] == 0 && pInts[1] == 0 && pInts[2] == 0 && pInts[3] == 0 );
@@ -1356,7 +1356,7 @@ inline void CBitVecT< CFixedBitVecBase<96> >::And(const CBitVecT &addStr, CBitVe
 }
 
 template<> 
-inline bool CBitVecT< CFixedBitVecBase<96> >::IsAllClear(void) const
+inline bool CBitVecT< CFixedBitVecBase<96> >::IsAllClear() const
 {
 	const uint32 *pInts = Base();
 	return ( pInts[0] == 0 && pInts[1] == 0 && pInts[2] == 0 );
@@ -1385,7 +1385,7 @@ inline void CBitVecT< CFixedBitVecBase<64> >::And(const CBitVecT &addStr, CBitVe
 }
 
 template<> 
-inline bool CBitVecT< CFixedBitVecBase<64> >::IsAllClear(void) const
+inline bool CBitVecT< CFixedBitVecBase<64> >::IsAllClear() const
 {
 	const uint32 *pInts = Base();
 	return ( pInts[0] == 0 && pInts[1] == 0 );
@@ -1412,7 +1412,7 @@ inline void CBitVecT< CFixedBitVecBase<32> >::And(const CBitVecT &addStr, CBitVe
 }
 
 template<> 
-inline bool CBitVecT< CFixedBitVecBase<32> >::IsAllClear(void) const
+inline bool CBitVecT< CFixedBitVecBase<32> >::IsAllClear() const
 {
 	const uint32 *pInts = Base();
 

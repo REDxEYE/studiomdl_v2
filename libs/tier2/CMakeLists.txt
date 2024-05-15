@@ -12,11 +12,9 @@ add_library(tier2
         defaultfilesystem.cpp
         fileutils.cpp
         interval.cpp
-        keybindings.cpp
         meshutils.cpp
         resourceprecacher.cpp
         riff.cpp
-        schemaclassbinding.cpp
         socketcreator.cpp
         soundutils.cpp
         tier2.cpp

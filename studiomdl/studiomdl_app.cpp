@@ -17,7 +17,6 @@
 #include "appframework/AppFramework.h"
 #include "studiomdl/perfstats.h"
 #include "datamodel/idatamodel.h"
-#include "studiomdl/collisionmodel.h"
 #include "dmserializers/idmserializers.h"
 #include "mdllib/mdllib.h"
 
@@ -308,7 +307,7 @@ StudioMdl_ScriptLoadedCallback(const char *pFilenameLoaded, const char *pInclude
 //    printf("Script loaded callback: %s",pFilenameLoaded);
 }
 
-void CreateMakefile_OutputMakefile(void) {
+void CreateMakefile_OutputMakefile() {
     if (!g_StudioMdlContext.bHasModelName) {
         MdlError("Can't write makefile since a target mdl hasn't been specified!");
     }
@@ -808,7 +807,6 @@ int CStudioMDLApp::Main() {
 
         ConsistencyCheckSurfaceProp();
         ConsistencyCheckContents();
-        CollisionModel_Build();
         // ValidateSharedAnimationGroups();
 
         WriteModelFiles();

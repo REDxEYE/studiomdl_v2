@@ -11,25 +11,17 @@ endif ()
 add_library(mathlib
         sse.cpp
         disjoint_set_forest.cpp
-        bumpvects.cpp
-        capsule.cpp
-        almostequal.cpp
         ssenoise.cpp
         polygon.cpp
         sseconst.cpp
-        color_conversion.cpp
         simdvectormatrix.cpp
-        polyhedron.cpp
         eigen.cpp
         powsse.cpp
         expressioncalculator.cpp
         sparse_convolution_noise.cpp
-        anorms.cpp
         mathlib_base.cpp
         randsse.cpp
         transform.cpp
-        simplex.cpp
-        sphere.cpp
         vmatrix.cpp
 )
 target_include_directories(mathlib PUBLIC ../../include)

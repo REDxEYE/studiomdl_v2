@@ -261,7 +261,7 @@ static bool IsWin98OrOlder()
 }
 
 
-static bool CheckSSETechnology(void)
+static bool CheckSSETechnology()
 {
 #if defined( _X360 ) || defined( _PS3 )
 	return true;
@@ -275,7 +275,7 @@ static bool CheckSSETechnology(void)
 #endif
 }
 
-static bool CheckSSE2Technology(void)
+static bool CheckSSE2Technology()
 {
 #if defined( _X360 ) || defined( _PS3 )
 	return false;
@@ -284,7 +284,7 @@ static bool CheckSSE2Technology(void)
 #endif
 }
 
-bool CheckSSE3Technology(void)
+bool CheckSSE3Technology()
 {
 #if defined( _X360 ) || defined( _PS3 )
 	return false;
@@ -293,7 +293,7 @@ bool CheckSSE3Technology(void)
 #endif
 }
 
-bool CheckSSSE3Technology(void)
+bool CheckSSSE3Technology()
 {
 #if defined( _X360 ) || defined( _PS3 )
 	return false;
@@ -304,7 +304,7 @@ bool CheckSSSE3Technology(void)
 #endif
 }
 
-bool CheckSSE41Technology(void)
+bool CheckSSE41Technology()
 {
 #if defined( _X360 ) || defined( _PS3 )
 	return false;
@@ -316,7 +316,7 @@ bool CheckSSE41Technology(void)
 #endif
 }
 
-bool CheckSSE42Technology(void)
+bool CheckSSE42Technology()
 {
 #if defined( _X360 ) || defined( _PS3 )
 	return false;
@@ -348,7 +348,7 @@ bool CheckSSE4aTechnology( void )
 }
 
 
-static bool Check3DNowTechnology(void)
+static bool Check3DNowTechnology()
 {
 #if defined( _X360 ) || defined( _PS3 )
 	return false;
@@ -370,7 +370,7 @@ static bool CheckCMOVTechnology()
 #endif
 }
 
-static bool CheckFCMOVTechnology(void)
+static bool CheckFCMOVTechnology()
 {
 #if defined( _X360 ) || defined( _PS3 )
 	return false;
@@ -379,7 +379,7 @@ static bool CheckFCMOVTechnology(void)
 #endif
 }
 
-static bool CheckRDTSCTechnology(void)
+static bool CheckRDTSCTechnology()
 {
 #if defined( _X360 ) || defined( _PS3 )
 	return false;
@@ -477,7 +477,7 @@ const tchar* GetProcessorBrand()
 // If it's supported, it does not mean that it's been enabled. So we test another flag to see if it's enabled
 // See Intel Processor Identification and the CPUID instruction Application Note 485
 // http://www.intel.com/Assets/PDF/appnote/241618.pdf
-static bool HTSupported(void)
+static bool HTSupported()
 {
 #if ( defined( _X360 ) || defined( _PS3 ) )
 	// not entirtely sure about the semantic of HT support, it being an intel name
@@ -511,7 +511,7 @@ static bool HTSupported(void)
 }
 
 // Returns the number of logical processors per physical processors.
-static uint8 LogicalProcessorsPerPackage(void)
+static uint8 LogicalProcessorsPerPackage()
 {
 #if defined( _X360 )
 	return 2;

@@ -200,7 +200,7 @@ namespace OptimizedModel {
             m_Strings.Purge();
         }
 
-        int CalcSize(void) {
+        int CalcSize() {
             int size = 0;
             int i;
             for (i = 0; i < m_Strings.Count(); i++) {
@@ -361,7 +361,7 @@ namespace OptimizedModel {
         // Memory optimize the strip data
         void PostProcessStripGroup(mstudiomodel_t *pStudioModel, mstudiomesh_t *pStudioMesh, StripGroup_t *pStripGroup);
 
-        void COptimizedModel::ZeroNumBones(void);
+        void COptimizedModel::ZeroNumBones();
 
         //
         // Methods associated with writing VTX files
@@ -388,13 +388,13 @@ namespace OptimizedModel {
         void BuildSubDFaceList(FaceList_t &faceList, SubD_FaceList_t &subDFaceList, VertexList_t &vtxList,
                                const mstudio_meshvertexdata_t *pVertexData);
 
-        void OutputMemoryUsage(void);
+        void OutputMemoryUsage();
 
         bool IsVertexFlexed(mstudiomesh_t *pStudioMesh, int vertID) const;
 
         void BuildNeighborInfo(FaceList_t &list, int nMaxVertexId);
 
-        void ClearTouched(void);
+        void ClearTouched();
 
         void PrintVert(Vertex_t *v, mstudiomodel_t *pStudioModel, mstudiomesh_t *pStudioMesh);
 
@@ -445,7 +445,7 @@ namespace OptimizedModel {
         void GLViewVert(FILE *fp, Vertex_t vert, int index, Vector &color, mstudiomodel_t *pStudioModel,
                         mstudiomesh_t *pStudioMesh, bool showSubStrips, float shrinkFraction);
 
-        void GLViewDrawEnd(void);
+        void GLViewDrawEnd();
 
         void SetMeshPropsColor(unsigned int meshFlags, Vector &color);
 
@@ -463,11 +463,11 @@ namespace OptimizedModel {
 
         int GetOrigVertBoneIndex(mstudiomodel_t *pStudioModel, mstudiomesh_t *pStudioMesh, Vertex_t *pVert, int boneID);
 
-        void ShowStats(void);
+        void ShowStats();
 
         void MapGlobalBonesToHardwareBoneIDsAndSortBones(studiohdr_t *phdr);
 
-        void RemoveRedundantBoneStateChanges(void);
+        void RemoveRedundantBoneStateChanges();
 
         void CheckVert(Vertex_t *pVert, int maxBonesPerFace, int maxBonesPerVert);
 
@@ -556,7 +556,7 @@ namespace OptimizedModel {
     }
 
 
-    void COptimizedModel::OutputMemoryUsage(void) {
+    void COptimizedModel::OutputMemoryUsage() {
         printf("body parts:   %7llu bytes\n", (uintptr_t) (m_ModelsOffset - m_BodyPartsOffset));
         printf("models:       %7llu bytes\n", (uintptr_t) (m_MeshesOffset - m_ModelsOffset));
         printf("model LODs:   %7llu bytes\n", (uintptr_t) (m_MeshesOffset - m_ModelLODsOffset));
@@ -2741,7 +2741,7 @@ namespace OptimizedModel {
 #endif
     }
 
-    void COptimizedModel::ZeroNumBones(void) {
+    void COptimizedModel::ZeroNumBones() {
         FileHeader_t *header = (FileHeader_t *) m_FileBuffer->GetPointer(0);
         int bodyPartID, modelID, lodID, meshID, stripGroupID, vertID, stripID;
         for (bodyPartID = 0; bodyPartID < header->numBodyParts; bodyPartID++) {
@@ -3423,7 +3423,7 @@ namespace OptimizedModel {
         s_ListID++;
     }
 
-    void COptimizedModel::GLViewDrawEnd(void) {
+    void COptimizedModel::GLViewDrawEnd() {
         s_DrawMode = GLVIEWDRAW_NONE;
     }
 
@@ -3713,7 +3713,7 @@ namespace OptimizedModel {
 
 #define CACHE_INEFFICIENCY 6
 
-    void COptimizedModel::ShowStats(void) {
+    void COptimizedModel::ShowStats() {
         int totalHWTriangles = 0;
         int totalHWDegenerates = 0;
         int totalHWIndices = 0;
@@ -3964,7 +3964,7 @@ namespace OptimizedModel {
 #endif
     }
 
-    void COptimizedModel::RemoveRedundantBoneStateChanges(void) {
+    void COptimizedModel::RemoveRedundantBoneStateChanges() {
         FileHeader_t *header = (FileHeader_t *) m_FileBuffer->GetPointer(0);
         for (int bodyPartID = 0; bodyPartID < header->numBodyParts; bodyPartID++) {
             BodyPartHeader_t *bodyPart = header->pBodyPart(bodyPartID);
@@ -4066,7 +4066,7 @@ namespace OptimizedModel {
         }
     }
 
-    static void AddMaterialReplacementsToStringTable(void) {
+    static void AddMaterialReplacementsToStringTable() {
         int i, j;
         int numLODs = g_ScriptLODs.Count();
         for (i = 0; i < numLODs; i++) {

@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright ï¿½ 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // Dme version of a game model (MDL)
 //
@@ -14,7 +14,6 @@
 #include "movieobjects/dmeoperator.h"
 #include "datacache/imdlcache.h"
 #include "tier1/UtlDict.h"
-#include "toolframework/itoolframework.h"
 
 struct studiohdr_t;
 

@@ -95,7 +95,6 @@
 #endif
 
 #include "tier0/vprof.h"
-// DISABLED #include "tier0/memdbgon.h"
 
 #ifndef NDEBUG
 static volatile const char *pDebugString;

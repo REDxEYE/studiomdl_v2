@@ -8,7 +8,6 @@
 
 
 // Valve includes
-#include "bspflags.h"
 
 #include "movieobjects/dmeattributereference.h"
 #include "movieobjects/dmeconnectionoperator.h"
@@ -22,45 +21,14 @@
 #include "movieobjects/dmeanimationlist.h"
 #include "movieobjects/dmecombinationoperator.h"
 #include "movieobjects/dmerigconstraintoperators.h"
-#include "mdlobjects/dmebbox.h"
-#include "mdlobjects/dmelod.h"
-#include "mdlobjects/dmelodlist.h"
-#include "mdlobjects/dmebodygroup.h"
-#include "mdlobjects/dmebodygrouplist.h"
-#include "mdlobjects/dmehitbox.h"
-#include "mdlobjects/dmehitboxset.h"
-#include "mdlobjects/dmehitboxsetlist.h"
-#include "mdlobjects/dmesequence.h"
-#include "mdlobjects/dmesequencelist.h"
-#include "mdlobjects/dmecollisionmodel.h"
-#include "mdlobjects/dmecollisionjoints.h"
-#include "mdlobjects/dmeincludemodellist.h"
-#include "mdlobjects/dmedefinebone.h"
-#include "mdlobjects/dmedefinebonelist.h"
-#include "mdlobjects/dmematerialgroup.h"
-#include "mdlobjects/dmematerialgrouplist.h"
 #include "mdlobjects/dmeeyeball.h"
-#include "mdlobjects/dmeeyeballglobals.h"
 #include "mdlobjects/dmeeyelid.h"
-#include "mdlobjects/dmeboneweight.h"
-#include "mdlobjects/dmebonemask.h"
-#include "mdlobjects/dmebonemasklist.h"
-#include "mdlobjects/dmeik.h"
-#include "mdlobjects/dmeanimcmd.h"
-#include "mdlobjects/dmemotioncontrol.h"
-#include "mdlobjects/dmeposeparameter.h"
-#include "mdlobjects/dmeposeparameterlist.h"
-#include "mdlobjects/dmeanimblocksize.h"
-#include "mdlobjects/dmeboneflexdriver.h"
 #include "mdlobjects/dmejigglebone.h"
 #include "mdlobjects/dmemouth.h"
-//#include "fbxutils/dmfbxserializer.h"
 
-#include "mdlobjects/mpp_utils.h"
 
 // Local includes
 #include "studiomdl/studiomdl.h"
-#include "studiomdl/collisionmodel.h"
 #include "tier1/fmtstr.h"
 
 

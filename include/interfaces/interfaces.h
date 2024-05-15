@@ -90,7 +90,6 @@ class IWorldRendererMgr;
 class ISceneSystem;
 class IVGuiRenderSurface;
 
-class IScaleformUISystemMgr;
 class IScaleformUI;
 
 namespace vgui
@@ -115,15 +114,6 @@ DECLARE_TIER1_INTERFACE( ICvar, g_pCVar )
 
 #define PROCESS_UTILS_INTERFACE_VERSION			"VProcessUtils002"
 DECLARE_TIER1_INTERFACE( IProcessUtils, g_pProcessUtils );
-
-#define VPHYSICS2_INTERFACE_VERSION				"Physics2 Interface v0.3"
-DECLARE_TIER1_INTERFACE( IPhysics2, g_pPhysics2 );
-
-#define VPHYSICS2_ACTOR_MGR_INTERFACE_VERSION	"Physics2 Interface ActorMgr v0.1"
-DECLARE_TIER1_INTERFACE( IPhysics2ActorManager, g_pPhysics2ActorManager );
-
-#define VPHYSICS2_RESOURCE_MGR_INTERFACE_VERSION "Physics2 Interface ResourceMgr v0.1"
-DECLARE_TIER1_INTERFACE( IPhysics2ResourceManager, g_pPhysics2ResourceManager );
 
 #define EVENTSYSTEM_INTERFACE_VERSION "EventSystem001"
 DECLARE_TIER1_INTERFACE( IEventSystem, g_pEventSystem );

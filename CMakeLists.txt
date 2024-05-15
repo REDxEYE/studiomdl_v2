@@ -40,7 +40,6 @@ add_subdirectory(libs/meshutils)
 add_subdirectory(libs/interfaces)
 #add_subdirectory(libs/resourcefile)
 add_subdirectory(libs/filesystem)
-add_subdirectory(libs/vpklib)
 
 
 add_executable(studiomdl_v2
@@ -48,8 +47,6 @@ add_executable(studiomdl_v2
         studiomdl/mrmsupport.cpp
         studiomdl/v1support.cpp
         studiomdl/perfstats.cpp
-        studiomdl/collisionmodel.cpp
-        studiomdl/collisionmodelsource.cpp
         studiomdl/hardwarematrixstate.cpp
         studiomdl/hardwarevertexcache.cpp
         studiomdl/objsupport.cpp

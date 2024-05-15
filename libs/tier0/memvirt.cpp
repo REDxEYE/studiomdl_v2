@@ -1,4 +1,4 @@
-//===== Copyright © 2010, Valve Corporation, All rights reserved. ======//
+//===== Copyright ï¿½ 2010, Valve Corporation, All rights reserved. ======//
 //
 // Purpose: Virtual memory sections management!
 //
@@ -54,13 +54,13 @@ CInterlockedInt VmmMsgFlag = 0; // Prevents re-entrancy within VmmMsg (printf al
 #define VmmMsg( mutex, ... ) ( (VmmMsgFlag|mutex.GetOwnerId()) ? 0 : ( ++VmmMsgFlag, DevMsg( __VA_ARGS__ ), VmmMsgFlag-- ) )
 #endif
 #else
-#define VmmMsg( mutex, ... ) ((void)0)
+#define VmmMsg( mutex, ... ) (()0)
 #endif
 
 #if 0
 #define TRACE_CALL( ... ) do { FILE *fPs3Trace = fopen( "/app_home/tracevmm.txt", "a+" ); if( fPs3Trace ) { fprintf( fPs3Trace, __VA_ARGS__ ); fclose( fPs3Trace ); } } while( 0 )
 #else
-#define TRACE_CALL( ... ) ((void)0)
+#define TRACE_CALL( ... ) (()0)
 #endif
 
 #ifdef _PS3

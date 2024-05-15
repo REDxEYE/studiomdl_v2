@@ -884,7 +884,7 @@ int dlmallopt(int, int);
   Even if locks are otherwise defined, this function does not use them,
   so results might not be up to date.
 */
-size_t dlmalloc_footprint(void);
+size_t dlmalloc_footprint();
 
 /*
   malloc_max_footprint();
@@ -897,7 +897,7 @@ size_t dlmalloc_footprint(void);
   otherwise defined, this function does not use them, so results might
   not be up to date.
 */
-size_t dlmalloc_max_footprint(void);
+size_t dlmalloc_max_footprint();
 
 #if !NO_MALLINFO
 /*
@@ -922,7 +922,7 @@ size_t dlmalloc_max_footprint(void);
   be kept as longs, the reported values may wrap around zero and
   thus be inaccurate.
 */
-struct mallinfo dlmallinfo(void);
+struct mallinfo dlmallinfo();
 #endif /* NO_MALLINFO */
 
 /*
@@ -1106,7 +1106,7 @@ size_t dlmalloc_usable_size(void*);
   malloc_stats prints only the most commonly interesting statistics.
   More information can be obtained by calling mallinfo.
 */
-void  dlmalloc_stats(void);
+void  dlmalloc_stats();
 
 #endif /* ONLY_MSPACES */
 
@@ -2918,7 +2918,7 @@ static size_t traverse_and_check(mstate m);
 /* ---------------------------- setting mparams -------------------------- */
 
 /* Initialize mparams */
-static int init_mparams(void) {
+static int init_mparams() {
   if (mparams.page_size == 0) {
     size_t s;
 
@@ -4865,16 +4865,16 @@ int dlmalloc_trim(size_t pad) {
   return result;
 }
 
-size_t dlmalloc_footprint(void) {
+size_t dlmalloc_footprint() {
   return gm->footprint;
 }
 
-size_t dlmalloc_max_footprint(void) {
+size_t dlmalloc_max_footprint() {
   return gm->max_footprint;
 }
 
 #if !NO_MALLINFO
-struct mallinfo dlmallinfo(void) {
+struct mallinfo dlmallinfo() {
   return internal_mallinfo(gm);
 }
 #endif /* NO_MALLINFO */
@@ -5444,7 +5444,7 @@ void *determine_mspace(void *mem)
   // cleanup any allocated memory pools
   // called as last thing before shutting down driver
 
-  void osCleanupMem(void)
+  void osCleanupMem()
   {
     void **ptr;
 

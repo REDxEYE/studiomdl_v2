@@ -493,8 +493,8 @@ typedef struct color32_s
 	// than byte-by-byte copy. (No, the compiler is not
 	// smart enough to do this for you. /FAcs if you 
 	// don't believe me.)
-	inline unsigned *asInt(void) { return reinterpret_cast<unsigned*>(this); }
-	inline const unsigned *asInt(void) const { return reinterpret_cast<const unsigned*>(this); } 
+	inline unsigned *asInt() { return reinterpret_cast<unsigned*>(this); }
+	inline const unsigned *asInt() const { return reinterpret_cast<const unsigned*>(this); }
 	// This thing is in a union elsewhere, and union members can't have assignment
 	// operators, so you have to explicitly assign using this, or be slow. SUCK.
 	inline void Copy(const color32_s &rhs)

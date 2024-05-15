@@ -1,18 +1,9 @@
 
 
-DLL_IMPORT CLinkedMiniProfiler *g_pPhysicsMiniProfilers;
-#if 0
-#define BONE_PROFILE(ID)   static CLinkedMiniProfiler s_miniprofiler_##ID(#ID, &g_pPhysicsMiniProfilers);		\
-	CMiniProfilerGuard mpguard_##ID(&s_miniprofiler_##ID);
-#define BONE_PROFILE_LOOP(ID,COUNT)   static CLinkedMiniProfiler s_miniprofiler_##ID(#ID, &g_pPhysicsMiniProfilers);		\
-	CMiniProfilerGuard mpguard_##ID(&s_miniprofiler_##ID,(COUNT));
-#define BONE_PROFILE_FUNC()   static CLinkedMiniProfiler s_miniprofiler_FUNC(__FUNCTION__, &g_pPhysicsMiniProfilers);		\
-	CMiniProfilerGuard mpguard_##ID(&s_miniprofiler_FUNC);
-#else
-#define BONE_PROFILE(ID)   
+
 #define BONE_PROFILE_LOOP(ID,COUNT)
 #define BONE_PROFILE_FUNC()  
-#endif
+
 
 
 
@@ -73,7 +64,7 @@ void BuildBoneChainPartial(
 class CBoneSetup
 {
 public:
-	CBoneSetup( const CStudioHdr *pStudioHdr, int boneMask, const float poseParameter[], IPoseDebugger *pPoseDebugger = NULL );
+	CBoneSetup( const CStudioHdr *pStudioHdr, int boneMask, const float poseParameter[]);
 	void InitPose( BoneVector pos[], BoneQuaternionAligned q[] );
 	void AccumulatePose( BoneVector pos[], BoneQuaternion q[], int sequence, float cycle, float flWeight, float flTime, CIKContext *pIKContext );
 	void CalcAutoplaySequences(	BoneVector pos[], BoneQuaternion q[], float flRealTime, CIKContext *pIKContext );
@@ -84,7 +75,6 @@ public:
 	const CStudioHdr *m_pStudioHdr;
 	int m_boneMask;
 	const float *m_flPoseParameter;
-	IPoseDebugger *m_pPoseDebugger;
 };
 
 

@@ -8,19 +8,8 @@
 #include "basefilesystem.h"
 #include "tier0/vprof.h"
 #include "tier1/characterset.h"
-#include "tier1/utlbuffer.h"
-#include "tier1/convar.h"
 #include "tier1/keyvalues.h"
-#include "tier0/icommandline.h"
-#include "tier0/stacktools.h"
-#include "tier1/generichash.h"
-#include "tier1/utllinkedlist.h"
-#include "filesystem/IQueuedLoader.h"
-#include "filesystem/IXboxInstaller.h"
-#include "tier2/tier2.h"
 #include "tier1/lzmaDecoder.h"
-#include "vstdlib/vstrtools.h"
-#include "zip_utils.h"
 #include "tier1/fmtstr.h"
 
 #ifndef DEDICATED
@@ -437,11 +426,6 @@ private:
 
 CUtlSymbol	CBaseFileSystem::m_GamePathID;
 CUtlSymbol	CBaseFileSystem::m_BSPPathID;
-DVDMode_t	CBaseFileSystem::m_DVDMode;
-bool		CBaseFileSystem::m_bFoundXboxImageInCache;
-bool		CBaseFileSystem::m_bLaunchedFromXboxHDD;		
-bool		CBaseFileSystem::m_bDVDHosted;	
-bool		CBaseFileSystem::m_bAllowXboxInstall;			
 bool		CBaseFileSystem::m_bSearchPathsPatchedAfterInstall;
 
 CUtlVector< FileNameHandle_t > CBaseFileSystem::m_ExcludeFilePaths;
@@ -449,76 +433,7 @@ CUtlVector< FileNameHandle_t > CBaseFileSystem::m_ExcludeFilePaths;
 CUtlBuffer	g_UpdateZipBuffer;
 CUtlBuffer	g_XLSPPatchZipBuffer;
 
-class CStoreIDEntry
-{
-public:
-	CStoreIDEntry() {}
-	CStoreIDEntry( const char *pPathIDStr, int storeID )
-	{
-		m_PathIDString = pPathIDStr;
-		m_StoreID = storeID;
-	}
 
-public:
-	CUtlSymbol	m_PathIDString;
-	int			m_StoreID;
-};
-
-
-//-----------------------------------------------------------------------------
-// CSimpleFileList (used by CFileCRCTracker).
-// Uses a dictionary to refer to the list of files.
-//-----------------------------------------------------------------------------
-
-class CFileSystemReloadFileList : public IFileList
-{
-public:
-	CFileSystemReloadFileList( CBaseFileSystem *pFileSystem )
-	{
-		m_pFileSystem = pFileSystem;
-	}
-	
-	virtual void Release()
-	{
-		delete this;
-	}
-	
-	// The engine is calling this for any files it wants to be pure.
-	// Return true if this file should be reloaded based on its current state and the whitelist that we have now.
-	virtual bool IsFileInList( const char *pFilename )
-	{
-		bool bRet = m_pFileSystem->ShouldGameReloadFile( pFilename );
-		return bRet;
-	}
-	
-private:
-	CBaseFileSystem *m_pFileSystem;
-};
-
-
-static CStoreIDEntry* FindPrevFileByStoreID( CUtlDict< CUtlVector<CStoreIDEntry>* ,int> &filesByStoreID, const char *pFilename, const char *pPathIDStr, int foundStoreID )
-{
-	int iEntry = filesByStoreID.Find( pFilename );
-	if ( iEntry == filesByStoreID.InvalidIndex() )
-	{
-		CUtlVector<CStoreIDEntry> *pList = new CUtlVector<CStoreIDEntry>; 
-		pList->AddToTail( CStoreIDEntry(pPathIDStr, foundStoreID) );
-		filesByStoreID.Insert( pFilename, pList );
-		return NULL;
-	}
-	else
-	{
-		// Now is there a previous entry with a different path ID string and the same store ID?
-		CUtlVector<CStoreIDEntry> *pList = filesByStoreID[iEntry]; 
-		for ( int i=0; i < pList->Count(); i++ )
-		{
-			CStoreIDEntry &entry = pList->Element( i );
-			if ( entry.m_StoreID == foundStoreID && V_stricmp( entry.m_PathIDString.String(), pPathIDStr ) != 0 )
-				return &entry;
-		}
-		return NULL;
-	}
-}
 
 //-----------------------------------------------------------------------------
 // IIOStats implementation
@@ -634,14 +549,12 @@ void CIoStats::Reset()
 //-----------------------------------------------------------------------------
 
 CBaseFileSystem::CBaseFileSystem()
-	: m_FileTracker( this ), m_FileWhitelist( NULL )/*,m_FileTracker2( this )*/
+	: m_FileWhitelist( NULL )/*,m_FileTracker2( this )*/
 {
 #if !( defined(_WIN32) && defined(DEDICATED) )
 	g_pBaseFileSystem = this;
 #endif
 	g_pFullFileSystem = this;			// Left in for non tier Apps, tools, etc...
-
-	m_WhitelistFileTrackingEnabled = -1;
 
 	// If this changes then FileNameHandleInternal_t/FileNameHandle_t needs to be fixed!!!
 	Assert( sizeof( CUtlSymbol ) == sizeof( short ) );
@@ -665,24 +578,7 @@ CBaseFileSystem::CBaseFileSystem()
 
 	m_iMapLoad = 0;
 
-	m_DVDMode = DVDMODE_STRICT;
-	if ( IsGameConsole() )
-	{
-		if ( CommandLine()->FindParm( "-dvddev" ) )
-		{
-			// FIXME: Is there a way of determining the host is a vista machine without
-			// needing to explicitly say so on the command line?
-			bool bIsVista = ( CommandLine()->CheckParm( "-vista" ) != NULL );
-			if ( bIsVista )
-			{
-				m_DVDMode = DVDMODE_DEV_VISTA;
-			}
-			else
-			{
-				m_DVDMode = DVDMODE_DEV;
-			}
-		}
-	}
+
 #ifdef SUPPORT_IODELAY_MONITORING
 	m_pDelayThread = NULL;
 	m_flDelayLimit = 0;
@@ -699,8 +595,6 @@ CBaseFileSystem::~CBaseFileSystem()
 	delete m_pBlockingItems;
 #endif
 
-	// Free the whitelist.
-	RegisterFileWhitelist( NULL, NULL, NULL );
 }
 
 
@@ -920,56 +814,7 @@ void CBaseFileSystem::Shutdown()
 
 void CBaseFileSystem::BuildExcludeList()
 {
-	if ( !IsGameConsole() || m_DVDMode != DVDMODE_DEV )
-	{
-		// xbox only
-		return;
-	}
-
-	// clear prior results
-	m_ExcludeFilePaths.Purge();
-
-	// exclude paths are valid only in dvddev mode
-	// the optional exclude path file should exist in the dvddev cache
-	// populate the exclusion list
-	CUtlBuffer buf( 0, 0, CUtlBuffer::TEXT_BUFFER );
-	if ( ReadFile( FS_DVDDEV_ROOT "/" FS_EXCLUDE_PATHS_FILENAME, NULL, buf, 0, 0 ) )
-	{
-		characterset_t breakSet;
-		CharacterSetBuild( &breakSet, "" );
-		char szPath[MAX_PATH];
-		char szToken[MAX_PATH];
-		for ( ;; )
-		{
-			int nTokenSize = buf.ParseToken( &breakSet, szToken, sizeof( szToken ) );
-			if ( nTokenSize <= 0 )
-			{
-				break;
-			}
-
-			char *pToken = szToken;
-
-#ifndef _CERT
-			// At some point, we should also test that the corresponding file exist in the normal path
-			// It is a bit more complicated on consoles due to the zip files.
-			V_ComposeFileName( FS_DVDDEV_ROOT, pToken, szPath, sizeof( szPath ) );
-			bool bExist = FileExists( szPath );
-			if ( bExist == false)
-			{
-				Warning( "File '%s' does not exist. Won't be added to dvddev.\n", szPath );
-				continue;
-			}
-#endif
-
-			V_ComposeFileName( FS_DVDDEV_REMAP_ROOT, pToken, szPath, sizeof( szPath ) );
-			FileNameHandle_t hFileName = FindOrAddFileName( szPath );
-			if ( m_ExcludeFilePaths.Find( hFileName ) == -1 )
-			{
-				m_ExcludeFilePaths.AddToTail( hFileName );
-				DevMsg( "File '%s' added to dvddev.\n", szPath );
-			}
-		}
-	}
+    return;
 }
 
 //-----------------------------------------------------------------------------
@@ -1279,1328 +1124,6 @@ void CBaseFileSystem::PrintOpenedFiles( void )
 	m_fwLevel = saveLevel;
 }
 
-void CBaseFileSystem::AddVPKFile( char const *pBasename, SearchPathAdd_t addType )
-{
-	// Ensure that the passed in file name has a .vpk extension. Otherwise the check
-	// for already having the .vpk file will always fail and the same file may get
-	// added dozens of times, wasting hundreds of MB of memory.
-	const char *pExtension = strrchr( pBasename, '.' );
-	Assert( pExtension && V_strcmp( pExtension, ".vpk" ) == 0 );
-	if ( !pExtension || V_strcmp( pExtension, ".vpk" ) )
-	{
-		Warning( "Extensionless VPK file '%s' specified. Ignoring.\n", pBasename );
-		return;
-	}
-
-#ifdef SUPPORT_VPK
-	char nameBuf[MAX_PATH];
-	Q_MakeAbsolutePath( nameBuf, sizeof( nameBuf ), pBasename );
-#ifdef _WIN32
-	Q_strlower( nameBuf );
-#endif
-	Q_FixSlashes( nameBuf );
-	// see if we already have this vpk file
-	for( int i = 0; i < m_VPKFiles.Count(); i++ )
-	{
-		if ( ! V_strcmp( m_VPKFiles[i]->FullPathName(), nameBuf ) )
-		{
-			return;											// already have this one
-		}
-	}
-	char pszFName[MAX_PATH];
-	CPackedStore *pNew = new CPackedStore( nameBuf, pszFName, this ); 
-//	pNew->RegisterFileTracker( (IThreadedFileMD5Processor *)&m_FileTracker2 );
-	if ( pNew->IsEmpty() )
-	{
-		delete pNew;
-	}
-	else
-	{
-		if ( PATH_ADD_TO_TAIL == addType )
-		{
-			m_VPKFiles.AddToTail( pNew );
-		}
-		else
-		{
-			m_VPKFiles.AddToHead( pNew );
-		}
-		char szRelativePathName[512];
-		Assert ( V_IsAbsolutePath( pNew->FullPathName() ) );
-		char szBasePath[MAX_PATH];
-		V_strncpy( szBasePath, pNew->FullPathName(), sizeof(szBasePath) );
-		V_StripFilename( szBasePath );
-		V_StripLastDir( szBasePath, sizeof(szBasePath) );
-		V_MakeRelativePath( pNew->FullPathName(), szBasePath, szRelativePathName, sizeof( szRelativePathName ) );
-		pNew->m_PackFileID = 0;//m_FileTracker2.NotePackFileOpened( pszFName, szRelativePathName, "GAME", 0 );
-	}
-#endif
-}
-
-void CBaseFileSystem::RemoveVPKFile( char const *pBasename )
-{
-#ifdef SUPPORT_VPK
-	char nameBuf[MAX_PATH];
-	Q_MakeAbsolutePath( nameBuf, sizeof( nameBuf ), pBasename );
-	Q_strlower( nameBuf );
-	Q_FixSlashes( nameBuf );
-	// see if we already have this vpk file
-	for( int i = 0; i < m_VPKFiles.Count(); i++ )
-	{
-		if ( ! V_strcmp( m_VPKFiles[i]->FullPathName(), nameBuf ) )
-		{
-			delete m_VPKFiles[i];
-			m_VPKFiles.Remove( i );
-			break;											// already have this one
-		}
-	}
-#endif
-}
-
-void CBaseFileSystem::GetVPKFileNames( CUtlVector<CUtlString> &destVector )
-{
-#ifdef SUPPORT_VPK
-	for( int i = 0; i < m_VPKFiles.Count(); i++ )
-	{
-		destVector.AddToTail( CUtlString( m_VPKFiles[i]->FullPathName() ) );
-	}
-#endif	
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: Adds the specified pack file to the list
-// Output : Returns true on success, false on failure.
-//-----------------------------------------------------------------------------
-bool CBaseFileSystem::AddPackFile( const char *pFileName, const char *pathID )
-{
-	CHECK_DOUBLE_SLASHES( pFileName );
-
-	return AddPackFileFromPath( "", pFileName, true, pathID );
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: Adds a pack file from the specified path
-// Output : Returns true on success, false on failure.
-//-----------------------------------------------------------------------------
-bool CBaseFileSystem::AddPackFileFromPath( const char *pPath, const char *pakfile, bool bCheckForAppendedPack, const char *pathID )
-{
-	char fullpath[ MAX_PATH ];
-	_snprintf( fullpath, sizeof(fullpath), "%s%s", pPath, pakfile );
-	Q_FixSlashes( fullpath );
-
-	struct	_stat buf;
-	if ( FS_stat( fullpath, &buf ) == -1 )
-		return false;
-
-	CPackFile *pf = new CZipPackFile( this );
-	pf->m_hPackFileHandleFS = Trace_FOpen( fullpath, "rb", 0, NULL );
-
-	if ( pf->m_hPackFileHandleFS )
-	{
-		// Get the length of the pack file:
-		FS_fseek( ( FILE * )pf->m_hPackFileHandleFS, 0, FILESYSTEM_SEEK_TAIL );
-		int64 len = FS_ftell( ( FILE * )pf->m_hPackFileHandleFS );
-		FS_fseek( ( FILE * )pf->m_hPackFileHandleFS, 0, FILESYSTEM_SEEK_HEAD );
-
-		if ( !pf->Prepare( len ) )
-		{
-			// Failed for some reason, ignore it
-			Trace_FClose( pf->m_hPackFileHandleFS );
-			pf->m_hPackFileHandleFS = NULL;
-			delete pf;
-
-			return false;
-		}
-	}
-#ifdef SUPPORT_VPK
-	else
-	{
-		pf->m_hPackFileHandleVPK = FindFileInVPKs( fullpath );
-
-		if ( pf->m_hPackFileHandleVPK )
-		{
-			// Get the length of the pack file:
-			pf->m_hPackFileHandleVPK.Seek( 0, FILESYSTEM_SEEK_TAIL );
-			int64 len = pf->m_hPackFileHandleVPK.Tell();
-			pf->m_hPackFileHandleVPK.Seek( 0, FILESYSTEM_SEEK_HEAD );
-
-			if ( !pf->Prepare( len ) )
-			{
-				// Failed for some reason, ignore it
-				delete pf;
-
-				return false;
-			}
-		}
-	}
-#endif
-
-	// Add this pack file to the search path:
-	CSearchPath *sp = &m_SearchPaths[ m_SearchPaths.AddToTail() ];
-	pf->SetPath( sp->GetPath() );
-	pf->m_lPackFileTime = GetFileTime( pakfile );
-
-	sp->SetPath( pPath );
-	sp->m_pPathIDInfo->SetPathID( pathID );
-	sp->SetPackFile( pf );
-
-	return true;
-}
-
-// Read a bit of the file from the pack file:
-int CPackFileHandle::Read( void* pBuffer, int nDestSize, int nBytes )
-{
-	// Clamp nBytes to not go past the end of the file (async is still possible due to nDestSize)
-	if ( nBytes + m_nFilePointer > m_nLength )
-	{
-		nBytes = m_nLength - m_nFilePointer;
-	}
-
-	// Seek to the given file pointer and read
-	int nBytesRead = m_pOwner->ReadFromPack( m_nIndex, pBuffer, nDestSize, nBytes, m_nBase + m_nFilePointer );
-
-	m_nFilePointer += nBytesRead;
-
-	return nBytesRead;
-}
-
-// Seek around inside the pack:
-int CPackFileHandle::Seek( int nOffset, int nWhence )
-{
-	if ( nWhence == SEEK_SET )
-	{
-		m_nFilePointer = nOffset;
-	}
-	else if ( nWhence == SEEK_CUR )
-	{
-		m_nFilePointer += nOffset;
-	}
-	else if ( nWhence == SEEK_END )
-	{
-		m_nFilePointer = m_nLength + nOffset;
-	}
-
-	// Clamp the file pointer to the actual bounds of the file:
-	if ( m_nFilePointer > m_nLength )
-	{
-		m_nFilePointer = m_nLength;
-	}
-
-	return m_nFilePointer;
-}
-
-//-----------------------------------------------------------------------------
-// Low Level I/O routine for reading from pack files.
-// Offsets all reads by the base of the pack file as needed.
-// Return bytes read.
-//-----------------------------------------------------------------------------
-int CPackFile::ReadFromPack( int nIndex, void* buffer, int nDestBytes, int nBytes, int64 nOffset )
-{
-	m_mutex.Lock();
-
-	if ( fs_monitor_read_from_pack.GetInt() == 1 || ( fs_monitor_read_from_pack.GetInt() == 2 && ThreadInMainThread() ) )
-	{
-		// spew info about real i/o request
-		char szName[MAX_PATH];
-		IndexToFilename( nIndex, szName, sizeof( szName ) );
-		Msg( "Read From Pack: Sync I/O: Requested:%7d, Offset:0x%16.16llx, %s\n", nBytes, m_nBaseOffset + nOffset, szName );
-	}
-
-	int nBytesRead = 0;
-	// Seek to the start of the read area and perform the read: TODO: CHANGE THIS INTO A CFileHandle
-	if ( m_hPackFileHandleFS )
-	{
-		m_fs->FS_fseek( m_hPackFileHandleFS, m_nBaseOffset + nOffset, SEEK_SET );
-		nBytesRead = m_fs->FS_fread( buffer, nDestBytes, nBytes, m_hPackFileHandleFS );
-	}
-#ifdef SUPPORT_VPK
-	else if ( m_hPackFileHandleVPK )
-	{
-		// We're a packfile embedded in a VPK
-		m_hPackFileHandleVPK.Seek( m_nBaseOffset + nOffset, FILESYSTEM_SEEK_HEAD );
-		nBytesRead = m_hPackFileHandleVPK.Read( buffer, nBytes );
-	}
-#endif
-	else
-	{
-		Error("Failure in CPackFile::ReadFromPack(): m_hPackFileHandleFS and/or m_hPackFileHandleVPK are uninitialized - The file open call(s) likely failed\n");
-	}
-	m_mutex.Unlock();
-
-	return nBytesRead;
-}
-
-//-----------------------------------------------------------------------------
-// Open a file inside of a pack file.
-//-----------------------------------------------------------------------------
-CFileHandle *CPackFile::OpenFile( const char *pFileName, const char *pOptions )
-{
-	int nIndex, nLength;
-	int64 nPosition;
-
-	// find the file's location in the pack
-	if ( FindFile( pFileName, nIndex, nPosition, nLength ) )
-	{
-		m_mutex.Lock();
-#ifdef SUPPORT_VPK
-		if ( m_nOpenFiles == 0 && m_hPackFileHandleFS == NULL && !m_hPackFileHandleVPK )
-#else
-		if ( m_nOpenFiles == 0 && m_hPackFileHandleFS == NULL )
-#endif
-		{
-			// Try to open it as a regular file first
-			m_hPackFileHandleFS = m_fs->Trace_FOpen( m_ZipName, "rb", 0, NULL );
-
-#ifdef SUPPORT_VPK
-			// Try opening from a VPK
-			if ( !m_hPackFileHandleFS )
-			{
-				m_hPackFileHandleVPK = m_fs->FindFileInVPKs( pFileName );
-			}
-#endif
-		}
-		m_nOpenFiles++;
-		m_mutex.Unlock();
-		CPackFileHandle* ph = new CPackFileHandle( this, nPosition, nLength, nIndex );
-		CFileHandle *fh = new CFileHandle( m_fs );
-		fh->m_pPackFileHandle = ph;
-		fh->m_nLength = nLength;
-
-		// The default mode for fopen is text, so require 'b' for binary
-		if ( strstr( pOptions, "b" ) == NULL )
-		{
-			fh->m_type = FT_PACK_TEXT;
-		}
-		else
-		{
-			fh->m_type = FT_PACK_BINARY;
-		}
-
-		fh->SetName( pFileName );
-		return fh;
-	}
-
-	return NULL;
-}
-
-//-----------------------------------------------------------------------------
-//	Get a directory entry from a pack's preload section
-//-----------------------------------------------------------------------------
-ZIP_PreloadDirectoryEntry* CZipPackFile::GetPreloadEntry( int nEntryIndex )  
-{
-	if ( !m_pPreloadHeader )
-	{
-		return NULL;
-	}
-
-	// If this entry doesn't have a corresponding preload entry, fail.
-	if ( m_PackFiles[nEntryIndex].m_nPreloadIdx == INVALID_PRELOAD_ENTRY )
-	{
-		return NULL;
-	}
-	
-	return &m_pPreloadDirectory[m_PackFiles[nEntryIndex].m_nPreloadIdx];
-}
-
-//-----------------------------------------------------------------------------
-//	Read a file from the pack
-//-----------------------------------------------------------------------------
-int CZipPackFile::ReadFromPack( int nEntryIndex, void* pBuffer, int nDestBytes, int nBytes, int64 nOffset )
-{
-	if ( nEntryIndex >= 0 )
-	{
-		if ( nBytes <= 0 ) 
-		{
-			return 0;
-		}
-
-		// X360TBD: This is screwy, it works because m_nBaseOffset is 0 for preload capable zips
-		// It comes into play for files out of the embedded bsp zip,
-		// this hackery is a pre-bias expecting ReadFromPack() do a symmetric post bias, yuck.
-		nOffset -= m_nBaseOffset;
-
-		// Attempt to satisfy request from possible preload section, otherwise fall through
-		// A preload entry may be compressed
-		ZIP_PreloadDirectoryEntry *pPreloadEntry = GetPreloadEntry( nEntryIndex );
-		if ( pPreloadEntry )
-		{
-			// convert the absolute pack file position to a local file position 
-			int nLocalOffset = nOffset - m_PackFiles[nEntryIndex].m_nPosition;
-			byte *pPreloadData = (byte*)m_pPreloadData + pPreloadEntry->DataOffset;
-
-			CLZMA lzma;
-			if ( lzma.IsCompressed( pPreloadData ) )
-			{
-				unsigned int actualSize = lzma.GetActualSize( pPreloadData );
-				if ( nLocalOffset + nBytes <= (int)actualSize )
-				{
-					// satisfy from compressed preload
-					if ( fs_monitor_read_from_pack.GetInt() == 1 )
-					{
-						char szName[MAX_PATH];
-						IndexToFilename( nEntryIndex, szName, sizeof( szName ) );
-						Msg( "Read From Pack: [Preload] Requested:%d, Compressed:%d, %s\n", nBytes, pPreloadEntry->Length, szName );
-					}
-
-					if ( nLocalOffset == 0 && nDestBytes >= (int)actualSize && nBytes == (int)actualSize )
-					{
-						// uncompress directly into caller's buffer
-						lzma.Uncompress( (unsigned char *)pPreloadData, (unsigned char *)pBuffer );
-						return nBytes;
-					}
-			
-					// uncompress into temporary memory
-					CUtlMemory< byte > tempMemory;
-					tempMemory.EnsureCapacity( actualSize );
-					lzma.Uncompress( pPreloadData, tempMemory.Base() );
-					// copy only what caller expects
-					V_memcpy( pBuffer, (byte*)tempMemory.Base() + nLocalOffset, nBytes );
-					return nBytes;
-				}
-			}
-			else if ( nLocalOffset + nBytes <= (int)pPreloadEntry->Length )
-			{
-				// satisfy from uncompressed preload
-				if ( fs_monitor_read_from_pack.GetInt() == 1 )
-				{
-					char szName[MAX_PATH];
-					IndexToFilename( nEntryIndex, szName, sizeof( szName ) );
-					Msg( "Read From Pack: [Preload] Requested:%d, Total:%d, %s\n", nBytes, pPreloadEntry->Length, szName );
-				}
-
-				V_memcpy( pBuffer, pPreloadData + nLocalOffset, nBytes );
-				return nBytes;
-			}
-		}
-	}
-
-	// fell through as a direct request from within the pack
-	// intercept to possible embedded section
-	if ( m_pSection )
-	{
-		// a section is a special update zip that has no files, only preload
-		// it has to be in the section
-		V_memcpy( pBuffer, (byte*)m_pSection + nOffset, nBytes );
-		return nBytes;
-	}
-
-	return CPackFile::ReadFromPack( nEntryIndex, pBuffer, nDestBytes, nBytes, nOffset );	
-}
-
-//-----------------------------------------------------------------------------
-//	Gets size, position, and index for a file in the pack.
-//-----------------------------------------------------------------------------
-bool CZipPackFile::GetOffsetAndLength( const char *pFileName, int &nBaseIndex, int64 &nFileOffset, int &nLength )
-{
-	CZipPackFile::CPackFileEntry lookup;
-	lookup.m_HashName = HashStringCaselessConventional( pFileName );
-
-	int idx = m_PackFiles.Find( lookup );
-	if ( -1 != idx  )
-	{
-		nFileOffset = m_PackFiles[idx].m_nPosition;
-		nLength = m_PackFiles[idx].m_nLength;
-		nBaseIndex = idx;
-		return true;
-	}
-
-	return false;
-}
-
-bool CZipPackFile::IndexToFilename( int nIndex, char *pBuffer, int nBufferSize )
-{
-	if ( nIndex >= 0 )
-	{
-		m_fs->String( m_PackFiles[nIndex].m_hDebugFilename, pBuffer, nBufferSize );
-		return true;
-	}
-
-	Q_strncpy( pBuffer, "unknown", nBufferSize );
-
-	return false;
-}
-
-//-----------------------------------------------------------------------------
-//	Find a file in the pack.
-//-----------------------------------------------------------------------------
-bool CZipPackFile::FindFile( const char *pFilename, int &nIndex, int64 &nOffset, int &nLength )
-{
-	char szCleanName[MAX_FILEPATH];
-	Q_strncpy( szCleanName, pFilename, sizeof( szCleanName ) );
-#ifdef _WIN32
-	Q_strlower( szCleanName );
-#endif
-	Q_FixSlashes( szCleanName );
- 
-	if ( !Q_RemoveDotSlashes( szCleanName ) )
-	{
-		return false;
-	}
-	
-    bool bFound = GetOffsetAndLength( szCleanName, nIndex, nOffset, nLength );
-
-	nOffset += m_nBaseOffset;
-	return bFound;
-}
-
-
-//-----------------------------------------------------------------------------
-//	Set up the preload section
-//-----------------------------------------------------------------------------
-void CZipPackFile::SetupPreloadData()
-{
-	if ( m_pPreloadHeader || !m_nPreloadSectionSize )
-	{
-		// already loaded or not availavble
-		return;
-	}
-
-	MEM_ALLOC_CREDIT_( "xZip" );
-
-	void *pPreload;
-	if ( m_pSection )
-	{
-		pPreload = (byte*)m_pSection + m_nPreloadSectionOffset;
-	}
-	else
-	{
-		pPreload = malloc( m_nPreloadSectionSize );
-		if ( !pPreload )
-		{
-			return;
-		}
-
-		if ( IsGameConsole() )
-		{
-			// 360 XZips are always dvd aligned
-			Assert( ( m_nPreloadSectionSize % XBOX_DVD_SECTORSIZE ) == 0 );
-			Assert( ( m_nPreloadSectionOffset % XBOX_DVD_SECTORSIZE ) == 0 );
-		}
-
-		// preload data is loaded as a single unbuffered i/o operation
-		ReadFromPack( -1, pPreload, -1, m_nPreloadSectionSize, m_nPreloadSectionOffset );
-	}
-
-	// setup the header
-	m_pPreloadHeader = (ZIP_PreloadHeader *)pPreload;
-
-	// setup the preload directory
-	m_pPreloadDirectory = (ZIP_PreloadDirectoryEntry *)((byte *)m_pPreloadHeader + sizeof( ZIP_PreloadHeader ) );
-
-	// setup the remap table
-	m_pPreloadRemapTable = (unsigned short *)((byte *)m_pPreloadDirectory + m_pPreloadHeader->PreloadDirectoryEntries * sizeof( ZIP_PreloadDirectoryEntry ) );
-
-	// set the preload data base
-	m_pPreloadData = (byte *)m_pPreloadRemapTable + m_pPreloadHeader->DirectoryEntries * sizeof( unsigned short );
-}
-
-void CZipPackFile::DiscardPreloadData()
-{
-	if ( !m_pPreloadHeader )
-	{
-		// already discarded
-		return;
-	}
-
-	// a section is an alias, the header becomes an alias, not owned memory
-	if ( !m_pSection )
-	{
-		free( m_pPreloadHeader );
-	}
-	m_pPreloadHeader = NULL;
-}
-
-//-----------------------------------------------------------------------------
-//	Parse the zip file to build the file directory and preload section
-//-----------------------------------------------------------------------------
-bool CZipPackFile::Prepare( int64 fileLen, int64 nFileOfs )
-{
-	if ( !fileLen || fileLen < sizeof( ZIP_EndOfCentralDirRecord ) )
-	{
-		// nonsense zip
-		return false;
-	}
-
-	// Pack files are always little-endian
-	m_swap.ActivateByteSwapping( IsX360() || IsPS3());
-
-	m_FileLength = fileLen;
-	m_nBaseOffset = nFileOfs;
-
-	ZIP_EndOfCentralDirRecord rec = { 0 };
-
-	// Find and read the central header directory from its expected position at end of the file
-	bool bCentralDirRecord = false;
-	int64 offset = fileLen - sizeof( ZIP_EndOfCentralDirRecord );
-
-	// 360 can have an incompatible format
-	bool bCompatibleFormat = true;
-	if ( IsGameConsole() )
-	{
-		// 360 has dependable exact zips, backup to handle possible xzip format
-		if ( offset - XZIP_COMMENT_LENGTH >= 0 )
-		{
-			offset -= XZIP_COMMENT_LENGTH;
-		}
-	
-		// single i/o operation, scanning forward
-		unsigned int nBytes = (unsigned int)( fileLen - offset );
-		char *pTemp = (char *)_alloca( nBytes );
-		ReadFromPack( -1, pTemp, -1, nBytes, offset );
-		while ( offset <= fileLen - sizeof( ZIP_EndOfCentralDirRecord ) )
-		{
-			memcpy( &rec, pTemp, sizeof( ZIP_EndOfCentralDirRecord ) );
-			m_swap.SwapFieldsToTargetEndian( &rec );
-			if ( rec.signature == PKID( 5, 6 ) )
-			{
-				bCentralDirRecord = true;
-				if ( rec.commentLength >= 4 )
-				{
-					char *pComment = pTemp + sizeof( ZIP_EndOfCentralDirRecord );
-					if ( !V_strnicmp( pComment, "XZP", 3 ) && pComment[3] != '1' )
-					{
-						bCompatibleFormat = false;
-					}
-				}
-				break;
-			}
-			offset++;
-			pTemp++;
-		}
-	}
-	else
-	{
-		// scan entire file from expected location for central dir
-		for ( ; offset >= 0; offset-- )
-		{
-			ReadFromPack( -1, (void*)&rec, -1, sizeof( rec ), offset );
-			m_swap.SwapFieldsToTargetEndian( &rec );
-			if ( rec.signature == PKID( 5, 6 ) )
-			{
-				bCentralDirRecord = true;
-				break;
-			}
-		}
-	}
-	Assert( bCentralDirRecord );
-	if ( !bCentralDirRecord )
-	{
-		// no zip directory, bad zip
-		return false;
-	}
-
-	int numFilesInZip = rec.nCentralDirectoryEntries_Total;
-	if ( numFilesInZip <= 0 )
-	{
-		// empty valid zip
-		return true;
-	}
-
-	int firstFileIdx = 0;
-
-	MEM_ALLOC_CREDIT();
-
-	// read central directory into memory and parse
-	CUtlBuffer zipDirBuff( 0, rec.centralDirectorySize, 0 );
-	zipDirBuff.EnsureCapacity( rec.centralDirectorySize );
-	zipDirBuff.ActivateByteSwapping( IsX360() || IsPS3() );
-	ReadFromPack( -1, zipDirBuff.Base(), -1, rec.centralDirectorySize, rec.startOfCentralDirOffset );
-	zipDirBuff.SeekPut( CUtlBuffer::SEEK_HEAD, rec.centralDirectorySize );
-
-	ZIP_FileHeader zipFileHeader;
-	char filename[MAX_PATH];
-
-	// Check for a preload section, expected to be the first file in the zip
-	zipDirBuff.GetObjects( &zipFileHeader );
-	zipDirBuff.Get( filename, zipFileHeader.fileNameLength );
-	filename[zipFileHeader.fileNameLength] = '\0';
-	if ( !V_stricmp( filename, PRELOAD_SECTION_NAME ) )
-	{
-		m_nPreloadSectionSize = zipFileHeader.uncompressedSize;
-		m_nPreloadSectionOffset = zipFileHeader.relativeOffsetOfLocalHeader + 
-						  sizeof( ZIP_LocalFileHeader ) + 
-						  zipFileHeader.fileNameLength + 
-						  zipFileHeader.extraFieldLength;
-		SetupPreloadData();
-
-		// Set up to extract the remaining files
-		int nextOffset = bCompatibleFormat ? zipFileHeader.extraFieldLength + zipFileHeader.fileCommentLength : 0;
-		zipDirBuff.SeekGet( CUtlBuffer::SEEK_CURRENT, nextOffset );
-		firstFileIdx = 1;
-	}
-	else
-	{
-		if ( IsGameConsole() )
-		{
-			// all 360 zip files are expected to have preload sections
-			// only during development, maps are allowed to lack them, due to auto-conversion
-			Warning( "Xbox Zip File '%s' missing preload section\n", m_ZipName.String() );
-		}
-
-		// No preload section, reset buffer pointer
-		zipDirBuff.SeekGet( CUtlBuffer::SEEK_HEAD, 0 );
-	}
-
-	// Parse out central directory and determine absolute file positions of data.
-	// Supports uncompressed zip files, with or without preload sections
-	bool bSuccess = true;
-	char tmpString[MAX_PATH];		
-	CZipPackFile::CPackFileEntry lookup;
-
-	m_PackFiles.EnsureCapacity( numFilesInZip );
-
-	for ( int i = firstFileIdx; i < numFilesInZip; ++i )
-	{
-		zipDirBuff.GetObjects( &zipFileHeader );
-		if ( zipFileHeader.signature != PKID( 1, 2 ) || zipFileHeader.compressionMethod != 0 )
-		{
-			Msg( "Incompatible pack file detected! %s\n", ( zipFileHeader.compressionMethod != 0 ) ? " File is compressed" : "" );
-			bSuccess = false;
-			break;	
-		}
-
-		Assert( zipFileHeader.fileNameLength < sizeof( tmpString ) );
-		zipDirBuff.Get( (void *)tmpString, zipFileHeader.fileNameLength );
-		tmpString[zipFileHeader.fileNameLength] = '\0';
-		Q_FixSlashes( tmpString );
-
-		lookup.m_hDebugFilename = m_fs->FindOrAddFileName( tmpString );
-		lookup.m_HashName = HashStringCaselessConventional( tmpString );
-		lookup.m_nLength = zipFileHeader.uncompressedSize;
-		lookup.m_nPosition = zipFileHeader.relativeOffsetOfLocalHeader + 
-								sizeof( ZIP_LocalFileHeader ) + 
-								zipFileHeader.fileNameLength + 
-								zipFileHeader.extraFieldLength;
-
-		// track the index to this file's possible preload directory entry
-		if ( m_pPreloadRemapTable )
-		{
-			lookup.m_nPreloadIdx = m_pPreloadRemapTable[i];
-		}
-		else
-		{
-			lookup.m_nPreloadIdx = INVALID_PRELOAD_ENTRY;
-		}
-		m_PackFiles.InsertNoSort( lookup );
-
-		int nextOffset = bCompatibleFormat ? zipFileHeader.extraFieldLength + zipFileHeader.fileCommentLength : 0;
-		zipDirBuff.SeekGet( CUtlBuffer::SEEK_CURRENT, nextOffset );
-	}
-
-//	m_PackFiles.RedoSort();
-
-	if ( IsGameConsole() )
-	{
-		// mount optional kv pool
-		int nIndex;
-		int64 nOffset;
-		int nLength;
-		if ( FindFile( "kvpool" PLATFORM_EXT ".image", nIndex, nOffset, nLength ) )
-		{
-			CUtlBuffer kvPoolBuffer;
-			int nOptimalSize = AlignValue( nLength, XBOX_DVD_SECTORSIZE );
-			void *pBuffer = malloc( nOptimalSize );
-			kvPoolBuffer.SetExternalBuffer( pBuffer, nOptimalSize, nLength, CUtlBuffer::READ_ONLY );
-
-			ReadFromPack( nIndex, pBuffer, nOptimalSize, nLength, nOffset );
-			
-			m_KVPoolKey = kvPoolBuffer.GetUnsignedInt();
-		
-			bSuccess = m_KVStringPool.RestoreFromBuffer( kvPoolBuffer );
-			if ( !bSuccess )
-			{
-				Msg( "Failed to unserialize compiled kvpool\n" );
-				m_KVStringPool.RemoveAll();
-				m_KVPoolKey = 0;
-			}
-
-			free( pBuffer );
-		}
-	}
-
-	return bSuccess;
-}
-
-CRC32_t CZipPackFile::GetKVPoolKey()
-{
-	return m_KVPoolKey;
-}
-
-bool CZipPackFile::GetStringFromKVPool( unsigned int key, char *pOutBuff, int buflen )
-{
-	return m_KVStringPool.String( (FileNameHandle_t)key, pOutBuff, buflen );
-}
-
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-CZipPackFile::CZipPackFile( CBaseFileSystem* fs, void *pSection )
- : m_PackFiles(), m_KVStringPool()
-{
-	m_fs = fs;	
-	m_pPreloadDirectory = NULL;
-	m_pPreloadData = NULL;
-	m_pPreloadHeader = NULL;
-	m_pPreloadRemapTable = NULL;
-	m_nPreloadSectionOffset = 0;
-	m_nPreloadSectionSize = 0;
-	m_KVPoolKey = 0;
-
-#if defined( _GAMECONSOLE )
-	m_pSection = pSection;
-#else
-	m_pSection = NULL;
-#endif
-}
-
-CZipPackFile::~CZipPackFile()
-{
-	DiscardPreloadData();
-	m_KVStringPool.RemoveAll();
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: 
-// Input  : src1 - 
-//			src2 - 
-// Output : Returns true on success, false on failure.
-//-----------------------------------------------------------------------------
-bool CZipPackFile::CPackFileLessFunc::Less( CZipPackFile::CPackFileEntry const& src1, CZipPackFile::CPackFileEntry const& src2, void *pCtx )
-{
-	return ( src1.m_HashName < src2.m_HashName );
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose: Search pPath for pak?.pak files and add to search path if found
-// Input  : *pPath - 
-//-----------------------------------------------------------------------------
-#if defined( _GAMECONSOLE )
-#define PACK_NAME_FORMAT "zip%i" PLATFORM_EXT ".zip"
-#define PACK_LOCALIZED_NAME_FORMAT "zip%i_%s" PLATFORM_EXT ".zip"
-#else
-#define PACK_NAME_FORMAT "zip%i.zip"
-#endif
-
-void CBaseFileSystem::AddPackFiles( const char *pPath, const CUtlSymbol &pathID, SearchPathAdd_t addType, int iForceInsertIndex )
-{
-	Assert( ThreadInMainThread() );
-	DISK_INTENSIVE();
-
-	// Xbox Update and DLC zips are purposely not using the ZipN decoration so as not to interfere with the
-	// install process that wants to move zip0 to the cache partition. These zips also have other mounting
-	// requirements that prevent the simpler ZipN discovery logic.
-
-#if defined( _GAMECONSOLE )
-	// hack prepend the update path during first time add only
-	// only specific paths get the update override explicitly prepended
-	const char *pPathIDString = g_PathIDTable.String( pathID );
-	if ( addType == PATH_ADD_TO_TAIL && iForceInsertIndex == 0 && 
-		( !V_stricmp( pPathIDString, "PLATFORM" ) || !V_stricmp( pPathIDString, "GAME" ) || !V_stricmp( pPathIDString, "MOD" ) ) )
-	{
-		// update search path gets added once per allowed pathID
-		bool bFoundSearchPath = false;
-		for ( int i = 0; i < m_SearchPaths.Count(); i++ )
-		{
-			CSearchPath *pSearchPath = &m_SearchPaths[i];
-			if ( pSearchPath->GetPathID() == pathID && !V_stricmp( pSearchPath->GetPathString(), "u:\\update\\" ) )
-			{
-				bFoundSearchPath = true;
-				break;
-			}
-		}
-
-		if ( !bFoundSearchPath && g_UpdateZipBuffer.TellPut() )
-		{
-			// found update blob in executable
-			int nIndex = m_SearchPaths.AddToTail();
-			CSearchPath *sp = &m_SearchPaths[ nIndex ];
-
-			// the path and filename are fake but reserved, they denote this binary resident blob
-			// these names ensure they get ignored during post hdd install sp fixup
-			const char *pFullpath = "u:\\update\\update" PLATFORM_EXT ".zip";
-			sp->m_pPathIDInfo = FindOrAddPathIDInfo( pathID, -1 );
-			sp->m_storeId = g_iNextSearchPathID++;
-			sp->SetPath( g_PathIDTable.AddString( "u:\\update\\" ) );
-
-			// find and alias existing reference
-			CPackFile *pf = NULL;
-			for ( int iPackFile = 0; iPackFile < m_ZipFiles.Count(); iPackFile++ )
-			{
-				if ( !Q_stricmp( m_ZipFiles[iPackFile]->m_ZipName.Get(), pFullpath ) )
-				{
-					// found
-					pf = m_ZipFiles[iPackFile];
-					sp->SetPackFile( pf );
-					pf->AddRef();
-					break;
-				}
-			}
-			if ( !pf )
-			{
-				// there is no 'file', point to the embedded section instead
-				pf = new CZipPackFile( this, g_UpdateZipBuffer.Base() );
-
-				pf->SetPath( sp->GetPath() );
-				pf->m_bIsExcluded = false;
-				pf->m_ZipName = pFullpath;
-
-				m_ZipFiles.AddToTail( pf );
-				sp->SetPackFile( pf );
-
-				pf->m_lPackFileTime = 0;
-				pf->m_hPackFileHandleFS = NULL;
-				pf->Prepare( g_UpdateZipBuffer.TellPut() );
-			}
-		}
-	}
-#endif
-
-	CUtlVector< CUtlString > pakPaths;
-	CUtlVector< CUtlString > pakNames;
-	CUtlVector< int64 > pakSizes;
-
-	// determine pak files, [zip0..zipN]
-	for ( int i = 0; ; i++ )
-	{
-		char pakfile[MAX_PATH];
-		char fullpath[MAX_PATH];
-		V_snprintf( pakfile, sizeof( pakfile ), PACK_NAME_FORMAT, i );
-		V_ComposeFileName( pPath, pakfile, fullpath, sizeof( fullpath ) );
-
-		struct _stat buf;
-		if ( FS_stat( fullpath, &buf ) == -1 )
-			break;
-
-		MEM_ALLOC_CREDIT();
-
-		pakPaths.AddToTail( pPath );
-		pakNames.AddToTail( pakfile );
-		pakSizes.AddToTail( (int64)((unsigned int)buf.st_size) );
-	}
-
-#if defined( _GAMECONSOLE )
-	// safety measure, ensure 360 dlc zip search path gets added ONLY once per allowed pathID
-	// dlc paths have unique suffixes, _dlc1..._dlcN
-	if ( m_DLCContents.Count() && V_stristr( pPath, "_dlc" ) )
-	{
-		// per pathID, dlc zip should only occur once, but might have already been added
-		bool bFoundSearchPath = false;
-		for ( int i = 0; i < m_SearchPaths.Count(); i++ )
-		{
-			CSearchPath *pSearchPath = &m_SearchPaths[i];
-			if ( pSearchPath->GetPathID() == pathID && V_stristr( pSearchPath->GetPathString(), pPath ) )
-			{
-				bFoundSearchPath = true;
-				break;
-			}
-		}
-
-		if ( !bFoundSearchPath )
-		{
-			char szFullPath[MAX_PATH];
-			V_ComposeFileName( pPath, "dlc" PLATFORM_EXT ".zip", szFullPath, sizeof( szFullPath ) );
-			struct _stat buf;
-			if ( FS_stat( szFullPath, &buf ) != -1 )
-			{
-				pakPaths.AddToTail( pPath );
-				pakNames.AddToTail( "dlc" PLATFORM_EXT ".zip" );
-				pakSizes.AddToTail( (__int64)((unsigned int)buf.st_size) );
-			}
-		}
-	}
-#endif
-
-	// Add any zip files in the format zip1.zip ... zip0.zip
-	// Add them backwards so zip(N) is higher priority than zip(N-1), etc.
-	int pakcount = pakSizes.Count();
-
-	int nCount = 0;
-	if ( IsGameConsole() && addType == PATH_ADD_TO_TAIL_ATINDEX )
-	{
-		// we will be inserting before this
-		nCount = iForceInsertIndex;
-	}
-
-	for ( int i = pakcount-1; i >= 0; i-- )
-	{
-		char fullpath[MAX_PATH];
-		V_ComposeFileName( pakPaths[i].Get(), pakNames[i].Get(), fullpath, sizeof( fullpath ) );
-
-		int nIndex;
-		if ( addType == PATH_ADD_TO_TAIL )
-		{
-			nIndex = m_SearchPaths.AddToTail();
-		}
-		else
-		{
-			nIndex = m_SearchPaths.InsertBefore( nCount );
-			++nCount;
-		}
-
-		CSearchPath *sp = &m_SearchPaths[ nIndex ];
-		
-		sp->m_pPathIDInfo = FindOrAddPathIDInfo( pathID, -1 );
-		sp->m_storeId = g_iNextSearchPathID++;
-		sp->SetPath( g_PathIDTable.AddString( pakPaths[i].Get() ) );
-
-		CPackFile *pf = NULL;
-		for ( int iPackFile = 0; iPackFile < m_ZipFiles.Count(); iPackFile++ )
-		{
-			if ( !Q_stricmp( m_ZipFiles[iPackFile]->m_ZipName.Get(), fullpath ) )
-			{
-				pf = m_ZipFiles[iPackFile];
-				sp->SetPackFile( pf );
-				pf->AddRef();
-				break;
-			}
-		}
-
-		if ( !pf )
-		{
-			MEM_ALLOC_CREDIT();
-
-			pf = new CZipPackFile( this );
-
-			pf->SetPath( sp->GetPath() );
-			pf->m_ZipName = fullpath;
-
-			m_ZipFiles.AddToTail( pf );
-			sp->SetPackFile( pf );
-			pf->m_lPackFileTime = GetFileTime( fullpath );
-
-			pf->m_hPackFileHandleFS = Trace_FOpen( fullpath, "rb", 0, NULL );
-
-			if ( pf->m_hPackFileHandleFS )
-			{
-				FS_setbufsize( pf->m_hPackFileHandleFS, 32*1024 );	// 32k buffer.
-
-				if ( pf->Prepare( pakSizes[i] ) )
-				{
-					FS_setbufsize( pf->m_hPackFileHandleFS, filesystem_buffer_size.GetInt() );
-				}
-				else
-				{
-					// Failed for some reason, ignore it
-					if ( pf->m_hPackFileHandleFS )
-					{
-						Trace_FClose( pf->m_hPackFileHandleFS );
-						pf->m_hPackFileHandleFS = NULL;
-					}
-					m_SearchPaths.Remove( nIndex );
-				}
-			}
-#ifdef SUPPORT_VPK
-			else
-			{
-				pf->m_hPackFileHandleVPK = FindFileInVPKs( fullpath );
-
-				if ( !pf->m_hPackFileHandleVPK || !pf->Prepare( pakSizes[i] ) )
-				{
-					m_SearchPaths.Remove( nIndex );
-				} 
-			}
-#endif
-		}
-	}
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: Wipe all map (.bsp) pak file search paths
-//-----------------------------------------------------------------------------
-void CBaseFileSystem::RemoveAllMapSearchPaths( void )
-{
-	int c = m_SearchPaths.Count();
-	for ( int i = c - 1; i >= 0; i-- )
-	{
-		if ( !( m_SearchPaths[i].GetPackFile() && m_SearchPaths[i].GetPackFile()->m_bIsMapPath ) )
-		{
-			continue;
-		}
-		
-		m_SearchPaths.Remove( i );
-	}
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
-void CBaseFileSystem::AddMapPackFile( const char *pPath, const char *pPathID, SearchPathAdd_t addType )
-{
-	char tempPathID[MAX_PATH];
-	ParsePathID( pPath, pPathID, tempPathID );
-
-	char newPath[ MAX_FILEPATH ];
-	// +2 for '\0' and potential slash added at end.
-	Q_strncpy( newPath, pPath, sizeof( newPath ) );
-#ifdef _WIN32 // don't do this on linux!
-	Q_strlower( newPath );
-#endif
-	Q_FixSlashes( newPath );
-
-	// Open the .bsp and find the map lump
-	char fullpath[ MAX_FILEPATH ];
-	if ( Q_IsAbsolutePath( newPath ) ) // If it's an absolute path, just use that.
-	{
-		Q_strncpy( fullpath, newPath, sizeof(fullpath) );
-	}
-	else
-	{
-		if ( !GetLocalPath( newPath, fullpath, sizeof(fullpath) ) )
-		{
-			// Couldn't find that .bsp file!!!
-			return;
-		}
-	}
-
-	int c = m_SearchPaths.Count();
-	for ( int i = c - 1; i >= 0; i-- )
-	{
-		if ( !( m_SearchPaths[i].GetPackFile() && m_SearchPaths[i].GetPackFile()->m_bIsMapPath ) )
-			continue;
-		
-		if ( Q_stricmp( m_SearchPaths[i].GetPackFile()->m_ZipName.Get(), fullpath ) == 0 )
-		{
-			// Already set as map path
-			return;
-		}
-	}
-
-	// Remove previous
-	RemoveAllMapSearchPaths();
-
-#ifdef SUPPORT_VPK
-	CPackedStoreFileHandle psHandle = FindFileInVPKs( pPath );
-
-	if ( psHandle )
-	{
-		// Get the .bsp file header
-		BSPHeader_t header;
-		memset( &header, 0, sizeof( header ) );
-		m_Stats.nBytesRead += psHandle.Read( &header, sizeof( header ) );
-		m_Stats.nReads++;
-
-		if ( header.ident != IDBSPHEADER || header.m_nVersion < MINBSPVERSION || header.m_nVersion > BSPVERSION )
-		{
-			return;
-		}
-
-		// Find the LUMP_PAKFILE offset
-		lump_t *packfile = &header.lumps[ LUMP_PAKFILE ];
-		if ( packfile->filelen <= sizeof( lump_t ) )
-		{
-			// It's empty or only contains a file header ( so there are no entries ), so don't add to search paths
-			return;
-		}
-
-		// Seek to correct position
-		psHandle.Seek( packfile->fileofs, FILESYSTEM_SEEK_HEAD );
-
-		CPackFile *pf = new CZipPackFile( this );
-
-		pf->m_bIsMapPath = true;
-		pf->m_hPackFileHandleFS = NULL;
-		pf->m_hPackFileHandleVPK = psHandle;
-
-		MEM_ALLOC_CREDIT();
-		pf->m_ZipName = fullpath;
-
-		if ( pf->Prepare( packfile->filelen, packfile->fileofs ) )
-		{
-			int nIndex;
-			if ( addType == PATH_ADD_TO_TAIL )
-			{
-				nIndex = m_SearchPaths.AddToTail();	
-			}
-			else
-			{
-				nIndex = m_SearchPaths.AddToHead();	
-			}
-
-			CSearchPath *sp = &m_SearchPaths[ nIndex ];
-
-			sp->SetPackFile( pf );
-			sp->m_storeId = g_iNextSearchPathID++;
-			sp->SetPath( g_PathIDTable.AddString( newPath ) );
-			sp->m_pPathIDInfo = FindOrAddPathIDInfo( g_PathIDTable.AddString( pPathID ), -1 );
-
-			if ( IsDvdDevPathString( newPath ) )
-			{
-				sp->m_bIsDvdDevPath = true;
-			}
-
-			pf->SetPath( sp->GetPath() );
-			pf->m_lPackFileTime = GetFileTime( newPath );
-
-			//pf->m_PackFileID = m_FileTracker2.NotePackFileOpened( pPath, pPathID, packfile->filelen );
-			m_ZipFiles.AddToTail( pf );
-		}
-		else
-		{
-			delete pf;
-		}
-	}
-	else
-#endif
-	{
-		FILE *fp = Trace_FOpen( fullpath, "rb", 0, NULL );
-		if ( !fp )
-		{
-			// Couldn't open it
-			FileSystemWarning( FILESYSTEM_WARNING, "Couldn't open .bsp %s for embedded pack file check\n", fullpath );
-			return;
-		}
-
-		// Get the .bsp file header
-		BSPHeader_t header;
-		memset( &header, 0, sizeof( header ) );
-		m_Stats.nBytesRead += FS_fread( &header, sizeof( header ), fp );
-		m_Stats.nReads++;
-
-		if ( header.ident != IDBSPHEADER || header.m_nVersion < MINBSPVERSION || header.m_nVersion > BSPVERSION )
-		{
-			Trace_FClose( fp );
-			return;
-		}
-
-		// Find the LUMP_PAKFILE offset
-		lump_t *packfile = &header.lumps[ LUMP_PAKFILE ];
-		if ( packfile->filelen <= sizeof( lump_t ) )
-		{
-			// It's empty or only contains a file header ( so there are no entries ), so don't add to search paths
-			Trace_FClose( fp );
-			return;
-		}
-
-		// Seek to correct position
-		FS_fseek( fp, packfile->fileofs, FILESYSTEM_SEEK_HEAD );
-
-		CPackFile *pf = new CZipPackFile( this );
-
-		pf->m_bIsMapPath = true;
-		pf->m_hPackFileHandleFS = fp;
-#ifdef SUPPORT_VPK
-		pf->m_hPackFileHandleVPK = psHandle;
-#endif
-		MEM_ALLOC_CREDIT();
-		pf->m_ZipName = fullpath;
-
-		if ( pf->Prepare( packfile->filelen, packfile->fileofs ) )
-		{
-			int nIndex;
-			if ( addType == PATH_ADD_TO_TAIL )
-			{
-				nIndex = m_SearchPaths.AddToTail();	
-			}
-			else
-			{
-				nIndex = m_SearchPaths.AddToHead();	
-			}
-
-			CSearchPath *sp = &m_SearchPaths[ nIndex ];
-
-			sp->SetPackFile( pf );
-			sp->m_storeId = g_iNextSearchPathID++;
-			sp->SetPath( g_PathIDTable.AddString( newPath ) );
-			sp->m_pPathIDInfo = FindOrAddPathIDInfo( g_PathIDTable.AddString( pPathID ), -1 );
-
-			if ( IsDvdDevPathString( newPath ) )
-			{
-				sp->m_bIsDvdDevPath = true;
-			}
-
-			pf->SetPath( sp->GetPath() );
-			pf->m_lPackFileTime = GetFileTime( newPath );
-
-			Trace_FClose( pf->m_hPackFileHandleFS );
-			pf->m_hPackFileHandleFS = NULL;
-
-			//pf->m_PackFileID = m_FileTracker2.NotePackFileOpened( pPath, pPathID, packfile->filelen );
-			m_ZipFiles.AddToTail( pf );
-		}
-		else
-		{
-			delete pf;
-		}
-	}
-}
-
-
-void CBaseFileSystem::BeginMapAccess() 
-{
-#if IsPlatformPS3()
-	// SONY Fios library does not play well with QueuedLoader, so suspend it.
-	// Adding a delay in the prefetch actually creates a soft-lock.
-	SuspendPrefetches( "IFileSystem::BeginMapAccess" );
-#endif
-
-	if ( m_iMapLoad++ == 0 )
-	{
-		int c = m_SearchPaths.Count();
-		for( int i = 0; i < c; i++ )
-		{
-			CSearchPath *pSearchPath = &m_SearchPaths[i];
-			CPackFile *pPackFile = pSearchPath->GetPackFile();
-
-			if ( pPackFile && pPackFile->m_bIsMapPath )
-			{
-				pPackFile->AddRef();
-				pPackFile->m_mutex.Lock();
-#ifdef SUPPORT_VPK
-				if ( pPackFile->m_nOpenFiles == 0 && pPackFile->m_hPackFileHandleFS == NULL && !pPackFile->m_hPackFileHandleVPK )
-#else
-				if ( pPackFile->m_nOpenFiles == 0 && pPackFile->m_hPackFileHandleFS == NULL )
-#endif
-				{
-					// Try opening the file as a regular file 
-					pPackFile->m_hPackFileHandleFS = Trace_FOpen( pPackFile->m_ZipName, "rb", 0, NULL );
-
-#ifdef SUPPORT_VPK
-					if ( !pPackFile->m_hPackFileHandleFS )
-					{
-						pPackFile->m_hPackFileHandleVPK = FindFileInVPKs( pPackFile->m_ZipName );
-					}
-#endif
-				}
-				pPackFile->m_nOpenFiles++;
-				pPackFile->m_mutex.Unlock();
-			}
-		}
-	}
-}
-
-
-void CBaseFileSystem::EndMapAccess() 
-{
-	if ( m_iMapLoad-- == 1 )
-	{
-		int c = m_SearchPaths.Count();
-		for( int i = 0; i < c; i++ )
-		{
-			CSearchPath *pSearchPath = &m_SearchPaths[i];
-			CPackFile *pPackFile = pSearchPath->GetPackFile();
-
-			if ( pPackFile && pPackFile->m_bIsMapPath )
-			{
-				pPackFile->m_mutex.Lock();
-				pPackFile->m_nOpenFiles--;
-				if ( pPackFile->m_nOpenFiles == 0  )
-				{
-					if ( pPackFile->m_hPackFileHandleFS )
-					{
-						Trace_FClose( pPackFile->m_hPackFileHandleFS );
-						pPackFile->m_hPackFileHandleFS = NULL;
-					}
-				}
-				pPackFile->m_mutex.Unlock();
-				pPackFile->Release();
-			}
-		}
-	}
-
-#if IsPlatformPS3()
-	ResumePrefetches( "IFileSystem::EndMapAccess" );
-#endif
-}
 
 
 void CBaseFileSystem::PrintSearchPaths( void )
@@ -2615,15 +1138,6 @@ void CBaseFileSystem::PrintSearchPaths( void )
 
 		const char *pszPack = "";
 		const char *pszType = "";
-		if ( pSearchPath->GetPackFile() && pSearchPath->GetPackFile()->m_bIsMapPath )
-		{
-			pszType = "(map)";
-		}
-		else if ( pSearchPath->GetPackFile()  )
-		{
-			pszType = "(pack) ";
-			pszPack = pSearchPath->GetPackFile()->m_ZipName;
-		}
 
 		Msg( "%-20s \"%s\" %s%s\n", (const char *)pSearchPath->GetPathIDString(), pSearchPath->GetPathString(), pszType, pszPack );
 	}
@@ -2642,7 +1156,6 @@ void CBaseFileSystem::PrintSearchPaths( void )
 		}
 	}
 
-	PrintDLCInfo();
 }
 
 
@@ -2652,16 +1165,9 @@ void CBaseFileSystem::PrintSearchPaths( void )
 //  path and then the paks if they exist for the path
 // Input  : *pPath - 
 //-----------------------------------------------------------------------------
-void CBaseFileSystem::AddSearchPathInternal( const char *pPath, const char *pathID, SearchPathAdd_t addType, bool bAddPackFiles, int iForceInsertIndex )
+void CBaseFileSystem::AddSearchPathInternal( const char *pPath, const char *pathID, SearchPathAdd_t addType, int iForceInsertIndex )
 {
 	Assert( ThreadInMainThread() );
-
-	// Map pak files have their own handler
-	if ( V_stristr( pPath, ".bsp" ) )
-	{
-		AddMapPackFile( pPath, pathID, addType );
-		return;
-	}
 
 	// Clean up the name
 	char newPath[ MAX_FILEPATH ];
@@ -2720,77 +1226,20 @@ void CBaseFileSystem::AddSearchPathInternal( const char *pPath, const char *path
 		id = g_iNextSearchPathID++;
 	}
 
-	if ( IsGameConsole() && bAddPackFiles && ( !Q_stricmp( pathID, "DEFAULT_WRITE_PATH" ) || !Q_stricmp( pathID, "LOGDIR" ) ) )
-	{
-		// xbox can be assured that no zips would ever be loaded on its write path
-		// otherwise xbox reloads zips because of mirrored drive mappings
-		bAddPackFiles = false;
-	}
-
 	// Add to list
 	bool bAdded = false;
 	int nIndex = m_SearchPaths.Count();
 
-	if ( IsGameConsole() && addType == PATH_ADD_TO_TAIL_ATINDEX )
-	{
-		nIndex = iForceInsertIndex;
-	}
+    if ( addType == PATH_ADD_TO_HEAD )
+    {
+        nIndex = m_SearchPaths.Count() - nIndex;
+        Assert( nIndex >= 0 );
+    }
 
-	if ( bAddPackFiles )
-	{
-		// Add pack files for this path next
-		int lastCount = m_SearchPaths.Count();
-		AddPackFiles( newPath, pathIDSym, addType, iForceInsertIndex );
-		bAdded = m_SearchPaths.Count() != lastCount;
-	}
-
-	if ( IsGameConsole() && addType == PATH_ADD_TO_TAIL_ATINDEX )
-	{
-		// isolated this specific pathadd hack behavior to not destablize existing state
-		// this behavior is for install and dlc searchpath modifications
-		if ( V_stristr( pPath, "_dlc" ) )
-		{
-			if ( !bAdded )
-			{
-				// dlc should have had a pack file, if it didn't mount shouldn't be adding in anything else
-				return;
-			}
-
-		}
-	}
-	else
-	{
-		if ( addType == PATH_ADD_TO_HEAD )
-		{
-			nIndex = m_SearchPaths.Count() - nIndex;
-			Assert( nIndex >= 0 );
-		}
-
-		if ( IsPC() || !bAddPackFiles || !bAdded )
-		{
-			// Grab last entry and set the path
-			m_SearchPaths.InsertBefore( nIndex );
-		}
-		else if ( IsGameConsole() && bAddPackFiles && bAdded )
-		{
-			bool bAddNonZipPath = true;
-			if ( bAddNonZipPath )
-			{
-				// 360 needs to find files (for the preload hit) in the zip first for fast loading
-				// 360 always adds the non-pack search path *after* the pack file but respects the overall list ordering
-				// fixup the indexes
-				if ( addType == PATH_ADD_TO_HEAD )
-				{
-					m_SearchPaths.InsertBefore( nIndex );
-				}
-				else
-				{
-					nIndex = m_SearchPaths.Count() - 1;
-					m_SearchPaths.InsertAfter( nIndex );
-					nIndex++;
-				}
-			}
-		}
+    if ( IsPC() || !bAdded )
+    {
+        // Grab last entry and set the path
+        m_SearchPaths.InsertBefore( nIndex );
 	}
 
 	// setup the 'base' path
@@ -2825,16 +1274,6 @@ void CBaseFileSystem::AddSearchPath( const char *pPath, const char *pathID, Sear
 	// CSGO compatibility VPKs
 	if ( const char *pActualPathID = pathID ? StringAfterPrefix( pathID, "COMPAT:" ) : NULL )
 	{
-#ifdef SUPPORT_VPK
-		// Check if we are running with VPKs?
-		if ( m_VPKFiles.Count() > 0 )
-		{
-			char newVPK[ MAX_PATH ] = {};
-			sprintf( newVPK, "%s/pakxv_%s.vpk", pGameName, pPath );
-			AddVPKFile( newVPK, addType );
-			return;
-		}
-#endif
 		if ( addType != PATH_ADD_TO_HEAD )
 			return;	// in non-vpk mode compatibility paths can only be added to head
 
@@ -2899,27 +1338,6 @@ void CBaseFileSystem::AddSearchPath( const char *pPath, const char *pathID, Sear
 			{
 				V_ComposeFileName( szPathHead, CFmtStr( "%s_dlc%d", pGameName, nHighestDLC ), szUpdatePath, sizeof( szUpdatePath ) );
 				AddSearchPathInternal( szUpdatePath, pathID, addType, true );
-
-#ifdef SUPPORT_VPK
-				// scan for vpk's
-				for( int i = 1 ; i < 99; i++ )
-				{
-					char newVPK[MAX_PATH];
-					sprintf( newVPK, "%s/pak%02d_dir.vpk", szUpdatePath, i );
-					// we will fopen to bypass pathing, etc
-					FILE *pstdiofile = fopen( newVPK, "rb" );
-					if ( pstdiofile )
-					{
-						fclose( pstdiofile );
-						sprintf( newVPK, "%s/pak%02d.vpk", szUpdatePath, i );
-						AddVPKFile( newVPK );
-					}
-					else
-					{
-						break;
-					}
-				}
-#endif
 			}
 		}
 	}
@@ -2928,54 +1346,6 @@ void CBaseFileSystem::AddSearchPath( const char *pPath, const char *pathID, Sear
 	int currCount = m_SearchPaths.Count();
 
 	AddSearchPathInternal( pPath, pathID, addType, true );
-
-#ifdef SUPPORT_VPK
-	// scan for vpk's
-	for( int i = 1 ; i < 99; i++ )
-	{
-		char newVPK[MAX_PATH];
-		sprintf( newVPK, "%s/pak%02d_dir.vpk", pPath, i );
-		// we will fopen to bypass pathing, etc
-		FILE *pstdiofile = fopen( newVPK, "rb" );
-		if ( pstdiofile )
-		{
-			fclose( pstdiofile );
-			sprintf( newVPK, "%s/pak%02d.vpk", pPath, i );
-			AddVPKFile( newVPK );
-		}
-		else
-		{
-			break;
-		}
-	}
-#endif
-
-	if ( IsGameConsole() && 
-		( m_DVDMode == DVDMODE_DEV ) &&
-		( !V_stricmp( pathID, "MOD" ) || !V_stricmp( pathID, "GAME" ) || !V_stricmp( pathID, "PLATFORM" ) ) )
-	{
-		// dvd development mode clones a search path based on the remote path for fall through
-		const char *pBasePath = CommandLine()->ParmValue( "-basedir" );
-		if ( pBasePath && !V_stristr( pPath, ".bsp" ) )
-		{
-			// isolate the search sub path from the base path
-			const char *pSearchSubPath = StringAfterPrefix( pPath, pBasePath );
-			if ( pSearchSubPath )
-			{
-				if ( pSearchSubPath[0] == CORRECT_PATH_SEPARATOR )
-				{
-					pSearchSubPath++;
-				}
-
-				// substitue the dvddev path head
-				char szDvdDevPath[MAX_PATH];
-				V_ComposeFileName( FS_DVDDEV_ROOT, pSearchSubPath, szDvdDevPath, sizeof( szDvdDevPath ) );
-
-				// no pack files are allowed on the fall through dvddev path
-				AddSearchPathInternal( szDvdDevPath, pathID, addType, false );
-			}
-		}
-	}
 
 	if ( currCount != m_SearchPaths.Count() )
 	{
@@ -3137,24 +1507,6 @@ bool CBaseFileSystem::FixupSearchPathsAfterInstall()
 	return m_bSearchPathsPatchedAfterInstall;
 }
 
-//-----------------------------------------------------------------------------
-// ConCommands can just blindly call this to ensure user's request to flush
-// data picks up any intended changes they may have done locally.
-//-----------------------------------------------------------------------------
-void CBaseFileSystem::SyncDvdDevCache()
-{
-	if ( !IsGameConsole() || m_DVDMode != DVDMODE_DEV )
-	{
-		// xbox dvddev only
-		return;
-	}
-
-#if defined( _X360 )
-	XBX_rSyncDvdDevCache();
-#endif
-
-	BuildExcludeList();
-}
 
 //-----------------------------------------------------------------------------
 // Returns the search path, each path is separated by ;s. Returns the length of the string returned
@@ -3174,41 +1526,17 @@ int CBaseFileSystem::GetSearchPath( const char *pathID, bool bGetPackFiles, char
 	CSearchPathsIterator iter( this, pathID, bGetPackFiles ? FILTER_NONE : FILTER_CULLPACK );
 	for ( CSearchPath *pSearchPath = iter.GetFirst(); pSearchPath != NULL; pSearchPath = iter.GetNext() )
 	{
-		CPackFile *pPackFile = pSearchPath->GetPackFile();
-
 		if ( nLen >= nMaxLen )
 		{
 			// Add 1 for the semicolon if our length is not 0
 			nLen += (nLen > 0) ? 1 : 0;
-
-			if ( !pPackFile )
-			{
-				nLen += Q_strlen( pSearchPath->GetPathString() );
-			}
-			else
-			{
-				// full path and slash
-				nLen += Q_strlen( pPackFile->m_ZipName.String() ) + 1;
-			}
+            nLen += Q_strlen( pSearchPath->GetPathString() );
 			continue;
 		}
 
 		if ( nLen != 0 )
 		{
 			pPath[nLen++] = ';';
-		}
-
-		if ( !pPackFile )
-		{
-			Q_strncpy( &pPath[nLen], pSearchPath->GetPathString(), nMaxLen - nLen );
-			nLen += Q_strlen( pSearchPath->GetPathString() );
-		}
-		else
-		{
-			// full path and slash
-			Q_strncpy( &pPath[nLen], pPackFile->m_ZipName.String(), nMaxLen - nLen );
-			V_AppendSlash( &pPath[nLen], nMaxLen - nLen );
-			nLen += Q_strlen( pPackFile->m_ZipName.String() ) + 1;
 		}
 	}
 
@@ -3259,28 +1587,6 @@ bool CBaseFileSystem::RemoveSearchPath( const char *pPath, const char *pathID )
 
 	if ( const char *pActualPathID = pathID ? StringAfterPrefix( pathID, "COMPAT:" ) : NULL )
 	{
-#ifdef SUPPORT_VPK
-		if ( m_VPKFiles.Count() > 0 )
-		{
-			char newVPK[ MAX_PATH ] = {};
-			sprintf( newVPK, "pakxv_%s", pPath );
-			while ( m_VPKFiles.Count() > 0 )
-			{
-				CPackedStore *pVPK = m_VPKFiles.Head();
-				char szExistingVPKBase[ MAX_PATH ] = {};
-				V_FileBase( pVPK->BaseName(), szExistingVPKBase, sizeof( szExistingVPKBase ) );
-				char const *szAfterRemovedPathVPK = StringAfterPrefix( szExistingVPKBase, newVPK );
-				if ( szAfterRemovedPathVPK && ( *szAfterRemovedPathVPK == 0 || *szAfterRemovedPathVPK == '_' ) )
-				{
-					m_VPKFiles.RemoveMultipleFromHead( 1 );
-					delete pVPK;
-				}
-				else
-					break;
-			}
-			return true;
-		}
-#endif
 		int c = m_SearchPaths.Count();
 		for ( int i = c - 1; i >= 0; i-- )
 		{
@@ -3368,40 +1674,11 @@ CBaseFileSystem::CSearchPath *CBaseFileSystem::FindWritePath( const char *pFilen
 	{
 		// pak files are not allowed to be written to...
 		CSearchPath *pSearchPath = &m_SearchPaths[i];
-		if ( pSearchPath->GetPackFile() )
-		{
-			continue;
-		}
 
 		if ( pathID && ( pSearchPath->GetPathID() != lookup ) )
 		{
 			// not the right pathID
 			continue;
-		}
-
-		if ( IsGameConsole() && ( m_DVDMode == DVDMODE_DEV ) && pFilename && !pSearchPath->m_bIsDvdDevPath )
-		{
-			bool bIgnorePath = false;
-			char szExcludeFile[MAX_PATH];
-			char szFilename[MAX_PATH];
-			V_ComposeFileName( pSearchPath->GetPathString(), pFilename, szFilename, sizeof( szFilename ) );
-			for ( int j = 0; j < m_ExcludeFilePaths.Count(); j++ )
-			{
-				if ( g_pFullFileSystem->String( m_ExcludeFilePaths[j], szExcludeFile, sizeof( szExcludeFile ) ) )
-				{
-					if ( !V_stricmp( szFilename, szExcludeFile ) )
-					{
-						bIgnorePath = true;
-						break;
-					}
-				}
-			}
-			if ( bIgnorePath )
-			{
-				// filename matches exclusion path, skip it
-				// favoring the next path which should be the path fall through hit
-				continue;
-			}
 		}
 
 		return pSearchPath;
@@ -3674,87 +1951,6 @@ bool CBaseFileSystem::WriteFile( const char *pFileName, const char *pPath, CUtlB
 }
 
 
-bool CBaseFileSystem::UnzipFile( const char *pFileName, const char *pPath, const char *pDestination )
-{
-#ifdef POSIX
-	Error( " need to hook up zip for linux" );
-#else
-	IZip *pZip = IZip::CreateZip( NULL, true );
-
-	HANDLE hZipFile = pZip->ParseFromDisk( pFileName );
-	if ( !hZipFile )
-	{
-		Msg( "Bad or missing zip file, failed to open '%s'\n", pFileName );
-		return false;
-	}
-
-	int iZipIndex = -1;
-	int iFileSize;
-	char szFileName[MAX_PATH];
-
-	// Create Directories
-	CreateDirHierarchy( pDestination, pPath );
-
-	while ( 1 )
-	{
-		// Get the next file in the zip
-		szFileName[0] = '\0';
-		iFileSize = 0;
-		iZipIndex = pZip->GetNextFilename( iZipIndex, szFileName, sizeof( szFileName ), iFileSize );
-
-		// If there aren't any more files then break out of this while
-		if ( iZipIndex == -1 )
-			break;
-
-		int iFileNameLength = Q_strlen( szFileName );
-		if ( szFileName[ iFileNameLength - 1 ] == '/' )
-		{
-			// Its a directory, so create it
-			szFileName[ iFileNameLength - 1 ] = '\0';
-
-			char szFinalName[ MAX_PATH ];
-			Q_snprintf( szFinalName, sizeof( szFinalName ), "%s\\%s", pDestination, szFileName );
-			CreateDirHierarchy( szFinalName, pPath );
-		}
-	}
-
-	// Write Files
-	while ( 1 )
-	{
-		szFileName[0] = '\0';
-		iFileSize = 0;
-		iZipIndex = pZip->GetNextFilename( iZipIndex, szFileName, sizeof( szFileName ), iFileSize );
-
-		// If there aren't any more files then break out of this while
-		if ( iZipIndex == -1 )
-			break;
-
-		int iFileNameLength = Q_strlen( szFileName );
-		if ( szFileName[ iFileNameLength - 1 ] != '/' )
-		{
-			// It's not a directory, so write the file
-			CUtlBuffer fileBuffer;
-			fileBuffer.Purge();
-
-			if ( pZip->ReadFileFromZip( hZipFile, szFileName, false, fileBuffer ) )
-			{
-				char szFinalName[ MAX_PATH ];
-				Q_snprintf( szFinalName, sizeof( szFinalName ), "%s\\%s", pDestination, szFileName );
-
-				WriteFile( szFinalName, pPath, fileBuffer );
-			}
-		}
-	}
-
-	::CloseHandle( hZipFile );
-
-	IZip::ReleaseZip( pZip );
-#endif
-
-	return true;
-}
-
-
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
@@ -3830,10 +2026,6 @@ public:
 		
 		if ( m_ppszResolvedFilename )
 			*m_ppszResolvedFilename = NULL;
-#ifdef SUPPORT_VPK
-		m_pPackFile = NULL;
-		m_pVPKFile = NULL;
-#endif
 	}
 	
 	~CFileOpenInfo()
@@ -3874,29 +2066,15 @@ public:
 			return;
 		}
 
-		if ( m_pFileSystem->m_WhitelistFileTrackingEnabled == 0 || !m_bTrackCRCs )
-			return;
 		
 		if ( m_pFileHandle )
 		{
 			FILE *fp = m_pFileHandle->m_pFile;
 			int64 nLength = m_pFileHandle->m_nLength;
-#ifdef SUPPORT_VPK
-			if ( m_pVPKFile )
-			{
-//				m_pFileSystem->m_FileTracker2.NotePackFileAccess( pRelativeFileName, m_pPath->GetPathIDString(), m_pFileHandle->m_VPKHandle );
-				return;
-			}
-#endif
 			// we always record hashes of everything we load. we may filter later.
 //			m_pFileSystem->m_FileTracker2.NoteFileLoadedFromDisk( pRelativeFileName, m_pPath->GetPathIDString(), fp, nLength );
-	}
-		else if ( m_bSteamCacheOnly )
-		{
-			// Remember that the file failed to load. We only need to do this in the case where we forced it to ignore files
-			// on disk (in which case we'll want it to check the disk next time if sv_pure changed).
-			m_pFileSystem->m_FileTracker.NoteFileFailedToLoad( pRelativeFileName, m_pPath->GetPathIDString() );
-		}
+        }
+
 	}
 
 	// Decides if the file must come from Steam or if it can be allowed to come off disk.
@@ -3905,9 +2083,6 @@ public:
 		if ( IsGameConsole() )
 		{
 			fileLoadInfo.m_bSteamCacheOnly = false;
-#ifdef _PS3
-            fileLoadInfo.m_ps3Filetype = PS3_FILETYPE_UNKNOWN;
-#endif
 			return;
 		}
 
@@ -3931,12 +2106,6 @@ public:
 	CFileHandle *m_pFileHandle;
 	char **m_ppszResolvedFilename;
 
-
-#ifdef SUPPORT_VPK
-	CPackFile *m_pPackFile;
-	CPackedStore *m_pVPKFile;
-#endif
-
 	const char *m_pFileName;
 	const CBaseFileSystem::CSearchPath *m_pPath;
 	const char *m_pOptions;
@@ -3951,99 +2120,6 @@ public:
 	char m_AbsolutePath[MAX_FILEPATH];	// This is set 
 };
 
-
-bool CBaseFileSystem::HandleOpenFromZipFile( CFileOpenInfo &openInfo )
-{
-	// an absolute path can encode a zip pack file (i.e. caller wants to open the file from within the pack file)
-	// format must strictly be ????.zip\????
-	// assuming a reasonable restriction that the zip must be a pre-existing search path zip
-	char *pZipExt = V_stristr( openInfo.m_AbsolutePath, ".zip" );
-	if ( !pZipExt )
-	{
-		pZipExt = V_stristr( openInfo.m_AbsolutePath, ".bsp" );
-	}
-	
-	if ( pZipExt && pZipExt[4] == CORRECT_PATH_SEPARATOR && pZipExt[5] )
-	{
-		// want full path to zip only, terminate at slash
-		pZipExt[4] = '\0';
-		// want relative portion only, everything after the slash
-		char *pRelativeFileName = pZipExt + 5;
-
-		// find the zip
-		for ( int i=0; i< m_ZipFiles.Count(); i++ )
-		{
-			CPackFile *pPackFile = m_ZipFiles[i];
-			
-			if ( Q_stricmp( pPackFile->m_ZipName.Get(), openInfo.m_AbsolutePath ) == 0 )
-			{
-				openInfo.m_pFileHandle = pPackFile->OpenFile( pRelativeFileName, openInfo.m_pOptions );
-#ifdef SUPPORT_VPK
-				openInfo.m_pPackFile = pPackFile;
-#endif
-				openInfo.HandleFileCRCTracking( pRelativeFileName, false );
-					
-				break;
-			}
-		}
-
-		if ( openInfo.m_pFileHandle )
-			openInfo.SetResolvedFilename( openInfo.m_pFileName );
-	
-		return true;
-	}
-	else
-	{
-		return false;
-	}
-}
-
-void CBaseFileSystem::HandleOpenFromPackFile( CPackFile *pPackFile, CFileOpenInfo &openInfo )
-{
-	openInfo.m_pFileHandle = pPackFile->OpenFile( openInfo.m_pFileName, openInfo.m_pOptions );
-#ifdef SUPPORT_VPK
-	openInfo.m_pPackFile = pPackFile;
-#endif
-
-	// HACK! The bsp pack's paths may be different now that we've moved it to the workshop subdir...
-	// If we're still failing to find it, remove the workshop/id subdir
-	if ( !openInfo.m_pFileHandle ) 
-	{
-		char szScratch[MAX_PATH];
-		V_strcpy_safe( szScratch, openInfo.m_pFileName );
-		CFmtStr workshopDir( "%cworkshop%c", CORRECT_PATH_SEPARATOR, CORRECT_PATH_SEPARATOR );
-		char *pStart = V_stristr( szScratch, workshopDir.Access() );
-		if ( pStart && pStart[0] && pStart[1] )
-		{
-			*pStart = 0; // null terminate the first section of the path we're keeping
-			pStart++;
-			size_t len = strlen( pStart );
-			const char *pEnd = V_strnchr( pStart, CORRECT_PATH_SEPARATOR, len ); // skip past workshop path
-			if ( pEnd && pEnd[0] && pEnd[1] )
-			{
-				len = strlen( pEnd );
-				pEnd = V_strnchr( pEnd+1, CORRECT_PATH_SEPARATOR, len ); // skip past id path
-				if ( pEnd )
-				{
-					CFmtStr pathNoWorkshop( "%s%s", szScratch, pEnd );
-					openInfo.m_pFileHandle = pPackFile->OpenFile( pathNoWorkshop.Access(), openInfo.m_pOptions );
-				}
-			}
-		}
-	}
-
-	if ( openInfo.m_pFileHandle )
-	{
-		char tempStr[MAX_PATH*2+2];
-		V_snprintf( tempStr, sizeof( tempStr ), "%s%c%s", pPackFile->m_ZipName.String(), CORRECT_PATH_SEPARATOR, openInfo.m_pFileName );
-		openInfo.SetResolvedFilename( tempStr );
-	}
-
-	// If it's a BSP file, then the BSP file got CRC'd elsewhere so no need to verify stuff in there.
-	if ( !pPackFile->m_bIsMapPath )
-		openInfo.HandleFileCRCTracking( openInfo.m_pFileName, false );
-}
-
 void CBaseFileSystem::HandleOpenRegularFile( CFileOpenInfo &openInfo, bool bIsAbsolutePath )
 {
 	// Setup the parameters for the call (like to tell Steam to force the file to come out of the Steam caches or not).
@@ -4053,15 +2129,9 @@ void CBaseFileSystem::HandleOpenRegularFile( CFileOpenInfo &openInfo, bool bIsAb
 	// xbox dvddev mode needs to convolve non-compliant fatx filenames
 	// purposely placing this at this level, so only loose files pay the burden
 	const char *pFilename = openInfo.m_AbsolutePath;
-	bool bFixed = false;
-	char fixedFATXFilename[MAX_PATH];
-	if ( IsX360() )
-	{
-		bFixed = FixupFATXFilename( pFilename, fixedFATXFilename, sizeof( fixedFATXFilename ) );
-	}
 
 	int64 size;
-	FILE *fp = Trace_FOpen( bFixed ? fixedFATXFilename : pFilename, openInfo.m_pOptions, openInfo.m_Flags, &size, &fileLoadInfo );
+	FILE *fp = Trace_FOpen( pFilename, openInfo.m_pOptions, openInfo.m_Flags, &size, &fileLoadInfo );
 	if ( fp )
 	{
 		if ( m_pLogFile )
@@ -4121,54 +2191,12 @@ FileHandle_t CBaseFileSystem::FindFile(
 	bool bIsAbsolutePath = V_IsAbsolutePath( pFileName );
 	if ( bIsAbsolutePath )
 	{
-#ifdef SUPPORT_VPK
-		if ( m_VPKFiles.Count()  && ( ! V_stristr( pFileName, ".vpk" ) ) )
-		{
-			// FileSystemWarning( FILESYSTEM_WARNING, "***VPK: FindFile Attempting to use full path with VPK file!\n\tFile: %s\n", pFileName );
-		}
-#endif
 		openInfo.SetAbsolutePath( "%s", pFileName );
-
-		// Check if it's of the form C:/a/b/c/blah.zip/materials/blah.vtf
-		if ( HandleOpenFromZipFile( openInfo ) )
-		{
-			return (FileHandle_t)openInfo.m_pFileHandle;
-		}
 	}
 	else
 	{
-		// check vpk file
-#ifdef SUPPORT_VPK
-		for( int i = 0 ; i < m_VPKFiles.Count(); i++ )
-		{
-			CPackedStoreFileHandle fHandle = m_VPKFiles[i]->OpenFile( pFileName );
-			if ( fHandle )
-			{
-				openInfo.m_pFileHandle = new CFileHandle(this);
-				openInfo.m_pFileHandle->m_VPKHandle = fHandle;
-				openInfo.m_pFileHandle->m_type = FT_NORMAL;
-				openInfo.m_pFileHandle->m_nLength = fHandle.m_nFileSize;
-				openInfo.SetResolvedFilename( openInfo.m_AbsolutePath );
-		
-				// Remember what was returned by the Steam filesystem and track the CRC.
-				openInfo.m_bLoadedFromSteamCache = false;
-				openInfo.m_bSteamCacheOnly = false;
-				openInfo.m_pVPKFile = m_VPKFiles[i];
-				openInfo.HandleFileCRCTracking( openInfo.m_pFileName, false );
-				return ( FileHandle_t ) openInfo.m_pFileHandle;
-			}
-		}
-#endif
 		// Caller provided a relative path
-		if ( path->GetPackFile() )
-		{
-			HandleOpenFromPackFile( path->GetPackFile(), openInfo );
-			return (FileHandle_t)openInfo.m_pFileHandle;
-		}
-		else
-		{
-			openInfo.SetAbsolutePath( "%s%s", path->GetPathString(), pFileName );
-		}
+        openInfo.SetAbsolutePath( "%s%s", path->GetPathString(), pFileName );
 	}
 
 	// now have an absolute name
@@ -4689,85 +2717,41 @@ long CBaseFileSystem::FastFileTime( const CSearchPath *path, const char *pFileNa
 	char tempSymlinkBuffer[MAX_PATH];
 	pFileName = V_FormatFilenameForSymlinking( tempSymlinkBuffer, pFileName );
 
-	if ( path->GetPackFile() )
-	{
-		int		nIndex, nLength;
-		int64	nPosition;
 
-		// If we found the file:
-		if ( path->GetPackFile()->FindFile( pFileName, nIndex, nPosition, nLength ) )
-		{
-			return (path->GetPackFile()->m_lPackFileTime);
-		}
-	}
-	else
-	{
-		// Is it an absolute path?
-		char tempFileName[ MAX_FILEPATH ]; 
-		
-		if ( Q_IsAbsolutePath( pFileName ) )
-		{
-			Q_strncpy( tempFileName, pFileName, sizeof( tempFileName ) );
-#ifdef SUPPORT_VPK
-			if ( m_VPKFiles.Count() )
-			{
-#ifdef _DEBUG
-				FileSystemWarning( FILESYSTEM_WARNING, "***VPK: FastFileTime Attempting to use full path with VPK file!\n\tFile: %s\n", pFileName );
-#endif
-			}
-#endif
-		}
-		else
-		{
-			bool bFileInVpk = false;
-#ifdef SUPPORT_VPK
-			if ( m_VPKFiles.Count() )
-			{
-				Q_strncpy( tempFileName, pFileName, sizeof( tempFileName ) );
-				Q_FixSlashes( tempFileName );
-				// check vpk file
-				for ( int i = 0; i < m_VPKFiles.Count(); i++ )
-				{
-					CPackedStoreFileHandle fHandle = m_VPKFiles[i]->OpenFile( tempFileName );
-					if ( fHandle )
-					{
-						// File found in VPK - return file time of the VPK
-						m_VPKFiles[i]->GetPackFileName( fHandle, tempFileName, sizeof( tempFileName ) );
-						bFileInVpk = true;
-						break;
-					}
-				}
-			}
-#endif
+    // Is it an absolute path?
+    char tempFileName[ MAX_FILEPATH ];
 
-			if ( !bFileInVpk )
-			{
-				Q_snprintf( tempFileName, sizeof( tempFileName ), "%s%s", path->GetPathString(), pFileName );
-			}
-		}
-		Q_FixSlashes( tempFileName );
+    if ( Q_IsAbsolutePath( pFileName ) )
+    {
+        Q_strncpy( tempFileName, pFileName, sizeof( tempFileName ) );
+    }
+    else
+    {
+        bool bFileInVpk = false;
 
-		bool bFixed = false;
-		char fixedFATXFilename[MAX_PATH];
-		if ( IsX360() )
-		{
-			bFixed = FixupFATXFilename( tempFileName, fixedFATXFilename, sizeof( fixedFATXFilename ) );
-		}
+        if ( !bFileInVpk )
+        {
+            Q_snprintf( tempFileName, sizeof( tempFileName ), "%s%s", path->GetPathString(), pFileName );
+        }
+    }
+    Q_FixSlashes( tempFileName );
 
-		if ( FS_stat( bFixed ? fixedFATXFilename : tempFileName, &buf ) != -1 )
-		{
-			return buf.st_mtime;
-		}
+
+
+
+    if ( FS_stat( tempFileName, &buf ) != -1 )
+    {
+        return buf.st_mtime;
+    }
 #ifdef LINUX
-		// Support Linux and its case sensitive file system
-		char realName[MAX_PATH];
-		const char *pRealName = findFileInDirCaseInsensitive( tempFileName, realName );
-		if ( pRealName && FS_stat( pRealName, &buf ) != -1 )
-		{
-			return buf.st_mtime;
-		}
+    // Support Linux and its case sensitive file system
+    char realName[MAX_PATH];
+    const char *pRealName = findFileInDirCaseInsensitive( tempFileName, realName );
+    if ( pRealName && FS_stat( pRealName, &buf ) != -1 )
+    {
+        return buf.st_mtime;
+    }
 #endif
-	}
 
 	return ( 0L );
 }
@@ -4779,49 +2763,10 @@ int CBaseFileSystem::FastFindFile( const CSearchPath *path, const char *pFileNam
 	char tempSymlinkBuffer[MAX_PATH];
 	pFileName = V_FormatFilenameForSymlinking( tempSymlinkBuffer, pFileName );
 
-	if ( path->GetPackFile() )
-	{
-		int nIndexResult;
-		int64 nOffsetResult;
-		int nLengthResult;
-		if ( path->GetPackFile()->FindFile( pFileName, nIndexResult, nOffsetResult, nLengthResult ) )
-		{
-			return nLengthResult;
-		}
-		else
-		{
-			return -1;
-		}
-	}
-
-	char tempFileName[ MAX_FILEPATH ]; 
+	char tempFileName[ MAX_FILEPATH ];
 
 	// Is it an absolute path?	
 	bool bRelativePath = !Q_IsAbsolutePath( pFileName );
-
-#ifdef SUPPORT_VPK
-	// NOTE: Pack files need relative paths
-	if ( !bRelativePath && m_VPKFiles.Count() )
-	{
-#ifdef _DEBUG
-		FileSystemWarning( FILESYSTEM_WARNING, "***VPK: FastFindFile Attempting to use full path with VPK file!\n\tFile: %s\n", pFileName );
-#endif
-	}
-	if ( bRelativePath )
-	{
-		Q_strncpy( tempFileName, pFileName, sizeof( tempFileName ) );
-		Q_FixSlashes( tempFileName );
-		// check vpk file
-		for( int i = 0 ; i < m_VPKFiles.Count(); i++ )
-		{
-			CPackedStoreFileHandle fHandle = m_VPKFiles[i]->OpenFile( tempFileName );
-			if ( fHandle )
-			{
-				return fHandle.m_nFileSize;
-			}
-		}
-	}
-#endif
 
 	if ( !bRelativePath )
 	{
@@ -4833,17 +2778,13 @@ int CBaseFileSystem::FastFindFile( const CSearchPath *path, const char *pFileNam
 	}
 	Q_FixSlashes( tempFileName );
 
-	bool bFixed = false;
-	char fixedFATXFilename[MAX_PATH];
-	if ( IsX360() )
-	{
-		bFixed = FixupFATXFilename( tempFileName, fixedFATXFilename, sizeof( fixedFATXFilename ) );
-	}
+
+	
 
 #if defined(_PS3)
 	FixUpPathCaseForPS3(tempFileName);
 #endif
-	if ( FS_stat( bFixed ? fixedFATXFilename : tempFileName, &buf ) != -1 )
+	if ( FS_stat( tempFileName, &buf ) != -1 )
 	{
 		LogAccessToFile( "stat", tempFileName, "" );
 		return buf.st_size;
@@ -5007,39 +2948,6 @@ bool CBaseFileSystem::LookupKeyValuesRootKeyName( char const *filename, char con
 		return false;
 	}
 	return true;
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
-void CBaseFileSystem::SetupPreloadData()
-{
-	int i;
-
-	for ( i = 0; i < m_SearchPaths.Count(); i++ )
-	{
-		CPackFile* pPF = m_SearchPaths[i].GetPackFile();
-		if ( pPF ) 
-		{
-			pPF->SetupPreloadData();
-		}
-	}
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
-void CBaseFileSystem::DiscardPreloadData()
-{
-	int i;
-	for( i = 0; i < m_SearchPaths.Count(); i++ )
-	{
-		CPackFile* pf = m_SearchPaths[i].GetPackFile();
-		if ( pf )
-		{
-			pf->DiscardPreloadData();
-		}
-	}
 }
 
 //-----------------------------------------------------------------------------
@@ -5248,7 +3156,7 @@ long CBaseFileSystem::GetFileTime( const char *pFileName, const char *pPathID )
 		long ft = FastFileTime( pSearchPath, tempFileName );
 		if ( ft != 0L )
 		{
-			if ( !pSearchPath->GetPackFile() && m_LogFuncs.Count() )
+			if ( m_LogFuncs.Count() )
 			{
 				char pTmpFileName[ MAX_FILEPATH ]; 
 				if ( strchr( tempFileName, ':' ) ) // 
@@ -5292,7 +3200,7 @@ long CBaseFileSystem::GetPathTime( const char *pFileName, const char *pPathID )
 			pathTime = ft;
 		if ( ft != 0L )
 		{
-			if ( !pSearchPath->GetPackFile() && m_LogFuncs.Count() )
+			if (  m_LogFuncs.Count() )
 			{
 				char pTmpFileName[ MAX_FILEPATH ]; 
 				if ( strchr( tempFileName, ':' ) )
@@ -5313,112 +3221,6 @@ long CBaseFileSystem::GetPathTime( const char *pFileName, const char *pPathID )
 	return pathTime;
 }
 
-
-bool CBaseFileSystem::ShouldGameReloadFile( const char *pFilename )
-{
-	if ( IsGameConsole() )
-	{
-		return false;
-	}
-
-	if ( V_IsAbsolutePath( pFilename ) )
-	{
-		if ( m_WhitelistSpewFlags & WHITELIST_SPEW_RELOAD_FILES )
-		{
-			Msg( "Whitelist -       reload (absolute path) %s\n", pFilename );
-		}
-
-		// They should be checking with relative filenames, but this is easy to remedy if we need to.
-		// Easy enough to remedy if we want.. just strip off the path ID prefixes until we find the file.
-		Assert( false );	
-		return true;
-	}
-
-	CFileInfo *fileInfos[256];
-	int nFileInfos = m_FileTracker.GetFileInfos( fileInfos, ARRAYSIZE( fileInfos ), pFilename );
-	if ( nFileInfos == 0 )
-	{
-		// Ain't heard of this file. It probably came from a BSP or a pak file.
-		if ( m_WhitelistSpewFlags & WHITELIST_SPEW_DONT_RELOAD_FILES )
-		{
-			Msg( "Whitelist - don't reload (unheard-of-file) %s\n", pFilename );
-		}			
-		return false;
-	}
-
-	// Note: This might be null, in which case all files are allowed to come off disk.
-	bool bFileAllowedToComeFromDisk = true;
-	CWhitelistSpecs *pWhitelist = m_FileWhitelist.GetInMainThread();
-	if ( pWhitelist )
-		bFileAllowedToComeFromDisk = pWhitelist->m_pAllowFromDiskList->IsFileInList( pFilename );
-	
-	// Since we don't require the game to specify which path ID it's interested in here, there's a small amount
-	// of ambiguity here (because 2 files with the same name could have been loaded from different path IDs).
-	// This case should be extremely rare, and we error on the side of simplicity (don't require the game to 
-	// remember which path ID its files were opened from).
-	//
-	// In the case where there are multiple files, we error on the side of reloading the file - if any of the
-	// files here would require a reload, then we tell the game to reload this file even if it might not
-	// have strictly needed to reload it.
-	bool bRet = false;
-	for ( int i=0; i < nFileInfos; i++ )
-	{
-		CFileInfo *pFileInfo = fileInfos[i];
-		
-		// See comments above k_eFileFlagsFailedToLoadLastTime for info about this case.
-		if ( bFileAllowedToComeFromDisk && (pFileInfo->m_Flags & k_eFileFlagsFailedToLoadLastTime) )
-		{
-			bRet = true;
-			break;
-		}
-		
-		if ( pFileInfo->m_Flags & k_eFileFlagsLoadedFromSteam )
-		{
-			if ( (pFileInfo->m_Flags & k_eFileFlagsForcedLoadFromSteam) && bFileAllowedToComeFromDisk )
-			{
-				// So.. the last time we loaded this file, we forced it to come from Steam, but the new whitelist says it's ok if this
-				// file is loaded off disk. So reload it. 
-				//
-				// TODO: we could optimize this by checking if there even IS a file on disk that would override the Steam one,
-				//       and in that case, don't tell the game to reload it.
-				//
-				//       We could also optimize it if we remembered whether we told Steam to allow loads off disk or not.
-				//		 If we did allow loads and Steam still got the file from Steam, then we know that there isn't
-				//		 a file on disk here, and therefore we wouldn't have to reload it now.
-				bRet = true;
-				break;
-			}
-			else
-			{
-				// So we loaded the file from Steam last time, and the new whitelist only allows it to come from Steam, so we're ok.
-				//return false;
-			}
-		}
-		else
-		{
-			if ( bFileAllowedToComeFromDisk )
-			{
-				// No need to reload. The new whitelist says this file can come off disk, and the last time we loaded it, it was off disk.
-				// The client will still verify the CRC of the file with the server to make sure its file is legit..
-				//return false;
-			}
-			else
-			{
-				// The file was loaded off disk but the server won't allow that now.
-				bRet = true;
-				break;
-			}
-		}
-	}
-
-	if ( (m_WhitelistSpewFlags & WHITELIST_SPEW_RELOAD_FILES) && bRet )
-		Msg( "Whitelist -       reload %s\n", pFilename );
-
-	if ( (m_WhitelistSpewFlags & WHITELIST_SPEW_DONT_RELOAD_FILES) && !bRet )
-		Msg( "Whitelist - don't reload %s\n", pFilename );
-
-	return bRet;
-}
 
 
 void CBaseFileSystem::MarkAllCRCsUnverified()
@@ -5450,280 +3252,12 @@ void CBaseFileSystem::CacheFileCRCs( const char *pPathname, ECacheCRCType eType,
 	}
 	m_SearchPathsMutex.Unlock();
 
-	CacheFileCRCs_R( pPathname, eType, pFilter, searchPathNames );
 }
-
-
-void CBaseFileSystem::CacheFileCRCs_R( const char *pPathname, ECacheCRCType eType, IFileList *pFilter, CUtlDict<int,int> &searchPathNames )
-{
-	if ( IsGameConsole() )
-	{
-		return;
-	}
-
-	char searchStr[MAX_PATH];
-	bool bRecursive = false;
-
-	if ( eType == k_eCacheCRCType_SingleFile )
-	{
-		V_snprintf( searchStr, sizeof( searchStr ), "%s", pPathname );
-	}
-	else if ( eType == k_eCacheCRCType_Directory )
-	{
-		V_ComposeFileName( pPathname, "*.*", searchStr, sizeof( searchStr ) );
-	}
-	else if ( eType == k_eCacheCRCType_Directory_Recursive )
-	{
-		V_ComposeFileName( pPathname, "*.*", searchStr, sizeof( searchStr ) );
-		bRecursive = true;
-	}
-	
-	// Get the path we're searching in.
-	char pathDirectory[MAX_PATH];
-	V_strncpy( pathDirectory, searchStr, sizeof( pathDirectory ) );
-	V_StripLastDir( pathDirectory, sizeof( pathDirectory ) );
-
-	/*
-	Note:	This is tricky because the client could check different path IDs with the same filename and we'd either
-			have the same file or a different file depending on these two cases:
-			
-			a) they have one file : hl2\blah.txt
-			   (in this case, checking the GAME and MOD path IDs for blah.txt return the same file CRC)
-			   
-			b) they have two files: hl2\blah.txt AND hl2mp\blah.txt
-			   (in this case, checking the GAME and MOD path IDs for blah.txt return different file CRCs)
-	*/				
-
-	
-	CUtlDict< CUtlVector<CStoreIDEntry>* ,int> filesByStoreID;			// key=filename, value=list of store IDs this filename was found in
-	for ( int i=searchPathNames.First(); i != searchPathNames.InvalidIndex(); i = searchPathNames.Next( i ) )
-	{
-		// Now find all the files..
-		int foundStoreID;
-		const char *pPathIDStr = searchPathNames.GetElementName( i );
-		FileFindHandle_t findHandle;
-		const char *pFilename = FindFirstHelper( searchStr, pPathIDStr, &findHandle, &foundStoreID );
-		while ( pFilename )
-		{
-			if ( pFilename[0] != '.' )
-			{
-				char relativeName[MAX_PATH];
-				V_ComposeFileName( pathDirectory, pFilename, relativeName, sizeof( relativeName ) );
-
-				if ( FindIsDirectory( findHandle ) )
-				{
-					if ( bRecursive )
-						CacheFileCRCs_R( relativeName, eType, pFilter, searchPathNames );
-				}
-				else
-				{
-					if ( pFilter->IsFileInList( relativeName ) )
-					{
-						CStoreIDEntry *pPrevRecord = FindPrevFileByStoreID( filesByStoreID, pFilename, pPathIDStr, foundStoreID );
-						if ( pPrevRecord )
-						{
-							// Ok, we already found this file in an earlier search path with the same storeID (i.e. the exact same disk path)
-							// so rather than recalculate the CRC redundantly, just copy the CRC from the previous one into a record with the new path ID string.
-							// This saves a lot of redundant CRC calculations since logdir, default_write_path, game, and mod all share directories.
-							m_FileTracker.CacheFileCRC_Copy( pPathIDStr, relativeName, pPrevRecord->m_PathIDString.String() );
-						}
-						else 
-						{
-							// Ok, we want the CRC for this file.
-							m_FileTracker.CacheFileCRC( pPathIDStr, relativeName );
-						}
-					}
-				}
-			}
-
-			FindData_t *pFindData = &m_FindData[findHandle];
-			if ( !FindNextFileHelper( pFindData, &foundStoreID ) )
-				break;
-			
-			pFilename = pFindData->findData.cFileName;
-		}
-		FindClose( findHandle );
-	}
-	filesByStoreID.PurgeAndDeleteElements();
-}
-
 
 EFileCRCStatus CBaseFileSystem::CheckCachedFileHash( const char *pPathID, const char *pRelativeFilename, int nFileFraction, FileHash_t *pFileHash )
 {
 //	return m_FileTracker2.CheckCachedFileHash( pPathID, pRelativeFilename, nFileFraction, pFileHash );
     return EFileCRCStatus::k_eFileCRCStatus_CantOpenFile;
-}
-
-
-void CBaseFileSystem::EnableWhitelistFileTracking( bool bEnable, bool bCacheAllVPKHashes, bool bRecalculateAndCheckHashes )
-{
-	if ( IsGameConsole() )
-	{
-		m_WhitelistFileTrackingEnabled = false;
-		return;
-	}
-
-	if ( m_WhitelistFileTrackingEnabled != -1 )
-	{
-		Error( "CBaseFileSystem::EnableWhitelistFileTracking called more than once." );
-	}
-	
-	m_WhitelistFileTrackingEnabled = bEnable;
-	if ( m_WhitelistFileTrackingEnabled && bCacheAllVPKHashes )
-	{
-		CacheAllVPKFileHashes( bCacheAllVPKHashes, bRecalculateAndCheckHashes );
-	}
-}
-
-
-void CBaseFileSystem::CacheAllVPKFileHashes( bool bCacheAllVPKHashes, bool bRecalculateAndCheckHashes )
-{
-#ifdef SUPPORT_VPK
-	for( int i = 0 ; i < m_VPKFiles.Count(); i++ )
-	{
-		if ( !m_VPKFiles[i]->BTestDirectoryHash() )
-		{
-			Msg( "VPK dir file hash does not match. File corrupted or modified.\n" );
-		}
-		if ( !m_VPKFiles[i]->BTestMasterChunkHash() )
-		{
-			Msg( "VPK chunk hash hash does not match. File corrupted or modified.\n" );
-		}
-
-		CUtlVector<ChunkHashFraction_t> &vecChunkHash = m_VPKFiles[i]->AccessPackFileHashes();
-		CPackedStoreFileHandle fhandle = m_VPKFiles[i]->GetHandleForHashingFiles();
-		CUtlVector<ChunkHashFraction_t> vecChunkHashFractionCopy;
-		if ( bRecalculateAndCheckHashes )
-		{
-			CUtlString sPackFileErrors;
-			m_VPKFiles[i]->GetPackFileLoadErrorSummary( sPackFileErrors );
-
-			if ( sPackFileErrors.Length() )
-			{
-				Msg( "Errors occured loading files.\n" );
-				Msg( "%s", sPackFileErrors.String() );
-				Msg( "Verify integrity of your game files, perform memory and disk diagnostics on your system.\n" );
-			}
-			else
-				Msg( "No VPK Errors occured loading files.\n" );
-
-			Msg( "Recomputing all VPK file hashes.\n" );
-			vecChunkHashFractionCopy.Swap( vecChunkHash );
-		}
-		int cFailures = 0;
-		if ( vecChunkHash.Count() == 0 )
-		{
-			if ( vecChunkHashFractionCopy.Count() == 0 )
-				Msg( "File hash information not found: Hashing all VPK files for pure server operation.\n" );
-			m_VPKFiles[i]->HashAllChunkFiles();
-			if ( vecChunkHashFractionCopy.Count() != 0 )
-			{
-				if ( vecChunkHash.Count() != vecChunkHashFractionCopy.Count() )
-				{
-					Msg( "VPK hash count does not match. VPK content may be corrupt.\n" );
-				}
-				else if  ( Q_memcmp( vecChunkHash.Base(), vecChunkHashFractionCopy.Base(), vecChunkHash.Count()*sizeof(vecChunkHash[0])) != 0 )
-				{
-					Msg( "VPK hashes do not match. VPK content may be corrupt.\n" );
-					// find the actual mismatch
-					FOR_EACH_VEC( vecChunkHashFractionCopy, iHash )
-					{
-						if ( Q_memcmp( vecChunkHashFractionCopy[iHash].m_md5contents.bits, vecChunkHash[iHash].m_md5contents.bits, sizeof( vecChunkHashFractionCopy[iHash].m_md5contents.bits ) ) != 0 )
-						{
-							Msg( "VPK hash for file %d failure at offset %x.\n", vecChunkHashFractionCopy[iHash].m_nPackFileNumber, vecChunkHashFractionCopy[iHash].m_nFileFraction );
-							cFailures++;
-						}
-					}
-				}
-			}
-		}
-		if ( bCacheAllVPKHashes )
-		{
-			Msg( "Loading VPK file hashes for pure server operation.\n" );
-			FOR_EACH_VEC( vecChunkHash, i )
-			{
-//				m_FileTracker2.AddFileHashForVPKFile( vecChunkHash[i].m_nPackFileNumber, vecChunkHash[i].m_nFileFraction, vecChunkHash[i].m_cbChunkLen, vecChunkHash[i].m_md5contents, fhandle );
-			}
-		}
-		else
-		{
-			if ( cFailures == 0 && vecChunkHash.Count() == vecChunkHashFractionCopy.Count() )
-				Msg( "File hashes checked. %d matches. no failures.\n", vecChunkHash.Count() );
-			else
-				Msg( "File hashes checked. %d matches. %d failures.\n", vecChunkHash.Count(), cFailures );
-		}
-	}
-#endif
-}
-
-
-bool CBaseFileSystem::CheckVPKFileHash( int PackFileID, int nPackFileNumber, int nFileFraction, MD5Value_t &md5Value )
-{
-#ifdef SUPPORT_VPK
-	for( int i = 0 ; i < m_VPKFiles.Count(); i++ )
-	{
-		if ( m_VPKFiles[i]->m_PackFileID == PackFileID )
-		{
-			ChunkHashFraction_t fileHashFraction;
-			if ( m_VPKFiles[i]->FindFileHashFraction( nPackFileNumber, nFileFraction, fileHashFraction ) )
-			{
-				CPackedStoreFileHandle fhandle = m_VPKFiles[i]->GetHandleForHashingFiles();
-				fhandle.m_nFileNumber = nPackFileNumber;
-				char szFileName[MAX_PATH];
-
-				m_VPKFiles[i]->GetPackFileName( fhandle, szFileName, sizeof(szFileName) );
-
-				char hex[ 34 ];
-				Q_memset( hex, 0, sizeof( hex ) );
-				Q_binarytohex( (const byte *)md5Value.bits, sizeof( md5Value.bits ), hex, sizeof( hex ) );
-
-				char hex2[ 34 ];
-				Q_memset( hex2, 0, sizeof( hex2 ) );
-				Q_binarytohex( (const byte *)fileHashFraction.m_md5contents.bits, sizeof( fileHashFraction.m_md5contents.bits ), hex2, sizeof( hex2 ) );
-
-				if ( Q_memcmp( fileHashFraction.m_md5contents.bits, md5Value.bits, sizeof(md5Value.bits) ) != 0 )
-				{
-					Msg( "File %s offset %x hash %s does not match ( should be %s ) \n", szFileName, nFileFraction, hex, hex2 );
-					return false;
-				}
-				else
-				{
-					return true;
-				}
-			}
-		}
-	}
-	return false;
-#endif
-}
-
-
-void CBaseFileSystem::RegisterFileWhitelist( IFileList *pWantCRCList, IFileList *pAllowFromDiskList, IFileList **pFilesToReload )
-{
-	if ( IsGameConsole() )
-	{
-		return;
-	}
-
-	CWhitelistSpecs *pOldList = m_FileWhitelist.GetInMainThread();
-	if ( pOldList )
-	{
-		m_FileWhitelist.ReleaseRef( pOldList );					// Get rid of our reference to it so it can be freed.
-		m_FileWhitelist.ResetWhenNoRemainingReferences( NULL );	// Wait for everyone else to stop hanging onto it, then free it.
-	
-		// Free the old ones (other threads shouldn't have access to these anymore because 
-		pOldList->m_pAllowFromDiskList->Release();
-		pOldList->m_pWantCRCList->Release();
-	}
-	
-	if ( pAllowFromDiskList && pWantCRCList )
-	{
-		CWhitelistSpecs *pNewList = new CWhitelistSpecs;
-		pNewList->m_pAllowFromDiskList = pAllowFromDiskList;
-		pNewList->m_pWantCRCList = pWantCRCList;
-		m_FileWhitelist.Init( pNewList );
-	}
-
 }
 
 
@@ -5819,14 +3353,10 @@ bool CBaseFileSystem::IsFileWritable( char const *pFileName, char const *pPathID
 
 	if ( Q_IsAbsolutePath( pFileName ) )
 	{
-		bool bFixed = false;
-		char fixedFATXFilename[MAX_PATH];
-		if ( IsX360() )
-		{
-			bFixed = FixupFATXFilename( pFileName, fixedFATXFilename, sizeof( fixedFATXFilename ) );
-		}
 
-		if ( FS_stat( bFixed ? fixedFATXFilename : pFileName, &buf ) != -1 )
+		
+
+		if ( FS_stat( pFileName, &buf ) != -1 )
 		{
 #ifdef WIN32
 			if ( buf.st_mode & _S_IWRITE )
@@ -5851,14 +3381,10 @@ bool CBaseFileSystem::IsFileWritable( char const *pFileName, char const *pPathID
 		Q_snprintf( tempFileName, sizeof( tempFileName ), "%s%s", pSearchPath->GetPathString(), pFileName );
 		Q_FixSlashes( tempFileName );
 
-		bool bFixed = false;
-		char fixedFATXFilename[MAX_PATH];
-		if ( IsX360() )
-		{
-			bFixed = FixupFATXFilename( tempFileName, fixedFATXFilename, sizeof( fixedFATXFilename ) );
-		}
 
-		if ( FS_stat( bFixed ? fixedFATXFilename : tempFileName, &buf ) != -1 )
+		
+
+		if ( FS_stat( tempFileName, &buf ) != -1 )
 		{
 #ifdef WIN32
 			if ( buf.st_mode & _S_IWRITE )
@@ -5895,14 +3421,10 @@ bool CBaseFileSystem::SetFileWritable( char const *pFileName, bool writable, con
 
 	if ( Q_IsAbsolutePath( pFileName ) )
 	{
-		bool bFixed = false;
-		char fixedFATXFilename[MAX_PATH];
-		if ( IsX360() )
-		{
-			bFixed = FixupFATXFilename( pFileName, fixedFATXFilename, sizeof( fixedFATXFilename ) );
-		}
 
-		return ( FS_chmod( bFixed ? fixedFATXFilename : pFileName, pmode ) == 0 );
+		
+
+		return ( FS_chmod( pFileName, pmode ) == 0 );
 	}
 
 	CSearchPathsIterator iter( this, &pFileName, pPathID, FILTER_CULLPACK );
@@ -5912,14 +3434,10 @@ bool CBaseFileSystem::SetFileWritable( char const *pFileName, bool writable, con
 		Q_snprintf( tempFilename, sizeof( tempFilename ), "%s%s", pSearchPath->GetPathString(), pFileName );
 		Q_FixSlashes( tempFilename );
 
-		bool bFixed = false;
-		char fixedFATXFilename[MAX_PATH];
-		if ( IsX360() )
-		{
-			bFixed = FixupFATXFilename( tempFilename, fixedFATXFilename, sizeof( fixedFATXFilename ) );
-		}
 
-		if ( FS_chmod( bFixed ? fixedFATXFilename : tempFilename, pmode ) == 0 )
+		
+
+		if ( FS_chmod( tempFilename, pmode ) == 0 )
 		{
 			return true;
 		}
@@ -5951,14 +3469,10 @@ bool CBaseFileSystem::IsDirectory( const char *pFileName, const char *pathID )
 	ParsePathID( pFileName, pathID, tempPathID );
 	if ( Q_IsAbsolutePath( pFileName ) )
 	{
-		bool bFixed = false;
-		char fixedFATXFilename[MAX_PATH];
-		if ( IsX360() )
-		{
-			bFixed = FixupFATXFilename( pFileName, fixedFATXFilename, sizeof( fixedFATXFilename ) );
-		}
 
-		if ( FS_stat( bFixed ? fixedFATXFilename : pFileName, &buf ) != -1 )
+		
+
+		if ( FS_stat( pFileName, &buf ) != -1 )
 		{
 			if ( buf.st_mode & _S_IFDIR )
 				return true;
@@ -5973,50 +3487,16 @@ bool CBaseFileSystem::IsDirectory( const char *pFileName, const char *pathID )
 		Q_snprintf( tempFileName, sizeof( tempFileName ), "%s%s", pSearchPath->GetPathString(), pFileName );
 		Q_FixSlashes( tempFileName );
 
-		bool bFixed = false;
-		char fixedFATXFilename[MAX_PATH];
-		if ( IsX360() )
-		{
-			bFixed = FixupFATXFilename( tempFileName, fixedFATXFilename, sizeof( fixedFATXFilename ) );
-		}
 
-		if ( FS_stat( bFixed ? fixedFATXFilename : tempFileName, &buf ) != -1 )
+		
+
+		if ( FS_stat( tempFileName, &buf ) != -1 )
 		{
 			if ( buf.st_mode & _S_IFDIR )
 				return true;
 		}
 	}
-
-#ifdef SUPPORT_VPK
-	//
-	// Let's see if the directory exists in the VPK file structure
-	//
-	if ( 0 == m_VPKDirectories.Count() )
-	{
-		// Populate the directory list
-		CUtlStringList dirNames;
-		CUtlStringList fileNames;
-
-		for( int i = 0 ; i < m_VPKFiles.Count(); i++ )
-		{
-			m_VPKFiles[i]->GetFileAndDirLists( dirNames, fileNames, true );
-		}
-
-		FOR_EACH_VEC( dirNames, j )
-		{
-			m_VPKDirectories.Insert( dirNames[j], 0 );
-		}
-	}
-
-	// If the dir isn't part of the VPK structure then game over
-	char szPathWithCorrectSlashes[MAX_PATH];
-	V_strncpy( szPathWithCorrectSlashes, pFileName, sizeof( szPathWithCorrectSlashes ) );
-	V_FixSlashes( szPathWithCorrectSlashes, '/' );
-
-	return ( -1 != m_VPKDirectories.Find( szPathWithCorrectSlashes ) );
-#else
 	return ( false );
-#endif
 }
 
 
@@ -6092,18 +3572,14 @@ void CBaseFileSystem::FindFileAbsoluteListHelper( CUtlVector< CUtlString > &outA
 {
 	// TODO: figure out what PS3 does without VPKs
 #ifndef _PS3
-	bool bFixed = false;
-	char fixedFATXFilename[MAX_PATH];
-	if ( IsX360() )
-	{
-		bFixed = FixupFATXFilename( pAbsoluteFindName, fixedFATXFilename, sizeof( fixedFATXFilename ) );
-	}
+
+	
 
 	char path[MAX_PATH];
 	V_strncpy( path, pAbsoluteFindName, sizeof(path) );
 	V_StripFilename( path );
 
-	findData.findHandle = FS_FindFirstFile( bFixed ? fixedFATXFilename : pAbsoluteFindName, &findData.findData );
+	findData.findHandle = FS_FindFirstFile( pAbsoluteFindName, &findData.findData );
 
 	while ( findData.findHandle != INVALID_HANDLE_VALUE )
 	{
@@ -6131,7 +3607,6 @@ void CBaseFileSystem::FindFileAbsoluteListHelper( CUtlVector< CUtlString > &outA
 void CBaseFileSystem::FindFileAbsoluteList( CUtlVector< CUtlString > &outAbsolutePathNames, const char *pWildCard, const char *pPathID )
 {
 	// TODO: figure out what PS3 does without VPKs
-#ifndef _PS3
 	VPROF_BUDGET( "CBaseFileSystem::FindFileAbsoluteList", VPROF_BUDGETGROUP_OTHER_FILESYSTEM );
 
 	outAbsolutePathNames.Purge();
@@ -6160,8 +3635,6 @@ void CBaseFileSystem::FindFileAbsoluteList( CUtlVector< CUtlString > &outAbsolut
 		{
 			CSearchPath *pSearchPath = &m_SearchPaths[findData.currentSearchPathID];
 
-			if ( pSearchPath->GetPackFile() ) // We're going to search pack files second
-				continue;
 
 			if ( FilterByPathID( pSearchPath, findData.m_FilterPathID ) )
 				continue;
@@ -6177,36 +3650,6 @@ void CBaseFileSystem::FindFileAbsoluteList( CUtlVector< CUtlString > &outAbsolut
 			FindFileAbsoluteListHelper( outAbsolutePathNames, findData, tempFileName );
 		}
 	}
-
-	//TODO:  zips!
-
-#if defined( SUPPORT_VPK )
-	//
-	// Now that we have searched the filesystem let's look in the VPK files
-	//
-	FOR_EACH_VEC( m_VPKFiles, i )
-	{
-		CUtlStringList dirMatchesFromVPK, fileMatchesFromVPK;
-		m_VPKFiles[i]->GetFileAndDirLists( pWildCard, dirMatchesFromVPK, fileMatchesFromVPK, true );
-
-		FOR_EACH_VEC( dirMatchesFromVPK, j )
-		{
-			char result[MAX_PATH];
-			V_ComposeFileName( m_VPKFiles[i]->FullPathName(), dirMatchesFromVPK[j], result, sizeof(result) );
-			outAbsolutePathNames.AddToTail( result );
-		}
-
-		FOR_EACH_VEC( fileMatchesFromVPK, j )
-		{
-			char result[MAX_PATH];
-			V_ComposeFileName( m_VPKFiles[i]->FullPathName(), fileMatchesFromVPK[j], result, sizeof(result) );
-			outAbsolutePathNames.AddToTail( result );
-		}
-	}
-#endif
-#else
-Error( "Not implemented!\n" );
-#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -6244,14 +3687,10 @@ const char *CBaseFileSystem::FindFirstHelper( const char *pWildCard, const char 
 
 	if ( Q_IsAbsolutePath( pWildCard ) )
 	{
-		bool bFixed = false;
-		char fixedFATXFilename[MAX_PATH];
-		if ( IsX360() )
-		{
-			bFixed = FixupFATXFilename( pWildCard, fixedFATXFilename, sizeof( fixedFATXFilename ) );
-		}
 
-		pFindData->findHandle = FS_FindFirstFile( bFixed ? fixedFATXFilename : pWildCard, &pFindData->findData );
+		
+
+		pFindData->findHandle = FS_FindFirstFile( pWildCard, &pFindData->findData );
 		pFindData->currentSearchPathID = -1;
 	}
 	else
@@ -6263,9 +3702,6 @@ const char *CBaseFileSystem::FindFirstHelper( const char *pWildCard, const char 
 		{
 			CSearchPath *pSearchPath = &m_SearchPaths[pFindData->currentSearchPathID];
 
-			// FIXME:  Should findfirst/next work with pak files?
-			if ( pSearchPath->GetPackFile() )
-				continue;
 
 			if ( FilterByPathID( pSearchPath, pFindData->m_FilterPathID ) )
 				continue;
@@ -6278,30 +3714,16 @@ const char *CBaseFileSystem::FindFirstHelper( const char *pWildCard, const char 
 			Q_snprintf( tempFileName, sizeof( tempFileName ), "%s%s", pSearchPath->GetPathString(), pFindData->wildCardString.Base() );
 			Q_FixSlashes( tempFileName );
 
-			bool bFixed = false;
-			char fixedFATXFilename[MAX_PATH];
-			if ( IsX360() )
-			{
-				bFixed = FixupFATXFilename( tempFileName, fixedFATXFilename, sizeof( fixedFATXFilename ) );
-			}
 
-			pFindData->findHandle = FS_FindFirstFile( bFixed ? fixedFATXFilename : tempFileName, &pFindData->findData );
+			
+
+			pFindData->findHandle = FS_FindFirstFile( tempFileName, &pFindData->findData );
 			pFindData->m_CurrentStoreID = pSearchPath->m_storeId;
 
 			if ( pFindData->findHandle != INVALID_HANDLE_VALUE )
 				break;
 		}
 	}
-
-#ifdef SUPPORT_VPK
-	//
-	// Now that we have searched the filesystem let's look in the VPK files
-	//
-	for( int i = 0 ; i < m_VPKFiles.Count(); i++ )
-	{
-		m_VPKFiles[i]->GetFileAndDirLists( pWildCard, pFindData->m_dirMatchesFromVPK, pFindData->m_fileMatchesFromVPK, true );
-	}
-#endif
 
 	// We have a result from the filesystem 
 	if( pFindData->findHandle != INVALID_HANDLE_VALUE )
@@ -6315,40 +3737,6 @@ const char *CBaseFileSystem::FindFirstHelper( const char *pWildCard, const char 
 		*pHandle = hTmpHandle;
 		return pFindData->findData.cFileName;
 	}
-#ifdef SUPPORT_VPK
-	// We have a file result from the VPK file but not the filesystem
-	else if ( pFindData->m_fileMatchesFromVPK.Count() > 0 )
-	{
-		// Remember that we visited this file already.
-		pFindData->m_VisitedFiles.Insert( V_UnqualifiedFileName( pFindData->m_fileMatchesFromVPK[0] ), 0 );
-		*pHandle = hTmpHandle;
-
-		V_strncpy( pFindData->findData.cFileName, V_UnqualifiedFileName( pFindData->m_fileMatchesFromVPK[0] ), sizeof( pFindData->findData.cFileName ) );
-
-		pFindData->findData.dwFileAttributes = 0;
-
-		delete pFindData->m_fileMatchesFromVPK.Head();
-		pFindData->m_fileMatchesFromVPK.RemoveMultipleFromHead( 1 );
-
-		return pFindData->findData.cFileName;	
-	}
-	// We have a dir result from the VPK file but not the filesystem
-	else if ( pFindData->m_dirMatchesFromVPK.Count() > 0 )
-	{
-		// Remember that we visited this file already.
-		pFindData->m_VisitedFiles.Insert( V_UnqualifiedFileName( pFindData->m_dirMatchesFromVPK[0] ), 0 );
-		*pHandle = hTmpHandle;
-
-		V_strncpy( pFindData->findData.cFileName, V_UnqualifiedFileName( pFindData->m_dirMatchesFromVPK[0] ), sizeof( pFindData->findData.cFileName ) );
-
-		pFindData->findData.dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
-
-		delete pFindData->m_dirMatchesFromVPK.Head();
-		pFindData->m_dirMatchesFromVPK.RemoveMultipleFromHead( 1 );
-
-		return pFindData->findData.cFileName;	
-	}
-#endif
 	// Handle failure here
 	pFindData = 0;
 	m_FindData.Remove(hTmpHandle);
@@ -6394,10 +3782,6 @@ bool CBaseFileSystem::FindNextFileHelper( FindData_t *pFindData, int *pFoundStor
 	{
 		CSearchPath *pSearchPath = &m_SearchPaths[pFindData->currentSearchPathID];
 
-		// FIXME: Should this work with PAK files?
-		if ( pSearchPath->GetPackFile() )
-			continue;
-
 		if ( FilterByPathID( pSearchPath, pFindData->m_FilterPathID ) )
 			continue;
 		
@@ -6409,14 +3793,10 @@ bool CBaseFileSystem::FindNextFileHelper( FindData_t *pFindData, int *pFoundStor
 		Q_snprintf( tempFileName, sizeof( tempFileName ), "%s%s", pSearchPath->GetPathString(), pFindData->wildCardString.Base() );
 		Q_FixSlashes( tempFileName );
 
-		bool bFixed = false;
-		char fixedFATXFilename[MAX_PATH];
-		if ( IsX360() )
-		{
-			bFixed = FixupFATXFilename( tempFileName, fixedFATXFilename, sizeof( fixedFATXFilename ) );
-		}
 
-		pFindData->findHandle = FS_FindFirstFile( bFixed ? fixedFATXFilename : tempFileName, &pFindData->findData );
+		
+
+		pFindData->findHandle = FS_FindFirstFile( tempFileName, &pFindData->findData );
 		pFindData->m_CurrentStoreID = pSearchPath->m_storeId;
 		if ( pFindData->findHandle != INVALID_HANDLE_VALUE )
 		{
@@ -6426,31 +3806,6 @@ bool CBaseFileSystem::FindNextFileHelper( FindData_t *pFindData, int *pFoundStor
 			return true;
 		}
 	}
-
-#ifdef SUPPORT_VPK
-	// Return the next one from the list of VPK matches if there is one
-	if ( pFindData->m_fileMatchesFromVPK.Count() > 0 )
-	{
-		V_strncpy( pFindData->findData.cFileName, V_UnqualifiedFileName( pFindData->m_fileMatchesFromVPK[0] ), sizeof( pFindData->findData.cFileName ) );
-		pFindData->findData.dwFileAttributes = 0;
-		delete pFindData->m_fileMatchesFromVPK.Head();
-		pFindData->m_fileMatchesFromVPK.RemoveMultipleFromHead( 1 );
-
-		return true;
-	}
-
-	// Return the next one from the list of VPK matches if there is one
-	if ( pFindData->m_dirMatchesFromVPK.Count() > 0 )
-	{
-		V_strncpy( pFindData->findData.cFileName, V_UnqualifiedFileName( pFindData->m_dirMatchesFromVPK[0] ), sizeof( pFindData->findData.cFileName ) );
-		pFindData->findData.dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
-		delete pFindData->m_dirMatchesFromVPK.Head();
-		pFindData->m_dirMatchesFromVPK.RemoveMultipleFromHead( 1 );
-
-		return true;
-	}
-#endif
-
 	return false;
 }	
 
@@ -6511,10 +3866,6 @@ void CBaseFileSystem::FindClose( FileFindHandle_t handle )
 	pFindData->findHandle = INVALID_HANDLE_VALUE;
 
 	pFindData->wildCardString.Purge();
-#ifdef SUPPORT_VPK
-	pFindData->m_fileMatchesFromVPK.PurgeAndDeleteElements();
-	pFindData->m_dirMatchesFromVPK.PurgeAndDeleteElements();
-#endif
 	m_FindData.Remove( handle );
 }
 
@@ -6527,28 +3878,6 @@ void CBaseFileSystem::GetLocalCopy( const char *pFileName )
 	// do nothing. . everything is local.
 }
 
-#ifdef SUPPORT_VPK
-//-----------------------------------------------------------------------------
-// Purpose: 
-// Input  : *pFileName - 
-//-----------------------------------------------------------------------------
-CPackedStoreFileHandle CBaseFileSystem::FindFileInVPKs( const char *pFileName )
-{
-	CPackedStoreFileHandle retVal;
-
-	// Try to find the path in the mounted VPK files
-	for( int i = 0 ; i < m_VPKFiles.Count(); i++ )
-	{
-		retVal = m_VPKFiles[i]->OpenFile( pFileName );
-		if ( retVal )
-		{
-			break;
-		}
-	}
-
-	return retVal;
-}
-#endif
 
 //-----------------------------------------------------------------------------
 // Converts a partial path into a full path
@@ -6591,54 +3920,11 @@ const char *CBaseFileSystem::RelativePathToFullPath( const char *pFileName, cons
 		int		dummy;
 		int64 dummy64;
 
-		CPackFile *pPack = pSearchPath->GetPackFile();
-		if ( pPack )
-		{
-			if ( pPack->FindFile( pFileName, dummy, dummy64, dummy ) )
-			{
-				if ( pPathType )
-				{
-					if ( pPack->m_bIsMapPath )
-					{
-						*pPathType |= PATH_IS_MAPPACKFILE;
-					}
-					else
-					{
-						*pPathType |= PATH_IS_PACKFILE;
-					}
-					if ( pSearchPath->m_bIsDvdDevPath )
-					{
-						*pPathType |= PATH_IS_DVDDEV;
-					}
-				}
-
-				// form an encoded absolute path that can be decoded by our FS as pak based
-				int len;
-				V_strncpy( pFullPath, pPack->m_ZipName.String(), fullPathBufferSize );
-				len = strlen( pFullPath );
-				V_AppendSlash( pFullPath, fullPathBufferSize - len );
-				len = strlen( pFullPath );				
-				V_strncpy( pFullPath + len, pFileName, fullPathBufferSize - len ); 
-
-				return pFullPath;
-			}
-
-			continue;
-		}
-
 		char tempFileName[ MAX_FILEPATH ];
 		Q_snprintf( tempFileName, sizeof( tempFileName ), "%s%s", pSearchPath->GetPathString(), pFileName );
 		Q_FixSlashes( tempFileName );
 
-		bool bFixed = false;
-		char fixedFATXFilename[MAX_PATH];
-		if ( IsX360() )
-		{
-			// do not expose naming convolution to callers
-			// callers don't expect the filename to change, only that the path get filled out
-			bFixed = FixupFATXFilename( tempFileName, fixedFATXFilename, sizeof( fixedFATXFilename ) );
-		}
-		bool bFound = FS_stat( bFixed ? fixedFATXFilename : tempFileName, &buf ) != -1;
+		bool bFound = FS_stat( tempFileName, &buf ) != -1;
 		if ( bFound )
 		{
 			Q_strncpy( pFullPath, tempFileName, fullPathBufferSize );
@@ -6650,63 +3936,10 @@ const char *CBaseFileSystem::RelativePathToFullPath( const char *pFileName, cons
 		}
 	}
 
-#ifdef SUPPORT_VPK
-	// Try to find the path in the mounted VPK files
-	if ( FindFileInVPKs( pFileName ) )
-	{
-		char pModPath[MAX_PATH];
-
-		GetSearchPath( "MOD", false, pModPath, sizeof( pModPath ) );
-		V_snprintf( pFullPath, fullPathBufferSize, "%s%s", pModPath, pFileName );
-
-		return pFullPath;
-	}
-#endif
-
 	// not found
 	return NULL;
 }
 
-#if IsGameConsole()
-bool CBaseFileSystem::GetPackFileInfoFromRelativePath( const char *pFileName, const char *pPathID, char *pPackPath, int nPackPathBufferSize, int64 &nPosition, int64 &nLength )
-{
-	CHECK_DOUBLE_SLASHES( pFileName );
-
-#ifdef _PS3
-	// crush the filename to lowercase
-	char lowercasedname[256];
-	V_strncpy( lowercasedname, pFileName, 255 );
-	V_strnlwr( lowercasedname, 255 );
-	pFileName = lowercasedname;
-#endif
-
-	CSearchPathsIterator iter( this, &pFileName, pPathID, FILTER_CULLNONPACK );
-	for ( CSearchPath *pSearchPath = iter.GetFirst(); pSearchPath != NULL; pSearchPath = iter.GetNext() )
-	{
-		int	nIndex;
-		int nLength32;
-
-		CPackFile *pPack = pSearchPath->GetPackFile();
-		if ( pPack )
-		{
-			if ( pPack->FindFile( pFileName, nIndex, nPosition, nLength32 ) )
-			{
-				// Support all types as long as it is in a pack file.
-				// Note that if it is in dvddev, prefetching will not really help (and may not be initialized correctly anyway).
-				V_strncpy( pPackPath, pPack->m_ZipName.String(), nPackPathBufferSize );
-				nLength = nLength32;
-				return true;
-			}
-		}
-	}
-
-	// not found
-	pPackPath[0] = '\0';
-	nPosition = -1;
-	nLength = -1;
-	return false;
-}
-#endif
 
 const char *CBaseFileSystem::GetLocalPath( const char *pFileName, char *pLocalPath, int localPathBufferSize )
 {
@@ -6748,10 +3981,6 @@ bool CBaseFileSystem::FullPathToRelativePathEx( const char *pFullPath, const cha
 	int c = m_SearchPaths.Count();
 	for( int i = 0; i < c; i++ )
 	{
-		// FIXME: Should this work with embedded pak files?
-		if ( m_SearchPaths[i].GetPackFile() && m_SearchPaths[i].GetPackFile()->m_bIsMapPath )
-			continue;
-
 		// Skip paths that are not on the specified search path
 		if ( FilterByPathID( &m_SearchPaths[i], lookup ) )
 			continue;
@@ -6925,26 +4154,7 @@ const FileSystemStatistics *CBaseFileSystem::GetFilesystemStatistics()
 	return &m_Stats;
 }
 
-//-----------------------------------------------------------------------------
-// Purpose: Get VPK file IO stats for OGS reporting
-//-----------------------------------------------------------------------------
-void CBaseFileSystem::GetVPKFileStatisticsKV( KeyValues *pKV )
-{
-	if ( pKV && !V_strcmp( pKV->GetName(), "ForceVpkOnlyExtensions" ) )
-	{
-		AUTO_LOCK( m_OpenedFilesMutex );	// this code will force VPK only extensions
-		FOR_EACH_SUBKEY( pKV, kvExt )
-		{
-			m_NonexistingFilesExtensions[ kvExt->GetName() ] = kvExt->GetBool();
-		}
-		return;
-	}
 
-	for( int i = 0; i < m_VPKFiles.Count(); i++ )
-	{
-		m_VPKFiles[i]->GetPackFileLoadErrorSummaryKV( pKV );
-	}
-}
 
 
 //-----------------------------------------------------------------------------
@@ -7075,10 +4285,6 @@ CBaseFileSystem::CSearchPath::CSearchPath( void )
 //-----------------------------------------------------------------------------
 CBaseFileSystem::CSearchPath::~CSearchPath( void )
 {
-	if ( m_pPackFile )
-	{	
-		m_pPackFile->Release();
-	}
 }
 
 //-----------------------------------------------------------------------------
@@ -7109,101 +4315,22 @@ CBaseFileSystem::CSearchPath *CBaseFileSystem::CSearchPathsIterator::GetNext()
 	// 360 can optionally ignore and exclude a local search path in dvddev mode
 	// excluding a local search path falls through to its cloned dvddev cache path
 	// map paths are exempt from this exclusion logic
-	if ( IsGameConsole() && ( m_DVDMode == DVDMODE_DEV || m_DVDMode == DVDMODE_DEV_VISTA ) && m_Filename[0] )
-	{
-		for ( m_iCurrent++; m_iCurrent < m_SearchPaths.Count(); m_iCurrent++ )
-		{
-			pSearchPath = &m_SearchPaths[m_iCurrent];
+    // nominal behavior
+    for ( m_iCurrent++; m_iCurrent < m_SearchPaths.Count(); m_iCurrent++ )
+    {
+        pSearchPath = &m_SearchPaths[m_iCurrent];
 
-			if ( m_PathTypeFilter == FILTER_CULLPACK && pSearchPath->GetPackFile() )
-				continue;
+        if ( ( m_PathTypeFilter == FILTER_CULLLOCALIZED || m_PathTypeFilter == FILTER_CULLLOCALIZED_ANY ) && pSearchPath->m_bIsLocalizedPath )
+        {
+            continue;
+        }
 
-			if ( ( m_PathTypeFilter == FILTER_CULLLOCALIZED || m_PathTypeFilter == FILTER_CULLLOCALIZED_ANY ) && pSearchPath->m_bIsLocalizedPath )
-			{
-				continue;
-			}
+        if ( CBaseFileSystem::FilterByPathID( pSearchPath, m_pathID ) )
+            continue;
 
-			if ( pSearchPath->m_bIsDvdDevPath && !m_bExcluded )
-			{
-				// the dvddev cache path is ignored until an exclusion has been matched
-				continue;
-			}
-			else if ( !pSearchPath->m_bIsDvdDevPath && m_bExcluded )
-			{
-				// an excluded file falls all the way through and can only be in the dvddev cache
-				continue;
-			}
-
-			if ( CBaseFileSystem::FilterByPathID( pSearchPath, m_pathID ) )
-				continue;
-
-			// prevent a duplicate costly check for exclusion
-			if ( m_visits.MarkVisit( *pSearchPath ) )
-				continue;
-
-			// a path gets ignored/skipped if it matches a dvddev exclusion, thus falling through to the dvddev cache path
-			bool bIgnorePath = false;
-			if ( !pSearchPath->m_bIsDvdDevPath )
-			{
-				if ( !pSearchPath->GetPackFile() || !pSearchPath->GetPackFile()->m_bIsMapPath )
-				{
-					char szExcludeFile[MAX_PATH];
-					char szFilename[MAX_PATH];
-					V_ComposeFileName( pSearchPath->GetPathString(), m_Filename, szFilename, sizeof( szFilename ) );
-					for ( int i = 0; i < m_ExcludeFilePaths.Count(); i++ )
-					{
-						if ( g_pFullFileSystem->String( m_ExcludeFilePaths[i], szExcludeFile, sizeof( szExcludeFile ) ) )
-						{
-							if ( !V_stricmp( szFilename, szExcludeFile ) )
-							{
-								// the file was excluded and should not be fetched from this search path
-								// the fallthrough will hit the dvddev cache
-								bIgnorePath = true;
-								m_bExcluded = true;
-								break;
-							}
-						}
-					}
-
-					// only an exclusion match is allowed to inhibit the filtering on non-zip paths, i.e. loose files
-					// ignoring loose files is critical to preventing pointless slow presence i/o, i.e. 99% files are expected to be in a zip
-					if ( !pSearchPath->GetPackFile() && m_PathTypeFilter == FILTER_CULLNONPACK && !bIgnorePath )
-					{
-						continue;
-					}
-				}
-			}
-			if ( !bIgnorePath )
-			{
-				break;
-			}
-		}
-	}
-	else
-	{
-		// nominal behavior
-		for ( m_iCurrent++; m_iCurrent < m_SearchPaths.Count(); m_iCurrent++ )
-		{
-			pSearchPath = &m_SearchPaths[m_iCurrent];
-
-			if ( m_PathTypeFilter == FILTER_CULLPACK && pSearchPath->GetPackFile() )
-				continue;
-
-			if ( ( m_PathTypeFilter == FILTER_CULLNONPACK || m_PathTypeFilter == FILTER_CULLLOCALIZED ) && !pSearchPath->GetPackFile() )
-				continue;
-
-			if ( ( m_PathTypeFilter == FILTER_CULLLOCALIZED || m_PathTypeFilter == FILTER_CULLLOCALIZED_ANY ) && pSearchPath->m_bIsLocalizedPath )
-			{
-				continue;
-			}
-
-			if ( CBaseFileSystem::FilterByPathID( pSearchPath, m_pathID ) )
-				continue;
-
-			if ( !m_visits.MarkVisit( *pSearchPath ) )
-				break;
-		}
-	}
+        if ( !m_visits.MarkVisit( *pSearchPath ) )
+            break;
+    }
 
 	if ( m_iCurrent < m_SearchPaths.Count() )
 	{
@@ -7244,9 +4371,6 @@ CSysModule *CBaseFileSystem::LoadModule( const char *pFileName, const char *pPat
 	int c = m_SearchPaths.Count();
 	for ( int i = 0; i < c; i++ )
 	{
-		// pak files don't have modules
-		if ( m_SearchPaths[i].GetPackFile() )
-			continue;
 
 		if ( FilterByPathID( &m_SearchPaths[i], lookup ) )
 			continue;
@@ -7504,57 +4628,6 @@ bool CBaseFileSystem::GetOptimalIOConstraints( FileHandle_t hFile, unsigned *pOf
 	return false;
 }
 
-//-----------------------------------------------------------------------------
-// This is a DVDDEV misery that needs to convolve loose filenames that exceed the 42 character limit.
-// This is not for files inside zip files or in any other context.
-//-----------------------------------------------------------------------------
-bool CBaseFileSystem::FixupFATXFilename( const char *pFilename, char *pOutFilename, int nOutSize )
-{
-	if ( !IsX360() || m_DVDMode != DVDMODE_DEV )
-	{
-		// xbox dvdev mode only
-		return false;
-	}
-
-	// back up to isolate the filename
-	const char *pFilenameStart = V_UnqualifiedFileName( pFilename );
-	int nFilenameLen = strlen( pFilenameStart );
-	if ( nFilenameLen <= 42 )
-	{
-		// already compliant
-		return false;
-	}
-
-	// only files within the dvddev cache or shadercache would be convolved (via vxconsole)
-	if ( !V_stristr( pFilename, "dvddev" ) )
-	{
-		// not in any of the vxconsole caches, ignore
-		return false;
-	}
-
-	// deterministically generate a unique suffix
-	// this is the same operation that vxconsole does before pushing the files
-	// good enough to ensure similar excessive filenames in the same dir won't collide
-	char szFixedFilename[MAX_PATH];
-	V_strncpy( szFixedFilename, pFilenameStart, sizeof( szFixedFilename ) );
-	strlwr( szFixedFilename );
-	CRC32_t	crc32 = CRC32_ProcessSingleBuffer( szFixedFilename, nFilenameLen );
-	crc32 %= 10000;
-	char szUnique[32];
-	sprintf( szUnique, "~%u",  ( uint ) crc32 );
-	szFixedFilename[42 - strlen( szUnique )] = '\0';
-	V_strncat( szFixedFilename, szUnique, sizeof( szFixedFilename ) );
-
-	if ( pFilenameStart != pFilename )
-	{
-		// get the initial path (and the slash)
-		V_strncpy( pOutFilename, pFilename, MIN( nOutSize, pFilenameStart - pFilename + 1 ) );
-	}
-	// tack on the fixed filename
-	V_strncat( pOutFilename, szFixedFilename, nOutSize );
-
-	return true;
-}
 
 bool CBaseFileSystem::GetStringFromKVPool( CRC32_t poolKey, unsigned int key, char *pOutBuff, int buflen )
 {
@@ -7566,21 +4639,6 @@ bool CBaseFileSystem::GetStringFromKVPool( CRC32_t poolKey, unsigned int key, ch
 	}
 
 	AUTO_LOCK( m_SearchPathsMutex );
-
-	int c = m_SearchPaths.Count();
-	for ( int i = 0; i < c; i++ )
-	{
-		CSearchPath *pSearchPath = &m_SearchPaths[i];
-
-		CPackFile *pPackFile = pSearchPath->GetPackFile();
-		if ( pPackFile && !pPackFile->m_bIsMapPath )
-		{
-			if ( poolKey == pPackFile->GetKVPoolKey() )
-			{
-				return pPackFile->GetStringFromKVPool( key, pOutBuff, buflen );
-			}
-		}
-	}
 
 	return false;
 }
@@ -7641,10 +4699,6 @@ int CFileHandle::GetSectorSize()
 	{
 		return m_fs->FS_GetSectorSize( m_pFile );
 	}
-	else if ( m_pPackFileHandle )
-	{
-		return m_pPackFileHandle->GetSectorSize();
-	}
 	else
 	{
 		return -1;
@@ -7653,10 +4707,6 @@ int CFileHandle::GetSectorSize()
 
 bool CFileHandle::IsOK()
 {
-#ifdef SUPPORT_VPK
-	if ( m_VPKHandle )
-		return true;
-#endif
 	if ( m_pFile )
 	{
 		return ( IsValid() && m_fs->FS_ferror( m_pFile ) == 0 );
@@ -7688,10 +4738,6 @@ void CFileHandle::SetBufferSize( int nBytes )
 	{
 		m_fs->FS_setbufsize( m_pFile, nBytes );
 	}
-	else if ( m_pPackFileHandle )
-	{
-		m_pPackFileHandle->SetBufferSize( nBytes );
-	}
 }
 
 int CFileHandle::Read( void* pBuffer, int nLength )
@@ -7704,26 +4750,10 @@ int CFileHandle::Read( void* pBuffer, int nDestSize, int nLength )
 {
 	Assert( IsValid() );
 
-#ifdef SUPPORT_VPK
-	if ( m_VPKHandle )
-	{
-		if ( nDestSize >= 0 )
-			nLength = MIN( nLength, nDestSize );
-		int nLengthRead = m_VPKHandle.Read( pBuffer, nLength );
-//		m_fs->m_FileTracker2.NotePackFileRead( m_VPKHandle, pBuffer, nLength );
-		return nLengthRead;
-	}
-#endif
-
 	// Is this a regular file or a pack file?  
 	if ( m_pFile )
 	{
 		return m_fs->FS_fread( pBuffer, nDestSize, nLength, m_pFile );
-	}
-	else if ( m_pPackFileHandle )
-	{
-		// Pack file handle handles clamping all the reads:
-		return m_pPackFileHandle->Read( pBuffer, nDestSize, nLength );
 	}
 
 	return 0;
@@ -7750,21 +4780,11 @@ int CFileHandle::Seek( int64 nOffset, int nWhence )
 {
 	Assert( IsValid() );
 
-#ifdef SUPPORT_VPK
-	if ( m_VPKHandle )
-	{
-		return m_VPKHandle.Seek( nOffset, nWhence );
-	}
-#endif
 	if ( m_pFile )
 	{
 		m_fs->FS_fseek( m_pFile, nOffset, nWhence );
 		// TODO - FS_fseek should return the resultant offset
 		return 0;
-	}
-	else if ( m_pPackFileHandle )
-	{
-		return m_pPackFileHandle->Seek( (int)nOffset, nWhence );
 	}
 
 	return -1;
@@ -7774,19 +4794,9 @@ int CFileHandle::Tell()
 {
 	Assert( IsValid() );
 
-#ifdef SUPPORT_VPK
-	if ( m_VPKHandle )
-	{
-		return m_VPKHandle.Tell();
-	}
-#endif
 	if ( m_pFile )
 	{
 		return m_fs->FS_ftell( m_pFile );
-	}
-	else if ( m_pPackFileHandle )
-	{
-		return m_pPackFileHandle->Tell();
 	}
 
 	return -1;
@@ -7798,19 +4808,9 @@ int CFileHandle::Size()
 
 	int nReturnedSize = -1;
 
-#ifdef SUPPORT_VPK
-	if ( m_VPKHandle )
-	{
-		return m_VPKHandle.m_nFileSize;
-	}
-#endif
 	if ( m_pFile  )
 	{
 		nReturnedSize = m_nLength; 
-	}
-	else if ( m_pPackFileHandle )
-	{
-		nReturnedSize = m_pPackFileHandle->Size();
 	}
 
 	return nReturnedSize;
@@ -7824,10 +4824,7 @@ int64 CFileHandle::AbsoluteBaseOffset()
 	{
 		return 0;
 	}
-	else
-	{
-		return m_pPackFileHandle->AbsoluteBaseOffset();
-	}
+    return 0;
 }
 
 bool CFileHandle::EndOfFile()
@@ -7835,415 +4832,6 @@ bool CFileHandle::EndOfFile()
 	Assert( IsValid() );
 
 	return ( Tell() >= Size() );
-}
-
-#ifdef _GAMECONSOLE
-static int s_DLC_Numeric_Supported[] =
-{
-	0, 0, 0, 0, 0, // 5
-	0, 0, 0, 0, 0, // 10
-	0, 0, 0, 0, 0, // 15
-	0, 0, 0, 0, 20, // 20
-	0, 0, 0, 0, 0, // 25
-	0, 0, 0, 0, 0, // 30
-};
-static bool IsDlcNumericSupported( int iDLC )
-{
-#if defined( CSTRIKE15 )
-	return ( iDLC >= 1 && iDLC < 31 );
-#else // CSTRIKE15
-	for ( int k = 0; k < ARRAYSIZE( s_DLC_Numeric_Supported ); ++ k )
-		if ( s_DLC_Numeric_Supported[k] == iDLC )
-			return true;
-	return false;
-#endif // CSTRIKE15
-}
-#else
-static bool IsDlcNumericSupported( int iDLC )
-{
-	return false;
-}
-#endif
-
-bool CBaseFileSystem::DiscoverDLC( int iController )
-{
-#if !defined( _X360 )
-	return false;
-#else
-	DevMsg( "Discovering DLC...\n" );
-
-	// clear prior corrupt results
-	m_CorruptDLC.Purge();
-
-	CUtlSortVector< DLCContent_t, CDLCLess > dlcResults;
-
-	// development path supports locally mounting the dlc when not using XLAST or XBL
-	// this is development only, retail runtime would never have command line dictated DLC
-	// command line trumps ANY discovery so we can have a desired exact DLC testing state
-	bool bUsingCommandLineDLC = false;
-	const char *pCmdLine = CommandLine()->GetCmdLine();
-	while( pCmdLine )
-	{
-		pCmdLine = V_stristr( pCmdLine, "-dlc" );
-		if ( !pCmdLine )
-			break;
-
-		bUsingCommandLineDLC = true;
-
-		int nDLC = atoi( pCmdLine + 4 );
-		if ( nDLC == 0 )
-		{
-			// malformed command line dev args
-			DevWarning( "Bad argument: %s\n", pCmdLine );
-			break;
-		}
-		
-		// get the required dlcflags -dlc<n> 0x<flags>
-		// user must supply as the lower word identifies control bits
-		char const *szDlcNflags = CommandLine()->ParmValue( CFmtStr( "-dlc%d", nDLC ), "0x0" );
-		unsigned int nDLCFlags = 0;
-		if ( 1 != sscanf( szDlcNflags, "0x%x", &nDLCFlags ) )
-		{
-			DevWarning( "Bad DLC flags: -dlc%d %s\n", nDLC, szDlcNflags );
-			break;
-		}
-
-		// form the license mask
-		// identify development DLCN as N.0 in the upper MSW, the retail version is at least N.1
-		// the LSW are the control flags
-		unsigned int nLicenseMask = ( ( nDLC & 0xFF ) << 24 ) | ( nDLCFlags & 0xFFFF );
-
-		DLCContent_t dlcContent;
-
-		// should be part of test image
-		// the real DLC encodes descriptive data we can only spoof
-		V_strcpy( dlcContent.m_szVolume, "D" );
-		V_strtowcs( CFmtStr( "DLC%d Dev Name (0x%8.8x)", nDLC, nLicenseMask ), -1, dlcContent.m_ContentData.szDisplayName, sizeof( dlcContent.m_ContentData.szDisplayName ) );
-
-		dlcContent.m_nController = 0;
-		dlcContent.m_LicenseMask = nLicenseMask;
-		dlcContent.m_bMounted = ( nLicenseMask & DLCFLAGS_PRESENCE_ONLY ) != 0;
-
-		dlcResults.Insert( dlcContent );
-
-		// next arg
-		pCmdLine += 4;
-	}
-
-	if ( bUsingCommandLineDLC )
-	{
-		for ( int i = 0; i < dlcResults.Count(); i++ )
-		{
-			// only care about new unique occurring DLC
-			// skip over any DLC that we have already discovered
-			bool bFound = false;
-			for ( int j = 0; j < m_DLCContents.Count() && !bFound; j++ )
-			{
-				bFound = ( DLC_LICENSE_ID( m_DLCContents[j].m_LicenseMask ) == DLC_LICENSE_ID( dlcResults[i].m_LicenseMask ) );
-			}
-			if ( !bFound )
-			{
-				m_DLCContents.Insert( dlcResults[i] );
-			}
-		}
-	}
-	else
-	{
-		CUtlMemory< BYTE >	buffer;
-		DWORD nNumItems = 0;
-		BYTE *pBuffer = NULL;
-
-		// find additional content
-		// must have a signed in user, otherwise cannot find enhanced content
-		DWORD nBufferSize;
-		HANDLE hEnumerator;
-		if ( XContentCreateEnumerator(	
-				iController, 
-				XCONTENTDEVICE_ANY,
-				XCONTENTTYPE_MARKETPLACE, 
-				0, 
-				100, 
-				&nBufferSize, 
-				&hEnumerator ) == ERROR_SUCCESS )
-		{
-			if ( nBufferSize )
-			{
-				// get a buffer to capture enumeration results
-				buffer.EnsureCapacity( nBufferSize );
-				pBuffer = buffer.Base();
-				if ( XEnumerate( hEnumerator, pBuffer, nBufferSize, &nNumItems, NULL ) != ERROR_SUCCESS )
-				{
-					nNumItems = 0;
-				}
-			}
-		}
-
-		::CloseHandle( hEnumerator );
-		if ( !nNumItems )
-		{
-			return false;
-		}
-
-		char szFilename[XCONTENT_MAX_FILENAME_LENGTH+1];
-		szFilename[XCONTENT_MAX_FILENAME_LENGTH] = 0;
-		XCONTENT_DATA *pContentData;
-
-		// determine all our dlc content
-		for ( unsigned int i = 0; i < nNumItems; i++ )
-		{
-			// filenames are encoded encryptions, useless to anything but the system
-			pContentData = (XCONTENT_DATA *)pBuffer + i;
-			V_memcpy( szFilename, pContentData->szFileName, XCONTENT_MAX_FILENAME_LENGTH );
-
-			// must mount to get license mask
-			// license mask is ONLY available for content downloaded through XBL (not mounted locally)
-			DWORD licenseMask = 0;
-			DWORD dwStatus = XContentCreate( iController, "DLC", pContentData, XCONTENTFLAG_OPENEXISTING, NULL, &licenseMask, NULL );
-			if ( dwStatus != ERROR_SUCCESS )
-			{
-				// assume corrupt
-				DLCCorrupt_t dlcCorrupt;
-				dlcCorrupt.m_ContentData = *pContentData;
-				m_CorruptDLC.AddToTail( dlcCorrupt );
-				continue;
-			}
-
-			// always unmount, highest version will get re-mounted
-			// as we might rev the DLC without a TU
-			XContentClose( "DLC", NULL );
-
-			// DLC N
-			int nDlcNumericId = DLC_LICENSE_ID( licenseMask );
-			bool bDlcIsSupported = IsDlcNumericSupported( nDlcNumericId );
-
-			// only consider DLC with a valid license mask
-			// we DONT/CANT support install-test-locally DLC because DLC lacks license mask to decode
-			if ( nDlcNumericId && bDlcIsSupported )
-			{
-				// insert into ascending sorted list, ensures dlc1..dlcN order
-				DLCContent_t dlcContent;
-				dlcContent.m_ContentData = *pContentData;
-				dlcContent.m_LicenseMask = licenseMask;
-				dlcContent.m_nController = iController;
-				dlcContent.m_szVolume[0] = '\0';
-				dlcContent.m_bMounted = false;
-				dlcResults.Insert( dlcContent );
-			}
-			else
-			{
-				// assume corrupt
-				DLCCorrupt_t dlcCorrupt;
-				dlcCorrupt.m_ContentData = *pContentData;
-				m_CorruptDLC.AddToTail( dlcCorrupt );
-				continue;
-			}
-		}
-
-		// mount the highest version of each type
-		// sorted results order guarantees ascending type/version order
-		for ( int i = 0; i < dlcResults.Count(); )
-		{
-			// iterate ascending list determine highest version of matching type
-			DWORD dlcType = DLC_LICENSE_ID( dlcResults[i].m_LicenseMask );
-			int nBest = i;
-			for ( int j = i+1; j < dlcResults.Count(); j++ )
-			{
-				if ( dlcType != DLC_LICENSE_ID( dlcResults[j].m_LicenseMask ) )
-				{
-					// wrong one, due to sort order, no more of this type
-					break;
-				}
-				nBest = j;
-			}	
-
-			// only care about unique DLC types, can't handle newly discovered sub versions of the same type
-			// iterate for a match
-			bool bFound = false;
-			for ( int j = 0; j < m_DLCContents.Count() && !bFound; j++ )
-			{
-				bFound = ( DLC_LICENSE_ID( m_DLCContents[j].m_LicenseMask ) == DLC_LICENSE_ID( dlcResults[nBest].m_LicenseMask ) );
-			}
-			if ( !bFound )
-			{
-				// mount the highest version of each type only
-				DLCContent_t dlcContent = dlcResults[nBest];
-				V_strcpy( dlcContent.m_szVolume, CFmtStr( "DLC%d", DLC_LICENSE_ID( dlcContent.m_LicenseMask ) ) );
-
-				DWORD dwResults;
-				if ( dlcContent.m_LicenseMask & DLCFLAGS_PRESENCE_ONLY )
-				{
-					// we have it, that's all that is required
-					// what's inside it is never acessed
-					dwResults = ERROR_SUCCESS;
-					dlcContent.m_bMounted = true;
-				}
-				else
-				{
-					dwResults = XContentCreate(
-									iController,
-									dlcContent.m_szVolume,
-									&dlcContent.m_ContentData,
-									XCONTENTFLAG_OPENEXISTING,
-									NULL,
-									NULL,
-									NULL );
-				}
-				if ( dwResults == ERROR_SUCCESS )
-				{
-					// already handled corrupt errors, so expecting success
-					m_DLCContents.Insert( dlcContent );
-				}
-			}
-
-			// continue with next dlc type
-			i = nBest + 1;
-		}
-	}
-
-	PrintDLCInfo();
-
-	return ( m_DLCContents.Count() != 0 );
-#endif
-}
-
-// Returns the number of DLC components found
-int CBaseFileSystem::IsAnyDLCPresent( bool *pbDLCSearchPathMounted )
-{
-    return 0;
-}
-
-bool CBaseFileSystem::GetAnyDLCInfo( int iDLC, unsigned int *pLicenseMask, wchar_t *pTitleBuff, int nOutTitleSize )
-{
-    return false;
-}
-
-int CBaseFileSystem::IsAnyCorruptDLC()
-{
-		return 0;
-}
-
-bool CBaseFileSystem::GetAnyCorruptDLCInfo( int iCorruptDLC, wchar_t *pTitleBuff, int nOutTitleSize )
-{
-    return false;
-}
-
-bool CBaseFileSystem::IsSpecificDLCPresent( unsigned int nDLCPackage )
-{
-	return false;
-}
-
-bool CBaseFileSystem::AddDLCSearchPaths()
-{
-    return false;
-}
-
-void CBaseFileSystem::PrintDLCInfo()
-{
-}
-
-bool CBaseFileSystem::AddXLSPUpdateSearchPath( const void *pData, int nSize )
-{
-	if ( IsPC() )
-	{
-		return false;
-	}
-
-	const char *targetPathIDs[] = { "PLATFORM", "GAME", "MOD" };
-	for ( int i = 0; i <ARRAYSIZE( targetPathIDs ); i++ )
-	{
-		RemoveSearchPath( "u:\\xlsppatch", targetPathIDs[i] );
-	}
-
-	g_XLSPPatchZipBuffer.Purge();
-
-	if ( !pData || !nSize )
-	{
-		return true;
-	}
-
-	g_XLSPPatchZipBuffer.Put( pData, nSize );
-
-	bool bXLSPPatchValid = true;
-
-	for ( int i = 0; i < ARRAYSIZE( targetPathIDs ); i++ )
-	{
-		// only specific paths get the xlsppatch override explicitly prepended
-		const char *pPathIDString = targetPathIDs[i];
-
-		// search path gets added once per allowed pathID
-		bool bFoundSearchPath = false;
-		for ( int j = 0; j < m_SearchPaths.Count(); j++ )
-		{
-			CSearchPath *pSearchPath = &m_SearchPaths[j];
-			if ( !V_stricmp( pSearchPath->GetPathIDString(), pPathIDString ) && !V_stricmp( pSearchPath->GetPathString(), "u:\\xlsppatch\\" ) )
-			{
-				bFoundSearchPath = true;
-				break;
-			}
-		}
-
-		if ( !bFoundSearchPath && g_XLSPPatchZipBuffer.TellPut() )
-		{
-			// find first matching pathID, xlsppatch will be placed before it
-			int nIndex = 0;
-			for ( int j = 0; j < m_SearchPaths.Count(); j++ )
-			{
-				CSearchPath *pSearchPath = &m_SearchPaths[j];
-				if ( !V_stricmp( pSearchPath->GetPathIDString(), pPathIDString ) )
-				{
-					nIndex = j;
-					break;
-				}
-			}
-
-			// have xlsppatch blob
-			nIndex = m_SearchPaths.InsertBefore( nIndex );
-			CSearchPath *sp = &m_SearchPaths[ nIndex ];
-
-			// the path and filename are fake but reserved, they denote this binary resident blob
-			// these names ensure they get ignored during post hdd install sp fixup
-			const char *pFullpath = "u:\\xlsppatch\\xlsppatch" PLATFORM_EXT ".zip";
-			sp->m_pPathIDInfo = FindOrAddPathIDInfo( g_PathIDTable.AddString( pPathIDString ), -1 );
-			sp->m_storeId = g_iNextSearchPathID++;
-			sp->SetPath( g_PathIDTable.AddString( "u:\\xlsppatch\\" ) );
-
-			// find and alias existing reference
-			CPackFile *pf = NULL;
-			for ( int iPackFile = 0; iPackFile < m_ZipFiles.Count(); iPackFile++ )
-			{
-				if ( !Q_stricmp( m_ZipFiles[iPackFile]->m_ZipName.Get(), pFullpath ) )
-				{
-					// found
-					pf = m_ZipFiles[iPackFile];
-					sp->SetPackFile( pf );
-					pf->AddRef();
-					break;
-				}
-			}
-			if ( !pf )
-			{
-				// there is no 'file', point to the embedded section instead
-				pf = new CZipPackFile( this, g_XLSPPatchZipBuffer.Base() );
-
-				pf->SetPath( sp->GetPath() );
-				pf->m_bIsExcluded = false;
-				pf->m_ZipName = pFullpath;
-
-				m_ZipFiles.AddToTail( pf );
-				sp->SetPackFile( pf );
-
-				pf->m_lPackFileTime = 0;
-				pf->m_hPackFileHandleFS = NULL;
-				if ( !pf->Prepare( g_XLSPPatchZipBuffer.TellPut() ) )
-				{
-					bXLSPPatchValid = false;
-					break;
-				}
-			}
-		}
-	}
-
-	return bXLSPPatchValid;
 }
 
 void CBaseFileSystem::MarkLocalizedPath( CSearchPath *sp )
@@ -8333,22 +4921,6 @@ int CIODelayAlarmThread::Run( void )
 
 #endif // SUPPORT_IODELAY_MONITORING
 
-void CBaseFileSystem::SetIODelayAlarm( float flTime )
-{
-#ifdef SUPPORT_IODELAY_MONITORING
-	m_flDelayLimit = flTime;
-	if ( m_flDelayLimit > 0. )
-	{
-		m_flDelayLimit = flTime;
-		if ( ! m_pDelayThread )
-		{
-			m_pDelayThread = new CIODelayAlarmThread( this );
-			m_pDelayThread->Start();
-		}
-		m_pDelayThread->WakeUp();
-	}
-#endif
-}
 
 IIoStats *CBaseFileSystem::GetIoStats()
 {
@@ -8403,26 +4975,26 @@ class CFiosAllocator : public cell::fios::allocator
 public:
 	void* Allocate(uint32_t size, uint32_t flags, const char* pFile, int line)
 	{
-		(void) pFile;
-		(void) line;
+		() pFile;
+		() line;
 		return memalign(FIOS_ALIGNMENT_FROM_MEMFLAGS(flags), size);
 	}
 
 	void Deallocate(void* pMemory, uint32_t flags, const char* pFile, int line)
 	{
-		(void) flags;
-		(void) pFile;
-		(void) line;
+		() flags;
+		() pFile;
+		() line;
 		free(pMemory);
 	}
 
 	void* Reallocate(void* pMemory, uint32_t newSize, uint32_t flags, const char* pFile, int line)
 	{
-		(void) pMemory;
-		(void) newSize;
-		(void) flags;
-		(void) pFile;
-		(void) line;
+		() pMemory;
+		() newSize;
+		() flags;
+		() pFile;
+		() line;
 		return NULL; /* fios does not use Reallocate */
 	}
 };

@@ -9,18 +9,10 @@
 #include "tier0/dbg.h"
 #include "mathlib/mathlib.h"
 #include "studiomdl/bone_setup.h"
-#include <string.h>
+#include <cstring>
 
-#include "collisionutils.h"
-#include "vstdlib/random.h"
 #include "tier0/vprof.h"
-#include "bone_accessor.h"
-#include "mathlib/ssequaternion.h"
-#include "bitvec.h"
-#include "tier1/datamanager.h"
-#include "tier1/convar.h"
 #include "tier0/tslist.h"
-#include "vphysics_interface.h"
 #include "datacache/idatacache.h"
 
 #include "tier0/miniprofiler.h"

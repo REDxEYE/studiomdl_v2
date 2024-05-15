@@ -2843,7 +2843,28 @@ static void RemapVertexAnimationsNewVersion() {
 
 
 // Finds the bone index for a particular source
-extern int FindLocalBoneNamed(const s_source_t *pSource, const char *pName);
+int FindLocalBoneNamed( const s_source_t *pSource, const char *pName )
+{
+    if ( pName && pSource )
+    {
+        int i;
+        for ( i = 0; i < pSource->numbones; i++ )
+        {
+            if ( !stricmp( pName, pSource->localBone[i].name ) )
+                return i;
+        }
+
+        pName = RenameBone( pName );
+
+        for ( i = 0; i < pSource->numbones; i++ )
+        {
+            if ( !stricmp( pName, pSource->localBone[i].name ) )
+                return i;
+        }
+    }
+
+    return -1;
+}
 
 //-----------------------------------------------------------------------------
 // Purpose: finds the bone index in the global bone table

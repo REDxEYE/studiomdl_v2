@@ -1,4 +1,4 @@
-//========= Copyright © Valve Corporation, All rights reserved. ==========//
+//========= Copyright ï¿½ Valve Corporation, All rights reserved. ==========//
 //
 // Purpose: Mesh simplification entry points for meshutils
 //

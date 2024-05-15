@@ -151,7 +151,7 @@ char (*RtlpNumberOf( UNALIGNED T (&)[N] ))[N];
 // _ARRAYSIZE is a version useful for anonymous types
 #define ARRAYSIZE(A)    RTL_NUMBER_OF_V2(A)
 #define _ARRAYSIZE(A)   RTL_NUMBER_OF_V1(A)
-
+#define SIZE_OF_ARRAY(p)	_ARRAYSIZE(p)
 #define Q_ARRAYSIZE(p)		ARRAYSIZE(p)
 #define V_ARRAYSIZE(p)		ARRAYSIZE(p)
 

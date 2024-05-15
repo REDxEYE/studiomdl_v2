@@ -25,13 +25,11 @@
 #include "common/scriplib.h"
 #include "studio.h"
 #include "studiomdl/studiomdl.h"
-#include "studiomdl/collisionmodel.h"
 #include "studiomdl/optimize.h"
 #include "studiomdl/studiobyteswap.h"
 #include "materialsystem/imaterial.h"
 #include "mdlobjects/dmeboneflexdriver.h"
 #include "studiomdl/perfstats.h"
-#include "studiomdl/compileclothproxy.h"
 
 #include "tier1/smartptr.h"
 
@@ -1011,11 +1009,11 @@ const studiohdr_t *studiohdr_t::FindModel(void **cache, char const *modelname) c
     return nullptr;
 }
 
-virtualmodel_t *studiohdr_t::GetVirtualModel(void) const {
+virtualmodel_t *studiohdr_t::GetVirtualModel() const {
     return nullptr;
 }
 
-const studiohdr_t *virtualgroup_t::GetStudioHdr(void) const {
+const studiohdr_t *virtualgroup_t::GetStudioHdr() const {
     return (studiohdr_t *) cache;
 }
 
@@ -2952,7 +2950,7 @@ void WriteKeyValues(studiohdr_t *phdr, std::vector<char> *pKeyValue) {
 }
 
 
-void CapKeyValues(void) {
+void CapKeyValues() {
     const char *headCap = "mdlkeyvalue\n{\n";
     const char *tailCap = "}\\n";
     if (g_StudioMdlContext.KeyValueText.size()) {
@@ -2963,7 +2961,7 @@ void CapKeyValues(void) {
     }
 }
 
-void WriteQCPath(void) {
+void WriteQCPath() {
     char relative_qc_path[1024];
     g_pFullFileSystem->FullPathToRelativePathEx(qdir, "CONTENT", relative_qc_path, sizeof(relative_qc_path));
     strcat(relative_qc_path, V_GetFileName(g_fullpath));
@@ -3008,8 +3006,7 @@ void EnsureFileDirectoryExists(const char *pFilename) {
     }
 }
 
-
-void WriteModelFiles(void) {
+void WriteModelFiles() {
     FileHandle_t modelouthandle = 0;
     FileHandle_t blockouthandle = 0;
 //	CPlainAutoPtr< CP4File > spFileBlockOut, spFileModelOut;
@@ -3109,7 +3106,7 @@ void WriteModelFiles(void) {
     if (!g_wrotebbox && g_sequence.Count() > 0) {
         bbox[0] = g_sequence[0].bmin;
         bbox[1] = g_sequence[0].bmax;
-        CollisionModel_ExpandBBox(bbox[0], bbox[1]);
+//        CollisionModel_ExpandBBox(bbox[0], bbox[1]);
         g_sequence[0].bmin = bbox[0];
         g_sequence[0].bmax = bbox[1];
     }
@@ -3125,7 +3122,7 @@ void WriteModelFiles(void) {
     phdr->view_bbmax = cbox[1];
 
     phdr->flags = gflags;
-    phdr->mass = GetCollisionModelMass();
+    phdr->mass = 1;
     phdr->constdirectionallightdot = g_constdirectionalightdot;
 
     if (g_StudioMdlContext.numAllowedRootLODs > 0) {
@@ -3232,8 +3229,6 @@ void WriteModelFiles(void) {
     if (g_StudioMdlContext.verifyOnly)
         return;
 
-    CollisionModel_Write(phdr->checksum);
-//	Physics2Collision_Write();
 
     if (!g_StudioMdlContext.quiet) {
         printf("collision  %7lld bytes\n", pData - pStart - total);

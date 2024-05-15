@@ -131,7 +131,7 @@ public:
 	inline vec_t	Length() const;
 
 	// Get the vector's magnitude squared.
-	FORCEINLINE vec_t LengthSqr(void) const
+	FORCEINLINE vec_t LengthSqr() const
 	{ 
 		CHECK_VALID(*this);
 		return (x*x + y*y + z*z);		
@@ -139,7 +139,7 @@ public:
 
 	// Get one over the vector's length
 	// via fast hardware approximation
-	inline vec_t LengthRecipFast(void) const
+	inline vec_t LengthRecipFast() const
 	{ 
 		return FastRSqrtFast( LengthSqr() );
 	}
@@ -210,8 +210,8 @@ public:
 	inline vec_t SmallestComponentValue() const;
 
 	// 2d
-	vec_t	Length2D(void) const;					
-	vec_t	Length2DSqr(void) const;		
+	vec_t	Length2D() const;
+	vec_t	Length2DSqr() const;
 
 	/// get the component of this vector parallel to some other given vector
 	inline Vector  ProjectOnto( const Vector& onto );
@@ -224,7 +224,7 @@ public:
 //	Vector(const Vector &vOther);
 
 	// arithmetic operations
-	Vector	operator-(void) const;
+	Vector	operator-() const;
 				
 	Vector	operator+(const Vector& v) const;	
 	Vector	operator-(const Vector& v) const;	
@@ -374,7 +374,7 @@ class VectorByValue : public Vector
 {
 public:
 	// Construction/destruction:
-	VectorByValue(void) : Vector() {} 
+	VectorByValue() : Vector() {}
 	VectorByValue(vec_t X, vec_t Y, vec_t Z) : Vector( X, Y, Z ) {}
 	VectorByValue(const VectorByValue& vOther) { *this = vOther; }
 };
@@ -414,7 +414,7 @@ public:
 class ALIGN16 VectorAligned : public Vector
 {
 public:
-	inline VectorAligned(void) {};
+	inline VectorAligned() {};
 	inline VectorAligned(vec_t X, vec_t Y, vec_t Z) 
 	{
 		Init(X,Y,Z);
@@ -1431,7 +1431,7 @@ inline vec_t VectorLength( const Vector& v )
 }
 
 
-inline vec_t Vector::Length(void) const	
+inline vec_t Vector::Length() const
 {
 	CHECK_VALID(*this);
 	return VectorLength( *this );
@@ -1592,7 +1592,7 @@ inline Vector Vector::Max(const Vector &vOther) const
 // arithmetic operations
 //-----------------------------------------------------------------------------
 
-inline Vector Vector::operator-(void) const
+inline Vector Vector::operator-() const
 { 
 	return Vector(-x,-y,-z);				
 }
@@ -1659,12 +1659,12 @@ inline Vector Vector::Cross(const Vector& vOther) const
 // 2D
 //-----------------------------------------------------------------------------
 
-inline vec_t Vector::Length2D(void) const
+inline vec_t Vector::Length2D() const
 { 
 	return (vec_t)FastSqrt(x*x + y*y); 
 }
 
-inline vec_t Vector::Length2DSqr(void) const
+inline vec_t Vector::Length2DSqr() const
 { 
 	return (x*x + y*y); 
 }
@@ -1956,7 +1956,7 @@ inline bool QuaternionsAreEqual( const Quaternion& src1, const Quaternion& src2,
 class ALIGN16 QuaternionAligned : public Quaternion
 {
 public:
-	inline QuaternionAligned(void) {};
+	inline QuaternionAligned() {};
 	inline QuaternionAligned(vec_t X, vec_t Y, vec_t Z, vec_t W) 
 	{
 		Init(X,Y,Z,W);
@@ -2205,7 +2205,7 @@ class DegreeEuler
 public:
 	///\name Initialization 
 	//@{
-	inline DegreeEuler(void) ///< Create with un-initialized components. If VECTOR_PARANOIA is set, will init with NANS.
+	inline DegreeEuler() ///< Create with un-initialized components. If VECTOR_PARANOIA is set, will init with NANS.
 	{
 	// Initialize to NAN to catch errors
 #ifdef VECTOR_PARANOIA
@@ -2375,7 +2375,7 @@ public:
 	// copy constructors
 
 	// arithmetic operations
-	QAngle	operator-(void) const;
+	QAngle	operator-() const;
 	
 	QAngle	operator+(const QAngle& v) const;
 	QAngle	operator-(const QAngle& v) const;
@@ -2400,7 +2400,7 @@ class QAngleByValue : public QAngle
 {
 public:
 	// Construction/destruction:
-	QAngleByValue(void) : QAngle() {} 
+	QAngleByValue() : QAngle() {}
 	QAngleByValue(vec_t X, vec_t Y, vec_t Z) : QAngle( X, Y, Z ) {}
 	QAngleByValue(const QAngleByValue& vOther) { *this = vOther; }
 };
@@ -2688,7 +2688,7 @@ inline bool QAnglesAreEqual( const QAngle& src1, const QAngle& src2, float toler
 //-----------------------------------------------------------------------------
 #ifndef VECTOR_NO_SLOW_OPERATIONS
 
-inline QAngle QAngle::operator-(void) const
+inline QAngle QAngle::operator-() const
 { 
 	QAngle ret(-x,-y,-z);
 	return ret;

@@ -41,7 +41,6 @@
 #include "movieobjects/dmecombinationoperator.h"
 #include "movieobjects/dmeflexrules.h"
 #include "tier1/keyvalues.h"
-#include "studiomdl/compileclothproxy.h"
 #include "movieobjects/dmemodel.h"
 
 #include "studiomdl_commands.h"

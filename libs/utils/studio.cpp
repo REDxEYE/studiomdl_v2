@@ -10,8 +10,6 @@
 #include "datacache/idatacache.h"
 #include "datacache/imdlcache.h"
 #include "tier0/vprof.h"
-#include "mathlib/femodel.h"
-#include "mathlib/femodeldesc.h"
 #include "studiomdl/bone_setup.h"
 
 // memdbgon must be the last include file in a .cpp file!!!

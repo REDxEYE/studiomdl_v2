@@ -9,20 +9,11 @@
 #include "tier0/dbg.h"
 #include "mathlib/mathlib.h"
 #include "studiomdl/bone_setup.h"
-#include <string.h>
+#include <cstring>
 
-#include "collisionutils.h"
-#include "vstdlib/random.h"
 #include "tier0/vprof.h"
 #include "bone_accessor.h"
-#include "mathlib/ssequaternion.h"
-#include "bitvec.h"
-#include "tier1/datamanager.h"
-#include "tier1/convar.h"
 #include "tier0/tslist.h"
-#include "vphysics_interface.h"
-#include "datacache/idatacache.h"
-#include "posedebugger.h"
 #include "tier0/miniprofiler.h"
 
 #ifdef CLIENT_DLL
@@ -603,9 +594,9 @@ void CBoneSetup::AddLocalLayers(
 // Purpose: my sleezy attempt at an interface only class
 //-----------------------------------------------------------------------------
 
-IBoneSetup::IBoneSetup( const CStudioHdr *pStudioHdr, int boneMask, const float poseParameter[], IPoseDebugger *pPoseDebugger )
+IBoneSetup::IBoneSetup( const CStudioHdr *pStudioHdr, int boneMask, const float poseParameter[])
 {
-	m_pBoneSetup = new CBoneSetup( pStudioHdr, boneMask, poseParameter, pPoseDebugger );
+	m_pBoneSetup = new CBoneSetup( pStudioHdr, boneMask, poseParameter );
 }
 
 IBoneSetup::~IBoneSetup( void )
@@ -642,12 +633,11 @@ CStudioHdr *IBoneSetup::GetStudioHdr()
 	return (CStudioHdr *)m_pBoneSetup->m_pStudioHdr;
 }
 
-CBoneSetup::CBoneSetup( const CStudioHdr *pStudioHdr, int boneMask, const float poseParameter[], IPoseDebugger *pPoseDebugger )
+CBoneSetup::CBoneSetup( const CStudioHdr *pStudioHdr, int boneMask, const float poseParameter[])
 {
 	m_pStudioHdr = pStudioHdr;
 	m_boneMask = boneMask;
 	m_flPoseParameter = poseParameter;
-	m_pPoseDebugger = pPoseDebugger;
 }
 
 
@@ -752,11 +742,6 @@ void CBoneSetup::AccumulatePose(
 	PREFETCH360( pos2, 0 );
 	PREFETCH360( q2, 0 );
 
-	// Trigger pose debugger
-	if (m_pPoseDebugger)
-	{
-		m_pPoseDebugger->AccumulatePose( m_pStudioHdr, pIKContext, pos, q, sequence, cycle, m_flPoseParameter, m_boneMask, flWeight, flTime );
-	}
 
 	mstudioseqdesc_t	&seqdesc = ((CStudioHdr *)m_pStudioHdr)->pSeqdesc( sequence );
 

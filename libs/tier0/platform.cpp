@@ -52,6 +52,8 @@
 #include <cell/fios/fios_time.h>
 #endif // _PS3
 
+
+
 // memdbgon must be the last include file in a .cpp file!!!
 // DISABLED #include "tier0/memdbgon.h"
 
@@ -419,8 +421,8 @@ bool vtune( bool resume )
 {
 #if IS_WINDOWS_PC
 	static bool bInitialized = false;
-	static void (__cdecl *VTResume)(void) = NULL;
-	static void (__cdecl *VTPause) (void) = NULL;
+	static void (__cdecl *VTResume)() = NULL;
+	static void (__cdecl *VTPause) () = NULL;
 
 	// Grab the Pause and Resume function pointers from the VTune DLL the first time through:
 	if( !bInitialized )

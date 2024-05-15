@@ -657,7 +657,7 @@ public:
 	void GetBudgetGroupColor( int budgetGroupID, int &r, int &g, int &b, int &a );
 	int BudgetGroupNameToBudgetGroupID( const tchar *pBudgetGroupName );
 	int BudgetGroupNameToBudgetGroupID( const tchar *pBudgetGroupName, int budgetFlagsToORIn );
-	void RegisterNumBudgetGroupsChangedCallBack( void (*pCallBack)(void) );
+	void RegisterNumBudgetGroupsChangedCallBack( void (*pCallBack)() );
 
 	int BudgetGroupNameToBudgetGroupIDNoCreate( const tchar *pBudgetGroupName ) { return FindBudgetGroupName( pBudgetGroupName ); }
 

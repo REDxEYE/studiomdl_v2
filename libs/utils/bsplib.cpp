@@ -3314,7 +3314,7 @@ PrintBSPFileSizes
 Dumps info about current file
 =============
 */
-void PrintBSPFileSizes (void)
+void PrintBSPFileSizes ()
 {
 	int	totalmemory = 0;
 
@@ -3445,7 +3445,7 @@ void StripTrailing (char *e)
 ParseEpair
 =================
 */
-epair_t *ParseEpair (void)
+epair_t *ParseEpair ()
 {
 	epair_t	*e;
 
@@ -3482,7 +3482,7 @@ void RemoveKey( entity_t *pMapEnt, const char *pKey )
 ParseEntity
 ================
 */
-qboolean	ParseEntity (void)
+qboolean	ParseEntity ()
 {
 	epair_t		*e;
 	entity_t	*mapent;
@@ -3520,7 +3520,7 @@ ParseEntities
 Parses the dentdata string into entities
 ================
 */
-void ParseEntities (void)
+void ParseEntities ()
 {
 	num_entities = 0;
 	ParseFromMemory (dentdata.Base(), dentdata.Count());
@@ -3538,7 +3538,7 @@ UnparseEntities
 Generates the dentdata string from all the entities
 ================
 */
-void UnparseEntities (void)
+void UnparseEntities ()
 {
 	epair_t	*ep;
 	char	line[2048];

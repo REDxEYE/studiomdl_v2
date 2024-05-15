@@ -80,7 +80,7 @@ public:
 		{ 
 			m_Low  = v; 
 		}
-		inline const S &GetLowVal(void) const 
+		inline const S &GetLowVal() const
 		{ 
 			return m_Low; 
 		}
@@ -89,7 +89,7 @@ public:
 		{ 
 			m_High = v; 
 		}
-		inline const S &GetHighVal(void) const 
+		inline const S &GetHighVal() const
 		{ 
 			return m_High; 
 		}

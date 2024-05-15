@@ -23,6 +23,7 @@
 #endif
 #include "tier0/vprof.h"
 #include "tier1/fmtstr.h"
+#include "tier0/tslist.h"
 
 
 #define GAMEINFO_FILENAME "GAMEINFO.TXT"
@@ -259,9 +260,6 @@ private:
 //-----------------------------------------------------------------------------
 CFileSystem_Stdio g_FileSystem_Stdio;
 
-#ifndef _PS3
-//CAsyncFileSystem g_FileSystem_Async;
-#endif
 
 #if defined(_WIN32) && defined(DEDICATED)
 CBaseFileSystem *BaseFileSystem_Stdio( void )
@@ -349,17 +347,11 @@ bool CFileSystem_Stdio::GetOptimalIOConstraints( FileHandle_t hFile, unsigned *p
 	unsigned sectorSize;
 	
 	CFileHandle *fh = ( CFileHandle *)hFile;
-#ifdef SUPPORT_VPK
-	if ( fh && fh->m_VPKHandle  )
-	{
-		return false;
-	}
-#endif
 	if ( hFile && UseOptimalBufferAllocation() )
 	{
 		sectorSize = fh->GetSectorSize();
 		
-		if ( !sectorSize || ( fh->m_pPackFileHandle && ( fh->m_pPackFileHandle->AbsoluteBaseOffset() % sectorSize ) ) )
+		if ( !sectorSize )
 		{
 			sectorSize = 1;
 		}
@@ -420,10 +412,6 @@ void *CFileSystem_Stdio::AllocOptimalReadBuffer( FileHandle_t hFile, unsigned nS
 			nSize = fh->Size();
 		}
 
-		if ( fh->m_pPackFileHandle )
-		{
-			nOffset += fh->m_pPackFileHandle->AbsoluteBaseOffset();
-		}
 	}
 	else
 	{

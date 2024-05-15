@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
@@ -90,7 +90,7 @@ public:
 	vec_t	Length() const;
 
 	// Get the Vector2D's magnitude squared.
-	vec_t	LengthSqr(void) const;
+	vec_t	LengthSqr() const;
 
 	// return true if this vector is (0,0) within tolerance
 	bool IsZero( float tolerance = 0.01f ) const
@@ -131,7 +131,7 @@ public:
 	Vector2D(const Vector2D &vOther);
 
 	// arithmetic operations
-	Vector2D	operator-(void) const;
+	Vector2D	operator-() const;
 				
 	Vector2D	operator+(const Vector2D& v) const;	
 	Vector2D	operator-(const Vector2D& v) const;	
@@ -509,7 +509,7 @@ inline vec_t Vector2DLength( const Vector2D& v )
 	return (vec_t)FastSqrt(v.x*v.x + v.y*v.y);		
 }
 
-inline vec_t Vector2D::LengthSqr(void) const	
+inline vec_t Vector2D::LengthSqr() const
 { 
 	Assert( IsValid() );
 	return (x*x + y*y);		
@@ -530,7 +530,7 @@ inline bool Vector2D::IsLengthLessThan( float val ) const
 	return LengthSqr() < val*val;
 }
 
-inline vec_t Vector2D::Length(void) const	
+inline vec_t Vector2D::Length() const
 {
 	return Vector2DLength( *this );
 }
@@ -637,7 +637,7 @@ inline Vector2D Vector2D::Max(const Vector2D &vOther) const
 // arithmetic operations
 //-----------------------------------------------------------------------------
 
-inline Vector2D Vector2D::operator-(void) const
+inline Vector2D Vector2D::operator-() const
 { 
 	return Vector2D(-x,-y);				
 }

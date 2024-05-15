@@ -9,7 +9,6 @@ elseif (CMAKE_SIZEOF_VOID_P EQUAL 4)
 endif ()
 
 add_library(tier1
-        byteswap.cpp
         exprevaluator.cpp
         characterset.cpp
         checksum_crc.cpp

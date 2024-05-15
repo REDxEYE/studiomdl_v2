@@ -93,7 +93,7 @@ public:
 	vec_t	Length() const;
 
 	// Get the Vector4D's magnitude squared.
-	vec_t	LengthSqr(void) const;
+	vec_t	LengthSqr() const;
 
 	// return true if this vector is (0,0,0,0) within tolerance
 	bool IsZero( float tolerance = 0.01f ) const
@@ -143,7 +143,7 @@ const Vector4D vec4_invalid( FLT_MAX, FLT_MAX, FLT_MAX, FLT_MAX );
 class ALIGN16 Vector4DAligned : public Vector4D
 {
 public:
-	Vector4DAligned(void) {}
+	Vector4DAligned() {}
 	Vector4DAligned( vec_t X, vec_t Y, vec_t Z, vec_t W );
 
 	inline void Set( vec_t X, vec_t Y, vec_t Z, vec_t W );
@@ -426,7 +426,7 @@ inline Vector4D& Vector4D::operator*=(Vector4D const& v)
 	return *this;
 }
 
-inline Vector4D Vector4D::operator-(void) const
+inline Vector4D Vector4D::operator-() const
 { 
 	return Vector4D(-x,-y,-z,-w);				
 }
@@ -606,13 +606,13 @@ inline vec_t Vector4DLength( Vector4D const& v )
 	return (vec_t)FastSqrt(v.x*v.x + v.y*v.y + v.z*v.z + v.w*v.w);		
 }
 
-inline vec_t Vector4D::LengthSqr(void) const	
+inline vec_t Vector4D::LengthSqr() const
 { 
 	Assert( IsValid() );
 	return (x*x + y*y + z*z + w*w);		
 }
 
-inline vec_t Vector4D::Length(void) const	
+inline vec_t Vector4D::Length() const
 {
 	return Vector4DLength( *this );
 }

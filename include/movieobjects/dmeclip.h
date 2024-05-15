@@ -14,9 +14,7 @@
 #include "datamodel/dmattribute.h"
 #include "datamodel/dmattributevar.h"
 #include "datamodel/dmehandle.h"
-#include "avi/iavi.h"
 #include "tier1/utlmap.h"
-#include "videocache/iremotevideomaterial.h"
 #include "datamodel/dmelementfactoryhelper.h"
 
 
@@ -189,10 +187,6 @@ public:
 	bool BuildClipStack( DmeClipStack_t* pStack, const CDmeClip *pRoot, CDmeClip *pShot = NULL );
 
 	void SetClipColor( const Color& clr );
-	Color GetClipColor() const;
-
-	void SetClipText( const char *pText );
-	const char* GetClipText() const;
 
 	// Clip type
 	virtual DmeClipType_t GetClipType() { return DMECLIP_UNKNOWN; }
@@ -503,19 +497,6 @@ public:
 	void DrawOverlay( DmeTime_t time, Rect_t &currentRect, Rect_t &totalRect );
 	bool HasOpaqueOverlay();
 
-	// AVI tape out
-	void UseCachedVersion( bool bUseCachedVersion );
-	bool IsUsingCachedVersion() const;
-	AVIMaterial_t GetCachedAVI();
-	void SetCachedAVI( const char *pAVIFile );
-
-	void AssignRemoteVideoMaterial( IRemoteVideoMaterial *theMaterial );
-	void UpdateRemoteVideoMaterialStatus();
-	bool HasRemoteVideo();
-	bool GetCachedQTVideoFrameAt( float timeInSec );
-	IMaterial *GetRemoteVideoMaterial();
-	void GetRemoteVideoMaterialTexCoordRange( float *u, float *v );
-
 	CDmaElementArray< CDmeAnimationSet > &GetAnimationSets(); // raw access to the array
 	const CDmaElementArray< CDmeAnimationSet > &GetAnimationSets() const;
 	CDmeAnimationSet *FindAnimationSet( const char *pAnimSetName ) const;
@@ -577,15 +558,13 @@ private:
 	CDmaStringArray							m_ConCommands;
 	CDmaStringArray							m_ConVars;
 
-	AVIMaterial_t							m_hCachedVersion;
 	bool									m_bReloadCachedVersion;
 	
 
 	CDmaElementArray< CDmeCamera >			m_CameraStack;
 	int										m_nCurrentStackCamera;
 	
-	IRemoteVideoMaterial				   *m_pRemoteVideoMaterial;
-	
+
 };
 
 

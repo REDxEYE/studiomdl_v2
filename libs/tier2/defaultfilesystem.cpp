@@ -48,7 +48,7 @@ void InitDefaultFileSystem( void )
 	g_pFullFileSystem->AddSearchPath( "", "DEFAULT_WRITE_PATH", PATH_ADD_TO_HEAD );
 }
 
-void ShutdownDefaultFileSystem(void)
+void ShutdownDefaultFileSystem()
 {
 	AssertMsg( g_pFullFileSystem, "File system not set up" );
 	g_pFullFileSystem->Shutdown();

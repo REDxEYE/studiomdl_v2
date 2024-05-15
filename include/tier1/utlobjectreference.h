@@ -1,4 +1,4 @@
-//===== Copyright © 1996-2006, Valve Corporation, All rights reserved. ======//
+//===== Copyright ï¿½ 1996-2006, Valve Corporation, All rights reserved. ======//
 //
 // $Revision: $
 // $NoKeywords: $
@@ -71,7 +71,7 @@ public:
 		}
 	}
   
-	FORCEINLINE T * operator()(void) const
+	FORCEINLINE T * operator()() const
 	{
 		return m_pObject;
 	}

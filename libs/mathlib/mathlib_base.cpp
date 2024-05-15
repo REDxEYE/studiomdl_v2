@@ -4020,7 +4020,6 @@ void MathLib_Init( float gamma, float texGamma, float brightness, int overbright
 	s_bMathlibInitialized = true;
 
 	InitSinCosTable();
-	BuildGammaTable( gamma, texGamma, brightness, overbright );
 	SeedRandSIMD( 0x31415926 );
 }
 

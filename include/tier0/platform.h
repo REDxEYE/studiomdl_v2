@@ -2526,7 +2526,7 @@ inline void ValidateAlignmentExplicit(void)
 	// Alignment should be a multiple of the base alignment of T
 //	ALIGN_ASSERT((ALIGN % VALIGNOF(T)) == 0);
 }
-template< class T > inline void ValidateAlignment(void) { ValidateAlignmentExplicit<T, VALIGNOF(T)>(); }
+template< class T > inline void ValidateAlignment() { ValidateAlignmentExplicit<T, VALIGNOF(T)>(); }
 
 // Portable alternative to __alignof
 template<class T> struct AlignOf_t { AlignOf_t(){} AlignOf_t & operator=(const AlignOf_t &) { return *this; } byte b; T t; };

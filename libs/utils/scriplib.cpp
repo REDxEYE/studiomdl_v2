@@ -569,7 +569,7 @@ GetToken (false);
 could cross a line boundary.
 ==============
 */
-void UnGetToken (void)
+void UnGetToken ()
 {
 	tokenready = true;
 }
@@ -922,7 +922,7 @@ TokenAvailable
 Returns true if there is another token on the line
 ==============
 */
-qboolean TokenAvailable (void)
+qboolean TokenAvailable ()
 {
 	char    *search_p;
 

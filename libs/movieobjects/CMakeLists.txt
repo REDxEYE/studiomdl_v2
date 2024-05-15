@@ -22,7 +22,6 @@ add_library(movieobjects
         movieobjects_interfaces.cpp
         dmelog.cpp
         dmemodel.cpp
-        dmelight.cpp
         dmerigconstraintoperators.cpp
         dmeaxissystem.cpp
         dmecamera.cpp

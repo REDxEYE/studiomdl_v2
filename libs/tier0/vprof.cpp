@@ -1613,7 +1613,7 @@ int CVProfile::GetNumBudgetGroups( void )
 	return m_nBudgetGroupNames;
 }
 
-void CVProfile::RegisterNumBudgetGroupsChangedCallBack( void (*pCallBack)(void) )
+void CVProfile::RegisterNumBudgetGroupsChangedCallBack( void (*pCallBack)() )
 {
 	m_pNumBudgetGroupsChangedCallBack = pCallBack;
 }

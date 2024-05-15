@@ -306,10 +306,10 @@ typedef struct X3DAUDIO_DSP_SETTINGS
 
 //--------------<F-U-N-C-T-I-O-N-S>-----------------------------------------//
 // initializes instance handle
-X3DAUDIO_API_(void) X3DAudioInitialize (UINT32 SpeakerChannelMask, FLOAT32 SpeedOfSound, __out X3DAUDIO_HANDLE Instance);
+X3DAUDIO_API_() X3DAudioInitialize (UINT32 SpeakerChannelMask, FLOAT32 SpeedOfSound, __out X3DAUDIO_HANDLE Instance);
 
 // calculates DSP settings with respect to 3D parameters
-X3DAUDIO_API_(void) X3DAudioCalculate (__in const X3DAUDIO_HANDLE Instance, __in const X3DAUDIO_LISTENER* pListener, __in const X3DAUDIO_EMITTER* pEmitter, UINT32 Flags, __inout X3DAUDIO_DSP_SETTINGS* pDSPSettings);
+X3DAUDIO_API_() X3DAudioCalculate (__in const X3DAUDIO_HANDLE Instance, __in const X3DAUDIO_LISTENER* pListener, __in const X3DAUDIO_EMITTER* pEmitter, UINT32 Flags, __inout X3DAUDIO_DSP_SETTINGS* pDSPSettings);
 
 
 #pragma pack(pop) // revert packing alignment

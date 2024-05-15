@@ -148,7 +148,7 @@ void DumpMemoryInfoStats()
 #define free_internal (g_pMemOverrideRawCrtFns->pfn_free)
 #define msize_internal (g_pMemOverrideRawCrtFns->pfn_malloc_usable_size)
 #define compact_internal() (0)
-#define heapstats_internal(p) (void)(0)
+#define heapstats_internal(p) ()(0)
 #else // _PS3
 #define malloc_internal( region, bytes) malloc(bytes)
 #define malloc_aligned_internal( region, bytes, align ) memalign(align, bytes)
@@ -161,7 +161,7 @@ void DumpMemoryInfoStats()
 #define msize_internal _msize
 #endif // POSIX
 #define compact_internal() (0)
-#define heapstats_internal(p) (void)(0)
+#define heapstats_internal(p) ()(0)
 #endif // _PS3
 #else // USE_DLMALLOC
 #define MSPACES 1

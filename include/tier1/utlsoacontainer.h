@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2007, Valve Corporation, All rights reserved. =======//
+//====== Copyright ï¿½ 1996-2007, Valve Corporation, All rights reserved. =======//
 //
 // Purpose: 
 //
@@ -41,12 +41,12 @@ public:
 	}
 
 	FORCEINLINE CStridedPtr<T>( void ) {}
-	T *operator->(void) const
+	T *operator->() const
 	{
 		return m_pData;
 	}
 	
-	T & operator*(void) const
+	T & operator*() const
 	{
 		return *m_pData;
 	}
@@ -90,17 +90,17 @@ public:
 
 	FORCEINLINE CStridedConstPtr<T>( void ) {}
 
-	const T *operator->(void) const
+	const T *operator->() const
 	{
 		return m_pData;
 	}
 
-	const T & operator*(void) const
+	const T & operator*() const
 	{
 		return *m_pData;
 	}
 
-	FORCEINLINE operator const T *(void) const
+	FORCEINLINE operator const T *() const
 	{
 		return m_pData;
 	}

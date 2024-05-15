@@ -20,7 +20,7 @@
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
-TokenReader::TokenReader(void)
+TokenReader::TokenReader()
 {
 	m_szFilename[0] = '\0';
 	m_nLine = 1;
@@ -423,7 +423,7 @@ trtoken_t TokenReader::PeekTokenType(char *pszStore, int maxlen )
 // Output : Returns true if the whitespace contained the combine strings
 //			character '+', which is used to merge consecutive quoted strings.
 //-----------------------------------------------------------------------------
-bool TokenReader::SkipWhiteSpace(void)
+bool TokenReader::SkipWhiteSpace()
 {
 	bool bCombineStrings = false;
 

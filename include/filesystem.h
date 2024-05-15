@@ -439,7 +439,6 @@ public:
 	//--------------------------------------------------------
 	virtual bool			ReadFile( const char *pFileName, const char *pPath, CUtlBuffer &buf, int nMaxBytes = 0, int nStartingByte = 0, FSAllocFunc_t pfnAlloc = NULL ) = 0;
 	virtual bool			WriteFile( const char *pFileName, const char *pPath, CUtlBuffer &buf ) = 0;
-	virtual bool			UnzipFile( const char *pFileName, const char *pPath, const char *pDestination ) = 0;
 };
 
 abstract_class IIoStats
@@ -523,9 +522,6 @@ public:
 #endif
 	// Returns the search path, each path is separated by ;s. Returns the length of the string returned
 	virtual int				GetSearchPath( const char *pathID, bool bGetPackFiles, char *pPath, int nMaxLen ) = 0;
-
-	// interface for custom pack files > 4Gb
-	virtual bool			AddPackFile( const char *fullpath, const char *pathID ) = 0;
 
 	//--------------------------------------------------------
 	// File manipulation operations
@@ -695,9 +691,6 @@ public:
 	virtual IBlockingFileItemList *RetrieveBlockingFileAccessInfo() = 0;
 #endif
 
-	virtual void SetupPreloadData() = 0;
-	virtual void DiscardPreloadData() = 0;
-
 	// Fixme, we could do these via a string embedded into the compiled data, etc...
 	enum KeyValuesPreloadType_t
 	{
@@ -727,49 +720,12 @@ public:
 	virtual void		*AllocOptimalReadBuffer( FileHandle_t hFile, unsigned nSize = 0, unsigned nOffset = 0 ) = 0;
 	virtual void		FreeOptimalReadBuffer( void * ) = 0;
 
-	//--------------------------------------------------------
-	//
-	//--------------------------------------------------------
-	virtual void		BeginMapAccess() = 0;
-	virtual void		EndMapAccess() = 0;
-
 	// Returns true on success, otherwise false if it can't be resolved
 	virtual bool		FullPathToRelativePathEx( const char *pFullpath, const char *pPathId, char *pRelative, int maxlen ) = 0;
 
 	virtual int			GetPathIndex( const FileNameHandle_t &handle ) = 0;
 	virtual long		GetPathTime( const char *pPath, const char *pPathID ) = 0;
 
-	virtual DVDMode_t	GetDVDMode() = 0;
-
-	//--------------------------------------------------------
-	// Whitelisting for pure servers.
-	//--------------------------------------------------------
-
-	// This should be called ONCE at startup. Multiplayer games (gameinfo.txt does not contain singleplayer_only)
-	// want to enable this so sv_pure works.
-	virtual void			EnableWhitelistFileTracking( bool bEnable, bool bCacheAllVPKHashes, bool bRecalculateAndCheckHashes ) = 0;
-
-	// This is called when the client connects to a server using a pure_server_whitelist.txt file.
-	//
-	// Files listed in pWantCRCList will have CRCs calculated for them IF they come off disk
-	// (and those CRCs will come out of GetUnverifiedCRCFiles).
-	//
-	// Files listed in pAllowFromDiskList will be allowed to load from disk. All other files will
-	// be forced to come from Steam.
-	//
-	// The filesystem hangs onto the whitelists you pass in here, and it will Release() them when it closes down
-	// or when you call this function again.
-	//
-	// NOTE: The whitelists you pass in here will be accessed from multiple threads, so make sure the 
-	//       IsFileInList function is thread safe.
-	//
-	// If pFilesToReload is non-null, the filesystem will hand back a list of files that should be reloaded because they
-	// are now "dirty". For example, if you were on a non-pure server and you loaded a certain model, and then you connected
-	// to a pure server that said that model had to come from Steam, then pFilesToReload would specify that model
-	// and the engine should reload it so it can come from Steam.
-	//
-	// Be sure to call Release() on pFilesToReload.
-	virtual void			RegisterFileWhitelist( IFileList *pWantCRCList, IFileList *pAllowFromDiskList, IFileList **pFilesToReload ) = 0;
 
 	// Called when the client logs onto a server. Any files that came off disk should be marked as 
 	// unverified because this server may have a different set of files it wants to guarantee.
@@ -796,45 +752,14 @@ public:
 	// Installs a callback used to display a dirty disk dialog
 	virtual void			InstallDirtyDiskReportFunc( FSDirtyDiskReportFunc_t func ) = 0;
 
-	virtual bool			IsLaunchedFromXboxHDD() = 0;
-	virtual bool			IsInstalledToXboxHDDCache() = 0;
-	virtual bool			IsDVDHosted() = 0;
-	virtual bool			IsInstallAllowed() = 0;
-
 	virtual int				GetSearchPathID( char *pPath, int nMaxLen ) = 0;
 	virtual bool			FixupSearchPathsAfterInstall() = 0;
 	
 	virtual FSDirtyDiskReportFunc_t		GetDirtyDiskReportFunc() = 0;
 
-	virtual void AddVPKFile( char const *pszName, SearchPathAdd_t addType = PATH_ADD_TO_TAIL ) = 0;
-	virtual void RemoveVPKFile( char const *pszName ) = 0;
-	virtual void GetVPKFileNames( CUtlVector<CUtlString> &destVector ) = 0;
-	virtual void			RemoveAllMapSearchPaths() = 0;
-	virtual void			SyncDvdDevCache() = 0;
-
 	virtual bool			GetStringFromKVPool( CRC32_t poolKey, unsigned int key, char *pOutBuff, int buflen ) = 0;
 
-	virtual bool			DiscoverDLC( int iController ) = 0;
-	virtual int				IsAnyDLCPresent( bool *pbDLCSearchPathMounted = NULL ) = 0;
-	virtual bool			GetAnyDLCInfo( int iDLC, unsigned int *pLicenseMask, wchar_t *pTitleBuff, int nOutTitleSize ) = 0;
-	virtual int				IsAnyCorruptDLC() = 0;
-	virtual bool			GetAnyCorruptDLCInfo( int iCorruptDLC, wchar_t *pTitleBuff, int nOutTitleSize ) = 0;
-	virtual bool			AddDLCSearchPaths() = 0;
-	virtual bool			IsSpecificDLCPresent( unsigned int nDLCPackage ) = 0;
-	
-	// call this to look for CPU-hogs during loading processes. When you set this, a breakpoint
-	// will be issued whenever the indicated # of seconds go by without an i/o request.  Passing
-	// 0.0 will turn off the functionality.
-	virtual void            SetIODelayAlarm( float flThreshhold ) = 0;
-
-	virtual bool			AddXLSPUpdateSearchPath( const void *pData, int nSize ) = 0;
-	
 	virtual IIoStats		*GetIoStats() = 0;
-
-	virtual void			CacheAllVPKFileHashes( bool bCacheAllVPKHashes, bool bRecalculateAndCheckHashes ) = 0;
-	virtual bool			CheckVPKFileHash( int PackFileID, int nPackFileNumber, int nFileFraction, MD5Value_t &md5Value ) = 0;
-
-	virtual void			GetVPKFileStatisticsKV( KeyValues *pKV ) = 0;
 
 };
 
@@ -882,12 +807,6 @@ inline unsigned IFileSystem::GetOptimalReadSize( FileHandle_t hFile, unsigned nL
 		return nLogicalSize;
 }
 
-//-----------------------------------------------------------------------------
-
-// We include this here so it'll catch compile errors in VMPI early.
-#include "filesystem_passthru.h"
-
-//-----------------------------------------------------------------------------
 // Globals Exposed
 //-----------------------------------------------------------------------------
 DECLARE_TIER2_INTERFACE( IFileSystem, g_pFullFileSystem );

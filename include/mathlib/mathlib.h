@@ -1430,49 +1430,6 @@ inline int FASTCALL BoxOnPlaneSide2 (const Vector& emins, const Vector& emaxs, c
 void ClearBounds (Vector& mins, Vector& maxs);
 void AddPointToBounds (const Vector& v, Vector& mins, Vector& maxs);
 
-//-----------------------------------------------------------------------------
-// Ensures that the min and max bounds values are valid. 
-// (ClearBounds() sets min > max, which is clearly invalid.)
-//-----------------------------------------------------------------------------
-bool AreBoundsValid( const Vector &vMin, const Vector &vMax );
-
-//-----------------------------------------------------------------------------
-// Returns true if the provided point is in the AABB defined by vMin
-// at the lower corner and vMax at the upper corner.
-//-----------------------------------------------------------------------------
-bool IsPointInBounds( const Vector &vPoint, const Vector &vMin, const Vector &vMax );
-
-//
-// COLORSPACE/GAMMA CONVERSION STUFF
-//
-void BuildGammaTable( float gamma, float texGamma, float brightness, int overbright );
-
-// convert texture to linear 0..1 value
-inline float TexLightToLinear( int c, int exponent )
-{
-	// On VS 2013 LTCG builds it is required that the array declaration be annotated with
-	// the same alignment requirements as the array definition.
-	extern ALIGN128 float power2_n[256]; 
-	Assert( exponent >= -128 && exponent <= 127 );
-	return ( float )c * power2_n[exponent+128];
-}
-
-
-// convert texture to linear 0..1 value
-int LinearToTexture( float f );
-// converts 0..1 linear value to screen gamma (0..255)
-int LinearToScreenGamma( float f );
-float TextureToLinear( int c );
-
-// compressed color format 
-struct ColorRGBExp32
-{
-	byte r, g, b;
-	signed char exponent;
-};
-
-void ColorRGBExp32ToVector( const ColorRGBExp32& in, Vector& out );
-void VectorToColorRGBExp32( const Vector& v, ColorRGBExp32 &c );
 
 // solve for "x" where "a x^2 + b x + c = 0", return true if solution exists
 bool SolveQuadratic( float a, float b, float c, float &root1, float &root2 );

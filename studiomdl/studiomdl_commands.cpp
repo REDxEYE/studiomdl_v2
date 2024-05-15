@@ -8,11 +8,9 @@
 #include "mdlobjects/dmeboneflexdriver.h"
 #include "common/scriplib.h"
 #include "studiomdl_errors.h"
-#include "studiomdl/collisionmodel.h"
 #include "movieobjects/movieobjects.h"
 #include "tier1/fmtstr.h"
-#include "cmodel.h"
-#include "studiomdl/compileclothproxy.h"
+#include "bspflags.h"
 
 #ifdef WIN32
     #undef strdup
@@ -392,10 +390,6 @@ void Cmd_InternalName() {
     Q_strncpy(g_szInternalName, token, sizeof(g_szInternalName));
 }
 
-void Cmd_Phyname() {
-    GetToken(false);
-    CollisionModel_SetName(token);
-}
 
 void Cmd_PreserveTriangleOrder() {
     g_StudioMdlContext.preserveTriangleOrder = true;
@@ -2418,7 +2412,7 @@ void Cmd_Model() {
     g_nummodels++;
 }
 
-void Cmd_FakeVTA(void) {
+void Cmd_FakeVTA() {
     int depth = 0;
 
     GetToken(false);
@@ -2573,7 +2567,7 @@ void Cmd_Root() {
     }
 }
 
-void Cmd_Controller(void) {
+void Cmd_Controller() {
     if (GetToken(false)) {
         if (!stricmp("mouth", token)) {
             g_bonecontroller[g_numbonecontrollers].inputfield = 4;
@@ -2603,7 +2597,7 @@ void Cmd_Controller(void) {
     }
 }
 
-void Cmd_ScreenAlign(void) {
+void Cmd_ScreenAlign() {
     if (GetToken(false)) {
 
         Assert(g_numscreenalignedbones < MAXSTUDIOSRCBONES);
@@ -2626,7 +2620,7 @@ void Cmd_ScreenAlign(void) {
     }
 }
 
-void Cmd_WorldAlign(void) {
+void Cmd_WorldAlign() {
     if (GetToken(false)) {
         Assert(g_numworldalignedbones < MAXSTUDIOSRCBONES);
 
@@ -2640,7 +2634,7 @@ void Cmd_WorldAlign(void) {
     }
 }
 
-void Cmd_BBox(void) {
+void Cmd_BBox() {
     GetToken(false);
     bbox[0][0] = verify_atof(token);
 
@@ -2662,11 +2656,11 @@ void Cmd_BBox(void) {
     g_wrotebbox = true;
 }
 
-void Cmd_BBoxOnlyVerts(void) {
+void Cmd_BBoxOnlyVerts() {
     g_bboxonlyverts = true;
 }
 
-void Cmd_CBox(void) {
+void Cmd_CBox() {
     GetToken(false);
     cbox[0][0] = verify_atof(token);
 
@@ -2688,7 +2682,7 @@ void Cmd_CBox(void) {
     g_wrotecbox = true;
 }
 
-void Cmd_Gamma(void) {
+void Cmd_Gamma() {
     GetToken(false);
     g_gamma = verify_atof(token);
 }
@@ -2820,7 +2814,7 @@ void Cmd_Hitbox() {
     set->numhitboxes++;
 }
 
-void Cmd_HitboxSet(void) {
+void Cmd_HitboxSet() {
     // Add a new hitboxset
     g_StudioMdlContext.hitboxsets.emplace_back();
     s_hitboxset *set = &g_StudioMdlContext.hitboxsets.back();
@@ -3391,7 +3385,7 @@ void Cmd_LOD(const char *cmdname) {
     }
 }
 
-void Cmd_ShadowLOD(void) {
+void Cmd_ShadowLOD() {
     if (!g_StudioMdlContext.quiet) {
         printf("Processing $shadowlod\n");
     }
@@ -3966,7 +3960,7 @@ bool ParseRigidJiggle(s_jigglebone_t *jiggleInfo) {
 }
 
 
-float ParseJiggleStiffness(void) {
+float ParseJiggleStiffness() {
     if (!GetToken(false)) {
         MdlError("$jigglebone: expecting stiffness value\n", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
         return 0.0f;
@@ -3980,7 +3974,7 @@ float ParseJiggleStiffness(void) {
     return clamp(stiffness, minStiffness, maxStiffness);
 }
 
-float ParseJiggleDamping(void) {
+float ParseJiggleDamping() {
     if (!GetToken(false)) {
         MdlError("$jigglebone: expecting damping value\n", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
         return 0.0f;
@@ -4136,7 +4130,7 @@ bool ParseFlexibleJiggle(s_jigglebone_t *jiggleInfo) {
 //
 // Parse $jigglebone parameters
 //
-void Cmd_JiggleBone(void) {
+void Cmd_JiggleBone() {
     struct s_jigglebone_t *jiggleInfo = &g_jigglebones[g_numjigglebones];
 
     // bone name
@@ -4254,13 +4248,6 @@ void Cmd_Popd() {
         numdirs--;
 }
 
-void Cmd_CollisionModel() {
-    DoCollisionModel(false);
-}
-
-void Cmd_CollisionJoints() {
-    DoCollisionModel(true);
-}
 
 void Cmd_ExternalTextures() {
     MdlWarning("ignoring $externaltextures, obsolete...");
@@ -4589,7 +4576,7 @@ void Cmd_DefaultWeightlist() {
 Cmd_Origin
 =================
 */
-void Cmd_Origin(void) {
+void Cmd_Origin() {
     GetToken(false);
     g_defaultadjust.x = verify_atof(token);
 
@@ -4616,7 +4603,7 @@ void ProcessUpAxis(const RadianEuler &angles) {
 //-----------------------------------------------------------------------------
 // Purpose: Set the default root rotation so that the Y axis is up instead of the Z axis (for Maya)
 //-----------------------------------------------------------------------------
-void Cmd_UpAxis(void) {
+void Cmd_UpAxis() {
     // We want to create a rotation that rotates from the art space
     // (specified by the up direction) to a z up space
     // Note: x, -x, -y are untested
@@ -4655,7 +4642,7 @@ void Cmd_UpAxis(void) {
 }
 
 
-void Cmd_ScaleUp(void) {
+void Cmd_ScaleUp() {
     GetToken(false);
     g_defaultscale = verify_atof(token);
 
@@ -4665,7 +4652,7 @@ void Cmd_ScaleUp(void) {
 //-----------------------------------------------------------------------------
 // Purpose: Sets how what size chunks to cut the animations into
 //-----------------------------------------------------------------------------
-void Cmd_AnimBlockSize(void) {
+void Cmd_AnimBlockSize() {
     GetToken(false);
     g_animblocksize = verify_atoi(token);
     if (g_animblocksize < 1024) {
@@ -6560,7 +6547,7 @@ void Cmd_Continue() {
 //-----------------------------------------------------------------------------
 // Purpose: foward declare an empty sequence
 //-----------------------------------------------------------------------------
-void Cmd_DeclareSequence(void) {
+void Cmd_DeclareSequence() {
     if (g_sequence.Count() >= MAXSTUDIOSEQUENCES) {
         TokenError("Too many sequences (%d max)\n", MAXSTUDIOSEQUENCES);
     }
@@ -6578,7 +6565,7 @@ void Cmd_DeclareSequence(void) {
 //-----------------------------------------------------------------------------
 // Purpose: foward declare an empty sequence
 //-----------------------------------------------------------------------------
-void Cmd_DeclareAnimation(void) {
+void Cmd_DeclareAnimation() {
     if (g_numani >= MAXSTUDIOANIMS) {
         TokenError("Too many animations (%d max)\n", MAXSTUDIOANIMS);
     }
@@ -6851,9 +6838,6 @@ MDLCommand_t g_Commands[] =
                 {"$screenalign",                     Cmd_ScreenAlign,},
                 {"$worldalign",                      Cmd_WorldAlign,},
                 {"$model",                           Cmd_Model,},
-                {"$collisionmodel",                  Cmd_CollisionModel,},
-                {"$collisionjoints",                 Cmd_CollisionJoints,},
-                {"$collisiontext",                   Cmd_CollisionText,},
                 {"$appendsource",                    Cmd_AppendSource,},
                 {"$body",                            Cmd_Body,},
                 {"$bodygroup",                       Cmd_Bodygroup,},
@@ -6944,7 +6928,6 @@ MDLCommand_t g_Commands[] =
                 {"$clampworldspace",                 Cmd_ClampWorldspace,},
                 {"$maxeyedeflection",                Cmd_MaxEyeDeflection,},
                 {"$addsearchdir",                    Cmd_AddSearchDir,},
-                {"$phyname",                         Cmd_Phyname,},
                 {"$subd",                            Cmd_SubdivisionSurface,},
                 {"$boneflexdriver",                  Cmd_BoneFlexDriver,},
                 {"$maxverts",                        Cmd_maxVerts,},
