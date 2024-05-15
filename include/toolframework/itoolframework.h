@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2005, Valve Corporation, All rights reserved. =======
+//====== Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
@@ -11,9 +11,9 @@
 #endif
 
 #include "appframework/iappsystem.h"
-#include "materialsystem/imaterialproxy.h"
 #include "toolframework/itoolentity.h"
 #include "mathlib/vector.h"
+#include "studio.h"
 #include "color.h"
 
 //-----------------------------------------------------------------------------
@@ -299,8 +299,6 @@ public:  // Other Hooks
 
 	// Should sounds from the game be played?
 	virtual bool	ShouldGamePlaySounds() = 0;
-
-	virtual IMaterialProxy *LookupProxy( const char *proxyName ) = 0;
 
 public:  // general framework hooks
 	virtual bool		LoadFilmmaker() = 0;

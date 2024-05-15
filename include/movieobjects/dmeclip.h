@@ -15,7 +15,6 @@
 #include "datamodel/dmattributevar.h"
 #include "datamodel/dmehandle.h"
 #include "avi/iavi.h"
-#include "materialsystem/materialsystemutil.h"
 #include "tier1/utlmap.h"
 #include "videocache/iremotevideomaterial.h"
 #include "datamodel/dmelementfactoryhelper.h"
@@ -368,9 +367,6 @@ public:
 	{
 		MAX_FX_INPUT_TEXTURES = 3
 	};
-
-	// All effects must be able to apply their effect
-	virtual void ApplyEffect( DmeTime_t time, Rect_t &currentRect, Rect_t &totalRect, ITexture *pTextures[MAX_FX_INPUT_TEXTURES] ) {}
 
 	// Global list of FX clip types
 	static void InstallFXClipType( const char *pElementType, const char *pDescription );

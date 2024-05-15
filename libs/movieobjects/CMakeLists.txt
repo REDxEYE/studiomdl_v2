@@ -62,7 +62,6 @@ add_library(movieobjects
         dmeclip.cpp
         dmeflexrules.cpp
         dmeeditortypedictionary.cpp
-        dmeparticlesystemdefinition.cpp
         dmetransforminput.cpp
         dmebookmark.cpp
         dmedrawsettings.cpp

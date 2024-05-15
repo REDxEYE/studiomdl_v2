@@ -1,4 +1,4 @@
-//===== Copyright © 2013-2013, Valve Corporation, All rights reserved. ======//
+//===== Copyright ï¿½ 2013-2013, Valve Corporation, All rights reserved. ======//
 //
 // Purpose: Interface to help with rendering CMDLs & CMergedMDLs to textures.
 //
@@ -23,7 +23,6 @@ class ITexture;
 class IRenderToRTHelperObject
 {
 public:
-	virtual void Draw( const matrix3x4_t &rootToWorld ) = 0;
 	virtual bool GetBoundingSphere( Vector &vecCenter, float &flRadius ) = 0;
 	virtual ITexture *GetEnvCubeMap() = 0;
 };

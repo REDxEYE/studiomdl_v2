@@ -91,8 +91,6 @@
 #include "threadsaferefcountedobject.h"
 #include "filetracker.h"
 
-#include "xbox/xboxstubs.h"
-
 #ifdef _WIN32
 #define CORRECT_PATH_SEPARATOR '\\'
 #define INCORRECT_PATH_SEPARATOR '/'
@@ -132,29 +130,6 @@ typedef struct
 
 extern CUtlSymbolTableMT g_PathIDTable;
 
-struct DLCCorrupt_t
-{
-	XCONTENT_DATA	m_ContentData;
-};
-
-struct DLCContent_t
-{
-	XCONTENT_DATA	m_ContentData;
-	DWORD			m_LicenseMask;
-	int				m_nController;
-	char			m_szVolume[8];
-	bool			m_bMounted;
-	bool			m_bCorrupt;
-};
-
-class CDLCLess
-{
-public:
-	bool Less( const DLCContent_t& lhs, const DLCContent_t& rhs, void *pContext )
-	{
-		return ( ( lhs.m_LicenseMask & 0xFFFF0000 ) < ( rhs.m_LicenseMask & 0xFFFF0000 ) );
-	}
-};
 
 enum FileMode_t
 {
@@ -1100,8 +1075,6 @@ protected:
 	CPackedStoreFileHandle FindFileInVPKs( const char *pFileName );
 #endif
 
-	static CUtlSortVector< DLCContent_t, CDLCLess > m_DLCContents;
-	static CUtlVector< DLCCorrupt_t > m_CorruptDLC;
 };
 
 inline const CUtlSymbol& CBaseFileSystem::CPathIDInfo::GetPathID() const

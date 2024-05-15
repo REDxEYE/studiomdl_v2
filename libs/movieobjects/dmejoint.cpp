@@ -5,8 +5,6 @@
 //=============================================================================
 #include "movieobjects/dmejoint.h"
 #include "datamodel/dmelementfactoryhelper.h"
-#include "materialsystem/imaterialsystem.h"
-#include "materialsystem/imesh.h"
 #include "tier1/keyvalues.h"
 
 // memdbgon must be the last include file in a .cpp file!!!

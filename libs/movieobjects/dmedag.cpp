@@ -557,34 +557,6 @@ void CDmeDag::DrawZUp( bool bZUp )
 
 
 //-----------------------------------------------------------------------------
-// Recursively render the Dag hierarchy
-//-----------------------------------------------------------------------------
-void CDmeDag::Draw( CDmeDrawSettings *pDrawSettings )
-{
-	if ( !m_Visible )
-		return;
-
-	PushDagTransform();
-
-	CDmeShape *pShape = GetShape();
-	if ( pShape )
-	{
-		matrix3x4_t shapeToWorld;
-		GetShapeToWorldTransform( shapeToWorld );
-		pShape->Draw( shapeToWorld, pDrawSettings );
-	}
-
-	uint cn = m_Children.Count();
-	for ( uint ci = 0; ci < cn; ++ci )
-	{
-		m_Children[ ci ]->Draw( pDrawSettings );
-	}
-
-	PopDagTransform();
-}
-
-
-//-----------------------------------------------------------------------------
 //
 //-----------------------------------------------------------------------------
 void CDmeDag::GetBoundingSphere( Vector &c0, float &r0, const matrix3x4_t &pMat ) const

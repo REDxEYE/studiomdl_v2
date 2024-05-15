@@ -446,9 +446,6 @@ bool		CBaseFileSystem::m_bSearchPathsPatchedAfterInstall;
 
 CUtlVector< FileNameHandle_t > CBaseFileSystem::m_ExcludeFilePaths;
 
-CUtlSortVector< DLCContent_t, CDLCLess > CBaseFileSystem::m_DLCContents;
-CUtlVector< DLCCorrupt_t > CBaseFileSystem::m_CorruptDLC;
-
 CUtlBuffer	g_UpdateZipBuffer;
 CUtlBuffer	g_XLSPPatchZipBuffer;
 
@@ -2759,13 +2756,6 @@ void CBaseFileSystem::AddSearchPathInternal( const char *pPath, const char *path
 				return;
 			}
 
-			if ( !V_stristr( pPath, XBX_GetLanguageString() ) )
-			{
-				// only dlc that is non-localized (language dlc doesn't have maps) gets a fallthrough directory due to map paths
-				// every dlc thus far has had maps
-				m_SearchPaths.InsertAfter( nIndex );
-				nIndex++;
-			}
 		}
 	}
 	else
@@ -8119,263 +8109,36 @@ bool CBaseFileSystem::DiscoverDLC( int iController )
 // Returns the number of DLC components found
 int CBaseFileSystem::IsAnyDLCPresent( bool *pbDLCSearchPathMounted )
 {
-	if ( !IsX360() )
-	{
-		return 0;
-	}
-
-	if ( pbDLCSearchPathMounted )
-	{
-		// discovered DLC may have added new DLC that have not mounted their search path
-		*pbDLCSearchPathMounted = true;
-		for ( int i = 0; i < m_DLCContents.Count(); i++ )
-		{
-			if ( !m_DLCContents[i].m_bMounted )
-			{
-				// set caller's query to false so they know to trigger the AddDLCSearchPaths()
-				*pbDLCSearchPathMounted = false;
-				break;
-			}
-		}
-	}
-
-	return m_DLCContents.Count();
+    return 0;
 }
 
 bool CBaseFileSystem::GetAnyDLCInfo( int iDLC, unsigned int *pLicenseMask, wchar_t *pTitleBuff, int nOutTitleSize )
 {
-	if ( !IsX360() )
-	{
-		return false;
-	}
-
-	if ( !m_DLCContents.IsValidIndex( iDLC ) )
-	{
-		return false;
-	}
-
-	if ( pLicenseMask )
-	{
-		*pLicenseMask = m_DLCContents[iDLC].m_LicenseMask;
-	}
-
-	if ( pTitleBuff )
-	{
-		V_wcsncpy( pTitleBuff, m_DLCContents[iDLC].m_ContentData.szDisplayName, nOutTitleSize );
-	}
-
-	return true;
+    return false;
 }
 
 int CBaseFileSystem::IsAnyCorruptDLC()
 {
-	if ( !IsX360() )
-	{
 		return 0;
-	}
-
-	return m_CorruptDLC.Count();
 }
 
 bool CBaseFileSystem::GetAnyCorruptDLCInfo( int iCorruptDLC, wchar_t *pTitleBuff, int nOutTitleSize )
 {
-	if ( !IsX360() )
-	{
-		return false;
-	}
-
-	if ( !m_CorruptDLC.IsValidIndex( iCorruptDLC ) )
-	{
-		return false;
-	}
-
-	if ( pTitleBuff )
-	{
-		V_wcsncpy( pTitleBuff, m_CorruptDLC[iCorruptDLC].m_ContentData.szDisplayName, nOutTitleSize );
-	}
-
-	return true;
+    return false;
 }
 
 bool CBaseFileSystem::IsSpecificDLCPresent( unsigned int nDLCPackage )
 {
-	for( int i = 0; i < m_DLCContents.Count(); i++ )
-	{
-		if ( m_DLCContents[i].m_bMounted && ( DLC_LICENSE_ID( m_DLCContents[i].m_LicenseMask ) == nDLCPackage ) )
-		{
-			return true;
-		}
-	}
-
 	return false;
 }
 
 bool CBaseFileSystem::AddDLCSearchPaths()
 {
-	if ( !IsX360() )
-	{
-		return false;
-	}
-
-	if ( !IsAnyDLCPresent() )
-	{
-		return false;
-	}
-
-	// have to add the DLC to achieve desired SP order DLCN..DLC1
-	for ( int iDLC = 0; iDLC < m_DLCContents.Count(); iDLC++ )
-	{
-		if ( m_DLCContents[iDLC].m_bMounted )
-		{
-			// already procesed this on a prior add, skip now
-			// only care about newly discovered unique DLC
-			continue;
-		}
-
-		unsigned int nDLCType = DLC_LICENSE_ID( m_DLCContents[iDLC].m_LicenseMask );
-
-		char szDLCPath[MAX_PATH];
-		V_snprintf( szDLCPath, sizeof( szDLCPath ), "%s:\\csgo_dlc%d", m_DLCContents[iDLC].m_szVolume, nDLCType );
-
-		char szDLCLanguagePath[MAX_PATH];
-		const char *pLanguageString = NULL;
-		if ( XBX_IsAudioLocalized() )
-		{
-			pLanguageString = XBX_GetLanguageString();
-			// paranoid check
-			if ( !V_stricmp( pLanguageString, "english" ) )
-			{
-				// bad, system is confused
-				pLanguageString = NULL;
-			}
-		}
-		if ( pLanguageString )
-		{		
-			V_strncpy( szDLCLanguagePath, CFmtStr( "%s_%s", szDLCPath, pLanguageString ), sizeof( szDLCLanguagePath ) );
-		}
-
-		const char *pathTargets[] = { "GAME", "MOD" };
-		for ( int i = 0; i < ARRAYSIZE( pathTargets ); i++ )
-		{
-			// inject dlc path for each target path id, once at top
-			for ( int j = 0; j < m_SearchPaths.Count(); j++ )
-			{
-				if ( m_SearchPaths[j].GetPackFile() && m_SearchPaths[j].GetPackFile()->m_bIsMapPath )
-				{
-					// skip over any map based search paths
-					continue;
-				}
-
-				if ( V_stricmp( m_SearchPaths[j].GetPathIDString(), pathTargets[i] ) )
-				{
-					// skip over any path IDs that we are not interested in
-					continue;
-				}
-
-				// always after update if present
-				int iIndex = j;
-				if ( V_stristr( m_SearchPaths[j].GetPathString(), "update" ) )
-				{
-					// add after update
-					iIndex++;
-				}
-
-				// scan to find any existing DLC, need to be either before or after
-				bool bNoAdd = false;
-				for ( int k = iIndex; k < m_SearchPaths.Count(); k++ )
-				{
-					const char *pCurrentPathString = m_SearchPaths[k].GetPathString();
-					const char *pDLCSuffix = V_stristr( pCurrentPathString, "_dlc" );
-					if ( !pDLCSuffix )
-					{
-						break;
-					}
-					else
-					{
-						unsigned int nExistingDLC = atoi( pDLCSuffix + 4 );
-						if ( !nExistingDLC )
-						{
-							// uh-oh, can't determine what DLC this is, can't add any other
-							DevWarning( "ERROR! Skipping DLC Mount, malformed DLC search path found: %s\n", pCurrentPathString );
-							bNoAdd = true;
-							break;
-						}
-						if ( nDLCType > nExistingDLC )
-						{
-							// stop, we need to be prior to this one
-							break;
-						}
-						else if ( nDLCType == nExistingDLC )
-						{
-							// uh-oh, we don't add DLCs of the same type
-							bNoAdd = true;
-							break;
-						}
-						else
-						{
-							// the DLC we want to add is smaller, it needs to at least go after this one
-							iIndex = k + 1;
-						}
-					}
-				}
-			
-				if ( bNoAdd )
-				{
-					// not adding this DLC
-					break;
-				}
-
-				if ( pLanguageString )
-				{
-					// only add dlc language search path, if DLC has it
-					struct _stat buf;
-					if ( FS_stat( szDLCLanguagePath, &buf ) != -1 )
-					{
-						AddSearchPathInternal( szDLCLanguagePath, pathTargets[i], PATH_ADD_TO_TAIL_ATINDEX, true, iIndex );
-						iIndex++;
-					}
-				}
-
-				AddSearchPathInternal( szDLCPath, pathTargets[i], PATH_ADD_TO_TAIL_ATINDEX, true, iIndex );
-				break;
-			}
-		}
-
-		// never multiply mount or re-mount again
-		m_DLCContents[iDLC].m_bMounted = true;
-	}
-
-	PrintSearchPaths();
-	
-	return true;
+    return false;
 }
 
 void CBaseFileSystem::PrintDLCInfo()
 {
-	if ( IsX360() )
-	{
-		if ( m_DLCContents.Count() )
-		{
-			Msg( "\nDLC:\n" );
-			for ( int i = 0; i < m_DLCContents.Count(); i++ )
-			{
-				char szTitle[MAX_PATH];
-				V_UnicodeToUTF8( m_DLCContents[i].m_ContentData.szDisplayName, szTitle, sizeof( szTitle ) );
-				Msg( "DLC Found: '%s' License: 0x%8.8x\n", szTitle, m_DLCContents[i].m_LicenseMask );
-			}
-		}
-
-		if ( m_CorruptDLC.Count() )
-		{
-			Msg( "\nCorrupt DLC:\n" );
-			for ( int i = 0; i < m_CorruptDLC.Count(); i++ )
-			{
-				char szTitle[MAX_PATH];
-				V_UnicodeToUTF8( m_CorruptDLC[i].m_ContentData.szDisplayName, szTitle, sizeof( szTitle ) );
-				Msg( "Corrupt: '%s'\n", szTitle );
-			}
-		}
-	}
 }
 
 bool CBaseFileSystem::AddXLSPUpdateSearchPath( const void *pData, int nSize )

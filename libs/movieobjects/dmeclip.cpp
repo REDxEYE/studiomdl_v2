@@ -5,28 +5,16 @@
 //=============================================================================
 #include "movieobjects/dmeclip.h"
 
-#include "tier0/dbg.h"
-#include "datamodel/dmelementfactoryhelper.h"
-#include "datamodel/dmehandle.h"
-
 #include "movieobjects/dmetimeframe.h"
 #include "movieobjects/dmebookmark.h"
 #include "movieobjects/dmesound.h"
 #include "movieobjects/dmechannel.h"
 #include "movieobjects/dmecamera.h"
-#include "movieobjects/dmedag.h"
 #include "movieobjects/dmeinput.h"
-#include "movieobjects/dmeoperator.h"
-#include "movieobjects/dmematerial.h"
 #include "movieobjects/dmetrack.h"
 #include "movieobjects/dmetrackgroup.h"
-#include "movieobjects/dmematerialoverlayfxclip.h"
 #include "movieobjects/dmeanimationset.h"
-#include "movieobjects_interfaces.h"
 
-#include "materialsystem/imaterialsystem.h"
-#include "materialsystem/imaterial.h"
-#include "materialsystem/imesh.h"
 #include "tier3/tier3.h"
 
 // memdbgon must be the last include file in a .cpp file!!!

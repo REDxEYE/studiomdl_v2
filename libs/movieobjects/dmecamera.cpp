@@ -9,12 +9,9 @@
 #include "datamodel/dmelementfactoryhelper.h"
 #include "mathlib/vector.h"
 #include "movieobjects/dmetransform.h"
-#include "materialsystem/imaterialsystem.h"
 #include "movieobjects_interfaces.h"
 #include "tier2/tier2.h"
 
-// FIXME: REMOVE
-#include "istudiorender.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 // DISABLED #include "tier0/memdbgon.h"
@@ -82,11 +79,8 @@ void CDmeCamera::LoadViewMatrix( bool bUseEngineCoordinateSystem )
 	if ( !g_pMaterialSystem )
 		return;
 
-	CMatRenderContextPtr pRenderContext( g_pMaterialSystem );
 	VMatrix view;
 	GetViewMatrix( view, bUseEngineCoordinateSystem );
-	pRenderContext->MatrixMode( MATERIAL_VIEW );
-	pRenderContext->LoadMatrix( view );
 }
 
 //-----------------------------------------------------------------------------
@@ -97,12 +91,8 @@ void CDmeCamera::LoadProjectionMatrix( int nDisplayWidth, int nDisplayHeight )
 	if ( !g_pMaterialSystem )
 		return;
 
-	CMatRenderContextPtr pRenderContext( g_pMaterialSystem );
-	pRenderContext->MatrixMode( MATERIAL_PROJECTION );
-
 	VMatrix proj;
 	GetProjectionMatrix( proj, nDisplayWidth, nDisplayHeight );
-	pRenderContext->LoadMatrix( proj );
 }
 
 //-----------------------------------------------------------------------------
@@ -123,7 +113,6 @@ void CDmeCamera::LoadStudioRenderCameraState()
 	MatrixGetColumn( transform, 1, vecUp );
 	MatrixGetColumn( transform, 2, vecForward );
 	MatrixGetColumn( transform, 3, vecOrigin );
-	g_pStudioRender->SetViewState( vecOrigin, vecRight, vecUp, vecForward );
 }
 
 //-----------------------------------------------------------------------------

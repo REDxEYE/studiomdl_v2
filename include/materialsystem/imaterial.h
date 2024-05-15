@@ -13,8 +13,7 @@
 #pragma once
 #endif
 
-#include "bitmap/imageformat.h"
-#include "materialsystem/imaterialsystem.h"
+typedef uint64 VertexFormat_t;
 
 //-----------------------------------------------------------------------------
 // Forward declarations
@@ -22,8 +21,8 @@
 
 class IMaterialVar;
 class ITexture;
-class IMaterialProxy;
 class Vector;
+class KeyValues;
 
 //-----------------------------------------------------------------------------
 // Flags for GetVertexFormat
@@ -112,14 +111,6 @@ inline int TexCoordSize( int nTexCoordIndex, VertexFormat_t vertexFormat )
 	return static_cast<int> ( (vertexFormat >> (TEX_COORD_SIZE_BIT + 3*nTexCoordIndex) ) & 0x7 );
 }
 
-inline VertexCompressionType_t CompressionType( VertexFormat_t vertexFormat )
-{
-	// This is trivial now, but we may add multiple flavors of compressed vertex later on
-	if ( vertexFormat & VERTEX_FORMAT_COMPRESSED )
-		return VERTEX_COMPRESSION_ON;
-	else
-		return VERTEX_COMPRESSION_NONE;
-}
 
 
 //-----------------------------------------------------------------------------
@@ -259,95 +250,6 @@ inline void Detect_VertexElement_t_Changes( VertexElement_t element ) // GREPs f
 //#define COMPRESSED_NORMALS_TYPE						COMPRESSED_NORMALS_SEPARATETANGENTS_SHORT2
 #define COMPRESSED_NORMALS_TYPE						COMPRESSED_NORMALS_COMBINEDTANGENTS_UBYTE4
 
-inline int GetVertexElementSize( VertexElement_t element, VertexCompressionType_t compressionType )
-{
-	Detect_VertexElement_t_Changes( element );
-
-	if ( compressionType == VERTEX_COMPRESSION_ON )
-	{
-		// Compressed-vertex element sizes
-		switch ( element )
-		{
-#if		( COMPRESSED_NORMALS_TYPE == COMPRESSED_NORMALS_SEPARATETANGENTS_SHORT2 )
-			case VERTEX_ELEMENT_NORMAL:
-				return ( 2 * sizeof( short ) );
-			case VERTEX_ELEMENT_USERDATA4:
-				return ( 2 * sizeof( short ) );
-#else //( COMPRESSED_NORMALS_TYPE == COMPRESSED_NORMALS_COMBINEDTANGENTS_UBYTE4 ) 
-			// Normals and tangents (userdata4) are combined into a single UBYTE4 vertex element
-			case VERTEX_ELEMENT_NORMAL:
-				return ( 4 * sizeof( unsigned char ) );
-			case VERTEX_ELEMENT_USERDATA4:
-				return ( 0 );
-#endif
-			// Compressed bone weights use a SHORT2 vertex element:
-			case VERTEX_ELEMENT_BONEWEIGHTS1:
-			case VERTEX_ELEMENT_BONEWEIGHTS2:
-				return ( 2 * sizeof( short ) );
-			default:
-				break;
-		}
-	}
-
-	// Uncompressed-vertex element sizes
-	switch ( element )
-	{
-		case VERTEX_ELEMENT_POSITION:		return ( 3 * sizeof( float ) );
-		case VERTEX_ELEMENT_POSITION4D:		return ( 4 * sizeof( float ) );
-		case VERTEX_ELEMENT_NORMAL:			return ( 3 * sizeof( float ) );
-		case VERTEX_ELEMENT_NORMAL4D:		return ( 4 * sizeof( float ) );
-		case VERTEX_ELEMENT_COLOR:			return ( 4 * sizeof( unsigned char ) );
-		case VERTEX_ELEMENT_SPECULAR:		return ( 4 * sizeof( unsigned char ) );
-		case VERTEX_ELEMENT_TANGENT_S:		return ( 3 * sizeof( float ) );
-		case VERTEX_ELEMENT_TANGENT_T:		return ( 3 * sizeof( float ) );
-		case VERTEX_ELEMENT_WRINKLE:		return ( 1 * sizeof( float ) ); // Packed into Position.W
-		case VERTEX_ELEMENT_BONEINDEX:		return ( 4 * sizeof( unsigned char ) );
-		case VERTEX_ELEMENT_BONEWEIGHTS1:	return ( 1 * sizeof( float ) );
-		case VERTEX_ELEMENT_BONEWEIGHTS2:	return ( 2 * sizeof( float ) );
-		case VERTEX_ELEMENT_BONEWEIGHTS3:	return ( 3 * sizeof( float ) );
-		case VERTEX_ELEMENT_BONEWEIGHTS4:	return ( 4 * sizeof( float ) );
-		case VERTEX_ELEMENT_USERDATA1:		return ( 1 * sizeof( float ) );
-		case VERTEX_ELEMENT_USERDATA2:		return ( 2 * sizeof( float ) );
-		case VERTEX_ELEMENT_USERDATA3:		return ( 3 * sizeof( float ) );
-		case VERTEX_ELEMENT_USERDATA4:		return ( 4 * sizeof( float ) );
-		case VERTEX_ELEMENT_TEXCOORD1D_0:	return ( 1 * sizeof( float ) );
-		case VERTEX_ELEMENT_TEXCOORD1D_1:	return ( 1 * sizeof( float ) );
-		case VERTEX_ELEMENT_TEXCOORD1D_2:	return ( 1 * sizeof( float ) );
-		case VERTEX_ELEMENT_TEXCOORD1D_3:	return ( 1 * sizeof( float ) );
-		case VERTEX_ELEMENT_TEXCOORD1D_4:	return ( 1 * sizeof( float ) );
-		case VERTEX_ELEMENT_TEXCOORD1D_5:	return ( 1 * sizeof( float ) );
-		case VERTEX_ELEMENT_TEXCOORD1D_6:	return ( 1 * sizeof( float ) );
-		case VERTEX_ELEMENT_TEXCOORD1D_7:	return ( 1 * sizeof( float ) );
-		case VERTEX_ELEMENT_TEXCOORD2D_0:	return ( 2 * sizeof( float ) );
-		case VERTEX_ELEMENT_TEXCOORD2D_1:	return ( 2 * sizeof( float ) );
-		case VERTEX_ELEMENT_TEXCOORD2D_2:	return ( 2 * sizeof( float ) );
-		case VERTEX_ELEMENT_TEXCOORD2D_3:	return ( 2 * sizeof( float ) );
-		case VERTEX_ELEMENT_TEXCOORD2D_4:	return ( 2 * sizeof( float ) );
-		case VERTEX_ELEMENT_TEXCOORD2D_5:	return ( 2 * sizeof( float ) );
-		case VERTEX_ELEMENT_TEXCOORD2D_6:	return ( 2 * sizeof( float ) );
-		case VERTEX_ELEMENT_TEXCOORD2D_7:	return ( 2 * sizeof( float ) );
-		case VERTEX_ELEMENT_TEXCOORD3D_0:	return ( 3 * sizeof( float ) );
-		case VERTEX_ELEMENT_TEXCOORD3D_1:	return ( 3 * sizeof( float ) );
-		case VERTEX_ELEMENT_TEXCOORD3D_2:	return ( 3 * sizeof( float ) );
-		case VERTEX_ELEMENT_TEXCOORD3D_3:	return ( 3 * sizeof( float ) );
-		case VERTEX_ELEMENT_TEXCOORD3D_4:	return ( 3 * sizeof( float ) );
-		case VERTEX_ELEMENT_TEXCOORD3D_5:	return ( 3 * sizeof( float ) );
-		case VERTEX_ELEMENT_TEXCOORD3D_6:	return ( 3 * sizeof( float ) );
-		case VERTEX_ELEMENT_TEXCOORD3D_7:	return ( 3 * sizeof( float ) );
-		case VERTEX_ELEMENT_TEXCOORD4D_0:	return ( 4 * sizeof( float ) );
-		case VERTEX_ELEMENT_TEXCOORD4D_1:	return ( 4 * sizeof( float ) );
-		case VERTEX_ELEMENT_TEXCOORD4D_2:	return ( 4 * sizeof( float ) );
-		case VERTEX_ELEMENT_TEXCOORD4D_3:	return ( 4 * sizeof( float ) );
-		case VERTEX_ELEMENT_TEXCOORD4D_4:	return ( 4 * sizeof( float ) );
-		case VERTEX_ELEMENT_TEXCOORD4D_5:	return ( 4 * sizeof( float ) );
-		case VERTEX_ELEMENT_TEXCOORD4D_6:	return ( 4 * sizeof( float ) );
-		case VERTEX_ELEMENT_TEXCOORD4D_7:	return ( 4 * sizeof( float ) );
-		default:
-			Assert(0);
-			return 0;
-	};
-}
-
 
 //-----------------------------------------------------------------------------
 // Shader state flags can be read from the FLAGS materialvar
@@ -460,19 +362,6 @@ public:
 	virtual const char *	GetName() const = 0;
 	virtual const char *	GetTextureGroupName() const = 0;
 
-	// Get the preferred size/bitDepth of a preview image of a material.
-	// This is the sort of image that you would use for a thumbnail view
-	// of a material, or in WorldCraft until it uses materials to render.
-	// separate this for the tools maybe
-	virtual PreviewImageRetVal_t GetPreviewImageProperties( int *width, int *height, 
-				 			ImageFormat *imageFormat, bool* isTranslucent ) const = 0;
-	
-	// Get a preview image at the specified width/height and bitDepth.
-	// Will do resampling if necessary.(not yet!!! :) )
-	// Will do color format conversion. (works now.)
-	virtual PreviewImageRetVal_t GetPreviewImage( unsigned char *data, 
-												 int width, int height,
-												 ImageFormat imageFormat ) const = 0;
 	// 
 	virtual int				GetMappingWidth( ) = 0;
 	virtual int				GetMappingHeight( ) = 0;
@@ -546,8 +435,6 @@ public:
 	// Gets material reflectivity
 	virtual void			GetReflectivity( Vector& reflect ) = 0;
 
-	// Gets material property flags
-	virtual bool			GetPropertyFlag( MaterialPropertyTypes_t type ) = 0;
 
 	// Is the material visible from both sides?
 	virtual bool			IsTwoSided() = 0;
@@ -600,8 +487,6 @@ public:
 	virtual void			DeleteIfUnreferenced() = 0;
 
 	virtual bool			IsSpriteCard() = 0;
-
-	virtual void			CallBindProxy( void *proxyData, ICallQueue *pCallQueue ) = 0;
 
 	virtual void			RefreshPreservingMaterialVars() = 0;
 

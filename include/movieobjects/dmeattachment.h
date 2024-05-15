@@ -14,8 +14,6 @@
 
 // Valve includes
 #include "movieobjects/dmeshape.h"
-#include "materialsystem/imaterialsystem.h"
-#include "materialsystem/materialsystemutil.h"
 
 
 //-----------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright ï¿½ 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // A class representing a Dag (directed acyclic graph) node used for holding transforms, lights, cameras and shapes
 //
@@ -75,7 +75,6 @@ public:
 	int StepsToChild( const CDmeDag *pChild ) const;
 
 	// Recursively render the Dag hierarchy
-	virtual void Draw( CDmeDrawSettings *pDrawSettings = NULL );
 	void GetBoundingSphere( Vector &center, float &radius ) const
 	{
 		matrix3x4_t identity;

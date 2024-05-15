@@ -12,7 +12,6 @@
 #include "studiomdl_errors.h"
 #include "tier1/keyvalues.h"
 #include "tier2/fileutils.h"
-#include "tier3/tier3.h"
 #include "studiomdl/optimize.h"
 #include "common/scriplib.h"
 #include "appframework/AppFramework.h"
@@ -20,7 +19,6 @@
 #include "datamodel/idatamodel.h"
 #include "studiomdl/collisionmodel.h"
 #include "dmserializers/idmserializers.h"
-#include "istudiorender.h"
 #include "mdllib/mdllib.h"
 
 extern StudioMdlContext g_StudioMdlContext;
@@ -867,10 +865,6 @@ bool CStudioMDLApp::Create() {
     AddSystem(g_pDataModel, VDATAMODEL_INTERFACE_VERSION);
     AddSystem(g_pDmElementFramework, VDMELEMENTFRAMEWORK_VERSION);
     AddSystem(g_pDmSerializers, DMSERIALIZERS_INTERFACE_VERSION);
-
-    // Add in the locally-defined studio data cache
-    AppModule_t studioDataCacheModule = LoadModule(Sys_GetFactoryThis());
-    AddSystem(studioDataCacheModule, STUDIO_DATA_CACHE_INTERFACE_VERSION);
 
     return true;
 }

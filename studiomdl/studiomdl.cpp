@@ -26,7 +26,6 @@
 #include <sys/stat.h>
 #include <cmath>
 #include <vector>
-#include "istudiorender.h"
 #include "common/filesystem_tools.h"
 #include "common/cmdlib.h"
 #include "common/scriplib.h"

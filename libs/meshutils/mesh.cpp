@@ -1,4 +1,4 @@
-//=========== Copyright © Valve Corporation, All rights reserved. ============//
+//=========== Copyright ï¿½ Valve Corporation, All rights reserved. ============//
 //
 // Purpose: Mesh class operations.
 //
@@ -265,29 +265,6 @@ bool CMesh::CalculateAdjacency( int *pAdjacencyOut, int nSizeAdjacencyOut ) cons
 	return true;
 }
 
-// Fills in a list of all faces that contain that particular vertex.  The input pFacesPerVertex, must
-// contain at least m_nVertexCount elements of type CUtlLinkedList<int>.
-bool CMesh::CalculateIndicentFacesForVertices( CUtlLinkedList<int> *pFacesPerVertex, int nFacesPerVertexSize ) const
-{
-	Assert( pFacesPerVertex );
-	if ( nFacesPerVertexSize != m_nVertexCount )
-		return false;
-
-	int nFaces = m_nIndexCount / 3;
-	int nIndex = 0;
-	for ( int f=0; f<nFaces; ++f )
-	{
-		int v0 = m_pIndices[ nIndex ]; nIndex++;
-		int v1 = m_pIndices[ nIndex ]; nIndex++;
-		int v2 = m_pIndices[ nIndex ]; nIndex++;
-
-		pFacesPerVertex[ v0 ].AddToTail( f );
-		pFacesPerVertex[ v1 ].AddToTail( f );
-		pFacesPerVertex[ v2 ].AddToTail( f );
-	}
-
-	return true;
-}
 
 struct InputDataForVertexElement_t
 {
@@ -349,52 +326,6 @@ InputDataForVertexElement_t g_pElementData[] =
 	{ "TEXCOORD",		7 },    // VERTEX_ELEMENT_TEXCOORD4D_7	= 49,
 };
 
-ColorFormat_t GetColorFormatForVertexElement( VertexElement_t element )
-{
-	int nBytes = GetVertexElementSize( element, VERTEX_COMPRESSION_NONE );
-	if ( nBytes % sizeof( float ) != 0 )
-	{
-		return COLOR_FORMAT_UNKNOWN;
-	}
-
-	int nFloats = nBytes / sizeof( float );
-	switch ( nFloats )
-	{
-	case 1:
-		return COLOR_FORMAT_R32_FLOAT;
-	case 2:
-		return COLOR_FORMAT_R32G32_FLOAT;
-	case 3:
-		return COLOR_FORMAT_R32G32B32_FLOAT;
-	case 4:
-		return COLOR_FORMAT_R32G32B32A32_FLOAT;
-	}
-
-	return COLOR_FORMAT_UNKNOWN;
-}
-
-bool CMesh::CalculateInputLayoutFromAttributes( RenderInputLayoutField_t *pOutFields, int *pInOutNumFields ) const
-{
-	if ( *pInOutNumFields < m_nAttributeCount )
-		return false;
-
-	for ( int a=0; a<m_nAttributeCount; ++a )
-	{
-		InputDataForVertexElement_t elementData = g_pElementData[ m_pAttributes[ a ].m_nType ];
-
-		pOutFields[ a ].m_Format = GetColorFormatForVertexElement( m_pAttributes[ a ].m_nType );
-		pOutFields[ a ].m_nInstanceStepRate = 0;
-		pOutFields[ a ].m_nOffset = m_pAttributes[ a ].m_nOffsetFloats * sizeof( float );
-		pOutFields[ a ].m_nSemanticIndex = elementData.m_nSemanticIndex;
-		pOutFields[ a ].m_nSlot = 0;
-		pOutFields[ a ].m_nSlotType = RENDER_SLOT_PER_VERTEX;
-		Q_strncpy( pOutFields[ a ].m_pSemanticName, elementData.m_pSemanticName, RENDER_INPUT_LAYOUT_FIELD_SEMANTIC_NAME_SIZE );
-	}
-
-	*pInOutNumFields = m_nAttributeCount;
-
-	return true;
-}
 
 int CMesh::FindFirstAttributeOffset( VertexElement_t nType ) const
 {
@@ -428,153 +359,8 @@ void CMesh::RestrideVertexBuffer( int nNewStrideFloats )
 	m_bAllocatedMeshData = true;
 }
 
-void CMesh::AddAttributes( CMeshVertexAttribute *pAttributes, int nAttributeCount )
-{
-	Assert( nAttributeCount );
 
-	CMeshVertexAttribute *pNewAttributes = new CMeshVertexAttribute[ m_nAttributeCount + nAttributeCount ];
-	for ( int a=0; a<m_nAttributeCount; ++a )
-	{
-		pNewAttributes[ a ] = m_pAttributes[ a ];
-	}
 
-	int nNewStrideFloats = m_nVertexStrideFloats;
-	for ( int a=0; a<nAttributeCount; ++a )
-	{
-		nNewStrideFloats = MAX( pAttributes[ a ].m_nOffsetFloats + GetVertexElementSize( pAttributes[ a ].m_nType, VERTEX_COMPRESSION_NONE ) / (int)sizeof( float ), nNewStrideFloats );
-		pNewAttributes[ m_nAttributeCount + a ] = pAttributes[ a ];
-	}
-
-	delete []m_pAttributes;
-	m_pAttributes = pNewAttributes;
-	m_nAttributeCount += nAttributeCount;
-
-	if ( nNewStrideFloats > m_nVertexStrideFloats )
-	{
-		RestrideVertexBuffer( nNewStrideFloats );
-	}
-}
-
-typedef CUtlVector<int> CIntVector;
-void CMesh::CalculateTangents()
-{
-	int nPositionOffset = FindFirstAttributeOffset( VERTEX_ELEMENT_POSITION );
-	int nNormalOffset = FindFirstAttributeOffset( VERTEX_ELEMENT_NORMAL );
-	int nTexOffset = FindFirstAttributeOffset( VERTEX_ELEMENT_TEXCOORD2D_0 );
-	if ( nTexOffset == -1 )
-		nTexOffset = FindFirstAttributeOffset( VERTEX_ELEMENT_TEXCOORD3D_0 );
-
-	if ( nPositionOffset == -1 || nTexOffset == -1 || nNormalOffset == -1 )
-	{
-		Msg( "Need valid position, normal, and texcoord when creating tangent frames!\n" );
-		return;
-	}
-
-	// Look for a space to store tangents
-	int nTangentOffset = FindFirstAttributeOffset( VERTEX_ELEMENT_TANGENT_WITH_FLIP );
-	if ( nTangentOffset == -1 )
-	{
-		nTangentOffset = m_nVertexStrideFloats;
-
-		// Add a tangent
-		CMeshVertexAttribute attribute;
-		attribute.m_nOffsetFloats = m_nVertexStrideFloats;
-		attribute.m_nType = VERTEX_ELEMENT_TANGENT_WITH_FLIP;
-		AddAttributes( &attribute, 1 );
-	}
-
-	// Calculate tangent ( pulled from studiomdl ).  We've left it this way for now to keep any weirdness from studiomdl that we've come to rely on.
-	// In the future we should remove the vertToFaceMap and just accumulate tangents inplace in the vertices.
- 
-	// TODO: fix this function to iterate over quads as well as triangles
-	int nIndicesPerFace = 3;
-
-	int nFaces = m_nIndexCount / nIndicesPerFace;
-	int nMaxIter = nIndicesPerFace;
-
-	CUtlVector<CIntVector> vertToFaceMap;
-	vertToFaceMap.AddMultipleToTail( m_nVertexCount );
-	int index = 0;
-	uint32 *pIndices = m_pIndices;
-	for( int faceID = 0; faceID < nFaces; faceID++ )
-	{
-		for ( int i=0; i<nMaxIter; ++i )
-		{
-			vertToFaceMap[ pIndices[ index + i ] ].AddToTail( faceID );
-		}
-
-		index += nIndicesPerFace;
-	}
-
-	CUtlVector<Vector> faceSVect;
-	CUtlVector<Vector> faceTVect;
-	faceSVect.AddMultipleToTail( nFaces );
-	faceTVect.AddMultipleToTail( nFaces );
-
-	index = 0;
-	for ( int f=0; f<nFaces; ++f )
-	{
-		Vector vPos[3];
-		Vector2D vTex[3];
-		for ( int i=0; i<nMaxIter; ++i )
-		{
-			float *pVertex = GetVertex( pIndices[ index + i ] );
-			vPos[i] = *( ( Vector* )( pVertex + nPositionOffset ) );
-			vTex[i] = *( ( Vector2D* )( pVertex + nTexOffset ) );
-		}
-
-		CalcTriangleTangentSpace( vPos[0], vPos[1], vPos[2],
-								  vTex[0], vTex[1], vTex[2],
-								  faceSVect[f], faceTVect[f] );
-
-		index += nIndicesPerFace;
-	}
-
-	// Calculate an average tangent space for each vertex.
-	for( int vertID = 0; vertID < m_nVertexCount; vertID++ )
-	{
-		float *pVertex = GetVertex( vertID );
-		const Vector &normal = *( ( Vector* )( pVertex + nNormalOffset ) );
-		Vector4D &finalSVect = *( ( Vector4D* )( pVertex + nTangentOffset ) );
-		Vector sVect, tVect;
-
-		sVect.Init( 0.0f, 0.0f, 0.0f );
-		tVect.Init( 0.0f, 0.0f, 0.0f );
-		for( int faceID = 0; faceID < vertToFaceMap[vertID].Count(); faceID++ )
-		{
-			sVect += faceSVect[vertToFaceMap[vertID][faceID]];
-			tVect += faceTVect[vertToFaceMap[vertID][faceID]];
-		}
-
-		// Make an orthonormal system.
-		// Need to check if we are left or right handed.
-		Vector tmpVect;
-		CrossProduct( sVect, tVect, tmpVect );
-		bool leftHanded = DotProduct( tmpVect, normal ) < 0.0f;
-		if( !leftHanded )
-		{
-			CrossProduct( normal, sVect, tVect );
-			CrossProduct( tVect, normal, sVect );
-			VectorNormalize( sVect );
-			VectorNormalize( tVect );
-			finalSVect[0] = sVect[0];
-			finalSVect[1] = sVect[1];
-			finalSVect[2] = sVect[2];
-			finalSVect[3] = 1.0f;
-		}
-		else
-		{
-			CrossProduct( sVect, normal, tVect );
-			CrossProduct( normal, tVect, sVect );
-			VectorNormalize( sVect );
-			VectorNormalize( tVect );
-			finalSVect[0] = sVect[0];
-			finalSVect[1] = sVect[1];
-			finalSVect[2] = sVect[2];
-			finalSVect[3] = -1.0f;
-		}
-	}
-}
 
 //--------------------------------------------------------------------------------------
 // Calculates an unnormalized tangent space
@@ -623,106 +409,6 @@ void CalcTriangleTangentSpaceL( const Vector &p0, const Vector &p1, const Vector
 	}
 }
 
-bool CMesh::CalculateTangentSpaceWorldLengthsPerFace( Vector2D *pLengthsOut, int nLengthsOut, float flMaxWorldPerUV )
-{
-	int nPositionOffset = FindFirstAttributeOffset( VERTEX_ELEMENT_POSITION );
-	int nTexOffset = FindFirstAttributeOffset( VERTEX_ELEMENT_TEXCOORD2D_0 );
-	if ( nTexOffset == -1 )
-		nTexOffset = FindFirstAttributeOffset( VERTEX_ELEMENT_TEXCOORD3D_0 );
-
-	if ( nPositionOffset == -1 || nTexOffset == -1 )
-	{
-		Msg( "Need valid position and texcoord when creating world space tangent lengths!\n" );
-		return false;
-	}
-
-	// TODO: fix this to eventually iterate over quads
-	int nIndicesPerFace = 3;
-
-	int nFaces = m_nIndexCount / nIndicesPerFace;
-	int nMaxIter = nIndicesPerFace;
-
-	if ( nLengthsOut < nFaces )
-	{
-		return false;
-	}
-
-	// Get the textures
-	float flMaxUnitsX = flMaxWorldPerUV;
-	float flMaxUnitsY = flMaxWorldPerUV;
-
-	Vector sdir;
-	Vector tdir;
-	int index = 0;
-	uint32 *pIndices = m_pIndices;
-	for ( int f=0; f<nFaces; ++f )
-	{
-		Vector2D vMin( FLT_MAX, FLT_MAX );
-
-		// find the min UV
-		Vector vPos[3];
-		Vector2D vTex[3];
-		for ( int i=0; i<nMaxIter; ++i )
-		{
-			float *pVertex = GetVertex( pIndices[ index + i ] );
-			vPos[i] = *( ( Vector* )( pVertex + nPositionOffset ) );
-			vTex[i] = *( ( Vector2D* )( pVertex + nTexOffset ) );
-		}
-
-		// calc tan-space
-		CalcTriangleTangentSpaceL( vPos[0], vPos[1], vPos[2],
-								   vTex[0], vTex[1], vTex[2],
-								   sdir, tdir );
-
-		pLengthsOut[ f ].x = MIN( flMaxUnitsX, sdir.Length() );
-		pLengthsOut[ f ].y = MIN( flMaxUnitsY, sdir.Length() );
-
-		index += nIndicesPerFace;
-	}
-
-	return true;
-}
-
-bool CMesh::CalculateFaceCenters( Vector *pCentersOut, int nCentersOut )
-{
-	int nPositionOffset = FindFirstAttributeOffset( VERTEX_ELEMENT_POSITION );
-	if ( nPositionOffset == -1 )
-	{
-		Msg( "Need valid position to calculate face centers!\n" );
-		return false;
-	}
-
-	// TODO: fix this to eventually iterate over quads
-	int nIndicesPerFace = 3;
-
-	int nFaces = m_nIndexCount / nIndicesPerFace;
-	float fIndicesPerFace = (float)nIndicesPerFace;
-
-	if ( nCentersOut < nFaces )
-	{
-		return false;
-	}
-
-	int index = 0;
-	uint32 *pIndices = m_pIndices;
-	for ( int f=0; f<nFaces; ++f )
-	{
-		pCentersOut[ f ] = Vector(0,0,0);
-
-		for ( int i=0; i<nIndicesPerFace; ++i )
-		{
-			float *pVertex = GetVertex( pIndices[ index ] );
-			Vector &vPos = *( ( Vector* )( pVertex + nPositionOffset ) );
-
-			pCentersOut[ f ] += vPos;
-			index++;
-		}
-
-		pCentersOut[ f ] /= fIndicesPerFace;
-	}
-
-	return true;
-}
 
 void DuplicateMesh( CMesh *pMeshOut, const CMesh &inputMesh )
 {

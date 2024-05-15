@@ -10,7 +10,6 @@ endif ()
 
 add_library(utils
         cmdlib.cpp
-        datalinker.cpp
         filesystem_tools.cpp
         filesystem_helpers.cpp
         scriplib.cpp
@@ -18,7 +17,6 @@ add_library(utils
         collisionutils.cpp
         phonemeconverter.cpp
         interpolatortypes.cpp
-        physdll.cpp
         zip_utils.cpp
         )
 target_include_directories(utils PUBLIC ../../include)

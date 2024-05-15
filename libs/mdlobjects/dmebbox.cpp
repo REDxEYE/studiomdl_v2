@@ -197,16 +197,3 @@ const Vector &CDmeBBox::Max() const
 {
 	return m_vMaxBounds.Get();
 }
-
-
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-void CDmeBBox::Draw( const matrix3x4_t &shapeToWorld, CDmeDrawSettings *pDrawSettings /*= NULL */ )
-{
-	static const Color cRenderColor( 0, 192, 0 );
-	Vector vOrigin;
-	QAngle angles;
-	MatrixAngles( shapeToWorld, angles, vOrigin );
-	RenderBox( vOrigin, angles, m_vMinBounds, m_vMaxBounds, cRenderColor, true );
-}

@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2006, Valve Corporation, All rights reserved. =======
+//====== Copyright ï¿½ 1996-2006, Valve Corporation, All rights reserved. =======
 //
 // A class representing draw settings for Dme things
 //
@@ -13,7 +13,6 @@
 
 
 #include "datamodel/dmelement.h"
-#include "materialsystem/MaterialSystemUtil.h"
 #include "tier1/utlstack.h"
 
 
@@ -116,18 +115,6 @@ public:
 protected:
 
 	void BuildKnownDrawableTypes();
-
-	static bool s_bWireframeMaterialInitialized;
-	static CMaterialReference s_WireframeMaterial;
-
-	static bool s_bWireframeOnShadedMaterialInitialized;
-	static CMaterialReference s_WireframeOnShadedMaterial;
-
-	static bool s_bFlatGrayMaterial;
-	static CMaterialReference s_FlatGrayMaterial;
-
-	static bool s_bUnlitGrayMaterial;
-	static CMaterialReference s_UnlitGrayMaterial;
 
 	static CUtlRBTree< CUtlSymbolLarge > s_KnownDrawableTypes;
 	CUtlRBTree< CUtlSymbolLarge > m_NotDrawable;

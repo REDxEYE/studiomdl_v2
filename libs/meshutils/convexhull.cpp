@@ -7,6 +7,7 @@
 #include "tier1/mempool.h"
 #include "tier1/utlintrusivelist.h"
 #include "mathlib/ssemath.h"
+#include "mathlib/vplane.h"
 
 class CHullTri;
 static int g_Mod3Table[] = { 0, 1, 2, 0, 1, 2 };

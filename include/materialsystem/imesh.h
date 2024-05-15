@@ -12,25 +12,39 @@
 #endif
 
 #include "tier1/interface.h"
-#include "materialsystem/imaterial.h"
 #include <cfloat>
 #include <cstring>
 #include "tier0/dbg.h"
+#include "mathlib/ssemath.h"
 #include "tier2/meshutils.h"
+#include "meshutils/mesh.h"
 
-#if defined( DX_TO_GL_ABSTRACTION )
-// Swap these so that we do color swapping on 10.6.2, which doesn't have EXT_vertex_array_bgra
-#define	OPENGL_SWAP_COLORS
-#endif
 
-#ifdef _PS3
-	#define CELL_GCM_SWAP_COLORS
-#endif
+
 
 // Max number of instances that will be submitted at once on consoles in the model fast path
 // (This is important because console builds have smaller stack sizes than PC and we stackalloc()
 // a lot of intermediate data per batch)
 #define CONSOLE_MAX_MODEL_FAST_PATH_BATCH_SIZE 200
+
+typedef enum VertexCompressionType_s
+{
+    // This indicates an uninitialized VertexCompressionType_t value
+    VERTEX_COMPRESSION_INVALID = 0xFFFFFFFF,
+
+    // 'VERTEX_COMPRESSION_NONE' means that no elements of a vertex are compressed
+    VERTEX_COMPRESSION_NONE = 0,
+
+    // Currently (more stuff may be added as needed), 'VERTEX_COMPRESSION_ON' means:
+    //  - if a vertex contains VERTEX_ELEMENT_NORMAL, this is compressed
+    //    (see CVertexBuilder::CompressedNormal3f)
+    //  - if a vertex contains VERTEX_ELEMENT_USERDATA4 (and a normal - together defining a tangent
+    //    frame, with the binormal reconstructed in the vertex shader), this is compressed
+    //    (see CVertexBuilder::CompressedUserData)
+    //  - if a vertex contains VERTEX_ELEMENT_BONEWEIGHTSx, this is compressed
+    //    (see CVertexBuilder::CompressedBoneWeight3fv)
+    VERTEX_COMPRESSION_ON = 1
+}VertexCompressionType_t;
 
 //-----------------------------------------------------------------------------
 // forward declarations
@@ -39,7 +53,6 @@ class IMaterial;
 class CMeshBuilder;
 class IMaterialVar;
 typedef uint64 VertexFormat_t;
-struct ShaderStencilState_t;
 
 
 //-----------------------------------------------------------------------------
@@ -196,54 +209,13 @@ struct MeshBuffersAllocationSettings_t
 };
 
 
-//-----------------------------------------------------------------------------
-// Standard vertex formats for models
-//-----------------------------------------------------------------------------
-struct ModelVertexDX8_t
-{
-	Vector			m_vecPosition;
-	Vector			m_vecNormal;
-	Vector2D		m_vecTexCoord;
-	Vector4D		m_vecUserData;
-};
-
-//---------------------------------------------------------------------------------------
-// Thin Vertex format for use with ATI tessellator in quad mode
-//---------------------------------------------------------------------------------------
-struct QuadTessVertex_t
-{
-	Vector4D	m_vTangent;		// last component is Binormal flip and Wrinkle weight
-	Vector4D	m_vUV01;		// UV coordinates for points Interior (0), and Parametric V Edge (1)
-	Vector4D	m_vUV23;		// UV coordinates for points Parametric U Edge (2), and Corner (3)
-};
-
 struct MeshBoneRemap_t   // see BoneStateChangeHeader_t
 {
-	DECLARE_BYTESWAP_DATADESC();
 	int m_nActualBoneIndex;
 	int m_nSrcBoneIndex;
 };
 
-struct MeshInstanceData_t
-{
-	int						m_nIndexOffset;
-	int						m_nIndexCount;
-	int						m_nBoneCount;
-	MeshBoneRemap_t *		m_pBoneRemap;		// there are bone count of these, they index into pose to world
-	matrix3x4_t	*			m_pPoseToWorld;	// transforms for the *entire* model, indexed into by m_pBoneIndex. Potentially more than bone count of these
-	const ITexture *		m_pEnvCubemap;
-	MaterialLightingState_t *m_pLightingState;
-	MaterialPrimitiveType_t m_nPrimType;
-	const IVertexBuffer	*	m_pVertexBuffer;
-	int						m_nVertexOffsetInBytes;
-	const IIndexBuffer *	m_pIndexBuffer;
-	const IVertexBuffer	*	m_pColorBuffer;
-	int						m_nColorVertexOffsetInBytes;
-	ShaderStencilState_t *	m_pStencilState;
-	Vector4D				m_DiffuseModulation;
-	int						m_nLightmapPageId;
-	bool					m_bColorBufferHasIndirectLightingOnly;
-};
+
 
 
 //-----------------------------------------------------------------------------
@@ -332,6 +304,33 @@ public:
 	virtual void ValidateData( int nVertexCount, const VertexDesc_t & desc ) = 0;
 };
 
+enum MaterialIndexFormat_t
+{
+    MATERIAL_INDEX_FORMAT_UNKNOWN = -1,
+    MATERIAL_INDEX_FORMAT_16BIT = 0,
+    MATERIAL_INDEX_FORMAT_32BIT,
+};
+
+enum MaterialPrimitiveType_t
+{
+    MATERIAL_POINTS			= 0x0,
+    MATERIAL_LINES,
+    MATERIAL_TRIANGLES,
+    MATERIAL_TRIANGLE_STRIP,
+    MATERIAL_LINE_STRIP,
+    MATERIAL_LINE_LOOP,	// a single line loop
+    MATERIAL_POLYGON,	// this is a *single* polygon
+    MATERIAL_QUADS,
+    MATERIAL_SUBD_QUADS_EXTRA, // Extraordinary sub-d quads
+    MATERIAL_SUBD_QUADS_REG,   // Regular sub-d quads
+    MATERIAL_INSTANCED_QUADS, // (X360) like MATERIAL_QUADS, but uses vertex instancing
+
+    // This is used for static meshes that contain multiple types of
+    // primitive types.	When calling draw, you'll need to specify
+    // a primitive type.
+    MATERIAL_HETEROGENOUS
+};
+
 abstract_class IIndexBuffer
 {
 public:
@@ -366,8 +365,6 @@ public:
 	// Ensures the data in the index buffer is valid
 	virtual void ValidateData( int nIndexCount, const IndexDesc_t &desc ) = 0;
 
-	// For backward compat to IMesh
-	virtual IMesh* GetMesh() = 0;
 };
 
 //-----------------------------------------------------------------------------
@@ -388,16 +385,9 @@ public:
 	// Sets/gets the primitive type
 	virtual void SetPrimitiveType( MaterialPrimitiveType_t type ) = 0;
 
-	// Draws the mesh
-	virtual void Draw( int nFirstIndex = -1, int nIndexCount = 0 ) = 0;
 
 	virtual void SetColorMesh( IMesh *pColorMesh, int nVertexOffset ) = 0;
 
-	// Draw a list of (lists of) primitives. Batching your lists together that use
-	// the same lightmap, material, vertex and index buffers with multipass shaders
-	// can drastically reduce state-switching overhead.
-	// NOTE: this only works with STATIC meshes.
-	virtual void Draw( CPrimList *pLists, int nLists ) = 0;
 
 	// Copy verts and/or indices to a mesh builder. This only works for temp meshes!
 	virtual void CopyToMeshBuilder( 
@@ -428,12 +418,10 @@ public:
 
 	virtual void DisableFlexMesh() = 0;
 
-	virtual void MarkAsDrawn() = 0;
 
 	// NOTE: I chose to create this method strictly because it's 2 days to code lock
 	// and I could use the DrawInstances technique without a larger code change
 	// Draws the mesh w/ modulation.
-	virtual void DrawModulated( const Vector4D &diffuseModulation, int nFirstIndex = -1, int nIndexCount = 0 ) = 0;
 
 	virtual unsigned int ComputeMemoryUsed() = 0;
 
@@ -444,7 +432,6 @@ public:
 };
 
 
-#include "meshreader.h"
 
 #define INVALID_BUFFER_OFFSET 0xFFFFFFFFUL
 
@@ -479,9 +466,6 @@ public:
 
 	// Returns the number of indices we can fit into the buffer without needing to discard
 	int GetRoomRemaining() const;
-
-	// Binds this vertex buffer
-	void Bind( IMatRenderContext *pContext, int nStreamID, VertexFormat_t usage = 0 );
 
 	// Returns the byte offset
 	int Offset() const;
@@ -645,19 +629,8 @@ public:
 	// Generic per-vertex data (templatized for code which needs to support compressed vertices)
 	template <VertexCompressionType_t T> void CompressedUserData( const float* pData );
 
-	// Fast Vertex! No need to call advance vertex, and no random access allowed. 
-	// WARNING - these are low level functions that are intended only for use
-	// in the software vertex skinner.
-	void FastVertex( const ModelVertexDX8_t &vertex );
-	void FastVertexSSE( const ModelVertexDX8_t &vertex );
-	void FastQuadVertexSSE( const QuadTessVertex_t &vertex );
-
 	// Add number of verts and current vert since FastVertex routines do not update.
 	void FastAdvanceNVertices( int n );	
-
-#if defined( _X360 )
-	void VertexDX8ToX360( const ModelVertexDX8_t &vertex );
-#endif
 
 	// FIXME: Remove! Backward compat so we can use this from a CMeshBuilder.
 	void AttachBegin( IMesh* pMesh, int nMaxVertexCount, const MeshDesc_t &desc );
@@ -831,22 +804,6 @@ inline void CVertexBuilder::SpewData()
 }
 
 
-//-----------------------------------------------------------------------------
-// Binds this vertex buffer
-//-----------------------------------------------------------------------------
-inline void CVertexBuilder::Bind( IMatRenderContext *pContext, int nStreamID, VertexFormat_t usage )
-{
-	if ( m_pVertexBuffer && ( m_nBufferOffset != INVALID_BUFFER_OFFSET ) )
-	{
-		pContext->BindVertexBuffer( nStreamID, m_pVertexBuffer, m_nBufferOffset,
-			m_nFirstVertex, m_nTotalVertexCount, usage ? usage : m_pVertexBuffer->GetVertexFormat() );
-	}
-	else
-	{
-		pContext->BindVertexBuffer( nStreamID, NULL, 0, 0, 0, 0 );
-	}
-}
-
 
 //-----------------------------------------------------------------------------
 // Returns the byte offset
@@ -870,24 +827,7 @@ inline void CVertexBuilder::SetCompressionType( VertexCompressionType_t compress
 	m_CompressionType = compressionType;
 }
 
-inline void CVertexBuilder::ValidateCompressionType()
-{
-#ifdef _DEBUG
-	VertexCompressionType_t vbCompressionType = CompressionType( m_pVertexBuffer->GetVertexFormat() );
-	if ( vbCompressionType != VERTEX_COMPRESSION_NONE )
-	{
-		Assert( m_CompressionType == vbCompressionType );
-		if ( m_CompressionType != vbCompressionType )
-		{
-			Warning( "ERROR: CVertexBuilder::SetCompressionType() must be called to specify the same vertex compression type (%s) as the vertex buffer being modified."
-					 "Junk vertices will be rendered, or there will be a crash in CVertexBuilder!\n",
-					  vbCompressionType == VERTEX_COMPRESSION_ON ? "VERTEX_COMPRESSION_ON" : "VERTEX_COMPRESSION_NONE" );
-		}
-		// Never use vertex compression for dynamic VBs (the conversions can really hurt perf)
-		Assert(	!m_pVertexBuffer->IsDynamic() );
-	}
-#endif
-}
+
 
 inline void CVertexBuilder::Begin( IVertexBuffer *pVertexBuffer, int nVertexCount )
 {
@@ -1238,151 +1178,6 @@ inline void CVertexBuilder::FastAdvanceNVertices( int n )
 	m_nCurrentVertex += n;
 	m_nVertexCount = m_nCurrentVertex;
 }
-
-inline void CVertexBuilder::FastVertex( const ModelVertexDX8_t &vertex )
-{
-	Assert( m_CompressionType == VERTEX_COMPRESSION_NONE ); // FIXME: support compressed verts if needed
-	Assert( m_nCurrentVertex < m_nMaxVertexCount );
-
-#if defined( _WIN32 ) && !defined( _X360 ) && !defined( _M_X64 )
-	const void *pRead = &vertex;
-	void *pCurrPos = m_pCurrPosition;
-	__asm
-	{
-		mov esi, pRead
-			mov edi, pCurrPos
-
-			movq mm0, [esi + 0]
-		movq mm1, [esi + 8]
-		movq mm2, [esi + 16]
-		movq mm3, [esi + 24]
-		movq mm4, [esi + 32]
-		movq mm5, [esi + 40]
-
-		movntq [edi + 0], mm0
-			movntq [edi + 8], mm1
-			movntq [edi + 16], mm2
-			movntq [edi + 24], mm3
-			movntq [edi + 32], mm4
-			movntq [edi + 40], mm5
-
-			emms
-	}
-#elif defined(GNUC)
-	const void *pRead = &vertex;
-	void *pCurrPos = m_pCurrPosition;
-	__asm__ __volatile__ (
-						  "movq (%0), %%mm0\n"
-						  "movq 8(%0), %%mm1\n"
-						  "movq 16(%0), %%mm2\n"
-						  "movq 24(%0), %%mm3\n"
-						  "movq 32(%0), %%mm4\n"
-						  "movq 40(%0), %%mm5\n"
-						  "movq 48(%0), %%mm6\n"
-						  "movq 56(%0), %%mm7\n"
-						  "movntq %%mm0, (%1)\n"
-						  "movntq %%mm1, 8(%1)\n"
-						  "movntq %%mm2, 16(%1)\n"
-						  "movntq %%mm3, 24(%1)\n"
-						  "movntq %%mm4, 32(%1)\n"
-						  "movntq %%mm5, 40(%1)\n"
-						  "movntq %%mm6, 48(%1)\n"
-						  "movntq %%mm7, 56(%1)\n"
-						  "emms\n"
-						  :: "r" (pRead), "r" (pCurrPos) : "memory");
-#else
-	Error( "Implement CMeshBuilder::FastVertex(dx8)" );
-#endif
-
-	IncrementFloatPointer( m_pCurrPosition, m_VertexSize_Position );
-	//	m_nVertexCount = ++m_nCurrentVertex;
-
-#if ( defined( _DEBUG ) && ( COMPRESSED_NORMALS_TYPE == COMPRESSED_NORMALS_COMBINEDTANGENTS_UBYTE4 ) )
-	m_bWrittenNormal   = false;
-	m_bWrittenUserData = false;
-#endif
-}
-
-inline void CVertexBuilder::FastVertexSSE( const ModelVertexDX8_t &vertex )
-{
-	Assert( m_CompressionType == VERTEX_COMPRESSION_NONE ); // FIXME: support compressed verts if needed
-	Assert( m_nCurrentVertex < m_nMaxVertexCount );
-
-#if defined( _WIN32 ) && !defined( _X360 ) && !defined( _M_X64 )
-	const void *pRead = &vertex;
-	void *pCurrPos = m_pCurrPosition;
-	__asm
-	{
-		mov esi, pRead
-		mov edi, pCurrPos
-
-		movaps xmm0, [esi + 0]
-		movaps xmm1, [esi + 16]
-		movaps xmm2, [esi + 32]
-
-		movntps [edi + 0], xmm0
-		movntps [edi + 16], xmm1
-		movntps [edi + 32], xmm2
-	}
-#elif defined(GNUC)
-	const void *pRead = &vertex;
-	void *pCurrPos = m_pCurrPosition;
-	__asm__ __volatile__ (
-						  "movaps (%0), %%xmm0\n"
-						  "movaps 16(%0), %%xmm1\n"
-						  "movaps 32(%0), %%xmm2\n"
-						  "movaps 48(%0), %%xmm3\n"
-						  "movntps %%xmm0, (%1)\n"
-						  "movntps %%xmm1, 16(%1)\n"
-						  "movntps %%xmm2, 32(%1)\n"
-						  "movntps %%xmm3, 48(%1)\n"						  
-						  :: "r" (pRead), "r" (pCurrPos) : "memory");
-#else
-	Error( "Implement CMeshBuilder::FastVertexSSE((dx8)" );
-#endif
-
-	IncrementFloatPointer( m_pCurrPosition, m_VertexSize_Position );
-	//	m_nVertexCount = ++m_nCurrentVertex;
-
-#if ( defined( _DEBUG ) && ( COMPRESSED_NORMALS_TYPE == COMPRESSED_NORMALS_COMBINEDTANGENTS_UBYTE4 ) )
-	m_bWrittenNormal   = false;
-	m_bWrittenUserData = false;
-#endif
-}
-
-
-inline void CVertexBuilder::FastQuadVertexSSE( const QuadTessVertex_t &vertex )
-{
-	Assert( m_CompressionType == VERTEX_COMPRESSION_NONE ); // FIXME: support compressed verts if needed
-	Assert( m_nCurrentVertex < m_nMaxVertexCount );
-
-#if defined( _WIN32 ) && !defined( _X360 ) && !defined( _M_X64 )
-	const void *pRead = &vertex;
-	void *pCurrPos = m_pCurrPosition;
-	__asm
-	{
-		mov esi, pRead
-		mov edi, pCurrPos
-
-		movaps xmm0, [esi + 0]
-		movaps xmm1, [esi + 16]
-		movaps xmm2, [esi + 32]
-
-		movntps [edi + 0], xmm0
-		movntps [edi + 16], xmm1
-		movntps [edi + 32], xmm2
-	}
-#endif
-
-	IncrementFloatPointer( m_pCurrPosition, m_VertexSize_Position );
-	//	m_nVertexCount = ++m_nCurrentVertex;
-
-#if ( defined( _DEBUG ) && ( COMPRESSED_NORMALS_TYPE == COMPRESSED_NORMALS_COMBINEDTANGENTS_UBYTE4 ) )
-	m_bWrittenNormal   = false;
-	m_bWrittenUserData = false;
-#endif
-}
-
 
 
 //-----------------------------------------------------------------------------
@@ -2529,9 +2324,6 @@ public:
 	// Returns the number of indices we can fit into the buffer without needing to discard
 	int GetRoomRemaining() const;
 
-	// Binds this index buffer
-	void Bind( IMatRenderContext *pContext );
-
 	// Returns the byte offset
 	int Offset() const;
 
@@ -2736,21 +2528,6 @@ inline void CIndexBuilder::SpewData()
 	m_pIndexBuffer->Spew( m_nIndexCount, *this );
 }
 
-
-//-----------------------------------------------------------------------------
-// Binds this index buffer
-//-----------------------------------------------------------------------------
-inline void CIndexBuilder::Bind( IMatRenderContext *pContext )
-{
-	if ( m_pIndexBuffer && ( m_nBufferOffset != INVALID_BUFFER_OFFSET ) )
-	{
-		pContext->BindIndexBuffer( m_pIndexBuffer, m_nBufferOffset );
-	}
-	else
-	{
-		pContext->BindIndexBuffer( NULL, 0 );
-	}
-}
 
 
 //-----------------------------------------------------------------------------
@@ -3274,10 +3051,6 @@ public:
 	void BeginModify( IMesh *pMesh, int nFirstVertex = 0, int nVertexCount = -1, int nFirstIndex = 0, int nIndexCount = 0 );
 	void EndModify( bool bSpewData = false );
 
-	// A helper method since this seems to be done a whole bunch.
-	void DrawQuad( IMesh* pMesh, const float *v1, const float *v2, 
-		const float *v3, const float *v4, unsigned char const *pColor, bool wireframe = false );
-
 	// returns the number of indices and vertices
 	int VertexCount() const;
 	int	IndexCount() const;
@@ -3451,10 +3224,6 @@ public:
 	// Fast Vertex! No need to call advance vertex, and no random access allowed. 
 	// WARNING - these are low level functions that are intended only for use
 	// in the software vertex skinner.
-	void FastVertex( const ModelVertexDX8_t &vertex );
-	void FastVertexSSE( const ModelVertexDX8_t &vertex );
-	void FastQuadVertexSSE( const QuadTessVertex_t &vertex );
-
 	// Add number of verts and current vert since FastVertexxx routines do not update.
 	void FastAdvanceNVertices(int n);	
 
@@ -3731,11 +3500,6 @@ inline void CMeshBuilder::End( bool bSpewData, bool bDraw )
 	m_IndexBuilder.AttachEnd();
 	m_VertexBuilder.AttachEnd();
 
-	if ( bDraw )
-	{
-		m_pMesh->Draw();
-	}
-
 	m_pMesh = 0;
 
 #ifdef _DEBUG
@@ -3873,57 +3637,6 @@ FORCEINLINE int CMeshBuilder::GetIndexOffset() const
 {
 	return m_IndexBuilder.GetIndexOffset();
 }
-
-//-----------------------------------------------------------------------------
-// A helper method since this seems to be done a whole bunch.
-//-----------------------------------------------------------------------------
-inline void CMeshBuilder::DrawQuad( IMesh* pMesh, const float* v1, const float* v2, 
-								   const float* v3, const float* v4, unsigned char const* pColor, bool wireframe )
-{
-	if (!wireframe)
-	{
-		Begin( pMesh, MATERIAL_TRIANGLE_STRIP, 2 );
-
-		Position3fv (v1);
-		Color4ubv( pColor );
-		AdvanceVertexF<VTX_HAVEPOS | VTX_HAVECOLOR, 0>();
-
-		Position3fv (v2);
-		Color4ubv( pColor );
-		AdvanceVertexF<VTX_HAVEPOS | VTX_HAVECOLOR, 0>();
-
-		Position3fv (v4);
-		Color4ubv( pColor );
-		AdvanceVertexF<VTX_HAVEPOS | VTX_HAVECOLOR, 0>();
-
-		Position3fv (v3);
-		Color4ubv( pColor );
-		AdvanceVertexF<VTX_HAVEPOS | VTX_HAVECOLOR, 0>();
-	}
-	else
-	{
-		Begin( pMesh, MATERIAL_LINE_LOOP, 4 );
-		Position3fv (v1);
-		Color4ubv( pColor );
-		AdvanceVertexF<VTX_HAVEPOS | VTX_HAVECOLOR, 0>();
-
-		Position3fv (v2);
-		Color4ubv( pColor );
-		AdvanceVertexF<VTX_HAVEPOS | VTX_HAVECOLOR, 0>();
-
-		Position3fv (v3);
-		Color4ubv( pColor );
-		AdvanceVertexF<VTX_HAVEPOS | VTX_HAVECOLOR, 0>();
-
-		Position3fv (v4);
-		Color4ubv( pColor );
-		AdvanceVertexF<VTX_HAVEPOS | VTX_HAVECOLOR, 0>();
-	}
-
-	End();
-	pMesh->Draw();
-}
-
 
 //-----------------------------------------------------------------------------
 // returns the number of indices and vertices
@@ -4072,23 +3785,6 @@ FORCEINLINE void CMeshBuilder::FastAdvanceNVertices( int nVertexCount )
 }
 
 
-//-----------------------------------------------------------------------------
-// Fast Vertex! No need to call advance vertex, and no random access allowed
-//-----------------------------------------------------------------------------
-FORCEINLINE void CMeshBuilder::FastVertex( const ModelVertexDX8_t &vertex )
-{
-	m_VertexBuilder.FastVertex( vertex );
-}
-
-FORCEINLINE void CMeshBuilder::FastVertexSSE( const ModelVertexDX8_t &vertex )
-{
-	m_VertexBuilder.FastVertexSSE( vertex );
-}
-
-FORCEINLINE void CMeshBuilder::FastQuadVertexSSE( const QuadTessVertex_t &vertex )
-{
-	m_VertexBuilder.FastQuadVertexSSE( vertex );
-}
 
 
 //-----------------------------------------------------------------------------

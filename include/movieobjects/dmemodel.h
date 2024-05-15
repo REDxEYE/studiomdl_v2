@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =====//
+//====== Copyright ï¿½ 1996-2004, Valve Corporation, All rights reserved. =====//
 //
 // Dme version of a skeletal model (gets compiled into a MDL)
 //
@@ -58,9 +58,6 @@ public:
 	// Finds a base state by name, returns NULL if not found
 	CDmeTransformList *FindBaseState( const char *pBaseStateName );
 
-	// Recursively render the Dag hierarchy
-	virtual void Draw( CDmeDrawSettings *pDrawSettings = NULL );
-
 	// NOTE: See comment for m_upAxis attribute below
 
 	// Set if Z is the up axis of the model
@@ -110,8 +107,6 @@ public:
 
 	// TransformScene
 	void TransformScene( const Vector &vScale = Vector( 1.0f, 1.0f, 1.0f ), const Vector &vTranslate = vec3_origin, const DegreeEuler &eRotation = DegreeEuler( 0.0f, 0.0f, 0.0f ), float flEps = 1.0e-4 );
-
-	void ScaleScene( const Vector &vScale );
 
 	// Updates all base states by adding missing joints
 	void UpdateBaseStates();
@@ -200,7 +195,6 @@ private:
 	static void CleanupModelRenderState();
 
 	// Stack of DmeModels currently being rendered. Used to set up render state
-	static CUtlStack< CDmeModel * > s_ModelStack;
 
 	friend class CDmeMesh;
 	friend bool SetMeshFromSkeleton( CDmeMesh *pDmeMesh );	// dmx edit function - to do skin weights

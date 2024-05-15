@@ -13,7 +13,6 @@
 
 // Valve includes
 #include "datamodel/dmelement.h"
-#include "materialsystem/materialsystemutil.h"
 
 
 //-----------------------------------------------------------------------------

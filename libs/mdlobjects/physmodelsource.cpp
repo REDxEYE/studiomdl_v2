@@ -1,12 +1,7 @@
 //===== Copyright � Valve Corporation, All rights reserved. ======//
 #include "mdlobjects/physmodelsource.h"
-#include "meshutils/mesh.h"
-#include "movieobjects/dmemodel.h"
 #include "dmeutils/dmmeshutils.h"
-#include "meshsystem/imeshsystem.h"
 #include "mathlib/disjoint_set_forest.h"
-#include "meshutils/mesh.h"
-#include "studiomdl/bone_setup.h"
 
 void CPhysModelSource::GetBoneTriangles( CUtlStringToken joint, uint nFlags, float flMinWeight, CUtlVector<Vector> &arrVertices, CUtlVector<uint> &arrIndices )const
 {

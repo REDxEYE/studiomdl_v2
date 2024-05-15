@@ -1,10 +1,13 @@
-//=========== Copyright © Valve Corporation, All rights reserved. ============//
+//=========== Copyright ï¿½ Valve Corporation, All rights reserved. ============//
 //
 // Purpose: Mesh class UV parameterization operations.
 //
 //===========================================================================//
 #include "mesh.h"
 #include "tier1/utlbuffer.h"
+#include "mathlib/vector.h"
+#include "mathlib/vector2d.h"
+#include "mathlib/vector4d.h"
 
 Vector4D PlaneFromTriangle( Vector &A, Vector &B, Vector &C )
 {
@@ -15,7 +18,7 @@ Vector4D PlaneFromTriangle( Vector &A, Vector &B, Vector &C )
 	vNorm.NormalizeInPlace();
 
 	float d = DotProduct( A, vNorm );
-	return Vector4D( vNorm.x, vNorm.y, vNorm.z, d );
+	return { vNorm.x, vNorm.y, vNorm.z, d };
 }
 
 Vector4D CMesh::PlaneFromTriangle( int nTriangle ) const

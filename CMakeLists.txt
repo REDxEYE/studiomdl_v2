@@ -38,7 +38,7 @@ add_subdirectory(libs/utils)
 add_subdirectory(libs/bonesetup)
 add_subdirectory(libs/meshutils)
 add_subdirectory(libs/interfaces)
-add_subdirectory(libs/resourcefile)
+#add_subdirectory(libs/resourcefile)
 add_subdirectory(libs/filesystem)
 add_subdirectory(libs/vpklib)
 

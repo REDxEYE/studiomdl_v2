@@ -30,11 +30,6 @@ void CDmeShape::OnDestruction()
 {
 }
 
-void CDmeShape::Draw( const matrix3x4_t &shapeToWorld, CDmeDrawSettings *pDrawSettings /* = NULL */ )
-{
-	Assert( 0 );
-}
-
 
 //-----------------------------------------------------------------------------
 // The default bounding sphere is empty at the origin

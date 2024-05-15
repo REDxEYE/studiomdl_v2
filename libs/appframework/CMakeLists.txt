@@ -10,7 +10,6 @@ endif ()
 
 add_library(appframework
         AppSystemGroup.cpp
-        materialsystem2app.cpp
         WinApp.cpp
         )
 target_include_directories(appframework PUBLIC  ../../include)

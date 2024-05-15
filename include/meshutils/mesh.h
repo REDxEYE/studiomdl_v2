@@ -1,4 +1,4 @@
-//=========== Copyright © Valve Corporation, All rights reserved. ===========//
+//=========== Copyright ï¿½ Valve Corporation, All rights reserved. ===========//
 //
 // Purpose: Mesh types for meshutils library
 //
@@ -11,12 +11,13 @@
 #pragma once
 #endif
 
+#include "tier1/utlstring.h"
 #include "tier1/utlvector.h"
 #include "tier1/utllinkedlist.h"
 #include "mathlib/vector.h"
-#include "materialsystem/imaterial.h"
-#include "rendersystem/irenderdevice.h"
+#include "mathlib/vector4d.h"
 #include "bitvec.h"
+#include "materialsystem/imaterial.h"
 
 class CDmeModel;
 class CDmeMesh;
@@ -221,13 +222,8 @@ public:
 	Vector4D PlaneFromTriangle( int nTriangle ) const;
 	bool CalculateBounds( Vector *pMinOut, Vector *pMaxOut, int nStartVertex = 0, int nVertexCount = 0 ) const;
 	bool CalculateAdjacency( int *pAdjacencyOut, int nSizeAdjacencyOut ) const;
-	bool CalculateIndicentFacesForVertices( CUtlLinkedList<int> *pFacesPerVertex, int nFacesPerVertexSize ) const;
-	bool CalculateInputLayoutFromAttributes( RenderInputLayoutField_t *pOutFields, int *pInOutNumFields ) const;
 	int FindFirstAttributeOffset( VertexElement_t nType ) const;
 	void AddAttributes( CMeshVertexAttribute *pAttributes, int nAttributeCount );
-	void CalculateTangents();
-	bool CalculateTangentSpaceWorldLengthsPerFace( Vector2D *pLengthsOut, int nLengthsOut, float flMaxWorldPerUV = 256.0f );
-	bool CalculateFaceCenters( Vector *pCentersOut, int nCentersOut );
 	int GetAttrSizeFloats( int nAttribute );
 
 	float					*m_pVerts;
@@ -257,56 +253,17 @@ struct IndexRange_t
 	int m_nIndexCount;
 };
 
-bool ClipMeshToHalfSpace( CMesh *pMeshBack, CMesh *pMeshFront, const CMesh &inputMesh, Vector4D &vClipPlane );
 void DuplicateMesh( CMesh *pMeshOut, const CMesh &inputMesh );
 bool RationalizeUVsInPlace( CMesh *pMesh );
-bool RationalizeUVs( CMesh *pRationalMeshOut, const CMesh &inputMesh );
 void DeIndexMesh( CMesh *pMeshOut, const CMesh &inputMesh );
-bool ConcatMeshes( CMesh *pMeshOut, CMesh **ppMeshIn, int nInputMeshes,
-				   CMeshVertexAttribute *pAttributeOverride = NULL, int nAttributeOverrideCount = 0, int nStrideOverride = 0 );
-bool TessellateOnWrappedUV( CMesh *pMeshOut, const CMesh &inputMesh );
-// returns the mesh containing the convex hull of the input mesh
-void ConvexHull3D( CMesh *pOutMesh, const CMesh &inputMesh, float flCoplanarEpsilon = ONE_32ND_UNIT );
-void FitOBBToMesh( matrix3x4_t *pCenter, Vector *pExtents, const CMesh &inputMesh, float flCoplanarEpsilon = ONE_32ND_UNIT );
-// Builds a mesh of the hull defined by an array of planes (pointing out of the solid - plane eq is Ax + By + Cz = D). Optionally, outputs the index of the originating input plane for each triangle in the mesh.
-void HullFromPlanes( CMesh *pOutMesh, CUtlVector<uint32> *pTrianglePlaneIndex, const float *pPlanes, int nPlaneCount, int nPlaneStrideFloats, float flCoplanarEpsilon = ONE_32ND_UNIT );
-// Same as above but work on a temporary list of planes described as fltx4 (the buffer will be modified in place). No stride needed in this case, ABCD = XYZW
-void HullFromPlanes_SIMD( CMesh *pOutMesh, CUtlVector<uint16> *pTrianglePlaneIndex, fltx4 *pPlanes, int nPlaneCount, float flCoplanarEpsilon = ONE_32ND_UNIT );
-
 // TODO: Extreme welds can cause faces to flip/invert.  Should we add an option to detect and avoid this?
 bool WeldVertices( CMesh *pMeshOut, const CMesh &inputMesh, float *pEpsilons, int nEpsilons );
-
-// This removes any degenerate triangles and puts the vertices in access order
-void CleanMesh( CMesh *pMeshOut, const CMesh &inputMesh );
-
-// partitions the mesh into an array of meshes, each with <= nMaxVertex vertices
-void SplitMesh( CUtlVector<CMesh> &list, const CMesh &input, int nMaxVertex );
-
-// Create a unique parameterization of the mesh
-bool CreateUniqueUVParameterization( CMesh *pMeshOut, const CMesh &inputMesh, float flFaceAngleThreshold, int nAtlasTextureSizeX, int nAtlasTextureSizeY, float flGutterSize );
 
 // Pack a set of charts into an atlas
 int PackChartsIntoAtlas( AtlasChart_t *pCharts, int nCharts, int nAtlasTextureSizeX, int nAtlasTextureSizeY, int nAtlasGrow );
 
-// Creates a list of AABBs for a give volume given a target AABB size
-void CreateGridCellsForVolume( CUtlVector< GridVolume_t > &outputVolumes, const Vector &vMinBounds, const Vector &vMaxBounds, const Vector &vGridSize );
-
-//--------------------------------------------------------------------------------------
-// For a list of AABBs, find all indices in the mesh that belong to each AABB.  Then
-// coalesce those indices into a single buffer in order of the input AABBs and return a
-// list of ranges of the indices in the output mesh that are needed in each input volume
-//--------------------------------------------------------------------------------------
-void CreatedGriddedIndexRangesFromMesh( CMesh *pOutputMesh, CUtlVector< IndexRange_t > &outputRanges, const CMesh &inputMesh, CUtlVector< GridVolume_t > &inputVolumes );
-
-// Per-vertex ops
 void CopyVertex( float *pOut, const float *pIn, int nFloats );
-void SubtractVertex( float *pOutput, const float *pLeft, const float *pRight, int nFloats );
-void AddVertex( float *pOutput, const float *pLeft, const float *pRight, int nFloats );
-void MultiplyVertex( float *pOutput, const float *pLeft, const float* pRight, float nFloats );
-void AddVertexInPlace( float *pLeft, const float *pRight, int nFloats );
-void MultiplyVertexInPlace( float *pLeft, float flRight, int nFloats );
 void LerpVertex( float *pOutput, const float *pLeft, const float *pRight, float flLerp, int nFloats );
-void BaryCentricVertices( float *pOutput, float *p0, float *p1, float *p2, float flU, float flV, float flW, int nFloats );
 
 
 // simple hashing function for edges

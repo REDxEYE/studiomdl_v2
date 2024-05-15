@@ -23,7 +23,6 @@
 #include "vphysics_interface.h"
 #include "datacache/idatacache.h"
 #include "posedebugger.h"
-#include "mathlib/softbody.h"
 #include "tier0/miniprofiler.h"
 
 #ifdef CLIENT_DLL

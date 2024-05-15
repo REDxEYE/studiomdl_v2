@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include "tier0/dbg.h"
 #include "tier1/interface.h"
-#include "istudiorender.h"
 #include "studio.h"
 #include "studiomdl/optimize.h"
 #include "common/cmdlib.h"
@@ -19,73 +18,7 @@ extern StudioMdlContext g_StudioMdlContext;
 
 extern void MdlError( char const *pMsg, ... );
 
-static StudioRenderConfig_t s_StudioRenderConfig;
 
-class CStudioDataCache : public CBaseAppSystem<IStudioDataCache>
-{
-public:
-	bool VerifyHeaders( studiohdr_t *pStudioHdr );
-	vertexFileHeader_t *CacheVertexData( studiohdr_t *pStudioHdr );
-};
-
-static CStudioDataCache	g_StudioDataCache;
-EXPOSE_SINGLE_INTERFACE_GLOBALVAR( CStudioDataCache, IStudioDataCache, STUDIO_DATA_CACHE_INTERFACE_VERSION, g_StudioDataCache );
-
-
-/*
-=================
-VerifyHeaders
-
-Minimal presence and header validation, no data loads
-Return true if successful, false otherwise.
-=================
-*/
-bool CStudioDataCache::VerifyHeaders( studiohdr_t *pStudioHdr )
-{
-	// default valid
-	return true;
-}
-
-/*
-=================
-CacheVertexData
-
-Cache model's specified dynamic data
-=================
-*/
-vertexFileHeader_t *CStudioDataCache::CacheVertexData( studiohdr_t *pStudioHdr )
-{
-	// minimal implementation - return persisted data
-	return (vertexFileHeader_t*)pStudioHdr->VertexBase();
-}
-
-static void UpdateStudioRenderConfig( void )
-{
-	memset( &s_StudioRenderConfig, 0, sizeof(s_StudioRenderConfig) );
-
-	s_StudioRenderConfig.bEyeMove = true;
-	s_StudioRenderConfig.fEyeShiftX = 0.0f;
-	s_StudioRenderConfig.fEyeShiftY = 0.0f;
-	s_StudioRenderConfig.fEyeShiftZ = 0.0f;
-	s_StudioRenderConfig.fEyeSize = 10.0f;
-	s_StudioRenderConfig.bSoftwareSkin = false;
-	s_StudioRenderConfig.bNoHardware = false;
-	s_StudioRenderConfig.bNoSoftware = false;
-	s_StudioRenderConfig.bTeeth = true;
-	s_StudioRenderConfig.drawEntities = true;
-	s_StudioRenderConfig.bFlex = true;
-	s_StudioRenderConfig.bEyes = true;
-	s_StudioRenderConfig.bWireframe = false;
-	s_StudioRenderConfig.bDrawZBufferedWireframe = false;
-	s_StudioRenderConfig.bDrawNormals = false;
-	s_StudioRenderConfig.skin = 0;
-	s_StudioRenderConfig.maxDecalsPerModel = 0;
-	s_StudioRenderConfig.bWireframeDecals = false;
-	s_StudioRenderConfig.fullbright = false;
-	s_StudioRenderConfig.bSoftwareLighting = false;
-	s_StudioRenderConfig.bShowEnvCubemapOnly = false;
-//	g_pStudioRender->UpdateConfig( s_StudioRenderConfig );
-}
 
 static CBufferedLoggingListener s_BufferedLoggingListener;
 
@@ -112,9 +45,6 @@ void SpewPerfStats( studiohdr_t *pStudioHdr, const char *pFilename, unsigned int
 	// no stats on these
 	if (!pStudioHdr->numbodyparts)
 		return;
-
-	// Need to update the render config to spew perf stats.
-	UpdateStudioRenderConfig();
 
 	// persist the vvd data
 	Q_StripExtension( pFilename, fileName, sizeof( fileName ) );

@@ -7,8 +7,6 @@
 #include "datamodel/dmelementfactoryhelper.h"
 #include "movieobjects_interfaces.h"
 
-#include "materialsystem/IMaterial.h"
-#include "materialsystem/IMaterialSystem.h"
 #include "tier2/tier2.h"
 #include "datamodel/dmattributevar.h"
 

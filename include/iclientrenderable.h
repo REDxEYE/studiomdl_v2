@@ -15,7 +15,6 @@
 #include "tier1/interface.h"
 #include "iclientunknown.h"
 #include "client_render_handle.h"
-#include "engine/ivmodelrender.h"
 
 struct model_t;
 struct matrix3x4_t;
@@ -156,7 +155,6 @@ public:
 
 	// Create/get/destroy model instance
 	virtual void CreateModelInstance() = 0;
-	virtual ModelInstanceHandle_t GetModelInstance() = 0;
 
 	// Returns the transform from RenderOrigin/RenderAngles to world
 	virtual const matrix3x4_t &RenderableToWorldTransform() = 0;
@@ -295,7 +293,6 @@ public:
 	virtual ShadowType_t ShadowCastType()		 { return SHADOWS_NONE; }
 
 	virtual void CreateModelInstance()			 {}
-	virtual ModelInstanceHandle_t GetModelInstance() { return MODEL_INSTANCE_INVALID; }
 
 	// Attachments
 	virtual int LookupAttachment( const char *pAttachmentName ) { return -1; }

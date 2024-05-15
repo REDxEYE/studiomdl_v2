@@ -23,12 +23,9 @@
 #include "tier1/keyvalues.h"
 #include "tier0/dbg.h"
 #include "datamodel/dmelementfactoryhelper.h"
-#include "materialsystem/imaterialsystem.h"
-#include "materialsystem/imorph.h"
-#include "materialsystem/imesh.h"
-#include "materialsystem/imaterialvar.h"
-#include "istudiorender.h"
 #include "studio.h"
+#include "materialsystem/imesh.h"
+#include "materialsystem/imaterial.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 // DISABLED #include "tier0/memdbgon.h"
@@ -312,10 +309,6 @@ void CDmeMesh::OnConstruction()
 
 void CDmeMesh::OnDestruction()
 {
-	if ( g_pMaterialSystem )
-	{
-		CleanupHWMesh();
-	}
 	m_hwFaceSets.RemoveAll();
 
 	DeleteAttributeVarElementArray( m_BaseStates );
@@ -323,30 +316,6 @@ void CDmeMesh::OnDestruction()
 	DeleteAttributeVarElementArray( m_FaceSets );
 }
 
-
-//-----------------------------------------------------------------------------
-// Cleans up the HW mesh in case of destruction or rebuild necessary
-//-----------------------------------------------------------------------------
-void CDmeMesh::CleanupHWMesh()
-{
-	if ( !g_pMaterialSystem )
-		return;
-
-	CMatRenderContextPtr pRenderContext( g_pMaterialSystem );
-	int nCount = m_hwFaceSets.Count();
-	for ( int i = 0; i < nCount; ++i )
-	{
-		if ( !m_hwFaceSets[i].m_bBuilt )
-			continue;
-
-		if ( m_hwFaceSets[i].m_pMesh )
-		{
-			pRenderContext->DestroyStaticMesh( m_hwFaceSets[i].m_pMesh );
-			m_hwFaceSets[i].m_pMesh = NULL;
-		}
-		m_hwFaceSets[i].m_bBuilt = false;
-	}
-}
 
 
 
@@ -1134,127 +1103,6 @@ VertexFormat_t CDmeMesh::ComputeHwMeshVertexFormat( void )
 
 	return vertexFormat;
 }
-
-//-----------------------------------------------------------------------------
-// Builds a hardware mesh
-//-----------------------------------------------------------------------------
-IMesh *CDmeMesh::CreateHwMesh( CDmeFaceSet *pFaceSet )
-{
-	const CDmeVertexData *pBind = GetBindBaseState();
-	if ( !pBind )
-		return NULL;
-
-	// NOTE: This is memory inefficient. We create a copy of all vertices
-	// for each face set, even if those vertices aren't used by the face set
-	// Mostly chose to do this for code simplicity, although it also is faster to generate meshes
-	CMatRenderContextPtr pRenderContext( g_pMaterialSystem );
-	VertexFormat_t vertexFormat = ComputeHwMeshVertexFormat( );
-	IMesh *pMesh = pRenderContext->CreateStaticMesh( vertexFormat, "dmemesh" );
-
-	CMeshBuilder meshBuilder;
-
-	// prepare vertices
-	FieldIndex_t posField = pBind->FindFieldIndex( CDmeVertexData::FIELD_POSITION );
-	FieldIndex_t normalField = pBind->FindFieldIndex( CDmeVertexData::FIELD_NORMAL );
-	FieldIndex_t tangentField = pBind->FindFieldIndex( CDmeVertexData::FIELD_TANGENT );
-	FieldIndex_t uvField = pBind->FindFieldIndex( CDmeVertexData::FIELD_TEXCOORD );
-	FieldIndex_t colorField = pBind->FindFieldIndex( CDmeVertexData::FIELD_COLOR );
-
-	Assert( posField >= 0 );
-	bool bHasNormals = ( normalField >= 0 );
-	bool bHasTangent = ( tangentField >= 0 );
-	bool bHasTexCoords = ( uvField >= 0 );
-	bool bHasColors = ( colorField >= 0 );
-
-	// build the mesh
-	int nIndices = pFaceSet->GetTriangulatedIndexCount();
-	int nVertices = pBind->VertexCount();
-	int nJointCount = pBind->JointCount();
-	meshBuilder.Begin( pMesh, MATERIAL_TRIANGLES, nVertices, nIndices );
-
-	const CDmrArrayConst<int> pPositionIndices = pBind->GetIndexData( posField );
-	const CDmrArrayConst<Vector> pPositionData = pBind->GetVertexData( posField );
-	const CDmrArrayConst<int> pNormalIndices = bHasNormals ? pBind->GetIndexData( normalField ) : NULL;
-	const CDmrArrayConst<Vector> pNormalData = bHasNormals ? pBind->GetVertexData( normalField ) : NULL;
-	const CDmrArrayConst<int> pTangentIndices = bHasTangent ? pBind->GetIndexData( tangentField ) : NULL;
-	const CDmrArrayConst<Vector4D> pTangentData = bHasTangent ? pBind->GetVertexData( tangentField ) : NULL;
-	const CDmrArrayConst<int> pUVIndices = bHasTexCoords ? pBind->GetIndexData( uvField ) : NULL;
-	const CDmrArrayConst<Vector2D> pUVData = bHasTexCoords ? pBind->GetVertexData( uvField ) : NULL;
-	const CDmrArrayConst<int> pColorIndices = bHasColors ? pBind->GetIndexData( colorField ) : NULL;
-	const CDmrArrayConst<Color> pColorData = bHasColors ? pBind->GetVertexData( colorField ) : NULL;
-
-	Vector4D defaultTangentS( 1.0f, 0.0f, 0.0f, 1.0f );
-	for ( int vi = 0; vi < nVertices; ++vi )
-	{
-		meshBuilder.Position3fv( pPositionData.Get( pPositionIndices.Get( vi ) ).Base() );
-		if ( pNormalData.IsValid() )
-		{
-			meshBuilder.Normal3fv( pNormalData.Get( pNormalIndices.Get( vi ) ).Base() );
-		}
-		else
-		{
-			meshBuilder.Normal3f( 0.0f, 0.0f, 1.0f );
-		}
-		if ( pTangentData.IsValid() )
-		{
-			meshBuilder.UserData( pTangentData.Get( pTangentIndices.Get( vi ) ).Base() );
-		}
-		else
-		{
-			meshBuilder.UserData( defaultTangentS.Base() );
-		}
-		if ( pUVData.IsValid() )
-		{
-			const Vector2D &uv = pUVData.Get( pUVIndices.Get( vi ) );
-			if ( !pBind->IsVCoordinateFlipped() )
-			{
-				meshBuilder.TexCoord2fv( 0, uv.Base() );
-			}
-			else
-			{
-				meshBuilder.TexCoord2f( 0, uv.x, 1.0f - uv.y );
-			}
-		}
-		else
-		{
-			meshBuilder.TexCoord2f( 0, 0.0f, 0.0f );
-		}
-		if ( pColorIndices.IsValid() )
-		{
-			int color = pColorData.Get( pColorIndices.Get( vi ) ).GetRawColor();
-			meshBuilder.Color4ubv( (unsigned char*)&color );
-		}
-		else
-		{
-			meshBuilder.Color4ub( 255, 255, 255, 255 );
-		}
-
-		// FIXME: Note that this will break once we exceeed the max joint count
-		// that the hardware can handle
-		const float *pJointWeight = pBind->GetJointWeights( vi );
-		const int *pJointIndices = pBind->GetJointIndices( vi );
-		for ( int i = 0; i < nJointCount; ++i )
-		{
-			meshBuilder.BoneWeight( i, pJointWeight[i] );
-			meshBuilder.BoneMatrix( i, pJointIndices[i] );
-		}
-
-		for ( int i = nJointCount; i < 4; ++i )
-		{
-			meshBuilder.BoneWeight( i, ( i == 0 ) ? 1.0f : 0.0f );
-			meshBuilder.BoneMatrix( i, 0 );
-		}
-
-		meshBuilder.AdvanceVertexF<VTX_HAVEALL, 1>();
-	}
-
-	WriteTriangluatedIndices( pBind, pFaceSet, meshBuilder );
-
-	meshBuilder.End();
-
-	return pMesh;
-}
-
 
 //-----------------------------------------------------------------------------
 // Compute triangulated indices
@@ -4418,8 +4266,6 @@ void CDmeMesh::ReplaceMaterial( const char *pOldMaterialName, const char *pNewMa
 //-----------------------------------------------------------------------------
 void CDmeMesh::Reskin( const int *pJointTransformIndexRemap )
 {
-	CleanupHWMesh();
-
 	int nCount = m_BaseStates.Count();
 	for ( int i = 0; i < nCount; ++i )
 	{

@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright ï¿½ 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // A class representing an abstract shape (ie drawable object)
 //
@@ -32,8 +32,6 @@ class CDmeShape : public CDmElement
 	DEFINE_ELEMENT( CDmeShape, CDmElement );
 
 public:
-	virtual void Draw( const matrix3x4_t &shapeToWorld, CDmeDrawSettings *pDmeDrawSettings = NULL );
-
 	virtual void GetBoundingSphere( Vector &c, float &r ) const;
 	virtual void GetBoundingBox( Vector &min, Vector &max ) const { min.Zero(); max.Zero(); }
 

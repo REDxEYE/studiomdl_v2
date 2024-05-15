@@ -43,15 +43,3 @@ void CDmeHitbox::OnConstruction()
 void CDmeHitbox::OnDestruction()
 {
 }
-
-
-//-----------------------------------------------------------------------------
-// Rendering method for the dag
-//-----------------------------------------------------------------------------
-void CDmeHitbox::Draw( const matrix3x4_t &shapeToWorld, CDmeDrawSettings *pDrawSettings /* = NULL */ )
-{
-	Vector vecOrigin;
-	QAngle angles;
-	MatrixAngles( shapeToWorld, angles, vecOrigin );
-	RenderBox( vecOrigin, angles, m_vMinBounds, m_vMaxBounds, m_cRenderColor, true );
-}

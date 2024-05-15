@@ -4,13 +4,8 @@
 //
 //=============================================================================
 #include "movieobjects/dmelight.h"
-#include "tier0/dbg.h"
 #include "datamodel/dmelementfactoryhelper.h"
-#include "mathlib/vector.h"
-#include "movieobjects/dmetransform.h"
-#include "materialsystem/imaterialsystem.h"
-#include "movieobjects_interfaces.h"
-#include "tier2/tier2.h"
+#include "mathlib/lightdesc.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 // DISABLED #include "tier0/memdbgon.h"

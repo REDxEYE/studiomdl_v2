@@ -343,25 +343,6 @@ void CDmeMatSysDMXDag::OnDestruction()
 }
 
 
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-void CDmeMatSysDMXDag::Draw( CDmeDrawSettings *pDrawSettings /* = NULL */ )
-{
-	if ( !m_Visible )
-		return;
-
-	// This is meant to be called from mixed rendering environment and
-	// DmeMesh windings are backwards relative to MDL windings
-
-	CMatRenderContextPtr pRenderContext( g_pMaterialSystem );
-	pRenderContext->CullMode( MATERIAL_CULLMODE_CW );
-
-	BaseClass::Draw( pDrawSettings );
-
-	pRenderContext->CullMode( MATERIAL_CULLMODE_CCW );
-}
-
 
 //-----------------------------------------------------------------------------
 //
@@ -458,26 +439,6 @@ void CDmeMatSysMPPDag::OnConstruction()
 //-----------------------------------------------------------------------------
 void CDmeMatSysMPPDag::OnDestruction()
 {
-}
-
-
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-void CDmeMatSysMPPDag::Draw( CDmeDrawSettings *pDrawSettings /* = NULL */ )
-{
-	if ( !m_Visible )
-		return;
-
-	// This is meant to be called from mixed rendering environment and
-	// DmeMesh windings are backwards relative to MDL windings
-
-	CMatRenderContextPtr pRenderContext( g_pMaterialSystem );
-	pRenderContext->CullMode( MATERIAL_CULLMODE_CW );
-
-	BaseClass::Draw( pDrawSettings );
-
-	pRenderContext->CullMode( MATERIAL_CULLMODE_CCW );
 }
 
 

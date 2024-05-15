@@ -9,14 +9,9 @@
 #include "studio.h"
 #include "datacache/idatacache.h"
 #include "datacache/imdlcache.h"
-#include "tier1/convar.h"
-#include "tier1/utlmap.h"
-#include "tier1/utlbufferstrider.h"
 #include "tier0/vprof.h"
 #include "mathlib/femodel.h"
 #include "mathlib/femodeldesc.h"
-#include "mathlib/softbody.h"
-#include "mathlib/softbody.inl"
 #include "studiomdl/bone_setup.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -779,14 +774,6 @@ void CStudioHdr::Init( const studiohdr_t *pStudioHdr, IMDLCache *mdlcache )
 
 void CStudioHdr::Term()
 {
-	if ( m_pSoftbody )
-	{
-		CFeModel *pFeModel = m_pSoftbody->GetFeModel();
-		m_pSoftbody->Shutdown();
-		Assert( pFeModel );
-		MemAlloc_FreeAligned( pFeModel );
-		m_pSoftbody = NULL;
-	}
 	CActivityToSequenceMapping::ReleaseMapping( m_pActivityToSequence );
 	m_pActivityToSequence = NULL;
 }
