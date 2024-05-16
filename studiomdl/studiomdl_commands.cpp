@@ -9,6 +9,7 @@
 #include "common/scriplib.h"
 #include "studiomdl_errors.h"
 #include "movieobjects/movieobjects.h"
+#include "movieobjects/dmemdlmakefile.h"
 #include "tier1/fmtstr.h"
 #include "bspflags.h"
 

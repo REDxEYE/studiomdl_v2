@@ -7,7 +7,6 @@
 
 
 #include "movieobjects/dmemdlmakefile.h"
-#include "movieobjects/idmemakefileutils.h"
 #include "datamodel/dmelementfactoryhelper.h"
 #include "tier2/fileutils.h"
 #include "tier3/tier3.h"
@@ -50,16 +49,6 @@ CDmeMakefile *CDmeSource::GetDependentMakefile()
 }
 
 
-//-----------------------------------------------------------------------------
-// Call this to open the source file in an editor
-//-----------------------------------------------------------------------------
-void CDmeSource::OpenEditor()
-{
-	if ( g_pDmeMakefileUtils )
-	{
-		g_pDmeMakefileUtils->PerformOpenEditor( this );
-	}
-}
 
 
 //-----------------------------------------------------------------------------
@@ -75,7 +64,6 @@ void CDmeMakefile::OnConstruction()
 {
 	m_Sources.Init( this, "sources" );
 	m_hOutput = NULL;
-	m_hCompileProcess = NULL;
 	m_bIsDirty = false;
 }
 
@@ -117,10 +105,7 @@ CDmElement *CDmeMakefile::GetOutputElement( bool bCreateIfNecessary )
 	if ( !bCreateIfNecessary )
 		return NULL;
 
-	if ( !g_pDmeMakefileUtils || !g_pDmeMakefileUtils->IsCurrentlyCompiling() )
-	{
-		m_hOutput = CreateOutputElement();
-	}
+    m_hOutput = CreateOutputElement();
 
 	return m_hOutput.Get();
 }

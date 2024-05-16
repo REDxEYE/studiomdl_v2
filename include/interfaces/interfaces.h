@@ -82,7 +82,6 @@ class IDataCache;
 class IMDLCache;
 class IAvi;
 class IBik;
-class IDmeMakefileUtils;
 class IPhysicsCollision;
 class ISoundEmitterSystemBase;
 class IMeshSystem;
@@ -253,9 +252,6 @@ DECLARE_TIER3_INTERFACE( IAvi, g_pAVI );
 
 #define BIK_INTERFACE_VERSION					"VBik001"
 DECLARE_TIER3_INTERFACE( IBik, g_pBIK );
-
-#define DMEMAKEFILE_UTILS_INTERFACE_VERSION		"VDmeMakeFileUtils001"
-DECLARE_TIER3_INTERFACE( IDmeMakefileUtils, g_pDmeMakefileUtils );
 
 #define VPHYSICS_COLLISION_INTERFACE_VERSION	"VPhysicsCollision007"
 DECLARE_TIER3_INTERFACE( IPhysicsCollision, g_pPhysicsCollision );

@@ -38,6 +38,8 @@ class CDmeSingleIndexedComponent;
 class CDmeDrawSettings;
 class CDmMeshComp;
 
+
+
 //-----------------------------------------------------------------------------
 // Mesh weights
 //-----------------------------------------------------------------------------

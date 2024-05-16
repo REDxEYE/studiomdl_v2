@@ -47,7 +47,6 @@ IMatSystemSurface *g_pMatSystemSurface = 0;
 IDataCache *g_pDataCache = 0;
 IMDLCache *g_pMDLCache = 0;
 IMDLCache *mdlcache = 0;
-IDmeMakefileUtils *g_pDmeMakefileUtils = 0;
 
 
 //-----------------------------------------------------------------------------
@@ -75,7 +74,6 @@ static InterfaceGlobals_t g_pInterfaceGlobals[] =
 	{ DATACACHE_INTERFACE_VERSION, &g_pDataCache },
 	{ MDLCACHE_INTERFACE_VERSION, &g_pMDLCache },
 	{ MDLCACHE_INTERFACE_VERSION, &mdlcache },
-	{ DMEMAKEFILE_UTILS_INTERFACE_VERSION, &g_pDmeMakefileUtils },
 	{ MESHSYSTEM_INTERFACE_VERSION, &g_pMeshSystem },
 	{ SCENESYSTEM_INTERFACE_VERSION, &g_pSceneSystem },
 };

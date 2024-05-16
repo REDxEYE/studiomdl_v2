@@ -19,6 +19,7 @@
 #include "datamodel/idatamodel.h"
 #include "dmserializers/idmserializers.h"
 #include "mdllib/mdllib.h"
+#include "filesystem/filesystem_stdio.h"
 
 extern StudioMdlContext g_StudioMdlContext;
 
@@ -871,13 +872,15 @@ void CStudioMDLApp::Destroy() {
     LoggingSystem_PopLoggingState();
 }
 
+extern CFileSystem_Stdio g_FileSystem_Stdio;
+
 bool CStudioMDLApp::PreInit() {
     CreateInterfaceFn factory = GetFactory();
     ConnectTier1Libraries(&factory, 1);
     ConnectTier2Libraries(&factory, 1);
-//    ConnectTier3Libraries(&factory, 1);
-
-    if (!g_pFullFileSystem || !g_pDataModel /*|| !g_pMaterialSystem || !g_pStudioRender*/ ) {
+    g_pFullFileSystem = &g_FileSystem_Stdio;
+    g_pFileSystem = g_pFullFileSystem;
+    if (!g_pFullFileSystem || !g_pDataModel) {
         Warning("StudioMDL is missing a required interface!\n");
         return false;
     }

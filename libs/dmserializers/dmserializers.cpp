@@ -3037,7 +3037,7 @@ bool CDmSerializers::Connect( CreateInterfaceFn factory )
 	if ( !BaseClass::Connect( factory ) )
 		return false;
 
-	if ( !factory( FILESYSTEM_INTERFACE_VERSION, NULL ) )
+	if (!g_pFullFileSystem)
 	{
 		Warning( "DmSerializers needs the file system to function" );
 		return false;

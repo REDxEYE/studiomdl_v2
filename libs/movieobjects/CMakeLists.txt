@@ -14,7 +14,6 @@ add_library(movieobjects
         dmetrack.cpp
         dmepackoperators.cpp
         dmefaceset.cpp
-        dmemakefileutils.cpp
         dmeusersettings.cpp
         dmetrackgroup.cpp
         dmegamemodel.cpp
@@ -23,6 +22,8 @@ add_library(movieobjects
         dmelog.cpp
         dmemodel.cpp
         dmerigconstraintoperators.cpp
+        dmemdlmakefile.cpp
+        dmemakefile.cpp
         dmeaxissystem.cpp
         dmecamera.cpp
         dmetimeframe.cpp
@@ -52,12 +53,9 @@ add_library(movieobjects
         dmetimeselection.cpp
         dmeinput.cpp
         dmesound.cpp
-        dmemdlmakefile.cpp
         dmematerial.cpp
         dmemorphoperator.cpp
-        dmedccmakefile.cpp
         dmeanimationset.cpp
-        dmemakefile.cpp
         dmeclip.cpp
         dmeflexrules.cpp
         dmeeditortypedictionary.cpp

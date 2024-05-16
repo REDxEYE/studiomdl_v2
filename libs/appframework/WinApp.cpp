@@ -5,23 +5,13 @@
 //=============================================================================//
 
 #include "appframework/AppFramework.h"
-#include "tier0/dbg.h"
-#include "tier0/icommandline.h"
-#include "tier1/interface.h"
 #include "filesystem.h"
-#include "appframework/IAppSystemGroup.h"
 #include "filesystem_init.h"
+#include "filesystem/filesystem_stdio.h"
 #include "vstdlib/cvar.h"
-#include "tier2/tier2.h"
-
-#ifdef _X360
-#include "xbox/xbox_win32stubs.h"
-#include "xbox/xbox_console.h"
-#include "xbox/xbox_launch.h"
-#endif
 
 
-
+extern CFileSystem_Stdio g_FileSystem_Stdio;
 
 //-----------------------------------------------------------------------------
 // Globals...
@@ -158,8 +148,9 @@ bool CSteamApplication::Create()
 	AppModule_t cvarModule = LoadModule( VStdLib_GetICVarFactory() );
 	AddSystem( cvarModule, CVAR_INTERFACE_VERSION );
 
-	AppModule_t fileSystemModule = LoadModule( pFileSystemDLL );
-	m_pFileSystem = (IFileSystem*)AddSystem( fileSystemModule, FILESYSTEM_INTERFACE_VERSION );
+//	AppModule_t fileSystemModule = LoadModule( pFileSystemDLL );
+	m_pFileSystem = &g_FileSystem_Stdio;
+    g_pFullFileSystem = &g_FileSystem_Stdio;
 	if ( !m_pFileSystem )
 	{
 		if( !IsPS3() )

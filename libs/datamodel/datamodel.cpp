@@ -14,13 +14,6 @@
 #include "dmserializerkeyvalues2.h"
 #include "dmserializerbinary.h"
 #include "undomanager.h"
-#include "clipboardmanager.h"
-#include "DmElementFramework.h"
-#include "vstdlib/iprocessutils.h"
-#include "tier0/dbg.h"
-#include "tier1/utlvector.h"
-#include "tier1/utlqueue.h"
-#include "tier1/utlbuffer.h"
 #include "tier1/fmtstr.h"
 #include "tier2/utlstreambuffer.h"
 #include "tier2/fileutils.h"
@@ -111,7 +104,7 @@ bool CDataModel::Connect(CreateInterfaceFn factory) {
     if (!BaseClass::Connect(factory))
         return false;
 
-    if (!factory(FILESYSTEM_INTERFACE_VERSION, NULL)) {
+    if (!g_pFullFileSystem) {
         Warning("DataModel needs the file system to function");
         return false;
     }

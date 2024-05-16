@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright ï¿½ 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
@@ -45,9 +45,6 @@
 #include "movieobjects/dmetrackgroup.h"
 #include "movieobjects/dmeanimationset.h"
 #include "movieobjects/dmemodel.h"
-#include "movieobjects/dmemakefile.h"
-#include "movieobjects/dmedccmakefile.h"
-#include "movieobjects/dmemdlmakefile.h"
 #include "movieobjects/dmeeditortypedictionary.h"
 #include "movieobjects/dmephonememapping.h"
 #include "movieobjects/dmetimeselection.h"

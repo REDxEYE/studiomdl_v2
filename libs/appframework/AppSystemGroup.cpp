@@ -9,8 +9,6 @@
 
 #include "tier0/platform.h"
 
-#include "appframework/ilaunchermgr.h"
-
 #if defined( PLATFORM_PS3)
 #include "ps3/ps3_helpers.h"
 #endif
@@ -66,11 +64,7 @@ AppModule_t CAppSystemGroup::LoadModule(const char *pDLLName) {
 
     CSysModule *pSysModule = LoadModuleDLL(pDLLName);
     if (!pSysModule) {
-#ifdef _X360
-        Warning("AppFramework : Unable to load module %s! (err #%d)\n", pDLLName, GetLastError() );
-#else
         Warning("AppFramework : Unable to load module %s!\n", pDLLName);
-#endif
         return APP_MODULE_INVALID;
     }
 

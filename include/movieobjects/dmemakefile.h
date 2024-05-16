@@ -15,7 +15,6 @@
 #include "datamodel/dmattribute.h"
 #include "datamodel/dmattributevar.h"
 #include "datamodel/dmehandle.h"
-#include "vstdlib/iprocessutils.h"
 
 
 //-----------------------------------------------------------------------------
@@ -81,7 +80,7 @@ inline void CDmeSource::SetRelativeFileName( const char *pName )
 
 
 //-----------------------------------------------------------------------------
-// Describes an asset: something that is compiled from sources 
+// Describes an asset: something that is compiled from sources
 //-----------------------------------------------------------------------------
 class CDmeMakefile : public CDmElement
 {
@@ -161,7 +160,6 @@ private:
 	// Inherited classes should re-implement these methods
 	virtual CDmElement *CreateOutputElement( ) { return NULL; }
 	virtual void DestroyOutputElement( CDmElement *pOutput ) { }
-	virtual IProcess* PerformCompilation() { Assert(0); return NULL; }
 	virtual const char *GetOutputDirectoryID() { return "makefilegamedir:"; }
 
 private:
@@ -176,7 +174,6 @@ private:
 
 	CDmaElementArray< CDmeSource > m_Sources;
 	CDmeHandle< CDmElement > m_hOutput;
-	IProcess *m_hCompileProcess;
 	bool m_bIsDirty;
 };
 
