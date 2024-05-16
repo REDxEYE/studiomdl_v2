@@ -18,7 +18,7 @@
 
 #include "tier0/platform.h"
 #include "tier0/dbg.h"
-#include "tier0/threadtools.h"
+
 #include "tier1/utlmemory.h"
 #include "tier1/utlblockmemory.h"
 #include "mathlib/ssemath.h"
@@ -399,7 +399,6 @@ protected:
 	uint32 m_nFieldPresentMask;
 	uint8 *m_pConstantDataMemory;
 	uint8 *m_pSeparateDataMemory[MAX_SOA_FIELDS];			// for fields allocated separately from the main allocation
-	SOAThreadMode_t m_eThreadMode;							// set thread mode
 
 	FORCEINLINE void Init( void )
 	{
@@ -418,7 +417,6 @@ protected:
 		m_nNumQuadsPerRow = 0;
 		m_nColumns = m_nPaddedColumns = m_nRows = m_nSlices = 0;
 		m_nFieldPresentMask = 0;
-		m_eThreadMode = SOATHREADMODE_NONE;
 	}
 
 	void UpdateDistanceRow( int nSearchRadius, int nMinX, int nMaxX, int nY, int nZ,

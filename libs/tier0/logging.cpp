@@ -7,14 +7,7 @@
 #include "pch_tier0.h"
 #include "logging.h"
 
-#include <string.h>
-#include "dbg.h"
-#include "threadtools.h"
-//#include "tier0_strtools.h" // this is from tier1, but only included for inline definition of V_isspace
-
-#ifdef _PS3
-#include <sys/tty.h>
-#endif
+#include <cstring>
 
 
 #define DBG_SPEW_ALL_WARNINGS_AND_ERRORS_ASSERT false

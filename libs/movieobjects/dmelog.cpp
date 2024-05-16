@@ -7380,7 +7380,7 @@ void InterleaveSampleTimes( CUtlVector< DmeTime_t > &times, int nFirstTime, DmeT
 template< class T > 
 void CDmeTypedLog< T >::BlendLayersUsingTimeSelection( const DmeLog_TimeSelection_t &params, const CDmeTypedLogLayer< T > *pBaseLayer, const CDmeTypedLogLayer< T > *pTargetLayer, CDmeTypedLogLayer< T > *pOutputLayer )
 {
-	VPROF_BUDGET( "CDmeTypedLog< T >::BlendLayersUsingTimeSelection", VPROF_BUDGETGROUP_TOOLS );
+
 	
 	if ( ( pBaseLayer == NULL ) || ( pTargetLayer == NULL ) || ( pOutputLayer == NULL ) )
 		return;

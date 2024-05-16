@@ -9,11 +9,9 @@
 #include "studio.h"
 #include "datacache/idatacache.h"
 #include "datacache/imdlcache.h"
-#include "tier0/vprof.h"
+
 #include "studiomdl/bone_setup.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-//#include "tier0/memdbgon.h"
 
 // preload up to 1 second worth of blocks ahead.
 ConVar mod_load_preload( "mod_load_preload", IsGameConsole() ? "1.0" : "1.0", 0, "Indicates how far ahead in seconds to preload animations." );
@@ -802,9 +800,6 @@ const virtualmodel_t * CStudioHdr::ResetVModel( const virtualmodel_t *pVModel ) 
 	if (pVModel != NULL)
 	{
 		m_pVModel = (virtualmodel_t *)pVModel;
-#if !defined( POSIX )
-		Assert( !pVModel->m_Lock.GetOwnerId() );
-#endif
 		m_pStudioHdrCache.SetCount( m_pVModel->m_group.Count() );
 
 		int i;
@@ -831,13 +826,11 @@ const studiohdr_t *CStudioHdr::GroupStudioHdr( int i )
 
 	if ( m_nFrameUnlockCounter != *m_pFrameUnlockCounter )
 	{
-		m_FrameUnlockCounterMutex.Lock();
 		if ( *m_pFrameUnlockCounter != m_nFrameUnlockCounter ) // i.e., this thread got the mutex
 		{
 			memset( m_pStudioHdrCache.Base(), 0, m_pStudioHdrCache.Count() * sizeof(studiohdr_t *) );
 			m_nFrameUnlockCounter = *m_pFrameUnlockCounter;
 		}
-		m_FrameUnlockCounterMutex.Unlock();
 	}
 
 	if ( !m_pStudioHdrCache.IsValidIndex( i ) )
@@ -853,9 +846,6 @@ const studiohdr_t *CStudioHdr::GroupStudioHdr( int i )
 
 	if (pStudioHdr == NULL)
 	{
-#if !defined( POSIX )
-		Assert( !m_pVModel->m_Lock.GetOwnerId() );
-#endif
 		virtualgroup_t *pGroup = &m_pVModel->m_group[ i ];
 		pStudioHdr = pGroup->GetStudioHdr();
 		m_pStudioHdrCache[ i ] = pStudioHdr;
@@ -1854,7 +1844,7 @@ CUtlSymbolTable g_ActivityModifiersTable;
 extern void SetActivityForSequence( CStudioHdr *pstudiohdr, int i );
 void CStudioHdr::CActivityToSequenceMapping::Initialize( const CStudioHdr * __restrict pstudiohdr )
 {
-	VPROF( "CStudioHdr::CActivityToSequenceMapping::Initialize" );
+
 	// Algorithm: walk through every sequence in the model, determine to which activity
 	// it corresponds, and keep a count of sequences per activity. Once the total count
 	// is available, allocate an array large enough to contain them all, update the 
@@ -2094,11 +2084,10 @@ struct StudioHdrToActivityMapEntry_t
 };
 
 CUtlMap<const studiohdr_t *, StudioHdrToActivityMapEntry_t> g_StudioHdrToActivityMaps( DefLessFunc( const studiohdr_t * ) );
-CThreadFastMutex g_StudioHdrToActivityMapsLock;
 
 CStudioHdr::CActivityToSequenceMapping *CStudioHdr::CActivityToSequenceMapping::FindMapping( const CStudioHdr *pHdr )
 {
-	VPROF( "CStudioHdr::CActivityToSequenceMapping::FindMapping" );
+
 
 	if ( !pHdr->SequencesAvailable() || pHdr->GetNumSeq() <= 1 )
 	{
@@ -2107,7 +2096,6 @@ CStudioHdr::CActivityToSequenceMapping *CStudioHdr::CActivityToSequenceMapping::
 
 	Assert( !pHdr->m_pActivityToSequence );
 
-	AUTO_LOCK( g_StudioHdrToActivityMapsLock );
 	const studiohdr_t *pRealHdr = pHdr->m_pStudioHdr;
 	int i = g_StudioHdrToActivityMaps.Find( pRealHdr );
 	if ( i != g_StudioHdrToActivityMaps.InvalidIndex() )
@@ -2141,8 +2129,7 @@ void CStudioHdr::CActivityToSequenceMapping::ReleaseMapping( CActivityToSequence
 {
 	if ( pMap && pMap != &emptyMapping)
 	{
-		VPROF( "CStudioHdr::CActivityToSequenceMapping::ReleaseMapping" );
-		AUTO_LOCK( g_StudioHdrToActivityMapsLock );
+
 		int i = g_StudioHdrToActivityMaps.Find( pMap->m_pStudioHdr );
 		if ( i != g_StudioHdrToActivityMaps.InvalidIndex() )
 		{

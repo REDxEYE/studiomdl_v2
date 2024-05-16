@@ -13,7 +13,6 @@
 
 #include "vstdlib/vstdlib.h"
 #include "tier0/basetypes.h"
-#include "tier0/threadtools.h"
 
 #include "tier1/interface.h"
 
@@ -61,7 +60,6 @@ private:
 	int m_iy;
 	int m_iv[NTAB];
 
-	CThreadFastMutex m_mutex;
 };
 
 
@@ -86,7 +84,6 @@ private:
 	bool	m_bHaveValue;
 	float	m_flRandomValue;
 
-	CThreadFastMutex m_mutex;
 };
 
 

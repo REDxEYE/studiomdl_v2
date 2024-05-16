@@ -17,7 +17,7 @@
 #undef MIN
 #undef MAX
 #define DONT_DEFINE_BOOL	// Don't define BOOL!
-#include "tier0/threadtools.h"
+
 #include "tier0/icommandline.h"
 #include "tier1/interface.h"
 #include "tier1/strtools.h"

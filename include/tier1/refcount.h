@@ -8,7 +8,7 @@
 #ifndef REFCOUNT_H
 #define REFCOUNT_H
 
-#include "tier0/threadtools.h"
+
 
 #if defined( _WIN32 )
 #pragma once
@@ -156,13 +156,6 @@ public:
 // Purpose:	Traits classes defining reference count threading model
 //-----------------------------------------------------------------------------
 
-class CRefMT
-{
-public:
-	static int Increment( int *p) { return ThreadInterlockedIncrement( (int32 *)p ); }
-	static int Decrement( int *p) { return ThreadInterlockedDecrement( (int32 *)p ); }
-};
-
 class CRefST
 {
 public:
@@ -264,12 +257,9 @@ private:
 typedef CRefCountServiceBase<true, CRefST>	CRefCountServiceST;
 typedef CRefCountServiceBase<false, CRefST>	CRefCountServiceNoDeleteST;
 
-typedef CRefCountServiceBase<true, CRefMT>	CRefCountServiceMT;
-typedef CRefCountServiceBase<false, CRefMT> CRefCountServiceNoDeleteMT;
-
 // Default to threadsafe
-typedef CRefCountServiceNoDeleteMT			CRefCountServiceNoDelete;
-typedef CRefCountServiceMT					CRefCountService;
+typedef CRefCountServiceNoDeleteST			CRefCountServiceNoDelete;
+typedef CRefCountServiceST					CRefCountService;
 
 //-----------------------------------------------------------------------------
 // Purpose:	Base classes to implement reference counting

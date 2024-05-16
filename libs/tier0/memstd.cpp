@@ -17,18 +17,10 @@
 
 #include "tier0/dbg.h"
 #include "tier0/memalloc.h"
-#include "tier0/threadtools.h"
+
 #include "mem_helpers.h"
 #include "memstd.h"
-#include "tier0/stacktools.h"
 #include "tier0/minidump.h"
-#ifdef _X360
-#include "xbox/xbox_console.h"
-#endif
-
-#ifdef _PS3
-#include "memoverride_ps3.h"
-#endif
 
 #ifndef _WIN32
 #define IsDebuggerPresent() false
@@ -42,9 +34,7 @@
 #define DEF_REGION 0
 
 #if defined( _WIN32 ) || defined( _PS3 )
-#define USE_DLMALLOC
 #ifdef PLATFORM_WINDOWS_PC64
-#define MEMALLOC_REGIONS
 #else
 #define MEMALLOC_SEGMENT_MIXED
 #define MBH_SIZE_MB ( 32 + MBYTES_STEAM_MBH_USAGE )
@@ -414,7 +404,6 @@ CStdMemAlloc::CStdMemAlloc()
 		strncpy( tempStr, pStr, sizeof( tempStr ) - 1 );
 		tempStr[ sizeof( tempStr ) - 1 ] = 0;
 		_strupr( tempStr );
-		s_bUsingProcessHeap = CheckWindowsAllocSettings( tempStr );
 
 #ifdef MEMALLOC_REGIONS
 		const char *pMemSpaceParam = "-memspacemb ";
@@ -1755,10 +1744,6 @@ void LMDReportInvalidBlock( AllocHeader_t *pHeader, const char *pszMessage )
 	{
 		DebuggerBreak();
 	}
-	else
-	{
-		WriteMiniDump();
-	}
 #ifdef IS_WINDOWS_PC
 	::MessageBox( NULL, szMsg, "Error", MB_SYSTEMMODAL | MB_OK );
 #else
@@ -2520,16 +2505,7 @@ void CStdMemAlloc::DumpStatsFileBase( char const *pchFileBase, DumpStatsFormat_t
 #endif // MEMALLOC_NO_FALLBACK
 #endif // MEM_SBH_ENABLED
 
-#ifdef _PS3
-	malloc_managed_size mms;
-	(g_pMemOverrideRawCrtFns->pfn_malloc_stats)( &mms );
-	Msg( "PS3 malloc_stats: %u / %u / %u \n", mms.current_inuse_size, mms.current_system_size, mms.max_system_size );
-#endif // _PS3
 
-	heapstats_internal( pFile, nFormat );
-#if defined( _X360 )
-	XBX_rMemDump( filename );
-#endif
 
 	if ( pFile )									  
 		fclose( pFile );
@@ -2889,36 +2865,12 @@ void CStdMemAlloc::SetCRTAllocFailed( size_t nSize )
 	_snprintf( buffer, sizeof( buffer ), "***** OUT OF MEMORY! attempted allocation size: %u ****\n", nSize );
 #endif // COMPILER_GCC
 
-#ifdef _X360 
-	XBX_OutputDebugString( buffer );
-	if ( !Plat_IsInDebugSession() )
-	{
-		XBX_CrashDump( true );
-#if defined( _DEMO )
-		XLaunchNewImage( XLAUNCH_KEYWORD_DEFAULT_APP, 0 );
-#else
-		XLaunchNewImage( "default.xex", 0 );
-#endif // _DEMO
-	}
-#elif defined(_WIN32 )
+
 	OutputDebugString( buffer );
 	if ( !Plat_IsInDebugSession() )
 	{
-		WriteMiniDump();
 		abort();
 	}
-#else // _X360/_WIN32/other
-	printf( "%s\n", buffer );
-	if ( !Plat_IsInDebugSession() )
-	{
-		WriteMiniDump();
-#if defined( _PS3 )
-		DumpStats();
-#endif
-		Plat_ExitProcess( EXIT_FAILURE );
-	}
-#endif // _X360/_WIN32/other
-
 }
 
 size_t CStdMemAlloc::MemoryAllocFailed()

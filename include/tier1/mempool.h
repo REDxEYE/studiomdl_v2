@@ -19,7 +19,6 @@
 #endif
 
 #include "tier0/memalloc.h"
-#include "tier0/tslist.h"
 #include "tier0/platform.h"
 #include "tier1/utlvector.h"
 #include "tier1/utlrbtree.h"
@@ -109,16 +108,14 @@ public:
 	CMemoryPoolMT( int blockSize, int numElements, int growMode = GROW_FAST, const char *pszAllocOwner = NULL, int nAlignment = 0) : CUtlMemoryPool( blockSize, numElements, growMode, pszAllocOwner, nAlignment ) {}
 
 
-	void*		Alloc()	{ AUTO_LOCK( m_mutex ); return CUtlMemoryPool::Alloc(); }
-	void*		Alloc( size_t amount )	{ AUTO_LOCK( m_mutex ); return CUtlMemoryPool::Alloc( amount ); }
-	void*		AllocZero()	{ AUTO_LOCK( m_mutex ); return CUtlMemoryPool::AllocZero(); }	
-	void*		AllocZero( size_t amount )	{ AUTO_LOCK( m_mutex ); return CUtlMemoryPool::AllocZero( amount ); }
-	void		Free(void *pMem) { AUTO_LOCK( m_mutex ); CUtlMemoryPool::Free( pMem ); }
+	void*		Alloc()	{  return CUtlMemoryPool::Alloc(); }
+	void*		Alloc( size_t amount )	{  return CUtlMemoryPool::Alloc( amount ); }
+	void*		AllocZero()	{  return CUtlMemoryPool::AllocZero(); }
+	void*		AllocZero( size_t amount )	{  return CUtlMemoryPool::AllocZero( amount ); }
+	void		Free(void *pMem) {  CUtlMemoryPool::Free( pMem ); }
 
 	// Frees everything
-	void		Clear() { AUTO_LOCK( m_mutex ); return CUtlMemoryPool::Clear(); }
-private:
-	CThreadFastMutex m_mutex; // @TODO: Rework to use tslist (toml 7/6/2007)
+	void		Clear() {  return CUtlMemoryPool::Clear(); }
 };
 
 
@@ -160,13 +157,13 @@ public:
 	static int __cdecl CompareChunk( void * const *ppLeft, void * const *ppRight );
 	void Compact();
 
-	int NumTotal()			{ AUTO_LOCK( m_mutex ); return m_Chunks.Count() * ( CHUNK_SIZE / BLOCK_SIZE ); }
-	int NumAllocated()		{ AUTO_LOCK( m_mutex ); return NumTotal() - m_nFree; }
-	int NumFree()			{ AUTO_LOCK( m_mutex ); return m_nFree; }
+	int NumTotal()			{  return m_Chunks.Count() * ( CHUNK_SIZE / BLOCK_SIZE ); }
+	int NumAllocated()		{  return NumTotal() - m_nFree; }
+	int NumFree()			{  return m_nFree; }
 
-	int BytesTotal()		{ AUTO_LOCK( m_mutex ); return NumTotal() * BLOCK_SIZE; }
-	int BytesAllocated()	{ AUTO_LOCK( m_mutex ); return NumAllocated() * BLOCK_SIZE; }
-	int BytesFree()			{ AUTO_LOCK( m_mutex ); return NumFree() * BLOCK_SIZE; }
+	int BytesTotal()		{  return NumTotal() * BLOCK_SIZE; }
+	int BytesAllocated()	{  return NumAllocated() * BLOCK_SIZE; }
+	int BytesFree()			{  return NumFree() * BLOCK_SIZE; }
 
 	int ItemSize()			{ return ITEM_SIZE; }
 	int BlockSize()			{ return BLOCK_SIZE; }
@@ -185,156 +182,7 @@ private:
 	CAllocator			m_Allocator;
 	double				m_TimeLastCompact;
 
-	CThreadFastMutex	m_mutex;
 };
-
-//-----------------------------------------------------------------------------
-// Pool variant using standard allocation
-//-----------------------------------------------------------------------------
-template <typename T, int nInitialCount = 0, bool bDefCreateNewIfEmpty = true >
-class CObjectPool
-{
-public:
-	CObjectPool()
-	{
-		int i = nInitialCount;
-		while ( i-- > 0 )
-		{
-			m_AvailableObjects.PushItem( new T );
-		}
-	}
-
-	~CObjectPool()
-	{
-		Purge();
-	}
-
-	int NumAvailable()
-	{
-		return m_AvailableObjects.Count();
-	}
-
-	void Purge()
-	{
-		T *p = NULL;
-		while ( m_AvailableObjects.PopItem( &p ) )
-		{
-			delete p;
-		}
-	}
-
-	T *GetObject( bool bCreateNewIfEmpty = bDefCreateNewIfEmpty )
-	{
-		T *p = NULL;
-		if ( !m_AvailableObjects.PopItem( &p )  )
-		{
-			p = ( bCreateNewIfEmpty ) ? new T : NULL;
-		}
-		return p;
-	}
-
-	void PutObject( T *p )
-	{
-		m_AvailableObjects.PushItem( p );
-	}
-
-private:
-	CTSList<T *> m_AvailableObjects;
-};
-
-//-----------------------------------------------------------------------------
-// Fixed budget pool with overflow to malloc
-//-----------------------------------------------------------------------------
-template <size_t PROVIDED_ITEM_SIZE, int ITEM_COUNT>
-class CFixedBudgetMemoryPool
-{
-public:
-	CFixedBudgetMemoryPool()
-	{
-		m_pBase = m_pLimit = 0;
-		COMPILE_TIME_ASSERT( ITEM_SIZE % 4 == 0 );
-	}
-
-	bool Owns( void *p )
-	{
-		return ( p >= m_pBase && p < m_pLimit );
-	}
-
-	void *Alloc()
-	{
-		MEM_ALLOC_CREDIT_CLASS();
-#ifndef USE_MEM_DEBUG
-		if ( !m_pBase )
-		{
-			LOCAL_THREAD_LOCK();
-			if ( !m_pBase )
-			{
-				byte *pMemory = m_pBase = (byte *)malloc( ITEM_COUNT * ITEM_SIZE );
-				m_pLimit = m_pBase + ( ITEM_COUNT * ITEM_SIZE );
-
-				for ( int i = 0; i < ITEM_COUNT; i++ )
-				{
-					m_freeList.Push( (TSLNodeBase_t *)pMemory );
-					pMemory += ITEM_SIZE;
-				}
-			}
-		}
-
-		void *p = m_freeList.Pop();
-		if ( p )
-			return p;
-#endif
-		return malloc( ITEM_SIZE );
-	}
-
-	void Free( void *p )
-	{
-#ifndef USE_MEM_DEBUG
-		if ( Owns( p ) )
-			m_freeList.Push( (TSLNodeBase_t *)p );
-		else
-#endif
-			free( p );
-	}
-
-	void Clear()
-	{
-#ifndef USE_MEM_DEBUG
-		if ( m_pBase )
-		{
-			free( m_pBase );
-		}
-		m_pBase = m_pLimit = 0;
-		Construct( &m_freeList );
-#endif
-	}
-
-	bool IsEmpty()
-	{
-#ifndef USE_MEM_DEBUG
-		if ( m_pBase && m_freeList.Count() != ITEM_COUNT )
-			return false;
-#endif
-		return true;
-	}
-
-	enum
-	{
-		ITEM_SIZE = ALIGN_VALUE( PROVIDED_ITEM_SIZE, TSLIST_NODE_ALIGNMENT )
-	};
-
-	CTSListBase m_freeList;
-	byte *m_pBase;
-	byte *m_pLimit;
-};
-
-#define BIND_TO_FIXED_BUDGET_POOL( poolName )									\
-	inline void* operator new( size_t size ) { return poolName.Alloc(); }   \
-	inline void* operator new( size_t size, int nBlockUse, const char *pFileName, int nLine ) { return poolName.Alloc(); }   \
-	inline void  operator delete( void* p ) { poolName.Free(p); }		\
-	inline void  operator delete( void* p, int nBlockUse, const char *pFileName, int nLine ) { poolName.Free(p); }
-
-//-----------------------------------------------------------------------------
 
 
 template< class T >
@@ -483,7 +331,7 @@ inline CAlignedMemPool<ITEM_SIZE, ALIGNMENT, CHUNK_SIZE, CAllocator, GROWMODE, C
 template <int ITEM_SIZE, int ALIGNMENT, int CHUNK_SIZE, class CAllocator, bool GROWMODE, int COMPACT_THRESHOLD >
 inline void *CAlignedMemPool<ITEM_SIZE, ALIGNMENT, CHUNK_SIZE, CAllocator, GROWMODE, COMPACT_THRESHOLD>::Alloc()
 {
-	AUTO_LOCK( m_mutex );
+
 
 	if ( !m_pFirstFree )
 	{
@@ -515,7 +363,7 @@ inline void *CAlignedMemPool<ITEM_SIZE, ALIGNMENT, CHUNK_SIZE, CAllocator, GROWM
 template <int ITEM_SIZE, int ALIGNMENT, int CHUNK_SIZE, class CAllocator, bool GROWMODE, int COMPACT_THRESHOLD >
 inline void CAlignedMemPool<ITEM_SIZE, ALIGNMENT, CHUNK_SIZE, CAllocator, GROWMODE, COMPACT_THRESHOLD>::Free( void *p )
 {
-	AUTO_LOCK( m_mutex ); 
+
 
 	// Insertion sort to encourage allocation clusters in chunks
 	FreeBlock_t *pFree = ((FreeBlock_t *)p);

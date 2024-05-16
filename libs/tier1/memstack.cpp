@@ -33,8 +33,6 @@ static volatile bool bSpewAllocations = false; // TODO: Register CMemoryStacks w
 
 //-----------------------------------------------------------------------------
 
-MEMALLOC_DEFINE_EXTERNAL_TRACKING(CMemoryStack);
-
 //-----------------------------------------------------------------------------
 
 void PrintStatus( void* p )

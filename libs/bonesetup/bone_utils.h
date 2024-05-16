@@ -6,39 +6,6 @@
 
 
 
-
-template <typename T>
-class CBoneSetupMemoryPool
-{
-public:
-	T *Alloc()
-	{
-		T *p = (T *)m_FreeBlocks.Pop();
-		if ( !p )
-		{
-			p = (T *)MemAlloc_AllocAligned( sizeof( T ) * MAXSTUDIOBONES, 16 );
-			if ( ((size_t)p) % MAX(TSLIST_NODE_ALIGNMENT,16) != 0 )
-				DebuggerBreak();
-		}
-
-		return p;
-	}
-
-	void Free( T *p )
-	{
-		m_FreeBlocks.Push( (TSLNodeBase_t *)p );
-	}
-
-private:
-	CTSListBase m_FreeBlocks;
-};
-
-extern CBoneSetupMemoryPool<BoneQuaternionAligned> g_QuaternionPool;
-extern CBoneSetupMemoryPool<BoneVector> g_VectorPool;
-extern CBoneSetupMemoryPool<matrix3x4a_t> g_MatrixPool;
-
-
-
 void CalcDecompressedAnimation( const mstudiocompressedikerror_t *pCompressed, int iFrame, float fraq, BoneVector &pos, BoneQuaternion &q );
 void QuaternionAccumulate( const Quaternion &p, float s, const Quaternion &q, Quaternion &qt );
 void CalcAnimation( const CStudioHdr *pStudioHdr, BoneVector *pos, BoneQuaternion *q, mstudioseqdesc_t &seqdesc, int sequence, int animation, float cycle, int boneMask );

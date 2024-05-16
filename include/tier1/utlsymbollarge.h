@@ -1,4 +1,4 @@
-//===== Copyright © 1996-2005, Valve Corporation, All rights reserved. ======//
+//===== Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. ======//
 //
 // Purpose: Defines a large symbol table (intp sized handles, can store more than 64k strings)
 //
@@ -13,11 +13,8 @@
 #pragma once
 #endif
 
-#include "tier0/threadtools.h"
-#include "tier1/utltshash.h"
+
 #include "tier1/stringpool.h"
-#include "tier0/vprof.h"
-#include "tier1/utltshash.h"
 
 //-----------------------------------------------------------------------------
 // CUtlSymbolTableLarge:
@@ -249,47 +246,6 @@ public:
    50% of the pointer overhead used for this data structure.
 */
 
-// Thread safe version is based on the 
-template < bool CASEINSENSITIVE >
-class CThreadsafeTree : public CUtlTSHash< CUtlSymbolTableLargeBaseTreeEntry_t *, 2048, CUtlSymbolTableLargeBaseTreeEntry_t *, CCThreadsafeTreeHashMethod< 2048, CUtlSymbolTableLargeBaseTreeEntry_t *, CASEINSENSITIVE > >
-{
-public:
-	typedef CUtlTSHash< CUtlSymbolTableLargeBaseTreeEntry_t *, 2048, CUtlSymbolTableLargeBaseTreeEntry_t *, CCThreadsafeTreeHashMethod< 2048, CUtlSymbolTableLargeBaseTreeEntry_t *, CASEINSENSITIVE > > CThreadsafeTreeType;
-
-	CThreadsafeTree() : 
-		CThreadsafeTreeType( 32 ) 
-	{
-	}
-	inline void Commit() 
-	{
-		CThreadsafeTreeType::Commit();
-	}
-	inline UtlTSHashHandle_t Insert( CUtlSymbolTableLargeBaseTreeEntry_t *entry )
-	{
-		return CThreadsafeTreeType::Insert( entry, entry );
-	}
-	inline UtlTSHashHandle_t Find( CUtlSymbolTableLargeBaseTreeEntry_t *entry )
-	{
-		return CThreadsafeTreeType::Find( entry );
-	}
-	inline UtlTSHashHandle_t InvalidIndex() const
-	{
-		return CThreadsafeTreeType::InvalidHandle();
-	}
-	inline int GetElements( UtlTSHashHandle_t nFirstElement, int nCount, CUtlSymbolLarge *pElements ) const
-	{
-		CUtlVector< UtlTSHashHandle_t > list;
-		list.EnsureCount( nCount );
-		int c = CThreadsafeTreeType::GetElements( nFirstElement, nCount, list.Base() );
-		for ( int i = 0; i < c; ++i )
-		{
-			pElements[ i ] = CThreadsafeTreeType::Element( list[ i ] )->ToSymbol();
-		}
-		
-		return c;
-	}
-};
-
 // Base Class for threaded and non-threaded types
 template < class TreeType, bool CASEINSENSITIVE, size_t POOL_SIZE = MIN_STRING_POOL_SIZE >
 class CUtlSymbolTableLargeBase
@@ -380,7 +336,6 @@ inline CUtlSymbolTableLargeBase<TreeType, CASEINSENSITIVE, POOL_SIZE>::~CUtlSymb
 template < class TreeType, bool CASEINSENSITIVE, size_t POOL_SIZE >
 inline CUtlSymbolLarge CUtlSymbolTableLargeBase<TreeType, CASEINSENSITIVE, POOL_SIZE>::Find( const char* pString ) const
 {	
-	VPROF( "CUtlSymbolLarge::Find" );
 	if (!pString)
 		return CUtlSymbolLarge();
 
@@ -423,8 +378,7 @@ inline int CUtlSymbolTableLargeBase<TreeType, CASEINSENSITIVE, POOL_SIZE>::FindP
 template < class TreeType, bool CASEINSENSITIVE, size_t POOL_SIZE >
 inline CUtlSymbolLarge CUtlSymbolTableLargeBase<TreeType, CASEINSENSITIVE, POOL_SIZE>::AddString( const char* pString )
 {
-	VPROF("CUtlSymbolLarge::AddString");
-	if (!pString) 
+	if (!pString)
 		return UTL_INVAL_SYMBOL_LARGE;
 
 	CUtlSymbolLarge id = Find( pString );
@@ -498,9 +452,5 @@ ANALYZE_UNSUPPRESS(); // warning C6001: Using uninitialized memory '*m_StringPoo
 typedef CUtlSymbolTableLargeBase< CNonThreadsafeTree< false >, false > CUtlSymbolTableLarge;
 // Case-insensitive
 typedef CUtlSymbolTableLargeBase< CNonThreadsafeTree< true >, true > CUtlSymbolTableLarge_CI;
-// Multi-threaded case-sensitive
-typedef CUtlSymbolTableLargeBase< CThreadsafeTree< false >, false > CUtlSymbolTableLargeMT;
-// Multi-threaded case-insensitive
-typedef CUtlSymbolTableLargeBase< CThreadsafeTree< true >, true > CUtlSymbolTableLargeMT_CI;
 
 #endif // UTLSYMBOLLARGE_H

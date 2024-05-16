@@ -24,6 +24,7 @@ typedef int64_t time64_t;
 #include "tier0/t0constants.h"
 #include "tier1/utlstring.h"
 #include "tier1/utllinkedlist.h"
+#include "appinstance.h"
 
 class CPathString
 {

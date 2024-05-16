@@ -941,7 +941,7 @@ void CDmeRigPointConstraintOperator::OnDestruction()
 
 void CDmeRigPointConstraintOperator::Operate()
 {
-	VPROF_BUDGET( "CDmeRigPointConstraintOperator::Operate", "SFM" );
+
 
 	CDmeDag *pSlaveDag = m_Slave->GetDag();
 	if ( !pSlaveDag )
@@ -985,7 +985,7 @@ void CDmeRigOrientConstraintOperator::OnDestruction()
 
 void CDmeRigOrientConstraintOperator::Operate()
 {
-	VPROF_BUDGET( "CDmeRigOrientConstraintOperator::Operate", "SFM" );
+
 
 	CDmeDag *pSlaveDag = m_Slave->GetDag();
 	if ( !pSlaveDag )
@@ -1301,7 +1301,7 @@ void CDmeRigAimConstraintOperator::UpdateOffset( bool bPreserveOffset )
 //-----------------------------------------------------------------------------
 void CDmeRigAimConstraintOperator::Operate()
 {
-	VPROF_BUDGET( "CDmeRigAimConstraintOperator::Operate", "SFM" );
+
 
 	CDmeDag *pDag = m_Slave->GetDag();
 	if ( pDag == NULL )
@@ -1381,7 +1381,7 @@ void CDmeRigRotationConstraintOperator::OnDestruction()
 //-----------------------------------------------------------------------------
 void CDmeRigRotationConstraintOperator::Operate()
 {
-	VPROF_BUDGET( "CDmeRigRotationConstraintOperator::Operate", "SFM" );
+
 
 	CDmeDag *pDag = m_Slave->GetDag();
 	if ( pDag == NULL )
@@ -1585,7 +1585,7 @@ float CDmeRigParentConstraintOperator::ComputeTargetPositionOrientation( Vector 
 
 void CDmeRigParentConstraintOperator::Operate()
 {
-	VPROF_BUDGET( "CDmeRigParentConstraintOperator::Operate", "SFM" );
+
 
 	CDmeDag *pSlaveDag = m_Slave->GetDag();
 	if ( !pSlaveDag )
@@ -1843,7 +1843,7 @@ float CDmeRigIKConstraintOperator::CalculateOrientations( Quaternion &startBoneO
 //-----------------------------------------------------------------------------
 void CDmeRigIKConstraintOperator::Operate()
 {
-	VPROF_BUDGET( "CDmeRigIKConstraintOperator::Operate", "SFM" );
+
 
 	CDmeDag *pStartJoint = m_StartJoint->GetDag();
 	CDmeDag *pMidJoint = m_MidJoint->GetDag();
@@ -2209,7 +2209,7 @@ void CDmeRigTwistConstraintOperator::SetSlaveBindOrientation( const Quaternion &
 //-----------------------------------------------------------------------------
 void CDmeRigTwistConstraintOperator::Operate()
 {
-	VPROF_BUDGET( "CDmeRigTwistConstraintOperator::Operate", "SFM" );
+
 
 	/*
 	 * TODO: Call the Twist constraint code

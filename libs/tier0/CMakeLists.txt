@@ -10,32 +10,21 @@ endif ()
 
 add_library(tier0
         platform.cpp
-        perfstats.cpp
         pch_tier0.cpp
         mem.cpp
-        vprof.cpp
         logging.cpp
         dbg.cpp
         assert_dialog.cpp
-        threadtools.cpp
         memstd.cpp
         mem_helpers.cpp
         tier0_strtools.cpp
         commandline.cpp
-        stackstats.cpp
-        stacktools.cpp
-        tslist.cpp
         fasttimer.cpp
-        minidump.cpp
-        dynfunction.cpp
         memprocessheap.cpp
         memvirt.cpp
         cpu.cpp
         platwindow.cpp
-        pme.cpp
-        pmelib.cpp
         cputopology.cpp
-        dlmalloc/malloc.cpp
         )
 target_include_directories(tier0 PUBLIC ../../include)
 target_include_directories(tier0 PRIVATE ../../include/tier0)

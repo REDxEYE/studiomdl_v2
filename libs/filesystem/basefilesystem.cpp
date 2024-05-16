@@ -6,7 +6,6 @@
 //===========================================================================//
 
 #include "basefilesystem.h"
-#include "tier0/vprof.h"
 #include "tier1/characterset.h"
 #include "tier1/keyvalues.h"
 #include "tier1/lzmaDecoder.h"
@@ -95,7 +94,6 @@ static bool IsDvdDevPathString( char const *szPath )
 
 ConVar fs_report_sync_opens( "fs_report_sync_opens", "0", FCVAR_RELEASE, "0:Off, 1:Always, 2:Not during map load" );
 ConVar fs_report_sync_opens_callstack( "fs_report_sync_opens_callstack", "0", 0, "0 to not display the call-stack when we hit a fs_report_sync_opens warning. Set to 1 to display the call-stack." );
-ConVar fs_report_long_reads( "fs_report_long_reads", "0", 0, "0:Off, 1:All (for tracking accumulated duplicate read times), >1:Microsecond threshold" );
 ConVar fs_warning_mode( "fs_warning_mode", "0", 0, "0:Off, 1:Warn main thread, 2:Warn other threads"  );
 ConVar fs_monitor_read_from_pack( "fs_monitor_read_from_pack", "0", 0, "0:Off, 1:Any, 2:Sync only" );
 
@@ -110,7 +108,7 @@ ConVar fs_fios_enabled( "fs_fios_enabled", "0", 0, "Set this to 1 to enable FIOS
 static void AddSeperatorAndFixPath( char *str );
 
 // Case-insensitive symbol table for path IDs.
-CUtlSymbolTableMT g_PathIDTable( 0, 32, true );
+CUtlSymbolTable g_PathIDTable( 0, 32, true );
 
 int g_iNextSearchPathID = 1;
 
@@ -307,13 +305,6 @@ CBaseFileSystem *BaseFileSystem()
 ConVar filesystem_buffer_size( "filesystem_buffer_size", "0", 0, "Size of per file buffers. 0 for none" );
 
 
-class CFileHandleTimer : public CFastTimer
-{
-public:
-	FileHandle_t m_hFile;
-	char m_szName[ MAX_PATH ];
-};
-
 struct FileOpenDuplicateTime_t 
 {
 	char m_szName[ MAX_PATH ];
@@ -328,7 +319,6 @@ struct FileOpenDuplicateTime_t
 	}
 };
 CUtlVector< FileOpenDuplicateTime_t* > g_FileOpenDuplicateTimes;	// Used to debug approximate time spent reading files duplicate times
-CThreadFastMutex g_FileOpenDuplicateTimesMutex;
 
 #if defined( TRACK_BLOCKING_IO )
 
@@ -458,12 +448,12 @@ public:
 	void Reset();
 
 private:
-	CInterlockedInt m_nNumberOfFileSeeks;
-	CInterlockedInt m_nTimeInFileSeek;
-	CInterlockedInt m_nNumberOfFileReads;
-	CInterlockedInt m_nTimeInFileRead;
-	CInterlockedInt m_nFileReadTotalSize;
-	CInterlockedInt m_nNumberOfFileOpens;
+	int m_nNumberOfFileSeeks;
+	int m_nTimeInFileSeek;
+	int m_nNumberOfFileReads;
+	int m_nTimeInFileRead;
+	int m_nFileReadTotalSize;
+	int m_nNumberOfFileOpens;
 };
 
 static CIoStats s_IoStats;
@@ -549,7 +539,6 @@ void CIoStats::Reset()
 //-----------------------------------------------------------------------------
 
 CBaseFileSystem::CBaseFileSystem()
-	: m_FileWhitelist( NULL )/*,m_FileTracker2( this )*/
 {
 #if !( defined(_WIN32) && defined(DEDICATED) )
 	g_pBaseFileSystem = this;
@@ -566,7 +555,6 @@ CBaseFileSystem::CBaseFileSystem()
 	m_pfnWarning = NULL;
 	m_pLogFile   = NULL;
 	m_bOutputDebugString = false;
-	m_WhitelistSpewFlags = 0;
 	m_DirtyDiskReportFunc = NULL;
 
 	m_pThreadPool = NULL;
@@ -852,13 +840,6 @@ void CBaseFileSystem::InstallDirtyDiskReportFunc( FSDirtyDiskReportFunc_t func )
 //-----------------------------------------------------------------------------
 void CBaseFileSystem::LogAccessToFile( char const *accesstype, char const *fullpath, char const *options )
 {
-	LOCAL_THREAD_LOCK();
-
-	if ( m_fwLevel >= FILESYSTEM_WARNING_REPORTALLACCESSES )
-	{
-		FileSystemWarning( FILESYSTEM_WARNING_REPORTALLACCESSES, "---FS%s:  %s %s (%.3f)\n", ThreadInMainThread() ? "" : "[a]", accesstype, fullpath, Plat_FloatTime() );
-	}
-
 	int c = m_LogFuncs.Count();
 	if ( !c )
 		return;
@@ -882,7 +863,6 @@ FILE *CBaseFileSystem::Trace_FOpen( const char *filename, const char *options, u
 	{
 		if ( char const *pszExt = V_GetFileExtension( filename ) )
 		{
-			AUTO_LOCK( m_OpenedFilesMutex );
 			UtlSymId_t symFound = m_NonexistingFilesExtensions.Find( pszExt );
 			if ( ( symFound != UTL_INVAL_SYMBOL ) && m_NonexistingFilesExtensions[ symFound ] )
 			{
@@ -957,7 +937,6 @@ FILE *CBaseFileSystem::Trace_FOpen( const char *filename, const char *options, u
 			FS_setbufsize(fp, 32*1024 );
 		}
 
-		AUTO_LOCK( m_OpenedFilesMutex );
 		COpenedFile file;
 
 		file.SetName( filename );
@@ -1015,7 +994,6 @@ void CBaseFileSystem::Trace_FClose( FILE *fp )
 {
 	if ( fp )
 	{
-		m_OpenedFilesMutex.Lock();
 
 		COpenedFile file;
 		file.m_pFile = fp;
@@ -1024,10 +1002,6 @@ void CBaseFileSystem::Trace_FClose( FILE *fp )
 		if ( result != -1 /*m_OpenedFiles.InvalidIdx()*/ )
 		{
 			COpenedFile found = m_OpenedFiles[ result ];
-			if ( m_fwLevel >= FILESYSTEM_WARNING_REPORTALLACCESSES )
-			{
-				FileSystemWarning( FILESYSTEM_WARNING_REPORTALLACCESSES, "---FS%s:  close %s %p %i (%.3f)\n", ThreadInMainThread() ? "" : "[a]", found.GetName(), fp, m_OpenedFiles.Count(), Plat_FloatTime() );
-			}
 			m_OpenedFiles.Remove( result );
 		}
 		else
@@ -1040,7 +1014,6 @@ void CBaseFileSystem::Trace_FClose( FILE *fp )
 			}
 		}
 
-		m_OpenedFilesMutex.Unlock();
 
 		FS_fclose( fp );
 	}
@@ -1052,7 +1025,6 @@ void CBaseFileSystem::Trace_FRead( int size, FILE* fp )
 	if ( !fp || m_fwLevel < FILESYSTEM_WARNING_REPORTALLACCESSES_READ )
 		return;
 
-	AUTO_LOCK( m_OpenedFilesMutex );
 
 	COpenedFile file;
 	file.m_pFile = fp;
@@ -1062,12 +1034,6 @@ void CBaseFileSystem::Trace_FRead( int size, FILE* fp )
 	if( result != -1 )
 	{
 		COpenedFile found = m_OpenedFiles[ result ];
-		
-		FileSystemWarning( FILESYSTEM_WARNING_REPORTALLACCESSES_READ, "---FS%s:  read %s %i %p (%.3f)\n", ThreadInMainThread() ? "" : "[a]", found.GetName(), size, fp, Plat_FloatTime()  );
-	} 
-	else
-	{
-		FileSystemWarning( FILESYSTEM_WARNING_REPORTALLACCESSES_READ, "Tried to read %i bytes from unknown file pointer %p\n", size, fp );
 		
 	}
 }
@@ -1080,19 +1046,12 @@ void CBaseFileSystem::Trace_FWrite( int size, FILE* fp )
 	COpenedFile file;
 	file.m_pFile = fp;
 
-	AUTO_LOCK( m_OpenedFilesMutex );
 
 	int result = m_OpenedFiles.Find( file );
 
 	if( result != -1 )
 	{
 		COpenedFile found = m_OpenedFiles[ result ];
-
-		FileSystemWarning( FILESYSTEM_WARNING_REPORTALLACCESSES_READWRITE, "---FS%s:  write %s %i %p\n", ThreadInMainThread() ? "" : "[a]", found.GetName(), size, fp  );
-	} 
-	else
-	{
-		FileSystemWarning( FILESYSTEM_WARNING_REPORTALLACCESSES_READWRITE, "Tried to write %i bytes from unknown file pointer %p\n", size, fp );
 	}
 }
 
@@ -1101,7 +1060,6 @@ void CBaseFileSystem::Trace_FWrite( int size, FILE* fp )
 //-----------------------------------------------------------------------------
 void CBaseFileSystem::Trace_DumpUnclosedFiles( void )
 {
-	AUTO_LOCK( m_OpenedFilesMutex );
 	for ( int i = 0 ; i < m_OpenedFiles.Count(); i++ )
 	{
 		COpenedFile *found = &m_OpenedFiles[ i ];
@@ -1167,7 +1125,6 @@ void CBaseFileSystem::PrintSearchPaths( void )
 //-----------------------------------------------------------------------------
 void CBaseFileSystem::AddSearchPathInternal( const char *pPath, const char *pathID, SearchPathAdd_t addType, int iForceInsertIndex )
 {
-	Assert( ThreadInMainThread() );
 
 	// Clean up the name
 	char newPath[ MAX_FILEPATH ];
@@ -1515,7 +1472,6 @@ bool CBaseFileSystem::FixupSearchPathsAfterInstall()
 //-----------------------------------------------------------------------------
 int CBaseFileSystem::GetSearchPath( const char *pathID, bool bGetPackFiles, char *pPath, int nMaxLen )
 {
-	AUTO_LOCK( m_SearchPathsMutex );
 
 	int nLen = 0;
 	if ( nMaxLen )
@@ -1549,7 +1505,6 @@ int CBaseFileSystem::GetSearchPath( const char *pathID, bool bGetPackFiles, char
 //-----------------------------------------------------------------------------
 int CBaseFileSystem::GetSearchPathID( char *pPath, int nMaxLen )
 {
-	AUTO_LOCK( m_SearchPathsMutex );
 
 	if ( nMaxLen )
 	{
@@ -1666,7 +1621,6 @@ CBaseFileSystem::CSearchPath *CBaseFileSystem::FindWritePath( const char *pFilen
 {
 	CUtlSymbol lookup = g_PathIDTable.AddString( pathID );
 
-	AUTO_LOCK( m_SearchPathsMutex );
 
 	// a pathID has been specified, find the first match in the path list
 	int c = m_SearchPaths.Count();
@@ -1727,7 +1681,7 @@ const char *CBaseFileSystem::GetWritePath( const char *pFilename, const char *pa
 #ifdef _PS3
 #define g_pszReadFilename GetTLSGlobals()->pFileSystemReadFilename
 #else
-CTHREADLOCALPTR(char) g_pszReadFilename;
+char* g_pszReadFilename;
 #endif
 
 bool CBaseFileSystem::ReadToBuffer( FileHandle_t fp, CUtlBuffer &buf, int nMaxBytes, FSAllocFunc_t pfnAlloc )
@@ -1956,7 +1910,6 @@ bool CBaseFileSystem::WriteFile( const char *pFileName, const char *pPath, CUtlB
 //-----------------------------------------------------------------------------
 void CBaseFileSystem::RemoveAllSearchPaths( void )
 {
-	AUTO_LOCK( m_SearchPathsMutex );
 	// Sergiy: AaronS said it is a good idea to destroy these paths in reverse order
 	while( m_SearchPaths.Count() )
 	{
@@ -2011,16 +1964,6 @@ public:
 	CFileOpenInfo( CBaseFileSystem *pFileSystem, const char *pFileName, const CBaseFileSystem::CSearchPath *path, const char *pOptions, int flags, char **ppszResolvedFilename, bool bTrackCRCs ) : 
 		m_pFileSystem( pFileSystem ), m_pFileName( pFileName ), m_pPath( path ), m_pOptions( pOptions ), m_Flags( flags ), m_ppszResolvedFilename( ppszResolvedFilename ), m_bTrackCRCs( bTrackCRCs )
 	{
-		// Multiple threads can access the whitelist simultaneously. 
-		// That's fine, but make sure it doesn't get freed by another thread.
-		if ( IsPC() )
-		{
-			m_pWhitelist = m_pFileSystem->m_FileWhitelist.AddRef();
-		}
-		else
-		{
-			m_pWhitelist = NULL;
-		}
 		m_pFileHandle = NULL;
 		m_bLoadedFromSteamCache = m_bSteamCacheOnly = false;
 		
@@ -2030,12 +1973,6 @@ public:
 	
 	~CFileOpenInfo()
 	{
-		if ( IsGameConsole() )
-		{
-			return;
-		}
-
-		m_pFileSystem->m_FileWhitelist.ReleaseRef( m_pWhitelist );
 	}
 	
 	void SetAbsolutePath( const char *pFormat, ... )
@@ -2080,27 +2017,11 @@ public:
 	// Decides if the file must come from Steam or if it can be allowed to come off disk.
 	void DetermineFileLoadInfoParameters( CFileLoadInfo &fileLoadInfo, bool bIsAbsolutePath )
 	{
-		if ( IsGameConsole() )
-		{
-			fileLoadInfo.m_bSteamCacheOnly = false;
-			return;
-		}
-
-		if ( m_bTrackCRCs && m_pWhitelist && m_pWhitelist->m_pAllowFromDiskList && !bIsAbsolutePath )
-		{
-			Assert( !V_IsAbsolutePath( m_pFileName ) ); // (This is what bIsAbsolutePath is supposed to tell us..)
-			// Ask the whitelist if this file must come from Steam.
-			fileLoadInfo.m_bSteamCacheOnly = !m_pWhitelist->m_pAllowFromDiskList->IsFileInList( m_pFileName );
-		}
-		else
-		{
-			fileLoadInfo.m_bSteamCacheOnly = false;
-		}	
+        fileLoadInfo.m_bSteamCacheOnly = false;
 	}
 
 public:
 	CBaseFileSystem *m_pFileSystem;
-	CWhitelistSpecs *m_pWhitelist;
 
 	// These are output parameters.
 	CFileHandle *m_pFileHandle;
@@ -2182,7 +2103,6 @@ FileHandle_t CBaseFileSystem::FindFile(
 	char **ppszResolvedFilename, 
 	bool bTrackCRCs )
 {
-	VPROF( "CBaseFileSystem::FindFile" );
 
 	char tempSymlinkBuffer[MAX_PATH];
 	pFileName = V_FormatFilenameForSymlinking( tempSymlinkBuffer, pFileName );
@@ -2264,7 +2184,6 @@ FileHandle_t CBaseFileSystem::FindFileInSearchPaths(
 //-----------------------------------------------------------------------------
 FileHandle_t CBaseFileSystem::OpenForRead( const char *pFileName, const char *pOptions, unsigned flags, const char *pathID, char **ppszResolvedFilename )
 {
-	VPROF( "CBaseFileSystem::OpenForRead" );
 	return FindFileInSearchPaths( pFileName, pOptions, pathID, flags, ppszResolvedFilename, true );
 }
 
@@ -2372,7 +2291,7 @@ FileHandle_t CBaseFileSystem::Open( const char *pFileName, const char *pOptions,
 //-----------------------------------------------------------------------------
 FileHandle_t CBaseFileSystem::OpenEx( const char *pFileName, const char *pOptions, unsigned flags, const char *pathID, char **ppszResolvedFilename )
 {
-	VPROF_BUDGET( "CBaseFileSystem::Open", VPROF_BUDGETGROUP_OTHER_FILESYSTEM );
+
 
 	if ( !pFileName )
 		return (FileHandle_t)0;
@@ -2382,49 +2301,7 @@ FileHandle_t CBaseFileSystem::OpenEx( const char *pFileName, const char *pOption
 #endif
 
 	NoteIO();
-	CFileHandleTimer *pTimer = NULL;
-	bool bReportLongLoads = ( fs_report_long_reads.GetInt() > 0 );
-
-	if ( bReportLongLoads )
-	{
-		// When a file is opened we add it to the list and note the time
-		pTimer = new CFileHandleTimer;
-		if ( pTimer != NULL )
-		{
-			// Need the lock only when adding to the vector, not during construction
-			AUTO_LOCK( m_FileHandleTimersMutex );
-			m_FileHandleTimers.AddToTail( pTimer );
-			pTimer->Start();
-		}
-	}
-
 	CHECK_DOUBLE_SLASHES( pFileName );
-
-	if ( fs_report_sync_opens.GetInt() > 0 && ThreadInMainThread() && 
-		 !bReportLongLoads ) // If we're reporting timings we have to delay this spew till after the file has been closed
-	{
-		Warning( "File::Open( %s ) on main thread.\n", pFileName );
-
-#if !defined(_CERT) && !IsPS3() && !IsX360()
-		if ( fs_report_sync_opens_callstack.GetInt() > 0 )
-		{
-			// GetCallstack() does not work on PS3, it is using TLS which is not supported in cross-platform manner
-			const int CALLSTACK_SIZE = 16;
-			void * pAddresses[CALLSTACK_SIZE];
-			const int CALLSTACK_SKIP = 1;
-			int nCount = GetCallStack( pAddresses, CALLSTACK_SIZE, CALLSTACK_SKIP );
-			if ( nCount != 0)
-			{
-				// Allocate dynamically instead of using the stack, this path is going to be very rarely used
-				const int BUFFER_SIZE = 4096;
-				char * pBuffer = new char[ BUFFER_SIZE ];
-				TranslateStackInfo( pAddresses, CALLSTACK_SIZE, pBuffer, BUFFER_SIZE, "\n", TSISTYLEFLAG_DEFAULT );
-				Msg( "%s\n", pBuffer );
-				delete[] pBuffer;
-			}
-		}
-#endif
-	}
 
 	// Allow for UNC-type syntax to specify the path ID.
 	char tempPathID[MAX_PATH];
@@ -2449,67 +2326,6 @@ FileHandle_t CBaseFileSystem::OpenEx( const char *pFileName, const char *pOption
 		hFile = OpenForWrite( tempFileName, pOptions, pathID );
 	}
 
-	if ( bReportLongLoads )
-	{
-		// Save the file handle for ID when we close it
-		if ( hFile && pTimer )
-		{
-			pTimer->m_hFile = hFile;
-			Q_strncpy( pTimer->m_szName, pFileName, sizeof( pTimer->m_szName ) );
-
-			// See if we've opened this file before so we can accumulate time spent rereading files
-			FileOpenDuplicateTime_t *pFileOpenDuplicate = NULL;
-
-			AUTO_LOCK( g_FileOpenDuplicateTimesMutex );
-			for ( int nFileOpenDuplicate = g_FileOpenDuplicateTimes.Count() - 1; nFileOpenDuplicate >= 0; --nFileOpenDuplicate )
-			{
-				FileOpenDuplicateTime_t *pTempFileOpenDuplicate = g_FileOpenDuplicateTimes[ nFileOpenDuplicate ];
-				if ( Q_stricmp( pFileName, pTempFileOpenDuplicate->m_szName ) == 0 )
-				{
-					// Found it!
-					pFileOpenDuplicate = pTempFileOpenDuplicate;
-					break;
-				}
-			}
-
-			if ( pFileOpenDuplicate == NULL )
-			{
-				// We haven't opened this file before, so add it to the list
-				pFileOpenDuplicate = new FileOpenDuplicateTime_t;
-				if ( pFileOpenDuplicate != NULL )
-				{
-					g_FileOpenDuplicateTimes.AddToTail( pFileOpenDuplicate );
-					Q_strncpy( pFileOpenDuplicate->m_szName, pFileName, sizeof( pTimer->m_szName ) );
-				}
-			}
-
-			// Increment the number of times we've opened this file
-			if ( pFileOpenDuplicate != NULL )
-			{
-				pFileOpenDuplicate->m_nLoadCount++;
-			}
-		}
-		else
-		{
-			// File didn't open, pop it off the list
-			if ( pTimer != NULL )
-			{
-				// We need the lock only when removing from the vector, deleting the timer does not need it
-				AUTO_LOCK( m_FileHandleTimersMutex );
-				for ( int nTimer = m_FileHandleTimers.Count() - 1; nTimer >= 0; --nTimer )
-				{
-					CFileHandleTimer *pLocalTimer = m_FileHandleTimers[ nTimer ];
-					if ( pLocalTimer == pTimer )
-					{
-						m_FileHandleTimers.Remove( nTimer );
-						break;
-					}
-				}
-				delete pTimer;
-			}
-		}
-	}
-
 	return hFile;
 }
 
@@ -2519,65 +2335,11 @@ FileHandle_t CBaseFileSystem::OpenEx( const char *pFileName, const char *pOption
 //-----------------------------------------------------------------------------
 void CBaseFileSystem::Close( FileHandle_t file )
 {
-	VPROF_BUDGET( "CBaseFileSystem::Close", VPROF_BUDGETGROUP_OTHER_FILESYSTEM );
+
 	if ( !file )
 	{
 		FileSystemWarning( FILESYSTEM_WARNING, "FS:  Tried to Close NULL file handle!\n" );
 		return;
-	}
-
-	unsigned long ulLongLoadThreshold = fs_report_long_reads.GetInt();
-	if ( ulLongLoadThreshold > 0 )
-	{
-		// Let's find the nTimer that matches the file (we assume that we only have to close once 
-		CFileHandleTimer *pTimer = NULL;
-		{
-			AUTO_LOCK( m_FileHandleTimersMutex );
-			// Still do from the end to the beginning for consistency with previous code (and make access to Count() only once).
-			for ( int nTimer = m_FileHandleTimers.Count() - 1; nTimer >= 0; --nTimer )
-			{
-				CFileHandleTimer *pLocalTimer = m_FileHandleTimers[ nTimer ];
-				if ( pLocalTimer && pLocalTimer->m_hFile == file )
-				{
-					pTimer = pLocalTimer;
-					m_FileHandleTimers.Remove( nTimer );
-					break;
-				}
-			}
-		}
-
-		// m_FileHandleTimers is not locked here (but we can still access pTimer)
-		if ( pTimer != NULL )
-		{
-			// Found the file, report the time between opening and closing
-			pTimer->End();
-
-			unsigned long ulMicroseconds = pTimer->GetDuration().GetMicroseconds();
-
-			if ( ulLongLoadThreshold <= ulMicroseconds )
-			{
-				Warning( "Open( %lu microsecs, %s )\n", ulMicroseconds, pTimer->m_szName );
-			}
-
-			// Accumulate time spent if this file has been opened at least twice
-			{
-				AUTO_LOCK( g_FileOpenDuplicateTimesMutex );
-				for ( int nFileOpenDuplicate = 0; nFileOpenDuplicate < g_FileOpenDuplicateTimes.Count(); nFileOpenDuplicate++ )
-				{
-					FileOpenDuplicateTime_t *pFileOpenDuplicate = g_FileOpenDuplicateTimes[ nFileOpenDuplicate ];
-					if ( Q_stricmp( pTimer->m_szName, pFileOpenDuplicate->m_szName ) == 0 )
-					{
-						if ( pFileOpenDuplicate->m_nLoadCount > 1 )
-						{
-							pFileOpenDuplicate->m_flAccumulatedMicroSeconds += pTimer->GetDuration().GetMicrosecondsF();
-						}
-						break;
-					}
-				}
-			}
-
-			delete pTimer;
-		}
 	}
 
 	delete (CFileHandle*)file;
@@ -2588,7 +2350,7 @@ void CBaseFileSystem::Close( FileHandle_t file )
 //-----------------------------------------------------------------------------
 void CBaseFileSystem::Seek( FileHandle_t file, int pos, FileSystemSeek_t whence )
 {
-	VPROF_BUDGET( "CBaseFileSystem::Seek", VPROF_BUDGETGROUP_OTHER_FILESYSTEM );
+
 	CFileHandle *fh = ( CFileHandle *)file;
 	if ( !fh )
 	{
@@ -2612,7 +2374,7 @@ void CBaseFileSystem::Seek( FileHandle_t file, int pos, FileSystemSeek_t whence 
 //-----------------------------------------------------------------------------
 unsigned int CBaseFileSystem::Tell( FileHandle_t file )
 {
-	VPROF_BUDGET( "CBaseFileSystem::Tell", VPROF_BUDGETGROUP_OTHER_FILESYSTEM );
+
 
 	if ( !file )
 	{
@@ -2632,7 +2394,7 @@ unsigned int CBaseFileSystem::Tell( FileHandle_t file )
 //-----------------------------------------------------------------------------
 unsigned int CBaseFileSystem::Size( FileHandle_t file )
 {
-	VPROF_BUDGET( "CBaseFileSystem::Size", VPROF_BUDGETGROUP_OTHER_FILESYSTEM );
+
 
 	if ( !file )
 	{
@@ -2652,7 +2414,7 @@ unsigned int CBaseFileSystem::Size( FileHandle_t file )
 //-----------------------------------------------------------------------------
 unsigned int CBaseFileSystem::Size( const char* pFileName, const char *pPathID )
 {
-	VPROF_BUDGET( "CBaseFileSystem::Size", VPROF_BUDGETGROUP_OTHER_FILESYSTEM );
+
 	CHECK_DOUBLE_SLASHES( pFileName );
 	
 	// handle the case where no name passed...
@@ -2666,27 +2428,17 @@ unsigned int CBaseFileSystem::Size( const char* pFileName, const char *pPathID )
 	{
 		// If we have a whitelist and it's forcing the file to load from Steam instead of from disk,
 		// then do this the slow way, otherwise we'll get the wrong file size (i.e. the size of the file on disk).
-		CWhitelistSpecs *pWhitelist = m_FileWhitelist.AddRef();
-		if ( pWhitelist )
-		{
-			bool bAllowFromDisk = pWhitelist->m_pAllowFromDiskList->IsFileInList( pFileName );
-			m_FileWhitelist.ReleaseRef( pWhitelist );
-			
-			if ( !bAllowFromDisk )
-			{
-				FileHandle_t fh = Open( pFileName, "rb", pPathID );
-				if ( fh )
-				{
-					unsigned int ret = Size( fh );
-					Close( fh );
-					return ret;
-				}
-				else
-				{
-					return 0;
-				}
-			}
-		}
+        FileHandle_t fh = Open( pFileName, "rb", pPathID );
+        if ( fh )
+        {
+            unsigned int ret = Size( fh );
+            Close( fh );
+            return ret;
+        }
+        else
+        {
+            return 0;
+        }
 	}
 	
 	// Ok, fall through to the fast path.
@@ -2829,7 +2581,7 @@ int CBaseFileSystem::Read( void *pOutput, int size, FileHandle_t file )
 //-----------------------------------------------------------------------------
 int CBaseFileSystem::ReadEx( void *pOutput, int destSize, int size, FileHandle_t file )
 {
-	VPROF_BUDGET( "CBaseFileSystem::Read", VPROF_BUDGETGROUP_OTHER_FILESYSTEM );
+
 	NoteIO();
 	if ( !file )
 	{
@@ -2955,7 +2707,7 @@ bool CBaseFileSystem::LookupKeyValuesRootKeyName( char const *filename, char con
 //-----------------------------------------------------------------------------
 int CBaseFileSystem::Write( void const* pInput, int size, FileHandle_t file )
 {
-	VPROF_BUDGET( "CBaseFileSystem::Write", VPROF_BUDGETGROUP_OTHER_FILESYSTEM );
+
 
 	AUTOBLOCKREPORTER_FH( Write, this, true, file, FILESYSTEM_BLOCKING_SYNCHRONOUS, FileBlockingItem::FB_ACCESS_WRITE );
 
@@ -2976,7 +2728,7 @@ int CBaseFileSystem::FPrintf( FileHandle_t file, const char *pFormat, ... )
 {
 	va_list args;
 	va_start( args, pFormat );
-	VPROF_BUDGET( "CBaseFileSystem::FPrintf", VPROF_BUDGETGROUP_OTHER_FILESYSTEM );
+
 	CFileHandle *fh = ( CFileHandle *)file;
 	if ( !fh )
 	{
@@ -3036,7 +2788,7 @@ bool CBaseFileSystem::IsOk( FileHandle_t file )
 //-----------------------------------------------------------------------------
 void CBaseFileSystem::Flush( FileHandle_t file )
 {
-	VPROF_BUDGET( "CBaseFileSystem::Flush", VPROF_BUDGETGROUP_OTHER_FILESYSTEM );
+
 	CFileHandle *fh = ( CFileHandle *)file;
 	if ( !fh )
 	{
@@ -3080,7 +2832,7 @@ bool CBaseFileSystem::Precache( const char *pFileName, const char *pPathID)
 //-----------------------------------------------------------------------------
 char *CBaseFileSystem::ReadLine( char *pOutput, int maxChars, FileHandle_t file )
 {
-	VPROF_BUDGET( "CBaseFileSystem::ReadLine", VPROF_BUDGETGROUP_OTHER_FILESYSTEM );
+
 	CFileHandle *fh = ( CFileHandle *)file;
 	if ( !fh )
 	{
@@ -3138,7 +2890,7 @@ char *CBaseFileSystem::ReadLine( char *pOutput, int maxChars, FileHandle_t file 
 //-----------------------------------------------------------------------------
 long CBaseFileSystem::GetFileTime( const char *pFileName, const char *pPathID )
 {
-	VPROF_BUDGET( "CBaseFileSystem::GetFileTime", VPROF_BUDGETGROUP_OTHER_FILESYSTEM );
+
 
 	CHECK_DOUBLE_SLASHES( pFileName );
 
@@ -3181,7 +2933,7 @@ long CBaseFileSystem::GetFileTime( const char *pFileName, const char *pPathID )
 
 long CBaseFileSystem::GetPathTime( const char *pFileName, const char *pPathID )
 {
-	VPROF_BUDGET( "CBaseFileSystem::GetFileTime", VPROF_BUDGETGROUP_OTHER_FILESYSTEM );
+
 
 	CSearchPathsIterator iter( this, &pFileName, pPathID );
 
@@ -3243,14 +2995,12 @@ void CBaseFileSystem::CacheFileCRCs( const char *pPathname, ECacheCRCType eType,
 
 	// Get a list of the unique search path names (mod, game, platform, etc).
 	CUtlDict<int,int> searchPathNames;
-	m_SearchPathsMutex.Lock();
 	for ( int i = 0; i <  m_SearchPaths.Count(); i++ )
 	{
 		CSearchPath *pSearchPath = &m_SearchPaths[i];
 		if ( searchPathNames.Find( pSearchPath->GetPathIDString() ) == searchPathNames.InvalidIndex() )
 			searchPathNames.Insert( pSearchPath->GetPathIDString() );
 	}
-	m_SearchPathsMutex.Unlock();
 
 }
 
@@ -3267,18 +3017,6 @@ int CBaseFileSystem::GetUnverifiedFileHashes( CUnverifiedFileHash *pFiles, int n
     return 0;
 }
 
-
-
-int CBaseFileSystem::GetWhitelistSpewFlags()
-{
-	return m_WhitelistSpewFlags;
-}
-
-
-void CBaseFileSystem::SetWhitelistSpewFlags( int flags )
-{
-	m_WhitelistSpewFlags = flags;
-}
 
 
 //-----------------------------------------------------------------------------
@@ -3325,7 +3063,7 @@ void CBaseFileSystem::FileTimeToString( char *pString, int maxCharsIncludingTerm
 //-----------------------------------------------------------------------------
 bool CBaseFileSystem::FileExists( const char *pFileName, const char *pPathID )
 {
-	VPROF_BUDGET( "CBaseFileSystem::FileExists", VPROF_BUDGETGROUP_OTHER_FILESYSTEM );
+
 	NoteIO();
 
 	CHECK_DOUBLE_SLASHES( pFileName );
@@ -3607,7 +3345,7 @@ void CBaseFileSystem::FindFileAbsoluteListHelper( CUtlVector< CUtlString > &outA
 void CBaseFileSystem::FindFileAbsoluteList( CUtlVector< CUtlString > &outAbsolutePathNames, const char *pWildCard, const char *pPathID )
 {
 	// TODO: figure out what PS3 does without VPKs
-	VPROF_BUDGET( "CBaseFileSystem::FindFileAbsoluteList", VPROF_BUDGETGROUP_OTHER_FILESYSTEM );
+
 
 	outAbsolutePathNames.Purge();
 
@@ -3668,7 +3406,7 @@ const char *CBaseFileSystem::FindFirstEx( const char *pWildCard, const char *pPa
 
 const char *CBaseFileSystem::FindFirstHelper( const char *pWildCard, const char *pPathID, FileFindHandle_t *pHandle, int *pFoundStoreID )
 {
-	VPROF_BUDGET( "CBaseFileSystem::FindFirst", VPROF_BUDGETGROUP_OTHER_FILESYSTEM );
+
  	Assert( pWildCard );
  	Assert( pHandle );
 
@@ -3816,7 +3554,7 @@ bool CBaseFileSystem::FindNextFileHelper( FindData_t *pFindData, int *pFoundStor
 //-----------------------------------------------------------------------------
 const char *CBaseFileSystem::FindNext( FileFindHandle_t handle )
 {
-	VPROF_BUDGET( "CBaseFileSystem::FindNext", VPROF_BUDGETGROUP_OTHER_FILESYSTEM );
+
 	FindData_t *pFindData = &m_FindData[handle];
 
 	while( 1 )
@@ -4172,7 +3910,7 @@ void CBaseFileSystem::FileSystemWarning( FileWarningLevel_t level, const char *f
 	if ( level > m_fwLevel )
 		return;
 
-	if ( ( fs_warning_mode.GetInt() == 1 && !ThreadInMainThread() ) || ( fs_warning_mode.GetInt() == 2 && ThreadInMainThread() ) )
+	if ( ( fs_warning_mode.GetInt() == 1 ) || ( fs_warning_mode.GetInt() == 2 ) )
 		return;
 
 	va_list argptr; 
@@ -4638,7 +4376,6 @@ bool CBaseFileSystem::GetStringFromKVPool( CRC32_t poolKey, unsigned int key, ch
 		return false;
 	}
 
-	AUTO_LOCK( m_SearchPathsMutex );
 
 	return false;
 }
@@ -4868,59 +4605,6 @@ void CBaseFileSystem::MarkLocalizedPath( CSearchPath *sp )
 	}
 #endif
 }
-#ifdef SUPPORT_IODELAY_MONITORING
-class CIODelayAlarmThread : public CThread
-{
-public:
-	CIODelayAlarmThread( CBaseFileSystem *pFileSystem );
-	void WakeUp( void );
-	CBaseFileSystem *m_pFileSystem;
-	CThreadEvent m_hThreadEvent;
-
-	volatile bool m_bThreadShouldExit;
-	// CThread Overrides
-	virtual int Run( void );
-};
-
-
-CIODelayAlarmThread::CIODelayAlarmThread( CBaseFileSystem *pFileSystem )
-{
-	m_pFileSystem = pFileSystem;
-	m_bThreadShouldExit = false;
-
-}
-
-void CIODelayAlarmThread::WakeUp( void )
-{
-	m_hThreadEvent.Set();
-}
-
-int CIODelayAlarmThread::Run( void )
-{
-	while( ! m_bThreadShouldExit )
-	{
-		uint32 nWaitTime = 1000;
-		float flCurTimeout = m_pFileSystem->m_flDelayLimit;
-		if ( flCurTimeout > 0. )
-		{
-			nWaitTime = ( uint32 )( 1000.0 * flCurTimeout );
-			m_hThreadEvent.Wait( nWaitTime );
-		}
-		// check for overflow 
-		float flCurTime = Plat_FloatTime();
-		if ( flCurTime - m_pFileSystem->m_flLastIOTime > m_pFileSystem->m_flDelayLimit )
-		{
-			Warning( " %f elapsed w/o i/o\n", flCurTime - m_pFileSystem->m_flLastIOTime );
-			DebuggerBreakIfDebugging();
-			m_pFileSystem->m_flLastIOTime = MAX( Plat_FloatTime(), m_pFileSystem->m_flLastIOTime );
-		}
-	}
-	return 0;
-}
-
-
-#endif // SUPPORT_IODELAY_MONITORING
-
 
 IIoStats *CBaseFileSystem::GetIoStats()
 {
@@ -4935,7 +4619,6 @@ CON_COMMAND( fs_dump_open_duplicate_times, "Set fs_report_long_reads 1 before lo
 {
 	float flTotalTime = 0.0f, flAccumulatedMilliseconds;
 
-	AUTO_LOCK( g_FileOpenDuplicateTimesMutex );
 	for ( int nFileOpenDuplicate = 0; nFileOpenDuplicate< g_FileOpenDuplicateTimes.Count(); nFileOpenDuplicate++ )
 	{
 		FileOpenDuplicateTime_t *pFileOpenDuplicate = g_FileOpenDuplicateTimes[ nFileOpenDuplicate ];
@@ -4957,7 +4640,6 @@ CON_COMMAND( fs_dump_open_duplicate_times, "Set fs_report_long_reads 1 before lo
 
 CON_COMMAND( fs_clear_open_duplicate_times, "Clear the list of files that have been opened." )
 {
-	AUTO_LOCK( g_FileOpenDuplicateTimesMutex );
 	for ( int nFileOpenDuplicate = 0; nFileOpenDuplicate< g_FileOpenDuplicateTimes.Count(); nFileOpenDuplicate++ )
 	{
 		FileOpenDuplicateTime_t *pFileOpenDuplicate = g_FileOpenDuplicateTimes[ nFileOpenDuplicate ];

@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
@@ -10,7 +10,6 @@
 #pragma once
 #endif
 
-#include "tier0/threadtools.h"
 #include "utlmultilist.h"
 #include "utlvector.h"
 
@@ -131,16 +130,16 @@ protected:
 
 };
 
-template< class STORAGE_TYPE, class CREATE_PARAMS, class LOCK_TYPE = STORAGE_TYPE *, class MUTEX_TYPE = CThreadNullMutex>
+template< class STORAGE_TYPE, class CREATE_PARAMS, class LOCK_TYPE = STORAGE_TYPE *>
 class CDataManager : public CDataManagerBase
 {
 	typedef CDataManagerBase BaseClass;
 public:
 
-	CDataManager<STORAGE_TYPE, CREATE_PARAMS, LOCK_TYPE, MUTEX_TYPE>( unsigned int size = (unsigned)-1 ) : BaseClass(size) {}
+	CDataManager<STORAGE_TYPE, CREATE_PARAMS, LOCK_TYPE>( unsigned int size = (unsigned)-1 ) : BaseClass(size) {}
 	
 
-	~CDataManager<STORAGE_TYPE, CREATE_PARAMS, LOCK_TYPE, MUTEX_TYPE>()
+	~CDataManager<STORAGE_TYPE, CREATE_PARAMS, LOCK_TYPE>()
 	{
 		// NOTE: This must be called in all implementations of CDataManager
 		if ( m_freeOnDestruct )
@@ -200,7 +199,6 @@ public:
 	{
 		BaseClass::EnsureCapacity(STORAGE_TYPE::EstimatedSize(createParams));
 		STORAGE_TYPE *pStore = STORAGE_TYPE::CreateResource( createParams );
-		AUTO_LOCK_( CDataManagerBase, *this );
 		unsigned short memoryIndex = BaseClass::CreateHandle( bCreateLocked );
 		return BaseClass::StoreResourceInHandle( memoryIndex, pStore, pStore->Size() );
 	}
@@ -242,11 +240,6 @@ public:
 		return ToHandle( iNext );
 	}
 
-	MUTEX_TYPE &AccessMutex()	{ return m_mutex; }
-	virtual void Lock() { m_mutex.Lock(); }
-	virtual bool TryLock() { return m_mutex.TryLock(); }
-	virtual void Unlock() { m_mutex.Unlock(); }
-
 private:
 	STORAGE_TYPE *StoragePointer( void *pMem )
 	{
@@ -263,7 +256,6 @@ private:
 		return StoragePointer(pStore)->Size();
 	}
 
-	MUTEX_TYPE m_mutex;
 };
 
 //-----------------------------------------------------------------------------

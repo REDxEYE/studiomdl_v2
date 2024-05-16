@@ -23,8 +23,7 @@
 #include <intrin.h>
 #endif
 
-// NOTE: This has to be the last file included!
-//#include "tier0/memdbgon.h"
+
 
 const tchar* GetProcessorVendorId();
 const tchar* GetProcessorBrand();

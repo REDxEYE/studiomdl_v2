@@ -18,13 +18,10 @@
 #include "bone_accessor.h"
 #include "studio.h"
 
-#include "tier0/tslist.h"
-#include "tier0/miniprofiler.h"
+
 
 #include "bone_utils.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-//#include "tier0/memdbgon.h"
 
 //=============================================================================
 //=============================================================================
@@ -514,7 +511,6 @@ void CStudioConstraintBones::ComputePointConstraint(
 	CBoneAccessor &boneToWorld,
 	const CStudioHdr *pStudioHdr )
 {
-	BONE_PROFILE_FUNC();
 
 	mstudiopointconstraint_t *pProc = ( mstudiopointconstraint_t * )pBones[nBone].pProcedure();
 
@@ -556,7 +552,6 @@ void CStudioConstraintBones::ComputeOrientConstraint(
 	const CStudioHdr *pStudioHdr,
 	const matrix3x4_t *pmViewTransform )
 {
-	BONE_PROFILE_FUNC();
 
 	mstudioorientconstraint_t *pProc = ( mstudioorientconstraint_t * )pBones[nBone].pProcedure();
 
@@ -606,7 +601,6 @@ void CStudioConstraintBones::ComputeAimConstraint(
 	const matrix3x4_t *pmViewTransform,
 	AimConstraintUpType_t eType )
 {
-	BONE_PROFILE_FUNC();
 
 	mstudioaimconstraint_t *pProc = ( mstudioaimconstraint_t * )pBones[nBone].pProcedure();
 
@@ -713,7 +707,6 @@ void CStudioConstraintBones::ComputeParentConstraint(
 	CBoneAccessor &boneToWorld,
 	const CStudioHdr *pStudioHdr )
 {
-	BONE_PROFILE_FUNC();
 
 	mstudioorientconstraint_t *pProc = ( mstudioorientconstraint_t * )pBones[nBone].pProcedure();
 

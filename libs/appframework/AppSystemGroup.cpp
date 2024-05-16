@@ -23,8 +23,6 @@
 #include "filesystem_init.h"
 #include <algorithm>
 
-// memdbgon must be the last include file in a .cpp file!!!
-//#include "tier0/memdbgon.h"
 
 
 //-----------------------------------------------------------------------------
@@ -106,7 +104,6 @@ int CAppSystemGroup::ReloadModule(const char *pDLLName) {
                 pSysModule = LoadModuleDLL(pDLLName);
                 if (!pSysModule) {
                     Warning("Cannot load, retrying in 5 seconds..\n");
-                    ThreadSleep(5000);
                 }
                 fnFactory = Sys_GetFactory(pSysModule);
                 if (!fnFactory) {

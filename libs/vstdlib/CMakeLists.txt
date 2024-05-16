@@ -14,7 +14,6 @@ set(VTSDLIB_SOURCE
         keyvaluessystem.cpp
         random.cpp
         vstrtools.cpp
-        jobthread.cpp
         vstdlib_strtools.cpp
         )
 

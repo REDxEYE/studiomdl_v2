@@ -11,7 +11,7 @@
 #endif
 
 
-#include "tier0/threadtools.h"
+
 #include "appframework/IAppSystem.h"
 #include "glmgr/glmgr.h"
 

@@ -21,7 +21,7 @@
 #if defined( _X360 )
 #include "xbox/xbox_console.h"
 #endif
-#include "tier0/threadtools.h"
+
 #include "tier0/minidump.h"
 
 #include "tier0/memalloc.h"
@@ -63,8 +63,6 @@ static bool g_bBenchmarkMode = false;
 static double g_FakeBenchmarkTime = 0;
 static double g_FakeBenchmarkTimeInc = 1.0 / 66.0;
 #endif
-
-static CThreadFastMutex g_LocalTimeMutex;
 
 //our global error callback function. Note that this is not initialized, but static space guarantees this is NULL at app start.
 //If you initialize, it will set to zero again when the CPP runs its static initializers, which could stomp the value if another
@@ -209,7 +207,6 @@ void Plat_GetLocalTime( struct tm *pNow )
 void Plat_ConvertToLocalTime( uint64 nTime, struct tm *pNow )
 {
 	// Since localtime() returns a global, we need to protect against multiple threads stomping it.
-	g_LocalTimeMutex.Lock();
 
 	time_t ltime = (time_t)nTime;
 	tm *pTime = localtime( &ltime );
@@ -218,18 +215,15 @@ void Plat_ConvertToLocalTime( uint64 nTime, struct tm *pNow )
 	else
 		memset( pNow, 0, sizeof( *pNow ) );
 
-	g_LocalTimeMutex.Unlock();
 }
 
 void Plat_GetTimeString( struct tm *pTime, char *pOut, int nMaxBytes )
 {
-	g_LocalTimeMutex.Lock();
 
 	char *pStr = asctime( pTime );
 	strncpy( pOut, pStr, nMaxBytes );
 	pOut[nMaxBytes-1] = 0;
 
-	g_LocalTimeMutex.Unlock();
 }
 
 /*
@@ -329,15 +323,6 @@ void Plat_ExitProcessWithError( int nCode, bool bGenerateMinidump )
 			return;
 	}
 
-	//handle default behavior
-	if( bGenerateMinidump )
-	{
-		//don't generate mini dumps in the debugger
-		if( !Plat_IsInDebugSession() )
-		{
-			WriteMiniDump();
-		}
-	}
 
 	//and exit our process
 	Plat_ExitProcess( nCode );

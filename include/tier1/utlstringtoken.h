@@ -1,4 +1,4 @@
-//===== Copyright © 1996-2005, Valve Corporation, All rights reserved. ======//
+//===== Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. ======//
 //
 // Purpose: 
 //
@@ -14,7 +14,7 @@
 #endif
 
 #include <limits.h>
-#include "tier0/threadtools.h"
+
 #include "tier1/mempool.h"
 #include "tier1/generichash.h"
 

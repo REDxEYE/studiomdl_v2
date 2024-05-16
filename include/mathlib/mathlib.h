@@ -19,19 +19,7 @@
 #define ALIGN8_POST
 #endif
 
-#if defined(_PS3)
 
-#if defined(__SPU__)
-#include <spu_intrinsics.h>
-#include <vmx2spu.h>
-#include <vectormath/c/vectormath_soa.h>
-#else
-#include <ppu_intrinsics.h>
-#include <altivec.h>
-#include <vectormath/c/vectormath_soa.h>
-#endif
-
-#endif
 
 // plane_t structure
 // !!! if this is changed, it must be changed in asm code too !!!

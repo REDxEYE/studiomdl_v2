@@ -8,7 +8,7 @@
 #include "tier1/utlpriorityqueue.h"
 #include "mathlib/cholesky.h"
 #include "tier1/utlhash.h"
-#include "tier0/vprof.h"
+
 //#include "memdbgon.h"
 
 // quick vprof wrappers
@@ -387,7 +387,7 @@ bool CMeshVisit::IsValidCollapseVertex( int nVertCheck, int nVertOpposite, const
 
 bool CMeshVisit::IsValidCollapse( int nMinEdge )
 {
-	VPROF("IsValidcollapse");
+
 	if ( nMinEdge < 0 )
 		return true;
 
@@ -407,7 +407,7 @@ bool CMeshVisit::IsValidCollapse( int nMinEdge )
 
 void CMeshVisit::CollapseEdge( int nCollapse )
 {
-	VPROF("CollapseEdge");
+
 	m_edgeList[nCollapse].MarkCollapsed();
 	Vector vOptimal = m_edgeList[nCollapse].m_vOptimal;
 	// get the vert being removed
@@ -559,7 +559,7 @@ int CountUsedVerts( const uint32 *pIndexList, int nIndexCount, int nVertexCount 
 
 void CMeshVisit::BuildFromMesh( const CMesh &input )
 {
-	VPROF("InitFromSimpleMesh");
+
 
 	// NOTE: This assumes that position is the FIRST float3 in the buffer
 	int nPosOffset = input.FindFirstAttributeOffset( VERTEX_ELEMENT_POSITION );
@@ -640,7 +640,7 @@ void CMeshVisit::BuildFromMesh( const CMesh &input )
 // Removes elements from the queue until a valid one is found, returns that index or -1 indicating there are no valid edges
 int CMeshVisit::FindMinErrorEdge()
 {
-	VPROF("FindMinErrorEdge");
+
 	int nBest = -1;
 
 	while ( true )
@@ -731,7 +731,7 @@ void GetOpenEdges( CUtlVector<Vector> &list, const CMesh &input )
 
 void SimplifyMeshQEM2( CMesh &meshOut, const CMesh &input, const mesh_simplifyparams_t &params, const mesh_simplifyweights_t *pWeights )
 {
-	VPROF("Simplify");
+
 	CMeshVisit visit;
 	visit.BuildFromMesh( input );
 	CUtlVector<CQuadricError> errorEdge;

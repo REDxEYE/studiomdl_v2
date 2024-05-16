@@ -503,7 +503,7 @@ void bf_write::WriteBitLong(unsigned int data, int numbits, bool bSigned)
 bool bf_write::WriteBits(const void *pInData, int nBits)
 {
 #if defined( BB_PROFILING )
-	VPROF( "bf_write::WriteBits" );
+
 #endif
 
 	unsigned char *pIn = (unsigned char*)pInData;
@@ -627,7 +627,7 @@ void bf_write::WriteBitAngle( float fAngle, int numbits )
 void bf_write::WriteBitCoordMP( const float f, EBitCoordType coordType )
 {
 #if defined( BB_PROFILING )
-	VPROF( "bf_write::WriteBitCoordMP" );
+
 #endif
 	bool bIntegral = ( coordType == kCW_Integral );
 	bool bLowPrecision = ( coordType == kCW_LowPrecision );  
@@ -690,7 +690,7 @@ void bf_write::WriteBitCoordMP( const float f, EBitCoordType coordType )
 void bf_write::WriteBitCellCoord( const float f, int bits, EBitCoordType coordType )
 {
 #if defined( BB_PROFILING )
-	VPROF( "bf_write::WriteBitCellCoord" );
+
 #endif
 	Assert( f >= 0.0f ); // cell coords can't be negative
 	Assert( f < ( 1 << bits ) );
@@ -718,7 +718,7 @@ void bf_write::WriteBitCellCoord( const float f, int bits, EBitCoordType coordTy
 void bf_write::WriteBitCoord(const float f)
 {
 #if defined( BB_PROFILING )
-	VPROF( "bf_write::WriteBitCoord" );
+
 #endif
 	int		signbit = (f <= -COORD_RESOLUTION);
 	int		intval = (int)abs(f);
@@ -1002,7 +1002,7 @@ unsigned int old_bf_read::CheckReadUBitLong(int numbits)
 void old_bf_read::ReadBits(void *pOutData, int nBits)
 {
 #if defined( BB_PROFILING )
-	VPROF( "bf_write::ReadBits" );
+
 #endif
 
 	unsigned char *pOut = (unsigned char*)pOutData;
@@ -1243,7 +1243,7 @@ unsigned int old_bf_read::ReadBitLong(int numbits, bool bSigned)
 float old_bf_read::ReadBitCoord ()
 {
 #if defined( BB_PROFILING )
-	VPROF( "bf_write::ReadBitCoord" );
+
 #endif
 	int		intval=0,fractval=0,signbit=0;
 	float	value = 0.0;
@@ -1286,7 +1286,7 @@ float old_bf_read::ReadBitCoord ()
 float old_bf_read::ReadBitCoordMP( EBitCoordType coordType )
 {
 #if defined( BB_PROFILING )
-	VPROF( "bf_write::ReadBitCoordMP" );
+
 #endif
 	bool bIntegral = ( coordType == kCW_Integral );
 	bool bLowPrecision = ( coordType == kCW_LowPrecision );  
@@ -1357,7 +1357,7 @@ float old_bf_read::ReadBitCoordMP( EBitCoordType coordType )
 float old_bf_read::ReadBitCellCoord( int bits, EBitCoordType coordType )
 {
 #if defined( BB_PROFILING )
-	VPROF( "bf_write::ReadBitCoordMP" );
+
 #endif
 	bool bIntegral = ( coordType == kCW_Integral );
 	bool bLowPrecision = ( coordType == kCW_LowPrecision );  

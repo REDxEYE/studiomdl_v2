@@ -6,15 +6,12 @@
 
 /// FIXME: As soon as all references to mathlib.c are gone, include it in here
 
-#include <math.h>
-#include <float.h>	// needed for flt_epsilon
+#include <cmath>
+#include <cfloat>
 
 #include "tier0/basetypes.h"
-//#include <memory.h>
 #include "tier0/dbg.h"
 
-#include "tier0/vprof.h"
-//#define _VPROF_MATHLIB
 
 #if !defined(__SPU__)
 #pragma warning(disable:4244)   // "conversion from 'const int' to 'float', possible loss of data"
@@ -77,7 +74,7 @@ float _rsqrtf(float x)
 float VectorNormalize (Vector& vec)
 {
 #ifdef _VPROF_MATHLIB
-	VPROF_BUDGET( "_VectorNormalize", "Mathlib" );
+
 #endif
 	Assert( s_bMathlibInitialized );
 	float radius = sqrtf(vec.x*vec.x + vec.y*vec.y + vec.z*vec.z);
@@ -159,7 +156,7 @@ void MatrixAngles( const matrix3x4_t& matrix, RadianEuler &angles, Vector &posit
 void MatrixAngles( const matrix3x4_t &matrix, Quaternion &q, Vector &pos )
 {
 #ifdef _VPROF_MATHLIB
-	VPROF_BUDGET( "MatrixQuaternion", "Mathlib" );
+
 #endif
 	float trace;
 	trace = matrix[0][0] + matrix[1][1] + matrix[2][2] + 1.0f;
@@ -217,7 +214,7 @@ void MatrixAngles( const matrix3x4_t &matrix, Quaternion &q, Vector &pos )
 void MatrixAngles( const matrix3x4_t& matrix, float *angles )
 { 
 #ifdef _VPROF_MATHLIB
-	VPROF_BUDGET( "MatrixAngles", "Mathlib" );
+
 #endif
 	Assert( s_bMathlibInitialized );
 	float forward[3];
@@ -1305,7 +1302,7 @@ void AngleMatrix( const QAngle &angles, const Vector &position, matrix3x4_t& mat
 void AngleMatrix( const QAngle &angles, matrix3x4_t& matrix )
 {
 #ifdef _VPROF_MATHLIB
-	VPROF_BUDGET( "AngleMatrix", "Mathlib" );
+
 #endif
 	Assert( s_bMathlibInitialized );
 
@@ -2152,7 +2149,7 @@ void QuaternionMatrix( const Quaternion &q, matrix3x4_t& matrix )
 	Assert( q.IsValid() );
 
 #ifdef _VPROF_MATHLIB
-	VPROF_BUDGET( "QuaternionMatrix", "Mathlib" );
+
 #endif
 
 // Original code
@@ -2323,7 +2320,7 @@ void QuaternionAngles( const Quaternion &q, QAngle &angles )
 	Assert( q.IsValid() );
 
 #ifdef _VPROF_MATHLIB
-	VPROF_BUDGET( "QuaternionAngles", "Mathlib" );
+
 #endif
 
 #if 1
@@ -2484,7 +2481,7 @@ void AngleQuaternion( const RadianEuler &angles, Quaternion &outQuat )
 //	Assert( angles.IsValid() );
 
 #ifdef _VPROF_MATHLIB
-	VPROF_BUDGET( "AngleQuaternion", "Mathlib" );
+
 #endif
 
 	float sr, sp, sy, cr, cp, cy;
@@ -2532,7 +2529,7 @@ fltx4 AngleQuaternionSIMD( FLTX4 vAngles )
 	//	Assert( angles.IsValid() );
 
 #ifdef _VPROF_MATHLIB
-	VPROF_BUDGET( "AngleQuaternion", "Mathlib" );
+
 #endif
 
 	// we compute the sin and cos of half all the angles.
@@ -2594,7 +2591,7 @@ inline fltx4 AngleQuaternionSIMD( const RadianEuler &angles )
 void AngleQuaternion( const QAngle &angles, Quaternion &outQuat )
 {
 #ifdef _VPROF_MATHLIB
-	VPROF_BUDGET( "AngleQuaternion", "Mathlib" );
+
 #endif
 
 	float sr, sp, sy, cr, cp, cy;

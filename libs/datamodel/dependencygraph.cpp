@@ -7,17 +7,8 @@
 #include "dependencygraph.h"
 #include "datamodel/idatamodel.h"
 #include "datamodel/dmelement.h"
-#include "mathlib/mathlib.h" // for swap
 
-#include "datamodel/dmattribute.h"
-#include "datamodel/dmattributevar.h"
 
-#include "tier1/mempool.h"
-
-#include "tier0/vprof.h"
-
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
 //-----------------------------------------------------------------------------
 // Misc helper enums and classes for CDependencyGraph class
 //-----------------------------------------------------------------------------
@@ -81,7 +72,7 @@ CDependencyGraph::CDependencyGraph() :
 
 void CDependencyGraph::Reset( const CUtlVector< IDmeOperator * > &operators )
 {
-	VPROF_BUDGET( "CDependencyGraph::Reset", VPROF_BUDGETGROUP_TOOLS );
+
 
 	Cleanup();
 
@@ -154,7 +145,7 @@ CDependencyGraph::~CDependencyGraph()
 
 void CDependencyGraph::Cleanup()
 {
-	VPROF_BUDGET( "CDependencyGraph::Cleanup", VPROF_BUDGETGROUP_TOOLS );
+
 
 	int on = m_opNodes.Count();
 	for ( int oi = 0; oi < on; ++oi )
@@ -303,7 +294,7 @@ bool CDependencyGraph::GetOperatorOrdering( CUtlVector< COperatorNode * > &pOpNo
 //-----------------------------------------------------------------------------
 CAttributeNode *CDependencyGraph::FindAttrNode( CDmAttribute *pAttr )
 {
-	VPROF_BUDGET( "CDependencyGraph::FindAttrNode", VPROF_BUDGETGROUP_TOOLS );
+
 
 	Assert( pAttr );
 
@@ -316,12 +307,12 @@ CAttributeNode *CDependencyGraph::FindAttrNode( CDmAttribute *pAttr )
 
 	CAttributeNode *pAttrNode = 0;
 	{
-		VPROF( "CDependencyGraph::FindAttrNode_Alloc" );
+
 		pAttrNode = g_AttrNodePool.Alloc();
 		pAttrNode->m_attribute = pAttr;
 	}
 	{
-		VPROF( "CDependencyGraph::FindAttrNode_Alloc2" );
+
 		m_attrNodes.Insert( pAttrNode );
 	}
 	return pAttrNode;

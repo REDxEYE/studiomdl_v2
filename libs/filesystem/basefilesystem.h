@@ -62,7 +62,7 @@
 
 #endif
 
-#include "tier0/threadtools.h"
+
 #include <cstdio>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -83,7 +83,7 @@
 #include "tier1/utlsortvector.h"
 #include "tier1/utldict.h"
 #include "tier1/tier1.h"
-#include "threadsaferefcountedobject.h"
+
 
 #ifdef _WIN32
 #define CORRECT_PATH_SEPARATOR '\\'
@@ -122,7 +122,7 @@ typedef struct
 
 #endif // _PS3
 
-extern CUtlSymbolTableMT g_PathIDTable;
+extern CUtlSymbolTable g_PathIDTable;
 
 
 enum FileMode_t {
@@ -161,15 +161,11 @@ class IFileList;
 
 class CFileOpenInfo;
 
-class CFileHandleTimer;
-
 class CWhitelistSpecs {
 public:
     IFileList *m_pWantCRCList;
     IFileList *m_pAllowFromDiskList;
 };
-
-typedef CThreadSafeRefCountedObject<CWhitelistSpecs *> CWhitelistHolder;
 
 //-----------------------------------------------------------------------------
 
@@ -418,10 +414,6 @@ public:
 
     int GetUnverifiedFileHashes(CUnverifiedFileHash *pFiles, int nMaxFiles) override;
 
-    int GetWhitelistSpewFlags() override;
-
-    void SetWhitelistSpewFlags(int flags) override;
-
     void InstallDirtyDiskReportFunc(FSDirtyDiskReportFunc_t func) override;
 
 
@@ -572,9 +564,7 @@ public:
 
             if (*ppszFilename && !Q_IsAbsolutePath(*ppszFilename)) {
                 // Copy paths to minimize mutex lock time
-                pFileSystem->m_SearchPathsMutex.Lock();
                 CopySearchPaths(pFileSystem->m_SearchPaths);
-                pFileSystem->m_SearchPathsMutex.Unlock();
                 V_strncpy(m_Filename, *ppszFilename, sizeof(m_Filename));
                 V_FixSlashes(m_Filename);
             } else {
@@ -599,9 +589,7 @@ public:
                 m_pathID = UTL_INVAL_SYMBOL;
             }
             // Copy paths to minimize mutex lock time
-            pFileSystem->m_SearchPathsMutex.Lock();
             CopySearchPaths(pFileSystem->m_SearchPaths);
-            pFileSystem->m_SearchPathsMutex.Unlock();
             m_Filename[0] = '\0';
         }
 
@@ -647,19 +635,12 @@ public:
 
     friend class CSearchPath;
 
-    CWhitelistHolder m_FileWhitelist;
-    int m_WhitelistSpewFlags; // Combination of WHITELIST_SPEW_ flags.
-
     // logging functions
     CUtlVector<FileSystemLoggingFunc_t> m_LogFuncs;
 
-    CThreadMutex m_SearchPathsMutex;
     CUtlVector<CSearchPath> m_SearchPaths;
     CUtlVector<CPathIDInfo *> m_PathIDInfos;
     CUtlLinkedList<FindData_t> m_FindData;
-
-    CUtlVector<CFileHandleTimer *> m_FileHandleTimers;                // Used to debug approximate times for each file read
-    CThreadFastMutex m_FileHandleTimersMutex;
 
     int m_iMapLoad;
 
@@ -750,13 +731,6 @@ protected:
 
     virtual int FS_GetSectorSize(FILE *) { return 1; }
 
-#if defined( TRACK_BLOCKING_IO )
-    void BlockingFileAccess_EnterCriticalSection();
-    void BlockingFileAccess_LeaveCriticalSection();
-
-    CThreadMutex m_BlockingFileMutex;
-
-#endif
 
     void GetFileNameForHandle(FileHandle_t handle, char *buf, size_t buflen);
 
@@ -786,7 +760,6 @@ protected:
     };
 
     //CUtlRBTree< COpenedFile, int > m_OpenedFiles;
-    CThreadMutex m_OpenedFilesMutex;
     CUtlVector<COpenedFile> m_OpenedFiles;
     CUtlStringMap<bool> m_NonexistingFilesExtensions;
 #ifdef NONEXISTING_FILES_CACHE_SUPPORT

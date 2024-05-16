@@ -13,8 +13,7 @@
 #include "tier1/utlbuffer.h"
 #include "tier1/tier1.h"
 
-// NOTE: This has to be the last file included!
-//#include "tier0/memdbgon.h"
+
 
 
 class CProcess;

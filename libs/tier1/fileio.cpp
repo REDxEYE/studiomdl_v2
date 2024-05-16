@@ -20,7 +20,6 @@
 #include <sys/time.h>
 #endif
 
-#define ASYNC_FILEIO
 #if defined( LINUX ) || defined ( OSX )
 // Linux hasn't got a good AIO library that we have found yet, so lets punt for now
 #undef ASYNC_FILEIO
@@ -870,7 +869,6 @@ bool CFileWriter::BSetFile( const char *pchFile, bool bAllowOpenExisting )
 #error
 #endif
     
-    m_unThreadID = ThreadGetCurrentId();
     return ( m_hFileDest != INVALID_HANDLE_VALUE );
 }
 
@@ -1019,20 +1017,7 @@ bool CFileWriter::Write( const void *pvData, uint32 cubData )
 #endif
         if ( bRet )
 		{
-			ThreadInterlockedExchangeAdd( &m_cubOutstanding, cubData );
-		
-			if ( ThreadGetCurrentId() != m_unThreadID  )
-			{
-				// this is not the main thread so we have to wait here 
-				ThreadInterlockedIncrement( &m_cPendingCallbacksFromOtherThreads );
 
-				while ( m_cPendingCallbacksFromOtherThreads )
-				{
-					// we have to wait here since the OS can signal us only
-					// on this current thread
-					::SleepEx( 10, TRUE );
-				}
-			}
 		}
     }
     else
@@ -1091,20 +1076,6 @@ void CFileWriter::Flush()
 #ifdef WIN32
     FlushFileBuffers( m_hFileDest );
 #endif
-
-    if ( m_unThreadID == ThreadGetCurrentId() )
-	{
-		// wait for all writes to be complete
-		int cWaits = 0;
-		const int k_nMaxWaits = 60000; /* roughly one minute */
-
-		while ( m_cubOutstanding && cWaits < k_nMaxWaits   )
-		{
-			Sleep( 10 );
-			cWaits++;
-		}
-		AssertMsg1( cWaits < k_nMaxWaits, "Waited 60k iterations in CFileWriter::Flush - m_cubOutstanding = %u", m_cubOutstanding );
-	}
 }
 
 
@@ -1144,47 +1115,6 @@ void CFileWriter::Close()
 	// Close has to be called from thread that called BSetFile
 	Assert( m_cPendingCallbacksFromOtherThreads == 0 );
 }
-
-//-----------------------------------------------------------------------------
-// Purpose: async callback for when a file write has completed
-//-----------------------------------------------------------------------------
-#ifdef ASYNC_FILEIO
-#ifdef _WIN32
-void CFileWriter::ThreadedWriteFileCompletionFunc( unsigned long dwErrorCode, unsigned long dwBytesTransfered, struct _OVERLAPPED *pOverlapped )
-{
-	FileWriterOverlapped_t *pFileWriterOverlapped = (FileWriterOverlapped_t *)pOverlapped;
-	ThreadInterlockedExchangeAdd( &pFileWriterOverlapped->m_pFileWriter->m_cubOutstanding, (int)(0-pFileWriterOverlapped->m_cubData) );
-	if ( pFileWriterOverlapped->m_pFileWriter->m_unThreadID != ThreadGetCurrentId() )
-	{
-		// this was not the main thread, reduce counter
-		ThreadInterlockedDecrement( &pFileWriterOverlapped->m_pFileWriter->m_cPendingCallbacksFromOtherThreads ); 
-	}
-	FreePv( pFileWriterOverlapped->m_pvData );
-	delete pFileWriterOverlapped;
-
-
-}
-#elif defined( _PS3 )
-// bugbug PS3
-#elif defined(POSIX)
-void CFileWriter::ThreadedWriteFileCompletionFunc( sigval sigval )
-{
-	FileWriterOverlapped_t *pFileWriterOverlapped = (FileWriterOverlapped_t *)sigval.sival_ptr;
-	if ( aio_error( pFileWriterOverlapped ) == 0 ) 
-	{
-		uint nBytesWrite = aio_return( pFileWriterOverlapped );
-		Assert( nBytesWrite == pFileWriterOverlapped->m_cubData );
-
-		pFileWriterOverlapped->m_pFileWriter->m_cOutstandingWrites--;
-		pFileWriterOverlapped->m_pFileWriter->m_cubOutstanding += ( 0 - pFileWriterOverlapped->m_cubData );
-		FreePv( pFileWriterOverlapped->m_pvData );
-		delete pFileWriterOverlapped;
-	}
-}
-#else
-#error
-#endif
-#endif // ASYNC_FILEIO
 
 
 #ifdef WIN32

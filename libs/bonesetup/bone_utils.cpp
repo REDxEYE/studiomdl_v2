@@ -9,14 +9,13 @@
 #include "tier0/dbg.h"
 #include "mathlib/mathlib.h"
 #include "studiomdl/bone_setup.h"
-#include <string.h>
+#include <cstring>
 #ifdef POSIX
 #define _rotl(x,k) (((x)<<(k)) | ((x)>>(32-(k))))
 #endif
-#include "tier0/vprof.h"
 #include "mathlib/ssequaternion.h"
 #include "tier1/datamanager.h"
-#include "tier0/tslist.h"
+
 #include "datacache/idatacache.h"
 
 
@@ -26,19 +25,11 @@
 
 #include "bone_utils.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-//#include "tier0/memdbgon.h"
 
-// -----------------------------------------------------------------
-
-CBoneSetupMemoryPool<BoneQuaternionAligned> g_QuaternionPool;
-CBoneSetupMemoryPool<BoneVector> g_VectorPool;
-CBoneSetupMemoryPool<matrix3x4a_t> g_MatrixPool;
 
 // -----------------------------------------------------------------
 CBoneCache *CBoneCache::CreateResource( const bonecacheparams_t &params )
 {
-	BONE_PROFILE_FUNC();
 	short studioToCachedIndex[MAXSTUDIOBONES];
 	short cachedToStudioIndex[MAXSTUDIOBONES];
 	int cachedBoneCount = 0;
@@ -58,7 +49,7 @@ CBoneCache *CBoneCache::CreateResource( const bonecacheparams_t &params )
 	int tableSizeCached = sizeof(short) * cachedBoneCount;
 	int matrixSize = sizeof(matrix3x4_t) * cachedBoneCount;
 	size_t size = AlignValue( sizeof(CBoneCache) + tableSizeStudio + tableSizeCached, 16 ) + matrixSize;
-	
+
 	CBoneCache *pMem = (CBoneCache *)MemAlloc_AllocAligned( size, 16 );
 	Construct( pMem );
 	Assert( size == ( uint )size ); // make sure we're not trimming the int in 64bit
@@ -84,9 +75,8 @@ CBoneCache::CBoneCache()
 	m_cachedBoneCount = 0;
 }
 
-void CBoneCache::Init( const bonecacheparams_t &params, unsigned int size, short *pStudioToCached, short *pCachedToStudio, int cachedBoneCount ) 
+void CBoneCache::Init( const bonecacheparams_t &params, unsigned int size, short *pStudioToCached, short *pCachedToStudio, int cachedBoneCount )
 {
-	BONE_PROFILE_FUNC();
 	m_cachedBoneCount = cachedBoneCount;
 	m_size = size;
 	m_timeValid = params.curtime;
@@ -100,13 +90,12 @@ void CBoneCache::Init( const bonecacheparams_t &params, unsigned int size, short
 	memcpy( CachedToStudio(), pCachedToStudio, cachedTableSize );
 
 	m_matrixOffset = AlignValue( sizeof(CBoneCache) + m_cachedToStudioOffset + cachedTableSize, 16 );
-	
+
 	UpdateBones( params.pBoneToWorld, params.pStudioHdr->numbones(), params.curtime );
 }
 
 void CBoneCache::UpdateBones( const matrix3x4a_t *pBoneToWorld, int numbones, float curtime )
 {
-	BONE_PROFILE_FUNC();
 	matrix3x4a_t *pBones = BoneArray();
 	const short *pCachedToStudio = CachedToStudio();
 
@@ -130,7 +119,6 @@ void CBoneCache::UpdateBones( const matrix3x4a_t *pBoneToWorld, int numbones, fl
 
 matrix3x4a_t *CBoneCache::GetCachedBone( int studioIndex )
 {
-	BONE_PROFILE_FUNC();
 	int cachedIndex = StudioToCached()[studioIndex];
 	if ( cachedIndex >= 0 )
 	{
@@ -141,7 +129,6 @@ matrix3x4a_t *CBoneCache::GetCachedBone( int studioIndex )
 
 void CBoneCache::ReadCachedBones( matrix3x4a_t *pBoneToWorld )
 {
-	BONE_PROFILE_FUNC();
 	matrix3x4a_t *pBones = BoneArray();
 	const short *pCachedToStudio = CachedToStudio();
 	for ( int i = 0; i < m_cachedBoneCount; i++ )
@@ -161,7 +148,6 @@ void CBoneCache::ReadCachedBones( matrix3x4a_t *pBoneToWorld )
 
 void CBoneCache::ReadCachedBonePointers( matrix3x4_t **bones, int numbones )
 {
-	BONE_PROFILE_FUNC();
 	memset( bones, 0, sizeof(matrix3x4_t *) * numbones );
 	matrix3x4a_t *pBones = BoneArray();
 	const short *pCachedToStudio = CachedToStudio();
@@ -196,21 +182,11 @@ short *CBoneCache::CachedToStudio()
 }
 
 // Construct a singleton
-static CDataManager<CBoneCache, bonecacheparams_t, CBoneCache *, CThreadFastMutex> g_StudioBoneCache( 128 * 1024L );
+static CDataManager<CBoneCache, bonecacheparams_t, CBoneCache *> g_StudioBoneCache( 128 * 1024L );
 
-void Studio_LockBoneCache()
-{
-	g_StudioBoneCache.AccessMutex().Lock();
-}
-
-void Studio_UnlockBoneCache()
-{
-	g_StudioBoneCache.AccessMutex().Unlock();
-}
 
 CBoneCache *Studio_GetBoneCache( memhandle_t cacheHandle, bool bLock )
 {
-	AUTO_LOCK( g_StudioBoneCache.AccessMutex() );
 	if ( !bLock )
 	{
 		return g_StudioBoneCache.GetResource_NoLock( cacheHandle );
@@ -229,19 +205,16 @@ void Studio_ReleaseBoneCache( memhandle_t cacheHandle )
 
 memhandle_t Studio_CreateBoneCache( bonecacheparams_t &params )
 {
-	AUTO_LOCK( g_StudioBoneCache.AccessMutex() );
 	return g_StudioBoneCache.CreateResource( params );
 }
 
 void Studio_DestroyBoneCache( memhandle_t cacheHandle )
 {
-	AUTO_LOCK( g_StudioBoneCache.AccessMutex() );
 	g_StudioBoneCache.DestroyResource( cacheHandle );
 }
 
 void Studio_InvalidateBoneCacheIfNotMatching( memhandle_t cacheHandle, float flTimeValid )
 {
-	AUTO_LOCK( g_StudioBoneCache.AccessMutex() );
 	CBoneCache *pCache = g_StudioBoneCache.GetResource_NoLock( cacheHandle );
 	if ( pCache && pCache->m_timeValid != flTimeValid )
 	{
@@ -256,8 +229,8 @@ void Studio_InvalidateBoneCacheIfNotMatching( memhandle_t cacheHandle, float flT
 void BuildBoneChain(
 	const CStudioHdr *pStudioHdr,
 	const matrix3x4a_t &rootxform,
-	const BoneVector pos[], 
-	const BoneQuaternion q[], 
+	const BoneVector pos[],
+	const BoneQuaternion q[],
 	int	iBone,
 	matrix3x4a_t *pBoneToWorld )
 {
@@ -274,8 +247,8 @@ void BuildBoneChain(
 void BuildBoneChain(
 	const CStudioHdr *pStudioHdr,
 	const matrix3x4a_t &rootxform,
-	const BoneVector pos[], 
-	const BoneQuaternion q[], 
+	const BoneVector pos[],
+	const BoneQuaternion q[],
 	int	iBone,
 	matrix3x4a_t *pBoneToWorld,
 	CBoneBitList &boneComputed )
@@ -287,8 +260,8 @@ void BuildBoneChain(
 void BuildBoneChainPartial(
 	const CStudioHdr *pStudioHdr,
 	const matrix3x4_t &rootxform,
-	const BoneVector pos[], 
-	const BoneQuaternion q[], 
+	const BoneVector pos[],
+	const BoneQuaternion q[],
 	int	iBone,
 	matrix3x4_t *pBoneToWorld,
 	CBoneBitList &boneComputed,
@@ -301,7 +274,7 @@ void BuildBoneChainPartial(
 	QuaternionMatrix( q[iBone], pos[iBone], bonematrix );
 
 	int parent = pStudioHdr->boneParent( iBone );
-	if (parent == -1 || iBone == iRoot) 
+	if (parent == -1 || iBone == iRoot)
 	{
 		ConcatTransforms( rootxform, bonematrix, pBoneToWorld[iBone] );
 	}
@@ -410,22 +383,21 @@ FORCEINLINE fltx4 QuaternionAccumulateSIMD( const fltx4 &p, float s, const fltx4
 
 
 //-----------------------------------------------------------------------------
-// Purpose: blend together in world space q1,pos1 with q2,pos2.  Return result in q1,pos1.  
+// Purpose: blend together in world space q1,pos1 with q2,pos2.  Return result in q1,pos1.
 //			0 returns q1, pos1.  1 returns q2, pos2
 //-----------------------------------------------------------------------------
 
 void WorldSpaceSlerp(
 	const CStudioHdr *pStudioHdr,
-	BoneQuaternion q1[MAXSTUDIOBONES], 
-	BoneVector pos1[MAXSTUDIOBONES], 
-	mstudioseqdesc_t &seqdesc, 
-	int sequence, 
-	const BoneQuaternion q2[MAXSTUDIOBONES], 
-	const BoneVector pos2[MAXSTUDIOBONES], 
+	BoneQuaternion q1[MAXSTUDIOBONES],
+	BoneVector pos1[MAXSTUDIOBONES],
+	mstudioseqdesc_t &seqdesc,
+	int sequence,
+	const BoneQuaternion q2[MAXSTUDIOBONES],
+	const BoneVector pos2[MAXSTUDIOBONES],
 	float s,
 	int boneMask )
 {
-	BONE_PROFILE_FUNC();
 	int			i, j;
 	float		s1; // weight of parent for q2, pos2
 	float		s2; // weight for q2, pos2
@@ -435,13 +407,13 @@ void WorldSpaceSlerp(
 	SetIdentityMatrix( rootXform );
 
 	// matrices for q2, pos2
-	matrix3x4a_t *srcBoneToWorld = g_MatrixPool.Alloc();
+	matrix3x4a_t *srcBoneToWorld = (matrix3x4a_t*)MemAlloc_Alloc(sizeof(matrix3x4a_t));
 	CBoneBitList srcBoneComputed;
 
-	matrix3x4a_t *destBoneToWorld = g_MatrixPool.Alloc();
+	matrix3x4a_t *destBoneToWorld = (matrix3x4a_t*)MemAlloc_Alloc(sizeof(matrix3x4a_t));
 	CBoneBitList destBoneComputed;
 
-	matrix3x4a_t *targetBoneToWorld = g_MatrixPool.Alloc();
+	matrix3x4a_t *targetBoneToWorld = (matrix3x4a_t*)MemAlloc_Alloc(sizeof(matrix3x4a_t));
 	CBoneBitList targetBoneComputed;
 
 	virtualmodel_t *pVModel = pStudioHdr->GetVirtualModel();
@@ -525,9 +497,9 @@ void WorldSpaceSlerp(
 			}
 		}
 	}
-	g_MatrixPool.Free( srcBoneToWorld );
-	g_MatrixPool.Free( destBoneToWorld );
-	g_MatrixPool.Free( targetBoneToWorld );
+	MemAlloc_Free( srcBoneToWorld );
+	MemAlloc_Free( destBoneToWorld );
+	MemAlloc_Free( targetBoneToWorld );
 }
 
 #define PARANOID_SIMD_DOUBLECHECK 0  // set this to one to perform both SIMD and scalar bones every frame,
@@ -542,44 +514,41 @@ static ConVar cl_simdbones( "cl_simdbones", "1", FCVAR_REPLICATED, "Use SIMD bon
 // SIMD bone setup is a perf loss on the PC
 static ConVar cl_simdbones( "cl_simdbones", "0", FCVAR_REPLICATED, "Use SIMD bone setup." );
 #endif
-void SlerpBonesSpeedy( 
+void SlerpBonesSpeedy(
 					  const CStudioHdr *pStudioHdr,
-					  BoneQuaternionAligned q1[MAXSTUDIOBONES], 
-					  BoneVector pos1[MAXSTUDIOBONES], 
+					  BoneQuaternionAligned q1[MAXSTUDIOBONES],
+					  BoneVector pos1[MAXSTUDIOBONES],
 					  mstudioseqdesc_t &seqdesc,  // source of q2 and pos2
-					  int sequence, 
-					  const BoneQuaternionAligned q2[MAXSTUDIOBONES], 
-					  const BoneVector pos2[MAXSTUDIOBONES], 
+					  int sequence,
+					  const BoneQuaternionAligned q2[MAXSTUDIOBONES],
+					  const BoneVector pos2[MAXSTUDIOBONES],
 					  float s,
 					  int boneMask );
 volatile int iForBreakpoint;
 
 //-----------------------------------------------------------------------------
-// Purpose: blend together q1,pos1 with q2,pos2.  Return result in q1,pos1.  
+// Purpose: blend together q1,pos1 with q2,pos2.  Return result in q1,pos1.
 //			0 returns q1, pos1.  1 returns q2, pos2
 //-----------------------------------------------------------------------------
 #if PARANOID_SIMD_TIMING_TEST
 static ConVar cl_bones_simd_timing_version( "cl_bones_simd_timing_version", "0", FCVAR_REPLICATED, "0 = scalar version, 1 = simd version." );
-void SlerpBonesSlow( 
+void SlerpBonesSlow(
 #else
-void SlerpBones( 
+void SlerpBones(
 #endif
 	const CStudioHdr *pStudioHdr,
-	BoneQuaternion * RESTRICT q1, 
-	BoneVector * RESTRICT pos1, 
+	BoneQuaternion * RESTRICT q1,
+	BoneVector * RESTRICT pos1,
 	mstudioseqdesc_t &seqdesc,  // source of q2 and pos2
-	int sequence, 
-	const BoneQuaternionAligned * RESTRICT q2, // [MAXSTUDIOBONES], 
-	const BoneVector * RESTRICT pos2, // [MAXSTUDIOBONES], 
+	int sequence,
+	const BoneQuaternionAligned * RESTRICT q2, // [MAXSTUDIOBONES],
+	const BoneVector * RESTRICT pos2, // [MAXSTUDIOBONES],
 	float s,
 	int boneMask )
 {
-	BONE_PROFILE_FUNC();
-	SNPROF_ANIM("SlerpBones");
 #if PARANOID_SIMD_DOUBLECHECK
 	// copy off the input arrays so we can do them twice
 	static CThreadFastMutex m_mutex;
-	AUTO_LOCK( m_mutex );
 	static BoneQuaternionAligned doublecheckQuat[MAXSTUDIOBONES];
 	static BoneQuaternionAligned doublecheckOriginalQuat[MAXSTUDIOBONES];
 	static BoneVector doublecheckPos[MAXSTUDIOBONES];
@@ -597,11 +566,11 @@ void SlerpBones(
 #endif
 
 	// Test for 16-byte alignment, and if present, use the speedy SIMD version.
-	if ( (reinterpret_cast<uintp>(q1) & 0x0F) == 0 && 
+	if ( (reinterpret_cast<uintp>(q1) & 0x0F) == 0 &&
 		 (reinterpret_cast<uintp>(q2) & 0x0F) == 0 )
 	{
 		// Msg("Aligned\n");
-		if ( cl_simdbones.GetBool() 
+		if ( cl_simdbones.GetBool()
 #if PARANOID_SIMD_TIMING_TEST
 				&& (cl_bones_simd_timing_version.GetInt() != 0)
 #endif
@@ -610,7 +579,7 @@ void SlerpBones(
 
 #if ( PARANOID_SIMD_DOUBLECHECK == 1 ) // do simd into sep array, scalar into original, then compare
 			// if double checking, write to static arrays
-			// then do things the ordinary way 
+			// then do things the ordinary way
 			// then check up at the end.
 			SlerpBonesSpeedy(pStudioHdr,
 				reinterpret_cast<BoneQuaternionAligned *>(doublecheckQuat),
@@ -624,7 +593,7 @@ void SlerpBones(
 				);
 #elif ( PARANOID_SIMD_DOUBLECHECK == 2 )
 			// if double checking, write to static arrays
-			// then do things the ordinary way 
+			// then do things the ordinary way
 			// then check up at the end.
 			SlerpBonesSpeedy(pStudioHdr,
 				reinterpret_cast<BoneQuaternionAligned *>(q1),
@@ -657,17 +626,17 @@ void SlerpBones(
 		// Msg("misaligned\n");
 	}
 
-	if (s <= 0.0f) 
+	if (s <= 0.0f)
 		return;
 	if (s > 1.0f)
 	{
-		s = 1.0f;		
+		s = 1.0f;
 	}
 
 	if ( (seqdesc.flags & STUDIO_WORLD) || (seqdesc.flags & STUDIO_WORLD_AND_RELATIVE) )
 	{
 		WorldSpaceSlerp( pStudioHdr, q1, pos1, seqdesc, sequence, q2, pos2, s, boneMask );
-		
+
 		if (seqdesc.flags & STUDIO_WORLD)
 			return;
 	}
@@ -825,8 +794,8 @@ void SlerpBones(
 	#endif
 				ORIGINAL_Q1 = reinterpret_cast<const unsigned int *>(doublecheckOriginalQuat[i].Base());
 				Q2 = reinterpret_cast<const unsigned int *>(q2[i].Base());
-				if(!( SIMD_Q1[0] == SCALAR_Q1[0] && 
-						SIMD_Q1[1] == SCALAR_Q1[1] && 
+				if(!( SIMD_Q1[0] == SCALAR_Q1[0] &&
+						SIMD_Q1[1] == SCALAR_Q1[1] &&
 						SIMD_Q1[2] == SCALAR_Q1[2] &&
 						SIMD_Q1[3] == SCALAR_Q1[3] ))
 				{
@@ -845,8 +814,8 @@ void SlerpBones(
 	#endif
 				ORIGINAL_V1 =  reinterpret_cast<const unsigned int *>(doublecheckOriginalPos[i].Base());
 				V2 =  reinterpret_cast<const unsigned int *>(pos2[i].Base());
-				if(!( SIMD_V1[0] == SCALAR_V1[0] && 
-					SIMD_V1[1] == SCALAR_V1[1] && 
+				if(!( SIMD_V1[0] == SCALAR_V1[0] &&
+					SIMD_V1[1] == SCALAR_V1[1] &&
 					SIMD_V1[2] == SCALAR_V1[2] ))
 				{
 					AssertMsg(false,"Wrote invalid pos\n");
@@ -923,26 +892,26 @@ void SlerpBones(
 
 ConVar cl_use_simd_bones( "cl_use_simd_bones", "1", FCVAR_REPLICATED, "1 use SIMD bones 0 use scalar bones." );
 //-----------------------------------------------------------------------------
-// Purpose: blend together q1,pos1 with q2,pos2.  Return result in q1,pos1.  
+// Purpose: blend together q1,pos1 with q2,pos2.  Return result in q1,pos1.
 //			Uses four-at-a-time SIMD.
 //-----------------------------------------------------------------------------
-void SlerpBonesSpeedy( 
+void SlerpBonesSpeedy(
 				const CStudioHdr * RESTRICT pStudioHdr,
-				BoneQuaternionAligned q1[MAXSTUDIOBONES], 
-				BoneVector pos1[MAXSTUDIOBONES], 
+				BoneQuaternionAligned q1[MAXSTUDIOBONES],
+				BoneVector pos1[MAXSTUDIOBONES],
 				mstudioseqdesc_t &seqdesc,  // source of q2 and pos2
-				int sequence, 
-				const BoneQuaternionAligned q2[MAXSTUDIOBONES], 
-				const BoneVector pos2[MAXSTUDIOBONES], 
+				int sequence,
+				const BoneQuaternionAligned q2[MAXSTUDIOBONES],
+				const BoneVector pos2[MAXSTUDIOBONES],
 				float s,
 				int boneMask )
 {
 	BONE_PROFILE_FUNC(); // ex: x360: 1.2ms
 	// Assert 16-byte alignment of in and out arrays.
-	AssertMsg( 
+	AssertMsg(
 		((reinterpret_cast<uintp>(q1)   & 0x0F)==0) &&
 		((reinterpret_cast<uintp>(q2)   & 0x0F)==0) ,
-		"Input arrays to SlerpBones are not aligned! Catastrophe is inevitable.\n"); 
+		"Input arrays to SlerpBones are not aligned! Catastrophe is inevitable.\n");
 
 	// Test for overlapping buffers
 #if PARANOID_SIMD_DOUBLECHECK
@@ -965,17 +934,17 @@ void SlerpBonesSpeedy(
 	}
 #endif
 
-	if (s <= 0.0f) 
+	if (s <= 0.0f)
 		return;
 	if (s > 1.0f)
 	{
-		s = 1.0f;		
+		s = 1.0f;
 	}
 
 	if ( (seqdesc.flags & STUDIO_WORLD) || (seqdesc.flags & STUDIO_WORLD_AND_RELATIVE) )
 	{
 		WorldSpaceSlerp( pStudioHdr, q1, pos1, seqdesc, sequence, q2, pos2, s, boneMask );
-		
+
 		if (seqdesc.flags & STUDIO_WORLD)
 			return;
 	}
@@ -1014,7 +983,7 @@ void SlerpBonesSpeedy(
 				pS2[i] = s * seqdesc.weight( pSeqGroup->boneMap[i] );
 			}
 		}
-	} 
+	}
 	else // !pSeqGroup
 	{
 		for (i = 0; i < nBoneCount; i++)
@@ -1055,7 +1024,7 @@ void SlerpBonesSpeedy(
 			if ( seqdesc.flags & STUDIO_POST )
 			{
 
-				// result = q1 * ( weight * q2 ) 
+				// result = q1 * ( weight * q2 )
 				result = q1four.MulAc(weightfour, q2four);
 			}
 			else
@@ -1086,7 +1055,7 @@ void SlerpBonesSpeedy(
 			pos2simd[1] = LoadUnalignedSIMD(pos2[i+1].Base());
 			pos2simd[2] = LoadUnalignedSIMD(pos2[i+2].Base());
 			pos2simd[3] = LoadUnalignedSIMD(pos2[i+3].Base());
-			
+
 			fltx4 splatweights[4] = { SplatXSIMD(weightfour),
 									  SplatYSIMD(weightfour),
 									  SplatZSIMD(weightfour),
@@ -1167,12 +1136,12 @@ void SlerpBonesSpeedy(
 	// Some bones need to be slerped with alignment.
 	// Others do not.
 	// Some need to be ignored altogether.
-	// Build arrays indicating which are which. 
+	// Build arrays indicating which are which.
 	// This is the corral approach. Another approach
 	// would be to compute both the aligned and unaligned
-	// slerps of each bone in the first pass through the 
-	// array, and then do a masked selection of each 
-	// based on the masks. However there really isn't 
+	// slerps of each bone in the first pass through the
+	// array, and then do a masked selection of each
+	// based on the masks. However there really isn't
 	// a convenient way to turn the int flags that
 	// specify which approach to take, into fltx4 masks.
 
@@ -1183,7 +1152,7 @@ void SlerpBonesSpeedy(
 	float * RESTRICT aBonesSlerpNoAlignWeights   = (float *)stackalloc(nBoneCount * sizeof(float));
 	int numBonesSlerpAlign = 0;
 	int numBonesSlerpNoAlign = 0;
-	
+
 	// BoneQuaternionAligned * RESTRICT testOutput = (BoneQuaternionAligned *)stackalloc(nBoneCount * sizeof(BoneQuaternionAligned));
 
 	// sweep forward through the array and determine where to corral each bone.
@@ -1196,7 +1165,7 @@ void SlerpBonesSpeedy(
 			pos1[i] = pos2[i];
 		}
 		else if (weight > 0.0f) // ignore small bones
-		{	
+		{
 			if ( pStudioHdr->boneFlags(i) & BONE_FIXED_ALIGNMENT )
 			{
 				aBonesSlerpNoAlign[numBonesSlerpNoAlign] = i;
@@ -1233,14 +1202,14 @@ void SlerpBonesSpeedy(
 		// pos1[i][0] = pos1[i][0] * s1 + pos2[i][0] * weight;
 		fltx4 pos1simd[4];
 		fltx4 pos2simd[4];
-		pos1simd[0] = LoadUnaligned3SIMD(pos1[aBonesSlerpAlign[i+0]].Base()); 
-		pos1simd[1] = LoadUnaligned3SIMD(pos1[aBonesSlerpAlign[i+1]].Base()); 
-		pos1simd[2] = LoadUnaligned3SIMD(pos1[aBonesSlerpAlign[i+2]].Base()); 
-		pos1simd[3] = LoadUnaligned3SIMD(pos1[aBonesSlerpAlign[i+3]].Base()); 
-		pos2simd[0] = LoadUnaligned3SIMD(pos2[aBonesSlerpAlign[i+0]].Base()); 
-		pos2simd[1] = LoadUnaligned3SIMD(pos2[aBonesSlerpAlign[i+1]].Base()); 
-		pos2simd[2] = LoadUnaligned3SIMD(pos2[aBonesSlerpAlign[i+2]].Base()); 
-		pos2simd[3] = LoadUnaligned3SIMD(pos2[aBonesSlerpAlign[i+3]].Base()); 
+		pos1simd[0] = LoadUnaligned3SIMD(pos1[aBonesSlerpAlign[i+0]].Base());
+		pos1simd[1] = LoadUnaligned3SIMD(pos1[aBonesSlerpAlign[i+1]].Base());
+		pos1simd[2] = LoadUnaligned3SIMD(pos1[aBonesSlerpAlign[i+2]].Base());
+		pos1simd[3] = LoadUnaligned3SIMD(pos1[aBonesSlerpAlign[i+3]].Base());
+		pos2simd[0] = LoadUnaligned3SIMD(pos2[aBonesSlerpAlign[i+0]].Base());
+		pos2simd[1] = LoadUnaligned3SIMD(pos2[aBonesSlerpAlign[i+1]].Base());
+		pos2simd[2] = LoadUnaligned3SIMD(pos2[aBonesSlerpAlign[i+2]].Base());
+		pos2simd[3] = LoadUnaligned3SIMD(pos2[aBonesSlerpAlign[i+3]].Base());
 
 		pos1simd[0] = MulSIMD( SplatXSIMD(oneMinusWeight) , pos1simd[0] );
 		pos1simd[1] = MulSIMD( SplatYSIMD(oneMinusWeight) , pos1simd[1] );
@@ -1267,7 +1236,7 @@ void SlerpBonesSpeedy(
 		}
 
 
-		FourQuaternions q1four, q2four, result;		
+		FourQuaternions q1four, q2four, result;
 		q1four.LoadAndSwizzleAligned(	q1 + aBonesSlerpAlign[i+0],
 										q1 + aBonesSlerpAlign[i+1],
 										q1 + aBonesSlerpAlign[i+2],
@@ -1354,14 +1323,14 @@ void SlerpBonesSpeedy(
 		// pos1[i][0] = pos1[i][0] * s1 + pos2[i][0] * weight;
 		fltx4 pos1simd[4];
 		fltx4 pos2simd[4];
-		pos1simd[0] = LoadUnaligned3SIMD(pos1[aBonesSlerpNoAlign[i+0]].Base()); 
-		pos1simd[1] = LoadUnaligned3SIMD(pos1[aBonesSlerpNoAlign[i+1]].Base()); 
-		pos1simd[2] = LoadUnaligned3SIMD(pos1[aBonesSlerpNoAlign[i+2]].Base()); 
-		pos1simd[3] = LoadUnaligned3SIMD(pos1[aBonesSlerpNoAlign[i+3]].Base()); 
-		pos2simd[0] = LoadUnaligned3SIMD(pos2[aBonesSlerpNoAlign[i+0]].Base()); 
-		pos2simd[1] = LoadUnaligned3SIMD(pos2[aBonesSlerpNoAlign[i+1]].Base()); 
-		pos2simd[2] = LoadUnaligned3SIMD(pos2[aBonesSlerpNoAlign[i+2]].Base()); 
-		pos2simd[3] = LoadUnaligned3SIMD(pos2[aBonesSlerpNoAlign[i+3]].Base()); 
+		pos1simd[0] = LoadUnaligned3SIMD(pos1[aBonesSlerpNoAlign[i+0]].Base());
+		pos1simd[1] = LoadUnaligned3SIMD(pos1[aBonesSlerpNoAlign[i+1]].Base());
+		pos1simd[2] = LoadUnaligned3SIMD(pos1[aBonesSlerpNoAlign[i+2]].Base());
+		pos1simd[3] = LoadUnaligned3SIMD(pos1[aBonesSlerpNoAlign[i+3]].Base());
+		pos2simd[0] = LoadUnaligned3SIMD(pos2[aBonesSlerpNoAlign[i+0]].Base());
+		pos2simd[1] = LoadUnaligned3SIMD(pos2[aBonesSlerpNoAlign[i+1]].Base());
+		pos2simd[2] = LoadUnaligned3SIMD(pos2[aBonesSlerpNoAlign[i+2]].Base());
+		pos2simd[3] = LoadUnaligned3SIMD(pos2[aBonesSlerpNoAlign[i+3]].Base());
 
 		pos1simd[0] = MulSIMD( SplatXSIMD(oneMinusWeight) , pos1simd[0] );
 		pos1simd[1] = MulSIMD( SplatYSIMD(oneMinusWeight) , pos1simd[1] );
@@ -1373,7 +1342,7 @@ void SlerpBonesSpeedy(
 		pos1simd[2] = MaddSIMD( SplatZSIMD(weights) , pos2simd[2], pos1simd[2] );
 		pos1simd[3] = MaddSIMD( SplatWSIMD(weights) , pos2simd[3], pos1simd[3] );
 
-		FourQuaternions q1four, q2four, result;		
+		FourQuaternions q1four, q2four, result;
 		q1four.LoadAndSwizzleAligned(	q1 + aBonesSlerpNoAlign[i+0],
 			q1 + aBonesSlerpNoAlign[i+1],
 			q1 + aBonesSlerpNoAlign[i+2],
@@ -1436,18 +1405,17 @@ void SlerpBonesSpeedy(
 
 #if PARANOID_SIMD_TIMING_TEST
 static ConVar cl_bones_simd_timing_iter( "cl_bones_simd_timing_iter", "100", FCVAR_REPLICATED, "number of times to run SlerpBones." );
-void SlerpBones( 
+void SlerpBones(
 				const CStudioHdr *pStudioHdr,
-				Quaternion q1[MAXSTUDIOBONES], 
-				BoneVector pos1[MAXSTUDIOBONES], 
+				Quaternion q1[MAXSTUDIOBONES],
+				BoneVector pos1[MAXSTUDIOBONES],
 				mstudioseqdesc_t &seqdesc,  // source of q2 and pos2
-				int sequence, 
-				const BoneQuaternionAligned q2[MAXSTUDIOBONES], 
-				const BoneVector pos2[MAXSTUDIOBONES], 
+				int sequence,
+				const BoneQuaternionAligned q2[MAXSTUDIOBONES],
+				const BoneVector pos2[MAXSTUDIOBONES],
 				float s,
 				int boneMask )
 {
-	BONE_PROFILE_FUNC();
 	// copy off the input arrays for safety
 	int numBones =  pStudioHdr->numbones();
 	BoneQuaternionAligned fake_q1[MAXSTUDIOBONES];
@@ -1578,19 +1546,19 @@ FORCEINLINE fltx4 BoneQuaternionNormalizeSIMD( const fltx4 &q )
 
 //-----------------------------------------------------------------------------
 // Purpose: Inter-animation blend.  Assumes both types are identical.
-//			blend together q1,pos1 with q2,pos2.  Return result in q1,pos1.  
+//			blend together q1,pos1 with q2,pos2.  Return result in q1,pos1.
 //			0 returns q1, pos1.  1 returns q2, pos2
 //-----------------------------------------------------------------------------
 
 
-void BlendBones( 
+void BlendBones(
 	const CStudioHdr *pStudioHdr,
 	BoneQuaternionAligned q1[MAXSTUDIOBONES],
-	BoneVector pos1[MAXSTUDIOBONES], 
-	mstudioseqdesc_t &seqdesc, 
+	BoneVector pos1[MAXSTUDIOBONES],
+	mstudioseqdesc_t &seqdesc,
 	int sequence,
-	const BoneQuaternionAligned q2[MAXSTUDIOBONES], 
-	const BoneVector pos2[MAXSTUDIOBONES], 
+	const BoneQuaternionAligned q2[MAXSTUDIOBONES],
+	const BoneVector pos2[MAXSTUDIOBONES],
 	float s,
 	int boneMask )
 {
@@ -1666,10 +1634,10 @@ void BlendBones(
 				int isBoneActiveB = pStudioHdr->boneFlags(i+1) & boneMask;
 				int isBoneActiveC = pStudioHdr->boneFlags(i+2) & boneMask;
 				int isBoneActiveD = pStudioHdr->boneFlags(i+3) & boneMask;
-				isBoneActiveA = isBoneActiveA | -isBoneActiveA; // the high bit is now 1 iff the flags check 
-				isBoneActiveB = isBoneActiveB | -isBoneActiveB; // the high bit is now 1 iff the flags check 
-				isBoneActiveC = isBoneActiveC | -isBoneActiveC; // the high bit is now 1 iff the flags check 
-				isBoneActiveD = isBoneActiveD | -isBoneActiveD; // the high bit is now 1 iff the flags check 
+				isBoneActiveA = isBoneActiveA | -isBoneActiveA; // the high bit is now 1 iff the flags check
+				isBoneActiveB = isBoneActiveB | -isBoneActiveB; // the high bit is now 1 iff the flags check
+				isBoneActiveC = isBoneActiveC | -isBoneActiveC; // the high bit is now 1 iff the flags check
+				isBoneActiveD = isBoneActiveD | -isBoneActiveD; // the high bit is now 1 iff the flags check
 				isBoneActiveA = _rotl(isBoneActiveA,1) & 1;  // now it's either 0 or 1
 				isBoneActiveB = _rotl(isBoneActiveB,1) & 1;  // now it's either 0 or 1
 				isBoneActiveC = _rotl(isBoneActiveC,1) & 1;  // now it's either 0 or 1
@@ -1688,7 +1656,7 @@ void BlendBones(
 			{
 				*pActiveBonesEnd = i;
 				int isBoneActive = pStudioHdr->boneFlags(i) & boneMask;
-				isBoneActive = isBoneActive | -isBoneActive; // the high bit is now 1 iff the flags check 
+				isBoneActive = isBoneActive | -isBoneActive; // the high bit is now 1 iff the flags check
 				isBoneActive = _rotl(isBoneActive,1) & 1;  // now it's either 0 or 1
 				pActiveBonesEnd += isBoneActive;
 			}
@@ -1815,7 +1783,7 @@ void BlendBones(
 			// pass through all active bones to blend them; those that need it are already aligned
 			{
 				// 120-155 ticks 4 horizontal at a time; 130 ticks with 1 dot quaternion alignment
-				// 
+				//
 				BONE_PROFILE_LOOP(BlendBoneLoop2g,pActiveBonesEnd-pActiveBones);
 
 				const int *RESTRICT p = pActiveBones, *RESTRICT pNext;
@@ -1825,15 +1793,15 @@ void BlendBones(
 				{
 					int nBoneA = p[0], nBoneB = p[1], nBoneC = p[2], nBoneD = p[3];
 
-					BoneQuaternionAligned *RESTRICT pq1A = &q1[nBoneA]; 
-					BoneQuaternionAligned *RESTRICT pq1B = &q1[nBoneB]; 
-					BoneQuaternionAligned *RESTRICT pq1C = &q1[nBoneC]; 
-					BoneQuaternionAligned *RESTRICT pq1D = &q1[nBoneD]; 
+					BoneQuaternionAligned *RESTRICT pq1A = &q1[nBoneA];
+					BoneQuaternionAligned *RESTRICT pq1B = &q1[nBoneB];
+					BoneQuaternionAligned *RESTRICT pq1C = &q1[nBoneC];
+					BoneQuaternionAligned *RESTRICT pq1D = &q1[nBoneD];
 
-					const BoneQuaternionAligned *RESTRICT pq2A = &q2[nBoneA]; 
-					const BoneQuaternionAligned *RESTRICT pq2B = &q2[nBoneB]; 
-					const BoneQuaternionAligned *RESTRICT pq2C = &q2[nBoneC]; 
-					const BoneQuaternionAligned *RESTRICT pq2D = &q2[nBoneD]; 
+					const BoneQuaternionAligned *RESTRICT pq2A = &q2[nBoneA];
+					const BoneQuaternionAligned *RESTRICT pq2B = &q2[nBoneB];
+					const BoneQuaternionAligned *RESTRICT pq2C = &q2[nBoneC];
+					const BoneQuaternionAligned *RESTRICT pq2D = &q2[nBoneD];
 
 					float *pp1A = pos1[nBoneA].Base();
 					float *pp1B = pos1[nBoneB].Base();
@@ -1945,7 +1913,7 @@ void BlendBones(
 	{
 		// 360-400 ticks per loop pass
 		// there are usually 40-100 bones on average in a frame
-		for (i = 0; i < pStudioHdr->numbones(); i++) 
+		for (i = 0; i < pStudioHdr->numbones(); i++)
 		{
 			// skip unused bones
 			if (!(pStudioHdr->boneFlags(i) & boneMask))
@@ -1990,15 +1958,14 @@ void BlendBones(
 //-----------------------------------------------------------------------------
 // Purpose: Scale a set of bones.  Must be of type delta
 //-----------------------------------------------------------------------------
-void ScaleBones( 
+void ScaleBones(
 	const CStudioHdr *pStudioHdr,
-	BoneQuaternion q1[MAXSTUDIOBONES], 
-	BoneVector pos1[MAXSTUDIOBONES], 
+	BoneQuaternion q1[MAXSTUDIOBONES],
+	BoneVector pos1[MAXSTUDIOBONES],
 	int sequence,
 	float s,
 	int boneMask )
 {
-	BONE_PROFILE_FUNC();
 	int			i, j;
 	Quaternion		q3;
 
@@ -2044,7 +2011,6 @@ void ScaleBones(
 //-----------------------------------------------------------------------------
 int Studio_LocalPoseParameter( const CStudioHdr *pStudioHdr, const float poseParameter[], mstudioseqdesc_t &seqdesc, int iSequence, int iLocalIndex, float &flSetting )
 {
-	BONE_PROFILE_FUNC();
 	int iPose = pStudioHdr->GetSharedPoseParameter( iSequence, seqdesc.paramindex[iLocalIndex] );
 
 	if (iPose == -1)
@@ -2085,7 +2051,7 @@ int Studio_LocalPoseParameter( const CStudioHdr *pStudioHdr, const float posePar
 		{
 			// estimate index
 			nIndex = (int)(flSetting * (seqdesc.groupsize[iLocalIndex] - 1));
-			if (nIndex == seqdesc.groupsize[iLocalIndex] - 1) 
+			if (nIndex == seqdesc.groupsize[iLocalIndex] - 1)
 			{
 				nIndex = seqdesc.groupsize[iLocalIndex] - 2;
 			}
@@ -2096,7 +2062,7 @@ int Studio_LocalPoseParameter( const CStudioHdr *pStudioHdr, const float posePar
 	{
 		flValue = flValue * (Pose.end - Pose.start) + Pose.start;
 		nIndex = 0;
-			
+
 		// FIXME: this needs to be 2D
 		// FIXME: this shouldn't be a linear search
 
@@ -2109,7 +2075,7 @@ int Studio_LocalPoseParameter( const CStudioHdr *pStudioHdr, const float posePar
 				index--;
 				continue;
 			}
-			else 
+			else
 			*/
 			if (nIndex < seqdesc.groupsize[iLocalIndex] - 2 && flSetting > 1.0)
 			{
@@ -2165,7 +2131,6 @@ static mstudiobonecontroller_t* FindController( const CStudioHdr *pStudioHdr, in
 
 float Studio_SetController( const CStudioHdr *pStudioHdr, int iController, float flValue, float &ctlValue )
 {
-	BONE_PROFILE_FUNC();
 	if (! pStudioHdr)
 		return flValue;
 
@@ -2212,7 +2177,7 @@ float Studio_SetController( const CStudioHdr *pStudioHdr, int iController, float
 	{
 		flReturnVal *= -1;
 	}
-	
+
 	return flReturnVal;
 }
 
@@ -2328,10 +2293,6 @@ float Studio_GetPoseParameter( const CStudioHdr *pStudioHdr, int iParameter, flo
 
 void Studio_SeqAnims( const CStudioHdr *pStudioHdr, mstudioseqdesc_t &seqdesc, int iSequence, const float poseParameter[], mstudioanimdesc_t *panim[4], float *weight )
 {
-	BONE_PROFILE_FUNC();
-#if _DEBUG
-	VPROF_INCREMENT_COUNTER("SEQ_ANIMS",1);
-#endif
 	if (!pStudioHdr || iSequence >= pStudioHdr->GetNumSeq())
 	{
 		weight[0] = weight[1] = weight[2] = weight[3] = 0.0;
@@ -2339,7 +2300,7 @@ void Studio_SeqAnims( const CStudioHdr *pStudioHdr, mstudioseqdesc_t &seqdesc, i
 	}
 
 	float s0 = 0, s1 = 0;
-	
+
 	int i0 = Studio_LocalPoseParameter( pStudioHdr, poseParameter, seqdesc, iSequence, 0, s0 );
 	int i1 = Studio_LocalPoseParameter( pStudioHdr, poseParameter, seqdesc, iSequence, 1, s1 );
 
@@ -2381,7 +2342,7 @@ int Studio_MaxFrame( const CStudioHdr *pStudioHdr, int iSequence, const float po
 
 	if ( maxFrame > 1 )
 		maxFrame -= 1;
-	
+
 
 	// FIXME: why does the weights sometimes not exactly add it 1.0 and this sometimes rounds down?
 	return (maxFrame + 0.01);
@@ -2451,7 +2412,7 @@ float Studio_CPS( const CStudioHdr *pStudioHdr, mstudioseqdesc_t &seqdesc, int i
 			int iPose = pStudioHdr->GetSharedPoseParameter( iSequenceLocal, pLayer->iPose );
 			if (iPose == -1)
 				continue;
-			
+
 			const mstudioposeparamdesc_t &Pose = ((CStudioHdr *)pStudioHdr)->pPoseParameter( iPose );
 			float s = poseParameter[ iPose ] * (Pose.end - Pose.start) + Pose.start;
 
@@ -2516,7 +2477,6 @@ float Studio_Duration( const CStudioHdr *pStudioHdr, int iSequence, const float 
 
 bool Studio_AnimPosition( mstudioanimdesc_t *panim, float flCycle, Vector &vecPos, QAngle &vecAngle )
 {
-	BONE_PROFILE_FUNC();
 	float	prevframe = 0;
 	vecPos.Init( );
 	vecAngle.Init( );
@@ -2552,8 +2512,8 @@ bool Studio_AnimPosition( mstudioanimdesc_t *panim, float flCycle, Vector &vecPo
 			if (iLoops != 0)
 			{
 				mstudiomovement_t *pmove = panim->pMovement( panim->nummovements - 1 );
-				vecPos = vecPos + iLoops * pmove->position; 
-				vecAngle.y = vecAngle.y + iLoops * pmove->angle; 
+				vecPos = vecPos + iLoops * pmove->position;
+				vecAngle.y = vecAngle.y + iLoops * pmove->angle;
 			}
 			return true;
 		}
@@ -2570,7 +2530,7 @@ bool Studio_AnimPosition( mstudioanimdesc_t *panim, float flCycle, Vector &vecPo
 
 
 //-----------------------------------------------------------------------------
-// Purpose: calculate instantaneous velocity in ips at a given point 
+// Purpose: calculate instantaneous velocity in ips at a given point
 //			in the animations cycle
 // Output:	velocity vector, relative to identity orientation
 //			returns false if animation is not a movement animation
@@ -2688,7 +2648,7 @@ bool Studio_SeqMovement( const CStudioHdr *pStudioHdr, int iSequence, float flCy
 	mstudioseqdesc_t &seqdesc = ((CStudioHdr *)pStudioHdr)->pSeqdesc( iSequence );
 
 	Studio_SeqAnims( pStudioHdr, seqdesc, iSequence, poseParameter, panim, weight );
-	
+
 	deltaPos.Init( );
 	deltaAngles.Init( );
 
@@ -2735,7 +2695,7 @@ bool Studio_SeqMovement( const CStudioHdr *pStudioHdr, int iSequence, float flCy
 			int iPose = pStudioHdr->GetSharedPoseParameter( iSequenceLocal, pLayer->iPose );
 			if (iPose == -1)
 				continue;
-			
+
 			const mstudioposeparamdesc_t &Pose = ((CStudioHdr *)pStudioHdr)->pPoseParameter( iPose );
 			float s = poseParameter[ iPose ] * (Pose.end - Pose.start) + Pose.start;
 
@@ -2755,7 +2715,7 @@ bool Studio_SeqMovement( const CStudioHdr *pStudioHdr, int iSequence, float flCy
 		{
 			Vector layerPos;
 			//QAngle layerAngles;
-		
+
 			layerPos.Init();
 			//layerAngles.Init();
 
@@ -2847,7 +2807,7 @@ bool Studio_SeqVelocity( const CStudioHdr *pStudioHdr, int iSequence, float flCy
 
 	mstudioseqdesc_t &seqdesc = ((CStudioHdr *)pStudioHdr)->pSeqdesc( iSequence );
 	Studio_SeqAnims( pStudioHdr, seqdesc, iSequence, poseParameter, panim, weight );
-	
+
 	vecVelocity.Init( );
 
 	bool found = false;
@@ -2879,7 +2839,7 @@ float Studio_FindSeqDistance( const CStudioHdr *pStudioHdr, int iSequence, const
 
 	mstudioseqdesc_t &seqdesc = ((CStudioHdr *)pStudioHdr)->pSeqdesc( iSequence );
 	Studio_SeqAnims( pStudioHdr, seqdesc, iSequence, poseParameter, panim, weight );
-	
+
 	float flCycle = 0;
 
 	for (int i = 0; i < 4; i++)
@@ -2904,7 +2864,7 @@ int Studio_FindAttachment( const CStudioHdr *pStudioHdr, const char *pAttachment
 		// Extract the bone index from the name
 		for (int i = 0; i < pStudioHdr->GetNumAttachments(); i++)
 		{
-			if (!stricmp(pAttachmentName,((CStudioHdr *)pStudioHdr)->pAttachment(i).pszName( ))) 
+			if (!stricmp(pAttachmentName,((CStudioHdr *)pStudioHdr)->pAttachment(i).pszName( )))
 			{
 				return i;
 			}
@@ -2928,7 +2888,7 @@ int Studio_FindRandomAttachment( const CStudioHdr *pStudioHdr, const char *pAtta
 		// Extract the bone index from the name
 		for (int i = 0; i < pStudioHdr->GetNumAttachments(); i++)
 		{
-			if ( strstr( ((CStudioHdr *)pStudioHdr)->pAttachment(i).pszName(), pAttachmentName ) ) 
+			if ( strstr( ((CStudioHdr *)pStudioHdr)->pAttachment(i).pszName(), pAttachmentName ) )
 			{
 				matchingAttachments.AddToTail(i);
 			}
@@ -2956,7 +2916,7 @@ int Studio_BoneIndexByName( const CStudioHdr *pStudioHdr, const char *pName )
 	{
 		int mid = (start + end) >> 1;
 		int cmp = Q_stricmp( pbones[pBoneTable[mid]].pszName(), pName );
-		
+
 		if ( cmp < 0 )
 		{
 			start = mid + 1;

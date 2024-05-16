@@ -48,21 +48,6 @@
 
 #include "tier0/valve_off.h"
 
-// There's a different version of this file in the xbox codeline
-// so the PC version built in the xbox branch includes things like 
-// tickrate changes.
-#include "xbox_codeline_defines.h"
-
-#if defined(_PS3)
-#if defined( __SPU__ )
-#include <spu_intrinsics.h>
-#else
-#include <ppu_intrinsics.h>
-#include <sys/fs.h>
-#endif
-#define PATH_MAX CELL_FS_MAX_FS_PATH_LENGTH
-#define _MAX_PATH PATH_MAX
-#endif
 // stdio.h
 #ifndef NULL
 #define NULL 0

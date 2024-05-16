@@ -14,7 +14,7 @@
 #endif
 
 #include "tier0/platform.h"
-#include "tier0/threadtools.h"
+
 #include "tier1/utlrbtree.h"
 #include "tier1/utlvector.h"
 #include "tier1/utlbuffer.h"
@@ -26,7 +26,7 @@
 // forward declarations
 //-----------------------------------------------------------------------------
 class CUtlSymbolTable;
-class CUtlSymbolTableMT;
+class CUtlSymbolTable;
 
 
 //-----------------------------------------------------------------------------
@@ -64,10 +64,6 @@ public:
 	// Modules can choose to disable the static symbol table so to prevent accidental use of them.
 	static void DisableStaticSymbolTable();
 
-	// Methods with explicit locking mechanism. Only use for optimization reasons.
-	static void LockTableForRead();
-	static void UnlockTableForRead();
-	const char * StringNoLock() const;
 
 protected:
 	UtlSymId_t   m_Id;
@@ -76,10 +72,10 @@ protected:
 	static void Initialize();
 	
 	// returns the current symbol table
-	static CUtlSymbolTableMT* CurrTable();
+	static CUtlSymbolTable* CurrTable();
 		
 	// The standard global symbol table
-	static CUtlSymbolTableMT* s_pSymbolTable; 
+	static CUtlSymbolTable* s_pSymbolTable;
 
 	static bool s_bAllowStaticSymbolTable;
 
@@ -196,63 +192,6 @@ private:
 
 };
 
-class CUtlSymbolTableMT :  public CUtlSymbolTable
-{
-public:
-	CUtlSymbolTableMT( int growSize = 0, int initSize = 32, bool caseInsensitive = false )
-		: CUtlSymbolTable( growSize, initSize, caseInsensitive )
-	{
-	}
-
-	CUtlSymbol AddString( const char* pString )
-	{
-		m_lock.LockForWrite();
-		CUtlSymbol result = CUtlSymbolTable::AddString( pString );
-		m_lock.UnlockWrite();
-		return result;
-	}
-
-	CUtlSymbol Find( const char* pString ) const
-	{
-		m_lock.LockForWrite();
-		CUtlSymbol result = CUtlSymbolTable::Find( pString );
-		m_lock.UnlockWrite();
-		return result;
-	}
-
-	const char* String( CUtlSymbol id ) const
-	{
-		m_lock.LockForRead();
-		const char *pszResult = CUtlSymbolTable::String( id );
-		m_lock.UnlockRead();
-		return pszResult;
-	}
-
-	const char * StringNoLock( CUtlSymbol id ) const
-	{
-		return CUtlSymbolTable::String( id );
-	}
-
-	void LockForRead()
-	{
-		m_lock.LockForRead();
-	}
-
-	void UnlockForRead()
-	{
-		m_lock.UnlockRead();
-	}
-
-private:
-#ifdef WIN32
-	mutable CThreadSpinRWLock m_lock;
-#else
-	mutable CThreadRWLock m_lock;
-#endif
-};
-
-
-
 //-----------------------------------------------------------------------------
 // CUtlFilenameSymbolTable:
 // description:
@@ -328,7 +267,6 @@ public:
 private:
 	CCountedStringPoolBase<unsigned short> m_PathStringPool;
 	CCountedStringPoolBase<unsigned int> m_FileStringPool;
-	mutable CThreadSpinRWLock m_lock;
 };
 
 // This creates a simple class that includes the underlying CUtlSymbol

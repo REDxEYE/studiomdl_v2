@@ -84,14 +84,14 @@ CUniformRandomStream::CUniformRandomStream()
 
 void CUniformRandomStream::SetSeed( int iSeed )
 {
-	AUTO_LOCK( m_mutex );
+
 	m_idum = ( ( iSeed < 0 ) ? iSeed : -iSeed );
 	m_iy = 0;
 }
 
 int CUniformRandomStream::GenerateRandomNumber()
 {
-	AUTO_LOCK( m_mutex );
+
 	int j;
 	int k;
 	
@@ -211,7 +211,7 @@ CGaussianRandomStream::CGaussianRandomStream( IUniformRandomStream *pUniformStre
 //-----------------------------------------------------------------------------
 void CGaussianRandomStream::AttachToStream( IUniformRandomStream *pUniformStream )
 {
-	AUTO_LOCK( m_mutex );
+
 	m_pUniformStream = pUniformStream;
 	m_bHaveValue = false;
 }
@@ -222,7 +222,7 @@ void CGaussianRandomStream::AttachToStream( IUniformRandomStream *pUniformStream
 //-----------------------------------------------------------------------------
 float CGaussianRandomStream::RandomFloat( float flMean, float flStdDev )
 {
-	AUTO_LOCK( m_mutex );
+
 	IUniformRandomStream *pUniformStream = m_pUniformStream ? m_pUniformStream : s_pUniformStream;
 	float fac,rsq,v1,v2;
 

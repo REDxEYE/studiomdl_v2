@@ -102,7 +102,6 @@ DmPhase_t CDmElementFramework::GetPhase()
 
 void CDmElementFramework::SetOperators( const CUtlVector< IDmeOperator* > &operators )
 {
-	VPROF( "CDmElementFramework::SetOperators()" );
 	m_dependencyGraph.Reset( operators );
 }
 
@@ -124,27 +123,27 @@ void CDmElementFramework::BeginEdit()
 
 void CDmElementFramework::Operate( bool bResolve )
 {
-	VPROF( "CDmElementFramework::Operate" );
+
 
 	Assert( m_phase == PH_EDIT || m_phase == PH_OUTPUT );
 
 	if ( m_phase == PH_EDIT )
 	{
 		{
-			VPROF( "CDmElementFramework::PH_EDIT_APPLY" );
+
 			m_phase = PH_EDIT_APPLY;
 			EditApply();
 		}
 
 		{
-			VPROF( "CDmElementFramework::PH_EDIT_RESOLVE" );
+
 			m_phase = PH_EDIT_RESOLVE;
 			Resolve( false );
 		}
 	}
 
 	{
-		VPROF( "CDmElementFramework::PH_DEPENDENCY" );
+
 		m_phase = PH_DEPENDENCY;
 		bool cycle = m_dependencyGraph.CullAndSortOperators();
 		if ( cycle )
@@ -154,7 +153,7 @@ void CDmElementFramework::Operate( bool bResolve )
 	}
 
 	{
-		VPROF( "CDmElementFramework::PH_OPERATE" );
+
 		m_phase = PH_OPERATE;
 		const CUtlVector< IDmeOperator* > &operatorsToRun = m_dependencyGraph.GetSortedOperators();
 		uint on = operatorsToRun.Count();
@@ -166,7 +165,7 @@ void CDmElementFramework::Operate( bool bResolve )
 
 	if ( bResolve )
 	{
-		VPROF( "CDmElementFramework::PH_OPERATE_RESOLVE" );
+
 		m_phase = PH_OPERATE_RESOLVE;
 		Resolve( true );
 
@@ -178,7 +177,7 @@ void CDmElementFramework::Operate( bool bResolve )
 
 void CDmElementFramework::Resolve()
 {
-	VPROF( "CDmElementFramework::Resolve" );
+
 
 	Assert( m_phase == PH_OPERATE );
 

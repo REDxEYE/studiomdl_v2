@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
@@ -12,7 +12,7 @@
 
 
 #include "tier0/dbg.h"
-#include "tier0/threadtools.h"
+
 #include "mathlib/vector.h"
 #include <float.h>
 

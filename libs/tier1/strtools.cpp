@@ -94,7 +94,7 @@
 #include <cell/l10n.h> // for UCS-2 to UTF-8 conversion
 #endif
 
-#include "tier0/vprof.h"
+
 
 #ifndef NDEBUG
 static volatile const char *pDebugString;
@@ -182,7 +182,7 @@ char *_V_strrchr(const char *s, char c)
 
 int _V_strcmp (const char *s1, const char *s2)
 {
-	VPROF_2( "V_strcmp", VPROF_BUDGETGROUP_OTHER_UNACCOUNTED, false, BUDGETFLAG_ALL );
+
 
 	return strcmp( s1, s2 );
 }
@@ -206,7 +206,7 @@ int _V_wcscmp (const wchar_t *s1, const wchar_t *s2)
 
 int	_V_stricmp( const char *s1, const char *s2 )
 {
-	VPROF_2( "V_stricmp", VPROF_BUDGETGROUP_OTHER_UNACCOUNTED, false, BUDGETFLAG_ALL );
+
 
 	// It is not uncommon to compare a string to itself. Since stricmp
 	// is expensive and pointer comparison is cheap, this simple test
@@ -276,7 +276,7 @@ int	_V_stricmp( const char *s1, const char *s2 )
 // returns <0 if strings do not match even in a case-insensitive way
 int	_V_stricmp_NegativeForUnequal( const char *s1, const char *s2 )
 {
-	VPROF_2( "V_stricmp", VPROF_BUDGETGROUP_OTHER_UNACCOUNTED, false, BUDGETFLAG_ALL );
+
 
 	// It is not uncommon to compare a string to itself. Since stricmp
 	// is expensive and pointer comparison is cheap, this simple test
@@ -373,7 +373,7 @@ wchar_t *_V_wcslower (wchar_t *start)
 int V_strncmp(const char *s1, const char *s2, int count)
 {
 	Assert( count >= 0 );
-	VPROF_2( "V_strcmp", VPROF_BUDGETGROUP_OTHER_UNACCOUNTED, false, BUDGETFLAG_ALL );
+
 
 	while ( count-- > 0 )
 	{
@@ -413,7 +413,7 @@ char *V_strnlwr(char *s, size_t count)
 int V_strncasecmp (const char *s1, const char *s2, int n)
 {
 	Assert( n >= 0 );
-	VPROF_2( "V_strcmp", VPROF_BUDGETGROUP_OTHER_UNACCOUNTED, false, BUDGETFLAG_ALL );
+
 	
 	while ( n-- > 0 )
 	{
@@ -438,7 +438,7 @@ int V_strncasecmp (const char *s1, const char *s2, int n)
 
 int V_strcasecmp( const char *s1, const char *s2 )
 {
-	VPROF_2( "V_strcmp", VPROF_BUDGETGROUP_OTHER_UNACCOUNTED, false, BUDGETFLAG_ALL );
+
 
 	return V_stricmp( s1, s2 );
 }

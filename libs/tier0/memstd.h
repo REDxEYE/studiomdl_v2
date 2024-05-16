@@ -30,8 +30,7 @@
 #include <algorithm>
 #include "tier0/dbg.h"
 #include "tier0/memalloc.h"
-#include "tier0/threadtools.h"
-#include "tier0/tslist.h"
+
 #include "mem_helpers.h"
 
 #ifndef _PS3
@@ -63,7 +62,7 @@
 
 #if defined( _WIN32 ) || defined( _PS3 )
 // Small block heap on win64 is expecting SLIST_HEADER to look different than it does on win64. It was disabled for a long time because of this.
-#define MEM_SBH_ENABLED 1
+#define MEM_SBH_ENABLED 0
 #endif
 
 #if !defined(_CERT) && ( defined(_X360) || defined(_PS3) || defined( PLATFORM_WINDOWS_PC64 ) || DEVELOPMENT_ONLY )
@@ -103,147 +102,6 @@
 
 #define MEMSTD_COMPILE_TIME_ASSERT( pred )	switch(0){case 0:case pred:;}
 
-//-----------------------------------------------------------------------------
-// Small block pool
-//-----------------------------------------------------------------------------
-
-class CFreeList : public CTSListBase
-{
-public:
-	void Push( void *p )	{ CTSListBase::Push( (TSLNodeBase_t *)p ); }
-	byte *Pop()				{ return (byte *)CTSListBase::Pop(); }
-};
-
-template <typename CAllocator>
-class CSmallBlockHeap;
-
-template <typename CAllocator>
-class CSmallBlockPool
-{
-public:
-	CSmallBlockPool()
-	{
-		m_nBlockSize = 0;
-		m_nCommittedPages = 0;
-		m_pFirstPage = NULL;
-	}
-
-	void Init( unsigned nBlockSize );
-	size_t GetBlockSize();
-	void *Alloc();
-	void Free( void *p );
-	int CountFreeBlocks();
-	size_t GetCommittedSize();
-	int CountCommittedBlocks();
-	int CountAllocatedBlocks();
-	size_t Compact( bool bIncremental );
-	bool Validate();
-
-	enum
-	{
-		BYTES_PAGE = CAllocator::BYTES_PAGE,
-		NOT_COMMITTED = -1
-	};
-
-private:
-	typedef CSmallBlockHeap<CAllocator> CHeap;
-	friend class CSmallBlockHeap<CAllocator>;
-
-	struct PageStatus_t : public TSLNodeBase_t
-	{
-		PageStatus_t()
-		{
-			m_pPool = NULL;
-			m_nAllocated = NOT_COMMITTED;
-			m_pNextPageInPool = NULL;
-		}
-
-		CSmallBlockPool<CAllocator> *	m_pPool;
-		PageStatus_t *					m_pNextPageInPool;
-		CInterlockedInt					m_nAllocated;
-		CTSListBase						m_SortList;
-	};
-
-	struct SharedData_t
-	{
-		CAllocator			m_Allocator;
-		CTSListBase			m_FreePages;
-		CThreadSpinRWLock	m_Lock;
-		size_t				m_numPages;
-		byte *				m_pNextBlock;
-		byte *				m_pBase;
-		byte *				m_pLimit;
-		PageStatus_t		m_PageStatus[ 114688 ]; // This is sufficient to hold pages for SBH sized up to 1,792 MB (almost 2GB) in 32-bit SBH with 16 Kb pages; or up to 56Gb worth of data in 64-bit GC with fixed-size allocator with 512Kb pages
-	};
-
-	static int PageSort( const void *p1, const void *p2 ) ;
-	bool RemovePagesFromFreeList( byte **pPages, int nPages, bool bSortList );
-
-	void ValidateFreelist( SharedData_t *pSharedData );
-
-	CFreeList				m_FreeList;
-
-	CInterlockedPtr<byte>	m_pNextAlloc;
-
-	PageStatus_t *			m_pFirstPage;
-	unsigned				m_nBlockSize;
-	unsigned				m_nCommittedPages;
-
-	CThreadFastMutex		m_CommitMutex;
-
-	CInterlockedInt			m_nIsCompact;
-
-#ifdef TRACK_SBH_COUNTS
-	CInterlockedInt			m_nFreeBlocks;
-#endif
-
-	static SharedData_t *GetSharedData()
-	{
-		return &gm_SharedData;
-	}
-
-	static SharedData_t gm_SharedData;
-};
-
-//-----------------------------------------------------------------------------
-// Small block heap (multi-pool)
-//-----------------------------------------------------------------------------
-
-template <typename CAllocator>
-class CSmallBlockHeap
-{
-public:
-	CSmallBlockHeap();
-	bool ShouldUse( size_t nBytes );
-	bool IsOwner( void * p );
-	void *Alloc( size_t nBytes );
-	void *Realloc( void *p, size_t nBytes );
-	void Free( void *p );
-	size_t GetSize( void *p );
-	void DumpStats( const char *pszTag, FILE *pFile = NULL, IMemAlloc::DumpStatsFormat_t nFormat = IMemAlloc::FORMAT_TEXT );
-	void Usage( size_t &bytesCommitted, size_t &bytesAllocated );
-	size_t Compact( bool bIncremental );
-	bool Validate();
-	void InitPools( const uint *pSizes );
-
-	enum
-	{
-		BYTES_PAGE = CAllocator::BYTES_PAGE
-	};
-
-private:
-	typedef CSmallBlockPool<CAllocator> CPool;
-	typedef struct CSmallBlockPool<CAllocator>::SharedData_t SharedData_t;
-
-	CPool *FindPool( size_t nBytes );
-	CPool *FindPool( void *p );
-
-	// Map size to a pool address to a pool
-	CPool *m_PoolLookup[ MAX_SBH_BLOCK >> SBH_BLOCK_LOOKUP_GRANULARITY ];
-	CPool m_Pools[NUM_POOLS];
-
-	SharedData_t *m_pSharedData;
-};
 
 //-----------------------------------------------------------------------------
 // 
@@ -393,17 +251,9 @@ public:
 
 		bool Commit( void *pPage )
 		{
-#ifdef _WIN32
-			return ( VirtualAlloc( pPage, BYTES_PAGE, VA_COMMIT_FLAGS, PAGE_READWRITE ) != NULL );
-#elif defined( _PS3 )
-			return false;
-#else
-#error
-#endif
+            return ( VirtualAlloc( pPage, BYTES_PAGE, VA_COMMIT_FLAGS, PAGE_READWRITE ) != NULL );
 		}
 	};
-
-	typedef CSmallBlockHeap<CVirtualAllocator> CVirtualSmallBlockHeap;
 
 	template <size_t SIZE_MB, bool bPhysical>
 	class CFixedAllocator
@@ -485,18 +335,7 @@ public:
 		}
 	};
 
-	typedef CSmallBlockHeap<CFixedAllocator< MBYTES_PRIMARY_SBH, true> > CFixedSmallBlockHeap;
-#ifdef MEMALLOC_USE_SECONDARY_SBH
-	typedef CSmallBlockHeap<CFixedAllocator< MBYTES_SECONDARY_SBH, false> > CFixedVirtualSmallBlockHeap; // @TODO: move back into above heap if number stays at 16 [7/15/2009 tom]
-#endif
 
-	CFixedSmallBlockHeap m_PrimarySBH;
-#ifdef MEMALLOC_USE_SECONDARY_SBH
-	CFixedVirtualSmallBlockHeap m_SecondarySBH;
-#endif
-#ifndef MEMALLOC_NO_FALLBACK
-	CVirtualSmallBlockHeap m_FallbackSBH;
-#endif
 
 #endif // MEM_SBH_ENABLED
 
@@ -509,7 +348,6 @@ public:
 
 	MemAllocFailHandler_t m_pfnFailHandler;
 	size_t				m_sMemoryAllocFailed;
-	CThreadFastMutex	m_CompactMutex;
 	bool				m_bInCompact;
 };
 

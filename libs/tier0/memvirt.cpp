@@ -10,10 +10,8 @@
 
 #if !defined(STEAM) && !defined(NO_MALLOC_OVERRIDE)
 
-//#include <malloc.h>
 #include <string.h>
 #include "tier0/dbg.h"
-#include "tier0/stacktools.h"
 #include "tier0/memalloc.h"
 #include "tier0/memvirt.h"
 #include "tier0/fasttimer.h"
@@ -31,7 +29,7 @@
 #include <map>
 #include <set>
 #include <limits.h>
-#include "tier0/threadtools.h"
+
 #ifdef _X360
 #include "xbox/xbox_console.h"
 #endif
@@ -45,7 +43,6 @@
 #include "sys/vm.h"
 #endif
 
-CInterlockedInt VmmMsgFlag = 0; // Prevents re-entrancy within VmmMsg (printf allocates a large buffer!)
 
 #ifdef _DEBUG
 #ifdef _PS3 // _DEBUG

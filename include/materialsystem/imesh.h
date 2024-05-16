@@ -2770,7 +2770,8 @@ inline unsigned short *CIndexBuilder::BaseIndexData() const
 inline unsigned short * CIndexBuilder::IndexBuffer_InterlockedAdd(int numberOfIndices)
 {
 	Assert( m_nCurrentIndex + numberOfIndices < m_nMaxIndexCount );
-	int oldValue = ThreadInterlockedExchangeAdd(&m_nCurrentIndex, numberOfIndices);
+	int oldValue = m_nCurrentIndex;
+    m_nCurrentIndex +=numberOfIndices;
 	// ThreadInterlockedExchangeAdd() returns the result *before* the addition
 	return &m_pIndices[oldValue];
 }

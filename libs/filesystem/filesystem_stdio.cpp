@@ -21,9 +21,9 @@
 #include <sys/file.h>
 #endif
 #endif
-#include "tier0/vprof.h"
+
 #include "tier1/fmtstr.h"
-#include "tier0/tslist.h"
+
 
 
 #define GAMEINFO_FILENAME "GAMEINFO.TXT"
@@ -39,8 +39,6 @@ bool ShouldFailIo()
 }
 
 
-// memdbgon must be the last include file in a .cpp file!!!
-//#include "tier0/memdbgon.h"
 
 ASSERT_INVARIANT( SEEK_CUR == FILESYSTEM_SEEK_CURRENT );
 ASSERT_INVARIANT( SEEK_SET == FILESYSTEM_SEEK_HEAD );
@@ -209,7 +207,6 @@ private:
 	int64				m_Size;
 	HANDLE				m_hFileUnbuffered;
 	HANDLE				m_hFileBuffered;
-	CThreadFastMutex	m_Mutex;
 	int					m_SectorSize;
 	bool				m_bOverlapped;
 };
@@ -771,8 +768,6 @@ WaitForResourcesHandle_t CFileSystem_Stdio::WaitForResources( const char *resour
 //-----------------------------------------------------------------------------
 bool CFileSystem_Stdio::GetWaitForResourcesProgress( WaitForResourcesHandle_t handle, float *progress /* out */ , bool *complete /* out */ )
 {
-	VPROF_BUDGET( "GetWaitForResourcesProgress (stdio)", VPROF_BUDGETGROUP_OTHER_FILESYSTEM );
-
 #if defined(DEBUG_WAIT_FOR_RESOURCES_API)
 	g_flDebugProgress += 0.002f;
 	if (g_flDebugProgress < 1.0f)
@@ -1176,35 +1171,6 @@ int GetSectorSize( const char *pszFilename )
 //-----------------------------------------------------------------------------
 // 
 //-----------------------------------------------------------------------------
-
-class CThreadIOEventPool
-{
-public:
-	~CThreadIOEventPool()
-	{
-	}
-
-	CThreadEvent *GetEvent()
-	{
-		return m_Events.GetObject();
-	}
-
-	void ReleaseEvent( CThreadEvent *pEvent )
-	{
-		m_Events.PutObject( pEvent );
-	}
-
-private:
-	CTSPool<CThreadEvent> m_Events;
-};
-
-
-CThreadIOEventPool g_ThreadIOEvents;
-
-
-//-----------------------------------------------------------------------------
-// 
-//-----------------------------------------------------------------------------
 bool CWin32ReadOnlyFile::CanOpen( const char *filename, const char *options )
 {
 	return ( options[0] == 'r' && options[1] == 'b' && options[2] == 0 && filesystem_native.GetBool() );
@@ -1348,14 +1314,12 @@ int CWin32ReadOnlyFile::FS_feof()
 //-----------------------------------------------------------------------------
 size_t CWin32ReadOnlyFile::FS_fread( void *dest, size_t destSize, size_t size )
 {
-	VPROF_BUDGET( "CWin32ReadOnlyFile::FS_fread", VPROF_BUDGETGROUP_OTHER_FILESYSTEM );
+
 
 	if ( !size || ( m_hFileUnbuffered == INVALID_HANDLE_VALUE && m_hFileBuffered == INVALID_HANDLE_VALUE ) )
 	{
 		return 0;
 	}
-
-	CThreadEvent *pEvent = NULL;
 
 	if ( destSize == (size_t)-1 )
 	{
@@ -1400,8 +1364,7 @@ size_t CWin32ReadOnlyFile::FS_fread( void *dest, size_t destSize, size_t size )
 	OVERLAPPED overlapped = { 0 };	
 	if ( m_bOverlapped )
 	{
-		pEvent = g_ThreadIOEvents.GetEvent();
-		overlapped.hEvent = *pEvent;
+		overlapped.hEvent = nullptr;
 	}
 
 #ifdef REPORT_BUFFERED_IO
@@ -1491,12 +1454,6 @@ size_t CWin32ReadOnlyFile::FS_fread( void *dest, size_t destSize, size_t size )
 		}
 
 		result = min( nBytesRead, size );
-	}
-
-	if ( m_bOverlapped )
-	{
-		pEvent->Reset();
-		g_ThreadIOEvents.ReleaseEvent( pEvent );
 	}
 
 	m_ReadPos += result;
@@ -1693,7 +1650,7 @@ void IsAnyOpProcessing( void *pContext, cell::fios::op *pOp )
 
 size_t CFiosReadOnlyFile::FS_fread( void *dest, size_t destSize, size_t size )
 {
-	VPROF_BUDGET( "CFiosReadOnlyFile::FS_fread", VPROF_BUDGETGROUP_OTHER_FILESYSTEM );
+
 
 	if( ShouldFailIo() )
 		return 0;

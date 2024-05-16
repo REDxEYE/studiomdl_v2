@@ -14,7 +14,6 @@ add_library(tier1
         checksum_crc.cpp
         checksum_md5.cpp
         checksum_sha1.cpp
-        circularbuffer.cpp
         commandbuffer.cpp
         convar.cpp
         datamanager.cpp
@@ -24,8 +23,6 @@ add_library(tier1
         keyvalues.cpp
         keyvaluesjson.cpp
         kvpacker.cpp
-        lzmaDecoder.cpp
-        lzss.cpp
         sparsematrix.cpp
         splitstring.cpp
         stringpool.cpp
@@ -40,7 +37,6 @@ add_library(tier1
         uniqueid.cpp
         utlbuffer.cpp
         utlbufferutil.cpp
-        utlsoacontainer.cpp
         utlstring.cpp
         utlstringtoken.cpp
         utlsymbol.cpp

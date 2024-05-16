@@ -10,8 +10,7 @@
 #include <stdio.h>
 #include "tier0/fasttimer.h"
 
-// NOTE: This has to be the last file included!
-//#include "tier0/memdbgon.h"
+
 
 uint64 g_ClockSpeed;	// Clocks/sec
 unsigned long g_dwClockSpeed;

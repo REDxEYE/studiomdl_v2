@@ -527,7 +527,7 @@ FUNC_GENERATE_ALL( DEFINE_MEMBER_FUNC_PROXY );
 
 // DISABLED #include "tier0/memdbgon.h"
 
-typedef CRefCounted1<CFunctor, CRefCountServiceMT> CFunctorBase;
+typedef CRefCounted1<CFunctor, CRefCountServiceST> CFunctorBase;
 
 #define DEFINE_FUNCTOR_TEMPLATE(N) \
 	template <typename FUNC_TYPE FUNC_TEMPLATE_ARG_PARAMS_##N, class FUNCTOR_BASE = CFunctorBase> \
@@ -560,8 +560,8 @@ FUNC_GENERATE_ALL( DEFINE_FUNCTOR_TEMPLATE );
 
 FUNC_GENERATE_ALL( DEFINE_MEMBER_FUNCTOR );
 
-typedef CRefCounted1<CFunctorData, CRefCountServiceMT> CFunctorDataBase;
-class CFunctorCallbackBase : public CRefCounted1<CFunctorCallback, CRefCountServiceMT>
+typedef CRefCounted1<CFunctorData, CRefCountServiceST> CFunctorDataBase;
+class CFunctorCallbackBase : public CRefCounted1<CFunctorCallback, CRefCountServiceST>
 {
 protected:
 	virtual void ValidateFunctorData( CFunctorData *pData )

@@ -5,14 +5,9 @@
 //=============================================================================
 
 #include "movieobjects/dmechannel.h"
-#include "movieobjects/dmelog.h"
-#include "movieobjects/dmeclip.h"
 #include "movieobjects/dmetimeselection.h"
 #include "movieobjects/dmetransformcontrol.h"
-#include "datamodel/dmelementfactoryhelper.h"
-#include "datamodel/dmehandle.h"
-#include "datamodel/dmattribute.h"
-#include "tier0/vprof.h"
+
 #include "tier1/KeyValues.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -2479,7 +2474,7 @@ bool CDmeChannel::IsDirty()
 
 void CDmeChannel::Operate()
 {
-	VPROF( "CDmeChannel::Operate" );
+
 
 	switch ( GetMode() )
 	{
@@ -3008,7 +3003,7 @@ void DestroyPasteData( CUtlVector< KeyValues * > &list )
 
 void CDmeChannel::Record()
 {
-	VPROF( "CDmeChannel::Record" );
+
 
 	CDmElement* pElement = GetFromElement();
 	CDmAttribute *pFromAttr = GetFromAttribute();

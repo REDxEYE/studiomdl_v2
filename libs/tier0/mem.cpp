@@ -87,7 +87,6 @@ void MemOutOfMemory( size_t nBytesAttempted )
 	}
 	else
 	{
-		WriteMiniDump();
 		Plat_ExitProcess( EXIT_FAILURE );
 	}
 }

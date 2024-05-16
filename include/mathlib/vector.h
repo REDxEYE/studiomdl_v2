@@ -37,9 +37,6 @@
 
 #include "tier0/dbg.h"
 #include "tier0/platform.h"
-#if !defined( __SPU__ )
-#include "tier0/threadtools.h"
-#endif
 #include "mathlib/vector2d.h"
 #include "mathlib/math_pfns.h"
 #include "tier0/memalloc.h"
@@ -1304,30 +1301,6 @@ inline Vector VectorLerp(const Vector& src1, const Vector& src2, vec_t t )
 	return result;
 }
 
-//-----------------------------------------------------------------------------
-// Temporary storage for vector results so const Vector& results can be returned
-//-----------------------------------------------------------------------------
-#if !defined(__SPU__)
-inline Vector &AllocTempVector()
-{
-	static Vector s_vecTemp[128];
-	static CInterlockedInt s_nIndex;
-
-	int nIndex;
-	for (;;)
-	{
-		int nOldIndex = s_nIndex;
-		nIndex = ( (nOldIndex + 0x10001) & 0x7F );
-
-		if ( s_nIndex.AssignIf( nOldIndex, nIndex ) )
-		{
-			break;
-		}
-		ThreadPause();
-	} 
-	return s_vecTemp[nIndex];
-}
-#endif
 
 
 //-----------------------------------------------------------------------------

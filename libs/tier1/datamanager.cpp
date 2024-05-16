@@ -157,7 +157,7 @@ void CDataManagerBase::DestroyResource( memhandle_t handle )
 
 void *CDataManagerBase::LockResource( memhandle_t handle )
 {
-	AUTO_LOCK_DM();
+
 	unsigned short memoryIndex = FromHandle(handle);
 	if ( memoryIndex != m_memoryLists.InvalidIndex() )
 	{
@@ -176,7 +176,7 @@ void *CDataManagerBase::LockResource( memhandle_t handle )
 
 void *CDataManagerBase::LockResourceReturnCount( int *pCount, memhandle_t handle )
 {
-	AUTO_LOCK_DM();
+
 	unsigned short memoryIndex = FromHandle(handle);
 	if ( memoryIndex != m_memoryLists.InvalidIndex() )
 	{
@@ -196,7 +196,7 @@ void *CDataManagerBase::LockResourceReturnCount( int *pCount, memhandle_t handle
 
 int CDataManagerBase::UnlockResource( memhandle_t handle )
 {
-	AUTO_LOCK_DM();
+
 	unsigned short memoryIndex = FromHandle(handle);
 	if ( memoryIndex != m_memoryLists.InvalidIndex() )
 	{
@@ -218,7 +218,7 @@ int CDataManagerBase::UnlockResource( memhandle_t handle )
 
 void *CDataManagerBase::GetResource_NoLockNoLRUTouch( memhandle_t handle )
 {
-	AUTO_LOCK_DM();
+
 	unsigned short memoryIndex = FromHandle(handle);
 	if ( memoryIndex != m_memoryLists.InvalidIndex() )
 	{
@@ -230,7 +230,7 @@ void *CDataManagerBase::GetResource_NoLockNoLRUTouch( memhandle_t handle )
 
 void *CDataManagerBase::GetResource_NoLock( memhandle_t handle )
 {
-	AUTO_LOCK_DM();
+
 	unsigned short memoryIndex = FromHandle(handle);
 	if ( memoryIndex != m_memoryLists.InvalidIndex() )
 	{
@@ -242,13 +242,13 @@ void *CDataManagerBase::GetResource_NoLock( memhandle_t handle )
 
 void CDataManagerBase::TouchResource( memhandle_t handle )
 {
-	AUTO_LOCK_DM();
+
 	TouchByIndex( FromHandle(handle) );
 }
 
 void CDataManagerBase::MarkAsStale( memhandle_t handle )
 {
-	AUTO_LOCK_DM();
+
 	unsigned short memoryIndex = FromHandle(handle);
 	if ( memoryIndex != m_memoryLists.InvalidIndex() )
 	{
@@ -262,7 +262,7 @@ void CDataManagerBase::MarkAsStale( memhandle_t handle )
 
 int CDataManagerBase::BreakLock( memhandle_t handle )
 {
-	AUTO_LOCK_DM();
+
 	unsigned short memoryIndex = FromHandle(handle);
 	if ( memoryIndex != m_memoryLists.InvalidIndex() && m_memoryLists[memoryIndex].lockCount )
 	{
@@ -278,7 +278,7 @@ int CDataManagerBase::BreakLock( memhandle_t handle )
 
 int CDataManagerBase::BreakAllLocks()
 {
-	AUTO_LOCK_DM();
+
 	int nBroken = 0;
 	int node;
 	int nextNode;
@@ -300,7 +300,7 @@ int CDataManagerBase::BreakAllLocks()
 
 unsigned short CDataManagerBase::CreateHandle( bool bCreateLocked )
 {
-	AUTO_LOCK_DM();
+
 	int memoryIndex = m_memoryLists.Head(m_freeList);
 	unsigned short list = ( bCreateLocked ) ? m_lockList : m_lruList;
 	if ( memoryIndex != m_memoryLists.InvalidIndex() )
@@ -323,7 +323,7 @@ unsigned short CDataManagerBase::CreateHandle( bool bCreateLocked )
 
 memhandle_t CDataManagerBase::StoreResourceInHandle( unsigned short memoryIndex, void *pStore, unsigned int realSize )
 {
-	AUTO_LOCK_DM();
+
 	resource_lru_element_t &mem = m_memoryLists[memoryIndex];
 	mem.pStore = pStore;
 	m_memUsed += realSize;

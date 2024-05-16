@@ -7,20 +7,12 @@
 
 #include <vstdlib/ikeyvaluessystem.h>
 #include <tier1/keyvalues.h>
-#include <tier0/platform.h>
 #include "tier1/mempool.h"
 #include "tier1/utlsymbol.h"
 #include "tier1/utlmap.h"
-#include "tier0/threadtools.h"
 #include "tier1/memstack.h"
 #include "tier1/convar.h"
 
-#ifdef _PS3
-#include "ps3/ps3_core.h"
-#endif
-
-// memdbgon must be the last include file in a .cpp file!!!
-//#include <tier0/memdbgon.h>
 
 #ifdef NO_SBH // no need to pool if using tier0 small block heap
 #define KEYVALUES_USE_POOL 1
@@ -143,7 +135,6 @@ private:
 
 	CUtlMap< HKeySymbol, bool > m_KvConditionalSymbolTable;
 
-	CThreadFastMutex m_mutex;
 };
 
 // EXPOSE_SINGLE_INTERFACE(CKeyValuesSystem, IKeyValuesSystem, KEYVALUES_INTERFACE_VERSION);
@@ -280,7 +271,7 @@ HKeySymbol CKeyValuesSystem::GetSymbolForString( const char *name, bool bCreate 
 		return (-1);
 	}
 
-	AUTO_LOCK( m_mutex );
+	
 	MEM_ALLOC_CREDIT();
 
 	int hash = CaseInsensitiveHash(name, m_HashTable.Count());
@@ -344,7 +335,7 @@ HKeySymbol CKeyValuesSystem::GetSymbolForStringCaseSensitive( HKeySymbol &hCaseI
 		return (-1);
 	}
 
-	AUTO_LOCK( m_mutex );
+	
 	MEM_ALLOC_CREDIT();
 
 	int hash = CaseInsensitiveHash(name, m_HashTable.Count());
@@ -522,7 +513,7 @@ void CKeyValuesSystem::SetKeyValuesExpressionSymbol( const char *name, bool bVal
 	HKeySymbol hSym = GetSymbolForString( name, true );	// find or create symbol
 	
 	{
-		AUTO_LOCK( m_mutex );
+		
 		m_KvConditionalSymbolTable.InsertOrReplace( hSym, bValue );
 	}
 }
@@ -538,7 +529,7 @@ bool CKeyValuesSystem::GetKeyValuesExpressionSymbol( const char *name )
 	HKeySymbol hSym = GetSymbolForString( name, false );	// find or create symbol
 	if ( hSym != -1 )
 	{
-		AUTO_LOCK( m_mutex );
+		
 		CUtlMap< HKeySymbol, bool >::IndexType_t idx = m_KvConditionalSymbolTable.Find( hSym );
 		if ( idx != m_KvConditionalSymbolTable.InvalidIndex() )
 		{

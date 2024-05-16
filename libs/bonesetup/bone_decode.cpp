@@ -11,11 +11,8 @@
 #include "studiomdl/bone_setup.h"
 #include <cstring>
 
-#include "tier0/vprof.h"
-#include "tier0/tslist.h"
 #include "datacache/idatacache.h"
 
-#include "tier0/miniprofiler.h"
 
 #ifdef CLIENT_DLL
 	#include "posedebugger.h"
@@ -23,8 +20,6 @@
 
 #include "bone_utils.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-//#include "tier0/memdbgon.h"
 
 
 //-----------------------------------------------------------------------------
@@ -32,7 +27,6 @@
 //-----------------------------------------------------------------------------
 void ExtractAnimValue( int frame, mstudioanimvalue_t *panimvalue, float scale, float &v1, float &v2 )
 {
-	BONE_PROFILE_FUNC();
 	if ( !panimvalue )
 	{
 		v1 = v2 = 0;
@@ -105,7 +99,6 @@ void ExtractAnimValue( int frame, mstudioanimvalue_t *panimvalue, float scale, f
 
 void ExtractAnimValue( int frame, mstudioanimvalue_t *panimvalue, float scale, float &v1 )
 {
-	BONE_PROFILE_FUNC();
 	if ( !panimvalue )
 	{
 		v1 = 0;
@@ -144,7 +137,6 @@ void CalcBoneQuaternion( int frame, float s,
 						int iBaseFlags, const Quaternion &baseAlignment, 
 						const mstudio_rle_anim_t *panim, Quaternion &q )
 {
-	BONE_PROFILE_FUNC();
 	if ( panim->flags & STUDIO_ANIM_RAWROT )
 	{
 		q = *(panim->pQuat48());
@@ -266,7 +258,6 @@ void CalcBonePosition(	int frame, float s,
 						const Vector &basePos, const Vector &baseBoneScale, 
 						const mstudio_rle_anim_t *panim, BoneVector &pos	)
 {
-	BONE_PROFILE_FUNC();
 	if (panim->flags & STUDIO_ANIM_RAWPOS)
 	{
 		pos = *(panim->pPos());
@@ -339,7 +330,6 @@ inline void CalcBonePosition( int frame, float s,
 
 void CalcDecompressedAnimation( const mstudiocompressedikerror_t *pCompressed, int iFrame, float fraq, BoneVector &pos, BoneQuaternion &q )
 {
-	BONE_PROFILE_FUNC();
 	if (fraq > 0.0001f)
 	{
 		Vector p1, p2;
@@ -401,7 +391,6 @@ static void CalcLocalHierarchyAnimation(
 	int boneMask
 	)
 {
-	BONE_PROFILE_FUNC();
 	BoneVector localPos;
 	BoneQuaternion localQ;
 
@@ -506,7 +495,6 @@ static void CalcLocalHierarchyAnimation(
 
 static void CalcZeroframeData( const CStudioHdr *pStudioHdr, const studiohdr_t *pAnimStudioHdr, const virtualgroup_t *pAnimGroup, const mstudiobone_t *pAnimbone, mstudioanimdesc_t &animdesc, float fFrame, BoneVector *pos, BoneQuaternion *q, int boneMask, float flWeight )
 {
-	BONE_PROFILE_FUNC();
 	byte *pData = animdesc.pZeroFrameData();
 
 	if (!pData)
@@ -655,7 +643,6 @@ static void CalcZeroframeData( const CStudioHdr *pStudioHdr, const studiohdr_t *
 
 inline byte *ExtractTwoFrames( byte flags, float s, byte *RESTRICT pFrameData, byte *&pConstantData, int framelength, BoneQuaternion &q, BoneVector &pos, bool bIsDelta = false, const mstudiolinearbone_t *pLinearBones = NULL, int bone = 0 )
 {
-	BONE_PROFILE_FUNC();
 #ifdef _GAMECONSOLE
 	if (flags & STUDIO_FRAME_ANIM_ROT)
 	{
@@ -878,7 +865,6 @@ inline byte *ExtractTwoFrames( byte flags, float s, byte *RESTRICT pFrameData, b
 
 inline byte *ExtractSingleFrame( byte flags, byte *pFrameData, byte *&pConstantData, BoneQuaternion &q, BoneVector &pos, bool bIsDelta = false, const mstudiolinearbone_t *pLinearBones = NULL, int bone = 0 )
 {
-	BONE_PROFILE_FUNC();
 #ifdef _GAMECONSOLE
 	if (flags & STUDIO_FRAME_ANIM_ROT)
 	{
@@ -1074,7 +1060,6 @@ inline byte *ExtractSingleFrame( byte flags, byte *pFrameData, byte *&pConstantD
 
 inline byte *SkipBoneFrame( byte flags, byte * RESTRICT pFrameData, byte *&pConstantData )
 {
-	BONE_PROFILE_FUNC();
 	if (flags & STUDIO_FRAME_ANIM_ROT)
 	{
 		pFrameData += sizeof( Quaternion48 );
@@ -1122,7 +1107,6 @@ void SetupSingleBoneMatrix(
 	int iBone, 
 	matrix3x4_t &mBoneLocal )
 {
-	BONE_PROFILE_FUNC();
 	// FIXME: why does anyone call this instead of just looking up that entities cached animation?
 	// Reading the callers, I don't see how what it returns is of any use
 
@@ -1204,7 +1188,6 @@ static void CalcVirtualAnimation( virtualmodel_t *pVModel, const CStudioHdr *pSt
 	float cycle, int boneMask )
 {
 	BONE_PROFILE_FUNC(); // ex: x360: up to 1.4ms 
-	SNPROF_ANIM("CalcVirtualAnimation");
 
 	int	i, j, k;
 
@@ -1418,7 +1401,7 @@ static void CalcVirtualAnimation( virtualmodel_t *pVModel, const CStudioHdr *pSt
 	// calculate a local hierarchy override
 	if (animdesc.numlocalhierarchy)
 	{
-		matrix3x4a_t *boneToWorld = g_MatrixPool.Alloc();
+        matrix3x4a_t *boneToWorld = (matrix3x4a_t*)MemAlloc_Alloc(sizeof(matrix3x4a_t));
 		CBoneBitList boneComputed;
 
 		int i;
@@ -1440,7 +1423,7 @@ static void CalcVirtualAnimation( virtualmodel_t *pVModel, const CStudioHdr *pSt
 			}
 		}
 
-		g_MatrixPool.Free( boneToWorld );
+        MemAlloc_Free(boneToWorld);
 	}
 }
 
@@ -1454,7 +1437,6 @@ void CalcAnimation( const CStudioHdr *pStudioHdr, BoneVector *pos, BoneQuaternio
 	int sequence, int animation,
 	float cycle, int boneMask )
 {
-	BONE_PROFILE_FUNC();
 #ifdef STUDIO_ENABLE_PERF_COUNTERS
 	pStudioHdr->m_nPerfAnimationLayers++;
 #endif
@@ -1466,8 +1448,6 @@ void CalcAnimation( const CStudioHdr *pStudioHdr, BoneVector *pos, BoneQuaternio
 		CalcVirtualAnimation( pVModel, pStudioHdr, pos, q, seqdesc, sequence, animation, cycle, boneMask );
 		return;
 	}
-
-	SNPROF_ANIM("CalcAnimation");
 
 #if _DEBUG
 	extern IDataCache *g_pDataCache;
@@ -1647,7 +1627,7 @@ void CalcAnimation( const CStudioHdr *pStudioHdr, BoneVector *pos, BoneQuaternio
 
 	if (animdesc.numlocalhierarchy)
 	{
-		matrix3x4a_t *boneToWorld = g_MatrixPool.Alloc();
+		matrix3x4a_t *boneToWorld = (matrix3x4a_t*) MemAlloc_Alloc(sizeof(matrix3x4a_t));
 		CBoneBitList boneComputed;
 
 		int i;
@@ -1667,7 +1647,7 @@ void CalcAnimation( const CStudioHdr *pStudioHdr, BoneVector *pos, BoneQuaternio
 			}
 		}
 
-		g_MatrixPool.Free( boneToWorld );
+        MemAlloc_Free( boneToWorld );
 	}
 }
 

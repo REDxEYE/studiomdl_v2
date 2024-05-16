@@ -19,7 +19,6 @@
 #include "datamodel/idatamodel.h"
 #include "datamodel/dmattribute.h"
 #include "datamodel/dmvar.h"
-#include "tier0/vprof.h" 
 #include "tier1/utlsymbollarge.h"
 
 //-----------------------------------------------------------------------------

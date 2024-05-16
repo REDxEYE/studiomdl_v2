@@ -25,7 +25,6 @@
 #include "clipboardmanager.h"
 #include "undomanager.h"
 #include "tier1/convar.h"
-#include "tier0/vprof.h" 
 
 
 //-----------------------------------------------------------------------------
@@ -448,7 +447,7 @@ private:
 
 	IDmElementFactory *m_pDefaultFactory;
 	CUtlDict< CDmElementFactoryHelper*, int >	m_Factories;
-	CUtlSymbolTableLargeMT m_SymbolTable;
+	CUtlSymbolTableLarge m_SymbolTable;
 	CUtlHandleTable< CDmElement, 21 > m_Handles;
 	CUtlHandleTable< CDmAttribute, 21 > m_AttributeHandles;
 	CUndoManager m_UndoMgr;

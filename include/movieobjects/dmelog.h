@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright ï¿½ 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
@@ -994,8 +994,6 @@ inline float Normalize( const Quaternion& val )
 template< class T >
 inline void CDmeTypedLog< T >::BuildNormalizedLayer( int nChannels, CDmeTypedLogLayer< float > **pChannels, int nLayer )
 {
-	VPROF_BUDGET( "CDmeTypedLog< T >::BuildNormalizedLayer", "SFM" );
-
 	Assert( pChannels );
 	Assert( GetDataType() != AT_FLOAT );
 

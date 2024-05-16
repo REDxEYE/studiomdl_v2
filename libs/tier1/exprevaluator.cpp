@@ -14,8 +14,6 @@
 #include "tier1/fmtstr.h"
 #include "tier0/dbg.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-//#include "tier0/memdbgon.h"
 
 //-----------------------------------------------------------------------------
 // Default conditional symbol handler callback. Symbols are the form $<name>.

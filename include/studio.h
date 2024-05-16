@@ -19,7 +19,7 @@
 #include "mathlib/vector4d.h"
 #include "mathlib/compressed_vector.h"
 #include "tier0/dbg.h"
-#include "tier0/threadtools.h"
+
 #include "mathlib/mathlib.h"
 #include "tier1/utlvector.h"
 #include "tier1/utlhash.h"
@@ -2031,8 +2031,6 @@ struct virtualmodel_t
 	virtualgroup_t *pAnimGroup( int animation ) { return &m_group[ m_anim[ animation ].group ]; }; // Note: user must manage mutex for this
 	virtualgroup_t *pSeqGroup( int sequence ) { return &m_group[ m_seq[ sequence ].group ]; }; // Note: user must manage mutex for this
 
-    CThreadFastMutex m_Lock;
-
 	CUtlVector< virtualsequence_t > m_seq;
 	CUtlVector< virtualgeneric_t > m_anim;
 	CUtlVector< virtualgeneric_t > m_attachment;
@@ -2881,7 +2879,6 @@ private:
 
 	mutable int			m_nFrameUnlockCounter;
 	int	*				m_pFrameUnlockCounter;
-	CThreadFastMutex	m_FrameUnlockCounterMutex;
 
 public:
 	inline int			numbones( void ) const { return m_pStudioHdr->numbones; };

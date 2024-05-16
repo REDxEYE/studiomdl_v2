@@ -20,8 +20,7 @@
 #include "xbox/xbox_launch.h"
 #endif
 
-// NOTE: This has to be the last file included!
-//#include "tier0/memdbgon.h"
+
 
 
 //-----------------------------------------------------------------------------

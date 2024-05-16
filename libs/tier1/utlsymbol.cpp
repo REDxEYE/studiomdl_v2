@@ -9,10 +9,6 @@
 #pragma warning (disable:4514)
 
 #include "utlsymbol.h"
-#include "tier0/threadtools.h"
-#include "stringpool.h"
-#include "generichash.h"
-#include "tier0/vprof.h"
 #include <stddef.h>
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -26,7 +22,7 @@
 // globals
 //-----------------------------------------------------------------------------
 
-CUtlSymbolTableMT* CUtlSymbol::s_pSymbolTable = 0; 
+CUtlSymbolTable* CUtlSymbol::s_pSymbolTable = 0;
 bool CUtlSymbol::s_bAllowStaticSymbolTable = true;
 
 
@@ -45,22 +41,10 @@ void CUtlSymbol::Initialize()
 	static bool symbolsInitialized = false;
 	if (!symbolsInitialized)
 	{
-		s_pSymbolTable = new CUtlSymbolTableMT;
+		s_pSymbolTable = new CUtlSymbolTable;
 		symbolsInitialized = true;
 	}
 }
-
-void CUtlSymbol::LockTableForRead()
-{
-	Initialize();
-	s_pSymbolTable->LockForRead();
-}
-
-void CUtlSymbol::UnlockTableForRead()
-{
-	s_pSymbolTable->UnlockForRead();
-}
-
 //-----------------------------------------------------------------------------
 // Purpose: Singleton to delete table on exit from module
 //-----------------------------------------------------------------------------
@@ -76,7 +60,7 @@ public:
 
 static CCleanupUtlSymbolTable g_CleanupSymbolTable;
 
-CUtlSymbolTableMT* CUtlSymbol::CurrTable()
+CUtlSymbolTable* CUtlSymbol::CurrTable()
 {
 	Initialize();
 	return s_pSymbolTable; 
@@ -97,10 +81,6 @@ const char* CUtlSymbol::String( ) const
 	return CurrTable()->String(m_Id);
 }
 
-const char* CUtlSymbol::StringNoLock( ) const
-{
-	return CurrTable()->StringNoLock(m_Id);
-}
 
 void CUtlSymbol::DisableStaticSymbolTable()
 {
@@ -242,7 +222,6 @@ CUtlSymbolTable::~CUtlSymbolTable()
 
 CUtlSymbol CUtlSymbolTable::Find( const char* pString ) const
 {	
-	VPROF( "CUtlSymbol::Find" );
 	if (!pString)
 		return CUtlSymbol();
 	
@@ -285,8 +264,7 @@ int CUtlSymbolTable::FindPoolWithSpace( int len )	const
 
 CUtlSymbol CUtlSymbolTable::AddString( const char* pString )
 {
-	VPROF("CUtlSymbol::AddString");
-	if (!pString) 
+	if (!pString)
 		return CUtlSymbol( UTL_INVAL_SYMBOL );
 
 	CUtlSymbol id = Find( pString );
@@ -404,20 +382,20 @@ FileNameHandle_t CUtlFilenameSymbolTable::FindOrAddFileName( const char *pFileNa
 
 	// not found, lock and look again
 	FileNameHandleInternal_t handle;
-	m_lock.LockForWrite();
+
 	handle.SetPath( m_PathStringPool.FindStringHandle( basepath ) );
 	handle.SetFile( m_FileStringPool.FindStringHandle( filename ) );
 	if ( handle.GetPath() && handle.GetFile() )
 	{
 		// found
-		m_lock.UnlockWrite();
+
 		return *( FileNameHandle_t * )( &handle );
 	}
 
 	// safely add it
 	handle.SetPath( m_PathStringPool.ReferenceStringHandle( basepath ) );
 	handle.SetFile( m_FileStringPool.ReferenceStringHandle( filename ) );
-	m_lock.UnlockWrite();
+
 
 	return *( FileNameHandle_t * )( &handle );
 }
@@ -445,10 +423,10 @@ FileNameHandle_t CUtlFilenameSymbolTable::FindFileName( const char *pFileName )
 
 	FileNameHandleInternal_t handle;
 
-	m_lock.LockForRead();
+
 	handle.SetPath( m_PathStringPool.FindStringHandle( basepath ) );
 	handle.SetFile( m_FileStringPool.FindStringHandle( filename ) );
-	m_lock.UnlockRead();
+
 
 
 	if ( ( handle.GetPath() == 0 )  || ( handle.GetFile() == 0 ) )
@@ -472,10 +450,10 @@ bool CUtlFilenameSymbolTable::String( const FileNameHandle_t& handle, char *buf,
 		return false;
 	}
 
-	m_lock.LockForRead();
+
 	const char *path = m_PathStringPool.HandleToString( internalFileHandle->GetPath() );
 	const char *fn = m_FileStringPool.HandleToString( internalFileHandle->GetFile() );
-	m_lock.UnlockRead();
+
 
 	if ( !path || !fn )
 	{
@@ -496,28 +474,28 @@ void CUtlFilenameSymbolTable::RemoveAll()
 
 void CUtlFilenameSymbolTable::SpewStrings()
 {
-	m_lock.LockForRead();
+
 	m_PathStringPool.SpewStrings();
 	m_FileStringPool.SpewStrings();
-	m_lock.UnlockRead();
+
 }
 
 bool CUtlFilenameSymbolTable::SaveToBuffer( CUtlBuffer &buffer )
 {
-	m_lock.LockForRead();
+
 	bool bResult = m_PathStringPool.SaveToBuffer( buffer );
 	bResult = bResult && m_FileStringPool.SaveToBuffer( buffer );
-	m_lock.UnlockRead();
+
 
 	return bResult;
 }
 
 bool CUtlFilenameSymbolTable::RestoreFromBuffer( CUtlBuffer &buffer )
 {
-	m_lock.LockForWrite();
+
 	bool bResult = m_PathStringPool.RestoreFromBuffer( buffer );
 	bResult = bResult && m_FileStringPool.RestoreFromBuffer( buffer );
-	m_lock.UnlockWrite();
+
 
 	return bResult;
 }

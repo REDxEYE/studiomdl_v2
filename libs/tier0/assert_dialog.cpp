@@ -19,8 +19,9 @@ char *GetCommandLine();
 #endif
 #include "resource.h"
 #include "tier0/valve_on.h"
-#include "tier0/threadtools.h"
+
 #include "tier0/icommandline.h"
+#include "dbg.h"
 
 #if defined( LINUX ) || defined( OSX )
 #include <dlfcn.h>
@@ -416,7 +417,6 @@ PLATFORM_INTERFACE bool ShouldUseNewAssertDialog()
 
 PLATFORM_INTERFACE bool DoNewAssertDialog( const tchar *pFilename, int line, const tchar *pExpression )
 {
-	LOCAL_THREAD_LOCK();
 
 	if ( AreAssertsDisabled() )
 		return false;
@@ -575,7 +575,7 @@ PLATFORM_INTERFACE bool DoNewAssertDialog( const tchar *pFilename, int line, con
 
 #elif defined( _WIN32 )
 
-if ( !g_hTier0Instance || !ThreadInMainThread() )
+if ( !g_hTier0Instance)
 {
 	int result = MessageBox( NULL,  pExpression, "Assertion Failed", MB_SYSTEMMODAL | MB_CANCELTRYCONTINUE );
 

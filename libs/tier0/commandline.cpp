@@ -22,8 +22,6 @@
 #define _MAX_PATH PATH_MAX
 #endif
 
-// memdbgon must be the last include file in a .cpp file!!!
-//#include "tier0/memdbgon.h"
 
 
 static const int MAX_PARAMETER_LEN = 128;

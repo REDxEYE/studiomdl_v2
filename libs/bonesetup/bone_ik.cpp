@@ -15,13 +15,11 @@
 
 #include <cstring>
 
-#include "tier0/vprof.h"
-#include "tier0/tslist.h"
+
+
 
 #include "bone_utils.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-//#include "tier0/memdbgon.h"
 
 
 class CIKSolver
@@ -52,7 +50,7 @@ public:
    static float findD(float a, float b, float c) {
       return (c + (a*a-b*b)/c) / 2;
    }
-   static float findE(float a, float d) { return sqrt(a*a-d*d); } 
+   static float findE(float a, float d) { return sqrt(a*a-d*d); }
 
 // This leads to a solution to the more general problem:
 //
@@ -181,7 +179,6 @@ bool Studio_SolveIK( mstudioikchain_t *pikchain, Vector &targetFoot, matrix3x4a_
 
 bool Studio_SolveIK( int iThigh, int iKnee, int iFoot, Vector &targetFoot, matrix3x4a_t *pBoneToWorld )
 {
-	BONE_PROFILE_FUNC();
 	Vector worldFoot, worldKnee, worldThigh;
 
 	MatrixPosition( pBoneToWorld[ iThigh ], worldThigh );
@@ -206,7 +203,7 @@ bool Studio_SolveIK( int iThigh, int iKnee, int iFoot, Vector &targetFoot, matri
 		return false;
 	}
 
-	// If any of the thigh to knee to foot bones are co-positional, then solving ik doesn't make sense. 
+	// If any of the thigh to knee to foot bones are co-positional, then solving ik doesn't make sense.
 	// We're probably looking at uninitialized bones or something
 	if ( l1 <= 0 || l2 <= 0 || l3 <= 0 )
 	{
@@ -227,7 +224,6 @@ bool Studio_SolveIK( int iThigh, int iKnee, int iFoot, Vector &targetFoot, matri
 //-----------------------------------------------------------------------------
 void Studio_AlignIKMatrix( matrix3x4a_t &mMat, const Vector &vAlignTo )
 {
-	BONE_PROFILE_FUNC();
 	Vector tmp1, tmp2, tmp3;
 
 	// Column 0 (X) becomes the vector.
@@ -254,7 +250,6 @@ void Studio_AlignIKMatrix( matrix3x4a_t &mMat, const Vector &vAlignTo )
 
 bool Studio_SolveIK( int iThigh, int iKnee, int iFoot, Vector &targetFoot, Vector &targetKneePos, Vector &targetKneeDir, matrix3x4a_t *pBoneToWorld )
 {
-	BONE_PROFILE_FUNC();
 	Vector worldFoot, worldKnee, worldThigh;
 
 	MatrixPosition( pBoneToWorld[ iThigh ], worldThigh );
@@ -523,7 +518,6 @@ bool Studio_IKAnimationError( const CStudioHdr *pStudioHdr, mstudioikrule_t *pRu
 
 bool Studio_IKSequenceError( const CStudioHdr *pStudioHdr, mstudioseqdesc_t &seqdesc, int iSequence, float flCycle, int iRule, const float poseParameter[], mstudioanimdesc_t *panim[4], float weight[4], ikcontextikrule_t &ikRule )
 {
-	BONE_PROFILE_FUNC();
 	int i;
 
 	memset( &ikRule, 0, sizeof(ikRule) );
@@ -766,8 +760,6 @@ CIKContext::CIKContext()
 
 void CIKContext::Init( const CStudioHdr *pStudioHdr, const QAngle &angles, const Vector &pos, float flTime, int iFramecounter, int boneMask )
 {
-	BONE_PROFILE_FUNC();
-	SNPROF_ANIM( "CIKContext::Init" );
 
 	m_pStudioHdr = pStudioHdr;
 	m_ikChainRule.RemoveAll(); // m_numikrules = 0;
@@ -797,7 +789,6 @@ void CIKContext::Init( const CStudioHdr *pStudioHdr, const QAngle &angles, const
 void CIKContext::AddDependencies( mstudioseqdesc_t &seqdesc, int iSequence, float flCycle, const float poseParameters[], float flWeight )
 {
 	BONE_PROFILE_FUNC(); // ex: x360: up to 1 ms
-	SNPROF_ANIM("CIKContext::AddDependencies");
 
 	int i;
 
@@ -890,7 +881,6 @@ void CIKContext::AddDependencies( mstudioseqdesc_t &seqdesc, int iSequence, floa
 //--------------------------------------------------------------------------------------
 void CIKContext::AddAllDependencies_PS3( ikcontextikrule_t *ikRules, int numRules )
 {
-	SNPROF_ANIM("CIKContext::AddAllDependencies_PS3");
 
 	int i;
 
@@ -948,14 +938,13 @@ void CIKContext::AddAllDependencies_PS3( ikcontextikrule_t *ikRules, int numRule
 
 void CIKContext::AddAutoplayLocks( BoneVector pos[], BoneQuaternion q[] )
 {
-	BONE_PROFILE_FUNC();
 	// skip all array access if no autoplay locks.
 	if (m_pStudioHdr->GetNumIKAutoplayLocks() == 0)
 	{
 		return;
 	}
 
-	matrix3x4a_t *boneToWorld = g_MatrixPool.Alloc();
+	matrix3x4a_t *boneToWorld = (matrix3x4a_t*)MemAlloc_Alloc(sizeof(matrix3x4a_t));
 	CBoneBitList boneComputed;
 
 	int ikOffset = m_ikLock.AddMultipleToTail( m_pStudioHdr->GetNumIKAutoplayLocks() );
@@ -987,14 +976,14 @@ void CIKContext::AddAutoplayLocks( BoneVector pos[], BoneQuaternion q[] )
 		{
 			Vector tmp = pchain->pLink( 0 )->kneeDir;
 			VectorRotate( pchain->pLink( 0 )->kneeDir, boneToWorld[ pchain->pLink( 0 )->bone ], ikrule.kneeDir );
-			MatrixPosition( boneToWorld[ pchain->pLink( 1 )->bone ], ikrule.kneePos ); 
+			MatrixPosition( boneToWorld[ pchain->pLink( 1 )->bone ], ikrule.kneePos );
 		}
 		else
 		{
 			ikrule.kneeDir.Init( );
 		}
 	}
-	g_MatrixPool.Free( boneToWorld );
+	MemAlloc_Free( boneToWorld );
 }
 
 
@@ -1005,7 +994,6 @@ void CIKContext::AddAutoplayLocks( BoneVector pos[], BoneQuaternion q[] )
 void CIKContext::AddSequenceLocks( mstudioseqdesc_t &seqdesc, BoneVector pos[], BoneQuaternion q[] )
 {
 	BONE_PROFILE_FUNC(); // ex: x360:up to 0.98 ms
-	SNPROF_ANIM("CIKContext::AddSequenceLocks");
 
 	if ( m_pStudioHdr->numikchains() == 0)
 	{
@@ -1017,7 +1005,7 @@ void CIKContext::AddSequenceLocks( mstudioseqdesc_t &seqdesc, BoneVector pos[], 
 		return;
 	}
 
-	matrix3x4a_t *boneToWorld = g_MatrixPool.Alloc();
+	matrix3x4a_t *boneToWorld = (matrix3x4a_t*)MemAlloc_Alloc(sizeof(matrix3x4a_t));
 	CBoneBitList boneComputed;
 
 	int ikOffset = m_ikLock.AddMultipleToTail( seqdesc.numiklocks );
@@ -1053,15 +1041,15 @@ void CIKContext::AddSequenceLocks( mstudioseqdesc_t &seqdesc, BoneVector pos[], 
 			ikrule.kneeDir.Init( );
 		}
 	}
-	g_MatrixPool.Free( boneToWorld );
+	MemAlloc_Free( boneToWorld );
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: build boneToWorld transforms for a specific bone
 //-----------------------------------------------------------------------------
 void CIKContext::BuildBoneChain(
-	const BoneVector pos[], 
-	const BoneQuaternion q[], 
+	const BoneVector pos[],
+	const BoneQuaternion q[],
 	int	iBone,
 	matrix3x4a_t *pBoneToWorld,
 	CBoneBitList &boneComputed )
@@ -1074,11 +1062,11 @@ void CIKContext::BuildBoneChain(
 //-----------------------------------------------------------------------------
 // Purpose: turn a specific bones boneToWorld transform into a pos and q in parents bonespace
 //-----------------------------------------------------------------------------
-void SolveBone( 
+void SolveBone(
 	const CStudioHdr *pStudioHdr,
 	int	iBone,
 	matrix3x4a_t *pBoneToWorld,
-	BoneVector pos[], 
+	BoneVector pos[],
 	BoneQuaternion q[]
 	)
 {
@@ -1237,7 +1225,7 @@ void CIKTarget::SetOnWorld( bool bOnWorld )
 //-----------------------------------------------------------------------------
 
 bool CIKTarget::IsActive()
-{ 
+{
 	return (est.flWeight > 0.0f);
 }
 
@@ -1291,9 +1279,6 @@ void CIKContext::ClearTargets( void )
 
 void CIKContext::UpdateTargets( BoneVector pos[], BoneQuaternion q[], matrix3x4a_t boneToWorld[], CBoneBitList &boneComputed )
 {
-	BONE_PROFILE_FUNC();
-
-	SNPROF_ANIM( "CIKContext::UpdateTargets" );
 
 	int i, j;
 
@@ -1532,7 +1517,6 @@ void CIKContext::UpdateTargets( BoneVector pos[], BoneQuaternion q[], matrix3x4a
 
 void CIKContext::AutoIKRelease( void )
 {
-	BONE_PROFILE_FUNC();
 	int i;
 
 	for (i = 0; i < m_target.Count(); i++)
@@ -1544,7 +1528,7 @@ void CIKContext::AutoIKRelease( void )
 		{
 			if (!pTarget->error.bInError)
 			{
-				pTarget->error.ramp = 0.0; 
+				pTarget->error.ramp = 0.0;
 				pTarget->error.flErrorTime = pTarget->error.flTime;
 				pTarget->error.bInError = true;
 			}
@@ -1632,8 +1616,6 @@ void CIKContext::SolveDependencies( BoneVector pos[], BoneQuaternion q[], matrix
 {
 	BONE_PROFILE_FUNC(); // ex: x360: up to 1.16ms
 //	ASSERT_NO_REENTRY();
-	
-	SNPROF_ANIM( "CIKContext::SolveDependencies" );
 
 	matrix3x4a_t worldTarget;
 	int i, j;
@@ -1686,13 +1668,13 @@ void CIKContext::SolveDependencies( BoneVector pos[], BoneQuaternion q[], matrix
 					{
 						ConcatTransforms_Aligned( m_rootxform, local, worldTarget );
 					}
-			
+
 					float flWeight = pRule->flWeight * pRule->flRuleWeight;
 					pChainResult->flWeight = pChainResult->flWeight * (1.0f - flWeight) + flWeight;
 
 					Vector p2;
 					Quaternion q2;
-					
+
 					// target p and q
 					MatrixAngles( worldTarget, q2, p2 );
 
@@ -1722,7 +1704,7 @@ void CIKContext::SolveDependencies( BoneVector pos[], BoneQuaternion q[], matrix
 
 					Vector p2;
 					Quaternion q2;
-					
+
 					BuildBoneChain( pos, q, bone, boneToWorld, boneComputed );
 					MatrixAngles( boneToWorld[bone], q2, p2 );
 
@@ -1828,7 +1810,7 @@ void CIKContext::SolveDependencies( BoneVector pos[], BoneQuaternion q[], matrix
 		// current p and q
 		MatrixAngles( boneToWorld[bone], q1, p1 );
 
-		
+
 		// target p and q
 		MatrixAngles( worldTarget, q2, p2 );
 
@@ -1866,7 +1848,6 @@ void CIKContext::SolveDependencies( BoneVector pos[], BoneQuaternion q[], matrix
 //-----------------------------------------------------------------------------------------------------------------------
 void CIKContext::SolveDependencies_PS3( bonejob_SPU_2 *pBonejob, CBoneBitList &boneComputed )
 {
-	SNPROF_ANIM( "CIKContext::SolveDependencies_PS3" );
 
 	int i, j;
 
@@ -1880,7 +1861,7 @@ void CIKContext::SolveDependencies_PS3( bonejob_SPU_2 *pBonejob, CBoneBitList &b
 		if( boneComputed.IsBoneMarked( i ) )
 		{
 			// mark bone
-			pBonejob->boneComputed.MarkBone( i );	
+			pBonejob->boneComputed.MarkBone( i );
 
 			// copy matrix
 			//pBonejob->boneToWorld[ i ] = boneToWorld[ i ];
@@ -1897,7 +1878,7 @@ void CIKContext::SolveDependencies_PS3( bonejob_SPU_2 *pBonejob, CBoneBitList &b
 		mstudioikchain_t *pchain	 = m_pStudioHdr->pIKChain( i );
 
 		ikChain_SPU      *pchain_SPU = &pBonejob->ikChains[ i ];
-		
+
 		pchain_SPU->bone0	 = pchain->pLink( 0 )->bone;
 		pchain_SPU->bone1	 = pchain->pLink( 1 )->bone;
 		pchain_SPU->bone2	 = pchain->pLink( 2 )->bone;
@@ -1975,12 +1956,12 @@ void CIKContext::SolveDependencies_PS3( bonejob_SPU_2 *pBonejob, CBoneBitList &b
 //-----------------------------------------------------------------------------
 
 void CIKContext::SolveAutoplayLocks(
-	BoneVector pos[], 
+	BoneVector pos[],
 	BoneQuaternion q[]
 	)
 {
 	BONE_PROFILE_FUNC(); // ex: x360: 2.44ms
-	matrix3x4a_t *boneToWorld = g_MatrixPool.Alloc();
+	matrix3x4a_t *boneToWorld = (matrix3x4a_t*)MemAlloc_Alloc(sizeof(matrix3x4a_t));
 	CBoneBitList boneComputed;
 	int i;
 
@@ -1989,7 +1970,7 @@ void CIKContext::SolveAutoplayLocks(
 		const mstudioiklock_t &lock = ((CStudioHdr *)m_pStudioHdr)->pIKAutoplayLock( i );
 		SolveLock( &lock, i, pos, q, boneToWorld, boneComputed );
 	}
-	g_MatrixPool.Free( boneToWorld );
+	MemAlloc_Free( boneToWorld );
 }
 
 
@@ -2000,14 +1981,12 @@ void CIKContext::SolveAutoplayLocks(
 
 void CIKContext::SolveSequenceLocks(
 	mstudioseqdesc_t &seqdesc,
-	BoneVector pos[], 
+	BoneVector pos[],
 	BoneQuaternion q[]
 	)
 {
-	BONE_PROFILE_FUNC();
-	SNPROF_ANIM("CIKContext::SolveSequenceLocks");
 
-	matrix3x4a_t *boneToWorld = g_MatrixPool.Alloc();
+	matrix3x4a_t *boneToWorld = (matrix3x4a_t*)MemAlloc_Alloc(sizeof(matrix3x4a_t));
 	CBoneBitList boneComputed;
 	int i;
 
@@ -2016,7 +1995,7 @@ void CIKContext::SolveSequenceLocks(
 		mstudioiklock_t *plock = seqdesc.pIKLock( i );
 		SolveLock( plock, i, pos, q, boneToWorld, boneComputed );
 	}
-	g_MatrixPool.Free( boneToWorld );
+	MemAlloc_Free( boneToWorld );
 }
 
 
@@ -2026,14 +2005,13 @@ void CIKContext::SolveSequenceLocks(
 
 void CIKContext::AddAllLocks( BoneVector pos[], BoneQuaternion q[] )
 {
-	BONE_PROFILE_FUNC();
 	// skip all array access if no autoplay locks.
 	if (m_pStudioHdr->GetNumIKChains() == 0)
 	{
 		return;
 	}
 
-	matrix3x4a_t *boneToWorld = g_MatrixPool.Alloc();
+	matrix3x4a_t *boneToWorld = (matrix3x4a_t*)MemAlloc_Alloc(sizeof(matrix3x4a_t));
 	CBoneBitList boneComputed;
 
 	int ikOffset = m_ikLock.AddMultipleToTail( m_pStudioHdr->GetNumIKChains() );
@@ -2064,14 +2042,14 @@ void CIKContext::AddAllLocks( BoneVector pos[], BoneQuaternion q[] )
 		{
 			Vector tmp = pchain->pLink( 0 )->kneeDir;
 			VectorRotate( pchain->pLink( 0 )->kneeDir, boneToWorld[ pchain->pLink( 0 )->bone ], ikrule.kneeDir );
-			MatrixPosition( boneToWorld[ pchain->pLink( 1 )->bone ], ikrule.kneePos ); 
+			MatrixPosition( boneToWorld[ pchain->pLink( 1 )->bone ], ikrule.kneePos );
 		}
 		else
 		{
 			ikrule.kneeDir.Init( );
 		}
 	}
-	g_MatrixPool.Free( boneToWorld );
+	MemAlloc_Free( boneToWorld );
 }
 
 
@@ -2081,12 +2059,11 @@ void CIKContext::AddAllLocks( BoneVector pos[], BoneQuaternion q[] )
 
 
 void CIKContext::SolveAllLocks(
-	BoneVector pos[], 
+	BoneVector pos[],
 	BoneQuaternion q[]
 	)
 {
-	BONE_PROFILE_FUNC();
-	matrix3x4a_t *boneToWorld = g_MatrixPool.Alloc();
+	matrix3x4a_t *boneToWorld = (matrix3x4a_t*)MemAlloc_Alloc(sizeof(matrix3x4a_t));
 	CBoneBitList boneComputed;
 	int i;
 
@@ -2101,7 +2078,7 @@ void CIKContext::SolveAllLocks(
 
 		SolveLock( &lock, i, pos, q, boneToWorld, boneComputed );
 	}
-	g_MatrixPool.Free( boneToWorld );
+	MemAlloc_Free( boneToWorld );
 }
 
 
@@ -2113,9 +2090,9 @@ void CIKContext::SolveAllLocks(
 void CIKContext::SolveLock(
 	const mstudioiklock_t *plock,
 	int i,
-	BoneVector pos[], 
+	BoneVector pos[],
 	BoneQuaternion q[],
-	matrix3x4a_t boneToWorld[], 
+	matrix3x4a_t boneToWorld[],
 	CBoneBitList &boneComputed
 	)
 {
@@ -2172,7 +2149,7 @@ void CIKContext::CopyTo( CIKContext* pOther, const unsigned short * iRemapping  
 
 	pOther->m_ikChainRule.RemoveAll();
 	pOther->m_ikLock.RemoveAll();
-	
+
 	FOR_EACH_VEC( m_ikChainRule, n )
 	{
 		int nIndex = pOther->m_ikChainRule.AddToTail();
@@ -2211,5 +2188,5 @@ void CIKContext::CopyTo( CIKContext* pOther, const unsigned short * iRemapping  
 		pOther->m_ikLock[nIndex] = m_ikLock[n];
 		pOther->m_ikLock[ nIndex ].bone = nIKChainBone;	// this can be a remapped bone
 	}
-	
+
 }

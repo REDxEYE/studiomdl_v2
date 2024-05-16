@@ -22,19 +22,10 @@
 #include <sys/stat.h>
 #include "tier1/strtools.h"
 #include "filesystem_init.h"
-#include "tier0/icommandline.h"
-#include "tier0/stacktools.h"
 #include "tier1/keyvalues.h"
 #include "appframework/IAppSystemGroup.h"
 #include "tier1/smartptr.h"
-#if defined( _X360 )
-#include "xbox\xbox_win32stubs.h"
-#endif
-#if defined( _PS3 )
-#include "ps3/ps3_win32stubs.h"
-#include "ps3/ps3_helpers.h"
-#include "ps3_pathinfo.h"
-#endif
+
 
 // memdbgon must be the last include file in a .cpp file!!!
 // DISABLED #include "tier0/memdbgon.h"

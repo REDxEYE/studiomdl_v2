@@ -22,8 +22,7 @@
 #include <cstring>
 #include "tier1/strtools.h"
 #include "tier0/icommandline.h"
-#include "tier0/stacktools.h"
-#include "tier0/threadtools.h"
+
 #ifdef _WIN32
 #include <direct.h> // getcwd
 #endif
@@ -216,21 +215,6 @@ static DWORD g_nLoadLibraryError = 0;
 
 static HMODULE Sys_LoadLibraryGuts( const char *pLibraryName )
 {
-#ifdef PLATFORM_PS3
-
-	PS3_LoadAppSystemInterface_Parameters_t *pPRX = new PS3_LoadAppSystemInterface_Parameters_t;
-	Q_memset( pPRX, 0, sizeof( PS3_LoadAppSystemInterface_Parameters_t ) );
-	pPRX->cbSize = sizeof( PS3_LoadAppSystemInterface_Parameters_t );
-	int iResult = PS3_PrxLoad( pLibraryName, pPRX );
-	if ( iResult < CELL_OK )
-	{
-		delete pPRX;
-		return NULL;
-	}
-	return reinterpret_cast< HMODULE >( pPRX );
-
-#else
-
 	char str[1024];
 
 	// How to get a string out of a #define on the command line.
@@ -249,66 +233,8 @@ static HMODULE Sys_LoadLibraryGuts( const char *pLibraryName )
 	Q_FixSlashes( str );
 
 #ifdef _WIN32
-	ThreadedLoadLibraryFunc_t threadFunc = GetThreadedLoadLibraryFunc();
-	if ( !threadFunc )
-	{
-		HMODULE retVal = InternalLoadLibrary( str );
-		if( retVal )
-		{
-			StackToolsNotify_LoadedLibrary( str );
-		}
-#if 0	// you can enable this block to help track down why a module isn't loading:
-		else
-		{
-#ifdef  _WINDOWS
-			char buf[1024];
-			FormatMessage( 
-				FORMAT_MESSAGE_FROM_SYSTEM | 
-				FORMAT_MESSAGE_IGNORE_INSERTS,
-				NULL,
-				GetLastError(),
-				0, // Default language
-				(LPTSTR) buf,
-				1023,
-				NULL  // no insert arguments
-				);
-			Warning( "Could not load %s: %s\n", str, buf );
-#endif
-		}
-#endif
-
-		return retVal;
-	}
-
-	ThreadedLoadLibaryContext_t context;
-	context.m_pLibraryName = str;
-	context.m_hLibrary = 0;
-
-	ThreadHandle_t h = CreateSimpleThread( ThreadedLoadLibraryFunc, &context );
-
-#ifdef _X360
-	ThreadSetAffinity( h, XBOX_PROCESSOR_3 );
-#endif
-
-	unsigned int nTimeout = 0;
-	while( WaitForSingleObject( (HANDLE)h, nTimeout ) == WAIT_TIMEOUT )
-	{
-		nTimeout = threadFunc();
-	}
-
-	ReleaseThreadHandle( h );
-
-	if( context.m_hLibrary )
-	{
-		g_nLoadLibraryError = 0;
-		StackToolsNotify_LoadedLibrary( str );
-	}
-	else
-	{
-		g_nLoadLibraryError = context.m_nError;
-	}
-
-	return context.m_hLibrary;
+    HMODULE retVal = InternalLoadLibrary( str );
+    return retVal;
 
 #elif defined( POSIX ) && !defined( _PS3 )
 	HMODULE ret = (HMODULE)dlopen( str, RTLD_NOW );
@@ -328,7 +254,6 @@ static HMODULE Sys_LoadLibraryGuts( const char *pLibraryName )
 	return ret;
 #endif
 
-#endif
 }
 
 static HMODULE Sys_LoadLibrary( const char *pLibraryName )

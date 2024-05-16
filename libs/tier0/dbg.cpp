@@ -15,7 +15,6 @@
 #endif
 
 #include "tier0/minidump.h"
-#include "tier0/stacktools.h"
 #include "tier0/etwprof.h"
 
 #include <assert.h>
@@ -25,9 +24,9 @@
 #include <stdlib.h>
 #include "color.h"
 #include "tier0/dbg.h"
-#include "tier0/threadtools.h"
+
 #include "tier0/icommandline.h"
-#include "tier0/vprof.h"
+
 #include <math.h>
 
 #if defined( _X360 )
@@ -121,11 +120,6 @@ void _ExitOnFatalAssert( const tchar* pFile, int line )
 {
 	Log_Msg( LOG_ASSERT, _T("Fatal assert failed: %s, line %d.  Application exiting.\n"), pFile, line );
 
-	// only write out minidumps if we're not in the debugger
-	if ( !Plat_IsInDebugSession() )
-	{
-		WriteMiniDump();
-	}
 
 	Log_Msg( LOG_DEVELOPER, _T("_ExitOnFatalAssert\n") );
 	Plat_ExitProcess( EXIT_FAILURE );

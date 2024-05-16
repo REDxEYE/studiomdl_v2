@@ -11,10 +11,8 @@
 #include "studiomdl/bone_setup.h"
 #include <cstring>
 
-#include "tier0/vprof.h"
+
 #include "bone_accessor.h"
-#include "tier0/tslist.h"
-#include "tier0/miniprofiler.h"
 
 #ifdef CLIENT_DLL
 	#include "posedebugger.h"
@@ -22,8 +20,6 @@
 
 #include "bone_utils.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-//#include "tier0/memdbgon.h"
 
 //-----------------------------------------------------------------------------
 // Purpose: calculate a pose for a single sequence
@@ -36,8 +32,6 @@ void InitPose(
 	)
 {
 	// const fltx4 zeroQ = Four_Origin;
-	BONE_PROFILE_FUNC();
-	SNPROF_ANIM("InitPose");
 
 	if( mstudiolinearbone_t *pLinearBones = pStudioHdr->pLinearBones() )
 	{
@@ -111,7 +105,6 @@ static ConVar anim_3wayblend( "anim_3wayblend", "1", FCVAR_REPLICATED, "Toggle t
 
 void Calc3WayBlendIndices( int i0, int i1, float s0, float s1, const mstudioseqdesc_t &seqdesc, int *pAnimIndices, float *pWeight )
 {
-	BONE_PROFILE_FUNC();
 	// Figure out which bi-section direction we are using to make triangles.
 	bool bEven = ( ( ( i0 + i1 ) & 0x1 ) == 0 );
 
@@ -204,14 +197,13 @@ bool CalcPoseSingle(
 	)
 {
 	BONE_PROFILE_FUNC(); // ex: x360: up to 1.3ms
-	SNPROF_ANIM("CalcPoseSingle");
 
 	bool bResult = true;
 	
-	BoneVector *pos2 = g_VectorPool.Alloc();
-	BoneQuaternionAligned *q2 = g_QuaternionPool.Alloc();
-	BoneVector *pos3 = g_VectorPool.Alloc();
-	BoneQuaternionAligned *q3 = g_QuaternionPool.Alloc();
+	BoneVector *pos2 = (BoneVector*)MemAlloc_Alloc(sizeof(BoneVector));
+	BoneQuaternionAligned *q2 = (BoneQuaternionAligned*)MemAlloc_Alloc(sizeof(BoneQuaternionAligned));
+	BoneVector *pos3 = (BoneVector*)MemAlloc_Alloc(sizeof(BoneVector));
+	BoneQuaternionAligned *q3 = (BoneQuaternionAligned*)MemAlloc_Alloc(sizeof(BoneQuaternionAligned));
 
 
 	if ( sequence < 0 || sequence >= pStudioHdr->GetNumSeq()) 
@@ -385,10 +377,10 @@ bool CalcPoseSingle(
 		}
 	}
 
-	g_VectorPool.Free( pos2 );
-	g_QuaternionPool.Free( q2 );
-	g_VectorPool.Free( pos3 );
-	g_QuaternionPool.Free( q3 );
+	MemAlloc_Free( pos2 );
+	MemAlloc_Free( q2 );
+	MemAlloc_Free( pos3 );
+	MemAlloc_Free( q3 );
 
 	return bResult;
 }
@@ -412,7 +404,6 @@ void CBoneSetup::AddSequenceLayers(
 	)
 {
 	BONE_PROFILE_FUNC(); // ex: x360: 1.84ms
-	SNPROF_ANIM("CBoneSetup::AddSequenceLayers");
 
 	for (int i = 0; i < seqdesc.numautolayers; i++)
 	{
@@ -528,8 +519,6 @@ void CBoneSetup::AddLocalLayers(
 	CIKContext *pIKContext
 	)
 {
-	BONE_PROFILE_FUNC();
-	SNPROF_ANIM("CBoneSetup::AddLocalLayers");
 
 	if (!(seqdesc.flags & STUDIO_LOCAL))
 	{
@@ -659,7 +648,6 @@ void CalcPose(
 	float flTime
 	)
 {
-	BONE_PROFILE_FUNC();
 	mstudioseqdesc_t	&seqdesc = pStudioHdr->pSeqdesc( sequence );
 
 	Assert( flWeight >= 0.0f && flWeight <= 1.0f );
@@ -705,15 +693,6 @@ void CBoneSetup::AccumulatePose(
 	CIKContext *pIKContext
 	)
 {
-	BONE_PROFILE_FUNC(); // ex: x360: up to 3.6ms
-#if _DEBUG
-	VPROF_INCREMENT_COUNTER("AccumulatePose",1);
-#endif
-
-	VPROF( "AccumulatePose" );
-
-	SNPROF_ANIM( "CBoneSetup::AccumulatePose" );
-
 	// Check alignment.
 	if ( cl_use_simd_bones.GetBool() && (!  (reinterpret_cast<uintp>(q) & 0x0F) == 0 ) )
 	{
@@ -736,8 +715,8 @@ void CBoneSetup::AccumulatePose(
 	// This should help re-use the memory for vectors/quaternions
 	// 	BoneVector		pos2[MAXSTUDIOBONES];
 	// 	BoneQuaternion	q2[MAXSTUDIOBONES];
-	BoneVector *pos2 = g_VectorPool.Alloc();
-	BoneQuaternionAligned * q2 = ( BoneQuaternionAligned * ) g_QuaternionPool.Alloc();
+	BoneVector *pos2 = (BoneVector*)MemAlloc_Alloc(sizeof(BoneVector));
+	BoneQuaternionAligned * q2 = ( BoneQuaternionAligned * ) MemAlloc_Alloc(sizeof(BoneQuaternionAligned));
 
 	PREFETCH360( pos2, 0 );
 	PREFETCH360( q2, 0 );
@@ -795,8 +774,8 @@ void CBoneSetup::AccumulatePose(
 		SlerpBones( m_pStudioHdr, q, pos, seqdesc, sequence, q2, pos2, flWeight, m_boneMask );
 	}
 
-	g_VectorPool.Free( pos2 );
-	g_QuaternionPool.Free( q2 );
+	MemAlloc_Free( pos2 );
+	MemAlloc_Free( q2 );
 
 	if ( pIKContext )
 	{
@@ -824,7 +803,6 @@ void CalcBoneAdj(
 	int boneMask
 	)
 {
-	BONE_PROFILE_FUNC();
 	int					i, j, k;
 	float				value;
 	mstudiobonecontroller_t *pbonecontroller;
@@ -929,11 +907,8 @@ void CBoneSetup::CalcAutoplaySequences(
 	CIKContext *pIKContext
 	)
 {
-	BONE_PROFILE_FUNC();
 //	ASSERT_NO_REENTRY();
 
-	SNPROF_ANIM( "CBoneSetup::CalcAutoplaySequences" );
-	
 	int			i;
 	if ( pIKContext )
 	{
@@ -979,7 +954,6 @@ void Studio_BuildMatrices(
 	int boneMask
 	)
 {
-	BONE_PROFILE_FUNC();
 	int i, j;
 
 	int					chain[MAXSTUDIOBONES] = {};
@@ -1085,7 +1059,6 @@ void DoAxisInterpBone(
 	CBoneAccessor &bonetoworld
 	)
 {
-	BONE_PROFILE_FUNC();
 	matrix3x4a_t	bonematrix;
 	Vector				control;
 
@@ -1200,7 +1173,6 @@ void DoQuatInterpBone(
 	CBoneAccessor &bonetoworld
 	)
 {
-	BONE_PROFILE_FUNC();
 	matrix3x4a_t	bonematrix;
 	Vector				control;
 
@@ -1288,7 +1260,6 @@ void DoAimAtBone(
 	const CStudioHdr *pStudioHdr
 	)
 {
-	BONE_PROFILE_FUNC();
 	mstudioaimatbone_t *pProc = (mstudioaimatbone_t *)pBones[iBone].pProcedure();
 
 	if ( !pProc )
@@ -1436,7 +1407,6 @@ void DoTwistBones(
 	CBoneAccessor &bonetoworld,
 	const CStudioHdr *pStudioHdr )
 {
-	BONE_PROFILE_FUNC();
 
 	mstudiotwistbone_t *pProc = ( mstudiotwistbone_t * )pBones[iBone].pProcedure();
 

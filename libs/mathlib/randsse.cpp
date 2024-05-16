@@ -88,21 +88,14 @@ int GetSIMDRandContext( void )
 			if ( ! s_nRandContextsInUse[i] )				// available?
 			{
 				// try to take it!
-				if ( ThreadInterlockedAssignIf( &( s_nRandContextsInUse[i]), 1, 0 ) )
-				{
-					ThreadMemoryBarrier();
-					return i;								// done!
-				}
+                return i;								// done!
 			}
 		}
-		Assert(0);											// why don't we have enough buffers?
-		ThreadSleep();
 	}
 }
 
 void ReleaseSIMDRandContext( int nContext )
 {
-	ThreadMemoryBarrier();
 	s_nRandContextsInUse[ nContext ] = 0;
 }
 

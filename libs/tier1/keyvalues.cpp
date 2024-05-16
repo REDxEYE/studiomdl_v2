@@ -28,7 +28,7 @@
 #include "utlvector.h"
 #include "utlbuffer.h"
 #include "utlhash.h"
-#include "tier0/vprof.h"
+
 
 // memdbgon must be the last include file in a .cpp file!!!
 // DISABLED #include "tier0/memdbgon.h"
@@ -401,8 +401,6 @@ public:
 	  // Translates a string to an index
 	  int GetSymbolForString( const char *name, bool bCreate = true )
 	  {
-		  AUTO_LOCK( m_mutex );
-
 		  // Put the current details into our hash functor
 		  m_Functor.SetCurString( name );
 		  m_Functor.SetCurStringBase( (const char *)m_vecStrings.Base() );
@@ -468,7 +466,6 @@ private:
 		const char *m_pchCurBase;
 	};
 
-	CThreadFastMutex m_mutex;
 	CLookupFunctor	m_Functor;
 	CUtlHash<int, CLookupFunctor &, CLookupFunctor &> m_hashLookup;
 	CUtlVector<char> m_vecStrings;
@@ -2286,14 +2283,11 @@ bool KeyValues::EvaluateConditional( const char *pExpressionString, GetSymbolPro
 	return bResult;
 }
 
-// prevent two threads from entering this at the same time and trying to share the global error reporting and parse buffers
-static CThreadFastMutex g_KVMutex;
 //-----------------------------------------------------------------------------
 // Read from a buffer...
 //-----------------------------------------------------------------------------
 bool KeyValues::LoadFromBuffer( char const *resourceName, CUtlBuffer &buf, IBaseFileSystem* pFileSystem, const char *pPathID, GetSymbolProc_t pfnEvaluateSymbolProc )
 {
-	AUTO_LOCK_FM( g_KVMutex );
 
 	if ( IsGameConsole() )
 	{

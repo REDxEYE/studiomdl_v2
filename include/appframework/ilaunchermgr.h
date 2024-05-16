@@ -20,7 +20,7 @@
 #define WITH_OVERLAY_CURSOR_VISIBILITY_WORKAROUND 1 
 #endif
 
-#include "tier0/threadtools.h"
+
 #include "appframework/iappsystem.h"
 #include "inputsystem/iinputsystem.h"
 

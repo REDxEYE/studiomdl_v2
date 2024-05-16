@@ -7,23 +7,16 @@
 //===========================================================================//
 
 #include "vstdlib/cvar.h"
-#include <ctype.h>
+#include <cctype>
 #include "tier0/icommandline.h"
 #include "tier1/utlrbtree.h"
 #include "tier1/strtools.h"
 #include "tier1/keyvalues.h"
 #include "tier1/convar.h"
-#include "tier0/vprof.h"
 #include "tier1/tier1.h"
 #include "tier1/utlbuffer.h"
 #include "tier1/utlmap.h"
 #include "tier1/fmtstr.h"
-
-#ifdef _X360
-#include "xbox/xbox_console.h"
-#elif defined( _PS3 )
-#include "ps3/ps3_console.h"
-#endif
 
 #ifdef POSIX
 #include <wctype.h>
@@ -33,8 +26,6 @@
 #define VPROJ(a) /* */
 #endif
 
-// memdbgon must be the last include file in a .cpp file!!!
-//#include "tier0/memdbgon.h"
 
 
 //-----------------------------------------------------------------------------
@@ -617,17 +608,11 @@ void CCvar::UnregisterConCommands( CVarDLLIdentifier_t id )
 //-----------------------------------------------------------------------------
 const ConCommandBase *CCvar::FindCommandBase( const char *name ) const
 {
-	VPROF_INCREMENT_COUNTER( "CCvar::FindCommandBase", 1 );
-	VPROF_BUDGET( "CCvar::FindCommandBase", VPROF_BUDGETGROUP_CVAR_FIND );
-
 	return m_CommandHash.FindPtr( name );
 }
 
 ConCommandBase *CCvar::FindCommandBase( const char *name )
 {
-	VPROF_INCREMENT_COUNTER( "CCvar::FindCommandBase", 1 );
-	VPROF_BUDGET( "CCvar::FindCommandBase", VPROF_BUDGETGROUP_CVAR_FIND );
-
 	return m_CommandHash.FindPtr( name );
 }
 
@@ -767,13 +752,13 @@ void CCvar::RevertFlaggedConVars( int nFlag )
 //-----------------------------------------------------------------------------
 bool CCvar::IsMaterialThreadSetAllowed( ) const
 {
-	Assert( ThreadInMainThread() );
+
 	return m_bMaterialSystemThreadSetAllowed;
 }
 
 void CCvar::QueueMaterialThreadSetValue( ConVar *pConVar, const char *pValue )
 {
-	Assert( ThreadInMainThread() );
+
 	int j = m_QueuedConVarSets.AddToTail();
 	m_QueuedConVarSets[j].m_pConVar = pConVar;
 	m_QueuedConVarSets[j].m_nType = CONVAR_SET_STRING;
@@ -782,7 +767,7 @@ void CCvar::QueueMaterialThreadSetValue( ConVar *pConVar, const char *pValue )
 
 void CCvar::QueueMaterialThreadSetValue( ConVar *pConVar, int nValue )
 {
-	Assert( ThreadInMainThread() );
+
 	int j = m_QueuedConVarSets.AddToTail();
 	m_QueuedConVarSets[j].m_pConVar = pConVar;
 	m_QueuedConVarSets[j].m_nType = CONVAR_SET_INT;
@@ -791,7 +776,7 @@ void CCvar::QueueMaterialThreadSetValue( ConVar *pConVar, int nValue )
 
 void CCvar::QueueMaterialThreadSetValue( ConVar *pConVar, float flValue )
 {
-	Assert( ThreadInMainThread() );
+
 	int j = m_QueuedConVarSets.AddToTail();
 	m_QueuedConVarSets[j].m_pConVar = pConVar;
 	m_QueuedConVarSets[j].m_nType = CONVAR_SET_FLOAT;
@@ -800,13 +785,13 @@ void CCvar::QueueMaterialThreadSetValue( ConVar *pConVar, float flValue )
 
 bool CCvar::HasQueuedMaterialThreadConVarSets() const
 {
-	Assert( ThreadInMainThread() );
+
 	return m_QueuedConVarSets.Count() > 0;
 }
 
 int CCvar::ProcessQueuedMaterialThreadConVarSets()
 {
-	Assert( ThreadInMainThread() );
+
 	m_bMaterialSystemThreadSetAllowed = true;
 
 	int nUpdateFlags = 0;
