@@ -72,55 +72,16 @@ public:
 	// name of the current file - file portion only, not full path
 	const char *CurrentFileName();
 
-	// size of the current file
-	int64 CurrentFileLength() const;
-
-	// creation time of the current file
-	time64_t CurrentFileCreateTime() const;
-
-	// mod time of the current file
-	time64_t CurrentFileWriteTime() const;
-
-	// mode/type checks:
-
 	// is the current file actually a directory?
 	bool BCurrentIsDir() const;
 
-	// is the current file hidden?
-	bool BCurrentIsHidden() const;
-
-	// is the current file read-only?
-	bool BCurrentIsReadOnly() const;
-
-	// is the current file a system file?
-	bool BCurrentIsSystem() const;
-
-	// is the current file's archive bit set?
-	bool BCurrentIsMarkedForArchive() const;
-
-#ifdef DBGFLAG_VALIDATE
-	void Validate( CValidator &validator, const char *pchName )
-	{
-#if defined( _PS3 )
-		ValidateObj( m_strPattern );
-#else
-		validator.ClaimMemory( m_pFindData );
-#endif
-	}
-#endif
 
 private:
 	void Init( const char *pchSearchPath );
 	bool BValidFilename();
 	bool m_bNoFiles, m_bUsedFirstFile;
 
-#if defined(_PS3)
-	bool BFindNextPS3();
-	bool m_bOpenHandle;		// don't see an invalid value for the FD returned from OpenDir
-	int m_hFind;
-	CellFsDirectoryEntry *m_pDirEntry;
-	CUtlString m_strPattern;
-#elif defined(_WIN32)
+#if defined(_WIN32)
 	HANDLE m_hFind;
 	struct _WIN32_FIND_DATAW *m_pFindData;
 	char m_rgchFileName[MAX_PATH * 4];
@@ -168,73 +129,19 @@ public:
 #error
 #endif
 
-	void Sleep( uint nMSec ); // system specific sleep call
-
 private:
 	HANDLE m_hFileDest;
 	uint64 m_cubWritten;
 	volatile int m_cubOutstanding;
 	bool m_bAsync;
 	bool m_bDefaultAsync;
-	uint32 m_unThreadID; // main thread for this FileWriter. On this thread we support correct async IO
-	
+
 	// if the CFileWriter is called from any other thread, we block until the write is complete
 	// this is not great but a good enough for log files and we didn't need a full blow IOCP manager for this.
 	volatile int m_cPendingCallbacksFromOtherThreads; 
 
 };
 
-// data accessor
-inline uint64 CFileWriter::GetBytesWritten()
-{ 
-	return m_cubWritten; 
-}
-
-#if !defined(_PS3)
-//-----------------------------------------------------------------------------
-// Purpose: Encapsulates watching a directory for file changes
-//-----------------------------------------------------------------------------
-class CDirWatcher
-{
-public:
-	CDirWatcher();
-	~CDirWatcher();
-
-	// only one directory can be watched at a time
-	void SetDirToWatch( const char *pchDir );
-
-	// retrieve any changes
-	bool GetChangedFile( CUtlString *psFile );
-
-#ifdef DBGFLAG_VALIDATE
-	void Validate( CValidator &validator, const char *pchName );
-#endif
-
-private:
-	CUtlLinkedList<CUtlString> m_listChangedFiles;
-	void *m_hFile;
-	void *m_pOverlapped;
-	void *m_pFileInfo;
-#ifdef OSX
-public:
-	struct timespec m_modTime;
-	void AddFileToChangeList( const char *pchFile );
-	CUtlString m_BaseDir;
-private:
-	void *m_WatcherStream;
-#endif
-	friend class CDirWatcherFriend;
-
-#ifdef LINUX
-	void AddFileToChangeList( const char *pchFile );
-#endif
-#ifdef WIN32
-	// used by callback functions to push a file onto the list
-	void AddFileToChangeList( const char *pchFile );
-	void PostDirWatch();
-#endif
-};
-#endif // _PS3
 
 bool CreateDirRecursive( const char *pchPathIn );
 bool BFileExists( const char *pchFileNameIn );

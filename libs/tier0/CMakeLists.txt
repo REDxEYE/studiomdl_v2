@@ -19,7 +19,6 @@ add_library(tier0
         mem_helpers.cpp
         tier0_strtools.cpp
         commandline.cpp
-        fasttimer.cpp
         memprocessheap.cpp
         memvirt.cpp
         cpu.cpp

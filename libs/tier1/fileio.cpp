@@ -13,13 +13,6 @@
 
 #include <sys/stat.h>
 
-#if defined(OSX)
-#include <CoreServices/CoreServices.h>
-#include <sys/types.h>
-#include <dirent.h>
-#include <sys/time.h>
-#endif
-
 #if defined( LINUX ) || defined ( OSX )
 // Linux hasn't got a good AIO library that we have found yet, so lets punt for now
 #undef ASYNC_FILEIO
@@ -31,11 +24,6 @@
 // unset to force to use stdio implementation 
 #define WIN32_FILEIO
 
-#if defined(ASYNC_FILEIO) 
-#if defined(_WIN32) && !defined(WIN32_FILEIO)
-#error "trying to use async io without win32 filesystem API usage, that isn't doable"
-#endif
-#endif
 
 #else /* not defined (_WIN32) */
 #include <utime.h>
@@ -144,23 +132,11 @@ static int FileSelect( const char *name, const char *mask );
 #include "tier1/fileio.h"
 #include "tier1/utlbuffer.h"
 #include "tier1/strtools.h"
-#include <errno.h>
+#include <cerrno>
 #include "vstdlib/vstrtools.h"
 
 #if defined( WIN32_FILEIO )
 #include "winlite.h"
-#endif
-
-#if defined( ASYNC_FILEIO )
-#ifdef _WIN32
-#include "winlite.h"
-#elif defined(_PS3)
-// bugbug ps3 - see some aio files under libfs.. skipping for the moment
-#elif defined(POSIX)
-#include <aio.h>
-#else 
-#error "aio please"
-#endif
 #endif
 
 #if defined ( POSIX )
@@ -180,7 +156,6 @@ static int FileSelect( const char *name, const char *mask );
 
 #define PvAlloc( cub )  malloc( cub )
 #define PvRealloc( pv, cub ) realloc( pv, cub )
-#define FreePv( pv ) free( pv )
 
 //-----------------------------------------------------------------------------
 // Purpose: Constructor from UTF8
@@ -589,21 +564,6 @@ const char *CDirIterator::CurrentFileName()
 }
 
 
-//-----------------------------------------------------------------------------
-// Purpose: returns size of the file
-//-----------------------------------------------------------------------------
-int64 CDirIterator::CurrentFileLength() const
-{
-#if defined( _WIN32 )
-	LARGE_INTEGER li = { { m_pFindData->nFileSizeLow, m_pFindData->nFileSizeHigh } };
-	return li.QuadPart;
-#elif defined( _PS3 )
-	return m_pDirEntry->attribute.st_size;
-#else
-	return (int64)m_pFindData->size;
-#endif
-}
-
 #if defined( _WIN32 )
 //-----------------------------------------------------------------------------
 // Purpose: utility for converting a system filetime to a regular time
@@ -617,35 +577,6 @@ time64_t FileTimeToUnixTime( FILETIME filetime )
 	return t / 10000000;
 }
 #endif
-
-//-----------------------------------------------------------------------------
-// Purpose: returns last write time of the file
-//-----------------------------------------------------------------------------
-time64_t CDirIterator::CurrentFileWriteTime() const
-{
-#if defined( _WIN32 )
-	return FileTimeToUnixTime( m_pFindData->ftLastWriteTime );
-#elif defined( _PS3 )
-	return m_pDirEntry->attribute.st_mtime;
-#else
-	return m_pFindData->time_write;
-#endif
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose: returns the creation time of the file
-//-----------------------------------------------------------------------------
-time64_t CDirIterator::CurrentFileCreateTime() const
-{
-#if defined( _WIN32 )
-	return FileTimeToUnixTime( m_pFindData->ftCreationTime );
-#elif defined( _PS3 )
-	return m_pDirEntry->attribute.st_ctime;
-#else
-	return m_pFindData->time_create;
-#endif
-}
 
 
 //-----------------------------------------------------------------------------
@@ -664,66 +595,6 @@ bool CDirIterator::BCurrentIsDir() const
 
 
 //-----------------------------------------------------------------------------
-// Purpose: returns whether current item under examination is a hidden file
-//-----------------------------------------------------------------------------
-bool CDirIterator::BCurrentIsHidden() const
-{
-#if defined( _WIN32 )
-	return (m_pFindData->dwFileAttributes & FILE_ATTRIBUTE_HIDDEN) != 0;
-#elif defined( _PS3 )
-	return false;
-#else
-	return (m_pFindData->attrib & _A_HIDDEN ? true : false);
-#endif
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose: returns whether current item under examination is read-only
-//-----------------------------------------------------------------------------
-bool CDirIterator::BCurrentIsReadOnly() const
-{
-#if defined( _WIN32 )
-	return (m_pFindData->dwFileAttributes & FILE_ATTRIBUTE_READONLY) != 0;
-#elif defined( _PS3 )
-	// assume this is windows version of read only.. can execute. Is it writable?
-	return (m_pDirEntry->attribute.st_mode & CELL_FS_S_IWUSR == 0);
-#else
-	return (m_pFindData->attrib & _A_RDONLY ? true : false);
-#endif
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose: returns whether current item under examination is marked as a system file
-//-----------------------------------------------------------------------------
-bool CDirIterator::BCurrentIsSystem() const
-{
-#if defined( _WIN32 )
-	return (m_pFindData->dwFileAttributes & FILE_ATTRIBUTE_SYSTEM) != 0;
-#elif defined( _PS3 )
-	return false;
-#else
-	return (m_pFindData->attrib & _A_SYSTEM ? true : false);
-#endif
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose: returns whether current item under examination is marked for archiving
-//-----------------------------------------------------------------------------
-bool CDirIterator::BCurrentIsMarkedForArchive() const
-{
-#if defined( _WIN32 )
-	return (m_pFindData->dwFileAttributes & FILE_ATTRIBUTE_ARCHIVE) != 0;
-#elif defined( _PS3 )
-	return false;
-#else
-	return (m_pFindData->attrib & _A_ARCH ? true : false);
-#endif
-}
-
-//-----------------------------------------------------------------------------
 // Purpose: Constructor
 //-----------------------------------------------------------------------------
 CFileWriter::CFileWriter( bool bAsync ) 
@@ -738,7 +609,6 @@ CFileWriter::CFileWriter( bool bAsync )
 	m_cPendingCallbacksFromOtherThreads = 0;
     m_cubOutstanding = 0;
     m_cubWritten = 0;
-    m_unThreadID = 0;
 }
 
 
@@ -792,7 +662,6 @@ bool CFileWriter::BSetFile( const char *pchFile, bool bAllowOpenExisting )
     m_bAsync = m_bDefaultAsync;
     m_cubWritten = 0;
 	m_cubOutstanding = 0;
-	m_unThreadID = 0;
 	m_cPendingCallbacksFromOtherThreads = 0;
 
 #ifdef _WIN32
@@ -872,22 +741,6 @@ bool CFileWriter::BSetFile( const char *pchFile, bool bAllowOpenExisting )
     return ( m_hFileDest != INVALID_HANDLE_VALUE );
 }
 
-
-void CFileWriter::Sleep( uint nMSec )
-{
-#ifdef _WIN32
-    ::SleepEx( nMSec, TRUE );
-#elif PLATFORM_PS3
-    sys_timer_usleep( nMSec * 1000 );
-#elif defined(POSIX)
-    if ( nMSec == 0 )
-        sched_yield();
-    else 
-        usleep( nMSec * 1000 );
-#else
-#error
-#endif
-}
 
 //-----------------------------------------------------------------------------
 // Purpose: Seeks to a specific location in the file
@@ -1115,325 +968,6 @@ void CFileWriter::Close()
 	// Close has to be called from thread that called BSetFile
 	Assert( m_cPendingCallbacksFromOtherThreads == 0 );
 }
-
-
-#ifdef WIN32
-struct DirWatcherOverlapped : public OVERLAPPED
-{
-	CDirWatcher *m_pDirWatcher;
-};
-#endif
-
-#if !defined(_PS3) && !defined(_X360)
-// a buffer full of file names
-static const int k_cubDirWatchBufferSize = 8 * 1024;
-
-
-//-----------------------------------------------------------------------------
-// Purpose: directory watching
-//-----------------------------------------------------------------------------
-CDirWatcher::CDirWatcher()
-{
-	m_hFile = NULL;
-	m_pOverlapped = NULL;
-	m_pFileInfo = NULL;
-#ifdef OSX
-	m_WatcherStream = 0;
-#endif
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose: directory watching
-//-----------------------------------------------------------------------------
-CDirWatcher::~CDirWatcher()
-{
-#ifdef WIN32
-	if ( m_pOverlapped )
-	{
-		// mark the overlapped structure as gone
-		DirWatcherOverlapped *pDirWatcherOverlapped = (DirWatcherOverlapped *)m_pOverlapped;
-		pDirWatcherOverlapped->m_pDirWatcher = NULL;
-	}
-
-	if ( m_hFile )
-	{
-		// make sure we flush any pending I/O's on the handle
-		::CancelIo( m_hFile );
-		::SleepEx( 0, TRUE );
-		// close the handle
-		::CloseHandle( m_hFile );
-	}
-#elif defined(OSX)
-	if ( m_WatcherStream )
-	{
-		FSEventStreamStop( (FSEventStreamRef)m_WatcherStream );
-		FSEventStreamInvalidate( (FSEventStreamRef)m_WatcherStream );
-		FSEventStreamRelease( (FSEventStreamRef)m_WatcherStream );		
-		m_WatcherStream = 0;
-	}
-#endif
-	if ( m_pFileInfo )
-	{
-		free( m_pFileInfo );
-	}
-	if ( m_pOverlapped )
-	{
-		free( m_pOverlapped );
-	}
-}
-
-
-#ifdef WIN32
-//-----------------------------------------------------------------------------
-// Purpose: callback watch
-//			gets called on the same thread whenever a SleepEx() occurs
-//-----------------------------------------------------------------------------
-class CDirWatcherFriend
-{
-public:
-	static void WINAPI DirWatchCallback( DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, OVERLAPPED *pOverlapped )
-	{
-		DirWatcherOverlapped *pDirWatcherOverlapped = (DirWatcherOverlapped *)pOverlapped;
-
-		// see if we've been cancelled
-		if ( !pDirWatcherOverlapped->m_pDirWatcher )
-			return;
-
-		// parse and pass back
-		if ( dwNumberOfBytesTransfered > sizeof(FILE_NOTIFY_INFORMATION) )
-		{
-			FILE_NOTIFY_INFORMATION *pFileNotifyInformation = (FILE_NOTIFY_INFORMATION *)pDirWatcherOverlapped->m_pDirWatcher->m_pFileInfo;
-			do 
-			{
-				// null terminate the string and turn it to UTF-8
-				int cNumWChars = pFileNotifyInformation->FileNameLength / sizeof(wchar_t);
-				wchar_t *pwchT = new wchar_t[cNumWChars + 1];
-				memcpy( pwchT, pFileNotifyInformation->FileName, pFileNotifyInformation->FileNameLength );
-				pwchT[cNumWChars] = 0;
-				CStrAutoEncode strAutoEncode( pwchT );
-
-				// add it to our list
-				pDirWatcherOverlapped->m_pDirWatcher->AddFileToChangeList( strAutoEncode.ToString() );
-				delete[] pwchT;
-				if ( pFileNotifyInformation->NextEntryOffset == 0 )
-					break;
-
-				// move to the next file
-				pFileNotifyInformation = (FILE_NOTIFY_INFORMATION *)(((byte*)pFileNotifyInformation) + pFileNotifyInformation->NextEntryOffset);
-			} while ( 1 );
-		}
-
-
-		// watch again
-		pDirWatcherOverlapped->m_pDirWatcher->PostDirWatch();
-	}
-};
-#elif defined(OSX)
-void CheckDirectoryForChanges( const char *path_buff, CDirWatcher *pDirWatch, bool bRecurse )
-{
-	DIR *dir = opendir(path_buff);
-	char fullpath[MAX_PATH];
-	struct dirent *dirent;
-	struct timespec ts = { 0, 0 };
-	bool bTimeSet = false;
-	
-	while ( (dirent = readdir(dir)) != NULL ) 
-	{
-		if (strcmp(dirent->d_name, ".") == 0 || strcmp(dirent->d_name, "..") == 0)
-			continue;
-		
-		snprintf( fullpath, PATH_MAX, "%s/%s", path_buff, dirent->d_name );
-		
-		struct stat    st;
-		if (lstat(fullpath, &st) != 0)
-			continue;
-		
-		if ( S_ISDIR(st.st_mode) && bRecurse )
-		{
-			CheckDirectoryForChanges( fullpath, pDirWatch, bRecurse );
-		}
-		else if ( st.st_mtimespec.tv_sec > pDirWatch->m_modTime.tv_sec ||
-				 ( st.st_mtimespec.tv_sec == pDirWatch->m_modTime.tv_sec && st.st_mtimespec.tv_nsec > pDirWatch->m_modTime.tv_nsec ) )
-		{
-			ts = st.st_mtimespec;
-			bTimeSet = true;
-			// the win32 size only sends up the dir relative to the watching dir, so replicate that here
-			pDirWatch->AddFileToChangeList( fullpath + pDirWatch->m_BaseDir.Length() + 1 );
-		}
-	}
-
-	if ( bTimeSet )
-		pDirWatch->m_modTime = ts;
-	closedir(dir);	
-}
-
-static void fsevents_callback( ConstFSEventStreamRef streamRef, void *clientCallBackInfo, size_t numEvents,void *eventPaths, 
-							  const FSEventStreamEventFlags eventMasks[], const FSEventStreamEventId eventIDs[] )
-{
-    char  path_buff[PATH_MAX];
-	for (int i=0; i < numEvents; i++) 
-	{
-		char **paths = (char **)eventPaths;
-		
-        strcpy(path_buff, paths[i]);
-        int len = strlen(path_buff);
-        if (path_buff[len-1] == '/') 
-		{
-            // chop off a trailing slash
-            path_buff[--len] = '\0';
-        }
-		
-		bool bRecurse = false;
-		
-        if (eventMasks[i] & kFSEventStreamEventFlagMustScanSubDirs
-			|| eventMasks[i] & kFSEventStreamEventFlagUserDropped
-			|| eventMasks[i] & kFSEventStreamEventFlagKernelDropped) 
-		{
-            bRecurse = true;
-        } 
-		
-		CDirWatcher *pDirWatch = (CDirWatcher *)clientCallBackInfo;
-		// make sure its in our subdir
-		if ( !V_strnicmp( path_buff, pDirWatch->m_BaseDir.String(), pDirWatch->m_BaseDir.Length() ) )
-			CheckDirectoryForChanges( path_buff, pDirWatch, bRecurse );
-    }
-}
-
-
-
-
-#endif
-
-//-----------------------------------------------------------------------------
-// Purpose: only one directory can be watched at a time
-//-----------------------------------------------------------------------------
-void CDirWatcher::SetDirToWatch( const char *pchDir )
-{
-	if ( !pchDir || !*pchDir )
-		return;
-	
-	CPathString strPath( pchDir );
-#ifdef WIN32
-	// open the directory
-	m_hFile = ::CreateFileW( strPath.GetWCharPathPrePended(), FILE_LIST_DIRECTORY, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED | FILE_FLAG_BACKUP_SEMANTICS, NULL );
-
-	// create our buffers
-	m_pFileInfo = malloc( k_cubDirWatchBufferSize );
-	m_pOverlapped = malloc( sizeof( DirWatcherOverlapped ) );
-
-	// post a watch
-	PostDirWatch();
-#elif defined(OSX)
-	CFStringRef mypath = CFStringCreateWithCString( NULL, strPath.GetUTF8Path(), kCFStringEncodingMacRoman );
-	if ( !mypath )
-	{
-		Assert( !"Failed to CFStringCreateWithCString watcher path" );
-		return;
-	}
-	
-    CFArrayRef pathsToWatch = CFArrayCreate(NULL, (const void **)&mypath, 1, NULL);
-    FSEventStreamContext callbackInfo = {0, this, NULL, NULL, NULL};
-    CFAbsoluteTime latency = 1.0; // Latency in seconds
-
-    m_WatcherStream = (void *)FSEventStreamCreate(NULL,
-								 &fsevents_callback,
-								 &callbackInfo,
-								 pathsToWatch,
-								 kFSEventStreamEventIdSinceNow, 
-								 latency,
-								 kFSEventStreamCreateFlagNoDefer
-								 );
-	
-    FSEventStreamScheduleWithRunLoop( (FSEventStreamRef)m_WatcherStream, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
-	CFRelease(pathsToWatch );
-	CFRelease( mypath );
-	
-	FSEventStreamStart( (FSEventStreamRef)m_WatcherStream );
-
-	char szFullPath[MAX_PATH];
-	Q_MakeAbsolutePath( szFullPath, sizeof(szFullPath), pchDir );
-	m_BaseDir = szFullPath;
-	
-	struct timeval tv;
-	gettimeofday( &tv, NULL );
-	TIMEVAL_TO_TIMESPEC( &tv, &m_modTime );
-		
-#else
-	Assert( !"Impl me" );
-#endif
-}
-
-
-#ifdef WIN32
-//-----------------------------------------------------------------------------
-// Purpose: used by callback functions to push a file onto the list
-//-----------------------------------------------------------------------------
-void CDirWatcher::PostDirWatch()
-{
-	memset( m_pOverlapped, 0, sizeof(DirWatcherOverlapped) );
-	DirWatcherOverlapped *pDirWatcherOverlapped = (DirWatcherOverlapped *)m_pOverlapped;
-	pDirWatcherOverlapped->m_pDirWatcher = this;
-
-	DWORD dwBytes;
-	::ReadDirectoryChangesW( m_hFile, m_pFileInfo, k_cubDirWatchBufferSize, TRUE, FILE_NOTIFY_CHANGE_LAST_WRITE | FILE_NOTIFY_CHANGE_FILE_NAME, &dwBytes, (OVERLAPPED *)m_pOverlapped, &CDirWatcherFriend::DirWatchCallback );
-}
-#endif
-
-
-//-----------------------------------------------------------------------------
-// Purpose: used by callback functions to push a file onto the list
-//-----------------------------------------------------------------------------
-void CDirWatcher::AddFileToChangeList( const char *pchFile )
-{
-	// make sure it isn't already in the list
-	FOR_EACH_LL( m_listChangedFiles, i )
-	{
-		if ( !Q_stricmp( m_listChangedFiles[i], pchFile ) )
-			return;
-	}
-
-	m_listChangedFiles.AddToTail( pchFile );
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose: retrieve any changes
-//-----------------------------------------------------------------------------
-bool CDirWatcher::GetChangedFile( CUtlString *psFile )
-{
-#ifdef WIN32
-	// this will trigger any pending directory reads
-	// this does get hit other places in the code; so the callback can happen at any time
-	::SleepEx( 0, TRUE );
-#endif
-
-	if ( !m_listChangedFiles.Count() )
-		return false;
-
-	*psFile = m_listChangedFiles[m_listChangedFiles.Head()];
-	m_listChangedFiles.Remove( m_listChangedFiles.Head() );
-	return true;
-}
-
-
-
-#ifdef DBGFLAG_VALIDATE
-void CDirWatcher::Validate( CValidator &validator, const char *pchName )
-{
-	VALIDATE_SCOPE();
-
-	validator.ClaimMemory( m_pOverlapped );
-	validator.ClaimMemory( m_pFileInfo );
-	ValidateObj( m_listChangedFiles );
-	FOR_EACH_LL( m_listChangedFiles, i )
-	{
-		ValidateObj( m_listChangedFiles[i] );
-	}
-}
-#endif
-
-#endif // _PS3 || _X360
 
 //-----------------------------------------------------------------------------
 // Purpose: utility function to create dirs & subdirs

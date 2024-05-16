@@ -14,7 +14,6 @@
 #include "tier0/dbg.h"
 #include "tier0/memalloc.h"
 #include "tier0/memvirt.h"
-#include "tier0/fasttimer.h"
 #include "mem_helpers.h"
 #ifdef PLATFORM_WINDOWS_PC
 #undef WIN32_LEAN_AND_MEAN

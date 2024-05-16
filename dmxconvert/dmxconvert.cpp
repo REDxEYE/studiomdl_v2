@@ -70,7 +70,6 @@ bool CDmxConvertApp::PreInit( )
 
 void CDmxConvertApp::PostShutdown()
 {
-	DisconnectTier2Libraries();
 	DisconnectTier1Libraries();
 }
 

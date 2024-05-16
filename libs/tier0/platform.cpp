@@ -6,7 +6,7 @@
 //===========================================================================//
 
 #include "pch_tier0.h"
-#include <time.h>
+#include <ctime>
 
 #if defined(_WIN32) && !defined(_X360)
 #define WINDOWS_LEAN_AND_MEAN
@@ -15,14 +15,7 @@
 #include <direct.h>
 #include <io.h>
 #endif
-#include <errno.h>
-#include <assert.h>
-#include "tier0/platform.h"
-#if defined( _X360 )
-#include "xbox/xbox_console.h"
-#endif
-
-#include "tier0/minidump.h"
+#include <cerrno>
 
 #include "tier0/memalloc.h"
 
@@ -54,30 +47,10 @@
 
 
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
-
-// Benchmark mode uses this heavy-handed method 
-static bool g_bBenchmarkMode = false;
-#ifdef _WIN32
-static double g_FakeBenchmarkTime = 0;
-static double g_FakeBenchmarkTimeInc = 1.0 / 66.0;
-#endif
-
 //our global error callback function. Note that this is not initialized, but static space guarantees this is NULL at app start.
 //If you initialize, it will set to zero again when the CPP runs its static initializers, which could stomp the value if another
 //CPP sets this value while initializing its static space
 static ExitProcessWithErrorCBFn g_pfnExitProcessWithErrorCB; //= NULL
-
-bool Plat_IsInBenchmarkMode()
-{
-	return g_bBenchmarkMode;
-}
-
-void Plat_SetBenchmarkMode( bool bBenchmark )
-{
-	g_bBenchmarkMode = bBenchmark;
-}
 
 #if defined( PLATFORM_WINDOWS )
 
@@ -105,11 +78,6 @@ double Plat_FloatTime()
 {
 	if (! s_bTimeInitted )
 		InitTime();
-	if ( g_bBenchmarkMode )
-	{
-		g_FakeBenchmarkTime += g_FakeBenchmarkTimeInc;
-		return g_FakeBenchmarkTime;
-	}
 
 	LARGE_INTEGER CurrentTime;
 
@@ -124,11 +92,6 @@ uint32 Plat_MSTime()
 {
 	if (! s_bTimeInitted )
 		InitTime();
-	if ( g_bBenchmarkMode )
-	{
-		g_FakeBenchmarkTime += g_FakeBenchmarkTimeInc;
-		return (uint32)(g_FakeBenchmarkTime * 1000.0);
-	}
 
 	LARGE_INTEGER CurrentTime;
 
@@ -141,11 +104,6 @@ uint64 Plat_USTime()
 {
 	if (! s_bTimeInitted )
 		InitTime();
-	if ( g_bBenchmarkMode )
-	{
-		g_FakeBenchmarkTime += g_FakeBenchmarkTimeInc;
-		return (uint64)(g_FakeBenchmarkTime * 1e6);
-	}
 
 	LARGE_INTEGER CurrentTime;
 

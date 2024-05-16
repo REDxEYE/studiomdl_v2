@@ -9,15 +9,8 @@ elseif (CMAKE_SIZEOF_VOID_P EQUAL 4)
 endif ()
 
 add_library(tier2
-        defaultfilesystem.cpp
         fileutils.cpp
-        interval.cpp
         meshutils.cpp
-        resourceprecacher.cpp
-        riff.cpp
-        socketcreator.cpp
-        soundutils.cpp
-        tier2.cpp
         tier2_logging.cpp
         tokenreader.cpp
         util_init.cpp

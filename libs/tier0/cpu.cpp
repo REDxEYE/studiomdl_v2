@@ -532,45 +532,6 @@ static uint8 LogicalProcessorsPerPackage()
 uint64 CalculateCPUFreq(); // from cpu_linux.cpp
 #endif
 
-// Measure the processor clock speed by sampling the cycle count, waiting
-// for some fraction of a second, then measuring the elapsed number of cycles.
-static int64 CalculateClockSpeed()
-{
-#if defined( _X360 ) || defined(_PS3)
-	// Xbox360 and PS3 have the same clock speed and share a lot of characteristics on PPU
-	return 3200000000LL;
-#else	
-#if defined( _WIN32 )
-	LARGE_INTEGER waitTime, startCount, curCount;
-	CCycleCount start, end;
-
-	// Take 1/32 of a second for the measurement.
-	QueryPerformanceFrequency( &waitTime );
-	int scale = 5;
-	waitTime.QuadPart >>= scale;
-
-	QueryPerformanceCounter( &startCount );
-	start.Sample();
-	do
-	{
-		QueryPerformanceCounter( &curCount );
-	}
-	while ( curCount.QuadPart - startCount.QuadPart < waitTime.QuadPart );
-	end.Sample();
-
-	return (end.m_Int64 - start.m_Int64) << scale;
-#elif defined(POSIX)
-	int64 freq =(int64)CalculateCPUFreq();
-	if ( freq == 0 ) // couldn't calculate clock speed
-	{
-		Error( "Unable to determine CPU Frequency\n" );
-	}
-	return freq;
-#else
-	#error "Please implement Clock Speed function for this platform"
-#endif
-#endif
-}
 
 static CPUInformation s_cpuInformation;
 
@@ -698,7 +659,7 @@ const CPUInformation& GetCPUInformation()
 	pi.m_Size = sizeof(pi);
 
 	// Grab the processor frequency:
-	pi.m_Speed = CalculateClockSpeed();
+	pi.m_Speed = 0;
 	
 	// Get the logical and physical processor counts:
 	pi.m_nLogicalProcessors = LogicalProcessorsPerPackage();

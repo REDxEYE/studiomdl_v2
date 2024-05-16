@@ -14,20 +14,13 @@
 #pragma comment(lib,"user32.lib")	// For MessageBox
 #endif
 
-#include "tier0/minidump.h"
-#include "tier0/etwprof.h"
-
-#include <assert.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdarg.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstring>
+#include <cstdarg>
+#include <cstdlib>
 #include "color.h"
 #include "tier0/dbg.h"
 
-#include "tier0/icommandline.h"
-
-#include <math.h>
 
 #if defined( _X360 )
 #include "xbox/xbox_console.h"

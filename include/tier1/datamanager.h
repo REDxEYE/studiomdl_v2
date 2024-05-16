@@ -21,55 +21,14 @@ class CDataManagerBase
 {
 public:
 
-	// public API
-	// -----------------------------------------------------------------------------
-	// memhandle_t			CreateResource( params ) // implemented by derived class
 	void					DestroyResource( memhandle_t handle );
-
-	// type-safe implementation in derived class
-	//void					*LockResource( memhandle_t handle );
 	int						UnlockResource( memhandle_t handle );
-	void					TouchResource( memhandle_t handle );
-	void					MarkAsStale( memhandle_t handle );		// move to head of LRU
-
-	int						LockCount( memhandle_t handle );
 	int						BreakLock( memhandle_t handle );
-	int						BreakAllLocks();
 
-	// HACKHACK: For convenience - offers no lock protection 
-	// type-safe implementation in derived class
-	//void					*GetResource_NoLock( memhandle_t handle );
-
-	unsigned int			TargetSize();
-	unsigned int			AvailableSize();
-	unsigned int			UsedSize();
-
-	void					NotifySizeChanged( memhandle_t handle, unsigned int oldSize, unsigned int newSize );
-
-	void					SetTargetSize( unsigned int targetSize );
-
-	// NOTE: flush is equivalent to Destroy
-	unsigned int			FlushAllUnlocked();
 	unsigned int			FlushToTargetSize();
 	unsigned int			FlushAll();
 	unsigned int			Purge( unsigned int nBytesToPurge );
 	unsigned int			EnsureCapacity( unsigned int size );
-
-	// Thread lock
-	virtual void			Lock() {}
-	virtual bool			TryLock() { return true; }
-	virtual void			Unlock() {}
-
-	// Iteration
-
-	// -----------------------------------------------------------------------------
-
-	void					SetFreeOnDestruct( bool value ) { m_freeOnDestruct = value; }
-
-	// Debugging only!!!!
-	void					GetLRUHandleList( CUtlVector< memhandle_t >& list );
-	void					GetLockHandleList( CUtlVector< memhandle_t >& list );
-
 
 protected:
 	// derived class must call these to implement public API
@@ -271,18 +230,6 @@ inline unsigned short CDataManagerBase::FromHandle( memhandle_t handle )
 	return m_memoryLists.InvalidIndex();
 }
 
-inline int CDataManagerBase::LockCount( memhandle_t handle )
-{
-	Lock();
-	int result = 0;
-	unsigned short memoryIndex = FromHandle(handle);
-	if ( memoryIndex != m_memoryLists.InvalidIndex() )
-	{
-		result = m_memoryLists[memoryIndex].lockCount;
-	}
-	Unlock();
-	return result;
-}
 
 
 #endif // RESOURCEMANAGER_H

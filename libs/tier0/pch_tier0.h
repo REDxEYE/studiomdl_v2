@@ -40,10 +40,8 @@
 #include "tier0/valve_on.h"
 
 #include "tier0/basetypes.h"
-#include "tier0/dbgflag.h"
 #include "tier0/dbg.h"
 #ifdef STEAM
 #include "tier0/memhook.h"
 #endif
 #include "tier0/validator.h"
-#include "tier0/fasttimer.h"

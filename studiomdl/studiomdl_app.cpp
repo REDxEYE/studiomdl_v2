@@ -877,7 +877,6 @@ extern CFileSystem_Stdio g_FileSystem_Stdio;
 bool CStudioMDLApp::PreInit() {
     CreateInterfaceFn factory = GetFactory();
     ConnectTier1Libraries(&factory, 1);
-    ConnectTier2Libraries(&factory, 1);
     g_pFullFileSystem = &g_FileSystem_Stdio;
     g_pFileSystem = g_pFullFileSystem;
     if (!g_pFullFileSystem || !g_pDataModel) {
@@ -899,7 +898,6 @@ bool CStudioMDLApp::PreInit() {
 
 void CStudioMDLApp::PostShutdown() {
 //    DisconnectTier3Libraries();
-    DisconnectTier2Libraries();
     DisconnectTier1Libraries();
 }
 

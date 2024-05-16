@@ -11,7 +11,6 @@
 #if !defined(STEAM) && !defined(NO_MALLOC_OVERRIDE)
 
 
-//#include <malloc.h>
 
 #include <algorithm>
 
@@ -20,7 +19,6 @@
 
 #include "mem_helpers.h"
 #include "memstd.h"
-#include "tier0/minidump.h"
 
 #ifndef _WIN32
 #define IsDebuggerPresent() false

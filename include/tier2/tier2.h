@@ -19,9 +19,6 @@
 // Call this to connect to/disconnect from all tier 2 libraries.
 // It's up to the caller to check the globals it cares about to see if ones are missing
 //-----------------------------------------------------------------------------
-void ConnectTier2Libraries( CreateInterfaceFn *pFactoryList, int nFactoryCount );
-void DisconnectTier2Libraries();
-
 
 //-----------------------------------------------------------------------------
 // Call this to get the file system set up to stdio for utilities, etc:
@@ -52,7 +49,6 @@ public:
 		if ( !BaseClass::Connect( factory ) )
 			return false;
 
-		ConnectTier2Libraries( &factory, 1 );
 		return true;
 	}
 
@@ -77,7 +73,6 @@ public:
 
 	virtual void Disconnect() 
 	{
-		DisconnectTier2Libraries();
 		BaseClass::Disconnect();
 	}
 };
