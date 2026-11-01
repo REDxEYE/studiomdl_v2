@@ -5,8 +5,7 @@
 //=============================================================================
 
 
-#ifndef DMEAXISSYSTEM_H
-#define DMEAXISSYSTEM_H
+#pragma once
 
 
 #include "datamodel/dmelement.h"
@@ -144,4 +143,3 @@ protected:
 };
 
 
-#endif // DMEAXISSYSTEM_H

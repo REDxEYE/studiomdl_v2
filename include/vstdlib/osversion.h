@@ -11,8 +11,7 @@
 // $NoKeywords: $
 //=============================================================================//
 
-#ifndef OSVERSION_H
-#define OSVERSION_H
+#pragma once
 #pragma once
 
 #include "vstdlib/vstdlib.h"
@@ -57,4 +56,3 @@ VSTDLIB_INTERFACE EOSType GetOSType();
 VSTDLIB_INTERFACE bool OSTypesAreCompatible( EOSType eOSTypeDetected, EOSType eOSTypeRequired );
 VSTDLIB_INTERFACE const char *GetPlatformName( bool *pbIs64Bit );
 
-#endif // OSVERSION_H

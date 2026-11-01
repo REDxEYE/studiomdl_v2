@@ -4,8 +4,7 @@
 //
 //=============================================================================
 
-#ifndef DMATTRIBUTETYPES_H
-#define DMATTRIBUTETYPES_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -349,4 +348,3 @@ DECLARE_ATTRIBUTE_ARRAY_TYPE( DmeTime_t,		AT_TIME_ARRAY,			"time_array" )
 DECLARE_ATTRIBUTE_ARRAY_TYPE_INTERNAL( DmElementHandle_t, DmElementArray_t,	AT_ELEMENT_ARRAY, "element_array" )
 
 
-#endif // DMATTRIBUTETYPES_H

@@ -24,7 +24,7 @@
 #include "utlstring.h"
 #include "checksum_crc.h"
 #include "physdll.h"
-#include "tier0/dbg.h"
+
 #include "lumpfiles.h"
 #include "vtf/vtf.h"
 #include "collisionutils.h"
@@ -731,18 +731,18 @@ CUtlVector< int >			g_StaticPropInstances;
 
 CByteswap	g_Swap;
 
-uint32 g_LevelFlags = 0;
+uint32_t g_LevelFlags = 0;
 
 int			nummodels;
 dmodel_t	dmodels[MAX_MAP_MODELS];
 
 int			visdatasize;
-byte		dvisdata[MAX_MAP_VISIBILITY];
+uint8_t		dvisdata[MAX_MAP_VISIBILITY];
 dvis_t		*dvis = (dvis_t *)dvisdata;
 
-CUtlVector<byte> dlightdataHDR;
-CUtlVector<byte> dlightdataLDR;
-CUtlVector<byte> *pdlightdata = &dlightdataLDR;
+CUtlVector<uint8_t> dlightdataHDR;
+CUtlVector<uint8_t> dlightdataLDR;
+CUtlVector<uint8_t> *pdlightdata = &dlightdataLDR;
 
 CUtlVector<char> dentdata;
 
@@ -809,7 +809,7 @@ dface_t		dfaces[MAX_MAP_FACES];
 int			numfaceids;
 CUtlVector<dfaceid_t>	dfaceids;
 
-CUtlVector<uint16>	dfacebrushes;
+CUtlVector<uint16_t>	dfacebrushes;
 CUtlVector<dfacebrushlist_t>	dfacebrushlists;
 
 int			numfaces_hdr;
@@ -870,14 +870,14 @@ dwateroverlay_t		g_WaterOverlays[MAX_MAP_WATEROVERLAYS];
 CUtlVector<char>	g_TexDataStringData;
 CUtlVector<int>		g_TexDataStringTable;
 
-byte				*g_pPhysCollide = NULL;
+uint8_t				*g_pPhysCollide = NULL;
 int					g_PhysCollideSize = 0;
 int					g_MapRevision = 0;
 
-byte               *g_pPhysLevel = NULL;
+uint8_t               *g_pPhysLevel = NULL;
 int                 g_PhysLevelSize = 0;
 
-byte				*g_pPhysDisp = NULL;
+uint8_t				*g_pPhysDisp = NULL;
 int					g_PhysDispSize = 0;
 
 CUtlVector<doccluderdata_t>	g_OccluderData( 256, 256 );
@@ -981,7 +981,7 @@ void ForceAlignment( IZip *pak, bool bAlign, bool bCompatibleFormat, unsigned in
 static void WritePakFileLump( void )
 {
 	CUtlBuffer buf( 0, 0 );
-	GetPakFile()->ActivateByteSwapping( IsX360() );
+	GetPakFile()->ActivateByteSwapping( false );
 	GetPakFile()->SaveToBuffer( buf );
 
 	// must respect pak file alignment
@@ -989,7 +989,7 @@ static void WritePakFileLump( void )
 	AlignFilePosition( g_hBSPFile, GetPakFile()->GetAlignment() );
 	
 	// Now store final buffers out to file
-	AddLump( LUMP_PAKFILE, (byte*)buf.Base(), buf.TellPut() );
+	AddLump( LUMP_PAKFILE, (uint8_t*)buf.Base(), buf.TellPut() );
 }
 
 //-----------------------------------------------------------------------------
@@ -1174,7 +1174,7 @@ void CGameLump::ComputeGameLumpSizeAndCount( int& size, int& clumpCount )
 }
 
 
-void CGameLump::SwapGameLump( GameLumpId_t id, int version, byte *dest, byte *src, int length )
+void CGameLump::SwapGameLump( GameLumpId_t id, int version, uint8_t *dest, uint8_t *src, int length )
 {
 	int count = 0;
 	switch( id )
@@ -1402,7 +1402,7 @@ void CGameLump::ParseGameLump( BSPHeader_t* pHeader )
 	if (length > 0)
 	{
 		// Read dictionary...
-		dgamelumpheader_t* pGameLumpHeader = (dgamelumpheader_t*)((byte *)pHeader + ofs);
+		dgamelumpheader_t* pGameLumpHeader = (dgamelumpheader_t*)((uint8_t *)pHeader + ofs);
 		if ( g_bSwapOnLoad )
 		{
 			g_Swap.SwapFieldsToTargetEndian( pGameLumpHeader );
@@ -1419,11 +1419,11 @@ void CGameLump::ParseGameLump( BSPHeader_t* pHeader )
 			GameLumpHandle_t lump = g_GameLumps.CreateGameLump( pGameLump[i].id, length, pGameLump[i].flags, pGameLump[i].version );
 			if ( g_bSwapOnLoad )
 			{
-				SwapGameLump( pGameLump[i].id, pGameLump[i].version, (byte*)g_GameLumps.GetGameLump(lump), (byte *)pHeader + pGameLump[i].fileofs, length );
+				SwapGameLump( pGameLump[i].id, pGameLump[i].version, (uint8_t*)g_GameLumps.GetGameLump(lump), (uint8_t *)pHeader + pGameLump[i].fileofs, length );
 			}
 			else
 			{
-				memcpy( g_GameLumps.GetGameLump(lump), (byte *)pHeader + pGameLump[i].fileofs, length );
+				memcpy( g_GameLumps.GetGameLump(lump), (uint8_t *)pHeader + pGameLump[i].fileofs, length );
 			}
 		}
 	}
@@ -1502,7 +1502,7 @@ static void AddGameLumps()
 		unsigned int lumpsize = g_GameLumps.GameLumpSize(h);
 		if ( g_bSwapOnWrite )
 		{
-			g_GameLumps.SwapGameLump( g_GameLumps.GetGameLumpId(h), g_GameLumps.GetGameLumpVersion(h), (byte*)g_GameLumps.GetGameLump(h), (byte*)g_GameLumps.GetGameLump(h), lumpsize );
+			g_GameLumps.SwapGameLump( g_GameLumps.GetGameLumpId(h), g_GameLumps.GetGameLumpVersion(h), (uint8_t*)g_GameLumps.GetGameLump(h), (uint8_t*)g_GameLumps.GetGameLump(h), lumpsize );
 		}
 		SafeWrite( g_hBSPFile, g_GameLumps.GetGameLump(h), lumpsize );
 	}
@@ -1593,7 +1593,7 @@ static void LoadOcclusionLump()
 	length = g_pBSPHeader->lumps[LUMP_OCCLUSION].filelen;
 	ofs = g_pBSPHeader->lumps[LUMP_OCCLUSION].fileofs;
 	
-	CUtlBuffer buf( (byte *)g_pBSPHeader + ofs, length, CUtlBuffer::READ_ONLY );
+	CUtlBuffer buf( (uint8_t *)g_pBSPHeader + ofs, length, CUtlBuffer::READ_ONLY );
 	buf.ActivateByteSwapping( g_bSwapOnLoad );
 	switch ( g_pBSPHeader->lumps[LUMP_OCCLUSION].version )
 	{
@@ -1617,12 +1617,12 @@ CompressVis
 
 ===============
 */
-int CompressVis (byte *vis, byte *dest)
+int CompressVis (uint8_t *vis, uint8_t *dest)
 {
 	int		j;
 	int		rep;
 	int		visrow;
-	byte	*dest_p;
+	uint8_t	*dest_p;
 	
 	dest_p = dest;
 //	visrow = (r_numvisleafs + 7)>>3;
@@ -1653,10 +1653,10 @@ int CompressVis (byte *vis, byte *dest)
 DecompressVis
 ===================
 */
-void DecompressVis (byte *in, byte *decompressed)
+void DecompressVis (uint8_t *in, uint8_t *decompressed)
 {
 	int		c;
-	byte	*out;
+	uint8_t	*out;
 	int		row;
 
 //	row = (r_numvisleafs+7)>>3;	
@@ -1732,7 +1732,7 @@ BEGIN_BYTESWAP_DATADESC_( swapmoppsurfaceheader_t, swapcollideheader_t )
 END_BYTESWAP_DATADESC()
 
 
-static void SwapPhyscollideLump( byte *pDestBase, byte *pSrcBase, unsigned int &count )
+static void SwapPhyscollideLump( uint8_t *pDestBase, uint8_t *pSrcBase, unsigned int &count )
 {
 	IPhysicsCollision *physcollision = NULL;
 	CSysModule *pPhysicsModule = g_pFullFileSystem->LoadModule( "vphysics.dll" );
@@ -1754,13 +1754,13 @@ static void SwapPhyscollideLump( byte *pDestBase, byte *pSrcBase, unsigned int &
 	// physics data is variable length.  The last physmodel is a NULL pointer
 	// with modelIndex -1, dataSize -1
 	dphysmodel_t *pPhysModel;
-	byte *pSrc = pSrcBase;
+	uint8_t *pSrc = pSrcBase;
 
 	// first the src chunks have to be aligned properly
 	// swap increases size, allocate enough expansion room
-	byte *pSrcAlignedBase = (byte*)malloc( 2*count );
-	byte *basePtr = pSrcAlignedBase;
-	byte *pSrcAligned = pSrcAlignedBase;
+	uint8_t *pSrcAlignedBase = (uint8_t*)malloc( 2*count );
+	uint8_t *basePtr = pSrcAlignedBase;
+	uint8_t *pSrcAligned = pSrcAlignedBase;
 
 	do
 	{
@@ -1828,7 +1828,7 @@ static void SwapPhyscollideLump( byte *pDestBase, byte *pSrcBase, unsigned int &
 	// Now the data can be swapped properly
 	pSrcBase = pSrcAlignedBase;
 	pSrc = pSrcBase;
-	byte *pDest = pDestBase;
+	uint8_t *pDest = pDestBase;
 
 	do
 	{
@@ -1960,7 +1960,7 @@ static void SwapPhyscollideLump( byte *pDestBase, byte *pSrcBase, unsigned int &
 }
 
 
-static void SwapPhyslevelLump( byte *pDest, byte *pSrc, uint &count, int maxExpand )
+static void SwapPhyslevelLump( uint8_t *pDest, uint8_t *pSrc, uint32_t &count, int maxExpand )
 {
 #if defined( PHYSICS2_PHYSX_ENABLE )
 	// TODO: this must be in AppSystem code
@@ -2093,7 +2093,7 @@ static void SwapPhyslevelLump( byte *pDest, byte *pSrc, uint &count, int maxExpa
 		g_Swap.SwapFieldsToTargetEndian( pRootOut );
 	}
 
-	uint nNewSize = stream.GetTotalSize();
+	uint32_t nNewSize = stream.GetTotalSize();
 	if ( nNewSize > maxExpand )
 	{
 		Warning( "X360 PhysLevel lump is too big (%d->%d bytes)\n", count, nNewSize );
@@ -2114,7 +2114,7 @@ static void SwapPhyslevelLump( byte *pDest, byte *pSrc, uint &count, int maxExpa
 
 
 // UNDONE: This code is not yet tested.
-static void SwapPhysdispLump( byte *pDest, byte *pSrc, int count )
+static void SwapPhysdispLump( uint8_t *pDest, uint8_t *pSrc, int count )
 {
 	// the format of this lump is one unsigned short dispCount, then dispCount unsigned shorts of sizes
 	// followed by an array of variable length (each element is the length of the corresponding entry in the
@@ -2136,7 +2136,7 @@ static void SwapPhysdispLump( byte *pDest, byte *pSrc, int count )
 }
 
 
-static void SwapVisibilityLump( byte *pDest, byte *pSrc, int count )
+static void SwapVisibilityLump( uint8_t *pDest, uint8_t *pSrc, int count )
 {
 	int firstInt = *(int*)pSrc;
 	if ( g_bSwapOnLoad )
@@ -2200,15 +2200,15 @@ int CopyLumpInternal( int nFieldType, int nLump, T *pDest, int nForceVersion )
 	// count must be of the integral type
 	unsigned int nCount = nLength / sizeof( T );
 
-	byte *pLumpData;
+	uint8_t *pLumpData;
 	if ( g_Lumps.bLumpFixed[nLump] )
 	{
-		pLumpData = (byte *)g_Lumps.pLumps[nLump];
+		pLumpData = (uint8_t *)g_Lumps.pLumps[nLump];
 	}
 	else
 	{
 		unsigned int ofs = g_pBSPHeader->lumps[nLump].fileofs;
-		pLumpData = ( (byte*)g_pBSPHeader + ofs );
+		pLumpData = ( (uint8_t*)g_pBSPHeader + ofs );
 	}
 
 	if ( g_bSwapOnLoad )
@@ -2216,21 +2216,21 @@ int CopyLumpInternal( int nFieldType, int nLump, T *pDest, int nForceVersion )
 		switch( nLump )
 		{
 		case LUMP_VISIBILITY:
-			SwapVisibilityLump( (byte*)pDest, pLumpData, nCount );
+			SwapVisibilityLump( (uint8_t*)pDest, pLumpData, nCount );
 			break;
 		
 		case LUMP_PHYSCOLLIDE:
 			// SwapPhyscollideLump may change size
-			SwapPhyscollideLump( (byte*)pDest, pLumpData, nCount );
+			SwapPhyscollideLump( (uint8_t*)pDest, pLumpData, nCount );
 			nLength = nCount;
 			break;
 
 		case LUMP_PHYSDISP:
-			SwapPhysdispLump( (byte*)pDest, pLumpData, nCount );
+			SwapPhysdispLump( (uint8_t*)pDest, pLumpData, nCount );
 			break;
 
 		case LUMP_PHYSLEVEL:
-			SwapPhyslevelLump( (byte*)pDest, pLumpData, nCount, nCount );
+			SwapPhyslevelLump( (uint8_t*)pDest, pLumpData, nCount, nCount );
 			break;
 
 		default:
@@ -2299,16 +2299,16 @@ int CopyLumpInternal( int nLump, T *pDest, int forceVersion )
 
 	unsigned int nCount = nLength / sizeof( T );
 
-	byte *pLumpData;
+	uint8_t *pLumpData;
 	if ( g_Lumps.bLumpFixed[nLump] )
 	{
 		// lump has been pre-fixed, use that data
-		pLumpData = (byte *)g_Lumps.pLumps[nLump];
+		pLumpData = (uint8_t *)g_Lumps.pLumps[nLump];
 	}
 	else
 	{
 		unsigned int nFileOffset = g_pBSPHeader->lumps[nLump].fileofs;
-		pLumpData = (byte*)g_pBSPHeader + nFileOffset;
+		pLumpData = (uint8_t*)g_pBSPHeader + nFileOffset;
 	}
 
 	if ( g_bSwapOnLoad )
@@ -2367,7 +2367,7 @@ void Lumps_Parse( void )
 	{
 		if ( !g_Lumps.bLumpParsed[i] && g_pBSPHeader->lumps[i].filelen )
 		{
-			g_Lumps.size[i] = CopyVariableLump<byte>( FIELD_CHARACTER, i, &g_Lumps.pLumps[i], -1 );
+			g_Lumps.size[i] = CopyVariableLump<uint8_t>( FIELD_CHARACTER, i, &g_Lumps.pLumps[i], -1 );
 			Msg( "Reading unknown lump #%d (%d bytes)\n", i, g_Lumps.size[i] );
 		}
 	}
@@ -2382,7 +2382,7 @@ void Lumps_Write( void )
 		if ( g_Lumps.size[i] )
 		{
 			Msg( "Writing unknown lump #%d (%d bytes)\n", i, g_Lumps.size[i] );
-			AddLump( i, (byte*)g_Lumps.pLumps[i], g_Lumps.size[i] );
+			AddLump( i, (uint8_t*)g_Lumps.pLumps[i], g_Lumps.size[i] );
 		}
 		if ( g_Lumps.pLumps[i] )
 		{
@@ -2411,7 +2411,7 @@ int LoadLeafs( void )
 			}
 			int count = length / size;
 
-			void *pSrcBase = ( ( byte * )g_pBSPHeader + g_pBSPHeader->lumps[LUMP_LEAFS].fileofs );
+			void *pSrcBase = ( ( uint8_t * )g_pBSPHeader + g_pBSPHeader->lumps[LUMP_LEAFS].fileofs );
 			dleaf_version_0_t *pSrc = (dleaf_version_0_t *)pSrcBase;
 			dleaf_t *pDst = dleafs;
 
@@ -2472,7 +2472,7 @@ void LoadLeafAmbientLighting( int numLeafs )
 			Assert( LumpVersion( LUMP_LEAF_AMBIENT_LIGHTING_HDR ) != LUMP_LEAF_AMBIENT_LIGHTING_VERSION );
 		}
 
-		void *pSrcBase = ( ( byte * )g_pBSPHeader + g_pBSPHeader->lumps[LUMP_LEAF_AMBIENT_LIGHTING].fileofs );
+		void *pSrcBase = ( ( uint8_t * )g_pBSPHeader + g_pBSPHeader->lumps[LUMP_LEAF_AMBIENT_LIGHTING].fileofs );
 		CompressedLightCube *pSrc = NULL;
 		if ( HasLump( LUMP_LEAF_AMBIENT_LIGHTING ) )
 		{
@@ -2481,7 +2481,7 @@ void LoadLeafAmbientLighting( int numLeafs )
 		g_LeafAmbientIndexLDR.SetCount( numLeafs );
 		g_LeafAmbientLightingLDR.SetCount( numLeafs );
 
-		void *pSrcBaseHDR = ( ( byte * )g_pBSPHeader + g_pBSPHeader->lumps[LUMP_LEAF_AMBIENT_LIGHTING_HDR].fileofs );
+		void *pSrcBaseHDR = ( ( uint8_t * )g_pBSPHeader + g_pBSPHeader->lumps[LUMP_LEAF_AMBIENT_LIGHTING_HDR].fileofs );
 		CompressedLightCube *pSrcHDR = NULL;
 		if ( HasLump( LUMP_LEAF_AMBIENT_LIGHTING_HDR ) )
 		{
@@ -2625,7 +2625,7 @@ void OpenBSPFile( const char *filename )
 	{
 		dflagslump_t flagsLump;
 
-		memcpy( &flagsLump, (dflagslump_t *)((byte *)g_pBSPHeader + g_pBSPHeader->lumps[LUMP_MAP_FLAGS].fileofs ), sizeof( flagsLump ) );
+		memcpy( &flagsLump, (dflagslump_t *)((uint8_t *)g_pBSPHeader + g_pBSPHeader->lumps[LUMP_MAP_FLAGS].fileofs ), sizeof( flagsLump ) );
 		if ( g_bSwapOnLoad )
 		{
 			g_Swap.SwapFieldsToTargetEndian( &flagsLump );
@@ -2702,9 +2702,9 @@ void LoadBSPFile( const char *filename )
 	numworldlightsHDR = LoadWorldLights( LUMP_WORLDLIGHTS_HDR, dworldlightsHDR );
 	
 	numleafwaterdata = CopyLump( LUMP_LEAFWATERDATA, dleafwaterdata );
-	g_PhysCollideSize = CopyVariableLump<byte>( FIELD_CHARACTER, LUMP_PHYSCOLLIDE, (void**)&g_pPhysCollide );
-	g_PhysLevelSize = CopyVariableLump<byte>( FIELD_CHARACTER, LUMP_PHYSLEVEL, (void**)&g_pPhysLevel );
-	g_PhysDispSize = CopyVariableLump<byte>( FIELD_CHARACTER, LUMP_PHYSDISP, (void**)&g_pPhysDisp );
+	g_PhysCollideSize = CopyVariableLump<uint8_t>( FIELD_CHARACTER, LUMP_PHYSCOLLIDE, (void**)&g_pPhysCollide );
+	g_PhysLevelSize = CopyVariableLump<uint8_t>( FIELD_CHARACTER, LUMP_PHYSLEVEL, (void**)&g_pPhysLevel );
+	g_PhysDispSize = CopyVariableLump<uint8_t>( FIELD_CHARACTER, LUMP_PHYSDISP, (void**)&g_pPhysDisp );
 
 	g_numvertnormals = CopyLump( FIELD_VECTOR, LUMP_VERTNORMALS, (float*)g_vertnormals );
 	g_numvertnormalindices = CopyLump( FIELD_SHORT, LUMP_VERTNORMALINDICES, g_vertnormalindices );
@@ -2745,11 +2745,11 @@ void LoadBSPFile( const char *filename )
 	*/
 		
 	// Load PAK file lump into appropriate data structure
-	byte *pakbuffer = NULL;
-	int paksize = CopyVariableLump<byte>( FIELD_CHARACTER, LUMP_PAKFILE, ( void ** )&pakbuffer );
+	uint8_t *pakbuffer = NULL;
+	int paksize = CopyVariableLump<uint8_t>( FIELD_CHARACTER, LUMP_PAKFILE, ( void ** )&pakbuffer );
 	if ( paksize > 0 )
 	{
-		GetPakFile()->ActivateByteSwapping( IsX360() );
+		GetPakFile()->ActivateByteSwapping( false );
 		GetPakFile()->ParseFromBuffer( pakbuffer, paksize );
 	}
 	else
@@ -2896,8 +2896,8 @@ void LoadBSPFile_FileSystemOnly( const char *filename )
 	ValidateHeader( filename, g_pBSPHeader );
 
 	// Load PAK file lump into appropriate data structure
-	byte *pakbuffer = NULL;
-	int paksize = CopyVariableLump<byte>( FIELD_CHARACTER, LUMP_PAKFILE, ( void ** )&pakbuffer, 1 );
+	uint8_t *pakbuffer = NULL;
+	int paksize = CopyVariableLump<uint8_t>( FIELD_CHARACTER, LUMP_PAKFILE, ( void ** )&pakbuffer, 1 );
 	if ( paksize > 0 )
 	{
 		GetPakFile()->ParseFromBuffer( pakbuffer, paksize );
@@ -2924,8 +2924,8 @@ void ExtractZipFileFromBSP( char *pBSPFileName, char *pZipFileName )
 	LoadFile( pBSPFileName, (void **)&g_pBSPHeader);
 	ValidateHeader( pBSPFileName, g_pBSPHeader );
 
-	byte *pakbuffer = NULL;
-	int paksize = CopyVariableLump<byte>( FIELD_CHARACTER, LUMP_PAKFILE, ( void ** )&pakbuffer );
+	uint8_t *pakbuffer = NULL;
+	int paksize = CopyVariableLump<uint8_t>( FIELD_CHARACTER, LUMP_PAKFILE, ( void ** )&pakbuffer );
 	if ( paksize > 0 )
 	{
 		FILE *fp;
@@ -3267,7 +3267,7 @@ void WriteLumpToFile( char *filename, int lump )
 	SafeWrite (lumpfile, &lumpHeader, sizeof(lumpfileheader_t));
 
 	// Write the lump
-	SafeWrite (lumpfile, (byte *)g_pBSPHeader + ofs, length);
+	SafeWrite (lumpfile, (uint8_t *)g_pBSPHeader + ofs, length);
 }
 
 //============================================================================
@@ -3487,7 +3487,7 @@ qboolean	ParseEntity ()
 	epair_t		*e;
 	entity_t	*mapent;
 
-	if (!GetToken (true))
+	if ( !( GetToken (true) ) )
 		return false;
 
 	if (Q_stricmp (token, "{") )
@@ -3501,7 +3501,7 @@ qboolean	ParseEntity ()
 
 	do
 	{
-		if (!GetToken (true))
+		if ( !( GetToken (true) ) )
 			Error ("ParseEntity: EOF without closing brace");
 		if (!Q_stricmp (token, "}") )
 			break;
@@ -3866,18 +3866,18 @@ public:
 	int LeafCount() const;
 
 	// Enumerates the leaves along a ray, box, etc.
-	bool EnumerateLeavesAtPoint( const Vector& pt, ISpatialLeafEnumerator* pEnum, intp context );
-	bool EnumerateLeavesInBox( const Vector& mins, const Vector& maxs, ISpatialLeafEnumerator* pEnum, intp context );
-	bool EnumerateLeavesInSphere( const Vector& center, float radius, ISpatialLeafEnumerator* pEnum, intp context );
-	bool EnumerateLeavesAlongRay( Ray_t const& ray, ISpatialLeafEnumerator* pEnum, intp context );
-	bool EnumerateLeavesInSphereWithFlagSet( const Vector& center, float radius, ISpatialLeafEnumerator* pEnum, intp context, int nFlagsMask )
+	bool EnumerateLeavesAtPoint( const Vector& pt, ISpatialLeafEnumerator* pEnum, intptr_t context );
+	bool EnumerateLeavesInBox( const Vector& mins, const Vector& maxs, ISpatialLeafEnumerator* pEnum, intptr_t context );
+	bool EnumerateLeavesInSphere( const Vector& center, float radius, ISpatialLeafEnumerator* pEnum, intptr_t context );
+	bool EnumerateLeavesAlongRay( Ray_t const& ray, ISpatialLeafEnumerator* pEnum, intptr_t context );
+	bool EnumerateLeavesInSphereWithFlagSet( const Vector& center, float radius, ISpatialLeafEnumerator* pEnum, intptr_t context, int nFlagsMask )
 	{
 		// engine flags not supported. Callers of this are supposed to examine the node anyway
 		return EnumerateLeavesInSphere( center, radius, pEnum, context );
 	}
 	int ListLeavesInBox( const Vector& mins, const Vector& maxs, unsigned short *pList, int listMax );
 
-	virtual int ListLeavesInSphereWithFlagSet( int *pLeafsInSphere, const Vector& vecCenter, float flRadius, int nLeafCount, const uint16 *pLeafs, int nLeafStride, int nFlagsCheck );
+	virtual int ListLeavesInSphereWithFlagSet( int *pLeafsInSphere, const Vector& vecCenter, float flRadius, int nLeafCount, const uint16_t *pLeafs, int nLeafStride, int nFlagsCheck );
 };
 
 
@@ -3896,7 +3896,7 @@ int CToolBSPTree::LeafCount() const
 //-----------------------------------------------------------------------------
 
 bool CToolBSPTree::EnumerateLeavesAtPoint( const Vector& pt, 
-									ISpatialLeafEnumerator* pEnum, intp context )
+									ISpatialLeafEnumerator* pEnum, intptr_t context )
 {
 	int node = 0;
 	while( node >= 0 )
@@ -3923,7 +3923,7 @@ bool CToolBSPTree::EnumerateLeavesAtPoint( const Vector& pt,
 //-----------------------------------------------------------------------------
 
 static bool EnumerateLeavesInBox_R( int node, const Vector& mins, 
-				const Vector& maxs, ISpatialLeafEnumerator* pEnum, intp context )
+				const Vector& maxs, ISpatialLeafEnumerator* pEnum, intptr_t context )
 {
 	Vector cornermin, cornermax;
 
@@ -3970,7 +3970,7 @@ static bool EnumerateLeavesInBox_R( int node, const Vector& mins,
 }
 
 bool CToolBSPTree::EnumerateLeavesInBox( const Vector& mins, const Vector& maxs, 
-									ISpatialLeafEnumerator* pEnum, intp context )
+									ISpatialLeafEnumerator* pEnum, intptr_t context )
 {
 	return EnumerateLeavesInBox_R( 0, mins, maxs, pEnum, context );
 }
@@ -3983,7 +3983,7 @@ public:
 		: m_pList(pListIn), m_listMax(listMaxIn), m_count(0)
 	{
 	}
-	virtual bool EnumerateLeaf( int leaf, intp context )
+	virtual bool EnumerateLeaf( int leaf, intptr_t context )
 	{
 		if ( m_count < m_listMax )
 		{
@@ -4006,13 +4006,13 @@ int CToolBSPTree::ListLeavesInBox( const Vector& mins, const Vector& maxs, unsig
 }
 
 
-int CToolBSPTree::ListLeavesInSphereWithFlagSet( int *pLeafsInSphere, const Vector& vecCenter, float flRadius, int nLeafCount, const uint16 *pLeafs, int nLeafStride, int nFlagsCheck )
+int CToolBSPTree::ListLeavesInSphereWithFlagSet( int *pLeafsInSphere, const Vector& vecCenter, float flRadius, int nLeafCount, const uint16_t *pLeafs, int nLeafStride, int nFlagsCheck )
 {
 	// NOTE: We ignore flags here
 	Vector vecMins, vecMaxs;
 	int nLeavesFound = 0;
-	const uint16 *pLeaf = pLeafs;
-	for ( int i = 0; i < nLeafCount; ++i, pLeaf = (const uint16*)( (const uint8*)pLeaf + nLeafStride ) )
+	const uint16_t *pLeaf = pLeafs;
+	for ( int i = 0; i < nLeafCount; ++i, pLeaf = (const uint16_t*)( (const uint8_t*)pLeaf + nLeafStride ) )
 	{
 		dleaf_t &leaf = dleafs[ *pLeaf ];
 		VECTOR_COPY( leaf.mins, vecMins );
@@ -4032,7 +4032,7 @@ int CToolBSPTree::ListLeavesInSphereWithFlagSet( int *pLeafsInSphere, const Vect
 //-----------------------------------------------------------------------------
 
 static bool EnumerateLeavesInSphere_R( int node, const Vector& origin, 
-				float radius, ISpatialLeafEnumerator* pEnum, intp context )
+				float radius, ISpatialLeafEnumerator* pEnum, intptr_t context )
 {
 	while( node >= 0 )
 	{
@@ -4063,7 +4063,7 @@ static bool EnumerateLeavesInSphere_R( int node, const Vector& origin,
 	return pEnum->EnumerateLeaf( - node - 1, context );
 }
 
-bool CToolBSPTree::EnumerateLeavesInSphere( const Vector& center, float radius, ISpatialLeafEnumerator* pEnum, intp context )
+bool CToolBSPTree::EnumerateLeavesInSphere( const Vector& center, float radius, ISpatialLeafEnumerator* pEnum, intptr_t context )
 {
 	return EnumerateLeavesInSphere_R( 0, center, radius, pEnum, context );
 }
@@ -4074,7 +4074,7 @@ bool CToolBSPTree::EnumerateLeavesInSphere( const Vector& center, float radius, 
 //-----------------------------------------------------------------------------
 
 static bool EnumerateLeavesAlongRay_R( int node, Ray_t const& ray, 
-	const Vector& start, const Vector& end, ISpatialLeafEnumerator* pEnum, intp context )
+	const Vector& start, const Vector& end, ISpatialLeafEnumerator* pEnum, intptr_t context )
 {
 	float front,back;
 
@@ -4137,7 +4137,7 @@ static bool EnumerateLeavesAlongRay_R( int node, Ray_t const& ray,
 	return pEnum->EnumerateLeaf( - node - 1, context );
 }
 
-bool CToolBSPTree::EnumerateLeavesAlongRay( Ray_t const& ray, ISpatialLeafEnumerator* pEnum, intp context )
+bool CToolBSPTree::EnumerateLeavesAlongRay( Ray_t const& ray, ISpatialLeafEnumerator* pEnum, intptr_t context )
 {
 	if (!ray.m_IsSwept)
 	{
@@ -4176,7 +4176,7 @@ ISpatialQuery* ToolBSPTree()
 // FIXME: Do we want this in the IBSPTree interface?
 
 static bool EnumerateNodesAlongRay_R( int node, Ray_t const& ray, float start, float end,
-	IBSPNodeEnumerator* pEnum, intp context )
+	IBSPNodeEnumerator* pEnum, intptr_t context )
 {
 	float front, back;
 	float startDotN, deltaDotN;
@@ -4245,7 +4245,7 @@ static bool EnumerateNodesAlongRay_R( int node, Ray_t const& ray, float start, f
 }
 
 
-bool EnumerateNodesAlongRay( Ray_t const& ray, IBSPNodeEnumerator* pEnum, intp context )
+bool EnumerateNodesAlongRay( Ray_t const& ray, IBSPNodeEnumerator* pEnum, intptr_t context )
 {
 	Vector end;
 	VectorAdd( ray.m_Start, ray.m_Delta, end );
@@ -4302,7 +4302,7 @@ void GetPlatformMapPath( const char *pMapPath, char *pPlatformMapPath, int dxlev
 // There's a version of this in checksum_engine.cpp!!! Make sure that they match.
 static bool CRC_MapFile(CRC32_t *crcvalue, const char *pszFileName)
 {
-	byte chunk[1024];
+	uint8_t chunk[1024];
 	lump_t *curLump;
 
 	FileHandle_t fp = g_pFileSystem->Open( pszFileName, "rb" );
@@ -4380,8 +4380,8 @@ void SetHDRMode( bool bHDR )
 
 bool SwapVHV( void *pDestBase, void *pSrcBase )
 {
-	byte *pDest = (byte*)pDestBase;
-	byte *pSrc = (byte*)pSrcBase;
+	uint8_t *pDest = (uint8_t*)pDestBase;
+	uint8_t *pSrc = (uint8_t*)pSrcBase;
 
 	HardwareVerts::FileHeader_t *pHdr = (HardwareVerts::FileHeader_t*)( g_bSwapOnLoad ? pDest : pSrc );
 	g_Swap.SwapFieldsToTargetEndian<HardwareVerts::FileHeader_t>( (HardwareVerts::FileHeader_t*)pDest, (HardwareVerts::FileHeader_t*)pSrc );
@@ -4400,8 +4400,8 @@ bool SwapVHV( void *pDestBase, void *pSrcBase )
 	{
 		g_Swap.SwapFieldsToTargetEndian( pDestMesh, pSrcMesh );
 
-		pSrc = (byte*)pSrcBase + pMesh->m_nOffset;
-		pDest = (byte*)pDestBase + pMesh->m_nOffset;
+		pSrc = (uint8_t*)pSrcBase + pMesh->m_nOffset;
+		pDest = (uint8_t*)pDestBase + pMesh->m_nOffset;
 
 		// Swap as a buffer of integers 
 		// (source is bgra for an Intel swap to argb. PowerPC won't swap, so we need argb source. 
@@ -4731,22 +4731,22 @@ int SwapLumpToDisk( int fieldType, int lumpnum )
 		switch( lumpnum )
 		{
 		case LUMP_VISIBILITY:
-			SwapVisibilityLump( (byte*)pBuffer, (byte*)pBuffer, count );
+			SwapVisibilityLump( (uint8_t*)pBuffer, (uint8_t*)pBuffer, count );
 			break;
 		
 		case LUMP_PHYSCOLLIDE:
 			// SwapPhyscollideLump may change size
-			SwapPhyscollideLump( (byte*)pBuffer, (byte*)pBuffer, count );
+			SwapPhyscollideLump( (uint8_t*)pBuffer, (uint8_t*)pBuffer, count );
 			g_pBSPHeader->lumps[lumpnum].filelen = count;
 			break;
 
 		case LUMP_PHYSDISP:
-			SwapPhysdispLump( (byte*)pBuffer, (byte*)pBuffer, count );
+			SwapPhysdispLump( (uint8_t*)pBuffer, (uint8_t*)pBuffer, count );
 			break;
 
 		case LUMP_PHYSLEVEL:
 			// this may change the file size
-			SwapPhyslevelLump( (byte*)pBuffer, (byte*)pBuffer, count, maxExpand );
+			SwapPhyslevelLump( (uint8_t*)pBuffer, (uint8_t*)pBuffer, count, maxExpand );
 			g_pBSPHeader->lumps[lumpnum].filelen = count;
 			// needs to be 16 byte aligned
 			nAlignment = LUMP_PHYSLEVEL_ALIGNMENT;
@@ -4947,11 +4947,11 @@ void SwapPakfileLumpToDisk( const char *pInFilename, char const *szPlatform )
 {
 	DevMsg( "Swapping %s\n", GetLumpName( LUMP_PAKFILE ) );
 
-	byte *pakbuffer = NULL;
-	int paksize = CopyVariableLump<byte>( FIELD_CHARACTER, LUMP_PAKFILE, ( void ** )&pakbuffer );
+	uint8_t *pakbuffer = NULL;
+	int paksize = CopyVariableLump<uint8_t>( FIELD_CHARACTER, LUMP_PAKFILE, ( void ** )&pakbuffer );
 	if ( paksize > 0 )
 	{
-		GetPakFile()->ActivateByteSwapping( IsX360() );
+		GetPakFile()->ActivateByteSwapping( false );
 		GetPakFile()->ParseFromBuffer( pakbuffer, paksize );
 
 		ConvertPakFileContents( pInFilename, szPlatform );
@@ -5075,7 +5075,7 @@ void BuildStaticPropNameTable()
 			Error( "Unknown Static Prop Lump version %d!\n", nVersion );
 		}
 
-		byte *pGameLumpData = (byte *)g_GameLumps.GetGameLump( hGameLump );
+		uint8_t *pGameLumpData = (uint8_t *)g_GameLumps.GetGameLump( hGameLump );
 		if ( pGameLumpData && g_GameLumps.GameLumpSize( hGameLump ) )
 		{
 			// get the model dictionary
@@ -5221,14 +5221,14 @@ void StripUnusedLightmapAlphaData()
 
 	// get the current lighting
 	int nOldTotalLightmapSize = g_pBSPHeader->lumps[LUMP_LIGHTING_HDR].filelen;
-	byte *pOldLightingBase = (byte *)malloc( nOldTotalLightmapSize );
+	uint8_t *pOldLightingBase = (uint8_t *)malloc( nOldTotalLightmapSize );
 	CopyLumpInternal( FIELD_CHARACTER, LUMP_LIGHTING_HDR, pOldLightingBase, g_pBSPHeader->lumps[LUMP_LIGHTING_HDR].version );
 	
 	// create new lighting data
 	// the new lighting data can only be the same size or smaller
-	byte *pNewLightingBase = (byte *)malloc( g_pBSPHeader->lumps[LUMP_LIGHTING_HDR].filelen );
+	uint8_t *pNewLightingBase = (uint8_t *)malloc( g_pBSPHeader->lumps[LUMP_LIGHTING_HDR].filelen );
 	memset( pNewLightingBase, 0, g_pBSPHeader->lumps[LUMP_LIGHTING_HDR].filelen );
-	byte *pNewLighting = pNewLightingBase;
+	uint8_t *pNewLighting = pNewLightingBase;
 
 	// there is no guarantee that the face order has anything to do with their luxel placement
 	// the face order will remain unchanged, but the relevant luxels will be gathered and re-serialized
@@ -5367,7 +5367,7 @@ bool CompressGameLump( BSPHeader_t *pInBSPHeader, BSPHeader_t *pOutBSPHeader, CU
 {
 	CByteswap	byteSwap;
 
-	dgamelumpheader_t* pInGameLumpHeader = (dgamelumpheader_t*)(((byte *)pInBSPHeader) + pInBSPHeader->lumps[LUMP_GAME_LUMP].fileofs);
+	dgamelumpheader_t* pInGameLumpHeader = (dgamelumpheader_t*)(((uint8_t *)pInBSPHeader) + pInBSPHeader->lumps[LUMP_GAME_LUMP].fileofs);
 	dgamelump_t* pInGameLump = (dgamelump_t*)(pInGameLumpHeader + 1);
 
 	byteSwap.ActivateByteSwapping( true );
@@ -5378,7 +5378,7 @@ bool CompressGameLump( BSPHeader_t *pInBSPHeader, BSPHeader_t *pOutBSPHeader, CU
 	outputBuffer.Put( pInGameLumpHeader, sizeof( dgamelumpheader_t ) );
 	outputBuffer.Put( pInGameLump, pInGameLumpHeader->lumpCount * sizeof( dgamelump_t ) );
 
-	dgamelumpheader_t* pOutGameLumpHeader = (dgamelumpheader_t*)((byte *)outputBuffer.Base() + newOffset );
+	dgamelumpheader_t* pOutGameLumpHeader = (dgamelumpheader_t*)((uint8_t *)outputBuffer.Base() + newOffset );
 	dgamelump_t* pOutGameLump = (dgamelump_t*)( pOutGameLumpHeader + 1 );
 
 	// add a dummy terminal gamelump
@@ -5399,7 +5399,7 @@ bool CompressGameLump( BSPHeader_t *pInBSPHeader, BSPHeader_t *pOutBSPHeader, CU
 
 		if ( pInGameLump[i].filelen )
 		{
-			inputBuffer.SetExternalBuffer( ((byte *)pInBSPHeader) + pInGameLump[i].fileofs, pInGameLump[i].filelen, pInGameLump[i].filelen );
+			inputBuffer.SetExternalBuffer( ((uint8_t *)pInBSPHeader) + pInGameLump[i].fileofs, pInGameLump[i].filelen, pInGameLump[i].filelen );
 
 			bool bCompressed = pCompressFunc( inputBuffer, compressedBuffer );
 			if ( bCompressed )
@@ -5491,7 +5491,7 @@ bool CompressBSP( CUtlBuffer &inputBuffer, CUtlBuffer &outputBuffer, CompressFun
 			*((unsigned int *)pOutBSPHeader->lumps[lumpNum].fourCC) = 0;
 
 			CUtlBuffer inputBuffer;
-			inputBuffer.SetExternalBuffer( ((byte *)pInBSPHeader) + pSortedLump->pLump->fileofs, pSortedLump->pLump->filelen, pSortedLump->pLump->filelen );
+			inputBuffer.SetExternalBuffer( ((uint8_t *)pInBSPHeader) + pSortedLump->pLump->fileofs, pSortedLump->pLump->filelen, pSortedLump->pLump->filelen );
 
 			if ( lumpNum == LUMP_GAME_LUMP )
 			{
@@ -5659,10 +5659,10 @@ bool SwapBSPFile( const char *pInFilename, const char *pOutFilename, bool bSwapO
 	SwapWorldLightsToDisk();
 
 	// Simple lump swaps
-	SwapLumpToDisk<byte>( FIELD_CHARACTER, LUMP_PHYSDISP );
-	SwapLumpToDisk<byte>( FIELD_CHARACTER, LUMP_PHYSCOLLIDE );
-	SwapLumpToDisk<byte>( FIELD_CHARACTER, LUMP_PHYSLEVEL );
-	SwapLumpToDisk<byte>( FIELD_CHARACTER, LUMP_VISIBILITY );
+	SwapLumpToDisk<uint8_t>( FIELD_CHARACTER, LUMP_PHYSDISP );
+	SwapLumpToDisk<uint8_t>( FIELD_CHARACTER, LUMP_PHYSCOLLIDE );
+	SwapLumpToDisk<uint8_t>( FIELD_CHARACTER, LUMP_PHYSLEVEL );
+	SwapLumpToDisk<uint8_t>( FIELD_CHARACTER, LUMP_VISIBILITY );
 	SwapLumpToDisk<dmodel_t>( LUMP_MODELS );
 	SwapLumpToDisk<dvertex_t>( LUMP_VERTEXES );
 	SwapLumpToDisk<dplane_t>( LUMP_PLANES );
@@ -5706,14 +5706,14 @@ bool SwapBSPFile( const char *pInFilename, const char *pOutFilename, bool bSwapO
 	{
 		// NOTE: lighting must be the penultimate lump
 		//       (allows 360 to free this memory part-way through map loading)
-		if ( SwapLumpToDisk<byte>( FIELD_CHARACTER, LUMP_LIGHTING_HDR ) )
+		if ( SwapLumpToDisk<uint8_t>( FIELD_CHARACTER, LUMP_LIGHTING_HDR ) )
 		{
 			g_pBSPHeader->lumps[LUMP_LIGHTING].filelen = 0;
 		}
 		else
 		{
 			// no HDR, keep LDR version
-			SwapLumpToDisk<byte>( FIELD_CHARACTER, LUMP_LIGHTING );
+			SwapLumpToDisk<uint8_t>( FIELD_CHARACTER, LUMP_LIGHTING );
 		}
 		// NOTE: Pakfile for 360 !!!MUST!!! be last	
 		SwapPakfileLumpToDisk( pInFilename, szPlatform );
@@ -5812,7 +5812,7 @@ bool GetPakFileLump( const char *pBSPFilename, void **pPakData, int *pPakSize )
 	
 	if ( g_pBSPHeader->lumps[LUMP_PAKFILE].filelen )
 	{
-		*pPakSize = CopyVariableLump<byte>( FIELD_CHARACTER, LUMP_PAKFILE, pPakData );
+		*pPakSize = CopyVariableLump<uint8_t>( FIELD_CHARACTER, LUMP_PAKFILE, pPakData );
 	}
 
 	CloseBSPFile();
@@ -5823,8 +5823,8 @@ bool GetPakFileLump( const char *pBSPFilename, void **pPakData, int *pPakSize )
 // compare function for qsort below
 static int LumpOffsetCompare( const void *pElem1, const void *pElem2 )
 {
-	int lump1 = *(byte *)pElem1;
-	int lump2 = *(byte *)pElem2;
+	int lump1 = *(uint8_t *)pElem1;
+	int lump2 = *(uint8_t *)pElem2;
 
 	if ( lump1 != lump2 )
 	{
@@ -5946,7 +5946,7 @@ bool SetPakFileLump( const char *pBSPFilename, const char *pNewFilename, void *p
 			SetAlignedLumpPosition( lump, nAlignment );
 
 			// save the data
-			SafeWrite( g_hBSPFile, (byte *)g_pBSPHeader + offset, length );
+			SafeWrite( g_hBSPFile, (uint8_t *)g_pBSPHeader + offset, length );
 		}
 		else
 		{
@@ -6020,7 +6020,7 @@ bool GetBSPDependants( const char *pBSPFilename, CUtlVector< CUtlString > *pList
 	GameLumpHandle_t hGameLump = g_GameLumps.GetGameLumpHandle( GAMELUMP_STATIC_PROPS );
 	if ( hGameLump != g_GameLumps.InvalidGameLump() )
 	{
-		byte *pGameLumpData = (byte *)g_GameLumps.GetGameLump( hGameLump );
+		uint8_t *pGameLumpData = (uint8_t *)g_GameLumps.GetGameLump( hGameLump );
 		if ( pGameLumpData && g_GameLumps.GameLumpSize( hGameLump ) )
 		{
 			int count = ((int *)pGameLumpData)[0];
@@ -6038,7 +6038,7 @@ bool GetBSPDependants( const char *pBSPFilename, CUtlVector< CUtlString > *pList
 	hGameLump = g_GameLumps.GetGameLumpHandle( GAMELUMP_DETAIL_PROPS );
 	if ( hGameLump != g_GameLumps.InvalidGameLump() )
 	{
-		byte *pGameLumpData = (byte *)g_GameLumps.GetGameLump( hGameLump );
+		uint8_t *pGameLumpData = (uint8_t *)g_GameLumps.GetGameLump( hGameLump );
 		if ( pGameLumpData && g_GameLumps.GameLumpSize( hGameLump ) )
 		{
 			int count = ((int *)pGameLumpData)[0];

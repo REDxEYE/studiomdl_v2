@@ -8,8 +8,7 @@
 // (SOA) sse-friendly manner.
 // =============================================================================//
 
-#ifndef UTLSOACONTAINER_H
-#define UTLSOACONTAINER_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -17,7 +16,7 @@
 
 
 #include "tier0/platform.h"
-#include "tier0/dbg.h"
+
 
 #include "tier1/utlmemory.h"
 #include "tier1/utlblockmemory.h"
@@ -380,7 +379,7 @@ public:
 	// entire rectangle modified by the operation.
 	void GenerateDistanceField( int nSrcField, int nDestField,
 								int nMaxDistance,
-								Rect3D_t *pRect = NULL );
+								Rect3D_t *pRect = nullptr);
 
 	void SetThreadMode( SOAThreadMode_t eThreadMode );
 
@@ -390,15 +389,15 @@ protected:
 	int m_nSlices;
 	int m_nPaddedColumns;								// # of columns rounded up for sse
 	int m_nNumQuadsPerRow;								// # of groups of 4 elements per row
-	uint8 *m_pDataMemory;								// the actual data memory
-	uint8 *m_pAttributePtrs[MAX_SOA_FIELDS];
+	uint8_t *m_pDataMemory;								// the actual data memory
+	uint8_t *m_pAttributePtrs[MAX_SOA_FIELDS];
 	EAttributeDataType m_nDataType[MAX_SOA_FIELDS];
 	size_t m_nStrideInBytes[MAX_SOA_FIELDS];			// stride from one field datum to another
 	size_t m_nRowStrideInBytes[MAX_SOA_FIELDS];			// stride from one row datum to another per field
 	size_t m_nSliceStrideInBytes[MAX_SOA_FIELDS];       // stride from one slice datum to another per field
-	uint32 m_nFieldPresentMask;
-	uint8 *m_pConstantDataMemory;
-	uint8 *m_pSeparateDataMemory[MAX_SOA_FIELDS];			// for fields allocated separately from the main allocation
+	uint32_t m_nFieldPresentMask;
+	uint8_t *m_pConstantDataMemory;
+	uint8_t *m_pSeparateDataMemory[MAX_SOA_FIELDS];			// for fields allocated separately from the main allocation
 
 	FORCEINLINE void Init( void )
 	{
@@ -412,8 +411,8 @@ protected:
 		memset( m_nSliceStrideInBytes, 0xFF, sizeof( m_nSliceStrideInBytes ) );
 #endif
 
-		m_pConstantDataMemory = NULL;
-		m_pDataMemory = 0;
+		m_pConstantDataMemory = nullptr;
+		m_pDataMemory = nullptr;
 		m_nNumQuadsPerRow = 0;
 		m_nColumns = m_nPaddedColumns = m_nRows = m_nSlices = 0;
 		m_nFieldPresentMask = 0;
@@ -836,7 +835,7 @@ FORCEINLINE FourVectors *CSOAContainer::ElementPointer4V( int nAttributeIdx, int
 	Assert( nZ < m_nSlices );
 	Assert( m_nDataType[nAttributeIdx] == ATTRDATATYPE_4V );
 	int nXIdx = nX / 4;
-	uint8 *pRet =  m_pAttributePtrs[nAttributeIdx] 
+	uint8_t *pRet =  m_pAttributePtrs[nAttributeIdx] 
 		+ nXIdx * 4 * m_nStrideInBytes[nAttributeIdx]
 		+ nY * m_nRowStrideInBytes[nAttributeIdx]
 		+ nZ * m_nSliceStrideInBytes[nAttributeIdx];
@@ -873,7 +872,7 @@ class CFltX4AttributeIterator : public CStridedConstPtr<fltx4>
 class CFltX4AttributeWriteIterator : public CStridedPtr<fltx4>
 {
 	FORCEINLINE CFltX4AttributeWriteIterator( CSOAContainer const *pContainer, int nAttribute, int nRowNumber = 0 )
-		: CStridedPtr<fltx4>( pContainer->RowPtr<uint8>( nAttribute, nRowNumber), 
+		: CStridedPtr<fltx4>( pContainer->RowPtr<uint8_t>( nAttribute, nRowNumber), 
 							  pContainer->ItemByteStride( nAttribute ) )
 	{
 	}
@@ -901,4 +900,3 @@ FORCEINLINE FourVectors Compress4SIMD( FourVectors const &a, FourVectors const &
 
 
 
-#endif

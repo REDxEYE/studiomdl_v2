@@ -8,8 +8,7 @@
 #pragma once
 
 
-#ifndef _D2D1_H_
-#define _D2D1_H_
+#pragma once
 
 #ifndef COM_NO_WINDOWS_H
 #include <windows.h>
@@ -6993,4 +6992,3 @@ D2D1CreateFactory(
 }
 
 #endif // #ifndef D2D_USE_C_DEFINITIONS
-#endif // #ifndef _D2D1_H_

@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
 //=============================================================================
 
-#ifndef UTLSTRING_H
-#define UTLSTRING_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -176,7 +175,7 @@ public:
 	char		*Get();
 	char*		GetForModify();
 
-	void Clear() { Set( NULL ); }
+	void Clear() { Set(nullptr); }
 
 	// CUtlString can be used anywhere a c-style string would be required
 	// via this implicit conversion
@@ -259,11 +258,11 @@ public:
 	// Take a piece out of the string.
 	// If you only specify nStart, it'll go from nStart to the end.
 	// You can use negative numbers and it'll wrap around to the start.
-	CUtlString Slice( int32 nStart=0, int32 nEnd=INT_MAX );
+	CUtlString Slice( int32_t nStart=0, int32_t nEnd=INT_MAX );
 
 	// Grab a substring starting from the left or the right side.
-	CUtlString Left( int32 nChars );
-	CUtlString Right( int32 nChars );
+	CUtlString Left( int32_t nChars );
+	CUtlString Right( int32_t nChars );
 
 	CUtlString Remove(char const *pTextToRemove, bool bCaseSensitive) const;
 
@@ -284,7 +283,7 @@ public:
 	void		Trim( const char *szTargets = "\t\r\n " );
 
 	// Calls right through to V_MakeAbsolutePath.
-	CUtlString AbsPath( const char *pStartingDir=NULL ) const;	
+	CUtlString AbsPath( const char *pStartingDir= nullptr) const;	
 
 	CUtlString AbsPath(const char *pStartingDir, bool bLowercaseName) const
 	{
@@ -456,18 +455,18 @@ template < typename T = char >
 class CUtlConstStringBase
 {
 public:
-	CUtlConstStringBase() : m_pString( NULL ) {}
-	CUtlConstStringBase( const T *pString ) : m_pString( NULL ) { Set( pString ); }
-	CUtlConstStringBase( const CUtlConstStringBase& src ) : m_pString( NULL ) { Set( src.m_pString ); }
-	~CUtlConstStringBase() { Set( NULL ); }
+	CUtlConstStringBase() : m_pString(nullptr) {}
+	CUtlConstStringBase( const T *pString ) : m_pString(nullptr) { Set( pString ); }
+	CUtlConstStringBase( const CUtlConstStringBase& src ) : m_pString(nullptr) { Set( src.m_pString ); }
+	~CUtlConstStringBase() { Set(nullptr); }
 
 	void Set( const T *pValue );
-	void Clear() { Set( NULL ); }
+	void Clear() { Set(nullptr); }
 
 	const T *Get() const { return m_pString ? m_pString : StringFuncs<T>::EmptyString(); }
 	operator const T*() const { return m_pString ? m_pString : StringFuncs<T>::EmptyString(); }
 
-	bool IsEmpty() const { return m_pString == NULL; } // Note: empty strings are never stored by Set
+	bool IsEmpty() const { return m_pString == nullptr; } // Note: empty strings are never stored by Set
 
 	int Compare( const T *rhs ) const;
 
@@ -593,7 +592,7 @@ public:
 		Assert(!m_data.HasError());
 
 		if (!IsValid() || (Capacity() == 0))
-			return NULL;
+			return nullptr;
 
 		return m_data.Access();
 	}
@@ -700,7 +699,7 @@ public:
 	char *AccessNoAssert()
 	{
 		if (!IsValid())
-			return NULL;
+			return nullptr;
 		return m_data.Access();
 	}
 
@@ -718,7 +717,7 @@ private:
 	// nChars is the number of characters you want, NOT including the null
 	char *PrepareBuffer(size_t nChars, bool bCopyOld = false, size_t nMinCapacity = 0)
 	{
-		char *pszString = NULL;
+		char *pszString = nullptr;
 		size_t nCapacity = m_data.Capacity();
 		if ((nChars <= nCapacity) && (nMinCapacity <= nCapacity))
 		{
@@ -735,7 +734,7 @@ private:
 		}
 
 		if (HasError())
-			return NULL;
+			return nullptr;
 
 		// Need to actually adjust the capacity
 		return InternalPrepareBuffer(nChars, bCopyOld, Max(nChars, nMinCapacity));
@@ -752,7 +751,7 @@ private:
 	}
 
 	// correct for 32 or 64 bit
-	static const uint8 MAX_STACK_STRLEN = (sizeof(void*) == 4 ? 15 : 19);
+	static const uint8_t MAX_STACK_STRLEN = (sizeof(void*) == 4 ? 15 : 19);
 	enum
 	{
 		// Note: If it's ever desired to have the embedded string be larger than
@@ -772,10 +771,10 @@ private:
 		{	// 16 on 32 bit, sentinel == 0xff if Heap is the active union item
 		private:
 			char *m_pchString;
-			uint32 m_nLength;
-			uint32 m_nCapacity; // without trailing null; ie: m_pchString[m_nCapacity] = '\0' is not out of bounds
-			uint8  scrap[3];
-			uint8  sentinel;
+			uint32_t m_nLength;
+			uint32_t m_nCapacity; // without trailing null; ie: m_pchString[m_nCapacity] = '\0' is not out of bounds
+			uint8_t  scrap[3];
+			uint8_t  sentinel;
 		public:
 			friend union Data;
 			friend char *CUtlStringBuilder::InternalPrepareBuffer(size_t, bool, size_t);
@@ -790,7 +789,7 @@ private:
 			// we hold remaining chars instead of 'string length'
 			char m_szString[MAX_STACK_STRLEN + 1];
 		public:
-			uint8 BytesLeft() const { return (uint8)(m_szString[MAX_STACK_STRLEN]); }
+			uint8_t BytesLeft() const { return (uint8_t)(m_szString[MAX_STACK_STRLEN]); }
 			void SetBytesLeft(char n) { m_szString[MAX_STACK_STRLEN] = n; }
 
 			friend char *CUtlStringBuilder::InternalPrepareBuffer(size_t, bool, size_t);
@@ -818,7 +817,7 @@ private:
 				return;
 
 			FreeHeap();
-			Heap.m_pchString = NULL;
+			Heap.m_pchString = nullptr;
 
 			Construct();
 		}
@@ -852,7 +851,7 @@ private:
 			{
 				nLen = 0;
 				nCapacity = 0;
-				return NULL;
+				return nullptr;
 			}
 
 			nLen = Heap.m_nLength;
@@ -971,7 +970,7 @@ inline CUtlStringBuilder::~CUtlStringBuilder()
 //-----------------------------------------------------------------------------
 inline bool CUtlStringBuilder::EnsureCapacity(size_t nLength)
 {
-	return PrepareBuffer(Length(), true, nLength) != NULL;
+	return PrepareBuffer(Length(), true, nLength) != nullptr;
 }
 
 
@@ -1241,7 +1240,7 @@ inline size_t CUtlStringBuilder::VFormat(const char *pFormat, va_list args)
 	// Scope ReuseArgs.
 	{
 		CReuseVaList ReuseArgs(args);
-		len = V_vsnprintf(NULL, 0, pFormat, ReuseArgs.m_ReuseList);
+		len = V_vsnprintf(nullptr, 0, pFormat, ReuseArgs.m_ReuseList);
 	}
 #endif
 	if (len > 0)
@@ -1297,7 +1296,7 @@ inline size_t CUtlStringBuilder::VAppendFormat(const char *pFormat, va_list args
 	// Scope ReuseArgs.
 	{
 		CReuseVaList ReuseArgs(args);
-		len = vsnprintf(NULL, 0, pFormat, ReuseArgs.m_ReuseList);
+		len = vsnprintf(nullptr, 0, pFormat, ReuseArgs.m_ReuseList);
 	}
 #endif
 	size_t nOldLen = Length();
@@ -1485,4 +1484,3 @@ inline void CUtlStringBuilder::Validate(CValidator &validator, const char *pchNa
 #endif // DBGFLAG_VALIDATE
 
 
-#endif // UTLSTRING_H

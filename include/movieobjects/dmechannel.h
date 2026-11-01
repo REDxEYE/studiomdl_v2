@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // The channel class - connects elements together, and allows for logging of data
 //
 //=============================================================================
 
-#ifndef DMECHANNEL_H
-#define DMECHANNEL_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -26,8 +25,6 @@
 class CDmeClip;
 class CDmeChannel;
 class CDmeTimeSelection;
-class CUndoAddRecordingLayer;
-class CUndoSetTimeSelection;
 
 void RemapFloatLogValues( CDmeChannel *pChannel, float flBias, float flScale );
 CDmeChannel *FindChannelTargetingAttribute( CDmAttribute *pTargetAttr );
@@ -35,7 +32,7 @@ CDmeChannel *FindChannelTargetingAttribute( CDmAttribute *pTargetAttr );
 //-----------------------------------------------------------------------------
 // different channel modes of operation
 //-----------------------------------------------------------------------------
-enum ChannelMode_t
+enum ChannelMode_t : int
 {
 	CM_OFF,
 	CM_PASS,
@@ -71,10 +68,10 @@ struct LayerChannelInfo_t
 		, m_TransformWriteMode( TRANSFORM_WRITE_MODE_OVERWRITE )
 		, m_bManipulateInFalloff( false )
 		, m_ComponentFlags( LOG_COMPONENTS_ALL )
-		, m_pPresetValue( 0 )
-		, m_pPresetTimes( 0 )
-		, m_pRoot( 0 )
-		, m_pShot( 0 )
+		, m_pPresetValue( nullptr )
+		, m_pPresetTimes( nullptr )
+		, m_pRoot( nullptr )
+		, m_pShot( nullptr )
 	{
 		SetIdentityMatrix( m_Transform );
 	}
@@ -125,8 +122,6 @@ public:
 	TimeSelection_t						m_BaseTimes;
 	TimeSelection_t						m_OriginalTimes;
 	CUtlVector< LayerChannelInfo_t >	m_LayerChannels;
-	CUtlVector< KeyValues * >			m_ClipboardData;
-	CUndoAddRecordingLayer				*m_pUndoOperation;
 	FnRecordChannelCallback				m_pfnAddChannelCallback;
 	FnRecordChannelCallback				m_pfnFinishChannelCallback;
 };
@@ -140,7 +135,7 @@ class ModifyChannel
 {	
 public:
 
-	explicit ModifyChannel( CDmeChannel *pChannel = NULL, LogComponents_t nComponentFlags = LOG_COMPONENTS_ALL ) 
+	explicit ModifyChannel( CDmeChannel *pChannel = nullptr, LogComponents_t nComponentFlags = LOG_COMPONENTS_ALL ) 
 		: m_pChannel( pChannel ), m_nComponentFlags( nComponentFlags ) { }	
 
 	static bool IsChannelInList( CUtlVector< ModifyChannel > const &modifyList, CDmeChannel *pChannel );
@@ -167,7 +162,7 @@ public:
 	// Add a channel to the modification layer if it is not already present,
 	// adding the channel to the modification layer causes a new log layer to
 	// be added to the channel to which modifications will be made.
-	int AddChannel( CDmeChannel *pChannel, bool enableUndo );
+	int AddChannel( CDmeChannel *pChannel );
 
 	// Add a recording layer to the modification layer.
 	CRecordingLayer *AddRecordingLayer();
@@ -221,22 +216,19 @@ public:
 
 	// Start and complete a modification layer. All recording layers must be placed within a modification
 	// layer, so a modification layer must be active before starting a recording layer.
-	void StartModificationLayer( const DmeLog_TimeSelection_t *pTimeSelection = NULL, bool createLayer = true );
+	void StartModificationLayer( const DmeLog_TimeSelection_t *pTimeSelection = nullptr, bool createLayer = true );
 	void FinishModificationLayer( bool bSaveChanges = true, bool bFlattenLayers = true );
 
 	// Enable or disable use of the modification layer.
 	void EnableModificationLayer( bool enable );
 
 	// Activates, deactivates layer recording.
-	void StartLayerRecording( const char * const pUndoRedoDesc, AttributeDict_t *pPresetValuesDict = NULL, DmeTime_t tHeadShotTime = DMETIME_INVALID, int proceduralType = PROCEDURAL_PRESET_NOT, int recordFlags = 0, FnRecordChannelCallback pfnAddChannel = NULL, FnRecordChannelCallback pfnFinishChannel = NULL );
+	void StartLayerRecording( AttributeDict_t *pPresetValuesDict = nullptr, DmeTime_t tHeadShotTime = DMETIME_INVALID, int proceduralType = PROCEDURAL_PRESET_NOT, int recordFlags = 0, FnRecordChannelCallback pfnAddChannel = nullptr, FnRecordChannelCallback pfnFinishChannel = nullptr);
 	void FinishLayerRecording( float flThreshold, bool bFlattenLayers = true, bool bAllowFinishModification = true );
 	void CancelLayerRecording();
 
 	// Adds a channel to the recording layer
-	int AddChannelToRecordingLayer( CDmeChannel *pChannel, LogComponents_t componentWriteFlags = LOG_COMPONENTS_ALL, CDmeClip *pRoot = NULL, CDmeClip *pShot = NULL );
-
-	// Explicitly set the clipboard data for the active recording layer
-	void CopyClipboardDataForRecordingLayer( const CUtlVector< KeyValues * > &keyValuesList );
+	int AddChannelToRecordingLayer( CDmeChannel *pChannel, LogComponents_t componentWriteFlags = LOG_COMPONENTS_ALL, CDmeClip *pRoot = nullptr, CDmeClip *pShot = nullptr);
 
 	// Used to iterate over all channels currently being recorded
 	// NOTE: Use CDmeChannel::AddToRecordingLayer to add a channel to the recording layer
@@ -274,7 +266,6 @@ public:
 	void SetIntensityOnAllLayers( float flIntensity );
 	void SetRecordingMode( RecordingMode_t mode );
 	void SetPresetValue( CDmeChannel* pChannel, const CDmAttribute *pPresetValue, const CDmAttribute *pPresetTimes );
-	void SetInRedo( bool bInRedo );
 
 
 	void SetProceduralTarget( int nProceduralMode, const CDmAttribute *pTarget );
@@ -282,7 +273,6 @@ public:
 	int GetProceduralType() const;
 	const CDmAttribute *GetProceduralTarget() const;
 	const CUtlVector< KeyValues * > &GetPasteTarget() const;
-	void GetPasteClipboardData( CUtlVector< KeyValues * > &list ) const;
 
 	void SetModificationLayerDirty();
 	CDmeChannelModificationLayer *GetModificationLayer();
@@ -303,7 +293,6 @@ public:
 	bool IsModificationLayerVisible() const;
 	bool IsProcessingModifications() const;
 	bool IsModificationLayerEnabled() const;
-	bool IsInRedo() const;
 
 private:
 	
@@ -317,17 +306,12 @@ private:
 	// Apply the effects of the recording layer to its channels with the active time selection.
 	bool ApplyRecordingLayer( CRecordingLayer &recordingLayer );
 
-	// Update the time selection state, this is used by undo
-	void UpdateTimeSelection( const TimeSelection_t &timeSelection, const CUtlVector< TimeSelection_t > &baseTimeSelection, int leftFalloff, int rightFalloff, bool bLeftInfinite, bool bRightInfinite );
-
-	bool									m_bSavedUndoState : 1;
 	bool									m_bUseTimeSelection : 1;				
 	bool									m_bModificationLayerDirty : 1;
 	bool									m_bModificationProcessing : 1;
 	bool									m_bWantsToFinish : 1;
 	bool									m_bFinishFlattenLayers : 1;
 	bool									m_bModificationLayerEnabled : 1;
-	bool									m_bInRedo : 1;
 	CRecordingLayer							*m_pActiveRecordingLayer;
 	CDmeChannelModificationLayer			*m_pModificationLayer;
 
@@ -340,8 +324,6 @@ private:
 
 
 	friend CDmeChannel;
-	friend CUndoAddRecordingLayer;
-	friend CUndoSetTimeSelection;
 };
 
 // Singleton
@@ -598,4 +580,3 @@ void CDmeChannel::SetValueOnInput( const T &value )
 	}
 }
 
-#endif // DMECHANNEL_H

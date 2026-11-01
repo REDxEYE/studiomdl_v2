@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
 //=============================================================================
 
-#ifndef DMXHEADER_H
-#define DMXHEADER_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -49,4 +48,3 @@ enum DmFileId_t
 	DMFILEID_INVALID = 0xffffffff
 };
 
-#endif // DMXHEADER_H

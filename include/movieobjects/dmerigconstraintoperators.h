@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2008, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2008, Valve Corporation, All rights reserved. =======
 //
 // Purpose:  Declaration of the constraint operator classes. The constraint 
 // operators control the position and / or orientation of a specified slave dag
@@ -9,8 +9,7 @@
 //
 //=============================================================================
 
-#ifndef DMERIGCONSTRAINTOPERATORS_H
-#define DMERIGCONSTRAINTOPERATORS_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -124,7 +123,7 @@ class CDmeConstraintSlave : public CDmElement
 public:
 
 	// Get the transform of the dag assigned to the slave
-	CDmeTransform *GetTransform()							{ return m_Dag.GetElement() ? m_Dag->GetTransform() : NULL; }
+	CDmeTransform *GetTransform()							{ return m_Dag.GetElement() ? m_Dag->GetTransform() : nullptr; }
 
 	// Set the dag node targeted by the slave
 	void SetDag( CDmeDag *pDag )							{ m_Dag = pDag; }
@@ -621,4 +620,3 @@ private:
 };
 
 
-#endif // DMERIGCONSTRAINTOPERATORS_H

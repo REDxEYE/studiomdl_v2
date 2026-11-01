@@ -5,68 +5,17 @@
 // $NoKeywords: $
 //===========================================================================//
 
-#ifndef BASEFILESYSTEM_H
-#define BASEFILESYSTEM_H
+#pragma once
 
 #include "tier0/platform.h"
 
-#ifdef _PS3
-#include <sdk_version.h>
-#if CELL_SDK_VERSION >= 0x085007
-#define getenv(x) NULL   //TEMP REMOVE THIS - RP
-#endif
-#endif
 #ifdef _WIN32
 #pragma once
 #endif
 
-#if defined( _WIN32 )
-
-#if !defined( _X360 ) && !defined( _PS3 ) && !defined(LINUX)
-
-#include <io.h>
-#include <direct.h>
-
-#define WIN32_LEAN_AND_MEAN
-
-#include <Windows.h>
-
-#endif
-#undef GetCurrentDirectory
-#undef GetJob
-#undef AddJob
-
-
-#elif defined( POSIX ) && !defined( _PS3 )
-#include <unistd.h> // unlink
-#include "linux_support.h"
-#define INVALID_HANDLE_VALUE (void *)-1
-
-// undo the prepended "_" 's
-#define _chmod chmod
-#define _stat stat
-#define _alloca alloca
-#define _S_IFDIR S_IFDIR
-
-
-
-#elif defined(_PS3)
-#include <unistd.h> // unlink
-#define INVALID_HANDLE_VALUE ( void * )-1
-
-// undo the prepended "_" 's
-#define _chmod chmod
-#define _stat stat
-#define _alloca alloca
-#define _S_IFDIR S_IFDIR
-
-#endif
-
+#include "filesystem/stdfile.h"
 
 #include <cstdio>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <malloc.h>
 #include <cstring>
 #include "tier1/utldict.h"
 
@@ -101,26 +50,8 @@
 
 #define MAX_FILEPATH 512
 
-#if !defined( _X360 )
 #define SUPPORT_IODELAY_MONITORING
-#endif
 
-#ifdef _PS3
-#define FILE_ATTRIBUTE_DIRECTORY S_IFDIR
-
-typedef struct 
-{
-    // public data
-    int dwFileAttributes;
-    char cFileName[PATH_MAX]; // the file name returned from the call
-
-    int numMatches;
-    struct dirent **namelist;
-} FIND_DATA;
-
-#define WIN32_FIND_DATA FIND_DATA
-
-#endif // _PS3
 
 extern CUtlSymbolTable g_PathIDTable;
 
@@ -134,14 +65,8 @@ enum FileType_t {
     FT_NORMAL,
     FT_PACK_BINARY,
     FT_PACK_TEXT,
-#if defined(_PS3)
-    FT_RUNTIME_PS3,
-#endif
 };
 
-#if defined(_PS3)
-void FixUpPathCaseForPS3( const char* pFilePath );
-#endif
 
 class IThreadPool;
 
@@ -179,13 +104,9 @@ public:
 
     void Init(CBaseFileSystem *fs);
 
-    int GetSectorSize();
-
     bool IsOK();
 
     void Flush();
-
-    void SetBufferSize(int nBytes);
 
     int Read(void *pBuffer, int nLength);
 
@@ -193,13 +114,13 @@ public:
 
     int Write(const void *pBuffer, int nLength);
 
-    int Seek(int64 nOffset, int nWhence);
+    int Seek(int64_t nOffset, int nWhence);
 
     int Tell();
 
     int Size();
 
-    int64 AbsoluteBaseOffset();
+    int64_t AbsoluteBaseOffset();
 
     bool EndOfFile();
 
@@ -216,9 +137,9 @@ public:
     }
 
     CPackFileHandle *m_pPackFileHandle;
-    int64 m_nLength;
+    int64_t m_nLength;
     FileType_t m_type;
-    FILE *m_pFile;
+    CStdFile *m_pFile;
 
 protected:
     CBaseFileSystem *m_fs;
@@ -238,9 +159,6 @@ class CFileLoadInfo {
 public:
     bool m_bSteamCacheOnly;            // If Steam and this is true, then the file is only looked for in the Steam caches.
     bool m_bLoadedFromSteamCache;    // If Steam, this tells whether the file was loaded off disk or the Steam cache.
-#ifdef _PS3
-    Ps3FileType_t m_ps3Filetype;
-#endif
 };
 
 
@@ -268,8 +186,8 @@ public:
     // file handling
     virtual FileHandle_t Open(const char *pFileName, const char *pOptions, const char *pathID);
 
-    virtual FileHandle_t OpenEx(const char *pFileName, const char *pOptions, unsigned flags = 0, const char *pathID = 0,
-                                char **ppszResolvedFilename = NULL);
+    virtual FileHandle_t OpenEx(const char *pFileName, const char *pOptions, unsigned flags = 0, const char *pathID = nullptr,
+                                char **ppszResolvedFilename = nullptr);
 
     virtual void Close(FileHandle_t);
 
@@ -280,8 +198,6 @@ public:
     virtual unsigned int Size(FileHandle_t file);
 
     virtual unsigned int Size(const char *pFileName, const char *pPathID);
-
-    virtual void SetBufferSize(FileHandle_t file, unsigned nBytes);
 
     virtual bool IsOk(FileHandle_t file);
 
@@ -303,15 +219,15 @@ public:
 
     // Reads/writes files to utlbuffers
     virtual bool ReadFile(const char *pFileName, const char *pPath, CUtlBuffer &buf, int nMaxBytes, int nStartingByte,
-                          FSAllocFunc_t pfnAlloc = NULL);
+                          FSAllocFunc_t pfnAlloc = nullptr);
 
     virtual bool WriteFile(const char *pFileName, const char *pPath, CUtlBuffer &buf);
 
     virtual int
     ReadFileEx(const char *pFileName, const char *pPath, void **ppBuf, bool bNullTerminate, bool bOptimalAlloc,
-               int nMaxBytes = 0, int nStartingByte = 0, FSAllocFunc_t pfnAlloc = NULL);
+               int nMaxBytes = 0, int nStartingByte = 0, FSAllocFunc_t pfnAlloc = nullptr);
 
-    virtual bool ReadToBuffer(FileHandle_t hFile, CUtlBuffer &buf, int nMaxBytes = 0, FSAllocFunc_t pfnAlloc = NULL);
+    virtual bool ReadToBuffer(FileHandle_t hFile, CUtlBuffer &buf, int nMaxBytes = 0, FSAllocFunc_t pfnAlloc = nullptr);
 
     // Optimal buffer
     bool
@@ -355,17 +271,17 @@ public:
 
     void MarkPathIDByRequestOnly(const char *pPathID, bool bRequestOnly) override;
 
-    bool IsFileInReadOnlySearchPath(const char *pPath, const char *pathID = 0) override;
+    bool IsFileInReadOnlySearchPath(const char *pPath, const char *pathID = nullptr) override;
 
-    bool FileExists(const char *pFileName, const char *pPathID = NULL) override;
+    bool FileExists(const char *pFileName, const char *pPathID = nullptr) override;
 
-    long GetFileTime(const char *pFileName, const char *pPathID = NULL) override;
+    int64_t GetFileTime(const char *pFileName, const char *pPathID = nullptr) override;
 
-    bool IsFileWritable(char const *pFileName, const char *pPathID = NULL) override;
+    bool IsFileWritable(char const *pFileName, const char *pPathID = nullptr) override;
 
-    bool SetFileWritable(char const *pFileName, bool writable, const char *pPathID = 0) override;
+    bool SetFileWritable(char const *pFileName, bool writable, const char *pPathID = nullptr) override;
 
-    void FileTimeToString(char *pString, int maxChars, long fileTime) override;
+    void FileTimeToString(char *pString, int maxChars, int64_t fileTime) override;
 
     const char *FindFirst(const char *pWildCard, FileFindHandle_t *pHandle) override;
 
@@ -403,7 +319,7 @@ public:
 
     int GetPathIndex(const FileNameHandle_t &handle) override;
 
-    long GetPathTime(const char *pFileName, const char *pPathID);
+    int64_t GetPathTime(const char *pFileName, const char *pPathID);
 
     void MarkAllCRCsUnverified() override;
 
@@ -433,7 +349,7 @@ public:
     // can be filtered to restrict path types and can provide info about resolved path
     const char *
     RelativePathToFullPath(const char *pFileName, const char *pPathID, char *pFullPath, int fullPathBufferSize,
-                           PathTypeFilter_t pathFilter = FILTER_NONE, PathTypeQuery_t *pPathType = NULL) override;
+                           PathTypeFilter_t pathFilter = FILTER_NONE, PathTypeQuery_t *pPathType = nullptr) override;
 
 
     // Returns the search path, each path is separated by ;s. Returns the length of the string returned
@@ -448,10 +364,10 @@ public:
 
     // If the "PreloadedData" hasn't been purged, then this'll try and instance the KeyValues using the fast path of compiled keyvalues loaded during startup.
     // Otherwise, it'll just fall through to the regular KeyValues loading routines
-    KeyValues *LoadKeyValues(KeyValuesPreloadType_t type, char const *filename, char const *pPathID = 0) override;
+    KeyValues *LoadKeyValues(KeyValuesPreloadType_t type, char const *filename, char const *pPathID = nullptr) override;
 
     bool
-    LoadKeyValues(KeyValues &head, KeyValuesPreloadType_t type, char const *filename, char const *pPathID = 0) override;
+    LoadKeyValues(KeyValues &head, KeyValuesPreloadType_t type, char const *filename, char const *pPathID = nullptr) override;
 
     bool FixupSearchPathsAfterInstall() override;
 
@@ -531,7 +447,6 @@ public:
 
         bool MarkVisit(const CSearchPath &searchPath) {
             if (m_Visits.Find(searchPath.m_storeId) == m_Visits.InvalidIndex()) {
-                MEM_ALLOC_CREDIT();
                 m_Visits.AddToTail(searchPath.m_storeId);
                 return false;
             }
@@ -549,7 +464,7 @@ public:
                 : m_iCurrent(-1),
                   m_PathTypeFilter(pathTypeFilter),
                   m_bExcluded(false) {
-            char tempPathID[MAX_PATH];
+            char tempPathID[MAX_PATH]{0};
             if (*ppszFilename && (*ppszFilename)[0] == '/' &&
                 (*ppszFilename)[1] == '/') // ONLY '//' (and not '\\') for our special format
             {
@@ -613,17 +528,17 @@ public:
         CSearchPath m_EmptySearchPath;
         CPathIDInfo m_EmptyPathIDInfo;
         PathTypeFilter_t m_PathTypeFilter;
-        char m_Filename[MAX_PATH];    // set for relative names only
+        char m_Filename[MAX_PATH]{0};    // set for relative names only
         bool m_bExcluded;
     };
 
     friend class CSearchPathsIterator;
 
     struct FindData_t {
-        WIN32_FIND_DATA findData;
+        StdFindData_t findData;
         int currentSearchPathID;
         CUtlVector<char> wildCardString;
-        HANDLE findHandle;
+        CStdFileFind *findHandle;
         CSearchPathsVisits m_VisitedSearchPaths;    // This is a copy of IDs for the search paths we've visited, so avoids searching duplicate paths.
         int m_CurrentStoreID;        // CSearchPath::m_storeId of the current search path.
 
@@ -647,7 +562,6 @@ public:
     // Global list of pack file handles
     CUtlVector<CPackFile *> m_ZipFiles;
 
-    FILE *m_pLogFile;
     bool m_bOutputDebugString;
 
     IThreadPool *m_pThreadPool;
@@ -687,51 +601,6 @@ public:
 //	CFileTracker2	m_FileTracker2;
 
 protected:
-    //----------------------------------------------------------------------------
-    // Purpose: Functions implementing basic file system behavior.
-    //----------------------------------------------------------------------------
-    virtual FILE *
-    FS_fopen(const char *filename, const char *options, unsigned flags, int64 *size, CFileLoadInfo *pInfo) = 0;
-
-    virtual void FS_setbufsize(FILE *fp, unsigned nBytes) = 0;
-
-    virtual void FS_fclose(FILE *fp) = 0;
-
-    virtual void FS_fseek(FILE *fp, int64 pos, int seekType) = 0;
-
-    virtual long FS_ftell(FILE *fp) = 0;
-
-    virtual int FS_feof(FILE *fp) = 0;
-
-    size_t FS_fread(void *dest, size_t size, FILE *fp) { return FS_fread(dest, (size_t) -1, size, fp); }
-
-    virtual size_t FS_fread(void *dest, size_t destSize, size_t size, FILE *fp) = 0;
-
-    virtual size_t FS_fwrite(const void *src, size_t size, FILE *fp) = 0;
-
-    virtual bool FS_setmode(FILE *fp, FileMode_t mode) { return false; }
-
-    virtual size_t FS_vfprintf(FILE *fp, const char *fmt, va_list list) = 0;
-
-    virtual int FS_ferror(FILE *fp) = 0;
-
-    virtual int FS_fflush(FILE *fp) = 0;
-
-    virtual char *FS_fgets(char *dest, int destSize, FILE *fp) = 0;
-
-    virtual int FS_stat(const char *path, struct _stat *buf) = 0;
-
-    virtual int FS_chmod(const char *path, int pmode) = 0;
-
-    virtual HANDLE FS_FindFirstFile(const char *findname, WIN32_FIND_DATA *dat) = 0;
-
-    virtual bool FS_FindNextFile(HANDLE handle, WIN32_FIND_DATA *dat) = 0;
-
-    virtual bool FS_FindClose(HANDLE handle) = 0;
-
-    virtual int FS_GetSectorSize(FILE *) { return 1; }
-
-
     void GetFileNameForHandle(FileHandle_t handle, char *buf, size_t buflen);
 
 protected:
@@ -755,7 +624,7 @@ protected:
 
         char const *GetName(void);
 
-        FILE *m_pFile;
+        CStdFile *m_pFile;
         char *m_pName;
     };
 
@@ -772,14 +641,10 @@ protected:
 
     void (*m_pfnWarning)(const char *fmt, ...);
 
-    FILE *
-    Trace_FOpen(const char *filename, const char *options, unsigned flags, int64 *size, CFileLoadInfo *pInfo = NULL);
+    CStdFile *
+    Trace_FOpen(const char *filename, const char *options, unsigned flags, int64_t *size, CFileLoadInfo *pInfo = nullptr);
 
-    void Trace_FClose(FILE *fp);
-
-    void Trace_FRead(int size, FILE *file);
-
-    void Trace_FWrite(int size, FILE *file);
+    void Trace_FClose(CStdFile *fp);
 
     void Trace_DumpUnclosedFiles(void);
 
@@ -801,16 +666,16 @@ protected:
 
     // Goes through all the search paths (or just the one specified) and calls FindFile on them. Returns the first successful result, if any.
     FileHandle_t FindFileInSearchPaths(const char *pFileName, const char *pOptions, const char *pathID, unsigned flags,
-                                       char **ppszResolvedFilename = NULL, bool bTrackCRCs = false);
+                                       char **ppszResolvedFilename = nullptr, bool bTrackCRCs = false);
 
     void HandleOpenRegularFile(CFileOpenInfo &openInfo, bool bIsAbsolutePath);
 
     FileHandle_t FindFile(const CSearchPath *path, const char *pFileName, const char *pOptions, unsigned flags,
-                          char **ppszResolvedFilename = NULL, bool bTrackCRCs = false);
+                          char **ppszResolvedFilename = nullptr, bool bTrackCRCs = false);
 
     int FastFindFile(const CSearchPath *path, const char *pFileName);
 
-    long FastFileTime(const CSearchPath *path, const char *pFileName);
+    int64_t FastFileTime(const CSearchPath *path, const char *pFileName);
 
     const char *GetWritePath(const char *pFilename, const char *pathID);
 
@@ -822,24 +687,12 @@ protected:
 
     // Opens a file for read or write
     FileHandle_t OpenForRead(const char *pFileName, const char *pOptions, unsigned flags, const char *pathID,
-                             char **ppszResolvedFilename = NULL);
+                             char **ppszResolvedFilename = nullptr);
 
     FileHandle_t OpenForWrite(const char *pFileName, const char *pOptions, const char *pathID);
 
     CSearchPath *FindWritePath(const char *pFilename, const char *pathID);
 
-    // Helper function for fs_log file logging
-    void LogFileAccess(const char *pFullFileName);
-
-#if IsPlatformPS3()
-    virtual bool PrefetchFile( const char *pFileName, int nPriority, bool bPersist );
-    virtual bool PrefetchFile( const char *pFileName, int nPriority, bool bPersist, int64 nOffset, int64 nSize );
-    virtual void FlushCache();
-    virtual void SuspendPrefetches( const char *pWhy );
-    virtual void ResumePrefetches( const char *pWhy );
-    virtual void OnSaveStateChanged( bool bSaving );
-    virtual bool IsPrefetchingDone();
-#endif
 
     bool LookupKeyValuesRootKeyName(char const *filename, char const *pPathID, char *rootName, size_t bufsize);
 
@@ -989,4 +842,3 @@ CBaseFileSystem *BaseFileSystem();
 
 //#include "tier0/memdbgoff.h"
 
-#endif // BASEFILESYSTEM_H

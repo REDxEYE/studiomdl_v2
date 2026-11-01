@@ -2,8 +2,7 @@
 //
 //=============================================================================
 
-#ifndef DMEFLEXRULES_H
-#define DMEFLEXRULES_H
+#pragma once
 
 #if defined( COMPILER_MSVC )
 #pragma once
@@ -25,6 +24,7 @@ class CDmeCombinationOperator;
 //-----------------------------------------------------------------------------
 //
 //-----------------------------------------------------------------------------
+class CDmeFlexRules;
 class CDmeFlexRuleBase : public CDmeOperator
 {
 	DEFINE_ELEMENT( CDmeFlexRuleBase, CDmeOperator );
@@ -117,7 +117,7 @@ public:
 
 	void AddFlexRule( CDmeFlexRuleBase *pDmeFlexRule );
 	int GetRuleCount() const { return m_eDeltaStates.Count(); }
-	CDmeFlexRuleBase *GetRule( int i ) const { return ( i < 0 || i >= GetRuleCount() ) ? NULL : m_eDeltaStates[i]; }
+	CDmeFlexRuleBase *GetRule( int i ) const { return ( i < 0 || i >= GetRuleCount() ) ? nullptr : m_eDeltaStates[i]; }
 	void RemoveAllRules();
 
 	void SetTarget( CDmElement *pDmElement );
@@ -141,4 +141,3 @@ protected:
 };
 
 
-#endif // DMEFLEXRULES_H

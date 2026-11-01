@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // A class representing a sound
 //
 //=============================================================================
 
-#ifndef DMESOUND_H
-#define DMESOUND_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -50,4 +49,3 @@ public:
 	CDmaVar< Vector >	m_Direction;
 };
 
-#endif // DMESOUND_H

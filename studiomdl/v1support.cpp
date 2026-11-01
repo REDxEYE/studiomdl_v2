@@ -263,7 +263,7 @@ void Grab_Triangles(s_source_t *psource) {
     //
     int texture;
     int material;
-    char texturename[MAX_PATH];
+    char texturename[MAX_PATH]{0};
 
     while (1) {
         if (!GetLineInput())

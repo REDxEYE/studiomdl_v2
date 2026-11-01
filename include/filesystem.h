@@ -5,8 +5,7 @@
 // $NoKeywords: $
 //===========================================================================//
 
-#ifndef FILESYSTEM_H
-#define FILESYSTEM_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -23,13 +22,6 @@
 #include "tier1/utlqueue.h"
 #include "appframework/iappsystem.h"
 #include "tier2/tier2.h"
-#ifdef _PS3
-#include <sysutil/sysutil_syscache.h>
-#include <sysutil/sysutil_gamecontent.h>
-struct HddCacheFileStatus;
-extern char gSrcGameDataPath[];
-class CFileGroupSystem;
-#endif
 
 //-----------------------------------------------------------------------------
 // Forward declarations
@@ -44,9 +36,6 @@ typedef int FileFindHandle_t;
 typedef void (*FileSystemLoggingFunc_t)( const char *fileName, const char *accessType );
 typedef int WaitForResourcesHandle_t;
 
-#ifdef _X360
-typedef void* HANDLE;
-#endif
 
 //-----------------------------------------------------------------------------
 // Enums used by the interface
@@ -109,7 +98,7 @@ enum
 	PATH_IS_MAPPACKFILE = 0x02, // path is a map pack file
 	PATH_IS_DVDDEV		= 0x04, // path is the dvddev cache
 };
-typedef uint32 PathTypeQuery_t;
+typedef uint32_t PathTypeQuery_t;
 
 #define IS_PACKFILE( n ) ( n & ( PATH_IS_PACKFILE | PATH_IS_MAPPACKFILE ) )
 #define IS_DVDDEV( n )   ( n & PATH_IS_DVDDEV )
@@ -122,32 +111,6 @@ enum DVDMode_t
 	DVDMODE_DEV_VISTA = 3, // dev mode from a vista host, mutiple devices ok
 };
 
-#ifdef _PS3
-
-enum FsState_t
-{
-    FS_STATE_INIT = 0,
-    FS_STATE_LEVEL_LOAD = 1,
-    FS_STATE_LEVEL_RUN = 2,
-    FS_STATE_LEVEL_RESTORE = 3,
-    FS_STATE_LEVEL_LOAD_END = 4,
-    FS_STATE_EXITING = 5
-};
-
-enum Ps3FileType_t
-{
-    PS3_FILETYPE_WAV,
-    PS3_FILETYPE_ANI,
-    PS3_FILETYPE_BSP,
-    PS3_FILETYPE_VMT,
-    PS3_FILETYPE_QPRE,
-    PS3_FILETYPE_OTHER,
-    PS3_FILETYPE_DIR,
-    PS3_FILETYPE_UNKNOWN
-};
-
-
-#endif
 
 // In non-retail builds, enable the file blocking access tracking stuff...
 #if defined( TRACK_BLOCKING_IO )
@@ -221,7 +184,7 @@ public:
 
 	FileBlockingWarning_t	m_ItemType;
 	float					m_flElapsed;
-	byte					m_nAccessType;
+	uint8_t					m_nAccessType;
 private:
 
 	char					m_szFilename[ 32 ];
@@ -353,8 +316,8 @@ struct FileHash_t
 class CUnverifiedFileHash
 {
 public:
-	char m_PathID[MAX_PATH];
-	char m_Filename[MAX_PATH];
+	char m_PathID[MAX_PATH]{0};
+	char m_Filename[MAX_PATH]{0};
 	int m_nFileFraction;
 	FileHash_t m_FileHash;
 };
@@ -362,8 +325,8 @@ public:
 class CUnverifiedCRCFile
 {
 public:
-	char m_PathID[MAX_PATH];
-	char m_Filename[MAX_PATH];
+	char m_PathID[MAX_PATH]{0};
+	char m_Filename[MAX_PATH]{0};
 	CRC32_t m_CRC;
 };
 
@@ -403,7 +366,7 @@ public:
 abstract_class IThreadedFileMD5Processor
 {
 public:
-	virtual int				SubmitThreadedMD5Request( uint8 *pubBuffer, int cubBuffer, int PackFileID, int nPackFileNumber, int nPackFileFraction ) = 0;
+	virtual int				SubmitThreadedMD5Request( uint8_t *pubBuffer, int cubBuffer, int PackFileID, int nPackFileNumber, int nPackFileFraction ) = 0;
 	virtual bool			BlockUntilMD5RequestComplete( int iRequest, MD5Value_t *pMd5ValueOut ) = 0;
 	virtual bool			IsMD5RequestComplete( int iRequest, MD5Value_t *pMd5ValueOut ) = 0;
 };
@@ -415,28 +378,28 @@ public:
 	virtual int				Write( void const* pInput, int size, FileHandle_t file ) = 0;
 
 	// if pathID is NULL, all paths will be searched for the file
-	virtual FileHandle_t	Open( const char *pFileName, const char *pOptions, const char *pathID = 0 ) = 0;
+	virtual FileHandle_t	Open( const char *pFileName, const char *pOptions, const char *pathID = nullptr ) = 0;
 	virtual void			Close( FileHandle_t file ) = 0;
 
 
 	virtual void			Seek( FileHandle_t file, int pos, FileSystemSeek_t seekType ) = 0;
 	virtual unsigned int	Tell( FileHandle_t file ) = 0;
 	virtual unsigned int	Size( FileHandle_t file ) = 0;
-	virtual unsigned int	Size( const char *pFileName, const char *pPathID = 0 ) = 0;
+	virtual unsigned int	Size( const char *pFileName, const char *pPathID = nullptr ) = 0;
 
 	virtual void			Flush( FileHandle_t file ) = 0;
-	virtual bool			Precache( const char *pFileName, const char *pPathID = 0 ) = 0;
+	virtual bool			Precache( const char *pFileName, const char *pPathID = nullptr ) = 0;
 
-	virtual bool			FileExists( const char *pFileName, const char *pPathID = 0 ) = 0;
-	virtual bool			IsFileWritable( char const *pFileName, const char *pPathID = 0 ) = 0;
-	virtual bool			SetFileWritable( char const *pFileName, bool writable, const char *pPathID = 0 ) = 0;
+	virtual bool			FileExists( const char *pFileName, const char *pPathID = nullptr ) = 0;
+	virtual bool			IsFileWritable( char const *pFileName, const char *pPathID = nullptr ) = 0;
+	virtual bool			SetFileWritable( char const *pFileName, bool writable, const char *pPathID = nullptr ) = 0;
 
-	virtual long			GetFileTime( const char *pFileName, const char *pPathID = 0 ) = 0;
+	virtual int64_t			GetFileTime( const char *pFileName, const char *pPathID = nullptr ) = 0;
 
 	//--------------------------------------------------------
 	// Reads/writes files to utlbuffers. Use this for optimal read performance when doing open/read/close
 	//--------------------------------------------------------
-	virtual bool			ReadFile( const char *pFileName, const char *pPath, CUtlBuffer &buf, int nMaxBytes = 0, int nStartingByte = 0, FSAllocFunc_t pfnAlloc = NULL ) = 0;
+	virtual bool			ReadFile( const char *pFileName, const char *pPath, CUtlBuffer &buf, int nMaxBytes = 0, int nStartingByte = 0, FSAllocFunc_t pfnAlloc = nullptr) = 0;
 	virtual bool			WriteFile( const char *pFileName, const char *pPath, CUtlBuffer &buf ) = 0;
 };
 
@@ -499,7 +462,7 @@ public:
 	//  and this file becomes the highest priority search path ( i.e., it's looked at first
 	//   even before the mod's file system path ).
 	virtual void			AddSearchPath( const char *pPath, const char *pathID, SearchPathAdd_t addType = PATH_ADD_TO_TAIL ) = 0;
-	virtual bool			RemoveSearchPath( const char *pPath, const char *pathID = 0 ) = 0;
+	virtual bool			RemoveSearchPath( const char *pPath, const char *pathID = nullptr ) = 0;
 
 	// Remove all search paths (including write path?)
 	virtual void			RemoveAllSearchPaths( void ) = 0;
@@ -513,14 +476,10 @@ public:
 	// remember it in case you add search paths with this path ID.
 	virtual void			MarkPathIDByRequestOnly( const char *pPathID, bool bRequestOnly ) = 0;
 
-	virtual bool			IsFileInReadOnlySearchPath(const char *pPath, const char *pathID = 0) = 0;
+	virtual bool			IsFileInReadOnlySearchPath(const char *pPath, const char *pathID = nullptr) = 0;
 
 	// converts a partial path into a full path
-	virtual const char		*RelativePathToFullPath( const char *pFileName, const char *pPathID, char *pLocalPath, int localPathBufferSize, PathTypeFilter_t pathFilter = FILTER_NONE, PathTypeQuery_t *pPathType = NULL ) = 0;
-#if IsGameConsole()
-	// Given a relative path, gets the PACK file that contained this file and its offset and size. Can be used to prefetch a file to a HDD for caching reason.
-	virtual bool            GetPackFileInfoFromRelativePath( const char *pFileName, const char *pPathID, char *pPackPath, int nPackPathBufferSize, int64 &nPosition, int64 &nLength ) = 0;
-#endif
+	virtual const char		*RelativePathToFullPath( const char *pFileName, const char *pPathID, char *pLocalPath, int localPathBufferSize, PathTypeFilter_t pathFilter = FILTER_NONE, PathTypeQuery_t *pPathType = nullptr) = 0;
 	// Returns the search path, each path is separated by ;s. Returns the length of the string returned
 	virtual int				GetSearchPath( const char *pathID, bool bGetPackFiles, char *pPath, int nMaxLen ) = 0;
 
@@ -529,24 +488,23 @@ public:
 	//--------------------------------------------------------
 
 	// Deletes a file (on the WritePath)
-	virtual void			RemoveFile( char const* pRelativePath, const char *pathID = 0 ) = 0;
+	virtual void			RemoveFile( char const* pRelativePath, const char *pathID = nullptr ) = 0;
 
 	// Renames a file (on the WritePath)
-	virtual bool			RenameFile( char const *pOldPath, char const *pNewPath, const char *pathID = 0 ) = 0;
+	virtual bool			RenameFile( char const *pOldPath, char const *pNewPath, const char *pathID = nullptr ) = 0;
 
 	// create a local directory structure
-	virtual void			CreateDirHierarchy( const char *path, const char *pathID = 0 ) = 0;
+	virtual void			CreateDirHierarchy( const char *path, const char *pathID = nullptr ) = 0;
 
 	// File I/O and info
-	virtual bool			IsDirectory( const char *pFileName, const char *pathID = 0 ) = 0;
+	virtual bool			IsDirectory( const char *pFileName, const char *pathID = nullptr ) = 0;
 
-	virtual void			FileTimeToString( char* pStrip, int maxCharsIncludingTerminator, long fileTime ) = 0;
+	virtual void			FileTimeToString( char* pStrip, int maxCharsIncludingTerminator, int64_t fileTime ) = 0;
 
 	//--------------------------------------------------------
 	// Open file operations
 	//--------------------------------------------------------
 
-	virtual void			SetBufferSize( FileHandle_t file, unsigned nBytes ) = 0;
 
 	virtual bool			IsOk( FileHandle_t file ) = 0;
 
@@ -565,7 +523,7 @@ public:
 	//--------------------------------------------------------
 
 	// load/unload modules
-	virtual CSysModule 		*LoadModule( const char *pFileName, const char *pPathID = 0, bool bValidatedDllOnly = true ) = 0;
+	virtual CSysModule 		*LoadModule( const char *pFileName, const char *pPathID = nullptr, bool bValidatedDllOnly = true ) = 0;
 	virtual void			UnloadModule( CSysModule *pModule ) = 0;
 
 	//--------------------------------------------------------
@@ -651,37 +609,15 @@ public:
 	// Returns the file system statistics retreived by the implementation.  Returns NULL if not supported.
 	virtual const FileSystemStatistics *GetFilesystemStatistics() = 0;
 
-#if defined( _PS3 )
-	// EA cruft not used:   virtual Ps3FileType_t GetPs3FileType(const char* path) = 0;
-	virtual void LogFileAccess( const char *pFullFileName ) = 0;
-
-	// Prefetches a full file in the HDD cache.
-	virtual bool PrefetchFile( const char *pFileName, int nPriority, bool bPersist ) = 0;
-	// Prefetches a file portion in the HDD cache.
-	virtual bool PrefetchFile( const char *pFileName, int nPriority, bool bPersist, int64 nOffset, int64 nSize ) = 0;
-	// Flushes the HDD cache.
-	virtual void FlushCache() = 0;
-	// Suspends all prefetches (like when the game is doing a file intensive operation not controlled by the HDD cache, like Bink movies).
-	virtual void SuspendPrefetches( const char *pWhy ) = 0;
-	// Resumes prefetches. This function has to to be called as many time as SuspendPrefetches() to effectively resumes prefetches.
-	virtual void ResumePrefetches( const char * pWhy ) = 0;
-
-	// Gets called when we are starting / ending a save (it allows the file system to reduce its HDD usage and use BluRay instead).
-	virtual void OnSaveStateChanged( bool bSaving ) = 0;
-
-	// Returns the prefetching state. If true, everything has been prefetched on the HDD.
-	virtual bool IsPrefetchingDone() = 0;
-
-#endif //_PS3
 	//--------------------------------------------------------
 	// Start of new functions after Lost Coast release (7/05)
 	//--------------------------------------------------------
 
-	virtual FileHandle_t	OpenEx( const char *pFileName, const char *pOptions, unsigned flags = 0, const char *pathID = 0, char **ppszResolvedFilename = NULL ) = 0;
+	virtual FileHandle_t	OpenEx( const char *pFileName, const char *pOptions, unsigned flags = 0, const char *pathID = nullptr, char **ppszResolvedFilename = nullptr) = 0;
 
 	// Extended version of read provides more context to allow for more optimal reading
 	virtual int				ReadEx( void* pOutput, int sizeDest, int size, FileHandle_t file ) = 0;
-	virtual int				ReadFileEx( const char *pFileName, const char *pPath, void **ppBuf, bool bNullTerminate = false, bool bOptimalAlloc = false, int nMaxBytes = 0, int nStartingByte = 0, FSAllocFunc_t pfnAlloc = NULL ) = 0;
+	virtual int				ReadFileEx( const char *pFileName, const char *pPath, void **ppBuf, bool bNullTerminate = false, bool bOptimalAlloc = false, int nMaxBytes = 0, int nStartingByte = 0, FSAllocFunc_t pfnAlloc = nullptr) = 0;
 
 	virtual FileNameHandle_t	FindFileName( char const *pFileName ) = 0;
 
@@ -704,14 +640,14 @@ public:
 
 	// If the "PreloadedData" hasn't been purged, then this'll try and instance the KeyValues using the fast path of compiled keyvalues loaded during startup.
 	// Otherwise, it'll just fall through to the regular KeyValues loading routines
-	virtual KeyValues	*LoadKeyValues( KeyValuesPreloadType_t type, char const *filename, char const *pPathID = 0 ) = 0;
-	virtual bool		LoadKeyValues( KeyValues& head, KeyValuesPreloadType_t type, char const *filename, char const *pPathID = 0 ) = 0;
+	virtual KeyValues	*LoadKeyValues( KeyValuesPreloadType_t type, char const *filename, char const *pPathID = nullptr ) = 0;
+	virtual bool		LoadKeyValues( KeyValues& head, KeyValuesPreloadType_t type, char const *filename, char const *pPathID = nullptr ) = 0;
 
 	virtual bool			GetFileTypeForFullPath( char const *pFullPath, wchar_t *buf, size_t bufSizeInBytes ) = 0;
 
 	//--------------------------------------------------------
 	//--------------------------------------------------------
-	virtual bool		ReadToBuffer( FileHandle_t hFile, CUtlBuffer &buf, int nMaxBytes = 0, FSAllocFunc_t pfnAlloc = NULL ) = 0;
+	virtual bool		ReadToBuffer( FileHandle_t hFile, CUtlBuffer &buf, int nMaxBytes = 0, FSAllocFunc_t pfnAlloc = nullptr) = 0;
 
 	//--------------------------------------------------------
 	// Optimal IO operations
@@ -725,7 +661,7 @@ public:
 	virtual bool		FullPathToRelativePathEx( const char *pFullpath, const char *pPathId, char *pRelative, int maxlen ) = 0;
 
 	virtual int			GetPathIndex( const FileNameHandle_t &handle ) = 0;
-	virtual long		GetPathTime( const char *pPath, const char *pPathID ) = 0;
+	virtual int64_t		GetPathTime( const char *pPath, const char *pPathID ) = 0;
 
 
 	// Called when the client logs onto a server. Any files that came off disk should be marked as
@@ -761,43 +697,17 @@ public:
 
 //-----------------------------------------------------------------------------
 
-#if defined( _X360 ) && !defined( _CERT )
-extern char g_szXboxProfileLastFileOpened[MAX_PATH];
-#define SetLastProfileFileRead( s ) Q_strncpy( g_szXboxProfileLastFileOpened, sizeof( g_szXboxProfileLastFileOpened), pFileName )
-#define GetLastProfileFileRead() (&g_szXboxProfileLastFileOpened[0])
-#else
 #define SetLastProfileFileRead( s ) ((void)0)
 #define GetLastProfileFileRead() NULL
-#endif
 
-#if defined( _X360 ) && defined( _BASETSD_H_ )
-class CXboxDiskCacheSetter
-{
-public:
-	CXboxDiskCacheSetter( SIZE_T newSize )
-	{
-		m_oldSize = XGetFileCacheSize();
-		XSetFileCacheSize( newSize );
-	}
-
-	~CXboxDiskCacheSetter()
-	{
-		XSetFileCacheSize( m_oldSize );
-	}
-private:
-	SIZE_T m_oldSize;
-};
-#define DISK_INTENSIVE() CXboxDiskCacheSetter cacheSetter( 1024*1024 )
-#else
 #define DISK_INTENSIVE() ((void)0)
-#endif
 
 //-----------------------------------------------------------------------------
 
 inline unsigned IFileSystem::GetOptimalReadSize( FileHandle_t hFile, unsigned nLogicalSize )
 {
 	unsigned align;
-	if ( GetOptimalIOConstraints( hFile, &align, NULL, NULL ) )
+	if ( GetOptimalIOConstraints( hFile, &align, nullptr, nullptr) )
 		return AlignValue( nLogicalSize, align );
 	else
 		return nLogicalSize;
@@ -810,4 +720,3 @@ DECLARE_TIER2_INTERFACE( IFileSystem, g_pFullFileSystem );
 
 
 
-#endif // FILESYSTEM_H

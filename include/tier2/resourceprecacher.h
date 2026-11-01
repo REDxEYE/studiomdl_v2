@@ -1,11 +1,10 @@
- //===== Copyright © 1996-2005, Valve Corporation, All rights reserved. ======//
+ //===== Copyright Â© 1996-2005, Valve Corporation, All rights reserved. ======//
 //
 // Purpose: Utilities for setting vproject settings
 //
 //===========================================================================//
 
-#ifndef _RESOURCEPRECACHER_H
-#define _RESOURCEPRECACHER_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -190,6 +189,5 @@ public:													\
 	PRECACHE( ENTITY, #_className )				\
 	PRECACHE_REGISTER_END()
 
-#endif // _RESOURCEPRECACHER_H
 
 

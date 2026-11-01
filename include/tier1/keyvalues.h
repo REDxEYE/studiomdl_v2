@@ -5,8 +5,7 @@
 // $NoKeywords: $
 //=============================================================================//
 
-#ifndef KEYVALUES_H
-#define KEYVALUES_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -116,7 +115,7 @@ public:
 		inline ~AutoDelete( void ) { delete m_pKeyValues; }
 		inline void Assign( KeyValues *pKeyValues ) { m_pKeyValues = pKeyValues; }
 		/// behaves more like an auto pointer detach ( flags itself to not delete the contained object, and returns a pointer to it)
-		inline KeyValues * Detach() { KeyValues *retval = m_pKeyValues; Assign( NULL ); return retval; }
+		inline KeyValues * Detach() { KeyValues *retval = m_pKeyValues; Assign(nullptr); return retval; }
 		KeyValues *operator->()	{ return m_pKeyValues; }
 		operator KeyValues *()	{ return m_pKeyValues; }
 	private:
@@ -160,14 +159,14 @@ public:
 
 	// File access. Set UsesEscapeSequences true, if resource file/buffer uses Escape Sequences (eg \n, \t)
 	void UsesEscapeSequences(bool state); // default false
-	bool LoadFromFile( IBaseFileSystem *filesystem, const char *resourceName, const char *pathID = NULL, GetSymbolProc_t pfnEvaluateSymbolProc = NULL);
-	bool SaveToFile( IBaseFileSystem *filesystem, const char *resourceName, const char *pathID = NULL, bool bWriteEmptySubkeys = false);
+	bool LoadFromFile( IBaseFileSystem *filesystem, const char *resourceName, const char *pathID = nullptr, GetSymbolProc_t pfnEvaluateSymbolProc = nullptr);
+	bool SaveToFile( IBaseFileSystem *filesystem, const char *resourceName, const char *pathID = nullptr, bool bWriteEmptySubkeys = false);
 
 	// Read from a buffer...  Note that the buffer must be null terminated
-	bool LoadFromBuffer( char const *resourceName, const char *pBuffer, IBaseFileSystem* pFileSystem = NULL, const char *pPathID = NULL, GetSymbolProc_t pfnEvaluateSymbolProc = NULL );
+	bool LoadFromBuffer( char const *resourceName, const char *pBuffer, IBaseFileSystem* pFileSystem = nullptr, const char *pPathID = nullptr, GetSymbolProc_t pfnEvaluateSymbolProc = nullptr);
 
 	// Read from a utlbuffer...
-	bool LoadFromBuffer( char const *resourceName, CUtlBuffer &buf, IBaseFileSystem* pFileSystem = NULL, const char *pPathID = NULL, GetSymbolProc_t pfnEvaluateSymbolProc = NULL );
+	bool LoadFromBuffer( char const *resourceName, CUtlBuffer &buf, IBaseFileSystem* pFileSystem = nullptr, const char *pPathID = nullptr, GetSymbolProc_t pfnEvaluateSymbolProc = nullptr);
 
 	// Find a keyValue, create it if it is not found.
 	// Set bCreate to true to create the key if it doesn't already exist (which ensures a valid pointer will be returned)
@@ -196,11 +195,11 @@ public:
 
 	bool BInteriorNode() const
 	{
-		return GetFirstSubKey() != NULL;
+		return GetFirstSubKey() != nullptr;
 	}
 	bool BLeafNode() const
 	{
-		return GetFirstSubKey() == NULL;
+		return GetFirstSubKey() == nullptr;
 	}
 	//
 	// These functions can be used to treat it like a true key/values tree instead of 
@@ -223,23 +222,23 @@ public:
 
 
 	// Data access
-	int   GetInt( const char *keyName = NULL, int defaultValue = 0 );
-	uint64 GetUint64( const char *keyName = NULL, uint64 defaultValue = 0 );
-	float GetFloat( const char *keyName = NULL, float defaultValue = 0.0f );
-	const char *GetString( const char *keyName = NULL, const char *defaultValue = "" );
-	const wchar_t *GetWString( const char *keyName = NULL, const wchar_t *defaultValue = L"" );
-	void *GetPtr( const char *keyName = NULL, void *defaultValue = (void*)0 );
-	Color GetColor( const char *keyName = NULL , const Color &defaultColor = Color( 0, 0, 0, 0 ) );
-	bool GetBool( const char *keyName = NULL, bool defaultValue = false ) { return GetInt( keyName, defaultValue ? 1 : 0 ) ? true : false; }
-	bool  IsEmpty(const char *keyName = NULL);
+	int   GetInt( const char *keyName = nullptr, int defaultValue = 0 );
+	uint64_t GetUint64( const char *keyName = nullptr, uint64_t defaultValue = 0 );
+	float GetFloat( const char *keyName = nullptr, float defaultValue = 0.0f );
+	const char *GetString( const char *keyName = nullptr, const char *defaultValue = "" );
+	const wchar_t *GetWString( const char *keyName = nullptr, const wchar_t *defaultValue = L"" );
+	void *GetPtr( const char *keyName = nullptr, void *defaultValue = (void*)nullptr );
+	Color GetColor( const char *keyName = nullptr, const Color &defaultColor = Color( 0, 0, 0, 0 ) );
+	bool GetBool( const char *keyName = nullptr, bool defaultValue = false ) { return GetInt( keyName, defaultValue ? 1 : 0 ) ? true : false; }
+	bool  IsEmpty(const char *keyName = nullptr);
 
 	// Data access
 	int   GetInt( int keySymbol, int defaultValue = 0 );
-	uint64 GetUint64( int keySymbol, uint64 defaultValue = 0 );
+	uint64_t GetUint64( int keySymbol, uint64_t defaultValue = 0 );
 	float GetFloat( int keySymbol, float defaultValue = 0.0f );
 	const char *GetString( int keySymbol, const char *defaultValue = "" );
 	const wchar_t *GetWString( int keySymbol, const wchar_t *defaultValue = L"" );
-	void *GetPtr( int keySymbol, void *defaultValue = (void*)0 );
+	void *GetPtr( int keySymbol, void *defaultValue = (void*)nullptr );
 	Color GetColor( int keySymbol /* default value is all black */);
 	bool GetBool( int keySymbol, bool defaultValue = false ) { return GetInt( keySymbol, defaultValue ? 1 : 0 ) ? true : false; }
 	bool  IsEmpty( int keySymbol );
@@ -248,7 +247,7 @@ public:
 	void SetWString( const char *keyName, const wchar_t *value );
 	void SetString( const char *keyName, const char *value );
 	void SetInt( const char *keyName, int value );
-	void SetUint64( const char *keyName, uint64 value );
+	void SetUint64( const char *keyName, uint64_t value );
 	void SetFloat( const char *keyName, float value );
 	void SetPtr( const char *keyName, void *value );
 	void SetColor( const char *keyName, Color value);
@@ -302,7 +301,7 @@ public:
 		TYPE_COMPILED_INT_1,			// hack to collapse 1 in the compiled format
 		TYPE_NUMTYPES, 
 	};
-	types_t GetDataType(const char *keyName = NULL);
+	types_t GetDataType(const char *keyName = nullptr);
 	types_t GetDataType() const;
 
 	// for backward compat
@@ -330,7 +329,7 @@ public:
 	void MergeFrom( KeyValues *kvMerge, MergeKeyValuesOp_t eOp = MERGE_KV_ALL );
 
 	// Assign keyvalues from a string
-	static KeyValues * FromString( char const *szName, char const *szStringVal, char const **ppEndOfParse = NULL );
+	static KeyValues * FromString( char const *szName, char const *szStringVal, char const **ppEndOfParse = nullptr);
 		
 	/// Create a child key, given that we know which child is currently the last child.
 	/// This avoids the O(N^2) behaviour when adding children in sequence to KV,
@@ -379,8 +378,8 @@ private:
 
 	bool EvaluateConditional( const char *pExpressionString, GetSymbolProc_t pfnEvaluateSymbolProc );
 
-	uint32 m_iKeyName : 24;	// keyname is a symbol defined in KeyValuesSystem
-	uint32 m_iKeyNameCaseSensitive1 : 8;	// 1st part of case sensitive symbol defined in KeyValueSystem
+	uint32_t m_iKeyName : 24;	// keyname is a symbol defined in KeyValuesSystem
+	uint32_t m_iKeyNameCaseSensitive1 : 8;	// 1st part of case sensitive symbol defined in KeyValueSystem
 
 	// These are needed out of the union because the API returns string pointers
 	char *m_sValue;
@@ -397,7 +396,7 @@ private:
 	
 	char	   m_iDataType;
 	char	   m_bHasEscapeSequences; // true, if while parsing this KeyValue, Escape Sequences are used (default false)
-	uint16	   m_iKeyNameCaseSensitive2;	// 2nd part of case sensitive symbol defined in KeyValueSystem;
+	uint16_t	   m_iKeyNameCaseSensitive2;	// 2nd part of case sensitive symbol defined in KeyValueSystem;
 
 	KeyValues *m_pPeer;	// pointer to next key in list
 	KeyValues *m_pSub;	// pointer to Start of a new sub key list
@@ -454,37 +453,37 @@ struct KeyValuesUnpackStructure
 inline int   KeyValues::GetInt( int keySymbol, int defaultValue )
 {
 	KeyValues *dat = FindKey( keySymbol );
-	return dat ? dat->GetInt( (const char *)NULL, defaultValue ) : defaultValue;
+	return dat ? dat->GetInt( (const char *) nullptr, defaultValue ) : defaultValue;
 }
 
-inline uint64 KeyValues::GetUint64( int keySymbol, uint64 defaultValue )
+inline uint64_t KeyValues::GetUint64( int keySymbol, uint64_t defaultValue )
 {
 	KeyValues *dat = FindKey( keySymbol );
-	return dat ? dat->GetUint64( (const char *)NULL, defaultValue ) : defaultValue;
+	return dat ? dat->GetUint64( (const char *) nullptr, defaultValue ) : defaultValue;
 }
 
 inline float KeyValues::GetFloat( int keySymbol, float defaultValue )
 {
 	KeyValues *dat = FindKey( keySymbol );
-	return dat ? dat->GetFloat( (const char *)NULL, defaultValue ) : defaultValue;
+	return dat ? dat->GetFloat( (const char *) nullptr, defaultValue ) : defaultValue;
 }
 
 inline const char *KeyValues::GetString( int keySymbol, const char *defaultValue )
 {
 	KeyValues *dat = FindKey( keySymbol );
-	return dat ? dat->GetString( (const char *)NULL, defaultValue ) : defaultValue;
+	return dat ? dat->GetString( (const char *) nullptr, defaultValue ) : defaultValue;
 }
 
 inline const wchar_t *KeyValues::GetWString( int keySymbol, const wchar_t *defaultValue )
 {
 	KeyValues *dat = FindKey( keySymbol );
-	return dat ? dat->GetWString( (const char *)NULL, defaultValue ) : defaultValue;
+	return dat ? dat->GetWString( (const char *) nullptr, defaultValue ) : defaultValue;
 }
 
 inline void *KeyValues::GetPtr( int keySymbol, void *defaultValue )
 {
 	KeyValues *dat = FindKey( keySymbol );
-	return dat ? dat->GetPtr( (const char *)NULL, defaultValue ) : defaultValue;
+	return dat ? dat->GetPtr( (const char *) nullptr, defaultValue ) : defaultValue;
 }
 
 inline Color KeyValues::GetColor( int keySymbol )
@@ -546,4 +545,3 @@ inline bool KeyValuesDumpAsDevMsg( KeyValues *pKeyValues, int nIndentLevel = 0, 
 }
 
 
-#endif // KEYVALUES_H

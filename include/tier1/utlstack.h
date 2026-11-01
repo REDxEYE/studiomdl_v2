@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright Â© 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
@@ -7,8 +7,7 @@
 // A stack based on a growable array
 //=============================================================================//
 
-#ifndef UTLSTACK_H
-#define UTLSTACK_H
+#pragma once
 
 #include <assert.h>
 #include <string.h>
@@ -328,4 +327,3 @@ void CUtlStack<T,M>::Purge()
 	ResetDbgInfo();
 }
 
-#endif // UTLSTACK_H

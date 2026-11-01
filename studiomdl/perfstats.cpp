@@ -5,7 +5,7 @@
 //===========================================================================//
 
 #include <stdlib.h>
-#include "tier0/dbg.h"
+
 #include "tier1/interface.h"
 #include "studio.h"
 #include "studiomdl/optimize.h"
@@ -26,8 +26,8 @@ void SpewPerfStats( studiohdr_t *pStudioHdr, const char *pFilename, unsigned int
 {
 	char							fileName[260];
 	vertexFileHeader_t				*pNewVvdHdr;
-	vertexFileHeader_t				*pVvdHdr = 0;
-	OptimizedModel::FileHeader_t	*pVtxHdr = 0;
+	vertexFileHeader_t				*pVvdHdr = nullptr;
+	OptimizedModel::FileHeader_t	*pVtxHdr = nullptr;
 //	studiohwdata_t					studioHWData;
 	int								vvdSize = 0;
 	

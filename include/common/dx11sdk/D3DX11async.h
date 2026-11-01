@@ -8,8 +8,7 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 
-#ifndef __D3DX11ASYNC_H__
-#define __D3DX11ASYNC_H__
+#pragma once
 
 #include "d3dx11.h"
 
@@ -163,6 +162,5 @@ HRESULT WINAPI D3DX11CreateAsyncShaderResourceViewProcessor(ID3D11Device *pDevic
 }
 #endif //__cplusplus
 
-#endif //__D3DX11ASYNC_H__
 
 

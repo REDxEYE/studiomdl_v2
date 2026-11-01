@@ -530,15 +530,15 @@ bool CImportVMT::UnserializeProxies( CDmElement *pElement, KeyValues *pKeyValues
 	CDmrElementArray<> array( pProxies );
 
 	// Proxies are a list of sub-keys, the name is the proxy name, subkeys are values
-	for ( KeyValues *pProxy = pKeyValues->GetFirstTrueSubKey(); pProxy != NULL; pProxy = pProxy->GetNextTrueSubKey() )
+	for ( KeyValues *pProxy = pKeyValues->GetFirstTrueSubKey(); pProxy != nullptr; pProxy = pProxy->GetNextTrueSubKey() )
 	{
-		CDmElement *pProxyElement = CreateDmElement( "DmElement", pProxy->GetName(), NULL ); 
+		CDmElement *pProxyElement = CreateDmElement( "DmElement", pProxy->GetName(), nullptr); 
 		array.AddToTail( pProxyElement );
 		pProxyElement->SetValue( "proxyType", pKeyValues->GetName() );
 		pProxyElement->SetValue( "editorType", "vmtProxy" );
 
 		// Normal keys are proxy parameters
-		for ( KeyValues *pProxyParam = pProxy->GetFirstValue(); pProxyParam != NULL; pProxyParam = pProxyParam->GetNextValue() )
+		for ( KeyValues *pProxyParam = pProxy->GetFirstValue(); pProxyParam != nullptr; pProxyParam = pProxyParam->GetNextValue() )
 		{
 			switch( pProxyParam->GetDataType() )
 			{
@@ -577,12 +577,12 @@ bool CImportVMT::UnserializeFallbacks( CDmElement *pElement, KeyValues *pFallbac
 
 	CDmrElementArray<> array( pFallbacks );
 
-	CDmElement *pFallback = CreateDmElement( "DmElement", pFallbackKeyValues->GetName(), NULL ); 
+	CDmElement *pFallback = CreateDmElement( "DmElement", pFallbackKeyValues->GetName(), nullptr); 
 	array.AddToTail( pFallback );
 	pFallback->SetValue( "editorType", "vmtFallback" );
 
 	// Normal keys are shader parameters
-	for ( KeyValues *pShaderParam = pFallbackKeyValues->GetFirstValue(); pShaderParam != NULL; pShaderParam = pShaderParam->GetNextValue() )
+	for ( KeyValues *pShaderParam = pFallbackKeyValues->GetFirstValue(); pShaderParam != nullptr; pShaderParam = pShaderParam->GetNextValue() )
 	{
 		if ( !UnserializeShaderParam( pFallback, pShaderParam ) )
 		{
@@ -653,7 +653,7 @@ void CImportVMT::ExpandPatchFile( KeyValues *pKeyValues )
 		if( pIncludeFileName )
 		{
 			KeyValues * includeKeyValues = new KeyValues( "vmt" );
-			bool success = includeKeyValues->LoadFromFile( g_pFullFileSystem, pIncludeFileName, IsX360() ? "GAME" : NULL );
+			bool success = includeKeyValues->LoadFromFile( g_pFullFileSystem, pIncludeFileName, nullptr);
 			if( success )
 			{
 				KeyValues *pInsertSection = pKeyValues->FindKey( "insert" );
@@ -699,34 +699,34 @@ CDmElement* CImportVMT::UnserializeFromKeyValues( KeyValues *pKeyValues )
 	ExpandPatchFile( pKeyValues );
 
 	// Create the main element
-	CDmElement *pRoot = CreateDmElement( "DmElement", "VMT", NULL );
+	CDmElement *pRoot = CreateDmElement( "DmElement", "VMT", nullptr);
 	if ( !pRoot )
-		return NULL;
+		return nullptr;
 
 	// Each material needs to have an editortype associated with it so it displays nicely in editors
 	pRoot->SetValue( "editorType", "vmt" );
 
 	// Each material needs a proxy list and a fallback list
 	if ( !pRoot->AddAttribute( "proxies", AT_ELEMENT_ARRAY ) )
-		return NULL;
+		return nullptr;
 	if ( !pRoot->AddAttribute( "fallbacks", AT_ELEMENT_ARRAY ) )
-		return NULL;
+		return nullptr;
 
 	// The keyvalues name is the shader name
 	pRoot->SetValue( "shader", pKeyValues->GetName() );
 
 	// Normal keys are shader parameters
-	for ( KeyValues *pShaderParam = pKeyValues->GetFirstValue(); pShaderParam != NULL; pShaderParam = pShaderParam->GetNextValue() )
+	for ( KeyValues *pShaderParam = pKeyValues->GetFirstValue(); pShaderParam != nullptr; pShaderParam = pShaderParam->GetNextValue() )
 	{
 		if ( !UnserializeShaderParam( pRoot, pShaderParam ) )
 		{
 			Warning( "Error importing vmt shader parameter %s\n", pShaderParam->GetName() );
-			return NULL;
+			return nullptr;
 		}
 	}
 
 	// Subkeys are either proxies or fallbacks
-	for ( KeyValues *pSubKey = pKeyValues->GetFirstTrueSubKey(); pSubKey != NULL; pSubKey = pSubKey->GetNextTrueSubKey() )
+	for ( KeyValues *pSubKey = pKeyValues->GetFirstTrueSubKey(); pSubKey != nullptr; pSubKey = pSubKey->GetNextTrueSubKey() )
 	{
 		if ( !Q_stricmp( pSubKey->GetName(), "Proxies" ) )
 		{

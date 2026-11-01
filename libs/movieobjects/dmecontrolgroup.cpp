@@ -7,12 +7,10 @@
 //=============================================================================
 #include "movieobjects/dmecontrolgroup.h"
 #include "movieobjects/dmetransform.h"
-#include "movieobjects/dmetransformcontrol.h"
 #include "movieobjects/dmeanimationset.h"
 #include "datamodel/dmelementfactoryhelper.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 //-------------------------------------------------------------------------------------------------
 // Expose this class to the scene database 
@@ -50,7 +48,7 @@ void CDmeControlGroup::OnDestruction()
 //-------------------------------------------------------------------------------------------------
 void CDmeControlGroup::AddControl( CDmElement *pControl, const CDmElement *pInsertBeforeControl )
 {
-	if ( pControl == NULL )
+	if ( pControl == nullptr)
 		return;
 
 	// Remove the control from any group it is currently in.
@@ -88,7 +86,7 @@ void CDmeControlGroup::AddControl( CDmElement *pControl, const CDmElement *pInse
 //-------------------------------------------------------------------------------------------------
 bool CDmeControlGroup::RemoveControl( const CDmElement *pControl )
 {
-	if ( pControl == NULL )
+	if ( pControl == nullptr)
 		return false;
 
 	int nControls = m_Controls.Count();
@@ -184,7 +182,7 @@ CDmElement *CDmeControlGroup::FindControlByName( const char *pchName, bool recur
 		}
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 
@@ -365,7 +363,7 @@ void CDmeControlGroup::SortChildrenByName( bool bAscending )
 //-------------------------------------------------------------------------------------------------
 bool CDmeControlGroup::HasChildGroup( const char *pchName, bool recursive )
 {
-	if ( FindChildByName( pchName, recursive ) == NULL )
+	if ( FindChildByName( pchName, recursive ) == nullptr)
 		return false;
 
 	return true;
@@ -413,7 +411,7 @@ CDmeControlGroup *CDmeControlGroup::FindChildByName( const char *pchName, bool r
 		}
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 
@@ -435,7 +433,7 @@ CDmeControlGroup *CDmeControlGroup::FindParent() const
 //-------------------------------------------------------------------------------------------------
 bool CDmeControlGroup::IsAncestorOfGroup( const CDmeControlGroup *pGroup ) const
 {
-	if ( pGroup == NULL )
+	if ( pGroup == nullptr)
 		return false;
 
 	const CDmeControlGroup *pCurrentGroup = pGroup;
@@ -545,7 +543,7 @@ void CDmeControlGroup::DestroyEmptyChildren()
 //-------------------------------------------------------------------------------------------------
 void CDmeControlGroup::DestroyGroup( CDmeControlGroup *pGroup, CDmeControlGroup *pRecipient, bool recursive )
 {
-	if ( pGroup == NULL  )
+	if ( pGroup == nullptr)
 		return;
 
 	// Remove the group from its parent
@@ -553,7 +551,7 @@ void CDmeControlGroup::DestroyGroup( CDmeControlGroup *pGroup, CDmeControlGroup 
 	if ( pParent )
 	{
 		pParent->RemoveChild( pGroup );
-		if ( pRecipient == NULL )
+		if ( pRecipient == nullptr)
 		{
 			pRecipient = pParent;
 		}
@@ -570,11 +568,11 @@ void CDmeControlGroup::DestroyGroup( CDmeControlGroup *pGroup, CDmeControlGroup 
 //-------------------------------------------------------------------------------------------------
 void CDmeControlGroup::DestroyGroup_R( CDmeControlGroup *pGroup, CDmeControlGroup *pRecipient, bool recursive )
 {	
-	if ( pGroup == NULL )
+	if ( pGroup == nullptr)
 		return;
 
 	// If the group is not empty there must be a recipient to receive its controls and groups
-	if ( pRecipient == NULL && !pGroup->IsEmpty() )
+	if ( pRecipient == nullptr && !pGroup->IsEmpty() )
 	{
 		Assert( pGroup->IsEmpty() || pRecipient );
 		return;
@@ -765,7 +763,7 @@ CDmeControlGroup *CDmeControlGroup::FindCommonAncestor( CDmeControlGroup *pContr
 	pControlGroupB->BuildPathFromRoot( pathToGroupB );
 
 	// Now walk each of the the paths until they diverge
-	CDmeControlGroup *pCommonGroup = NULL;
+	CDmeControlGroup *pCommonGroup = nullptr;
 	int nNumSteps = MIN( pathToGroupA.Count(), pathToGroupB.Count() );
 
 	int iStep = 0;
@@ -837,7 +835,7 @@ CDmeAnimationSet *CDmeControlGroup::FindAnimationSet( bool bSearchAncestors ) co
 	while ( pCurrent )
 	{
 		CDmeAnimationSet *pAnimationSet = FindReferringElement< CDmeAnimationSet >( pCurrent, symRootControlGroup );
-		if ( pAnimationSet != NULL )
+		if ( pAnimationSet != nullptr)
 			return pAnimationSet;
 
 		if ( bSearchAncestors == false )
@@ -850,6 +848,6 @@ CDmeAnimationSet *CDmeControlGroup::FindAnimationSet( bool bSearchAncestors ) co
 		pCurrent = pParent;
 	}
 
-	return NULL;
+	return nullptr;
 }
 

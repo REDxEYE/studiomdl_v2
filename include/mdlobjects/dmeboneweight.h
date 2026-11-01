@@ -1,12 +1,11 @@
-//====== Copyright © 1996-2008, Valve Corporation, All rights reserved. =====//
+//====== Copyright Â© 1996-2008, Valve Corporation, All rights reserved. =====//
 //
 // Dme version of a bone weight as in QC $WeightList
 //
 //===========================================================================//
 
 
-#ifndef DMEBONEWEIGHT_H
-#define DMEBONEWEIGHT_H
+#pragma once
 
 
 #ifdef _WIN32
@@ -31,4 +30,3 @@ public:
 };
 
 
-#endif // DMEBONEWEIGHT_H

@@ -1,11 +1,10 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright Â© 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: Helper class for cvars that have restrictions on their value.
 //
 //=============================================================================//
 
-#ifndef CONVAR_SERVERBOUNDED_H
-#define CONVAR_SERVERBOUNDED_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -50,4 +49,3 @@ public:
 };
 
 
-#endif // CONVAR_SERVERBOUNDED_H

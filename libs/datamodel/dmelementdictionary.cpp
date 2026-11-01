@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
@@ -50,7 +50,7 @@ DmElementDictHandle_t CDmElementDictionary::InsertElement( CDmElement *pElement 
 CDmElement *CDmElementDictionary::GetElement( DmElementDictHandle_t handle )
 {
 	if ( handle == ELEMENT_DICT_HANDLE_INVALID )
-		return NULL;
+		return nullptr;
 
 	return g_pDataModel->GetElement( m_Dict[ handle ] );
 }

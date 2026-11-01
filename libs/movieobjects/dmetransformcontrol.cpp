@@ -17,8 +17,7 @@
 #include "movieobjects/dmerigconstraintoperators.h"
 #include "datamodel/dmelementfactoryhelper.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 //-----------------------------------------------------------------------------
@@ -33,7 +32,7 @@ IMPLEMENT_ELEMENT_FACTORY( DmeTransformControl, CDmeTransformControl );
 void CDmeTransformControl::OnConstruction()
 {
 	m_PivotOffset = vec3_origin;
-	m_pManipulationParams = NULL;
+	m_pManipulationParams = nullptr;
 
 	m_PositionValue.InitAndSet( this, "valuePosition", vec3_origin );
 	m_OrientationValue.InitAndSet( this, "valueOrientation", quat_identity );
@@ -49,7 +48,7 @@ void CDmeTransformControl::OnDestruction()
 {
 	// Destroy the manipulation parameters if they have been created.
 	delete m_pManipulationParams;
-	m_pManipulationParams = NULL;
+	m_pManipulationParams = nullptr;
 }
 
 
@@ -61,7 +60,7 @@ void CDmeTransformControl::OnDestruction()
 //-----------------------------------------------------------------------------
 bool CDmeTransformControl::InitManipulationParams()
 {
-	if ( m_pManipulationParams == NULL )
+	if ( m_pManipulationParams == nullptr)
 	{
 		m_pManipulationParams = new ManipulationParams_t;
 
@@ -74,7 +73,7 @@ bool CDmeTransformControl::InitManipulationParams()
 		}
 	}
 
-	return ( m_pManipulationParams != NULL );
+	return ( m_pManipulationParams != nullptr);
 }
 
 
@@ -244,10 +243,10 @@ void CDmeTransformControl::SetPivotOffset( const Vector &localOffset )
 //-----------------------------------------------------------------------------
 CDmeTransform *CDmeTransformControl::GetTransform() const
 {
-	CDmeTransform *pTransform = NULL;
+	CDmeTransform *pTransform = nullptr;
 
 	CDmeChannel *pChannel = GetPositionChannel();
-	if ( pChannel == NULL )
+	if ( pChannel == nullptr)
 	{
 		pChannel = GetOrientationChannel();
 	}
@@ -259,7 +258,7 @@ CDmeTransform *CDmeTransformControl::GetTransform() const
 
 		// If the element targeted by the channel is not a transform, 
 		// see if it is a constraint slave, and get the transform from that.
-		if ( pTransform == NULL )
+		if ( pTransform == nullptr)
 		{	
 			CDmeConstraintSlave *pConstraintSlave = CastElement< CDmeConstraintSlave >( pToElement );
 			if ( pConstraintSlave )
@@ -285,7 +284,7 @@ CDmeTransform *CDmeTransformControl::GetTransform() const
 //-----------------------------------------------------------------------------
 CDmeDag *CDmeTransformControl::GetDag() const
 {
-	CDmeDag *pDagNode = NULL;
+	CDmeDag *pDagNode = nullptr;
 	CDmeTransform *pTransform = GetTransform();
 
 	if ( pTransform  )

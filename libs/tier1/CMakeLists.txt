@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.22)
 project(tier1)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 20)
 if (CMAKE_SIZEOF_VOID_P EQUAL 8)
     set(PLATFORM_DEFINES COMPILER_MSVC64 COMPILER_MSVC)
 elseif (CMAKE_SIZEOF_VOID_P EQUAL 4)
@@ -12,10 +12,7 @@ add_library(tier1
         exprevaluator.cpp
         characterset.cpp
         checksum_crc.cpp
-        checksum_md5.cpp
         checksum_sha1.cpp
-        commandbuffer.cpp
-        convar.cpp
         datamanager.cpp
         fileio.cpp
         generichash.cpp
@@ -44,4 +41,7 @@ add_library(tier1
 target_include_directories(tier1 PUBLIC ../../include)
 target_include_directories(tier1 PRIVATE ../../include/tier1)
 target_compile_definitions(tier1 PRIVATE -DSTATIC_TIER0)
-target_link_libraries(tier1 PRIVATE tier0 interfaces vstdlib_static mathlib rpcrt4)
+target_link_libraries(tier1 PRIVATE tier0 interfaces vstdlib_static mathlib)
+if (WIN32)
+    target_link_libraries(tier1 PRIVATE rpcrt4)
+endif ()

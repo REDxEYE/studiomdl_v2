@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // A class representing an abstract shape (ie drawable object)
 //
 //=============================================================================
 
-#ifndef DMEFACESET_H
-#define DMEFACESET_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -84,4 +83,3 @@ inline int CDmeFaceSet::GetIndex( int i ) const
 }
 
 
-#endif // DMEFACESET_H

@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2005, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2005, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
 //=============================================================================
 
-#ifndef INTERPOLATORTYPES_H
-#define INTERPOLATORTYPES_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -99,4 +98,3 @@ void Interpolator_CurveInterpolate_NonNormalized( int interpolationType,
 												 float f,
 												 Quaternion &vOut );
 
-#endif // INTERPOLATORTYPES_H

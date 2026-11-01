@@ -11,8 +11,7 @@
 #include "tier1/fmtstr.h"
 
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 //-------------------------------------------------------------------------------------------------
@@ -137,7 +136,7 @@ void CDmeConnectionOperator::SetInput( CDmElement* pElement, const char* pchAttr
 //-------------------------------------------------------------------------------------------------
 void CDmeConnectionOperator::AddOutput( CDmElement* pElement, const char* pchAttributeName, int index )
 {
-	if ( ( pElement == NULL ) || ( pchAttributeName == NULL ) )
+	if ( ( pElement == nullptr) || ( pchAttributeName == nullptr) )
 		return;
 
 	CDmeAttributeReference *pAttrRef = CreateElement< CDmeAttributeReference >( CFmtStr( "%s_%s", pElement->GetName() , pchAttributeName ), GetFileId() );
@@ -172,7 +171,7 @@ int CDmeConnectionOperator::NumOutputAttributes() const
 CDmAttribute *CDmeConnectionOperator::GetOutputAttribute( int index ) const
 {
 	if ( index >= m_Outputs.Count() )
-		return NULL;
+		return nullptr;
 
 	return m_Outputs[ index ]->GetReferencedAttribute();	
 }

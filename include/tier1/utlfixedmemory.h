@@ -7,31 +7,23 @@
 // A growable memory class.
 //===========================================================================//
 
-#ifndef UTLFIXEDMEMORY_H
-#define UTLFIXEDMEMORY_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
 #endif
 
-#include "tier0/dbg.h"
+
 #include "tier0/platform.h"
 
 #include "tier0/memalloc.h"
-// DISABLED #include "tier0/memdbgon.h"
+
 
 #pragma warning (disable:4100)
 #pragma warning (disable:4514)
 
 //-----------------------------------------------------------------------------
 
-#ifdef UTLFIXEDMEMORY_TRACK
-#define UTLFIXEDMEMORY_TRACK_ALLOC()		MemAlloc_RegisterAllocation( "Sum of all UtlFixedMemory", 0, NumAllocated() * sizeof(T), NumAllocated() * sizeof(T), 0 )
-#define UTLFIXEDMEMORY_TRACK_FREE()		if ( !m_pMemory ) ; else MemAlloc_RegisterDeallocation( "Sum of all UtlFixedMemory", 0, NumAllocated() * sizeof(T), NumAllocated() * sizeof(T), 0 )
-#else
-#define UTLFIXEDMEMORY_TRACK_ALLOC()		((void)0)
-#define UTLFIXEDMEMORY_TRACK_FREE()		((void)0)
-#endif
 
 
 //-----------------------------------------------------------------------------
@@ -50,8 +42,8 @@ public:
 	void Init( int nGrowSize = 0, int nInitSize = 0 );
 
 	// here to match CUtlMemory, but only used by ResetDbgInfo, so it can just return NULL
-	T* Base() { return NULL; }
-	const T* Base() const { return NULL; }
+	T* Base() { return nullptr; }
+	const T* Base() const { return nullptr; }
 
 protected:
 	struct BlockHeader_t;
@@ -62,7 +54,7 @@ public:
 	public:
 		Iterator_t( BlockHeader_t *p, int i ) : m_pBlockHeader( p ), m_nIndex( i ) {}
 		BlockHeader_t *m_pBlockHeader;
-		intp m_nIndex;
+		intptr_t m_nIndex;
 
 		bool operator==( const Iterator_t it ) const	{ return m_pBlockHeader == it.m_pBlockHeader && m_nIndex == it.m_nIndex; }
 		bool operator!=( const Iterator_t it ) const	{ return m_pBlockHeader != it.m_pBlockHeader || m_nIndex != it.m_nIndex; }
@@ -80,15 +72,15 @@ public:
 
 		return pHeader->m_pNext ? Iterator_t( pHeader->m_pNext, 0 ) : InvalidIterator();
 	}
-	intp GetIndex( const Iterator_t &it ) const
+	intptr_t GetIndex( const Iterator_t &it ) const
 	{
 		Assert( IsValidIterator( it ) );
 		if ( !IsValidIterator( it ) )
 			return InvalidIndex();
 
-		return ( intp )( HeaderToBlock( it.m_pBlockHeader ) + it.m_nIndex );
+		return ( intptr_t )( HeaderToBlock( it.m_pBlockHeader ) + it.m_nIndex );
 	}
-	bool IsIdxAfter( intp i, const Iterator_t &it ) const
+	bool IsIdxAfter( intptr_t i, const Iterator_t &it ) const
 	{
 		Assert( IsValidIterator( it ) );
 		if ( !IsValidIterator( it ) )
@@ -108,17 +100,17 @@ public:
 	Iterator_t InvalidIterator() const					{ return Iterator_t( NULL, INVALID_INDEX ); }
 
 	// element access
-	T& operator[]( intp i );
-	const T& operator[]( intp i ) const;
-	T& Element( intp i );
-	const T& Element( intp i ) const;
+	T& operator[]( intptr_t i );
+	const T& operator[]( intptr_t i ) const;
+	T& Element( intptr_t i );
+	const T& Element( intptr_t i ) const;
 
 	// Can we use this index?
-	bool IsIdxValid( intp i ) const;
+	bool IsIdxValid( intptr_t i ) const;
 
 	// Specify the invalid ('null') index that we'll only return on failure
-	static const intp INVALID_INDEX = 0; // For use with COMPILE_TIME_ASSERT
-	static intp InvalidIndex() { return INVALID_INDEX; }
+	static const intptr_t INVALID_INDEX = 0; // For use with COMPILE_TIME_ASSERT
+	static intptr_t InvalidIndex() { return INVALID_INDEX; }
 
 	// Size
 	int NumAllocated() const;
@@ -137,7 +129,7 @@ protected:
 	// Fast swap - WARNING: Swap invalidates all ptr-based indices!!!
 	void Swap( CUtlFixedMemory< T > &mem );
 
-	bool IsInBlock( intp i, BlockHeader_t *pBlockHeader ) const
+	bool IsInBlock( intptr_t i, BlockHeader_t *pBlockHeader ) const
 	{
 		T *p = ( T* )i;
 		const T *p0 = HeaderToBlock( pBlockHeader );
@@ -147,7 +139,7 @@ protected:
 	struct BlockHeader_t
 	{
 		BlockHeader_t *m_pNext;
-		intp m_nBlockSize;
+		intptr_t m_nBlockSize;
 	};
 
 	const T *HeaderToBlock( const BlockHeader_t *pHeader ) const { return ( T* )( pHeader + 1 ); }
@@ -164,7 +156,7 @@ protected:
 
 template< class T >
 CUtlFixedMemory<T>::CUtlFixedMemory( int nGrowSize, int nInitAllocationCount )
-	: m_pBlocks( 0 ), m_nAllocationCount( 0 ), m_nGrowSize( 0 )
+	: m_pBlocks( nullptr ), m_nAllocationCount( 0 ), m_nGrowSize( 0 )
 {
 	Init( nGrowSize, nInitAllocationCount );
 }
@@ -205,28 +197,28 @@ void CUtlFixedMemory<T>::Init( int nGrowSize /* = 0 */, int nInitSize /* = 0 */ 
 // element access
 //-----------------------------------------------------------------------------
 template< class T >
-inline T& CUtlFixedMemory<T>::operator[]( intp i )
+inline T& CUtlFixedMemory<T>::operator[]( intptr_t i )
 {
 	Assert( IsIdxValid(i) );
 	return *( T* )i;
 }
 
 template< class T >
-inline const T& CUtlFixedMemory<T>::operator[]( intp i ) const
+inline const T& CUtlFixedMemory<T>::operator[]( intptr_t i ) const
 {
 	Assert( IsIdxValid(i) );
 	return *( T* )i;
 }
 
 template< class T >
-inline T& CUtlFixedMemory<T>::Element( intp i )
+inline T& CUtlFixedMemory<T>::Element( intptr_t i )
 {
 	Assert( IsIdxValid(i) );
 	return *( T* )i;
 }
 
 template< class T >
-inline const T& CUtlFixedMemory<T>::Element( intp i ) const
+inline const T& CUtlFixedMemory<T>::Element( intptr_t i ) const
 {
 	Assert( IsIdxValid(i) );
 	return *( T* )i;
@@ -247,7 +239,7 @@ inline int CUtlFixedMemory<T>::NumAllocated() const
 // Is element index valid?
 //-----------------------------------------------------------------------------
 template< class T >
-inline bool CUtlFixedMemory<T>::IsIdxValid( intp i ) const
+inline bool CUtlFixedMemory<T>::IsIdxValid( intptr_t i ) const
 {
 #ifdef _DEBUG
 	for ( BlockHeader_t *pbh = m_pBlocks; pbh; pbh = pbh->m_pNext )
@@ -290,7 +282,6 @@ void CUtlFixedMemory<T>::Grow( int num )
 	}
 	m_nAllocationCount += nBlockSize;
 
-	MEM_ALLOC_CREDIT_CLASS();
 	BlockHeader_t *  RESTRICT pBlockHeader = ( BlockHeader_t* )malloc( sizeof( BlockHeader_t ) + nBlockSize * sizeof( T ) );
 	if ( !pBlockHeader )
 	{
@@ -351,4 +342,3 @@ void CUtlFixedMemory<T>::Purge()
 
 // DISABLED #include "tier0/memdbgoff.h"
 
-#endif // UTLFIXEDMEMORY_H

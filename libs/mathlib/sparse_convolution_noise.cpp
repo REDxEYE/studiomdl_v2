@@ -10,8 +10,7 @@
 #include "mathlib/vector.h"
 #include "mathlib/noise.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 // generate high quality noise based upon "sparse convolution". HIgher quality than perlin noise,
 // and no direcitonal artifacts.

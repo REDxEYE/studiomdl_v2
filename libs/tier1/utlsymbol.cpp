@@ -11,8 +11,7 @@
 #include "utlsymbol.h"
 #include <stddef.h>
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 #define INVALID_STRING_INDEX CStringPoolIndex( 0xFFFF, 0xFFFF )
 
@@ -22,7 +21,7 @@
 // globals
 //-----------------------------------------------------------------------------
 
-CUtlSymbolTable* CUtlSymbol::s_pSymbolTable = 0;
+CUtlSymbolTable* CUtlSymbol::s_pSymbolTable = nullptr;
 bool CUtlSymbol::s_bAllowStaticSymbolTable = true;
 
 
@@ -54,7 +53,7 @@ public:
 	~CCleanupUtlSymbolTable()
 	{
 		delete CUtlSymbol::s_pSymbolTable;
-		CUtlSymbol::s_pSymbolTable = NULL;
+		CUtlSymbol::s_pSymbolTable = nullptr;
 	}
 };
 
@@ -128,7 +127,7 @@ bool CUtlSymbolTable::CLess::operator()( const CStringPoolIndex &i1, const CStri
 	// can be arbitrarily moved in memory on a realloc. Yes, this is portable. In reality,
 	// right now at least, because m_LessFunc is the first member of CUtlRBTree, and m_Lookup
 	// is the first member of CUtlSymbolTabke, this == pTable
-	CUtlSymbolTable *pTable = (CUtlSymbolTable *)( (byte *)this - offsetof(CUtlSymbolTable::CTree, m_LessFunc) ) - offsetof(CUtlSymbolTable, m_Lookup );
+	CUtlSymbolTable *pTable = (CUtlSymbolTable *)( (uint8_t *)this - offsetof(CUtlSymbolTable::CTree, m_LessFunc) ) - offsetof(CUtlSymbolTable, m_Lookup );
 
 #if 1 // using the hashes
 	const char *str1, *str2;
@@ -312,7 +311,6 @@ CUtlSymbol CUtlSymbolTable::AddString( const char* pString )
 	index.m_iPool = iPool;
 	index.m_iOffset = iStringOffset;
 
-	MEM_ALLOC_CREDIT();
 	UtlSymId_t idx = m_Lookup.Insert( index );
 	return CUtlSymbol( idx );
 }
@@ -356,7 +354,7 @@ FileNameHandle_t CUtlFilenameSymbolTable::FindOrAddFileName( const char *pFileNa
 {
 	if ( !pFileName )
 	{
-		return NULL;
+		return nullptr;
 	}
 
 	// find first
@@ -404,7 +402,7 @@ FileNameHandle_t CUtlFilenameSymbolTable::FindFileName( const char *pFileName )
 {
 	if ( !pFileName )
 	{
-		return NULL;
+		return nullptr;
 	}
 
 	// Fix slashes+dotslashes and make lower case first..
@@ -430,7 +428,7 @@ FileNameHandle_t CUtlFilenameSymbolTable::FindFileName( const char *pFileName )
 
 
 	if ( ( handle.GetPath() == 0 )  || ( handle.GetFile() == 0 ) )
-		return NULL;
+		return nullptr;
 
 	return *( FileNameHandle_t * )( &handle );
 }

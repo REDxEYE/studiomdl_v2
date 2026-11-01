@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // The transform operator class - shortcut to setting transform values from floats
 //
 //=============================================================================
 
-#ifndef DMETRANSFORMOPERATOR_H
-#define DMETRANSFORMOPERATOR_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -50,4 +49,3 @@ protected:
 };
 
 
-#endif // DMETRANSFORMOPERATOR_H

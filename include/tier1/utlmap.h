@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
@@ -6,14 +6,13 @@
 // $NoKeywords: $
 //=============================================================================//
 
-#ifndef UTLMAP_H
-#define UTLMAP_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
 #endif
 
-#include "tier0/dbg.h"
+
 #include "utlrbtree.h"
 
 //-----------------------------------------------------------------------------
@@ -292,4 +291,3 @@ inline void CUtlMap<K, T, I, LessFunc_t>::PurgeAndDeleteElements()
 	Purge();
 }
 
-#endif // UTLMAP_H

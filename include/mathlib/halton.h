@@ -14,8 +14,7 @@
 // To generate multidimensional sample values (points in a plane, etc), use two
 // HaltonSequenceGenerator_t's, with different (primes) bases.
 
-#ifndef HALTON_H
-#define HALTON_H
+#pragma once
 
 #include <tier0/platform.h>
 #include <mathlib/vector.h>
@@ -67,4 +66,3 @@ public:
 
 
 
-#endif // halton_h

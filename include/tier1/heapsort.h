@@ -1,6 +1,5 @@
 //========= Copyright (c) 1996-2005, Valve Corporation, All rights reserved. ============//
-#ifndef TIER1_HEAP_SORT
-#define TIER1_HEAP_SORT
+#pragma once
 
 template <typename T, typename LessThan>
 inline bool IsHeap( T *pArr, int nCount, const LessThan &lessThan )
@@ -145,4 +144,3 @@ inline void RemoveDuplicates( Array &arr )
 }
 
 
-#endif

@@ -5,26 +5,25 @@
 //=============================================================================//
 
 #include "tier0/platform.h"
-#include "tier0/dbg.h"
+
 #include "tier1/diff.h"
 #include "mathlib/mathlib.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
 
-void ApplyDiffs(uint8 const *OldBlock, uint8 const *DiffList,
-                int OldSize, int DiffListSize, int &ResultListSize,uint8 *Output,uint32 OutSize)
+
+void ApplyDiffs(uint8_t const *OldBlock, uint8_t const *DiffList,
+                int OldSize, int DiffListSize, int &ResultListSize,uint8_t *Output,uint32_t OutSize)
 {
-  uint8 const *copy_src=OldBlock;
-  uint8 const *end_of_diff_list=DiffList+DiffListSize;
-  uint8 const *obuf=Output;
+  uint8_t const *copy_src=OldBlock;
+  uint8_t const *end_of_diff_list=DiffList+DiffListSize;
+  uint8_t const *obuf=Output;
   while(DiffList<end_of_diff_list)
   {
     //  printf("dptr=%x ",DiffList-d);
-    uint8 op=*(DiffList++);
+    uint8_t op=*(DiffList++);
     if (op==0)
     {
-      uint16 copy_sz=DiffList[0]+256*DiffList[1];
+      uint16_t copy_sz=DiffList[0]+256*DiffList[1];
       int copy_ofs=DiffList[2]+DiffList[3]*256;
       if (copy_ofs>32767)
         copy_ofs|=0xffff0000;

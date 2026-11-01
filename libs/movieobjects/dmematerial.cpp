@@ -5,13 +5,7 @@
 //=============================================================================
 #include "movieobjects/dmematerial.h"
 #include "datamodel/dmelementfactoryhelper.h"
-#include "movieobjects_interfaces.h"
 
-#include "tier2/tier2.h"
-#include "datamodel/dmattributevar.h"
-
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
 
 
 //-----------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2005, Valve Corporation, All rights reserved. =======//
+//====== Copyright Â© 1996-2005, Valve Corporation, All rights reserved. =======//
 //
 // Contains a bunch of information about editor types
 //
@@ -6,8 +6,7 @@
 //
 //=============================================================================//
 
-#ifndef DMEEDITORTYPEDICTIONARY_H
-#define DMEEDITORTYPEDICTIONARY_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -126,7 +125,6 @@ private:
 };
 
 
-#endif // DMEEDITORTYPEDICTIONARY_H
 
 
 

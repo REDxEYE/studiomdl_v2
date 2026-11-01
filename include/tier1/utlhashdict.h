@@ -1,11 +1,10 @@
-//========== Copyright © 2005, Valve Corporation, All rights reserved. ========
+//========== Copyright Â© 2005, Valve Corporation, All rights reserved. ========
 //
 // Purpose:
 //
 //=============================================================================
 
-#ifndef UTLHASHDICT_H
-#define UTLHASHDICT_H
+#pragma once
 
 #if defined( _WIN32 )
 #pragma once
@@ -275,7 +274,6 @@ void CUtlHashDict<T, bCaseInsensitive, bDupeStrings>::PurgeAndDeleteElements()
 template <typename T, bool bCaseInsensitive, bool bDupeStrings> 
 unsigned CUtlHashDict<T, bCaseInsensitive, bDupeStrings>::Insert( const char *pName, const T &element )
 {
-	MEM_ALLOC_CREDIT_CLASS();
 	m_nCount++;
 	Entry_t entry = 
 	{
@@ -294,7 +292,6 @@ unsigned CUtlHashDict<T, bCaseInsensitive, bDupeStrings>::Insert( const char *pN
 template <typename T, bool bCaseInsensitive, bool bDupeStrings> 
 unsigned CUtlHashDict<T, bCaseInsensitive, bDupeStrings>::Insert( const char *pName )
 {
-	MEM_ALLOC_CREDIT_CLASS();
 	m_nCount++;
 	Entry_t entry = 
 	{
@@ -316,7 +313,6 @@ unsigned CUtlHashDict<T, bCaseInsensitive, bDupeStrings>::Insert( const char *pN
 template <typename T, bool bCaseInsensitive, bool bDupeStrings> 
 unsigned CUtlHashDict<T, bCaseInsensitive, bDupeStrings>::Find( const char *pName ) const
 {
-	MEM_ALLOC_CREDIT_CLASS();
 	if ( pName )
 		return m_Elements.Find( *((Entry_t *)&pName) );
 	else
@@ -339,4 +335,3 @@ unsigned CUtlHashDict<T, bCaseInsensitive, bDupeStrings>::Next( unsigned i ) con
 	return m_Elements.GetNextHandle(i);
 }
 
-#endif // UTLHASHDICT_H

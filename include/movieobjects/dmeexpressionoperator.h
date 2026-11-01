@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // The expression operator class - scalar math calculator
 // for a good list of operators and simple functions, see:
@@ -7,8 +7,7 @@
 //
 //=============================================================================
 
-#ifndef DMEEXPRESSIONOPERATOR_H
-#define DMEEXPRESSIONOPERATOR_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -45,4 +44,3 @@ protected:
 };
 
 
-#endif // DMEEXPRESSIONOPERATOR_H

@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
 //=============================================================================
 
-#ifndef DMATTRIBUTE_H
-#define DMATTRIBUTE_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -181,7 +180,7 @@ private:
 	void *m_pData;
 	CDmElement *m_pOwner;
 	DmAttributeHandle_t m_Handle;
-	uint16 m_nFlags;
+	uint16_t m_nFlags;
 	CUtlSymbolLarge m_Name;
 
 	friend class CDmElement;
@@ -194,7 +193,7 @@ private:
 	template< class T > friend class CDmArrayAttributeOp;
 };
 
-	 
+
 //-----------------------------------------------------------------------------
 // Inline methods
 //-----------------------------------------------------------------------------
@@ -273,7 +272,7 @@ inline const char *CDmAttribute::GetValueString() const
 {
 	Assert( GetType() == AT_STRING );
 	if ( GetType() != AT_STRING )
-		return NULL;
+		return nullptr;
 
 	CUtlSymbolLarge symbol = GetValue< CUtlSymbolLarge >();
 	return symbol.String();
@@ -284,17 +283,6 @@ inline const void* CDmAttribute::GetValueUntyped() const
 { 
 	return m_pData; 
 } 
-
-#ifndef POSIX
-template< class E > 
-inline E* CDmAttribute::GetValueElement() const
-{
-	Assert( GetType() == AT_ELEMENT );
-	if ( GetType() == AT_ELEMENT )
-		return GetElement<E>( this->GetValue<DmElementHandle_t>( ) );
-	return NULL;
-}
-#endif
 
 
 //-----------------------------------------------------------------------------
@@ -437,4 +425,3 @@ inline bool ShouldTraverse( const CDmAttribute *pAttr, TraversalDepth_t depth )
 	return false;
 }
 
-#endif // DMATTRIBUTE_H

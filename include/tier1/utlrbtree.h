@@ -6,8 +6,7 @@
 // $NoKeywords: $
 //=============================================================================//
 
-#ifndef UTLRBTREE_H
-#define UTLRBTREE_H
+#pragma once
 
 #include "tier1/utlmemory.h"
 #include "tier1/utlfixedmemory.h"
@@ -709,7 +708,6 @@ I  CUtlRBTree<T, I, L, M>::NewNode()
 		typename M::Iterator_t it = m_Elements.IsValidIterator( m_LastAlloc ) ? m_Elements.Next( m_LastAlloc ) : m_Elements.First();
 		if ( !m_Elements.IsValidIterator( it ) )
 		{
-			MEM_ALLOC_CREDIT_CLASS();
 			m_Elements.Grow();
 
 			it = m_Elements.IsValidIterator( m_LastAlloc ) ? m_Elements.Next( m_LastAlloc ) : m_Elements.First();
@@ -1697,4 +1695,3 @@ void CUtlRBTree<T, I, L, M>::Swap( CUtlRBTree< T, I, L > &that )
 }
 
 
-#endif // UTLRBTREE_H

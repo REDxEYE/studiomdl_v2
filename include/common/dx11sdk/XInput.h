@@ -6,8 +6,7 @@
 *   Copyright (c) Microsoft Corp. All rights reserved.                     *
 *                                                                          *
 ***************************************************************************/
-#ifndef _XINPUT_H_
-#define _XINPUT_H_
+#pragma once
 
 #include <windef.h>
 
@@ -254,5 +253,4 @@ DWORD WINAPI XInputGetKeystroke
 }
 #endif
 
-#endif  //_XINPUT_H_
 

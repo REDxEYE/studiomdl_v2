@@ -6,8 +6,7 @@
 //
 //===========================================================================//
 
-#ifndef IEVENTSYSTEM_H
-#define IEVENTSYSTEM_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -270,4 +269,3 @@ FUNC_GENERATE_ALL( DEFINE_EVENT_INTERNAL )
 #define DEFINE_EVENT14_WITHNAMES( _eventName, _arg1, _arg1Name, _arg2, _arg2Name, _arg3, _arg3Name, _arg4, _arg4Name, _arg5, _arg5Name, _arg6, _arg6Name, _arg7, _arg7Name, _arg8, _arg8Name, _arg9, _arg9Name, _arg10, _arg10Name, _arg11, _arg11Name, _arg12, _arg12Name, _arg13, _arg13Name, _arg14, _arg14Name ) \
 		DEFINE_EVENT14( _eventName, _arg1, _arg2, _arg3, _arg4, _arg5, _arg6, _arg7, _arg8, _arg9, _arg10, _arg11, _arg12, _arg13, _arg14 )
 
-#endif // IEVENTSYSTEM_H

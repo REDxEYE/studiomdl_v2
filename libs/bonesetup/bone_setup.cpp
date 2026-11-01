@@ -6,7 +6,7 @@
 //
 //===========================================================================//
 
-#include "tier0/dbg.h"
+
 #include "mathlib/mathlib.h"
 #include "studiomdl/bone_setup.h"
 #include <cstring>
@@ -38,15 +38,15 @@ void InitPose(
 		int numBones = pStudioHdr->numbones();
 
 		Assert( sizeof(Quaternion) == sizeof(BoneQuaternion) );
-		memcpy( q, (((byte *)pLinearBones) + pLinearBones->quatindex), sizeof( Quaternion ) * numBones );
+		memcpy( q, (((uint8_t *)pLinearBones) + pLinearBones->quatindex), sizeof( Quaternion ) * numBones );
 
 		if( sizeof(Vector) == sizeof(BoneVector) )
 		{
-			memcpy( pos, (((byte *)pLinearBones) + pLinearBones->posindex), sizeof( Vector ) * numBones );
+			memcpy( pos, (((uint8_t *)pLinearBones) + pLinearBones->posindex), sizeof( Vector ) * numBones );
 		}
 		else
 		{
-			Vector *pSrcPos = (Vector *)(((byte *)pLinearBones) + pLinearBones->posindex);
+			Vector *pSrcPos = (Vector *)(((uint8_t *)pLinearBones) + pLinearBones->posindex);
 			for( int i = 0; i < pStudioHdr->numbones(); i++ )
 			{
 				//if( pStudioHdr->boneFlags(  i ) & boneMask ) 
@@ -100,8 +100,6 @@ inline bool PoseIsAllZeros(
 // Returns: returns the animination indices and barycentric coordinates of a triangle
 //			the triangle is a right triangle, and the diagonal is between elements [0] and [2]
 //-----------------------------------------------------------------------------
-
-static ConVar anim_3wayblend( "anim_3wayblend", "1", FCVAR_REPLICATED, "Toggle the 3-way animation blending code." );
 
 void Calc3WayBlendIndices( int i0, int i1, float s0, float s1, const mstudioseqdesc_t &seqdesc, int *pAnimIndices, float *pWeight )
 {
@@ -333,7 +331,7 @@ bool CalcPoseSingle(
 			CalcAnimation( pStudioHdr, pos2, q2, seqdesc, sequence, seqdesc.anim( i0+1,i1+1  ), cycle, boneMask );
 			BlendBones( pStudioHdr, q, pos, seqdesc, sequence, q2, pos2, s0, boneMask );
 		}
-		else if ( !anim_3wayblend.GetBool() )
+		/*else if ( !anim_3wayblend.GetBool() )
 		{
 			CalcAnimation( pStudioHdr, pos,  q,  seqdesc, sequence, seqdesc.anim( i0  ,i1  ), cycle, boneMask );
 			CalcAnimation( pStudioHdr, pos2, q2, seqdesc, sequence, seqdesc.anim( i0+1,i1  ), cycle, boneMask );
@@ -344,7 +342,7 @@ bool CalcPoseSingle(
 			BlendBones( pStudioHdr, q2, pos2, seqdesc, sequence, q3, pos3, s0, boneMask );
 
 			BlendBones( pStudioHdr, q, pos, seqdesc, sequence, q2, pos2, s1, boneMask );
-		}
+		}*/
 		else
 		{
 			int		iAnimIndices[3];
@@ -678,7 +676,7 @@ void CalcPose(
 }
 #endif
 
-extern ConVar cl_use_simd_bones;
+// extern ConVar cl_use_simd_bones;
 //-----------------------------------------------------------------------------
 // Purpose: accumulate a pose for a single sequence on top of existing animation
 //			adds autolayers, runs local ik rukes
@@ -694,13 +692,13 @@ void CBoneSetup::AccumulatePose(
 	)
 {
 	// Check alignment.
-	if ( cl_use_simd_bones.GetBool() && (!  (reinterpret_cast<uintp>(q) & 0x0F) == 0 ) )
+	/*if ( cl_use_simd_bones.GetBool() && (!  (reinterpret_cast<uintptr_t>(q) & 0x0F) == 0 ) )
 	{
 		DebuggerBreakIfDebugging();
 		AssertMsg(false,
 		"Arguments to AccumulatePose are unaligned. Disaster will result.\n"
 		);
-	}
+	}*/
 
 	Assert( flWeight >= 0.0f && flWeight <= 1.0f );
 	// This shouldn't be necessary, but the Assert should help us catch whoever is screwing this up
@@ -718,8 +716,6 @@ void CBoneSetup::AccumulatePose(
 	BoneVector *pos2 = (BoneVector*)MemAlloc_Alloc(sizeof(BoneVector));
 	BoneQuaternionAligned * q2 = ( BoneQuaternionAligned * ) MemAlloc_Alloc(sizeof(BoneQuaternionAligned));
 
-	PREFETCH360( pos2, 0 );
-	PREFETCH360( q2, 0 );
 
 
 	mstudioseqdesc_t	&seqdesc = ((CStudioHdr *)m_pStudioHdr)->pSeqdesc( sequence );
@@ -915,7 +911,7 @@ void CBoneSetup::CalcAutoplaySequences(
 		pIKContext->AddAutoplayLocks( pos, q );
 	}
 
-	unsigned short *pList = NULL;
+	unsigned short *pList = nullptr;
 	int count = m_pStudioHdr->GetAutoplayList( &pList );
 	for (i = 0; i < count; i++)
 	{
@@ -1394,120 +1390,4 @@ void DoAimAtBone(
 	}
 
 	MatrixCopy( boneMatrix, bonetoworld.GetBoneForWrite( iBone ) );
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose: Run the twist bone constraint code
-//-----------------------------------------------------------------------------
-static ConVar anim_twistbones_enabled( "anim_twistbones_enabled", "0", FCVAR_CHEAT | FCVAR_REPLICATED, "Enable procedural twist bones." );
-void DoTwistBones(
-	const mstudiobone_t *pBones,
-	int	iBone,
-	CBoneAccessor &bonetoworld,
-	const CStudioHdr *pStudioHdr )
-{
-
-	mstudiotwistbone_t *pProc = ( mstudiotwistbone_t * )pBones[iBone].pProcedure();
-
-	if ( !pProc )
-		return;
-
-	matrix3x4a_t mTmp;
-
-	// Compute local space version of parent bone matrix
-	const matrix3x4a_t &mParentToWorld = bonetoworld.GetBone( pProc->m_nParentBone );
-	QuaternionAligned qParent;
-	const int nGrandParentBone = pBones[pProc->m_nParentBone].parent;
-	if ( nGrandParentBone >= 0 )
-	{
-		MatrixInvert( bonetoworld.GetBone( pBones[pProc->m_nParentBone].parent), mTmp );
-		matrix3x4a_t mParent;
-		ConcatTransforms_Aligned( mTmp, mParentToWorld, mParent );
-		MatrixQuaternion( mParent, qParent );
-	}
-	else
-	{
-		MatrixQuaternion( mParentToWorld, qParent );
-	}
-
-	// Compute local space version of child bone matrix
-	matrix3x4a_t mChild;
-	MatrixInvert( mParentToWorld, mTmp );
-	ConcatTransforms_Aligned( mTmp, bonetoworld.GetBone( pProc->m_nChildBone ), mChild );
-
-	float *pflWeights = ( float * )stackalloc( pProc->m_nTargetCount * sizeof( float ) );
-	Quaternion *pqTwistBases = ( Quaternion * )stackalloc( pProc->m_nTargetCount * sizeof( Quaternion ) );
-	Quaternion *pqTwists = ( Quaternion * )stackalloc( pProc->m_nTargetCount * sizeof( Quaternion ) );
-
-	for ( int i = 0; i < pProc->m_nTargetCount; ++i )
-	{
-		const mstudiotwistbonetarget_t *pTwistTarget = pProc->pTarget( i );
-		pflWeights[i] = pTwistTarget->m_flWeight;
-		pqTwistBases[i] = pTwistTarget->m_qBaseRotation;
-	}
-
-	V_memcpy( pqTwists, pqTwistBases, pProc->m_nTargetCount * sizeof( Quaternion ) );
-
-	if ( anim_twistbones_enabled.GetBool() )
-		ComputeTwistBones( pqTwists, pProc->m_nTargetCount, pProc->m_bInverse, pProc->m_vUpVector, qParent, mChild, pProc->m_qBaseInv, pflWeights, pqTwistBases );
-
-	for ( int i = 0; i < pProc->m_nTargetCount; ++i )
-	{
-		const mstudiotwistbonetarget_t *pTwistTarget = pProc->pTarget( i );
-		AngleMatrix( RadianEuler(pqTwists[i]), pTwistTarget->m_vBaseTranslate, mTmp );
-		ConcatTransforms_Aligned( mParentToWorld, mTmp, bonetoworld.GetBoneForWrite( pTwistTarget->m_nBone ) );
-	}
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose:
-//-----------------------------------------------------------------------------
-
-bool CalcProceduralBone(
-	const CStudioHdr *pStudioHdr,
-	int iBone,
-	CBoneAccessor &bonetoworld
-	)
-{
-	const mstudiobone_t		*pbones = pStudioHdr->pBone( 0 );
-
-	if ( pStudioHdr->boneFlags( iBone ) & BONE_ALWAYS_PROCEDURAL )
-	{
-		switch( pbones[iBone].proctype )
-		{
-		case STUDIO_PROC_AXISINTERP:
-			DoAxisInterpBone( pbones, iBone, bonetoworld );
-			return true;
-
-		case STUDIO_PROC_QUATINTERP:
-			DoQuatInterpBone( pbones, iBone, bonetoworld );
-			return true;
-
-		case STUDIO_PROC_AIMATBONE:
-			DoAimAtBone( pbones, iBone, bonetoworld, NULL );
-			return true;
-
-		case STUDIO_PROC_AIMATATTACH:
-			DoAimAtBone( pbones, iBone, bonetoworld, pStudioHdr );
-			return true;
-
-		case STUDIO_PROC_TWIST_MASTER:
-			DoTwistBones( pbones, iBone, bonetoworld, pStudioHdr );
-			return true;
-
-		case STUDIO_PROC_TWIST_SLAVE:
-			// Twist bones are grouped because many twist boens tend to share
-			// a large amount of common computation
-			// There is one TWIST_MASTER per group and any number of TWIST_SLAVE
-			// TWIST_SLAVE data is computed when their corresponding TWIST_MASTER
-			// is computed, so they don't need any explicit computation
-			return true;
-
-		default:
-			return false;
-		}
-	}
-	return false;
 }

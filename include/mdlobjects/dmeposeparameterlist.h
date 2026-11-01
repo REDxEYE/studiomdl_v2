@@ -4,8 +4,7 @@
 //
 //===========================================================================
 
-#ifndef DMEPOSEPARAMETERLIST_H
-#define DMEPOSEPARAMETERLIST_H
+#pragma once
 
 
 #ifdef _WIN32
@@ -38,4 +37,3 @@ public:
 };
 
 
-#endif // DMEPOSEPARAMETERLIST_H

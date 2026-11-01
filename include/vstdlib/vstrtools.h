@@ -6,8 +6,7 @@
 // The functions themselves aren't supposed to be called frequently enough for the DLL/PRX boundary
 // marshalling, if any, to have any measureable impact on performance.
 //
-#ifndef VSTRTOOLS_HDR
-#define VSTRTOOLS_HDR
+#pragma once
 
 #include "tier0/platform.h"
 #include "tier0/basetypes.h"
@@ -58,9 +57,9 @@ public:
 	explicit CStrAutoEncode( const char *pch )
 	{
 		m_pch = pch;
-		m_pwch = NULL;
+		m_pwch = nullptr;
 #if !defined( WIN32 ) && !defined(_WIN32)
-		m_pucs2 = NULL;
+		m_pucs2 = nullptr;
 		m_bCreatedUCS2 = false;
 #endif
 		m_bCreatedUTF16 = false;
@@ -69,20 +68,20 @@ public:
 	// ctor
 	explicit CStrAutoEncode( const wchar_t *pwch )
 	{
-		m_pch = NULL;
+		m_pch = nullptr;
 		m_pwch = pwch;
 #if !defined( WIN32 ) && !defined(_WIN32)
-		m_pucs2 = NULL;
+		m_pucs2 = nullptr;
 		m_bCreatedUCS2 = false;
 #endif
 		m_bCreatedUTF16 = true;
 	}
 
-#if !defined(WIN32) && !defined(_WINDOWS) && !defined(_WIN32) && !defined(_PS3)
+#if !defined( WIN32 ) && !defined( _WINDOWS ) && !defined( _WIN32 )
 	explicit CStrAutoEncode( const ucs2 *pwch )
 	{
-		m_pch = NULL;
-		m_pwch = NULL;
+		m_pch = nullptr;
+		m_pwch = nullptr;
 		m_pucs2 = pwch;
 		m_bCreatedUCS2 = true;
 		m_bCreatedUTF16 = false;
@@ -164,18 +163,18 @@ private:
 	{
 		if ( !m_bCreatedUTF16 )
 			return;					// no work to do
-		if ( m_pwch == NULL )
+		if ( m_pwch == nullptr)
 			return;					// don't have a UTF-16 string to convert
-		if ( m_pch != NULL )
+		if ( m_pch != nullptr)
 			return;					// already been converted to UTF-8; no work to do
 
 		// each Unicode code point can expand to as many as four bytes in UTF-8; we
 		// also need to leave room for the terminating NUL.
-		uint32 cbMax = 4 * static_cast<uint32>( V_wcslen( m_pwch ) ) + 1;
+		uint32_t cbMax = 4 * static_cast<uint32_t>( V_wcslen( m_pwch ) ) + 1;
 		char *pchTemp = new char[ cbMax ];
 		if ( V_UnicodeToUTF8( m_pwch, pchTemp, cbMax ) )
 		{
-			uint32 cchAlloc = static_cast<uint32>( V_strlen( pchTemp ) ) + 1;
+			uint32_t cchAlloc = static_cast<uint32_t>( V_strlen( pchTemp ) ) + 1;
 			char *pchHeap = new char[ cchAlloc ];
 			V_strncpy( pchHeap, pchTemp, cchAlloc );
 			delete [] pchTemp;
@@ -198,16 +197,16 @@ private:
 	{
 		if ( m_bCreatedUTF16 )
 			return;					// no work to do
-		if ( m_pch == NULL )
+		if ( m_pch == nullptr)
 			return;					// no UTF-8 string to convert
-		if ( m_pwch != NULL )
+		if ( m_pwch != nullptr)
 			return;					// already been converted to UTF-16; no work to do
 
-		uint32 cchMax = static_cast<uint32>( V_strlen( m_pch ) ) + 1;
+		uint32_t cchMax = static_cast<uint32_t>( V_strlen( m_pch ) ) + 1;
 		wchar_t *pwchTemp = new wchar_t[ cchMax ];
 		if ( V_UTF8ToUnicode( m_pch, pwchTemp, cchMax * sizeof( wchar_t ) ) )
 		{
-			uint32 cchAlloc = static_cast<uint32>( V_wcslen( pwchTemp ) ) + 1;
+			uint32_t cchAlloc = static_cast<uint32_t>( V_wcslen( pwchTemp ) ) + 1;
 			wchar_t *pwchHeap = new wchar_t[ cchAlloc ];
 			V_wcsncpy( pwchHeap, pwchTemp, cchAlloc * sizeof( wchar_t ) );
 			delete [] pwchTemp;
@@ -231,16 +230,16 @@ private:
 	{
 		if ( m_bCreatedUCS2 )
 			return;
-		if ( m_pch == NULL )
+		if ( m_pch == nullptr)
 			return;					// no UTF-8 string to convert
-		if ( m_pucs2 != NULL )
+		if ( m_pucs2 != nullptr)
 			return;					// already been converted to UTF-16; no work to do
 
-		uint32 cchMax = static_cast<uint32>( V_strlen( m_pch ) ) + 1;
+		uint32_t cchMax = static_cast<uint32_t>( V_strlen( m_pch ) ) + 1;
 		ucs2 *pwchTemp = new ucs2[ cchMax ];
 		if ( V_UTF8ToUCS2( m_pch, cchMax, pwchTemp, cchMax * sizeof( ucs2 ) ) )
 		{
-			uint32 cchAlloc = cchMax;
+			uint32_t cchAlloc = cchMax;
 			ucs2 *pwchHeap = new ucs2[ cchAlloc ];
 			memcpy( pwchHeap, pwchTemp, cchAlloc * sizeof( ucs2 ) );
 			delete [] pwchTemp;
@@ -273,4 +272,3 @@ private:
 #define Q_UnicodeToUTF8			V_UnicodeToUTF8
 
 
-#endif 

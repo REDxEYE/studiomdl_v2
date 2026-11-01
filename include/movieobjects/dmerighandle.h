@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2008, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2008, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
 //=============================================================================
 
-#ifndef DMERIGHANDLE_H
-#define DMERIGHANDLE_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -22,4 +21,3 @@ public:
 
 };
 
-#endif // DMERIGHANDLE_H

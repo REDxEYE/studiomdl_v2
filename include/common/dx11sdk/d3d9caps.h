@@ -7,8 +7,7 @@
  *
  ***************************************************************************/
 
-#ifndef _d3d9CAPS_H
-#define _d3d9CAPS_H
+#pragma once
 
 #ifndef DIRECT3D_VERSION
 #define DIRECT3D_VERSION         0x0900
@@ -508,5 +507,4 @@ typedef struct _D3DCAPS9
 #pragma pack()
 
 #endif /* (DIRECT3D_VERSION >= 0x0900) */
-#endif /* _d3d9CAPS_H_ */
 

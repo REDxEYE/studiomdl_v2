@@ -1,6 +1,5 @@
 
-#ifndef __dxgitype_h__
-#define __dxgitype_h__
+#pragma once
 
 
 #include "dxgiformat.h"
@@ -75,5 +74,4 @@ typedef struct DXGI_SAMPLE_DESC
     UINT Quality;
 } DXGI_SAMPLE_DESC;
 
-#endif // __dxgitype_h__
 

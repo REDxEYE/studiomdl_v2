@@ -9,8 +9,7 @@
 
 #include "d3dx11.h"
 
-#ifndef __D3DX11TEX_H__
-#define __D3DX11TEX_H__
+#pragma once
 
 
 //----------------------------------------------------------------------------
@@ -768,5 +767,4 @@ HRESULT WINAPI
 }
 #endif //__cplusplus
 
-#endif //__D3DX11TEX_H__
 

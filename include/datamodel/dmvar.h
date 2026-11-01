@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
 //=============================================================================
 
-#ifndef DMVAR_H
-#define DMVAR_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -103,4 +102,3 @@ inline const char *CDmaString::GetString() const
 {
 	return this->Value().String();
 }
-#endif // DMVAR_H

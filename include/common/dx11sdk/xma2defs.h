@@ -7,8 +7,7 @@
  *
  ***************************************************************************/
 
-#ifndef __XMA2DEFS_INCLUDED__
-#define __XMA2DEFS_INCLUDED__
+#pragma once
 
 #include <sal.h>        // Markers for documenting API semantics
 #include <winerror.h>   // For S_OK, E_FAIL
@@ -715,4 +714,3 @@ __inline HRESULT LocalizeXma2Format(__inout XMA2WAVEFORMATEX* pXma2Format)
 }
 
 
-#endif // #ifndef __XMA2DEFS_INCLUDED__

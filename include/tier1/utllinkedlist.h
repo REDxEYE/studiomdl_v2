@@ -6,8 +6,7 @@
 // $NoKeywords: $
 //=============================================================================//
 
-#ifndef UTLLINKEDLIST_H
-#define UTLLINKEDLIST_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -17,7 +16,7 @@
 #include "utlmemory.h"
 #include "utlfixedmemory.h"
 #include "utlblockmemory.h"
-#include "tier0/dbg.h"
+
 
 // define to enable asserts griping about things you shouldn't be doing with multilists
 // #define MULTILIST_PEDANTIC_ASSERTS 1 
@@ -165,7 +164,7 @@ public:
 
 		// Default constructor -- gives a currently unusable iterator.
 		_CUtlLinkedList_constiterator_t()
-			: m_list( 0 )
+			: m_list( nullptr )
 			, m_index( List_t::InvalidIndex() )
 		{
 		}
@@ -390,13 +389,13 @@ protected:
 
 // this is kind of ugly, but until C++ gets templatized typedefs in C++0x, it's our only choice
 template < class T >
-class CUtlFixedLinkedList : public CUtlLinkedList< T, intp, true, intp, CUtlFixedMemory< UtlLinkedListElem_t< T, intp > > >
+class CUtlFixedLinkedList : public CUtlLinkedList< T, intptr_t, true, intptr_t, CUtlFixedMemory< UtlLinkedListElem_t< T, intptr_t > > >
 {
 public:
 	CUtlFixedLinkedList( int growSize = 0, int initSize = 0 )
-		: CUtlLinkedList< T, intp, true, intp, CUtlFixedMemory< UtlLinkedListElem_t< T, intp > > >( growSize, initSize ) {}
+		: CUtlLinkedList< T, intptr_t, true, intptr_t, CUtlFixedMemory< UtlLinkedListElem_t< T, intptr_t > > >( growSize, initSize ) {}
 
-	bool IsValidIndex( intp i ) const
+	bool IsValidIndex( intptr_t i ) const
 	{
 		if ( !this->Memory().IsIdxValid( i ) )
 			return false;
@@ -605,7 +604,6 @@ inline bool CUtlFixedLinkedList<T>::IsInList( int i ) const
 template< class T, class S, bool ML, class I, class M >
 void CUtlLinkedList<T,S,ML,I,M>::EnsureCapacity( int num )
 {
-	MEM_ALLOC_CREDIT_CLASS();
 	m_Memory.EnsureCapacity(num);
 	ResetDbgInfo();
 }
@@ -678,7 +676,6 @@ I CUtlLinkedList<T,S,ML,I,M>::AllocInternal( bool multilist )
 
 		if ( !m_Memory.IsValidIterator( it ) )
 		{
-			MEM_ALLOC_CREDIT_CLASS();
 			m_Memory.Grow();
 			ResetDbgInfo();
 
@@ -1098,7 +1095,7 @@ class CUtlPtrLinkedList
 {
 public:
 	CUtlPtrLinkedList()
-		: m_pFirst( NULL ),
+		: m_pFirst(nullptr),
 		m_nElems( 0 )
 	{
 		COMPILE_TIME_ASSERT( sizeof(IndexType_t) == sizeof(Node_t *) );
@@ -1123,7 +1120,7 @@ public:
 
 	IndexType_t	AddToTail()								
 	{ 
-		return DoInsertBefore( (IndexType_t)m_pFirst, NULL );
+		return DoInsertBefore( (IndexType_t)m_pFirst, nullptr);
 	}
 
 	IndexType_t	AddToTail( T const& src )
@@ -1133,7 +1130,7 @@ public:
 
 	IndexType_t	AddToHead()								
 	{ 
-		IndexType_t result = DoInsertBefore( (IndexType_t)m_pFirst, NULL );
+		IndexType_t result = DoInsertBefore( (IndexType_t)m_pFirst, nullptr);
 		m_pFirst = ((Node_t *)result);
 		return result;
 	}
@@ -1147,7 +1144,7 @@ public:
 
 	IndexType_t InsertBefore( IndexType_t before )
 	{
-		return DoInsertBefore( before, NULL );
+		return DoInsertBefore( before, nullptr);
 	}
 
 	IndexType_t InsertAfter( IndexType_t after )
@@ -1223,7 +1220,7 @@ public:
 		{
 			return (IndexType_t)p;
 		}
-		return NULL; 
+		return nullptr; 
 	}
 
 	bool IsValidIndex( IndexType_t i ) const
@@ -1234,7 +1231,7 @@ public:
 
 	inline static IndexType_t  InvalidIndex()			
 	{ 
-		return NULL; 
+		return nullptr; 
 	}
 private:
 
@@ -1249,7 +1246,6 @@ private:
 
 	Node_t *AllocNode( const T *pCopyFrom )
 	{
-		MEM_ALLOC_CREDIT_CLASS();
 		Node_t *p;
 
 		if ( !pCopyFrom )
@@ -1291,4 +1287,3 @@ private:
 
 //-----------------------------------------------------------------------------
 
-#endif // UTLLINKEDLIST_H

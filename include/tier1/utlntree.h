@@ -6,8 +6,7 @@
 // $NoKeywords: $
 //=============================================================================//
 
-#ifndef UTLNTREE_H
-#define UTLNTREE_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -15,7 +14,7 @@
 
 #include "tier0/basetypes.h"
 #include "tier1/utlmemory.h"
-#include "tier0/dbg.h"
+
 
 
 #define INVALID_NTREE_IDX ((I)~0)
@@ -278,7 +277,6 @@ inline bool CUtlNTree<T,I>::IsInTree( I i ) const
 template< class T, class I >
 void CUtlNTree<T, I>::EnsureCapacity( int num )
 {
-	MEM_ALLOC_CREDIT_CLASS();
 	m_Memory.EnsureCapacity(num);
 	ResetDbgInfo();
 }
@@ -312,7 +310,6 @@ I CUtlNTree<T,I>::AllocInternal( )
 		// the list knows about.
 		if ((int)m_MaxElementIndex == m_Memory.NumAllocated())
 		{
-			MEM_ALLOC_CREDIT_CLASS();
 			m_Memory.Grow();
 		}
 
@@ -622,4 +619,3 @@ void CUtlNTree<T,I>::RemoveSubTree( I elem )
 }
   
 
-#endif // UTLNTREE_H

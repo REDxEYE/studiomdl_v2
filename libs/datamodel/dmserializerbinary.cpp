@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
@@ -54,7 +54,7 @@ public:
 	virtual bool StoresVersionInFile() const { return true; }
 	virtual bool IsBinaryFormat() const { return true; }
 	virtual int GetCurrentVersion() const { return DM_BINARY_VER_STRINGTABLE_LARGESYMBOLS; }
-	virtual const char *GetImportedFormat() const { return NULL; }
+	virtual const char *GetImportedFormat() const { return nullptr; }
  	virtual int GetImportedVersion() const { return 1; }
 	virtual bool Serialize( CUtlBuffer &buf, CDmElement *pRoot );
 	virtual bool Unserialize( CUtlBuffer &buf, const char *pEncodingName, int nEncodingVersion,
@@ -138,7 +138,7 @@ void CDmSerializerBinary::SerializeElementIndex( CUtlBuffer& buf, CDmElementSeri
 		}
 		else
 		{
-			DmObjectId_t *pId = NULL;
+			DmObjectId_t *pId = nullptr;
 			DmElementReference_t *pRef = g_pDataModelImp->FindElementReference( hElement, &pId );
 			if ( pRef && pId )
 			{
@@ -435,7 +435,7 @@ bool CDmSerializerBinary::UnserializeAttributes( CUtlBuffer &buf, CDmElement *pE
 	int nAttributeCount = buf.GetInt();
 	for ( int i = 0; i < nAttributeCount; ++i )
 	{
-		const char *pName = NULL;
+		const char *pName = nullptr;
 		{
 			DMX_PROFILE_SCOPE( UnserializeAttributes_GetNameString );
 			if ( pSymbolTable )
@@ -461,11 +461,11 @@ bool CDmSerializerBinary::UnserializeAttributes( CUtlBuffer &buf, CDmElement *pE
 			continue;
 		}
 
-		CDmAttribute *pAttribute = NULL;
+		CDmAttribute *pAttribute = nullptr;
 		{
 			DMX_PROFILE_SCOPE( UnserializeAttributes_AddAttribute );
 
-			pAttribute = pElement ? pElement->AddAttribute( pName, nAttributeType ) : NULL;
+			pAttribute = pElement ? pElement->AddAttribute( pName, nAttributeType ) : nullptr;
 			if ( pElement && !pAttribute )
 			{
 				CDmAttribute *pExistingAttr = pElement->GetAttribute( pName );
@@ -640,7 +640,7 @@ bool CDmSerializerBinary::Unserialize( CUtlBuffer &buf, const char *pEncodingNam
 		GetStringTable( buf, nStrings, nEncodingVersion, &indexToSymbolMap );
 	}
 
-	bool bSuccess = UnserializeElements( buf, fileid, idConflictResolution, ppRoot, bReadSymbolTable?(&indexToSymbolMap):NULL, nEncodingVersion );
+	bool bSuccess = UnserializeElements( buf, fileid, idConflictResolution, ppRoot, bReadSymbolTable?(&indexToSymbolMap): nullptr, nEncodingVersion );
 	if ( !bSuccess )
 		return false;
 
@@ -651,7 +651,7 @@ bool CDmSerializerBinary::UnserializeElements( CUtlBuffer &buf, DmFileId_t filei
 {
 	DMX_PROFILE_SCOPE( CDmSerializerBinary_UnserializeElements );
 
-	*ppRoot = NULL;
+	*ppRoot = nullptr;
 
 	bool bLargeSymbols = nEncodingVersion >= DM_BINARY_VER_STRINGTABLE_LARGESYMBOLS;
 
@@ -675,8 +675,8 @@ bool CDmSerializerBinary::UnserializeElements( CUtlBuffer &buf, DmFileId_t filei
 	CUtlVector<CDmElement*> elementList( 0, nElementCount );
 	for ( int i = 0; i < nElementCount; ++i )
 	{
-		const char *pName = NULL;
-		const char *pType = NULL;
+		const char *pName = nullptr;
+		const char *pType = nullptr;
 		DmObjectId_t id;
 
 		{
@@ -764,7 +764,7 @@ bool CDmSerializerBinary::UnserializeElements( CUtlBuffer &buf, DmFileId_t filei
 		for ( int i = 0; i < nElementCount; ++i )
 		{
 			CDmElement *pInternal = elementList[ i ];
-			if ( !UnserializeAttributes( buf, pInternal->GetFileId() == fileid ? pInternal : NULL, elementList, pSymbolTable, nEncodingVersion ) )
+			if ( !UnserializeAttributes( buf, pInternal->GetFileId() == fileid ? pInternal : nullptr, elementList, pSymbolTable, nEncodingVersion ) )
 				return false;
 		}
 	}

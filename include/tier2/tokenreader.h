@@ -1,12 +1,11 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright Â© 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
 // $NoKeywords: $
 //=============================================================================//
 
-#ifndef TOKENREADER_H
-#define TOKENREADER_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -51,7 +50,7 @@ public:
 	void Stuff(trtoken_t ttype, const char *pszToken);
 	bool Expecting(trtoken_t ttype, const char *pszToken);
 	const char *Error(char *error, ...);
-	trtoken_t PeekTokenType(char* = NULL, int maxlen = 0);
+	trtoken_t PeekTokenType(char* = nullptr, int maxlen = 0);
 
 	inline int GetErrorCount(void);
 
@@ -80,4 +79,3 @@ int TokenReader::GetErrorCount(void)
 }
 
 
-#endif // TOKENREADER_H

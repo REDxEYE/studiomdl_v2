@@ -1,11 +1,10 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright Â© 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
 // $NoKeywords: $
 //=============================================================================//
-#ifndef VSTDLIB_IKEYVALUESSYSTEM_H
-#define VSTDLIB_IKEYVALUESSYSTEM_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -53,4 +52,3 @@ VSTDLIB_INTERFACE IKeyValuesSystem *KeyValuesSystem();
 
 // #define KEYVALUESSYSTEM_INTERFACE_VERSION "KeyValuesSystem002"
 
-#endif // VSTDLIB_IKEYVALUESSYSTEM_H

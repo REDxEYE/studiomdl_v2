@@ -7,11 +7,11 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include "studiomdl/HardwareVertexCache.h"
+#include "studiomdl/hardwarevertexcache.h"
 
 CHardwareVertexCache::CHardwareVertexCache()
 {
-	m_Fifo = NULL;
+	m_Fifo = nullptr;
 	m_Size = 0;
 	Flush();
 }

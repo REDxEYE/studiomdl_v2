@@ -7,8 +7,7 @@
  *
  **************************************************************************/
 
-#ifndef __XAUDIO2_INCLUDED__
-#define __XAUDIO2_INCLUDED__
+#pragma once
 
 
 /**************************************************************************
@@ -1268,4 +1267,3 @@ __inline HRESULT XAudio2Create(__deref_out IXAudio2** ppXAudio2, UINT32 Flags X2
 #pragma pack(pop)
 
 #endif // #ifndef GUID_DEFS_ONLY
-#endif // #ifndef __XAUDIO2_INCLUDED__

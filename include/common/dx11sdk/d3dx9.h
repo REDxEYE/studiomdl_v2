@@ -11,8 +11,7 @@
 #error Incorrect D3DX header used
 #endif
 
-#ifndef __D3DX9_H__
-#define __D3DX9_H__
+#pragma once
 
 
 // Defines
@@ -72,5 +71,4 @@ enum _D3DXERR {
 };
 
 
-#endif //__D3DX9_H__
 

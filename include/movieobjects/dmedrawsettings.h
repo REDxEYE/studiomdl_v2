@@ -4,8 +4,7 @@
 //
 //=============================================================================
 
-#ifndef DMEDRAWSETTINGS_H
-#define DMEDRAWSETTINGS_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -179,4 +178,3 @@ inline void CDmeDrawSettings::PopDrawType()
 }
 
 
-#endif // DMEDRAWSETTINGS_H

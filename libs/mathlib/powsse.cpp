@@ -7,7 +7,7 @@
 #include "mathlib/ssemath.h"
 
 // NOTE: This has to be the last file included!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 fltx4 Pow_FixedPoint_Exponent_SIMD( const fltx4 & x, int exponent)
@@ -44,7 +44,6 @@ fltx4 Pow_FixedPoint_Exponent_SIMD( const fltx4 & x, int exponent)
 
 
 
-#ifndef _PS3 // these aren't fast (or correct) on the PS3
 /*
  * (c) Ian Stephenson
  *
@@ -94,7 +93,4 @@ float FastPow10( float i )
 {
 	return FastPow2( i * 3.321928f );
 }
-#else
-#pragma message("TODO: revisit fast logs on all PPC hardware")
-#endif
 

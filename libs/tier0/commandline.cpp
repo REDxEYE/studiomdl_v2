@@ -13,9 +13,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include "tier0/dbg.h"
-#include "tier0_strtools.h"
+
 #include "tier1/strtools.h" // this is included for the definition of V_isspace()
+#include "dbg.h"
 
 #ifdef PLATFORM_POSIX
 #include <limits.h>
@@ -40,7 +40,7 @@ public:
 	virtual void		CreateCmdLine( const char *commandline  );
 	virtual void		CreateCmdLine( int argc, char **argv );
 	virtual const char	*GetCmdLine( void ) const;
-	virtual	const char	*CheckParm( const char *psz, const char **ppszValue = 0 ) const;
+	virtual	const char	*CheckParm( const char *psz, const char **ppszValue = nullptr ) const;
 	// A bool return of whether param exists, useful for just checking if param that is just a flag is set
 	virtual bool		HasParm( const char *psz ) const;
 
@@ -51,7 +51,7 @@ public:
 	virtual int			FindParm( const char *psz ) const;
 	virtual const char* GetParm( int nIndex ) const;
 
-	virtual const char	*ParmValue( const char *psz, const char *pDefaultVal = NULL ) const;
+	virtual const char	*ParmValue( const char *psz, const char *pDefaultVal = nullptr) const;
 	virtual int			ParmValue( const char *psz, int nDefaultVal ) const;
 	virtual float		ParmValue( const char *psz, float flDefaultVal ) const;
 	virtual void        SetParm( int nIndex, char const *pParm );
@@ -66,7 +66,7 @@ private:
 	};
 
 	// When the commandline contains @name, it reads the parameters from that file
-	void LoadParametersFromFile( const char *&pSrc, char *&pDst, intp maxDestLen, bool bInQuotes );
+	void LoadParametersFromFile( const char *&pSrc, char *&pDst, intptr_t maxDestLen, bool bInQuotes );
 
 	// Parse command line...
 	void ParseCommandLine();
@@ -101,7 +101,7 @@ ICommandLine *CommandLine()
 //-----------------------------------------------------------------------------
 CCommandLine::CCommandLine( void )
 {
-	m_pszCmdLine = NULL;
+	m_pszCmdLine = nullptr;
 	m_nParmCount = 0;
 }
 
@@ -118,7 +118,7 @@ CCommandLine::~CCommandLine( void )
 //-----------------------------------------------------------------------------
 // Read commandline from file instead...
 //-----------------------------------------------------------------------------
-void CCommandLine::LoadParametersFromFile( const char *&pSrc, char *&pDst, intp maxDestLen, bool bInQuotes )
+void CCommandLine::LoadParametersFromFile( const char *&pSrc, char *&pDst, intptr_t maxDestLen, bool bInQuotes )
 {
 	// Suck out the file name
 	char szFileName[ MAX_PATH ];
@@ -224,7 +224,7 @@ void CCommandLine::CreateCmdLine( const char *commandline )
 	const char *pSrc = commandline;
 
 	bool bInQuotes = false;
-	const char *pInQuotesStart = 0;
+	const char *pInQuotesStart = nullptr;
 	while ( *pSrc )
 	{
 		// Is this an unslashed quote?
@@ -276,7 +276,7 @@ static char * _stristr( char * pStr, const char * pSearch )
 	AssertValidStringPtr(pSearch);
 
 	if (!pStr || !pSearch) 
-		return 0;
+		return nullptr;
 
 	char* pLetter = pStr;
 
@@ -293,7 +293,7 @@ static char * _stristr( char * pStr, const char * pSearch )
 			{
 				// We've run off the end; don't bother.
 				if (*pMatch == 0)
-					return 0;
+					return nullptr;
 
 				if (tolower((unsigned char)*pMatch) != tolower((unsigned char)*pTest))
 					break;
@@ -310,7 +310,7 @@ static char * _stristr( char * pStr, const char * pSearch )
 		++pLetter;
 	}
 
-	return 0;
+	return nullptr;
 }
 
 
@@ -326,7 +326,7 @@ void CCommandLine::RemoveParm( const char *pszParm )
 	// Search for first occurrence of pszParm
 	char *p, *found;
 	char *pnextparam;
-	intp n;
+	intptr_t n;
 	size_t curlen;
 
 	p = m_pszCmdLine;
@@ -379,7 +379,7 @@ void CCommandLine::RemoveParm( const char *pszParm )
 	// Strip and trailing ' ' characters left over.
 	while ( 1 )
 	{
-		intp len = strlen( m_pszCmdLine );
+		intptr_t len = strlen( m_pszCmdLine );
 		if ( len == 0 || m_pszCmdLine[ len - 1 ] != ' ' )
 			break;
 		
@@ -397,7 +397,7 @@ void CCommandLine::RemoveParm( const char *pszParm )
 //-----------------------------------------------------------------------------
 void CCommandLine::AppendParm( const char *pszParm, const char *pszValues )
 {
-	intp nNewLength = 0;
+	intptr_t nNewLength = 0;
 	char *pCmdString;
 
 	nNewLength = strlen( pszParm );            // Parameter.
@@ -465,17 +465,17 @@ const char *CCommandLine::GetCmdLine( void ) const
 const char *CCommandLine::CheckParm( const char *psz, const char **ppszValue ) const
 {
 	if ( ppszValue )
-		*ppszValue = NULL;
+		*ppszValue = nullptr;
 	
 	int i = FindParm( psz );
 	if ( i == 0 )
-		return NULL;
+		return nullptr;
 	
 	if ( ppszValue )
 	{
 		if ( (i+1) >= m_nParmCount )
 		{
-			*ppszValue = NULL;
+			*ppszValue = nullptr;
 		}
 		else
 		{
@@ -523,7 +523,7 @@ void CCommandLine::ParseCommandLine()
 	}
 
 	bool bInQuotes = false;
-	const char *pFirstLetter = NULL;
+	const char *pFirstLetter = nullptr;
 	for ( ; *pChar; ++pChar )
 	{
 		if ( bInQuotes )
@@ -532,7 +532,7 @@ void CCommandLine::ParseCommandLine()
 				continue;
 
 			AddArgument( pFirstLetter, pChar );
-			pFirstLetter = NULL;
+			pFirstLetter = nullptr;
 			bInQuotes = false;
 			continue;
 		}
@@ -558,7 +558,7 @@ void CCommandLine::ParseCommandLine()
 		if ( V_isspace( *pChar ) )
 		{
 			AddArgument( pFirstLetter, pChar );
-			pFirstLetter = NULL;
+			pFirstLetter = nullptr;
 		}
 	}
 
@@ -577,7 +577,7 @@ void CCommandLine::CleanUpParms()
 	for ( int i = 0; i < m_nParmCount; ++i )
 	{
 		delete [] m_ppParms[i];
-		m_ppParms[i] = NULL;
+		m_ppParms[i] = nullptr;
 	}
 	m_nParmCount = 0;
 }

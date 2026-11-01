@@ -6,8 +6,7 @@
 //
 //=============================================================================//
 
-#ifndef VECTOR_H
-#define VECTOR_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -19,23 +18,15 @@
 // For vec_t, put this somewhere else?
 #include "tier0/basetypes.h"
 
-#if defined( _PS3 )
-//#include <ssemath.h>
-#include <vectormath/c/vectormath_aos.h>
-#include "tier0/platform.h"
-#include "mathlib/math_pfns.h"
-#endif
 
-#ifndef PLATFORM_PPC // we want our linux with xmm support
 // For MMX intrinsics
 #include <xmmintrin.h>
-#endif
 
 #ifndef ALIGN16_POST
 #define ALIGN16_POST
 #endif
 
-#include "tier0/dbg.h"
+
 #include "tier0/platform.h"
 #include "mathlib/vector2d.h"
 #include "mathlib/math_pfns.h"
@@ -248,9 +239,6 @@ private:
 // Zero the object -- necessary for CNetworkVar and possibly other cases.
 inline void EnsureValidValue( Vector &x ) { x.Zero(); }
 
-#define USE_M64S defined( PLATFORM_WINDOWS_PC )
-
-
 
 //=========================================================
 // 4D Short Vector (aligned on 8-byte boundary)
@@ -265,7 +253,7 @@ public:
 	void Init(short ix = 0, short iy = 0, short iz = 0, short iw = 0 );
 
 
-#if USE_M64S
+#if defined( PLATFORM_WINDOWS_PC )
 	__m64 &AsM64() { return *(__m64*)&x; }
 	const __m64 &AsM64() const { return *(const __m64*)&x; } 
 #endif
@@ -322,7 +310,7 @@ public:
 	// Initialization
 	void Init(int ix = 0, int iy = 0, int iz = 0, int iw = 0 );
 
-#if USE_M64S
+#if defined( PLATFORM_WINDOWS_PC )
 	__m64 &AsM64() { return *(__m64*)&x; }
 	const __m64 &AsM64() const { return *(const __m64*)&x; } 
 #endif
@@ -452,20 +440,9 @@ public:
 #endif
 	float w;	// this space is used anyway
 
-#if !defined(NO_MALLOC_OVERRIDE)
 	void* operator new[] ( size_t nSize)
 	{
 		return MemAlloc_AllocAligned(nSize, 16);
-	}
-
-	void* operator new[] ( size_t nSize, const char *pFileName, int nLine)
-	{
-		return MemAlloc_AllocAlignedFileLine(nSize, 16, pFileName, nLine);
-	}
-
-	void* operator new[] ( size_t nSize, int /*nBlockUse*/, const char *pFileName, int nLine)
-	{
-		return MemAlloc_AllocAlignedFileLine(nSize, 16, pFileName, nLine);
 	}
 
 	void operator delete[] ( void* p) 
@@ -473,42 +450,15 @@ public:
 		MemAlloc_FreeAligned(p);
 	}
 
-	void operator delete[] ( void* p, const char *pFileName, int nLine)  
-	{
-		MemAlloc_FreeAligned(p, pFileName, nLine);
-	}
-
-	void operator delete[] ( void* p, int /*nBlockUse*/, const char *pFileName, int nLine)  
-	{
-		MemAlloc_FreeAligned(p, pFileName, nLine);
-	}
-
 	// please don't allocate a single quaternion...
 	void* operator new   ( size_t nSize )
 	{
 		return MemAlloc_AllocAligned(nSize, 16);
 	}
-	void* operator new   ( size_t nSize, const char *pFileName, int nLine )
-	{
-		return MemAlloc_AllocAlignedFileLine(nSize, 16, pFileName, nLine);
-	}
-	void* operator new   ( size_t nSize, int /*nBlockUse*/, const char *pFileName, int nLine )
-	{
-		return MemAlloc_AllocAlignedFileLine(nSize, 16, pFileName, nLine);
-	}
 	void operator delete ( void* p) 
 	{
 		MemAlloc_FreeAligned(p);
 	}
-	void operator delete ( void* p, const char *pFileName, int nLine)
-	{
-		MemAlloc_FreeAligned(p, pFileName, nLine);
-	}
-	void operator delete ( void* p, int /*nBlockUse*/, const char *pFileName, int nLine)
-	{
-		MemAlloc_FreeAligned(p, pFileName, nLine);
-	}
-#endif
 } ALIGN16_POST;
 
 //-----------------------------------------------------------------------------
@@ -670,7 +620,6 @@ inline void Vector::Init( vec_t ix, vec_t iy, vec_t iz )
 	CHECK_VALID(*this);
 }
 
-#if !defined(__SPU__)
 inline void Vector::Random( vec_t minVal, vec_t maxVal )
 {
 	x = RandomFloat( minVal, maxVal );
@@ -678,7 +627,6 @@ inline void Vector::Random( vec_t minVal, vec_t maxVal )
 	z = RandomFloat( minVal, maxVal );
 	CHECK_VALID(*this);
 }
-#endif
 
 // This should really be a single opcode on the PowerPC (move r0 onto the vec reg)
 inline void Vector::Zero()
@@ -1679,7 +1627,6 @@ inline float ComputeVolume( const Vector &vecMins, const Vector &vecMaxs )
 	return DotProduct( vecDelta, vecDelta );
 }
 
-#if !defined(__SPU__)
 // Get a random vector.
 inline Vector RandomVector( float minVal, float maxVal )
 {
@@ -1687,7 +1634,6 @@ inline Vector RandomVector( float minVal, float maxVal )
 	random.Random( minVal, maxVal );
 	return random;
 }
-#endif
 
 #endif //slow
 
@@ -1744,14 +1690,12 @@ typedef Vector AngularImpulse;
 
 #ifndef VECTOR_NO_SLOW_OPERATIONS
 
-#if !defined(__SPU__)
 inline AngularImpulse RandomAngularImpulse( float minVal, float maxVal )
 {
 	AngularImpulse	angImp;
 	angImp.Random( minVal, maxVal );
 	return angImp;
 }
-#endif
 
 #endif
 
@@ -1869,9 +1813,7 @@ inline bool Quaternion::operator!=( const Quaternion &src ) const
 void Quaternion::Print() const
 {
 #ifndef _CERT
-#if !defined(__SPU__)
 	Msg("q{ %.3fi + %.3fj + %.3fk + %.3f }", x, y, z, w );
-#endif
 #endif
 }
 
@@ -1962,9 +1904,7 @@ public:
 	{
 		// we know we're aligned, so use simd
 		// we can't use the convenient abstract interface coz it gets declared later
-#ifdef _X360
-		XMStoreVector4A(Base(), XMLoadVector4A(vOther.Base()));
-#elif _WIN32
+#if   _WIN32
 		_mm_store_ps(Base(), _mm_load_ps( vOther.Base() ));
 #else
 		Init(vOther.x, vOther.y, vOther.z, vOther.w);
@@ -1974,20 +1914,9 @@ public:
 
 #endif
 
-#if !defined(NO_MALLOC_OVERRIDE)
 	void* operator new[] ( size_t nSize)
 	{
 		return MemAlloc_AllocAligned(nSize, 16);
-	}
-
-	void* operator new[] ( size_t nSize, const char *pFileName, int nLine)
-	{
-		return MemAlloc_AllocAlignedFileLine(nSize, 16, pFileName, nLine);
-	}
-
-	void* operator new[] ( size_t nSize, int /*nBlockUse*/, const char *pFileName, int nLine)
-	{
-		return MemAlloc_AllocAlignedFileLine(nSize, 16, pFileName, nLine);
 	}
 
 	void operator delete[] ( void* p) 
@@ -1995,60 +1924,24 @@ public:
 		MemAlloc_FreeAligned(p);
 	}
 
-	void operator delete[] ( void* p, const char *pFileName, int nLine)  
-	{
-		MemAlloc_FreeAligned(p, pFileName, nLine);
-	}
-
-	void operator delete[] ( void* p, int /*nBlockUse*/, const char *pFileName, int nLine)  
-	{
-		MemAlloc_FreeAligned(p, pFileName, nLine);
-	}
-
 	// please don't allocate a single quaternion...
 	void* operator new   ( size_t nSize )
 	{
 		return MemAlloc_AllocAligned(nSize, 16);
 	}
-	void* operator new   ( size_t nSize, const char *pFileName, int nLine )
-	{
-		return MemAlloc_AllocAlignedFileLine(nSize, 16, pFileName, nLine);
-	}
-	void* operator new   ( size_t nSize, int /*nBlockUse*/, const char *pFileName, int nLine )
-	{
-		return MemAlloc_AllocAlignedFileLine(nSize, 16, pFileName, nLine);
-	}
 	void operator delete ( void* p) 
 	{
 		MemAlloc_FreeAligned(p);
 	}
-
-	void operator delete ( void* p, const char *pFileName, int nLine)  
-	{
-		MemAlloc_FreeAligned(p, pFileName, nLine);
-	}
-
-	void operator delete ( void* p, int /*nBlockUse*/, const char *pFileName, int nLine)  
-	{
-		MemAlloc_FreeAligned(p, pFileName, nLine);
-	}
-#endif
 } ALIGN16_POST;
 
 
 //-----------------------------------------------------------------------------
 // Src data hasn't changed, but work data is of a form more friendly for SPU
 //-----------------------------------------------------------------------------
-#if defined( _PS3 )
-//typedef Vector		BoneVector;
-typedef VectorAligned		BoneVector;
-typedef QuaternionAligned	BoneQuaternion;
-typedef QuaternionAligned	BoneQuaternionAligned;
-#else
 typedef Vector				BoneVector;
 typedef Quaternion			BoneQuaternion;
 typedef QuaternionAligned	BoneQuaternionAligned;
-#endif
 
 //-----------------------------------------------------------------------------
 // Radian Euler angle aligned to axis (NOT ROLL/PITCH/YAW)
@@ -2294,9 +2187,7 @@ public:
 	// Construction/destruction
 	QAngle(void);
 	QAngle(vec_t X, vec_t Y, vec_t Z);
-#ifndef _PS3
 //	QAngle(RadianEuler const &angles);	// evil auto type promotion!!!
-#endif
 
 	// Allow pass-by-value
 	operator QAngleByValue &()				{ return *((QAngleByValue *)(this)); }
@@ -2446,7 +2337,6 @@ inline void QAngle::NormalizePositive()
 }
 
 
-#if !defined(__SPU__)
 inline void QAngle::Random( vec_t minVal, vec_t maxVal )
 {
 	x = RandomFloat( minVal, maxVal );
@@ -2454,11 +2344,9 @@ inline void QAngle::Random( vec_t minVal, vec_t maxVal )
 	z = RandomFloat( minVal, maxVal );
 	CHECK_VALID(*this);
 }
-#endif
 
 #ifndef VECTOR_NO_SLOW_OPERATIONS
 
-#if !defined(__SPU__)
 inline QAngle RandomAngle( float minVal, float maxVal )
 {
 	Vector random;
@@ -2466,7 +2354,6 @@ inline QAngle RandomAngle( float minVal, float maxVal )
 	QAngle ret( random.x, random.y, random.z );
 	return ret;
 }
-#endif
 
 #endif
 
@@ -2738,7 +2625,6 @@ inline QAngle Quaternion::ToQAngle() const
 	return anglesOut;
 }
 
-#if !defined( _X360 ) && !defined( _PS3 )
 
 FORCEINLINE vec_t InvRSquared( const float* v )
 {
@@ -2750,44 +2636,7 @@ FORCEINLINE vec_t InvRSquared( const Vector &v )
 	return InvRSquared( v.Base() );
 }
 
-#else
 
-// call directly
-#if defined(__SPU__)
-FORCEINLINE float _VMX_InvRSquared( Vector &v )
-#else
-FORCEINLINE float _VMX_InvRSquared( const Vector &v )
-#endif
-{
-#if !defined (_PS3)
-	XMVECTOR xmV = XMVector3ReciprocalLength( XMLoadVector3( v.Base() ) );
-	xmV = XMVector3Dot( xmV, xmV );
-	return xmV.x;
-#else	//!_PS3
-	vector_float_union vRet;
-	vec_float4 v0, v1, vIn, vOut;
-	vector unsigned char permMask;
-	v0	 = vec_ld( 0, v.Base() );			
-	permMask = vec_lvsl( 0, v.Base() );	
-	v1	 = vec_ld( 11, v.Base() );			
-	vIn  = vec_perm(v0, v1, permMask);  
-	vOut = vec_madd( vIn, vIn, _VEC_ZEROF );
-	vec_float4 vTmp  = vec_sld( vIn, vIn, 4 );
-	vec_float4 vTmp2 = vec_sld( vIn, vIn, 8 );
-	vOut = vec_madd( vTmp, vTmp, vOut );
-	vOut = vec_madd( vTmp2, vTmp2, vOut );
-	vOut = vec_re( vec_add(vOut, _VEC_EPSILONF) );
-	vec_st(vOut,0,&vRet.vf);
-	float ret = vRet.f[0];
-	return ret;
-#endif	//!_PS3
-}
-
-#define InvRSquared(x) _VMX_InvRSquared(x)
-
-#endif // _X360
-
-#if !defined( _X360 ) && !defined( _PS3 )
 
 // FIXME: Change this back to a #define once we get rid of the vec_t version
 float VectorNormalize( Vector& v );
@@ -2798,86 +2647,7 @@ FORCEINLINE float VectorNormalize( float * v )
 	return VectorNormalize(*(reinterpret_cast<Vector *>(v)));
 }
 
-#else
-#if !defined( _PS3 )
-// modified version of Microsoft's XMVector3Length
-// microsoft's version will return INF for very small vectors
-// e.g. 	Vector vTest(7.98555446e-20,-6.85012984e-21,0); VectorNormalize( vTest );
-// so we clamp to epsilon instead of checking for zero
-XMFINLINE XMVECTOR XMVector3Length_Fixed
-(
- FXMVECTOR V
- )
-{
-	// Returns a QNaN on infinite vectors.
-	static CONST XMVECTOR g_fl4SmallVectorEpsilon = {1e-24f,1e-24f,1e-24f,1e-24f};
 
-	XMVECTOR D;
-	XMVECTOR Rsq;
-	XMVECTOR Rcp;
-	XMVECTOR Zero;
-	XMVECTOR RT;
-	XMVECTOR Result;
-	XMVECTOR Length;
-	XMVECTOR H;
-
-	H = __vspltisw(1);
-	D = __vmsum3fp(V, V);
-	H = __vcfsx(H, 1);
-	Rsq = __vrsqrtefp(D);
-	RT = __vmulfp(D, H);
-	Rcp = __vmulfp(Rsq, Rsq);
-	H = __vnmsubfp(RT, Rcp, H);
-	Rsq = __vmaddfp(Rsq, H, Rsq);
-	Zero = __vspltisw(0);
-	Result = __vcmpgefp( g_fl4SmallVectorEpsilon, D );
-	Length = __vmulfp(D, Rsq);
-	Result = __vsel(Length, Zero, Result);
-
-	return Result;
-}
-#endif
-
-// call directly
-FORCEINLINE float _VMX_VectorNormalize( Vector &vec )
-{
-#if !defined _PS3
-	float mag = XMVector3Length_Fixed( XMLoadVector3( vec.Base() ) ).x;
-	float den = 1.f / (mag + FLT_EPSILON );
-	vec.x *= den;
-	vec.y *= den;
-	vec.z *= den;
-	return mag;
-#else	// !_PS3
-	vec_float4 vIn;
-	vec_float4 v0, v1;
-	vector unsigned char permMask;
-	v0	 = vec_ld( 0, vec.Base() );			
-	permMask = vec_lvsl( 0, vec.Base() );	
-	v1	 = vec_ld( 11, vec.Base() );			
-	vIn  = vec_perm(v0, v1, permMask);
-	float mag = vmathV3Length((VmathVector3 *)&vIn);
-	float den = 1.f / (mag + FLT_EPSILON );
-	vec.x *= den;
-	vec.y *= den;
-	vec.z *= den;
-	return mag;
-#endif	// !_PS3
-}
-// FIXME: Change this back to a #define once we get rid of the vec_t version
-FORCEINLINE float VectorNormalize( Vector& v )
-{
-	return _VMX_VectorNormalize( v );
-}
-// FIXME: Obsolete version of VectorNormalize, once we remove all the friggin float*s
-FORCEINLINE float VectorNormalize( float *pV )
-{
-	return _VMX_VectorNormalize(*(reinterpret_cast<Vector*>(pV)));
-}
-
-#endif // _X360
-
-#if !defined( _X360 ) && !defined( _PS3 )
 FORCEINLINE void VectorNormalizeFast (Vector& vec)
 {
 	float ool = FastRSqrt( FLT_EPSILON + vec.x * vec.x + vec.y * vec.y + vec.z * vec.z );
@@ -2886,57 +2656,6 @@ FORCEINLINE void VectorNormalizeFast (Vector& vec)
 	vec.y *= ool;
 	vec.z *= ool;
 }
-#else
-
-// call directly
-FORCEINLINE void VectorNormalizeFast( Vector &vec )
-{
-#if !defined (_PS3)
-	XMVECTOR xmV = XMVector3LengthEst( XMLoadVector3( vec.Base() ) );
-	float den = 1.f / (xmV.x + FLT_EPSILON);
-	vec.x *= den;
-	vec.y *= den;
-	vec.z *= den;
-#else	// !_PS3
-	vector_float_union vVec;
-
-	vec_float4 vIn, vOut, vOOLen, vDot;
-
-	// load
-	vec_float4 v0, v1;
-	vector unsigned char permMask;
-	v0	 = vec_ld( 0, vec.Base() );			
-	permMask = vec_lvsl( 0, vec.Base() );	
-	v1	 = vec_ld( 11, vec.Base() );			
-	vIn  = vec_perm(v0, v1, permMask);  
-
-	// vec.vec
-	vOut = vec_madd( vIn, vIn, _VEC_ZEROF );
-	vec_float4 vTmp  = vec_sld( vIn, vIn, 4 );
-	vec_float4 vTmp2 = vec_sld( vIn, vIn, 8 );
-	vOut = vec_madd( vTmp, vTmp, vOut );
-	vOut = vec_madd( vTmp2, vTmp2, vOut );
-
-	// splat dot to all 
-	vDot = vec_splat( vOut, 0 );
-
-	vOOLen = vec_rsqrte( vec_add( vDot, _VEC_EPSILONF ) );
-
-	// vec * 1.0/sqrt(vec.vec)
-	vOut = vec_madd( vIn, vOOLen, _VEC_ZEROF );
-
-	// store
-	vec_st(vOut,0,&vVec.vf);
-
-	// store vec
-	vec.x = vVec.f[0];
-	vec.y = vVec.f[1];
-	vec.z = vVec.f[2];
-
-#endif	// !_PS3
-}
-
-#endif // _X360
 
 inline vec_t Vector::NormalizeInPlace()
 {
@@ -3042,5 +2761,4 @@ inline  const Vector Snap( const Vector &a, float flSnap )
 	return Vector( Snap( a.x, flSnap ), Snap( a.y, flSnap ), Snap( a.z, flSnap ) );
 }
 
-#endif
 

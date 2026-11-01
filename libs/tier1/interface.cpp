@@ -3,7 +3,7 @@
 // Purpose: 
 //
 //===========================================================================//
-#if defined( _WIN32 ) && !defined( _X360 )
+#if defined( _WIN32 )
 #include <windows.h>
 #endif
 
@@ -21,28 +21,18 @@
 #include "tier0/dbg.h"
 #include <cstring>
 #include "tier1/strtools.h"
-#include "tier0/icommandline.h"
 
 #ifdef _WIN32
 #include <direct.h> // getcwd
 #endif
-#if defined( _X360 )
-#include "xbox/xbox_win32stubs.h"
+
+
+
+#if defined(POSIX)
+#include "tier0/platform.h"
 #endif
 
-#ifdef _PS3
-#include "sys/prx.h"
-#include "tier1/utlvector.h"
-#include "ps3/ps3_platform.h"
-#include "ps3/ps3_win32stubs.h"
-#include "ps3/ps3_helpers.h"
-#include "ps3_pathinfo.h"
-#elif defined(POSIX)
-#include "tier0/platform.h"
-#endif // _PS3
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
 
 // ------------------------------------------------------------------------------------ //
 // InterfaceReg.
@@ -92,7 +82,7 @@ void* CreateInterfaceInternal( const char *pName, int *pReturnCode )
 	{
 		*pReturnCode = IFACE_FAILED;
 	}
-	return NULL;	
+	return nullptr;	
 }
 
 void* CreateInterface( const char *pName, int *pReturnCode )
@@ -102,24 +92,24 @@ void* CreateInterface( const char *pName, int *pReturnCode )
 
 
 
-#if defined( POSIX ) && !defined( _PS3 )
+#if defined( POSIX )
 // Linux doesn't have this function so this emulates its functionality
 void *GetModuleHandle(const char *name)
 {
 	void *handle;
 
-	if( name == NULL )
+	if( name == nullptr)
 	{
 		// hmm, how can this be handled under linux....
 		// is it even needed?
-		return NULL;
+		return nullptr;
 	}
 
-    if( (handle=dlopen(name, RTLD_NOW))==NULL)
+    if( (handle=dlopen(name, RTLD_NOW))== nullptr)
     {
             printf("DLOPEN Error:%s\n",dlerror());
             // couldn't open this file
-            return NULL;
+            return nullptr;
     }
 
 	// read "man dlopen" for details
@@ -130,7 +120,7 @@ void *GetModuleHandle(const char *name)
 }
 #endif
 
-#if defined( _WIN32 ) && !defined( _X360 )
+#if defined( _WIN32 )
 #define WIN32_LEAN_AND_MEAN
 #include "windows.h"
 #endif
@@ -142,31 +132,18 @@ void *GetModuleHandle(const char *name)
 //-----------------------------------------------------------------------------
 static void *Sys_GetProcAddress( const char *pModuleName, const char *pName )
 {
-#if defined( _PS3 )
-	Assert( !"Unsupported, use HMODULE" );
-	return NULL;
-#else // !_PS3
 	HMODULE hModule = (HMODULE)GetModuleHandle( pModuleName );
 #if defined( WIN32 )
 	return (void *)GetProcAddress( hModule, pName );
 #else // !WIN32
 	return (void *)dlsym( (void *)hModule, pName );
 #endif // WIN32
-#endif // _PS3
 }
 
 static void *Sys_GetProcAddress( HMODULE hModule, const char *pName )
 {
 #if defined( WIN32 )
 	return (void *)GetProcAddress( hModule, pName );
-#elif defined( _PS3 )
-	PS3_LoadAppSystemInterface_Parameters_t *pPRX = reinterpret_cast< PS3_LoadAppSystemInterface_Parameters_t * >( hModule );
-	if ( !pPRX )
-		return NULL;
-	if ( !strcmp( pName, CREATEINTERFACE_PROCNAME ) )
-		return reinterpret_cast< void * >( pPRX->pfnCreateInterface );
-	Assert( !"Unknown PRX function requested!" );
-	return NULL;
 #else
 	return (void *)dlsym( (void *)hModule, pName );
 #endif
@@ -181,8 +158,8 @@ struct ThreadedLoadLibaryContext_t
 {
 	const char *m_pLibraryName;
 	HMODULE m_hLibrary;
-	DWORD m_nError;
-	ThreadedLoadLibaryContext_t() : m_pLibraryName(NULL), m_hLibrary(0), m_nError(0) {}
+	uint32_t m_nError;
+	ThreadedLoadLibaryContext_t() : m_pLibraryName(nullptr), m_hLibrary(0), m_nError(0) {}
 };
 
 #ifdef _WIN32
@@ -190,18 +167,9 @@ struct ThreadedLoadLibaryContext_t
 // wraps LoadLibraryEx() since 360 doesn't support that
 static HMODULE InternalLoadLibrary( const char *pName )
 {
-#if defined(_X360)
-	HMODULE result = LoadLibrary( pName );
-	if (result == NULL)
-	{
-		Warning( "Failed to load library %s: %d\n", pName, GetLastError() );
-	}
-	return result;
-#else
 	return LoadLibraryEx( pName, NULL, LOAD_WITH_ALTERED_SEARCH_PATH );
-#endif
 }
-uintp ThreadedLoadLibraryFunc( void *pParam )
+uintptr_t ThreadedLoadLibraryFunc( void *pParam )
 {
 	ThreadedLoadLibaryContext_t *pContext = (ThreadedLoadLibaryContext_t*)pParam;
 	pContext->m_hLibrary = InternalLoadLibrary(pContext->m_pLibraryName);
@@ -211,7 +179,7 @@ uintp ThreadedLoadLibraryFunc( void *pParam )
 
 
 // global to propagate a library load error from thread into Sys_LoadModule
-static DWORD g_nLoadLibraryError = 0;
+static uint32_t g_nLoadLibraryError = 0;
 
 static HMODULE Sys_LoadLibraryGuts( const char *pLibraryName )
 {
@@ -224,10 +192,7 @@ static HMODULE Sys_LoadLibraryGuts( const char *pLibraryName )
 	Q_strncpy( str, pLibraryName, sizeof(str) );
 	if ( !Q_stristr( str, pModuleExtension ) )
 	{
-		if ( IsX360() )
-		{
-			Q_StripExtension( str, str, sizeof(str) );
-		}
+
 		Q_strncat( str, pModuleAddition, sizeof(str) );
 	}
 	Q_FixSlashes( str );
@@ -236,12 +201,12 @@ static HMODULE Sys_LoadLibraryGuts( const char *pLibraryName )
     HMODULE retVal = InternalLoadLibrary( str );
     return retVal;
 
-#elif defined( POSIX ) && !defined( _PS3 )
+#elif defined( POSIX )
 	HMODULE ret = (HMODULE)dlopen( str, RTLD_NOW );
 	if ( ! ret )
 	{
 		const char *pError = dlerror();
-		if ( pError && ( strstr( pError, "No such file" ) == 0 ) && ( strstr( pError, "image not found") == 0 ) )
+		if ( pError && ( strstr( pError, "No such file" ) == nullptr ) && ( strstr( pError, "image not found") == nullptr ) )
 		{
 			Msg( " failed to dlopen %s error=%s\n", str, pError );
 
@@ -259,7 +224,7 @@ static HMODULE Sys_LoadLibraryGuts( const char *pLibraryName )
 static HMODULE Sys_LoadLibrary( const char *pLibraryName )
 {
 	// load a library. If a library suffix is set, look for the library first with that name
-	char *pSuffix = NULL;
+	char *pSuffix = nullptr;
 	
 	if ( CommandLine()->FindParm( "-xlsp" ) )
 	{
@@ -279,7 +244,7 @@ static HMODULE Sys_LoadLibrary( const char *pLibraryName )
 #endif
 	if ( pSuffix )
 	{
-		char nameBuf[MAX_PATH];
+		char nameBuf[MAX_PATH]{0};
 		strcpy( nameBuf, pLibraryName );
 		char *pDot = strchr( nameBuf, '.' );
 		if ( pDot )
@@ -325,17 +290,6 @@ CSysModule *Sys_LoadModule( const char *pModuleName )
 	HMODULE hDLL = NULL;
 
 	char alteredFilename[ MAX_PATH ];
-	if ( IsPS3() )
-	{
-		// PS3's load module *must* be fed extensions. If the extension is missing, add it. 
-		if (!( strstr(pModuleName, ".sprx") || strstr(pModuleName, ".prx") ))
-		{
-			strncpy( alteredFilename, pModuleName, MAX_PATH );
-			strncat( alteredFilename, DLL_EXT_STRING, MAX_PATH );
-			pModuleName = alteredFilename;
-		}
-	}
-	else
 	{
 		alteredFilename; // just to quash the warning
 	}
@@ -344,22 +298,9 @@ CSysModule *Sys_LoadModule( const char *pModuleName )
 	{
 		// full path wasn't passed in, using the current working dir
 		char szAbsoluteModuleName[1024];
-#if defined( _PS3 ) 
-		// getcwd not supported on ps3; use PRX path instead (TODO: fallback to DISK path too)
-		Q_snprintf( szAbsoluteModuleName, sizeof(szAbsoluteModuleName), "%s/%s",
-			g_pPS3PathInfo->PrxPath(), pModuleName );
-		hDLL = Sys_LoadLibrary( szAbsoluteModuleName );
-#else // !_PS3
 		char szCwd[1024];
 		_getcwd( szCwd, sizeof( szCwd ) );
-		if ( IsX360() )
-		{
-			int i = CommandLine()->FindParm( "-basedir" );
-			if ( i )
-			{
-				strcpy( szCwd, CommandLine()->GetParm( i+1 ) );
-			}
-		}
+
 		if (szCwd[strlen(szCwd) - 1] == '/' || szCwd[strlen(szCwd) - 1] == '\\' )
 		{
 			szCwd[strlen(szCwd) - 1] = 0;
@@ -376,7 +317,6 @@ CSysModule *Sys_LoadModule( const char *pModuleName )
 			Q_snprintf( szAbsoluteModuleName, sizeof(szAbsoluteModuleName), "%s/bin/%s", szCwd, pModuleName );
 		}
 		hDLL = Sys_LoadLibrary( szAbsoluteModuleName );
-#endif // _PS3
 	}
 
 	if ( !hDLL )
@@ -387,7 +327,7 @@ CSysModule *Sys_LoadModule( const char *pModuleName )
 		if ( !hDLL )
 		{
 // So you can see what the error is in the debugger...
-#if defined( _WIN32 ) && !defined( _X360 )
+#if defined( _WIN32 )
 			char *lpMsgBuf;
 			
 			FormatMessage( 
@@ -403,11 +343,6 @@ CSysModule *Sys_LoadModule( const char *pModuleName )
 			);
 
 			LocalFree( (HLOCAL)lpMsgBuf );
-#elif defined( _X360 )
-			DWORD error = g_nLoadLibraryError ? g_nLoadLibraryError : GetLastError();
-			Msg( "Error(%d) - Failed to load %s:\n", error, pModuleName );
-#elif defined( _PS3 )
-			Msg( "Failed to load %s:\n", pModuleName );
 #else
 			Msg( "Failed to load %s: %s\n", pModuleName, dlerror() );
 #endif // _WIN32
@@ -416,7 +351,7 @@ CSysModule *Sys_LoadModule( const char *pModuleName )
 	}
 
 	// If running in the debugger, assume debug binaries are okay, otherwise they must run with -allowdebug
-	if ( !IsGameConsole() && Sys_GetProcAddress( hDLL, "BuiltDebug" ) )
+	if ( Sys_GetProcAddress( hDLL, "BuiltDebug" ) )
 	{
 		if ( hDLL && !CommandLine()->FindParm( "-allowdebug" ) && 
 			 !Sys_IsDebuggerPresent() )
@@ -481,9 +416,6 @@ void Sys_UnloadModule( CSysModule *pModule )
 
 #ifdef _WIN32
 	FreeLibrary( hDLL );
-#elif defined( _PS3 )
-	PS3_PrxUnload( ( ( PS3_PrxLoadParametersBase_t *)pModule )->sysPrxId );
-	delete ( PS3_PrxLoadParametersBase_t *)pModule;
 #elif defined( POSIX )
 //$$$$$$ mikesart: for testing with valgrind don't unload so...	dlclose((void *)hDLL);
 #endif
@@ -498,13 +430,11 @@ void Sys_UnloadModule( CSysModule *pModule )
 CreateInterfaceFn Sys_GetFactory( CSysModule *pModule )
 {
 	if ( !pModule )
-		return NULL;
+		return nullptr;
 
 	HMODULE	hDLL = reinterpret_cast<HMODULE>(pModule);
 #ifdef _WIN32
 	return reinterpret_cast<CreateInterfaceFn>(GetProcAddress( hDLL, CREATEINTERFACE_PROCNAME ));
-#elif defined( _PS3 )
-	return reinterpret_cast<CreateInterfaceFn>(Sys_GetProcAddress( hDLL, CREATEINTERFACE_PROCNAME ));
 #elif defined( POSIX )
 	// Linux gives this error:
 	//../public/interface.cpp: In function `IBaseInterface *(*Sys_GetFactory
@@ -534,10 +464,7 @@ CreateInterfaceFn Sys_GetFactoryThis( void )
 CreateInterfaceFn Sys_GetFactory( const char *pModuleName )
 {
 #ifdef _WIN32
-	return static_cast<CreateInterfaceFn>( Sys_GetProcAddress( pModuleName, CREATEINTERFACE_PROCNAME ) );
-#elif defined( _PS3 )
-	Assert( 0 );
-	return NULL;
+	return (CreateInterfaceFn)( Sys_GetProcAddress( pModuleName, CREATEINTERFACE_PROCNAME ) );
 #elif defined(POSIX)
 	// see Sys_GetFactory( CSysModule *pModule ) for an explanation
 	return (CreateInterfaceFn)( Sys_GetProcAddress( pModuleName, CREATEINTERFACE_PROCNAME ) );
@@ -566,7 +493,7 @@ bool Sys_LoadInterface(
 		return false;
 	}
 
-	*pOutInterface = fn( pInterfaceVersionName, NULL );
+	*pOutInterface = fn( pInterfaceVersionName, nullptr);
 	if ( !( *pOutInterface ) )
 	{
 		Sys_UnloadModule( pMod );
@@ -588,7 +515,7 @@ bool Sys_LoadInterface(
 //-----------------------------------------------------------------------------
 CDllDemandLoader::CDllDemandLoader( char const *pchModuleName ) : 
 	m_pchModuleName( pchModuleName ), 
-	m_hModule( 0 ),
+	m_hModule( nullptr ),
 	m_bLoadAttempted( false )
 {
 }
@@ -608,7 +535,7 @@ CreateInterfaceFn CDllDemandLoader::GetFactory()
 
 	if ( !m_hModule )
 	{
-		return NULL;
+		return nullptr;
 	}
 
 	return Sys_GetFactory( m_hModule );
@@ -619,6 +546,6 @@ void CDllDemandLoader::Unload()
 	if ( m_hModule )
 	{
 		Sys_UnloadModule( m_hModule );
-		m_hModule = 0;
+		m_hModule = nullptr;
 	}
 }

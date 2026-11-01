@@ -2,8 +2,7 @@
 //
 //=============================================================================
 
-#ifndef DMEEXPORTTAGS_H
-#define DMEEXPORTTAGS_H
+#pragma once
 
 #include "datamodel/dmelement.h"
 
@@ -16,30 +15,30 @@ class CDmeExportTags : public CDmElement
 
 public:
 	// Initializes all fields by calling each Set* function with no arguments
-	void Init( const char *pszApp = NULL, const char *pszAppVersion = NULL );
+	void Init( const char *pszApp = nullptr, const char *pszAppVersion = nullptr);
 
 	// Sets the app field, if NULL, app is the empty string
-	void SetApp( const char *pszVal = NULL );
+	void SetApp( const char *pszVal = nullptr);
 	const char *GetApp() const { return m_sApp.GetString(); }
 
 	// Sets the app version, if NULL, appVersion is the empty string
-	void SetAppVersion( const char *pszVal = NULL );
+	void SetAppVersion( const char *pszVal = nullptr);
 	const char *GetAppVersion() const { return m_sAppVersion.GetString(); }
 
 	// Sets the date, if NULL, date is set to the current date
-	void SetDate( const char *pszVal = NULL );
+	void SetDate( const char *pszVal = nullptr);
 	const char *GetDate() const { return m_sDate.GetString(); }
 
 	// Sets the time, if NULL, time is set to the current date
-	void SetTime( const char *pszVal = NULL );
+	void SetTime( const char *pszVal = nullptr);
 	const char *GetTime() const { return m_sTime.GetString(); }
 
 	// Sets the user, if NULL, time is set to the current user
-	void SetUser( const char *pszVal = NULL );
+	void SetUser( const char *pszVal = nullptr);
 	const char *GetUser() const { return m_sUser.GetString(); }
 
 	// Sets the machine, if NULL, machine is set to the current machine
-	void SetMachine( const char *pszVal = NULL );
+	void SetMachine( const char *pszVal = nullptr);
 	const char *GetMachine() const { return m_sMachine.GetString(); }
 
 protected:
@@ -52,4 +51,3 @@ protected:
 
 };
 
-#endif // DMEEXPORTTAGS_H

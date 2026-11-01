@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
 //=============================================================================
 
-#ifndef DMELEMENTDICTIONARY_H
-#define DMELEMENTDICTIONARY_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -182,4 +181,3 @@ private:
 };
 
 
-#endif // DMELEMENTDICTIONARY_H

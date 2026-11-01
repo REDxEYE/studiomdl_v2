@@ -4,8 +4,7 @@
 //
 //==================================================================================================
 
-#ifndef UTLINTERVALTREE_H
-#define UTLINTERVALTREE_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -296,4 +295,3 @@ inline void CUtlIntervalTree<DataType, T>::FindOverlaps( const Interval_t &rChec
 	}
 }
 
-#endif // UTLINTERVALTREE_H

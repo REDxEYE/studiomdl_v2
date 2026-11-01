@@ -1,12 +1,11 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright Â© 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
 // $NoKeywords: $
 //=============================================================================//
 
-#ifndef HARDWAREMATRIXSTATE_H
-#define HARDWAREMATRIXSTATE_H
+#pragma once
 #pragma once
 
 // This emulates the hardware matrix palette and keeps up with 
@@ -68,4 +67,3 @@ private:
 	MatrixState_t *m_savedMatrixState;
 };
 
-#endif // HARDWAREMATRIXSTATE_H

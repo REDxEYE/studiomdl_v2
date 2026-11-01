@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2005, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2005, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
 //=============================================================================
 
-#ifndef EXPORTFACIALANIMATION_H
-#define EXPORTFACIALANIMATION_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -24,4 +23,3 @@ class CDmeAnimationSet;
 bool ExportFacialAnimation( const char *pFileName, CDmeFilmClip *pMovie, CDmeFilmClip *pShot, CDmeAnimationSet *pAnimationSet );
 
 
-#endif // EXPORTFACIALANIMATION_H

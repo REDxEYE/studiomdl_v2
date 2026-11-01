@@ -6,8 +6,7 @@
 //
 //===========================================================================//
 
-#ifndef TRANSFORM_H
-#define TRANSFORM_H
+#pragma once
 
 #ifdef COMPILER_MSVC
 #pragma once
@@ -398,4 +397,3 @@ inline CTransform matrix3x4_t::ToCTransform() const
 }
 
 
-#endif // TRANSFORM

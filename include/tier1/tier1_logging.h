@@ -4,8 +4,7 @@
 //
 //===============================================================================
 
-#ifndef TIER1_LOGGING_H
-#define TIER1_LOGGING_H
+#pragma once
 
 #if defined( COMPILER_MSVC )
 #pragma once
@@ -29,4 +28,3 @@ private:
 	CUtlBuffer m_StoredSpew;
 };
 
-#endif // TIER1_LOGGING_H

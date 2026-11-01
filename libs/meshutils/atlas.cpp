@@ -1,4 +1,4 @@
-//=========== Copyright © Valve Corporation, All rights reserved. ============//
+//=========== Copyright Â© Valve Corporation, All rights reserved. ============//
 //
 // Purpose: Mesh class UV parameterization operations.
 //
@@ -126,12 +126,12 @@ int PackChartsIntoAtlas( AtlasChart_t *pCharts, int nCharts, int nAtlasTextureSi
 
 //CPackNode
 CPackNode::CPackNode( Rect_t rect, float flTotalW, float flTotalH ) :
-	m_pChart( NULL ),
+	m_pChart(nullptr),
 	m_flTotalW( flTotalW ),
 	m_flTotalH( flTotalH )
 {
-	m_child[0] = NULL;
-	m_child[1] = NULL;
+	m_child[0] = nullptr;
+	m_child[1] = nullptr;
 	m_rect = rect;
 }
 
@@ -147,7 +147,7 @@ CPackNode* CPackNode::InsertChart( AtlasChart_t *pChart )
 	int texHeight = (int)ceil( pChart->m_vMaxTextureSize.y );
 
 	//if we have children, that means we can't insert into this node, try the kids
-	if ( NULL != m_child[ 0 ] && NULL != m_child[ 1 ] )
+	if (nullptr != m_child[ 0 ] && nullptr != m_child[ 1 ] )
 	{
 		//try the first child
 		CPackNode* pNewNode = m_child[ 0 ]->InsertChart( pChart );
@@ -163,14 +163,14 @@ CPackNode* CPackNode::InsertChart( AtlasChart_t *pChart )
 		//if we are a leaf of the tree (m_child[0] and m_child[1] have textures in them,
 		//then make sure we don't have texture already in here
 		if ( m_pChart )
-			return NULL;	//if we already have a texture, return NULL
+			return nullptr;	//if we already have a texture, return NULL
 
 		//else, see if we can even fit the lightmap
 		int width = m_rect.width;// + 1;
 		int height = m_rect.height;// + 1;
 
 		if ( width < texWidth || height < texHeight )
-			return NULL;		//we don't fit!!!
+			return nullptr;		//we don't fit!!!
 
 		//if we're just the right size, then add the lightmap and we're done
 		if ( width == texWidth && height == texHeight )
@@ -239,7 +239,7 @@ CAtlasPacker::CAtlasPacker()
 	m_nWidth = 0;
 	m_nHeight = 0;
 
-	m_pRootNode = NULL;
+	m_pRootNode = nullptr;
 }
 
 CAtlasPacker::~CAtlasPacker()

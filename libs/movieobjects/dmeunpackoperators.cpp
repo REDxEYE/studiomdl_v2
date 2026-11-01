@@ -8,8 +8,7 @@
 #include "datamodel/dmelementfactoryhelper.h"
 #include "datamodel/dmattribute.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 //-----------------------------------------------------------------------------
@@ -288,7 +287,7 @@ void CDmeUnpackVMatrixOperator::OnConstruction()
 {
 	m_vmatrix.Init( this, "vmatrix" );
 	char name[ 4 ];
-	for ( uint i = 0; i < 16; ++i )
+	for ( uint32_t i = 0; i < 16; ++i )
 	{
 		Q_snprintf( name, sizeof(name), "m%d%d", i >> 2, i & 0x3 );
 		m_cells[ i ].Init( this, name );
@@ -302,7 +301,7 @@ void CDmeUnpackVMatrixOperator::OnDestruction()
 bool CDmeUnpackVMatrixOperator::IsDirty()
 {
 	const VMatrix &v = m_vmatrix.Get();
-	for ( uint i = 0; i < 16; ++i )
+	for ( uint32_t i = 0; i < 16; ++i )
 	{
 		if ( *( v[ i ] ) != m_cells[ i ].Get() )
 			return true;
@@ -313,7 +312,7 @@ bool CDmeUnpackVMatrixOperator::IsDirty()
 void CDmeUnpackVMatrixOperator::Operate()
 {
 	VMatrix v;
-	for ( uint i = 0; i < 16; ++i )
+	for ( uint32_t i = 0; i < 16; ++i )
 	{
 		m_cells[ i ].Set( *( v[ i ] ) );
 	}
@@ -327,7 +326,7 @@ void CDmeUnpackVMatrixOperator::GetInputAttributes( CUtlVector< CDmAttribute * >
 
 void CDmeUnpackVMatrixOperator::GetOutputAttributes( CUtlVector< CDmAttribute * > &attrs )
 {
-	for ( uint i = 0; i < 16; ++i )
+	for ( uint32_t i = 0; i < 16; ++i )
 	{
 		attrs.AddToTail( m_cells[i].GetAttribute() );
 	}

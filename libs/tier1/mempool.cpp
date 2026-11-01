@@ -4,21 +4,20 @@
 //
 //===========================================================================//
 
+#include <cstddef>
 #include "tier1/mempool.h"
 #include <stdio.h>
 #include <memory.h>
-#include "tier0/dbg.h"
+
 #include <ctype.h>
 #include "tier1/strtools.h"
 
-#ifndef _PS3
 #include <malloc.h>
-#endif
 
 // Should be last include
 //#include "tier0/memdbgon.h"
 
-MemoryPoolReportFunc_t CUtlMemoryPool::g_ReportFunc = 0;
+MemoryPoolReportFunc_t CUtlMemoryPool::g_ReportFunc = nullptr;
 
 //-----------------------------------------------------------------------------
 // Error reporting...  (debug only)
@@ -34,14 +33,10 @@ void CUtlMemoryPool::SetErrorReportFunc( MemoryPoolReportFunc_t func )
 //-----------------------------------------------------------------------------
 CUtlMemoryPool::CUtlMemoryPool( int blockSize, int numElements, int growMode, const char *pszAllocOwner, int nAlignment )
 {
-#ifdef _X360
-	if( numElements > 0 && growMode != GROW_NONE )
-	{
-		numElements = 1;
-	}
-#endif
 
-	m_nAlignment = ( nAlignment != 0 ) ? nAlignment : 1;
+	// Blocks hold objects and, while free, the free-list pointer: without an explicit alignment they must still be
+	// aligned for any type (an alignment of 1 put CDmElement/CDmAttribute and the free-list pointers at odd addresses)
+	m_nAlignment = ( nAlignment != 0 ) ? nAlignment : (int)alignof( std::max_align_t );
 	Assert( IsPowerOfTwo( m_nAlignment ) );
 	m_BlockSize = blockSize < sizeof(void*) ? sizeof(void*) : blockSize;
 	m_BlockSize = AlignValue( m_BlockSize, m_nAlignment );
@@ -79,7 +74,7 @@ void CUtlMemoryPool::Init()
 {
 	m_NumBlobs = 0;
 	m_BlocksAllocated = 0;
-	m_pHeadOfFreeList = 0;
+	m_pHeadOfFreeList = nullptr;
 	m_BlobHead.m_pNext = m_BlobHead.m_pPrev = &m_BlobHead;
 }
 
@@ -112,9 +107,9 @@ bool CUtlMemoryPool::IsAllocationWithinPool( void *pMem ) const
 			continue;
 
 		// Make sure the allocation is on a block boundary
-		intp pFirstAllocation = AlignValue( ( intp ) pCur->m_Data, m_nAlignment );
+		intptr_t pFirstAllocation = AlignValue( ( intptr_t ) pCur->m_Data, m_nAlignment );
 
-		intp nOffset = (intp)pMem - pFirstAllocation;
+		intptr_t nOffset = (intptr_t)pMem - pFirstAllocation;
 		return ( nOffset % m_BlockSize ) == 0;
 	}
 
@@ -178,7 +173,6 @@ void CUtlMemoryPool::ReportLeaks()
 //-----------------------------------------------------------------------------
 void CUtlMemoryPool::AddNewBlob()
 {
-	MEM_ALLOC_CREDIT_(m_pszAllocOwner);
 
 	int sizeMultiplier;
 
@@ -226,7 +220,7 @@ void CUtlMemoryPool::AddNewBlob()
 	}
 
 	// null terminate list
-	newBlob[0] = NULL;
+	newBlob[0] = nullptr;
 	m_NumBlobs++;
 }
 
@@ -252,7 +246,7 @@ void *CUtlMemoryPool::Alloc( size_t amount )
 	void *returnBlock;
 
 	if ( amount > (size_t)m_BlockSize )
-		return NULL;
+		return nullptr;
 
 	if ( !m_pHeadOfFreeList )
 	{
@@ -260,7 +254,7 @@ void *CUtlMemoryPool::Alloc( size_t amount )
 		if ( m_GrowMode == GROW_NONE && m_NumBlobs > 0 )
 		{
 			//Assert( !"CUtlMemoryPool::Alloc: tried to make new blob with GROW_NONE" );
-			return NULL;
+			return nullptr;
 		}
 
 		// overflow
@@ -270,7 +264,7 @@ void *CUtlMemoryPool::Alloc( size_t amount )
 		if ( !m_pHeadOfFreeList )
 		{
 			Assert( !"CUtlMemoryPool::Alloc: ran out of memory" );
-			return NULL;
+			return nullptr;
 		}
 	}
 	m_BlocksAllocated++;
@@ -336,7 +330,7 @@ void CUtlMemoryPool::Free( void *memBlock )
 
 int CUtlMemoryPool::Size() const		
 { 
-	uint32 size = 0;
+	uint32_t size = 0;
 
 	for( CBlob *pCur=m_BlobHead.m_pNext; pCur != &m_BlobHead; pCur=pCur->m_pNext )
 	{

@@ -327,7 +327,7 @@ static bool LineSegmentIntersectsPolygon( const CUtlVector< Vector > &polygonPoi
 		// @TODO: make sure the replacement is ok before deleting
 		//if ( LineSegmentsIntersect( vNormal, vA, vB, vPrev, vCurrent, &flTimeOfIntersection, &flOtherTimeOfIntersection ) )
 
-		CalcLineToLineIntersectionSegment( vA, vB, vPrev, vCurrent, NULL, NULL, &flTimeOfIntersection, &flOtherTimeOfIntersection );
+		CalcLineToLineIntersectionSegment( vA, vB, vPrev, vCurrent, nullptr, nullptr, &flTimeOfIntersection, &flOtherTimeOfIntersection );
 		if ( flTimeOfIntersection >= -LINE_INTERSECT_EPSILON && flTimeOfIntersection <= 1.0f + LINE_INTERSECT_EPSILON && flOtherTimeOfIntersection >= -LINE_INTERSECT_EPSILON && flTimeOfIntersection <= 1.0f + LINE_INTERSECT_EPSILON )
 		{
 			// If the line segment intersection occurs right at the beginning of the hole line segment, ignore it because we'll catch it as an intersection at the end of 
@@ -616,7 +616,7 @@ void DecomposePolygon( const CUtlVector< Vector > &polygonPoints, const Vector &
 {
 	int nFirstIndex = 0; // The Nth vertex in the remaining polygon
 
-	SubPolygon_t *pNewPartition = NULL;
+	SubPolygon_t *pNewPartition = nullptr;
 	while ( pOriginalPolygon->m_Indices.Count() >= 3 )
 	{
 		if ( !pNewPartition )
@@ -626,7 +626,7 @@ void DecomposePolygon( const CUtlVector< Vector > &polygonPoints, const Vector &
 		DecomposePolygon_Step( polygonPoints, vNormal, pHoles, pNewPartition, pOriginalPolygon, &nFirstIndex );
 		if ( pNewPartition->m_Indices.Count() >= 3 )
 		{
-			pNewPartition = NULL;
+			pNewPartition = nullptr;
 		}
 		else
 		{
@@ -655,7 +655,7 @@ bool IsPointInPolygonPrism( const Vector *pPolygonPoints, int nPointCount, const
 		vPrev = vCurrent;
 	}
 
-	if ( pHeight != NULL )
+	if ( pHeight != nullptr)
 	{
 		vNormal.NormalizeInPlace();
 		*pHeight = ( vPoint - pPolygonPoints[0] ).Dot( vNormal );

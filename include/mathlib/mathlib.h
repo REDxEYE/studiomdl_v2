@@ -4,14 +4,13 @@
 //
 //===========================================================================//
 
-#ifndef MATH_LIB_H
-#define MATH_LIB_H
+#pragma once
 
 #include <math.h>
 #include "tier0/basetypes.h"
 #include "mathlib/vector.h"
 #include "mathlib/vector2d.h"
-#include "tier0/dbg.h"
+
 #include "mathlib/math_pfns.h"
 #include "mathlib/fltx4.h"
 
@@ -29,9 +28,9 @@ struct cplane_t
 {
 	Vector	normal;
 	float	dist;
-	byte	type;			// for fast side tests
-	byte	signbits;		// signx + (signy<<1) + (signz<<1)
-	byte	pad[2];
+	uint8_t	type;			// for fast side tests
+	uint8_t	signbits;		// signx + (signy<<1) + (signz<<1)
+	uint8_t	pad[2];
 
 #ifdef VECTOR_NO_SLOW_OPERATIONS
 	cplane_t() {}
@@ -273,8 +272,8 @@ public:
 
 
 	// raw data simd accessor
-	FORCEINLINE fltx4 &SIMDRow( uint nIdx ) { AssertDbg( nIdx < 3 ); return *( ( fltx4 * )( &( m_flMatVal[ nIdx ] ) ) ); }
-	FORCEINLINE const fltx4 &SIMDRow( uint nIdx ) const { AssertDbg( nIdx < 3 ); return *( ( const fltx4 * )( &( m_flMatVal[ nIdx ] ) ) ); }
+	FORCEINLINE fltx4 &SIMDRow( uint32_t nIdx ) { AssertDbg( nIdx < 3 ); return *( ( fltx4 * )( &( m_flMatVal[ nIdx ] ) ) ); }
+	FORCEINLINE const fltx4 &SIMDRow( uint32_t nIdx ) const { AssertDbg( nIdx < 3 ); return *( ( const fltx4 * )( &( m_flMatVal[ nIdx ] ) ) ); }
 
 } ALIGN16_POST;
 
@@ -470,45 +469,7 @@ size_t Q_log2( unsigned int val );
 // Math routines done in optimized assembly math package routines
 void inline SinCos( float radians, float * RESTRICT sine, float * RESTRICT cosine )
 {
-#if defined( _X360 )
-	XMScalarSinCos( sine, cosine, radians );
-#elif defined( _PS3 )
-#if ( __GNUC__ == 4 ) && ( __GNUC_MINOR__ == 1 ) && ( __GNUC_PATCHLEVEL__ == 1 )
-	vector_float_union s;
-	vector_float_union c;
-
-	vec_float4 rad = vec_splats( radians );
-	vec_float4 sin;
-	vec_float4 cos;
-
-	sincosf4( rad, &sin, &cos );
-
-	vec_st( sin, 0, s.f );
-	vec_st( cos, 0, c.f );
-
-	*sine   = s.f[0];
-	*cosine = c.f[0];
-#else //__GNUC__ == 4 && __GNUC_MINOR__ == 1 && __GNUC_PATCHLEVEL__ == 1
-	vector_float_union r;
-	vector_float_union s;
-	vector_float_union c;
-
-	vec_float4 rad;
-	vec_float4 sin;
-	vec_float4 cos;
-
-	r.f[0] = radians;
-	rad = vec_ld( 0, r.f );
-
-	sincosf4( rad, &sin, &cos );
-
-	vec_st( sin, 0, s.f );
-	vec_st( cos, 0, c.f );
-
-	*sine   = s.f[0];
-	*cosine = c.f[0];
-#endif //__GNUC__ == 4 && __GNUC_MINOR__ == 1 && __GNUC_PATCHLEVEL__ == 1
-#elif defined( COMPILER_MSVC32 )
+#if   defined( COMPILER_MSVC32 )
 	_asm
 	{
 		fld		DWORD PTR [radians]
@@ -521,7 +482,7 @@ void inline SinCos( float radians, float * RESTRICT sine, float * RESTRICT cosin
 		fstp DWORD PTR [eax]
 	}
 #elif defined( GNUC )
-	register double __cosr, __sinr;
+	double __cosr, __sinr;
  	__asm __volatile__ ("fsincos" : "=t" (__cosr), "=u" (__sinr) : "0" (radians));
 
   	*sine = __sinr;
@@ -577,7 +538,7 @@ FORCEINLINE T Square( T const &a )
 	return a * a;
 }
 
-FORCEINLINE bool IsPowerOfTwo( uint x )
+FORCEINLINE bool IsPowerOfTwo( uint32_t x )
 {
 	return ( x & ( x - 1 ) ) == 0;
 }
@@ -586,7 +547,7 @@ FORCEINLINE bool IsPowerOfTwo( uint x )
 // returns 0 if x == 0 or x > 0x80000000 (ie numbers that would be negative if x was signed)
 // NOTE: the old code took an int, and if you pass in an int of 0x80000000 casted to a uint,
 //       you'll get 0x80000000, which is correct for uints, instead of 0, which was correct for ints
-FORCEINLINE uint SmallestPowerOfTwoGreaterOrEqual( uint x )
+FORCEINLINE uint32_t SmallestPowerOfTwoGreaterOrEqual( uint32_t x )
 {
 	x -= 1;
 	x |= x >> 1;
@@ -598,7 +559,7 @@ FORCEINLINE uint SmallestPowerOfTwoGreaterOrEqual( uint x )
 }
 
 // return the largest power of two <= x. Will return 0 if passed 0
-FORCEINLINE uint LargestPowerOfTwoLessThanOrEqual( uint x )
+FORCEINLINE uint32_t LargestPowerOfTwoLessThanOrEqual( uint32_t x )
 {
 	if ( x >= 0x80000000 )
 		return 0x80000000;
@@ -671,7 +632,7 @@ inline void MatrixMultiply ( const matrix3x4_t &in1, const matrix3x4_t &in2, mat
 
 void QuaternionExp( const Quaternion &p, Quaternion &q );
 void QuaternionLn( const Quaternion &p, Quaternion &q );
-void QuaternionAverageExponential( Quaternion &q, int nCount, const Quaternion *pQuaternions, const float *pflWeights = NULL );
+void QuaternionAverageExponential( Quaternion &q, int nCount, const Quaternion *pQuaternions, const float *pflWeights = nullptr);
 void QuaternionLookAt( const Vector &vecForward, const Vector &referenceUp, Quaternion &q );
 void QuaternionSlerp( const Quaternion &p, const Quaternion &q, float t, Quaternion &qt );
 void QuaternionSlerpNoAlign( const Quaternion &p, const Quaternion &q, float t, Quaternion &qt );
@@ -715,8 +676,8 @@ inline void MatrixQuaternion( const matrix3x4_t &mat, Quaternion &q, Vector &o )
 
 
 
-float MatrixQuaternionTest( uint );
-float MatrixQuaternionTest2( uint );
+float MatrixQuaternionTest( uint32_t );
+float MatrixQuaternionTest2( uint32_t );
 
 /// qt = p + s * q
 void QuaternionAccumulate( const Quaternion &p, float s, const Quaternion &q, Quaternion &qt );
@@ -942,73 +903,6 @@ inline float anglemod(float a)
 }
 
 //// CLAMP
-#if defined(__cplusplus) && defined(PLATFORM_PPC)
-
-#ifdef _X360
-#define __fsels __fsel
-#endif
-
-template< >
-inline double clamp( double const &val, double const &minVal, double const &maxVal )
-{
-	float diffmin = val - minVal;
-	float diffmax = maxVal - val;
-	float r;
-	r = __fsel(diffmin, val, minVal);
-	r = __fsel(diffmax, r, maxVal);
-	return r;
-}
-
-template< >
-inline double clamp( double const &val, float const &minVal, float const &maxVal )
-{
-	// these typecasts are actually free since all FPU regs are 64 bit on PPC anyway
-	return clamp ( val, (double) minVal, (double) maxVal );
-}
-template< >
-inline double clamp( double const &val, float const &minVal, double const &maxVal )
-{
-	return clamp ( val, (double) minVal, (double) maxVal );
-}
-template< >
-inline double clamp( double const &val, double const &minVal, float const &maxVal )
-{
-	return clamp ( val, (double) minVal, (double) maxVal );
-}
-
-template< >
-inline float clamp( float const &val, float const &minVal, float const &maxVal )
-{
-	float diffmin = val - minVal;
-	float diffmax = maxVal - val;
-	float r;
-	r = __fsels(diffmin, val, minVal);
-	r = __fsels(diffmax, r, maxVal);
-	return r;
-}
-
-template< >
-inline float clamp( float const &val, double const &minVal, double const &maxVal )
-{
-	float diffmin = val - minVal;
-	float diffmax = maxVal - val;
-	float r;
-	r = __fsels(diffmin, val, minVal);
-	r = __fsels(diffmax, r, maxVal);
-	return r;
-}
-template< >
-inline float clamp( float const &val, double const &minVal, float const &maxVal )
-{
-	return clamp ( val, (float) minVal, maxVal );
-}
-template< >
-inline float clamp( float const &val, float const &minVal, double const &maxVal )
-{
-	return clamp ( val, minVal, (float) maxVal );
-}
-
-#endif
 
 // Remap a value in the range [A,B] to [C,D].
 inline float RemapVal( float val, float A, float B, float C, float D)
@@ -1598,26 +1492,6 @@ inline float SimpleSplineRemapValClamped( float val, float A, float B, float C, 
 
 FORCEINLINE int RoundFloatToInt(float f)
 {
-#if defined( _X360 )
-#ifdef Assert
-	Assert( IsFPUControlWordSet() );
-#endif
-	union
-	{
-		double flResult;
-		int pResult[2];
-	};
-	flResult = __fctiw( f );
-	return pResult[1];
-#elif defined ( _PS3 )
-#if defined(__SPU__)
-	int nResult;
-	nResult = static_cast<int>(f);
-	return nResult;
-#else
-	return  __fctiw( f );
-#endif
-#else // !X360
 	int nResult;
 #if defined( COMPILER_MSVC32 )
 	__asm
@@ -1633,36 +1507,10 @@ FORCEINLINE int RoundFloatToInt(float f)
 	nResult = static_cast<int>(f);
 #endif
 	return nResult;
-#endif
 }
 
 FORCEINLINE unsigned char RoundFloatToByte(float f)
 {
-#if defined( _X360 )
-#ifdef Assert
-	Assert( IsFPUControlWordSet() );
-#endif
-	union
-	{
-		double flResult;
-		int pIntResult[2];
-		unsigned char pResult[8];
-	};
-	flResult = __fctiw( f );
-#ifdef Assert
-	Assert( pIntResult[1] >= 0 && pIntResult[1] <= 255 );
-#endif
-	return pResult[7];
-
-#elif defined ( _PS3 )
-#if defined(__SPU__)
-	int nResult;
-	nResult = static_cast<unsigned int> (f) & 0xff;
-	return nResult;
-#else
-	return __fctiw( f );
-#endif
-#else // !X360
 	
 	int nResult;
 
@@ -1685,31 +1533,10 @@ FORCEINLINE unsigned char RoundFloatToByte(float f)
 #endif 
 	return nResult;
 
-#endif
 }
 
-FORCEINLINE unsigned long RoundFloatToUnsignedLong(float f)
+FORCEINLINE uint32_t RoundFloatToUnsignedLong(float f)
 {
-#if defined( _X360 )
-#ifdef Assert
-	Assert( IsFPUControlWordSet() );
-#endif
-	union
-	{
-		double flResult;
-		int pIntResult[2];
-		unsigned long pResult[2];
-	};
-	flResult = __fctiw( f );
-	Assert( pIntResult[1] >= 0 );
-	return pResult[1];
-#elif defined ( _PS3 )
-#if defined(__SPU__)
-	return static_cast<unsigned long>(f);
-#else
-	return __fctiw( f );
-#endif
-#else  // !X360
 	
 #if defined( COMPILER_MSVC32 )
 	unsigned char nResult[8];
@@ -1718,18 +1545,17 @@ FORCEINLINE unsigned long RoundFloatToUnsignedLong(float f)
 		fld f
 		fistp       qword ptr nResult
 	}
-	return *((unsigned long*)nResult);
+	return *((uint32_t*)nResult);
 #elif defined( COMPILER_GCC )
 	unsigned char nResult[8];
 	__asm __volatile__ (
 		"fistpl %0;": "=m" (nResult): "t" (f) : "st"
 	);
-	return *((unsigned long*)nResult);
+	return *((uint32_t*)nResult);
 #else
-	return static_cast<unsigned long>(f);
+	return static_cast<uint32_t>(f);
 #endif
 
-#endif
 }
 
 FORCEINLINE bool IsIntegralValue( float flValue, float flTolerance = 0.001f )
@@ -1740,23 +1566,6 @@ FORCEINLINE bool IsIntegralValue( float flValue, float flTolerance = 0.001f )
 // Fast, accurate ftol:
 FORCEINLINE int Float2Int( float a )
 {
-#if defined( _X360 )
-	union
-	{
-		double flResult;
-		int pResult[2];
-	};
-	flResult = __fctiwz( a );
-	return pResult[1];
-#elif defined ( _PS3 )
-#if defined(__SPU__)
-	int RetVal;
-	RetVal = static_cast<int>( a );
-	return RetVal;
-#else
-	return __fctiwz( a );
-#endif
-#else  // !X360
 	
 	int RetVal;
 
@@ -1780,7 +1589,6 @@ FORCEINLINE int Float2Int( float a )
 #endif
 
 	return RetVal;
-#endif
 }
 
 
@@ -1790,9 +1598,7 @@ inline int Floor2Int( float a )
 {
    int RetVal;
 
-#if defined( PLATFORM_PPC )
-	RetVal = (int)floor( a );
-#elif defined( COMPILER_MSVC32 )
+#if   defined( COMPILER_MSVC32 )
    int CtrlwdHolder;
    int CtrlwdSetter;
    __asm 
@@ -1825,11 +1631,7 @@ FORCEINLINE unsigned char FastFToC( float c )
 	dc = c * 255.0f + (float)(1 << 23);
 	
 	// return the lsb
-#if defined( _X360 ) || defined( _PS3 )
-	return ((unsigned char*)&dc)[3];
-#else
 	return *(unsigned char*)&dc;
-#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -1848,9 +1650,7 @@ inline int Ceil2Int( float a )
 {
    int RetVal;
 
-#if defined( PLATFORM_PPC )
-	RetVal = (int)ceil( a );
-#elif defined( COMPILER_MSVC32 )
+#if   defined( COMPILER_MSVC32 )
    int CtrlwdHolder;
    int CtrlwdSetter;
    __asm 
@@ -2255,14 +2055,14 @@ inline float CalcDistanceToAABB( const Vector &mins, const Vector &maxs, const V
 // calculate the shortest distance from P to the line.
 // If you pass in a value for t, it will tell you the t for (A + (B-A)t) to get the closest point.
 // If the closest point lies on the segment between A and B, then 0 <= t <= 1.
-void  CalcClosestPointOnLine( const Vector &P, const Vector &vLineA, const Vector &vLineB, Vector &vClosest, float *t=0 );
-float CalcDistanceToLine( const Vector &P, const Vector &vLineA, const Vector &vLineB, float *t=0 );
-float CalcDistanceSqrToLine( const Vector &P, const Vector &vLineA, const Vector &vLineB, float *t=0 );
+void  CalcClosestPointOnLine( const Vector &P, const Vector &vLineA, const Vector &vLineB, Vector &vClosest, float *t=nullptr );
+float CalcDistanceToLine( const Vector &P, const Vector &vLineA, const Vector &vLineB, float *t=nullptr );
+float CalcDistanceSqrToLine( const Vector &P, const Vector &vLineA, const Vector &vLineB, float *t=nullptr );
 
 // The same three functions as above, except now the line is closed between A and B.
-void  CalcClosestPointOnLineSegment( const Vector &P, const Vector &vLineA, const Vector &vLineB, Vector &vClosest, float *t=0 );
-float CalcDistanceToLineSegment( const Vector &P, const Vector &vLineA, const Vector &vLineB, float *t=0 );
-float CalcDistanceSqrToLineSegment( const Vector &P, const Vector &vLineA, const Vector &vLineB, float *t=0 );
+void  CalcClosestPointOnLineSegment( const Vector &P, const Vector &vLineA, const Vector &vLineB, Vector &vClosest, float *t=nullptr );
+float CalcDistanceToLineSegment( const Vector &P, const Vector &vLineA, const Vector &vLineB, float *t=nullptr );
+float CalcDistanceSqrToLineSegment( const Vector &P, const Vector &vLineA, const Vector &vLineB, float *t=nullptr );
 
 // A function to compute the closes line segment connnection two lines (or false if the lines are parallel, etc.)
 bool CalcLineToLineIntersectionSegment(
@@ -2270,12 +2070,12 @@ bool CalcLineToLineIntersectionSegment(
    float *t1, float *t2 );
 
 // The above functions in 2D
-void  CalcClosestPointOnLine2D( Vector2D const &P, Vector2D const &vLineA, Vector2D const &vLineB, Vector2D &vClosest, float *t=0 );
-float CalcDistanceToLine2D( Vector2D const &P, Vector2D const &vLineA, Vector2D const &vLineB, float *t=0 );
-float CalcDistanceSqrToLine2D( Vector2D const &P, Vector2D const &vLineA, Vector2D const &vLineB, float *t=0 );
-void  CalcClosestPointOnLineSegment2D( Vector2D const &P, Vector2D const &vLineA, Vector2D const &vLineB, Vector2D &vClosest, float *t=0 );
-float CalcDistanceToLineSegment2D( Vector2D const &P, Vector2D const &vLineA, Vector2D const &vLineB, float *t=0 );
-float CalcDistanceSqrToLineSegment2D( Vector2D const &P, Vector2D const &vLineA, Vector2D const &vLineB, float *t=0 );
+void  CalcClosestPointOnLine2D( Vector2D const &P, Vector2D const &vLineA, Vector2D const &vLineB, Vector2D &vClosest, float *t=nullptr );
+float CalcDistanceToLine2D( Vector2D const &P, Vector2D const &vLineA, Vector2D const &vLineB, float *t=nullptr );
+float CalcDistanceSqrToLine2D( Vector2D const &P, Vector2D const &vLineA, Vector2D const &vLineB, float *t=nullptr );
+void  CalcClosestPointOnLineSegment2D( Vector2D const &P, Vector2D const &vLineA, Vector2D const &vLineB, Vector2D &vClosest, float *t=nullptr );
+float CalcDistanceToLineSegment2D( Vector2D const &P, Vector2D const &vLineA, Vector2D const &vLineB, float *t=nullptr );
+float CalcDistanceSqrToLineSegment2D( Vector2D const &P, Vector2D const &vLineA, Vector2D const &vLineB, float *t=nullptr );
 
 // Init the mathlib
 void MathLib_Init( float gamma = 2.2f, float texGamma = 2.2f, float brightness = 0.0f, int overbright = 2.0f, bool bAllow3DNow = true, bool bAllowSSE = true, bool bAllowSSE2 = true, bool bAllowMMX = true );
@@ -2686,24 +2486,6 @@ FORCEINLINE void RGB2YUV( int &nR, int &nG, int &nB, float &fY, float &fU, float
 	}
 }
 
-#ifdef _X360
-// Used for direct CPU access to VB data on 360 (used by shaderapi, studiorender and engine)
-struct VBCPU_AccessInfo_t
-{
-	// Points to the GPU data pointer in the CVertexBuffer struct (VB data can be relocated during level transitions)
-	const byte **ppBaseAddress;
-	// pBaseAddress should be computed from ppBaseAddress immediately before use
-	const byte  *pBaseAddress;
-	int          nStride;
-	int          nPositionOffset;
-	int          nTexCoord0_Offset;
-	int          nNormalOffset;
-	int          nBoneIndexOffset;
-	int          nBoneWeightOffset;
-	int          nCompressionType;
-	// TODO: if needed, add colour and tangents
-};
-#endif
 
 //-----------------------------------------------------------------------------
 // Convert RGB to HSV
@@ -2720,18 +2502,10 @@ void HSVtoRGB( const Vector &hsv, Vector &rgb );
 //-----------------------------------------------------------------------------
 // Fast version of pow and log
 //-----------------------------------------------------------------------------
-#ifndef _PS3 // these actually aren't fast (or correct) on the PS3
 float FastLog2(float i);			// log2( i )
 float FastPow2(float i);			// 2^i
 float FastPow(float a, float b);	// a^b
 float FastPow10( float i );			// 10^i
-#else
-inline float FastLog2(float i) {return logbf(i);}			// log2( i )
-inline float FastPow2(float i) {return exp2f(i);}			// 2^i
-inline float FastPow(float a, float b) {return powf(a,b);}	// a^b
-#define LOGBASE2OF10 3.3219280948873623478703194294893901758648313930
-inline float FastPow10( float i ) { return exp2f( i * LOGBASE2OF10 ); }			// 10^i, transform to base two, so log2(10^y) = y log2(10) . log2(10) = 3.3219280948873623478703194294893901758648313930
-#endif
 
 //-----------------------------------------------------------------------------
 // For testing float equality
@@ -2784,16 +2558,6 @@ inline float Approach( float target, float value, float speed )
 {
 	float delta = target - value;
 
-#if defined(_X360) || defined( _PS3 ) // use conditional move for speed on 360
-
-	return fsel( delta-speed,	// delta >= speed ?
-				 value + speed,	// if delta == speed, then value + speed == value + delta == target  
-				 fsel( (-speed) - delta, // delta <= -speed
-						value - speed,
-						target )
-				);  // delta < speed && delta > -speed
-
-#else
 
 	if ( delta > speed )
 		value += speed;
@@ -2804,7 +2568,6 @@ inline float Approach( float target, float value, float speed )
 		
 	return value;
 
-#endif
 }
 
 
@@ -2822,31 +2585,10 @@ inline float interpstep(float edge0, float edge1, float x)
 }
 
 // on PPC we can do this truncate without converting to int
-#if defined(_X360) || defined(_PS3)
-inline double TruncateFloatToIntAsFloat( double flVal )
-{
-#if defined(_X360)
-	double flIntFormat = __fctiwz( flVal );
-	return __fcfid( flIntFormat );
-#elif defined(_PS3)
-#if defined(__SPU__)
-	int iVal = int(flVal);
-	return static_cast<double>(iVal);
-#else
-	double flIntFormat = __builtin_fctiwz( flVal );
-	return __builtin_fcfid( flIntFormat );
-#endif
-#endif
-}
-#endif
 
 inline double SubtractIntegerPart( double flVal )
 {
-#if defined(_X360) || defined(_PS3)
-	return flVal - TruncateFloatToIntAsFloat(flVal);
-#else
 	return flVal - int(flVal);
-#endif
 }
 
 
@@ -3074,5 +2816,4 @@ void BuildTransformedBox( Vector *v2, Vector const &bbmin, Vector const &bbmax, 
 
 
 
-#endif	// MATH_BASE_H
 

@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: Bi-directional set. A Bucket knows about the elements that lie
 // in it, and the elements know about the buckets they lie in.
@@ -7,14 +7,13 @@
 // $NoKeywords: $
 //=============================================================================//
 
-#ifndef UTLBIDIRECTIONALSET_H
-#define UTLBIDIRECTIONALSET_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
 #endif
 
-#include "tier0/dbg.h"
+
 #include "utllinkedlist.h"
 
 //-----------------------------------------------------------------------------
@@ -52,13 +51,8 @@ public:
 	typedef S& (*FirstElementFunc_t)(CBucketHandle);
 	typedef S& (*FirstBucketFunc_t)(CElementHandle);
 
-#ifdef _X360
-	typedef uint32 CBucketHandlePram;
-	typedef uint32 CElementHandlePram;
-#else
 	typedef CBucketHandle  CBucketHandlePram;
 	typedef CElementHandle CElementHandlePram;
-#endif
 
 	// Constructor
 	CBidirectionalSet();
@@ -391,4 +385,3 @@ inline CBucketHandle CBidirectionalSet<CBucketHandle,CElementHandle,S,I>::Bucket
 	return m_BucketsUsedByElement[idx].m_Bucket;
 }
    
-#endif // UTLBIDIRECTIONALSET_H

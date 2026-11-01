@@ -39,8 +39,7 @@
 #include "ole2.h"
 #endif /*COM_NO_WINDOWS_H*/
 
-#ifndef __gameux_h__
-#define __gameux_h__
+#pragma once
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1020)
 #pragma once
@@ -713,7 +712,6 @@ void                      __RPC_USER  BSTR_UserFree64(     __RPC__in unsigned lo
 }
 #endif
 
-#endif
 
 
 

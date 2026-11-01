@@ -12,8 +12,7 @@
 #include "mdlobjects/dmeeyeball.h"
 
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 //-----------------------------------------------------------------------------
@@ -67,7 +66,7 @@ CDmeLOD* CDmeLODList::GetRootLOD()
 				break;
 		}
 	}
-	return ( nMinIndex >= 0 ) ? m_LODs[nMinIndex] : NULL;
+	return ( nMinIndex >= 0 ) ? m_LODs[nMinIndex] : nullptr;
 }
 
 
@@ -82,5 +81,5 @@ CDmeLOD* CDmeLODList::GetShadowLOD()
 		if ( m_LODs[i]->m_bIsShadowLOD )
 			return m_LODs[i];
 	}
-	return NULL;
+	return nullptr;
 }

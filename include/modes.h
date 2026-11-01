@@ -1,11 +1,10 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright Â© 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
 // $NoKeywords: $
 //=============================================================================//
-#if !defined( MODES_H )
-#define MODES_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -18,4 +17,3 @@ typedef struct vmode_s
 	int			refreshRate;
 } vmode_t;
 
-#endif // MODES_H

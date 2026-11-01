@@ -7,8 +7,7 @@
 // $NoKeywords: $
 //=============================================================================//
 
-#ifndef CMDLIB_H
-#define CMDLIB_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -22,7 +21,7 @@
 #if defined( CMDLIB_NODBGLIB )
 	void Error( char const *pMsg, ... );
 #else
-	#include "tier0/dbg.h"
+
 #endif
 
 #include <stdio.h>
@@ -181,9 +180,8 @@ extern bool g_bStopOnExit;
 // for compression routines
 typedef struct
 {
-	byte	*data;
+	uint8_t	*data;
 	int		count;
 } cblock_t;
 
 
-#endif // CMDLIB_H

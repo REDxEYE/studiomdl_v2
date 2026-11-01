@@ -13,7 +13,7 @@ static CMeshVertexAttribute g_PositionAttribute = {0,VERTEX_ELEMENT_POSITION};
 
 // CMesh - utility mesh class implementation
 CMesh::CMesh() : 
-	m_pVerts(NULL), m_pAttributes(NULL), m_pIndices(NULL), m_nVertexCount(0), m_nVertexStrideFloats(0),
+	m_pVerts(nullptr), m_pAttributes(nullptr), m_pIndices(nullptr), m_nVertexCount(0), m_nVertexStrideFloats(0),
 	m_nAttributeCount(0), m_nIndexCount(0), m_bAllocatedMeshData(false)
 {
 }
@@ -33,9 +33,9 @@ void CMesh::FreeAllMemory()
 		delete[] m_pAttributes;
 		delete[] m_pIndices;
 	}
-	m_pVerts = NULL;
-	m_pAttributes = NULL;
-	m_pIndices = NULL;
+	m_pVerts = nullptr;
+	m_pAttributes = nullptr;
+	m_pIndices = nullptr;
 	m_bAllocatedMeshData = false;
 	m_nAttributeCount = 0;
 	m_nVertexStrideFloats = 0;
@@ -60,7 +60,7 @@ void CMesh::AllocateMesh( int nVertexCount, int nIndexCount, int nVertexStride, 
 	// allocate the mesh data, mark as allocated so it will be freed on destruct
 	m_bAllocatedMeshData = true;
 	m_pVerts = new float[nVertexStride * nVertexCount];
-	m_pIndices = new uint32[nIndexCount];
+	m_pIndices = new uint32_t[nIndexCount];
 	m_pAttributes = new CMeshVertexAttribute[nAtrributeCount];
 
 	for ( int i = 0; i < nAtrributeCount; i++ )
@@ -69,7 +69,7 @@ void CMesh::AllocateMesh( int nVertexCount, int nIndexCount, int nVertexStride, 
 	}
 }
 
-void CMesh::AllocateAndCopyMesh( int nInputVertexCount, const float *pInputVerts, int nInputIndexCount, const uint32 *pInputIndices, int nVertexStride, CMeshVertexAttribute *pAttributes, int nAtrributeCount )
+void CMesh::AllocateAndCopyMesh( int nInputVertexCount, const float *pInputVerts, int nInputIndexCount, const uint32_t *pInputIndices, int nVertexStride, CMeshVertexAttribute *pAttributes, int nAtrributeCount )
 {
 	AllocateMesh( nInputVertexCount, nInputIndexCount, nVertexStride, pAttributes, nAtrributeCount );
 	V_memcpy( m_pVerts, pInputVerts, GetTotalVertexSizeInBytes() );
@@ -77,7 +77,7 @@ void CMesh::AllocateAndCopyMesh( int nInputVertexCount, const float *pInputVerts
 }
 
 
-void CMesh::InitExternalMesh( float *pVerts, int nVertexCount, uint32 *pIndices, int nIndexCount, int nVertexStride, CMeshVertexAttribute *pAttributes, int nAtrributeCount )
+void CMesh::InitExternalMesh( float *pVerts, int nVertexCount, uint32_t *pIndices, int nIndexCount, int nVertexStride, CMeshVertexAttribute *pAttributes, int nAtrributeCount )
 {
 	if ( !pAttributes )
 	{
@@ -105,10 +105,10 @@ void CMesh::AppendMesh( const CMesh &inputMesh )
 	int nTotalVertices = m_nVertexCount + inputMesh.m_nVertexCount;
 
 	float *pNewVB = new float[ nTotalVertices * m_nVertexStrideFloats ];
-	uint32 *pNewIB = new uint32[ nTotalIndices ];
+	uint32_t *pNewIB = new uint32_t[ nTotalIndices ];
 
 	Q_memcpy( pNewVB, m_pVerts, m_nVertexCount * m_nVertexStrideFloats * sizeof( float ) );
-	Q_memcpy( pNewIB, m_pIndices, m_nIndexCount * sizeof( uint32 ) );
+	Q_memcpy( pNewIB, m_pIndices, m_nIndexCount * sizeof( uint32_t ) );
 
 	int nCurrentIndex = m_nIndexCount;
 	
@@ -208,7 +208,7 @@ bool CMesh::CalculateAdjacency( int *pAdjacencyOut, int nSizeAdjacencyOut ) cons
 			tmp.m_nTri0 = f;
 			tmp.m_nTri1 = -1;
 
-			uint nHashKey = VertHashKey( nV0, nV1 );
+			uint32_t nHashKey = VertHashKey( nV0, nV1 );
 			UtlHashFastHandle_t edgeHashIndex = edgeHash.Find( nHashKey, tmp );
 			if ( edgeHash.InvalidHandle() == edgeHashIndex )
 			{
@@ -244,7 +244,7 @@ bool CMesh::CalculateAdjacency( int *pAdjacencyOut, int nSizeAdjacencyOut ) cons
 			tmp.m_nTri0 = -1;
 			tmp.m_nTri1 = -1;
 
-			uint nHashKey = VertHashKey( nV0, nV1 );
+			uint32_t nHashKey = VertHashKey( nV0, nV1 );
 			UtlHashFastHandle_t edgeHashIndex = edgeHash.Find( nHashKey, tmp );
 			Assert( edgeHash.InvalidHandle() != edgeHashIndex );
 		
@@ -416,7 +416,7 @@ void DuplicateMesh( CMesh *pMeshOut, const CMesh &inputMesh )
 	pMeshOut->AllocateMesh( inputMesh.m_nVertexCount, inputMesh.m_nIndexCount, inputMesh.m_nVertexStrideFloats, inputMesh.m_pAttributes, inputMesh.m_nAttributeCount );
 
 	Q_memcpy( pMeshOut->m_pVerts, inputMesh.m_pVerts, inputMesh.m_nVertexCount * inputMesh.m_nVertexStrideFloats * sizeof( float ) );
-	Q_memcpy( pMeshOut->m_pIndices, inputMesh.m_pIndices, inputMesh.m_nIndexCount * sizeof( uint32 ) );
+	Q_memcpy( pMeshOut->m_pIndices, inputMesh.m_pIndices, inputMesh.m_nIndexCount * sizeof( uint32_t ) );
 	pMeshOut->m_materialName = inputMesh.m_materialName;
 }
 
@@ -521,7 +521,7 @@ bool ConcatMeshes( CMesh *pMeshOut, CMesh **ppMeshIn, int nInputMeshes,
 	int nTotalVertices = 0;
 	int nAttributes = 0;
 	int nStrideFloats = 0;
-	CMeshVertexAttribute *pAttributes = NULL;
+	CMeshVertexAttribute *pAttributes = nullptr;
 	for ( int m=0; m<nInputMeshes; ++m )
 	{
 		CMesh *pMesh = ppMeshIn[m];
@@ -729,8 +729,8 @@ bool VertexMatches( const float *pV0, const float *pV1, const float *pEpsilons, 
 class CVertexKDNode
 {
 public:	
-	uint32 m_nChildren[2];
-	int32 m_nAxis;
+	uint32_t m_nChildren[2];
+	int32_t m_nAxis;
 	float m_flSplit;
 	
 	inline bool IsLeaf() const { return m_nAxis == 0xFF ? true : false; }
@@ -738,8 +738,8 @@ public:
 	{
 		m_nAxis = nAxis;
 		m_flSplit = flSplit;
-		m_nChildren[0] = uint32(~0);
-		m_nChildren[1] = uint32(~0);
+		m_nChildren[0] = uint32_t(~0);
+		m_nChildren[1] = uint32_t(~0);
 	}
 
 	inline int GetLeafVertCount() const { Assert(IsLeaf()); return m_nChildren[1]; }
@@ -913,8 +913,8 @@ bool WeldVertices( CMesh *pMeshOut, const CMesh &inputMesh, float *pEpsilons, in
 	CVertexKDTree searchTree;
 	searchTree.BuildMidpoint( inputMesh.m_pVerts, inputMesh.m_nVertexCount, inputMesh.m_nVertexStrideFloats );
 	CUtlVector< const float* > inOrderVertices;
-	CUtlVector<uint32> remapTable;
-	const uint32 nEmptyValue = uint32(~0);
+	CUtlVector<uint32_t> remapTable;
+	const uint32_t nEmptyValue = uint32_t(~0);
 	remapTable.SetCount( inputMesh.m_nVertexCount );
 	remapTable.FillWithValue( nEmptyValue );
 
@@ -974,7 +974,7 @@ bool WeldVertices( CMesh *pMeshOut, const CMesh &inputMesh, float *pEpsilons, in
 	for ( int i=0; i<inputMesh.m_nIndexCount; ++i )
 	{
 		pMeshOut->m_pIndices[ i ] = remapTable[ inputMesh.m_pIndices[ i ] ];
-		Assert( pMeshOut->m_pIndices[i] < (uint32)nNewVerts );
+		Assert( pMeshOut->m_pIndices[i] < (uint32_t)nNewVerts );
 	}
 
 	return true;
@@ -983,16 +983,16 @@ bool WeldVertices( CMesh *pMeshOut, const CMesh &inputMesh, float *pEpsilons, in
 
 void CleanMesh( CMesh *pMeshOut, const CMesh &inputMesh )
 {
-	CUtlVector<uint32> indexMap;
+	CUtlVector<uint32_t> indexMap;
 	indexMap.SetCount( inputMesh.m_nVertexCount );
-	const uint32 nUnusedIndex = ~0UL;
+	const uint32_t nUnusedIndex = ~0UL;
 	for ( int i = 0; i < inputMesh.m_nVertexCount; i++ )
 	{
 		indexMap[i] = nUnusedIndex;
 	}
 
 	// build a compact map of vertices
-	uint32 nVertexOut = 0;
+	uint32_t nVertexOut = 0;
 	int nIndexOut = 0;
 	for ( int i = 0; i < inputMesh.m_nIndexCount; i += 3 )
 	{
@@ -1042,7 +1042,7 @@ void CleanMesh( CMesh *pMeshOut, const CMesh &inputMesh )
 	{
 		if ( indexMap[v] == nUnusedIndex )
 			continue;
-		uint32 nVOut = indexMap[v];
+		uint32_t nVOut = indexMap[v];
 		CopyVertex( pMeshOut->GetVertex( nVOut ), inputMesh.GetVertex(v), inputMesh.m_nVertexStrideFloats );
 	}
 }
@@ -1050,8 +1050,8 @@ void CleanMesh( CMesh *pMeshOut, const CMesh &inputMesh )
 // partitions the mesh into an array of meshes, each with <= nMaxVertex vertices
 void SplitMesh( CUtlVector<CMesh> &list, const CMesh &input, int nMaxVertex )
 {
-	const uint32 nUnusedIndex = uint32(~0);
-	CUtlVector<uint32> indexMap;
+	const uint32_t nUnusedIndex = uint32_t(~0);
+	CUtlVector<uint32_t> indexMap;
 	indexMap.SetCount( input.m_nVertexCount );
 	for ( int i = 0; i < input.m_nVertexCount; i++ )
 	{
@@ -1061,7 +1061,7 @@ void SplitMesh( CUtlVector<CMesh> &list, const CMesh &input, int nMaxVertex )
 	CUtlVectorFixedGrowable<int, 32> indexCount;
 	CUtlVectorFixedGrowable<int, 32> vertexCount;
 
-	const uint32 *pIndex = input.m_pIndices;
+	const uint32_t *pIndex = input.m_pIndices;
 	const int nCount = input.m_nIndexCount;
 	int nIndex = 0;
 	int nIndexOut = 0;
@@ -1203,7 +1203,7 @@ float CMesh::GetVertexJointSumWeight( const SkinningDataFields_t &skinData, int 
 	int nWeightAttrSize= Min( GetAttrSizeFloats( skinData.m_nBoneIndices ), GetAttrSizeFloats( skinData.m_nBoneWeights ) );
 	if ( nWeightAttrSize > 1 )
 	{
-		Assert( uint( skinData.m_nBoneWeights ) < uint( m_nAttributeCount ) );
+		Assert( uint32_t( skinData.m_nBoneWeights ) < uint32_t( m_nAttributeCount ) );
 		const CMeshVertexAttribute &attrWeights = m_pAttributes[ skinData.m_nBoneWeights ];
 		//Assert( attrIndices.m_nSizeFloats == attrWeights.m_nSizeFloats );
 

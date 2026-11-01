@@ -5,8 +5,7 @@
 // $NoKeywords: $
 //
 //=============================================================================//
-#ifndef COMMONMACROS_H
-#define COMMONMACROS_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -171,4 +170,3 @@ T ClampedArrayElement( const T (&buffer)[N], unsigned int uIndex )
 	return buffer[ uIndex ];
 }
 
-#endif // COMMONMACROS_H

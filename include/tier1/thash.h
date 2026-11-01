@@ -5,8 +5,7 @@
 // $NoKeywords: $
 //=============================================================================
 
-#ifndef THASH_H
-#define THASH_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -27,7 +26,7 @@
 // Template arguments:
 //		Data: the class to be stored in the hash table
 //		I: the type of the primary key (uint32 by default)
-template<class Data, typename I=uint32>
+template<class Data, typename I=uint32_t>
 class CTHash
 {
 private:
@@ -43,7 +42,7 @@ private:
 		int m_nRunRatio;				// We want to run 1 cycle out of every m_nRunRatio
 										// cycles (not at all if 0).
 #ifdef DBGFLAG_THASH
-		uint m_iCycleLast;				// Last cycle we were visited (whether or not we ran)
+		uint32_t m_iCycleLast;				// Last cycle we were visited (whether or not we ran)
 #endif
 	} RecHdr_t;
 
@@ -108,7 +107,7 @@ private:
 	Data *PvRecordInsertInternal( RecHdr_t *pRecHdr, I unKey );
 
 	// Get the record associated with a THashHdr
-	Data *PvRecordFromPRecHdr( RecHdr_t *pRecHdr ) const { return ( Data * ) ( ( ( uint8 * ) pRecHdr + sizeof( RecHdr_t ) ) ); }
+	Data *PvRecordFromPRecHdr( RecHdr_t *pRecHdr ) const { return ( Data * ) ( ( ( uint8_t * ) pRecHdr + sizeof( RecHdr_t ) ) ); }
 
 	// Get the RecHdr preceding a PvRecord
 	RecHdr_t *PRecHdrFromPvRecord( Data *pvRecord ) const { return ( ( ( RecHdr_t * ) pvRecord ) - 1 ); }
@@ -131,10 +130,10 @@ private:
 	int m_cFramesPerCycle;				// Run each of our records once every m_cFramesPerCycle frames
 	RecHdr_t *m_pRecHdrRunNext;			// Next record to run (be careful-- this is more complicated than it sounds)
 	int m_iBucketRunMax;				// Stop running when we get to this bucket
-	uint m_iCycleCur;					// Current cycle (ie, how many times we've made a complete scheduler pass)
-	uint m_iCycleLast;					// Our previous cycle
-	uint m_iFrameCur;					// Our current frame (incremented once each StartFrameSchedule)
-	uint m_iCycleLastReported;			// Last cycle checked by BCompletedPass()
+	uint32_t m_iCycleCur;					// Current cycle (ie, how many times we've made a complete scheduler pass)
+	uint32_t m_iCycleLast;					// Our previous cycle
+	uint32_t m_iFrameCur;					// Our current frame (incremented once each StartFrameSchedule)
+	uint32_t m_iCycleLastReported;			// Last cycle checked by BCompletedPass()
 };
 
 
@@ -430,8 +429,8 @@ void CTHash<Data,I>::StartFrameSchedule( bool bNewFrame )
 
 	// Calculate the last bucket to run
 	int iFrameInCycle = m_iFrameCur % m_cFramesPerCycle;
-	m_iBucketRunMax = ( int ) ( ( ( int64 ) ( iFrameInCycle + 1 ) * ( int64 ) m_cBucket )
-		/ ( int64 ) m_cFramesPerCycle );
+	m_iBucketRunMax = ( int ) ( ( ( int64_t ) ( iFrameInCycle + 1 ) * ( int64_t ) m_cBucket )
+		/ ( int64_t ) m_cFramesPerCycle );
 	AssertFatal( m_iBucketRunMax >= 0 && m_iBucketRunMax <= m_cBucket );
 
 	// Are we starting a new cycle?
@@ -543,8 +542,8 @@ int CTHash<Data,I>::IBucket( I unKey ) const
 
 	// This is a pearsons hash variant that returns a maximum of 32 bits
 	size_t size = sizeof(I);
-	const uint8 *	k    = (const uint8 *) &unKey;
-	uint32 byte_one = 0, byte_two = 0, byte_three = 0, byte_four = 0, n;
+	const uint8_t *	k    = (const uint8_t *) &unKey;
+	uint32_t byte_one = 0, byte_two = 0, byte_three = 0, byte_four = 0, n;
 
 	while (size)
 	{
@@ -580,7 +579,7 @@ int CTHash<Data,I>::IBucket( I unKey ) const
 			break;
 	}
 
-	uint32 idx = ( byte_four << 24 ) | ( byte_three << 16 ) | ( byte_two << 8 ) | byte_one;
+	uint32_t idx = ( byte_four << 24 ) | ( byte_three << 16 ) | ( byte_two << 8 ) | byte_one;
 	idx = idx % m_cBucket;
 	return ( (int) idx ); 
 }
@@ -695,4 +694,3 @@ void CTHash<Data,I>::RemoveFromHash( Data * pvRemove )
 	m_cRecordInUse--;
 }
 
-#endif // THASH_H

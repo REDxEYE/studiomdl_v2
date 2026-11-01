@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2006, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2006, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
@@ -142,7 +142,7 @@ void CImportSFMV1::ConvertTimeAttribute( CDmElement *pElementInternal, const cha
 		pElementInternal->RemoveAttribute( pOldName );
 	}
 
-	CDmAttribute *pNewAttr = NULL;
+	CDmAttribute *pNewAttr = nullptr;
 
 	// this is disabled because even dmxconvert installs *some* movieobjects factories, when it probably shouldn't
 	// the method of installing movieobjects factories will change at some point in the future, and we can turn on this safety check then

@@ -29,8 +29,7 @@
 // ===========================================================================
 
 
-#ifndef APPINSTANCE_H
-#define APPINSTANCE_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -52,7 +51,7 @@ class CSingleAppInstance
 		static bool CheckForRunningInstance( tchar* InstanceName );
 
 		bool	IsUniqueInstance()	{ return m_isUniqueInstance; }
-		HANDLE	GetHandle()			{ return reinterpret_cast< HANDLE >( (intp) m_hMutex ); }
+		HANDLE	GetHandle()			{ return reinterpret_cast< HANDLE >( (intptr_t) m_hMutex ); }
 
 	private:
 		CSingleAppInstance();		// Hidden for a reason.  You must specify the instance name
@@ -66,4 +65,3 @@ class CSingleAppInstance
 		bool	m_isUniqueInstance;
 };
 
-#endif

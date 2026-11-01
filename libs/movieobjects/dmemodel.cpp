@@ -7,14 +7,11 @@
 #include "movieobjects_interfaces.h"
 #include "datamodel/dmelementfactoryhelper.h"
 #include "datacache/imdlcache.h"
-#include "tier2/tier2.h"
 #include "studio.h"
 #include "movieobjects/dmemesh.h"
 #include "movieobjects/dmechannel.h"
-#include "movieobjects/dmelog.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 //-----------------------------------------------------------------------------
@@ -180,7 +177,7 @@ CDmeTransformList *CDmeModel::FindBaseState( const char *pBaseStateName )
 		if ( !V_stricmp( m_BaseStates[i]->GetName(), pBaseStateName ) )
 			return m_BaseStates[i];
 	}
-	return NULL;
+	return nullptr;
 }
 
 
@@ -405,7 +402,7 @@ void CDmeModel::ReplaceMaterial( const char *pOldMaterialName, const char *pNewM
 //-----------------------------------------------------------------------------
 CDmeDag *CDmeModel::GetJoint( const char *pJointName )
 {
-	CDmeDag *pJoint = NULL;
+	CDmeDag *pJoint = nullptr;
 
 	const int nJointCount = m_JointList.Count();
 	for ( int i = 0; i < nJointCount; ++i )
@@ -418,7 +415,7 @@ CDmeDag *CDmeModel::GetJoint( const char *pJointName )
 			return pJoint;
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 
@@ -779,8 +776,6 @@ void CDmeModel::ReorientDmeTransform( CDmeTransform *pDmeTransform, const matrix
 //-----------------------------------------------------------------------------
 void CDmeModel::ReorientDmeMesh( CDmeMesh *pDmeMesh, matrix3x4_t absMat )
 {
-	CDisableUndoScopeGuard();
-
 	CDmeVertexData *pDmeVertexData = pDmeMesh->GetBindBaseState();
 
 	FieldIndex_t nFieldPosIndex = pDmeVertexData->FindFieldIndex( CDmeVertexDataBase::FIELD_POSITION );
@@ -941,7 +936,7 @@ bool CDmeModel::SetAxisSystem(
 
 
 //-----------------------------------------------------------------------------
-// This expects the app has handled undo
+// Converts the model to the given axis system
 //-----------------------------------------------------------------------------
 bool CDmeModel::ConvertToAxisSystem( CDmeAxisSystem::PredefinedAxisSystem eToPredefinedAxisSystem )
 {
@@ -960,7 +955,7 @@ bool CDmeModel::ConvertToAxisSystem( CDmeAxisSystem::PredefinedAxisSystem eToPre
 
 
 //-----------------------------------------------------------------------------
-// This expects the app has handled undo
+// Converts the model to the given axis system
 //-----------------------------------------------------------------------------
 bool CDmeModel::ConvertToAxisSystem(
 	CDmeAxisSystem::Axis_t eToUpAxis,

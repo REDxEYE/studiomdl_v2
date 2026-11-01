@@ -1,12 +1,11 @@
-//====== Copyright © 1996-2008, Valve Corporation, All rights reserved. =====//
+//====== Copyright Â© 1996-2008, Valve Corporation, All rights reserved. =====//
 //
 // DmeMaterialGroup
 //
 //===========================================================================//
 
 
-#ifndef DMEMATERIALGROUP_H
-#define DMEMATERIALGROUP_H
+#pragma once
 
 
 #ifdef _WIN32
@@ -34,5 +33,4 @@ public:
 
 };
 
-#endif // DMEMATERIALGROUP_H
 

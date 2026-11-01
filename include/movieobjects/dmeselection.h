@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2006, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2006, Valve Corporation, All rights reserved. =======
 //
 // A class representing a subselection of something like a mesh
 //
 //=============================================================================
 
-#ifndef DMECOMPONENT_H
-#define DMECOMPONENT_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -198,4 +197,3 @@ protected:
 };
 
 
-#endif // DMECOMPONENT_H

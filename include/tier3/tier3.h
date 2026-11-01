@@ -5,8 +5,7 @@
 //===========================================================================//
 
 
-#ifndef TIER3_H
-#define TIER3_H
+#pragma once
 
 #if defined( _WIN32 )
 #pragma once
@@ -54,5 +53,4 @@ public:
 };
 
 
-#endif // TIER3_H
 

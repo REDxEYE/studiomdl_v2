@@ -6,8 +6,7 @@
  *  Content:    DirectXSetup, error codes and flags
  ***************************************************************************/
 
-#ifndef __DSETUP_H__
-#define __DSETUP_H__
+#pragma once
 
 #include <windows.h>      // windows stuff
 
@@ -287,4 +286,3 @@ typedef UINT (WINAPI * LPDIRECTXSETUPGETEULA)(LPSTR, UINT, WORD);
 };
 #endif
 
-#endif

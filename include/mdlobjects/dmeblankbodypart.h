@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =====//
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =====//
 //
 // A blank body part
 //
 //===========================================================================//
 
-#ifndef DMEBLANKBODYPART_H
-#define DMEBLANKBODYPART_H
+#pragma once
 
 
 #ifdef _WIN32
@@ -25,4 +24,3 @@ class CDmeBlankBodyPart : public CDmeBodyPart
 };
 
 
-#endif // DMEBLANKBODYPART_H

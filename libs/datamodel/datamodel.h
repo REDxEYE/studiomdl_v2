@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
 //=============================================================================
 
-#ifndef DATAMODEL_H
-#define DATAMODEL_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -22,16 +21,13 @@
 #include "tier1/utlhandletable.h"
 #include "tier1/utlhash.h"
 #include "tier2/tier2.h"
-#include "clipboardmanager.h"
-#include "undomanager.h"
-#include "tier1/convar.h"
+#include "notifymanager.h"
 
 
 //-----------------------------------------------------------------------------
 // forward declarations
 //-----------------------------------------------------------------------------
 class IDmElementFramework;
-class IUndoElement;
 class CDmElement;
 
 enum DmHandleReleasePolicy
@@ -173,7 +169,7 @@ struct FileElementSet_t
 	CDmeCountedHandle m_hRoot;
 	bool m_bLoaded;
 	int m_nElements;
-	long m_fileModificationTime;
+	int64_t m_fileModificationTime;
 };
 
 
@@ -205,8 +201,8 @@ public:
 	virtual int					GetNextFactory( int index ) const;
 	virtual bool				IsValidFactory( int index ) const;
 	virtual char const			*GetFactoryName( int index ) const;
-	virtual DmElementHandle_t	CreateElement( CUtlSymbolLarge typeSymbol, const char *pElementName, DmFileId_t fileid, const DmObjectId_t *pObjectID = NULL );
-	virtual DmElementHandle_t	CreateElement( const char *pTypeName, const char *pElementName, DmFileId_t fileid, const DmObjectId_t *pObjectID = NULL );
+	virtual DmElementHandle_t	CreateElement( CUtlSymbolLarge typeSymbol, const char *pElementName, DmFileId_t fileid, const DmObjectId_t *pObjectID = nullptr);
+	virtual DmElementHandle_t	CreateElement( const char *pTypeName, const char *pElementName, DmFileId_t fileid, const DmObjectId_t *pObjectID = nullptr);
 	virtual void				DestroyElement( DmElementHandle_t hElement );
 	virtual	CDmElement*			GetElement( DmElementHandle_t hElement ) const;
 	virtual CUtlSymbolLarge			GetElementType( DmElementHandle_t hElement ) const;
@@ -240,7 +236,7 @@ public:
 	virtual IDmLegacyUpdater*	FindLegacyUpdater( const char *pLegacyFormatName ) const;
 	virtual IDmFormatUpdater*	FindFormatUpdater( const char *pFormatName ) const;
 	virtual bool				SaveToFile( char const *pFileName, char const *pPathID, const char *pEncodingName, const char *pFormatName, CDmElement *pRoot );
-	virtual DmFileId_t			RestoreFromFile( char const *pFileName, char const *pPathID, const char *pFormatHint, CDmElement **ppRoot, DmConflictResolution_t idConflictResolution = CR_DELETE_NEW, DmxHeader_t *pHeaderOut = NULL );
+	virtual DmFileId_t			RestoreFromFile( char const *pFileName, char const *pPathID, const char *pFormatHint, CDmElement **ppRoot, DmConflictResolution_t idConflictResolution = CR_DELETE_NEW, DmxHeader_t *pHeaderOut = nullptr);
 	virtual bool				IsDMXFormat( CUtlBuffer &buf ) const;
 
 	virtual void				SetKeyValuesElementCallback( IElementForKeyValueCallback *pCallbackInterface );
@@ -253,32 +249,6 @@ public:
 	virtual DmElementHandle_t	FirstAllocatedElement();
 	virtual DmElementHandle_t	NextAllocatedElement( DmElementHandle_t hElement );
 	virtual int					EstimateMemoryUsage( DmElementHandle_t hElement, TraversalDepth_t depth = TD_DEEP );
-	virtual void				SetUndoEnabled( bool enable );
-	virtual bool				IsUndoEnabled() const;
-	virtual bool				UndoEnabledForElement( const CDmElement *pElement ) const;
-	virtual bool				IsDirty() const;
-	virtual bool				CanUndo() const;
-	virtual bool				CanRedo() const;
-	virtual void				StartUndo( const char *undodesc, const char *redodesc, int nChainingID = 0 );
-	virtual void				FinishUndo();
-	virtual void				AbortUndoableOperation();
-	virtual void				ClearRedo();
-	virtual const char			*GetUndoDesc();
-	virtual const char			*GetRedoDesc();
-	virtual void				Undo();
-	virtual void				Redo();
-	virtual void				TraceUndo( bool state ); // if true, undo records spew as they are added
-	virtual void				ClearUndo();
-	virtual void				GetUndoInfo( CUtlVector< UndoInfo_t >& list );
-	virtual const char *		GetUndoString( CUtlSymbolLarge sym );
-	virtual void				AddUndoElement( IUndoElement *pElement );
-	virtual CUtlSymbolLarge			GetUndoDescInternal( const char *context );
-	virtual CUtlSymbolLarge			GetRedoDescInternal( const char *context );
-	virtual void				EmptyClipboard();
-	virtual void				SetClipboardData( CUtlVector< KeyValues * >& data, IClipboardCleanup *pfnOptionalCleanuFunction = 0 );
-	virtual void				AddToClipboardData( KeyValues *add );
-	virtual void				GetClipboardData( CUtlVector< KeyValues * >& data );
-	virtual bool				HasClipboardData() const;
 
  	virtual CDmAttribute *		GetAttribute( DmAttributeHandle_t h );
 	virtual bool				IsAttributeHandleValid( DmAttributeHandle_t h ) const;
@@ -294,9 +264,9 @@ public:
 	virtual void				SetFileFormat( DmFileId_t fileid, const char *pFormat );
 	virtual DmElementHandle_t	GetFileRoot( DmFileId_t fileid );
 	virtual void				SetFileRoot( DmFileId_t fileid, DmElementHandle_t hRoot );
-	virtual long				GetFileModificationUTCTime( DmFileId_t fileid );
-	virtual long				GetCurrentUTCTime();
-	virtual void				UTCTimeToString( char *pString, int maxChars, long fileTime );
+	virtual int64_t				GetFileModificationUTCTime( DmFileId_t fileid );
+	virtual int64_t				GetCurrentUTCTime();
+	virtual void				UTCTimeToString( char *pString, int maxChars, int64_t fileTime );
 	virtual bool				IsFileLoaded( DmFileId_t fileid );
 	virtual void				MarkFileLoaded( DmFileId_t fileid );
 	virtual void				UnloadFile( DmFileId_t fileid );
@@ -315,7 +285,6 @@ public:
 	virtual void				SetSuppressingNotify( bool bSuppress );
 	virtual void				PushNotificationScope( const char *pReason, int nNotifySource, int nNotifyFlags );
 	virtual void				PopNotificationScope( bool bAbort );
-	virtual void				SetUndoDepth( int nSize );
 	virtual void				DisplayMemoryStats(DmElementHandle_t hElement = DMELEMENT_HANDLE_INVALID);
 	// Dump the symbol table to the console
 	virtual void				DumpSymbolTable();
@@ -355,7 +324,7 @@ public:
 	// changes an element's id and associated mappings - generally during unserialization
 	DmElementHandle_t ChangeElementId( DmElementHandle_t hElement, const DmObjectId_t &oldId, const DmObjectId_t &newId );
 
-	DmElementReference_t *FindElementReference( DmElementHandle_t hElement, DmObjectId_t **ppId = NULL );
+	DmElementReference_t *FindElementReference( DmElementHandle_t hElement, DmObjectId_t **ppId = nullptr);
 
 	void RemoveUnreferencedElements();
 
@@ -420,14 +389,12 @@ private:
 	bool IsValidNonDMXFormat( const char *pFormatName ) const;
 	bool IsLegacyFormat( const char *pFormatName ) const;
 
-	// Returns the current undo manager
-	CUndoManager* GetUndoMgr();
-	const CUndoManager* GetUndoMgr() const;
-	CClipboardManager *GetClipboardMgr();
-	const CClipboardManager *GetClipboardMgr() const;
+	// Returns the current notify manager
+	CNotifyManager* GetNotifyMgr();
+	const CNotifyManager* GetNotifyMgr() const;
 
 	void UnloadFile( DmFileId_t fileid, bool bDeleteElements );
-	void SetFileModificationUTCTime( DmFileId_t fileid, long fileModificationTime );
+	void SetFileModificationUTCTime( DmFileId_t fileid, int64_t fileModificationTime );
 
 	friend class CDmeElementRefHelper;
 	friend class CDmAttribute;
@@ -450,7 +417,7 @@ private:
 	CUtlSymbolTableLarge m_SymbolTable;
 	CUtlHandleTable< CDmElement, 21 > m_Handles;
 	CUtlHandleTable< CDmAttribute, 21 > m_AttributeHandles;
-	CUndoManager m_UndoMgr;
+	CNotifyManager m_NotifyMgr;
 
 	bool m_bIsUnserializing : 1;
 	bool m_bUnableToSetDefaultFactory : 1;
@@ -463,7 +430,6 @@ private:
 	CElementIdHash m_elementIds;
 	CUtlHash< ElementIdHandlePair_t > m_unloadedIdElementMap;
 
-	CClipboardManager m_ClipboardMgr;
 	IElementForKeyValueCallback *m_pKeyvaluesCallbackInterface;
 
 	int m_nElementsAllocatedSoFar;
@@ -479,29 +445,19 @@ extern CDataModel *g_pDataModelImp;
 //-----------------------------------------------------------------------------
 // Inline methods
 //-----------------------------------------------------------------------------
-inline CUndoManager* CDataModel::GetUndoMgr()
+inline CNotifyManager* CDataModel::GetNotifyMgr()
 {
-	return &m_UndoMgr;
+	return &m_NotifyMgr;
 }
 
-inline const CUndoManager* CDataModel::GetUndoMgr() const
+inline const CNotifyManager* CDataModel::GetNotifyMgr() const
 {
-	return &m_UndoMgr;
+	return &m_NotifyMgr;
 }
 
 inline void CDataModel::NotifyState( int nNotifyFlags )
 {
-	GetUndoMgr()->NotifyState( nNotifyFlags );
-}
-
-inline CClipboardManager *CDataModel::GetClipboardMgr()
-{
-	return &m_ClipboardMgr;
-}
-
-inline const CClipboardManager *CDataModel::GetClipboardMgr() const
-{
-	return &m_ClipboardMgr;
+	GetNotifyMgr()->NotifyState( nNotifyFlags );
 }
 
 
@@ -520,8 +476,6 @@ public:
 	static void EnableOnChangedCallbacks( CDmElement *pElement )								{ pElement->EnableOnChangedCallbacks(); }
 	static bool AreOnChangedCallbacksEnabled( CDmElement *pElement )							{ return pElement->AreOnChangedCallbacksEnabled(); }
 	static void FinishUnserialization( CDmElement *pElement )									{ pElement->FinishUnserialization(); }
-	static void AddAttributeByPtr( CDmElement *pElement, CDmAttribute *ptr )					{ pElement->AddAttributeByPtr( ptr ); }
-	static void RemoveAttributeByPtrNoDelete( CDmElement *pElement, CDmAttribute *ptr )			{ pElement->RemoveAttributeByPtrNoDelete( ptr); }
 	static void ChangeHandle( CDmElement *pElement, DmElementHandle_t handle )					{ pElement->ChangeHandle( handle ); }
 	static DmElementReference_t	*GetReference( CDmElement *pElement )							{ return pElement->GetReference(); }
 	static void SetReference( CDmElement *pElement, const DmElementReference_t &ref )			{ pElement->SetReference( ref ); }
@@ -532,4 +486,3 @@ public:
 	static void OnOrphanedToUndo( CDmElement *pElement )										{ pElement->OnOrphanedToUndo(); }
 };
 
-#endif // DATAMODEL_H

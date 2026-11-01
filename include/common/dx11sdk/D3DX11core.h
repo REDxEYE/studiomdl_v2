@@ -9,8 +9,7 @@
 
 #include "d3dx11.h"
 
-#ifndef __D3DX11CORE_H__
-#define __D3DX11CORE_H__
+#pragma once
 
 // Current name of the DLL shipped in the same SDK as this header.
 
@@ -124,5 +123,4 @@ HRESULT WINAPI D3DX11UnsetAllDeviceObjects(ID3D11DeviceContext *pContext);
 #define D3DERR_INVALIDCALL                      MAKE_D3DHRESULT(2156)
 #define D3DERR_WASSTILLDRAWING                  MAKE_D3DHRESULT(540)
 
-#endif //__D3DX11CORE_H__
 

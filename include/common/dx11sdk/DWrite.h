@@ -7,8 +7,7 @@
 //
 //----------------------------------------------------------------------------
 
-#ifndef DWRITE_H_INCLUDED
-#define DWRITE_H_INCLUDED
+#pragma once
 
 #if _MSC_VER > 1000
 #pragma once
@@ -4852,4 +4851,3 @@ EXTERN_C HRESULT DWRITE_EXPORT DWriteCreateFactory(
 /// </summary>
 #define DWRITE_E_ALREADYREGISTERED      MAKE_DWRITE_HR_ERR(0x006)
 
-#endif /* DWRITE_H_INCLUDED */

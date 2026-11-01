@@ -5,8 +5,7 @@
 // $NoKeywords: $
 //=============================================================================//
 
-#ifndef BASETYPES_H
-#define BASETYPES_H
+#pragma once
 
 #ifdef COMPILER_MSVC
 #pragma once
@@ -23,28 +22,15 @@
 #ifndef schema
 #define schema namespace ValveSchemaMarker {}
 #endif
-#define noschema
-#define schema_pragma( ... )
 #define META( ... )
 #define TYPEMETA( ... )
-
-
-#ifdef COMPILING_SCHEMA
-#define UNSCHEMATIZED_METHOD( x )
-#else
-#define UNSCHEMATIZED_METHOD( x ) x
-#endif
 
 //////////////////////////////////////////////////////////////////////////
 
 #include "tier0/platform.h"
 #include "commonmacros.h"
 #include "wchartypes.h"
-#ifdef _PS3
-#include <float.h>
-#elif defined( PLATFORM_POSIX )
 #include <math.h>
-#endif
 
 #include "tier0/valve_off.h"
 
@@ -60,7 +46,7 @@ template<class T>
 T abs( const T &a )
 {
 	if ( a < 0 )
-		return -a;
+		return (T)-a;
 	else
 		return a;
 }
@@ -93,7 +79,6 @@ T abs( const T &a )
 
 
 // #define COMPILETIME_MAX and COMPILETIME_MIN for max/min in constant expressions
-#define COMPILETIME_MIN( a, b ) ( ( ( a ) < ( b ) ) ? ( a ) : ( b ) )
 #define COMPILETIME_MAX( a, b ) ( ( ( a ) > ( b ) ) ? ( a ) : ( b ) )
 #ifndef MIN
 #define MIN( a, b ) ( ( ( a ) < ( b ) ) ? ( a ) : ( b ) )
@@ -173,7 +158,6 @@ void Swap( T &a, T &b )
 // fsel
 //-----------------------------------------------------------------------------
 
-#if !defined(_PS3) && !defined(_X360)
 
 #define fsel(c,x,y) ( (c) >= 0 ? (x) : (y) )
 
@@ -183,11 +167,6 @@ void Swap( T &a, T &b )
 
 // if x = y, return a, else b
 #define ieqsel(x,y,a,b) (( (x) == (y) ) ? (a) : (b))
-
-// if the nth bit of a is set (counting with 0 = LSB),
-// return x, else y
-// this is fast if nbit is a compile-time immediate 
-#define ibitsel(a, nbit, x, y) ( ( ((a) & (1 << (nbit))) != 0 ) ? (x) : (y) )
 
 
 FORCEINLINE double fpmin( double a, double b )
@@ -200,142 +179,6 @@ FORCEINLINE double fpmax( double a, double b )
 	return a >= b ? a : b;
 }
 
-// clamp x to lie inside [a,b]. Assumes b>a
-FORCEINLINE float fclamp( float x, float a, float b )
-{
-	return fpmin( fpmax( x, a ), b );
-}
-// clamp x to lie inside [a,b]. Assumes b>a
-FORCEINLINE double fclamp( double x, double a, double b )
-{
-	return fpmin( fpmax( x, a ), b );
-}
-
-// At some point, we will need a unified API.
-#define imin( x, y ) ( (x) < (y) ? (x) : (y) )
-#define imax( x, y ) ( (x) > (y) ? (x) : (y) )
-#define iclamp clamp
-
-#else
-
-// __fsel(double fComparand, double fValGE, double fLT) == fComparand >= 0 ? fValGE : fLT
-// this is much faster than if ( aFloat > 0 ) { x = .. }
-// the XDK defines two intrinsics, one for floats and one for doubles -- it's the same
-// opcode, but the __fself version tells the compiler not to do a wasteful unnecessary
-// rounding op after each sel.
-// #define fsel __fsel
-#ifdef _X360
-FORCEINLINE double fsel(double fComparand, double fValGE, double fLT) { return __fsel( fComparand, fValGE, fLT ); }
-FORCEINLINE float fsel(float fComparand, float fValGE, float fLT) { return __fself( fComparand, fValGE, fLT ); }
-#else
-#if defined(__SPU__)
-#define fsel(c,x,y) ( (c) >= 0 ? (x) : (y) )
-#define __fsel fsel
-#define __fsels fsel
-#else
-FORCEINLINE double fsel(double fComparand, double fValGE, double fLT) { return __fsel( fComparand, fValGE, fLT ); }
-FORCEINLINE float fsel(float fComparand, float fValGE, float fLT) { return __fsels( fComparand, fValGE, fLT ); }
-#endif
-#endif
-
-#if !defined(_X360)
-FORCEINLINE float fpmin( float a, float b )
-{
-	return fsel( a-b, b,a);
-}
-FORCEINLINE double fpmin( double a, double b )
-{
-	return fsel( a-b, b,a);
-}
-
-FORCEINLINE float fpmax( float a, float b )
-{
-	return fsel( a-b, a,b);
-}
-FORCEINLINE double fpmax( double a, double b )
-{
-	return fsel( a-b, a,b);
-}
-
-// any mixed calls should promote to double
-FORCEINLINE double fpmax(float a, double b)
-{
-	return fpmax( (double) a, b );
-}
-// any mixed calls should promote to double
-FORCEINLINE double fpmax(double a, float b)
-{
-	return fpmax( (double) a, (double) b );
-}
-#endif
-
-// clamp x to lie inside [a,b]. Assumes b>a
-FORCEINLINE float fclamp( float x, float a, float b )
-{
-	return fpmin( fpmax( x, a ), b );
-}
-// clamp x to lie inside [a,b]. Assumes b>a
-FORCEINLINE double fclamp( double x, double a, double b )
-{
-	return fpmin( fpmax( x, a ), b );
-}
-
-// if a >= 0, return x, else y
-FORCEINLINE int isel( int a, int x, int y )
-{
-	int mask = a >> 31; // arithmetic shift right, splat out the sign bit
-	return x + ((y - x) & mask);
-};
-
-// if a >= 0, return x, else y
-FORCEINLINE unsigned isel( int a, unsigned x, unsigned y )
-{
-	int mask = a >> 31; // arithmetic shift right, splat out the sign bit
-	return x + ((y - x) & mask);
-};
-
-// ( x == y ) ? a : b
-FORCEINLINE unsigned ieqsel( unsigned x, unsigned y, unsigned a, unsigned b )
-{
-	unsigned mask = (x == y) ? 0 : -1;
-	return a + ((b - a) & mask);
-};
-
-// ( x == y ) ? a : b
-FORCEINLINE int ieqsel( int x, int y, int a, int b )
-{
-	int mask = (x == y) ? 0 : -1;
-	return a + ((b - a) & mask);
-};
-
-FORCEINLINE int imin( int x, int y )
-{
-	int nMaxSign = x - y;									// Positive if x greater than y
-	int nMaxMask = nMaxSign >> 31;							// 0 if x greater than y, 0xffffffff if x smaller than y
-	int nMaxSaturated = y + ( nMaxSign & nMaxMask );
-	return nMaxSaturated;
-}
-
-FORCEINLINE int imax( int x, int y )
-{
-	int nMinSign = y - x;									// Positive if x smaller than y
-	int nMinMask = nMinSign >> 31;							// 0 if x smaller than y, 0xffffffff if x greater than y
-	int nMinSaturated = y - ( nMinSign & nMinMask);
-	return nMinSaturated;
-}
-
-FORCEINLINE int iclamp( int x, int min, int max )
-{
-	int nResult = imin( x, max );
-	return imax( nResult, min );
-}
-
-// if the nth bit of a is set (counting with 0 = LSB),
-// return x, else y
-// this is fast if nbit is a compile-time immediate 
-#define ibitsel(a, nbit, x, y) ( (x) + (((y) - (x)) & (((a) & (1 << (nbit))) ? 0 : -1)) )
-
-#endif
 
 
 #if CROSS_PLATFORM_VERSION < 1
@@ -346,34 +189,20 @@ typedef int BOOL;
 
 typedef int qboolean;
 //typedef uint32 ULONG;
-typedef uint8 BYTE;
-typedef uint8 byte;
-typedef uint16 word;
 #endif
 
-#if defined( _WIN32 ) || defined( _PS3 )
+#if defined( _WIN32 )
 typedef wchar_t ucs2; // under windows & PS3 wchar_t is ucs2
 #else
 typedef unsigned short ucs2;
 #endif
 
-enum ThreeState_t
-{
-	TRS_FALSE,
-	TRS_TRUE,
-	TRS_NONE,
-};
-
 typedef float vec_t;
-#ifdef _WIN32
-typedef __int32 vec_t_as_gpr; // a general purpose register type equal in size to a vec_t (in case we have to avoid the fpu for some reason)
-#endif
-
 
 template <typename T>
-inline T AlignValue( T val, uintp alignment )
+inline T AlignValue( T val, uintptr_t alignment )
 {
-	return (T)( ( (uintp)val + alignment - 1 ) & ~( alignment - 1 ) );
+	return (T)( ( (uintptr_t)val + alignment - 1 ) & ~( alignment - 1 ) );
 }
 
 
@@ -390,28 +219,25 @@ inline T AlignValue( T val, uintp alignment )
 
 #ifdef __cplusplus
 
-inline unsigned long& FloatBits( vec_t& f )
+// The bit pattern of a 32-bit float: unsigned long is 64-bit on LP64 platforms, which read past the float
+inline uint32_t& FloatBits( vec_t& f )
 {
-	return *reinterpret_cast<unsigned long*>(&f);
+	return *reinterpret_cast<uint32_t*>(&f);
 }
 
-inline unsigned long const& FloatBits( vec_t const& f )
+inline uint32_t const& FloatBits( vec_t const& f )
 {
-	return *reinterpret_cast<unsigned long const*>(&f);
+	return *reinterpret_cast<uint32_t const*>(&f);
 }
 
-inline vec_t BitsToFloat( unsigned long i )
+inline vec_t BitsToFloat( uint32_t i )
 {
 	return *reinterpret_cast<vec_t*>(&i);
 }
 
 inline bool IsFinite( const vec_t &f )
 {
-#ifdef _GAMECONSOLE
-	return f == f && fabs(f) <= FLT_MAX;
-#else
 	return ((FloatBits(f) & 0x7F800000) != 0x7F800000);
-#endif
 }
 
 #if defined( WIN32 )
@@ -440,39 +266,23 @@ inline float FloatMakePositive( vec_t f )
 #else
 inline float FloatMakePositive( vec_t f )
 {
-	return fabsf(f); // was since 2002: BitsToFloat( FloatBits(f) & 0x7FFFFFFF ); fixed in 2010
+	return std::fabsf(f); // was since 2002: BitsToFloat( FloatBits(f) & 0x7FFFFFFF ); fixed in 2010
 }
 #endif
 
-inline float FloatNegate( vec_t f )
-{
-	return -f; //BitsToFloat( FloatBits(f) ^ 0x80000000 );
-}
 
-
-#define FLOAT32_NAN_BITS     (uint32)0x7FC00000	// not a number!
+#define FLOAT32_NAN_BITS     (uint32_t)0x7FC00000	// not a number!
 #define FLOAT32_NAN          BitsToFloat( FLOAT32_NAN_BITS )
 
 #define VEC_T_NAN FLOAT32_NAN
 
 #endif
 
-inline float FloatMakeNegative( vec_t f )
-{
-	return -fabsf( f );// was since 2002: BitsToFloat( FloatBits(f) | 0x80000000 ); fixed in 2010
-}
-
-
-// FIXME: why are these here?  Hardly anyone actually needs them.
-struct color24
-{
-	byte r, g, b;
-};
 
 typedef struct color32_s
 {
 	bool operator!=( const struct color32_s &other ) const;
-	byte r, g, b, a; 
+	uint8_t r, g, b, a; 
 
 	// assign and copy by using the whole register rather
 	// than byte-by-byte copy. (No, the compiler is not
@@ -496,23 +306,8 @@ inline bool color32::operator!=( const color32 &other ) const
 	return r != other.r || g != other.g || b != other.b || a != other.a;
 }
 
-struct colorVec
-{
-	unsigned r, g, b, a;
-};
-
-
 #ifndef NOTE_UNUSED
 #define NOTE_UNUSED(x)	(void)(x)	// for pesky compiler / lint warnings
-#endif
-#ifdef __cplusplus
-
-struct vrect_t
-{
-	int				x,y,width,height;
-	vrect_t			*pnext;
-};
-
 #endif
 
 
@@ -562,95 +357,17 @@ struct interval_t
 // Declares a type-safe handle type; you can't assign one handle to the next
 //-----------------------------------------------------------------------------
 
-// 32-bit pointer handles.
-
-// Typesafe 8-bit and 16-bit handles.
-template< class HandleType >
-class CBaseIntHandle
-{
-public:
-
-	inline bool			operator==( const CBaseIntHandle &other )	{ return m_Handle == other.m_Handle; }
-	inline bool			operator!=( const CBaseIntHandle &other )	{ return m_Handle != other.m_Handle; }
-
-	// Only the code that doles out these handles should use these functions.
-	// Everyone else should treat them as a transparent type.
-	inline HandleType	GetHandleValue()					{ return m_Handle; }
-	inline void			SetHandleValue( HandleType val )	{ m_Handle = val; }
-
-	typedef HandleType	HANDLE_TYPE;
-
-protected:
-
-	HandleType	m_Handle;
-};
-
-template< class DummyType >
-class CIntHandle16 : public CBaseIntHandle< unsigned short >
-{
-public:
-	inline			CIntHandle16() {}
-
-	static inline	CIntHandle16<DummyType> MakeHandle( HANDLE_TYPE val )
-	{
-		return CIntHandle16<DummyType>( val );
-	}
-
-protected:
-	inline			CIntHandle16( HANDLE_TYPE val )
-	{
-		m_Handle = val;
-	}
-};
-
-
-template< class DummyType >
-class CIntHandle32 : public CBaseIntHandle< uint32 >
-{
-public:
-	inline			CIntHandle32() {}
-
-	static inline	CIntHandle32<DummyType> MakeHandle( HANDLE_TYPE val )
-	{
-		return CIntHandle32<DummyType>( val );
-	}
-
-protected:
-	inline			CIntHandle32( HANDLE_TYPE val )
-	{
-		m_Handle = val;
-	}
-};
-
-
-// NOTE: This macro is the same as windows uses; so don't change the guts of it
-#define DECLARE_HANDLE_16BIT(name)	typedef CIntHandle16< struct name##__handle * > name;
-#define DECLARE_HANDLE_32BIT(name)	typedef CIntHandle32< struct name##__handle * > name;
-
 #define DECLARE_POINTER_HANDLE(name) struct name##__ { int unused; }; typedef struct name##__ *name
 #define FORWARD_DECLARE_HANDLE(name) typedef struct name##__ *name
-
-#define DECLARE_DERIVED_POINTER_HANDLE( _name, _basehandle ) struct _name##__ : public _basehandle##__ {}; typedef struct _name##__ *_name
-#define DECLARE_ALIASED_POINTER_HANDLE( _name, _alias ) typedef struct _alias##__ *name
-
-// @TODO: Find a better home for this
-#if !defined(_STATIC_LINKED) && !defined(PUBLISH_DLL_SUBSYSTEM)
-// for platforms built with dynamic linking, the dll interface does not need spoofing
-#define PUBLISH_DLL_SUBSYSTEM()
-#endif
 
 #define UID_PREFIX generated_id_
 #define UID_CAT1(a,c) a ## c
 #define UID_CAT2(a,c) UID_CAT1(a,c)
-#define EXPAND_CONCAT(a,c) UID_CAT1(a,c)
 #ifdef _MSC_VER
 #define UNIQUE_ID UID_CAT2(UID_PREFIX,__COUNTER__)
 #else
 #define UNIQUE_ID UID_CAT2(UID_PREFIX,__LINE__)
 #endif
-
-#define _MKSTRING(arg) #arg
-#define MKSTRING(arg) _MKSTRING(arg)
 
 
 // this allows enumerations to be used as flags, and still remain type-safe!
@@ -682,4 +399,3 @@ protected:
 #include "tier0/valve_on.h"
 
 
-#endif // BASETYPES_H

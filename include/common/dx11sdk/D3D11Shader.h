@@ -7,8 +7,7 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 
-#ifndef __D3D11SHADER_H__
-#define __D3D11SHADER_H__
+#pragma once
 
 #include "d3d10_1shader.h"
 
@@ -293,5 +292,4 @@ extern "C" {
 }
 #endif //__cplusplus
     
-#endif //__D3D11SHADER_H__
 

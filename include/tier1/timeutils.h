@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright ï¿½ 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
 //=============================================================================
 
-#ifndef TIMEUTILS_H
-#define TIMEUTILS_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -153,7 +152,7 @@ public:
 	DmeTime_t TimeAtPrevFrame( DmeFramerate_t framerate ) const;
 
 private:
-	explicit DmeTime_t( int64 tms ) : m_tms( int( tms ) ) {}
+	explicit DmeTime_t( int64_t tms ) : m_tms( int( tms ) ) {}
 
 	// conversion helper methods - implementation
 	static int RoundSecondsToTMS( float sec );
@@ -170,4 +169,3 @@ bool Serialize( CUtlBuffer &buf, const DmeTime_t &src );
 bool Unserialize( CUtlBuffer &buf, DmeTime_t &dest );
 
 
-#endif // TIMEUTILS_H

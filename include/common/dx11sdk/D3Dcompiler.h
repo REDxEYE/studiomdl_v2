@@ -7,8 +7,7 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 
-#ifndef __D3DCOMPILER_H__
-#define __D3DCOMPILER_H__
+#pragma once
 
 // Current name of the DLL shipped in the same SDK as this header.
 
@@ -219,4 +218,3 @@ D3DStripShader(__in_bcount(BytecodeLength) LPCVOID pShaderBytecode,
 }
 #endif //__cplusplus
     
-#endif // #ifndef __D3DCOMPILER_H__

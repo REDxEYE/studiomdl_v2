@@ -2,8 +2,7 @@
 // Created by RED on 15.05.2024.
 //
 
-#include <windows.h>
-#include <direct.h>
+#include "studiomdl/platform_compat.h"
 
 #include "studiomdl_app.h"
 #include "studiomdl/studiomdl.h"
@@ -13,6 +12,7 @@
 #include "tier1/keyvalues.h"
 #include "tier2/fileutils.h"
 #include "studiomdl/optimize.h"
+#include "studiomdl/flexoptimize.h"
 #include "common/scriplib.h"
 #include "appframework/AppFramework.h"
 #include "studiomdl/perfstats.h"
@@ -37,7 +37,7 @@ class CClampedSource;
 static bool
 CStudioMDLApp_SuggestGameInfoDirFn(CFSSteamSetupInfo const *, char *pchPathBuffer, int nBufferLength,
                                    bool *pbBubbleDirectories) {
-    const char *pProcessFileName = NULL;
+    const char *pProcessFileName = nullptr;
     int nParmCount = CommandLine()->ParmCount();
     if (nParmCount > 1) {
         pProcessFileName = CommandLine()->GetParm(nParmCount - 1);
@@ -167,7 +167,7 @@ void ParseScript(const char *pExt) {
 // The DMX loader will take care of it.
 //-----------------------------------------------------------------------------
 bool ParsePreprocessedFile(const char *pFullPath) {
-    char pFullPathBuf[MAX_PATH];
+    char pFullPathBuf[MAX_PATH]{0};
     Q_strcpy(pFullPathBuf, pFullPath);
     Q_FixSlashes(pFullPathBuf);
 
@@ -183,7 +183,7 @@ bool ParsePreprocessedFile(const char *pFullPath) {
         // NOTE: We use directory names when using preprocessed files
         // Fix up passed pathname to use correct path separators otherwise
         // functions below will fail
-        char pOutputBuf[MAX_PATH], pTemp[MAX_PATH], pOutputBuf2[MAX_PATH], pRelativeBuf[MAX_PATH];
+        char pOutputBuf[MAX_PATH], pTemp[MAX_PATH], pOutputBuf2[MAX_PATH], pRelativeBuf[MAX_PATH]{0};
         char *pOutputName = pOutputBuf;
         ComputeModFilename(pFullPathBuf, pTemp, sizeof(pTemp));
         Q_ExtractFilePath(pTemp, pOutputBuf, sizeof(pOutputBuf));
@@ -219,7 +219,7 @@ bool ParsePreprocessedFile(const char *pFullPath) {
 // Used by the CheckSurfaceProps.py script.
 // They specify the .mdl file and it prints out all the surface props that the model uses.
 bool HandlePrintSurfaceProps(int &returnValue) {
-    const char *pFilename = CommandLine()->ParmValue("-PrintSurfaceProps", (const char *) NULL);
+    const char *pFilename = CommandLine()->ParmValue("-PrintSurfaceProps", (const char *) nullptr);
     if (pFilename) {
         CUtlVector<char> buf;
 
@@ -262,7 +262,7 @@ bool HandlePrintSurfaceProps(int &returnValue) {
 // Used by the modelstats.pl script.
 // They specify the .mdl file and it prints out perf info.
 bool HandleMdlReport(int &returnValue) {
-    const char *pFilename = CommandLine()->ParmValue("-mdlreport", (const char *) NULL);
+    const char *pFilename = CommandLine()->ParmValue("-mdlreport", (const char *) nullptr);
     if (pFilename) {
         CUtlVector<char> buf;
 
@@ -316,7 +316,7 @@ void CreateMakefile_OutputMakefile() {
     if (!fp) {
         MdlError("can't open makefile.tmp!\n");
     }
-    char mdlname[MAX_PATH];
+    char mdlname[MAX_PATH]{0};
     strcpy(mdlname, gamedir);
 //	if( *g_pPlatformName )
 //	{
@@ -336,7 +336,7 @@ void CreateMakefile_OutputMakefile() {
         fprintf(fp, " %s", g_StudioMdlContext.CreateMakefileDependencies[i].String());
     }
     fprintf(fp, "\n");
-    char mkdirpath[MAX_PATH];
+    char mkdirpath[MAX_PATH]{0};
     strcpy(mkdirpath, mdlname);
     Q_StripFilename(mkdirpath);
     fprintf(fp, "\tmkdir \"%s\"\n", mkdirpath);
@@ -356,12 +356,57 @@ void ClampMaxVerticesPerModel(s_source_t *pOrigSource) {
     int ns = newSource.AddToTail();
     newSource[ns].Init(pOrigSource->numvertices);
 
-    for (int m = 0; m < pOrigSource->nummeshes; m++) {
-        s_mesh_t *pOrigMesh = &pOrigSource->mesh[m];
+    // Flex optimization: only meshes with flexes count against the engine's flex cache, so faces a flex can move are
+    // put into the first pieces and the static faces into pieces of their own, which then carry no flex data.
+    // Without it there is one pass over all faces, in source order.
+    std::vector<bool> moving;
+    bool bSortByFlex = FlexOptimizeIsActive() && pOrigSource->m_FlexKeys.Count() > 0;
+    if (bSortByFlex)
+        moving = FlexOptimizeMovingVertices(pOrigSource);
 
-        for (int f = pOrigMesh->faceoffset; f < pOrigMesh->faceoffset + pOrigMesh->numfaces; f++) {
+    auto isMovingFace = [&](const s_mesh_t *pMesh, const s_face_t &face) {
+        const uint32_t base = pMesh->vertexoffset;
+        return moving[base + face.a] || moving[base + face.b] || moving[base + face.c] ||
+               (face.d != 0 && moving[base + face.d]);
+    };
+
+    if (bSortByFlex) {
+        // a second pass is only needed if the source has both moving and static faces
+        bool bAnyMoving = false, bAnyStatic = false;
+        for (int meshSlot = 0; meshSlot < pOrigSource->nummeshes; meshSlot++) {
+            const s_mesh_t *pMesh = &pOrigSource->mesh[pOrigSource->meshindex[meshSlot]];
+            for (int faceId = pMesh->faceoffset; faceId < pMesh->faceoffset + pMesh->numfaces; faceId++) {
+                if (isMovingFace(pMesh, pOrigSource->face[faceId]))
+                    bAnyMoving = true;
+                else
+                    bAnyStatic = true;
+            }
+        }
+        bSortByFlex = bAnyMoving && bAnyStatic;
+    }
+
+    const int nPasses = bSortByFlex ? 2 : 1;
+    for (int pass = 0; pass < nPasses; pass++) {
+    const bool bMovingPass = (pass == 0);
+    if (pass == 1 && newSource[ns].m_face.Count() > 0) {
+        // static faces never share a piece with moving ones; this also keeps the faces of every mesh of a piece
+        // contiguous (each pass walks the meshes in order)
+        ns = newSource.AddToTail();
+        newSource[ns].Init(pOrigSource->numvertices);
+    }
+
+    // Meshes are stored by material index (see s_source_t::meshindex): the i'th mesh of a source lives in
+    // mesh[meshindex[i]], NOT in mesh[i]. The pieces keep the same layout so every face stays in the mesh of its
+    // material and the per-material bookkeeping (mesh/meshindex/texmap) of the original source is preserved.
+    for (int meshSlot = 0; meshSlot < pOrigSource->nummeshes; meshSlot++) {
+        const int nMesh = pOrigSource->meshindex[meshSlot];
+        const s_mesh_t *pOrigMesh = &pOrigSource->mesh[nMesh];
+        for (int faceId = pOrigMesh->faceoffset; faceId < pOrigMesh->faceoffset + pOrigMesh->numfaces; faceId++) {
             // make sure all the total for all the meshes in the model don't go over limit
-            int nVertsInFace = (pOrigSource->face[f].d == 0) ? 3 : 4;
+            const s_face_t &origFace = pOrigSource->face[faceId];
+            if (bSortByFlex && isMovingFace(pOrigMesh, origFace) != bMovingPass)
+                continue;
+            int nVertsInFace = (origFace.d == 0) ? 3 : 4;
             if ((newSource[ns].m_vertex.Count() + nVertsInFace) > g_StudioMdlContext.maxVertexClamp) {
                 // go to the next model
                 ns = newSource.AddToTail();
@@ -370,26 +415,48 @@ void ClampMaxVerticesPerModel(s_source_t *pOrigSource) {
 
             // build face
             s_face_t face;
-            face.a = newSource[ns].AddNewVert(pOrigSource, pOrigSource->face[f].a, m, m);
-            face.b = newSource[ns].AddNewVert(pOrigSource, pOrigSource->face[f].b, m, m);
-            face.c = newSource[ns].AddNewVert(pOrigSource, pOrigSource->face[f].c, m, m);
-            if (pOrigSource->face[f].d != 0)
-                face.d = newSource[ns].AddNewVert(pOrigSource, pOrigSource->face[f].d, m, m);
-            else
+            face.a = newSource[ns].AddNewVert(pOrigSource, origFace.a, nMesh, nMesh);
+            face.b = newSource[ns].AddNewVert(pOrigSource, origFace.b, nMesh, nMesh);
+            face.c = newSource[ns].AddNewVert(pOrigSource, origFace.c, nMesh, nMesh);
+            if (nVertsInFace == 4) {
+                face.d = newSource[ns].AddNewVert(pOrigSource, origFace.d, nMesh, nMesh);
+                if (face.d == 0) {
+                    // d == 0 means "triangle" in s_face_t, but this quad's last vertex is the first vertex of the
+                    // mesh in this piece: rotate the quad (keeps the winding) so that it stays a quad
+                    face.d = face.c;
+                    face.c = face.b;
+                    face.b = face.a;
+                    face.a = 0;
+                }
+            } else {
                 face.d = 0;
+            }
 
-            if (newSource[ns].m_mesh[m].numfaces == 0) {
-                newSource[ns].m_mesh[m].faceoffset = newSource[ns].m_face.Count();
+            s_mesh_t &dstMesh = newSource[ns].m_mesh[nMesh];
+            if (dstMesh.numfaces == 0) {
+                dstMesh.faceoffset = newSource[ns].m_face.Count();
             }
             newSource[ns].m_face.AddToTail(face);
-            newSource[ns].m_mesh[m].numfaces++;
+            dstMesh.numfaces++;
         }
+    }
     }
 
     // Split animations into the new sub-models
     for (int n = 0; n < newSource.Count(); n++) {
         newSource[n].AddAnimations(pOrigSource);
         newSource[n].m_nummeshes = pOrigSource->nummeshes;
+        memcpy(newSource[n].m_meshindex, pOrigSource->meshindex, sizeof(newSource[n].m_meshindex));
+    }
+
+    // Name of what was split, so the pieces can be told apart: the model using the source, or the source file
+    char szOrigName[MAXSTUDIONAME];
+    Q_FileBase(pOrigSource->filename, szOrigName, sizeof(szOrigName));
+    for (int i = 0; i < g_nummodels; i++) {
+        if (g_model[i]->source == pOrigSource && g_model[i]->name[0]) {
+            Q_FileBase(g_model[i]->name, szOrigName, sizeof(szOrigName));
+            break;
+        }
     }
 
     // copy over new meshes and animations back into initial source
@@ -427,11 +494,9 @@ void ClampMaxVerticesPerModel(s_source_t *pOrigSource) {
         //   pSource->m_GlobalVertices
 
 
-        // copy mesh data
-        for (int i = 0; i < pSource->nummeshes; i++) {
-            pSource->texmap[i] = pOrigSource->texmap[i];
-            pSource->meshindex[i] = pOrigSource->meshindex[i];
-        }
+        // copy material data: texmap is indexed by material index, so it has to be copied as a whole
+        // (meshindex/mesh/nummeshes were set up by CClampedSource::Copy)
+        memcpy(pSource->texmap, pOrigSource->texmap, sizeof(pSource->texmap));
 
         // copy settings
         pSource->adjust = pOrigSource->adjust;
@@ -442,16 +507,16 @@ void ClampMaxVerticesPerModel(s_source_t *pOrigSource) {
         // allocate a model
         s_model_t *pModel = (s_model_t *) calloc(1, sizeof(s_model_t));
         pModel->source = pSource;
-        sprintf(pModel->name, "%s%d", "clamped", n);
+        V_snprintf(pModel->name, sizeof(pModel->name), "%s_clamped%d", szOrigName, n);
         int imodel = g_nummodels++;
         g_model[imodel] = pModel;
 
         // make it a new bodypart
-        g_bodypart[g_numbodyparts].nummodels = 1;
-        g_bodypart[g_numbodyparts].base =
-                g_bodypart[g_numbodyparts - 1].base * g_bodypart[g_numbodyparts - 1].nummodels;
-        sprintf(g_bodypart[g_numbodyparts].name, "%s%d", "clamped", n);
-        g_bodypart[g_numbodyparts].pmodel[0] = pModel;
+        s_bodypart_t &bodypart = g_bodypart[g_numbodyparts];
+        bodypart.nummodels = 1;
+        bodypart.base = g_bodypart[g_numbodyparts - 1].base * g_bodypart[g_numbodyparts - 1].nummodels;
+        V_snprintf(bodypart.name, sizeof(bodypart.name), "%s_clamped%d", szOrigName, n);
+        bodypart.pmodel[0] = pModel;
         g_numbodyparts++;
 
         // finally, copy flex keys
@@ -469,7 +534,7 @@ void SetSkinValues() {
     for (i = 0; i < g_numtextures; i++) {
         if (g_texture[i].flags & RELATIVE_TEXTURE_PATH_SPECIFIED) {
             // Add an empty path to prepend if anything specifies a relative path
-            cdtextures[numcdtextures] = 0;
+            cdtextures[numcdtextures] = nullptr;
             ++numcdtextures;
             break;
         }
@@ -527,6 +592,8 @@ void SetSkinValues() {
         g_numskinfamilies = 1;
     }
     g_numskinref = g_numtextures;
+
+    FlexOptimizeFixupSkinFamilies();
 
     // printf ("width: %i  height: %i\n",width, height);
     /*
@@ -656,6 +723,8 @@ void UsageAndExit() {
              "[-nox360] - disable xbox360 output(default)\n"
              "[-fastbuild] - write a single vertex windings file\n"
              "[-nowarnings] - disable warnings\n"
+             "[-flexopt auto|on|off] - split flexed meshes to fit the engine flex cache (default auto)\n"
+             "[-flexopt_min_static <verts>] - smallest static part split off a flexed mesh (default 256)\n"
              "[-dumpmaterials] - dump out material names\n"
              "[-mdlreport] model.mdl - report perf info\n"
              "[-mdlreportspreadsheet] - report perf info as a comma-delimited spreadsheet\n"
@@ -676,7 +745,6 @@ void UsageAndExit() {
              "[-dumpmaterials]\n"
              "[-basedir]\n"
              "[-tempcontent]\n"
-             "[-nop4]\n"
     );
 }
 
@@ -695,9 +763,6 @@ int CStudioMDLApp::Main() {
     int nReturnValue;
     if (HandleMdlReport(nReturnValue))
         return false;
-
-    // Don't bother with undo here
-    g_pDataModel->SetUndoEnabled(false);
 
     AddContentPaths();
 
@@ -795,6 +860,8 @@ int CStudioMDLApp::Main() {
     }
 
     if (!g_StudioMdlContext.createMakefile) {
+        FlexOptimizeSources();
+
         int nCount = g_numsources;
         for (int i = 0; i < nCount; i++) {
             if (g_source[i]->isActiveModel) {
@@ -805,6 +872,8 @@ int CStudioMDLApp::Main() {
         SetSkinValues();
 
         SimplifyModel();
+
+        CheckFlexCacheBudget();
 
         ConsistencyCheckSurfaceProp();
         ConsistencyCheckContents();
@@ -1055,6 +1124,19 @@ bool CStudioMDLApp::ParseArguments() {
             continue;
         }
 
+        if (!Q_stricmp(pArgv, "-flexopt")) {
+            const char *pMode = CommandLine()->GetParm(++i);
+            if (!ParseFlexOptimizeMode(pMode, g_StudioMdlContext.flexOptimizeMode)) {
+                MdlError("-flexopt expects auto, on or off, got \"%s\"\n", pMode);
+            }
+            continue;
+        }
+
+        if (!Q_stricmp(pArgv, "-flexopt_min_static")) {
+            g_StudioMdlContext.flexOptimizeMinStatic = atoi(CommandLine()->GetParm(++i));
+            continue;
+        }
+
         if (!Q_stricmp(pArgv, "-maxwarnings")) {
             g_StudioMdlContext.g_maxWarnings = atoi(CommandLine()->GetParm(++i));
             continue;
@@ -1116,7 +1198,7 @@ bool CStudioMDLApp::ParseArguments() {
     if (Q_IsAbsolutePath(g_StudioMdlContext.g_path)) {
         // Set the working directory to be the path of the qc file
         // so the relative-file fopen code works
-        char pQCDir[MAX_PATH];
+        char pQCDir[MAX_PATH]{0};
         Q_ExtractFilePath(g_StudioMdlContext.g_path, pQCDir, sizeof(pQCDir));
         _chdir(pQCDir);
     }
@@ -1167,7 +1249,7 @@ int CStudioMDLApp::Main_StripVhv() {
     {
         LoggingSystem_SetChannelSpewLevelByName("ModelLib", LS_MESSAGE);
 
-        IMdlStripInfo *pMdlStripInfo = NULL;
+        IMdlStripInfo *pMdlStripInfo = nullptr;
 
         if (mdllib->CreateNewStripInfo(&pMdlStripInfo)) {
             pMdlStripInfo->UnSerialize(bufRemapping);
@@ -1227,7 +1309,7 @@ int CStudioMDLApp::Main_MakeVsi() {
             LoggingSystem_SetChannelSpewLevelByName("ModelLib", LS_MESSAGE);
         }
 
-        IMdlStripInfo *pMdlStripInfo = NULL;
+        IMdlStripInfo *pMdlStripInfo = nullptr;
 
         bResult =
                 mdllib->StripModelBuffers(bufMDL, bufVVD, bufVTX, &pMdlStripInfo) &&
@@ -1246,9 +1328,8 @@ int CStudioMDLApp::Main_MakeVsi() {
     // ====== Save out processed data
     //
 
-    // Save remapping data using "P4 edit -> save -> P4 add"  approach
+    // Save remapping data
     sprintf(pExt, ".vsi");
-//	CP4AutoEditAddFile _auto_edit_vsi( g_path );
 
     if (!WriteFileToDisk(g_StudioMdlContext.g_path, nullptr, bufMappingTable)) {
         printf("ERROR: Failed to save '%s'!\n", g_StudioMdlContext.g_path);
@@ -1290,7 +1371,7 @@ int CStudioMDLApp::Main_StripModel() {
     {
         LoggingSystem_SetChannelSpewLevelByName("ModelLib", LS_MESSAGE);
 
-        IMdlStripInfo *pMdlStripInfo = NULL;
+        IMdlStripInfo *pMdlStripInfo = nullptr;
 
         bResult =
                 mdllib->StripModelBuffers(bufMDL, bufVVD, bufVTX, &pMdlStripInfo) &&

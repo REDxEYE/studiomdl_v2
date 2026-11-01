@@ -5,8 +5,7 @@
 //=============================================================================
 
 
-#ifndef DMEANIMATIONASSEMBLYCOMMAND_H
-#define DMEANIMATIONASSEMBLYCOMMAND_H
+#pragma once
 
 
 #if defined( _WIN32 )
@@ -151,4 +150,3 @@ protected:
 };
 
 
-#endif // DMEANIMATIONASSEMBLYCOMMAND_H

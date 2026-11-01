@@ -10,9 +10,10 @@
 #include <cctype>
 #include <vstdlib/ikeyvaluessystem.h>
 #include "tier1/exprevaluator.h"
-#include "tier1/convar.h"
-#include "tier1/fmtstr.h"
+
 #include "tier0/dbg.h"
+#include "tier1/fmtstr.h"
+
 
 
 //-----------------------------------------------------------------------------
@@ -38,12 +39,12 @@ bool DefaultConditionalSymbolProc( const char *pKey )
 	
 	if ( !V_stricmp( pKey, "X360" ) )
 	{
-		return IsX360();
+		return false;
 	}
 
 	if ( !V_stricmp( pKey, "PS3" ) )
 	{
-		return IsPS3();
+		return false;
 	}
 
 	if ( !V_stricmp( pKey, "OSX" ) )
@@ -63,7 +64,7 @@ bool DefaultConditionalSymbolProc( const char *pKey )
 	
 	if ( !V_stricmp( pKey, "GAMECONSOLE" ) )
 	{
-		return IsGameConsole();
+		return false;
 	}
 
 	if ( !V_stricmp( pKey, "DEMO" ) )
@@ -95,7 +96,7 @@ void DefaultConditionalErrorProc( const char *pReason )
 
 CExpressionEvaluator::CExpressionEvaluator()
 {
-	m_ExprTree = NULL;
+	m_ExprTree = nullptr;
 }
 
 CExpressionEvaluator::~CExpressionEvaluator()
@@ -140,7 +141,7 @@ void CExpressionEvaluator::FreeTree( ExprTree& node )
 	FreeTree( node->left );
 	FreeTree( node->right );
 	FreeNode( node );
-	node = 0;
+	node = nullptr;
 }
 
 bool CExpressionEvaluator::IsConditional( bool &bConditional, const char token )
@@ -279,7 +280,7 @@ bool CExpressionEvaluator::MakeFactor( ExprTree &tree )
 	else if ( IsIdentifierOrConstant( m_CurToken ) )
 	{
 		// Make a literal node, set Tree to point to it, set left/right children to NULL. 
-		if ( !MakeExprNode( tree, m_CurToken, LITERAL, NULL, NULL ) )
+		if ( !MakeExprNode( tree, m_CurToken, LITERAL, nullptr, nullptr) )
 		{
 			return false;
 		}
@@ -319,7 +320,7 @@ bool CExpressionEvaluator::MakeTerm( ExprTree &tree )
 	while ( IsNotOp( m_CurToken ) )
 	{
 		// Make an operator node, setting left child to Tree and right to NULL. (Tree points to new node)
-		if ( !MakeExprNode( tree, m_CurToken, NOT, tree, NULL ) )
+		if ( !MakeExprNode( tree, m_CurToken, NOT, tree, nullptr) )
 		{
 			return false;
 		}
@@ -365,7 +366,7 @@ bool CExpressionEvaluator::MakeExpression( ExprTree &tree )
 		}
 
 		// Make a conditional node, setting left child to Tree and right to NULL. (Tree points to new node)
-		if ( !MakeExprNode( tree, m_CurToken, CONDITIONAL, tree, NULL ) )
+		if ( !MakeExprNode( tree, m_CurToken, CONDITIONAL, tree, nullptr) )
 		{
 			return false;
 		}
@@ -471,7 +472,7 @@ bool CExpressionEvaluator::Evaluate( bool &bResult, const char *pInfixExpression
 	m_pExpression = pInfixExpression;
 	m_pGetSymbolProc = pGetSymbolProc ? pGetSymbolProc : DefaultConditionalSymbolProc;
 	m_pSyntaxErrorProc = pSyntaxErrorProc ? pSyntaxErrorProc : DefaultConditionalErrorProc;
-	m_ExprTree = 0;
+	m_ExprTree = nullptr;
 	m_CurPosition = 0;
 	m_CurToken = 0;
 
@@ -484,7 +485,7 @@ bool CExpressionEvaluator::Evaluate( bool &bResult, const char *pInfixExpression
 
 	// don't leak
 	FreeTree( m_ExprTree );
-	m_ExprTree = NULL;
+	m_ExprTree = nullptr;
 
 	return bValid;
 }

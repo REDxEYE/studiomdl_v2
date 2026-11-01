@@ -6,8 +6,7 @@
 //
 //===========================================================================//
 
-#ifndef LOCALFLEXCONTROLLER_H
-#define LOCALFLEXCONTROLLER_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -30,4 +29,3 @@ inline LocalFlexController_t  operator++( LocalFlexController_t &a, int ) { Loca
 inline LocalFlexController_t  operator--( LocalFlexController_t &a, int ) { LocalFlexController_t t = a; a = LocalFlexController_t( int( a ) - 1 ); return t; }
 
 
-#endif	// LOCALFLEXCONTROLLER_H

@@ -7,6 +7,7 @@
 #include "dependencygraph.h"
 #include "datamodel/idatamodel.h"
 #include "datamodel/dmelement.h"
+#include "datamodel/dmattributevar.h"
 
 
 //-----------------------------------------------------------------------------
@@ -21,7 +22,7 @@ enum TraversalState_t
 
 struct COperatorNode
 {
-	COperatorNode( IDmeOperator *pOp = NULL ) :
+	COperatorNode( IDmeOperator *pOp = nullptr) :
 		m_state( TS_NOT_VISITED ), 
 		m_operator( pOp ),
 		m_bInList( false )
@@ -37,7 +38,7 @@ struct COperatorNode
 class CAttributeNode
 {
 public:
-	CAttributeNode( CDmAttribute *attribute = NULL ) : 
+	CAttributeNode( CDmAttribute *attribute = nullptr) : 
 		m_attribute( attribute ),
 		m_bIsOutputToOperator( false )
 	{
@@ -56,10 +57,10 @@ bool HashEntryCompareFunc( CAttributeNode *const& lhs, CAttributeNode *const& rh
 	return lhs->m_attribute == rhs->m_attribute;
 }
 
-uint HashEntryKeyFunc( CAttributeNode *const& keyinfo )
+uint32_t HashEntryKeyFunc( CAttributeNode *const& keyinfo )
 {
-	uintp i = (uintp)keyinfo->m_attribute;
-	return uint( i >> 2 ); // since memory is allocated on a 4-byte (at least!) boundary
+	uintptr_t i = (uintptr_t)keyinfo->m_attribute;
+	return uint32_t( i >> 2 ); // since memory is allocated on a 4-byte (at least!) boundary
 }
 
 //-----------------------------------------------------------------------------
@@ -89,7 +90,7 @@ void CDependencyGraph::Reset( const CUtlVector< IDmeOperator * > &operators )
 	{
 		IDmeOperator *pOp = operators[ oi ];
 		Assert( pOp );
-		if ( pOp == NULL )
+		if ( pOp == nullptr)
 			continue;
 
 		COperatorNode *pOpNode = g_OperatorNodePool.Alloc();
@@ -173,8 +174,8 @@ void CDependencyGraph::FindRoots()
 {
 	m_opRoots.RemoveAll();
 
-	uint oi;
-	uint on = m_opNodes.Count();
+	uint32_t oi;
+	uint32_t on = m_opNodes.Count();
 
 	for ( oi = 0; oi < on; ++oi )
 	{
@@ -256,8 +257,8 @@ bool CDependencyGraph::GetOperatorOrdering( CUtlVector< COperatorNode * > &pOpNo
 {
 	bool cycle = false;
 
-	uint on = pOpNodes.Count();
-	for ( uint oi = 0; oi < on; ++oi )
+	uint32_t on = pOpNodes.Count();
+	for ( uint32_t oi = 0; oi < on; ++oi )
 	{
 		COperatorNode *pOpNode = pOpNodes[ oi ];
 		if ( pOpNode->m_state != TS_NOT_VISITED )
@@ -273,8 +274,8 @@ bool CDependencyGraph::GetOperatorOrdering( CUtlVector< COperatorNode * > &pOpNo
 		// DBG_PrintOperator( pIndent, pOpNode->m_operator );
 
 		// leaves to roots (outputs to inputs)
-		uint an = pOpNode->m_OutputAttributes.Count();
-		for ( uint ai = 0; ai < an; ++ai )
+		uint32_t an = pOpNode->m_OutputAttributes.Count();
+		for ( uint32_t ai = 0; ai < an; ++ai )
 		{
 			CAttributeNode *pAttrNode = pOpNode->m_OutputAttributes[ ai ];
 			if ( GetOperatorOrdering( pAttrNode->m_InputDependentOperators, operators ) )
@@ -305,7 +306,7 @@ CAttributeNode *CDependencyGraph::FindAttrNode( CDmAttribute *pAttr )
 		return m_attrNodes.Element( idx );
 	}
 
-	CAttributeNode *pAttrNode = 0;
+	CAttributeNode *pAttrNode = nullptr;
 	{
 
 		pAttrNode = g_AttrNodePool.Alloc();

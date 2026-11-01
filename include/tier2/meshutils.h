@@ -1,11 +1,10 @@
-//===== Copyright © 2005-2005, Valve Corporation, All rights reserved. ======//
+//===== Copyright Â© 2005-2005, Valve Corporation, All rights reserved. ======//
 //
 // Purpose: A set of utilities to help with generating meshes
 //
 //===========================================================================//
 
-#ifndef MESHUTILS_H
-#define MESHUTILS_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -22,5 +21,4 @@ void GenerateLineStripIndexBuffer( unsigned short* pIndexMemory, int nIndexCount
 void GenerateLineLoopIndexBuffer( unsigned short* pIndexMemory, int nIndexCount, int nFirstVertex );
 
 
-#endif // MESHUTILS_H
 

@@ -1,12 +1,11 @@
-//====== Copyright © 1996-2009, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2009, Valve Corporation, All rights reserved. =======
 //
 // DmeEyeball
 //
 //=============================================================================
 
 
-#ifndef DMEEYEBALL_H
-#define DMEEYEBALL_H
+#pragma once
 
 
 #ifdef _WIN32
@@ -43,4 +42,3 @@ public:
 };
 
 
-#endif // DMEEYEBALL_H

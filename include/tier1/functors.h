@@ -32,8 +32,7 @@
 //
 //=============================================================================
 
-#ifndef FUNCTORS_H
-#define FUNCTORS_H
+#pragma once
 
 #if defined( _WIN32 )
 #pragma once
@@ -525,7 +524,7 @@ FUNC_GENERATE_ALL( DEFINE_MEMBER_FUNC_PROXY );
 //
 //-----------------------------------------------------------------------------
 
-// DISABLED #include "tier0/memdbgon.h"
+
 
 typedef CRefCounted1<CFunctor, CRefCountServiceST> CFunctorBase;
 
@@ -917,4 +916,3 @@ private:
 
 //-----------------------------------------------------------------------------
 
-#endif // FUNCTORS_H

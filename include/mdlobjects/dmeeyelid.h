@@ -2,8 +2,7 @@
 //
 //=============================================================================
 
-#ifndef DMEEYELID_H
-#define DMEEYELID_H
+#pragma once
 
 
 #ifdef _WIN32
@@ -42,4 +41,3 @@ public:
 };
 
 
-#endif // DMEEYELID_H

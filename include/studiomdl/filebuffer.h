@@ -5,8 +5,7 @@
 // $NoKeywords: $
 //=============================================================================//
 
-#ifndef FILEBUFFER_H
-#define FILEBUFFER_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -42,10 +41,6 @@ public:
 #ifdef _DEBUG
 	void TestWritten( int EndOfFileOffset )
 	{
-		if ( !g_StudioMdlContext.quiet )
-		{
-			printf( "testing to make sure that the whole file has been written\n" );
-		}
 		int i;
 		for( i = 0; i < EndOfFileOffset; i++ )
 		{
@@ -60,8 +55,6 @@ public:
 	
 	void WriteToFile( const char *fileName, int size )
 	{
-//		CPlainAutoPtr< CP4File > spFile( g_p4factory->AccessFile( fileName ) );
-//		spFile->Edit();
 		FILE *fp = fopen( fileName, "wb" );
 		if( !fp )
 		{
@@ -72,7 +65,6 @@ public:
 		fwrite( m_pData, 1, size, fp );
 		
 		fclose( fp );
-//		spFile->Add();
 	}
 	
 	void WriteAt( int offset, void *data, int size, const char *name )
@@ -129,4 +121,3 @@ private:
 };
 	
 
-#endif // FILEBUFFER_H

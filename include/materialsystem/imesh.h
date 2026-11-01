@@ -4,8 +4,7 @@
 //
 //===========================================================================//
 
-#ifndef IMESH_H
-#define IMESH_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -14,7 +13,7 @@
 #include "tier1/interface.h"
 #include <cfloat>
 #include <cstring>
-#include "tier0/dbg.h"
+
 #include "mathlib/ssemath.h"
 #include "tier2/meshutils.h"
 #include "meshutils/mesh.h"
@@ -52,7 +51,7 @@ typedef enum VertexCompressionType_s
 class IMaterial;
 class CMeshBuilder;
 class IMaterialVar;
-typedef uint64 VertexFormat_t;
+typedef uint64_t VertexFormat_t;
 
 
 //-----------------------------------------------------------------------------
@@ -77,13 +76,8 @@ enum
 // Internal maximums for sizes. Don't use directly, use IMaterialSystem::GetMaxToRender()
 enum
 {
-#ifdef PLATFORM_X360
-	INDEX_BUFFER_SIZE  = 65504,
-	DYNAMIC_VERTEX_BUFFER_MEMORY = ( 4096 ) * 1024,
-#else
 	INDEX_BUFFER_SIZE  = 32768,
 	DYNAMIC_VERTEX_BUFFER_MEMORY = ( 1024 + 512 ) * 1024,
-#endif
 	DYNAMIC_VERTEX_BUFFER_MEMORY_SMALL = 384 * 1024, // Only allocate this much during map transitions
 };
 
@@ -205,7 +199,7 @@ struct MeshDesc_t : public VertexDesc_t, public IndexDesc_t
 //-----------------------------------------------------------------------------
 struct MeshBuffersAllocationSettings_t
 {
-	uint32 m_uiIbUsageFlags;
+	uint32_t m_uiIbUsageFlags;
 };
 
 
@@ -407,7 +401,7 @@ public:
 	// New version
 	// Locks/unlocks the mesh, providing space for nVertexCount and nIndexCount.
 	// nIndexCount of -1 means don't lock the index buffer...
-	virtual void LockMesh( int nVertexCount, int nIndexCount, MeshDesc_t &desc, MeshBuffersAllocationSettings_t *pSettings = 0 ) = 0;
+	virtual void LockMesh( int nVertexCount, int nIndexCount, MeshDesc_t &desc, MeshBuffersAllocationSettings_t *pSettings = nullptr ) = 0;
 	virtual void ModifyBegin( int nFirstVertex, int nVertexCount, int nFirstIndex, int nIndexCount, MeshDesc_t& desc ) = 0;
 	virtual void ModifyEnd( MeshDesc_t& desc ) = 0;
 	virtual void UnlockMesh( int nVertexCount, int nIndexCount, MeshDesc_t &desc ) = 0;
@@ -425,7 +419,7 @@ public:
 
 	virtual unsigned int ComputeMemoryUsed() = 0;
 
-	virtual void * AccessRawHardwareDataStream( uint8 nRawStreamIndex, uint32 numBytes, uint32 uiFlags, void *pvContext ) = 0;
+	virtual void * AccessRawHardwareDataStream( uint8_t nRawStreamIndex, uint32_t numBytes, uint32_t uiFlags, void *pvContext ) = 0;
 
 	virtual ICachedPerFrameMeshData *GetCachedPerFrameMeshData() = 0;
 	virtual void ReconstructFromCachedPerFrameMeshData( ICachedPerFrameMeshData *pData ) = 0;
@@ -684,7 +678,7 @@ private:
 //-----------------------------------------------------------------------------
 inline CVertexBuilder::CVertexBuilder()
 {
-	m_pVertexBuffer = NULL;
+	m_pVertexBuffer = nullptr;
 	m_nBufferOffset = INVALID_BUFFER_OFFSET;
 	m_nBufferFirstVertex = 0;
 	m_nVertexCount = 0;
@@ -870,7 +864,7 @@ inline void CVertexBuilder::End( bool bSpewData )
 	// Unlock our buffers
 	m_pVertexBuffer->Unlock( m_nVertexCount, *this );
 
-	m_pVertexBuffer = 0;
+	m_pVertexBuffer = nullptr;
 	m_nMaxVertexCount = 0;
 
 	m_CompressionType = VERTEX_COMPRESSION_INVALID;
@@ -915,7 +909,7 @@ inline void CVertexBuilder::AttachEnd()
 	Assert( !m_bModify );
 
 	m_nMaxVertexCount = 0;
-	m_pVertexBuffer = NULL;
+	m_pVertexBuffer = nullptr;
 
 	m_CompressionType = VERTEX_COMPRESSION_INVALID;
 
@@ -948,7 +942,7 @@ inline void CVertexBuilder::AttachEndModify()
 	Assert( m_pVertexBuffer );
 	Assert( m_bModify );	// Make sure they called BeginModify.
 
-	m_pVertexBuffer = 0;
+	m_pVertexBuffer = nullptr;
 	m_nMaxVertexCount = 0;
 
 	m_CompressionType = VERTEX_COMPRESSION_INVALID;
@@ -1192,52 +1186,6 @@ inline int CVertexBuilder::GetCurrentVertex() const
 //-----------------------------------------------------------------------------
 // Copies a vertex into the x360 format
 //-----------------------------------------------------------------------------
-#if defined( _X360 )
-inline void CVertexBuilder::VertexDX8ToX360( const ModelVertexDX8_t &vertex )
-{
-	Assert( m_CompressionType == VERTEX_COMPRESSION_NONE ); // FIXME: support compressed verts if needed
-	Assert( m_nCurrentVertex < m_nMaxVertexCount );
-
-	// get the start of the data
-	unsigned char *pDst = (unsigned char*)m_pCurrPosition;
-
-	Assert( m_VertexSize_Position > 0 ); // Assume position is always present
-	Assert( GetVertexElementSize( VERTEX_ELEMENT_POSITION, VERTEX_COMPRESSION_NONE ) == sizeof( vertex.m_vecPosition ) );
-	memcpy( pDst, vertex.m_vecPosition.Base(), sizeof( vertex.m_vecPosition ) );
-	pDst += sizeof( vertex.m_vecPosition );
-
-	if ( m_VertexSize_Normal )
-	{
-		Assert( GetVertexElementSize( VERTEX_ELEMENT_NORMAL, VERTEX_COMPRESSION_NONE ) == sizeof( vertex.m_vecNormal ) );
-		memcpy( pDst, vertex.m_vecNormal.Base(), sizeof( vertex.m_vecNormal ) );
-		pDst += sizeof( vertex.m_vecNormal );
-	}
-
-	if ( m_VertexSize_TexCoord[0] )
-	{
-		Assert( GetVertexElementSize( VERTEX_ELEMENT_TEXCOORD2D_0, VERTEX_COMPRESSION_NONE ) == sizeof( vertex.m_vecTexCoord ) );
-		memcpy( pDst, vertex.m_vecTexCoord.Base(), sizeof( vertex.m_vecTexCoord ) );
-		pDst += sizeof( vertex.m_vecTexCoord );
-	}
-
-	if ( m_VertexSize_UserData )
-	{
-		Assert( GetVertexElementSize( VERTEX_ELEMENT_USERDATA4, VERTEX_COMPRESSION_NONE ) == sizeof( vertex.m_vecUserData ) );
-		memcpy( pDst, vertex.m_vecUserData.Base(), sizeof( vertex.m_vecUserData ) );
-		pDst += sizeof( vertex.m_vecUserData );
-	}
-
-	// ensure code is synced with the mesh builder that established the offsets
-	Assert( pDst - (unsigned char*)m_pCurrPosition == m_VertexSize_Position );
-
-	IncrementFloatPointer( m_pCurrPosition, m_VertexSize_Position );
-
-#if ( defined( _DEBUG ) && ( COMPRESSED_NORMALS_TYPE == COMPRESSED_NORMALS_COMBINEDTANGENTS_UBYTE4 ) )
-	m_bWrittenNormal   = false;
-	m_bWrittenUserData = false;
-#endif
-}
-#endif
 
 
 //-----------------------------------------------------------------------------
@@ -1269,14 +1217,8 @@ inline unsigned int CVertexBuilder::Color() const
 	// Swizzle it so it returns the same format as accepted by Color4ubv - rgba
 	Assert( m_nCurrentVertex < m_nMaxVertexCount );
 	unsigned int color;
-	if ( IsPC() || !IsX360() )
 	{
 		color = (m_pCurrColor[3] << 24) | (m_pCurrColor[0] << 16) | (m_pCurrColor[1] << 8) | (m_pCurrColor[2]);
-	}
-	else
-	{
-		// in memory as argb, back to rgba
-		color = (m_pCurrColor[1] << 24) | (m_pCurrColor[2] << 16) | (m_pCurrColor[3] << 8) | (m_pCurrColor[0]);
 	}
 	return color;
 }
@@ -1682,11 +1624,7 @@ FORCEINLINE void CVertexBuilder::Color4Packed( int packedColor )
 
 FORCEINLINE int CVertexBuilder::PackColor4( unsigned char r, unsigned char g, unsigned char b, unsigned char a )
 {
-#if 0 && defined( CELL_GCM_SWAP_COLORS ) // TODO: do we need to swap this, too? PS3 order is RGBA, big endian, because we treat it as a simple UN8 vector
-	return ( r << 24 ) | ( g << 16 ) | ( b << 8 ) | a;
-#else
 	return b | (g << 8) | (r << 16) | (a << 24);
-#endif
 }
 
 
@@ -1930,21 +1868,7 @@ inline void	CVertexBuilder::TexCoord4f( int stage, float s, float t, float u, fl
 
 inline void CVertexBuilder::TexCoord4f( int nStage, const fltx4 &fl4stuv )
 {
-#ifdef _GAMECONSOLE
-	// can't storeUnaligned4SIMD into write combined memory on the 360 unless
-	// the address is actually aligned.
-	// The same thing happens on PS3: you can't write into RSX local memory using stvlx/stvrx 
-	// unless the effective address (EA) is actually 16-byte aligned, or it crashes.
-	float *pDst = m_pCurrTexCoord[nStage];
-	float *pSrc = (float *)(&fl4stuv);
-
-	*pDst++ = *pSrc++;
-	*pDst++ = *pSrc++;
-	*pDst++ = *pSrc++;
-	*pDst = *pSrc;
-#else
 	StoreUnalignedSIMD( m_pCurrTexCoord[nStage], fl4stuv );
-#endif
 }
 
 inline void	CVertexBuilder::TexCoord4fv( int stage, const float *stuv )
@@ -2125,11 +2049,7 @@ inline void CVertexBuilder::BoneMatrix( int idx, int matrixIdx )
 	
 #ifndef NEW_SKINNING
 	unsigned char* pBoneMatrix = &m_pBoneMatrixIndex[m_nCurrentVertex * m_VertexSize_BoneMatrixIndex];
-	if ( IsX360() )
-	{
-		// store sequentially as wzyx order, gpu delivers as xyzw
-		idx = 3-idx;
-	}
+
 	pBoneMatrix[idx] = (unsigned char)matrixIdx;
 #else
 	float* pBoneMatrix = &m_pBoneMatrixIndex[m_nCurrentVertex * m_VertexSize_BoneMatrixIndex];
@@ -2149,12 +2069,6 @@ inline void CVertexBuilder::BoneMatrices4( int matrixIdx0, int matrixIdx1, int m
 
 #ifndef NEW_SKINNING
 	int nVal;
-	if ( IsX360() )
-	{
-		// store sequentially as wzyx order, gpu delivers as xyzw
-		nVal = matrixIdx3 | ( matrixIdx2 << 8 ) | ( matrixIdx1 << 16 ) | ( matrixIdx0 << 24 );
-	}
-	else
 	{
 		nVal = matrixIdx0 | ( matrixIdx1 << 8 ) | ( matrixIdx2 << 16 ) | ( matrixIdx3 << 24 );
 	}
@@ -2194,8 +2108,8 @@ template <VertexCompressionType_t T> inline void CVertexBuilder::CompressedBoneW
 		// Only 1 or 2 weights (SHORT2N) supported for compressed verts so far
 		Assert( m_NumBoneWeights <= 2 );
 
-		const int WEIGHT0_SHIFT = IsX360() ? 16 : 0;
-		const int WEIGHT1_SHIFT = IsX360() ? 0 : 16;
+		const int WEIGHT0_SHIFT = 0;
+		const int WEIGHT1_SHIFT = 16;
 		unsigned int *weights = (unsigned int *)pDestWeights;
 
 		// We scale our weights so that they sum to 32768, then subtract 1 (which gets added
@@ -2429,7 +2343,7 @@ private:
 //-----------------------------------------------------------------------------
 // Constructor
 //-----------------------------------------------------------------------------
-inline CIndexBuilder::CIndexBuilder() : m_pIndexBuffer(0), m_nIndexCount(0), 
+inline CIndexBuilder::CIndexBuilder() : m_pIndexBuffer(nullptr), m_nIndexCount(0), 
 	m_nCurrentIndex(0),	m_nMaxIndexCount(0)
 {
 	m_nTotalIndexCount = 0;
@@ -2578,7 +2492,7 @@ inline void CIndexBuilder::End( bool bSpewData )
 	// Unlock our buffers
 	m_pIndexBuffer->Unlock( m_nIndexCount, *this );
 
-	m_pIndexBuffer = 0;
+	m_pIndexBuffer = nullptr;
 	m_nMaxIndexCount = 0;
 
 #ifdef _DEBUG
@@ -2619,7 +2533,7 @@ inline void CIndexBuilder::EndModify( bool bSpewData )
 	// Unlock our buffers
 	m_pIndexBuffer->ModifyEnd( *this );
 
-	m_pIndexBuffer = 0;
+	m_pIndexBuffer = nullptr;
 	m_nMaxIndexCount = 0;
 
 #ifdef _DEBUG
@@ -2654,7 +2568,7 @@ inline void CIndexBuilder::AttachEnd()
 	Assert( m_pIndexBuffer );
 	Assert( !m_bModify );	// Make sure they called AttachBegin.
 
-	m_pIndexBuffer = 0;
+	m_pIndexBuffer = nullptr;
 	m_nMaxIndexCount = 0;
 
 #ifdef _DEBUG
@@ -2684,7 +2598,7 @@ inline void CIndexBuilder::AttachEndModify()
 	Assert( m_pIndexBuffer );
 	Assert( m_bModify );	// Make sure they called AttachBeginModify.
 
-	m_pIndexBuffer = 0;
+	m_pIndexBuffer = nullptr;
 	m_nMaxIndexCount = 0;
 
 #ifdef _DEBUG
@@ -2843,7 +2757,6 @@ inline void CIndexBuilder::FastPolygon( int startVert, int triangleCount )
 {
 	unsigned short *pIndex = &m_pIndices[m_nCurrentIndex];
 	startVert += m_nIndexOffset;
-	if ( !IsX360() )
 	{
 		// NOTE: IndexSize is 1 or 0 (0 for alt-tab)
 		// This prevents us from writing into bogus memory
@@ -2863,7 +2776,6 @@ inline void CIndexBuilder::FastPolygon( int nIndexOffset, int startVert, int tri
 {
 	unsigned short *pIndex = &m_pIndices[m_nCurrentIndex + nIndexOffset];
 	startVert += m_nIndexOffset;
-	if ( !IsX360() )
 	{
 		// NOTE: IndexSize is 1 or 0 (0 for alt-tab)
 		// This prevents us from writing into bogus memory
@@ -2884,7 +2796,6 @@ inline void CIndexBuilder::FastPolygonList( int startVert, int *pVertexCount, in
 	startVert += m_nIndexOffset;
 	int indexOut = 0;
 
-	if ( !IsX360() )
 	{
 		// NOTE: IndexSize is 1 or 0 (0 for alt-tab)
 		// This prevents us from writing into bogus memory
@@ -2912,7 +2823,6 @@ inline void CIndexBuilder::FastIndexList( const unsigned short *pIndexList, int 
 {
 	unsigned short *pIndexOut = &m_pIndices[m_nCurrentIndex];
 	startVert += m_nIndexOffset;
-	if ( !IsX360() )
 	{
 		// NOTE: IndexSize is 1 or 0 (0 for alt-tab)
 		// This prevents us from writing into bogus memory
@@ -3035,7 +2945,7 @@ public:
 	// Locks the vertex buffer, can specify arbitrary index lists
 	// (must use the Index() call below)
 	void Begin( IMesh *pMesh, MaterialPrimitiveType_t type, int nVertexCount, int nIndexCount, int *nFirstVertex );
-	void Begin( IMesh *pMesh, MaterialPrimitiveType_t type, int nVertexCount, int nIndexCount, MeshBuffersAllocationSettings_t *pSettings = 0 );
+	void Begin( IMesh *pMesh, MaterialPrimitiveType_t type, int nVertexCount, int nIndexCount, MeshBuffersAllocationSettings_t *pSettings = nullptr );
 
 	// forward compat
 	void Begin( IVertexBuffer *pVertexBuffer, MaterialPrimitiveType_t type, int numPrimitives );
@@ -3228,9 +3138,6 @@ public:
 	// Add number of verts and current vert since FastVertexxx routines do not update.
 	void FastAdvanceNVertices(int n);	
 
-#if defined( _X360 )
-	void VertexDX8ToX360( const ModelVertexDX8_t &vertex );
-#endif
 
 	// this low level function gets you a pointer to the vertex output data. It is dangerous - any
 	// caller using it must understand the vertex layout that it is building. It is for optimized
@@ -3239,7 +3146,7 @@ public:
 	FORCEINLINE void *GetVertexDataPtr( int nWhatSizeIThinkItIs )
 	{
 		if ( m_VertexBuilder.m_VertexSize_Position != nWhatSizeIThinkItIs )
-			return NULL;
+			return nullptr;
 		return m_VertexBuilder.m_pCurrPosition;
 	}
 
@@ -3288,7 +3195,7 @@ inline void CMeshBuilder::Begin( IVertexBuffer* pVertexBuffer, IIndexBuffer *pIn
 //-----------------------------------------------------------------------------
 // Constructor
 //-----------------------------------------------------------------------------
-inline CMeshBuilder::CMeshBuilder()	: m_pMesh(0), m_bGenerateIndices(false)
+inline CMeshBuilder::CMeshBuilder()	: m_pMesh(nullptr), m_bGenerateIndices(false)
 {
 	VertexDesc_t::m_nOffset = 0;
 	VertexDesc_t::m_CompressionType = VERTEX_COMPRESSION_NONE;
@@ -3501,7 +3408,7 @@ inline void CMeshBuilder::End( bool bSpewData, bool bDraw )
 	m_IndexBuilder.AttachEnd();
 	m_VertexBuilder.AttachEnd();
 
-	m_pMesh = 0;
+	m_pMesh = nullptr;
 
 #ifdef _DEBUG
 	memset( (MeshDesc_t*)this, 0, sizeof(MeshDesc_t) );
@@ -3548,7 +3455,7 @@ inline void CMeshBuilder::EndModify( bool bSpewData )
 
 	// Unlocks mesh
 	m_pMesh->ModifyEnd( *this );
-	m_pMesh = 0;
+	m_pMesh = nullptr;
 
 	m_IndexBuilder.AttachEndModify();
 	m_VertexBuilder.AttachEndModify();
@@ -3791,12 +3698,6 @@ FORCEINLINE void CMeshBuilder::FastAdvanceNVertices( int nVertexCount )
 //-----------------------------------------------------------------------------
 // Copies a vertex into the x360 format
 //-----------------------------------------------------------------------------
-#if defined( _X360 )
-inline void CMeshBuilder::VertexDX8ToX360( const ModelVertexDX8_t &vertex )
-{
-	m_VertexBuilder.VertexDX8ToX360( vertex );
-}
-#endif
 
 //-----------------------------------------------------------------------------
 // Vertex field setting methods
@@ -4096,4 +3997,3 @@ template <VertexCompressionType_t T> FORCEINLINE void CMeshBuilder::CompressedNo
 	m_VertexBuilder.CompressedNormal3fv<T>( n );
 }
 
-#endif // IMESH_H

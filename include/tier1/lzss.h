@@ -1,12 +1,11 @@
-//========= Copyright © 1996-2007, Valve Corporation, All rights reserved. ============//
+//========= Copyright Â© 1996-2007, Valve Corporation, All rights reserved. ============//
 //
 //	LZSS Codec. Designed for fast cheap gametime encoding/decoding. Compression results
 //	are	not aggresive as other alogrithms, but gets 2:1 on most arbitrary uncompressed data.
 //
 //=====================================================================================//
 
-#ifndef _LZSS_H
-#define _LZSS_H
+#pragma once
 #pragma once
 
 #if defined( PLAT_LITTLE_ENDIAN )
@@ -67,5 +66,4 @@ FORCEINLINE CLZSS::CLZSS( int nWindowSize )
 {
 	m_nWindowSize = nWindowSize;
 }
-#endif
 

@@ -138,7 +138,7 @@ namespace OptimizedModel
 				pPatch->edgeBias[2*k]  		= 16384;
 				pPatch->edgeBias[2*k+1]		= 16384;
 
-				pPatch->halfEdges[k].twin = NULL;
+				pPatch->halfEdges[k].twin = nullptr;
 				pPatch->halfEdges[k].sectorStart = &pPatch->halfEdges[k]; // start one-ring with this halfedge
 				pPatch->halfEdges[k].localID = k;
 				pPatch->halfEdges[k].patch = pPatch;
@@ -371,7 +371,7 @@ namespace OptimizedModel
 
 			for (unsigned short k=0; k<4; ++k)
 			{
-				if (( pPatch->halfEdges[k].twin != NULL ) && (pPatch->halfEdges[k].twin->twin != &pPatch->halfEdges[k]) )
+				if (( pPatch->halfEdges[k].twin != nullptr) && (pPatch->halfEdges[k].twin->twin != &pPatch->halfEdges[k]) )
 				{
 
 					Msg( "Topology error at vertices %d, %d, %d\n", pPatch->vtxIDs[MOD4[k+3]], pPatch->vtxIDs[MOD4[k+0]], pPatch->vtxIDs[MOD4[k+1]] );
@@ -398,16 +398,16 @@ namespace OptimizedModel
 			sectorStart = next;
 			if ( next->BndEdge() )
 			{
-				next = NULL;
+				next = nullptr;
 			}
 			else
 			{
 				next = next->PrevByTail();
 			}
 		}
-		while ( ( next != NULL ) && ( next != &(pPatch->halfEdges[k]) ) );
+		while ( ( next != nullptr) && ( next != &(pPatch->halfEdges[k]) ) );
 
-		if ( next == NULL )
+		if ( next == nullptr)
 		{
 			pPatch->halfEdges[k].sectorStart = sectorStart; // only update sectorStart if we actually hit a boundary
 		}
@@ -423,13 +423,13 @@ namespace OptimizedModel
 
 		// Find first sector
 		HalfEdge *next = he->PrevByTail();
-		while ( ( next!=NULL ) && ( next!=sectorStart ) )
+		while ( ( next!= nullptr) && ( next!=sectorStart ) )
 		{
 			he = next;
 			next = next->PrevByTail();
 		}
 
-		if ( next != NULL )
+		if ( next != nullptr)
 		{
 			he = sectorStart;
 		}
@@ -450,7 +450,7 @@ namespace OptimizedModel
 			}
 			he = he->NextByHead();
 
-		} while (( he != NULL ) && (he != heEnd));
+		} while (( he != nullptr) && (he != heEnd));
 
 		// Set flags
 		if ( nBndEdges == 1 ) // dangling BndEdge -> correct sectorStart
@@ -504,11 +504,11 @@ namespace OptimizedModel
 				centerOffset = oneRingSize - 1;
 			}
 
-			he = (he->BndEdge() && baseQuad->bndVtx[baseLocalID]) ? NULL : he->NextByHead(); // make sure we only step over BndEdge if it is dangling.
+			he = (he->BndEdge() && baseQuad->bndVtx[baseLocalID]) ? nullptr : he->NextByHead(); // make sure we only step over BndEdge if it is dangling.
 
-		} while ( ( he != NULL ) && ( he != heEnd ) );
+		} while ( ( he != nullptr) && ( he != heEnd ) );
 
-		if ( ( he != NULL) && ( he == heEnd ) ) // if we closed the loop, add off-edge vertex from last quad.
+		if ( ( he != nullptr) && ( he == heEnd ) ) // if we closed the loop, add off-edge vertex from last quad.
 		{
 			oneRing[oneRingSize++] = he->patch->vtxIDs[ MOD4[ he->localID+3 ]];
 		}
@@ -550,9 +550,9 @@ namespace OptimizedModel
 			npVec2 = project_and_normalize( eVec2, center_nor ); 
 			sector_angle += acosf( DotProduct( npVec1, npVec2 ) );
 
-			he = he->BndEdge() ? NULL : he->NextByHead(); // make sure we only step over BndEdge if it is dangling.
+			he = he->BndEdge() ? nullptr : he->NextByHead(); // make sure we only step over BndEdge if it is dangling.
 			npVec1 = npVec2;
-		} while ( he != NULL ); // only way to terminate is to hit BndEdge
+		} while ( he != nullptr); // only way to terminate is to hit BndEdge
 
 		VectorNormalize( eVec1 );
 		VectorNormalize( eVec2 );
@@ -588,7 +588,7 @@ namespace OptimizedModel
 			}
 
 			he = he->NextByHead();
-		} while (( he != NULL ) && (he != heEnd));
+		} while (( he != nullptr) && (he != heEnd));
 		
 	}
 
@@ -608,8 +608,8 @@ namespace OptimizedModel
 		{
 			nbCorners.pushBit( he->patch->cornerVtx[ he->localID ] == 2 );
 
-			he = ( he->BndEdge() && baseQuad->bndVtx[baseLocalID] ) ? NULL : he->NextByHead(); // make sure we only step over BndEdge if it is dangling.
-		} while (( he != NULL ) && (he != heEnd));
+			he = ( he->BndEdge() && baseQuad->bndVtx[baseLocalID] ) ? nullptr : he->NextByHead(); // make sure we only step over BndEdge if it is dangling.
+		} while (( he != nullptr) && (he != heEnd));
 	}
 
 	unsigned short COptimizeSubDBuilder::FindNeighborVertex( HalfEdge** ppOutMirrorEdge, const HalfEdge *pHalfEdge, int indexAlongEdge )
@@ -658,7 +658,7 @@ namespace OptimizedModel
 
 			// Find the texture coordinates of our neighbors
 			// Only keep the texture coordinates of the neighbor with the greatest quad index
-			HalfEdge* pMirrorEdgeV = NULL;
+			HalfEdge* pMirrorEdgeV = nullptr;
 
 			// V edge ( store the UVs of the patch with the greatest ID )
 			unsigned short  iNeighborPatchV = invalidNeighborValue;
@@ -672,7 +672,7 @@ namespace OptimizedModel
 				}
 			}
 
-			HalfEdge* pMirrorEdgeU = NULL;
+			HalfEdge* pMirrorEdgeU = nullptr;
 
 			// U edge ( store the UVs of the patch with the greatest ID )
 			unsigned short iNeighborPatchU = invalidNeighborValue;
@@ -753,7 +753,7 @@ namespace OptimizedModel
 		SubD_Face_t tmpFace;
 		memcpy( &tmpFace, pPatch, sizeof( SubD_Face_t ) );
 
-		HalfEdge *pTwins[4] = { NULL, NULL, NULL, NULL };
+		HalfEdge *pTwins[4] = {nullptr, nullptr, nullptr, nullptr};
 		for ( int i=0; i<4; i++ )
 		{
 			pTwins[i] = pPatch->halfEdges[i].twin;					// Point to each HalfEdge's twin
@@ -910,7 +910,7 @@ namespace OptimizedModel
 
 			for ( int k=0; k<4; k++ ) // for all vertices
 			{
-				if ( pPatch->halfEdges[k].twin != NULL )
+				if ( pPatch->halfEdges[k].twin != nullptr)
 				{
 					HalfEdge *twin = pPatch->halfEdges[k].twin;
 					SubD_Face_t *nbQuad = twin->patch;

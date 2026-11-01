@@ -39,8 +39,7 @@
 #include "ole2.h"
 #endif /*COM_NO_WINDOWS_H*/
 
-#ifndef __d3d10sdklayers_h__
-#define __d3d10sdklayers_h__
+#pragma once
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1020)
 #pragma once
@@ -1353,6 +1352,5 @@ extern RPC_IF_HANDLE __MIDL_itf_d3d10sdklayers_0000_0003_v0_0_s_ifspec;
 }
 #endif
 
-#endif
 
 

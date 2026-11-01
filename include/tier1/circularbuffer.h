@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: Defines an interface for circular buffers. Data can be written to
 //			and read from these buffers as though from a file. When it is 
@@ -13,12 +13,11 @@
 //
 //=====================================================================================//
 
-#ifndef CIRCULARBUFFER_H
-#define CIRCULARBUFFER_H
+#pragma once
 
 #pragma once
 
-#include "tier0/dbg.h"
+
 
 class CCircularBuffer
 {
@@ -97,4 +96,3 @@ private:
 CCircularBuffer *AllocateCircularBuffer( int nSize );
 void FreeCircularBuffer( CCircularBuffer *pCircularBuffer );
 
-#endif // CIRCULARBUFFER_H

@@ -8,12 +8,11 @@
 #include "movieobjects_interfaces.h"
 #include <limits.h>
 #include "tier3/tier3.h"
-#include "tier0/dbg.h"
+
 #include "datamodel/dmelementfactoryhelper.h"
 #include <algorithm>
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 //-----------------------------------------------------------------------------
@@ -116,8 +115,8 @@ void CDmeVertexDataBase::ComputeFieldInfo()
 	int nCurrentCount = m_FieldInfo.Count();
 	for ( int i = 0; i < nCurrentCount; ++i )
 	{
-		m_FieldInfo[i].m_pIndexData = NULL;
-		m_FieldInfo[i].m_pVertexData = NULL;
+		m_FieldInfo[i].m_pIndexData = nullptr;
+		m_FieldInfo[i].m_pVertexData = nullptr;
 	}
 
 	CUtlVectorFixedGrowable< char, 256 > indicesName;
@@ -135,7 +134,7 @@ void CDmeVertexDataBase::ComputeFieldInfo()
 		if ( !pVerticesArray || !IsArrayType( pVerticesArray->GetType() ) )
 			continue;
 
-		CDmAttribute *pIndicesArray = NULL;
+		CDmAttribute *pIndicesArray = nullptr;
 		if ( Q_stricmp( pFieldName, g_pStandardFieldNames[FIELD_JOINT_WEIGHTS] ) &&
 			Q_stricmp( pFieldName, g_pStandardFieldNames[FIELD_JOINT_INDICES] ) )
 		{
@@ -285,7 +284,7 @@ const float *CDmeVertexDataBase::GetJointWeights( int nVertexIndex ) const
 	FieldIndex_t nPosFieldIndex = m_pStandardFieldIndex[FIELD_POSITION];
 	FieldIndex_t nFieldIndex = m_pStandardFieldIndex[FIELD_JOINT_WEIGHTS];
 	if ( nPosFieldIndex < 0 || nFieldIndex < 0 )
-		return NULL;
+		return nullptr;
 
 	CDmrArrayConst<int> indices = GetIndexData( nPosFieldIndex );
 	CDmrArrayConst<float> vertexData = GetVertexData( nFieldIndex );
@@ -302,7 +301,7 @@ const float *CDmeVertexDataBase::GetJointPositionWeights( int nPositionIndex ) c
 	Assert( !IsVertexDeltaData() );
 	FieldIndex_t nFieldIndex = m_pStandardFieldIndex[FIELD_JOINT_WEIGHTS];
 	if ( nFieldIndex < 0 )
-		return NULL;
+		return nullptr;
 
 	CDmrArrayConst< float > jointWeights = GetVertexData( nFieldIndex );
 	Assert( nPositionIndex * m_nJointCount < jointWeights.Count() );
@@ -315,7 +314,7 @@ const int *CDmeVertexDataBase::GetJointIndices( int nVertexIndex ) const
 	FieldIndex_t nPosFieldIndex = m_pStandardFieldIndex[FIELD_POSITION];
 	FieldIndex_t nFieldIndex = m_pStandardFieldIndex[FIELD_JOINT_INDICES];
 	if ( nPosFieldIndex < 0 || nFieldIndex < 0 )
-		return NULL;
+		return nullptr;
 
 	CDmrArrayConst<int> indices = GetIndexData( nPosFieldIndex );
 	CDmrArrayConst<int> vertexData = GetVertexData( nFieldIndex );
@@ -332,7 +331,7 @@ const int *CDmeVertexDataBase::GetJointPositionIndices( int nPositionIndex ) con
 	Assert( !IsVertexDeltaData() );
 	FieldIndex_t nJointIndicesField = m_pStandardFieldIndex[ FIELD_JOINT_INDICES ];
 	if ( nJointIndicesField < 0 )
-		return NULL;
+		return nullptr;
 
 	CDmrArrayConst<int> jointIndices = GetVertexData( nJointIndicesField );
 	Assert( nPositionIndex * m_nJointCount < jointIndices.Count() );
@@ -656,7 +655,7 @@ const float *CDmeVertexDataBase::GetJointWeightData( int nDataIndex ) const
 {
 	FieldIndex_t nFieldIndex = m_pStandardFieldIndex[FIELD_JOINT_WEIGHTS];
 	if ( nFieldIndex < 0 || nFieldIndex >= m_FieldInfo.Count() )
-		return NULL;
+		return nullptr;
 
 	CDmrArrayConst<float> vertexData = GetVertexData( nFieldIndex );
 	return &vertexData[ nDataIndex * m_nJointCount ];
@@ -666,7 +665,7 @@ const int *CDmeVertexDataBase::GetJointIndexData( int nDataIndex ) const
 {
 	FieldIndex_t nFieldIndex = m_pStandardFieldIndex[FIELD_JOINT_INDICES];
 	if ( nFieldIndex < 0 || nFieldIndex >= m_FieldInfo.Count() )
-		return NULL;
+		return nullptr;
 
 	CDmrArrayConst<int> vertexData = GetVertexData( nFieldIndex );
 	return &vertexData.Element( nDataIndex * m_nJointCount );
@@ -837,7 +836,7 @@ int CDmeVertexDataBase::FieldCount() const
 const char *CDmeVertexDataBase::FieldName( int i ) const
 {
 	if ( i < 0 || i >= m_VertexFormat.Count() )
-		return NULL;
+		return nullptr;
 
 	return m_VertexFormat[ i ];
 }

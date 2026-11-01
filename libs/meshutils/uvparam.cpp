@@ -163,7 +163,7 @@ bool CreateUniqueUVParameterization( CMesh *pMeshOut, const CMesh &inputMesh, fl
 
 
 	delete []pAdjacencyBuffer;
-	pAdjacencyBuffer = NULL;
+	pAdjacencyBuffer = nullptr;
 
 	// create a local texture vector
 	CUtlVector<AtlasChart_t> atlasChartVector;

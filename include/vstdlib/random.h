@@ -6,10 +6,8 @@
 // $NoKeywords: $
 //===========================================================================//
 
-#ifndef VSTDLIB_RANDOM_H
-#define VSTDLIB_RANDOM_H
+#pragma once
 
-#if !defined( __SPU__ )
 
 #include "vstdlib/vstdlib.h"
 #include "tier0/basetypes.h"
@@ -71,10 +69,10 @@ class VSTDLIB_CLASS CGaussianRandomStream
 public:
 	// Passing in NULL will cause the gaussian stream to use the
 	// installed global random number generator
-	CGaussianRandomStream( IUniformRandomStream *pUniformStream = NULL );
+	CGaussianRandomStream( IUniformRandomStream *pUniformStream = nullptr);
 
 	// Attaches to a random uniform stream
-	void	AttachToStream( IUniformRandomStream *pUniformStream = NULL );
+	void	AttachToStream( IUniformRandomStream *pUniformStream = nullptr);
 
 	// Generates random numbers
 	float	RandomFloat( float flMean = 0.0f, float flStdDev = 1.0f );
@@ -104,10 +102,8 @@ VSTDLIB_INTERFACE void	InstallUniformRandomStream( IUniformRandomStream *pStream
 
 #pragma warning(pop)
 
-#endif // #if !defined( __SPU__ )
 
 
-#endif // VSTDLIB_RANDOM_H
 
 
 

@@ -6,8 +6,7 @@
 //
 //===========================================================================//
 
-#ifndef STUDIOMDL_H
-#define STUDIOMDL_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -123,7 +122,7 @@ EXTERN    bool g_realignbones;
 EXTERN    bool g_definebones;
 EXTERN  bool g_bSkinnedLODs;
 
-EXTERN  byte g_constdirectionalightdot;
+EXTERN  uint8_t g_constdirectionalightdot;
 
 int KeyValueTextSize(std::vector<char> *pKeyValue);
 
@@ -144,9 +143,9 @@ public:
 
 template<typename T>
 inline T &CUtlVectorAuto<T>::operator[](int i) {
-    EnsureCount(i + 1);
-    Assert(IsValidIndex(i));
-    return Base()[i];
+    this->EnsureCount(i + 1);
+    Assert(this->IsValidIndex(i));
+    return this->Base()[i];
 }
 
 //-----------------------------------------------------------------------------
@@ -628,7 +627,7 @@ struct s_animation_t {
     bool doesOverride;
     int index;
     char name[MAXSTUDIONAME];
-    char filename[MAX_PATH];
+    char filename[MAX_PATH]{0};
 
     /*
     int				animsubindex;
@@ -829,8 +828,8 @@ EXTERN int g_numanimblocks;
 struct s_animblock_t {
     int iStartAnim;
     int iEndAnim;
-    byte *start;
-    byte *end;
+    uint8_t *start;
+    uint8_t *end;
 };
 EXTERN s_animblock_t g_animblock[MAXSTUDIOANIMBLOCKS];
 EXTERN int g_animblocksize;
@@ -856,7 +855,7 @@ EXTERN int g_numxnodeskips;
 EXTERN int g_xnodeskip[10000][2];
 
 struct rgb_t {
-    byte r, g, b;
+    uint8_t r, g, b;
 };
 struct rgb2_t {
     float r, g, b, a;
@@ -892,8 +891,8 @@ EXTERN    int g_numtexturereps[32];
 EXTERN  int g_texturegroup[32][32][32];
 
 struct s_mesh_t {
-    int numvertices;
-    int vertexoffset;
+    uint32_t numvertices;
+    uint32_t vertexoffset;
 
     int numfaces;
     int faceoffset;
@@ -967,8 +966,8 @@ struct s_source_t {
 
     // per material mesh
     int nummeshes;
-    int meshindex[MAXSTUDIOSKINS];    // mesh to skin index
-    s_mesh_t mesh[MAXSTUDIOSKINS];
+    int meshindex[MAXSTUDIOSKINS] = {0};    // mesh to skin index
+    s_mesh_t mesh[MAXSTUDIOSKINS] = {0};
 
     // vertices defined in "local" space (not remapped to global bones)
     int numvertices;
@@ -1362,7 +1361,7 @@ public:
 
     void DestroyAnimations(s_source_t *pNewSource);
 
-    void Copy(s_source_t *pOrigSource);
+    void Copy(s_source_t *pDstSource);
 
     void CopyFlexKeys(const s_source_t *pOrigSource, s_source_t *pNewSource, int imodel);
 };
@@ -1484,7 +1483,7 @@ struct s_limitrotation_t {
 EXTERN int g_numlimitrotation;
 EXTERN s_limitrotation_t g_limitrotation[MAXSTUDIOBONES];
 
-extern int BuildTris(s_trianglevert_t (*x)[3], s_mesh_t *y, byte **ppdata);
+extern int BuildTris(s_trianglevert_t (*x)[3], s_mesh_t *y, uint8_t **ppdata);
 
 
 struct s_bonesaveframe_t {
@@ -1691,9 +1690,9 @@ public:
     }
 
     CLodScriptReplacement_t() {
-        m_pSrcName = NULL;
-        m_pDstName = NULL;
-        m_pSource = 0;
+        m_pSrcName = nullptr;
+        m_pDstName = nullptr;
+        m_pSource = nullptr;
     }
 
     ~CLodScriptReplacement_t() {
@@ -1771,7 +1770,7 @@ void SetDefaultSurfaceProp(const char *pSurfaceProperty);
 
 void PostProcessSource(s_source_t *pSource, int imodel);
 
-byte IsByte(int val);
+uint8_t IsByte(int val);
 
 char IsChar(int val);
 
@@ -1795,7 +1794,6 @@ extern CUtlVector<ContentsName_t> s_JointContents;        // in studiomdl.cpp
 #ifdef MDLCOMPILE
 void ConvertToCurrentVersion( int nSrcVersion, const char *pFullPath );
 extern int g_nMDLCommandCount;
-extern MDLCommand_t *g_pMDLCommands;
 void ProcessStaticProp();
 s_sequence_t *ProcessCmdSequence( const char *pSequenceName );
 s_animation_t *ProcessImpliedAnimation( s_sequence_t *psequence, const char *filename );
@@ -1831,6 +1829,12 @@ float verify_atof(const char *token);
 int LookupPoseParameter(const char *name);
 
 void ProcessModelName(const char *pModelName);
+
+enum FlexOptimizeMode_t : int {
+    FLEXOPT_OFF,
+    FLEXOPT_AUTO,    // split flexed meshes only if the flex cache budget is exceeded
+    FLEXOPT_ON,
+};
 
 struct StudioMdlContext {
     unsigned parseable_completion_output: 1;
@@ -1907,6 +1911,12 @@ struct StudioMdlContext {
     int maxVertexLimit = MAXSTUDIOVERTS / 3;
     int maxVertexClamp = MAXSTUDIOVERTS / 3;
 
+    // Flex optimization (flexoptimize.cpp): mode, minimum static part of a mesh worth splitting off, and the
+    // alias materials it created as (alias material, base material)
+    FlexOptimizeMode_t flexOptimizeMode = FLEXOPT_AUTO;
+    int flexOptimizeMinStatic = 256;
+    std::vector<std::pair<int, int>> flexAliasMaterials;
+
     int numverts = 0;
     CUtlVectorAuto<Vector> vertex;
     CUtlVectorAuto<s_boneweight_t> bone;
@@ -1978,4 +1988,3 @@ struct StudioMdlContext {
     }
 };
 
-#endif // STUDIOMDL_H

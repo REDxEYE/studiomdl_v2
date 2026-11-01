@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
 //=============================================================================
 
-#ifndef DMETRACK_H
-#define DMETRACK_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -20,7 +19,7 @@
 // Forward declarations
 //-----------------------------------------------------------------------------
 class CDmeClip;
-enum DmeClipType_t;
+enum DmeClipType_t : int;
 
 
 //-----------------------------------------------------------------------------
@@ -207,4 +206,3 @@ inline float CDmeTrack::GetDisplayScale() const
 //-----------------------------------------------------------------------------
 CDmeTrackGroup *GetParentTrackGroup( CDmeTrack *pTrack );
 
-#endif // DMETRACK_H

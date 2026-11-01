@@ -12,8 +12,7 @@
 //
 //=============================================================================
 
-#ifndef DMSERIALIZERS_H
-#define DMSERIALIZERS_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -53,6 +52,5 @@ void InstallSFMSessionUpdater( IDataModel *pFactory );
 void InstallPCFUpdater( IDataModel *pFactory );
 
 
-#endif // DMSERIALIZERS_H
 
 

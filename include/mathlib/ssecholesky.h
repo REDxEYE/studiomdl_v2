@@ -5,8 +5,7 @@
 // $NoKeywords: $
 //
 //=============================================================================//
-#ifndef SSE_CHOLESKY_HDR
-#define SSE_CHOLESKY_HDR
+#pragma once
 
 #include "mathlib/vector.h"
 #include "mathlib/mathlib.h"
@@ -46,4 +45,3 @@ public:
 
 
 
-#endif

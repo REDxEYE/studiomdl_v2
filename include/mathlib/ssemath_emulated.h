@@ -21,12 +21,12 @@ FORCEINLINE float & SubFloat( fltx4 & a, int idx )
 	return a.m128_f32[idx];
 }
 
-FORCEINLINE uint32 SubInt( const fltx4 & a, int idx )
+FORCEINLINE uint32_t SubInt( const fltx4 & a, int idx )
 {
 	return a.m128_u32[idx];
 }
 
-FORCEINLINE uint32 & SubInt( fltx4 & a, int idx )
+FORCEINLINE uint32_t & SubInt( fltx4 & a, int idx )
 {
 	return a.m128_u32[idx];
 }
@@ -845,7 +845,7 @@ FORCEINLINE i32x4 LoadUnalignedIntSIMD( const void * RESTRICT pSIMD)
 }
 
 /// save into four words, 16-byte aligned
-FORCEINLINE void StoreAlignedIntSIMD( int32 *pSIMD, const fltx4 & a )
+FORCEINLINE void StoreAlignedIntSIMD( int32_t *pSIMD, const fltx4 & a )
 {
 	*( reinterpret_cast< i32x4 *> ( pSIMD ) ) = a;
 }
@@ -855,14 +855,14 @@ FORCEINLINE void StoreAlignedIntSIMD( intx4 &pSIMD, const fltx4 & a )
 	*( reinterpret_cast< i32x4 *> ( pSIMD.Base() ) ) = a;
 }
 
-FORCEINLINE void StoreUnalignedIntSIMD( int32 *pSIMD, const fltx4 & a )
+FORCEINLINE void StoreUnalignedIntSIMD( int32_t *pSIMD, const fltx4 & a )
 {
 	*( reinterpret_cast< i32x4 *> ( pSIMD ) ) = a;
 }
 
 /// Load four consecutive uint16's, and turn them into floating point numbers.  This function isn't
 /// especially fast and could be made faster if anyone is using it heavily.
-FORCEINLINE fltx4 LoadAndConvertUint16SIMD( const uint16 *pInts )
+FORCEINLINE fltx4 LoadAndConvertUint16SIMD( const uint16_t *pInts )
 {
 	fltx4 retval;
 	SubFloat( retval, 0 ) = pInts[0];
@@ -893,10 +893,10 @@ FORCEINLINE fltx4 UnsignedIntConvertToFltSIMD( const u32x4 &vSrcA )
 FORCEINLINE fltx4 SignedIntConvertToFltSIMD( const i32x4 &vSrcA )
 {
 	fltx4 retval;
-	SubFloat( retval, 0 ) = ( (float) (reinterpret_cast<int32 *>(&vSrcA.m128_s32[0])) );
-	SubFloat( retval, 1 ) = ( (float) (reinterpret_cast<int32 *>(&vSrcA.m128_s32[1])) );
-	SubFloat( retval, 2 ) = ( (float) (reinterpret_cast<int32 *>(&vSrcA.m128_s32[2])) );
-	SubFloat( retval, 3 ) = ( (float) (reinterpret_cast<int32 *>(&vSrcA.m128_s32[3])) );
+	SubFloat( retval, 0 ) = ( (float) (reinterpret_cast<int32_t *>(&vSrcA.m128_s32[0])) );
+	SubFloat( retval, 1 ) = ( (float) (reinterpret_cast<int32_t *>(&vSrcA.m128_s32[1])) );
+	SubFloat( retval, 2 ) = ( (float) (reinterpret_cast<int32_t *>(&vSrcA.m128_s32[2])) );
+	SubFloat( retval, 3 ) = ( (float) (reinterpret_cast<int32_t *>(&vSrcA.m128_s32[3])) );
 	return retval;
 }
 

@@ -1,12 +1,11 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright Â© 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
 // $NoKeywords: $
 //=============================================================================//
 
-#ifndef HARDWAREVERTEXCACHE_H
-#define HARDWAREVERTEXCACHE_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -29,4 +28,3 @@ private:
 	int m_NumEntries;
 };
 
-#endif // HARDWAREVERTEXCACHE_H

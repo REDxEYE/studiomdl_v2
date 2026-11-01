@@ -4,8 +4,7 @@
 //
 //=============================================================================//
 
-#ifndef UTLPAIR_H
-#define UTLPAIR_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -49,4 +48,3 @@ inline CUtlPair<T1,T2> MakeUtlPair( T1 t1, T2 t2 )
 //}
 
 
-#endif // UTLPAIR_H

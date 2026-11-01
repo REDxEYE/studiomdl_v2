@@ -5,8 +5,7 @@
 // $NoKeywords: $
 //=============================================================================//
 
-#ifndef INTERVAL_H
-#define INTERVAL_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -17,4 +16,3 @@
 interval_t ReadInterval( const char *pString );
 float RandomInterval( const interval_t &interval );
 
-#endif // INTERVAL_H

@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
 //=============================================================================
 
-#ifndef DMSERIALIZERKEYVALUES_H
-#define DMSERIALIZERKEYVALUES_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -24,4 +23,3 @@ class IDataModel;
 void InstallKeyValuesSerializer( IDataModel *pFactory );
 
 
-#endif // DMSERIALIZER_H

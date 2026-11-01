@@ -190,7 +190,7 @@ void processAnimations() {
                     break;
                 case CMD_AO: {
                     int bone = g_rootIndex;
-                    if (pcmd->u.ao.pBonename != NULL) {
+                    if (pcmd->u.ao.pBonename != nullptr) {
                         bone = findGlobalBone(pcmd->u.ao.pBonename);
                         if (bone == -1) {
                             MdlError("unable to find bone %s to alignbone\n", pcmd->u.ao.pBonename);
@@ -2414,11 +2414,11 @@ static void BuildModelToVAnimMap(s_source_t *pVSource, s_sourceanim_t *pVSourceA
 
         // Search for verts within a small radius (shrink the radius over time, to converge on a reasonable minimum search radius)
         Sphere_t searchSphere(vecModelPos.x, vecModelPos.y, vecModelPos.z, searchRadius);
-        sphereTree.IntersectWithSphere(searchSphere, true, candidates, 0, NULL);
+        sphereTree.IntersectWithSphere(searchSphere, true, candidates, 0, nullptr);
         while (!candidates.Count() && (searchRadius < MAX_VANIM_DIST)) {
             searchRadius = MIN(MAX_VANIM_DIST, searchRadius * 2);
             searchSphere.w = searchRadius;
-            sphereTree.IntersectWithSphere(searchSphere, true, candidates, 0, NULL);
+            sphereTree.IntersectWithSphere(searchSphere, true, candidates, 0, nullptr);
             nBumps++;
         }
         searchRadius = MAX(0.001f * MAX_VANIM_DIST, searchRadius * 0.95f);
@@ -2426,7 +2426,7 @@ static void BuildModelToVAnimMap(s_source_t *pVSource, s_sourceanim_t *pVSourceA
         float flMinDist = 1E30;
         for (int i = 0; i < candidates.Count(); i++) {
             nTests++;
-            int index = (int) candidates[i];
+            int index = (int) (intptr_t) candidates[i];
 
             s_lodvertexinfo_t &vertex = pmLodSource->vertex[index];
 
@@ -2699,15 +2699,17 @@ void RemapVertexAnimations() {
 //-----------------------------------------------------------------------------
 // Purpose: map the vertex animations to their equivalent vertex in the base animations
 //-----------------------------------------------------------------------------
-static int FlexKeysSortFunc(const void *pv1, const void *pv2) {
-    const s_flexkey_t *pKey1 = (const s_flexkey_t *) pv1;
-    const s_flexkey_t *pKey2 = (const s_flexkey_t *) pv2;
-
-    if (pKey1->source != pKey2->source)
-        return (size_t) pKey1->source - (size_t) pKey2->source;
-    return Q_stricmp(pKey1->animationname, pKey2->animationname);
+// Index of a source in g_source: a stable sort key, unlike the source's address
+static int SourceIndex(const s_source_t *pSource) {
+    for (int i = 0; i < g_numsources; i++) {
+        if (g_source[i] == pSource)
+            return i;
+    }
+    return g_numsources;
 }
 
+// Collects the flex keys with new-style vertex animations, grouped by source and animation (the grouping
+// RemapVertexAnimationsNewVersion relies on)
 static int SortFlexKeys(s_flexkey_t **ppSortedFlexKeys) {
     int nSortedFlexKeyCount = 0;
     for (int i = 0; i < g_numflexkeys; i++) {
@@ -2721,9 +2723,15 @@ static int SortFlexKeys(s_flexkey_t **ppSortedFlexKeys) {
         ppSortedFlexKeys[nSortedFlexKeyCount++] = &g_flexkey[i];
     }
 
-    if (nSortedFlexKeyCount > 0) {
-        qsort(ppSortedFlexKeys, nSortedFlexKeyCount, sizeof(s_flexkey_t *), FlexKeysSortFunc);
-    }
+    // The qsort comparator used here before read the array elements (s_flexkey_t *) as s_flexkey_t and returned a
+    // truncated pointer difference, so the keys were never grouped reliably
+    std::stable_sort(ppSortedFlexKeys, ppSortedFlexKeys + nSortedFlexKeyCount,
+                     [](const s_flexkey_t *pKey1, const s_flexkey_t *pKey2) {
+                         const int nSource1 = SourceIndex(pKey1->source), nSource2 = SourceIndex(pKey2->source);
+                         if (nSource1 != nSource2)
+                             return nSource1 < nSource2;
+                         return Q_stricmp(pKey1->animationname, pKey2->animationname) < 0;
+                     });
 
     return nSortedFlexKeyCount;
 }
@@ -2741,7 +2749,7 @@ static void RemapVertexAnimationsNewVersion() {
     // for all the sources of flexes, find a mapping of vertex animations to base model.
     // There can be multiple "vertices" in the base model for each animated vertex since vertices 
     // are duplicated along material boundaries.
-    s_source_t *pVLastSource = NULL;
+    s_source_t *pVLastSource = nullptr;
     for (int i = 0; i < nSortedFlexKeyCount; i++) {
         s_flexkey_t *pFlexKey = ppSortedFlexKeys[i];
         s_source_t *pVSource = pFlexKey->source;
@@ -2750,7 +2758,7 @@ static void RemapVertexAnimationsNewVersion() {
 
         if (pVSource != pVLastSource) {
             // Map vertex indices specified in the model to ones specified in the vanim data
-            BuildModelToVAnimMap(pVSource, NULL, pLodSource, true, model_to_vanim_vert_imap);
+            BuildModelToVAnimMap(pVSource, nullptr, pLodSource, true, model_to_vanim_vert_imap);
             pVLastSource = pVSource;
         }
 
@@ -2887,7 +2895,7 @@ bool IsGlobalBoneXSI(const char *name, const char *bonename) {
     int len = strlen(name);
 
     int len2 = strlen(bonename);
-    if (len2 == len && strchr(bonename, '.') == NULL && stricmp(bonename, name) == 0)
+    if (len2 == len && strchr(bonename, '.') == nullptr && stricmp(bonename, name) == 0)
         return true;
 
     if (len2 > len) {
@@ -3616,7 +3624,7 @@ void MakeStaticProp() {
 
     // throw away all vertex animations
     g_numflexkeys = 0;
-    g_defaultflexkey = NULL;
+    g_defaultflexkey = nullptr;
 
     // Recalc attachment points:
     for (i = 0; i < g_numattachments; i++) {
@@ -3698,7 +3706,7 @@ void MapFlexDriveBonesToGlobalBoneTable() {
                     MdlWarning("DmeBoneFlexDriver Bone: %s is marked procedural, Ignoring flex drivers\n",
                                pDmeBoneFlexDriver->m_sBoneName.Get());
                     pDmeBoneFlexDriverList->m_eBoneFlexDriverList.Remove(i);
-                    pDmeBoneFlexDriver = NULL;
+                    pDmeBoneFlexDriver = nullptr;
                 }
 
                 pDmeBoneFlexDriver->SetValue("__boneIndex", j);
@@ -6144,11 +6152,11 @@ static void CalcPoseParameters() {
 
                     // printf("%s\n", pseq->name );
 
-                    if (pseq->paramanim == NULL) {
+                    if (pseq->paramanim == nullptr) {
                         pseq->paramanim = g_panimation[0];
                     }
 
-                    if (pseq->paramcompanim == NULL) {
+                    if (pseq->paramcompanim == nullptr) {
                         pseq->paramcompanim = pseq->paramanim;
                     }
 
@@ -6168,7 +6176,7 @@ static void CalcPoseParameters() {
                     // FIXME: make these 2D instead of 2 1D!
                     int m[2];
                     bool found = false;
-                    if (pseq->paramcenter != NULL) {
+                    if (pseq->paramcenter != nullptr) {
                         for (int i0 = 0; !found && i0 < pseq->groupsize[0]; i0++) {
                             for (int i1 = 0; !found && i1 < pseq->groupsize[1]; i1++) {
                                 if (pseq->panim[i0][i1] == pseq->paramcenter) {
@@ -7227,7 +7235,7 @@ static void CompressAnimations() {
             for (j = 0; j < g_StudioMdlContext.numbones; j++) {
                 for (k = 0; k < 6; k++) {
                     panim->anim[w][j].num[k] = 0;
-                    panim->anim[w][j].data[k] = NULL;
+                    panim->anim[w][j].data[k] = nullptr;
                 }
 
                 // skip bones that are always procedural

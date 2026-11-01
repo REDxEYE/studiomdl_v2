@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.22)
 project(utils)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 20)
 if (CMAKE_SIZEOF_VOID_P EQUAL 8)
     set(PLATFORM_DEFINES COMPILER_MSVC64 COMPILER_MSVC)
 elseif (CMAKE_SIZEOF_VOID_P EQUAL 4)
@@ -20,4 +20,4 @@ add_library(utils
 target_include_directories(utils PUBLIC ../../include)
 target_include_directories(utils PRIVATE ../../include/common)
 target_compile_definitions(utils PRIVATE -DSTATIC_TIER0)
-target_link_libraries(utils PRIVATE tier0)
+target_link_libraries(utils PRIVATE tier0 filesystem_stdfile)

@@ -22,8 +22,7 @@
 #include "datamodel/dmattributevar.h"
 #include <ctype.h>
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 //-----------------------------------------------------------------------------
 // Tests equality
@@ -90,6 +89,11 @@ static bool Unserialize( CUtlBuffer &buf, DmUnknownAttribute_t &dest )
 }
 
 #include "tier1/utlbufferutil.h"
+
+// The element attribute storage converts to DmElementHandle_t, which made ::Serialize/::Unserialize ambiguous in the
+// (never executed) element instantiations of the array attribute templates.
+inline bool Serialize( CUtlBuffer &buf, const DmElementAttribute_t &src ) { return ::Serialize( buf, static_cast< int >( static_cast< const DmElementHandle_t & >( src ) ) ); }
+inline bool Unserialize( CUtlBuffer &buf, DmElementAttribute_t &dest ) { int n = 0; if ( !::Unserialize( buf, n ) ) return false; dest.m_Handle = static_cast< DmElementHandle_t >( n ); return true; }
 
 //-----------------------------------------------------------------------------
 // Internal interface for dealing with generic attribute operations
@@ -226,7 +230,7 @@ USE_SPECIAL_ALLOCATOR( Color, g_DataAlloc4 )
 USE_SPECIAL_ALLOCATOR( DmeTime_t, g_DataAlloc4 )
 USE_SPECIAL_ALLOCATOR( Vector2D, g_DataAlloc8 )
 
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 //-----------------------------------------------------------------------------
@@ -244,7 +248,7 @@ template<> void* CDmAttributeOp< DmUnknownAttribute_t >::CreateAttributeData()
 {
 	// Fail if someone tries to create an AT_UNKNOWN attribute
 	Assert(0);
-	return NULL;
+	return nullptr;
 }
 
 template< class T >
@@ -255,7 +259,7 @@ void CDmAttributeOp<T>::DestroyAttributeData( void *pData )
 
 
 //-----------------------------------------------------------------------------
-// Sets the data to a default value, no undo (used for construction)
+// Sets the data to a default value (used for construction)
 //-----------------------------------------------------------------------------
 template< class T >
 void CDmAttributeOp<T>::SetDefaultValue( void *pData )
@@ -427,7 +431,6 @@ bool Unserialize( CUtlBuffer &buf, CUtlVector< CUtlSymbolLarge > &dest )
 {
 	dest.RemoveAll();
 
-	MEM_ALLOC_CREDIT_FUNCTION();
 
 	CUtlString tempString;
 
@@ -504,7 +507,7 @@ bool CDmAttributeOp<T>::Unserialize( CDmAttribute *pAttribute, CUtlBuffer &buf )
 	if ( !::Unserialize( buf, tempVal ) )
 		return false;
 
-	// Don't need undo hook since this goes through SetValue route
+	// Note: this goes through SetValue route
 	pAttribute->SetValue( tempVal );
 
 	return true;
@@ -622,7 +625,7 @@ public:
 	virtual void OnUnserializationFinished( CDmAttribute *pAttribute );
 
 	// Other methods used by CDmaArrayBase
-	CDmArrayAttributeOp() : m_pAttribute( NULL ), m_pData( NULL ) {}
+	CDmArrayAttributeOp() : m_pAttribute(nullptr), m_pData(nullptr) {}
 	CDmArrayAttributeOp( CDmAttribute *pAttribute ) : m_pAttribute( pAttribute ), m_pData( (D*)m_pAttribute->GetAttributeData() ) {}
 
 	// Count
@@ -662,640 +665,6 @@ private:
 	CDmAttribute *m_pAttribute;
 	D* m_pData;
 };
-
-
-//-----------------------------------------------------------------------------
-//
-// Undo-related classes
-//
-//-----------------------------------------------------------------------------
-
-//-----------------------------------------------------------------------------
-// Undo attribute name change
-//-----------------------------------------------------------------------------
-class CUndoAttributeRenameElement : public CUndoElement
-{
-	typedef CUndoElement BaseClass;
-
-public:
-	CUndoAttributeRenameElement( CDmAttribute *pAttribute, const char *newName )
-		: BaseClass( "CUndoAttributeRenameElement" )
-	{
-		Assert( pAttribute->GetOwner() && pAttribute->GetOwner()->GetFileId() != DMFILEID_INVALID );
-		m_hOwner = pAttribute->GetOwner()->GetHandle();
-		m_symAttributeOld = pAttribute->GetNameSymbol();
-		m_symAttributeNew = g_pDataModel->GetSymbol( newName );
-	}
-
-	virtual void Undo()
-	{
-		CDmElement *pOwner = GetOwner();
-		if ( pOwner )
-		{
-			pOwner->RenameAttribute( m_symAttributeNew.String(), m_symAttributeOld.String() );
-		}
-	}
-
-	virtual void Redo()
-	{
-		CDmElement *pOwner = GetOwner();
-		if ( pOwner )
-		{
-			pOwner->RenameAttribute( m_symAttributeOld.String(), m_symAttributeNew.String() );
-		}
-	}
-
-	virtual const char	*GetDesc()
-	{
-		static char buf[ 128 ];
-
-		const char *base = BaseClass::GetDesc();
-		Q_snprintf( buf, sizeof( buf ), "%s (%s -> %s)", base, m_symAttributeOld.String(), m_symAttributeNew.String() );
-		return buf;
-	}
-
-private:
-	CDmElement *GetOwner()
-	{
-		return g_pDataModel->GetElement( m_hOwner );
-	}
-
-	CUtlSymbolLarge				m_symAttributeOld;
-	CUtlSymbolLarge				m_symAttributeNew;
-	DmElementHandle_t		m_hOwner;
-};
-
-//-----------------------------------------------------------------------------
-// Undo single-valued attribute value changed
-//-----------------------------------------------------------------------------
-template< class T >
-class CUndoAttributeSetValueElement : public CUndoElement
-{
-	typedef CUndoElement BaseClass;
-public:
-	CUndoAttributeSetValueElement( CDmAttribute *pAttribute, const T &newValue )
-		: BaseClass( "CUndoAttributeSetValueElement" )
-	{
-		Assert( pAttribute->GetOwner() && pAttribute->GetOwner()->GetFileId() != DMFILEID_INVALID );
-		m_hOwner = pAttribute->GetOwner()->GetHandle();
-		m_OldValue = pAttribute->GetValue<T>();
-		m_Value = newValue;
-		m_symAttribute = pAttribute->GetNameSymbol( );
-	}
-
-	CUndoAttributeSetValueElement( CDmAttribute *pAttribute )
-		: BaseClass( "CUndoAttributeSetValueElement" )
-	{
-		Assert( pAttribute->GetOwner() && pAttribute->GetOwner()->GetFileId() != DMFILEID_INVALID );
-		m_hOwner = pAttribute->GetOwner()->GetHandle();
-		m_OldValue = pAttribute->GetValue<T>();
-		m_symAttribute = pAttribute->GetNameSymbol( );
-	}
-
-	void SetEndValue( CDmAttribute *pAttribute )
-	{
-		m_Value = pAttribute->GetValue<T>();
-	}
-
-	CDmElement *GetOwner()
-	{
-		return g_pDataModel->GetElement( m_hOwner );
-	}
-
-	virtual void Undo()
-	{
-		CDmAttribute *pAttribute = GetAttribute();
-		if ( pAttribute && !pAttribute->IsFlagSet( FATTRIB_READONLY ) )
-		{
-			pAttribute->SetValue<T>( m_OldValue );
-		}
-	}
-	virtual void Redo()
-	{
-		CDmAttribute *pAttribute = GetAttribute();
-		if ( pAttribute && !pAttribute->IsFlagSet( FATTRIB_READONLY ) )
-		{
-			pAttribute->SetValue<T>( m_Value );
-		}
-	}
-
-	virtual const char	*GetDesc()
-	{
-		static char buf[ 128 ];
-
-		const char *base = BaseClass::GetDesc();
-		CDmAttribute *pAtt = GetAttribute();
-		CUtlBuffer serialized( 0, 0, CUtlBuffer::TEXT_BUFFER );
-		if ( pAtt && pAtt->GetType() != AT_ELEMENT )
-		{
-			::Serialize( serialized, m_Value );
-		}
-		V_sprintf_safe( buf, "%s(%s) = %s", base, m_symAttribute.String(), serialized.Base() ? (const char*)serialized.Base() : "\"\"" );
-		return buf;
-	}
-
-private:
-	CDmAttribute *GetAttribute()
-	{
-		CDmElement *pOwner = GetOwner();
-		if ( pOwner )
-		{
-			const char *pAttributeName = m_symAttribute.String();
-			return pOwner->GetAttribute( pAttributeName );
-		}
-		return NULL;
-	}
-
-	typedef typename CDmAttributeUndoStorageType< T >::UndoStorageType StorageType_t;
-
-	CUtlSymbolLarge			m_symAttribute;
-	DmElementHandle_t	m_hOwner;
-	StorageType_t		m_OldValue;
-	StorageType_t		m_Value;
-};
-
-
-
-//-----------------------------------------------------------------------------
-// Base undo for array attributes
-//-----------------------------------------------------------------------------
-template< class T >
-class CUndoAttributeArrayBase : public CUndoElement
-{
-	typedef CUndoElement BaseClass;
-
-public:
-	CUndoAttributeArrayBase( CDmAttribute *pAttribute, const char *pUndoName ) : BaseClass( pUndoName )
-	{
-		m_hOwner = pAttribute->GetOwner()->GetHandle();
-		m_symAttribute = pAttribute->GetNameSymbol( );
-	}
-
-protected:
-	typedef typename CDmAttributeUndoStorageType< T >::UndoStorageType StorageType_t;
-
-	CDmElement *GetOwner()
-	{
-		return g_pDataModel->GetElement( m_hOwner );
-	}
-
-	const char *GetAttributeName()
-	{
-		return m_symAttribute.String();
-	}
-
-	CDmAttribute *GetAttribute()
-	{
-		const char *pAttributeName = GetAttributeName();
-		CDmElement *pOwner = GetOwner();
-		if ( pOwner )
-			return pOwner->GetAttribute( pAttributeName );
-		Assert( 0 );
-		return NULL;
-	}
-
-private:
-	CUtlSymbolLarge				m_symAttribute;
-	DmElementHandle_t		m_hOwner;
-};
-
-
-//-----------------------------------------------------------------------------
-// Undo for setting a single element
-//-----------------------------------------------------------------------------
-template< class T >
-class CUndoArrayAttributeSetValueElement : public CUndoAttributeArrayBase<T>
-{
-	typedef CUndoAttributeArrayBase<T> BaseClass;
-
-public:
-	CUndoArrayAttributeSetValueElement( CDmAttribute *pAttribute, int slot, const T &newValue ) : 
-		BaseClass( pAttribute, "CUndoArrayAttributeSetValueElement" ),
-		m_nSlot( slot )
-	{
-		Assert( pAttribute->GetOwner() && pAttribute->GetOwner()->GetFileId() != DMFILEID_INVALID );
-
-		CDmrArray<T> array( pAttribute );
-		m_OldValue = array[ slot ];
-		m_Value = newValue;
-	}
-
-	virtual void Undo()
-	{
-		CDmrArray<T> array( GetAttribute() );
-		if ( array.IsValid() )
-		{
-			array.Set( m_nSlot, m_OldValue );
-		}
-	}
-
-	virtual void Redo()
-	{
-		CDmrArray<T> array( GetAttribute() );
-		if ( array.IsValid() )
-		{
-			array.Set( m_nSlot, m_Value );
-		}
-	}
-
-private:
-	int				m_nSlot;
-	typename CUndoAttributeArrayBase<T>::StorageType_t	m_OldValue;
-	typename CUndoAttributeArrayBase<T>::StorageType_t	m_Value;
-};
-
-
-//-----------------------------------------------------------------------------
-// Undo for setting a multiple elements
-//-----------------------------------------------------------------------------
-template< class T >
-class CUndoArrayAttributeSetMultipleValueElement : public CUndoAttributeArrayBase<T>
-{
-	typedef CUndoAttributeArrayBase<T> BaseClass;
-
-public:
-	CUndoArrayAttributeSetMultipleValueElement( CDmAttribute *pAttribute, int nSlot, int nCount, const T *pNewValue ) : 
-		BaseClass( pAttribute, "CUndoArrayAttributeSetMultipleValueElement" ), 
-		m_nSlot( nSlot ), m_nCount( nCount )
-	{
-		Assert( pAttribute->GetOwner() && pAttribute->GetOwner()->GetFileId() != DMFILEID_INVALID );
-		m_pOldValue = new typename CUndoAttributeArrayBase<T>::StorageType_t[nCount];
-		m_pValue    = new typename CUndoAttributeArrayBase<T>::StorageType_t[nCount];
-
-		CDmrArray<T> array( pAttribute );
-		for ( int i = 0; i < nCount; ++i )
-		{
-			m_pOldValue[i] = array[ nSlot+i ];
-			m_pValue[i] = pNewValue[ i ];
-		}
-	}
-
-	~CUndoArrayAttributeSetMultipleValueElement()
-	{
-		// this is a hack necessitated by MSVC's lack of partially specialized member template support
-		// (ie otherwise I'd just create a CUndoArrayAttributeSetMultipleValueElement< DmElementHandle_t,BaseClass> version with this code)
-		// anyways, the casting hackiness only happens when the value is actually a DmElementHandle_t, so it's completely safe
-		if ( CDmAttributeInfo< T >::AttributeType() == AT_ELEMENT )
-		{
-			DmElementHandle_t value = DMELEMENT_HANDLE_INVALID;
-			for ( int i = 0; i < m_nCount; ++i )
-			{
-				m_pOldValue[ i ] = m_pValue[ i ] = *( T* )&value;
-			}
-		}
-
-		delete[] m_pOldValue;
-		delete[] m_pValue;
-	}
-
-	virtual void Undo()
-	{
-		CDmrArray<T> array( GetAttribute() );
-		if ( array.IsValid() )
-		{
-			for ( int i = 0; i < m_nCount; ++i )
-			{
-				array.Set( m_nSlot+i, m_pOldValue[i] );
-			}
-		}
-	}
-
-	virtual void Redo()
-	{
-		CDmrArray<T> array( GetAttribute() );
-		if ( array.IsValid() )
-		{
-			for ( int i = 0; i < m_nCount; ++i )
-			{
-				array.Set( m_nSlot+i, m_pValue[i] );
-			}
-		}
-	}
-
-private:
-	int				m_nSlot;
-	int				m_nCount;
-	typename CUndoAttributeArrayBase<T>::StorageType_t	*m_pOldValue;
-	typename CUndoAttributeArrayBase<T>::StorageType_t	*m_pValue;
-};
-
-
-//-----------------------------------------------------------------------------
-//
-// Implementation Undo for CDmAttributeTyped
-//
-//-----------------------------------------------------------------------------
-template< class T >
-class CUndoAttributeArrayInsertBefore : public CUndoAttributeArrayBase<T>
-{
-	typedef CUndoAttributeArrayBase<T> BaseClass;
-public:
-	CUndoAttributeArrayInsertBefore( CDmAttribute *pAttribute, int slot, int count = 1 ) : 
-		BaseClass( pAttribute, "CUndoAttributeArrayInsertBefore" ),
-		m_nIndex( slot ), m_nCount( count )
-	{
-		Assert( pAttribute->GetOwner() && pAttribute->GetOwner()->GetFileId() != DMFILEID_INVALID );
-	}
-
-	virtual void Undo()
-	{
-		CDmrArray<T> array( GetAttribute() );
-		if ( array.IsValid() )
-		{
-			array.RemoveMultiple( m_nIndex, m_nCount );
-		}
-	}
-
-	virtual void Redo()
-	{
-		CDmrArray<T> array( GetAttribute() );
-		if ( array.IsValid() )
-		{
-			T defaultVal;
-			CDmAttributeInfo<T>::SetDefaultValue( defaultVal );
-
-			array.InsertMultipleBefore( m_nIndex, m_nCount );
-			for( int i = 0; i < m_nCount; ++i )
-			{
-				array.Set( m_nIndex + i, defaultVal );
-			}
-		}
-	}
-
-private:
-	int	m_nIndex;
-	int m_nCount;
-};
-
-
-//-----------------------------------------------------------------------------
-//
-// Implementation Undo for inserting a copy
-//
-//-----------------------------------------------------------------------------
-template< class T >
-class CUndoAttributeArrayInsertCopyBefore : public CUndoAttributeArrayBase<T>
-{
-	typedef CUndoAttributeArrayBase<T> BaseClass;
-
-public:
-	CUndoAttributeArrayInsertCopyBefore( CDmAttribute *pAttribute, int slot, const T& newValue ) : 
-		BaseClass( pAttribute, "CUndoAttributeArrayInsertCopyBefore" ),
-		m_nIndex( slot ),
-		m_newValue( newValue )
-	{
-		Assert( pAttribute->GetOwner() && pAttribute->GetOwner()->GetFileId() != DMFILEID_INVALID );
-	}
-
-	virtual void Undo()
-	{
-		CDmrArray<T> array( GetAttribute() );
-		if ( array.IsValid() )
-		{
-			array.Remove( m_nIndex );
-		}
-	}
-
-	virtual void Redo()
-	{
-		CDmrArray<T> array( GetAttribute() );
-		if ( array.IsValid() )
-		{
-			array.InsertBefore( m_nIndex, m_newValue );
-		}
-	}
-
-private:
-	int				m_nIndex;
-	typename CUndoAttributeArrayBase<T>::StorageType_t	m_newValue;
-};
-
-
-//-----------------------------------------------------------------------------
-//
-// Implementation Undo for remove
-//
-//-----------------------------------------------------------------------------
-template< class T >
-class CUndoAttributeArrayRemoveElement : public CUndoAttributeArrayBase<T>
-{
-	typedef CUndoAttributeArrayBase<T> BaseClass;
-
-public:
-	CUndoAttributeArrayRemoveElement( CDmAttribute *pAttribute, bool fastRemove, int elem, int count ) : 
-		BaseClass( pAttribute, "CUndoAttributeArrayRemoveElement" ),
-		m_bFastRemove( fastRemove ), m_nIndex( elem ), m_nCount( count )
-	{
-		Assert( pAttribute->GetOwner() && pAttribute->GetOwner()->GetFileId() != DMFILEID_INVALID );
-		Assert( m_nCount >= 1 );
-		// If it's fastremove, count must == 1
-		Assert( !m_bFastRemove || m_nCount == 1 );
-		CDmrArray< T > array( pAttribute );
-		Assert( array.IsValid() );
-		for ( int i = 0 ; i < m_nCount; ++i )
-		{
-			m_OldValues.AddToTail( array[ elem + i ] );
-		}
-	}
-
-	~CUndoAttributeArrayRemoveElement()
-	{
-		// this is a hack necessitated by MSVC's lack of partially specialized member template support
-		// (ie otherwise I'd just create a CUndoArrayAttributeSetMultipleValueElement< DmElementHandle_t,BaseClass> version with this code)
-		// anyways, the casting hackiness only happens when the value is actually a DmElementHandle_t, so it's completely safe
-		if ( CDmAttributeInfo< T >::AttributeType() == AT_ELEMENT )
-		{
-			DmElementHandle_t value = DMELEMENT_HANDLE_INVALID;
-			for ( int i = 0; i < m_nCount; ++i )
-			{
-				m_OldValues[ i ] = *( T* )&value;
-			}
-			m_OldValues.RemoveAll();
-		}
-	}
-
-	virtual void Undo()
-	{
-		CDmrArray<T> array( GetAttribute() );
-		if ( array.IsValid() )
-		{
-			if ( m_bFastRemove )
-			{
-				Assert( m_nCount == 1 );
-				Assert( m_OldValues.Count() == 1 );
-
-				if ( array.Count() > m_nIndex )
-				{
-					// Get value at previous index (it was moved down from the "end" before
-					T m_EndValue = array.Get( m_nIndex );
-
-					// Restore previous value
-					array.Set( m_nIndex, m_OldValues[ 0 ] );
-
-					// Put old value back to end of array
-					array.AddToTail( m_EndValue );
-				}
-				else
-				{
-					Assert( array.Count() == m_nIndex );
-					array.AddToTail( m_OldValues[ 0 ] );
-				}
-			}
-			else
-			{
-				int insertPos = m_nIndex;
-				for ( int i = 0; i < m_nCount; ++i )
-				{
-					array.InsertBefore( insertPos++, m_OldValues[ i ] );
-				}
-			}
-		}
-	}
-
-	virtual void Redo()
-	{
-		CDmrArray<T> array( GetAttribute() );
-		if ( array.IsValid() )
-		{
-			if ( m_bFastRemove )
-			{
-				Assert( m_nCount == 1 );
-				Assert( m_OldValues.Count() == 1 );
-
-				array.FastRemove( m_nIndex );
-			}
-			else
-			{
-				array.RemoveMultiple( m_nIndex, m_nCount );
-			}
-		}
-	}
-
-	virtual const char *GetDesc()
-	{
-		static char buf[ 128 ];
-
-		const char *base = BaseClass::GetDesc();
-		Q_snprintf( buf, sizeof( buf ), "%s (%s) = remove( pos %i, count %i )", base, GetAttributeName(), m_nIndex, m_nCount );
-		return buf;
-	}
-
-private:	
-	bool						m_bFastRemove;
-	int							m_nIndex;
-	int							m_nCount;
-	CUtlVector< typename CUndoAttributeArrayBase<T>::StorageType_t >	m_OldValues;
-};
-
-
-template< class T >
-class CUndoAttributeArrayCopyAllElement : public CUndoAttributeArrayBase<T>
-{
-	typedef CUndoAttributeArrayBase<T> BaseClass;
-public:
-	CUndoAttributeArrayCopyAllElement( CDmAttribute *pAttribute, const T *pNewValues, int nNewSize, bool purgeOnRemove = false )
-		: BaseClass( pAttribute, "CUndoAttributeArrayCopyAllElement" ),
-		m_bPurge( purgeOnRemove )
-	{
-		Assert( pAttribute->GetOwner() && pAttribute->GetOwner()->GetFileId() != DMFILEID_INVALID );
-		CDmrArray< T > att( pAttribute );
-		Assert( att.IsValid() );
-
-		if ( pNewValues != NULL && nNewSize > 0 )
-		{
-			m_pNewValues = new typename CUndoAttributeArrayBase<T>::StorageType_t[ nNewSize ];
-			for ( int i = 0; i < nNewSize; ++i )
-			{
-				m_pNewValues[ i ] = pNewValues[ i ];
-			}
-			m_nNewSize = nNewSize;
-		}
-		else
-		{
-			m_pNewValues = NULL;
-			m_nNewSize = 0;
-		}
-
-		int nOldSize = att.Count();
-		const T *pOldValues = att.Base();
-		if ( pOldValues != NULL && nOldSize > 0 )
-		{
-			m_pOldValues = new typename CUndoAttributeArrayBase<T>::StorageType_t[ nOldSize ];
-			for ( int i = 0; i < nOldSize; ++i )
-			{
-				m_pOldValues[ i ] = pOldValues[ i ];
-			}
-			m_nOldSize = nOldSize;
-		}
-		else
-		{
-			m_pOldValues = NULL;
-			m_nOldSize = 0;
-		}
-	}
-
-	~CUndoAttributeArrayCopyAllElement()
-	{
-		// this is a hack necessitated by MSVC's lack of partially specialized member template support
-		// (ie otherwise I'd just create a CUndoArrayAttributeSetMultipleValueElement< DmElementHandle_t,BaseClass> version with this code)
-		// anyways, the casting hackiness only happens when the value is actually a DmElementHandle_t, so it's completely safe
-		if ( CDmAttributeInfo< T >::AttributeType() == AT_ELEMENT )
-		{
-			DmElementHandle_t value = DMELEMENT_HANDLE_INVALID;
-			for ( int i = 0; i < m_nOldSize; ++i )
-			{
-				m_pOldValues[ i ] = *( T* )&value;
-			}
-			for ( int i = 0; i < m_nNewSize; ++i )
-			{
-				m_pNewValues[ i ] = *( T* )&value;
-			}
-		}
-
-		delete[] m_pOldValues;
-		delete[] m_pNewValues;
-	}
-
-	virtual void Undo()
-	{
-		CDmrArray<T> array( GetAttribute() );
-		if ( array.IsValid() )
-		{
-			array.RemoveAll();
-			for ( int i = 0; i < m_nOldSize; ++i )
-			{
-				array.AddToTail( m_pOldValues[ i ] );
-			}
-		}
-	}
-
-	virtual void Redo()
-	{
-		CDmrArray<T> array( GetAttribute() );
-		if ( array.IsValid() )
-		{
-			array.RemoveAll();
-			for ( int i = 0; i < m_nNewSize; ++i )
-			{
-				array.AddToTail( m_pNewValues[ i ] );
-			}
-
-			if ( m_bPurge )
-			{
-				Assert( array.Count() == 0 );
-				array.Purge();
-			}
-		}
-	}
-
-private:
-	typename CUndoAttributeArrayBase<T>::StorageType_t		*m_pOldValues;
-	int					m_nOldSize;
-	typename CUndoAttributeArrayBase<T>::StorageType_t		*m_pNewValues;
-	int					m_nNewSize;
-	bool				m_bPurge;
-};
-
 
 
 //-----------------------------------------------------------------------------
@@ -1405,12 +774,6 @@ int CDmArrayAttributeOp<T>::InsertBefore( int elem, const T& src )
 	if ( !ShouldInsert( src ) )
 		return Data().InvalidIndex();
 
-	if ( g_pDataModel->UndoEnabledForElement( m_pAttribute->GetOwner() ) )
-	{
-		CUndoAttributeArrayInsertCopyBefore<T> *pUndo = new CUndoAttributeArrayInsertCopyBefore<T>( m_pAttribute, elem, src );
-		g_pDataModel->AddUndoElement( pUndo );
-	}
-
 	int nIndex = Data().InsertBefore( elem, src );
 	OnAttributeArrayElementAdded( nIndex, nIndex );
 	m_pAttribute->OnChanged( true );
@@ -1433,13 +796,6 @@ int CDmArrayAttributeOp<T>::InsertMultipleBefore( int elem, int num )
 	if ( !m_pAttribute->MarkDirty() )
 		return Data().InvalidIndex();
 
-	// UNDO HOOK
-	if ( g_pDataModel->UndoEnabledForElement( m_pAttribute->GetOwner() ) )
-	{
-		CUndoAttributeArrayInsertBefore<T> *pUndo = new CUndoAttributeArrayInsertBefore<T>( m_pAttribute, elem, num );
-		g_pDataModel->AddUndoElement( pUndo );
-	}
-
 	int index = Data().InsertMultipleBefore( elem, num );
 	for ( int i = 0; i < num; ++i )
 	{
@@ -1460,13 +816,6 @@ void CDmArrayAttributeOp<T>::FastRemove( int elem )
 	if ( !m_pAttribute->MarkDirty() )
 		return;
 
-	// UNDO HOOK
-	if ( g_pDataModel->UndoEnabledForElement( m_pAttribute->GetOwner() ) )
-	{
-		CUndoAttributeArrayRemoveElement<T> *pUndo = new CUndoAttributeArrayRemoveElement<T>( m_pAttribute, true, elem, 1 );
-		g_pDataModel->AddUndoElement( pUndo );
-	}
-
 	OnAttributeArrayElementRemoved( elem, elem );
 	Data().FastRemove( elem );
 	m_pAttribute->OnChanged( true );
@@ -1481,13 +830,6 @@ void CDmArrayAttributeOp<T>::Remove( int elem )
 	if ( !m_pAttribute->MarkDirty() )
 		return;
 
-	// UNDO HOOK
-	if ( g_pDataModel->UndoEnabledForElement( m_pAttribute->GetOwner() ) )
-	{
-		CUndoAttributeArrayRemoveElement<T> *pUndo = new CUndoAttributeArrayRemoveElement<T>( m_pAttribute, false, elem, 1 );
-		g_pDataModel->AddUndoElement( pUndo );
-	}
-
 	OnAttributeArrayElementRemoved( elem, elem );
 	Data().Remove( elem );
 	m_pAttribute->OnChanged( true );
@@ -1498,13 +840,6 @@ void CDmArrayAttributeOp<T>::RemoveAll()
 {
 	if ( !m_pAttribute->MarkDirty() )
 		return;
-
-	// UNDO HOOK
-	if ( g_pDataModel->UndoEnabledForElement( m_pAttribute->GetOwner() ) )
-	{
-		CUndoAttributeArrayCopyAllElement<T> *pUndo = new CUndoAttributeArrayCopyAllElement<T>( m_pAttribute, NULL, 0 );
-		g_pDataModel->AddUndoElement( pUndo );
-	}
 
 	OnAttributeArrayElementRemoved( 0, Data().Count() - 1 );
 	Data().RemoveAll();
@@ -1517,13 +852,6 @@ void CDmArrayAttributeOp<T>::RemoveMultiple( int elem, int num )
 	if ( !m_pAttribute->MarkDirty() )
 		return;
 
-	// UNDO HOOK
-	if ( g_pDataModel->UndoEnabledForElement( m_pAttribute->GetOwner() ) )
-	{
-		CUndoAttributeArrayRemoveElement<T> *pUndo = new CUndoAttributeArrayRemoveElement<T>( m_pAttribute, false, elem, num );
-		g_pDataModel->AddUndoElement( pUndo );
-	}
-
 	OnAttributeArrayElementRemoved( elem, elem + num - 1 );
 	Data().RemoveMultiple( elem, num );
 	m_pAttribute->OnChanged( true );
@@ -1535,13 +863,6 @@ void CDmArrayAttributeOp<T>::Purge()
 {
 	if ( !m_pAttribute->MarkDirty() )
 		return;
-
-	// UNDO HOOK
-	if ( g_pDataModel->UndoEnabledForElement( m_pAttribute->GetOwner() ) )
-	{
-		CUndoAttributeArrayCopyAllElement<T> *pUndo = new CUndoAttributeArrayCopyAllElement<T>( m_pAttribute, NULL, true );
-		g_pDataModel->AddUndoElement( pUndo );
-	}
 
 	OnAttributeArrayElementRemoved( 0, Data().Count() - 1 );
 	Data().Purge();
@@ -1590,13 +911,6 @@ void CDmArrayAttributeOp<T>::CopyArray( const T *pArray, int nCount )
 	if ( !m_pAttribute->MarkDirty() )
 		return;
 
-	// UNDO HOOK
-	if ( g_pDataModel->UndoEnabledForElement( m_pAttribute->GetOwner() ) )
-	{
-		CUndoAttributeArrayCopyAllElement<T> *pUndo = new CUndoAttributeArrayCopyAllElement<T>( m_pAttribute, pArray, nCount );
-		g_pDataModel->AddUndoElement( pUndo );
-	}
-
 	OnAttributeArrayElementRemoved( 0, Data().Count() - 1 );
 	PerformCopyArray( pArray, nCount );
 	OnAttributeArrayElementAdded( 0, Data().Count() - 1 );
@@ -1611,17 +925,10 @@ template< class T >
 void CDmArrayAttributeOp<T>::SwapArray( CUtlVector< T >& src )
 {
 	// this is basically just a faster version of CopyArray
-	// the end result (for purposes of undo) are the same
+	// the end result is the same
 	// but there's no copy - just a pointer/etc swap
 	if ( !m_pAttribute->MarkDirty() )
 		return;
-
-	// UNDO HOOK
-	if ( g_pDataModel->UndoEnabledForElement( m_pAttribute->GetOwner() ) )
-	{
-		CUndoAttributeArrayCopyAllElement<T> *pUndo = new CUndoAttributeArrayCopyAllElement<T>( m_pAttribute, src.Base(), src.Count() );
-		g_pDataModel->AddUndoElement( pUndo );
-	}
 
 	OnAttributeArrayElementRemoved( 0, Data().Count() - 1 );
 	Data().Swap( src );
@@ -1657,12 +964,6 @@ void CDmArrayAttributeOp<T>::Set( int i, const T& value )
 	if ( !ShouldInsert( value ) )
 		return;
 
-	if ( g_pDataModel->UndoEnabledForElement( m_pAttribute->GetOwner() ) )
-	{
-		CUndoArrayAttributeSetValueElement<T> *pUndo = new CUndoArrayAttributeSetValueElement<T>( m_pAttribute, i, value );
-		g_pDataModel->AddUndoElement( pUndo );
-	}
-
 	OnAttributeArrayElementRemoved( i, i ); 
 	Data()[i] = value;
 	OnAttributeArrayElementAdded( i, i ); 
@@ -1679,7 +980,7 @@ void CDmArrayAttributeOp<T>::Set( CDmAttribute *pAttribute, int i, DmAttributeTy
 		array.Set( i, *(const T*)pValue );
 	}
 }
-
+	// the end result is the same
 
 //-----------------------------------------------------------------------------
 // Set multiple values
@@ -1708,12 +1009,6 @@ void CDmArrayAttributeOp<T>::SetMultiple( int i, int nCount, const T* pValue )
 
 	if ( !m_pAttribute->MarkDirty() )
 		return;
-
-	if ( g_pDataModel->UndoEnabledForElement( m_pAttribute->GetOwner() ) )
-	{
-		CUndoArrayAttributeSetMultipleValueElement<T> *pUndo = new CUndoArrayAttributeSetMultipleValueElement<T>( m_pAttribute, i, nCount, pValue );
-		g_pDataModel->AddUndoElement( pUndo );
-	}
 
 	OnAttributeArrayElementRemoved( i, i+nCount-1 ); 
 	for ( int j = 0; j < nCount; ++j )
@@ -1773,14 +1068,6 @@ void CDmArrayAttributeOp<T>::Swap( int i, int j )
 	if ( !m_pAttribute->MarkDirty() )
 		return;
 
-	if ( g_pDataModel->UndoEnabledForElement( m_pAttribute->GetOwner() ) )
-	{
-		CUndoArrayAttributeSetValueElement<T> *pUndo = new CUndoArrayAttributeSetValueElement<T>( m_pAttribute, i, Data()[ j ] );
-		g_pDataModel->AddUndoElement( pUndo );
-		pUndo = new CUndoArrayAttributeSetValueElement<T>( m_pAttribute, j, vk );
-		g_pDataModel->AddUndoElement( pUndo );
-	}
-
 	OnAttributeArrayElementRemoved( i, i ); 
 	Data()[i] = Data()[j];
 	OnAttributeArrayElementAdded( i, i ); 
@@ -1802,13 +1089,12 @@ bool CDmArrayAttributeOp<T>::Unserialize( CDmAttribute *pAttribute, CUtlBuffer &
 	if ( !pAttribute->MarkDirty() )
 		return false;
 
-	MEM_ALLOC_CREDIT_CLASS();
 
 	CUtlVector< T > tempVal;
 	if ( !::Unserialize( buf, tempVal ) )
 		return false;
 
-	// Don't need undo hook since this goes through Swap route
+	// Note: this goes through Swap route
 	CDmArrayAttributeOp<T> accessor( pAttribute );
 	accessor.SwapArray( tempVal );
 
@@ -1822,13 +1108,12 @@ template<> bool CDmArrayAttributeOp<DmElementHandle_t>::Unserialize( CDmAttribut
 	if ( !CDmAttributeAccessor::MarkDirty( pAttribute ) )
 		return false;
 
-	MEM_ALLOC_CREDIT_CLASS();
 
 	CUtlVector< DmElementHandle_t > tempVal;
 	if ( !::Unserialize( buf, tempVal ) )
 		return false;
 
-	// Don't need undo hook since this goes through copy route
+	// Note: this goes through copy route
 	CDmArrayAttributeOp<DmElementHandle_t> accessor( pAttribute );
 	accessor.CopyArray( tempVal.Base(), tempVal.Count() );
 
@@ -1849,7 +1134,6 @@ bool CDmArrayAttributeOp<T>::UnserializeElement( CDmAttribute *pAttribute, CUtlB
 	if ( !CDmAttributeAccessor::MarkDirty( pAttribute ) )
 		return false;
 
-	MEM_ALLOC_CREDIT_CLASS();
 
 	T temp;
 	if ( !::Unserialize( buf, temp ) )
@@ -1869,7 +1153,6 @@ bool CDmArrayAttributeOp< CUtlSymbolLarge >::UnserializeElement( CDmAttribute *p
 	if ( !CDmAttributeAccessor::MarkDirty( pAttribute ) )
 		return false;
 
-	MEM_ALLOC_CREDIT_CLASS();
 
 	CUtlString tempString;
 	if ( !::Unserialize( buf, tempString ) )
@@ -1893,7 +1176,6 @@ bool CDmArrayAttributeOp<T>::UnserializeElement( CDmAttribute *pAttribute, int n
 	if ( array.Count() <= nElement )
 		return false;
 
-	MEM_ALLOC_CREDIT_CLASS();
 
 	if ( !::Unserialize( buf, *const_cast<T*>( &array[nElement] ) ) )
 		return false;
@@ -1913,7 +1195,6 @@ bool CDmArrayAttributeOp< CUtlSymbolLarge >::UnserializeElement( CDmAttribute *p
 	if ( array.Count() <= nElement )
 		return false;
 
-	MEM_ALLOC_CREDIT_CLASS();
 
 	CUtlString tempString;
 	if ( !::Unserialize( buf, tempString ) )
@@ -1966,11 +1247,11 @@ CDmAttribute *CDmAttribute::CreateAttribute( CDmElement *pOwner, DmAttributeType
 	{
 	case AT_UNKNOWN:
 		Assert( 0 );
-		return NULL;
+		return nullptr;
 
 	default:
 		{
-			void *pMem = 0;
+			void *pMem = nullptr;
 			{
 				DMX_PROFILE_SCOPE( CreateAttribute_Alloc );
 				pMem = g_AttrAlloc.Alloc( sizeof( CDmAttribute ) );
@@ -1989,11 +1270,11 @@ CDmAttribute *CDmAttribute::CreateExternalAttribute( CDmElement *pOwner, DmAttri
 	{
 	case AT_UNKNOWN:
 		Assert( 0 );
-		return NULL;
+		return nullptr;
 
 	default:
 		{
-			void *pMem = 0;
+			void *pMem = nullptr;
 			{
 				DMX_PROFILE_SCOPE( CreateExternalAttribute_Alloc );
 				pMem = g_AttrAlloc.Alloc( sizeof( CDmAttribute ) );
@@ -2029,14 +1310,14 @@ void CDmAttribute::DestroyAttribute( CDmAttribute *pAttribute )
 }
 
 // turn memdbg back on after using placement new
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 //-----------------------------------------------------------------------------
 // Constructor, destructor
 //-----------------------------------------------------------------------------
 CDmAttribute::CDmAttribute( CDmElement *pOwner, DmAttributeType_t type, const char *pAttributeName ) :
-	m_pData( NULL )
+	m_pData(nullptr)
 {
 	{
 		DMX_PROFILE_SCOPE( CDmAttribute_Init );
@@ -2073,7 +1354,7 @@ void CDmAttribute::Init( CDmElement *pOwner, DmAttributeType_t type, const char 
 	}
 	m_nFlags = type;
 	m_Handle = DMATTRIBUTE_HANDLE_INVALID;
-	m_pNext = NULL;
+	m_pNext = nullptr;
 
 	switch ( type )
 	{
@@ -2132,7 +1413,7 @@ void CDmAttribute::DeleteAttributeData()
 	if ( m_pData && !IsFlagSet( FATTRIB_EXTERNAL ) )
 	{
 		s_pAttrInfo[ GetType() ]->DestroyAttributeData( m_pData );
-		m_pData = NULL;
+		m_pData = nullptr;
 	}
 }
 
@@ -2164,7 +1445,7 @@ bool CDmAttribute::ChangeType_UNSAFE( DmAttributeType_t type )
 	// force any necessary callbacks to be called (ie OnElementReferenceRemoved)
 	s_pAttrInfo[ oldType ]->SetToDefaultValue( this ); // may trigger callbacks
 
-	uint16 nFlags = ( m_nFlags & ( 0xffff & ~FATTRIB_TYPEMASK ) ) | type;
+	uint16_t nFlags = ( m_nFlags & ( 0xffff & ~FATTRIB_TYPEMASK ) ) | type;
 	if ( nOldSize != nNewSize )
 	{
 		DeleteAttributeData();
@@ -2640,13 +1921,6 @@ void CDmAttribute::SetValue( const T &value )
 	if ( !ShouldModify( value ) )
 		return;
 
-	// UNDO Hook
-	if ( g_pDataModel->UndoEnabledForElement( m_pOwner ) )
-	{
-		CUndoAttributeSetValueElement<T> *pUndo = new CUndoAttributeSetValueElement<T>( this, value );
-		g_pDataModel->AddUndoElement( pUndo );
-	}
-
 	CopyData< T >( value );
 
 	if ( IsFlagSet( FATTRIB_HAS_CALLBACK ) && CDmeElementAccessor::AreOnChangedCallbacksEnabled( m_pOwner ) )
@@ -2664,20 +1938,13 @@ void CDmAttribute::SetValue( const T &value )
 template< class T > T& 
 CDmAttribute::BeginModifyValueInPlace( DmAttributeModifyHandle_t *pHandle )
 {
-	*pHandle = NULL;
+	*pHandle = nullptr;
 
 	// Type conversion is not allowed
 	if ( (int)GetType() != (int)CDmAttributeInfo< T >::ATTRIBUTE_TYPE )
 	{
 		Assert( 0 );
-		return *( T* )NULL;
-	}
-
-	// UNDO Hook
-	if ( g_pDataModel->UndoEnabledForElement( m_pOwner ) )
-	{
-		CUndoAttributeSetValueElement<T> *pUndo = new CUndoAttributeSetValueElement<T>( this );
-		*pHandle = (DmAttributeModifyHandle_t)pUndo;
+		return *( T* ) nullptr;
 	}
 
 	return *reinterpret_cast< T* >( m_pData );
@@ -2688,13 +1955,6 @@ void CDmAttribute::EndModifyValueInPlace( DmAttributeModifyHandle_t handle )
 {
 	if ( (int)GetType() != (int)CDmAttributeInfo< T >::ATTRIBUTE_TYPE )
 		return;
-
-	CUndoAttributeSetValueElement<T> *pUndo = ( CUndoAttributeSetValueElement<T>* )( handle );
-	if ( pUndo )
-	{
-		pUndo->SetEndValue( this );
-		g_pDataModel->AddUndoElement( pUndo );
-	}
 
 	if ( IsFlagSet( FATTRIB_HAS_CALLBACK ) && CDmeElementAccessor::AreOnChangedCallbacksEnabled( m_pOwner ) )
 	{
@@ -2812,13 +2072,6 @@ void CDmAttribute::SetName( const char *pNewName )
 	if ( !MarkDirty() )
 		return;
 
-	// UNDO Hook
-	if ( g_pDataModel->UndoEnabledForElement( m_pOwner ) )
-	{
-		CUndoAttributeRenameElement *pUndo = new CUndoAttributeRenameElement( this, pNewName );
-		g_pDataModel->AddUndoElement( pUndo );
-	}
-
 	m_Name = g_pDataModel->GetSymbol( pNewName );
 	g_pDataModelImp->NotifyState( NOTIFY_CHANGE_TOPOLOGICAL );
 }
@@ -2906,7 +2159,7 @@ unsigned int HandleHash( const DmElementHandle_t &h )
 int CDmAttribute::EstimateMemoryUsage( TraversalDepth_t depth ) const
 {
 	CUtlHash< DmElementHandle_t > visited( 1024, 0, 0, HandleCompare, HandleHash );
-	return EstimateMemoryUsageInternal( visited, depth, 0 ) ;
+	return EstimateMemoryUsageInternal( visited, depth, nullptr ) ;
 }
 
 int CDmAttribute::EstimateMemoryUsageInternal( CUtlHash< DmElementHandle_t > &visited, TraversalDepth_t depth, int *pCategories ) const
@@ -3012,7 +2265,7 @@ int CDmAttribute::EstimateMemoryUsageInternal( CUtlHash< DmElementHandle_t > &vi
 template< class T, class B >
 CDmaArrayConstBase<T,B>::CDmaArrayConstBase( )
 {
-	m_pAttribute = NULL;
+	m_pAttribute = nullptr;
 }
 
 
@@ -3022,7 +2275,7 @@ CDmaArrayConstBase<T,B>::CDmaArrayConstBase( )
 template< class T, class B >
 int CDmaArrayConstBase<T,B>::Find( const T &value ) const
 {
-	return Value().Find( value );
+	return this->Value().Find( value );
 }
 
 
@@ -3035,7 +2288,7 @@ int CDmaArrayBase<T,B>::AddToTail()
 	T defaultVal;
 	CDmAttributeInfo<T>::SetDefaultValue( defaultVal );	
 	CDmArrayAttributeOp<T> accessor( this->m_pAttribute );
-	return accessor.InsertBefore( Value().Count(), defaultVal );
+	return accessor.InsertBefore( this->Value().Count(), defaultVal );
 }
 
 template< class T, class B >
@@ -3051,7 +2304,7 @@ template< class T, class B >
 int	CDmaArrayBase<T,B>::AddToTail( const T& src )
 {
 	CDmArrayAttributeOp<T> accessor( this->m_pAttribute );
-	return accessor.InsertBefore( Value().Count(), src );
+	return accessor.InsertBefore( this->Value().Count(), src );
 }
 
 template< class T, class B >
@@ -3065,7 +2318,7 @@ template< class T, class B >
 int	CDmaArrayBase<T,B>::AddMultipleToTail( int num )
 {
 	CDmArrayAttributeOp<T> accessor( this->m_pAttribute );
-	return accessor.InsertMultipleBefore( Value().Count(), num );
+	return accessor.InsertMultipleBefore( this->Value().Count(), num );
 }
 
 template< class T, class B >
@@ -3078,7 +2331,7 @@ int CDmaArrayBase<T,B>::InsertMultipleBefore( int elem, int num )
 template< class T, class B >
 void CDmaArrayBase<T,B>::EnsureCount( int num )
 {
-	int nCurrentCount = Value().Count();
+	int nCurrentCount = this->Value().Count();
 	if ( nCurrentCount < num )
 	{
 		AddMultipleToTail( num - nCurrentCount );
@@ -3167,7 +2420,7 @@ void CDmaArrayBase<T,B>::RemoveMultiple( int elem, int num )
 template< class T, class B >
 void CDmaArrayBase<T,B>::EnsureCapacity( int num )
 {
-	Value().EnsureCapacity( num );
+	this->Value().EnsureCapacity( num );
 }
 
 template< class T, class B >
@@ -3182,11 +2435,11 @@ void CDmaArrayBase<T,B>::Purge()
 // Attribute initialization
 //-----------------------------------------------------------------------------
 template< class T, class B >
-void CDmaDecorator<T,B>::Init( CDmElement *pOwner, const char *pAttributeName, int nFlags = 0 )
+void CDmaDecorator<T,B>::Init( CDmElement *pOwner, const char *pAttributeName, int nFlags )
 {
 	Assert( pOwner );
-	this->m_pAttribute = pOwner->AddExternalAttribute( pAttributeName, CDmAttributeInfo<CUtlVector<T> >::AttributeType(), &Value() );
-	Assert( m_pAttribute );
+	this->m_pAttribute = pOwner->AddExternalAttribute( pAttributeName, CDmAttributeInfo<CUtlVector<T> >::AttributeType(), &this->Value() );
+	Assert( this->m_pAttribute );
 	if ( nFlags )
 	{
 		this->m_pAttribute->AddFlag( nFlags );
@@ -3203,19 +2456,19 @@ void CDmrDecoratorConst<T,BaseClass>::Init( const CDmAttribute* pAttribute )
 	if ( pAttribute && pAttribute->GetType() == CDmAttributeInfo< CUtlVector< T > >::AttributeType() )
 	{
 		this->m_pAttribute = const_cast<CDmAttribute*>( pAttribute );
-		Attach( this->m_pAttribute->GetAttributeData() );
+		this->Attach( this->m_pAttribute->GetAttributeData() );
 	}
 	else
 	{
 		this->m_pAttribute = NULL;
-		Attach( NULL );
+		this->Attach( NULL );
 	}
 }
 
 template< class T, class BaseClass >
 void CDmrDecoratorConst<T,BaseClass>::Init( const CDmElement *pElement, const char *pAttributeName )
 {
-	const CDmAttribute *pAttribute = NULL;
+	const CDmAttribute *pAttribute = nullptr;
 	if ( pElement && pAttributeName && pAttributeName[0] )
 	{
 		pAttribute = pElement->GetAttribute( pAttributeName );
@@ -3236,19 +2489,19 @@ void CDmrDecorator<T,BaseClass>::Init( CDmAttribute* pAttribute )
 	if ( pAttribute && pAttribute->GetType() == CDmAttributeInfo< CUtlVector< T > >::AttributeType() )
 	{
 		this->m_pAttribute = pAttribute;
-		Attach( this->m_pAttribute->GetAttributeData() );
+		this->Attach( this->m_pAttribute->GetAttributeData() );
 	}
 	else
 	{
 		this->m_pAttribute = NULL;
-		Attach( NULL );
+		this->Attach( NULL );
 	}
 }
 
 template< class T, class BaseClass >
 void CDmrDecorator<T,BaseClass>::Init( CDmElement *pElement, const char *pAttributeName, bool bAddAttribute )
 {
-	CDmAttribute *pAttribute = NULL;
+	CDmAttribute *pAttribute = nullptr;
 	if ( pElement && pAttributeName && pAttributeName[0] )
 	{
 		if ( bAddAttribute )
@@ -3340,7 +2593,7 @@ bool CDmrDecorator<T,BaseClass>::IsValid() const
 			break;										\
 	}
 
-CDmrGenericArrayConst::CDmrGenericArrayConst() : m_pAttribute( NULL )
+CDmrGenericArrayConst::CDmrGenericArrayConst() : m_pAttribute(nullptr)
 {
 }
 
@@ -3362,13 +2615,13 @@ void CDmrGenericArrayConst::Init( const CDmAttribute *pAttribute )
 	}
 	else
 	{
-		m_pAttribute = NULL;
+		m_pAttribute = nullptr;
 	}
 }
 
 void CDmrGenericArrayConst::Init( const CDmElement *pElement, const char *pAttributeName )
 {
-	const CDmAttribute *pAttribute = ( pElement && pAttributeName && pAttributeName[0] ) ? pElement->GetAttribute( pAttributeName ) : NULL;
+	const CDmAttribute *pAttribute = ( pElement && pAttributeName && pAttributeName[0] ) ? pElement->GetAttribute( pAttributeName ) : nullptr;
 	Init( pAttribute );
 }
 
@@ -3381,7 +2634,7 @@ int CDmrGenericArrayConst::Count() const
 const void* CDmrGenericArrayConst::GetUntyped( int i ) const
 {
 	APPLY_ARRAY_METHOD_RET( GetUntyped( i ) );
-	return NULL;
+	return nullptr;
 }
 
 const char* CDmrGenericArrayConst::GetAsString( int i, char *pBuffer, size_t nBufLen ) const
@@ -3563,3 +2816,28 @@ DEFINE_ATTRIBUTE_TYPE( DmElementHandle_t )
 template class CDmaDecorator< CUtlSymbolLarge, CDmaStringArrayBase< CDmaDataInternal< CUtlVector< CUtlSymbolLarge > > > >;
 template class CDmrDecorator< CUtlSymbolLarge, CDmaStringArrayBase< CDmaDataExternal< CUtlVector< CUtlSymbolLarge > > > >;
 template class CDmrDecoratorConst< CUtlSymbolLarge, CDmaStringArrayConstBase< CDmaArrayConstBase< CUtlSymbolLarge, CDmaDataExternal< CUtlVector< CUtlSymbolLarge > > > > >;
+
+//-----------------------------------------------------------------------------
+// Explicit instantiations of the generic CDmAttribute accessors used by the inline GetValue<T> in headers;
+// they have to follow the member template definitions above.
+//-----------------------------------------------------------------------------
+template bool CDmAttribute::IsTypeConvertable< Vector >() const;
+template void CDmAttribute::CopyDataOut< Vector >( Vector& ) const;
+template bool CDmAttribute::IsTypeConvertable< Vector2D >() const;
+template void CDmAttribute::CopyDataOut< Vector2D >( Vector2D& ) const;
+template bool CDmAttribute::IsTypeConvertable< Vector4D >() const;
+template void CDmAttribute::CopyDataOut< Vector4D >( Vector4D& ) const;
+template bool CDmAttribute::IsTypeConvertable< Color >() const;
+template void CDmAttribute::CopyDataOut< Color >( Color& ) const;
+template bool CDmAttribute::IsTypeConvertable< VMatrix >() const;
+template void CDmAttribute::CopyDataOut< VMatrix >( VMatrix& ) const;
+template bool CDmAttribute::IsTypeConvertable< CUtlSymbolLarge >() const;
+template void CDmAttribute::CopyDataOut< CUtlSymbolLarge >( CUtlSymbolLarge& ) const;
+template bool CDmAttribute::IsTypeConvertable< DmElementHandle_t >() const;
+template void CDmAttribute::CopyDataOut< DmElementHandle_t >( DmElementHandle_t& ) const;
+template bool CDmAttribute::IsTypeConvertable< CUtlVector< float > >() const;
+template void CDmAttribute::CopyDataOut< CUtlVector< float > >( CUtlVector< float >& ) const;
+template bool CDmAttribute::IsTypeConvertable< CUtlVector< DmeTime_t > >() const;
+template void CDmAttribute::CopyDataOut< CUtlVector< DmeTime_t > >( CUtlVector< DmeTime_t >& ) const;
+template bool CDmAttribute::IsTypeConvertable< CUtlVector< DmElementHandle_t > >() const;
+template void CDmAttribute::CopyDataOut< CUtlVector< DmElementHandle_t > >( CUtlVector< DmElementHandle_t >& ) const;

@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
 //=============================================================================
 
-#ifndef DEPENDENCYGRAPH_H
-#define DEPENDENCYGRAPH_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -59,4 +58,3 @@ private:
 	CUtlVector< IDmeOperator* > m_operators;
 };
 
-#endif // DEPENDENCYGRAPH_H

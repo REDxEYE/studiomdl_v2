@@ -4,8 +4,7 @@
 //
 //===========================================================================//
 
-#ifndef DMEMODEL_H
-#define DMEMODEL_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -30,7 +29,7 @@ class CDmeModel : public CDmeDag
 
 public:
 	// Add joint
-	CDmeJoint *AddJoint( const char *pJointName, CDmeDag *pParent = NULL );
+	CDmeJoint *AddJoint( const char *pJointName, CDmeDag *pParent = nullptr);
 	int AddJoint( CDmeDag *pJoint );
 
 	// Returns the number of joint transforms we know about
@@ -202,4 +201,3 @@ private:
 };
 
 
-#endif // DMEMODEL_H

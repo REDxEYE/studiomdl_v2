@@ -8,7 +8,6 @@
 #include "filesystem.h"
 #include "filesystem_init.h"
 #include "filesystem/filesystem_stdio.h"
-#include "vstdlib/cvar.h"
 
 
 extern CFileSystem_Stdio g_FileSystem_Stdio;
@@ -24,23 +23,6 @@ ILoggingListener *g_pDefaultLoggingListener = &s_SimpleLoggingListener;
 
 
 //-----------------------------------------------------------------------------
-// HACK: Since I don't want to refit vgui yet...
-//-----------------------------------------------------------------------------
-void *GetAppInstance()
-{
-	return s_HInstance;
-}
-
-
-//-----------------------------------------------------------------------------
-// Sets the application instance, should only be used if you're not calling AppMain.
-//-----------------------------------------------------------------------------
-void SetAppInstance( void* hInstance )
-{
-	s_HInstance = hInstance;
-}
-
-//-----------------------------------------------------------------------------
 // Version of AppMain used by windows applications
 //-----------------------------------------------------------------------------
 int AppMain( void* hInstance, void* hPrevInstance, const char* lpCmdLine, int nCmdShow, CAppSystemGroup *pAppSystemGroup )
@@ -52,7 +34,7 @@ int AppMain( void* hInstance, void* hPrevInstance, const char* lpCmdLine, int nC
 
 #ifdef WIN32
 	// Prepend the module filename since most apps expect arg 0 to be that.
-	char szModuleFilename[MAX_PATH];
+	char szModuleFilename[MAX_PATH]{0};
 	Plat_GetModuleFilename( szModuleFilename, sizeof( szModuleFilename ) );
 	int nAllocLen = strlen( lpCmdLine ) + strlen( szModuleFilename ) + 4;
 	char *pNewCmdLine = new char[nAllocLen];	// 2 for quotes, 1 for a space, and 1 for a null-terminator.
@@ -76,7 +58,7 @@ int AppMain( int argc, char **argv, CAppSystemGroup *pAppSystemGroup )
 	Assert( pAppSystemGroup );
 
 	g_pDefaultLoggingListener = &s_SimpleLoggingListener;
-	s_HInstance = NULL;
+	s_HInstance = nullptr;
 	CommandLine()->CreateCmdLine( argc, argv );
 
 	return pAppSystemGroup->Run();
@@ -101,7 +83,7 @@ int AppStartup( int argc, char **argv, CAppSystemGroup *pAppSystemGroup )
 	Assert( pAppSystemGroup );
 
 	g_pDefaultLoggingListener = &s_SimpleLoggingListener;
-	s_HInstance = NULL;
+	s_HInstance = nullptr;
 	CommandLine()->CreateCmdLine( argc, argv );
 
 	return pAppSystemGroup->Startup();
@@ -127,7 +109,7 @@ void AppShutdown( CAppSystemGroup *pAppSystemGroup )
 CSteamApplication::CSteamApplication( CSteamAppSystemGroup *pAppSystemGroup )
 {
 	m_pChildAppSystemGroup = pAppSystemGroup;
-	m_pFileSystem = NULL;
+	m_pFileSystem = nullptr;
 	m_bSteam = false;
 }
 
@@ -138,23 +120,20 @@ bool CSteamApplication::Create()
 {
 	FileSystem_SetErrorMode( FS_ERRORMODE_AUTO );
 
-	char pFileSystemDLL[MAX_PATH];
+	char pFileSystemDLL[MAX_PATH]{0};
 	if ( !GetFileSystemDLLName( pFileSystemDLL, MAX_PATH, m_bSteam ) )
 		return false;
 
-//	FileSystem_SetupSteamInstallPath();
-
 	// Add in the cvar factory
-	AppModule_t cvarModule = LoadModule( VStdLib_GetICVarFactory() );
-	AddSystem( cvarModule, CVAR_INTERFACE_VERSION );
+	// AppModule_t cvarModule = LoadModule( VStdLib_GetICVarFactory() );
+	// AddSystem( cvarModule, CVAR_INTERFACE_VERSION );
 
 //	AppModule_t fileSystemModule = LoadModule( pFileSystemDLL );
 	m_pFileSystem = &g_FileSystem_Stdio;
     g_pFullFileSystem = &g_FileSystem_Stdio;
 	if ( !m_pFileSystem )
 	{
-		if( !IsPS3() )
-			Error( "Unable to load %s", pFileSystemDLL );
+		Error( "Unable to load %s", pFileSystemDLL );
 		return false;
 	}
 
@@ -171,7 +150,7 @@ bool CSteamApplication::GetFileSystemDLLName( char *pOut, int nMaxBytes, bool &b
 //-----------------------------------------------------------------------------
 void CSteamApplication::Destroy()
 {
-	m_pFileSystem = NULL;
+	m_pFileSystem = nullptr;
 }
 
 //-----------------------------------------------------------------------------

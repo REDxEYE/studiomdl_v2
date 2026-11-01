@@ -17,8 +17,7 @@
 #include "tier1/strtools.h"
 #include "tier1/characterset.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 			    
 
 //-----------------------------------------------------------------------------
@@ -197,7 +196,6 @@ char CUtlCharConversion::FindConversion( const char *pString, int *pLength )
 CUtlBuffer::CUtlBuffer( int growSize, int initSize, int nFlags ) : 
 	m_Error(0)
 {
-	MEM_ALLOC_CREDIT();
 	m_Memory.Init( growSize, initSize );
 	m_Get = 0;
 	m_Put = 0;
@@ -245,9 +243,6 @@ CUtlBuffer::CUtlBuffer( const CUtlBuffer& copyFrom )
 , m_Error( copyFrom.m_Error )
 , m_Flags( copyFrom.m_Flags )
 , m_Reserved( copyFrom.m_Reserved )
-#if defined( _GAMECONSOLE )
-, pad( copyFrom.pad )
-#endif
 , m_nTab( copyFrom.m_nTab )
 , m_nMaxPut( copyFrom.m_nMaxPut )
 , m_nOffset( copyFrom.m_nOffset )
@@ -282,9 +277,6 @@ CUtlBuffer& CUtlBuffer::operator=( const CUtlBuffer& copyFrom )
 	m_Error = copyFrom.m_Error;
 	m_Flags = copyFrom.m_Flags;
 	m_Reserved = copyFrom.m_Reserved;
-#if defined( _GAMECONSOLE )
-	pad = copyFrom.pad;
-#endif
 	m_nTab = copyFrom.m_nTab;
 	m_nMaxPut = copyFrom.m_nMaxPut;
 	m_nOffset = copyFrom.m_nOffset;
@@ -302,9 +294,6 @@ CUtlBuffer::CUtlBuffer( CUtlBuffer&& moveFrom ) // = default
 , m_Error( Move( moveFrom.m_Error ) )
 , m_Flags( Move( moveFrom.m_Flags ) )
 , m_Reserved( Move( moveFrom.m_Reserved ) )
-#if defined( _GAMECONSOLE )
-, pad( Move( moveFrom.pad ) )
-#endif
 , m_nTab( Move( moveFrom.m_nTab ) )
 , m_nMaxPut( Move( moveFrom.m_nMaxPut ) )
 , m_nOffset( Move( moveFrom.m_nOffset ) )
@@ -320,9 +309,6 @@ CUtlBuffer& CUtlBuffer::operator=( CUtlBuffer&& moveFrom ) // = default
 	m_Error = Move( moveFrom.m_Error );
 	m_Flags = Move( moveFrom.m_Flags );
 	m_Reserved = Move( moveFrom.m_Reserved );
-#if defined( _GAMECONSOLE )
-	pad = Move( moveFrom.pad );
-#endif
 	m_nTab = Move( moveFrom.m_nTab );
 	m_nMaxPut = Move( moveFrom.m_nMaxPut );
 	m_nOffset = Move( moveFrom.m_nOffset );
@@ -439,7 +425,6 @@ void* CUtlBuffer::DetachMemory()
 //-----------------------------------------------------------------------------
 void CUtlBuffer::EnsureCapacity( int num )
 {
-	MEM_ALLOC_CREDIT();
 	// Add one extra for the null termination
 	num += 1;
 	if ( m_Memory.IsExternallyAllocated() )
@@ -960,7 +945,7 @@ bool CUtlBuffer::CheckArbitraryPeekGet( int nOffset, int &nIncrement )
 const void* CUtlBuffer::PeekGet( int nMaxSize, int nOffset )
 {
 	if ( !CheckPeekGet( nOffset, nMaxSize ) )
-		return NULL;
+		return nullptr;
 	return &m_Memory[ m_Get + nOffset - m_nOffset ];
 }
 
@@ -1059,12 +1044,12 @@ int CUtlBuffer::VaScanf( const char* pFmt, va_list list )
 					{
 						if ( *pFmt == 'd' || *pFmt == 'i' )
 						{
-							if ( !GetTypeText( *va_arg( list, int16 * ) ) )
+							if ( !GetTypeText( *va_arg( list, int16_t * ) ) )
 								return numScanned; // only support short ints, don't bother with hex
 						}
 						else if ( *pFmt == 'u' )
 						{
-							if ( !GetTypeText( *va_arg( list, uint16 * ) ) )
+							if ( !GetTypeText( *va_arg( list, uint16_t * ) ) )
 								return numScanned;
 						}
 						else
@@ -1080,12 +1065,12 @@ int CUtlBuffer::VaScanf( const char* pFmt, va_list list )
 
 						if ( *pFmt == 'd' )
 						{
-							if ( !GetTypeText( *va_arg( list, int64 * ) ) )
+							if ( !GetTypeText( *va_arg( list, int64_t * ) ) )
 								return numScanned;
 						}
 						else if ( *pFmt == 'u' )
 						{
-							if ( !GetTypeText( *va_arg( list, uint64 * ) ) )
+							if ( !GetTypeText( *va_arg( list, uint64_t * ) ) )
 								return numScanned;
 						}
 						else
@@ -1100,7 +1085,7 @@ int CUtlBuffer::VaScanf( const char* pFmt, va_list list )
 				case 'i':
 				case 'd':
 					{
-						int32 *pArg = va_arg( list, int32 * );
+						int32_t *pArg = va_arg( list, int32_t * );
 						if ( !GetTypeText( *pArg ) )
 							return numScanned;
 					}
@@ -1108,7 +1093,7 @@ int CUtlBuffer::VaScanf( const char* pFmt, va_list list )
 
 				case 'x':
 					{
-						uint32 *pArg = va_arg( list, uint32 * );
+						uint32_t *pArg = va_arg( list, uint32_t * );
 						if ( !GetTypeText( *pArg, 16 ) )
 							return numScanned;
 					}
@@ -1116,7 +1101,7 @@ int CUtlBuffer::VaScanf( const char* pFmt, va_list list )
 
 				case 'u':
 					{
-						uint32 *pArg = va_arg( list, uint32 * );
+						uint32_t *pArg = va_arg( list, uint32_t * );
 						if ( !GetTypeText( *pArg ) )
 							return numScanned;
 					}
@@ -1132,7 +1117,7 @@ int CUtlBuffer::VaScanf( const char* pFmt, va_list list )
 						}
 						else if ( *pFmt == 'l' && *++pFmt == 'd' )
 						{
-							if ( !GetTypeText( *va_arg( list, int64 * ) ) )
+							if ( !GetTypeText( *va_arg( list, int64_t * ) ) )
 								return numScanned;
 						}
 						else
@@ -1495,7 +1480,7 @@ void CUtlBuffer::PutString( const char* pString )
 				}
 				else
 				{
-					pEndl = NULL;
+					pEndl = nullptr;
 				}
 			}
 		}
@@ -1612,7 +1597,6 @@ bool CUtlBuffer::OnGetOverflow( int nSize )
 //-----------------------------------------------------------------------------
 bool CUtlBuffer::PutOverflow( int nSize )
 {
-	MEM_ALLOC_CREDIT();
 
 	if ( m_Memory.IsExternallyAllocated() )
 	{
@@ -1739,7 +1723,7 @@ bool CUtlBuffer::ConvertCRLF( CUtlBuffer &outBuf )
 	int nPutDelta = 0;
 
 	const char *pBase = (const char*)Base();
-	intp nCurrGet = 0;
+	intptr_t nCurrGet = 0;
 	while ( nCurrGet < nInCount )
 	{
 		const char *pCurr = &pBase[nCurrGet];
@@ -1752,7 +1736,7 @@ bool CUtlBuffer::ConvertCRLF( CUtlBuffer &outBuf )
 				break;
 			}
 
-			intp nBytes = (intp)pNext - (intp)pCurr;
+			intptr_t nBytes = (intptr_t)pNext - (intptr_t)pCurr;
 			outBuf.Put( pCurr, (int)nBytes );
 			outBuf.PutChar( '\n' );
 			nCurrGet += nBytes + 2;
@@ -1774,7 +1758,7 @@ bool CUtlBuffer::ConvertCRLF( CUtlBuffer &outBuf )
 				break;
 			}
 
-			intp nBytes = (intp)pNext - (intp)pCurr;
+			intptr_t nBytes = (intptr_t)pNext - (intptr_t)pCurr;
 			outBuf.Put( pCurr, (int)nBytes );
 			outBuf.PutChar( '\r' );
 			outBuf.PutChar( '\n' );
@@ -1814,7 +1798,7 @@ void CUtlBuffer::Swap( CUtlBuffer &buf )
 //-----------------------------------------------------------------------------
 // Fast swap w/ a CUtlMemory.
 //-----------------------------------------------------------------------------
-void CUtlBuffer::Swap( CUtlMemory<uint8> &mem )
+void CUtlBuffer::Swap( CUtlMemory<uint8_t> &mem )
 {
 	m_Get = 0;
 	m_Put = mem.Count();
@@ -1860,7 +1844,7 @@ bool CUtlInplaceBuffer::InplaceGetLinePtr( char **ppszInBufferPtr, int *pnLineLe
 
 char * CUtlInplaceBuffer::InplaceGetLinePtr( void )
 {
-	char *pszLine = NULL;
+	char *pszLine = nullptr;
 	int nLineLen = 0;
 	
 	if ( InplaceGetLinePtr( &pszLine, &nLineLen ) )

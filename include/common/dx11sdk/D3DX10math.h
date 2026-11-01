@@ -11,8 +11,7 @@
 
 // D3DX10 and D3DX9 math look the same. You can include either one into your project.
 // We are intentionally using the header define from D3DX9 math to prevent double-inclusion.
-#ifndef __D3DX9MATH_H__
-#define __D3DX9MATH_H__
+#pragma once
 
 #include <math.h>
 #if _MSC_VER >= 1200
@@ -1862,5 +1861,4 @@ D3DX_CPU_OPTIMIZATION WINAPI
 #pragma warning(default:4201)
 #endif
 
-#endif // __D3DX9MATH_H__
 

@@ -47,8 +47,7 @@
 // 22-Jul-10 xxx  * Reformatted + renamed to match valve coding standards
 //				  * Added UtlMakeDelegate for static functions	
 
-#ifndef UTLDELEGATEIMPL_H
-#define UTLDELEGATEIMPL_H
+#pragma once
 #pragma once
 
 #include "tier0/platform.h"
@@ -2703,5 +2702,4 @@ CUtlDelegate< FASTDLGT_RETTYPE ( Param1, Param2, Param3, Param4, Param5, Param6,
 #pragma warning( pop ) 
 #endif
 
-#endif // !defined(UTLDELEGATEIMPL_H)
 

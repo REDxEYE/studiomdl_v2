@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
 //=============================================================================
 
-#ifndef DMATTRIBUTEINTERNAL_H
-#define DMATTRIBUTEINTERNAL_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -72,4 +71,3 @@ DmAttributeType_t AttributeType( const char *pAttributeType );
 //-----------------------------------------------------------------------------
 int GetAllocatedAttributeCount();
 
-#endif // DMATTRIBUTEINTERNAL_H

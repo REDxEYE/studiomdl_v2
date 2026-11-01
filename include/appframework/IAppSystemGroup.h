@@ -12,8 +12,7 @@
 // $NoKeywords: $
 //=============================================================================
 
-#ifndef IAPPSYSTEMGROUP_H
-#define IAPPSYSTEMGROUP_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -111,7 +110,7 @@ public:
 
 public:
 	// constructor
-	CAppSystemGroup( CAppSystemGroup *pParentAppSystem = NULL );
+	CAppSystemGroup( CAppSystemGroup *pParentAppSystem = nullptr);
 
 	// Runs the app system group.
 	// First, modules are loaded, next they are connected, followed by initialization
@@ -159,10 +158,6 @@ protected:
 
 	// Method to look up a particular named system...
 	void *FindSystem( const char *pInterfaceName );
-
-	// Creates the app window (windowed app only)
-	virtual void *CreateAppWindow( void *hInstance, const char *pTitle, bool bWindowed, int w, int h, bool bResizing );
-	void SetAppWindowTitle( void* hWnd, const char *pTitle );
 
 	// Gets at a class factory for the topmost appsystem group in an appsystem stack
 	static CreateInterfaceFn GetFactory();
@@ -226,7 +221,7 @@ private:
 class CSteamAppSystemGroup : public CAppSystemGroup
 {
 public:
-	CSteamAppSystemGroup( IFileSystem *pFileSystem = NULL, CAppSystemGroup *pParentAppSystem = NULL );
+	CSteamAppSystemGroup( IFileSystem *pFileSystem = nullptr, CAppSystemGroup *pParentAppSystem = nullptr);
 
 	// Used by CSteamApplication to set up necessary pointers if we can't do it in the constructor
 	void Setup( IFileSystem *pFileSystem, CAppSystemGroup *pParentAppSystem );
@@ -297,6 +292,5 @@ typedef bool ( * SuggestGameInfoDirFn_t ) ( CFSSteamSetupInfo const *pFsSteamSet
 SuggestGameInfoDirFn_t SetSuggestGameInfoDirFn( SuggestGameInfoDirFn_t pfnNewFn );
 
 
-#endif // APPSYSTEMGROUP_H
 
 

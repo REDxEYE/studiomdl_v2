@@ -1,17 +1,16 @@
-//====== Copyright © 1996-2005, Valve Corporation, All rights reserved. =======
+//====== Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
 //=============================================================================
 
-#ifndef AMALGAMATEDTEXTURE_VARS_H
-#define AMALGAMATEDTEXTURE_VARS_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
 
 #include "filesystem.h"
-#include "tier0/dbg.h"
+
 
 
 #define MAX_IMAGES_PER_FRAME 4
@@ -33,4 +32,3 @@ enum SeqMode_t
 };
 
 
-#endif // AMALGAMATEDTEXTURE_VARS_H

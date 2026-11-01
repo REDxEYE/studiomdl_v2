@@ -18,8 +18,7 @@
  *
  ***************************************************************************/
 
-#ifndef __AUDIODEFS_INCLUDED__
-#define __AUDIODEFS_INCLUDED__
+#pragma once
 
 #include <windef.h>  // For WORD, DWORD, etc.
 
@@ -260,4 +259,3 @@ typedef const WAVEFORMATEXTENSIBLE *PCWAVEFORMATEXTENSIBLE, *LPCWAVEFORMATEXTENS
 
 #pragma pack(pop)
 
-#endif // #ifndef __AUDIODEFS_INCLUDED__

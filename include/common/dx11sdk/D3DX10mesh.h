@@ -9,8 +9,7 @@
 
 #include "d3dx10.h"
 
-#ifndef __D3DX10MESH_H__
-#define __D3DX10MESH_H__
+#pragma once
 
 // {7ED943DD-52E8-40b5-A8D8-76685C406330}
 DEFINE_GUID(IID_ID3DX10BaseMesh, 
@@ -281,6 +280,5 @@ typedef struct _D3DX10_ATTRIBUTE_WEIGHTS
     FLOAT Binormal;
 } D3DX10_ATTRIBUTE_WEIGHTS, *LPD3DX10_ATTRIBUTE_WEIGHTS;
 
-#endif //__D3DX10MESH_H__
 
 

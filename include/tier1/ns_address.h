@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
@@ -6,18 +6,17 @@
 //
 //=============================================================================//
 // netadr.h
-#ifndef NS_ADDRESS_H
-#define NS_ADDRESS_H
+#pragma once
 #pragma once
 
 #include "tier0/platform.h"
-#include "tier0/dbg.h"
+
 #include "tier1/netadr.h"
 #include "steam/steamclientpublic.h" // for CSteamID
 #include "tier1/strtools.h" // V_memset
 
 #if defined( NO_STEAM )
-typedef CSteamID uint64;
+typedef uint64_t CSteamID;
 #endif
 
 enum PeerToPeerAddressType_t
@@ -561,4 +560,3 @@ public:
 	const char *String() const { return m_buf; }
 };
 
-#endif // NS_ADDRESS_H

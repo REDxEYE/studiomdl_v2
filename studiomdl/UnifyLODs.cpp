@@ -293,7 +293,7 @@ s_source_t *GetModelLODSource(const char *pModelName,
     }
 
     *pFound = false;
-    return 0;
+    return nullptr;
 }
 
 
@@ -502,8 +502,8 @@ static s_mesh_t *FindOrCullMesh(int nLodID, s_source_t *pSrc, int nMaterialID) {
 static void CopyVerts(int nLodID, const s_source_t *pSrc, const s_mesh_t *pSrcMesh, CVertexDictionary &vertexDict,
                       s_mesh_t *pDstMesh, int *pMeshVertIndexMap) {
     // populate the dictionary with the verts
-    for (int srcVertID = 0; srcVertID < pSrcMesh->numvertices; srcVertID++) {
-        int nVertexIndex = pSrcMesh->vertexoffset + srcVertID;
+    for (uint32_t srcVertID = 0; srcVertID < pSrcMesh->numvertices; srcVertID++) {
+        uint32_t nVertexIndex = pSrcMesh->vertexoffset + srcVertID;
         pMeshVertIndexMap[nVertexIndex] =
                 vertexDict.AddVertexFromSource(pSrc, nVertexIndex, nLodID) - pDstMesh->vertexoffset;
     }
@@ -1219,7 +1219,7 @@ static void UnifyModelLODs(s_model_t *pSrcModel) {
             memset(pMeshVertIndexMaps[nLodID], 0xDD, nVertexCount * sizeof(int));
 #endif
         } else {
-            pMeshVertIndexMaps[nLodID] = NULL;
+            pMeshVertIndexMaps[nLodID] = nullptr;
         }
     }
 
@@ -1414,7 +1414,7 @@ void LoadLODSources() {
             int nNumLODs = g_ScriptLODs.Count();
             g_model[modelID]->m_LodSources.SetCount(nNumLODs);
             for (int i = 0; i < nNumLODs; ++i) {
-                g_model[modelID]->m_LodSources[i] = NULL;
+                g_model[modelID]->m_LodSources[i] = nullptr;
             }
             continue;
         }

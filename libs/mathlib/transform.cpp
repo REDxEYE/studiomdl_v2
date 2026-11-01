@@ -11,8 +11,7 @@
 #include "mathlib/transform.h"
 #include "mathlib/mathlib.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
  
 const CTransform g_TransformIdentity( Vector( 0.0f, 0.0f, 0.0f ), Quaternion( 0.0f, 0.0f, 0.0f, 1.0f ) );
 

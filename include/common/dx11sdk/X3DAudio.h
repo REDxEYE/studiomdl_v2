@@ -60,8 +60,7 @@
 #include <d3d9types.h> // for D3DVECTOR
 
 // speaker geometry configuration flags, specifies assignment of channels to speaker positions, defined as per WAVEFORMATEXTENSIBLE.dwChannelMask
-#if !defined(_SPEAKER_POSITIONS_)
-    #define _SPEAKER_POSITIONS_
+#pragma once
     #define SPEAKER_FRONT_LEFT            0x00000001
     #define SPEAKER_FRONT_RIGHT           0x00000002
     #define SPEAKER_FRONT_CENTER          0x00000004
@@ -300,7 +299,6 @@ typedef struct X3DAUDIO_DSP_SETTINGS
     #else
         #define X3DAUDIO_API_(type) EXTERN_C __declspec(dllimport) type STDAPIVCALLTYPE
     #endif
-#endif
 #define X3DAUDIO_IMP_(type) type STDMETHODVCALLTYPE
 
 

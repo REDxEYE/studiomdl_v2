@@ -6,8 +6,7 @@
 // $NoKeywords: $
 //===========================================================================//
 
-#ifndef UTLSYMBOL_H
-#define UTLSYMBOL_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -114,7 +113,7 @@ public:
 
 	inline bool HasElement(const char* pStr) const
 	{
-		return Find(pStr) != UTL_INVAL_SYMBOL;
+		return Find(pStr).IsValid();
 	}
 	
 	// Remove all symbols in the table.
@@ -315,4 +314,3 @@ private:
 		return g_##typename##SymbolTable.String( m_SymbolId );		\
 	}
 
-#endif // UTLSYMBOL_H

@@ -5,8 +5,7 @@
 //===========================================================================//
 
 
-#ifndef TIER2_H
-#define TIER2_H
+#pragma once
 
 #if defined( _WIN32 )
 #pragma once
@@ -25,14 +24,6 @@
 //-----------------------------------------------------------------------------
 void InitDefaultFileSystem(void);
 void ShutdownDefaultFileSystem(void);
-
-
-//-----------------------------------------------------------------------------
-// for simple utilities using valve libraries, call the entry point below in main(). It will
-// init a filesystem for you, init mathlib, and create the command line. Note that this function
-// may modify argc/argv because it filters out arguments (like -allowdebug).
-//-----------------------------------------------------------------------------
-void InitCommandLineProgram( int &argc, char ** &argv );
 
 
 //-----------------------------------------------------------------------------
@@ -111,8 +102,7 @@ extern FadeData_t g_aFadeData[FADE_MODE_COUNT];
 //-----------------------------------------------------------------------------
 // Used by the resource system for fast resource frame counter
 //-----------------------------------------------------------------------------
-extern uint32 g_nResourceFrameCount;
+extern uint32_t g_nResourceFrameCount;
 
 
-#endif // TIER2_H
 

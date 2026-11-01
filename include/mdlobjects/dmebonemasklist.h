@@ -1,12 +1,11 @@
-//====== Copyright © 1996-2008, Valve Corporation, All rights reserved. =====//
+//====== Copyright Â© 1996-2008, Valve Corporation, All rights reserved. =====//
 //
 // A list of DmeBoneMask elements, representing multiple QC $WeightList's
 //
 //===========================================================================//
 
 
-#ifndef DMEBONEMASKLIST_H
-#define DMEBONEMASKLIST_H
+#pragma once
 
 
 #ifdef _WIN32
@@ -40,4 +39,3 @@ public:
 };
 
 
-#endif // DMEBONEMASKLIST_H

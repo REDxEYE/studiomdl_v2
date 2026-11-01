@@ -1,11 +1,10 @@
-//========= Copyright © 1996-2006, Valve Corporation, All rights reserved. ============//
+//========= Copyright Â© 1996-2006, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
 //=====================================================================================//
 
-#ifndef _SSE_H
-#define _SSE_H
+#pragma once
 
 float _SSE_Sqrt(float x);
 float _SSE_RSqrtAccurate(float a);
@@ -20,4 +19,3 @@ float _SSE2_cos(float x);
 void VectorTransformSSE(const float *in1, const matrix3x4_t& in2, float *out1);
 void VectorRotateSSE( const float *in1, const matrix3x4_t& in2, float *out1 );
 
-#endif // _SSE_H

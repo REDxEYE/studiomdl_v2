@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // A class representing a light
 //
 //=============================================================================
 
-#ifndef DMELIGHT_H
-#define DMELIGHT_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -113,4 +112,3 @@ class CDmeAmbientLight : public CDmeLight
 };
 
 
-#endif // DMELIGHT_H

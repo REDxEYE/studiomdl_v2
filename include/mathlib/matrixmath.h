@@ -1,12 +1,11 @@
-//===== Copyright © 1996-2011, Valve Corporation, All rights reserved. ======//
+//===== Copyright Â© 1996-2011, Valve Corporation, All rights reserved. ======//
 //
 // Purpose: 
 //
 //  A set of generic, template-based matrix functions.
 //===========================================================================//
 
-#ifndef MATRIXMATH_H
-#define MATRIXMATH_H
+#pragma once
 
 #include <stdarg.h>
 
@@ -382,4 +381,3 @@ private:
 
 
 
-#endif //matrixmath_h

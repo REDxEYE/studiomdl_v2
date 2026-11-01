@@ -14,10 +14,9 @@
 #include <string.h>
 #include "mathlib/vector4d.h"
 #include "ssemath.h"
-#include "tier0/dbg.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
+
 
 #pragma warning (disable : 4700) // local variable 'x' used without having been initialized
 
@@ -1337,7 +1336,7 @@ void ExtractClipPlanesFromNonTransposedMatrix( const VMatrix &viewProjMatrix, VP
 	vPlane = -MatrixGetRowAsVector4D( viewProjMatrix, 2 ) + MatrixGetRowAsVector4D( viewProjMatrix, 3 );
 	pPlanesOut[ FRUSTUM_FARZ ].Init( vPlane.AsVector3D(), -vPlane.w );
 
-	for ( uint i = 0; i < FRUSTUM_NUMPLANES; ++i )
+	for ( uint32_t i = 0; i < FRUSTUM_NUMPLANES; ++i )
 	{
 		float flLen2 = pPlanesOut[i].m_Normal.x * pPlanesOut[i].m_Normal.x + pPlanesOut[i].m_Normal.y * pPlanesOut[i].m_Normal.y + pPlanesOut[i].m_Normal.z * pPlanesOut[i].m_Normal.z;
 		if ( flLen2 != 0.0f )

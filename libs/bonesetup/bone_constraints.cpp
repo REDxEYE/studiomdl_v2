@@ -650,7 +650,7 @@ void CStudioConstraintBones::ComputeAimConstraint(
 		mSlaveParentToWorld,
 		pProc->m_vUp,
 		pProc->m_slave.m_vBasePosition,
-		pProc->m_nUpSpaceTarget >= 0 ? &boneToWorld[ pProc->m_nUpSpaceTarget ] : NULL,
+		pProc->m_nUpSpaceTarget >= 0 ? &boneToWorld[ pProc->m_nUpSpaceTarget ] : nullptr,
 		eType );
 
 	// Add in initial offset

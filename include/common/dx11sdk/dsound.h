@@ -19,8 +19,7 @@
 extern "C" {
 #endif // __cplusplus
 
-#ifndef __DSOUND_INCLUDED__
-#define __DSOUND_INCLUDED__
+#pragma once
 
 /* Type definitions shared with Direct3D */
 
@@ -2365,5 +2364,4 @@ DEFINE_GUID(GUID_DSCFX_SYSTEM_NS, 0x5ab0882e, 0x7274, 0x4516, 0x87, 0x7d, 0x4e, 
 
 #ifdef __cplusplus
 };
-#endif // __cplusplus
 

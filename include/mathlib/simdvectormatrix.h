@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2006, Valve Corporation, All rights reserved. =======//
+//====== Copyright ï¿½ 1996-2006, Valve Corporation, All rights reserved. =======//
 //
 // Purpose: Provide a class (SSE/SIMD only) holding a 2d matrix of class FourVectors,
 // for high speed processing in tools.
@@ -7,8 +7,7 @@
 //
 //=============================================================================//
 
-#ifndef SIMDVECTORMATRIX_H
-#define SIMDVECTORMATRIX_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -17,7 +16,7 @@
 
 #include <string.h>
 #include "tier0/platform.h"
-#include "tier0/dbg.h"
+
 #include "tier1/utlsoacontainer.h"
 #include "mathlib/ssemath.h"
 
@@ -34,7 +33,7 @@ public:
 protected:
 	void Init( void )
 	{
-		m_pData = NULL;
+		m_pData = nullptr;
 		m_nWidth = 0;
 		m_nHeight = 0;
 		m_nPaddedWidth = 0;
@@ -70,7 +69,7 @@ public:
 			m_nHeight = height;
 			
 			m_nPaddedWidth = ( m_nWidth + 3) >> 2;
-			m_pData = NULL;
+			m_pData = nullptr;
 			if ( width && height )
 				m_pData = new FourVectors[ m_nPaddedWidth * m_nHeight ];
 		}
@@ -139,4 +138,3 @@ public:
 
 
 
-#endif

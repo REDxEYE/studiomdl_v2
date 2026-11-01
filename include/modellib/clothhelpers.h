@@ -1,6 +1,5 @@
-//====== Copyright © Valve Corporation, All rights reserved. =======
-#ifndef MODELLIB_CLOTHHELPERS
-#define MODELLIB_CLOTHHELPERS
+//====== Copyright Â© Valve Corporation, All rights reserved. =======
+#pragma once
 
 
 #include "tier1/utlstring.h"
@@ -25,7 +24,7 @@ public:
 		void Insert( int nRow, int nColumn, int nBone );
 		int GetBone( int nRow, int nColumn );
 	protected:
-		CUtlHashtable< uint, int > m_Bones; // ( Row << 16 ) | Column  =>  Bone name
+		CUtlHashtable< uint32_t, int > m_Bones; // ( Row << 16 ) | Column  =>  Bone name
 	};
 public:
 	Patch_t *GetPatch( int nPatch ) { return m_Patches[nPatch]; }
@@ -143,4 +142,3 @@ inline matrix3x4_t Descale( const matrix3x4a_t &tm )
 }
 
 
-#endif 

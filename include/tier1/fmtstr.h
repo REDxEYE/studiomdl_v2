@@ -6,13 +6,12 @@
 // $NoKeywords: $
 //=============================================================================//
 
-#ifndef FMTSTR_H
-#define FMTSTR_H
+#pragma once
 
 #include <stdarg.h>
 #include <stdio.h>
 #include "tier0/platform.h"
-#include "tier0/dbg.h"
+
 #include "tier1/strtools.h"
 
 #if defined( _WIN32 )
@@ -221,7 +220,7 @@ public:
 		}
 	}
 
-	void AppendIndent( uint32 unCount, char chIndent = '\t' );
+	void AppendIndent( uint32_t unCount, char chIndent = '\t' );
 
 	void SetQuietTruncation( bool bQuiet ) { m_bQuietTruncation = bQuiet; }
 
@@ -248,12 +247,12 @@ class CFmtStrQuietTruncationN : public CFmtStrN<SIZE_BUF, true >
 
 
 template< int SIZE_BUF, bool QUIET_TRUNCATION >
-void CFmtStrN< SIZE_BUF, QUIET_TRUNCATION >::AppendIndent( uint32 unCount, char chIndent )
+void CFmtStrN< SIZE_BUF, QUIET_TRUNCATION >::AppendIndent( uint32_t unCount, char chIndent )
 {
 	Assert( Length() + unCount < SIZE_BUF );
 	if( Length() + unCount >= SIZE_BUF )
 		unCount = SIZE_BUF - (1+Length());
-	for ( uint32 x = 0; x < unCount; x++ )
+	for ( uint32_t x = 0; x < unCount; x++ )
 	{
 		m_szBuf[ m_nLength++ ] = chIndent;
 	}
@@ -296,19 +295,14 @@ public:
 
 	explicit CNumStr( bool b )		{ SetBool( b ); } 
 
-	explicit CNumStr( int8 n8 )		{ SetInt8( n8 ); }
-	explicit CNumStr( uint8 un8 )	{ SetUint8( un8 );  }
-	explicit CNumStr( int16 n16 )	{ SetInt16( n16 ); }
-	explicit CNumStr( uint16 un16 )	{ SetUint16( un16 );  }
-	explicit CNumStr( int32 n32 )	{ SetInt32( n32 ); }
-	explicit CNumStr( uint32 un32 )	{ SetUint32( un32 ); }
-	explicit CNumStr( int64 n64 )	{ SetInt64( n64 ); }
-	explicit CNumStr( uint64 un64 )	{ SetUint64( un64 ); }
-
-#if defined(COMPILER_GCC) && defined(PLATFORM_64BITS)
-	explicit CNumStr( lint64 n64 )		{ SetInt64( (int64)n64 ); }
-	explicit CNumStr( ulint64 un64 )	{ SetUint64( (uint64)un64 ); }
-#endif
+	explicit CNumStr( int8_t n8 )		{ SetInt8( n8 ); }
+	explicit CNumStr( uint8_t un8 )	{ SetUint8( un8 );  }
+	explicit CNumStr( int16_t n16 )	{ SetInt16( n16 ); }
+	explicit CNumStr( uint16_t un16 )	{ SetUint16( un16 );  }
+	explicit CNumStr( int32_t n32 )	{ SetInt32( n32 ); }
+	explicit CNumStr( uint32_t un32 )	{ SetUint32( un32 ); }
+	explicit CNumStr( int64_t n64 )	{ SetInt64( n64 ); }
+	explicit CNumStr( uint64_t un64 )	{ SetUint64( un64 ); }
 
 	explicit CNumStr( double f )	{ SetDouble( f ); }
 	explicit CNumStr( float f )		{ SetFloat( f ); }
@@ -316,29 +310,29 @@ public:
 	inline void SetBool( bool b )			{ Q_memcpy( m_szBuf, b ? "1" : "0", 2 ); } 
 
 #ifdef _WIN32
-	inline void SetInt8( int8 n8 )			{ _itoa( (int32)n8, m_szBuf, 10 ); }
-	inline void SetUint8( uint8 un8 )		{ _itoa( (int32)un8, m_szBuf, 10 ); }
-	inline void SetInt16( int16 n16 )		{ _itoa( (int32)n16, m_szBuf, 10 ); }
-	inline void SetUint16( uint16 un16 )	{ _itoa( (int32)un16, m_szBuf, 10 ); }
-	inline void SetInt32( int32 n32 )		{ _itoa( n32, m_szBuf, 10 ); }
-	inline void SetUint32( uint32 un32 )	{ _i64toa( (int64)un32, m_szBuf, 10 ); }
-	inline void SetInt64( int64 n64 )		{ _i64toa( n64, m_szBuf, 10 ); }
-	inline void SetUint64( uint64 un64 )	{ _ui64toa( un64, m_szBuf, 10 ); }
+	inline void SetInt8( int8_t n8 )			{ _itoa( (int32_t)n8, m_szBuf, 10 ); }
+	inline void SetUint8( uint8_t un8 )		{ _itoa( (int32_t)un8, m_szBuf, 10 ); }
+	inline void SetInt16( int16_t n16 )		{ _itoa( (int32_t)n16, m_szBuf, 10 ); }
+	inline void SetUint16( uint16_t un16 )	{ _itoa( (int32_t)un16, m_szBuf, 10 ); }
+	inline void SetInt32( int32_t n32 )		{ _itoa( n32, m_szBuf, 10 ); }
+	inline void SetUint32( uint32_t un32 )	{ _i64toa( (int64_t)un32, m_szBuf, 10 ); }
+	inline void SetInt64( int64_t n64 )		{ _i64toa( n64, m_szBuf, 10 ); }
+	inline void SetUint64( uint64_t un64 )	{ _ui64toa( un64, m_szBuf, 10 ); }
 #else
-	inline void SetInt8( int8 n8 )			{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%d", (int32)n8 ); }
-	inline void SetUint8( uint8 un8 )		{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%d", (int32)un8 ); }
-	inline void SetInt16( int16 n16 )		{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%d", (int32)n16 ); }
-	inline void SetUint16( uint16 un16 )	{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%d", (int32)un16 ); }
-	inline void SetInt32( int32 n32 )		{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%d", n32 ); }
-	inline void SetUint32( uint32 un32 )	{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%u", un32 ); }
-	inline void SetInt64( int64 n64 )		{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%lld", n64 ); }
-	inline void SetUint64( uint64 un64 )	{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%llu", un64 ); }
+	inline void SetInt8( int8_t n8 )			{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%d", (int32_t)n8 ); }
+	inline void SetUint8( uint8_t un8 )		{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%d", (int32_t)un8 ); }
+	inline void SetInt16( int16_t n16 )		{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%d", (int32_t)n16 ); }
+	inline void SetUint16( uint16_t un16 )	{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%d", (int32_t)un16 ); }
+	inline void SetInt32( int32_t n32 )		{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%d", n32 ); }
+	inline void SetUint32( uint32_t un32 )	{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%u", un32 ); }
+	inline void SetInt64( int64_t n64 )		{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%lld", n64 ); }
+	inline void SetUint64( uint64_t un64 )	{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%llu", un64 ); }
 #endif
 
 	inline void SetDouble( double f )		{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%.18g", f ); }
 	inline void SetFloat( float f )			{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%.18g", f ); }
 
-	inline void SetHexUint64( uint64 un64 )	{ Q_binarytohex( (byte *)&un64, sizeof( un64 ), m_szBuf, sizeof( m_szBuf ) ); }
+	inline void SetHexUint64( uint64_t un64 )	{ Q_binarytohex( (uint8_t *)&un64, sizeof( un64 ), m_szBuf, sizeof( m_szBuf ) ); }
 
 	operator const char *() const { return m_szBuf; }
 	const char* String() const { return m_szBuf; }
@@ -365,4 +359,3 @@ const int k_cchFormattedDate = 64;
 const int k_cchFormattedTime = 32;
 bool BGetLocalFormattedTime( time_t timeVal, char *pchDate, int cubDate, char *pchTime, int cubTime );
 
-#endif // FMTSTR_H

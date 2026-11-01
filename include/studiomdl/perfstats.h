@@ -4,8 +4,7 @@
 //
 //=============================================================================//
 
-#ifndef SPERFSTATS_H
-#define SPERFSTATS_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -22,4 +21,3 @@ enum
 
 void SpewPerfStats( studiohdr_t *pStudioHdr, const char *pFilename, unsigned int flags );
 
-#endif // SPERFSTATS_H

@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2008, Valve Corporation, All rights reserved. =====//
+//====== Copyright Â© 1996-2008, Valve Corporation, All rights reserved. =====//
 //
 // Describes the way to compile a MDL file (eventual replacement for qc)
 //
 //===========================================================================//
 
-#ifndef DMEMDLMAKEFILE_H
-#define DMEMDLMAKEFILE_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -93,4 +92,3 @@ private:
 };
 
 
-#endif // DMEMDLMAKEFILE_H

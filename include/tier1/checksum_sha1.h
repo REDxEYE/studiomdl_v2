@@ -1,11 +1,10 @@
-//========= Copyright © 2005, Valve Inc., All rights reserved. ==========
+//========= Copyright Â© 2005, Valve Inc., All rights reserved. ==========
 //
 // Purpose: Implementation of SHA-1
 //
 //=============================================================================
 
-#ifndef CHECKSUM_SHA1_H
-#define CHECKSUM_SHA1_H
+#pragma once
 
 #if defined( _WIN32 )
 #pragma once
@@ -32,11 +31,7 @@
 
 #if !defined(_MINIMUM_BUILD_)
 #include <stdio.h>  // Needed for file access
-#if defined( _PS3 )
-#include <sys/memory.h>
-#else
 #include <memory.h>
-#endif
 #include <string.h> // Needed for strcat and strcpy
 #endif
 
@@ -45,15 +40,15 @@
 
 typedef union
 {
-	uint8 c[64];
-	uint32 l[16];
+	uint8_t c[64];
+	uint32_t l[16];
 } SHA1_WORKSPACE_BLOCK;
 
 // SHA1 hash
 const unsigned int k_cubHash = 20;
 const unsigned int k_cchHash = 41; // k_cubHash * 2, plus 1 for terminator
 #pragma pack( push, 1 )
-typedef	uint8 SHADigest_t[ k_cubHash ];
+typedef	uint8_t SHADigest_t[ k_cubHash ];
 #pragma pack( pop )
 
 #if !defined(_MINIMUM_BUILD_)
@@ -81,8 +76,8 @@ public:
 
 	unsigned int m_state[5];
 	unsigned int m_count[2];
-	uint8 m_buffer[64];
-	uint8 m_digest[k_cubHash];
+	uint8_t m_buffer[64];
+	uint8_t m_digest[k_cubHash];
 
 	void Reset();
 
@@ -95,20 +90,20 @@ public:
 	// Finalize hash and report
 	void Final();
 #if !defined(_MINIMUM_BUILD_) 
-	void ReportHash(char *szReport, uint8 uReportType = REPORT_HEX);
+	void ReportHash(char *szReport, uint8_t uReportType = REPORT_HEX);
 #endif
-	void GetHash(uint8 *uDest);
+	void GetHash(uint8_t *uDest);
 
 private:
 	// Private SHA-1 transformation
-	void Transform(unsigned int state[5], const uint8 buffer[64]);
+	void Transform(unsigned int state[5], const uint8_t buffer[64]);
 
 	// Member variables
-	uint8 m_workspace[64];
+	uint8_t m_workspace[64];
 	SHA1_WORKSPACE_BLOCK *m_block; // SHA1 pointer to the byte array above
 };
 
-#define GenerateHash( hash, pubData, cubData ) { CSHA1 sha1; sha1.Update( (byte *)pubData, cubData ); sha1.Final(); sha1.GetHash( hash ); } 
+#define GenerateHash( hash, pubData, cubData ) { CSHA1 sha1; sha1.Update( (uint8_t *)pubData, cubData ); sha1.Final(); sha1.GetHash( hash ); } 
 
 #if !defined(_MINIMUM_BUILD_)
 // hash comparison function, for use with CUtlMap/CUtlRBTree
@@ -173,4 +168,3 @@ public:
 };
 #endif // _MINIMUM_BUILD_
 
-#endif // CHECKSUM_SHA1_H

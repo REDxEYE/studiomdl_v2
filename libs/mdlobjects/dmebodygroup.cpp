@@ -8,8 +8,7 @@
 #include "datamodel/dmelementfactoryhelper.h"
 #include "mdlobjects/dmelodlist.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 //-----------------------------------------------------------------------------
@@ -47,5 +46,5 @@ CDmeLODList *CDmeBodyGroup::FindBodyPart( const char *pName )
 			return pLODList;
 	}
 
-	return NULL;
+	return nullptr;
 }

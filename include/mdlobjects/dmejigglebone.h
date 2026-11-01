@@ -5,8 +5,7 @@
 //============================================================================
 
 
-#ifndef DMEJIGGLEBONE_H
-#define DMEJIGGLEBONE_H
+#pragma once
 
 
 #if defined( _WIN32 )
@@ -88,4 +87,3 @@ public:
 };
 
 
-#endif // DMEJIGGLEBONE_H

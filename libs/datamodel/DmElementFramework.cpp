@@ -7,8 +7,7 @@
 #include "DmElementFramework.h"
 #include "datamodel.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 //-----------------------------------------------------------------------------
@@ -44,7 +43,7 @@ void *CDmElementFramework::QueryInterface( const char *pInterfaceName )
 	if ( !V_strcmp( pInterfaceName, VDMELEMENTFRAMEWORK_VERSION ) )
 		return (IDmElementFramework*)this;
 
-	return NULL;
+	return nullptr;
 }
 
 InitReturnVal_t CDmElementFramework::Init( )
@@ -156,8 +155,8 @@ void CDmElementFramework::Operate( bool bResolve )
 
 		m_phase = PH_OPERATE;
 		const CUtlVector< IDmeOperator* > &operatorsToRun = m_dependencyGraph.GetSortedOperators();
-		uint on = operatorsToRun.Count();
-		for ( uint oi = 0; oi < on; ++oi )
+		uint32_t on = operatorsToRun.Count();
+		for ( uint32_t oi = 0; oi < on; ++oi )
 		{
 			operatorsToRun[ oi ]->Operate();
 		}

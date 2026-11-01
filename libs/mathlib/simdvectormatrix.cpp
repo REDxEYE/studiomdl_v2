@@ -11,7 +11,7 @@
 #include "mathlib/mathlib.h"
 #include "mathlib/simdvectormatrix.h"
 #include "mathlib/ssemath.h"
-#include "tier0/dbg.h"
+
 
 
 void CSIMDVectorMatrix::CreateFromCSOAAttributes(CSOAContainer const *pSrc,

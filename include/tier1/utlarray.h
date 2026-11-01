@@ -8,15 +8,14 @@
 // in the same location
 //=============================================================================//
 
-#ifndef UTLARRAY_H
-#define UTLARRAY_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
 #endif
 
 #include "tier0/platform.h"
-#include "tier0/dbg.h"
+
 #include "vstdlib/random.h"
 
 #define FOR_EACH_ARRAY( vecName, iteratorName ) \
@@ -290,4 +289,3 @@ inline void CUtlArray<T, MAX_SIZE>::DeleteElements()
 	}
 }
 
-#endif // UTLARRAY_H

@@ -4,8 +4,7 @@
 //
 //===============================================================================
 
-#ifndef TIER2_LOGGING_H
-#define TIER2_LOGGING_H
+#pragma once
 
 #if defined( COMPILER_MSVC )
 #pragma once
@@ -27,7 +26,7 @@ abstract_class IFileLoggingListener : public ILoggingListener
 public:
 	virtual void Log( const LoggingContext_t *pContext, const char *pMessage ) = 0;
 
-	virtual LoggingFileHandle_t BeginLoggingToFile( const char *pFilename, const char *pOptions, const char *pPathID = NULL ) = 0;
+	virtual LoggingFileHandle_t BeginLoggingToFile( const char *pFilename, const char *pOptions, const char *pPathID = nullptr) = 0;
 	virtual void EndLoggingToFile( LoggingFileHandle_t fileHandle ) = 0;
 
 	virtual void AssignLogChannel( LoggingChannelID_t channelID, LoggingFileHandle_t loggingFileHandle ) = 0;
@@ -44,7 +43,7 @@ public:
 
 	virtual void Log( const LoggingContext_t *pContext, const char *pMessage );
 
-	virtual LoggingFileHandle_t BeginLoggingToFile( const char *pFilename, const char *pOptions, const char *pPathID = NULL );
+	virtual LoggingFileHandle_t BeginLoggingToFile( const char *pFilename, const char *pOptions, const char *pPathID = nullptr);
 	virtual void EndLoggingToFile( LoggingFileHandle_t fileHandle );
 
 	virtual void AssignLogChannel( LoggingChannelID_t channelID, LoggingFileHandle_t loggingFileHandle );
@@ -59,8 +58,8 @@ private:
 	{
 		FileHandle_t m_FileHandle;
 
-		bool IsOpen() const { return m_FileHandle != 0; }
-		void Reset() { m_FileHandle = 0; }
+		bool IsOpen() const { return m_FileHandle != nullptr; }
+		void Reset() { m_FileHandle = nullptr; }
 	};
 
 	FileInfo_t m_OpenFiles[MAX_SIMULTANEOUS_LOGGING_FILE_COUNT];
@@ -69,4 +68,3 @@ private:
 	int m_FileIndices[MAX_LOGGING_CHANNEL_COUNT];
 };
 
-#endif // TIER2_LOGGING_H

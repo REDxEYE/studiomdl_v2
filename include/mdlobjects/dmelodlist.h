@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =====//
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =====//
 //
 // Dme version of a list of lods
 //
 //===========================================================================//
 
-#ifndef DMELODLIST_H
-#define DMELODLIST_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -47,4 +46,3 @@ public:
 };
 
 
-#endif // DMELODLIST_H

@@ -4,8 +4,7 @@
 //
 //=============================================================================
 
-#ifndef MOVIEOBJECTS_H
-#define MOVIEOBJECTS_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -62,4 +61,3 @@
 	extern C##className *g_##C##className##LinkerHack;		\
 	C##className *g_##C##className##PullInModule = g_##C##className##LinkerHack;
 
-#endif // MOVIEOBJECTS_H

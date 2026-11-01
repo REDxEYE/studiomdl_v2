@@ -5,16 +5,9 @@
 //=============================================================================
 
 #include "movieobjects/dmetrack.h"
-
-#include "tier0/dbg.h"
-#include "datamodel/dmelementfactoryhelper.h"
-#include "movieobjects/dmeclip.h"
 #include "movieobjects/dmetrackgroup.h"
 
-#include "movieobjects_interfaces.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
 
 
 //-----------------------------------------------------------------------------
@@ -141,8 +134,8 @@ bool CDmeTrack::IsSynched() const
 bool CDmeTrack::IsMute( bool bCheckSoloing ) const
 {
 	// if we're muted, don't play regardless of whether we're solo
-	CDmeTrack *pSoloTrack = bCheckSoloing ? GetSoloTrack() : NULL;
-	return m_Mute.Get() || ( pSoloTrack != this && pSoloTrack != NULL );
+	CDmeTrack *pSoloTrack = bCheckSoloing ? GetSoloTrack() : nullptr;
+	return m_Mute.Get() || ( pSoloTrack != this && pSoloTrack != nullptr);
 }
 
 int CDmeTrack::GetClipCount() const
@@ -251,7 +244,7 @@ CDmeClip *CDmeTrack::FindNamedClip( const char *name )
 		if ( child && !Q_stricmp( child->GetName(), name ) )
 			return child;
 	}
-	return NULL;
+	return nullptr;
 }
 
 
@@ -569,7 +562,7 @@ void CDmeTrack::FixOverlaps()
 CDmeClip* CDmeTrack::FindFilmClipAtTime( DmeTime_t localTime )
 {
 	if ( !IsFilmTrack() || ( m_Clips.Count() == 0 ) )
-		return NULL;
+		return nullptr;
 
 	// This algorithm requires sorted clips
 	SortClipsByStartTime();
@@ -582,7 +575,7 @@ CDmeClip* CDmeTrack::FindFilmClipAtTime( DmeTime_t localTime )
 			return pSubClip;
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 	
@@ -592,7 +585,7 @@ CDmeClip* CDmeTrack::FindFilmClipAtTime( DmeTime_t localTime )
 CDmeClip* CDmeTrack::FindFirstFilmClipIntesectingTime( DmeTime_t localStartTime, DmeTime_t localEndTime )
 {
 	if ( !IsFilmTrack() || ( m_Clips.Count() == 0 ) )
-		return NULL;
+		return nullptr;
 
 	// This algorithm requires sorted clips
 	SortClipsByStartTime();
@@ -609,7 +602,7 @@ CDmeClip* CDmeTrack::FindFirstFilmClipIntesectingTime( DmeTime_t localStartTime,
 			break;
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 		
@@ -643,7 +636,7 @@ CDmeClip* CDmeTrack::FindPrevFilmClip( CDmeClip *pClip )
 {
 	Assert( IsFilmTrack() );
 	if ( !IsFilmTrack() || ( m_Clips.Count() == 0 ) )
-		return NULL;
+		return nullptr;
 
 	// This algorithm requires sorted clips
 	SortClipsByStartTime();
@@ -653,7 +646,7 @@ CDmeClip* CDmeTrack::FindPrevFilmClip( CDmeClip *pClip )
 
 	// FIXME: Could use a binary search here based on time.
 	// Probably doesn't matter though, since there will usually not be a ton of tracks
-	CDmeClip *pPrevClip = NULL;
+	CDmeClip *pPrevClip = nullptr;
 
 	int c = GetClipCount();
 	for ( int i = 0; i < c; ++i )
@@ -665,14 +658,14 @@ CDmeClip* CDmeTrack::FindPrevFilmClip( CDmeClip *pClip )
 		pPrevClip = pSubClip;
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 CDmeClip* CDmeTrack::FindNextFilmClip( CDmeClip *pClip )
 {
 	Assert( IsFilmTrack() );
 	if ( !IsFilmTrack() || ( m_Clips.Count() == 0 ) )
-		return NULL;
+		return nullptr;
 
 	// This algorithm requires sorted clips
 	SortClipsByStartTime();
@@ -680,7 +673,7 @@ CDmeClip* CDmeTrack::FindNextFilmClip( CDmeClip *pClip )
 	if ( !pClip )
 		return m_Clips[ 0 ]; 
 
-	CDmeClip *pNextClip = NULL;
+	CDmeClip *pNextClip = nullptr;
 
 	int c = GetClipCount();
 	for ( int i = c; --i >= 0; )
@@ -692,13 +685,13 @@ CDmeClip* CDmeTrack::FindNextFilmClip( CDmeClip *pClip )
 		pNextClip = pSubClip;
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 
 void CDmeTrack::FindAdjacentFilmClips( CDmeClip *pClip, CDmeClip *&pPrevClip, CDmeClip *&pNextClip )
 {
-	pPrevClip = pNextClip = NULL;
+	pPrevClip = pNextClip = nullptr;
 
 	Assert( IsFilmTrack() );
 	if ( !IsFilmTrack() || !pClip || ( m_Clips.Count() == 0 ) )
@@ -713,14 +706,14 @@ void CDmeTrack::FindAdjacentFilmClips( CDmeClip *pClip, CDmeClip *&pPrevClip, CD
 		CDmeClip *pSubClip = GetClip( i );
 		if ( pSubClip == pClip )
 		{
-			pNextClip = ( i != c-1 ) ? GetClip( i+1 ) : NULL;
+			pNextClip = ( i != c-1 ) ? GetClip( i+1 ) : nullptr;
 			return;
 		}
 
 		pPrevClip = pSubClip;
 	}
 
-	pPrevClip = NULL;
+	pPrevClip = nullptr;
 }
 
 
@@ -729,7 +722,7 @@ void CDmeTrack::FindAdjacentFilmClips( CDmeClip *pClip, CDmeClip *&pPrevClip, CD
 //-----------------------------------------------------------------------------
 void CDmeTrack::FindAdjacentFilmClips( DmeTime_t localTime, CDmeClip *&pPrevClip, CDmeClip *&pNextClip )
 {
-	pPrevClip = pNextClip = NULL;
+	pPrevClip = pNextClip = nullptr;
 
 	Assert( IsFilmTrack() );
 	if ( !IsFilmTrack() || ( m_Clips.Count() == 0 ) )
@@ -820,5 +813,5 @@ CDmeTrackGroup *GetParentTrackGroup( CDmeTrack *pTrack )
 		if ( pTrackGroup )
 			return pTrackGroup;
 	}
-	return NULL;
+	return nullptr;
 }

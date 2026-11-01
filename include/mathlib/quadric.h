@@ -1,11 +1,10 @@
-//=========== Copyright © Valve Corporation, All rights reserved. ============//
+//=========== Copyright Â© Valve Corporation, All rights reserved. ============//
 //
 // Purpose: Quadric math functionality used for squared distance error metrics.
 //
 //===========================================================================//
 
-#ifndef QUADRIC_H
-#define QUADRIC_H
+#pragma once
 
 #if defined( COMPILER_MSVC )
 #pragma once
@@ -141,4 +140,3 @@ private:
 	float m_coefficients[10];
 };
 
-#endif // QUADRIC_H

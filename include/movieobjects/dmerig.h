@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2009, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2009, Valve Corporation, All rights reserved. =======
 //
 // Purpose: Contains the declaration of the CDmeRig, a class which groups a set
 // of associated constraints and operators together, allowing operations to be
@@ -8,8 +8,7 @@
 //
 //=============================================================================
 
-#ifndef DMERIG_H
-#define DMERIG_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -136,5 +135,4 @@ private:
 
 void CollectRigsOnAnimationSet( CDmeAnimationSet *pAnimSet, CUtlVector< CDmeRig* > &rigList );
 
-#endif // DMERIGELEMENTGROUP_H
 

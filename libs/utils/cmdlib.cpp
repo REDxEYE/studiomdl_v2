@@ -38,9 +38,6 @@
 #include <direct.h>
 #endif
 
-#if defined( _X360 )
-#include "xbox/xbox_win32stubs.h"
-#endif
 
 // set these before calling CheckParm
 int myargc;
@@ -128,9 +125,7 @@ char* CmdLib_FGets( char *pOut, int outSize, FileHandle_t hFile )
 	return pOut;
 }
 
-#if !defined( _X360 )
 #include <wincon.h>
-#endif
 
 // This pauses before exiting if they use -StopOnExit. Useful for debugging.
 class CExitStopper
@@ -153,7 +148,6 @@ static unsigned short g_BadColor = 0xFFFF;
 static WORD g_BackgroundFlags = 0xFFFF;
 static void GetInitialColors( )
 {
-#if !defined( _X360 )
 	// Get the old background attributes.
 	CONSOLE_SCREEN_BUFFER_INFO oldInfo;
 	GetConsoleScreenBufferInfo( GetStdHandle( STD_OUTPUT_HANDLE ), &oldInfo );
@@ -177,13 +171,11 @@ static void GetInitialColors( )
 	{
 		g_BadColor |= FOREGROUND_INTENSITY;
 	}
-#endif
 }
 
 WORD SetConsoleTextColor( int red, int green, int blue, int intensity )
 {
 	WORD ret = g_LastColor;
-#if !defined( _X360 )
 	
 	g_LastColor = 0;
 	if( red )
@@ -210,16 +202,13 @@ WORD SetConsoleTextColor( int red, int green, int blue, int intensity )
 	}
 
 	SetConsoleTextAttribute( GetStdHandle( STD_OUTPUT_HANDLE ), g_LastColor | g_BackgroundFlags );
-#endif
 	return ret;
 }
 
 void RestoreConsoleTextColor( WORD color )
 {
-#if !defined( _X360 )
 	SetConsoleTextAttribute( GetStdHandle( STD_OUTPUT_HANDLE ), color | g_BackgroundFlags );
 	g_LastColor = color;
-#endif
 }
 
 
@@ -371,7 +360,7 @@ void InstallSpewFunction()
 	}
 }
 
-void CmdLib_AllocError( unsigned long size )
+void CmdLib_AllocError( size_t size )
 {
 	Error( "Error trying to allocate %d bytes.\n", size );
 }
@@ -383,10 +372,18 @@ int CmdLib_NewHandler( size_t size )
 	return 0;
 }
 
+void CmdLib_NewHandler_CPP()
+{
+	CmdLib_NewHandler(0);
+	std::abort();
+}
+
 void InstallAllocationFunctions()
 {
-	_set_new_mode( 1 ); // so if malloc() fails, we exit.
-	_set_new_handler( CmdLib_NewHandler );
+#if defined(_MSC_VER) && !defined(__clang__)
+	_set_new_mode(1);
+#endif
+	std::set_new_handler( CmdLib_NewHandler_CPP );
 }
 #endif
 
@@ -438,7 +435,7 @@ Mimic unix command line expansion
 #define	MAX_EX_ARGC	1024
 int		ex_argc;
 char	*ex_argv[ MAX_EX_ARGC ];
-#if defined( _WIN32 ) && !defined( _X360 )
+#if defined( _WIN32 )
 #include "io.h"
 void ExpandWildcards( int *argc, char ***argv )
 {
@@ -543,7 +540,7 @@ char *ExpandArg( char *path )
 
 char *ExpandPath (char *path)
 {
-	static char full[ 1024 ];
+	static char full[ 1024 ]{0};
 	if ( path[ 0 ] == '/' || path[ 0 ] == '\\' || path[ 1 ] == ':')
 		return path;
 	V_sprintf_safe( full, "%s%s", qdir, path );
@@ -651,7 +648,7 @@ Parse a token out of a string
 */
 char *COM_Parse( char *data )
 {
-	return ( char* )ParseFile( data, com_token, NULL );
+	return ( char* )ParseFile( data, com_token, nullptr);
 }
 
 
@@ -706,7 +703,7 @@ FileHandle_t SafeOpenWrite( const char *filename )
 	{
 		//Error( "Error opening %s: %s", filename, strerror( errno ) );
 		// BUGBUG: No way to get equivalent of errno from IFileSystem!
-		Error( "Error opening %s! (Check for write enable)\n", filename );
+		Error( "Error opening %s ! (Check for write enable)\n", filename );
 	}
 
 	return f;
@@ -718,7 +715,7 @@ static int g_NumBasePaths = 0;
 
 void CmdLib_AddBasePath( const char *pPath )			 
 {
-	//printf( "CmdLib_AddBasePath( \"%s\" )\n", pPath );
+	printf( "CmdLib_AddBasePath( \"%s\" )\n", pPath );
 	if( g_NumBasePaths < MAX_CMDLIB_BASE_PATHS )
 	{
 		V_strcpy_safe( g_pBasePaths[ g_NumBasePaths ], pPath );
@@ -818,7 +815,7 @@ const char *CmdLib_GetBasePath( int i )
 FileHandle_t SafeOpenRead( const char *filename )
 {
 	int pathLength;
-	FileHandle_t f = 0;
+	FileHandle_t f = nullptr;
 	if( CmdLib_HasBasePath( filename, pathLength ) )
 	{
 		filename = filename + pathLength;
@@ -908,7 +905,7 @@ int    LoadFile( const char *filename, void **bufferptr )
 	}
 	else
 	{
-		*bufferptr = NULL;
+		*bufferptr = nullptr;
 	}
 	return length;
 }
@@ -1058,5 +1055,52 @@ void QCopyFile( char *from, char *to )
 	free( buffer );
 }
 
+#if !defined( _WIN32 ) && !defined( WIN32 )
+// POSIX replacements for the Win32 console code above: ANSI colours on a tty, plain stdout/stderr otherwise.
+#include <unistd.h>
+#include <stdio.h>
 
+unsigned short SetConsoleTextColor( int red, int green, int blue, int intensity )
+{
+	if ( isatty( fileno( stdout ) ) )
+		printf( "\x1b[%dm", ( intensity ? 90 : 30 ) + ( ( red ? 1 : 0 ) | ( green ? 2 : 0 ) | ( blue ? 4 : 0 ) ) );
+	return 0;
+}
 
+void RestoreConsoleTextColor( unsigned short color )
+{
+	if ( isatty( fileno( stdout ) ) )
+		printf( "\x1b[0m" );
+}
+
+void CCmdLibStandardLoggingListener::Log( const LoggingContext_t *pContext, const tchar *pMessage )
+{
+	if ( ( pContext->m_Flags & LCF_DO_NOT_ECHO ) != 0 )
+		return;
+
+	FILE *pOut = pContext->m_Severity >= LS_WARNING ? stderr : stdout;
+	bool bColor = isatty( fileno( pOut ) ) != 0;
+	if ( bColor && pContext->m_Severity == LS_WARNING )
+		fputs( "\x1b[93m", pOut );
+	else if ( bColor && pContext->m_Severity >= LS_ASSERT )
+		fputs( "\x1b[91m", pOut );
+	fputs( pMessage, pOut );
+	if ( bColor && pContext->m_Severity >= LS_WARNING )
+		fputs( "\x1b[0m", pOut );
+	fflush( pOut );
+}
+
+CCmdLibStandardLoggingListener g_CmdLibOutputLoggingListener;
+
+void InstallSpewFunction()
+{
+	static bool s_bInstalled = false;
+	if ( s_bInstalled )
+		return;
+	s_bInstalled = true;
+	setvbuf( stdout, nullptr, _IONBF, 0 );
+	setvbuf( stderr, nullptr, _IONBF, 0 );
+	LoggingSystem_PushLoggingState();
+	LoggingSystem_RegisterLoggingListener( &g_CmdLibOutputLoggingListener );
+}
+#endif // !_WIN32

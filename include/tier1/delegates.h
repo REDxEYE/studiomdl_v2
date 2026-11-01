@@ -1,11 +1,10 @@
-//========== Copyright © 2005, Valve Corporation, All rights reserved. ========
+//========== Copyright Â© 2005, Valve Corporation, All rights reserved. ========
 //
 // Purpose: Simple macros to generate delegation code
 //
 //=============================================================================
 
-#ifndef DELEGATES_H
-#define DELEGATES_H
+#pragma once
 
 #if defined( _WIN32 )
 #pragma once
@@ -96,4 +95,3 @@
 #define DELEGATE_TO_BASE_9C( RetType, FuncName, ArgType1, ArgType2, ArgType3, ArgType4, ArgType5, ArgType6, ArgType7, ArgType8, ArgType9, BaseClass ) RetType FuncName( ArgType1 a1, ArgType2 a2, ArgType3 a3, ArgType4 a4, ArgType5 a5, ArgType6 a6, ArgType7 a7, ArgType8 a8, ArgType9 a9 )	const { return BaseClass::FuncName( a1, a2, a3, a4, a5, a6, a7, a8, a9 ); }
 #define DELEGATE_TO_BASE_9VC( FuncName, ArgType1, ArgType2, ArgType3, ArgType4, ArgType5, ArgType6, ArgType7, ArgType8, ArgType9, BaseClass ) void FuncName( ArgType1 a1, ArgType2 a2, ArgType3 a3, ArgType4 a4, ArgType5 a5, ArgType6 a6, ArgType7 a7, ArgType8 a8, ArgType9 a9 )	const { BaseClass::FuncName( a1, a2, a3, a4, a5, a6, a7, a8, a9 ); }
 
-#endif // DELEGATES_H

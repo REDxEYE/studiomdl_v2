@@ -9,8 +9,7 @@
 
 #include "d3dx9.h"
 
-#ifndef __D3DX9TEX_H__
-#define __D3DX9TEX_H__
+#pragma once
 
 
 //----------------------------------------------------------------------------
@@ -1731,5 +1730,4 @@ HRESULT WINAPI
 }
 #endif //__cplusplus
 
-#endif //__D3DX9TEX_H__
 

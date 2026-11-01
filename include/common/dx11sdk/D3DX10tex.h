@@ -9,8 +9,7 @@
 
 #include "d3dx10.h"
 
-#ifndef __D3DX10TEX_H__
-#define __D3DX10TEX_H__
+#pragma once
 
 
 //----------------------------------------------------------------------------
@@ -762,5 +761,4 @@ HRESULT WINAPI
 }
 #endif //__cplusplus
 
-#endif //__D3DX10TEX_H__
 

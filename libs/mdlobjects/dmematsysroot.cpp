@@ -20,8 +20,7 @@
 #include "studiomdl/bone_setup.h"
 
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 //=============================================================================
@@ -141,11 +140,11 @@ studiohdr_t *CDmeMatSysMDLDag::GetStudioHdr() const
 {
 	CDmeMDL *pDmeMDL = GetDmeMDL();
 	if ( !pDmeMDL )
-		return NULL;
+		return nullptr;
 
 	const MDLHandle_t hMDL = pDmeMDL->GetMDL();
 	if ( hMDL == MDLHANDLE_INVALID || g_pMDLCache->IsErrorModel( hMDL ) )
-		return NULL;
+		return nullptr;
 
 	return g_pMDLCache->GetStudioHdr( hMDL );
 }
@@ -649,7 +648,7 @@ void CDmeMatSysMPPDag::SetTime( DmeTime_t dmeTime )
 
 	while ( depthFirstStack.Count() > 0 )
 	{
-		CDmeDag *pDmeDag = NULL;
+		CDmeDag *pDmeDag = nullptr;
 		depthFirstStack.Pop( pDmeDag );
 		if ( !pDmeDag )
 			continue;

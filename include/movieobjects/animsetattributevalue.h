@@ -1,16 +1,15 @@
-//====== Copyright © 1996-2005, Valve Corporation, All rights reserved. =======
+//====== Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
 //=============================================================================
 
-#ifndef ANIMSETATTRIBUTEVALUE_H
-#define ANIMSETATTRIBUTEVALUE_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
 
-#include "tier1/UtlMap.h"
+#include "tier1/utlmap.h"
 #include "tier1/strtools.h"
 
 
@@ -18,7 +17,7 @@
 // Forward declarations
 //-----------------------------------------------------------------------------
 class CDmAttribute;
-enum DmElementHandle_t;
+#include "datamodel/dmelementhandle.h"
 
 
 //-----------------------------------------------------------------------------
@@ -65,17 +64,17 @@ struct AnimationControlAttributes_t : public AttributeValue_t
 {
 	AnimationControlAttributes_t()
 	{
-		m_pValueAttribute[ANIM_CONTROL_VALUE] = 0;
-		m_pValueAttribute[ANIM_CONTROL_VALUE_RIGHT] = 0;
-		m_pValueAttribute[ANIM_CONTROL_VALUE_LEFT] = 0;
-		m_pValueAttribute[ANIM_CONTROL_TXFORM_POSITION] = 0;
-		m_pValueAttribute[ANIM_CONTROL_TXFORM_ORIENTATION] = 0;
+		m_pValueAttribute[ANIM_CONTROL_VALUE] = nullptr;
+		m_pValueAttribute[ANIM_CONTROL_VALUE_RIGHT] = nullptr;
+		m_pValueAttribute[ANIM_CONTROL_VALUE_LEFT] = nullptr;
+		m_pValueAttribute[ANIM_CONTROL_TXFORM_POSITION] = nullptr;
+		m_pValueAttribute[ANIM_CONTROL_TXFORM_ORIENTATION] = nullptr;
 
-		m_pTimesAttribute[ANIM_CONTROL_VALUE] = 0;
-		m_pTimesAttribute[ANIM_CONTROL_VALUE_RIGHT] = 0;
-		m_pTimesAttribute[ANIM_CONTROL_VALUE_LEFT] = 0;
-		m_pTimesAttribute[ANIM_CONTROL_TXFORM_POSITION] = 0;
-		m_pTimesAttribute[ANIM_CONTROL_TXFORM_ORIENTATION] = 0;
+		m_pTimesAttribute[ANIM_CONTROL_VALUE] = nullptr;
+		m_pTimesAttribute[ANIM_CONTROL_VALUE_RIGHT] = nullptr;
+		m_pTimesAttribute[ANIM_CONTROL_VALUE_LEFT] = nullptr;
+		m_pTimesAttribute[ANIM_CONTROL_TXFORM_POSITION] = nullptr;
+		m_pTimesAttribute[ANIM_CONTROL_TXFORM_ORIENTATION] = nullptr;
 	}
 
 	void Clear()
@@ -94,11 +93,10 @@ typedef CUtlMap< DmElementHandle_t, AnimationControlAttributes_t, unsigned short
 inline AttributeDict_t *CopyAttributeDict( AttributeDict_t *pSrc )
 {
 	if ( !pSrc )
-		return NULL;
+		return nullptr;
 
 	AttributeDict_t *pDest = new AttributeDict_t();
 	pDest->AccessTree()->CopyFrom( *pSrc->AccessTree() );
 	return pDest;
 }
 
-#endif // ANIMSETATTRIBUTEVALUE_H

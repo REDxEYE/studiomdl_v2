@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright Â© 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: Defines the more complete set of operations on the string_t defined
 // 			These should be used instead of direct manipulation to allow more
@@ -7,8 +7,7 @@
 // $NoKeywords: $
 //=============================================================================//
 
-#ifndef STRING_T_H
-#define STRING_T_H
+#pragma once
 
 #if defined( _WIN32 )
 #pragma once
@@ -52,7 +51,7 @@ typedef int	string_t;
 struct string_t
 {
 public:
-	bool operator!() const							{ return ( pszValue == NULL );			}
+	bool operator!() const							{ return ( pszValue == nullptr);			}
 	bool operator==( const string_t &rhs ) const	{ return ( pszValue == rhs.pszValue );	}
 	bool operator!=( const string_t &rhs ) const	{ return ( pszValue != rhs.pszValue );	}
 	bool operator<( const string_t &rhs ) const		{ return ((void *)pszValue < (void *)rhs.pszValue ); }
@@ -67,8 +66,8 @@ protected:
 
 struct castable_string_t : public string_t // string_t is used in unions, hence, no constructor allowed
 {
-	castable_string_t()							{ pszValue = NULL; }
-	castable_string_t( const char *pszFrom )	{ pszValue = (pszFrom && *pszFrom) ? pszFrom : 0; }
+	castable_string_t()							{ pszValue = nullptr; }
+	castable_string_t( const char *pszFrom )	{ pszValue = (pszFrom && *pszFrom) ? pszFrom : nullptr; }
 };
 
 //-----------------------------------------------------------------------------
@@ -113,4 +112,3 @@ inline void EnsureValidValue( string_t &x ) { x = NULL_STRING; }
 
 //=============================================================================
 
-#endif // STRING_T_H

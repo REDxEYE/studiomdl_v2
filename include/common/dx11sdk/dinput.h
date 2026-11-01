@@ -7,8 +7,7 @@
  *
  ****************************************************************************/
 
-#ifndef __DINPUT_INCLUDED__
-#define __DINPUT_INCLUDED__
+#pragma once
 
 #ifndef DIJ_RINGZERO
 
@@ -267,7 +266,7 @@ typedef struct DIFILEEFFECT{
     DWORD       dwSize;
     GUID        GuidEffect;
     LPCDIEFFECT lpDiEffect;
-    CHAR        szFriendlyName[MAX_PATH];
+    CHAR        szFriendlyName[MAX_PATH]{0};
 }DIFILEEFFECT, *LPDIFILEEFFECT;
 typedef const DIFILEEFFECT *LPCDIFILEEFFECT;
 typedef BOOL (FAR PASCAL * LPDIENUMEFFECTSINFILECALLBACK)(LPCDIFILEEFFECT , LPVOID);
@@ -4413,5 +4412,4 @@ typedef void (WINAPI* LPFNSHOWJOYCPL)( HWND hWnd );
 #endif  /* not MMNOJOYDEV */
 #endif  /* _INC_MMDDK */
 
-#endif /* DIJ_RINGZERO */
 

@@ -11,8 +11,7 @@
 #error Incorrect D3DX11 header used
 #endif
 
-#ifndef __D3DX11_H__
-#define __D3DX11_H__
+#pragma once
 
 
 // Defines
@@ -66,5 +65,4 @@ enum _D3DX11_ERR {
 };
 
 
-#endif //__D3DX11_H__
 

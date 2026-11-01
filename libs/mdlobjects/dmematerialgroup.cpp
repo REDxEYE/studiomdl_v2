@@ -9,8 +9,7 @@
 #include "mdlobjects/dmematerialgroup.h"
 
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 //-----------------------------------------------------------------------------

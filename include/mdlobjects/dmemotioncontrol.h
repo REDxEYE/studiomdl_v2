@@ -7,8 +7,7 @@
 //===========================================================================
 
 
-#ifndef DMEMOTIONCONTROL_H
-#define DMEMOTIONCONTROL_H
+#pragma once
 
 
 #ifdef _WIN32
@@ -51,4 +50,3 @@ public:
 };
 
 
-#endif // DMEMOTIONCONTROL_H

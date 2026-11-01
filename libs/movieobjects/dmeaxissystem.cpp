@@ -5,18 +5,14 @@
 
 #include "datamodel/dmelementfactoryhelper.h"
 #include "movieobjects/dmechannel.h"
-#include "movieobjects/dmelog.h"
-#include "movieobjects/dmemesh.h"
 #include "movieobjects/dmemodel.h"
-#include "movieobjects/dmevertexdata.h"
 #include "tier1/fmtstr.h"
 
 
 #include "movieobjects/dmeaxissystem.h"
 
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 //-----------------------------------------------------------------------------

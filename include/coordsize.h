@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright Â© 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
@@ -6,8 +6,7 @@
 //
 //=============================================================================//
 
-#ifndef COORDSIZE_H
-#define COORDSIZE_H
+#pragma once
 #pragma once
 
 #include "worldsize.h"
@@ -95,5 +94,4 @@
 //
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#endif // COORDSIZE_H
 

@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // Purpose: Outputs directly into a binary format
 //
 //=============================================================================
 
-#ifndef DMSERIALIZERBINARY_H
-#define DMSERIALIZERBINARY_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -24,4 +23,3 @@ class IDataModel;
 void InstallBinarySerializer( IDataModel *pFactory );
 
 
-#endif // DMSERIALIZERBINARY_H

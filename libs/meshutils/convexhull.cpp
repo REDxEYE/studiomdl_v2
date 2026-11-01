@@ -12,7 +12,7 @@
 class CHullTri;
 static int g_Mod3Table[] = { 0, 1, 2, 0, 1, 2 };
 
-int SupportPoint( const Vector &vDirection, const float *pVerts, int nVertCount, uint32 nVertexStrideFloats )
+int SupportPoint( const Vector &vDirection, const float *pVerts, int nVertCount, uint32_t nVertexStrideFloats )
 {
 	if ( nVertCount < 2 )
 		return 0;
@@ -42,10 +42,10 @@ class CHullHalfEdge
 public:
 	CHullHalfEdge()
 	{
-		m_pTri = NULL;
-		m_pNext = NULL;
-		m_pPrev = NULL;
-		m_pOpposite = NULL;
+		m_pTri = nullptr;
+		m_pNext = nullptr;
+		m_pPrev = nullptr;
+		m_pOpposite = nullptr;
 	}
 	void SetNext( CHullHalfEdge *pNext )
 	{
@@ -83,7 +83,7 @@ public:
 
 		// Part of the list of vertices in front of the plane
 		m_flMaxDist = 0;
-		m_pMaxVert = NULL;
+		m_pMaxVert = nullptr;
 		
 		// mailbox for mesh walking
 		m_nVisitCount = 0;
@@ -175,7 +175,7 @@ int CHullHalfEdge::GetStartVert()
 class CConvexHullBuilder
 {
 public:
-	CConvexHullBuilder( const float *pVerts, int nVertexCount, uint32 nVertexStrideFloats, float flFrontEpsilon ) 
+	CConvexHullBuilder( const float *pVerts, int nVertexCount, uint32_t nVertexStrideFloats, float flFrontEpsilon ) 
 		: m_triPool(128), m_nCurrentVisit(0), m_pVerts(pVerts), m_nVertexStrideFloats(nVertexStrideFloats), m_nVertexCount(nVertexCount), m_flCoplanarEpsilon(flFrontEpsilon) {}
 
 	void BuildHull();
@@ -187,7 +187,7 @@ public:
 
 	bool IsValid()
 	{
-		for ( CHullTri *pTri = m_faceListVerts.Head(); pTri != NULL; pTri = pTri->m_pNext )
+		for ( CHullTri *pTri = m_faceListVerts.Head(); pTri != nullptr; pTri = pTri->m_pNext )
 		{
 			if ( !pTri->IsValid() )
 				return false;
@@ -195,10 +195,10 @@ public:
 				return false;
 			if ( pTri->m_pPrev && pTri->m_pPrev->m_pNext != pTri )
 				return false;
-			if ( pTri->m_pMaxVert == NULL || pTri->m_pVerts.Count() <= 0 )
+			if ( pTri->m_pMaxVert == nullptr || pTri->m_pVerts.Count() <= 0 )
 				return false;
 		}
-		for ( CHullTri *pTri = m_faceListNoVerts.Head(); pTri != NULL; pTri = pTri->m_pNext )
+		for ( CHullTri *pTri = m_faceListNoVerts.Head(); pTri != nullptr; pTri = pTri->m_pNext )
 		{
 			if ( !pTri->IsValid() )
 				return false;
@@ -206,7 +206,7 @@ public:
 				return false;
 			if ( pTri->m_pPrev && pTri->m_pPrev->m_pNext != pTri )
 				return false;
-			if ( pTri->m_pMaxVert != NULL || pTri->m_pVerts.Count() > 0 )
+			if ( pTri->m_pMaxVert != nullptr || pTri->m_pVerts.Count() > 0 )
 				return false;
 		}
 		return true;
@@ -220,7 +220,7 @@ private:
 	void BuildSilhouette( CHullTri *pTri, const Vector &vNormal );
 	void TransferVerts( CHullTri *pRemove, CHullTri *pNewTri );
 	float SupportExtents( const Vector &vDirection, float *pMin, float *pMax ) const;
-	float SupportExtents_Silhouette( const Vector &vDirection, float *pMin = NULL, float *pMax = NULL );
+	float SupportExtents_Silhouette( const Vector &vDirection, float *pMin = nullptr, float *pMax = nullptr);
 	void FitOBBToFace( CHullTri *pTri, matrix3x4_t &xform, Vector &vExtents );
 
 	inline const float *GetVertex( int nIndex ) { return m_pVerts + nIndex * m_nVertexStrideFloats; }
@@ -274,7 +274,7 @@ private:
 	CUtlVectorFixedGrowable<const float *, 256> m_silhouetteVertexList;
 	const float *m_pVerts;
 	float m_flCoplanarEpsilon;
-	uint32 m_nVertexStrideFloats;
+	uint32_t m_nVertexStrideFloats;
 	int m_nVertexCount;
 	int m_nCurrentVisit;
 };
@@ -328,7 +328,7 @@ void CConvexHullBuilder::BuildInitialTetrahedron()
 	const float flFrontDist = m_flCoplanarEpsilon;
 	for ( int i = 0; i < m_nVertexCount; i++ )
 	{
-		for ( CHullTri *pTri = m_faceListVerts.Head(); pTri != NULL; pTri = pTri->m_pNext )
+		for ( CHullTri *pTri = m_faceListVerts.Head(); pTri != nullptr; pTri = pTri->m_pNext )
 		{
 			const float *pVert = GetVertex(i);
 			float flDist = pTri->VertDist( pVert );
@@ -346,7 +346,7 @@ void CConvexHullBuilder::BuildInitialTetrahedron()
 		}
 	}
 
-	for ( CHullTri *pNext = NULL, *pTri = m_faceListVerts.Head(); pTri != NULL; pTri = pNext )
+	for ( CHullTri *pNext = nullptr, *pTri = m_faceListVerts.Head(); pTri != nullptr; pTri = pNext )
 	{
 		pNext = pTri->m_pNext;
 		if ( !pTri->m_pMaxVert )
@@ -477,7 +477,7 @@ float CConvexHullBuilder::SupportExtents( const Vector &vDirection, float *pMin,
 	const float *pDirection = vDirection.Base();
 	float flMax = DotProduct( pDirection, pVerts );
 	float flMin = flMax;
-	const uint32 nStride = m_nVertexStrideFloats;
+	const uint32_t nStride = m_nVertexStrideFloats;
 	pVerts += nStride;
 	for ( int i = 1; i < m_nVertexCount; i++ )
 	{
@@ -533,7 +533,7 @@ void CConvexHullBuilder::BuildHull()
 	BuildInitialTetrahedron();
 
 	// process each face that has vertices in front of it until all are done
-	while ( m_faceListVerts.Head() != NULL )
+	while ( m_faceListVerts.Head() != nullptr)
 	{
 		CHullTri *pTri = m_faceListVerts.Head();
 
@@ -600,7 +600,7 @@ void CConvexHullBuilder::GenerateOutputMesh( CMesh *pOutMesh )
 	vertexMap.FillWithValue( -1 );
 	int nOutVert = 0;
 	int nOutTri = 0;
-	for ( CHullTri *pTri = m_faceListNoVerts.Head(); pTri != NULL; pTri = pTri->m_pNext )
+	for ( CHullTri *pTri = m_faceListNoVerts.Head(); pTri != nullptr; pTri = pTri->m_pNext )
 	{
 		for ( int j = 0; j < 3; j++ )
 		{
@@ -613,10 +613,10 @@ void CConvexHullBuilder::GenerateOutputMesh( CMesh *pOutMesh )
 		nOutTri++;
 	}
 	vertexMap.FillWithValue(-1);
-	pOutMesh->AllocateMesh( nOutVert, nOutTri * 3, m_nVertexStrideFloats, NULL, 0 );
+	pOutMesh->AllocateMesh( nOutVert, nOutTri * 3, m_nVertexStrideFloats, nullptr, 0 );
 	nOutVert = 0;
 	nOutTri = 0;
-	for ( CHullTri *pTri = m_faceListNoVerts.Head(); pTri != NULL; pTri = pTri->m_pNext )
+	for ( CHullTri *pTri = m_faceListNoVerts.Head(); pTri != nullptr; pTri = pTri->m_pNext )
 	{
 		for ( int j = 0; j < 3; j++ )
 		{
@@ -692,7 +692,7 @@ void CConvexHullBuilder::FitOBBFast( matrix3x4_t &xform, Vector &vExtents )
 	float flExtentX = SupportExtents( pTri->m_vNormal, &flMinX, &flMaxX );
 	pTri = pTri->m_pNext;
 
-	for ( ; pTri != NULL; pTri = pTri->m_pNext )
+	for ( ; pTri != nullptr; pTri = pTri->m_pNext )
 	{
 		float flMinTest = 0, flMaxTest = 0;
 		float flExtentTest = SupportExtents( pTri->m_vNormal, &flMinTest, &flMaxTest );
@@ -710,11 +710,11 @@ void CConvexHullBuilder::FitOBBFast( matrix3x4_t &xform, Vector &vExtents )
 void CConvexHullBuilder::FitOBB( matrix3x4_t &xform, Vector &vExtents )
 {
 	// try all faces, return minimum surface area box
-	CHullTri *pMinTri = NULL;
+	CHullTri *pMinTri = nullptr;
 	Vector vTmpExtents;
 	matrix3x4_t tmpXform;
 	float flMinSurfacearea = 1e24;
-	for ( CHullTri *pTri = m_faceListNoVerts.Head(); pTri != NULL; pTri = pTri->m_pNext )
+	for ( CHullTri *pTri = m_faceListNoVerts.Head(); pTri != nullptr; pTri = pTri->m_pNext )
 	{
 		FitOBBToFace( pTri, tmpXform, vTmpExtents );
 		float flSurfaceArea = vTmpExtents.x * vTmpExtents.y + vTmpExtents.x * vTmpExtents.z + vTmpExtents.y * vTmpExtents.z;
@@ -868,7 +868,7 @@ void InvertPlanes_SIMD( fltx4 * pPlanes, int nPlaneCount )
 	}
 }
 
-void CSGPlaneList( CUtlVector<Vector> &verts, CUtlVector<uint32> &index, CUtlVector<uint32> &trianglePlaneIndices, VPlane *pPlaneList, int nPlaneCount, float flCoplanarEpsilon )
+void CSGPlaneList( CUtlVector<Vector> &verts, CUtlVector<uint32_t> &index, CUtlVector<uint32_t> &trianglePlaneIndices, VPlane *pPlaneList, int nPlaneCount, float flCoplanarEpsilon )
 {
 	const int MAX_VERTS = 128;
 	Vector	vertsIn[MAX_VERTS], vertsOut[MAX_VERTS];
@@ -929,7 +929,7 @@ void CSGPlaneList( CUtlVector<Vector> &verts, CUtlVector<uint32> &index, CUtlVec
 	}
 }
 
-void CSGPlaneList_SIMD( CUtlVector<fltx4> &verts, CUtlVector<uint32> &index, CUtlVector<uint16> &trianglePlaneIndices, fltx4 *pPlaneList, int nPlaneCount, float flCoplanarEpsilon )
+void CSGPlaneList_SIMD( CUtlVector<fltx4> &verts, CUtlVector<uint32_t> &index, CUtlVector<uint16_t> &trianglePlaneIndices, fltx4 *pPlaneList, int nPlaneCount, float flCoplanarEpsilon )
 {
 	const int MAX_VERTS = 128;
 	fltx4	vertsIn[MAX_VERTS], vertsOut[MAX_VERTS];
@@ -1089,7 +1089,7 @@ void CSGPlaneList_SIMD( CUtlVector<fltx4> &verts, CUtlVector<uint32> &index, CUt
 	}
 }
 
-void HullFromPlanes( CMesh *pOutMesh, CUtlVector<uint32> *pTrianglePlaneIndices,  const float *pPlanesInput, int nPlaneCount, int nPlaneStrideFloats, float flCoplanarEpsilon )
+void HullFromPlanes( CMesh *pOutMesh, CUtlVector<uint32_t> *pTrianglePlaneIndices,  const float *pPlanesInput, int nPlaneCount, int nPlaneStrideFloats, float flCoplanarEpsilon )
 {
 	CUtlVector<VPlane> planes;
 	planes.SetCount( nPlaneCount );
@@ -1102,12 +1102,12 @@ void HullFromPlanes( CMesh *pOutMesh, CUtlVector<uint32> *pTrianglePlaneIndices,
 	// the clipping code returns polys IN FRONT of the plane, whereas our interface has planes pointing out of the solid
 	InvertPlanes( planes.Base(), planes.Count() );
 	CUtlVector<Vector> verts;
-	CUtlVector<uint32> index;
-	CUtlVector<uint32> trianglePlaneIndices;
+	CUtlVector<uint32_t> index;
+	CUtlVector<uint32_t> trianglePlaneIndices;
 	CSGPlaneList( verts, index, trianglePlaneIndices, planes.Base(), planes.Count(), flCoplanarEpsilon );
 	if ( verts.Count() )
 	{
-		pOutMesh->AllocateAndCopyMesh( verts.Count(), (float *)verts.Base(), index.Count(), index.Base(), 3, 0, 0 );
+		pOutMesh->AllocateAndCopyMesh( verts.Count(), (float *)verts.Base(), index.Count(), index.Base(), 3, nullptr, 0 );
 	}
 	
 	// If the caller wants the index of the originating plane of each triangle, put it in the output.
@@ -1116,7 +1116,7 @@ void HullFromPlanes( CMesh *pOutMesh, CUtlVector<uint32> *pTrianglePlaneIndices,
 }
 
 // Optimized version where there is no need to copy, planes are modified in place (assuming that the list has been created dynamically), and we use VMX intensively
-void HullFromPlanes_SIMD( CMesh *pOutMesh, CUtlVector<uint16> *pTrianglePlaneIndices,  fltx4 *pPlanesInput, int nPlaneCount, float flCoplanarEpsilon )
+void HullFromPlanes_SIMD( CMesh *pOutMesh, CUtlVector<uint16_t> *pTrianglePlaneIndices,  fltx4 *pPlanesInput, int nPlaneCount, float flCoplanarEpsilon )
 {
 #if _DEBUG
 	CUtlVector<VPlane> planes;
@@ -1135,14 +1135,14 @@ void HullFromPlanes_SIMD( CMesh *pOutMesh, CUtlVector<uint16> *pTrianglePlaneInd
 	InvertPlanes_SIMD( pPlanesInput, nPlaneCount );			// Too bad we are doing this here instead of in the caller code (when creating the array).
 														// At the same time, this is implementation specific that the caller should not be aware of
 	CUtlVector<fltx4> verts;
-	CUtlVector<uint32> index;
-	CUtlVector<uint16> trianglePlaneIndices;
+	CUtlVector<uint32_t> index;
+	CUtlVector<uint16_t> trianglePlaneIndices;
 	CSGPlaneList_SIMD( verts, index, trianglePlaneIndices, pPlanesInput, nPlaneCount, flCoplanarEpsilon );
 
 #if _DEBUG
 	CUtlVector<Vector> vertsSlow;
-	CUtlVector<uint32> indexSlow;
-	CUtlVector<uint32> trianglePlaneIndicesSlow;
+	CUtlVector<uint32_t> indexSlow;
+	CUtlVector<uint32_t> trianglePlaneIndicesSlow;
 	CSGPlaneList( vertsSlow, indexSlow, trianglePlaneIndicesSlow, planes.Base(), planes.Count(), flCoplanarEpsilon );
 
 	Assert( verts.Count() == vertsSlow.Count() );
@@ -1168,7 +1168,7 @@ void HullFromPlanes_SIMD( CMesh *pOutMesh, CUtlVector<uint16> *pTrianglePlaneInd
 	// Do we really need a mesh in our use case?
 	if ( verts.Count() )
 	{
-		pOutMesh->AllocateAndCopyMesh( verts.Count(), (float *)verts.Base(), index.Count(), index.Base(), 4, 0, 0 );
+		pOutMesh->AllocateAndCopyMesh( verts.Count(), (float *)verts.Base(), index.Count(), index.Base(), 4, nullptr, 0 );
 	}
 
 	// If the caller wants the index of the originating plane of each triangle, put it in the output.

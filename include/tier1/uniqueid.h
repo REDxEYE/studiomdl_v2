@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2005, Valve Corporation, All rights reserved. =======//
+//====== Copyright Â© 1996-2005, Valve Corporation, All rights reserved. =======//
 //
 // Purpose: 
 //
@@ -7,8 +7,7 @@
 // Utilities for globally unique IDs
 //=============================================================================//
 
-#ifndef UNIQUEID_H
-#define UNIQUEID_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -52,5 +51,4 @@ inline bool operator ==( const UniqueId_t& lhs, const UniqueId_t& rhs )
 }
 
 
-#endif // UNIQUEID_H
 

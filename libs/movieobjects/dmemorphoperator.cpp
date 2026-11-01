@@ -9,8 +9,7 @@
 #include "movieobjects_interfaces.h"
 #include "datamodel/dmelementfactoryhelper.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 //-----------------------------------------------------------------------------
@@ -37,12 +36,12 @@ void CDmeMorphOperator::OnDestruction()
 //-----------------------------------------------------------------------------
 // accessors
 //-----------------------------------------------------------------------------
-uint CDmeMorphOperator::NumDeltaStateWeights()
+uint32_t CDmeMorphOperator::NumDeltaStateWeights()
 {
 	return m_deltaStateWeights.Count();
 }
 
-CDmElement *CDmeMorphOperator::GetDeltaStateWeight( uint i )
+CDmElement *CDmeMorphOperator::GetDeltaStateWeight( uint32_t i )
 {
 	return m_deltaStateWeights[ i ];
 }
@@ -66,8 +65,8 @@ void CDmeMorphOperator::OnAttributeChanged( CDmAttribute *pAttribute )
 #if 0 // right now, the file already contains these weights, and re-creating them breaks the channel connections
 			m_deltaStateWeights.RemoveAll();
 
-			uint dn = pMesh->NumDeltaStates();
-			for ( uint di = 0; di < dn; ++di )
+			uint32_t dn = pMesh->NumDeltaStates();
+			for ( uint32_t di = 0; di < dn; ++di )
 			{
 				CDmElement *pDeltaState = pMesh->GetDeltaState( di );
 				const char *name = pDeltaState->GetName();
@@ -90,8 +89,8 @@ void CDmeMorphOperator::Operate()
 {
 	CDmeMesh *mesh = GetMesh();
 
-	uint mn = NumDeltaStateWeights();
-	for ( uint mi = 0; mi < mn; ++mi )
+	uint32_t mn = NumDeltaStateWeights();
+	for ( uint32_t mi = 0; mi < mn; ++mi )
 	{
 		CDmElement *pDeltaState = GetDeltaStateWeight( mi );
 		const char *deltaName = pDeltaState->GetName();
@@ -114,7 +113,7 @@ namespace MorphOp
 {
 void AddAttr( CUtlVector< CDmAttribute * > &attrs, CDmAttribute *pAttr )
 {
-	if ( pAttr == NULL )
+	if ( pAttr == nullptr)
 		return;
 	attrs.AddToTail( pAttr );
 }
@@ -131,8 +130,8 @@ using namespace MorphOp;
 
 void CDmeMorphOperator::GetInputAttributes( CUtlVector< CDmAttribute * > &attrs )
 {
-	uint nWeights = NumDeltaStateWeights();
-	for ( uint wi = 0; wi < nWeights; ++wi )
+	uint32_t nWeights = NumDeltaStateWeights();
+	for ( uint32_t wi = 0; wi < nWeights; ++wi )
 	{
 		CDmElement *pDelta = GetDeltaStateWeight( wi );
 		AddAttr( attrs, pDelta->GetAttribute( "weight" ) );
@@ -142,8 +141,8 @@ void CDmeMorphOperator::GetInputAttributes( CUtlVector< CDmAttribute * > &attrs 
 	CDmeVertexData *pBaseState = pMesh->FindBaseState( m_baseStateName.Get() );
 	AddVertexAttributes( attrs, pBaseState );
 
-	uint nDeltas = pMesh->DeltaStateCount();
-	for ( uint di = 0; di < nDeltas; ++di )
+	uint32_t nDeltas = pMesh->DeltaStateCount();
+	for ( uint32_t di = 0; di < nDeltas; ++di )
 	{
 		CDmElement *pDeltaState = pMesh->GetDeltaState( di );
 		AddAttr( attrs, pDeltaState->GetAttribute( "indices" ) );

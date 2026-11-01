@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // A class representing session state for the SFM
 //
@@ -227,7 +227,7 @@ bool ExportFacialAnimation( const char *pFileName, CDmeFilmClip *pMovie, CDmeFil
 
 	pRoot->SetFileId( DMFILEID_INVALID, TD_DEEP );
 	const char *pEncoding = "keyvalues2_flat";
-	bool bOk = g_pDataModel->SaveToFile( pFileName, NULL, pEncoding, pFileFormat, pRoot ); 
+	bool bOk = g_pDataModel->SaveToFile( pFileName, nullptr, pEncoding, pFileFormat, pRoot ); 
 	DestroyElement( pRoot, TD_DEEP );
 	return bOk;
 }

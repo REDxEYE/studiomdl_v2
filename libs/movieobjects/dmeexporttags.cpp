@@ -2,10 +2,12 @@
 //
 //=============================================================================
 
+#include <ctime>
+
 #include "tier0/platform.h"
 
 #ifdef PLATFORM_WINDOWS
-#include <Windows.h>
+#include <windows.h>
 #endif // PLATFORM_WINDOWS
 
 #include "datamodel/dmelementfactoryhelper.h"
@@ -14,8 +16,7 @@
 #include "movieobjects/dmeexporttags.h"
 
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 //-----------------------------------------------------------------------------
@@ -153,7 +154,7 @@ void CDmeExportTags::SetUser( const char *pszVal /* = NULL */ )
 
 		m_sUser.Set( szUserName );
 #else // PLATFORM_WINDOWS
-		m_sMachine.Set( NULL );
+		m_sMachine.Set(nullptr);
 #endif // PLATFORM_WINDOWS
 	}
 }
@@ -177,7 +178,7 @@ void CDmeExportTags::SetMachine( const char *pszVal /* = NULL */ )
 
 		m_sMachine.Set( szComputerName );
 #else // PLATFORM_WINDOWS
-		m_sMachine.Set( NULL );
+		m_sMachine.Set(nullptr);
 #endif // PLATFORM_WINDOWS
 	}
 }

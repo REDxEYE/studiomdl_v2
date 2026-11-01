@@ -171,44 +171,44 @@ FORCEINLINE float & SubFloat( fltx4 & a, int idx )
 #endif
 }
 
-FORCEINLINE uint32 SubFloatConvertToInt( const fltx4 & a, int idx )
+FORCEINLINE uint32_t SubFloatConvertToInt( const fltx4 & a, int idx )
 {
-	return (uint32)SubFloat(a,idx);
+	return (uint32_t)SubFloat(a,idx);
 }
 
-FORCEINLINE uint32 SubInt( const fltx4 & a, int idx )
+FORCEINLINE uint32_t SubInt( const fltx4 & a, int idx )
 {
 #ifndef POSIX
 	return a.m128_u32[idx];
 #else
-	return (reinterpret_cast<uint32 const *>(&a))[idx];
+	return (reinterpret_cast<uint32_t const *>(&a))[idx];
 #endif
 }
 
-FORCEINLINE uint32 & SubInt( fltx4 & a, int idx )
+FORCEINLINE uint32_t & SubInt( fltx4 & a, int idx )
 {
 #ifndef POSIX
 	return a.m128_u32[idx];
 #else
-	return (reinterpret_cast<uint32 *>(&a))[idx];
+	return (reinterpret_cast<uint32_t *>(&a))[idx];
 #endif
 }
 
-FORCEINLINE uint32 SubInt( i32x4 const & a, int idx )
+FORCEINLINE uint32_t SubInt( i32x4 const & a, int idx )
 {
 #ifndef POSIX
 	return a.m128i_u32[idx];
 #else
-	return (reinterpret_cast<const uint32 *>(&a))[idx];
+	return (reinterpret_cast<const uint32_t *>(&a))[idx];
 #endif
 }
 
-FORCEINLINE uint32 & SubInt( i32x4 & a, int idx )
+FORCEINLINE uint32_t & SubInt( i32x4 & a, int idx )
 {
 #ifndef POSIX
 	return a.m128i_u32[idx];
 #else
-	return (reinterpret_cast<uint32 *>(&a))[idx];
+	return (reinterpret_cast<uint32_t *>(&a))[idx];
 #endif
 }
 
@@ -734,7 +734,7 @@ FORCEINLINE i32x4 LoadUnalignedIntSIMD( const void * RESTRICT pSIMD)
 }
 
 // save into four words, 16-byte aligned
-FORCEINLINE void StoreAlignedIntSIMD( int32 * RESTRICT pSIMD, const fltx4 & a )
+FORCEINLINE void StoreAlignedIntSIMD( int32_t * RESTRICT pSIMD, const fltx4 & a )
 {
 	_mm_store_ps( reinterpret_cast<float *>(pSIMD), a );
 }
@@ -749,7 +749,7 @@ FORCEINLINE void StoreAlignedSIMD( short * RESTRICT pSIMD, const shortx8 & a )
 	_mm_store_si128( (shortx8 *)pSIMD, a );
 }
 
-FORCEINLINE void StoreUnalignedIntSIMD( int32 * RESTRICT pSIMD, const fltx4 & a )
+FORCEINLINE void StoreUnalignedIntSIMD( int32_t * RESTRICT pSIMD, const fltx4 & a )
 {
 	_mm_storeu_ps( reinterpret_cast<float *>(pSIMD), a );
 }
@@ -768,7 +768,7 @@ FORCEINLINE fltx4 CompressSIMD( fltx4 const & a, fltx4 const &b )
 // Load four consecutive uint16's, and turn them into floating point numbers.
 // This function isn't especially fast and could be made faster if anyone is
 // using it heavily.
-FORCEINLINE fltx4 LoadAndConvertUint16SIMD( const uint16 *pInts )
+FORCEINLINE fltx4 LoadAndConvertUint16SIMD( const uint16_t *pInts )
 {
 #ifdef POSIX
 	fltx4 retval;
@@ -881,7 +881,7 @@ FORCEINLINE void ConvertStoreAsIntsSIMD(intx4 * RESTRICT pDest, const fltx4 &vSr
 // some sse2 packed integer intrinsic wrappers
 #if _MSC_VER >= 1600 || defined(LINUX) || defined(OSX)
 /// replicate an 16 bit integer value to all 8 16-bit positions in an fltx4
-FORCEINLINE fltx4 ReplicateWordX8( uint16 nWord )
+FORCEINLINE fltx4 ReplicateWordX8( uint16_t nWord )
 {
 	return _mm_castsi128_ps( _mm_set_epi16( nWord, nWord, nWord, nWord, nWord, nWord, nWord, nWord ) );
 

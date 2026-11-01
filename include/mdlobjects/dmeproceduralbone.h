@@ -4,8 +4,7 @@
 //
 //============================================================================
 
-#ifndef DMEPROCEDURALBONE_H
-#define DMEPROCEDURALBONE_H
+#pragma once
 
 #if defined( _WIN32 )
 #pragma once
@@ -27,4 +26,3 @@ public:
 };
 
 
-#endif // DMEPROCEDURALBONE_H

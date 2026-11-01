@@ -9,8 +9,7 @@
 
 #include "d3dx9.h"
 
-#ifndef __D3DX9MATH_H__
-#define __D3DX9MATH_H__
+#pragma once
 
 #include <math.h>
 #if _MSC_VER >= 1200
@@ -1792,5 +1791,4 @@ HRESULT WINAPI D3DXSHProjectCubeMap
 #pragma warning(default:4201)
 #endif
 
-#endif // __D3DX9MATH_H__
 

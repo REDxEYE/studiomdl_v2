@@ -146,8 +146,8 @@ public:
 // Each vertex stores a list of triangles (v0,v1,v2).  v0 is the vertex storing the list, the list stores the other two
 struct vertex_triangle_t
 {
-	uint32 nV1;
-	uint32 nV2;
+	uint32_t nV1;
+	uint32_t nV2;
 };
 
 class CVertVisit
@@ -160,14 +160,14 @@ struct edge_hash_t
 {
 	CQEMEdge		*m_pSharedEdge;
 	inline bool operator==( const edge_hash_t& src ) const { return src.m_nV0 == m_nV0 && src.m_nV1 == m_nV1; }
-	uint32			m_nV0;
-	uint32			m_nV1;
+	uint32_t			m_nV0;
+	uint32_t			m_nV1;
 };
 
-class CUniqueVertexList : public CUtlVectorFixedGrowable<uint32, 32>
+class CUniqueVertexList : public CUtlVectorFixedGrowable<uint32_t, 32>
 {
 public:
-	void AddIfUnique( uint32 nVertex )
+	void AddIfUnique( uint32_t nVertex )
 	{
 		if ( Find( nVertex ) == -1 )
 		{
@@ -192,7 +192,7 @@ public:
 		entry.m_nEdgeIndex = pEdge - m_edgeList.Base();
 		m_edgeQueue.Insert( entry );
 	}
-	void Get1Ring( CUniqueVertexList &list, uint32 nVertex );
+	void Get1Ring( CUniqueVertexList &list, uint32_t nVertex );
 	int CountSharedVerts( int nVert0, int nVert1 );
 	bool IsValidCollapse( int nMinEdge );
 	bool IsValidCollapseVertex( int nVertCheck, int nVertOpposite, const Vector &vReplacePos );
@@ -203,8 +203,8 @@ public:
 		edge_hash_t tmp;
 		tmp.m_nV0 = MIN(nV0, nV1);
 		tmp.m_nV1 = MAX(nV0, nV1);
-		uint nHashKey = VertHashKey(MIN(nV0, nV1), MAX(nV0, nV1));
-		tmp.m_pSharedEdge = NULL;
+		uint32_t nHashKey = VertHashKey(MIN(nV0, nV1), MAX(nV0, nV1));
+		tmp.m_pSharedEdge = nullptr;
 		return m_edgeHash.Find( nHashKey, tmp );
 	}
 
@@ -220,7 +220,7 @@ public:
 
 
 	// Copies out the mesh in its current state
-	void WriteMeshIndexList( CUtlVector<uint32> &indexOut );
+	void WriteMeshIndexList( CUtlVector<uint32_t> &indexOut );
 
 	inline float *GetVertex( int nIndex ) { return m_pVertexBase + nIndex * m_nVertexStrideFloats; }
 	inline Vector &GetVertexPosition(int nIndex) { return *(Vector *)GetVertex(nIndex); }
@@ -242,11 +242,11 @@ public:
 
 
 // Copies out the mesh in its current state
-void CMeshVisit::WriteMeshIndexList( CUtlVector<uint32> &indexOut )
+void CMeshVisit::WriteMeshIndexList( CUtlVector<uint32_t> &indexOut )
 {
-	uint32 nCurrentVertexCount = m_vertList.Count();
+	uint32_t nCurrentVertexCount = m_vertList.Count();
 	int nTotalTrianglesRemaining = 0;
-	for ( uint32 i = 0; i < nCurrentVertexCount; i++ )
+	for ( uint32_t i = 0; i < nCurrentVertexCount; i++ )
 	{
 		nTotalTrianglesRemaining += m_vertList[i].m_triangles.Count();
 	}
@@ -255,7 +255,7 @@ void CMeshVisit::WriteMeshIndexList( CUtlVector<uint32> &indexOut )
 
 	indexOut.SetCount( nTotalTrianglesRemaining );
 	int nWriteIndex = 0;
-	for ( uint32 i = 0; i < nCurrentVertexCount; i++ )
+	for ( uint32_t i = 0; i < nCurrentVertexCount; i++ )
 	{
 		for ( int j = 0; j < m_vertList[i].m_triangles.Count(); j++ )
 		{
@@ -306,7 +306,7 @@ void CMeshVisit::RemapEdge( int nVertexRemove, int nVertexConnect, int nVertexKe
 				tmp.m_nV0 = tmp.m_nV1;
 				tmp.m_nV1 = pEdge->m_nVert[0];
 			}
-			uint nHashKey = VertHashKey(tmp.m_nV0, tmp.m_nV1);
+			uint32_t nHashKey = VertHashKey(tmp.m_nV0, tmp.m_nV1);
 			if ( m_edgeHash.Find( nHashKey, tmp ) != m_edgeHash.InvalidHandle() )
 			{
 				// another edge with these indices exists in the table, mark as collapsed
@@ -320,7 +320,7 @@ void CMeshVisit::RemapEdge( int nVertexRemove, int nVertexConnect, int nVertexKe
 	}
 }
 
-void CMeshVisit::Get1Ring( CUniqueVertexList &list, uint32 nVertex )
+void CMeshVisit::Get1Ring( CUniqueVertexList &list, uint32_t nVertex )
 {
 	int nTriCount = m_vertList[nVertex].m_triangles.Count();
 	for ( int i = 0; i < nTriCount; i++ )
@@ -417,8 +417,8 @@ void CMeshVisit::CollapseEdge( int nCollapse )
 	Assert( nV0 < m_vertList.Count() );
 	Assert( nV1 < m_vertList.Count() );
 	float flInterp = m_edgeList[nCollapse].m_flInterp;
-	uint32 nVertexKeep = nV0;
-	uint32 nVertexRemove = nV1;
+	uint32_t nVertexKeep = nV0;
+	uint32_t nVertexRemove = nV1;
 	if ( m_edgeList[nCollapse].m_nBestIndex == 1 )
 	{
 		nVertexKeep = m_edgeList[nCollapse].m_nVert[1];
@@ -436,11 +436,11 @@ void CMeshVisit::CollapseEdge( int nCollapse )
 	// Assert( vertIndex.Find(nVertexKeep) != -1 );
 
 	int nTrianglesRemoved = 0;
-	CUtlVectorFixedGrowable<uint32, 32> removeList;
+	CUtlVectorFixedGrowable<uint32_t, 32> removeList;
 
 	for ( int i = 0; i < vertIndex.Count(); i++ )
 	{
-		uint32 nVertex = vertIndex[i];
+		uint32_t nVertex = vertIndex[i];
 		for ( int j = 0; j < m_vertList[nVertex].m_triangles.Count(); j++ )
 		{
 			vertex_triangle_t &tri = m_vertList[nVertex].m_triangles[j];
@@ -536,9 +536,9 @@ int CMeshVisit::CountTotalUsedVerts()
 	return nUsedCount;
 }
 
-int CountUsedVerts( const uint32 *pIndexList, int nIndexCount, int nVertexCount )
+int CountUsedVerts( const uint32_t *pIndexList, int nIndexCount, int nVertexCount )
 {
-	CUtlVector<uint8> used;
+	CUtlVector<uint8_t> used;
 	used.SetCount(nVertexCount);
 	for ( int i = 0; i < nVertexCount; i++ )
 	{
@@ -607,8 +607,8 @@ void CMeshVisit::BuildFromMesh( const CMesh &input )
 			edge_hash_t tmp;
 			tmp.m_nV0 = MIN(nV0, nV1);
 			tmp.m_nV1 = MAX(nV0, nV1);
-			uint nHashKey = VertHashKey(MIN(nV0, nV1), MAX(nV0, nV1));
-			tmp.m_pSharedEdge = NULL;
+			uint32_t nHashKey = VertHashKey(MIN(nV0, nV1), MAX(nV0, nV1));
+			tmp.m_pSharedEdge = nullptr;
 			UtlHashFastHandle_t edgeHashIndex = m_edgeHash.Find( nHashKey, tmp );
 			// new edge, initialize it
 			if ( m_edgeHash.InvalidHandle() == edgeHashIndex )
@@ -673,7 +673,7 @@ void CMeshVisit::ComputeVertListError( float flOpenEdgePenalty, float flMinArea,
 		// can we use all of the weights?  If not, don't use any of them
 		if ( pWeights->m_nVertexCount != m_nInputVertCount )
 		{
-			pWeights = NULL;
+			pWeights = nullptr;
 		}
 	}
 	for ( int i = 0; i < m_nInputVertCount; i++ )
@@ -766,12 +766,12 @@ void SimplifyMeshQEM2( CMesh &meshOut, const CMesh &input, const mesh_simplifypa
 
 	Vprof_MarkFrame_IfEnabled();
 
-	CUtlVector<uint32> indexOut;
+	CUtlVector<uint32_t> indexOut;
 	visit.WriteMeshIndexList( indexOut );
 
 	int nOutputIndexCount = indexOut.Count();
-	const uint32 nInvalidIndex = uint32(-1);
-	CUtlVector<uint32> nIndexMap;
+	const uint32_t nInvalidIndex = uint32_t(-1);
+	CUtlVector<uint32_t> nIndexMap;
 	nIndexMap.SetCount( nInputVertCount );
 	nIndexMap.FillWithValue( nInvalidIndex );
 

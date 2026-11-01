@@ -4,8 +4,7 @@
 //
 //=============================================================================
 
-#ifndef DMELOG_H
-#define DMELOG_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -83,9 +82,9 @@ public:
 		m_bTimeAdvancing( false ),
 		m_nResampleInterval( DmeTime_t( .05f ) ),// 50 msec sampling interval by default
 		m_flThreshold( DMELOG_DEFAULT_THRESHHOLD ),
-		m_pPresetValue( 0 ),
-		m_pPresetTimes( 0 ),
-		m_pOldHeadValue( 0 ),
+		m_pPresetValue( nullptr ),
+		m_pPresetTimes( nullptr ),
+		m_pOldHeadValue( nullptr ),
 		m_OldHeadValueIndex( -1 ),
 		m_tHeadPosition( 0 ),
 		m_TransformWriteMode( TRANSFORM_WRITE_MODE_OVERWRITE ),
@@ -191,7 +190,7 @@ struct DmeLogTransformParams_t
 		, m_RotationParent( quat_identity )
 		, m_Pivot( vec3_origin )
 		, m_nProceduralType( PROCEDURAL_PRESET_NOT )
-		, m_pRotationLog( NULL )
+		, m_pRotationLog(nullptr)
 	{
 		SetIdentityMatrix( m_Transform );
 	}
@@ -234,14 +233,14 @@ public:
 	virtual DmAttributeType_t GetDataType() const = 0;
 
 	// Sets a key, removes all keys after this time
-	virtual void SetKey( DmeTime_t time, const CDmAttribute *pAttr, uint index = 0, SegmentInterpolation_t interpSetting = SEGMENT_INTERPOLATE, int curveType = CURVE_DEFAULT ) = 0;
+	virtual void SetKey( DmeTime_t time, const CDmAttribute *pAttr, uint32_t index = 0, SegmentInterpolation_t interpSetting = SEGMENT_INTERPOLATE, int curveType = CURVE_DEFAULT ) = 0;
 	virtual bool SetDuplicateKeyAtTime( DmeTime_t time ) = 0;
 	// This inserts a key using the current values to construct the proper value for the time
 	virtual int InsertKeyAtTime( DmeTime_t nTime, int curveType = CURVE_DEFAULT ) = 0;
 	virtual void TrimKeys( DmeTime_t tStartTime, DmeTime_t tEndTime ) = 0;
 
 	// Sets the interpolated value of the log at the specified time into the attribute
-	virtual void GetValue( DmeTime_t time, CDmAttribute *pAttr, uint index = 0 ) const = 0;
+	virtual void GetValue( DmeTime_t time, CDmAttribute *pAttr, uint32_t index = 0 ) const = 0;
 
 	virtual float GetComponent( DmeTime_t time, int componentIndex ) const = 0;
 
@@ -367,7 +366,7 @@ public:
 	void FindLayersForTime( DmeTime_t time, CUtlVector< int >& list ) const;
 
 	virtual void		FinishTimeSelection( DmeTime_t tHeadPosition, DmeLog_TimeSelection_t& params ) = 0; // in attached, time advancing mode, we need to blend out of the final sample over the fadeout interval
-	virtual void		StampKeyAtHead( DmeTime_t tHeadPosition, DmeTime_t tPreviousHeadPosition, const DmeLog_TimeSelection_t& params, const DmeLogTransformParams_t &transformParams, const CDmAttribute *pAttr, uint arrayIndex = 0, bool bTimeFilter = true, int layerIndex = -1 ) = 0;
+	virtual void		StampKeyAtHead( DmeTime_t tHeadPosition, DmeTime_t tPreviousHeadPosition, const DmeLog_TimeSelection_t& params, const DmeLogTransformParams_t &transformParams, const CDmAttribute *pAttr, uint32_t arrayIndex = 0, bool bTimeFilter = true, int layerIndex = -1 ) = 0;
 	virtual void		FilterUsingTimeSelection( IUniformRandomStream &random, float flScale, const DmeLog_TimeSelection_t& params, int filterType, bool bResample, bool bApplyFalloff, const CDmeLogLayer *baseLayer, CDmeLogLayer *writeLayer  ) = 0;
 	virtual void		FilterUsingTimeSelection( IUniformRandomStream &random, const DmeLog_TimeSelection_t& params, int filterType, bool bResample, bool bApplyFalloff ) = 0;
 	virtual void		StaggerUsingTimeSelection( const DmeLog_TimeSelection_t& params, DmeTime_t tStaggerAmount, const CDmeLogLayer *baseLayer, CDmeLogLayer *writeLayer ) = 0;
@@ -410,13 +409,13 @@ public:
 
 	
 	// Sets a key, removes all keys after this time
-	virtual void SetKey( DmeTime_t time, const CDmAttribute *pAttr, uint index = 0, SegmentInterpolation_t interpSetting = SEGMENT_INTERPOLATE, int curveType = CURVE_DEFAULT ) = 0;
+	virtual void SetKey( DmeTime_t time, const CDmAttribute *pAttr, uint32_t index = 0, SegmentInterpolation_t interpSetting = SEGMENT_INTERPOLATE, int curveType = CURVE_DEFAULT ) = 0;
 	virtual bool SetDuplicateKeyAtTime( DmeTime_t time ) = 0;
 	virtual int InsertKeyAtTime( DmeTime_t nTime, int curveType = CURVE_DEFAULT ) = 0;
 
 	// Sets the interpolated value of the log at the specified time into the attribute
-	virtual void GetValue( DmeTime_t time, CDmAttribute *pAttr, uint index = 0 ) const = 0;
-	virtual void GetValueSkippingTopmostLayer( DmeTime_t time, CDmAttribute *pAttr, uint index = 0 ) const = 0;
+	virtual void GetValue( DmeTime_t time, CDmAttribute *pAttr, uint32_t index = 0 ) const = 0;
+	virtual void GetValueSkippingTopmostLayer( DmeTime_t time, CDmAttribute *pAttr, uint32_t index = 0 ) const = 0;
 
 	virtual float GetComponent( DmeTime_t time, int componentIndex ) const = 0;
 
@@ -463,7 +462,6 @@ public:
 	};
 	virtual void		FlattenLayers( float threshold, int flags, int baseLayer = 0 ) = 0;
 
-	// Only used by undo system!!!
 	virtual void		AddLayerToTail( CDmeLogLayer *layer ) = 0;
 	virtual CDmeLogLayer *RemoveLayerFromTail() = 0;
 	virtual CDmeLogLayer *RemoveLayer( int iLayer ) = 0;
@@ -620,9 +618,9 @@ public:
 
 	// inherited from CDmeLog
 	virtual void ClearKeys();
-	virtual void SetKey( DmeTime_t time, const CDmAttribute *pAttr, uint index = 0, SegmentInterpolation_t interpSetting = SEGMENT_INTERPOLATE, int curveType = CURVE_DEFAULT );
+	virtual void SetKey( DmeTime_t time, const CDmAttribute *pAttr, uint32_t index = 0, SegmentInterpolation_t interpSetting = SEGMENT_INTERPOLATE, int curveType = CURVE_DEFAULT );
 	virtual bool SetDuplicateKeyAtTime( DmeTime_t time );
-	virtual void GetValue( DmeTime_t time, CDmAttribute *pAttr, uint index = 0 ) const;
+	virtual void GetValue( DmeTime_t time, CDmAttribute *pAttr, uint32_t index = 0 ) const;
 	virtual float GetComponent( DmeTime_t time, int componentIndex ) const;
 	virtual DmAttributeType_t GetDataType() const;
 	virtual bool IsConstantValued() const;
@@ -706,7 +704,7 @@ public:
 	const CDmeTypedLogLayer< T > *GetLayer( int index ) const;
 
 	void		StampKeyAtHead( DmeTime_t tHeadPosition, DmeTime_t tPreviousHeadPosition, const DmeLog_TimeSelection_t& params, const DmeLogTransformParams_t &transformParams, const T& value, bool bTimeFilter = true, int layerIndex = -1 );
-	void		StampKeyAtHead( DmeTime_t tHeadPosition, DmeTime_t tPreviousHeadPosition, const DmeLog_TimeSelection_t& params, const DmeLogTransformParams_t &transformParams, const CDmAttribute *pAttr,  uint arrayIndex = 0, bool bTimeFilter = true, int logLayer = -1  );
+	void		StampKeyAtHead( DmeTime_t tHeadPosition, DmeTime_t tPreviousHeadPosition, const DmeLog_TimeSelection_t& params, const DmeLogTransformParams_t &transformParams, const CDmAttribute *pAttr,  uint32_t arrayIndex = 0, bool bTimeFilter = true, int logLayer = -1  );
 	void		FinishTimeSelection( DmeTime_t tHeadPosition, DmeLog_TimeSelection_t& params ); // in attached, time advancing mode, we need to blend out of the final sample over the fadeout interval
 	void		FilterUsingTimeSelection( IUniformRandomStream &random, float flScale, const DmeLog_TimeSelection_t& params, int filterType, bool bResample, bool bApplyFalloff, const CDmeLogLayer *baseLayer, CDmeLogLayer *writeLayer );
 	void		FilterUsingTimeSelection( IUniformRandomStream &random, const DmeLog_TimeSelection_t& params, int filterType, bool bResample, bool bApplyFalloff );
@@ -746,10 +744,10 @@ public:
 
 	// inherited from CDmeLog
 	virtual void ClearKeys();
-	virtual void SetKey( DmeTime_t time, const CDmAttribute *pAttr, uint index = 0, SegmentInterpolation_t interpSetting = SEGMENT_INTERPOLATE, int curveType = CURVE_DEFAULT );
+	virtual void SetKey( DmeTime_t time, const CDmAttribute *pAttr, uint32_t index = 0, SegmentInterpolation_t interpSetting = SEGMENT_INTERPOLATE, int curveType = CURVE_DEFAULT );
 	virtual bool SetDuplicateKeyAtTime( DmeTime_t time );
-	virtual void GetValue( DmeTime_t time, CDmAttribute *pAttr, uint index = 0 ) const;
-	virtual void GetValueSkippingTopmostLayer( DmeTime_t time, CDmAttribute *pAttr, uint index = 0 ) const;
+	virtual void GetValue( DmeTime_t time, CDmAttribute *pAttr, uint32_t index = 0 ) const;
+	virtual void GetValueSkippingTopmostLayer( DmeTime_t time, CDmAttribute *pAttr, uint32_t index = 0 ) const;
 	virtual float GetComponent( DmeTime_t time, int componentIndex ) const;
 	virtual DmAttributeType_t GetDataType() const;
 	virtual bool IsConstantValued() const;
@@ -769,7 +767,6 @@ public:
 	virtual CDmeLogLayer *AddNewLayer();
 	virtual void		FlattenLayers( float threshhold, int flags, int baseLayer = 0 );
 
-	// Only used by undo system!!!
 	virtual void		AddLayerToTail( CDmeLogLayer *layer );
 	virtual CDmeLogLayer *RemoveLayerFromTail();
 	virtual CDmeLogLayer *RemoveLayer( int iLayer );
@@ -835,6 +832,12 @@ protected:
 	CDmaVar< bool >			m_UseDefaultValue;
 	CDmaVar< T >			m_DefaultValue;
 };
+
+// Explicit specializations (defined in dmelog.cpp); must be declared before any use instantiates the primary template
+template<> bool CDmeTypedLog< Vector >::ValuesDiffer( const Vector& a, const Vector& b ) const;
+template<> bool CDmeTypedLog< QAngle >::ValuesDiffer( const QAngle& a, const QAngle& b ) const;
+template<> bool CDmeTypedLog< Quaternion >::ValuesDiffer( const Quaternion& a, const Quaternion& b ) const;
+template<> bool CDmeTypedLog< float >::ValuesDiffer( const float& a, const float& b ) const;
 
 
 //-----------------------------------------------------------------------------
@@ -1046,7 +1049,6 @@ template<> void CDmeTypedLogLayer< Vector >::GetValueUsingCurveInfoSkippingKey( 
 template<> void CDmeTypedLogLayer< Quaternion >::GetValueUsingCurveInfo( DmeTime_t time, Quaternion& out ) const;
 template<> void CDmeTypedLogLayer< Quaternion >::GetValueUsingCurveInfoSkippingKey( int nKeyToSkip, Quaternion& out ) const;
 
-template<class T> void CDmeTypedLogLayer< T >::CurveSimplify_R( float thresholdSqr, int startPoint, int endPoint, CDmeTypedLogLayer< T > *output );
 template<> void CDmeTypedLogLayer< bool >::CurveSimplify_R( float thresholdSqr, int startPoint, int endPoint, CDmeTypedLogLayer< bool > *output );
 template<> void CDmeTypedLogLayer< int >::CurveSimplify_R( float thresholdSqr, int startPoint, int endPoint, CDmeTypedLogLayer< int > *output );
 template<> void CDmeTypedLogLayer< Color >::CurveSimplify_R( float thresholdSqr, int startPoint, int endPoint, CDmeTypedLogLayer< Color > *output );
@@ -1061,13 +1063,11 @@ template<> void CDmeTypedLog< int >::BuildNormalizedLayer( int nChannels, CDmeTy
 template<> void CDmeTypedLog< DmeTime_t >::BuildNormalizedLayer( int nChannels, CDmeTypedLogLayer< float > **pChannels, int nLayer );
 template<> void CDmeTypedLog< Quaternion >::BuildNormalizedLayer( int nChannels, CDmeTypedLogLayer< float > **pChannels, int nLayer );
 
-template< class T >int CDmeTypedLog< T >::GetNumBookmarkComponents() const;
 template<> int CDmeTypedLog< Vector >::GetNumBookmarkComponents() const;
 template<> int CDmeTypedLog< Vector2D >::GetNumBookmarkComponents() const;
 template<> int CDmeTypedLog< Vector4D >::GetNumBookmarkComponents() const;
 template<> int CDmeTypedLog< Quaternion >::GetNumBookmarkComponents() const;
 
-template< class T > void CDmeTypedLog< T >::InitalizeBookmarkArrays();
 template<> void CDmeTypedLog< Vector >::InitalizeBookmarkArrays();
 template<> void CDmeTypedLog< Vector2D >::InitalizeBookmarkArrays();
 template<> void CDmeTypedLog< Vector4D >::InitalizeBookmarkArrays();
@@ -1145,4 +1145,3 @@ void RotateOrientationLog( CDmeQuaternionLogLayer *pOrientationLog, const matrix
 float ComputeInterpolationFactor( float flFactor, int nInterpolatorType );
 float GetAmountForTime( DmeTime_t dmetime, const TimeSelection_t &times, const int nInterpolationTypes[ 2 ] );
 
-#endif // DMELOG_H

@@ -7,15 +7,14 @@
 // $NoKeywords: $
 //===========================================================================//
 
-#ifndef IDATACACHE_H
-#define IDATACACHE_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
 #endif
 
 #include "tier0/platform.h"
-#include "tier0/dbg.h"
+
 #include "appframework/iappsystem.h"
 #include "tier3/tier3.h"
 
@@ -34,7 +33,7 @@ class IDataCache;
 //---------------------------------------------------------
 // Unique (per section) identifier for a cache item defined by client
 //---------------------------------------------------------
-typedef uintp DataCacheClientID_t;
+typedef uintptr_t DataCacheClientID_t;
 
 
 //---------------------------------------------------------
@@ -234,8 +233,7 @@ public:
 	//--------------------------------------------------------
 	// Purpose: Output the state of the cache
 	//--------------------------------------------------------
-	virtual void OutputReport( DataCacheReportType_t reportType = DC_SUMMARY_REPORT, const char *pszSection = NULL ) = 0;
+	virtual void OutputReport( DataCacheReportType_t reportType = DC_SUMMARY_REPORT, const char *pszSection = nullptr) = 0;
 
 };
 
-#endif // IDataCache

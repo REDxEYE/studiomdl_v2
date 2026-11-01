@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =====//
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =====//
 //
 // Snapshot of 
 //
 //===========================================================================//
 
-#ifndef DMEANIMATIONLIST_H
-#define DMEANIMATIONLIST_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -56,4 +55,3 @@ inline CDmeChannelsClip *CDmeAnimationList::GetAnimation( int nIndex )
 }
 
 
-#endif // DMEANIMATIONLIST_H

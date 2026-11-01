@@ -4,8 +4,7 @@
 //
 //===========================================================================//
 
-#ifndef FLTX4_H
-#define FLTX4_H
+#pragma once
 
 #include <emmintrin.h>
 
@@ -25,16 +24,12 @@
 typedef union
 {
 	float  m128_f32[4];
-	uint32 m128_u32[4];
+	uint32_t m128_u32[4];
 } fltx4;
 
 typedef fltx4 i32x4;
 typedef fltx4 u32x4;
 
-#ifdef _PS3
-typedef fltx4 u32x4;
-typedef fltx4 i32x4;
-#endif
 typedef fltx4 bi32x4;
 
 #else
@@ -48,4 +43,3 @@ typedef fltx4 bi32x4;
 
 #endif
 
-#endif

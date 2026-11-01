@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2005, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2005, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
 //=============================================================================
 
-#ifndef DMEBASEIMPORTER_H
-#define DMEBASEIMPORTER_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -40,4 +39,3 @@ public:
 	CSFMBaseImporter( char const *formatName, char const *nextFormatName );
 };
 
-#endif // DMEBASEIMPORTER_H

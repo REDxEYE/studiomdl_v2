@@ -35,8 +35,7 @@
 #endif // __RPCNDR_H_VERSION__
 
 
-#ifndef __d3dcommon_h__
-#define __d3dcommon_h__
+#pragma once
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1020)
 #pragma once
@@ -90,6 +89,5 @@ extern RPC_IF_HANDLE __MIDL_itf_d3dcommon_0000_0000_v0_0_s_ifspec;
 }
 #endif
 
-#endif
 
 

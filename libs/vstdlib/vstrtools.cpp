@@ -1,11 +1,12 @@
-#include "tier0/dbg.h"
+
 #include "vstdlib/vstrtools.h"
+#include "tier0/dbg.h"
 
 
-#if defined( _WIN32 ) && !defined( _X360 )
-#include <Windows.h>
+#if defined( _WIN32 )
+#include <windows.h>
 #endif
-#if defined(POSIX) && !defined(_PS3)
+#if defined( POSIX )
 #include <iconv.h>
 #endif
 
@@ -30,7 +31,7 @@ int V_UTF8ToUnicode( const char *pUTF8, wchar_t *pwchDest, int cubDestSizeInByte
 	size_t nMaxUTF8 = strlen(pUTF8) + 1;
 	char *pIn = (char *)pUTF8;
 	char *pOut = (char *)pwchDest;
-	if ( conv_t > 0 )
+	if ( (size_t)conv_t > 0 )
 	{
 		cchResult = 0;
         size_t nInputCharCount = nMaxUTF8;
@@ -70,7 +71,7 @@ int V_UnicodeToUTF8( const wchar_t *pUnicode, char *pUTF8, int cubDestSizeInByte
 		size_t nMaxUTF8 = cubDestSizeInBytes;
 		char *pIn = (char *)pUnicode;
 		char *pOut = (char *)pUTF8;
-		if ( conv_t > 0 )
+		if ( (size_t)conv_t > 0 )
 		{
 			cchResult = iconv( conv_t, &pIn, &nLenUnicde, &pOut, &nMaxUTF8 );
 			iconv_close( conv_t );
@@ -111,7 +112,7 @@ int V_UCS2ToUnicode( const ucs2 *pUCS2, wchar_t *pUnicode, int cubDestSizeInByte
 	size_t nMaxUTF8 = cubDestSizeInBytes;
 	char *pIn = (char *)pUCS2;
 	char *pOut = (char *)pUnicode;
-	if ( conv_t > 0 )
+	if ( (size_t)conv_t > 0 )
 	{
 		cchResult = 0;
 		cchResult = iconv( conv_t, &pIn, &nLenUnicde, &pOut, &nMaxUTF8 );
@@ -144,7 +145,7 @@ int V_UnicodeToUCS2( const wchar_t *pUnicode, int cubSrcInBytes, char *pUCS2, in
 	size_t nMaxUCS2 = cubDestSizeInBytes;
 	char *pIn = (char*)pUnicode;
 	char *pOut = pUCS2;
-	if ( conv_t > 0 )
+	if ( (size_t)conv_t > 0 )
 	{
 		cchResult = 0;
 		cchResult = iconv( conv_t, &pIn, &nLenUnicde, &pOut, &nMaxUCS2 );
@@ -177,10 +178,6 @@ VSTRTOOLS_INTERFACE int V_UCS2ToUTF8( const ucs2 *pUCS2, char *pUTF8, int cubDes
 #ifdef _WIN32
 	// under win32 wchar_t == ucs2, sigh
 	int cchResult = WideCharToMultiByte( CP_UTF8, 0, pUCS2, -1, pUTF8, cubDestSizeInBytes, NULL, NULL );
-#elif defined( _PS3 )
-	size_t cchResult = cubDestSizeInBytes, cchSrc = V_wcslen( pUCS2 ) + 1;
-	L10nResult result = UCS2stoUTF8s( ( const uint16 *) pUCS2, &cchSrc, ( uint8 * ) pUTF8, &cchResult );
-	Assert( result == ConversionOK );
 #elif defined(POSIX)
 	iconv_t conv_t = iconv_open( "UTF-8", "UCS-2LE" );
 	size_t cchResult = -1;
@@ -188,7 +185,7 @@ VSTRTOOLS_INTERFACE int V_UCS2ToUTF8( const ucs2 *pUCS2, char *pUTF8, int cubDes
 	size_t nMaxUTF8 = cubDestSizeInBytes;
 	char *pIn = (char *)pUCS2;
 	char *pOut = (char *)pUTF8;
-	if ( conv_t > 0 )
+	if ( (size_t)conv_t > 0 )
 	{
 		cchResult = 0;
 		cchResult = iconv( conv_t, &pIn, &nLenUnicde, &pOut, &nMaxUTF8 );
@@ -216,11 +213,6 @@ VSTRTOOLS_INTERFACE int V_UTF8ToUCS2( const char *pUTF8, int cubSrcInBytes, ucs2
 #ifdef _WIN32
 	// under win32 wchar_t == ucs2, sigh
 	int cchResult = MultiByteToWideChar( CP_UTF8, 0, pUTF8, -1, pUCS2, cubDestSizeInBytes / sizeof(wchar_t) );
-#elif defined( _PS3 )
-	size_t cchResult = cubDestSizeInBytes / sizeof( uint16 ), cchSrc = cubSrcInBytes;
-	L10nResult result = UTF8stoUCS2s( ( const uint8 *) pUTF8, &cchSrc, ( uint16 * ) pUCS2, &cchResult );
-	Assert( result == ConversionOK );
-	cchResult *= sizeof( uint16 );
 #elif defined(POSIX)
 	iconv_t conv_t = iconv_open( "UCS-2LE", "UTF-8" );
 	size_t cchResult = -1;
@@ -228,7 +220,7 @@ VSTRTOOLS_INTERFACE int V_UTF8ToUCS2( const char *pUTF8, int cubSrcInBytes, ucs2
 	size_t nMaxUTF8 = cubDestSizeInBytes;
 	char *pIn = (char *)pUTF8;
 	char *pOut = (char *)pUCS2;
-	if ( conv_t > 0 )
+	if ( (size_t)conv_t > 0 )
 	{
 		cchResult = 0;
 		cchResult = iconv( conv_t, &pIn, &nLenUnicde, &pOut, &nMaxUTF8 );

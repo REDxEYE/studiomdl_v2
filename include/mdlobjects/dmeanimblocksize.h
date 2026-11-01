@@ -5,8 +5,7 @@
 //===========================================================================
 
 
-#ifndef DMEANIMBLOCKSIZE_H
-#define DMEANIMBLOCKSIZE_H
+#pragma once
 
 
 #ifdef _WIN32
@@ -38,4 +37,3 @@ public:
 };
 
 
-#endif // DMEANIMBLOCKSIZE_H

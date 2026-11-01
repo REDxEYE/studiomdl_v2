@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =====//
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =====//
 //
 // Dme version of a hitbox set
 //
 //===========================================================================//
 
-#ifndef DMEHITBOXSET_H
-#define DMEHITBOXSET_H
+#pragma once
 
 
 #ifdef _WIN32
@@ -38,4 +37,3 @@ public:
 };
 
 
-#endif // DMEHITBOXSET_H

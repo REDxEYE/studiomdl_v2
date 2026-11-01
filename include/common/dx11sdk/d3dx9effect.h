@@ -10,8 +10,7 @@
 
 #include "d3dx9.h"
 
-#ifndef __D3DX9EFFECT_H__
-#define __D3DX9EFFECT_H__
+#pragma once
 
 
 //----------------------------------------------------------------------------
@@ -868,6 +867,5 @@ HRESULT WINAPI
 }
 #endif //__cplusplus
 
-#endif //__D3DX9EFFECT_H__
 
 

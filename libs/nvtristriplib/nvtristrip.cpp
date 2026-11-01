@@ -1,9 +1,10 @@
 
 #pragma warning( disable : 4786 4018 4530 )  
 
-#include "NvTriStripObjects.h"
-#include "NvTriStrip.h"
+#include "nvtristripobjects.h"
+#include "nvtristrip.h"
 #include <assert.h>
+#include <cstring>
 
 static inline unsigned short AsUShort( int nValue )
 {
@@ -242,17 +243,17 @@ void GenerateStrips(const unsigned short* in_indices, const unsigned int in_numI
 		for(int j = 0; j < tempStrips[i]->m_faces.size(); j++)
 		{
 			delete tempStrips[i]->m_faces[j];
-			tempStrips[i]->m_faces[j] = NULL;
+			tempStrips[i]->m_faces[j] = nullptr;
 		}
 		delete tempStrips[i];
-		tempStrips[i] = NULL;
+		tempStrips[i] = nullptr;
 	}
 
 	//delete faces
 	for(int i = 0; i < tempFaces.size(); i++)
 	{
 		delete tempFaces[i];
-		tempFaces[i] = NULL;
+		tempFaces[i] = nullptr;
 	}
 }
 
@@ -279,7 +280,7 @@ void RemapIndices(const PrimitiveGroup* in_primGroups, const unsigned short numG
 	//caches oldIndex --> newIndex conversion
 	int *indexCache;
 	indexCache = new int[numVerts];
-	memset(indexCache, -1, sizeof(int)*numVerts);
+	std::memset(indexCache, -1, sizeof(int)*numVerts);
 	
 	//loop over primitive groups
 	unsigned int indexCtr = 0;

@@ -19,8 +19,7 @@
 #include "mdlobjects/dmebonemask.h"
 
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 //-----------------------------------------------------------------------------
@@ -434,7 +433,7 @@ CDmeChannelsClip *CDmeSequence::GetDmeChannelsClip() const
 {
 	CDmeAnimationList *pDmeAnimationList = m_eAnimationList.GetElement();
 	if ( !pDmeAnimationList )
-		return NULL;
+		return nullptr;
 
 	for ( int i = 0; i < pDmeAnimationList->GetAnimationCount(); ++i )
 	{
@@ -443,7 +442,7 @@ CDmeChannelsClip *CDmeSequence::GetDmeChannelsClip() const
 			return pDmeChannelsClip;
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 
@@ -605,11 +604,8 @@ void CDmeSequence::UpdateChannels( CUtlVector< IDmeOperator * > &dmeOperatorList
 	}
 
 	// Recompute the position of the joints
-	{
-		CDisableUndoScopeGuard guard;
-		g_pDmElementFramework->SetOperators( dmeOperatorList );
-		g_pDmElementFramework->Operate( true );
-	}
+	g_pDmElementFramework->SetOperators( dmeOperatorList );
+	g_pDmElementFramework->Operate( true );
 
 	g_pDmElementFramework->BeginEdit();
 }

@@ -5,8 +5,7 @@
 //=============================================================================
 
 
-#ifndef DMEASSEMBLYCOMMAND_H
-#define DMEASSEMBLYCOMMAND_H
+#pragma once
 
 
 #if defined( _WIN32 )
@@ -32,4 +31,3 @@ public:
 };
 
 
-#endif // DMEASSEMBLYCOMMAND_H

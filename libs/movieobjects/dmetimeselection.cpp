@@ -1,7 +1,6 @@
 #include "movieobjects/dmetimeselection.h"
 #include "interpolatortypes.h"
 #include "datamodel/dmelementfactoryhelper.h"
-// #include "dme_controls/RecordingState.h"
 
 float ComputeInterpolationFactor( float flFactor, int nInterpolatorType );
 float GetAmountForTime( DmeTime_t dmetime, const TimeSelection_t &times, const int nInterpolationTypes[ 2 ] );
@@ -61,16 +60,16 @@ float CDmeTimeSelection::GetAmountForTime( DmeTime_t t, DmeTime_t curtime )
 	return ::GetAmountForTime( t, times, nInterpolatorTypes );
 }
 
-void CDmeTimeSelection::GetAlphaForTime( DmeTime_t t, DmeTime_t curtime, byte& alpha )
+void CDmeTimeSelection::GetAlphaForTime( DmeTime_t t, DmeTime_t curtime, uint8_t& alpha )
 {
 	Assert( IsEnabled() );
 
-	byte minAlpha = 31;
+	uint8_t minAlpha = 31;
 	if ( alpha <= minAlpha )
 		return;
 
 	float f = GetAmountForTime( t, curtime );
-	alpha = ( byte )( f * ( alpha - minAlpha ) + minAlpha );
+	alpha = ( uint8_t )( f * ( alpha - minAlpha ) + minAlpha );
 	alpha = clamp( alpha, minAlpha, 255 );
 }
 

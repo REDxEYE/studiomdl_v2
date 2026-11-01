@@ -17,8 +17,7 @@
 
 #include "tier3/tier3.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 //-----------------------------------------------------------------------------
@@ -253,7 +252,7 @@ CDmeTrackGroup *CDmeClip::GetTrackGroup( int nIndex ) const
 {
 	if ( ( nIndex >= 0 ) && ( nIndex < m_TrackGroups.Count() ) )
 		return m_TrackGroups[ nIndex ];
-	return NULL;
+	return nullptr;
 }
 	
 //-----------------------------------------------------------------------------
@@ -396,7 +395,7 @@ CDmeTrackGroup *CDmeClip::FindTrackGroup( const char *pTrackGroupName ) const
 		if ( !Q_strcmp( pTrackGroup->GetName(), pTrackGroupName ) )
 			return pTrackGroup;
 	}
-	return NULL;
+	return nullptr;
 }
 
 int CDmeClip::GetTrackGroupIndex( CDmeTrackGroup *pTrackGroup ) const
@@ -446,7 +445,7 @@ CDmeTrack *CDmeClip::FindTrackForClip( CDmeClip *pClip, CDmeTrackGroup **ppTrack
 		}
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 bool CDmeClip::FindMultiTrackGroupForClip( CDmeClip *pClip, int *pTrackGroupIndex, int *pTrackIndex, int *pClipIndex ) const
@@ -592,7 +591,7 @@ bool DmeClipStack_t::BuildClipStack_R( const CDmeClip *pMovie, const CDmeClip *p
 	// Is this clip the shot? We don't need to look for it any more.
 	if ( pCurrent == pShot )
 	{
-		pShot = NULL;
+		pShot = nullptr;
 	}
 
 	// Is this clip the movie? We succeeded if we already found the shot!
@@ -1160,7 +1159,7 @@ CDmeTrack *CDmeFilmClip::GetFilmTrack() const
 	CDmeTrackGroup *pTrackGroup = m_FilmTrackGroup.GetElement();
 	if ( pTrackGroup )
 		return pTrackGroup->GetFilmTrack();
-	return NULL;
+	return nullptr;
 }
 
 CDmeTrackGroup *CDmeFilmClip::FindOrCreateFilmTrackGroup()
@@ -1356,7 +1355,7 @@ void CDmeFilmClip::SetOverlay( const char *pMaterialName )
 
 IMaterial *CDmeFilmClip::GetOverlayMaterial()
 {
-	return NULL;
+	return nullptr;
 }
 
 float CDmeFilmClip::GetOverlayAlpha()
@@ -1466,7 +1465,7 @@ CDmeAnimationSet *CDmeFilmClip::FindAnimationSet( const char *pAnimSetName ) con
 		if ( V_stricmp( pAnimSet->GetName(), pAnimSetName ) == 0 )
 			return pAnimSet;
 	}
-	return NULL;
+	return nullptr;
 }
 
 const CDmaElementArray< CDmeBookmarkSet > &CDmeFilmClip::GetBookmarkSets() const
@@ -1493,7 +1492,7 @@ CDmeBookmarkSet *CDmeFilmClip::GetActiveBookmarkSet()
 {
 	int nBookmarkSets = m_BookmarkSets.Count();
 	if ( m_nActiveBookmarkSet >= nBookmarkSets )
-		return NULL;
+		return nullptr;
 
 	return m_BookmarkSets[ m_nActiveBookmarkSet ];
 }
@@ -1670,7 +1669,7 @@ CDmeTrack *GetParentTrack( CDmeClip *pClip )
 		if ( pTrack )
 			return pTrack;
 	}
-	return NULL;
+	return nullptr;
 }
 
 
@@ -1700,7 +1699,7 @@ CDmeChannel *FindChannelTargetingElement( CDmElement *pElement, const char *pAtt
 		return pChannel;
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 
@@ -1727,7 +1726,7 @@ CDmeChannel *FindChannelTargetingElement( CDmeChannelsClip *pChannelsClip, CDmEl
 		return pChannel;
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 
@@ -1764,7 +1763,7 @@ CDmeChannel *FindChannelTargetingElement( CDmeFilmClip *pClip, CDmElement *pElem
 		DMETRACKGROUP_FOREACH_CLIP_TYPE_END()
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 
@@ -1896,11 +1895,9 @@ CDmeFilmClip *FindFilmClipContainingDag( CDmeDag *pDag )
 			return pFilmClip;
 	}
 
-	return NULL;
+	return nullptr;
 }
 
-
-static ConVar sfm_maxcamerastack( "sfm_maxcamerastack", "10", FCVAR_ARCHIVE, "Number of work cameras to store in camera stack." );
 
 void CDmeFilmClip::LatchWorkCamera( CDmeCamera *pCamera )
 {
@@ -1918,7 +1915,7 @@ void CDmeFilmClip::LatchWorkCamera( CDmeCamera *pCamera )
 
 	m_nCurrentStackCamera = m_CameraStack.Count() - 1;
 
-	int maxStack = clamp( sfm_maxcamerastack.GetInt(), 4, 100 );
+	int maxStack = clamp( 10, 4, 100 );
 
 	while ( m_CameraStack.Count() > maxStack )
 	{
@@ -1952,7 +1949,7 @@ CDmeCamera *CDmeFilmClip::GetCurrentCameraStackEntry()
 {
 	m_nCurrentStackCamera = clamp( m_nCurrentStackCamera, 0, m_CameraStack.Count() - 1 );
 	if ( m_nCurrentStackCamera < 0 || m_nCurrentStackCamera >= m_CameraStack.Count() )
-		return NULL;
+		return nullptr;
 
 	CDmeCamera *entry = m_CameraStack[ m_nCurrentStackCamera ];
 	return entry;

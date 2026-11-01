@@ -6,12 +6,9 @@
 //
 //===========================================================================//
 
-#include "tier0/dbg.h"
+
 #include "mathlib/mathlib.h"
 #include "studiomdl/bone_setup.h"
-#if defined( _PS3 )
-#include "bone_setup_PS3.h"
-#endif
 
 #include <cstring>
 
@@ -483,7 +480,7 @@ bool Studio_IKAnimationError( const CStudioHdr *pStudioHdr, mstudioikrule_t *pRu
 		return false;
 
 	mstudioikerror_t *pError = pRule->pError( iFrame );
-	if (pError != NULL)
+	if (pError != nullptr)
 	{
 		if (fraq < 0.001)
 		{
@@ -499,7 +496,7 @@ bool Studio_IKAnimationError( const CStudioHdr *pStudioHdr, mstudioikrule_t *pRu
 	}
 
 	mstudiocompressedikerror_t *pCompressed = pRule->pCompressedError();
-	if (pCompressed != NULL)
+	if (pCompressed != nullptr)
 	{
 		CalcDecompressedAnimation( pCompressed, iFrame - pRule->iStart, fraq, pos, q );
 		return true;
@@ -538,7 +535,7 @@ bool Studio_IKSequenceError( const CStudioHdr *pStudioHdr, mstudioseqdesc_t &seq
 			}
 
 			mstudioikrule_t *pRule = panim[i]->pIKRule( iRule );
-			if (pRule != NULL)
+			if (pRule != nullptr)
 			{
 				float dt = 0.0f;
 				if (prevStart != 0.0f)
@@ -618,7 +615,7 @@ bool Studio_IKSequenceError( const CStudioHdr *pStudioHdr, mstudioseqdesc_t &seq
 		// go ahead and allow IK_GROUND rules a virtual looping section
 		if ( weight[0] )
 		{
-			if ( panim[ 0 ]->pIKRule( iRule ) == NULL )
+			if ( panim[ 0 ]->pIKRule( iRule ) == nullptr)
 				return false;
 			if ( ( panim[ 0 ]->flags & STUDIO_LOOPING ) && panim[ 0 ]->pIKRule( iRule )->type == IK_GROUND && ikRule.end - ikRule.start > 0.75 )
 			{
@@ -652,7 +649,7 @@ bool Studio_IKSequenceError( const CStudioHdr *pStudioHdr, mstudioseqdesc_t &seq
 			float w;
 
 			mstudioikrule_t *pRule = panim[i]->pIKRule( iRule );
-			if (pRule != NULL)
+			if (pRule != nullptr)
 			{
 				ikRule.chain = pRule->chain;	// FIXME: this is anim local
 				ikRule.bone = pRule->bone;		// FIXME: this is anim local
@@ -752,7 +749,7 @@ CIKContext::CIKContext()
 {
 	m_target.EnsureCapacity( 12 ); // FIXME: this sucks, shouldn't it be grown?
 	m_iFramecounter = -1;
-	m_pStudioHdr = NULL;
+	m_pStudioHdr = nullptr;
 	m_flTime = -1.0f;
 	m_target.SetSize( 0 );
 }
@@ -872,65 +869,6 @@ void CIKContext::AddDependencies( mstudioseqdesc_t &seqdesc, int iSequence, floa
 	}
 }
 
-#if defined( _PS3 )
-
-//--------------------------------------------------------------------------------------
-// 2nd part of IKContext AddDependencies
-//
-// 1st part assumed to have run during a PS3 bonejob, building a list of IKRules to potentially add
-//--------------------------------------------------------------------------------------
-void CIKContext::AddAllDependencies_PS3( ikcontextikrule_t *ikRules, int numRules )
-{
-
-	int i;
-
-	// FIXME: add proper number of rules!!!
-	for( i = 0; i < numRules; i++ )
-	{
-		ikcontextikrule_t &ikrule = ikRules[ i ];
-
-		// no copy constructors generally allowed
-		//memcpy( &ikrule, &ikRules[i], sizeof(ikcontextikrule_t) );
-
-		// don't add rule if the bone isn't going to be calculated
-//		int bone = m_pStudioHdr->pIKChain( ikrule.chain )->pLink( 2 )->bone;
-//		if ( !(m_pStudioHdr->boneFlags( bone ) & m_boneMask))
-//			continue;
-
-		// or if its relative bone isn't going to be calculated
-//		if ( ikrule.bone >= 0 && !(m_pStudioHdr->boneFlags( ikrule.bone ) & m_boneMask))
-//			continue;
-
-		// FIXME: Brutal hackery to prevent a crash
-		if (m_target.Count() == 0)
-		{
-			m_target.SetSize(12);
-			memset( m_target.Base(), 0, sizeof(m_target[0])*m_target.Count() );
-			ClearTargets();
-		}
-
-		//ikrule.flRuleWeight = flWeight;
-
-		if( ikrule.flRuleWeight * ikrule.flWeight > 0.999f )
-		{
-			if ( ikrule.type != IK_UNLATCH)
-			{
-				// clear out chain if rule is 100%
-				m_ikChainRule.Element( ikrule.chain ).RemoveAll( );
-				if ( ikrule.type == IK_RELEASE)
-				{
-					continue;
-				}
-			}
-		}
-
-		int nIndex = m_ikChainRule.Element( ikrule.chain ).AddToTail( );
-		m_ikChainRule.Element( ikrule.chain ).Element( nIndex ) = ikrule;
-	}
-}
-
-
-#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: 
@@ -1321,7 +1259,7 @@ void CIKContext::UpdateTargets( BoneVector pos[], BoneQuaternion q[], matrix3x4a
 					}
 					else
 					{
-						pTarget->offset.pAttachmentName = NULL;
+						pTarget->offset.pAttachmentName = nullptr;
 					}
 
 					if (pRule->flRuleWeight == 1.0f || pTarget->est.flWeight == 0.0f)
@@ -1559,13 +1497,13 @@ void CIKContext::AutoIKRelease( void )
 				if ( pTarget->chain >= 0 && pTarget->chain < m_pStudioHdr->numikchains())
 				{
 					mstudioikchain_t *pchain = m_pStudioHdr->pIKChain( pTarget->chain );
-					if (pchain != NULL)
+					if (pchain != nullptr)
 					{
 						int bone = pchain->pLink( 2 )->bone;
 						if (bone >= 0 && bone < m_pStudioHdr->numbones())
 						{
 							const mstudiobone_t *pBone = m_pStudioHdr->pBone( bone );
-							if (pBone != NULL)
+							if (pBone != nullptr)
 							{
 								if ( !(m_pStudioHdr->boneFlags( bone ) & m_boneMask))
 								{
@@ -1583,22 +1521,22 @@ void CIKContext::AutoIKRelease( void )
 							}
 							else
 							{
-								DevWarning( 1, "AutoIKRelease (%s) got a NULL pBone %d\n", m_pStudioHdr->name(), bone );
+								DevWarning( "AutoIKRelease (%s) got a NULL pBone %d\n", m_pStudioHdr->name(), bone );
 							}
 						}
 						else
 						{
-							DevWarning( 1, "AutoIKRelease (%s) got an out of range bone %d (%d)\n", m_pStudioHdr->name(), bone, m_pStudioHdr->numbones() );
+							DevWarning( "AutoIKRelease (%s) got an out of range bone %d (%d)\n", m_pStudioHdr->name(), bone, m_pStudioHdr->numbones() );
 						}
 					}
 					else
 					{
-						DevWarning( 1, "AutoIKRelease (%s) got a NULL pchain %d\n", m_pStudioHdr->name(), pTarget->chain );
+						DevWarning( "AutoIKRelease (%s) got a NULL pchain %d\n", m_pStudioHdr->name(), pTarget->chain );
 					}
 				}
 				else
 				{
-					DevWarning( 1, "AutoIKRelease (%s) got an out of range chain %d (%d)\n", m_pStudioHdr->name(), pTarget->chain, m_pStudioHdr->numikchains());
+					DevWarning( "AutoIKRelease (%s) got an out of range chain %d (%d)\n", m_pStudioHdr->name(), pTarget->chain, m_pStudioHdr->numikchains());
 				}
 			}
 			else
@@ -2157,7 +2095,7 @@ void CIKContext::CopyTo( CIKContext* pOther, const unsigned short * iRemapping  
 		FOR_EACH_VEC( m_ikChainRule[n], m )
 		{
 			int nIKChainBone = m_ikChainRule[n][m].bone;
-			if ( iRemapping != NULL && m_ikChainRule[ n ][ m ].type != IK_RELEASE )
+			if ( iRemapping != nullptr && m_ikChainRule[ n ][ m ].type != IK_RELEASE )
 			{
 				int nIKChainBoneRemapped = iRemapping[ nIKChainBone ];
 				if ( nIKChainBoneRemapped < 0 || nIKChainBoneRemapped >= MAXSTUDIOBONES )
@@ -2175,7 +2113,7 @@ void CIKContext::CopyTo( CIKContext* pOther, const unsigned short * iRemapping  
 	FOR_EACH_VEC( m_ikLock, n )
 	{
 		int nIKChainBone = m_ikLock[n].bone;
-		if ( iRemapping != NULL && m_ikLock[ n ].type != IK_RELEASE )
+		if ( iRemapping != nullptr && m_ikLock[ n ].type != IK_RELEASE )
 		{
 			int nIKChainBoneRemapped = iRemapping[ nIKChainBone ];
 			if ( nIKChainBoneRemapped < 0 || nIKChainBoneRemapped >= MAXSTUDIOBONES )

@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // A class representing a transform
 //
 //=============================================================================
 
-#ifndef DMEOVERLAY_H
-#define DMEOVERLAY_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -71,4 +70,3 @@ private:
 };
 
 
-#endif // DMEOVERLAY_H

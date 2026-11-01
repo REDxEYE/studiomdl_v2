@@ -203,7 +203,7 @@ for the model, which holds for all frames
 */
 int	numcommandnodes;
 
-int BuildTris (s_trianglevert_t (*x)[3], s_mesh_t *y, byte **ppdata )
+int BuildTris (s_trianglevert_t (*x)[3], s_mesh_t *y, uint8_t **ppdata )
 {
 	int		i, j, k, m;
 	int		startv;
@@ -213,14 +213,14 @@ int BuildTris (s_trianglevert_t (*x)[3], s_mesh_t *y, byte **ppdata )
 	int		peak[MAXSTUDIOTRIANGLES];
 	int		type;
 	int		total = 0;
-	long 	t;
+	int32_t	t;
 	int		maxlen;
 
 	triangles = x;
 	pmesh = y;
 
 
-	t = time( NULL );
+	t = time(nullptr);
 
 	for (i=0 ; i<pmesh->numfaces ; i++)
 	{
@@ -333,16 +333,16 @@ int BuildTris (s_trianglevert_t (*x)[3], s_mesh_t *y, byte **ppdata )
 		// printf("%d ", bestlen - 2 );
 		numcommandnodes++;
 
-		if (t != time(NULL))
+		if (t != time(nullptr))
 		{
 			printf("%2d%%\r", (total * 100) / pmesh->numfaces );
-			t = time(NULL);
+			t = time(nullptr);
 		}
 	}
 
 	commands[numcommands++] = 0;		// end of list marker
 
-	*ppdata = (byte *)commands;
+	*ppdata = (uint8_t *)commands;
 
 	// printf("%d %d %d\n", numcommandnodes, numcommands, pmesh->numfaces  );
 	return numcommands * sizeof( short );

@@ -2,13 +2,12 @@
 // Created by RED on 15.05.2024.
 //
 
-#ifndef STUDIOMDL_V2_STUDIOMDL_COMMANDS_H
-#define STUDIOMDL_V2_STUDIOMDL_COMMANDS_H
+#pragma once
 
 #include "studiomdl/studiomdl.h"
 
 s_source_t *FindCachedSource(const char *name, const char *xext);
-void AddBodyFlexData(s_source_t *pSource, int imodel);
+void AddBodyFlexData(s_source_t *pSource, int imodel, bool bAddControllers = true);
 void AddBodyAttachments(s_source_t *pSource);
 void AddBodyFlexRules(s_source_t *pSource);
 void Option_Flexrule(s_model_t * pmodel , const char *name);
@@ -26,4 +25,3 @@ extern int g_nMDLCommandCount;
 
 static MDLCommand_t *g_pMDLCommands = g_Commands;
 
-#endif //STUDIOMDL_V2_STUDIOMDL_COMMANDS_H

@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2008, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2008, Valve Corporation, All rights reserved. =======
 //
 // Declaration of the CDmeTransform control class, a helper for modifying a
 // transform.
 //
 //=============================================================================
-#ifndef DMETRANSFORMCONTROL_H
-#define DMETRANSFORMCONTROL_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -156,4 +155,3 @@ private:
 };
 
 
-#endif // DMETRANSFORMCONTROL_H

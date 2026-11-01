@@ -8,8 +8,7 @@
 #pragma once
 
 
-#ifndef _D2DBASETYPES_INCLUDED
-#define _D2DBASETYPES_INCLUDED
+#pragma once
 
 #ifndef COM_NO_WINDOWS_H
 #include <windows.h>
@@ -142,4 +141,3 @@ typedef struct D2D_MATRIX_3X2_F
 
 } D2D_MATRIX_3X2_F;
 
-#endif // #ifndef _D2DBASETYPES_INCLUDED

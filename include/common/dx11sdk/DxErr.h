@@ -6,8 +6,7 @@
  *
  ****************************************************************************/
 
-#ifndef _DXERR_H_
-#define _DXERR_H_
+#pragma once
 
 #ifdef __cplusplus
 extern "C" {
@@ -96,4 +95,3 @@ HRESULT WINAPI DXTraceW( const char* strFile, DWORD dwLine, HRESULT hr, const WC
 }
 #endif //__cplusplus
 
-#endif // _DXERR_H_

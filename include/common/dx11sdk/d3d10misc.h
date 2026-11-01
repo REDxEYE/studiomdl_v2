@@ -7,8 +7,7 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 
-#ifndef __D3D10MISC_H__
-#define __D3D10MISC_H__
+#pragma once
 
 #include "d3d10.h"
 
@@ -170,6 +169,5 @@ HRESULT WINAPI D3D10CreateBlob(SIZE_T NumBytes, LPD3D10BLOB *ppBuffer);
 }
 #endif //__cplusplus
 
-#endif //__D3D10EFFECT_H__
 
 

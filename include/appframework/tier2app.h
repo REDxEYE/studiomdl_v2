@@ -11,8 +11,7 @@
 // The application object for apps that use tier2
 //=============================================================================
 
-#ifndef TIER2APP_H
-#define TIER2APP_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -84,4 +83,3 @@ public:
 };
 
 
-#endif // TIER2APP_H

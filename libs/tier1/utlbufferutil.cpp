@@ -25,15 +25,14 @@
 #include "tier1/characterset.h"
 #include "tier1/utlsymbollarge.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 			    
 
 //-----------------------------------------------------------------------------
 // For serialization, set the delimiter rules
 //-----------------------------------------------------------------------------
-CUtlCharConversion *s_pConv = NULL;
-const char *s_pUtlBufferUtilArrayDelim = NULL;
+CUtlCharConversion *s_pConv = nullptr;
+const char *s_pUtlBufferUtilArrayDelim = nullptr;
 void SetSerializationDelimiter( CUtlCharConversion *pConv )
 {
 	s_pConv = pConv;

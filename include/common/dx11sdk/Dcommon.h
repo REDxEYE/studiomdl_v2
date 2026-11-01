@@ -7,8 +7,7 @@
 //
 //----------------------------------------------------------------------------
 
-#ifndef DCOMMON_H_INCLUDED
-#define DCOMMON_H_INCLUDED
+#pragma once
 
 //
 //These macros are defined in the Windows 7 SDK, however to enable development using the technical preview,
@@ -72,4 +71,3 @@ typedef enum DWRITE_MEASURING_MODE
 // It will be removed after January 28. BUG: 394869
 typedef DWRITE_MEASURING_MODE DWRITE_TEXT_MEASURING_METHOD;
 
-#endif /* DCOMMON_H_INCLUDED */

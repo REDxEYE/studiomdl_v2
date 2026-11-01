@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright Â© 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
@@ -7,8 +7,7 @@
 // $NoKeywords: $
 //=============================================================================//
 
-#ifndef VPLANE_H
-#define VPLANE_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -179,4 +178,3 @@ inline SideType VPlane::BoxOnPlaneSide(const Vector &vMin, const Vector &vMax) c
 
 
 
-#endif // VPLANE_H

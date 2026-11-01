@@ -5,8 +5,7 @@
 // $NoKeywords: $
 //=============================================================================//
 
-#ifndef OPTIMIZE_H
-#define OPTIMIZE_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -43,7 +42,7 @@ struct Vertex_t
 
 	// for sw skinned verts, these are indices into the global list of bones
 	// for hw skinned verts, these are hardware bone indices
-	byte boneID[MAX_NUM_BONES_PER_VERT];
+	uint8_t boneID[MAX_NUM_BONES_PER_VERT];
 };
 
 // We don't do actual strips anymore, only triangle lists and subd quad lists
@@ -74,7 +73,7 @@ struct StripHeader_t
 	int boneStateChangeOffset;
 	inline BoneStateChangeHeader_t *pBoneStateChange( int i ) const
 	{
-		return (BoneStateChangeHeader_t *)(((byte *)this) + boneStateChangeOffset) + i;
+		return (BoneStateChangeHeader_t *)(((uint8_t *)this) + boneStateChangeOffset) + i;
 	};
 
 	// These go last on purpose!
@@ -99,21 +98,21 @@ struct StripGroupHeader_t
 	int vertOffset;
 	inline Vertex_t *pVertex( int i ) const 
 	{ 
-		return (Vertex_t *)(((byte *)this) + vertOffset) + i; 
+		return (Vertex_t *)(((uint8_t *)this) + vertOffset) + i; 
 	};
 
 	int numIndices;
 	int indexOffset;
 	inline unsigned short *pIndex( int i ) const 
 	{ 
-		return (unsigned short *)(((byte *)this) + indexOffset) + i; 
+		return (unsigned short *)(((uint8_t *)this) + indexOffset) + i; 
 	};
 
 	int numStrips;
 	int stripOffset;
 	inline StripHeader_t *pStrip( int i ) const 
 	{ 
-		return (StripHeader_t *)(((byte *)this) + stripOffset) + i; 
+		return (StripHeader_t *)(((uint8_t *)this) + stripOffset) + i; 
 	};
 
 	unsigned char flags;
@@ -122,7 +121,7 @@ struct StripGroupHeader_t
 	int topologyOffset;
 	inline unsigned short *pTopologyIndex( int i ) const 
 	{ 
-		return (unsigned short *)(((byte *)this) + topologyOffset) + i; 
+		return (unsigned short *)(((uint8_t *)this) + topologyOffset) + i; 
 	};
 };
 
@@ -146,7 +145,7 @@ struct MeshHeader_t
 	int stripGroupHeaderOffset;
 	inline StripGroupHeader_t *pStripGroup( int i ) const 
 	{ 
-		StripGroupHeader_t *pDebug = (StripGroupHeader_t *)(((byte *)this) + stripGroupHeaderOffset) + i; 
+		StripGroupHeader_t *pDebug = (StripGroupHeader_t *)(((uint8_t *)this) + stripGroupHeaderOffset) + i; 
 		return pDebug;
 	};
 	unsigned char flags;
@@ -159,7 +158,7 @@ struct ModelLODHeader_t
 	float switchPoint;
 	inline MeshHeader_t *pMesh( int i ) const 
 	{ 
-		MeshHeader_t *pDebug = (MeshHeader_t *)(((byte *)this) + meshOffset) + i; 
+		MeshHeader_t *pDebug = (MeshHeader_t *)(((uint8_t *)this) + meshOffset) + i; 
 		return pDebug;
 	};
 };
@@ -172,7 +171,7 @@ struct ModelHeader_t
 	int lodOffset;
 	inline ModelLODHeader_t *pLOD( int i ) const 
 	{ 
-		ModelLODHeader_t *pDebug = ( ModelLODHeader_t *)(((byte *)this) + lodOffset) + i; 
+		ModelLODHeader_t *pDebug = ( ModelLODHeader_t *)(((uint8_t *)this) + lodOffset) + i; 
 		return pDebug;
 	};
 };
@@ -183,7 +182,7 @@ struct BodyPartHeader_t
 	int modelOffset;
 	inline ModelHeader_t *pModel( int i ) const 
 	{ 
-		ModelHeader_t *pDebug = (ModelHeader_t *)(((byte *)this) + modelOffset) + i;
+		ModelHeader_t *pDebug = (ModelHeader_t *)(((uint8_t *)this) + modelOffset) + i;
 		return pDebug;
 	};
 };
@@ -194,7 +193,7 @@ struct MaterialReplacementHeader_t
 	int replacementMaterialNameOffset;
 	inline const char *pMaterialReplacementName( void )
 	{
-		const char *pDebug = (const char *)(((byte *)this) + replacementMaterialNameOffset); 
+		const char *pDebug = (const char *)(((uint8_t *)this) + replacementMaterialNameOffset); 
 		return pDebug;
 	}
 };
@@ -205,7 +204,7 @@ struct MaterialReplacementListHeader_t
 	int replacementOffset;
 	inline MaterialReplacementHeader_t *pMaterialReplacement( int i ) const
 	{
-		MaterialReplacementHeader_t *pDebug = ( MaterialReplacementHeader_t *)(((byte *)this) + replacementOffset) + i; 
+		MaterialReplacementHeader_t *pDebug = ( MaterialReplacementHeader_t *)(((uint8_t *)this) + replacementOffset) + i; 
 		return pDebug;
 	}
 };
@@ -231,7 +230,7 @@ struct FileHeader_t
 	MaterialReplacementListHeader_t *pMaterialReplacementList( int lodID ) const
 	{ 
 		MaterialReplacementListHeader_t *pDebug = 
-			(MaterialReplacementListHeader_t *)(((byte *)this) + materialReplacementListOffset) + lodID;
+			(MaterialReplacementListHeader_t *)(((uint8_t *)this) + materialReplacementListOffset) + lodID;
 		return pDebug;
 	}
 
@@ -239,7 +238,7 @@ struct FileHeader_t
 	int bodyPartOffset;
 	inline BodyPartHeader_t *pBodyPart( int i ) const 
 	{
-		BodyPartHeader_t *pDebug = (BodyPartHeader_t *)(((byte *)this) + bodyPartOffset) + i;
+		BodyPartHeader_t *pDebug = (BodyPartHeader_t *)(((uint8_t *)this) + bodyPartOffset) + i;
 		return pDebug;
 	};	
 };
@@ -250,4 +249,3 @@ void WriteOptimizedFiles( studiohdr_t *phdr, s_bodypart_t *pSrcBodyParts );
 
 }; // namespace OptimizedModel
 
-#endif // OPTIMIZE_H

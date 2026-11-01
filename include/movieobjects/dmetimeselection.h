@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2005, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2005, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
 //=============================================================================
 
-#ifndef DMETIMESELECTION_H
-#define DMETIMESELECTION_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -14,7 +13,7 @@
 #include "datamodel/dmattributevar.h"
 #include "movieobjects/dmetimeselectiontimes.h"
 
-enum RecordingState_t;
+enum RecordingState_t : int;
 
 class CDmeTimeSelection : public CDmElement
 {
@@ -39,7 +38,7 @@ public:
 	int					GetFalloffInterpolatorType( int side ) const;
 	void				SetFalloffInterpolatorType( int side, int interpolatorType );
 
-	void				GetAlphaForTime( DmeTime_t t, DmeTime_t curtime, byte &alpha );
+	void				GetAlphaForTime( DmeTime_t t, DmeTime_t curtime, uint8_t &alpha );
 	float				GetAmountForTime( DmeTime_t t, DmeTime_t curtime );
 	float				AdjustFactorForInterpolatorType( float factor, int side );
 
@@ -95,4 +94,3 @@ private:
 	CDmaVar< int > m_nRecordingState;
 };
 
-#endif // DMETIMESELECTION_H

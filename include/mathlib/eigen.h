@@ -5,10 +5,9 @@
 // $NoKeywords: $
 //=============================================================================//
 
-#ifndef EIGEN_H
-#define EIGEN_H
+#pragma once
 
-#include "tier0/dbg.h"
+
 #include "mathlib/mathlib.h"
 extern Quaternion Diagonalizer( const matrix3x4_t &A, Vector &d );
 
@@ -23,4 +22,3 @@ extern void ComputeExtents( Vector &vCenter, Vector &vScale, const Quaternion &q
 // Wraps up all of the above calls to compute the matrix to transform a unit cube at the origin to contain the specified point list
 extern void ComputeBoundingBoxMatrix( matrix3x4_t &boundingBoxMatrix, const Vector *pPointList, int nPointCount );
 
-#endif

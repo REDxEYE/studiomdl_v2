@@ -5,8 +5,7 @@
 // $NoKeywords: $
 //=============================================================================//
 
-#ifndef BSPFILE_H
-#define BSPFILE_H
+#pragma once
 #pragma once
 
 #ifndef MATHLIB_H
@@ -406,7 +405,7 @@ struct BSPHeader_t
 struct dflagslump_t
 {
 	DECLARE_BYTESWAP_DATADESC();
-	uint32 m_LevelFlags;						// LVLFLAGS_xxx
+	uint32_t m_LevelFlags;						// LVLFLAGS_xxx
 };
 
 struct lumpfileheader_t
@@ -475,15 +474,15 @@ struct dphyslevelpolytope_t
 struct DiskPhysics2Polytope_t
 {
 	DECLARE_BYTESWAP_DATADESC();
-	int32 offsetPolytope; // this is the offset to the serialized data of this polytope
-	int32 offsetInertia;
+	int32_t offsetPolytope; // this is the offset to the serialized data of this polytope
+	int32_t offsetInertia;
 };
 
 struct DiskPhysics2LevelMesh_t
 {
 	DECLARE_BYTESWAP_DATADESC();
 	DataLinker::Offset_t<void> polymesh; // this is polysoup in data version 0xC0000002, and polytope in 0xC0000001
-	int32 flags;
+	int32_t flags;
 
 	enum { FLAG_RESERVED = 1, FLAG_FORCE_POLYSOUP = 1 << 1, FLAG_FORCE_POLYTOPE = 1 << 2 }; 
 };
@@ -493,10 +492,10 @@ struct dphyslevelV0_t
 	DECLARE_BYTESWAP_DATADESC()
 	enum {DATA_VERSION_WITH_DISPLACEMENT = 0xC0000001};
 	enum {DATA_VERSION = 0xC0000002};
-	int32 toolVersion; // increment this for backward-compatible data changes (changes that the old code can read without problems)
-	int32 dataVersion; // change this for backward-incompatible changes
-	int32 sizeofDiskPhysics2LevelMesh;
-	int32 buildTime;
+	int32_t toolVersion; // increment this for backward-compatible data changes (changes that the old code can read without problems)
+	int32_t dataVersion; // change this for backward-incompatible changes
+	int32_t sizeofDiskPhysics2LevelMesh;
+	int32_t buildTime;
 	DataLinker::OffsetAndSize_t<DiskPhysics2LevelMesh_t> levelMeshes;
 	DataLinker::Offset_t<void> polysoup;
 	DataLinker::Offset_t<void> mopp;
@@ -505,7 +504,7 @@ struct dphyslevelV0_t
 	DataLinker::OffsetAndSize_t<DiskPhysics2LevelMesh_t> levelWaterMeshes;
 	DataLinker::OffsetAndSize_t< DiskPhysics2LevelMesh_t > levelCModels; // the entities that belong to bsp, implementing features from old physics
 	DataLinker::OffsetAndSize_t< DataLinker::Offset_t<char> > levelStaticModels;
-	int32 nReserved2[8];
+	int32_t nReserved2[8];
 };
 
 
@@ -798,8 +797,8 @@ struct dface_t
 {
 	DECLARE_BYTESWAP_DATADESC();
 	unsigned short	planenum;
-	byte		side;	// faces opposite to the node's plane direction
-	byte		onNode; // 1 of on node, 0 if in leaf
+	uint8_t		side;	// faces opposite to the node's plane direction
+	uint8_t		onNode; // 1 of on node, 0 if in leaf
 
 	int			firstedge;		// we must support > 64k edges
 	short		numedges;	
@@ -819,7 +818,7 @@ struct dface_t
 //	};
 
 	// lighting info
-	byte		styles[MAXLIGHTMAPS];
+	uint8_t		styles[MAXLIGHTMAPS];
 	int			lightofs;		// start of [numstyles*surfsize] samples
     float       area;
 
@@ -893,12 +892,6 @@ struct dfacebrushlist_t
 #define LEAF_FLAGS_SKY2D		0x04		// This leaf has 2D sky in its PVS
 #define LEAF_FLAGS_CONTAINS_DETAILOBJECTS 0x08				// this leaf has at least one detail object in it (set by loader).
 
-#if defined( _X360 )
-#pragma bitfield_order( push, lsb_to_msb )
-#elif defined( _PS3 )
-#pragma ms_struct on
-#pragma reverse_bitfields on
-#endif
 #pragma warning( disable:4201 )	// C4201: nonstandard extension used: nameless struct/union
 struct dleaf_version_0_t
 {
@@ -954,12 +947,6 @@ struct dleaf_t
 //	CompressedLightCube m_AmbientLighting;
 };
 #pragma warning( default:4201 )	// C4201: nonstandard extension used: nameless struct/union
-#if defined( _X360 )
-#pragma bitfield_order( pop )
-#elif defined( _PS3 )
-#pragma ms_struct off
-#pragma reverse_bitfields off
-#endif
 
 // each leaf contains N samples of the ambient lighting
 // each sample contains a cube of ambient light projected on to each axis
@@ -968,10 +955,10 @@ struct dleafambientlighting_t
 {
 	DECLARE_BYTESWAP_DATADESC();
 	CompressedLightCube	cube;
-	byte x;		// fixed point fraction of leaf bounds
-	byte y;		// fixed point fraction of leaf bounds
-	byte z;		// fixed point fraction of leaf bounds
-	byte pad;	// unused
+	uint8_t x;		// fixed point fraction of leaf bounds
+	uint8_t y;		// fixed point fraction of leaf bounds
+	uint8_t z;		// fixed point fraction of leaf bounds
+	uint8_t pad;	// unused
 };
 
 struct dleafambientindex_t
@@ -988,8 +975,8 @@ struct dbrushside_t
 	unsigned short	planenum;		// facing out of the leaf
 	short			texinfo;
 	short			dispinfo;		// displacement info (BSPVERSION 7)
-	byte			bevel;			// is the side a bevel plane? (BSPVERSION 7)
-	byte			thin;			// is a thin side?
+	uint8_t			bevel;			// is the side a bevel plane? (BSPVERSION 7)
+	uint8_t			thin;			// is a thin side?
 };
 
 struct dbrush_t
@@ -1264,7 +1251,6 @@ inline unsigned short dwateroverlay_t::GetRenderOrder() const
 
 #ifndef _DEF_BYTE_
 #define _DEF_BYTE_
-typedef unsigned char	byte;
 typedef unsigned short	word;
 #endif
 
@@ -1289,17 +1275,16 @@ struct epair_t
 typedef struct nameForDatadesc_dlightmappage_t // unnamed structs collide in the datadesc macros
 {
 	DECLARE_BYTESWAP_DATADESC();
-	byte	data[MAX_LIGHTMAPPAGE_WIDTH*MAX_LIGHTMAPPAGE_HEIGHT];
-	byte	palette[256*4];
+	uint8_t	data[MAX_LIGHTMAPPAGE_WIDTH*MAX_LIGHTMAPPAGE_HEIGHT];
+	uint8_t	palette[256*4];
 } dlightmappage_t;
 
 typedef struct nameForDatadesc_dlightmappageinfo_t // unnamed structs collide in the datadesc macros
 {
 	DECLARE_BYTESWAP_DATADESC();
-	byte			page;			// lightmap page [0..?]
-	byte			offset[2];		// offset into page (s,t)
-	byte			pad;			// unused
+	uint8_t			page;			// lightmap page [0..?]
+	uint8_t			offset[2];		// offset into page (s,t)
+	uint8_t			pad;			// unused
 	ColorRGBExp32	avgColor;		// average used for runtime lighting calcs
 } dlightmappageinfo_t;
 
-#endif // BSPFILE_H

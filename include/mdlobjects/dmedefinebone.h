@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2008, Valve Corporation, All rights reserved. =====//
+//====== Copyright Â© 1996-2008, Valve Corporation, All rights reserved. =====//
 //
 // Dme representation of QC: $definebone
 //
 //===========================================================================//
 
-#ifndef DMEDEFINEBONE_H
-#define DMEDEFINEBONE_H
+#pragma once
 
 
 #ifdef _WIN32
@@ -35,4 +34,3 @@ public:
 };
 
 
-#endif // DMEDEFINEBONE_H

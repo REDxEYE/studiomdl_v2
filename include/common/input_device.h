@@ -6,14 +6,10 @@
 //
 //=============================================================================//
 
-#ifndef INPUT_DEVICES_H
-#define INPUT_DEVICES_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
-#endif
-#if defined( _PS3 )
-#include <limits.h>
 #endif
 
 
@@ -77,4 +73,3 @@ enum InputDeviceMCState
 };
 
 
-#endif //INPUT_DEVICES_H

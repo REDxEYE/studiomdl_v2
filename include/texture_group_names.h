@@ -1,11 +1,10 @@
-//===== Copyright © 1996-2005, Valve Corporation, All rights reserved. ======//
+//===== Copyright Â© 1996-2005, Valve Corporation, All rights reserved. ======//
 //
 // Purpose: 
 //
 //===========================================================================//
 
-#ifndef TEXTURE_GROUP_NAMES_H
-#define TEXTURE_GROUP_NAMES_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -44,4 +43,3 @@
 #define TEXTURE_GROUP_MORPH_TARGETS					"Morph Targets"
 #define TEXTURE_GROUP_SCALEFORM						"Scaleform textures"
 
-#endif // TEXTURE_GROUP_NAMES_H

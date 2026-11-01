@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
 //=============================================================================
 
-#ifndef MDLOBJECTS_H
-#define MDLOBJECTS_H
+#pragma once
 
 
 #ifdef _WIN32
@@ -57,4 +56,3 @@
 #include "mdlobjects/dmemouth.h"
 
 
-#endif // MDLOBJECTS_H

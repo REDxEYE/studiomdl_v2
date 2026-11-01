@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
@@ -236,7 +236,7 @@ public:
 	virtual bool Unserialize( CUtlBuffer &buf, const char *pEncodingName, int nEncodingVersion,
 		const char *pSourceFormatName, int nSourceFormatVersion,
 		DmFileId_t fileid, DmConflictResolution_t idConflictResolution, CDmElement **ppRoot );
-	virtual const char *GetImportedFormat() const { return NULL; }
+	virtual const char *GetImportedFormat() const { return nullptr; }
 
 private:
 	enum TokenType_t
@@ -523,8 +523,8 @@ bool CDmSerializerKeyValues2::Serialize( CUtlBuffer &outBuf, CDmElement *pRoot )
 		outBuf.PutChar( '\n' );
 	}
 
-	SetSerializationDelimiter( NULL );
-	SetSerializationArrayDelimiter( NULL );
+	SetSerializationDelimiter(nullptr);
+	SetSerializationArrayDelimiter(nullptr);
 
 	return true;
 }
@@ -543,7 +543,7 @@ void CDmSerializerKeyValues2::EatWhitespacesAndComments( CUtlBuffer &buf )
 	while ( nOffset < nMaxPut )	
 	{
 		// Eat whitespaces, keep track of line count
-		const char *pPeek = NULL;
+		const char *pPeek = nullptr;
 		while ( pPeek = (const char *)buf.PeekGet( sizeof(char), nOffset ) )
 		{
 			if ( !V_isspace( *pPeek ) )
@@ -859,7 +859,7 @@ bool CDmSerializerKeyValues2::UnserializeAttributeValueFromToken( CDmAttribute *
 
 	if ( bIsString )
 	{
-		SetSerializationDelimiter( NULL );
+		SetSerializationDelimiter(nullptr);
 	}
 
 	return bOk;
@@ -1338,7 +1338,7 @@ bool CDmSerializerKeyValues2::Unserialize( CUtlBuffer &buf, const char *pEncodin
 
 bool CDmSerializerKeyValues2::UnserializeElements( CUtlBuffer &buf, DmFileId_t fileid, DmConflictResolution_t idConflictResolution, CDmElement **ppRoot )
 {
-	*ppRoot = NULL;
+	*ppRoot = nullptr;
 
 	m_idConflictResolution = idConflictResolution;
 

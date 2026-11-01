@@ -125,7 +125,7 @@ bool CImportActBusy::Serialize( CUtlBuffer &buf, CDmElement *pRoot )
 //-----------------------------------------------------------------------------
 bool CImportActBusy::UnserializeActBusyKey( CDmAttribute *pChildren, KeyValues *pKeyValues )
 {
-	CDmElement *pActBusy = CreateDmElement( "DmElement", pKeyValues->GetName(), NULL );
+	CDmElement *pActBusy = CreateDmElement( "DmElement", pKeyValues->GetName(), nullptr);
 	if ( !pActBusy )
 		return false;
 
@@ -156,9 +156,9 @@ bool CImportActBusy::UnserializeActBusyKey( CDmAttribute *pChildren, KeyValues *
 CDmElement* CImportActBusy::UnserializeFromKeyValues( KeyValues *pKeyValues )
 {
 	// Create the main element
-	CDmElement *pElement = CreateDmElement( "DmElement", "ActBusyList", NULL );
+	CDmElement *pElement = CreateDmElement( "DmElement", "ActBusyList", nullptr);
 	if ( !pElement )
-		return NULL;
+		return nullptr;
 
 	// Each act busy list needs to have an editortype associated with it so it displays nicely in editors
 	pElement->SetValue( "editorType", "actBusyList" );
@@ -166,15 +166,15 @@ CDmElement* CImportActBusy::UnserializeFromKeyValues( KeyValues *pKeyValues )
 	// All actbusy keys are elements of a single element array attribute 'children'
 	CDmAttribute *pChildren = pElement->AddAttribute( "children", AT_ELEMENT_ARRAY );
 	if ( !pChildren )
-		return NULL;
+		return nullptr;
 
 	// Under the root are all the actbusy keys
-	for ( KeyValues *pActBusyKey = pKeyValues->GetFirstTrueSubKey(); pActBusyKey != NULL; pActBusyKey = pActBusyKey->GetNextTrueSubKey() )
+	for ( KeyValues *pActBusyKey = pKeyValues->GetFirstTrueSubKey(); pActBusyKey != nullptr; pActBusyKey = pActBusyKey->GetNextTrueSubKey() )
 	{
 		if ( !UnserializeActBusyKey( pChildren, pActBusyKey ) )
 		{
 			Warning( "Error importing actbusy element %s\n", pActBusyKey->GetName() );
-			return NULL;
+			return nullptr;
 		}
 	}
 

@@ -8,8 +8,7 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 
-#ifndef __D3D10EFFECT_H__
-#define __D3D10EFFECT_H__
+#pragma once
 
 #include "d3d10.h"
 
@@ -1450,6 +1449,5 @@ HRESULT WINAPI D3D10DisassembleEffect(ID3D10Effect *pEffect, BOOL EnableColorCod
 }
 #endif //__cplusplus
 
-#endif //__D3D10EFFECT_H__
 
 

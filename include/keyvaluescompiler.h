@@ -4,8 +4,7 @@
 //
 //=============================================================================
 
-#ifndef KEYVALUESCOMPILER_H
-#define KEYVALUESCOMPILER_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -158,7 +157,7 @@ private:
 	struct FileInfo_t
 	{
 		FileInfo_t() : 
-			hFile( 0 ),
+			hFile( nullptr ),
 			nFirstIndex( 0 ), 
 			nCount( 0 ) 
 		{
@@ -185,4 +184,3 @@ private:
 	CUtlBuffer							m_LoadBuffer;
 };
 
-#endif // KEYVALUESCOMPILER_H

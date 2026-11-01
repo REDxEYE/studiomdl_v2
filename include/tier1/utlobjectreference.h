@@ -4,8 +4,7 @@
 // $NoKeywords: $
 //===========================================================================//
 
-#ifndef UTLOBJECTREFERENCE_H
-#define UTLOBJECTREFERENCE_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -250,7 +249,6 @@ private:
 	void Compact();
 };
 
-#endif
 
 
 

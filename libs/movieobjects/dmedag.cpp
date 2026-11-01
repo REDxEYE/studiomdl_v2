@@ -4,22 +4,16 @@
 //
 //=============================================================================
 #include "movieobjects/dmedag.h"
-#include "movieobjects/dmeshape.h"
 #include "datamodel/dmelementfactoryhelper.h"
-#include "movieobjects/dmetransform.h"
-#include "movieobjects/dmeoverlay.h"
 #include "movieobjects_interfaces.h"
-#include "movieobjects/dmedrawsettings.h"
 #include "movieobjects/dmeclip.h"
 #include "movieobjects/dmelog.h"
 #include "movieobjects/dmechannel.h"
 #include "movieobjects/dmerigconstraintoperators.h"
 #include "movieobjects/dmetransformcontrol.h"
-#include "movieobjects/dmeattributereference.h"
 #include "movieobjects/dmerig.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 static const char OVERRIDE_PARENT[] = "overrideParent";
@@ -121,7 +115,7 @@ int CDmeDag::GetChildCount() const
 CDmeDag *CDmeDag::GetChild( int i ) const
 {
 	if ( i < 0 || i >= m_Children.Count() )
-		return NULL;
+		return nullptr;
 
 	return m_Children.Get( i );
 }
@@ -205,7 +199,7 @@ int CDmeDag::FindChild( CDmeDag *&pParent, const CDmeDag *pChild )
 			return index;
 	}
 
-	pParent = NULL;
+	pParent = nullptr;
 	return -1;
 }
 
@@ -245,7 +239,7 @@ CDmeDag *CDmeDag::FindChildByName_R( const char *name ) const
 			return found;
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 
@@ -673,7 +667,7 @@ CDmeTransformControl *CDmeDag::FindTransformControl() const
 		}
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 
@@ -762,7 +756,7 @@ void CDmeDag::FindRelevantOperators( CUtlVector< CDmeChannel * > &channelList, C
 	for ( int iOperator = 0; iOperator < nTotalOperators; ++iOperator )
 	{
 		CDmeOperator *pOperator = allOperatorsList[ iOperator ];
-		if ( pOperator == NULL )
+		if ( pOperator == nullptr)
 			continue;
 
 		CDmeChannel *pChannel = CastElement< CDmeChannel >( pOperator );
@@ -916,9 +910,9 @@ void CDmeDag::BakeStaticTransforms( bool bRecurse /*= true*/ )
 		if ( !pTransform )
 			continue;
 
-		CDmeVector3Log *pPosLog = NULL;
-		CDmeQuaternionLog *pRotLog = NULL;
-		CDmeTransformControl *pTransformControl = NULL;
+		CDmeVector3Log *pPosLog = nullptr;
+		CDmeQuaternionLog *pRotLog = nullptr;
+		CDmeTransformControl *pTransformControl = nullptr;
 
 		for ( CAttributeReferenceIterator it( pTransform ); it; ++it )
 		{
@@ -944,7 +938,7 @@ void CDmeDag::BakeStaticTransforms( bool bRecurse /*= true*/ )
 		if ( pPosLog )
 		{
 			int bestLayer = pPosLog->GetTopmostLayer();
-			CDmeVector3LogLayer *pPosLogLayer = bestLayer >= 0 ? pPosLog->GetLayer( bestLayer ) : NULL;
+			CDmeVector3LogLayer *pPosLogLayer = bestLayer >= 0 ? pPosLog->GetLayer( bestLayer ) : nullptr;
 			if ( pPosLogLayer )
 			{
 				int nPosKeys = pPosLogLayer->GetKeyCount();
@@ -959,7 +953,7 @@ void CDmeDag::BakeStaticTransforms( bool bRecurse /*= true*/ )
 		if ( pRotLog )
 		{
 			int bestLayer = pRotLog->GetTopmostLayer();
-			CDmeQuaternionLogLayer *pRotLogLayer = bestLayer >= 0 ? pRotLog->GetLayer( bestLayer ) : NULL;
+			CDmeQuaternionLogLayer *pRotLogLayer = bestLayer >= 0 ? pRotLog->GetLayer( bestLayer ) : nullptr;
 			if ( pRotLogLayer )
 			{
 				int nRotKeys = pRotLogLayer->GetKeyCount();
@@ -1009,11 +1003,9 @@ void CDmeDag::OnAttachToDmeDag( CDmeDag *pParentDag, bool bFixupLogs /*= true*/ 
 	if ( !pTransform )
 		return;
 
-	CUndoScopeGuard guard( NOTIFY_SETDIRTYFLAG, "CDmeDag::OnAttachToDmeDag" );
-
-	CDmeFilmClip *pFilmClip = NULL;
+	CDmeFilmClip *pFilmClip = nullptr;
 	
-	if ( pParentDag != NULL )
+	if ( pParentDag != nullptr)
 	{
 		pFilmClip = FindFilmClipContainingDag( pParentDag );
 	}
@@ -1050,10 +1042,10 @@ void CDmeDag::OnAttachToDmeDag( CDmeDag *pParentDag, bool bFixupLogs /*= true*/ 
 		parents[ i ]->RemoveChild( this );
 	}
 
-	if ( ( bFixupLogs ) && ( pFilmClip != NULL ) )
+	if ( ( bFixupLogs ) && ( pFilmClip != nullptr) )
 	{
 		CDmeTransform *pTransform = GetTransform();
-		CDmeChannel *pPosChannel = FindChannelTargetingElement( pFilmClip, pTransform, TRANSFORM_POSITION, NULL );
+		CDmeChannel *pPosChannel = FindChannelTargetingElement( pFilmClip, pTransform, TRANSFORM_POSITION, nullptr);
 		if ( pPosChannel )
 		{
 			CDmeLog *pLog = pPosChannel->GetLog();
@@ -1073,7 +1065,7 @@ void CDmeDag::OnAttachToDmeDag( CDmeDag *pParentDag, bool bFixupLogs /*= true*/ 
 				}
 			}
 		}
-		CDmeChannel *pRotChannel = FindChannelTargetingElement( pFilmClip, pTransform, TRANSFORM_ORIENTATION, NULL );
+		CDmeChannel *pRotChannel = FindChannelTargetingElement( pFilmClip, pTransform, TRANSFORM_ORIENTATION, nullptr);
 		if ( pRotChannel )
 		{
 			CDmeLog *pLog = pRotChannel->GetLog();
@@ -1126,7 +1118,7 @@ void CDmeDag::OnAttachToDmeDag( CDmeDag *pParentDag, bool bFixupLogs /*= true*/ 
 void CDmeDag::BindTransformToDmeDag( const CDmeDag *pTargetDag, const DmeLog_TimeSelection_t &timeSelection, const CDmeClip* pMovie, const Vector& offset, bool bPosition, bool bOrientation, bool bMaintainOffset )
 {
 	// Must specify a target dag and it must not be this dag.
-	if ( ( pTargetDag == NULL ) || ( pTargetDag == this ) )
+	if ( ( pTargetDag == nullptr) || ( pTargetDag == this ) )
 	{
 		Assert( pTargetDag );
 		return;
@@ -1134,7 +1126,7 @@ void CDmeDag::BindTransformToDmeDag( const CDmeDag *pTargetDag, const DmeLog_Tim
 
 	// Find the film clip for this dag and the target dag node and make sure they are the same
 	CDmeFilmClip *pFilmClip = FindFilmClipContainingDag( this );
-	if ( pFilmClip == NULL )
+	if ( pFilmClip == nullptr)
 	{
 		pFilmClip = FindReferringElement< CDmeFilmClip >( this, "camera" );
 	}
@@ -1183,19 +1175,16 @@ void CDmeDag::BindTransformToDmeDag( const CDmeDag *pTargetDag, const DmeLog_Tim
 
 	
 	// Find the position and orientation channels associated with the transform
-	CDmeChannel *pLocalPosChannel = bPosition ? FindChannelTargetingElement( pFilmClip, pTransform, "position", NULL ) : NULL;
-	CDmeChannel *pLocalRotChannel = bOrientation ? FindChannelTargetingElement( pFilmClip, pTransform, "orientation", NULL ) : NULL;
+	CDmeChannel *pLocalPosChannel = bPosition ? FindChannelTargetingElement( pFilmClip, pTransform, "position", nullptr) : nullptr;
+	CDmeChannel *pLocalRotChannel = bOrientation ? FindChannelTargetingElement( pFilmClip, pTransform, "orientation", nullptr) : nullptr;
 
 	if ( pLocalPosChannel || pLocalRotChannel )
 	{
-		// Start a new undo group for the operation
-		g_pDataModel->StartUndo( "Attach Transform", "Attach Transform" );
-
-		CDmeLog *pPosLog = ( pLocalPosChannel != NULL ) ? pLocalPosChannel->GetLog() : NULL;
-		CDmeLog *pRotLog = ( pLocalRotChannel != NULL ) ? pLocalRotChannel->GetLog() : NULL;
-		CDmeChannelsClip *pPosChannelsClip = ( pLocalPosChannel != NULL ) ? FindAncestorReferencingElement< CDmeChannelsClip >( pLocalPosChannel ) : NULL;
-		CDmeChannelsClip *pRotChannelsClip = ( pLocalRotChannel != NULL ) ? FindAncestorReferencingElement< CDmeChannelsClip >( pLocalRotChannel ) : NULL;
-		CDmeChannelsClip *pChannelsClip = ( pPosChannelsClip != NULL ) ? pPosChannelsClip : pRotChannelsClip;
+		CDmeLog *pPosLog = ( pLocalPosChannel != nullptr) ? pLocalPosChannel->GetLog() : nullptr;
+		CDmeLog *pRotLog = ( pLocalRotChannel != nullptr) ? pLocalRotChannel->GetLog() : nullptr;
+		CDmeChannelsClip *pPosChannelsClip = ( pLocalPosChannel != nullptr) ? FindAncestorReferencingElement< CDmeChannelsClip >( pLocalPosChannel ) : nullptr;
+		CDmeChannelsClip *pRotChannelsClip = ( pLocalRotChannel != nullptr) ? FindAncestorReferencingElement< CDmeChannelsClip >( pLocalRotChannel ) : nullptr;
+		CDmeChannelsClip *pChannelsClip = ( pPosChannelsClip != nullptr) ? pPosChannelsClip : pRotChannelsClip;
 		Assert( pPosChannelsClip == pRotChannelsClip || pPosChannelsClip == NULL || pRotChannelsClip == NULL );
 		Assert( pPosLog != pRotLog );
 		Assert( pChannelsClip );
@@ -1215,8 +1204,8 @@ void CDmeDag::BindTransformToDmeDag( const CDmeDag *pTargetDag, const DmeLog_Tim
 
 			// Add a new layer to the active logs, the new layer will contain the values 
 			// required to position and orient the transform relative to the target.
-			CDmeLogLayer *pPosLayer = ( pPosLog != NULL ) ? pPosLog->AddNewLayer() : NULL;
-			CDmeLogLayer *pRotLayer = ( pRotLog != NULL ) ? pRotLog->AddNewLayer() : NULL;
+			CDmeLogLayer *pPosLayer = ( pPosLog != nullptr) ? pPosLog->AddNewLayer() : nullptr;
+			CDmeLogLayer *pRotLayer = ( pRotLog != nullptr) ? pRotLog->AddNewLayer() : nullptr;
 			CDmeTypedLogLayer< Vector > *pVectorLayer = CastElement< CDmeTypedLogLayer< Vector > >( pPosLayer );
 			CDmeTypedLogLayer< Quaternion > *pQuatLayer = CastElement< CDmeTypedLogLayer< Quaternion > >( pRotLayer );
 
@@ -1225,10 +1214,6 @@ void CDmeDag::BindTransformToDmeDag( const CDmeDag *pTargetDag, const DmeLog_Tim
 			DmeTime_t time = timeSelection.m_nTimes[ 0 ];
 			DmeTime_t endTime = timeSelection.m_nTimes[ 3 ];
 			bool done = false;
-
-			// Disable the undo, the only thing that is actually 
-			// needed is the add new layer and the flatten layers.
-			CDisableUndoScopeGuard undosg;
 
 			while ( !done )
 			{
@@ -1286,16 +1271,12 @@ void CDmeDag::BindTransformToDmeDag( const CDmeDag *pTargetDag, const DmeLog_Tim
 			if ( pPosLog )
 			{
 				pPosLog->BlendLayersUsingTimeSelection( logTimeSelection );
-
-				CEnableUndoScopeGuard undosg;
 				pPosLog->FlattenLayers( timeSelection.m_flThreshold, 0 );
 			}
 
 			if ( pRotLog )
 			{
 				pRotLog->BlendLayersUsingTimeSelection( logTimeSelection );
-
-				CEnableUndoScopeGuard undosg;
 				pRotLog->FlattenLayers( timeSelection.m_flThreshold, 0 );
 			}
 
@@ -1303,8 +1284,6 @@ void CDmeDag::BindTransformToDmeDag( const CDmeDag *pTargetDag, const DmeLog_Tim
 			PlayChannelsAtLocalTimes( targetChannelTimeList, targetChannelList, targetOperatorList );
 			PlayChannelsAtLocalTimes( localChannelTimeList, localChannelList, localOperatorList );
 		}
-
-		g_pDataModel->FinishUndo();
 	}
 }
 
@@ -1316,13 +1295,9 @@ void CDmeDag::BindTransformToDmeDag( const CDmeDag *pTargetDag, const DmeLog_Tim
 //-----------------------------------------------------------------------------
 void CDmeDag::ComputeTransformAtTime( DmeTime_t globalTime, const CDmeClip* pMovie, matrix3x4_t &matAbsTransform, matrix3x4_t &localTransform )
 {
-	// This operation should have no side effects and 
-	// no entries should be added to the undo stack.
-	CDisableUndoScopeGuard disableUndoSG;
-
 	// Find the film clip containing this dag
 	CDmeFilmClip *pFilmClip = FindFilmClipContainingDag( this );
-	if ( pFilmClip == NULL )
+	if ( pFilmClip == nullptr)
 	{
 		pFilmClip = FindReferringElement< CDmeFilmClip >( this, "camera" );
 	}
@@ -1330,7 +1305,7 @@ void CDmeDag::ComputeTransformAtTime( DmeTime_t globalTime, const CDmeClip* pMov
 	// Get the transform associated with the dag
 	CDmeTransform *pTransform = GetTransform();
 
-	if ( ( pMovie == NULL ) || ( pFilmClip == NULL ) || ( pTransform == NULL ) )
+	if ( ( pMovie == nullptr) || ( pFilmClip == nullptr) || ( pTransform == nullptr) )
 		return;
 
 
@@ -1363,7 +1338,7 @@ void CDmeDag::ComputeTransformAtTime( DmeTime_t globalTime, const CDmeClip* pMov
 void CDmeDag::MoveToTarget( const CDmeDag *pTargetDag, const DmeLog_TimeSelection_t &timeSelection, const CDmeClip *pMovie )
 {	
 	// Must specify a target dag and it must not be this dag.
-	if ( ( pTargetDag == NULL ) || ( pTargetDag == this ) )
+	if ( ( pTargetDag == nullptr) || ( pTargetDag == this ) )
 	{
 		Assert( pTargetDag );
 		return;
@@ -1371,7 +1346,7 @@ void CDmeDag::MoveToTarget( const CDmeDag *pTargetDag, const DmeLog_TimeSelectio
 
 	// Find the film clip for the dag
 	CDmeFilmClip *pFilmClip = FindFilmClipContainingDag( this );
-	if ( pFilmClip == NULL )
+	if ( pFilmClip == nullptr)
 	{
 		pFilmClip = FindReferringElement< CDmeFilmClip >( this, "camera" );
 	}
@@ -1396,14 +1371,11 @@ void CDmeDag::MoveToTarget( const CDmeDag *pTargetDag, const DmeLog_TimeSelectio
 
 	// Find the position channel of driving the dag node which will be updated.
 	CDmeTransform *pTransform = GetTransform();
-	CDmeChannel *pLocalPosChannel = FindChannelTargetingElement( pFilmClip, pTransform, "position", NULL );
+	CDmeChannel *pLocalPosChannel = FindChannelTargetingElement( pFilmClip, pTransform, "position", nullptr);
 
-	if ( pLocalPosChannel != NULL )
+	if ( pLocalPosChannel != nullptr)
 	{
-		// Start a new undo group for the operation
-		g_pDataModel->StartUndo( "Move dag to target", "Move dag to target" );
-
-		CDmeLog *pPosLog = ( pLocalPosChannel != NULL ) ? pLocalPosChannel->GetLog() : NULL;
+		CDmeLog *pPosLog = ( pLocalPosChannel != nullptr) ? pLocalPosChannel->GetLog() : nullptr;
 		CDmeChannelsClip *pChannelsClip = FindAncestorReferencingElement< CDmeChannelsClip >( pLocalPosChannel );
 		Assert( pChannelsClip );
 
@@ -1424,10 +1396,6 @@ void CDmeDag::MoveToTarget( const CDmeDag *pTargetDag, const DmeLog_TimeSelectio
 			DmeTime_t time = timeSelection.m_nTimes[ 0 ];
 			DmeTime_t endTime = timeSelection.m_nTimes[ 3 ];
 			bool done = false;
-
-			// Disable the undo, the only thing that is actually 
-			// needed is the add new layer and the flatten layers.
-			CDisableUndoScopeGuard undosg;
 
 			int nAproxNumTimes = ( ( endTime - time ) / timeSelection.m_nResampleInterval ) + 2;
 			CUtlVector< Vector > samplePositions( 0, nAproxNumTimes );
@@ -1487,16 +1455,11 @@ void CDmeDag::MoveToTarget( const CDmeDag *pTargetDag, const DmeLog_TimeSelectio
 			// layer according to the time selection parameters and then flatten the log layers.
 			pPosLog->BlendLayersUsingTimeSelection( logTimeSelection );
 			
-			{
-				CEnableUndoScopeGuard undosg;
-				pPosLog->FlattenLayers( timeSelection.m_flThreshold, 0 );
-			}
+			pPosLog->FlattenLayers( timeSelection.m_flThreshold, 0 );
 
 			// Restore all of the channels to the original times so that this operation does not have side effects.
 			PlayChannelsAtLocalTimes( channelTimeList, channelList, operatorList );
 		}
-
-		g_pDataModel->FinishUndo();
 	}
 
 }
@@ -1517,7 +1480,7 @@ void CDmeDag::GetAbsTransform( matrix3x4_t &matAbsTransform ) const
 void CDmeDag::SetAbsTransform( const matrix3x4_t &matAbsTransform )
 {
 	CDmeTransform *pTransform = GetTransform();
-	if ( pTransform == NULL )
+	if ( pTransform == nullptr)
 		return;
 
 	matrix3x4_t parentToWorld;
@@ -1574,7 +1537,7 @@ bool CDmeDag::HasOverrideParent() const
 	if ( m_bDisableOverrideParent )
 		return false;
 
-	return ( GetValueElement< CDmeDag >( OVERRIDE_PARENT ) != NULL );
+	return ( GetValueElement< CDmeDag >( OVERRIDE_PARENT ) != nullptr);
 }
 
 
@@ -1584,7 +1547,7 @@ bool CDmeDag::HasOverrideParent() const
 const CDmeDag *CDmeDag::GetOverrideParent( bool bIgnoreEnable ) const
 {
 	if ( m_bDisableOverrideParent && !bIgnoreEnable )
-		return NULL;
+		return nullptr;
 
 	return GetValueElement< CDmeDag >( OVERRIDE_PARENT );
 }
@@ -1599,7 +1562,7 @@ const CDmeDag *CDmeDag::GetOverrideParent( bool &bPosition, bool &bRotation, boo
 	bRotation = false;
 
 	if ( m_bDisableOverrideParent && !bIgnoreEnable )
-		return NULL;
+		return nullptr;
 
 	CDmeDag *pOverrideParent = GetValueElement< CDmeDag >( OVERRIDE_PARENT );
 
@@ -1614,7 +1577,7 @@ const CDmeDag *CDmeDag::GetOverrideParent( bool &bPosition, bool &bRotation, boo
 		return pOverrideParent;
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 
@@ -1624,7 +1587,7 @@ const CDmeDag *CDmeDag::GetOverrideParent( bool &bPosition, bool &bRotation, boo
 //-----------------------------------------------------------------------------
 void CDmeDag::SetOverrideParent( const CDmeDag *pParentDag, bool bPosition, bool bRotation )
 {
-	if ( ( pParentDag == NULL ) || ( !bPosition && !bRotation ) )
+	if ( ( pParentDag == nullptr) || ( !bPosition && !bRotation ) )
 	{
 		RemoveAttribute( OVERRIDE_PARENT );
 		RemoveAttribute( "overridePos" );
@@ -1670,7 +1633,7 @@ bool CDmeDag::IsOverrideParentEnabled() const
 //-----------------------------------------------------------------------------
 bool CDmeDag::IsAncestorOfDag( const CDmeDag *pDag ) const
 {
-	if ( pDag == NULL )
+	if ( pDag == nullptr)
 		return false;
 
 	const CDmeDag *pCurrentDag = pDag;

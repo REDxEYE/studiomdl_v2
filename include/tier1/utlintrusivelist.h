@@ -6,16 +6,16 @@
 // $NoKeywords: $
 //===========================================================================//
 
-#ifndef UTILINTRUSIVELIST_H
-#define UTILINTRUSIVELIST_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
 #endif
 
 #include "tier0/basetypes.h"
+#include "tier0/threadtools.h"
 #include "utlmemory.h"
-#include "tier0/dbg.h"
+
 #include "tier1/generichash.h"
 
 
@@ -287,7 +287,7 @@ namespace IntrusiveList
 	// linear search to insert, NOT a O(logn) heap.
 	template<class T> inline void AddToDPriority(T * &head, T *which)
 	{
-		T* prevnode=0;
+		T* prevnode=nullptr;
 		for(T *curnode=head;curnode;curnode=curnode->m_pNext)
 		{
 			if (which->m_Priority>=curnode->m_Priority)
@@ -313,7 +313,7 @@ namespace IntrusiveList
 	// same as AddToDPriority, except with reverse order
 	template<class T> inline void AddToDPriorityLowestFirst(T * &head, T *which)
 	{
-		T* prevnode=0;
+		T* prevnode=nullptr;
 		for(T *curnode=head;curnode;curnode=curnode->m_pNext)
 		{
 			if (which->m_Priority<=curnode->m_Priority)
@@ -479,7 +479,7 @@ namespace IntrusiveList
 			T *pCurHead = ReadVolatileMemory<T *>( &pHead );
 			if ( ! pCurHead )
 			{
-				return NULL;
+				return nullptr;
 			}
 			ThreadMemoryBarrier();
 			if ( ThreadInterlockedAssignPointerIf( ( void * volatile * ) ( &pHead ) , pCurHead->m_pNext, pCurHead ) )
@@ -657,7 +657,7 @@ namespace IntrusiveList
 				return head;
 			head = head->m_pNext;
 		}
-		return 0;
+		return nullptr;
 	}
 
 	// find a node and its predecessor, matching on equality of a given field.
@@ -672,7 +672,7 @@ namespace IntrusiveList
 			prev = i;
 		}
 		prev = 0;
-		return 0;
+		return nullptr;
 	}
 
 
@@ -684,7 +684,7 @@ namespace IntrusiveList
 		while(didswap)
 		{
 			didswap=0;
-			T *prev=0;
+			T *prev=nullptr;
 			for(T *i=head;i && i->m_pNext; i=i->m_pNext)
 			{
 				/// compare i and i+1
@@ -718,7 +718,7 @@ namespace IntrusiveList
 	{
 		SortList(head,comparefn);
 		/// now, regen prev ptrs
-		T *prev=0;
+		T *prev=nullptr;
 		for(T *i=head;i;i=i->m_pNext)
 		{
 			i->m_pPrev=prev;
@@ -730,7 +730,7 @@ namespace IntrusiveList
 	// interview :-)
 	template <class T> T *ReversedList( T * head )
 	{
-		T * pNewHead=NULL;
+		T * pNewHead= nullptr;
 		while( head )
 		{
 			T *pNext=head->m_pNext;
@@ -850,7 +850,7 @@ public:
 			return pRet;
 		}
 		else
-			return NULL;
+			return nullptr;
 	}
 
 
@@ -886,7 +886,7 @@ public:
 			return pRet;
 		}
 		else
-			return NULL;
+			return nullptr;
 	}
 	
 	T * PrevNode(T *node)
@@ -948,7 +948,7 @@ public:
 			return pRet;
 		}
 		else
-			return NULL;
+			return nullptr;
 	}
 	
 	T * PrevNode(T *node)
@@ -1019,7 +1019,7 @@ public:
 			return pRet;
 		}
 		else
-			return NULL;
+			return nullptr;
 	}
 	
 	int Count( void ) const
@@ -1043,7 +1043,7 @@ public:
 	T const *FindOrAdd( T const *pData )
 	{
 		// see if it is there. add if not. return permanent pointer
-		uint hVal = HashItem( *pData ) % BUCKETSIZE;
+		uint32_t hVal = HashItem( *pData ) % BUCKETSIZE;
 		for( SymbolNode_t *i = m_Buckets[hVal].m_pHead; i; i = i->m_pNext )
 		{
 			if ( memcmp( pData, i->m_pData, sizeof( T ) ) == 0 )
@@ -1061,4 +1061,3 @@ public:
 
 
 
-#endif

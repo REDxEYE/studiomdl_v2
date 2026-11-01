@@ -7,8 +7,7 @@
 #include "movieobjects/dmeattributereference.h"
 #include "datamodel/dmelementfactoryhelper.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 //-----------------------------------------------------------------------------
@@ -63,7 +62,7 @@ void CDmeOperator::GatherInputOperators( CUtlVector< CDmeOperator * > &operatorL
 	for ( int iAttr = 0; iAttr < nInputAttributes; ++iAttr )
 	{
 		CDmAttribute *pInputAttr = inputAttributes[ iAttr ];
-		if ( pInputAttr == NULL )
+		if ( pInputAttr == nullptr)
 			continue;
 
 		CDmElement *pInputOwner = pInputAttr->GetOwner();
@@ -88,18 +87,18 @@ void CDmeOperator::GatherInputOperators( CUtlVector< CDmeOperator * > &operatorL
 			it = g_pDataModel->NextAttributeReferencingElement( it ) )
 		{
 			CDmAttribute *pAttr = g_pDataModel->GetAttribute( it );
-			if ( pAttr == NULL )
+			if ( pAttr == nullptr)
 				continue;
 
 			CDmElement *pElement = pAttr->GetOwner();
 			CDmeOperator *pOperator = CastElement< CDmeOperator >( pElement );
 
-			if ( pOperator == NULL )
+			if ( pOperator == nullptr)
 			{
 				pOperator = FindAncestorReferencingElement< CDmeOperator >( pElement );
 			}
 
-			if ( pOperator != NULL )
+			if ( pOperator != nullptr)
 			{		
 				if ( connectedOperators.Find( pOperator ) == connectedOperators.InvalidIndex() )
 				{
@@ -174,7 +173,7 @@ void GatherOperatorsForElement( CDmElement *pRootElement, CUtlVector< CDmeOperat
 			pOperator = FindAncestorReferencingElement< CDmeOperator >( pOwnerElement );
 		}
 
-		if ( pOperator == NULL )
+		if ( pOperator == nullptr)
 			continue;
 				
 		if ( operatorList.Find( pOperator ) == operatorList.InvalidIndex() )

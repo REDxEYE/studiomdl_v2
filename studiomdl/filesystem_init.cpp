@@ -10,8 +10,8 @@
 #undef fopen
 #endif
 
-#if defined( _WIN32 ) && !defined( _X360 )
-#include <Windows.h>
+#if defined( _WIN32 )
+#include <windows.h>
 #include <direct.h>
 #include <io.h>
 #include <process.h>
@@ -27,30 +27,14 @@
 #include "tier1/smartptr.h"
 
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
 
-#if !defined( _X360 )
+
 #define GAMEINFO_FILENAME			"gameinfo.txt"
-#else
-// The .xtx file is a TCR requirement, as .txt files cannot live on the DVD.
-// The .xtx file only exists outside the zips (same as .txt and is made during the image build) and is read to setup the search paths.
-// So all other code should be able to safely expect gameinfo.txt after the zip is mounted as the .txt file exists inside the zips.
-// The .xtx concept is private and should only have to occurr here. As a safety measure, if the .xtx file is not found
-// a retry is made with the original .txt name
-#define GAMEINFO_FILENAME			"gameinfo.xtx"
-#endif
 #define GAMEINFO_FILENAME_ALTERNATE	"gameinfo.txt"
 
 static char g_FileSystemError[256];
 static bool s_bUseVProjectBinDir = false;
 static FSErrorMode_t g_FileSystemErrorMode = FS_ERRORMODE_VCONFIG;
-
-// Call this to use a bin directory relative to VPROJECT
-void FileSystem_UseVProjectBinDir( bool bEnable )
-{
-	s_bUseVProjectBinDir = bEnable;
-}
 
 // This class lets you modify environment variables, and it restores the original value
 // when it goes out of scope.
@@ -62,9 +46,9 @@ public:
 		m_bRestoreOriginalValue = true;
 		m_pVarName = pVarName;
 
-		const char *pValue = NULL;
+		const char *pValue = nullptr;
 
-#if defined( _WIN32 ) || defined( _GAMECONSOLE )
+#if defined( _WIN32 )
 		// Use GetEnvironmentVariable instead of getenv because getenv doesn't pick up changes
 		// to the process environment after the DLL was loaded.
 		char szBuf[ 4096 ];
@@ -115,7 +99,7 @@ public:
 		if ( !pszBuf || ( nBufSize <= 0 ) )
 			return 0;
 	
-#if defined( _WIN32 ) || defined( _GAMECONSOLE )
+#if defined( _WIN32 )
 		// Use GetEnvironmentVariable instead of getenv because getenv doesn't pick up changes
 		// to the process environment after the DLL was loaded.
 		return GetEnvironmentVariable( m_pVarName, pszBuf, nBufSize );
@@ -141,7 +125,7 @@ public:
 		Q_vsnprintf( valueString, sizeof( valueString ), pValue, marker );
 		va_end( marker );
 
-#if defined( WIN32 ) || defined( _GAMECONSOLE )
+#if defined( WIN32 )
 		char str[4096];
 		Q_snprintf( str, sizeof( str ), "%s=%s", m_pVarName, valueString );
 		_putenv( str );
@@ -152,7 +136,7 @@ public:
 
 	void ClearValue()
 	{
-#if defined( WIN32 ) || defined( _GAMECONSOLE )
+#if defined( WIN32 )
 		char str[512];
 		Q_snprintf( str, sizeof( str ), "%s=", m_pVarName );
 		_putenv( str );
@@ -202,10 +186,6 @@ void Q_getwd( char *out, int outSize )
 #if defined( _WIN32 ) || defined( WIN32 )
 	_getcwd( out, outSize );
 	Q_strncat( out, "\\", outSize, COPY_ALL_CHARACTERS );
-#elif defined( _PS3 )
-	Assert( 0 );
-	if ( outSize > 0 )
-		out[0] = '\0';
 #else
 	getcwd( out, outSize );
 	strcat( out, "/" );
@@ -219,15 +199,15 @@ void Q_getwd( char *out, int outSize )
 
 CFSSearchPathsInit::CFSSearchPathsInit()
 {
-	m_pDirectoryName = NULL;
-	m_pLanguage = NULL;
+	m_pDirectoryName = nullptr;
+	m_pLanguage = nullptr;
 	m_ModPath[0] = 0;
 }
 
 
 CFSSteamSetupInfo::CFSSteamSetupInfo()
 {
-	m_pDirectoryName = NULL;
+	m_pDirectoryName = nullptr;
 	m_bOnlyUseDirectoryName = false;
 	m_bSteam = false;
 	m_bToolsMode = true;
@@ -237,17 +217,17 @@ CFSSteamSetupInfo::CFSSteamSetupInfo()
 
 CFSLoadModuleInfo::CFSLoadModuleInfo()
 {
-	m_pFileSystemDLLName = NULL;
-	m_pFileSystem = NULL;
-	m_pModule = NULL;
+	m_pFileSystemDLLName = nullptr;
+	m_pFileSystem = nullptr;
+	m_pModule = nullptr;
 }
 
 
 CFSMountContentInfo::CFSMountContentInfo()
 {
 	m_bToolsMode = true;
-	m_pDirectoryName = NULL;
-	m_pFileSystem = NULL;
+	m_pDirectoryName = nullptr;
+	m_pFileSystem = nullptr;
 }
 
 
@@ -260,15 +240,15 @@ const char *FileSystem_GetLastErrorString()
 void AddLanguageGameDir( IFileSystem *pFileSystem, const char *pLocation, const char *pLanguage )
 {
 #if !defined( DEDICATED )
-	char temp[MAX_PATH];
+	char temp[MAX_PATH]{0};
 	Q_snprintf( temp, sizeof(temp), "%s_%s", pLocation, pLanguage );
 	pFileSystem->AddSearchPath( temp, "GAME", PATH_ADD_TO_TAIL );
 
 	if ( IsPC() )
 	{
 		// also look in "..\localization\<folder>" if that directory exists
-		char baseDir[MAX_PATH];
-		char *tempPtr = NULL, *gameDir = NULL;
+		char baseDir[MAX_PATH]{0};
+		char *tempPtr = nullptr, *gameDir = nullptr;
 
 		Q_strncpy( baseDir, pLocation, sizeof(baseDir) );
 #ifdef WIN32
@@ -305,7 +285,6 @@ void AddGameBinDir( IFileSystem *pFileSystem, const char *pLocation, bool bForce
 
 KeyValues* ReadKeyValuesFile( const char *pFilename )
 {
-	MEM_ALLOC_CREDIT();
 	// Read in the gameinfo.txt file and null-terminate it.
 	FILE *fp = fopen( pFilename, "rb" );
 	if ( !fp )
@@ -344,10 +323,6 @@ static bool Sys_GetExecutableName( char *out, int len )
 		return false;
 	}
 	Q_FixSlashes( out );
-
-#elif defined( _PS3 )
-
-	Q_snprintf( out, len, "%s/valve.self", g_pPS3PathInfo->SelfDirectory() );
 
 #else
 
@@ -389,15 +364,7 @@ bool FileSystem_GetExecutableDir( char *exedir, int exeDirLen )
 		return false;
 	Q_StripFilename( exedir );
 
-	if ( IsX360() )
-	{
-		// The 360 can have its exe and dlls reside on different volumes
-		// use the optional basedir as the exe dir
-		if ( CommandLine()->FindParm( "-basedir" ) )
-		{
-			strcpy( exedir, CommandLine()->ParmValue( "-basedir", "" ) );
-		}
-	}
+
 
 	Q_FixSlashes( exedir );
 
@@ -430,11 +397,6 @@ bool FileSystem_GetExecutableDir( char *exedir, int exeDirLen )
 
 static bool FileSystem_GetBaseDir( char *baseDir, int baseDirLen )
 {
-#ifdef _PS3
-	V_strncpy( baseDir,  g_pPS3PathInfo->GameImagePath(), baseDirLen );
-		
-	return baseDir[0] != 0;
-#else
 	if ( FileSystem_GetExecutableDir( baseDir, baseDirLen ) )
 	{
 		Q_StripFilename( baseDir );
@@ -442,12 +404,11 @@ static bool FileSystem_GetBaseDir( char *baseDir, int baseDirLen )
 	}
 
 	return false;
-#endif
 }
 
 void LaunchVConfig()
 {
-#if defined( _WIN32 ) && !defined( _X360 )
+#if defined( _WIN32 )
 	char vconfigExe[MAX_PATH];
 	FileSystem_GetExecutableDir( vconfigExe, sizeof( vconfigExe ) );
 	Q_AppendSlash( vconfigExe, sizeof( vconfigExe ) );
@@ -461,8 +422,6 @@ void LaunchVConfig()
 	};
 
 	_spawnv( _P_NOWAIT, vconfigExe, argv );
-#elif defined( _X360 )
-	Msg( "Launching vconfig.exe not supported\n" );
 #endif
 }
 
@@ -490,11 +449,6 @@ FSReturnCode_t SetupFileSystemError( bool bRunVConfig, FSReturnCode_t retVal, co
 	if ( g_FileSystemErrorMode == FS_ERRORMODE_AUTO || g_FileSystemErrorMode == FS_ERRORMODE_VCONFIG )
 	{
 		// this may happen when we eject disk while loading the game. 
-		if( IsPS3() )
-		{
-			return FS_UNABLE_TO_INIT;
-		}
-		else
 		{
 			Error( "%s\n", g_FileSystemError );
 		}
@@ -517,28 +471,7 @@ FSReturnCode_t LoadGameInfoFile(
 	Q_strncat( gameinfoFilename, GAMEINFO_FILENAME, sizeof( gameinfoFilename ), COPY_ALL_CHARACTERS );
 	Q_FixSlashes( gameinfoFilename );
 	pMainFile = ReadKeyValuesFile( gameinfoFilename );
-#if defined( _PS3 )
-	if ( IsPS3() && !pMainFile )
-	{
-		Q_strncpy( gameinfoFilename, g_pPS3PathInfo->GameImagePath(), sizeof( gameinfoFilename ) );
-		Q_AppendSlash( gameinfoFilename, sizeof( gameinfoFilename ) );
-		Q_strncat( gameinfoFilename, pDirectoryName, sizeof( gameinfoFilename ) );
-		Q_AppendSlash( gameinfoFilename, sizeof( gameinfoFilename ) );
-		Q_strncat( gameinfoFilename, GAMEINFO_FILENAME_ALTERNATE, sizeof( gameinfoFilename ), COPY_ALL_CHARACTERS );
-		Q_FixSlashes( gameinfoFilename );
-		Msg("Attempting %s\n", gameinfoFilename);
-		pMainFile = ReadKeyValuesFile( gameinfoFilename );
-	}
-#endif
-	if ( IsX360() && !pMainFile )
-	{
-		// try again
-		Q_strncpy( gameinfoFilename, pDirectoryName, sizeof( gameinfoFilename ) );
-		Q_AppendSlash( gameinfoFilename, sizeof( gameinfoFilename ) );
-		Q_strncat( gameinfoFilename, GAMEINFO_FILENAME_ALTERNATE, sizeof( gameinfoFilename ), COPY_ALL_CHARACTERS );
-		Q_FixSlashes( gameinfoFilename );
-		pMainFile = ReadKeyValuesFile( gameinfoFilename );
-	}
+
 	if ( !pMainFile )
 	{
 		return SetupFileSystemError( true, FS_MISSING_GAMEINFO_FILE, "%s is missing.", gameinfoFilename );
@@ -577,7 +510,7 @@ bool IsLowViolenceBuild( void )
 #if defined(_WIN32)
 	HKEY hKey;
 	char szValue[64];
-	unsigned long len = sizeof(szValue) - 1;
+	DWORD len = sizeof(szValue) - 1;
 	bool retVal = false;
 	
 	if ( IsPC() && RegOpenKeyEx( HKEY_CURRENT_USER, "Software\\Valve\\Source\\Settings", NULL, KEY_READ, &hKey) == ERROR_SUCCESS )
@@ -610,9 +543,6 @@ bool IsLowViolenceBuild( void )
 	}
 
 	return retVal;
-#elif defined( _GAMECONSOLE )
-	// console builds must be compiled with _LOWVIOLENCE
-	return false;
 #elif POSIX
 	return false;
 #else
@@ -640,13 +570,6 @@ static void FileSystem_AddLoadedSearchPath(
 	if ( Q_stricmp( pPathID, "game" ) == 0 )
 	{
 		bool bDoAllPaths = true;
-#if defined( _X360 ) && defined( LEFT4DEAD )
-		// hl2 is a vestigal mistake due to shaders, xbox needs to prevent any search path bloat
-		if ( V_stristr( fullLocationPath, "\\hl2" ) )
-		{
-			bDoAllPaths = false;
-		}
-#endif
 
 		// add the language path, needs to be topmost, generally only contains audio
 		// and the language localized movies (there are 2 version one normal, one LV)
@@ -774,21 +697,6 @@ FSReturnCode_t FileSystem_LoadSearchPaths( CFSSearchPathsInit &initInfo )
 		}
 	}
 
-#ifdef _PS3
-	// Always base GAMEBIN PRX location off of main PRX path (unless content and PRX paths are same)
-	if ( Q_strncmp( g_pPS3PathInfo->GameImagePath(), g_pPS3PathInfo->PrxPath(), Q_strlen( g_pPS3PathInfo->GameImagePath() ) ) )
-	{
-		char gamebindir[CELL_GAME_PATH_MAX];
-		// get the moddirname
-		const char *pModName;
-		for ( pModName = initInfo.m_ModPath + strlen(initInfo.m_ModPath) - 1 ;
-			  pModName > initInfo.m_ModPath && *(pModName-1) != '/' ;
-			  pModName--);
-
-		V_snprintf( gamebindir, CELL_GAME_PATH_MAX, "%s/../%s", g_pPS3PathInfo->PrxPath(), pModName );
-		AddGameBinDir( initInfo.m_pFileSystem, gamebindir, true );
-	}
-#endif
 
 	pMainFile->deleteThis();
 
@@ -821,7 +729,7 @@ FSReturnCode_t FileSystem_LoadSearchPaths( CFSSearchPathsInit &initInfo )
 
 		V_strncat( szContentRoot, "\\content", sizeof( szContentRoot ) );
 
-		int nLen = initInfo.m_pFileSystem->GetSearchPath( "GAME", false, NULL, 0 );
+		int nLen = initInfo.m_pFileSystem->GetSearchPath( "GAME", false, nullptr, 0 );
 		char *pSearchPath = (char*)stackalloc( nLen * sizeof(char) );
 		initInfo.m_pFileSystem->GetSearchPath( "GAME", false, pSearchPath, nLen );
 		char *pPath = pSearchPath;
@@ -837,7 +745,7 @@ FSReturnCode_t FileSystem_LoadSearchPaths( CFSSearchPathsInit &initInfo )
 			Q_FixSlashes( pPath );
 
 			const char *pCurPath = pPath;
-			pPath = pSemiColon ? pSemiColon + 1 : NULL;
+			pPath = pSemiColon ? pSemiColon + 1 : nullptr;
 
 			char pRelativePath[MAX_PATH];
 			char pContentPath[MAX_PATH];
@@ -869,8 +777,8 @@ FSReturnCode_t FileSystem_LoadSearchPaths( CFSSearchPathsInit &initInfo )
 	initInfo.m_pFileSystem->PrintSearchPaths();
 #endif
 
-#if defined( ENABLE_RUNTIME_STACK_TRANSLATION ) && !defined( _GAMECONSOLE )
-	//copy search paths to stack tools so it can grab pdb's from all over. But only on P4 or Steam Beta builds
+#if defined( ENABLE_RUNTIME_STACK_TRANSLATION )
+	//copy search paths to stack tools so it can grab pdb's from all over. But only on internal or Steam Beta builds
 	if( (CommandLine()->FindParm( "-steam" ) == 0) || //not steam
 		(CommandLine()->FindParm( "-internalbuild" ) != 0) ) //steam beta is ok
 	{
@@ -900,12 +808,6 @@ FSReturnCode_t FileSystem_LoadSearchPaths( CFSSearchPathsInit &initInfo )
 			V_strncpy( &szSearchPaths[iLength], szAdditionalPath, 4096 - iLength );			
 		}
 
-		//Append the perforce symbol server last. Documentation says that "srv*\\perforce\symbols" should work, but it doesn't.
-		//"symsrv*symsrv.dll*\\perforce\symbols" which the docs say is the same statement, works.
-		{
-			V_strncat( szSearchPaths, ";symsrv*symsrv.dll*\\\\perforce\\symbols", 4096 );
-		}
-
 		SetStackTranslationSymbolSearchPath( szSearchPaths );
 		//MessageBox( NULL, szSearchPaths, "Search Paths", 0 );
 	}
@@ -922,12 +824,7 @@ bool DoesFileExistIn( const char *pDirectoryName, const char *pFilename )
 	Q_AppendSlash( filename, sizeof( filename ) );
 	Q_strncat( filename, pFilename, sizeof( filename ), COPY_ALL_CHARACTERS );
 	Q_FixSlashes( filename );
-#ifdef _PS3
-	Assert( 0 );
-	bool bExist = false;
-#else  // !_PS3
 	bool bExist = ( _access( filename, 0 ) == 0 );
-#endif // _PS3
 
 	return ( bExist );
 }
@@ -936,7 +833,7 @@ namespace
 {
 	SuggestGameInfoDirFn_t & GetSuggestGameInfoDirFn( void )
 	{
-		static SuggestGameInfoDirFn_t s_pfnSuggestGameInfoDir = NULL;
+		static SuggestGameInfoDirFn_t s_pfnSuggestGameInfoDir = nullptr;
 		return s_pfnSuggestGameInfoDir;
 	}
 }; // `anonymous` namespace
@@ -974,10 +871,7 @@ static FSReturnCode_t TryLocateGameInfoFile( char *pOutDir, int outDirLen, bool 
 		{
 			return FS_OK;
 		}
-		if ( IsX360() && DoesFileExistIn( pOutDir, GAMEINFO_FILENAME_ALTERNATE ) ) 
-		{
-			return FS_OK;
-		}
+
 	} 
 	while ( bBubbleDir && Q_StripLastDir( pOutDir, outDirLen ) );
 
@@ -996,10 +890,7 @@ static FSReturnCode_t TryLocateGameInfoFile( char *pOutDir, int outDirLen, bool 
 			{
 				return FS_OK;
 			}
-			if ( IsX360() && DoesFileExistIn( pOutDir, GAMEINFO_FILENAME_ALTERNATE ) )
-			{
-				return FS_OK;
-			}
+
 		} 
 		while ( bBubbleDir && Q_StripLastDir( pOutDir, outDirLen ) );
 	}
@@ -1017,29 +908,10 @@ FSReturnCode_t LocateGameInfoFile( const CFSSteamSetupInfo &fsInfo, char *pOutDi
 			return SetupFileSystemError( false, FS_MISSING_GAMEINFO_FILE, "bOnlyUseDirectoryName=1 and pDirectoryName=NULL." );
 
 		bool bExists = DoesFileExistIn( fsInfo.m_pDirectoryName, GAMEINFO_FILENAME );
-		if ( IsX360() && !bExists )
-		{
-			bExists = DoesFileExistIn( fsInfo.m_pDirectoryName, GAMEINFO_FILENAME_ALTERNATE );
-		}
+
 		if ( !bExists )
 		{
-			if ( IsX360() && CommandLine()->FindParm( "-basedir" ) )
-			{
-				char basePath[MAX_PATH];
-				strcpy( basePath, CommandLine()->ParmValue( "-basedir", "" ) );
-				Q_AppendSlash( basePath, sizeof( basePath ) );
-				Q_strncat( basePath, fsInfo.m_pDirectoryName, sizeof( basePath ), COPY_ALL_CHARACTERS );
-				if ( DoesFileExistIn( basePath, GAMEINFO_FILENAME ) )
-				{
-					Q_strncpy( pOutDir, basePath, outDirLen );
-					return FS_OK;
-				}
-				if ( IsX360() && DoesFileExistIn( basePath, GAMEINFO_FILENAME_ALTERNATE ) )
-				{
-					Q_strncpy( pOutDir, basePath, outDirLen );
-					return FS_OK;
-				}
-			}
+
 
 			return SetupFileSystemError( true, FS_MISSING_GAMEINFO_FILE, "Setup file '%s' doesn't exist in subdirectory '%s'.\nCheck your -game parameter or VCONFIG setting.", GAMEINFO_FILENAME, fsInfo.m_pDirectoryName );
 		}
@@ -1058,29 +930,9 @@ FSReturnCode_t LocateGameInfoFile( const CFSSteamSetupInfo &fsInfo, char *pOutDi
 			Q_MakeAbsolutePath( pOutDir, outDirLen, pProject );
 			return FS_OK;
 		}
-		if ( IsX360() && DoesFileExistIn( pProject, GAMEINFO_FILENAME_ALTERNATE ) )	
-		{
-			Q_MakeAbsolutePath( pOutDir, outDirLen, pProject );
-			return FS_OK;
-		}
 
-		if ( IsX360() && CommandLine()->FindParm( "-basedir" ) )
-		{
-			char basePath[MAX_PATH];
-			strcpy( basePath, CommandLine()->ParmValue( "-basedir", "" ) );
-			Q_AppendSlash( basePath, sizeof( basePath ) );
-			Q_strncat( basePath, pProject, sizeof( basePath ), COPY_ALL_CHARACTERS );
-			if ( DoesFileExistIn( basePath, GAMEINFO_FILENAME ) )
-			{
-				Q_strncpy( pOutDir, basePath, outDirLen );
-				return FS_OK;
-			}
-			if ( DoesFileExistIn( basePath, GAMEINFO_FILENAME_ALTERNATE ) )
-			{
-				Q_strncpy( pOutDir, basePath, outDirLen );
-				return FS_OK;
-			}
-		}
+
+
 		
 		if ( fsInfo.m_bNoGameInfo )
 		{
@@ -1115,9 +967,7 @@ FSReturnCode_t LocateGameInfoFile( const CFSSteamSetupInfo &fsInfo, char *pOutDi
 	}
 
 	// Try to use the environment variable / registry
-	if ( ( pProject = getenv( GAMEDIR_TOKEN ) ) != NULL &&
-		 ( Q_MakeAbsolutePath( pOutDir, outDirLen, pProject ), 1 ) &&
-		 FS_OK == TryLocateGameInfoFile( pOutDir, outDirLen, false ) )
+	if ( ( pProject = getenv( GAMEDIR_TOKEN ) ) != nullptr && Q_MakeAbsolutePath( pOutDir, outDirLen, pProject ), 1 && FS_OK == TryLocateGameInfoFile( pOutDir, outDirLen, false ) )
 		return FS_OK;
 
 	if ( IsPC() )
@@ -1182,11 +1032,7 @@ bool DoesPathExistAlready( const char *pPathEnvVar, const char *pTestPath )
 
 FSReturnCode_t SetSteamInstallPath( char *steamInstallPath, int steamInstallPathLen, CSteamEnvVars &steamEnvVars, bool bErrorsAsWarnings )
 {
-	if ( IsGameConsole() )
-	{
-		// consoles don't use steam
-		return FS_MISSING_STEAM_DLL;
-	}
+
 
 	if ( IsPosix() )
 		return FS_OK; // under posix the content does not live with steam.dll up the path, rely on the environment already being set by steam
@@ -1215,8 +1061,6 @@ FSReturnCode_t SetSteamInstallPath( char *steamInstallPath, int steamInstallPath
 	// under Linux & OSX the bin lives in the bin/ folder, so step back one
 
 	Q_StripLastDir( steamInstallPath, steamInstallPathLen );
-#elif defined( _PS3 )
-	const char *pchSteamDLL = "steam_ps3.ps3";
 #else
 #error
 #endif
@@ -1290,8 +1134,8 @@ void SetSteamAppUser( KeyValues *pSteamInfo, const char *steamInstallPath, CStea
 	if ( steamEnvVars.m_SteamAppUser.GetValue( appUser, sizeof( appUser ) ) )
 		return;
 
-	const char *pTempAppUser = NULL;
-	if ( pSteamInfo && (pTempAppUser = pSteamInfo->GetString( "SteamAppUser", NULL )) != NULL )
+	const char *pTempAppUser = nullptr;
+	if ( pSteamInfo && (pTempAppUser = pSteamInfo->GetString( "SteamAppUser", nullptr)) != nullptr)
 	{
 		Q_strncpy( appUser, pTempAppUser, sizeof( appUser ) );
 	}
@@ -1305,7 +1149,7 @@ void SetSteamAppUser( KeyValues *pSteamInfo, const char *steamInstallPath, CStea
 		Q_strncat( fullFilename, "config\\SteamAppData.vdf", sizeof( fullFilename ), COPY_ALL_CHARACTERS );
 
 		KeyValues *pSteamAppData = ReadKeyValuesFile( fullFilename );
-		if ( !pSteamAppData || (pTempAppUser = pSteamAppData->GetString( "AutoLoginUser", NULL )) == NULL )
+		if ( !pSteamAppData || (pTempAppUser = pSteamAppData->GetString( "AutoLoginUser", nullptr)) == nullptr)
 		{
 			Error( "Can't find steam app user info." );
 		}
@@ -1328,7 +1172,7 @@ void SetSteamUserPassphrase( KeyValues *pSteamInfo, CSteamEnvVars &steamEnvVars 
 
 	// SteamUserPassphrase.
 	const char *pStr;
-	if ( pSteamInfo && (pStr = pSteamInfo->GetString( "SteamUserPassphrase", NULL )) != NULL )
+	if ( pSteamInfo && (pStr = pSteamInfo->GetString( "SteamUserPassphrase", nullptr)) != nullptr)
 	{
 		steamEnvVars.m_SteamUserPassphrase.SetValue( "%s", pStr );
 	}
@@ -1371,7 +1215,7 @@ FSReturnCode_t SetupSteamStartupEnvironment( KeyValues *pFileSystemInfo, const c
 FSReturnCode_t GetSteamExtraAppId( const char *pDirectoryName, int *nExtraAppId )
 {
 	// Now, load gameinfo.txt (to make sure it's there)
-	KeyValues *pMainFile = NULL, *pFileSystemInfo = NULL, *pSearchPaths = NULL;
+	KeyValues *pMainFile = nullptr, *pFileSystemInfo = nullptr, *pSearchPaths = nullptr;
 	FSReturnCode_t ret = LoadGameInfoFile( pDirectoryName, pMainFile, pFileSystemInfo, pSearchPaths );
 	if ( ret != FS_OK )
 		return ret;
@@ -1385,13 +1229,11 @@ FSReturnCode_t FileSystem_SetBasePaths( IFileSystem *pFileSystem )
 {
 	pFileSystem->RemoveSearchPaths( "EXECUTABLE_PATH" );
 
-#ifndef _PS3
 	char executablePath[MAX_PATH];
 	if ( !FileSystem_GetExecutableDir( executablePath, sizeof( executablePath ) )	)
 		return SetupFileSystemError( false, FS_INVALID_PARAMETERS, "FileSystem_GetExecutableDir failed." );
 
 	pFileSystem->AddSearchPath( executablePath, "EXECUTABLE_PATH" );
-#endif
 	return FS_OK;
 }
 
@@ -1408,27 +1250,11 @@ FSReturnCode_t FileSystem_GetFileSystemDLLName( char *pFileSystemDLL, int nMaxLe
 	if ( !FileSystem_GetExecutableDir( executablePath, sizeof( executablePath ) )	)
 		return SetupFileSystemError( false, FS_INVALID_PARAMETERS, "FileSystem_GetExecutableDir failed." );
 	
-#if defined( _PS3 )
-	Q_snprintf( pFileSystemDLL, nMaxLen, "%s%cfilesystem_stdio" DLL_EXT_STRING, g_pPS3PathInfo->PrxPath(), CORRECT_PATH_SEPARATOR );
-#else
 	Q_snprintf( pFileSystemDLL, nMaxLen, "%s%cfilesystem_stdio_v2" DLL_EXT_STRING, executablePath, CORRECT_PATH_SEPARATOR );
-#endif
 
 	return FS_OK;
 }
 
-//-----------------------------------------------------------------------------
-// Sets up the steam.dll install path in our PATH env var (so you can then just 
-// LoadLibrary() on filesystem_steam.dll without having to copy steam.dll anywhere special )
-//-----------------------------------------------------------------------------
-FSReturnCode_t FileSystem_SetupSteamInstallPath()
-{
-	CSteamEnvVars steamEnvVars;
-	char steamInstallPath[MAX_PATH];
-	FSReturnCode_t ret = SetSteamInstallPath( steamInstallPath, sizeof( steamInstallPath ), steamEnvVars, true );
-	steamEnvVars.m_Path.SetRestoreOriginalValue( false ); // We want to keep the change to the path going forward.
-	return ret;
-}
 
 //-----------------------------------------------------------------------------
 // Sets up the steam environment + gets back the gameinfo.txt path
@@ -1441,7 +1267,7 @@ FSReturnCode_t FileSystem_SetupSteamEnvironment( CFSSteamSetupInfo &fsInfo )
 		return ret;
 
 	// This is so that processes spawned by this application will have the same VPROJECT
-#if defined( WIN32 ) || defined( _GAMECONSOLE )
+#if defined( WIN32 )
 	char pEnvBuf[MAX_PATH+32];
 	Q_snprintf( pEnvBuf, sizeof(pEnvBuf), "%s=%s", GAMEDIR_TOKEN, fsInfo.m_GameInfoPath );
 	_putenv( pEnvBuf );
@@ -1587,11 +1413,7 @@ void FileSystem_AddSearchPath_Platform( IFileSystem *pFileSystem, const char *sz
 	{
 		Q_strncpy( platform, szGameInfoPath, MAX_PATH );
 		Q_StripTrailingSlash( platform );
-#ifdef _PS3
-		Q_strncat( platform, "/platform", MAX_PATH, MAX_PATH );
-#else // _PS3
 		Q_strncat( platform, "/../platform", MAX_PATH, MAX_PATH );
-#endif // !_PS3
 	}
 
 	pFileSystem->AddSearchPath( platform, "PLATFORM" );

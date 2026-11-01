@@ -5,8 +5,7 @@
 //===========================================================================
 
 
-#ifndef DMEELEMENTGROUP_H
-#define DMEELEMENTGROUP_H
+#pragma once
 
 
 #ifdef _WIN32
@@ -33,4 +32,3 @@ public:
 };
 
 
-#endif // DMEELEMENTGROUP_H

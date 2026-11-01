@@ -7,8 +7,7 @@
  *
  **************************************************************************/
 
-#ifndef __XAUDIO2FX_INCLUDED__
-#define __XAUDIO2FX_INCLUDED__
+#pragma once
 
 
 /**************************************************************************
@@ -410,4 +409,3 @@ __inline void ReverbConvertI3DL2ToNative
 #pragma pack(pop)
 
 #endif // #ifndef GUID_DEFS_ONLY
-#endif // #ifndef __XAUDIO2FX_INCLUDED__

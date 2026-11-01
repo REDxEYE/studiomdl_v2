@@ -9,14 +9,13 @@
 // $NoKeywords: $
 //===========================================================================//
 
-#ifndef ICONVAR_H
-#define ICONVAR_H
+#pragma once
 
 #if _WIN32
 #pragma once
 #endif
 
-#include "tier0/dbg.h"
+
 #include "tier0/platform.h"
 #include "tier1/strtools.h"
 #include "color.h"
@@ -123,4 +122,3 @@ public:
 };
 
 
-#endif // ICONVAR_H

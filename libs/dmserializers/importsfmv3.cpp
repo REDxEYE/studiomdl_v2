@@ -86,7 +86,7 @@ const char *GetCurveInfoTypeFromLogType( const char *pLogType )
 		if ( !Q_stricmp( pLogType, g_typeMap[ i ].pLogType ) )
 			return g_typeMap[ i ].pCurveInfoType;
 	}
-	return NULL;
+	return nullptr;
 }
 
 bool IsLogLayerType( const char *pLogLayerType )
@@ -100,7 +100,7 @@ bool IsLogLayerType( const char *pLogLayerType )
 	return false;
 }
 
-void MoveAttribute( CDmElement *pFromElement, const char *pFromAttrName, CDmElement *pToElement = NULL, const char *pToAttrName = NULL, DmAttributeType_t toType = AT_UNKNOWN )
+void MoveAttribute( CDmElement *pFromElement, const char *pFromAttrName, CDmElement *pToElement = nullptr, const char *pToAttrName = nullptr, DmAttributeType_t toType = AT_UNKNOWN )
 {
 	if ( !pToAttrName )
 	{
@@ -158,7 +158,7 @@ void CImportSFMV3::FixupElement( CDmElement *pElement )
 	if ( !pCurveInfoType )
 		return;
 
-	CDmElement *pCurveInfo = NULL;
+	CDmElement *pCurveInfo = nullptr;
 	CDmAttribute *pUseCurveTypeAttr = pElement->GetAttribute( "usecurvetypes" );
 	if ( pUseCurveTypeAttr && pUseCurveTypeAttr->GetValue<bool>() )
 	{

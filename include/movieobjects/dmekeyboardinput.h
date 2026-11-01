@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // The keyboard input class
 //
 //=============================================================================
 
-#ifndef DMEKEYBOARDINPUT_H
-#define DMEKEYBOARDINPUT_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -30,7 +29,6 @@ public:
 protected:
 	CDmaVar< bool > *m_keys;
 
-	bool GetKeyStatus( uint ki );
+	bool GetKeyStatus( uint32_t ki );
 };
 
-#endif // DMEKEYBOARDINPUT_H

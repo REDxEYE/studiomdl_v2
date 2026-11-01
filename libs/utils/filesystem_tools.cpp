@@ -4,7 +4,7 @@
 //
 //===========================================================================//
 
-#if defined( _WIN32 ) && !defined( _X360 )
+#if defined( _WIN32 )
 #include <windows.h>
 #include <direct.h>
 #include <io.h> // _chmod
@@ -26,18 +26,17 @@
 	#include "vmpi_filesystem.h"
 #endif
 
-// memdbgon must be the last include file in a .cpp file!!!
-//#include <tier0/memdbgon.h>
+
 
 
 // ---------------------------------------------------------------------------------------------------- //
 // Module interface.
 // ---------------------------------------------------------------------------------------------------- //
 
-IBaseFileSystem *g_pFileSystem = NULL;
+IBaseFileSystem *g_pFileSystem = nullptr;
 
 // These are only used for tools that need the search paths that the engine's file system provides.
-CSysModule			*g_pFullFileSystemModule = NULL;
+CSysModule			*g_pFullFileSystemModule = nullptr;
 
 // ---------------------------------------------------------------------------
 //
@@ -47,10 +46,10 @@ CSysModule			*g_pFullFileSystemModule = NULL;
 // ---------------------------------------------------------------------------
 
 // This is the the path of the initial source file (relative to the cwd)
-char		qdir[1024];
+char		qdir[1024]{};
 
 // This is the base engine + mod-specific game dir (e.g. "c:\tf2\mytfmod\")
-char		gamedir[1024];	
+char		gamedir[1024]{};
 
 void FileSystem_SetupStandardDirectories( const char *pFilename, const char *pGameInfoPath )
 {
@@ -60,9 +59,11 @@ void FileSystem_SetupStandardDirectories( const char *pFilename, const char *pGa
 		pFilename = ".";
 	}
 
-	Q_MakeAbsolutePath( qdir, sizeof( qdir ), pFilename, NULL );
+	Q_MakeAbsolutePath( qdir, sizeof( qdir ), pFilename, nullptr);
 	Q_StripFilename( qdir );
+#if !(PLATFORM_LINUX)
 	Q_strlower( qdir );
+#endif
 	if ( qdir[0] != 0 )
 	{
 		Q_AppendSlash( qdir, sizeof( qdir ) );
@@ -79,13 +80,10 @@ bool FileSystem_Init_Normal( const char *pFilename, FSInitType_t initType, bool 
 	if ( initType == FS_INIT_FULL )
 	{
 		// First, get the name of the module
-		char fileSystemDLLName[MAX_PATH];
+		char fileSystemDLLName[MAX_PATH]{0};
 		bool bSteam;
 		if ( FileSystem_GetFileSystemDLLName( fileSystemDLLName, MAX_PATH, bSteam ) != FS_OK )
 			return false;
-
-		// If we're under Steam we need extra setup to let us find the proper modules
-		FileSystem_SetupSteamInstallPath();
 
 		// Next, load the module, call Connect/Init.
 		CFSLoadModuleInfo loadModuleInfo;
@@ -187,14 +185,14 @@ void FileSystem_Term()
 	if ( g_pFullFileSystem )
 	{
 		g_pFullFileSystem->Shutdown();
-		g_pFullFileSystem = NULL;
-		g_pFileSystem = NULL;
+		g_pFullFileSystem = nullptr;
+		g_pFileSystem = nullptr;
 	}
 
 	if ( g_pFullFileSystemModule )
 	{
 		Sys_UnloadModule( g_pFullFileSystemModule );
-		g_pFullFileSystemModule = NULL;
+		g_pFullFileSystemModule = nullptr;
 	}
 }
 

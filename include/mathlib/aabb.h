@@ -1,6 +1,5 @@
-//========= Copyright © Valve Corporation, All rights reserved. ============//
-#ifndef MATHLIB_AABB_HDR
-#define MATHLIB_AABB_HDR
+//========= Copyright Â© Valve Corporation, All rights reserved. ============//
+#pragma once
 
 #include "mathlib/vector4d.h"
 #include "mathlib/vector.h"
@@ -215,4 +214,3 @@ inline AABB_t GetAabb( const VectorAligned *pPos, int nCount )
 	return aabb;
 };
 
-#endif

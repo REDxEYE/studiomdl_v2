@@ -7,32 +7,24 @@
 // A growable memory class.
 //===========================================================================//
 
-#ifndef UTLBLOCKMEMORY_H
-#define UTLBLOCKMEMORY_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
 #endif
 
-#include "tier0/dbg.h"
+#include <utility>
 #include "tier0/platform.h"
 #include "mathlib/mathlib.h"
 
 #include "tier0/memalloc.h"
-// DISABLED #include "tier0/memdbgon.h"
+
 
 #pragma warning (disable:4100)
 #pragma warning (disable:4514)
 
 //-----------------------------------------------------------------------------
 
-#ifdef UTBLOCKLMEMORY_TRACK
-#define UTLBLOCKMEMORY_TRACK_ALLOC()		MemAlloc_RegisterAllocation( "||Sum of all UtlBlockMemory||", 0, NumAllocated() * sizeof(T), NumAllocated() * sizeof(T), 0 )
-#define UTLBLOCKMEMORY_TRACK_FREE()		if ( !m_pMemory ) ; else MemAlloc_RegisterDeallocation( "||Sum of all UtlBlockMemory||", 0, NumAllocated() * sizeof(T), NumAllocated() * sizeof(T), 0 )
-#else
-#define UTLBLOCKMEMORY_TRACK_ALLOC()		((void)0)
-#define UTLBLOCKMEMORY_TRACK_FREE()		((void)0)
-#endif
 
 
 //-----------------------------------------------------------------------------
@@ -51,8 +43,8 @@ public:
 	void Init( int nGrowSize = 0, int nInitSize = 0 );
 
 	// here to match CUtlMemory, but only used by ResetDbgInfo, so it can just return NULL
-	T* Base() { return NULL; }
-	const T* Base() const { return NULL; }
+	T* Base() { return nullptr; }
+	const T* Base() const { return nullptr; }
 
 	class Iterator_t
 	{
@@ -117,7 +109,7 @@ protected:
 
 template< class T, class I >
 CUtlBlockMemory<T,I>::CUtlBlockMemory( int nGrowSize, int nInitAllocationCount )
-: m_pMemory( 0 ), m_nBlocks( 0 ), m_nIndexMask( 0 ), m_nIndexShift( 0 )
+: m_pMemory( nullptr ), m_nBlocks( 0 ), m_nIndexMask( 0 ), m_nIndexShift( 0 )
 {
 	Init( nGrowSize, nInitAllocationCount );
 }
@@ -135,10 +127,16 @@ CUtlBlockMemory<T,I>::~CUtlBlockMemory()
 template< class T, class I >
 void CUtlBlockMemory<T,I>::Swap( CUtlBlockMemory< T, I > &mem )
 {
-	V_swap( m_pMemory, mem.m_pMemory );
-	V_swap( m_nBlocks, mem.m_nBlocks );
-	V_swap( m_nIndexMask, mem.m_nIndexMask );
-	V_swap( m_nIndexShift, mem.m_nIndexShift );
+	std::swap( m_pMemory, mem.m_pMemory );
+	std::swap( m_nBlocks, mem.m_nBlocks );
+	int old_mask = m_nIndexMask;
+	m_nIndexMask = mem.m_nIndexMask;
+	mem.m_nIndexMask = old_mask;
+
+	int old_shift = m_nIndexShift;
+	m_nIndexShift = mem.m_nIndexShift;
+	mem.m_nIndexShift = old_shift;
+
 }
 
 
@@ -240,29 +238,24 @@ void CUtlBlockMemory<T,I>::Grow( int num )
 template< class T, class I >
 void CUtlBlockMemory<T,I>::ChangeSize( int nBlocks )
 {
-	UTLBLOCKMEMORY_TRACK_FREE(); // this must stay before the recalculation of m_nBlocks, since it implicitly uses the old value
 
 	int nBlocksOld = m_nBlocks;
 	m_nBlocks = nBlocks;
 
-	UTLBLOCKMEMORY_TRACK_ALLOC(); // this must stay after the recalculation of m_nBlocks, since it implicitly uses the new value
 
 	// free old blocks if shrinking
 	for ( int i = m_nBlocks; i < nBlocksOld; ++i )
 	{
-		UTLBLOCKMEMORY_TRACK_FREE();
 		free( (void*)m_pMemory[ i ] );
 	}
 
 	if ( m_pMemory )
 	{
-		MEM_ALLOC_CREDIT_CLASS();
 		m_pMemory = (T**)realloc( m_pMemory, m_nBlocks * sizeof(T*) );
 		Assert( m_pMemory );
 	}
 	else
 	{
-		MEM_ALLOC_CREDIT_CLASS();
 		m_pMemory = (T**)malloc( m_nBlocks * sizeof(T*) );
 		Assert( m_pMemory );
 	}
@@ -276,7 +269,6 @@ void CUtlBlockMemory<T,I>::ChangeSize( int nBlocks )
 	int nBlockSize = NumElementsInBlock();
 	for ( int i = nBlocksOld; i < m_nBlocks; ++i )
 	{
-		MEM_ALLOC_CREDIT_CLASS();
 		m_pMemory[ i ] = (T*)malloc( nBlockSize * sizeof( T ) );
 		Assert( m_pMemory[ i ] );
 	}
@@ -304,12 +296,10 @@ void CUtlBlockMemory<T,I>::Purge()
 
 	for ( int i = 0; i < m_nBlocks; ++i )
 	{
-		UTLBLOCKMEMORY_TRACK_FREE();
 		free( (void*)m_pMemory[ i ] );
 	}
 	m_nBlocks = 0;
 
-	UTLBLOCKMEMORY_TRACK_FREE();
 	free( (void*)m_pMemory );
 	m_pMemory = 0;
 }
@@ -346,4 +336,3 @@ void CUtlBlockMemory<T,I>::Purge( int numElements )
 
 // DISABLED #include "tier0/memdbgoff.h"
 
-#endif // UTLBLOCKMEMORY_H

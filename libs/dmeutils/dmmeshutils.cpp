@@ -17,7 +17,6 @@
 #include "movieobjects/dmevertexdata.h"
 
 #include "tier1/utlstack.h"
-//#include "tier2/p4helpers.h"
 #include "tier1/utlstring.h"
 #include "tier1/UtlStringMap.h"
 #include "tier1/utlbuffer.h"
@@ -30,7 +29,7 @@
 //-----------------------------------------------------------------------------
 // 
 //-----------------------------------------------------------------------------
-DEFINE_LOGGING_CHANNEL_NO_TAGS( LOG_MESHUTILS, "MeshUtils" );
+DEFINE_LOGGING_CHANNEL( LOG_MESHUTILS, "MeshUtils" );
 
 #ifndef LOG_COLOR_RED
 #define LOG_COLOR_RED Color( 255, 0, 0, 255 )
@@ -492,22 +491,22 @@ void RemoveUnusedData(
 	switch ( dataAttrType )
 	{
 	case AT_FLOAT_ARRAY:
-		RemapData( CDmrArray< float >( pDataAttr ), newToOldDataMap );
+		RemapData( AsLvalue( CDmrArray< float >( pDataAttr ) ), newToOldDataMap );
 		break;
 	case AT_VECTOR2_ARRAY:
-		RemapData( CDmrArray< Vector2D >( pDataAttr ), newToOldDataMap );
+		RemapData( AsLvalue( CDmrArray< Vector2D >( pDataAttr ) ), newToOldDataMap );
 		break;
 	case AT_VECTOR3_ARRAY:
-		RemapData( CDmrArray< Vector >( pDataAttr ), newToOldDataMap );
+		RemapData( AsLvalue( CDmrArray< Vector >( pDataAttr ) ), newToOldDataMap );
 		break;
 	case AT_VECTOR4_ARRAY:
-		RemapData( CDmrArray< Vector4D >( pDataAttr ), newToOldDataMap );
+		RemapData( AsLvalue( CDmrArray< Vector4D >( pDataAttr ) ), newToOldDataMap );
 		break;
 	case AT_QUATERNION_ARRAY:
-		RemapData( CDmrArray< Quaternion >( pDataAttr ), newToOldDataMap );
+		RemapData( AsLvalue( CDmrArray< Quaternion >( pDataAttr ) ), newToOldDataMap );
 		break;
 	case AT_COLOR_ARRAY:
-		RemapData( CDmrArray< Color >( pDataAttr ), newToOldDataMap );
+		RemapData( AsLvalue( CDmrArray< Color >( pDataAttr ) ), newToOldDataMap );
 		break;
 	default:
 		Assert( 0 );
@@ -617,7 +616,8 @@ void RemoveUnusedVerticesFromBaseState(
 		CDmrGenericArray data = pVertexData->GetVertexData( i );
 
 		// This will also update pNewVertexIndices
-		RemoveUnusedData( pMesh, pVertexData, bBind, pFieldName, pNewVertexIndices, nNewToOldIndexMapCount, CDmrGenericArray( pVertexData->GetVertexData( i ) ) );
+		CDmrGenericArray dataToCompact( pVertexData->GetVertexData( i ) );
+		RemoveUnusedData( pMesh, pVertexData, bBind, pFieldName, pNewVertexIndices, nNewToOldIndexMapCount, dataToCompact );
 
 		// Shrink the indices array
 		indices.RemoveMultiple( nNewToOldIndexMapCount, indices.Count() - nNewToOldIndexMapCount );
@@ -786,7 +786,7 @@ const int *CDmMeshUtils::BuildDataMirrorMap( CDmeVertexData *pBase, int axis, CD
 {
 	const FieldIndex_t fieldIndex = pBase->FindFieldIndex( standardField );
 	if ( fieldIndex < 0 )
-		return NULL;
+		return nullptr;
 
 	const CUtlVector< int > &indices( CDmrArrayConst< int >( pBase->GetIndexData( fieldIndex ) ).Get() );
 
@@ -988,8 +988,8 @@ void MirrorVertexData(
 			if ( dataMirrorMap[ origIndices[ i ] ] != origIndices[ i ] )
 			{
 				// Data referred to by vertex i must be mirror (this may be done a redundant number of times)
-				const T_t &origData( origData[ origIndices[ i ] ] );
-				mirrorData = origData;
+				const T_t &origDataValue( origData[ origIndices[ i ] ] );
+				mirrorData = origDataValue;
 				MirrorData( mirrorData, axis );
 				pMirrorData[ dataMirrorMap[ origIndices[ i ] ] - nData ] = mirrorData;
 				if ( ( dataMirrorMap[ origIndices[ i ] ] - nData ) > nMirrorDataCount )
@@ -1060,19 +1060,19 @@ bool CDmMeshUtils::MirrorVertices(
 		case AT_VECTOR2_ARRAY:
 			if ( i == uvFieldIndex )
 			{
-				MirrorVertexData( pBase, i, axis % 2, nOldVertexCount, nMirrorCount, CDmrArrayConst< Vector2D >( pBaseData ), baseIndices, mirrorMap, uvMirrorMap );
+				MirrorVertexData( pBase, i, axis % 2, nOldVertexCount, nMirrorCount, AsLvalue( CDmrArrayConst< Vector2D >( pBaseData ) ), baseIndices, mirrorMap, uvMirrorMap );
 				continue;
 			}
 			break;
 		case AT_VECTOR3_ARRAY:
 			if ( i == posFieldIndex )
 			{
-				MirrorVertexData( pBase, i, axis, nOldVertexCount, nMirrorCount, CDmrArrayConst< Vector >( pBaseData ), baseIndices, mirrorMap, posMirrorMap );
+				MirrorVertexData( pBase, i, axis, nOldVertexCount, nMirrorCount, AsLvalue( CDmrArrayConst< Vector >( pBaseData ) ), baseIndices, mirrorMap, posMirrorMap );
 				continue;
 			}
 			else if ( i == normalFieldIndex )
 			{
-				MirrorVertexData( pBase, i, axis, nOldVertexCount, nMirrorCount, CDmrArrayConst< Vector >( pBaseData ), baseIndices, mirrorMap, normalMirrorMap );
+				MirrorVertexData( pBase, i, axis, nOldVertexCount, nMirrorCount, AsLvalue( CDmrArrayConst< Vector >( pBaseData ) ), baseIndices, mirrorMap, normalMirrorMap );
 				continue;
 			}
 			break;
@@ -1190,19 +1190,19 @@ bool CDmMeshUtils::MirrorDelta(
 		case AT_VECTOR2_ARRAY:
 			if ( i == uvFieldIndex )
 			{
-				MirrorDeltaData( pDelta, i, axis % 2, CDmrArrayConst< Vector2D >( pDeltaData ), deltaIndices, uvMirrorMap );
+				MirrorDeltaData( pDelta, i, axis % 2, AsLvalue( CDmrArrayConst< Vector2D >( pDeltaData ) ), deltaIndices, uvMirrorMap );
 				continue;
 			}
 			break;
 		case AT_VECTOR3_ARRAY:
 			if ( i == posFieldIndex )
 			{
-				MirrorDeltaData( pDelta, i, axis, CDmrArrayConst< Vector >( pDeltaData ), deltaIndices, posMirrorMap );
+				MirrorDeltaData( pDelta, i, axis, AsLvalue( CDmrArrayConst< Vector >( pDeltaData ) ), deltaIndices, posMirrorMap );
 				continue;
 			}
 			else if ( i == normalFieldIndex )
 			{
-				MirrorDeltaData( pDelta, i, axis, CDmrArrayConst< Vector >( pDeltaData ), deltaIndices, normalMirrorMap );
+				MirrorDeltaData( pDelta, i, axis, AsLvalue( CDmrArrayConst< Vector >( pDeltaData ) ), deltaIndices, normalMirrorMap );
 				continue;
 			}
 			break;
@@ -1342,7 +1342,7 @@ bool CDmMeshUtils::Merge( CDmeMesh *pSrcMesh, CDmElement *pRoot )
 	if ( srcComp.GetBorderEdges( srcBorderEdgesList ) == 0 )
 		return false;
 
-	CDmeMesh *pDstMesh = NULL;
+	CDmeMesh *pDstMesh = nullptr;
 
 	// Find each mesh under pRoot
 	CDmeDag *pModel = pRoot->GetValueElement< CDmeDag >( "model" );
@@ -1416,7 +1416,7 @@ template < class T_t >
 void AppendData(
 	const CDmrArrayConst< T_t > &srcData,
 	CDmrArray< T_t > &dstData,
-	const matrix3x4_t *pMat = NULL )
+	const matrix3x4_t *pMat = nullptr)
 {
 	const int nSrcCount = srcData.Count();
 	const int nDstCount = dstData.Count();
@@ -1653,33 +1653,33 @@ int MergeBaseState(
 			switch ( pSrcData->GetType() )
 			{
 			case AT_FLOAT_ARRAY:
-				AppendData( CDmrArrayConst< float >( pSrcData ), CDmrArray< float >( pDstData ) );
+				AppendData( AsLvalue( CDmrArrayConst< float >( pSrcData ) ), AsLvalue( CDmrArray< float >( pDstData ) ) );
 				break;
 			case AT_VECTOR2_ARRAY:
-				AppendData( CDmrArrayConst< Vector2D >( pSrcData ), CDmrArray< Vector2D >( pDstData ) );
+				AppendData( AsLvalue( CDmrArrayConst< Vector2D >( pSrcData ) ), AsLvalue( CDmrArray< Vector2D >( pDstData ) ) );
 				break;
 			case AT_VECTOR3_ARRAY:
 				if ( i == nSrcPositionIndex )
 				{
-					AppendData( CDmrArrayConst< Vector >( pSrcData ), CDmrArray< Vector >( pDstData ), &pMat );
+					AppendData( AsLvalue( CDmrArrayConst< Vector >( pSrcData ) ), AsLvalue( CDmrArray< Vector >( pDstData ) ), &pMat );
 				}
 				else if ( i == nSrcNormalIndex )
 				{
-					AppendData( CDmrArrayConst< Vector >( pSrcData ), CDmrArray< Vector >( pDstData ), &nMat );
+					AppendData( AsLvalue( CDmrArrayConst< Vector >( pSrcData ) ), AsLvalue( CDmrArray< Vector >( pDstData ) ), &nMat );
 				}
 				else
 				{
-					AppendData( CDmrArrayConst< Vector >( pSrcData ), CDmrArray< Vector >( pDstData ) );
+					AppendData( AsLvalue( CDmrArrayConst< Vector >( pSrcData ) ), AsLvalue( CDmrArray< Vector >( pDstData ) ) );
 				}
 				break;
 			case AT_VECTOR4_ARRAY:
-				AppendData( CDmrArrayConst< Vector4D >( pSrcData ), CDmrArray< Vector4D >( pDstData ) );
+				AppendData( AsLvalue( CDmrArrayConst< Vector4D >( pSrcData ) ), AsLvalue( CDmrArray< Vector4D >( pDstData ) ) );
 				break;
 			case AT_QUATERNION_ARRAY:
-				AppendData( CDmrArrayConst< Quaternion >( pSrcData ), CDmrArray< Quaternion >( pDstData ) );
+				AppendData( AsLvalue( CDmrArrayConst< Quaternion >( pSrcData ) ), AsLvalue( CDmrArray< Quaternion >( pDstData ) ) );
 				break;
 			case AT_COLOR_ARRAY:
-				AppendData( CDmrArrayConst< Color >( pSrcData ), CDmrArray< Color >( pDstData ) );
+				AppendData( AsLvalue( CDmrArrayConst< Color >( pSrcData ) ), AsLvalue( CDmrArray< Color >( pDstData ) ) );
 				break;
 			default:
 				Assert( 0 );
@@ -1853,22 +1853,22 @@ void MergeDeltaState( CDmeMesh *pDmeMesh, CDmeVertexDeltaData *pSrcDelta, CDmeVe
 			switch ( pSrcData->GetType() )
 			{
 			case AT_FLOAT_ARRAY:
-				AppendData( CDmrArrayConst< float >( pSrcData ), CDmrArray< float >( pDstData ) );
+				AppendData( AsLvalue( CDmrArrayConst< float >( pSrcData ) ), AsLvalue( CDmrArray< float >( pDstData ) ) );
 				break;
 			case AT_VECTOR2_ARRAY:
-				AppendData( CDmrArrayConst< Vector2D >( pSrcData ), CDmrArray< Vector2D >( pDstData ) );
+				AppendData( AsLvalue( CDmrArrayConst< Vector2D >( pSrcData ) ), AsLvalue( CDmrArray< Vector2D >( pDstData ) ) );
 				break;
 			case AT_VECTOR3_ARRAY:
-				AppendData( CDmrArrayConst< Vector >( pSrcData ), CDmrArray< Vector >( pDstData ) );
+				AppendData( AsLvalue( CDmrArrayConst< Vector >( pSrcData ) ), AsLvalue( CDmrArray< Vector >( pDstData ) ) );
 				break;
 			case AT_VECTOR4_ARRAY:
-				AppendData( CDmrArrayConst< Vector4D >( pSrcData ), CDmrArray< Vector4D >( pDstData ) );
+				AppendData( AsLvalue( CDmrArrayConst< Vector4D >( pSrcData ) ), AsLvalue( CDmrArray< Vector4D >( pDstData ) ) );
 				break;
 			case AT_QUATERNION_ARRAY:
-				AppendData( CDmrArrayConst< Quaternion >( pSrcData ), CDmrArray< Quaternion >( pDstData ) );
+				AppendData( AsLvalue( CDmrArrayConst< Quaternion >( pSrcData ) ), AsLvalue( CDmrArray< Quaternion >( pDstData ) ) );
 				break;
 			case AT_COLOR_ARRAY:
-				AppendData( CDmrArrayConst< Color >( pSrcData ), CDmrArray< Color >( pDstData ) );
+				AppendData( AsLvalue( CDmrArrayConst< Color >( pSrcData ) ), AsLvalue( CDmrArray< Color >( pDstData ) ) );
 				break;
 			default:
 				Assert( 0 );
@@ -2087,13 +2087,13 @@ CDmeMesh *ReplaceMesh(
 	CDmeMesh *pDstMesh )
 {
 	if ( !pSrcMesh || !pDstMesh )
-		return NULL;
+		return nullptr;
 
 	CDmeDag *pSrcDag = pSrcMesh->GetParent();
 	CDmeDag *pDstDag = pDstMesh->GetParent();
 
 	if ( !pSrcDag || !pDstDag )
-		return NULL;
+		return nullptr;
 
 	// Fix up the transform
 	matrix3x4_t inclusiveMat;
@@ -2131,7 +2131,7 @@ CDmeMesh *ReplaceMesh(
 	if ( pSrcComboOp )
 	{
 		CDmeCombinationOperator *pDstComboOp = FindReferringElement< CDmeCombinationOperator >( pDstMesh, "targets" );
-		CDmElement *pDstRoot = NULL;
+		CDmElement *pDstRoot = nullptr;
 		if ( pDstComboOp )
 		{
 			// Find the root the easy way
@@ -2254,13 +2254,13 @@ bool CopyField(
 	switch ( pSrcVertexData->GetType() )
 	{
 	case AT_FLOAT_ARRAY:
-		CopyFieldData( CDmrArrayConst< float >( pSrcVertexData ), srcIndices, pDstData, dstFieldIndex, vertexWeightMap );
+		CopyFieldData( AsLvalue( CDmrArrayConst< float >( pSrcVertexData ) ), srcIndices, pDstData, dstFieldIndex, vertexWeightMap );
 		break;
 	case AT_VECTOR2_ARRAY:
-		CopyFieldData( CDmrArrayConst< Vector2D >( pSrcVertexData ), srcIndices, pDstData, dstFieldIndex, vertexWeightMap );
+		CopyFieldData( AsLvalue( CDmrArrayConst< Vector2D >( pSrcVertexData ) ), srcIndices, pDstData, dstFieldIndex, vertexWeightMap );
 		break;
 	case AT_VECTOR3_ARRAY:
-		CopyFieldData( CDmrArrayConst< Vector >( pSrcVertexData ), srcIndices, pDstData, dstFieldIndex, vertexWeightMap );
+		CopyFieldData( AsLvalue( CDmrArrayConst< Vector >( pSrcVertexData ) ), srcIndices, pDstData, dstFieldIndex, vertexWeightMap );
 		break;
 	default:
 		break;
@@ -2526,7 +2526,7 @@ bool CDmMeshUtils::NewMerge(
 			continue;
 
 		CDmeMaterial *pSrcMat = pSrcFaceSet->GetMaterial();
-		const char *pszSrcMatName = pSrcMat ? pSrcMat->GetMaterialName() : NULL;
+		const char *pszSrcMatName = pSrcMat ? pSrcMat->GetMaterialName() : nullptr;
 
 		bool bCopy = true;
 
@@ -2736,7 +2736,7 @@ bool CreateExpressionFile( const char *pExpressionFile, const CUtlVector< CUtlSt
 			if ( !bFound )
 				continue;
 
-			CDmElement *pDstControlValue = NULL;
+			CDmElement *pDstControlValue = nullptr;
 
 			const bool bStereo = pComboOp->IsStereoControl( j );
 			const bool bMulti = pComboOp->IsMultiControl( j );
@@ -2826,24 +2826,14 @@ bool CreateExpressionFile( const char *pExpressionFile, const CUtlVector< CUtlSt
 	Q_FixSlashes( buf1 );
 	g_pFullFileSystem->CreateDirHierarchy( buf1 );
 
-//	if ( !g_p4factory->AccessFile( buf )->Edit() )
-//	{
-//		g_p4factory->AccessFile( buf )->Add();
-//	}
-
-	pDstPresetGroup->ExportToTXT( buf, NULL, pComboOp );
+	pDstPresetGroup->ExportToTXT( buf, nullptr, pComboOp );
 
 	Q_SetExtension( buf, ".vfe", sizeof( buf ) );
 	Q_ExtractFilePath( buf, buf1, sizeof( buf1 ) );
 	Q_FixSlashes( buf1 );
 	g_pFullFileSystem->CreateDirHierarchy( buf1 );
 
-//	if ( !g_p4factory->AccessFile( buf )->Edit() )
-//	{
-//		g_p4factory->AccessFile( buf )->Add();
-//	}
-
-	pDstPresetGroup->ExportToVFE( buf, NULL, pComboOp );
+	pDstPresetGroup->ExportToVFE( buf, nullptr, pComboOp );
 
 	g_pDataModel->UnloadFile( pDstPresetGroup->GetFileId() );
 
@@ -2863,8 +2853,6 @@ bool CDmMeshUtils::CreateDeltasFromPresets(
 {
 	if ( !pMesh )
 		return false;
-
-	CDisableUndoScopeGuard sgDisableUndo;
 
 	CUtlStringMap< CDmePreset * > presetMap;
 	CUtlStringMap< CUtlString > conflictingNames;
@@ -2887,9 +2875,8 @@ bool CDmMeshUtils::CreateDeltasFromPresets(
 		const char *pPresetFilename = presetExpressionMap.String( i );
 
 		// Load the preset file
-		CDmElement *pRoot = NULL;
-//		g_p4factory->AccessFile( pPresetFilename )->Add();
-		g_pDataModel->RestoreFromFile( pPresetFilename, NULL, NULL, &pRoot );
+		CDmElement *pRoot = nullptr;
+		g_pDataModel->RestoreFromFile( pPresetFilename, nullptr, nullptr, &pRoot );
 		CDmePresetGroup *pPresetGroup = CastElement< CDmePresetGroup >( pRoot );
 
 		presetGroups.AddToTail( pPresetGroup );
@@ -3026,13 +3013,13 @@ bool CDmMeshUtils::CreateWrinkleDeltaFromBaseState(
 	CDmeVertexData *pPassedCurrent /* = NULL */,
 	bool bUseNormalForSign /* = false */ )
 {
-	CDmeVertexData *pBind = pPassedBind ? pPassedBind : pPassedMesh ? pPassedMesh->GetBindBaseState() : NULL;
-	CDmeVertexData *pCurr = pPassedCurrent ? pPassedCurrent : pPassedMesh ? pPassedMesh->GetCurrentBaseState() : NULL;
+	CDmeVertexData *pBind = pPassedBind ? pPassedBind : pPassedMesh ? pPassedMesh->GetBindBaseState() : nullptr;
+	CDmeVertexData *pCurr = pPassedCurrent ? pPassedCurrent : pPassedMesh ? pPassedMesh->GetCurrentBaseState() : nullptr;
 
-	const CDmeMesh *pMesh = pPassedMesh ? pPassedMesh : pBind ? FindReferringElement< CDmeMesh >( pBind, "baseStates" ) : NULL;
-	const CDmeMesh *pBindMesh = pBind ? FindReferringElement< CDmeMesh >( pBind, "baseStates" ) : NULL;
-	const CDmeMesh *pCurrMesh = pCurr ? FindReferringElement< CDmeMesh >( pCurr, "baseStates", false ) : NULL;
-	const CDmeMesh *pDeltaMesh = pDelta ? FindReferringElement< CDmeMesh >( pDelta, "deltaStates" ) : NULL;
+	const CDmeMesh *pMesh = pPassedMesh ? pPassedMesh : pBind ? FindReferringElement< CDmeMesh >( pBind, "baseStates" ) : nullptr;
+	const CDmeMesh *pBindMesh = pBind ? FindReferringElement< CDmeMesh >( pBind, "baseStates" ) : nullptr;
+	const CDmeMesh *pCurrMesh = pCurr ? FindReferringElement< CDmeMesh >( pCurr, "baseStates", false ) : nullptr;
+	const CDmeMesh *pDeltaMesh = pDelta ? FindReferringElement< CDmeMesh >( pDelta, "deltaStates" ) : nullptr;
 
 	if ( !pDelta || !pBind || !pCurr || pBind == pCurr || !pMesh || pMesh != pBindMesh || pMesh != pCurrMesh || pMesh != pDeltaMesh )
 	{
@@ -3063,7 +3050,7 @@ bool CDmMeshUtils::CreateWrinkleDeltaFromBaseState(
 		nWrinkleIndex = pDelta->CreateField( CDmeVertexDeltaData::FIELD_WRINKLE );
 	}
 
-	float *pOldWrinkleData = NULL;
+	float *pOldWrinkleData = nullptr;
 
 	if ( wrinkleOp == kAdd )
 	{
@@ -3105,8 +3092,8 @@ bool CDmMeshUtils::CreateWrinkleDeltaFromBaseState(
 	float flDelta;
 	Vector v;
 
-	const int *pNormalIndices = NULL;
-	const Vector *pNormals = NULL;
+	const int *pNormalIndices = nullptr;
+	const Vector *pNormals = nullptr;
 
 	if ( bUseNormalForSign )
 	{
@@ -3252,7 +3239,7 @@ bool CDmMeshFaceIt::Reset( const CDmeMesh *pMesh, const CDmeVertexData *pVertexD
 		m_nFaceSetCount = 0;
 		m_nFaceSetIndex = 0;
 
-		m_pFaceSet = NULL;
+		m_pFaceSet = nullptr;
 
 		m_nFaceSetIndexCount = 0;
 		m_nFaceSetIndexIndex = 0;
@@ -3288,7 +3275,7 @@ bool CDmMeshFaceIt::Reset( const CDmeMesh *pMesh, const CDmeVertexData *pVertexD
 	Assert( m_nFaceSetIndex == m_nFaceSetCount );
 	Assert( m_nFaceCount == 0 );
 
-	m_pFaceSet = NULL;
+	m_pFaceSet = nullptr;
 
 	m_nFaceSetIndexCount = 0;
 	m_nFaceSetIndexIndex = 0;
@@ -3392,7 +3379,7 @@ bool CDmMeshFaceIt::SetFaceSet()
 {
 	if ( !m_pMesh )
 	{
-		m_pFaceSet = NULL;
+		m_pFaceSet = nullptr;
 		m_nFaceSetIndexCount = 0;
 		m_nFaceSetIndexIndex = 0;
 
@@ -3401,7 +3388,7 @@ bool CDmMeshFaceIt::SetFaceSet()
 
 	if ( m_nFaceSetIndex >= m_nFaceSetCount )
 	{
-		m_pFaceSet = NULL;
+		m_pFaceSet = nullptr;
 		m_nFaceSetIndexCount = 0;
 		m_nFaceSetIndexIndex = 0;
 
@@ -3577,7 +3564,7 @@ void CDmMeshUtils::CreateDeltasFromPresetGroup(
 		CUtlString presetName = pPreset->GetName();
 
 		// Look for any conflicting pre-existing names
-		for ( int presetSuffix = 1; pComboOp->FindControlIndex( presetName ) >= 0 || pMesh->FindDeltaState( presetName ) != NULL || conflictingNames.Defined( presetName ) || presetMap.Defined( presetName ); ++presetSuffix )
+		for ( int presetSuffix = 1; pComboOp->FindControlIndex( presetName ) >= 0 || pMesh->FindDeltaState( presetName ) != nullptr || conflictingNames.Defined( presetName ) || presetMap.Defined( presetName ); ++presetSuffix )
 		{
 			presetName = pPreset->GetName();
 			presetName += presetSuffix;
@@ -3696,7 +3683,7 @@ void CDmMeshUtils::PurgeUnreferencedDeltas( CDmeMesh *pMesh, CUtlStringMap< CDme
 			CDmeVertexDeltaData *pOrigDelta = pMesh->FindDeltaState( pPreset->GetName() );
 			CDmeVertexDeltaData *pRenamedDelta = pMesh->FindDeltaState( pPresetName );
 
-			if ( nOrigIndex < 0 && nRenamedIndex >= 0 && pOrigDelta == NULL && pRenamedDelta != NULL )
+			if ( nOrigIndex < 0 && nRenamedIndex >= 0 && pOrigDelta == nullptr && pRenamedDelta != nullptr)
 			{
 				pComboOp->RemoveControl( pPresetName );
 				pRenamedDelta->SetName( pPreset->GetName() );
@@ -3712,7 +3699,7 @@ void CDmMeshUtils::PurgeUnreferencedDeltas( CDmeMesh *pMesh, CUtlStringMap< CDme
 CDmeModel *CDmMeshUtils::GetDmeModelFromMesh( CDmeMesh *pDmeMesh )
 {
 	if ( !pDmeMesh )
-		return NULL;
+		return nullptr;
 
 	CUtlStack< CDmeDag * > parentWalk;
 	CDmeDag *pDmeDag;
@@ -3738,7 +3725,7 @@ CDmeModel *CDmMeshUtils::GetDmeModelFromMesh( CDmeMesh *pDmeMesh )
 		parentWalk.Push( pDmeDag->GetParent() );
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 
@@ -3749,7 +3736,7 @@ CDmeModel *CDmMeshUtils::GetDmeModelFromMesh( CDmeMesh *pDmeMesh )
 CDmeDag *CDmMeshUtils::FindDagByNameInHierarchy( CDmeDag *pSearchDag, const char *pszSearchName )
 {
 	if ( !pSearchDag || !pszSearchName || V_strlen( pszSearchName ) <= 0 )
-		return NULL;
+		return nullptr;
 
 	CUtlStack< CDmeDag * > depthFirstStack;
 	depthFirstStack.Push( pSearchDag );
@@ -3770,7 +3757,7 @@ CDmeDag *CDmMeshUtils::FindDagByNameInHierarchy( CDmeDag *pSearchDag, const char
 		}
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 
@@ -3781,7 +3768,7 @@ CDmeDag *CDmMeshUtils::FindDagByNameInHierarchy( CDmeDag *pSearchDag, const char
 CDmeDag *CDmMeshUtils::AddJointToModel( CDmeModel *pDstModel, CDmeDag *pSrcJoint )
 {
 	if ( !pDstModel || !pSrcJoint || CastElement< CDmeModel >( pSrcJoint ) )
-		return NULL;
+		return nullptr;
 
 	// See if the dag is already part of the DmeModel
 	if ( pDstModel->GetJointIndex( pSrcJoint ) >= 0 )
@@ -3822,7 +3809,7 @@ CDmeDag *CDmMeshUtils::AddJointToModel( CDmeModel *pDstModel, CDmeDag *pSrcJoint
 		dupeList.Push( pSrcParent );
 	}
 
-	CDmeDag *pSrcDag = NULL;
+	CDmeDag *pSrcDag = nullptr;
 	matrix3x4a_t mAbs;
 
 	while ( dupeList.Count() )

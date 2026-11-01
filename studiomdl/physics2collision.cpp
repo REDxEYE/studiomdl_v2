@@ -10,7 +10,6 @@
 #include <string.h>
 #include "tier1/tier1.h"
 #include "tier1/smartptr.h"
-#include "tier2/p4helpers.h"
 #include "datalinker.h"
 #include "vphysics2_interface.h"
 #include "vphysics2_interface_flags.h"
@@ -24,6 +23,45 @@
 
 static IPhysics2Cook *g_pCook;
 
+struct extramodel_t
+{
+    struct s_source_t *m_pSrc;
+    matrix3x4_t m_matOffset;
+    bool m_bConcave;
+};
+#define MAX_EXTRA_COLLISION_MODELS 24
+
+class CCollisionModelSource
+{
+public:
+    struct s_source_t		*m_pModel;
+    extramodel_t			m_ExtraModels[MAX_EXTRA_COLLISION_MODELS+1];
+    bool					m_isJointed;
+    bool					m_bAssumeWorldspace; // assume the model is already declared in worldspace, regardless of bone names
+    bool					m_allowConcave;
+    int						m_maxConvex;
+    char *					m_pOverrideName;
+    CUtlVector<int>			m_bonemap/*[MAXSTUDIOSRCBONES]*/;
+    char					m_rootName[128];
+    bool					m_allowConcaveJoints;
+    bool					m_bRootCollisionIsEmpty;
+public:
+    void ConvertToWorldSpace(CUtlVector<Vector> &worldVerts, s_source_t *pmodel);
+    void ConvertToBoneSpace( int boneIndex, CUtlVector<Vector> &boneVerts );
+    bool ShouldProcessBone( int boneIndex );
+    void Simplify();
+    void SkipBone( int boneIndex );
+    void InitBoneMap( void );
+    void MergeBones( int parent, int child );
+    void MergeBones(const char *parent, const char *child);
+    int FindLocalBoneNamed( const char *pName );
+    bool FaceHasVertOnBone( const struct s_face_t &face, int boneIndex );
+    s_face_t GetGlobalFace( struct s_mesh_t *pMesh, int nFace );
+
+    void FindBoundBones(struct s_mesh_t *pMesh, CUtlVector<int>&setBones);
+    void FindBoundBones(struct s_boneweight_t &weights, CUtlVector<int>&setBones);
+    int	RemapBone( int boneIndex ) const;
+};
 
 struct bodypart_t
 {
@@ -70,29 +108,29 @@ public:
 class CMeshAdaptor:public CPhysics2CustomMeshBase
 {
 public:
-	virtual uint GetType()const {return PHYSICS2_SHAPE_TYPE_CUSTOM;}
-	virtual uint NumVertices() const {return m_pMesh->numvertices;}
-	virtual uint NumTriangles() const {return m_pMesh->numfaces;}
-	virtual void GetVertices(float *pVertsOut, uint nByteStride, const fltx4 &factor = Four_Ones)
+	virtual uint32_t GetType()const {return PHYSICS2_SHAPE_TYPE_CUSTOM;}
+	virtual uint32_t NumVertices() const {return m_pMesh->numvertices;}
+	virtual uint32_t NumTriangles() const {return m_pMesh->numfaces;}
+	virtual void GetVertices(float *pVertsOut, uint32_t nByteStride, const fltx4 &factor = Four_Ones)
 	{
-		uint numVerts = m_pMesh->numvertices;
-		byte *pOut = (byte*)pVertsOut;
-		for(uint i =0; i< numVerts; ++i)
+		uint32_t numVerts = m_pMesh->numvertices;
+		uint8_t *pOut = (uint8_t*)pVertsOut;
+		for(uint32_t i =0; i< numVerts; ++i)
 		{
 			fltx4 vert = MulSIMD(LoadUnaligned3SIMD(&m_pVerts[i+m_pMesh->vertexoffset].x), factor);
 			StoreUnaligned3SIMD((float*)pOut, vert);
 			pOut += nByteStride;
 		}
 	}
-	virtual void GetTriangles(int *pTrisOut, uint nByteStride)
+	virtual void GetTriangles(int *pTrisOut, uint32_t nByteStride)
 	{
-		uint numTris = m_pMesh->numfaces;
-		byte *pOut = (byte*)pTrisOut;
+		uint32_t numTris = m_pMesh->numfaces;
+		uint8_t *pOut = (uint8_t*)pTrisOut;
 
-		for(uint i = 0;i < numTris; ++i)
+		for(uint32_t i = 0;i < numTris; ++i)
 		{
 			const s_face_t *pFace = m_pFaces + i + m_pMesh->faceoffset;
-			Assert(pFace->a+m_pMesh->vertexoffset < (uint)m_pMesh->numvertices && pFace->b+m_pMesh->vertexoffset < (uint)m_pMesh->numvertices && pFace->c+m_pMesh->vertexoffset < (uint)m_pMesh->numvertices
+			Assert(pFace->a+m_pMesh->vertexoffset < (uint32_t)m_pMesh->numvertices && pFace->b+m_pMesh->vertexoffset < (uint32_t)m_pMesh->numvertices && pFace->c+m_pMesh->vertexoffset < (uint32_t)m_pMesh->numvertices
 				);
 			((int*)pOut)[0] = pFace->a;
 			((int*)pOut)[1] = pFace->b;
@@ -100,7 +138,7 @@ public:
 			pOut += nByteStride;
 		}
 	}
-	virtual uint GetSizeOf()const {return sizeof(*this);}
+	virtual uint32_t GetSizeOf()const {return sizeof(*this);}
 
 	const s_face_t *m_pFaces;// non-offset faces
 	const Vector *m_pVerts; // non-offset verts 
@@ -306,7 +344,6 @@ void CPhysics2CollisionBuilder::Write()
 	Q_SetExtension( filename, ".phz", sizeof( filename ) );
 	if(!m_bodyparts.Size())
 	{
-//		CPlainAutoPtr< CP4File > spFile( g_p4factory->AccessFile( filename ) );
 		unlink(filename);
 		return;
 	}
@@ -376,12 +413,10 @@ void CPhysics2CollisionBuilder::Write()
 		}
 	}
 
-	uint nDataSize = stream.GetTotalSize();
+	uint32_t nDataSize = stream.GetTotalSize();
 	void *pData = MemAlloc_AllocAligned(nDataSize, 16, __FILE__, __LINE__);
 	if(stream.Compile(pData))
 	{
-//		CPlainAutoPtr< CP4File > spFile( g_p4factory->AccessFile( filename ) );
-//		spFile->Edit();
 		FILE *fp = fopen( filename, "wb" );
 		if(fp)
 		{

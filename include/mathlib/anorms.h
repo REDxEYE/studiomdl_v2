@@ -1,11 +1,10 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright Â© 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
 //=============================================================================//
 
-#ifndef ANORMS_H
-#define ANORMS_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -22,4 +21,3 @@
 extern Vector g_anorms[NUMVERTEXNORMALS];
 
 
-#endif // ANORMS_H

@@ -1,4 +1,4 @@
-//===== Copyright © 1996-2005, Valve Corporation, All rights reserved. ======//
+//===== Copyright Â© 1996-2005, Valve Corporation, All rights reserved. ======//
 //
 // Purpose: Shared code for parsing / searching for characters in a string
 //			using lookup tables
@@ -8,8 +8,7 @@
 // $NoKeywords: $
 //===========================================================================//
 
-#ifndef CHARACTERSET_H
-#define CHARACTERSET_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -40,4 +39,3 @@ extern void CharacterSetBuild( characterset_t *pSetBuffer, const char *pSetStrin
 #define IN_CHARACTERSET( SetBuffer, character )		((SetBuffer).set[(character)])
 
 
-#endif // CHARACTERSET_H

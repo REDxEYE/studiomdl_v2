@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // The morph operator class - sets morph target weights on meshes
 //
 //=============================================================================
 
-#ifndef DMEMORPHOPERATOR_H
-#define DMEMORPHOPERATOR_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -39,8 +38,8 @@ public:
 	virtual void GetOutputAttributes( CUtlVector< CDmAttribute * > &attrs );
 
 	// accessors
-	uint NumDeltaStateWeights();
-	CDmElement *GetDeltaStateWeight( uint i );
+	uint32_t NumDeltaStateWeights();
+	CDmElement *GetDeltaStateWeight( uint32_t i );
 	CDmeMesh *GetMesh();
 
 protected:
@@ -50,4 +49,3 @@ protected:
 };
 
 
-#endif // DMEMORPHOPERATOR_H

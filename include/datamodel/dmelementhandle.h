@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
 //=============================================================================
 
-#ifndef DMELEMENTHANDLE_H
-#define DMELEMENTHANDLE_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -44,4 +43,3 @@ enum DmElementHandle_t
 
 
 
-#endif // DMELEMENTHANDLE_H

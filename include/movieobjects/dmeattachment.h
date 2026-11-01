@@ -4,8 +4,7 @@
 //
 //===========================================================================//
 
-#ifndef DMEATTACHMENT_H
-#define DMEATTACHMENT_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -36,4 +35,3 @@ public:
 };
 
 
-#endif // DMEATTACHMENT_H

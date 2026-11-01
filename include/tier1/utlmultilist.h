@@ -6,8 +6,7 @@
 // $NoKeywords: $
 //=============================================================================//
 
-#ifndef UTLMULTILIST_H
-#define UTLMULTILIST_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -16,7 +15,7 @@
 #include "utllinkedlist.h"
 
 // memdbgon must be the last include file in a .h file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 //-----------------------------------------------------------------------------
@@ -178,14 +177,14 @@ protected:
 
 template <class T, class I>
 CUtlMultiList<T,I>::CUtlMultiList( int growSize, int initSize ) :
-	m_Memory(growSize, initSize), m_pElementList(0)
+	m_Memory(growSize, initSize), m_pElementList(nullptr)
 {
 	ConstructList();
 }
 
 template <class T, class I>
 CUtlMultiList<T,I>::CUtlMultiList( void* pMemory, int memsize ) : 
-	m_Memory((ListElem_t *)pMemory, memsize/sizeof(ListElem_t)), m_pElementList(0)
+	m_Memory((ListElem_t *)pMemory, memsize/sizeof(ListElem_t)), m_pElementList(nullptr)
 {
 	ConstructList();
 }
@@ -345,7 +344,7 @@ inline bool CUtlMultiList<T,I>::IsValidIndex( I i ) const
 { 
 	// GCC warns if I is an unsigned type and we do a ">= 0" against it (since the comparison is always 0).
 	// We get the warning even if we cast inside the expression. It only goes away if we assign to another variable.
-	long x = i;
+	int32_t x = i;
 
  	return (i < m_MaxElementIndex) && (x >= 0) &&
 		((m_Memory[i].m_Previous != i) || (m_Memory[i].m_Next == i));
@@ -356,7 +355,7 @@ inline bool CUtlMultiList<T,I>::IsInList( I i ) const
 {
 	// GCC warns if I is an unsigned type and we do a ">= 0" against it (since the comparison is always 0).
 	// We get the warning even if we cast inside the expression. It only goes away if we assign to another variable.
-	long x = i;
+	int32_t x = i;
 	return (i < m_MaxElementIndex) && (x >= 0) && (Previous(i) != i);
 }
 
@@ -770,4 +769,3 @@ void  CUtlMultiList<T,I>::RemoveAll()
 
 // DISABLED #include "tier0/memdbgoff.h"
 
-#endif // UTLMULTILIST_H

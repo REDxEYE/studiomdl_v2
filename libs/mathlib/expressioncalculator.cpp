@@ -1,7 +1,7 @@
 //========= Copyright c 1996-2008, Valve Corporation, All rights reserved. ============//
 
 #include "tier0/platform.h"
-#include "tier0/dbg.h"
+#include <cmath>
 
 #include "mathlib/mathlib.h"
 #include "mathlib/noise.h"
@@ -11,8 +11,7 @@
 
 #include <ctype.h>
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 
@@ -62,8 +61,8 @@ bool ParseStringList( const char *&expr, const CUtlVector< CUtlString > &strings
 
 int FindString( const CUtlVector< CUtlString > &strings, const char *str )
 {
-	uint sn = strings.Count();
-	for ( uint si = 0; si < sn; ++si )
+	uint32_t sn = strings.Count();
+	for ( uint32_t si = 0; si < sn; ++si )
 	{
 		if ( !Q_strcmp( str, strings[ si ] ) )
 			return si;
@@ -181,7 +180,7 @@ const char *CExpressionCalculator::VariableName( int nIndex )
 
 bool CExpressionCalculator::ParseExpr( const char *&expr )
 {
-	return ( expr != NULL ) && ParseConditional( expr );
+	return ( expr != nullptr) && ParseConditional( expr );
 }
 
 bool CExpressionCalculator::ParseConditional( const char *&expr )
@@ -665,10 +664,10 @@ float ramp( float x, float a, float b )
 	return ( x - a ) / ( b - a );
 }
 
-float lerp( float x, float a, float b )
-{
-	return a + x * ( b - a );
-}
+// float lerp( float x, float a, float b )
+// {
+// 	return a + x * ( b - a );
+// }
 
 float smoothstep( float x )
 {
@@ -709,16 +708,16 @@ bool CExpressionCalculator::Parse3ArgFunc( const char *&expr )
 			m_stack.Push( ramp( f1, f2, f3 ) );
 			break;
 		case 3: // lerp
-			m_stack.Push( lerp( f1, f2, f3 ) );
+			m_stack.Push( std::lerp( f1, f2, f3 ) );
 			break;
 		case 4: // cramp
 			m_stack.Push( clamp( ramp( f1, f2, f3 ), 0, 1 ) );
 			break;
 		case 5: // clerp
-			m_stack.Push( clamp( lerp( f1, f2, f3 ), f2, f3 ) );
+			m_stack.Push( clamp( std::lerp( f1, f2, f3 ), f2, f3 ) );
 			break;
 		case 6: // elerp
-			m_stack.Push( lerp( smoothstep( f1 ), f2, f3 ) );
+			m_stack.Push( std::lerp( smoothstep( f1 ), f2, f3 ) );
 			break;
 		case 7: // noise
 			m_stack.Push( ImprovedPerlinNoise( Vector( f1, f2, f3 ) ) );

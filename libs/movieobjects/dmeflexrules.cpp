@@ -12,12 +12,9 @@
 // Valve includes
 #include "datamodel/dmelementfactoryhelper.h"
 #include "movieobjects/dmecombinationoperator.h"
-#include "movieobjects/dmeexpressionoperator.h"
 #include "movieobjects/dmeflexrules.h"
 
 
-// Last include
-// DISABLED #include "tier0/memdbgon.h"
 
 
 //-----------------------------------------------------------------------------

@@ -7,8 +7,7 @@
  *
  ***************************************************************************/
 
-#ifndef __DDRAW_INCLUDED__
-#define __DDRAW_INCLUDED__
+#pragma once
 
 //Disable the nameless union warning when building internally
 #undef ENABLE_NAMELESS_UNION_PRAGMA
@@ -5851,6 +5850,5 @@ typedef struct _DDCOLORCONTROL
 #pragma warning(default:4201)
 #endif
 
-#endif //__DDRAW_INCLUDED__
 
 

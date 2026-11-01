@@ -1,5 +1,4 @@
-#ifndef TIER1_STRTOOLS_INLINES_H
-#define TIER1_STRTOOLS_INLINES_H
+#pragma once
 
 inline int	_V_strlen_inline( const char *str )
 {
@@ -48,8 +47,8 @@ inline int	_V_stricmp_inline( const char *s1, const char *s2 )
 	return stricmp( s1, s2 );
 #else	
 	// THIS BLOCK ISN'T USED ON THE PS3 SINCE IT IS POSIX!!!  Would be a code bloat concern otherwise.
-	uint8 const *pS1 = ( uint8 const * ) s1;
-	uint8 const *pS2 = ( uint8 const * ) s2;
+	uint8_t const *pS1 = ( uint8_t const * ) s1;
+	uint8_t const *pS2 = ( uint8_t const * ) s2;
 	for(;;)
 	{
 		int c1 = *( pS1++ );
@@ -96,11 +95,6 @@ inline int	_V_stricmp_inline( const char *s1, const char *s2 )
 
 inline char *_V_strstr_inline( const char *s1, const char *search )
 {
-#if defined( _X360 )
-	return (char *)strstr( (char *)s1, search );
-#else
 	return (char *)strstr( s1, search );
-#endif
 }
 
-#endif // TIER1_STRTOOLS_INLINES_H

@@ -7,16 +7,15 @@
 #include <cmath>
 #include <cfloat>    // needed for flt_epsilon
 #include "tier0/basetypes.h"
-#include "tier0/dbg.h"
+
 #include "mathlib/mathlib.h"
 #include "mathlib/vector.h"
 #include "sse.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
 
-static const uint32 _sincos_masks[] = {(uint32) 0x0, (uint32) ~0x0};
-static const uint32 _sincos_inv_masks[] = {(uint32) ~0x0, (uint32) 0x0};
+
+static const uint32_t _sincos_masks[] = {(uint32_t) 0x0, (uint32_t) ~0x0};
+static const uint32_t _sincos_inv_masks[] = {(uint32_t) ~0x0, (uint32_t) 0x0};
 
 //-----------------------------------------------------------------------------
 // Macros and constants required by some of the SSE assembly:
@@ -42,7 +41,7 @@ static const uint32 _sincos_inv_masks[] = {(uint32) ~0x0, (uint32) 0x0};
         const Type _ps_##Name[4]  __attribute__((aligned(16))) = { Val, Val, Val, Val }; \
 
     #define _EPI32_CONST(Name, Val) \
-        static const int32 _epi32_##Name[4]  __attribute__((aligned(16))) = { Val, Val, Val, Val }
+        static const int32_t _epi32_##Name[4]  __attribute__((aligned(16))) = { Val, Val, Val, Val }
 
     #define _PS_CONST(Name, Val) \
          static const float _ps_##Name[4]  __attribute__((aligned(16))) = { Val, Val, Val, Val }
@@ -58,11 +57,11 @@ _PS_EXTERN_CONST(am_pi_o_2, (float) (M_PI / 2.0));
 _PS_EXTERN_CONST(am_2_o_pi, (float) (2.0 / M_PI));
 _PS_EXTERN_CONST(am_pi_o_4, (float) (M_PI / 4.0));
 _PS_EXTERN_CONST(am_4_o_pi, (float) (4.0 / M_PI));
-_PS_EXTERN_CONST_TYPE(am_sign_mask, int32, 0x80000000);
-_PS_EXTERN_CONST_TYPE(am_inv_sign_mask, int32, ~0x80000000);
-_PS_EXTERN_CONST_TYPE(am_min_norm_pos, int32, 0x00800000);
-_PS_EXTERN_CONST_TYPE(am_mant_mask, int32, 0x7f800000);
-_PS_EXTERN_CONST_TYPE(am_inv_mant_mask, int32, ~0x7f800000);
+_PS_EXTERN_CONST_TYPE(am_sign_mask, uint32_t, 0x80000000);
+_PS_EXTERN_CONST_TYPE(am_inv_sign_mask, int32_t, ~0x80000000);
+_PS_EXTERN_CONST_TYPE(am_min_norm_pos, int32_t, 0x00800000);
+_PS_EXTERN_CONST_TYPE(am_mant_mask, int32_t, 0x7f800000);
+_PS_EXTERN_CONST_TYPE(am_inv_mant_mask, int32_t, ~0x7f800000);
 
 _EPI32_CONST(1, 1);
 _EPI32_CONST(2, 2);
@@ -345,10 +344,10 @@ void FastSinCos( float x, float* s, float* c )  // any x
 // [will] - Note: could use optimization.
 void FastSinCos(float x, float *s, float *c)  // any x
 {
-    if (c != NULL) {
+    if (c != nullptr) {
         *c = FastCos(x);
     }
-    if (s != NULL) {
+    if (s != nullptr) {
         *s = sin(x);
     }
 }
@@ -360,7 +359,7 @@ void FastSinCos(float x, float *s, float *c)  // any x
 //#define _PS_CONST(Name, Val) static const ALIGN16 float _ps_##Name[4] ALIGN16_POST = { Val, Val, Val, Val }
 #define _PS_CONST_TYPE(Name, Type, Val) static const ALIGN16 Type _ps_##Name[4] ALIGN16_POST = { Val, Val, Val, Val }
 
-_PS_CONST_TYPE(sign_mask, int, 0x80000000);
+_PS_CONST_TYPE(sign_mask, uint32_t, 0x80000000);
 _PS_CONST_TYPE(inv_sign_mask, int, ~0x80000000);
 
 

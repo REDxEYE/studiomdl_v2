@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.22)
 project(tier0)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 20)
 if (CMAKE_SIZEOF_VOID_P EQUAL 8)
     set(PLATFORM_DEFINES COMPILER_MSVC64 COMPILER_MSVC)
 elseif (CMAKE_SIZEOF_VOID_P EQUAL 4)
@@ -11,19 +11,10 @@ endif ()
 add_library(tier0
         platform.cpp
         pch_tier0.cpp
-        mem.cpp
         logging.cpp
         dbg.cpp
-        assert_dialog.cpp
-        memstd.cpp
-        mem_helpers.cpp
         tier0_strtools.cpp
         commandline.cpp
-        memprocessheap.cpp
-        memvirt.cpp
-        cpu.cpp
-        platwindow.cpp
-        cputopology.cpp
         )
 target_include_directories(tier0 PUBLIC ../../include)
 target_include_directories(tier0 PRIVATE ../../include/tier0)

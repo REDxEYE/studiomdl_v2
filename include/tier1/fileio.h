@@ -6,8 +6,7 @@
 //
 //=============================================================================
 
-#ifndef FILEIO_H
-#define FILEIO_H
+#pragma once
 
 #if defined (_WIN32)
 typedef __time64_t time64_t;
@@ -15,9 +14,7 @@ typedef __time64_t time64_t;
 #include <sys/types.h>
 #include <sys/stat.h>
 typedef int64_t time64_t;
-#if !defined( _PS3 )
 #include <signal.h>
-#endif // _PS3
 #endif
 
 #include "tier0/platform.h"
@@ -57,9 +54,7 @@ class CDirIterator
 {
 public:
 
-#if !defined( _PS3 )
 	CDirIterator( const char *pchSearchPath );
-#endif
 
 	CDirIterator( const char *pchPath, const char *pchPattern );
 	~CDirIterator();
@@ -86,7 +81,7 @@ private:
 	struct _WIN32_FIND_DATAW *m_pFindData;
 	char m_rgchFileName[MAX_PATH * 4];
 #else
-	int64 m_hFind;
+	int64_t m_hFind;
 	struct _finddata_t *m_pFindData;
 #endif
 };
@@ -112,17 +107,15 @@ public:
 
 	bool BFileOpen();
 	bool BSetFile( const char *pchFile, bool bAllowOpenExisting = false );
-	bool Write( const void *pvData, uint32 cubData );
+	bool Write( const void *pvData, uint32_t cubData );
 	int  Printf( char *pDest, int bufferLen, PRINTF_FORMAT_STRING char const *pFormat, ... );
-	bool Seek( uint64 offset, ESeekOrigin eOrigin );
+	bool Seek( uint64_t offset, ESeekOrigin eOrigin );
 	void Flush();
 	void Close();
-	uint64 GetBytesWritten();
+	uint64_t GetBytesWritten();
 
 #ifdef _WIN32
 	static void __stdcall ThreadedWriteFileCompletionFunc( unsigned long dwErrorCode, unsigned long dwBytesTransfered, struct _OVERLAPPED *pOverlapped );
-#elif defined( _PS3 )
-	// not implemented on PS3
 #elif defined(POSIX)
 	static void __stdcall ThreadedWriteFileCompletionFunc( sigval sigval );
 #else
@@ -131,7 +124,7 @@ public:
 
 private:
 	HANDLE m_hFileDest;
-	uint64 m_cubWritten;
+	uint64_t m_cubWritten;
 	volatile int m_cubOutstanding;
 	bool m_bAsync;
 	bool m_bDefaultAsync;
@@ -148,4 +141,3 @@ bool BFileExists( const char *pchFileNameIn );
 bool BCreateDirectory( const char *path );
 bool BRemoveDirectoryRecursive( const char *pchPath );
 
-#endif // FILEIO_H

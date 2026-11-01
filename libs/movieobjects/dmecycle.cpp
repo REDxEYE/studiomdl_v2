@@ -1,12 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright ï¿½ 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // A class representing a procedural texture
 //
 //=============================================================================
 #include "movieobjects/dmecycle.h"
 #include "datamodel/dmelementfactoryhelper.h"
-#include "tier0/dbg.h"
-#include "mathlib/mathlib.h"
 #include <math.h>
 
 //-----------------------------------------------------------------------------

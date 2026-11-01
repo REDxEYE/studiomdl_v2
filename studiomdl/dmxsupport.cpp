@@ -30,6 +30,9 @@
 // Local includes
 #include "studiomdl/studiomdl.h"
 #include "tier1/fmtstr.h"
+#include "mdlobjects/dmebonemask.h"
+#include "mdlobjects/dmebonemasklist.h"
+#include "mdlobjects/dmeposeparameterlist.h"
 
 
 extern StudioMdlContext g_StudioMdlContext;
@@ -37,7 +40,7 @@ extern StudioMdlContext g_StudioMdlContext;
 //-----------------------------------------------------------------------------
 // The current model being loaded...
 //-----------------------------------------------------------------------------
-s_model_t *g_pCurrentModel = NULL;
+s_model_t *g_pCurrentModel = nullptr;
 
 
 void UnifyIndices(s_source_t *psource);
@@ -189,7 +192,7 @@ static bool DefineUniqueVertices(CDmeVertexData *pBindState) {
                 return false;
             }
         } else {
-            extraTexcoordIndices[i - 1] = NULL;
+            extraTexcoordIndices[i - 1] = nullptr;
             nExtraTexcoordCount[i - 1] = 0;
         }
     }
@@ -565,12 +568,12 @@ static void ParseQuadFaceData(CDmeVertexData *pVertexData, int material, int *pI
     f.nd = (n >= 0) ? ni + n : 0;
     f.td[0] = (t >= 0) ? ti[0] + t : 0;
 
-    Assert(f.a <= (unsigned long) g_StudioMdlContext.numverts && f.b <= (unsigned long) g_StudioMdlContext.numverts &&
-           f.c <= (unsigned long) g_StudioMdlContext.numverts && f.d <= (unsigned long) g_StudioMdlContext.numverts);
-    Assert(f.na <= (unsigned long) g_StudioMdlContext.numnormals && f.nb <= (unsigned long) g_StudioMdlContext.numnormals &&
-           f.nc <= (unsigned long) g_StudioMdlContext.numnormals && f.nd <= (unsigned long) g_StudioMdlContext.numnormals);
-    Assert(f.ta[0] <= (unsigned long) g_StudioMdlContext.numtexcoords[0] && f.tb[0] <= (unsigned long) g_StudioMdlContext.numtexcoords[0] &&
-           f.tc[0] <= (unsigned long) g_StudioMdlContext.numtexcoords[0] && f.td[0] <= (unsigned long) g_StudioMdlContext.numtexcoords[0]);
+    Assert(f.a <= (uint32_t) g_StudioMdlContext.numverts && f.b <= (uint32_t) g_StudioMdlContext.numverts &&
+           f.c <= (uint32_t) g_StudioMdlContext.numverts && f.d <= (uint32_t) g_StudioMdlContext.numverts);
+    Assert(f.na <= (uint32_t) g_StudioMdlContext.numnormals && f.nb <= (uint32_t) g_StudioMdlContext.numnormals &&
+           f.nc <= (uint32_t) g_StudioMdlContext.numnormals && f.nd <= (uint32_t) g_StudioMdlContext.numnormals);
+    Assert(f.ta[0] <= (uint32_t) g_StudioMdlContext.numtexcoords[0] && f.tb[0] <= (uint32_t) g_StudioMdlContext.numtexcoords[0] &&
+           f.tc[0] <= (uint32_t) g_StudioMdlContext.numtexcoords[0] && f.td[0] <= (uint32_t) g_StudioMdlContext.numtexcoords[0]);
 
     for (int i = 1; i < (MAXSTUDIOTEXCOORDS); ++i) {
         t = GetExtraTexcoordIndex(pVertexData, pIndices[0], i);
@@ -581,8 +584,8 @@ static void ParseQuadFaceData(CDmeVertexData *pVertexData, int material, int *pI
         f.tc[i] = (t >= 0) ? ti[i] + t : 0;
         t = GetExtraTexcoordIndex(pVertexData, pIndices[1], i);
         f.td[i] = (t >= 0) ? ti[i] + t : 0;
-        Assert(f.ta[i] <= (unsigned long) g_StudioMdlContext.numtexcoords[i] && f.tb[i] <= (unsigned long) g_StudioMdlContext.numtexcoords[i] &&
-               f.tc[i] <= (unsigned long) g_StudioMdlContext.numtexcoords[i] && f.td[i] <= (unsigned long) g_StudioMdlContext.numtexcoords[i]);
+        Assert(f.ta[i] <= (uint32_t) g_StudioMdlContext.numtexcoords[i] && f.tb[i] <= (uint32_t) g_StudioMdlContext.numtexcoords[i] &&
+               f.tc[i] <= (uint32_t) g_StudioMdlContext.numtexcoords[i] && f.td[i] <= (uint32_t) g_StudioMdlContext.numtexcoords[i]);
     }
 
     int i = g_StudioMdlContext.numfaces++;
@@ -617,11 +620,11 @@ static void ParseFaceData(CDmeVertexData *pVertexData, int material, int v1, int
     f.nc = (n >= 0) ? ni + n : 0;
     f.tc[0] = (t >= 0) ? ti[0] + t : 0;
 
-    Assert(f.a <= (unsigned long) g_StudioMdlContext.numverts && f.b <= (unsigned long) g_StudioMdlContext.numverts && f.c <= (unsigned long) g_StudioMdlContext.numverts);
-    Assert(f.na <= (unsigned long) g_StudioMdlContext.numnormals && f.nb <= (unsigned long) g_StudioMdlContext.numnormals &&
-           f.nc <= (unsigned long) g_StudioMdlContext.numnormals);
-    Assert(f.ta[0] <= (unsigned long) g_StudioMdlContext.numtexcoords[0] && f.tb[0] <= (unsigned long) g_StudioMdlContext.numtexcoords[0] &&
-           f.tc[0] <= (unsigned long) g_StudioMdlContext.numtexcoords[0]);
+    Assert(f.a <= (uint32_t) g_StudioMdlContext.numverts && f.b <= (uint32_t) g_StudioMdlContext.numverts && f.c <= (uint32_t) g_StudioMdlContext.numverts);
+    Assert(f.na <= (uint32_t) g_StudioMdlContext.numnormals && f.nb <= (uint32_t) g_StudioMdlContext.numnormals &&
+           f.nc <= (uint32_t) g_StudioMdlContext.numnormals);
+    Assert(f.ta[0] <= (uint32_t) g_StudioMdlContext.numtexcoords[0] && f.tb[0] <= (uint32_t) g_StudioMdlContext.numtexcoords[0] &&
+           f.tc[0] <= (uint32_t) g_StudioMdlContext.numtexcoords[0]);
 
     for (int i = 1; i < (MAXSTUDIOTEXCOORDS); ++i) {
         t = GetExtraTexcoordIndex(pVertexData, v1, i);
@@ -630,8 +633,8 @@ static void ParseFaceData(CDmeVertexData *pVertexData, int material, int v1, int
         f.tb[i] = (t >= 0) ? ti[i] + t : 0;
         t = GetExtraTexcoordIndex(pVertexData, v3, i);
         f.tc[i] = (t >= 0) ? ti[i] + t : 0;
-        Assert(f.ta[i] <= (unsigned long) g_StudioMdlContext.numtexcoords[i] && f.tb[i] <= (unsigned long) g_StudioMdlContext.numtexcoords[i] &&
-               f.tc[i] <= (unsigned long) g_StudioMdlContext.numtexcoords[i]);
+        Assert(f.ta[i] <= (uint32_t) g_StudioMdlContext.numtexcoords[i] && f.tb[i] <= (uint32_t) g_StudioMdlContext.numtexcoords[i] &&
+               f.tc[i] <= (uint32_t) g_StudioMdlContext.numtexcoords[i]);
     }
 
     int i = g_StudioMdlContext.numfaces++;
@@ -856,8 +859,8 @@ static void BuildVertexAnimations(s_source_t *pSource) {
         pSourceAnim->newStyleVertexAnimations = true;
 
         // Traverse the linked list of unique vertex indices j that has a delta
-        int nVertAnimCount = 0;
-        for (int j = state.m_nFirstDelta; j >= 0; j = state.m_DeltaIndices[j].m_nNextDelta) {
+        uint32_t nVertAnimCount = 0;
+        for (int32_t j = state.m_nFirstDelta; j >= 0; j = state.m_DeltaIndices[j].m_nNextDelta) {
             // The Delta Indices array is a parallel array to s_UniqueVertices
             // j is used to index into both
             DeltaIndex_t &delta = state.m_DeltaIndices[j];
@@ -1145,7 +1148,7 @@ static void LoadBindPose(CDmeModel *pModel, float flScale, const BoneTransformMa
 
         CDmeTransformList *pBindPose = pModel->FindBaseState("bind");
         for (int nMdlBoneIndex = 0; nMdlBoneIndex < boneMap.m_nBoneCount; ++nMdlBoneIndex) {
-            CDmeTransform *pDmeTransform = NULL;
+            CDmeTransform *pDmeTransform = nullptr;
 
             const int nDmeModelBoneIndex = boneMap.m_pnMdlToDmeModel[nMdlBoneIndex];
             if (nDmeModelBoneIndex < 0) {
@@ -1246,11 +1249,8 @@ static void UpdateChannels(CUtlVector<IDmeOperator *> &operators, CDmeChannelsCl
     }
 
     // Recompute the position of the joints
-    {
-        CDisableUndoScopeGuard guard;
-        g_pDmElementFramework->SetOperators(operators);
-        g_pDmElementFramework->Operate(true);
-    }
+    g_pDmElementFramework->SetOperators(operators);
+    g_pDmElementFramework->Operate(true);
     g_pDmElementFramework->BeginEdit();
 }
 
@@ -1259,7 +1259,9 @@ static void UpdateChannels(CUtlVector<IDmeOperator *> &operators, CDmeChannelsCl
 // Initialize the pose for this frame
 //-----------------------------------------------------------------------------
 static void ComputeFramePose(s_sourceanim_t *pSourceAnim, int nFrame, float flScale, BoneTransformMap_t &boneMap) {
-    pSourceAnim->rawanim[nFrame] = (s_bone_t *) calloc(boneMap.m_nBoneCount, sizeof(s_bone_t));
+    // LoadSkeleton appends the identity "defaultRoot" bone after the joints (numbones == m_nBoneCount + 1): the frame
+    // needs a slot for it too, calloc leaves it at the identity
+    pSourceAnim->rawanim[nFrame] = (s_bone_t *) calloc(boneMap.m_nBoneCount + 1, sizeof(s_bone_t));
 
     for (int i = 0; i < boneMap.m_nBoneCount; ++i) {
         matrix3x4_t jointTransform;
@@ -1501,7 +1503,7 @@ static bool LoadSpecializedConstraintParams(S *pDmeConstraint, T *pConstraint) {
 // Load specialized Aim Constraint parameters
 //-----------------------------------------------------------------------------
 template<>
-static bool LoadSpecializedConstraintParams(CDmeRigAimConstraintOperator *pDmeConstraint, CAimConstraint *pConstraint) {
+bool LoadSpecializedConstraintParams(CDmeRigAimConstraintOperator *pDmeConstraint, CAimConstraint *pConstraint) {
     const Quaternion qRot = Quaternion(g_defaultrotation);
 
     // Set Aim Constraint Parameters
@@ -1792,9 +1794,9 @@ static bool LoadEyelid(s_model_t *pModel, CDmeEyelid *pDmeEyelid) {
 
     EyelidData_t eyelidData[3] =
             {
-                    {{-1, -1}, NULL, 0.0f, "lowerer"},
-                    {{-1, -1}, NULL, 0.0f, "neutral"},
-                    {{-1, -1}, NULL, 0.0f, "raiser"}
+                    {{-1, -1}, nullptr, 0.0f, "lowerer"},
+                    {{-1, -1}, nullptr, 0.0f, "neutral"},
+                    {{-1, -1}, nullptr, 0.0f, "raiser"}
             };
 
     eyelidData[kLowerer].m_pSourceAnim = GetNewStyleSourceVertexAnim(pSource, pDmeEyelid->m_sLowererFlex.Get());
@@ -4532,7 +4534,7 @@ int Load_DMX(s_source_t *pSource) {
     // When reading, keep the CRLF; this will make ReadFile read it in binary format
     // and also append a couple 0s to the end of the buffer.
     CDmElement *pRoot;
-    if (g_pDataModel->RestoreFromFile(pFullPath, NULL, NULL, &pRoot) == DMFILEID_INVALID)
+    if (g_pDataModel->RestoreFromFile(pFullPath, nullptr, nullptr, &pRoot) == DMFILEID_INVALID)
         return 0;
 
     if (!g_StudioMdlContext.quiet) {
@@ -4552,13 +4554,14 @@ int Load_DMX(s_source_t *pSource) {
     CDmeCombinationOperator *pCombinationOperator = pRoot->GetValueElement<CDmeCombinationOperator>(
             "combinationOperator");
     BoneTransformMap_t boneMap;
+    extern qboolean tokenready;
+    auto old_tokenread = tokenready;
     if (!LoadModelAndSkeleton(pSource, boneMap, pSkeleton, pModel, pCombinationOperator, false))
         goto dmxError;
-
+    tokenready = old_tokenread;
     LoadQcModelElements(pSource, g_pCurrentModel, pModel);
 
-    CDmeAnimationList *pAnimationList = pRoot->GetValueElement<CDmeAnimationList>("animationList");
-    if (pAnimationList) {
+    if (CDmeAnimationList *pAnimationList = pRoot->GetValueElement<CDmeAnimationList>("animationList")) {
         LoadAnimations(pSource, pAnimationList, g_currentscale, boneMap);
     }
 

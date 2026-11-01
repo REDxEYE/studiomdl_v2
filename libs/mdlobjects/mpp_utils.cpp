@@ -232,7 +232,7 @@ bool ReorientDmeModel( CDmeModel *pDmeModel, bool bMakeZUp, CDmeDefineBoneList *
 //-----------------------------------------------------------------------------
 bool ReorientDmeModel( CDmeModel *pDmeModel, bool bMakeZUp )
 {
-	return ReorientDmeModel( pDmeModel, bMakeZUp, NULL, true );
+	return ReorientDmeModel( pDmeModel, bMakeZUp, nullptr, true );
 }
 
 
@@ -254,7 +254,7 @@ bool ReorientDmxModelFile( CDmElement *pDmElementRoot, bool bMakeZUp )
 
 		Q_strncpy( szPath, pSrcFile, sizeof( szPath ) );
 		Q_SetExtension( szPath, "zup", sizeof( szPath ) );
-		g_pDataModel->SaveToFile( szPath, NULL, "keyvalues2", "model", pDmElementRoot );
+		g_pDataModel->SaveToFile( szPath, nullptr, "keyvalues2", "model", pDmElementRoot );
 	}
 
 	return bModel || bSkel;
@@ -585,12 +585,12 @@ void GetDmeChannelList(
 
 		if ( !bPHandled )
 		{
-			PChannelList.AddToTail( NULL );
+			PChannelList.AddToTail(nullptr);
 		}
 
 		if ( !bOHandled )
 		{
-			OChannelList.AddToTail( NULL );
+			OChannelList.AddToTail(nullptr);
 		}
 	}
 }
@@ -628,7 +628,7 @@ bool PrepAndValidateMotionData(
 		*pDmeDagPositionChannel = pSrcPChannel;
 	}
 
-	CDmeLog *pSrcPLog = pSrcPChannel ? pSrcPChannel->GetLog() : NULL;
+	CDmeLog *pSrcPLog = pSrcPChannel ? pSrcPChannel->GetLog() : nullptr;
 
 	CDmeChannel *pSrcOChannel = OChannelList.Tail();
 	if ( pDmeDagOrientationChannel )
@@ -636,7 +636,7 @@ bool PrepAndValidateMotionData(
 		*pDmeDagOrientationChannel = pSrcOChannel;
 	}
 
-	CDmeLog *pSrcOLog = pSrcOChannel ? pSrcOChannel->GetLog() : NULL;
+	CDmeLog *pSrcOLog = pSrcOChannel ? pSrcOChannel->GetLog() : nullptr;
 
 	// Build a list of key times containing all keys from both logs
 	if ( pSrcPLog )
@@ -682,15 +682,15 @@ void GetAbsMotion( CDmeChannel **ppDmePChannel, CDmeChannel **ppDmeOChannel, CDm
 	if ( !pDmeDag | !ppDmePChannel || !ppDmeOChannel )
 		return;
 
-	*ppDmePChannel = NULL;
-	*ppDmeOChannel = NULL;
+	*ppDmePChannel = nullptr;
+	*ppDmeOChannel = nullptr;
 
 	CUtlVector< CDmeDag * > hierarchyList;
 	CUtlVector< CDmeChannel * > PChannelList;
 	CUtlVector< CDmeChannel * > OChannelList;
 	CUtlRBTree< DmeTime_t > keyTimes( DefLessFunc( DmeTime_t ) );
-	CDmeChannel *pSrcPChannel = NULL;
-	CDmeChannel *pSrcOChannel = NULL;
+	CDmeChannel *pSrcPChannel = nullptr;
+	CDmeChannel *pSrcOChannel = nullptr;
 
 	if ( !PrepAndValidateMotionData( &pSrcPChannel, &pSrcOChannel, pDmeDag, hierarchyList, PChannelList, OChannelList, keyTimes ) )
 		return;
@@ -804,14 +804,14 @@ bool SetAbsMotion( CDmeDag *pDmeDag, CDmeChannel *pDmePositionChannel, CDmeChann
 	CUtlVector< CDmeChannel * > PChannelList;
 	CUtlVector< CDmeChannel * > OChannelList;
 	CUtlRBTree< DmeTime_t > keyTimes( DefLessFunc( DmeTime_t ) );
-	CDmeChannel *pDmeDagPChannel = NULL;
-	CDmeChannel *pDmeDagOChannel = NULL;
+	CDmeChannel *pDmeDagPChannel = nullptr;
+	CDmeChannel *pDmeDagOChannel = nullptr;
 
 	if ( !PrepAndValidateMotionData( &pDmeDagPChannel, &pDmeDagOChannel, pDmeDag, hierarchyList, PChannelList, OChannelList, keyTimes ) )
 		return false;
 
-	CDmeVector3Log *pDstPLog = pDmeDagPChannel ? CastElement< CDmeVector3Log >( pDmeDagPChannel->GetLog() ) : NULL;
-	CDmeQuaternionLog *pDstOLog = pDmeDagOChannel ? CastElement< CDmeQuaternionLog >( pDmeDagOChannel->GetLog() ) : NULL;
+	CDmeVector3Log *pDstPLog = pDmeDagPChannel ? CastElement< CDmeVector3Log >( pDmeDagPChannel->GetLog() ) : nullptr;
+	CDmeQuaternionLog *pDstOLog = pDmeDagOChannel ? CastElement< CDmeQuaternionLog >( pDmeDagOChannel->GetLog() ) : nullptr;
 
 	matrix3x4_t pwm;
 	matrix3x4_t ipwm;
@@ -827,7 +827,7 @@ bool SetAbsMotion( CDmeDag *pDmeDag, CDmeChannel *pDmePositionChannel, CDmeChann
 	// Loop through all logs except last one to get parent world matrix at each key time
 	if ( keyTimes.Count() <= 0 )
 	{
-		CDmeLog *pSrcPLog = pDmePositionChannel ? pDmePositionChannel->GetLog() : NULL;
+		CDmeLog *pSrcPLog = pDmePositionChannel ? pDmePositionChannel->GetLog() : nullptr;
 		if ( pSrcPLog )
 		{
 			for ( int i = 0; i < pSrcPLog->GetKeyCount(); ++i )
@@ -836,7 +836,7 @@ bool SetAbsMotion( CDmeDag *pDmeDag, CDmeChannel *pDmePositionChannel, CDmeChann
 			}
 		}
 
-		CDmeLog *pSrcOLog = pDmeOrientationChannel ? pDmeOrientationChannel->GetLog() : NULL;
+		CDmeLog *pSrcOLog = pDmeOrientationChannel ? pDmeOrientationChannel->GetLog() : nullptr;
 		if ( pSrcOLog )
 		{
 			for ( int i = 0; i < pSrcOLog->GetKeyCount(); ++i )
@@ -982,7 +982,7 @@ MppSequenceIt::MppSequenceIt( CDmeAssetRoot *pDmeAssetRoot )
 CDmeSequence *MppSequenceIt::Get() const
 {
 	if ( m_nSequenceIndex < 0 || m_nSequenceIndex >= m_hDmeSequenceList.Count() )
-		return NULL;
+		return nullptr;
 
 	return CastElement< CDmeSequence >( g_pDataModel->GetElement( m_hDmeSequenceList[m_nSequenceIndex] ) );
 }
@@ -993,7 +993,7 @@ CDmeSequence *MppSequenceIt::Get() const
 //-----------------------------------------------------------------------------
 bool MppSequenceIt::IsDone() const
 {
-	return Get() == NULL;
+	return Get() == nullptr;
 }
 
 
@@ -1201,11 +1201,11 @@ void MppGetSkeletonList( CUtlVector< CDmeModel * > &skeletonList, CDmeAssetRoot 
 CDmeTransform *FindMatchingSkeletonTransform( CDmeModel *pDmeModel, CDmeTransform *pDmeTransform )
 {
 	if ( !pDmeModel || !pDmeTransform )
-		return NULL;
+		return nullptr;
 
-	CDmeDag *pDmeDag = NULL;
-	CDmeDag *pDmeDagChild = NULL;
-	CDmeTransform *pDmeDagTransform = NULL;
+	CDmeDag *pDmeDag = nullptr;
+	CDmeDag *pDmeDagChild = nullptr;
+	CDmeTransform *pDmeDagTransform = nullptr;
 
 	CUtlStack< CDmeDag * > depthFirstDagStack;
 	depthFirstDagStack.Push( pDmeModel );
@@ -1230,7 +1230,7 @@ CDmeTransform *FindMatchingSkeletonTransform( CDmeModel *pDmeModel, CDmeTransfor
 		}
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 
@@ -1240,7 +1240,7 @@ CDmeTransform *FindMatchingSkeletonTransform( CDmeModel *pDmeModel, CDmeTransfor
 CDmeConnectionOperator *CreateOutgoingConnectionOperator( CDmeTransform *pSrcTransform, CDmAttribute *pSrcAttribute, DmFileId_t nFileId )
 {
 	if ( !pSrcTransform || !pSrcAttribute )
-		return NULL;
+		return nullptr;
 
 	CUtlString sName( pSrcTransform->GetName() );
 	sName += ".";
@@ -1248,7 +1248,7 @@ CDmeConnectionOperator *CreateOutgoingConnectionOperator( CDmeTransform *pSrcTra
 
 	CDmeConnectionOperator *pDmeConnectionOperator = CreateElement< CDmeConnectionOperator >( sName.Get(), nFileId );
 	if ( !pDmeConnectionOperator )
-		return NULL;
+		return nullptr;
 
 	pDmeConnectionOperator->SetInput( pSrcTransform, pSrcAttribute->GetName() );
 
@@ -1330,7 +1330,7 @@ static void MppConnectSkeletons( CDmeModel *pSrcSkeleton, const CUtlVector< CDme
 	CUtlStack< CDmeDag * > depthFirstStack;
 	depthFirstStack.Push( pSrcSkeleton );
 
-	CDmeDag *pDmeDag = NULL;
+	CDmeDag *pDmeDag = nullptr;
 
 	while ( depthFirstStack.Count() )
 	{

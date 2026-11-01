@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2005, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2005, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
@@ -14,7 +14,7 @@ CDmeBaseImporter::CDmeBaseImporter( char const *formatName, char const *nextForm
 
 bool CDmeBaseImporter::IsLatestVersion() const
 {
-	return g_pDataModel->FindLegacyUpdater( m_pNextSerializer ) == NULL;
+	return g_pDataModel->FindLegacyUpdater( m_pNextSerializer ) == nullptr;
 }
 
 // Updates ppRoot to first non-legacy generic dmx format, returns false if the conversion fails

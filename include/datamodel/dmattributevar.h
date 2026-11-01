@@ -4,8 +4,7 @@
 //
 //=============================================================================
 
-#ifndef DMATTRIBUTEVAR_H
-#define DMATTRIBUTEVAR_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -13,7 +12,7 @@
 
 #include "datamodel/dmattribute.h"
 #include "tier1/utlvector.h"
-#include "Color.h"
+#include "color.h"
 #include "mathlib/vector2d.h"
 #include "mathlib/vector.h"
 #include "mathlib/vector4d.h"
@@ -101,7 +100,7 @@ class CDmaElement : public CDmaVar< DmElementHandle_t >
 
 public:
 	// Used to initialize the attribute in an element's OnConstruction method
-	void InitAndCreate( CDmElement *pOwner, const char *pAttributeName, const char *pElementName = NULL, int flags = 0 );
+	void InitAndCreate( CDmElement *pOwner, const char *pAttributeName, const char *pElementName = nullptr, int flags = 0 );
 	void Init( CDmElement *pOwner, const char *pAttributeName, int flags = 0 );
 
 	// Returns the type of elements allowed into this attribute. UTL_INVAL_SYMBOL allows everything.
@@ -407,7 +406,7 @@ class CDmaDataExternal
 protected:
 	typedef typename CDmAttributeInfo< T >::StorageType_t D;
 
-	CDmaDataExternal() : m_pStorage(0) {}
+	CDmaDataExternal() : m_pStorage(nullptr) {}
 	void Attach( void *pData ) { m_pStorage = (D*)pData; }
 	const T& Value() const { return *m_pStorage; }
 	T& Value( ) { return *m_pStorage; }
@@ -461,7 +460,8 @@ public:
 		_className( CDmAttribute* pAttribute ) { this->Init( pAttribute ); }	\
 		_className( CDmElement *pElement, const char *pAttributeName, bool bAddAttribute = false ) { this->Init( pElement, pAttributeName, bAddAttribute ); } \
 		_className( CDmaArray<_elementType>& var ) { this->Init( var.GetAttribute() ); } \
-		_className( CDmrArray<_elementType>& var ) { this->Init( var.GetAttribute() ); }
+		_className( CDmrArray<_elementType>& var ) { this->Init( var.GetAttribute() ); } \
+		_className( const CDmrArray<_elementType>& var ) { this->Init( const_cast< CDmAttribute * >( var.GetAttribute() ) ); }
 
 #define DECLARE_ATTRIBUTE_ARRAY_CONST_REFERENCE( _className, _elementType )	\
 	public:																	\
@@ -487,13 +487,13 @@ class CDmaArray : public CDmaDecorator< T, CDmaArrayBase< T, CDmaDataInternal< C
 public:
 	const CDmaArray<T>& operator=( const CDmaArray<T> &val ) 
 	{ 
-		CopyArray( val.Base(), val.Count() ); 
+		this->CopyArray( val.Base(), val.Count() ); 
 		return *this; 
 	}
 
 	template< class C > const CDmaArray<T>& operator=( const C &val ) 
 	{ 
-		CopyArray( val.Base(), val.Count() ); 
+		this->CopyArray( val.Base(), val.Count() ); 
 		return *this; 
 	}
 
@@ -519,13 +519,13 @@ class CDmrArray : public CDmrDecorator< T, CDmaArrayBase< T, CDmaDataExternal< C
 public:
 	const CDmrArray<T>& operator=( const CDmrArray<T> &val ) 
 	{ 
-		CopyArray( val.Base(), val.Count() ); 
+		this->CopyArray( val.Base(), val.Count() ); 
 		return *this; 
 	}
 
 	template< class C > const CDmrArray<T>& operator=( const C &val ) 
 	{ 
-		CopyArray( val.Base(), val.Count() ); 
+		this->CopyArray( val.Base(), val.Count() ); 
 		return *this; 
 	}
 };
@@ -539,13 +539,13 @@ class CDmaStringArray : public CDmaDecorator< CUtlSymbolLarge, CDmaStringArrayBa
 public:
 	const CDmaStringArray& operator=( const CDmaStringArray &val ) 
 	{ 
-		CopyArray( val.Base(), val.Count() ); 
+		this->CopyArray( val.Base(), val.Count() ); 
 		return *this; 
 	}
 
 	template< class C > const CDmaStringArray& operator=( const C &val ) 
 	{ 
-		CopyArray( val.Base(), val.Count() ); 
+		this->CopyArray( val.Base(), val.Count() ); 
 		return *this; 
 	}
 
@@ -570,7 +570,7 @@ public:
 
 	template< class C > const CDmrStringArray& operator=( const C &val ) 
 	{ 
-		CopyArray( val.Base(), val.Count() ); 
+		this->CopyArray( val.Base(), val.Count() ); 
 		return *this; 
 	}
 };
@@ -614,14 +614,14 @@ public:
 
 	template< typename C > CDmaElementArray<E>& operator=( const C &val ) 
 	{ 
-		CopyArray( val.Base(), val.Count() ); 
+		this->CopyArray( val.Base(), val.Count() ); 
 		return *this; 
 	}
 
 	// NOTE: The copy operator= must be defined in addition to the generic one
 	const CDmaElementArray<E>& operator=( const CDmaElementArray<E> &val ) 
 	{ 
-		CopyArray( val.Base(), val.Count() ); 
+		this->CopyArray( val.Base(), val.Count() ); 
 		return *this; 
 	}
 
@@ -679,7 +679,7 @@ public:
 
 	void Init( const CDmElement *pElement, const char *pAttributeName )
 	{
-		const CDmAttribute *pAttribute = NULL;
+		const CDmAttribute *pAttribute = nullptr;
 		if ( pElement && pAttributeName && pAttributeName[0] )
 		{
 			pAttribute = pElement->GetAttribute( pAttributeName );
@@ -743,7 +743,7 @@ public:
 
 	void Init( CDmElement *pElement, const char *pAttributeName, bool bAddAttribute = false )
 	{
-		CDmAttribute *pAttribute = NULL;
+		CDmAttribute *pAttribute = nullptr;
 		if ( pElement && pAttributeName && pAttributeName[0] )
 		{
 			pAttribute = pElement->GetAttribute( pAttributeName );
@@ -770,14 +770,14 @@ public:
 
 	template< typename C > CDmrElementArray<T>& operator=( const C &val )
 	{ 
-		CopyArray( val.Base(), val.Count() ); 
+		this->CopyArray( val.Base(), val.Count() ); 
 		return *this; 
 	}
 
 	// NOTE: The copy operator= must be defined in addition to the generic one
 	const CDmrElementArray<T>& operator=( const CDmrElementArray<T> &val )
 	{ 
-		CopyArray( val.Base(), val.Count() ); 
+		this->CopyArray( val.Base(), val.Count() ); 
 		return *this; 
 	}
 };
@@ -790,7 +790,7 @@ public:
 //-----------------------------------------------------------------------------
 template< class T > inline CDmaVar<T>::CDmaVar( )
 {
-	m_pAttribute = NULL;
+	m_pAttribute = nullptr;
 	CDmAttributeInfo<T>::SetDefaultValue( m_Storage );
 }
 
@@ -1061,6 +1061,7 @@ inline float CDmaTime::GetSeconds() const
 // Inline methods for CDmaString
 //
 //-----------------------------------------------------------------------------
+
 inline const char *CDmaString::Get( ) const
 {
 	return this->Value().String();
@@ -1070,7 +1071,6 @@ inline CDmaString::operator const char*() const
 {
 	return this->Value().String();
 }
-
 
 inline void CDmaString::InitAndSet( CDmElement *pOwner, const char *pAttributeName, const char *pValue, int flags )
 {
@@ -1097,7 +1097,7 @@ inline bool CDmaString::IsEmpty() const
 		return true;
 
 	const char *pString = this->Value().String();
-	if ( pString == NULL )
+	if ( pString == nullptr)
 		return true;
 
 	if ( *pString == 0 )
@@ -1189,7 +1189,7 @@ inline void CDmaElement<T>::Init( CDmElement *pOwner, const char *pAttributeName
 template <class T>
 inline CUtlSymbolLarge CDmaElement<T>::GetElementType() const
 {
-	return this->Data().m_ElementType;
+	return this->Storage().m_ElementType;
 }
 
 template <class T>
@@ -1222,7 +1222,7 @@ inline void CDmaElement<T>::Set( T* pElement )
 template <class T>
 inline bool CDmaElement<T>::operator!() const
 {
-	return ( GetElement() == NULL );
+	return ( GetElement() == nullptr);
 }
 
 
@@ -1499,7 +1499,7 @@ inline const CDmAttribute *CDmrGenericArrayConst::GetAttribute() const
 
 inline bool CDmrGenericArrayConst::IsValid() const
 {
-	return m_pAttribute != NULL;
+	return m_pAttribute != nullptr;
 }
 
 inline CDmAttribute *CDmrGenericArray::GetAttribute()
@@ -1515,4 +1515,8 @@ inline const CDmAttribute *CDmrGenericArray::GetAttribute() const
 }
 
 
-#endif // DMATTRIBUTEVAR_H
+
+// MSVC lets a temporary bind to a non-const reference parameter. Some callers pass freshly constructed CDmrArray
+// accessors that way; AsLvalue() makes that explicit (the temporary lives until the end of the full expression).
+template < class T > inline T &AsLvalue( T &&value ) { return value; }
+

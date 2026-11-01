@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
 //=============================================================================
 
-#ifndef ATTRIBUTEFLAGS_H
-#define ATTRIBUTEFLAGS_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -29,4 +28,3 @@ enum
 	FATTRIB_HIDDEN			= (1<<15), // shouldn't be shown in ui
 };
 
-#endif // ATTRIBUTEFLAGS_H

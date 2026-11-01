@@ -7,15 +7,11 @@
 //
 //=============================================================================
 #include "movieobjects/dmeexpressionoperator.h"
-#include "movieobjects_interfaces.h"
 #include "datamodel/dmelementfactoryhelper.h"
-#include "datamodel/dmattribute.h"
 #include "mathlib/noise.h"
-#include "mathlib/vector.h"
 #include <ctype.h>
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 void TestCalculator( const char *expr, float answer )

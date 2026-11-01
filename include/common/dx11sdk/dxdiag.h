@@ -7,8 +7,7 @@
  *
  ****************************************************************************/
 
-#ifndef _DXDIAG_H_
-#define _DXDIAG_H_
+#pragma once
 
 #include <ole2.h>      // for DECLARE_INTERFACE_ and HRESULT
 
@@ -182,6 +181,5 @@ DECLARE_INTERFACE_(IDxDiagContainer,IUnknown)
 }
 #endif
 
-#endif /* _DXDIAG_H_ */
 
 

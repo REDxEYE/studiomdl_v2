@@ -43,16 +43,6 @@ void GenerateQuadIndexBuffer( unsigned short *pIndices, int nIndexCount, int nFi
 		for ( i = 0; i < numQuads; ++i )
 		{
 			// Have to deal with endian-ness
-			if ( IsX360() || IsPS3() )
-			{
-				// this avoids compiler write reodering and prevents the write-combined out-of-order penalty
-				// _WriteBarrier won't compile here, and volatile is ignored
-				// the compiler otherwise scrambles these writes
-				*pWrite++ = nWrite + 1;
-				*pWrite++ = nWrite + ( 2 << 16 );
-				*pWrite++ = nWrite + ( 2 << 16 ) + 3;
-			}
-			else
 			{
 				pWrite[0] = nWrite + ( 1 << 16 );
 				pWrite[1] = nWrite + 2;

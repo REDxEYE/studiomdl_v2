@@ -6,8 +6,7 @@
 // $NoKeywords: $
 //===========================================================================//
 
-#ifndef UTLSYMBOLLARGE_H
-#define UTLSYMBOLLARGE_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -26,7 +25,7 @@
 //     to the string data, the hash precedes it in memory and is used to speed up searching, etc.
 //-----------------------------------------------------------------------------
 
-typedef intp UtlSymLargeId_t;
+typedef intptr_t UtlSymLargeId_t;
 
 #define UTL_INVAL_SYMBOL_LARGE  ((UtlSymLargeId_t)~0)
 
@@ -112,12 +111,12 @@ private:
 
 #define MIN_STRING_POOL_SIZE	2048
 
-inline uint32 CUtlSymbolLarge_Hash( bool CASEINSENSITIVE, const char *pString, int len )
+inline uint32_t CUtlSymbolLarge_Hash( bool CASEINSENSITIVE, const char *pString, int len )
 {
 	return ( CASEINSENSITIVE ? HashStringCaseless( pString ) : HashString( pString ) ); 
 }
 
-typedef uint32 LargeSymbolTableHashDecoration_t; 
+typedef uint32_t LargeSymbolTableHashDecoration_t; 
 
 // The structure consists of the hash immediately followed by the string data
 struct CUtlSymbolTableLargeBaseTreeEntry_t
@@ -173,10 +172,10 @@ public:
 	
 // For non-threaded versions, simply index into CUtlRBTree
 template< bool CASEINSENSITIVE >
-class CNonThreadsafeTree : public CUtlRBTree<CUtlSymbolTableLargeBaseTreeEntry_t *, intp, CTreeEntryLess< CNonThreadsafeTree< CASEINSENSITIVE >, CASEINSENSITIVE > >
+class CNonThreadsafeTree : public CUtlRBTree<CUtlSymbolTableLargeBaseTreeEntry_t *, intptr_t, CTreeEntryLess< CNonThreadsafeTree< CASEINSENSITIVE >, CASEINSENSITIVE > >
 {
 public:
-	typedef CUtlRBTree<CUtlSymbolTableLargeBaseTreeEntry_t *, intp, CTreeEntryLess< CNonThreadsafeTree, CASEINSENSITIVE > > CNonThreadsafeTreeType;
+	typedef CUtlRBTree<CUtlSymbolTableLargeBaseTreeEntry_t *, intptr_t, CTreeEntryLess< CNonThreadsafeTree, CASEINSENSITIVE > > CNonThreadsafeTreeType;
 
 	CNonThreadsafeTree() : 
 		CNonThreadsafeTreeType( 0, 16 ) 
@@ -186,15 +185,15 @@ public:
 	{
 		// Nothing, only matters for thread-safe tables
 	}
-	inline intp Insert( CUtlSymbolTableLargeBaseTreeEntry_t *entry )
+	inline intptr_t Insert( CUtlSymbolTableLargeBaseTreeEntry_t *entry )
 	{
 		return CNonThreadsafeTreeType::Insert( entry );
 	}
-	inline intp Find( CUtlSymbolTableLargeBaseTreeEntry_t *entry ) const
+	inline intptr_t Find( CUtlSymbolTableLargeBaseTreeEntry_t *entry ) const
 	{
 		return CNonThreadsafeTreeType::Find( entry );
 	}
-	inline intp InvalidIndex() const
+	inline intptr_t InvalidIndex() const
 	{
 		return CNonThreadsafeTreeType::InvalidIndex();
 	}
@@ -219,7 +218,7 @@ class CCThreadsafeTreeHashMethod
 public:
 	static int Hash( const KEYTYPE &key, int nBucketMask )
 	{
-		uint32 nHash = key->HashValue();
+		uint32_t nHash = key->HashValue();
 		return ( nHash & nBucketMask );
 	}
 
@@ -285,15 +284,15 @@ public:
 		return m_Lookup.Element(nElement)->String();
 	}
 
-	uint64 GetMemoryUsage() const
+	uint64_t GetMemoryUsage() const
 	{
-		uint64 unBytesUsed = 0u;
+		uint64_t unBytesUsed = 0u;
 
 		for ( int i=0; i < m_StringPools.Count(); i++ )
 		{
 			StringPool_t *pPool = m_StringPools[i];
 
-			unBytesUsed += (uint64)pPool->m_TotalLen;
+			unBytesUsed += (uint64_t)pPool->m_TotalLen;
 		}
 		return unBytesUsed;
 	}
@@ -347,7 +346,7 @@ inline CUtlSymbolLarge CUtlSymbolTableLargeBase<TreeType, CASEINSENSITIVE, POOL_
 	search->m_Hash = CUtlSymbolLarge_Hash( CASEINSENSITIVE, pString, len );
 	Q_memcpy( (char *)&search->m_String[ 0 ], pString, len );
 
-	intp idx = const_cast< TreeType & >(m_Lookup).Find( search );
+	intptr_t idx = const_cast< TreeType & >(m_Lookup).Find( search );
 
 	if ( idx == m_Lookup.InvalidIndex() )
 		return UTL_INVAL_SYMBOL_LARGE;
@@ -424,7 +423,6 @@ inline CUtlSymbolLarge CUtlSymbolTableLargeBase<TreeType, CASEINSENSITIVE, POOL_
 	Q_memcpy( pText, pString, lenString );
 
 	// insert the string into the database
-	MEM_ALLOC_CREDIT();
 	return m_Lookup.Element( m_Lookup.Insert( entry ) )->ToSymbol();
 }
 
@@ -453,4 +451,3 @@ typedef CUtlSymbolTableLargeBase< CNonThreadsafeTree< false >, false > CUtlSymbo
 // Case-insensitive
 typedef CUtlSymbolTableLargeBase< CNonThreadsafeTree< true >, true > CUtlSymbolTableLarge_CI;
 
-#endif // UTLSYMBOLLARGE_H

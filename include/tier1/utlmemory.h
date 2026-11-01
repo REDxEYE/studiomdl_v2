@@ -7,20 +7,19 @@
 // A growable memory class.
 //===========================================================================//
 
-#ifndef UTLMEMORY_H
-#define UTLMEMORY_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
 #endif
 
-#include "tier0/dbg.h"
+
 #include <string.h>
 #include "tier0/platform.h"
 
 #include "tier0/memalloc.h"
 #include "mathlib/mathlib.h"
-// DISABLED #include "tier0/memdbgon.h"
+
 
 #pragma warning (disable:4100)
 #pragma warning (disable:4514)
@@ -29,13 +28,6 @@
 //-----------------------------------------------------------------------------
 
 
-#ifdef UTLMEMORY_TRACK
-#define UTLMEMORY_TRACK_ALLOC()		MemAlloc_RegisterAllocation( "||Sum of all UtlMemory||", 0, m_nAllocationCount * sizeof(T), m_nAllocationCount * sizeof(T), 0 )
-#define UTLMEMORY_TRACK_FREE()		if ( !m_pMemory ) ; else MemAlloc_RegisterDeallocation( "||Sum of all UtlMemory||", 0, m_nAllocationCount * sizeof(T), m_nAllocationCount * sizeof(T), 0 )
-#else
-#define UTLMEMORY_TRACK_ALLOC()		((void)0)
-#define UTLMEMORY_TRACK_FREE()		((void)0)
-#endif
 
 
 //-----------------------------------------------------------------------------
@@ -138,17 +130,6 @@ public:
 protected:
 	void ValidateGrowSize()
 	{
-#ifdef _X360
-		if ( m_nGrowSize && m_nGrowSize != EXTERNAL_BUFFER_MARKER )
-		{
-			// Max grow size at 128 bytes on XBOX
-			const int MAX_GROW = 128;
-			if ( m_nGrowSize * sizeof(T) > MAX_GROW )
-			{
-				m_nGrowSize = max( 1, MAX_GROW / sizeof(T) );
-			}
-		}
-#endif
 	}
 
 	enum
@@ -294,7 +275,7 @@ class CUtlMemoryConservative
 
 public:
 	// constructor, destructor
-	CUtlMemoryConservative( int nGrowSize = 0, int nInitSize = 0 ) : m_pMemory( NULL )
+	CUtlMemoryConservative( int nGrowSize = 0, int nInitSize = 0 ) : m_pMemory(nullptr)
 	{
 #ifdef REMEMBER_ALLOC_SIZE_FOR_VALGRIND
 		m_nCurAllocSize = 0;
@@ -334,7 +315,7 @@ public:
 #ifdef REMEMBER_ALLOC_SIZE_FOR_VALGRIND
 		return m_nCurAllocSize;
 #else
-		return ( m_pMemory ) ? g_pMemAlloc->GetSize( m_pMemory ) : 0;
+		return ( m_pMemory ) ? MemAlloc_GetSize( m_pMemory ) : 0;
 #endif
 	}
 
@@ -413,15 +394,13 @@ private:
 //-----------------------------------------------------------------------------
 
 template< class T, class I >
-CUtlMemory<T,I>::CUtlMemory( int nGrowSize, int nInitAllocationCount ) : m_pMemory(0), 
+CUtlMemory<T,I>::CUtlMemory( int nGrowSize, int nInitAllocationCount ) : m_pMemory(nullptr), 
 	m_nAllocationCount( nInitAllocationCount ), m_nGrowSize( nGrowSize )
 {
 	ValidateGrowSize();
 	Assert( nGrowSize >= 0 );
 	if (m_nAllocationCount)
 	{
-		UTLMEMORY_TRACK_ALLOC();
-		MEM_ALLOC_CREDIT_CLASS();
 		m_pMemory = (T*)malloc( m_nAllocationCount * sizeof(T) );
 	}
 }
@@ -501,8 +480,6 @@ void CUtlMemory<T,I>::Init( int nGrowSize /*= 0*/, int nInitSize /*= 0*/ )
 	Assert( nGrowSize >= 0 );
 	if (m_nAllocationCount)
 	{
-		UTLMEMORY_TRACK_ALLOC();
-		MEM_ALLOC_CREDIT_CLASS();
 		m_pMemory = (T*)malloc( m_nAllocationCount * sizeof(T) );
 	}
 }
@@ -531,8 +508,6 @@ void CUtlMemory<T,I>::ConvertToGrowableMemory( int nGrowSize )
 	m_nGrowSize = nGrowSize;
 	if (m_nAllocationCount)
 	{
-		UTLMEMORY_TRACK_ALLOC();
-		MEM_ALLOC_CREDIT_CLASS();
 
 		int nNumBytes = m_nAllocationCount * sizeof(T);
 		T *pMemory = (T*)malloc( nNumBytes );
@@ -590,7 +565,7 @@ template< class T, class I >
 void *CUtlMemory<T,I>::DetachMemory()
 {
 	if ( IsExternallyAllocated() )
-		return NULL;
+		return nullptr;
 
 	void *pMemory = m_pMemory;
 	m_pMemory = 0;
@@ -710,7 +685,7 @@ inline bool CUtlMemory<T,I>::IsIdxValid( I i ) const
 {
 	// GCC warns if I is an unsigned type and we do a ">= 0" against it (since the comparison is always 0).
 	// We get the warning even if we cast inside the expression. It only goes away if we assign to another variable.
-	long x = i;
+	int32_t x = i;
 	return ( x >= 0 ) && ( x < m_nAllocationCount );
 }
 
@@ -738,15 +713,7 @@ inline int UtlMemory_CalcNewAllocationCount( int nAllocationCount, int nGrowSize
 
 		while (nAllocationCount < nNewSize)
 		{
-#ifndef _X360
 			nAllocationCount *= 2;
-#else
-			int nNewAllocationCount = ( nAllocationCount * 9) / 8; // 12.5 %
-			if ( nNewAllocationCount > nAllocationCount )
-				nAllocationCount = nNewAllocationCount;
-			else
-				nAllocationCount *= 2;
-#endif
 		}
 	}
 
@@ -769,7 +736,6 @@ void CUtlMemory<T,I>::Grow( int num )
 	// Use the grow rules specified for this memory (in m_nGrowSize)
 	int nAllocationRequested = m_nAllocationCount + num;
 
-	UTLMEMORY_TRACK_FREE();
 
 	int nNewAllocationCount = UtlMemory_CalcNewAllocationCount( m_nAllocationCount, m_nGrowSize, nAllocationRequested, sizeof(T) );
 
@@ -797,17 +763,14 @@ void CUtlMemory<T,I>::Grow( int num )
 
 	m_nAllocationCount = nNewAllocationCount;
 
-	UTLMEMORY_TRACK_ALLOC();
 
 	if (m_pMemory)
 	{
-		MEM_ALLOC_CREDIT_CLASS();
 		m_pMemory = (T*)realloc( m_pMemory, m_nAllocationCount * sizeof(T) );
 		Assert( m_pMemory );
 	}
 	else
 	{
-		MEM_ALLOC_CREDIT_CLASS();
 		m_pMemory = (T*)malloc( m_nAllocationCount * sizeof(T) );
 		Assert( m_pMemory );
 	}
@@ -830,20 +793,16 @@ inline void CUtlMemory<T,I>::EnsureCapacity( int num )
 		return;
 	}
 
-	UTLMEMORY_TRACK_FREE();
 
 	m_nAllocationCount = num;
 
-	UTLMEMORY_TRACK_ALLOC();
 
 	if (m_pMemory)
 	{
-		MEM_ALLOC_CREDIT_CLASS();
 		m_pMemory = (T*)realloc( m_pMemory, m_nAllocationCount * sizeof(T) );
 	}
 	else
 	{
-		MEM_ALLOC_CREDIT_CLASS();
 		m_pMemory = (T*)malloc( m_nAllocationCount * sizeof(T) );
 	}
 }
@@ -859,7 +818,6 @@ void CUtlMemory<T,I>::Purge()
 	{
 		if (m_pMemory)
 		{
-			UTLMEMORY_TRACK_FREE();
 			free( (void*)m_pMemory );
 			m_pMemory = 0;
 		}
@@ -906,14 +864,11 @@ void CUtlMemory<T,I>::Purge( int numElements )
 		return;
 	}
 
-	UTLMEMORY_TRACK_FREE();
 
 	m_nAllocationCount = numElements;
 	
-	UTLMEMORY_TRACK_ALLOC();
 
 	// Allocation count > 0, shrink it down.
-	MEM_ALLOC_CREDIT_CLASS();
 	m_pMemory = (T*)realloc( m_pMemory, m_nAllocationCount * sizeof(T) );
 }
 
@@ -979,9 +934,7 @@ CUtlMemoryAligned<T, nAlignment>::CUtlMemoryAligned( int nGrowSize, int nInitAll
 	Assert( (nGrowSize >= 0) && (nGrowSize != CUtlMemory<T>::EXTERNAL_BUFFER_MARKER) );
 	if ( CUtlMemory<T>::m_nAllocationCount )
 	{
-		UTLMEMORY_TRACK_ALLOC();
-		MEM_ALLOC_CREDIT_CLASS();
-		CUtlMemory<T>::m_pMemory = (T*)_aligned_malloc( nInitAllocationCount * sizeof(T), nAlignment );
+		CUtlMemory<T>::m_pMemory = (T*)MemAlloc_AllocAligned( nInitAllocationCount * sizeof(T), nAlignment );
 	}
 }
 
@@ -1057,7 +1010,6 @@ void CUtlMemoryAligned<T, nAlignment>::Grow( int num )
 		return;
 	}
 
-	UTLMEMORY_TRACK_FREE();
 
 	// Make sure we have at least numallocated + num allocations.
 	// Use the grow rules specified for this memory (in m_nGrowSize)
@@ -1065,17 +1017,14 @@ void CUtlMemoryAligned<T, nAlignment>::Grow( int num )
 
 	CUtlMemory<T>::m_nAllocationCount = UtlMemory_CalcNewAllocationCount( CUtlMemory<T>::m_nAllocationCount, CUtlMemory<T>::m_nGrowSize, nAllocationRequested, sizeof(T) );
 
-	UTLMEMORY_TRACK_ALLOC();
 
 	if ( CUtlMemory<T>::m_pMemory )
 	{
-		MEM_ALLOC_CREDIT_CLASS();
 		CUtlMemory<T>::m_pMemory = (T*)MemAlloc_ReallocAligned( CUtlMemory<T>::m_pMemory, CUtlMemory<T>::m_nAllocationCount * sizeof(T), nAlignment );
 		Assert( CUtlMemory<T>::m_pMemory );
 	}
 	else
 	{
-		MEM_ALLOC_CREDIT_CLASS();
 		CUtlMemory<T>::m_pMemory = (T*)MemAlloc_AllocAligned( CUtlMemory<T>::m_nAllocationCount * sizeof(T), nAlignment );
 		Assert( CUtlMemory<T>::m_pMemory );
 	}
@@ -1098,20 +1047,16 @@ inline void CUtlMemoryAligned<T, nAlignment>::EnsureCapacity( int num )
 		return;
 	}
 
-	UTLMEMORY_TRACK_FREE();
 
 	CUtlMemory<T>::m_nAllocationCount = num;
 
-	UTLMEMORY_TRACK_ALLOC();
 
 	if ( CUtlMemory<T>::m_pMemory )
 	{
-		MEM_ALLOC_CREDIT_CLASS();
 		CUtlMemory<T>::m_pMemory = (T*)MemAlloc_ReallocAligned( CUtlMemory<T>::m_pMemory, CUtlMemory<T>::m_nAllocationCount * sizeof(T), nAlignment );
 	}
 	else
 	{
-		MEM_ALLOC_CREDIT_CLASS();
 		CUtlMemory<T>::m_pMemory = (T*)MemAlloc_AllocAligned( CUtlMemory<T>::m_nAllocationCount * sizeof(T), nAlignment );
 	}
 }
@@ -1127,7 +1072,6 @@ void CUtlMemoryAligned<T, nAlignment>::Purge()
 	{
 		if ( CUtlMemory<T>::m_pMemory )
 		{
-			UTLMEMORY_TRACK_FREE();
 			MemAlloc_FreeAligned( CUtlMemory<T>::m_pMemory );
 			CUtlMemory<T>::m_pMemory = 0;
 		}
@@ -1137,4 +1081,3 @@ void CUtlMemoryAligned<T, nAlignment>::Purge()
 
 // DISABLED #include "tier0/memdbgoff.h"
 
-#endif // UTLMEMORY_H

@@ -1,12 +1,11 @@
-//===== Copyright © 2005-2013, Valve Corporation, All rights reserved. ======//
+//===== Copyright Â© 2005-2013, Valve Corporation, All rights reserved. ======//
 //
 // Purpose: A higher level link library for general use in the game and tools.
 //
 //===========================================================================//
 
 
-#ifndef MDLUTILS_H
-#define MDLUTILS_H
+#pragma once
 
 #if defined( _WIN32 )
 #pragma once
@@ -213,5 +212,4 @@ void GetMDLBoundingSphere( Vector *pVecCenter, float *pRadius, MDLHandle_t h, in
 void FindSequencePoseParameters( CStudioHdr &hdr, int nSequence, bool *pPoseParameters, int nCount );
 
 
-#endif // MDLUTILS_H
 

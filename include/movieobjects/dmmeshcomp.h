@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // A class for computing things with CDmeMesh data
 //
 //=============================================================================
 
-#ifndef DMMESHCOMP_H
-#define DMMESHCOMP_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -30,7 +29,7 @@ class CDmeVertexData;
 class CDmMeshComp
 {
 public:
-	CDmMeshComp( CDmeMesh *pMesh, CDmeVertexData *pPassedBase = NULL );
+	CDmMeshComp( CDmeMesh *pMesh, CDmeVertexData *pPassedBase = nullptr);
 
 	~CDmMeshComp();
 
@@ -103,9 +102,9 @@ public:
 
 	CDmeVertexData *BaseState() { return m_pBase; }
 
-	CEdge *FindOrCreateEdge( int vIndex0, int vIndex1, bool *pReverse = NULL );
+	CEdge *FindOrCreateEdge( int vIndex0, int vIndex1, bool *pReverse = nullptr);
 
-	CEdge *FindEdge( int vIndex0, int vIndex1, bool *pReverse = NULL );
+	CEdge *FindEdge( int vIndex0, int vIndex1, bool *pReverse = nullptr);
 
 	CFace *CreateFace( const CUtlVector< CVert * > &verts, const CUtlVector< CEdge * > &edges, const CUtlVector< bool > &edgeReverseMap );
 
@@ -123,4 +122,3 @@ public:
 };
 
 
-#endif // DMEMESHCOMP_H

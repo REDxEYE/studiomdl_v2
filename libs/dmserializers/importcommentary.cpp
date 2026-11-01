@@ -33,7 +33,7 @@ public:
 
 protected:
 	// Main entry point for derived classes to implement unserialization
-	virtual CDmElement* UnserializeFromKeyValues( KeyValues *pKeyValues ) { Assert( 0 ); return NULL; }
+	virtual CDmElement* UnserializeFromKeyValues( KeyValues *pKeyValues ) { Assert( 0 ); return nullptr; }
 };
 
 
@@ -68,7 +68,7 @@ public:
 		if ( iNestingLevel == 1 && !Q_strncmp(pszKeyName, "entity", 6) )
 			return "DmeCommentaryNodeEntity";
 
-		return NULL;
+		return nullptr;
 	}
 };
 
@@ -76,7 +76,7 @@ bool CImportCommentary::Unserialize( CUtlBuffer &buf, const char *pEncodingName,
 									  const char *pSourceFormatName, int nSourceFormatVersion,
 									  DmFileId_t fileid, DmConflictResolution_t idConflictResolution, CDmElement **ppRoot )
 {
-	*ppRoot = NULL;
+	*ppRoot = nullptr;
 
 	IDmSerializer *pKVSerializer = g_pDataModel->FindSerializer( "keyvalues" );
 	if ( !pKVSerializer )
@@ -87,7 +87,7 @@ bool CImportCommentary::Unserialize( CUtlBuffer &buf, const char *pEncodingName,
 
 	bool bSuccess = pKVSerializer->Unserialize( buf, "keyvalues", nEncodingVersion, pSourceFormatName, nSourceFormatVersion, fileid, idConflictResolution, ppRoot );
 
-	g_pDataModel->SetKeyValuesElementCallback( NULL );
+	g_pDataModel->SetKeyValuesElementCallback(nullptr);
 
 	return bSuccess;
 }

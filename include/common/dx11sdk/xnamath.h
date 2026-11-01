@@ -15,8 +15,7 @@ Abstract:
 #pragma once
 #endif
 
-#ifndef __XNAMATH_H__
-#define __XNAMATH_H__
+#pragma once
 
 #ifdef __XBOXMATH_H__
 #error XNAMATH and XBOXMATH are incompatible in the same compilation module. Use one or the other.
@@ -2617,5 +2616,4 @@ XMFINLINE XMVECTOR XMVectorInsert(FXMVECTOR VD, FXMVECTOR VS, UINT VSLeftRotateE
 
 #pragma warning(pop)
 
-#endif // __XNAMATH_H__
 

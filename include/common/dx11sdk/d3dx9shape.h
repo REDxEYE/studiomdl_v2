@@ -9,8 +9,7 @@
 
 #include "d3dx9.h"
 
-#ifndef __D3DX9SHAPES_H__
-#define __D3DX9SHAPES_H__
+#pragma once
 
 ///////////////////////////////////////////////////////////////////////////
 // Functions:
@@ -217,5 +216,4 @@ HRESULT WINAPI
 }
 #endif //__cplusplus    
 
-#endif //__D3DX9SHAPES_H__
 

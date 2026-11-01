@@ -13,7 +13,7 @@
 //
 //=============================================================================
 
-#include "tier0/dbg.h"
+
 #include "tier0/icommandline.h"
 #include "datamodel/idatamodel.h"
 #include "filesystem.h"
@@ -22,6 +22,8 @@
 #include "tier1/utlstring.h"
 #include "datamodel/dmelement.h"
 #include "tier2/tier2.h"
+#include "filesystem/filesystem_stdio.h"
+#include "common/filesystem_tools.h"
 
 
 class CDmElement;
@@ -52,12 +54,14 @@ bool CDmxConvertApp::Create()
 	AddSystem( g_pDmSerializers, DMSERIALIZERS_INTERFACE_VERSION );
 	return true;
 }
-
+extern CFileSystem_Stdio g_FileSystem_Stdio;
 bool CDmxConvertApp::PreInit( )
 {
 	CreateInterfaceFn factory = GetFactory();
 	ConnectTier1Libraries( &factory, 1 );
-	ConnectTier2Libraries( &factory, 1 );
+    g_pFullFileSystem = &g_FileSystem_Stdio;
+    g_pFileSystem = g_pFullFileSystem;
+//	ConnectTier2Libraries( &factory, 1 );
 
 	if ( !g_pFullFileSystem || !g_pDataModel )
 	{

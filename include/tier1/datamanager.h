@@ -4,8 +4,7 @@
 //
 //=============================================================================//
 
-#ifndef RESOURCEMANAGER_H
-#define RESOURCEMANAGER_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -67,7 +66,7 @@ protected:
 		{
 			lockCount = 0;
 			serial = 1;
-			pStore = 0;
+			pStore = nullptr;
 		}
 
 		unsigned short lockCount;
@@ -221,7 +220,7 @@ private:
 
 inline unsigned short CDataManagerBase::FromHandle( memhandle_t handle )
 {
-	unsigned int fullWord = (unsigned int)reinterpret_cast<uintp>( handle );
+	unsigned int fullWord = (unsigned int)reinterpret_cast<uintptr_t>( handle );
 	unsigned short serial = fullWord>>16;
 	unsigned short index = fullWord & 0xFFFF;
 	index--;
@@ -232,4 +231,3 @@ inline unsigned short CDataManagerBase::FromHandle( memhandle_t handle )
 
 
 
-#endif // RESOURCEMANAGER_H

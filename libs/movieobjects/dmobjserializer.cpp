@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2006, Valve Corporation, All rights reserved. =======
+//====== Copyright ï¿½ 1996-2006, Valve Corporation, All rights reserved. =======
 //
 // Serialize and Unserialize Wavefront OBJ <-> DME Data
 //
@@ -174,7 +174,7 @@ CDmeVertexDataBase *CVertexData::AddToMesh( CDmeMesh *pMesh, bool bAbsolute, con
 //-----------------------------------------------------------------------------
 CDmeVertexDataBase *CVertexData::Add( CDmeMesh *pMesh, const char *pName )
 {
-	CDmeVertexDataBase *pVertexData( NULL );
+	CDmeVertexDataBase *pVertexData(nullptr);
 
 	if ( m_positions.Count() && m_pIndices.Count() )
 	{
@@ -222,24 +222,24 @@ CDmeVertexDataBase *CVertexData::Add( CDmeMesh *pMesh, const char *pName )
 //-----------------------------------------------------------------------------
 CDmeVertexDeltaData *CVertexData::AddDelta( CDmeMesh *pMesh, bool bAbsolute, const char *pName )
 {
-	CDmeVertexDeltaData *pDelta( NULL );
+	CDmeVertexDeltaData *pDelta(nullptr);
 
 	if ( m_positions.Count() )
 	{
 		CDmeVertexData *pBind = pMesh->FindBaseState( "bind" );
-		if ( pBind == NULL )
-			return NULL;
+		if ( pBind == nullptr)
+			return nullptr;
 
 		const FieldIndex_t pBindIndex( pBind->FindFieldIndex( CDmeVertexData::FIELD_POSITION ) );
 
 		if ( pBindIndex < 0 )
-			return NULL;
+			return nullptr;
 
 		CDmrArrayConst< Vector > pBindData( pBind->GetVertexData( pBindIndex ) );
 
 		const int pCount( m_positions.Count() );
 		if ( pBindData.Count() != pCount )
-			return NULL;
+			return nullptr;
 
 		for ( int i( 0 ); i < pCount; ++i )
 		{
@@ -319,7 +319,7 @@ bool CDmObjSerializer::Unserialize( CUtlBuffer &buf, const char *pEncodingName, 
 									DmFileId_t fileid, DmConflictResolution_t idConflictResolution, CDmElement **ppRoot )
 {
 	*ppRoot = ReadOBJ( buf, fileid, "bind" );
-	return *ppRoot != NULL;
+	return *ppRoot != nullptr;
 }
 
 
@@ -338,15 +338,15 @@ CDmElement *CDmObjSerializer::ReadOBJ(
 	Q_FixSlashes( filename );
 
 	CUtlBuffer utlBuf;
-	if ( !g_pFullFileSystem->ReadFile( filename, NULL, utlBuf ) )
-		return NULL;
+	if ( !g_pFullFileSystem->ReadFile( filename, nullptr, utlBuf ) )
+		return nullptr;
 
 	char baseFile[ MAX_PATH ];
 	Q_FileBase( filename, baseFile, sizeof( baseFile ) );
 
-	CDmeMesh *pMesh( NULL );
+	CDmeMesh *pMesh(nullptr);
 
-	CDmElement *pRoot = ReadOBJ( utlBuf, DMFILEID_INVALID, baseFile, filename, NULL, &pMesh, bAbsolute );
+	CDmElement *pRoot = ReadOBJ( utlBuf, DMFILEID_INVALID, baseFile, filename, nullptr, &pMesh, bAbsolute );
 	if ( pRoot && pMesh )
 	{
 		if ( ppCreatedMesh )
@@ -354,7 +354,7 @@ CDmElement *CDmObjSerializer::ReadOBJ(
 			*ppCreatedMesh = pMesh;
 		}
 
-		CDmeCombinationOperator *pCombo( NULL );
+		CDmeCombinationOperator *pCombo(nullptr);
 
 		// Check if there are deltas in the directory with the same prefix
 		// But only if the rest of the file is <prefix>=<suffix>.obj or is <prefix>_zero.obj
@@ -415,7 +415,7 @@ CDmElement *CDmObjSerializer::ReadOBJ(
 
 				if ( !strchr( pControlName, '_' ) )
 				{
-					if ( pCombo == NULL )
+					if ( pCombo == nullptr)
 					{
 						pCombo = CreateElement< CDmeCombinationOperator >( "combinationOperator", pRoot->GetFileId() );
 						pRoot->SetValue( "combinationOperator", pCombo );
@@ -458,8 +458,8 @@ CDmElement *CDmObjSerializer::ReadOBJ( CUtlBuffer &buf,
 	CDmeMesh **ppCreatedMesh /* = NULL */,
 	bool bAbsolute /* = true */ )
 {
-	CDmElement *pRoot( NULL );
-	CDmeModel *pModel( NULL );
+	CDmElement *pRoot(nullptr);
+	CDmeModel *pModel(nullptr);
 
 	if ( !pBaseMesh )
 	{
@@ -488,9 +488,9 @@ CDmElement *CDmObjSerializer::ReadOBJ( CUtlBuffer &buf,
 
 	CUtlString groupName;
 
-	CDmeDag *pDmeDag( NULL );
-	CDmeMesh *pDmeMesh( NULL );
-	CUtlVector< int > *pFaceIndices( NULL );
+	CDmeDag *pDmeDag(nullptr);
+	CDmeMesh *pDmeMesh(nullptr);
+	CUtlVector< int > *pFaceIndices(nullptr);
 
 	while ( buf.IsValid() )
 	{
@@ -505,9 +505,9 @@ CDmElement *CDmObjSerializer::ReadOBJ( CUtlBuffer &buf,
 				vertexData.AddToMesh( pDmeMesh, bAbsolute, "bind", false );
 				faceSetData.AddToMesh( pDmeMesh );
 
-				pDmeDag = NULL;
-				pDmeMesh = NULL;
-				pFaceIndices = NULL;
+				pDmeDag = nullptr;
+				pDmeMesh = nullptr;
+				pFaceIndices = nullptr;
 			}
 
 			vertexData.AddPosition( p );
@@ -542,7 +542,7 @@ CDmElement *CDmObjSerializer::ReadOBJ( CUtlBuffer &buf,
 				Q_ComposeFileName( tmpBuf0, tmpBuf1, mtlLibPath, sizeof( mtlLibPath ) );
 				CUtlBuffer utlBuf;
 
-				if ( g_pFullFileSystem->ReadFile( mtlLibPath, NULL, utlBuf ) )
+				if ( g_pFullFileSystem->ReadFile( mtlLibPath, nullptr, utlBuf ) )
 				{
 					ParseMtlLib( utlBuf );
 				}
@@ -553,7 +553,7 @@ CDmElement *CDmObjSerializer::ReadOBJ( CUtlBuffer &buf,
 			if ( sscanf( pBuf, "usemtl %4096s", tmpBuf1 ) == 1 )
 			{
 				// Remove any 'SG' suffix from the material
-				const uint sLen = Q_strlen( tmpBuf1 );
+				const uint32_t sLen = Q_strlen( tmpBuf1 );
 				if ( sLen && !Q_strcmp( tmpBuf1 + sLen - 2, "SG" ) )
 				{
 					tmpBuf1[ sLen - 2 ] = '\0';
@@ -575,7 +575,7 @@ CDmElement *CDmObjSerializer::ReadOBJ( CUtlBuffer &buf,
 			if ( sscanf( pBuf, "g %4096s", tmpBuf1 ) == 1 )
 			{
 				groupName = tmpBuf1;
-				if ( pFaceIndices == NULL )
+				if ( pFaceIndices == nullptr)
 				{
 					pFaceIndices = faceSetData.GetFaceSetIndices( tmpBuf1 );
 				}
@@ -583,12 +583,12 @@ CDmElement *CDmObjSerializer::ReadOBJ( CUtlBuffer &buf,
 			}
 			if ( *pBuf == 'f' && ( *( pBuf + 1 ) == ' ' || *( pBuf + 1 ) == '\t' ) )
 			{
-				if ( pDmeDag == NULL )
+				if ( pDmeDag == nullptr)
 				{
 					pDmeDag = CreateElement< CDmeDag >( pName ? pName : ( groupName.IsEmpty() ? "obj" : groupName.Get() ), pRoot->GetFileId() );
 					Assert( pDmeDag );
 					pDmeMesh = CreateElement< CDmeMesh >( pName ? pName : ( groupName.IsEmpty() ? "obj" : groupName.Get() ), pRoot->GetFileId() );
-					if ( ppCreatedMesh && *ppCreatedMesh == NULL )
+					if ( ppCreatedMesh && *ppCreatedMesh == nullptr)
 					{
 						// Only the first mesh created...
 						*ppCreatedMesh = pDmeMesh;
@@ -601,7 +601,7 @@ CDmElement *CDmObjSerializer::ReadOBJ( CUtlBuffer &buf,
 					}
 				}
 
-				if ( pFaceIndices == NULL )
+				if ( pFaceIndices == nullptr)
 				{
 					pFaceIndices = faceSetData.GetFaceSetIndices( "facetSet" );
 				}
@@ -643,7 +643,7 @@ CDmElement *CDmObjSerializer::ReadOBJ( CUtlBuffer &buf,
 		}
 	}
 
-	CDmeVertexDataBase *pVertexData( NULL );
+	CDmeVertexDataBase *pVertexData(nullptr);
 
 	if ( pBaseMesh )
 	{
@@ -794,7 +794,7 @@ void CDmObjSerializer::MeshToObj(
 		nPositionCount = OutputVectors( b, "v ", pConstData, parentWorldMatrix );
 	}
 
-	const CUtlVector< int > *puvIndices( NULL );
+	const CUtlVector< int > *puvIndices(nullptr);
 	const FieldIndex_t uvIndex( pBase->FindFieldIndex( CDmeVertexData::FIELD_TEXCOORD ) );
 	if ( uvIndex >= 0 )
 	{
@@ -805,7 +805,7 @@ void CDmObjSerializer::MeshToObj(
 		nTextureCount = OutputVectors( b, "vt ", uvData );
 	}
 
-	const CUtlVector< int > *pnIndices( NULL );
+	const CUtlVector< int > *pnIndices(nullptr);
 	const FieldIndex_t nIndex( pBase->FindFieldIndex( CDmeVertexData::FIELD_NORMAL ) );
 	if ( nIndex >= 0 )
 	{
@@ -1044,7 +1044,7 @@ bool CDmObjSerializer::WriteOBJ( const char *pFilename, CDmElement *pRoot, bool 
 
 		DagToObj( b, identityMatrix, pModel, pDeltaName, absolute );
 
-		g_pFullFileSystem->WriteFile( pFilename, NULL, b );
+		g_pFullFileSystem->WriteFile( pFilename, nullptr, b );
 
 		// Filesystem is silly
 		// On WIN32 filesystem changes all of the characters to lowercase grrrr.....
@@ -1117,7 +1117,7 @@ bool CDmObjSerializer::WriteOBJ( const char *pFilename, CDmElement *pRoot, bool 
 					DagToObj( b, identityMatrix, pModel, pDelta->GetName(), absolute );
 
 					Q_ComposeFileName( path, deltaFile.Get(), filename, sizeof( filename ) );
-					g_pFullFileSystem->WriteFile( filename, NULL, b );
+					g_pFullFileSystem->WriteFile( filename, nullptr, b );
 					// On WIN32 filesystem changes all of the characters to lowercase grrrr.....
 					rename( filename, filename );
 				}
@@ -1147,7 +1147,7 @@ void CDmObjSerializer::ParseMtlLib( CUtlBuffer &buf )
 			if ( sscanf( tmpBuf0, "newmtl %s", mtlName ) == 1 )
 			{
 				// Remove any 'SG' suffix from the material
-				const uint sLen = Q_strlen( mtlName );
+				const uint32_t sLen = Q_strlen( mtlName );
 				if ( sLen > 2 && !Q_strcmp( mtlName + sLen - 2, "SG" ) )
 				{
 					mtlName[ sLen - 2 ] = '\0';
@@ -1165,7 +1165,7 @@ void CDmObjSerializer::ParseMtlLib( CUtlBuffer &buf )
 			if ( nCurrentMtl < 0 )
 				continue;
 
-			char tgaPath[MAX_PATH];
+			char tgaPath[MAX_PATH]{0};
 			char tgaName[1024];
 			if ( sscanf( tmpBuf0, "map_Kd %s", tgaPath ) == 1 )
 			{
@@ -1279,7 +1279,7 @@ const char *CDmObjSerializer::SkipSpace(
 CDmeVertexDeltaData *CDmObjSerializer::GetDelta( const char *pDeltaName, bool bAbsolute )
 {
 	if ( !m_deltas.Defined( pDeltaName ) )
-		return NULL;
+		return nullptr;
 
 	DeltaInfo_t &deltaInfo( m_deltas[ pDeltaName ] );
 
@@ -1287,7 +1287,7 @@ CDmeVertexDeltaData *CDmObjSerializer::GetDelta( const char *pDeltaName, bool bA
 		return deltaInfo.m_pDeltaData;
 
 	if ( !LoadDependentDeltas( pDeltaName ) )
-		return NULL;
+		return nullptr;
 
 	CUtlBuffer utlBuf;
 
@@ -1295,15 +1295,15 @@ CDmeVertexDeltaData *CDmObjSerializer::GetDelta( const char *pDeltaName, bool bA
 	Q_ComposeFileName( m_objDirectory, deltaInfo.m_filename, deltaPath, sizeof( deltaPath ) );
 	Q_FixSlashes( deltaPath );
 
-	if ( !g_pFullFileSystem->ReadFile( deltaPath, NULL, utlBuf ) )
-		return NULL;
+	if ( !g_pFullFileSystem->ReadFile( deltaPath, nullptr, utlBuf ) )
+		return nullptr;
 
 	if ( deltaInfo.m_pComboOp && !strchr( pDeltaName, '_' ) )
 	{
 		deltaInfo.m_pComboOp->FindOrCreateControl( pDeltaName, false, true );
 	}
 
-	deltaInfo.m_pDeltaData = CastElement< CDmeVertexDeltaData >( ReadOBJ( utlBuf, deltaInfo.m_pMesh->GetFileId(), pDeltaName, deltaPath, deltaInfo.m_pMesh, NULL, bAbsolute ) );
+	deltaInfo.m_pDeltaData = CastElement< CDmeVertexDeltaData >( ReadOBJ( utlBuf, deltaInfo.m_pMesh->GetFileId(), pDeltaName, deltaPath, deltaInfo.m_pMesh, nullptr, bAbsolute ) );
 
 	return deltaInfo.m_pDeltaData;
 }

@@ -90,7 +90,7 @@ CDmElement *FindElementNamed( CDmrElementArray<> elements, const char *pTargetNa
 		if ( pElement && !V_strcmp( pTargetName, pElement->GetName() ) )
 			return pElement;
 	}
-	return NULL;
+	return nullptr;
 }
 
 CDmElement *FindChannelsClipForChannel( CDmElement *pFilmClip, CDmElement *pChannel )
@@ -112,7 +112,7 @@ CDmElement *FindChannelsClipForChannel( CDmElement *pFilmClip, CDmElement *pChan
 		i = g_pDataModel->NextAttributeReferencingElement( i );
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 CDmElement *FindChannelTargettingElement( CDmElement *pTarget, const char *pTargetAttr, bool bFromTarget )
@@ -134,18 +134,18 @@ CDmElement *FindChannelTargettingElement( CDmElement *pTarget, const char *pTarg
 			return pParent;
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 CDmElement *GetLogLayerFromChannel( CDmElement *pChannel )
 {
 	CDmElement *pLog = pChannel->GetValueElement< CDmElement >( "log" );
 	if ( !pLog )
-		return NULL;
+		return nullptr;
 
 	const CUtlVector< DmElementHandle_t > &layers = pLog->GetValue< CUtlVector< DmElementHandle_t > >( "layers" );
 	if ( layers.Count() != 1 )
-		return NULL;
+		return nullptr;
 
 	return g_pDataModel->GetElement( layers[ 0 ] );
 }
@@ -218,8 +218,8 @@ bool Update19( CDmElement *pElement )
 CDmElement *FindChildControlGroup( CDmElement *pGroup, const char *pName, bool bRecursive )
 {
 	CDmAttribute *pChildrenAttr = pGroup->GetAttribute( "children", AT_ELEMENT_ARRAY );
-	if ( pChildrenAttr == NULL )
-		return NULL;
+	if ( pChildrenAttr == nullptr)
+		return nullptr;
 		
 	CDmrElementArray< CDmElement > children( pChildrenAttr );
 	int nNumChildren = children.Count();
@@ -239,7 +239,7 @@ CDmElement *FindChildControlGroup( CDmElement *pGroup, const char *pName, bool b
 		}
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 
@@ -247,7 +247,7 @@ CDmElement *FindOrCreateControlGroup( CDmElement *pRig, CDmElement *pParentGroup
 {
 	CDmElement *pGroup = FindChildControlGroup( pParentGroup, pGroupName, true );
 	
-	if ( pGroup == NULL )
+	if ( pGroup == nullptr)
 	{
 		pGroup = CreateElement< CDmElement >( "DmeControlGroup", pGroupName, pParentGroup->GetFileId() );
 		pGroup->SetParity( pRig->GetParity() );
@@ -268,7 +268,7 @@ void ReParentCongrolGroup( CDmElement *pControlGroup, CDmElement *pNewParent )
 {
 	const CUtlSymbolLarge symChildren = g_pDataModel->GetSymbol( "children" );
 
-	if ( ( pControlGroup == NULL ) || ( pNewParent == NULL ) )
+	if ( ( pControlGroup == nullptr) || ( pNewParent == nullptr) )
 		return;
 
 	// Find the current parent of the control group
@@ -278,7 +278,7 @@ void ReParentCongrolGroup( CDmElement *pControlGroup, CDmElement *pNewParent )
 
 	// Add the group to the children of the new parent
 	CDmAttribute *pNewChildrenAttr = pNewParent->GetAttribute( "children", AT_ELEMENT_ARRAY );
-	if ( pNewChildrenAttr == NULL )
+	if ( pNewChildrenAttr == nullptr)
 	{
 		pNewChildrenAttr = pNewParent->AddAttributeElementArray< CDmElement >( "children" );
 	}
@@ -333,7 +333,7 @@ bool IsControlGroupEmpty( CDmElement *pControlGroup )
 void SetControlGroupState( CDmElement *pRootControlGroup, const char *pGroupName, bool bVisible, bool bSnappable )
 {
 	CDmElement *pControlGroup = FindChildControlGroup( pRootControlGroup, pGroupName, true );
-	if ( pControlGroup == NULL )
+	if ( pControlGroup == nullptr)
 		return;
 
 	pControlGroup->SetValue< bool >( "visible", bVisible, true );
@@ -351,25 +351,25 @@ void MoveRigControlsToGroup( CDmElement *pRig, CDmElement *pAnimSetElements, CDm
 	{
 		pSrcGroup = FindChildControlGroup( pRootGroup, pSrcGroupName, true );
 	}
-	if ( pSrcGroup == NULL )
+	if ( pSrcGroup == nullptr)
 		return;
 	
 	// Iterate through the controls in the source control group, 
 	// if they are rig elements add them to the destination group.
 	CDmAttribute *pControlsAttr = pSrcGroup->GetAttribute( "controls", AT_ELEMENT_ARRAY );
-	if ( pControlsAttr == NULL )
+	if ( pControlsAttr == nullptr)
 		return;
 	
 	CDmrElementArray< CDmElement > controls( pControlsAttr );
 	int nNumControls = controls.Count();
 
-	CDmElement *pDstGroup = NULL;
-	CDmAttribute *pDstControlsAttr = NULL;
+	CDmElement *pDstGroup = nullptr;
+	CDmAttribute *pDstControlsAttr = nullptr;
 
 	for ( int iControl = 0; iControl < nNumControls; ++iControl )
 	{
 		CDmElement *pControl = controls[ iControl ];
-		if ( pControl == NULL )
+		if ( pControl == nullptr)
 			continue;
 
 		if ( bTransformOnly && ( pControl->GetType() != symDmeTransformControl ) )
@@ -379,15 +379,15 @@ void MoveRigControlsToGroup( CDmElement *pRig, CDmElement *pAnimSetElements, CDm
 		FindReferringElements( referringElements, pControl, symElementList );
 		if ( referringElements.Find( pAnimSetElements ) != referringElements.InvalidIndex() )
 		{
-			if ( pDstGroup == NULL )
+			if ( pDstGroup == nullptr)
 			{
 				pDstGroup = FindOrCreateControlGroup( pRig, pRootGroup, pDstGroupName );
 			}
 
-			if ( pDstControlsAttr == NULL )
+			if ( pDstControlsAttr == nullptr)
 			{
 				pDstControlsAttr = pDstGroup->GetAttribute( "controls", AT_ELEMENT_ARRAY );
-				if ( pDstControlsAttr == NULL )
+				if ( pDstControlsAttr == nullptr)
 				{
 					pDstControlsAttr = pDstGroup->AddAttributeElementArray< CDmElement >( "controls" );
 				}
@@ -399,7 +399,7 @@ void MoveRigControlsToGroup( CDmElement *pRig, CDmElement *pAnimSetElements, CDm
 	}
 
 	// Now remove the rig controls from the source group
-	if ( pDstControlsAttr != NULL )
+	if ( pDstControlsAttr != nullptr)
 	{
 		CDmrElementArray< CDmElement > rigControls( pDstControlsAttr );
 		int nNumRigControls = rigControls.Count();
@@ -423,7 +423,7 @@ void RemoveInvalidTransformControls( CDmElement *pAnimSet )
 	const CUtlSymbolLarge symControls = g_pDataModel->GetSymbol( "controls" );
 
 	CDmAttribute *pControlsAttr = pAnimSet->GetAttribute( "controls", AT_ELEMENT_ARRAY );
-	if ( pControlsAttr == NULL )
+	if ( pControlsAttr == nullptr)
 		return;
 	
 	CDmrElementArray< CDmElement > controls( pControlsAttr );
@@ -433,7 +433,7 @@ void RemoveInvalidTransformControls( CDmElement *pAnimSet )
 	for ( int iControl = 0; iControl < nNumControls; ++iControl )
 	{
 		CDmElement *pControl = controls[ iControl ];
-		if ( pControl == NULL )
+		if ( pControl == nullptr)
 			continue;
 
 		if ( pControl->GetType() == symDmeTransformControl )
@@ -441,7 +441,7 @@ void RemoveInvalidTransformControls( CDmElement *pAnimSet )
 			CDmElement *pPosChannel = pControl->GetValueElement< CDmElement >( "positionChannel" );
 			CDmElement *pRotChannel = pControl->GetValueElement< CDmElement >( "orientationChannel" );
 			
-			if ( ( pPosChannel == NULL ) && ( pRotChannel == NULL ) )
+			if ( ( pPosChannel == nullptr) && ( pRotChannel == nullptr) )
 			{
 				invalidControls.AddToTail( pControl );
 			}
@@ -452,7 +452,7 @@ void RemoveInvalidTransformControls( CDmElement *pAnimSet )
 	for ( int iInvalid = 0; iInvalid < nNumInvalid; ++iInvalid )
 	{
 		CDmElement *pInvalidControl = invalidControls[ iInvalid ];
-		if ( pInvalidControl == NULL )
+		if ( pInvalidControl == nullptr)
 			return;
 
 		// Remove the control from the animation set
@@ -470,11 +470,11 @@ void RemoveInvalidTransformControls( CDmElement *pAnimSet )
 		for ( int iElement = 0; iElement < nNumReferringElements; ++iElement )
 		{
 			CDmElement *pElement = referringElements[ iElement ];
-			if ( pElement == NULL )
+			if ( pElement == nullptr)
 				continue;
 
 			CDmAttribute *pControlsAttr = pElement->GetAttribute( "controls", AT_ELEMENT_ARRAY );
-			if ( pControlsAttr == NULL )
+			if ( pControlsAttr == nullptr)
 				continue;
 
 			CDmrElementArray< CDmElement > controls( pControlsAttr );
@@ -494,7 +494,7 @@ void FixupRigGroupsForAnimationSet( CDmElement *pRig, CDmElement *pAnimSetElemen
 
 	// Get the animation set
 	CDmElement *pAnimSet = pAnimSetElements->GetValueElement< CDmElement >( "animationSet" );
-	if ( ( pAnimSet == NULL ) || ( pAnimSet->GetType() != symDmeAnimationSet ) )
+	if ( ( pAnimSet == nullptr) || ( pAnimSet->GetType() != symDmeAnimationSet ) )
 		return;
 
 	// First clean out any invalid controls from the animations set
@@ -503,11 +503,11 @@ void FixupRigGroupsForAnimationSet( CDmElement *pRig, CDmElement *pAnimSetElemen
 
 	// Get the root control group of the animation set
 	CDmElement *pRootControlGroup = pAnimSet->GetValueElement< CDmElement >( "rootControlGroup" );
-	if ( pRootControlGroup == NULL )
+	if ( pRootControlGroup == nullptr)
 		return;
 
 	// Move the rig controls into their own groups
-	MoveRigControlsToGroup( pRig, pAnimSetElements, pRootControlGroup, NULL, "RigHelpers", false );
+	MoveRigControlsToGroup( pRig, pAnimSetElements, pRootControlGroup, nullptr, "RigHelpers", false );
 	MoveRigControlsToGroup( pRig, pAnimSetElements, pRootControlGroup, "Body", "RigBody", true );
 	MoveRigControlsToGroup( pRig, pAnimSetElements, pRootControlGroup, "Arms", "RigArms", true );
 	MoveRigControlsToGroup( pRig, pAnimSetElements, pRootControlGroup, "Legs", "RigLegs", true );
@@ -553,7 +553,7 @@ void FixupRigGroupsForAnimationSet( CDmElement *pRig, CDmElement *pAnimSetElemen
 
 	// Add the body groups to the list of groups hidden by the rig
 	CDmAttribute *pHiddenGroupsAttr = pAnimSetElements->GetAttribute( "hiddenGroups", AT_STRING_ARRAY );
-	if ( pHiddenGroupsAttr == NULL )
+	if ( pHiddenGroupsAttr == nullptr)
 	{
 		pHiddenGroupsAttr = pAnimSetElements->AddAttribute( "hiddenGroups", AT_STRING_ARRAY );
 	}
@@ -610,7 +610,7 @@ void FixupRigGroupsForAnimationSet( CDmElement *pRig, CDmElement *pAnimSetElemen
 void FixupRigGroups( CDmElement *pRig )
 {	
 	CDmAttribute *pAnimSetListAttr = pRig->GetAttribute( "animSetList", AT_ELEMENT_ARRAY );
-	if ( pAnimSetListAttr == NULL )
+	if ( pAnimSetListAttr == nullptr)
 		return;
 
 	CDmrElementArray<> animSetList( pAnimSetListAttr );
@@ -729,12 +729,12 @@ bool Update17( CDmElement *pElement )
 				for ( int iValue = 0; iValue < nControlValues; ++iValue )
 				{
 					CDmElement *pControlValue = controlValueElements[ iValue ];
-					if ( pControlValue == NULL )
+					if ( pControlValue == nullptr)
 						continue;
 			
 					bool bPos = pControlValue->HasAttribute( "valuePosition" );
 					bool bRot = pControlValue->HasAttribute( "valueOrientation" );
-					const char *pComponentStart = NULL;
+					const char *pComponentStart = nullptr;
 					const char *pName = pControlValue->GetName();
 
 					// Must have a position or rotation value, but not both
@@ -749,7 +749,7 @@ bool Update17( CDmElement *pElement )
 
 					// If the control value will not be merged, 
 					// add it to the list of valid control values.
-					if ( pComponentStart == NULL )
+					if ( pComponentStart == nullptr)
 					{					
 						validControlValues.AddToTail( pControlValue->GetHandle() );
 						continue;
@@ -761,7 +761,7 @@ bool Update17( CDmElement *pElement )
 					baseName[ pComponentStart - pName ] = 0;
 				
 					// Find or create the new control value
-					CDmElement *pNewControlValue = NULL;
+					CDmElement *pNewControlValue = nullptr;
 					int nIndex = mergedControls.Find( baseName );
 					if ( nIndex == mergedControls.InvalidIndex() )
 					{
@@ -820,7 +820,7 @@ void UnifyTransformControl( CDmElement *pTransformControl, CDmElement *pAnimSet 
 		const char *baseName = pTransformControl->GetValueString( "baseName" );
 
 		// Find the control group containing the specified control
-		CDmElement *pTransformControlGroup = NULL;
+		CDmElement *pTransformControlGroup = nullptr;
 		CUtlVector< CDmElement* > controlGroups;
 		FindReferringElements( controlGroups, pTransformControl, symControls );
 		int nNumGroups = controlGroups.Count();
@@ -835,14 +835,14 @@ void UnifyTransformControl( CDmElement *pTransformControl, CDmElement *pAnimSet 
 		}
 
 		Assert( pTransformControlGroup );
-		if ( pTransformControlGroup == NULL )
+		if ( pTransformControlGroup == nullptr)
 			return;
 
 		// Find the position or orientation control that corresponds to the given control
-		CDmElement *pPositionControl = NULL;
-		CDmElement *pOrientationControl = NULL;
-		CDmElement *pPositionChannel = NULL;
-		CDmElement *pOrientationChannel = NULL;
+		CDmElement *pPositionControl = nullptr;
+		CDmElement *pOrientationControl = nullptr;
+		CDmElement *pPositionChannel = nullptr;
+		CDmElement *pOrientationChannel = nullptr;
 
 		CDmAttribute *pControlsAttr = pTransformControlGroup->GetAttribute( "controls", AT_ELEMENT_ARRAY );
 		if ( pControlsAttr )
@@ -918,7 +918,7 @@ void UnifyTransformControl( CDmElement *pTransformControl, CDmElement *pAnimSet 
 		for ( int iAnimSetRig = 0; iAnimSetRig < nNumAnimSetRigs; ++iAnimSetRig )
 		{
 			CDmElement *pAnimElements = animSetRigList[ iAnimSetRig ];
-			if ( ( pAnimElements != NULL ) && ( pAnimElements->GetType() == symDmeRigAnimSetElements ) && 
+			if ( ( pAnimElements != nullptr) && ( pAnimElements->GetType() == symDmeRigAnimSetElements ) && 
 				 ( pAnimElements->GetValueElement< CDmElement >( "animationSet" ) == pAnimSet ) )
 			{
 				CDmAttribute *pElementsAttr = pAnimElements->GetAttribute( "elementList", AT_ELEMENT_ARRAY );
@@ -936,7 +936,7 @@ void UnifyTransformControl( CDmElement *pTransformControl, CDmElement *pAnimSet 
 		for ( int iRig = 0; iRig < nNumRigs; ++iRig )
 		{
 			CDmElement *pRig = rigList[ iRig ];
-			if ( ( pRig != NULL ) && ( pRig->GetType() == symDmeRig ) )
+			if ( ( pRig != nullptr) && ( pRig->GetType() == symDmeRig ) )
 			{
 				CDmAttribute *pDisplaySetElementsAttr = pRig->GetAttribute( "displaySetElements", AT_ELEMENT_ARRAY );
 				if ( pDisplaySetElementsAttr )
@@ -981,7 +981,7 @@ void DestroyControl( CDmElement *pControl )
 	const CUtlSymbolLarge symElementList = g_pDataModel->GetSymbol( "elementList" );
 	const CUtlSymbolLarge symDisplaySetElements = g_pDataModel->GetSymbol( "displaySetElements" );
 
-	if ( pControl == NULL )
+	if ( pControl == nullptr)
 		return;
 
 	// Remove the control from any animation sets and control groups it belongs to
@@ -992,11 +992,11 @@ void DestroyControl( CDmElement *pControl )
 	for ( int iElement = 0; iElement < ownerList.Count(); ++iElement )
 	{
 		CDmElement *pElement = ownerList[ iElement ];
-		if ( pElement == NULL )
+		if ( pElement == nullptr)
 			continue;
 
 		CDmAttribute *pControlsAttr = pElement->GetAttribute( "controls", AT_ELEMENT_ARRAY );
-		if ( pControlsAttr == NULL )
+		if ( pControlsAttr == nullptr)
 			continue;
 		
 		CDmrElementArray<> controlList( pControlsAttr );
@@ -1014,11 +1014,11 @@ void DestroyControl( CDmElement *pControl )
 	for ( int iAnimSetRig = 0; iAnimSetRig < nAimSetRigs; ++iAnimSetRig )
 	{
 		CDmElement *pElement = animSetRigList[ iAnimSetRig ];
-		if ( pElement == NULL )
+		if ( pElement == nullptr)
 			continue;
 
 		CDmAttribute *pElementsAttr = pElement->GetAttribute( "elementList", AT_ELEMENT_ARRAY );
-		if ( pElementsAttr == NULL )
+		if ( pElementsAttr == nullptr)
 			continue;
 		
 		CDmrElementArray<> elementsList( pElementsAttr );
@@ -1035,11 +1035,11 @@ void DestroyControl( CDmElement *pControl )
 	for ( int iRig = 0; iRig < nNumRigs; ++iRig )
 	{
 		CDmElement *pRig = rigList[ iRig ];
-		if ( pRig == NULL )
+		if ( pRig == nullptr)
 			continue;
 
 		CDmAttribute *pDisplaySetElementsAttr = pRig->GetAttribute( "displaySetElements", AT_ELEMENT_ARRAY );
-		if ( pDisplaySetElementsAttr == NULL )
+		if ( pDisplaySetElementsAttr == nullptr)
 			continue;
 		
 		CDmrElementArray<> displaySetElements( pDisplaySetElementsAttr );
@@ -1062,13 +1062,13 @@ CDmElement *CollapseControlGroup( CDmElement *pControlGroup, CDmElement *pRootGr
 	const CUtlSymbolLarge symChildren = g_pDataModel->GetSymbol( "children" );
 
 	if ( pControlGroup->GetType() != symDmeControlGroup )
-		return NULL;
+		return nullptr;
 
 	if ( pRootGroup && ( pRootGroup->GetType() != symDmeControlGroup ) )
-		return NULL;
+		return nullptr;
 
 	// Find the parent control group of the specified control group
-	CDmElement *pParentControlGroup = NULL;
+	CDmElement *pParentControlGroup = nullptr;
 	CUtlVector< CDmElement* > parentList;
 	FindReferringElements( parentList, pControlGroup, symChildren );
 	for ( int i = 0; i < parentList.Count(); ++i )
@@ -1084,13 +1084,13 @@ CDmElement *CollapseControlGroup( CDmElement *pControlGroup, CDmElement *pRootGr
 	Assert( pParentControlGroup );
 
 	// If no parent was found, use the supplied root group
-	if ( pParentControlGroup == NULL )
+	if ( pParentControlGroup == nullptr)
 	{
 		pParentControlGroup = pRootGroup;
 	}
 
 	
-	if ( ( pParentControlGroup != NULL ) && ( pParentControlGroup != pControlGroup ) )
+	if ( ( pParentControlGroup != nullptr) && ( pParentControlGroup != pControlGroup ) )
 	{
 		// Move add the controls of the child to its parent
 		CDmAttribute *pChildControlsAttr = pControlGroup->GetAttribute( "controls", AT_ELEMENT_ARRAY );
@@ -1685,8 +1685,8 @@ bool Update10( CDmElement *pElement )
 CDmElement *FindAnimSetControl( CDmElement* pAnimSet, const char *pchControlName )
 {
 	CDmAttribute *pControlsAttr = pAnimSet->GetAttribute( "controls" );
-	if ( pControlsAttr == NULL )
-		return NULL;
+	if ( pControlsAttr == nullptr)
+		return nullptr;
 
 	CDmrElementArray<> controls( pControlsAttr );
 	int nControls = controls.Count();
@@ -1702,7 +1702,7 @@ CDmElement *FindAnimSetControl( CDmElement* pAnimSet, const char *pchControlName
 		}
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 
@@ -1712,7 +1712,7 @@ CDmElement *FindAnimSetControl( CDmElement* pAnimSet, const char *pchControlName
 //-----------------------------------------------------------------------------
 void ConvertSelectionGroup_R( CDmElement* pAnimSet, CDmElement *pParentControlGroup, CDmElement *pSelectionElement )
 {
-	if ( ( pAnimSet == NULL ) || ( pParentControlGroup == NULL ) || ( pSelectionElement == NULL ) )
+	if ( ( pAnimSet == nullptr) || ( pParentControlGroup == nullptr) || ( pSelectionElement == nullptr) )
 		return;
 
 	bool isGroup = pSelectionElement->GetValue< bool >( "isGroup" );
@@ -1965,7 +1965,7 @@ bool Update6( CDmElement *pElement )
 		// NOTE - not bothering to convert logs on transform, since up until this change, updating the light's transform didn't do anything
 
 		CDmElement *pPosChannel = FindChannelTargettingElement( pElement, "position", false );
-		CDmElement *pPosLog = pPosChannel ? GetLogLayerFromChannel( pPosChannel ) : NULL;
+		CDmElement *pPosLog = pPosChannel ? GetLogLayerFromChannel( pPosChannel ) : nullptr;
 		if ( pPosLog )
 		{
 			Quaternion qDummy;
@@ -1982,7 +1982,7 @@ bool Update6( CDmElement *pElement )
 		}
 
 		CDmElement *pRotChannel = FindChannelTargettingElement( pElement, "orientation", false );
-		CDmElement *pRotLog = pRotChannel ? GetLogLayerFromChannel( pRotChannel ) : NULL;
+		CDmElement *pRotLog = pRotChannel ? GetLogLayerFromChannel( pRotChannel ) : nullptr;
 		if ( pRotLog )
 		{
 			Quaternion temp;
@@ -2047,7 +2047,7 @@ bool Update4( CDmElement *pElement )
 		CDmElement *pAnimSet = clipAnimSets[ i ];
 		if ( !pAnimSet )
 		{
-			animSetGroups.AddToTail( NULL );
+			animSetGroups.AddToTail(nullptr);
 			continue;
 		}
 
@@ -2552,7 +2552,7 @@ static CDmElement *FindAnimSetControlByName( CDmrElementArray<> &array, char con
 			return e;
 		}
 	}
-	return NULL;
+	return nullptr;
 }
 
 bool Update2( CDmElement *pElement )
@@ -2946,15 +2946,15 @@ IMPLEMENT_UPDATER( 19 );
 
 
 typedef bool (*ElementUpdateFunction)( CDmElement **pRoot, bool bParity );
-ElementUpdateFunction EmptyUpdateFunctionList[] = { NULL };
-ElementUpdateFunction PresetUpdateFunctionList[] = { Update3_R, Update4_R, Update10_R, NULL };
+ElementUpdateFunction EmptyUpdateFunctionList[] = {nullptr};
+ElementUpdateFunction PresetUpdateFunctionList[] = { Update3_R, Update4_R, Update10_R, nullptr};
 ElementUpdateFunction MovieObjectsUpdateFunctionList[] =
 {
 	Update1_R, Update2_R, Update3_R, Update4_R, Update6_R, Update7_R, Update8_R, Update9_R,
-	Update10_R, Update11_R, Update12_R, Update13_R, Update14_R, Update15_R, Update17_R, Update18_R, Update19_R, NULL
+	Update10_R, Update11_R, Update12_R, Update13_R, Update14_R, Update15_R, Update17_R, Update18_R, Update19_R, nullptr
 };
 
-ElementUpdateFunction ParticleUpdateFunctionList[] = { Update5_R, NULL };
+ElementUpdateFunction ParticleUpdateFunctionList[] = { Update5_R, nullptr};
 
 
 //-----------------------------------------------------------------------------
@@ -3060,7 +3060,7 @@ void *CDmSerializers::QueryInterface( const char *pInterfaceName )
 	if ( !V_strcmp( pInterfaceName, DMSERIALIZERS_INTERFACE_VERSION ) )
 		return (IDmSerializers*)this;
 
-	return NULL;
+	return nullptr;
 }
 
 

@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright Â© 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
@@ -23,8 +23,7 @@
 // v = C * v;
 //=============================================================================
 
-#ifndef VMATRIX_H
-#define VMATRIX_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -1004,6 +1003,5 @@ inline void ExtractClipPlanesFromTransposedMatrix( const VMatrix &transposedView
 //-----------------------------------------------------------------------------
 void ExtractClipPlanesFromNonTransposedMatrix( const VMatrix &viewProjMatrix, VPlane *pPlanesOut, bool bD3DClippingRange = true );
 
-#endif
 
 

@@ -4,8 +4,7 @@
 //
 //==================================================================================================
 
-#ifndef DMEMESHTYPES_H
-#define DMEMESHTYPES_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -15,4 +14,3 @@ typedef int DmeVertexIndex_t;	// These only index into CDmeVertexData's index ar
 typedef int DmeDataIndex_t;		// These only index into CDmeVertexData's data arrays.
 
 
-#endif // DMEMESHTYPES_H

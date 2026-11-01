@@ -14,14 +14,13 @@
 #include "studiomdl/bone_setup.h"
 
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 //-----------------------------------------------------------------------------
 //
 //-----------------------------------------------------------------------------
-DEFINE_LOGGING_CHANNEL_NO_TAGS( LOG_DME_AAC, "DmeAnimationAssemblyCommand" );
+DEFINE_LOGGING_CHANNEL( LOG_DME_AAC, "DmeAnimationAssemblyCommand" );
 
 
 //-----------------------------------------------------------------------------
@@ -111,8 +110,8 @@ void CDmeFixupLoop::OnDestruction()
 //-----------------------------------------------------------------------------
 bool CDmeFixupLoop::Apply( CDmElement *pDmElement )
 {
-	CDmeSequence *pDmeSequenceDst = NULL;
-	CDmeChannelsClip *pDmeChannelsClipDst = NULL;
+	CDmeSequence *pDmeSequenceDst = nullptr;
+	CDmeChannelsClip *pDmeChannelsClipDst = nullptr;
 
 	if ( !ConvertToDmeSequenceAndDmeChannelsClip( pDmeSequenceDst, pDmeChannelsClipDst, pDmElement, ComputeDmElementIdStr( this ) ) )
 		return false;
@@ -330,14 +329,14 @@ void CDmeSubtract::OnDestruction()
 //-----------------------------------------------------------------------------
 bool CDmeSubtract::Apply( CDmElement *pDmElement )
 {
-	CDmeSequence *pDmeSequenceDst = NULL;
-	CDmeChannelsClip *pDmeChannelsClipDst = NULL;
+	CDmeSequence *pDmeSequenceDst = nullptr;
+	CDmeChannelsClip *pDmeChannelsClipDst = nullptr;
 
 	if ( !ConvertToDmeSequenceAndDmeChannelsClip( pDmeSequenceDst, pDmeChannelsClipDst, pDmElement, ComputeDmElementIdStr( this ) ) )
 		return false;
 
-	CDmeSequence *pDmeSequenceSrc = NULL;
-	CDmeChannelsClip *pDmeChannelsClipSrc = NULL;
+	CDmeSequence *pDmeSequenceSrc = nullptr;
+	CDmeChannelsClip *pDmeChannelsClipSrc = nullptr;
 
 	if ( !ConvertToDmeSequenceAndDmeChannelsClip( pDmeSequenceSrc, pDmeChannelsClipSrc, m_eSequence.GetElement(), ComputeDmElementIdStr( this ) ) )
 		return false;
@@ -541,8 +540,8 @@ void CDmeRotateTo::OnDestruction()
 //-----------------------------------------------------------------------------
 bool CDmeRotateTo::Apply( CDmElement *pDmElement )
 {
-	CDmeSequence *pDmeSequenceDst = NULL;
-	CDmeChannelsClip *pDmeChannelsClipDst = NULL;
+	CDmeSequence *pDmeSequenceDst = nullptr;
+	CDmeChannelsClip *pDmeChannelsClipDst = nullptr;
 
 	if ( !ConvertToDmeSequenceAndDmeChannelsClip( pDmeSequenceDst, pDmeChannelsClipDst, pDmElement, ComputeDmElementIdStr( this ) ) )
 		return false;
@@ -586,8 +585,8 @@ static bool GetDmeChannelsForDag(
 	CDmeDag *pDmeDag,
 	CDmeChannelsClip *pDmeChannelsClip )
 {
-	pDmeTranslateLog = NULL;
-	pDmeRotateLog = NULL;
+	pDmeTranslateLog = nullptr;
+	pDmeRotateLog = nullptr;
 
 	if ( !pDmeDag || !pDmeChannelsClip )
 		return false;
@@ -612,7 +611,7 @@ static bool GetDmeChannelsForDag(
 		CDmeTypedLog< Vector > *pDmeTranslateLogTmp = CastElement< CDmeTypedLog< Vector > >( pDmeLog );
 		if ( pDmeTranslateLogTmp )
 		{
-			if ( pDmeTranslateLog == NULL )
+			if ( pDmeTranslateLog == nullptr)
 			{
 				pDmeTranslateLog = pDmeTranslateLogTmp;
 				// Quit if we've found both translate & rotate
@@ -633,7 +632,7 @@ static bool GetDmeChannelsForDag(
 		CDmeTypedLog< Quaternion > *pDmeRotateLogTmp = CastElement< CDmeTypedLog< Quaternion > >( pDmeLog );
 		if ( pDmeRotateLogTmp )
 		{
-			if ( pDmeRotateLog == NULL )
+			if ( pDmeRotateLog == nullptr)
 			{
 				pDmeRotateLog = pDmeRotateLogTmp;
 				// Quit if we've found both translate & rotate
@@ -651,7 +650,7 @@ static bool GetDmeChannelsForDag(
 		}
 	}
 
-	return pDmeTranslateLog != NULL && pDmeRotateLog != NULL;
+	return pDmeTranslateLog != nullptr && pDmeRotateLog != nullptr;
 }
 
 
@@ -728,8 +727,8 @@ void CDmeRotateTo::SubApply( CDmeDag *pDmeDag, CDmeChannelsClip *pDmeChannelsCli
 	if ( !pDmeTransform )
 		return;
 
-	CDmeTypedLog< Vector > *pDmeTranslateLog = NULL;
-	CDmeTypedLog< Quaternion > *pDmeRotateLog = NULL;
+	CDmeTypedLog< Vector > *pDmeTranslateLog = nullptr;
+	CDmeTypedLog< Quaternion > *pDmeRotateLog = nullptr;
 
 	if ( !GetDmeChannelsForDag( pDmeTranslateLog, pDmeRotateLog, pDmeDag, pDmeChannelsClip ) )
 	{
@@ -851,8 +850,8 @@ void CDmeBoneMaskCmd::OnDestruction()
 //-----------------------------------------------------------------------------
 bool CDmeBoneMaskCmd::Apply( CDmElement *pDmElement )
 {
-	CDmeSequence *pDmeSequenceDst = NULL;
-	CDmeChannelsClip *pDmeChannelsClipDst = NULL;
+	CDmeSequence *pDmeSequenceDst = nullptr;
+	CDmeChannelsClip *pDmeChannelsClipDst = nullptr;
 
 	if ( !ConvertToDmeSequenceAndDmeChannelsClip( pDmeSequenceDst, pDmeChannelsClipDst, pDmElement, ComputeDmElementIdStr( this ) ) )
 		return false;
@@ -910,8 +909,8 @@ void CDmeBoneMaskCmd::SubApply( CDmeChannelsClip *pDmeChannelsClip, CDmeDag *pDm
 	if ( !pDmeTransform )
 		return;
 
-	CDmeTypedLog< Vector > *pDmeTranslateLog = NULL;
-	CDmeTypedLog< Quaternion > *pDmeRotateLog = NULL;
+	CDmeTypedLog< Vector > *pDmeTranslateLog = nullptr;
+	CDmeTypedLog< Quaternion > *pDmeRotateLog = nullptr;
 
 	if ( !GetDmeChannelsForDag( pDmeTranslateLog, pDmeRotateLog, pDmeDag, pDmeChannelsClip ) )
 	{

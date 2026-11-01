@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.22)
 project(tier2)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 20)
 if (CMAKE_SIZEOF_VOID_P EQUAL 8)
     set(PLATFORM_DEFINES COMPILER_MSVC64 COMPILER_MSVC)
 elseif (CMAKE_SIZEOF_VOID_P EQUAL 4)
@@ -13,7 +13,6 @@ add_library(tier2
         meshutils.cpp
         tier2_logging.cpp
         tokenreader.cpp
-        util_init.cpp
         utlstreambuffer.cpp
         vconfig.cpp
         )

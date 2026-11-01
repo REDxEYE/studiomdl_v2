@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =====//
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =====//
 //
 // Dme $collisionjoints
 //
 //===========================================================================//
 
-#ifndef DMECOLLISIONJOINTS_H
-#define DMECOLLISIONJOINTS_H
+#pragma once
 
 
 #ifdef _WIN32
@@ -96,4 +95,3 @@ public:
 };
 
 
-#endif // DMECOLLISIONJOINTS_H

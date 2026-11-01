@@ -13,8 +13,7 @@
 #include "mathlib/mathlib.h"
 
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 //-----------------------------------------------------------------------------
 //  Class for a unit Super Ellipsoid at the origin
@@ -323,7 +322,7 @@ bool CDmeSkinner::ReskinMesh( CDmeModel *pDmeModel, CDmeMesh *pDmeMesh, int nJoi
 	struct s_JointStruct
 	{
 		s_JointStruct()
-		: m_pDmeSkinnerJoint( NULL )
+		: m_pDmeSkinnerJoint(nullptr)
 		, m_nJointIndex( -1 )
 		{
 		}

@@ -14,9 +14,11 @@
 #pragma warning( disable : 4237 )
 #pragma warning( disable : 4305 )
 
+#include <filesystem>
 
-#include <io.h>
+#include "studiomdl/platform_compat.h"
 #include <cstdio>
+#include <cstring>
 #include <cstdlib>
 #include <sys/stat.h>
 #include <climits>
@@ -54,21 +56,21 @@ WriteModel
 ============
 */
 
-static byte *pData;
-static byte *pStart;
-static byte *pBlockData;
-static byte *pBlockStart;
+static uint8_t *pData;
+static uint8_t *pStart;
+static uint8_t *pBlockData;
+static uint8_t *pBlockStart;
 static int sExtraTexcoordsToWrite = 0;
 
 
 #undef ALIGN16
 #undef ALIGN32
 #undef ALIGN4
-#define ALIGN4(a) a = (byte *)((uintptr_t)((byte *)(a) + 3) & ~ 3)
-#define ALIGN16(a) a = (byte *)((uintptr_t)((byte *)(a) + 15) & ~ 15)
-#define ALIGN32(a) a = (byte *)((uintptr_t)((byte *)(a) + 31) & ~ 31)
-#define ALIGN64(a) a = (byte *)((uintptr_t)((byte *)(a) + 63) & ~ 63)
-#define ALIGN512(a) a = (byte *)((uintptr_t)((byte *)(a) + 511) & ~ 511)
+#define ALIGN4(a) a = (uint8_t *)((uintptr_t)((uint8_t *)(a) + 3) & ~ 3)
+#define ALIGN16(a) a = (uint8_t *)((uintptr_t)((uint8_t *)(a) + 15) & ~ 15)
+#define ALIGN32(a) a = (uint8_t *)((uintptr_t)((uint8_t *)(a) + 31) & ~ 31)
+#define ALIGN64(a) a = (uint8_t *)((uintptr_t)((uint8_t *)(a) + 63) & ~ 63)
+#define ALIGN512(a) a = (uint8_t *)((uintptr_t)((uint8_t *)(a) + 511) & ~ 511)
 
 int k_memtotal = 0;
 
@@ -86,7 +88,7 @@ void *kalloc(int num, int size) {
     nMemSize += 511;
     void *ptr = malloc(nMemSize);
     memset(ptr, 0, nMemSize);
-    ptr = (byte *) ((size_t) ((byte *) ptr + 511) & ~511);
+    ptr = (uint8_t *) ((size_t) ((uint8_t *) ptr + 511) & ~511);
     return ptr;
 }
 
@@ -100,11 +102,11 @@ void WriteSeqKeyValues(mstudioseqdesc_t *pseqdesc, std::vector<char> *pKeyValue)
 //-----------------------------------------------------------------------------
 
 struct stringtable_t {
-    byte *base;
+    uint8_t *base;
     int *ptr;
     const char *string;
     int dupindex;
-    byte *addr;
+    uint8_t *addr;
 };
 
 static int numStrings;
@@ -129,7 +131,7 @@ static void AddToStringTable(void *base, int *ptr, const char *string) {
 
     for (int i = 0; i < numStrings; i++) {
         if (!strcmp(string, strings[i].string)) {
-            strings[numStrings].base = (byte *) base;
+            strings[numStrings].base = (uint8_t *) base;
             strings[numStrings].ptr = ptr;
             strings[numStrings].string = string;
             strings[numStrings].dupindex = i;
@@ -138,7 +140,7 @@ static void AddToStringTable(void *base, int *ptr, const char *string) {
         }
     }
 
-    strings[numStrings].base = (byte *) base;
+    strings[numStrings].base = (uint8_t *) base;
     strings[numStrings].ptr = ptr;
     strings[numStrings].string = string;
     strings[numStrings].dupindex = -1;
@@ -149,7 +151,7 @@ static void AddToStringTable(void *base, int *ptr, const char *string) {
 // Purpose: Write out stringtable
 //			fixup local pointers
 //-----------------------------------------------------------------------------
-static byte *WriteStringTable(byte *pData) {
+static uint8_t *WriteStringTable(uint8_t *pData) {
     // force null at first address
     strings[0].addr = pData;
     *pData = '\0';
@@ -180,8 +182,8 @@ static byte *WriteStringTable(byte *pData) {
 
 // compare function for qsort below
 static int BoneNameCompare(const void *elem1, const void *elem2) {
-    int index1 = *(byte *) elem1;
-    int index2 = *(byte *) elem2;
+    int index1 = *(uint8_t *) elem1;
+    int index2 = *(uint8_t *) elem2;
 
     // compare bones by name
     return strcmpi(g_bonetable[index1].name, g_bonetable[index2].name);
@@ -205,12 +207,12 @@ static S *WriteBaseConstraint(M *pConstraint, mstudiobone_t *pbone) {
     pProc->m_slave.m_qBaseOrientation = pConstraint->m_slave.m_qBaseRotation;
 
     const int k = pProc->m_slave.m_nBone;
-    pbone[k].procindex = (byte *) pProc - (byte *) &pbone[k];
+    pbone[k].procindex = (uint8_t *) pProc - (uint8_t *) &pbone[k];
     pbone[k].proctype = nType;
 
     mstudioconstrainttarget_t *pTarget = (mstudioconstrainttarget_t *) pData;
     pProc->m_nTargetCount = pConstraint->m_targets.Count();
-    pProc->m_nTargetIndex = (byte *) pTarget - (byte *) pProc;
+    pProc->m_nTargetIndex = (uint8_t *) pTarget - (uint8_t *) pProc;
     pData += pProc->m_nTargetCount * sizeof(mstudioconstrainttarget_t);
     ALIGN4(pData);
 
@@ -273,7 +275,7 @@ static void WriteBoneInfo(studiohdr_t *phdr) {
         for (i = 0; i < g_numaxisinterpbones; i++) {
             j = g_axisinterpbonemap[i];
             k = g_axisinterpbones[j].bone;
-            pbone[k].procindex = (byte *) &pProc[i] - (byte *) &pbone[k];
+            pbone[k].procindex = (uint8_t *) &pProc[i] - (uint8_t *) &pbone[k];
             pbone[k].proctype = STUDIO_PROC_AXISINTERP;
             // printf("bone %d %d\n", j, pbone[k].procindex );
             pProc[i].control = g_axisinterpbones[j].control;
@@ -295,14 +297,14 @@ static void WriteBoneInfo(studiohdr_t *phdr) {
         for (i = 0; i < g_numquatinterpbones; i++) {
             j = g_quatinterpbonemap[i];
             k = g_quatinterpbones[j].bone;
-            pbone[k].procindex = (byte *) &pProc[i] - (byte *) &pbone[k];
+            pbone[k].procindex = (uint8_t *) &pProc[i] - (uint8_t *) &pbone[k];
             pbone[k].proctype = STUDIO_PROC_QUATINTERP;
             // printf("bone %d %d\n", j, pbone[k].procindex );
             pProc[i].control = g_quatinterpbones[j].control;
 
             mstudioquatinterpinfo_t *pTrigger = (mstudioquatinterpinfo_t *) pData;
             pProc[i].numtriggers = g_quatinterpbones[j].numtriggers;
-            pProc[i].triggerindex = (byte *) pTrigger - (byte *) &pProc[i];
+            pProc[i].triggerindex = (uint8_t *) pTrigger - (uint8_t *) &pProc[i];
             pData += pProc[i].numtriggers * sizeof(mstudioquatinterpinfo_t);
 
             for (k = 0; k < pProc[i].numtriggers; k++) {
@@ -320,7 +322,7 @@ static void WriteBoneInfo(studiohdr_t *phdr) {
         for (i = 0; i < g_numjigglebones; i++) {
             j = g_jigglebonemap[i];
             k = g_jigglebones[j].bone;
-            pbone[k].procindex = (byte *) &jiggleInfo[i] - (byte *) &pbone[k];
+            pbone[k].procindex = (uint8_t *) &jiggleInfo[i] - (uint8_t *) &pbone[k];
             pbone[k].proctype = STUDIO_PROC_JIGGLE;
 
             jiggleInfo[i] = g_jigglebones[j].data;
@@ -335,7 +337,7 @@ static void WriteBoneInfo(studiohdr_t *phdr) {
         for (i = 0; i < g_numaimatbones; i++) {
             j = g_aimatbonemap[i];
             k = g_aimatbones[j].bone;
-            pbone[k].procindex = (byte *) &pProc[i] - (byte *) &pbone[k];
+            pbone[k].procindex = (uint8_t *) &pProc[i] - (uint8_t *) &pbone[k];
             pbone[k].proctype = g_aimatbones[j].aimAttach == -1 ? STUDIO_PROC_AIMATBONE : STUDIO_PROC_AIMATATTACH;
             pProc[i].parent = g_aimatbones[j].parent;
             pProc[i].aim = g_aimatbones[j].aimAttach == -1 ? g_aimatbones[j].aimBone : g_aimatbones[j].aimAttach;
@@ -366,7 +368,7 @@ static void WriteBoneInfo(studiohdr_t *phdr) {
 
 			mstudiotwistbonetarget_t *pTarget = (mstudiotwistbonetarget_t *)pData;
 			pProc[i].m_nTargetCount = twistBone.m_twistBoneTargets.Count();
-			pProc[i].m_nTargetIndex = (byte *)pTarget - (byte *)&pProc[i];
+			pProc[i].m_nTargetIndex = (uint8_t *)pTarget - (uint8_t *)&pProc[i];
 			pData += twistBone.m_twistBoneTargets.Count() * sizeof( mstudiotwistbone_t );
 			ALIGN4( pData );
 
@@ -380,7 +382,7 @@ static void WriteBoneInfo(studiohdr_t *phdr) {
 				pTarget[j].m_vBaseTranslate = twistBoneTarget.m_vOffset;
 				pTarget[j].m_qBaseRotation = twistBoneTarget.m_qOffset;
 
-				pbone[k].procindex = (byte *)&pProc[i] - (byte *)&pbone[k];
+				pbone[k].procindex = (uint8_t *)&pProc[i] - (uint8_t *)&pbone[k];
 				pbone[k].proctype = j == 0 ? STUDIO_PROC_TWIST_MASTER : STUDIO_PROC_TWIST_SLAVE;
 			}
 		}
@@ -523,7 +525,7 @@ static void WriteBoneInfo(studiohdr_t *phdr) {
         AddToStringTable(hitboxset, &hitboxset->sznameindex, set->hitboxsetname);
 
         hitboxset->numhitboxes = set->numhitboxes;
-        hitboxset->hitboxindex = (pData - (byte *) hitboxset);
+        hitboxset->hitboxindex = (pData - (uint8_t *) hitboxset);
 
         // save bbox info
         pbbox = (mstudiobbox_t *) pData;
@@ -541,15 +543,15 @@ static void WriteBoneInfo(studiohdr_t *phdr) {
         pData += hitboxset->numhitboxes * sizeof(mstudiobbox_t);
         ALIGN4(pData);
     }
-    byte *pBoneTable = pData;
+    uint8_t *pBoneTable = pData;
     phdr->bonetablebynameindex = (pData - pStart);
 
     // make a table in bone order and sort it with qsort
     for (i = 0; i < phdr->numbones; i++) {
         pBoneTable[i] = i;
     }
-    qsort(pBoneTable, phdr->numbones, sizeof(byte), BoneNameCompare);
-    pData += phdr->numbones * sizeof(byte);
+    qsort(pBoneTable, phdr->numbones, sizeof(uint8_t), BoneNameCompare);
+    pData += phdr->numbones * sizeof(uint8_t);
     ALIGN4(pData);
 }
 
@@ -593,7 +595,7 @@ static void WriteSequenceInfo(studiohdr_t *phdr) {
     mstudioseqdesc_t *pseqdesc;
     mstudioseqdesc_t *pbaseseqdesc;
     mstudioevent_t *pevent;
-    byte *ptransition;
+    uint8_t *ptransition;
     mstudioanimtag_t *panimtag;
 
     // write models to disk with this flag set false. This will force
@@ -715,12 +717,12 @@ static void WriteSequenceInfo(studiohdr_t *phdr) {
             i = m;
         }
 
-        byte *pSequenceStart = (byte *) pseqdesc;
+        uint8_t *pSequenceStart = (uint8_t *) pseqdesc;
 
         AddToStringTable(pseqdesc, &pseqdesc->szlabelindex, g_sequence[i].name);
         AddToStringTable(pseqdesc, &pseqdesc->szactivitynameindex, g_sequence[i].activityname);
 
-        pseqdesc->baseptr = pStart - (byte *) pseqdesc;
+        pseqdesc->baseptr = pStart - (uint8_t *) pseqdesc;
 
         pseqdesc->flags = g_sequence[i].flags;
 
@@ -850,7 +852,7 @@ static void WriteSequenceInfo(studiohdr_t *phdr) {
 
 
         // save boneweights
-        float *pweight = 0;
+        float *pweight = nullptr;
         j = 0;
         // look up previous sequence weights and try to find a match
         for (k = 0; k < m; k++) {
@@ -885,7 +887,7 @@ static void WriteSequenceInfo(studiohdr_t *phdr) {
         } else {
             // use previous boneweight
             //printf("prev %08x\n", pweight );
-            pseqdesc->weightlistindex = ((byte *) pweight - pSequenceStart);
+            pseqdesc->weightlistindex = ((uint8_t *) pweight - pSequenceStart);
         }
 
 
@@ -985,10 +987,10 @@ static void WriteSequenceInfo(studiohdr_t *phdr) {
         pxnodename++;
     }
 
-    ptransition = (byte *) pData;
+    ptransition = (uint8_t *) pData;
     phdr->numlocalnodes = g_numxnodes;
     phdr->localnodeindex = pData - pStart;
-    pData += g_numxnodes * g_numxnodes * sizeof(byte);
+    pData += g_numxnodes * g_numxnodes * sizeof(uint8_t);
     ALIGN4(pData);
     for (i = 0; i < g_numxnodes; i++) {
 //		printf("%2d (%12s) : ", i + 1, g_xnodename[i+1] );
@@ -1017,7 +1019,7 @@ const studiohdr_t *virtualgroup_t::GetStudioHdr() const {
     return (studiohdr_t *) cache;
 }
 
-byte *studiohdr_t::GetAnimBlock(int i, bool preloadIfMissing) const {
+uint8_t *studiohdr_t::GetAnimBlock(int i, bool preloadIfMissing) const {
     return nullptr;
 }
 
@@ -1038,7 +1040,7 @@ int numPos[4] = {0, 0, 0, 0};
 int useRaw = 0;
 
 
-void WriteRLEAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanimdesc, byte *&pData, int w) {
+void WriteRLEAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanimdesc, uint8_t *&pData, int w) {
     int j, k, n;
 
     mstudio_rle_anim_t *destanim = (mstudio_rle_anim_t *) pData;
@@ -1120,7 +1122,7 @@ void WriteRLEAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanimde
                     if (psrcdata->num[k] == 0) {
                         rotvptr->offset[k - 3] = 0;
                     } else {
-                        rotvptr->offset[k - 3] = ((byte *) destanimvalue - (byte *) rotvptr);
+                        rotvptr->offset[k - 3] = ((uint8_t *) destanimvalue - (uint8_t *) rotvptr);
                         for (n = 0; n < psrcdata->num[k]; n++) {
                             destanimvalue->value = psrcdata->data[k][n].value;
                             destanimvalue++;
@@ -1136,7 +1138,7 @@ void WriteRLEAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanimde
                     if (psrcdata->num[k] == 0) {
                         posvptr->offset[k] = 0;
                     } else {
-                        posvptr->offset[k] = ((byte *) destanimvalue - (byte *) posvptr);
+                        posvptr->offset[k] = ((uint8_t *) destanimvalue - (uint8_t *) posvptr);
                         for (n = 0; n < psrcdata->num[k]; n++) {
                             destanimvalue->value = psrcdata->data[k][n].value;
                             destanimvalue++;
@@ -1145,12 +1147,12 @@ void WriteRLEAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanimde
                 }
                 destanim->flags |= STUDIO_ANIM_ANIMPOS;
             }
-            rawanimbytes += ((byte *) destanimvalue - pData);
-            pData = (byte *) destanimvalue;
+            rawanimbytes += ((uint8_t *) destanimvalue - pData);
+            pData = (uint8_t *) destanimvalue;
         }
 
         prevanim = destanim;
-        destanim->nextoffset = pData - (byte *) destanim;
+        destanim->nextoffset = pData - (uint8_t *) destanim;
         destanim = (mstudio_rle_anim_t *) pData;
         pData += sizeof(*destanim);
     }
@@ -1162,18 +1164,18 @@ void WriteRLEAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanimde
     ALIGN4(pData);
 }
 
-void WriteFrameAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanimdesc, byte *&pData, int w) {
+void WriteFrameAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanimdesc, uint8_t *&pData, int w) {
     // allocate room for header
     mstudio_frame_anim_t *destframeanim = (mstudio_frame_anim_t *) pData;
     pData += sizeof(*destframeanim);
 
     // write flags and constants
-    byte *flag = pData;
+    uint8_t *flag = pData;
     pData += g_StudioMdlContext.numbones * sizeof(*flag);
 
     ALIGN4(pData);
 
-    destframeanim->constantsoffset = pData - (byte *) destframeanim;
+    destframeanim->constantsoffset = pData - (uint8_t *) destframeanim;
     int framelength = 0;
     int iFrame = MIN(w * srcanim->sectionframes, srcanim->numframes - 1);
 
@@ -1221,7 +1223,7 @@ void WriteFrameAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanim
     ALIGN4(pData);
 
     // write raw data
-    destframeanim->frameoffset = pData - (byte *) destframeanim;
+    destframeanim->frameoffset = pData - (uint8_t *) destframeanim;
     destframeanim->framelength = framelength;
 
     int iStartFrame = 0;
@@ -1267,8 +1269,8 @@ void WriteFrameAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanim
 }
 
 
-void WriteAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanimdesc, byte *&pLocalData, byte *&pExtData) {
-    byte *pData = nullptr;
+void WriteAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanimdesc, uint8_t *&pLocalData, uint8_t *&pExtData) {
+    uint8_t *pData = nullptr;
 
     for (int w = 0; w < srcanim->numsections; w++) {
         bool bUseExtData = false;
@@ -1280,7 +1282,7 @@ void WriteAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanimdesc,
             bUseExtData = true;
         }
 
-        byte *pStartSection = pData;
+        uint8_t *pStartSection = pData;
 
         // use frameanim if not lowres data
         if (pExtData != nullptr && !g_StudioMdlContext.animblockLowRes) {
@@ -1315,7 +1317,7 @@ void WriteAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanimdesc,
                 destanimdesc->pSection(w)->animindex = pStartSection - g_animblock[g_numanimblocks - 1].start;
             } else {
                 destanimdesc->pSection(w)->animblock = 0;
-                destanimdesc->pSection(w)->animindex = pStartSection - (byte *) destanimdesc;
+                destanimdesc->pSection(w)->animindex = pStartSection - (uint8_t *) destanimdesc;
             }
             // printf("%s (%d) : %d:%d\n", srcanim->name, w, destanimdesc->pSection(w)->animblock, destanimdesc->pSection(w)->animindex );
         }
@@ -1329,7 +1331,7 @@ void WriteAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanimdesc,
 }
 
 
-byte *WriteIkErrors(s_animation_t *srcanim, byte *pData) {
+uint8_t *WriteIkErrors(s_animation_t *srcanim, uint8_t *pData) {
     int j, k;
 
     // write IK error keys
@@ -1376,7 +1378,7 @@ byte *WriteIkErrors(s_animation_t *srcanim, byte *pData) {
 
 #if 0
                                                                                                                                 // uncompressed
-		pikrule->ikerrorindex = (pData - (byte*)pikrule);
+		pikrule->ikerrorindex = (pData - (uint8_t*)pikrule);
 		mstudioikerror_t *perror = (mstudioikerror_t *)pData;
 		pData += srcanim->ikrule[j].numerror * sizeof( *perror );
 
@@ -1396,13 +1398,13 @@ byte *WriteIkErrors(s_animation_t *srcanim, byte *pData) {
             continue;
 
         // compressed
-        pikrule->compressedikerrorindex = (pData - (byte *) pikrule);
+        pikrule->compressedikerrorindex = (pData - (uint8_t *) pikrule);
         mstudiocompressedikerror_t *pCompressed = (mstudiocompressedikerror_t *) pData;
         pData += sizeof(*pCompressed);
 
         for (k = 0; k < 6; k++) {
             pCompressed->scale[k] = srcanim->ikrule[j].errorData.scale[k];
-            pCompressed->offset[k] = (pData - (byte *) pCompressed);
+            pCompressed->offset[k] = (pData - (uint8_t *) pCompressed);
             int size = srcanim->ikrule[j].errorData.numanim[k] * sizeof(mstudioanimvalue_t);
             memmove(pData, srcanim->ikrule[j].errorData.anim[k], size);
             pData += size;
@@ -1412,7 +1414,7 @@ byte *WriteIkErrors(s_animation_t *srcanim, byte *pData) {
             // don't use string table, we're probably not in the same file.
             int size = strlen(srcanim->ikrule[j].attachment) + 1;
             strcpy((char *) pData, srcanim->ikrule[j].attachment);
-            pikrule->szattachmentindex = pData - (byte *) pikrule;
+            pikrule->szattachmentindex = pData - (uint8_t *) pikrule;
             pData += size;
         }
 
@@ -1426,7 +1428,7 @@ byte *WriteIkErrors(s_animation_t *srcanim, byte *pData) {
 }
 
 
-byte *WriteLocalHierarchy(s_animation_t *srcanim, byte *pData) {
+uint8_t *WriteLocalHierarchy(s_animation_t *srcanim, uint8_t *pData) {
     int j, k;
 
     // write hierarchy  keys
@@ -1456,7 +1458,7 @@ byte *WriteLocalHierarchy(s_animation_t *srcanim, byte *pData) {
 
 #if 0
                                                                                                                                 // uncompressed
-		pHierarchy->ikerrorindex = (pData - (byte*)pHierarchy);
+		pHierarchy->ikerrorindex = (pData - (uint8_t*)pHierarchy);
 		mstudioikerror_t *perror = (mstudioikerror_t *)pData;
 		pData += srcanim->ikrule[j].numerror * sizeof( *perror );
 
@@ -1476,13 +1478,13 @@ byte *WriteLocalHierarchy(s_animation_t *srcanim, byte *pData) {
             continue;
 
         // compressed
-        pHierarchy->localanimindex = (pData - (byte *) pHierarchy);
+        pHierarchy->localanimindex = (pData - (uint8_t *) pHierarchy);
         mstudiocompressedikerror_t *pCompressed = (mstudiocompressedikerror_t *) pData;
         pData += sizeof(*pCompressed);
 
         for (k = 0; k < 6; k++) {
             pCompressed->scale[k] = srcanim->localhierarchy[j].localData.scale[k];
-            pCompressed->offset[k] = (pData - (byte *) pCompressed);
+            pCompressed->offset[k] = (pData - (uint8_t *) pCompressed);
             int size = srcanim->localhierarchy[j].localData.numanim[k] * sizeof(mstudioanimvalue_t);
             memmove(pData, srcanim->localhierarchy[j].localData.anim[k], size);
             pData += size;
@@ -1498,7 +1500,7 @@ byte *WriteLocalHierarchy(s_animation_t *srcanim, byte *pData) {
 }
 
 
-static byte *WriteAnimations(byte *pData, byte *pStart, studiohdr_t *phdr) {
+static uint8_t *WriteAnimations(uint8_t *pData, uint8_t *pStart, studiohdr_t *phdr) {
     int i, j;
 
     mstudioanimdesc_t *panimdesc;
@@ -1512,7 +1514,7 @@ static byte *WriteAnimations(byte *pData, byte *pStart, studiohdr_t *phdr) {
     pData += g_numani * sizeof(*panimdesc);
     ALIGN4(pData);
     //      ------------ ------- ------- : ------- (-------)
-    if (g_StudioMdlContext.verbose) {
+    if (g_StudioMdlContext.verbose && g_numani>0) {
         printf("   animation       x       y       ips    angle\n");
     }
 
@@ -1523,7 +1525,7 @@ static byte *WriteAnimations(byte *pData, byte *pStart, studiohdr_t *phdr) {
 
         AddToStringTable(destanim, &destanim->sznameindex, srcanim->name);
 
-        destanim->baseptr = pStart - (byte *) destanim;
+        destanim->baseptr = pStart - (uint8_t *) destanim;
         destanim->fps = srcanim->fps;
         destanim->flags = srcanim->flags;
 
@@ -1552,7 +1554,7 @@ static byte *WriteAnimations(byte *pData, byte *pStart, studiohdr_t *phdr) {
         }
 
         if (srcanim->numsections > 1) {
-            destanim->sectionindex = pData - (byte *) destanim;
+            destanim->sectionindex = pData - (uint8_t *) destanim;
             pData += srcanim->numsections * sizeof(mstudioanimsections_t);
         }
 
@@ -1586,12 +1588,12 @@ static byte *WriteAnimations(byte *pData, byte *pStart, studiohdr_t *phdr) {
         }
 
         // block zero is relative to me
-        g_animblock[0].start = (byte *) (destanim);
+        g_animblock[0].start = (uint8_t *) (destanim);
 
-        byte *pAnimData = nullptr;
-        byte *pIkData = nullptr;
-        byte *pLocalHierarchy = nullptr;
-        byte *pBlockEnd = pBlockData;
+        uint8_t *pAnimData = nullptr;
+        uint8_t *pIkData = nullptr;
+        uint8_t *pLocalHierarchy = nullptr;
+        uint8_t *pBlockEnd = pBlockData;
 
         if (srcanim->disableAnimblocks || srcanim->isFirstSectionLocal) {
             destanim->animblock = 0;
@@ -1672,7 +1674,7 @@ static byte *WriteAnimations(byte *pData, byte *pStart, studiohdr_t *phdr) {
         // panimdesc[i].entrancevelocity = anim->entrancevelocity;
         panimdesc[i].nummovements = anim->numpiecewisekeys;
         if (panimdesc[i].nummovements) {
-            panimdesc[i].movementindex = pData - (byte *) &panimdesc[i];
+            panimdesc[i].movementindex = pData - (uint8_t *) &panimdesc[i];
 
             mstudiomovement_t *pmove = (mstudiomovement_t *) pData;
             pData += panimdesc[i].nummovements * sizeof(*pmove);
@@ -1762,7 +1764,7 @@ static byte *WriteAnimations(byte *pData, byte *pStart, studiohdr_t *phdr) {
         mstudioanimdesc_t *destanim = &panimdesc[i];
 
         if (destanim->animblock != 0) {
-            destanim->zeroframeindex = pData - (byte *) destanim;
+            destanim->zeroframeindex = pData - (uint8_t *) destanim;
 
             int k = MIN(destanim->numframes - 1, 9);
             if (destanim->flags & STUDIO_LOOPING) {
@@ -1806,7 +1808,7 @@ static byte *WriteAnimations(byte *pData, byte *pStart, studiohdr_t *phdr) {
             // write zero frame IK data
             if (destanim->numikrules) {
                 mstudioikrulezeroframe_t *pdestikrule = (mstudioikrulezeroframe_t *) pData;
-                destanim->ikrulezeroframeindex = pData - (byte *) destanim;
+                destanim->ikrulezeroframeindex = pData - (uint8_t *) destanim;
                 pData += sizeof(*pdestikrule) * destanim->numikrules;
 
                 // printf("%s : %d : %d %x : %x %x\n", phdr->name, destanim->numikrules, destanim->animblock, destanim->ikruleindex, destanim->animblockikruleindex, destanim->ikrulezeroframeindex );
@@ -1814,7 +1816,7 @@ static byte *WriteAnimations(byte *pData, byte *pStart, studiohdr_t *phdr) {
                 mstudioikrule_t *psrcikrule;
 
                 if (destanim->ikruleindex) {
-                    psrcikrule = (mstudioikrule_t *) ((byte *) destanim + destanim->ikruleindex);
+                    psrcikrule = (mstudioikrule_t *) ((uint8_t *) destanim + destanim->ikruleindex);
                 } else {
                     psrcikrule = (mstudioikrule_t *) (g_animblock[destanim->animblock].start +
                                                       destanim->animblockikruleindex);
@@ -1875,7 +1877,7 @@ static void WriteTextures(studiohdr_t *phdr) {
             pref++;
         }
     }
-    pData = (byte *) pref;
+    pData = (uint8_t *) pref;
     ALIGN4(pData);
 }
 
@@ -1935,19 +1937,19 @@ static void WriteBoneTransforms(studiohdr2_t *phdr, const mstudiobone_t *pBone) 
 
     if (g_StudioMdlContext.numbones > 1) {
         // write second bone table
-        phdr->linearboneindex = pData - (byte *) phdr;
+        phdr->linearboneindex = pData - (uint8_t *) phdr;
         mstudiolinearbone_t *pLinearBone = (mstudiolinearbone_t *) pData;
         pData += sizeof(*pLinearBone);
 
         pLinearBone->numbones = g_StudioMdlContext.numbones;
 
 #define WRITE_BONE_BLOCK(type, srcfield, dest, destindex) \
-        type *##dest = (type *)pData; \
-        pLinearBone->##destindex = pData - (byte *)pLinearBone; \
-        pData += g_StudioMdlContext.numbones * sizeof( *##dest ); \
+        type *dest = (type *)pData; \
+        pLinearBone->destindex = pData - (uint8_t *)pLinearBone; \
+        pData += g_StudioMdlContext.numbones * sizeof( *dest ); \
         ALIGN4( pData ); \
         for ( int i = 0; i < g_StudioMdlContext.numbones; i++) \
-            dest##[i] = pBone[i].##srcfield;
+            dest[i] = pBone[i].srcfield;
 
         WRITE_BONE_BLOCK(int, flags, pFlags, flagsindex);
         WRITE_BONE_BLOCK(int, parent, pParent, parentindex);
@@ -1971,7 +1973,7 @@ static void WriteBodyGroupPresets(studiohdr2_t *pStudioHdr2) {
         return;
 
     mstudiobodygrouppreset_t *pBodygroupPreset = (mstudiobodygrouppreset_t *) pData;
-    pStudioHdr2->m_nBodyGroupPresetIndex = pData - (byte *) pStudioHdr2;
+    pStudioHdr2->m_nBodyGroupPresetIndex = pData - (uint8_t *) pStudioHdr2;
     pData += g_numbodygrouppresets * sizeof(mstudiobodygrouppreset_t);
     ALIGN4(pData);
 
@@ -2003,7 +2005,7 @@ static void WriteBoneFlexDrivers(studiohdr2_t *pStudioHdr2) {
 
     mstudioboneflexdriver_t *pBoneFlexDriver = (mstudioboneflexdriver_t *) pData;
     pStudioHdr2->m_nBoneFlexDriverCount = nBoneFlexDriverCount;
-    pStudioHdr2->m_nBoneFlexDriverIndex = pData - (byte *) pStudioHdr2;
+    pStudioHdr2->m_nBoneFlexDriverIndex = pData - (uint8_t *) pStudioHdr2;
     pData += nBoneFlexDriverCount * sizeof(mstudioboneflexdriver_t);
     ALIGN4(pData);
 
@@ -2015,7 +2017,7 @@ static void WriteBoneFlexDrivers(studiohdr2_t *pStudioHdr2) {
 
         pBoneFlexDriver->m_nBoneIndex = pDmeBoneFlexDriver->GetValue<int>("__boneIndex", 0);
         pBoneFlexDriver->m_nControlCount = pDmeBoneFlexDriver->m_eControlList.Count();
-        pBoneFlexDriver->m_nControlIndex = pData - (byte *) pBoneFlexDriver;
+        pBoneFlexDriver->m_nControlIndex = pData - (uint8_t *) pBoneFlexDriver;
 
         mstudioboneflexdrivercontrol_t *pControl = reinterpret_cast< mstudioboneflexdrivercontrol_t * >( pData );
 
@@ -2045,12 +2047,12 @@ static void WriteBoneFlexDrivers(studiohdr2_t *pStudioHdr2) {
 //-----------------------------------------------------------------------------
 static void WriteVertices(studiohdr_t *phdr) {
     char fileName[MAX_PATH];
-    byte *pStart;
-    byte *pData;
-    int i;
-    int j;
-    int k;
-    int cur;
+    uint8_t *pStart;
+    uint8_t *pData;
+    int i = 0;
+    int j = 0;
+    int k = 0;
+    int cur = 0;
     bool bExtraData = (phdr->flags & STUDIOHDR_FLAGS_EXTRA_VERTEX_DATA) != 0;
 
     if (!g_nummodelsbeforeLOD)
@@ -2073,7 +2075,7 @@ static void WriteVertices(studiohdr_t *phdr) {
         printf("writing %s:\n", fileName);
     }
 
-    pStart = (byte *) kalloc(1, FILEBUFFER);
+    pStart = (uint8_t *) kalloc(1, FILEBUFFER);
     pData = pStart;
 
     vertexFileHeader_t *fileHeader = (vertexFileHeader_t *) pData;
@@ -2128,7 +2130,7 @@ static void WriteVertices(studiohdr_t *phdr) {
         fileHeader->numLODVertexes[0] += pLodData->numvertices;
 
         if (!g_StudioMdlContext.quiet) {
-            printf("vertices   %7llu bytes (%d vertices)\n", (uintptr_t) (pData - cur), pLodData->numvertices);
+            printf("%d vertices \n", pLodData->numvertices);
         }
     }
 
@@ -2156,7 +2158,7 @@ static void WriteVertices(studiohdr_t *phdr) {
         }
 
         if (!g_StudioMdlContext.quiet) {
-            printf("tangents   %7llu bytes (%d vertices)\n", (uintptr_t) (pData - cur), pLodData->numvertices);
+            printf("%d tangents\n", pLodData->numvertices);
         }
     }
 
@@ -2164,7 +2166,7 @@ static void WriteVertices(studiohdr_t *phdr) {
         ALIGN4(pData);
         cur = (uintptr_t) pData;
 
-        byte *pExtraDataStart = pData;
+        uint8_t *pExtraDataStart = pData;
         ExtraVertexAttributesHeader_t *pExtraheader = (ExtraVertexAttributesHeader_t *) pData;
         pData += sizeof(ExtraVertexAttributesHeader_t);
         pExtraheader->m_count = sExtraTexcoordsToWrite;
@@ -2199,7 +2201,7 @@ static void WriteVertices(studiohdr_t *phdr) {
                     pExtraTexcoord++;
                 }
 
-                pData = (byte *) pExtraTexcoord;
+                pData = (uint8_t *) pExtraTexcoord;
 
                 if (!g_StudioMdlContext.quiet) {
                     printf("extra vertex data   %7llu bytes (%d vertices)\n", (uintptr_t) (pData - cur),
@@ -2216,7 +2218,6 @@ static void WriteVertices(studiohdr_t *phdr) {
 
     // fileHeader->length = pData - pStart;
     {
-//		CP4AutoEditAddFile autop4( fileName );
         SaveFile(fileName, pStart, pData - pStart);
     }
 }
@@ -2312,8 +2313,8 @@ static void WriteModel(studiohdr_t *phdr) {
 
     // vertex data is written to external file, offsets kept internal
     // track expected external base to store proper offsets
-    byte *externalVertexIndex = 0;
-    byte *externalTangentsIndex = 0;
+    uint8_t *externalVertexIndex = nullptr;
+    uint8_t *externalTangentsIndex = nullptr;
 
     // write bodypart info
     pbodypart = (mstudiobodyparts_t *) pData;
@@ -2328,7 +2329,7 @@ static void WriteModel(studiohdr_t *phdr) {
         AddToStringTable(&pbodypart[i], &pbodypart[i].sznameindex, g_bodypart[i].name);
         pbodypart[i].nummodels = g_bodypart[i].nummodels;
         pbodypart[i].base = g_bodypart[i].base;
-        pbodypart[i].modelindex = ((byte *) &pmodel[j]) - (byte *) &pbodypart[i];
+        pbodypart[i].modelindex = ((uint8_t *) &pmodel[j]) - (uint8_t *) &pbodypart[i];
         j += g_bodypart[i].nummodels;
     }
     ALIGN4(pData);
@@ -2372,7 +2373,7 @@ static void WriteModel(studiohdr_t *phdr) {
     for (j = 0; j < g_numflexrules; j++) {
         pflexrule->flex = g_flexrule[j].flex;
         pflexrule->numops = g_flexrule[j].numops;
-        pflexrule->opindex = (pData - (byte *) pflexrule);
+        pflexrule->opindex = (pData - (uint8_t *) pflexrule);
 
         mstudioflexop_t *pflexop = (mstudioflexop_t *) pData;
 
@@ -2533,7 +2534,7 @@ static void WriteModel(studiohdr_t *phdr) {
         pikchain->numlinks = g_ikchain[j].numlinks;
 
         mstudioiklink_t *piklink = (mstudioiklink_t *) pData;
-        pikchain->linkindex = (pData - (byte *) pikchain);
+        pikchain->linkindex = (pData - (uint8_t *) pikchain);
         pData += pikchain->numlinks * sizeof(mstudioiklink_t);
 
         for (i = 0; i < pikchain->numlinks; i++) {
@@ -2587,7 +2588,7 @@ static void WriteModel(studiohdr_t *phdr) {
     }
 
     if (!g_StudioMdlContext.quiet) {
-        printf("ik/pose    %7llu bytes\n", (uintptr_t) (pData - cur));
+        printf("ik/pose    %7llu bytes\n", (uintptr_t) (pData - pStart));
     }
     cur = (uintptr_t) pData;
 
@@ -2617,7 +2618,7 @@ static void WriteModel(studiohdr_t *phdr) {
     for (i = 0; i < g_nummodelsbeforeLOD; i++) {
         int n = 0;
 
-        byte *pModelStart = (byte *) (&pmodel[i]);
+        uint8_t *pModelStart = (uint8_t *) (&pmodel[i]);
 
         strcpy(pmodel[i].name, g_model[i]->filename);
         // AddToStringTable( &pmodel[i], &pmodel[i].sznameindex, g_model[i]->filename );
@@ -2656,7 +2657,7 @@ static void WriteModel(studiohdr_t *phdr) {
             n = psource->meshindex[m];
 
             pmesh[m].material = n;
-            pmesh[m].modelindex = (byte *) &pmodel[i] - (byte *) &pmesh[m];
+            pmesh[m].modelindex = (uint8_t *) &pmodel[i] - (uint8_t *) &pmesh[m];
             pmesh[m].numvertices = pLodData->mesh[n].numvertices;
             pmesh[m].vertexoffset = pLodData->mesh[n].vertexoffset;
         }
@@ -2706,7 +2707,7 @@ static void WriteModel(studiohdr_t *phdr) {
         }
 
         if (!g_StudioMdlContext.quiet) {
-            printf("eyeballs   %7llu bytes (%d eyeballs)\n", (uintptr_t) (pData - cur), g_model[i]->numeyeballs);
+            printf("eyeballs   %7llu bytes (%d eyeballs)\n", (uintptr_t) (pData - pStart), g_model[i]->numeyeballs);
         }
 
         // move flexes into individual meshes
@@ -2735,7 +2736,7 @@ static void WriteModel(studiohdr_t *phdr) {
             }
 
             if (pmesh[m].numflexes) {
-                pmesh[m].flexindex = (pData - (byte *) &pmesh[m]);
+                pmesh[m].flexindex = (pData - (uint8_t *) &pmesh[m]);
                 mstudioflex_t *pflex = (mstudioflex_t *) pData;
                 pData += pmesh[m].numflexes * sizeof(mstudioflex_t);
                 ALIGN4(pData);
@@ -2750,7 +2751,7 @@ static void WriteModel(studiohdr_t *phdr) {
                     pflex->target2 = g_flexkey[j].target2;
                     pflex->target3 = g_flexkey[j].target3;
                     pflex->numverts = numflexkeys[j];
-                    pflex->vertindex = (pData - (byte *) pflex);
+                    pflex->vertindex = (pData - (uint8_t *) pflex);
                     pflex->flexpair = g_flexkey[j].flexpair;
                     pflex->vertanimtype = g_flexkey[j].vanimtype;
 
@@ -2783,7 +2784,7 @@ static void WriteModel(studiohdr_t *phdr) {
                                                                                            flVertAnimFixedPointScale);
                             }
 
-                            pvertanim = (mstudiovertanim_t *) ((byte *) pvertanim + nVAnimDeltaSize);
+                            pvertanim = (mstudiovertanim_t *) ((uint8_t *) pvertanim + nVAnimDeltaSize);
 
                             /*
 							if ((tmp - pvanim->pos).Length() > 0.1)
@@ -2805,7 +2806,7 @@ static void WriteModel(studiohdr_t *phdr) {
         }
 
         if (!g_StudioMdlContext.quiet) {
-            printf("flexes     %7llu bytes (%d flexes)\n", (uintptr_t) (pData - cur), g_numflexkeys);
+            printf("flexes     %7llu bytes (%d flexes)\n", (uintptr_t) (pData - pStart), g_numflexkeys);
         }
         cur = (uintptr_t) pData;
     }
@@ -2894,27 +2895,6 @@ void LoadMaterials(studiohdr_t *phdr) {
 					g_pMaterialSystem->FindMaterial( szPath, TEXTURE_GROUP_OTHER, true );
 				}
 			}
-			else
-			{
-				char szTemp[MAX_PATH];
-				V_ComposeFileName( gamedir, "materials", szTemp, sizeof(szTemp) );
-
-				char szTemp2[MAX_PATH];
-				V_ComposeFileName( szTemp, szPath, szTemp2, sizeof(szTemp2) );
-
-				V_SetExtension( szTemp2, ".vmt", MAX_PATH );
-
-				V_FixupPathName( szTemp, MAX_PATH, szTemp2 );
-
-//				if ( g_pFullFileSystem->FileExists( szTemp ) )
-//				{
-//					CP4AutoAddFile p4_add_dep_file( szTemp );
-//				}
-//				else
-//				{
-//					MdlWarning( "Could not locate VMT for p4 add: %s\n", szTemp );
-//				}
-			}
 
 			phdr->pTexture( i )->material = pMaterial;
 
@@ -2975,7 +2955,7 @@ void WriteQCPath() {
 }
 
 void WriteSeqKeyValues(mstudioseqdesc_t *pseqdesc, std::vector<char> *pKeyValue) {
-    pseqdesc->keyvalueindex = (pData - (byte *) pseqdesc);
+    pseqdesc->keyvalueindex = (pData - (uint8_t *) pseqdesc);
     pseqdesc->keyvaluesize = KeyValueTextSize(pKeyValue);
     if (pseqdesc->keyvaluesize) {
         memcpy(pData, KeyValueText(pKeyValue), pseqdesc->keyvaluesize);
@@ -2991,32 +2971,20 @@ void WriteSeqKeyValues(mstudioseqdesc_t *pseqdesc, std::vector<char> *pKeyValue)
 
 
 void EnsureFileDirectoryExists(const char *pFilename) {
-    char dirName[MAX_PATH];
-    Q_strncpy(dirName, pFilename, sizeof(dirName));
-    Q_FixSlashes(dirName);
-    char *pLastSlash = strrchr(dirName, CORRECT_PATH_SEPARATOR);
-    if (pLastSlash) {
-        *pLastSlash = 0;
-
-        if (_access(dirName, 0) != 0) {
-            char cmdLine[512];
-            Q_snprintf(cmdLine, sizeof(cmdLine), "md \"%s\"", dirName);
-            system(cmdLine);
-        }
-    }
+    const std::filesystem::path path(pFilename);
+    std::filesystem::create_directories(path.parent_path());
 }
 
 void WriteModelFiles() {
-    FileHandle_t modelouthandle = 0;
-    FileHandle_t blockouthandle = 0;
-//	CPlainAutoPtr< CP4File > spFileBlockOut, spFileModelOut;
+    FileHandle_t modelouthandle = nullptr;
+    FileHandle_t blockouthandle = nullptr;
     int total = 0;
     int i;
     char filename[260];
     studiohdr_t *phdr;
-    studiohdr_t *pblockhdr = 0;
+    studiohdr_t *pblockhdr = nullptr;
 
-    pStart = (byte *) kalloc(1, FILEBUFFER);
+    pStart = (uint8_t *) kalloc(1, FILEBUFFER);
 
     pBlockData = nullptr;
     pBlockStart = nullptr;
@@ -3038,12 +3006,10 @@ void WriteModelFiles() {
         EnsureFileDirectoryExists(filename);
 
         if (!g_StudioMdlContext.verifyOnly) {
-//			spFileBlockOut.Attach( g_p4factory->AccessFile( filename ) );
-//			spFileBlockOut->Edit();
             blockouthandle = SafeOpenWrite(filename);
         }
 
-        pBlockStart = (byte *) kalloc(1, FILEBUFFER);
+        pBlockStart = (uint8_t *) kalloc(1, FILEBUFFER);
         pBlockData = pBlockStart;
 
         pblockhdr = (studiohdr_t *) pBlockData;
@@ -3095,8 +3061,6 @@ void WriteModelFiles() {
     }
 
     if (!g_StudioMdlContext.verifyOnly) {
-//		spFileModelOut.Attach( g_p4factory->AccessFile( filename ) );
-//		spFileModelOut->Edit();
         modelouthandle = SafeOpenWrite(filename);
     }
 
@@ -3129,13 +3093,13 @@ void WriteModelFiles() {
         phdr->numAllowedRootLODs = g_StudioMdlContext.numAllowedRootLODs;
     }
 
-    pData = (byte *) phdr + sizeof(studiohdr_t);
+    pData = (uint8_t *) phdr + sizeof(studiohdr_t);
 
     // FIXME: Remove when we up the model version
     phdr->studiohdr2index = (pData - pStart);
     studiohdr2_t *phdr2 = (studiohdr2_t *) pData;
     memset(phdr2, 0, sizeof(studiohdr2_t));
-    pData = (byte *) phdr2 + sizeof(studiohdr2_t);
+    pData = (uint8_t *) phdr2 + sizeof(studiohdr2_t);
 
     phdr2->illumpositionattachmentindex = g_illumpositionattachment;
     phdr2->flMaxEyeDeflection = g_flMaxEyeDeflection;
@@ -3220,10 +3184,16 @@ void WriteModelFiles() {
 
     total = pData - pStart;
 
+    // 32-bit words, like Valve's 32-bit studiomdl (long is 64-bit on LP64 and read 4 bytes past each word);
+    // unsigned arithmetic: same bits as the original signed int version, without signed overflow
+    // The checksum field lies inside the summed range and is updated every step, so its word reads the running value
+    uint32_t checksum = 0;
     phdr->checksum = 0;
     for (i = 0; i < total; i += 4) {
-        // TODO: does this need something more than a simple shift left and add checksum?
-        phdr->checksum = (phdr->checksum << 1) + ((phdr->checksum & 0x8000000) ? 1 : 0) + *((long *) (pStart + i));
+        uint32_t word;
+        memcpy(&word, pStart + i, sizeof(word));
+        checksum = (checksum << 1) + ((checksum & 0x8000000) ? 1 : 0) + word;
+        phdr->checksum = (int32_t) checksum;
     }
 
     if (g_StudioMdlContext.verifyOnly)
@@ -3251,14 +3221,12 @@ void WriteModelFiles() {
     SafeWrite(modelouthandle, pStart, phdr->length);
 
     g_pFileSystem->Close(modelouthandle);
-//	if ( spFileModelOut.IsValid() ) spFileModelOut->Add();
 
     if (pBlockStart) {
         pblockhdr->length = pBlockData - pBlockStart;
 
         SafeWrite(blockouthandle, pBlockStart, pblockhdr->length);
         g_pFileSystem->Close(blockouthandle);
-//		if ( spFileBlockOut.IsValid() ) spFileBlockOut->Add();
 
 
         if (!g_StudioMdlContext.quiet) {
@@ -3778,20 +3746,20 @@ bool FixupVVDFile(const char *fileName, const studiohdr_t *pStudioHdr, const voi
     mstudiovertex_t *pVertex_new;
     Vector4D *pTangent_new;
     Vector4D *pTangent_old;
-    byte *pExtraData_new = nullptr;
-    byte *pExtraData_old = nullptr;
+    uint8_t *pExtraData_new = nullptr;
+    uint8_t *pExtraData_old = nullptr;
     mstudiovertex_t **pFlatVertexes;
     Vector4D **pFlatTangents;
-    byte **pFlatExtraData = nullptr;
+    uint8_t **pFlatExtraData = nullptr;
     vertexFileFixup_t *pFixupTable;
     const lodMeshInfo_t *pLodMeshInfo;
-    byte *pStart_new;
-    byte *pData_new;
-    byte *pStart_base;
-    byte *pVertexBase_old;
-    byte *pTangentBase_old;
-    byte *pExtraDataBase_old = nullptr;
-    byte *pExtraDataBase_new = nullptr;
+    uint8_t *pStart_new;
+    uint8_t *pData_new;
+    uint8_t *pStart_base;
+    uint8_t *pVertexBase_old;
+    uint8_t *pTangentBase_old;
+    uint8_t *pExtraDataBase_old = nullptr;
+    uint8_t *pExtraDataBase_new = nullptr;
     void *pVvdBuff;
     int i;
     int j;
@@ -3853,9 +3821,9 @@ bool FixupVVDFile(const char *fileName, const studiohdr_t *pStudioHdr, const voi
         numFixups = 0;
     }
 
-    pStart_base = (byte *) malloc(FILEBUFFER);
+    pStart_base = (uint8_t *) malloc(FILEBUFFER);
     memset(pStart_base, 0, FILEBUFFER);
-    pStart_new = (byte *) ALIGN(pStart_base, 16);
+    pStart_new = (uint8_t *) ALIGN(pStart_base, 16);
     pData_new = pStart_new;
 
     // setup headers
@@ -3868,25 +3836,25 @@ bool FixupVVDFile(const char *fileName, const studiohdr_t *pStudioHdr, const voi
     pFileHdr_new->numFixups = numFixups;
 
     // skip new fixup table
-    pData_new = (byte *) ALIGN(pData_new, 4);
+    pData_new = (uint8_t *) ALIGN(pData_new, 4);
     pFixupTable = (vertexFileFixup_t *) pData_new;
     pFileHdr_new->fixupTableStart = pData_new - pStart_new;
     pData_new += numFixups * sizeof(vertexFileFixup_t);
 
     // skip new vertex data
-    pData_new = (byte *) ALIGN(pData_new, 16);
+    pData_new = (uint8_t *) ALIGN(pData_new, 16);
     pVertex_new = (mstudiovertex_t *) pData_new;
     pFileHdr_new->vertexDataStart = pData_new - pStart_new;
     pData_new += numVertexes * sizeof(mstudiovertex_t);
 
     // skip new tangent data
-    pData_new = (byte *) ALIGN(pData_new, 16);
+    pData_new = (uint8_t *) ALIGN(pData_new, 16);
     pTangent_new = (Vector4D *) pData_new;
     pFileHdr_new->tangentDataStart = pData_new - pStart_new;
     pData_new += numVertexes * sizeof(Vector4D);
 
-    pVertexBase_old = (byte *) pFileHdr_old + pFileHdr_old->vertexDataStart;
-    pTangentBase_old = (byte *) pFileHdr_old + pFileHdr_old->tangentDataStart;
+    pVertexBase_old = (uint8_t *) pFileHdr_old + pFileHdr_old->vertexDataStart;
+    pTangentBase_old = (uint8_t *) pFileHdr_old + pFileHdr_old->tangentDataStart;
 
     // skip extra vertex data
     if (bExtraData) {
@@ -3959,7 +3927,7 @@ bool FixupVVDFile(const char *fileName, const studiohdr_t *pStudioHdr, const voi
     numFlat = 0;
     pFlatVertexes = (mstudiovertex_t **) malloc(numVertexes * sizeof(mstudiovertex_t *));
     pFlatTangents = (Vector4D **) malloc(numVertexes * sizeof(Vector4D *));
-    pFlatExtraData = bExtraData ? (byte **) malloc(numVertexes * sizeof(byte *) * pExtraHeader_old->m_count) : 0;
+    pFlatExtraData = bExtraData ? (uint8_t **) malloc(numVertexes * sizeof(uint8_t *) * pExtraHeader_old->m_count) : nullptr;
 
     for (i = 0; i < pStudioHdr->numbodyparts; i++) {
         pStudioBodyPart = pStudioHdr->pBodypart(i);
@@ -4014,7 +3982,6 @@ bool FixupVVDFile(const char *fileName, const studiohdr_t *pStudioHdr, const voi
 
     // pFileHdr_new->length =  pData_new-pStart_new;
     {
-//		CP4AutoEditAddFile autop4( fileName );
         SaveFile((char *) fileName, pStart_new, pData_new - pStart_new);
     }
 
@@ -4103,7 +4070,6 @@ FixupVTXFile(const char *fileName, const studiohdr_t *pStudioHdr, const vertexPo
 
     // pVtxHdr->length = VtxLen;
     {
-//		CP4AutoEditAddFile autop4( fileName );
         SaveFile((char *) fileName, pVtxBuff, VtxLen);
     }
 
@@ -4171,7 +4137,7 @@ bool FixupMDLFile(const char *fileName, studiohdr_t *pStudioHdr, const void *pVt
                 for (n = 0; n < pStudioMesh->numflexes; n++) {
                     pStudioFlex = pStudioMesh->pFlex(n);
 
-                    byte *pvanim = pStudioFlex->pBaseVertanim();
+                    uint8_t *pvanim = pStudioFlex->pBaseVertanim();
                     int nVAnimSizeBytes = pStudioFlex->VertAnimSizeBytes();
 
                     for (p = 0; p < pStudioFlex->numverts; p++, pvanim += nVAnimSizeBytes) {
@@ -4204,9 +4170,14 @@ bool FixupMDLFile(const char *fileName, studiohdr_t *pStudioHdr, const void *pVt
 
         for (j = 0; j < pStudioBodyPart->nummodels; j++) {
             pStudioModel = pStudioBodyPart->pModel(j);
+            // runtime pointers set by the vertex accessors while optimizing; meaningless on disk
+            pStudioModel->vertexdata.pVertexData = nullptr;
+            pStudioModel->vertexdata.pTangentData = nullptr;
+            pStudioModel->vertexdata.pExtraData = nullptr;
 
             for (m = 0; m < pStudioModel->nummeshes; m++) {
                 pStudioMesh = pStudioModel->pMesh(m);
+                pStudioMesh->vertexdata.modelvertexdata = nullptr;
             }
         }
     }
@@ -4219,7 +4190,6 @@ bool FixupMDLFile(const char *fileName, studiohdr_t *pStudioHdr, const void *pVt
     // Clear vertex data
 
     {
-//		CP4AutoEditAddFile autop4( fileName );
         SaveFile((char *) fileName, (void *) pStudioHdr, pStudioHdr->length);
     }
 
@@ -4314,7 +4284,7 @@ bool FixupToSortedLODVertexes(studiohdr_t *pStudioHdr) {
 }
 
 
-byte IsByte(int val) {
+uint8_t IsByte(int val) {
     if (val < 0 || val > 0xFF) {
         MdlError("byte conversion out of range %d\n", val);
     }
@@ -4386,7 +4356,6 @@ bool Clamp_MDL_LODS(const char *fileName, int rootLOD) {
 #endif
 
     {
-//		CP4AutoEditAddFile autop4( fileName );
         SaveFile((char *) fileName, pStudioHdr, len);
     }
 
@@ -4417,7 +4386,6 @@ bool Clamp_VVD_LODS(const char *fileName, int rootLOD, bool bExtraData) {
     // pNewVvdHdr->length = newLength;
 
     {
-//		CP4AutoEditAddFile autop4( fileName );
         SaveFile((char *) fileName, pNewVvdHdr, newLength);
     }
 
@@ -4437,7 +4405,7 @@ bool Clamp_VTX_LODS(const char *fileName, int rootLOD, studiohdr_t *pStudioHdr) 
 
     OptimizedModel::FileHeader_t *pNewVtxHdr = (OptimizedModel::FileHeader_t *) calloc(FILEBUFFER, 1);
 
-    byte *pData = (byte *) pNewVtxHdr;
+    uint8_t *pData = (uint8_t *) pNewVtxHdr;
     pData += sizeof(OptimizedModel::FileHeader_t);
     ALIGN4(pData);
 
@@ -4451,7 +4419,7 @@ bool Clamp_VTX_LODS(const char *fileName, int rootLOD, studiohdr_t *pStudioHdr) 
     pNewVtxHdr->numLODs = pVtxHdr->numLODs;
 
     // material replacement list
-    pNewVtxHdr->materialReplacementListOffset = (pData - (byte *) pNewVtxHdr);
+    pNewVtxHdr->materialReplacementListOffset = (pData - (uint8_t *) pNewVtxHdr);
     pData += pVtxHdr->numLODs * sizeof(OptimizedModel::MaterialReplacementListHeader_t);
     // ALIGN4( pData );
 
@@ -4464,7 +4432,7 @@ bool Clamp_VTX_LODS(const char *fileName, int rootLOD, studiohdr_t *pStudioHdr) 
                 nLodID);
 
         pNewReplacementList->numReplacements = pReplacementList->numReplacements;
-        pNewReplacementList->replacementOffset = (pData - (byte *) pNewReplacementList);
+        pNewReplacementList->replacementOffset = (pData - (uint8_t *) pNewReplacementList);
         pData += pNewReplacementList->numReplacements * sizeof(OptimizedModel::MaterialReplacementHeader_t);
         // ALIGN4( pData );
 
@@ -4486,7 +4454,7 @@ bool Clamp_VTX_LODS(const char *fileName, int rootLOD, studiohdr_t *pStudioHdr) 
         OptimizedModel::MaterialReplacementListHeader_t *pNewReplacementList = pNewVtxHdr->pMaterialReplacementList(
                 nLodID);
 
-        int delta = (byte *) pRootReplacementList - (byte *) pNewReplacementList;
+        int delta = (uint8_t *) pRootReplacementList - (uint8_t *) pNewReplacementList;
 
         pNewReplacementList->numReplacements = pRootReplacementList->numReplacements;
         pNewReplacementList->replacementOffset = pRootReplacementList->replacementOffset + delta;
@@ -4494,7 +4462,7 @@ bool Clamp_VTX_LODS(const char *fileName, int rootLOD, studiohdr_t *pStudioHdr) 
 
     // body parts
     pNewVtxHdr->numBodyParts = pStudioHdr->numbodyparts;
-    pNewVtxHdr->bodyPartOffset = (pData - (byte *) pNewVtxHdr);
+    pNewVtxHdr->bodyPartOffset = (pData - (uint8_t *) pNewVtxHdr);
     pData += pNewVtxHdr->numBodyParts * sizeof(OptimizedModel::BodyPartHeader_t);
     // ALIGN4( pData );
 
@@ -4505,7 +4473,7 @@ bool Clamp_VTX_LODS(const char *fileName, int rootLOD, studiohdr_t *pStudioHdr) 
         OptimizedModel::BodyPartHeader_t *pNewVtxBodyPart = pNewVtxHdr->pBodyPart(i);
 
         pNewVtxBodyPart->numModels = pBodyPart->nummodels;
-        pNewVtxBodyPart->modelOffset = (pData - (byte *) pNewVtxBodyPart);
+        pNewVtxBodyPart->modelOffset = (pData - (uint8_t *) pNewVtxBodyPart);
         pData += pNewVtxBodyPart->numModels * sizeof(OptimizedModel::ModelHeader_t);
         // ALIGN4( pData );
 
@@ -4516,7 +4484,7 @@ bool Clamp_VTX_LODS(const char *fileName, int rootLOD, studiohdr_t *pStudioHdr) 
             OptimizedModel::ModelHeader_t *pNewVtxModel = pNewVtxBodyPart->pModel(j);
 
             pNewVtxModel->numLODs = pVtxModel->numLODs;
-            pNewVtxModel->lodOffset = (pData - (byte *) pNewVtxModel);
+            pNewVtxModel->lodOffset = (pData - (uint8_t *) pNewVtxModel);
             pData += pNewVtxModel->numLODs * sizeof(OptimizedModel::ModelLODHeader_t);
             ALIGN4(pData);
 
@@ -4526,7 +4494,7 @@ bool Clamp_VTX_LODS(const char *fileName, int rootLOD, studiohdr_t *pStudioHdr) 
 
                 pNewVtxLOD->numMeshes = pVtxLOD->numMeshes;
                 pNewVtxLOD->switchPoint = pVtxLOD->switchPoint;
-                pNewVtxLOD->meshOffset = (pData - (byte *) pNewVtxLOD);
+                pNewVtxLOD->meshOffset = (pData - (uint8_t *) pNewVtxLOD);
                 pData += pNewVtxLOD->numMeshes * sizeof(OptimizedModel::MeshHeader_t);
                 ALIGN4(pData);
 
@@ -4539,7 +4507,7 @@ bool Clamp_VTX_LODS(const char *fileName, int rootLOD, studiohdr_t *pStudioHdr) 
 
                     pNewVtxMesh->numStripGroups = pVtxMesh->numStripGroups;
                     pNewVtxMesh->flags = pVtxMesh->flags;
-                    pNewVtxMesh->stripGroupHeaderOffset = (pData - (byte *) pNewVtxMesh);
+                    pNewVtxMesh->stripGroupHeaderOffset = (pData - (uint8_t *) pNewVtxMesh);
                     pData += pNewVtxMesh->numStripGroups * sizeof(OptimizedModel::StripGroupHeader_t);
 
                     // printf("part %d : model %d : lod %d : mesh %d : strips %d : offset %d\n", i, j, nLodID, k, pVtxMesh->numStripGroups, pVtxMesh->stripGroupHeaderOffset );
@@ -4551,19 +4519,19 @@ bool Clamp_VTX_LODS(const char *fileName, int rootLOD, studiohdr_t *pStudioHdr) 
                         // int delta = ((byte *)pStripGroup - (byte *)pVtxHdr) - ((byte *)pNewStripGroup - (byte *)pNewVtxHdr);
 
                         pNewStripGroup->numVerts = pStripGroup->numVerts;
-                        pNewStripGroup->vertOffset = (pData - (byte *) pNewStripGroup);
+                        pNewStripGroup->vertOffset = (pData - (uint8_t *) pNewStripGroup);
                         size = pNewStripGroup->numVerts * sizeof(OptimizedModel::Vertex_t);
                         memcpy(pData, pStripGroup->pVertex(0), size);
                         pData += size;
 
                         pNewStripGroup->numIndices = pStripGroup->numIndices;
-                        pNewStripGroup->indexOffset = (pData - (byte *) pNewStripGroup);
+                        pNewStripGroup->indexOffset = (pData - (uint8_t *) pNewStripGroup);
                         size = pNewStripGroup->numIndices * sizeof(unsigned short);
                         memcpy(pData, pStripGroup->pIndex(0), size);
                         pData += size;
 
                         pNewStripGroup->numStrips = pStripGroup->numStrips;
-                        pNewStripGroup->stripOffset = (pData - (byte *) pNewStripGroup);
+                        pNewStripGroup->stripOffset = (pData - (uint8_t *) pNewStripGroup);
                         size = pNewStripGroup->numStrips * sizeof(OptimizedModel::StripHeader_t);
                         pData += size;
 
@@ -4589,7 +4557,7 @@ bool Clamp_VTX_LODS(const char *fileName, int rootLOD, studiohdr_t *pStudioHdr) 
                             pNewStrip->flags = pStrip->flags;
 
                             pNewStrip->numBoneStateChanges = pStrip->numBoneStateChanges;
-                            pNewStrip->boneStateChangeOffset = (pData - (byte *) pNewStrip);
+                            pNewStrip->boneStateChangeOffset = (pData - (uint8_t *) pNewStrip);
                             size = pNewStrip->numBoneStateChanges * sizeof(OptimizedModel::BoneStateChangeHeader_t);
                             memcpy(pData, pStrip->pBoneStateChange(0), size);
                             pData += size;
@@ -4623,13 +4591,13 @@ bool Clamp_VTX_LODS(const char *fileName, int rootLOD, studiohdr_t *pStudioHdr) 
                 pNewVtxLOD->numMeshes = pRootVtxLOD->numMeshes;
                 pNewVtxLOD->switchPoint = pVtxLOD->switchPoint;
 
-                int delta = (byte *) pRootVtxLOD - (byte *) pNewVtxLOD;
+                int delta = (uint8_t *) pRootVtxLOD - (uint8_t *) pNewVtxLOD;
                 pNewVtxLOD->meshOffset = pRootVtxLOD->meshOffset + delta;
             }
         }
     }
 
-    int newLen = pData - (byte *) pNewVtxHdr;
+    int newLen = pData - (uint8_t *) pNewVtxHdr;
     // printf("len %d : %d\n", len, newLen );
 
     // pNewVtxHdr->length = newLen;
@@ -4640,7 +4608,6 @@ bool Clamp_VTX_LODS(const char *fileName, int rootLOD, studiohdr_t *pStudioHdr) 
     }
 
     {
-//		CP4AutoEditAddFile autop4( fileName );
         SaveFile((char *) fileName, pNewVtxHdr, newLen);
     }
 

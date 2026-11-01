@@ -1,7 +1,7 @@
 
 #include "tier1/timeutils.h"
 
-#include "tier0/dbg.h"
+
 #include "tier1/utlbuffer.h"
 #include "tier1/utlbufferutil.h"
 #include "mathlib/mathlib.h"
@@ -11,7 +11,7 @@
 #include <math.h>
 
 // NOTE: This has to be the last file included!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -91,8 +91,8 @@ DmeTime_t DmeFramerate_t::GetTimePerFrame() const
 
 DmeTime_t::DmeTime_t( int frame, DmeFramerate_t framerate )
 {
-	int64 num = int64( framerate.m_num );
-	int64 prod = frame * int64( framerate.m_den );
+	int64_t num = int64_t( framerate.m_num );
+	int64_t prod = frame * int64_t( framerate.m_den );
 	// add signed offset to force integer truncation (towards 0) to give us truncation towards -inf
 	if ( frame < 0 )
 	{
@@ -159,9 +159,9 @@ int FrameForTime( DmeTime_t t, DmeFramerate_t framerate )
 
 int DmeTime_t::CurrentFrame( DmeFramerate_t framerate, RoundStyle_t roundStyle /*=ROUND_DOWN*/ ) const
 {
-	int64 den = int64( framerate.m_den );
-	int64 num = int64( framerate.m_num );
-	int64 prod = int64( m_tms ) * num;
+	int64_t den = int64_t( framerate.m_den );
+	int64_t num = int64_t( framerate.m_num );
+	int64_t prod = int64_t( m_tms ) * num;
 
 	// times within this range are considered on a frame: (frame*den/num - 1, frame*den/num]
 	// this follows from the truncation towards -inf behavior of the frame,framerate constructor above
@@ -228,7 +228,7 @@ bool Serialize( CUtlBuffer &buf, const DmeTime_t &src )
 		buf.Printf( "%.04f", tms / 10000 );
 #else
 		int tms = src.GetTenthsOfMS();
-		uint postms = tms; // can't just negate tms, since -INT_MIN == INT_MIN
+		uint32_t postms = tms; // can't just negate tms, since -INT_MIN == INT_MIN
 		if ( tms < 0 )
 		{
 			buf.PutChar( '-' );
@@ -298,8 +298,8 @@ bool Unserialize( CUtlBuffer &buf, DmeTime_t &dest )
 			}
 		}
 
-		uint tms = seconds * 10000 + remainder;
-		if ( bOverflow || !bSeenDigit || ( tms > ( bNegative ? ( uint )-INT_MIN : INT_MAX ) ) )
+		uint32_t tms = seconds * 10000 + remainder;
+		if ( bOverflow || !bSeenDigit || ( tms > ( bNegative ? ( uint32_t )-INT_MIN : INT_MAX ) ) )
 			return false;
 
 		dest.SetTenthsOfMS( bNegative ? -tms : tms );

@@ -5,16 +5,16 @@
 //=============================================================================
 
 #include "datamodel/dmelementfactoryhelper.h"
-#include "tier0/dbg.h"
 
 
-CDmElementFactoryHelper *CDmElementFactoryHelper::s_pHelpers[2] = { NULL, NULL };
+
+CDmElementFactoryHelper *CDmElementFactoryHelper::s_pHelpers[2] = {nullptr, nullptr};
 
 //-----------------------------------------------------------------------------
 // Constructor
 //-----------------------------------------------------------------------------
 CDmElementFactoryHelper::CDmElementFactoryHelper( const char *classname, CDmElementFactoryInternal *pFactory, bool bIsStandardFactory )
-	: m_pParent( NULL ), m_pChild( NULL ), m_pSibling( NULL )
+	: m_pParent(nullptr), m_pChild(nullptr), m_pSibling(nullptr)
 {
 	m_pNext = s_pHelpers[bIsStandardFactory];
 	s_pHelpers[bIsStandardFactory] = this;

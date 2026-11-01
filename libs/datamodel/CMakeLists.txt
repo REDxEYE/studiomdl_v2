@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.22)
 project(datamodel)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 20)
 if (CMAKE_SIZEOF_VOID_P EQUAL 8)
     set(PLATFORM_DEFINES COMPILER_MSVC64 COMPILER_MSVC)
 elseif (CMAKE_SIZEOF_VOID_P EQUAL 4)
@@ -9,7 +9,6 @@ elseif (CMAKE_SIZEOF_VOID_P EQUAL 4)
 endif ()
 
 add_library(datamodel
-        clipboardmanager.cpp
         datamodel.cpp
         dependencygraph.cpp
         dmattribute.cpp
@@ -21,8 +20,9 @@ add_library(datamodel
         dmserializerbinary.cpp
         dmserializerkeyvalues.cpp
         dmserializerkeyvalues2.cpp
-        undomanager.cpp
+        notifymanager.cpp
         )
+
 target_include_directories(datamodel PUBLIC ../../include)
 target_include_directories(datamodel PRIVATE ../../include/datamodel)
 target_compile_definitions(datamodel PRIVATE -DDATAMODEL_LIB -DSTATIC_TIER0)

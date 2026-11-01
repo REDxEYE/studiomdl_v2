@@ -7,8 +7,7 @@
 // Serialization/unserialization buffer
 //=============================================================================//
 
-#ifndef UTLBUFFER_H
-#define UTLBUFFER_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -105,24 +104,23 @@ CUtlCharConversion *GetNoEscCharConversion();
 
 
 
-typedef unsigned short ushort;
 
 template < class A >
 static const char *GetFmtStr( int nRadix = 10, bool bPrint = true ) { Assert( 0 ); return ""; }
 #if defined( LINUX ) || defined( __clang__ ) || ( defined( _MSC_VER ) && _MSC_VER >= 1900 )
 template <> const char *GetFmtStr< short >	( int nRadix, bool bPrint ) { Assert( nRadix == 10 ); return "%hd"; }
-template <> const char *GetFmtStr< ushort >	( int nRadix, bool bPrint ) { Assert( nRadix == 10 ); return "%hu"; }
+template <> const char *GetFmtStr< uint16_t >	( int nRadix, bool bPrint ) { Assert( nRadix == 10 ); return "%hu"; }
 template <> const char *GetFmtStr< int >		( int nRadix, bool bPrint ) { Assert( nRadix == 10 ); return "%d"; }
-template <> const char *GetFmtStr< uint >	( int nRadix, bool bPrint ) { Assert( nRadix == 10 || nRadix == 16 ); return nRadix == 16 ? "%x" : "%u"; }
-template <> const char *GetFmtStr< int64 >	( int nRadix, bool bPrint ) { Assert( nRadix == 10 ); return "%lld"; }
+template <> const char *GetFmtStr< uint32_t >	( int nRadix, bool bPrint ) { Assert( nRadix == 10 || nRadix == 16 ); return nRadix == 16 ? "%x" : "%u"; }
+template <> const char *GetFmtStr< int64_t >	( int nRadix, bool bPrint ) { Assert( nRadix == 10 ); return "%lld"; }
 template <> const char *GetFmtStr< float >	( int nRadix, bool bPrint ) { Assert( nRadix == 10 ); return "%f"; }
 template <> const char *GetFmtStr< double >	( int nRadix, bool bPrint ) { Assert( nRadix == 10 ); return bPrint ? "%.15lf" : "%lf"; } // force Printf to print DBL_DIG=15 digits of precision for doubles - defaults to FLT_DIG=6
 #else
 template <> static const char *GetFmtStr< short >	( int nRadix, bool bPrint ) { Assert( nRadix == 10 ); return "%hd"; }
-template <> static const char *GetFmtStr< ushort >	( int nRadix, bool bPrint ) { Assert( nRadix == 10 ); return "%hu"; }
+template <> static const char *GetFmtStr< uint16_t >	( int nRadix, bool bPrint ) { Assert( nRadix == 10 ); return "%hu"; }
 template <> static const char *GetFmtStr< int >		( int nRadix, bool bPrint ) { Assert( nRadix == 10 ); return "%d"; }
-template <> static const char *GetFmtStr< uint >	( int nRadix, bool bPrint ) { Assert( nRadix == 10 || nRadix == 16 ); return nRadix == 16 ? "%x" : "%u"; }
-template <> static const char *GetFmtStr< int64 >	( int nRadix, bool bPrint ) { Assert( nRadix == 10 ); return "%lld"; }
+template <> static const char *GetFmtStr< uint32_t >	( int nRadix, bool bPrint ) { Assert( nRadix == 10 || nRadix == 16 ); return nRadix == 16 ? "%x" : "%u"; }
+template <> static const char *GetFmtStr< int64_t >	( int nRadix, bool bPrint ) { Assert( nRadix == 10 ); return "%lld"; }
 template <> static const char *GetFmtStr< float >	( int nRadix, bool bPrint ) { Assert( nRadix == 10 ); return "%f"; }
 template <> static const char *GetFmtStr< double >	( int nRadix, bool bPrint ) { Assert( nRadix == 10 ); return bPrint ? "%.15lf" : "%lf"; } // force Printf to print DBL_DIG=15 digits of precision for doubles - defaults to FLT_DIG=6
 #endif
@@ -209,7 +207,7 @@ public:
 	void			CopyBuffer( const void *pubData, int cubData );
 
 	void			Swap( CUtlBuffer &buf );
-	void			Swap( CUtlMemory<uint8> &mem );
+	void			Swap( CUtlMemory<uint8_t> &mem );
 
 	// Controls endian-ness of binary utlbufs - default matches the current platform
 	void			ActivateByteSwapping( bool bActivate );
@@ -235,10 +233,10 @@ public:
 	short			GetShort( );
 	unsigned short	GetUnsignedShort( );
 	int				GetInt( );
-	int64			GetInt64( );
+	int64_t			GetInt64( );
 	unsigned int	GetIntHex( );
 	unsigned int	GetUnsignedInt( );
-	uint64			GetUnsignedInt64( );
+	uint64_t			GetUnsignedInt64( );
 	float			GetFloat( );
 	double			GetDouble( );
 	void *			GetPtr();
@@ -311,9 +309,9 @@ public:
 	void			PutShort( short s );
 	void			PutUnsignedShort( unsigned short us );
 	void			PutInt( int i );
-	void			PutInt64( int64 i );
+	void			PutInt64( int64_t i );
 	void			PutUnsignedInt( unsigned int u );
-	void			PutUnsignedInt64( uint64 u );
+	void			PutUnsignedInt64( uint64_t u );
 	void			PutFloat( float f );
 	void			PutDouble( double d );
 	void			PutPtr( void * ); // Writes the pointer, not the pointed to
@@ -387,11 +385,9 @@ public:
 	// Temporarily disables pretty print
 	void EnableTabs( bool bEnable );
 
-#if !defined( _GAMECONSOLE )
 	// Swap my internal memory with another buffer,
 	// and copy all of its other members
 	void SwapCopy( CUtlBuffer &other ) ;
-#endif
 
 protected:
 	// error flags
@@ -462,9 +458,6 @@ protected:
 	unsigned char m_Error;
 	unsigned char m_Flags;
 	unsigned char m_Reserved;
-#if defined( _GAMECONSOLE )
-	unsigned char pad;
-#endif
 
 	int m_nTab;
 	int m_nMaxPut;
@@ -686,16 +679,7 @@ inline void CUtlBuffer::GetTypeBin< float >( float &dest )
 {
 	if ( CheckGet( sizeof( float ) ) )
 	{
-		uintp pData = (uintp)PeekGet();
-		if ( ( IsX360() || IsPS3() ) && ( pData & 0x03 ) )
-		{
-			// handle unaligned read
-			((unsigned char*)&dest)[0] = ((unsigned char*)pData)[0];
-			((unsigned char*)&dest)[1] = ((unsigned char*)pData)[1];
-			((unsigned char*)&dest)[2] = ((unsigned char*)pData)[2];
-			((unsigned char*)&dest)[3] = ((unsigned char*)pData)[3];
-		}
-		else
+		uintptr_t pData = (uintptr_t)PeekGet();
 		{
 			// aligned read
 			dest = *(float *)pData;
@@ -713,20 +697,7 @@ inline void CUtlBuffer::GetTypeBin< double >( double &dest )
 {
 	if ( CheckGet( sizeof( double ) ) )
 	{
-		uintp pData = (uintp)PeekGet();
-		if ( ( IsX360() || IsPS3() ) && ( pData & 0x07 ) )
-		{
-			// handle unaligned read
-			((unsigned char*)&dest)[0] = ((unsigned char*)pData)[0];
-			((unsigned char*)&dest)[1] = ((unsigned char*)pData)[1];
-			((unsigned char*)&dest)[2] = ((unsigned char*)pData)[2];
-			((unsigned char*)&dest)[3] = ((unsigned char*)pData)[3];
-			((unsigned char*)&dest)[4] = ((unsigned char*)pData)[4];
-			((unsigned char*)&dest)[5] = ((unsigned char*)pData)[5];
-			((unsigned char*)&dest)[6] = ((unsigned char*)pData)[6];
-			((unsigned char*)&dest)[7] = ((unsigned char*)pData)[7];
-		}
-		else
+		uintptr_t pData = (uintptr_t)PeekGet();
 		{
 			// aligned read
 			dest = *(double *)pData;
@@ -748,48 +719,48 @@ inline T StringToNumber( char *pString, char **ppEnd, int nRadix )
 }
 
 template <>
-inline int8 StringToNumber( char *pString, char **ppEnd, int nRadix )
+inline int8_t StringToNumber( char *pString, char **ppEnd, int nRadix )
 {
-	return ( int8 )strtol( pString, ppEnd, nRadix );
+	return ( int8_t )strtol( pString, ppEnd, nRadix );
 }
 
 template <>
-inline uint8 StringToNumber( char *pString, char **ppEnd, int nRadix )
+inline uint8_t StringToNumber( char *pString, char **ppEnd, int nRadix )
 {
-	return ( uint8 )strtoul( pString, ppEnd, nRadix );
+	return ( uint8_t )strtoul( pString, ppEnd, nRadix );
 }
 
 template <>
-inline int16 StringToNumber( char *pString, char **ppEnd, int nRadix )
+inline int16_t StringToNumber( char *pString, char **ppEnd, int nRadix )
 {
-	return ( int16 )strtol( pString, ppEnd, nRadix );
+	return ( int16_t )strtol( pString, ppEnd, nRadix );
 }
 
 template <>
-inline uint16 StringToNumber( char *pString, char **ppEnd, int nRadix )
+inline uint16_t StringToNumber( char *pString, char **ppEnd, int nRadix )
 {
-	return ( uint16 )strtoul( pString, ppEnd, nRadix );
+	return ( uint16_t )strtoul( pString, ppEnd, nRadix );
 }
 
 template <>
-inline int32 StringToNumber( char *pString, char **ppEnd, int nRadix )
+inline int32_t StringToNumber( char *pString, char **ppEnd, int nRadix )
 {
-	return ( int32 )strtol( pString, ppEnd, nRadix );
+	return ( int32_t )strtol( pString, ppEnd, nRadix );
 }
 
 template <>
-inline uint32 StringToNumber( char *pString, char **ppEnd, int nRadix )
+inline uint32_t StringToNumber( char *pString, char **ppEnd, int nRadix )
 {
-	return ( uint32 )strtoul( pString, ppEnd, nRadix );
+	return ( uint32_t )strtoul( pString, ppEnd, nRadix );
 }
 
 template <>
-inline int64 StringToNumber( char *pString, char **ppEnd, int nRadix )
+inline int64_t StringToNumber( char *pString, char **ppEnd, int nRadix )
 {
-#if defined(_PS3) || defined(POSIX)
-	return ( int64 )strtoll( pString, ppEnd, nRadix );
+#if defined( POSIX )
+	return ( int64_t )strtoll( pString, ppEnd, nRadix );
 #else // !_PS3
-	return ( int64 )_strtoi64( pString, ppEnd, nRadix );
+	return ( int64_t )_strtoi64( pString, ppEnd, nRadix );
 #endif // _PS3
 }
 
@@ -887,16 +858,16 @@ inline int CUtlBuffer::GetInt( )
 	return i;
 }
 
-inline int64 CUtlBuffer::GetInt64( )
+inline int64_t CUtlBuffer::GetInt64( )
 {
-	int64 i;
+	int64_t i;
 	GetType( i );
 	return i;
 }
 
 inline unsigned int CUtlBuffer::GetIntHex( )
 {
-	uint i;
+	uint32_t i;
 	if (!IsText())
 	{
 		GetTypeBin( i );
@@ -915,9 +886,9 @@ inline unsigned int CUtlBuffer::GetUnsignedInt( )
 	return i;
 }
 
-inline uint64 CUtlBuffer::GetUnsignedInt64()
+inline uint64_t CUtlBuffer::GetUnsignedInt64()
 {
-	uint64 i;
+	uint64_t i;
 	GetType( i );
 	return i;
 }
@@ -1031,79 +1002,6 @@ inline void CUtlBuffer::PutTypeBin( T src )
 	}
 }
 
-#if defined( _GAMECONSOLE )
-template <>
-inline void CUtlBuffer::PutTypeBin< float >( float src )
-{
-	if ( CheckPut( sizeof( src ) ) )
-	{
-		if ( m_Byteswap.IsSwappingBytes() )
-		{
-			m_Byteswap.SwapBufferToTargetEndian<float>( &src, &src );
-		}
-
-		//
-		// Write the data
-		//
-		unsigned pData = (unsigned)PeekPut();
-		if ( pData & 0x03 )
-		{
-			// handle unaligned write
-			byte* dst = (byte*)pData;
-			byte* srcPtr = (byte*)&src;
-			dst[0] = srcPtr[0];
-			dst[1] = srcPtr[1];
-			dst[2] = srcPtr[2];
-			dst[3] = srcPtr[3];
-		}
-		else
-		{
-			*(float *)pData = src;
-		}
-
-		m_Put += sizeof(float);
-		AddNullTermination( m_Put );
-	}
-}
-
-template <>
-inline void CUtlBuffer::PutTypeBin< double >( double src )
-{
-	if ( CheckPut( sizeof( src ) ) )
-	{
-		if ( m_Byteswap.IsSwappingBytes() )
-		{
-			m_Byteswap.SwapBufferToTargetEndian<double>( &src, &src );
-		}
-
-		//
-		// Write the data
-		//
-		unsigned pData = (unsigned)PeekPut();
-		if ( pData & 0x07 )
-		{
-			// handle unaligned write
-			byte* dst = (byte*)pData;
-			byte* srcPtr = (byte*)&src;
-			dst[0] = srcPtr[0];
-			dst[1] = srcPtr[1];
-			dst[2] = srcPtr[2];
-			dst[3] = srcPtr[3];
-			dst[4] = srcPtr[4];
-			dst[5] = srcPtr[5];
-			dst[6] = srcPtr[6];
-			dst[7] = srcPtr[7];
-		}
-		else
-		{
-			*(double *)pData = src;
-		}
-
-		m_Put += sizeof(double);
-		AddNullTermination( m_Put );
-	}
-}
-#endif
 
 template <typename T> 
 inline void CUtlBuffer::PutType( T src )
@@ -1207,7 +1105,7 @@ inline void CUtlBuffer::PutInt( int i )
 	PutType( i );
 }
 
-inline void CUtlBuffer::PutInt64( int64 i )
+inline void CUtlBuffer::PutInt64( int64_t i )
 {
 	PutType( i );
 }
@@ -1217,7 +1115,7 @@ inline void CUtlBuffer::PutUnsignedInt( unsigned int u )
 	PutType( u );
 }
 
-inline void CUtlBuffer::PutUnsignedInt64( uint64 i )
+inline void CUtlBuffer::PutUnsignedInt64( uint64_t i )
 {
 	PutType( i );
 }
@@ -1366,7 +1264,6 @@ inline void CUtlBuffer::Spew( )
 	}
 }
 
-#if !defined(_GAMECONSOLE)
 inline void CUtlBuffer::SwapCopy(  CUtlBuffer &other  )
 {
 	m_Get = other.m_Get;
@@ -1382,7 +1279,6 @@ inline void CUtlBuffer::SwapCopy(  CUtlBuffer &other  )
 
 	m_Memory.Swap( other.m_Memory );
 }
-#endif
 
 inline void CUtlBuffer::CopyBuffer( const CUtlBuffer &buffer )
 {
@@ -1398,5 +1294,4 @@ inline void	CUtlBuffer::CopyBuffer( const void *pubData, int cubData )
 	}
 }
 
-#endif // UTLBUFFER_H
 

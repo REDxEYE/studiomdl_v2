@@ -1,7 +1,6 @@
 /* D3DRM XFile templates in binary form */
 
-#ifndef _RMXFTMPL_H_
-#define _RMXFTMPL_H_
+#pragma once
 
 unsigned char D3DRM_XTEMPLATES[] = {
 	0x78, 0x6f, 0x66, 0x20, 0x30, 0x33, 0x30, 0x32, 0x62, 
@@ -336,4 +335,3 @@ unsigned char D3DRM_XTEMPLATES[] = {
 
 #define D3DRM_XTEMPLATE_BYTES 3278
 
-#endif /* _RMXFTMPL_H_ */

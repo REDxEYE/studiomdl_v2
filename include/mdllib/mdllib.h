@@ -1,18 +1,17 @@
-//====== Copyright © 1996-2007, Valve Corporation, All rights reserved. =======
+//====== Copyright ï¿½ 1996-2007, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
 //=============================================================================
 
-#ifndef MDLLIB_H
-#define MDLLIB_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
 #endif
 
 #include "tier1/utlbuffer.h"
-#include "appframework/IAppSystem.h"
+#include "appframework/iappsystem.h"
 
 //
 // Forward interface declarations
@@ -39,7 +38,7 @@ namespace MdlLib
 
 	struct MdlMesh
 	{
-		unsigned long checksum;
+		uint32_t checksum;
 		CUtlVector< unsigned int > ib;
 		CUtlVector< MdlVertex > vb;
 	};
@@ -112,7 +111,7 @@ public:
 	// Returns the checksums that the stripping info was generated for:
 	//	plChecksumOriginal		if non-NULL will hold the checksum of the original model submitted for stripping
 	//	plChecksumStripped		if non-NULL will hold the resulting checksum of the stripped model
-	virtual bool GetCheckSum( long *plChecksumOriginal, long *plChecksumStripped ) const = 0;
+	virtual bool GetCheckSum( int32_t *plChecksumOriginal, int32_t *plChecksumStripped ) const = 0;
 
 	//
 	// Stripping
@@ -156,4 +155,3 @@ public:
 
 
 
-#endif // MDLLIB_H

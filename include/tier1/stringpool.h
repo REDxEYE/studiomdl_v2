@@ -5,8 +5,7 @@
 // $NoKeywords: $
 //=============================================================================//
 
-#ifndef STRINGPOOL_H
-#define STRINGPOOL_H
+#pragma once
 
 #if defined( _WIN32 )
 #pragma once
@@ -114,7 +113,6 @@ typedef CCountedStringPoolBase<unsigned short> CCountedStringPool;
 template<class T>
 inline CCountedStringPoolBase<T>::CCountedStringPoolBase( StringPoolCase_t caseSensitivity )
 {
-	MEM_ALLOC_CREDIT();
 	m_HashTable.EnsureCount(HASH_TABLE_SIZE);
 
 	for( int i = 0; i < m_HashTable.Count(); i++ )
@@ -183,7 +181,7 @@ inline unsigned CCountedStringPoolBase<T>::Hash( const char *pszKey )
 template<class T>
 inline T CCountedStringPoolBase<T>::FindStringHandle( const char* pIntrinsic )
 {
-	if( pIntrinsic == NULL )
+	if( pIntrinsic == nullptr)
 		return INVALID_ELEMENT;
 
 	T nHashBucketIndex = ( Hash( pIntrinsic ) %HASH_TABLE_SIZE);
@@ -208,8 +206,8 @@ inline T CCountedStringPoolBase<T>::FindStringHandle( const char* pIntrinsic )
 template<class T>
 inline char* CCountedStringPoolBase<T>::FindString( const char* pIntrinsic )
 {
-	if( pIntrinsic == NULL )
-		return NULL;
+	if( pIntrinsic == nullptr)
+		return nullptr;
 
 	// Yes, this will be NULL on failure.
 	return m_Elements[FindStringHandle(pIntrinsic)].pString;
@@ -218,7 +216,7 @@ inline char* CCountedStringPoolBase<T>::FindString( const char* pIntrinsic )
 template<class T>
 inline T CCountedStringPoolBase<T>::ReferenceStringHandle( const char* pIntrinsic )
 {
-	if( pIntrinsic == NULL )
+	if( pIntrinsic == nullptr)
 		return INVALID_ELEMENT;
 
 	T nHashBucketIndex = ( Hash( pIntrinsic ) % HASH_TABLE_SIZE);
@@ -275,7 +273,7 @@ template<class T>
 inline char* CCountedStringPoolBase<T>::ReferenceString( const char* pIntrinsic )
 {
 	if(!pIntrinsic)
-		return NULL;
+		return nullptr;
 
 	return m_Elements[ReferenceStringHandle( pIntrinsic)].pString; 
 }
@@ -344,7 +342,7 @@ inline void CCountedStringPoolBase<T>::SpewStrings()
 	{
 		char* string = m_Elements[i].pString;
 
-		Msg("String %d: ref:%d %s\n", i, m_Elements[i].nReferenceCount, string == NULL? "EMPTY - ok for slot zero only!" : string);
+		Msg("String %d: ref:%d %s\n", i, m_Elements[i].nReferenceCount, string == nullptr ? "EMPTY - ok for slot zero only!" : string);
 	}
 
 	Msg("\n%d total counted strings.", m_Elements.Count());
@@ -508,4 +506,3 @@ inline bool CCountedStringPoolBase<unsigned int>::RestoreFromBuffer( CUtlBuffer 
 
 	return buffer.IsValid();
 }
-#endif // STRINGPOOL_H

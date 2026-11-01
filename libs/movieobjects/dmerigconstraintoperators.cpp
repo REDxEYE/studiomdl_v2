@@ -12,12 +12,10 @@
 #include "movieobjects/dmechannel.h"
 #include "movieobjects/dmeanimationset.h"
 #include "movieobjects/dmerig.h"
-#include "datamodel/dmelementfactoryhelper.h"
 #include "tier1/fmtstr.h"
 #include "bone_constraints.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 //-------------------------------------------------------------------------------------------------
@@ -74,7 +72,7 @@ CDmeChannel *CDmeConstraintTarget::FindWeightChannel() const
 	{
 		CDmAttribute *pAttr = g_pDataModel->GetAttribute( it );
 		CDmElement *pElement = pAttr->GetOwner();
-		if ( pElement == NULL )
+		if ( pElement == nullptr)
 			continue;
 
 		CDmeChannel *pChannel = CastElement< CDmeChannel >( pElement );
@@ -85,7 +83,7 @@ CDmeChannel *CDmeConstraintTarget::FindWeightChannel() const
 		}
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 
@@ -254,7 +252,7 @@ void CDmeRigBaseConstraintOperator::GetInputAttributes( CUtlVector< CDmAttribute
 			continue;
 
 		CDmeDag* pDagNode = m_Targets[ i ]->m_Handle;
-		if ( pDagNode == NULL )
+		if ( pDagNode == nullptr)
 			continue;
 
 		AddAttribute( attrs, GetInputAttributeType(), pDagNode->GetTransform() );
@@ -330,7 +328,7 @@ void CDmeRigBaseConstraintOperator::AddAttribute( CUtlVector< CDmAttribute * > &
 //-----------------------------------------------------------------------------
 void CDmeRigBaseConstraintOperator::AddAncestorAttributes(  CUtlVector< CDmAttribute * > &attrs, CDmeDag *pDagNode )
 {
-	if ( pDagNode == NULL )
+	if ( pDagNode == nullptr)
 		return;
 
 	CDmeDag* pParent = pDagNode->GetParent();
@@ -364,16 +362,16 @@ void CDmeRigBaseConstraintOperator::AddHandles( int nCount, CDmeDag *const pTarg
 		// Check to see if the constraint already has a target with the specified dag node
 		CDmeConstraintTarget *pTarget = FindConstraintTargetForDag( pTargetDags[ i ] );
 
-		if ( pTarget == NULL )
+		if ( pTarget == nullptr)
 		{
 			pTarget = CreateElement< CDmeConstraintTarget >( CFmtStr( "%s", pTargetDags[ i ]->GetName() ), GetFileId() );
 			m_Targets.AddToTail( pTarget );		
 		}
 
-		if ( pTarget != NULL )
+		if ( pTarget != nullptr)
 		{
 			pTarget->m_Handle = pTargetDags[ i ];
-			pTarget->m_flWeight = ( pflWeights != NULL ) ? pflWeights[ i ] : 1.0f;
+			pTarget->m_flWeight = ( pflWeights != nullptr) ? pflWeights[ i ] : 1.0f;
 
 			Vector vOffset = vec3_origin;
 			Quaternion qOffset = quat_identity;
@@ -612,14 +610,14 @@ void CDmeRigBaseConstraintOperator::ReconnectTransformChannels()
 void CDmeRigBaseConstraintOperator::DisconnectSlaveChannels( CDmeConstraintSlave *pSlave, int attributeTypeFlags )
 {
 	// Verify that the specified slave is valid and has a dag node connected.
-	if ( pSlave == NULL )
+	if ( pSlave == nullptr)
 		return;
 	
-	if ( pSlave->m_Dag.GetElement() == NULL )
+	if ( pSlave->m_Dag.GetElement() == nullptr)
 		return;
 
 	CDmeTransform *pTransform = pSlave->m_Dag->GetTransform();
-	if ( pTransform == NULL )
+	if ( pTransform == nullptr)
 		return;
 
 	// Make the base position and orientation match the 
@@ -659,14 +657,14 @@ void CDmeRigBaseConstraintOperator::ReconnectSlaveChannels( CDmeConstraintSlave 
 {
 
 	// Verify that the specified slave is valid and has a dag node connected.
-	if ( pSlave == NULL )
+	if ( pSlave == nullptr)
 		return;
 
-	if ( pSlave->m_Dag.GetElement() == NULL )
+	if ( pSlave->m_Dag.GetElement() == nullptr)
 		return;
 
 	CDmeTransform *pTransform = pSlave->m_Dag->GetTransform();
-	if ( pTransform == NULL )
+	if ( pTransform == nullptr)
 		return;
 
 	// Find the channel targeting the position attribute of the slave and
@@ -722,8 +720,8 @@ void CDmeRigBaseConstraintOperator::ReconnectSlaveChannels( CDmeConstraintSlave 
 //-----------------------------------------------------------------------------
 CDmeConstraintTarget *CDmeRigBaseConstraintOperator::FindConstraintTargetForDag( CDmeDag* pDagNode ) const
 {
-	if ( pDagNode == NULL )
-		return NULL;
+	if ( pDagNode == nullptr)
+		return nullptr;
 
 	int nTargets = m_Targets.Count();
 	for ( int iTarget = 0; iTarget < nTargets; ++iTarget )
@@ -738,7 +736,7 @@ CDmeConstraintTarget *CDmeRigBaseConstraintOperator::FindConstraintTargetForDag(
 		}
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 
@@ -747,7 +745,7 @@ CDmeConstraintTarget *CDmeRigBaseConstraintOperator::FindConstraintTargetForDag(
 //-----------------------------------------------------------------------------
 void CDmeRigBaseConstraintOperator::FindDagConstraints( const CDmeDag *pDagNode, CUtlVector< CDmeRigBaseConstraintOperator* > &constraintList )
 {
-	if ( pDagNode == NULL )
+	if ( pDagNode == nullptr)
 		return;
 
 	// Find the slave instances targeting the specified node
@@ -783,7 +781,7 @@ CDmeRigBaseConstraintOperator *CDmeRigBaseConstraintOperator::FindDagConstraint(
 		}
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 
@@ -793,7 +791,7 @@ CDmeRigBaseConstraintOperator *CDmeRigBaseConstraintOperator::FindDagConstraint(
 //-------------------------------------------------------------------------------------------------
 void CDmeRigBaseConstraintOperator::RemoveConstraintsFromDag( CDmeDag *pDag  )
 {
-	if ( pDag == NULL )
+	if ( pDag == nullptr)
 		return;
 
 	// Find the constraints associated with the specified dag node.
@@ -804,7 +802,7 @@ void CDmeRigBaseConstraintOperator::RemoveConstraintsFromDag( CDmeDag *pDag  )
 	for ( int i = 0; i < nSlaves; ++i )
 	{
 		CDmeConstraintSlave *pSlave = constraintSlaves[ i ];
-		if ( pSlave == NULL )
+		if ( pSlave == nullptr)
 			continue;
 
 		CDmeRigBaseConstraintOperator *pConstraint = pSlave->GetConstraint();
@@ -821,7 +819,7 @@ void CDmeRigBaseConstraintOperator::RemoveConstraintsFromDag( CDmeDag *pDag  )
 //-------------------------------------------------------------------------------------------------
 void CDmeRigBaseConstraintOperator::DestroyConstraint( CDmeRigBaseConstraintOperator *pConstraint )
 {
-	if ( pConstraint == NULL )
+	if ( pConstraint == nullptr)
 		return;
 
 	CDmeAnimationSet *pAnimSet = FindAncestorReferencingElement< CDmeAnimationSet >( pConstraint );
@@ -833,11 +831,11 @@ void CDmeRigBaseConstraintOperator::DestroyConstraint( CDmeRigBaseConstraintOper
 	for ( int iTarget = 0; iTarget < nTargets; ++iTarget )
 	{
 		CDmeConstraintTarget *pTarget = targetList[ iTarget ];
-		if ( pTarget == NULL )
+		if ( pTarget == nullptr)
 			continue;
 
 		CDmeChannel *pWeightChannel = pTarget->FindWeightChannel();
-		if ( pWeightChannel == NULL )
+		if ( pWeightChannel == nullptr)
 			continue;
 
 		// Destroy the control associated with the channel
@@ -1090,7 +1088,7 @@ void CDmeRigAimConstraintOperator::PostHandlesAdded( bool bPreserveOffset )
 void CDmeRigAimConstraintOperator::SetUpVector( const Vector &upVector, bool bPreserveOffset, const CDmeDag *pUpSpaceTarget )
 {
 	CDmeDag *pDag = m_Slave->GetDag();
-	if ( pDag == NULL )
+	if ( pDag == nullptr)
 		return;
 
 	m_UpVector = upVector.Normalized();
@@ -1162,11 +1160,11 @@ void CDmeRigAimConstraintOperator::AimAt( const Vector &vecForward, const Vector
 float CDmeRigAimConstraintOperator::CalculateOrientation( Quaternion &targetOrientation )
 {
 	CDmeDag *pDag = m_Slave->GetDag();
-	if ( pDag == NULL )
+	if ( pDag == nullptr)
 		return 0.0f;
 
 	CDmeTransform *pTransform = pDag->GetTransform();
-	if ( pTransform == NULL )
+	if ( pTransform == nullptr)
 		return 0.0f;
 
 	// Compute the world space position of the target
@@ -1275,11 +1273,11 @@ void CDmeRigAimConstraintOperator::UpdateOffset( bool bPreserveOffset )
 	}
 
 	CDmeDag *pDag = m_Slave->GetDag();
-	if ( pDag == NULL )
+	if ( pDag == nullptr)
 		return;
 
 	CDmeTransform *pTransform = pDag->GetTransform();
-	if ( pTransform == NULL )
+	if ( pTransform == nullptr)
 		return;
 
 	// Calculate the desired orientation based the target position
@@ -1304,11 +1302,11 @@ void CDmeRigAimConstraintOperator::Operate()
 
 
 	CDmeDag *pDag = m_Slave->GetDag();
-	if ( pDag == NULL )
+	if ( pDag == nullptr)
 		return;
 
 	CDmeTransform *pTransform = pDag->GetTransform();
-	if ( pTransform == NULL )
+	if ( pTransform == nullptr)
 		return;
 
 	// Calculate the desired orientation based the target position
@@ -1384,11 +1382,11 @@ void CDmeRigRotationConstraintOperator::Operate()
 
 
 	CDmeDag *pDag = m_Slave->GetDag();
-	if ( pDag == NULL )
+	if ( pDag == nullptr)
 		return;
 
 	CDmeTransform *pTransform = pDag->GetTransform();
-	if ( pTransform == NULL )
+	if ( pTransform == nullptr)
 		return;
 
 	Quaternion finalOrientation = quat_identity;
@@ -1675,7 +1673,7 @@ bool CDmeRigIKConstraintOperator::Setup( bool bPreserveOffset )
 		return false;
 	
 	CDmeDag *pTargetDag = m_Targets[ 0 ]->GetDag();
-	if ( pTargetDag == NULL )
+	if ( pTargetDag == nullptr)
 		return false;
 
 	// Calculate the orientation that the start and end joints would be set to if the ik were run,
@@ -2074,7 +2072,7 @@ bool CDmeRigTwistConstraintOperator::SetTargets( CDmeDag *pDmeDagParent, CDmeDag
 	CDmeDag *dmeDags[] = { pDmeDagParent, pDmeDagChild };
 	float flWeights[] = { 1.0f, 1.0f };
 
-	AddHandles( 2, dmeDags, flWeights, false, NULL );
+	AddHandles( 2, dmeDags, flWeights, false, nullptr);
 
 	return true;
 }
@@ -2086,7 +2084,7 @@ bool CDmeRigTwistConstraintOperator::SetTargets( CDmeDag *pDmeDagParent, CDmeDag
 //-----------------------------------------------------------------------------
 CDmeDag *CDmeRigTwistConstraintOperator::GetParentTarget() const
 {
-	return m_Targets.Count() >= 1 ? m_Targets[0]->GetDag() : NULL;
+	return m_Targets.Count() >= 1 ? m_Targets[0]->GetDag() : nullptr;
 }
 
 
@@ -2096,7 +2094,7 @@ CDmeDag *CDmeRigTwistConstraintOperator::GetParentTarget() const
 //-----------------------------------------------------------------------------
 CDmeDag *CDmeRigTwistConstraintOperator::GetChildTarget() const
 {
-	return m_Targets.Count() >= 2 ? m_Targets[1]->GetDag() : NULL;
+	return m_Targets.Count() >= 2 ? m_Targets[1]->GetDag() : nullptr;
 }
 
 
@@ -2145,7 +2143,7 @@ int CDmeRigTwistConstraintOperator::AddSlave( CDmeDag *pDmeDagSlave, float flWei
 //-----------------------------------------------------------------------------
 CDmeDag *CDmeRigTwistConstraintOperator::GetSlaveDag( int i ) const
 {
-	return m_eSlaves.Count() > i ? m_eSlaves[i]->GetDag() : NULL;
+	return m_eSlaves.Count() > i ? m_eSlaves[i]->GetDag() : nullptr;
 }
 
 
@@ -2288,7 +2286,7 @@ void CDmeRigTwistConstraintOperator::ReconnectTransformChannels()
 //-----------------------------------------------------------------------------
 const CDmeDag *CDmeRigTwistConstraintOperator::GetSlave() const
 {
-	return m_eSlaves.Count() ? m_eSlaves[0]->GetDag() : NULL;
+	return m_eSlaves.Count() ? m_eSlaves[0]->GetDag() : nullptr;
 }
 
 

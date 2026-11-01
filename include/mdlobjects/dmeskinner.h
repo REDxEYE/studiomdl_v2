@@ -1,12 +1,11 @@
-//====== Copyright © 1996-2009, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2009, Valve Corporation, All rights reserved. =======
 //
 // DmeSkinner
 //
 //=============================================================================
 
 
-#ifndef DMESKINNER_H
-#define DMESKINNER_H
+#pragma once
 
 
 #ifdef _WIN32
@@ -88,4 +87,3 @@ public:
 
 };
 
-#endif // DMESKINNER_H

@@ -1,11 +1,10 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright Â© 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
 //=============================================================================//
 
-#ifndef LERP_FUNCTIONS_H
-#define LERP_FUNCTIONS_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -167,4 +166,3 @@ inline CRangeCheckedVar<float, minValue, maxValue, startValue> LoopingLerp_Hermi
 // NOTE: C_AnimationLayer has its own versions of these functions in animationlayer.h.
 
 
-#endif // LERP_FUNCTIONS_H

@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // A class representing a material
 //
 //=============================================================================
 
-#ifndef DMEMATERIAL_H
-#define DMEMATERIAL_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -39,4 +38,3 @@ private:
 };
 
 
-#endif // DMEMATERIAL_H

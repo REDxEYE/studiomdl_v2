@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright Â© 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
@@ -7,8 +7,7 @@
 //=============================================================================//
 // worldsize.h  -- extent of world and resolution/size of coordinate messages used in engine
 
-#ifndef WORLDSIZE_H
-#define WORLDSIZE_H
+#pragma once
 #pragma once
 
 
@@ -40,4 +39,3 @@
 
 #define ASSERT_COORD( v )			Assert( TEST_COORD( v ) );
 
-#endif // WORLDSIZE_H

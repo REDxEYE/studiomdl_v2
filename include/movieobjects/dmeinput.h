@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // The abstract base operator class - all actions within the scenegraph happen via operators
 //
 //=============================================================================
 
-#ifndef DMEINPUT_H
-#define DMEINPUT_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -25,4 +24,3 @@ public:
 };
 
 
-#endif // DMEINPUT_H

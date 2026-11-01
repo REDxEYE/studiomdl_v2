@@ -4,8 +4,7 @@
 //
 //=============================================================================
 
-#ifndef DMESHAPE_H
-#define DMESHAPE_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -49,4 +48,3 @@ protected:
 };
 
 
-#endif // DMESHAPE_H

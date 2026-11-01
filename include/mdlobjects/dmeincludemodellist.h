@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =====//
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =====//
 //
 // Dme version of a list of $includemodel
 //
 //===========================================================================//
 
-#ifndef DMEINCLUDEMODELLIST_H
-#define DMEINCLUDEMODELLIST_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -31,4 +30,3 @@ public:
 };
 
 
-#endif // DMEINCLUDEMODELLIST_H

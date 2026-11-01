@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // various transform-related inputs - translation, rotation, etc.
 //
 //=============================================================================
 
-#ifndef DMETRANSFORMINPUT_H
-#define DMETRANSFORMINPUT_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -56,4 +55,3 @@ protected:
 };
 
 
-#endif // DMETRANSFORMINPUT_H

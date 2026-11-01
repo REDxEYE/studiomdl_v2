@@ -1,5 +1,4 @@
-#ifndef NVTRISTRIP_H
-#define NVTRISTRIP_H
+#pragma once
 
 #ifndef NULL
 #define NULL 0
@@ -32,12 +31,12 @@ struct PrimitiveGroup
 
 ////////////////////////////////////////////////////////////////////////////////////////
 
-	PrimitiveGroup() : type(PT_STRIP), numIndices(0), indices(NULL) {}
+	PrimitiveGroup() : type(PT_STRIP), numIndices(0), indices(nullptr) {}
 	~PrimitiveGroup()
 	{
 		if(indices)
 			delete[] indices;
-		indices = NULL;
+		indices = nullptr;
 	}
 };
 
@@ -121,4 +120,3 @@ void GenerateStrips(const unsigned short* in_indices, const unsigned int in_numI
 void RemapIndices(const PrimitiveGroup* in_primGroups, const unsigned short numGroups, 
 				  const unsigned short numVerts, PrimitiveGroup** remappedGroups);
 
-#endif

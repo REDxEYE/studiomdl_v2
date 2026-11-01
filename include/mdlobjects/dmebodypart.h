@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =====//
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =====//
 //
 // Body part base class
 //
@@ -9,8 +9,7 @@
 //
 //===========================================================================//
 
-#ifndef DMEBODYPART_H
-#define DMEBODYPART_H
+#pragma once
 
 
 #ifdef _WIN32
@@ -35,11 +34,10 @@ public:
 	virtual int LODCount() const { return 0; }
 
 	// Returns the root LOD. This is the one with the switch metric 0
-	virtual CDmeLOD *GetRootLOD() { return NULL; }
+	virtual CDmeLOD *GetRootLOD() { return nullptr; }
 
 	// Returns the shadow LOD
-	virtual CDmeLOD *GetShadowLOD() { return NULL; }
+	virtual CDmeLOD *GetShadowLOD() { return nullptr; }
 };
 
 
-#endif // DMEBODYPART_H

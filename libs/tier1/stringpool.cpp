@@ -5,14 +5,12 @@
 // $NoKeywords: $
 //===========================================================================//
 
-#include "convar.h"
-#include "tier0/dbg.h"
+
 #include "stringpool.h"
 #include "tier1/strtools.h"
 #include "generichash.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 //-----------------------------------------------------------------------------
 // Purpose: Comparison function for string sorted associative data structures
@@ -60,7 +58,7 @@ const char * CStringPool::Find( const char *pszValue )
 	if ( m_Strings.IsValidIndex(i) )
 		return m_Strings[i];
 
-	return NULL;
+	return nullptr;
 }
 
 const char * CStringPool::Allocate( const char *pszValue )

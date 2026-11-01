@@ -5,8 +5,7 @@
 //===========================================================================
 
 
-#ifndef DMEANIMCMD_H
-#define DMEANIMCMD_H
+#pragma once
 
 
 #ifdef _WIN32
@@ -268,4 +267,3 @@ public:
 };
 
 
-#endif // DMEANIMCMD_H

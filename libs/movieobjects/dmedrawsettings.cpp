@@ -6,14 +6,12 @@
 
 
 #include "datamodel/dmelementfactoryhelper.h"
-#include "tier1/KeyValues.h"
-#include "tier1/utlrbtree.h"
+#include "tier1/keyvalues.h"
 #include "movieobjects/dmedag.h"
 #include "movieobjects/dmedrawsettings.h"
 
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 //-----------------------------------------------------------------------------

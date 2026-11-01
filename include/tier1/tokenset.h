@@ -1,7 +1,6 @@
-//========= Copyright © 2008, Valve Corporation, All rights reserved. ============//
+//========= Copyright Â© 2008, Valve Corporation, All rights reserved. ============//
 
-#ifndef __TOKENSET_H
-#define __TOKENSET_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -118,5 +117,4 @@ inline const char *tokenset_t< _T >::GetNameByToken( _T token, char const *szMis
 	return szMismatchResult;
 }
 
-#endif //__TOKENSET_H
 

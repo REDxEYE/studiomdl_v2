@@ -4,15 +4,10 @@
 //
 //=============================================================================
 #include "movieobjects/dmeoverlay.h"
-#include "tier0/dbg.h"
 #include "datamodel/dmelementfactoryhelper.h"
-#include "mathlib/vector.h"
-#include "mathlib/mathlib.h"
-#include "datamodel/dmattributevar.h"
 #include "movieobjects/dmedag.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 //-----------------------------------------------------------------------------

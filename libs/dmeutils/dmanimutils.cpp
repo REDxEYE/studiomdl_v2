@@ -136,12 +136,12 @@ void CDmAnimUtils::GetDagPositionOrienation( Vector &position, Quaternion &orien
 	orientationList.EnsureCapacity( nDagNodes );
 
 	float flDagCount = 0;
-	const CDmeDag *pPrimaryDag = NULL;
+	const CDmeDag *pPrimaryDag = nullptr;
 	Vector positionSum = vec3_origin;
 	for ( int iNode = 0; iNode < nDagNodes; ++iNode )
 	{	
 		const CDmeDag *pDagNode = dagList[ iNode ];
-		if ( pDagNode == NULL )
+		if ( pDagNode == nullptr)
 			continue;
  
 		// Get the world space position of the dag 
@@ -158,7 +158,7 @@ void CDmAnimUtils::GetDagPositionOrienation( Vector &position, Quaternion &orien
 	}
 
 	// Stop if there were no valid dag nodes
-	if ( pPrimaryDag == NULL )
+	if ( pPrimaryDag == nullptr)
 		return;
 
 	// Calculate the average position in world space
@@ -169,7 +169,7 @@ void CDmAnimUtils::GetDagPositionOrienation( Vector &position, Quaternion &orien
 	QuaternionAverageExponential( orienationAvg, orientationList.Count(), orientationList.Base() );
 
 	// Find the dag node whose space the position is to be returned in
-	const CDmeDag *pSpaceDag = NULL;
+	const CDmeDag *pSpaceDag = nullptr;
 
 	switch ( space )
 	{
@@ -269,7 +269,7 @@ void CDmAnimUtils::TransformDagNodes( const Vector &offset, const Quaternion &ro
 	for ( int iNode = 0; iNode < nDagNodes; ++iNode )
 	{
 		const CDmeDag *pDagNode = dagList[ iNode ];
-		if ( pDagNode == NULL )
+		if ( pDagNode == nullptr)
 			continue;
 
 		// The value stored in the dag node's transform is in local space ( space of the parent ), 
@@ -441,7 +441,7 @@ void CDmAnimUtils::TransformDagNodes( const Vector &offset, const Quaternion &ro
 			logTimeSelection.m_TransformWriteMode = TRANSFORM_WRITE_MODE_OFFSET;
 			logTimeSelection.SetRecordingMode( RECORD_ATTRIBUTESLIDER );
 		}
-		OperateDagChannels( dagList, CM_RECORD, logTimeSelection, NULL, NULL );
+		OperateDagChannels( dagList, CM_RECORD, logTimeSelection, nullptr, nullptr);
 	}
 }
 
@@ -458,11 +458,11 @@ void CDmAnimUtils::SetDagTransformDefaults( const CUtlVector< CDmeDagPtr > &dagL
 	for ( int iDagNode = 0; iDagNode < nDagNodes; ++iDagNode )
 	{
 		const CDmeDag *pDagNode = dagList[ iDagNode ];
-		if ( pDagNode == NULL )
+		if ( pDagNode == nullptr)
 			continue;
 
 		CDmeTransform *pTransform = pDagNode->GetTransform();
-		if ( pTransform == NULL )
+		if ( pTransform == nullptr)
 			continue;
 		
 
@@ -490,18 +490,18 @@ void CDmAnimUtils::SetDagTransformDefaults( const CUtlVector< CDmeDagPtr > &dagL
 //-------------------------------------------------------------------------------------------------
 void CDmAnimUtils::SetReferencePose( CDmeGameModel *pGameModel, const CUtlVector< CDmeDag* > &dagList )
 {	
-	if ( pGameModel == NULL )
+	if ( pGameModel == nullptr)
 		return;
 
 	int nDagNodes = dagList.Count();
 	for ( int iDagNode = 0; iDagNode < nDagNodes; ++iDagNode )
 	{
 		const CDmeDag *pDagNode = dagList[ iDagNode ];
-		if ( pDagNode == NULL )
+		if ( pDagNode == nullptr)
 			continue;
 
 		CDmeTransform *pTransform = pDagNode->GetTransform();
-		if ( pTransform == NULL )
+		if ( pTransform == nullptr)
 			continue;
 			
 		// Find the bone corresponding to the control
@@ -621,7 +621,7 @@ void CDmAnimUtils::UpdateDefaultsForNewParent( CDmeDag *pDagNode, CDmeDag *pPare
 //-------------------------------------------------------------------------------------------------
 void CDmAnimUtils::ReParentDagNode( CDmeDag *pDagNode, CDmeDag *pParentDag, bool bMaintainWorldPos, ReParentLogMode_t logMode )
 {
-	if ( pDagNode == NULL ) 
+	if ( pDagNode == nullptr) 
 		return;
 
 	CDmeTransform *pTransform = pDagNode->GetTransform();
@@ -659,7 +659,7 @@ void CDmAnimUtils::ReParentDagNode( CDmeDag *pDagNode, CDmeDag *pParentDag, bool
 			CDmeChannel *pRotChannel = FindDagTransformChannel( pDagNode, TRANSFORM_ORIENTATION );
 
 			// Generate the log samples in the space of the new parent
-			GenerateLogSamples( pDagNode, pParentDag, pPosChannel != NULL, pRotChannel != NULL, NULL );
+			GenerateLogSamples( pDagNode, pParentDag, pPosChannel != nullptr, pRotChannel != nullptr, nullptr);
 		}
 		else if ( logMode == REPARENT_LOGS_OFFSET_LOCAL )
 		{
@@ -721,11 +721,11 @@ void CDmAnimUtils::ReParentDagNode( CDmeDag *pDagNode, CDmeDag *pParentDag, bool
 //-------------------------------------------------------------------------------------------------
 void CDmAnimUtils::SetOverrideParent( CDmeDag *pDagNode, const CDmeDag *pOverrideParent, bool bPosition, bool bRotation )
 {
-	if ( pDagNode == NULL )
+	if ( pDagNode == nullptr)
 		return;
 
 	CDmeTransform *pTransform = pDagNode->GetTransform();
-	if ( pTransform == NULL )
+	if ( pTransform == nullptr)
 		return;
 
 	// Do not allow the override parent to be set to a dag that is a child of the specified dag.
@@ -735,12 +735,12 @@ void CDmAnimUtils::SetOverrideParent( CDmeDag *pDagNode, const CDmeDag *pOverrid
 	// If both position and rotation are false treat it the same as if pOverrideParent is NULL.
 	if ( !bPosition && !bRotation )
 	{
-		pOverrideParent = NULL;
+		pOverrideParent = nullptr;
 	}
 
 	// Get the shot and movie that the specified dag node belongs to for use in time conversions
-	CDmeClip *pShot = NULL;
-	CDmeClip *pMovie = NULL;
+	CDmeClip *pShot = nullptr;
+	CDmeClip *pMovie = nullptr;
 	FindShotAndMovieForDag( pDagNode, pShot, pMovie );
 
 	// Find the channels which will be needed to evaluate
@@ -754,7 +754,7 @@ void CDmAnimUtils::SetOverrideParent( CDmeDag *pDagNode, const CDmeDag *pOverrid
 
 	// Build a list of all of the key times for the operators
 	CUtlVector< DmeTime_t > keyTimes;
-	CompileKeyTimeList( operatorList, keyTimes, NULL, pShot, pMovie );
+	CompileKeyTimeList( operatorList, keyTimes, nullptr, pShot, pMovie );
 
 	// Get the world space transform of the dag at all the key times
 	CUtlVector< matrix3x4_t > worldSpaceTransforms;
@@ -784,11 +784,11 @@ void CDmAnimUtils::SetOverrideParent( CDmeDag *pDagNode, const CDmeDag *pOverrid
 //-------------------------------------------------------------------------------------------------
 void CDmAnimUtils::ToggleOverrideParent( CDmeDag *pDagNode, bool bEnable )
 {
-	if ( pDagNode == NULL )
+	if ( pDagNode == nullptr)
 		return;
 	
 	CDmeTransform *pTransform = pDagNode->GetTransform();
-	if ( pTransform == NULL )
+	if ( pTransform == nullptr)
 		return;
 
 	// If the enable state matches the requested state nothing needs to be done.
@@ -797,12 +797,12 @@ void CDmAnimUtils::ToggleOverrideParent( CDmeDag *pDagNode, bool bEnable )
 
 	// Get the current override parent regardless of the override state
 	const CDmeDag *pOverrideParent = pDagNode->GetOverrideParent( true );
-	if ( pOverrideParent == NULL )
+	if ( pOverrideParent == nullptr)
 		return;
 
 	// Get the shot and movie that the specified dag node belongs to for use in time conversions
-	CDmeClip *pShot = NULL;
-	CDmeClip *pMovie = NULL;
+	CDmeClip *pShot = nullptr;
+	CDmeClip *pMovie = nullptr;
 	FindShotAndMovieForDag( pDagNode, pShot, pMovie );
 
 	// Find the channels which will be needed to evaluate
@@ -816,7 +816,7 @@ void CDmAnimUtils::ToggleOverrideParent( CDmeDag *pDagNode, bool bEnable )
 
 	// Build a list of all of the key times for the operators
 	CUtlVector< DmeTime_t > keyTimes;
-	CompileKeyTimeList( operatorList, keyTimes, NULL, pShot, pMovie );
+	CompileKeyTimeList( operatorList, keyTimes, nullptr, pShot, pMovie );
 
 	// Get the world space transform of the dag at all the key times
 	CUtlVector< matrix3x4_t > worldSpaceTransforms;
@@ -845,7 +845,7 @@ void CDmAnimUtils::ToggleOverrideParent( CDmeDag *pDagNode, bool bEnable )
 //-------------------------------------------------------------------------------------------------
 bool CDmAnimUtils::DagHasConstraints( CDmeDag *pDag )
 {
-	if ( pDag != NULL )
+	if ( pDag != nullptr)
 	{
 		// Find the constraint slaves referencing this dag
 		CUtlVector< CDmeConstraintSlave* > constraintSlaves( 0, 8 );
@@ -878,24 +878,24 @@ void CDmAnimUtils::RemoveConstraints( CDmeDag *pDag )
 CDmeRigBaseConstraintOperator *CDmAnimUtils::CreateConstraint( const char *pchName, EConstraintType constraintType, CDmeDag *pConstrainedDag, const CUtlVector< CDmeDagPtr > &targetList, bool bPreserveOffset, float flTargetWeight, bool bOperate )
 {
 	// Verify the input parameters are valid.
-	if ( ( pConstrainedDag == NULL ) || ( targetList.Count() <= 0 ) )
-		return NULL;
+	if ( ( pConstrainedDag == nullptr) || ( targetList.Count() <= 0 ) )
+		return nullptr;
 
 	// IK constraints should not be created through this path 
 	// since their setup is significantly different
 	if ( constraintType == CT_IK )
-		return NULL;
+		return nullptr;
 	
 
 	// First see if there is already an existing constraint of the specified type on the dag node.
 	CDmeRigBaseConstraintOperator *pConstraint = FindConstraintOnDag( pConstrainedDag, constraintType );
 
 	// Create a constraint if one of the specified type did not already exist on the dag node.
-	if ( pConstraint == NULL )
+	if ( pConstraint == nullptr)
 	{
 		pConstraint = InstanceConstraint( pchName, constraintType, pConstrainedDag->GetFileId() );
-		if ( pConstraint == NULL )
-			return NULL;
+		if ( pConstraint == nullptr)
+			return nullptr;
 
 		// Set the slave dag which will be controlled by the constraint
 		pConstraint->SetSlave( pConstrainedDag );
@@ -914,7 +914,7 @@ CDmeRigBaseConstraintOperator *CDmAnimUtils::CreateConstraint( const char *pchNa
 	}
 
 	// Add the handles to the constraint or update their weights if they already exist.
-	pConstraint->AddHandles( nTargets, targetList.Base(), weights.Base(), bPreserveOffset, NULL );
+	pConstraint->AddHandles( nTargets, targetList.Base(), weights.Base(), bPreserveOffset, nullptr);
 
 	// If specified operate the constraint so that its result is available immediately
 	if ( bOperate )
@@ -965,7 +965,7 @@ CDmeRigParentConstraintOperator* CDmAnimUtils::CreateParentConstraint( char cons
 //-------------------------------------------------------------------------------------------------
 CDmeRigAimConstraintOperator* CDmAnimUtils::CreateAimConstraint( char const *pchName, CDmeDag *pConstrainedDag, const CUtlVector< CDmeDagPtr > &targetDagList, bool bPreserveOffset, float flWeight, const Vector &upVector, TransformSpace_t upSpace, const CDmeDag* pReferenceDag )
 {
-	CDmeRigAimConstraintOperator *pAimConstraint = NULL;
+	CDmeRigAimConstraintOperator *pAimConstraint = nullptr;
 
 	CDmeRigBaseConstraintOperator *pConstraint = CreateConstraint( pchName, CT_AIM, pConstrainedDag, targetDagList, bPreserveOffset, flWeight, false );
 
@@ -977,7 +977,7 @@ CDmeRigAimConstraintOperator* CDmAnimUtils::CreateAimConstraint( char const *pch
 			// Translate all spaces into a dag node by which the space is defined
 			if ( upSpace != TS_REFERENCE_SPACE )
 			{
-				pReferenceDag = NULL;
+				pReferenceDag = nullptr;
 				const CDmeDag *pSlave = pAimConstraint->GetSlave();
 				if ( pSlave && ( upSpace == TS_OBJECT_SPACE ) )
 				{
@@ -1001,28 +1001,28 @@ CDmeRigAimConstraintOperator* CDmAnimUtils::CreateAimConstraint( char const *pch
 CDmeRigIKConstraintOperator* CDmAnimUtils::CreateIKConstraint( const char *pchName, CDmeDag *pStartNode, CDmeDag *pEndNode, CDmeDag *pTargetDag, bool bPreserveOffset, const Vector &poleVector, CDmeDag *pPoleVectorTarget )
 {		
 	// All of the input dag nodes must be specified
-	if ( pStartNode == NULL || pEndNode == NULL || pTargetDag == NULL )
-		return NULL;
+	if ( pStartNode == nullptr || pEndNode == nullptr || pTargetDag == nullptr)
+		return nullptr;
 	
 	// Find the middle node and make sure the chain is valid.
 	CDmeDag *pMiddleNode = pEndNode->GetParent();
-	if ( pMiddleNode == NULL )
-		return NULL;
+	if ( pMiddleNode == nullptr)
+		return nullptr;
 	if ( pMiddleNode->GetParent() != pStartNode )
-		return NULL;
+		return nullptr;
 
 	// Make sure there are no existing ik constraints on the nodes
-	if ( FindConstraintOnDag( pStartNode, CT_IK ) != NULL )
-		return NULL;
-	if ( FindConstraintOnDag( pMiddleNode, CT_IK ) != NULL ) 
-		return NULL;
-	if ( FindConstraintOnDag( pEndNode, CT_IK ) != NULL ) 
-		return NULL;
+	if ( FindConstraintOnDag( pStartNode, CT_IK ) != nullptr)
+		return nullptr;
+	if ( FindConstraintOnDag( pMiddleNode, CT_IK ) != nullptr) 
+		return nullptr;
+	if ( FindConstraintOnDag( pEndNode, CT_IK ) != nullptr) 
+		return nullptr;
 
 	// Create the ik constraint
 	CDmeRigIKConstraintOperator *pIKConstraint = CreateElement< CDmeRigIKConstraintOperator >( pchName, pStartNode->GetFileId() );
-	if ( pIKConstraint == NULL )
-		return NULL;
+	if ( pIKConstraint == nullptr)
+		return nullptr;
 
 	// Set the joints that are controlled by the constraint
 	pIKConstraint->SetJoints( pStartNode, pMiddleNode, pEndNode );
@@ -1031,7 +1031,7 @@ CDmeRigIKConstraintOperator* CDmAnimUtils::CreateIKConstraint( const char *pchNa
 	pIKConstraint->DisconnectTransformChannels();
 
 	// Add the handles to the constraint or update their weights if they already exist.
-	pIKConstraint->AddHandles( 1, &pTargetDag, NULL, bPreserveOffset, NULL );
+	pIKConstraint->AddHandles( 1, &pTargetDag, nullptr, bPreserveOffset, nullptr);
 
 	// Initialize the pole vector, if a pole vector target dag is specified
 	// it takes precedence over the pole vector direction
@@ -1051,7 +1051,7 @@ CDmeRigIKConstraintOperator* CDmAnimUtils::CreateIKConstraint( const char *pchNa
 //-------------------------------------------------------------------------------------------------
 CDmeRigBaseConstraintOperator *CDmAnimUtils::InstanceConstraint( char const *pchName, EConstraintType eType, const DmFileId_t &fileId )
 {
-	CDmeRigBaseConstraintOperator *pOperator = NULL;
+	CDmeRigBaseConstraintOperator *pOperator = nullptr;
 
 	switch ( eType )
 	{
@@ -1081,7 +1081,7 @@ CDmeRigBaseConstraintOperator *CDmAnimUtils::InstanceConstraint( char const *pch
 			}
 			break;
 		default:
-			return NULL;
+			return nullptr;
 	}
 
 	return pOperator;
@@ -1093,14 +1093,14 @@ CDmeRigBaseConstraintOperator *CDmAnimUtils::InstanceConstraint( char const *pch
 //-------------------------------------------------------------------------------------------------
 CDmeChannel *CDmAnimUtils::FindDagTransformChannel( CDmeDag* pDag, const char *pchAttributeName )
 {
-	if ( pDag == NULL )
-		return NULL;
+	if ( pDag == nullptr)
+		return nullptr;
 
 	CDmeChannel *pChannel = FindChannelTargetingElement( pDag->GetTransform(), pchAttributeName );
 
 	// If no channel was attach directly to the dag, check for a 
 	// channel attached to constraint that is driving the dag node.
-	if ( pChannel == NULL )
+	if ( pChannel == nullptr)
 	{
 		// Find the constraints associated with the specified dag node.
 		CUtlVector< CDmeConstraintSlave* > constraintSlaves;
@@ -1110,12 +1110,12 @@ CDmeChannel *CDmAnimUtils::FindDagTransformChannel( CDmeDag* pDag, const char *p
 		for ( int i = 0; i < nSlaves; ++i )
 		{
 			CDmeConstraintSlave *pSlave = constraintSlaves[ i ];
-			if ( pSlave == NULL )
+			if ( pSlave == nullptr)
 				continue;
 
 			// Find the channel targeting the constraint slave
 			pChannel = FindChannelTargetingElement( pSlave, pchAttributeName );
-			if ( pChannel != NULL )
+			if ( pChannel != nullptr)
 				break;
 		}
 	}
@@ -1129,8 +1129,8 @@ CDmeChannel *CDmAnimUtils::FindDagTransformChannel( CDmeDag* pDag, const char *p
 //-------------------------------------------------------------------------------------------------
 CDmeRigBaseConstraintOperator *CDmAnimUtils::FindConstraintOnDag( CDmeDag* pDag, EConstraintType constraintType )
 {
-	if ( pDag == NULL )
-		return NULL;
+	if ( pDag == nullptr)
+		return nullptr;
 
 	// Find the constraints associated with the specified dag node.
 	CUtlVector< CDmeConstraintSlave* > constraintSlaves;
@@ -1140,7 +1140,7 @@ CDmeRigBaseConstraintOperator *CDmAnimUtils::FindConstraintOnDag( CDmeDag* pDag,
 	for ( int i = 0; i < nSlaves; ++i )
 	{
 		CDmeConstraintSlave *pSlave = constraintSlaves[ i ];
-		if ( pSlave == NULL )
+		if ( pSlave == nullptr)
 			continue;
 
 		CDmeRigBaseConstraintOperator *pConstraint = pSlave->GetConstraint();
@@ -1153,7 +1153,7 @@ CDmeRigBaseConstraintOperator *CDmAnimUtils::FindConstraintOnDag( CDmeDag* pDag,
 		}
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 
@@ -1163,17 +1163,17 @@ CDmeRigBaseConstraintOperator *CDmAnimUtils::FindConstraintOnDag( CDmeDag* pDag,
 //-------------------------------------------------------------------------------------------------
 void CDmAnimUtils::CreateTransformChannelsForDag( CDmeDag *pDag, CDmeChannelsClip *pChannelsClip, bool bPosition, bool bOrientation, CDmeChannel *&pPosChannel, CDmeChannel *&pRotChannel )
 {
-	pPosChannel = NULL;
-	pRotChannel = NULL;
+	pPosChannel = nullptr;
+	pRotChannel = nullptr;
 
-	if ( pDag == NULL )
+	if ( pDag == nullptr)
 		return;
 
 	CDmeTransform *pTransform = pDag->GetTransform();
-	if ( pTransform == NULL )
+	if ( pTransform == nullptr)
 		return;
 	
-	CDmeTransformControl *pTransformControl = NULL;
+	CDmeTransformControl *pTransformControl = nullptr;
 
 	// Create the position channel if it does not exist
 	if ( bPosition )
@@ -1224,7 +1224,7 @@ void CDmAnimUtils::CreateTransformChannelsForDag( CDmeDag *pDag, CDmeChannelsCli
 	// If either channel is valid make sure a transform control is properly attached
 	if ( pPosChannel || pRotChannel )
 	{			
-		if ( pTransformControl == NULL )
+		if ( pTransformControl == nullptr)
 		{
 			pTransformControl = CreateElement< CDmeTransformControl >( pDag->GetName(), pDag->GetFileId() );
 		}
@@ -1259,7 +1259,7 @@ void CDmAnimUtils::PrintDagTransformOverTime( CDmeDag* pDag, CDmeClip *pShot, CD
 	pDag->FindRelevantOperators( operatorList );
 		
 	CUtlVector< DmeTime_t > keyTimes;
-	CompileKeyTimeList( operatorList, keyTimes, NULL, pShot, pMovie );
+	CompileKeyTimeList( operatorList, keyTimes, nullptr, pShot, pMovie );
 
 	CUtlVector< matrix3x4_t > transformList;
 	GenerateDagWorldTransformList( pDag, keyTimes, transformList, pShot, pMovie );
@@ -1281,11 +1281,11 @@ void CDmAnimUtils::PrintDagTransformOverTime( CDmeDag* pDag, CDmeClip *pShot, CD
 //-------------------------------------------------------------------------------------------------
 void CDmAnimUtils::SetLogsToCurrentTransform( CDmeDag *pDag )
 {
-	if ( pDag == NULL )
+	if ( pDag == nullptr)
 		return;
 
 	CDmeTransform *pTransform = pDag->GetTransform();
-	if ( pTransform == NULL )
+	if ( pTransform == nullptr)
 		return;
 		
 	matrix3x4_t mTransform;
@@ -1334,11 +1334,11 @@ void CDmAnimUtils::SetLogsToCurrentTransform( CDmeDag *pDag )
 //-------------------------------------------------------------------------------------------------
 void CDmAnimUtils::GenerateLogSamples( CDmeDag* pDag, CDmeDag *pParent, bool bPosition, bool bRotation, const DmeLog_TimeSelection_t *pTimeSelection )
 {
-	if ( pDag == NULL )
+	if ( pDag == nullptr)
 		return;
 
-	CDmeClip *pShot = NULL;
-	CDmeClip *pMovie = NULL;
+	CDmeClip *pShot = nullptr;
+	CDmeClip *pMovie = nullptr;
 	FindShotAndMovieForDag( pDag, pShot, pMovie );
 
 	// If position and rotation are both false then there is nothing to do.
@@ -1380,16 +1380,16 @@ void CDmAnimUtils::GenerateLogSamples( CDmeDag* pDag, CDmeDag *pParent, bool bPo
 	// and the rotation channels clip is valid, or if the position channels clip is not valid.
 	CDmeChannelsClip *pChannelsClipPos = FindAncestorReferencingElement< CDmeChannelsClip >( pPosChannel );
 	CDmeChannelsClip *pChannelsClipRot = FindAncestorReferencingElement< CDmeChannelsClip >( pRotChannel );
-	CDmeChannelsClip *pChannelsClip = ( ( !bPosition && ( pChannelsClipRot != NULL ) ) || ( pChannelsClipPos == NULL ) ) ? pChannelsClipRot : pChannelsClipPos;
+	CDmeChannelsClip *pChannelsClip = ( ( !bPosition && ( pChannelsClipRot != nullptr) ) || ( pChannelsClipPos == nullptr) ) ? pChannelsClipRot : pChannelsClipPos;
 	
 	// Ensure that the dag has channels for position and rotation
 	CreateTransformChannelsForDag( pDag, pChannelsClip, bPosition, bRotation, pPosChannel, pRotChannel );
 	
 	// Find the position and rotation channels for the child dag and create a new layer in each channel
-	CDmeLog *pPosLog = ( ( pPosChannel != NULL ) && bPosition ) ? pPosChannel->GetLog() : NULL;
-	CDmeLog *pRotLog = ( ( pRotChannel != NULL ) && bRotation ) ? pRotChannel->GetLog() : NULL;
-	CDmeTypedLogLayer< Vector > *pPosLayer = ( pPosLog != NULL ) ? CastElement< CDmeTypedLogLayer< Vector > >( pPosLog->AddNewLayer() ) : NULL;
-	CDmeTypedLogLayer< Quaternion > *pRotLayer = ( pRotLog != NULL ) ? CastElement< CDmeTypedLogLayer< Quaternion > >( pRotLog->AddNewLayer() ) : NULL;
+	CDmeLog *pPosLog = ( ( pPosChannel != nullptr) && bPosition ) ? pPosChannel->GetLog() : nullptr;
+	CDmeLog *pRotLog = ( ( pRotChannel != nullptr) && bRotation ) ? pRotChannel->GetLog() : nullptr;
+	CDmeTypedLogLayer< Vector > *pPosLayer = ( pPosLog != nullptr) ? CastElement< CDmeTypedLogLayer< Vector > >( pPosLog->AddNewLayer() ) : nullptr;
+	CDmeTypedLogLayer< Quaternion > *pRotLayer = ( pRotLog != nullptr) ? CastElement< CDmeTypedLogLayer< Quaternion > >( pRotLog->AddNewLayer() ) : nullptr;
 	Assert( pPosLayer || !bPosition );
 	Assert( pRotLayer || !bRotation );
 
@@ -1406,9 +1406,6 @@ void CDmAnimUtils::GenerateLogSamples( CDmeDag* pDag, CDmeDag *pParent, bool bPo
 	}
 	
 	
-	// Disable the undo, the only thing that is actually 
-	// needed is the add new layer and the flatten layers.
-	CDisableUndoScopeGuard undosg;
 	Vector position = vec3_origin;
 	Quaternion rotation = quat_identity;
 	DmeTime_t logTime = DMETIME_ZERO;
@@ -1470,23 +1467,17 @@ void CDmAnimUtils::GenerateLogSamples( CDmeDag* pDag, CDmeDag *pParent, bool bPo
 		}
 
 		// Now flatten the all the layers in the log to finalize the new layer
+		if ( pPosLog )
 		{
-			// Re-enable the undo so the the flatten can be undone
-			CEnableUndoScopeGuard undosg;
-			if ( pPosLog )
-			{
-				pPosLog->FlattenLayers( flattenThreshold, 0 );
-			}
-			if ( pRotLog )
-			{
-				pRotLog->FlattenLayers( flattenThreshold, 0 );
-			}
+			pPosLog->FlattenLayers( flattenThreshold, 0 );
+		}
+		if ( pRotLog )
+		{
+			pRotLog->FlattenLayers( flattenThreshold, 0 );
 		}
 	}
 	else
 	{
-		CEnableUndoScopeGuard undosg;
-
 		// If not using a time selection then we only want data from the new log layer so just
 		// copy it to the base layer without blending and then remove all other layers.
 		if ( pPosLog )
@@ -1525,9 +1516,6 @@ void CDmAnimUtils::GenerateLogSamples( CDmeDag* pDag, CDmeDag *pParent, bool bPo
 //-------------------------------------------------------------------------------------------------
 void CDmAnimUtils::GenerateDagWorldTransformList( CDmeDag *pDag, const CUtlVector< DmeTime_t > &times, CUtlVector< matrix3x4_t > &transformList, CDmeClip *pShot, CDmeClip *pMovie ) 
 {
-	// Make sure nothing here gets add to the undo queue.
-	CDisableUndoScopeGuard undosg;
-
 	// Find the channels and operators which must be updated in order to evaluate transform of the dag.
 	CUtlVector< CDmeChannel* > channelList;
 	CUtlVector< CDmeOperator* > operatorList;
@@ -1566,15 +1554,12 @@ void CDmAnimUtils::GenerateDagWorldTransformList( CDmeDag *pDag, const CUtlVecto
 //-------------------------------------------------------------------------------------------------
 void CDmAnimUtils::SetDagWorldSpaceTransforms( CDmeDag* pDag, CUtlVector< DmeTime_t > &times, const CUtlVector< matrix3x4_t > &transformList, CDmeClip *pShot, CDmeClip *pMovie )
 {
-	if ( pDag == NULL )
+	if ( pDag == nullptr)
 		return;
 
 	CDmeTransform *pTransform = pDag->GetTransform();
-	if ( pTransform == NULL )
+	if ( pTransform == nullptr)
 		return;
-
-	// Make sure nothing here gets add to the undo queue.
-	CDisableUndoScopeGuard undosg;
 
 	// Find the existing channels associated with the position and orientation of the dag transform
 	CDmeChannel *pPosChannel = FindDagTransformChannel( pDag, TRANSFORM_POSITION );
@@ -1585,7 +1570,7 @@ void CDmAnimUtils::SetDagWorldSpaceTransforms( CDmeDag* pDag, CUtlVector< DmeTim
 	// and the rotation channels clip is valid, or if the position channels clip is not valid.
 	CDmeChannelsClip *pChannelsClipPos = FindAncestorReferencingElement< CDmeChannelsClip >( pPosChannel );
 	CDmeChannelsClip *pChannelsClipRot = FindAncestorReferencingElement< CDmeChannelsClip >( pRotChannel );
-	CDmeChannelsClip *pChannelsClip = ( pChannelsClipPos != NULL ) ? pChannelsClipPos : pChannelsClipRot;
+	CDmeChannelsClip *pChannelsClip = ( pChannelsClipPos != nullptr) ? pChannelsClipPos : pChannelsClipRot;
 	
 	// Build the clip stack to convert the global time into a local time
 	DmeClipStack_t clipStack;
@@ -1649,7 +1634,6 @@ void CDmAnimUtils::SetDagWorldSpaceTransforms( CDmeDag* pDag, CUtlVector< DmeTim
 			CDmeTypedLogLayer< Vector > *pPosLayer = CastElement< CDmeTypedLogLayer< Vector > >( pPosLog->GetLayer( 0 ) );
 			if ( pPosLayer )
 			{
-				CEnableUndoScopeGuard undosg;
 				pPosLayer->SetAllKeys( localTimes, localPositions );
 				pPosLog->RemoveRedundantKeys( false );
 			}
@@ -1665,7 +1649,6 @@ void CDmAnimUtils::SetDagWorldSpaceTransforms( CDmeDag* pDag, CUtlVector< DmeTim
 			CDmeTypedLogLayer< Quaternion > *pRotLayer = CastElement< CDmeTypedLogLayer< Quaternion > >( pRotLog->GetLayer( 0 ) );
 			if ( pRotLayer )
 			{
-				CEnableUndoScopeGuard undosg;
 				pRotLayer->SetAllKeys( localTimes, localOrientations );
 				pRotLog->RemoveRedundantKeys( false );
 			}
@@ -1679,9 +1662,6 @@ void CDmAnimUtils::SetDagWorldSpaceTransforms( CDmeDag* pDag, CUtlVector< DmeTim
 //-------------------------------------------------------------------------------------------------
 void CDmAnimUtils::CompileKeyTimeList( const CUtlVector< CDmeOperator* > &channelList, CUtlVector< DmeTime_t > &keyTimes, const DmeLog_TimeSelection_t *pTimeSelection, CDmeClip *pShot, CDmeClip *pMovie )
 {
-	// Make sure nothing here gets add to the undo queue.
-	CDisableUndoScopeGuard undosg;
-
 
 	// Iterate through all of the provided channels adding 
 	// the time of all of the keys in each channel to list.
@@ -1690,16 +1670,16 @@ void CDmAnimUtils::CompileKeyTimeList( const CUtlVector< CDmeOperator* > &channe
 	for ( int iChannel = 0; iChannel < nChannels; ++iChannel )
 	{
 		CDmeChannel *pChannel = CastElement< CDmeChannel >( channelList[ iChannel ] );
-		if ( pChannel == NULL )
+		if ( pChannel == nullptr)
 			continue;
 
 		CDmeLog *pLog = pChannel->GetLog();
-		if ( pLog == NULL )
+		if ( pLog == nullptr)
 			continue;
 
 		// Build the clip stack for the channel
 		CDmeChannelsClip *pChannelsClip = FindAncestorReferencingElement< CDmeChannelsClip >( pChannel );
-		if ( pChannelsClip == NULL )
+		if ( pChannelsClip == nullptr)
 			continue;
 
 		DmeClipStack_t clipStack;
@@ -1868,8 +1848,8 @@ void CDmAnimUtils::CompileKeyTimeList( const CUtlVector< CDmeOperator* > &channe
 //-------------------------------------------------------------------------------------------------
 CDmeTransformControl *CDmAnimUtils::GetTransformControl( const CDmeDag *pDag )
 {
-	if ( pDag == NULL )
-		return NULL;
+	if ( pDag == nullptr)
+		return nullptr;
 
 	CUtlVector< CDmeChannel* > channelList( 0, 8 );
 
@@ -1895,7 +1875,7 @@ CDmeTransformControl *CDmAnimUtils::GetTransformControl( const CDmeDag *pDag )
 	for ( int iChannel = 0; iChannel < nChannels; ++iChannel )
 	{
 		CDmeChannel *pChannel = channelList[ iChannel ];
-		if ( pChannel == NULL )
+		if ( pChannel == nullptr)
 			continue;
 
 		CDmElement *pControl = pChannel->GetFromElement();
@@ -1906,7 +1886,7 @@ CDmeTransformControl *CDmAnimUtils::GetTransformControl( const CDmeDag *pDag )
 		}
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -1935,7 +1915,7 @@ void CDmAnimUtils::GetDefaultAbsTransform( CDmeDag *pDagNode, matrix3x4_t &absDe
 	matrix3x4_t parentToWorld;
 	matrix3x4_t localMatrix;
 
-	if ( pDagNode == NULL )
+	if ( pDagNode == nullptr)
 	{
 		SetIdentityMatrix( absDefaultTransform );
 		return;
@@ -2024,7 +2004,7 @@ void CDmAnimUtils::RecordChannels( const CUtlVector< CDmeChannel* > &channelList
 		return;
 
 	g_pChannelRecordingMgr->StartModificationLayer( &timeSelection, false );
-	g_pChannelRecordingMgr->StartLayerRecording( "Script channel record" );
+	g_pChannelRecordingMgr->StartLayerRecording();
 
 	for ( int iChannel = 0; iChannel < nChannels; ++iChannel )
 	{
@@ -2056,10 +2036,10 @@ void CDmAnimUtils::RecordChannels( const CUtlVector< CDmeChannel* > &channelList
 //-------------------------------------------------------------------------------------------------
 void CDmAnimUtils::FindShotAndMovieForDag( const CDmeDag *pDag, CDmeClip *&pShot, CDmeClip *&pMovie )
 {
-	pShot = NULL;
-	pMovie = NULL;
+	pShot = nullptr;
+	pMovie = nullptr;
 
-	if ( pDag == NULL )
+	if ( pDag == nullptr)
 		return;
 
 	// First find the root of the dag hierarchy, this should be the scene.
@@ -2083,7 +2063,7 @@ void CDmAnimUtils::FindShotAndMovieForDag( const CDmeDag *pDag, CDmeClip *&pShot
 	for ( int iClip = 0; iClip < nNumClips; ++iClip )
 	{
 		CDmeFilmClip *pClip = filmClipList[ iClip ];
-		if ( pClip == NULL )
+		if ( pClip == nullptr)
 			continue;
 
 		if ( pClip->GetScene() == pRoot )
@@ -2101,7 +2081,7 @@ void CDmAnimUtils::FindShotAndMovieForDag( const CDmeDag *pDag, CDmeClip *&pShot
 	}
 
 	// If the shot was not found don't bother with the movie.
-	if ( pShot == NULL )
+	if ( pShot == nullptr)
 		return;
 
 	// Find all of the tracks that reference the shot. There may be multiple if the shot has been imported into 
@@ -2113,7 +2093,7 @@ void CDmAnimUtils::FindShotAndMovieForDag( const CDmeDag *pDag, CDmeClip *&pShot
 	for ( int iTrack = 0; iTrack < nNumTracks; ++iTrack )
 	{
 		CDmeTrack *pTrack = trackList[ iTrack ];
-		if ( pTrack == NULL )
+		if ( pTrack == nullptr)
 			continue;
 
 		// The session should be root file element, so we can

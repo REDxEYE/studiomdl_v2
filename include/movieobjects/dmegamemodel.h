@@ -4,8 +4,7 @@
 //
 //=============================================================================
 
-#ifndef DMEGAMEMODEL_H
-#define DMEGAMEMODEL_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -13,7 +12,7 @@
 #include "movieobjects/dmedag.h"
 #include "movieobjects/dmeoperator.h"
 #include "datacache/imdlcache.h"
-#include "tier1/UtlDict.h"
+#include "tier1/utldict.h"
 
 struct studiohdr_t;
 
@@ -71,9 +70,9 @@ public:
 
 	void AddBone( CDmeTransform* pTransform );
 	void AddBones( studiohdr_t *pStudioHdr, int nFirstBone, int nCount );
-	void SetBone( uint index, const Vector& pos, const Quaternion& rot );
-	uint NumBones() const;
-	CDmeTransform *GetBone( uint index ) const;
+	void SetBone( uint32_t index, const Vector& pos, const Quaternion& rot );
+	uint32_t NumBones() const;
+	CDmeTransform *GetBone( uint32_t index ) const;
 	int FindBone( CDmeTransform *pTransform ) const;
 	void RemoveAllBones();
 
@@ -87,12 +86,12 @@ public:
 
 	bool IsRootTransform( int nBoneIndex ) const;
 
-	uint NumFlexWeights() const;
+	uint32_t NumFlexWeights() const;
 	const CUtlVector< float >& GetFlexWeights() const;
 	// We drive these through the operators instead
 	// void SetFlexWeights( uint nFlexWeights, const float* flexWeights );
-	void SetNumFlexWeights( uint nFlexWeights );
-	void SetFlexWeights( uint nFlexWeights, const float* flexWeights );
+	void SetNumFlexWeights( uint32_t nFlexWeights );
+	void SetFlexWeights( uint32_t nFlexWeights, const float* flexWeights );
 
 	void SetSkin( int nSkin );
 	void SetBody( int nBody );
@@ -205,4 +204,3 @@ public:
 	CDmaString m_PortalType;
 };
 
-#endif // DMEGAMEMODEL_H

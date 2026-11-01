@@ -3,8 +3,7 @@
 // A class representing a camera
 //
 //===============================================================================
-#ifndef DMECAMERA_H
-#define DMECAMERA_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -155,4 +154,3 @@ private:  // private ortho vars
 };
 
 
-#endif // DMECAMERA_H

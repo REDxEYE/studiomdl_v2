@@ -5,16 +5,10 @@
 //===============================================================================
 
 #include "movieobjects/dmecamera.h"
-#include "tier0/dbg.h"
 #include "datamodel/dmelementfactoryhelper.h"
-#include "mathlib/vector.h"
-#include "movieobjects/dmetransform.h"
-#include "movieobjects_interfaces.h"
-#include "tier2/tier2.h"
 
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 //-----------------------------------------------------------------------------
 // Expose this class to the scene database 
@@ -100,19 +94,7 @@ void CDmeCamera::LoadProjectionMatrix( int nDisplayWidth, int nDisplayHeight )
 //-----------------------------------------------------------------------------
 void CDmeCamera::LoadStudioRenderCameraState()
 {
-	// FIXME: Remove this! This should automatically happen in DrawModel
-	// in studiorender.
-	if ( !g_pStudioRender )
-		return;
-
-	matrix3x4_t transform;
-	GetTransform()->GetTransform( transform );
-
-	Vector vecOrigin, vecRight, vecUp, vecForward;
-	MatrixGetColumn( transform, 0, vecRight );
-	MatrixGetColumn( transform, 1, vecUp );
-	MatrixGetColumn( transform, 2, vecForward );
-	MatrixGetColumn( transform, 3, vecOrigin );
+    return;
 }
 
 //-----------------------------------------------------------------------------

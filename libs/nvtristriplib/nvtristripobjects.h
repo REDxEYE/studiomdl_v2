@@ -1,20 +1,16 @@
-
-#ifndef NV_TRISTRIP_OBJECTS_H
-#define NV_TRISTRIP_OBJECTS_H
+#pragma once
 
 #include <cassert>
 
 #ifdef _WIN32
 #include <windows.h>
-#else
-#include <cstdint>
-typedef uint32_t UINT;
-typedef uint16_t WORD;
 #endif
+#include <cstdint>
 
 #include <vector>
 #include <list>
-#include "VertexCache.h"
+#include <cstddef>
+#include "vertexcache.h"
 
 /////////////////////////////////////////////////////////////////////////////////
 //
@@ -37,7 +33,6 @@ struct MyFace {
 
 class NvFaceInfo {
 public:
-
     // vertex indices
     NvFaceInfo(int v0, int v1, int v2) {
         m_v0 = v0;
@@ -50,8 +45,8 @@ public:
 
     // data members are left public
     int m_v0, m_v1, m_v2;
-    int m_stripId;      // real strip Id
-    int m_testStripId;  // strip Id in an experiment
+    int m_stripId; // real strip Id
+    int m_testStripId; // strip Id in an experiment
     int m_experimentId; // in what experiment was it given an experiment Id?
 };
 
@@ -60,28 +55,26 @@ public:
 // the lesser of the indices
 class NvEdgeInfo {
 public:
-
     // constructor puts 1 ref on us
     NvEdgeInfo(int v0, int v1) {
         m_v0 = v0;
         m_v1 = v1;
-        m_face0 = NULL;
-        m_face1 = NULL;
-        m_nextV0 = NULL;
-        m_nextV1 = NULL;
+        m_face0 = nullptr;
+        m_face1 = nullptr;
+        m_nextV0 = nullptr;
+        m_nextV1 = nullptr;
 
         // we will appear in 2 lists.  this is a good
         // way to make sure we delete it the second time
         // we hit it in the edge infos
         m_refCount = 2;
-
     }
 
     // ref and unref
     void Unref() { if (--m_refCount == 0) delete this; }
 
     // data members are left public
-    UINT m_refCount;
+    uint32_t m_refCount;
     NvFaceInfo *m_face0, *m_face1;
     int m_v0, m_v1;
     NvEdgeInfo *m_nextV0, *m_nextV1;
@@ -106,15 +99,15 @@ public:
 };
 
 
-typedef std::vector<NvFaceInfo *> NvFaceInfoVec;
-typedef std::list<NvFaceInfo *> NvFaceInfoList;
-typedef std::list<NvFaceInfoVec *> NvStripList;
-typedef std::vector<NvEdgeInfo *> NvEdgeInfoVec;
+using NvFaceInfoVec = std::vector<NvFaceInfo *>;
+using NvFaceInfoList = std::list<NvFaceInfo *>;
+using NvStripList = std::list<NvFaceInfoVec *>;
+using NvEdgeInfoVec = std::vector<NvEdgeInfo *>;
 
-typedef std::vector<WORD> WordVec;
-typedef std::vector<int> IntVec;
-typedef std::vector<MyVertex> MyVertexVec;
-typedef std::vector<MyFace> MyFaceVec;
+using WordVec = std::vector<uint16_t>;
+using IntVec = std::vector<int>;
+using MyVertexVec = std::vector<MyVertex>;
+using MyFaceVec = std::vector<MyFace>;
 
 template<class T>
 inline void SWAP(T &first, T &second) {
@@ -126,10 +119,8 @@ inline void SWAP(T &first, T &second) {
 // This is a summary of a strip that has been built
 class NvStripInfo {
 public:
-
     // A little information about the creation of the triangle strips
-    NvStripInfo(const NvStripStartInfo &startInfo, int stripId, int experimentId = -1) :
-            m_startInfo(startInfo) {
+    NvStripInfo(const NvStripStartInfo &startInfo, int stripId, int experimentId = -1) : m_startInfo(startInfo) {
         m_stripId = stripId;
         m_experimentId = experimentId;
         visited = false;
@@ -140,7 +131,7 @@ public:
     inline bool IsExperiment() const { return m_experimentId >= 0; }
 
     inline bool IsInStrip(const NvFaceInfo *faceInfo) const {
-        if (faceInfo == NULL)
+        if (faceInfo == nullptr)
             return false;
 
         return (m_experimentId >= 0 ? faceInfo->m_testStripId == m_stripId : faceInfo->m_stripId == m_stripId);
@@ -179,7 +170,6 @@ typedef std::vector<NvStripInfo *> NvStripInfoVec;
 //The actual stripifier
 class NvStripifier {
 public:
-
     // Constructor
     NvStripifier();
 
@@ -200,7 +190,6 @@ public:
     static bool IsDegenerate(const NvFaceInfo *face);
 
 protected:
-
     WordVec indices;
     int cacheSize;
     int minStripLength;
@@ -270,4 +259,3 @@ protected:
     friend NvStripInfo;
 };
 
-#endif

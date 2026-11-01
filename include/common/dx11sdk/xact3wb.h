@@ -7,8 +7,7 @@
  *
  ****************************************************************************/
 
-#ifndef __XACTWB_H__
-#define __XACTWB_H__
+#pragma once
 
 #ifdef _XBOX
 #   include <xtl.h>
@@ -592,5 +591,4 @@ inline void WAVEBANKMINIWAVEFORMAT::XMA2FillFormatEx(XMA2WAVEFORMATEX *fmt, WORD
 #pragma warning(pop)
 #pragma pack(pop)
 
-#endif // __XACTWB_H__
 

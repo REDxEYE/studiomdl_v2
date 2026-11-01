@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
 //=============================================================================
 
-#ifndef DMECLIP_H
-#define DMECLIP_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -40,9 +39,9 @@ class CDmeAnimationSet;
 class DmeLog_TimeSelection_t;
 struct TimeSelection_t;
 struct Rect_t;
-enum ChannelMode_t;
+enum ChannelMode_t : int;
 
-enum DmeClipSkipFlag_t
+enum DmeClipSkipFlag_t : int
 {
 	DMESKIP_NONE = 0,
 	DMESKIP_MUTED = 1,
@@ -54,7 +53,7 @@ DEFINE_ENUM_BITWISE_OPERATORS( DmeClipSkipFlag_t )
 //-----------------------------------------------------------------------------
 // Clip types
 //-----------------------------------------------------------------------------
-enum DmeClipType_t
+enum DmeClipType_t : int
 {
 	DMECLIP_UNKNOWN = -1,
 
@@ -184,7 +183,7 @@ public:
 	// Given a root clip and a child (or grandchild) clip, builds the stack 
 	// from root on down to the destination clip. If shot is specified, then it
 	// must build a clip stack that passes through the shot
-	bool BuildClipStack( DmeClipStack_t* pStack, const CDmeClip *pRoot, CDmeClip *pShot = NULL );
+	bool BuildClipStack( DmeClipStack_t* pStack, const CDmeClip *pRoot, CDmeClip *pShot = nullptr);
 
 	void SetClipColor( const Color& clr );
 
@@ -213,8 +212,8 @@ public:
 	void SwapOrder( CDmeTrackGroup *pTrackGroup1, CDmeTrackGroup *pTrackGroup2 );
 
 	// Clip finding
-	virtual CDmeTrack *FindTrackForClip( CDmeClip *pClip, CDmeTrackGroup **ppTrackGroup = NULL ) const;
-	bool FindMultiTrackGroupForClip( CDmeClip *pClip, int *pTrackGroupIndex, int *pTrackIndex = NULL, int *pClipIndex = NULL ) const;
+	virtual CDmeTrack *FindTrackForClip( CDmeClip *pClip, CDmeTrackGroup **ppTrackGroup = nullptr) const;
+	bool FindMultiTrackGroupForClip( CDmeClip *pClip, int *pTrackGroupIndex, int *pTrackIndex = nullptr, int *pClipIndex = nullptr) const;
 
 	// Finding clips in tracks by time
 	virtual void FindClipsAtTime( DmeClipType_t clipType, DmeTime_t time, DmeClipSkipFlag_t flags, CUtlVector< CDmeClip * >& clips ) const;
@@ -225,8 +224,8 @@ public:
 	bool IsSubClipTypeAllowed( DmeClipType_t type ) const;
 
 	// Returns the special film track group
-	virtual CDmeTrackGroup *GetFilmTrackGroup() const { return NULL; }
-	virtual CDmeTrack *GetFilmTrack() const { return NULL; }
+	virtual CDmeTrackGroup *GetFilmTrackGroup() const { return nullptr; }
+	virtual CDmeTrack *GetFilmTrack() const { return nullptr; }
 
 	// Checks for muteness
 	void SetMute( bool state );
@@ -442,7 +441,7 @@ public:
 	CDmeTrack *FindOrCreateFilmTrack();
 
 	// Clip finding
-	virtual CDmeTrack *FindTrackForClip( CDmeClip *pClip, CDmeTrackGroup **ppTrackGroup = NULL ) const;
+	virtual CDmeTrack *FindTrackForClip( CDmeClip *pClip, CDmeTrackGroup **ppTrackGroup = nullptr) const;
 
 	// Finding clips in tracks by time
 	virtual void FindClipsAtTime( DmeClipType_t clipType, DmeTime_t time, DmeClipSkipFlag_t flags, CUtlVector< CDmeClip * >& clips ) const;
@@ -612,9 +611,9 @@ DECLARE_DMECLIP_TYPE( CDmeFilmClip,		DMECLIP_FILM )
 // helper methods
 //-----------------------------------------------------------------------------
 CDmeTrack *GetParentTrack( CDmeClip *pClip );
-CDmeChannel *FindChannelTargetingElement( CDmElement *pElement, const char *pAttributeName = NULL );
-CDmeChannel *FindChannelTargetingElement( CDmeChannelsClip *pChannelsClip, CDmElement *pElement, const char *pAttributeName = NULL );
-CDmeChannel *FindChannelTargetingElement( CDmeFilmClip *pClip, CDmElement *pElement, const char *pAttributeName, CDmeChannelsClip **ppChannelsClip, CDmeTrack **ppTrack = NULL, CDmeTrackGroup **ppTrackGroup = NULL );
+CDmeChannel *FindChannelTargetingElement( CDmElement *pElement, const char *pAttributeName = nullptr);
+CDmeChannel *FindChannelTargetingElement( CDmeChannelsClip *pChannelsClip, CDmElement *pElement, const char *pAttributeName = nullptr);
+CDmeChannel *FindChannelTargetingElement( CDmeFilmClip *pClip, CDmElement *pElement, const char *pAttributeName, CDmeChannelsClip **ppChannelsClip, CDmeTrack **ppTrack = nullptr, CDmeTrackGroup **ppTrackGroup = nullptr);
 CDmeFilmClip *FindFilmClipContainingDag( CDmeDag *pDag );
 void BuildClipStackList( const CUtlVector< CDmeChannel* > &channelList, CUtlVector< DmeClipStack_t > &clipStackList, CUtlVector< DmeTime_t > &orginalTimeList, const CDmeClip *pMovie, CDmeClip *pShot );
 void PlayChannelsAtTime( DmeTime_t time, const CUtlVector< CDmeChannel* > &channelList, const CUtlVector< CDmeOperator* > &operatorList, const CUtlVector< DmeClipStack_t > &clipStackList, bool forcePlay = true );
@@ -622,4 +621,3 @@ void PlayChannelsAtLocalTimes( const CUtlVector< DmeTime_t > &timeList, const CU
 
 
 
-#endif // DMECLIP_H

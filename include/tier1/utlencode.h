@@ -1,4 +1,4 @@
-//===== Copyright © 1996-2008, Valve Corporation, All rights reserved. ======//
+//===== Copyright Â© 1996-2008, Valve Corporation, All rights reserved. ======//
 //
 // Purpose: 
 //
@@ -21,8 +21,7 @@
 //		SRCk = Xk + 64 * ( FL >> ( 2 * k ) % 4 )
 //
 
-#ifndef UTLENCODE_H
-#define UTLENCODE_H
+#pragma once
 #pragma once
 
 namespace KvEncoder
@@ -54,13 +53,13 @@ inline char EncodeChar( char ch )
 	return -1;
 }
 
-inline unsigned long EncodeByte( unsigned char x )
+inline uint32_t EncodeByte( unsigned char x )
 {
 	unsigned int iSegment = x / 64;
 	unsigned int iOffset = x % 64;
 	return (
-		( unsigned long ) ( ( iOffset ) & 0xFFFF ) |
-		( unsigned long ) ( ( ( iSegment ) & 0xFFFF ) << 16 )
+		( uint32_t ) ( ( iOffset ) & 0xFFFF ) |
+		( uint32_t ) ( ( ( iSegment ) & 0xFFFF ) << 16 )
 		);
 }
 
@@ -99,7 +98,7 @@ inline BOOL Encode( CUtlBuffer &src, CUtlBuffer &dst )
 		{
 			if ( srcBytes -- > 0 )
 			{
-				unsigned long enc = EncodeByte( *pSrc ++ );
+				uint32_t enc = EncodeByte( *pSrc ++ );
 				*( pOffs ++ ) = EncodeChar( enc & 0xFFFF );
 				flags |= ( enc >> 16 ) << ( 2 * k );
 			}
@@ -158,4 +157,3 @@ inline BOOL Decode( CUtlBuffer &src, CUtlBuffer &dst )
 }; // namespace KvEncoder
 
 
-#endif // UTLENCODE_H

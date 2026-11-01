@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =====//
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =====//
 //
 // Dme version of a collision model
 //
 //===========================================================================//
 
-#ifndef DMECOLLISIONMODEL_H
-#define DMECOLLISIONMODEL_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -48,4 +47,3 @@ public:
 };
 
 
-#endif // DMECOLLISIONMODEL_H

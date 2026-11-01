@@ -1,12 +1,11 @@
-//===== Copyright © 1996-2005, Valve Corporation, All rights reserved. ======//
+//===== Copyright Â© 1996-2005, Valve Corporation, All rights reserved. ======//
 //
 // Purpose: 
 //
 // $NoKeywords: $
 //===========================================================================//
 
-#ifndef FILESYSTEM_HELPERS_H
-#define FILESYSTEM_HELPERS_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -19,4 +18,3 @@ const char* ParseFile( const char* pFileBytes, char* pToken, bool* pWasQuoted, c
 char* ParseFile( char* pFileBytes, char* pToken, bool* pWasQuoted );	// (same exact thing as the const version)
 
 
-#endif // FILESYSTEM_HELPERS_H

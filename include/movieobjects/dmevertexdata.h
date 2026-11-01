@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // A class representing vertex data
 //
 //=============================================================================
 
-#ifndef DMEVERTEXDATA_H
-#define DMEVERTEXDATA_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -15,7 +14,7 @@
 #include "datamodel/dmattribute.h"
 #include "datamodel/dmattributevar.h"
 #include "mathlib/vector.h"
-#include "Color.h"
+#include "color.h"
 
 
 //-----------------------------------------------------------------------------
@@ -345,4 +344,3 @@ private:
 };
 
 
-#endif // DMEVERTEXDATA_H

@@ -12,8 +12,7 @@
 \*=========================================================================*/
 #pragma once
 
-#ifndef _D2D1_HELPER_H_
-#define _D2D1_HELPER_H_
+#pragma once
 
 #ifndef _D2D1_H_
 #include <d2d1.h>
@@ -944,5 +943,4 @@ operator*(
 
 #endif // #ifndef D2D_USE_C_DEFINITIONS
 
-#endif // #ifndef _D2D1_HELPER_H_
 

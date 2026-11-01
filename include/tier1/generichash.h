@@ -1,12 +1,11 @@
-//======= Copyright © 2005, , Valve Corporation, All rights reserved. =========
+//======= Copyright Â© 2005, , Valve Corporation, All rights reserved. =========
 //
 // Purpose: Variant Pearson Hash general purpose hashing algorithm described
 //			by Cargill in C++ Report 1994. Generates a 16-bit result.
 //
 //=============================================================================
 
-#ifndef GENERICHASH_H
-#define GENERICHASH_H
+#pragma once
 
 #if defined(_WIN32)
 #pragma once
@@ -26,7 +25,7 @@ unsigned FASTCALL HashBlock( const void *pKey, unsigned size );
 unsigned FASTCALL HashInt( const int key );
 
 // hash a uint32 into a uint32
-FORCEINLINE uint32 HashIntAlternate( uint32 n)
+FORCEINLINE uint32_t HashIntAlternate( uint32_t n)
 {
 	n = ( n + 0x7ed55d16 ) + ( n << 12 );
 	n = ( n ^ 0xc761c23c ) ^ ( n >> 19 );
@@ -38,7 +37,7 @@ FORCEINLINE uint32 HashIntAlternate( uint32 n)
 }
 
 
-inline uint64 HashUint64( uint64 s )
+inline uint64_t HashUint64( uint64_t s )
 {
 	// Thomas Wang hash, http://www.concentric.net/~ttwang/tech/inthash.htm
 	s = ( ~s ) + ( s << 21 ); // s = (s << 21) - s - 1;
@@ -52,11 +51,11 @@ inline uint64 HashUint64( uint64 s )
 }
 
 
-inline intp HashIntp( intp s )
+inline intptr_t HashIntp( intptr_t s )
 {
 #ifdef PLATFORM_64BITS
-	COMPILE_TIME_ASSERT( sizeof( s ) == sizeof( uint64 ) );
-	return ( intp )HashUint64( ( uint64 )s );
+	COMPILE_TIME_ASSERT( sizeof( s ) == sizeof( uint64_t ) );
+	return ( intptr_t )HashUint64( ( uint64_t )s );
 #else
 	return HashInt( s );
 #endif
@@ -130,12 +129,11 @@ template<> inline unsigned HashItem<char *>(char * const &pszKey )
 //-----------------------------------------------------------------------------
 // Murmur hash
 //-----------------------------------------------------------------------------
-uint32 MurmurHash2( const void * key, int len, uint32 seed );
+uint32_t MurmurHash2( const void * key, int len, uint32_t seed );
 
 // return murmurhash2 of a downcased string
-uint32 MurmurHash2LowerCase( char const *pString, uint32 nSeed );
+uint32_t MurmurHash2LowerCase( char const *pString, uint32_t nSeed );
 
-uint64 MurmurHash64( const void * key, int len, uint32 seed );
+uint64_t MurmurHash64( const void * key, int len, uint32_t seed );
 
 
-#endif /* !GENERICHASH_H */

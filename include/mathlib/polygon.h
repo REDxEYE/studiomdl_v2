@@ -4,8 +4,7 @@
 //
 //===============================================================================
 
-#ifndef POLYGON_H
-#define POLYGON_H
+#pragma once
 
 #if defined( COMPILER_MSVC )
 #pragma once
@@ -100,6 +99,5 @@ void DecomposePolygon( const CUtlVector< Vector > &polygonPoints, const Vector &
 // Is a point in the prism formed by extruding the polygon?
 // If so, what is its height above/below the plane of the polygon?
 //-----------------------------------------------------------------------------
-bool IsPointInPolygonPrism( const Vector *pPolygonPoints, int nPointCount, const Vector &vPoint, float flThreshold = 0.0f, float *pHeight = NULL );
+bool IsPointInPolygonPrism( const Vector *pPolygonPoints, int nPointCount, const Vector &vPoint, float flThreshold = 0.0f, float *pHeight = nullptr);
 
-#endif // POLYGON_H

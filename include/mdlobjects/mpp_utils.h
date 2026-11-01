@@ -5,8 +5,7 @@
 //============================================================================
 
 
-#ifndef MDLOBJECTS_UTILS_H
-#define MDLOBJECTS_UTILS_H
+#pragma once
 
 
 #if defined( _WIN32 )
@@ -80,4 +79,3 @@ void MppDisconnectSkeletonsFromAnimation( CDmeAssetRoot *pDmeAssetRoot );
 // Utility to return DmElement id as name:string
 CUtlString ComputeDmElementIdStr( const CDmElement *pDmElement );
 
-#endif // MDLOBJECTS_UTILS_H

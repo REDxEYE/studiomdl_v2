@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright Â© 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
@@ -7,8 +7,7 @@
 // $NoKeywords: $
 //=============================================================================//
 
-#ifndef SCRIPLIB_H
-#define SCRIPLIB_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -91,4 +90,3 @@ extern IScriptLib *scriptlib;
 extern IScriptLib *g_pScriptLib;
 
 
-#endif // SCRIPLIB_H

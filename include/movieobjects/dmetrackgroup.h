@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
 //=============================================================================
 
-#ifndef DMETRACKGROUP_H
-#define DMETRACKGROUP_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -23,8 +22,8 @@
 class CDmeClip;
 class CDmeFilmClip;
 class CDmeTrack;
-enum DmeClipType_t;
-enum DmeClipSkipFlag_t;
+enum DmeClipType_t : int;
+enum DmeClipSkipFlag_t : int;
 
 
 //-----------------------------------------------------------------------------
@@ -66,7 +65,7 @@ public:
 	CDmeTrack *ChangeTrack( CDmeClip *pClip, const char *pNewTrack );
 	CDmeTrack *FindTrackForClip( CDmeClip *pClip ) const;
 
-	bool FindTrackForClip( CDmeClip *pClip, int *pTrackIndex, int *pClipIndex = NULL ) const;
+	bool FindTrackForClip( CDmeClip *pClip, int *pTrackIndex, int *pClipIndex = nullptr) const;
 
 	// Finding clips at a particular time
 	void FindClipsAtTime( DmeClipType_t clipType, DmeTime_t time, DmeClipSkipFlag_t flags, CUtlVector< CDmeClip * >& clips ) const;
@@ -246,4 +245,3 @@ inline float CDmeTrackGroup::GetDisplayScale() const
 //-----------------------------------------------------------------------------
 CDmeFilmClip *GetParentClip( CDmeTrackGroup *pTrackGroup );
 
-#endif // DMETRACKGROUP_H

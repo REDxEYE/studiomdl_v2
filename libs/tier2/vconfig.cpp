@@ -5,20 +5,15 @@
 //===========================================================================//
 
 #ifdef _WIN32
-#if !defined( _X360 )
 #include <windows.h>
-#endif
 #include <direct.h>
 #include <io.h> // _chmod
 #include <process.h>
 #endif
-#if defined( _X360 )
-#include "xbox/xbox_win32stubs.h"
-#endif
 #include "vconfig.h"
 
 // NOTE: This has to be the last file included!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 #ifdef _WIN32
@@ -139,7 +134,7 @@ bool RemoveObsoleteVConfigRegistrySetting( const char *pValueName, char *pOldVal
 
 bool ConvertObsoleteVConfigRegistrySetting( const char *pValueName )
 {
-	char szValue[MAX_PATH];
+	char szValue[MAX_PATH]{0};
 	if ( RemoveObsoleteVConfigRegistrySetting( pValueName, szValue, sizeof( szValue ) ) )
 	{
 		// Set it up the correct way

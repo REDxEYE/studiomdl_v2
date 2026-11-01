@@ -1,12 +1,11 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright Â© 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
 // $NoKeywords: $
 //=============================================================================//
 
-#ifndef UTLQUEUE_H
-#define UTLQUEUE_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -173,4 +172,3 @@ bool CUtlQueue<T, M>::Check( T const element )
 }
 
 
-#endif // UTLQUEUE_H

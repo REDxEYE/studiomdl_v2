@@ -5,13 +5,24 @@
 #include "datamodel/dmelementfactoryhelper.h"
 #include "datamodel/dmattributevar.h"
 
-#if !defined( _X360 )
+#if defined( PLATFORM_WINDOWS_PC )
 #define WIN32_LEAN_AND_MEAN
 #define OEMRESOURCE
 #include <windows.h>
+#include <winreg.h>
+#elif defined( PLATFORM_POSIX )
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <map>
+#include <string>
 #endif
 
-// DISABLED #include "tier0/memdbgon.h" // memdbgon must be the last include file in a .cpp file!!!
+ // memdbgon must be the last include file in a .cpp file!!!
 
 //-----------------------------------------------------------------------------
 
@@ -91,13 +102,13 @@ CDmAttribute *CDmeUserSettings::FindAttributeForRegistryPath( const char *pRegis
 	}
 	else
 	{
-		return NULL;
+		return nullptr;
 	}
 }
 
 const char *CDmeUserSettings::FindRegistryPathForAttribute( CDmAttribute *pAttribute )
 {
-	const char *pReturnValue = NULL;
+	const char *pReturnValue = nullptr;
 	for ( int i = s_RegistryPathToAttribute.FirstInorder(); i != s_RegistryPathToAttribute.InvalidIndex(); i = s_RegistryPathToAttribute.NextInorder( i ) )
 	{
 		CDmAttribute *pCurrentAttribute = s_RegistryPathToAttribute[i];
@@ -207,9 +218,157 @@ void CDmeUserSettings::CreateRegistryEntryAndValueKey( const char *pRegistryPath
 
 }
 
+#if defined( PLATFORM_POSIX ) && !defined( PLATFORM_WINDOWS_PC )
+
+// There is no registry on POSIX systems: the settings are stored in a small "path=value" text file,
+// $XDG_CONFIG_HOME/Valve/SourceFilmMaker/registry.cfg (falls back to ~/.config when XDG_CONFIG_HOME is not set).
+namespace
+{
+	typedef std::map< std::string, std::string > RegistryMap_t;
+
+	bool GetRegistryFilePath( std::string &directory, std::string &file )
+	{
+		std::string base;
+		const char *pConfigHome = getenv( "XDG_CONFIG_HOME" );
+		if ( pConfigHome && pConfigHome[0] == '/' )
+		{
+			base = pConfigHome;
+		}
+		else
+		{
+			const char *pHome = getenv( "HOME" );
+			if ( !pHome || !pHome[0] )
+				return false;
+			base = std::string( pHome ) + "/.config";
+		}
+
+		directory = base + "/Valve/SourceFilmMaker";
+		file = directory + "/registry.cfg";
+		return true;
+	}
+
+	// mkdir -p
+	bool MakeDirectories( const std::string &path )
+	{
+		for ( size_t i = 1; i <= path.size(); i++ )
+		{
+			if ( i != path.size() && path[i] != '/' )
+				continue;
+
+			std::string partial = path.substr( 0, i );
+			if ( mkdir( partial.c_str(), 0700 ) != 0 && errno != EEXIST )
+				return false;
+		}
+		return true;
+	}
+
+	std::string EscapeValue( const std::string &value )
+	{
+		std::string out;
+		for ( size_t i = 0; i < value.size(); i++ )
+		{
+			switch ( value[i] )
+			{
+			case '\\': out += "\\\\"; break;
+			case '\n': out += "\\n"; break;
+			case '\r': out += "\\r"; break;
+			default: out += value[i]; break;
+			}
+		}
+		return out;
+	}
+
+	std::string UnescapeValue( const std::string &value )
+	{
+		std::string out;
+		for ( size_t i = 0; i < value.size(); i++ )
+		{
+			if ( value[i] == '\\' && i + 1 < value.size() )
+			{
+				i++;
+				out += ( value[i] == 'n' ) ? '\n' : ( value[i] == 'r' ) ? '\r' : value[i];
+			}
+			else
+			{
+				out += value[i];
+			}
+		}
+		return out;
+	}
+
+	void ParseRegistryLine( const std::string &line, RegistryMap_t &values )
+	{
+		size_t nSeparator = line.find( '=' );
+		if ( line.empty() || line[0] == '#' || nSeparator == std::string::npos || nSeparator == 0 )
+			return;
+
+		values[ line.substr( 0, nSeparator ) ] = UnescapeValue( line.substr( nSeparator + 1 ) );
+	}
+
+	void LoadRegistry( const std::string &file, RegistryMap_t &values )
+	{
+		FILE *fp = fopen( file.c_str(), "rb" );
+		if ( !fp )
+			return;
+
+		std::string line;
+		int c;
+		while ( ( c = fgetc( fp ) ) != EOF )
+		{
+			if ( c == '\n' )
+			{
+				ParseRegistryLine( line, values );
+				line.clear();
+			}
+			else
+			{
+				line += (char)c;
+			}
+		}
+		ParseRegistryLine( line, values );
+		fclose( fp );
+	}
+
+	// Writes the file next to the destination and renames it, so a crash never leaves a half written settings file
+	bool SaveRegistry( const std::string &directory, const std::string &file, const RegistryMap_t &values )
+	{
+		if ( !MakeDirectories( directory ) )
+			return false;
+
+		std::string tempFile = file + ".tmp";
+		FILE *fp = fopen( tempFile.c_str(), "wb" );
+		if ( !fp )
+			return false;
+
+		bool bOk = true;
+		for ( RegistryMap_t::const_iterator it = values.begin(); it != values.end(); ++it )
+		{
+			std::string line = it->first + "=" + EscapeValue( it->second ) + "\n";
+			if ( fwrite( line.data(), 1, line.size(), fp ) != line.size() )
+			{
+				bOk = false;
+				break;
+			}
+		}
+		if ( fclose( fp ) != 0 )
+		{
+			bOk = false;
+		}
+
+		if ( !bOk || rename( tempFile.c_str(), file.c_str() ) != 0 )
+		{
+			unlink( tempFile.c_str() );
+			return false;
+		}
+		return true;
+	}
+}
+
+#endif // POSIX
+
 bool CDmeUserSettings::SetRegistryString(const char *pRegistryPath, const char *pStringValue)
 {
-#ifndef _X360
+#if defined( PLATFORM_WINDOWS_PC )
 	HKEY hKey;
 	HKEY hSlot = HKEY_CURRENT_USER;
 
@@ -229,14 +388,27 @@ bool CDmeUserSettings::SetRegistryString(const char *pRegistryPath, const char *
 	}
 
 	RegCloseKey(hKey);
-#endif
-
 	return false;
+#elif defined( PLATFORM_POSIX )
+	if ( !pRegistryPath || !pStringValue )
+		return false;
+
+	std::string directory, file;
+	if ( !GetRegistryFilePath( directory, file ) )
+		return false;
+
+	RegistryMap_t values;
+	LoadRegistry( file, values );
+	values[ pRegistryPath ] = pStringValue;
+	return SaveRegistry( directory, file, values );
+#else
+	return false;
+#endif
 }
 
 bool CDmeUserSettings::GetRegistryString(const char *pRegistryPath, char *pStringValue, int nStringValueLen)
 {
-#ifndef _X360
+#if defined( PLATFORM_WINDOWS_PC )
 	pStringValue[0] = 0;
 
 	HKEY hKey;
@@ -251,7 +423,7 @@ bool CDmeUserSettings::GetRegistryString(const char *pRegistryPath, char *pStrin
 		return false;
 	}
 
-	unsigned long len = nStringValueLen;
+	DWORD len = nStringValueLen;
 	if ( RegQueryValueEx( hKey, pValueKey, NULL, NULL, (unsigned char *)pStringValue, &len ) == ERROR_SUCCESS )
 	{		
 		RegCloseKey(hKey);
@@ -259,7 +431,27 @@ bool CDmeUserSettings::GetRegistryString(const char *pRegistryPath, char *pStrin
 	}
 
 	RegCloseKey(hKey);
-#endif
-
 	return false;
+#elif defined( PLATFORM_POSIX )
+	pStringValue[0] = 0;
+	if ( !pRegistryPath || nStringValueLen <= 0 )
+		return false;
+
+	std::string directory, file;
+	if ( !GetRegistryFilePath( directory, file ) )
+		return false;
+
+	RegistryMap_t values;
+	LoadRegistry( file, values );
+
+	RegistryMap_t::const_iterator it = values.find( pRegistryPath );
+	if ( it == values.end() )
+		return false;
+
+	V_strncpy( pStringValue, it->second.c_str(), nStringValueLen );
+	return true;
+#else
+	pStringValue[0] = 0;
+	return false;
+#endif
 }

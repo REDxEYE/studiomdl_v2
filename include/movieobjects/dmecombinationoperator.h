@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // Operators that generate combinations
 //
 //=============================================================================
 
-#ifndef DMECOMBINATIONOPERATOR_H
-#define DMECOMBINATIONOPERATOR_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -450,4 +449,3 @@ private:
 };
 
 
-#endif // DMECOMBINATIONOPERATOR_H

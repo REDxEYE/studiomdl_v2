@@ -25,6 +25,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cfloat>
+#include <vector>
 #include "mathlib/mathlib.h"
 #include "common/cmdlib.h"
 #include "studio.h"
@@ -39,7 +40,6 @@
 #include "materialsystem/imaterial.h"
 #include "tier1/utllinkedlist.h"
 #include "tier1/smartptr.h"
-//#include "tier2/p4helpers.h"
 
 #define  SUBD_STUDIOMDL
 
@@ -119,7 +119,7 @@ namespace OptimizedModel {
     };
 
     struct Strip_t {
-        Strip_t::Strip_t() {
+        Strip_t() {
             numIndices = numTopologyIndices = 0;
         }
 
@@ -308,7 +308,8 @@ namespace OptimizedModel {
         // Constructs vertices appropriate for a strip group based on source face data
         bool GenerateStripGroupVerticesFromFace(mstudioiface_t *pFace,
                                                 mstudiomesh_t *pStudioMesh, int maxPreferredBones,
-                                                Vertex_t *pStripGroupVert, bool bQuadSubd);
+                                                Vertex_t *pStripGroupVert, bool bQuadSubd,
+                                                const std::vector<bool> &flexedVerts);
 
         // Count the number of unique bones in a set of vertices
         int CountUniqueBones(int count, Vertex_t *pVertex) const;
@@ -361,7 +362,7 @@ namespace OptimizedModel {
         // Memory optimize the strip data
         void PostProcessStripGroup(mstudiomodel_t *pStudioModel, mstudiomesh_t *pStudioMesh, StripGroup_t *pStripGroup);
 
-        void COptimizedModel::ZeroNumBones();
+        void ZeroNumBones();
 
         //
         // Methods associated with writing VTX files
@@ -390,7 +391,8 @@ namespace OptimizedModel {
 
         void OutputMemoryUsage();
 
-        bool IsVertexFlexed(mstudiomesh_t *pStudioMesh, int vertID) const;
+        // flexedVerts[v] is true when mesh vertex v is moved by any flex of the mesh
+        static void BuildFlexedVertexMap(mstudiomesh_t *pStudioMesh, std::vector<bool> &flexedVerts);
 
         void BuildNeighborInfo(FaceList_t &list, int nMaxVertexId);
 
@@ -408,7 +410,7 @@ namespace OptimizedModel {
 
         void
         WriteHeader(int vertCacheSize, int maxBonesPerVert, int maxBonesPerFace, int maxBonesPerStrip, int numBodyParts,
-                    long checkSum);
+                    int32_t checkSum);
 
         void WriteBodyPart(int bodyPartID, mstudiobodyparts_t *pBodyPart, int modelID);
 
@@ -621,7 +623,7 @@ namespace OptimizedModel {
             if (!faces[i].touched)
                 return &faces[i];
         }
-        return 0;
+        return nullptr;
     }
 
 
@@ -646,7 +648,7 @@ namespace OptimizedModel {
     //-----------------------------------------------------------------------------
 
     Face_t *COptimizedModel::GetNextUntouchedWithoutBoneStateChange(FaceList_t &faces) {
-        Face_t *bestFace = 0;
+        Face_t *bestFace = nullptr;
 
         int vertsPerFace = faces[0].vertID[3] == -1 ? 3 : 4;
         int bestNumNewBones = (MAX_NUM_BONES_PER_VERT * vertsPerFace) + 1;
@@ -679,7 +681,7 @@ namespace OptimizedModel {
     //---------------------------------------------------------------------------------
 
     Face_t *COptimizedModel::GetNextUntouchedWithLeastBoneStateChanges(FaceList_t &faces) {
-        Face_t *bestFace = 0;
+        Face_t *bestFace = nullptr;
 
         int vertsPerFace = faces[0].vertID[3] == -1 ? 3 : 4;
         int bestNumNewBones = (MAX_NUM_BONES_PER_VERT * vertsPerFace) + 1;
@@ -699,7 +701,7 @@ namespace OptimizedModel {
 
         // This only happens if there are no faces untouched
         if (!bestFace)
-            return 0;
+            return nullptr;
 
 #ifdef USE_FLUSH
         m_HardwareMatrixState.DeallocateAll();
@@ -788,7 +790,7 @@ namespace OptimizedModel {
                                    int *pNumIndices, int *pNumTopologyIndices, unsigned short **ppIndices,
                                    unsigned short **ppTopologyIndices, bool bQuadSubd) {
         if (sourceIndices.Count() == 0) {
-            *ppIndices = 0;
+            *ppIndices = nullptr;
             *pNumIndices = 0;
             return;
         }
@@ -797,7 +799,7 @@ namespace OptimizedModel {
         if (pNumTopologyIndices)
             *pNumTopologyIndices = 0;
         if (ppTopologyIndices)
-            *ppTopologyIndices = NULL;
+            *ppTopologyIndices = nullptr;
 
         // Skip the tristripping phase if we're building in preview mode, rendering quads or not hardware skinning
         if (bQuadSubd || g_StudioMdlContext.buildPreview || !bIsHWSkinned || g_StudioMdlContext.preserveTriangleOrder) {
@@ -918,7 +920,7 @@ namespace OptimizedModel {
             // There are no more faces to eat up without causing a flush, so
             // go ahead and stripify what we have and flush.
             // NOTE: This allocates space for stripIndices.pIndices
-            Stripify(facesToStrip, IndexTopologyList_t(), true, &newStrip.numIndices, 0, &newStrip.pIndices, NULL,
+            Stripify(facesToStrip, IndexTopologyList_t(), true, &newStrip.numIndices, nullptr, &newStrip.pIndices, nullptr,
                      numVerts == 4);
 
             // hack - should just build directly into newStrip.verts instead of using a global.
@@ -1073,27 +1075,33 @@ namespace OptimizedModel {
 
 
     //-----------------------------------------------------------------------------
-    // Returns true if a particular vertex is part of a flex
+    // Marks every vertex of the mesh that is part of a flex
     //-----------------------------------------------------------------------------
-    bool COptimizedModel::IsVertexFlexed(mstudiomesh_t *pStudioMesh, int vertID) const {
+    void COptimizedModel::BuildFlexedVertexMap(mstudiomesh_t *pStudioMesh, std::vector<bool> &flexedVerts) {
+        flexedVerts.assign(pStudioMesh->numvertices > 0 ? pStudioMesh->numvertices : 0, false);
+
+        if (pStudioMesh->numflexes <= 0)
+            return;
+
         mstudioflex_t *pflex = pStudioMesh->pFlex(0);
 
-        int i, j, n;
-
-        // Iterate through all the flexes, figure out if the vertex is part of the flex
-        for (i = 0; i < pStudioMesh->numflexes; i++) {
-            byte *pvanim = pflex[i].pBaseVertanim();
+        // Iterate through all the flexes, mark the vertices that are part of any flex
+        for (int i = 0; i < pStudioMesh->numflexes; i++) {
+            uint8_t *pvanim = pflex[i].pBaseVertanim();
             int nVAnimSizeBytes = pflex[i].VertAnimSizeBytes();
 
-            for (j = 0; j < pflex[i].numverts; j++, pvanim += nVAnimSizeBytes) {
+            for (int j = 0; j < pflex[i].numverts; j++, pvanim += nVAnimSizeBytes) {
                 mstudiovertanim_t *pAnim = (mstudiovertanim_t *) (pvanim);
 
-                n = pAnim->index;
-                if (n == vertID)
-                    return true;
+                int n = pAnim->index;
+                if (n < 0)
+                    continue;
+
+                if (n >= (int) flexedVerts.size())
+                    flexedVerts.resize(n + 1, false);
+                flexedVerts[n] = true;
             }
         }
-        return false;
     }
 
     //-----------------------------------------------------------------------------
@@ -1160,7 +1168,8 @@ namespace OptimizedModel {
                                                              mstudiomesh_t *pStudioMesh,
                                                              int maxPreferredBones,
                                                              Vertex_t *pStripGroupVert,
-                                                             bool bQuadSubd) {
+                                                             bool bQuadSubd,
+                                                             const std::vector<bool> &flexedVerts) {
         int vertIDs[4] = {pFace->a, pFace->b, pFace->c, pFace->d};
 
         const mstudio_meshvertexdata_t *vertData = pStudioMesh->GetVertexData();
@@ -1173,7 +1182,8 @@ namespace OptimizedModel {
             int vertex = vertIDs[faceIndex];
 
             // Check the verts of the face to see if they are flexed
-            bFaceIsFlexed = bFaceIsFlexed || IsVertexFlexed(pStudioMesh, vertex);
+            bFaceIsFlexed = bFaceIsFlexed ||
+                            (vertex >= 0 && vertex < (int) flexedVerts.size() && flexedVerts[vertex]);
 
             // How many bones affect this vertex
             mstudioboneweight_t *pBoneWeight = vertData->BoneWeights(vertex);
@@ -1686,6 +1696,11 @@ namespace OptimizedModel {
                                             int maxBonesPerStrip, bool bForceNoFlex, bool bHWFlex, bool bQuadSubd) {
         ComputeStripGroupFlags(pStripGroup, bIsHWSkinned, bIsFlexed);
 
+        // Which vertices are flexed does not depend on the face: compute it once per strip group instead of
+        // rescanning every flex vertex list for every vertex of every face
+        std::vector<bool> flexedVerts;
+        BuildFlexedVertexMap(pStudioMesh, flexedVerts);
+
         // All of the faces before stripping for the current stripgroup
         FaceList_t stripGroupSourceFaces;
         SubD_FaceList_t stripGroupSubDFaces;
@@ -1707,7 +1722,7 @@ namespace OptimizedModel {
             // Start a new strip group header
             Vertex_t stripGroupVert[4];
             bool bFaceIsFlexed = GenerateStripGroupVerticesFromFace(pFace, pStudioMesh, preferredBones, stripGroupVert,
-                                                                    bQuadSubd);
+                                                                    bQuadSubd, flexedVerts);
 
             if (bForceNoFlex) {
                 bFaceIsFlexed = false;
@@ -2301,7 +2316,7 @@ namespace OptimizedModel {
         // in the model.  In pSrc->meshes, there are some empty meshes in the middle if they
         // don't exist for the material, so you have to go through all of the meshes to find
         // the non-empty ones.
-        s_mesh_t *pSrcMesh = NULL;
+        s_mesh_t *pSrcMesh = nullptr;
         for (i = 0; i < pStudioModel->nummeshes; i++) {
             if (pSrc->texmap[pSrc->meshindex[i]] == textureSearchID) {
                 // woo hoo!  found it.
@@ -2564,7 +2579,7 @@ namespace OptimizedModel {
     //-----------------------------------------------------------------------------
 
     void COptimizedModel::WriteHeader(int vertCacheSize, int maxBonesPerVert,
-                                      int maxBonesPerFace, int maxBonesPerStrip, int numBodyParts, long checkSum) {
+                                      int maxBonesPerFace, int maxBonesPerStrip, int numBodyParts, int32_t checkSum) {
         FileHeader_t fileHeader{0};
 
         fileHeader.version = OPTIMIZED_MODEL_FILE_VERSION;
@@ -3505,8 +3520,6 @@ namespace OptimizedModel {
                     char tmp[256];
                     sprintf(tmp, "%s.lod%d", pFileName, lodID);
                     printf("writing %s\n", tmp);
-//                    CPlainAutoPtr<CP4File> spFile(g_p4factory->AccessFile(tmp));
-//                    spFile->Edit();
                     FILE *fp = fopen(tmp, "w");
                     if (!fp) {
                         printf("can't write glview file %s\n", tmp);
@@ -3624,7 +3637,6 @@ namespace OptimizedModel {
                         }
                     }
                     fclose(fp);
-//                    spFile->Add();
                 }
             }
         }

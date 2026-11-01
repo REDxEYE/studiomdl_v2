@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // A class representing a transform
 //
 //=============================================================================
 
-#ifndef DMETRANSFORM_H
-#define DMETRANSFORM_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -51,4 +50,3 @@ private:
 };
 
 
-#endif // DMETRANSFORM_H

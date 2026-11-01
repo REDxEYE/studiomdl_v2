@@ -1,11 +1,10 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright Â© 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: Generic MD5 hashing algo
 //
 //=============================================================================//
 
-#ifndef CHECKSUM_MD5_H
-#define CHECKSUM_MD5_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -59,4 +58,3 @@ inline bool MD5Value_t::operator!=( const MD5Value_t &src ) const
 	return !MD5_Compare( *this, src );
 }
 
-#endif // CHECKSUM_MD5_H

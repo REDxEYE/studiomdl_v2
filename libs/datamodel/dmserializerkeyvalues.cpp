@@ -16,8 +16,7 @@
 #include <limits.h>
 #include "DmElementFramework.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 //-----------------------------------------------------------------------------
@@ -244,7 +243,7 @@ DmAttributeType_t CDmSerializerKeyValues::DetermineAttributeType( KeyValues *pKe
 			if ( sscanf( pKeyValues->GetString(), "%f %f", &f1, &f2 ) == 2 )
 				return AT_VECTOR2;
 
-			int i = pKeyValues->GetInt( NULL, INT_MAX );
+			int i = pKeyValues->GetInt(nullptr, std::numeric_limits<int>::max() );
 			if ( ( sscanf( pKeyValues->GetString(), "%d", &i ) == 1 ) && 
 				 ( !strchr( pKeyValues->GetString(), '.' ) ) )
 				return AT_INT;
@@ -348,7 +347,7 @@ DmElementHandle_t CDmSerializerKeyValues::UnserializeElement( KeyValues *pKeyVal
 
 	CDmElement *pElement = g_pDataModel->GetElement( handle );
 	CDmrElementArray<> subKeys;
-	for ( KeyValues *pSub = pKeyValues->GetFirstSubKey(); pSub != NULL ; pSub = pSub->GetNextKey() )
+	for ( KeyValues *pSub = pKeyValues->GetFirstSubKey(); pSub != nullptr; pSub = pSub->GetNextKey() )
 	{
 		// Read in a subkey
 		if ( pSub->GetDataType() == KeyValues::TYPE_NONE )
@@ -387,7 +386,7 @@ CDmElement* CDmSerializerKeyValues::UnserializeFromKeyValues( KeyValues *pKeyVal
 
 	int iNestingLevel = 0;
 
-	for ( KeyValues *pElementKey = pKeyValues; pElementKey != NULL; pElementKey = pElementKey->GetNextKey() )
+	for ( KeyValues *pElementKey = pKeyValues; pElementKey != nullptr; pElementKey = pElementKey->GetNextKey() )
 	{
 		DmElementHandle_t hChild = UnserializeElement( pElementKey, iNestingLevel );
 		if ( hChild != DMELEMENT_HANDLE_INVALID )
@@ -420,7 +419,7 @@ bool CDmSerializerKeyValues::Unserialize( CUtlBuffer &buf, const char *pEncoding
 {
 	Assert( !V_stricmp( pEncodingName, "keyvalues" ) );
 
-	*ppRoot = NULL;
+	*ppRoot = nullptr;
 
 	KeyValues *kv = new KeyValues( "keyvalues file" );
 	if ( !kv )

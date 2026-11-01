@@ -6,8 +6,7 @@
 //
 //=============================================================================//
 
-#ifndef VECTOR2D_H
-#define VECTOR2D_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -22,8 +21,9 @@
 // For RandomFloat()
 #include "vstdlib/random.h"
 
-#include "tier0/dbg.h"
+
 #include "mathlib/math_pfns.h"
+#include "tier0/dbg.h"
 
 #ifndef M_PI
 	#define M_PI		3.14159265358979323846	// matches value in gcc v2 math.h
@@ -251,13 +251,11 @@ inline void Vector2D::Init( vec_t ix, vec_t iy )
 	Assert( IsValid() );
 }
 
-#if !defined(__SPU__)
 inline void Vector2D::Random( float minVal, float maxVal )
 {
 	x = RandomFloat( minVal , maxVal );
 	y = RandomFloat( minVal , maxVal );
 }
-#endif
 
 inline void Vector2DClear( Vector2D& a )
 {
@@ -691,5 +689,4 @@ inline Vector2D operator*(float fl, const Vector2D& v)
 
 #endif //slow
 
-#endif // VECTOR2D_H
 

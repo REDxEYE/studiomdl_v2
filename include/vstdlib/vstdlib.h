@@ -6,8 +6,7 @@
 //
 //=============================================================================//
 	   
-#ifndef VSTDLIB_H
-#define VSTDLIB_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -30,4 +29,3 @@
 #define VSTDLIB_GLOBAL		DLL_GLOBAL_IMPORT
 #endif
  
-#endif // VSTDLIB_H

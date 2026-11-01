@@ -5,8 +5,7 @@
 // $NoKeywords: $
 //
 //=============================================================================//
-#ifndef CHOLESKY_HDR
-#define CHOLESKY_HDR
+#pragma once
 
 #include "mathlib/vector.h"
 #include "mathlib/mathlib.h"
@@ -67,4 +66,3 @@ inline Vector CholeskySolve( const matrix3x4_t &m )
 }
 
 
-#endif

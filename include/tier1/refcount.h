@@ -5,8 +5,7 @@
 //
 //=============================================================================
 
-#ifndef REFCOUNT_H
-#define REFCOUNT_H
+#pragma once
 
 
 
@@ -89,7 +88,7 @@ template <class T>
 class CBaseAutoPtr
 {
 public:
-	CBaseAutoPtr()                                         	: m_pObject(0) {}
+	CBaseAutoPtr()                                         	: m_pObject(nullptr) {}
 	CBaseAutoPtr(T *pFrom)                        			: m_pObject(pFrom) {}
 
 	operator const void *() const          					{ return m_pObject; }
@@ -103,7 +102,7 @@ public:
 	T *			operator=( T *p )							{ m_pObject = p; return p; }
 
     bool        operator !() const							{ return ( !m_pObject ); }
-    bool        operator!=( int i ) const					{ AssertMsg( i == 0, "Only NULL allowed on integer compare" ); return (m_pObject != NULL); }
+    bool        operator!=( int i ) const					{ AssertMsg( i == 0, "Only NULL allowed on integer compare" ); return (m_pObject != nullptr); }
 	bool		operator==( const void *p ) const			{ return ( m_pObject == p ); }
 	bool		operator!=( const void *p ) const			{ return ( m_pObject != p ); }
 	bool		operator==( T *p ) const					{ return operator==( (void *)p ); }
@@ -168,7 +167,7 @@ public:
 //			code bloat.
 //-----------------------------------------------------------------------------
 
-template <const bool bSelfDelete, typename CRefThreading = CRefMT>
+template <const bool bSelfDelete, typename CRefThreading = CRefST>
 class NO_VTABLE CRefCountServiceBase
 {
 protected:
@@ -217,7 +216,7 @@ protected:
 	static int DoRelease() { return 1; }
 };
 
-template <typename CRefThreading = CRefMT>
+template <typename CRefThreading = CRefST>
 class NO_VTABLE CRefCountServiceDestruct
 {
 protected:
@@ -376,4 +375,3 @@ public:
 
 //-----------------------------------------------------------------------------
 
-#endif // REFCOUNT_H

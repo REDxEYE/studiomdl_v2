@@ -1,17 +1,16 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright Â© 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: Generic CRC functions
 //
 // $NoKeywords: $
 //=============================================================================//
-#ifndef CHECKSUM_CRC_H
-#define CHECKSUM_CRC_H
+#pragma once
 #include <tier0/platform.h>
 #ifdef _WIN32
 #pragma once
 #endif
 
-typedef uint32 CRC32_t;
+typedef uint32_t CRC32_t;
 
 void CRC32_Init( CRC32_t *pulCRC );
 void CRC32_ProcessBuffer( CRC32_t *pulCRC, const void *p, int len );
@@ -29,18 +28,18 @@ inline CRC32_t CRC32_ProcessSingleBuffer( const void *p, int len )
 	return crc;
 }
 
-inline unsigned long CRC32_ConvertToUnsignedLong( CRC32_t *pulCRC  )
+inline uint32_t CRC32_ConvertToUnsignedLong( CRC32_t *pulCRC  )
 {
-	return (unsigned long)(*pulCRC);
+	return (uint32_t)(*pulCRC);
 }
 
 
-inline CRC32_t CRC32_ConvertFromUnsignedLong( unsigned long ulCRC  )
+inline CRC32_t CRC32_ConvertFromUnsignedLong( uint32_t ulCRC  )
 {
 	return (CRC32_t)(ulCRC);
 }
 
-typedef uint64 CRC64_t;
+typedef uint64_t CRC64_t;
 void CRC64_Init( CRC64_t *pCRC );
 void CRC64_ProcessBuffer( CRC64_t *pCRC, const void *p, int len );
 void CRC64_Final( CRC64_t *pCRC );
@@ -56,4 +55,3 @@ inline CRC64_t CRC64_ProcessSingleBuffer( const void *p, int len )
 	return crc;
 }
 
-#endif // CHECKSUM_CRC_H

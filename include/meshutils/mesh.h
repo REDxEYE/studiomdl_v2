@@ -4,8 +4,7 @@
 //
 //===========================================================================//
 
-#ifndef MESH_H
-#define MESH_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -84,14 +83,14 @@ public:
 	// -----------------------------------------------------------------------------------------
 	// Allocate vertex and index space for a mesh, this memory will automatically be freed in the destructor
 	void AllocateMesh( int nVertexCount, int nIndexCount, int nVertexStride, CMeshVertexAttribute *pAttributes, int nAtrributeCount );
-	void AllocateAndCopyMesh( int nInputVertexCount, const float *pInputVerts, int nInputIndexCount, const uint32 *pInputIndices, int nVertexStride, CMeshVertexAttribute *pAttributes, int nAtrributeCount );
+	void AllocateAndCopyMesh( int nInputVertexCount, const float *pInputVerts, int nInputIndexCount, const uint32_t *pInputIndices, int nVertexStride, CMeshVertexAttribute *pAttributes, int nAtrributeCount );
 	void FreeAllMemory();
 
 	// -----------------------------------------------------------------------------------------
 	// If you don't supply the attribute definition it assumes the vertices are just a position vector
 	// NOTE: VertexStrideFloats is 3 for a normal vector of 3 floats
 	// External meshes are allocated by external code and not freed in the destructor
-	void InitExternalMesh( float *pVerts, int nVertexCount, uint32 *pIndices, int nIndexCount, int nVertexStrideFloats = 3, CMeshVertexAttribute *pAttributes = NULL, int nAtrributeCount = 0 );
+	void InitExternalMesh( float *pVerts, int nVertexCount, uint32_t *pIndices, int nIndexCount, int nVertexStrideFloats = 3, CMeshVertexAttribute *pAttributes = nullptr, int nAtrributeCount = 0 );
 
 	inline int IndexCount() const
 	{
@@ -157,7 +156,7 @@ public:
 		int m_nElementCount;
 		int m_nAttrCount;
 	public:
-		CAttrArray( float *pBase = NULL, int nStride = 0, int nVertexCount = 0, int nAttrCount = 0 )
+		CAttrArray( float *pBase = nullptr, int nStride = 0, int nVertexCount = 0, int nAttrCount = 0 )
 			: m_pBase( pBase )
 			, m_nStride( nStride )
 			, m_nElementCount( nVertexCount )
@@ -194,7 +193,7 @@ public:
 		}
 	public:
 		// converting to bool to use this in if() to check for NULL
-		operator bool() const { return m_pBase != NULL; }
+		operator bool() const { return m_pBase != nullptr; }
 		CSingleVertexFieldAccessor< T > operator []( int nVertex ) { AssertDbg( nVertex < m_nElementCount ); return CSingleVertexFieldAccessor< T >( ( T* )( m_pBase + m_nStride * nVertex ), m_nAttrCount ); }
 		CSingleVertexFieldAccessor< const T > operator []( int nVertex ) const { AssertDbg( nVertex < m_nElementCount ); return CSingleVertexFieldAccessor< const T >( ( const T* )( m_pBase + m_nStride * nVertex ), m_nAttrCount ); }
 
@@ -217,7 +216,7 @@ public:
 
 	inline size_t GetVertexSizeInBytes() const { return m_nVertexStrideFloats * sizeof(float); }
 	inline size_t GetTotalVertexSizeInBytes() const { return GetVertexSizeInBytes() * m_nVertexCount; }
-	inline size_t GetTotalIndexSizeInBytes() const { return sizeof(uint32) * m_nIndexCount; }
+	inline size_t GetTotalIndexSizeInBytes() const { return sizeof(uint32_t) * m_nIndexCount; }
 
 	Vector4D PlaneFromTriangle( int nTriangle ) const;
 	bool CalculateBounds( Vector *pMinOut, Vector *pMaxOut, int nStartVertex = 0, int nVertexCount = 0 ) const;
@@ -228,7 +227,7 @@ public:
 
 	float					*m_pVerts;
 	CMeshVertexAttribute	*m_pAttributes;
-	uint32					*m_pIndices;
+	uint32_t					*m_pIndices;
 	int						m_nVertexCount;
 	int						m_nVertexStrideFloats;	// Stride is in # of floats
 	int						m_nAttributeCount;
@@ -267,12 +266,11 @@ void LerpVertex( float *pOutput, const float *pLeft, const float *pRight, float 
 
 
 // simple hashing function for edges
-inline uint32 VertHashKey( int nV0, int nV1 )
+inline uint32_t VertHashKey( int nV0, int nV1 )
 {
-	uint32 nHash = ((uint32(nV0) >> 16) | (uint32(nV0)<<16)) ^ uint32(nV1);
-	nHash = ieqsel( nHash, uint32(~0), uint32( 0 ), nHash ); // don't ever return ~0
+	uint32_t nHash = ((uint32_t(nV0) >> 16) | (uint32_t(nV0)<<16)) ^ uint32_t(nV1);
+	nHash = ieqsel( nHash, uint32_t(~0), uint32_t( 0 ), nHash ); // don't ever return ~0
 	return nHash;
 }
 
 	
-#endif // MESH_H

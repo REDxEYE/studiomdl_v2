@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
 //=============================================================================
 
-#ifndef IMPORTKEYVALUEBASE_H
-#define IMPORTKEYVALUEBASE_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -50,16 +49,16 @@ protected:
 	void RecursivelyResolveElement( CDmElement* pElement );
 
 	// Used to add typed attributes from keyvalues
-	bool AddBoolAttribute( CDmElement* pElement, KeyValues *pKeyValue, const char *pKeyName, bool *pDefault = NULL );
-	bool AddIntAttribute( CDmElement* pElement, KeyValues *pKeyValue, const char *pKeyName, int *pDefault = NULL );
-	bool AddFloatAttribute( CDmElement* pElement, KeyValues *pKeyValue, const char *pKeyName, float *pDefault = NULL );
-	bool AddStringAttribute( CDmElement* pElement, KeyValues *pKeyValue, const char *pKeyName, const char *pDefault = NULL );
+	bool AddBoolAttribute( CDmElement* pElement, KeyValues *pKeyValue, const char *pKeyName, bool *pDefault = nullptr);
+	bool AddIntAttribute( CDmElement* pElement, KeyValues *pKeyValue, const char *pKeyName, int *pDefault = nullptr);
+	bool AddFloatAttribute( CDmElement* pElement, KeyValues *pKeyValue, const char *pKeyName, float *pDefault = nullptr);
+	bool AddStringAttribute( CDmElement* pElement, KeyValues *pKeyValue, const char *pKeyName, const char *pDefault = nullptr);
 
 	// Used to add typed attributes from keyvalues
-	bool AddBoolAttributeFlags( CDmElement* pElement, KeyValues *pKeyValue, const char *pKeyName, int nFlags, bool *pDefault = NULL );
-	bool AddIntAttributeFlags( CDmElement* pElement, KeyValues *pKeyValue, const char *pKeyName, int nFlags, int *pDefault = NULL );
-	bool AddFloatAttributeFlags( CDmElement* pElement, KeyValues *pKeyValue, const char *pKeyName, int nFlags, float *pDefault = NULL );
-	bool AddStringAttributeFlags( CDmElement* pElement, KeyValues *pKeyValue, const char *pKeyName, int nFlags, const char *pDefault = NULL );
+	bool AddBoolAttributeFlags( CDmElement* pElement, KeyValues *pKeyValue, const char *pKeyName, int nFlags, bool *pDefault = nullptr);
+	bool AddIntAttributeFlags( CDmElement* pElement, KeyValues *pKeyValue, const char *pKeyName, int nFlags, int *pDefault = nullptr);
+	bool AddFloatAttributeFlags( CDmElement* pElement, KeyValues *pKeyValue, const char *pKeyName, int nFlags, float *pDefault = nullptr);
+	bool AddStringAttributeFlags( CDmElement* pElement, KeyValues *pKeyValue, const char *pKeyName, int nFlags, const char *pDefault = nullptr);
 
 	// Used to output typed attributes to keyvalues
 	void PrintBoolAttribute( CDmElement* pElement, CUtlBuffer &outBuf, const char *pKeyName );
@@ -81,4 +80,3 @@ inline const char *CImportKeyValueBase::FileName() const
 }
 
 
-#endif // IMPORTKEYVALUEBASE_H

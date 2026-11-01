@@ -4,17 +4,16 @@
 //
 // $NoKeywords: $
 //=============================================================================//
-#ifndef DATA_LINKER_INTERFACE_H
-#define DATA_LINKER_INTERFACE_H
+#pragma once
 
 
 #include "tier0/platform.h"
 #include "tier0/basetypes.h"
-#include "tier0/dbg.h"
 
 
 
-template <uint nAlignment = 1, uint nCookie = 0>
+
+template <uint32_t nAlignment = 1, uint32_t nCookie = 0>
 struct DataLinkerClassProperties
 {
 	enum {kDataAlignment = nAlignment};
@@ -34,12 +33,12 @@ struct DataLinkerClassPropertiesSelector: public DataLinkerClassProperties<sizeo
 #define DATALINKER_CLASS_ALIGNMENT(CLASS, ALIGNMENT) template <> struct DataLinkerClassPropertiesSelector<CLASS> {enum {kDataAlignment = ALIGNMENT};}
 
 DATALINKER_CLASS_ALIGNMENT(float,4);
-DATALINKER_CLASS_ALIGNMENT(int32,4);
-DATALINKER_CLASS_ALIGNMENT(int16,2);
-DATALINKER_CLASS_ALIGNMENT(int8,1);
-DATALINKER_CLASS_ALIGNMENT(uint32,4);
-DATALINKER_CLASS_ALIGNMENT(uint16,2);
-DATALINKER_CLASS_ALIGNMENT(uint8,1);
+DATALINKER_CLASS_ALIGNMENT(int32_t,4);
+DATALINKER_CLASS_ALIGNMENT(int16_t,2);
+DATALINKER_CLASS_ALIGNMENT(int8_t,1);
+DATALINKER_CLASS_ALIGNMENT(uint32_t,4);
+DATALINKER_CLASS_ALIGNMENT(uint16_t,2);
+DATALINKER_CLASS_ALIGNMENT(uint8_t,1);
 
 // undefine DATALINKER_CHECK_COOKIES if you don't want runtime cookie checks
 #define DATALINKER_CHECK_COOKIES
@@ -48,17 +47,17 @@ namespace DataLinker
 {
 
 
-inline byte *ResolveOffset(int32 *pOffset)
+inline uint8_t *ResolveOffset(int32_t *pOffset)
 {
 	int offset = *pOffset;
-	return offset ? ((byte*)pOffset) + offset : NULL;
+	return offset ? ((uint8_t*)pOffset) + offset : NULL;
 }
 
-inline byte *ResolveOffsetFast(const int32 *pOffset)
+inline uint8_t *ResolveOffsetFast(const int32_t *pOffset)
 {
 	int offset = *pOffset;
 	Assert(offset != 0);
-	return ((byte*)pOffset) + offset;
+	return ((uint8_t*)pOffset) + offset;
 }
 
 
@@ -66,19 +65,19 @@ inline byte *ResolveOffsetFast(const int32 *pOffset)
 
 // AT RUN-TIME ONLY the offset converts automatically into pointers to the appropritate type 
 // at tool-time, you should use LinkSource_t and LinkTarget_t
-template <typename T, int32 nCookie = 0>
+template <typename T, int32_t nCookie = 0>
 struct Offset_t
 {
 	enum {kDataAlignment = 4};
 
-	int32 offset;
+	int32_t offset;
 	bool operator == (int zero)const {Assert(zero == 0); return offset == zero;}
 	bool IsNull()const {return offset == 0;}
-	int32 NotNull()const {return offset;}
+	int32_t NotNull()const {return offset;}
 	const T* GetPtr()const
 	{
 		// validate
-		byte *ptr = ResolveOffsetFast(&offset);
+		uint8_t *ptr = ResolveOffsetFast(&offset);
 #ifdef DATALINKER_CHECK_COOKIES
 		if(nCookie)
 		{
@@ -95,10 +94,10 @@ struct Offset_t
 	const T* operator ->() const{return GetPtr();}
 };
 
-template <typename T,int32 nCookie = 0>
+template <typename T,int32_t nCookie = 0>
 struct OffsetAndSize_t: public Offset_t<T,nCookie>
 {
-	int32 size;
+	int32_t size;
 
 	const T& operator []( int index ) const
 	{
@@ -107,10 +106,10 @@ struct OffsetAndSize_t: public Offset_t<T,nCookie>
 	}
 };
 
-template <typename T,int32 nCookie = 0>
+template <typename T,int32_t nCookie = 0>
 struct OffsetSizeAndStride_t : public OffsetAndSize_t<T,nCookie>
 {
-	int32 stride;
+	int32_t stride;
 	const T& operator []( int index ) const
 	{
 		Assert(index < this->size);
@@ -175,27 +174,27 @@ enum OffsetTypeEnum
 abstract_class IBasicStream
 {
 public:
-	virtual void* WriteBytes(uint numBytes) = 0;
+	virtual void* WriteBytes(uint32_t numBytes) = 0;
 
-	virtual void Align(uint nAlignment, int nOffset = 0) = 0;
+	virtual void Align(uint32_t nAlignment, int nOffset = 0) = 0;
 	inline void AlignPointer(){Align(4);}
-	virtual long Tell() = 0;
+	virtual int64_t Tell() = 0;
 
 	// the Begin/End semantics differ in different implementations
 	// in some, it can be ignored, some others can use it for statistics and some others may set fixed page boundaries based on the names and/or flags 
-	virtual void Begin(const char *nName, uint flags = 0) = 0;
+	virtual void Begin(const char *nName, uint32_t flags = 0) = 0;
 	virtual void End() = 0;
 	virtual void PrintStats() = 0;
 	virtual void ClearStats() = 0;
 
 	template <typename T>
-	T* Write(uint count = 1);
+	T* Write(uint32_t count = 1);
 
-	template <typename T, int32 nCookie>
-	T* WriteWithCookie(uint count = 1);
+	template <typename T, int32_t nCookie>
+	T* WriteWithCookie(uint32_t count = 1);
 
-	template <typename T, int32 nCookie>
-	T* WriteWithCookieStrided(uint count, uint stride);
+	template <typename T, int32_t nCookie>
+	T* WriteWithCookieStrided(uint32_t count, uint32_t stride);
 
 	template <typename T>
 	void WriteSimple(const T x)
@@ -203,21 +202,21 @@ public:
 		*Write<T>() = x;
 	}
 
-	virtual void EnsureAvailable(uint addCapacity) = 0;
+	virtual void EnsureAvailable(uint32_t addCapacity) = 0;
 
 	inline void WriteFloat(float x)
 	{
 		WriteSimple(x);
 	}
-	inline void WriteU32(uint32 x)
+	inline void WriteU32(uint32_t x)
 	{
 		WriteSimple(x);
 	}
-	inline void WriteU16(uint16 x) 
+	inline void WriteU16(uint16_t x) 
 	{
 		WriteSimple(x);
 	}
-	inline void WriteByte(byte x)
+	inline void WriteByte(uint8_t x)
 	{
 		WriteSimple(x);
 	}
@@ -236,17 +235,17 @@ public:
 abstract_class IStream: public IBasicStream
 {
 public:
-	template <typename T,int32 nCookie>	T* WriteAndLink(Offset_t<T,nCookie>*pOffset, uint count = 1);
-	template <typename T,int32 nCookie>	T* WriteAndLink(OffsetAndSize_t<T,nCookie>*pOffset, uint count = 1); // intentionally not implemented - use explicit WriteAndLinkArray()
-	template <typename T,int32 nCookie>	T* WriteAndLinkArray(OffsetAndSize_t<T,nCookie>*pOffsetAndSize, uint count = 1);
-	template <typename T,int32 nCookie>	T* WriteAndLinkStrided(OffsetSizeAndStride_t<T,nCookie>*pOffset, uint nStride, uint count = 1);
-	template <typename T,int32 nCookie>	void Link(Offset_t<T,nCookie>*pOffset, const T* pTarget);
+	template <typename T,int32_t nCookie>	T* WriteAndLink(Offset_t<T,nCookie>*pOffset, uint32_t count = 1);
+	template <typename T,int32_t nCookie>	T* WriteAndLink(OffsetAndSize_t<T,nCookie>*pOffset, uint32_t count = 1); // intentionally not implemented - use explicit WriteAndLinkArray()
+	template <typename T,int32_t nCookie>	T* WriteAndLinkArray(OffsetAndSize_t<T,nCookie>*pOffsetAndSize, uint32_t count = 1);
+	template <typename T,int32_t nCookie>	T* WriteAndLinkStrided(OffsetSizeAndStride_t<T,nCookie>*pOffset, uint32_t nStride, uint32_t count = 1);
+	template <typename T,int32_t nCookie>	void Link(Offset_t<T,nCookie>*pOffset, const T* pTarget);
 
-	virtual void Link(int32 *pOffset, const void *pTarget) = 0;
-	virtual void Link(int16 *pOffset, const void *pTarget) = 0;
+	virtual void Link(int32_t *pOffset, const void *pTarget) = 0;
+	virtual void Link(int16_t *pOffset, const void *pTarget) = 0;
 
 	virtual bool Compile(void *pBuffer) = 0;
-	virtual uint GetTotalSize()const = 0;
+	virtual uint32_t GetTotalSize()const = 0;
 };
 
 
@@ -266,8 +265,8 @@ public:
 	virtual LinkSource_t WriteNullOffset(const char *szDescription) = 0;
 
 	virtual void Link(LinkSource_t, LinkTarget_t, const char *szDescription) = 0;
-	virtual LinkSource_t LinkToHere(int32 *pOffset, const char *szDescription) = 0;
-	virtual LinkSource_t Link(int32 *pOffset, LinkTarget_t linkTarget, const char *szDescription) = 0;
+	virtual LinkSource_t LinkToHere(int32_t *pOffset, const char *szDescription) = 0;
+	virtual LinkSource_t Link(int32_t *pOffset, LinkTarget_t linkTarget, const char *szDescription) = 0;
 
 	virtual LinkTarget_t NewTarget() = 0; // create new, unresolved target
 	virtual LinkTarget_t NewTarget(void *pWhere) = 0;
@@ -285,33 +284,33 @@ public:
 
 
 template <typename T>
-inline T* IBasicStream::Write(uint count)
+inline T* IBasicStream::Write(uint32_t count)
 {
 	// TODO: insert reflection code here
-	uint nAlignment = DataLinkerClassPropertiesSelector<T>::kDataAlignment;
+	uint32_t nAlignment = DataLinkerClassPropertiesSelector<T>::kDataAlignment;
 	Align(nAlignment);
 	return (T*)WriteBytes(count * sizeof(T));
 }
 
 
 
-template <typename T, int32 nCookie>
-inline T* IBasicStream::WriteWithCookie(uint count)
+template <typename T, int32_t nCookie>
+inline T* IBasicStream::WriteWithCookie(uint32_t count)
 {
 	// TODO: insert reflection code here
-	uint nAlignment = DataLinkerClassPropertiesSelector<T>::kDataAlignment;
+	uint32_t nAlignment = DataLinkerClassPropertiesSelector<T>::kDataAlignment;
 
 	if(nCookie)
 	{
-		if(nAlignment > sizeof(int32))
+		if(nAlignment > sizeof(int32_t))
 		{
 			Align(nAlignment, -4);
 		}
 		else
 		{
-			Align(sizeof(int32));// we want the cookie itself aligned properly
+			Align(sizeof(int32_t));// we want the cookie itself aligned properly
 		}
-		WriteSimple<int32>(nCookie);
+		WriteSimple<int32_t>(nCookie);
 		Assert((Tell()&(nAlignment-1)) == 0); // must be correctly aligned by now
 	}
 	else
@@ -325,23 +324,23 @@ inline T* IBasicStream::WriteWithCookie(uint count)
 }
 
 
-template <typename T, int32 nCookie>
-inline T* IBasicStream::WriteWithCookieStrided(uint count, uint stride)
+template <typename T, int32_t nCookie>
+inline T* IBasicStream::WriteWithCookieStrided(uint32_t count, uint32_t stride)
 {
 	// TODO: insert reflection code here
-	uint nAlignment = DataLinkerClassPropertiesSelector<T>::kDataAlignment;
+	uint32_t nAlignment = DataLinkerClassPropertiesSelector<T>::kDataAlignment;
 
 	if(nCookie)
 	{
-		if(nAlignment > sizeof(int32))
+		if(nAlignment > sizeof(int32_t))
 		{
 			Align(nAlignment, -4);
 		}
 		else
 		{
-			Align(sizeof(int32));// we want the cookie itself aligned properly
+			Align(sizeof(int32_t));// we want the cookie itself aligned properly
 		}
-		WriteSimple<int32>(nCookie);
+		WriteSimple<int32_t>(nCookie);
 		Assert((Tell()&(nAlignment-1)) == 0); // must be correctly aligned by now
 	}
 	else
@@ -358,23 +357,23 @@ inline T* IBasicStream::WriteWithCookieStrided(uint count, uint stride)
 }
 
 
-template <typename T,int32 nCookie>
+template <typename T,int32_t nCookie>
 inline void IStream::Link(Offset_t<T,nCookie>*pOffset, const T* pTarget)
 {
 	Link(&pOffset->offset, pTarget);
 }
 
 
-template <typename T, int32 nCookie>
-inline T* IStream::WriteAndLink(Offset_t<T,nCookie>*pOffset, uint count)
+template <typename T, int32_t nCookie>
+inline T* IStream::WriteAndLink(Offset_t<T,nCookie>*pOffset, uint32_t count)
 {
 	T* p = WriteWithCookie<T,nCookie>(count);
 	Link(&pOffset->offset, p);
 	return p;
 }
 
-template <typename T, int32 nCookie>
-inline T* IStream::WriteAndLinkArray(OffsetAndSize_t<T,nCookie>*pOffsetAndSize, uint count)
+template <typename T, int32_t nCookie>
+inline T* IStream::WriteAndLinkArray(OffsetAndSize_t<T,nCookie>*pOffsetAndSize, uint32_t count)
 {
 	pOffsetAndSize->size = count;
 	if(count)
@@ -390,8 +389,8 @@ inline T* IStream::WriteAndLinkArray(OffsetAndSize_t<T,nCookie>*pOffsetAndSize, 
 	}
 }
 
-template <typename T, int32 nCookie>
-inline T* IStream::WriteAndLinkStrided(OffsetSizeAndStride_t<T,nCookie>*pOffset, uint stride, uint count)
+template <typename T, int32_t nCookie>
+inline T* IStream::WriteAndLinkStrided(OffsetSizeAndStride_t<T,nCookie>*pOffset, uint32_t stride, uint32_t count)
 {
 	pOffset->size = count;
 	pOffset->stride = stride;
@@ -422,4 +421,3 @@ struct DataLinkerBasicStreamRange_t
 
 #define DATALINKER_RANGE(STREAM,NAME) DataLinkerBasicStreamRange_t dataLinker_basicStreamRange##__LINE((STREAM),(NAME))
 
-#endif

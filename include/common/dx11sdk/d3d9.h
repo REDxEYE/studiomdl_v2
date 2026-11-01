@@ -7,8 +7,7 @@
  *
  ****************************************************************************/
 
-#ifndef _D3D9_H_
-#define _D3D9_H_
+#pragma once
 
 #ifndef DIRECT3D_VERSION
 #define DIRECT3D_VERSION         0x0900
@@ -2578,5 +2577,4 @@ typedef struct IDirect3DSwapChain9Ex *LPDIRECT3DSWAPCHAIN9EX, *PDIRECT3DSWAPCHAI
 #endif
 
 #endif /* (DIRECT3D_VERSION >= 0x0900) */
-#endif /* _D3D_H_ */
 

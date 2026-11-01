@@ -4,14 +4,13 @@
 //
 //=============================================================================//
 
-#ifndef RANGECHECKEDVAR_H
-#define RANGECHECKEDVAR_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
 
 
-#include "tier0/dbg.h"
+
 
 #include "mathlib/vector.h"
 #include <float.h>
@@ -110,4 +109,3 @@ private:
 	T m_Val;
 };
 
-#endif // RANGECHECKEDVAR_H

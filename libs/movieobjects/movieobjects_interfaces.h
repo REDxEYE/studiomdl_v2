@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
 //=============================================================================
 
-#ifndef MOVIEOBJECTS_INTERFACE_H
-#define MOVIEOBJECTS_INTERFACE_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -15,10 +14,6 @@
 //-----------------------------------------------------------------------------
 // typedefs that should be in platform.h
 //-----------------------------------------------------------------------------
-typedef unsigned char  uchar;
-typedef unsigned short ushort;
-typedef unsigned int   uint;
-typedef unsigned long  ulong;
 
 
 //-----------------------------------------------------------------------------
@@ -33,4 +28,3 @@ class IGlobalFlexController;
 extern IGlobalFlexController *g_pGlobalFlexController;
 
 
-#endif // MOVIEOBJECTS_INTERFACE_H

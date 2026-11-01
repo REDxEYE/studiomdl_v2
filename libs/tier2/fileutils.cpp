@@ -12,7 +12,7 @@
 #include "tier1/utlbuffer.h"
 
 // NOTE: This has to be the last file included!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 //-----------------------------------------------------------------------------
 // Builds a directory which is a subdirectory of the current mod
@@ -45,7 +45,7 @@ void GetModSubdirectory( const char *pSubDir, char *pBuf, int nBufLen )
 //-----------------------------------------------------------------------------
 void GetModContentSubdirectory( const char *pSubDir, char *pBuf, int nBufLen )
 {
-	char pTemp[ MAX_PATH ];
+	char pTemp[ MAX_PATH ]{};
 	GetModSubdirectory( pSubDir, pTemp, sizeof(pTemp) );
 	ComputeModContentFilename( pTemp, pBuf, nBufLen );
 }
@@ -160,7 +160,7 @@ int UpdateOrCreate( const char *pSourceName, char *pTargetName, int targetLen, c
 	if ( pTargetName )
 	{
 		// caller could supply source as PC or 360 name, we want the PC filename
-		char szFixedSourceName[MAX_PATH];
+		char szFixedSourceName[MAX_PATH]{0};
 		pSourceName = RestoreFilename( pSourceName, szFixedSourceName, sizeof( szFixedSourceName ) );
 		// caller wants us to provide 360 named version of source
 		CreatePlatformFilename( pSourceName, pTargetName, targetLen );
@@ -177,12 +177,12 @@ int UpdateOrCreate( const char *pSourceName, char *pTargetName, int targetLen, c
 //-----------------------------------------------------------------------------
 void GetSearchPath( CUtlVector< CUtlString > &path, const char *pPathID )
 {
-	int nMaxLen = g_pFullFileSystem->GetSearchPath( pPathID, false, NULL, 0 );
+	int nMaxLen = g_pFullFileSystem->GetSearchPath( pPathID, false, nullptr, 0 );
 	char *pBuf = (char*)stackalloc( nMaxLen );
 	g_pFullFileSystem->GetSearchPath( pPathID, false, pBuf, nMaxLen );
 
 	char *pSemi;
-	while ( NULL != ( pSemi = strchr( pBuf, ';' ) ) )
+	while (nullptr != ( pSemi = strchr( pBuf, ';' ) ) )
 	{
 		*pSemi = 0;
 		path.AddToTail( pBuf );
@@ -220,7 +220,7 @@ bool GenerateFullPath( const char *pFileName, char const *pPathID, char *pBuf, i
 //-----------------------------------------------------------------------------
 void RecursiveFindFilesMatchingName( CUtlVector< CUtlString > *outFileList, const char* szStartDirectory, const char* szTargetFileName, const char *pathID )
 {
-	char searchString[MAX_PATH];
+	char searchString[MAX_PATH]{0};
 	Q_snprintf( searchString, sizeof( searchString ), "%s/*.*", szStartDirectory );
 	Q_FixSlashes( searchString );
 	
@@ -230,7 +230,7 @@ void RecursiveFindFilesMatchingName( CUtlVector< CUtlString > *outFileList, cons
 	{
 		if ( *curFile != '.' && g_pFullFileSystem->FindIsDirectory( handle ) )
 		{	
-			char newSearchPath[MAX_PATH];
+			char newSearchPath[MAX_PATH]{0};
 			Q_snprintf( newSearchPath, sizeof( newSearchPath ), "%s/%s", szStartDirectory, curFile );
 			RecursiveFindFilesMatchingName( outFileList, newSearchPath, szTargetFileName, pathID );
 		}
@@ -253,7 +253,7 @@ void RecursiveFindFilesMatchingName( CUtlVector< CUtlString > *outFileList, cons
 //-----------------------------------------------------------------------------
 void AddFilesToList( CUtlVector< CUtlString > &list, const char *pDirectory, const char *pPathID, const char *pExtension )
 {
-	char pSearchString[MAX_PATH];
+	char pSearchString[MAX_PATH]{0};
 	Q_snprintf( pSearchString, MAX_PATH, "%s\\*", pDirectory );
 
 	bool bIsAbsolute = Q_IsAbsolutePath( pDirectory );
@@ -266,7 +266,7 @@ void AddFilesToList( CUtlVector< CUtlString > &list, const char *pDirectory, con
 	CUtlVector< CUtlString > subDirs;
 	for ( ; pFoundFile; pFoundFile = g_pFullFileSystem->FindNext( hFind ) )
 	{
-		char pChildPath[MAX_PATH];
+		char pChildPath[MAX_PATH]{0};
 		Q_snprintf( pChildPath, MAX_PATH, "%s\\%s", pDirectory, pFoundFile );
 
 		if ( g_pFullFileSystem->FindIsDirectory( hFind ) )
@@ -282,7 +282,7 @@ void AddFilesToList( CUtlVector< CUtlString > &list, const char *pDirectory, con
 		if ( Q_stricmp( Q_GetFileExtension( pFoundFile ), pExtension ) )
 			continue;
 
-		char pFullPathBuf[MAX_PATH];
+		char pFullPathBuf[MAX_PATH]{0};
 		char *pFullPath = pFullPathBuf;
 		if ( !bIsAbsolute )
 		{

@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // A class representing a procedural texture
 //
 //=============================================================================
 
-#ifndef DMECYCLE_H
-#define DMECYCLE_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -46,4 +45,3 @@ private:
 };
 
 
-#endif // DMECYCLE_H

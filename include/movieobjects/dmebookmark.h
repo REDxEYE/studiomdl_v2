@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
 //=============================================================================
 
-#ifndef DMEBOOKMARK_H
-#define DMEBOOKMARK_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -46,4 +45,3 @@ private:
 	CDmaElementArray< CDmeBookmark >	m_Bookmarks; // "bookmarks"
 };
 
-#endif // DMEBOOKMARK_H

@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =====//
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =====//
 //
 // Dme version of a body groups. Each body group contains a list
 // of LOD lists which are the various options to switch in for that part
@@ -6,8 +6,7 @@
 //
 //===========================================================================//
 
-#ifndef DMEBODYGROUP_H
-#define DMEBODYGROUP_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -40,4 +39,3 @@ public:
 };
 
 
-#endif // DMEBODYGROUP_H

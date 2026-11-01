@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
 //=============================================================================
 
-#ifndef UTLHANDLETABLE_H
-#define	UTLHANDLETABLE_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -70,7 +69,7 @@ private:
 
 	struct EntryType_t
 	{
-		EntryType_t() : m_nSerial( 0 ), nInvalid( 0 ), m_pData( 0 ) {}
+		EntryType_t() : m_nSerial( 0 ), nInvalid( 0 ), m_pData( nullptr ) {}
 		unsigned int m_nSerial : 31;
 		unsigned int nInvalid : 1;
 		T *m_pData;
@@ -84,6 +83,7 @@ private:
 	unsigned int m_nValidHandles;
 	CUtlVector< EntryType_t > m_list;
 	CUtlQueue< int > m_unused;
+
 };
 
 
@@ -149,7 +149,7 @@ void CUtlHandleTable<T, HandleBits>::SetHandle( UtlHandle_t handle, T *pData )
 {
 	EntryType_t *entry = const_cast< EntryType_t* >( GetEntry( handle, false ) );
 	Assert( entry );
-	if ( entry == NULL )
+	if ( entry == nullptr)
 		return;
 
 	// Validate the handle
@@ -265,20 +265,20 @@ template< class T, int HandleBits >
 const typename CUtlHandleTable<T, HandleBits>::EntryType_t *CUtlHandleTable<T, HandleBits>::GetEntry( UtlHandle_t handle, bool checkValidity ) const
 {
 	if ( handle == UTLHANDLE_INVALID )
-		return NULL;
+		return nullptr;
 
 	unsigned int nIndex = GetListIndex( handle );
 	Assert( nIndex < ( unsigned int )m_list.Count() );
 	if ( nIndex >= ( unsigned int )m_list.Count() )
-		return NULL;
+		return nullptr;
 
 	const EntryType_t &entry = m_list[ nIndex ];
 	if ( entry.m_nSerial != GetSerialNumber( handle ) )
-		return NULL;
+		return nullptr;
 
 	if ( checkValidity &&
 		( 1 == entry.nInvalid ) )
-		return NULL;
+		return nullptr;
 
 	return &entry;
 }
@@ -582,5 +582,4 @@ bool CUtlHandle<T>::operator!=( UtlHandle_t h ) const
 
 
 
-#endif // UTLHANDLETABLE_H
 

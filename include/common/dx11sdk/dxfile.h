@@ -8,8 +8,7 @@
  *
  ***************************************************************************/
 
-#ifndef __DXFILE_H__
-#define __DXFILE_H__
+#pragma once
 
 #ifdef __cplusplus
 extern "C" {
@@ -236,5 +235,4 @@ DEFINE_GUID(TID_DXFILEHeader,   0x3d82ab43, 0x62da, 0x11cf, 0xab, 0x39, 0x0, 0x2
 };
 #endif
 
-#endif /* _DXFILE_H_ */
 

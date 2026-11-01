@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // The abstract base operator class - all actions within the scenegraph happen via operators
 //
 //=============================================================================
 
-#ifndef DMEOPERATOR_H
-#define DMEOPERATOR_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -39,4 +38,3 @@ public:
 
 void GatherOperatorsForElement(  CDmElement *pElement, CUtlVector< CDmeOperator * > &operators );
 
-#endif // DMEOPERATOR_H

@@ -8,8 +8,7 @@
 //===============================================================================
 
 
-#ifndef BONE_CONSTRAINTS_H
-#define BONE_CONSTRAINTS_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -165,7 +164,7 @@ public:
 		mstudioconstraintslave_t *pSlave,
 		CBoneAccessor &boneToWorld,
 		const CStudioHdr *pStudioHdr,
-		const matrix3x4_t *pmViewTransform = NULL );
+		const matrix3x4_t *pmViewTransform = nullptr);
 
 	// constraints
 	static void ComputePointConstraint(
@@ -197,4 +196,3 @@ public:
 
 };
 
-#endif // BONE_CONSTRAINTS_H

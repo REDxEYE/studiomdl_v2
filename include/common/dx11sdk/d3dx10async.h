@@ -8,8 +8,7 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 
-#ifndef __D3DX10ASYNC_H__
-#define __D3DX10ASYNC_H__
+#pragma once
 
 #include "d3dx10.h"
 
@@ -285,6 +284,5 @@ HRESULT WINAPI D3DX10CreateAsyncShaderResourceViewProcessor(ID3D10Device *pDevic
 }
 #endif //__cplusplus
 
-#endif //__D3DX10ASYNC_H__
 
 

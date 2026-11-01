@@ -1,11 +1,10 @@
-//===== Copyright © 1996-2005, Valve Corporation, All rights reserved. ======//
+//===== Copyright Â© 1996-2005, Valve Corporation, All rights reserved. ======//
 //
 // Purpose: Utilities for setting vproject settings
 //
 //===========================================================================//
 
-#ifndef _VCONFIG_H
-#define _VCONFIG_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -24,4 +23,3 @@ bool RemoveObsoleteVConfigRegistrySetting( const char *pValueName, char *pOldVal
 bool ConvertObsoleteVConfigRegistrySetting( const char *pValueName );
 
 
-#endif // _VCONFIG_H

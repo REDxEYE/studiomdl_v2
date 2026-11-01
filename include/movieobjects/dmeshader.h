@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // A class representing a shader
 //
 //=============================================================================
 
-#ifndef DMESHADER_H
-#define DMESHADER_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -50,4 +49,3 @@ private:
 	CDmAttributeVarString m_ShaderName;
 };
 
-#endif // DMESHADER_H

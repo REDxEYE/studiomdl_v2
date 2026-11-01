@@ -2,8 +2,7 @@
 //
 //=============================================================================
 
-#ifndef DMEMOUTH_H
-#define DMEMOUTH_H
+#pragma once
 
 
 #ifdef _WIN32
@@ -37,4 +36,3 @@ public:
 };
 
 
-#endif // DMEMOUTH_H

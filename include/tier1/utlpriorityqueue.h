@@ -1,12 +1,11 @@
-//===== Copyright © 1996-2005, Valve Corporation, All rights reserved. ======//
+//===== Copyright Â© 1996-2005, Valve Corporation, All rights reserved. ======//
 //
 // Purpose: 
 //
 // $NoKeywords: $
 //===========================================================================//
 
-#ifndef UTLPRIORITYQUEUE_H
-#define UTLPRIORITYQUEUE_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -46,8 +45,8 @@ public:
 
 	// constructor: lessfunc is required, but may be set after the constructor with
 	// SetLessFunc
-	CUtlPriorityQueue( int growSize = 0, int initSize = 0, LessFunc_t lessfunc = 0 );
-	CUtlPriorityQueue( T *pMemory, int numElements, LessFunc_t lessfunc = 0 );
+	CUtlPriorityQueue( int growSize = 0, int initSize = 0, LessFunc_t lessfunc = nullptr );
+	CUtlPriorityQueue( T *pMemory, int numElements, LessFunc_t lessfunc = nullptr );
 
 	// gets particular elements
 	inline T const&	ElementAtHead() const { return m_heap.Element(0); }
@@ -246,4 +245,3 @@ inline void CUtlPriorityQueue<T, LessFunc, A, SetIndexFunc >::SetLessFunc( LessF
 	m_LessFunc = lessfunc;
 }
 
-#endif // UTLPRIORITYQUEUE_H

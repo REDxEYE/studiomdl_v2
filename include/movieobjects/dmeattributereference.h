@@ -1,12 +1,11 @@
-//====== Copyright © 1996-2009, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2009, Valve Corporation, All rights reserved. =======
 // 
 // Purpose: Declaration of the CDmeAttributeReference class, a simple DmElement
 // used to store references to attributes within other DmElements.
 //
 //=============================================================================
 
-#ifndef DMEATTRIBUTEREFERENCE_H
-#define DMEATTRIBUTEREFERENCE_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -55,4 +54,3 @@ class CDmeAttributeReference : public CDmElement
 };
 
 
-#endif // DMEATTRIBUTEREFERENCE_H

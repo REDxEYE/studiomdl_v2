@@ -28,7 +28,7 @@ const char* ParseFile( const char* pFileBytes, char* pToken, bool* pWasQuoted, c
 		*pWasQuoted = false;
 
 	if (!pFileBytes)
-		return 0;
+		return nullptr;
 
 	InitializeCharacterSets();
 
@@ -46,7 +46,7 @@ skipwhite:
 	while ( (c = *pFileBytes) <= ' ')
 	{
 		if (c == 0)
-			return 0;                    // end of file;
+			return nullptr;                    // end of file;
 		pFileBytes++;
 	}
 	

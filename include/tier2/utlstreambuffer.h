@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2005, Valve Corporation, All rights reserved. =======//
+//====== Copyright Â© 1996-2005, Valve Corporation, All rights reserved. =======//
 //
 // Purpose: 
 //
@@ -7,8 +7,7 @@
 // Serialization/unserialization buffer
 //=============================================================================//
 
-#ifndef UTLSTREAMBUFFER_H
-#define UTLSTREAMBUFFER_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -71,5 +70,4 @@ private:
 };
 
 
-#endif // UTLSTREAMBUFFER_H
 

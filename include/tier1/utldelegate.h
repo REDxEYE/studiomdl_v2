@@ -7,8 +7,7 @@
 //
 //===========================================================================//
 
-#ifndef UTLDELEGATE_H
-#define UTLDELEGATE_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -94,4 +93,3 @@ void Test()
 // Looking in this file may cause blindness.
 #include "tier1/utldelegateimpl.h"
 
-#endif // UTLDELEGATE_H

@@ -5,13 +5,9 @@
 //=============================================================================
 #include "movieobjects/dmesound.h"
 #include "datamodel/dmelementfactoryhelper.h"
-#include "movieobjects_interfaces.h"
-#include "tier2/tier2.h"
 #include "filesystem.h"
-#include "datamodel/dmattributevar.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 //-----------------------------------------------------------------------------
 // Expose this class to the scene database 
@@ -45,9 +41,9 @@ bool CDmeSound::ComputeSoundFullPath( char *pBuf, int nBufLen )
 	}
 
 	// Compute the full path of the sound
-	char pRelativePath[MAX_PATH];
+	char pRelativePath[MAX_PATH]{0};
 	Q_snprintf( pRelativePath, sizeof(pRelativePath), "sound\\%s", m_SoundName.Get() );
-	return g_pFullFileSystem->RelativePathToFullPath( pRelativePath, "GAME", pBuf, nBufLen ) != NULL;
+	return g_pFullFileSystem->RelativePathToFullPath( pRelativePath, "GAME", pBuf, nBufLen ) != nullptr;
 }
 
 
@@ -87,7 +83,7 @@ CDmElement *CDmeGameSound::FindOrAddPhonemeExtractionSettings()
 
 	CDmElement *settings = CreateElement< CDmElement >( "PhonemeExtractionSettings", GetFileId() );
 	if ( !settings )
-		return NULL;
+		return nullptr;
 
 	SetValue( "PhonemeExtractionSettings", settings );
 	return settings;

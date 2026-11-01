@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //http://www.nfl.com/gamecenter/2010010900/2009/POST18/eagles@cowboys#tab:watch
 // Purpose: 
 //
 //=============================================================================
 
-#ifndef DMELEMENTFACTORYHELPER_H
-#define DMELEMENTFACTORYHELPER_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -158,7 +157,7 @@ public:
 	// Creation, destruction
 	virtual CDmElement* Create( DmElementHandle_t handle, const char *pElementType, const char *pElementName, DmFileId_t fileid, const DmObjectId_t &id )
 	{
-		return NULL;
+		return nullptr;
 	}
 
 	virtual void Destroy( DmElementHandle_t hElement )
@@ -200,6 +199,12 @@ private:
 	CDmElementFactoryHelper g_##className##_Helper( #lookupName, &g_##className##_Factory, true );	\
 	className *g_##className##LinkerHack = NULL;
 
+#define IMPLEMENT_TEMPLATE_ELEMENT_FACTORY( lookupName, className )	\
+	IMPLEMENT_TEMPLATE_ELEMENT( className )					\
+	CDmElementFactory< className > g_##className##_Factory( #lookupName );							\
+	CDmElementFactoryHelper g_##className##_Helper( #lookupName, &g_##className##_Factory, true );	\
+	className *g_##className##LinkerHack = NULL;
+
 #define IMPLEMENT_ABSTRACT_ELEMENT( lookupName, className )	\
 	IMPLEMENT_ELEMENT( className )							\
 	CDmAbstractElementFactory< className > g_##className##_Factory;									\
@@ -210,6 +215,12 @@ private:
 
 #define IMPLEMENT_ELEMENT_FACTORY( lookupName, className )	\
 	IMPLEMENT_ELEMENT( className )							\
+	CDmElementFactory< className > g_##className##_Factory( #lookupName );						\
+	CDmElementFactoryHelper g_##className##_Helper( #lookupName, &g_##className##_Factory, false );	\
+	className *g_##className##LinkerHack = NULL;
+
+#define IMPLEMENT_TEMPLATE_ELEMENT_FACTORY( lookupName, className )	\
+	IMPLEMENT_TEMPLATE_ELEMENT( className )					\
 	CDmElementFactory< className > g_##className##_Factory( #lookupName );						\
 	CDmElementFactoryHelper g_##className##_Helper( #lookupName, &g_##className##_Factory, false );	\
 	className *g_##className##LinkerHack = NULL;
@@ -245,4 +256,3 @@ private:
 void InstallDmElementFactories( );
 
 
-#endif // DMELEMENTFACTORYHELPER_H

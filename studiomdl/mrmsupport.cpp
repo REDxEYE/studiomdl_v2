@@ -70,19 +70,7 @@ int SortAndBalanceBones( int iCount, int iMaxCount, int bones[], float weights[]
 		}
 	} while (bShouldSort);
 
-#ifdef MDLCOMPILE
-	// throw away all weights less than 1/10,000th
-	while (iCount > 1 && weights[iCount-1] < 0.0001)
-	{
-		iCount--;
-	}
-#else // #ifdef MDLCOMPILE
-	// throw away all weights less than 1/20th
-	while (iCount > 1 && weights[iCount-1] < 0.05)
-	{
-		iCount--;
-	}
-#endif // #ifdef MDLCOMPILE
+	// Small influences are kept on purpose: Valve's studiomdl dropped weights below 0.05 (mdlcompile: 0.0001) here
 
 	// clip to the top iMaxCount bones
 	if (iCount > iMaxCount)
@@ -127,7 +115,7 @@ void Grab_Vertexlist( s_source_t *psource )
 {
 	while (1)
 	{
-		if (fgets( g_StudioMdlContext.szLine, sizeof( g_StudioMdlContext.szLine ), g_StudioMdlContext.fpInput ) != NULL)
+		if (fgets( g_StudioMdlContext.szLine, sizeof( g_StudioMdlContext.szLine ), g_StudioMdlContext.fpInput ) != nullptr)
 		{
 			int j;
 			int bone;
@@ -189,7 +177,7 @@ void Grab_Facelist( s_source_t *psource )
 {
 	while (1)
 	{
-		if (fgets( g_StudioMdlContext.szLine, sizeof( g_StudioMdlContext.szLine ), g_StudioMdlContext.fpInput ) != NULL)
+		if (fgets( g_StudioMdlContext.szLine, sizeof( g_StudioMdlContext.szLine ), g_StudioMdlContext.fpInput ) != nullptr)
 		{
 			int j;
 			s_tmpface_t f;
@@ -220,7 +208,7 @@ void Grab_Materiallist( s_source_t *psource )
 {
 	while (1)
 	{
-		if (fgets( g_StudioMdlContext.szLine, sizeof( g_StudioMdlContext.szLine ), g_StudioMdlContext.fpInput ) != NULL)
+		if (fgets( g_StudioMdlContext.szLine, sizeof( g_StudioMdlContext.szLine ), g_StudioMdlContext.fpInput ) != nullptr)
 		{
 			// char name[256];
 			char path[MAX_PATH];
@@ -264,7 +252,7 @@ void Grab_Texcoordlist( s_source_t *psource )
 {
 	while (1)
 	{
-		if (fgets( g_StudioMdlContext.szLine, sizeof( g_StudioMdlContext.szLine ), g_StudioMdlContext.fpInput ) != NULL)
+		if (fgets( g_StudioMdlContext.szLine, sizeof( g_StudioMdlContext.szLine ), g_StudioMdlContext.fpInput ) != nullptr)
 		{
 			int j;
 			Vector2D t;
@@ -296,7 +284,7 @@ void Grab_Normallist( s_source_t *psource )
 {
 	while (1)
 	{
-		if (fgets( g_StudioMdlContext.szLine, sizeof( g_StudioMdlContext.szLine ), g_StudioMdlContext.fpInput ) != NULL)
+		if (fgets( g_StudioMdlContext.szLine, sizeof( g_StudioMdlContext.szLine ), g_StudioMdlContext.fpInput ) != nullptr)
 		{
 			int j;
 			int bone;
@@ -337,7 +325,7 @@ void Grab_Faceattriblist( s_source_t *psource )
 {
 	while (1)
 	{
-		if (fgets( g_StudioMdlContext.szLine, sizeof( g_StudioMdlContext.szLine ), g_StudioMdlContext.fpInput ) != NULL)
+		if (fgets( g_StudioMdlContext.szLine, sizeof( g_StudioMdlContext.szLine ), g_StudioMdlContext.fpInput ) != nullptr)
 		{
 			int j;
 			int smooth;
@@ -579,8 +567,10 @@ static void BuildUniqueVertexList( s_source_t *pSource, const int *pDesiredToVLi
 //-----------------------------------------------------------------------------
 static int vlistCompare( const void *elem1, const void *elem2 )
 {
-	v_unify_t *u1 = &v_listdata[*(int *)elem1];
-	v_unify_t *u2 = &v_listdata[*(int *)elem2];
+	const int i1 = *(const int *)elem1;
+	const int i2 = *(const int *)elem2;
+	const v_unify_t *u1 = &v_listdata[i1];
+	const v_unify_t *u2 = &v_listdata[i2];
 
 	// sort by material
 	if (u1->m < u2->m)
@@ -594,7 +584,8 @@ static int vlistCompare( const void *elem1, const void *elem2 )
 	if (u1->lastref > u2->lastref)
 		return 1;
 
-	return 0;
+	// vertices of one face share lastref: keep creation order, qsort is not stable on every CRT
+	return (i1 > i2) - (i1 < i2);
 }
 
 static void SortVerticesByMaterial( int *pDesiredToVList, int *pVListToDesired )
@@ -796,7 +787,7 @@ void Grab_MRMFaceupdates( s_source_t *psource )
 {
 	while (1)
 	{
-		if (fgets( g_StudioMdlContext.szLine, sizeof( g_StudioMdlContext.szLine ), g_StudioMdlContext.fpInput ) != NULL)
+		if (fgets( g_StudioMdlContext.szLine, sizeof( g_StudioMdlContext.szLine ), g_StudioMdlContext.fpInput ) != nullptr)
 		{
 			g_StudioMdlContext.iLinecount++;
 
@@ -824,7 +815,7 @@ int Load_VRM ( s_source_t *psource )
 
 	g_StudioMdlContext.iLinecount = 0;
 
-	while (fgets( g_StudioMdlContext.szLine, sizeof( g_StudioMdlContext.szLine ), g_StudioMdlContext.fpInput ) != NULL)
+	while (fgets( g_StudioMdlContext.szLine, sizeof( g_StudioMdlContext.szLine ), g_StudioMdlContext.fpInput ) != nullptr)
 	{
 		g_StudioMdlContext.iLinecount++;
 		sscanf( g_StudioMdlContext.szLine, "%1023s %d", cmd, &option );

@@ -2,8 +2,7 @@
 // Created by RED on 15.05.2024.
 //
 
-#include <processthreadsapi.h>
-#include <errhandlingapi.h>
+#include "studiomdl/platform_compat.h"
 #include "studiomdl_errors.h"
 #include "common/scriplib.h"
 #include "studiomdl/studiomdl.h"
@@ -34,8 +33,8 @@ void TokenError(const char *fmt, ...) {
 void MdlError(const char *fmt, ...) {
     static char output[1024];
     static char *knownExtensions[] = {".mdl", ".ani", ".phy", ".sw.vtx", ".dx80.vtx", ".dx90.vtx", ".vvd"};
-    char fileName[MAX_PATH];
-    char baseName[MAX_PATH];
+    char fileName[MAX_PATH]{0};
+    char baseName[MAX_PATH]{0};
     va_list args;
 
 //	Assert( 0 );
@@ -96,7 +95,7 @@ void MdlWarning(const char *fmt, ...) {
     if (g_StudioMdlContext.bNoWarnings || g_StudioMdlContext.g_maxWarnings == 0)
         return;
 
-    ushort old = SetConsoleTextColor(1, 1, 0, 1);
+    uint16_t old = SetConsoleTextColor(1, 1, 0, 1);
 
     if (g_StudioMdlContext.quiet) {
         if (g_bFirstWarning) {
@@ -142,20 +141,20 @@ void MdlHandleCrash(const char *pMessage, bool bAssert) {
 }
 
 // This is called if we crash inside our crash handler. It just terminates the process immediately.
-LONG __stdcall MdlSecondExceptionFilter(struct _EXCEPTION_POINTERS *ExceptionInfo) {
+int32_t __stdcall MdlSecondExceptionFilter(struct _EXCEPTION_POINTERS *ExceptionInfo) {
     TerminateProcess(GetCurrentProcess(), 2);
     return EXCEPTION_EXECUTE_HANDLER; // (never gets here anyway)
 }
 
-void MdlExceptionFilter(unsigned long code) {
+void MdlExceptionFilter(uint32_t code) {
     // This is called if we crash inside our crash handler. It just terminates the process immediately.
-    SetUnhandledExceptionFilter(MdlSecondExceptionFilter);
+    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER)MdlSecondExceptionFilter);
 
     //DWORD code = ExceptionInfo->ExceptionRecord->ExceptionCode;
 
 #define ERR_RECORD(name) { name, #name }
     struct {
-        unsigned long code;
+        uint32_t code;
         const char *pReason;
     } errors[] =
             {

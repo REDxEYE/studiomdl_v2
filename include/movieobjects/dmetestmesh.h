@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // A class representing a mesh
 //
 //=============================================================================
 
-#ifndef DMETESTMESH_H
-#define DMETESTMESH_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -137,4 +136,3 @@ private:
 	std::vector< CDmeTransform* > m_bones;
 };
 
-#endif // DMETESTMESH_H

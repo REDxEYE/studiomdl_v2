@@ -1,4 +1,4 @@
-//===== Copyright © 1996-2005, Valve Corporation, All rights reserved. ======//
+//===== Copyright Â© 1996-2005, Valve Corporation, All rights reserved. ======//
 //
 // Purpose: An application framework 
 //
@@ -6,8 +6,7 @@
 // $NoKeywords: $
 //===========================================================================//
 
-#ifndef IAPPSYSTEM_H
-#define IAPPSYSTEM_H
+#pragma once
 
 #ifdef COMPILER_MSVC
 #pragma once
@@ -56,7 +55,7 @@ enum AppSystemTier_t
 abstract_class IAppSystem
 {
 public:
-	// Here's where the app systems get to learn about each other 
+	// Here's where the app systems get to learn about each other
 	virtual bool Connect( CreateInterfaceFn factory ) = 0;
 	virtual void Disconnect() = 0;
 
@@ -69,7 +68,7 @@ public:
 	virtual void Shutdown() = 0;
 
 	// Returns all dependent libraries
-	virtual const AppSystemInfo_t* GetDependencies() {return NULL;}
+	virtual const AppSystemInfo_t* GetDependencies() {return nullptr;}
 
 	// Returns the tier
 	virtual AppSystemTier_t GetTier() {return APP_SYSTEM_TIER_OTHER;}
@@ -94,13 +93,13 @@ public:
 
 	// Here's where systems can access other interfaces implemented by this object
 	// Returns NULL if it doesn't implement the requested interface
-	virtual void *QueryInterface( const char *pInterfaceName ) { return NULL; }
+	virtual void *QueryInterface( const char *pInterfaceName ) { return nullptr; }
 
 	// Init, shutdown
 	virtual InitReturnVal_t Init() { return INIT_OK; }
 	virtual void Shutdown() {}
 
-	virtual const AppSystemInfo_t* GetDependencies() { return NULL; }
+	virtual const AppSystemInfo_t* GetDependencies() { return nullptr; }
 	virtual AppSystemTier_t GetTier() { return APP_SYSTEM_TIER_OTHER; }
 
 	virtual void Reconnect( CreateInterfaceFn factory, const char *pInterfaceName )
@@ -119,5 +118,4 @@ class CTier0AppSystem : public CBaseAppSystem< IInterface >
 };
 
 
-#endif // IAPPSYSTEM_H
 

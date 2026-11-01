@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright ï¿½ 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // Purpose: Simple class to make it easier to deal with flags
 //
 //=============================================================================
 
-#ifndef UTLFLAGS_H
-#define UTLFLAGS_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -121,4 +120,3 @@ bool CUtlFlags<T>::IsAnyFlagSet() const
 }
 
 
-#endif // UTLFLAGS_H

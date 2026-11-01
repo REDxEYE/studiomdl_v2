@@ -9,11 +9,7 @@
 
 #include "tier0/platform.h"
 
-#if defined( PLATFORM_PS3)
-#include "ps3/ps3_helpers.h"
-#endif
 
-#include "tier0/platwindow.h"
 #include "appframework/IAppSystemGroup.h"
 #include "appframework/iappsystem.h"
 #include "tier1/interface.h"
@@ -70,7 +66,7 @@ AppModule_t CAppSystemGroup::LoadModule(const char *pDLLName) {
 
     int nIndex = m_Modules.AddToTail();
     m_Modules[nIndex].m_pModule = pSysModule;
-    m_Modules[nIndex].m_Factory = 0;
+    m_Modules[nIndex].m_Factory = nullptr;
     m_Modules[nIndex].m_pModuleName = (char *) malloc(nLen);
     Q_strncpy(m_Modules[nIndex].m_pModuleName, pModuleName, nLen);
 
@@ -92,8 +88,8 @@ int CAppSystemGroup::ReloadModule(const char *pDLLName) {
             Msg("Unloading module %s, dll %s\n", pModuleName, pDLLName);
             Sys_UnloadModule(m_Modules[i].m_pModule);
             Msg("Module %s unloaded, reloading\n", pModuleName);
-            CSysModule *pSysModule = NULL;
-            CreateInterfaceFn fnFactory = NULL;
+            CSysModule *pSysModule = nullptr;
+            CreateInterfaceFn fnFactory = nullptr;
             while (!pSysModule) {
                 pSysModule = LoadModuleDLL(pDLLName);
                 if (!pSysModule) {
@@ -104,11 +100,11 @@ int CAppSystemGroup::ReloadModule(const char *pDLLName) {
                     Error("Could not get factory from %s\n", pModuleName);
                 }
                 (*fnFactory)("Reload Interface",
-                             NULL); // let the CreateInterface function work and do after-reload stuff
+                nullptr); // let the CreateInterface function work and do after-reload stuff
             }
 
             Msg("Reload complete, module %p->%p, factory %llx->%llx\n", module.m_pModule, pSysModule,
-                (uint64) (uintp) module.m_Factory, (uint64) (uintp) fnFactory);
+                (uint64_t) (uintptr_t) module.m_Factory, (uint64_t) (uintptr_t) fnFactory);
             module.m_pModule = pSysModule;
             if (module.m_Factory) { // don't reload factory pointer unless it was initialized to non-NULL
                 module.m_Factory = fnFactory;
@@ -121,11 +117,7 @@ int CAppSystemGroup::ReloadModule(const char *pDLLName) {
     Warning("No such module: '%s' in appsystem @%p. Dumping available modules:\n", pModuleName, this);
     for (int i = 0; i < m_Modules.Count(); ++i) {
         Module_t &module = m_Modules[i];
-#ifdef _PS3
-        Msg( "%25s %llx %p %6d %6d bytes\n", module.m_pModuleName, (uint64)module.m_Factory, module.m_pModule, ( ( PS3_PrxLoadParametersBase_t *)module.m_pModule )->sysPrxId, ( ( PS3_PrxLoadParametersBase_t *)module.m_pModule )->cbSize );
-#else
         Msg("%25s %p %p\n", module.m_pModuleName, (void *) module.m_Factory, module.m_pModule);
-#endif
     }
 
     return m_pParentAppSystem ? m_pParentAppSystem->ReloadModule(pDLLName) : -1;
@@ -147,9 +139,9 @@ AppModule_t CAppSystemGroup::LoadModule(CreateInterfaceFn factory) {
     }
 
     int nIndex = m_Modules.AddToTail();
-    m_Modules[nIndex].m_pModule = NULL;
+    m_Modules[nIndex].m_pModule = nullptr;
     m_Modules[nIndex].m_Factory = factory;
-    m_Modules[nIndex].m_pModuleName = NULL;
+    m_Modules[nIndex].m_pModuleName = nullptr;
     return nIndex;
 }
 
@@ -173,7 +165,7 @@ void CAppSystemGroup::UnloadAllModules() {
 //-----------------------------------------------------------------------------
 IAppSystem *CAppSystemGroup::AddSystem(AppModule_t module, const char *pInterfaceName) {
     if (module == APP_MODULE_INVALID)
-        return NULL;
+        return nullptr;
 
     int nFoundIndex = m_SystemDict.Find(pInterfaceName);
     if (nFoundIndex != m_SystemDict.InvalidIndex()) {
@@ -189,7 +181,7 @@ IAppSystem *CAppSystemGroup::AddSystem(AppModule_t module, const char *pInterfac
     void *pSystem = pFactory(pInterfaceName, &retval);
     if ((retval != IFACE_OK) || (!pSystem)) {
         Warning("AppFramework : Unable to create system %s!\n", pInterfaceName);
-        return NULL;
+        return nullptr;
     }
 
     IAppSystem *pAppSystem = static_cast<IAppSystem *>(pSystem);
@@ -197,7 +189,6 @@ IAppSystem *CAppSystemGroup::AddSystem(AppModule_t module, const char *pInterfac
     int sysIndex = m_Systems.AddToTail(pAppSystem);
 
     // Inserting into the dict will help us do named lookup later
-    MEM_ALLOC_CREDIT();
     m_SystemDict.Insert(pInterfaceName, sysIndex);
     return pAppSystem;
 }
@@ -245,7 +236,6 @@ void CAppSystemGroup::AddSystem(IAppSystem *pAppSystem, const char *pInterfaceNa
     int sysIndex = m_Systems.AddToTail(pAppSystem);
 
     // Inserting into the dict will help us do named lookup later
-    MEM_ALLOC_CREDIT();
     m_SystemDict.Insert(pInterfaceName, sysIndex);
 }
 
@@ -300,7 +290,7 @@ void *CAppSystemGroup::FindSystem(const char *pSystemName) {
 
     int nExternalCount = m_NonAppSystemFactories.Count();
     for (i = 0; i < nExternalCount; ++i) {
-        void *pInterface = m_NonAppSystemFactories[i](pSystemName, NULL);
+        void *pInterface = m_NonAppSystemFactories[i](pSystemName, nullptr);
         if (pInterface)
             return pInterface;
     }
@@ -312,7 +302,7 @@ void *CAppSystemGroup::FindSystem(const char *pSystemName) {
     }
 
     // No dice..
-    return NULL;
+    return nullptr;
 }
 
 
@@ -374,7 +364,7 @@ void CAppSystemGroup::ComputeDependencies(LibraryDependencies_t &depend) {
                 for (int k = 0; k < nSecondaryDepCount; ++k) {
                     // Don't bother if we already contain the secondary dependency
                     const char *pSecondaryDependency = depend[nIndex].String(k);
-                    if (depend[i].Find(pSecondaryDependency) != UTL_INVAL_SYMBOL)
+                    if (depend[i].Find(pSecondaryDependency).IsValid())
                         continue;
 
                     // Check for circular dependency
@@ -401,7 +391,7 @@ CAppSystemGroup::LibraryDependencies_t *CAppSystemGroup::sm_pSortDependencies;
 bool CAppSystemGroup::SortLessFunc(const int &left, const int &right) {
     const char *pLeftInterface = sm_pSortDependencies->String(left);
     const char *pRightInterface = sm_pSortDependencies->String(right);
-    bool bRightDependsOnLeft = ((*sm_pSortDependencies)[pRightInterface].Find(pLeftInterface) != UTL_INVAL_SYMBOL);
+    bool bRightDependsOnLeft = ((*sm_pSortDependencies)[pRightInterface].Find(pLeftInterface).IsValid());
     return (bRightDependsOnLeft);
 }
 
@@ -430,7 +420,7 @@ void CAppSystemGroup::SortDependentLibraries(LibraryDependencies_t &depend) {
             }
         }
     }
-    sm_pSortDependencies = NULL;
+    sm_pSortDependencies = nullptr;
 
 
     // This logic will make it so it respects the specified initialization order
@@ -447,7 +437,7 @@ void CAppSystemGroup::SortDependentLibraries(LibraryDependencies_t &depend) {
 
             const char *pLeftInterface = depend.String(nLeft);
             const char *pRightInterface = depend.String(nRight);
-            bool bRightDependsOnLeft = (depend[pRightInterface].Find(pLeftInterface) != UTL_INVAL_SYMBOL);
+            bool bRightDependsOnLeft = (depend[pRightInterface].Find(pLeftInterface).IsValid());
             if (bRightDependsOnLeft)
                 continue;
             Assert (UTL_INVAL_SYMBOL == depend[pRightInterface].Find(pLeftInterface));
@@ -466,7 +456,7 @@ void CAppSystemGroup::SortDependentLibraries(LibraryDependencies_t &depend) {
     }
 
     // Remap system indices
-    for (uint16 i = m_SystemDict.First(); i != m_SystemDict.InvalidIndex(); i = m_SystemDict.Next(i)) {
+    for (uint16_t i = m_SystemDict.First(); i != m_SystemDict.InvalidIndex(); i = m_SystemDict.Next(i)) {
         int j = 0;
         for (; j < nCount; ++j) {
             if (pIndices[j] == m_SystemDict[i]) {
@@ -486,11 +476,11 @@ void CAppSystemGroup::SortDependentLibraries(LibraryDependencies_t &depend) {
 // Finds appsystem names
 //-----------------------------------------------------------------------------
 const char *CAppSystemGroup::FindSystemName(int nIndex) {
-    for (uint16 i = m_SystemDict.First(); i != m_SystemDict.InvalidIndex(); i = m_SystemDict.Next(i)) {
+    for (uint16_t i = m_SystemDict.First(); i != m_SystemDict.InvalidIndex(); i = m_SystemDict.Next(i)) {
         if (m_SystemDict[i] == nIndex)
             return m_SystemDict.GetElementName(i);
     }
-    return NULL;
+    return nullptr;
 }
 
 
@@ -514,7 +504,7 @@ bool CAppSystemGroup::LoadDependentSystems() {
             dependencies[pInterfaceName].AddString(pDependencies->m_pInterfaceName);
 
             CreateInterfaceFn factory = GetFactory();
-            if (factory(pDependencies->m_pInterfaceName, NULL))
+            if (factory(pDependencies->m_pInterfaceName, nullptr))
                 continue;
 
             AppModule_t module = LoadModule(pDependencies->m_pModuleName);
@@ -580,56 +570,6 @@ void CAppSystemGroup::ShutdownSystems() {
     for (int i = m_Systems.Count(); --i >= 0;) {
         m_Systems[i]->Shutdown();
     }
-}
-
-
-//-----------------------------------------------------------------------------
-// Window management
-//-----------------------------------------------------------------------------
-void *
-CAppSystemGroup::CreateAppWindow(void *hInstance, const char *pTitle, bool bWindowed, int w, int h, bool bResizing) {
-#if defined( PLATFORM_WINDOWS ) || defined( PLATFORM_OSX )
-    int nFlags = 0;
-    if (!bWindowed) {
-        nFlags |= WINDOW_CREATE_FULLSCREEN;
-    }
-    if (bResizing) {
-        nFlags |= WINDOW_CREATE_RESIZING;
-    }
-
-    PlatWindow_t hWnd = Plat_CreateWindow(hInstance, pTitle, w, h, nFlags);
-    if (hWnd == PLAT_WINDOW_INVALID)
-        return NULL;
-
-    int CenterX, CenterY;
-    Plat_GetDesktopResolution(&CenterX, &CenterY);
-    CenterX = (CenterX - w) / 2;
-    CenterY = (CenterY - h) / 2;
-    CenterX = (CenterX < 0) ? 0 : CenterX;
-    CenterY = (CenterY < 0) ? 0 : CenterY;
-
-    // In VCR modes, keep it in the upper left so mouse coordinates are always relative to the window.
-    Plat_SetWindowPos(hWnd, CenterX, CenterY);
-
-    return hWnd;
-#elif defined( PLATFORM_OSX )
-    extern ICocoaMgr *g_pCocoaMgr;
-    g_pCocoaMgr->CreateGameWindow( pTitle, bWindowed, w, h );
-    return (void*)Sys_GetFactoryThis();	// Other stuff will query for ICocoaBridge out of this.
-#elif defined( PLATFORM_LINUX )
-#ifndef DEDICATED
-
-// PBTODO
-// 	extern IGLXMgr *g_pGLXMgr;
-// 	g_pGLXMgr->CreateWindow( pTitle, bWindowed, w, h );
-    return (void*)Sys_GetFactoryThis();	// Other stuff will query for ICocoaBridge out of this.
-#endif
-#endif
-    return NULL;
-}
-
-void CAppSystemGroup::SetAppWindowTitle(void *hWnd, const char *pTitle) {
-    Plat_SetWindowTitle((PlatWindow_t) hWnd, pTitle);
 }
 
 

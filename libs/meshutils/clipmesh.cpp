@@ -1,4 +1,4 @@
-//=========== Copyright © Valve Corporation, All rights reserved. ============//
+//=========== Copyright Â© Valve Corporation, All rights reserved. ============//
 //
 // Purpose: Mesh clipping operations.
 //
@@ -77,7 +77,7 @@ bool ClipMeshToHalfSpace( CMesh *pMeshBack, CMesh *pMeshFront, const CMesh &inpu
 
 	int nVertexStrideFloats = inputMesh.m_nVertexStrideFloats;
 	int nIndexCount = inputMesh.m_nIndexCount;
-	uint32 *pIndices = inputMesh.m_pIndices;
+	uint32_t *pIndices = inputMesh.m_pIndices;
 	float *pVertices = inputMesh.m_pVerts;
 
 	// Allocate working space for the number of vertices out on each side of the plane.
@@ -234,8 +234,8 @@ void CreatedGriddedIndexRangesFromMesh( CMesh *pOutputMesh, CUtlVector< IndexRan
 	outputRanges.EnsureCount( nVolumes );
 
 	int nFaces = inputMesh.m_nIndexCount / 3;
-	uint32 *pInputIndices = inputMesh.m_pIndices;
-	uint32 *pOutputIndices = pOutputMesh->m_pIndices;
+	uint32_t *pInputIndices = inputMesh.m_pIndices;
+	uint32_t *pOutputIndices = pOutputMesh->m_pIndices;
 	int nMeshIndices = 0;
 
 	// Go though each volume and assign indices to its respective range
@@ -247,9 +247,9 @@ void CreatedGriddedIndexRangesFromMesh( CMesh *pOutputMesh, CUtlVector< IndexRan
 
 		for ( int f=0; f<nFaces; ++f )
 		{
-			uint32 i0 = pInputIndices[ f * 3     ];
-			uint32 i1 = pInputIndices[ f * 3 + 1 ];
-			uint32 i2 = pInputIndices[ f * 3 + 2 ];
+			uint32_t i0 = pInputIndices[ f * 3     ];
+			uint32_t i1 = pInputIndices[ f * 3 + 1 ];
+			uint32_t i2 = pInputIndices[ f * 3 + 2 ];
 
 			Vector vCenter = *(Vector*)inputMesh.GetVertex( i0 );
 			vCenter += *(Vector*)inputMesh.GetVertex( i1 );

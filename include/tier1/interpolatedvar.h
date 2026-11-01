@@ -4,8 +4,7 @@
 //
 //=============================================================================//
 
-#ifndef INTERPOLATEDVAR_H
-#define INTERPOLATEDVAR_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -16,7 +15,7 @@
 #include "tier1/convar.h"
 
 
-// DISABLED #include "tier0/memdbgon.h"
+
 
 #define COMPARE_HISTORY(a,b) \
 	( memcmp( m_VarHistory[a].GetValue(), m_VarHistory[b].GetValue(), sizeof(Type)*GetMaxCount() ) == 0 ) 			
@@ -567,9 +566,9 @@ protected:
 	// Store networked values so when we latch we can detect which values were changed via networking
 	Type *								m_LastNetworkedValue;
 	float								m_LastNetworkedTime;
-	byte								m_fType;
-	byte								m_nMaxCount;
-	byte *								m_bLooping;
+	uint8_t								m_fType;
+	uint8_t								m_nMaxCount;
+	uint8_t *								m_bLooping;
 	float								m_InterpolationAmount;
 	const char *						m_pDebugName;
 };
@@ -692,7 +691,6 @@ inline void CInterpolatedVarArrayBase<Type, IS_ARRAY>::ClearHistory()
 template< typename Type, bool IS_ARRAY >
 inline void CInterpolatedVarArrayBase<Type, IS_ARRAY>::AddToHead( float changeTime, const Type* values, bool bFlushNewer )
 {
-	MEM_ALLOC_CREDIT_CLASS();
 	int newslot;
 	
 	if ( bFlushNewer )
@@ -1267,9 +1265,9 @@ inline void	CInterpolatedVarArrayBase<Type, IS_ARRAY>::SetMaxCount( float flCurr
 	{
 		delete [] m_bLooping;
 		delete [] m_LastNetworkedValue;
-		m_bLooping = new byte[m_nMaxCount];
+		m_bLooping = new uint8_t[m_nMaxCount];
 		m_LastNetworkedValue = new Type[m_nMaxCount];
-		memset( m_bLooping, 0, sizeof(byte) * m_nMaxCount);
+		memset( m_bLooping, 0, sizeof(uint8_t) * m_nMaxCount);
 		memset( m_LastNetworkedValue, 0, sizeof(Type) * m_nMaxCount);
 
 		Reset( flCurrentTime );
@@ -1569,4 +1567,3 @@ public:
 
 // DISABLED #include "tier0/memdbgoff.h"
 
-#endif // INTERPOLATEDVAR_H

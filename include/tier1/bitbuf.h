@@ -8,8 +8,7 @@
 
 // NOTE: old_bf_read is guaranteed to return zeros if it overflows.
 
-#ifndef BITBUF_H
-#define BITBUF_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -20,7 +19,7 @@
 #include "mathlib/vector.h"
 #include "tier0/basetypes.h"
 #include "tier0/platform.h"
-#include "tier0/dbg.h"
+
 
 
 
@@ -112,26 +111,26 @@ namespace bitbuf
 	//        >> encode >>
 	//        << decode <<
 
-	inline uint32 ZigZagEncode32(int32 n) 
+	inline uint32_t ZigZagEncode32(int32_t n) 
 	{
 		// Note:  the right-shift must be arithmetic
 		return(n << 1) ^ (n >> 31);
 	}
 
-	inline int32 ZigZagDecode32(uint32 n) 
+	inline int32_t ZigZagDecode32(uint32_t n) 
 	{
-		return(n >> 1) ^ -static_cast<int32>(n & 1);
+		return(n >> 1) ^ -static_cast<int32_t>(n & 1);
 	}
 
-	inline uint64 ZigZagEncode64(int64 n) 
+	inline uint64_t ZigZagEncode64(int64_t n) 
 	{
 		// Note:  the right-shift must be arithmetic
 		return(n << 1) ^ (n >> 63);
 	}
 
-	inline int64 ZigZagDecode64(uint64 n) 
+	inline int64_t ZigZagDecode64(uint64_t n) 
 	{
-		return(n >> 1) ^ -static_cast<int64>(n & 1);
+		return(n >> 1) ^ -static_cast<int64_t>(n & 1);
 	}
 
 	const int kMaxVarintBytes = 10;
@@ -200,14 +199,14 @@ public:
 	void			WriteUBitVar( unsigned int data );
 
 	// writes a varint encoded integer
-	void			WriteVarInt32( uint32 data );
-	void			WriteVarInt64( uint64 data );
-	void			WriteSignedVarInt32( int32 data );
-	void			WriteSignedVarInt64( int64 data );
-	int				ByteSizeVarInt32( uint32 data );
-	int				ByteSizeVarInt64( uint64 data );
-	int				ByteSizeSignedVarInt32( int32 data );
-	int				ByteSizeSignedVarInt64( int64 data );
+	void			WriteVarInt32( uint32_t data );
+	void			WriteVarInt64( uint64_t data );
+	void			WriteSignedVarInt32( int32_t data );
+	void			WriteSignedVarInt64( int64_t data );
+	int				ByteSizeVarInt32( uint32_t data );
+	int				ByteSizeVarInt64( uint64_t data );
+	int				ByteSizeSignedVarInt32( int32_t data );
+	int				ByteSizeSignedVarInt64( int64_t data );
 
 	// Copy the bits straight out of pIn. This seeks pIn forward by nBits.
 	// Returns an error if this buffer or the read buffer overflows.
@@ -231,8 +230,8 @@ public:
 	void			WriteByte( unsigned int val );
 	void			WriteShort(int val);
 	void			WriteWord( unsigned int val );
-	void			WriteLong(int32 val);
-	void			WriteLongLong(int64 val);
+	void			WriteLong(int32_t val);
+	void			WriteLongLong(int64_t val);
 	void			WriteFloat(float val);
 	bool			WriteBytes( const void *pBuf, int nBytes );
 
@@ -378,7 +377,7 @@ inline void bf_write::WriteUBitLong( unsigned int curData, int numbits, bool bCh
 	// Make sure it doesn't overflow.
 	if ( bCheckRange && numbits < 32 )
 	{
-		if ( curData >= (uint32)(1 << numbits) )
+		if ( curData >= (uint32_t)(1 << numbits) )
 		{
 			CallErrorHandler( BITBUFERROR_VALUE_OUT_OF_RANGE, GetDebugName() );
 		}
@@ -386,7 +385,7 @@ inline void bf_write::WriteUBitLong( unsigned int curData, int numbits, bool bCh
 	Assert( numbits >= 0 && numbits <= 32 );
 #endif
 
-	extern uint32 g_BitWriteMasks[32][33];
+	extern uint32_t g_BitWriteMasks[32][33];
 
 	// Bounds checking..
 	if ((m_iCurBit+numbits) > m_nDataBits)
@@ -402,17 +401,17 @@ inline void bf_write::WriteUBitLong( unsigned int curData, int numbits, bool bCh
 
 	// Mask in a dword.
 	unsigned int iDWord = iCurBit >> 5;
-	Assert( (iDWord*4 + sizeof(int32)) <= (unsigned int)m_nDataBytes );
+	Assert( (iDWord*4 + sizeof(int32_t)) <= (unsigned int)m_nDataBytes );
 
-	uint32 iCurBitMasked = iCurBit & 31;
+	uint32_t iCurBitMasked = iCurBit & 31;
 
-	uint32 dword = LoadLittleDWord( (uint32*)m_pData, iDWord );
+	uint32_t dword = LoadLittleDWord( (uint32_t*)m_pData, iDWord );
 
 	dword &= g_BitWriteMasks[iCurBitMasked][nBitsLeft];
 	dword |= curData << iCurBitMasked;
 
 	// write to stream (lsb to msb ) properly
-	StoreLittleDWord( (uint32*)m_pData, iDWord, dword );
+	StoreLittleDWord( (uint32_t*)m_pData, iDWord, dword );
 
 	// Did it span a dword?
 	int nBitsWritten = 32 - iCurBitMasked;
@@ -422,13 +421,13 @@ inline void bf_write::WriteUBitLong( unsigned int curData, int numbits, bool bCh
 		curData >>= nBitsWritten;
 
 		// read from stream (lsb to msb) properly 
-		dword = LoadLittleDWord( (uint32*)m_pData, iDWord+1 );
+		dword = LoadLittleDWord( (uint32_t*)m_pData, iDWord+1 );
 
 		dword &= g_BitWriteMasks[0][nBitsLeft];
 		dword |= curData;
 
 		// write to stream (lsb to msb) properly 
-		StoreLittleDWord( (uint32*)m_pData, iDWord+1, dword );
+		StoreLittleDWord( (uint32_t*)m_pData, iDWord+1, dword );
 	}
 
 	m_iCurBit += numbits;
@@ -521,10 +520,10 @@ public:
 	unsigned int	ReadUBitVar();
 	
 	// reads a varint encoded integer
-	uint32			ReadVarInt32();
-	uint64			ReadVarInt64();
-	int32			ReadSignedVarInt32();
-	int64			ReadSignedVarInt64();
+	uint32_t			ReadVarInt32();
+	uint64_t			ReadVarInt64();
+	int32_t			ReadSignedVarInt32();
+	int64_t			ReadSignedVarInt64();
 
 	// You can read signed or unsigned data with this, just cast to 
 	// a signed int if necessary.
@@ -547,8 +546,8 @@ public:
 	int				ReadByte();
 	int				ReadShort();
 	int				ReadWord();
-	int32			ReadLong();
-	int64			ReadLongLong();
+	int32_t			ReadLong();
+	int64_t			ReadLongLong();
 	float			ReadFloat();
 	bool			ReadBytes(void *pOut, int nBytes);
 
@@ -693,22 +692,22 @@ inline int old_bf_read::ReadOneBit()
 
 inline float old_bf_read::ReadBitFloat()
 {
-	int32 val;
+	int32_t val;
 
-	Assert(sizeof(float) == sizeof(int32));
+	Assert(sizeof(float) == sizeof(int32_t));
 	Assert(sizeof(float) == 4);
 
 	if(CheckForOverflow(32))
 		return 0.0f;
 
 	int bit = m_iCurBit & 0x7;
-	int byte = m_iCurBit >> 3;
-	val = m_pData[byte] >> bit;
-	val |= ((int)m_pData[byte + 1]) << (8 - bit);
-	val |= ((int)m_pData[byte + 2]) << (16 - bit);
-	val |= ((int)m_pData[byte + 3]) << (24 - bit);
+	int uint8_t = m_iCurBit >> 3;
+	val = m_pData[uint8_t] >> bit;
+	val |= ((int)m_pData[uint8_t + 1]) << (8 - bit);
+	val |= ((int)m_pData[uint8_t + 2]) << (16 - bit);
+	val |= ((int)m_pData[uint8_t + 3]) << (24 - bit);
 	if (bit != 0)
-		val |= ((int)m_pData[byte + 4]) << (32 - bit);
+		val |= ((int)m_pData[uint8_t + 4]) << (32 - bit);
 	m_iCurBit += 32;
 	return *((float*)&val);
 }
@@ -716,7 +715,7 @@ inline float old_bf_read::ReadBitFloat()
 
 inline unsigned int old_bf_read::ReadUBitLong( int numbits )
 {
-	extern uint32 g_ExtraMasks[32];
+	extern uint32_t g_ExtraMasks[32];
 
 	if ( (m_iCurBit+numbits) > m_nDataBits )
 	{
@@ -729,7 +728,7 @@ inline unsigned int old_bf_read::ReadUBitLong( int numbits )
 
 	// Read the current dword.
 	int idword1 = m_iCurBit >> 5;
-	unsigned int dword1 = LoadLittleDWord( (uint32*)m_pData, idword1 );
+	unsigned int dword1 = LoadLittleDWord( (uint32_t*)m_pData, idword1 );
 
 	dword1 >>= (m_iCurBit & 31); // Get the bits we're interested in.
 
@@ -745,7 +744,7 @@ inline unsigned int old_bf_read::ReadUBitLong( int numbits )
 	else
 	{
 		int nExtraBits = m_iCurBit & 31;
-		unsigned int dword2 = LoadLittleDWord( (uint32*)m_pData, idword1+1 );
+		unsigned int dword2 = LoadLittleDWord( (uint32_t*)m_pData, idword1+1 );
 
 		dword2 &= g_ExtraMasks[nExtraBits];
 
@@ -789,17 +788,17 @@ public:
 		return m_bOverflow;
 	}
 
-	static const uint32 s_nMaskTable[33];							// 0 1 3 7 15 ..
+	static const uint32_t s_nMaskTable[33];							// 0 1 3 7 15 ..
 
 };
 
 class CBitWrite : public CBitBuffer
 {
-	uint32 m_nOutBufWord;
+	uint32_t m_nOutBufWord;
 	int m_nOutBitsAvail;
-	uint32 *m_pDataOut;
-	uint32 *m_pBufferEnd;
-	uint32 *m_pData;
+	uint32_t *m_pDataOut;
+	uint32_t *m_pBufferEnd;
+	uint32_t *m_pData;
 	bool m_bFlushed;
 
 public:
@@ -897,7 +896,7 @@ public:
 	}
 
 
-	FORCEINLINE void WriteLong(int32 val)
+	FORCEINLINE void WriteLong(int32_t val)
 	{
 		WriteSBitLong( val, 32 );
 	}
@@ -927,7 +926,7 @@ public:
 	bool WriteString( const char *pStr );
 	bool WriteString( const wchar_t *pStr );
 
-	void WriteLongLong( int64 val );
+	void WriteLongLong( int64_t val );
 
 	void WriteBitAngle( float fAngle, int numbits );
 	void WriteBitCoord (const float f);
@@ -1002,7 +1001,7 @@ FORCEINLINE void CBitWrite::WriteUBitLong( unsigned int nData, int nNumBits, boo
 	// Make sure it doesn't overflow.
 	if ( bCheckRange && nNumBits < 32 )
 	{
-		Assert( nData <= (uint32)(1 << nNumBits ) );
+		Assert( nData <= (uint32_t)(1 << nNumBits ) );
 	}
 	Assert( nNumBits >= 0 && nNumBits <= 32 );
 #endif
@@ -1031,7 +1030,7 @@ FORCEINLINE void CBitWrite::WriteUBitLong( unsigned int nData, int nNumBits, boo
 
 FORCEINLINE void CBitWrite::WriteSBitLong( int nData, int nNumBits )
 {
-	WriteUBitLong( ( uint32 ) nData, nNumBits, false );
+	WriteUBitLong( ( uint32_t ) nData, nNumBits, false );
 }
 
 FORCEINLINE void CBitWrite::WriteUBitVar( unsigned int n )
@@ -1053,23 +1052,23 @@ FORCEINLINE void CBitWrite::WriteUBitVar( unsigned int n )
 
 FORCEINLINE void CBitWrite::WriteBitFloat( float flValue )
 {
-	WriteUBitLong( *((uint32 *) &flValue ), 32 );
+	WriteUBitLong( *((uint32_t *) &flValue ), 32 );
 }
 
 FORCEINLINE void CBitWrite::WriteFloat( float flValue )
 {
 	// Pre-swap the float, since WriteBits writes raw data
 	LittleFloat( &flValue, &flValue );
-	WriteUBitLong( *((uint32 *) &flValue ), 32 );
+	WriteUBitLong( *((uint32_t *) &flValue ), 32 );
 }
 
 class CBitRead : public CBitBuffer
 {
-	uint32 m_nInBufWord;
+	uint32_t m_nInBufWord;
 	int m_nBitsAvail;
-	uint32 const *m_pDataIn;
-	uint32 const *m_pBufferEnd;
-	uint32 const *m_pData;
+	uint32_t const *m_pDataIn;
+	uint32_t const *m_pBufferEnd;
+	uint32_t const *m_pData;
 
 public:
 	CBitRead( const void *pData, int nBytes, int nBits = -1 )
@@ -1168,13 +1167,13 @@ public:
 	bool ReadWString( OUT_Z_CAP(maxLenInChars) wchar_t *pStr, int maxLenInChars, bool bLine=false, int *pOutNumChars=NULL );
 	char* ReadAndAllocateString( bool *pOverflow = 0 );
 
-	int64 ReadLongLong( void );
+	int64_t ReadLongLong( void );
 
 	// reads a varint encoded integer
-	uint32			ReadVarInt32();
-	uint64			ReadVarInt64();
-	int32			ReadSignedVarInt32() { return bitbuf::ZigZagDecode32( ReadVarInt32() ); }
-	int64			ReadSignedVarInt64() { return bitbuf::ZigZagDecode64( ReadVarInt64() ); }
+	uint32_t			ReadVarInt32();
+	uint64_t			ReadVarInt64();
+	int32_t			ReadSignedVarInt32() { return bitbuf::ZigZagDecode32( ReadVarInt32() ); }
+	int64_t			ReadSignedVarInt64() { return bitbuf::ZigZagDecode64( ReadVarInt64() ); }
 };
 
 
@@ -1183,7 +1182,7 @@ FORCEINLINE int CBitRead::GetNumBitsRead( void ) const
 	if ( ! m_pData )									   // pesky null ptr bitbufs. these happen.
 		return 0;
 
-	int nCurOfs = int(((intp(m_pDataIn) - intp(m_pData))/4)-1);
+	int nCurOfs = int(((intptr_t(m_pDataIn) - intptr_t(m_pData))/4)-1);
 	nCurOfs  *= 32;
 	nCurOfs += ( 32 - m_nBitsAvail );
 	int nAdjust = 8 * ( m_nDataBytes & 3 );
@@ -1213,7 +1212,7 @@ FORCEINLINE void CBitRead::GrabNextDWord( bool bOverFlowImmediately )
 		}
 		else
 		{
-			Assert( reinterpret_cast<intp>(m_pDataIn) + 3 < reinterpret_cast<intp>(m_pBufferEnd));
+			Assert( reinterpret_cast<intptr_t>(m_pDataIn) + 3 < reinterpret_cast<intptr_t>(m_pBufferEnd));
 			m_nInBufWord = LittleDWord( *( m_pDataIn++ ) );
 		}
 }
@@ -1272,7 +1271,7 @@ FORCEINLINE unsigned int CBitRead::PeekUBitLong( int numbits )
 {
 	int nSaveBA = m_nBitsAvail;
 	int nSaveW = m_nInBufWord;
-	uint32 const *pSaveP = m_pDataIn;
+	uint32_t const *pSaveP = m_pDataIn;
 	unsigned int nRet = ReadUBitLong( numbits );
 	m_nBitsAvail = nSaveBA;
 	m_nInBufWord = nSaveW;
@@ -1289,12 +1288,12 @@ FORCEINLINE int CBitRead::ReadSBitLong( int numbits )
 
 FORCEINLINE int CBitRead::ReadLong( void )
 {
-	return ( int ) ReadUBitLong( sizeof(int32) << 3 );
+	return ( int ) ReadUBitLong( sizeof(int32_t) << 3 );
 }
 
 FORCEINLINE float CBitRead::ReadFloat( void )
 {
-	uint32 nUval = ReadUBitLong( sizeof(int32) << 3 );
+	uint32_t nUval = ReadUBitLong( sizeof(int32_t) << 3 );
 	return * ( ( float * ) &nUval );
 }
 
@@ -1332,7 +1331,7 @@ FORCEINLINE unsigned int CBitRead::ReadUBitVar( void )
 
 FORCEINLINE float CBitRead::ReadBitFloat( void )
 {
-	uint32 nvalue = ReadUBitLong( 32 );
+	uint32_t nvalue = ReadUBitLong( 32 );
 	return *( ( float * ) &nvalue );
 }
 
@@ -1396,7 +1395,7 @@ public:																														  \
 }
 
 #define DELEGATE0I( m )	DELEGATE0( int, m )
-#define DELEGATE0LL( m ) DELEGATE0( int64, m )
+#define DELEGATE0LL( m ) DELEGATE0( int64_t, m )
 
 class bf_read
 {
@@ -1585,7 +1584,6 @@ public:
 
 WRAP_READ( CBitRead );
 
-#endif
 
 
 

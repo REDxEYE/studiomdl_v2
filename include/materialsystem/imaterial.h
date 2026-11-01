@@ -6,14 +6,13 @@
 //
 //===========================================================================//
 
-#ifndef IMATERIAL_H
-#define IMATERIAL_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
 #endif
 
-typedef uint64 VertexFormat_t;
+typedef uint64_t VertexFormat_t;
 
 //-----------------------------------------------------------------------------
 // Forward declarations
@@ -81,8 +80,8 @@ class KeyValues;
 
 inline VertexFormat_t VERTEX_TEXCOORD_SIZE( int nIndex, int nNumCoords )
 {
-	uint64 n64=nNumCoords;
-	uint64 nShift=TEX_COORD_SIZE_BIT + (3*nIndex);
+	uint64_t n64=nNumCoords;
+	uint64_t nShift=TEX_COORD_SIZE_BIT + (3*nIndex);
 	return n64 << nShift;
 }
 
@@ -542,8 +541,7 @@ inline VertexStreamSpec_t * FindVertexStreamSpec( VertexFormat_t iElement, Verte
 		if ( arrVertexStreamSpec->iVertexDataElement == iElement )
 			return arrVertexStreamSpec;
 	}
-	return NULL;
+	return nullptr;
 }
 
 
-#endif // IMATERIAL_H

@@ -80,7 +80,7 @@ CDmElement *CImportTex::FindProcessor( CDmElement *pElement, const char *pProces
 		if ( !Q_stricmp( pProcessorType, processors[i]->GetTypeString() ) && !Q_stricmp( pName, processors[i]->GetName() ) )
 			return processors[i];
 	}
-	return NULL;
+	return nullptr;
 }
 
 
@@ -464,7 +464,7 @@ const char *CImportTex::GetPossiblyQuotedWord( const char *pInBuf, char *pOutbuf
 			pWordEnd = pInBuf+strlen(pInBuf);
 	}
 	if ((! pWordEnd ) || (pWordEnd == pInBuf ) )
-		return NULL;										// no word found
+		return nullptr;										// no word found
 	memcpy( pOutbuf, pInBuf, pWordEnd-pInBuf );
 	pOutbuf[pWordEnd-pInBuf]=0;
 
@@ -523,7 +523,7 @@ bool CImportTex::GetKeyValueFromBuffer( CUtlBuffer &buffer, char *key, char *val
 bool CImportTex::Unserialize( CUtlBuffer &buf, const char *pEncodingName, int nEncodingVersion, const char *pSourceFormatName, 
 	int nSourceFormatVersion, DmFileId_t fileid, DmConflictResolution_t idConflictResolution, CDmElement **ppRoot )
 {
-	*ppRoot = NULL;
+	*ppRoot = nullptr;
 
 	m_bNoNice = m_bAlphatestMipmapping = false;
 	m_flAlphatestMipmapThreshhold = m_flAlphatestMipmapHiFreqThreshhold = 0.0f;
@@ -558,7 +558,7 @@ bool CImportTex::Unserialize( CUtlBuffer &buf, const char *pEncodingName, int nE
 	bool bOk = g_pDataModel->UpdateUnserializedElements( pSourceFormatName, nSourceFormatVersion, fileid, idConflictResolution, ppRoot );
 	if ( !bOk )
 	{
-		*ppRoot = NULL;
+		*ppRoot = nullptr;
 	}
 	return bOk; 
 }

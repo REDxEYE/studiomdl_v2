@@ -6,8 +6,7 @@
  *  Content:    DirectInput include file for device driver implementors
  *
  ****************************************************************************/
-#ifndef __DINPUTD_INCLUDED__
-#define __DINPUTD_INCLUDED__
+#pragma once
 
 #ifndef DIRECTINPUT_VERSION
 #define DIRECTINPUT_VERSION         0x0800
@@ -752,4 +751,3 @@ typedef struct IDirectInputJoyConfig8 *LPDIRECTINPUTJOYCONFIG8;
 };
 #endif
 
-#endif  /* __DINPUTD_INCLUDED__ */

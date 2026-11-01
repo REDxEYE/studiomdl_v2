@@ -1,4 +1,4 @@
-//===== Copyright © 1996-2005, Valve Corporation, All rights reserved. ======//
+//===== Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. ======//
 //
 // Purpose: 
 //
@@ -7,7 +7,9 @@
 //===========================================================================//
 #include <stdio.h>
 #include <string.h>
+#include "tier0/commonmacros.h"
 #include "tier0/dbg.h"
+
 
 struct PhonemeMap_t
 {
@@ -198,7 +200,7 @@ bool IsStandardPhoneme( int index )
 const char *DescForPhonemeByIndex( int index )
 {
 	if ( index < 0 || index >= NumPhonemes() )
-		return NULL;
+		return nullptr;
 	return g_Phonemes[ index ].desc;
 }
 

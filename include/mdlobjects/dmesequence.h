@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =====//
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =====//
 //
 // Dme representation of QC: $sequence
 //
 //===========================================================================//
 
-#ifndef DMESEQUENCE_H
-#define DMESEQUENCE_H
+#pragma once
 
 
 #ifdef _WIN32
@@ -21,6 +20,7 @@
 //-----------------------------------------------------------------------------
 // Forward declarations
 //-----------------------------------------------------------------------------
+class CDmeOperator;
 class CDmeDag;
 class CDmeAnimationList;
 class CDmeIkRule;
@@ -274,4 +274,3 @@ public:
 };
 
 
-#endif // DMESEQUENCE_H

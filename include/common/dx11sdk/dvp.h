@@ -7,8 +7,7 @@
  *
  ***************************************************************************/
 
-#ifndef __DVP_INCLUDED__
-#define __DVP_INCLUDED__
+#pragma once
 
 /*
  * GUIDS used by DirectDrawVideoPort objects
@@ -962,5 +961,4 @@ typedef struct _DDVIDEOPORTNOTIFY
 
 #endif  // GUID_DEFS_ONLY
 
-#endif
 

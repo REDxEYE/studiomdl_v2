@@ -10,9 +10,9 @@
 #include <cctype>
 
 // NOTE: This has to be the last file included!
-// DISABLED #include "tier0/memdbgon.h"
 
-static const int64 k_nMillion = 1000000;
+
+static const int64_t k_nMillion = 1000000;
 
 //-----------------------------------------------------------------------------
 // Purpose: Helper: Find s substring
@@ -20,7 +20,7 @@ static const int64 k_nMillion = 1000000;
 static ptrdiff_t IndexOf(const char *pstrToSearch, const char *pstrTarget)
 {
 	const char *pstrHit = V_strstr(pstrToSearch, pstrTarget);
-	if (pstrHit == NULL)
+	if (pstrHit == nullptr)
 	{
 		return -1;	// Not found.
 	}
@@ -33,7 +33,7 @@ static ptrdiff_t IndexOf(const char *pstrToSearch, const char *pstrTarget)
 //-----------------------------------------------------------------------------
 static size_t RemoveWhitespace(char *pszString)
 {
-	if (pszString == NULL)
+	if (pszString == nullptr)
 		return 0;
 
 	char *pstrDest = pszString;
@@ -58,7 +58,7 @@ int V_vscprintf(const char *format, va_list params)
 #ifdef _WIN32
 	return _vscprintf(format, params);
 #else
-	return vsnprintf(NULL, 0, format, params);
+	return vsnprintf(nullptr, 0, format, params);
 #endif
 }
 
@@ -67,7 +67,6 @@ int V_vscprintf(const char *format, va_list params)
 //-----------------------------------------------------------------------------
 CUtlBinaryBlock::CUtlBinaryBlock( int growSize, int initSize ) 
 {
-	MEM_ALLOC_CREDIT();
 	m_Memory.Init( growSize, initSize );
 
 	m_nActualLength = 0;
@@ -104,7 +103,6 @@ void CUtlBinaryBlock::Get( void *pValue, int nLen ) const
 
 void CUtlBinaryBlock::SetLength( int nLength )
 {
-	MEM_ALLOC_CREDIT();
 	Assert( !m_Memory.IsReadOnly() );
 
 	m_nActualLength = nLength;
@@ -437,7 +435,7 @@ void CUtlString::StripTrailingSlash()
 	}
 }
 
-CUtlString CUtlString::Slice( int32 nStart, int32 nEnd )
+CUtlString CUtlString::Slice( int32_t nStart, int32_t nEnd )
 {
 	if ( nStart < 0 )
 		nStart = Length() - (-nStart % Length());
@@ -467,12 +465,12 @@ CUtlString CUtlString::Slice( int32 nStart, int32 nEnd )
 }
 
 // Grab a substring starting from the left or the right side.
-CUtlString CUtlString::Left( int32 nChars )
+CUtlString CUtlString::Left( int32_t nChars )
 {
 	return Slice( 0, nChars );
 }
 
-CUtlString CUtlString::Right( int32 nChars )
+CUtlString CUtlString::Right( int32_t nChars )
 {
 	return Slice( -nChars );
 }
@@ -586,7 +584,7 @@ void CUtlString::Swap( CUtlString &src )
 
 CUtlString CUtlString::AbsPath( const char *pStartingDir ) const
 {
-	char szNew[MAX_PATH];
+	char szNew[MAX_PATH]{0};
 	V_MakeAbsolutePath( szNew, sizeof( szNew ), this->String(), pStartingDir );
 	return CUtlString( szNew );
 }
@@ -639,7 +637,7 @@ CUtlString CUtlString::GetExtension() const
 
 CUtlString CUtlString::PathJoin( const char *pStr1, const char *pStr2 )
 {
-	char szPath[MAX_PATH];
+	char szPath[MAX_PATH]{0};
 	V_ComposeFileName( pStr1, pStr2, szPath, sizeof( szPath ) );
 	return CUtlString( szPath );
 }
@@ -768,12 +766,12 @@ char *CUtlStringBuilder::InternalPrepareBuffer(size_t nChars, bool bCopyOld, siz
 	if (nMinCapacity > k_nMaxStringSize)
 	{
 		SetError();
-		return NULL;
+		return nullptr;
 	}
 
 	bool bWasHeap = m_data.IsHeap();
 	// add this to whatever we are going to grow so we don't start out too slow
-	char *pszString = NULL;
+	char *pszString = nullptr;
 	if (nMinCapacity > MAX_STACK_STRLEN)
 	{
 		// Allocate 1.5 times what is requested, plus a small initial ramp
@@ -803,7 +801,7 @@ char *CUtlStringBuilder::InternalPrepareBuffer(size_t nChars, bool bCopyOld, siz
 			if (!pszString)
 			{
 				SetError();
-				return NULL;
+				return nullptr;
 			}
 		}
 		else // Either it's already on the stack; or we don't need to copy
@@ -819,7 +817,7 @@ char *CUtlStringBuilder::InternalPrepareBuffer(size_t nChars, bool bCopyOld, siz
 			if (!pszString)
 			{
 				SetError();
-				return NULL;
+				return nullptr;
 			}
 
 			// still need to do the copy if we are going from small buffer to large
@@ -833,8 +831,8 @@ char *CUtlStringBuilder::InternalPrepareBuffer(size_t nChars, bool bCopyOld, siz
 		pszString[nNewSize] = '\0';
 
 		m_data.Heap.m_pchString = pszString;
-		m_data.Heap.m_nCapacity = (uint32)nNewSize; // capacity is the max #chars, not including the null.
-		m_data.Heap.m_nLength = (uint32)nChars;
+		m_data.Heap.m_nCapacity = (uint32_t)nNewSize; // capacity is the max #chars, not including the null.
+		m_data.Heap.m_nLength = (uint32_t)nChars;
 		m_data.Heap.sentinel = STRING_TYPE_SENTINEL;
 	}
 	else
@@ -843,7 +841,7 @@ char *CUtlStringBuilder::InternalPrepareBuffer(size_t nChars, bool bCopyOld, siz
 		// less than MAX_STACK_STRLEN, or maybe a .Replace() shrunk the
 		// length down.
 		pszString = m_data.Stack.m_szString;
-		m_data.Stack.SetBytesLeft(MAX_STACK_STRLEN - (uint8)nChars);
+		m_data.Stack.SetBytesLeft(MAX_STACK_STRLEN - (uint8_t)nChars);
 
 		if (bWasHeap)
 		{
@@ -889,7 +887,7 @@ size_t CUtlStringBuilder::ReplaceInternal(const char *pstrTarget, const char *ps
 	if (HasError())
 		return 0;
 
-	if (pstrReplacement == NULL)
+	if (pstrReplacement == nullptr)
 		pstrReplacement = "";
 
 	size_t nTargetLength = V_strlen(pstrTarget);
@@ -904,7 +902,7 @@ size_t CUtlStringBuilder::ReplaceInternal(const char *pstrTarget, const char *ps
 
 		// walk the string counting hits
 		const char *pstrHit = pszString;
-		for (pstrHit = pfnCompare(pstrHit, pstrTarget); pstrHit != NULL && *pstrHit != 0; /* inside */)
+		for (pstrHit = pfnCompare(pstrHit, pstrTarget); pstrHit != nullptr && *pstrHit != 0; /* inside */)
 		{
 			vecMatches.AddToTail(pstrHit);
 			// look for the next target and keep looping
@@ -1054,7 +1052,7 @@ size_t CUtlStringBuilder::RemoveWhitespace()
 //-----------------------------------------------------------------------------
 bool CUtlStringBuilder::SetLength(size_t nLen)
 {
-	return m_data.SetLength(nLen) != NULL;
+	return m_data.SetLength(nLen) != nullptr;
 }
 
 
@@ -1105,15 +1103,15 @@ char *CUtlStringBuilder::Data::SetLength(size_t nChars)
 	if (IsHeap())
 	{
 		if (!Heap.m_pchString || nChars > Heap.m_nCapacity)
-			return NULL;
-		Heap.m_nLength = (uint32)nChars;
+			return nullptr;
+		Heap.m_nLength = (uint32_t)nChars;
 		Heap.m_pchString[nChars] = '\0';
 		return Heap.m_pchString;
 	}
 	if (nChars > MAX_STACK_STRLEN)
-		return NULL;
+		return nullptr;
 	Stack.m_szString[nChars] = '\0';
-	Stack.SetBytesLeft(MAX_STACK_STRLEN - (uint8)nChars);
+	Stack.SetBytesLeft(MAX_STACK_STRLEN - (uint8_t)nChars);
 	return Stack.m_szString;
 }
 
@@ -1129,8 +1127,8 @@ void CUtlStringBuilder::Data::SetPtr(char *pchString, size_t nLength)
 	// but we've already got a dynamically allocated string, so let
 	// it be in the heap buffer anyways.
 	Heap.m_pchString = pchString;
-	Heap.m_nCapacity = (uint32)nLength;
-	Heap.m_nLength = (uint32)nLength;
+	Heap.m_nCapacity = (uint32_t)nLength;
+	Heap.m_nLength = (uint32_t)nLength;
 	Heap.sentinel = STRING_TYPE_SENTINEL;
 
 	// their buffer must have room for the null
@@ -1195,13 +1193,13 @@ bool CUtlStringBuilder::Data::MoveToHeap()
 			pszHeapString[nLen] = 0;
 
 			Heap.m_pchString = pszHeapString;
-			Heap.m_nLength = (uint32)nLen;
-			Heap.m_nCapacity = (uint32)nLen;
+			Heap.m_nLength = (uint32_t)nLen;
+			Heap.m_nCapacity = (uint32_t)nLen;
 			Heap.sentinel = STRING_TYPE_SENTINEL;
 		}
 		else
 		{
-			Heap.m_pchString = NULL;
+			Heap.m_pchString = nullptr;
 			Heap.m_nLength = 0;
 			Heap.m_nCapacity = 0;
 			bSuccess = false;

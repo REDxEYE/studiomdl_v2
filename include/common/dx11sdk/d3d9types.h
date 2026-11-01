@@ -7,8 +7,7 @@
  *
  ***************************************************************************/
 
-#ifndef _d3d9TYPES_H_
-#define _d3d9TYPES_H_
+#pragma once
 
 #ifndef DIRECT3D_VERSION
 #define DIRECT3D_VERSION         0x0900
@@ -2008,5 +2007,4 @@ typedef enum D3DDISPLAYROTATION
 #endif
 
 #endif /* (DIRECT3D_VERSION >= 0x0900) */
-#endif /* _d3d9TYPES(P)_H_ */
 

@@ -8,8 +8,7 @@
  *
  ***************************************************************************/
 
-#ifndef __RMXFGUID_H_
-#define __RMXFGUID_H_
+#pragma once
 
 /* {2B957100-9E9A-11cf-AB39-0020AF71E433} */
 DEFINE_GUID(TID_D3DRMInfo,
@@ -219,5 +218,4 @@ DEFINE_GUID(TID_D3DRMPropertyBag,
 DEFINE_GUID(TID_D3DRMRightHanded, 
 0x7f5d5ea0, 0xd53a, 0x11d1, 0x82, 0xc0, 0x0, 0xa0, 0xc9, 0x69, 0x72, 0x71);
 
-#endif /* __RMXFGUID_H_ */
 

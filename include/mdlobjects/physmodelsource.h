@@ -1,9 +1,8 @@
-//===== Copyright © Valve Corporation, All rights reserved. ======//
+//===== Copyright Â© Valve Corporation, All rights reserved. ======//
 //
 // This is a declaration of an abstraction of data used to generate collision mesh and potentially other physics data
 //
-#ifndef PHYS_MODEL_SOURCE_HDR
-#define PHYS_MODEL_SOURCE_HDR
+#pragma once
 
 #include "mathlib/aabb.h"
 #include "tier1/utlvector.h"
@@ -98,17 +97,17 @@ public:
 		return -1;
 	}
 
-	void GetBoneTriangles( CUtlStringToken joint, uint nFlags, float flMinWeight, CUtlVector<Vector> &arrVertices, CUtlVector<uint> &arrIndices )const;
-	bool BoneHasMeat( CUtlStringToken joint, uint nFlags, const CTransform &bindPose ) const;
-	AABB_t GetBoneInfluenceBbox( CUtlStringToken joint, uint nFlags, const CTransform &bindPose, float flMinWeight = 0.5f )const;
+	void GetBoneTriangles( CUtlStringToken joint, uint32_t nFlags, float flMinWeight, CUtlVector<Vector> &arrVertices, CUtlVector<uint32_t> &arrIndices )const;
+	bool BoneHasMeat( CUtlStringToken joint, uint32_t nFlags, const CTransform &bindPose ) const;
+	AABB_t GetBoneInfluenceBbox( CUtlStringToken joint, uint32_t nFlags, const CTransform &bindPose, float flMinWeight = 0.5f )const;
 
 	static bool IsBitInSet( int nBit, const CVarBitVec &bonesInSubtree )
 	{
-		return uint( nBit ) < uint( bonesInSubtree.GetNumBits() ) && bonesInSubtree.IsBitSet( nBit );
+		return uint32_t( nBit ) < uint32_t( bonesInSubtree.GetNumBits() ) && bonesInSubtree.IsBitSet( nBit );
 	}
 
 	template <typename Fn>
-	void EnumerateBoneVerts( CUtlStringToken joint, uint nFlags, Fn functor )const
+	void EnumerateBoneVerts( CUtlStringToken joint, uint32_t nFlags, Fn functor )const
 	{
 /*
 		if( GetRenderModel() )
@@ -211,4 +210,3 @@ inline void AdjustLegacyDotaOrientation( CUtlVector< CTransform > &transforms )
 //void GetBoneTriangles( const CModel *pModel, CUtlStringToken joint, uint nFlags, float flMinWeight, CUtlVector<Vector> &arrVertices, CUtlVector<uint> &arrIndices );
 
 
-#endif

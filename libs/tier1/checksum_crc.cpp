@@ -5,13 +5,12 @@
 //=============================================================================//
 
 #include "tier0/platform.h"
-#include "commonmacros.h"
+#include "tier0/commonmacros.h"
 #include "tier1/checksum_crc.h"
 
 
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 #define CRC32_INIT_VALUE 0xFFFFFFFFUL
 #define CRC32_XOR_VALUE  0xFFFFFFFFUL
@@ -149,7 +148,7 @@ JustAfew:
     // The low-order two bits of pb and nBuffer in total control the
     // upfront work.
     //
-    nFront = ((uintp)pb) & 3;
+    nFront = ((uintptr_t)pb) & 3;
     nBuffer -= nFront;
     switch (nFront)
     {
@@ -283,7 +282,7 @@ void CRC64_Init( CRC64_t *pCRC )
 
 void CRC64_ProcessBuffer( CRC64_t *pCRC, const void *p, int len )
 {
-	uint8 *pBytes = (uint8*)p;
+	uint8_t *pBytes = (uint8_t*)p;
 	CRC64_t nCRC = *pCRC;
 
 	while ( len > 0 )

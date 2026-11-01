@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2009, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2009, Valve Corporation, All rights reserved. =======
 //
 // Declaration of CDmAnimUtils a set of animation related utilities 
 // which work on DmeDag and other DmElement derived objects.
@@ -6,8 +6,7 @@
 //=============================================================================
 
 
-#ifndef DMANIMUTILS_H
-#define DMANIMUTILS_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -84,37 +83,37 @@ public:
 	static CDmeTimeSelection *CreateTimeSelection( DmeTime_t leftFalloff, DmeTime_t leftHold, DmeTime_t rightHold, DmeTime_t rightFalloff );
 
 	// Create a dag with the specified name, position and orientation
-	static CDmeDag *CreateDag( const char *pchName, const Vector &position, const Quaternion &orientation, CDmeDag *pParent = NULL );
+	static CDmeDag *CreateDag( const char *pchName, const Vector &position, const Quaternion &orientation, CDmeDag *pParent = nullptr);
 	
 	// Get the average position of the provided dag nodes in the specified space
-	static Vector GetDagPosition( const CUtlVector< CDmeDagPtr > &dagList, TransformSpace_t space, const CDmeDag *pReference = NULL );
+	static Vector GetDagPosition( const CUtlVector< CDmeDagPtr > &dagList, TransformSpace_t space, const CDmeDag *pReference = nullptr);
 	
 	// Get the average Euler rotation of the provided dag nodes in the specified space
-	static Vector GetDagRotation( const CUtlVector< CDmeDagPtr > &dagList, TransformSpace_t space, const CDmeDag *pReference = NULL );
+	static Vector GetDagRotation( const CUtlVector< CDmeDagPtr > &dagList, TransformSpace_t space, const CDmeDag *pReference = nullptr);
 
 	// Get the average orientation (quaternion) of the provided dag nodes in the specified space
-	static Quaternion GetDagOrientation( const CUtlVector< CDmeDagPtr > &dagList, TransformSpace_t space, const CDmeDag *pReference = NULL );
+	static Quaternion GetDagOrientation( const CUtlVector< CDmeDagPtr > &dagList, TransformSpace_t space, const CDmeDag *pReference = nullptr);
 	
 	// Get the average position and orientation of the provided dag nodes in the specified space
-	static void GetDagPositionOrienation( Vector &position, Quaternion &orienation, const CUtlVector< CDmeDagPtr > &dagList, TransformSpace_t space, const CDmeDag *pReferenceDag = NULL );
+	static void GetDagPositionOrienation( Vector &position, Quaternion &orienation, const CUtlVector< CDmeDagPtr > &dagList, TransformSpace_t space, const CDmeDag *pReferenceDag = nullptr);
 
 	// Move the provided dag nodes in the specified space
-	static void MoveDagNodes( const Vector &offset, const CUtlVector< CDmeDagPtr > &dagList, bool bRelative, TransformSpace_t space, CDmeDag *pReference = NULL );
+	static void MoveDagNodes( const Vector &offset, const CUtlVector< CDmeDagPtr > &dagList, bool bRelative, TransformSpace_t space, CDmeDag *pReference = nullptr);
 	
 	// Move the provided dag nodes in the specified space and apply the operation to the logs associated with the dag
-	static void MoveDagNodes( const Vector &offset, const CUtlVector< CDmeDagPtr > &dagList, bool bRelative, const CDmeTimeSelection *pTimeSelection, bool bOffsetOverTime, TransformSpace_t space, CDmeDag *pReference = NULL );
+	static void MoveDagNodes( const Vector &offset, const CUtlVector< CDmeDagPtr > &dagList, bool bRelative, const CDmeTimeSelection *pTimeSelection, bool bOffsetOverTime, TransformSpace_t space, CDmeDag *pReference = nullptr);
 	
 	// Rotate the provided dag nodes in the specified space
-	static void RotateDagNodes( const Vector &rotation, const CUtlVector< CDmeDagPtr > &dagList, bool bRelative, TransformSpace_t space, CDmeDag *pReference = NULL );
+	static void RotateDagNodes( const Vector &rotation, const CUtlVector< CDmeDagPtr > &dagList, bool bRelative, TransformSpace_t space, CDmeDag *pReference = nullptr);
 	
 	// Rotate the provided dag nodes in the specified space and apply the operation to the logs associated with the dag
-	static void RotateDagNodes( const Vector &rotation, const CUtlVector< CDmeDagPtr > &dagList, bool bRelative, const CDmeTimeSelection *pTimeSelection, bool bOffsetOverTime, TransformSpace_t space, CDmeDag* pReference = NULL );
+	static void RotateDagNodes( const Vector &rotation, const CUtlVector< CDmeDagPtr > &dagList, bool bRelative, const CDmeTimeSelection *pTimeSelection, bool bOffsetOverTime, TransformSpace_t space, CDmeDag* pReference = nullptr);
 	
 	// Perform both a translation and a rotation of the specified dag nodes
-	static void TransformDagNodes( const Vector &offset, const Quaternion &rotation, const CUtlVector< CDmeDagPtr > &dagList, bool bRelative, TransformSpace_t space, CDmeDag* pReferenceDag = NULL, bool bPosition = true, bool bRotation = true );
+	static void TransformDagNodes( const Vector &offset, const Quaternion &rotation, const CUtlVector< CDmeDagPtr > &dagList, bool bRelative, TransformSpace_t space, CDmeDag* pReferenceDag = nullptr, bool bPosition = true, bool bRotation = true );
 
 	// Perform both a translation and a rotation of the specified dag nodes and apply the operation to the logs associated with the dag
-	static void TransformDagNodes( const Vector &offset, const Quaternion &rotation, const CUtlVector< CDmeDagPtr > &dagList, bool bRelative, const CDmeTimeSelection *pTimeSelection, bool bOffsetOverTime, TransformSpace_t space, CDmeDag* pReferenceDag = NULL, bool bPosition = true, bool bRotation = true );
+	static void TransformDagNodes( const Vector &offset, const Quaternion &rotation, const CUtlVector< CDmeDagPtr > &dagList, bool bRelative, const CDmeTimeSelection *pTimeSelection, bool bOffsetOverTime, TransformSpace_t space, CDmeDag* pReferenceDag = nullptr, bool bPosition = true, bool bRotation = true );
 
 	// Set the current position and orientation as the defaults for the specified dag nodes.
 	static void SetDagTransformDefaults( const CUtlVector< CDmeDagPtr > &dagList, bool bPosition, bool bOrientation );
@@ -141,10 +140,10 @@ public:
 	static void SetLogsToCurrentTransform( CDmeDag *pDag );
 
 	// Generate log samples for the specified dag node, if a parent is provided, generate the samples in the space of that parent, otherwise generate the samples in world space.
-	static void GenerateLogSamples( CDmeDag* pDag, CDmeDag *pParent, bool bPosition, bool bOrientation, const DmeLog_TimeSelection_t *pTimeSelection = NULL );
+	static void GenerateLogSamples( CDmeDag* pDag, CDmeDag *pParent, bool bPosition, bool bOrientation, const DmeLog_TimeSelection_t *pTimeSelection = nullptr);
 	
 	// Find and operate all of the channels driving the specified dag nodes
-	static void OperateDagChannels( const CUtlVector< CDmeDag* > &dagList, ChannelMode_t mode, const DmeLog_TimeSelection_t &timeSelection, CDmeClip *pShot = NULL, CDmeClip *pMovie = NULL );
+	static void OperateDagChannels( const CUtlVector< CDmeDag* > &dagList, ChannelMode_t mode, const DmeLog_TimeSelection_t &timeSelection, CDmeClip *pShot = nullptr, CDmeClip *pMovie = nullptr);
 
 	// Create a constraint of the specified type
 	static CDmeRigBaseConstraintOperator *CreateConstraint( const char *pchName, EConstraintType constraintType, CDmeDag *pConstrainedDag, const CUtlVector< CDmeDagPtr > &targetDagList, bool bPreserveOffset, float flWeight, bool bOperate );
@@ -159,13 +158,13 @@ public:
 	static CDmeRigParentConstraintOperator* CreateParentConstraint( char const *pchName, CDmeDag *pConstrainedDag, const CUtlVector< CDmeDagPtr > &targetDagList, bool bPreserveOffset, float flWeight );
 
 	// Create an Aim constraint which will control the orientation of the specified dag such that it points toward the weighted target position
-	static CDmeRigAimConstraintOperator* CreateAimConstraint( char const *pchName, CDmeDag *pConstrainedDag, const CUtlVector< CDmeDagPtr > &targetDagList, bool bPreserveOffset, float flWeight, const Vector &upVector, TransformSpace_t upSpace, const CDmeDag* pReferenceDag = NULL );
+	static CDmeRigAimConstraintOperator* CreateAimConstraint( char const *pchName, CDmeDag *pConstrainedDag, const CUtlVector< CDmeDagPtr > &targetDagList, bool bPreserveOffset, float flWeight, const Vector &upVector, TransformSpace_t upSpace, const CDmeDag* pReferenceDag = nullptr);
 	
 	// Create an IK constraint controlling the 2 bone chain from the specified root dag to the specified end dag
-	static CDmeRigIKConstraintOperator* CreateIKConstraint( const char *pchName, CDmeDag *pChainRootDag, CDmeDag *pChainEndDag, CDmeDag *pTargetDag, bool bPreserveOffset, const Vector &poleVector, CDmeDag *pPoleVectorTarget = NULL );
+	static CDmeRigIKConstraintOperator* CreateIKConstraint( const char *pchName, CDmeDag *pChainRootDag, CDmeDag *pChainEndDag, CDmeDag *pTargetDag, bool bPreserveOffset, const Vector &poleVector, CDmeDag *pPoleVectorTarget = nullptr);
 
 	// Print the position and orientation of the dag over time for debugging purposes
-	static void PrintDagTransformOverTime( CDmeDag* pDag, CDmeClip *pShot = NULL, CDmeClip *pMovie = NULL );
+	static void PrintDagTransformOverTime( CDmeDag* pDag, CDmeClip *pShot = nullptr, CDmeClip *pMovie = nullptr);
 
 private:
 
@@ -219,4 +218,3 @@ private:
 
 };
 
-#endif // DMANIMUTILS_H

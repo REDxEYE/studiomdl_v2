@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2008, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2008, Valve Corporation, All rights reserved. =======
 //
 // Purpose: Contains the declaration of the CDmeControlGroup class. The
 // CDmeControlGroup class is a grouping of animation controls that is used for
@@ -6,8 +6,7 @@
 //
 //=============================================================================
 
-#ifndef DMECONTROLGROUP_H
-#define DMECONTROLGROUP_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -34,7 +33,7 @@ public:
 	//---------------------------------
 
 	// Add a control to the group
-	void AddControl( CDmElement *pControl, const CDmElement *pInsertBeforeControl = NULL );
+	void AddControl( CDmElement *pControl, const CDmElement *pInsertBeforeControl = nullptr);
 
 	// Remove a control from the group
 	bool RemoveControl( const CDmElement *pControl );
@@ -43,7 +42,7 @@ public:
 	void GetControlsInGroup( CUtlVector< CDmElement* > &controlList, bool recursive ) const;
 
 	// Find a control with the specified name within the group
-	CDmElement *FindControlByName( const char *pchName, bool recursive, CDmeControlGroup **pParentGroup = NULL );
+	CDmElement *FindControlByName( const char *pchName, bool recursive, CDmeControlGroup **pParentGroup = nullptr);
 
 	// Find the group to which the specified control belongs, if any.
 	static CDmeControlGroup *FindGroupContainingControl( const CDmElement* pControl );
@@ -54,7 +53,7 @@ public:
 	//---------------------------------
 	
 	// Make the specified group a child of this group 
-	void AddChild( CDmeControlGroup *pGroup, const CDmeControlGroup *pInsertBeforeGroup = NULL );
+	void AddChild( CDmeControlGroup *pGroup, const CDmeControlGroup *pInsertBeforeGroup = nullptr);
 
 	// Remove the specified child group 
 	bool RemoveChild( const CDmeControlGroup *pGroup );
@@ -72,7 +71,7 @@ public:
 	bool HasChildGroup( const char *pchName, bool recursive );
 
 	// Find the child group with the specified name
-	CDmeControlGroup *FindChildByName( const char *pchName, bool recursive, CDmeControlGroup **pParentGroup = NULL );
+	CDmeControlGroup *FindChildByName( const char *pchName, bool recursive, CDmeControlGroup **pParentGroup = nullptr);
 
 	// Find the parent of the group
 	CDmeControlGroup *FindParent() const;
@@ -132,10 +131,10 @@ public:
 	CDmeControlGroup *FindRootControlGroup();
 
 	// Compare the two groups by name for an ascending sort
-	static int CDmeControlGroup::CompareByNameAscending( CDmeControlGroup * const *pGroupA, CDmeControlGroup * const *pGroupB );
+	static int CompareByNameAscending( CDmeControlGroup * const *pGroupA, CDmeControlGroup * const *pGroupB );
 
 	// Compare the two groups by name for a descending sort
-	static int CDmeControlGroup::CompareByNameDecending( CDmeControlGroup * const *pGroupA, CDmeControlGroup * const *pGroupB );
+	static int CompareByNameDecending( CDmeControlGroup * const *pGroupA, CDmeControlGroup * const *pGroupB );
 
 	// Accessors
 	const CDmaElementArray< CDmeControlGroup > &Children() const	{ return m_Children;		}
@@ -168,5 +167,4 @@ private:
 };
 
 
-#endif // DMECONTROLGROUP_H
 

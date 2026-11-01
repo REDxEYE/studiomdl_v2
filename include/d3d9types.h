@@ -7,8 +7,7 @@
  *
  ***************************************************************************/
 
-#ifndef _d3d9TYPES_H_
-#define _d3d9TYPES_H_
+#pragma once
 
 #ifndef DIRECT3D_VERSION
 #define DIRECT3D_VERSION         0x0900
@@ -29,7 +28,7 @@
 
 // D3DCOLOR is equivalent to D3DFMT_A8R8G8B8
 #ifndef D3DCOLOR_DEFINED
-typedef DWORD D3DCOLOR;
+typedef uint32_t D3DCOLOR;
 #define D3DCOLOR_DEFINED
 #endif
 
@@ -44,7 +43,7 @@ typedef DWORD D3DCOLOR;
 
 // maps floating point channels (0.f to 1.f range) to D3DCOLOR
 #define D3DCOLOR_COLORVALUE(r,g,b,a) \
-    D3DCOLOR_RGBA((DWORD)((r)*255.f),(DWORD)((g)*255.f),(DWORD)((b)*255.f),(DWORD)((a)*255.f))
+    D3DCOLOR_RGBA((uint32_t)((r)*255.f),(uint32_t)((g)*255.f),(uint32_t)((b)*255.f),(uint32_t)((a)*255.f))
 
 
 #ifndef D3DVECTOR_DEFINED
@@ -68,10 +67,10 @@ typedef struct _D3DCOLORVALUE {
 
 #ifndef D3DRECT_DEFINED
 typedef struct _D3DRECT {
-    LONG x1;
-    LONG y1;
-    LONG x2;
-    LONG y2;
+    int32_t x1;
+    int32_t y1;
+    int32_t x2;
+    int32_t y2;
 } D3DRECT;
 #define D3DRECT_DEFINED
 #endif
@@ -93,10 +92,10 @@ typedef struct _D3DMATRIX {
 #endif
 
 typedef struct _D3DVIEWPORT9 {
-    DWORD       X;
-    DWORD       Y;            /* Viewport Top left */
-    DWORD       Width;
-    DWORD       Height;       /* Viewport Dimensions */
+    uint32_t       X;
+    uint32_t       Y;            /* Viewport Top left */
+    uint32_t       Width;
+    uint32_t       Height;       /* Viewport Dimensions */
     float       MinZ;         /* Min/max of clip Volume */
     float       MaxZ;
 } D3DVIEWPORT9;
@@ -148,8 +147,8 @@ typedef struct _D3DVIEWPORT9 {
                    D3DCS_PLANE5)
 
 typedef struct _D3DCLIPSTATUS9 {
-    DWORD ClipUnion;
-    DWORD ClipIntersection;
+    uint32_t ClipUnion;
+    uint32_t ClipIntersection;
 } D3DCLIPSTATUS9;
 
 typedef struct _D3DMATERIAL9 {
@@ -760,12 +759,12 @@ typedef enum _D3DDECLTYPE
 
 typedef struct _D3DVERTEXELEMENT9
 {
-    WORD    Stream;     // Stream index
-    WORD    Offset;     // Offset in the stream in bytes
-    BYTE    Type;       // Data type
-    BYTE    Method;     // Processing method
-    BYTE    Usage;      // Semantics
-    BYTE    UsageIndex; // Semantic index
+    uint16_t    Stream;     // Stream index
+    uint16_t    Offset;     // Offset in the stream in bytes
+    uint8_t    Type;       // Data type
+    uint8_t    Method;     // Processing method
+    uint8_t    Usage;      // Semantics
+    uint8_t    UsageIndex; // Semantic index
 } D3DVERTEXELEMENT9, *LPD3DVERTEXELEMENT9;
 
 // This is used to initialize the last vertex element in a vertex declaration
@@ -1330,8 +1329,8 @@ typedef enum _D3DMULTISAMPLE_TYPE
  */
 #ifndef MAKEFOURCC
     #define MAKEFOURCC(ch0, ch1, ch2, ch3)                              \
-                ((DWORD)(BYTE)(ch0) | ((DWORD)(BYTE)(ch1) << 8) |       \
-                ((DWORD)(BYTE)(ch2) << 16) | ((DWORD)(BYTE)(ch3) << 24 ))
+                ((uint32_t)(uint8_t)(ch0) | ((uint32_t)(uint8_t)(ch1) << 8) |       \
+                ((uint32_t)(uint8_t)(ch2) << 16) | ((uint32_t)(uint8_t)(ch3) << 24 ))
 #endif /* defined(MAKEFOURCC) */
 
 
@@ -1450,19 +1449,19 @@ typedef enum _D3DFORMAT
 /* Display Modes */
 typedef struct _D3DDISPLAYMODE
 {
-    UINT            Width;
-    UINT            Height;
-    UINT            RefreshRate;
+    uint32_t            Width;
+    uint32_t            Height;
+    uint32_t            RefreshRate;
     D3DFORMAT       Format;
 } D3DDISPLAYMODE;
 
 /* Creation Parameters */
 typedef struct _D3DDEVICE_CREATION_PARAMETERS
 {
-    UINT            AdapterOrdinal;
+    uint32_t            AdapterOrdinal;
     D3DDEVTYPE      DeviceType;
     HWND            hFocusWindow;
-    DWORD           BehaviorFlags;
+    uint32_t           BehaviorFlags;
 } D3DDEVICE_CREATION_PARAMETERS;
 
 
@@ -1501,24 +1500,24 @@ typedef enum _D3DPOOL {
 /* Resize Optional Parameters */
 typedef struct _D3DPRESENT_PARAMETERS_
 {
-    UINT                BackBufferWidth;
-    UINT                BackBufferHeight;
+    uint32_t                BackBufferWidth;
+    uint32_t                BackBufferHeight;
     D3DFORMAT           BackBufferFormat;
-    UINT                BackBufferCount;
+    uint32_t                BackBufferCount;
 
     D3DMULTISAMPLE_TYPE MultiSampleType;
-    DWORD               MultiSampleQuality;
+    uint32_t               MultiSampleQuality;
 
     D3DSWAPEFFECT       SwapEffect;
     HWND                hDeviceWindow;
     BOOL                Windowed;
     BOOL                EnableAutoDepthStencil;
     D3DFORMAT           AutoDepthStencilFormat;
-    DWORD               Flags;
+    uint32_t               Flags;
 
     /* FullScreen_RefreshRateInHz must be zero for Windowed mode */
-    UINT                FullScreen_RefreshRateInHz;
-    UINT                PresentationInterval;
+    uint32_t                FullScreen_RefreshRateInHz;
+    uint32_t                PresentationInterval;
 } D3DPRESENT_PARAMETERS;
 
 // Values for D3DPRESENT_PARAMETERS.Flags
@@ -1546,9 +1545,9 @@ typedef struct _D3DPRESENT_PARAMETERS_
 
 typedef struct _D3DGAMMARAMP
 {
-    WORD                red  [256];
-    WORD                green[256];
-    WORD                blue [256];
+    uint16_t                red  [256];
+    uint16_t                green[256];
+    uint16_t                blue [256];
 } D3DGAMMARAMP;
 
 /* Back buffer types */
@@ -1674,11 +1673,11 @@ typedef struct _D3DVERTEXBUFFER_DESC
 {
     D3DFORMAT           Format;
     D3DRESOURCETYPE     Type;
-    DWORD               Usage;
+    uint32_t               Usage;
     D3DPOOL             Pool;
-    UINT                Size;
+    uint32_t                Size;
 
-    DWORD               FVF;
+    uint32_t               FVF;
 
 } D3DVERTEXBUFFER_DESC;
 
@@ -1687,9 +1686,9 @@ typedef struct _D3DINDEXBUFFER_DESC
 {
     D3DFORMAT           Format;
     D3DRESOURCETYPE     Type;
-    DWORD               Usage;
+    uint32_t               Usage;
     D3DPOOL             Pool;
-    UINT                Size;
+    uint32_t                Size;
 } D3DINDEXBUFFER_DESC;
 
 
@@ -1698,25 +1697,25 @@ typedef struct _D3DSURFACE_DESC
 {
     D3DFORMAT           Format;
     D3DRESOURCETYPE     Type;
-    DWORD               Usage;
+    uint32_t               Usage;
     D3DPOOL             Pool;
 
     D3DMULTISAMPLE_TYPE MultiSampleType;
-    DWORD               MultiSampleQuality;
-    UINT                Width;
-    UINT                Height;
+    uint32_t               MultiSampleQuality;
+    uint32_t                Width;
+    uint32_t                Height;
 } D3DSURFACE_DESC;
 
 typedef struct _D3DVOLUME_DESC
 {
     D3DFORMAT           Format;
     D3DRESOURCETYPE     Type;
-    DWORD               Usage;
+    uint32_t               Usage;
     D3DPOOL             Pool;
 
-    UINT                Width;
-    UINT                Height;
-    UINT                Depth;
+    uint32_t                Width;
+    uint32_t                Height;
+    uint32_t                Depth;
 } D3DVOLUME_DESC;
 
 /* Structure for LockRect */
@@ -1729,12 +1728,12 @@ typedef struct _D3DLOCKED_RECT
 /* Structures for LockBox */
 typedef struct _D3DBOX
 {
-    UINT                Left;
-    UINT                Top;
-    UINT                Right;
-    UINT                Bottom;
-    UINT                Front;
-    UINT                Back;
+    uint32_t                Left;
+    uint32_t                Top;
+    uint32_t                Right;
+    uint32_t                Bottom;
+    uint32_t                Front;
+    uint32_t                Back;
 } D3DBOX;
 
 typedef struct _D3DLOCKED_BOX
@@ -1747,26 +1746,26 @@ typedef struct _D3DLOCKED_BOX
 /* Structures for LockRange */
 typedef struct _D3DRANGE
 {
-    UINT                Offset;
-    UINT                Size;
+    uint32_t                Offset;
+    uint32_t                Size;
 } D3DRANGE;
 
 /* Structures for high order primitives */
 typedef struct _D3DRECTPATCH_INFO
 {
-    UINT                StartVertexOffsetWidth;
-    UINT                StartVertexOffsetHeight;
-    UINT                Width;
-    UINT                Height;
-    UINT                Stride;
+    uint32_t                StartVertexOffsetWidth;
+    uint32_t                StartVertexOffsetHeight;
+    uint32_t                Width;
+    uint32_t                Height;
+    uint32_t                Stride;
     D3DBASISTYPE        Basis;
     D3DDEGREETYPE       Degree;
 } D3DRECTPATCH_INFO;
 
 typedef struct _D3DTRIPATCH_INFO
 {
-    UINT                StartVertexOffset;
-    UINT                NumVertices;
+    uint32_t                StartVertexOffset;
+    uint32_t                NumVertices;
     D3DBASISTYPE        Basis;
     D3DDEGREETYPE       Degree;
 } D3DTRIPATCH_INFO;
@@ -1783,18 +1782,18 @@ typedef struct _D3DADAPTER_IDENTIFIER9
 #ifdef _WIN32
     LARGE_INTEGER   DriverVersion;          /* Defined for 32 bit components */
 #else
-    DWORD           DriverVersionLowPart;   /* Defined for 16 bit driver components */
-    DWORD           DriverVersionHighPart;
+    uint32_t           DriverVersionLowPart;   /* Defined for 16 bit driver components */
+    uint32_t           DriverVersionHighPart;
 #endif
 
-    DWORD           VendorId;
-    DWORD           DeviceId;
-    DWORD           SubSysId;
-    DWORD           Revision;
+    uint32_t           VendorId;
+    uint32_t           DeviceId;
+    uint32_t           SubSysId;
+    uint32_t           Revision;
 
     GUID            DeviceIdentifier;
 
-    DWORD           WHQLLevel;
+    uint32_t           WHQLLevel;
 
 } D3DADAPTER_IDENTIFIER9;
 
@@ -1803,7 +1802,7 @@ typedef struct _D3DADAPTER_IDENTIFIER9
 typedef struct _D3DRASTER_STATUS
 {
     BOOL            InVBlank;
-    UINT            ScanLine;
+    uint32_t            ScanLine;
 } D3DRASTER_STATUS;
 
 
@@ -1862,17 +1861,17 @@ typedef struct _D3DRESOURCESTATS
 {
 // Data collected since last Present()
     BOOL    bThrashing;             /* indicates if thrashing */
-    DWORD   ApproxBytesDownloaded;  /* Approximate number of bytes downloaded by resource manager */
-    DWORD   NumEvicts;              /* number of objects evicted */
-    DWORD   NumVidCreates;          /* number of objects created in video memory */
-    DWORD   LastPri;                /* priority of last object evicted */
-    DWORD   NumUsed;                /* number of objects set to the device */
-    DWORD   NumUsedInVidMem;        /* number of objects set to the device, which are already in video memory */
+    uint32_t   ApproxBytesDownloaded;  /* Approximate number of bytes downloaded by resource manager */
+    uint32_t   NumEvicts;              /* number of objects evicted */
+    uint32_t   NumVidCreates;          /* number of objects created in video memory */
+    uint32_t   LastPri;                /* priority of last object evicted */
+    uint32_t   NumUsed;                /* number of objects set to the device */
+    uint32_t   NumUsedInVidMem;        /* number of objects set to the device, which are already in video memory */
 // Persistent data
-    DWORD   WorkingSet;             /* number of objects in video memory */
-    DWORD   WorkingSetBytes;        /* number of bytes in video memory */
-    DWORD   TotalManaged;           /* total number of managed objects */
-    DWORD   TotalBytes;             /* total number of bytes of managed objects */
+    uint32_t   WorkingSet;             /* number of objects in video memory */
+    uint32_t   WorkingSetBytes;        /* number of bytes in video memory */
+    uint32_t   TotalManaged;           /* total number of managed objects */
+    uint32_t   TotalBytes;             /* total number of bytes of managed objects */
 } D3DRESOURCESTATS;
 
 #define D3DRTYPECOUNT (D3DRTYPE_INDEXBUFFER+1)
@@ -1888,16 +1887,16 @@ typedef struct _D3DDEVINFO_RESOURCEMANAGER
 
 typedef struct _D3DDEVINFO_D3DVERTEXSTATS
 {
-    DWORD   NumRenderedTriangles;       /* total number of triangles that are not clipped in this frame */
-    DWORD   NumExtraClippingTriangles;  /* Number of new triangles generated by clipping */
+    uint32_t   NumRenderedTriangles;       /* total number of triangles that are not clipped in this frame */
+    uint32_t   NumExtraClippingTriangles;  /* Number of new triangles generated by clipping */
 } D3DDEVINFO_D3DVERTEXSTATS, *LPD3DDEVINFO_D3DVERTEXSTATS;
 
 
 typedef struct _D3DDEVINFO_VCACHE {
-    DWORD   Pattern;                    /* bit pattern, return value must be FOUR_CC('C', 'A', 'C', 'H') */
-    DWORD   OptMethod;                  /* optimization method 0 means longest strips, 1 means vertex cache based */
-    DWORD   CacheSize;                  /* cache size to optimize for  (only required if type is 1) */
-    DWORD   MagicNumber;                /* used to determine when to restart strips (only required if type is 1)*/
+    uint32_t   Pattern;                    /* bit pattern, return value must be FOUR_CC('C', 'A', 'C', 'H') */
+    uint32_t   OptMethod;                  /* optimization method 0 means longest strips, 1 means vertex cache based */
+    uint32_t   CacheSize;                  /* cache size to optimize for  (only required if type is 1) */
+    uint32_t   MagicNumber;                /* used to determine when to restart strips (only required if type is 1)*/
 } D3DDEVINFO_VCACHE, *LPD3DDEVINFO_VCACHE;
 
 typedef struct _D3DDEVINFO_D3D9PIPELINETIMINGS
@@ -1945,7 +1944,7 @@ typedef struct _D3DMEMORYPRESSURE
 {
     UINT64  BytesEvictedFromProcess;
     UINT64  SizeOfInefficientAllocation;
-    DWORD   LevelOfEfficiency;
+    uint32_t   LevelOfEfficiency;
 } D3DMEMORYPRESSURE;
 
 typedef enum _D3DCOMPOSERECTSOP{
@@ -1977,9 +1976,9 @@ typedef struct _D3DCOMPOSERECTDESTINATION
 
 
 typedef struct _D3DPRESENTSTATS {
-    UINT PresentCount;
-    UINT PresentRefreshCount;
-    UINT SyncRefreshCount;
+    uint32_t PresentCount;
+    uint32_t PresentRefreshCount;
+    uint32_t SyncRefreshCount;
     LARGE_INTEGER SyncQPCTime;
     LARGE_INTEGER SyncGPUTime;
 } D3DPRESENTSTATS;
@@ -1994,17 +1993,17 @@ typedef enum D3DSCANLINEORDERING
 
 typedef struct D3DDISPLAYMODEEX
 {
-    UINT                    Size;
-    UINT                    Width;
-    UINT                    Height;
-    UINT                    RefreshRate;
+    uint32_t                    Size;
+    uint32_t                    Width;
+    uint32_t                    Height;
+    uint32_t                    RefreshRate;
     D3DFORMAT               Format;
     D3DSCANLINEORDERING     ScanLineOrdering;
 } D3DDISPLAYMODEEX;
 
 typedef struct D3DDISPLAYMODEFILTER
 {
-    UINT                    Size;
+    uint32_t                    Size;
     D3DFORMAT               Format;
     D3DSCANLINEORDERING     ScanLineOrdering;
 } D3DDISPLAYMODEFILTER;
@@ -2029,7 +2028,7 @@ typedef enum D3DDISPLAYROTATION
 
 typedef struct _D3D_OMAC
 {
-    BYTE Omac[D3D_OMAC_SIZE];
+    uint8_t Omac[D3D_OMAC_SIZE];
 } D3D_OMAC;
 
 typedef enum _D3DAUTHENTICATEDCHANNELTYPE
@@ -2043,7 +2042,7 @@ typedef struct _D3DAUTHENTICATEDCHANNEL_QUERY_INPUT
 {
     GUID                               QueryType;
     HANDLE                             hChannel;
-    UINT                               SequenceNumber;
+    uint32_t                               SequenceNumber;
 } D3DAUTHENTICATEDCHANNEL_QUERY_INPUT;
 
 typedef struct _D3DAUTHENTICATEDCHANNEL_QUERY_OUTPUT
@@ -2051,7 +2050,7 @@ typedef struct _D3DAUTHENTICATEDCHANNEL_QUERY_OUTPUT
     D3D_OMAC                           omac;  
     GUID                               QueryType;
     HANDLE                             hChannel;
-    UINT                               SequenceNumber;
+    uint32_t                               SequenceNumber;
     HRESULT                            ReturnCode;
 } D3DAUTHENTICATEDCHANNEL_QUERY_OUTPUT;
 
@@ -2064,11 +2063,11 @@ typedef struct _D3DAUTHENTICATEDCHANNEL_PROTECTION_FLAGS
     {
         struct
         {
-            UINT ProtectionEnabled                       : 1; 
-            UINT OverlayOrFullscreenRequired             : 1;
-            UINT Reserved                                : 30;
+            uint32_t ProtectionEnabled                       : 1; 
+            uint32_t OverlayOrFullscreenRequired             : 1;
+            uint32_t Reserved                                : 30;
         };
-        UINT  Value;
+        uint32_t  Value;
     };
 
 } D3DAUTHENTICATEDCHANNEL_PROTECTION_FLAGS;
@@ -2135,7 +2134,7 @@ typedef struct _D3DAUTHENTICATEDCHANNEL_QUERYRESTRICTEDSHAREDRESOURCEPROCESSCOUN
 {
     D3DAUTHENTICATEDCHANNEL_QUERY_OUTPUT Output;
 
-    UINT   NumRestrictedSharedResourceProcesses;
+    uint32_t   NumRestrictedSharedResourceProcesses;
 
 } D3DAUTHENTICATEDCHANNEL_QUERYRESTRICTEDSHAREDRESOURCEPROCESSCOUNT_OUTPUT;
 
@@ -2147,7 +2146,7 @@ typedef struct _D3DAUTHENTICATEDCHANNEL_QUERYRESTRICTEDSHAREDRESOURCEPROCESS_INP
 {
     D3DAUTHENTICATEDCHANNEL_QUERY_INPUT Input;
 
-    UINT     ProcessIndex;
+    uint32_t     ProcessIndex;
 
 } D3DAUTHENTICATEDCHANNEL_QUERYRESTRICTEDSHAREDRESOURCEPROCESS_INPUT;
 
@@ -2162,7 +2161,7 @@ typedef struct _D3DAUTHENTICATEDCHANNEL_QUERYRESTRICTEDSHAREDRESOURCEPROCESS_OUT
 {
     D3DAUTHENTICATEDCHANNEL_QUERY_OUTPUT Output;
 
-    UINT                                          ProcessIndex;
+    uint32_t                                          ProcessIndex;
     D3DAUTHENTICATEDCHANNEL_PROCESSIDENTIFIERTYPE ProcessIdentifer;
     HANDLE                                        ProcessHandle;
 
@@ -2176,7 +2175,7 @@ typedef struct _D3DAUTHENTICATEDCHANNEL_QUERYUNRESTRICTEDPROTECTEDSHAREDRESOURCE
 {
     D3DAUTHENTICATEDCHANNEL_QUERY_OUTPUT Output;
 
-    UINT   NumUnrestrictedProtectedSharedResources;
+    uint32_t   NumUnrestrictedProtectedSharedResources;
 
 } D3DAUTHENTICATEDCHANNEL_QUERYUNRESTRICTEDPROTECTEDSHAREDRESOURCECOUNT_OUTPUT;
 
@@ -2199,7 +2198,7 @@ typedef struct _D3DAUTHENTICATEDCHANNEL_QUERYOUTPUTIDCOUNT_OUTPUT
 
     HANDLE  DeviceHandle;
     HANDLE  CryptoSessionHandle;	
-    UINT    NumOutputIDs;
+    uint32_t    NumOutputIDs;
 
 } D3DAUTHENTICATEDCHANNEL_QUERYOUTPUTIDCOUNT_OUTPUT;
 
@@ -2213,7 +2212,7 @@ typedef struct _D3DAUTHENTICATEDCHANNEL_QUERYOUTPUTID_INPUT
 
     HANDLE  DeviceHandle;
     HANDLE  CryptoSessionHandle;	
-    UINT    OutputIDIndex;
+    uint32_t    OutputIDIndex;
 
 } D3DAUTHENTICATEDCHANNEL_QUERYOUTPUTID_INPUT;
 
@@ -2223,7 +2222,7 @@ typedef struct _D3DAUTHENTICATEDCHANNEL_QUERYOUTPUTID_OUTPUT
 
     HANDLE  DeviceHandle;
     HANDLE  CryptoSessionHandle;	
-    UINT    OutputIDIndex;
+    uint32_t    OutputIDIndex;
     UINT64  OutputID;
 
 } D3DAUTHENTICATEDCHANNEL_QUERYOUTPUTID_OUTPUT;
@@ -2265,7 +2264,7 @@ typedef struct _D3DAUTHENTICATEDCHANNEL_QUERYEVICTIONENCRYPTIONGUIDCOUNT_OUTPUT
 {
     D3DAUTHENTICATEDCHANNEL_QUERY_OUTPUT Output;
 
-    UINT   NumEncryptionGuids;
+    uint32_t   NumEncryptionGuids;
 
 } D3DAUTHENTICATEDCHANNEL_QUERYEVICTIONENCRYPTIONGUIDCOUNT_OUTPUT;
 
@@ -2277,7 +2276,7 @@ typedef struct _D3DAUTHENTICATEDCHANNEL_QUERYEVICTIONENCRYPTIONGUID_INPUT
 {
     D3DAUTHENTICATEDCHANNEL_QUERY_INPUT Input;
 
-    UINT EncryptionGuidIndex;
+    uint32_t EncryptionGuidIndex;
 
 } D3DAUTHENTICATEDCHANNEL_QUERYEVICTIONENCRYPTIONGUID_INPUT;
 
@@ -2285,7 +2284,7 @@ typedef struct _D3DAUTHENTICATEDCHANNEL_QUERYEVICTIONENCRYPTIONGUID_OUTPUT
 {
     D3DAUTHENTICATEDCHANNEL_QUERY_OUTPUT Output;
 
-    UINT       EncryptionGuidIndex;
+    uint32_t       EncryptionGuidIndex;
     GUID       EncryptionGuid;
 
 } D3DAUTHENTICATEDCHANNEL_QUERYEVICTIONENCRYPTIONGUID_OUTPUT;
@@ -2308,7 +2307,7 @@ typedef struct _D3DAUTHENTICATEDCHANNEL_CONFIGURE_INPUT
     D3D_OMAC                            omac;  
     GUID                                ConfigureType;      
     HANDLE                              hChannel;    
-    UINT                                SequenceNumber;     
+    uint32_t                                SequenceNumber;     
 
 } D3DAUTHENTICATEDCHANNEL_CONFIGURE_INPUT;
 
@@ -2317,7 +2316,7 @@ typedef struct _D3DAUTHENTICATEDCHANNEL_CONFIGURE_OUTPUT
     D3D_OMAC                            omac;  
     GUID                                ConfigureType;          
     HANDLE                              hChannel;
-    UINT                                SequenceNumber;     
+    uint32_t                                SequenceNumber;     
     HRESULT                             ReturnCode;
 
 } D3DAUTHENTICATEDCHANNEL_CONFIGURE_OUTPUT;
@@ -2329,8 +2328,8 @@ typedef struct _D3DAUTHENTICATEDCHANNEL_CONFIGUREINITIALIZE
 {
     D3DAUTHENTICATEDCHANNEL_CONFIGURE_INPUT   Parameters;
 
-    UINT   StartSequenceQuery;
-    UINT   StartSequenceConfigure;
+    uint32_t   StartSequenceQuery;
+    uint32_t   StartSequenceConfigure;
 
 } D3DAUTHENTICATEDCHANNEL_CONFIGUREINITIALIZE;
 
@@ -2388,9 +2387,9 @@ typedef struct _D3DAUTHENTICATEDCHANNEL_CONFIGUREUNCOMPRESSEDENCRYPTION
 
 typedef struct _D3DENCRYPTED_BLOCK_INFO
 {
-    UINT NumEncryptedBytesAtBeginning;    
-    UINT NumBytesInSkipPattern;
-    UINT NumBytesInEncryptPattern;
+    uint32_t NumEncryptedBytesAtBeginning;    
+    uint32_t NumBytesInSkipPattern;
+    uint32_t NumBytesInEncryptPattern;
 } D3DENCRYPTED_BLOCK_INFO;
 
 typedef struct _D3DAES_CTR_IV
@@ -2412,5 +2411,4 @@ typedef struct _D3DAES_CTR_IV
 #endif
 
 #endif /* (DIRECT3D_VERSION >= 0x0900) */
-#endif /* _d3d9TYPES(P)_H_ */
 

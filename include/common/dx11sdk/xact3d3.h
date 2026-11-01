@@ -13,8 +13,7 @@
     1.  See X3DAudio.h for information regarding X3DAudio types.            */
 
 
-#ifndef __XACT3D_H__
-#define __XACT3D_H__
+#pragma once
 //--------------<D-E-F-I-N-I-T-I-O-N-S>-------------------------------------//
     #include <x3daudio.h>
     #include <xact3.h>
@@ -269,5 +268,4 @@
 
 
     #pragma warning(pop)
-#endif // __XACT3D_H__
 //---------------------------------<-EOF->----------------------------------//

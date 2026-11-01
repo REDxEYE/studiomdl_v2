@@ -11,8 +11,7 @@
 // $NoKeywords: $
 //===========================================================================//
 
-#ifndef MEMPOOL_H
-#define MEMPOOL_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -41,7 +40,7 @@ public:
 		GROW_SLOW=2			// New blob size is numElements.
 	};
 
-				CUtlMemoryPool( int blockSize, int numElements, int growMode = GROW_FAST, const char *pszAllocOwner = NULL, int nAlignment = 0 );
+				CUtlMemoryPool( int blockSize, int numElements, int growMode = GROW_FAST, const char *pszAllocOwner = nullptr, int nAlignment = 0 );
 				~CUtlMemoryPool();
 
 	void*		Alloc();	// Allocate the element size you specified in the constructor.
@@ -105,7 +104,7 @@ protected:
 class CMemoryPoolMT : public CUtlMemoryPool
 {
 public:
-	CMemoryPoolMT( int blockSize, int numElements, int growMode = GROW_FAST, const char *pszAllocOwner = NULL, int nAlignment = 0) : CUtlMemoryPool( blockSize, numElements, growMode, pszAllocOwner, nAlignment ) {}
+	CMemoryPoolMT( int blockSize, int numElements, int growMode = GROW_FAST, const char *pszAllocOwner = nullptr, int nAlignment = 0) : CUtlMemoryPool( blockSize, numElements, growMode, pszAllocOwner, nAlignment ) {}
 
 
 	void*		Alloc()	{  return CUtlMemoryPool::Alloc(); }
@@ -128,7 +127,7 @@ class CClassMemoryPool : public CUtlMemoryPool
 {
 public:
 	CClassMemoryPool(int numElements, int growMode = GROW_FAST, int nAlignment = 0 ) :
-		CUtlMemoryPool( sizeof(T), numElements, growMode, MEM_ALLOC_CLASSNAME(T), nAlignment ) {}
+		CUtlMemoryPool( sizeof(T), numElements, growMode, nullptr, nAlignment ) {}
 
 	T*		Alloc();
 	T*		AllocZero();
@@ -173,7 +172,7 @@ private:
 	struct FreeBlock_t
 	{
 		FreeBlock_t *pNext;
-		byte		reserved[ BLOCK_SIZE - sizeof( FreeBlock_t *) ];
+		uint8_t		reserved[ BLOCK_SIZE - sizeof( FreeBlock_t *) ];
 	};
 
 	CUtlVector<void *>	m_Chunks;		// Chunks are tracked outside blocks (unlike CUtlMemoryPool) to simplify alignment issues
@@ -191,7 +190,6 @@ inline T* CClassMemoryPool<T>::Alloc()
 	T *pRet;
 
 	{
-	MEM_ALLOC_CREDIT_CLASS();
 	pRet = (T*)CUtlMemoryPool::Alloc();
 	}
 
@@ -208,7 +206,6 @@ inline T* CClassMemoryPool<T>::AllocZero()
 	T *pRet;
 
 	{
-	MEM_ALLOC_CREDIT_CLASS();
 	pRet = (T*)CUtlMemoryPool::AllocZero();
 	}
 
@@ -237,7 +234,7 @@ inline void CClassMemoryPool<T>::Clear()
 	SetDefLessFunc( freeBlocks );
 
 	void *pCurFree = m_pHeadOfFreeList;
-	while ( pCurFree != NULL )
+	while ( pCurFree != nullptr)
 	{
 		freeBlocks.Insert( pCurFree );
 		pCurFree = *((void**)pCurFree);
@@ -272,8 +269,8 @@ inline void CClassMemoryPool<T>::Clear()
 //-----------------------------------------------------------------------------
 #define DECLARE_FIXEDSIZE_ALLOCATOR( _class )									\
 	public:																		\
-		inline void* operator new( size_t size ) { MEM_ALLOC_CREDIT_(#_class " pool"); return s_Allocator.Alloc(size); }   \
-		inline void* operator new( size_t size, int nBlockUse, const char *pFileName, int nLine ) { MEM_ALLOC_CREDIT_(#_class " pool"); return s_Allocator.Alloc(size); }   \
+		inline void* operator new( size_t size ) { return s_Allocator.Alloc(size); }   \
+		inline void* operator new( size_t size, int nBlockUse, const char *pFileName, int nLine ) { return s_Allocator.Alloc(size); }   \
 		inline void  operator delete( void* p ) { s_Allocator.Free(p); }		\
 		inline void  operator delete( void* p, int nBlockUse, const char *pFileName, int nLine ) { s_Allocator.Free(p); }   \
 	private:																		\
@@ -287,8 +284,8 @@ inline void CClassMemoryPool<T>::Clear()
 
 #define DECLARE_FIXEDSIZE_ALLOCATOR_MT( _class )									\
 	public:																		\
-	   inline void* operator new( size_t size ) { MEM_ALLOC_CREDIT_(#_class " pool"); return s_Allocator.Alloc(size); }   \
-	   inline void* operator new( size_t size, int nBlockUse, const char *pFileName, int nLine ) { MEM_ALLOC_CREDIT_(#_class " pool"); return s_Allocator.Alloc(size); }   \
+	   inline void* operator new( size_t size ) { return s_Allocator.Alloc(size); }   \
+	   inline void* operator new( size_t size, int nBlockUse, const char *pFileName, int nLine ) { return s_Allocator.Alloc(size); }   \
 	   inline void  operator delete( void* p ) { s_Allocator.Free(p); }		\
 	   inline void  operator delete( void* p, int nBlockUse, const char *pFileName, int nLine ) { s_Allocator.Free(p); }   \
 	private:																		\
@@ -306,8 +303,8 @@ inline void CClassMemoryPool<T>::Clear()
 
 #define DECLARE_FIXEDSIZE_ALLOCATOR_EXTERNAL( _class )							\
    public:																		\
-      inline void* operator new( size_t size )  { MEM_ALLOC_CREDIT_(#_class " pool"); return s_pAllocator->Alloc(size); }   \
-      inline void* operator new( size_t size, int nBlockUse, const char *pFileName, int nLine )  { MEM_ALLOC_CREDIT_(#_class " pool"); return s_pAllocator->Alloc(size); }   \
+      inline void* operator new( size_t size )  { return s_pAllocator->Alloc(size); }   \
+      inline void* operator new( size_t size, int nBlockUse, const char *pFileName, int nLine )  { return s_pAllocator->Alloc(size); }   \
       inline void  operator delete( void* p )   { s_pAllocator->Free(p); }		\
    private:																		\
       static   CUtlMemoryPool*   s_pAllocator
@@ -318,7 +315,7 @@ inline void CClassMemoryPool<T>::Clear()
 
 template <int ITEM_SIZE, int ALIGNMENT, int CHUNK_SIZE, class CAllocator, bool GROWMODE, int COMPACT_THRESHOLD >
 inline CAlignedMemPool<ITEM_SIZE, ALIGNMENT, CHUNK_SIZE, CAllocator, GROWMODE, COMPACT_THRESHOLD>::CAlignedMemPool()
-  : m_pFirstFree( 0 ),
+  : m_pFirstFree( nullptr ),
 	m_nFree( 0 ),
 	m_TimeLastCompact( 0 )
 {
@@ -337,7 +334,7 @@ inline void *CAlignedMemPool<ITEM_SIZE, ALIGNMENT, CHUNK_SIZE, CAllocator, GROWM
 	{
 		if ( !GROWMODE && m_Chunks.Count() )
 		{
-			return NULL;
+			return nullptr;
 		}
 
 		FreeBlock_t *pNew = (FreeBlock_t *)m_Allocator.Alloc( CHUNK_SIZE );
@@ -368,7 +365,7 @@ inline void CAlignedMemPool<ITEM_SIZE, ALIGNMENT, CHUNK_SIZE, CAllocator, GROWMO
 	// Insertion sort to encourage allocation clusters in chunks
 	FreeBlock_t *pFree = ((FreeBlock_t *)p);
 	FreeBlock_t *pCur = m_pFirstFree;
-	FreeBlock_t *pPrev = NULL;
+	FreeBlock_t *pPrev = nullptr;
 
 	while ( pCur && pFree > pCur )
 	{
@@ -403,14 +400,14 @@ inline void CAlignedMemPool<ITEM_SIZE, ALIGNMENT, CHUNK_SIZE, CAllocator, GROWMO
 template <int ITEM_SIZE, int ALIGNMENT, int CHUNK_SIZE, class CAllocator, bool GROWMODE, int COMPACT_THRESHOLD >
 inline int __cdecl CAlignedMemPool<ITEM_SIZE, ALIGNMENT, CHUNK_SIZE, CAllocator, GROWMODE, COMPACT_THRESHOLD>::CompareChunk( void * const *ppLeft, void * const *ppRight )
 {
-	return size_cast<int>( (intp)*ppLeft - (intp)*ppRight );
+	return size_cast<int>( (intptr_t)*ppLeft - (intptr_t)*ppRight );
 }
 
 template <int ITEM_SIZE, int ALIGNMENT, int CHUNK_SIZE, class CAllocator, bool GROWMODE, int COMPACT_THRESHOLD >
 inline void CAlignedMemPool<ITEM_SIZE, ALIGNMENT, CHUNK_SIZE, CAllocator, GROWMODE, COMPACT_THRESHOLD>::Compact()
 {
 	FreeBlock_t *pCur = m_pFirstFree;
-	FreeBlock_t *pPrev = NULL;
+	FreeBlock_t *pPrev = nullptr;
 
 	m_Chunks.Sort( CompareChunk );
 
@@ -488,7 +485,7 @@ inline void CAlignedMemPool<ITEM_SIZE, ALIGNMENT, CHUNK_SIZE, CAllocator, GROWMO
 		{
 			m_Allocator.Free( m_Chunks[i] );
 			m_nFree -= nBlocksPerChunk;
-			m_Chunks[i] = 0;
+			m_Chunks[i] = nullptr;
 		}
 	}
 
@@ -501,4 +498,3 @@ inline void CAlignedMemPool<ITEM_SIZE, ALIGNMENT, CHUNK_SIZE, CAllocator, GROWMO
 	}
 }
 
-#endif // MEMPOOL_H

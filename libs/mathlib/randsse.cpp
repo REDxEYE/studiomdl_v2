@@ -7,16 +7,13 @@
 #include <math.h>
 #include <float.h>	// needed for flt_epsilon
 #include "tier0/basetypes.h"
-#ifndef _PS3
 #include <memory.h>
-#endif
-#include "tier0/dbg.h"
+
 #include "mathlib/mathlib.h"
 #include "mathlib/vector.h"
 #include "mathlib/ssemath.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 // see knuth volume 3 for insight.
 
@@ -28,7 +25,7 @@ class SIMDRandStreamContext
 
 
 public:
-	void Seed( uint32 seed )
+	void Seed( uint32_t seed )
 	{
 		m_pRand_J=m_RandY+23; m_pRand_K=m_RandY+54;
 		for(int i=0;i<55;i++)
@@ -68,7 +65,7 @@ static SIMDRandStreamContext s_SIMDRandContexts[MAX_SIMULTANEOUS_RANDOM_STREAMS]
 
 static volatile int s_nRandContextsInUse[MAX_SIMULTANEOUS_RANDOM_STREAMS];
 
-void SeedRandSIMD(uint32 seed)
+void SeedRandSIMD(uint32_t seed)
 {
 	for( int i = 0; i<MAX_SIMULTANEOUS_RANDOM_STREAMS; i++)
 		s_SIMDRandContexts[i].Seed( seed+i );

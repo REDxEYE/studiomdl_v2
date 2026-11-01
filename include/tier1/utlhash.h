@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright Â© 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
@@ -7,8 +7,7 @@
 // Serialization/unserialization buffer
 //=============================================================================//
 
-#ifndef UTLHASH_H
-#define UTLHASH_H
+#pragma once
 #pragma once
 
 #include <limits.h>
@@ -16,7 +15,7 @@
 #include "utlvector.h"
 #include "utllinkedlist.h"
 #include "utllinkedlist.h"
-#include "commonmacros.h"
+#include "tier0/commonmacros.h"
 #include "generichash.h"
 
 typedef unsigned int UtlHashHandle_t;
@@ -489,7 +488,7 @@ inline void CUtlHash<Data, C, K>::Dump( )
 // Number of buckets must be a power of 2.
 // Key must be 32-bits (unsigned int).
 //
-typedef intp UtlHashFastHandle_t;
+typedef intptr_t UtlHashFastHandle_t;
 
 #define UTLHASH_POOL_SCALAR		2
 
@@ -534,15 +533,15 @@ public:
 	// int Count( void ) const;
 
 	// Insertion.
-	UtlHashFastHandle_t Insert( uintp uiKey, const Data &data );
-	UtlHashFastHandle_t FastInsert( uintp uiKey, const Data &data );
+	UtlHashFastHandle_t Insert( uintptr_t uiKey, const Data &data );
+	UtlHashFastHandle_t FastInsert( uintptr_t uiKey, const Data &data );
 
 	// Removal.
 	void Remove( UtlHashFastHandle_t hHash );
 	void RemoveAll( void );
 
 	// Retrieval.
-	UtlHashFastHandle_t Find( uintp uiKey ) const;
+	UtlHashFastHandle_t Find( uintptr_t uiKey ) const;
 
 	Data &Element( UtlHashFastHandle_t hHash );
 	Data const &Element( UtlHashFastHandle_t hHash ) const;
@@ -571,13 +570,13 @@ public:
 	template <typename HashData>
 	struct HashFastData_t_
 	{
-		uintp	m_uiKey;
+		uintptr_t	m_uiKey;
 		HashData	m_Data;
 	};
 
 	typedef HashFastData_t_<Data> HashFastData_t;
 
-	uintp						m_uiBucketMask;	
+	uintptr_t						m_uiBucketMask;	
 	CUtlVector<UtlHashFastHandle_t>		m_aBuckets;
 	CUtlFixedLinkedList<HashFastData_t>	m_aDataPool;
 
@@ -650,7 +649,7 @@ template<class Data, class HashFuncs> inline int CUtlHashFast<Data,HashFuncs>::C
 // Purpose: Insert data into the hash table given its key (uintp), with
 //          a check to see if the element already exists within the tree.
 //-----------------------------------------------------------------------------
-template<class Data, class HashFuncs> inline UtlHashFastHandle_t CUtlHashFast<Data,HashFuncs>::Insert( uintp uiKey, const Data &data )
+template<class Data, class HashFuncs> inline UtlHashFastHandle_t CUtlHashFast<Data,HashFuncs>::Insert( uintptr_t uiKey, const Data &data )
 {
 	// Check to see if that key already exists in the buckets (should be unique).
 	UtlHashFastHandle_t hHash = Find( uiKey );
@@ -664,10 +663,10 @@ template<class Data, class HashFuncs> inline UtlHashFastHandle_t CUtlHashFast<Da
 // Purpose: Insert data into the hash table given its key (uintp),
 //          without a check to see if the element already exists within the tree.
 //-----------------------------------------------------------------------------
-template<class Data, class HashFuncs> inline UtlHashFastHandle_t CUtlHashFast<Data,HashFuncs>::FastInsert( uintp uiKey, const Data &data )
+template<class Data, class HashFuncs> inline UtlHashFastHandle_t CUtlHashFast<Data,HashFuncs>::FastInsert( uintptr_t uiKey, const Data &data )
 {
 	// Get a new element from the pool.
-	intp iHashData = m_aDataPool.Alloc( true );
+	intptr_t iHashData = m_aDataPool.Alloc( true );
 	HashFastData_t *pHashData = &m_aDataPool[iHashData];
 	if ( !pHashData )
 		return InvalidHandle();
@@ -716,12 +715,12 @@ template<class Data, class HashFuncs> inline void CUtlHashFast<Data,HashFuncs>::
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-template<class Data, class HashFuncs> inline UtlHashFastHandle_t CUtlHashFast<Data,HashFuncs>::Find( uintp uiKey ) const
+template<class Data, class HashFuncs> inline UtlHashFastHandle_t CUtlHashFast<Data,HashFuncs>::Find( uintptr_t uiKey ) const
 {
 	// hash the "key" - get the correct hash table "bucket"
 	int iBucket = HashFuncs::Hash( uiKey, m_uiBucketMask );
 
-	for ( intp iElement = m_aBuckets[iBucket]; iElement != m_aDataPool.InvalidIndex(); iElement = m_aDataPool.Next( iElement ) )
+	for ( intptr_t iElement = m_aBuckets[iBucket]; iElement != m_aDataPool.InvalidIndex(); iElement = m_aDataPool.Next( iElement ) )
 	{
 		if ( m_aDataPool[iElement].m_uiKey == uiKey )
 			return iElement;
@@ -832,7 +831,7 @@ template<class Data, class HashFuncs> inline bool CUtlHashFast<Data,HashFuncs>::
 // Number of buckets must be a power of 2.
 // Key must be pointer-size (uintp).
 //
-typedef intp UtlHashFixedHandle_t;
+typedef intptr_t UtlHashFixedHandle_t;
 
 template <int NUM_BUCKETS>
 class CUtlHashFixedGenericHash
@@ -1049,13 +1048,13 @@ template<class Data, int NUM_BUCKETS, class HashFuncs> inline Data const &CUtlHa
 class CDefaultHash32
 {
 public:
-	static inline uint32 HashKey32( uint32 nKey ) { return HashIntConventional(nKey); }
+	static inline uint32_t HashKey32( uint32_t nKey ) { return HashIntConventional(nKey); }
 };
 
 class CPassthroughHash32
 {
 public:
-	static inline uint32 HashKey32( uint32 nKey ) { return nKey; }
+	static inline uint32_t HashKey32( uint32_t nKey ) { return nKey; }
 };
 
 
@@ -1189,7 +1188,7 @@ template<class Data, class CHashFunction> UtlHashFastHandle_t CUtlScalarHash<Dat
 		Grow();
 	}
 	m_dataCount++;
-	Assert(uiKey != (uint)InvalidHandle());  // This hash stores less data by assuming uiKey != ~0
+	Assert(uiKey != (uint32_t)InvalidHandle());  // This hash stores less data by assuming uiKey != ~0
 	int index = CHashFunction::HashKey32(uiKey) & m_uiBucketMask;
 	unsigned int endOfList = (unsigned int)InvalidHandle();
 	while ( m_pData[index].m_uiKey != endOfList )
@@ -1267,7 +1266,7 @@ template<class Data, class CHashFunction> void CUtlScalarHash<Data, CHashFunctio
 // Retrieval.
 template<class Data, class CHashFunction> UtlHashFastHandle_t CUtlScalarHash<Data, CHashFunction>::Find( unsigned int uiKey, const Data &dataRecord ) const
 {
-	if ( m_pData == NULL ) 
+	if ( m_pData == nullptr) 
 		return InvalidHandle();
 	int index = CHashFunction::HashKey32(uiKey) & m_uiBucketMask;
 	unsigned int endOfList = (unsigned int)InvalidHandle();
@@ -1282,7 +1281,7 @@ template<class Data, class CHashFunction> UtlHashFastHandle_t CUtlScalarHash<Dat
 
 template<class Data, class CHashFunction> UtlHashFastHandle_t CUtlScalarHash<Data, CHashFunction>::FindByUniqueKey( unsigned int uiKey ) const
 {
-	if ( m_pData == NULL ) 
+	if ( m_pData == nullptr) 
 		return InvalidHandle();
 	int index = CHashFunction::HashKey32(uiKey) & m_uiBucketMask;
 	unsigned int endOfList = (unsigned int)InvalidHandle();
@@ -1296,4 +1295,3 @@ template<class Data, class CHashFunction> UtlHashFastHandle_t CUtlScalarHash<Dat
 }
 
 
-#endif // UTLHASH_H

@@ -5,11 +5,9 @@
 //=============================================================================
 #include "movieobjects/dmeshape.h"
 #include "datamodel/dmelementfactoryhelper.h"
-#include "movieobjects_interfaces.h"
 #include "movieobjects/dmedag.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 //-----------------------------------------------------------------------------
@@ -88,7 +86,7 @@ CDmeDag *CDmeShape::GetParent( int nParentIndex /*= 0 */ ) const
 		i = g_pDataModel->NextAttributeReferencingElement( i );
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 

@@ -14,8 +14,7 @@
 
 #pragma once
 
-#ifndef _XACT_H_
-#define _XACT_H_
+#pragma once
 
 //------------------------------------------------------------------------------
 // XACT class and interface IDs (Version 3.4)
@@ -1524,4 +1523,3 @@ __inline HRESULT __stdcall XACT3CreateEngine(DWORD dwCreationFlags, __deref_out 
 
 #endif // #ifndef GUID_DEFS_ONLY
 
-#endif // #ifndef _XACT_H_

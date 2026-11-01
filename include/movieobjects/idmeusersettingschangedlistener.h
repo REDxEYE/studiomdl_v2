@@ -1,13 +1,12 @@
 //============ Copyright (c) Valve Corporation, All rights reserved. ============
 
-#ifndef DMEUSERSETTINGSCHANGEDLISTENER_H
-#define DMEUSERSETTINGSCHANGEDLISTENER_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
 #endif
 
-#include "tier1/KeyValues.h"
+#include "tier1/keyvalues.h"
 
 #define NameKey "name"
 #define AttributeKey "attribute"
@@ -22,4 +21,3 @@ public:
 };
 
 
-#endif // DMEUSERSETTINGSCHANGEDLISTENER_H

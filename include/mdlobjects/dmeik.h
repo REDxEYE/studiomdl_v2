@@ -4,8 +4,7 @@
 //
 //===========================================================================
 
-#ifndef DMEIK_H
-#define DMEIK_H
+#pragma once
 
 
 #ifdef _WIN32
@@ -143,4 +142,3 @@ public:
 };
 
 
-#endif // DMEIK_H

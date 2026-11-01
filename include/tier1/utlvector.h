@@ -8,8 +8,7 @@
 // in the same location
 //=============================================================================//
 
-#ifndef UTLVECTOR_H
-#define UTLVECTOR_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -17,8 +16,9 @@
 
 
 #include <string.h>
+#include "tier0/threadtools.h"
 #include "tier0/platform.h"
-#include "tier0/dbg.h"
+
 #include "tier1/utlmemory.h"
 #include "tier1/utlblockmemory.h"
 #include "tier1/strtools.h"
@@ -48,11 +48,11 @@ public:
 template< class T, class A = CUtlMemory<T> >
 class CUtlVector : public base_vector_t
 {
-	typedef A CAllocator;
+	using CAllocator = A;
 public:
-	typedef T ElemType_t;
-	typedef T* iterator;
-	typedef const T* const_iterator;
+	using ElemType_t = T;
+	using iterator = T*;
+	using const_iterator = T*;
 
 	// Set the growth policy and initial capacity. Count will always be zero. This is different from std::vector
 	// where the constructor sets count as well as capacity.
@@ -213,7 +213,6 @@ protected:
 	CAllocator m_Memory;
 	int m_Size;
 
-#ifndef _X360
 	// For easier access to the elements through the debugger
 	// it's in release builds so this can be used in libraries correctly
 	T *m_pElements;
@@ -222,9 +221,6 @@ protected:
 	{
 		m_pElements = Base();
 	}
-#else
-	inline void ResetDbgInfo() {}
-#endif
 
 private:
 	void InPlaceQuickSort_r( int (__cdecl *pfnCompare)(const T *, const T *), int nLeft, int nRight );
@@ -777,7 +773,6 @@ void CUtlVector<T, A>::GrowVector( int num )
 {
 	if (m_Size + num > m_Memory.NumAllocated())
 	{
-		MEM_ALLOC_CREDIT_CLASS();
 		m_Memory.Grow( m_Size + num - m_Memory.NumAllocated() );
 	}
 
@@ -941,7 +936,6 @@ void CUtlVector<T, A>::SortPredicate( F &&predicate )
 template< typename T, class A >
 void CUtlVector<T, A>::EnsureCapacity( int num )
 {
-	MEM_ALLOC_CREDIT_CLASS();
 	m_Memory.EnsureCapacity(num);
 	ResetDbgInfo();
 }
@@ -1141,9 +1135,7 @@ void CUtlVector<T, A>::Swap( CUtlVector< T, A > &vec )
 {
 	m_Memory.Swap( vec.m_Memory );
 	V_swap( m_Size, vec.m_Size );
-#ifndef _X360
 	V_swap( m_pElements, vec.m_pElements );
-#endif
 }
 
 template< typename T, class A >
@@ -1481,4 +1473,3 @@ private:
 };
 
 
-#endif // CCVECTOR_H

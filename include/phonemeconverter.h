@@ -1,12 +1,11 @@
-//===== Copyright © 1996-2005, Valve Corporation, All rights reserved. ======//
+//===== Copyright Â© 1996-2005, Valve Corporation, All rights reserved. ======//
 //
 // Purpose: 
 //
 // $NoKeywords: $
 //===========================================================================//
 
-#ifndef PHONEMECONVERTER_H
-#define PHONEMECONVERTER_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -25,4 +24,3 @@ bool IsStandardPhoneme( int index );
 unsigned char CodeToByteCode( int code );
 int ByteCodeToCode( unsigned char byteCode );
 
-#endif // PHONEMECONVERTER_H

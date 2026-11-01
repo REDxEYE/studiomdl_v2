@@ -1,7 +1,6 @@
 //====== Copyright c 1996-2008, Valve Corporation, All rights reserved. =======
 
-#ifndef MATHLIB_EXPRESSION_CALCULATOR_H
-#define MATHLIB_EXPRESSION_CALCULATOR_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -26,7 +25,7 @@
 class CExpressionCalculator
 {
 public:
-	CExpressionCalculator( const char *expr = NULL ) : m_expr( expr ) {}
+	CExpressionCalculator( const char *expr = nullptr) : m_expr( expr ) {}
 
 	CExpressionCalculator( const CExpressionCalculator& x );
 	CExpressionCalculator& operator=( const CExpressionCalculator& x );
@@ -80,4 +79,3 @@ private:
 float EvaluateExpression( char const *pExprString, float flValueToReturnIfFailure );
 
 
-#endif // MATHLIB_EXPRESSION_CALCULATOR_H

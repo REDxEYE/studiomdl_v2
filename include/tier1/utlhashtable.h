@@ -1,4 +1,4 @@
-//========= Copyright © 2011, Valve Corporation, All rights reserved. ============//
+//========= Copyright Â© 2011, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: a fast growable hashtable with stored hashes, L2-friendly behavior.
 // Useful as a string dictionary or a low-overhead set/map for small POD types.
@@ -53,8 +53,7 @@
 // A closed-form (open addressing) hashtable with linear sequential probing.
 //=============================================================================//
 
-#ifndef UTLHASHTABLE_H
-#define UTLHASHTABLE_H
+#pragma once
 #pragma once
 
 #include "utlcommon.h"
@@ -80,7 +79,7 @@ public:
 	typedef CUtlKeyValuePair< KeyT, ValueT > KVPair;
 
 	enum { INT16_STORAGE = ( sizeof( KVPair ) <= 2 ) };
-	typedef typename CTypeSelect< INT16_STORAGE, int16, int32 >::type storage_t;
+	typedef typename CTypeSelect< INT16_STORAGE, int16_t, int32_t >::type storage_t;
 
 	enum
 	{
@@ -93,24 +92,24 @@ public:
 	storage_t data[ ( sizeof(KVPair) + sizeof(storage_t) - 1 ) / sizeof(storage_t) ];
 
 	bool IsValid() const { return flags_and_hash >= 0; }
-	void MarkInvalid() { int32 flag = FLAG_FREE; flags_and_hash = (storage_t)flag; }
+	void MarkInvalid() { int32_t flag = FLAG_FREE; flags_and_hash = (storage_t)flag; }
 	const KVPair *Raw() const { return reinterpret_cast< const KVPair * >( &data[0] ); }
 	const KVPair *operator->() const { Assert( IsValid() ); return reinterpret_cast< const KVPair * >( &data[0] ); }
 	KVPair *Raw() { return reinterpret_cast< KVPair * >( &data[0] ); }
 	KVPair *operator->() { Assert( IsValid() ); return reinterpret_cast< KVPair * >( &data[0] ); }
 
 	// Returns the ideal index of the data in this slot, or all bits set if invalid
-	uint32 FORCEINLINE IdealIndex( uint32 slotmask ) const { return IdealIndex( flags_and_hash, slotmask ) | ( (int32)flags_and_hash >> 31 ); }
+	uint32_t FORCEINLINE IdealIndex( uint32_t slotmask ) const { return IdealIndex( flags_and_hash, slotmask ) | ( (int32_t)flags_and_hash >> 31 ); }
 
 	// Use template tricks to fully define only one function that takes either 16 or 32 bits
 	// and performs different logic without using "if ( INT16_STORAGE )", because GCC and MSVC
 	// sometimes have trouble removing the constant branch, which is dumb... but whatever.
 	// 16-bit hashes are simply too narrow for large hashtables; more mask bits than hash bits!
 	// So we duplicate the hash bits. (Note: h *= MASK_HASH+2 is the same as h += h<<HASH_BITS)
-	typedef typename CTypeSelect< INT16_STORAGE, int16, undefined_t >::type uint32_if16BitStorage;
-	typedef typename CTypeSelect< INT16_STORAGE, undefined_t, int32 >::type uint32_if32BitStorage;
-	static FORCEINLINE uint32 IdealIndex( uint32_if16BitStorage h, uint32 m ) { h &= MASK_HASH; h *= MASK_HASH + 2; return h & m; }
-	static FORCEINLINE uint32 IdealIndex( uint32_if32BitStorage h, uint32 m ) { return h & m; }
+	typedef typename CTypeSelect< INT16_STORAGE, int16_t, undefined_t >::type uint32_if16BitStorage;
+	typedef typename CTypeSelect< INT16_STORAGE, undefined_t, int32_t >::type uint32_if32BitStorage;
+	static FORCEINLINE uint32_t IdealIndex( uint32_if16BitStorage h, uint32_t m ) { h &= MASK_HASH; h *= MASK_HASH + 2; return h & m; }
+	static FORCEINLINE uint32_t IdealIndex( uint32_if32BitStorage h, uint32_t m ) { return h & m; }
 
 	// More efficient than memcpy for the small types that are stored in a hashtable
 	void MoveDataFrom( CUtlHashtableEntry &src )
@@ -184,7 +183,7 @@ public:
 	CUtlHashtable &operator=( CUtlHashtable const &src );
 
 	// Set external memory
-	void SetExternalBuffer( byte* pRawBuffer, unsigned int nBytes, bool bAssumeOwnership = false, bool bGrowable = false );
+	void SetExternalBuffer( uint8_t* pRawBuffer, unsigned int nBytes, bool bAssumeOwnership = false, bool bGrowable = false );
 	void SetExternalBuffer( entry_t* pBuffer, unsigned int nSize, bool bAssumeOwnership = false, bool bGrowable = false );
 
 	// Functor/function-pointer access
@@ -304,10 +303,10 @@ private:
 
 // Set external memory (raw byte buffer, best-fit)
 template <typename KeyT, typename ValueT, typename KeyHashT, typename KeyIsEqualT, typename AltKeyT>
-void CUtlHashtable<KeyT, ValueT, KeyHashT, KeyIsEqualT, AltKeyT>::SetExternalBuffer( byte* pRawBuffer, unsigned int nBytes, bool bAssumeOwnership, bool bGrowable )
+void CUtlHashtable<KeyT, ValueT, KeyHashT, KeyIsEqualT, AltKeyT>::SetExternalBuffer( uint8_t* pRawBuffer, unsigned int nBytes, bool bAssumeOwnership, bool bGrowable )
 {
 	AssertDbg( ((uintptr_t)pRawBuffer % VALIGNOF(int)) == 0 );
-	uint32 bestSize = LargestPowerOfTwoLessThanOrEqual( nBytes / sizeof(entry_t) );
+	uint32_t bestSize = LargestPowerOfTwoLessThanOrEqual( nBytes / sizeof(entry_t) );
 	Assert( bestSize != 0 && bestSize*sizeof(entry_t) <= nBytes );
 
 	return SetExternalBuffer( (entry_t*) pRawBuffer, bestSize, bAssumeOwnership, bGrowable );
@@ -319,7 +318,7 @@ void CUtlHashtable<KeyT, ValueT, KeyHashT, KeyIsEqualT, AltKeyT>::SetExternalBuf
 {
 	Assert( IsPowerOfTwo(nSize) );
 	Assert( m_nUsed == 0 );
-	for ( uint i = 0; i < nSize; ++i )
+	for ( uint32_t i = 0; i < nSize; ++i )
 		pBuffer[i].MarkInvalid();
 	if ( bAssumeOwnership )
 		m_table.AssumeMemory( pBuffer, nSize );
@@ -335,7 +334,7 @@ void CUtlHashtable<KeyT, ValueT, KeyHashT, KeyIsEqualT, AltKeyT>::DoRealloc( int
 	Assert( !m_bSizeLocked ); 
 
 	size = SmallestPowerOfTwoGreaterOrEqual( MAX( m_nMinSize, size ) );
-	Assert( size > 0 && (uint)size <= entry_t::IdealIndex( ~0, 0x1FFFFFFF ) ); // reasonable power of 2
+	Assert( size > 0 && (uint32_t)size <= entry_t::IdealIndex( ~0, 0x1FFFFFFF ) ); // reasonable power of 2
 	Assert( size > m_nUsed );
 
 	CUtlMemory<entry_t> oldTable;
@@ -404,8 +403,8 @@ void CUtlHashtable<KeyT, ValueT, KeyHashT, KeyIsEqualT, AltKeyT>::BumpEntry( uns
 #ifdef _DEBUG
 		Assert( new_flags_and_hash & FLAG_LAST );
 		// Verify logic: we must have moved to an earlier slot, right?
-		uint offset = ((uint)idx - chainid + slotmask + 1) & slotmask;
-		uint newOffset = ((uint)newIdx - chainid + slotmask + 1) & slotmask;
+		uint32_t offset = ((uint32_t)idx - chainid + slotmask + 1) & slotmask;
+		uint32_t newOffset = ((uint32_t)newIdx - chainid + slotmask + 1) & slotmask;
 		Assert( newOffset < offset );
 #endif
 		// Scan backwards from old to new location, depositing FLAG_LAST on
@@ -586,7 +585,7 @@ int CUtlHashtable<KeyT, ValueT, KeyHashT, KeyIsEqualT, AltKeyT>::DoRemove( KeyPa
 
 	enum { FAKEFLAG_ROOT = 1 };
 	int nLastAndRootFlags = m_table[idx].flags_and_hash & FLAG_LAST;
-	nLastAndRootFlags |= ( (uint)idx == m_table[idx].IdealIndex( slotmask ) );
+	nLastAndRootFlags |= ( (uint32_t)idx == m_table[idx].IdealIndex( slotmask ) );
 
 	// Remove from table
 	m_table[idx].MarkInvalid();
@@ -740,7 +739,7 @@ void CUtlHashtable<KeyT, ValueT, KeyHashT, KeyIsEqualT, AltKeyT>::DbgCheckIntegr
 	// NOTE: will fail if function objects require any sort of state!
 	CUtlHashtable clone;
 	unsigned int bytes = sizeof(entry_t)*max(16,m_table.Count());
-	byte* tempbuf = (byte*) malloc(bytes);
+	uint8_t* tempbuf = (uint8_t*) malloc(bytes);
 	clone.SetExternalBuffer( tempbuf, bytes, false, false );
 	clone = *this;
 
@@ -749,7 +748,7 @@ void CUtlHashtable<KeyT, ValueT, KeyHashT, KeyIsEqualT, AltKeyT>::DbgCheckIntegr
 	for (int i = 0; i < m_table.Count(); ++i)
 	{
 		if (!(m_table[i].flags_and_hash & FLAG_FREE)) ++count;
-		if (m_table[i].IdealIndex(slotmask) == (uint)i) ++roots;
+		if (m_table[i].IdealIndex(slotmask) == (uint32_t)i) ++roots;
 		if (m_table[i].flags_and_hash & FLAG_LAST) ++ends;
 		if (m_table[i].IsValid())
 		{
@@ -783,14 +782,14 @@ void CUtlHashtable<KeyT, ValueT, KeyHashT, KeyIsEqualT, AltKeyT>::DbgCheckIntegr
 // Note: RemoveAndAdvance is slower than in CUtlHashtable because the
 // key needs to be re-hashed under the current implementation.
 
-template <typename KeyT, typename ValueT = empty_t, typename KeyHashT = DefaultHashFunctor<KeyT>, typename KeyIsEqualT = DefaultEqualFunctor<KeyT>, typename IndexStorageT = uint16, typename AlternateKeyT = typename ArgumentTypeInfo<KeyT>::Alt_t >
+template <typename KeyT, typename ValueT = empty_t, typename KeyHashT = DefaultHashFunctor<KeyT>, typename KeyIsEqualT = DefaultEqualFunctor<KeyT>, typename IndexStorageT = uint16_t, typename AlternateKeyT = typename ArgumentTypeInfo<KeyT>::Alt_t >
 class CUtlStableHashtable
 {
 public:
 	typedef typename ArgumentTypeInfo<KeyT>::Arg_t KeyArg_t;
 	typedef typename ArgumentTypeInfo<ValueT>::Arg_t ValueArg_t;
 	typedef typename ArgumentTypeInfo<AlternateKeyT>::Arg_t KeyAlt_t;
-	typedef typename CTypeSelect< sizeof( IndexStorageT ) == 2, uint16, uint32 >::type IndexStorage_t;
+	typedef typename CTypeSelect< sizeof( IndexStorageT ) == 2, uint16_t, uint32_t >::type IndexStorage_t;
 
 protected:
 	COMPILE_TIME_ASSERT( sizeof( IndexStorage_t ) == sizeof( IndexStorageT ) );
@@ -875,8 +874,8 @@ public:
 
 protected:
 	// Perform extension of 0xFFFF to 0xFFFFFFFF if necessary. Note: ( a < CONSTANT ) ? 0 : -1 is usually branchless
-	static UtlHashHandle_t ExtendInvalidHandle( uint32 x ) { return x; }
-	static UtlHashHandle_t ExtendInvalidHandle( uint16 x ) { uint32 a = x; return a | ( ( a < 0xFFFFu ) ? 0 : -1 ); }
+	static UtlHashHandle_t ExtendInvalidHandle( uint32_t x ) { return x; }
+	static UtlHashHandle_t ExtendInvalidHandle( uint16_t x ) { uint32_t a = x; return a | ( ( a < 0xFFFFu ) ? 0 : -1 ); }
 
 	struct IndirectIndex
 	{
@@ -994,4 +993,3 @@ inline UtlHashHandle_t CUtlStableHashtable<K,V,H,E,S,A>::DoInsert( KeyArgumentT 
 	return idx;
 }
 
-#endif // UTLHASHTABLE_H

@@ -7,8 +7,7 @@
 #include "movieobjects/dmeattributereference.h"
 #include "datamodel/dmelementfactoryhelper.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 
@@ -66,7 +65,7 @@ bool CDmeAttributeReference::SetAttribute( CDmElement* pElement, const char* pch
 	m_AttributeIndex = index;
 
 	CDmAttribute *pAttr = LookupAttributeHandle();
-	return ( pAttr != NULL );
+	return ( pAttr != nullptr);
 }
 
 
@@ -80,12 +79,12 @@ CDmAttribute *CDmeAttributeReference::LookupAttributeHandle() const
 	CDmElement *pElement = m_Element.GetElement();
 	const char *pName= m_AttributeName.Get();
 
-	if ( pElement == NULL || pName == NULL || !pName[0] )
-		return NULL;
+	if ( pElement == nullptr || pName == nullptr || !pName[0] )
+		return nullptr;
 
 	CDmAttribute *pAttr = pElement->GetAttribute( pName );
 	if ( !pAttr )
-		return NULL;
+		return nullptr;
 
 	m_AttributeHandle = pAttr->GetHandle();
 	return pAttr;
@@ -112,10 +111,10 @@ CDmAttribute* CDmeAttributeReference::GetReferencedAttribute() const
 const void *CDmeAttributeReference::GetAttributeValue( DmAttributeType_t &type ) const
 {
 	CDmAttribute *pAttribute = GetReferencedAttribute();
-	if ( pAttribute == NULL )
-		return NULL;
+	if ( pAttribute == nullptr)
+		return nullptr;
 
-	const void *pValue = NULL;
+	const void *pValue = nullptr;
 
 	type = pAttribute->GetType();
 	if ( IsArrayType( type ) )
@@ -139,7 +138,7 @@ const void *CDmeAttributeReference::GetAttributeValue( DmAttributeType_t &type )
 void CDmeAttributeReference::SetAttributeValue( const void *pValue, DmAttributeType_t type ) const
 {
 	CDmAttribute *pAttribute = GetReferencedAttribute();
-	if ( pAttribute == NULL )
+	if ( pAttribute == nullptr)
 		return;
 
 	if ( IsArrayType( pAttribute->GetType() ) )
@@ -159,7 +158,7 @@ void CDmeAttributeReference::SetAttributeValue( const void *pValue, DmAttributeT
 //-------------------------------------------------------------------------------------------------
 bool CDmeAttributeReference::IsValid() const
 {
-	return ( GetReferencedAttribute() != NULL );
+	return ( GetReferencedAttribute() != nullptr);
 }
 
 

@@ -1,7 +1,6 @@
 //============ Copyright (c) Valve Corporation, All rights reserved. ============
 
-#ifndef DMEUSERSETTINGS_H
-#define DMEUSERSETTINGS_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -111,4 +110,3 @@ const T& CDmeUserSettings::GetSettingsValue( const char *pRegistryPath, const T&
 	}
 }
 
-#endif // DMEUSERSETTINGS_H

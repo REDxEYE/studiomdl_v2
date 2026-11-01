@@ -1,12 +1,11 @@
-//====== Copyright © 1996-2008, Valve Corporation, All rights reserved. =====//
+//====== Copyright Â© 1996-2008, Valve Corporation, All rights reserved. =====//
 //
 // A list of DmeBoneWeight elements, replacing QC's $WeightList
 //
 //===========================================================================//
 
 
-#ifndef DMEBONEMASK_H
-#define DMEBONEMASK_H
+#pragma once
 
 
 #ifdef _WIN32
@@ -42,4 +41,3 @@ public:
 };
 
 
-#endif // DMEBONEMASK_H

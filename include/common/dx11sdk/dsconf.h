@@ -7,8 +7,7 @@
  *
  **************************************************************************/
 
-#ifndef __DSCONF_INCLUDED__
-#define __DSCONF_INCLUDED__
+#pragma once
 
 #ifndef __DSOUND_INCLUDED__
 #error dsound.h not included
@@ -98,8 +97,8 @@ typedef struct _DSPROPERTY_DIRECTSOUNDDEVICE_DESCRIPTION_1_DATA
     GUID                        DeviceId;               // DirectSound device id
     CHAR                        DescriptionA[0x100];    // Device description (ANSI)
     WCHAR                       DescriptionW[0x100];    // Device description (Unicode)
-    CHAR                        ModuleA[MAX_PATH];      // Device driver module (ANSI)
-    WCHAR                       ModuleW[MAX_PATH];      // Device driver module (Unicode)
+    CHAR                        ModuleA[MAX_PATH]{0};      // Device driver module (ANSI)
+    WCHAR                       ModuleW[MAX_PATH]{0};      // Device driver module (Unicode)
     DIRECTSOUNDDEVICE_TYPE      Type;                   // Device type
     DIRECTSOUNDDEVICE_DATAFLOW  DataFlow;               // Device dataflow
     ULONG                       WaveDeviceId;           // Wave device id
@@ -191,5 +190,4 @@ typedef struct _DSPROPERTY_DIRECTSOUNDDEVICE_ENUMERATE_W_DATA
 }
 #endif // __cplusplus
 
-#endif  // __DSCONF_INCLUDED__
 

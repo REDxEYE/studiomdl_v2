@@ -4,13 +4,12 @@
 //
 //=====================================================================================//
 
-#ifndef NOISE_H
-#define NOISE_H
+#pragma once
 
 #include <cmath>
 #include "tier0/basetypes.h"
 #include "mathlib/vector.h"
-#include "tier0/dbg.h"
+
 
 
 // The following code is the c-ification of Ken Perlin's new noise algorithm
@@ -32,4 +31,3 @@ float FractalNoise( Vector const &pnt, int n_octaves );
 
 // returns a abs(f)*1/f noise i.e. turbulence
 float Turbulence( Vector const &pnt, int n_octaves );
-#endif // NOISE_H

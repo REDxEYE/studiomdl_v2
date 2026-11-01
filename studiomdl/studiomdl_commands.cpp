@@ -2,8 +2,9 @@
 // Created by RED on 15.05.2024.
 //
 
-#include <minmax.h>
+#include "studiomdl/platform_compat.h"
 #include "studiomdl_commands.h"
+#include "studiomdl/flexoptimize.h"
 #include "datamodel/idatamodel.h"
 #include "mdlobjects/dmeboneflexdriver.h"
 #include "common/scriplib.h"
@@ -64,6 +65,10 @@ void ProcessModelName(const char *pModelName) {
 
     g_StudioMdlContext.bHasModelName = true;
     Q_strncpy(g_outname, pModelName, sizeof(g_outname));
+#ifdef POSIX
+    // "$modelname dir\\name.mdl" is common in QCs written on Windows; the output path is built from g_outname
+    Q_FixSlashes(g_outname, '/');
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -131,7 +136,7 @@ void ProcessOptionStudio(s_model_t *pmodel, const char *pFullPath, float flScale
     // load source
     pmodel->source = Load_Source(pmodel->filename, "", bFlipTriangles, true);
 
-    g_pCurrentModel = NULL;
+    g_pCurrentModel = nullptr;
 
     // Reset currentscale to whatever global we currently have set
     // g_defaultscale gets set in Cmd_ScaleUp everytime the $scale command is used.
@@ -168,8 +173,6 @@ void ProcessCmdBody(const char *pFullPath, const char *pBodyPartName, float flSc
 // QC: $boneflexdriver <bone name> <tx|ty|tz> <flex controller name> <min> <max>
 //-----------------------------------------------------------------------------
 void Cmd_BoneFlexDriver() {
-    CDisableUndoScopeGuard undoDisable;    // Turn of Dme undo
-
     // Find or create the DmeBoneFlexDriverList
     CDmeBoneFlexDriverList *pDmeBoneFlexDriverList = GetElement<CDmeBoneFlexDriverList>(g_StudioMdlContext.hDmeBoneFlexDriverList);
     if (!pDmeBoneFlexDriverList) {
@@ -823,7 +826,7 @@ void AddBodyFlexRemaps(s_source_t *pSource) {
 //-----------------------------------------------------------------------------
 // Process a body command
 //-----------------------------------------------------------------------------
-void AddBodyFlexData(s_source_t *pSource, int imodel) {
+void AddBodyFlexData(s_source_t *pSource, int imodel, bool bAddControllers) {
     pSource->m_nKeyStartIndex = g_numflexkeys;
 
     // Add flex keys
@@ -853,9 +856,13 @@ void AddBodyFlexData(s_source_t *pSource, int imodel) {
         ++g_numflexkeys;
     }
 
-    AddFlexControllers(pSource);
+    // Flex controllers and their remaps are global: pieces of a split model (ClampMaxVerticesPerModel) share the
+    // ones that were added for the original source and must not add them again.
+    if (bAddControllers) {
+        AddFlexControllers(pSource);
 
-    AddBodyFlexRemaps(pSource);
+        AddBodyFlexRemaps(pSource);
+    }
 }
 
 
@@ -1142,7 +1149,7 @@ const s_sourceanim_t *GetNewStyleSourceVertexAnim(s_source_t *pSource, const cha
 //-----------------------------------------------------------------------------
 void Option_DmxEyelid(int imodel) {
     // upper | lower
-    const char *pszType = NULL;
+    const char *pszType = nullptr;
     GetToken(false);
     if (!Q_stricmp("upper", token)) {
         pszType = "upper";
@@ -1197,7 +1204,7 @@ void Option_DmxEyelid(int imodel) {
 
                 GetToken(false);
                 eyelidData[i].m_pSourceAnim = GetNewStyleSourceVertexAnim(pSource, token);
-                if (eyelidData[i].m_pSourceAnim == NULL) {
+                if (eyelidData[i].m_pSourceAnim == nullptr) {
                     MdlError("(%d) : %s:  No DMX vertex animation named \"%s\" in source \"%s\"\n", g_StudioMdlContext.iLinecount,
                              g_StudioMdlContext.szLine, token, sSourceFile.Get());
                     return;
@@ -1611,9 +1618,9 @@ void Option_Flexrule(s_model_t * /* pmodel */, const char *name) {
     precedence[STUDIO_MAX] = 5;
     precedence[STUDIO_MIN] = 5;
 
-    s_flexop_t stream[MAX_OPS];
+    s_flexop_t stream[MAX_OPS] = {};    // operators have no operand: d must not carry stack garbage into the MDL
     int i = 0;
-    s_flexop_t stack[MAX_OPS];
+    s_flexop_t stack[MAX_OPS] = {};
     int j = 0;
     int k = 0;
 
@@ -2306,8 +2313,9 @@ void Cmd_Model() {
     }
 
     int depth = 0;
+    // vtafile is set by "flexfile" and used by the flex/defaultflex lines that follow it: keep it across tokens
+    char FAC[256]{}, vtafile[256]{};
     while (1) {
-        char FAC[256], vtafile[256];
         if (depth > 0) {
             if (!GetToken(true))
                 break;
@@ -3147,7 +3155,7 @@ s_source_t *FindCachedSource(const char *name, const char *xext) {
     }
 
     // Not found
-    return 0;
+    return nullptr;
 }
 
 
@@ -3832,7 +3840,7 @@ bool ParseJigglePitchConstraint(s_jigglebone_t *jiggleInfo) {
 void Grab_AxisInterpBones() {
     char cmd[1024], tmp[1025];
     Vector basepos;
-    s_axisinterpbone_t *pAxis = NULL;
+    s_axisinterpbone_t *pAxis = nullptr;
     s_axisinterpbone_t *pBone = &g_axisinterpbones[g_numaxisinterpbones];
 
     while (GetLineInput()) {
@@ -4372,7 +4380,7 @@ void Cmd_ConstDirectionalLight() {
     gflags |= STUDIOHDR_FLAGS_CONSTANT_DIRECTIONAL_LIGHT_DOT;
 
     GetToken(false);
-    g_constdirectionalightdot = (byte) (verify_atof(token) * 255.0f);
+    g_constdirectionalightdot = (uint8_t) (verify_atof(token) * 255.0f);
 }
 
 void Cmd_MinLOD() {
@@ -4727,6 +4735,18 @@ void Cmd_AppendSource() {
     AddSrcToSrc(pOrigSource, pAppendSource, matTemp);
 }
 
+void Cmd_FlexOptimize() {
+    // $flexoptimize auto|on|off [min static verts]
+    GetToken(false);
+    if (!ParseFlexOptimizeMode(token, g_StudioMdlContext.flexOptimizeMode)) {
+        TokenError("$flexoptimize expects auto, on or off, got \"%s\"\n", token);
+    }
+    if (TokenAvailable()) {
+        GetToken(false);
+        g_StudioMdlContext.flexOptimizeMinStatic = verify_atoi(token);
+    }
+}
+
 void Cmd_maxVerts() {
     // first limit
     GetToken(false);
@@ -5020,7 +5040,7 @@ int ParseCmdlistToken(int &numcmds, s_animcmd_t *cmds) {
         GetToken(false);
 
         s_animation_t *extanim = LookupAnimation(token);
-        if (extanim == NULL) {
+        if (extanim == nullptr) {
             TokenError("unknown subtract animation '%s\'\n", token);
         }
 
@@ -5037,7 +5057,7 @@ int ParseCmdlistToken(int &numcmds, s_animcmd_t *cmds) {
         GetToken(false);
 
         s_animation_t *extanim = LookupAnimation(token);
-        if (extanim == NULL) {
+        if (extanim == nullptr) {
             TokenError("unknown presubtract animation '%s\'\n", token);
         }
 
@@ -5048,11 +5068,11 @@ int ParseCmdlistToken(int &numcmds, s_animcmd_t *cmds) {
     } else if (stricmp("alignto", token) == 0) {
         pcmd->cmd = CMD_AO;
 
-        pcmd->u.ao.pBonename = NULL;
+        pcmd->u.ao.pBonename = nullptr;
 
         GetToken(false);
         s_animation_t *extanim = LookupAnimation(token);
-        if (extanim == NULL) {
+        if (extanim == nullptr) {
             TokenError("unknown alignto animation '%s\'\n", token);
         }
 
@@ -5063,11 +5083,11 @@ int ParseCmdlistToken(int &numcmds, s_animcmd_t *cmds) {
     } else if (stricmp("align", token) == 0) {
         pcmd->cmd = CMD_AO;
 
-        pcmd->u.ao.pBonename = NULL;
+        pcmd->u.ao.pBonename = nullptr;
 
         GetToken(false);
         s_animation_t *extanim = LookupAnimation(token);
-        if (extanim == NULL) {
+        if (extanim == nullptr) {
             TokenError("unknown align animation '%s\'\n", token);
         }
 
@@ -5099,7 +5119,7 @@ int ParseCmdlistToken(int &numcmds, s_animcmd_t *cmds) {
 
         GetToken(false);
         s_animation_t *extanim = LookupAnimation(token);
-        if (extanim == NULL) {
+        if (extanim == nullptr) {
             TokenError("unknown alignboneto animation '%s\'\n", token);
         }
 
@@ -5115,7 +5135,7 @@ int ParseCmdlistToken(int &numcmds, s_animcmd_t *cmds) {
 
         GetToken(false);
         s_animation_t *extanim = LookupAnimation(token);
-        if (extanim == NULL) {
+        if (extanim == nullptr) {
             TokenError("unknown alignboneto animation '%s\'\n", token);
         }
 
@@ -5145,7 +5165,7 @@ int ParseCmdlistToken(int &numcmds, s_animcmd_t *cmds) {
         GetToken(false);
 
         s_animation_t *extanim = LookupAnimation(token);
-        if (extanim == NULL) {
+        if (extanim == nullptr) {
             TokenError("unknown match animation '%s\'\n", token);
         }
 
@@ -5156,7 +5176,7 @@ int ParseCmdlistToken(int &numcmds, s_animcmd_t *cmds) {
         GetToken(false);
 
         s_animation_t *extanim = LookupAnimation(token);
-        if (extanim == NULL) {
+        if (extanim == nullptr) {
             MdlError("unknown match animation '%s\'\n", token);
         }
 
@@ -5184,7 +5204,7 @@ int ParseCmdlistToken(int &numcmds, s_animcmd_t *cmds) {
         GetToken(false);
 
         s_animation_t *extanim = LookupAnimation(token);
-        if (extanim == NULL) {
+        if (extanim == nullptr) {
             TokenError("unknown worldspaceblend animation '%s\'\n", token);
         }
 
@@ -5197,7 +5217,7 @@ int ParseCmdlistToken(int &numcmds, s_animcmd_t *cmds) {
         GetToken(false);
 
         s_animation_t *extanim = LookupAnimation(token);
-        if (extanim == NULL) {
+        if (extanim == nullptr) {
             TokenError("unknown worldspaceblend animation '%s\'\n", token);
         }
 
@@ -5264,7 +5284,7 @@ int ParseCmdlistToken(int &numcmds, s_animcmd_t *cmds) {
 
         GetToken(false); // reference animation
         s_animation_t *extanim = LookupAnimation(token);
-        if (extanim == NULL) {
+        if (extanim == nullptr) {
             TokenError("unknown alignto animation '%s\'\n", token);
         }
         pcmd->u.motion.pRefAnim = extanim;
@@ -5305,7 +5325,7 @@ int ParseCmdlistToken(int &numcmds, s_animcmd_t *cmds) {
         // reference animation
         GetToken(false);
         s_animation_t *extanim = LookupAnimation(token);
-        if (extanim == NULL) {
+        if (extanim == nullptr) {
             TokenError("unknown alignto animation '%s\'\n", token);
         }
         pcmd->u.motion.pRefAnim = extanim;
@@ -5554,7 +5574,7 @@ int ParseCmdlistToken(int &numcmds, s_animcmd_t *cmds) {
 
         GetToken(false); // reference animation
         s_animation_t *extanim = LookupAnimation(token);
-        if (extanim == NULL) {
+        if (extanim == nullptr) {
             TokenError("unknown appendanim '%s\'\n", token);
         }
         pcmd->u.appendanim.ref = extanim;
@@ -5898,7 +5918,7 @@ void Cmd_Animation() {
 
     s_animation_t *panim = LookupAnimation(token);
 
-    if (panim != NULL) {
+    if (panim != nullptr) {
         if (!panim->isOverride) {
             TokenError("Duplicate animation name \"%s\"\n", token);
         } else {
@@ -5950,7 +5970,7 @@ s_sequence_t *ProcessCmdSequence(const char *pSequenceName) {
     s_animation_t *panim = LookupAnimation(pSequenceName);
 
     // allocate sequence
-    if (panim != NULL) {
+    if (panim != nullptr) {
         if (!panim->isOverride) {
             TokenError("Duplicate sequence name \"%s\"\n", pSequenceName);
         } else {
@@ -6244,10 +6264,10 @@ int ParseSequence(s_sequence_t *pseq, bool isAppend) {
             GetToken(false);
             pseq->paramend[i] = verify_atof(token);
 
-            g_pose[j].min = min(g_pose[j].min, pseq->paramstart[i]);
-            g_pose[j].min = min(g_pose[j].min, pseq->paramend[i]);
-            g_pose[j].max = max(g_pose[j].max, pseq->paramstart[i]);
-            g_pose[j].max = max(g_pose[j].max, pseq->paramend[i]);
+            g_pose[j].min = std::min(g_pose[j].min, pseq->paramstart[i]);
+            g_pose[j].min = std::min(g_pose[j].min, pseq->paramend[i]);
+            g_pose[j].max = std::max(g_pose[j].max, pseq->paramstart[i]);
+            g_pose[j].max = std::max(g_pose[j].max, pseq->paramend[i]);
         } else if (stricmp("calcblend", token) == 0) {
             i = 0;
             if (pseq->paramindex[0] != -1) {
@@ -6269,19 +6289,19 @@ int ParseSequence(s_sequence_t *pseq, bool isAppend) {
         } else if (stricmp("blendref", token) == 0) {
             GetToken(false);
             pseq->paramanim = LookupAnimation(token);
-            if (pseq->paramanim == NULL) {
+            if (pseq->paramanim == nullptr) {
                 TokenError("Unknown blendref animation \"%s\"\n", token);
             }
         } else if (stricmp("blendcomp", token) == 0) {
             GetToken(false);
             pseq->paramcompanim = LookupAnimation(token);
-            if (pseq->paramcompanim == NULL) {
+            if (pseq->paramcompanim == nullptr) {
                 TokenError("Unknown blendcomp animation \"%s\"\n", token);
             }
         } else if (stricmp("blendcenter", token) == 0) {
             GetToken(false);
             pseq->paramcenter = LookupAnimation(token);
-            if (pseq->paramcenter == NULL) {
+            if (pseq->paramcenter == nullptr) {
                 TokenError("Unknown blendcenter animation \"%s\"\n", token);
             }
         } else if (stricmp("node", token) == 0) {
@@ -6455,7 +6475,7 @@ void Cmd_Sequence() {
     // Find existing sequences
     const char *pSequenceName = token;
     s_animation_t *panim = LookupAnimation(pSequenceName);
-    if (panim != NULL && panim->isOverride) {
+    if (panim != nullptr && panim->isOverride) {
         ParseEmpty();
     }
 
@@ -6493,7 +6513,7 @@ void Cmd_Prepend() {
 
     s_sequence_t *pseq = LookupSequence(token);
     int count = 0;
-    s_animation_t *panim = NULL;
+    s_animation_t *panim = nullptr;
     int iRet = false;
 
     if (pseq) {
@@ -6643,7 +6663,7 @@ void Grab_QuatInterpBones() {
     Vector basepos;
     RadianEuler rotateaxis(0.0f, 0.0f, 0.0f);
     RadianEuler jointorient(0.0f, 0.0f, 0.0f);
-    s_quatinterpbone_t *pAxis = NULL;
+    s_quatinterpbone_t *pAxis = nullptr;
     s_quatinterpbone_t *pBone = &g_quatinterpbones[g_numquatinterpbones];
 
     while (GetLineInput()) {
@@ -6932,6 +6952,7 @@ MDLCommand_t g_Commands[] =
                 {"$subd",                            Cmd_SubdivisionSurface,},
                 {"$boneflexdriver",                  Cmd_BoneFlexDriver,},
                 {"$maxverts",                        Cmd_maxVerts,},
+                {"$flexoptimize",                    Cmd_FlexOptimize,},
                 {"$preservetriangleorder",           Cmd_PreserveTriangleOrder,},
                 {"$qcassert",                        Cmd_QCAssert,},
                 {"$lcaseallsequences",               Cmd_LCaseAllSequences,},

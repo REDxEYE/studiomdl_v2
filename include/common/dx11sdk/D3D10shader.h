@@ -7,8 +7,7 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 
-#ifndef __D3D10SHADER_H__
-#define __D3D10SHADER_H__
+#pragma once
 
 #include "d3d10.h"
 
@@ -729,5 +728,4 @@ HRESULT WINAPI D3D10GetShaderDebugInfo(CONST void *pShaderBytecode, SIZE_T Bytec
 }
 #endif //__cplusplus
     
-#endif //__D3D10SHADER_H__
 

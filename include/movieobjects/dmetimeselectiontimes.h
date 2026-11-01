@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
 //=============================================================================
 
-#ifndef DMETIMESELECTIONTIMES_H
-#define DMETIMESELECTIONTIMES_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -67,4 +66,3 @@ struct TimeSelection_t
 #define TS_HOLD( _side ) ( TS_LEFT_HOLD + (_side) )
 
 
-#endif // DMETIMESELECTIONTIMES_H

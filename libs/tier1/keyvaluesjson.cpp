@@ -37,10 +37,10 @@ KeyValues *KeyValuesJSONParser::ParseFile()
 	if ( m_eToken == kToken_EOF )
 	{
 		V_sprintf_safe( m_szErrMsg, "Input contains no data" );
-		return NULL;
+		return nullptr;
 	}
 	if ( m_eToken == kToken_Err )
-		return NULL;
+		return nullptr;
 	if ( m_eToken == '{' )
 	{
 
@@ -49,14 +49,14 @@ KeyValues *KeyValuesJSONParser::ParseFile()
 		if ( !ParseObject( pResult ) )
 		{
 			pResult->deleteThis();
-			return NULL;
+			return nullptr;
 		}
 		if ( m_eToken == kToken_EOF )
 			return pResult;
 		pResult->deleteThis();
 	}
 	V_sprintf_safe( m_szErrMsg, "%s not expected here.  A valid JSON document should be a single object, which begins with '{' and ends with '}'", GetTokenDebugText() );
-	return NULL;
+	return nullptr;
 }
 
 bool KeyValuesJSONParser::ParseObject( KeyValues *pObject )
@@ -64,7 +64,7 @@ bool KeyValuesJSONParser::ParseObject( KeyValues *pObject )
 	Assert( m_eToken == '{' );
 	int nOpenDelimLine = m_nLine;
 	NextToken();
-	KeyValues *pLastChild = NULL;
+	KeyValues *pLastChild = nullptr;
 	while ( m_eToken != '}' )
 	{
 		// Parse error?
@@ -137,7 +137,7 @@ bool KeyValuesJSONParser::ParseArray( KeyValues *pArray )
 	Assert( m_eToken == '[' );
 	int nOpenDelimLine = m_nLine;
 	NextToken();
-	KeyValues *pLastChild = NULL;
+	KeyValues *pLastChild = nullptr;
 	int idx = 0;
 	while ( m_eToken != ']' )
 	{
@@ -208,7 +208,7 @@ bool KeyValuesJSONParser::ParseValue( KeyValues *pValue )
 		case '{': return ParseObject( pValue );
 		case '[': return ParseArray( pValue );
 		case kToken_String:
-			pValue->SetString( NULL, m_vecTokenChars.Base() );
+			pValue->SetString(nullptr, m_vecTokenChars.Base() );
 			NextToken();
 			return true;
 
@@ -219,7 +219,7 @@ bool KeyValuesJSONParser::ParseValue( KeyValues *pValue )
 			// Negative?
 			if ( *pszNum == '-' )
 			{
-				int64 val64 = V_atoi64( pszNum );
+				int64_t val64 = V_atoi64( pszNum );
 				if ( val64 < INT32_MIN )
 				{
 					// !KLUDGE! KeyValues cannot support this!
@@ -227,18 +227,18 @@ bool KeyValuesJSONParser::ParseValue( KeyValues *pValue )
 					return false;
 				}
 
-				pValue->SetInt( NULL, (int)val64 );
+				pValue->SetInt(nullptr, (int)val64 );
 			}
 			else
 			{
-				uint64 val64 = V_atoui64( pszNum );
+				uint64_t val64 = V_atoui64( pszNum );
 				if ( val64 > 0x7fffffffU )
 				{
-					pValue->SetUint64( NULL, val64 );
+					pValue->SetUint64(nullptr, val64 );
 				}
 				else
 				{
-					pValue->SetInt( NULL, (int)val64 );
+					pValue->SetInt(nullptr, (int)val64 );
 				}
 			}
 			NextToken();
@@ -248,23 +248,23 @@ bool KeyValuesJSONParser::ParseValue( KeyValues *pValue )
 		case kToken_NumberFloat:
 		{
 			float f = V_atof( m_vecTokenChars.Base() );
-			pValue->SetFloat( NULL, f );
+			pValue->SetFloat(nullptr, f );
 			NextToken();
 			return true;
 		}
 
 		case kToken_True:
-			pValue->SetBool( NULL, true );
+			pValue->SetBool(nullptr, true );
 			NextToken();
 			return true;
 
 		case kToken_False:
-			pValue->SetBool( NULL, false );
+			pValue->SetBool(nullptr, false );
 			NextToken();
 			return true;
 
 		case kToken_Null:
-			pValue->SetPtr( NULL, NULL );
+			pValue->SetPtr(nullptr, nullptr);
 			NextToken();
 			return true;
 
@@ -390,9 +390,9 @@ void KeyValuesJSONParser::NextToken()
 			default:
 			unexpected_char:
 				if ( V_isprint(c) )
-					V_sprintf_safe( m_szErrMsg, "Unexpected character 0x%02x ('%c')", (uint8)c, c );
+					V_sprintf_safe( m_szErrMsg, "Unexpected character 0x%02x ('%c')", (uint8_t)c, c );
 				else
-					V_sprintf_safe( m_szErrMsg, "Unexpected character 0x%02x", (uint8)c );
+					V_sprintf_safe( m_szErrMsg, "Unexpected character 0x%02x", (uint8_t)c );
 				m_eToken = kToken_Err;
 				return;
 		}
@@ -529,9 +529,9 @@ void KeyValuesJSONParser::ParseNumberToken()
 
 	// Anything else, treat the whole thing as an invalid numerical constant
 	if ( V_isprint(c) )
-		V_sprintf_safe( m_szErrMsg, "Number contains invalid character 0x%02x ('%c')", (uint8)c, c );
+		V_sprintf_safe( m_szErrMsg, "Number contains invalid character 0x%02x ('%c')", (uint8_t)c, c );
 	else
-		V_sprintf_safe( m_szErrMsg, "Number contains invalid character 0x%02x", (uint8)c );
+		V_sprintf_safe( m_szErrMsg, "Number contains invalid character 0x%02x", (uint8_t)c );
 	m_eToken = kToken_Err;
 }
 
@@ -622,9 +622,9 @@ void KeyValuesJSONParser::ParseStringToken()
 
 			default:
 				if ( V_isprint(c) )
-					V_sprintf_safe( m_szErrMsg, "Invalid escape character 0x%02x ('\\%c')", (uint8)c, c );
+					V_sprintf_safe( m_szErrMsg, "Invalid escape character 0x%02x ('\\%c')", (uint8_t)c, c );
 				else
-					V_sprintf_safe( m_szErrMsg, "Invalid escape character 0x%02x", (uint8)c );
+					V_sprintf_safe( m_szErrMsg, "Invalid escape character 0x%02x", (uint8_t)c );
 				m_eToken = kToken_Err;
 				return;
 		}

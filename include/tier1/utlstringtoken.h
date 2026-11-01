@@ -6,8 +6,7 @@
 //
 //===========================================================================//
 
-#ifndef UTLSTRINGTOKEN_H
-#define UTLSTRINGTOKEN_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -24,7 +23,7 @@
 class CUtlStringToken
 {
 public:
-	uint32 m_nHashCode;
+	uint32_t m_nHashCode;
 #if DEBUG_STRINGTOKENS
 	char const *m_pDebugName;
 #endif
@@ -47,9 +46,9 @@ public:
 
 	/// access to the hash code for people who need to store thse as 32-bits, regardless of the
 	/// setting of DEBUG_STRINGTOKENS (for instance, for atomic operations).
-	FORCEINLINE uint32 GetHashCode( void ) const { return m_nHashCode; }
+	FORCEINLINE uint32_t GetHashCode( void ) const { return m_nHashCode; }
 
-	FORCEINLINE void SetHashCode( uint32 nCode ) { m_nHashCode = nCode; }
+	FORCEINLINE void SetHashCode( uint32_t nCode ) { m_nHashCode = nCode; }
 
 
 #ifndef _DEBUG												// the auto-generated things are too big when not inlined and optimized away
@@ -71,4 +70,3 @@ FORCEINLINE CUtlStringToken MakeStringToken( char const *pString )
 	return ret;
 }
 
-#endif // UTLSTRINGTOKEN_H

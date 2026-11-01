@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright Â© 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
@@ -7,8 +7,7 @@
 // $NoKeywords: $
 //=============================================================================//
 
-#ifndef BSPFLAGS_H
-#define BSPFLAGS_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -153,4 +152,3 @@
 // UNDONE: Not used yet / may be deleted
 #define	MASK_DEADSOLID				(CONTENTS_SOLID|CONTENTS_PLAYERCLIP|CONTENTS_WINDOW|CONTENTS_GRATE)
 
-#endif // BSPFLAGS_H

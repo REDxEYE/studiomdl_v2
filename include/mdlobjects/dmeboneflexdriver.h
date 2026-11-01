@@ -5,8 +5,7 @@
 //===========================================================================
 
 
-#ifndef BONEFLEXDRIVER_H
-#define BONEFLEXDRIVER_H
+#pragma once
 
 
 #ifdef _WIN32
@@ -71,4 +70,3 @@ public:
 };
 
 
-#endif // BONEFLEXDRIVER_H

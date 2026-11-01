@@ -99,7 +99,7 @@ char const *GetLogLayerType( int nDataType )
 		if ( nDataType == g_LayerTypes[ i ].datatype )
 			return g_LayerTypes[ i ].loglayertype;
 	}
-	return NULL;
+	return nullptr;
 }
 
 char const *GetLogLayerType( char const *logType )
@@ -110,7 +110,7 @@ char const *GetLogLayerType( char const *logType )
 		if ( !Q_stricmp( logType, g_LayerTypes[ i ].logtype ) )
 			return g_LayerTypes[ i ].loglayertype;
 	}
-	return NULL;
+	return nullptr;
 }
 
 template< class T >
@@ -172,7 +172,7 @@ void CImportSFMV2::FixupElement( CDmElement *pElement )
 
 		// Find attribute arrays for times, values and curvetypes
 		CDmAttribute *pTimes = pElement->GetAttribute( "times" );
-		CDmAttribute *pCurveTypes = NULL;
+		CDmAttribute *pCurveTypes = nullptr;
 
 		// FIX
 		CDmAttribute *pAttr = pElement->AddAttribute( "usecurvetypes", AT_BOOL );
@@ -183,7 +183,7 @@ void CImportSFMV2::FixupElement( CDmElement *pElement )
 
 		// Get the default layer (added when the new style log is created)
 		CDmrElementArray<> layers( pElement->AddAttribute( "layers", AT_ELEMENT_ARRAY ) );
-		CDmElement *layer = NULL;
+		CDmElement *layer = nullptr;
 		if ( layers.Count() == 0 )
 		{
 			DmElementHandle_t hElement = g_pDataModel->CreateElement( GetLogLayerType( layerType ), GetLogLayerType( layerType ), pElement->GetFileId() );

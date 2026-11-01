@@ -5,8 +5,7 @@
 // $NoKeywords: $
 //=============================================================================//
 
-#ifndef KVPACKER_H
-#define KVPACKER_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -46,4 +45,3 @@ private:
 };
 
 
-#endif // KVPACKER_H

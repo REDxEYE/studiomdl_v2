@@ -1,4 +1,4 @@
-//===== Copyright © 1996-2005, Valve Corporation, All rights reserved. ======//
+//===== Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. ======//
 //
 // Purpose: 
 //
@@ -7,15 +7,14 @@
 // $NoKeywords: $
 //===========================================================================//
 
-#ifndef IRESOURCEACCESSCONTROL_H
-#define IRESOURCEACCESSCONTROL_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
 #endif
 
 
-#include "tier0/dbg.h"
+
 #include "tier2/resourceprecacher.h"
 #include "appframework/iappsystem.h"
 
@@ -47,4 +46,3 @@ public:
 };
 
 
-#endif // IRESOURCEACCESSCONTROL_H

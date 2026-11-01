@@ -12,14 +12,13 @@
 //
 //=============================================================================
 
-#ifndef IDMSERIALIZERS_H
-#define IDMSERIALIZERS_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
 #endif
 
-#include "appframework/IAppSystem.h"
+#include "appframework/iappsystem.h"
 
 
 //-----------------------------------------------------------------------------
@@ -42,6 +41,5 @@ class IDmSerializers : public IAppSystem
 extern IDmSerializers *g_pDmSerializers;
 
 
-#endif // DMSERIALIZERS_H
 
 

@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =====//
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =====//
 //
 // Dme version of a hitbox
 //
 //===========================================================================//
 
-#ifndef DMEHITBOX_H
-#define DMEHITBOX_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -24,7 +23,7 @@ class CDmeHitbox : public CDmeBBox
 	DEFINE_ELEMENT( CDmeHitbox, CDmeBBox );
 
 public:
-	virtual void Draw( const matrix3x4_t &shapeToWorld, CDmeDrawSettings *pDrawSettings = NULL );
+	virtual void Draw( const matrix3x4_t &shapeToWorld, CDmeDrawSettings *pDrawSettings = nullptr);
 
 	CDmaString m_sSurfaceProperty;
 	CDmaVar< int > m_nGroupId;
@@ -34,4 +33,3 @@ public:
 };
 
 
-#endif // DMEHITBOX_H

@@ -4,8 +4,7 @@
 //
 //=============================================================================//
 
-#ifndef KEYVALUESJSON_H
-#define KEYVALUESJSON_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -67,4 +66,3 @@ private:
 extern void TestKeyValuesJSONParser();
 #endif
 
-#endif // KEYVALUESJSON_H

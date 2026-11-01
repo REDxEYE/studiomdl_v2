@@ -6,20 +6,19 @@
 // $NoKeywords: $
 //=============================================================================//
 
-#ifndef UTLDICT_H
-#define UTLDICT_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
 #endif
 
-#include "tier0/dbg.h"
+
 #include "tier1/utlmap.h"
 
 // Include this because tons of code was implicitly getting utlsymbol or utlvector via utldict.h
 #include "tier1/utlsymbol.h"
 
-// DISABLED #include "tier0/memdbgon.h"
+
 
 enum EDictCompareType
 {
@@ -190,7 +189,6 @@ inline const T & CUtlDict<T, I>::operator[]( I i ) const
 template <class T, class I>
 inline void CUtlDict<T, I>::SetElementName( I i, char const *pName )
 {
-	MEM_ALLOC_CREDIT_CLASS();
 	// TODO:  This makes a copy of the old element
 	// TODO:  This relies on the rb tree putting the most recently
 	//  removed element at the head of the insert list
@@ -307,14 +305,12 @@ void CUtlDict<T, I>::PurgeAndDeleteElements()
 template <class T, class I> 
 I CUtlDict<T, I>::Insert( const char *pName, const T &element )
 {
-	MEM_ALLOC_CREDIT_CLASS();
 	return m_Elements.Insert( strdup( pName ), element );
 }
 
 template <class T, class I> 
 I CUtlDict<T, I>::Insert( const char *pName )
 {
-	MEM_ALLOC_CREDIT_CLASS();
 	return m_Elements.Insert( strdup( pName ) );
 }
 
@@ -325,7 +321,6 @@ I CUtlDict<T, I>::Insert( const char *pName )
 template <class T, class I> 
 I CUtlDict<T, I>::Find( const char *pName ) const
 {
-	MEM_ALLOC_CREDIT_CLASS();
 	if ( pName )
 		return m_Elements.Find( pName );
 	else
@@ -362,4 +357,3 @@ I CUtlDict<T, I>::Next( I i ) const
 
 // DISABLED #include "tier0/memdbgoff.h"
 
-#endif // UTLDICT_H

@@ -11,8 +11,7 @@
 // The application objects for apps that use tier3
 //=============================================================================
 
-#ifndef TIER3APP_H
-#define TIER3APP_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -118,4 +117,3 @@ public:
 };
 
 
-#endif // TIER3APP_H

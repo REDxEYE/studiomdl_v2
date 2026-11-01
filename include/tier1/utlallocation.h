@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2010, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2010, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 // The CUtlAllocation class:
@@ -7,8 +7,7 @@
 //			to be used primarily to replace CUtlBuffer
 //=============================================================================
 
-#ifndef UTLALLOCATION_H
-#define UTLALLOCATION_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -72,14 +71,14 @@ public:
 	}
 
 	// Gets the base address
-	uint8* Base()
+	uint8_t* Base()
 	{ 
 		if ( m_pMemory == NULL ) 
 			return NULL; 
 		return m_pMemory->rgub; 
 	}
 
-	const uint8* Base() const
+	const uint8_t* Base() const
 	{ 
 		if ( m_pMemory == NULL ) 
 			return NULL; 
@@ -125,10 +124,9 @@ private:
 	struct ActualMemory_t
 	{
 		int cub;
-		uint8 rgub[4];	// i'd prefer to make this 0 but the compiler whines when i do
+		uint8_t rgub[4];	// i'd prefer to make this 0 but the compiler whines when i do
 	};
 
 	ActualMemory_t *m_pMemory;
 };
 
-#endif // UTLALLOCATION_H

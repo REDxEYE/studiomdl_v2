@@ -2,8 +2,7 @@
 // Created by RED on 15.05.2024.
 //
 
-#ifndef STUDIOMDL_V2_STUDIOMDL_APP_H
-#define STUDIOMDL_V2_STUDIOMDL_APP_H
+#pragma once
 
 #include "appframework/IAppSystemGroup.h"
 
@@ -36,4 +35,3 @@ private:
     bool ParseArguments();
 };
 
-#endif //STUDIOMDL_V2_STUDIOMDL_APP_H

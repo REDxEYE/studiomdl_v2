@@ -1,11 +1,10 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright Â© 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
 //=============================================================================//
 
-#ifndef BONE_ACCESSOR_H
-#define BONE_ACCESSOR_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -63,14 +62,14 @@ private:
 
 inline CBoneAccessor::CBoneAccessor()
 {
-	m_pAnimating = NULL;
-	m_pBones = NULL;
+	m_pAnimating = nullptr;
+	m_pBones = nullptr;
 	m_ReadableBones = m_WritableBones = 0;
 }
 
 inline CBoneAccessor::CBoneAccessor( matrix3x4a_t *pBones )
 {
-	m_pAnimating = NULL;
+	m_pAnimating = nullptr;
 	m_pBones = pBones;
 }
 
@@ -132,4 +131,3 @@ inline matrix3x4a_t *CBoneAccessor::GetBoneArrayForWrite( void ) const
 }
 
 
-#endif // BONE_ACCESSOR_H

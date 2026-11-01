@@ -1,10 +1,15 @@
 cmake_minimum_required(VERSION 3.22)
 project(studiomdl_v2)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)  # for clang-tidy / clangd
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+
     if (CMAKE_SIZEOF_VOID_P EQUAL 8)
         set(PLATFORM_DEFINES COMPILER_MSVC64 COMPILER_MSVC _AMD64_)
+        if (CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+            add_compile_options(/Ox /Oi /GL /GF /Gy)
+        endif()
     elseif (CMAKE_SIZEOF_VOID_P EQUAL 4)
         set(PLATFORM_DEFINES COMPILER_MSVC32 COMPILER_MSVC _X86_)
     endif ()
@@ -20,7 +25,28 @@ else()
     # Do something on other operating systems
 endif()
 
+foreach(flag_var
+        CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
+        CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
+    STRING (REGEX REPLACE "/RTC[^ ]*" "" ${flag_var} "${${flag_var}}")
+endforeach(flag_var)
+
+
 add_compile_definitions(${PLATFORM_DEFINES} RAD_TELEMETRY_DISABLED _CRT_SECURE_NO_WARNINGS USE_MEM_DEBUG=0 _DLL_EXT=.dll)
+
+# -DSTUDIOMDL_SANITIZE=ON: AddressSanitizer + UndefinedBehaviorSanitizer for every target (GCC/clang), run ctest on that build
+option(STUDIOMDL_SANITIZE "Build with AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
+if (STUDIOMDL_SANITIZE AND NOT MSVC)
+    add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)
+    add_link_options(-fsanitize=address,undefined)
+endif ()
+
+# -DSTUDIOMDL_WARNINGS=ON: -Wall -Wextra for every target; tests/warnings_report.py compares a clean build log
+# against tests/warnings_baseline.json
+option(STUDIOMDL_WARNINGS "Build with -Wall -Wextra" OFF)
+if (STUDIOMDL_WARNINGS AND NOT MSVC)
+    add_compile_options(-Wall -Wextra)
+endif ()
 
 add_subdirectory(libs/appframework)
 add_subdirectory(libs/nvtristriplib)
@@ -55,6 +81,7 @@ add_executable(studiomdl_v2
         studiomdl/tristrip.cpp
         studiomdl/UnifyLODs.cpp
         studiomdl/write.cpp
+        studiomdl/flexoptimize.cpp
         studiomdl/studiomdl.cpp
         studiomdl/filesystem_init.cpp
         studiomdl/studiomdl_commands.cpp
@@ -62,6 +89,8 @@ add_executable(studiomdl_v2
         studiomdl/studiomdl_app.cpp
         studiomdl/studiomdl_app.h
 )
+set_property(TARGET studiomdl_v2 APPEND_STRING PROPERTY COMPILE_FLAGS)
+
 target_compile_definitions(studiomdl_v2 PRIVATE -DSTATIC_TIER0)
 target_include_directories(studiomdl_v2 PUBLIC include)
 target_link_libraries(studiomdl_v2 PRIVATE
@@ -79,14 +108,18 @@ target_link_libraries(studiomdl_v2 PRIVATE
         meshutils
         appframework
         nvtristriplib
-        shlwapi
         filesystem_stdio_v2_static
         )
+if (WIN32)
+    target_link_libraries(studiomdl_v2 PRIVATE shlwapi)
+endif ()
 
 add_executable(dmxconvert
         dmxconvert/dmxconvert.cpp
         studiomdl/filesystem_init.cpp
         )
+
+set_property(TARGET dmxconvert APPEND_STRING PROPERTY COMPILE_FLAGS)
 target_compile_definitions(dmxconvert PRIVATE -DSTATIC_TIER0)
 target_include_directories(dmxconvert PUBLIC include)
 target_link_libraries(dmxconvert PRIVATE
@@ -97,4 +130,11 @@ target_link_libraries(dmxconvert PRIVATE
         datamodel
         dmserializers
         mathlib
+        filesystem_stdio_v2_static
         )
+
+option(STUDIOMDL_BUILD_TESTS "Build the tests (ctest)" ON)
+if (STUDIOMDL_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif ()

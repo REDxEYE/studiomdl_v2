@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
 //=============================================================================
 
-#ifndef DMETIMEFRAME_H
-#define DMETIMEFRAME_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -150,4 +149,3 @@ inline DmeTime_t CDmeTimeFrame::GetEndInChildMediaTime() const
 }
 
 
-#endif // DMETIMEFRAME_H

@@ -1,12 +1,11 @@
-//===== Copyright © 1996-2005, Valve Corporation, All rights reserved. ======//
+//===== Copyright Â© 1996-2005, Valve Corporation, All rights reserved. ======//
 //
 // Purpose: 
 //
 // $NoKeywords: $
 //===========================================================================//
 
-#ifndef FILESYSTEM_TOOLS_H
-#define FILESYSTEM_TOOLS_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -57,4 +56,3 @@ DECLARE_TIER2_INTERFACE( IFileSystem, g_pFullFileSystem );	// NOTE: this is here
 											// ONLY use LoadModule/UnloadModule.
 
 
-#endif // FILESYSTEM_TOOLS_H

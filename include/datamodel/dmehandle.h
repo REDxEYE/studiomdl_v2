@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve LLC, All rights reserved. ============
+//========= Copyright Â© 1996-2005, Valve LLC, All rights reserved. ============
 //
 // The copyright to the contents herein is the property of Valve, L.L.C.
 // The contents may be used and/or copied only with the written permission of
@@ -10,8 +10,7 @@
 // $NoKeywords: $
 //=============================================================================
 
-#ifndef DMEHANDLE_H
-#define DMEHANDLE_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -52,7 +51,7 @@ public:
 	template < class T, HandleType_t HT >
 	CDmeHandle( const CDmeHandle< T, HT > &handle ) : m_handle( DMELEMENT_HANDLE_INVALID )
 	{
-		DmeType *p = ( T* )NULL; // triggers compiler error if converting from invalid handle type
+		DmeType *p = ( T* ) nullptr; // triggers compiler error if converting from invalid handle type
 		NOTE_UNUSED( p );
 
 		Set( handle.GetHandle() );
@@ -69,7 +68,7 @@ public:
 	template < class T, HandleType_t HT >
 	CDmeHandle& operator=( const CDmeHandle< T, HT > &handle )
 	{
-		DmeType *p = ( T* )NULL; // triggers compiler error if converting from invalid handle type
+		DmeType *p = ( T* ) nullptr; // triggers compiler error if converting from invalid handle type
 		NOTE_UNUSED( p );
 
 		Set( handle.GetHandle() );
@@ -192,12 +191,12 @@ public:
 
 	operator bool() const
 	{ 
-		return ( Get() != NULL );
+		return ( Get() != nullptr);
 	}
 
 	bool operator!() const
 	{
-		return ( Get() == NULL );
+		return ( Get() == nullptr);
 	}
 
 private:
@@ -235,29 +234,3 @@ inline void ConvertPtrToHandleVector( const CUtlVector< T * > &in, CUtlVector< C
 }
 
 
-//-----------------------------------------------------------------------------
-// helper class for undo classes to allow them to hold onto refcounted element handles
-//-----------------------------------------------------------------------------
-
-template< typename T >
-class CDmAttributeUndoStorageType
-{
-public:
-	typedef T UndoStorageType;
-};
-
-template<>
-class CDmAttributeUndoStorageType< DmElementHandle_t >
-{
-public:
-	typedef CDmeUndoHandle UndoStorageType;
-};
-
-template<>
-class CDmAttributeUndoStorageType< CUtlVector< DmElementHandle_t > >
-{
-public:
-	typedef CUtlVector< CDmeUndoHandle > UndoStorageType;
-};
-
-#endif // DMEHANDLE_H

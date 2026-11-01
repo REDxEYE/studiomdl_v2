@@ -1,12 +1,11 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright Â© 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
 // $NoKeywords: $
 //=============================================================================//
 
-#ifndef PHYSDLL_H
-#define PHYSDLL_H
+#pragma once
 #pragma once
 
 
@@ -27,4 +26,3 @@ void					PhysicsDLLPath( const char *pPathname );
 }
 #endif
 
-#endif // PHYSDLL_H

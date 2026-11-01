@@ -10,11 +10,11 @@
 #include "tier0/platform.h"
 #include "generichash.h"
 #include <ctype.h>
-#include "tier0/dbg.h"
+
 #include "tier1/strtools.h"
 
 // NOTE: This has to be the last file included!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 //-----------------------------------------------------------------------------
@@ -58,7 +58,7 @@ void MakeRandomValues()
 }
 */
 
-static unsigned g_nRandomValues[256] =
+static uint32_t g_nRandomValues[256] =
 {
 	238,	164,	191,	168,	115,	 16,	142,	 11,	213,	214,	 57,	151,	248,	252,	 26,	198,
 	 13,	105,	102,	 25,	 43,	 42,	227,	107,	210,	251,	 86,	 66,	 83,	193,	126,	108,
@@ -81,10 +81,10 @@ static unsigned g_nRandomValues[256] =
 //-----------------------------------------------------------------------------
 // String 
 //-----------------------------------------------------------------------------
-unsigned FASTCALL HashString( const char *pszKey )
+uint32_t FASTCALL HashString( const char *pszKey )
 {
-	const uint8 *k =   (const uint8 *)pszKey;
-	unsigned 	even = 0,
+	const uint8_t *k =   (const uint8_t *)pszKey;
+	uint32_t 	even = 0,
 				odd  = 0,
 				n;
 
@@ -104,10 +104,10 @@ unsigned FASTCALL HashString( const char *pszKey )
 //-----------------------------------------------------------------------------
 // Case-insensitive string 
 //-----------------------------------------------------------------------------
-unsigned FASTCALL HashStringCaseless( const char *pszKey )
+uint32_t FASTCALL HashStringCaseless( const char *pszKey )
 {
-	const uint8 *k = (const uint8 *) pszKey;
-	unsigned	even = 0,
+	const uint8_t *k = (const uint8_t *) pszKey;
+	uint32_t even = 0,
 				odd  = 0,
 				n;
 
@@ -126,14 +126,14 @@ unsigned FASTCALL HashStringCaseless( const char *pszKey )
 //-----------------------------------------------------------------------------
 // 32 bit conventional case-insensitive string 
 //-----------------------------------------------------------------------------
-uint32 FASTCALL HashStringCaselessConventional( const char *pszKey )
+uint32_t FASTCALL HashStringCaselessConventional( const char *pszKey )
 {
-	uint32 hash = 0xAAAAAAAA; // Alternating 1's and 0's to maximize the effect of the later multiply and add
+	uint32_t hash = 0xAAAAAAAA; // Alternating 1's and 0's to maximize the effect of the later multiply and add
 	hash += ( 2 * V_strlen( pszKey ) ); // Add the string length * 2 to the hash to give it more variety
 
 	for( ; *pszKey ; pszKey++ )
 	{
-		hash = ( ( hash << 5 ) + hash ) + (uint8)tolower(*pszKey);
+		hash = ( ( hash << 5 ) + hash ) + (uint8_t)tolower(*pszKey);
 	}
 
 	return hash;
@@ -142,9 +142,9 @@ uint32 FASTCALL HashStringCaselessConventional( const char *pszKey )
 //-----------------------------------------------------------------------------
 // int hash
 //-----------------------------------------------------------------------------
-unsigned FASTCALL HashInt( const int n )
+uint32_t FASTCALL HashInt( const int n )
 {
-	register unsigned		even, odd;
+	uint32_t		even, odd;
 	odd   = g_nRandomValues[(((unsigned)n >> 8) & 0xff)];
 	even  = g_nRandomValues[odd ^ ((unsigned)n >> 24)];
 	odd   = g_nRandomValues[even ^ ((unsigned)n >> 16) & 0xff];
@@ -157,10 +157,10 @@ unsigned FASTCALL HashInt( const int n )
 //-----------------------------------------------------------------------------
 // 4-byte hash
 //-----------------------------------------------------------------------------
-unsigned FASTCALL Hash4( const void *pKey )
+uint32_t FASTCALL Hash4( const void *pKey )
 {
-	register const uint32 *	p = (const uint32 *) pKey;
-	register unsigned		even,
+	const uint32_t *	p = (const uint32_t *) pKey;
+	uint32_t		even,
 							odd,
 							n;
 	n     = *p;
@@ -177,10 +177,10 @@ unsigned FASTCALL Hash4( const void *pKey )
 //-----------------------------------------------------------------------------
 // 8-byte hash
 //-----------------------------------------------------------------------------
-unsigned FASTCALL Hash8( const void *pKey )
+uint32_t FASTCALL Hash8( const void *pKey )
 {
-	register const uint32 *	p = (const uint32 *) pKey;
-	register unsigned		even,
+	const uint32_t *	p = (const uint32_t *) pKey;
+	uint32_t	even,
 							odd,
 							n;
 	n     = *p;
@@ -203,10 +203,10 @@ unsigned FASTCALL Hash8( const void *pKey )
 //-----------------------------------------------------------------------------
 // 12-byte hash
 //-----------------------------------------------------------------------------
-unsigned FASTCALL Hash12( const void *pKey )
+uint32_t FASTCALL Hash12( const void *pKey )
 {
-	register const uint32 *	p = (const uint32 *) pKey;
-	register unsigned		even,
+	const uint32_t *	p = (const uint32_t *) pKey;
+	uint32_t	even,
 							odd,
 							n;
 	n     = *p;
@@ -236,10 +236,10 @@ unsigned FASTCALL Hash12( const void *pKey )
 //-----------------------------------------------------------------------------
 // 16-byte hash
 //-----------------------------------------------------------------------------
-unsigned FASTCALL Hash16( const void *pKey )
+uint32_t FASTCALL Hash16( const void *pKey )
 {
-	register const uint32 *	p = (const uint32 *) pKey;
-	register unsigned		even,
+	const uint32_t *	p = (const uint32_t *) pKey;
+	uint32_t	even,
 							odd,
 							n;
 	n     = *p;
@@ -275,9 +275,9 @@ unsigned FASTCALL Hash16( const void *pKey )
 //-----------------------------------------------------------------------------
 // Arbitrary fixed length hash
 //-----------------------------------------------------------------------------
-unsigned FASTCALL HashBlock( const void *pKey, unsigned size )
+uint32_t FASTCALL HashBlock( const void *pKey, unsigned size )
 {
-	const uint8 *	k    = (const uint8 *) pKey;
+	const uint8_t *	k    = (const uint8_t *) pKey;
 	unsigned 		even = 0,
 					odd  = 0,
 					n;
@@ -304,17 +304,17 @@ unsigned FASTCALL HashBlock( const void *pKey, unsigned size )
 //-----------------------------------------------------------------------------
 // Murmur hash
 //-----------------------------------------------------------------------------
-uint32 MurmurHash2( const void * key, int len, uint32 seed )
+uint32_t MurmurHash2( const void * key, int len, uint32_t seed )
 {
 	// 'm' and 'r' are mixing constants generated offline.
 	// They're not really 'magic', they just happen to work well.
 
-	const uint32 m = 0x5bd1e995;
+	const uint32_t m = 0x5bd1e995;
 	const int r = 24;
 
 	// Initialize the hash to a 'random' value
 
-	uint32 h = seed ^ len;
+	uint32_t h = seed ^ len;
 
 	// Mix 4 bytes at a time into the hash
 
@@ -322,7 +322,7 @@ uint32 MurmurHash2( const void * key, int len, uint32 seed )
 
 	while(len >= 4)
 	{
-		uint32 k = LittleDWord( *(uint32 *)data );
+		uint32_t k = LittleDWord( *(uint32_t *)data );
 
 		k *= m; 
 		k ^= k >> r; 
@@ -355,8 +355,8 @@ uint32 MurmurHash2( const void * key, int len, uint32 seed )
 	return h;
 }
 
-#define TOLOWERU( c ) ( ( uint32 ) ( ( ( c >= 'A' ) && ( c <= 'Z' ) )? c + 32 : c ) )
-uint32 MurmurHash2LowerCase( char const *pString, uint32 nSeed )
+#define TOLOWERU( c ) ( ( uint32_t ) ( ( ( c >= 'A' ) && ( c <= 'Z' ) )? c + 32 : c ) )
+uint32_t MurmurHash2LowerCase( char const *pString, uint32_t nSeed )
 {
 	int nLen = V_strlen( pString );
 	char *p = ( char * ) stackalloc( nLen + 1 );
@@ -371,30 +371,30 @@ uint32 MurmurHash2LowerCase( char const *pString, uint32 nSeed )
 //-----------------------------------------------------------------------------
 // Murmur hash, 64 bit- endian neutral
 //-----------------------------------------------------------------------------
-uint64 MurmurHash64( const void * key, int len, uint32 seed )
+uint64_t MurmurHash64( const void * key, int len, uint32_t seed )
 {
 	// 'm' and 'r' are mixing constants generated offline.
 	// They're not really 'magic', they just happen to work well.
 
-	const uint32 m = 0x5bd1e995;
+	const uint32_t m = 0x5bd1e995;
 	const int r = 24;
 
 	// Initialize the hash to a 'random' value
 
-	uint32 h1 = seed ^ len;
-	uint32 h2 = 0;
+	uint32_t h1 = seed ^ len;
+	uint32_t h2 = 0;
 
 	// Mix 4 bytes at a time into the hash
 
-	const uint32 * data = (const uint32 *)key;
+	const uint32_t * data = (const uint32_t *)key;
 	while ( len >= 8 )
 	{
-		uint32 k1 = LittleDWord( *data++ );
+		uint32_t k1 = LittleDWord( *data++ );
 		k1 *= m; k1 ^= k1 >> r; k1 *= m;
 		h1 *= m; h1 ^= k1;
 		len -= 4;
 
-		uint32 k2 = LittleDWord( *data++ );
+		uint32_t k2 = LittleDWord( *data++ );
 		k2 *= m; k2 ^= k2 >> r; k2 *= m;
 		h2 *= m; h2 ^= k2;
 		len -= 4;
@@ -402,7 +402,7 @@ uint64 MurmurHash64( const void * key, int len, uint32 seed )
 
 	if(len >= 4)
 	{
-		uint32 k1 = LittleDWord( *data++ );
+		uint32_t k1 = LittleDWord( *data++ );
 		k1 *= m; k1 ^= k1 >> r; k1 *= m;
 		h1 *= m; h1 ^= k1;
 		len -= 4;
@@ -411,9 +411,9 @@ uint64 MurmurHash64( const void * key, int len, uint32 seed )
 	// Handle the last few bytes of the input array
 	switch(len)
 	{
-	case 3: h2 ^= ((uint8*)data)[2] << 16;
-	case 2: h2 ^= ((uint8*)data)[1] << 8;
-	case 1: h2 ^= ((uint8*)data)[0];
+	case 3: h2 ^= ((uint8_t*)data)[2] << 16;
+	case 2: h2 ^= ((uint8_t*)data)[1] << 8;
+	case 1: h2 ^= ((uint8_t*)data)[0];
 			h2 *= m;
 	};
 
@@ -422,7 +422,7 @@ uint64 MurmurHash64( const void * key, int len, uint32 seed )
 	h1 ^= h2 >> 17; h1 *= m;
 	h2 ^= h1 >> 19; h2 *= m;
 
-	uint64 h = h1;
+	uint64_t h = h1;
 
 	h = (h << 32) | h2;
 

@@ -1,8 +1,7 @@
 // comdecl.h: Macros to facilitate COM interface and GUID declarations.
 // Copyright (c) Microsoft Corporation.  All rights reserved.
 
-#ifndef _COMDECL_H_
-#define _COMDECL_H_
+#pragma once
 
 #ifndef _XBOX
     #include <basetyps.h>   // For standard COM interface macros
@@ -56,4 +55,3 @@
 
 #endif // __cplusplus
 
-#endif // #ifndef _COMDECL_H_

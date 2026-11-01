@@ -8,8 +8,7 @@
 #include "tier1/utlstring.h"
 #include "tier0/basetypes.h"
 
-#ifndef UTLENVELOPE_H
-#define UTLENVELOPE_H
+#pragma once
 
 #if defined( _WIN32 )
 #pragma once
@@ -37,8 +36,8 @@ private:
 	// TODO: switch to a reference counted array?
 	union
 	{
-		byte *m_pData;
-		byte m_data[4];
+		uint8_t *m_pData;
+		uint8_t m_data[4];
 	};
 	int m_nBytes;
 };
@@ -110,7 +109,7 @@ private:
 
 //-----------------------------------------------------------------------------
 
-// DISABLED #include "tier0/memdbgon.h"
+
 
 inline void CUtlDataEnvelope::Assign( const void *pData, int nBytes )
 {
@@ -119,7 +118,7 @@ inline void CUtlDataEnvelope::Assign( const void *pData, int nBytes )
 		m_nBytes = nBytes;
 		if ( m_nBytes > 4 )
 		{
-			m_pData = new byte[nBytes];
+			m_pData = new uint8_t[nBytes];
 			memcpy( m_pData, pData, nBytes );
 		}
 		else
@@ -129,7 +128,7 @@ inline void CUtlDataEnvelope::Assign( const void *pData, int nBytes )
 	}
 	else
 	{
-		m_pData = NULL;
+		m_pData = nullptr;
 		m_nBytes = 0;
 	}
 }
@@ -172,7 +171,7 @@ inline CUtlDataEnvelope::operator void *()
 {
 	if ( !m_nBytes )
 	{
-		return NULL;
+		return nullptr;
 	}
 
 	return ( m_nBytes > 4) ? m_pData : m_data;
@@ -182,7 +181,7 @@ inline CUtlDataEnvelope::operator void *() const
 {
 	if ( !m_nBytes )
 	{
-		return NULL;
+		return nullptr;
 	}
 
 	return ( m_nBytes > 4) ? (void *)m_pData : (void *)m_data;
@@ -238,4 +237,3 @@ inline CUtlEnvelope<T>::operator void *() const
 
 // DISABLED #include "tier0/memdbgoff.h"
 
-#endif // UTLENVELOPE_H

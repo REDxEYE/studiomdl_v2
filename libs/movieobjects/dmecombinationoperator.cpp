@@ -6,18 +6,12 @@
 #include "movieobjects/dmecombinationoperator.h"
 #include "movieobjects_interfaces.h"
 #include "datamodel/dmelementfactoryhelper.h"
-#include "datamodel/dmattribute.h"
 #include "movieobjects/dmechannel.h"
 #include "movieobjects/dmemodel.h"
-#include "movieobjects/dmeshape.h"
-#include "movieobjects/dmedag.h"
-#include "movieobjects/dmeclip.h"
-#include "movieobjects/dmelog.h"
 #include "movieobjects/dmevertexdata.h"
 #include "movieobjects/dmemesh.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 //-----------------------------------------------------------------------------
@@ -248,7 +242,7 @@ const char *CDmeCombinationInputControl::GetEyesUpDownFlexName() const
 	if ( pEyesUpDownFlexAttr )
 		return pEyesUpDownFlexAttr->GetValueString();
 
-	return NULL;
+	return nullptr;
 }
 
 
@@ -541,7 +535,7 @@ void CDmeCombinationOperator::RemoveAllControls()
 	for ( int i = 0; i < nCount; ++i )
 	{
 		CDmeCombinationInputControl *pInputControl = m_InputControls[i];
-		m_InputControls.Set( i, NULL );
+		m_InputControls.Set( i, nullptr);
 		DestroyElement( pInputControl );
 	}
 	m_InputControls.RemoveAll();
@@ -1815,7 +1809,7 @@ CDmElement *CDmeCombinationOperator::GetOperationDeltaState( int nTargetIndex, i
 	CDmElement *pElement = GetOperationTarget( nTargetIndex );
 	const CDmrElementArray<> deltaArray( pElement, "deltaStates" );
 	if ( !deltaArray.IsValid() )
-		return NULL;
+		return nullptr;
 
 	int nDeltaStateIndex = m_CombinationInfo[ nTargetIndex ].m_Outputs[ nOpIndex ].m_nDeltaStateIndex;
 	return deltaArray[ nDeltaStateIndex ];
@@ -1894,7 +1888,7 @@ void CDmeCombinationOperator::GenerateWrinkleDeltas(
 	float flScale /* = 1.0f */ )
 {
 	CDmeMesh* pMesh = CastElement< CDmeMesh >( pShape );
-	CDmeVertexData *pBindState = pMesh ? pMesh->FindBaseState( "bind" ) : NULL;
+	CDmeVertexData *pBindState = pMesh ? pMesh->FindBaseState( "bind" ) : nullptr;
 	if ( pBindState )
 	{
 		int nRawControlCount = m_RawControlInfo.Count();

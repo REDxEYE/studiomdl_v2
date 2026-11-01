@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2008, Valve Corporation, All rights reserved. =====//
+//====== Copyright Â© 1996-2008, Valve Corporation, All rights reserved. =====//
 //
 // A Dme element intended to be a base class for a common pattern of
 // MDLOBJECTS, that is an element which contains simply one attribute
@@ -7,8 +7,7 @@
 //===========================================================================//
 
 
-#ifndef DMEMDLLIST_H
-#define DMEMDLLIST_H
+#pragma once
 
 
 #ifdef _WIN32
@@ -30,9 +29,8 @@ class CDmeMdlList : public CDmElement
 	DEFINE_ELEMENT( CDmeMdlList, CDmElement );
 
 public:
-	virtual CDmAttribute *GetListAttr() { return NULL; }
+	virtual CDmAttribute *GetListAttr() { return nullptr; }
 
 };
 
 
-#endif // DMEMDLLIST_H

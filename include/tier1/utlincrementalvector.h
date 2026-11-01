@@ -1,6 +1,5 @@
-//====== Copyright © 1996-2009, Valve Corporation, All rights reserved. =======//
-#ifndef INCREMENTAL_VECTOR_H
-#define INCREMENTAL_VECTOR_H
+//====== Copyright Â© 1996-2009, Valve Corporation, All rights reserved. =======//
+#pragma once
 
 // this class facilitates an array of pointers that get added and removed frequently;
 // it's intrusive: the class that is pointed to must contain and maintain an index
@@ -195,7 +194,7 @@ public:
 	int Find( const T* p )const
 	{
 		int nIndex = Accessor::GetIndex( p );
-		if ( uint( nIndex ) < uint( Count() ) && m_data[ nIndex ] == p )
+		if ( uint32_t( nIndex ) < uint32_t( Count() ) && m_data[ nIndex ] == p )
 			return nIndex;
 		else
 			return -1;
@@ -204,7 +203,7 @@ public:
 	bool Has( const T *p )const
 	{
 		int nIndex = Accessor::GetIndex( p );
-		return uint( nIndex ) < uint( Count() ) && m_data[ nIndex ] == p;
+		return uint32_t( nIndex ) < uint32_t( Count() ) && m_data[ nIndex ] == p;
 	}
 
 	void FastRemoveAndDelete( T* p )
@@ -270,4 +269,3 @@ protected:
 	};																							\
 	typedef CUtlIncrementalVector < CLASS, CLASS##_##NAME##_IncrementalVectorAccessor_t > 
 
-#endif

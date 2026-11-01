@@ -6,8 +6,7 @@
 //
 //===========================================================================//
 
-#ifndef TIER1_STRTOOLS_H
-#define TIER1_STRTOOLS_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -183,12 +182,10 @@ inline int		V_strcmp(const char *s1, const char *s2)			{ return strcmp( s1, s2 )
 inline int		V_wcscmp(const wchar_t *s1, const wchar_t *s2)		{ return wcscmp( s1, s2 ); }
 inline int		V_stricmp( const char *s1, const char *s2 )			{ return stricmp( s1, s2 ); }
 inline char*	V_strstr( const char *s1, const char *search )		{ return (char*)strstr( s1, search ); }
-#ifndef COMPILER_PS3
 inline char*	V_strupr(char *start)								{ return strupr( start ); }
 inline char*	V_strlower(char *start)								{ return strlwr( start ); }
 inline wchar_t*	V_wcsupr (wchar_t *start)							{ return _wcsupr( start ); }
 inline wchar_t*	V_wcslower(wchar_t *start)							{ return _wcslwr( start ); }
-#endif
 
 #endif
 
@@ -198,10 +195,10 @@ int			V_strcasecmp (const char *s1, const char *s2);
 int			V_strncasecmp (const char *s1, const char *s2, int n);
 int			V_strnicmp (const char *s1, const char *s2, int n);
 int			V_atoi (const char *str);
-int64 		V_atoi64(const char *str);
-uint64 		V_atoui64(const char *str);
-int64		V_strtoi64( const char *nptr, char **endptr, int base );
-uint64		V_strtoui64( const char *nptr, char **endptr, int base );
+int64_t 		V_atoi64(const char *str);
+uint64_t 		V_atoui64(const char *str);
+int64_t		V_strtoi64( const char *nptr, char **endptr, int base );
+uint64_t		V_strtoui64( const char *nptr, char **endptr, int base );
 float		V_atof(const char *str);
 double		V_atod(const char *str);
 char*		V_stristr( char* pStr, const char* pSearch );
@@ -220,8 +217,8 @@ void		V_qsort_s( void *base, size_t num, size_t width, int ( __cdecl *compare )(
 // returns string immediately following prefix, (ie str+strlen(prefix)) or NULL if prefix not found
 const char *StringAfterPrefix             ( const char *str, const char *prefix );
 const char *StringAfterPrefixCaseSensitive( const char *str, const char *prefix );
-inline bool	StringHasPrefix             ( const char *str, const char *prefix ) { return StringAfterPrefix             ( str, prefix ) != NULL; }
-inline bool	StringHasPrefixCaseSensitive( const char *str, const char *prefix ) { return StringAfterPrefixCaseSensitive( str, prefix ) != NULL; }
+inline bool	StringHasPrefix             ( const char *str, const char *prefix ) { return StringAfterPrefix             ( str, prefix ) != nullptr; }
+inline bool	StringHasPrefixCaseSensitive( const char *str, const char *prefix ) { return StringAfterPrefixCaseSensitive( str, prefix ) != nullptr; }
 
 
 template< bool CASE_SENSITIVE > inline bool _V_strEndsWithInner( const char *pStr, const char *pSuffix )
@@ -259,7 +256,7 @@ inline bool V_isdigit( char c )
 
 inline bool V_iswdigit( int c )
 {
-	return ( ( (uint)( c - '0' ) ) < 10 );
+	return ( ( (uint32_t)( c - '0' ) ) < 10 );
 }
 
 inline bool V_isempty( const char* pszString ) { return !pszString || !pszString[ 0 ]; }
@@ -314,9 +311,6 @@ inline bool V_isspace(int c)
 	// return ((1 << (c-1)) & 0x80001F00) != 0 && ((c-1)&0xE0) == 0;
 
 	// 5% faster on Core i7, 35% faster on Xbox360, no branches, validated:
-	#ifdef _X360
-	return ((1 << (c-1)) & 0x80001F00 & ~(-int((c-1)&0xE0))) != 0;
-	#else
 	// this is 11% faster on Core i7 than the previous, VC2005 compiler generates a seemingly unbalanced search tree that's faster
 	switch(c)
 	{
@@ -330,7 +324,6 @@ inline bool V_isspace(int c)
 	default:
 		return false;
 	}
-	#endif
 }
 //#undef isspace
 //#define isspace use_V_isspace_instead_of_isspace
@@ -620,7 +613,7 @@ typedef char *  va_list;
 #define INCORRECT_PATH_SEPARATOR_S "/"
 #define CHARACTERS_WHICH_SEPARATE_DIRECTORY_COMPONENTS_IN_PATHNAMES ":/\\"
 #define PATHSEPARATOR(c) ((c) == '\\' || (c) == '/')
-#elif POSIX || defined( _PS3 )
+#elif POSIX
 #define CORRECT_PATH_SEPARATOR '/'
 #define CORRECT_PATH_SEPARATOR_S "/"
 #define INCORRECT_PATH_SEPARATOR '\\'
@@ -654,7 +647,7 @@ int V_vsnprintfRet( OUT_Z_CAP(maxLen) char *pDest, int maxLen, PRINTF_FORMAT_STR
 char *V_pretifymem( float value, int digitsafterdecimal = 2, bool usebinaryonek = false );
 
 // Prints out a pretified integer with comma separators (eg, 7,233,270,000)
-char *V_pretifynum( int64 value );
+char *V_pretifynum( int64_t value );
 
 // Prints out a memory dump where stuff that's ascii is human readable, etc.
 class CUtlString;
@@ -707,8 +700,8 @@ template< typename T, typename U > inline int V_UTF8ToUCS2( const char *pUTF8, T
 // char buffer[ 9 ];
 // V_binarytohex( &output, sizeof( output ), buffer, sizeof( buffer ) );
 // would put "ffffffff" into buffer (note null terminator!!!)
-void V_hextobinary( char const *in, int numchars, OUT_Z_CAP(maxoutputbytes) byte *out, int maxoutputbytes );
-void V_binarytohex( const byte *in, int inputbytes, char *out, int outsize );
+void V_hextobinary( char const *in, int numchars, OUT_Z_CAP(maxoutputbytes) uint8_t *out, int maxoutputbytes );
+void V_binarytohex( const uint8_t *in, int inputbytes, char *out, int outsize );
 
 // Tools for working with filenames
 // Extracts the base name of a file (no path, no extension, assumes '/' or '\' as path separator)
@@ -763,7 +756,7 @@ bool V_RemoveDotSlashes( char *pFilename, char separator = CORRECT_PATH_SEPARATO
 // If pPath is a relative path, this function makes it into an absolute path
 // using the current working directory as the base, or pStartingDir if it's non-NULL.
 // Returns false if it runs out of room in the string, or if pPath tries to ".." past the root directory.
-bool V_MakeAbsolutePath( char *pOut, int outLen, const char *pPath, const char *pStartingDir = NULL );
+bool V_MakeAbsolutePath( char *pOut, int outLen, const char *pPath, const char *pStartingDir = nullptr);
 inline void V_MakeAbsolutePath( char *pOut, int outLen, const char *pPath, const char *pStartingDir, bool bLowercaseName )
 {
 	V_MakeAbsolutePath( pOut, outLen, pPath, pStartingDir );
@@ -924,16 +917,16 @@ inline void V_RemoveFormatSpecifications( const char *pszFrom, char *pszTo, size
 // If pBreakCharacters == NULL, then the tokenizer will split tokens at the following characters:
 //    { } ( ) ' : 
 // White-space, '//' comments, and quoted strings are always handled.
-char const *V_ParseToken( char const *pStrIn, OUT_Z_CAP(bufsize) char *pToken, int bufsize, bool *pbOverflowed = NULL, struct characterset_t *pTokenBreakCharacters = NULL );
+char const *V_ParseToken( char const *pStrIn, OUT_Z_CAP(bufsize) char *pToken, int bufsize, bool *pbOverflowed = nullptr, struct characterset_t *pTokenBreakCharacters = nullptr);
 
 // Parses a single line, does not trim any whitespace from start or end.  Does not include the final '\n'.
-char const *V_ParseLine( char const *pStrIn, OUT_Z_CAP(bufsize) char *pToken, int bufsize, bool *pbOverflowed = NULL );
+char const *V_ParseLine( char const *pStrIn, OUT_Z_CAP(bufsize) char *pToken, int bufsize, bool *pbOverflowed = nullptr);
 
 // Returns true if additional data is waiting to be processed on this line
 bool V_TokenWaiting( const char *buffer );
 
 // Performs boyer moore search, returns offset of first occurrence of needle in haystack, or -1 on failure.  Note that haystack and the needle can be binary (non-text) data
-int V_BoyerMooreSearch( const byte *pNeedle, int nNeedleLength, const byte *pHayStack, int nHayStackLength );
+int V_BoyerMooreSearch( const uint8_t *pNeedle, int nNeedleLength, const uint8_t *pHayStack, int nHayStackLength );
 
 // Creates a random ascii string (alphanumeric only) of specified length
 CUtlString V_RandomString( int nLength );
@@ -951,8 +944,8 @@ bool V_BasicHtmlEntityEncode( OUT_Z_CAP( nDestSize ) char *pDest, const int nDes
 bool V_HtmlEntityDecodeToUTF8( OUT_Z_CAP( nDestSize ) char *pDest, const int nDestSize, char const *pIn, const int nInSize );
 
 // strips HTML from a string.  Should call Q_HTMLEntityDecodeToUTF8 afterward.
-void V_StripAndPreserveHTML( CUtlBuffer *pbuffer, const char *pchHTML, const char **rgszPreserveTags, uint cPreserveTags, uint cMaxResultSize );
-void V_StripAndPreserveHTMLCore( CUtlBuffer *pbuffer, const char *pchHTML, const char **rgszPreserveTags, uint cPreserveTags, const char **rgszNoCloseTags, uint cNoCloseTags, uint cMaxResultSize );
+void V_StripAndPreserveHTML( CUtlBuffer *pbuffer, const char *pchHTML, const char **rgszPreserveTags, uint32_t cPreserveTags, uint32_t cMaxResultSize );
+void V_StripAndPreserveHTMLCore( CUtlBuffer *pbuffer, const char *pchHTML, const char **rgszPreserveTags, uint32_t cPreserveTags, const char **rgszNoCloseTags, uint32_t cNoCloseTags, uint32_t cMaxResultSize );
 
 // Extracts the domain from a URL
 bool V_ExtractDomainFromURL( const char *pchURL, OUT_Z_CAP( cchDomain ) char *pchDomain, int cchDomain );
@@ -1028,10 +1021,10 @@ int V_GenerateUniqueNameIndex( const char *prefix, const NameArray &nameArray, i
 template < class NameArray >
 bool V_GenerateUniqueName( char *name, int memsize, const char *prefix, const NameArray &nameArray )
 {
-	if ( name == NULL || memsize == 0 )
+	if ( name == nullptr || memsize == 0 )
 		return false;
 
-	if ( prefix == NULL )
+	if ( prefix == nullptr)
 	{
 		name[ 0 ] = '\0';
 		return false;
@@ -1051,7 +1044,7 @@ bool V_GenerateUniqueName( char *name, int memsize, const char *prefix, const Na
 		return true;
 	}
 
-	int newlen = prefixLength + ( int )log10( ( float )i ) + 1;
+	int newlen = prefixLength + ( int )std::log10( ( float )i ) + 1;
 	if ( newlen + 1 > memsize )
 	{
 		V_strncpy( name, prefix, memsize );
@@ -1063,8 +1056,8 @@ bool V_GenerateUniqueName( char *name, int memsize, const char *prefix, const Na
 }
 
 
-extern bool V_StringToBin( const char*pString, void *pBin, uint nBinSize );
-extern bool V_BinToString( char*pString, void *pBin, uint nBinSize );
+extern bool V_StringToBin( const char*pString, void *pBin, uint32_t nBinSize );
+extern bool V_BinToString( char*pString, void *pBin, uint32_t nBinSize );
 
 template<typename T>
 struct BinString_t
@@ -1198,17 +1191,17 @@ template <> struct TypeParser_t< bool >
 
 // NOTE: MS compiler won't allow sscanf of a 1-byte int, and will override memory if you try to sscanf( %d, int8 )
 
-DECLARE_POD_TYPE_PARSE_SMALLINT( int8, "%d", 5, int ); // -127
-DECLARE_POD_TYPE_PARSE_SMALLINT( uint8, "%u", 5, uint );
+DECLARE_POD_TYPE_PARSE_SMALLINT( int8_t, "%d", 5, int ); // -127
+DECLARE_POD_TYPE_PARSE_SMALLINT( uint8_t, "%u", 5, uint32_t );
 
-DECLARE_POD_TYPE_PARSE_SMALLINT( int16, "%d", 7, int ); // -32767
-DECLARE_POD_TYPE_PARSE_SMALLINT( uint16, "%u", 7, uint );
+DECLARE_POD_TYPE_PARSE_SMALLINT( int16_t, "%d", 7, int ); // -32767
+DECLARE_POD_TYPE_PARSE_SMALLINT( uint16_t, "%u", 7, uint32_t );
 
-DECLARE_POD_TYPE_PARSE( int32, "%d", 12 );//MIN_INT
-DECLARE_POD_TYPE_PARSE( uint32, "%u", 12 );//UINT_MAX
+DECLARE_POD_TYPE_PARSE( int32_t, "%d", 12 );//MIN_INT
+DECLARE_POD_TYPE_PARSE( uint32_t, "%u", 12 );//UINT_MAX
 
-DECLARE_POD_TYPE_PARSE( int64, "%lld", 21 );  // 18446744073709551615  -9223372036854775808
-DECLARE_POD_TYPE_PARSE( uint64, "%llu", 21 );
+DECLARE_POD_TYPE_PARSE( int64_t, "%lld", 21 );  // 18446744073709551615  -9223372036854775808
+DECLARE_POD_TYPE_PARSE( uint64_t, "%llu", 21 );
 
 DECLARE_POD_TYPE_PARSE( float32, "%f", 48 ); // -FLT32_MAX
 DECLARE_POD_TYPE_PARSE( float64, "%lf", 318 ); // -FLOAT64_MAX (it's got a lot of zeros)
@@ -1248,7 +1241,7 @@ public:
 	CFormatNumber_DontUseDirectly_UseFormatNumberMacro() { m_szBuf[0] = '\0'; pString = m_szBuf; }
 
 	// Standard C formatting
-	void FormatNumberInternal( uint64 nNum )
+	void FormatNumberInternal( uint64_t nNum )
 	{
 		pString = m_szBuf + sizeof( m_szBuf ) - 1;
 		*pString-- = '\0';
@@ -1258,7 +1251,7 @@ public:
 			*pString-- = '0';
 		}
 
-		for ( uint64 j = 0; nNum > 0; nNum /= 10, j++ )
+		for ( uint64_t j = 0; nNum > 0; nNum /= 10, j++ )
 		{
 			// Add comma
 			if ( j && !( j % 3 ) )
@@ -1273,28 +1266,28 @@ public:
 		pString++;
 	}
 
-	void FormatNumberInternal64( int64 nNum )
+	void FormatNumberInternal64( int64_t nNum )
 	{
-		bool bIsNegative = ( nNum < ( int64 )0 );
-		uint64 nUnsigned = ( bIsNegative ) ? ( uint64 )( -nNum ) : ( uint64 )( nNum );
-		FormatNumberInternal( ( uint64 )nUnsigned );
+		bool bIsNegative = ( nNum < ( int64_t )0 );
+		uint64_t nUnsigned = ( bIsNegative ) ? ( uint64_t )( -nNum ) : ( uint64_t )( nNum );
+		FormatNumberInternal( ( uint64_t )nUnsigned );
 		if ( bIsNegative )
 		{
 			pString--;
 			*pString = '-';
 		}
 	}
-	CFormatNumber_DontUseDirectly_UseFormatNumberMacro( int64 nNum ) { FormatNumberInternal64( ( int64 )nNum ); }
-	CFormatNumber_DontUseDirectly_UseFormatNumberMacro( int32 nNum ) { FormatNumberInternal64( ( int64 )nNum ); }
-	CFormatNumber_DontUseDirectly_UseFormatNumberMacro( int16 nNum ) { FormatNumberInternal64( ( int64 )nNum ); }
+	CFormatNumber_DontUseDirectly_UseFormatNumberMacro( int64_t nNum ) { FormatNumberInternal64( ( int64_t )nNum ); }
+	CFormatNumber_DontUseDirectly_UseFormatNumberMacro( int32_t nNum ) { FormatNumberInternal64( ( int64_t )nNum ); }
+	CFormatNumber_DontUseDirectly_UseFormatNumberMacro( int16_t nNum ) { FormatNumberInternal64( ( int64_t )nNum ); }
 
-	void FormatNumberInternalU64( uint64 nNum )
+	void FormatNumberInternalU64( uint64_t nNum )
 	{
 		FormatNumberInternal( nNum );
 	}
-	CFormatNumber_DontUseDirectly_UseFormatNumberMacro( uint64 nNum ) { FormatNumberInternalU64( ( uint64 )nNum ); }
-	CFormatNumber_DontUseDirectly_UseFormatNumberMacro( uint32 nNum ) { FormatNumberInternalU64( ( uint64 )nNum ); }
-	CFormatNumber_DontUseDirectly_UseFormatNumberMacro( uint16 nNum ) { FormatNumberInternalU64( ( uint64 )nNum ); }
+	CFormatNumber_DontUseDirectly_UseFormatNumberMacro( uint64_t nNum ) { FormatNumberInternalU64( ( uint64_t )nNum ); }
+	CFormatNumber_DontUseDirectly_UseFormatNumberMacro( uint32_t nNum ) { FormatNumberInternalU64( ( uint64_t )nNum ); }
+	CFormatNumber_DontUseDirectly_UseFormatNumberMacro( uint16_t nNum ) { FormatNumberInternalU64( ( uint64_t )nNum ); }
 
 	// Use for access
 	operator const char *() const { return pString; }
@@ -1312,7 +1305,7 @@ inline char* TrimRight( char *pString )
 	// trim
 	while ( pString < ( pEnd-- ) )
 	{
-		if ( uint( *pEnd ) <= uint( ' ' ) )
+		if ( uint32_t( *pEnd ) <= uint32_t( ' ' ) )
 		{
 			*pEnd = '\0';
 		}
@@ -1325,7 +1318,7 @@ inline char* TrimRight( char *pString )
 inline const char * SkipBlanks( const char *pString )
 {
 	const char *p = pString;
-	while ( *p && uint( *p ) <= uint( ' ' ) )
+	while ( *p && uint32_t( *p ) <= uint32_t( ' ' ) )
 	{
 		p++;
 	}
@@ -1450,4 +1443,3 @@ int isbreakablewspace( wchar_t ch );
 int V_StrTrim( char *pStr );
 
 
-#endif	// TIER1_STRTOOLS_H

@@ -1,12 +1,11 @@
-//===== Copyright © 1996-2006, Valve Corporation, All rights reserved. ======//
+//===== Copyright Â© 1996-2006, Valve Corporation, All rights reserved. ======//
 //
 // Purpose: 	ExprSimplifier builds a binary tree from an infix expression (in the
 //				form of a character array).
 //
 //===========================================================================//
 
-#ifndef EXPREVALUATOR_H
-#define EXPREVALUATOR_H
+#pragma once
 
 #if defined( _WIN32 )
 #pragma once
@@ -42,7 +41,7 @@ class CExpressionEvaluator
 public:
 	CExpressionEvaluator();
 	~CExpressionEvaluator();
-	bool Evaluate( bool &result, const char *pInfixExpression, GetSymbolProc_t pGetSymbolProc = 0, SyntaxErrorProc_t pSyntaxErrorProc = 0 );
+	bool Evaluate( bool &result, const char *pInfixExpression, GetSymbolProc_t pGetSymbolProc = nullptr, SyntaxErrorProc_t pSyntaxErrorProc = nullptr );
 
 private:
 	CExpressionEvaluator( CExpressionEvaluator& );	// prevent copy constructor being used
@@ -71,4 +70,3 @@ private:
 	bool				m_bSetup;
 };
 
-#endif

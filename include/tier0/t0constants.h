@@ -1,12 +1,11 @@
-//========= Copyright ©, Valve LLC, All rights reserved. ============
+//========= Copyright Â©, Valve LLC, All rights reserved. ============
 //
 // Purpose: declares a variety of constants 
 //
 // $NoKeywords: $
 //=============================================================================
 
-#ifndef T0CONSTANTS_H
-#define T0CONSTANTS_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -14,11 +13,11 @@
 //-----------------------------------------------------------------------------
 // numeric constants to avoid typos with wrong number of zeros
 //-----------------------------------------------------------------------------
-const int64 k_nMillion = 1000000;
-const int64 k_nThousand = 1000;
-const int64 k_nKiloByte = 1024;
-const int64 k_nMegabyte = k_nKiloByte * k_nKiloByte;
-const int64 k_nGigabyte = k_nMegabyte * k_nKiloByte;
+const int64_t k_nMillion = 1000000;
+const int64_t k_nThousand = 1000;
+const int64_t k_nKiloByte = 1024;
+const int64_t k_nMegabyte = k_nKiloByte * k_nKiloByte;
+const int64_t k_nGigabyte = k_nMegabyte * k_nKiloByte;
 
 //-----------------------------------------------------------------------------
 // Timing constants
@@ -33,4 +32,3 @@ const int k_cSecondsPerDay = k_cSecondsPerHour * 24;
 const int k_cSecondsPerWeek = k_cSecondsPerDay * 7;
 const int k_cSecondsPerYear = k_cSecondsPerDay * 365;
 
-#endif // T0CONSTANTS_H

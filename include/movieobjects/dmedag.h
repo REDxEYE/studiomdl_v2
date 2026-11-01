@@ -4,8 +4,7 @@
 //
 //=============================================================================
 
-#ifndef DMEDAG_H
-#define DMEDAG_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -28,6 +27,7 @@ class CDmeTransform;
 class CDmeShape;
 class CDmeDrawSettings;
 class CDmeChannel;
+class CDmeOperator;
 class CDmeClip;
 class DmeLog_TimeSelection_t;
 class CDmeTransformControl;
@@ -216,7 +216,7 @@ inline T *CDmeDag::FindParentDagOfType()
 	if ( CastElement< T >( this ) )
 		return static_cast< T * >( this );
 
-	return NULL;
+	return nullptr;
 }
 
 //-----------------------------------------------------------------------------
@@ -230,7 +230,7 @@ void CDmeDag::FindChildrenOfType( CUtlVector< T* > &children )
 	for ( int iChild = 0; iChild < nChildren; ++iChild )
 	{
 		CDmeDag *pChild = m_Children[ iChild ];
-		if ( pChild == NULL )
+		if ( pChild == nullptr)
 			continue;
 
 		// Add the child to the list if it is of the specified type
@@ -246,4 +246,3 @@ void CDmeDag::FindChildrenOfType( CUtlVector< T* > &children )
 }
 
 
-#endif // DMEDAG_H

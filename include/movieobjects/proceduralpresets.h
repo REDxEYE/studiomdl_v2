@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2005, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2005, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
 //=============================================================================
 
-#ifndef PROCEDURALPRESETS_H
-#define PROCEDURALPRESETS_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -139,4 +138,3 @@ inline bool ShouldPresetPreserveSamples( int nPresetType )
 	return false;
 }
 
-#endif // PROCEDURALPRESETS_H

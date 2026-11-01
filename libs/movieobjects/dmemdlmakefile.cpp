@@ -8,14 +8,9 @@
 
 #include "movieobjects/dmemdlmakefile.h"
 #include "movieobjects/dmedag.h"
-#include "movieobjects/dmemdl.h"
 #include "datamodel/dmelementfactoryhelper.h"
-#include "datacache/imdlcache.h"
-#include "filesystem.h"
-#include "tier3/tier3.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 //-----------------------------------------------------------------------------
@@ -47,7 +42,7 @@ static const char *s_pSkinMakeFiles[] =
 {
 	"DmeMayaModelMakefile",
 	"DmeXSIModelMakefile",
-	NULL
+	nullptr
 };
 
 const char **CDmeSourceSkin::GetSourceMakefileTypes()
@@ -110,7 +105,7 @@ static const char *s_pAnimationMakeFiles[] =
 {
 	"DmeMayaAnimationMakefile",
 	"DmeXSIAnimationMakefile",
-	NULL
+	nullptr
 };
 
 const char **CDmeSourceAnimation::GetSourceMakefileTypes()
@@ -147,7 +142,7 @@ static DmeMakefileType_t s_pSourceTypes[] =
 	{ "DmeSourceSkin",				"Skin",				true,	"makefiledir:models\\dmx", "*.dmx", "Valve DMX File (*.dmx)" },
 	{ "DmeSourceAnimation",			"Animation",		false,	"makefiledir:animations\\dmx", "*.dmx", "Valve DMX File (*.dmx)" },
 	{ "DmeSourceCollisionModel",	"Collision Model",	true,	"makefiledir:models\\dmx", "*.dmx", "Valve DMX File (*.dmx)" },
-	{ NULL, NULL, false, NULL, NULL, NULL },
+	{nullptr, nullptr, false, nullptr, nullptr, nullptr},
 };
 
 DmeMakefileType_t* CDmeMDLMakefile::GetSourceTypes()
@@ -221,7 +216,7 @@ static const char *s_pOutputExtensions[] =
 	"mdl",
 	"vvd",
 	"phy",
-	NULL
+	nullptr
 };
 
 void CDmeMDLMakefile::GetOutputs( CUtlVector<CUtlString> &fullPaths )
@@ -231,18 +226,18 @@ void CDmeMDLMakefile::GetOutputs( CUtlVector<CUtlString> &fullPaths )
 	// FIXME: Should we ask the tool (studiomdl) for this?
 	// Should we have output type names? Not sure yet..
 	// Doing the simplest thing first.
-	char pOutputName[MAX_PATH];
+	char pOutputName[MAX_PATH]{0};
 	Q_FileBase( GetFileName(), pOutputName, sizeof(pOutputName) );
 	if ( !pOutputName[0] )
 		return;
 
-	char pOutputDir[MAX_PATH];
+	char pOutputDir[MAX_PATH]{0};
 	GetOutputDirectory( pOutputDir, sizeof(pOutputDir) );
 	if ( !pOutputDir[0] )
 		return;
 
 	Q_StripTrailingSlash( pOutputDir );
-	char pFullPath[MAX_PATH];
+	char pFullPath[MAX_PATH]{0};
 	for ( int i = 0; s_pOutputExtensions[i]; ++i )
 	{
 		Q_snprintf( pFullPath, sizeof(pFullPath), "%s\\%s.%s", pOutputDir, pOutputName, s_pOutputExtensions[i] );

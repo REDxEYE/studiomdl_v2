@@ -7,8 +7,7 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 
-#ifndef __D3DX9ANIM_H__
-#define __D3DX9ANIM_H__
+#pragma once
 
 // {698CFB3F-9289-4d95-9A57-33A94B5A65F9}
 DEFINE_GUID(IID_ID3DXAnimationSet, 
@@ -1109,6 +1108,5 @@ D3DXCreateAnimationController
 }
 #endif //__cplusplus
 
-#endif //__D3DX9ANIM_H__
 
 

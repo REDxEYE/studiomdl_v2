@@ -34,7 +34,7 @@ CDmElement* CImportKeyValueBase::CreateDmElement( const char *pElementType, cons
 	if ( hElement == DMELEMENT_HANDLE_INVALID )
 	{
 		Warning("%s: Element uses unknown element type %s\n", m_pFileName, pElementType );
-		return NULL;
+		return nullptr;
 	}
 
 	return g_pDataModel->GetElement( hElement );
@@ -122,7 +122,7 @@ bool CImportKeyValueBase::AddBoolAttribute( CDmElement* pElement, KeyValues *pKe
 		bValue = *pDefault;
 	}
 
-	return pElement->SetValue( pKeyName, bValue ) != NULL;
+	return pElement->SetValue( pKeyName, bValue ) != nullptr;
 }
 
 	
@@ -144,7 +144,7 @@ bool CImportKeyValueBase::AddIntAttribute( CDmElement* pElement, KeyValues *pKey
 		nValue = *pDefault;
 	}
 
-	return pElement->SetValue( pKeyName, nValue ) != NULL;
+	return pElement->SetValue( pKeyName, nValue ) != nullptr;
 }
 
 bool CImportKeyValueBase::AddFloatAttribute( CDmElement* pElement, KeyValues *pKeyValues, const char *pKeyName, float *pDefault )
@@ -162,7 +162,7 @@ bool CImportKeyValueBase::AddFloatAttribute( CDmElement* pElement, KeyValues *pK
 		flValue = *pDefault;
 	}
 
-	return pElement->SetValue( pKeyName, flValue ) != NULL;
+	return pElement->SetValue( pKeyName, flValue ) != nullptr;
 }
 
 bool CImportKeyValueBase::AddStringAttribute( CDmElement* pElement, KeyValues *pKeyValues, const char *pKeyName, const char *pDefault )
@@ -180,7 +180,7 @@ bool CImportKeyValueBase::AddStringAttribute( CDmElement* pElement, KeyValues *p
 		pValue = pDefault;
 	}
 
-	return pElement->SetValue( pKeyName, pValue ) != NULL;
+	return pElement->SetValue( pKeyName, pValue ) != nullptr;
 }
 
 
@@ -275,7 +275,7 @@ bool CImportKeyValueBase::Unserialize( CUtlBuffer &buf, const char *pEncodingNam
 									   const char *pSourceFormatName, int nSourceFormatVersion,
 									   DmFileId_t fileid, DmConflictResolution_t idConflictResolution, CDmElement **ppRoot )
 {
-	*ppRoot = NULL;
+	*ppRoot = nullptr;
 	m_pFileName = g_pDataModel->GetFileName( fileid );
 
 	KeyValues *kv = new KeyValues( "dmx file" );

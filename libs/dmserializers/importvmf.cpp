@@ -40,7 +40,7 @@ private:
 	bool UnserializeUnusedKeys( DmElementHandle_t hOther, KeyValues *pKeyValues );
 
 	// Writes out all everything other than entities
-	bool SerializeOther( CUtlBuffer &buf, CDmAttribute *pOther, const char **ppFilter = 0 );
+	bool SerializeOther( CUtlBuffer &buf, CDmAttribute *pOther, const char **ppFilter = nullptr );
 
 	// Writes out all entities
 	bool SerializeEntities( CUtlBuffer &buf, CDmAttribute *pEntities );
@@ -106,7 +106,7 @@ bool CImportVMF::SerializeAttribute( CUtlBuffer &buf, CDmAttribute *pAttribute, 
 			}
 			g_pDataModel->SetSerializationDelimiter( GetCStringCharConversion() );
 			pAttribute->Serialize( buf );
-			g_pDataModel->SetSerializationDelimiter( NULL );
+			g_pDataModel->SetSerializationDelimiter(nullptr);
 			if ( pAttribute->GetType() != AT_STRING )
 			{
 				buf.Printf( "\"" );
@@ -209,7 +209,7 @@ bool CImportVMF::SerializeEntityEditorKey( CUtlBuffer &buf, DmElementHandle_t hE
 	PrintBoolAttribute( pEditorElement, buf, "visgroupshown" );
 	PrintBoolAttribute( pEditorElement, buf, "visgroupautoshown" );
 
-	for ( CDmAttribute *pAttribute = pEditorElement->FirstAttribute(); pAttribute != NULL; pAttribute = pAttribute->NextAttribute() )
+	for ( CDmAttribute *pAttribute = pEditorElement->FirstAttribute(); pAttribute != nullptr; pAttribute = pAttribute->NextAttribute() )
 	{
 		if ( pAttribute->IsStandard() || pAttribute->IsFlagSet( FATTRIB_DONTSAVE ) )
 			continue;
@@ -291,12 +291,12 @@ bool CImportVMF::Serialize( CUtlBuffer &buf, CDmElement *pRoot )
 	// This is done in this strange way (namely, serializing other twice) to minimize diffs
 	const char *pOtherFilter1[] = 
 	{
-		"versioninfo", "visgroups", "viewsettings", "world", NULL
+		"versioninfo", "visgroups", "viewsettings", "world", nullptr
 	};
 
 	const char *pOtherFilter2[] = 
 	{
-		"cameras", "cordon", "hidden", NULL
+		"cameras", "cordon", "hidden", nullptr
 	};
 
 	CDmAttribute *pOther = pRoot->GetAttribute( "other" );
@@ -349,7 +349,7 @@ bool CImportVMF::UnserializeEntityEditorKey( CDmAttribute *pEditorAttribute, Key
 	DmElementHandle_t hEditor = pEditorAttribute->GetValue<DmElementHandle_t>();
 	if ( hEditor == DMELEMENT_HANDLE_INVALID )
 	{
-		pEditor = CreateDmElement( "DmElement", "editor", NULL );;
+		pEditor = CreateDmElement( "DmElement", "editor", nullptr);;
 		if ( !pEditor )
 			return false;
 		hEditor = pEditor->GetHandle();
@@ -377,7 +377,7 @@ bool CImportVMF::UnserializeEntityEditorKey( CDmAttribute *pEditorAttribute, Key
 	AddBoolAttribute( pEditor, pKeyValues, "visgroupshown" );
 	AddBoolAttribute( pEditor, pKeyValues, "visgroupautoshown" );
 
-	for ( KeyValues *pUserKey = pKeyValues->GetFirstValue(); pUserKey != NULL; pUserKey = pUserKey->GetNextValue() )
+	for ( KeyValues *pUserKey = pKeyValues->GetFirstValue(); pUserKey != nullptr; pUserKey = pUserKey->GetNextValue() )
 	{
 		const char *pKeyName = pUserKey->GetName();
 		if ( Q_stricmp( pKeyName, "color" ) && Q_stricmp( pKeyName, "id" ) && 
@@ -397,7 +397,7 @@ bool CImportVMF::UnserializeEntityEditorKey( CDmAttribute *pEditorAttribute, Key
 //-----------------------------------------------------------------------------
 bool CImportVMF::UnserializeEntityKey( CDmAttribute *pEntities, KeyValues *pKeyValues )
 {
-	CDmElement *pEntity = CreateDmElement( "DmeVMFEntity", pKeyValues->GetString( "id", "-1" ), NULL );
+	CDmElement *pEntity = CreateDmElement( "DmeVMFEntity", pKeyValues->GetString( "id", "-1" ), nullptr);
 	if ( !pEntity )
 		return false;
 
@@ -407,12 +407,12 @@ bool CImportVMF::UnserializeEntityKey( CDmAttribute *pEntities, KeyValues *pKeyV
 	// Each act busy needs to have an editortype associated with it so it displays nicely in editors
 	pEntity->SetValue( "editorType", "vmfEntity" );
 
-	const char *pClassName = pKeyValues->GetString( "classname", NULL );
+	const char *pClassName = pKeyValues->GetString( "classname", nullptr);
 	if ( !pClassName )
 		return false;
 
 	// Read the actual fields
-	for ( KeyValues *pField = pKeyValues->GetFirstValue(); pField != NULL; pField = pField->GetNextValue() )
+	for ( KeyValues *pField = pKeyValues->GetFirstValue(); pField != nullptr; pField = pField->GetNextValue() )
 	{
 		// FIXME: Knowing the FGD here would be useful for type determination.
 		// Look up the field by name based on class name
@@ -483,7 +483,7 @@ bool CImportVMF::UnserializeEntityKey( CDmAttribute *pEntities, KeyValues *pKeyV
 	// Read the subkeys
 	CDmAttribute *pEditor = pEntity->AddAttribute( "editor", AT_ELEMENT );
 	CDmrElementArray<> otherKeys( pEntity->AddAttribute( "other", AT_ELEMENT_ARRAY ) );
-	for ( KeyValues *pSubKey = pKeyValues->GetFirstTrueSubKey(); pSubKey != NULL; pSubKey = pSubKey->GetNextTrueSubKey() )
+	for ( KeyValues *pSubKey = pKeyValues->GetFirstTrueSubKey(); pSubKey != nullptr; pSubKey = pSubKey->GetNextTrueSubKey() )
 	{
 		bool bOk = false;
 		if ( !Q_stricmp( pSubKey->GetName(), "editor" ) )
@@ -493,7 +493,7 @@ bool CImportVMF::UnserializeEntityKey( CDmAttribute *pEntities, KeyValues *pKeyV
 		else
 		{
 			// We don't currently do anything with the other keys
-			CDmElement *pOther = CreateDmElement( "DmElement", pSubKey->GetName(), NULL );
+			CDmElement *pOther = CreateDmElement( "DmElement", pSubKey->GetName(), nullptr);
 			otherKeys.AddToTail( pOther );
 			bOk = UnserializeUnusedKeys( pOther->GetHandle(), pSubKey );
 		}
@@ -514,7 +514,7 @@ bool CImportVMF::UnserializeUnusedKeys( DmElementHandle_t hOther, KeyValues *pKe
 	CDmElement *pOther = g_pDataModel->GetElement( hOther );
 
 	// Read the actual fields
-	for ( KeyValues *pField = pKeyValues->GetFirstValue(); pField != NULL; pField = pField->GetNextValue() )
+	for ( KeyValues *pField = pKeyValues->GetFirstValue(); pField != nullptr; pField = pField->GetNextValue() )
 	{
 		UpdateMaxHammerId( pField );
 		const char *pFieldName = GetRemapName( pField->GetName(), false );
@@ -523,9 +523,9 @@ bool CImportVMF::UnserializeUnusedKeys( DmElementHandle_t hOther, KeyValues *pKe
 
 	// Read the subkeys
 	CDmrElementArray<> subKeys( pOther->AddAttribute( "subkeys", AT_ELEMENT_ARRAY ) );
-	for ( KeyValues *pSubKey = pKeyValues->GetFirstTrueSubKey(); pSubKey != NULL; pSubKey = pSubKey->GetNextTrueSubKey() )
+	for ( KeyValues *pSubKey = pKeyValues->GetFirstTrueSubKey(); pSubKey != nullptr; pSubKey = pSubKey->GetNextTrueSubKey() )
 	{
-		CDmElement *pSubElement = CreateDmElement( "DmElement", pSubKey->GetName(), NULL );
+		CDmElement *pSubElement = CreateDmElement( "DmElement", pSubKey->GetName(), nullptr);
 		subKeys.AddToTail( pSubElement );
 		if ( !UnserializeUnusedKeys( pSubElement->GetHandle(), pSubKey ) )
 			return false;
@@ -575,9 +575,9 @@ CDmElement* CImportVMF::UnserializeFromKeyValues( KeyValues *pKeyValues )
 	m_nMaxHammerId = 0;
 
 	// Create the main element
-	CDmElement *pElement = CreateDmElement( "DmElement", "VMF", NULL );
+	CDmElement *pElement = CreateDmElement( "DmElement", "VMF", nullptr);
 	if ( !pElement )
-		return NULL;
+		return nullptr;
 
 	// Each vmf needs to have an editortype associated with it so it displays nicely in editors
 	pElement->SetValue( "editorType", "VMF" );
@@ -588,7 +588,7 @@ CDmElement* CImportVMF::UnserializeFromKeyValues( KeyValues *pKeyValues )
 
 	// All main keys are root keys
 	CDmrElementArray<> otherKeys( pElement->AddAttribute( "other", AT_ELEMENT_ARRAY ) );
-	for ( ; pKeyValues != NULL; pKeyValues = pKeyValues->GetNextKey() )
+	for ( ; pKeyValues != nullptr; pKeyValues = pKeyValues->GetNextKey() )
 	{
 		bool bOk = false;
 		if ( !Q_stricmp( pKeyValues->GetName(), "entity" ) )
@@ -598,7 +598,7 @@ CDmElement* CImportVMF::UnserializeFromKeyValues( KeyValues *pKeyValues )
 		else
 		{
 			// We don't currently do anything with 
-			CDmElement *pOther = CreateDmElement( "DmElement", pKeyValues->GetName(), NULL );
+			CDmElement *pOther = CreateDmElement( "DmElement", pKeyValues->GetName(), nullptr);
 			otherKeys.AddToTail( pOther );
 			bOk = UnserializeUnusedKeys( pOther->GetHandle(), pKeyValues );
 		}
@@ -606,7 +606,7 @@ CDmElement* CImportVMF::UnserializeFromKeyValues( KeyValues *pKeyValues )
 		if ( !bOk )
 		{
 			Warning( "Error importing VMF element %s\n", pKeyValues->GetName() );
-			return NULL;
+			return nullptr;
 		}
 	}
 

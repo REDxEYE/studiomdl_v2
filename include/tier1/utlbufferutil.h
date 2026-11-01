@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2005, Valve Corporation, All rights reserved. =======//
+//====== Copyright Â© 1996-2005, Valve Corporation, All rights reserved. =======//
 //
 // Purpose: 
 //
@@ -7,14 +7,14 @@
 // Utilities for serialization/unserialization buffer
 //=============================================================================//
 
-#ifndef UTLBUFFERUTIL_H
-#define UTLBUFFERUTIL_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
 #endif
 
 #include "tier1/utlvector.h"
+#include <type_traits>
 #include "tier1/utlbuffer.h"
 
 
@@ -49,6 +49,23 @@ bool Unserialize( CUtlBuffer &buf, bool &dest );
 
 bool Serialize( CUtlBuffer &buf, const int &src );
 bool Unserialize( CUtlBuffer &buf, int &dest );
+
+// Enums (e.g. DmElementHandle_t) are stored as ints
+template < typename E >
+inline typename std::enable_if< std::is_enum< E >::value, bool >::type Unserialize( CUtlBuffer &buf, E &dest )
+{
+	int nValue = 0;
+	if ( !Unserialize( buf, nValue ) )
+		return false;
+	dest = static_cast< E >( nValue );
+	return true;
+}
+
+template < typename E >
+inline typename std::enable_if< std::is_enum< E >::value, bool >::type Serialize( CUtlBuffer &buf, const E &src )
+{
+	return Serialize( buf, static_cast< int >( src ) );
+}
 
 bool Serialize( CUtlBuffer &buf, const float &src );
 bool Unserialize( CUtlBuffer &buf, float &dest );
@@ -161,7 +178,6 @@ bool Unserialize( CUtlBuffer &buf, CUtlVector<T> &dest )
 {
 	dest.RemoveAll();
 
-	MEM_ALLOC_CREDIT_FUNCTION();
 
 	if ( !buf.IsText() )
 	{
@@ -193,5 +209,4 @@ bool Unserialize( CUtlBuffer &buf, CUtlVector<T> &dest )
 }
 
 
-#endif // UTLBUFFERUTIL_H
 

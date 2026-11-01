@@ -5,8 +5,7 @@
 //                                                                                                 //
 //=================================================================================================//
 
-#ifndef _utlspheretree_H_
-#define _utlspheretree_H_
+#pragma once
 
 #include "mathlib/vector4d.h"
 #include "tier1/utlvector.h"
@@ -117,7 +116,7 @@ class CUtlSphereTree
 		Node * Ptr( void ) const
 		{
 			Assert ( nodeIndex >= 0 );
-			return ( nodeIndex >= 0 ) ? &(*pNodes)[ nodeIndex ] : (Node *)NULL;
+			return ( nodeIndex >= 0 ) ? &(*pNodes)[ nodeIndex ] : (Node *) nullptr;
 		}
 		Node * operator->( void ) const { return  Ptr(); }
 		Node & operator*(  void ) const { return *Ptr(); }
@@ -128,7 +127,7 @@ class CUtlSphereTree
 		bool    IsLeaf(    void ) const { return ( Ptr()->deepIndex < 0 ); }
 
 	private:
-		NodeRef( void ) : nodeIndex( -1 ), pNodes( NULL ) { Assert( 0 ); }
+		NodeRef( void ) : nodeIndex( -1 ), pNodes(nullptr) { Assert( 0 ); }
 
 		int						nodeIndex;
 		CUtlVector< Node > *	pNodes;	// TODO: find a way to get rid of this, given it's the same for all NodeRefs
@@ -187,7 +186,7 @@ public:
 	private:
 
 		// Don't use the default constructor
-		Cut( void ) : m_pTree( NULL ) { Assert( 0 ); };
+		Cut( void ) : m_pTree(nullptr) { Assert( 0 ); };
 
 		const CUtlSphereTree *m_pTree;	// The associated sphere tree
 		CUtlVector< int >m_NodeRefs;	// Sub-tree root node indices
@@ -216,13 +215,13 @@ public:
 	// NOTE: these spheres are currently unordered
 	// TODO: write a function to return the first intersection and an ordered list of intersections (use a priority queue of nodes,
 	//       always processing the top element and emitting leaves - time this and compare it with just quicksorting the results)
-	int IntersectWithRay( Vector &rayStart, Vector &rayDelta, CUtlVector< void * > &result, int maxResults = 0, CUtlSphereTree::Cut *cut = NULL ) const;
+	int IntersectWithRay( Vector &rayStart, Vector &rayDelta, CUtlVector< void * > &result, int maxResults = 0, CUtlSphereTree::Cut *cut = nullptr) const;
 	// Intersect a sphere with the spheretree (or a Cut thereof), returning the user data pointers of the leaf nodes intersecting
 	// the sphere. To limit the number of results returned, pass 'maxResults > 0' (note that the return value may be more than this).
 	// If 'bPartial' is FALSE, only leaves fully contained within the sphere are returned (otherwise partial overlaps are returned too)
 	// NOTE: these spheres are currently unordered
 	// TODO: optionally sort by distance from the sphere centre
-	int IntersectWithSphere( const Sphere_t &sphere, bool bPartial, CUtlVector< void * > &result, int maxResults = 0, CUtlSphereTree::Cut *cut = NULL ) const;
+	int IntersectWithSphere( const Sphere_t &sphere, bool bPartial, CUtlVector< void * > &result, int maxResults = 0, CUtlSphereTree::Cut *cut = nullptr) const;
 	// Cut the tree (or refine an existing cut) using one or more planes. The output Cut will contain all
 	// sphere tree nodes which are partially/fully in front of any/all of the planes (see CUtlSphereTree_Cut::CutFlags).
 	// If outputCut is NULL, then inputCut will be updated.
@@ -367,7 +366,7 @@ inline CUtlSphereTree::NodeRef CUtlSphereTree::NewNode( const void *pData, const
 inline CUtlSphereTree::NodeRef CUtlSphereTree::CopyNode( const NodeRef &nodeToCopy )
 {
 	// Allocate a new node off m_Nodes and init it by copying an existing node
-	NodeRef node = NewNode( NULL, NULL );
+	NodeRef node = NewNode(nullptr, nullptr);
 	*node = *nodeToCopy;
 	return node;
 }
@@ -379,7 +378,7 @@ inline void CUtlSphereTree::SetNodeChildren( NodeRef &node, const NodeRef &child
 	node->shallowIndex	= bChildADeeper ? childB.Index() : childA.Index();
 	node->bounds		= AddSpheres( node.Deep()->bounds, node.Shallow()->bounds );
 	node->maxDepth		= node.Deep()->maxDepth + 1;
-	node->pData			= NULL; // If it was a leaf, it's not any more
+	node->pData			= nullptr; // If it was a leaf, it's not any more
 }
 
 inline void CUtlSphereTree::Insert( const void *pData, const Sphere_t *bounds )
@@ -418,7 +417,7 @@ inline void CUtlSphereTree::Insert( const void *pData, const Sphere_t *bounds )
 	float minCost = FLT_MAX;
 	for ( int i = 0; i < path.Count(); i++ )
 	{
-		NodeRef &sibling = Ref( path[ i ] );
+		NodeRef sibling = Ref( path[ i ] );
 		// NOTE: Can't rebalance the tree if you pair with a depth 3+ sibling
 		if ( ( sibling->maxDepth <= 2 ) && ( ComputePairingCost2( sibling, bounds, path ) < minCost ) )
 			bestSibling = i;
@@ -437,7 +436,7 @@ inline void CUtlSphereTree::Insert( const void *pData, const Sphere_t *bounds )
 	for ( int i = ( bestSibling + 1 ); i < path.Count(); i++ )
 	{
 		// Update each node's status whose descendants were modified, and rebalance it:
-		NodeRef &sibling = Ref( path[ i ] );
+		NodeRef sibling = Ref( path[ i ] );
 		SetNodeChildren( sibling, sibling.Deep(), sibling.Shallow() );
 		RebalanceSubtrees( sibling, true );
 	}
@@ -593,7 +592,7 @@ inline void CUtlSphereTree::RebalanceSubtrees( NodeRef &node, bool bInserting )
 	{
 		if ( nephewMask & (1<<i) )
 		{
-			float cost = ComputePairingCost( shallowChild, nephews[i], nephews[i^1], NULL );
+			float cost = ComputePairingCost( shallowChild, nephews[i], nephews[i^1], nullptr);
 			if ( cost < minCost )
 			{
 				minCost   = cost;
@@ -728,7 +727,7 @@ inline int CUtlSphereTree::IntersectWithRay( Vector &rayStart, Vector &rayDelta,
 
 	// Default to searching the whole tree
 	Cut completeCut( this );
-	if ( cut == NULL )
+	if ( cut == nullptr)
 		cut = &completeCut;
 
 	Assert( cut->m_pTree == this );
@@ -788,7 +787,7 @@ inline int CUtlSphereTree::IntersectWithSphere( const Sphere_t &sphere, bool bPa
 
 	// Default to searching the whole tree
 	Cut completeCut( this );
-	if ( cut == NULL )
+	if ( cut == nullptr)
 		cut = &completeCut;
 
 	Assert( cut->m_pTree == this );
@@ -862,7 +861,7 @@ inline void CUtlSphereTree::CutByPlanes( Cut *outputCut, const Cut *inputCut, in
 
 	// Default to searching the whole tree
 	Cut completeCut( this );
-	if ( inputCut == NULL )
+	if ( inputCut == nullptr)
 		inputCut = &completeCut;
 
 	if ( inputCut == outputCut )
@@ -1073,4 +1072,3 @@ inline int CUtlSphereTree::Cut::GetLeaves( CUtlVector< void * > &leaves, int max
 	return ( maxResults - count );
 }
 
-#endif // _utlspheretree_H_

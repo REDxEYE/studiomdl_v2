@@ -1,12 +1,11 @@
-//====== Copyright © 1996-2009, Valve Corporation, All rights reserved. =====//
+//====== Copyright Â© 1996-2009, Valve Corporation, All rights reserved. =====//
 //
 // Globals applyign to Eyeballs
 //
 //===========================================================================//
 
 
-#ifndef DMEEYEBALLGLOBALS_H
-#define DMEEYEBALLGLOBALS_H
+#pragma once
 
 
 #ifdef _WIN32
@@ -38,4 +37,3 @@ public:
 };
 
 
-#endif // DMEEYEBALLGLOBALS_H

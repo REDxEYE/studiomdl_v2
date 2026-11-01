@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
 //=============================================================================
 
-#ifndef DMELEMENTFRAMEWORK_H
-#define DMELEMENTFRAMEWORK_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -79,4 +78,3 @@ inline DmPhase_t CDmElementFramework::FastGetPhase()
 }
 
 
-#endif // DMELEMENTFRAMEWORK_H

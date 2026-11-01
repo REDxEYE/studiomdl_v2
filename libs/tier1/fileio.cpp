@@ -6,6 +6,7 @@
 //
 //=============================================================================
 
+#include <cstdint>
 #if defined(_WIN32)
 #undef _WIN32_WINNT
 #define _WIN32_WINNT 0x0502		// ReadDirectoryChangesW
@@ -31,19 +32,15 @@
 #include <unistd.h> // for unlink
 #include <limits.h> // defines PATH_MAX
 #include <alloca.h> // 'cause we like smashing the stack
-#if defined( _PS3 )
-#include <fcntl.h>
-#else
 #include <sys/fcntl.h>
 #include <sys/statvfs.h>
-#endif
 #include <sched.h>
-#define int64 int64_t
+// #define int64 int64_t
 
 // On OSX the native API file offset is always 64-bit
 // and things like stat64 are deprecated.
 // PS3 doesn't have anything other than the native API.
-#if defined(OSX) || defined(_PS3)
+#if defined( OSX )
 typedef off_t offBig_t;
 typedef struct stat statBig_t;
 typedef struct statvfs statvfsBig_t;
@@ -96,7 +93,7 @@ struct _finddata_t
 		dirBase[0] = '\0';
 		curName = 0;
 		numNames = 0;
-		namelist = NULL;
+		namelist = nullptr;
 	}
 	// public data
 	char name[PATH_MAX]; // the file name returned from the call
@@ -123,8 +120,8 @@ struct _finddata_t
 #define _A_ARCH   0
 
 int _findfirst( const char *pchBasePath, struct _finddata_t *pFindData );
-int _findnext( const int64 hFind, struct _finddata_t *pFindData );
-bool _findclose( int64 hFind );
+int _findnext( const std::int64_t hFind, struct _finddata_t *pFindData );
+bool _findclose( std::int64_t hFind );
 static int FileSelect( const char *name, const char *mask );
 
 #endif 
@@ -144,13 +141,8 @@ static int FileSelect( const char *name, const char *mask );
 
 #define _rmdir rmdir
 
-#if !defined( _PS3 )
 #define _S_IREAD S_IREAD
 #define _S_IWRITE S_IWRITE
-#else
-#define _S_IREAD S_IRUSR
-#define _S_IWRITE S_IWUSR
-#endif
 
 #endif
 
@@ -164,7 +156,7 @@ CPathString::CPathString( const char *pchUTF8Path )
 {
 	// Need to first turn into an absolute path, so \\?\ pre-pended paths will be ok
 	m_pchUTF8Path = new char[ MAX_UNICODE_PATH_IN_UTF8 ];
-	m_pwchWideCharPathPrepended = NULL;
+	m_pwchWideCharPathPrepended = nullptr;
 
 	// First, convert to absolute path, which also does Q_FixSlashes for us.
 	Q_MakeAbsolutePath( m_pchUTF8Path, MAX_UNICODE_PATH * 4, pchUTF8Path );
@@ -182,13 +174,13 @@ CPathString::~CPathString()
 	if ( m_pwchWideCharPathPrepended )
 	{
 		delete[] m_pwchWideCharPathPrepended;
-		m_pwchWideCharPathPrepended = NULL;
+		m_pwchWideCharPathPrepended = nullptr;
 	}
 
 	if ( m_pchUTF8Path )
 	{
 		delete[] m_pchUTF8Path;
-		m_pchUTF8Path = NULL;
+		m_pchUTF8Path = nullptr;
 	}
 }
 
@@ -253,86 +245,16 @@ void CPathString::PopulateWCharPath()
 //-----------------------------------------------------------------------------
 // Purpose: Helper on PS3 to find next entry that matches the provided pattern
 //-----------------------------------------------------------------------------
-#if defined( _PS3 )
-bool CDirIterator::BFindNextPS3()
-{
-	while (true)
-	{
-		uint32 unDataCount = 0;
-		if (cellFsGetDirectoryEntries( m_hFind, m_pDirEntry, sizeof(CellFsDirectoryEntry), &unDataCount ) != CELL_FS_SUCCEEDED || unDataCount == 0)
-			return false;
-
-		// if we found a new file/directory, need to make sure it matches our desired pattern
-		if (FileSelect( m_pDirEntry->entry_name.d_name, m_strPattern.String() ) != 0)
-			return true;
-	}
-}
-#endif
 
 
 //-----------------------------------------------------------------------------
 // Purpose: Constructor
 //-----------------------------------------------------------------------------
-#if defined( _PS3 )
-
-CDirIterator::CDirIterator( const char *pchPath, const char *pchPattern )
-{
-	// init for failure
-	m_bOpenHandle = false;
-	m_bNoFiles = true;
-	m_bUsedFirstFile = true;
-
-	// always create a new entry.. matches win32/posix (guessing so BCurrent functions won't crash?)
-	m_pDirEntry = new CellFsDirectoryEntry;
-	memset( m_pDirEntry, 0, sizeof(CellFsDirectoryEntry) );
-
-	if (!pchPath || !pchPattern)
-		return;
-
-	// fix up path
-	CPathString strPath( pchPath );
-
-	// save pattern
-	m_strPattern = pchPattern;
-
-	// we have a path.. init
-	CellFsErrno e = cellFsOpendir( strPath.GetUTF8Path(), &m_hFind );
-	if (e != CELL_FS_SUCCEEDED)
-		return;
-
-	m_bOpenHandle = true;
-
-	// find first entry
-	if (!BFindNextPS3())
-		return;
-
-	// found at least 1 file
-	m_bNoFiles = false;
-
-	// if we're pointing at . or .., set it as used
-	// so we'll look for the next item when BNextFile() is called
-	m_bUsedFirstFile = !BValidFilename();
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: Destructor
-//-----------------------------------------------------------------------------
-CDirIterator::~CDirIterator()
-{
-	if (m_bOpenHandle)
-		cellFsClosedir( m_hFind );
-
-	if (m_pDirEntry)
-		delete m_pDirEntry;
-}
-
-
-#else
 
 CDirIterator::CDirIterator( const char *pchPath, const char *pchPattern )
 {
 	CPathString strPath( pchPath );
-	m_pFindData = NULL;
+	m_pFindData = nullptr;
 
 	// +2 so we can potentially add path separator as well as null termination
 	char *pchPathAndPattern = new char[Q_strlen( strPath.GetUTF8Path() ) + Q_strlen( pchPattern ) + 2];
@@ -458,7 +380,6 @@ CDirIterator::~CDirIterator()
 #endif
 }
 
-#endif // _PS3
 
 //-----------------------------------------------------------------------------
 // Purpose: Check for successful construction
@@ -467,8 +388,6 @@ bool CDirIterator::IsValid() const
 {
 #if defined(_WIN32)
 	return m_hFind != INVALID_HANDLE_VALUE;
-#elif defined(_PS3)
-	return m_bOpenHandle;
 #else
 	return m_hFind != -1;
 #endif
@@ -481,8 +400,6 @@ bool CDirIterator::BValidFilename()
 {
 #if defined( _WIN32 )
 	const char *pch = m_rgchFileName;
-#elif defined( _PS3 )
-	const char *pch = m_pDirEntry->entry_name.d_name;
 #else
 	const char *pch = m_pFindData->name;
 #endif
@@ -521,8 +438,6 @@ bool CDirIterator::BNextFile()
 			AssertMsg( false, "Q_UnicodeToUTF8 failed on m_pFindData->cFileName in CDirIterator" );
 			bFound = false;
 		}
-#elif defined( _PS3 )
-		bool bFound = BFindNextPS3();
 #else
 		bool bFound = (_findnext( m_hFind, m_pFindData ) == 0);
 #endif
@@ -556,8 +471,6 @@ const char *CDirIterator::CurrentFileName()
 {
 #if defined( _WIN32 )
 	return m_rgchFileName;
-#elif defined( _PS3 )
-	return m_pDirEntry->entry_name.d_name;
 #else
 	return m_pFindData->name;
 #endif
@@ -586,8 +499,6 @@ bool CDirIterator::BCurrentIsDir() const
 {
 #if defined( _WIN32 )
 	return (m_pFindData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-#elif defined( _PS3 )
-	return (m_pDirEntry->attribute.st_mode & CELL_FS_S_IFDIR ? true : false);
 #else
 	return (m_pFindData->attrib & _A_SUBDIR ? true : false);
 #endif
@@ -604,7 +515,7 @@ CFileWriter::CFileWriter( bool bAsync )
 #else
     m_bDefaultAsync = false;
 #endif
-    m_hFileDest = INVALID_HANDLE_VALUE; 
+    m_hFileDest = nullptr; 
     m_bAsync = m_bDefaultAsync; 
 	m_cPendingCallbacksFromOtherThreads = 0;
     m_cubOutstanding = 0;
@@ -630,8 +541,6 @@ struct FileWriterOverlapped_t : public OVERLAPPED
     void *m_pvData;
     size_t m_cubData;
 };
-#elif defined(_PS3)
-// bugbug ps3 - impement?
 #elif defined(POSIX)
 // our own version of overlapped structure passed through async writes
 struct FileWriterOverlapped_t : public aiocb
@@ -738,14 +647,14 @@ bool CFileWriter::BSetFile( const char *pchFile, bool bAllowOpenExisting )
 #error
 #endif
     
-    return ( m_hFileDest != INVALID_HANDLE_VALUE );
+    return ( m_hFileDest != nullptr);
 }
 
 
 //-----------------------------------------------------------------------------
 // Purpose: Seeks to a specific location in the file
 //-----------------------------------------------------------------------------
-bool CFileWriter::Seek( uint64 offset, ESeekOrigin eOrigin )
+bool CFileWriter::Seek( uint64_t offset, ESeekOrigin eOrigin )
 {
     if ( m_bAsync )
     {
@@ -802,17 +711,11 @@ bool CFileWriter::Seek( uint64 offset, ESeekOrigin eOrigin )
 //-----------------------------------------------------------------------------
 // Purpose: posts a buffer to be written to the file
 //-----------------------------------------------------------------------------
-bool CFileWriter::Write( const void *pvData, uint32 cubData )
+bool CFileWriter::Write( const void *pvData, uint32_t cubData )
 {
     if  ( cubData == 0 )
         return true;
 
-#if defined( _PS3 )
-    if ( write( (int)m_hFileDest, pvData, cubData ) == cubData )
-        return true;
-
-    return false;
-#else
     BOOL bRet = 0;
 #ifdef ASYNC_FILEIO
     if ( m_bAsync )
@@ -839,8 +742,8 @@ bool CFileWriter::Write( const void *pvData, uint32 cubData )
 
         // work out where to write to
 #ifdef _WIN32
-        pFileWriterOverlapped->Offset = ( uint32 ) ( m_cubWritten & 0xffffffff );
-        pFileWriterOverlapped->OffsetHigh = ( uint32 ) ( m_cubWritten >> 32 );
+        pFileWriterOverlapped->Offset = ( uint32_t ) ( m_cubWritten & 0xffffffff );
+        pFileWriterOverlapped->OffsetHigh = ( uint32_t ) ( m_cubWritten >> 32 );
 #elif defined(POSIX)
         pFileWriterOverlapped->aio_offset = m_cubWritten;
         pFileWriterOverlapped->aio_buf = pFileWriterOverlapped->m_pvData;
@@ -892,7 +795,6 @@ bool CFileWriter::Write( const void *pvData, uint32 cubData )
     m_cubWritten += cubData;
 
     return ( bRet != 0 );
-#endif // _PS3
 }
 
 //-----------------------------------------------------------------------------
@@ -937,7 +839,7 @@ void CFileWriter::Flush()
 //-----------------------------------------------------------------------------
 bool CFileWriter::BFileOpen()
 {
-    if ( m_hFileDest != INVALID_HANDLE_VALUE )
+    if ( m_hFileDest != nullptr)
         return true;
 
     return false;
@@ -949,13 +851,13 @@ bool CFileWriter::BFileOpen()
 //-----------------------------------------------------------------------------
 void CFileWriter::Close()
 {
-    if ( m_hFileDest != INVALID_HANDLE_VALUE )
+    if ( m_hFileDest != nullptr)
     {
 		Flush();
 
 		// temp handle to avoid double close in threaded environment
 		HANDLE hFileDest = m_hFileDest;
-       	m_hFileDest = INVALID_HANDLE_VALUE; 
+       	m_hFileDest = nullptr; 
 #ifdef _WIN32
         ::CloseHandle( hFileDest );
 #elif defined(POSIX)
@@ -1055,7 +957,7 @@ bool MakeFileWriteable( const char *pszFileNameIn )
 {
 	CPathString strPath( pszFileNameIn );
 #if defined( WIN32_FILEIO )
-	DWORD dwFileAttributes = ::GetFileAttributesW( strPath.GetWCharPathPrePended() );
+	uint32_t dwFileAttributes = ::GetFileAttributesW( strPath.GetWCharPathPrePended() );
 
 	if (dwFileAttributes != INVALID_FILE_ATTRIBUTES)
 	{
@@ -1165,7 +1067,7 @@ bool BRemoveDirectoryRecursive( const char *pchPathIn )
 
 	while (dirIter.BNextFile())
 	{
-		uint32 unLenPath = Q_strlen( pchPathIn ) + Q_strlen( dirIter.CurrentFileName() ) + 2;
+		uint32_t unLenPath = Q_strlen( pchPathIn ) + Q_strlen( dirIter.CurrentFileName() ) + 2;
 		char *pchPath = new char[unLenPath];
 		Q_snprintf( pchPath, unLenPath, "%s%c%s", pchPathIn, CORRECT_PATH_SEPARATOR, dirIter.CurrentFileName() );
 
@@ -1189,7 +1091,6 @@ bool BRemoveDirectoryRecursive( const char *pchPathIn )
 // findfirst/findnext implementation from filesystem/linux_support.[h|cpp]
 // modified a bit for PS3
 
-#if !defined(_PS3)
 
 static char selectBuf[PATH_MAX];
 
@@ -1207,7 +1108,6 @@ static int FileSelect( const direntBig_t *ent )
 	return FileSelect( name, mask );
 }
 
-#endif // !_PS3
 
 static int FileSelect( const char *name, const char *mask )
 {
@@ -1263,7 +1163,6 @@ static int FileSelect( const char *name, const char *mask )
 	return(!*mask && !*name); // both of the strings are at the end
 }
 
-#if !defined(_PS3)
 
 int FillDataStruct( _finddata_t *dat )
 {
@@ -1273,7 +1172,7 @@ int FillDataStruct( _finddata_t *dat )
 		return -1;
 
 	Q_strncpy( dat->name, dat->namelist[dat->curName]->d_name, sizeof(dat->name) );
-	char szFullPath[MAX_PATH];
+	char szFullPath[MAX_PATH]{0};
 	Q_snprintf( szFullPath, sizeof(szFullPath), "%s%c%s", dat->dirBase, CORRECT_PATH_SEPARATOR, dat->name );
 	if (statBig( szFullPath, &fileStat ) == 0)
 	{
@@ -1290,7 +1189,7 @@ int FillDataStruct( _finddata_t *dat )
 		dat->time_create = 0;
 	}
 	free( dat->namelist[dat->curName] );
-	dat->namelist[dat->curName] = NULL;
+	dat->namelist[dat->curName] = nullptr;
 	dat->curName++;
 	return 1;
 }
@@ -1298,7 +1197,7 @@ int FillDataStruct( _finddata_t *dat )
 int _findfirst( const char *fileName, _finddata_t *dat )
 {
 	char nameStore[PATH_MAX];
-	char *dir = NULL;
+	char *dir = nullptr;
 	int n, iret = -1;
 
 	Q_strncpy( nameStore, fileName, sizeof(nameStore) );
@@ -1355,7 +1254,7 @@ int _findfirst( const char *fileName, _finddata_t *dat )
 			if (iret < 0)
 			{
 				free( dat->namelist );
-				dat->namelist = NULL;
+				dat->namelist = nullptr;
 				dat->curName = 0;
 				dat->numNames = 0;
 			}
@@ -1366,12 +1265,12 @@ int _findfirst( const char *fileName, _finddata_t *dat )
 	return iret;
 }
 
-int _findnext( int64 handle, _finddata_t *dat )
+int _findnext( std::int64_t handle, _finddata_t *dat )
 {
 	if (dat->curName >= dat->numNames)
 	{
 		free( dat->namelist );
-		dat->namelist = NULL;
+		dat->namelist = nullptr;
 		dat->curName = 0;
 		dat->numNames = 0;
 		return -1; // no matches left
@@ -1381,11 +1280,10 @@ int _findnext( int64 handle, _finddata_t *dat )
 	return 0;
 }
 
-bool _findclose( int64 handle )
+bool _findclose( std::int64_t handle )
 {
 	return true;
 }
 
-#endif // !_PS3
 #endif
 

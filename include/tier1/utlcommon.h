@@ -1,4 +1,4 @@
-//========= Copyright © 2011, Valve Corporation, All rights reserved. ============//
+//========= Copyright Â© 2011, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: common helpers for reuse among various Utl containers
 //
@@ -6,8 +6,7 @@
 //
 //=============================================================================//
 
-#ifndef UTLCOMMON_H
-#define UTLCOMMON_H
+#pragma once
 #pragma once
 
 #include "strtools.h"
@@ -133,18 +132,18 @@ struct StringEqualFunctor { bool operator()( const char *a, const char *b ) cons
 struct CaselessStringLessFunctor { bool operator()( const char *a, const char *b ) const { return V_strcasecmp( a, b ) < 0; } };
 struct CaselessStringEqualFunctor { bool operator()( const char *a, const char *b ) const { return V_strcasecmp( a, b ) == 0; } };
 
-struct IdentityHashFunctor { unsigned int operator() ( uint32 s ) const { return s; } };
-struct Mix32HashFunctor { unsigned int operator()( uint32 s ) const; };
-struct Mix64HashFunctor { unsigned int operator()( uint64 s ) const; };
+struct IdentityHashFunctor { unsigned int operator() ( uint32_t s ) const { return s; } };
+struct Mix32HashFunctor { unsigned int operator()( uint32_t s ) const; };
+struct Mix64HashFunctor { unsigned int operator()( uint64_t s ) const; };
 struct StringHashFunctor { unsigned int operator()( const char* s ) const; };
 struct CaselessStringHashFunctor { unsigned int operator()( const char* s ) const; };
 
 struct PointerLessFunctor { bool operator()( const void *a, const void *b ) const { return a < b; } };
 struct PointerEqualFunctor { bool operator()( const void *a, const void *b ) const { return a == b; } };
 #if defined( PLATFORM_64BITS )
-struct PointerHashFunctor { unsigned int operator()( const void* s ) const { return Mix64HashFunctor()( ( uintp ) s ); } };
+struct PointerHashFunctor { unsigned int operator()( const void* s ) const { return Mix64HashFunctor()( ( uintptr_t ) s ); } };
 #else
-struct PointerHashFunctor { unsigned int operator()( const void* s ) const { return Mix32HashFunctor()( ( uintp ) s ); } };
+struct PointerHashFunctor { unsigned int operator()( const void* s ) const { return Mix32HashFunctor()( ( uintptr_t ) s ); } };
 #endif
 
 
@@ -313,7 +312,7 @@ template <typename T> struct DefaultHashFunctor< T * > : PointerHashFunctor { };
 // Here follow the useful implementations.
 
 // Bob Jenkins's 32-bit mix function.
-inline unsigned int Mix32HashFunctor::operator()( uint32 n ) const
+inline unsigned int Mix32HashFunctor::operator()( uint32_t n ) const
 {
 	// Perform a mixture of the bits in n, where each bit
 	// of the input value has an equal chance to affect each
@@ -338,7 +337,7 @@ inline unsigned int Mix32HashFunctor::operator()( uint32 n ) const
 	return n;
 }
 
-inline unsigned int Mix64HashFunctor::operator()( uint64 s ) const 
+inline unsigned int Mix64HashFunctor::operator()( uint64_t s ) const 
 {
 	// Thomas Wang hash, http://www.concentric.net/~ttwang/tech/inthash.htm
 	s = ( ~s ) + ( s << 21 ); // s = (s << 21) - s - 1;
@@ -357,10 +356,10 @@ inline unsigned int Mix64HashFunctor::operator()( uint64 s ) const
 // large hash table sizes.
 inline unsigned int StringHashFunctor::operator()( const char* s ) const
 {
-	uint32 h = 2166136261u;
+	uint32_t h = 2166136261u;
 	for ( ; *s; ++s )
 	{
-		uint32 c = (unsigned char) *s;
+		uint32_t c = (unsigned char) *s;
 		h = (h ^ c) * 16777619;
 	}
 	return (h ^ (h << 17)) + (h >> 21);
@@ -369,10 +368,10 @@ inline unsigned int StringHashFunctor::operator()( const char* s ) const
 // Equivalent to StringHashFunctor on lower-case strings.
 inline unsigned int CaselessStringHashFunctor::operator()( const char* s ) const
 {
-	uint32 h = 2166136261u;
+	uint32_t h = 2166136261u;
 	for ( ; *s; ++s )
 	{
-		uint32 c = (unsigned char) *s;
+		uint32_t c = (unsigned char) *s;
 		// Brutally fast branchless ASCII tolower():
 		// if ((c >= 'A') && (c <= 'Z')) c += ('a' - 'A');
 		c += (((('A'-1) - c) & (c - ('Z'+1))) >> 26) & 32;
@@ -382,4 +381,3 @@ inline unsigned int CaselessStringHashFunctor::operator()( const char* s ) const
 }
 
 
-#endif // UTLCOMMON_H

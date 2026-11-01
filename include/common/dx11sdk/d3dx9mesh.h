@@ -9,8 +9,7 @@
 
 #include "d3dx9.h"
 
-#ifndef __D3DX9MESH_H__
-#define __D3DX9MESH_H__
+#pragma once
 
 // {7ED943DD-52E8-40b5-A8D8-76685C406330}
 DEFINE_GUID(IID_ID3DXBaseMesh, 
@@ -3002,6 +3001,5 @@ typedef struct _XFILECOMPRESSEDANIMATIONSET
             array DWORD attributeMispredicts[nAttributeMispredicts]; \
         } "
         
-#endif //__D3DX9MESH_H__
 
 

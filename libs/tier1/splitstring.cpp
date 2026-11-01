@@ -49,7 +49,7 @@ void CSplitString::Construct( const char *pString, const char **pSeparators, int
 	while ( 1 )
 	{
 		int iFirstSeparator = -1;
-		const char *pFirstSeparator = 0;
+		const char *pFirstSeparator = nullptr;
 		for ( int i=0; i < nSeparators; i++ )
 		{
 			const char *pTest = V_stristr( pCurPos, pSeparators[i] );

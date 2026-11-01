@@ -4,8 +4,7 @@
 
 #include "tier1/sparsematrix.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 void CSparseMatrix::AdjustAllRowIndicesAfter( int nStartRow, int nDelta )

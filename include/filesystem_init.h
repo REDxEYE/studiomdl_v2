@@ -1,11 +1,10 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
 //=============================================================================//
 
-#ifndef FILESYSTEM_INIT_H
-#define FILESYSTEM_INIT_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -200,24 +199,7 @@ void FileSystem_SetErrorMode( FSErrorMode_t errorMode = FS_ERRORMODE_VCONFIG );
 
 bool FileSystem_GetExecutableDir( char *exedir, int exeDirLen );
 
-// Clear SteamAppUser, SteamUserPassphrase, and SteamAppId from this process's environment.
-// TODO: always do this after LoadFileSysteModule.. there's no reason it should be
-// in the environment.
-void FileSystem_ClearSteamEnvVars();
-
-// Find the steam.cfg above you for optional stuff
-FSReturnCode_t GetSteamCfgPath( char *steamCfgPath, int steamCfgPathLen );
-
-// Setup the Steam.dll path without needing all the extra gameinfo stuff first
-// used by the CSteamApplication::Create() code to LoadModule() on the filesystem
-// before the underlying apps know specific details about the environment to load
-FSReturnCode_t FileSystem_SetupSteamInstallPath();
-
-// Returns the last error.
-const char *FileSystem_GetLastErrorString();
-
 void Q_getwd( char *out, int outSize );
 
 KeyValues* ReadKeyValuesFile( const char *pFilename );
 
-#endif // FILESYSTEM_INIT_H

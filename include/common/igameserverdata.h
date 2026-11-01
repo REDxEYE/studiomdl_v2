@@ -5,8 +5,7 @@
 // $NoKeywords: $
 //=============================================================================//
 
-#ifndef IGAMESERVERDATA_H
-#define IGAMESERVERDATA_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -85,4 +84,3 @@ RESPONSE:
 #define GAMESERVERDATA_INTERFACE_VERSION "GameServerData001"
 
 
-#endif // IGAMESERVERDATA_H

@@ -11,11 +11,9 @@
 // $NoKeywords: $
 //=============================================================================//
 
-#ifndef PHYSICS2_COLLISION_H
-#define PHYSICS2_COLLISION_H
+#pragma once
 
 extern void Physics2Collision_Build(class CCollisionModelSource *pSource);
 extern void Physics2Collision_Write();
 //extern void SetPhysics2CollisionSource(struct s_source_t *pModel);
 
-#endif

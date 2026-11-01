@@ -57,7 +57,7 @@ void V_SplitString2InPlace( char *pString, const char **pSeparators, int nSepara
 	while ( 1 )
 	{
 		int iFirstSeparator = -1;
-		char *pFirstSeparator = 0;
+		char *pFirstSeparator = nullptr;
 		for ( int i=0; i < nSeparators; i++ )
 		{
 			char *pTest = V_stristr_fast( pCurPos, pSeparators[i] );

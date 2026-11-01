@@ -291,7 +291,7 @@ bool CImportMKS::ValidateImagePacking( CDmElement *pBitmap, char *pImageName )
 	if ( currentPackingMode == PCKM_RGB_A )
 	{
 		CDmrElementArray< CDmElement > mapsequences( pBitmap, "mapsequences", true );
-		for ( uint16 idx = 0; idx < mapsequences.Count(); ++idx )
+		for ( uint16_t idx = 0; idx < mapsequences.Count(); ++idx )
 		{
 			CDmElement *pSeq = FindSequence( mapsequences, idx );
 
@@ -338,22 +338,22 @@ CDmElement *CImportMKS::CreateDmeAmalgamatedTexture( const char *pName )
 	if ( hElement == DMELEMENT_HANDLE_INVALID )
 	{
 		Warning( "Element uses unknown element type %s\n", "CDmeAmalgamatedTexture" );
-		return NULL;
+		return nullptr;
 	}
 
 	CDmElement *pElement = g_pDataModel->GetElement( hElement );
 	if ( !pElement )
-		return NULL;
+		return nullptr;
 
 	// Base members
 	if ( !pElement->AddAttribute( "images", AT_ELEMENT_ARRAY ) )
-		return NULL;
+		return nullptr;
 	if ( !pElement->AddAttribute( "packmode", AT_INT ) )
-		return NULL;
+		return nullptr;
 	if ( !pElement->AddAttribute( "width", AT_INT ) )
-		return NULL;
+		return nullptr;
 	if ( !pElement->AddAttribute( "height", AT_INT ) )
-		return NULL;
+		return nullptr;
 
 	return pElement;
 }
@@ -364,21 +364,21 @@ CDmElement *CImportMKS::CreateDmeSequence( const char *pName )
 	if ( hElement == DMELEMENT_HANDLE_INVALID )
 	{
 		Warning( "Element uses unknown element type %s\n", "CDmeSheetSequence" );
-		return false;
+		return nullptr;
 	}
 
 	CDmElement *pElement = g_pDataModel->GetElement( hElement );
 	if ( !pElement )
-		return NULL;
+		return nullptr;
 
 	if ( !pElement->AddAttribute( "sequencenumber", AT_INT ) )
-		return false;
+		return nullptr;
 	if ( !pElement->AddAttribute( "clamp", AT_BOOL ) )
-		return false;
+		return nullptr;
 	if ( !pElement->AddAttribute( "mode", AT_INT ) )
-		return false;
+		return nullptr;
 	if ( !pElement->AddAttribute( "frames", AT_ELEMENT_ARRAY ) )
-		return false;
+		return nullptr;
 
 	CDmAttribute *pClapAttr = pElement->GetAttribute( "clamp" );
 	Assert( pClapAttr );
@@ -397,17 +397,17 @@ CDmElement *CImportMKS::CreateDmeSequenceFrame( const char *pName )
 	if ( hElement == DMELEMENT_HANDLE_INVALID )
 	{
 		Warning( "Element uses unknown element type %s\n", "CDmeSheetSequenceFrame" );
-		return false;
+		return nullptr;
 	}
 
 	CDmElement *pElement = g_pDataModel->GetElement( hElement );
 	if ( !pElement )
-		return NULL;
+		return nullptr;
 
 	if ( !pElement->AddAttribute( "sheetimages", AT_ELEMENT_ARRAY ) )
-		return false;
+		return nullptr;
 	if ( !pElement->AddAttribute( "displaytime", AT_FLOAT ) )
-		return false;
+		return nullptr;
 
 	return pElement;
 }
@@ -418,17 +418,17 @@ CDmElement *CImportMKS::CreateDmeSheetImage( const char *pImageName )
 	if ( hElement == DMELEMENT_HANDLE_INVALID )
 	{
 		Warning("Element uses unknown element type %s\n", "CDmeSheetImage" );
-		return false;
+		return nullptr;
 	}
 
 	CDmElement *pElement = g_pDataModel->GetElement( hElement );
 	if ( !pElement )
-		return NULL;
+		return nullptr;
 
 	if ( !pElement->AddAttribute( "xcoord", AT_INT ) )
-		return NULL;
+		return nullptr;
 	if ( !pElement->AddAttribute( "ycoord", AT_INT ) )
-		return NULL;
+		return nullptr;
 
 	return pElement;
 }
@@ -490,7 +490,7 @@ CDmElement *CImportMKS::FindImage( const char *pFrameName )
 		if ( !Q_stricmp( pFrameName, images[i]->GetName() ) ) 
 			return images[i];
 	}
-	return NULL;
+	return nullptr;
 }
 
 CDmElement *CImportMKS::FindSequence( CDmrElementArray< CDmElement > &mapsequences, int index )
@@ -499,7 +499,7 @@ CDmElement *CImportMKS::FindSequence( CDmrElementArray< CDmElement > &mapsequenc
 	{
 		return mapsequences[index];
 	}
-	return NULL;
+	return nullptr;
 }
 
 void CImportMKS::AddImage( CDmElement *pSequenceEntry, char *pImageName )
@@ -550,7 +550,7 @@ void CImportMKS::ParseFrameImages( CUtlVector<char *> &words, CUtlVector<char *>
 bool CImportMKS::Unserialize( CUtlBuffer &buf, const char *pEncodingName, int nEncodingVersion, const char *pSourceFormatName, 
 				 int nSourceFormatVersion, DmFileId_t fileid, DmConflictResolution_t idConflictResolution, CDmElement **ppRoot )
 {
-	*ppRoot = NULL;
+	*ppRoot = nullptr;
 	m_Fileid = fileid;
 
 	// Create the main element
@@ -649,14 +649,14 @@ bool CImportMKS::Unserialize( CUtlBuffer &buf, const char *pEncodingName, int nE
 	}	
 
 	// Import compiler settings
-	char pTexFile[MAX_PATH];
+	char pTexFile[MAX_PATH]{0};
 	const char *pFileName = g_pDataModel->GetFileName( fileid );
 	Q_strncpy( pTexFile, pFileName, sizeof(pTexFile) );
 	Q_SetExtension( pTexFile, "txt", sizeof(pTexFile) );
 	if ( g_pFullFileSystem->FileExists( pTexFile ) )
 	{
-		CDmElement *pTextureCompileSettings = NULL;
-		if ( !g_pDataModel->RestoreFromFile( pTexFile, NULL, "tex_source1", &pTextureCompileSettings, CR_COPY_NEW ) )
+		CDmElement *pTextureCompileSettings = nullptr;
+		if ( !g_pDataModel->RestoreFromFile( pTexFile, nullptr, "tex_source1", &pTextureCompileSettings, CR_COPY_NEW ) )
 		{
 			Warning( "Error reading texture compile settings file \"%s\"!\n", pTexFile );
 			return NULL;

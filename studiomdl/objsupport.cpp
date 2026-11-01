@@ -73,7 +73,7 @@ void ParseMtlLib( CUtlBuffer &buf )
 			if ( nCurrentMtl < 0 )
 				continue;
 
-			char tgaPath[MAX_PATH];
+			char tgaPath[MAX_PATH]{0};
 			char tgaName[1024];
 			if ( sscanf( g_StudioMdlContext.szLine, "map_Kd %s", tgaPath ) == 1 )
 			{
@@ -158,11 +158,11 @@ int Load_OBJ( s_source_t *psource )
 	if ( !OpenGlobalFile( psource->filename ) )
 		return 0;
 
-	char pFullPath[MAX_PATH];
+	char pFullPath[MAX_PATH]{0};
 	if ( !GetGlobalFilePath( psource->filename, pFullPath, sizeof(pFullPath) ) )
 		return 0;
 
-	char pFullDir[MAX_PATH];
+	char pFullDir[MAX_PATH]{0};
 	Q_ExtractFilePath( pFullPath, pFullDir, sizeof(pFullDir) );
 
 	if( !g_StudioMdlContext.quiet )
@@ -225,7 +225,7 @@ int Load_OBJ( s_source_t *psource )
 
 			char pFullMtlLibPath[MAX_PATH];
 			Q_ComposeFileName( pFullDir, cmd, pFullMtlLibPath, sizeof(pFullMtlLibPath) );
-			if ( g_pFullFileSystem->ReadFile( pFullMtlLibPath, NULL, buf ) )
+			if ( g_pFullFileSystem->ReadFile( pFullMtlLibPath, nullptr, buf ) )
 			{
 				ParseMtlLib( buf );
 			}

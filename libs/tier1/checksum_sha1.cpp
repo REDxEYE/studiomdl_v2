@@ -1,4 +1,4 @@
-//========= Copyright © 2005, Valve Inc, All rights reserved. ==========
+//========= Copyright Â© 2005, Valve Inc, All rights reserved. ==========
 //
 // Purpose: Implementation of SHA-1
 //
@@ -91,12 +91,12 @@ void CSHA1::Reset()
 }
 
 #ifdef	_MINIMUM_BUILD_
-void Minimum_CSHA1::Transform(uint32 state[5], const uint8 buffer[64])
+void Minimum_CSHA1::Transform(uint32_t state[5], const uint8_t buffer[64])
 #else
-void CSHA1::Transform(uint32 state[5], const uint8 buffer[64])
+void CSHA1::Transform(uint32_t state[5], const uint8_t buffer[64])
 #endif
 {
-	uint32 a = 0, b = 0, c = 0, d = 0, e = 0;
+	uint32_t a = 0, b = 0, c = 0, d = 0, e = 0;
 
 	memcpy(m_block, buffer, 64);
 
@@ -147,8 +147,8 @@ void Minimum_CSHA1::Update( const void *pvData, unsigned int len )
 void CSHA1::Update( const void *pvData, unsigned int len)
 #endif
 {
-	const uint8 *data = (const uint8 *)pvData;
-	uint32 i = 0, j;
+	const uint8_t *data = (const uint8_t *)pvData;
+	uint32_t i = 0, j;
 
 	j = (m_count[0] >> 3) & 63;
 
@@ -175,14 +175,14 @@ void CSHA1::Update( const void *pvData, unsigned int len)
 // Hash in file contents
 bool CSHA1::HashFile(const char *szFileName)
 {
-	uint32 ulFileSize = 0, ulRest = 0, ulBlocks = 0;
-	uint32 i = 0;
-	uint8 uData[MAX_FILE_READ_BUFFER];
-	FILE *fIn = NULL;
+	uint32_t ulFileSize = 0, ulRest = 0, ulBlocks = 0;
+	uint32_t i = 0;
+	uint8_t uData[MAX_FILE_READ_BUFFER];
+	FILE *fIn = nullptr;
 
-	if(szFileName == NULL) return(false);
+	if(szFileName == nullptr) return(false);
 
-	if((fIn = fopen(szFileName, "rb")) == NULL) return(false);
+	if((fIn = fopen(szFileName, "rb")) == nullptr) return(false);
 
 	fseek(fIn, 0, SEEK_END);
 	ulFileSize = ftell(fIn);
@@ -204,7 +204,7 @@ bool CSHA1::HashFile(const char *szFileName)
 	}
 
 	fclose(fIn);
-	fIn = NULL;
+	fIn = nullptr;
 
 	return(true);
 }
@@ -216,23 +216,23 @@ void Minimum_CSHA1::Final()
 void CSHA1::Final()
 #endif
 {
-	uint32 i = 0;
-	uint8 finalcount[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+	uint32_t i = 0;
+	uint8_t finalcount[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 
 	for (i = 0; i < 8; i++)
-		finalcount[i] = (uint8)((m_count[(i >= 4 ? 0 : 1)]
+		finalcount[i] = (uint8_t)((m_count[(i >= 4 ? 0 : 1)]
 			>> ((3 - (i & 3)) * 8) ) & 255); // Endian independent
 
-	Update((uint8 *)"\200", 1);
+	Update((uint8_t *)"\200", 1);
 
 	while ((m_count[0] & 504) != 448)
-		Update((uint8 *)"\0", 1);
+		Update((uint8_t *)"\0", 1);
 
 	Update(finalcount, 8); // Cause a SHA1Transform()
 
 	for (i = 0; i < k_cubHash; i++)
 	{
-		m_digest[i] = (uint8)((m_state[i >> 2] >> ((3 - (i & 3)) * 8) ) & 255);
+		m_digest[i] = (uint8_t)((m_state[i >> 2] >> ((3 - (i & 3)) * 8) ) & 255);
 	}
 
 	// Wipe variables for security reasons
@@ -247,12 +247,12 @@ void CSHA1::Final()
 
 #if !defined(_MINIMUM_BUILD_)
 // Get the final hash as a pre-formatted string
-void CSHA1::ReportHash(char *szReport, uint8 uReportType)
+void CSHA1::ReportHash(char *szReport, uint8_t uReportType)
 {
-	uint8 i = 0;
+	uint8_t i = 0;
 	char szTemp[12];
 
-	if(szReport == NULL) return;
+	if(szReport == nullptr) return;
 
 	if(uReportType == REPORT_HEX)
 	{
@@ -282,9 +282,9 @@ void CSHA1::ReportHash(char *szReport, uint8 uReportType)
 
 // Get the raw message digest
 #ifdef	_MINIMUM_BUILD_
-void Minimum_CSHA1::GetHash(uint8 *uDest)
+void Minimum_CSHA1::GetHash(uint8_t *uDest)
 #else
-void CSHA1::GetHash(uint8 *uDest)
+void CSHA1::GetHash(uint8_t *uDest)
 #endif
 {
 	memcpy(uDest, m_digest, k_cubHash);

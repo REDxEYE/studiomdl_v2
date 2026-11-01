@@ -1,12 +1,11 @@
-//===== Copyright © 2005-2005, Valve Corporation, All rights reserved. ======//
+//===== Copyright Â© 2005-2005, Valve Corporation, All rights reserved. ======//
 //
 // Purpose: A higher level link library for general use in the game and tools.
 //
 //===========================================================================//
 
 
-#ifndef TIER2DM_H
-#define TIER2DM_H
+#pragma once
 
 #if defined( _WIN32 )
 #pragma once
@@ -68,5 +67,4 @@ public:
 };
 
 
-#endif // TIER2DM_H
 

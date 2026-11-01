@@ -5,15 +5,13 @@
 //===========================================================================//
 
 
-#ifndef TIER1_H
-#define TIER1_H
+#pragma once
 
 #if defined( _WIN32 )
 #pragma once
 #endif
 
 #include "appframework/iappsystem.h"
-#include "tier1/convar.h"
 
 //-----------------------------------------------------------------------------
 // Forward declarations
@@ -58,19 +56,11 @@ public:
 		if ( nRetVal != INIT_OK )
 			return nRetVal;
 
-		if ( g_pCVar )
-		{
-			ConVar_Register( ConVarFlag );
-		}
 		return INIT_OK;
 	}
 
 	virtual void Shutdown()
 	{
-		if ( g_pCVar )
-		{
-			ConVar_Unregister( );
-		}
 		BaseClass::Shutdown( );
 	}
 
@@ -81,5 +71,4 @@ public:
 };
 
 
-#endif // TIER1_H
 

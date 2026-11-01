@@ -1,12 +1,11 @@
-//===== Copyright © 1996-2011, Valve Corporation, All rights reserved. ======//
+//===== Copyright Â© 1996-2011, Valve Corporation, All rights reserved. ======//
 //
 // Purpose: 
 //
 //  A class allowing storage of a sparse NxN matirx as an array of sparse rows
 //===========================================================================//
 
-#ifndef SPARSEMATRIX_H
-#define SPARSEMATRIX_H
+#pragma once
 
 #include "tier1/utlvector.h"
 
@@ -120,4 +119,3 @@ namespace MatrixMath
 
 
 
-#endif // SPARSEMATRIX_H

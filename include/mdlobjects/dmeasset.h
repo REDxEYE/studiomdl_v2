@@ -5,8 +5,7 @@
 //===========================================================================
 
 
-#ifndef DMEASSET_H
-#define DMEASSET_H
+#pragma once
 
 
 #ifdef _WIN32
@@ -64,4 +63,3 @@ public:
 };
 
 
-#endif // DMEASSET_H

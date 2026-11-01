@@ -4,8 +4,7 @@
 //
 //===========================================================================//
 
-#ifndef DMEJOINT_H
-#define DMEJOINT_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -29,4 +28,3 @@ class CDmeJoint : public CDmeDag
 };
 
 
-#endif // DMEJOINT_H

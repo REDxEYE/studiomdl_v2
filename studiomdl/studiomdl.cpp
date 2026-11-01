@@ -17,11 +17,12 @@
 #pragma warning( disable : 4237 )
 #pragma warning( disable : 4305 )
 
-#include <Windows.h>
+#include "studiomdl/platform_compat.h"
 
 #undef GetCurrentDirectory
 
 #include <cstdio>
+#include <cstring>
 #include <cstdlib>
 #include <sys/stat.h>
 #include <cmath>
@@ -94,7 +95,7 @@ float verify_atof(const char *token) {
 // Read global input into common string
 //-----------------------------------------------------------------------------
 bool GetLineInput() {
-    while (fgets(g_StudioMdlContext.szLine, sizeof(g_StudioMdlContext.szLine), g_StudioMdlContext.fpInput) != NULL) {
+    while (fgets(g_StudioMdlContext.szLine, sizeof(g_StudioMdlContext.szLine), g_StudioMdlContext.fpInput) != nullptr) {
         g_StudioMdlContext.iLinecount++;
         // skip comments
         if (g_StudioMdlContext.szLine[0] == '/' && g_StudioMdlContext.szLine[1] == '/')
@@ -167,9 +168,9 @@ s_sourceanim_t *FindOrAddSourceAnim(s_source_t *pSource, const char *pAnimName) 
 }
 
 int LookupTexture(const char *pTextureName, bool bRelativePath) {
-    char pTextureNoExt[MAX_PATH];
-    char pTextureBase[MAX_PATH];
-    char pTextureBase2[MAX_PATH];
+    char pTextureNoExt[MAX_PATH]{0};
+    char pTextureBase[MAX_PATH]{0};
+    char pTextureBase2[MAX_PATH]{0};
     Q_StripExtension(pTextureName, pTextureNoExt, sizeof(pTextureNoExt));
     Q_FileBase(pTextureName, pTextureBase, sizeof(pTextureBase));
 
@@ -475,7 +476,7 @@ void CClampedSource::AddAnimations(const s_source_t *pOrigSource) {
         dstAnim.newStyleVertexAnimations = srcAnim.newStyleVertexAnimations;
 
         if (!srcAnim.newStyleVertexAnimations)
-            return;
+            continue;
 
         for (int i = 0; i < MAXSTUDIOANIMFRAMES; i++) {
             // Count the number of verts which apply to this sub-model...
@@ -501,32 +502,37 @@ void CClampedSource::AddAnimations(const s_source_t *pOrigSource) {
     }
 }
 
-void CClampedSource::Copy(s_source_t *pNewSource) {
+void CClampedSource::Copy(s_source_t *pDstSource) {
     // copy over new meshes
-    pNewSource->numfaces = m_face.Count();
-    pNewSource->face = (s_face_t *) calloc(pNewSource->numfaces, sizeof(s_face_t));
-    for (int i = 0; i < pNewSource->numfaces; i++) {
-        pNewSource->face[i] = m_face[i];
+    pDstSource->numfaces = m_face.Count();
+    pDstSource->face = (s_face_t *) calloc(pDstSource->numfaces, sizeof(s_face_t));
+    for (int i = 0; i < pDstSource->numfaces; i++) {
+        pDstSource->face[i] = m_face[i];
     }
 
-    pNewSource->numvertices = m_vertex.Count();
-    pNewSource->vertex = (s_vertexinfo_t *) calloc(pNewSource->numvertices, sizeof(s_vertexinfo_t));
-    for (int i = 0; i < pNewSource->numvertices; i++) {
-        pNewSource->vertex[i] = m_vertex[i];
+    pDstSource->numvertices = m_vertex.Count();
+    pDstSource->vertex = (s_vertexinfo_t *) calloc(pDstSource->numvertices, sizeof(s_vertexinfo_t));
+    for (int i = 0; i < pDstSource->numvertices; i++) {
+        pDstSource->vertex[i] = m_vertex[i];
     }
 
-    pNewSource->nummeshes = m_nummeshes;
-    for (int i = 0; i < MAXSTUDIOSKINS - 1; i++) {
-        pNewSource->mesh[i] = m_mesh[i];
-        pNewSource->meshindex[i] = m_meshindex[i];
+    // meshes are stored by material index: mesh[meshindex[i]] is the i'th mesh. Rebuild both tables so that
+    // meshindex[] of the destination stays in sync with the meshes that were copied.
+    pDstSource->nummeshes = m_nummeshes;
+    memset(pDstSource->mesh, 0, sizeof(pDstSource->mesh));
+    memset(pDstSource->meshindex, 0, sizeof(pDstSource->meshindex));
+    for (int i = 0; i < m_nummeshes; i++) {
+        const int nMesh = m_meshindex[i];
+        pDstSource->mesh[nMesh] = m_mesh[nMesh];
+        pDstSource->meshindex[i] = nMesh;
     }
 
     // copy over new animations (just copy the structs, pointers and all)
     int nAnimations = m_Animations.Count();
-    pNewSource->m_Animations.RemoveAll(); // NOTE: this leaks, but we just dont care
-    pNewSource->m_Animations.SetCount(nAnimations);
+    pDstSource->m_Animations.RemoveAll(); // NOTE: this leaks, but we just dont care
+    pDstSource->m_Animations.SetCount(nAnimations);
     for (int i = 0; i < nAnimations; i++) {
-        memcpy(&pNewSource->m_Animations[i], &m_Animations[i], sizeof(s_sourceanim_t));
+        memcpy(&pDstSource->m_Animations[i], &m_Animations[i], sizeof(s_sourceanim_t));
         // Clear the source structure so its embedded CUtlVectorAuto thinks it's empty upon destruction:
         memset(&m_Animations[i], 0, sizeof(s_sourceanim_t));
     }
@@ -534,51 +540,37 @@ void CClampedSource::Copy(s_source_t *pNewSource) {
 }
 
 void CClampedSource::CopyFlexKeys(const s_source_t *pOrigSource, s_source_t *pNewSource, int imodel) {
-    // TODO: this produces many useless flex keys in HLMV, and it can fail if 'numSubmodels*numFlexKeys' exceeds the supported maximum
-    //       (this would happen for sure if a character's face got cut up, for example), so:
-    //  - in CClampedSource::AddAnimations, we can detect flex animations which do not apply to a submodel and cull them
-    //  - we would need to build up a mapping table from pre-culled indices to post-culled indices (and vice versa), so that in here we can copy just those
-    //    elements of m_FlexKeys/m_CombinationControls/m_CombinationRules/m_FlexControllerRemaps which were not culled (these arrays are all parallel)
-    //  - the copied m_CombinationRules values would need to be remapped using the mapping table
-    //  - if a flex key should be culled but it is referred to (via m_CombinationRules) by a non-culled flex key, then we can't cull it
-    // If characters are the only failure cases, a simpler alternative may be to just split models into flexed/unflexed parts (given only the faces are flexed)
+    // Only the flex keys are duplicated for the new piece (see below): flex controllers, controller remaps and flex
+    // rules are global, they are added once for the original source and refer to flexdescs, which are shared.
+    // A key is only needed for the pieces whose vertices it actually moves, so keys without any vertex animation in
+    // this piece are culled. This keeps numSubmodels*numFlexKeys well below MAXSTUDIOFLEXKEYS.
 
     if (pOrigSource == pNewSource)
         return;
 
 // TODO: need to change g_defaultflexkey so it works with this (set a flag on the default flexkey (error if the user sets two defaults), duplicate the flag with that flexkey in here, update RemapVertexAnimations to use the flag)
 
-    pNewSource->m_FlexKeys.SetCount(pOrigSource->m_FlexKeys.Count());
+    pNewSource->m_FlexKeys.RemoveAll();
     for (int i = 0; i < pOrigSource->m_FlexKeys.Count(); i++) {
-        pNewSource->m_FlexKeys[i] = pOrigSource->m_FlexKeys[i];
-        pNewSource->m_FlexKeys[i].source = pNewSource;
-    }
-    pNewSource->m_CombinationControls.SetCount(pOrigSource->m_CombinationControls.Count());
-    for (int i = 0; i < pOrigSource->m_CombinationControls.Count(); i++) {
-        pNewSource->m_CombinationControls[i] = pOrigSource->m_CombinationControls[i];
-    }
-    pNewSource->m_CombinationRules.SetCount(pOrigSource->m_CombinationRules.Count());
-    for (int i = 0; i < pOrigSource->m_CombinationRules.Count(); i++) {
-        pNewSource->m_CombinationRules[i] = pOrigSource->m_CombinationRules[i];
-    }
-    pNewSource->m_FlexControllerRemaps.SetCount(pOrigSource->m_FlexControllerRemaps.Count());
-    for (int i = 0; i < pOrigSource->m_FlexControllerRemaps.Count(); i++) {
-        pNewSource->m_FlexControllerRemaps[i] = pOrigSource->m_FlexControllerRemaps[i];
+        const s_flexkey_t &origKey = pOrigSource->m_FlexKeys[i];
+
+        // AddAnimations() already remapped the vertex animations to this piece (Copy() moved them into pNewSource)
+        const s_sourceanim_t *pAnim = FindSourceAnim(pNewSource, origKey.animationname);
+        if (pAnim && pAnim->newStyleVertexAnimations && pAnim->numvanims[origKey.frame] == 0)
+            continue;
+
+        s_flexkey_t &key = pNewSource->m_FlexKeys[pNewSource->m_FlexKeys.AddToTail(origKey)];
+        key.source = pNewSource;
     }
 
-    // Emulate post-processing of flex data done by Cmd_Bodygroup, via PostProcessSource:
-    //   Calling AddBodyFlexData will update:
-    //     - g_flexkey, g_numflexkeys, g_flexcontroller, g_numflexcontrollers, g_FlexControllerRemap
-    //     - pNewSource->( m_nKeyStartIndex, m_rawIndexToRemapSourceIndex, m_rawIndexToRemapLocalIndex, m_leftRemapIndexToGlobalFlexControllIndex, m_rightRemapIndexToGlobalFlexControllIndex )
-    //   Calling AddBodyFlexRules will update:
-    //     - pSource->m_FlexControllerRemaps
-    //     - g_flexrule, g_numflexrules
+    // Register the flex keys of the new piece (g_flexkey, flexdescs, m_nKeyStartIndex) but NOT its controllers,
+    // remaps or rules: AddBodyFlexData(pNewSource, imodel, false)
     //   NOTE: we dont call AddBodyAttachments, since we're not duplicating those
-    AddBodyFlexData(pNewSource, imodel);
-    AddBodyFlexRules(pNewSource);
+    AddBodyFlexData(pNewSource, imodel, false);
 }
 
 void CClampedSource::Init(int numvertices) {
+    memset(m_meshindex,0,sizeof(m_meshindex));
     m_nOrigMap.EnsureCount(numvertices);
     for (int v = 0; v < numvertices; v++) {
         m_nOrigMap[v] = -1;
@@ -649,11 +641,11 @@ void Grab_Animation(s_source_t *pSource, const char *pAnimName) {
             t -= pAnim->startframe;
 
             if (t >= pAnim->rawanim.Count()) {
-                s_bone_t *ptr = NULL;
+                s_bone_t *ptr = nullptr;
                 pAnim->rawanim.AddMultipleToTail(t - pAnim->rawanim.Count() + 1, &ptr);
             }
 
-            if (pAnim->rawanim[t] != NULL) {
+            if (pAnim->rawanim[t] != nullptr) {
                 continue;
             }
 
@@ -673,7 +665,7 @@ void Grab_Animation(s_source_t *pSource, const char *pAnimName) {
             pAnim->numframes = pAnim->endframe - pAnim->startframe + 1;
 
             for (t = 0; t < pAnim->numframes; t++) {
-                if (pAnim->rawanim[t] == NULL) {
+                if (pAnim->rawanim[t] == nullptr) {
                     MdlError("%s is missing frame %d\n", pSource->filename, t + pAnim->startframe);
                 }
             }
@@ -845,7 +837,7 @@ s_source_t *Load_Source(const char *name, const char *ext, bool reverse, bool is
         Q_StripExtension(pTempName, pTempName, namelen);
     }
 
-    s_source_t *pSource = NULL;
+    s_source_t *pSource = nullptr;
 
     if (bUseCache) {
         pSource = FindCachedSource(pTempName, xext);
@@ -1076,7 +1068,7 @@ void AddCombination(s_source_t *pSource, CDmeCombinationOperator *pCombination) 
                 Add_Flexdesc(pDmeFlexRule->GetName());
 
                 if (bFlexRule) {
-                    Option_Flexrule(NULL, pDmeFlexRule->GetName());
+                    Option_Flexrule(nullptr, pDmeFlexRule->GetName());
                 }
 
                 PopMemoryScript();
@@ -1201,7 +1193,7 @@ char *FindSurfaceProp(const char *pJointName) {
         if (!Q_stricmp(g_StudioMdlContext.JointSurfaceProp[i].m_pJointName, pJointName))
             return g_StudioMdlContext.JointSurfaceProp[i].m_pSurfaceProp;
     }
-    return 0;
+    return nullptr;
 }
 
 //-----------------------------------------------------------------------------
@@ -1223,7 +1215,7 @@ char *GetSurfaceProp(const char *pJointName) {
         if ((i >= 0) && (g_bonetable[i].parent >= 0)) {
             pJointName = g_bonetable[g_bonetable[i].parent].name;
         } else {
-            pJointName = 0;
+            pJointName = nullptr;
         }
     }
 
@@ -1276,7 +1268,7 @@ int GetContents(const char *pJointName) {
         if ((i >= 0) && (g_bonetable[i].parent >= 0)) {
             pJointName = g_bonetable[g_bonetable[i].parent].name;
         } else {
-            pJointName = 0;
+            pJointName = nullptr;
         }
     }
 
@@ -1427,7 +1419,7 @@ int OpenGlobalFile(char *src) {
 
             time1 = FileTime(tmp);
             if (time1 != -1) {
-                if ((g_StudioMdlContext.fpInput = fopen(tmp, "r")) == 0) {
+                if ((g_StudioMdlContext.fpInput = fopen(tmp, "r")) == nullptr) {
                     MdlWarning("reader: could not open file '%s'\n", src);
                     return 0;
                 } else {
@@ -1445,7 +1437,7 @@ int OpenGlobalFile(char *src) {
             CreateMakefile_AddDependency(filename);
             return 0;
         }
-        if ((g_StudioMdlContext.fpInput = fopen(filename, "r")) == 0) {
+        if ((g_StudioMdlContext.fpInput = fopen(filename, "r")) == nullptr) {
             MdlWarning("reader: could not open file '%s'\n", src);
             return 0;
         }

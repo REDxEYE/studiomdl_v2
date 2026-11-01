@@ -9,8 +9,7 @@
 
 #include "d3dx9.h"
 
-#if !defined( __D3DX9XOF_H__ )
-#define __D3DX9XOF_H__
+#pragma once
 
 #if defined( __cplusplus )
 extern "C" {
@@ -294,6 +293,5 @@ WIN_TYPES(ID3DXFileSaveData,         D3DXFILESAVEDATA);
 } // extern "C"
 #endif // defined( __cplusplus )
 
-#endif // !defined( __D3DX9XOF_H__ )
 
 

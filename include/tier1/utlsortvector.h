@@ -6,8 +6,7 @@
 // A growable array class that keeps all elements in order using binary search
 //===========================================================================//
 
-#ifndef UTLSORTVECTOR_H
-#define UTLSORTVECTOR_H
+#pragma once
 
 #ifdef _WIN32
 #pragma once
@@ -103,8 +102,8 @@ protected:
 	int AddToTail( const T& src );
 	int InsertBefore( int elem, const T& src );
 	int AddMultipleToHead( int num );
-	int AddMultipleToTail( int num, const T *pToCopy=NULL );	   
-	int InsertMultipleBefore( int elem, int num, const T *pToCopy=NULL );
+	int AddMultipleToTail( int num, const T *pToCopy= nullptr);	   
+	int InsertMultipleBefore( int elem, int num, const T *pToCopy= nullptr);
 	int InsertMultipleAfter( int elem, int num );
 	int AddVectorToTail( CUtlVector<T> const &src );
 
@@ -152,13 +151,13 @@ private:
 //-----------------------------------------------------------------------------
 template <class T, class LessFunc, class BaseVector> 
 CUtlSortVector<T, LessFunc, BaseVector>::CUtlSortVector( int nGrowSize, int initSize ) : 
-	m_pLessContext(NULL), BaseVector( nGrowSize, initSize ), m_bNeedsSort( false )
+	m_pLessContext(nullptr), BaseVector( nGrowSize, initSize ), m_bNeedsSort( false )
 {
 }
 
 template <class T, class LessFunc, class BaseVector> 
 CUtlSortVector<T, LessFunc, BaseVector>::CUtlSortVector( T* pMemory, int numElements ) :
-	m_pLessContext(NULL), BaseVector( pMemory, numElements ), m_bNeedsSort( false )
+	m_pLessContext(nullptr), BaseVector( pMemory, numElements ), m_bNeedsSort( false )
 {
 }
 
@@ -244,7 +243,7 @@ void CUtlSortVector<T, LessFunc, BaseVector>::QuickSort( LessFunc& less, int nLo
 		ctx.m_pLessContext = m_pLessContext;
 		ctx.m_pLessFunc = &less;
 
-		qsort_s( Base(), Count(), sizeof(T), (QSortCompareFunc_t)&CUtlSortVector<T, LessFunc>::CompareHelper, &ctx );
+		qsort_s( this->Base(), this->Count(), sizeof(T), (QSortCompareFunc_t)&CUtlSortVector<T, LessFunc>::CompareHelper, &ctx );
 	}
 #else
 	typedef int (__cdecl *QSortCompareFunc_t)( const void *, const void *);
@@ -444,4 +443,3 @@ void CUtlSortVector<T, LessFunc, BaseVector>::Remove( int i )
 	BaseVector::Remove( i );
 }
 
-#endif // UTLSORTVECTOR_H

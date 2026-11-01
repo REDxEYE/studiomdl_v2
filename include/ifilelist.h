@@ -1,12 +1,11 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright Â© 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
 // $NoKeywords: $
 //=============================================================================//
 
-#ifndef IFILELIST_H
-#define IFILELIST_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -23,6 +22,5 @@ public:
 };
 
 
-#endif // IFILELIST_H
 
 

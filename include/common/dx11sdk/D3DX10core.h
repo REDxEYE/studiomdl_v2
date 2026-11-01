@@ -9,8 +9,7 @@
 
 #include "d3dx10.h"
 
-#ifndef __D3DX10CORE_H__
-#define __D3DX10CORE_H__
+#pragma once
 
 // Current name of the DLL shipped in the same SDK as this header.
 
@@ -440,5 +439,4 @@ HRESULT WINAPI D3DX10UnsetAllDeviceObjects(ID3D10Device *pDevice);
 #define D3DERR_INVALIDCALL                      MAKE_D3DHRESULT(2156)
 #define D3DERR_WASSTILLDRAWING                  MAKE_D3DHRESULT(540)
 
-#endif //__D3DX10CORE_H__
 

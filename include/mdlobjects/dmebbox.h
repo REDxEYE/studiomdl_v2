@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =====//
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =====//
 //
 // Dme version of an axis aligned bounding box
 //
 //===========================================================================//
 
-#ifndef DMEBBOX_H
-#define DMEBBOX_H
+#pragma once
 
 
 #ifdef _WIN32
@@ -50,8 +49,7 @@ public:
 	CDmaVar< Vector > m_vMaxBounds;
 
 	// From CDmeShape
-	virtual void Draw( const matrix3x4_t &shapeToWorld, CDmeDrawSettings *pDrawSettings = NULL );
+	virtual void Draw( const matrix3x4_t &shapeToWorld, CDmeDrawSettings *pDrawSettings = nullptr);
 };
 
 
-#endif // DMEBBOX_H

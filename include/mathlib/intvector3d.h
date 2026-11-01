@@ -4,8 +4,7 @@
 //
 //===============================================================================
 
-#ifndef INTVECTOR3D_H
-#define INTVECTOR3D_H
+#pragma once
 
 #if defined( COMPILER_MSVC )
 #pragma once
@@ -189,4 +188,3 @@ inline IntVector3D Min( const IntVector3D &rhs, const IntVector3D &lhs )
 
 static const IntVector3D INT_VECTOR3_ORIGIN( 0, 0, 0 );
 
-#endif // INTVECTOR3D_H

@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2005, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2005, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
 //=============================================================================
 
-#ifndef DMEPHONEMEMAPPING_H
-#define DMEPHONEMEMAPPING_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -21,4 +20,3 @@ public:
 	CDmaVar< float > m_Weight; // "weight"  // using this weight
 };
 
-#endif // DMEPHONEMEMAPPING_H

@@ -9,8 +9,7 @@
 #include "mdlobjects/dmebodygroup.h"
 #include "mdlobjects/dmelodlist.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 //-----------------------------------------------------------------------------
@@ -43,7 +42,7 @@ CDmeBodyGroup *CDmeBodyGroupList::FindBodyGroup( const char *pName )
 		if ( !Q_stricmp( pName, m_BodyGroups[i]->GetName() ) )
 			return m_BodyGroups[i];
 	}
-	return NULL;
+	return nullptr;
 }
 
 
@@ -53,7 +52,7 @@ CDmeBodyGroup *CDmeBodyGroupList::FindBodyGroup( const char *pName )
 CDmeLODList *CDmeBodyGroupList::GetMainBodyPart()
 {
 	if ( m_BodyGroups.Count() == 0 )
-		return NULL;
+		return nullptr;
 
 	CDmeBodyGroup *pMainBodyGroup = FindBodyGroup( "default" ); 
 	if ( !pMainBodyGroup )
@@ -73,5 +72,5 @@ CDmeLODList *CDmeBodyGroupList::GetMainBodyPart()
 			return pLODList;
 	}
 
-	return NULL;
+	return nullptr;
 }

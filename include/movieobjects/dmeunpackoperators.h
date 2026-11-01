@@ -1,11 +1,10 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright Â© 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // The morph operator class - sets morph target weights on meshes
 //
 //=============================================================================
 
-#ifndef DMEUNPACKOPERATORS_H
-#define DMEUNPACKOPERATORS_H
+#pragma once
 #ifdef _WIN32
 #pragma once
 #endif
@@ -161,4 +160,3 @@ protected:
 };
 
 
-#endif // DMEUNPACKOPERATORS_H

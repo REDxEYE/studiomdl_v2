@@ -7,15 +7,14 @@
 #include "movieobjects/dmetrackgroup.h"
 
 #include <limits.h>
-#include "tier0/dbg.h"
+
 #include "datamodel/dmelementfactoryhelper.h"
 #include "movieobjects/dmetrack.h"
 #include "movieobjects/dmeclip.h"
 
 #include "movieobjects_interfaces.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-// DISABLED #include "tier0/memdbgon.h"
+
 
 
 //-----------------------------------------------------------------------------
@@ -160,7 +159,7 @@ CDmeTrack* CDmeTrackGroup::FindOrAddTrack( const char *pTrackName, DmeClipType_t
 	{
 		// If we found it, but it's the wrong type, no dice
 		if ( pTrack->GetClipType() != trackType )
-			return NULL;
+			return nullptr;
 	}
 	else
 	{
@@ -222,7 +221,7 @@ CDmeTrack *CDmeTrackGroup::FindTrack( const char *pTrackName ) const
 		if ( !Q_strcmp( pTrack->GetName(), pTrackName ) )
 			return pTrack;
 	}
-	return NULL;
+	return nullptr;
 }
 
 int CDmeTrackGroup::GetTrackIndex( CDmeTrack *pTrack ) const
@@ -253,7 +252,7 @@ CDmeTrack *CDmeTrackGroup::CreateFilmTrack()
 CDmeTrack *CDmeTrackGroup::GetFilmTrack()
 {
 	if ( !IsFilmTrackGroup() )
-		return NULL;
+		return nullptr;
 
 	if ( GetTrackCount() > 0 )
 	{
@@ -261,7 +260,7 @@ CDmeTrack *CDmeTrackGroup::GetFilmTrack()
 		return m_Tracks[0];
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 
@@ -316,8 +315,8 @@ CDmeTrack *CDmeTrackGroup::ChangeTrack( CDmeClip *pClip, const char *pNewTrack )
 CDmeTrack *CDmeTrackGroup::FindTrackForClip( CDmeClip *pClip ) const
 {
 	int nTrackIndex = -1;
-	if ( !FindTrackForClip( pClip, &nTrackIndex, NULL ) )
-		return NULL;
+	if ( !FindTrackForClip( pClip, &nTrackIndex, nullptr) )
+		return nullptr;
 
 	return GetTrack( nTrackIndex );
 }
@@ -528,5 +527,5 @@ CDmeFilmClip *GetParentClip( CDmeTrackGroup *pTrackGroup )
 		if ( pFilmClip )
 			return pFilmClip;
 	}
-	return NULL;
+	return nullptr;
 }

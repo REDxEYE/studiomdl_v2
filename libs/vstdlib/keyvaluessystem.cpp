@@ -11,7 +11,6 @@
 #include "tier1/utlsymbol.h"
 #include "tier1/utlmap.h"
 #include "tier1/memstack.h"
-#include "tier1/convar.h"
 
 
 #ifdef NO_SBH // no need to pool if using tier0 small block heap
@@ -32,13 +31,13 @@
 //
 #if defined( PLAT_LITTLE_ENDIAN )
 // Number in memory has lowest-byte in front, use shifts to make it zero
-#define MEM_4BYTES_AS_0_AND_3BYTES( x4bytes ) ( ( (uint32) (x4bytes) ) << 8 )
-#define MEM_4BYTES_FROM_0_AND_3BYTES( x03bytes ) ( ( (uint32) (x03bytes) ) >> 8 )
+#define MEM_4BYTES_AS_0_AND_3BYTES( x4bytes ) ( ( (uint32_t) (x4bytes) ) << 8 )
+#define MEM_4BYTES_FROM_0_AND_3BYTES( x03bytes ) ( ( (uint32_t) (x03bytes) ) >> 8 )
 #endif
 #if defined( PLAT_BIG_ENDIAN )
 // Number in memory has highest-byte in front, use masking to make it zero
-#define MEM_4BYTES_AS_0_AND_3BYTES( x4bytes ) ( ( (uint32) (x4bytes) ) & 0x00FFFFFF )
-#define MEM_4BYTES_FROM_0_AND_3BYTES( x03bytes ) ( ( (uint32) (x03bytes) ) & 0x00FFFFFF )
+#define MEM_4BYTES_AS_0_AND_3BYTES( x4bytes ) ( ( (uint32_t) (x4bytes) ) & 0x00FFFFFF )
+#define MEM_4BYTES_FROM_0_AND_3BYTES( x03bytes ) ( ( (uint32_t) (x03bytes) ) & 0x00FFFFFF )
 #endif
 
 //-----------------------------------------------------------------------------
@@ -157,13 +156,12 @@ CKeyValuesSystem::CKeyValuesSystem() :
 	m_KeyValuesTrackingList(0, 0, MemoryLeakTrackerLessFunc),
 	m_KvConditionalSymbolTable( DefLessFunc( HKeySymbol ) )
 {
-	MEM_ALLOC_CREDIT();
 	// initialize hash table
 	m_HashTable.AddMultipleToTail(2047);
 	for (int i = 0; i < m_HashTable.Count(); i++)
 	{
 		m_HashTable[i].stringIndex = 0;
-		m_HashTable[i].next = NULL;
+		m_HashTable[i].next = nullptr;
 	}
 
 	m_Strings.Init( "CKeyValuesSystem::m_Strings", 4*1024*1024, 64*1024, 0, 4 );
@@ -272,7 +270,6 @@ HKeySymbol CKeyValuesSystem::GetSymbolForString( const char *name, bool bCreate 
 	}
 
 	
-	MEM_ALLOC_CREDIT();
 
 	int hash = CaseInsensitiveHash(name, m_HashTable.Count());
 	int i = 0;
@@ -286,7 +283,7 @@ HKeySymbol CKeyValuesSystem::GetSymbolForString( const char *name, bool bCreate 
 
 		i++;
 
-		if (item->next == NULL)
+		if (item->next == nullptr)
 		{
 			if ( !bCreate )
 			{
@@ -303,7 +300,7 @@ HKeySymbol CKeyValuesSystem::GetSymbolForString( const char *name, bool bCreate 
 			}
 
 			// build up the new item
-			item->next = NULL;
+			item->next = nullptr;
 			int numStringBytes = strlen(name);
 			char *pString = (char *)m_Strings.Alloc( numStringBytes + 1 + 3 );
 			if ( !pString )
@@ -313,7 +310,7 @@ HKeySymbol CKeyValuesSystem::GetSymbolForString( const char *name, bool bCreate 
 			}
 			item->stringIndex = pString - (char *)m_Strings.GetBase();
 			Q_memcpy( pString, name, numStringBytes );
-			* reinterpret_cast< uint32 * >( pString + numStringBytes ) = 0;	// string null-terminator + 3 alternative spelling bytes
+			* reinterpret_cast< uint32_t * >( pString + numStringBytes ) = 0;	// string null-terminator + 3 alternative spelling bytes
 			return (HKeySymbol)item->stringIndex;
 		}
 
@@ -336,7 +333,6 @@ HKeySymbol CKeyValuesSystem::GetSymbolForStringCaseSensitive( HKeySymbol &hCaseI
 	}
 
 	
-	MEM_ALLOC_CREDIT();
 
 	int hash = CaseInsensitiveHash(name, m_HashTable.Count());
 	int numNameStringBytes = -1;
@@ -357,7 +353,7 @@ HKeySymbol CKeyValuesSystem::GetSymbolForStringCaseSensitive( HKeySymbol &hCaseI
 			// strings are equal in a case-insensitive compare, but have different case for some letters
 			// Need to walk the case-resolving chain
 			numNameStringBytes = Q_strlen( pCompareString );
-			uint32 *pnCaseResolveIndex = reinterpret_cast< uint32 * >( pCompareString + numNameStringBytes );
+			uint32_t *pnCaseResolveIndex = reinterpret_cast< uint32_t * >( pCompareString + numNameStringBytes );
 			hCaseInsensitiveSymbol = (HKeySymbol)item->stringIndex;
 			while ( int nAlternativeStringIndex = MEM_4BYTES_FROM_0_AND_3BYTES( *pnCaseResolveIndex ) )
 			{
@@ -369,7 +365,7 @@ HKeySymbol CKeyValuesSystem::GetSymbolForStringCaseSensitive( HKeySymbol &hCaseI
 					return (HKeySymbol)nAlternativeStringIndex;
 				}
 				// Keep traversing alternative case-resolving chain
-				pnCaseResolveIndex = reinterpret_cast< uint32 * >( pCompareString + numNameStringBytes );
+				pnCaseResolveIndex = reinterpret_cast< uint32_t * >( pCompareString + numNameStringBytes );
 			}
 			// Reached the end of alternative case-resolving chain, pnCaseResolveIndex is pointing at 0 bytes
 			// indicating no further alternative stringIndex
@@ -391,7 +387,7 @@ HKeySymbol CKeyValuesSystem::GetSymbolForStringCaseSensitive( HKeySymbol &hCaseI
 				}
 				int nNewAlternativeStringIndex = pString - (char *)m_Strings.GetBase();
 				Q_memcpy( pString, name, numNameStringBytes );
-				* reinterpret_cast< uint32 * >( pString + numNameStringBytes ) = 0;	// string null-terminator + 3 alternative spelling bytes
+				* reinterpret_cast< uint32_t * >( pString + numNameStringBytes ) = 0;	// string null-terminator + 3 alternative spelling bytes
 				*pnCaseResolveIndex = MEM_4BYTES_AS_0_AND_3BYTES( nNewAlternativeStringIndex );	// link previous spelling entry to the new entry
 				return (HKeySymbol)nNewAlternativeStringIndex;
 			}
@@ -399,7 +395,7 @@ HKeySymbol CKeyValuesSystem::GetSymbolForStringCaseSensitive( HKeySymbol &hCaseI
 
 		i++;
 
-		if (item->next == NULL)
+		if (item->next == nullptr)
 		{
 			if ( !bCreate )
 			{
@@ -416,7 +412,7 @@ HKeySymbol CKeyValuesSystem::GetSymbolForStringCaseSensitive( HKeySymbol &hCaseI
 			}
 
 			// build up the new item
-			item->next = NULL;
+			item->next = nullptr;
 			int numStringBytes = strlen(name);
 			char *pString = (char *)m_Strings.Alloc( numStringBytes + 1 + 3 );
 			if ( !pString )
@@ -426,7 +422,7 @@ HKeySymbol CKeyValuesSystem::GetSymbolForStringCaseSensitive( HKeySymbol &hCaseI
 			}
 			item->stringIndex = pString - (char *)m_Strings.GetBase();
 			Q_memcpy( pString, name, numStringBytes );
-			* reinterpret_cast< uint32 * >( pString + numStringBytes ) = 0;	// string null-terminator + 3 alternative spelling bytes
+			* reinterpret_cast< uint32_t * >( pString + numStringBytes ) = 0;	// string null-terminator + 3 alternative spelling bytes
 			hCaseInsensitiveSymbol = (HKeySymbol)item->stringIndex;
 			return (HKeySymbol)item->stringIndex;
 		}
@@ -544,20 +540,12 @@ bool CKeyValuesSystem::GetKeyValuesExpressionSymbol( const char *name )
 
 	if ( !V_stricmp( name, "GAMECONSOLESPLITSCREEN" ) )
 	{
-#if defined( _GAMECONSOLE )
-		return ( XBX_GetNumGameUsers() > 1 );
-#else
 		return false;
-#endif
 	}
 
 	if ( !V_stricmp( name, "GAMECONSOLEGUEST" ) )
 	{
-#if defined( _GAMECONSOLE )
-		return ( XBX_GetPrimaryUserIsGuest() != 0 );
-#else
 		return false;
-#endif
 	}
 
 	if ( !V_stricmp( name, "ENGLISH" ) ||
@@ -576,17 +564,7 @@ bool CKeyValuesSystem::GetKeyValuesExpressionSymbol( const char *name )
 	{
 		// the language symbols are true if we are in that language
 		// english is assumed when no language is present
-		const char *pLanguageString;
-#ifdef _GAMECONSOLE
-		pLanguageString = XBX_GetLanguageString();
-#else
-		static ConVarRef cl_language( "cl_language" );
-		pLanguageString = cl_language.GetString();
-#endif
-		if ( !pLanguageString || !pLanguageString[0] )
-		{
-			pLanguageString = "english";
-		}
+		const char *pLanguageString = "english";
 		if ( !V_stricmp( name, pLanguageString ) )
 		{
 			return true;
@@ -595,14 +573,6 @@ bool CKeyValuesSystem::GetKeyValuesExpressionSymbol( const char *name )
 		{
 			return false;
 		}
-	}
-
-	// very expensive, back door for DLC updates
-	if ( !V_strnicmp( name, "CVAR_", 5 ) )
-	{
-		ConVarRef cvRef( name + 5 );
-		if ( cvRef.IsValid() )
-			return cvRef.GetBool();
 	}
 
 	// purposely warn on these to prevent syntax errors
