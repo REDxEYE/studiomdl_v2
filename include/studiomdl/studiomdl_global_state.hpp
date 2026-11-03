@@ -210,6 +210,15 @@ struct Timing {
     double own_duration{0};
 };
 
+struct Timing {
+    std::string function_name;
+    std::string stage_name;
+    uint32_t indent;
+    uint32_t calls{1};
+    double duration{0};
+    double own_duration{0};
+};
+
 struct StudioMdlContext {
     unsigned parseable_completion_output: 1;
     unsigned collapse_bones_message: 1;

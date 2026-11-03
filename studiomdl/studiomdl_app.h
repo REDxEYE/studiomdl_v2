@@ -17,6 +17,8 @@ protected:
 
     bool Init() override;
 
+    void PrintStats();
+
     int Main() override;
 
     void Shutdown() override;

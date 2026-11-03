@@ -2896,7 +2896,7 @@ void Cmd_Hitbox() {
     if (!GetToken(false)) {
         MdlError("Error: missing hitbox name");
     }
-    hitbox.name = token;
+    hitbox.name =token;
 
     if (!GetToken(false)) {
         MdlError("Error: missing hitbox min X");
