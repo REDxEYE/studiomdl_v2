@@ -18,21 +18,17 @@
 #pragma once
 #endif
 
-#include "appframework/iappsystem.h"
-
-
 //-----------------------------------------------------------------------------
 // Interface
 //-----------------------------------------------------------------------------
-class IDmSerializers : public IAppSystem
+class IDmSerializers
 {
+public:
+	// Installs the importers and format updaters (called by InitDataModel)
+	virtual bool Init() = 0;
+	virtual void Shutdown() = 0;
 };
 
-
-//-----------------------------------------------------------------------------
-// Used only by applications to hook in DmSerializers
-//-----------------------------------------------------------------------------
-#define DMSERIALIZERS_INTERFACE_VERSION		"VDmSerializers001"
 
 
 //-----------------------------------------------------------------------------

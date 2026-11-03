@@ -469,25 +469,11 @@ CBaseFileSystem::~CBaseFileSystem()
 
 
 //-----------------------------------------------------------------------------
-// Methods of IAppSystem
+// Init/shutdown (not called, see basefilesystem.h)
 //-----------------------------------------------------------------------------
-void *CBaseFileSystem::QueryInterface( const char *pInterfaceName )
-{
-	// We also implement the IMatSystemSurface interface
-	if (!Q_strncmp(	pInterfaceName, BASEFILESYSTEM_INTERFACE_VERSION, Q_strlen(BASEFILESYSTEM_INTERFACE_VERSION) + 1))
-		return (IBaseFileSystem*)this;
-
-	return nullptr;
-}
-
-
-InitReturnVal_t CBaseFileSystem::Init()
+bool CBaseFileSystem::Init()
 {
 //	m_FileTracker2.InitAsyncThread();
-
-	InitReturnVal_t nRetVal = BaseClass::Init();
-	if ( nRetVal != INIT_OK )
-		return nRetVal;
 
 
 	// This is a special tag to allow iterating just the BSP file, it doesn't show up in the list per se, but gets converted to "GAME" in the filter function
@@ -499,7 +485,7 @@ InitReturnVal_t CBaseFileSystem::Init()
 		m_bOutputDebugString = true;
 	}
 
-	return INIT_OK;
+	return true;
 }
 
 void CBaseFileSystem::Shutdown()
@@ -508,8 +494,6 @@ void CBaseFileSystem::Shutdown()
 	RemoveAllSearchPaths();
 	Trace_DumpUnclosedFiles();
 
-
-	BaseClass::Shutdown();
 }
 
 void CBaseFileSystem::BuildExcludeList()
@@ -3292,88 +3276,6 @@ CBaseFileSystem::CSearchPath *CBaseFileSystem::CSearchPathsIterator::GetNext()
 	}
 
 	return nullptr;
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: Load/unload a DLL
-//-----------------------------------------------------------------------------
-CSysModule *CBaseFileSystem::LoadModule( const char *pFileName, const char *pPathID, bool bValidatedDllOnly )
-{
-	CHECK_DOUBLE_SLASHES( pFileName );
-
-	bool bPathIsGameBin = false; bPathIsGameBin; // Touch the var for !Win64 build compiler warnings.
-	if ( !pPathID )
-	{
-		pPathID = "EXECUTABLE_PATH"; // default to the bin dir
-	}
-	else if ( IsPlatformWindowsPC64() )
-	{
-		bPathIsGameBin = V_strcmp( "GAMEBIN", pPathID ) == 0;
-	}
-
-#if defined(POSIX) && defined(PLATFORM_64BITS)
-	bPathIsGameBin = V_strcmp( "GAMEBIN", pPathID ) == 0;
-#endif
-
-	char tempPathID[ MAX_PATH ];
-	ParsePathID( pFileName, pPathID, tempPathID );
-
-	CUtlSymbol lookup = g_PathIDTable.AddString( pPathID );
-
-	// a pathID has been specified, find the first match in the path list
-	int c = m_SearchPaths.Count();
-	for ( int i = 0; i < c; i++ )
-	{
-
-		if ( FilterByPathID( &m_SearchPaths[i], lookup ) )
-			continue;
-
-		Q_snprintf( tempPathID, sizeof(tempPathID), "%s%s", m_SearchPaths[i].GetPathString(), pFileName ); // append the path to this dir.
-		CSysModule *pModule = Sys_LoadModule( tempPathID );
-		if ( pModule )
-		{
-			// we found the binary in one of our search paths
-			return pModule;
-		}
-		else if ( IsPlatformWindowsPC64() && bPathIsGameBin )
-		{
-			Q_snprintf( tempPathID, sizeof( tempPathID ), "%s%s%s%s", m_SearchPaths[ i ].GetPathString(), "x64", CORRECT_PATH_SEPARATOR_S, pFileName ); // append the path to this dir.
-			pModule = Sys_LoadModule( tempPathID );
-			if ( pModule )
-			{
-				// we found the binary in a 64-bit location.
-				return pModule;
-			}
-		}
-#if defined(POSIX) && defined(PLATFORM_64BITS)
-		else if ( bPathIsGameBin )
-		{
-#if defined(LINUX)
-			const char* plat_dir = "linux64";
-#else
-			const char* plat_dir = "osx64";
-#endif
-			Q_snprintf( tempPathID, sizeof( tempPathID ), "%s%s%s%s", m_SearchPaths[ i ].GetPathString(), plat_dir, CORRECT_PATH_SEPARATOR_S, pFileName ); // append the path to this dir.
-			pModule = Sys_LoadModule( tempPathID );
-			if ( pModule )
-			{
-				// we found the binary in a 64-bit location.
-				return pModule;
-			}
-		}
-#endif
-	}
-
-	// couldn't load it from any of the search paths, let LoadLibrary try
-	return Sys_LoadModule( pFileName );
-}
-
-//-----------------------------------------------------------------------------
-// Purpose:
-//-----------------------------------------------------------------------------
-void CBaseFileSystem::UnloadModule( CSysModule *pModule )
-{
-	Sys_UnloadModule( pModule );
 }
 
 //-----------------------------------------------------------------------------

@@ -26,33 +26,12 @@ extern char		gamedir[1024];
 // Filesystem initialization.
 // ---------------------------------------------------------------------------------------- //
 
-enum FSInitType_t
-{
-	FS_INIT_FULL,					// Load gameinfo.txt, maybe use filesystem_steam, and setup search paths.
-	FS_INIT_COMPATIBILITY_MODE		// Load filesystem_stdio and that's it.
-};
-
-//
-// Initializes qdir,  and gamedir. Also initializes the VMPI filesystem if MPI is defined.
-//
-// pFilename can be NULL if you want to rely on vproject and qproject. If it's specified, FileSystem_Init
-// will go up directories from pFilename looking for gameinfo.txt (if vproject isn't specified).
-//
-// If bOnlyUseFilename is true, then it won't use any alternative methods of finding the vproject dir
-// (ie: it won't use -game or -vproject or the vproject env var or qproject).
-//
-bool				FileSystem_Init( const char *pFilename, int maxMemoryUsage=0, FSInitType_t initType=FS_INIT_FULL, bool bOnlyUseFilename=false );
-void				FileSystem_Term();
 bool				FileSystem_SetGame( const char *szModDir );
 
-// Used to connect app-framework based console apps to the filesystem tools
+// Sets qdir and gamedir from the source file and the gameinfo.txt directory
 void				FileSystem_SetupStandardDirectories( const char *pFilename, const char *pGameInfoPath );
-
-CreateInterfaceFn	FileSystem_GetFactory( void );
 
 
 extern IBaseFileSystem	*g_pFileSystem;
-DECLARE_TIER2_INTERFACE( IFileSystem, g_pFullFileSystem );	// NOTE: this is here when VMPI is being used, but a VMPI app can
-											// ONLY use LoadModule/UnloadModule.
 
 

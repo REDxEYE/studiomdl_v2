@@ -6,13 +6,12 @@
 //=============================================================================//
 
 #pragma once
+#include "studiomdl_global_state.hpp"
 #ifdef _WIN32
 #pragma once
 #endif
 
 #include "tier1/smartptr.h"
-
-extern StudioMdlContext g_StudioMdlContext;
 
 class CFileBuffer
 {

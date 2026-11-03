@@ -29,7 +29,8 @@
 #include "studio.h"
 #include "tier1/characterset.h"
 #include "studiomdl/studiomdl.h"
-extern StudioMdlContext g_StudioMdlContext;
+#include "studiomdl/studiomdl_global_state.hpp"
+
 
 bool IsEnd( char const* pLine );
 int SortAndBalanceBones( int iCount, int iMaxCount, int bones[], float weights[] );
@@ -415,15 +416,15 @@ int AppendVTAtoOBJ( s_source_t *psource, char *filename, int frame )
 	// printf("%d %d : %d\n", g_StudioMdlContext.numverts, g_StudioMdlContext.numnormals, numvlist );
 
 	int t = frame;
-	int count = g_numvlist;
+	int count = g_studiomdl.numvlist;
 
 	pSourceAnim->numvanims[t] = count;
 	pSourceAnim->vanim[t] = (s_vertanim_t *)calloc( count, sizeof( s_vertanim_t ) );
 	for (i = 0; i < count; i++)
 	{
 		pSourceAnim->vanim[t][i].vertex = i;
-		pSourceAnim->vanim[t][i].pos = g_StudioMdlContext.vertex[v_listdata[i].v];
-		pSourceAnim->vanim[t][i].normal = g_StudioMdlContext.normal[v_listdata[i].n];
+		pSourceAnim->vanim[t][i].pos = g_StudioMdlContext.vertex[g_studiomdl.v_listdata[i].v];
+		pSourceAnim->vanim[t][i].normal = g_StudioMdlContext.normal[g_studiomdl.v_listdata[i].n];
 	}
 
 	fclose( g_StudioMdlContext.fpInput );

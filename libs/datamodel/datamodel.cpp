@@ -95,44 +95,14 @@ CDataModel::~CDataModel() {
 
 
 //-----------------------------------------------------------------------------
-// Methods of IAppSystem
+// Installs the built-in serializers (called by InitDataModel)
 //-----------------------------------------------------------------------------
-bool CDataModel::Connect(CreateInterfaceFn factory) {
-    if (!BaseClass::Connect(factory))
-        return false;
-
-    if (!g_pFullFileSystem) {
-        Warning("DataModel needs the file system to function");
-        return false;
-    }
-
-    return true;
-}
-
-
-void *CDataModel::QueryInterface(const char *pInterfaceName) {
-    if (!V_strcmp(pInterfaceName, VDATAMODEL_INTERFACE_VERSION))
-        return (IDataModel *) this;
-
-    return nullptr;
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose:
-// Input  : *databasePath -
-// Output : Returns true on success, false on failure.
-//-----------------------------------------------------------------------------
-InitReturnVal_t CDataModel::Init() {
-    InitReturnVal_t nRetVal = BaseClass::Init();
-    if (nRetVal != INIT_OK)
-        return nRetVal;
-
+bool CDataModel::Init() {
     InstallKeyValuesSerializer(this);
     InstallKeyValues2Serializer(this);
     InstallBinarySerializer(this);
 
-    return INIT_OK;
+    return true;
 }
 
 
@@ -162,7 +132,6 @@ void CDataModel::Shutdown() {
 
     m_Factories.Purge();
     m_Serializers.Purge();
-    BaseClass::Shutdown();
 }
 
 

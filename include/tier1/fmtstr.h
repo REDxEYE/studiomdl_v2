@@ -76,13 +76,13 @@ template <int SIZE_BUF, bool QUIET_TRUNCATION = false >
 class CFmtStrN
 {
 public:
-	CFmtStrN()	
-	{ 
+	CFmtStrN()
+	{
 		InitQuietTruncation();
-		m_szBuf[0] = 0; 
+		m_szBuf[0] = 0;
 		m_nLength = 0;
 	}
-	
+
 	// Standard C formatting
 	CFmtStrN(PRINTF_FORMAT_STRING const char *pszFormat, ...) FMTFUNCTION( 2, 3 )
 	{
@@ -101,7 +101,7 @@ public:
 	const char *sprintf(PRINTF_FORMAT_STRING const char *pszFormat, ...)	FMTFUNCTION( 2, 3 )
 	{
 		InitQuietTruncation();
-		FmtStrVSNPrintf(m_szBuf, SIZE_BUF, m_bQuietTruncation, &pszFormat, 0, pszFormat ); 
+		FmtStrVSNPrintf(m_szBuf, SIZE_BUF, m_bQuietTruncation, &pszFormat, 0, pszFormat );
 		return m_szBuf;
 	}
 
@@ -114,21 +114,21 @@ public:
 	}
 
 	// Use this for va_list formatting
-	const char *sprintf_argv(const char *pszFormat, va_list arg_ptr)
+	const char *sprintf_argv(const char *pszFormat, const va_list arg_ptr)
 	{
-		int result; 
-		bool bTruncated = false; 
-		static int s_nWarned = 0; 
+		int result;
+		bool bTruncated = false;
+		static int s_nWarned = 0;
 
 		InitQuietTruncation();
 		result = V_vsnprintfRet( m_szBuf, SIZE_BUF - 1, pszFormat, arg_ptr, &bTruncated );
-		m_szBuf[SIZE_BUF - 1] = 0; 
-		if ( bTruncated && !m_bQuietTruncation && ( s_nWarned < 5 ) ) 
-		{ 
+		m_szBuf[SIZE_BUF - 1] = 0;
+		if ( bTruncated && !m_bQuietTruncation && ( s_nWarned < 5 ) )
+		{
 			Warning( "CFmtStr truncated to %d without QUIET_TRUNCATION specified!\n", SIZE_BUF );
 			AssertMsg( 0, "CFmtStr truncated without QUIET_TRUNCATION specified!\n" );
-			s_nWarned++; 
-		} 
+			s_nWarned++;
+		}
 		m_nLength = V_strlen( m_szBuf );
 		return m_szBuf;
 	}
@@ -150,41 +150,41 @@ public:
 	// Access template argument
 	static inline int GetMaxLength() { return SIZE_BUF-1; }
 
-	CFmtStrN<SIZE_BUF,QUIET_TRUNCATION> & operator=( const char *pchValue ) 
-	{ 
+	CFmtStrN<SIZE_BUF,QUIET_TRUNCATION> & operator=( const char *pchValue )
+	{
 		V_strncpy( m_szBuf, pchValue, SIZE_BUF );
 		m_nLength = V_strlen( m_szBuf );
-		return *this; 
+		return *this;
 	}
 
-	CFmtStrN<SIZE_BUF,QUIET_TRUNCATION> & operator+=( const char *pchValue ) 
-	{ 
-		Append( pchValue ); 
-		return *this; 
+	CFmtStrN<SIZE_BUF,QUIET_TRUNCATION> & operator+=( const char *pchValue )
+	{
+		Append( pchValue );
+		return *this;
 	}
 
 	int Length() const							{ return m_nLength; }
 
-	void SetLength( int nLength )
+	void SetLength(const int nLength )
 	{
 		m_nLength = Min( nLength, SIZE_BUF - 1 );
 		m_szBuf[m_nLength] = '\0';
 	}
 
-	void Clear()								
-	{ 
-		m_szBuf[0] = 0; 
-		m_nLength = 0; 
+	void Clear()
+	{
+		m_szBuf[0] = 0;
+		m_nLength = 0;
 	}
 
 	void AppendFormat( PRINTF_FORMAT_STRING const char *pchFormat, ... ) FMTFUNCTION( 2, 3 )
-	{ 
-		char *pchEnd = m_szBuf + m_nLength; 
-		FmtStrVSNPrintf( pchEnd, SIZE_BUF - m_nLength, m_bQuietTruncation, &pchFormat, m_nLength, pchFormat ); 
+	{
+		char *pchEnd = m_szBuf + m_nLength;
+		FmtStrVSNPrintf( pchEnd, SIZE_BUF - m_nLength, m_bQuietTruncation, &pchFormat, m_nLength, pchFormat );
 	}
 
 	void AppendFormatV( const char *pchFormat, va_list args );
-	
+
 	void Append( const char *pchValue )
 	{
 		// This function is close to the metal to cut down on the CPU cost
@@ -222,12 +222,12 @@ public:
 
 	void AppendIndent( uint32_t unCount, char chIndent = '\t' );
 
-	void SetQuietTruncation( bool bQuiet ) { m_bQuietTruncation = bQuiet; }
+	void SetQuietTruncation(const bool bQuiet ) { m_bQuietTruncation = bQuiet; }
 
 protected:
 	virtual void InitQuietTruncation()
 	{
-		m_bQuietTruncation = QUIET_TRUNCATION; 
+		m_bQuietTruncation = QUIET_TRUNCATION;
 	}
 
 	bool m_bQuietTruncation;
@@ -293,50 +293,50 @@ class CNumStr
 public:
 	CNumStr() { m_szBuf[0] = 0; }
 
-	explicit CNumStr( bool b )		{ SetBool( b ); } 
+	explicit CNumStr(const bool b )		{ SetBool( b ); }
 
-	explicit CNumStr( int8_t n8 )		{ SetInt8( n8 ); }
-	explicit CNumStr( uint8_t un8 )	{ SetUint8( un8 );  }
-	explicit CNumStr( int16_t n16 )	{ SetInt16( n16 ); }
-	explicit CNumStr( uint16_t un16 )	{ SetUint16( un16 );  }
-	explicit CNumStr( int32_t n32 )	{ SetInt32( n32 ); }
-	explicit CNumStr( uint32_t un32 )	{ SetUint32( un32 ); }
-	explicit CNumStr( int64_t n64 )	{ SetInt64( n64 ); }
-	explicit CNumStr( uint64_t un64 )	{ SetUint64( un64 ); }
+	explicit CNumStr(const int8_t n8 )		{ SetInt8( n8 ); }
+	explicit CNumStr(const uint8_t un8 )	{ SetUint8( un8 );  }
+	explicit CNumStr(const int16_t n16 )	{ SetInt16( n16 ); }
+	explicit CNumStr(const uint16_t un16 )	{ SetUint16( un16 );  }
+	explicit CNumStr(const int32_t n32 )	{ SetInt32( n32 ); }
+	explicit CNumStr(const uint32_t un32 )	{ SetUint32( un32 ); }
+	explicit CNumStr(const int64_t n64 )	{ SetInt64( n64 ); }
+	explicit CNumStr(const uint64_t un64 )	{ SetUint64( un64 ); }
 
-	explicit CNumStr( double f )	{ SetDouble( f ); }
-	explicit CNumStr( float f )		{ SetFloat( f ); }
+	explicit CNumStr(const double f )	{ SetDouble( f ); }
+	explicit CNumStr(const float f )		{ SetFloat( f ); }
 
-	inline void SetBool( bool b )			{ Q_memcpy( m_szBuf, b ? "1" : "0", 2 ); } 
+	inline void SetBool(const bool b )			{ Q_memcpy( m_szBuf, b ? "1" : "0", 2 ); }
 
 #ifdef _WIN32
-	inline void SetInt8( int8_t n8 )			{ _itoa( (int32_t)n8, m_szBuf, 10 ); }
-	inline void SetUint8( uint8_t un8 )		{ _itoa( (int32_t)un8, m_szBuf, 10 ); }
-	inline void SetInt16( int16_t n16 )		{ _itoa( (int32_t)n16, m_szBuf, 10 ); }
-	inline void SetUint16( uint16_t un16 )	{ _itoa( (int32_t)un16, m_szBuf, 10 ); }
-	inline void SetInt32( int32_t n32 )		{ _itoa( n32, m_szBuf, 10 ); }
-	inline void SetUint32( uint32_t un32 )	{ _i64toa( (int64_t)un32, m_szBuf, 10 ); }
-	inline void SetInt64( int64_t n64 )		{ _i64toa( n64, m_szBuf, 10 ); }
-	inline void SetUint64( uint64_t un64 )	{ _ui64toa( un64, m_szBuf, 10 ); }
+	inline void SetInt8(const int8_t n8 )			{ _itoa( (int32_t)n8, m_szBuf, 10 ); }
+	inline void SetUint8(const uint8_t un8 )		{ _itoa( (int32_t)un8, m_szBuf, 10 ); }
+	inline void SetInt16(const int16_t n16 )		{ _itoa( (int32_t)n16, m_szBuf, 10 ); }
+	inline void SetUint16(const uint16_t un16 )	{ _itoa( (int32_t)un16, m_szBuf, 10 ); }
+	inline void SetInt32(const int32_t n32 )		{ _itoa( n32, m_szBuf, 10 ); }
+	inline void SetUint32(const uint32_t un32 )	{ _i64toa( (int64_t)un32, m_szBuf, 10 ); }
+	inline void SetInt64(const int64_t n64 )		{ _i64toa( n64, m_szBuf, 10 ); }
+	inline void SetUint64(const uint64_t un64 )	{ _ui64toa( un64, m_szBuf, 10 ); }
 #else
-	inline void SetInt8( int8_t n8 )			{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%d", (int32_t)n8 ); }
-	inline void SetUint8( uint8_t un8 )		{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%d", (int32_t)un8 ); }
-	inline void SetInt16( int16_t n16 )		{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%d", (int32_t)n16 ); }
-	inline void SetUint16( uint16_t un16 )	{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%d", (int32_t)un16 ); }
-	inline void SetInt32( int32_t n32 )		{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%d", n32 ); }
-	inline void SetUint32( uint32_t un32 )	{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%u", un32 ); }
-	inline void SetInt64( int64_t n64 )		{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%lld", n64 ); }
-	inline void SetUint64( uint64_t un64 )	{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%llu", un64 ); }
+	inline void SetInt8(const int8_t n8 )			{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%d", (int32_t)n8 ); }
+	inline void SetUint8(const uint8_t un8 )		{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%d", static_cast<int32_t>(un8) ); }
+	inline void SetInt16(const int16_t n16 )		{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%d", static_cast<int32_t>(n16) ); }
+	inline void SetUint16(const uint16_t un16 )	{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%d", static_cast<int32_t>(un16) ); }
+	inline void SetInt32(const int32_t n32 )		{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%d", n32 ); }
+	inline void SetUint32(const uint32_t un32 )	{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%u", un32 ); }
+	inline void SetInt64(const int64_t n64 )		{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%lld", n64 ); }
+	inline void SetUint64(const uint64_t un64 )	{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%llu", un64 ); }
 #endif
 
-	inline void SetDouble( double f )		{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%.18g", f ); }
-	inline void SetFloat( float f )			{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%.18g", f ); }
+	inline void SetDouble(const double f )		{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%.18g", f ); }
+	inline void SetFloat(const float f )			{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%.18g", f ); }
 
 	inline void SetHexUint64( uint64_t un64 )	{ Q_binarytohex( (uint8_t *)&un64, sizeof( un64 ), m_szBuf, sizeof( m_szBuf ) ); }
 
 	operator const char *() const { return m_szBuf; }
 	const char* String() const { return m_szBuf; }
-	
+
 	void AddQuotes()
 	{
 		Assert( m_szBuf[0] != '"' );

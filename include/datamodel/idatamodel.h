@@ -9,10 +9,8 @@
 #pragma once
 #endif
 
-#include "tier1/interface.h"
 #include "tier1/utlvector.h"
 #include "tier1/utlsymbollarge.h"
-#include "appframework/iappsystem.h"
 #include "datamodel/dmattributetypes.h"
 #include "datamodel/dmxheader.h"
 
@@ -75,14 +73,11 @@ enum DmAttributeReferenceIterator_t:uint64_t
 //-----------------------------------------------------------------------------
 // element framework interface
 //-----------------------------------------------------------------------------
-abstract_class IDmElementFramework : public IAppSystem
+abstract_class IDmElementFramework
 {
 public:
-	// Methods of IAppSystem
-	virtual bool Connect( CreateInterfaceFn factory ) = 0;
-	virtual void Disconnect() = 0;
-	virtual void *QueryInterface( const char *pInterfaceName ) = 0;
-	virtual InitReturnVal_t Init() = 0;
+	// Called by the application at startup/exit (InitDataModel/ShutdownDataModel)
+	virtual bool Init() = 0;
 	virtual void Shutdown() = 0;
 
 	virtual DmPhase_t GetPhase() = 0;
@@ -103,11 +98,6 @@ abstract_class IDmeElementCreated
 	public:
 		virtual void OnElementCreated( CDmElement *pElement ) = 0;
 };
-
-//-----------------------------------------------------------------------------
-// Used only by aplpications to hook in the element framework
-//-----------------------------------------------------------------------------
-#define VDMELEMENTFRAMEWORK_VERSION	"VDmElementFrameworkVersion001"
 
 
 //-----------------------------------------------------------------------------
@@ -273,9 +263,13 @@ enum TraversalDepth_t
 //-----------------------------------------------------------------------------
 // Main interface for creation of all IDmeElements: 
 //-----------------------------------------------------------------------------
-class IDataModel : public IAppSystem
+class IDataModel
 {
 public:	
+	// Called by the application at startup/exit (InitDataModel/ShutdownDataModel)
+	virtual bool			Init() = 0;
+	virtual void			Shutdown() = 0;
+
 	// Installs factories used to instance elements
 	virtual void			AddElementFactory( CDmElementFactoryHelper *pFactoryHelper ) = 0;
 	virtual CDmElementFactoryHelper	*GetElementFactoryHelper( const char *pClassName ) = 0;
@@ -437,11 +431,6 @@ public:
 	virtual void RemoveOnElementCreatedCallback( const char *pElementType, IDmeElementCreated *callback ) = 0;
 };
 
-
-//-----------------------------------------------------------------------------
-// Used only by applications to hook in the data model
-//-----------------------------------------------------------------------------
-#define VDATAMODEL_INTERFACE_VERSION	"VDataModelVersion001"
 
 
 //-----------------------------------------------------------------------------

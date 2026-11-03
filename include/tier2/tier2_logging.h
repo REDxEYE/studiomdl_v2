@@ -19,8 +19,6 @@ const int INVALID_LOGGING_FILE_HANDLE = -1;
 typedef int LoggingFileHandle_t;
 typedef void * FileHandle_t;
 
-#define FILELOGGINGLISTENER_INTERFACE_VERSION	"FileLoggingListener001"
-
 abstract_class IFileLoggingListener : public ILoggingListener
 {
 public:

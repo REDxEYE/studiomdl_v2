@@ -15,8 +15,6 @@
 
 #include "tier0/platform.h"
 
-#include "appframework/iappsystem.h"
-#include "tier3/tier3.h"
 
 class IDataCache;
 
@@ -197,7 +195,7 @@ public:
 // Purpose: The global shared cache. Manages sections and overall budgets.
 //
 //-----------------------------------------------------------------------------
-abstract_class IDataCache : public IAppSystem
+abstract_class IDataCache
 {
 public:
 	//--------------------------------------------------------

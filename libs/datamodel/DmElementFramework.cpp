@@ -26,29 +26,9 @@ CDmElementFramework::CDmElementFramework() : m_phase( PH_EDIT ), m_dirtyElements
 }
 
 	
-//-----------------------------------------------------------------------------
-// Methods of IAppSystem
-//-----------------------------------------------------------------------------
-bool CDmElementFramework::Connect( CreateInterfaceFn factory )
+bool CDmElementFramework::Init( )
 {
 	return true;
-}
-
-void CDmElementFramework::Disconnect()
-{
-}
-
-void *CDmElementFramework::QueryInterface( const char *pInterfaceName )
-{
-	if ( !V_strcmp( pInterfaceName, VDMELEMENTFRAMEWORK_VERSION ) )
-		return (IDmElementFramework*)this;
-
-	return nullptr;
-}
-
-InitReturnVal_t CDmElementFramework::Init( )
-{
-	return INIT_OK;
 }
 
 void CDmElementFramework::Shutdown()

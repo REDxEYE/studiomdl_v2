@@ -23,7 +23,6 @@
 #include "tier1/strtools.h"
 #include "filesystem_init.h"
 #include "tier1/keyvalues.h"
-#include "appframework/IAppSystemGroup.h"
 #include "tier1/smartptr.h"
 
 
@@ -214,13 +213,6 @@ CFSSteamSetupInfo::CFSSteamSetupInfo()
 	m_bNoGameInfo = false;
 }
 
-
-CFSLoadModuleInfo::CFSLoadModuleInfo()
-{
-	m_pFileSystemDLLName = nullptr;
-	m_pFileSystem = nullptr;
-	m_pModule = nullptr;
-}
 
 
 CFSMountContentInfo::CFSMountContentInfo()
@@ -1238,25 +1230,6 @@ FSReturnCode_t FileSystem_SetBasePaths( IFileSystem *pFileSystem )
 }
 
 //-----------------------------------------------------------------------------
-// Returns the name of the file system DLL to use
-//-----------------------------------------------------------------------------
-FSReturnCode_t FileSystem_GetFileSystemDLLName( char *pFileSystemDLL, int nMaxLen, bool &bSteam )
-{
-	bSteam = false;
-
-	// Inside of here, we don't have a filesystem yet, so we have to assume that the filesystem_stdio or filesystem_steam
-	// is in this same directory with us.
-	char executablePath[MAX_PATH];
-	if ( !FileSystem_GetExecutableDir( executablePath, sizeof( executablePath ) )	)
-		return SetupFileSystemError( false, FS_INVALID_PARAMETERS, "FileSystem_GetExecutableDir failed." );
-	
-	Q_snprintf( pFileSystemDLL, nMaxLen, "%s%cfilesystem_stdio_v2" DLL_EXT_STRING, executablePath, CORRECT_PATH_SEPARATOR );
-
-	return FS_OK;
-}
-
-
-//-----------------------------------------------------------------------------
 // Sets up the steam environment + gets back the gameinfo.txt path
 //-----------------------------------------------------------------------------
 FSReturnCode_t FileSystem_SetupSteamEnvironment( CFSSteamSetupInfo &fsInfo )
@@ -1306,36 +1279,6 @@ FSReturnCode_t FileSystem_SetupSteamEnvironment( CFSSteamSetupInfo &fsInfo )
 			steamEnvVars.m_Path.SetRestoreOriginalValue( false ); // We want to keep the change to the path going forward.
 		}
 	}
-
-	return FS_OK;
-}
-
-
-//-----------------------------------------------------------------------------
-// Loads the file system module
-//-----------------------------------------------------------------------------
-FSReturnCode_t FileSystem_LoadFileSystemModule( CFSLoadModuleInfo &fsInfo )
-{
-	// First, locate the directory with gameinfo.txt.
-	FSReturnCode_t ret = FileSystem_SetupSteamEnvironment( fsInfo );
-	if ( ret != FS_OK )
-		return ret;
-
-	// Now that the environment is setup, load the filesystem module.
-	if ( !Sys_LoadInterface(
-		fsInfo.m_pFileSystemDLLName,
-		FILESYSTEM_INTERFACE_VERSION,
-		&fsInfo.m_pModule,
-		(void**)&fsInfo.m_pFileSystem ) )
-	{
-		return SetupFileSystemError( false, FS_UNABLE_TO_INIT, "Can't load %s.", fsInfo.m_pFileSystemDLLName );
-	}
-
-	if ( !fsInfo.m_pFileSystem->Connect( fsInfo.m_ConnectFactory ) )
-		return SetupFileSystemError( false, FS_UNABLE_TO_INIT, "%s IFileSystem::Connect failed.", fsInfo.m_pFileSystemDLLName );
-
-	if ( fsInfo.m_pFileSystem->Init() != INIT_OK )
-		return SetupFileSystemError( false, FS_UNABLE_TO_INIT, "%s IFileSystem::Init failed.", fsInfo.m_pFileSystemDLLName );
 
 	return FS_OK;
 }

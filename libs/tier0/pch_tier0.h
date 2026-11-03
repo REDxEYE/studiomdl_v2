@@ -18,7 +18,6 @@
 #include "platform.h"
 
 // First include standard libraries
-#include "tier0/valve_off.h"
 #include <assert.h>
 #include <stdio.h>
 #include <ctype.h>
@@ -34,7 +33,6 @@
 #define _MAX_PATH PATH_MAX
 #endif
 
-#include "tier0/valve_on.h"
 
 #include "tier0/basetypes.h"
 

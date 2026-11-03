@@ -20,12 +20,12 @@
 #include "tier1/strtools.h"
 #include "mathlib/vmatrix.h"
 #include "studiomdl/optimize.h"
+#include "studiomdl/studiomdl_global_state.hpp"
 
 // debugging only - enabling turns off remapping to create all lod vertexes as unique
 // to ensure remapping logic does not introduce collapse anomalies
 //#define UNIQUE_VERTEXES_FOR_LOD
 
-extern StudioMdlContext g_StudioMdlContext;
 
 //-----------------------------------------------------------------------------
 // Forward declarations local to this file
@@ -453,8 +453,8 @@ int FindMaterialByName(const char *pMaterialName) {
     char *pBaseName = (char *) _alloca(allocLen);
     Q_FileBase((char *) pMaterialName, pBaseName, allocLen);
 
-    for (i = 0; i < g_numtextures; i++) {
-        if (stricmp(pMaterialName, g_texture[i].name) == 0) {
+    for (i = 0; i < g_studiomdl.texture.size(); i++) {
+        if (stricmp(pMaterialName, g_studiomdl.texture[i].name) == 0) {
             return i;
         }
     }
@@ -483,9 +483,9 @@ static s_mesh_t *FindOrCullMesh(int nLodID, s_source_t *pSrc, int nMaterialID) {
         MdlError("Unknown Texture for Material %d\n", nMaterialID);
     }
 
-    Q_FileBase(g_texture[nTextureID].name, baseMeshName, sizeof(baseMeshName) - 1);
-    for (int i = 0; i < g_ScriptLODs[nLodID].meshRemovals.Count(); i++) {
-        const char *pMeshRemovalName = g_ScriptLODs[nLodID].meshRemovals[i].GetSrcName();
+    Q_FileBase(g_studiomdl.texture[nTextureID].name, baseMeshName, sizeof(baseMeshName) - 1);
+    for (int i = 0; i < g_studiomdl.ScriptLODs[nLodID].meshRemovals.Count(); i++) {
+        const char *pMeshRemovalName = g_studiomdl.ScriptLODs[nLodID].meshRemovals[i].GetSrcName();
         Q_FileBase(pMeshRemovalName, baseRemovalName, sizeof(baseRemovalName) - 1);
 
         if (!stricmp(baseRemovalName, baseMeshName)) {
@@ -773,7 +773,7 @@ static void CalculateBoneWeightFromRootLod(const VertexInfo_t &searchVertex, CVe
     // Look through the part of the vertex dictionary associated with the root LODs for a match
     // bone weights are not defined properly in SMDs for lower LODs, so don't consider
     // we can only accept the boneweight from the root LOD
-    int nFlags = g_bSkinnedLODs ? IGNORE_TANGENTS : IGNORE_BONEWEIGHT | IGNORE_TANGENTS;
+    int nFlags = g_studiomdl.bSkinnedLODs ? IGNORE_TANGENTS : IGNORE_BONEWEIGHT | IGNORE_TANGENTS;
     int nVertexDictID = FindVertexWithinVertexDictionary(searchVertex, vertexDict,
                                                          vertexDict.RootLODVertexStart(), vertexDict.RootLODVertexEnd(),
                                                          nFlags);
@@ -800,7 +800,7 @@ static void CalculateBoneWeightFromRootLod(const VertexInfo_t &searchVertex, CVe
 
     // In this case, we didn't find anything within the tolerance, so we need to
     // do a *positional check only* to give us a bone weight to assign to this vertex.
-    if (!g_bSkinnedLODs) {
+    if (!g_studiomdl.bSkinnedLODs) {
         FindBoneWeightWithinModel(searchVertex, pRootLODSrc, idealVertex.m_BoneWeight,
                                   IGNORE_BONEWEIGHT | IGNORE_TANGENTS);
     }
@@ -962,7 +962,7 @@ static void PrintBonesUsedInLOD(s_source_t *pSrc) {
         int j;
         for (j = 0; j < pBoneWeight->numbones; j++) {
             int globalBoneID = pBoneWeight->bone[j];
-            const char *pBoneName = g_bonetable[globalBoneID].name;
+            const char *pBoneName = g_studiomdl.bonetable[globalBoneID].name;
             printf("vert: %d bone: %d boneid: %d weight: %f name: \"%s\"\n", i, (int) j, (int) pBoneWeight->bone[j],
                    (float) pBoneWeight->weight[j], pBoneName);
         }
@@ -978,7 +978,7 @@ static void PrintBonesUsedInLOD(s_source_t *pSrc) {
 static void MarkBonesUsedByLod(const s_boneweight_t &boneWeight, int nLodID) {
     for (int j = 0; j < boneWeight.numbones; ++j) {
         int nGlobalBoneID = boneWeight.bone[j];
-        s_bonetable_t *pBone = &g_bonetable[nGlobalBoneID];
+        s_bonetable_t *pBone = &g_studiomdl.bonetable[nGlobalBoneID];
         pBone->flags |= (BONE_USED_BY_VERTEX_LOD0 << nLodID);
     }
 }
@@ -989,7 +989,7 @@ static void PrintSBoneWeight(s_boneweight_t *pBoneWeight, const s_source_t *pSrc
     for (j = 0; j < pBoneWeight->numbones; j++) {
         int globalBoneID;
         globalBoneID = pBoneWeight->bone[j];
-        const char *pBoneName = g_bonetable[globalBoneID].name;
+        const char *pBoneName = g_studiomdl.bonetable[globalBoneID].name;
         printf("bone: %d boneid: %d weight: %f name: \"%s\"\n", (int) j, (int) pBoneWeight->bone[j],
                (float) pBoneWeight->weight[j], pBoneName);
     }
@@ -1032,7 +1032,7 @@ static void CreateLODVertsInDictionary(int nLodID, const s_source_t *pRootLODSrc
         }
         vertex.m_numTexCoords = srcVertex.numTexcoord;
 
-        if (g_bSkinnedLODs) {
+        if (g_studiomdl.bSkinnedLODs) {
             vertex.m_BoneWeight = srcVertex.boneweight;
         } else {
 #ifdef _DEBUG
@@ -1149,7 +1149,7 @@ static void BuildBoneLODMapping(CUtlVector<int> &boneMap, int lodID) {
     boneMap.AddMultipleToTail(g_StudioMdlContext.numbones);
 
     Assert(lodID < g_ScriptLODs.Count());
-    LodScriptData_t &scriptLOD = g_ScriptLODs[lodID];
+    LodScriptData_t &scriptLOD = g_studiomdl.ScriptLODs[lodID];
 
     // First, create a direct mapping where no bones are collapsed
     int i;
@@ -1249,7 +1249,7 @@ static void UnifyModelLODs(s_model_t *pSrcModel) {
 
         // lookup the material used by this mesh
         int nMaterialID = pLOD0Source->meshindex[nMeshID];
-        const char *pName = g_texture[nMaterialID].name;
+        const char *pName = g_studiomdl.texture[nMaterialID].name;
         if (!g_StudioMdlContext.quiet) {
             printf("Processing LOD for material: %s\n", pName);
         }
@@ -1305,8 +1305,8 @@ static void UnifyModelLODs(s_model_t *pSrcModel) {
 //-----------------------------------------------------------------------------
 void UnifyLODs() {
     // todo: need to fixup the firstref/lastref stuff . . do we really need it anymore?
-    for (int modelID = 0; modelID < g_nummodelsbeforeLOD; modelID++) {
-        UnifyModelLODs(g_model[modelID]);
+    for (int modelID = 0; modelID < g_studiomdl.nummodelsbeforeLOD; modelID++) {
+        UnifyModelLODs(g_studiomdl.model[modelID]);
     }
 }
 
@@ -1319,10 +1319,10 @@ static void PrintSpaces(int numSpaces) {
 }
 
 static void SpewBoneInfo(int globalBoneID, int depth) {
-    s_bonetable_t *pBone = &g_bonetable[globalBoneID];
+    s_bonetable_t *pBone = &g_studiomdl.bonetable[globalBoneID];
     if (g_StudioMdlContext.printBones) {
         PrintSpaces(depth * 2);
-        printf("%d \"%s\" ", depth, pBone->name);
+        printf("%d \"%s\" ", depth, pBone->name.c_str());
     }
     int i;
     for (i = 0; i < 8; i++) {
@@ -1349,7 +1349,7 @@ static void SpewBoneInfo(int globalBoneID, int depth) {
 
     int j;
     for (j = 0; j < g_StudioMdlContext.numbones; j++) {
-        s_bonetable_t *pBone = &g_bonetable[j];
+        s_bonetable_t *pBone = &g_studiomdl.bonetable[j];
         if (pBone->parent == globalBoneID) {
             SpewBoneInfo(j, depth + 1);
         }
@@ -1364,7 +1364,7 @@ void SpewBoneUsageStats() {
     SpewBoneInfo(0, 0);
     if (g_StudioMdlContext.printBones) {
         int i;
-        for (i = 0; i < g_ScriptLODs.Count(); i++) {
+        for (i = 0; i < g_studiomdl.ScriptLODs.Count(); i++) {
             printf("\t%d bones used in lod %d\n", g_NumBonesInLOD[i], i);
         }
     }
@@ -1373,12 +1373,12 @@ void SpewBoneUsageStats() {
 void MarkParentBoneLODs() {
     int i;
     for (i = 0; i < g_StudioMdlContext.numbones; i++) {
-        int flags = g_bonetable[i].flags;
+        int flags = g_studiomdl.bonetable[i].flags;
         flags &= BONE_USED_BY_VERTEX_MASK;
-        int globalBoneID = g_bonetable[i].parent;
+        int globalBoneID = g_studiomdl.bonetable[i].parent;
         while (globalBoneID != -1) {
-            g_bonetable[globalBoneID].flags |= flags;
-            globalBoneID = g_bonetable[globalBoneID].parent;
+            g_studiomdl.bonetable[globalBoneID].flags |= flags;
+            globalBoneID = g_studiomdl.bonetable[globalBoneID].parent;
         }
     }
 }
@@ -1388,10 +1388,10 @@ void MarkParentBoneLODs() {
 // Returns the sources associated with the various LODs based on the script commands
 //-----------------------------------------------------------------------------
 static void GetLODSources(CUtlVector<s_source_t *> &lods, const s_model_t *pSrcModel) {
-    int nNumLODs = g_ScriptLODs.Count();
+    int nNumLODs = g_studiomdl.ScriptLODs.Count();
     lods.EnsureCount(nNumLODs);
     for (int lodID = 0; lodID < nNumLODs; lodID++) {
-        LodScriptData_t &scriptLOD = g_ScriptLODs[lodID];
+        LodScriptData_t &scriptLOD = g_studiomdl.ScriptLODs[lodID];
 
         bool bFound;
         s_source_t *pSource = GetModelLODSource(pSrcModel->filename, scriptLOD, &bFound);
@@ -1408,18 +1408,18 @@ static void GetLODSources(CUtlVector<s_source_t *> &lods, const s_model_t *pSrcM
 // Creates models to store converted data for the various LODs
 //-----------------------------------------------------------------------------
 void LoadLODSources() {
-    g_nummodelsbeforeLOD = g_nummodels;
-    for (int modelID = 0; modelID < g_nummodelsbeforeLOD; modelID++) {
-        if (!Q_stricmp(g_model[modelID]->name, "blank")) {
-            int nNumLODs = g_ScriptLODs.Count();
-            g_model[modelID]->m_LodSources.SetCount(nNumLODs);
+    g_studiomdl.nummodelsbeforeLOD = g_studiomdl.nummodels;
+    for (int modelID = 0; modelID < g_studiomdl.nummodelsbeforeLOD; modelID++) {
+        if (!Q_stricmp(g_studiomdl.model[modelID]->name, "blank")) {
+            int nNumLODs = g_studiomdl.ScriptLODs.Count();
+            g_studiomdl.model[modelID]->m_LodSources.SetCount(nNumLODs);
             for (int i = 0; i < nNumLODs; ++i) {
-                g_model[modelID]->m_LodSources[i] = nullptr;
+                g_studiomdl.model[modelID]->m_LodSources[i] = nullptr;
             }
             continue;
         }
 
-        GetLODSources(g_model[modelID]->m_LodSources, g_model[modelID]);
+        GetLODSources(g_studiomdl.model[modelID]->m_LodSources, g_studiomdl.model[modelID]);
     }
 }
 
@@ -1428,14 +1428,14 @@ static void ReplaceBonesRecursive(int globalBoneID, bool replaceThis,
                                   const char *replacementName) {
     if (replaceThis) {
         CLodScriptReplacement_t &boneReplacement = boneReplacements[boneReplacements.AddToTail()];
-        boneReplacement.SetSrcName(g_bonetable[globalBoneID].name);
+        boneReplacement.SetSrcName(g_studiomdl.bonetable[globalBoneID].name);
         boneReplacement.SetDstName(replacementName);
     }
 
     // find children and recurse.
     int i;
     for (i = 0; i < g_StudioMdlContext.numbones; i++) {
-        if (g_bonetable[i].parent == globalBoneID) {
+        if (g_studiomdl.bonetable[i].parent == globalBoneID) {
             ReplaceBonesRecursive(i, true, boneReplacements, replacementName);
         }
     }
@@ -1446,7 +1446,7 @@ static void ConvertSingleBoneTreeCollapseToReplaceBones(CLodScriptReplacement_t 
     // find the bone that we are starting with.
     int i = findGlobalBone(boneTreeCollapse.GetSrcName());
     if (i != -1) {
-        ReplaceBonesRecursive(i, false, boneReplacements, g_bonetable[i].name);
+        ReplaceBonesRecursive(i, false, boneReplacements, g_studiomdl.bonetable[i].name);
         return;
     }
     MdlWarning("Couldn't find bone %s for bonetreecollapse, skipping\n", boneTreeCollapse.GetSrcName());
@@ -1454,8 +1454,8 @@ static void ConvertSingleBoneTreeCollapseToReplaceBones(CLodScriptReplacement_t 
 
 void ConvertBoneTreeCollapsesToReplaceBones() {
     int i;
-    for (i = 0; i < g_ScriptLODs.Count(); i++) {
-        LodScriptData_t &lod = g_ScriptLODs[i];
+    for (i = 0; i < g_studiomdl.ScriptLODs.Count(); i++) {
+        LodScriptData_t &lod = g_studiomdl.ScriptLODs[i];
         int j;
         for (j = 0; j < lod.boneTreeCollapses.Count(); j++) {
             ConvertSingleBoneTreeCollapseToReplaceBones(lod.boneTreeCollapses[j],
@@ -1507,7 +1507,7 @@ void FixupReplacedBonesForLOD(LodScriptData_t &lod) {
 
 void FixupReplacedBones() {
     int i;
-    for (i = 0; i < g_ScriptLODs.Count(); i++) {
-        FixupReplacedBonesForLOD(g_ScriptLODs[i]);
+    for (i = 0; i < g_studiomdl.ScriptLODs.Count(); i++) {
+        FixupReplacedBonesForLOD(g_studiomdl.ScriptLODs[i]);
     }
 }

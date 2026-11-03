@@ -16,7 +16,6 @@ add_library(tier1
         datamanager.cpp
         fileio.cpp
         generichash.cpp
-        interface.cpp
         keyvalues.cpp
         keyvaluesjson.cpp
         kvpacker.cpp
@@ -25,7 +24,6 @@ add_library(tier1
         stringpool.cpp
         strtools.cpp
         strtools_unicode.cpp
-        tier1.cpp
         tier1_logging.cpp
         timeutils.cpp
         undiff.cpp
@@ -37,11 +35,12 @@ add_library(tier1
         utlstring.cpp
         utlstringtoken.cpp
         utlsymbol.cpp
-        )
+        ../../include/tier1_v2/fixed_vector.hpp
+)
 target_include_directories(tier1 PUBLIC ../../include)
 target_include_directories(tier1 PRIVATE ../../include/tier1)
 target_compile_definitions(tier1 PRIVATE -DSTATIC_TIER0)
-target_link_libraries(tier1 PRIVATE tier0 interfaces vstdlib_static mathlib)
+target_link_libraries(tier1 PRIVATE tier0 vstdlib_static mathlib)
 if (WIN32)
     target_link_libraries(tier1 PRIVATE rpcrt4)
 endif ()

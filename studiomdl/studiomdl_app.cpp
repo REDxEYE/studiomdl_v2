@@ -14,23 +14,15 @@
 #include "studiomdl/optimize.h"
 #include "studiomdl/flexoptimize.h"
 #include "common/scriplib.h"
-#include "appframework/AppFramework.h"
 #include "studiomdl/perfstats.h"
 #include "datamodel/idatamodel.h"
 #include "dmserializers/idmserializers.h"
-#include "mdllib/mdllib.h"
+#include "tier2/tier2dm.h"
 #include "filesystem/filesystem_stdio.h"
-
-extern StudioMdlContext g_StudioMdlContext;
+#include "studiomdl/studiomdl_global_state.hpp"
 
 CMdlLoggingListener s_MdlLoggingListener;
 CStudioMDLApp s_ApplicationObject;
-
-enum RunMode {
-    RUN_MODE_BUILD,
-    RUN_MODE_STRIP_MODEL,
-    RUN_MODE_STRIP_VHV
-} g_eRunMode = RUN_MODE_BUILD;
 
 class CClampedSource;
 
@@ -58,8 +50,7 @@ CStudioMDLApp_SuggestGameInfoDirFn(CFSSteamSetupInfo const *, char *pchPathBuffe
 int main(int argc, char **argv) {
     SetSuggestGameInfoDirFn(CStudioMDLApp_SuggestGameInfoDirFn);
 
-    CSteamApplication s_SteamApplicationObject(&s_ApplicationObject);
-    return AppMain(argc, argv, &s_SteamApplicationObject);
+    return s_ApplicationObject.Run(argc, argv);
 }
 
 //-----------------------------------------------------------------------------
@@ -163,57 +154,11 @@ void ParseScript(const char *pExt) {
 }
 
 //-----------------------------------------------------------------------------
-// For preprocessed files, all data lies in the g_fullpath.
+// For preprocessed files, all data lies in the g_studiomdl.fullpath.
 // The DMX loader will take care of it.
 //-----------------------------------------------------------------------------
 bool ParsePreprocessedFile(const char *pFullPath) {
-    char pFullPathBuf[MAX_PATH]{0};
-    Q_strcpy(pFullPathBuf, pFullPath);
-    Q_FixSlashes(pFullPathBuf);
-
-    if (!LoadPreprocessedFile(pFullPathBuf, 1.0f))
-        return false;
-
-    if (!g_StudioMdlContext.bHasModelName) {
-        // The output name can be set via a "mdlPath" attribute on the root
-        // node of the preprocessed filename.  If it wasn't set then derive it
-        // from the input filename
-
-        // The output name is directly derived from the input name
-        // NOTE: We use directory names when using preprocessed files
-        // Fix up passed pathname to use correct path separators otherwise
-        // functions below will fail
-        char pOutputBuf[MAX_PATH], pTemp[MAX_PATH], pOutputBuf2[MAX_PATH], pRelativeBuf[MAX_PATH]{0};
-        char *pOutputName = pOutputBuf;
-        ComputeModFilename(pFullPathBuf, pTemp, sizeof(pTemp));
-        Q_ExtractFilePath(pTemp, pOutputBuf, sizeof(pOutputBuf));
-        Q_StripTrailingSlash(pOutputBuf);
-        if (!Q_stricmp(Q_UnqualifiedFileName(pOutputBuf), "preprocess") ||
-            !Q_stricmp(Q_UnqualifiedFileName(pOutputBuf), ".preprocess")) {
-            Q_ExtractFilePath(pOutputBuf, pOutputBuf2, sizeof(pOutputBuf2));
-            Q_StripTrailingSlash(pOutputBuf2);
-            pOutputName = pOutputBuf2;
-        }
-
-        int nBufLen = sizeof(pOutputBuf);
-        if (Q_IsAbsolutePath(pOutputName)) {
-            if (!g_pFullFileSystem->FullPathToRelativePathEx(pOutputName, "GAME", pRelativeBuf, sizeof(pRelativeBuf))) {
-                MdlError("Full path %s is not associated with the current mod!\n", pOutputName);
-                return false;
-            }
-            Q_FixSlashes(pRelativeBuf);
-            if (Q_strnicmp(pRelativeBuf, "models\\", 7)) {
-                MdlError("Full path %s is not under the 'models' directory\n", pOutputName);
-                return false;
-            }
-            pOutputName = pRelativeBuf + 7;
-            nBufLen -= 7;
-        }
-        Q_SetExtension(pOutputName, "mdl", nBufLen);
-        ProcessModelName(pOutputName);
-    }
-
-    return true;
+    return false;
 }
 
 // Used by the CheckSurfaceProps.py script.
@@ -325,7 +270,7 @@ void CreateMakefile_OutputMakefile() {
 //		strcat( mdlname, "/" );
 //	}
     strcat(mdlname, "models/");
-    strcat(mdlname, g_outname);
+    strcat(mdlname, g_studiomdl.outname);
     Q_StripExtension(mdlname, mdlname, sizeof(mdlname));
     strcat(mdlname, ".mdl");
     Q_FixSlashes(mdlname);
@@ -340,7 +285,7 @@ void CreateMakefile_OutputMakefile() {
     strcpy(mkdirpath, mdlname);
     Q_StripFilename(mkdirpath);
     fprintf(fp, "\tmkdir \"%s\"\n", mkdirpath);
-    fprintf(fp, "\t%s -quiet %s\n\n", CommandLine()->GetParm(0), g_fullpath);
+    fprintf(fp, "\t%s -quiet %s\n\n", CommandLine()->GetParm(0), g_studiomdl.fullpath.c_str());
     fclose(fp);
 }
 
@@ -452,9 +397,9 @@ void ClampMaxVerticesPerModel(s_source_t *pOrigSource) {
     // Name of what was split, so the pieces can be told apart: the model using the source, or the source file
     char szOrigName[MAXSTUDIONAME];
     Q_FileBase(pOrigSource->filename, szOrigName, sizeof(szOrigName));
-    for (int i = 0; i < g_nummodels; i++) {
-        if (g_model[i]->source == pOrigSource && g_model[i]->name[0]) {
-            Q_FileBase(g_model[i]->name, szOrigName, sizeof(szOrigName));
+    for (int i = 0; i < g_studiomdl.nummodels; i++) {
+        if (g_studiomdl.model[i]->source == pOrigSource && g_studiomdl.model[i]->name[0]) {
+            Q_FileBase(g_studiomdl.model[i]->name, szOrigName, sizeof(szOrigName));
             break;
         }
     }
@@ -467,7 +412,7 @@ void ClampMaxVerticesPerModel(s_source_t *pOrigSource) {
     for (int n = 1; n < newSource.Count(); n++) {
         // create a new internal "source"
         s_source_t *pSource = (s_source_t *) calloc(1, sizeof(s_source_t));
-        g_source[g_numsources++] = pSource;
+        g_studiomdl.source.emplace_back(pSource);
 
         // copy all the members, in order
         memcpy(&(pSource->filename[0]), &(pOrigSource->filename[0]), sizeof(pSource->filename));
@@ -508,16 +453,16 @@ void ClampMaxVerticesPerModel(s_source_t *pOrigSource) {
         s_model_t *pModel = (s_model_t *) calloc(1, sizeof(s_model_t));
         pModel->source = pSource;
         V_snprintf(pModel->name, sizeof(pModel->name), "%s_clamped%d", szOrigName, n);
-        int imodel = g_nummodels++;
-        g_model[imodel] = pModel;
+        int imodel = g_studiomdl.nummodels++;
+        g_studiomdl.model[imodel] = pModel;
 
         // make it a new bodypart
-        s_bodypart_t &bodypart = g_bodypart[g_numbodyparts];
+        s_bodypart_t &bodypart = g_studiomdl.bodypart[g_studiomdl.numbodyparts];
         bodypart.nummodels = 1;
-        bodypart.base = g_bodypart[g_numbodyparts - 1].base * g_bodypart[g_numbodyparts - 1].nummodels;
+        bodypart.base = g_studiomdl.bodypart[g_studiomdl.numbodyparts - 1].base * g_studiomdl.bodypart[g_studiomdl.numbodyparts - 1].nummodels;
         V_snprintf(bodypart.name, sizeof(bodypart.name), "%s_clamped%d", szOrigName, n);
         bodypart.pmodel[0] = pModel;
-        g_numbodyparts++;
+        g_studiomdl.numbodyparts++;
 
         // finally, copy flex keys
         newSource[n].CopyFlexKeys(pOrigSource, pSource, imodel);
@@ -531,20 +476,19 @@ void SetSkinValues() {
     int index;
 
     // Check all textures to see if we have relative paths specified
-    for (i = 0; i < g_numtextures; i++) {
-        if (g_texture[i].flags & RELATIVE_TEXTURE_PATH_SPECIFIED) {
+    for (i = 0; i < g_studiomdl.texture.size(); i++) {
+        if (g_studiomdl.texture[i].flags & RELATIVE_TEXTURE_PATH_SPECIFIED) {
             // Add an empty path to prepend if anything specifies a relative path
-            cdtextures[numcdtextures] = nullptr;
-            ++numcdtextures;
+            g_studiomdl.cdtextures.emplace_back();
             break;
         }
     }
 
-    if (numcdtextures == 0) {
+    if (g_studiomdl.cdtextures.size() == 0) {
         char szName[256];
 
         // strip down till it finds "models"
-        strcpyn(szName, g_fullpath);
+        strcpyn(szName, g_studiomdl.fullpath);
         while (szName[0] != '\0' && strnicmp("models", szName, 6) != 0) {
             strcpy(&szName[0], &szName[1]);
         }
@@ -559,39 +503,38 @@ void SetSkinValues() {
 //				strcat( szName, "/" );
 //			}
             strcpy(szName, "models/");
-            strcat(szName, g_outname);
+            strcat(szName, g_studiomdl.outname);
             Q_StripExtension(szName, szName, sizeof(szName));
             strcat(szName, "/");
         }
-        cdtextures[0] = strdup(szName);
-        numcdtextures = 1;
+        g_studiomdl.cdtextures.emplace_back(strdup(szName));
     }
 
-    for (i = 0; i < g_numtextures; i++) {
+    for (i = 0; i < g_studiomdl.texture.size(); i++) {
         char szName[256];
-        Q_StripExtension(g_texture[i].name, szName, sizeof(szName));
-        Q_strncpy(g_texture[i].name, szName, sizeof(g_texture[i].name));
+        Q_StripExtension(g_studiomdl.texture[i].name, szName, sizeof(szName));
+        Q_strncpy(g_studiomdl.texture[i].name, szName, sizeof(g_studiomdl.texture[i].name));
     }
 
     // build texture groups
     for (i = 0; i < MAXSTUDIOSKINS; i++) {
         for (j = 0; j < MAXSTUDIOSKINS; j++) {
-            g_skinref[i][j] = j;
+            g_studiomdl.skinref[i][j] = j;
         }
     }
     index = 0;
-    for (i = 0; i < g_numtexturelayers[0]; i++) {
-        for (j = 0; j < g_numtexturereps[0]; j++) {
-            g_skinref[i][g_texturegroup[0][0][j]] = g_texturegroup[0][i][j];
+    for (i = 0; i < g_studiomdl.numtexturelayers[0]; i++) {
+        for (j = 0; j < g_studiomdl.numtexturereps[0]; j++) {
+            g_studiomdl.skinref[i][g_studiomdl.texturegroup[0][0][j]] = g_studiomdl.texturegroup[0][i][j];
         }
     }
 
     if (i != 0) {
-        g_numskinfamilies = i;
+        g_studiomdl.numskinfamilies = i;
     } else {
-        g_numskinfamilies = 1;
+        g_studiomdl.numskinfamilies = 1;
     }
-    g_numskinref = g_numtextures;
+    g_studiomdl.numskinref = g_studiomdl.texture.size();
 
     FlexOptimizeFixupSkinFamilies();
 
@@ -632,75 +575,9 @@ void ConsistencyCheckContents() {
     }
 }
 
-//-----------------------------------------------------------------------------
-// WriteFileToDisk
-//	Equivalent to g_pFullFileSystem->WriteFile( pFileName, pPath, buf ), but works
-//	for relative paths.
-//-----------------------------------------------------------------------------
-bool WriteFileToDisk(const char *pFileName, const char *pPath, CUtlBuffer &buf) {
-    // For some reason calling full filesystem will write into hl2 root dir
-    // return g_pFullFileSystem->WriteFile( pFileName, pPath, buf );
-
-    FILE *f = fopen(pFileName, "wb");
-    if (!f)
-        return false;
-
-    fwrite(buf.Base(), 1, buf.TellPut(), f);
-    fclose(f);
-    return true;
-}
-
-//-----------------------------------------------------------------------------
-// WriteBufferToFile
-//	Helper to concatenate file base and extension.
-//-----------------------------------------------------------------------------
-bool WriteBufferToFile(CUtlBuffer &buf, const char *szFilebase, const char *szExt) {
-    char szFilename[1024];
-    Q_snprintf(szFilename, ARRAYSIZE(szFilename), "%s%s", szFilebase, szExt);
-    return WriteFileToDisk(szFilename, nullptr, buf);
-}
-
-//-----------------------------------------------------------------------------
-// LoadBufferFromFile
-//	Loads the buffer from file, return true on success, false otherwise.
-//  If bError is true prints an error upon failure.
-//-----------------------------------------------------------------------------
-bool LoadBufferFromFile(CUtlBuffer &buffer, const char *szFilebase, const char *szExt, bool bError = true) {
-    char szFilename[1024];
-    Q_snprintf(szFilename, ARRAYSIZE(szFilename), "%s%s", szFilebase, szExt);
-
-    if (g_pFullFileSystem->ReadFile(szFilename, nullptr, buffer))
-        return true;
-
-    if (bError)
-        MdlError("Failed to open '%s'!\n", szFilename);
-
-    return false;
-}
-
-bool Load3ModelBuffers(CUtlBuffer &bufMDL, CUtlBuffer &bufVVD, CUtlBuffer &bufVTX, const char *szFilebase) {
-    // Load up the mdl file
-    if (!LoadBufferFromFile(bufMDL, szFilebase, ".mdl"))
-        return false;
-
-    // Load up the vvd file
-    if (!LoadBufferFromFile(bufVVD, szFilebase, ".vvd"))
-        return false;
-
-    // Load up the dx90.vtx file
-    if (!LoadBufferFromFile(bufVTX, szFilebase, ".dx90.vtx"))
-        return false;
-
-    return true;
-}
-
 void UsageAndExit() {
     MdlError("Bad or missing options\n"
-             #ifdef MDLCOMPILE
-             "usage: mdlcompile [options] <file.mc>\n"
-             #else
              "usage: studiomdl [options] <file.qc>\n"
-             #endif
              "options:\n"
              "[-a <normal_blend_angle>]\n"
              "[-checklengths]\n"
@@ -730,9 +607,6 @@ void UsageAndExit() {
              "[-mdlreportspreadsheet] - report perf info as a comma-delimited spreadsheet\n"
              "[-striplods] - use only lod0\n"
              "[-overridedefinebones] - equivalent to specifying $unlockdefinebones in " SRC_FILE_EXT " file\n"
-             "[-stripmodel] - process binary model files and strip extra lod data\n"
-             "[-stripvhv] - strip hardware verts to match the stripped model\n"
-             "[-vsi] - generate stripping information .vsi file - can be used on .mdl files too\n"
              "[-allowdebug]\n"
              "[-ihvtest]\n"
              "[-overridedefinebones]\n"
@@ -771,28 +645,13 @@ int CStudioMDLApp::Main() {
     if (!g_StudioMdlContext.quiet) {
         printf("qdir:    \"%s\"\n", qdir);
         printf("gamedir: \"%s\"\n", gamedir);
-        printf("g_path:  \"%s\"\n", g_StudioMdlContext.g_path);
-    }
-
-    switch (g_eRunMode) {
-        case RUN_MODE_STRIP_MODEL:
-            return Main_StripModel();
-
-        case RUN_MODE_STRIP_VHV:
-            return Main_StripVhv();
-
-        case RUN_MODE_BUILD:
-        default:
-            break;
+        printf("g_path:  \"%s\"\n", g_StudioMdlContext.g_path.c_str());
     }
 
     const char *pExt = Q_GetFileExtension(g_StudioMdlContext.g_path);
 
-    // Look for the presence of a .mdl file (only -vsi is currently supported for .mdl files)
+    // Only source files are built (the .mdl stripping modes needed Valve's mdllib)
     if (pExt && !Q_stricmp(pExt, "mdl")) {
-        if (g_StudioMdlContext.bMakeVsi)
-            return Main_MakeVsi();
-
         printf("ERROR: " SRC_FILE_EXT " or .dmx file should be specified to build.\n");
         return 1;
     }
@@ -800,49 +659,31 @@ int CStudioMDLApp::Main() {
     if (!g_StudioMdlContext.quiet)
         printf("Building binary model files...\n");
 
-    bool bLoadingPreprocessedFile = false;
-#ifdef MDLCOMPILE
-    if ( pExt && !Q_stricmp( pExt, "mpp" ) )
-    {
-        bLoadingPreprocessedFile = true;
-        // Handle relative path names because g_path is appended onto qdir which is the
-        // absolute path to the file minus the filename
-        Q_FileBase( g_path, g_path, sizeof( g_path ) );
-        Q_DefaultExtension( g_path, "mpp" , sizeof( g_path ) );
-    }
-    if ( !pExt && !bLoadingPreprocessedFile )
-    {
-#endif
     Q_FileBase(g_StudioMdlContext.g_path, g_StudioMdlContext.g_path, sizeof(g_StudioMdlContext.g_path));
     Q_DefaultExtension(g_StudioMdlContext.g_path, SRC_FILE_EXT, sizeof(g_StudioMdlContext.g_path));
     if (!pExt) {
         pExt = SRC_FILE_EXT;
     }
-#ifdef MDLCOMPILE
-    }
-#endif
 
     if (!g_StudioMdlContext.quiet) {
-        printf("Working on \"%s\"\n", g_StudioMdlContext.g_path);
+        printf("Working on \"%s\"\n", g_StudioMdlContext.g_path.c_str());
     }
 
     // Set up script loading callback, discarding default callback
     (void) SetScriptLoadedCallback(StudioMdl_ScriptLoadedCallback);
 
     // load the script
-    if (!bLoadingPreprocessedFile) {
-        LoadScriptFile(g_StudioMdlContext.g_path);
-    }
+    LoadScriptFile(g_StudioMdlContext.g_path);
 
-    strcpy(g_fullpath, g_StudioMdlContext.g_path);
-    strcpy(g_fullpath, ExpandPath(g_fullpath));
-    strcpy(g_fullpath, ExpandArg(g_fullpath));
+    strcpy(g_studiomdl.fullpath, g_StudioMdlContext.g_path);
+    strcpy(g_studiomdl.fullpath, ExpandPath(g_studiomdl.fullpath));
+    strcpy(g_studiomdl.fullpath, ExpandArg(g_studiomdl.fullpath));
 
     // default to having one entry in the LOD list that doesn't do anything so
     // that we don't have to do any special cases for the first LOD.
-    g_ScriptLODs.Purge();
-    g_ScriptLODs.AddToTail(); // add an empty one
-    g_ScriptLODs[0].switchValue = 0.0f;
+    g_studiomdl.ScriptLODs.Purge();
+    g_studiomdl.ScriptLODs.AddToTail(); // add an empty one
+    g_studiomdl.ScriptLODs[0].switchValue = 0.0f;
 
     //
     // parse it
@@ -850,22 +691,15 @@ int CStudioMDLApp::Main() {
     ClearModel();
 
 //	strcpy( g_pPlatformName, "" );
-    if (bLoadingPreprocessedFile) {
-        if (!ParsePreprocessedFile(g_fullpath)) {
-            MdlError("Invalid MPP File: %s\n", g_StudioMdlContext.g_path);
-            return 1;
-        }
-    } else {
-        ParseScript(pExt);
-    }
+    ParseScript(pExt);
 
     if (!g_StudioMdlContext.createMakefile) {
         FlexOptimizeSources();
 
-        int nCount = g_numsources;
+        int nCount = g_studiomdl.source.size();
         for (int i = 0; i < nCount; i++) {
-            if (g_source[i]->isActiveModel) {
-                ClampMaxVerticesPerModel(g_source[i]);
+            if (g_studiomdl.source[i]->isActiveModel) {
+                ClampMaxVerticesPerModel(g_studiomdl.source[i]);
             }
         }
 
@@ -884,13 +718,10 @@ int CStudioMDLApp::Main() {
 
     if (g_StudioMdlContext.createMakefile) {
         CreateMakefile_OutputMakefile();
-    } else if (g_StudioMdlContext.bMakeVsi) {
-        Q_snprintf(g_StudioMdlContext.g_path, ARRAYSIZE(g_StudioMdlContext.g_path), "%smodels/%s", gamedir, g_outname);
-        Main_MakeVsi();
     }
 
     if (!g_StudioMdlContext.quiet) {
-        printf("\nCompleted \"%s\"\n", g_StudioMdlContext.g_path);
+        printf("\nCompleted \"%s\"\n", g_StudioMdlContext.g_path.c_str());
     }
 
     if (g_StudioMdlContext.parseable_completion_output) {
@@ -930,34 +761,27 @@ bool CStudioMDLApp::Create() {
         return false;
 
 
-    AddSystem(g_pDataModel, VDATAMODEL_INTERFACE_VERSION);
-    AddSystem(g_pDmElementFramework, VDMELEMENTFRAMEWORK_VERSION);
-    AddSystem(g_pDmSerializers, DMSERIALIZERS_INTERFACE_VERSION);
-
     return true;
+}
+
+bool CStudioMDLApp::Init() {
+    return InitDataModel();
+}
+
+void CStudioMDLApp::Shutdown() {
+    ShutdownDataModel();
 }
 
 void CStudioMDLApp::Destroy() {
     LoggingSystem_PopLoggingState();
 }
 
-extern CFileSystem_Stdio g_FileSystem_Stdio;
-
 bool CStudioMDLApp::PreInit() {
-    CreateInterfaceFn factory = GetFactory();
-    ConnectTier1Libraries(&factory, 1);
-    g_pFullFileSystem = &g_FileSystem_Stdio;
     g_pFileSystem = g_pFullFileSystem;
-    if (!g_pFullFileSystem || !g_pDataModel) {
-        Warning("StudioMDL is missing a required interface!\n");
-        return false;
-    }
 
     if (!SetupSearchPaths(g_StudioMdlContext.g_path, false, true))
         return false;
 
-    // NOTE: This is necessary to get the cmdlib filesystem stuff to work.
-    g_pFileSystem = g_pFullFileSystem;
 
     // NOTE: This is stuff copied out of cmdlib necessary to get
     // the tools in cmdlib working
@@ -965,40 +789,36 @@ bool CStudioMDLApp::PreInit() {
     return true;
 }
 
-void CStudioMDLApp::PostShutdown() {
-//    DisconnectTier3Libraries();
-    DisconnectTier1Libraries();
-}
 
 //-----------------------------------------------------------------------------
 // Method which parses arguments
 //-----------------------------------------------------------------------------
 bool CStudioMDLApp::ParseArguments() {
-    g_currentscale = g_defaultscale = 1.0;
-    g_defaultrotation = RadianEuler(0, 0, M_PI / 2);
+    g_studiomdl.currentscale = g_studiomdl.defaultscale = 1.0;
+    g_studiomdl.defaultrotation = RadianEuler(0, 0, M_PI / 2);
 
     // skip weightlist 0
-    g_numweightlist = 1;
+    g_studiomdl.numweightlist = 1;
 
-    eyeposition = Vector(0, 0, 0);
-    gflags = 0;
-    numrep = 0;
+    g_studiomdl.eyeposition = Vector(0, 0, 0);
+    g_studiomdl.gflags = 0;
+    g_studiomdl.numrep = 0;
 
-    normal_blend = cos(DEG2RAD(2.0));
+    g_studiomdl.normal_blend = cos(DEG2RAD(2.0));
 
-    g_gamma = 2.2;
+    g_studiomdl.gamma = 2.2;
 
-    g_staticprop = false;
-    g_centerstaticprop = false;
+    g_studiomdl.staticprop = false;
+    g_studiomdl.centerstaticprop = false;
 
-    g_realignbones = false;
-    g_constdirectionalightdot = 0;
+    g_studiomdl.realignbones = false;
+    g_studiomdl.constdirectionalightdot = 0;
 
     g_bDumpGLViewFiles = false;
     g_StudioMdlContext.quiet = false;
 
-    g_illumpositionattachment = 0;
-    g_flMaxEyeDeflection = 0.0f;
+    g_studiomdl.illumpositionattachment = 0;
+    g_studiomdl.flMaxEyeDeflection = 0.0f;
 
     g_StudioMdlContext.collapse_bones_message = false;
 
@@ -1045,21 +865,6 @@ bool CStudioMDLApp::ParseArguments() {
             continue;
         }
 
-        if (!Q_stricmp(pArgv, "-stripmodel")) {
-            g_eRunMode = RUN_MODE_STRIP_MODEL;
-            continue;
-        }
-
-        if (!Q_stricmp(pArgv, "-stripvhv")) {
-            g_eRunMode = RUN_MODE_STRIP_VHV;
-            continue;
-        }
-
-        if (!Q_stricmp(pArgv, "-vsi")) {
-            g_StudioMdlContext.bMakeVsi = true;
-            continue;
-        }
-
         if (!Q_stricmp(pArgv, "-quiet")) {
             g_StudioMdlContext.quiet = true;
             g_StudioMdlContext.verbose = false;
@@ -1094,7 +899,7 @@ bool CStudioMDLApp::ParseArguments() {
         }
 
         if (!Q_stricmp(pArgv, "-definebones")) {
-            g_definebones = true;
+            g_studiomdl.definebones = true;
             continue;
         }
 
@@ -1156,24 +961,24 @@ bool CStudioMDLApp::ParseArguments() {
             switch (pArgv[1]) {
                 case 't':
                     i++;
-                    strcpy(defaulttexture[numrep], pArgv);
+                    strcpy(g_studiomdl.defaulttexture[g_studiomdl.numrep], pArgv);
                     if (i < argc - 2 && CommandLine()->GetParm(i + 1)[0] != '-') {
                         i++;
-                        strcpy(sourcetexture[numrep], pArgv);
-                        printf("Replacing %s with %s\n", sourcetexture[numrep], defaulttexture[numrep]);
+                        strcpy(g_studiomdl.sourcetexture[g_studiomdl.numrep], pArgv);
+                        printf("Replacing %s with %s\n", g_studiomdl.sourcetexture[g_studiomdl.numrep].c_str(), g_studiomdl.defaulttexture[g_studiomdl.numrep].c_str());
                     }
-                    printf("Using default texture: %s\n", defaulttexture);
-                    numrep++;
+                    printf("Using default texture: %s\n", g_studiomdl.defaulttexture[0].c_str());
+                    g_studiomdl.numrep++;
                     break;
                 case 'a':
                     i++;
-                    normal_blend = cos(DEG2RAD(verify_atof(pArgv)));
+                    g_studiomdl.normal_blend = cos(DEG2RAD(verify_atof(pArgv)));
                     break;
                 case 'h':
-                    dump_hboxes = 1;
+                    g_studiomdl.dump_hboxes = 1;
                     break;
                 case 'i':
-                    ignore_warnings = 1;
+                    g_studiomdl.ignore_warnings = 1;
                     break;
                 case 'd':
                     g_bDumpGLViewFiles = true;
@@ -1202,221 +1007,6 @@ bool CStudioMDLApp::ParseArguments() {
         Q_ExtractFilePath(g_StudioMdlContext.g_path, pQCDir, sizeof(pQCDir));
         _chdir(pQCDir);
     }
-    Q_StripExtension(pArgv, g_outname, sizeof(g_outname));
+    Q_StripExtension(pArgv, g_studiomdl.outname, sizeof(g_studiomdl.outname));
     return true;
-}
-
-//-----------------------------------------------------------------------------
-// Studiomdl hooks to call the stripping routines:
-//	Main_StripVhv
-//	Main_StripModel
-//-----------------------------------------------------------------------------
-
-int CStudioMDLApp::Main_StripVhv() {
-    if (!g_StudioMdlContext.quiet) {
-        printf("Stripping vhv data...\n");
-    }
-
-    if (!mdllib) {
-        printf("ERROR: mdllib is not available!\n");
-        return 1;
-    }
-
-    Q_StripExtension(g_StudioMdlContext.g_path, g_StudioMdlContext.g_path, sizeof(g_StudioMdlContext.g_path));
-    char *pExt = g_StudioMdlContext.g_path + strlen(g_StudioMdlContext.g_path);
-    *pExt = 0;
-
-    //
-    // ====== Load files
-    //
-
-    // Load up the vhv file
-    CUtlBuffer bufVHV;
-    if (!LoadBufferFromFile(bufVHV, g_StudioMdlContext.g_path, ".vhv"))
-        return 1;
-
-    // Load up the info.strip file
-    CUtlBuffer bufRemapping;
-    if (!LoadBufferFromFile(bufRemapping, g_StudioMdlContext.g_path, ".info.strip", false) &&
-        !LoadBufferFromFile(bufRemapping, g_StudioMdlContext.g_path, ".vsi"))
-        return 1;
-
-    //
-    // ====== Process file contents
-    //
-
-    bool bResult = false;
-    {
-        LoggingSystem_SetChannelSpewLevelByName("ModelLib", LS_MESSAGE);
-
-        IMdlStripInfo *pMdlStripInfo = nullptr;
-
-        if (mdllib->CreateNewStripInfo(&pMdlStripInfo)) {
-            pMdlStripInfo->UnSerialize(bufRemapping);
-            bResult = pMdlStripInfo->StripHardwareVertsBuffer(bufVHV);
-        }
-
-        if (pMdlStripInfo)
-            pMdlStripInfo->DeleteThis();
-    }
-
-    if (!bResult) {
-        printf("ERROR: stripping failed!\n");
-        return 1;
-    }
-
-    //
-    // ====== Save out processed data
-    //
-
-    // Save vhv
-    if (!WriteBufferToFile(bufVHV, g_StudioMdlContext.g_path, ".vhv.strip")) {
-        printf("ERROR: Failed to save '%s'!\n", g_StudioMdlContext.g_path);
-        return 1;
-    }
-
-    return 0;
-}
-
-int CStudioMDLApp::Main_MakeVsi() {
-    if (!mdllib) {
-        printf("ERROR: mdllib is not available!\n");
-        return 1;
-    }
-
-    Q_StripExtension(g_StudioMdlContext.g_path, g_StudioMdlContext.g_path, sizeof(g_StudioMdlContext.g_path));
-    char *pExt = g_StudioMdlContext.g_path + strlen(g_StudioMdlContext.g_path);
-    *pExt = 0;
-
-    // Load up the files
-    CUtlBuffer bufMDL;
-    CUtlBuffer bufVVD;
-    CUtlBuffer bufVTX;
-    if (!Load3ModelBuffers(bufMDL, bufVVD, bufVTX, g_StudioMdlContext.g_path))
-        return 1;
-
-    //
-    // ====== Process file contents
-    //
-
-    CUtlBuffer bufMappingTable;
-    bool bResult = false;
-    {
-        if (!g_StudioMdlContext.quiet) {
-            printf("---------------------\n");
-            printf("Generating .vsi stripping information...\n");
-
-            LoggingSystem_SetChannelSpewLevelByName("ModelLib", LS_MESSAGE);
-        }
-
-        IMdlStripInfo *pMdlStripInfo = nullptr;
-
-        bResult =
-                mdllib->StripModelBuffers(bufMDL, bufVVD, bufVTX, &pMdlStripInfo) &&
-                pMdlStripInfo->Serialize(bufMappingTable);
-
-        if (pMdlStripInfo)
-            pMdlStripInfo->DeleteThis();
-    }
-
-    if (!bResult) {
-        printf("ERROR: stripping failed!\n");
-        return 1;
-    }
-
-    //
-    // ====== Save out processed data
-    //
-
-    // Save remapping data
-    sprintf(pExt, ".vsi");
-
-    if (!WriteFileToDisk(g_StudioMdlContext.g_path, nullptr, bufMappingTable)) {
-        printf("ERROR: Failed to save '%s'!\n", g_StudioMdlContext.g_path);
-        return 1;
-    } else if (!g_StudioMdlContext.quiet) {
-        printf("Generated .vsi stripping information.\n");
-    }
-
-    return 0;
-}
-
-int CStudioMDLApp::Main_StripModel() {
-    if (!g_StudioMdlContext.quiet) {
-        printf("Stripping binary model files...\n");
-    }
-
-    if (!mdllib) {
-        printf("ERROR: mdllib is not available!\n");
-        return 1;
-    }
-
-    Q_FileBase(g_StudioMdlContext.g_path, g_StudioMdlContext.g_path, sizeof(g_StudioMdlContext.g_path));
-    char *pExt = g_StudioMdlContext.g_path + strlen(g_StudioMdlContext.g_path);
-    *pExt = 0;
-
-    // Load up the files
-    CUtlBuffer bufMDL;
-    CUtlBuffer bufVVD;
-    CUtlBuffer bufVTX;
-    if (!Load3ModelBuffers(bufMDL, bufVVD, bufVTX, g_StudioMdlContext.g_path))
-        return 1;
-
-    //
-    // ====== Process file contents
-    //
-
-    CUtlBuffer bufMappingTable;
-    bool bResult = false;
-    {
-        LoggingSystem_SetChannelSpewLevelByName("ModelLib", LS_MESSAGE);
-
-        IMdlStripInfo *pMdlStripInfo = nullptr;
-
-        bResult =
-                mdllib->StripModelBuffers(bufMDL, bufVVD, bufVTX, &pMdlStripInfo) &&
-                pMdlStripInfo->Serialize(bufMappingTable);
-
-        if (pMdlStripInfo)
-            pMdlStripInfo->DeleteThis();
-    }
-
-    if (!bResult) {
-        printf("ERROR: stripping failed!\n");
-        return 1;
-    }
-
-    //
-    // ====== Save out processed data
-    //
-
-    // Save mdl
-    sprintf(pExt, ".mdl.strip");
-    if (!WriteFileToDisk(g_StudioMdlContext.g_path, nullptr, bufMDL)) {
-        printf("ERROR: Failed to save '%s'!\n", g_StudioMdlContext.g_path);
-        return 1;
-    }
-
-    // Save vvd
-    sprintf(pExt, ".vvd.strip");
-    if (!WriteFileToDisk(g_StudioMdlContext.g_path, nullptr, bufVVD)) {
-        printf("ERROR: Failed to save '%s'!\n", g_StudioMdlContext.g_path);
-        return 1;
-    }
-
-    // Save vtx
-    sprintf(pExt, ".vtx.strip");
-    if (!WriteFileToDisk(g_StudioMdlContext.g_path, nullptr, bufVTX)) {
-        printf("ERROR: Failed to save '%s'!\n", g_StudioMdlContext.g_path);
-        return 1;
-    }
-
-    // Save remapping data
-    sprintf(pExt, ".info.strip");
-    if (!WriteFileToDisk(g_StudioMdlContext.g_path, nullptr, bufMappingTable)) {
-        printf("ERROR: Failed to save '%s'!\n", g_StudioMdlContext.g_path);
-        return 1;
-    }
-
-    return 0;
 }

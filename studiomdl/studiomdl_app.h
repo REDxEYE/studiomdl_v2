@@ -4,34 +4,25 @@
 
 #pragma once
 
-#include "appframework/IAppSystemGroup.h"
+#include "appframework/app.h"
 
 //-----------------------------------------------------------------------------
 // The application object
 //-----------------------------------------------------------------------------
-class CStudioMDLApp : public CDefaultAppSystemGroup<CSteamAppSystemGroup> {
-    typedef CDefaultAppSystemGroup<CSteamAppSystemGroup> BaseClass;
+class CStudioMDLApp : public CApplication {
+protected:
+    bool Create() override;
 
-public:
-    // Methods of IApplication
-    virtual bool Create();
+    bool PreInit() override;
 
-    virtual bool PreInit();
+    bool Init() override;
 
-    virtual int Main();
+    int Main() override;
 
-    virtual void PostShutdown();
+    void Shutdown() override;
 
-    virtual void Destroy();
-
-private:
-    int Main_StripModel();
-
-    int Main_StripVhv();
-
-    int Main_MakeVsi();
+    void Destroy() override;
 
 private:
     bool ParseArguments();
 };
-

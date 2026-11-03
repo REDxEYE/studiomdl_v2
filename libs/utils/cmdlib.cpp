@@ -402,8 +402,6 @@ void CmdLib_Cleanup()
 
 	g_CmdLibFileLoggingListener.Close();
 
-	CmdLib_TermFileSystem();
-
 	FOR_EACH_LL( g_CleanupFunctions, i )
 	{
 		g_CleanupFunctions[ i ]();
@@ -598,25 +596,6 @@ void Q_mkdir( char *path )
 #endif
 //	if (errno != EEXIST)
 	Error( "mkdir failed %s\n", path );
-}
-
-void CmdLib_InitFileSystem( const char *pFilename, int maxMemoryUsage )
-{
-	FileSystem_Init( pFilename, maxMemoryUsage );
-	if ( !g_pFileSystem )
-	{
-		Error( "CmdLib_InitFileSystem failed." );
-	}
-}
-
-void CmdLib_TermFileSystem()
-{
-	FileSystem_Term();
-}
-
-CreateInterfaceFn CmdLib_GetFileSystemFactory()
-{
-	return FileSystem_GetFactory();
 }
 
 

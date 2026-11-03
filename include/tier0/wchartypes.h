@@ -15,9 +15,6 @@
 #error ("Must include tier0 type headers before tchar.h")
 #endif
 
-// Temporarily turn off Valve defines
-#include "tier0/valve_off.h"
-
 // wchar
 // wchar is a single character of text (currently 16 bits, as all of our text is
 // Unicode).  Use this whenever you mean a piece of text (for example, in a string).
@@ -57,8 +54,6 @@ typedef unsigned short uchar16;
 typedef wchar_t uchar32;
 #endif
 
-// Turn valve defines back on
-#include "tier0/valve_on.h"
 
 
 

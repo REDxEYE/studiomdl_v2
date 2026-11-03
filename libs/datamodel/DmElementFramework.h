@@ -18,18 +18,14 @@
 //-----------------------------------------------------------------------------
 // element framework implementation
 //-----------------------------------------------------------------------------
-class CDmElementFramework : public CBaseAppSystem< IDmElementFramework >
+class CDmElementFramework : public IDmElementFramework
 {
 public:
 	CDmElementFramework();
 
 public:
-	// Methods of IAppSystem
-	virtual bool Connect( CreateInterfaceFn factory );
-	virtual void Disconnect();
-	virtual void *QueryInterface( const char *pInterfaceName );
-	virtual InitReturnVal_t Init();
-	virtual void Shutdown();
+	bool Init() override;
+	void Shutdown() override;
 
 	// Methods of IDmElementFramework
 	virtual DmPhase_t GetPhase();

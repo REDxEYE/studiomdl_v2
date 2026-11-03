@@ -21,9 +21,6 @@ public:
     CFileSystem_Stdio();
     ~CFileSystem_Stdio();
 
-    // Used to get at older versions
-    void *QueryInterface( const char *pInterfaceName );
-
     // Higher level filesystem methods requiring specific behavior
     virtual void GetLocalCopy( const char *pFileName );
     virtual int	HintResourceNeed( const char *hintlist, int forgetEverything );
@@ -36,5 +33,8 @@ public:
 
     bool GetOptimalIOConstraints( FileHandle_t hFile, unsigned *pOffsetAlign, unsigned *pSizeAlign, unsigned *pBufferAlign );
 };
+
+// The filesystem instance (g_pFullFileSystem points at it)
+extern CFileSystem_Stdio g_FileSystem_Stdio;
 
 

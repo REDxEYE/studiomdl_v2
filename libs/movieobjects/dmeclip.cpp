@@ -15,7 +15,6 @@
 #include "movieobjects/dmetrackgroup.h"
 #include "movieobjects/dmeanimationset.h"
 
-#include "tier3/tier3.h"
 
 
 

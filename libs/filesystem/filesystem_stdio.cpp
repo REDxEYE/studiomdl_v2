@@ -7,12 +7,10 @@
 #include "filesystem/filesystem_stdio.h"
 
 //-----------------------------------------------------------------------------
-// singleton
+// singleton; g_pFullFileSystem is constant-initialized, so it is valid during static initialization too
 //-----------------------------------------------------------------------------
 CFileSystem_Stdio g_FileSystem_Stdio;
-
-EXPOSE_SINGLE_INTERFACE_GLOBALVAR( CFileSystem_Stdio, IFileSystem, FILESYSTEM_INTERFACE_VERSION, g_FileSystem_Stdio );
-EXPOSE_SINGLE_INTERFACE_GLOBALVAR( CFileSystem_Stdio, IBaseFileSystem, BASEFILESYSTEM_INTERFACE_VERSION, g_FileSystem_Stdio );
+IFileSystem *g_pFullFileSystem = &g_FileSystem_Stdio;
 
 CFileSystem_Stdio::CFileSystem_Stdio()
 {
@@ -20,14 +18,6 @@ CFileSystem_Stdio::CFileSystem_Stdio()
 
 CFileSystem_Stdio::~CFileSystem_Stdio()
 {
-}
-
-void *CFileSystem_Stdio::QueryInterface( const char *pInterfaceName )
-{
-	if (!Q_strncmp(	pInterfaceName, FILESYSTEM_INTERFACE_VERSION, Q_strlen(FILESYSTEM_INTERFACE_VERSION) + 1))
-		return (IFileSystem*)this;
-
-	return CBaseFileSystem::QueryInterface( pInterfaceName );
 }
 
 //-----------------------------------------------------------------------------

@@ -20,7 +20,6 @@
 
 #include "tier0/platform.h"
 
-#include "appframework/iappsystem.h"
 #include "filesystem.h"
 #include "string_t.h"
 
@@ -241,7 +240,7 @@ typedef void (*CombinedModelLoadedCallback)( void *pUserData, MDLHandle_t OldHan
 //-----------------------------------------------------------------------------
 // The main MDL cacher 
 //----------------------------------------------------------------------------- 
-abstract_class IMDLCache : public IAppSystem
+abstract_class IMDLCache
 {
 public:
 	// Used to install callbacks for when data is loaded + unloaded
@@ -389,7 +388,8 @@ public:
 	virtual void		DebugCombinerInfo( ) = 0;
 };
 
-DECLARE_TIER3_INTERFACE( IMDLCache, g_pMDLCache );
+// Never set: studiomdl and dmxconvert have no MDL cache (only SFM element classes such as CDmeGameModel use it)
+extern IMDLCache *g_pMDLCache;
 
 
 //-----------------------------------------------------------------------------

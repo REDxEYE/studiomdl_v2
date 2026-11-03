@@ -31,7 +31,6 @@
 #include "tier1/utlstring.h"
 #include "tier1/utlsortvector.h"
 #include "tier1/utldict.h"
-#include "tier1/tier1.h"
 
 
 #ifdef _WIN32
@@ -162,24 +161,21 @@ public:
 };
 
 
-abstract_class CBaseFileSystem : public CTier2AppSystem<IFileSystem> {
+abstract_class CBaseFileSystem : public IFileSystem {
     friend class CFileHandle;
 
     friend class CFileOpenInfo;
-
-    typedef CTier2AppSystem<IFileSystem> BaseClass;
 
 public:
     CBaseFileSystem();
 
     ~CBaseFileSystem();
 
-    // Methods of IAppSystem
-    virtual void *QueryInterface(const char *pInterfaceName);
+    // Never called: Valve's app framework never registered the filesystem as an app system, so these did not run
+    // before the interface system was removed either (path IDs "BSP"/"GAME", fs_debug).
+    bool Init();
 
-    virtual InitReturnVal_t Init();
-
-    virtual void Shutdown();
+    void Shutdown();
 
     void ParsePathID(const char *&pFilename, const char *&pPathID, char tempPathID[MAX_PATH]);
 
@@ -335,11 +331,6 @@ public:
 
     // Returns the file system statistics retreived by the implementation.  Returns NULL if not supported.
     const FileSystemStatistics *GetFilesystemStatistics() override;
-
-    // Load dlls
-    CSysModule *LoadModule(const char *pFileName, const char *pPathID, bool bValidatedDllOnly) override;
-
-    void UnloadModule(CSysModule *pModule) override;
 
     //--------------------------------------------------------
     // pack files

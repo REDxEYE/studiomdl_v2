@@ -32,7 +32,6 @@
 #include "wchartypes.h"
 #include <math.h>
 
-#include "tier0/valve_off.h"
 
 // stdio.h
 #ifndef NULL
@@ -396,6 +395,5 @@ struct interval_t
 // this should == MAX_JOYSTICKS in InputEnums.h
 #define MAX_SPLITSCREEN_CLIENTS	( 1 << MAX_SPLITSCREEN_CLIENT_BITS ) // 2
 
-#include "tier0/valve_on.h"
 
 

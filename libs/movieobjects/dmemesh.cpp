@@ -17,7 +17,6 @@
 #include "movieobjects/dmeselection.h"
 #include "movieobjects/dmedrawsettings.h"
 #include "movieobjects/dmmeshcomp.h"
-#include "tier3/tier3.h"
 #include "tier1/keyvalues.h"
 
 #include "datamodel/dmelementfactoryhelper.h"

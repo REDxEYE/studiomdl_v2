@@ -6,15 +6,15 @@
 
 #include <stdlib.h>
 
-#include "tier1/interface.h"
 #include "studio.h"
 #include "studiomdl/optimize.h"
 #include "common/cmdlib.h"
 #include "studiomdl/studiomdl.h"
 #include "studiomdl/perfstats.h"
+
+#include "studiomdl/studiomdl_global_state.hpp"
 #include "tier1/tier1_logging.h"
 
-extern StudioMdlContext g_StudioMdlContext;
 
 extern void MdlError( char const *pMsg, ... );
 

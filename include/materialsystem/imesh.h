@@ -10,13 +10,11 @@
 #pragma once
 #endif
 
-#include "tier1/interface.h"
 #include <cfloat>
 #include <cstring>
 
 #include "mathlib/ssemath.h"
 #include "tier2/meshutils.h"
-#include "meshutils/mesh.h"
 
 
 

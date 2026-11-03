@@ -17,8 +17,6 @@
 
 //#define IGNORE_BONES
 
-#define NVTRISTRIP
-
 // This is the minimum number of regular subd patches a mesh needs to contain before we split it into 2 draw calls ( regular vs extraordinary )
 #define MINIMUM_REGULAR_PATCHES 300
 
@@ -34,7 +32,7 @@
 #include "studiomdl/hardwarevertexcache.h"
 #include "studiomdl/optimize.h"
 #include <malloc.h>
-#include <nvtristrip.h>
+#include "meshoptimizer.h"
 #include "studiomdl/filebuffer.h"
 #include "tier1/utlvector.h"
 #include "materialsystem/imaterial.h"
@@ -44,8 +42,8 @@
 #define  SUBD_STUDIOMDL
 
 #include "studiomdl/optimize_subd.h"
+#include "studiomdl/studiomdl_global_state.hpp"
 #include "tier1/utlhash.h"
-
 
 bool g_bDumpGLViewFiles;
 
@@ -801,7 +799,7 @@ namespace OptimizedModel {
         if (ppTopologyIndices)
             *ppTopologyIndices = nullptr;
 
-        // Skip the tristripping phase if we're building in preview mode, rendering quads or not hardware skinning
+        // Skip the reordering phase if we're building in preview mode, rendering quads or not hardware skinning
         if (bQuadSubd || g_StudioMdlContext.buildPreview || !bIsHWSkinned || g_StudioMdlContext.preserveTriangleOrder) {
             *pNumIndices = sourceIndices.Count();
             *ppIndices = new unsigned short[*pNumIndices];
@@ -818,18 +816,13 @@ namespace OptimizedModel {
             return;
         }
 
-#ifdef NVTRISTRIP
-        PrimitiveGroup *primGroups;
-        unsigned short numPrimGroups;
-
-        // Be sure to call delete[] on the returned primGroups to avoid leaking memory
-        GenerateStrips(&sourceIndices[0], sourceIndices.Count(), &primGroups, &numPrimGroups);
-        Assert(numPrimGroups == 1);
-        *pNumIndices = primGroups->numIndices;
+        // Reorder the triangle list for the post-transform vertex cache (meshoptimizer; output is still a triangle list)
+        unsigned short maxVertex = 0;
+        for (int i = 0; i < sourceIndices.Count(); i++)
+            maxVertex = std::max(maxVertex, sourceIndices[i]);
+        *pNumIndices = sourceIndices.Count();
         *ppIndices = new unsigned short[*pNumIndices];
-        memcpy(*ppIndices, primGroups->indices, sizeof(unsigned short) * *pNumIndices);
-        delete[] primGroups;
-#endif
+        meshopt_optimizeVertexCache(*ppIndices, sourceIndices.Base(), (size_t) *pNumIndices, (size_t) maxVertex + 1);
     }
 
     //-----------------------------------------------------------------------------
@@ -1189,7 +1182,7 @@ namespace OptimizedModel {
             mstudioboneweight_t *pBoneWeight = vertData->BoneWeights(vertex);
 
             int bonesAffectingVertex = pBoneWeight->numbones;
-            if (!g_staticprop && bonesAffectingVertex <= 0) {
+            if (!g_studiomdl.staticprop && bonesAffectingVertex <= 0) {
                 MdlWarning("too few bones/vert (%d) : it has no bones!\n", bonesAffectingVertex);
             } else if (bonesAffectingVertex > MAX_NUM_BONES_PER_VERT) {
                 MdlError("too many bones/vert (%d) : MAX_NUM_BONES_PER_VERT needs to be upped\n", bonesAffectingVertex);
@@ -1793,7 +1786,7 @@ namespace OptimizedModel {
         int i;
         for (i = 0; i < pStrip->numStripGroupVerts; i++) {
             Vertex_t *pVert = &pStripGroup->verts[i + pStrip->stripGroupVertexOffset];
-            if (!g_staticprop) {
+            if (!g_studiomdl.staticprop) {
                 Assert(pVert->numBones != 0);
             }
             int j;
@@ -2025,14 +2018,6 @@ namespace OptimizedModel {
     void COptimizedModel::SetupMeshProcessing(studiohdr_t *pHdr, int vertexCacheSize,
                                               bool usesFixedFunction, int maxBonesPerVert, int maxBonesPerFace,
                                               int maxBonesPerStrip, const char *fileName) {
-#ifdef NVTRISTRIP
-        // Tell nvtristrip all of its params
-        SetCacheSize(vertexCacheSize);
-        SetStitchStrips(true);
-        SetMinStripSize(0);
-        SetListsOnly(true);
-#endif // NVTRISTRIP
-
         if (!g_StudioMdlContext.quiet) {
             printf("---------------------\n");
             printf("Generating optimized mesh \"%s\":\n", fileName);
@@ -2408,8 +2393,8 @@ namespace OptimizedModel {
                 Model_t &newModel = m_Models[i];
                 mstudiomodel_t *pStudioModel = pBodyPart->pModel(modelID);
                 s_model_t *pSrcModel = pSrcBodyPart->pmodel[modelID];
-                for (lodID = 0; lodID < g_ScriptLODs.Count(); lodID++, stats.m_TotalModelLODs++) {
-                    LodScriptData_t &scriptLOD = g_ScriptLODs[lodID];
+                for (lodID = 0; lodID < g_studiomdl.ScriptLODs.Count(); lodID++, stats.m_TotalModelLODs++) {
+                    LodScriptData_t &scriptLOD = g_studiomdl.ScriptLODs[lodID];
                     s_source_t *pLODSource = pSrcModel->m_LodSources[lodID];
 
                     int i = newModel.modelLODs.AddToTail();
@@ -2445,7 +2430,7 @@ namespace OptimizedModel {
                         //					const char *pDebugName = pHdr->pTexture( textureSearchID )->pszName( );
 #endif
                         // Process Quad-only meshes in software
-                        bool bQuadSubd = (gflags & STUDIOHDR_FLAGS_SUBDIVISION_SURFACE) != 0;
+                        bool bQuadSubd = (g_studiomdl.gflags & STUDIOHDR_FLAGS_SUBDIVISION_SURFACE) != 0;
                         bForceSoftwareSkin = bQuadSubd || bForceSoftwareSkin;
 
                         // Only one of these will actually get used, depending on topology type (tris or quads)
@@ -2590,7 +2575,7 @@ namespace OptimizedModel {
         fileHeader.numBodyParts = numBodyParts;
         fileHeader.bodyPartOffset = sizeof(FileHeader_t);
         fileHeader.checkSum = checkSum;
-        fileHeader.numLODs = g_ScriptLODs.Count();
+        fileHeader.numLODs = g_studiomdl.ScriptLODs.Count();
         fileHeader.materialReplacementListOffset = m_MaterialReplacementsListOffset;
         m_FileBuffer->WriteAt(0, &fileHeader, sizeof(FileHeader_t), "header");
 #ifdef _DEBUG
@@ -2615,7 +2600,7 @@ namespace OptimizedModel {
 
     void COptimizedModel::WriteModel(int modelID, mstudiomodel_t *pModel, int lodID) {
         ModelHeader_t model;
-        model.numLODs = IsChar(g_ScriptLODs.Count());
+        model.numLODs = IsChar(g_studiomdl.ScriptLODs.Count());
         int modelFileOffset = m_ModelsOffset + modelID * sizeof(ModelHeader_t);
         int lodFileOffset = m_ModelLODsOffset + lodID * sizeof(ModelLODHeader_t);
         model.lodOffset = lodFileOffset - modelFileOffset;
@@ -2800,9 +2785,9 @@ namespace OptimizedModel {
     void COptimizedModel::WriteMaterialReplacements(int materialReplacementsOffset) {
         int offset = materialReplacementsOffset;
         int i, j;
-        int numLODs = g_ScriptLODs.Count();
+        int numLODs = g_studiomdl.ScriptLODs.Count();
         for (i = 0; i < numLODs; i++) {
-            LodScriptData_t &scriptLOD = g_ScriptLODs[i];
+            LodScriptData_t &scriptLOD = g_studiomdl.ScriptLODs[i];
             for (j = 0; j < scriptLOD.materialReplacements.Count(); j++) {
                 CLodScriptReplacement_t &materialReplacement = scriptLOD.materialReplacements[j];
                 MaterialReplacementHeader_t tmpHeader;
@@ -2821,9 +2806,9 @@ namespace OptimizedModel {
         int replacementOffset = materialReplacementsOffset;
         int offset = materialReplacementListOffset;
         int i;
-        int numLODs = g_ScriptLODs.Count();
+        int numLODs = g_studiomdl.ScriptLODs.Count();
         for (i = 0; i < numLODs; i++) {
-            LodScriptData_t &scriptLOD = g_ScriptLODs[i];
+            LodScriptData_t &scriptLOD = g_studiomdl.ScriptLODs[i];
             MaterialReplacementListHeader_t tmpHeader;
             tmpHeader.numReplacements = IsChar(scriptLOD.materialReplacements.Count());
             tmpHeader.replacementOffset = IsInt24(replacementOffset - offset);
@@ -2901,7 +2886,7 @@ namespace OptimizedModel {
         m_MaterialReplacementsListOffset =
                 m_MaterialReplacementsOffset + stats.m_TotalMaterialReplacements * sizeof(MaterialReplacementHeader_t);
         m_TopologyOffset =
-                m_MaterialReplacementsListOffset + g_ScriptLODs.Count() * sizeof(MaterialReplacementListHeader_t);
+                m_MaterialReplacementsListOffset + g_studiomdl.ScriptLODs.Count() * sizeof(MaterialReplacementListHeader_t);
         m_EndOfFileOffset = m_TopologyOffset + sizeof(unsigned short) * stats.m_TotalTopologyIndices;
 
         int curModel = 0;
@@ -2932,7 +2917,7 @@ namespace OptimizedModel {
             for (int modelID = 0; modelID < pBodyPart->nummodels; modelID++) {
                 mstudiomodel_t *pStudioModel = pBodyPart->pModel(modelID);
                 Model_t *pModel = &m_Models[curModel + deltaModel];
-                for (int lodID = 0; lodID < g_ScriptLODs.Count(); lodID++) {
+                for (int lodID = 0; lodID < g_studiomdl.ScriptLODs.Count(); lodID++) {
                     //				printf( "lod: %d\n", lodID );
                     ModelLOD_t *pLOD = &pModel->modelLODs[lodID];
                     for (int meshID = 0; meshID < pStudioModel->nummeshes; meshID++) {
@@ -3007,7 +2992,7 @@ namespace OptimizedModel {
         }
 
         RemoveRedundantBoneStateChanges();
-        if (g_staticprop) {
+        if (g_studiomdl.staticprop) {
             ZeroNumBones();
         }
 
@@ -3100,7 +3085,7 @@ namespace OptimizedModel {
                                     printf("bone change: hwid: %llu boneid: %llu (%s)\n",
                                            (uintptr_t) pBoneStateChange->hardwareID,
                                            (uintptr_t) pBoneStateChange->newBoneID,
-                                           g_bonetable[pBoneStateChange->newBoneID].name);
+                                           g_studiomdl.bonetable[pBoneStateChange->newBoneID].name.c_str());
                                 }
                             }
                         }
@@ -3140,9 +3125,9 @@ namespace OptimizedModel {
     static int CalcNumMaterialReplacements() {
         int i;
         int numReplacements = 0;
-        int numLODs = g_ScriptLODs.Count();
+        int numLODs = g_studiomdl.ScriptLODs.Count();
         for (i = 0; i < numLODs; i++) {
-            LodScriptData_t &scriptLOD = g_ScriptLODs[i];
+            LodScriptData_t &scriptLOD = g_studiomdl.ScriptLODs[i];
             numReplacements += scriptLOD.materialReplacements.Count();
         }
         return numReplacements;
@@ -3239,7 +3224,7 @@ namespace OptimizedModel {
         for (i = 0; i < v->numBones; i++) {
             float boneWeight = GetOrigVertBoneWeightValue(pStudioModel, pStudioMesh, v, i);
             printf("\tboneID[%d]: %llu weight: %f (%s)\n", i, (uintptr_t) v->boneID[i], boneWeight,
-                   g_bonetable[v->boneID[i]].name);
+                   g_studiomdl.bonetable[v->boneID[i]].name.c_str());
         }
     }
 
@@ -4080,9 +4065,9 @@ namespace OptimizedModel {
 
     static void AddMaterialReplacementsToStringTable() {
         int i, j;
-        int numLODs = g_ScriptLODs.Count();
+        int numLODs = g_studiomdl.ScriptLODs.Count();
         for (i = 0; i < numLODs; i++) {
-            LodScriptData_t &scriptLOD = g_ScriptLODs[i];
+            LodScriptData_t &scriptLOD = g_studiomdl.ScriptLODs[i];
             for (j = 0; j < scriptLOD.materialReplacements.Count(); j++) {
                 CLodScriptReplacement_t &materialReplacement = scriptLOD.materialReplacements[j];
                 s_StringTable.AddString(materialReplacement.GetDstName());
@@ -4145,7 +4130,7 @@ namespace OptimizedModel {
         //		strcat( filename, "/" );
         //	}
         strcat(filename, "models/");
-        strcat(filename, g_outname);
+        strcat(filename, g_studiomdl.outname);
         Q_StripExtension(filename, filename, sizeof(filename));
 
         if (g_gameinfo.bSupportsDX8 && !g_StudioMdlContext.fastBuild) {
@@ -4153,7 +4138,7 @@ namespace OptimizedModel {
             strcat(tmpFileName, ".sw.vtx");
             strcpy(glViewFilename, filename);
             strcat(glViewFilename, ".sw.glview");
-            bool bForceSoftwareSkinning = phdr->numbones > 0 && !g_staticprop;
+            bool bForceSoftwareSkinning = phdr->numbones > 0 && !g_studiomdl.staticprop;
             s_OptimizedModel.OptimizeFromStudioHdr(phdr, pSrcBodyParts,
                                                    512,    //vert cache size FIXME: figure out the correct size for L1
                                                    false, /* doesn't use fixed function */

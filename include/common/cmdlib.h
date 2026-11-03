@@ -50,12 +50,6 @@ extern bool g_bSuppressPrintfOutput;
 
 extern IBaseFileSystem *g_pFileSystem;
 
-// These call right into the functions in filesystem_tools.h
-void				CmdLib_InitFileSystem( const char *pFilename, int maxMemoryUsage = 0 );
-void				CmdLib_TermFileSystem();	// GracefulExit calls this.
-CreateInterfaceFn	CmdLib_GetFileSystemFactory();
-
-
 #ifdef _WIN32
 #pragma warning(disable : 4244)     // MIPS
 #pragma warning(disable : 4136)     // X86

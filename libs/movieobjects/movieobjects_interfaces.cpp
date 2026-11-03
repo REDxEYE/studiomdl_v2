@@ -4,5 +4,7 @@
 //
 //=============================================================================
 #include "movieobjects_interfaces.h"
+#include "datacache/imdlcache.h"
 
 IGlobalFlexController *g_pGlobalFlexController = nullptr;
+IMDLCache *g_pMDLCache = nullptr;

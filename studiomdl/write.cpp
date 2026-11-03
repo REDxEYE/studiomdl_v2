@@ -16,7 +16,6 @@
 
 #include <filesystem>
 
-#include "studiomdl/platform_compat.h"
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
@@ -32,13 +31,12 @@
 #include "materialsystem/imaterial.h"
 #include "mdlobjects/dmeboneflexdriver.h"
 #include "studiomdl/perfstats.h"
-
-#include "tier1/smartptr.h"
+#include "studiomdl/studiomdl_global_state.hpp"
 
 int totalframes = 0;
 float totalseconds = 0;
 extern int numcommandnodes;
-extern StudioMdlContext g_StudioMdlContext;
+
 
 // WriteFile is the only externally visible function in this file.
 // pData points to the current location in an output buffer and pStart is
@@ -170,7 +168,8 @@ static uint8_t *WriteStringTable(uint8_t *pData) {
             pData += strlen(strings[i].string);
             *pData = '\0';
             pData++;
-        } else {
+        }
+        else {
             // already in table, calc offset of existing string relative to local base
             *strings[i].ptr = strings[strings[i].dupindex].addr - strings[i].base;
         }
@@ -186,7 +185,7 @@ static int BoneNameCompare(const void *elem1, const void *elem2) {
     int index2 = *(uint8_t *) elem2;
 
     // compare bones by name
-    return strcmpi(g_bonetable[index1].name, g_bonetable[index2].name);
+    return strcmpi(g_studiomdl.bonetable[index1].name, g_studiomdl.bonetable[index2].name);
 }
 
 
@@ -245,182 +244,184 @@ static void WriteBoneInfo(studiohdr_t *phdr) {
     phdr->contents = GetDefaultContents();
 
     for (i = 0; i < g_StudioMdlContext.numbones; i++) {
-        AddToStringTable(&pbone[i], &pbone[i].sznameindex, g_bonetable[i].name);
-        pbone[i].parent = g_bonetable[i].parent;
-        pbone[i].flags = g_bonetable[i].flags;
+        AddToStringTable(&pbone[i], &pbone[i].sznameindex, g_studiomdl.bonetable[i].name);
+        pbone[i].parent = g_studiomdl.bonetable[i].parent;
+        pbone[i].flags = g_studiomdl.bonetable[i].flags;
         pbone[i].procindex = 0;
-        pbone[i].physicsbone = g_bonetable[i].physicsBoneIndex;
-        pbone[i].pos = g_bonetable[i].pos;
-        pbone[i].rot = g_bonetable[i].rot;
-        pbone[i].posscale = g_bonetable[i].posscale;
-        pbone[i].rotscale = g_bonetable[i].rotscale;
-        MatrixInvert(g_bonetable[i].boneToPose, pbone[i].poseToBone);
-        pbone[i].qAlignment = g_bonetable[i].qAlignment;
+        pbone[i].physicsbone = g_studiomdl.bonetable[i].physicsBoneIndex;
+        pbone[i].pos = g_studiomdl.bonetable[i].pos;
+        pbone[i].rot = g_studiomdl.bonetable[i].rot;
+        pbone[i].posscale = g_studiomdl.bonetable[i].posscale;
+        pbone[i].rotscale = g_studiomdl.bonetable[i].rotscale;
+        MatrixInvert(g_studiomdl.bonetable[i].boneToPose, pbone[i].poseToBone);
+        pbone[i].qAlignment = g_studiomdl.bonetable[i].qAlignment;
 
-        AngleQuaternion(RadianEuler(g_bonetable[i].rot[0], g_bonetable[i].rot[1], g_bonetable[i].rot[2]),
+        AngleQuaternion(RadianEuler(g_studiomdl.bonetable[i].rot[0], g_studiomdl.bonetable[i].rot[1],
+                                    g_studiomdl.bonetable[i].rot[2]),
                         pbone[i].quat);
         QuaternionAlign(pbone[i].qAlignment, pbone[i].quat, pbone[i].quat);
 
-        pSurfacePropName = GetSurfaceProp(g_bonetable[i].name);
+        pSurfacePropName = GetSurfaceProp(g_studiomdl.bonetable[i].name);
         AddToStringTable(&pbone[i], &pbone[i].surfacepropidx, pSurfacePropName);
-        pbone[i].contents = GetContents(g_bonetable[i].name);
+        pbone[i].contents = GetContents(g_studiomdl.bonetable[i].name);
     }
 
     pData += g_StudioMdlContext.numbones * sizeof(mstudiobone_t);
     ALIGN4(pData);
 
     // save procedural bone info
-    if (g_numaxisinterpbones) {
+    if (g_studiomdl.numaxisinterpbones) {
         mstudioaxisinterpbone_t *pProc = (mstudioaxisinterpbone_t *) pData;
-        for (i = 0; i < g_numaxisinterpbones; i++) {
-            j = g_axisinterpbonemap[i];
-            k = g_axisinterpbones[j].bone;
+        for (i = 0; i < g_studiomdl.numaxisinterpbones; i++) {
+            j = g_studiomdl.axisinterpbonemap[i];
+            k = g_studiomdl.axisinterpbones[j].bone;
             pbone[k].procindex = (uint8_t *) &pProc[i] - (uint8_t *) &pbone[k];
             pbone[k].proctype = STUDIO_PROC_AXISINTERP;
             // printf("bone %d %d\n", j, pbone[k].procindex );
-            pProc[i].control = g_axisinterpbones[j].control;
-            pProc[i].axis = g_axisinterpbones[j].axis;
+            pProc[i].control = g_studiomdl.axisinterpbones[j].control;
+            pProc[i].axis = g_studiomdl.axisinterpbones[j].axis;
             for (k = 0; k < 6; k++) {
-                VectorCopy(g_axisinterpbones[j].pos[k], pProc[i].pos[k]);
-                pProc[i].quat[k] = g_axisinterpbones[j].quat[k];
+                VectorCopy(g_studiomdl.axisinterpbones[j].pos[k], pProc[i].pos[k]);
+                pProc[i].quat[k] = g_studiomdl.axisinterpbones[j].quat[k];
             }
         }
-        pData += g_numaxisinterpbones * sizeof(mstudioaxisinterpbone_t);
+        pData += g_studiomdl.numaxisinterpbones * sizeof(mstudioaxisinterpbone_t);
         ALIGN4(pData);
     }
 
-    if (g_numquatinterpbones) {
+    if (g_studiomdl.numquatinterpbones) {
         mstudioquatinterpbone_t *pProc = (mstudioquatinterpbone_t *) pData;
-        pData += g_numquatinterpbones * sizeof(mstudioquatinterpbone_t);
+        pData += g_studiomdl.numquatinterpbones * sizeof(mstudioquatinterpbone_t);
         ALIGN4(pData);
 
-        for (i = 0; i < g_numquatinterpbones; i++) {
-            j = g_quatinterpbonemap[i];
-            k = g_quatinterpbones[j].bone;
+        for (i = 0; i < g_studiomdl.numquatinterpbones; i++) {
+            j = g_studiomdl.quatinterpbonemap[i];
+            k = g_studiomdl.quatinterpbones[j].bone;
             pbone[k].procindex = (uint8_t *) &pProc[i] - (uint8_t *) &pbone[k];
             pbone[k].proctype = STUDIO_PROC_QUATINTERP;
             // printf("bone %d %d\n", j, pbone[k].procindex );
-            pProc[i].control = g_quatinterpbones[j].control;
+            pProc[i].control = g_studiomdl.quatinterpbones[j].control;
 
             mstudioquatinterpinfo_t *pTrigger = (mstudioquatinterpinfo_t *) pData;
-            pProc[i].numtriggers = g_quatinterpbones[j].numtriggers;
+            pProc[i].numtriggers = g_studiomdl.quatinterpbones[j].numtriggers;
             pProc[i].triggerindex = (uint8_t *) pTrigger - (uint8_t *) &pProc[i];
             pData += pProc[i].numtriggers * sizeof(mstudioquatinterpinfo_t);
 
             for (k = 0; k < pProc[i].numtriggers; k++) {
-                pTrigger[k].inv_tolerance = 1.0 / g_quatinterpbones[j].tolerance[k];
-                pTrigger[k].trigger = g_quatinterpbones[j].trigger[k];
-                pTrigger[k].pos = g_quatinterpbones[j].pos[k];
-                pTrigger[k].quat = g_quatinterpbones[j].quat[k];
+                pTrigger[k].inv_tolerance = 1.0 / g_studiomdl.quatinterpbones[j].tolerance[k];
+                pTrigger[k].trigger = g_studiomdl.quatinterpbones[j].trigger[k];
+                pTrigger[k].pos = g_studiomdl.quatinterpbones[j].pos[k];
+                pTrigger[k].quat = g_studiomdl.quatinterpbones[j].quat[k];
             }
         }
     }
 
-    if (g_numjigglebones) {
+    if (g_studiomdl.numjigglebones) {
         mstudiojigglebone_t *jiggleInfo = (mstudiojigglebone_t *) pData;
 
-        for (i = 0; i < g_numjigglebones; i++) {
-            j = g_jigglebonemap[i];
-            k = g_jigglebones[j].bone;
+        for (i = 0; i < g_studiomdl.numjigglebones; i++) {
+            j = g_studiomdl.jigglebonemap[i];
+            k = g_studiomdl.jigglebones[j].bone;
             pbone[k].procindex = (uint8_t *) &jiggleInfo[i] - (uint8_t *) &pbone[k];
             pbone[k].proctype = STUDIO_PROC_JIGGLE;
 
-            jiggleInfo[i] = g_jigglebones[j].data;
+            jiggleInfo[i] = g_studiomdl.jigglebones[j].data;
         }
-        pData += g_numjigglebones * sizeof(mstudiojigglebone_t);
+        pData += g_studiomdl.numjigglebones * sizeof(mstudiojigglebone_t);
         ALIGN4(pData);
     }
 
     // write aim at bones
-    if (g_numaimatbones) {
+    if (g_studiomdl.numaimatbones) {
         mstudioaimatbone_t *pProc = (mstudioaimatbone_t *) pData;
-        for (i = 0; i < g_numaimatbones; i++) {
-            j = g_aimatbonemap[i];
-            k = g_aimatbones[j].bone;
+        for (i = 0; i < g_studiomdl.numaimatbones; i++) {
+            j = g_studiomdl.aimatbonemap[i];
+            k = g_studiomdl.aimatbones[j].bone;
             pbone[k].procindex = (uint8_t *) &pProc[i] - (uint8_t *) &pbone[k];
-            pbone[k].proctype = g_aimatbones[j].aimAttach == -1 ? STUDIO_PROC_AIMATBONE : STUDIO_PROC_AIMATATTACH;
-            pProc[i].parent = g_aimatbones[j].parent;
-            pProc[i].aim = g_aimatbones[j].aimAttach == -1 ? g_aimatbones[j].aimBone : g_aimatbones[j].aimAttach;
-            pProc[i].aimvector = g_aimatbones[j].aimvector;
-            pProc[i].upvector = g_aimatbones[j].upvector;
-            pProc[i].basepos = g_aimatbones[j].basepos;
+            pbone[k].proctype = g_studiomdl.aimatbones[j].aimAttach == -1
+                                    ? STUDIO_PROC_AIMATBONE
+                                    : STUDIO_PROC_AIMATATTACH;
+            pProc[i].parent = g_studiomdl.aimatbones[j].parent;
+            pProc[i].aim = g_studiomdl.aimatbones[j].aimAttach == -1
+                               ? g_studiomdl.aimatbones[j].aimBone
+                               : g_studiomdl.aimatbones[j].aimAttach;
+            pProc[i].aimvector = g_studiomdl.aimatbones[j].aimvector;
+            pProc[i].upvector = g_studiomdl.aimatbones[j].upvector;
+            pProc[i].basepos = g_studiomdl.aimatbones[j].basepos;
         }
-        pData += g_numaimatbones * sizeof(mstudioaimatbone_t);
+        pData += g_studiomdl.numaimatbones * sizeof(mstudioaimatbone_t);
         ALIGN4(pData);
     }
 
     // Write twist bones
 #if 0 // DISABLED IN CSGO
-                                                                                                                            if ( g_twistbones.Count() > 0 )
-	{
-		mstudiotwistbone_t *pProc = (mstudiotwistbone_t *)pData;
-		pData += g_twistbones.Count() * sizeof( mstudiotwistbone_t );
-		ALIGN4( pData );
+    if (g_twistbones.Count() > 0) {
+        mstudiotwistbone_t *pProc = (mstudiotwistbone_t *) pData;
+        pData += g_twistbones.Count() * sizeof(mstudiotwistbone_t);
+        ALIGN4(pData);
 
-		for ( i = 0; i < g_twistbones.Count(); ++i )
-		{
-			const CTwistBone &twistBone = g_twistbones[i];
-			pProc[i].m_bInverse = twistBone.m_bInverse;
-			pProc[i].m_vUpVector = twistBone.m_vUpVector;
-			pProc[i].m_nParentBone = twistBone.m_nParentBone;
-			QuaternionInvert( twistBone.m_qBaseRotation, pProc[i].m_qBaseInv );
-			pProc[i].m_nChildBone = twistBone.m_nChildBone;
+        for (i = 0; i < g_twistbones.Count(); ++i) {
+            const CTwistBone &twistBone = g_twistbones[i];
+            pProc[i].m_bInverse = twistBone.m_bInverse;
+            pProc[i].m_vUpVector = twistBone.m_vUpVector;
+            pProc[i].m_nParentBone = twistBone.m_nParentBone;
+            QuaternionInvert(twistBone.m_qBaseRotation, pProc[i].m_qBaseInv);
+            pProc[i].m_nChildBone = twistBone.m_nChildBone;
 
-			mstudiotwistbonetarget_t *pTarget = (mstudiotwistbonetarget_t *)pData;
-			pProc[i].m_nTargetCount = twistBone.m_twistBoneTargets.Count();
-			pProc[i].m_nTargetIndex = (uint8_t *)pTarget - (uint8_t *)&pProc[i];
-			pData += twistBone.m_twistBoneTargets.Count() * sizeof( mstudiotwistbone_t );
-			ALIGN4( pData );
+            mstudiotwistbonetarget_t *pTarget = (mstudiotwistbonetarget_t *) pData;
+            pProc[i].m_nTargetCount = twistBone.m_twistBoneTargets.Count();
+            pProc[i].m_nTargetIndex = (uint8_t *) pTarget - (uint8_t *) &pProc[i];
+            pData += twistBone.m_twistBoneTargets.Count() * sizeof(mstudiotwistbone_t);
+            ALIGN4(pData);
 
-			for ( j = 0; j < twistBone.m_twistBoneTargets.Count(); ++j )
-			{
-				const s_constraintbonetarget_t &twistBoneTarget = twistBone.m_twistBoneTargets[j];
+            for (j = 0; j < twistBone.m_twistBoneTargets.Count(); ++j) {
+                const s_constraintbonetarget_t &twistBoneTarget = twistBone.m_twistBoneTargets[j];
 
-				k = twistBoneTarget.m_nBone;
-				pTarget[j].m_nBone = k;
-				pTarget[j].m_flWeight = twistBoneTarget.m_flWeight;
-				pTarget[j].m_vBaseTranslate = twistBoneTarget.m_vOffset;
-				pTarget[j].m_qBaseRotation = twistBoneTarget.m_qOffset;
+                k = twistBoneTarget.m_nBone;
+                pTarget[j].m_nBone = k;
+                pTarget[j].m_flWeight = twistBoneTarget.m_flWeight;
+                pTarget[j].m_vBaseTranslate = twistBoneTarget.m_vOffset;
+                pTarget[j].m_qBaseRotation = twistBoneTarget.m_qOffset;
 
-				pbone[k].procindex = (uint8_t *)&pProc[i] - (uint8_t *)&pbone[k];
-				pbone[k].proctype = j == 0 ? STUDIO_PROC_TWIST_MASTER : STUDIO_PROC_TWIST_SLAVE;
-			}
-		}
-	}
+                pbone[k].procindex = (uint8_t *) &pProc[i] - (uint8_t *) &pbone[k];
+                pbone[k].proctype = j == 0 ? STUDIO_PROC_TWIST_MASTER : STUDIO_PROC_TWIST_SLAVE;
+            }
+        }
+    }
 #endif
 
     // Write constraint bones
-    if (g_constraintBones.Count() > 0) {
-        for (int i = 0; i < g_constraintBones.Count(); ++i) {
-            CConstraintBoneBase *pConstraintBone = g_constraintBones[i];
+    if (g_studiomdl.constraintBones.Count() > 0) {
+        for (int i = 0; i < g_studiomdl.constraintBones.Count(); ++i) {
+            CConstraintBoneBase *pConstraintBone = g_studiomdl.constraintBones[i];
             if (!pConstraintBone)
                 continue;
 
             {
-                CPointConstraint *pConstraint = dynamic_cast< CPointConstraint * >( pConstraintBone );
+                CPointConstraint *pConstraint = dynamic_cast<CPointConstraint *>(pConstraintBone);
                 if (pConstraint) {
                     WriteBaseConstraint<CPointConstraint, mstudiopointconstraint_t, STUDIO_PROC_POINT_CONSTRAINT>(
-                            pConstraint, pbone);
+                        pConstraint, pbone);
                     continue;
                 }
             }
 
             {
-                COrientConstraint *pConstraint = dynamic_cast< COrientConstraint * >( pConstraintBone );
+                COrientConstraint *pConstraint = dynamic_cast<COrientConstraint *>(pConstraintBone);
                 if (pConstraint) {
                     WriteBaseConstraint<COrientConstraint, mstudioorientconstraint_t, STUDIO_PROC_ORIENT_CONSTRAINT>(
-                            pConstraint, pbone);
+                        pConstraint, pbone);
                     continue;
                 }
             }
 
             {
-                CAimConstraint *pConstraint = dynamic_cast< CAimConstraint * >( pConstraintBone );
+                CAimConstraint *pConstraint = dynamic_cast<CAimConstraint *>(pConstraintBone);
 
                 if (pConstraint) {
                     mstudioaimconstraint_t *pProc =
                             WriteBaseConstraint<CAimConstraint, mstudioaimconstraint_t, STUDIO_PROC_AIM_CONSTRAINT>(
-                                    pConstraint, pbone);
+                                pConstraint, pbone);
 
                     if (pProc) {
                         // Local Aim Constraint Parameters
@@ -435,10 +436,10 @@ static void WriteBoneInfo(studiohdr_t *phdr) {
             }
 
             {
-                CParentConstraint *pConstraint = dynamic_cast< CParentConstraint * >( pConstraintBone );
+                CParentConstraint *pConstraint = dynamic_cast<CParentConstraint *>(pConstraintBone);
                 if (pConstraint) {
                     WriteBaseConstraint<CParentConstraint, mstudioparentconstraint_t, STUDIO_PROC_PARENT_CONSTRAINT>(
-                            pConstraint, pbone);
+                        pConstraint, pbone);
                     continue;
                 }
             }
@@ -447,16 +448,16 @@ static void WriteBoneInfo(studiohdr_t *phdr) {
         }
     }
 
-    // map g_bonecontroller to bones
+    // map g_studiomdl.bonecontroller to bones
     for (i = 0; i < g_StudioMdlContext.numbones; i++) {
         for (j = 0; j < 6; j++) {
             pbone[i].bonecontroller[j] = -1;
         }
     }
 
-    for (i = 0; i < g_numbonecontrollers; i++) {
-        j = g_bonecontroller[i].bone;
-        switch (g_bonecontroller[i].type & STUDIO_TYPES) {
+    for (i = 0; i < g_studiomdl.bonecontrollers.size(); i++) {
+        j = g_studiomdl.bonecontrollers[i].bone;
+        switch (g_studiomdl.bonecontrollers[i].type & STUDIO_TYPES) {
             case STUDIO_X:
                 pbone[j].bonecontroller[0] = i;
                 break;
@@ -476,37 +477,37 @@ static void WriteBoneInfo(studiohdr_t *phdr) {
                 pbone[j].bonecontroller[5] = i;
                 break;
             default:
-                MdlError("unknown g_bonecontroller type\n");
+                MdlError("unknown g_studiomdl.bonecontroller type\n");
         }
     }
 
-    // save g_bonecontroller info
+    // save g_studiomdl.bonecontroller info
     pbonecontroller = (mstudiobonecontroller_t *) pData;
-    phdr->numbonecontrollers = g_numbonecontrollers;
+    phdr->numbonecontrollers = g_studiomdl.bonecontrollers.size();
     phdr->bonecontrollerindex = pData - pStart;
 
-    for (i = 0; i < g_numbonecontrollers; i++) {
-        pbonecontroller[i].bone = g_bonecontroller[i].bone;
-        pbonecontroller[i].inputfield = g_bonecontroller[i].inputfield;
-        pbonecontroller[i].type = g_bonecontroller[i].type;
-        pbonecontroller[i].start = g_bonecontroller[i].start;
-        pbonecontroller[i].end = g_bonecontroller[i].end;
+    for (i = 0; i < g_studiomdl.bonecontrollers.size(); i++) {
+        pbonecontroller[i].bone = g_studiomdl.bonecontrollers[i].bone;
+        pbonecontroller[i].inputfield = g_studiomdl.bonecontrollers[i].inputfield;
+        pbonecontroller[i].type = g_studiomdl.bonecontrollers[i].type;
+        pbonecontroller[i].start = g_studiomdl.bonecontrollers[i].start;
+        pbonecontroller[i].end = g_studiomdl.bonecontrollers[i].end;
     }
-    pData += g_numbonecontrollers * sizeof(mstudiobonecontroller_t);
+    pData += g_studiomdl.bonecontrollers.size() * sizeof(mstudiobonecontroller_t);
     ALIGN4(pData);
 
     // save attachment info
     pattachment = (mstudioattachment_t *) pData;
-    phdr->numlocalattachments = g_numattachments;
+    phdr->numlocalattachments = g_studiomdl.attachments.size();
     phdr->localattachmentindex = pData - pStart;
 
-    for (i = 0; i < g_numattachments; i++) {
-        pattachment[i].localbone = g_attachment[i].bone;
-        AddToStringTable(&pattachment[i], &pattachment[i].sznameindex, g_attachment[i].name);
-        MatrixCopy(g_attachment[i].local, pattachment[i].local);
-        pattachment[i].flags = g_attachment[i].flags;
+    for (i = 0; i < g_studiomdl.attachments.size(); i++) {
+        pattachment[i].localbone = g_studiomdl.attachments[i].bone;
+        AddToStringTable(&pattachment[i], &pattachment[i].sznameindex, g_studiomdl.attachments[i].name.c_str());
+        MatrixCopy(g_studiomdl.attachments[i].local, pattachment[i].local);
+        pattachment[i].flags = g_studiomdl.attachments[i].flags;
     }
-    pData += g_numattachments * sizeof(mstudioattachment_t);
+    pData += g_studiomdl.attachments.size() * sizeof(mstudioattachment_t);
     ALIGN4(pData);
 
     // save hitbox sets
@@ -564,7 +565,7 @@ void LoadPreexistingSequenceOrder(const char *pFilename) {
     if (!FileExists(pFilename)) {
         if (g_StudioMdlContext.errorOnSeqRemapFail)
             MdlError(
-                    "This model requires a sequence remapping match. Please sync to the latest model on disk before recompiling.\n");
+                "This model requires a sequence remapping match. Please sync to the latest model on disk before recompiling.\n");
         return;
     }
 
@@ -580,11 +581,14 @@ void LoadPreexistingSequenceOrder(const char *pFilename) {
             //Msg( "   Sequence %i : \"%s\"\n", i, pStudioHdr->pSeqdesc(i).pszLabel() );
             g_vecPreexistingSequences.AddToTail(pStudioHdr->pSeqdesc(i).pszLabel());
         }
-    } else if (g_StudioMdlContext.modelIntentionallyHasZeroSequences) {
+    }
+    else if (g_StudioMdlContext.modelIntentionallyHasZeroSequences) {
         // some models like scaffolds, intentionally don't have input sequences. Not sure if this is the best way to allow this exception.
-    } else if (g_StudioMdlContext.errorOnSeqRemapFail) {
+    }
+    else if (g_StudioMdlContext.errorOnSeqRemapFail) {
         MdlError("Zero-size file or no sequences. This model requires a sequence remapping match.\n");
-    } else {
+    }
+    else {
         MdlWarning("Zero-size file or no sequences.\n");
     }
 }
@@ -599,17 +603,17 @@ static void WriteSequenceInfo(studiohdr_t *phdr) {
     mstudioanimtag_t *panimtag;
 
     // write models to disk with this flag set false. This will force
-    // the sequences to be indexed by activity whenever the g_model is loaded
+    // the sequences to be indexed by activity whenever the g_studiomdl.model is loaded
     // from disk.
     phdr->activitylistversion = 0;
     phdr->eventsindexed = 0;
 
-    // save g_sequence info
+    // save g_studiomdl.sequence info
     pseqdesc = (mstudioseqdesc_t *) pData;
     pbaseseqdesc = pseqdesc;
-    phdr->numlocalseq = g_sequence.Count();
+    phdr->numlocalseq = g_studiomdl.sequence.Count();
     phdr->localseqindex = (pData - pStart);
-    pData += g_sequence.Count() * sizeof(mstudioseqdesc_t);
+    pData += g_studiomdl.sequence.Count() * sizeof(mstudioseqdesc_t);
 
     bool bErrors = false;
 
@@ -623,17 +627,17 @@ static void WriteSequenceInfo(studiohdr_t *phdr) {
     bool bAllowSequenceRemoval = false;
 
     if (g_vecPreexistingSequences.Count()) {
-
-        if (g_sequence.Count() < g_vecPreexistingSequences.Count() && !bAllowSequenceRemoval) {
+        if (g_studiomdl.sequence.Count() < g_vecPreexistingSequences.Count() && !bAllowSequenceRemoval) {
             Msg("\n");
             MdlWarning(
-                    "This model has fewer sequences than its predecessor.\nPlease confirm sequence deletion: [y/n] ");
+                "This model has fewer sequences than its predecessor.\nPlease confirm sequence deletion: [y/n] ");
             int nInput = 0;
-            do { nInput = getchar(); } while (nInput != 121 /* y */ && nInput != 110 /* n */ );
+            do { nInput = getchar(); } while (nInput != 121 /* y */ && nInput != 110 /* n */);
 
             if (nInput == 110) {
                 MdlError("Model contains fewer sequences than its predecessor!\n");
-            } else if (nInput == 121) {
+            }
+            else if (nInput == 121) {
                 bAllowSequenceRemoval = true;
             }
         }
@@ -645,16 +649,19 @@ static void WriteSequenceInfo(studiohdr_t *phdr) {
             vecNewIndices.RemoveAll();
 
             // map current sequences to their old indices
-            for (i = 0; i < g_sequence.Count(); i++) {
-                int nIdx = g_vecPreexistingSequences.Find(g_sequence[i].name);
+            for (i = 0; i < g_studiomdl.sequence.Count(); i++) {
+                int nIdx = g_vecPreexistingSequences.Find(g_studiomdl.sequence[i].name);
                 if (nIdx >= 0) {
                     nSeqOrderRemappingTable[nIdx] = i;
-                } else {
+                }
+                else {
                     if (i < g_vecPreexistingSequences.Count()) {
-                        Msg("  Found new sequence \"%s\" using index of old sequence \"%s\".\n", g_sequence[i].name,
+                        Msg("  Found new sequence \"%s\" using index of old sequence \"%s\".\n",
+                            g_studiomdl.sequence[i].name,
                             g_vecPreexistingSequences[i].Get());
-                    } else {
-                        Msg("  Found new sequence \"%s\".\n", g_sequence[i].name);
+                    }
+                    else {
+                        Msg("  Found new sequence \"%s\".\n", g_studiomdl.sequence[i].name);
                     }
 
                     vecNewIndices.AddToTail(i);
@@ -673,7 +680,7 @@ static void WriteSequenceInfo(studiohdr_t *phdr) {
             }
 
             // verify no indices are undefined
-            for (i = 0; i < g_sequence.Count(); i++) {
+            for (i = 0; i < g_studiomdl.sequence.Count(); i++) {
                 if (nSeqOrderRemappingTable[i] == -1) {
                     if (bAllowSequenceRemoval) {
                         do {
@@ -681,18 +688,20 @@ static void WriteSequenceInfo(studiohdr_t *phdr) {
                                 nSeqOrderRemappingTable[nB] = nSeqOrderRemappingTable[nB + 1];
                             }
                         } while (nSeqOrderRemappingTable[i] == -1);
-                    } else {
+                    }
+                    else {
                         MdlError("Failed to reorder sequence indices.\n");
                     }
-
-                } else if (nSeqOrderRemappingTable[i] != i) {
+                }
+                else if (nSeqOrderRemappingTable[i] != i) {
                     bUseSeqOrderRemapping = true;
                 }
             }
 
             if (bUseSeqOrderRemapping) {
                 Msg("Sequence indices need re-ordering.\n");
-            } else {
+            }
+            else {
                 Msg("No re-ordering required.\n");
             }
         }
@@ -706,127 +715,131 @@ static void WriteSequenceInfo(studiohdr_t *phdr) {
     }
 
     int m;
-    for (m = 0; m < g_sequence.Count(); m++, pseqdesc++) {
-
+    for (m = 0; m < g_studiomdl.sequence.Count(); m++, pseqdesc++) {
         if (bUseSeqOrderRemapping) {
             i = nSeqOrderRemappingTable[m];
             if (i != m) {
-                Msg("   Remapping sequence %i to index %i (%s) to retain existing order.\n", i, m, g_sequence[i].name);
+                Msg("   Remapping sequence %i to index %i (%s) to retain existing order.\n", i, m,
+                    g_studiomdl.sequence[i].name);
             }
-        } else {
+        }
+        else {
             i = m;
         }
 
         uint8_t *pSequenceStart = (uint8_t *) pseqdesc;
 
-        AddToStringTable(pseqdesc, &pseqdesc->szlabelindex, g_sequence[i].name);
-        AddToStringTable(pseqdesc, &pseqdesc->szactivitynameindex, g_sequence[i].activityname);
+        AddToStringTable(pseqdesc, &pseqdesc->szlabelindex, g_studiomdl.sequence[i].name);
+        AddToStringTable(pseqdesc, &pseqdesc->szactivitynameindex, g_studiomdl.sequence[i].activityname);
 
         pseqdesc->baseptr = pStart - (uint8_t *) pseqdesc;
 
-        pseqdesc->flags = g_sequence[i].flags;
+        pseqdesc->flags = g_studiomdl.sequence[i].flags;
 
-        pseqdesc->numblends = g_sequence[i].numblends;
-        pseqdesc->groupsize[0] = g_sequence[i].groupsize[0];
-        pseqdesc->groupsize[1] = g_sequence[i].groupsize[1];
+        pseqdesc->numblends = g_studiomdl.sequence[i].numblends;
+        pseqdesc->groupsize[0] = g_studiomdl.sequence[i].groupsize[0];
+        pseqdesc->groupsize[1] = g_studiomdl.sequence[i].groupsize[1];
 
-        pseqdesc->paramindex[0] = g_sequence[i].paramindex[0];
-        pseqdesc->paramstart[0] = g_sequence[i].paramstart[0];
-        pseqdesc->paramend[0] = g_sequence[i].paramend[0];
-        pseqdesc->paramindex[1] = g_sequence[i].paramindex[1];
-        pseqdesc->paramstart[1] = g_sequence[i].paramstart[1];
-        pseqdesc->paramend[1] = g_sequence[i].paramend[1];
+        pseqdesc->paramindex[0] = g_studiomdl.sequence[i].paramindex[0];
+        pseqdesc->paramstart[0] = g_studiomdl.sequence[i].paramstart[0];
+        pseqdesc->paramend[0] = g_studiomdl.sequence[i].paramend[0];
+        pseqdesc->paramindex[1] = g_studiomdl.sequence[i].paramindex[1];
+        pseqdesc->paramstart[1] = g_studiomdl.sequence[i].paramstart[1];
+        pseqdesc->paramend[1] = g_studiomdl.sequence[i].paramend[1];
 
-        if (g_sequence[i].groupsize[0] > 1 || g_sequence[i].groupsize[1] > 1) {
+        if (g_studiomdl.sequence[i].groupsize[0] > 1 || g_studiomdl.sequence[i].groupsize[1] > 1) {
             // save posekey values
             float *pposekey = (float *) pData;
             pseqdesc->posekeyindex = (pData - pSequenceStart);
             pData += (pseqdesc->groupsize[0] + pseqdesc->groupsize[1]) * sizeof(float);
             for (j = 0; j < pseqdesc->groupsize[0]; j++) {
-                if (g_sequence[i].param0.IsValidIndex(j)) {
-                    *(pposekey++) = g_sequence[i].param0[j];
-                } else {
+                if (g_studiomdl.sequence[i].param0.IsValidIndex(j)) {
+                    *(pposekey++) = g_studiomdl.sequence[i].param0[j];
+                }
+                else {
                     *(pposekey++) = NULL;
                 }
-                // printf("%.2f ", g_sequence[i].param0[j] );
+                // printf("%.2f ", g_studiomdl.sequence[i].param0[j] );
             }
             for (j = 0; j < pseqdesc->groupsize[1]; j++) {
-                if (g_sequence[i].param1.IsValidIndex(j)) {
-                    *(pposekey++) = g_sequence[i].param1[j];
-                } else {
+                if (g_studiomdl.sequence[i].param1.IsValidIndex(j)) {
+                    *(pposekey++) = g_studiomdl.sequence[i].param1[j];
+                }
+                else {
                     *(pposekey++) = NULL;
                 }
-                // printf("%.2f ", g_sequence[i].param1[j] );
+                // printf("%.2f ", g_studiomdl.sequence[i].param1[j] );
             }
             // printf("\n" );
         }
 
-        // pseqdesc->motiontype	= g_sequence[i].motiontype;
-        // pseqdesc->motionbone	= 0; // g_sequence[i].motionbone;
-        // VectorCopy( g_sequence[i].linearmovement, pseqdesc->linearmovement );
+        // pseqdesc->motiontype	= g_studiomdl.sequence[i].motiontype;
+        // pseqdesc->motionbone	= 0; // g_studiomdl.sequence[i].motionbone;
+        // VectorCopy( g_studiomdl.sequence[i].linearmovement, pseqdesc->linearmovement );
 
-        pseqdesc->activity = g_sequence[i].activity;
-        pseqdesc->actweight = g_sequence[i].actweight;
+        pseqdesc->activity = g_studiomdl.sequence[i].activity;
+        pseqdesc->actweight = g_studiomdl.sequence[i].actweight;
 
-        pseqdesc->bbmin = g_sequence[i].bmin;
-        pseqdesc->bbmax = g_sequence[i].bmax;
+        pseqdesc->bbmin = g_studiomdl.sequence[i].bmin;
+        pseqdesc->bbmax = g_studiomdl.sequence[i].bmax;
 
-        pseqdesc->fadeintime = g_sequence[i].fadeintime;
-        pseqdesc->fadeouttime = g_sequence[i].fadeouttime;
+        pseqdesc->fadeintime = g_studiomdl.sequence[i].fadeintime;
+        pseqdesc->fadeouttime = g_studiomdl.sequence[i].fadeouttime;
 
-        pseqdesc->localentrynode = g_sequence[i].entrynode;
-        pseqdesc->localexitnode = g_sequence[i].exitnode;
-        //pseqdesc->entryphase	= g_sequence[i].entryphase;
-        //pseqdesc->exitphase		= g_sequence[i].exitphase;
-        pseqdesc->nodeflags = g_sequence[i].nodeflags;
+        pseqdesc->localentrynode = g_studiomdl.sequence[i].entrynode;
+        pseqdesc->localexitnode = g_studiomdl.sequence[i].exitnode;
+        //pseqdesc->entryphase	= g_studiomdl.sequence[i].entryphase;
+        //pseqdesc->exitphase		= g_studiomdl.sequence[i].exitphase;
+        pseqdesc->nodeflags = g_studiomdl.sequence[i].nodeflags;
 
         // save events
         pevent = (mstudioevent_t *) pData;
-        pseqdesc->numevents = g_sequence[i].numevents;
+        pseqdesc->numevents = g_studiomdl.sequence[i].numevents;
         pseqdesc->eventindex = (pData - pSequenceStart);
         pData += pseqdesc->numevents * sizeof(mstudioevent_t);
-        for (j = 0; j < g_sequence[i].numevents; j++) {
-            k = g_sequence[i].panim[0][0]->numframes - 1;
+        for (j = 0; j < g_studiomdl.sequence[i].numevents; j++) {
+            k = g_studiomdl.sequence[i].panim[0][0]->numframes - 1;
 
-            if (g_sequence[i].event[j].frame <= k)
-                pevent[j].cycle = g_sequence[i].event[j].frame / ((float) k);
-            else if (k == 0 && g_sequence[i].event[j].frame == 0)
+            if (g_studiomdl.sequence[i].event[j].frame <= k)
+                pevent[j].cycle = g_studiomdl.sequence[i].event[j].frame / ((float) k);
+            else if (k == 0 && g_studiomdl.sequence[i].event[j].frame == 0)
                 pevent[j].cycle = 0;
             else {
-                MdlWarning("Event %d (frame %d) out of range in %s\n", g_sequence[i].event[j].event,
-                           g_sequence[i].event[j].frame, g_sequence[i].name);
+                MdlWarning("Event %d (frame %d) out of range in %s\n", g_studiomdl.sequence[i].event[j].event,
+                           g_studiomdl.sequence[i].event[j].frame, g_studiomdl.sequence[i].name);
                 bErrors = true;
             }
 
             //Adrian - Remove me once we phase out the old event system.
-            if (V_isdigit(g_sequence[i].event[j].eventname[0])) {
-                pevent[j].event = atoi(g_sequence[i].event[j].eventname);
+            if (V_isdigit(g_studiomdl.sequence[i].event[j].eventname[0])) {
+                pevent[j].event = atoi(g_studiomdl.sequence[i].event[j].eventname);
                 pevent[j].type = 0;
                 pevent[j].szeventindex = 0;
-            } else {
-                AddToStringTable(&pevent[j], &pevent[j].szeventindex, g_sequence[i].event[j].eventname);
+            }
+            else {
+                AddToStringTable(&pevent[j], &pevent[j].szeventindex, g_studiomdl.sequence[i].event[j].eventname);
                 pevent[j].type = NEW_EVENT_STYLE;
             }
 
 
-            // printf("%4d : %d %f\n", pevent[j].event, g_sequence[i].event[j].frame, pevent[j].cycle );
-            // AddToStringTable( &pevent[j], &pevent[j].szoptionindex, g_sequence[i].event[j].options );
-            strcpy(pevent[j].options, g_sequence[i].event[j].options);
+            // printf("%4d : %d %f\n", pevent[j].event, g_studiomdl.sequence[i].event[j].frame, pevent[j].cycle );
+            // AddToStringTable( &pevent[j], &pevent[j].szoptionindex, g_studiomdl.sequence[i].event[j].options );
+            strcpy(pevent[j].options, g_studiomdl.sequence[i].event[j].options);
         }
         ALIGN4(pData);
 
         // save ikrules
-        pseqdesc->numikrules = g_sequence[i].numikrules;
+        pseqdesc->numikrules = g_studiomdl.sequence[i].numikrules;
 
         // save autolayers
         mstudioautolayer_t *pautolayer = (mstudioautolayer_t *) pData;
-        pseqdesc->numautolayers = g_sequence[i].numautolayers;
+        pseqdesc->numautolayers = g_studiomdl.sequence[i].numautolayers;
         pseqdesc->autolayerindex = (pData - pSequenceStart);
         pData += pseqdesc->numautolayers * sizeof(mstudioautolayer_t);
-        for (j = 0; j < g_sequence[i].numautolayers; j++) {
-            pautolayer[j].iSequence = g_sequence[i].autolayer[j].sequence;
-            pautolayer[j].iPose = g_sequence[i].autolayer[j].pose;
-            pautolayer[j].flags = g_sequence[i].autolayer[j].flags;
+        for (j = 0; j < g_studiomdl.sequence[i].numautolayers; j++) {
+            pautolayer[j].iSequence = g_studiomdl.sequence[i].autolayer[j].sequence;
+            pautolayer[j].iPose = g_studiomdl.sequence[i].autolayer[j].pose;
+            pautolayer[j].flags = g_studiomdl.sequence[i].autolayer[j].flags;
 
             // autolayer indices are stored by index, so remap them now using the invertex lookup table
             if (bUseSeqOrderRemapping) {
@@ -838,15 +851,20 @@ static void WriteSequenceInfo(studiohdr_t *phdr) {
             }
 
             if (!(pautolayer[j].flags & STUDIO_AL_POSE)) {
-                pautolayer[j].start = g_sequence[i].autolayer[j].start / (g_sequence[i].panim[0][0]->numframes - 1);
-                pautolayer[j].peak = g_sequence[i].autolayer[j].peak / (g_sequence[i].panim[0][0]->numframes - 1);
-                pautolayer[j].tail = g_sequence[i].autolayer[j].tail / (g_sequence[i].panim[0][0]->numframes - 1);
-                pautolayer[j].end = g_sequence[i].autolayer[j].end / (g_sequence[i].panim[0][0]->numframes - 1);
-            } else {
-                pautolayer[j].start = g_sequence[i].autolayer[j].start;
-                pautolayer[j].peak = g_sequence[i].autolayer[j].peak;
-                pautolayer[j].tail = g_sequence[i].autolayer[j].tail;
-                pautolayer[j].end = g_sequence[i].autolayer[j].end;
+                pautolayer[j].start = g_studiomdl.sequence[i].autolayer[j].start / (
+                                          g_studiomdl.sequence[i].panim[0][0]->numframes - 1);
+                pautolayer[j].peak = g_studiomdl.sequence[i].autolayer[j].peak / (
+                                         g_studiomdl.sequence[i].panim[0][0]->numframes - 1);
+                pautolayer[j].tail = g_studiomdl.sequence[i].autolayer[j].tail / (
+                                         g_studiomdl.sequence[i].panim[0][0]->numframes - 1);
+                pautolayer[j].end = g_studiomdl.sequence[i].autolayer[j].end / (
+                                        g_studiomdl.sequence[i].panim[0][0]->numframes - 1);
+            }
+            else {
+                pautolayer[j].start = g_studiomdl.sequence[i].autolayer[j].start;
+                pautolayer[j].peak = g_studiomdl.sequence[i].autolayer[j].peak;
+                pautolayer[j].tail = g_studiomdl.sequence[i].autolayer[j].tail;
+                pautolayer[j].end = g_studiomdl.sequence[i].autolayer[j].end;
             }
         }
 
@@ -866,7 +884,7 @@ static void WriteSequenceInfo(studiohdr_t *phdr) {
                     if (bUseSeqOrderRemapping)
                         nRemap = nSeqOrderRemappingTable[k];
 
-                    if (g_sequence[i].weight[j] != g_sequence[nRemap].weight[j])
+                    if (g_studiomdl.sequence[i].weight[j] != g_studiomdl.sequence[nRemap].weight[j])
                         break;
                 }
                 if (j == g_StudioMdlContext.numbones)
@@ -882,9 +900,10 @@ static void WriteSequenceInfo(studiohdr_t *phdr) {
             pseqdesc->weightlistindex = (pData - pSequenceStart);
             pData += g_StudioMdlContext.numbones * sizeof(float);
             for (j = 0; j < g_StudioMdlContext.numbones; j++) {
-                pweight[j] = g_sequence[i].weight[j];
+                pweight[j] = g_studiomdl.sequence[i].weight[j];
             }
-        } else {
+        }
+        else {
             // use previous boneweight
             //printf("prev %08x\n", pweight );
             pseqdesc->weightlistindex = ((uint8_t *) pweight - pSequenceStart);
@@ -893,83 +912,84 @@ static void WriteSequenceInfo(studiohdr_t *phdr) {
 
         // save iklocks
         mstudioiklock_t *piklock = (mstudioiklock_t *) pData;
-        pseqdesc->numiklocks = g_sequence[i].numiklocks;
+        pseqdesc->numiklocks = g_studiomdl.sequence[i].numiklocks;
         pseqdesc->iklockindex = (pData - pSequenceStart);
         pData += pseqdesc->numiklocks * sizeof(mstudioiklock_t);
         ALIGN4(pData);
 
         for (j = 0; j < pseqdesc->numiklocks; j++) {
-            piklock->chain = g_sequence[i].iklock[j].chain;
-            piklock->flPosWeight = g_sequence[i].iklock[j].flPosWeight;
-            piklock->flLocalQWeight = g_sequence[i].iklock[j].flLocalQWeight;
+            piklock->chain = g_studiomdl.sequence[i].iklock[j].chain;
+            piklock->flPosWeight = g_studiomdl.sequence[i].iklock[j].flPosWeight;
+            piklock->flLocalQWeight = g_studiomdl.sequence[i].iklock[j].flLocalQWeight;
             piklock++;
         }
 
         // Write animation blend parameters
         short *blends = (short *) pData;
         pseqdesc->animindexindex = (pData - pSequenceStart);
-        pData += (g_sequence[i].groupsize[0] * g_sequence[i].groupsize[1]) * sizeof(short);
+        pData += (g_studiomdl.sequence[i].groupsize[0] * g_studiomdl.sequence[i].groupsize[1]) * sizeof(short);
         ALIGN4(pData);
 
-        for (j = 0; j < g_sequence[i].groupsize[0]; j++) {
-            for (k = 0; k < g_sequence[i].groupsize[1]; k++) {
+        for (j = 0; j < g_studiomdl.sequence[i].groupsize[0]; j++) {
+            for (k = 0; k < g_studiomdl.sequence[i].groupsize[1]; k++) {
                 // height value * width of row + width value
-                int offset = k * g_sequence[i].groupsize[0] + j;
+                int offset = k * g_studiomdl.sequence[i].groupsize[0] + j;
 
-                if (g_sequence[i].panim[j][k]) {
-                    int animindex = g_sequence[i].panim[j][k]->index;
+                if (g_studiomdl.sequence[i].panim[j][k]) {
+                    int animindex = g_studiomdl.sequence[i].panim[j][k]->index;
 
                     Assert(animindex >= 0 && animindex < SHRT_MAX);
 
                     blends[offset] = (short) animindex;
-                } else {
+                }
+                else {
                     blends[offset] = 0;
                 }
             }
         }
 
         // Write cycle overrides
-        pseqdesc->cycleposeindex = g_sequence[i].cycleposeindex;
+        pseqdesc->cycleposeindex = g_studiomdl.sequence[i].cycleposeindex;
 
-        WriteSeqKeyValues(pseqdesc, &g_sequence[i].KeyValue);
+        WriteSeqKeyValues(pseqdesc, &g_studiomdl.sequence[i].KeyValue);
 
         // Write activity modifiers
         mstudioactivitymodifier_t *pactivitymodifier = (mstudioactivitymodifier_t *) pData;
-        pseqdesc->numactivitymodifiers = g_sequence[i].numactivitymodifiers;
+        pseqdesc->numactivitymodifiers = g_studiomdl.sequence[i].numactivitymodifiers;
         pseqdesc->activitymodifierindex = (pData - pSequenceStart);
         pData += pseqdesc->numactivitymodifiers * sizeof(mstudioactivitymodifier_t);
         ALIGN4(pData);
 
         for (j = 0; j < pseqdesc->numactivitymodifiers; j++) {
             AddToStringTable(&pactivitymodifier[j], &pactivitymodifier[j].sznameindex,
-                             g_sequence[i].activitymodifier[j].name);
+                             g_studiomdl.sequence[i].activitymodifier[j].name);
         }
 
 
         // save animtags
         panimtag = (mstudioanimtag_t *) pData;
-        pseqdesc->numanimtags = g_sequence[i].numanimtags;
+        pseqdesc->numanimtags = g_studiomdl.sequence[i].numanimtags;
         pseqdesc->animtagindex = (pData - pSequenceStart);
         pData += pseqdesc->numanimtags * sizeof(mstudioanimtag_t);
-        for (j = 0; j < g_sequence[i].numanimtags; j++) {
-            panimtag[j].cycle = g_sequence[i].animtags[j].cycle;
-            AddToStringTable(&panimtag[j], &panimtag[j].sztagindex, g_sequence[i].animtags[j].tagname);
+        for (j = 0; j < g_studiomdl.sequence[i].numanimtags; j++) {
+            panimtag[j].cycle = g_studiomdl.sequence[i].animtags[j].cycle;
+            AddToStringTable(&panimtag[j], &panimtag[j].sztagindex, g_studiomdl.sequence[i].animtags[j].tagname);
         }
 
-        if (g_sequence[i].flags & STUDIO_ROOTXFORM) {
-            int bone = findGlobalBone(g_sequence[i].rootDriverBoneName);
+        if (g_studiomdl.sequence[i].flags & STUDIO_ROOTXFORM) {
+            int bone = findGlobalBone(g_studiomdl.sequence[i].rootDriverBoneName);
             if (bone != -1) {
                 pseqdesc->rootDriverIndex = bone;
-            } else {
+            }
+            else {
                 MdlError("unable to find bone %s\n", token);
             }
-        } else {
+        }
+        else {
             pseqdesc->rootDriverIndex = 0;
         }
 
         ALIGN4(pData);
-
-
     }
 
     if (bErrors) {
@@ -979,26 +999,26 @@ static void WriteSequenceInfo(studiohdr_t *phdr) {
     // save transition graph
     int *pxnodename = (int *) pData;
     phdr->localnodenameindex = (pData - pStart);
-    pData += g_numxnodes * sizeof(*pxnodename);
+    pData += g_studiomdl.xnodename.size() * sizeof(*pxnodename);
     ALIGN4(pData);
-    for (i = 0; i < g_numxnodes; i++) {
-        AddToStringTable(phdr, pxnodename, g_xnodename[i + 1]);
-        // printf("%d : %s\n", i, g_xnodename[i+1] );
+    for (i = 0; i < g_studiomdl.xnodename.size(); i++) {
+        AddToStringTable(phdr, pxnodename, g_studiomdl.xnodename[i].c_str());
+        // printf("%d : %s\n", i, g_studiomdl.xnodename[i+1] );
         pxnodename++;
     }
 
     ptransition = (uint8_t *) pData;
-    phdr->numlocalnodes = g_numxnodes;
+    phdr->numlocalnodes = g_studiomdl.xnodename.size();
     phdr->localnodeindex = pData - pStart;
-    pData += g_numxnodes * g_numxnodes * sizeof(uint8_t);
+    pData += g_studiomdl.xnodename.size() * g_studiomdl.xnodename.size() * sizeof(uint8_t);
     ALIGN4(pData);
-    for (i = 0; i < g_numxnodes; i++) {
-//		printf("%2d (%12s) : ", i + 1, g_xnodename[i+1] );
-        for (j = 0; j < g_numxnodes; j++) {
-            *ptransition++ = g_xnode[i][j];
-//			printf(" %2d", g_xnode[i][j] );
+    for (i = 0; i < g_studiomdl.xnodename.size(); i++) {
+        //		printf("%2d (%12s) : ", i + 1, g_studiomdl.xnodename[i+1] );
+        for (j = 0; j < g_studiomdl.xnodename.size(); j++) {
+            *ptransition++ = g_studiomdl.xnode[i][j];
+            //			printf(" %2d", g_studiomdl.xnode[i][j] );
         }
-//		printf("\n" );
+        //		printf("\n" );
     }
 }
 
@@ -1053,7 +1073,7 @@ void WriteRLEAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanimde
     // save animation value info
     for (j = 0; j < g_StudioMdlContext.numbones; j++) {
         // destanim->weight = srcanim->weight[j];
-        // printf( "%s %.1f\n", g_bonetable[j].name, destanim->weight );
+        // printf( "%s %.1f\n", g_studiomdl.bonetable[j].name, destanim->weight );
         destanim->flags = 0;
         s_compressed_t *psrcdata = &srcanim->anim[w][j];
 
@@ -1094,7 +1114,8 @@ void WriteRLEAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanimde
                 rawanimbytes += sizeof(Vector48);
                 destanim->flags |= STUDIO_ANIM_RAWPOS;
             }
-        } else {
+        }
+        else {
             // look to see if storing raw quat's would have taken less space
             if (psrcdata->num[3] >= srcanim->numframes && psrcdata->num[4] >= srcanim->numframes &&
                 psrcdata->num[5] >= srcanim->numframes) {
@@ -1121,7 +1142,8 @@ void WriteRLEAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanimde
                 for (k = 3; k < 6; k++) {
                     if (psrcdata->num[k] == 0) {
                         rotvptr->offset[k - 3] = 0;
-                    } else {
+                    }
+                    else {
                         rotvptr->offset[k - 3] = ((uint8_t *) destanimvalue - (uint8_t *) rotvptr);
                         for (n = 0; n < psrcdata->num[k]; n++) {
                             destanimvalue->value = psrcdata->data[k][n].value;
@@ -1137,7 +1159,8 @@ void WriteRLEAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanimde
                 for (k = 0; k < 3; k++) {
                     if (psrcdata->num[k] == 0) {
                         posvptr->offset[k] = 0;
-                    } else {
+                    }
+                    else {
                         posvptr->offset[k] = ((uint8_t *) destanimvalue - (uint8_t *) posvptr);
                         for (n = 0; n < psrcdata->num[k]; n++) {
                             destanimvalue->value = psrcdata->data[k][n].value;
@@ -1184,36 +1207,42 @@ void WriteFrameAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanim
 
         if (psrcdata->num[3] == 0 && psrcdata->num[4] == 0 && psrcdata->num[5] == 0) {
             // no change
-        } else if (psrcdata->num[3] <= 2 && psrcdata->num[4] <= 2 && psrcdata->num[5] <= 2) {
+        }
+        else if (psrcdata->num[3] <= 2 && psrcdata->num[4] <= 2 && psrcdata->num[5] <= 2) {
             flag[j] |= STUDIO_FRAME_CONST_ROT2;
             Quaternion q;
             AngleQuaternion(srcanim->sanim[iFrame][j].rot, q);
             *((Quaternion48S *) pData) = q;
             pData += sizeof(Quaternion48S);
-        } else {
+        }
+        else {
             flag[j] |= STUDIO_FRAME_ANIM_ROT2;
             framelength += sizeof(Quaternion48S);
         }
 
         if (psrcdata->num[0] == 0 && psrcdata->num[1] == 0 && psrcdata->num[2] == 0) {
             // no change
-        } else if (psrcdata->num[0] <= 2 && psrcdata->num[1] <= 2 && psrcdata->num[2] <= 2) {
+        }
+        else if (psrcdata->num[0] <= 2 && psrcdata->num[1] <= 2 && psrcdata->num[2] <= 2) {
             // single frame
             if (g_StudioMdlContext.animblockHighRes) {
                 flag[j] |= STUDIO_FRAME_CONST_POS2;
                 *((Vector *) pData) = srcanim->sanim[iFrame][j].pos;
                 pData += sizeof(Vector);
-            } else {
+            }
+            else {
                 flag[j] |= STUDIO_FRAME_CONST_POS;
                 *((Vector48 *) pData) = srcanim->sanim[iFrame][j].pos;
                 pData += sizeof(Vector48);
             }
-        } else {
+        }
+        else {
             // multiple frames
             if (g_StudioMdlContext.animblockHighRes) {
                 flag[j] |= STUDIO_FRAME_ANIM_POS2;
                 framelength += sizeof(Vector);
-            } else {
+            }
+            else {
                 flag[j] |= STUDIO_FRAME_ANIM_POS;
                 framelength += sizeof(Vector48);
             }
@@ -1258,7 +1287,8 @@ void WriteFrameAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanim
             if (flag[j] & STUDIO_FRAME_ANIM_POS) {
                 *((Vector48 *) pData) = srcanim->sanim[iFrame][j].pos;
                 pData += sizeof(Vector48);
-            } else if (flag[j] & STUDIO_FRAME_ANIM_POS2) {
+            }
+            else if (flag[j] & STUDIO_FRAME_ANIM_POS2) {
                 *((Vector *) pData) = srcanim->sanim[iFrame][j].pos;
                 pData += sizeof(Vector);
             }
@@ -1269,7 +1299,8 @@ void WriteFrameAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanim
 }
 
 
-void WriteAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanimdesc, uint8_t *&pLocalData, uint8_t *&pExtData) {
+void WriteAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanimdesc, uint8_t *&pLocalData,
+                        uint8_t *&pExtData) {
     uint8_t *pData = nullptr;
 
     for (int w = 0; w < srcanim->numsections; w++) {
@@ -1292,30 +1323,34 @@ void WriteAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanimdesc,
 
         if (srcanim->flags & STUDIO_FRAMEANIM) {
             WriteFrameAnimationData(srcanim, destanimdesc, pData, w);
-        } else {
+        }
+        else {
             WriteRLEAnimationData(srcanim, destanimdesc, pData, w);
         }
 
 
-        if ((pData - pStartSection) > g_animblocksize && g_animblocksize > 0) {
+        if ((pData - pStartSection) > g_studiomdl.animblocksize && g_studiomdl.animblocksize > 0) {
             MdlWarning(
-                    "Single animation \"%s\" is %d. Specificed block size is %d.  Use smaller animations or increase the block size.\n",
-                    srcanim->name, (uintptr_t) (pData - pStartSection), g_animblocksize);
+                "Single animation \"%s\" is %d. Specificed block size is %d.  Use smaller animations or increase the block size.\n",
+                srcanim->name.c_str(), (uintptr_t) (pData - pStartSection), g_studiomdl.animblocksize);
         }
 
         // write into anim blocks if needed
         if (destanimdesc->sectionindex) {
             if (bUseExtData) {
-                if (g_numanimblocks && pData - g_animblock[g_numanimblocks - 1].start > g_animblocksize) {
+                if (g_studiomdl.animblock.size() && pData - g_studiomdl.animblock[g_studiomdl.animblock.size() - 1].
+                    start >
+                    g_studiomdl.animblocksize) {
                     // advance to next animblock
-                    g_animblock[g_numanimblocks - 1].end = pStartSection;
-                    g_animblock[g_numanimblocks].start = pStartSection;
-                    g_numanimblocks++;
+                    g_studiomdl.animblock.back().end = pStartSection;
+                    g_studiomdl.animblock.emplace_back(s_animblock_t{.start = pStartSection});
                 }
 
-                destanimdesc->pSection(w)->animblock = g_numanimblocks - 1;
-                destanimdesc->pSection(w)->animindex = pStartSection - g_animblock[g_numanimblocks - 1].start;
-            } else {
+                destanimdesc->pSection(w)->animblock = g_studiomdl.animblock.size() - 1;
+                destanimdesc->pSection(w)->animindex =
+                        pStartSection - g_studiomdl.animblock[g_studiomdl.animblock.size() - 1].start;
+            }
+            else {
                 destanimdesc->pSection(w)->animblock = 0;
                 destanimdesc->pSection(w)->animindex = pStartSection - (uint8_t *) destanimdesc;
             }
@@ -1324,7 +1359,8 @@ void WriteAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanimdesc,
 
         if (!bUseExtData) {
             pLocalData = pData;
-        } else {
+        }
+        else {
             pExtData = pData;
         }
     }
@@ -1360,7 +1396,8 @@ uint8_t *WriteIkErrors(s_animation_t *srcanim, uint8_t *pData) {
             pikrule->tail = srcanim->ikrule[j].tail / (srcanim->numframes - 1.0f);
             pikrule->end = srcanim->ikrule[j].end / (srcanim->numframes - 1.0f);
             pikrule->contact = srcanim->ikrule[j].contact / (srcanim->numframes - 1.0f);
-        } else {
+        }
+        else {
             pikrule->start = 0.0f;
             pikrule->peak = 0.0f;
             pikrule->tail = 1.0f;
@@ -1377,16 +1414,15 @@ uint8_t *WriteIkErrors(s_animation_t *srcanim, uint8_t *pData) {
         pikrule->iStart = srcanim->ikrule[j].start;
 
 #if 0
-                                                                                                                                // uncompressed
-		pikrule->ikerrorindex = (pData - (uint8_t*)pikrule);
-		mstudioikerror_t *perror = (mstudioikerror_t *)pData;
-		pData += srcanim->ikrule[j].numerror * sizeof( *perror );
+        // uncompressed
+        pikrule->ikerrorindex = (pData - (uint8_t *) pikrule);
+        mstudioikerror_t *perror = (mstudioikerror_t *) pData;
+        pData += srcanim->ikrule[j].numerror * sizeof(*perror);
 
-		for (k = 0; k < srcanim->ikrule[j].numerror; k++)
-		{
-			perror[k].pos = srcanim->ikrule[j].pError[k].pos;
-			perror[k].q = srcanim->ikrule[j].pError[k].q;
-		}
+        for (k = 0; k < srcanim->ikrule[j].numerror; k++) {
+            perror[k].pos = srcanim->ikrule[j].pError[k].pos;
+            perror[k].q = srcanim->ikrule[j].pError[k].q;
+        }
 #endif
 #if 1
         // skip writting the header if there's no IK data
@@ -1447,7 +1483,8 @@ uint8_t *WriteLocalHierarchy(s_animation_t *srcanim, uint8_t *pData) {
             pHierarchy->peak = srcanim->localhierarchy[j].peak / (srcanim->numframes - 1.0f);
             pHierarchy->tail = srcanim->localhierarchy[j].tail / (srcanim->numframes - 1.0f);
             pHierarchy->end = srcanim->localhierarchy[j].end / (srcanim->numframes - 1.0f);
-        } else {
+        }
+        else {
             pHierarchy->start = 0.0f;
             pHierarchy->peak = 0.0f;
             pHierarchy->tail = 1.0f;
@@ -1457,16 +1494,15 @@ uint8_t *WriteLocalHierarchy(s_animation_t *srcanim, uint8_t *pData) {
         pHierarchy->iStart = srcanim->localhierarchy[j].start;
 
 #if 0
-                                                                                                                                // uncompressed
-		pHierarchy->ikerrorindex = (pData - (uint8_t*)pHierarchy);
-		mstudioikerror_t *perror = (mstudioikerror_t *)pData;
-		pData += srcanim->ikrule[j].numerror * sizeof( *perror );
+        // uncompressed
+        pHierarchy->ikerrorindex = (pData - (uint8_t *) pHierarchy);
+        mstudioikerror_t *perror = (mstudioikerror_t *) pData;
+        pData += srcanim->ikrule[j].numerror * sizeof(*perror);
 
-		for (k = 0; k < srcanim->ikrule[j].numerror; k++)
-		{
-			perror[k].pos = srcanim->ikrule[j].pError[k].pos;
-			perror[k].q = srcanim->ikrule[j].pError[k].q;
-		}
+        for (k = 0; k < srcanim->ikrule[j].numerror; k++) {
+            perror[k].pos = srcanim->ikrule[j].pError[k].pos;
+            perror[k].q = srcanim->ikrule[j].pError[k].q;
+        }
 #endif
 #if 1
         // skip writting the header if there's no IK data
@@ -1508,18 +1544,18 @@ static uint8_t *WriteAnimations(uint8_t *pData, uint8_t *pStart, studiohdr_t *ph
     // save animations
     panimdesc = (mstudioanimdesc_t *) pData;
     if (phdr) {
-        phdr->numlocalanim = g_numani;
+        phdr->numlocalanim = g_studiomdl.panimation.size();
         phdr->localanimindex = (pData - pStart);
     }
-    pData += g_numani * sizeof(*panimdesc);
+    pData += g_studiomdl.panimation.size() * sizeof(*panimdesc);
     ALIGN4(pData);
     //      ------------ ------- ------- : ------- (-------)
-    if (g_StudioMdlContext.verbose && g_numani>0) {
+    if (g_StudioMdlContext.verbose && g_studiomdl.panimation.size() > 0) {
         printf("   animation       x       y       ips    angle\n");
     }
 
-    for (i = 0; i < g_numani; i++) {
-        s_animation_t *srcanim = g_panimation[i];
+    for (i = 0; i < g_studiomdl.panimation.size(); i++) {
+        s_animation_t *srcanim = g_studiomdl.panimation[i];
         mstudioanimdesc_t *destanim = &panimdesc[i];
         Assert(srcanim);
 
@@ -1548,7 +1584,8 @@ static uint8_t *WriteAnimations(uint8_t *pData, uint8_t *pStart, studiohdr_t *ph
 
                 float a = atan2(srcanim->piecewisemove[j].pos[1], srcanim->piecewisemove[j].pos[0]) * (180 / M_PI);
                 float d = sqrt(DotProduct(srcanim->piecewisemove[j].pos, srcanim->piecewisemove[j].pos));
-                printf("%12s %7.2f %7.2f : %7.2f (%7.2f) %.1f\n", srcanim->name, srcanim->piecewisemove[j].pos[0],
+                printf("%12s %7.2f %7.2f : %7.2f (%7.2f) %.1f\n", srcanim->name.c_str(),
+                       srcanim->piecewisemove[j].pos[0],
                        srcanim->piecewisemove[j].pos[1], d * r, a, t);
             }
         }
@@ -1568,17 +1605,17 @@ static uint8_t *WriteAnimations(uint8_t *pData, uint8_t *pStart, studiohdr_t *ph
 
         if (pBlockStart) {
             // allocate the first block if needed
-            if (g_numanimblocks == 0) {
-                g_numanimblocks = 1;
-                g_animblock[g_numanimblocks].start = pBlockData;
-                g_numanimblocks++;
+            if (g_studiomdl.animblock.size() == 0) {
+                g_studiomdl.animblock.emplace_back();
+                g_studiomdl.animblock.emplace_back(s_animblock_t{.start = pBlockData});
             }
         }
 
-        if (!pBlockStart || (g_bonesaveframe.Count() == 0 && srcanim->numframes == 1)) {
+        if (!pBlockStart || (g_studiomdl.bonesaveframe.Count() == 0 && srcanim->numframes == 1)) {
             // hack
             srcanim->disableAnimblocks = true;
-        } else if (g_StudioMdlContext.noAnimblockStall) {
+        }
+        else if (g_StudioMdlContext.noAnimblockStall) {
             srcanim->isFirstSectionLocal = true;
         }
 
@@ -1587,8 +1624,13 @@ static uint8_t *WriteAnimations(uint8_t *pData, uint8_t *pStart, studiohdr_t *ph
             srcanim->numNostallFrames = srcanim->fps * g_StudioMdlContext.preloadTime;
         }
 
-        // block zero is relative to me
-        g_animblock[0].start = (uint8_t *) (destanim);
+        // block zero is relative to me (animation data inside the .mdl). animblock only has entries when an .ani file
+        // is written (slot 0 is then a placeholder), so block 0 offsets use destanim directly.
+        if (!g_studiomdl.animblock.empty())
+            g_studiomdl.animblock[0].start = (uint8_t *) (destanim);
+        const auto blockBase = [&](int block) -> uint8_t * {
+            return block == 0 ? (uint8_t *) destanim : g_studiomdl.animblock[block].start;
+        };
 
         uint8_t *pAnimData = nullptr;
         uint8_t *pIkData = nullptr;
@@ -1602,45 +1644,47 @@ static uint8_t *WriteAnimations(uint8_t *pData, uint8_t *pStart, studiohdr_t *ph
             pIkData = pData;
             pLocalHierarchy = WriteIkErrors(srcanim, pIkData);
             pData = WriteLocalHierarchy(srcanim, pLocalHierarchy);
-        } else {
+        }
+        else {
             pAnimData = pBlockEnd;
             WriteAnimationData(srcanim, destanim, pData, pBlockEnd);
             if (destanim->sectionindex) {
                 // if sections were written, don't move the data already written to the last block
                 pBlockData = pBlockEnd;
             }
-            destanim->animblock = g_numanimblocks - 1;
+            destanim->animblock = g_studiomdl.animblock.size() - 1;
             pIkData = pBlockEnd;
             pLocalHierarchy = WriteIkErrors(srcanim, pIkData);
             pBlockEnd = WriteLocalHierarchy(srcanim, pLocalHierarchy);
         }
 
-        // printf("%d %x %x %x   %s : %d\n", g_numanimblocks - 1, g_animblock[g_numanimblocks-1].start, pBlockData, pBlockEnd, srcanim->name, srcanim->numsections );
+        // printf("%d %x %x %x   %s : %d\n", g_studiomdl.numanimblocks - 1, g_studiomdl.animblock[g_studiomdl.numanimblocks-1].start, pBlockData, pBlockEnd, srcanim->name, srcanim->numsections );
 
-        if (pBlockData != pBlockEnd && pBlockEnd - g_animblock[g_numanimblocks - 1].start > g_animblocksize) {
-            g_animblock[g_numanimblocks - 1].end = pBlockData;
-            g_animblock[g_numanimblocks].start = pBlockData;
-            g_numanimblocks++;
-            destanim->animblock = g_numanimblocks - 1;
+        if (pBlockData != pBlockEnd &&
+            pBlockEnd - g_studiomdl.animblock[g_studiomdl.animblock.size() - 1].start > g_studiomdl.animblocksize) {
+            g_studiomdl.animblock.back().end = pBlockData;
+            g_studiomdl.animblock.emplace_back(s_animblock_t{.start = pBlockData});
+            destanim->animblock = g_studiomdl.animblock.size() - 1;
         }
 
-        destanim->animindex = pAnimData - g_animblock[destanim->animblock].start;
+        destanim->animindex = pAnimData - blockBase(destanim->animblock);
 
         if (srcanim->numikrules) {
             destanim->numikrules = srcanim->numikrules;
             if (destanim->animblock == 0) {
-                destanim->ikruleindex = pIkData - g_animblock[destanim->animblock].start;
-            } else {
-                destanim->animblockikruleindex = pIkData - g_animblock[destanim->animblock].start;
+                destanim->ikruleindex = pIkData - blockBase(destanim->animblock);
+            }
+            else {
+                destanim->animblockikruleindex = pIkData - blockBase(destanim->animblock);
             }
         }
         if (srcanim->numlocalhierarchy) {
             destanim->numlocalhierarchy = srcanim->numlocalhierarchy;
-            destanim->localhierarchyindex = pLocalHierarchy - g_animblock[destanim->animblock].start;
+            destanim->localhierarchyindex = pLocalHierarchy - blockBase(destanim->animblock);
         }
 
-        if (g_numanimblocks) {
-            g_animblock[g_numanimblocks - 1].end = pBlockEnd;
+        if (g_studiomdl.animblock.size()) {
+            g_studiomdl.animblock.back().end = pBlockEnd;
             pBlockData = pBlockEnd;
         }
 
@@ -1652,9 +1696,9 @@ static uint8_t *WriteAnimations(uint8_t *pData, uint8_t *pStart, studiohdr_t *ph
 
     if (!g_StudioMdlContext.quiet) {
         /*
-		for (i = 0; i < g_numanimblocks; i++)
+		for (i = 0; i < g_studiomdl.numanimblocks; i++)
 		{
-			printf("%2d (%3d:%3d): %d\n", i, g_animblock[i].iStartAnim, g_animblock[i].iEndAnim, g_animblock[i].end - g_animblock[i].start );
+			printf("%2d (%3d:%3d): %d\n", i, g_studiomdl.animblock[i].iStartAnim, g_studiomdl.animblock[i].iEndAnim, g_studiomdl.animblock[i].end - g_studiomdl.animblock[i].start );
 		}
 		*/
     }
@@ -1668,8 +1712,8 @@ static uint8_t *WriteAnimations(uint8_t *pData, uint8_t *pStart, studiohdr_t *ph
     }
 
     // write movement keys
-    for (i = 0; i < g_numani; i++) {
-        s_animation_t *anim = g_panimation[i];
+    for (i = 0; i < g_studiomdl.panimation.size(); i++) {
+        s_animation_t *anim = g_studiomdl.panimation[i];
 
         // panimdesc[i].entrancevelocity = anim->entrancevelocity;
         panimdesc[i].nummovements = anim->numpiecewisekeys;
@@ -1698,69 +1742,75 @@ static uint8_t *WriteAnimations(uint8_t *pData, uint8_t *pStart, studiohdr_t *ph
 
 
     // calculate what bones should be have zero frame saved out
-    if (g_bonesaveframe.Count() == 0) {
+    if (g_studiomdl.bonesaveframe.Count() == 0) {
         for (j = 0; j < g_StudioMdlContext.numbones; j++) {
-            if ((g_bonetable[j].parent == -1) ||
-                (g_bonetable[j].posrange.Length() >= g_StudioMdlContext.minZeroFramePosDelta)) {
-                g_bonetable[j].flags |= BONE_HAS_SAVEFRAME_POS;
+            if ((g_studiomdl.bonetable[j].parent == -1) ||
+                (g_studiomdl.bonetable[j].posrange.Length() >= g_StudioMdlContext.minZeroFramePosDelta)) {
+                g_studiomdl.bonetable[j].flags |= BONE_HAS_SAVEFRAME_POS;
             }
             if (g_StudioMdlContext.zeroFramesHighres) {
-                g_bonetable[j].flags |= BONE_HAS_SAVEFRAME_ROT64;
-            } else {
-                g_bonetable[j].flags |= BONE_HAS_SAVEFRAME_ROT32;
+                g_studiomdl.bonetable[j].flags |= BONE_HAS_SAVEFRAME_ROT64;
+            }
+            else {
+                g_studiomdl.bonetable[j].flags |= BONE_HAS_SAVEFRAME_ROT32;
             }
 
 
-            if ((!g_StudioMdlContext.quiet) && (g_bonetable[j].flags &
-                                                (BONE_HAS_SAVEFRAME_POS | BONE_HAS_SAVEFRAME_ROT64 |
-                                                 BONE_HAS_SAVEFRAME_ROT32))) {
-                printf("$BoneSaveFrame \"%s\"", g_bonetable[j].name);
-                if (g_bonetable[j].flags & BONE_HAS_SAVEFRAME_POS) {
+            if ((!g_StudioMdlContext.quiet) && (g_studiomdl.bonetable[j].flags &
+                                                (BONE_HAS_SAVEFRAME_POS | BONE_HAS_SAVEFRAME_ROT64 | BONE_HAS_SAVEFRAME_ROT32))) {
+                printf("$BoneSaveFrame \"%s\"", g_studiomdl.bonetable[j].name.c_str());
+                if (g_studiomdl.bonetable[j].flags & BONE_HAS_SAVEFRAME_POS) {
                     printf(" position");
                 }
-                if (g_bonetable[j].flags & BONE_HAS_SAVEFRAME_ROT64) {
+                if (g_studiomdl.bonetable[j].flags & BONE_HAS_SAVEFRAME_ROT64) {
                     printf(" rotation64");
-                } else if (g_bonetable[j].flags & BONE_HAS_SAVEFRAME_ROT32) {
+                }
+                else if (g_studiomdl.bonetable[j].flags & BONE_HAS_SAVEFRAME_ROT32) {
                     printf(" rotation");
                 }
-                if (!(g_bonetable[j].flags & BONE_HAS_SAVEFRAME_POS) && g_bonetable[j].posrange.Length() > 0.1) {
-                    printf(" // (%.2f)", g_bonetable[j].posrange.Length());
+                if (!(g_studiomdl.bonetable[j].flags & BONE_HAS_SAVEFRAME_POS) && g_studiomdl.bonetable[j].posrange.
+                    Length() > 0.1) {
+                    printf(" // (%.2f)", g_studiomdl.bonetable[j].posrange.Length());
                 }
                 printf("\n");
             }
         }
-    } else {
-        for (i = 0; i < g_bonesaveframe.Count(); i++) {
-            j = findGlobalBone(g_bonesaveframe[i].name);
+    }
+    else {
+        for (i = 0; i < g_studiomdl.bonesaveframe.Count(); i++) {
+            j = findGlobalBone(g_studiomdl.bonesaveframe[i].name);
 
             if (j != -1) {
-                if (g_bonesaveframe[i].bSavePos) {
-                    g_bonetable[j].flags |= BONE_HAS_SAVEFRAME_POS;
+                if (g_studiomdl.bonesaveframe[i].bSavePos) {
+                    g_studiomdl.bonetable[j].flags |= BONE_HAS_SAVEFRAME_POS;
                 }
-                if (g_bonesaveframe[i].bSaveRot) {
+                if (g_studiomdl.bonesaveframe[i].bSaveRot) {
                     if (g_StudioMdlContext.zeroFramesHighres) {
-                        g_bonetable[j].flags |= BONE_HAS_SAVEFRAME_ROT64;
-                    } else {
-                        g_bonetable[j].flags |= BONE_HAS_SAVEFRAME_ROT32;
+                        g_studiomdl.bonetable[j].flags |= BONE_HAS_SAVEFRAME_ROT64;
                     }
-                } else if (g_bonesaveframe[i].bSaveRot64) {
-                    g_bonetable[j].flags |= BONE_HAS_SAVEFRAME_ROT64;
+                    else {
+                        g_studiomdl.bonetable[j].flags |= BONE_HAS_SAVEFRAME_ROT32;
+                    }
                 }
-            } else {
-                MdlError("Unknown $BoneSaveFrame \"%s\"\n", g_bonesaveframe[i].name);
+                else if (g_studiomdl.bonesaveframe[i].bSaveRot64) {
+                    g_studiomdl.bonetable[j].flags |= BONE_HAS_SAVEFRAME_ROT64;
+                }
+            }
+            else {
+                MdlError("Unknown $BoneSaveFrame \"%s\"\n", g_studiomdl.bonesaveframe[i].name);
             }
         }
     }
 
     for (j = 0; j < g_StudioMdlContext.numbones; j++) {
-        ((mstudiobone_t *) phdr->pBone(j))->flags |= g_bonetable[j].flags;
+        ((mstudiobone_t *) phdr->pBone(j))->flags |= g_studiomdl.bonetable[j].flags;
     }
 
     ALIGN4(pData);
 
     // write zero frames
-    for (i = 0; i < g_numani; i++) {
-        s_animation_t *anim = g_panimation[i];
+    for (i = 0; i < g_studiomdl.panimation.size(); i++) {
+        s_animation_t *anim = g_studiomdl.panimation[i];
         mstudioanimdesc_t *destanim = &panimdesc[i];
 
         if (destanim->animblock != 0) {
@@ -1781,20 +1831,21 @@ static uint8_t *WriteAnimations(uint8_t *pData, uint8_t *pStart, studiohdr_t *ph
             destanim->zeroframecount = MIN(destanim->zeroframecount, g_StudioMdlContext.maxZeroFrames);
 
             for (j = 0; j < g_StudioMdlContext.numbones; j++) {
-                if (g_bonetable[j].flags & BONE_HAS_SAVEFRAME_POS) {
+                if (g_studiomdl.bonetable[j].flags & BONE_HAS_SAVEFRAME_POS) {
                     for (int n = 0; n < destanim->zeroframecount; n++) {
                         *(Vector48 *) pData = anim->sanim[destanim->zeroframespan * n][j].pos;
                         pData += sizeof(Vector48);
                     }
                 }
-                if (g_bonetable[j].flags & BONE_HAS_SAVEFRAME_ROT64) {
+                if (g_studiomdl.bonetable[j].flags & BONE_HAS_SAVEFRAME_ROT64) {
                     for (int n = 0; n < destanim->zeroframecount; n++) {
                         Quaternion q;
                         AngleQuaternion(anim->sanim[destanim->zeroframespan * n][j].rot, q);
                         *((Quaternion64 *) pData) = q;
                         pData += sizeof(Quaternion64);
                     }
-                } else if (g_bonetable[j].flags & BONE_HAS_SAVEFRAME_ROT32) {
+                }
+                else if (g_studiomdl.bonetable[j].flags & BONE_HAS_SAVEFRAME_ROT32) {
                     for (int n = 0; n < destanim->zeroframecount; n++) {
                         Quaternion q;
                         AngleQuaternion(anim->sanim[destanim->zeroframespan * n][j].rot, q);
@@ -1817,8 +1868,9 @@ static uint8_t *WriteAnimations(uint8_t *pData, uint8_t *pStart, studiohdr_t *ph
 
                 if (destanim->ikruleindex) {
                     psrcikrule = (mstudioikrule_t *) ((uint8_t *) destanim + destanim->ikruleindex);
-                } else {
-                    psrcikrule = (mstudioikrule_t *) (g_animblock[destanim->animblock].start +
+                }
+                else {
+                    psrcikrule = (mstudioikrule_t *) (g_studiomdl.animblock[destanim->animblock].start +
                                                       destanim->animblockikruleindex);
                 }
 
@@ -1847,33 +1899,33 @@ static void WriteTextures(studiohdr_t *phdr) {
 
     // save texture info
     mstudiotexture_t *ptexture = (mstudiotexture_t *) pData;
-    phdr->numtextures = g_nummaterials;
+    phdr->numtextures = g_studiomdl.material.size();
     phdr->textureindex = pData - pStart;
-    pData += g_nummaterials * sizeof(mstudiotexture_t);
-    for (i = 0; i < g_nummaterials; i++) {
-        j = g_material[i];
-        AddToStringTable(&ptexture[i], &ptexture[i].sznameindex, g_texture[j].name);
+    pData += g_studiomdl.material.size() * sizeof(mstudiotexture_t);
+    for (i = 0; i < g_studiomdl.material.size(); i++) {
+        j = g_studiomdl.material[i];
+        AddToStringTable(&ptexture[i], &ptexture[i].sznameindex, g_studiomdl.texture[j].name);
     }
     ALIGN4(pData);
 
     int *cdtextureoffset = (int *) pData;
-    phdr->numcdtextures = numcdtextures;
+    phdr->numcdtextures = g_studiomdl.cdtextures.size();
     phdr->cdtextureindex = pData - pStart;
-    pData += numcdtextures * sizeof(int);
-    for (i = 0; i < numcdtextures; i++) {
-        AddToStringTable(phdr, &cdtextureoffset[i], cdtextures[i]);
+    pData += g_studiomdl.cdtextures.size() * sizeof(int);
+    for (i = 0; i < g_studiomdl.cdtextures.size(); i++) {
+        AddToStringTable(phdr, &cdtextureoffset[i], g_studiomdl.cdtextures[i]);
     }
     ALIGN4(pData);
 
     // save texture directory info
     phdr->skinindex = (pData - pStart);
-    phdr->numskinref = g_numskinref;
-    phdr->numskinfamilies = g_numskinfamilies;
+    phdr->numskinref = g_studiomdl.numskinref;
+    phdr->numskinfamilies = g_studiomdl.numskinfamilies;
     pref = (short *) pData;
 
     for (i = 0; i < phdr->numskinfamilies; i++) {
         for (j = 0; j < phdr->numskinref; j++) {
-            *pref = g_skinref[i][j];
+            *pref = g_studiomdl.skinref[i][j];
             pref++;
         }
     }
@@ -1891,13 +1943,13 @@ static void WriteBoneTransforms(studiohdr2_t *phdr, const mstudiobone_t *pBone) 
 
     int nTransformCount = 0;
     for (int i = 0; i < g_StudioMdlContext.numbones; i++) {
-        if (g_bonetable[i].flags & BONE_ALWAYS_PROCEDURAL)
+        if (g_studiomdl.bonetable[i].flags & BONE_ALWAYS_PROCEDURAL)
             continue;
-        int nParent = g_bonetable[i].parent;
+        int nParent = g_studiomdl.bonetable[i].parent;
 
         // Transformation is necessary if either you or your parent was realigned
-        if (MatricesAreEqual(identity, g_bonetable[i].srcRealign) &&
-            ((nParent < 0) || MatricesAreEqual(identity, g_bonetable[nParent].srcRealign)))
+        if (MatricesAreEqual(identity, g_studiomdl.bonetable[i].srcRealign) &&
+            ((nParent < 0) || MatricesAreEqual(identity, g_studiomdl.bonetable[nParent].srcRealign)))
             continue;
 
         ++nTransformCount;
@@ -1910,11 +1962,11 @@ static void WriteBoneTransforms(studiohdr2_t *phdr, const mstudiobone_t *pBone) 
     pData += nTransformCount * sizeof(mstudiosrcbonetransform_t);
     int bt = 0;
     for (int i = 0; i < g_StudioMdlContext.numbones; i++) {
-        if (g_bonetable[i].flags & BONE_ALWAYS_PROCEDURAL)
+        if (g_studiomdl.bonetable[i].flags & BONE_ALWAYS_PROCEDURAL)
             continue;
-        int nParent = g_bonetable[i].parent;
-        if (MatricesAreEqual(identity, g_bonetable[i].srcRealign) &&
-            ((nParent < 0) || MatricesAreEqual(identity, g_bonetable[nParent].srcRealign)))
+        int nParent = g_studiomdl.bonetable[i].parent;
+        if (MatricesAreEqual(identity, g_studiomdl.bonetable[i].srcRealign) &&
+            ((nParent < 0) || MatricesAreEqual(identity, g_studiomdl.bonetable[nParent].srcRealign)))
             continue;
 
         // What's going on here?
@@ -1925,12 +1977,13 @@ static void WriteBoneTransforms(studiohdr2_t *phdr, const mstudiobone_t *pBone) 
         //		CtoW = P * C = ( P * T ) * ( T^-1 * C )
         // therefore Cnew = ( T^-1 * C )
         if (nParent >= 0) {
-            MatrixInvert(g_bonetable[nParent].srcRealign, pSrcBoneTransform[bt].pretransform);
-        } else {
+            MatrixInvert(g_studiomdl.bonetable[nParent].srcRealign, pSrcBoneTransform[bt].pretransform);
+        }
+        else {
             SetIdentityMatrix(pSrcBoneTransform[bt].pretransform);
         }
-        MatrixCopy(g_bonetable[i].srcRealign, pSrcBoneTransform[bt].posttransform);
-        AddToStringTable(&pSrcBoneTransform[bt], &pSrcBoneTransform[bt].sznameindex, g_bonetable[i].name);
+        MatrixCopy(g_studiomdl.bonetable[i].srcRealign, pSrcBoneTransform[bt].posttransform);
+        AddToStringTable(&pSrcBoneTransform[bt], &pSrcBoneTransform[bt].sznameindex, g_studiomdl.bonetable[i].name);
         ++bt;
     }
     ALIGN4(pData);
@@ -1966,21 +2019,21 @@ static void WriteBoneTransforms(studiohdr2_t *phdr, const mstudiobone_t *pBone) 
 static void WriteBodyGroupPresets(studiohdr2_t *pStudioHdr2) {
     ALIGN4(pData);
 
-    pStudioHdr2->m_nBodyGroupPresetCount = g_numbodygrouppresets;
+    pStudioHdr2->m_nBodyGroupPresetCount = g_studiomdl.numbodygrouppresets;
     pStudioHdr2->m_nBodyGroupPresetIndex = 0;
 
-    if (g_numbodygrouppresets <= 0)
+    if (g_studiomdl.numbodygrouppresets <= 0)
         return;
 
     mstudiobodygrouppreset_t *pBodygroupPreset = (mstudiobodygrouppreset_t *) pData;
     pStudioHdr2->m_nBodyGroupPresetIndex = pData - (uint8_t *) pStudioHdr2;
-    pData += g_numbodygrouppresets * sizeof(mstudiobodygrouppreset_t);
+    pData += g_studiomdl.numbodygrouppresets * sizeof(mstudiobodygrouppreset_t);
     ALIGN4(pData);
 
-    for (int i = 0; i < g_numbodygrouppresets; i++) {
-        AddToStringTable(&pBodygroupPreset[i], &pBodygroupPreset[i].sznameindex, g_bodygrouppresets[i].name);
-        pBodygroupPreset[i].iValue = g_bodygrouppresets[i].iValue;
-        pBodygroupPreset[i].iMask = g_bodygrouppresets[i].iMask;
+    for (int i = 0; i < g_studiomdl.numbodygrouppresets; i++) {
+        AddToStringTable(&pBodygroupPreset[i], &pBodygroupPreset[i].sznameindex, g_studiomdl.bodygrouppresets[i].name);
+        pBodygroupPreset[i].iValue = g_studiomdl.bodygrouppresets[i].iValue;
+        pBodygroupPreset[i].iMask = g_studiomdl.bodygrouppresets[i].iMask;
         ALIGN4(pData);
     }
 }
@@ -1995,7 +2048,7 @@ static void WriteBoneFlexDrivers(studiohdr2_t *pStudioHdr2) {
     pStudioHdr2->m_nBoneFlexDriverIndex = 0;
 
     CDmeBoneFlexDriverList *pDmeBoneFlexDriverList = GetElement<CDmeBoneFlexDriverList>(
-            g_StudioMdlContext.hDmeBoneFlexDriverList);
+        g_StudioMdlContext.hDmeBoneFlexDriverList);
     if (!pDmeBoneFlexDriverList)
         return;
 
@@ -2019,7 +2072,7 @@ static void WriteBoneFlexDrivers(studiohdr2_t *pStudioHdr2) {
         pBoneFlexDriver->m_nControlCount = pDmeBoneFlexDriver->m_eControlList.Count();
         pBoneFlexDriver->m_nControlIndex = pData - (uint8_t *) pBoneFlexDriver;
 
-        mstudioboneflexdrivercontrol_t *pControl = reinterpret_cast< mstudioboneflexdrivercontrol_t * >( pData );
+        mstudioboneflexdrivercontrol_t *pControl = reinterpret_cast<mstudioboneflexdrivercontrol_t *>(pData);
 
         for (int j = 0; j < pBoneFlexDriver->m_nControlCount; ++j) {
             CDmeBoneFlexDriverControl *pDmeControl = pDmeBoneFlexDriver->m_eControlList[j];
@@ -2055,18 +2108,18 @@ static void WriteVertices(studiohdr_t *phdr) {
     int cur = 0;
     bool bExtraData = (phdr->flags & STUDIOHDR_FLAGS_EXTRA_VERTEX_DATA) != 0;
 
-    if (!g_nummodelsbeforeLOD)
+    if (!g_studiomdl.nummodelsbeforeLOD)
         return;
 
     strcpy(fileName, gamedir);
-//	if( *g_pPlatformName )
-//	{
-//		strcat( fileName, "platform_" );
-//		strcat( fileName, g_pPlatformName );
-//		strcat( fileName, "/" );
-//	}
+    //	if( *g_pPlatformName )
+    //	{
+    //		strcat( fileName, "platform_" );
+    //		strcat( fileName, g_pPlatformName );
+    //		strcat( fileName, "/" );
+    //	}
     strcat(fileName, "models/");
-    strcat(fileName, g_outname);
+    strcat(fileName, g_studiomdl.outname);
     Q_StripExtension(fileName, fileName, sizeof(fileName));
     strcat(fileName, ".vvd");
 
@@ -2097,8 +2150,8 @@ static void WriteVertices(studiohdr_t *phdr) {
     // store vertexes grouped by mesh order
     ALIGN16(pData);
     fileHeader->vertexDataStart = pData - pStart;
-    for (i = 0; i < g_nummodelsbeforeLOD; i++) {
-        s_loddata_t *pLodData = g_model[i]->m_pLodData;
+    for (i = 0; i < g_studiomdl.nummodelsbeforeLOD; i++) {
+        s_loddata_t *pLodData = g_studiomdl.model[i]->m_pLodData;
 
         // skip blank empty model
         if (!pLodData)
@@ -2110,8 +2163,8 @@ static void WriteVertices(studiohdr_t *phdr) {
         mstudiovertex_t *pVert = (mstudiovertex_t *) pData;
         pData += pLodData->numvertices * sizeof(mstudiovertex_t);
         for (j = 0; j < pLodData->numvertices; j++) {
-//			printf( "saving bone weight %d for model %d at 0x%p\n",
-//				j, i, &pbone[j] );
+            //			printf( "saving bone weight %d for model %d at 0x%p\n",
+            //				j, i, &pbone[j] );
 
             const s_vertexinfo_t &lodVertex = pLodData->vertex[j];
             VectorCopy(lodVertex.position, pVert[j].m_vecPosition);
@@ -2137,8 +2190,8 @@ static void WriteVertices(studiohdr_t *phdr) {
     // store tangents grouped by mesh order
     ALIGN4(pData);
     fileHeader->tangentDataStart = pData - pStart;
-    for (i = 0; i < g_nummodelsbeforeLOD; i++) {
-        s_loddata_t *pLodData = g_model[i]->m_pLodData;
+    for (i = 0; i < g_studiomdl.nummodelsbeforeLOD; i++) {
+        s_loddata_t *pLodData = g_studiomdl.model[i]->m_pLodData;
 
         // skip blank empty model
         if (!pLodData)
@@ -2182,8 +2235,8 @@ static void WriteVertices(studiohdr_t *phdr) {
             pIndex[e].m_bytes = 2 * sizeof(float);
 
             // store extra vertex data, one entry per vertex, order matches main vertex data
-            for (i = 0; i < g_nummodelsbeforeLOD; i++) {
-                s_loddata_t *pLodData = g_model[i]->m_pLodData;
+            for (i = 0; i < g_studiomdl.nummodelsbeforeLOD; i++) {
+                s_loddata_t *pLodData = g_studiomdl.model[i]->m_pLodData;
 
                 // skip blank empty model
                 if (!pLodData)
@@ -2233,15 +2286,15 @@ static void WriteVertices(studiohdr_t *phdr) {
 float ComputeVertAnimFixedPointScale(studiohdr_t *pStudioHdr) {
     float flVertAnimRange = 0.0f;
 
-    for (int j = 0; j < g_numflexkeys; ++j) {
-        if (g_flexkey[j].numvanims <= 0)
+    for (int j = 0; j < g_studiomdl.flexkey.size(); ++j) {
+        if (g_studiomdl.flexkey[j].numvanims <= 0)
             continue;
 
-        const bool bWrinkleVAnim = (g_flexkey[j].vanimtype == STUDIO_VERT_ANIM_WRINKLE);
+        const bool bWrinkleVAnim = (g_studiomdl.flexkey[j].vanimtype == STUDIO_VERT_ANIM_WRINKLE);
 
-        s_vertanim_t *pVertAnim = g_flexkey[j].vanim;
+        s_vertanim_t *pVertAnim = g_studiomdl.flexkey[j].vanim;
 
-        for (int k = 0; k < g_flexkey[j].numvanims; ++k) {
+        for (int k = 0; k < g_studiomdl.flexkey[j].numvanims; ++k) {
             if (fabs(pVertAnim->pos.x) > flVertAnimRange) {
                 flVertAnimRange = fabs(pVertAnim->pos.x);
             }
@@ -2284,7 +2337,8 @@ float ComputeVertAnimFixedPointScale(studiohdr_t *pStudioHdr) {
             MdlWarning("Flex value too large: %.2f, Max: 32767\n", flVertAnimRange);
 
             flVertAnimFixedPointScale = 1.0f;
-        } else {
+        }
+        else {
             const float flTmpScale = flVertAnimRange / 32767.0f;
             if (flTmpScale > flVertAnimFixedPointScale) {
                 flVertAnimFixedPointScale = flTmpScale;
@@ -2318,68 +2372,68 @@ static void WriteModel(studiohdr_t *phdr) {
 
     // write bodypart info
     pbodypart = (mstudiobodyparts_t *) pData;
-    phdr->numbodyparts = g_numbodyparts;
+    phdr->numbodyparts = g_studiomdl.numbodyparts;
     phdr->bodypartindex = pData - pStart;
-    pData += g_numbodyparts * sizeof(mstudiobodyparts_t);
+    pData += g_studiomdl.numbodyparts * sizeof(mstudiobodyparts_t);
 
     pmodel = (mstudiomodel_t *) pData;
-    pData += g_nummodelsbeforeLOD * sizeof(mstudiomodel_t);
+    pData += g_studiomdl.nummodelsbeforeLOD * sizeof(mstudiomodel_t);
 
-    for (i = 0, j = 0; i < g_numbodyparts; i++) {
-        AddToStringTable(&pbodypart[i], &pbodypart[i].sznameindex, g_bodypart[i].name);
-        pbodypart[i].nummodels = g_bodypart[i].nummodels;
-        pbodypart[i].base = g_bodypart[i].base;
+    for (i = 0, j = 0; i < g_studiomdl.numbodyparts; i++) {
+        AddToStringTable(&pbodypart[i], &pbodypart[i].sznameindex, g_studiomdl.bodypart[i].name);
+        pbodypart[i].nummodels = g_studiomdl.bodypart[i].nummodels;
+        pbodypart[i].base = g_studiomdl.bodypart[i].base;
         pbodypart[i].modelindex = ((uint8_t *) &pmodel[j]) - (uint8_t *) &pbodypart[i];
-        j += g_bodypart[i].nummodels;
+        j += g_studiomdl.bodypart[i].nummodels;
     }
     ALIGN4(pData);
 
     // write global flex names
     mstudioflexdesc_t *pflexdesc = (mstudioflexdesc_t *) pData;
-    phdr->numflexdesc = g_numflexdesc;
+    phdr->numflexdesc = g_studiomdl.flexdesc.size();
     phdr->flexdescindex = pData - pStart;
-    pData += g_numflexdesc * sizeof(mstudioflexdesc_t);
+    pData += g_studiomdl.flexdesc.size() * sizeof(mstudioflexdesc_t);
     ALIGN4(pData);
 
-    for (j = 0; j < g_numflexdesc; j++) {
-        // printf("%d %s\n", j, g_flexdesc[j].FACS );
-        AddToStringTable(pflexdesc, &pflexdesc->szFACSindex, g_flexdesc[j].FACS);
+    for (j = 0; j < g_studiomdl.flexdesc.size(); j++) {
+        // printf("%d %s\n", j, g_studiomdl.flexdesc[j].FACS );
+        AddToStringTable(pflexdesc, &pflexdesc->szFACSindex, g_studiomdl.flexdesc[j].FACS);
         pflexdesc++;
     }
 
     // write global flex controllers
     mstudioflexcontroller_t *pflexcontroller = (mstudioflexcontroller_t *) pData;
-    phdr->numflexcontrollers = g_numflexcontrollers;
+    phdr->numflexcontrollers = g_studiomdl.flexcontroller.size();
     phdr->flexcontrollerindex = pData - pStart;
-    pData += g_numflexcontrollers * sizeof(mstudioflexcontroller_t);
+    pData += g_studiomdl.flexcontroller.size() * sizeof(mstudioflexcontroller_t);
     ALIGN4(pData);
 
-    for (j = 0; j < g_numflexcontrollers; j++) {
-        AddToStringTable(pflexcontroller, &pflexcontroller->sznameindex, g_flexcontroller[j].name);
-        AddToStringTable(pflexcontroller, &pflexcontroller->sztypeindex, g_flexcontroller[j].type);
-        pflexcontroller->min = g_flexcontroller[j].min;
-        pflexcontroller->max = g_flexcontroller[j].max;
+    for (j = 0; j < g_studiomdl.flexcontroller.size(); j++) {
+        AddToStringTable(pflexcontroller, &pflexcontroller->sznameindex, g_studiomdl.flexcontroller[j].name);
+        AddToStringTable(pflexcontroller, &pflexcontroller->sztypeindex, g_studiomdl.flexcontroller[j].type);
+        pflexcontroller->min = g_studiomdl.flexcontroller[j].min;
+        pflexcontroller->max = g_studiomdl.flexcontroller[j].max;
         pflexcontroller->localToGlobal = -1;
         pflexcontroller++;
     }
 
     // write flex rules
     mstudioflexrule_t *pflexrule = (mstudioflexrule_t *) pData;
-    phdr->numflexrules = g_numflexrules;
+    phdr->numflexrules = g_studiomdl.flexrule.size();
     phdr->flexruleindex = pData - pStart;
-    pData += g_numflexrules * sizeof(mstudioflexrule_t);
+    pData += g_studiomdl.flexrule.size() * sizeof(mstudioflexrule_t);
     ALIGN4(pData);
 
-    for (j = 0; j < g_numflexrules; j++) {
-        pflexrule->flex = g_flexrule[j].flex;
-        pflexrule->numops = g_flexrule[j].numops;
+    for (j = 0; j < g_studiomdl.flexrule.size(); j++) {
+        pflexrule->flex = g_studiomdl.flexrule[j].flex;
+        pflexrule->numops = g_studiomdl.flexrule[j].numops;
         pflexrule->opindex = (pData - (uint8_t *) pflexrule);
 
         mstudioflexop_t *pflexop = (mstudioflexop_t *) pData;
 
         for (i = 0; i < pflexrule->numops; i++) {
-            pflexop[i].op = g_flexrule[j].op[i].op;
-            pflexop[i].d.index = g_flexrule[j].op[i].d.index;
+            pflexop[i].op = g_studiomdl.flexrule[j].op[i].op;
+            pflexop[i].d.index = g_studiomdl.flexrule[j].op[i].d.index;
         }
 
         pData += sizeof(mstudioflexop_t) * pflexrule->numops;
@@ -2397,15 +2451,15 @@ static void WriteModel(studiohdr_t *phdr) {
     // Loop through all defined controllers and create a UI structure for them
     // All actual controllers will be defined as a member of some ui structure
     // and all actual controllers can only be a member of one ui structure
-    bool *pControllerHandled = (bool *) _alloca(g_numflexcontrollers * sizeof(bool));
-    memset(pControllerHandled, 0, g_numflexcontrollers * sizeof(bool));
+    bool *pControllerHandled = (bool *) _alloca(g_studiomdl.flexcontroller.size() * sizeof(bool));
+    memset(pControllerHandled, 0, g_studiomdl.flexcontroller.size() * sizeof(bool));
 
-    for (j = 0; j < g_numflexcontrollers; ++j) {
+    for (j = 0; j < g_studiomdl.flexcontroller.size(); ++j) {
         // Don't handle controls twice
         if (pControllerHandled[j])
             continue;
 
-        const s_flexcontroller_t &flexcontroller = g_flexcontroller[j];
+        const s_flexcontroller_t &flexcontroller = g_studiomdl.flexcontroller[j];
 
         bool found = false;
 
@@ -2419,20 +2473,21 @@ static void WriteModel(studiohdr_t *phdr) {
                 if (pFlexControllerUI->stereo) {
                     Assert(!pControllerHandled[remap.m_LeftIndex]);
                     pFlexControllerUI->szindex0 = (
-                            phdr->flexcontrollerindex - int(pData - pStart) +
-                            remap.m_LeftIndex * sizeof(mstudioflexcontroller_t));
+                        phdr->flexcontrollerindex - int(pData - pStart) +
+                        remap.m_LeftIndex * sizeof(mstudioflexcontroller_t));
                     pControllerHandled[remap.m_LeftIndex] = true;
 
                     Assert(!pControllerHandled[remap.m_RightIndex]);
                     pFlexControllerUI->szindex1 = (
-                            phdr->flexcontrollerindex - int(pData - pStart) +
-                            remap.m_RightIndex * sizeof(mstudioflexcontroller_t));
+                        phdr->flexcontrollerindex - int(pData - pStart) +
+                        remap.m_RightIndex * sizeof(mstudioflexcontroller_t));
                     pControllerHandled[remap.m_RightIndex] = true;
-                } else {
+                }
+                else {
                     Assert(!pControllerHandled[remap.m_Index]);
                     pFlexControllerUI->szindex0 = (
-                            phdr->flexcontrollerindex - int(pData - pStart) +
-                            remap.m_Index * sizeof(mstudioflexcontroller_t));
+                        phdr->flexcontrollerindex - int(pData - pStart) +
+                        remap.m_Index * sizeof(mstudioflexcontroller_t));
                     pControllerHandled[remap.m_Index] = true;
                     pFlexControllerUI->szindex1 = (0);
                 }
@@ -2443,10 +2498,11 @@ static void WriteModel(studiohdr_t *phdr) {
                     Assert(remap.m_MultiIndex != -1);
                     Assert(!pControllerHandled[remap.m_MultiIndex]);
                     pFlexControllerUI->szindex2 = (
-                            phdr->flexcontrollerindex - int(pData - pStart) +
-                            remap.m_MultiIndex * sizeof(mstudioflexcontroller_t));
+                        phdr->flexcontrollerindex - int(pData - pStart) +
+                        remap.m_MultiIndex * sizeof(mstudioflexcontroller_t));
                     pControllerHandled[remap.m_MultiIndex] = true;
-                } else {
+                }
+                else {
                     pFlexControllerUI->szindex2 = 0;
                 }
 
@@ -2457,55 +2513,57 @@ static void WriteModel(studiohdr_t *phdr) {
 
         if (!found) {
             pFlexControllerUI->remaptype = FLEXCONTROLLER_REMAP_PASSTHRU;
-            pFlexControllerUI->szindex2 = 0;    // Unused in this case
+            pFlexControllerUI->szindex2 = 0; // Unused in this case
 
-            if (j < g_numflexcontrollers - 1 &&
+            if (j < g_studiomdl.flexcontroller.size() - 1 &&
                 StringAfterPrefixCaseSensitive(flexcontroller.name, "right_") &&
-                StringAfterPrefixCaseSensitive(g_flexcontroller[j + 1].name, "left_") &&
+                StringAfterPrefixCaseSensitive(g_studiomdl.flexcontroller[j + 1].name, "left_") &&
                 !Q_strcmp(StringAfterPrefixCaseSensitive(flexcontroller.name, "right_"),
-                          StringAfterPrefixCaseSensitive(g_flexcontroller[j + 1].name, "left_"))) {
+                          StringAfterPrefixCaseSensitive(g_studiomdl.flexcontroller[j + 1].name, "left_"))) {
                 AddToStringTable(pFlexControllerUI, &pFlexControllerUI->sznameindex, flexcontroller.name + 6);
 
                 pFlexControllerUI->stereo = true;
 
                 Assert(!pControllerHandled[j + 1]);
                 pFlexControllerUI->szindex0 = (
-                        phdr->flexcontrollerindex - int(pData - pStart) +
-                        (j + 1) * sizeof(mstudioflexcontroller_t));
+                    phdr->flexcontrollerindex - int(pData - pStart) +
+                    (j + 1) * sizeof(mstudioflexcontroller_t));
                 pControllerHandled[j + 1] = true;
 
                 Assert(!pControllerHandled[j]);
                 pFlexControllerUI->szindex1 = (
-                        phdr->flexcontrollerindex - int(pData - pStart) +
-                        j * sizeof(mstudioflexcontroller_t));
+                    phdr->flexcontrollerindex - int(pData - pStart) +
+                    j * sizeof(mstudioflexcontroller_t));
                 pControllerHandled[j] = true;
-            } else if (j > 0 &&
-                       StringAfterPrefixCaseSensitive(flexcontroller.name, "left_") &&
-                       StringAfterPrefixCaseSensitive(g_flexcontroller[j - 1].name, "right_") &&
-                       !Q_strcmp(StringAfterPrefixCaseSensitive(flexcontroller.name, "left_"),
-                                 StringAfterPrefixCaseSensitive(g_flexcontroller[j - 1].name, "right_"))) {
+            }
+            else if (j > 0 &&
+                     StringAfterPrefixCaseSensitive(flexcontroller.name, "left_") &&
+                     StringAfterPrefixCaseSensitive(g_studiomdl.flexcontroller[j - 1].name, "right_") &&
+                     !Q_strcmp(StringAfterPrefixCaseSensitive(flexcontroller.name, "left_"),
+                               StringAfterPrefixCaseSensitive(g_studiomdl.flexcontroller[j - 1].name, "right_"))) {
                 AddToStringTable(pFlexControllerUI, &pFlexControllerUI->sznameindex, flexcontroller.name + 5);
 
                 pFlexControllerUI->stereo = true;
 
                 Assert(!pControllerHandled[j]);
                 pFlexControllerUI->szindex0 = (
-                        phdr->flexcontrollerindex - int(pData - pStart) +
-                        j * sizeof(mstudioflexcontroller_t));
+                    phdr->flexcontrollerindex - int(pData - pStart) +
+                    j * sizeof(mstudioflexcontroller_t));
                 pControllerHandled[j] = true;
 
                 Assert(!pControllerHandled[j - 1]);
                 pFlexControllerUI->szindex1 = (
-                        phdr->flexcontrollerindex - int(pData - pStart) +
-                        (j - 1) * sizeof(mstudioflexcontroller_t));
+                    phdr->flexcontrollerindex - int(pData - pStart) +
+                    (j - 1) * sizeof(mstudioflexcontroller_t));
                 pControllerHandled[j - 1] = true;
-            } else {
+            }
+            else {
                 AddToStringTable(pFlexControllerUI, &pFlexControllerUI->sznameindex, flexcontroller.name);
                 pFlexControllerUI->stereo = false;
                 pFlexControllerUI->szindex0 = (
-                        phdr->flexcontrollerindex - int(pData - pStart) +
-                        j * sizeof(mstudioflexcontroller_t));
-                pFlexControllerUI->szindex1 = 0;    // Unused in this case
+                    phdr->flexcontrollerindex - int(pData - pStart) +
+                    j * sizeof(mstudioflexcontroller_t));
+                pFlexControllerUI->szindex1 = 0; // Unused in this case
                 pControllerHandled[j] = true;
             }
         }
@@ -2517,29 +2575,29 @@ static void WriteModel(studiohdr_t *phdr) {
     ALIGN4(pData);
 
 #ifdef _DEBUG
-    for (j = 0; j < g_numflexcontrollers; ++j) {
+    for (j = 0; j < g_studiomdl.numflexcontrollers; ++j) {
         Assert(pControllerHandled[j]);
     }
 #endif // _DEBUG
 
     // write ik chains
     mstudioikchain_t *pikchain = (mstudioikchain_t *) pData;
-    phdr->numikchains = g_numikchains;
+    phdr->numikchains = g_studiomdl.numikchains;
     phdr->ikchainindex = pData - pStart;
-    pData += g_numikchains * sizeof(mstudioikchain_t);
+    pData += g_studiomdl.numikchains * sizeof(mstudioikchain_t);
     ALIGN4(pData);
 
-    for (j = 0; j < g_numikchains; j++) {
-        AddToStringTable(pikchain, &pikchain->sznameindex, g_ikchain[j].name);
-        pikchain->numlinks = g_ikchain[j].numlinks;
+    for (j = 0; j < g_studiomdl.numikchains; j++) {
+        AddToStringTable(pikchain, &pikchain->sznameindex, g_studiomdl.ikchain[j].name);
+        pikchain->numlinks = g_studiomdl.ikchain[j].numlinks;
 
         mstudioiklink_t *piklink = (mstudioiklink_t *) pData;
         pikchain->linkindex = (pData - (uint8_t *) pikchain);
         pData += pikchain->numlinks * sizeof(mstudioiklink_t);
 
         for (i = 0; i < pikchain->numlinks; i++) {
-            piklink[i].bone = g_ikchain[j].link[i].bone;
-            piklink[i].kneeDir = g_ikchain[j].link[i].kneeDir;
+            piklink[i].bone = g_studiomdl.ikchain[j].link[i].bone;
+            piklink[i].kneeDir = g_studiomdl.ikchain[j].link[i].kneeDir;
         }
 
         pikchain++;
@@ -2547,44 +2605,44 @@ static void WriteModel(studiohdr_t *phdr) {
 
     // save autoplay locks
     mstudioiklock_t *piklock = (mstudioiklock_t *) pData;
-    phdr->numlocalikautoplaylocks = g_numikautoplaylocks;
+    phdr->numlocalikautoplaylocks = g_studiomdl.numikautoplaylocks;
     phdr->localikautoplaylockindex = pData - pStart;
-    pData += g_numikautoplaylocks * sizeof(mstudioiklock_t);
+    pData += g_studiomdl.numikautoplaylocks * sizeof(mstudioiklock_t);
     ALIGN4(pData);
 
-    for (j = 0; j < g_numikautoplaylocks; j++) {
-        piklock->chain = g_ikautoplaylock[j].chain;
-        piklock->flPosWeight = g_ikautoplaylock[j].flPosWeight;
-        piklock->flLocalQWeight = g_ikautoplaylock[j].flLocalQWeight;
+    for (j = 0; j < g_studiomdl.numikautoplaylocks; j++) {
+        piklock->chain = g_studiomdl.ikautoplaylock[j].chain;
+        piklock->flPosWeight = g_studiomdl.ikautoplaylock[j].flPosWeight;
+        piklock->flLocalQWeight = g_studiomdl.ikautoplaylock[j].flLocalQWeight;
         piklock++;
     }
 
     // save mouth info
     mstudiomouth_t *pmouth = (mstudiomouth_t *) pData;
-    phdr->nummouths = g_nummouths;
+    phdr->nummouths = g_studiomdl.nummouths;
     phdr->mouthindex = pData - pStart;
-    pData += g_nummouths * sizeof(mstudiomouth_t);
+    pData += g_studiomdl.nummouths * sizeof(mstudiomouth_t);
     ALIGN4(pData);
 
-    for (i = 0; i < g_nummouths; i++) {
-        pmouth[i].bone = g_mouth[i].bone;
-        VectorCopy(g_mouth[i].forward, pmouth[i].forward);
-        pmouth[i].flexdesc = g_mouth[i].flexdesc;
+    for (i = 0; i < g_studiomdl.nummouths; i++) {
+        pmouth[i].bone = g_studiomdl.mouth[i].bone;
+        VectorCopy(g_studiomdl.mouth[i].forward, pmouth[i].forward);
+        pmouth[i].flexdesc = g_studiomdl.mouth[i].flexdesc;
     }
 
     // save pose parameters
     mstudioposeparamdesc_t *ppose = (mstudioposeparamdesc_t *) pData;
-    phdr->numlocalposeparameters = g_numposeparameters;
+    phdr->numlocalposeparameters = g_studiomdl.numposeparameters;
     phdr->localposeparamindex = pData - pStart;
-    pData += g_numposeparameters * sizeof(mstudioposeparamdesc_t);
+    pData += g_studiomdl.numposeparameters * sizeof(mstudioposeparamdesc_t);
     ALIGN4(pData);
 
-    for (i = 0; i < g_numposeparameters; i++) {
-        AddToStringTable(&ppose[i], &ppose[i].sznameindex, g_pose[i].name);
-        ppose[i].start = g_pose[i].min;
-        ppose[i].end = g_pose[i].max;
-        ppose[i].flags = g_pose[i].flags;
-        ppose[i].loop = g_pose[i].loop;
+    for (i = 0; i < g_studiomdl.numposeparameters; i++) {
+        AddToStringTable(&ppose[i], &ppose[i].sznameindex, g_studiomdl.pose[i].name);
+        ppose[i].start = g_studiomdl.pose[i].min;
+        ppose[i].end = g_studiomdl.pose[i].max;
+        ppose[i].flags = g_studiomdl.pose[i].flags;
+        ppose[i].loop = g_studiomdl.pose[i].loop;
     }
 
     if (!g_StudioMdlContext.quiet) {
@@ -2599,11 +2657,12 @@ static void WriteModel(studiohdr_t *phdr) {
     bool bExtraVertexData = false;
     sExtraTexcoordsToWrite = 0;
     for (int i = 0; (i < phdr->numbodyparts) && !bExtraVertexData; ++i) {
-        for (int j = 0; j < g_bodypart[i].nummodels; ++j) {
-            if (g_bodypart[i].pmodel[j] && g_bodypart[i].pmodel[j]->source->numvertices > 0) {
-                if (g_bodypart[i].pmodel[j] && g_bodypart[i].pmodel[j]->source->vertex[0].numTexcoord > 1) {
+        for (int j = 0; j < g_studiomdl.bodypart[i].nummodels; ++j) {
+            if (g_studiomdl.bodypart[i].pmodel[j] && g_studiomdl.bodypart[i].pmodel[j]->source->numvertices > 0) {
+                if (g_studiomdl.bodypart[i].pmodel[j] && g_studiomdl.bodypart[i].pmodel[j]->source->vertex[0].
+                    numTexcoord > 1) {
                     bExtraVertexData = true;
-                    sExtraTexcoordsToWrite = g_bodypart[i].pmodel[j]->source->vertex[0].numTexcoord - 1;
+                    sExtraTexcoordsToWrite = g_studiomdl.bodypart[i].pmodel[j]->source->vertex[0].numTexcoord - 1;
                     break;
                 }
             }
@@ -2615,27 +2674,28 @@ static void WriteModel(studiohdr_t *phdr) {
     }
 
     // write model
-    for (i = 0; i < g_nummodelsbeforeLOD; i++) {
+    for (i = 0; i < g_studiomdl.nummodelsbeforeLOD; i++) {
         int n = 0;
 
         uint8_t *pModelStart = (uint8_t *) (&pmodel[i]);
 
-        strcpy(pmodel[i].name, g_model[i]->filename);
-        // AddToStringTable( &pmodel[i], &pmodel[i].sznameindex, g_model[i]->filename );
+        strcpy(pmodel[i].name, g_studiomdl.model[i]->filename);
+        // AddToStringTable( &pmodel[i], &pmodel[i].sznameindex, g_studiomdl.model[i]->filename );
 
-        // pmodel[i].mrmbias = g_model[i]->mrmbias;
-        // pmodel[i].minresolution = g_model[i]->minresolution;
-        // pmodel[i].maxresolution = g_model[i]->maxresolution;
+        // pmodel[i].mrmbias = g_studiomdl.model[i]->mrmbias;
+        // pmodel[i].minresolution = g_studiomdl.model[i]->minresolution;
+        // pmodel[i].maxresolution = g_studiomdl.model[i]->maxresolution;
 
         // save bbox info
 
-        psource = g_model[i]->source;
-        s_loddata_t *pLodData = g_model[i]->m_pLodData;
+        psource = g_studiomdl.model[i]->source;
+        s_loddata_t *pLodData = g_studiomdl.model[i]->m_pLodData;
 
         // save mesh info
         if (pLodData) {
             pmodel[i].numvertices = pLodData->numvertices;
-        } else {
+        }
+        else {
             // empty model
             pmodel[i].numvertices = 0;
         }
@@ -2677,37 +2737,38 @@ static void WriteModel(studiohdr_t *phdr) {
         // save eyeballs
         mstudioeyeball_t *peyeball;
         peyeball = (mstudioeyeball_t *) pData;
-        pmodel[i].numeyeballs = g_model[i]->numeyeballs;
+        pmodel[i].numeyeballs = g_studiomdl.model[i]->numeyeballs;
         pmodel[i].eyeballindex = pData - pModelStart;
-        pData += g_model[i]->numeyeballs * sizeof(mstudioeyeball_t);
+        pData += g_studiomdl.model[i]->numeyeballs * sizeof(mstudioeyeball_t);
 
         ALIGN4(pData);
-        for (j = 0; j < g_model[i]->numeyeballs; j++) {
-            k = g_model[i]->eyeball[j].mesh;
-            pmesh[k].materialtype = 1;    // FIXME: tag custom material
-            pmesh[k].materialparam = j;    // FIXME: tag custom material
+        for (j = 0; j < g_studiomdl.model[i]->numeyeballs; j++) {
+            k = g_studiomdl.model[i]->eyeball[j].mesh;
+            pmesh[k].materialtype = 1; // FIXME: tag custom material
+            pmesh[k].materialparam = j; // FIXME: tag custom material
 
-            peyeball[j].bone = g_model[i]->eyeball[j].bone;
-            VectorCopy(g_model[i]->eyeball[j].org, peyeball[j].org);
-            peyeball[j].zoffset = g_model[i]->eyeball[j].zoffset;
-            peyeball[j].radius = g_model[i]->eyeball[j].radius;
-            VectorCopy(g_model[i]->eyeball[j].up, peyeball[j].up);
-            VectorCopy(g_model[i]->eyeball[j].forward, peyeball[j].forward);
-            peyeball[j].iris_scale = g_model[i]->eyeball[j].iris_scale;
+            peyeball[j].bone = g_studiomdl.model[i]->eyeball[j].bone;
+            VectorCopy(g_studiomdl.model[i]->eyeball[j].org, peyeball[j].org);
+            peyeball[j].zoffset = g_studiomdl.model[i]->eyeball[j].zoffset;
+            peyeball[j].radius = g_studiomdl.model[i]->eyeball[j].radius;
+            VectorCopy(g_studiomdl.model[i]->eyeball[j].up, peyeball[j].up);
+            VectorCopy(g_studiomdl.model[i]->eyeball[j].forward, peyeball[j].forward);
+            peyeball[j].iris_scale = g_studiomdl.model[i]->eyeball[j].iris_scale;
 
             for (k = 0; k < 3; k++) {
-                peyeball[j].upperflexdesc[k] = g_model[i]->eyeball[j].upperflexdesc[k];
-                peyeball[j].lowerflexdesc[k] = g_model[i]->eyeball[j].lowerflexdesc[k];
-                peyeball[j].uppertarget[k] = g_model[i]->eyeball[j].uppertarget[k];
-                peyeball[j].lowertarget[k] = g_model[i]->eyeball[j].lowertarget[k];
+                peyeball[j].upperflexdesc[k] = g_studiomdl.model[i]->eyeball[j].upperflexdesc[k];
+                peyeball[j].lowerflexdesc[k] = g_studiomdl.model[i]->eyeball[j].lowerflexdesc[k];
+                peyeball[j].uppertarget[k] = g_studiomdl.model[i]->eyeball[j].uppertarget[k];
+                peyeball[j].lowertarget[k] = g_studiomdl.model[i]->eyeball[j].lowertarget[k];
             }
 
-            peyeball[j].upperlidflexdesc = g_model[i]->eyeball[j].upperlidflexdesc;
-            peyeball[j].lowerlidflexdesc = g_model[i]->eyeball[j].lowerlidflexdesc;
+            peyeball[j].upperlidflexdesc = g_studiomdl.model[i]->eyeball[j].upperlidflexdesc;
+            peyeball[j].lowerlidflexdesc = g_studiomdl.model[i]->eyeball[j].lowerlidflexdesc;
         }
 
         if (!g_StudioMdlContext.quiet) {
-            printf("eyeballs   %7llu bytes (%d eyeballs)\n", (uintptr_t) (pData - pStart), g_model[i]->numeyeballs);
+            printf("eyeballs   %7llu bytes (%d eyeballs)\n", (uintptr_t) (pData - pStart),
+                   g_studiomdl.model[i]->numeyeballs);
         }
 
         // move flexes into individual meshes
@@ -2717,15 +2778,15 @@ static void WriteModel(studiohdr_t *phdr) {
             pmesh[m].numflexes = 0;
 
             // initialize array
-            for (j = 0; j < g_numflexkeys; j++) {
+            for (j = 0; j < g_studiomdl.flexkey.size(); j++) {
                 numflexkeys[j] = 0;
             }
 
             // count flex instances per mesh
-            for (j = 0; j < g_numflexkeys; j++) {
-                if (g_flexkey[j].imodel == i) {
-                    for (k = 0; k < g_flexkey[j].numvanims; k++) {
-                        n = g_flexkey[j].vanim[k].vertex - pmesh[m].vertexoffset;
+            for (j = 0; j < g_studiomdl.flexkey.size(); j++) {
+                if (g_studiomdl.flexkey[j].imodel == i) {
+                    for (k = 0; k < g_studiomdl.flexkey[j].numvanims; k++) {
+                        n = g_studiomdl.flexkey[j].vanim[k].vertex - pmesh[m].vertexoffset;
                         if (n >= 0 && n < pmesh[m].numvertices) {
                             if (numflexkeys[j]++ == 0) {
                                 pmesh[m].numflexes++;
@@ -2741,26 +2802,26 @@ static void WriteModel(studiohdr_t *phdr) {
                 pData += pmesh[m].numflexes * sizeof(mstudioflex_t);
                 ALIGN4(pData);
 
-                for (j = 0; j < g_numflexkeys; j++) {
+                for (j = 0; j < g_studiomdl.flexkey.size(); j++) {
                     if (!numflexkeys[j])
                         continue;
 
-                    pflex->flexdesc = g_flexkey[j].flexdesc;
-                    pflex->target0 = g_flexkey[j].target0;
-                    pflex->target1 = g_flexkey[j].target1;
-                    pflex->target2 = g_flexkey[j].target2;
-                    pflex->target3 = g_flexkey[j].target3;
+                    pflex->flexdesc = g_studiomdl.flexkey[j].flexdesc;
+                    pflex->target0 = g_studiomdl.flexkey[j].target0;
+                    pflex->target1 = g_studiomdl.flexkey[j].target1;
+                    pflex->target2 = g_studiomdl.flexkey[j].target2;
+                    pflex->target3 = g_studiomdl.flexkey[j].target3;
                     pflex->numverts = numflexkeys[j];
                     pflex->vertindex = (pData - (uint8_t *) pflex);
-                    pflex->flexpair = g_flexkey[j].flexpair;
-                    pflex->vertanimtype = g_flexkey[j].vanimtype;
+                    pflex->flexpair = g_studiomdl.flexkey[j].flexpair;
+                    pflex->vertanimtype = g_studiomdl.flexkey[j].vanimtype;
 
-                    // printf("%d %d %s : %f %f %f %f\n", j, g_flexkey[j].flexdesc, g_flexdesc[g_flexkey[j].flexdesc].FACS, g_flexkey[j].target0, g_flexkey[j].target1, g_flexkey[j].target2, g_flexkey[j].target3 );
-                    // if (j < 9) printf("%d %d %s : %d (%d) %f\n", j, g_flexkey[j].flexdesc, g_flexdesc[g_flexkey[j].flexdesc].FACS, g_flexkey[j].numvanims, pflex->numverts, g_flexkey[j].target );
+                    // printf("%d %d %s : %f %f %f %f\n", j, g_studiomdl.flexkey[j].flexdesc, g_studiomdl.flexdesc[g_studiomdl.flexkey[j].flexdesc].FACS, g_studiomdl.flexkey[j].target0, g_studiomdl.flexkey[j].target1, g_studiomdl.flexkey[j].target2, g_studiomdl.flexkey[j].target3 );
+                    // if (j < 9) printf("%d %d %s : %d (%d) %f\n", j, g_studiomdl.flexkey[j].flexdesc, g_studiomdl.flexdesc[g_studiomdl.flexkey[j].flexdesc].FACS, g_studiomdl.flexkey[j].numvanims, pflex->numverts, g_studiomdl.flexkey[j].target );
 
-                    // printf("%d %d : %d %f\n", j, g_flexkey[j].flexnum, g_flexkey[j].numvanims, g_flexkey[j].target );
+                    // printf("%d %d : %d %f\n", j, g_studiomdl.flexkey[j].flexnum, g_studiomdl.flexkey[j].numvanims, g_studiomdl.flexkey[j].target );
 
-                    pvanim = g_flexkey[j].vanim;
+                    pvanim = g_studiomdl.flexkey[j].vanim;
 
                     bool bWrinkleVAnim = (pflex->vertanimtype == STUDIO_VERT_ANIM_WRINKLE);
                     int nVAnimDeltaSize = bWrinkleVAnim ? sizeof(mstudiovertanim_wrinkle_t) : sizeof(mstudiovertanim_t);
@@ -2769,8 +2830,8 @@ static void WriteModel(studiohdr_t *phdr) {
                     pData += pflex->numverts * nVAnimDeltaSize;
                     ALIGN4(pData);
 
-                    for (k = 0; k < g_flexkey[j].numvanims; k++) {
-                        n = g_flexkey[j].vanim[k].vertex - pmesh[m].vertexoffset;
+                    for (k = 0; k < g_studiomdl.flexkey[j].numvanims; k++) {
+                        n = g_studiomdl.flexkey[j].vanim[k].vertex - pmesh[m].vertexoffset;
                         if (n >= 0 && n < pmesh[m].numvertices) {
                             pvertanim->index = n;
                             pvertanim->speed = 255.0F * pvanim->speed;
@@ -2781,7 +2842,7 @@ static void WriteModel(studiohdr_t *phdr) {
 
                             if (bWrinkleVAnim) {
                                 ((mstudiovertanim_wrinkle_t *) pvertanim)->SetWrinkleFixed(pvanim->wrinkle,
-                                                                                           flVertAnimFixedPointScale);
+                                    flVertAnimFixedPointScale);
                             }
 
                             pvertanim = (mstudiovertanim_t *) ((uint8_t *) pvertanim + nVAnimDeltaSize);
@@ -2806,7 +2867,7 @@ static void WriteModel(studiohdr_t *phdr) {
         }
 
         if (!g_StudioMdlContext.quiet) {
-            printf("flexes     %7llu bytes (%d flexes)\n", (uintptr_t) (pData - pStart), g_numflexkeys);
+            printf("flexes     %7llu bytes (%d flexes)\n", (uintptr_t) (pData - pStart), g_studiomdl.flexkey.size());
         }
         cur = (uintptr_t) pData;
     }
@@ -2815,28 +2876,28 @@ static void WriteModel(studiohdr_t *phdr) {
     ALIGN4(pData);
 
     mstudiomodelgroup_t *pincludemodel = (mstudiomodelgroup_t *) pData;
-    phdr->numincludemodels = g_numincludemodels;
+    phdr->numincludemodels = g_studiomdl.includemodels.size();
     phdr->includemodelindex = pData - pStart;
-    pData += g_numincludemodels * sizeof(mstudiomodelgroup_t);
+    pData += g_studiomdl.includemodels.size() * sizeof(mstudiomodelgroup_t);
 
-    for (i = 0; i < g_numincludemodels; i++) {
-        AddToStringTable(pincludemodel, &pincludemodel->sznameindex, g_includemodel[i].name);
+    for (i = 0; i < g_studiomdl.includemodels.size(); i++) {
+        AddToStringTable(pincludemodel, &pincludemodel->sznameindex, g_studiomdl.includemodels[i].name);
         pincludemodel++;
     }
 
     // save animblock group info
     mstudioanimblock_t *panimblock = (mstudioanimblock_t *) pData;
-    phdr->numanimblocks = g_numanimblocks;
+    phdr->numanimblocks = g_studiomdl.animblock.size();
     phdr->animblockindex = pData - pStart;
     pData += phdr->numanimblocks * sizeof(mstudioanimblock_t);
     ALIGN4(pData);
 
-    for (i = 1; i < g_numanimblocks; i++) {
-        panimblock[i].datastart = g_animblock[i].start - pBlockStart;
-        panimblock[i].dataend = g_animblock[i].end - pBlockStart;
+    for (i = 1; i < g_studiomdl.animblock.size(); i++) {
+        panimblock[i].datastart = g_studiomdl.animblock[i].start - pBlockStart;
+        panimblock[i].dataend = g_studiomdl.animblock[i].end - pBlockStart;
         // printf("block %d : %x %x (%d)\n", i, panimblock[i].datastart, panimblock[i].dataend, panimblock[i].dataend - panimblock[i].datastart );
     }
-    AddToStringTable(phdr, &phdr->szanimblocknameindex, g_animblockname);
+    AddToStringTable(phdr, &phdr->szanimblocknameindex, g_studiomdl.animblockname);
 }
 
 static void AssignMeshIDs(studiohdr_t *pStudioHdr) {
@@ -2944,7 +3005,7 @@ void CapKeyValues() {
 void WriteQCPath() {
     char relative_qc_path[1024];
     g_pFullFileSystem->FullPathToRelativePathEx(qdir, "CONTENT", relative_qc_path, sizeof(relative_qc_path));
-    strcat(relative_qc_path, V_GetFileName(g_fullpath));
+    strcat(relative_qc_path, V_GetFileName(g_studiomdl.fullpath));
 
     if (Q_strlen(relative_qc_path) > 0) {
         char new_qcpath_block[2048];
@@ -2989,18 +3050,19 @@ void WriteModelFiles() {
     pBlockData = nullptr;
     pBlockStart = nullptr;
 
-    Q_StripExtension(g_outname, g_outname, sizeof(g_outname));
+    Q_StripExtension(g_studiomdl.outname, g_studiomdl.outname, sizeof(g_studiomdl.outname));
 
-    if (g_animblocksize != 0) {
-        // write the non-default g_sequence group data to separate files
-        sprintf(g_animblockname, "models/%s.ani", g_outname);
+    if (g_studiomdl.animblocksize != 0) {
+        // write the non-default g_studiomdl.sequence group data to separate files
+        sprintf(g_studiomdl.animblockname, "models/%s.ani", g_studiomdl.outname.c_str());
 
         strcpy(filename, gamedir);
-        strcat(filename, g_animblockname);
+        strcat(filename, g_studiomdl.animblockname);
 
-        if (*g_szInternalName) {
-            Q_StripExtension(g_szInternalName, g_szInternalName, sizeof(g_szInternalName));
-            sprintf(g_animblockname, "models/%s.ani", g_szInternalName);
+        if (*g_studiomdl.szInternalName) {
+            Q_StripExtension(g_studiomdl.szInternalName, g_studiomdl.szInternalName,
+                             sizeof(g_studiomdl.szInternalName));
+            sprintf(g_studiomdl.animblockname, "models/%s.ani", g_studiomdl.szInternalName.c_str());
         }
 
         EnsureFileDirectoryExists(filename);
@@ -3019,27 +3081,27 @@ void WriteModelFiles() {
         pBlockData += sizeof(*pblockhdr);
     }
 
-//
-// write the g_model output file
-//
+    //
+    // write the g_studiomdl.model output file
+    //
     phdr = (studiohdr_t *) pStart;
 
     phdr->id = IDSTUDIOHEADER;
     phdr->version = STUDIO_VERSION;
 
-    strcat(g_outname, ".mdl");
+    strcat(g_studiomdl.outname, ".mdl");
 
     // strcpy( outname, ExpandPath( outname ) );
 
     strcpy(filename, gamedir);
-//	if( *g_pPlatformName )
-//	{
-//		strcat( filename, "platform_" );
-//		strcat( filename, g_pPlatformName );
-//		strcat( filename, "/" );
-//	}
+    //	if( *g_pPlatformName )
+    //	{
+    //		strcat( filename, "platform_" );
+    //		strcat( filename, g_pPlatformName );
+    //		strcat( filename, "/" );
+    //	}
     strcat(filename, "models/");
-    strcat(filename, g_outname);
+    strcat(filename, g_studiomdl.outname);
 
 
     // Create the directory.
@@ -3064,30 +3126,30 @@ void WriteModelFiles() {
         modelouthandle = SafeOpenWrite(filename);
     }
 
-    phdr->eyeposition = eyeposition;
-    phdr->illumposition = illumposition;
+    phdr->eyeposition = g_studiomdl.eyeposition;
+    phdr->illumposition = g_studiomdl.illumposition;
 
-    if (!g_wrotebbox && g_sequence.Count() > 0) {
-        bbox[0] = g_sequence[0].bmin;
-        bbox[1] = g_sequence[0].bmax;
-//        CollisionModel_ExpandBBox(bbox[0], bbox[1]);
-        g_sequence[0].bmin = bbox[0];
-        g_sequence[0].bmax = bbox[1];
+    if (!g_studiomdl.wrotebbox && g_studiomdl.sequence.Count() > 0) {
+        g_studiomdl.bbox[0] = g_studiomdl.sequence[0].bmin;
+        g_studiomdl.bbox[1] = g_studiomdl.sequence[0].bmax;
+        //        CollisionModel_ExpandBBox(bbox[0], bbox[1]);
+        g_studiomdl.sequence[0].bmin = g_studiomdl.bbox[0];
+        g_studiomdl.sequence[0].bmax = g_studiomdl.bbox[1];
     }
-    if (!g_wrotecbox) {
+    if (!g_studiomdl.wrotecbox) {
         // no default clipping box, just use per-sequence box
-        cbox[0] = vec3_origin;
-        cbox[1] = vec3_origin;
+        g_studiomdl.cbox[0] = vec3_origin;
+        g_studiomdl.cbox[1] = vec3_origin;
     }
 
-    phdr->hull_min = bbox[0];
-    phdr->hull_max = bbox[1];
-    phdr->view_bbmin = cbox[0];
-    phdr->view_bbmax = cbox[1];
+    phdr->hull_min = g_studiomdl.bbox[0];
+    phdr->hull_max = g_studiomdl.bbox[1];
+    phdr->view_bbmin = g_studiomdl.cbox[0];
+    phdr->view_bbmax = g_studiomdl.cbox[1];
 
-    phdr->flags = gflags;
+    phdr->flags = g_studiomdl.gflags;
     phdr->mass = 1;
-    phdr->constdirectionallightdot = g_constdirectionalightdot;
+    phdr->constdirectionallightdot = g_studiomdl.constdirectionalightdot;
 
     if (g_StudioMdlContext.numAllowedRootLODs > 0) {
         phdr->numAllowedRootLODs = g_StudioMdlContext.numAllowedRootLODs;
@@ -3101,17 +3163,18 @@ void WriteModelFiles() {
     memset(phdr2, 0, sizeof(studiohdr2_t));
     pData = (uint8_t *) phdr2 + sizeof(studiohdr2_t);
 
-    phdr2->illumpositionattachmentindex = g_illumpositionattachment;
-    phdr2->flMaxEyeDeflection = g_flMaxEyeDeflection;
+    phdr2->illumpositionattachmentindex = g_studiomdl.illumpositionattachment;
+    phdr2->flMaxEyeDeflection = g_studiomdl.flMaxEyeDeflection;
 
     BeginStringTable();
 
-    if (*g_szInternalName) {
-        V_strncpy(phdr->name, g_szInternalName, sizeof(phdr->name) - 1);
-        AddToStringTable(phdr2, &phdr2->sznameindex, g_szInternalName);
-    } else {
-        V_strncpy(phdr->name, g_outname, sizeof(phdr->name) - 1);
-        AddToStringTable(phdr2, &phdr2->sznameindex, g_outname);
+    if (*g_studiomdl.szInternalName) {
+        V_strncpy(phdr->name, g_studiomdl.szInternalName, sizeof(phdr->name) - 1);
+        AddToStringTable(phdr2, &phdr2->sznameindex, g_studiomdl.szInternalName);
+    }
+    else {
+        V_strncpy(phdr->name, g_studiomdl.outname, sizeof(phdr->name) - 1);
+        AddToStringTable(phdr2, &phdr2->sznameindex, g_studiomdl.outname);
     }
 
     WriteBoneInfo(phdr);
@@ -3122,7 +3185,8 @@ void WriteModelFiles() {
 
     pData = WriteAnimations(pData, pStart, phdr);
     if (!g_StudioMdlContext.quiet) {
-        printf("animations %7lld bytes (%d anims) (%d frames) [%d:%02d]\n", pData - pStart - total, g_numani,
+        printf("animations %7lld bytes (%lld anims) (%d frames) [%d:%02d]\n", pData - pStart - total,
+               g_studiomdl.panimation.size(),
                totalframes,
                (int) totalseconds / 60, (int) totalseconds % 60);
     }
@@ -3130,13 +3194,13 @@ void WriteModelFiles() {
 
     WriteSequenceInfo(phdr);
     if (!g_StudioMdlContext.quiet) {
-        printf("sequences  %7lld bytes (%d seq) \n", pData - pStart - total, g_sequence.Count());
+        printf("sequences  %7lld bytes (%d seq) \n", pData - pStart - total, g_studiomdl.sequence.Count());
     }
     total = pData - pStart;
 
-//    Msg("hdr@%p=%p\n", &phdr, phdr);
+    //    Msg("hdr@%p=%p\n", &phdr, phdr);
     WriteModel(phdr);
-//    Msg("hdr@%p=%p\n", &phdr, phdr);
+    //    Msg("hdr@%p=%p\n", &phdr, phdr);
 
     if (!g_StudioMdlContext.quiet) {
         printf("models     %7lld bytes\n", pData - pStart - total);
@@ -3160,9 +3224,9 @@ void WriteModelFiles() {
     }
     total = pData - pStart;
 
-//    Msg("hdr@%p=%p\n", &phdr2, phdr2);
+    //    Msg("hdr@%p=%p\n", &phdr2, phdr2);
     WriteBoneTransforms(phdr2, phdr->pBone(0));
-//    Msg("hdr@%p=%p\n", &phdr, phdr);
+    //    Msg("hdr@%p=%p\n", &phdr, phdr);
     if (!g_StudioMdlContext.quiet) {
         printf("bone transforms  %7lld bytes\n", pData - pStart - total);
     }
@@ -3231,8 +3295,8 @@ void WriteModelFiles() {
 
         if (!g_StudioMdlContext.quiet) {
             printf("---------------------\n");
-            printf("writing %s:\n", g_animblockname);
-            printf("blocks	   %7d\n", g_numanimblocks);
+            printf("writing %s:\n", g_studiomdl.animblockname.c_str());
+            printf("blocks	   %7d\n", g_studiomdl.animblock.size());
             printf("total      %7d\n", pblockhdr->length);
         }
     }
@@ -3263,7 +3327,7 @@ void WriteModelFiles() {
 
         s_bodypart_t *pBodyParts = (s_bodypart_t *) calloc(phdr->numbodyparts, sizeof(s_bodypart_t));
         for (int i = 0; i < phdr->numbodyparts; i++) {
-            pBodyParts[i] = g_bodypart[i];
+            pBodyParts[i] = g_studiomdl.bodypart[i];
         }
         OptimizedModel::WriteOptimizedFiles(phdr, pBodyParts);
         free(pBodyParts);
@@ -3305,14 +3369,14 @@ const vertexFileHeader_t *mstudiomodel_t::CacheVertexData(void *pModelData) {
 
     // load and persist the vertex file
     strcpy(filename, gamedir);
-//	if( *g_pPlatformName )
-//	{
-//		strcat( filename, "platform_" );
-//		strcat( filename, g_pPlatformName );
-//		strcat( filename, "/" );
-//	}
+    //	if( *g_pPlatformName )
+    //	{
+    //		strcat( filename, "platform_" );
+    //		strcat( filename, g_pPlatformName );
+    //		strcat( filename, "/" );
+    //	}
     strcat(filename, "models/");
-    strcat(filename, g_outname);
+    strcat(filename, g_studiomdl.outname);
     Q_StripExtension(filename, filename, sizeof(filename));
     strcat(filename, ".vvd");
 
@@ -3329,7 +3393,7 @@ const vertexFileHeader_t *mstudiomodel_t::CacheVertexData(void *pModelData) {
                  MODEL_VERTEX_FILE_VERSION);
     }
 
-    hasData:
+hasData:
     return pVertexHdr;
 }
 
@@ -3676,7 +3740,8 @@ bool BuildSortedVertexList(const studiohdr_t *pStudioHdr, const void *pVtxBuff, 
                     for (n = 0; n < pVtxHdr->numLODs; n++) {
                         counts[n] = 0;
                     }
-                } else {
+                }
+                else {
                     // vertexOffset works as unique key to identify vertexes for a specific mesh
                     // a mesh's verts are distributed, but guaranteed sequential in the lod sorted vertex list
                     // determine base index and offset and run length for target mesh for all lod levels
@@ -3927,7 +3992,9 @@ bool FixupVVDFile(const char *fileName, const studiohdr_t *pStudioHdr, const voi
     numFlat = 0;
     pFlatVertexes = (mstudiovertex_t **) malloc(numVertexes * sizeof(mstudiovertex_t *));
     pFlatTangents = (Vector4D **) malloc(numVertexes * sizeof(Vector4D *));
-    pFlatExtraData = bExtraData ? (uint8_t **) malloc(numVertexes * sizeof(uint8_t *) * pExtraHeader_old->m_count) : nullptr;
+    pFlatExtraData = bExtraData
+                         ? (uint8_t **) malloc(numVertexes * sizeof(uint8_t *) * pExtraHeader_old->m_count)
+                         : nullptr;
 
     for (i = 0; i < pStudioHdr->numbodyparts; i++) {
         pStudioBodyPart = pStudioHdr->pBodypart(i);
@@ -3952,7 +4019,7 @@ bool FixupVVDFile(const char *fileName, const studiohdr_t *pStudioHdr, const voi
                             pExtraData_old = pExtraDataBase_old + offset +
                                              (pStudioModel->vertexindex / sizeof(mstudiovertex_t)) * bytesPerVertex;
                             pFlatExtraData[e * numVertexes + numFlat] = &pExtraData_old[
-                                    (pStudioMesh->vertexoffset + n) * bytesPerVertex];
+                                (pStudioMesh->vertexoffset + n) * bytesPerVertex];
                         }
                     }
 
@@ -4219,14 +4286,14 @@ bool FixupToSortedLODVertexes(studiohdr_t *pStudioHdr) {
     const int idxPrefixLodUsage = (g_gameinfo.bSupportsDX8 && !g_StudioMdlContext.fastBuild) ? 1 : 0;
 
     strcpy(filename, gamedir);
-//	if( *g_pPlatformName )
-//	{
-//		strcat( filename, "platform_" );
-//		strcat( filename, g_pPlatformName );
-//		strcat( filename, "/" );
-//	}
+    //	if( *g_pPlatformName )
+    //	{
+    //		strcat( filename, "platform_" );
+    //		strcat( filename, g_pPlatformName );
+    //		strcat( filename, "/" );
+    //	}
     strcat(filename, "models/");
-    strcat(filename, g_outname);
+    strcat(filename, g_studiomdl.outname);
     Q_StripExtension(filename, filename, sizeof(filename));
 
     // determine lod usage per vertex
@@ -4332,27 +4399,23 @@ bool Clamp_MDL_LODS(const char *fileName, int rootLOD) {
     Studio_SetRootLOD(pStudioHdr, rootLOD);
 
 #if 0
-                                                                                                                            // shift down bone LOD masks
-	int iBone;
-	for ( iBone = 0; iBone < pStudioHdr->numbones; iBone++)
-	{
-		const mstudiobone_t *pBone = pStudioHdr->pBone( iBone );
+    // shift down bone LOD masks
+    int iBone;
+    for (iBone = 0; iBone < pStudioHdr->numbones; iBone++) {
+        const mstudiobone_t *pBone = pStudioHdr->pBone(iBone);
 
-		int nLodID;
-		for ( nLodID = 0; nLodID < rootLOD; nLodID++)
-		{
-			int iLodMask = BONE_USED_BY_VERTEX_LOD0 << nLodID;
+        int nLodID;
+        for (nLodID = 0; nLodID < rootLOD; nLodID++) {
+            int iLodMask = BONE_USED_BY_VERTEX_LOD0 << nLodID;
 
-			if (pBone->flags & (BONE_USED_BY_VERTEX_LOD0 << rootLOD))
-			{
-				pBone->flags = pBone->flags | iLodMask;
-			}
-			else
-			{
-				pBone->flags = pBone->flags & (~iLodMask);
-			}
-		}
-	}
+            if (pBone->flags & (BONE_USED_BY_VERTEX_LOD0 << rootLOD)) {
+                pBone->flags = pBone->flags | iLodMask;
+            }
+            else {
+                pBone->flags = pBone->flags & (~iLodMask);
+            }
+        }
+    }
 #endif
 
     {
@@ -4429,7 +4492,7 @@ bool Clamp_VTX_LODS(const char *fileName, int rootLOD, studiohdr_t *pStudioHdr) 
     for (nLodID = rootLOD; nLodID < pVtxHdr->numLODs; nLodID++) {
         OptimizedModel::MaterialReplacementListHeader_t *pReplacementList = pVtxHdr->pMaterialReplacementList(nLodID);
         OptimizedModel::MaterialReplacementListHeader_t *pNewReplacementList = pNewVtxHdr->pMaterialReplacementList(
-                nLodID);
+            nLodID);
 
         pNewReplacementList->numReplacements = pReplacementList->numReplacements;
         pNewReplacementList->replacementOffset = (pData - (uint8_t *) pNewReplacementList);
@@ -4450,9 +4513,9 @@ bool Clamp_VTX_LODS(const char *fileName, int rootLOD, studiohdr_t *pStudioHdr) 
     // link previous LODs to higher LODs
     for (nLodID = 0; nLodID < rootLOD; nLodID++) {
         OptimizedModel::MaterialReplacementListHeader_t *pRootReplacementList = pNewVtxHdr->pMaterialReplacementList(
-                rootLOD);
+            rootLOD);
         OptimizedModel::MaterialReplacementListHeader_t *pNewReplacementList = pNewVtxHdr->pMaterialReplacementList(
-                nLodID);
+            nLodID);
 
         int delta = (uint8_t *) pRootReplacementList - (uint8_t *) pNewReplacementList;
 
@@ -4501,7 +4564,7 @@ bool Clamp_VTX_LODS(const char *fileName, int rootLOD, studiohdr_t *pStudioHdr) 
                 // Iterate over all the meshes....
                 for (k = 0; k < pModel->nummeshes; ++k) {
                     Assert(pModel->nummeshes == pVtxLOD->numMeshes);
-//					mstudiomesh_t* pMesh = pModel->pMesh(k);
+                    //					mstudiomesh_t* pMesh = pModel->pMesh(k);
                     OptimizedModel::MeshHeader_t *pVtxMesh = pVtxLOD->pMesh(k);
                     OptimizedModel::MeshHeader_t *pNewVtxMesh = pNewVtxLOD->pMesh(k);
 
@@ -4628,8 +4691,8 @@ bool Clamp_RootLOD(studiohdr_t *phdr) {
 
     int rootLOD = g_StudioMdlContext.minLod;
 
-    if (rootLOD > g_ScriptLODs.Count() - 1) {
-        rootLOD = g_ScriptLODs.Count() - 1;
+    if (rootLOD > g_studiomdl.ScriptLODs.Count() - 1) {
+        rootLOD = g_studiomdl.ScriptLODs.Count() - 1;
     }
 
     if (rootLOD == 0) {
@@ -4638,7 +4701,7 @@ bool Clamp_RootLOD(studiohdr_t *phdr) {
 
     strcpy(filename, gamedir);
     strcat(filename, "models/");
-    strcat(filename, g_outname);
+    strcat(filename, g_studiomdl.outname);
     Q_StripExtension(filename, filename, sizeof(filename));
 
     // shift the files so that g_minLod is the root LOD
@@ -4664,7 +4727,7 @@ bool Clamp_RootLOD(studiohdr_t *phdr) {
 //----------------------------------------------------------------------
 // For a particular .qc, converts all studiomdl generated files to big-endian format.
 //----------------------------------------------------------------------
-void WriteSwappedFile(char *srcname, char *outname, int(*pfnSwapFunc)(void *, int, const void *, int)) {
+void WriteSwappedFile(char *srcname, char *outname, int (*pfnSwapFunc)(void *, int, const void *, int)) {
     if (FileExists(srcname)) {
         if (!g_StudioMdlContext.quiet) {
             printf("---------------------\n");

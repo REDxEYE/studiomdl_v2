@@ -14,7 +14,6 @@
 
 #include "dmserializers.h"
 #include "dmserializers/idmserializers.h"
-#include "appframework/iappsystem.h"
 #include "filesystem.h"
 #include "datamodel/idatamodel.h"
 #include "datamodel/dmattributevar.h"
@@ -3010,15 +3009,11 @@ DECLARE_FORMAT_UPDATER( mp_bonemask,		"DMX Model Pipeline Bone Mask Script File"
 //-----------------------------------------------------------------------------
 // The application object
 //-----------------------------------------------------------------------------
-class CDmSerializers : public CBaseAppSystem< IDmSerializers >
+class CDmSerializers : public IDmSerializers
 {
-	typedef CBaseAppSystem< IDmSerializers > BaseClass;
-
 public:
-	// Inherited from IAppSystem 
-	virtual bool Connect( CreateInterfaceFn factory );
-	virtual void *QueryInterface( const char *pInterfaceName );
-	virtual InitReturnVal_t Init();
+	bool Init() override;
+	void Shutdown() override {}
 };
 
 
@@ -3030,49 +3025,10 @@ IDmSerializers *g_pDmSerializers = &g_DmSerializers;
 
 
 //-----------------------------------------------------------------------------
-// Here's where the app systems get to learn about each other 
+// Init (the element factories are installed before this, see InitDataModel)
 //-----------------------------------------------------------------------------
-bool CDmSerializers::Connect( CreateInterfaceFn factory ) 
-{
-	if ( !BaseClass::Connect( factory ) )
-		return false;
-
-	if (!g_pFullFileSystem)
-	{
-		Warning( "DmSerializers needs the file system to function" );
-		return false;
-	}
-
-	// Here's the main point where all DM element classes get installed
-	// Necessary to do it here so all type symbols for all DME classes are set 
-	// up prior to install
-	InstallDmElementFactories( );
-
-	return true;
-}
-
-
-//-----------------------------------------------------------------------------
-// Here's where systems can access other interfaces implemented by this object
-//-----------------------------------------------------------------------------
-void *CDmSerializers::QueryInterface( const char *pInterfaceName )
-{
-	if ( !V_strcmp( pInterfaceName, DMSERIALIZERS_INTERFACE_VERSION ) )
-		return (IDmSerializers*)this;
-
-	return nullptr;
-}
-
-
-//-----------------------------------------------------------------------------
-// Init, shutdown
-//-----------------------------------------------------------------------------
-InitReturnVal_t CDmSerializers::Init() 
+bool CDmSerializers::Init() 
 { 
-	InitReturnVal_t nRetVal = BaseClass::Init();
-	if ( nRetVal != INIT_OK )
-		return nRetVal;
-
 	// Install non-dmx importers
 	InstallActBusyImporter( g_pDataModel );
 	InstallCommentaryImporter( g_pDataModel );
@@ -3111,6 +3067,6 @@ InitReturnVal_t CDmSerializers::Init()
 	INSTALL_FORMAT_UPDATER( mp_eyes );
 	INSTALL_FORMAT_UPDATER( mp_bonemask );
 
-	return INIT_OK; 
+	return true; 
 }
 

@@ -13,14 +13,12 @@
 
 #include <limits.h>
 
-#include "tier1/interface.h"
 #include "tier1/utlsymbol.h"
 #include "tier1/utlstring.h"
 #include "tier1/functors.h"
 #include "tier1/checksum_crc.h"
 #include "tier1/checksum_md5.h"
 #include "tier1/utlqueue.h"
-#include "appframework/iappsystem.h"
 #include "tier2/tier2.h"
 
 //-----------------------------------------------------------------------------
@@ -358,10 +356,6 @@ public:
 // Base file system interface
 //-----------------------------------------------------------------------------
 
-// This is the minimal interface that can be implemented to provide access to
-// a named set of files.
-#define BASEFILESYSTEM_INTERFACE_VERSION		"VBaseFileSystem011"
-
 // This interface is for VPK files to communicate with FileTracker
 abstract_class IThreadedFileMD5Processor
 {
@@ -433,7 +427,7 @@ protected:
 //-----------------------------------------------------------------------------
 // Main file system interface
 //-----------------------------------------------------------------------------
-abstract_class IFileSystem : public IAppSystem, public IBaseFileSystem
+abstract_class IFileSystem : public IBaseFileSystem
 {
 public:
 	//--------------------------------------------------------
@@ -517,14 +511,6 @@ public:
 #else
 	virtual int				FPrintf( FileHandle_t file, const char *pFormat, ... ) FMTFUNCTION( 3, 4 ) = 0;
 #endif
-
-	//--------------------------------------------------------
-	// Dynamic library operations
-	//--------------------------------------------------------
-
-	// load/unload modules
-	virtual CSysModule 		*LoadModule( const char *pFileName, const char *pPathID = nullptr, bool bValidatedDllOnly = true ) = 0;
-	virtual void			UnloadModule( CSysModule *pModule ) = 0;
 
 	//--------------------------------------------------------
 	// File searching operations
@@ -712,10 +698,6 @@ inline unsigned IFileSystem::GetOptimalReadSize( FileHandle_t hFile, unsigned nL
 	else
 		return nLogicalSize;
 }
-
-// Globals Exposed
-//-----------------------------------------------------------------------------
-DECLARE_TIER2_INTERFACE( IFileSystem, g_pFullFileSystem );
 
 
 

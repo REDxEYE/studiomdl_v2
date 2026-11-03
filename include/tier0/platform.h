@@ -31,7 +31,6 @@
 
 
 #include "wchartypes.h"
-#include "tier0/valve_off.h"
 
 
 	#include <malloc.h>
@@ -839,7 +838,6 @@ inline void Destruct( float __attribute__((__vector_size__(16)))* pMemory )
 #define GET_OUTER( OuterType, OuterMember ) \
    ( ( OuterType * ) ( (uint8_t *)this - offsetof( OuterType, OuterMember ) ) )
 
-#include "tier0/valve_on.h"
 
 #if defined(TIER0_DLL_EXPORT)
 #undef stricmp

@@ -176,21 +176,16 @@ struct FileElementSet_t
 //-----------------------------------------------------------------------------
 // Purpose: Versionable factor for element types
 //-----------------------------------------------------------------------------
-class CDataModel : public CBaseAppSystem< IDataModel >
+class CDataModel : public IDataModel
 {
-	typedef CBaseAppSystem< IDataModel > BaseClass;
-
 public:
 	CDataModel();
 	virtual ~CDataModel();
 
 // External interface
 public:
-	// Methods of IAppSystem
-	virtual bool Connect( CreateInterfaceFn factory );
-	virtual void *QueryInterface( const char *pInterfaceName );
-	virtual InitReturnVal_t Init();
-	virtual void Shutdown();
+	bool Init() override;
+	void Shutdown() override;
 
 	// Methods of IDataModel
 	virtual void				AddElementFactory( CDmElementFactoryHelper *pFactoryHelper );

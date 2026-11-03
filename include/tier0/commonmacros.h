@@ -39,10 +39,6 @@ inline bool IsPowerOfTwo( T value )
 	return (value & ( value - (T)1 )) == (T)0;
 }
 
-#ifndef REFERENCE
-#define REFERENCE(arg) ((void)arg)
-#endif
-
 #define CONST_INTEGER_AS_STRING(x) #x //Wraps the integer in quotes, allowing us to form constant strings with it
 #define __HACK_LINE_AS_STRING__(x) CONST_INTEGER_AS_STRING(x) //__LINE__ can only be converted to an actual number by going through this, otherwise the output is literally "__LINE__"
 #define __LINE__AS_STRING __HACK_LINE_AS_STRING__(__LINE__) //Gives you the line number in constant string form
@@ -153,20 +149,3 @@ char (*RtlpNumberOf( UNALIGNED T (&)[N] ))[N];
 #define SIZE_OF_ARRAY(p)	_ARRAYSIZE(p)
 #define Q_ARRAYSIZE(p)		ARRAYSIZE(p)
 #define V_ARRAYSIZE(p)		ARRAYSIZE(p)
-
-template< typename IndexType, typename T, unsigned int N >
-IndexType ClampedArrayIndex( const T (&buffer)[N], IndexType index )
-{
-	NOTE_UNUSED( buffer );
-	return clamp( index, 0, (IndexType)N - 1 );
-}
-
-template< typename T, unsigned int N >
-T ClampedArrayElement( const T (&buffer)[N], unsigned int uIndex )
-{
-	// Put index in an unsigned type to halve the clamping.
-	if ( uIndex >= N )
-		uIndex = N - 1;
-	return buffer[ uIndex ];
-}
-

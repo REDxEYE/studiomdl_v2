@@ -7,7 +7,6 @@
 #include "movieobjects/dmevertexdata.h"
 #include "movieobjects_interfaces.h"
 #include <limits.h>
-#include "tier3/tier3.h"
 
 #include "datamodel/dmelementfactoryhelper.h"
 #include <algorithm>

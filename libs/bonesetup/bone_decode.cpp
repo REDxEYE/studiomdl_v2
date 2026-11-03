@@ -969,15 +969,6 @@ static void CalcVirtualAnimation( virtualmodel_t *pVModel, const CStudioHdr *pSt
 	pAnimLinearBones = pAnimStudioHdr->pLinearBones();
 	pAnimbone = pAnimStudioHdr->pBone( 0 );
 
-#if _DEBUG
-	extern IDataCache *g_pDataCache;
-	// Consoles don't need to lock the modeldata cache since it never flushes
-	static IDataCacheSection *pModelCache = g_pDataCache->FindSection( "ModelData" );
-	AssertOnce( pModelCache->IsFrameLocking() );
-	static IDataCacheSection *pAnimblockCache = g_pDataCache->FindSection( "AnimBlock" );
-	AssertOnce( pAnimblockCache->IsFrameLocking() );
-#endif
-
 	int					iFrame;
 	float				s;
 

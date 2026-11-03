@@ -7,8 +7,8 @@
 #include "common/scriplib.h"
 #include "studiomdl/studiomdl.h"
 #include "datamodel/idatamodel.h"
+#include "studiomdl/studiomdl_global_state.hpp"
 
-extern StudioMdlContext g_StudioMdlContext;
 static bool g_bFirstWarning = true;
 
 void TokenError(const char *fmt, ...) {
@@ -40,7 +40,7 @@ void MdlError(const char *fmt, ...) {
 //	Assert( 0 );
     if (g_StudioMdlContext.quiet) {
         if (g_bFirstWarning) {
-            printf("%s :\n", g_fullpath);
+            printf("%s :\n", g_studiomdl.fullpath.c_str());
             g_bFirstWarning = false;
         }
         printf("\t");
@@ -59,11 +59,11 @@ void MdlError(const char *fmt, ...) {
         }
 
         // undescriptive errors in batch processes could be anonymous
-        printf("ERROR: Aborted Processing on '%s'\n", g_outname);
+        printf("ERROR: Aborted Processing on '%s'\n", g_studiomdl.outname.c_str());
 
         strcpy(fileName, gamedir);
         strcat(fileName, "models/");
-        strcat(fileName, g_outname);
+        strcat(fileName, g_studiomdl.outname);
         Q_FixSlashes(fileName);
         Q_StripExtension(fileName, baseName, sizeof(baseName));
 
@@ -99,7 +99,7 @@ void MdlWarning(const char *fmt, ...) {
 
     if (g_StudioMdlContext.quiet) {
         if (g_bFirstWarning) {
-            printf("%s :\n", g_fullpath);
+            printf("%s :\n", g_studiomdl.fullpath.c_str());
             g_bFirstWarning = false;
         }
         printf("\t");

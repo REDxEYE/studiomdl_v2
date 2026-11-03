@@ -235,7 +235,6 @@ private:
 //-----------------------------------------------------------------------------
 // Purpose: Inline string formatter for AssertMsgN
 //-----------------------------------------------------------------------------
-#include "tier0/valve_off.h"
 class CDbgFmtMsg
 {
 public:
@@ -258,5 +257,4 @@ public:
 private:
 	tchar m_szBuf[256];
 };
-#include "tier0/valve_on.h"
 

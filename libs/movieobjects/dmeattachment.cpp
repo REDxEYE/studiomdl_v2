@@ -27,9 +27,6 @@ void CDmeAttachment::OnConstruction()
 {
 	m_bIsRigid.Init( this, "isRigid" );
 	m_bIsWorldAligned.Init( this, "isWorldAligned" );
-
-	if ( !g_pMaterialSystem )
-		return;
 }
 
 

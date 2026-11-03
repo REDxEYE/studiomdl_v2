@@ -48,8 +48,17 @@ if (STUDIOMDL_WARNINGS AND NOT MSVC)
     add_compile_options(-Wall -Wextra)
 endif ()
 
+# Always on: passing a non-trivially-copyable object (e.g. vstd::FixedString without .c_str()) through "..." is an
+# error with clang (the user IDE and Windows builds) and a warning with GCC, whose flag also covers unrelated
+# function-pointer casts. memset/memcpy on non-trivial types is reported by -DSTUDIOMDL_WARNINGS=ON (-Wclass-memaccess).
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-Wconditionally-supported>)
+elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-Werror=non-pod-varargs>)
+endif ()
+
 add_subdirectory(libs/appframework)
-add_subdirectory(libs/nvtristriplib)
+add_subdirectory(libs/meshoptimizer)
 add_subdirectory(libs/tier0)
 add_subdirectory(libs/tier1)
 add_subdirectory(libs/tier2)
@@ -62,8 +71,6 @@ add_subdirectory(libs/dmserializers)
 add_subdirectory(libs/dmeutils)
 add_subdirectory(libs/utils)
 add_subdirectory(libs/bonesetup)
-add_subdirectory(libs/meshutils)
-add_subdirectory(libs/interfaces)
 add_subdirectory(libs/filesystem)
 
 
@@ -88,6 +95,7 @@ add_executable(studiomdl_v2
         studiomdl/studiomdl_errors.cpp
         studiomdl/studiomdl_app.cpp
         studiomdl/studiomdl_app.h
+        include/studiomdl/studiomdl_global_state.hpp
 )
 set_property(TARGET studiomdl_v2 APPEND_STRING PROPERTY COMPILE_FLAGS)
 
@@ -105,9 +113,8 @@ target_link_libraries(studiomdl_v2 PRIVATE
         bonesetup
         mdlobjects
         dmeutils
-        meshutils
         appframework
-        nvtristriplib
+        meshoptimizer
         filesystem_stdio_v2_static
         )
 if (WIN32)
@@ -117,7 +124,8 @@ endif ()
 add_executable(dmxconvert
         dmxconvert/dmxconvert.cpp
         studiomdl/filesystem_init.cpp
-        )
+        include/studiomdl/studiomdl_constants.hpp
+)
 
 set_property(TARGET dmxconvert APPEND_STRING PROPERTY COMPILE_FLAGS)
 target_compile_definitions(dmxconvert PRIVATE -DSTATIC_TIER0)

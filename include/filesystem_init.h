@@ -83,8 +83,7 @@ public:
 	// (default: false)
 	bool			m_bSetSteamDLLPath;
 
-	// Are we loading the Steam filesystem? This should be the same value that 
-	// FileSystem_GetFileSystemDLLName gave you.
+	// Are we loading the Steam filesystem? (always false: the filesystem is the linked-in CFileSystem_Stdio)
 	bool			m_bSteam;
 
 	// If this is true, then it won't look for a gameinfo.txt.
@@ -95,27 +94,6 @@ public:
 // Outputs (if it returns FS_OK).
 public:
 	char			m_GameInfoPath[512];	// The directory that gameinfo.txt lives in.
-};	
-
-
-class CFSLoadModuleInfo	: public CFSSteamSetupInfo
-{
-public:
-	CFSLoadModuleInfo();
-
-// Inputs.
-public:
-	// Full path to the file system DLL (gotten from FileSystem_GetFileSystemDLLName).
-	const char		*m_pFileSystemDLLName;
-
-	// Passed to IFileSystem::Connect.
-	CreateInterfaceFn	m_ConnectFactory;
-
-// Outputs (if it returns FS_OK).
-public:
-	// The filesystem you got from FileSystem_LoadFileSystemModule.
-	IFileSystem		*m_pFileSystem;
-	CSysModule		*m_pModule;
 };	
 
 
@@ -170,22 +148,18 @@ const char *GetVProjectCmdLineValue();
 // Call this to use a bin directory relative to VPROJECT
 void FileSystem_UseVProjectBinDir( bool bEnable );
 
-// This is used by all things that use the application framework:
-// Note that the application framework automatically takes care of step 1 if you use CSteamApplication.
-// Step 1: Ask filesystem_init for the name of the filesystem DLL to load
-FSReturnCode_t FileSystem_GetFileSystemDLLName( char *pFileSystemDLL, int nMaxLen, bool &bSteam );
-
-// Step 2: Use filesystem framework to load/connect/init that filesystem DLL
-// -or- just set up the steam environment and get back the gameinfo.txt path
-// The second method is used by the application framework, which wants to connect/init the filesystem itself
-FSReturnCode_t FileSystem_LoadFileSystemModule( CFSLoadModuleInfo &info );
+// Step 1: set up the steam environment and get back the gameinfo.txt path
 FSReturnCode_t FileSystem_SetupSteamEnvironment( CFSSteamSetupInfo &info );
 
-// Step 3: Ask filesystem_init to set up the executable search path, and mount the steam content based on the mod gameinfo.txt file
+// Step 2: Ask filesystem_init to set up the executable search path, and mount the steam content based on the mod gameinfo.txt file
 FSReturnCode_t FileSystem_MountContent( CFSMountContentInfo &fsInfo );
 
-// Step 4: Load the search paths out of pGameDirectory\gameinfo.txt.
+// Step 3: Load the search paths out of pGameDirectory\gameinfo.txt.
 FSReturnCode_t FileSystem_LoadSearchPaths( CFSSearchPathsInit &initInfo );
+
+// Lets the application suggest the directory to start looking for gameinfo.txt from (studiomdl: the QC's directory)
+typedef bool ( * SuggestGameInfoDirFn_t ) ( CFSSteamSetupInfo const *pFsSteamSetupInfo, char *pchPathBuffer, int nBufferLength, bool *pbBubbleDirectories );
+SuggestGameInfoDirFn_t SetSuggestGameInfoDirFn( SuggestGameInfoDirFn_t pfnNewFn );
 
 // This is automatically done during step 3, but if you want to redo all the search
 // paths (like Hammer does), you can call this to reset executable_path.

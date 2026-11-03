@@ -12,8 +12,6 @@
 #include "vstdlib/vstdlib.h"
 #include "tier0/basetypes.h"
 
-#include "tier1/interface.h"
-
 #define NTAB 32
 
 #pragma warning(push)

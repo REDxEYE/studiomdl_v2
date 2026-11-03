@@ -26,14 +26,19 @@
 #include "mathlib/mathlib.h"
 #include "studio.h"
 #include "studiomdl/studiomdl.h"
-
-extern StudioMdlContext g_StudioMdlContext;
+#include "studiomdl/studiomdl_global_state.hpp"
 
 bool IsEnd( char const* pLine )
 {
 	if (strncmp( "end", pLine, 3 ) != 0)
 		return false;
-	return (pLine[3] == '\0') || (pLine[3] == '\n');
+	// anything after "end" must be whitespace (CRLF files keep the '\r' when read in binary mode)
+	for ( const char *p = pLine + 3; *p; ++p )
+	{
+		if ( !V_isspace( *p ) )
+			return false;
+	}
+	return true;
 }
 
 
@@ -142,7 +147,7 @@ void Grab_Vertexlist( s_source_t *psource )
 				if (bone < 0 || bone >= psource->numbones)
 				{
 					MdlWarning( "bogus bone index\n" );
-					MdlWarning( "%d %s :\n%s", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szFilename, g_StudioMdlContext.szLine );
+					MdlWarning( "%d %s :\n%s", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szFilename.c_str(), g_StudioMdlContext.szLine.c_str() );
 					MdlError( "Exiting due to errors\n" );
 				}
 
@@ -165,7 +170,7 @@ void Grab_Vertexlist( s_source_t *psource )
 			}
 			else
 			{
-				MdlError("%s: error on line %d: %s", g_StudioMdlContext.szFilename, g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine );
+				MdlError("%s: error on line %d: %s", g_StudioMdlContext.szFilename.c_str(), g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine.c_str() );
 			}
 		}
 	}
@@ -196,7 +201,7 @@ void Grab_Facelist( s_source_t *psource )
 			}
 			else
 			{
-				MdlError("%s: error on line %d: %s", g_StudioMdlContext.szFilename, g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine );
+				MdlError("%s: error on line %d: %s", g_StudioMdlContext.szFilename.c_str(), g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine.c_str() );
 			}
 		}
 	}
@@ -273,7 +278,7 @@ void Grab_Texcoordlist( s_source_t *psource )
 			}
 			else
 			{
-				MdlError("%s: error on line %d: %s", g_StudioMdlContext.szFilename, g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine );
+				MdlError("%s: error on line %d: %s", g_StudioMdlContext.szFilename.c_str(), g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine.c_str() );
 			}
 		}
 	}
@@ -305,7 +310,7 @@ void Grab_Normallist( s_source_t *psource )
 				if (bone < 0 || bone >= psource->numbones)
 				{
 					MdlWarning( "bogus bone index\n" );
-					MdlWarning( "%d %s :\n%s", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szFilename, g_StudioMdlContext.szLine );
+					MdlWarning( "%d %s :\n%s", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szFilename.c_str(), g_StudioMdlContext.szLine.c_str() );
 					MdlError( "Exiting due to errors\n" );
 				}
 
@@ -313,7 +318,7 @@ void Grab_Normallist( s_source_t *psource )
 			}
 			else
 			{
-				MdlError("%s: error on line %d: %s", g_StudioMdlContext.szFilename, g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine );
+				MdlError("%s: error on line %d: %s", g_StudioMdlContext.szFilename.c_str(), g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine.c_str() );
 			}
 		}
 	}
@@ -367,7 +372,7 @@ void Grab_Faceattriblist( s_source_t *psource )
 			}
 			else
 			{
-				MdlError("%s: error on line %d: %s", g_StudioMdlContext.szFilename, g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine );
+				MdlError("%s: error on line %d: %s", g_StudioMdlContext.szFilename.c_str(), g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine.c_str() );
 			}
 		}
 	}
@@ -380,7 +385,7 @@ int closestNormal( int v, int n )
 	float dot;
 	int	r = n;
 
-	v_unify_t *cur = v_list[v];
+	v_unify_t *cur = g_studiomdl.v_list[v];
 
 	while (cur)
 	{
@@ -400,7 +405,7 @@ int closestNormal( int v, int n )
 int AddToVlist(int v, int m, int n, std::array<uint32_t, MAXSTUDIOTEXCOORDS>& t, int firstref)
 {
 	v_unify_t *prev = nullptr;
-	v_unify_t *cur = v_list[v];
+	v_unify_t *cur = g_studiomdl.v_list[v];
 
 	while (cur)
 	{
@@ -417,19 +422,19 @@ int AddToVlist(int v, int m, int n, std::array<uint32_t, MAXSTUDIOTEXCOORDS>& t,
 			if (bMatch)
 			{
 				cur->refcount++;
-				return cur - v_listdata;
+				return cur - g_studiomdl.v_listdata;
 			}
 		}
 		prev = cur;
 		cur = cur->next;
 	}
 
-	if (g_numvlist >= MAXSTUDIOSRCVERTS)
+	if (g_studiomdl.numvlist >= MAXSTUDIOSRCVERTS)
 	{
 		MdlError( "Too many unified vertices\n");
 	}
 
-	cur = &v_listdata[g_numvlist++];
+	cur = &g_studiomdl.v_listdata[g_studiomdl.numvlist++];
 	cur->lastref = -1;
 	cur->refcount = 1;
 	cur->v = v;
@@ -446,10 +451,10 @@ int AddToVlist(int v, int m, int n, std::array<uint32_t, MAXSTUDIOTEXCOORDS>& t,
 	}
 	else
 	{
-		v_list[v] = cur;
+		g_studiomdl.v_list[v] = cur;
 	}
 
-	return g_numvlist - 1;
+	return g_studiomdl.numvlist - 1;
 }
 
 void DecrementReferenceVlist( int uv, int numverts )
@@ -457,13 +462,13 @@ void DecrementReferenceVlist( int uv, int numverts )
 	if (uv < 0 || uv > MAXSTUDIOSRCVERTS)
 		MdlError( "decrement outside of range\n");
 
-	v_listdata[uv].refcount--;
+	g_studiomdl.v_listdata[uv].refcount--;
 
-	if (v_listdata[uv].refcount == 0)
+	if (g_studiomdl.v_listdata[uv].refcount == 0)
 	{
-		v_listdata[uv].lastref = numverts;
+		g_studiomdl.v_listdata[uv].lastref = numverts;
 	}
-	else if (v_listdata[uv].refcount < 0)
+	else if (g_studiomdl.v_listdata[uv].refcount < 0)
 	{
 		MdlError("<0 ref\n");
 	}
@@ -477,9 +482,9 @@ void UnifyIndices( s_source_t *psource )
 	s_face_t uface;
 
 	// clear v_list
-	g_numvlist = 0;
-	memset( v_list, 0, sizeof( v_list ) );
-	memset( v_listdata, 0, sizeof( v_listdata ) );
+	g_studiomdl.numvlist = 0;
+	memset( g_studiomdl.v_list, 0, sizeof( g_studiomdl.v_list ) );
+	memset( g_studiomdl.v_listdata, 0, sizeof( g_studiomdl.v_listdata ) );
 
 	// create an list of all the
 	for (i = 0; i < g_StudioMdlContext.numfaces; i++)
@@ -532,25 +537,25 @@ static void BuildUniqueVertexList( s_source_t *pSource, const int *pDesiredToVLi
 		int j = pDesiredToVList[i];
 
 		s_vertexinfo_t &vertex = pSource->vertex[i];
-		VectorCopy( g_StudioMdlContext.vertex[ v_listdata[j].v ], vertex.position );
-		VectorCopy( g_StudioMdlContext.normal[ v_listdata[j].n ], vertex.normal );
+		VectorCopy( g_StudioMdlContext.vertex[ g_studiomdl.v_listdata[j].v ], vertex.position );
+		VectorCopy( g_StudioMdlContext.normal[ g_studiomdl.v_listdata[j].n ], vertex.normal );
 
-		vertex.boneweight.numbones		= g_StudioMdlContext.bone[ v_listdata[j].v ].numbones;
+		vertex.boneweight.numbones		= g_StudioMdlContext.bone[ g_studiomdl.v_listdata[j].v ].numbones;
 		int k;
 		for( k = 0; k < MAXSTUDIOBONEWEIGHTS; k++ )
 		{
-			vertex.boneweight.bone[k]	= g_StudioMdlContext.bone[ v_listdata[j].v ].bone[k];
-			vertex.boneweight.weight[k]	= g_StudioMdlContext.bone[ v_listdata[j].v ].weight[k];
+			vertex.boneweight.bone[k]	= g_StudioMdlContext.bone[ g_studiomdl.v_listdata[j].v ].bone[k];
+			vertex.boneweight.weight[k]	= g_StudioMdlContext.bone[ g_studiomdl.v_listdata[j].v ].weight[k];
 		}
 
 		for (k = 0; k < numValidTexcoords; ++k)
 		{
-			Vector2Copy(g_StudioMdlContext.texcoord[k][v_listdata[j].t[k]], vertex.texcoord[k]);
+			Vector2Copy(g_StudioMdlContext.texcoord[k][g_studiomdl.v_listdata[j].t[k]], vertex.texcoord[k]);
 		}
 		vertex.numTexcoord = numValidTexcoords;
 
 		// store a bunch of other info
-		vertex.material			= v_listdata[j].m;
+		vertex.material			= g_studiomdl.v_listdata[j].m;
 
 #if 0
 		pSource->vertexInfo[i].firstref		= v_listdata[j].firstref;
@@ -569,8 +574,8 @@ static int vlistCompare( const void *elem1, const void *elem2 )
 {
 	const int i1 = *(const int *)elem1;
 	const int i2 = *(const int *)elem2;
-	const v_unify_t *u1 = &v_listdata[i1];
-	const v_unify_t *u2 = &v_listdata[i2];
+	const v_unify_t *u1 = &g_studiomdl.v_listdata[i1];
+	const v_unify_t *u2 = &g_studiomdl.v_listdata[i2];
 
 	// sort by material
 	if (u1->m < u2->m)
@@ -590,12 +595,12 @@ static int vlistCompare( const void *elem1, const void *elem2 )
 
 static void SortVerticesByMaterial( int *pDesiredToVList, int *pVListToDesired )
 {
-	for ( int i = 0; i < g_numvlist; i++ )
+	for ( int i = 0; i < g_studiomdl.numvlist; i++ )
 	{
 		pDesiredToVList[i] = i;
 	}
-	qsort( pDesiredToVList, g_numvlist, sizeof( int ), vlistCompare );
-	for ( int i = 0; i < g_numvlist; i++ )
+	qsort( pDesiredToVList, g_studiomdl.numvlist, sizeof( int ), vlistCompare );
+	for ( int i = 0; i < g_studiomdl.numvlist; i++ )
 	{
 		pVListToDesired[ pDesiredToVList[i] ] = i;
 	}
@@ -761,14 +766,14 @@ static void RemapVertexAnimations( s_source_t *pSource, int *pVListToDesired )
 //-----------------------------------------------------------------------------
 void BuildIndividualMeshes( s_source_t *pSource )
 {
-	int *v_listsort = (int *)malloc( g_numvlist * sizeof( int ) );	// map desired order to vlist entry
-	int *v_ilistsort = (int *)malloc( g_numvlist * sizeof( int ) );	// map vlist entry to desired order
+	int *v_listsort = (int *)malloc( g_studiomdl.numvlist * sizeof( int ) );	// map desired order to vlist entry
+	int *v_ilistsort = (int *)malloc( g_studiomdl.numvlist * sizeof( int ) );	// map vlist entry to desired order
 	int *facesort = (int *)malloc( g_StudioMdlContext.numfaces * sizeof( int ) );		// map desired order to src_face entry
 
 	SortVerticesByMaterial( v_listsort, v_ilistsort );
 	SortFacesByMaterial( facesort );
 
-	pSource->numvertices = g_numvlist;
+	pSource->numvertices = g_studiomdl.numvlist;
 	pSource->numfaces = g_StudioMdlContext.numfaces;
 
 	BuildUniqueVertexList( pSource, v_listsort );

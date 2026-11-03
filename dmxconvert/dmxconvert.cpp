@@ -17,12 +17,12 @@
 #include "tier0/icommandline.h"
 #include "datamodel/idatamodel.h"
 #include "filesystem.h"
-#include "appframework/AppFramework.h"
+#include "appframework/app.h"
 #include "dmserializers/idmserializers.h"
 #include "tier1/utlstring.h"
 #include "datamodel/dmelement.h"
 #include "tier2/tier2.h"
-#include "filesystem/filesystem_stdio.h"
+#include "tier2/tier2dm.h"
 #include "common/filesystem_tools.h"
 
 
@@ -31,50 +31,26 @@ class CDmElement;
 //-----------------------------------------------------------------------------
 // The application object
 //-----------------------------------------------------------------------------
-class CDmxConvertApp : public CDefaultAppSystemGroup<CSteamAppSystemGroup>
+class CDmxConvertApp : public CApplication
 {
-public:
-	// Methods of IApplication
-	bool Create() override;
-	bool PreInit( ) override;
+protected:
+	bool PreInit() override;
+	bool Init() override { return InitDataModel(); }
 	int Main() override;
-	void PostShutdown() override;
+	void Shutdown() override { ShutdownDataModel(); }
 };
 
-DEFINE_CONSOLE_STEAM_APPLICATION_OBJECT( CDmxConvertApp );
-
-
-//-----------------------------------------------------------------------------
-// The application object
-//-----------------------------------------------------------------------------
-bool CDmxConvertApp::Create()
+int main( int argc, char **argv )
 {
-//	SpewOutputFunc( DMXConvertOutputFunc );
-	AddSystem( g_pDataModel, VDATAMODEL_INTERFACE_VERSION );
-	AddSystem( g_pDmSerializers, DMSERIALIZERS_INTERFACE_VERSION );
-	return true;
+	CDmxConvertApp app;
+	return app.Run( argc, argv );
 }
-extern CFileSystem_Stdio g_FileSystem_Stdio;
+
+
 bool CDmxConvertApp::PreInit( )
 {
-	CreateInterfaceFn factory = GetFactory();
-	ConnectTier1Libraries( &factory, 1 );
-    g_pFullFileSystem = &g_FileSystem_Stdio;
-    g_pFileSystem = g_pFullFileSystem;
-//	ConnectTier2Libraries( &factory, 1 );
-
-	if ( !g_pFullFileSystem || !g_pDataModel )
-	{
-		Warning( "DMXConvert is missing a required interface!\n" );
-		return false;
-	}
+	g_pFileSystem = g_pFullFileSystem;
 	return true;
-}
-
-
-void CDmxConvertApp::PostShutdown()
-{
-	DisconnectTier1Libraries();
 }
 
 

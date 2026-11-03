@@ -66,27 +66,17 @@ void CDmeCamera::OnDestruction()
 }
 	
 //-----------------------------------------------------------------------------
-// Loads the material system view matrix based on the transform
+// Loads the material system view matrix based on the transform (no material system in these tools)
 //-----------------------------------------------------------------------------
 void CDmeCamera::LoadViewMatrix( bool bUseEngineCoordinateSystem )
 {
-	if ( !g_pMaterialSystem )
-		return;
-
-	VMatrix view;
-	GetViewMatrix( view, bUseEngineCoordinateSystem );
 }
 
 //-----------------------------------------------------------------------------
-// Loads the material system projection matrix based on the fov, etc.
+// Loads the material system projection matrix based on the fov, etc. (no material system in these tools)
 //-----------------------------------------------------------------------------
 void CDmeCamera::LoadProjectionMatrix( int nDisplayWidth, int nDisplayHeight )
 {
-	if ( !g_pMaterialSystem )
-		return;
-
-	VMatrix proj;
-	GetProjectionMatrix( proj, nDisplayWidth, nDisplayHeight );
 }
 
 //-----------------------------------------------------------------------------
