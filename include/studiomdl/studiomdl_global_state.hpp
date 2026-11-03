@@ -3,6 +3,10 @@
 //
 
 #pragma once
+#include <cassert>
+#include <chrono>
+#include <source_location>
+
 #include "studiomdl_constants.hpp"
 #include "studiomdl.h"
 #include "mathlib/vector.h"
@@ -29,8 +33,8 @@ struct StudioMDLGlobalState {
     float currentscale;
     RadianEuler defaultrotation;
 
-    vstd::FixedVector<StudioPath, 16> defaulttexture;
-    vstd::FixedVector<StudioPath, 16> sourcetexture;
+    vstd::FixedVector<StudioPath, 16> defaulttextures;
+    vstd::FixedVector<StudioPath, 16> sourcetextures;
 
     int numrep;
 
@@ -60,9 +64,9 @@ struct StudioMDLGlobalState {
 
     uint8_t constdirectionalightdot;
 
-    vstd::FixedVector<s_texture_t, MAXSTUDIOSKINS> texture;
+    vstd::FixedVector<s_texture_t, MAXSTUDIOSKINS> textures;
 
-    vstd::FixedVector<int, MAXSTUDIOSKINS> material; // link into texture array
+    vstd::FixedVector<int, MAXSTUDIOSKINS> materials; // link into texture array
 
     float gamma;
     int numskinref;
@@ -77,14 +81,14 @@ struct StudioMDLGlobalState {
 
     // Transition nodes: node id N (1-based, as stored in sequences) is xnodename[N - 1]; xnodename.size() is the node count.
     // xnode[from - 1][to - 1] is the next node on the way (0 = no transition); a fixed matrix indexed by node id.
-    vstd::FixedVector<std::string, 100> xnodename;
-    std::array<std::array<int, 100>, 100> xnode{};
-    vstd::FixedVector<std::array<int, 2>, 10000> xnodeskip;
+    vstd::FixedVector<std::string, 100> xnodenames;
+    std::array<std::array<int, 100>, 100> xnodes{};
+    vstd::FixedVector<std::array<int, 2>, 10000> xnodeskips;
 
-    vstd::FixedVector<s_animblock_t, MAXSTUDIOANIMBLOCKS> animblock;
+    vstd::FixedVector<s_animblock_t, MAXSTUDIOANIMBLOCKS> animblocks;
 
     int animblocksize;
-    vstd::FixedString<260> animblockname;
+    StudioPath animblockname;
     int animblockmaxframes;
 
     int numposeparameters;
@@ -94,19 +98,19 @@ struct StudioMDLGlobalState {
     int numikautoplaylocks;
     s_iklock_t ikautoplaylock[16];
 
-    vstd::FixedVector<s_cmdlist_t, MAXSTUDIOANIMS> cmdlist;
-    vstd::FixedVector<s_animation_t *, MAXSTUDIOANIMS> panimation;
-    vstd::FixedVector<s_source_t *, MAXSTUDIOSEQUENCES> source;
+    vstd::FixedVector<s_cmdlist_t, MAXSTUDIOANIMS> cmdlists;
+    vstd::FixedVector<s_animation_t *, MAXSTUDIOANIMS> animations;
+    vstd::FixedVector<s_source_t *, MAXSTUDIOSEQUENCES> sources;
 
     int nummodels;
     int nummodelsbeforeLOD;
     CUtlVectorAuto<s_model_t *> model;
 
-    vstd::FixedVector<s_flexdesc_t,MAXSTUDIOFLEXDESC> flexdesc;
-    vstd::FixedVector<s_flexcontroller_t, MAXSTUDIOFLEXCTRL> flexcontroller;
-    vstd::FixedVector<s_flexkey_t, MAXSTUDIOFLEXKEYS> flexkey;
+    vstd::FixedVector<s_flexdesc_t,MAXSTUDIOFLEXDESC> flexdescs;
+    vstd::FixedVector<s_flexcontroller_t, MAXSTUDIOFLEXCTRL> flexcontrollers;
+    vstd::FixedVector<s_flexkey_t, MAXSTUDIOFLEXKEYS> flexkeys;
     s_flexkey_t *defaultflexkey;
-    vstd::FixedVector<s_flexrule_t, MAXSTUDIOFLEXRULES> flexrule;
+    vstd::FixedVector<s_flexrule_t, MAXSTUDIOFLEXRULES> flexrules;
 
     Vector defaultadjust;
 
@@ -192,6 +196,15 @@ struct StudioMDLGlobalState {
 
     std::array<s_mouth_t, MAXSTUDIOSRCBONES> mouth; // ?? skins?
     int nummouths;
+};
+
+struct Timing {
+    std::string function_name;
+    std::string stage_name;
+    uint32_t indent;
+    uint32_t calls{1};
+    double duration{0};
+    double own_duration{0};
 };
 
 struct StudioMdlContext {
@@ -286,6 +299,9 @@ struct StudioMdlContext {
     CUtlVectorAuto<s_face_t> src_uface; // max res unified faces
     int numbones = 0;
 
+    std::vector<Timing> timings;
+    int32_t timings_depth{0};
+
     StudioMdlContext()
         : parseable_completion_output(0),
           collapse_bones_message(0),
@@ -336,13 +352,76 @@ struct StudioMdlContext {
           vecMinWorldspace(MIN_COORD_INTEGER, MIN_COORD_INTEGER, MIN_COORD_INTEGER),
           vecMaxWorldspace(MAX_COORD_INTEGER, MAX_COORD_INTEGER, MAX_COORD_INTEGER),
           hDmeBoneFlexDriverList(DMELEMENT_HANDLE_INVALID),
-          szInCurrentSeqName(nullptr) {
-        memset(szFilename, 0, sizeof(szFilename));
-        memset(szLine, 0, sizeof(szLine));
-        memset(numtexcoords, 0, sizeof(numtexcoords));
-        strncpy(pDefaultSurfaceProp, "default", sizeof(pDefaultSurfaceProp) - 1);
+          szInCurrentSeqName(nullptr),
+          pDefaultSurfaceProp("default") {
     }
 };
 
 extern StudioMDLGlobalState g_studiomdl;
 extern StudioMdlContext g_StudioMdlContext;
+
+
+class FunctionTimingRecorder {
+public:
+    explicit FunctionTimingRecorder(const std::string &stage_name,
+                                    const std::source_location location = std::source_location::current())
+        : function_name(clean_function_name(location)),
+          stage_name(stage_name), extending(false) {
+        assert(g_StudioMdlContext.timings_depth >=0 && g_StudioMdlContext.timings_depth < 1000);
+
+
+        start = std::chrono::steady_clock::now().time_since_epoch();
+
+        if (g_StudioMdlContext.timings.size() > 0) {
+            const auto &prev_item = g_StudioMdlContext.timings.back();
+            if (prev_item.stage_name == stage_name && prev_item.function_name == function_name) {
+                extending = true;
+            }
+        }
+
+        if (extending) {
+            index = g_StudioMdlContext.timings.size() - 1;
+            g_StudioMdlContext.timings[index].calls++;
+        }
+        else {
+            index = g_StudioMdlContext.timings.size();
+            g_StudioMdlContext.timings.emplace_back(function_name, stage_name, g_StudioMdlContext.timings_depth);
+            g_StudioMdlContext.timings_depth++;
+        }
+    }
+
+    ~FunctionTimingRecorder() {
+        const auto end = std::chrono::steady_clock::now().time_since_epoch();
+        double own_duration;
+        const double duration = own_duration = std::chrono::duration<double, std::milli>(end - start).count();
+        if (!extending) {
+            for (size_t i = index; i < g_StudioMdlContext.timings.size(); i++) {
+                own_duration -= g_StudioMdlContext.timings[i].own_duration; // Subtract inner timings, so we only have own-time
+            }
+            g_StudioMdlContext.timings_depth--;
+
+        }
+        auto &timing = g_StudioMdlContext.timings[index];
+        timing.duration += duration;
+        timing.own_duration += own_duration;
+    }
+
+private:
+    static std::string_view clean_function_name(const std::source_location &loc = std::source_location::current()) {
+        std::string_view name = loc.function_name();
+        if (const auto open_paren = name.find('('); open_paren != std::string_view::npos) {
+            name = name.substr(0, open_paren);
+        }
+        if (const auto last_space = name.rfind(' '); last_space != std::string_view::npos) {
+            name = name.substr(last_space + 1);
+        }
+
+        return name;
+    }
+
+    std::string function_name;
+    std::string stage_name;
+    std::chrono::duration<double> start;
+    size_t index;
+    bool extending;
+};

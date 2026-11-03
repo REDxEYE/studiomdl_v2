@@ -88,8 +88,8 @@ namespace {
         SourceFlexInfo info;
         info.moving.assign(pSource->numvertices, false);
 
-        for (int i = 0; i < g_studiomdl.flexkey.size(); i++) {
-            const s_flexkey_t &key = g_studiomdl.flexkey[i];
+        for (int i = 0; i < g_studiomdl.flexkeys.size(); i++) {
+            const s_flexkey_t &key = g_studiomdl.flexkeys[i];
             if (key.source != pSource)
                 continue;
 
@@ -181,7 +181,7 @@ namespace {
     }
 
     const char *MaterialName(const int material) {
-        return g_studiomdl.texture[g_studiomdl.material[material]].name;
+        return g_studiomdl.textures[g_studiomdl.materials[material]].name;
     }
 
     bool IsAliasMaterial(int material) {
@@ -194,8 +194,8 @@ namespace {
 
     const char *ModelName(const s_model_t *pModel) {
         if (pModel->name[0])
-            return pModel->name;
-        return pModel->source ? pModel->source->filename : "";
+            return pModel->name.c_str();
+        return pModel->source ? pModel->source->filename.c_str() : "";
     }
 
     // One row of the statistics table
@@ -245,8 +245,8 @@ namespace {
         }
 
         std::vector<int> flexes(pSource->nummeshes, 0);
-        for (int i = 0; i < g_studiomdl.flexkey.size(); i++) {
-            const s_flexkey_t &key = g_studiomdl.flexkey[i];
+        for (int i = 0; i < g_studiomdl.flexkeys.size(); i++) {
+            const s_flexkey_t &key = g_studiomdl.flexkeys[i];
             if (key.source != pSource || key.frame < 0 || key.frame >= MAXSTUDIOANIMFRAMES)
                 continue;
             const s_sourceanim_t *pAnim = FindSourceAnim(pSource, key.animationname);
@@ -280,14 +280,14 @@ namespace {
                 return alias.first;
         }
 
-        if (g_studiomdl.texture.size() >= MAXSTUDIOSKINS) {
+        if (g_studiomdl.textures.size() >= MAXSTUDIOSKINS) {
             MdlError("Too many materials used, max %d\n", (int) MAXSTUDIOSKINS);
         }
 
         // LookupTexture() would return the existing texture of that name, the alias needs its own slot
-        const int nBaseTexture = g_studiomdl.material[nBaseMaterial];
-        auto &aliasTexture = g_studiomdl.texture.emplace(g_studiomdl.texture[nBaseTexture]);
-        const int nAliasTexture = g_studiomdl.texture.size() - 1;
+        const int nBaseTexture = g_studiomdl.materials[nBaseMaterial];
+        auto &aliasTexture = g_studiomdl.textures.emplace(g_studiomdl.textures[nBaseTexture]);
+        const int nAliasTexture = g_studiomdl.textures.size() - 1;
         aliasTexture.material = -1;
 
         const int nAliasMaterial = UseTextureAsMaterial(nAliasTexture);
@@ -429,7 +429,7 @@ namespace {
         // texmap maps the source's materials to textures 1:1 for DMX/OBJ/SMD sources
         for (int i = 0; i < newMeshCount; i++) {
             const int nMaterial = newMeshIndex[i];
-            pSource->texmap[g_studiomdl.material[nMaterial]] = g_studiomdl.material[nMaterial];
+            pSource->texmap[g_studiomdl.materials[nMaterial]] = g_studiomdl.materials[nMaterial];
         }
     }
 
@@ -467,11 +467,11 @@ namespace {
             }
             else if (eyeballMaterial[split.material]) {
                 if (!g_StudioMdlContext.quiet)
-                    printf("  skipped %s mesh \"%s\": used by an eyeball\n", pSource->filename, pMaterialName);
+                    printf("  skipped %s mesh \"%s\": used by an eyeball\n", pSource->filename.c_str(), pMaterialName);
             }
             else if (split.staticVertexCount < nMinStatic) {
                 if (!g_StudioMdlContext.quiet)
-                    printf("  skipped %s mesh \"%s\": static part %d verts < %d\n", pSource->filename,
+                    printf("  skipped %s mesh \"%s\": static part %d verts < %d\n", pSource->filename.c_str(),
                            pMaterialName, split.staticVertexCount, nMinStatic);
             }
             else {
@@ -491,7 +491,7 @@ namespace {
                 continue;
             const s_mesh_t &flexed = pSource->mesh[split.material];
             const s_mesh_t &statik = pSource->mesh[split.aliasMaterial];
-            printf("  %s mesh \"%s\": flexed %u + static %u verts\n", pSource->filename,
+            printf("  %s mesh \"%s\": flexed %u + static %u verts\n", pSource->filename.c_str(),
                    MaterialName(split.material), flexed.numvertices, statik.numvertices);
         }
     }
@@ -516,6 +516,7 @@ bool ParseFlexOptimizeMode(const char *pText, FlexOptimizeMode_t &mode) {
 }
 
 void FlexOptimizeSources() {
+    FunctionTimingRecorder _("Optimize");
     if (g_StudioMdlContext.flexOptimizeMode == FLEXOPT_OFF)
         return;
 
@@ -598,7 +599,7 @@ void FlexOptimizeSources() {
         SourceFlexInfo &info = it->second;
         if (info.hasOldStyleFlexKeys) {
             MdlWarning("Flex optimization: %s uses old-style (VTA) flexes, which are not supported, "
-                       "meshes are left as they are\n", pSource->filename);
+                       "meshes are left as they are\n", pSource->filename.c_str());
             info.hasFlexKeys = false; // report once per source
             continue;
         }
@@ -632,6 +633,7 @@ void FlexOptimizeFixupSkinFamilies() {
 }
 
 void CheckFlexCacheBudget() {
+    FunctionTimingRecorder _("Optimize");
     // Same rule as WriteModel: a mesh has flexes if a vertex animation of a flex key of its model lands in its range
     std::vector<int> meshCost(g_studiomdl.nummodelsbeforeLOD, 0);
     std::unordered_map<const s_model_t *, int> modelIndex;
@@ -650,12 +652,12 @@ void CheckFlexCacheBudget() {
             const s_mesh_t &mesh = pLodData->mesh[nMaterial];
             std::vector<bool> flexedVertex(mesh.numvertices, false);
             int flexes = 0;
-            for (int j = 0; j < g_studiomdl.flexkey.size(); j++) {
-                if (g_studiomdl.flexkey[j].imodel != i)
+            for (int j = 0; j < g_studiomdl.flexkeys.size(); j++) {
+                if (g_studiomdl.flexkeys[j].imodel != i)
                     continue;
                 bool bTouches = false;
-                for (int k = 0; k < g_studiomdl.flexkey[j].numvanims; k++) {
-                    const int n = g_studiomdl.flexkey[j].vanim[k].vertex - (int) mesh.vertexoffset;
+                for (int k = 0; k < g_studiomdl.flexkeys[j].numvanims; k++) {
+                    const int n = g_studiomdl.flexkeys[j].vanim[k].vertex - (int) mesh.vertexoffset;
                     if (n >= 0 && n < (int) mesh.numvertices) {
                         bTouches = true;
                         flexedVertex[n] = true;

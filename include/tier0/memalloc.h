@@ -7,16 +7,38 @@
 
 #pragma once
 
-#ifdef _WIN32
-#pragma once
-#endif
-
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 #include <malloc.h>
+#include <type_traits>
+#include <cstdio>
 
 #include "tier0/platform.h"
+
+template<typename T> requires std::is_pod_v<T>
+T* allocate() {
+	auto raw = malloc(sizeof(T));
+	if (raw==nullptr) {
+		(void) std::fputs("Out of memory", stderr);
+		std::exit(-1);
+	}
+	return static_cast<T*>(raw);
+}
+
+template<typename T>
+T* c_allocate() {
+	auto raw = malloc(sizeof(T));
+	if (raw==nullptr) {
+		(void) std::fputs("Out of memory", stderr);
+		std::exit(-1);
+	}
+	memset(raw, 0, sizeof(T));
+	return ::new(raw) T;
+}
+
+
+
 
 inline void *MemAlloc_Alloc( size_t nSize )
 {

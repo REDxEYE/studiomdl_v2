@@ -168,7 +168,7 @@ int Load_OBJ( s_source_t *psource )
 
 	if( !g_StudioMdlContext.quiet )
 	{
-		printf( "grabbing %s\n", psource->filename );
+		printf( "grabbing %s\n", psource->filename.c_str() );
 	}
 
     g_StudioMdlContext.iLinecount = 0;

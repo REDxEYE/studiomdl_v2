@@ -711,12 +711,12 @@ LoadMesh(CDmeDag *pDmeDag, CDmeMesh *pMesh, CDmeVertexData *pBindState, const ma
 
         // funky texture overrides (specified with the -t command-line argument)
         for (int j = 0; j < g_studiomdl.numrep; j++) {
-            if (g_studiomdl.sourcetexture[j][0] == '\0') {
-                Q_strncpy(pTextureName, g_studiomdl.defaulttexture[j], sizeof(pTextureName));
+            if (g_studiomdl.sourcetextures[j][0] == '\0') {
+                Q_strncpy(pTextureName, g_studiomdl.defaulttextures[j], sizeof(pTextureName));
                 break;
             }
-            if (Q_stricmp(pTextureName, g_studiomdl.sourcetexture[j]) == 0) {
-                Q_strncpy(pTextureName, g_studiomdl.defaulttexture[j], sizeof(pTextureName));
+            if (Q_stricmp(pTextureName, g_studiomdl.sourcetextures[j]) == 0) {
+                Q_strncpy(pTextureName, g_studiomdl.defaulttextures[j], sizeof(pTextureName));
                 break;
             }
         }
@@ -1693,7 +1693,7 @@ LoadModelAndSkeleton(s_source_t *pSource, BoneTransformMap_t &boneMap, CDmeDag *
 
     if (g_StudioMdlContext.numfaces == 0 && pSource->numbones == 1 && !V_strcmp(
             pSource->localBone[0].name, "defaultRoot")) {
-        MdlError("Error - dmx has no contents: %s\n", pSource->filename);
+        MdlError("Error - dmx has no contents: %s\n", pSource->filename.c_str());
     }
 
     if (pCombinationOperator) {
@@ -1718,7 +1718,7 @@ static int FindModelIndex(s_model_t *pModel) {
                 return i;
         }
 
-        MdlWarning("Cannot Find s_model_t: \"%s\" in g_studiomdl.model\n", pModel->name);
+        MdlWarning("Cannot Find s_model_t: \"%s\" in g_studiomdl.model\n", pModel->name.c_str());
     }
 
     return -1;
@@ -1741,14 +1741,14 @@ static bool AddFlexKey(
     float flDecay = 1.0f,
     int nFrame = 0) // DMX frame is always 0
 {
-    if (g_studiomdl.flexkey.size() >= g_studiomdl.flexkey.capacity()) {
+    if (g_studiomdl.flexkeys.size() >= g_studiomdl.flexkeys.capacity()) {
         MdlError("Too Many Flex Keys, Cannot Add %s\n", "TODO: FlexKeyName");
         return false;
     }
 
     const int nModelIndex = FindModelIndex(pModel);
 
-    s_flexkey_t *pFlexKey = &g_studiomdl.flexkey.emplace_back(s_flexkey_t{
+    s_flexkey_t *pFlexKey = &g_studiomdl.flexkeys.emplace_back(s_flexkey_t{
         .flexdesc = nFlexDesc,
         .flexpair = nFlexPair,
         .source = pSource,
@@ -1781,8 +1781,8 @@ static bool AddFlexKey(
     }
 
     // Check for a duplicate
-    for (int i = 0; i < g_studiomdl.flexkey.size(); ++i) {
-        const s_flexkey_t *pTmpFlexKey = &(g_studiomdl.flexkey[i]);
+    for (int i = 0; i < g_studiomdl.flexkeys.size(); ++i) {
+        const s_flexkey_t *pTmpFlexKey = &(g_studiomdl.flexkeys[i]);
 
         if (!V_stricmp(pFlexKey->animationname, pTmpFlexKey->animationname) &&
             pFlexKey->flexdesc == pTmpFlexKey->flexdesc &&
@@ -1794,7 +1794,7 @@ static bool AddFlexKey(
             pFlexKey->target3 == pTmpFlexKey->target3) {
             // Duplicate, get rid of it
             V_memset(pFlexKey, 0, sizeof(s_flexkey_t));
-            g_studiomdl.flexkey.pop_back();
+            g_studiomdl.flexkeys.pop_back();
             return false;
         }
     }
@@ -1991,7 +1991,7 @@ static void LoadEyeballs(s_source_t *pSource, s_model_t *pModel, CDmrElementArra
             continue;
 
         if (pModel->numeyeballs >= ARRAYSIZE(pModel->eyeball)) {
-            MdlWarning("1100: Max number of eyeballs reached for model %s, ignoring eyeball %s\n", pModel->name,
+            MdlWarning("1100: Max number of eyeballs reached for model %s, ignoring eyeball %s\n", pModel->name.c_str(),
                        pDmeEyeball->GetName());
             continue;
         }
@@ -2006,7 +2006,7 @@ static void LoadEyeballs(s_source_t *pSource, s_model_t *pModel, CDmrElementArra
 
         if (nFoundBoneIndex < 0) {
             MdlWarning("1101: Couldn't find bone %s on model %s, ignoring eyeball %s\n",
-                       pDmeEyeball->m_sParentBoneName.Get(), pModel->name, pDmeEyeball->GetName());
+                       pDmeEyeball->m_sParentBoneName.Get(), pModel->name.c_str(), pDmeEyeball->GetName());
             continue;
         }
 
@@ -2027,7 +2027,7 @@ static void LoadEyeballs(s_source_t *pSource, s_model_t *pModel, CDmrElementArra
 
         if (nFoundMeshMatIndex < 0) {
             MdlWarning("1102: Couldn't find eyeball material %s on model %s, ignoring eyeball %s\n",
-                       pDmeEyeball->m_sMaterialName.Get(), pModel->name, pDmeEyeball->GetName());
+                       pDmeEyeball->m_sMaterialName.Get(), pModel->name.c_str(), pDmeEyeball->GetName());
             continue;
         }
 
@@ -2083,8 +2083,8 @@ static void LoadEyeballs(s_source_t *pSource, s_model_t *pModel, CDmrElementArra
     for (int nNewFlexIndex = 0; nNewFlexIndex < ARRAYSIZE(szEyesFlexControllers); ++nNewFlexIndex) {
         bool bHasEyeFlexController = false;
 
-        for (int nFlexIndex = 0; nFlexIndex < g_studiomdl.flexcontroller.size(); ++nFlexIndex) {
-            if (!Q_strcmp(szEyesFlexControllers[nNewFlexIndex], g_studiomdl.flexcontroller[nFlexIndex].name)) {
+        for (int nFlexIndex = 0; nFlexIndex < g_studiomdl.flexcontrollers.size(); ++nFlexIndex) {
+            if (!Q_strcmp(szEyesFlexControllers[nNewFlexIndex], g_studiomdl.flexcontrollers[nFlexIndex].name)) {
                 bHasEyeFlexController = true;
                 break;
             }
@@ -2095,12 +2095,12 @@ static void LoadEyeballs(s_source_t *pSource, s_model_t *pModel, CDmrElementArra
         // [-45, 45 ] gives a maxium range that's useful
 
         if (!bHasEyeFlexController) {
-            if (g_studiomdl.flexcontroller.size() >= g_studiomdl.flexcontroller.capacity()) {
+            if (g_studiomdl.flexcontrollers.size() >= g_studiomdl.flexcontrollers.capacity()) {
                 MdlWarning("1103: Couldn't make eyes flexcontroller %s, too many flex controllers defined\n",
                            szEyesFlexControllers[nNewFlexIndex]);
                 continue;
             }
-            g_studiomdl.flexcontroller.emplace_back(s_flexcontroller_t{
+            g_studiomdl.flexcontrollers.emplace_back(s_flexcontroller_t{
                 .name = szEyesFlexControllers[nNewFlexIndex],
                 .type = "eyes",
                 .min = -45.0f,
@@ -2140,6 +2140,7 @@ void LoadQcModelElements(s_source_t *pSource, s_model_t *pModel, CDmeModel *pDme
 // Main entry point for loading DMX files
 //-----------------------------------------------------------------------------
 int Load_DMX(s_source_t *pSource) {
+    FunctionTimingRecorder _("Parse");
     DmFileId_t fileId;
 
     // use the full search tree, including mod hierarchy to find the file

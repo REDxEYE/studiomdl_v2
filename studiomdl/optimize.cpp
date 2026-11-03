@@ -871,6 +871,7 @@ namespace OptimizedModel {
     //-----------------------------------------------------------------------------
     void COptimizedModel::BuildHWSkinnedStrips(FaceList_t &faceList, VertexList_t &vertices, StripGroup_t *pStripGroup,
                                                int maxBonesPerStrip) {
+        FunctionTimingRecorder _("Optimize");
         // Set up the hardware matrix state
         m_HardwareMatrixState.Init(maxBonesPerStrip);
 
@@ -945,6 +946,7 @@ namespace OptimizedModel {
     //-----------------------------------------------------------------------------
     void COptimizedModel::BuildSWSkinnedStrips(FaceList_t &faceList, SubD_FaceList_t &subdFaceList,
                                                VertexList_t const &vertices, StripGroup_t *pStripGroup) {
+        FunctionTimingRecorder _("Optimize");
         int nSubDFaces = subdFaceList.Count();
 
         // Save the results of the generated strip.
@@ -1071,6 +1073,7 @@ namespace OptimizedModel {
     // Marks every vertex of the mesh that is part of a flex
     //-----------------------------------------------------------------------------
     void COptimizedModel::BuildFlexedVertexMap(mstudiomesh_t *pStudioMesh, std::vector<bool> &flexedVerts) {
+        FunctionTimingRecorder _("Optimize");
         flexedVerts.assign(pStudioMesh->numvertices > 0 ? pStudioMesh->numvertices : 0, false);
 
         if (pStudioMesh->numflexes <= 0)
@@ -1163,6 +1166,7 @@ namespace OptimizedModel {
                                                              Vertex_t *pStripGroupVert,
                                                              bool bQuadSubd,
                                                              const std::vector<bool> &flexedVerts) {
+        FunctionTimingRecorder _("Optimize");
         int vertIDs[4] = {pFace->a, pFace->b, pFace->c, pFace->d};
 
         const mstudio_meshvertexdata_t *vertData = pStudioMesh->GetVertexData();
@@ -1637,6 +1641,7 @@ namespace OptimizedModel {
     }
 
     void COptimizedModel::BuildNeighborInfo(FaceList_t &faceList, int nMaxVertexId) {
+        FunctionTimingRecorder _("Optimize");
         // NOTE: vertexToEdges[vertId] contains the index of the head of a linked list stored in edges
         CUtlFixedLinkedList<EdgeInfo_t> edges;
         CUtlVector<intptr_t> vertexToEdges;
@@ -1687,6 +1692,7 @@ namespace OptimizedModel {
                                             FaceProcessedList_t &facesProcessed,
                                             int maxBonesPerVert, int maxBonesPerFace,
                                             int maxBonesPerStrip, bool bForceNoFlex, bool bHWFlex, bool bQuadSubd) {
+        FunctionTimingRecorder _("Optimize");
         ComputeStripGroupFlags(pStripGroup, bIsHWSkinned, bIsFlexed);
 
         // Which vertices are flexed does not depend on the face: compute it once per strip group instead of
@@ -1965,6 +1971,7 @@ namespace OptimizedModel {
     void COptimizedModel::ProcessMesh(Mesh_t *pMesh, studiohdr_t *pStudioHeader, CUtlVector<mstudioiface_t> &srcFaces,
                                       mstudiomodel_t *pStudioModel, mstudiomesh_t *pStudioMesh, bool bForceNoFlex,
                                       bool bForceSoftwareSkin, bool bHWFlex, bool bQuadSubd) {
+        FunctionTimingRecorder _("Optimize");
         // Compute the mesh flags
         ComputeMeshFlags(pMesh, pStudioHeader, pStudioMesh);
 
@@ -2018,6 +2025,7 @@ namespace OptimizedModel {
     void COptimizedModel::SetupMeshProcessing(studiohdr_t *pHdr, int vertexCacheSize,
                                               bool usesFixedFunction, int maxBonesPerVert, int maxBonesPerFace,
                                               int maxBonesPerStrip, const char *fileName) {
+        FunctionTimingRecorder _("Optimize");
         if (!g_StudioMdlContext.quiet) {
             printf("---------------------\n");
             printf("Generating optimized mesh \"%s\":\n", fileName);
@@ -2144,6 +2152,7 @@ namespace OptimizedModel {
 
     void COptimizedModel::SourceMeshToFaceList(s_model_t *pSrcModel, s_mesh_t *pSrcMesh,
                                                CUtlVector<mstudioiface_t> &meshFaceList) {
+        FunctionTimingRecorder _("Optimize");
         s_face_t *pFaces = pSrcModel->source->face + pSrcMesh->faceoffset;
         for (int i = 0; i < pSrcMesh->numfaces; i++) {
             const s_face_t &pFace = pFaces[i];
@@ -2257,6 +2266,7 @@ namespace OptimizedModel {
                                             mstudiomodel_t *pStudioModel, mstudiomesh_t *pStudioMesh,
                                             CUtlVector<mstudioiface_t> &meshFaceList,
                                             bool bQuadSubd, bool writeDebug) {
+        FunctionTimingRecorder _("Optimize");
         if (!pSrc || !pSrcModel)
             return;
 
@@ -2381,6 +2391,7 @@ namespace OptimizedModel {
     //-----------------------------------------------------------------------------
     void COptimizedModel::ProcessModel(studiohdr_t *pHdr, s_bodypart_t *pSrcBodyParts,
                                        TotalMeshStats_t &stats, bool bForceSoftwareSkin, bool bHWFlex) {
+        FunctionTimingRecorder _("Optimize");
         memset(&stats, 0, sizeof(stats));
         m_Models.RemoveAll();
 
@@ -3048,6 +3059,7 @@ namespace OptimizedModel {
     }
 
     static void MergeLikeBoneIndicesWithinVerts(studiohdr_t *pHdr) {
+        FunctionTimingRecorder _("Optimize");
         int bodyPartID, modelID, vertID;
         for (bodyPartID = 0; bodyPartID < pHdr->numbodyparts; bodyPartID++) {
             mstudiobodyparts_t *pBodyPart = pHdr->pBodypart(bodyPartID);
@@ -3144,6 +3156,7 @@ namespace OptimizedModel {
                                                 int maxBonesPerVert, int maxBonesPerFace,
                                                 int maxBonesPerStrip, const char *pFileName,
                                                 const char *glViewFileName) {
+        FunctionTimingRecorder _("Optimize");
         Assert(maxBonesPerVert <= MAX_NUM_BONES_PER_VERT);
         Assert(maxBonesPerStrip <= MAX_NUM_BONES_PER_STRIP);
 
@@ -4111,6 +4124,7 @@ namespace OptimizedModel {
     }
 
     void WriteOptimizedFiles(studiohdr_t *phdr, s_bodypart_t *pSrcBodyParts) {
+        FunctionTimingRecorder _("Write");
         char filename[MAX_PATH];
         char tmpFileName[MAX_PATH];
         char glViewFilename[MAX_PATH];

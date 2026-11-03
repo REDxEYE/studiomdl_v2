@@ -7,6 +7,7 @@
 //===========================================================================//
 
 #pragma once
+#include "tier1_v2/fixed_string.hpp"
 
 #ifdef _WIN32
 #pragma once
@@ -398,6 +399,10 @@ inline bool V_isstrlower( const char *pch )
 void V_strncpy( char *pDest, const char *pSrc, int maxLenInChars );
 // Ultimate safe strcpy function, for arrays only -- buffer size is inferred by the compiler
 template <size_t maxLenInChars> void V_strcpy_safe( OUT_Z_ARRAY char (&pDest)[maxLenInChars], const char *pSrc )
+{
+	V_strncpy( pDest, pSrc, static_cast<int>(maxLenInChars) );
+}
+template <size_t maxLenInChars> void V_strcpy_safe( OUT_Z_ARRAY vstd::FixedString<maxLenInChars> &pDest, const char *pSrc )
 {
 	V_strncpy( pDest, pSrc, static_cast<int>(maxLenInChars) );
 }

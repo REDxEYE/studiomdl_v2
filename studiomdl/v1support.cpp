@@ -60,7 +60,7 @@ int lookup_index(s_source_t *psource, int material, Vector &vertex, Vector &norm
         }
     }
     if (i >= MAXSTUDIOSRCVERTS) {
-        MdlError("too many indices in source: \"%s\"\n", psource->filename);
+        MdlError("too many indices in source: \"%s\"\n", psource->filename.c_str());
     }
 
     VectorCopy(vertex, g_StudioMdlContext.vertex[i]);
@@ -288,12 +288,12 @@ void Grab_Triangles(s_source_t *psource) {
 
         // funky texture overrides
         for (i = 0; i < g_studiomdl.numrep; i++) {
-            if (g_studiomdl.sourcetexture[i][0] == '\0') {
-                strcpy(texturename, g_studiomdl.defaulttexture[i]);
+            if (g_studiomdl.sourcetextures[i][0] == '\0') {
+                strcpy(texturename, g_studiomdl.defaulttextures[i]);
                 break;
             }
-            if (stricmp(texturename, g_studiomdl.sourcetexture[i]) == 0) {
-                strcpy(texturename, g_studiomdl.defaulttexture[i]);
+            if (stricmp(texturename, g_studiomdl.sourcetextures[i]) == 0) {
+                strcpy(texturename, g_studiomdl.defaulttextures[i]);
                 break;
             }
         }
@@ -344,6 +344,7 @@ void Grab_Triangles(s_source_t *psource) {
 
 
 int Load_SMD(s_source_t *psource) {
+    FunctionTimingRecorder _("Parse");
     char cmd[1024];
     int option;
 
@@ -354,7 +355,7 @@ int Load_SMD(s_source_t *psource) {
         return 0;
 
     if (!g_StudioMdlContext.quiet) {
-        printf("SMD MODEL %s\n", psource->filename);
+        printf("SMD MODEL %s\n", psource->filename.c_str());
     }
 
     g_StudioMdlContext.iLinecount = 0;

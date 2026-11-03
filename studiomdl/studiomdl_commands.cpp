@@ -78,8 +78,10 @@ void ProcessModelName(const char *pModelName) {
 // Parse the studio options from a .qc file
 //-----------------------------------------------------------------------------
 bool ParseOptionStudio(CDmeSourceSkin *pSkin) {
-    if (!GetToken(false))
+    if (!GetToken(false)) {
+        MdlError("Error: missing <reference mesh>.\n");
         return false;
+    }
 
     pSkin->SetRelativeFileName(token);
     while (TokenAvailable()) {
@@ -284,8 +286,8 @@ void Cmd_OverrideMaterial() {
     Msg("$overridematerial is replacing ALL material references with %s.\n", to);
 
     int i;
-    for (i = 0; i < g_studiomdl.texture.size(); i++) {
-        strcpy(g_studiomdl.texture[i].name, to);
+    for (i = 0; i < g_studiomdl.textures.size(); i++) {
+        strcpy(g_studiomdl.textures[i].name, to);
     }
 }
 
@@ -300,17 +302,18 @@ void Cmd_RenameMaterial() {
     strcpy(to, token);
 
     int i;
-    for (i = 0; i < g_studiomdl.texture.size(); i++) {
-        if (stricmp(g_studiomdl.texture[i].name, from) == 0) {
-            strcpy(g_studiomdl.texture[i].name, to);
+    for (i = 0; i < g_studiomdl.textures.size(); i++) {
+        if (stricmp(g_studiomdl.textures[i].name, from) == 0) {
+            strcpy(g_studiomdl.textures[i].name, to);
             return;
         }
     }
 
-    for (i = 0; i < g_studiomdl.texture.size(); i++) {
-        if (V_stristr(g_studiomdl.texture[i].name, from)) {
-            Msg("$renamematerial fell back to partial match: Replacing %s with %s.\n", g_studiomdl.texture[i].name, to);
-            strcpy(g_studiomdl.texture[i].name, to);
+    for (i = 0; i < g_studiomdl.textures.size(); i++) {
+        if (V_stristr(g_studiomdl.textures[i].name, from)) {
+            Msg("$renamematerial fell back to partial match: Replacing %s with %s.\n",
+                g_studiomdl.textures[i].name.c_str(), to);
+            strcpy(g_studiomdl.textures[i].name, to);
             return;
         }
     }
@@ -370,7 +373,7 @@ void Cmd_Illumposition() {
     if (TokenAvailable()) {
         GetToken(false);
 
-        auto& attachment = g_studiomdl.attachments.emplace_back(s_attachment_t{
+        auto &attachment = g_studiomdl.attachments.emplace_back(s_attachment_t{
             .name = "__illumPosition",
             .bonename = token,
             .type = IS_RIGID,
@@ -378,7 +381,8 @@ void Cmd_Illumposition() {
 
         AngleMatrix(QAngle(0, 0, 0), g_studiomdl.illumposition, attachment.local);
 
-        g_studiomdl.illumpositionattachment = g_studiomdl.attachments.size(); // No -1 because 0 is used as no illumposiotion attachment
+        g_studiomdl.illumpositionattachment = g_studiomdl.attachments.size();
+        // No -1 because 0 is used as no illumposiotion attachment
     }
     else {
         g_studiomdl.illumpositionattachment = 0;
@@ -397,8 +401,12 @@ void Cmd_Illumposition() {
 //-----------------------------------------------------------------------------
 // Parse Cmd_Modelname
 //-----------------------------------------------------------------------------
-void Cmd_Modelname() {
-    GetToken(false);
+static void Cmd_Modelname() {
+    if (!GetToken(false)) {
+        MdlError("Missing <path> argument for $modelname");
+        return;
+    }
+
     if (token[0] == '/' || token[0] == '\\') {
         MdlWarning("$modelname key has slash as first character. Removing.\n");
         ProcessModelName(&token[1]);
@@ -408,17 +416,20 @@ void Cmd_Modelname() {
     }
 }
 
-void Cmd_InternalName() {
-    GetToken(false);
+static void Cmd_InternalName() {
+    if (!GetToken(false)) {
+        MdlError("Missing <path> argument for $internalname");
+        return;
+    }
     Q_strncpy(g_studiomdl.szInternalName, token, sizeof(g_studiomdl.szInternalName));
 }
 
 
-void Cmd_PreserveTriangleOrder() {
+static void Cmd_PreserveTriangleOrder() {
     g_StudioMdlContext.preserveTriangleOrder = true;
 }
 
-void Cmd_Autocenter() {
+static void Cmd_Autocenter() {
     g_studiomdl.centerstaticprop = true;
 }
 
@@ -445,7 +456,7 @@ int Option_Blank() {
     g_studiomdl.model[g_studiomdl.nummodels] = (s_model_t *) calloc(1, sizeof(s_model_t));
 
     auto *source = (s_source_t *) calloc(1, sizeof(s_source_t));
-    g_studiomdl.source.emplace_back(source);
+    g_studiomdl.sources.emplace_back(source);
 
     g_studiomdl.model[g_studiomdl.nummodels]->source = source;
 
@@ -460,6 +471,7 @@ int Option_Blank() {
 }
 
 void Cmd_Bodygroup() {
+    FunctionTimingRecorder _("Parse");
     int is_started = 0;
 
     if (!GetToken(false))
@@ -477,7 +489,7 @@ void Cmd_Bodygroup() {
         GetToken(true);
         if (endofscript)
             return;
-        else if (token[0] == '{') {
+        if (token[0] == '{') {
             is_started = 1;
         }
         else if (token[0] == '}') {
@@ -505,7 +517,6 @@ void Cmd_Bodygroup() {
     } while (1);
 
     g_studiomdl.numbodyparts++;
-    return;
 }
 
 void Cmd_AppendBlankBodygroup() {
@@ -517,8 +528,10 @@ void Cmd_AppendBlankBodygroup() {
 }
 
 void Cmd_BodygroupPreset() {
-    if (!GetToken(false))
+    if (!GetToken(false)) {
+        MdlError("Error: missing bodygroup <preset name>.\n");
         return;
+    }
 
     // make sure this name is unused
     for (int i = 0; i < g_studiomdl.numbodygrouppresets; i++) {
@@ -568,7 +581,7 @@ void Cmd_BodygroupPreset() {
                     else {
                         MdlError(
                             "Error: can't assign value \"%i\" to bodygroup preset \"%s\" (out of available range).\n",
-                            iValue, newpreset.name);
+                            iValue, newpreset.name.c_str());
                         return;
                     }
 
@@ -596,8 +609,11 @@ void Cmd_BodygroupPreset() {
 // Parse the body command from a .qc file
 //-----------------------------------------------------------------------------
 void Cmd_Body() {
-    if (!GetToken(false))
+    FunctionTimingRecorder _("Parse");
+    if (!GetToken(false)) {
+        MdlError("Error: missing body <name>.\n");
         return;
+    }
 
     CDmeSourceSkin *pSourceSkin = CreateElement<CDmeSourceSkin>("", DMFILEID_INVALID);
 
@@ -621,7 +637,7 @@ void AddBodyAttachments(s_source_t *pSource) {
     for (int i = 0; i < pSource->m_Attachments.Count(); ++i) {
         if (g_studiomdl.attachments.size() >= g_studiomdl.attachments.capacity()) {
             MdlWarning("Too Many Attachments (Max %d), Ignoring Attachment %s:%s\n",
-                       g_studiomdl.attachments.capacity(), pSource->filename, pSource->m_Attachments[i].name.c_str());
+                       g_studiomdl.attachments.capacity(), pSource->filename.c_str(), pSource->m_Attachments[i].name.c_str());
             continue;;
         }
         g_studiomdl.attachments.emplace_back(pSource->m_Attachments[i]);
@@ -631,8 +647,7 @@ void AddBodyAttachments(s_source_t *pSource) {
 //-----------------------------------------------------------------------------
 // Adds flex controller data to a particular source
 //-----------------------------------------------------------------------------
-void AddFlexControllers(
-    s_source_t *pSource) {
+void AddFlexControllers(s_source_t *pSource) {
     CUtlVector<int> &r2s = pSource->m_rawIndexToRemapSourceIndex;
     CUtlVector<int> &r2l = pSource->m_rawIndexToRemapLocalIndex;
     CUtlVector<int> &l2i = pSource->m_leftRemapIndexToGlobalFlexControllIndex;
@@ -677,11 +692,11 @@ void AddFlexControllers(
             // hlfaceposer to recognize them
 
             // See if we can add two more flex controllers
-            if ((g_studiomdl.flexcontroller.size() + 1) >= g_studiomdl.flexcontroller.capacity())
+            if ((g_studiomdl.flexcontrollers.size() + 1) >= g_studiomdl.flexcontrollers.capacity())
                 MdlError("Line %d: Too many flex controllers, max %d, cannot add split control %s from source %s",
-                         g_StudioMdlContext.iLinecount, g_studiomdl.flexcontroller.capacity(),
+                         g_StudioMdlContext.iLinecount, g_studiomdl.flexcontrollers.capacity(),
                          remapControl.m_Name.Get(),
-                         pSource->filename);
+                         pSource->filename.c_str());
 
 
             int nLen = remapControl.m_Name.Length();
@@ -691,9 +706,9 @@ void AddFlexControllers(
             memcpy(pTemp, "right_", 6);
             pTemp[nLen + 6] = '\0';
 
-            r2i[i] = remapControl.m_RightIndex = g_studiomdl.flexcontroller.size();
+            r2i[i] = remapControl.m_RightIndex = g_studiomdl.flexcontrollers.size();
             {
-                auto &pController = g_studiomdl.flexcontroller.emplace_back(s_flexcontroller_t{
+                auto &pController = g_studiomdl.flexcontrollers.emplace_back(s_flexcontroller_t{
                     .name = pTemp,
                     .type = pTemp
                 });
@@ -713,9 +728,9 @@ void AddFlexControllers(
                 pTemp[nLen + 5] = '\0';
             }
 
-            l2i[i] = remapControl.m_LeftIndex = g_studiomdl.flexcontroller.size();
+            l2i[i] = remapControl.m_LeftIndex = g_studiomdl.flexcontrollers.size();
             {
-                auto &pController = g_studiomdl.flexcontroller.emplace_back(s_flexcontroller_t{
+                auto &pController = g_studiomdl.flexcontrollers.emplace_back(s_flexcontroller_t{
                     .name = pTemp,
                     .type = pTemp
                 });
@@ -733,14 +748,14 @@ void AddFlexControllers(
         }
         else {
             // See if we can add one more flex controller
-            if (g_studiomdl.flexcontroller.size() >= g_studiomdl.flexcontroller.capacity())
+            if (g_studiomdl.flexcontrollers.size() >= g_studiomdl.flexcontrollers.capacity())
                 MdlError("Line %d: Too many flex controllers, max %d, cannot add control %s from source %s",
-                         g_StudioMdlContext.iLinecount, g_studiomdl.flexcontroller.capacity(),
+                         g_StudioMdlContext.iLinecount, g_studiomdl.flexcontrollers.capacity(),
                          remapControl.m_Name.Get(),
-                         pSource->filename);
+                         pSource->filename.c_str());
 
-            r2i[i] = l2i[i] = remapControl.m_Index = g_studiomdl.flexcontroller.size();
-            s_flexcontroller_t &pController = g_studiomdl.flexcontroller.emplace_back(s_flexcontroller_t{
+            r2i[i] = l2i[i] = remapControl.m_Index = g_studiomdl.flexcontrollers.size();
+            s_flexcontroller_t &pController = g_studiomdl.flexcontrollers.emplace_back(s_flexcontroller_t{
                 .name = remapControl.m_Name.Get(),
                 .type = remapControl.m_Name.Get()
             });
@@ -758,13 +773,13 @@ void AddFlexControllers(
 
         if (remapControl.m_RemapType == FLEXCONTROLLER_REMAP_NWAY ||
             remapControl.m_RemapType == FLEXCONTROLLER_REMAP_EYELID) {
-            if (g_studiomdl.flexcontroller.size() >= g_studiomdl.flexcontroller.capacity())
+            if (g_studiomdl.flexcontrollers.size() >= g_studiomdl.flexcontrollers.capacity())
                 MdlError(
                     "Line %d: Too many flex controllers, max %d, cannot add value control for nWay %s from source %s",
-                    g_StudioMdlContext.iLinecount, g_studiomdl.flexcontroller.capacity(), remapControl.m_Name.Get(),
-                    pSource->filename);
+                    g_StudioMdlContext.iLinecount, g_studiomdl.flexcontrollers.capacity(), remapControl.m_Name.Get(),
+                    pSource->filename.c_str());
 
-            remapControl.m_MultiIndex = g_studiomdl.flexcontroller.size();
+            remapControl.m_MultiIndex = g_studiomdl.flexcontrollers.size();
 
             const int nLen = remapControl.m_Name.Length();
             char *pTemp = (char *) _alloca(nLen + 6 + 1); // 'multi_' + 1 for the NULL
@@ -773,7 +788,7 @@ void AddFlexControllers(
             memcpy(pTemp + 6, remapControl.m_Name.Get(), nLen + 1);
             pTemp[nLen + 6] = '\0';
 
-            g_studiomdl.flexcontroller.emplace_back(s_flexcontroller_t{
+            g_studiomdl.flexcontrollers.emplace_back(s_flexcontroller_t{
                 .name = pTemp,
                 .type = pTemp,
                 .min = -1.0f,
@@ -784,14 +799,14 @@ void AddFlexControllers(
         if (remapControl.m_RemapType == FLEXCONTROLLER_REMAP_EYELID) {
             // Make a blink controller
 
-            if (g_studiomdl.flexcontroller.size() >= g_studiomdl.flexcontroller.capacity())
+            if (g_studiomdl.flexcontrollers.size() >= g_studiomdl.flexcontrollers.capacity())
                 MdlError(
                     "Line %d: Too many flex controllers, max %d, cannot add value control for nWay %s from source %s",
-                    g_StudioMdlContext.iLinecount, g_studiomdl.flexcontroller.capacity(), remapControl.m_Name.Get(),
-                    pSource->filename);
+                    g_StudioMdlContext.iLinecount, g_studiomdl.flexcontrollers.capacity(), remapControl.m_Name.Get(),
+                    pSource->filename.c_str());
 
-            remapControl.m_BlinkController = g_studiomdl.flexcontroller.size();
-            g_studiomdl.flexcontroller.emplace_back(s_flexcontroller_t{
+            remapControl.m_BlinkController = g_studiomdl.flexcontrollers.size();
+            g_studiomdl.flexcontrollers.emplace_back(s_flexcontroller_t{
                 .name = "blink",
                 .type = "blink",
                 .min = 0.0f,
@@ -825,18 +840,18 @@ void AddBodyFlexRemaps(s_source_t *pSource) {
 // Process a body command
 //-----------------------------------------------------------------------------
 void AddBodyFlexData(s_source_t *pSource, int imodel, bool bAddControllers) {
-    pSource->m_nKeyStartIndex = g_studiomdl.flexkey.size();
+    pSource->m_nKeyStartIndex = g_studiomdl.flexkeys.size();
 
     // Add flex keys
     int nCount = pSource->m_FlexKeys.Count();
     for (int i = 0; i < nCount; ++i) {
         s_flexkey_t &key = pSource->m_FlexKeys[i];
 
-        if (g_studiomdl.flexkey.size() >= g_studiomdl.flexkey.capacity())
+        if (g_studiomdl.flexkeys.size() >= g_studiomdl.flexkeys.capacity())
             MdlError("Line %d: Too many flex keys, max %d, cannot add flexKey %s from source %s",
-                     g_StudioMdlContext.iLinecount, MAXSTUDIOFLEXKEYS, key.animationname.c_str(), pSource->filename);
+                     g_StudioMdlContext.iLinecount, MAXSTUDIOFLEXKEYS, key.animationname.c_str(), pSource->filename.c_str());
 
-        auto &new_flex = g_studiomdl.flexkey.emplace(key);
+        auto &new_flex = g_studiomdl.flexkeys.emplace(key);
         new_flex.imodel = imodel;
 
         // flexpair was set up in AddFlexKey
@@ -962,7 +977,7 @@ void Option_Eyeball(s_model_t *pmodel) {
 // as an animation as the controller goes from [0,1]
 //-----------------------------------------------------------------------------
 void Option_VertexCacheAnimationFile(char *pszVtaFile, int nModelIndex) {
-    if (g_studiomdl.flexkey.size() > 0) {
+    if (g_studiomdl.flexkeys.size() > 0) {
         MdlError("%s: Flexes already defined.  vcafile can be only flex option in $model block\n", __FUNCTION__);
         return;
     }
@@ -976,7 +991,7 @@ void Option_VertexCacheAnimationFile(char *pszVtaFile, int nModelIndex) {
     }
 
     {
-        g_studiomdl.flexkey.emplace(s_flexkey_t{
+        g_studiomdl.flexkeys.emplace(s_flexkey_t{
             .flexdesc = Add_Flexdesc("default"),
             .flexpair = 0,
             .source = pVtaSource,
@@ -1000,7 +1015,7 @@ void Option_VertexCacheAnimationFile(char *pszVtaFile, int nModelIndex) {
         sTmp.sprintf("f%d", i);
 
         {
-            g_studiomdl.flexkey.emplace(s_flexkey_t{
+            g_studiomdl.flexkeys.emplace(s_flexkey_t{
                 .flexdesc = Add_Flexdesc(sTmp.Access()),
                 .flexpair = 0,
                 .source = pVtaSource,
@@ -1039,8 +1054,8 @@ void Option_VertexCacheAnimationFile(char *pszVtaFile, int nModelIndex) {
 
     for (int i = 0; i < flexRemap.m_RawControls.size(); ++i) {
         int nFlexKey = -1;
-        for (int j = 0; j < g_studiomdl.flexkey.size(); ++j) {
-            if (!V_stricmp(g_studiomdl.flexdesc[g_studiomdl.flexkey[j].flexdesc].FACS,
+        for (int j = 0; j < g_studiomdl.flexkeys.size(); ++j) {
+            if (!V_stricmp(g_studiomdl.flexdescs[g_studiomdl.flexkeys[j].flexdesc].FACS,
                            flexRemap.m_RawControls[i].Get())) {
                 nFlexKey = j;
                 break;
@@ -1261,7 +1276,7 @@ void Option_DmxEyelid(int imodel) {
     }
 
     for (int i = 0; i < kEyelidTypeCount; ++i) {
-        s_flexkey_t *pFlexKey = &g_studiomdl.flexkey.emplace_back(s_flexkey_t{
+        s_flexkey_t *pFlexKey = &g_studiomdl.flexkeys.emplace_back(s_flexkey_t{
             .flexdesc = nRightLeftBaseDesc[kLeft],
             .flexpair = nRightLeftBaseDesc[kRight],
             .source = pSource,
@@ -1401,11 +1416,11 @@ void Option_Flexcontroller(s_model_t *pmodel) {
             range_max = verify_atof(token);
         }
         else {
-            if (g_studiomdl.flexcontroller.size() >= g_studiomdl.flexcontroller.capacity()) {
-                TokenError("Too many flex controllers, max %d\n", g_studiomdl.flexcontroller.capacity());
+            if (g_studiomdl.flexcontrollers.size() >= g_studiomdl.flexcontrollers.capacity()) {
+                TokenError("Too many flex controllers, max %d\n", g_studiomdl.flexcontrollers.capacity());
             }
 
-            g_studiomdl.flexcontroller.emplace_back(s_flexcontroller_t{
+            g_studiomdl.flexcontrollers.emplace_back(s_flexcontroller_t{
                 .name = token,
                 .type = type,
                 .min = range_min,
@@ -1419,7 +1434,7 @@ void Option_Flexcontroller(s_model_t *pmodel) {
 
 void Option_NoAutoDMXRules(s_source_t *pSource) {
     // zero out the automatic flex controllers
-    g_studiomdl.flexcontroller.clear();
+    g_studiomdl.flexcontrollers.clear();
     pSource->bNoAutoDMXRules = true;
 }
 
@@ -1467,7 +1482,7 @@ int ParseEmpty() {
 }
 
 void Option_Flex(char *name, char *vtafile, int imodel, float pairsplit) {
-    if (g_studiomdl.flexkey.size() >= MAXSTUDIOFLEXKEYS) {
+    if (g_studiomdl.flexkeys.size() >= MAXSTUDIOFLEXKEYS) {
         TokenError("Too many flexes, max %d\n", MAXSTUDIOFLEXKEYS);
     }
 
@@ -1487,7 +1502,7 @@ void Option_Flex(char *name, char *vtafile, int imodel, float pairsplit) {
     }
 
     // initialize
-    auto &new_flexkey = g_studiomdl.flexkey.emplace(s_flexkey_t{
+    auto &new_flexkey = g_studiomdl.flexkeys.emplace(s_flexkey_t{
         .flexdesc = flexdesc,
         .flexpair = flexpair,
         .imodel = imodel,
@@ -1499,7 +1514,7 @@ void Option_Flex(char *name, char *vtafile, int imodel, float pairsplit) {
         .decay = 1.0,
     });
 
-    const auto current_count = g_studiomdl.flexkey.size() - 1;
+    const auto current_count = g_studiomdl.flexkeys.size() - 1;
 
     while (TokenAvailable()) {
         GetToken(false);
@@ -1527,10 +1542,10 @@ void Option_Flex(char *name, char *vtafile, int imodel, float pairsplit) {
     }
 
     if (current_count > 1) {
-        if (g_studiomdl.flexkey[current_count - 1].flexdesc == new_flexkey.flexdesc) {
-            g_studiomdl.flexkey[current_count - 1].target2 = g_studiomdl.flexkey[current_count - 1].target1;
-            g_studiomdl.flexkey[current_count - 1].target3 = new_flexkey.target1;
-            new_flexkey.target0 = g_studiomdl.flexkey[current_count - 1].target1;
+        if (g_studiomdl.flexkeys[current_count - 1].flexdesc == new_flexkey.flexdesc) {
+            g_studiomdl.flexkeys[current_count - 1].target2 = g_studiomdl.flexkeys[current_count - 1].target1;
+            g_studiomdl.flexkeys[current_count - 1].target3 = new_flexkey.target1;
+            new_flexkey.target0 = g_studiomdl.flexkeys[current_count - 1].target1;
         }
     }
 
@@ -1548,14 +1563,14 @@ void Option_Flex(char *name, char *vtafile, int imodel, float pairsplit) {
 
 
 void PrintFlexrule(s_flexrule_t *pRule) {
-    printf("%s = ", g_studiomdl.flexdesc[pRule->flex].FACS.c_str());
+    printf("%s = ", g_studiomdl.flexdescs[pRule->flex].FACS.c_str());
     for (int i = 0; i < pRule->numops; i++) {
         switch (pRule->op[i].op) {
             case STUDIO_CONST:
                 printf("%f ", pRule->op[i].d.value);
                 break;
             case STUDIO_FETCH1:
-                printf("%s ", g_studiomdl.flexcontroller[pRule->op[i].d.index].name.c_str());
+                printf("%s ", g_studiomdl.flexcontrollers[pRule->op[i].d.index].name.c_str());
                 break;
             case STUDIO_FETCH2:
                 printf("[%d] ", pRule->op[i].d.index);
@@ -1643,19 +1658,19 @@ void Option_Flexrule(s_model_t * /* pmodel */, const char *name) {
     int j = 0;
     int k = 0;
 
-    if (g_studiomdl.flexrule.size() + 1 > g_studiomdl.flexrule.capacity()) {
-        TokenError("Too many flex rules (max %d)\n", g_studiomdl.flexrule.capacity());
+    if (g_studiomdl.flexrules.size() + 1 > g_studiomdl.flexrules.capacity()) {
+        TokenError("Too many flex rules (max %d)\n", g_studiomdl.flexrules.capacity());
     }
-    auto &pRule = g_studiomdl.flexrule.emplace_back();
+    auto &pRule = g_studiomdl.flexrules.emplace_back();
 
     int flexdesc;
-    for (flexdesc = 0; flexdesc < g_studiomdl.flexdesc.size(); flexdesc++) {
-        if (stricmp(name, g_studiomdl.flexdesc[flexdesc].FACS) == 0) {
+    for (flexdesc = 0; flexdesc < g_studiomdl.flexdescs.size(); flexdesc++) {
+        if (stricmp(name, g_studiomdl.flexdescs[flexdesc].FACS) == 0) {
             break;
         }
     }
 
-    if (flexdesc >= g_studiomdl.flexdesc.size()) {
+    if (flexdesc >= g_studiomdl.flexdescs.size()) {
         TokenError("Rule for unknown flex %s\n", name);
     }
 
@@ -1727,26 +1742,26 @@ void Option_Flexrule(s_model_t * /* pmodel */, const char *name) {
             if (token[0] == '%') {
                 GetExprToken(false);
 
-                for (k = 0; k < g_studiomdl.flexdesc.size(); k++) {
-                    if (stricmp(token, g_studiomdl.flexdesc[k].FACS) == 0) {
+                for (k = 0; k < g_studiomdl.flexdescs.size(); k++) {
+                    if (stricmp(token, g_studiomdl.flexdescs[k].FACS) == 0) {
                         stream[i].op = STUDIO_FETCH2;
                         stream[i++].d.index = k;
                         break;
                     }
                 }
-                if (k >= g_studiomdl.flexdesc.size()) {
+                if (k >= g_studiomdl.flexdescs.size()) {
                     TokenError("unknown flex %s\n", token);
                 }
             }
             else {
-                for (k = 0; k < g_studiomdl.flexcontroller.size(); k++) {
-                    if (stricmp(token, g_studiomdl.flexcontroller[k].name.c_str()) == 0) {
+                for (k = 0; k < g_studiomdl.flexcontrollers.size(); k++) {
+                    if (stricmp(token, g_studiomdl.flexcontrollers[k].name.c_str()) == 0) {
                         stream[i].op = STUDIO_FETCH1;
                         stream[i++].d.index = k;
                         break;
                     }
                 }
-                if (k >= g_studiomdl.flexcontroller.size()) {
+                if (k >= g_studiomdl.flexcontrollers.size()) {
                     TokenError("unknown controller %s\n", token);
                 }
             }
@@ -1754,18 +1769,18 @@ void Option_Flexrule(s_model_t * /* pmodel */, const char *name) {
     }
 
     if (i > MAX_OPS) {
-        TokenError("expression %s too complicated\n", g_studiomdl.flexdesc[pRule.flex].FACS.c_str());
+        TokenError("expression %s too complicated\n", g_studiomdl.flexdescs[pRule.flex].FACS.c_str());
     }
 
     if (0) {
-        printf("%s = ", g_studiomdl.flexdesc[pRule.flex].FACS.c_str());
+        printf("%s = ", g_studiomdl.flexdescs[pRule.flex].FACS.c_str());
         for (k = 0; k < i; k++) {
             switch (stream[k].op) {
                 case STUDIO_CONST:
                     printf("%f ", stream[k].d.value);
                     break;
                 case STUDIO_FETCH1:
-                    printf("%s ", g_studiomdl.flexcontroller[stream[k].d.index].name.c_str());
+                    printf("%s ", g_studiomdl.flexcontrollers[stream[k].d.index].name.c_str());
                     break;
                 case STUDIO_FETCH2:
                     printf("[%d] ", stream[k].d.index);
@@ -1812,7 +1827,7 @@ void Option_Flexrule(s_model_t * /* pmodel */, const char *name) {
     j = 0;
     for (k = 0; k < i; k++) {
         if (j >= MAX_OPS) {
-            TokenError("expression %s too complicated\n", g_studiomdl.flexdesc[pRule.flex].FACS.c_str());
+            TokenError("expression %s too complicated\n", g_studiomdl.flexdescs[pRule.flex].FACS.c_str());
         }
         switch (stream[k].op) {
             case STUDIO_CONST:
@@ -1873,14 +1888,14 @@ void Option_Flexrule(s_model_t * /* pmodel */, const char *name) {
                 break;
         }
         if (pRule.numops >= MAX_OPS)
-            TokenError("expression for \"%s\" too complicated\n", g_studiomdl.flexdesc[pRule.flex].FACS.c_str());
+            TokenError("expression for \"%s\" too complicated\n", g_studiomdl.flexdescs[pRule.flex].FACS.c_str());
     }
     // pop all operators off of the stack
     while (j > 0) {
         pRule.op[pRule.numops++] = stack[j - 1];
         j--;
         if (pRule.numops >= MAX_OPS)
-            TokenError("expression for \"%s\" too complicated\n", g_studiomdl.flexdesc[pRule.flex].FACS.c_str());
+            TokenError("expression for \"%s\" too complicated\n", g_studiomdl.flexdescs[pRule.flex].FACS.c_str());
     }
 
     // reprocess the operands, eating commas for all functions
@@ -1912,7 +1927,7 @@ void Option_Flexrule(s_model_t * /* pmodel */, const char *name) {
     }
 
     if (pRule.numops > MAX_OPS) {
-        TokenError("expression %s too complicated\n", g_studiomdl.flexdesc[pRule.flex].FACS.c_str());
+        TokenError("expression %s too complicated\n", g_studiomdl.flexdescs[pRule.flex].FACS.c_str());
     }
 
     if (0) {
@@ -2092,11 +2107,11 @@ void AddBodyFlexRule(
     const CUtlVector<int> &pRawIndexToRemapSourceIndex,
     const CUtlVector<int> &pRawIndexToRemapLocalIndex,
     const CUtlVector<int> &pRemapSourceIndexToGlobalFlexControllerIndex) {
-    if (g_studiomdl.flexrule.size() >= g_studiomdl.flexrule.capacity())
+    if (g_studiomdl.flexrules.size() >= g_studiomdl.flexrules.capacity())
         MdlError("Line %d: Too many flex rules, max %d",
-                 g_StudioMdlContext.iLinecount, g_studiomdl.flexrule.capacity());
+                 g_StudioMdlContext.iLinecount, g_studiomdl.flexrules.capacity());
 
-    s_flexrule_t &pRule = g_studiomdl.flexrule.emplace_back(s_flexrule_t{
+    s_flexrule_t &pRule = g_studiomdl.flexrules.emplace_back(s_flexrule_t{
         .flex = nFlexDesc,
     });
 
@@ -2141,8 +2156,8 @@ void AddBodyFlexRules(s_source_t *pSource) {
     for (int i = 0; i < nRemapCount; ++i) {
         s_flexcontrollerremap_t &remap = pSource->m_FlexControllerRemaps[i];
         if (remap.m_RemapType == FLEXCONTROLLER_REMAP_EYELID && !remap.m_EyesUpDownFlexName.IsEmpty()) {
-            for (int j = 0; j < g_studiomdl.flexcontroller.size(); ++j) {
-                if (!Q_strcmp(g_studiomdl.flexcontroller[j].name.c_str(), remap.m_EyesUpDownFlexName.Get())) {
+            for (int j = 0; j < g_studiomdl.flexcontrollers.size(); ++j) {
+                if (!Q_strcmp(g_studiomdl.flexcontrollers[j].name.c_str(), remap.m_EyesUpDownFlexName.Get())) {
                     Assert(remap.m_EyesUpDownFlexController == -1);
                     remap.m_EyesUpDownFlexController = j;
                     break;
@@ -2154,7 +2169,7 @@ void AddBodyFlexRules(s_source_t *pSource) {
     const int nCount = pSource->m_CombinationRules.Count();
     for (int i = 0; i < nCount; ++i) {
         s_combinationrule_t &rule = pSource->m_CombinationRules[i];
-        s_flexkey_t &flexKey = g_studiomdl.flexkey[pSource->m_nKeyStartIndex + rule.m_nFlex];
+        s_flexkey_t &flexKey = g_studiomdl.flexkeys[pSource->m_nKeyStartIndex + rule.m_nFlex];
         AddBodyFlexRule(pSource, rule, flexKey.flexdesc,
                         pSource->m_rawIndexToRemapSourceIndex, pSource->m_rawIndexToRemapLocalIndex,
                         pSource->m_leftRemapIndexToGlobalFlexControllIndex);
@@ -2191,8 +2206,8 @@ void Option_Eyelid(int imodel) {
     float split = 0;
     char szEyeball[64] = {""};
 
-    basedesc = g_studiomdl.flexdesc.size();
-    g_studiomdl.flexdesc.emplace_back(type);
+    basedesc = g_studiomdl.flexdescs.size();
+    g_studiomdl.flexdescs.emplace_back(type);
 
     while (TokenAvailable()) {
         GetToken(false);
@@ -2207,24 +2222,24 @@ void Option_Eyelid(int imodel) {
             lowererframe = verify_atoi(token);
             GetToken(false);
             lowerertarget = verify_atof(token);
-            lowererdesc = g_studiomdl.flexdesc.size();
-            g_studiomdl.flexdesc.emplace_back(localdesc);
+            lowererdesc = g_studiomdl.flexdescs.size();
+            g_studiomdl.flexdescs.emplace_back(localdesc);
         }
         else if (stricmp(token, "neutral") == 0) {
             GetToken(false);
             neutralframe = verify_atoi(token);
             GetToken(false);
             neutraltarget = verify_atof(token);
-            neutraldesc = g_studiomdl.flexdesc.size();
-            g_studiomdl.flexdesc.emplace_back(localdesc);
+            neutraldesc = g_studiomdl.flexdescs.size();
+            g_studiomdl.flexdescs.emplace_back(localdesc);
         }
         else if (stricmp(token, "raiser") == 0) {
             GetToken(false);
             raiserframe = verify_atoi(token);
             GetToken(false);
             raisertarget = verify_atof(token);
-            raiserdesc = g_studiomdl.flexdesc.size();
-            g_studiomdl.flexdesc.emplace_back(localdesc);
+            raiserdesc = g_studiomdl.flexdescs.size();
+            g_studiomdl.flexdescs.emplace_back(localdesc);
         }
         else if (stricmp(token, "split") == 0) {
             GetToken(false);
@@ -2240,7 +2255,7 @@ void Option_Eyelid(int imodel) {
     }
 
     s_source_t *pSource = Load_Source(vtafile, "vta");
-    auto &lower_flexkey = g_studiomdl.flexkey.emplace_back(s_flexkey_t{
+    auto &lower_flexkey = g_studiomdl.flexkeys.emplace_back(s_flexkey_t{
         .flexdesc = basedesc,
         .source = pSource,
         .imodel = imodel,
@@ -2259,7 +2274,7 @@ void Option_Eyelid(int imodel) {
     else {
         lower_flexkey.animationname = "";
     }
-    g_studiomdl.flexkey.emplace_back(s_flexkey_t{
+    g_studiomdl.flexkeys.emplace_back(s_flexkey_t{
         .flexdesc = basedesc,
         .source = lower_flexkey.source,
         .animationname = lower_flexkey.animationname,
@@ -2273,7 +2288,7 @@ void Option_Eyelid(int imodel) {
         .decay = 0.0,
     });
 
-    g_studiomdl.flexkey.emplace_back(s_flexkey_t{
+    g_studiomdl.flexkeys.emplace_back(s_flexkey_t{
         .flexdesc = basedesc,
         .source = lower_flexkey.source,
         .animationname = lower_flexkey.animationname,
@@ -2333,8 +2348,10 @@ void Cmd_Model() {
     g_studiomdl.model[g_studiomdl.nummodels] = (s_model_t *) calloc(1, sizeof(s_model_t));
 
     // name
-    if (!GetToken(false))
+    if (!GetToken(false)) {
+        MdlError("Error: missing <name>.\n");
         return;
+    }
     strcpyn(g_studiomdl.model[g_studiomdl.nummodels]->name, token);
 
     // fake g_studiomdl.bodypart stuff
@@ -2440,7 +2457,7 @@ void Cmd_Model() {
             // g_flex
             // FIXME: this needs to point to a model used, not loaded!!!
             Option_Flex("default", vtafile, g_studiomdl.nummodels, 0.0);
-            g_studiomdl.defaultflexkey = &g_studiomdl.flexkey.back();
+            g_studiomdl.defaultflexkey = &g_studiomdl.flexkeys.back();
         }
         else if (!Q_stricmp("flexfile", token)) {
             // file
@@ -2495,7 +2512,7 @@ void Cmd_FakeVTA() {
     GetToken(false);
 
     auto psource = (s_source_t *) calloc(1, sizeof(s_source_t));
-    g_studiomdl.source.emplace_back(psource);
+    g_studiomdl.sources.emplace_back(psource);
     strcpyn(psource->filename, token);
 
     while (1) {
@@ -2804,7 +2821,7 @@ void Cmd_TextureGroup() {
         return;
 
     if (g_studiomdl.numskinref == 0)
-        g_studiomdl.numskinref = g_studiomdl.texture.size();
+        g_studiomdl.numskinref = g_studiomdl.textures.size();
 
     while (1) {
         if (!GetToken(true)) {
@@ -2831,7 +2848,7 @@ void Cmd_TextureGroup() {
             i = UseTextureAsMaterial(LookupTexture(token));
             g_studiomdl.texturegroup[g_studiomdl.numtexturegroups][group][index] = i;
             if (group != 0)
-                g_studiomdl.texture[i].parent = g_studiomdl.texturegroup[g_studiomdl.numtexturegroups][0][index];
+                g_studiomdl.textures[i].parent = g_studiomdl.texturegroup[g_studiomdl.numtexturegroups][0][index];
             index++;
             g_studiomdl.numtexturereps[g_studiomdl.numtexturegroups] = index;
             g_studiomdl.numtexturelayers[g_studiomdl.numtexturegroups] = group + 1;
@@ -2865,60 +2882,76 @@ void Cmd_Hitbox() {
         strcpy(set->hitboxsetname, "default");
     }
 
-    GetToken(false);
-    set->hitbox[set->numhitboxes].group = verify_atoi(token);
+    if (!GetToken(false)) {
+        MdlError("Error: missing hitbox group number");
+    }
+
+    auto& hitbox = set->hitboxes.emplace_back(s_bbox_t{
+        .group = verify_atoi(token)
+    });
 
     // Grab the bone name:
-    GetToken(false);
-    strcpyn(set->hitbox[set->numhitboxes].name, token);
+    if (!GetToken(false)) {
+        MdlError("Error: missing hitbox name");
+    }
+    hitbox.name =token;
 
-    GetToken(false);
-    set->hitbox[set->numhitboxes].bmin[0] = verify_atof(token);
-    GetToken(false);
-    set->hitbox[set->numhitboxes].bmin[1] = verify_atof(token);
-    GetToken(false);
-    set->hitbox[set->numhitboxes].bmin[2] = verify_atof(token);
-    GetToken(false);
-    set->hitbox[set->numhitboxes].bmax[0] = verify_atof(token);
-    GetToken(false);
-    set->hitbox[set->numhitboxes].bmax[1] = verify_atof(token);
-    GetToken(false);
-    set->hitbox[set->numhitboxes].bmax[2] = verify_atof(token);
+    if (!GetToken(false)) {
+        MdlError("Error: missing hitbox min X");
+    }
+    hitbox.bmin[0] = verify_atof(token);
+    if (!GetToken(false)) {
+        MdlError("Error: missing hitbox min Y");
+    }
+    hitbox.bmin[1] = verify_atof(token);
+    if (!GetToken(false)) {
+        MdlError("Error: missing hitbox min Z");
+    }
+    hitbox.bmin[2] = verify_atof(token);
+    if (!GetToken(false)) {
+        MdlError("Error: missing hitbox max X");
+    }
+    hitbox.bmax[0] = verify_atof(token);
+    if (!GetToken(false)) {
+        MdlError("Error: missing hitbox max Y");
+    }
+    hitbox.bmax[1] = verify_atof(token);
+    if (!GetToken(false)) {
+        MdlError("Error: missing hitbox max Z");
+    }
+    hitbox.bmax[2] = verify_atof(token);
 
     if (TokenAvailable()) {
         GetToken(false);
-        set->hitbox[set->numhitboxes].angOffsetOrientation[0] = verify_atof(token);
+        hitbox.angOffsetOrientation[0] = verify_atof(token);
         GetToken(false);
-        set->hitbox[set->numhitboxes].angOffsetOrientation[1] = verify_atof(token);
+        hitbox.angOffsetOrientation[1] = verify_atof(token);
         GetToken(false);
-        set->hitbox[set->numhitboxes].angOffsetOrientation[2] = verify_atof(token);
+        hitbox.angOffsetOrientation[2] = verify_atof(token);
     }
     else {
-        set->hitbox[set->numhitboxes].angOffsetOrientation = QAngle(0, 0, 0);
+        hitbox.angOffsetOrientation = QAngle(0, 0, 0);
     }
 
     if (TokenAvailable()) {
         GetToken(false);
-        set->hitbox[set->numhitboxes].flCapsuleRadius = verify_atof(token);
+        hitbox.flCapsuleRadius = verify_atof(token);
     }
     else {
-        set->hitbox[set->numhitboxes].flCapsuleRadius = -1;
+        hitbox.flCapsuleRadius = -1;
     }
 
     //Scale hitboxes
-    scale_vertex(set->hitbox[set->numhitboxes].bmin);
-    scale_vertex(set->hitbox[set->numhitboxes].bmax);
+    scale_vertex(hitbox.bmin);
+    scale_vertex(hitbox.bmax);
     // clear out the hitboxname:
-    memset(set->hitbox[set->numhitboxes].hitboxname, 0, sizeof(set->hitbox[set->numhitboxes].hitboxname));
+    memset(hitbox.hitboxname, 0, sizeof(hitbox.hitboxname));
 
     // Grab the hit box name if present:
     if (TokenAvailable()) {
         GetToken(false);
-        strcpyn(set->hitbox[set->numhitboxes].hitboxname, token);
+        strcpyn(hitbox.hitboxname, token);
     }
-
-
-    set->numhitboxes++;
 }
 
 void Cmd_HitboxSet() {
@@ -3016,9 +3049,9 @@ void Internal_Cmd_Attachment(int nAttachmentTarget = g_studiomdl.attachments.siz
         return;
     }
 
-    s_attachment_t* attachment;
+    s_attachment_t *attachment;
 
-    if (nAttachmentTarget==g_studiomdl.attachments.size()) {
+    if (nAttachmentTarget == g_studiomdl.attachments.size()) {
         if (g_studiomdl.attachments.full()) {
             MdlError("Too many attachments");
             return;
@@ -3120,8 +3153,6 @@ void Internal_Cmd_Attachment(int nAttachmentTarget = g_studiomdl.attachments.siz
     attachment->local[0][3] = tmp.x;
     attachment->local[1][3] = tmp.y;
     attachment->local[2][3] = tmp.z;
-
-
 }
 
 void Cmd_RedefineAttachment() {
@@ -3196,16 +3227,16 @@ void Cmd_RenameBoneSubstr() {
 
 // Returns the 1-based id of the named transition node, adding it if needed
 int LookupXNode(const char *name) {
-    for (size_t i = 0; i < g_studiomdl.xnodename.size(); i++) {
-        if (stricmp(name, g_studiomdl.xnodename[i].c_str()) == 0) {
+    for (size_t i = 0; i < g_studiomdl.xnodenames.size(); i++) {
+        if (stricmp(name, g_studiomdl.xnodenames[i].c_str()) == 0) {
             return static_cast<int>(i + 1);
         }
     }
-    if (g_studiomdl.xnodename.full()) {
-        MdlError("Too many transition nodes, max %d\n", (int) g_studiomdl.xnodename.capacity());
+    if (g_studiomdl.xnodenames.full()) {
+        MdlError("Too many transition nodes, max %d\n", (int) g_studiomdl.xnodenames.capacity());
     }
-    g_studiomdl.xnodename.emplace_back(name);
-    return static_cast<int>(g_studiomdl.xnodename.size());
+    g_studiomdl.xnodenames.emplace_back(name);
+    return static_cast<int>(g_studiomdl.xnodenames.size());
 }
 
 void Cmd_Skiptransition() {
@@ -3220,7 +3251,7 @@ void Cmd_Skiptransition() {
     for (int i = 0; i < nskips; i++) {
         for (int j = 0; j < nskips; j++) {
             if (list[i] != list[j]) {
-                g_studiomdl.xnodeskip.emplace_back(std::array{list[i], list[j]});
+                g_studiomdl.xnodeskips.emplace_back(std::array{list[i], list[j]});
             }
         }
     }
@@ -3242,43 +3273,43 @@ s_source_t *FindCachedSource(const char *name, const char *xext) {
         // we know what extension is necessary. . look for it.
         Q_snprintf(g_StudioMdlContext.szFilename, sizeof(g_StudioMdlContext.szFilename), "%s%s.%s",
                    g_studiomdl.cddir.back().c_str(), name, xext);
-        for (i = 0; i < g_studiomdl.source.size(); i++) {
-            if (!Q_stricmp(g_StudioMdlContext.szFilename, g_studiomdl.source[i]->filename))
-                return g_studiomdl.source[i];
+        for (i = 0; i < g_studiomdl.sources.size(); i++) {
+            if (!Q_stricmp(g_StudioMdlContext.szFilename, g_studiomdl.sources[i]->filename))
+                return g_studiomdl.sources[i];
         }
     }
     else {
         // we don't know what extension to use, so look for all of 'em.
         Q_snprintf(g_StudioMdlContext.szFilename, sizeof(g_StudioMdlContext.szFilename), "%s%s.vrm",
                    g_studiomdl.cddir.back().c_str(), name);
-        for (i = 0; i < g_studiomdl.source.size(); i++) {
-            if (!Q_stricmp(g_StudioMdlContext.szFilename, g_studiomdl.source[i]->filename))
-                return g_studiomdl.source[i];
+        for (i = 0; i < g_studiomdl.sources.size(); i++) {
+            if (!Q_stricmp(g_StudioMdlContext.szFilename, g_studiomdl.sources[i]->filename))
+                return g_studiomdl.sources[i];
         }
         Q_snprintf(g_StudioMdlContext.szFilename, sizeof(g_StudioMdlContext.szFilename), "%s%s.dmx",
                    g_studiomdl.cddir.back().c_str(), name);
-        for (i = 0; i < g_studiomdl.source.size(); i++) {
-            if (!Q_stricmp(g_StudioMdlContext.szFilename, g_studiomdl.source[i]->filename))
-                return g_studiomdl.source[i];
+        for (i = 0; i < g_studiomdl.sources.size(); i++) {
+            if (!Q_stricmp(g_StudioMdlContext.szFilename, g_studiomdl.sources[i]->filename))
+                return g_studiomdl.sources[i];
         }
         Q_snprintf(g_StudioMdlContext.szFilename, sizeof(g_StudioMdlContext.szFilename), "%s%s.smd",
                    g_studiomdl.cddir.back().c_str(), name);
-        for (i = 0; i < g_studiomdl.source.size(); i++) {
-            if (!Q_stricmp(g_StudioMdlContext.szFilename, g_studiomdl.source[i]->filename))
-                return g_studiomdl.source[i];
+        for (i = 0; i < g_studiomdl.sources.size(); i++) {
+            if (!Q_stricmp(g_StudioMdlContext.szFilename, g_studiomdl.sources[i]->filename))
+                return g_studiomdl.sources[i];
         }
 
         Q_snprintf(g_StudioMdlContext.szFilename, sizeof(g_StudioMdlContext.szFilename), "%s%s.xml",
                    g_studiomdl.cddir.back().c_str(), name);
-        for (i = 0; i < g_studiomdl.source.size(); i++) {
-            if (!Q_stricmp(g_StudioMdlContext.szFilename, g_studiomdl.source[i]->filename))
-                return g_studiomdl.source[i];
+        for (i = 0; i < g_studiomdl.sources.size(); i++) {
+            if (!Q_stricmp(g_StudioMdlContext.szFilename, g_studiomdl.sources[i]->filename))
+                return g_studiomdl.sources[i];
         }
         Q_snprintf(g_StudioMdlContext.szFilename, sizeof(g_StudioMdlContext.szFilename), "%s%s.obj",
                    g_studiomdl.cddir.back().c_str(), name);
-        for (i = 0; i < g_studiomdl.source.size(); i++) {
-            if (!Q_stricmp(g_StudioMdlContext.szFilename, g_studiomdl.source[i]->filename))
-                return g_studiomdl.source[i];
+        for (i = 0; i < g_studiomdl.sources.size(); i++) {
+            if (!Q_stricmp(g_StudioMdlContext.szFilename, g_studiomdl.sources[i]->filename))
+                return g_studiomdl.sources[i];
         }
         /*
 		sprintf (g_szFilename, "%s%s.vta", g_studiomdl.cddir.back().c_str(), name );
@@ -4434,10 +4465,12 @@ void Cmd_CD() {
     if (g_studiomdl.cdset)
         MdlError("Two $cd in one model");
     g_studiomdl.cdset = true;
-    GetToken(false);
+    if (!GetToken(false)) {
+        MdlError("Missing <path> argument for $cd");
+        return;
+    }
     g_studiomdl.cddir.clear();
-    auto &cddir = g_studiomdl.cddir.emplace();
-    cddir.append_format("%s/", token);
+    g_studiomdl.cddir.emplace().format("%s/", token);
 }
 
 void Cmd_ContentRootRelative() {
@@ -5015,9 +5048,9 @@ s_sequence_t *LookupSequence(const char *name) {
 
 s_animation_t *LookupAnimation(const char *name, int nFallbackRecursionDepth) {
     int i;
-    for (i = 0; i < g_studiomdl.panimation.size(); i++) {
-        if (!Q_stricmp(g_studiomdl.panimation[i]->name, name))
-            return g_studiomdl.panimation[i];
+    for (i = 0; i < g_studiomdl.animations.size(); i++) {
+        if (!Q_stricmp(g_studiomdl.animations[i]->name, name))
+            return g_studiomdl.animations[i];
     }
 
     s_sequence_t *pseq = LookupSequence(name);
@@ -5048,35 +5081,47 @@ s_animation_t *LookupAnimation(const char *name) {
 
 
 int Option_AnimTag(s_sequence_t *psequence) {
-    if (psequence->numanimtags + 1 >= MAXSTUDIOTAGS) {
+    if (psequence->animtags.full()) {
         TokenError("too many animtags\n");
     }
 
-    GetToken(false);
+    if (!GetToken(false)) {
+        TokenError("expected animtag name\n");
+    }
 
-    strcpy(psequence->animtags[psequence->numanimtags].tagname, token);
+    auto& animtag = psequence->animtags.emplace_back(s_animtag_t{
+        .tagname = token
+    });
 
-    GetToken(false);
-    psequence->animtags[psequence->numanimtags].cycle = verify_atof(token);
 
-    psequence->numanimtags++;
+    if (!GetToken(false)) {
+        TokenError("expected animtag cycle\n");
+    }
+    animtag.cycle = verify_atof(token);
+
 
     return 0;
 }
 
 int Option_Event(s_sequence_t *psequence) {
-    if (psequence->numevents + 1 >= MAXSTUDIOEVENTS) {
+    if (psequence->events.full()) {
         TokenError("too many events\n");
     }
 
-    GetToken(false);
+    if (!GetToken(false)) {
+        TokenError("expected event name\n");
+        return 1;
+    }
 
-    strcpy(psequence->event[psequence->numevents].eventname, token);
+    auto& event = psequence->events.emplace_back(s_event_t{
+        .eventname = token
+    });
 
-    GetToken(false);
-    psequence->event[psequence->numevents].frame = verify_atoi(token);
-
-    psequence->numevents++;
+    if (!GetToken(false)) {
+        TokenError("expected event frame\n");
+        return 1;
+    }
+    event.frame = verify_atoi(token);
 
     // option token
     if (TokenAvailable()) {
@@ -5084,7 +5129,7 @@ int Option_Event(s_sequence_t *psequence) {
         if (token[0] == '}') // opps, hit the end
             return 1;
         // found an option
-        strcpyn(psequence->event[psequence->numevents - 1].options, token);
+        event.options = token;
     }
 
     return 0;
@@ -5893,7 +5938,7 @@ void Cmd_Cmdlist() {
 
     // name
     GetToken(false);
-    auto &cmd = g_studiomdl.cmdlist.emplace_back(s_cmdlist_t{
+    auto &cmd = g_studiomdl.cmdlists.emplace_back(s_cmdlist_t{
         .name = token,
     });
 
@@ -6123,19 +6168,19 @@ bool ParseAnimationToken(s_animation_t *panim) {
         GetToken(false); // A
 
         int i;
-        for (i = 0; i < g_studiomdl.cmdlist.size(); i++) {
-            if (stricmp(g_studiomdl.cmdlist[i].name, token) == 0) {
+        for (i = 0; i < g_studiomdl.cmdlists.size(); i++) {
+            if (stricmp(g_studiomdl.cmdlists[i].name, token) == 0) {
                 break;
             }
         }
-        if (i == g_studiomdl.cmdlist.size())
+        if (i == g_studiomdl.cmdlists.size())
             TokenError("unknown cmdlist %s\n", token);
 
-        for (int j = 0; j < g_studiomdl.cmdlist[i].cmds.size(); j++) {
+        for (int j = 0; j < g_studiomdl.cmdlists[i].cmds.size(); j++) {
             if (panim->cmds.size() >= MAXSTUDIOCMDS) {
                 TokenError("Too many cmds in %s\n", panim->name.c_str());
             }
-            panim->cmds.emplace_back(g_studiomdl.cmdlist[i].cmds[j]);
+            panim->cmds.emplace_back(g_studiomdl.cmdlists[i].cmds[j]);
         }
         return true;
     }
@@ -6241,9 +6286,9 @@ void Cmd_Animation() {
     }
 
     // allocate animation entry
-    panim = g_studiomdl.panimation.emplace_back(static_cast<s_animation_t *>(calloc(1, sizeof(s_animation_t))));
+    panim = g_studiomdl.animations.emplace_back(static_cast<s_animation_t *>(calloc(1, sizeof(s_animation_t))));
 
-    panim->index = g_studiomdl.panimation.size() - 1;
+    panim->index = g_studiomdl.animations.size() - 1;
     panim->name = token;
 
     // filename
@@ -6330,7 +6375,7 @@ int Option_Activity(s_sequence_t *psequence) {
         if (std::find(g_StudioMdlContext.AllowedActivityNames.begin(), g_StudioMdlContext.AllowedActivityNames.end(),
                       token) ==
             g_StudioMdlContext.AllowedActivityNames.end()) {
-            MdlError("Unknown sequence activity \"%s\" in \"%s\".", token, psequence->name);
+            MdlError("Unknown sequence activity \"%s\" in \"%s\".", token, psequence->name.c_str());
         }
     }
 
@@ -6338,7 +6383,7 @@ int Option_Activity(s_sequence_t *psequence) {
     psequence->actweight = verify_atoi(token);
 
     if (psequence->actweight == 0) {
-        TokenError("Activity %s has a zero weight (weights must be integers > 0)\n", psequence->activityname);
+        TokenError("Activity %s has a zero weight (weights must be integers > 0)\n", psequence->activityname.c_str());
     }
 
     return 0;
@@ -6371,8 +6416,8 @@ int Option_ActivityModifier(s_sequence_t *psequence) {
 //-----------------------------------------------------------------------------
 s_animation_t *ProcessImpliedAnimation(s_sequence_t *psequence, const char *filename) {
     // allocate animation entry
-    s_animation_t *panim = g_studiomdl.panimation.emplace_back((s_animation_t *) calloc(1, sizeof(s_animation_t)));
-    panim->index = g_studiomdl.panimation.size() - 1;
+    s_animation_t *panim = g_studiomdl.animations.emplace_back((s_animation_t *) calloc(1, sizeof(s_animation_t)));
+    panim->index = g_studiomdl.animations.size() - 1;
 
     panim->isImplied = true;
 
@@ -6790,14 +6835,14 @@ int ParseSequence(s_sequence_t *pseq, bool isAppend) {
         else if (!isAppend) {
             // assume it's an animation reference
             // first look up an existing animation
-            for (n = 0; n < g_studiomdl.panimation.size(); n++) {
-                if (stricmp(token, g_studiomdl.panimation[n]->name) == 0) {
-                    animations[numblends++] = g_studiomdl.panimation[n];
+            for (n = 0; n < g_studiomdl.animations.size(); n++) {
+                if (stricmp(token, g_studiomdl.animations[n]->name) == 0) {
+                    animations[numblends++] = g_studiomdl.animations[n];
                     break;
                 }
             }
 
-            if (n >= g_studiomdl.panimation.size()) {
+            if (n >= g_studiomdl.animations.size()) {
                 // assume it's an implied animation
                 animations[numblends++] = ProcessImpliedAnimation(pseq, token);
             }
@@ -6947,13 +6992,13 @@ void Cmd_DeclareSequence() {
 // Purpose: foward declare an empty sequence
 //-----------------------------------------------------------------------------
 void Cmd_DeclareAnimation() {
-    if (g_studiomdl.panimation.size() >= g_studiomdl.panimation.capacity()) {
+    if (g_studiomdl.animations.size() >= g_studiomdl.animations.capacity()) {
         TokenError("Too many animations (%d max)\n", MAXSTUDIOANIMS);
     }
 
     // allocate animation entry
-    s_animation_t *panim = g_studiomdl.panimation.emplace_back((s_animation_t *) calloc(1, sizeof(s_animation_t)));
-    panim->index = g_studiomdl.panimation.size() - 1;
+    s_animation_t *panim = g_studiomdl.animations.emplace_back((s_animation_t *) calloc(1, sizeof(s_animation_t)));
+    panim->index = g_studiomdl.animations.size() - 1;
     panim->flags = STUDIO_OVERRIDE;
 
     // initialize animation

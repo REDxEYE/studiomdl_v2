@@ -124,8 +124,7 @@ struct s_vertexinfo_t {
     Vector position;
     Vector normal;
     Vector4D tangentS;
-    int numTexcoord;
-    std::array<Vector2D, MAXSTUDIOTEXCOORDS> texcoord;
+    vstd::FixedVector<Vector2D, MAXSTUDIOTEXCOORDS> texcoord;
     s_boneweight_t boneweight;
 };
 
@@ -168,8 +167,8 @@ extern int findGlobalBone(const char *name); // finds a named bone in the global
 
 
 struct s_renamebone_t {
-    char from[MAXSTUDIONAME];
-    char to[MAXSTUDIONAME];
+    StudioName from;
+    StudioName to;
 };
 
 
@@ -177,8 +176,8 @@ const char *RenameBone(const char *pName); // returns new name if available, els
 
 
 struct s_importbone_t {
-    char name[MAXSTUDIONAME];
-    char parent[MAXSTUDIONAME];
+    StudioName name;
+    StudioName parent;
     matrix3x4_t rawLocal;
     bool bPreAligned;
     matrix3x4_t srcRealign;
@@ -192,8 +191,8 @@ struct s_includemodel_t {
 
 
 struct s_bbox_t {
-    char name[MAXSTUDIONAME]; // bone name
-    char hitboxname[MAXSTUDIONAME]; // hitbox name
+    StudioName name; // bone name
+    StudioName hitboxname; // hitbox name
     int bone;
     int group; // hitgroup
     int model;
@@ -205,11 +204,8 @@ struct s_bbox_t {
 #define MAXSTUDIOHITBOXSETNAME 64
 
 struct s_hitboxset {
-    char hitboxsetname[MAXSTUDIOHITBOXSETNAME];
-
-    int numhitboxes;
-
-    std::array<s_bbox_t, MAXSTUDIOSRCBONES> hitbox;
+    vstd::FixedString<MAXSTUDIOHITBOXSETNAME> hitboxsetname;
+    vstd::FixedVector<s_bbox_t, MAXSTUDIOSRCBONES> hitboxes;
 };
 
 
@@ -231,7 +227,7 @@ struct s_bonecontroller_t {
 
 
 struct s_screenalignedbone_t {
-    char name[MAXSTUDIONAME];
+    StudioName name;
     int flags;
 };
 
@@ -460,9 +456,9 @@ struct s_animationstream_t {
     int numerror;
     s_streamdata_t *pError;
     // compressed animations
-    float scale[6];
-    int numanim[6];
-    mstudioanimvalue_t *anim[6];
+    std::array<float, 6> scale;
+    std::array<int, 6> numanim;
+    std::array<mstudioanimvalue_t *, 6> anim;
 };
 
 struct s_ikrule_t {
@@ -471,8 +467,8 @@ struct s_ikrule_t {
     int index;
     int type;
     int slot;
-    char bonename[MAXSTUDIONAME];
-    char attachment[MAXSTUDIONAME];
+    StudioName bonename;
+    StudioName attachment;
     int bone;
     Vector pos;
     Quaternion q;
@@ -512,8 +508,8 @@ struct s_source_t;
 
 
 struct s_compressed_t {
-    int num[6];
-    mstudioanimvalue_t *data[6];
+    std::array<int, 6> num;
+    std::array<mstudioanimvalue_t *, 6> data;
 };
 
 struct s_animation_t {
@@ -572,20 +568,15 @@ struct s_animation_t {
     CUtlVectorAuto<CUtlVectorAuto<s_compressed_t> > anim;
 
     // int				weightlist;
-    float weight[MAXSTUDIOSRCBONES];
-    float posweight[MAXSTUDIOSRCBONES];
-
+    std::array<float,MAXSTUDIOSRCBONES> weight;
+    std::array<float,MAXSTUDIOSRCBONES> posweight;
     vstd::FixedVector<s_animcmd_t, MAXSTUDIOCMDS> cmds;
-
-    int numikrules;
-    s_ikrule_t ikrule[MAXSTUDIOIKRULES];
-    bool noAutoIK;
-
-    int numlocalhierarchy;
-    s_localhierarchy_t localhierarchy[MAXSTUDIOIKRULES];
+    vstd::FixedVector<s_ikrule_t, MAXSTUDIOIKRULES> ikrules;
+    vstd::FixedVector<s_localhierarchy_t,MAXSTUDIOIKRULES> localhierarchies;
 
     float motionrollback;
 
+    bool noAutoIK;
     bool disableAnimblocks; // no demand loading
     bool isFirstSectionLocal; // first block of a section isn't demand loaded
     int numNostallFrames; // number of frames to keep in memory (modulo segement size)
@@ -603,7 +594,7 @@ struct s_cmdlist_t {
 
 
 struct s_iklock_t {
-    char name[MAXSTUDIONAME];
+    StudioName name;
     int chain;
     float flPosWeight;
     float flLocalQWeight;
@@ -613,18 +604,18 @@ struct s_iklock_t {
 struct s_animtag_t {
     int tag;
     float cycle;
-    char tagname[MAXSTUDIONAME];
+    StudioName tagname;
 };
 
 struct s_event_t {
     int event;
     int frame;
-    char options[64];
-    char eventname[MAXSTUDIONAME];
+    vstd::FixedString<64> options;
+    StudioName eventname;
 };
 
 struct s_autolayer_t {
-    char name[MAXSTUDIONAME];
+    StudioName name;
     int sequence;
     int flags;
     int pose;
@@ -636,13 +627,13 @@ struct s_autolayer_t {
 
 struct s_activitymodifier_t {
     int id;
-    char name[64];
+    vstd::FixedString<64> name;
 };
 
 class s_sequence_t {
 public:
-    char name[MAXSTUDIONAME];
-    char activityname[MAXSTUDIONAME]; // index into the string table, the name of this activity.
+    StudioName name;
+    StudioName activityname; // index into the string table, the name of this activity.
 
     int flags;
     // float			fps;
@@ -651,11 +642,8 @@ public:
     int activity;
     int actweight;
 
-    int numanimtags;
-    s_animtag_t animtags[MAXSTUDIOTAGS];
-
-    int numevents;
-    s_event_t event[MAXSTUDIOEVENTS];
+    vstd::FixedVector<s_animtag_t, MAXSTUDIOTAGS> animtags;
+    vstd::FixedVector<s_event_t, MAXSTUDIOEVENTS> events;
 
     int numblends;
     int groupsize[2];
@@ -707,7 +695,7 @@ public:
     s_activitymodifier_t activitymodifier[MAXSTUDIOACTIVITYMODIFIERS];
 
     int rootDriverIndex;
-    char rootDriverBoneName[MAXSTUDIONAME];
+    StudioName rootDriverBoneName;
 };
 
 
@@ -720,7 +708,7 @@ struct s_animblock_t {
 
 
 struct s_poseparameter_t {
-    char name[MAXSTUDIONAME];
+    StudioName name;
     float min;
     float max;
     int flags;
@@ -742,7 +730,7 @@ enum TextureFlags_t {
 };
 
 struct s_texture_t {
-    char name[MAX_PATH];
+    StudioPath name;
     int flags;
     int parent;
     int material;
@@ -792,7 +780,7 @@ struct s_loddata_t {
 // Animations stored in raw off-disk source files.  Raw data should be not processed.
 class s_sourceanim_t {
 public:
-    char animationname[MAX_PATH];
+    StudioPath animationname;
     int numframes;
     int startframe;
     int endframe;
@@ -810,7 +798,7 @@ public:
 
 // raw off-disk source files.  Raw data should be not processed.
 struct s_source_t {
-    char filename[MAX_PATH];
+    StudioPath filename;
     int version; // Version number from SMD file, otherwise 0
     bool isActiveModel;
 
@@ -899,8 +887,8 @@ struct s_eyeball_t {
 };
 
 struct s_model_t {
-    char name[MAXSTUDIONAME];
-    char filename[MAX_PATH];
+    StudioName name;
+    StudioPath filename;
 
     // needs local scaling and rotation paramaters
     s_source_t *source; // index into source table
@@ -1015,7 +1003,7 @@ struct s_combinationrule_t {
 
 
 struct s_bodypart_t {
-    char name[MAXSTUDIONAME];
+    StudioName name;
     int nummodels;
     int base;
     CUtlVectorAuto<s_model_t *> pmodel;
@@ -1027,7 +1015,7 @@ struct s_bodypart_t {
 
 
 struct s_bodygrouppreset_t {
-    char name[MAXSTUDIONAME];
+    StudioName name;
     int iValue;
     int iMask;
 
@@ -1559,7 +1547,7 @@ private:
 
 // the first time these are called, the name of the model/QC file is printed so that when
 // running in batch mode, no echo, when dumping to a file, it can be determined which file is broke.
-void MdlError(const char *pMsg, ...);
+[[noreturn]] void MdlError(const char *pMsg, ...);
 
 void MdlWarning(const char *pMsg, ...);
 
