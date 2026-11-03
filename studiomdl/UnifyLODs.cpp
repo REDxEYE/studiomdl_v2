@@ -117,8 +117,7 @@ static void SortBoneWeightByIndex(s_boneweight_t &boneWeight) {
 struct VertexInfo_t {
     Vector m_Position;
     Vector m_Normal;
-    int m_numTexCoords;
-    std::array<Vector2D, MAXSTUDIOTEXCOORDS> m_TexCoord;
+    vstd::FixedVector<Vector2D, MAXSTUDIOTEXCOORDS> m_TexCoord;
     Vector4D m_TangentS;
     s_boneweight_t m_BoneWeight;
     int m_nLodFlag;
@@ -244,10 +243,11 @@ int CVertexDictionary::AddVertexFromSource(const s_source_t *pSrc, int nVertexIn
     vertex.m_BoneWeight = srcVertex.boneweight;
     vertex.m_nLodFlag = 1 << nLod;
 
-    for (int i = 0; i < MAXSTUDIOTEXCOORDS; ++i) {
+    vertex.m_TexCoord.resize(srcVertex.texcoord.size());
+
+    for (int i = 0; i < srcVertex.texcoord.size(); ++i) {
         vertex.m_TexCoord[i] = srcVertex.texcoord[i];
     }
-    vertex.m_numTexCoords = srcVertex.numTexcoord;
 
     ValidateBoneWeight(vertex.m_BoneWeight);
     SortBoneWeightByIndex(vertex.m_BoneWeight);
@@ -365,14 +365,17 @@ bool CompareTangentSFuzzy(const Vector4D &n1, const Vector4D &n2, float &flError
 //-----------------------------------------------------------------------------
 // Computes error between two texcoords; returns false if the error is too great
 //-----------------------------------------------------------------------------
-bool CompareTexCoordsFuzzy(const std::array<Vector2D, MAXSTUDIOTEXCOORDS> &t1,
-                           const std::array<Vector2D, MAXSTUDIOTEXCOORDS> &t2,
+bool CompareTexCoordsFuzzy(const vstd::FixedVector<Vector2D, MAXSTUDIOTEXCOORDS> &t1,
+                           const vstd::FixedVector<Vector2D, MAXSTUDIOTEXCOORDS> &t2,
                            float &flError) {
     Vector2D vecError;
+    if (t1.size()!=t2.size()) {
+        MdlError("Texcoord count mismatch");
+        return false;
+    }
 
     flError = 0.0f;
-
-    for (int i = 0; i < MAXSTUDIOTEXCOORDS; ++i) {
+    for (size_t i = 0; i < t1.size(); ++i) {
         vecError[0] = fabs(t2[i][0] - t1[i][0]);
         vecError[1] = fabs(t2[i][1] - t1[i][1]);
         flError += vecError.LengthSqr();
@@ -453,8 +456,8 @@ int FindMaterialByName(const char *pMaterialName) {
     char *pBaseName = (char *) _alloca(allocLen);
     Q_FileBase((char *) pMaterialName, pBaseName, allocLen);
 
-    for (i = 0; i < g_studiomdl.texture.size(); i++) {
-        if (stricmp(pMaterialName, g_studiomdl.texture[i].name) == 0) {
+    for (i = 0; i < g_studiomdl.textures.size(); i++) {
+        if (stricmp(pMaterialName, g_studiomdl.textures[i].name) == 0) {
             return i;
         }
     }
@@ -483,7 +486,7 @@ static s_mesh_t *FindOrCullMesh(int nLodID, s_source_t *pSrc, int nMaterialID) {
         MdlError("Unknown Texture for Material %d\n", nMaterialID);
     }
 
-    Q_FileBase(g_studiomdl.texture[nTextureID].name, baseMeshName, sizeof(baseMeshName) - 1);
+    Q_FileBase(g_studiomdl.textures[nTextureID].name, baseMeshName, sizeof(baseMeshName) - 1);
     for (int i = 0; i < g_studiomdl.ScriptLODs[nLodID].meshRemovals.Count(); i++) {
         const char *pMeshRemovalName = g_studiomdl.ScriptLODs[nLodID].meshRemovals[i].GetSrcName();
         Q_FileBase(pMeshRemovalName, baseRemovalName, sizeof(baseRemovalName) - 1);
@@ -908,7 +911,7 @@ FindVertexInDictionaryExact(CVertexDictionary &vertexDict, int nStartVert, int n
             continue;
 
         bool bMatch = true;
-        for (int i = 0; i < MAXSTUDIOTEXCOORDS; ++i) {
+        for (int i = 0; i < vertex.m_TexCoord.size(); ++i) {
             if (vertexDict.Vertex(nVertID).m_TexCoord[i] != vertex.m_TexCoord[i]) {
                 bMatch = false;
                 break;
@@ -1027,10 +1030,11 @@ static void CreateLODVertsInDictionary(int nLodID, const s_source_t *pRootLODSrc
         vertex.m_Normal = srcVertex.normal;
         vertex.m_TangentS = srcVertex.tangentS;
 
-        for (int i = 0; i < MAXSTUDIOTEXCOORDS; ++i) {
+        vertex.m_TexCoord.resize(srcVertex.texcoord.size());
+
+        for (int i = 0; i < srcVertex.texcoord.size(); ++i) {
             vertex.m_TexCoord[i] = srcVertex.texcoord[i];
         }
-        vertex.m_numTexCoords = srcVertex.numTexcoord;
 
         if (g_studiomdl.bSkinnedLODs) {
             vertex.m_BoneWeight = srcVertex.boneweight;
@@ -1126,10 +1130,11 @@ static void SetProcessedWithDictionary(s_model_t *pSrcModel, CVertexDictionary &
         dstVertex.tangentS = srcVertex.m_TangentS;
         dstVertex.lodFlag = srcVertex.m_nLodFlag;
 
-        for (int j = 0; j < MAXSTUDIOTEXCOORDS; ++j) {
+        dstVertex.texcoord.resize(srcVertex.m_TexCoord.size());
+
+        for (int j = 0; j < srcVertex.m_TexCoord.size(); ++j) {
             dstVertex.texcoord[j] = srcVertex.m_TexCoord[j];
         }
-        dstVertex.numTexcoord = srcVertex.m_numTexCoords;
     }
 
     memcpy(pLodData->face, faces.Base(), faces.Count() * sizeof(s_face_t));
@@ -1249,7 +1254,7 @@ static void UnifyModelLODs(s_model_t *pSrcModel) {
 
         // lookup the material used by this mesh
         int nMaterialID = pLOD0Source->meshindex[nMeshID];
-        const char *pName = g_studiomdl.texture[nMaterialID].name;
+        const char *pName = g_studiomdl.textures[nMaterialID].name;
         if (!g_StudioMdlContext.quiet) {
             printf("Processing LOD for material: %s\n", pName);
         }
@@ -1304,6 +1309,7 @@ static void UnifyModelLODs(s_model_t *pSrcModel) {
 // for all of the LODs of the model.
 //-----------------------------------------------------------------------------
 void UnifyLODs() {
+    FunctionTimingRecorder _("Simplify");
     // todo: need to fixup the firstref/lastref stuff . . do we really need it anymore?
     for (int modelID = 0; modelID < g_studiomdl.nummodelsbeforeLOD; modelID++) {
         UnifyModelLODs(g_studiomdl.model[modelID]);
@@ -1408,6 +1414,7 @@ static void GetLODSources(CUtlVector<s_source_t *> &lods, const s_model_t *pSrcM
 // Creates models to store converted data for the various LODs
 //-----------------------------------------------------------------------------
 void LoadLODSources() {
+    FunctionTimingRecorder _("Simplify");
     g_studiomdl.nummodelsbeforeLOD = g_studiomdl.nummodels;
     for (int modelID = 0; modelID < g_studiomdl.nummodelsbeforeLOD; modelID++) {
         if (!Q_stricmp(g_studiomdl.model[modelID]->name, "blank")) {
@@ -1453,6 +1460,7 @@ static void ConvertSingleBoneTreeCollapseToReplaceBones(CLodScriptReplacement_t 
 }
 
 void ConvertBoneTreeCollapsesToReplaceBones() {
+    FunctionTimingRecorder _("Simplify");
     int i;
     for (i = 0; i < g_studiomdl.ScriptLODs.Count(); i++) {
         LodScriptData_t &lod = g_studiomdl.ScriptLODs[i];
@@ -1506,6 +1514,7 @@ void FixupReplacedBonesForLOD(LodScriptData_t &lod) {
 }
 
 void FixupReplacedBones() {
+    FunctionTimingRecorder _("Simplify");
     int i;
     for (i = 0; i < g_studiomdl.ScriptLODs.Count(); i++) {
         FixupReplacedBonesForLOD(g_studiomdl.ScriptLODs[i]);

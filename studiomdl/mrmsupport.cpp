@@ -548,11 +548,12 @@ static void BuildUniqueVertexList( s_source_t *pSource, const int *pDesiredToVLi
 			vertex.boneweight.weight[k]	= g_StudioMdlContext.bone[ g_studiomdl.v_listdata[j].v ].weight[k];
 		}
 
+		vertex.texcoord.resize(numValidTexcoords);
+
 		for (k = 0; k < numValidTexcoords; ++k)
 		{
 			Vector2Copy(g_StudioMdlContext.texcoord[k][g_studiomdl.v_listdata[j].t[k]], vertex.texcoord[k]);
 		}
-		vertex.numTexcoord = numValidTexcoords;
 
 		// store a bunch of other info
 		vertex.material			= g_studiomdl.v_listdata[j].m;
@@ -815,7 +816,7 @@ int Load_VRM ( s_source_t *psource )
 
 	if( !g_StudioMdlContext.quiet )
 	{
-		printf ("grabbing %s\n", psource->filename);
+		printf ("grabbing %s\n", psource->filename.c_str());
 	}
 
 	g_StudioMdlContext.iLinecount = 0;

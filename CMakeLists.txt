@@ -72,6 +72,7 @@ add_subdirectory(libs/dmeutils)
 add_subdirectory(libs/utils)
 add_subdirectory(libs/bonesetup)
 add_subdirectory(libs/filesystem)
+add_subdirectory(libs/vphys_lite)
 
 
 add_executable(studiomdl_v2
@@ -91,6 +92,8 @@ add_executable(studiomdl_v2
         studiomdl/flexoptimize.cpp
         studiomdl/studiomdl.cpp
         studiomdl/filesystem_init.cpp
+        studiomdl/collisionmodel.cpp
+        studiomdl/collisionmodelsource.cpp
         studiomdl/studiomdl_commands.cpp
         studiomdl/studiomdl_errors.cpp
         studiomdl/studiomdl_app.cpp
@@ -116,6 +119,7 @@ target_link_libraries(studiomdl_v2 PRIVATE
         appframework
         meshoptimizer
         filesystem_stdio_v2_static
+        vphys_lite
         )
 if (WIN32)
     target_link_libraries(studiomdl_v2 PRIVATE shlwapi)

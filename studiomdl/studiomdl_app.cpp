@@ -19,6 +19,7 @@
 #include "dmserializers/idmserializers.h"
 #include "tier2/tier2dm.h"
 #include "filesystem/filesystem_stdio.h"
+#include "studiomdl/collisionmodel.h"
 #include "studiomdl/studiomdl_global_state.hpp"
 
 CMdlLoggingListener s_MdlLoggingListener;
@@ -129,6 +130,7 @@ ParseScript
 ===============
 */
 void ParseScript(const char *pExt) {
+    FunctionTimingRecorder _("Parse");
     while (1) {
         GetToken(true);
         if (endofscript)
@@ -412,7 +414,7 @@ void ClampMaxVerticesPerModel(s_source_t *pOrigSource) {
     for (int n = 1; n < newSource.Count(); n++) {
         // create a new internal "source"
         s_source_t *pSource = (s_source_t *) calloc(1, sizeof(s_source_t));
-        g_studiomdl.source.emplace_back(pSource);
+        g_studiomdl.sources.emplace_back(pSource);
 
         // copy all the members, in order
         memcpy(&(pSource->filename[0]), &(pOrigSource->filename[0]), sizeof(pSource->filename));
@@ -450,9 +452,10 @@ void ClampMaxVerticesPerModel(s_source_t *pOrigSource) {
         pSource->bNoAutoDMXRules = pOrigSource->bNoAutoDMXRules;
 
         // allocate a model
-        s_model_t *pModel = (s_model_t *) calloc(1, sizeof(s_model_t));
+        s_model_t *pModel = c_allocate<s_model_t>();
         pModel->source = pSource;
-        V_snprintf(pModel->name, sizeof(pModel->name), "%s_clamped%d", szOrigName, n);
+        pModel->name.format("%s_cmodel%d", szOrigName, n);
+        pModel->filename.format("%s_cmesh%d", szOrigName, n);
         int imodel = g_studiomdl.nummodels++;
         g_studiomdl.model[imodel] = pModel;
 
@@ -460,7 +463,7 @@ void ClampMaxVerticesPerModel(s_source_t *pOrigSource) {
         s_bodypart_t &bodypart = g_studiomdl.bodypart[g_studiomdl.numbodyparts];
         bodypart.nummodels = 1;
         bodypart.base = g_studiomdl.bodypart[g_studiomdl.numbodyparts - 1].base * g_studiomdl.bodypart[g_studiomdl.numbodyparts - 1].nummodels;
-        V_snprintf(bodypart.name, sizeof(bodypart.name), "%s_clamped%d", szOrigName, n);
+        bodypart.name.format("%s_clamped%d", szOrigName, n);
         bodypart.pmodel[0] = pModel;
         g_studiomdl.numbodyparts++;
 
@@ -476,8 +479,8 @@ void SetSkinValues() {
     int index;
 
     // Check all textures to see if we have relative paths specified
-    for (i = 0; i < g_studiomdl.texture.size(); i++) {
-        if (g_studiomdl.texture[i].flags & RELATIVE_TEXTURE_PATH_SPECIFIED) {
+    for (i = 0; i < g_studiomdl.textures.size(); i++) {
+        if (g_studiomdl.textures[i].flags & RELATIVE_TEXTURE_PATH_SPECIFIED) {
             // Add an empty path to prepend if anything specifies a relative path
             g_studiomdl.cdtextures.emplace_back();
             break;
@@ -510,10 +513,10 @@ void SetSkinValues() {
         g_studiomdl.cdtextures.emplace_back(strdup(szName));
     }
 
-    for (i = 0; i < g_studiomdl.texture.size(); i++) {
+    for (i = 0; i < g_studiomdl.textures.size(); i++) {
         char szName[256];
-        Q_StripExtension(g_studiomdl.texture[i].name, szName, sizeof(szName));
-        Q_strncpy(g_studiomdl.texture[i].name, szName, sizeof(g_studiomdl.texture[i].name));
+        Q_StripExtension(g_studiomdl.textures[i].name, szName, sizeof(szName));
+        Q_strncpy(g_studiomdl.textures[i].name, szName, sizeof(g_studiomdl.textures[i].name));
     }
 
     // build texture groups
@@ -534,7 +537,7 @@ void SetSkinValues() {
     } else {
         g_studiomdl.numskinfamilies = 1;
     }
-    g_studiomdl.numskinref = g_studiomdl.texture.size();
+    g_studiomdl.numskinref = g_studiomdl.textures.size();
 
     FlexOptimizeFixupSkinFamilies();
 
@@ -626,109 +629,118 @@ void UsageAndExit() {
 // The application object
 //-----------------------------------------------------------------------------
 int CStudioMDLApp::Main() {
-    g_StudioMdlContext.numverts = g_StudioMdlContext.numnormals = g_StudioMdlContext.numfaces = 0;
-    for (int &g_numtexcoord: g_StudioMdlContext.numtexcoords) {
-        g_numtexcoord = 0;
-    }
-
-    // This bit of hackery allows us to access files on the harddrive
-    g_pFullFileSystem->AddSearchPath("", "LOCAL", PATH_ADD_TO_HEAD);
-
-    int nReturnValue;
-    if (HandleMdlReport(nReturnValue))
-        return false;
-
-    AddContentPaths();
-
-    ParseGameInfo();
-
-    if (!g_StudioMdlContext.quiet) {
-        printf("qdir:    \"%s\"\n", qdir);
-        printf("gamedir: \"%s\"\n", gamedir);
-        printf("g_path:  \"%s\"\n", g_StudioMdlContext.g_path.c_str());
-    }
-
-    const char *pExt = Q_GetFileExtension(g_StudioMdlContext.g_path);
-
-    // Only source files are built (the .mdl stripping modes needed Valve's mdllib)
-    if (pExt && !Q_stricmp(pExt, "mdl")) {
-        printf("ERROR: " SRC_FILE_EXT " or .dmx file should be specified to build.\n");
-        return 1;
-    }
-
-    if (!g_StudioMdlContext.quiet)
-        printf("Building binary model files...\n");
-
-    Q_FileBase(g_StudioMdlContext.g_path, g_StudioMdlContext.g_path, sizeof(g_StudioMdlContext.g_path));
-    Q_DefaultExtension(g_StudioMdlContext.g_path, SRC_FILE_EXT, sizeof(g_StudioMdlContext.g_path));
-    if (!pExt) {
-        pExt = SRC_FILE_EXT;
-    }
-
-    if (!g_StudioMdlContext.quiet) {
-        printf("Working on \"%s\"\n", g_StudioMdlContext.g_path.c_str());
-    }
-
-    // Set up script loading callback, discarding default callback
-    (void) SetScriptLoadedCallback(StudioMdl_ScriptLoadedCallback);
-
-    // load the script
-    LoadScriptFile(g_StudioMdlContext.g_path);
-
-    strcpy(g_studiomdl.fullpath, g_StudioMdlContext.g_path);
-    strcpy(g_studiomdl.fullpath, ExpandPath(g_studiomdl.fullpath));
-    strcpy(g_studiomdl.fullpath, ExpandArg(g_studiomdl.fullpath));
-
-    // default to having one entry in the LOD list that doesn't do anything so
-    // that we don't have to do any special cases for the first LOD.
-    g_studiomdl.ScriptLODs.Purge();
-    g_studiomdl.ScriptLODs.AddToTail(); // add an empty one
-    g_studiomdl.ScriptLODs[0].switchValue = 0.0f;
-
-    //
-    // parse it
-    //
-    ClearModel();
-
-//	strcpy( g_pPlatformName, "" );
-    ParseScript(pExt);
-
-    if (!g_StudioMdlContext.createMakefile) {
-        FlexOptimizeSources();
-
-        int nCount = g_studiomdl.source.size();
-        for (int i = 0; i < nCount; i++) {
-            if (g_studiomdl.source[i]->isActiveModel) {
-                ClampMaxVerticesPerModel(g_studiomdl.source[i]);
-            }
+    {
+        FunctionTimingRecorder _("main");
+        g_StudioMdlContext.numverts = g_StudioMdlContext.numnormals = g_StudioMdlContext.numfaces = 0;
+        for (int &g_numtexcoord: g_StudioMdlContext.numtexcoords) {
+            g_numtexcoord = 0;
         }
 
-        SetSkinValues();
+        // This bit of hackery allows us to access files on the harddrive
+        g_pFullFileSystem->AddSearchPath("", "LOCAL", PATH_ADD_TO_HEAD);
 
-        SimplifyModel();
+        int nReturnValue;
+        if (HandleMdlReport(nReturnValue))
+            return false;
 
-        CheckFlexCacheBudget();
+        AddContentPaths();
 
-        ConsistencyCheckSurfaceProp();
-        ConsistencyCheckContents();
-        // ValidateSharedAnimationGroups();
+        ParseGameInfo();
 
-        WriteModelFiles();
+        if (!g_StudioMdlContext.quiet) {
+            printf("qdir:    \"%s\"\n", qdir);
+            printf("gamedir: \"%s\"\n", gamedir);
+            printf("g_path:  \"%s\"\n", g_StudioMdlContext.g_path.c_str());
+        }
+
+        const char *pExt = Q_GetFileExtension(g_StudioMdlContext.g_path);
+
+        // Only source files are built (the .mdl stripping modes needed Valve's mdllib)
+        if (pExt && !Q_stricmp(pExt, "mdl")) {
+            printf("ERROR: " SRC_FILE_EXT " or .dmx file should be specified to build.\n");
+            return 1;
+        }
+
+        if (!g_StudioMdlContext.quiet)
+            printf("Building binary model files...\n");
+
+        Q_FileBase(g_StudioMdlContext.g_path, g_StudioMdlContext.g_path, sizeof(g_StudioMdlContext.g_path));
+        Q_DefaultExtension(g_StudioMdlContext.g_path, SRC_FILE_EXT, sizeof(g_StudioMdlContext.g_path));
+        if (!pExt) {
+            pExt = SRC_FILE_EXT;
+        }
+
+        if (!g_StudioMdlContext.quiet) {
+            printf("Working on \"%s\"\n", g_StudioMdlContext.g_path.c_str());
+        }
+
+        // Set up script loading callback, discarding default callback
+        (void) SetScriptLoadedCallback(StudioMdl_ScriptLoadedCallback);
+
+        // load the script
+        LoadScriptFile(g_StudioMdlContext.g_path);
+
+        strcpy(g_studiomdl.fullpath, g_StudioMdlContext.g_path);
+        strcpy(g_studiomdl.fullpath, ExpandPath(g_studiomdl.fullpath));
+        strcpy(g_studiomdl.fullpath, ExpandArg(g_studiomdl.fullpath));
+
+        // default to having one entry in the LOD list that doesn't do anything so
+        // that we don't have to do any special cases for the first LOD.
+        g_studiomdl.ScriptLODs.Purge();
+        g_studiomdl.ScriptLODs.AddToTail(); // add an empty one
+        g_studiomdl.ScriptLODs[0].switchValue = 0.0f;
+
+        //
+        // parse it
+        //
+        ClearModel();
+
+        //	strcpy( g_pPlatformName, "" );
+        ParseScript(pExt);
+
+        if (!g_StudioMdlContext.createMakefile) {
+            FlexOptimizeSources();
+
+            int nCount = g_studiomdl.sources.size();
+            for (int i = 0; i < nCount; i++) {
+                if (g_studiomdl.sources[i]->isActiveModel) {
+                    ClampMaxVerticesPerModel(g_studiomdl.sources[i]);
+                }
+            }
+
+            SetSkinValues();
+
+            SimplifyModel();
+
+            CheckFlexCacheBudget();
+
+            ConsistencyCheckSurfaceProp();
+            ConsistencyCheckContents();
+            // ValidateSharedAnimationGroups();
+
+            WriteModelFiles();
+            CollisionModel_Build();
+            CollisionModel_Write(g_studiomdl.checksum);
+        }
+
+        if (g_StudioMdlContext.createMakefile) {
+            CreateMakefile_OutputMakefile();
+        }
+
+        if (!g_StudioMdlContext.quiet) {
+            printf("\nCompleted \"%s\"\n", g_StudioMdlContext.g_path.c_str());
+        }
+
+        if (g_StudioMdlContext.parseable_completion_output) {
+            printf("\nRESULT: SUCCESS\n");
+        }
+
+        g_pDataModel->UnloadFile(DMFILEID_INVALID);
     }
 
-    if (g_StudioMdlContext.createMakefile) {
-        CreateMakefile_OutputMakefile();
+    if (g_StudioMdlContext.perf) {
+        PrintStats();
     }
-
-    if (!g_StudioMdlContext.quiet) {
-        printf("\nCompleted \"%s\"\n", g_StudioMdlContext.g_path.c_str());
-    }
-
-    if (g_StudioMdlContext.parseable_completion_output) {
-        printf("\nRESULT: SUCCESS\n");
-    }
-
-    g_pDataModel->UnloadFile(DMFILEID_INVALID);
 
     return 0;
 }
@@ -766,6 +778,21 @@ bool CStudioMDLApp::Create() {
 
 bool CStudioMDLApp::Init() {
     return InitDataModel();
+}
+
+void CStudioMDLApp::PrintStats() {
+    for (const auto & timing : g_StudioMdlContext.timings) {
+        if (timing.duration<0.1) // Skip too short timings
+            continue;
+        for (int i = 0; i < timing.indent; ++i)
+            printf("  ");
+        printf("[%s]: %s: ", timing.stage_name.c_str(), timing.function_name.c_str());
+        const auto duration = timing.duration;
+        if (duration < 1000.0f)
+            printf("calls: %u, own: %.03fms, total: %.03fms\n", timing.calls, timing.own_duration, duration);
+        else
+            printf("calls: %u, own: %.03fs, total: %.03fs\n", timing.calls, timing.own_duration/1000.0f, duration/1000.0f);
+    }
 }
 
 void CStudioMDLApp::Shutdown() {
@@ -961,13 +988,13 @@ bool CStudioMDLApp::ParseArguments() {
             switch (pArgv[1]) {
                 case 't':
                     i++;
-                    strcpy(g_studiomdl.defaulttexture[g_studiomdl.numrep], pArgv);
+                    strcpy(g_studiomdl.defaulttextures[g_studiomdl.numrep], pArgv);
                     if (i < argc - 2 && CommandLine()->GetParm(i + 1)[0] != '-') {
                         i++;
-                        strcpy(g_studiomdl.sourcetexture[g_studiomdl.numrep], pArgv);
-                        printf("Replacing %s with %s\n", g_studiomdl.sourcetexture[g_studiomdl.numrep].c_str(), g_studiomdl.defaulttexture[g_studiomdl.numrep].c_str());
+                        strcpy(g_studiomdl.sourcetextures[g_studiomdl.numrep], pArgv);
+                        printf("Replacing %s with %s\n", g_studiomdl.sourcetextures[g_studiomdl.numrep].c_str(), g_studiomdl.defaulttextures[g_studiomdl.numrep].c_str());
                     }
-                    printf("Using default texture: %s\n", g_studiomdl.defaulttexture[0].c_str());
+                    printf("Using default texture: %s\n", g_studiomdl.defaulttextures[0].c_str());
                     g_studiomdl.numrep++;
                     break;
                 case 'a':
