@@ -8,6 +8,9 @@
 #include "studiomdl/studiomdl.h"
 #include "datamodel/idatamodel.h"
 #include "studiomdl/studiomdl_global_state.hpp"
+#include "tier1_v2/path_utils.hpp"
+
+#include <filesystem>
 
 static bool g_bFirstWarning = true;
 
@@ -20,21 +23,19 @@ void TokenError(const char *fmt, ...) {
 
     if (GetTokenizerStatus(&pFilename, &iLineNumber)) {
                 va_start(args, fmt);
-        vsprintf(output, fmt, args);
+        vsnprintf(output, sizeof(output), fmt, args);
 
         MdlError("%s(%d): - %s", pFilename, iLineNumber, output);
     } else {
                 va_start(args, fmt);
-        vsprintf(output, fmt, args);
+        vsnprintf(output, sizeof(output), fmt, args);
         MdlError("%s", output);
     }
 }
 
 void MdlError(const char *fmt, ...) {
     static char output[1024];
-    static char *knownExtensions[] = {".mdl", ".ani", ".phy", ".sw.vtx", ".dx80.vtx", ".dx90.vtx", ".vvd"};
-    char fileName[MAX_PATH]{0};
-    char baseName[MAX_PATH]{0};
+    static const char *const knownExtensions[] = {".mdl", ".ani", ".phy", ".sw.vtx", ".dx80.vtx", ".dx90.vtx", ".vvd"};
     va_list args;
 
 //	Assert( 0 );
@@ -61,19 +62,10 @@ void MdlError(const char *fmt, ...) {
         // undescriptive errors in batch processes could be anonymous
         printf("ERROR: Aborted Processing on '%s'\n", g_studiomdl.outname.c_str());
 
-        strcpy(fileName, gamedir);
-        strcat(fileName, "models/");
-        strcat(fileName, g_studiomdl.outname);
-        Q_FixSlashes(fileName);
-        Q_StripExtension(fileName, baseName, sizeof(baseName));
-
-        for (int i = 0; i < ARRAYSIZE(knownExtensions); i++) {
-            strcpy(fileName, baseName);
-            strcat(fileName, knownExtensions[i]);
-
-            // really need filesystem concept here
-//			g_pFileSystem->RemoveFile( fileName );
-            unlink(fileName);
+        const std::string baseName = OutputModelPath("");
+        for (const char *pExtension: knownExtensions) {
+            std::error_code ec;
+            std::filesystem::remove(vstd::paths::to_fs(baseName + pExtension), ec);
         }
     }
 

@@ -28,6 +28,7 @@
 #include "mathlib/mathlib.h"
 #include "studio.h"
 #include "tier1/characterset.h"
+#include "tier1_v2/path_utils.hpp"
 #include "studiomdl/studiomdl.h"
 #include "studiomdl/studiomdl_global_state.hpp"
 
@@ -159,12 +160,11 @@ int Load_OBJ( s_source_t *psource )
 	if ( !OpenGlobalFile( psource->filename ) )
 		return 0;
 
-	char pFullPath[MAX_PATH]{0};
-	if ( !GetGlobalFilePath( psource->filename, pFullPath, sizeof(pFullPath) ) )
+	std::string fullPath;
+	if ( !GetGlobalFilePath( psource->filename, fullPath ) )
 		return 0;
 
-	char pFullDir[MAX_PATH]{0};
-	Q_ExtractFilePath( pFullPath, pFullDir, sizeof(pFullDir) );
+	const std::string_view fullDir = vstd::paths::directory( fullPath );
 
 	if( !g_StudioMdlContext.quiet )
 	{
@@ -224,9 +224,8 @@ int Load_OBJ( s_source_t *psource )
 			sscanf( g_StudioMdlContext.szLine, "mtllib %s", &cmd );
 			CUtlBuffer buf( 0, 0, CUtlBuffer::TEXT_BUFFER );
 
-			char pFullMtlLibPath[MAX_PATH];
-			Q_ComposeFileName( pFullDir, cmd, pFullMtlLibPath, sizeof(pFullMtlLibPath) );
-			if ( g_pFullFileSystem->ReadFile( pFullMtlLibPath, nullptr, buf ) )
+			const std::string fullMtlLibPath = vstd::paths::join( fullDir, cmd );
+			if ( g_pFullFileSystem->ReadFile( fullMtlLibPath.c_str(), nullptr, buf ) )
 			{
 				ParseMtlLib( buf );
 			}
@@ -293,7 +292,7 @@ int Load_OBJ( s_source_t *psource )
 
 	BuildIndividualMeshes( psource );
 
-	fclose( g_StudioMdlContext.fpInput );
+	g_StudioMdlContext.inputFile.reset();
 
 	return 1;
 }
@@ -427,7 +426,7 @@ int AppendVTAtoOBJ( s_source_t *psource, char *filename, int frame )
 		pSourceAnim->vanim[t][i].normal = g_StudioMdlContext.normal[g_studiomdl.v_listdata[i].n];
 	}
 
-	fclose( g_StudioMdlContext.fpInput );
+	g_StudioMdlContext.inputFile.reset();
 
 	return 1;
 }

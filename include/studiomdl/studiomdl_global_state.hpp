@@ -5,30 +5,34 @@
 #pragma once
 #include <cassert>
 #include <chrono>
+#include <memory>
 #include <source_location>
+#include <string>
+#include <vector>
 
 #include "studiomdl_constants.hpp"
 #include "studiomdl.h"
 #include "mathlib/vector.h"
 #include "tier0/platform.h"
+#include "filesystem/stdfile.h"
 #include "tier1_v2/fixed_string.hpp"
 #include "tier1_v2/fixed_vector.hpp"
 
 struct StudioMDLGlobalState {
     StudioMDLGlobalState() noexcept = default;
 
-    StudioPath outname;
+    StudioPath outname; // the output model name ($modelname): ASCII, relative to <game>/models/
     StudioPath szInternalName;
     qboolean cdset;
 
     float flCollisionPrecision;
 
-    // Directory stack: [0] is the base ($cd, or "" = relative to the current directory), $pushd/$popd push/pop on top.
+    // Directory stack (UTF-8, '/' terminated): [0] is the base ($cd, or "" = relative to qdir), $pushd/$popd push/pop on top.
     // Never empty: FindCachedSource and $pushd read back().
-    vstd::FixedVector<StudioPath, 32> cddir{StudioPath()};
+    std::vector<std::string> cddir{std::string()};
 
     vstd::FixedVector<char *, 16> cdtextures;
-    StudioPath fullpath;
+    std::string fullpath; // absolute UTF-8 path of the QC
 
     StudioName rootname; // name of the root bone
     float defaultscale;
@@ -246,7 +250,14 @@ struct StudioMdlContext {
     unsigned bHasModelName: 1;
     unsigned bNoWarnings: 1;
     int g_maxWarnings = -1;
-    vstd::FixedString<1024> g_path;
+
+    // ---- Paths: UTF-8 std::string (never FixedString, its byte truncation can cut a UTF-8 sequence) ----
+    std::string qcPath;  // the QC as given on the command line, later its file name
+    std::string qdir;    // absolute QC directory, native separators, trailing separator; sources are relative to it
+    std::string gameDir; // absolute game directory (outputs go to <gameDir>/models/), trailing separator
+    std::vector<std::string> contentBasePaths; // content roots that mirror the game search paths (CmdLib_AddBasePath)
+    std::vector<std::string> contentRelativeDirs;      // CmdLib_AddNewSearchPath: directories added below every root
+    std::vector<std::string> contentOriginalBasePaths; // the roots before the first CmdLib_AddNewSearchPath
 
     int minLod;
     int numAllowedRootLODs;
@@ -259,8 +270,8 @@ struct StudioMdlContext {
     float minZeroFramePosDelta;
     float defaultFadeInTime;
     float defaultFadeOutTime;
-    vstd::FixedString<1024> szFilename;
-    FILE *fpInput;
+    std::string szFilename; // source file being parsed
+    std::unique_ptr<CStdFile> inputFile; // the open SMD/VTA/OBJ (OpenGlobalFile)
     vstd::FixedString<4096> szLine;
     int iLinecount;
 
@@ -350,7 +361,6 @@ struct StudioMdlContext {
           minZeroFramePosDelta(2.0f),
           defaultFadeInTime(0.2f),
           defaultFadeOutTime(0.2f),
-          fpInput(nullptr),
           iLinecount(0),
           vecMinWorldspace(MIN_COORD_INTEGER, MIN_COORD_INTEGER, MIN_COORD_INTEGER),
           vecMaxWorldspace(MAX_COORD_INTEGER, MAX_COORD_INTEGER, MAX_COORD_INTEGER),

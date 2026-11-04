@@ -128,6 +128,7 @@ static char *GetNextFaceItem(char *pCurrentItem) {
 }
 
 void ParseFaceData(s_source_t *psource, int material, s_face_t *pFace) {
+    FunctionTimingRecorder _("SMD");
     int index[3];
     int i, j;
     Vector p;
@@ -249,6 +250,7 @@ void ParseFaceData(s_source_t *psource, int material, s_face_t *pFace) {
 }
 
 void Grab_Triangles(s_source_t *psource) {
+    FunctionTimingRecorder _("SMD");
     int i;
     Vector vmin, vmax;
 
@@ -387,7 +389,7 @@ int Load_SMD(s_source_t *psource) {
             MdlWarning("unknown studio command \"%s\"\n", cmd);
         }
     }
-    fclose(g_StudioMdlContext.fpInput);
+    g_StudioMdlContext.inputFile.reset();
 
     return 1;
 }

@@ -45,6 +45,8 @@
 #include "studiomdl_commands.h"
 #include "studiomdl_errors.h"
 #include "studiomdl/studiomdl_global_state.hpp"
+#include "tier1_v2/path_utils.hpp"
+#include "tier1_v2/string_utils.hpp"
 
 
 #ifdef WIN32
@@ -94,7 +96,7 @@ float verify_atof(const char *token) {
 // Read global input into common string
 //-----------------------------------------------------------------------------
 bool GetLineInput() {
-    while (fgets(g_StudioMdlContext.szLine, sizeof(g_StudioMdlContext.szLine), g_StudioMdlContext.fpInput) != nullptr) {
+    while (g_StudioMdlContext.inputFile->Gets(g_StudioMdlContext.szLine, sizeof(g_StudioMdlContext.szLine)) != nullptr) {
         g_StudioMdlContext.iLinecount++;
         // skip comments
         if (g_StudioMdlContext.szLine[0] == '/' && g_StudioMdlContext.szLine[1] == '/')
@@ -271,6 +273,7 @@ void Build_Reference(s_source_t *pSource, const char *pAnimName) {
 }
 
 int Grab_Nodes(std::array<s_node_t, MAXSTUDIOSRCBONES> &pnodes) {
+    FunctionTimingRecorder _("SMD");
     int index;
     char name[1024];
     int parent;
@@ -594,6 +597,7 @@ void PostProcessSource(s_source_t *pSource, int imodel) {
 }
 
 void Grab_Animation(s_source_t *pSource, const char *pAnimName) {
+    FunctionTimingRecorder _("SMD");
     Vector pos;
     RadianEuler rot;
     char cmd[1024];
@@ -823,24 +827,22 @@ s_source_t *Load_Source(const char *name, const char *ext, bool reverse, bool is
     }
 
     Assert(name);
-    int namelen = Q_strlen(name) + 1;
-    char *pTempName = (char *) stackalloc(namelen);
-    char xext[32];
     int result = false;
 
-    strcpy(pTempName, name);
-    Q_ExtractFileExtension(pTempName, xext, sizeof(xext));
-    Q_FixSlashes(pTempName);
-    if (xext[0] == '\0') {
-        Q_strncpy(xext, ext, sizeof(xext));
+    // UTF-8 name relative to the current $cd/$pushd directory; the extension (or ext) picks the loader
+    std::string tempName(name);
+    std::string xext(vstd::paths::extension(tempName));
+    vstd::paths::fix_slashes(tempName);
+    if (xext.empty()) {
+        xext = ext;
     } else {
-        Q_StripExtension(pTempName, pTempName, namelen);
+        vstd::paths::strip_extension(tempName);
     }
 
     s_source_t *pSource = nullptr;
 
     if (bUseCache) {
-        pSource = FindCachedSource(pTempName, xext);
+        pSource = FindCachedSource(tempName.c_str(), xext.c_str());
         if (pSource) {
             if (isActiveModel) {
                 pSource->isActiveModel = true;
@@ -876,18 +878,18 @@ s_source_t *Load_Source(const char *name, const char *ext, bool reverse, bool is
             std::make_pair("xml", Load_DMX)
     };
     for (int fmt_id = 0; fmt_id < supported_formats.size(); ++fmt_id) {
-        if ((!result && xext[0] == '\0') || std::strcmp(xext, supported_formats[fmt_id].first) == 0) {
-            std::snprintf(g_StudioMdlContext.szFilename, sizeof(g_StudioMdlContext.szFilename), "%s%s.%s", g_studiomdl.cddir.back().c_str(), pTempName, supported_formats[fmt_id].first);
-            std::strncpy(pSource->filename, g_StudioMdlContext.szFilename, sizeof(pSource->filename));
+        if ((!result && xext.empty()) || xext == supported_formats[fmt_id].first) {
+            g_StudioMdlContext.szFilename = g_studiomdl.cddir.back() + tempName + "." + supported_formats[fmt_id].first;
+            pSource->filename = g_StudioMdlContext.szFilename;
             result = (supported_formats[fmt_id].second)(pSource);
         }
     }
 
     if (!g_StudioMdlContext.createMakefile && !result) {
-        if (xext[0] == '\0') {
-            TokenError("could not load file '%s%s'\n", g_studiomdl.cddir.back().c_str(), pTempName);
+        if (xext.empty()) {
+            TokenError("could not load file '%s%s'\n", g_studiomdl.cddir.back().c_str(), tempName.c_str());
         } else {
-            TokenError("could not load file '%s%s.%s'\n", g_studiomdl.cddir.back().c_str(), pTempName, xext);
+            TokenError("could not load file '%s%s.%s'\n", g_studiomdl.cddir.back().c_str(), tempName.c_str(), xext.c_str());
         }
     }
 
@@ -1283,6 +1285,7 @@ int LookupAttachment(const char *name) {
 }
 
 void Grab_Vertexanimation(s_source_t *psource, const char *pAnimName) {
+    FunctionTimingRecorder _("SMD");
     char cmd[1024];
     int index;
     Vector pos;
@@ -1356,90 +1359,70 @@ void Grab_Vertexanimation(s_source_t *psource, const char *pAnimName) {
     MdlError("unexpected EOF: %s\n", psource->filename.c_str());
 }
 
-bool GetGlobalFilePath(const char *pSrc, char *pFullPath, int nMaxLen) {
-    char pFileName[1024];
-    Q_strncpy(pFileName, ExpandPath((char *) pSrc), sizeof(pFileName));
+std::string OutputModelPath(const std::string_view extension) {
+    std::string path = g_StudioMdlContext.gameDir;
+    path += "models/";
+    path += vstd::paths::without_extension(g_studiomdl.outname.view());
+    path += extension;
+    vstd::paths::fix_slashes(path);
+    return path;
+}
 
-    // This is kinda gross. . . doing the same work in cmdlib on SafeOpenRead.
-    int nPathLength;
-    if (CmdLib_HasBasePath(pFileName, nPathLength)) {
-        char tmp[1024];
-        int i;
-        int nNumBasePaths = CmdLib_GetNumBasePaths();
-        for (i = 0; i < nNumBasePaths; i++) {
-            strcpy(tmp, CmdLib_GetBasePath(i));
-            strcat(tmp, pFileName + nPathLength);
-
-            struct _stat buf;
-            int rt = _stat(tmp, &buf);
-            if (rt != -1 && (buf.st_size > 0) && ((buf.st_mode & _S_IFDIR) == 0)) {
-                Q_strncpy(pFullPath, tmp, nMaxLen);
-                return true;
-            }
-        }
-        return false;
+// Where a source file can be: below every content base path when src is below one of them, else src itself
+static std::vector<std::string> SourceFileCandidates(const std::string &fileName) {
+    int pathLength;
+    if (!CmdLib_HasBasePath(fileName.c_str(), pathLength)) {
+        return {fileName};
     }
+    std::vector<std::string> candidates;
+    for (const std::string &basePath: g_StudioMdlContext.contentBasePaths) {
+        candidates.push_back(basePath + fileName.substr(pathLength));
+    }
+    return candidates;
+}
 
-    struct _stat buf;
-    int rt = _stat(pFileName, &buf);
-    if (rt != -1 && (buf.st_size > 0) && ((buf.st_mode & _S_IFDIR) == 0)) {
-        Q_strncpy(pFullPath, pFileName, nMaxLen);
-        return true;
+bool GetGlobalFilePath(std::string_view src, std::string &fullPath) {
+    for (const std::string &candidate: SourceFileCandidates(ExpandPath(src))) {
+        FileStat_t stat;
+        if (FS_Stat(candidate.c_str(), stat) && !stat.bDirectory && stat.nSize > 0) {
+            fullPath = candidate;
+            return true;
+        }
     }
     return false;
 }
 
-int OpenGlobalFile(char *src) {
-    int time1;
-    char filename[1024];
-
-    strcpy(filename, ExpandPath(src));
+bool OpenGlobalFile(std::string_view src) {
+    std::string filename = ExpandPath(src);
 
     // if the file doesn't exist it might be a relative content dir path
-    if (g_StudioMdlContext.bContentRootRelative && !g_pFullFileSystem->FileExists(filename))
-        g_pFullFileSystem->RelativePathToFullPath(src, "CONTENT", filename, sizeof(filename));
+    if (g_StudioMdlContext.bContentRootRelative && !g_pFullFileSystem->FileExists(filename.c_str())) {
+        char contentPath[4096] = {};
+        g_pFullFileSystem->RelativePathToFullPath(std::string(src).c_str(), "CONTENT", contentPath, sizeof(contentPath));
+        filename = contentPath;
+    }
 
     int pathLength;
-    int numBasePaths = CmdLib_GetNumBasePaths();
-    // This is kinda gross. . . doing the same work in cmdlib on SafeOpenRead.
-    if (CmdLib_HasBasePath(filename, pathLength)) {
-        char tmp[1024];
-        int i;
-        for (i = 0; i < numBasePaths; i++) {
-            strcpy(tmp, CmdLib_GetBasePath(i));
-            strcat(tmp, filename + pathLength);
-            if (g_StudioMdlContext.createMakefile) {
-                CreateMakefile_AddDependency(tmp);
-                return 0;
-            }
-
-            time1 = FileTime(tmp);
-            if (time1 != -1) {
-                if ((g_StudioMdlContext.fpInput = fopen(tmp, "r")) == nullptr) {
-                    MdlWarning("reader: could not open file '%s'\n", src);
-                    return 0;
-                } else {
-                    return 1;
-                }
-            }
+    const bool bBelowBasePath = CmdLib_HasBasePath(filename.c_str(), pathLength);
+    for (const std::string &candidate: SourceFileCandidates(filename)) {
+        FileStat_t stat;
+        const bool bExists = FS_Stat(candidate.c_str(), stat);
+        if (g_StudioMdlContext.createMakefile && (bExists || bBelowBasePath)) {
+            CreateMakefile_AddDependency(candidate.c_str());
+            return false;
         }
-        return 0;
-    } else {
-        time1 = FileTime(filename);
-        if (time1 == -1)
-            return 0;
-
-        if (g_StudioMdlContext.createMakefile) {
-            CreateMakefile_AddDependency(filename);
-            return 0;
-        }
-        if ((g_StudioMdlContext.fpInput = fopen(filename, "r")) == nullptr) {
-            MdlWarning("reader: could not open file '%s'\n", src);
-            return 0;
+        if (!bExists) {
+            continue;
         }
 
-        return 1;
+        g_StudioMdlContext.inputFile.reset(CStdFile::Open(candidate.c_str(), "r", nullptr));
+        if (!g_StudioMdlContext.inputFile) {
+            MdlWarning("reader: could not open file '%s'\n", std::string(src).c_str());
+            return false;
+        }
+        return true;
     }
+    return false;
 }
 
 int Load_VTA(s_source_t *psource) {
@@ -1477,7 +1460,7 @@ int Load_VTA(s_source_t *psource) {
                        g_StudioMdlContext.iLinecount - 1);
         }
     }
-    fclose(g_StudioMdlContext.fpInput);
+    g_StudioMdlContext.inputFile.reset();
 
     return 1;
 }

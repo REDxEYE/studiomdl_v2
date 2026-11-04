@@ -21,6 +21,10 @@
 #include "filesystem/filesystem_stdio.h"
 #include "studiomdl/collisionmodel.h"
 #include "studiomdl/studiomdl_global_state.hpp"
+#include "tier1_v2/path_utils.hpp"
+#include "tier1_v2/string_utils.hpp"
+
+#include <filesystem>
 
 CMdlLoggingListener s_MdlLoggingListener;
 CStudioMDLApp s_ApplicationObject;
@@ -49,9 +53,20 @@ CStudioMDLApp_SuggestGameInfoDirFn(CFSSteamSetupInfo const *, char *pchPathBuffe
 }
 
 int main(int argc, char **argv) {
+    StudioMdlCompat::EnableUtf8Console();
+
+    // Paths are UTF-8 everywhere inside, starting with the command line
+    std::vector<std::string> args = StudioMdlCompat::Utf8Arguments(argc, argv);
+    std::vector<char *> argPointers;
+    argPointers.reserve(args.size() + 1);
+    for (std::string &arg: args) {
+        argPointers.push_back(arg.data());
+    }
+    argPointers.push_back(nullptr);
+
     SetSuggestGameInfoDirFn(CStudioMDLApp_SuggestGameInfoDirFn);
 
-    return s_ApplicationObject.Run(argc, argv);
+    return s_ApplicationObject.Run(static_cast<int>(args.size()), argPointers.data());
 }
 
 //-----------------------------------------------------------------------------
@@ -59,45 +74,41 @@ int main(int argc, char **argv) {
 //-----------------------------------------------------------------------------
 void AddContentPaths() {
     // look for the "content" in the path to the initial QC file
-    const char *match = "content\\";
-    char *sp = strstr(qdir, match);
-    if (!sp)
+    const std::string_view qdir = g_StudioMdlContext.qdir;
+    constexpr std::string_view match = "content\\";
+    const size_t contentPos = qdir.find(match);
+    if (contentPos == std::string_view::npos)
         return;
 
-    // copy off everything before and including "content"
-    char pre[1024];
-    strncpy(pre, qdir, sp - qdir + strlen(match));
-    pre[sp - qdir + strlen(match)] = '\0';
-    sp = sp + strlen(match);
-
-    // copy off everything following the word after "content"
-    char post[1024];
-    sp = strstr(sp + 1, "\\");
-    strcpy(post, sp);
+    // everything before and including "content", and everything following the word after "content"
+    const std::string_view pre = qdir.substr(0, contentPos + match.size());
+    const size_t postPos = qdir.find('\\', contentPos + match.size() + 1);
+    if (postPos == std::string_view::npos)
+        return;
+    const std::string_view post = qdir.substr(postPos);
 
     // get a copy of the game search paths
-    char paths[1024];
-    g_pFullFileSystem->GetSearchPath("GAME", false, paths, sizeof(paths));
+    std::string paths(g_pFullFileSystem->GetSearchPath("GAME", false, nullptr, 0), '\0');
+    g_pFullFileSystem->GetSearchPath("GAME", false, paths.data(), static_cast<int>(paths.size()));
+    paths.resize(std::strlen(paths.c_str()));
     if (!g_StudioMdlContext.quiet)
-        printf("all paths:%s\n", paths);
+        printf("all paths:%s\n", paths.c_str());
 
     // pull out the game names and insert them into a content path string
-    sp = strstr(paths, "game\\");
-    while (sp) {
-        char temp[1024];
-        sp = sp + 5;
-        char *sz = strstr(sp, "\\");
-        if (!sz)
+    constexpr std::string_view game = "game\\";
+    for (size_t gamePos = paths.find(game); gamePos != std::string::npos; gamePos = paths.find(game, gamePos)) {
+        const size_t nameStart = gamePos + game.size();
+        const size_t nameEnd = paths.find('\\', nameStart);
+        if (nameEnd == std::string::npos)
             return;
 
-        strcpy(temp, pre);
-        strncat(temp, sp, sz - sp);
-        strcat(temp, post);
-        sp = sz;
-        sp = strstr(sp, "game\\");
-        CmdLib_AddBasePath(temp);
+        std::string contentPath(pre);
+        contentPath.append(paths, nameStart, nameEnd - nameStart);
+        contentPath += post;
+        CmdLib_AddBasePath(contentPath.c_str());
         if (!g_StudioMdlContext.quiet)
-            printf("content:%s\n", temp);
+            printf("content:%s\n", contentPath.c_str());
+        gamePos = nameEnd;
     }
 }
 
@@ -263,30 +274,15 @@ void CreateMakefile_OutputMakefile() {
     if (!fp) {
         MdlError("can't open makefile.tmp!\n");
     }
-    char mdlname[MAX_PATH]{0};
-    strcpy(mdlname, gamedir);
-//	if( *g_pPlatformName )
-//	{
-//		strcat( mdlname, "platform_" );
-//		strcat( mdlname, g_pPlatformName );
-//		strcat( mdlname, "/" );
-//	}
-    strcat(mdlname, "models/");
-    strcat(mdlname, g_studiomdl.outname);
-    Q_StripExtension(mdlname, mdlname, sizeof(mdlname));
-    strcat(mdlname, ".mdl");
-    Q_FixSlashes(mdlname);
+    const std::string mdlname = OutputModelPath(".mdl");
 
-    fprintf(fp, "%s:", mdlname);
+    fprintf(fp, "%s:", mdlname.c_str());
     int i;
     for (i = 0; i < g_StudioMdlContext.CreateMakefileDependencies.size(); i++) {
         fprintf(fp, " %s", g_StudioMdlContext.CreateMakefileDependencies[i].String());
     }
     fprintf(fp, "\n");
-    char mkdirpath[MAX_PATH]{0};
-    strcpy(mkdirpath, mdlname);
-    Q_StripFilename(mkdirpath);
-    fprintf(fp, "\tmkdir \"%s\"\n", mkdirpath);
+    fprintf(fp, "\tmkdir \"%s\"\n", std::string(vstd::paths::parent(mdlname)).c_str());
     fprintf(fp, "\t%s -quiet %s\n\n", CommandLine()->GetParm(0), g_studiomdl.fullpath.c_str());
     fclose(fp);
 }
@@ -398,7 +394,7 @@ void ClampMaxVerticesPerModel(s_source_t *pOrigSource) {
 
     // Name of what was split, so the pieces can be told apart: the model using the source, or the source file
     char szOrigName[MAXSTUDIONAME];
-    Q_FileBase(pOrigSource->filename, szOrigName, sizeof(szOrigName));
+    Q_FileBase(pOrigSource->filename.c_str(), szOrigName, sizeof(szOrigName));
     for (int i = 0; i < g_studiomdl.nummodels; i++) {
         if (g_studiomdl.model[i]->source == pOrigSource && g_studiomdl.model[i]->name[0]) {
             Q_FileBase(g_studiomdl.model[i]->name, szOrigName, sizeof(szOrigName));
@@ -413,11 +409,11 @@ void ClampMaxVerticesPerModel(s_source_t *pOrigSource) {
 
     for (int n = 1; n < newSource.Count(); n++) {
         // create a new internal "source"
-        s_source_t *pSource = (s_source_t *) calloc(1, sizeof(s_source_t));
+        s_source_t *pSource = c_allocate<s_source_t>();
         g_studiomdl.sources.emplace_back(pSource);
 
         // copy all the members, in order
-        memcpy(&(pSource->filename[0]), &(pOrigSource->filename[0]), sizeof(pSource->filename));
+        pSource->filename = pOrigSource->filename;
 
         // copy over the faces/vertices/animations
         newSource[n].Copy(pSource);
@@ -455,7 +451,7 @@ void ClampMaxVerticesPerModel(s_source_t *pOrigSource) {
         s_model_t *pModel = c_allocate<s_model_t>();
         pModel->source = pSource;
         pModel->name.format("%s_cmodel%d", szOrigName, n);
-        pModel->filename.format("%s_cmesh%d", szOrigName, n);
+        pModel->filename = std::string(szOrigName) + "_cmesh" + std::to_string(n);
         int imodel = g_studiomdl.nummodels++;
         g_studiomdl.model[imodel] = pModel;
 
@@ -488,29 +484,17 @@ void SetSkinValues() {
     }
 
     if (g_studiomdl.cdtextures.size() == 0) {
-        char szName[256];
-
-        // strip down till it finds "models"
-        strcpyn(szName, g_studiomdl.fullpath);
-        while (szName[0] != '\0' && strnicmp("models", szName, 6) != 0) {
-            strcpy(&szName[0], &szName[1]);
-        }
-        if (szName[0] != '\0') {
-            Q_StripFilename(szName);
-            strcat(szName, "/");
+        // the QC directory from "models" on, else models/<model name>/
+        std::string name;
+        const size_t models = vstd::ifind(g_studiomdl.fullpath, "models");
+        if (models != std::string::npos) {
+            name = vstd::paths::parent(std::string_view(g_studiomdl.fullpath).substr(models));
         } else {
-//			if( *g_pPlatformName )
-//			{
-//				strcat( szName, "platform_" );
-//				strcat( szName, g_pPlatformName );
-//				strcat( szName, "/" );
-//			}
-            strcpy(szName, "models/");
-            strcat(szName, g_studiomdl.outname);
-            Q_StripExtension(szName, szName, sizeof(szName));
-            strcat(szName, "/");
+            name = "models/";
+            name += vstd::paths::without_extension(g_studiomdl.outname.view());
         }
-        g_studiomdl.cdtextures.emplace_back(strdup(szName));
+        name += '/';
+        g_studiomdl.cdtextures.emplace_back(strdup(name.c_str()));
     }
 
     for (i = 0; i < g_studiomdl.textures.size(); i++) {
@@ -647,42 +631,39 @@ int CStudioMDLApp::Main() {
 
         ParseGameInfo();
 
-        if (!g_StudioMdlContext.quiet) {
-            printf("qdir:    \"%s\"\n", qdir);
-            printf("gamedir: \"%s\"\n", gamedir);
-            printf("g_path:  \"%s\"\n", g_StudioMdlContext.g_path.c_str());
+        StudioMdlContext &context = g_StudioMdlContext;
+        if (!context.quiet) {
+            printf("qdir:    \"%s\"\n", context.qdir.c_str());
+            printf("gamedir: \"%s\"\n", context.gameDir.c_str());
+            printf("g_path:  \"%s\"\n", context.qcPath.c_str());
         }
 
-        const char *pExt = Q_GetFileExtension(g_StudioMdlContext.g_path);
+        const std::string ext(vstd::paths::extension(context.qcPath));
 
         // Only source files are built (the .mdl stripping modes needed Valve's mdllib)
-        if (pExt && !Q_stricmp(pExt, "mdl")) {
+        if (vstd::iequals(ext, "mdl")) {
             printf("ERROR: " SRC_FILE_EXT " or .dmx file should be specified to build.\n");
             return 1;
         }
 
-        if (!g_StudioMdlContext.quiet)
+        if (!context.quiet)
             printf("Building binary model files...\n");
 
-        Q_FileBase(g_StudioMdlContext.g_path, g_StudioMdlContext.g_path, sizeof(g_StudioMdlContext.g_path));
-        Q_DefaultExtension(g_StudioMdlContext.g_path, SRC_FILE_EXT, sizeof(g_StudioMdlContext.g_path));
-        if (!pExt) {
-            pExt = SRC_FILE_EXT;
-        }
+        // the QC is read from qdir (its directory)
+        context.qcPath = vstd::paths::file_base(context.qcPath);
+        vstd::paths::default_extension(context.qcPath, SRC_FILE_EXT);
 
-        if (!g_StudioMdlContext.quiet) {
-            printf("Working on \"%s\"\n", g_StudioMdlContext.g_path.c_str());
+        if (!context.quiet) {
+            printf("Working on \"%s\"\n", context.qcPath.c_str());
         }
 
         // Set up script loading callback, discarding default callback
         (void) SetScriptLoadedCallback(StudioMdl_ScriptLoadedCallback);
 
         // load the script
-        LoadScriptFile(g_StudioMdlContext.g_path);
+        LoadScriptFile(context.qcPath.c_str());
 
-        strcpy(g_studiomdl.fullpath, g_StudioMdlContext.g_path);
-        strcpy(g_studiomdl.fullpath, ExpandPath(g_studiomdl.fullpath));
-        strcpy(g_studiomdl.fullpath, ExpandArg(g_studiomdl.fullpath));
+        g_studiomdl.fullpath = ExpandArg(ExpandPath(context.qcPath));
 
         // default to having one entry in the LOD list that doesn't do anything so
         // that we don't have to do any special cases for the first LOD.
@@ -696,7 +677,7 @@ int CStudioMDLApp::Main() {
         ClearModel();
 
         //	strcpy( g_pPlatformName, "" );
-        ParseScript(pExt);
+        ParseScript(ext.empty() ? SRC_FILE_EXT : ext.c_str());
 
         if (!g_StudioMdlContext.createMakefile) {
             FlexOptimizeSources();
@@ -728,7 +709,7 @@ int CStudioMDLApp::Main() {
         }
 
         if (!g_StudioMdlContext.quiet) {
-            printf("\nCompleted \"%s\"\n", g_StudioMdlContext.g_path.c_str());
+            printf("\nCompleted \"%s\"\n", g_StudioMdlContext.qcPath.c_str());
         }
 
         if (g_StudioMdlContext.parseable_completion_output) {
@@ -803,16 +784,33 @@ void CStudioMDLApp::Destroy() {
     LoggingSystem_PopLoggingState();
 }
 
+// Absolute, normalized, native separators, with a trailing separator
+static std::string AbsoluteDirectory(const std::filesystem::path &path) {
+    std::error_code ec;
+    std::string dir = vstd::paths::to_utf8(std::filesystem::absolute(path, ec).lexically_normal());
+    vstd::paths::fix_slashes(dir);
+    vstd::paths::append_slash(dir);
+    return dir;
+}
+
+// Sets qdir from the QC path and gameDir from the gameinfo.txt directory
+static void SetupStandardDirectories(const char *pQCPath, const char *pGameInfoPath) {
+    std::error_code ec;
+    const std::filesystem::path qc = std::filesystem::absolute(vstd::paths::to_fs(pQCPath), ec).lexically_normal();
+    g_StudioMdlContext.qdir = AbsoluteDirectory(qc.parent_path());
+#if !(PLATFORM_LINUX)
+    vstd::make_lower_ascii(g_StudioMdlContext.qdir);
+#endif
+    g_StudioMdlContext.gameDir = AbsoluteDirectory(vstd::paths::to_fs(pGameInfoPath));
+}
+
 bool CStudioMDLApp::PreInit() {
     g_pFileSystem = g_pFullFileSystem;
 
-    if (!SetupSearchPaths(g_StudioMdlContext.g_path, false, true))
+    if (!SetupSearchPaths(g_StudioMdlContext.qcPath.c_str(), false, true))
         return false;
 
-
-    // NOTE: This is stuff copied out of cmdlib necessary to get
-    // the tools in cmdlib working
-    FileSystem_SetupStandardDirectories(g_StudioMdlContext.g_path, GetGameInfoPath());
+    SetupStandardDirectories(g_StudioMdlContext.qcPath.c_str(), GetGameInfoPath());
     return true;
 }
 
@@ -1025,15 +1023,14 @@ bool CStudioMDLApp::ParseArguments() {
         return false;
     }
 
-    const char *pArgv = CommandLine()->GetParm(i);
-    Q_strncpy(g_StudioMdlContext.g_path, pArgv, sizeof(g_StudioMdlContext.g_path));
-    if (Q_IsAbsolutePath(g_StudioMdlContext.g_path)) {
+    const std::string_view qcArgument = CommandLine()->GetParm(i);
+    g_StudioMdlContext.qcPath = qcArgument;
+    if (vstd::paths::is_absolute(qcArgument)) {
         // Set the working directory to be the path of the qc file
         // so the relative-file fopen code works
-        char pQCDir[MAX_PATH]{0};
-        Q_ExtractFilePath(g_StudioMdlContext.g_path, pQCDir, sizeof(pQCDir));
-        _chdir(pQCDir);
+        std::error_code ec;
+        std::filesystem::current_path(vstd::paths::to_fs(vstd::paths::directory(qcArgument)), ec);
     }
-    Q_StripExtension(pArgv, g_studiomdl.outname, sizeof(g_studiomdl.outname));
+    g_studiomdl.outname = vstd::paths::without_extension(qcArgument);
     return true;
 }

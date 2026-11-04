@@ -82,6 +82,7 @@
 #include "tier1/characterset.h"
 #include "tier1/utlstring.h"
 #include "tier1/fmtstr.h"
+#include "tier1_v2/path_utils.hpp"
 
 
 
@@ -341,9 +342,15 @@ char *_V_strupr( char *start )
 	return strupr( start );
 }
 
+// ASCII only: bytes >= 0x80 (UTF-8 sequences in paths) are kept as they are.
 char *_V_strlower( char *start )
 {
-	return strlwr( start );
+	for ( char *p = start; *p; ++p )
+	{
+		if ( *p >= 'A' && *p <= 'Z' )
+			*p = (char)( *p - 'A' + 'a' );
+	}
+	return start;
 }
 
 wchar_t *_V_wcsupr (wchar_t *start)
@@ -2253,10 +2260,8 @@ bool V_MakeAbsolutePath( char *pOut, int outLen, const char *pPath, const char *
 		}
 		else
 		{
-			{
-				if ( !_getcwd( pOut, outLen ) )
-					Plat_FatalError( "V_MakeAbsolutePath: _getcwd failed." );
-			}
+			if ( !V_GetCurrentDirectory( pOut, outLen ) )
+				Plat_FatalError( "V_MakeAbsolutePath: can't get the current directory." );
 
 			if ( pStartingDir )
 			{
@@ -2710,13 +2715,20 @@ void V_SplitWString( const wchar_t *pString, const wchar_t *pSeparator, CUtlVect
 
 bool V_GetCurrentDirectory( char *pOut, int maxLen )
 {
-    return _getcwd( pOut, maxLen ) == pOut;
+	std::error_code ec;
+	const std::string dir = vstd::paths::to_utf8( std::filesystem::current_path( ec ) );
+	if ( ec || maxLen <= 0 || dir.size() >= (size_t)maxLen )
+		return false;
+	memcpy( pOut, dir.c_str(), dir.size() + 1 );
+	return true;
 }
 
 
 bool V_SetCurrentDirectory( const char *pDirName )
 {
-    return _chdir( pDirName ) == 0;
+	std::error_code ec;
+	std::filesystem::current_path( vstd::paths::to_fs( pDirName ), ec );
+	return !ec;
 }
 
 

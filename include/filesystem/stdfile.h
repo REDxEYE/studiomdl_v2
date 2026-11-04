@@ -3,6 +3,7 @@
 // Purpose: Lowest level of the filesystem: open files, stat, permissions,
 //          directory search and directory/file management, implemented only
 //          with std::filebuf and std::filesystem (no platform branches).
+//          All char paths are UTF-8 (see tier1_v2/path_utils.hpp).
 //
 //===========================================================================//
 

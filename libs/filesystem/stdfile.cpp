@@ -5,6 +5,8 @@
 //===========================================================================//
 
 #include "filesystem/stdfile.h"
+#include "tier1_v2/path_utils.hpp"
+#include "tier1_v2/string_utils.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -15,20 +17,6 @@
 #include <system_error>
 
 namespace fs = std::filesystem;
-
-// Valve paths use either separator; '/' is understood by std::filesystem everywhere.
-static fs::path ToPath( const char *pPath )
-{
-	std::string path( pPath );
-	std::ranges::replace(path, '\\', '/' );
-	return fs::path( path );
-}
-
-static bool EqualNoCase( const std::string &a, const std::string &b )
-{
-	return a.size() == b.size() &&
-		std::equal( a.begin(), a.end(), b.begin(), []( unsigned char x, unsigned char y ) { return std::tolower( x ) == std::tolower( y ); } );
-}
 
 //-----------------------------------------------------------------------------
 // CStdFile
@@ -49,19 +37,19 @@ CStdFile *CStdFile::Open( const char *pFileName, const char *pOptions, int64_t *
 		mode |= std::ios::binary;
 	}
 
-	fs::path path = ToPath( pFileName );
+	fs::path path = vstd::paths::to_fs(pFileName);
 	CStdFile *pFile = new CStdFile;
 	if ( !pFile->m_Buf.open( path, mode ) )
 	{
 		// Content paths are often written with the wrong case; only look them up for reading.
 		std::string resolved;
 		const bool bReadOnly = pOptions[0] == 'r' && !bPlus;
-		if ( !bReadOnly || !FS_ResolvePathCaseInsensitive( pFileName, resolved ) || !pFile->m_Buf.open( fs::path( resolved ), mode ) )
+		if ( !bReadOnly || !FS_ResolvePathCaseInsensitive( pFileName, resolved ) || !pFile->m_Buf.open( vstd::paths::to_fs(resolved), mode ) )
 		{
 			delete pFile;
 			return nullptr;
 		}
-		path = resolved;
+		path = vstd::paths::to_fs(resolved);
 	}
 
 	if ( pSize )
@@ -173,10 +161,10 @@ char *CStdFile::Gets( char *pDest, int nDestSize )
 bool FS_ResolvePathCaseInsensitive( const char *pPath, std::string &resolved )
 {
 	std::error_code ec;
-	const fs::path path = ToPath( pPath );
+	const fs::path path = vstd::paths::to_fs(pPath);
 	if ( fs::exists( path, ec ) )
 	{
-		resolved = path.string();
+		resolved = vstd::paths::to_utf8(path);
 		return true;
 	}
 
@@ -186,12 +174,12 @@ bool FS_ResolvePathCaseInsensitive( const char *pPath, std::string &resolved )
 		fs::path candidate = current / part;
 		if ( !fs::exists( candidate, ec ) )
 		{
-			const std::string name = part.string();
+			const std::string name = vstd::paths::to_utf8(part);
 			bool bFound = false;
 			const fs::path dir = current.empty() ? fs::path( "." ) : current;
 			for ( fs::directory_iterator it( dir, ec ), end; !ec && it != end; it.increment( ec ) )
 			{
-				if ( EqualNoCase( it->path().filename().string(), name ) )
+				if ( vstd::iequals( vstd::paths::to_utf8( it->path().filename() ), name ) )
 				{
 					candidate = current / it->path().filename();
 					bFound = true;
@@ -206,7 +194,7 @@ bool FS_ResolvePathCaseInsensitive( const char *pPath, std::string &resolved )
 		current = candidate;
 	}
 
-	resolved = current.string();
+	resolved = vstd::paths::to_utf8(current);
 	return true;
 }
 
@@ -214,7 +202,7 @@ bool FS_ResolvePathCaseInsensitive( const char *pPath, std::string &resolved )
 static bool ExistingPath( const char *pPath, fs::path &path )
 {
 	std::error_code ec;
-	path = ToPath( pPath );
+	path = vstd::paths::to_fs(pPath);
 	if ( fs::exists( path, ec ) )
 	{
 		return true;
@@ -224,7 +212,7 @@ static bool ExistingPath( const char *pPath, fs::path &path )
 	{
 		return false;
 	}
-	path = resolved;
+	path = vstd::paths::to_fs(resolved);
 	return true;
 }
 
@@ -269,7 +257,7 @@ bool FS_SetWritable( const char *pPath, bool bWritable )
 bool FS_CreateDirectories( const char *pPath )
 {
 	std::error_code ec;
-	const fs::path path = ToPath( pPath );
+	const fs::path path = vstd::paths::to_fs(pPath);
 	fs::create_directories( path, ec );
 	return fs::is_directory( path, ec );
 }
@@ -277,20 +265,20 @@ bool FS_CreateDirectories( const char *pPath )
 bool FS_RemoveFile( const char *pPath )
 {
 	std::error_code ec;
-	return fs::remove( ToPath( pPath ), ec ) && !ec;
+	return fs::remove( vstd::paths::to_fs(pPath), ec ) && !ec;
 }
 
 bool FS_RenameFile( const char *pOldPath, const char *pNewPath )
 {
 	std::error_code ec;
-	fs::rename( ToPath( pOldPath ), ToPath( pNewPath ), ec );
+	fs::rename( vstd::paths::to_fs(pOldPath), vstd::paths::to_fs(pNewPath), ec );
 	return !ec;
 }
 
 bool FS_GetCurrentDirectory( char *pDest, size_t nDestSize )
 {
 	std::error_code ec;
-	const std::string dir = fs::current_path( ec ).string();
+	const std::string dir = vstd::paths::to_utf8(fs::current_path( ec ));
 	if ( ec || dir.size() >= nDestSize )
 	{
 		return false;
@@ -354,7 +342,7 @@ CStdFileFind *FS_FindFirst( const char *pWildCard, StdFindData_t &data )
 	const bool bMatchAll = pattern == "*" || pattern == "*.*";
 
 	std::error_code ec;
-	fs::path dirPath( dir );
+	fs::path dirPath = vstd::paths::to_fs(dir);
 	if ( !fs::is_directory( dirPath, ec ) )
 	{
 		std::string resolved;
@@ -362,13 +350,13 @@ CStdFileFind *FS_FindFirst( const char *pWildCard, StdFindData_t &data )
 		{
 			return nullptr;
 		}
-		dirPath = resolved;
+		dirPath = vstd::paths::to_fs(resolved);
 	}
 
 	CStdFileFind *pFind = new CStdFileFind;
 	for ( fs::directory_iterator it( dirPath, ec ), end; !ec && it != end; it.increment( ec ) )
 	{
-		const std::string name = it->path().filename().string();
+		const std::string name = vstd::paths::to_utf8(it->path().filename());
 		if ( name.size() >= sizeof( data.cFileName ) )
 		{
 			continue;

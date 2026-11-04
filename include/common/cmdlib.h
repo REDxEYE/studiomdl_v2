@@ -34,6 +34,9 @@
 #include "filesystem.h"
 #include "filesystem_tools.h"
 
+#include <string>
+#include <string_view>
+
 
 // Tools should use this as the read path ID. It'll look into the paths specified by gameinfo.txt
 #define TOOLS_READ_PATH_ID "GAME"
@@ -72,14 +75,12 @@ extern int myargc;
 extern char **myargv;
 
 int Q_filelength (FileHandle_t f);
-int	FileTime (char *path);
 
 void	Q_mkdir( char *path );
 
-char *ExpandArg (char *path);	// expand relative to CWD
-char *ExpandPath (char *path);	// expand relative to gamedir
-
-char *ExpandPathAndArchive (char *path);
+// UTF-8 paths
+std::string ExpandArg( std::string_view path );	// absolute, relative to the current directory
+std::string ExpandPath( std::string_view path );	// absolute, relative to qdir (the QC directory)
 
 // Fills in pOut with "X hours, Y minutes, Z seconds". Leaves out hours or minutes if they're zero.
 void GetHourMinuteSecondsString( int nInputSeconds, char *pOut, int outLen );
@@ -163,11 +164,10 @@ void qprintf( char *format, ... );
 
 void ExpandWildcards (int *argc, char ***argv);
 
+// Content base paths live in g_StudioMdlContext.contentBasePaths (UTF-8)
 void CmdLib_AddBasePath( const char *pBasePath );
 void CmdLib_AddNewSearchPath( const char *pBasePath );
 bool CmdLib_HasBasePath( const char *pFileName, int &pathLength );
-int CmdLib_GetNumBasePaths( void );
-const char *CmdLib_GetBasePath( int i );
 
 extern bool g_bStopOnExit;
 

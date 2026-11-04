@@ -15,6 +15,8 @@
 #include "bspflags.h"
 #include "studiomdl/collisionmodel.h"
 #include "studiomdl/studiomdl_global_state.hpp"
+#include "tier1_v2/path_utils.hpp"
+#include "tier1_v2/string_utils.hpp"
 
 #ifdef WIN32
 #undef strdup
@@ -129,7 +131,7 @@ bool ParseOptionStudio(CDmeSourceSkin *pSkin) {
 // Parse the body command from a .qc file
 //-----------------------------------------------------------------------------
 void ProcessOptionStudio(s_model_t *pmodel, const char *pFullPath, float flScale, bool bFlipTriangles, bool bQuadSubd) {
-    Q_strncpy(pmodel->filename, pFullPath, sizeof(pmodel->filename));
+    pmodel->filename = pFullPath;
 
     if (flScale != 0.0f) {
         pmodel->scale = g_studiomdl.currentscale = flScale;
@@ -141,7 +143,7 @@ void ProcessOptionStudio(s_model_t *pmodel, const char *pFullPath, float flScale
     g_pCurrentModel = pmodel;
 
     // load source
-    pmodel->source = Load_Source(pmodel->filename, "", bFlipTriangles, true);
+    pmodel->source = Load_Source(pmodel->filename.c_str(), "", bFlipTriangles, true);
 
     g_pCurrentModel = nullptr;
 
@@ -164,7 +166,7 @@ void ProcessCmdBody(const char *pFullPath, const char *pBodyPartName, float flSc
     Q_strncpy(g_studiomdl.bodypart[g_studiomdl.numbodyparts].name, pBodyPartName,
               sizeof(g_studiomdl.bodypart[g_studiomdl.numbodyparts].name));
 
-    g_studiomdl.model[g_studiomdl.nummodels] = (s_model_t *) calloc(1, sizeof(s_model_t));
+    g_studiomdl.model[g_studiomdl.nummodels] = c_allocate<s_model_t>();
     g_studiomdl.bodypart[g_studiomdl.numbodyparts].pmodel[0] = g_studiomdl.model[g_studiomdl.nummodels];
     g_studiomdl.bodypart[g_studiomdl.numbodyparts].nummodels = 1;
 
@@ -454,9 +456,9 @@ void Option_Studio(s_model_t *pmodel) {
 }
 
 int Option_Blank() {
-    g_studiomdl.model[g_studiomdl.nummodels] = (s_model_t *) calloc(1, sizeof(s_model_t));
+    g_studiomdl.model[g_studiomdl.nummodels] = c_allocate<s_model_t>();
 
-    auto *source = (s_source_t *) calloc(1, sizeof(s_source_t));
+    auto *source = c_allocate<s_source_t>();
     g_studiomdl.sources.emplace_back(source);
 
     g_studiomdl.model[g_studiomdl.nummodels]->source = source;
@@ -497,7 +499,7 @@ void Cmd_Bodygroup() {
             break;
         }
         else if (stricmp("studio", token) == 0) {
-            g_studiomdl.model[g_studiomdl.nummodels] = (s_model_t *) calloc(1, sizeof(s_model_t));
+            g_studiomdl.model[g_studiomdl.nummodels] = c_allocate<s_model_t>();
             g_studiomdl.bodypart[g_studiomdl.numbodyparts].pmodel[g_studiomdl.bodypart[g_studiomdl.numbodyparts].
                 nummodels] = g_studiomdl.model[g_studiomdl.nummodels];
             g_studiomdl.bodypart[g_studiomdl.numbodyparts].nummodels++;
@@ -1046,7 +1048,7 @@ void Option_VertexCacheAnimationFile(char *pszVtaFile, int nModelIndex) {
     flexRemap.m_BlinkController = -1;
 
     char szBuf[MAX_PATH];
-    V_FileBase(pVtaSource->filename, szBuf, ARRAYSIZE(szBuf));
+    V_FileBase(pVtaSource->filename.c_str(), szBuf, ARRAYSIZE(szBuf));
     flexRemap.m_Name = szBuf;
 
     for (int i = 0; i < nActualFrameCount; ++i) {
@@ -2347,7 +2349,7 @@ void Option_Eyelid(int imodel) {
 }
 
 void Cmd_Model() {
-    g_studiomdl.model[g_studiomdl.nummodels] = (s_model_t *) calloc(1, sizeof(s_model_t));
+    g_studiomdl.model[g_studiomdl.nummodels] = c_allocate<s_model_t>();
 
     // name
     if (!GetToken(false)) {
@@ -2513,9 +2515,9 @@ void Cmd_FakeVTA() {
 
     GetToken(false);
 
-    auto psource = (s_source_t *) calloc(1, sizeof(s_source_t));
+    auto psource = c_allocate<s_source_t>();
     g_studiomdl.sources.emplace_back(psource);
-    strcpyn(psource->filename, token);
+    psource->filename = token;
 
     while (1) {
         if (depth > 0) {
@@ -3270,60 +3272,28 @@ void Cmd_Skiptransition() {
 // Checks to see if the model source was already loaded
 //-----------------------------------------------------------------------------
 s_source_t *FindCachedSource(const char *name, const char *xext) {
-    int i;
+    const std::string base = g_studiomdl.cddir.back() + name + ".";
+    const auto find = [&base](const std::string_view ext) -> s_source_t * {
+        g_StudioMdlContext.szFilename = base;
+        g_StudioMdlContext.szFilename += ext;
+        for (int i = 0; i < g_studiomdl.sources.size(); i++) {
+            if (vstd::iequals(g_StudioMdlContext.szFilename, g_studiomdl.sources[i]->filename))
+                return g_studiomdl.sources[i];
+        }
+        return nullptr;
+    };
+
+    // we know what extension is necessary. . look for it.
     if (xext[0]) {
-        // we know what extension is necessary. . look for it.
-        Q_snprintf(g_StudioMdlContext.szFilename, sizeof(g_StudioMdlContext.szFilename), "%s%s.%s",
-                   g_studiomdl.cddir.back().c_str(), name, xext);
-        for (i = 0; i < g_studiomdl.sources.size(); i++) {
-            if (!Q_stricmp(g_StudioMdlContext.szFilename, g_studiomdl.sources[i]->filename))
-                return g_studiomdl.sources[i];
-        }
-    }
-    else {
-        // we don't know what extension to use, so look for all of 'em.
-        Q_snprintf(g_StudioMdlContext.szFilename, sizeof(g_StudioMdlContext.szFilename), "%s%s.vrm",
-                   g_studiomdl.cddir.back().c_str(), name);
-        for (i = 0; i < g_studiomdl.sources.size(); i++) {
-            if (!Q_stricmp(g_StudioMdlContext.szFilename, g_studiomdl.sources[i]->filename))
-                return g_studiomdl.sources[i];
-        }
-        Q_snprintf(g_StudioMdlContext.szFilename, sizeof(g_StudioMdlContext.szFilename), "%s%s.dmx",
-                   g_studiomdl.cddir.back().c_str(), name);
-        for (i = 0; i < g_studiomdl.sources.size(); i++) {
-            if (!Q_stricmp(g_StudioMdlContext.szFilename, g_studiomdl.sources[i]->filename))
-                return g_studiomdl.sources[i];
-        }
-        Q_snprintf(g_StudioMdlContext.szFilename, sizeof(g_StudioMdlContext.szFilename), "%s%s.smd",
-                   g_studiomdl.cddir.back().c_str(), name);
-        for (i = 0; i < g_studiomdl.sources.size(); i++) {
-            if (!Q_stricmp(g_StudioMdlContext.szFilename, g_studiomdl.sources[i]->filename))
-                return g_studiomdl.sources[i];
-        }
-
-        Q_snprintf(g_StudioMdlContext.szFilename, sizeof(g_StudioMdlContext.szFilename), "%s%s.xml",
-                   g_studiomdl.cddir.back().c_str(), name);
-        for (i = 0; i < g_studiomdl.sources.size(); i++) {
-            if (!Q_stricmp(g_StudioMdlContext.szFilename, g_studiomdl.sources[i]->filename))
-                return g_studiomdl.sources[i];
-        }
-        Q_snprintf(g_StudioMdlContext.szFilename, sizeof(g_StudioMdlContext.szFilename), "%s%s.obj",
-                   g_studiomdl.cddir.back().c_str(), name);
-        for (i = 0; i < g_studiomdl.sources.size(); i++) {
-            if (!Q_stricmp(g_StudioMdlContext.szFilename, g_studiomdl.sources[i]->filename))
-                return g_studiomdl.sources[i];
-        }
-        /*
-		sprintf (g_szFilename, "%s%s.vta", g_studiomdl.cddir.back().c_str(), name );
-		for (i = 0; i < g_studiomdl.numsources; i++)
-		{
-			if (stricmp( g_szFilename, g_studiomdl.source[i]->filename ) == 0)
-				return g_studiomdl.source[i];
-		}
-		*/
+        return find(xext);
     }
 
-    // Not found
+    // we don't know what extension to use, so look for all of 'em (not .vta).
+    for (const char *pExt: {"vrm", "dmx", "smd", "xml", "obj"}) {
+        if (s_source_t *pSource = find(pExt)) {
+            return pSource;
+        }
+    }
     return nullptr;
 }
 
@@ -4472,7 +4442,7 @@ void Cmd_CD() {
         return;
     }
     g_studiomdl.cddir.clear();
-    g_studiomdl.cddir.emplace().format("%s/", token);
+    g_studiomdl.cddir.push_back(std::string(token) + "/");
 }
 
 void Cmd_ContentRootRelative() {
@@ -4499,9 +4469,8 @@ void Cmd_CDMaterials() {
 void Cmd_Pushd() {
     GetToken(false);
 
-    const auto &parent_dir = g_studiomdl.cddir.back();
-    auto &new_dir = g_studiomdl.cddir.emplace();
-    new_dir.append_format("%s%s/", parent_dir.c_str(), token);
+    std::string newDir = g_studiomdl.cddir.back() + token + "/";
+    g_studiomdl.cddir.push_back(std::move(newDir));
 }
 
 void Cmd_Popd() {
@@ -6288,16 +6257,16 @@ void Cmd_Animation() {
     }
 
     // allocate animation entry
-    panim = g_studiomdl.animations.emplace_back(static_cast<s_animation_t *>(calloc(1, sizeof(s_animation_t))));
+    panim = g_studiomdl.animations.emplace_back(c_allocate<s_animation_t>());
 
     panim->index = g_studiomdl.animations.size() - 1;
     panim->name = token;
 
     // filename
     GetToken(false);
-    strcpyn(panim->filename, token);
+    panim->filename = token;
 
-    panim->source = Load_Source(panim->filename, "");
+    panim->source = Load_Source(panim->filename.c_str(), "");
     if (panim->source->m_Animations.Count()) {
         s_sourceanim_t *pSourceAnim = &panim->source->m_Animations[0];
         panim->startframe = pSourceAnim->startframe;
@@ -6418,7 +6387,7 @@ int Option_ActivityModifier(s_sequence_t *psequence) {
 //-----------------------------------------------------------------------------
 s_animation_t *ProcessImpliedAnimation(s_sequence_t *psequence, const char *filename) {
     // allocate animation entry
-    s_animation_t *panim = g_studiomdl.animations.emplace_back((s_animation_t *) calloc(1, sizeof(s_animation_t)));
+    s_animation_t *panim = g_studiomdl.animations.emplace_back(c_allocate<s_animation_t>());
     panim->index = g_studiomdl.animations.size() - 1;
 
     panim->isImplied = true;
@@ -6428,7 +6397,7 @@ s_animation_t *ProcessImpliedAnimation(s_sequence_t *psequence, const char *file
 
     strcpy(panim->name, "@");
     strcat(panim->name, psequence->name);
-    strcpyn(panim->filename, filename);
+    panim->filename = filename;
 
     VectorCopy(g_studiomdl.defaultadjust, panim->adjust);
     panim->scale = 1.0f;
@@ -6437,7 +6406,7 @@ s_animation_t *ProcessImpliedAnimation(s_sequence_t *psequence, const char *file
     panim->motionrollback = g_StudioMdlContext.defaultMotionRollback;
 
     //panim->source = Load_Source( panim->filename, "smd" );
-    panim->source = Load_Source(panim->filename, "");
+    panim->source = Load_Source(panim->filename.c_str(), "");
     if (panim->source->m_Animations.Count()) {
         s_sourceanim_t *pSourceAnim = &panim->source->m_Animations[0];
         Q_strncpy(panim->animationname, panim->source->m_Animations[0].animationname, sizeof(panim->animationname));
@@ -7227,24 +7196,20 @@ void Grab_QuatInterpBones() {
 }
 
 void Load_ProceduralBones() {
-    char filename[256];
     char cmd[1024];
     int option;
 
     GetToken(false);
-    strcpy(filename, token);
+    const std::string filename = token;
 
     if (!OpenGlobalFile(filename)) {
-        Error("unknown $procedural file \"%s\"\n", filename);
+        Error("unknown $procedural file \"%s\"\n", filename.c_str());
         return;
     }
 
     g_StudioMdlContext.iLinecount = 0;
 
-    char ext[32];
-    Q_ExtractFileExtension(filename, ext, sizeof(ext));
-
-    if (stricmp(ext, "vrd") == 0) {
+    if (vstd::iequals(vstd::paths::extension(filename), "vrd")) {
         Grab_QuatInterpBones();
     }
     else {
@@ -7266,7 +7231,7 @@ void Load_ProceduralBones() {
             }
         }
     }
-    fclose(g_StudioMdlContext.fpInput);
+    g_StudioMdlContext.inputFile.reset();
 }
 
 void Cmd_CollisionModel()

@@ -15,6 +15,7 @@
 #include "tier0/platform.h"
 
 #include <array>
+#include <string>
 #include <vector>
 #if (defined(WIN32) | defined(_WIN32))
 #include "windows.h"
@@ -30,7 +31,7 @@
 */
 
 typedef struct {
-    char filename[1024];
+    std::string filename; // UTF-8 path of the script, the macro name for macros, or "memory buffer"
     char *buffer, *script_p, *end_p;
     int line;
 
@@ -79,7 +80,7 @@ SCRIPT_LOADED_CALLBACK SetScriptLoadedCallback(SCRIPT_LOADED_CALLBACK pfnNewScri
 AddScriptToStack
 ==============
 */
-void AddScriptToStack(char *filename, ScriptPathMode_t pathMode = SCRIPT_USE_ABSOLUTE_PATH) {
+void AddScriptToStack(const char *filename, ScriptPathMode_t pathMode = SCRIPT_USE_ABSOLUTE_PATH) {
     int size;
 
     script++;
@@ -87,18 +88,18 @@ void AddScriptToStack(char *filename, ScriptPathMode_t pathMode = SCRIPT_USE_ABS
         Error("script file exceeded MAX_INCLUDES");
 
     if (pathMode == SCRIPT_USE_RELATIVE_PATH)
-        Q_strncpy(script->filename, filename, sizeof(script->filename));
+        script->filename = filename;
     else
-        Q_strncpy(script->filename, ExpandPath(filename), sizeof(script->filename));
+        script->filename = ExpandPath(filename);
 
-    size = LoadFile(script->filename, (void **) &script->buffer);
+    size = LoadFile(script->filename.c_str(), (void **) &script->buffer);
 
     // printf ("entering %s\n", script->filename);
     if (g_pfnCallback) {
         if (script == scriptstack.data() + 1)
-            g_pfnCallback(script->filename, nullptr, 0);
+            g_pfnCallback(script->filename.c_str(), nullptr, 0);
         else
-            g_pfnCallback(script->filename, script[-1].filename, script[-1].line);
+            g_pfnCallback(script->filename.c_str(), script[-1].filename.c_str(), script[-1].line);
     }
 
     script->line = 1;
@@ -113,7 +114,7 @@ void AddScriptToStack(char *filename, ScriptPathMode_t pathMode = SCRIPT_USE_ABS
 LoadScriptFile
 ==============
 */
-void LoadScriptFile(char *filename, ScriptPathMode_t pathMode) {
+void LoadScriptFile(const char *filename, ScriptPathMode_t pathMode) {
     script = &scriptstack[0];
     AddScriptToStack(filename, pathMode);
 
@@ -131,9 +132,9 @@ constexpr uint32_t MAX_MACROS = 128;
 std::vector<script_t *> macrolist;
 
 void DefineMacro(char *macroname) {
-    script_t *pmacro = static_cast<script_t *>(malloc(sizeof(script_t)));
+    script_t *pmacro = new script_t();
 
-    strcpy(pmacro->filename, macroname);
+    pmacro->filename = macroname;
     pmacro->line = script->line;
     pmacro->nummacroparams = 0;
 
@@ -250,7 +251,7 @@ bool AddMacroToStack(char *macroname) {
 
     int i;
     for (i = 0; i < macrolist.size(); i++) {
-        if (strcmpi(macrolist[i]->filename, &macroname[1]) == 0) {
+        if (strcmpi(macrolist[i]->filename.c_str(), &macroname[1]) == 0) {
             break;
         }
     }
@@ -285,7 +286,7 @@ bool AddMacroToStack(char *macroname) {
     }
 
     script = pnext;
-    strcpy(script->filename, pmacro->filename);
+    script->filename = pmacro->filename;
 
     int size = pmacro->end_p - pmacro->buffer;
     script->buffer = (char *) malloc(size + 1);
@@ -348,7 +349,7 @@ bool ExpandMacroToken(char *&token_p) {
                 break;
         }
         if (index >= script->nummacroparams) {
-            Error("unknown macro token \"%s\" in %s\n", tp, script->filename);
+            Error("unknown macro token \"%s\" in %s\n", tp, script->filename.c_str());
         }
 
         // paste token into
@@ -408,14 +409,14 @@ bool ExpandVariableToken(char *&token_p) {
                 if (!Q_strcmp(g_definevariable[index].param_lcase, tp_lower)) {
                     Warning(
                         "Unknown variable token fell back to case-insensitive match ( found: \"%s\", matched it to: \"%s\" ) in %s\n",
-                        tp, g_definevariable[index].param, script->filename);
+                        tp, g_definevariable[index].param, script->filename.c_str());
                     break;
                 }
             }
         }
 
         if (index >= g_definevariable.Count()) {
-            Error("unknown variable token \"%s\" in %s\n", tp, script->filename);
+            Error("unknown variable token \"%s\" in %s\n", tp, script->filename.c_str());
         }
 
         // paste token into
@@ -447,7 +448,7 @@ void ParseFromMemory(char *buffer, int size) {
     script++;
     if (script == scriptstack.data() + MAX_INCLUDES)
         Error("script file exceeded MAX_INCLUDES");
-    strcpy(script->filename, "memory buffer");
+    script->filename = "memory buffer";
 
     script->buffer = buffer;
     script->line = 1;
@@ -471,7 +472,7 @@ void PushMemoryScript(char *pszBuffer, const int nSize) {
     if (script == scriptstack.data() + MAX_INCLUDES) {
         Error("script file exceeded MAX_INCLUDES");
     }
-    strcpy(script->filename, "memory buffer");
+    script->filename = "memory buffer";
 
     script->buffer = pszBuffer;
     script->line = 1;
@@ -490,7 +491,7 @@ void PushMemoryScript(char *pszBuffer, const int nSize) {
 // remaining on the script stack
 //-----------------------------------------------------------------------------
 bool PopMemoryScript() {
-    if (V_stricmp(script->filename, "memory buffer"))
+    if (script->filename != "memory buffer")
         return false;
 
     if (script == &scriptstack[0]) {
@@ -529,7 +530,7 @@ qboolean EndOfScript(qboolean crossline) {
     if (!crossline)
         Error("Line %i is incomplete\n", scriptline);
 
-    if (!strcmp(script->filename, "memory buffer")) {
+    if (script->filename == "memory buffer") {
         endofscript = true;
         return false;
     }
@@ -553,8 +554,7 @@ void AttemptConditionalInclude(void) {
 
     GetToken(false);
 
-    char szSavedPath[MAX_PATH]{0};
-    V_strcpy(szSavedPath, token);
+    const std::string savedPath = token;
 
     // check for a conditional flag
 
@@ -577,9 +577,9 @@ void AttemptConditionalInclude(void) {
         }
     }
 
-    printf("%s: %s\n", bConditionSuccess ? "Including" : "SKIPPING", szSavedPath);
+    printf("%s: %s\n", bConditionSuccess ? "Including" : "SKIPPING", savedPath.c_str());
     if (bConditionSuccess)
-        AddScriptToStack(szSavedPath);
+        AddScriptToStack(savedPath.c_str());
 }
 
 /*
@@ -866,7 +866,7 @@ qboolean GetTokenizerStatus(char **pFilename, int *pLine) {
         return false;
 
     if (pFilename) {
-        *pFilename = script->filename;
+        *pFilename = script->filename.data();
     }
     if (pLine) {
         *pLine = script->line;

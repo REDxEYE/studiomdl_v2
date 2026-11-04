@@ -35,42 +35,6 @@
 
 IBaseFileSystem *g_pFileSystem = nullptr;
 
-// ---------------------------------------------------------------------------
-//
-// These are the base paths that everything will be referenced relative to (textures especially)
-// All of these directories include the trailing slash
-//
-// ---------------------------------------------------------------------------
-
-// This is the the path of the initial source file (relative to the cwd)
-char		qdir[1024]{};
-
-// This is the base engine + mod-specific game dir (e.g. "c:\tf2\mytfmod\")
-char		gamedir[1024]{};
-
-void FileSystem_SetupStandardDirectories( const char *pFilename, const char *pGameInfoPath )
-{
-	// Set qdir.
-	if ( !pFilename )
-	{
-		pFilename = ".";
-	}
-
-	Q_MakeAbsolutePath( qdir, sizeof( qdir ), pFilename, nullptr);
-	Q_StripFilename( qdir );
-#if !(PLATFORM_LINUX)
-	Q_strlower( qdir );
-#endif
-	if ( qdir[0] != 0 )
-	{
-		Q_AppendSlash( qdir, sizeof( qdir ) );
-	}
-
-	// Set gamedir.
-	Q_MakeAbsolutePath( gamedir, sizeof( gamedir ), pGameInfoPath );
-	Q_AppendSlash( gamedir, sizeof( gamedir ) );
-}
-
 
 bool FileSystem_SetGame( const char *szModDir )
 {

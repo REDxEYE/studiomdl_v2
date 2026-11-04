@@ -34,7 +34,9 @@ T* c_allocate() {
 		std::exit(-1);
 	}
 	memset(raw, 0, sizeof(T));
-	return ::new(raw) T;
+	// T() (value-initialization) zeroes members without default initializers; with "new T" the compiler may treat
+	// the memset above as a dead store once T's constructor is non-trivial (e.g. a std::string member)
+	return ::new(raw) T();
 }
 
 template<typename T> requires std::is_pod_v<T>
@@ -56,7 +58,7 @@ T* c_allocate(const size_t count) {
 	}
 	memset(raw, 0, sizeof(T) * count);
 	for (int i = 0; i < count; ++i) {
-		::new(raw + i * sizeof(T)) T;
+		::new(raw + i * sizeof(T)) T();
 	}
 	return static_cast<T*>(raw);
 }

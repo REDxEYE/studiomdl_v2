@@ -12,6 +12,9 @@
 #endif
 
 #include "tier1/smartptr.h"
+#include "tier1_v2/path_utils.hpp"
+
+#include <fstream>
 
 class CFileBuffer
 {
@@ -52,18 +55,17 @@ public:
 	}
 #endif
 	
+	// fileName is UTF-8
 	void WriteToFile( const char *fileName, int size )
 	{
-		FILE *fp = fopen( fileName, "wb" );
-		if( !fp )
+		std::ofstream file( vstd::paths::to_fs( fileName ), std::ios::binary | std::ios::trunc );
+		if( !file )
 		{
 			MdlWarning( "Can't open \"%s\" for writing!\n", fileName );
 			return;
 		}
 
-		fwrite( m_pData, 1, size, fp );
-		
-		fclose( fp );
+		file.write( reinterpret_cast<const char *>( m_pData ), size );
 	}
 	
 	void WriteAt( int offset, void *data, int size, const char *name )

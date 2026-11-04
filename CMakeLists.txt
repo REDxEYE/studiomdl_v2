@@ -122,7 +122,8 @@ target_link_libraries(studiomdl_v2 PRIVATE
         vphys_lite
         )
 if (WIN32)
-    target_link_libraries(studiomdl_v2 PRIVATE shlwapi)
+    # shell32: CommandLineToArgvW for the UTF-8 command line
+    target_link_libraries(studiomdl_v2 PRIVATE shlwapi shell32)
 endif ()
 
 add_executable(dmxconvert

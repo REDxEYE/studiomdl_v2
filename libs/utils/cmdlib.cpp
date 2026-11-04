@@ -25,6 +25,13 @@
 #include "tier0/icommandline.h"
 #include "tier1/keyvalues.h"
 #include "filesystem_tools.h"
+#include "studiomdl/studiomdl_global_state.hpp"
+#include "tier1_v2/path_utils.hpp"
+#include "tier1_v2/string_utils.hpp"
+
+#include <filesystem>
+#include <string>
+#include <vector>
 
 #if defined( MPI )
 
@@ -507,42 +514,28 @@ void qprintf( char *format, ... )
 // Helpers.
 // ---------------------------------------------------------------------------------------------------- //
 
-static void CmdLib_getwd( char *out, int outSize )
+// Absolute path of a UTF-8 path relative to the current directory
+std::string ExpandArg( std::string_view path )
 {
-#if defined( _WIN32 ) || defined( WIN32 )
-	_getcwd( out, outSize );
-	Q_strncat( out, "\\", outSize, COPY_ALL_CHARACTERS );
-#else
-	getwd( out );
-	strcat( out, "/" );
-#endif
-	Q_FixSlashes( out );
-}
-
-char *ExpandArg( char *path )
-{
-	static char full[ 1024 ];
-
-	if ( path[ 0 ] != '/' && path[ 0 ] != '\\' && path[ 1 ] != ':' )
+	if ( vstd::paths::is_absolute( path ) )
 	{
-		CmdLib_getwd ( full, sizeof( full ) );
-		V_strcat_safe( full, path, COPY_ALL_CHARACTERS );
+		return std::string( path );
 	}
-	else
-	{
-		V_strcpy_safe( full, path );
-	}
-	return full;
+	std::error_code ec;
+	std::string cwd = vstd::paths::to_utf8( std::filesystem::current_path( ec ) );
+	vstd::paths::fix_slashes( cwd );
+	return vstd::paths::join( cwd, path, vstd::paths::native_separator );
 }
 
 
-char *ExpandPath (char *path)
+// Path relative to qdir (the QC directory) made absolute
+std::string ExpandPath( std::string_view path )
 {
-	static char full[ 1024 ]{0};
-	if ( path[ 0 ] == '/' || path[ 0 ] == '\\' || path[ 1 ] == ':')
-		return path;
-	V_sprintf_safe( full, "%s%s", qdir, path );
-	return full;
+	if ( vstd::paths::is_absolute( path ) )
+	{
+		return std::string( path );
+	}
+	return g_StudioMdlContext.qdir + std::string( path );
 }
 
 
@@ -597,25 +590,6 @@ void Q_mkdir( char *path )
 //	if (errno != EEXIST)
 	Error( "mkdir failed %s\n", path );
 }
-
-
-/*
-============
-FileTime
-
-returns -1 if not present
-============
-*/
-int	FileTime( char *path )
-{
-	struct	stat	buf;
-	
-	if ( stat( path, &buf ) == -1 )
-		return -1;
-	
-	return buf.st_mtime;
-}
-
 
 
 /*
@@ -688,107 +662,50 @@ FileHandle_t SafeOpenWrite( const char *filename )
 	return f;
 }
 
-#define MAX_CMDLIB_BASE_PATHS 20
-static char g_pBasePaths[ MAX_CMDLIB_BASE_PATHS ][ MAX_PATH ];
-static int g_NumBasePaths = 0;
-
-void CmdLib_AddBasePath( const char *pPath )			 
+void CmdLib_AddBasePath( const char *pPath )
 {
 	printf( "CmdLib_AddBasePath( \"%s\" )\n", pPath );
-	if( g_NumBasePaths < MAX_CMDLIB_BASE_PATHS )
-	{
-		V_strcpy_safe( g_pBasePaths[ g_NumBasePaths ], pPath );
-		Q_FixSlashes( g_pBasePaths[ g_NumBasePaths ] );
-		g_NumBasePaths++;
-	}
-	else
-	{
-		Assert( 0 );
-	}
+	vstd::paths::fix_slashes( g_StudioMdlContext.contentBasePaths.emplace_back( pPath ) );
 }
 
 
 void CmdLib_AddNewSearchPath( const char *pPath )
 {
-	static int g_nAdditionalDirectoryCount = 0;
-	static char s_addedRelativeDirs[ MAX_CMDLIB_BASE_PATHS ][ MAX_PATH ];
-   	static int s_originalNumBasePaths = 0;
-    static char s_originalBasePaths[ MAX_CMDLIB_BASE_PATHS ][ MAX_PATH ];
+	StudioMdlContext &context = g_StudioMdlContext;
+	if ( context.contentRelativeDirs.empty() ) // first call: remember all original paths
+	{
+		context.contentOriginalBasePaths = context.contentBasePaths;
+	}
+	vstd::paths::fix_slashes( context.contentRelativeDirs.emplace_back( pPath ) );
 
-	if ( g_nAdditionalDirectoryCount == 0 ) // first call: 
+	// the cross-product of the original paths and the new relative paths; each original path follows its children
+	context.contentBasePaths.clear();
+	for ( const std::string &original : context.contentOriginalBasePaths )
 	{
-		// remember all original paths
-	   s_originalNumBasePaths = g_NumBasePaths;
-	   for ( int nOriginalBasePath = 0; nOriginalBasePath < s_originalNumBasePaths; nOriginalBasePath++ )
-	   {
-			V_strcpy_safe( s_originalBasePaths[nOriginalBasePath], g_pBasePaths[nOriginalBasePath] );
-	   }
-	}
-    
-	if( g_nAdditionalDirectoryCount < MAX_CMDLIB_BASE_PATHS )
-	{
-		V_strcpy_safe( s_addedRelativeDirs[g_nAdditionalDirectoryCount], pPath );
-		Q_FixSlashes( s_addedRelativeDirs[g_nAdditionalDirectoryCount] );
-		g_nAdditionalDirectoryCount++;
-	}
-	else
-	{
-		Assert( 0 );
-	}
-	
-	//update the original base paths with the new number
-	// we'll produce a cross-product of the set of original paths and the new relative paths
-	g_NumBasePaths = s_originalNumBasePaths + ( s_originalNumBasePaths * g_nAdditionalDirectoryCount );
-	if ( g_NumBasePaths > MAX_CMDLIB_BASE_PATHS )
-	{
-		Error( "You have too many search paths, let SteveK know about this\n");
-	}
-
-	//make an array of all the new search directories and copy it back into g_pBasePaths
-	int nGeneratedPaths = 0;
-	for ( int nOriginalBasePath = 0; nOriginalBasePath <  s_originalNumBasePaths; nOriginalBasePath++ )
-	{
-		for ( int nAdditionalDir = 0; nAdditionalDir < g_nAdditionalDirectoryCount; nAdditionalDir++ )
+		for ( const std::string &added : context.contentRelativeDirs )
 		{
-			//add in the new search dirs here
-			V_strcpy_safe( g_pBasePaths[ nGeneratedPaths ], s_originalBasePaths[ nOriginalBasePath ] ); 
-			V_strcat_safe( g_pBasePaths[ nGeneratedPaths ], s_addedRelativeDirs[ nAdditionalDir ], sizeof( s_addedRelativeDirs[ nAdditionalDir ] ) );
-			nGeneratedPaths++;
+			context.contentBasePaths.push_back( original + added );
 		}
-		//we still need the original base path, but insert it after the newly added ones
-		V_strcpy_safe( g_pBasePaths[ nGeneratedPaths ], s_originalBasePaths[ nOriginalBasePath ] );
-		nGeneratedPaths++;
+		context.contentBasePaths.push_back( original );
 	}
 }
 
 
-bool CmdLib_HasBasePath( const char *pFileName_, int &pathLength )
+bool CmdLib_HasBasePath( const char *pFileName, int &pathLength )
 {
-	char *pFileName = ( char * )stackalloc( strlen( pFileName_ ) + 1 );
-	V_strcpy( pFileName, pFileName_ );
-	Q_FixSlashes( pFileName );
+	std::string fileName( pFileName );
+	vstd::paths::fix_slashes( fileName );
 	pathLength = 0;
-	for( int i = 0; i < g_NumBasePaths; i++ )
+	for ( const std::string &basePath : g_StudioMdlContext.contentBasePaths )
 	{
 		// see if we can rip the base off of the filename.
-		if( Q_strncasecmp( g_pBasePaths[ i ], pFileName, Q_strlen( g_pBasePaths[ i ] ) ) == 0 )
+		if ( vstd::istarts_with( fileName, basePath ) )
 		{
-			pathLength = strlen( g_pBasePaths[ i ] );
+			pathLength = (int)basePath.size();
 			return true;
 		}
 	}
 	return false;
-}
-
-int CmdLib_GetNumBasePaths( void )
-{
-	return g_NumBasePaths;
-}
-
-const char *CmdLib_GetBasePath( int i )
-{
-	Assert( i >= 0 && i < g_NumBasePaths );
-	return g_pBasePaths[ i ];
 }
 
 FileHandle_t SafeOpenRead( const char *filename )
@@ -798,12 +715,9 @@ FileHandle_t SafeOpenRead( const char *filename )
 	if( CmdLib_HasBasePath( filename, pathLength ) )
 	{
 		filename = filename + pathLength;
-		char tmp[ MAX_PATH ];
-		for( int i = 0; i < g_NumBasePaths; i++ )
+		for ( const std::string &basePath : g_StudioMdlContext.contentBasePaths )
 		{
-			V_strcpy_safe( tmp, g_pBasePaths[ i ] );
-			V_strcat_safe( tmp, filename );
-			f = g_pFileSystem->Open( tmp, "rb" );
+			f = g_pFileSystem->Open( ( basePath + filename ).c_str(), "rb" );
 			if( f )
 			{
 				return f;

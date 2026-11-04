@@ -32,6 +32,7 @@
 #include "mdlobjects/dmeboneflexdriver.h"
 #include "studiomdl/perfstats.h"
 #include "studiomdl/studiomdl_global_state.hpp"
+#include "tier1_v2/path_utils.hpp"
 
 int totalframes = 0;
 float totalseconds = 0;
@@ -2110,7 +2111,6 @@ static void WriteBoneFlexDrivers(studiohdr2_t *pStudioHdr2) {
 //-----------------------------------------------------------------------------
 static void WriteVertices(studiohdr_t *phdr) {
     FunctionTimingRecorder _("Write");
-    char fileName[MAX_PATH];
     uint8_t *pStart;
     uint8_t *pData;
     int i = 0;
@@ -2122,21 +2122,11 @@ static void WriteVertices(studiohdr_t *phdr) {
     if (!g_studiomdl.nummodelsbeforeLOD)
         return;
 
-    strcpy(fileName, gamedir);
-    //	if( *g_pPlatformName )
-    //	{
-    //		strcat( fileName, "platform_" );
-    //		strcat( fileName, g_pPlatformName );
-    //		strcat( fileName, "/" );
-    //	}
-    strcat(fileName, "models/");
-    strcat(fileName, g_studiomdl.outname);
-    Q_StripExtension(fileName, fileName, sizeof(fileName));
-    strcat(fileName, ".vvd");
+    const std::string fileName = OutputModelPath(".vvd");
 
     if (!g_StudioMdlContext.quiet) {
         printf("---------------------\n");
-        printf("writing %s:\n", fileName);
+        printf("writing %s:\n", fileName.c_str());
     }
 
     pStart = (uint8_t *) kalloc(1, FILEBUFFER);
@@ -2282,7 +2272,7 @@ static void WriteVertices(studiohdr_t *phdr) {
 
     // fileHeader->length = pData - pStart;
     {
-        SaveFile(fileName, pStart, pData - pStart);
+        SaveFile(fileName.c_str(), pStart, pData - pStart);
     }
 }
 
@@ -2691,7 +2681,7 @@ static void WriteModel(studiohdr_t *phdr) {
 
         uint8_t *pModelStart = (uint8_t *) (&pmodel[i]);
 
-        strcpy(pmodel[i].name, g_studiomdl.model[i]->filename);
+        Q_strncpy(pmodel[i].name, g_studiomdl.model[i]->filename.c_str(), sizeof(pmodel[i].name));
         // AddToStringTable( &pmodel[i], &pmodel[i].sznameindex, g_studiomdl.model[i]->filename );
 
         // pmodel[i].mrmbias = g_studiomdl.model[i]->mrmbias;
@@ -3017,15 +3007,14 @@ void CapKeyValues() {
 }
 
 void WriteQCPath() {
-    char relative_qc_path[1024];
-    g_pFullFileSystem->FullPathToRelativePathEx(qdir, "CONTENT", relative_qc_path, sizeof(relative_qc_path));
-    strcat(relative_qc_path, V_GetFileName(g_studiomdl.fullpath));
+    char relativeQCDir[4096] = {};
+    g_pFullFileSystem->FullPathToRelativePathEx(g_StudioMdlContext.qdir.c_str(), "CONTENT", relativeQCDir,
+                                                sizeof(relativeQCDir));
+    const std::string relativeQCPath = std::string(relativeQCDir) + std::string(vstd::paths::file_name(g_studiomdl.fullpath));
 
-    if (Q_strlen(relative_qc_path) > 0) {
-        char new_qcpath_block[2048];
-        V_sprintf_safe(new_qcpath_block, "qc_path {\n\"value\" \"%s\" }\n", relative_qc_path);
-        g_StudioMdlContext.KeyValueText.insert(g_StudioMdlContext.KeyValueText.end(), new_qcpath_block,
-                                               new_qcpath_block + std::strlen(new_qcpath_block));
+    if (!relativeQCPath.empty()) {
+        const std::string block = "qc_path {\n\"value\" \"" + relativeQCPath + "\" }\n";
+        g_StudioMdlContext.KeyValueText.insert(g_StudioMdlContext.KeyValueText.end(), block.begin(), block.end());
     }
 }
 
@@ -3045,9 +3034,9 @@ void WriteSeqKeyValues(mstudioseqdesc_t *pseqdesc, std::vector<char> *pKeyValue)
 }
 
 
-void EnsureFileDirectoryExists(const char *pFilename) {
-    const std::filesystem::path path(pFilename);
-    std::filesystem::create_directories(path.parent_path());
+void EnsureFileDirectoryExists(const std::string &fileName) {
+    std::error_code ec;
+    std::filesystem::create_directories(vstd::paths::to_fs(fileName).parent_path(), ec);
 }
 
 void WriteModelFiles() {
@@ -3056,7 +3045,7 @@ void WriteModelFiles() {
     FileHandle_t blockouthandle = nullptr;
     int total = 0;
     int i;
-    char filename[260];
+    std::string filename;
     studiohdr_t *phdr;
     studiohdr_t *pblockhdr = nullptr;
 
@@ -3071,8 +3060,7 @@ void WriteModelFiles() {
         // write the non-default g_studiomdl.sequence group data to separate files
         sprintf(g_studiomdl.animblockname, "models/%s.ani", g_studiomdl.outname.c_str());
 
-        strcpy(filename, gamedir);
-        strcat(filename, g_studiomdl.animblockname);
+        filename = g_StudioMdlContext.gameDir + g_studiomdl.animblockname.c_str();
 
         if (*g_studiomdl.szInternalName) {
             Q_StripExtension(g_studiomdl.szInternalName, g_studiomdl.szInternalName,
@@ -3083,7 +3071,7 @@ void WriteModelFiles() {
         EnsureFileDirectoryExists(filename);
 
         if (!g_StudioMdlContext.verifyOnly) {
-            blockouthandle = SafeOpenWrite(filename);
+            blockouthandle = SafeOpenWrite(filename.c_str());
         }
 
         pBlockStart = (uint8_t *) kalloc(1, FILEBUFFER);
@@ -3106,17 +3094,7 @@ void WriteModelFiles() {
 
     strcat(g_studiomdl.outname, ".mdl");
 
-    // strcpy( outname, ExpandPath( outname ) );
-
-    strcpy(filename, gamedir);
-    //	if( *g_pPlatformName )
-    //	{
-    //		strcat( filename, "platform_" );
-    //		strcat( filename, g_pPlatformName );
-    //		strcat( filename, "/" );
-    //	}
-    strcat(filename, "models/");
-    strcat(filename, g_studiomdl.outname);
+    filename = OutputModelPath(".mdl");
 
 
     // Create the directory.
@@ -3125,20 +3103,20 @@ void WriteModelFiles() {
 
     if (!g_StudioMdlContext.quiet) {
         printf("---------------------\n");
-        printf("writing %s:\n", filename);
+        printf("writing %s:\n", filename.c_str());
     }
 
-    LoadPreexistingSequenceOrder(filename);
+    LoadPreexistingSequenceOrder(filename.c_str());
 
 
     if (g_StudioMdlContext.parseable_completion_output) {
         char szRelativePath[260];
-        V_MakeRelativePath(filename, getenv("VGAME"), szRelativePath, sizeof(szRelativePath));
+        V_MakeRelativePath(filename.c_str(), getenv("VGAME"), szRelativePath, sizeof(szRelativePath));
         printf("\nOUTPUT MODEL: %s\n", szRelativePath);
     }
 
     if (!g_StudioMdlContext.verifyOnly) {
-        modelouthandle = SafeOpenWrite(filename);
+        modelouthandle = SafeOpenWrite(filename.c_str());
     }
 
     phdr->eyeposition = g_studiomdl.eyeposition;
@@ -3353,11 +3331,11 @@ void WriteModelFiles() {
         // re-open files, sort vertexes, perform fixups, and rewrite
         // purposely isolated as a post process for stability
         if (!FixupToSortedLODVertexes(phdr)) {
-            MdlError("Aborted vertex sort fixup on '%s':\n", filename);
+            MdlError("Aborted vertex sort fixup on '%s':\n", filename.c_str());
         }
 
         if (!Clamp_RootLOD(phdr)) {
-            MdlError("Aborted root lod shift '%s':\n", filename);
+            MdlError("Aborted root lod shift '%s':\n", filename.c_str());
         }
     }
 
@@ -3369,48 +3347,35 @@ void WriteModelFiles() {
         spewFlags |= SPEWPERFSTATS_SHOWPERF;
     }
     if (spewFlags) {
-        SpewPerfStats(phdr, filename, spewFlags);
+        SpewPerfStats(phdr, filename.c_str(), spewFlags);
     }
 }
 
 const vertexFileHeader_t *mstudiomodel_t::CacheVertexData(void *pModelData) {
     static vertexFileHeader_t *pVertexHdr;
-    char filename[260];
 
     Assert(pModelData == nullptr);
 
+    // studiomdl is a single model process, can simply persist data in static
     if (pVertexHdr) {
-        // studiomdl is a single model process, can simply persist data in static
-        goto hasData;
+        return pVertexHdr;
     }
 
     // load and persist the vertex file
-    strcpy(filename, gamedir);
-    //	if( *g_pPlatformName )
-    //	{
-    //		strcat( filename, "platform_" );
-    //		strcat( filename, g_pPlatformName );
-    //		strcat( filename, "/" );
-    //	}
-    strcat(filename, "models/");
-    strcat(filename, g_studiomdl.outname);
-    Q_StripExtension(filename, filename, sizeof(filename));
-    strcat(filename, ".vvd");
-
-    LoadFile(filename, (void **) &pVertexHdr);
+    const std::string filename = OutputModelPath(".vvd");
+    LoadFile(filename.c_str(), (void **) &pVertexHdr);
 
     // check id
     if (pVertexHdr->id != MODEL_VERTEX_FILE_ID) {
-        MdlError("Error Vertex File: '%s' (id %d should be %d)\n", filename, pVertexHdr->id, MODEL_VERTEX_FILE_ID);
+        MdlError("Error Vertex File: '%s' (id %d should be %d)\n", filename.c_str(), pVertexHdr->id, MODEL_VERTEX_FILE_ID);
     }
 
     // check version
     if (pVertexHdr->version != MODEL_VERTEX_FILE_VERSION) {
-        MdlError("Error Vertex File: '%s' (version %d should be %d)\n", filename, pVertexHdr->version,
+        MdlError("Error Vertex File: '%s' (version %d should be %d)\n", filename.c_str(), pVertexHdr->version,
                  MODEL_VERTEX_FILE_VERSION);
     }
 
-hasData:
     return pVertexHdr;
 }
 
@@ -4291,8 +4256,6 @@ bool FixupMDLFile(const char *fileName, studiohdr_t *pStudioHdr, const void *pVt
 //-----------------------------------------------------------------------------
 bool FixupToSortedLODVertexes(studiohdr_t *pStudioHdr) {
     FunctionTimingRecorder _("Write");
-    char filename[260];
-    char tmpFileName[260];
     void *pVtxBuff;
     usedVertex_t *pVertexList;
     vertexPool_t *pVertexPools;
@@ -4305,23 +4268,10 @@ bool FixupToSortedLODVertexes(studiohdr_t *pStudioHdr) {
     const int numPrefixes = (g_gameinfo.bSupportsDX8 && !g_StudioMdlContext.fastBuild) ? ARRAYSIZE(vtxPrefixes) : 1;
     const int idxPrefixLodUsage = (g_gameinfo.bSupportsDX8 && !g_StudioMdlContext.fastBuild) ? 1 : 0;
 
-    strcpy(filename, gamedir);
-    //	if( *g_pPlatformName )
-    //	{
-    //		strcat( filename, "platform_" );
-    //		strcat( filename, g_pPlatformName );
-    //		strcat( filename, "/" );
-    //	}
-    strcat(filename, "models/");
-    strcat(filename, g_studiomdl.outname);
-    Q_StripExtension(filename, filename, sizeof(filename));
-
     // determine lod usage per vertex
     // all vtx files enumerate model's lod verts, but differ in their mesh makeup
     // use xxx.dx90.vtx to establish which vertexes are used by each lod
-    strcpy(tmpFileName, filename);
-    strcat(tmpFileName, vtxPrefixes[idxPrefixLodUsage]);
-    VtxLen = LoadFile(tmpFileName, &pVtxBuff);
+    VtxLen = LoadFile(OutputModelPath(vtxPrefixes[idxPrefixLodUsage]).c_str(), &pVtxBuff);
 
     // build the sorted vertex tables
     if (!BuildSortedVertexList(pStudioHdr, pVtxBuff, &pVertexPools, &numVertexPools, &pVertexList, &numVertexes)) {
@@ -4330,27 +4280,21 @@ bool FixupToSortedLODVertexes(studiohdr_t *pStudioHdr) {
     }
 
     // fixup ???.vvd
-    strcpy(tmpFileName, filename);
-    strcat(tmpFileName, ".vvd");
-    if (!FixupVVDFile(tmpFileName, pStudioHdr, pVtxBuff, pVertexPools, numVertexPools, pVertexList, numVertexes)) {
+    if (!FixupVVDFile(OutputModelPath(".vvd").c_str(), pStudioHdr, pVtxBuff, pVertexPools, numVertexPools, pVertexList, numVertexes)) {
         // data error
         return false;
     }
 
     for (i = 0; i < numPrefixes; i++) {
         // fixup ???.vtx
-        strcpy(tmpFileName, filename);
-        strcat(tmpFileName, vtxPrefixes[i]);
-        if (!FixupVTXFile(tmpFileName, pStudioHdr, pVertexPools, numVertexPools, pVertexList, numVertexes)) {
+        if (!FixupVTXFile(OutputModelPath(vtxPrefixes[i]).c_str(), pStudioHdr, pVertexPools, numVertexPools, pVertexList, numVertexes)) {
             // data error
             return false;
         }
     }
 
     // fixup ???.mdl
-    strcpy(tmpFileName, filename);
-    strcat(tmpFileName, ".mdl");
-    if (!FixupMDLFile(tmpFileName, pStudioHdr, pVtxBuff, pVertexPools, numVertexPools, pVertexList, numVertexes)) {
+    if (!FixupMDLFile(OutputModelPath(".mdl").c_str(), pStudioHdr, pVtxBuff, pVertexPools, numVertexPools, pVertexList, numVertexes)) {
         // data error
         return false;
     }
@@ -4702,8 +4646,6 @@ bool Clamp_VTX_LODS(const char *fileName, int rootLOD, studiohdr_t *pStudioHdr) 
 
 bool Clamp_RootLOD(studiohdr_t *phdr) {
     FunctionTimingRecorder _("Write");
-    char filename[260];
-    char tmpFileName[260];
     int i;
 
     const char *vtxPrefixes[] = {".dx90.vtx", ".dx80.vtx", ".sw.vtx"};
@@ -4720,25 +4662,13 @@ bool Clamp_RootLOD(studiohdr_t *phdr) {
         return true;
     }
 
-    strcpy(filename, gamedir);
-    strcat(filename, "models/");
-    strcat(filename, g_studiomdl.outname);
-    Q_StripExtension(filename, filename, sizeof(filename));
-
     // shift the files so that g_minLod is the root LOD
-    strcpy(tmpFileName, filename);
-    strcat(tmpFileName, ".mdl");
-    Clamp_MDL_LODS(tmpFileName, rootLOD);
-
-    strcpy(tmpFileName, filename);
-    strcat(tmpFileName, ".vvd");
-    Clamp_VVD_LODS(tmpFileName, rootLOD, bExtraData);
+    Clamp_MDL_LODS(OutputModelPath(".mdl").c_str(), rootLOD);
+    Clamp_VVD_LODS(OutputModelPath(".vvd").c_str(), rootLOD, bExtraData);
 
     for (i = 0; i < numPrefixes; i++) {
         // fixup ???.vtx
-        strcpy(tmpFileName, filename);
-        strcat(tmpFileName, vtxPrefixes[i]);
-        Clamp_VTX_LODS(tmpFileName, rootLOD, phdr);
+        Clamp_VTX_LODS(OutputModelPath(vtxPrefixes[i]).c_str(), rootLOD, phdr);
     }
 
     return true;

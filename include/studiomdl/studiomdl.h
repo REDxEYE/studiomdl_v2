@@ -13,6 +13,8 @@
 #include <deque>
 #include <array>
 #include <cstdio>
+#include <string>
+#include <string_view>
 #include "tier0/basetypes.h"
 #include "tier1/utlvector.h"
 #include "tier1/utlsymbol.h"
@@ -523,7 +525,7 @@ struct s_animation_t {
     bool doesOverride;
     int index;
     StudioName name;
-    StudioPath filename;
+    std::string filename; // UTF-8 source path from the QC
 
     /*
     int				animsubindex;
@@ -803,7 +805,7 @@ public:
 
 // raw off-disk source files.  Raw data should be not processed.
 struct s_source_t {
-    StudioPath filename;
+    std::string filename; // UTF-8, relative to qdir ($cd/$pushd directory + name + extension)
     int version; // Version number from SMD file, otherwise 0
     bool isActiveModel;
 
@@ -893,7 +895,7 @@ struct s_eyeball_t {
 
 struct s_model_t {
     StudioName name;
-    StudioPath filename;
+    std::string filename; // UTF-8 source path from the QC
 
     // needs local scaling and rotation paramaters
     s_source_t *source; // index into source table
@@ -1303,9 +1305,15 @@ struct s_bonesaveframe_t {
 };
 
 
-int OpenGlobalFile(char *src);
+// Opens a source file (UTF-8 path relative to qdir or a content base path) as g_StudioMdlContext.inputFile.
+// False if it doesn't exist or can't be read (or when only collecting makefile dependencies).
+bool OpenGlobalFile(std::string_view src);
 
-bool GetGlobalFilePath(const char *pSrc, char *pFullPath, int nMaxLen);
+// The full UTF-8 path of an existing, non-empty source file (same lookup as OpenGlobalFile)
+bool GetGlobalFilePath(std::string_view src, std::string &fullPath);
+
+// <gameDir>models/<$modelname without extension><extension>: UTF-8, native separators
+std::string OutputModelPath(std::string_view extension);
 
 s_source_t *Load_Source(const char *filename, const char *ext, bool reverse = false, bool isActiveModel = false,
                         bool bUseCache = true);

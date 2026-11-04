@@ -4,16 +4,20 @@
 // On Windows this just pulls in the system headers the sources used to include directly. On other platforms it
 // provides the few Win32 names (_stat/_chdir/_access, OutputDebugString, the unhandled exception filter and
 // TerminateProcess) that studiomdl uses, mapped to POSIX equivalents.
+// On both, Utf8Arguments/EnableUtf8Console make the command line and the console UTF-8 (paths are UTF-8 inside).
 //
 
 #pragma once
 
 #include <cstdint>
+#include <string>
+#include <vector>
 
 #ifdef _WIN32
 #pragma once
 
 #include <windows.h>
+#include <shellapi.h>
 #include <direct.h>
 #include <io.h>
 #include <processthreadsapi.h>
@@ -136,4 +140,41 @@ inline LPTOP_LEVEL_EXCEPTION_FILTER SetUnhandledExceptionFilter( LPTOP_LEVEL_EXC
 }
 
 #endif // _WIN32
+
+namespace StudioMdlCompat
+{
+	// The command line as UTF-8. Windows hands main() its arguments in the ANSI code page, which turns
+	// characters outside it (e.g. Cyrillic paths on a Western system) into '?'; read the UTF-16 line instead.
+	inline std::vector<std::string> Utf8Arguments( int argc, char **argv )
+	{
+#ifdef _WIN32
+		int nArgs = 0;
+		if ( LPWSTR *ppArgs = CommandLineToArgvW( GetCommandLineW(), &nArgs ) )
+		{
+			std::vector<std::string> args;
+			args.reserve( nArgs );
+			for ( int i = 0; i < nArgs; ++i )
+			{
+				const int nBytes = WideCharToMultiByte( CP_UTF8, 0, ppArgs[i], -1, nullptr, 0, nullptr, nullptr );
+				std::string &arg = args.emplace_back( nBytes > 0 ? nBytes - 1 : 0, '\0' );
+				if ( nBytes > 1 )
+				{
+					WideCharToMultiByte( CP_UTF8, 0, ppArgs[i], -1, arg.data(), nBytes, nullptr, nullptr );
+				}
+			}
+			LocalFree( ppArgs );
+			return args;
+		}
+#endif
+		return std::vector<std::string>( argv, argv + argc );
+	}
+
+	// Messages print UTF-8 paths; make the Windows console show them as such.
+	inline void EnableUtf8Console()
+	{
+#ifdef _WIN32
+		SetConsoleOutputCP( CP_UTF8 );
+#endif
+	}
+}
 

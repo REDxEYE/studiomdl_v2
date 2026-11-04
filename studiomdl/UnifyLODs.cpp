@@ -1400,7 +1400,7 @@ static void GetLODSources(CUtlVector<s_source_t *> &lods, const s_model_t *pSrcM
         LodScriptData_t &scriptLOD = g_studiomdl.ScriptLODs[lodID];
 
         bool bFound;
-        s_source_t *pSource = GetModelLODSource(pSrcModel->filename, scriptLOD, &bFound);
+        s_source_t *pSource = GetModelLODSource(pSrcModel->filename.c_str(), scriptLOD, &bFound);
         if (!pSource && !bFound) {
             pSource = pSrcModel->source;
         }

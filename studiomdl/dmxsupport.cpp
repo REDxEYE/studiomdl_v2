@@ -834,6 +834,7 @@ LoadMeshes(const LoadMeshInfo_t &info, CDmeDag *pDag, const matrix3x4_t &parentT
 // Method used to add mesh data
 //-----------------------------------------------------------------------------
 static bool LoadMeshes(CDmeModel *pModel, float flScale, int *pBoneRemap, s_source_t *pSource) {
+    FunctionTimingRecorder _("DMX");
     matrix3x4_t mat;
     SetIdentityMatrix(mat);
 
@@ -867,6 +868,7 @@ static bool LoadMeshes(CDmeModel *pModel, float flScale, int *pBoneRemap, s_sour
 // Builds s_vertanim_ts
 //-----------------------------------------------------------------------------
 static void BuildVertexAnimations(s_source_t *pSource) {
+    FunctionTimingRecorder _("DMX");
     int nCount = s_DeltaStates.Count();
     if (nCount == 0)
         return;
@@ -1092,6 +1094,7 @@ AddDagJoint(CDmeModel *pModel, CDmeDag *pDag, std::array<s_node_t,MAXSTUDIOSRCBO
 //-----------------------------------------------------------------------------
 static int LoadSkeleton(CDmeDag *pRoot, CDmeModel *pModel, std::array<s_node_t,MAXSTUDIOSRCBONES> &pNodes,
                         BoneTransformMap_t &boneMap) {
+    FunctionTimingRecorder _("DMX");
     // Initialize bone indices
     boneMap.m_nBoneCount = 0;
     for (int i = 0; i < MAXSTUDIOSRCBONES; ++i) {
@@ -1663,6 +1666,7 @@ void LoadConstraints(CDmElement *pDmeRoot) {
 static bool
 LoadModelAndSkeleton(s_source_t *pSource, BoneTransformMap_t &boneMap, CDmeDag *pSkeleton, CDmeModel *pModel,
                      CDmeCombinationOperator *pCombinationOperator, bool bStaticProp) {
+    FunctionTimingRecorder _("DMX");
     s_DeltaStates.RemoveAll();
     s_Balance.RemoveAll();
     s_Speed.RemoveAll();
@@ -2141,21 +2145,21 @@ int Load_DMX(s_source_t *pSource) {
     DmFileId_t fileId;
 
     // use the full search tree, including mod hierarchy to find the file
-    char pFullPath[MAX_PATH];
-    if (!GetGlobalFilePath(pSource->filename, pFullPath, sizeof(pFullPath)))
+    std::string fullPath;
+    if (!GetGlobalFilePath(pSource->filename, fullPath))
         return 0;
     // When reading, keep the CRLF; this will make ReadFile read it in binary format
     // and also append a couple 0s to the end of the buffer.
     CDmElement *pRoot;
-    if (g_pDataModel->RestoreFromFile(pFullPath, nullptr, nullptr, &pRoot) == DMFILEID_INVALID)
+    if (g_pDataModel->RestoreFromFile(fullPath.c_str(), nullptr, nullptr, &pRoot) == DMFILEID_INVALID)
         return 0;
 
     if (!g_StudioMdlContext.quiet) {
-        Msg("DMX Model %s\n", pFullPath);
+        Msg("DMX Model %s\n", fullPath.c_str());
     }
 
     // Load model info
-    LoadModelInfo(pRoot, pFullPath);
+    LoadModelInfo(pRoot, fullPath.c_str());
 
     // Load constraints
     LoadConstraints(pRoot);
@@ -2195,9 +2199,10 @@ dmxError:
 #if FBX_SUPPORT
 int Load_FBX(s_source_t *pSource) {
     // use the full search tree, including mod hierarchy to find the file
-    char pFullPath[MAX_PATH];
-    if (!GetGlobalFilePath(pSource->filename, pFullPath, sizeof(pFullPath)))
+    std::string fullPath;
+    if (!GetGlobalFilePath(pSource->filename, fullPath))
         return 0;
+    const char *pFullPath = fullPath.c_str();
 
     CDmFbxSerializer dmFbxSerializer;
     dmFbxSerializer.m_eOptUpAxis = CDmeAxisSystem::AS_AXIS_Y;

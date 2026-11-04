@@ -1641,7 +1641,6 @@ namespace OptimizedModel {
     }
 
     void COptimizedModel::BuildNeighborInfo(FaceList_t &faceList, int nMaxVertexId) {
-        FunctionTimingRecorder _("Optimize");
         // NOTE: vertexToEdges[vertId] contains the index of the head of a linked list stored in edges
         CUtlFixedLinkedList<EdgeInfo_t> edges;
         CUtlVector<intptr_t> vertexToEdges;
@@ -4125,9 +4124,6 @@ namespace OptimizedModel {
 
     void WriteOptimizedFiles(studiohdr_t *phdr, s_bodypart_t *pSrcBodyParts) {
         FunctionTimingRecorder _("Write");
-        char filename[MAX_PATH];
-        char tmpFileName[MAX_PATH];
-        char glViewFilename[MAX_PATH];
 
         ValidateLODReplacements(phdr);
 
@@ -4136,22 +4132,12 @@ namespace OptimizedModel {
         // hack!  This should really go in the mdl file since it's common to all LODs.
         AddMaterialReplacementsToStringTable();
 
-        strcpy(filename, gamedir);
-        //	if( *g_pPlatformName )
-        //	{
-        //		strcat( filename, "platform_" );
-        //		strcat( filename, g_pPlatformName );
-        //		strcat( filename, "/" );
-        //	}
-        strcat(filename, "models/");
-        strcat(filename, g_studiomdl.outname);
-        Q_StripExtension(filename, filename, sizeof(filename));
+        // <game>/models/<name> without extension
+        const std::string filename = OutputModelPath("");
 
         if (g_gameinfo.bSupportsDX8 && !g_StudioMdlContext.fastBuild) {
-            strcpy(tmpFileName, filename);
-            strcat(tmpFileName, ".sw.vtx");
-            strcpy(glViewFilename, filename);
-            strcat(glViewFilename, ".sw.glview");
+            const std::string tmpFileName = filename + ".sw.vtx";
+            const std::string glViewFilename = filename + ".sw.glview";
             bool bForceSoftwareSkinning = phdr->numbones > 0 && !g_studiomdl.staticprop;
             s_OptimizedModel.OptimizeFromStudioHdr(phdr, pSrcBodyParts,
                                                    512,    //vert cache size FIXME: figure out the correct size for L1
@@ -4161,14 +4147,12 @@ namespace OptimizedModel {
                                                    3,        // bones/vert
                                                    3 * 3,        // bones/tri
                                                    512,    // bones/strip
-                                                   tmpFileName, glViewFilename);
+                                                   tmpFileName.c_str(), glViewFilename.c_str());
         }
 
         if (g_gameinfo.bSupportsDX8 && !g_StudioMdlContext.fastBuild) {
-            strcpy(tmpFileName, filename);
-            strcat(tmpFileName, ".dx80.vtx");
-            strcpy(glViewFilename, filename);
-            strcat(glViewFilename, ".dx80.glview");
+            const std::string tmpFileName = filename + ".dx80.vtx";
+            const std::string glViewFilename = filename + ".dx80.glview";
             s_OptimizedModel.OptimizeFromStudioHdr(phdr, pSrcBodyParts,
                                                    24 /* vert cache size (real size, not effective!)*/,
                                                    false, /* doesn't use fixed function */
@@ -4177,15 +4161,13 @@ namespace OptimizedModel {
                                                    3  /* bones/vert */,
                                                    9  /* bones/tri */,
                                                    16  /* bones/strip */,
-                                                   tmpFileName, glViewFilename);
+                                                   tmpFileName.c_str(), glViewFilename.c_str());
         }
 
         if (true)    // Always process dx90
         {
-            strcpy(tmpFileName, filename);
-            strcat(tmpFileName, ".dx90.vtx");
-            strcpy(glViewFilename, filename);
-            strcat(glViewFilename, ".dx90.glview");
+            const std::string tmpFileName = filename + ".dx90.vtx";
+            const std::string glViewFilename = filename + ".dx90.glview";
             s_OptimizedModel.OptimizeFromStudioHdr(phdr, pSrcBodyParts,
                                                    24 /* vert cache size (real size, not effective!)*/,
                                                    false, /* doesn't use fixed function */
@@ -4194,7 +4176,7 @@ namespace OptimizedModel {
                                                    3  /* bones/vert */,
                                                    9  /* bones/tri */,
                                                    53  /* bones/strip */,
-                                                   tmpFileName, glViewFilename);
+                                                   tmpFileName.c_str(), glViewFilename.c_str());
         }
 
         s_StringTable.Purge();

@@ -20,7 +20,12 @@
 #endif
 #include <stdio.h>
 #include <sys/stat.h>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <string>
 #include "tier1/strtools.h"
+#include "tier1_v2/path_utils.hpp"
 #include "filesystem_init.h"
 #include "tier1/keyvalues.h"
 #include "tier1/smartptr.h"
@@ -180,15 +185,15 @@ public:
 // ---------------------------------------------------------------------------------------------------- //
 // Helpers.
 // ---------------------------------------------------------------------------------------------------- //
+// The current directory (UTF-8) with a trailing separator
 void Q_getwd( char *out, int outSize )
 {
-#if defined( _WIN32 ) || defined( WIN32 )
-	_getcwd( out, outSize );
-	Q_strncat( out, "\\", outSize, COPY_ALL_CHARACTERS );
-#else
-	getcwd( out, outSize );
-	strcat( out, "/" );
-#endif
+	if ( !V_GetCurrentDirectory( out, outSize ) )
+	{
+		out[0] = '\0';
+		return;
+	}
+	Q_AppendSlash( out, outSize );
 	Q_FixSlashes( out );
 }
 
@@ -278,15 +283,13 @@ void AddGameBinDir( IFileSystem *pFileSystem, const char *pLocation, bool bForce
 KeyValues* ReadKeyValuesFile( const char *pFilename )
 {
 	// Read in the gameinfo.txt file and null-terminate it.
-	FILE *fp = fopen( pFilename, "rb" );
-	if ( !fp )
+	std::ifstream file( vstd::paths::to_fs( pFilename ), std::ios::binary );
+	if ( !file )
 		return nullptr;
 	CUtlVector<char> buf;
-	fseek( fp, 0, SEEK_END );
-	buf.SetSize( ftell( fp ) + 1 );
-	fseek( fp, 0, SEEK_SET );
-	fread( buf.Base(), 1, buf.Count()-1, fp );
-	fclose( fp );
+	const std::string text( ( std::istreambuf_iterator<char>( file ) ), std::istreambuf_iterator<char>() );
+	buf.SetSize( (int)text.size() + 1 );
+	memcpy( buf.Base(), text.data(), text.size() );
 	buf[buf.Count()-1] = 0;
 
 	KeyValues *kv = new KeyValues( "" );
@@ -304,10 +307,18 @@ static bool Sys_GetExecutableName( char *out, int len )
 
 #if defined( _WIN32 )
 
-    if ( !::GetModuleFileName( ( HINSTANCE )GetModuleHandle( NULL ), out, len ) )
-    {
+	// The UTF-16 module path, as UTF-8 (GetModuleFileNameA would use the ANSI code page)
+	wchar_t wideName[ 32768 ];
+	const DWORD nWideLength = ::GetModuleFileNameW( nullptr, wideName, ARRAYSIZE( wideName ) );
+	if ( nWideLength == 0 || nWideLength >= ARRAYSIZE( wideName ) )
+	{
 		return false;
-    }
+	}
+	const int nBytes = ::WideCharToMultiByte( CP_UTF8, 0, wideName, (int)nWideLength + 1, out, len, nullptr, nullptr );
+	if ( nBytes <= 0 )
+	{
+		return false;
+	}
 	// Fix up the path if Windows gave us a messy one.
 	if ( !Q_RemoveDotSlashes( out ) )
 	{
@@ -810,15 +821,8 @@ FSReturnCode_t FileSystem_LoadSearchPaths( CFSSearchPathsInit &initInfo )
 
 bool DoesFileExistIn( const char *pDirectoryName, const char *pFilename )
 {
-	char filename[MAX_PATH];
-
-	Q_strncpy( filename, pDirectoryName, sizeof( filename ) );
-	Q_AppendSlash( filename, sizeof( filename ) );
-	Q_strncat( filename, pFilename, sizeof( filename ), COPY_ALL_CHARACTERS );
-	Q_FixSlashes( filename );
-	bool bExist = ( _access( filename, 0 ) == 0 );
-
-	return ( bExist );
+	std::error_code ec;
+	return std::filesystem::exists( vstd::paths::to_fs( vstd::paths::join( pDirectoryName, pFilename ) ), ec );
 }
 
 namespace
@@ -1310,12 +1314,12 @@ FSReturnCode_t FileSystem_MountContent( CFSMountContentInfo &mountContentInfo )
 			return SetupFileSystemError( false, FS_INVALID_PARAMETERS, "FileSystem_GetBaseDir failed." );
 
 		Q_getwd( oldWorkingDir, sizeof( oldWorkingDir ) );
-		_chdir( baseDir );
+		V_SetCurrentDirectory( baseDir );
 
 		// Filesystem_tools needs to add dependencies in here beforehand.
 		FilesystemMountRetval_t retVal = mountContentInfo.m_pFileSystem->MountSteamContent( nExtraAppId );
 		
-		_chdir( oldWorkingDir );
+		V_SetCurrentDirectory( oldWorkingDir );
 
 		if ( retVal != FILESYSTEM_MOUNT_OK )
 			return SetupFileSystemError( true, FS_UNABLE_TO_INIT, "Unable to mount Steam content in the file system" );

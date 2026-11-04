@@ -40,6 +40,7 @@
 #include "datamodel/dmattributevar.h"
 #include "datamodel/dmelement.h"
 #include "studiomdl/studiomdl_global_state.hpp"
+#include "tier1_v2/path_utils.hpp"
 
 //#include "vphysics2_interface.h"
 
@@ -1678,7 +1679,7 @@ int CJointedModel::ProcessSingleBody() {
         // Init mass, write routine will distribute the total mass
         pPhys->m_mass = 1.0;
         char tmp[512];
-        Q_FileBase(m_pModel->filename, tmp, sizeof(tmp));
+        Q_FileBase(m_pModel->filename.c_str(), tmp, sizeof(tmp));
 
         // UNDONE: Memory leak
         char *out = new char[strlen(tmp) + 1];
@@ -2501,17 +2502,8 @@ void CollisionModel_Write(long checkSum) {
     if (g_JointedModel.m_pCollisionList) {
         CPhysCollisionModel *pPhys = g_JointedModel.m_pCollisionList;
 
-        char filename[512]{};
-
-        strcpy(filename, gamedir);
-        //		if( *g_pPlatformName )
-        //		{
-        //			strcat( filename, "platform_" );
-        //			strcat( filename, g_pPlatformName );
-        //			strcat( filename, "/" );
-        //		}
-        strcat(filename, "models/");
-        strcat(filename, g_JointedModel.m_pOverrideName ? g_JointedModel.m_pOverrideName : g_studiomdl.outname.c_str());
+        std::string filename = g_StudioMdlContext.gameDir + "models/";
+        filename += g_JointedModel.m_pOverrideName ? g_JointedModel.m_pOverrideName : g_studiomdl.outname.c_str();
 
         float volume = TotalVolume(pPhys);
         if (volume <= 0)
@@ -2519,8 +2511,8 @@ void CollisionModel_Write(long checkSum) {
 
         LOG_QUIET("Collision model volume %.2f in^3\n", volume);
 
-        Q_SetExtension(filename, ".phy", sizeof(filename));
-        FILE *fp = fopen(filename, "wb");
+        vstd::paths::set_extension(filename, ".phy");
+        FILE *fp = vstd::paths::open_file(filename, "wb");
         if (fp) {
             // write out the collision header (size is version)
             phyheader_t header;
@@ -2668,7 +2660,7 @@ void CollisionModel_Write(long checkSum) {
             fclose(fp);
         }
         else {
-            MdlWarning("Error writing %s!!!\n", filename);
+            MdlWarning("Error writing %s!!!\n", filename.c_str());
         }
     }
 }
