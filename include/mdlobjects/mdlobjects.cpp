@@ -87,11 +87,7 @@ USING_ELEMENT_FACTORY( DmeBoneFlexDriver );
 USING_ELEMENT_FACTORY( DmeBoneFlexDriverList );
 USING_ELEMENT_FACTORY( DmeProceduralBone );
 USING_ELEMENT_FACTORY( DmeJiggleBone );
-USING_ELEMENT_FACTORY( DmeMatSysPanelSettings );
-USING_ELEMENT_FACTORY( DmeMatSysRoot );
-USING_ELEMENT_FACTORY( DmeMatSysMDLDag );
-USING_ELEMENT_FACTORY( DmeMatSysDMXDag );
-USING_ELEMENT_FACTORY( DmeMatSysMPPDag );
+// DmeMatSys* (model viewer, needs the material system) are not used by the compiler and not linked
 USING_ELEMENT_FACTORY( DmeAssemblyCommand );
 USING_ELEMENT_FACTORY( DmeAnimationAssemblyCommand );
 USING_ELEMENT_FACTORY( DmeFixupLoop );

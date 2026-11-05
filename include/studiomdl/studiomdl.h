@@ -23,6 +23,7 @@
 #include "studio.h"
 #include "datamodel/dmelementhandle.h"
 #include "worldsize.h"
+#include "movieobjects/dmemodel.h"
 #include "tier1_v2/fixed_string.hpp"
 #include "tier1_v2/fixed_vector.hpp"
 
@@ -40,9 +41,9 @@ class CDmeVertexDeltaData;
 
 class CDmeCombinationOperator;
 
-int KeyValueTextSize(std::vector<char> *pKeyValue);
+int KeyValueTextSize(const std::string &pKeyValue);
 
-const char *KeyValueText(std::vector<char> *pKeyValue);
+const char *KeyValueText(const std::string &pKeyValue);
 
 extern vec_t Q_rint(vec_t in);
 
@@ -51,8 +52,7 @@ extern void WriteModelFiles(void);
 #define LOG_QUIET(...)\
     if( !g_StudioMdlContext.quiet ){\
         printf(__VA_ARGS__);\
-    }\
-
+    }
 // --------------------------------------------------------------------
 
 template<class T>
@@ -696,7 +696,7 @@ public:
 
     int cycleposeindex;
 
-    std::vector<char> KeyValue;
+    std::string KeyValue;
 
     int numactivitymodifiers;
     s_activitymodifier_t activitymodifier[MAXSTUDIOACTIVITYMODIFIERS];
@@ -1620,6 +1620,10 @@ float verify_atof(const char *token);
 int LookupPoseParameter(const char *name);
 
 void ProcessModelName(const char *pModelName);
+
+s_animation_t *LookupAnimation(const char *name);
+
+int LookupXNode(const char *name);
 
 enum FlexOptimizeMode_t : int {
     FLEXOPT_OFF,

@@ -23,8 +23,6 @@ class CDmeHitbox : public CDmeBBox
 	DEFINE_ELEMENT( CDmeHitbox, CDmeBBox );
 
 public:
-	virtual void Draw( const matrix3x4_t &shapeToWorld, CDmeDrawSettings *pDrawSettings = nullptr);
-
 	CDmaString m_sSurfaceProperty;
 	CDmaVar< int > m_nGroupId;
 	CDmaString m_sBoneName;

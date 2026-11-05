@@ -39,6 +39,7 @@
 #include "tier1/smartptr.h"
 #include "datamodel/dmattributevar.h"
 #include "datamodel/dmelement.h"
+#include "mdlobjects/dmecollisionjoints.h"
 #include "studiomdl/studiomdl_global_state.hpp"
 #include "tier1_v2/path_utils.hpp"
 
@@ -1806,7 +1807,7 @@ void CCmd_JointConstrain(CJointedModel &joints, int nAxis, const char *pJointNam
         return;
 
     const int jointIndex = FindLocalBoneNamed(joints.m_pModel, pJointName);
-    if (!g_bCreateMakefile && jointIndex < 0) {
+    if (!g_StudioMdlContext.createMakefile && jointIndex < 0) {
         MdlWarning("Can't find joint %s\n", pJointConstrain->GetName());
         return;
     }
@@ -2766,7 +2767,7 @@ void ParseCollisionCommands(CJointedModel &joints, CDmeCollisionModel *pCollisio
             const char *pJointName = pCollisionJoint->GetName();
 
             const int nJointIndex = FindLocalBoneNamed(joints.m_pModel, pJointName);
-            if (!g_bCreateMakefile && nJointIndex < 0) {
+            if (!g_StudioMdlContext.createMakefile && nJointIndex < 0) {
                 MdlWarning(
                     "1001: root.collisionModel.joints[ %d ] refers to joint \"%s\" but that joint wasn't defined in the model\n",
                     i, pJointName);

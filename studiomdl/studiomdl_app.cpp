@@ -26,6 +26,8 @@
 
 #include <filesystem>
 
+#include "dmxsupport.hpp"
+
 CMdlLoggingListener s_MdlLoggingListener;
 CStudioMDLApp s_ApplicationObject;
 
@@ -167,11 +169,42 @@ void ParseScript(const char *pExt) {
 }
 
 //-----------------------------------------------------------------------------
-// For preprocessed files, all data lies in the g_studiomdl.fullpath.
-// The DMX loader will take care of it.
+// .mpp (DMX model description): the whole model comes from the DMX root (mppsupport.cpp).
+// Without a root "mdlPath" the output name is the .mpp's directory under <game>/models (content mapped to
+// game; a trailing "preprocess"/".preprocess" directory is skipped), as in Valve's mdlcompile.
 //-----------------------------------------------------------------------------
-bool ParsePreprocessedFile(const char *pFullPath) {
-    return false;
+static bool ParsePreprocessedFile(const std::string &fullPath) {
+    if (!LoadPreprocessedFile(fullPath.c_str(), 1.0f))
+        return false;
+
+    if (g_StudioMdlContext.hasModelName)
+        return true;
+
+    char modPath[4096] = {};
+    ComputeModFilename(fullPath.c_str(), modPath, sizeof(modPath));
+    std::string outputName(vstd::paths::parent(modPath));
+    const std::string_view dirName = vstd::paths::file_name(outputName);
+    if (vstd::iequals(dirName, "preprocess") || vstd::iequals(dirName, ".preprocess")) {
+        outputName = vstd::paths::parent(outputName);
+    }
+
+    if (vstd::paths::is_absolute(outputName)) {
+        char relative[4096] = {};
+        if (!g_pFullFileSystem->FullPathToRelativePathEx(outputName.c_str(), "GAME", relative, sizeof(relative))) {
+            MdlError("Full path %s is not associated with the current mod!\n", outputName.c_str());
+            return false;
+        }
+        std::string relativeName = relative;
+        vstd::paths::fix_slashes(relativeName, '/');
+        if (!vstd::istarts_with(relativeName, "models/")) {
+            MdlError("Full path %s is not under the 'models' directory\n", outputName.c_str());
+            return false;
+        }
+        outputName = relativeName.substr(7);
+    }
+    vstd::paths::set_extension(outputName, ".mdl");
+    ProcessModelName(outputName.c_str());
+    return true;
 }
 
 // Used by the CheckSurfaceProps.py script.
@@ -267,7 +300,7 @@ StudioMdl_ScriptLoadedCallback(const char *pFilenameLoaded, const char *pInclude
 }
 
 void CreateMakefile_OutputMakefile() {
-    if (!g_StudioMdlContext.bHasModelName) {
+    if (!g_StudioMdlContext.hasModelName) {
         MdlError("Can't write makefile since a target mdl hasn't been specified!");
     }
     FILE *fp = fopen("makefile.tmp", "a");
@@ -583,8 +616,6 @@ void UsageAndExit() {
              "[-quiet] - operate silently\n"
              "[-r] - tag reversed\n"
              "[-t <texture>]\n"
-             "[-x360] - generate xbox360 output\n"
-             "[-nox360] - disable xbox360 output(default)\n"
              "[-fastbuild] - write a single vertex windings file\n"
              "[-nowarnings] - disable warnings\n"
              "[-flexopt auto|on|off] - split flexed meshes to fit the engine flex cache (default auto)\n"
@@ -639,19 +670,21 @@ int CStudioMDLApp::Main() {
         }
 
         const std::string ext(vstd::paths::extension(context.qcPath));
+        // .mpp: DMX model description instead of a QC (Valve's mdlcompile input)
+        const bool bPreprocessed = vstd::iequals(ext, "mpp");
 
         // Only source files are built (the .mdl stripping modes needed Valve's mdllib)
         if (vstd::iequals(ext, "mdl")) {
-            printf("ERROR: " SRC_FILE_EXT " or .dmx file should be specified to build.\n");
+            printf("ERROR: " SRC_FILE_EXT " or .mpp file should be specified to build.\n");
             return 1;
         }
 
         if (!context.quiet)
             printf("Building binary model files...\n");
 
-        // the QC is read from qdir (its directory)
+        // the input is read from qdir (its directory)
         context.qcPath = vstd::paths::file_base(context.qcPath);
-        vstd::paths::default_extension(context.qcPath, SRC_FILE_EXT);
+        vstd::paths::default_extension(context.qcPath, bPreprocessed ? ".mpp" : SRC_FILE_EXT);
 
         if (!context.quiet) {
             printf("Working on \"%s\"\n", context.qcPath.c_str());
@@ -661,7 +694,9 @@ int CStudioMDLApp::Main() {
         (void) SetScriptLoadedCallback(StudioMdl_ScriptLoadedCallback);
 
         // load the script
-        LoadScriptFile(context.qcPath.c_str());
+        if (!bPreprocessed) {
+            LoadScriptFile(context.qcPath.c_str());
+        }
 
         g_studiomdl.fullpath = ExpandArg(ExpandPath(context.qcPath));
 
@@ -677,7 +712,14 @@ int CStudioMDLApp::Main() {
         ClearModel();
 
         //	strcpy( g_pPlatformName, "" );
-        ParseScript(ext.empty() ? SRC_FILE_EXT : ext.c_str());
+        if (bPreprocessed) {
+            if (!ParsePreprocessedFile(g_studiomdl.fullpath)) {
+                MdlError("Invalid MPP File: %s\n", context.qcPath.c_str());
+                return 1;
+            }
+        } else {
+            ParseScript(ext.empty() ? SRC_FILE_EXT : ext.c_str());
+        }
 
         if (!g_StudioMdlContext.createMakefile) {
             FlexOptimizeSources();
@@ -950,7 +992,7 @@ bool CStudioMDLApp::ParseArguments() {
         }
 
         if (!Q_stricmp(pArgv, "-nowarnings")) {
-            g_StudioMdlContext.bNoWarnings = true;
+            g_StudioMdlContext.noWarnings = true;
             continue;
         }
 

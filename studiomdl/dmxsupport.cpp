@@ -8,6 +8,7 @@
 
 
 // Valve includes
+#include "dmxsupport.hpp"
 
 #include "movieobjects/dmeattributereference.h"
 #include "movieobjects/dmeconnectionoperator.h"
@@ -28,12 +29,11 @@
 
 
 // Local includes
+#include "studiomdl_commands.h"
 #include "studiomdl/studiomdl.h"
 #include "tier1/fmtstr.h"
-#include "mdlobjects/dmebonemask.h"
-#include "mdlobjects/dmebonemasklist.h"
-#include "mdlobjects/dmeposeparameterlist.h"
 #include "studiomdl/studiomdl_global_state.hpp"
+#include "tier1_v2/path_utils.hpp"
 
 
 //-----------------------------------------------------------------------------
@@ -391,8 +391,8 @@ LoadVertices(CDmeDag *pDmeDag, CDmeVertexData *pBindState, const matrix3x4_t &ma
             for (int j = 0; j < nCount; ++j) {
                 g_StudioMdlContext.texcoord[i][g_StudioMdlContext.numtexcoords[i]].x = extraTexcoords[j].x;
                 g_StudioMdlContext.texcoord[i][g_StudioMdlContext.numtexcoords[i]].y = bFlipVCoordinate
-                    ? 1.0f - extraTexcoords[j].y
-                    : extraTexcoords[j].y;
+                        ? 1.0f - extraTexcoords[j].y
+                        : extraTexcoords[j].y;
                 ++g_StudioMdlContext.numtexcoords[i];
             }
         }
@@ -1319,7 +1319,7 @@ static void ComputeFramePose(s_sourceanim_t *pSourceAnim, int nFrame, float flSc
 //-----------------------------------------------------------------------------
 // Main entry point for loading animations
 //-----------------------------------------------------------------------------
-static void
+void
 LoadAnimations(s_source_t *pSource, CDmeAnimationList *pAnimationList, float flScale, BoneTransformMap_t &boneMap) {
     int nAnimationCount = pAnimationList->GetAnimationCount();
     for (int i = 0; i < nAnimationCount; ++i) {
@@ -1663,8 +1663,7 @@ void LoadConstraints(CDmElement *pDmeRoot) {
 //-----------------------------------------------------------------------------
 // Load model and skeleton
 //-----------------------------------------------------------------------------
-static bool
-LoadModelAndSkeleton(s_source_t *pSource, BoneTransformMap_t &boneMap, CDmeDag *pSkeleton, CDmeModel *pModel,
+bool LoadModelAndSkeleton(s_source_t *pSource, BoneTransformMap_t &boneMap, CDmeDag *pSkeleton, CDmeModel *pModel,
                      CDmeCombinationOperator *pCombinationOperator, bool bStaticProp) {
     FunctionTimingRecorder _("DMX");
     s_DeltaStates.RemoveAll();
@@ -1979,7 +1978,7 @@ static bool LoadMouth(CDmeMouth *pDmeMouth) {
 //-----------------------------------------------------------------------------
 // Loads Eyeballs
 //-----------------------------------------------------------------------------
-static void LoadEyeballs(s_source_t *pSource, s_model_t *pModel, CDmrElementArray<CDmElement> &elementArray) {
+void LoadEyeballs(s_source_t *pSource, s_model_t *pModel, CDmrElementArray<CDmElement> &elementArray) {
     if (!pSource || !pModel || elementArray.Count() <= 0)
         return;
 

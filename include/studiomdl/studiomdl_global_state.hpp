@@ -233,7 +233,6 @@ struct StudioMdlContext {
     unsigned lockBoneLengths: 1;
     unsigned defineBonesLockedByDefault: 1;
     unsigned fastBuild: 1;
-    unsigned X360: 1;
     unsigned buildPreview: 1;
     unsigned preserveTriangleOrder: 1;
     unsigned centerBonesOnVerts: 1;
@@ -246,9 +245,9 @@ struct StudioMdlContext {
     unsigned lCaseAllSequences: 1;
     unsigned errorOnSeqRemapFail: 1;
     unsigned modelIntentionallyHasZeroSequences: 1;
-    unsigned bContentRootRelative: 1;
-    unsigned bHasModelName: 1;
-    unsigned bNoWarnings: 1;
+    unsigned contentRootRelative: 1;
+    unsigned hasModelName: 1;
+    unsigned noWarnings: 1;
     int g_maxWarnings = -1;
 
     // ---- Paths: UTF-8 std::string (never FixedString, its byte truncation can cut a UTF-8 sequence) ----
@@ -283,7 +282,7 @@ struct StudioMdlContext {
     CUtlVectorAuto<Vector2D> texcoord[MAXSTUDIOTEXCOORDS];
 
     std::vector<s_hitboxset> hitboxsets;
-    std::vector<char> KeyValueText;
+    std::string KeyValueText;
     std::vector<s_flexcontrollerremap_t> FlexControllerRemap;
     std::vector<CUtlSymbol> CreateMakefileDependencies;
     vstd::FixedString<128> pDefaultSurfaceProp;
@@ -335,7 +334,6 @@ struct StudioMdlContext {
           lockBoneLengths(0),
           defineBonesLockedByDefault(1),
           fastBuild(0),
-          X360(0),
           buildPreview(0),
           preserveTriangleOrder(0),
           centerBonesOnVerts(0),
@@ -348,11 +346,11 @@ struct StudioMdlContext {
           lCaseAllSequences(0),
           errorOnSeqRemapFail(0),
           modelIntentionallyHasZeroSequences(0),
-          bContentRootRelative(0),
+          contentRootRelative(0),
           minLod(0),
           numAllowedRootLODs(0),
-          bHasModelName(0),
-          bNoWarnings(0),
+          hasModelName(0),
+          noWarnings(0),
           defaultMotionRollback(0.3f),
           minSectionFrameLimit(30),
           sectionFrames(30),

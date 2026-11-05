@@ -92,7 +92,7 @@ void *kalloc(int num, int size) {
 
 #define FILEBUFFER (32 * 1024 * 1024)
 
-void WriteSeqKeyValues(mstudioseqdesc_t *pseqdesc, std::vector<char> *pKeyValue);
+void WriteSeqKeyValues(mstudioseqdesc_t *pseqdesc, std::string &pKeyValue);
 
 //-----------------------------------------------------------------------------
 // Purpose: stringtable is a session global string table.
@@ -954,7 +954,7 @@ static void WriteSequenceInfo(studiohdr_t *phdr) {
         // Write cycle overrides
         pseqdesc->cycleposeindex = g_studiomdl.sequence[i].cycleposeindex;
 
-        WriteSeqKeyValues(pseqdesc, &g_studiomdl.sequence[i].KeyValue);
+        WriteSeqKeyValues(pseqdesc, g_studiomdl.sequence[i].KeyValue);
 
         // Write activity modifiers
         mstudioactivitymodifier_t *pactivitymodifier = (mstudioactivitymodifier_t *) pData;
@@ -2978,7 +2978,7 @@ void LoadMaterials(studiohdr_t *phdr) {
 }
 
 
-void WriteKeyValues(studiohdr_t *phdr, std::vector<char> *pKeyValue) {
+void WriteKeyValues(studiohdr_t *phdr, std::string &pKeyValue) {
     FunctionTimingRecorder _("Write");
     phdr->keyvalueindex = (pData - pStart);
     phdr->keyvaluesize = KeyValueTextSize(pKeyValue);
@@ -3018,7 +3018,7 @@ void WriteQCPath() {
     }
 }
 
-void WriteSeqKeyValues(mstudioseqdesc_t *pseqdesc, std::vector<char> *pKeyValue) {
+void WriteSeqKeyValues(mstudioseqdesc_t *pseqdesc, std::string &pKeyValue) {
     pseqdesc->keyvalueindex = (pData - (uint8_t *) pseqdesc);
     pseqdesc->keyvaluesize = KeyValueTextSize(pKeyValue);
     if (pseqdesc->keyvaluesize) {
@@ -3211,7 +3211,7 @@ void WriteModelFiles() {
 
     CapKeyValues();
 
-    WriteKeyValues(phdr, &g_StudioMdlContext.KeyValueText);
+    WriteKeyValues(phdr, g_StudioMdlContext.KeyValueText);
     if (!g_StudioMdlContext.quiet) {
         printf("keyvalues  %7lld bytes\n", pData - pStart - total);
     }

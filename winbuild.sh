@@ -23,18 +23,15 @@ cmake -S . -B build-win \
   -DCMAKE_CXX_STANDARD_REQUIRED=ON \
   -DCMAKE_CXX_EXTENSIONS=OFF \
   -DCMAKE_CXX_FLAGS="-fsized-deallocation -w" \
-  -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld -B/usr/$TARGET/bin -L$GCC_LIBDIR" \
+  -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld -B/usr/$TARGET/bin -L$GCC_LIBDIR -static" \
+  -DCMAKE_CXX_STANDARD_LIBRARIES="-lstdc++ -lwinpthread" \
   -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=lld -B/usr/$TARGET/bin -L$GCC_LIBDIR" \
   -DCMAKE_MODULE_LINKER_FLAGS="-fuse-ld=lld -B/usr/$TARGET/bin -L$GCC_LIBDIR" \
   -DCMAKE_RC_COMPILER=$TARGET-windres
 
+# -static links libstdc++, libgcc and winpthread into the executables (no DLLs to deploy).
+# Old copies of the runtime DLLs next to the exe would hide a missing static link when testing, so remove them.
+rm -f build-win/libstdc++-6.dll build-win/libgcc_s_seh-1.dll build-win/libwinpthread-1.dll
+
 cmake --build build-win --target studiomdl_v2 --target dmxconvert --parallel 16
 
-# C++ objects cross module boundaries: deploy the shared toolchain runtimes.
-for runtime in libstdc++-6.dll libgcc_s_seh-1.dll libwinpthread-1.dll; do
-  runtime_path="$($TARGET-g++ -print-file-name="$runtime")"
-  if [[ ! -f "$runtime_path" ]]; then
-    runtime_path="$SYSROOT/bin/$runtime"
-  fi
-  cp "$runtime_path" build-win/
-done

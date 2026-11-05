@@ -1396,7 +1396,7 @@ bool OpenGlobalFile(std::string_view src) {
     std::string filename = ExpandPath(src);
 
     // if the file doesn't exist it might be a relative content dir path
-    if (g_StudioMdlContext.bContentRootRelative && !g_pFullFileSystem->FileExists(filename.c_str())) {
+    if (g_StudioMdlContext.contentRootRelative && !g_pFullFileSystem->FileExists(filename.c_str())) {
         char contentPath[4096] = {};
         g_pFullFileSystem->RelativePathToFullPath(std::string(src).c_str(), "CONTENT", contentPath, sizeof(contentPath));
         filename = contentPath;

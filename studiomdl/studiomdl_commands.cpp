@@ -69,7 +69,7 @@ void ProcessModelName(const char *pModelName) {
                  (sizeof(g_studiomdl.outname) / sizeof(g_studiomdl.outname)) - 1);
     }
 
-    g_StudioMdlContext.bHasModelName = true;
+    g_StudioMdlContext.hasModelName = true;
     Q_strncpy(g_studiomdl.outname, pModelName, sizeof(g_studiomdl.outname));
 #ifdef POSIX
     // "$modelname dir\\name.mdl" is common in QCs written on Windows; the output path is built from g_studiomdl.outname
@@ -4446,7 +4446,7 @@ void Cmd_CD() {
 }
 
 void Cmd_ContentRootRelative() {
-    g_StudioMdlContext.bContentRootRelative = true;
+    g_StudioMdlContext.contentRootRelative = true;
 }
 
 void Cmd_CDMaterials() {
@@ -4534,25 +4534,25 @@ void Cmd_BaseLOD() {
 //-----------------------------------------------------------------------------
 // Key value block
 //-----------------------------------------------------------------------------
-static void AppendKeyValueText(std::vector<char> *pKeyValue, const char *pString) {
+static void AppendKeyValueText(std::string &pKeyValue, const char *pString) {
     int nLen = strlen(pString);
-    for (int i = 0; i < nLen; ++i) { pKeyValue->emplace_back(pString[i]); }
+    pKeyValue.append(pString, nLen);
 }
 
-int KeyValueTextSize(std::vector<char> *pKeyValue) {
-    return pKeyValue->size();
+int KeyValueTextSize(const std::string &pKeyValue) {
+    return pKeyValue.size();
 }
 
-const char *KeyValueText(std::vector<char> *pKeyValue) {
-    return pKeyValue->data();
+const char *KeyValueText(const std::string &pKeyValue) {
+    return pKeyValue.data();
 }
 
-void Option_KeyValues(std::vector<char> *pKeyValue);
+void Option_KeyValues(std::string &pKeyValue);
 
 //-----------------------------------------------------------------------------
 // Key value block!
 //-----------------------------------------------------------------------------
-void Option_KeyValues(std::vector<char> *pKeyValue) {
+void Option_KeyValues(std::string &pKeyValue) {
     // Simply read in the block between { }s as text
     // and plop it out unchanged into the .mdl file.
     // Make sure to respect the fact that we may have nested {}s
@@ -4596,7 +4596,7 @@ void Option_KeyValues(std::vector<char> *pKeyValue) {
 }
 
 void Cmd_KeyValues() {
-    Option_KeyValues(&g_StudioMdlContext.KeyValueText);
+    Option_KeyValues(g_StudioMdlContext.KeyValueText);
 }
 
 void Cmd_ConstDirectionalLight() {
@@ -6753,7 +6753,7 @@ int ParseSequence(s_sequence_t *pseq, bool isAppend) {
             pseq->numiklocks++;
         }
         else if (stricmp("keyvalues", token) == 0) {
-            Option_KeyValues(&pseq->KeyValue);
+            Option_KeyValues(pseq->KeyValue);
         }
         else if (stricmp("blendlayer", token) == 0) {
             pseq->autolayer[pseq->numautolayers].flags = 0;
@@ -6960,7 +6960,7 @@ void Cmd_DeclareSequence() {
 
 
 //-----------------------------------------------------------------------------
-// Purpose: foward declare an empty sequence
+// Purpose: forward declare an empty sequence
 //-----------------------------------------------------------------------------
 void Cmd_DeclareAnimation() {
     if (g_studiomdl.animations.size() >= g_studiomdl.animations.capacity()) {
@@ -6968,7 +6968,7 @@ void Cmd_DeclareAnimation() {
     }
 
     // allocate animation entry
-    s_animation_t *panim = g_studiomdl.animations.emplace_back((s_animation_t *) calloc(1, sizeof(s_animation_t)));
+    s_animation_t *panim = g_studiomdl.animations.emplace_back(c_allocate<s_animation_t>());
     panim->index = g_studiomdl.animations.size() - 1;
     panim->flags = STUDIO_OVERRIDE;
 

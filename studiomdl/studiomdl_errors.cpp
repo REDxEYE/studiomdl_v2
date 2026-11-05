@@ -54,7 +54,7 @@ void MdlError(const char *fmt, ...) {
     // delete premature files
     // unforunately, content is built without verification
     // ensuring that targets are not available, prevents check-in
-    if (g_StudioMdlContext.bHasModelName) {
+    if (g_StudioMdlContext.hasModelName) {
         if (g_StudioMdlContext.quiet) {
             printf("\t");
         }
@@ -84,7 +84,7 @@ void MdlWarning(const char *fmt, ...) {
     va_list args;
     static char output[1024];
 
-    if (g_StudioMdlContext.bNoWarnings || g_StudioMdlContext.g_maxWarnings == 0)
+    if (g_StudioMdlContext.noWarnings || g_StudioMdlContext.g_maxWarnings == 0)
         return;
 
     uint16_t old = SetConsoleTextColor(1, 1, 0, 1);

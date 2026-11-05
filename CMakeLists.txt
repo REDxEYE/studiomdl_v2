@@ -3,33 +3,33 @@ project(studiomdl_v2)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)  # for clang-tidy / clangd
-if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
 
     if (CMAKE_SIZEOF_VOID_P EQUAL 8)
         set(PLATFORM_DEFINES COMPILER_MSVC64 COMPILER_MSVC _AMD64_)
         if (CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
             add_compile_options(/Ox /Oi /GL /GF /Gy)
-        endif()
+        endif ()
     elseif (CMAKE_SIZEOF_VOID_P EQUAL 4)
         set(PLATFORM_DEFINES COMPILER_MSVC32 COMPILER_MSVC _X86_)
     endif ()
-elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     if (CMAKE_SIZEOF_VOID_P EQUAL 8)
         set(PLATFORM_DEFINES LINUX COMPILER_GCC POSIX _AMD64_)
     elseif (CMAKE_SIZEOF_VOID_P EQUAL 4)
         set(PLATFORM_DEFINES LINUX COMPILER_GCC POSIX _X86_)
     endif ()
-elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+elseif (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     # Do something on macOS
-else()
+else ()
     # Do something on other operating systems
-endif()
+endif ()
 
-foreach(flag_var
+foreach (flag_var
         CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
         CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
-    STRING (REGEX REPLACE "/RTC[^ ]*" "" ${flag_var} "${${flag_var}}")
-endforeach(flag_var)
+    STRING(REGEX REPLACE "/RTC[^ ]*" "" ${flag_var} "${${flag_var}}")
+endforeach (flag_var)
 
 
 add_compile_definitions(${PLATFORM_DEFINES} RAD_TELEMETRY_DISABLED _CRT_SECURE_NO_WARNINGS USE_MEM_DEBUG=0 _DLL_EXT=.dll)
@@ -99,10 +99,15 @@ add_executable(studiomdl_v2
         studiomdl/studiomdl_app.cpp
         studiomdl/studiomdl_app.h
         include/studiomdl/studiomdl_global_state.hpp
+        studiomdl/mppsupport.cpp
+        # pulls every mdlobjects element factory out of the static library (.mpp elements are created by type name)
+        include/mdlobjects/mdlobjects.cpp
 )
 set_property(TARGET studiomdl_v2 APPEND_STRING PROPERTY COMPILE_FLAGS)
 
 target_compile_definitions(studiomdl_v2 PRIVATE -DSTATIC_TIER0)
+target_compile_definitions(studiomdl_v2 PRIVATE -DMDLCOMPILE)
+#target_compile_definitions(studiomdl_v2 PRIVATE -DFBX_SUPPORT)
 target_include_directories(studiomdl_v2 PUBLIC include)
 target_link_libraries(studiomdl_v2 PRIVATE
         tier0
@@ -120,7 +125,7 @@ target_link_libraries(studiomdl_v2 PRIVATE
         meshoptimizer
         filesystem_stdio_v2_static
         vphys_lite
-        )
+)
 if (WIN32)
     # shell32: CommandLineToArgvW for the UTF-8 command line
     target_link_libraries(studiomdl_v2 PRIVATE shlwapi shell32)
@@ -144,7 +149,7 @@ target_link_libraries(dmxconvert PRIVATE
         dmserializers
         mathlib
         filesystem_stdio_v2_static
-        )
+)
 
 option(STUDIOMDL_BUILD_TESTS "Build the tests (ctest)" ON)
 if (STUDIOMDL_BUILD_TESTS)

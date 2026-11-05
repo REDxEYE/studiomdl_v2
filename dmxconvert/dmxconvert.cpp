@@ -24,9 +24,11 @@
 #include "tier2/tier2.h"
 #include "tier2/tier2dm.h"
 #include "common/filesystem_tools.h"
+#include "studiomdl/studiomdl_global_state.hpp"
 
 
 class CDmElement;
+StudioMdlContext g_StudioMdlContext{};
 
 //-----------------------------------------------------------------------------
 // The application object

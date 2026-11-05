@@ -25,3 +25,7 @@ extern int g_nMDLCommandCount;
 
 static MDLCommand_t *g_pMDLCommands = g_Commands;
 
+void ProcessSequence(s_sequence_t *pseq, int numblends, s_animation_t **animations, bool isAppend);
+void ProcessStaticProp();
+s_sequence_t *ProcessCmdSequence(const char *pSequenceName);
+s_animation_t *ProcessImpliedAnimation(s_sequence_t *psequence, const char *filename);
