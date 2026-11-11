@@ -99,7 +99,7 @@ public:
 	const CDmeVertexData *GetBindBaseState() const;
 
 	// Compute triangulated indices
-	void ComputeTriangulatedIndices( const CDmeVertexData *pBaseState, const CDmeFaceSet *pFaceSet, int nFirstIndex, int *pIndices, int nOutCount ) const;
+	void ComputeTriangulatedIndices(const CDmeVertexData *pBaseState, const CDmeFaceSet *pFaceSet, uint32_t nFirstIndex, int *indicesOut) const;
 
 	// Compute a default per-vertex tangent given normal data + uv data for all vertex data referenced by this mesh
 	void ComputeDefaultTangentData( bool bSmoothTangents = false );
@@ -266,7 +266,7 @@ private:
 	IMesh *CreateHwMesh( CDmeFaceSet *pFaceSet );
 
 	// Build a map from vertex index to a list of triangles that share the vert.
-	void BuildTriangleMap( const CDmeVertexData *pBaseState, CDmeFaceSet* pFaceSet, CUtlVector<Triangle_t>& triangles, CUtlVector< CUtlVector<int> >* pVertToTriMap = nullptr);
+	void BuildTriangleMap( const CDmeVertexData *pBaseState, CDmeFaceSet* pFaceSet, CUtlVector<Triangle_t>& triangles, CUtlVector< CUtlVector<int> >* pVertToTriMap = nullptr) const;
 
 	// Computes tangent space data for triangles
 	void ComputeTriangleTangets( const CDmeVertexData *pVertexData, CUtlVector<Triangle_t>& triangles );

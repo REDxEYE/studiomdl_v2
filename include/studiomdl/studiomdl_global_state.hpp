@@ -3,10 +3,7 @@
 //
 
 #pragma once
-#include <cassert>
-#include <chrono>
 #include <memory>
-#include <source_location>
 #include <string>
 #include <vector>
 
@@ -162,9 +159,10 @@ struct StudioMDLGlobalState {
 
     CUtlVector<s_bonesaveframe_t> bonesaveframe;
 
-    int numvlist;
-    v_unify_t *v_list[MAXSTUDIOSRCVERTS];
-    v_unify_t v_listdata[MAXSTUDIOSRCVERTS];
+    // Unified vertices of the source being loaded: one per distinct (position, material, normal, texcoords), grown on demand
+    std::vector<v_unify_t> v_listdata;
+    // Per source position: v_listdata index of its first entry, -1 = none; entries chain through v_unify_t::next
+    std::vector<int> v_list;
 
     CUtlVector<LodScriptData_t> ScriptLODs;
     CUtlVector<char *> collapse;
@@ -196,22 +194,13 @@ struct StudioMDLGlobalState {
 
     vstd::FixedVector<s_attachment_t, MAXSTUDIOSRCBONES> attachments;
 
-    std::vector<s_bonemerge_t> BoneMerge;
+    std::vector<s_bonemerge_t> bone_merge;
 
-    std::vector<s_alwayssetup_t> BoneAlwaysSetup;
+    std::vector<s_alwayssetup_t> bone_always_setup;
 
     std::array<s_mouth_t, MAXSTUDIOSRCBONES> mouth; // ?? skins?
     int nummouths;
     uint32_t checksum;
-};
-
-struct Timing {
-    std::string function_name;
-    std::string stage_name;
-    uint32_t indent;
-    uint32_t calls{1};
-    double duration{0};
-    double own_duration{0};
 };
 
 struct StudioMdlContext {
@@ -248,7 +237,7 @@ struct StudioMdlContext {
     unsigned contentRootRelative: 1;
     unsigned hasModelName: 1;
     unsigned noWarnings: 1;
-    int g_maxWarnings = -1;
+    int maxWarnings = -1;
 
     // ---- Paths: UTF-8 std::string (never FixedString, its byte truncation can cut a UTF-8 sequence) ----
     std::string qcPath;  // the QC as given on the command line, later its file name
@@ -297,7 +286,7 @@ struct StudioMdlContext {
     // Flex optimization (flexoptimize.cpp): mode, minimum static part of a mesh worth splitting off, and the
     // alias materials it created as (alias material, base material)
     FlexOptimizeMode_t flexOptimizeMode = FLEXOPT_AUTO;
-    int flexOptimizeMinStatic = 256;
+    int32_t flexOptimizeMinStatic = 256;
     std::vector<std::pair<int, int> > flexAliasMaterials;
 
     int numverts = 0;
@@ -307,13 +296,10 @@ struct StudioMdlContext {
     int numnormals = 0;
     CUtlVectorAuto<Vector> normal;
 
-    int numfaces = 0;
-    CUtlVectorAuto<s_tmpface_t> face;
-    CUtlVectorAuto<s_face_t> src_uface; // max res unified faces
+    std::vector<s_tmpface_t> faces;
+    // int numfaces = 0;
+    std::vector<s_face_t> src_uface; // max res unified faces
     int numbones = 0;
-
-    std::vector<Timing> timings;
-    int32_t timings_depth{0};
 
     StudioMdlContext()
         : parseable_completion_output(0),
@@ -370,69 +356,3 @@ struct StudioMdlContext {
 
 extern StudioMDLGlobalState g_studiomdl;
 extern StudioMdlContext g_StudioMdlContext;
-
-
-class FunctionTimingRecorder {
-public:
-    explicit FunctionTimingRecorder(const std::string &stage_name,
-                                    const std::source_location location = std::source_location::current())
-        : function_name(clean_function_name(location)),
-          stage_name(stage_name), extending(false) {
-        assert(g_StudioMdlContext.timings_depth >=0 && g_StudioMdlContext.timings_depth < 1000);
-
-
-        start = std::chrono::steady_clock::now().time_since_epoch();
-
-        if (g_StudioMdlContext.timings.size() > 0) {
-            const auto &prev_item = g_StudioMdlContext.timings.back();
-            if (prev_item.stage_name == stage_name && prev_item.function_name == function_name) {
-                extending = true;
-            }
-        }
-
-        if (extending) {
-            index = g_StudioMdlContext.timings.size() - 1;
-            g_StudioMdlContext.timings[index].calls++;
-        }
-        else {
-            index = g_StudioMdlContext.timings.size();
-            g_StudioMdlContext.timings.emplace_back(function_name, stage_name, g_StudioMdlContext.timings_depth);
-            g_StudioMdlContext.timings_depth++;
-        }
-    }
-
-    ~FunctionTimingRecorder() {
-        const auto end = std::chrono::steady_clock::now().time_since_epoch();
-        double own_duration;
-        const double duration = own_duration = std::chrono::duration<double, std::milli>(end - start).count();
-        if (!extending) {
-            for (size_t i = index; i < g_StudioMdlContext.timings.size(); i++) {
-                own_duration -= g_StudioMdlContext.timings[i].own_duration; // Subtract inner timings, so we only have own-time
-            }
-            g_StudioMdlContext.timings_depth--;
-
-        }
-        auto &timing = g_StudioMdlContext.timings[index];
-        timing.duration += duration;
-        timing.own_duration += own_duration;
-    }
-
-private:
-    static std::string_view clean_function_name(const std::source_location &loc = std::source_location::current()) {
-        std::string_view name = loc.function_name();
-        if (const auto open_paren = name.find('('); open_paren != std::string_view::npos) {
-            name = name.substr(0, open_paren);
-        }
-        if (const auto last_space = name.rfind(' '); last_space != std::string_view::npos) {
-            name = name.substr(last_space + 1);
-        }
-
-        return name;
-    }
-
-    std::string function_name;
-    std::string stage_name;
-    std::chrono::duration<double> start;
-    size_t index;
-    bool extending;
-};

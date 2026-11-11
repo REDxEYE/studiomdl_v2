@@ -25,7 +25,7 @@
 //     to the string data, the hash precedes it in memory and is used to speed up searching, etc.
 //-----------------------------------------------------------------------------
 
-typedef intptr_t UtlSymLargeId_t;
+using UtlSymLargeId_t = intptr_t;
 
 #define UTL_INVAL_SYMBOL_LARGE  ((UtlSymLargeId_t)~0)
 

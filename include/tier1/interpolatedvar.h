@@ -149,7 +149,7 @@ inline QAngle ExtrapolateInterpolatedVarType( const QAngle &oldVal, const QAngle
 // IInterpolatedVar interface.
 // -------------------------------------------------------------------------------------------------------------- //
 
-abstract_class IInterpolatedVar
+class IInterpolatedVar
 {
 public:
 	virtual		 ~IInterpolatedVar() {}

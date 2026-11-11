@@ -8,10 +8,11 @@
 
 #pragma once
 
-#ifdef _WIN32
-#pragma once
-#endif
+#include <utility>
+#include <array>
 
+#include "bspflags.h"
+#include "enum_utils.hpp"
 #include "tier0/basetypes.h"
 #include "mathlib/vector2d.h"
 #include "mathlib/vector.h"
@@ -26,6 +27,98 @@
 #include "tier1/utlsymbol.h"
 #include "tier1/generichash.h"
 #include "localflexcontroller.h"
+
+// flex rule opcodes (mstudioflexop_t::op)
+enum class StudioOpcode : uint32_t {
+    Const = 1, // get float
+    Fetch1 = 2, // get Flexcontroller value
+    Fetch2 = 3, // get flex weight
+    Add = 4,
+    Sub = 5,
+    Mul = 6,
+    Div = 7,
+    Neg = 8, // not implemented
+    Exp = 9, // not implemented
+    Open = 10, // only used in token parsing
+    Close = 11,
+    Comma = 12, // only used in token parsing
+    Max = 13,
+    Min = 14,
+    TwoWay0 = 15, // Fetch a value from a 2 Way slider for the 1st value RemapVal( 0.0, 0.5, 0.0, 1.0 )
+    TwoWay1 = 16, // Fetch a value from a 2 Way slider for the 2nd value RemapVal( 0.5, 1.0, 0.0, 1.0 )
+    NWay = 17, // Fetch a value from a 2 Way slider for the 2nd value RemapVal( 0.5, 1.0, 0.0, 1.0 )
+    Combo = 18, // Perform a combo operation (essentially multiply the last N values on the stack)
+    Dominate = 19, // Performs a combination domination operation
+    DmeLowerEyelid = 20, //
+    DmeUpperEyelid = 21, //
+};
+
+// motion flags (bone controller types, movement and motion extraction axes)
+enum class StudioMotionFlags : uint32_t {
+    None = 0x00000000,
+    X = 0x00000001,
+    Y = 0x00000002,
+    Z = 0x00000004,
+    XR = 0x00000008,
+    YR = 0x00000010,
+    ZR = 0x00000020,
+
+    LX = 0x00000040,
+    LY = 0x00000080,
+    LZ = 0x00000100,
+    LXR = 0x00000200,
+    LYR = 0x00000400,
+    LZR = 0x00000800,
+
+    Linear = 0x00001000,
+    QuadraticMotion = 0x00002000,
+
+    Types = 0x0003FFFF,
+    RLoop = 0x00040000, // controller that wraps shortest distance
+    Invalid = 0xFFFFFFFF, // lookup failure, never stored
+};
+
+ENUM_OPERATORS(StudioMotionFlags)
+
+// sequence and animation flags
+enum class StudioSequenceFlags : uint32_t {
+    None = 0x0000,
+    Looping = 0x0001, // ending frame should be the same as the starting frame
+    Snap = 0x0002, // do not interpolate between previous animation and this one
+    Delta = 0x0004, // this sequence "adds" to the base sequences, not slerp blends
+    Autoplay = 0x0008, // temporary flag that forces the sequence to always play
+    Post = 0x0010, //
+    AllZeros = 0x0020, // this animation/sequence has no real animation data
+    FrameAnim = 0x0040, // animation is encoded as by frame x bone instead of RLE bone x frame
+    CyclePose = 0x0080, // cycle index is taken from a pose parameter index
+    Realtime = 0x0100, // cycle index is taken from a real-time clock, not the animations cycle index
+    Local = 0x0200, // sequence has a local context sequence
+    Hidden = 0x0400, // don't show in default selection views
+    Override = 0x0800, // a forward declared sequence (empty)
+    Activity = 0x1000, // Has been updated at runtime to activity index
+    Event = 0x2000, // Has been updated at runtime to event index on server
+    World = 0x4000, // sequence blends in worldspace
+    NoForceLoop = 0x8000, // do not force the animation loop
+    EventClient = 0x10000, // Has been updated at runtime to event index on client
+    WorldAndRelative = 0x20000, // do worldspace blend, then do normal blend on top
+    RootXform = 0x40000, // sequence wants to derive a root re-xform from a given bone
+};
+
+ENUM_OPERATORS(StudioSequenceFlags)
+
+// autolayer flags
+enum class AutoLayerFlags : uint32_t {
+    None = 0x0000,
+    Post = 0x0010, //
+    Spline = 0x0040, // convert layer ramp in/out curve is a spline instead of linear
+    XFade = 0x0080,
+    // pre-bias the ramp curve to compense for a non-1 weight, assuming a second layer is also going to accumulate
+    NoBlend = 0x0200, // animation always blends at 1.0 (ignores weight)
+    Local = 0x1000, // layer is a local context sequence
+    Pose = 0x4000, // layer blends using a pose parameter instead of parent cycle
+};
+
+ENUM_OPERATORS(AutoLayerFlags)
 
 #define STUDIO_ENABLE_PERF_COUNTERS
 
@@ -63,6 +156,8 @@ struct studiohdr_t;
 #define MAXSTUDIOVERTS		65536	// TODO: tune this
 #define	MAXSTUDIOFLEXVERTS	(MAXSTUDIOVERTS - 1)	// max number of verts that can be flexed per model (the engine flex cache addresses 65535 verts)
 
+
+
 #define MAXSTUDIOSKINS		128		// total textures (compiler side limit; SFM renders models with more than 32)
 #define MAXSTUDIOBONES		256		// total bones actually used
 #define MAXSTUDIOFLEXDESC	1024	// maximum number of low level flexes (actual morph targets)
@@ -76,29 +171,34 @@ struct studiohdr_t;
 // NOTE!!! : Changing this number also changes the vtx file format!!!!!
 #define MAX_NUM_BONES_PER_VERT 3
 
-//Adrian - Remove this when we completely phase out the old event system.
-#define NEW_EVENT_STYLE ( 1 << 10 )
+// mstudioevent_t::type
+enum class StudioEventType : int {
+    OldStyle = 0,
+    NewStyle = 1 << 10, //Adrian - Remove this when we completely phase out the old event system.
+};
 
 struct mstudiodata_t {
     int count;
     int offset;
 };
 
-#define STUDIO_PROC_AXISINTERP	1
-#define STUDIO_PROC_QUATINTERP	2
-#define STUDIO_PROC_AIMATBONE	3
-#define STUDIO_PROC_AIMATATTACH 4
-#define STUDIO_PROC_JIGGLE		5
-#define STUDIO_PROC_TWIST_MASTER 6
-#define STUDIO_PROC_TWIST_SLAVE 7	// Multiple twist bones are computed at once for the same parent/child combo so TWIST_NULL do nothing
-
-#define STUDIO_PROC_POINT_CONSTRAINT	8
-#define STUDIO_PROC_ORIENT_CONSTRAINT	9
-#define STUDIO_PROC_AIM_CONSTRAINT		10
-#define STUDIO_PROC_IK_CONSTRAINT		11
-#define STUDIO_PROC_PARENT_CONSTRAINT	12
-// 13 is reserved for legacy Dota cloth
-#define STUDIO_PROC_SOFTBODY			16
+enum class ProcBoneType:uint32_t {
+    AxisInterp = 1,
+    QuatInterp = 2,
+    AimAtBone = 3,
+    AimAtAttach = 4,
+    Jiggle = 5,
+    TwistMaster = 6,
+    TwistSLAVE = 7,
+    // Multiple twist bones are computed at once for the same parent/child combo so TWIST_NULL do nothing
+    PointConstraint = 8,
+    OrientConstraint = 9,
+    AimConstraint = 10,
+    IKConstraint = 11,
+    ParentConstraint = 12,
+    // 13 is reserved for legacy Dota cloth
+    SoftBody = 16
+};
 
 // If you want to embed a pointer into one of the structures that is serialized, use this class! It will ensure that the pointers consume the
 // right amount of space and work correctly across 32 and 64 bit. It also makes sure that there is no surprise about how large the structure
@@ -118,13 +218,13 @@ struct ALIGN4 serializedstudioptr_t {
 #endif
     }
 
-    inline operator T *() { return m_pData; }
-    inline operator const T *() const { return m_pData; }
+    operator T *() { return m_pData; }
+    operator const T *() const { return m_pData; }
 
-    inline T *operator->() { return m_pData; }
-    inline const T *operator->() const { return m_pData; }
+    T *operator->() { return m_pData; }
+    const T *operator->() const { return m_pData; }
 
-    inline T *operator=(T *ptr) { return m_pData = ptr; }
+    T *operator=(T *ptr) { return m_pData = ptr; }
 }
         ALIGN4_POST;
 
@@ -133,15 +233,11 @@ struct ALIGN4 serializedstudioptr_t {
 struct mstudioaxisinterpbone_t {
     int control; // local transformation of this bone used to calc 3 point blend
     int axis; // axis to check
-    Vector pos[6]; // X+, X-, Y+, Y-, Z+, Z-
-    Quaternion quat[6]; // X+, X-, Y+, Y-, Z+, Z-
+    std::array<Vector, 6> pos; // X+, X-, Y+, Y-, Z+, Z-
+    std::array<Quaternion, 6> quat; // X+, X-, Y+, Y-, Z+, Z-
 
-    mstudioaxisinterpbone_t() {
-    }
-
-private:
     // No copy constructors allowed
-    mstudioaxisinterpbone_t(const mstudioaxisinterpbone_t &vOther);
+    mstudioaxisinterpbone_t(const mstudioaxisinterpbone_t &vOther) = delete;
 };
 
 
@@ -151,12 +247,8 @@ struct mstudioquatinterpinfo_t {
     Vector pos; // new position
     Quaternion quat; // new angle
 
-    mstudioquatinterpinfo_t() {
-    }
-
-private:
     // No copy constructors allowed
-    mstudioquatinterpinfo_t(const mstudioquatinterpinfo_t &vOther);
+    mstudioquatinterpinfo_t(const mstudioquatinterpinfo_t &vOther) = delete;
 };
 
 struct mstudioquatinterpbone_t {
@@ -164,29 +256,29 @@ struct mstudioquatinterpbone_t {
     int numtriggers;
     int triggerindex;
 
-    inline mstudioquatinterpinfo_t *pTrigger(int i) const {
+    mstudioquatinterpinfo_t *pTrigger(int i) const {
         return (mstudioquatinterpinfo_t *) (((uint8_t *) this) + triggerindex) + i;
     };
 
-    mstudioquatinterpbone_t() {
-    }
-
-private:
     // No copy constructors allowed
-    mstudioquatinterpbone_t(const mstudioquatinterpbone_t &vOther);
+    mstudioquatinterpbone_t(const mstudioquatinterpbone_t &vOther) = delete;
 };
 
+enum class JiggleBoneFlags:uint32_t {
+    None = 0x0,
+    IsFlexible = 0x01,
+    IsRigid = 0x02,
+    HasYawConstraint = 0x04,
+    HasPitchConstraint = 0x08,
+    HasAngleConstraint = 0x10,
+    HasLengthConstraint = 0x20,
+    HasBaseSpring = 0x40,
+};
 
-#define JIGGLE_IS_FLEXIBLE				0x01
-#define JIGGLE_IS_RIGID					0x02
-#define JIGGLE_HAS_YAW_CONSTRAINT		0x04
-#define JIGGLE_HAS_PITCH_CONSTRAINT		0x08
-#define JIGGLE_HAS_ANGLE_CONSTRAINT		0x10
-#define JIGGLE_HAS_LENGTH_CONSTRAINT	0x20
-#define JIGGLE_HAS_BASE_SPRING			0x40
+ENUM_OPERATORS(JiggleBoneFlags)
 
 struct mstudiojigglebone_t {
-    int flags;
+    JiggleBoneFlags flags;
 
     // general params
     float length; // how from from bone base, along bone, is tip
@@ -241,12 +333,8 @@ struct mstudioaimatbone_t {
     Vector upvector;
     Vector basepos;
 
-    mstudioaimatbone_t() {
-    }
-
-private:
     // No copy constructors allowed
-    mstudioaimatbone_t(const mstudioaimatbone_t &vOther);
+    mstudioaimatbone_t(const mstudioaimatbone_t &vOther) = delete;
 };
 
 
@@ -259,12 +347,8 @@ struct mstudiotwistbonetarget_t {
     Vector m_vBaseTranslate;
     Quaternion m_qBaseRotation;
 
-    mstudiotwistbonetarget_t() {
-    }
-
-private:
     // No copy constructors allowed
-    mstudiotwistbonetarget_t(const mstudiotwistbonetarget_t &vOther);
+    mstudiotwistbonetarget_t(const mstudiotwistbonetarget_t &vOther) = delete;
 };
 
 
@@ -281,16 +365,12 @@ struct mstudiotwistbone_t {
     int m_nTargetCount;
     int m_nTargetIndex;
 
-    inline mstudiotwistbonetarget_t *pTarget(int i) const {
+    mstudiotwistbonetarget_t *pTarget(int i) const {
         return (mstudiotwistbonetarget_t *) (((uint8_t *) this) + m_nTargetIndex) + i;
     }
 
-    mstudiotwistbone_t() {
-    }
-
-private:
     // No copy constructors allowed
-    mstudiotwistbone_t(const mstudiotwistbone_t &vOther);
+    mstudiotwistbone_t(const mstudiotwistbone_t &vOther) = delete;
 };
 
 
@@ -302,12 +382,8 @@ struct mstudioconstraintslave_t {
     Vector m_vBasePosition;
     Quaternion m_qBaseOrientation;
 
-    mstudioconstraintslave_t() {
-    }
-
-private:
     // No copy constructors allowed
-    mstudioconstraintslave_t(const mstudioconstraintslave_t &vOther);
+    mstudioconstraintslave_t(const mstudioconstraintslave_t &vOther) = delete;
 };
 
 
@@ -320,12 +396,8 @@ struct mstudioconstrainttarget_t {
     Vector m_vOffset;
     Quaternion m_qOffset;
 
-    mstudioconstrainttarget_t() {
-    }
-
-private:
     // No copy constructors allowed
-    mstudioconstrainttarget_t(const mstudioconstrainttarget_t &vOther);
+    mstudioconstrainttarget_t(const mstudioconstrainttarget_t &vOther) = delete;
 };
 
 
@@ -338,16 +410,11 @@ struct mstudiopointconstraint_t {
     int m_nTargetCount;
     int m_nTargetIndex;
 
-    inline mstudioconstrainttarget_t *pTarget(int i) const {
+    mstudioconstrainttarget_t *pTarget(int i) const {
         return (mstudioconstrainttarget_t *) (((uint8_t *) this) + m_nTargetIndex) + i;
     }
 
-    mstudiopointconstraint_t() {
-    }
-
-private:
-    // No copy constructors allowed
-    mstudiopointconstraint_t(const mstudiopointconstraint_t &vOther);
+    mstudiopointconstraint_t(const mstudiopointconstraint_t &vOther) = delete;
 };
 
 
@@ -360,16 +427,11 @@ struct mstudioorientconstraint_t {
     int m_nTargetCount;
     int m_nTargetIndex;
 
-    inline mstudioconstrainttarget_t *pTarget(int i) const {
+    mstudioconstrainttarget_t *pTarget(int i) const {
         return (mstudioconstrainttarget_t *) (((uint8_t *) this) + m_nTargetIndex) + i;
     }
 
-    mstudioorientconstraint_t() {
-    }
-
-private:
-    // No copy constructors allowed
-    mstudioorientconstraint_t(const mstudioorientconstraint_t &vOther);
+    mstudioorientconstraint_t(const mstudioorientconstraint_t &vOther) = delete;
 };
 
 
@@ -382,22 +444,18 @@ struct mstudioaimconstraint_t {
     int m_nTargetCount;
     int m_nTargetIndex;
 
-    inline mstudioconstrainttarget_t *pTarget(int i) const {
+    mstudioconstrainttarget_t *pTarget(int i) const {
         return (mstudioconstrainttarget_t *) (((uint8_t *) this) + m_nTargetIndex) + i;
     }
 
     Quaternion m_qAimOffset;
     Vector m_vUp;
     short m_nUpSpaceTarget;
-    unsigned char m_nUpType;
-    unsigned char m_unused;
+    uint8_t m_nUpType;
+    uint8_t m_unused;
 
-    mstudioaimconstraint_t() {
-    }
-
-private:
     // No copy constructors allowed
-    mstudioaimconstraint_t(const mstudioaimconstraint_t &vOther);
+    mstudioaimconstraint_t(const mstudioaimconstraint_t &vOther) = delete;
 };
 
 
@@ -423,23 +481,62 @@ struct mstudioparentconstraint_t {
     int m_nTargetCount;
     int m_nTargetIndex;
 
-    inline mstudioconstrainttarget_t *pTarget(int i) const {
+    mstudioconstrainttarget_t *pTarget(int i) const {
         return (mstudioconstrainttarget_t *) (((uint8_t *) this) + m_nTargetIndex) + i;
     }
 
-    mstudioparentconstraint_t() {
-    }
-
-private:
-    // No copy constructors allowed
-    mstudioparentconstraint_t(const mstudioparentconstraint_t &vOther);
+    mstudioparentconstraint_t(const mstudioparentconstraint_t &vOther) = delete;
 };
 
+
+// bone flags (mstudiobone_t::flags, mstudiolinearbone_t flags, bone masks)
+enum class BoneFlags : uint32_t {
+    None = 0,
+
+    CalculateMask = 0x1F,
+    PhysicallySimulated = 0x01, // bone is physically simulated when physics are active
+    PhysicsProcedural = 0x02, // procedural when physics is active
+    AlwaysProcedural = 0x04, // bone is always procedurally animated
+    ScreenAlignSphere = 0x08, // bone aligns to the screen, not constrained in motion.
+    ScreenAlignCylinder = 0x10, // bone aligns to the screen, constrained by it's own axis.
+    WorldAlign = 0x20, // bone is rigidly aligned to the world (but can still translate)
+
+    UsedMask = 0x000FFF00,
+    UsedByAnything = 0x000FFF00,
+    UsedByHitbox = 0x00000100, // bone (or child) is used by a hit box
+    UsedByAttachment = 0x00000200, // bone (or child) is used by an attachment point
+    UsedByVertexMask = 0x0003FC00,
+    UsedByVertexLod0 = 0x00000400, // bone (or child) is used by the toplevel model via skinned vertex
+    UsedByVertexLod1 = 0x00000800,
+    UsedByVertexLod2 = 0x00001000,
+    UsedByVertexLod3 = 0x00002000,
+    UsedByVertexLod4 = 0x00004000,
+    UsedByVertexLod5 = 0x00008000,
+    UsedByVertexLod6 = 0x00010000,
+    UsedByVertexLod7 = 0x00020000,
+    UsedByBoneMerge = 0x00040000, // bone is available for bone merge to occur against it
+    AlwaysSetup = 0x00080000,
+
+    TypeMask = 0x00F00000,
+    FixedAlignment = 0x00100000,
+    // bone can't spin 360 degrees, all interpolation is normalized around a fixed orientation
+
+    HasSaveframePos = 0x00200000, // Vector48
+    HasSaveframeRot64 = 0x00400000, // Quaternion64
+    HasSaveframeRot32 = 0x00800000, // Quaternion32
+};
+
+ENUM_OPERATORS(BoneFlags)
+
+// UsedByVertexLod<lod>
+constexpr BoneFlags BoneUsedByVertexAtLod(const uint32_t lod) {
+    return static_cast<BoneFlags>(std::to_underlying(BoneFlags::UsedByVertexLod0) << lod);
+}
 
 // bones
 struct mstudiobone_t {
     int sznameindex;
-    inline char *const pszName(void) const { return ((char *) this) + sznameindex; }
+    char *const pszName(void) const { return ((char *) this) + sznameindex; }
     int parent; // parent bone
     int bonecontroller[6]; // bone controller index, -1 == none
 
@@ -453,28 +550,23 @@ struct mstudiobone_t {
 
     matrix3x4_t poseToBone;
     Quaternion qAlignment;
-    int flags;
-    int proctype;
+    BoneFlags flags;
+    ProcBoneType proctype;
     int procindex; // procedural rule
     mutable int physicsbone; // index into physically simulated bone
-    inline void *pProcedure() const {
+    void *pProcedure() const {
         if (procindex == 0) return nullptr;
         else return (void *) (((uint8_t *) this) + procindex);
     };
     int surfacepropidx; // index into string tablefor property name
-    inline char *const pszSurfaceProp(void) const { return ((char *) this) + surfacepropidx; }
-    inline int GetSurfaceProp(void) const { return surfacepropLookup; }
+    char *const pszSurfaceProp(void) const { return ((char *) this) + surfacepropidx; }
+    int GetSurfaceProp(void) const { return surfacepropLookup; }
 
-    int contents; // See BSPFlags.h for the contents flags
+    ContentType contents; // See BSPFlags.h for the contents flags
     int surfacepropLookup; // this index must be cached by the loader, not saved in the file
     int unused[7]; // remove as appropriate
 
-    mstudiobone_t() {
-    }
-
-private:
-    // No copy constructors allowed
-    mstudiobone_t(const mstudiobone_t &vOther);
+    mstudiobone_t(const mstudiobone_t &vOther) = delete;
 };
 
 struct mstudiolinearbone_t {
@@ -482,80 +574,75 @@ struct mstudiolinearbone_t {
 
     int flagsindex;
 
-    inline int flags(int i) const {
+    BoneFlags flags(int i) const {
         Assert(i >= 0 && i < numbones);
-        return *((int *) (((uint8_t *) this) + flagsindex) + i);
+        return *((BoneFlags *) (((uint8_t *) this) + flagsindex) + i);
     };
 
-    inline int *pflags(int i) {
+    BoneFlags *pflags(int i) {
         Assert(i >= 0 && i < numbones);
-        return ((int *) (((uint8_t *) this) + flagsindex) + i);
+        return ((BoneFlags *) (((uint8_t *) this) + flagsindex) + i);
     };
 
     int parentindex;
 
-    inline int parent(int i) const {
+    int parent(int i) const {
         Assert(i >= 0 && i < numbones);
         return *((int *) (((uint8_t *) this) + parentindex) + i);
     };
 
     int posindex;
 
-    inline const Vector &pos(int i) const {
+    const Vector &pos(int i) const {
         Assert(i >= 0 && i < numbones);
         return *((Vector *) (((uint8_t *) this) + posindex) + i);
     };
 
     int quatindex;
 
-    inline const Quaternion &quat(int i) const {
+    const Quaternion &quat(int i) const {
         Assert(i >= 0 && i < numbones);
         return *((Quaternion *) (((uint8_t *) this) + quatindex) + i);
     };
 
     int rotindex;
 
-    inline const RadianEuler &rot(int i) const {
+    const RadianEuler &rot(int i) const {
         Assert(i >= 0 && i < numbones);
         return *((RadianEuler *) (((uint8_t *) this) + rotindex) + i);
     };
 
     int posetoboneindex;
 
-    inline const matrix3x4_t &poseToBone(int i) const {
+    const matrix3x4_t &poseToBone(int i) const {
         Assert(i >= 0 && i < numbones);
         return *((matrix3x4_t *) (((uint8_t *) this) + posetoboneindex) + i);
     };
 
     int posscaleindex;
 
-    inline const Vector &posscale(int i) const {
+    const Vector &posscale(int i) const {
         Assert(i >= 0 && i < numbones);
         return *((Vector *) (((uint8_t *) this) + posscaleindex) + i);
     };
 
     int rotscaleindex;
 
-    inline const Vector &rotscale(int i) const {
+    const Vector &rotscale(int i) const {
         Assert(i >= 0 && i < numbones);
         return *((Vector *) (((uint8_t *) this) + rotscaleindex) + i);
     };
 
     int qalignmentindex;
 
-    inline const Quaternion &qalignment(int i) const {
+    const Quaternion &qalignment(int i) const {
         Assert(i >= 0 && i < numbones);
         return *((Quaternion *) (((uint8_t *) this) + qalignmentindex) + i);
     };
 
     int unused[6];
 
-    mstudiolinearbone_t() {
-    }
-
-private:
-    // No copy constructors allowed
-    mstudiolinearbone_t(const mstudiolinearbone_t &vOther);
+    mstudiolinearbone_t(const mstudiolinearbone_t &vOther) = delete;
 };
 
 
@@ -579,12 +666,7 @@ struct mstudioboneflexdrivercontrol_t {
     float m_flMin; // Min value of bone component mapped to 0 on flex controller
     float m_flMax; // Max value of bone component mapped to 1 on flex controller
 
-    mstudioboneflexdrivercontrol_t() {
-    }
-
-private:
-    // No copy constructors allowed
-    mstudioboneflexdrivercontrol_t(const mstudioboneflexdrivercontrol_t &vOther);
+    mstudioboneflexdrivercontrol_t(const mstudioboneflexdrivercontrol_t &vOther) = delete;
 };
 
 
@@ -596,63 +678,23 @@ struct mstudioboneflexdriver_t {
     int m_nControlCount; // Number of flex controllers being driven
     int m_nControlIndex; // Index into data where controllers are (relative to this)
 
-    inline mstudioboneflexdrivercontrol_t *pBoneFlexDriverControl(int i) const {
+    mstudioboneflexdrivercontrol_t *pBoneFlexDriverControl(int i) const {
         Assert(i >= 0 && i < m_nControlCount);
         return (mstudioboneflexdrivercontrol_t *) (((uint8_t *) this) + m_nControlIndex) + i;
     }
 
     int unused[3];
 
-    mstudioboneflexdriver_t() {
-    }
-
-private:
-    // No copy constructors allowed
-    mstudioboneflexdriver_t(const mstudioboneflexdriver_t &vOther);
+    mstudioboneflexdriver_t(const mstudioboneflexdriver_t &vOther) = delete;
 };
 
 
-#define BONE_CALCULATE_MASK			0x1F
-#define BONE_PHYSICALLY_SIMULATED	0x01	// bone is physically simulated when physics are active
-#define BONE_PHYSICS_PROCEDURAL		0x02	// procedural when physics is active
-#define BONE_ALWAYS_PROCEDURAL		0x04	// bone is always procedurally animated
-#define BONE_SCREEN_ALIGN_SPHERE	0x08	// bone aligns to the screen, not constrained in motion.
-#define BONE_SCREEN_ALIGN_CYLINDER	0x10	// bone aligns to the screen, constrained by it's own axis.
-#define BONE_WORLD_ALIGN			0x20	// bone is rigidly aligned to the world (but can still translate)
-
-#define BONE_USED_MASK				0x000FFF00u
-#define BONE_USED_BY_ANYTHING		0x000FFF00u
-#define BONE_USED_BY_HITBOX			0x00000100u	// bone (or child) is used by a hit box
-#define BONE_USED_BY_ATTACHMENT		0x00000200u	// bone (or child) is used by an attachment point
-#define BONE_USED_BY_VERTEX_MASK	0x0003FC00u
-#define BONE_USED_BY_VERTEX_LOD0	0x00000400u	// bone (or child) is used by the toplevel model via skinned vertex
-#define BONE_USED_BY_VERTEX_LOD1	0x00000800u
-#define BONE_USED_BY_VERTEX_LOD2	0x00001000u
-#define BONE_USED_BY_VERTEX_LOD3	0x00002000u
-#define BONE_USED_BY_VERTEX_LOD4	0x00004000u
-#define BONE_USED_BY_VERTEX_LOD5	0x00008000u
-#define BONE_USED_BY_VERTEX_LOD6	0x00010000u
-#define BONE_USED_BY_VERTEX_LOD7	0x00020000u
-#define BONE_USED_BY_BONE_MERGE		0x00040000u	// bone is available for bone merge to occur against it
-#define BONE_ALWAYS_SETUP			0x00080000u
-
-#define BONE_USED_BY_VERTEX_AT_LOD(lod) ( BONE_USED_BY_VERTEX_LOD0 << (lod) )
-#define BONE_USED_BY_ANYTHING_AT_LOD(lod) ( ( BONE_USED_BY_ANYTHING & ~BONE_USED_BY_VERTEX_MASK ) | BONE_USED_BY_VERTEX_AT_LOD(lod) )
-
 #define MAX_NUM_LODS 8
-
-#define BONE_TYPE_MASK				0x00F00000u
-#define BONE_FIXED_ALIGNMENT		0x00100000u	// bone can't spin 360 degrees, all interpolation is normalized around a fixed orientation
-
-
-#define BONE_HAS_SAVEFRAME_POS		0x00200000u	// Vector48
-#define BONE_HAS_SAVEFRAME_ROT64	0x00400000u	// Quaternion64
-#define BONE_HAS_SAVEFRAME_ROT32	0x00800000u	// Quaternion32
 
 // bone controllers
 struct mstudiobonecontroller_t {
     int bone; // -1 == 0
-    int type; // X, Y, Z, XR, YR, ZR, M
+    StudioMotionFlags type; // X, Y, Z, XR, YR, ZR, M
     float start;
     float end;
     int rest; // byte index value at rest
@@ -678,20 +720,15 @@ struct mstudiobbox_t {
         return ((const char *) this) + szhitboxnameindex;
     }
 
-    mstudiobbox_t() {
-    }
-
-private:
-    // No copy constructors allowed
-    mstudiobbox_t(const mstudiobbox_t &vOther);
+    mstudiobbox_t(const mstudiobbox_t &vOther) = delete;
 };
 
 // demand loaded sequence groups
 struct mstudiomodelgroup_t {
     int szlabelindex; // textual name
-    inline char *const pszLabel(void) const { return ((char *) this) + szlabelindex; }
+    char *const pszLabel(void) const { return ((char *) this) + szlabelindex; }
     int sznameindex; // file name
-    inline char *const pszName(void) const { return ((char *) this) + sznameindex; }
+    char *const pszName(void) const { return ((char *) this) + sznameindex; }
 };
 
 struct mstudiomodelgrouplookup_t {
@@ -705,7 +742,7 @@ struct mstudioanimtag_t {
     float cycle;
 
     int sztagindex;
-    inline char *const pszTagName(void) const { return ((char *) this) + sztagindex; }
+    char *const pszTagName(void) const { return ((char *) this) + sztagindex; }
 };
 
 // events
@@ -713,43 +750,48 @@ struct mstudioanimtag_t {
 struct mstudioevent_t {
     float cycle;
     int event;
-    int type;
-    inline const char *pszOptions(void) const { return options; }
+    StudioEventType type;
+    const char *pszOptions(void) const { return options; }
     char options[64];
 
     int szeventindex;
-    inline char *const pszEventName(void) const { return ((char *) this) + szeventindex; }
+    char *const pszEventName(void) const { return ((char *) this) + szeventindex; }
 };
 
-#define	ATTACHMENT_FLAG_WORLD_ALIGN 0x10000
+// mstudioattachment_t::flags
+enum class AttachmentFlags : uint32_t {
+    None = 0,
+    WorldAlign = 0x10000,
+};
+
+ENUM_OPERATORS(AttachmentFlags)
 
 // attachment
 struct mstudioattachment_t {
     int sznameindex;
-    inline char *const pszName(void) const { return ((char *) this) + sznameindex; }
-    unsigned int flags;
+    char *const pszName(void) const { return ((char *) this) + sznameindex; }
+    AttachmentFlags flags;
     int localbone;
     matrix3x4_t local; // attachment point
     int unused[8];
 };
 
-#define IK_SELF 1
-#define IK_WORLD 2
-#define IK_GROUND 3
-#define IK_RELEASE 4
-#define IK_ATTACHMENT 5
-#define IK_UNLATCH 6
+// mstudioikrule_t::type
+enum class IkRuleType : int {
+    None = 0,
+    Self = 1,
+    World = 2,
+    Ground = 3,
+    Release = 4,
+    Attachment = 5,
+    Unlatch = 6,
+};
 
 struct mstudioikerror_t {
     Vector pos;
     Quaternion q;
 
-    mstudioikerror_t() {
-    }
-
-private:
-    // No copy constructors allowed
-    mstudioikerror_t(const mstudioikerror_t &vOther);
+    mstudioikerror_t(const mstudioikerror_t &vOther) = delete;
 };
 
 union mstudioanimvalue_t;
@@ -758,23 +800,18 @@ struct mstudiocompressedikerror_t {
     float scale[6];
     short offset[6];
 
-    inline mstudioanimvalue_t *pAnimvalue(int i) const {
+    mstudioanimvalue_t *pAnimvalue(int i) const {
         if (offset[i] > 0) return (mstudioanimvalue_t *) (((uint8_t *) this) + offset[i]);
         else return nullptr;
     };
 
-    mstudiocompressedikerror_t() {
-    }
-
-private:
-    // No copy constructors allowed
-    mstudiocompressedikerror_t(const mstudiocompressedikerror_t &vOther);
+    mstudiocompressedikerror_t(const mstudiocompressedikerror_t &vOther) = delete;
 };
 
 struct mstudioikrule_t {
     int index;
 
-    int type;
+    IkRuleType type;
     int chain;
 
     int bone;
@@ -788,7 +825,7 @@ struct mstudioikrule_t {
 
     int compressedikerrorindex;
 
-    inline mstudiocompressedikerror_t *pCompressedError() const {
+    mstudiocompressedikerror_t *pCompressedError() const {
         return (mstudiocompressedikerror_t *) (((uint8_t *) this) + compressedikerrorindex);
     };
     int unused2;
@@ -796,7 +833,7 @@ struct mstudioikrule_t {
     int iStart;
     int ikerrorindex;
 
-    inline mstudioikerror_t *pError(int i) const {
+    mstudioikerror_t *pError(int i) const {
         return (ikerrorindex) ? (mstudioikerror_t *) (((uint8_t *) this) + ikerrorindex) + (i - iStart) : nullptr;
     };
 
@@ -815,16 +852,11 @@ struct mstudioikrule_t {
     int unused8;
 
     int szattachmentindex; // name of world attachment
-    inline char *const pszAttachment(void) const { return ((char *) this) + szattachmentindex; }
+    char *const pszAttachment(void) const { return ((char *) this) + szattachmentindex; }
 
     int unused[7];
 
-    mstudioikrule_t() {
-    }
-
-private:
-    // No copy constructors allowed
-    mstudioikrule_t(const mstudioikrule_t &vOther);
+    mstudioikrule_t(const mstudioikrule_t &vOther) = delete;
 };
 
 
@@ -861,7 +893,7 @@ struct mstudiolocalhierarchy_t {
 
     int localanimindex;
 
-    inline mstudiocompressedikerror_t *pLocalAnim() const {
+    mstudiocompressedikerror_t *pLocalAnim() const {
         return (mstudiocompressedikerror_t *) (((uint8_t *) this) + localanimindex);
     };
 
@@ -882,69 +914,83 @@ union mstudioanimvalue_t {
 struct mstudioanim_valueptr_t {
     short offset[3];
 
-    inline mstudioanimvalue_t *pAnimvalue(int i) const {
+    mstudioanimvalue_t *pAnimvalue(int i) const {
         if (offset[i] > 0) return (mstudioanimvalue_t *) (((uint8_t *) this) + offset[i]);
         else return nullptr;
     };
 };
 
-#define STUDIO_ANIM_RAWPOS	0x01 // Vector48
-#define STUDIO_ANIM_RAWROT	0x02 // Quaternion48
-#define STUDIO_ANIM_ANIMPOS	0x04 // mstudioanim_valueptr_t
-#define STUDIO_ANIM_ANIMROT	0x08 // mstudioanim_valueptr_t
-#define STUDIO_ANIM_DELTA	0x10
-#define STUDIO_ANIM_RAWROT2	0x20 // Quaternion64
+// mstudio_rle_anim_t::flags
+enum class StudioAnimFlags : uint8_t {
+    None = 0x00,
+    RawPos = 0x01, // Vector48
+    RawRot = 0x02, // Quaternion48
+    AnimPos = 0x04, // mstudioanim_valueptr_t
+    AnimRot = 0x08, // mstudioanim_valueptr_t
+    Delta = 0x10,
+    RawRot2 = 0x20, // Quaternion64
+};
+
+ENUM_OPERATORS(StudioAnimFlags)
 
 // per bone per animation DOF and weight pointers, RLE encoded
 struct mstudio_rle_anim_t {
     uint8_t bone;
-    uint8_t flags; // weighing options
+    StudioAnimFlags flags; // weighing options
 
     // valid for animating data only
-    inline uint8_t *pData(void) const { return (((uint8_t *) this) + sizeof(struct mstudio_rle_anim_t)); };
-    inline mstudioanim_valueptr_t *pRotV(void) const { return (mstudioanim_valueptr_t *) (pData()); };
+    uint8_t *pData(void) const { return (((uint8_t *) this) + sizeof(struct mstudio_rle_anim_t)); };
+    mstudioanim_valueptr_t *pRotV(void) const { return (mstudioanim_valueptr_t *) (pData()); };
 
-    inline mstudioanim_valueptr_t *pPosV(void) const {
-        return (mstudioanim_valueptr_t *) (pData()) + ((flags & STUDIO_ANIM_ANIMROT) != 0);
+    mstudioanim_valueptr_t *pPosV(void) const {
+        return (mstudioanim_valueptr_t *) (pData()) + HasFlag(flags, StudioAnimFlags::AnimRot);
     };
 
     // valid if animation unvaring over timeline
-    inline Quaternion48 *pQuat48(void) const { return (Quaternion48 *) (pData()); };
-    inline Quaternion64 *pQuat64(void) const { return (Quaternion64 *) (pData()); };
+    Quaternion48 *pQuat48(void) const { return (Quaternion48 *) (pData()); };
+    Quaternion64 *pQuat64(void) const { return (Quaternion64 *) (pData()); };
 
-    inline Vector48 *pPos(void) const {
-        return (Vector48 *) (pData() + ((flags & STUDIO_ANIM_RAWROT) != 0) * sizeof(*pQuat48()) + (
-                                 (flags & STUDIO_ANIM_RAWROT2) != 0) * sizeof(*pQuat64()));
+    Vector48 *pPos(void) const {
+        return (Vector48 *) (pData() + HasFlag(flags, StudioAnimFlags::RawRot) * sizeof(*pQuat48()) +
+                             HasFlag(flags, StudioAnimFlags::RawRot2) * sizeof(*pQuat64()));
     };
 
     // points to next bone in the list
     short nextoffset;
 
-    inline mstudio_rle_anim_t *pNext(void) const {
+    mstudio_rle_anim_t *pNext(void) const {
         if (nextoffset != 0) return (mstudio_rle_anim_t *) (((uint8_t *) this) + nextoffset);
         else return nullptr;
     };
 };
 
 
-#define STUDIO_FRAME_CONST_POS	0x01 // Vector48 in constants
-#define STUDIO_FRAME_CONST_ROT	0x02 // Quaternion48 in constants
-#define STUDIO_FRAME_ANIM_POS	0x04 // Vector48 in framedata
-#define STUDIO_FRAME_ANIM_ROT	0x08 // Quaternion48 in framedata
-#define STUDIO_FRAME_ANIM_POS2	0x10 // Vector in framedata
-#define STUDIO_FRAME_CONST_POS2	0x20 // Vector in constants
-#define STUDIO_FRAME_CONST_ROT2	0x40 // Quaternion48S in constants
-#define STUDIO_FRAME_ANIM_ROT2	0x80 // Quaternion48S in framedata
+// per bone flags of mstudio_frame_anim_t (pBoneFlags)
+enum class StudioFrameFlags : uint8_t {
+    None = 0x00,
+    ConstPos = 0x01, // Vector48 in constants
+    ConstRot = 0x02, // Quaternion48 in constants
+    AnimPos = 0x04, // Vector48 in framedata
+    AnimRot = 0x08, // Quaternion48 in framedata
+    AnimPos2 = 0x10, // Vector in framedata
+    ConstPos2 = 0x20, // Vector in constants
+    ConstRot2 = 0x40, // Quaternion48S in constants
+    AnimRot2 = 0x80, // Quaternion48S in framedata
+};
+
+ENUM_OPERATORS(StudioFrameFlags)
 
 struct mstudio_frame_anim_t {
-    inline uint8_t *pBoneFlags(void) const { return (((uint8_t *) this) + sizeof(struct mstudio_frame_anim_t)); };
+    StudioFrameFlags *pBoneFlags(void) const {
+        return (StudioFrameFlags *) (((uint8_t *) this) + sizeof(struct mstudio_frame_anim_t));
+    };
 
     int constantsoffset;
-    inline uint8_t *pConstantData(void) const { return (((uint8_t *) this) + constantsoffset); };
+    uint8_t *pConstantData(void) const { return (((uint8_t *) this) + constantsoffset); };
 
     int frameoffset;
     int framelength;
-    inline uint8_t *pFrameData(int iFrame) const { return (((uint8_t *) this) + frameoffset + iFrame * framelength); };
+    uint8_t *pFrameData(int iFrame) const { return (((uint8_t *) this) + frameoffset + iFrame * framelength); };
 
     int unused[3];
 };
@@ -952,19 +998,14 @@ struct mstudio_frame_anim_t {
 
 struct mstudiomovement_t {
     int endframe;
-    int motionflags;
+    StudioMotionFlags motionflags;
     float v0; // velocity at start of block
     float v1; // velocity at end of block
     float angle; // YAW rotation at end of this blocks movement
     Vector vector; // movement vector relative to this blocks initial angle
     Vector position; // relative to start of animation???
 
-    mstudiomovement_t() {
-    }
-
-private:
-    // No copy constructors allowed
-    mstudiomovement_t(const mstudiomovement_t &vOther);
+    mstudiomovement_t(const mstudiomovement_t &vOther) = delete;
 };
 
 // used for piecewise loading of animation data
@@ -980,13 +1021,13 @@ struct mstudioanimsections_t {
 
 struct mstudioanimdesc_t {
     int baseptr;
-    inline studiohdr_t *pStudiohdr(void) const { return (studiohdr_t *) (((uint8_t *) this) + baseptr); }
+    studiohdr_t *pStudiohdr(void) const { return (studiohdr_t *) (((uint8_t *) this) + baseptr); }
 
     int sznameindex;
-    inline char *const pszName(void) const { return ((char *) this) + sznameindex; }
+    char *const pszName(void) const { return ((char *) this) + sznameindex; }
 
     float fps; // frames per second
-    int flags; // looping/non-looping flags
+    StudioSequenceFlags flags; // looping/non-looping flags
 
     int numframes;
 
@@ -994,7 +1035,7 @@ struct mstudioanimdesc_t {
     int nummovements;
     int movementindex;
 
-    inline mstudiomovement_t *const pMovement(int i) const {
+    mstudiomovement_t *const pMovement(int i) const {
         return (mstudiomovement_t *) (((uint8_t *) this) + movementindex) + i;
     };
 
@@ -1029,7 +1070,7 @@ struct mstudioanimdesc_t {
 
     int sectionindex;
     int sectionframes; // number of frames used in each fast lookup section, zero if not used
-    inline mstudioanimsections_t *const pSection(int i) const {
+    mstudioanimsections_t *const pSection(int i) const {
         return (mstudioanimsections_t *) (((uint8_t *) this) + sectionindex) + i;
     }
 
@@ -1043,12 +1084,7 @@ struct mstudioanimdesc_t {
     };
     mutable float zeroframestalltime; // saved during read stalls
 
-    mstudioanimdesc_t() {
-    }
-
-private:
-    // No copy constructors allowed
-    mstudioanimdesc_t(const mstudioanimdesc_t &vOther);
+    mstudioanimdesc_t(const mstudioanimdesc_t &vOther) = delete;
 };
 
 struct mstudioikrule_t;
@@ -1058,7 +1094,7 @@ struct mstudioautolayer_t {
     short iSequence;
     short iPose;
     //public:
-    int flags;
+    AutoLayerFlags flags;
     float start; // beginning of influence
     float peak; // start of full influence
     float tail; // end of full influence
@@ -1067,21 +1103,21 @@ struct mstudioautolayer_t {
 
 struct mstudioactivitymodifier_t {
     int sznameindex;
-    inline char *pszName() { return (sznameindex) ? (char *) (((uint8_t *) this) + sznameindex) : nullptr; }
+    char *pszName() { return (sznameindex) ? (char *) (((uint8_t *) this) + sznameindex) : nullptr; }
 };
 
 // sequence descriptions
 struct mstudioseqdesc_t {
     int baseptr;
-    inline studiohdr_t *pStudiohdr(void) const { return (studiohdr_t *) (((uint8_t *) this) + baseptr); }
+    studiohdr_t *pStudiohdr(void) const { return (studiohdr_t *) (((uint8_t *) this) + baseptr); }
 
     int szlabelindex;
-    inline char *const pszLabel(void) const { return ((char *) this) + szlabelindex; }
+    char *const pszLabel(void) const { return ((char *) this) + szlabelindex; }
 
     int szactivitynameindex;
-    inline char *const pszActivityName(void) const { return ((char *) this) + szactivitynameindex; }
+    char *const pszActivityName(void) const { return ((char *) this) + szactivitynameindex; }
 
-    int flags; // looping/non-looping flags
+    StudioSequenceFlags flags; // looping/non-looping flags
 
     int activity; // initialized at loadtime to game DLL values
     int actweight;
@@ -1089,7 +1125,7 @@ struct mstudioseqdesc_t {
     int numevents;
     int eventindex;
 
-    inline mstudioevent_t *pEvent(int i) const {
+    mstudioevent_t *pEvent(int i) const {
         Assert(i >= 0 && i < numevents);
         return (mstudioevent_t *) (((uint8_t *) this) + eventindex) + i;
     };
@@ -1102,7 +1138,7 @@ struct mstudioseqdesc_t {
     // Index into array of shorts which is groupsize[0] x groupsize[1] in length
     int animindexindex;
 
-    inline int anim(int x, int y) const {
+    int anim(int x, int y) const {
         if (x >= groupsize[0]) {
             x = groupsize[0] - 1;
         }
@@ -1144,14 +1180,14 @@ struct mstudioseqdesc_t {
     int numautolayers; //
     int autolayerindex;
 
-    inline mstudioautolayer_t *pAutolayer(int i) const {
+    mstudioautolayer_t *pAutolayer(int i) const {
         Assert(i >= 0 && i < numautolayers);
         return (mstudioautolayer_t *) (((uint8_t *) this) + autolayerindex) + i;
     };
 
     int weightlistindex;
-    inline float *pBoneweight(int i) const { return ((float *) (((uint8_t *) this) + weightlistindex) + i); };
-    inline float weight(int i) const { return *(pBoneweight(i)); };
+    float *pBoneweight(int i) const { return ((float *) (((uint8_t *) this) + weightlistindex) + i); };
+    float weight(int i) const { return *(pBoneweight(i)); };
 
     // FIXME: make this 2D instead of 2x1D arrays
     int posekeyindex;
@@ -1165,7 +1201,7 @@ struct mstudioseqdesc_t {
     int numiklocks;
     int iklockindex;
 
-    inline mstudioiklock_t *pIKLock(int i) const {
+    mstudioiklock_t *pIKLock(int i) const {
         Assert(i >= 0 && i < numiklocks);
         return (mstudioiklock_t *) (((uint8_t *) this) + iklockindex) + i;
     };
@@ -1174,7 +1210,7 @@ struct mstudioseqdesc_t {
     int keyvalueindex;
     int keyvaluesize;
 
-    inline const char *KeyValueText(void) const {
+    const char *KeyValueText(void) const {
         return keyvaluesize != 0 ? ((char *) this) + keyvalueindex : nullptr;
     }
 
@@ -1183,7 +1219,7 @@ struct mstudioseqdesc_t {
     int activitymodifierindex;
     int numactivitymodifiers;
 
-    inline mstudioactivitymodifier_t *pActivityModifier(int i) const {
+    mstudioactivitymodifier_t *pActivityModifier(int i) const {
         Assert(i >= 0 && i < numactivitymodifiers);
         return activitymodifierindex != 0
                    ? (mstudioactivitymodifier_t *) (((uint8_t *) this) + activitymodifierindex) + i
@@ -1193,7 +1229,7 @@ struct mstudioseqdesc_t {
     int animtagindex;
     int numanimtags;
 
-    inline mstudioanimtag_t *pAnimTag(int i) const {
+    mstudioanimtag_t *pAnimTag(int i) const {
         Assert(i >= 0 && i < numanimtags);
         return (mstudioanimtag_t *) (((uint8_t *) this) + animtagindex) + i;
     };
@@ -1202,19 +1238,14 @@ struct mstudioseqdesc_t {
 
     int unused[2]; // remove/add as appropriate (grow back to 8 ints on version change!)
 
-    mstudioseqdesc_t() {
-    }
-
-private:
-    // No copy constructors allowed
-    mstudioseqdesc_t(const mstudioseqdesc_t &vOther);
+    mstudioseqdesc_t(const mstudioseqdesc_t &vOther) = delete;
 };
 
 
 struct mstudioposeparamdesc_t {
     int sznameindex;
-    inline char *const pszName(void) const { return ((char *) this) + sznameindex; }
-    int flags; // ????
+    char *const pszName(void) const { return ((char *) this) + sznameindex; }
+    StudioSequenceFlags flags; // Looping or None
     float start; // starting value
     float end; // ending value
     float loop; // looping range, 0 for no looping, 360 for rotations, etc.
@@ -1222,15 +1253,15 @@ struct mstudioposeparamdesc_t {
 
 struct mstudioflexdesc_t {
     int szFACSindex;
-    inline char *const pszFACS(void) const { return ((char *) this) + szFACSindex; }
+    char *const pszFACS(void) const { return ((char *) this) + szFACSindex; }
 };
 
 
 struct mstudioflexcontroller_t {
     int sztypeindex;
-    inline char *const pszType(void) const { return ((char *) this) + sztypeindex; }
+    char *const pszType(void) const { return ((char *) this) + sztypeindex; }
     int sznameindex;
-    inline char *const pszName(void) const { return ((char *) this) + sznameindex; }
+    char *const pszName(void) const { return ((char *) this) + sznameindex; }
     mutable int localToGlobal; // remapped at load time to master list
     float min;
     float max;
@@ -1238,11 +1269,11 @@ struct mstudioflexcontroller_t {
 
 
 enum FlexControllerRemapType_t {
-    FLEXCONTROLLER_REMAP_PASSTHRU = 0,
-    FLEXCONTROLLER_REMAP_2WAY, // Control 0 -> ramps from 1-0 from 0->0.5. Control 1 -> ramps from 0-1 from 0.5->1
-    FLEXCONTROLLER_REMAP_NWAY,
+    Passthru = 0,
+    _2way, // Control 0 -> ramps from 1-0 from 0->0.5. Control 1 -> ramps from 0-1 from 0.5->1
+    Nway,
     // StepSize = 1 / (control count-1) Control n -> ramps from 0-1-0 from (n-1)*StepSize to n*StepSize to (n+1)*StepSize. A second control is needed to specify amount to use
-    FLEXCONTROLLER_REMAP_EYELID
+    Eyelid
 };
 
 
@@ -1250,7 +1281,7 @@ class CStudioHdr;
 
 struct mstudioflexcontrollerui_t {
     int sznameindex;
-    inline char *const pszName(void) const { return ((char *) this) + sznameindex; }
+    char *const pszName(void) const { return ((char *) this) + sznameindex; }
 
     // These are used like a union to save space
     // Here are the possible configurations for a UI controller
@@ -1264,48 +1295,48 @@ struct mstudioflexcontrollerui_t {
     int szindex1;
     int szindex2;
 
-    inline const mstudioflexcontroller_t *pController(void) const {
+    const mstudioflexcontroller_t *pController(void) const {
         return !stereo ? (mstudioflexcontroller_t *) ((char *) this + szindex0) : nullptr;
     }
 
-    inline char *const pszControllerName(void) const { return !stereo ? pController()->pszName() : nullptr; }
+    char *const pszControllerName(void) const { return !stereo ? pController()->pszName() : nullptr; }
 
     inline int controllerIndex(const CStudioHdr &cStudioHdr) const;
 
-    inline const mstudioflexcontroller_t *pLeftController(void) const {
+    const mstudioflexcontroller_t *pLeftController(void) const {
         return stereo ? (mstudioflexcontroller_t *) ((char *) this + szindex0) : nullptr;
     }
 
-    inline char *const pszLeftName(void) const { return stereo ? pLeftController()->pszName() : nullptr; }
+    char *const pszLeftName(void) const { return stereo ? pLeftController()->pszName() : nullptr; }
 
     inline int leftIndex(const CStudioHdr &cStudioHdr) const;
 
-    inline const mstudioflexcontroller_t *pRightController(void) const {
+    const mstudioflexcontroller_t *pRightController(void) const {
         return stereo ? (mstudioflexcontroller_t *) ((char *) this + szindex1) : nullptr;
     }
 
-    inline char *const pszRightName(void) const { return stereo ? pRightController()->pszName() : nullptr; }
+    char *const pszRightName(void) const { return stereo ? pRightController()->pszName() : nullptr; }
 
     inline int rightIndex(const CStudioHdr &cStudioHdr) const;
 
-    inline const mstudioflexcontroller_t *pNWayValueController(void) const {
-        return remaptype == FLEXCONTROLLER_REMAP_NWAY
+    const mstudioflexcontroller_t *pNWayValueController(void) const {
+        return remaptype == Nway
                    ? (mstudioflexcontroller_t *) ((char *) this + szindex2)
                    : nullptr;
     }
 
-    inline char *const pszNWayValueName(void) const {
-        return remaptype == FLEXCONTROLLER_REMAP_NWAY ? pNWayValueController()->pszName() : nullptr;
+    char *const pszNWayValueName(void) const {
+        return remaptype == Nway ? pNWayValueController()->pszName() : nullptr;
     }
 
     inline int nWayValueIndex(const CStudioHdr &cStudioHdr) const;
 
     // Number of controllers this ui description contains, 1, 2 or 3
-    inline int Count() const { return (stereo ? 2 : 1) + (remaptype == FLEXCONTROLLER_REMAP_NWAY ? 1 : 0); }
+    int Count() const { return (stereo ? 2 : 1) + (remaptype == Nway ? 1 : 0); }
 
     inline const mstudioflexcontroller_t *pController(int index) const;
 
-    unsigned char remaptype; // See the FlexControllerRemapType_t enum
+    uint8_t remaptype; // See the FlexControllerRemapType_t enum
     bool stereo; // Is this a stereo control?
     uint8_t unused[2];
 };
@@ -1329,7 +1360,7 @@ protected:
     };
 
 public:
-    inline void ConvertToFixed(float flVertAnimFixedPointScale) {
+    void ConvertToFixed(float flVertAnimFixedPointScale) {
         delta[0] = (short) (flDelta[0].GetFloat() / flVertAnimFixedPointScale);
         delta[1] = (short) (flDelta[1].GetFloat() / flVertAnimFixedPointScale);
         delta[2] = (short) (flDelta[2].GetFloat() / flVertAnimFixedPointScale);
@@ -1338,54 +1369,54 @@ public:
         ndelta[2] = (short) (flNDelta[2].GetFloat() / flVertAnimFixedPointScale);
     }
 
-    inline Vector GetDeltaFixed(float flVertAnimFixedPointScale) {
+    Vector GetDeltaFixed(float flVertAnimFixedPointScale) {
         return Vector(delta[0] * flVertAnimFixedPointScale, delta[1] * flVertAnimFixedPointScale,
                       delta[2] * flVertAnimFixedPointScale);
     }
 
-    inline Vector GetNDeltaFixed(float flVertAnimFixedPointScale) {
+    Vector GetNDeltaFixed(float flVertAnimFixedPointScale) {
         return Vector(ndelta[0] * flVertAnimFixedPointScale, ndelta[1] * flVertAnimFixedPointScale,
                       ndelta[2] * flVertAnimFixedPointScale);
     }
 
-    inline void GetDeltaFixed4DAligned(Vector4DAligned *vFillIn, float flVertAnimFixedPointScale) {
+    void GetDeltaFixed4DAligned(Vector4DAligned *vFillIn, float flVertAnimFixedPointScale) {
         vFillIn->Set(delta[0] * flVertAnimFixedPointScale, delta[1] * flVertAnimFixedPointScale,
                      delta[2] * flVertAnimFixedPointScale, 0.0f);
     }
 
-    inline void GetNDeltaFixed4DAligned(Vector4DAligned *vFillIn, float flVertAnimFixedPointScale) {
+    void GetNDeltaFixed4DAligned(Vector4DAligned *vFillIn, float flVertAnimFixedPointScale) {
         vFillIn->Set(ndelta[0] * flVertAnimFixedPointScale, ndelta[1] * flVertAnimFixedPointScale,
                      ndelta[2] * flVertAnimFixedPointScale, 0.0f);
     }
 
-    inline Vector GetDeltaFloat() {
+    Vector GetDeltaFloat() {
         return Vector(flDelta[0].GetFloat(), flDelta[1].GetFloat(), flDelta[2].GetFloat());
     }
 
-    inline Vector GetNDeltaFloat() {
+    Vector GetNDeltaFloat() {
         return Vector(flNDelta[0].GetFloat(), flNDelta[1].GetFloat(), flNDelta[2].GetFloat());
     }
 
-    inline void SetDeltaFixed(const Vector &vInput, float flVertAnimFixedPointScale) {
+    void SetDeltaFixed(const Vector &vInput, float flVertAnimFixedPointScale) {
         delta[0] = (short) (vInput.x / flVertAnimFixedPointScale);
         delta[1] = (short) (vInput.y / flVertAnimFixedPointScale);
         delta[2] = (short) (vInput.z / flVertAnimFixedPointScale);
     }
 
-    inline void SetNDeltaFixed(const Vector &vInputNormal, float flVertAnimFixedPointScale) {
+    void SetNDeltaFixed(const Vector &vInputNormal, float flVertAnimFixedPointScale) {
         ndelta[0] = (short) (vInputNormal.x / flVertAnimFixedPointScale);
         ndelta[1] = (short) (vInputNormal.y / flVertAnimFixedPointScale);
         ndelta[2] = (short) (vInputNormal.z / flVertAnimFixedPointScale);
     }
 
     // Ick...can also force fp16 data into this structure for writing to file in legacy format...
-    inline void SetDeltaFloat(const Vector &vInput) {
+    void SetDeltaFloat(const Vector &vInput) {
         flDelta[0].SetFloat(vInput.x);
         flDelta[1].SetFloat(vInput.y);
         flDelta[2].SetFloat(vInput.z);
     }
 
-    inline void SetNDeltaFloat(const Vector &vInputNormal) {
+    void SetNDeltaFloat(const Vector &vInputNormal) {
         flNDelta[0].SetFloat(vInputNormal.x);
         flNDelta[1].SetFloat(vInputNormal.y);
         flNDelta[2].SetFloat(vInputNormal.z);
@@ -1400,9 +1431,6 @@ public:
 
     friend class CSortByIndex;
 
-    mstudiovertanim_t() {
-    }
-
     //private:
     // No copy constructors allowed, but it's needed for std::sort()
     //	mstudiovertanim_t(const mstudiovertanim_t& vOther);
@@ -1413,30 +1441,30 @@ public:
 struct mstudiovertanim_wrinkle_t : public mstudiovertanim_t {
     short wrinkledelta;
 
-    inline void SetWrinkleFixed(float flWrinkle, float flVertAnimFixedPointScale) {
+    void SetWrinkleFixed(float flWrinkle, float flVertAnimFixedPointScale) {
         int nWrinkleDeltaInt = (int) (flWrinkle / flVertAnimFixedPointScale);
         wrinkledelta = clamp(nWrinkleDeltaInt, -32767, 32767);
     }
 
-    inline Vector4D GetDeltaFixed(float flVertAnimFixedPointScale) {
+    Vector4D GetDeltaFixed(float flVertAnimFixedPointScale) {
         return Vector4D(delta[0] * flVertAnimFixedPointScale, delta[1] * flVertAnimFixedPointScale,
                         delta[2] * flVertAnimFixedPointScale, wrinkledelta * flVertAnimFixedPointScale);
     }
 
-    inline void GetDeltaFixed4DAligned(Vector4DAligned *vFillIn, float flVertAnimFixedPointScale) {
+    void GetDeltaFixed4DAligned(Vector4DAligned *vFillIn, float flVertAnimFixedPointScale) {
         vFillIn->Set(delta[0] * flVertAnimFixedPointScale, delta[1] * flVertAnimFixedPointScale,
                      delta[2] * flVertAnimFixedPointScale, wrinkledelta * flVertAnimFixedPointScale);
     }
 
-    inline float GetWrinkleDeltaFixed(float flVertAnimFixedPointScale) {
+    float GetWrinkleDeltaFixed(float flVertAnimFixedPointScale) {
         return wrinkledelta * flVertAnimFixedPointScale;
     }
 };
 
 
 enum StudioVertAnimType_t {
-    STUDIO_VERT_ANIM_NORMAL = 0,
-    STUDIO_VERT_ANIM_WRINKLE,
+    Normal = 0,
+    Wrinkle,
 };
 
 
@@ -1451,33 +1479,33 @@ struct mstudioflex_t {
     int numverts;
     int vertindex;
 
-    inline mstudiovertanim_t *pVertanim(int i) const {
+    mstudiovertanim_t *pVertanim(int i) const {
         Assert(vertanimtype == STUDIO_VERT_ANIM_NORMAL);
         return (mstudiovertanim_t *) (((uint8_t *) this) + vertindex) + i;
     };
 
-    inline mstudiovertanim_wrinkle_t *pVertanimWrinkle(int i) const {
+    mstudiovertanim_wrinkle_t *pVertanimWrinkle(int i) const {
         Assert(vertanimtype == STUDIO_VERT_ANIM_WRINKLE);
         return (mstudiovertanim_wrinkle_t *) (((uint8_t *) this) + vertindex) + i;
     };
 
-    inline uint8_t *pBaseVertanim() const { return ((uint8_t *) this) + vertindex; };
+    uint8_t *pBaseVertanim() const { return ((uint8_t *) this) + vertindex; };
 
-    inline int VertAnimSizeBytes() const {
-        return (vertanimtype == STUDIO_VERT_ANIM_NORMAL)
+    int VertAnimSizeBytes() const {
+        return (vertanimtype == Normal)
                    ? sizeof(mstudiovertanim_t)
                    : sizeof(mstudiovertanim_wrinkle_t);
     }
 
     int flexpair; // second flex desc
-    unsigned char vertanimtype; // See StudioVertAnimType_t
-    unsigned char unusedchar[3];
+    uint8_t vertanimtype; // See StudioVertAnimType_t
+    uint8_t unusedchar[3];
     int unused[6];
 };
 
 
 struct mstudioflexop_t {
-    int op;
+    StudioOpcode op;
 
     union {
         int index;
@@ -1489,7 +1517,7 @@ struct mstudioflexrule_t {
     int flex;
     int numops;
     int opindex;
-    inline mstudioflexop_t *iFlexOp(int i) const { return (mstudioflexop_t *) (((uint8_t *) this) + opindex) + i; };
+    mstudioflexop_t *iFlexOp(int i) const { return (mstudioflexop_t *) (((uint8_t *) this) + opindex) + i; };
 };
 
 // 16 bytes
@@ -1521,7 +1549,7 @@ private:
 // skin info
 struct mstudiotexture_t {
     int sznameindex;
-    inline char *const pszName(void) const { return ((char *) this) + sznameindex; }
+    char *const pszName(void) const { return ((char *) this) + sznameindex; }
     int flags;
     int used;
     int unused1;
@@ -1542,7 +1570,7 @@ struct mstudiotexture_t {
 // eyeball
 struct mstudioeyeball_t {
     int sznameindex;
-    inline char *const pszName(void) const { return ((char *) this) + sznameindex; }
+    char *const pszName(void) const { return ((char *) this) + sznameindex; }
     int bone;
     Vector org;
     float zoffset;
@@ -1592,11 +1620,11 @@ private:
 
 struct mstudioikchain_t {
     int sznameindex;
-    inline char *const pszName(void) const { return ((char *) this) + sznameindex; }
+    char *const pszName(void) const { return ((char *) this) + sznameindex; }
     int linktype;
     int numlinks;
     int linkindex;
-    inline mstudioiklink_t *pLink(int i) const { return (mstudioiklink_t *) (((uint8_t *) this) + linkindex) + i; };
+    mstudioiklink_t *pLink(int i) const { return (mstudioiklink_t *) (((uint8_t *) this) + linkindex) + i; };
     // FIXME: add unused entries
 };
 
@@ -1712,7 +1740,7 @@ struct mstudiomesh_t {
 
     int numflexes; // vertex animation
     int flexindex;
-    inline mstudioflex_t *pFlex(int i) const { return (mstudioflex_t *) (((uint8_t *) this) + flexindex) + i; };
+    mstudioflex_t *pFlex(int i) const { return (mstudioflex_t *) (((uint8_t *) this) + flexindex) + i; };
 
     // special codes for material operations
     int materialtype;
@@ -1737,7 +1765,7 @@ private:
 
 // studio models
 struct mstudiomodel_t {
-    inline const char *pszName(void) const { return name; }
+    const char *pszName(void) const { return name; }
     char name[64];
 
     int type;
@@ -1746,7 +1774,7 @@ struct mstudiomodel_t {
 
     int nummeshes;
     int meshindex;
-    inline mstudiomesh_t *pMesh(int i) const { return (mstudiomesh_t *) (((uint8_t *) this) + meshindex) + i; };
+    mstudiomesh_t *pMesh(int i) const { return (mstudiomesh_t *) (((uint8_t *) this) + meshindex) + i; };
 
     // cache purposes
     int numvertices; // number of unique vertices/normals/texcoords
@@ -1766,7 +1794,7 @@ struct mstudiomodel_t {
 
     int numeyeballs;
     int eyeballindex;
-    inline mstudioeyeball_t *pEyeball(int i) { return (mstudioeyeball_t *) (((uint8_t *) this) + eyeballindex) + i; };
+    mstudioeyeball_t *pEyeball(int i) { return (mstudioeyeball_t *) (((uint8_t *) this) + eyeballindex) + i; };
 
     mstudio_modelvertexdata_t vertexdata;
 
@@ -1923,7 +1951,7 @@ struct studiomeshgroup_t {
     short m_ColorMeshID;
     IMorph *m_pMorph;
 
-    inline unsigned short MeshIndex(int i) const { return m_pGroupIndexToMeshIndex[m_pIndices[i]]; }
+    unsigned short MeshIndex(int i) const { return m_pGroupIndexToMeshIndex[m_pIndices[i]]; }
 };
 
 
@@ -1960,11 +1988,11 @@ struct studiohwdata_t {
     studioloddata_t *m_pLODs;
     int m_NumStudioMeshes;
 
-    inline float LODMetric(float unitSphereSize) const {
+    float LODMetric(float unitSphereSize) const {
         return (unitSphereSize != 0.0f) ? (100.0f / unitSphereSize) : 0.0f;
     }
 
-    inline int GetLODForMetric(float lodMetric) const {
+    int GetLODForMetric(float lodMetric) const {
         if (!m_NumLODs)
             return 0;
 
@@ -1986,8 +2014,8 @@ struct studiohwdata_t {
 
 #ifndef _CERT
     // Each model counts how many rendered faces it accounts for each frame:
-    inline void UpdateFacesRenderedCount(studiohdr_t *pStudioHdr, CUtlHash<studiohwdata_t *> &hwDataHash, int nLOD,
-                                         int nInstances, int nFacesOverride = -1) {
+    void UpdateFacesRenderedCount(studiohdr_t *pStudioHdr, CUtlHash<studiohwdata_t *> &hwDataHash, int nLOD,
+                                  int nInstances, int nFacesOverride = -1) {
         if (hwDataHash.Find(this) == hwDataHash.InvalidHandle()) {
             m_NumFacesRenderedThisFrame = 0;
             m_NumTimesRenderedThisFrame = 0;
@@ -2014,17 +2042,17 @@ struct studiohwdata_t {
 // body part index
 struct mstudiobodyparts_t {
     int sznameindex;
-    inline char *const pszName(void) const { return ((char *) this) + sznameindex; }
+    char *const pszName(void) const { return ((char *) this) + sznameindex; }
     int nummodels;
     int base;
     int modelindex; // index into models array
-    inline mstudiomodel_t *pModel(int i) const { return (mstudiomodel_t *) (((uint8_t *) this) + modelindex) + i; };
+    mstudiomodel_t *pModel(int i) const { return (mstudiomodel_t *) (((uint8_t *) this) + modelindex) + i; };
 };
 
 // body group preset
 struct mstudiobodygrouppreset_t {
     int sznameindex;
-    inline char *const pszName(void) const { return ((char *) this) + sznameindex; }
+    char *const pszName(void) const { return ((char *) this) + sznameindex; }
     int iValue;
     int iMask;
 };
@@ -2044,10 +2072,10 @@ private:
 
 struct mstudiohitboxset_t {
     int sznameindex;
-    inline char *const pszName(void) const { return ((char *) this) + sznameindex; }
+    char *const pszName(void) const { return ((char *) this) + sznameindex; }
     int numhitboxes;
     int hitboxindex;
-    inline mstudiobbox_t *pHitbox(int i) const { return (mstudiobbox_t *) (((uint8_t *) this) + hitboxindex) + i; };
+    mstudiobbox_t *pHitbox(int i) const { return (mstudiobbox_t *) (((uint8_t *) this) + hitboxindex) + i; };
 };
 
 
@@ -2057,7 +2085,7 @@ struct mstudiohitboxset_t {
 //-----------------------------------------------------------------------------
 struct mstudiosrcbonetransform_t {
     int sznameindex;
-    inline const char *pszName(void) const { return ((char *) this) + sznameindex; }
+    const char *pszName(void) const { return ((char *) this) + sznameindex; }
     matrix3x4_t pretransform;
     matrix3x4_t posttransform;
 };
@@ -2462,7 +2490,7 @@ enum StudioHDRFlags:uint32_t {
 
     // NOTE:  This flag is set at loadtime, not mdl build time so that we don't have to rebuild
     // models when we change materials.
-#define STUDIOHDR_BAKED_VERTEX_LIGHTING_IS_INDIRECT_ONLY	( 1 << 27 )
+    STUDIOHDR_BAKED_VERTEX_LIGHTING_IS_INDIRECT_ONLY = (1 << 27),
 };
 
 // NOTE! Next time we up the .mdl file format, remove studiohdr2_t
@@ -2475,25 +2503,25 @@ struct studiohdr2_t {
     int srcbonetransformindex;
 
     int illumpositionattachmentindex;
-    inline int IllumPositionAttachmentIndex() const { return illumpositionattachmentindex; }
+    int IllumPositionAttachmentIndex() const { return illumpositionattachmentindex; }
 
     float flMaxEyeDeflection;
-    inline float MaxEyeDeflection() const { return flMaxEyeDeflection != 0.0f ? flMaxEyeDeflection : 0.866f; }
+    float MaxEyeDeflection() const { return flMaxEyeDeflection != 0.0f ? flMaxEyeDeflection : 0.866f; }
     // default to cos(30) if not set
 
     int linearboneindex;
 
-    inline mstudiolinearbone_t *pLinearBones() const {
+    mstudiolinearbone_t *pLinearBones() const {
         return (linearboneindex) ? (mstudiolinearbone_t *) (((uint8_t *) this) + linearboneindex) : nullptr;
     }
 
     int sznameindex;
-    inline char *pszName() { return (sznameindex) ? (char *) (((uint8_t *) this) + sznameindex) : nullptr; }
+    char *pszName() { return (sznameindex) ? (char *) (((uint8_t *) this) + sznameindex) : nullptr; }
 
     int m_nBoneFlexDriverCount;
     int m_nBoneFlexDriverIndex;
 
-    inline mstudioboneflexdriver_t *pBoneFlexDriver(int i) const {
+    mstudioboneflexdriver_t *pBoneFlexDriver(int i) const {
         Assert(i >= 0 && i < m_nBoneFlexDriverCount);
         return (mstudioboneflexdriver_t *) (((uint8_t *) this) + m_nBoneFlexDriverIndex) + i;
     }
@@ -2501,7 +2529,7 @@ struct studiohdr2_t {
     int m_nBodyGroupPresetCount;
     int m_nBodyGroupPresetIndex;
 
-    inline mstudiobodygrouppreset_t *pBodyGroupPreset(int i) const {
+    mstudiobodygrouppreset_t *pBodyGroupPreset(int i) const {
         Assert(i >= 0 && i < m_nBodyGroupPresetCount);
         return (mstudiobodygrouppreset_t *) (((uint8_t *) this) + m_nBodyGroupPresetIndex) + i;
     };
@@ -2523,7 +2551,7 @@ struct studiohdr_t {
 
     int checksum; // this has to be the same in the phy and vtx files to load!
 
-    inline const char *pszName(void) const {
+    const char *pszName(void) const {
         if (studiohdr2index && pStudioHdr2()->pszName()) return pStudioHdr2()->pszName();
         else return name;
     }
@@ -2547,7 +2575,7 @@ struct studiohdr_t {
     int numbones; // bones
     int boneindex;
 
-    inline const mstudiobone_t *pBone(int i) const {
+    const mstudiobone_t *pBone(int i) const {
         Assert(i >= 0 && i < numbones);
         return (mstudiobone_t *) (((uint8_t *) this) + boneindex) + i;
     };
@@ -2558,7 +2586,7 @@ struct studiohdr_t {
     int numbonecontrollers; // bone controllers
     int bonecontrollerindex;
 
-    inline mstudiobonecontroller_t *pBonecontroller(int i) const {
+    mstudiobonecontroller_t *pBonecontroller(int i) const {
         Assert(i >= 0 && i < numbonecontrollers);
         return (mstudiobonecontroller_t *) (((uint8_t *) this) + bonecontrollerindex) + i;
     };
@@ -2573,7 +2601,7 @@ struct studiohdr_t {
     };
 
     // Calls through to hitbox to determine size of specified set
-    inline mstudiobbox_t *pHitbox(int i, int set) const {
+    mstudiobbox_t *pHitbox(int i, int set) const {
         mstudiohitboxset_t const *s = pHitboxSet(set);
         if (!s)
             return nullptr;
@@ -2582,7 +2610,7 @@ struct studiohdr_t {
     };
 
     // Calls through to set to get hitbox count for set
-    inline int iHitboxCount(int set) const {
+    int iHitboxCount(int set) const {
         mstudiohitboxset_t const *s = pHitboxSet(set);
         if (!s)
             return 0;
@@ -2594,7 +2622,7 @@ struct studiohdr_t {
     //private:
     int numlocalanim; // animations/poses
     int localanimindex; // animation descriptions
-    inline mstudioanimdesc_t *pLocalAnimdesc(int i) const {
+    mstudioanimdesc_t *pLocalAnimdesc(int i) const {
         if (i < 0 || i >= numlocalanim) i = 0;
         return (mstudioanimdesc_t *) (((uint8_t *) this) + localanimindex) + i;
     };
@@ -2602,7 +2630,7 @@ struct studiohdr_t {
     int numlocalseq; // sequences
     int localseqindex;
 
-    inline mstudioseqdesc_t *pLocalSeqdesc(int i) const {
+    mstudioseqdesc_t *pLocalSeqdesc(int i) const {
         if (i < 0 || i >= numlocalseq) i = 0;
         return (mstudioseqdesc_t *) (((uint8_t *) this) + localseqindex) + i;
     };
@@ -2612,7 +2640,7 @@ struct studiohdr_t {
 
     int GetNumSeq_Internal() const;
 
-    inline int GetNumSeq() const {
+    int GetNumSeq() const {
         if (numincludemodels == 0) {
             return numlocalseq;
         }
@@ -2621,7 +2649,7 @@ struct studiohdr_t {
 
     mstudioanimdesc_t &pAnimdesc_Internal(int i) const;
 
-    inline mstudioanimdesc_t &pAnimdesc(int i) const {
+    mstudioanimdesc_t &pAnimdesc(int i) const {
         if (numincludemodels == 0) {
             return *pLocalAnimdesc(i);
         }
@@ -2631,7 +2659,7 @@ struct studiohdr_t {
 
     mstudioseqdesc_t &pSeqdesc_Internal(int i) const;
 
-    inline mstudioseqdesc_t &pSeqdesc(int i) const {
+    mstudioseqdesc_t &pSeqdesc(int i) const {
         if (numincludemodels == 0) {
             return *pLocalSeqdesc(i);
         }
@@ -2639,14 +2667,14 @@ struct studiohdr_t {
     }
 
     int iRelativeAnim_Internal(int baseseq, int relanim) const; // maps seq local anim reference to global anim index
-    inline int iRelativeAnim(int baseseq, int relanim) const {
+    int iRelativeAnim(int baseseq, int relanim) const {
         if (numincludemodels == 0)
             return relanim;
         return iRelativeAnim_Internal(baseseq, relanim);
     }
 
     int iRelativeSeq_Internal(int baseseq, int relseq) const; // maps seq local seq reference to global seq index
-    inline int iRelativeSeq(int baseseq, int relseq) const {
+    int iRelativeSeq(int baseseq, int relseq) const {
         if (numincludemodels == 0) {
             return relseq;
         }
@@ -2674,7 +2702,7 @@ struct studiohdr_t {
     int numtextures;
     int textureindex;
 
-    inline mstudiotexture_t *pTexture(int i) const {
+    mstudiotexture_t *pTexture(int i) const {
         Assert(i >= 0 && i < numtextures);
         return (mstudiotexture_t *) (((uint8_t *) this) + textureindex) + i;
     };
@@ -2684,7 +2712,7 @@ struct studiohdr_t {
     int numcdtextures;
     int cdtextureindex;
 
-    inline char *pCdtexture(int i) const {
+    char *pCdtexture(int i) const {
         return (((char *) this) + *((int *) (((uint8_t *) this) + cdtextureindex) + i));
     };
 
@@ -2692,12 +2720,12 @@ struct studiohdr_t {
     int numskinref;
     int numskinfamilies;
     int skinindex;
-    inline short *pSkinref(int i) const { return (short *) (((uint8_t *) this) + skinindex) + i; };
+    short *pSkinref(int i) const { return (short *) (((uint8_t *) this) + skinindex) + i; };
 
     int numbodyparts;
     int bodypartindex;
 
-    inline mstudiobodyparts_t *pBodypart(int i) const {
+    mstudiobodyparts_t *pBodypart(int i) const {
         return (mstudiobodyparts_t *) (((uint8_t *) this) + bodypartindex) + i;
     };
 
@@ -2706,7 +2734,7 @@ struct studiohdr_t {
     int numlocalattachments;
     int localattachmentindex;
 
-    inline mstudioattachment_t *pLocalAttachment(int i) const {
+    mstudioattachment_t *pLocalAttachment(int i) const {
         Assert(i >= 0 && i < numlocalattachments);
         return (mstudioattachment_t *) (((uint8_t *) this) + localattachmentindex) + i;
     };
@@ -2727,12 +2755,12 @@ struct studiohdr_t {
     int localnodeindex;
     int localnodenameindex;
 
-    inline char *pszLocalNodeName(int iNode) const {
+    char *pszLocalNodeName(int iNode) const {
         Assert(iNode >= 0 && iNode < numlocalnodes);
         return (((char *) this) + *((int *) (((uint8_t *) this) + localnodenameindex) + iNode));
     }
 
-    inline uint8_t *pLocalTransition(int i) const {
+    uint8_t *pLocalTransition(int i) const {
         Assert(i >= 0 && i < (numlocalnodes * numlocalnodes));
         return (uint8_t *) (((uint8_t *) this) + localnodeindex) + i;
     };
@@ -2749,7 +2777,7 @@ struct studiohdr_t {
     int numflexdesc;
     int flexdescindex;
 
-    inline mstudioflexdesc_t *pFlexdesc(int i) const {
+    mstudioflexdesc_t *pFlexdesc(int i) const {
         Assert(i >= 0 && i < numflexdesc);
         return (mstudioflexdesc_t *) (((uint8_t *) this) + flexdescindex) + i;
     };
@@ -2757,7 +2785,7 @@ struct studiohdr_t {
     int numflexcontrollers;
     int flexcontrollerindex;
 
-    inline mstudioflexcontroller_t *pFlexcontroller(LocalFlexController_t i) const {
+    mstudioflexcontroller_t *pFlexcontroller(LocalFlexController_t i) const {
         Assert(i >= 0 && i < numflexcontrollers);
         return (mstudioflexcontroller_t *) (((uint8_t *) this) + flexcontrollerindex) + i;
     };
@@ -2765,7 +2793,7 @@ struct studiohdr_t {
     int numflexrules;
     int flexruleindex;
 
-    inline mstudioflexrule_t *pFlexRule(int i) const {
+    mstudioflexrule_t *pFlexRule(int i) const {
         Assert(i >= 0 && i < numflexrules);
         return (mstudioflexrule_t *) (((uint8_t *) this) + flexruleindex) + i;
     };
@@ -2773,7 +2801,7 @@ struct studiohdr_t {
     int numikchains;
     int ikchainindex;
 
-    inline mstudioikchain_t *pIKChain(int i) const {
+    mstudioikchain_t *pIKChain(int i) const {
         Assert(i >= 0 && i < numikchains);
         return (mstudioikchain_t *) (((uint8_t *) this) + ikchainindex) + i;
     };
@@ -2781,7 +2809,7 @@ struct studiohdr_t {
     int nummouths;
     int mouthindex;
 
-    inline mstudiomouth_t *pMouth(int i) const {
+    mstudiomouth_t *pMouth(int i) const {
         Assert(i >= 0 && i < nummouths);
         return (mstudiomouth_t *) (((uint8_t *) this) + mouthindex) + i;
     };
@@ -2790,7 +2818,7 @@ struct studiohdr_t {
     int numlocalposeparameters;
     int localposeparamindex;
 
-    inline mstudioposeparamdesc_t *pLocalPoseParameter(int i) const {
+    mstudioposeparamdesc_t *pLocalPoseParameter(int i) const {
         Assert(i >= 0 && i < numlocalposeparameters);
         return (mstudioposeparamdesc_t *) (((uint8_t *) this) + localposeparamindex) + i;
     };
@@ -2803,21 +2831,21 @@ struct studiohdr_t {
     int GetSharedPoseParameter(int iSequence, int iLocalPose) const;
 
     int surfacepropindex;
-    inline char *const pszSurfaceProp(void) const { return ((char *) this) + surfacepropindex; }
-    inline int GetSurfaceProp() const { return surfacepropLookup; }
+    char *const pszSurfaceProp(void) const { return ((char *) this) + surfacepropindex; }
+    int GetSurfaceProp() const { return surfacepropLookup; }
 
     // Key values
     int keyvalueindex;
     int keyvaluesize;
 
-    inline const char *KeyValueText(void) const {
+    const char *KeyValueText(void) const {
         return keyvaluesize != 0 ? ((char *) this) + keyvalueindex : nullptr;
     }
 
     int numlocalikautoplaylocks;
     int localikautoplaylockindex;
 
-    inline mstudioiklock_t *pLocalIKAutoplayLock(int i) const {
+    mstudioiklock_t *pLocalIKAutoplayLock(int i) const {
         Assert(i >= 0 && i < numlocalikautoplaylocks);
         return (mstudioiklock_t *) (((uint8_t *) this) + localikautoplaylockindex) + i;
     };
@@ -2834,13 +2862,13 @@ struct studiohdr_t {
 
     // The collision model mass that jay wanted
     float mass;
-    int contents;
+    ContentType contents;
 
     // external animations, models, etc.
     int numincludemodels;
     int includemodelindex;
 
-    inline mstudiomodelgroup_t *pModelGroup(int i) const {
+    mstudiomodelgroup_t *pModelGroup(int i) const {
         Assert(i >= 0 && i < numincludemodels);
         return (mstudiomodelgroup_t *) (((uint8_t *) this) + includemodelindex) + i;
     };
@@ -2855,11 +2883,11 @@ struct studiohdr_t {
 
     // for demand loaded animation blocks
     int szanimblocknameindex;
-    inline char *const pszAnimBlockName(void) const { return ((char *) this) + szanimblocknameindex; }
+    char *const pszAnimBlockName(void) const { return ((char *) this) + szanimblocknameindex; }
     int numanimblocks;
     int animblockindex;
 
-    inline mstudioanimblock_t *pAnimBlock(int i) const {
+    mstudioanimblock_t *pAnimBlock(int i) const {
         Assert(i > 0 && i < numanimblocks);
         return (mstudioanimblock_t *) (((uint8_t *) this) + animblockindex) + i;
     };
@@ -2872,7 +2900,7 @@ struct studiohdr_t {
     bool hasAnimBlockBeenPreloaded(int i) const;
 
     int bonetablebynameindex;
-    inline const uint8_t *GetBoneTableSortedByName() const { return (uint8_t *) this + bonetablebynameindex; }
+    const uint8_t *GetBoneTableSortedByName() const { return (uint8_t *) this + bonetablebynameindex; }
 
     // used by tools only that don't cache, but persist mdl's peer data
     // engine uses virtualModel to back link to cache pointers
@@ -2910,7 +2938,7 @@ struct studiohdr_t {
 
     float flVertAnimFixedPointScale;
 
-    inline float VertAnimFixedPointScale() const {
+    float VertAnimFixedPointScale() const {
         return (flags & STUDIOHDR_FLAGS_VERT_ANIM_FIXED_POINT_SCALE) ? flVertAnimFixedPointScale : 1.0f / 4096.0f;
     }
 
@@ -2928,27 +2956,27 @@ struct studiohdr_t {
         return (mstudiosrcbonetransform_t *) (((uint8_t *) this) + pStudioHdr2()->srcbonetransformindex) + i;
     }
 
-    inline int IllumPositionAttachmentIndex() const {
+    int IllumPositionAttachmentIndex() const {
         return studiohdr2index ? pStudioHdr2()->IllumPositionAttachmentIndex() : 0;
     }
 
-    inline float MaxEyeDeflection() const { return studiohdr2index ? pStudioHdr2()->MaxEyeDeflection() : 0.866f; }
+    float MaxEyeDeflection() const { return studiohdr2index ? pStudioHdr2()->MaxEyeDeflection() : 0.866f; }
     // default to cos(30) if not set
 
-    inline mstudiolinearbone_t *pLinearBones() const {
+    mstudiolinearbone_t *pLinearBones() const {
         return studiohdr2index ? pStudioHdr2()->pLinearBones() : nullptr;
     }
 
-    inline int BoneFlexDriverCount() const { return studiohdr2index ? pStudioHdr2()->m_nBoneFlexDriverCount : 0; }
+    int BoneFlexDriverCount() const { return studiohdr2index ? pStudioHdr2()->m_nBoneFlexDriverCount : 0; }
 
-    inline const mstudioboneflexdriver_t *BoneFlexDriver(int i) const {
+    const mstudioboneflexdriver_t *BoneFlexDriver(int i) const {
         Assert(i >= 0 && i < BoneFlexDriverCount());
         return studiohdr2index ? pStudioHdr2()->pBoneFlexDriver(i) : nullptr;
     }
 
-    inline int BodyGroupPresetCount() const { return studiohdr2index ? pStudioHdr2()->m_nBodyGroupPresetCount : 0; }
+    int BodyGroupPresetCount() const { return studiohdr2index ? pStudioHdr2()->m_nBodyGroupPresetCount : 0; }
 
-    inline const mstudiobodygrouppreset_t *BodyGroupPreset(int i) const {
+    const mstudiobodygrouppreset_t *BodyGroupPreset(int i) const {
         Assert(i >= 0 && i < BodyGroupPresetCount());
         return studiohdr2index ? pStudioHdr2()->pBodyGroupPreset(i) : nullptr;
     }
@@ -3047,11 +3075,11 @@ public:
     void Term();
 
 public:
-    inline bool IsVirtual(void) { return (m_pVModel != nullptr); };
-    inline bool IsValid(void) { return (m_pStudioHdr != nullptr); };
-    inline bool IsReadyForAccess(void) const { return (m_pStudioHdr != nullptr); };
-    inline virtualmodel_t *GetVirtualModel(void) const { return m_pVModel; };
-    inline const studiohdr_t *GetRenderHdr(void) const { return m_pStudioHdr; };
+    bool IsVirtual(void) { return (m_pVModel != nullptr); };
+    bool IsValid(void) { return (m_pStudioHdr != nullptr); };
+    bool IsReadyForAccess(void) const { return (m_pStudioHdr != nullptr); };
+    virtualmodel_t *GetVirtualModel(void) const { return m_pVModel; };
+    const studiohdr_t *GetRenderHdr(void) const { return m_pStudioHdr; };
 
     const studiohdr_t *pSeqStudioHdr(int sequence);
 
@@ -3080,8 +3108,8 @@ private:
     int *m_pFrameUnlockCounter;
 
 public:
-    inline int numbones(void) const { return m_pStudioHdr->numbones; };
-    inline const mstudiobone_t *pBone(int i) const { return m_pStudioHdr->pBone(i); };
+    int numbones(void) const { return m_pStudioHdr->numbones; };
+    const mstudiobone_t *pBone(int i) const { return m_pStudioHdr->pBone(i); };
 
     int RemapAnimBone(int iAnim, int iLocalBone) const; // maps local animations bone to global bone
     int RemapSeqBone(int iSequence, int iLocalBone) const; // maps local sequence bone to global bone
@@ -3090,7 +3118,7 @@ public:
 
     int GetNumSeq_Internal(void) const;
 
-    inline int GetNumSeq(void) const {
+    int GetNumSeq(void) const {
         if (!m_pVModel)
             return m_pStudioHdr->numlocalseq;
         return GetNumSeq_Internal();
@@ -3098,7 +3126,7 @@ public:
 
     mstudioanimdesc_t &pAnimdesc_Internal(int i);
 
-    inline mstudioanimdesc_t &pAnimdesc(int i) {
+    mstudioanimdesc_t &pAnimdesc(int i) {
         if (!m_pVModel)
             return *m_pStudioHdr->pLocalAnimdesc(i);
         return pAnimdesc_Internal(i);
@@ -3106,7 +3134,7 @@ public:
 
     mstudioseqdesc_t &pSeqdesc_Internal(int iSequence);
 
-    inline mstudioseqdesc_t &pSeqdesc(int iSequence) {
+    mstudioseqdesc_t &pSeqdesc(int iSequence) {
         if (!m_pVModel)
             return *m_pStudioHdr->pLocalSeqdesc(iSequence);
 
@@ -3114,7 +3142,7 @@ public:
     }
 
     int iRelativeAnim_Internal(int baseseq, int relanim) const; // maps seq local anim reference to global anim index
-    inline int iRelativeAnim(int baseseq, int relanim) const {
+    int iRelativeAnim(int baseseq, int relanim) const {
         if (!m_pVModel)
             return relanim;
         return iRelativeAnim_Internal(baseseq, relanim);
@@ -3162,86 +3190,86 @@ public:
 
     const mstudioiklock_t &pIKAutoplayLock(int i);
 
-    inline int CountAutoplaySequences() const { return m_pStudioHdr->CountAutoplaySequences(); };
+    int CountAutoplaySequences() const { return m_pStudioHdr->CountAutoplaySequences(); };
 
-    inline int CopyAutoplaySequences(unsigned short *pOut, int outCount) const {
+    int CopyAutoplaySequences(unsigned short *pOut, int outCount) const {
         return m_pStudioHdr->CopyAutoplaySequences(pOut, outCount);
     };
-    inline int GetAutoplayList(unsigned short **pOut) const { return m_pStudioHdr->GetAutoplayList(pOut); };
+    int GetAutoplayList(unsigned short **pOut) const { return m_pStudioHdr->GetAutoplayList(pOut); };
 
-    inline int GetNumBoneControllers(void) const { return m_pStudioHdr->numbonecontrollers; };
-    inline mstudiobonecontroller_t *pBonecontroller(int i) const { return m_pStudioHdr->pBonecontroller(i); };
+    int GetNumBoneControllers(void) const { return m_pStudioHdr->numbonecontrollers; };
+    mstudiobonecontroller_t *pBonecontroller(int i) const { return m_pStudioHdr->pBonecontroller(i); };
 
-    inline int numikchains() const { return m_pStudioHdr->numikchains; };
-    inline int GetNumIKChains(void) const { return m_pStudioHdr->numikchains; };
-    inline mstudioikchain_t *pIKChain(int i) const { return m_pStudioHdr->pIKChain(i); };
+    int numikchains() const { return m_pStudioHdr->numikchains; };
+    int GetNumIKChains(void) const { return m_pStudioHdr->numikchains; };
+    mstudioikchain_t *pIKChain(int i) const { return m_pStudioHdr->pIKChain(i); };
 
-    inline int numflexrules() const { return m_pStudioHdr->numflexrules; };
-    inline mstudioflexrule_t *pFlexRule(int i) const { return m_pStudioHdr->pFlexRule(i); };
+    int numflexrules() const { return m_pStudioHdr->numflexrules; };
+    mstudioflexrule_t *pFlexRule(int i) const { return m_pStudioHdr->pFlexRule(i); };
 
-    inline int numflexdesc() const { return m_pStudioHdr->numflexdesc; };
-    inline mstudioflexdesc_t *pFlexdesc(int i) const { return m_pStudioHdr->pFlexdesc(i); };
+    int numflexdesc() const { return m_pStudioHdr->numflexdesc; };
+    mstudioflexdesc_t *pFlexdesc(int i) const { return m_pStudioHdr->pFlexdesc(i); };
 
-    inline LocalFlexController_t numflexcontrollers() const {
+    LocalFlexController_t numflexcontrollers() const {
         return (LocalFlexController_t) m_pStudioHdr->numflexcontrollers;
     };
 
-    inline mstudioflexcontroller_t *pFlexcontroller(LocalFlexController_t i) const {
+    mstudioflexcontroller_t *pFlexcontroller(LocalFlexController_t i) const {
         return m_pStudioHdr->pFlexcontroller(i);
     };
 
-    inline int numflexcontrollerui() const { return m_pStudioHdr->numflexcontrollerui; };
-    inline mstudioflexcontrollerui_t *pFlexcontrollerUI(int i) const { return m_pStudioHdr->pFlexControllerUI(i); };
+    int numflexcontrollerui() const { return m_pStudioHdr->numflexcontrollerui; };
+    mstudioflexcontrollerui_t *pFlexcontrollerUI(int i) const { return m_pStudioHdr->pFlexControllerUI(i); };
 
-    inline const char *name() const { return m_pStudioHdr->pszName(); }; // deprecated -- remove after full xbox merge
-    inline const char *pszName() const { return m_pStudioHdr->pszName(); };
+    const char *name() const { return m_pStudioHdr->pszName(); }; // deprecated -- remove after full xbox merge
+    const char *pszName() const { return m_pStudioHdr->pszName(); };
 
-    inline int numbonecontrollers() const { return m_pStudioHdr->numbonecontrollers; };
+    int numbonecontrollers() const { return m_pStudioHdr->numbonecontrollers; };
 
-    inline int numhitboxsets() const { return m_pStudioHdr->numhitboxsets; };
-    inline mstudiohitboxset_t *pHitboxSet(int i) const { return m_pStudioHdr->pHitboxSet(i); };
+    int numhitboxsets() const { return m_pStudioHdr->numhitboxsets; };
+    mstudiohitboxset_t *pHitboxSet(int i) const { return m_pStudioHdr->pHitboxSet(i); };
 
-    inline mstudiobbox_t *pHitbox(int i, int set) const { return m_pStudioHdr->pHitbox(i, set); };
-    inline int iHitboxCount(int set) const { return m_pStudioHdr->iHitboxCount(set); };
+    mstudiobbox_t *pHitbox(int i, int set) const { return m_pStudioHdr->pHitbox(i, set); };
+    int iHitboxCount(int set) const { return m_pStudioHdr->iHitboxCount(set); };
 
-    inline int numbodyparts() const { return m_pStudioHdr->numbodyparts; };
-    inline mstudiobodyparts_t *pBodypart(int i) const { return m_pStudioHdr->pBodypart(i); };
+    int numbodyparts() const { return m_pStudioHdr->numbodyparts; };
+    mstudiobodyparts_t *pBodypart(int i) const { return m_pStudioHdr->pBodypart(i); };
 
-    inline int numskinfamilies() const { return m_pStudioHdr->numskinfamilies; }
+    int numskinfamilies() const { return m_pStudioHdr->numskinfamilies; }
 
-    inline Vector eyeposition() const { return m_pStudioHdr->eyeposition; };
+    Vector eyeposition() const { return m_pStudioHdr->eyeposition; };
 
-    inline int flags() const { return m_pStudioHdr->flags; };
+    int flags() const { return m_pStudioHdr->flags; };
 
-    inline char *const pszSurfaceProp(void) const { return m_pStudioHdr->pszSurfaceProp(); };
-    inline int GetSurfaceProp() const { return m_pStudioHdr->surfacepropLookup; }
+    char *const pszSurfaceProp(void) const { return m_pStudioHdr->pszSurfaceProp(); };
+    int GetSurfaceProp() const { return m_pStudioHdr->surfacepropLookup; }
 
-    inline float mass() const { return m_pStudioHdr->mass; };
-    inline int contents() const { return m_pStudioHdr->contents; }
+    float mass() const { return m_pStudioHdr->mass; };
+    ContentType contents() const { return m_pStudioHdr->contents; }
 
-    inline const uint8_t *GetBoneTableSortedByName() const { return m_pStudioHdr->GetBoneTableSortedByName(); };
+    const uint8_t *GetBoneTableSortedByName() const { return m_pStudioHdr->GetBoneTableSortedByName(); };
 
-    inline Vector illumposition() const { return m_pStudioHdr->illumposition; };
+    Vector illumposition() const { return m_pStudioHdr->illumposition; };
 
-    inline Vector hull_min() const { return m_pStudioHdr->hull_min; }; // ideal movement hull size
-    inline Vector hull_max() const { return m_pStudioHdr->hull_max; };
+    Vector hull_min() const { return m_pStudioHdr->hull_min; }; // ideal movement hull size
+    Vector hull_max() const { return m_pStudioHdr->hull_max; };
 
-    inline Vector view_bbmin() const { return m_pStudioHdr->view_bbmin; }; // clipping bounding box
-    inline Vector view_bbmax() const { return m_pStudioHdr->view_bbmax; };
+    Vector view_bbmin() const { return m_pStudioHdr->view_bbmin; }; // clipping bounding box
+    Vector view_bbmax() const { return m_pStudioHdr->view_bbmax; };
 
-    inline int numtextures() const { return m_pStudioHdr->numtextures; };
+    int numtextures() const { return m_pStudioHdr->numtextures; };
 
-    inline int IllumPositionAttachmentIndex() const { return m_pStudioHdr->IllumPositionAttachmentIndex(); }
+    int IllumPositionAttachmentIndex() const { return m_pStudioHdr->IllumPositionAttachmentIndex(); }
 
-    inline float MaxEyeDeflection() const { return m_pStudioHdr->MaxEyeDeflection(); }
+    float MaxEyeDeflection() const { return m_pStudioHdr->MaxEyeDeflection(); }
 
-    inline mstudiolinearbone_t *pLinearBones() const { return m_pStudioHdr->pLinearBones(); }
+    mstudiolinearbone_t *pLinearBones() const { return m_pStudioHdr->pLinearBones(); }
 
-    inline int BoneFlexDriverCount() const { return m_pStudioHdr->BoneFlexDriverCount(); }
-    inline const mstudioboneflexdriver_t *BoneFlexDriver(int i) const { return m_pStudioHdr->BoneFlexDriver(i); }
+    int BoneFlexDriverCount() const { return m_pStudioHdr->BoneFlexDriverCount(); }
+    const mstudioboneflexdriver_t *BoneFlexDriver(int i) const { return m_pStudioHdr->BoneFlexDriver(i); }
 
-    inline int GetNumBodyGroupPresets() const { return m_pStudioHdr->BodyGroupPresetCount(); };
-    inline const mstudiobodygrouppreset_t *GetBodyGroupPreset(int i) const { return m_pStudioHdr->BodyGroupPreset(i); }
+    int GetNumBodyGroupPresets() const { return m_pStudioHdr->BodyGroupPresetCount(); };
+    const mstudiobodygrouppreset_t *GetBodyGroupPreset(int i) const { return m_pStudioHdr->BodyGroupPreset(i); }
 
 public:
     int IsSequenceLooping(int iSequence);
@@ -3255,16 +3283,16 @@ public:
     void RunFlexRulesNew(const float *src, float *dest);
 
 public:
-    inline int boneFlags(int iBone) const { return m_boneFlags[iBone]; }
+    BoneFlags boneFlags(int iBone) const { return m_boneFlags[iBone]; }
 
-    void setBoneFlags(int iBone, int flags);
+    void setBoneFlags(int iBone, BoneFlags flags);
 
-    void clearBoneFlags(int iBone, int flags);
+    void clearBoneFlags(int iBone, BoneFlags flags);
 
-    inline int boneParent(int iBone) const { return m_boneParent[iBone]; }
+    int boneParent(int iBone) const { return m_boneParent[iBone]; }
 
 private:
-    CUtlVector<int> m_boneFlags;
+    CUtlVector<BoneFlags> m_boneFlags;
     CUtlVector<int> m_boneParent;
 
 public:
@@ -3428,25 +3456,25 @@ public:
 
     /// A more efficient version of the old SelectWeightedSequence() function in animation.cpp.
     /// Returns -1 on failure to find a sequence
-    inline int SelectWeightedSequence(int activity, int curSequence) {
+    int SelectWeightedSequence(int activity, int curSequence) {
         InitActivityToSequence();
         return m_pActivityToSequence->SelectWeightedSequence(this, activity, curSequence);
     }
 
-    inline int SelectWeightedSequenceFromModifiers(int activity, CUtlSymbol *pActivityModifiers, int iModifierCount) {
+    int SelectWeightedSequenceFromModifiers(int activity, CUtlSymbol *pActivityModifiers, int iModifierCount) {
         InitActivityToSequence();
         return m_pActivityToSequence->SelectWeightedSequenceFromModifiers(
             this, activity, pActivityModifiers, iModifierCount);
     }
 
     /// True iff there is at least one sequence for the given activity.
-    inline bool HaveSequenceForActivity(int activity) {
+    bool HaveSequenceForActivity(int activity) {
         InitActivityToSequence();
         return (m_pActivityToSequence->NumSequencesForActivity(activity) > 0);
     }
 
     // Force this CStudioHdr's activity-to-sequence mapping to be reinitialized
-    inline void ReinitializeSequenceMapping(void) {
+    void ReinitializeSequenceMapping(void) {
         if (m_pActivityToSequence) {
             CActivityToSequenceMapping::ReleaseMapping(m_pActivityToSequence);
             m_pActivityToSequence = nullptr;
@@ -3463,7 +3491,7 @@ private:
 #ifdef STUDIO_ENABLE_PERF_COUNTERS
 
 public:
-    inline void ClearPerfCounters(void) {
+    void ClearPerfCounters(void) {
         m_nPerfAnimatedBones = 0;
         m_nPerfUsedBones = 0;
         m_nPerfAnimationLayers = 0;
@@ -3512,7 +3540,7 @@ struct flexweight_t {
 struct flexsetting_t {
     int nameindex;
 
-    inline char *pszName(void) const {
+    char *pszName(void) const {
         return (char *) (((uint8_t *) this) + nameindex);
     }
 
@@ -3547,14 +3575,14 @@ struct flexsettinghdr_t {
     int id;
     int version;
 
-    inline const char *pszName(void) const { return name; }
+    const char *pszName(void) const { return name; }
     char name[64];
     int length;
 
     int numflexsettings;
     int flexsettingindex;
 
-    inline flexsetting_t *pSetting(int i) const {
+    flexsetting_t *pSetting(int i) const {
         return (flexsetting_t *) (((uint8_t *) this) + flexsettingindex) + i;
     };
     int nameindex;
@@ -3563,7 +3591,7 @@ struct flexsettinghdr_t {
     int numindexes;
     int indexindex;
 
-    inline flexsetting_t *pIndexedSetting(int index) const {
+    flexsetting_t *pIndexedSetting(int index) const {
         if (index < 0 || index >= numindexes) {
             return nullptr;
         }
@@ -3581,13 +3609,13 @@ struct flexsettinghdr_t {
     int numkeys;
     int keynameindex;
 
-    inline char *pLocalName(int i) const {
+    char *pLocalName(int i) const {
         return (char *) (((uint8_t *) this) + *((int *) (((uint8_t *) this) + keynameindex) + i));
     };
 
     int keymappingindex;
-    inline int *pLocalToGlobal(int i) const { return (int *) (((uint8_t *) this) + keymappingindex) + i; };
-    inline int LocalToGlobal(int i) const { return *pLocalToGlobal(i); };
+    int *pLocalToGlobal(int i) const { return (int *) (((uint8_t *) this) + keymappingindex) + i; };
+    int LocalToGlobal(int i) const { return *pLocalToGlobal(i); };
 };
 
 //-----------------------------------------------------------------------------
@@ -3630,7 +3658,7 @@ inline int mstudioflexcontrollerui_t::leftIndex(const CStudioHdr &cStudioHdr) co
 
 
 inline int mstudioflexcontrollerui_t::nWayValueIndex(const CStudioHdr &cStudioHdr) const {
-    return remaptype == FLEXCONTROLLER_REMAP_NWAY
+    return remaptype == Nway
                ? pNWayValueController() - cStudioHdr.pFlexcontroller((LocalFlexController_t) 0)
                : -1;
 }
@@ -3640,7 +3668,7 @@ inline const mstudioflexcontroller_t *mstudioflexcontrollerui_t::pController(int
     if (index < 0 || index > Count())
         return nullptr;
 
-    if (remaptype == FLEXCONTROLLER_REMAP_NWAY) {
+    if (remaptype == Nway) {
         if (stereo)
             return (mstudioflexcontroller_t *) ((char *) this) + *(&szindex0 + index);
 
@@ -3664,89 +3692,6 @@ inline const mstudioflexcontroller_t *mstudioflexcontrollerui_t::pController(int
 
     return pController();
 }
-
-
-#define STUDIO_CONST	1	// get float
-#define STUDIO_FETCH1	2	// get Flexcontroller value
-#define STUDIO_FETCH2	3	// get flex weight
-#define STUDIO_ADD		4
-#define STUDIO_SUB		5
-#define STUDIO_MUL		6
-#define STUDIO_DIV		7
-#define STUDIO_NEG		8	// not implemented
-#define STUDIO_EXP		9	// not implemented
-#define STUDIO_OPEN		10	// only used in token parsing
-#define STUDIO_CLOSE	11
-#define STUDIO_COMMA	12	// only used in token parsing
-#define STUDIO_MAX		13
-#define STUDIO_MIN		14
-#define STUDIO_2WAY_0	15	// Fetch a value from a 2 Way slider for the 1st value RemapVal( 0.0, 0.5, 0.0, 1.0 )
-#define STUDIO_2WAY_1	16	// Fetch a value from a 2 Way slider for the 2nd value RemapVal( 0.5, 1.0, 0.0, 1.0 )
-#define STUDIO_NWAY		17	// Fetch a value from a 2 Way slider for the 2nd value RemapVal( 0.5, 1.0, 0.0, 1.0 )
-#define STUDIO_COMBO	18	// Perform a combo operation (essentially multiply the last N values on the stack)
-#define STUDIO_DOMINATE	19	// Performs a combination domination operation
-#define STUDIO_DME_LOWER_EYELID 20	//
-#define STUDIO_DME_UPPER_EYELID 21	//
-
-// motion flags
-#define STUDIO_X		0x00000001
-#define STUDIO_Y		0x00000002
-#define STUDIO_Z		0x00000004
-#define STUDIO_XR		0x00000008
-#define STUDIO_YR		0x00000010
-#define STUDIO_ZR		0x00000020
-
-#define STUDIO_LX		0x00000040
-#define STUDIO_LY		0x00000080
-#define STUDIO_LZ		0x00000100
-#define STUDIO_LXR		0x00000200
-#define STUDIO_LYR		0x00000400
-#define STUDIO_LZR		0x00000800
-
-#define STUDIO_LINEAR	0x00001000
-
-#define STUDIO_TYPES	0x0003FFFF
-#define STUDIO_RLOOP	0x00040000	// controller that wraps shortest distance
-
-// sequence and autolayer flags
-#define STUDIO_LOOPING	0x0001		// ending frame should be the same as the starting frame
-#define STUDIO_SNAP		0x0002		// do not interpolate between previous animation and this one
-#define STUDIO_DELTA	0x0004		// this sequence "adds" to the base sequences, not slerp blends
-#define STUDIO_AUTOPLAY	0x0008		// temporary flag that forces the sequence to always play
-#define STUDIO_POST		0x0010		//
-#define STUDIO_ALLZEROS	0x0020		// this animation/sequence has no real animation data
-#define STUDIO_FRAMEANIM 0x0040		// animation is encoded as by frame x bone instead of RLE bone x frame
-#define STUDIO_CYCLEPOSE 0x0080		// cycle index is taken from a pose parameter index
-#define STUDIO_REALTIME	0x0100		// cycle index is taken from a real-time clock, not the animations cycle index
-#define STUDIO_LOCAL	0x0200		// sequence has a local context sequence
-#define STUDIO_HIDDEN	0x0400		// don't show in default selection views
-#define STUDIO_OVERRIDE	0x0800		// a forward declared sequence (empty)
-#define STUDIO_ACTIVITY	0x1000		// Has been updated at runtime to activity index
-#define STUDIO_EVENT	0x2000		// Has been updated at runtime to event index on server
-#define STUDIO_WORLD	0x4000		// sequence blends in worldspace
-#define STUDIO_NOFORCELOOP 0x8000	// do not force the animation loop
-#define STUDIO_EVENT_CLIENT 0x10000	// Has been updated at runtime to event index on client
-#define STUDIO_WORLD_AND_RELATIVE 0x20000 // do worldspace blend, then do normal blend on top
-#define STUDIO_ROOTXFORM 0x40000	// sequence wants to derive a root re-xform from a given bone
-
-// autolayer flags
-//							0x0001
-//							0x0002
-//							0x0004
-//							0x0008
-#define STUDIO_AL_POST		0x0010		//
-//							0x0020
-#define STUDIO_AL_SPLINE	0x0040		// convert layer ramp in/out curve is a spline instead of linear
-#define STUDIO_AL_XFADE		0x0080		// pre-bias the ramp curve to compense for a non-1 weight, assuming a second layer is also going to accumulate
-
-//							0x0100
-#define STUDIO_AL_NOBLEND	0x0200		// animation always blends at 1.0 (ignores weight)
-//							0x0400
-//							0x0800
-#define STUDIO_AL_LOCAL		0x1000		// layer is a local context sequence
-//							0x2000
-#define STUDIO_AL_POSE		0x4000		// layer blends using a pose parameter instead of parent cycle
-
 
 // Insert this code anywhere that you need to allow for conversion from an old STUDIO_VERSION to a new one.
 // If we only support the current version, this function should be empty.
@@ -3803,8 +3748,8 @@ inline bool Studio_ConvertStudioHdrToNewVersion(studiohdr_t *pStudioHdr) {
         // remove any frameanim flag settings that might be stale
         for (int i = 0; i < pStudioHdr->numlocalanim; i++) {
             mstudioanimdesc_t *pAnim = (mstudioanimdesc_t *) pStudioHdr->pLocalAnimdesc(i);
-            if (pAnim->flags & STUDIO_FRAMEANIM) {
-                pAnim->flags &= ~STUDIO_FRAMEANIM;
+            if (HasFlag(pAnim->flags, StudioSequenceFlags::FrameAnim)) {
+                pAnim->flags &= ~StudioSequenceFlags::FrameAnim;
                 bResult = false;
             }
         }

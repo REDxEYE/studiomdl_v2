@@ -28,7 +28,7 @@ void InitPose(
 	const CStudioHdr *pStudioHdr,
 	BoneVector pos[], 
 	BoneQuaternionAligned q[],
-	int boneMask 
+	BoneFlags boneMask 
 	)
 {
 	// const fltx4 zeroQ = Four_Origin;
@@ -60,7 +60,7 @@ void InitPose(
 	{
 		for( int i = 0; i < pStudioHdr->numbones(); i++ )
 		{
-			if( pStudioHdr->boneFlags(  i ) & boneMask )  
+			if (HasFlag(pStudioHdr->boneFlags(  i ), boneMask))  
 			{
 				const mstudiobone_t *pbone = pStudioHdr->pBone( i );
 				pos[i] = pbone->pos;
@@ -92,7 +92,7 @@ inline bool PoseIsAllZeros(
 	// remove "zero" positional blends
 	baseanim = pStudioHdr->iRelativeAnim( sequence, seqdesc.anim(i0  ,i1 ) );
 	mstudioanimdesc_t		&anim = ((CStudioHdr *)pStudioHdr)->pAnimdesc( baseanim );
-	return (anim.flags & STUDIO_ALLZEROS) != 0;
+	return HasFlag(anim.flags, StudioSequenceFlags::AllZeros);
 }
 
 //-----------------------------------------------------------------------------
@@ -190,7 +190,7 @@ bool CalcPoseSingle(
 	int sequence, 
 	float cycle,
 	const float poseParameter[],
-	int boneMask,
+	BoneFlags boneMask,
 	float flTime
 	)
 {
@@ -220,13 +220,13 @@ bool CalcPoseSingle(
 	int i1 = Studio_LocalPoseParameter( pStudioHdr, poseParameter, seqdesc, sequence, 1, s1 );
 
 
-	if (seqdesc.flags & STUDIO_REALTIME)
+	if (HasFlag(seqdesc.flags, StudioSequenceFlags::Realtime))
 	{
 		float cps = Studio_CPS( pStudioHdr, seqdesc, sequence, poseParameter );
 		cycle = flTime * cps;
 		cycle = cycle - (int)cycle;
 	}
-	else if (seqdesc.flags & STUDIO_CYCLEPOSE)
+	else if (HasFlag(seqdesc.flags, StudioSequenceFlags::CyclePose))
 	{
 		int iPose = pStudioHdr->GetSharedPoseParameter( sequence, seqdesc.cycleposeindex );
 		if (iPose != -1)
@@ -244,7 +244,7 @@ bool CalcPoseSingle(
 	}
 	else if (cycle < 0 || cycle >= 1)
 	{
-		if (seqdesc.flags & STUDIO_LOOPING)
+		if (HasFlag(seqdesc.flags, StudioSequenceFlags::Looping))
 		{
 			cycle = cycle - (int)cycle;
 			if (cycle < 0) cycle += 1;
@@ -407,7 +407,7 @@ void CBoneSetup::AddSequenceLayers(
 	{
 		mstudioautolayer_t *pLayer = seqdesc.pAutolayer( i );
 
-		if (pLayer->flags & STUDIO_AL_LOCAL)
+		if (HasFlag(pLayer->flags, AutoLayerFlags::Local))
 			continue;
 
 		float layerCycle = cycle;
@@ -418,7 +418,7 @@ void CBoneSetup::AddSequenceLayers(
 			float s = 1.0;
 			float index;
 
-			if (!(pLayer->flags & STUDIO_AL_POSE))
+			if (!HasFlag(pLayer->flags, AutoLayerFlags::Pose))
 			{
 				index = cycle;
 			}
@@ -451,16 +451,16 @@ void CBoneSetup::AddSequenceLayers(
 				s = (pLayer->end - index) / (pLayer->end - pLayer->tail);
 			}
 
-			if (pLayer->flags & STUDIO_AL_SPLINE)
+			if (HasFlag(pLayer->flags, AutoLayerFlags::Spline))
 			{
 				s = clamp( SimpleSpline( s ), 0, 1 ); // SimpleSpline imprecision can push some float values outside 0..1
 			}
 
-			if ((pLayer->flags & STUDIO_AL_XFADE) && (index > pLayer->tail))
+			if (HasFlag(pLayer->flags, AutoLayerFlags::XFade) && (index > pLayer->tail))
 			{
 				layerWeight = ( s * flWeight ) / ( 1 - flWeight + s * flWeight );
 			}
-			else if (pLayer->flags & STUDIO_AL_NOBLEND)
+			else if (HasFlag(pLayer->flags, AutoLayerFlags::NoBlend))
 			{
 				layerWeight = s;
 			}
@@ -469,12 +469,12 @@ void CBoneSetup::AddSequenceLayers(
 				layerWeight = flWeight * s;
 			}
 
-			if (!(pLayer->flags & STUDIO_AL_POSE))
+			if (!HasFlag(pLayer->flags, AutoLayerFlags::Pose))
 			{
 				layerCycle = (cycle - pLayer->start) / (pLayer->end - pLayer->start);
 			}
 		}
-		else if ( pLayer->start == 0 && pLayer->end == 0 && (pLayer->flags & STUDIO_AL_POSE) )
+		else if ( pLayer->start == 0 && pLayer->end == 0 && HasFlag(pLayer->flags, AutoLayerFlags::Pose) )
 		{
 			int iSequence = m_pStudioHdr->iRelativeSeq( sequence, pLayer->iSequence );
 			int iPose = m_pStudioHdr->GetSharedPoseParameter( iSequence, pLayer->iPose );
@@ -488,7 +488,7 @@ void CBoneSetup::AddSequenceLayers(
 
 			s = clamp( (s - pLayer->peak) / (pLayer->tail - pLayer->peak), 0, 1 );
 
-			if (pLayer->flags & STUDIO_AL_SPLINE)
+			if (HasFlag(pLayer->flags, AutoLayerFlags::Spline))
 			{
 				s = clamp( SimpleSpline( s ), 0, 1 ); // SimpleSpline imprecision can push some float values outside 0..1
 			}
@@ -518,7 +518,7 @@ void CBoneSetup::AddLocalLayers(
 	)
 {
 
-	if (!(seqdesc.flags & STUDIO_LOCAL))
+	if (!HasFlag(seqdesc.flags, StudioSequenceFlags::Local))
 	{
 		return;
 	}
@@ -527,7 +527,7 @@ void CBoneSetup::AddLocalLayers(
 	{
 		mstudioautolayer_t *pLayer = seqdesc.pAutolayer( i );
 
-		if (!(pLayer->flags & STUDIO_AL_LOCAL))
+		if (!HasFlag(pLayer->flags, AutoLayerFlags::Local))
 			continue;
 
 		float layerCycle = cycle;
@@ -551,16 +551,16 @@ void CBoneSetup::AddLocalLayers(
 				s = (pLayer->end - cycle) / (pLayer->end - pLayer->tail);
 			}
 
-			if (pLayer->flags & STUDIO_AL_SPLINE)
+			if (HasFlag(pLayer->flags, AutoLayerFlags::Spline))
 			{
 				s = SimpleSpline( s );
 			}
 
-			if ((pLayer->flags & STUDIO_AL_XFADE) && (cycle > pLayer->tail))
+			if (HasFlag(pLayer->flags, AutoLayerFlags::XFade) && (cycle > pLayer->tail))
 			{
 				layerWeight = ( s * flWeight ) / ( 1 - flWeight + s * flWeight );
 			}
-			else if (pLayer->flags & STUDIO_AL_NOBLEND)
+			else if (HasFlag(pLayer->flags, AutoLayerFlags::NoBlend))
 			{
 				layerWeight = s;
 			}
@@ -581,7 +581,7 @@ void CBoneSetup::AddLocalLayers(
 // Purpose: my sleezy attempt at an interface only class
 //-----------------------------------------------------------------------------
 
-IBoneSetup::IBoneSetup( const CStudioHdr *pStudioHdr, int boneMask, const float poseParameter[])
+IBoneSetup::IBoneSetup( const CStudioHdr *pStudioHdr, BoneFlags boneMask, const float poseParameter[])
 {
 	m_pBoneSetup = new CBoneSetup( pStudioHdr, boneMask, poseParameter );
 }
@@ -620,7 +620,7 @@ CStudioHdr *IBoneSetup::GetStudioHdr()
 	return (CStudioHdr *)m_pBoneSetup->m_pStudioHdr;
 }
 
-CBoneSetup::CBoneSetup( const CStudioHdr *pStudioHdr, int boneMask, const float poseParameter[])
+CBoneSetup::CBoneSetup( const CStudioHdr *pStudioHdr, BoneFlags boneMask, const float poseParameter[])
 {
 	m_pStudioHdr = pStudioHdr;
 	m_boneMask = boneMask;
@@ -641,7 +641,7 @@ void CalcPose(
 	int sequence, 
 	float cycle,
 	const float poseParameter[],
-	int boneMask,
+	BoneFlags boneMask,
 	float flWeight,
 	float flTime
 	)
@@ -728,7 +728,7 @@ void CBoneSetup::AccumulatePose(
 		seq_ik.AddSequenceLocks( seqdesc, pos, q );
 	}
 
-	if ((seqdesc.flags & STUDIO_LOCAL) || (seqdesc.flags & STUDIO_ROOTXFORM) || (seqdesc.flags & STUDIO_WORLD_AND_RELATIVE))
+	if (HasFlag(seqdesc.flags, StudioSequenceFlags::Local) || HasFlag(seqdesc.flags, StudioSequenceFlags::RootXform) || HasFlag(seqdesc.flags, StudioSequenceFlags::WorldAndRelative))
 	{
 		::InitPose( m_pStudioHdr, pos2, q2, m_boneMask );
 	}
@@ -736,7 +736,7 @@ void CBoneSetup::AccumulatePose(
 	if (CalcPoseSingle( m_pStudioHdr, pos2, q2, seqdesc, sequence, cycle, m_flPoseParameter, m_boneMask, flTime ))
 	{
 
-		if ( (seqdesc.flags & STUDIO_ROOTXFORM) && seqdesc.rootDriverIndex > 0 )
+		if ( HasFlag(seqdesc.flags, StudioSequenceFlags::RootXform) && seqdesc.rootDriverIndex > 0 )
 		{
 
 			// hack: Remap the driver bone if it's coming in from an included virtual model and the indices might not match
@@ -796,7 +796,7 @@ void CalcBoneAdj(
 	BoneVector pos[], 
 	BoneQuaternion q[], 
 	const float controllers[],
-	int boneMask
+	BoneFlags boneMask
 	)
 {
 	int					i, j, k;
@@ -811,7 +811,7 @@ void CalcBoneAdj(
 		pbonecontroller = pStudioHdr->pBonecontroller( j );
 		k = pbonecontroller->bone;
 
-		if (pStudioHdr->boneFlags( k ) & boneMask)
+		if (HasFlag(pStudioHdr->boneFlags( k ), boneMask))
 		{
 			i = pbonecontroller->inputfield;
 			value = controllers[i];
@@ -819,30 +819,30 @@ void CalcBoneAdj(
 			if (value > 1.0) value = 1.0;
 			value = (1.0 - value) * pbonecontroller->start + value * pbonecontroller->end;
 
-			switch(pbonecontroller->type & STUDIO_TYPES)
+			switch(pbonecontroller->type & StudioMotionFlags::Types)
 			{
-			case STUDIO_XR: 
+			case StudioMotionFlags::XR: 
 				a0.Init( value * (M_PI / 180.0), 0, 0 ); 
 				AngleQuaternion( a0, q0 );
 				QuaternionSM( 1.0, q0, q[k], q[k] );
 				break;
-			case STUDIO_YR: 
+			case StudioMotionFlags::YR: 
 				a0.Init( 0, value * (M_PI / 180.0), 0 ); 
 				AngleQuaternion( a0, q0 );
 				QuaternionSM( 1.0, q0, q[k], q[k] );
 				break;
-			case STUDIO_ZR: 
+			case StudioMotionFlags::ZR: 
 				a0.Init( 0, 0, value * (M_PI / 180.0) ); 
 				AngleQuaternion( a0, q0 );
 				QuaternionSM( 1.0, q0, q[k], q[k] );
 				break;
-			case STUDIO_X:	
+			case StudioMotionFlags::X:	
 				pos[k].x += value;
 				break;
-			case STUDIO_Y:
+			case StudioMotionFlags::Y:
 				pos[k].y += value;
 				break;
-			case STUDIO_Z:
+			case StudioMotionFlags::Z:
 				pos[k].z += value;
 				break;
 			}
@@ -917,7 +917,7 @@ void CBoneSetup::CalcAutoplaySequences(
 	{
 		int sequenceIndex = pList[i];
 		mstudioseqdesc_t &seqdesc = ((CStudioHdr *)m_pStudioHdr)->pSeqdesc( sequenceIndex );
-		if (seqdesc.flags & STUDIO_AUTOPLAY)
+		if (HasFlag(seqdesc.flags, StudioSequenceFlags::Autoplay))
 		{
 			float cycle = 0;
 			float cps = Studio_CPS( m_pStudioHdr, seqdesc, sequenceIndex, m_flPoseParameter );
@@ -947,7 +947,7 @@ void Studio_BuildMatrices(
 	int iBone,
 	float flScale,
 	matrix3x4a_t bonetoworld[MAXSTUDIOBONES],
-	int boneMask
+	BoneFlags boneMask
 	)
 {
 	int i, j;
@@ -1005,7 +1005,7 @@ void Studio_BuildMatrices(
 		for (j = chainlength - 1; j >= 0; j--)
 		{
 			i = chain[j];
-			if (pStudioHdr->boneFlags(i) & boneMask)
+			if (HasFlag(pStudioHdr->boneFlags(i), boneMask))
 			{
 				QuaternionMatrix( q[i], pos[i], bonematrix );
 
@@ -1025,7 +1025,7 @@ void Studio_BuildMatrices(
 		for (j = chainlength - 1; j >= 0; j--)
 		{
 			i = chain[j];
-			if (pStudioHdr->boneFlags(i) & boneMask)
+			if (HasFlag(pStudioHdr->boneFlags(i), boneMask))
 			{
 				QuaternionMatrix( q[i], pos[i], bonematrix );
 

@@ -15,6 +15,8 @@
 #include <cstdio>
 #include <string>
 #include <string_view>
+
+#include "bspflags.h"
 #include "tier0/basetypes.h"
 #include "tier1/utlvector.h"
 #include "tier1/utlsymbol.h"
@@ -26,6 +28,7 @@
 #include "movieobjects/dmemodel.h"
 #include "tier1_v2/fixed_string.hpp"
 #include "tier1_v2/fixed_vector.hpp"
+#include "studiomdl_log.hpp"
 
 using StudioName = vstd::FixedString<MAXSTUDIONAME>;
 using StudioPath = vstd::FixedString<MAX_PATH>;
@@ -49,10 +52,6 @@ extern vec_t Q_rint(vec_t in);
 
 extern void WriteModelFiles(void);
 
-#define LOG_QUIET(...)\
-    if( !g_StudioMdlContext.quiet ){\
-        printf(__VA_ARGS__);\
-    }
 // --------------------------------------------------------------------
 
 template<class T>
@@ -73,8 +72,8 @@ inline T &CUtlVectorAuto<T>::operator[](int i) {
 // Assigns a default surface property to the entire model
 //-----------------------------------------------------------------------------
 struct SurfacePropName_t {
-    char m_pJointName[128];
-    char m_pSurfaceProp[128];
+    vstd::FixedString<128> m_pJointName;
+    vstd::FixedString<128> m_pSurfaceProp;
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -86,7 +85,7 @@ struct GameInfo_t {
     bool bSupportsDX8;
 };
 
-extern struct GameInfo_t g_gameinfo;
+extern GameInfo_t g_gameinfo;
 
 // --------------------------------------------------------------------
 
@@ -160,7 +159,7 @@ struct s_bonetable_t {
     matrix3x4_t srcRealign;
     bool bPreAligned;
     matrix3x4_t boneToPose;
-    uint32_t flags;
+    BoneFlags flags;
     int proceduralindex;
     int physicsBoneIndex;
     int surfacePropIndex;
@@ -226,7 +225,7 @@ struct s_hitgroup_t {
 struct s_bonecontroller_t {
     StudioName name;
     int bone;
-    uint32_t type;
+    StudioMotionFlags type;
     int inputfield;
     float start;
     float end;
@@ -235,30 +234,35 @@ struct s_bonecontroller_t {
 
 struct s_screenalignedbone_t {
     StudioName name;
-    int flags;
+    BoneFlags flags;
 };
 
 
 struct s_worldalignedbone_t {
     StudioName name;
-    int flags;
+    BoneFlags flags;
 };
 
+
+// s_attachment_t::type
+enum class AttachmentType : uint32_t {
+    None = 0x0000,
+    Absolute = 0x0001,
+    Rigid = 0x0002,
+};
+
+ENUM_OPERATORS(AttachmentType)
 
 struct s_attachment_t {
     StudioName name;
     StudioName bonename;
     int bone;
-    uint32_t type;
-    int flags;
+    AttachmentType type;
+    AttachmentFlags flags;
     matrix3x4_t local;
 
     bool operator==(const s_attachment_t &rhs) const;
 };
-
-
-#define IS_ABSOLUTE        0x0001
-#define IS_RIGID        0x0002
 
 
 struct s_bonemerge_t {
@@ -290,7 +294,7 @@ struct s_bone_t {
 
 struct s_linearmove_t {
     int endframe; // frame when pos, rot is valid.
-    int flags; // type of motion.  Only linear, linear accel, and linear decel is allowed
+    StudioMotionFlags flags; // type of motion.  Only linear, linear accel, and linear decel is allowed
     float v0;
     float v1;
     Vector vector; // movement vector
@@ -298,40 +302,41 @@ struct s_linearmove_t {
     RadianEuler rot; // final rotation
 };
 
-
-#define CMD_WEIGHTS    1
-#define CMD_SUBTRACT 2
-#define CMD_AO        3
-#define CMD_MATCH    4
-#define CMD_FIXUP    5
-#define CMD_ANGLE    6
-#define CMD_IKFIXUP    7
-#define CMD_IKRULE    8
-#define CMD_MOTION    9
-#define CMD_REFMOTION    10
-#define CMD_DERIVATIVE 11
-#define    CMD_NOANIMATION 12
-#define CMD_LINEARDELTA 13
-#define CMD_SPLINEDELTA 14
-#define CMD_COMPRESS 15
-#define CMD_NUMFRAMES 16
-#define CMD_COUNTERROTATE 17
-#define CMD_SETBONE 18
-#define CMD_WORLDSPACEBLEND 19
-#define CMD_MATCHBLEND 20
-#define CMD_LOCALHIERARCHY 21
-#define CMD_FORCEBONEPOSROT 22
-#define CMD_REVERSE 23
-#define CMD_APPENDANIM 24
-#define CMD_BONEDRIVER 25
-#define CMD_NOANIM_KEEPDURATION 26
+enum CmdType_e {
+    CMD_WEIGHTS = 1,
+    CMD_SUBTRACT = 2,
+    CMD_AO = 3,
+    CMD_MATCH = 4,
+    CMD_FIXUP = 5,
+    CMD_ANGLE = 6,
+    CMD_IKFIXUP = 7,
+    CMD_IKRULE = 8,
+    CMD_MOTION = 9,
+    CMD_REFMOTION = 10,
+    CMD_DERIVATIVE = 11,
+    CMD_NOANIMATION = 12,
+    CMD_LINEARDELTA = 13,
+    CMD_SPLINEDELTA = 14,
+    CMD_COMPRESS = 15,
+    CMD_NUMFRAMES = 16,
+    CMD_COUNTERROTATE = 17,
+    CMD_SETBONE = 18,
+    CMD_WORLDSPACEBLEND = 19,
+    CMD_MATCHBLEND = 20,
+    CMD_LOCALHIERARCHY = 21,
+    CMD_FORCEBONEPOSROT = 22,
+    CMD_REVERSE = 23,
+    CMD_APPENDANIM = 24,
+    CMD_BONEDRIVER = 25,
+    CMD_NOANIM_KEEPDURATION = 26,
+};
 
 struct s_animation_t;
 struct s_ikrule_t;
 
 
 struct s_motion_t {
-    int motiontype;
+    StudioMotionFlags motiontype;
     int iStartFrame; // starting frame to apply motion over
     int iEndFrame; // end frame to apply motion over
     int iSrcFrame; // frame that matches the "reference" animation
@@ -341,7 +346,7 @@ struct s_motion_t {
 
 
 struct s_animcmd_t {
-    int cmd;
+    CmdType_e cmd;
 
     union {
         struct {
@@ -351,12 +356,12 @@ struct s_animcmd_t {
         struct {
             s_animation_t *ref;
             int frame;
-            int flags;
+            StudioSequenceFlags flags;
         } subtract;
 
         struct {
             s_animation_t *ref;
-            int motiontype;
+            StudioMotionFlags motiontype;
             int srcframe;
             int destframe;
             char *pBonename;
@@ -398,7 +403,7 @@ struct s_animcmd_t {
         } derivative;
 
         struct {
-            int flags;
+            AutoLayerFlags flags;
         } linear;
 
         struct {
@@ -448,7 +453,7 @@ struct s_animcmd_t {
             s_animation_t *ref;
         } appendanim;
 
-        struct s_motion_t motion;
+        s_motion_t motion;
     } u;
 };
 
@@ -460,19 +465,18 @@ struct s_streamdata_t {
 
 struct s_animationstream_t {
     // source animations
-    int numerror;
-    s_streamdata_t *pError;
+    std::vector<s_streamdata_t> errors;
     // compressed animations
     std::array<float, 6> scale;
     std::array<int, 6> numanim;
-    std::array<mstudioanimvalue_t *, 6> anim;
+    std::array<std::vector<mstudioanimvalue_t>, 6> anim;
 };
 
 struct s_ikrule_t {
     int chain;
 
     int index;
-    int type;
+    IkRuleType type;
     int slot;
     StudioName bonename;
     StudioName attachment;
@@ -516,7 +520,7 @@ struct s_source_t;
 
 struct s_compressed_t {
     std::array<int, 6> num;
-    std::array<mstudioanimvalue_t *, 6> data;
+    std::array<std::vector<mstudioanimvalue_t>, 6> data;
 };
 
 struct s_animation_t {
@@ -542,19 +546,18 @@ struct s_animation_t {
     float fps;
     int startframe;
     int endframe;
-    int flags;
+    StudioSequenceFlags flags;
     // animations processed (time shifted, linearized, and bone adjusted ) from source animations
-    CUtlVectorAuto<s_bone_t *> sanim; // [MAXSTUDIOANIMFRAMES]; // [frame][bones];
+    std::array<s_bone_t *, MAXSTUDIOANIMFRAMES> sanim; // [MAXSTUDIOANIMFRAMES]; // [frame][bones];
 
-    int motiontype;
+    StudioMotionFlags motiontype;
 
     int fudgeloop;
     int looprestart; // new starting frame for looping animations
     float looprestartpercent;
 
     // piecewise linear motion
-    int numpiecewisekeys;
-    s_linearmove_t piecewisemove[MAXSTUDIOMOVEKEYS];
+    vstd::FixedVector<s_linearmove_t, MAXSTUDIOMOVEKEYS> piecewisemove;
 
     // default adjustments
     Vector adjust;
@@ -624,7 +627,7 @@ struct s_event_t {
 struct s_autolayer_t {
     StudioName name;
     int sequence;
-    int flags;
+    AutoLayerFlags flags;
     int pose;
     float start;
     float peak;
@@ -642,7 +645,7 @@ public:
     StudioName name;
     StudioName activityname; // index into the string table, the name of this activity.
 
-    int flags;
+    StudioSequenceFlags flags;
     // float			fps;
     // int				numframes;
 
@@ -660,7 +663,7 @@ public:
     float paramstart[2];
     float paramend[2];
     int paramattachment[2];
-    int paramcontrol[2];
+    StudioMotionFlags paramcontrol[2];
     CUtlVectorAuto<float> param0; // [MAXSTUDIOBLENDS];
     CUtlVectorAuto<float> param1; // [MAXSTUDIOBLENDS];
     s_animation_t *paramanim;
@@ -686,13 +689,11 @@ public:
 
     int numikrules;
 
-    int numautolayers;
-    s_autolayer_t autolayer[64];
+    vstd::FixedVector<s_autolayer_t,64> autolayers;
 
     float weight[MAXSTUDIOSRCBONES];
 
-    s_iklock_t iklock[64];
-    int numiklocks;
+    vstd::FixedVector<s_iklock_t, 64> iklocks;
 
     int cycleposeindex;
 
@@ -718,7 +719,7 @@ struct s_poseparameter_t {
     StudioName name;
     float min;
     float max;
-    int flags;
+    StudioSequenceFlags flags; // only Looping
     float loop;
 };
 
@@ -754,6 +755,8 @@ struct s_mesh_t {
 
     int numfaces;
     int faceoffset;
+
+    int material; // material id; per-material tables (s_loddata_t::mesh) are indexed by it and don't use it
 };
 
 
@@ -815,17 +818,15 @@ struct s_source_t {
     std::array<matrix3x4_t, MAXSTUDIOSRCBONES> boneToPose; // converts bone local data into initial pose data
 
     // bone remapping
-    int boneflags[MAXSTUDIOSRCBONES]; // attachment, vertex, etc flags for this bone
-    uint32_t boneref[MAXSTUDIOSRCBONES]; // flags for this and child bones
+    BoneFlags boneflags[MAXSTUDIOSRCBONES]; // attachment, vertex, etc flags for this bone
+    BoneFlags boneref[MAXSTUDIOSRCBONES]; // flags for this and child bones
     int boneLocalToGlobal[MAXSTUDIOSRCBONES]; // bonemap : local bone to world bone mapping
     int boneGlobalToLocal[MAXSTUDIOSRCBONES]; // boneimap : world bone to local bone mapping
 
     int texmap[MAXSTUDIOSKINS * 4]; // map local MAX materials to unique textures
 
-    // per material mesh
-    int nummeshes;
-    int meshindex[MAXSTUDIOSKINS] = {0}; // mesh to skin index
-    s_mesh_t mesh[MAXSTUDIOSKINS] = {0};
+    // the meshes, one per material that has faces, in ascending material order
+    vstd::FixedVector<s_mesh_t,MAXSTUDIOSKINS> meshes;
 
     // vertices defined in "local" space (not remapped to global bones)
     int numvertices;
@@ -869,6 +870,15 @@ struct s_source_t {
     CUtlVector<int> m_leftRemapIndexToGlobalFlexControllIndex;
     CUtlVector<int> m_rightRemapIndexToGlobalFlexControllIndex;
 };
+
+// Index in pSource->meshes of the mesh with material nMaterial, -1 if the source has no faces with it
+inline int FindSourceMeshIndex(const s_source_t *pSource, int nMaterial) {
+    for (size_t i = 0; i < pSource->meshes.size(); i++) {
+        if (pSource->meshes[i].material == nMaterial)
+            return static_cast<int>(i);
+    }
+    return -1;
+}
 
 
 struct s_eyeball_t {
@@ -976,7 +986,7 @@ struct s_flexkey_t {
 #define MAX_OPS 512
 
 struct s_flexop_t {
-    int op;
+    StudioOpcode op;
 
     union {
         int index;
@@ -1034,7 +1044,7 @@ struct s_bodygrouppreset_t {
 
 struct s_weightlist_t {
     // weights, indexed by numbones per weightlist
-    char name[MAXSTUDIONAME];
+    StudioName name;
     int numbones;
     char *bonename[MAXWEIGHTSPERLIST];
     float boneweight[MAXWEIGHTSPERLIST];
@@ -1052,9 +1062,9 @@ struct s_iklink_t {
 };
 
 struct s_ikchain_t {
-    char name[MAXSTUDIONAME];
-    char bonename[MAXSTUDIONAME];
-    int axis;
+    StudioName name;
+    StudioName bonename;
+    StudioMotionFlags axis;
     float value;
     int numlinks;
     s_iklink_t link[10]; // hip, knee, ankle, toes...
@@ -1067,7 +1077,7 @@ struct s_ikchain_t {
 
 struct s_jigglebone_t {
     int flags;
-    char bonename[MAXSTUDIONAME];
+    StudioName bonename;
     int bone;
 
     mstudiojigglebone_t data; // the actual jiggle properties
@@ -1076,43 +1086,41 @@ struct s_jigglebone_t {
 
 struct s_axisinterpbone_t {
     int flags;
-    char bonename[MAXSTUDIONAME];
+    StudioName bonename;
     int bone;
-    char controlname[MAXSTUDIONAME];
+    StudioName controlname;
     int control;
     int axis;
-    Vector pos[6];
-    Quaternion quat[6];
+    std::array<Vector, 6> pos;
+    std::array<Quaternion, 6> quat;
 };
 
 
 struct s_quatinterpbone_t {
     int flags;
-    char bonename[MAXSTUDIONAME];
+    StudioName bonename;
     int bone;
-    char parentname[MAXSTUDIONAME];
-    // int				parent;
-    char controlparentname[MAXSTUDIONAME];
-    // int				controlparent;
-    char controlname[MAXSTUDIONAME];
+    StudioName parentname;
+    StudioName controlparentname;
+    StudioName controlname;
     int control;
     int numtriggers;
     Vector size;
     Vector basepos;
     float percentage;
-    float tolerance[32];
-    Quaternion trigger[32];
-    Vector pos[32];
-    Quaternion quat[32];
+    std::array<float, 32> tolerance;
+    std::array<Quaternion, 32> trigger;
+    std::array<Vector, 32> pos;
+    std::array<Quaternion, 32> quat;
 };
 
 
 struct s_aimatbone_t {
-    char bonename[MAXSTUDIONAME];
+    StudioName bonename;
     int bone;
-    char parentname[MAXSTUDIONAME];
+    StudioName parentname;
     int parent;
-    char aimname[MAXSTUDIONAME];
+    StudioName aimname;
     int aimAttach;
     int aimBone;
     Vector aimvector;
@@ -1125,7 +1133,7 @@ struct s_aimatbone_t {
 //
 //-----------------------------------------------------------------------------
 struct s_constraintbonetarget_t {
-    char m_szBoneName[MAXSTUDIONAME];
+    StudioName m_szBoneName;
     int m_nBone;
     float m_flWeight;
     Vector m_vOffset;
@@ -1141,7 +1149,7 @@ struct s_constraintbonetarget_t {
 //
 //-----------------------------------------------------------------------------
 struct s_constraintboneslave_t {
-    char m_szBoneName[MAXSTUDIONAME];
+    StudioName m_szBoneName;
     int m_nBone;
     Vector m_vBaseTranslate;
     Quaternion m_qBaseRotation;
@@ -1157,15 +1165,14 @@ struct s_constraintboneslave_t {
 // TODO: It may be better to go ahead and create a new "source", since there's other limits besides just vertices per mesh, such as total verts per model.
 class CClampedSource {
 public:
-    CClampedSource() : m_nummeshes(0) {
+    CClampedSource() {
     };
 
-    void Init(int numvertices);;
+    // pMeshLayout: source whose meshes (materials, order) the piece gets, with empty counts; nullptr = no meshes
+    void Init(int numvertices, const s_source_t *pMeshLayout);
 
-    // per material mesh
-    int m_nummeshes;
-    int m_meshindex[MAXSTUDIOSKINS]; // mesh to skin index
-    s_mesh_t m_mesh[MAXSTUDIOSKINS];
+    // the meshes of the piece: the original source's meshes (same order and materials), with their own counts
+    vstd::FixedVector<s_mesh_t, MAXSTUDIOSKINS> m_meshes;
 
     // vertices defined in "local" space (not remapped to global bones)
     CUtlVector<int> m_nOrigMap; // maps the original index to the new index
@@ -1399,7 +1406,7 @@ void CalcBoneTransformsCycle(s_animation_t *panimation, s_animation_t *pbaseanim
 
 void
 BuildRawTransforms(const s_source_t *psource, const char *pAnimationName, int frame, float scale, Vector const &shift,
-                   RadianEuler const &rotate, int flags, matrix3x4_t *boneToWorld);
+                   RadianEuler const &rotate, StudioSequenceFlags flags, matrix3x4_t *boneToWorld);
 
 void BuildRawTransforms(const s_source_t *psource, const char *pAnimationName, int frame, matrix3x4_t *boneToWorld);
 
@@ -1408,19 +1415,21 @@ void TranslateAnimations(const s_source_t *pSource, const matrix3x4_t *pSrcBoneT
 // Returns surface property for a given joint
 char *GetSurfaceProp(const char *pJointName);
 
-int GetContents(const char *pJointName);
+ContentType GetContents(const char *pJointName);
 
 char *GetDefaultSurfaceProp();
 
-int GetDefaultContents();
+ContentType GetDefaultContents();
 
 // Did we read 'end'
 bool IsEnd(const char *pLine);
 
-// Parses an LOD command
-void Cmd_LOD(const char *cmdname);
+class ScriptTokenizer;
 
-void Cmd_ShadowLOD(void);
+// Parses an LOD command
+void Cmd_LOD(ScriptTokenizer &qc, const char *cmdname);
+
+void Cmd_ShadowLOD(ScriptTokenizer &qc);
 
 // Fixes up the LOD source files
 void FixupLODSources();
@@ -1453,17 +1462,17 @@ extern bool GetLineInput(void);
 
 
 struct v_unify_t {
-    int refcount;
-    int lastref;
-    int firstref;
-    int v;
-    int m;
-    int n;
-    int t[MAXSTUDIOTEXCOORDS];
-    v_unify_t *next; // pointer to next entry with same v
+    int refcount{};
+    int lastref{};
+    int firstref{};
+    int v{};
+    int m{};
+    int n{};
+    int t[MAXSTUDIOTEXCOORDS]{};
+    int next = -1; // v_listdata index of the next entry with the same v, -1 = last
 };
 
-int SortAndBalanceBones(int iCount, int iMaxCount, int bones[], float weights[]);
+int SortAndBalanceBones(uint32_t count, uint32_t maxCount, std::span<int> bones, std::span<float> weights);
 
 void Grab_Vertexanimation(s_source_t *psource, const char *pAnimationName);
 
@@ -1555,12 +1564,6 @@ private:
 };
 
 
-// the first time these are called, the name of the model/QC file is printed so that when
-// running in batch mode, no echo, when dumping to a file, it can be determined which file is broke.
-[[noreturn]] void MdlError(const char *pMsg, ...);
-
-void MdlWarning(const char *pMsg, ...);
-
 void CreateMakefile_AddDependency(const char *pFileName);
 
 void EnsureDependencyFileCheckedIn(const char *pFileName);
@@ -1589,11 +1592,11 @@ unsigned short IsUShort(int val);
 // Assigns a default contents to the entire model
 //-----------------------------------------------------------------------------
 struct ContentsName_t {
-    char m_pJointName[128];
-    int m_nContents;
+    vstd::FixedString<128> m_pJointName;
+    ContentType m_nContents;
 };
 
-extern int s_nDefaultContents; // in studiomdl.cpp
+extern ContentType s_nDefaultContents; // in studiomdl.cpp
 extern CUtlVector<ContentsName_t> s_JointContents; // in studiomdl.cpp
 
 //-----------------------------------------------------------------------------

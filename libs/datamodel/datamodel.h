@@ -5,6 +5,7 @@
 //=============================================================================
 
 #pragma once
+#include "tier1_v2/function_timing.hpp"
 #ifdef _WIN32
 #pragma once
 #endif
@@ -133,6 +134,7 @@ public:
 	UtlHashHandle_t Find( DmElementHandle_t const &src ) { return BaseClass::Find( src ); }
 	UtlHashHandle_t Find( DmObjectId_t const &src )
 	{
+		vstd::FunctionTimingRecorder _("DMX");
 		unsigned int ndxBucket;
 		int ndxKeyData;
 

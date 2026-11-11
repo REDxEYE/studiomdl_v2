@@ -73,7 +73,7 @@ enum DmAttributeReferenceIterator_t:uint64_t
 //-----------------------------------------------------------------------------
 // element framework interface
 //-----------------------------------------------------------------------------
-abstract_class IDmElementFramework
+class IDmElementFramework
 {
 public:
 	// Called by the application at startup/exit (InitDataModel/ShutdownDataModel)
@@ -93,7 +93,7 @@ public:
 
 
 
-abstract_class IDmeElementCreated
+class IDmeElementCreated
 {
 	public:
 		virtual void OnElementCreated( CDmElement *pElement ) = 0;
@@ -109,7 +109,7 @@ extern IDmElementFramework *g_pDmElementFramework;
 //-----------------------------------------------------------------------------
 // datamodel operator interface - for all elements that need to be sorted in the operator dependency graph
 //-----------------------------------------------------------------------------
-abstract_class IDmeOperator
+class IDmeOperator
 {
 public:
 	virtual bool IsDirty() = 0; // ie needs to operate
@@ -241,7 +241,7 @@ enum DmNotifyFlags_t
 
 };
 
-abstract_class IDmNotify
+class IDmNotify
 {
 public:
 	// See DmNotifySource_t and DmNotifyFlags_t

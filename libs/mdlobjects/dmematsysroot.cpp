@@ -166,7 +166,7 @@ void CDmeMatSysMDLDag::GetSequenceList( CUtlVector< CUtlString > *pOutList )
 	
 	for ( int j = 0; j < pStudioHdr->GetNumSeq(); ++j )
 	{
-		if ( !( pStudioHdr->pSeqdesc( j ).flags & STUDIO_HIDDEN ) )
+		if ( !HasFlag(pStudioHdr->pSeqdesc( j ).flags, StudioSequenceFlags::Hidden) )
 		{
 			const char *pszSequenceName = pStudioHdr->pSeqdesc(j).pszLabel();
 			if ( pszSequenceName && pszSequenceName[0] )
@@ -193,7 +193,7 @@ void CDmeMatSysMDLDag::GetActivityList( CUtlVector< CUtlString > *pOutList )
 
 	for ( int j = 0; j < pStudioHdr->GetNumSeq(); ++j )
 	{
-		if ( !( pStudioHdr->pSeqdesc( j ).flags & STUDIO_HIDDEN ) )
+		if ( !HasFlag(pStudioHdr->pSeqdesc( j ).flags, StudioSequenceFlags::Hidden) )
 		{
 			const char *pszActivityName = pStudioHdr->pSeqdesc( j ).pszActivityName();
 			if ( pszActivityName && pszActivityName[0] )

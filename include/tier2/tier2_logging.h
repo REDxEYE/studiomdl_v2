@@ -19,7 +19,7 @@ const int INVALID_LOGGING_FILE_HANDLE = -1;
 typedef int LoggingFileHandle_t;
 typedef void * FileHandle_t;
 
-abstract_class IFileLoggingListener : public ILoggingListener
+class IFileLoggingListener : public ILoggingListener
 {
 public:
 	virtual void Log( const LoggingContext_t *pContext, const char *pMessage ) = 0;

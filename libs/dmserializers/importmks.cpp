@@ -167,16 +167,17 @@ int CImportMKS::ParseSequenceType( char *word )
 {
 	int eMode = SQM_ALPHA_INVALID;
 
-	char const *szSeqType = StringAfterPrefix( word, "sequence" );
-	if ( !stricmp( szSeqType, "" ) || !stricmp( szSeqType, "-rgba" ) )
+	const auto szSeqType = string_after_prefix( word, "sequence" );
+
+	if ( !szSeqType.has_value() || vstd::iequals(*szSeqType, "-rgba" ) )
 	{
 		eMode = SQM_RGBA;
 	}
-	else if ( !stricmp( szSeqType, "-rgb" ) )
+	else if ( vstd::iequals(*szSeqType, "-rgb" ) )
 	{
 		eMode = SQM_RGB;
 	}
-	else if ( !stricmp( szSeqType, "-a" ) )
+	else if ( vstd::iequals(*szSeqType, "-a" ) )
 	{
 		eMode = SQM_ALPHA;
 	}

@@ -102,12 +102,18 @@ namespace vstd::paths {
 
         template<size_t N>
         void truncate(FixedString<N> &text, const size_t length) noexcept { text.data()[length] = '\0'; }
+
+        // FixedString converts to std::string_view only explicitly
+        inline std::string_view as_view(const std::string &text) noexcept { return text; }
+
+        template<size_t N>
+        std::string_view as_view(const FixedString<N> &text) noexcept { return text.view(); }
     }
 
     // Q_StripExtension
     template<typename S>
     void strip_extension(S &path) {
-        const size_t dot = extension_dot(path);
+        const size_t dot = extension_dot(detail::as_view(path));
         if (dot != std::string_view::npos) {
             detail::truncate(path, dot);
         }
@@ -116,7 +122,7 @@ namespace vstd::paths {
     // Q_StripFilename: keeps the directory without the trailing separator (empty if there is no directory)
     template<typename S>
     void strip_filename(S &path) {
-        const size_t slash = last_separator(path);
+        const size_t slash = last_separator(detail::as_view(path));
         detail::truncate(path, slash == std::string_view::npos ? 0 : slash);
     }
 
@@ -133,7 +139,7 @@ namespace vstd::paths {
     // Q_DefaultExtension: adds ext only if the file name has none
     template<typename S>
     void default_extension(S &path, const std::string_view ext) {
-        if (extension_dot(path) == std::string_view::npos) {
+        if (extension_dot(detail::as_view(path)) == std::string_view::npos) {
             set_extension(path, ext);
         }
     }
@@ -141,7 +147,7 @@ namespace vstd::paths {
     // Q_AppendSlash: adds a separator unless path is empty or already ends in one
     template<typename S>
     void append_slash(S &path, const char separator = native_separator) {
-        const std::string_view view = path;
+        const std::string_view view = detail::as_view(path);
         if (!view.empty() && !is_separator(view.back())) {
             path += separator;
         }
@@ -150,13 +156,57 @@ namespace vstd::paths {
     // Q_FixSlashes
     template<typename S>
     void fix_slashes(S &path, const char separator = native_separator) {
-        char *text = path.data();
-        const size_t length = std::string_view(path).size();
+        char* text = path.data();
+        const size_t length = detail::as_view(path).size();
         for (size_t i = 0; i < length; ++i) {
             if (is_separator(text[i])) {
                 text[i] = separator;
             }
         }
+    }
+
+    template<typename S>
+    void strip_trailing_slash(S &path) {
+        char* text = path.data();
+        const size_t length = detail::as_view(path).size();
+        if (length > 0 && is_separator(text[length - 1])) {
+            text[length - 1] = '\0';
+        }
+    }
+
+    std::string to_utf8(const std::filesystem::path &path);
+
+    inline std::string make_absolute_path(const std::string_view path, const std::string_view startingDir="") {
+        if (is_absolute(path)) {
+            // pPath is not relative.. just copy it.
+            return std::string(path);
+        }
+        std::string out;
+        // Make sure the starting directory is absolute..
+        if (!startingDir.empty() && is_absolute(startingDir)) {
+            out = startingDir;
+        }
+        else {
+            std::error_code ec;
+            const std::string dir = to_utf8(std::filesystem::current_path(ec));
+            if (ec)
+                throw std::runtime_error("make_absolute_path: can't get the current directory.");
+
+            if (!startingDir.empty()) {
+                append_slash(out);
+                out += startingDir;
+            }
+        }
+
+        // Concatenate the paths.
+        append_slash(out);
+        out += path;
+        fix_slashes(out);
+
+        std::filesystem::path tmp = out;
+        tmp = tmp.lexically_normal();
+        out = to_utf8(tmp);
+        return out;
     }
 
     // ---- std::filesystem::path ----
@@ -167,17 +217,17 @@ namespace vstd::paths {
         for (size_t i = 0; i < utf8.size(); ++i) {
             text[i] = utf8[i] == '\\' ? u8'/' : static_cast<char8_t>(utf8[i]);
         }
-        return std::filesystem::path(std::move(text));
+        return {text};
     }
 
     // path -> UTF-8 with native separators (like path::string(), without the code page conversion)
     inline std::string to_utf8(const std::filesystem::path &path) {
         const std::u8string text = path.u8string();
-        return std::string(text.begin(), text.end());
+        return {text.begin(), text.end()};
     }
 
     // fopen for a UTF-8 path (plain fopen takes the ANSI code page on Windows)
-    inline std::FILE *open_file(const std::string_view utf8, const char *mode) {
+    inline std::FILE* open_file(const std::string_view utf8, const char* mode) {
 #ifdef _WIN32
         const std::wstring wideMode(mode, mode + std::strlen(mode));
         return _wfopen(to_fs(utf8).c_str(), wideMode.c_str());

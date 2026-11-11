@@ -636,7 +636,7 @@ int	studiohdr_t::CountAutoplaySequences() const
 	for (int i = 0; i < GetNumSeq(); i++)
 	{
 		mstudioseqdesc_t &seqdesc = pSeqdesc( i );
-		if (seqdesc.flags & STUDIO_AUTOPLAY)
+		if (HasFlag(seqdesc.flags, StudioSequenceFlags::Autoplay))
 		{
 			count++;
 		}
@@ -650,7 +650,7 @@ int	studiohdr_t::CopyAutoplaySequences( unsigned short *pOut, int outCount ) con
 	for (int i = 0; i < GetNumSeq() && outIndex < outCount; i++)
 	{
 		mstudioseqdesc_t &seqdesc = pSeqdesc( i );
-		if (seqdesc.flags & STUDIO_AUTOPLAY)
+		if (HasFlag(seqdesc.flags, StudioSequenceFlags::Autoplay))
 		{
 			pOut[outIndex] = i;
 			outIndex++;
@@ -1270,7 +1270,7 @@ int	CStudioHdr::CountAutoplaySequences() const
 	for (int i = 0; i < GetNumSeq(); i++)
 	{
 		mstudioseqdesc_t &seqdesc = pSeqdesc( i );
-		if (seqdesc.flags & STUDIO_AUTOPLAY)
+		if (seqdesc.flags & StudioSequenceFlags::Autoplay)
 		{
 			count++;
 		}
@@ -1284,7 +1284,7 @@ int	CStudioHdr::CopyAutoplaySequences( unsigned short *pOut, int outCount ) cons
 	for (int i = 0; i < GetNumSeq() && outIndex < outCount; i++)
 	{
 		mstudioseqdesc_t &seqdesc = pSeqdesc( i );
-		if (seqdesc.flags & STUDIO_AUTOPLAY)
+		if (seqdesc.flags & StudioSequenceFlags::Autoplay)
 		{
 			pOut[outIndex] = i;
 			outIndex++;
@@ -1349,10 +1349,10 @@ void CStudioHdr::RunFlexRulesOld( const float *src, float *dest )
 		{
 			switch (pops->op)
 			{
-			case STUDIO_ADD: stack[k-2] = stack[k-2] + stack[k-1]; k--; break;
-			case STUDIO_SUB: stack[k-2] = stack[k-2] - stack[k-1]; k--; break;
-			case STUDIO_MUL: stack[k-2] = stack[k-2] * stack[k-1]; k--; break;
-			case STUDIO_DIV:
+			case StudioOpcode::Add: stack[k-2] = stack[k-2] + stack[k-1]; k--; break;
+			case StudioOpcode::Sub: stack[k-2] = stack[k-2] - stack[k-1]; k--; break;
+			case StudioOpcode::Mul: stack[k-2] = stack[k-2] * stack[k-1]; k--; break;
+			case StudioOpcode::Div:
 				if (stack[k-1] > 0.0001)
 				{
 					stack[k-2] = stack[k-2] / stack[k-1];
@@ -1363,22 +1363,22 @@ void CStudioHdr::RunFlexRulesOld( const float *src, float *dest )
 				}
 				k--;
 				break;
-			case STUDIO_NEG: stack[k-1] = -stack[k-1]; break;
-			case STUDIO_MAX: stack[k-2] = MAX( stack[k-2], stack[k-1] ); k--; break;
-			case STUDIO_MIN: stack[k-2] = MIN( stack[k-2], stack[k-1] ); k--; break;
-			case STUDIO_CONST: stack[k] = pops->d.value; k++; break;
-			case STUDIO_FETCH1:
+			case StudioOpcode::Neg: stack[k-1] = -stack[k-1]; break;
+			case StudioOpcode::Max: stack[k-2] = MAX( stack[k-2], stack[k-1] ); k--; break;
+			case StudioOpcode::Min: stack[k-2] = MIN( stack[k-2], stack[k-1] ); k--; break;
+			case StudioOpcode::Const: stack[k] = pops->d.value; k++; break;
+			case StudioOpcode::Fetch1:
 				{
 				int m = pFlexcontroller( (LocalFlexController_t)pops->d.index)->localToGlobal;
 				stack[k] = src[m];
 				k++;
 				break;
 				}
-			case STUDIO_FETCH2:
+			case StudioOpcode::Fetch2:
 				{
 					stack[k] = dest[pops->d.index]; k++; break;
 				}
-			case STUDIO_COMBO:
+			case StudioOpcode::Combo:
 				{
 					int m = pops->d.index;
 					int km = k - m;
@@ -1389,7 +1389,7 @@ void CStudioHdr::RunFlexRulesOld( const float *src, float *dest )
 					k = k - m + 1;
 				}
 				break;
-			case STUDIO_DOMINATE:
+			case StudioOpcode::Dominate:
 				{
 					int m = pops->d.index;
 					int km = k - m;
@@ -1402,21 +1402,21 @@ void CStudioHdr::RunFlexRulesOld( const float *src, float *dest )
 					k -= m;
 				}
 				break;
-			case STUDIO_2WAY_0:
+			case StudioOpcode::TwoWay0:
 				{
 					int m = pFlexcontroller( (LocalFlexController_t)pops->d.index )->localToGlobal;
 					stack[ k ] = RemapValClamped( src[m], -1.0f, 0.0f, 1.0f, 0.0f );
 					k++;
 				}
 				break;
-			case STUDIO_2WAY_1:
+			case StudioOpcode::TwoWay1:
 				{
 					int m = pFlexcontroller( (LocalFlexController_t)pops->d.index )->localToGlobal;
 					stack[ k ] = RemapValClamped( src[m], 0.0f, 1.0f, 0.0f, 1.0f );
 					k++;
 				}
 				break;
-			case STUDIO_NWAY:
+			case StudioOpcode::NWay:
 				{
 					LocalFlexController_t valueControllerIndex = static_cast< LocalFlexController_t >( (int)stack[ k - 1 ] );
 					int m = pFlexcontroller( valueControllerIndex )->localToGlobal;
@@ -1448,7 +1448,7 @@ void CStudioHdr::RunFlexRulesOld( const float *src, float *dest )
 					k -= 4;
 				}
 				break;
-			case STUDIO_DME_LOWER_EYELID:
+			case StudioOpcode::DmeLowerEyelid:
 				{
 					const mstudioflexcontroller_t *const pCloseLidV = pFlexcontroller( (LocalFlexController_t)pops->d.index );
 					const float flCloseLidV = RemapValClamped( src[ pCloseLidV->localToGlobal ], pCloseLidV->min, pCloseLidV->max, 0.0f, 1.0f );
@@ -1483,7 +1483,7 @@ void CStudioHdr::RunFlexRulesOld( const float *src, float *dest )
 					k -= 2;
 				}
 				break;
-			case STUDIO_DME_UPPER_EYELID:
+			case StudioOpcode::DmeUpperEyelid:
 				{
 					const mstudioflexcontroller_t *const pCloseLidV = pFlexcontroller( (LocalFlexController_t)pops->d.index );
 					const float flCloseLidV = RemapValClamped( src[ pCloseLidV->localToGlobal ], pCloseLidV->min, pCloseLidV->max, 0.0f, 1.0f );
@@ -1547,18 +1547,18 @@ void CStudioHdr::RunFlexRulesNew( const float *src, float *dest )
 			{
 				switch (pops->op)
 				{
-					case STUDIO_ADD:
+					case StudioOpcode::Add:
 						flTOS += *(pSP++);
 						break;
 
-					case STUDIO_SUB:
+					case StudioOpcode::Sub:
 						flTOS = *(pSP++) - flTOS;
 						break;
 
-					case STUDIO_MUL:
+					case StudioOpcode::Mul:
 						flTOS *= *(pSP++);
 						break;
-					case STUDIO_DIV:
+					case StudioOpcode::Div:
 						if (flTOS > 0.0001)
 						{
 							flTOS = *(pSP) / flTOS;
@@ -1570,29 +1570,29 @@ void CStudioHdr::RunFlexRulesNew( const float *src, float *dest )
 						pSP++;
 						break;
 
-					case STUDIO_NEG:
+					case StudioOpcode::Neg:
 						flTOS = -flTOS;
 						break;
 
-					case STUDIO_MAX:
+					case StudioOpcode::Max:
 					{
 						float flNos = *(pSP++);
 						flTOS = MAX( flTOS, flNos );
 						break;
 					}
 
-					case STUDIO_MIN:
+					case StudioOpcode::Min:
 					{
 						float flNos = *(pSP++);
 						flTOS = MIN( flTOS, flNos);
 						break;
 					}
-					case STUDIO_CONST:
+					case StudioOpcode::Const:
 						*(--pSP) = flTOS;
 						flTOS = pops->d.value;
 						break;
 
-					case STUDIO_FETCH1:
+					case StudioOpcode::Fetch1:
 					{
 						*(--pSP ) = flTOS;
 						int m = pFlexcontroller( (LocalFlexController_t)pops->d.index)->localToGlobal;
@@ -1600,13 +1600,13 @@ void CStudioHdr::RunFlexRulesNew( const float *src, float *dest )
 						break;
 					}
 
-					case STUDIO_FETCH2:
+					case StudioOpcode::Fetch2:
 					{
 						*(--pSP) = flTOS;
 						flTOS = dest[pops->d.index];
 						break;
 					}
-					case STUDIO_COMBO:
+					case StudioOpcode::Combo:
 					{
  						// tos = prod( top m elements on stack)
 						int m = pops->d.index;
@@ -1618,7 +1618,7 @@ void CStudioHdr::RunFlexRulesNew( const float *src, float *dest )
 					}
 					break;
 
-					case STUDIO_DOMINATE:
+					case StudioOpcode::Dominate:
 					{
 						// tos *= 1-prod( next top m elements on stack)
 						int m = pops->d.index;
@@ -1631,7 +1631,7 @@ void CStudioHdr::RunFlexRulesNew( const float *src, float *dest )
 						break;
 					}
 					break;
-					case STUDIO_2WAY_0:
+					case StudioOpcode::TwoWay0:
 					{
 						int m = pFlexcontroller( (LocalFlexController_t)pops->d.index )->localToGlobal;
 						*(--pSP) = flTOS;
@@ -1639,7 +1639,7 @@ void CStudioHdr::RunFlexRulesNew( const float *src, float *dest )
 					}
 					break;
 
-					case STUDIO_2WAY_1:
+					case StudioOpcode::TwoWay1:
 					{
 						int m = pFlexcontroller( (LocalFlexController_t)pops->d.index )->localToGlobal;
 						*(--pSP) = flTOS;
@@ -1647,7 +1647,7 @@ void CStudioHdr::RunFlexRulesNew( const float *src, float *dest )
 					}
 					break;
 
-					case STUDIO_NWAY:
+					case StudioOpcode::NWay:
 					{
 						LocalFlexController_t valueControllerIndex = static_cast< LocalFlexController_t >( (int) flTOS );
 						int m = pFlexcontroller( valueControllerIndex )->localToGlobal;
@@ -1679,7 +1679,7 @@ void CStudioHdr::RunFlexRulesNew( const float *src, float *dest )
 					}
 					break;
 
-					case STUDIO_DME_LOWER_EYELID:
+					case StudioOpcode::DmeLowerEyelid:
 					{
 						const mstudioflexcontroller_t *const pCloseLidV =
 							pFlexcontroller( (LocalFlexController_t)pops->d.index );
@@ -1721,7 +1721,7 @@ void CStudioHdr::RunFlexRulesNew( const float *src, float *dest )
 					}
 					break;
 
-					case STUDIO_DME_UPPER_EYELID:
+					case StudioOpcode::DmeUpperEyelid:
 					{
 						const mstudioflexcontroller_t *const pCloseLidV = pFlexcontroller( (LocalFlexController_t)pops->d.index );
 						const float flCloseLidV = RemapValClamped( src[ pCloseLidV->localToGlobal ], pCloseLidV->min, pCloseLidV->max, 0.0f, 1.0f );
@@ -1793,7 +1793,7 @@ void CStudioHdr::RunFlexRules( const float *src, float *dest )
 //	propagate flags all the way down
 //-----------------------------------------------------------------------------
 
-void CStudioHdr::setBoneFlags( int iBone, int flags )
+void CStudioHdr::setBoneFlags( int iBone, BoneFlags flags )
 {
 	((mstudiobone_t *)pBone( iBone ))->flags |= flags;
 	mstudiolinearbone_t *pLinear = pLinearBones();
@@ -1805,7 +1805,7 @@ void CStudioHdr::setBoneFlags( int iBone, int flags )
 	m_boneFlags[ iBone ] |= flags;
 }
 
-void CStudioHdr::clearBoneFlags( int iBone, int flags )
+void CStudioHdr::clearBoneFlags( int iBone, BoneFlags flags )
 {
 	((mstudiobone_t *)pBone( iBone ))->flags &= ~flags;
 	mstudiolinearbone_t *pLinear = pLinearBones();
@@ -1856,7 +1856,7 @@ void CStudioHdr::CActivityToSequenceMapping::Initialize( const CStudioHdr * __re
 	{
 		const mstudioseqdesc_t &seqdesc = ((CStudioHdr *)pstudiohdr)->pSeqdesc( i );
 #if defined(SERVER_DLL) || defined(CLIENT_DLL) || defined(GAME_DLL)
-		if (!(seqdesc.flags & STUDIO_ACTIVITY))
+		if (!(seqdesc.flags & StudioSequenceFlags::Activity))
 		{
 			// AssertMsg2( false, "Sequence %d on studiohdr %s didn't have its activity initialized!", i, pstudiohdr->pszName() );
 			SetActivityForSequence( (CStudioHdr *)pstudiohdr, i );
@@ -2225,7 +2225,7 @@ CSoftbody * CStudioHdr::InitSoftbody( CSoftbodyEnvironment *pSoftbodyEnvironment
 			{
 				int nModelBone = Studio_BoneIndexByName( this, pFeModel->m_pCtrlName[ nCtrl ] );
 				m_pSoftbody->BindModelBoneToCtrl( nModelBone, nCtrl );
-				//m_pStudioHdr->setBoneFlags( nModelBone, BONE_ALWAYS_PROCEDURAL );
+				//m_pStudioHdr->setBoneFlags( nModelBone, BoneFlags::AlwaysProcedural );
 				//const_cast< mstudiobone_t* >( m_pStudioHdr->pBone( nModelBone ) )->proctype = STUDIO_PROC_SOFTBODY;						
 			}
 		}

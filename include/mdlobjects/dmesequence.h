@@ -225,7 +225,7 @@ public:
 	CDmaVar< float > m_flMotionRollback;					// QC motionrollback
 	CDmaVar< bool > m_bAnimBlocks;							// QC !( noanimblock )
 	CDmaVar< bool > m_bAnimBlockStall;						// QC !( noanimblockstalls )
-	CDmaElement< CDmeMotionControl > m_eMotionControl;		// QC STUDIO_X, etc...
+	CDmaElement< CDmeMotionControl > m_eMotionControl;		// QC StudioMotionFlags::X, etc...
 
 	CDmaElementArray< CDmeAnimCmd > m_eAnimationCommandList;
 	CDmaElementArray< CDmeIkRule > m_eIkRuleList;

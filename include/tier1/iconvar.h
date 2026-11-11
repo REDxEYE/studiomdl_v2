@@ -99,7 +99,7 @@ typedef void ( *FnChangeCallback_t )( IConVar *var, const char *pOldValue, float
 //-----------------------------------------------------------------------------
 // Abstract interface for ConVars
 //-----------------------------------------------------------------------------
-abstract_class IConVar
+class IConVar
 {
 public:
 	// Value set

@@ -348,7 +348,7 @@
 // Purpose: Base class of all function objects
 //
 //-----------------------------------------------------------------------------
-abstract_class CFunctor : public IRefCounted
+class CFunctor : public IRefCounted
 {
 public:
 	CFunctor()
@@ -370,13 +370,13 @@ public:
 // the functor data is passed to a functor callback. Validation strings
 // are compared in debug builds to ensure the data matches the callback
 //-----------------------------------------------------------------------------
-abstract_class CFunctorData : public IRefCounted
+class CFunctorData : public IRefCounted
 {
 public:
 	virtual void ComputeValidationString( char *pString, size_t nBufLen ) const = 0; 
 };
 
-abstract_class CFunctorCallback : public IRefCounted
+class CFunctorCallback : public IRefCounted
 {
 public:
 	virtual bool IsEqual( CFunctorCallback *pSrc ) const = 0;

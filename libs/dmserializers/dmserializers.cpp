@@ -374,7 +374,7 @@ void MoveRigControlsToGroup( CDmElement *pRig, CDmElement *pAnimSetElements, CDm
 		if ( bTransformOnly && ( pControl->GetType() != symDmeTransformControl ) )
 			continue;
 
-		CUtlVector< CDmElement* > referringElements( 0, 4 );
+		CUtlVector< CDmElement* > referringElements( 0u, 4 );
 		FindReferringElements( referringElements, pControl, symElementList );
 		if ( referringElements.Find( pAnimSetElements ) != referringElements.InvalidIndex() )
 		{
@@ -428,7 +428,7 @@ void RemoveInvalidTransformControls( CDmElement *pAnimSet )
 	CDmrElementArray< CDmElement > controls( pControlsAttr );
 	int nNumControls = controls.Count();
 	
-	CUtlVector< CDmElement* > invalidControls( 0, nNumControls / 2 );
+	CUtlVector< CDmElement* > invalidControls( 0u, nNumControls / 2 );
 	for ( int iControl = 0; iControl < nNumControls; ++iControl )
 	{
 		CDmElement *pControl = controls[ iControl ];
@@ -462,7 +462,7 @@ void RemoveInvalidTransformControls( CDmElement *pAnimSet )
 		}
 
 		// Remove the control from the control groups
-		CUtlVector < CDmElement* > referringElements( 0, 4 );
+		CUtlVector < CDmElement* > referringElements( 0u, 4 );
 		FindReferringElements( referringElements, pInvalidControl, symControls );
 		int nNumReferringElements = referringElements.Count();
 
@@ -576,7 +576,7 @@ void FixupRigGroupsForAnimationSet( CDmElement *pRig, CDmElement *pAnimSetElemen
 		CDmrElementArray< CDmElement > children( pChildrenAttr );
 		int nChildren = children.Count();
 
-		CUtlVector< CDmElement* > emptyGroups( 0, nChildren );
+		CUtlVector< CDmElement* > emptyGroups( 0u, nChildren );
 
 		for ( int iChild = 0; iChild < nChildren; ++iChild )
 		{
@@ -723,7 +723,7 @@ bool Update17( CDmElement *pElement )
 			if ( nControlValues > 0 )
 			{
 				CUtlDict< CDmElement*, int > mergedControls;
-				CUtlVector< DmElementHandle_t > validControlValues( 0, nControlValues );
+				CUtlVector< DmElementHandle_t > validControlValues( 0u, nControlValues );
 
 				for ( int iValue = 0; iValue < nControlValues; ++iValue )
 				{
@@ -762,7 +762,7 @@ bool Update17( CDmElement *pElement )
 					// Find or create the new control value
 					CDmElement *pNewControlValue = nullptr;
 					int nIndex = mergedControls.Find( baseName );
-					if ( nIndex == mergedControls.InvalidIndex() )
+					if ( nIndex == CUtlDict<CDmElement *>::InvalidIndex() )
 					{
 						pNewControlValue = CreateElement< CDmElement >( "DmElement", baseName, pElement->GetFileId() );
 						pNewControlValue->SetParity( pElement->GetParity() );

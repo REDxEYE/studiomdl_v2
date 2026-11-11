@@ -1426,7 +1426,7 @@ void CAnimSetControlDependencyMap::AddAnimationSet( const CDmeAnimationSet* pAni
 		CDmeGlobalFlexControllerOperator* pFlexOp = pGameModel->GetGlobalFlexController( iFlex );
 		if ( pFlexOp )
 		{
-			CUtlVector< CDmeChannel* > channels( 0, 4 );
+			CUtlVector< CDmeChannel* > channels( 0u, 4 );
 			FindAncestorsReferencingElement( pFlexOp, channels );
 
 			int nChannels = channels.Count();
@@ -1659,33 +1659,37 @@ void CDmePresetGroupInfo::LoadPresetGroups( const char *pFilenameBase, CDmaEleme
 }
 
 
-ControlIndex_t FindComboOpControlIndexForAnimSetControl( CDmeCombinationOperator *pComboOp, const char *pControlName, bool *pIsMulti /*= NULL*/ )
-{
-	const char *pMultiControlBaseName = pControlName ? StringAfterPrefix( pControlName, "multi_" ) : nullptr;
-	if ( pIsMulti )
-	{
-		*pIsMulti = pMultiControlBaseName != nullptr;
-	}
+ControlIndex_t FindComboOpControlIndexForAnimSetControl(CDmeCombinationOperator* pComboOp, const char* pControlName,
+                                                        bool* pIsMulti /*= NULL*/) {
+    if (pControlName == nullptr) {
+        if (pIsMulti) *pIsMulti = false;
+        return -1;
+    }
 
-	if ( !pComboOp || !pControlName )
-		return -1;
 
-	ControlIndex_t index = pComboOp->FindControlIndex( pControlName );
-	if ( index >= 0 )
-		return index;
+    const auto pMultiControlBaseName = string_after_prefix(pControlName, "multi_");
+    if (pIsMulti) {
+        *pIsMulti = pMultiControlBaseName.has_value();
+    }
 
-	if ( !pMultiControlBaseName )
-		return -1;
+    if (!pComboOp)
+        return -1;
 
-	index = pComboOp->FindControlIndex( pMultiControlBaseName );
-	if ( index < 0 )
-		return -1;
+    ControlIndex_t index = pComboOp->FindControlIndex(pControlName);
+    if (index >= 0)
+        return index;
 
-	Assert( pComboOp->IsMultiControl( index ) );
+    if (!pMultiControlBaseName)
+        return -1;
 
-	return index;
+    index = pComboOp->FindControlIndex(pMultiControlBaseName->data());
+    if (index < 0)
+        return -1;
+
+    Assert(pComboOp->IsMultiControl( index ));
+
+    return index;
 }
-
 
 //-----------------------------------------------------------------------------
 // Utility class to migrate from traversing all animationsets within an animationsetgroup to a filmclip

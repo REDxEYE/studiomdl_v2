@@ -16,6 +16,8 @@
 #include <filesystem>
 #include <system_error>
 
+#include "tier1_v2/function_timing.hpp"
+
 namespace fs = std::filesystem;
 
 //-----------------------------------------------------------------------------

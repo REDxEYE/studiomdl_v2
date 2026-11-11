@@ -394,7 +394,7 @@ bool CImportTex::ParseOptionKey( const char *pKeyName, const char *pKeyValue, CD
 
 			for ( char const *szParse = pKeyValue; szParse; szParse = strchr( szParse, ':' ), szParse ? ++ szParse : 0 )
 			{
-				if ( char const *sz = StringAfterPrefix( szParse, "skip=" ) )
+				if ( char const *sz = string_after_prefix( szParse, "skip=" ) )
 				{
 					szParse = sz;
 					nSteps = atoi(sz);

@@ -22,7 +22,7 @@ struct s_source_t;
 enum FlexOptimizeMode_t : int;
 
 // Parses "auto", "on" or "off"; returns false (mode unchanged) for anything else
-bool ParseFlexOptimizeMode(const char *pText, FlexOptimizeMode_t &mode);
+bool ParseFlexOptimizeMode(std::string_view pText, FlexOptimizeMode_t &mode);
 
 // Splits flexed meshes of all active sources; runs after the script is parsed, before ClampMaxVerticesPerModel
 void FlexOptimizeSources();

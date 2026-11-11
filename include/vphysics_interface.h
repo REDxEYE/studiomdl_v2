@@ -113,7 +113,7 @@ class IRestore;
 
 #define VPHYSICS_DEBUG_OVERLAY_INTERFACE_VERSION	"VPhysicsDebugOverlay001"
 
-abstract_class IVPhysicsDebugOverlay
+class IVPhysicsDebugOverlay
 {
 public:
 	virtual void AddEntityTextOverlay(int ent_index, int line_offset, float duration, int r, int g, int b, int a, PRINTF_FORMAT_STRING const char *format, ...) = 0;
@@ -148,7 +148,7 @@ struct truncatedcone_t
 };
 
 
-abstract_class IPhysicsCollision
+class IPhysicsCollision
 {
 public:
 	virtual ~IPhysicsCollision( void ) {}
@@ -284,7 +284,7 @@ public:
 
 
 // this can be used to post-process a collision model
-abstract_class ICollisionQuery
+class ICollisionQuery
 {
 public:
 	virtual ~ICollisionQuery() {}
@@ -309,7 +309,7 @@ public:
 //-----------------------------------------------------------------------------
 // Purpose: Ray traces from game engine.
 //-----------------------------------------------------------------------------
-abstract_class IPhysicsGameTrace
+class IPhysicsGameTrace
 {
 public:
 	virtual void VehicleTraceRay( const Ray_t &ray, void *pVehicle, trace_t *pTrace ) = 0;
@@ -318,14 +318,14 @@ public:
 };
 
 // The caller should implement this to return contents masks per convex on a collide
-abstract_class IConvexInfo
+class IConvexInfo
 {
 public:
 	virtual unsigned int GetContents( int convexGameData ) = 0;
 };
 
 class CPhysicsEventHandler;
-abstract_class IPhysicsCollisionData
+class IPhysicsCollisionData
 {
 public:
 	virtual void GetSurfaceNormal( Vector &out ) = 0;		// normal points toward second object (object index 1)
@@ -346,7 +346,7 @@ struct vcollisionevent_t
 	IPhysicsCollisionData *pInternalData;		// may change pre/post collision
 };
 
-abstract_class IPhysicsCollisionEvent
+class IPhysicsCollisionEvent
 {
 public:
 	// returns the two objects that collided, time between last collision of these objects
@@ -371,7 +371,7 @@ public:
 };
 
 
-abstract_class IPhysicsObjectEvent
+class IPhysicsObjectEvent
 {
 public:
 	// these can be used to optimize out queries on sleeping objects
@@ -381,7 +381,7 @@ public:
 	virtual void ObjectSleep( IPhysicsObject *pObject ) = 0;
 };
 
-abstract_class IPhysicsConstraintEvent
+class IPhysicsConstraintEvent
 {
 public:
 	// the constraint is now inactive, the game code is required to delete it or re-activate it.
@@ -402,7 +402,7 @@ struct hlshadowcontrol_params_t
 
 // UNDONE: At some point allow this to be parameterized using hlshadowcontrol_params_t.
 // All of the infrastructure is in place to do that.
-abstract_class IPhysicsShadowController
+class IPhysicsShadowController
 {
 public:
 	virtual ~IPhysicsShadowController( void ) {}
@@ -450,7 +450,7 @@ public:
 
 
 
-abstract_class IPhysicsMotionController
+class IPhysicsMotionController
 {
 public:
 	virtual ~IPhysicsMotionController( void ) {}
@@ -480,7 +480,7 @@ public:
 // Collision filter function.  Return 0 if objects should not be tested for collisions, nonzero otherwise
 // Install with IPhysicsEnvironment::SetCollisionFilter()
 // -------------------
-abstract_class IPhysicsCollisionSolver
+class IPhysicsCollisionSolver
 {
 public:
 	virtual int ShouldCollide( IPhysicsObject *pObj0, IPhysicsObject *pObj1, void *pGameData0, void *pGameData1 ) = 0;
@@ -507,7 +507,7 @@ enum PhysicsTraceType_t
 	VPHYSICS_TRACE_STATIC_AND_MOVING,
 };
 
-abstract_class IPhysicsTraceFilter
+class IPhysicsTraceFilter
 {
 public:
 	virtual bool ShouldHitObject( IPhysicsObject *pObject, int contentsMask ) = 0;
@@ -543,7 +543,7 @@ enum collisionhints
 
 class IPredictedPhysicsObject;
 
-abstract_class IPhysicsObject
+class IPhysicsObject
 {
 public:
 	virtual ~IPhysicsObject( void ) {}
@@ -736,7 +736,7 @@ public:
 	virtual void			SyncWith( IPhysicsObject *pOther ) = 0;
 };
 
-abstract_class IPredictedPhysicsObject : public IPhysicsObject
+class IPredictedPhysicsObject : public IPhysicsObject
 {
 public:
 	virtual ~IPredictedPhysicsObject( void ) {}
@@ -746,7 +746,7 @@ public:
 };
 
 
-abstract_class IPhysicsSpring
+class IPhysicsSpring
 {
 public:
 	virtual ~IPhysicsSpring( void ) {}
@@ -861,7 +861,7 @@ struct surfacedata_t
 class ISaveRestoreOps;
 
 #define VPHYSICS_SURFACEPROPS_INTERFACE_VERSION	"VPhysicsSurfaceProps001"
-abstract_class IPhysicsSurfaceProps
+class IPhysicsSurfaceProps
 {
 public:
 	virtual ~IPhysicsSurfaceProps( void ) {}
@@ -890,7 +890,7 @@ public:
 	virtual ISaveRestoreOps* GetMaterialIndexDataOps() const = 0;
 };
 
-abstract_class IPhysicsFluidController
+class IPhysicsFluidController
 {
 public:
 	virtual ~IPhysicsFluidController( void ) {}

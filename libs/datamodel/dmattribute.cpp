@@ -98,7 +98,7 @@ inline bool Unserialize( CUtlBuffer &buf, DmElementAttribute_t &dest ) { int n =
 //-----------------------------------------------------------------------------
 // Internal interface for dealing with generic attribute operations
 //-----------------------------------------------------------------------------
-abstract_class IDmAttributeOp
+class IDmAttributeOp
 {
 public:
 	virtual void* CreateAttributeData() = 0;

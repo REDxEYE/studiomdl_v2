@@ -68,10 +68,10 @@ void CDmeFaceSet::SetIndex( int i, int nValue )
 //-----------------------------------------------------------------------------
 // Returns the number of triangulated indices
 //-----------------------------------------------------------------------------
-int CDmeFaceSet::GetNextPolygonVertexCount( int nFirstIndex ) const
+uint32_t CDmeFaceSet::GetNextPolygonVertexCount(const uint32_t nFirstIndex) const
 {
-	int nCurrIndex = nFirstIndex;
-	int nTotalCount = m_indices.Count();
+	uint32_t nCurrIndex = nFirstIndex;
+	const uint32_t nTotalCount = m_indices.Count();
 	while( nCurrIndex < nTotalCount )
 	{
 		if ( m_indices[nCurrIndex] == -1 )

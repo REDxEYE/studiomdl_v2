@@ -23,7 +23,7 @@ class IPoseDebugger;
 
 // This provides access to networked arrays, so if this code actually changes a value, 
 // the entity is marked as changed.
-abstract_class IParameterAccess
+class IParameterAccess
 {
 public:
 	virtual float GetParameter( int iParam ) = 0;
@@ -61,7 +61,7 @@ void SlerpBones(
 	const BoneQuaternionAligned q2[MAXSTUDIOBONES], 
 	const BoneVector pos2[MAXSTUDIOBONES], 
 	float s,
-	int boneMask
+	BoneFlags boneMask
 	);
 
 
@@ -69,7 +69,7 @@ class CBoneSetup;
 class IBoneSetup
 {
 public:
-	IBoneSetup( const CStudioHdr *pStudioHdr, int boneMask, const float poseParameter[]);
+	IBoneSetup( const CStudioHdr *pStudioHdr, BoneFlags boneMask, const float poseParameter[]);
 	~IBoneSetup( void );
 	void InitPose( BoneVector pos[], BoneQuaternionAligned q[] );
 	void AccumulatePose( BoneVector pos[], BoneQuaternion q[], int sequence, float cycle, float flWeight, float flTime, CIKContext *pIKContext );
@@ -139,7 +139,7 @@ public:
 	bool IsActive( void );
 	void IKFailed( void );
 	int chain;
-	int type;
+	IkRuleType type;
 	void MoveReferenceFrame( Vector &deltaPos, QAngle &deltaAngles );
 	// accumulated offset from ideal footplant location
 public:
@@ -220,7 +220,7 @@ struct ikcontextikrule_t
 {
 	int			index;
 
-	int			type;
+	IkRuleType	type;
 	int			chain;
 
 	int			bone;
@@ -274,7 +274,7 @@ class CIKContext
 {
 public:
 	CIKContext( );
-	void Init( const CStudioHdr *pStudioHdr, const QAngle &angles, const Vector &pos, float flTime, int iFramecounter, int boneMask );
+	void Init( const CStudioHdr *pStudioHdr, const QAngle &angles, const Vector &pos, float flTime, int iFramecounter, BoneFlags boneMask );
 	void AddDependencies(  mstudioseqdesc_t &seqdesc, int iSequence, float flCycle, const float poseParameters[], float flWeight = 1.0f );
 
 
@@ -300,7 +300,7 @@ public:
 
 	void BuildBoneChain( const BoneVector pos[], const BoneQuaternion q[], int iBone, matrix3x4a_t *pBoneToWorld, CBoneBitList &boneComputed );
 
-	const int GetBoneMask( void ) { return m_boneMask; }
+	BoneFlags GetBoneMask( void ) { return m_boneMask; }
 private:
 
 	CStudioHdr const *m_pStudioHdr;
@@ -315,7 +315,7 @@ private:
 
 	int m_iFramecounter;
 	float m_flTime;
-	int m_boneMask;
+	BoneFlags m_boneMask;
 };
 
 
@@ -340,7 +340,7 @@ void Studio_BuildMatrices(
 	int iBone,
 	float flScale,
 	matrix3x4a_t bonetoworld[MAXSTUDIOBONES],
-	int boneMask
+	BoneFlags boneMask
 	);
 
 
@@ -398,7 +398,7 @@ struct bonecacheparams_t
 	CStudioHdr		*pStudioHdr;
 	matrix3x4a_t	*pBoneToWorld;
 	float			curtime;
-	int				boneMask;
+	BoneFlags				boneMask;
 };
 
 class CBoneCache
@@ -430,7 +430,7 @@ public:
 
 public:
 	float			m_timeValid;
-	int				m_boneMask;
+	BoneFlags				m_boneMask;
 
 private:
 	matrix3x4a_t	*BoneArray();

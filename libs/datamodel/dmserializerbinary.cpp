@@ -14,6 +14,7 @@
 #include "tier1/utlbuffer.h"
 #include "tier1/utlbufferutil.h"
 #include "DmElementFramework.h"
+#include "tier1_v2/function_timing.hpp"
 
 
 //-----------------------------------------------------------------------------
@@ -105,7 +106,7 @@ private:
     bool UnserializeElements(CUtlBuffer &buf, DmFileId_t fileid, DmConflictResolution_t idConflictResolution,
                              CDmElement **ppRoot, mapIndexToSymbol_t *pSymbolTable, int nEncodingVersion);
 
-    void GetStringTable(CUtlBuffer &buf, int nStrings, int nEncodingVersion, mapIndexToSymbol_t *pMap);
+    void GetStringTable(CUtlBuffer &buf, uint32_t nStrings, uint32_t nEncodingVersion, mapIndexToSymbol_t *pMap);
 
     inline char const *Dme_GetStringFromBuffer(CUtlBuffer &buf, bool bUseLargeSymbols, mapIndexToSymbol_t *pMap) {
         unsigned int uSym = (bUseLargeSymbols) ? buf.GetInt() : buf.GetShort();
@@ -562,7 +563,7 @@ DmElementHandle_t CreateElementWithFallback(const char *pType, const char *pName
     return hElement;
 }
 
-void CDmSerializerBinary::GetStringTable(CUtlBuffer &buf, int nStrings, int nEncodingVersion,
+void CDmSerializerBinary::GetStringTable(CUtlBuffer &buf, uint32_t nStrings, uint32_t nEncodingVersion,
                                          mapIndexToSymbol_t *pMap) {
     char pStrBuf[2048];
     for (int i = 0; i < nStrings; ++i) {
@@ -591,10 +592,10 @@ bool CDmSerializerBinary::Unserialize(CUtlBuffer &buf, const char *pEncodingName
     bool bReadSymbolTable = nEncodingVersion >= DM_BINARY_VER_STRINGTABLE;
 
     // Read string table
-    int nStrings = 0;
     mapIndexToSymbol_t indexToSymbolMap(0, 0, DefLessFunc(int));
 
     if (bReadSymbolTable) {
+        uint32_t nStrings = 0;
         if (nEncodingVersion >= DM_BINARY_VER_GLOBAL_STRINGTABLE) {
             nStrings = buf.GetInt();
         }
@@ -605,9 +606,9 @@ bool CDmSerializerBinary::Unserialize(CUtlBuffer &buf, const char *pEncodingName
         GetStringTable(buf, nStrings, nEncodingVersion, &indexToSymbolMap);
     }
 
-    bool bSuccess = UnserializeElements(buf, fileid, idConflictResolution, ppRoot,
+    bool success = UnserializeElements(buf, fileid, idConflictResolution, ppRoot,
                                         bReadSymbolTable ? (&indexToSymbolMap) : nullptr, nEncodingVersion);
-    if (!bSuccess)
+    if (!success)
         return false;
 
     return g_pDataModel->UpdateUnserializedElements(pSourceFormatName, nSourceFormatVersion, fileid,
@@ -617,6 +618,7 @@ bool CDmSerializerBinary::Unserialize(CUtlBuffer &buf, const char *pEncodingName
 bool CDmSerializerBinary::UnserializeElements(CUtlBuffer &buf, DmFileId_t fileid,
                                               DmConflictResolution_t idConflictResolution, CDmElement **ppRoot,
                                               mapIndexToSymbol_t *pSymbolTable, int nEncodingVersion) {
+    vstd::FunctionTimingRecorder _("DMX");
     DMX_PROFILE_SCOPE(CDmSerializerBinary_UnserializeElements);
 
     *ppRoot = nullptr;
@@ -633,13 +635,13 @@ bool CDmSerializerBinary::UnserializeElements(CUtlBuffer &buf, DmFileId_t fileid
         DMX_PROFILE_SCOPE(UnserializeElements_GetExistingElements);
         g_pDataModel->GetExistingElements(hashExistingElements);
     }
-    UtlHashHandle_t hashInvalidHandle = hashExistingElements.InvalidHandle();
+    const UtlHashHandle_t hashInvalidHandle = CElementIdHash::InvalidHandle();
 
     // Read + create all elements
     char nameBuf[2048];
     char typeBuf[512];
 
-    CUtlVector<CDmElement *> elementList(0, nElementCount);
+    CUtlVector<CDmElement *> elementList(0u, nElementCount);
     for (int i = 0; i < nElementCount; ++i) {
         const char *pName = nullptr;
         const char *pType = nullptr;

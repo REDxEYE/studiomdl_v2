@@ -3,13 +3,14 @@
 //
 
 #pragma once
+#include <concepts>
 #include <numbers>
 
 
 namespace vstd {
     template<std::floating_point T>
     constexpr T deg2rad(T degrees) noexcept {
-        constexpr T multiplier = 180.0 / std::numbers::pi;
+        constexpr T multiplier = std::numbers::pi_v<T> / T(180);
         return degrees * multiplier;
     }
 }

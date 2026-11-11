@@ -28,11 +28,11 @@ public:
 	void Init( const C_BaseAnimating *pAnimating, matrix3x4a_t *pBones );
 #endif
 	
-	int GetReadableBones();
-	void SetReadableBones( int flags );
+	BoneFlags GetReadableBones();
+	void SetReadableBones( BoneFlags flags );
 
-	int GetWritableBones();
-	void SetWritableBones( int flags );
+	BoneFlags GetWritableBones();
+	void SetWritableBones( BoneFlags flags );
 
 	bool isBoneAvailableForRead( int iBone ) const;
 	bool isBoneAvailableForWrite( int iBone ) const;
@@ -55,8 +55,8 @@ private:
 
 	matrix3x4a_t *m_pBones;
 
-	int m_ReadableBones;		// Which bones can be read.
-	int m_WritableBones;		// Which bones can be written.
+	BoneFlags m_ReadableBones;		// Which bones can be read.
+	BoneFlags m_WritableBones;		// Which bones can be written.
 };
 
 
@@ -64,7 +64,7 @@ inline CBoneAccessor::CBoneAccessor()
 {
 	m_pAnimating = nullptr;
 	m_pBones = nullptr;
-	m_ReadableBones = m_WritableBones = 0;
+	m_ReadableBones = m_WritableBones = BoneFlags::None;
 }
 
 inline CBoneAccessor::CBoneAccessor( matrix3x4a_t *pBones )
@@ -81,22 +81,22 @@ inline CBoneAccessor::CBoneAccessor( matrix3x4a_t *pBones )
 	}
 #endif
 
-inline int CBoneAccessor::GetReadableBones()
+inline BoneFlags CBoneAccessor::GetReadableBones()
 {
 	return m_ReadableBones;
 }
 
-inline void CBoneAccessor::SetReadableBones( int flags )
+inline void CBoneAccessor::SetReadableBones( BoneFlags flags )
 {
 	m_ReadableBones = flags;
 }
 
-inline int CBoneAccessor::GetWritableBones()
+inline BoneFlags CBoneAccessor::GetWritableBones()
 {
 	return m_WritableBones;
 }
 
-inline void CBoneAccessor::SetWritableBones( int flags )
+inline void CBoneAccessor::SetWritableBones( BoneFlags flags )
 {
 	m_WritableBones = flags;
 }

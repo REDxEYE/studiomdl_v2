@@ -79,7 +79,7 @@ enum PrecacheResourceType_t
 //-----------------------------------------------------------------------------
 // Callback interface for handler who knows how to precache particular kinds of resources
 //-----------------------------------------------------------------------------
-abstract_class IPrecacheHandler
+class IPrecacheHandler
 {
 public:
 	virtual void CacheResource( PrecacheResourceType_t nType, const char *pName, 
@@ -89,7 +89,7 @@ public:
 //-----------------------------------------------------------------------------
 // Interface to automated system for precaching resources
 //-----------------------------------------------------------------------------
-abstract_class IResourcePrecacher
+class IResourcePrecacher
 {
 public:
 	virtual void Cache( IPrecacheHandler *pPrecacheHandler, bool bPrecache, ResourceList_t hResourceList, bool bIgnoreConditionals ) = 0;	

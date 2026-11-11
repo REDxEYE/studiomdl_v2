@@ -34,15 +34,15 @@ public:
 	void SetMaterial( CDmeMaterial *pMaterial );
 
 	// Total number of indices in the face set including the -1 end of face designators
-	int NumIndices() const;
+	uint32_t NumIndices() const;
 	const int *GetIndices() const;
 	int AddIndices( int nCount );
 	void SetIndex( int i, int nValue );
 	void SetIndices( int nFirstIndex, int nCount, int *pIndices );
-	int GetIndex( int i ) const;
+	int GetIndex(uint32_t i) const;
 
 	// Returns the number of vertices in the next polygon
-	int GetNextPolygonVertexCount( int nFirstIndex ) const;
+	uint32_t GetNextPolygonVertexCount(uint32_t nFirstIndex) const;
 
 	// Returns the number of triangulated indices total
 	int GetTriangulatedIndexCount() const;
@@ -67,7 +67,7 @@ private:
 //-----------------------------------------------------------------------------
 // Inline methods
 //-----------------------------------------------------------------------------
-inline int CDmeFaceSet::NumIndices() const
+inline uint32_t CDmeFaceSet::NumIndices() const
 {
 	return m_indices.Count();
 }
@@ -77,7 +77,7 @@ inline const int *CDmeFaceSet::GetIndices() const
 	return m_indices.Base();
 }
 
-inline int CDmeFaceSet::GetIndex( int i ) const
+inline int CDmeFaceSet::GetIndex(uint32_t i) const
 {
 	return m_indices[i];
 }

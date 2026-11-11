@@ -134,26 +134,26 @@ void ExtractAnimValue( int frame, mstudioanimvalue_t *panimvalue, float scale, f
 //-----------------------------------------------------------------------------
 void CalcBoneQuaternion( int frame, float s, 
 						const Quaternion &baseQuat, const RadianEuler &baseRot, const Vector &baseRotScale, 
-						int iBaseFlags, const Quaternion &baseAlignment, 
+						BoneFlags iBaseFlags, const Quaternion &baseAlignment, 
 						const mstudio_rle_anim_t *panim, Quaternion &q )
 {
-	if ( panim->flags & STUDIO_ANIM_RAWROT )
+	if (HasFlag(panim->flags, StudioAnimFlags::RawRot))
 	{
 		q = *(panim->pQuat48());
 		Assert( q.IsValid() );
 		return;
 	} 
 	
-	if ( panim->flags & STUDIO_ANIM_RAWROT2 )
+	if (HasFlag(panim->flags, StudioAnimFlags::RawRot2))
 	{
 		q = *(panim->pQuat64());
 		Assert( q.IsValid() );
 		return;
 	}
 
-	if ( !(panim->flags & STUDIO_ANIM_ANIMROT) )
+	if ( !HasFlag(panim->flags, StudioAnimFlags::AnimRot) )
 	{
-		if (panim->flags & STUDIO_ANIM_DELTA)
+		if (HasFlag(panim->flags, StudioAnimFlags::Delta))
 		{
 			q.Init( 0.0f, 0.0f, 0.0f, 1.0f );
 		}
@@ -175,7 +175,7 @@ void CalcBoneQuaternion( int frame, float s,
 		ExtractAnimValue( frame, pValuesPtr->pAnimvalue( 1 ), baseRotScale.y, angle1.y, angle2.y );
 		ExtractAnimValue( frame, pValuesPtr->pAnimvalue( 2 ), baseRotScale.z, angle1.z, angle2.z );
 
-		if (!(panim->flags & STUDIO_ANIM_DELTA))
+		if (!HasFlag(panim->flags, StudioAnimFlags::Delta))
 		{
 			angle1.x = angle1.x + baseRot.x;
 			angle1.y = angle1.y + baseRot.y;
@@ -206,7 +206,7 @@ void CalcBoneQuaternion( int frame, float s,
 		ExtractAnimValue( frame, pValuesPtr->pAnimvalue( 1 ), baseRotScale.y, angle.y );
 		ExtractAnimValue( frame, pValuesPtr->pAnimvalue( 2 ), baseRotScale.z, angle.z );
 
-		if (!(panim->flags & STUDIO_ANIM_DELTA))
+		if (!HasFlag(panim->flags, StudioAnimFlags::Delta))
 		{
 			angle.x = angle.x + baseRot.x;
 			angle.y = angle.y + baseRot.y;
@@ -220,7 +220,7 @@ void CalcBoneQuaternion( int frame, float s,
 	Assert( q.IsValid() );
 
 	// align to unified bone
-	if (!(panim->flags & STUDIO_ANIM_DELTA) && (iBaseFlags & BONE_FIXED_ALIGNMENT))
+	if (!HasFlag(panim->flags, StudioAnimFlags::Delta) && HasFlag(iBaseFlags, BoneFlags::FixedAlignment))
 	{
 		QuaternionAlign( baseAlignment, q, q );
 	}
@@ -250,16 +250,16 @@ void CalcBonePosition(	int frame, float s,
 						const Vector &basePos, const Vector &baseBoneScale, 
 						const mstudio_rle_anim_t *panim, BoneVector &pos	)
 {
-	if (panim->flags & STUDIO_ANIM_RAWPOS)
+	if (HasFlag(panim->flags, StudioAnimFlags::RawPos))
 	{
 		pos = *(panim->pPos());
 		Assert( pos.IsValid() );
 
 		return;
 	}
-	else if (!(panim->flags & STUDIO_ANIM_ANIMPOS))
+	else if (!HasFlag(panim->flags, StudioAnimFlags::AnimPos))
 	{
-		if (panim->flags & STUDIO_ANIM_DELTA)
+		if (HasFlag(panim->flags, StudioAnimFlags::Delta))
 		{
 			pos.Init( 0.0f, 0.0f, 0.0f );
 		}
@@ -290,7 +290,7 @@ void CalcBonePosition(	int frame, float s,
 		}
 	}
 
-	if (!(panim->flags & STUDIO_ANIM_DELTA))
+	if (!HasFlag(panim->flags, StudioAnimFlags::Delta))
 	{
 		pos.x = pos.x + basePos.x;
 		pos.y = pos.y + basePos.y;
@@ -380,7 +380,7 @@ static void CalcLocalHierarchyAnimation(
 	float cycle, 
 	int iFrame,
 	float flFraq,
-	int boneMask
+	BoneFlags boneMask
 	)
 {
 	BoneVector localPos;
@@ -485,7 +485,7 @@ static void CalcLocalHierarchyAnimation(
 // Purpose: Calc Zeroframe Data
 //-----------------------------------------------------------------------------
 
-static void CalcZeroframeData( const CStudioHdr *pStudioHdr, const studiohdr_t *pAnimStudioHdr, const virtualgroup_t *pAnimGroup, const mstudiobone_t *pAnimbone, mstudioanimdesc_t &animdesc, float fFrame, BoneVector *pos, BoneQuaternion *q, int boneMask, float flWeight )
+static void CalcZeroframeData( const CStudioHdr *pStudioHdr, const studiohdr_t *pAnimStudioHdr, const virtualgroup_t *pAnimGroup, const mstudiobone_t *pAnimbone, mstudioanimdesc_t &animdesc, float fFrame, BoneVector *pos, BoneQuaternion *q, BoneFlags boneMask, float flWeight )
 {
 	uint8_t *pData = animdesc.pZeroFrameData();
 
@@ -504,9 +504,9 @@ static void CalcZeroframeData( const CStudioHdr *pStudioHdr, const studiohdr_t *
 			else
 				i = j;
 
-			if (pAnimbone[j].flags & BONE_HAS_SAVEFRAME_POS)
+			if (HasFlag(pAnimbone[j].flags, BoneFlags::HasSaveframePos))
 			{
-				if ((i >= 0) && (pStudioHdr->boneFlags(i) & boneMask))
+				if ((i >= 0) && HasFlag(pStudioHdr->boneFlags(i), boneMask))
 				{
 					Vector p = *(Vector48 *)pData;
 					pos[i] = pos[i] * (1.0f - flWeight) + p * flWeight;
@@ -514,9 +514,9 @@ static void CalcZeroframeData( const CStudioHdr *pStudioHdr, const studiohdr_t *
 				}
 				pData += sizeof( Vector48 );
 			}
-			if (pAnimbone[j].flags & BONE_HAS_SAVEFRAME_ROT64)
+			if (HasFlag(pAnimbone[j].flags, BoneFlags::HasSaveframeRot64))
 			{
-				if ((i >= 0) && (pStudioHdr->boneFlags(i) & boneMask))
+				if ((i >= 0) && HasFlag(pStudioHdr->boneFlags(i), boneMask))
 				{
 					Quaternion q0 = *(Quaternion64 *)pData;
 					QuaternionBlend( q[i], q0, flWeight, q[i] );
@@ -524,9 +524,9 @@ static void CalcZeroframeData( const CStudioHdr *pStudioHdr, const studiohdr_t *
 				}
 				pData += sizeof( Quaternion64 );
 			}
-			else if (pAnimbone[j].flags & BONE_HAS_SAVEFRAME_ROT32)
+			else if (HasFlag(pAnimbone[j].flags, BoneFlags::HasSaveframeRot32))
 			{
-				if ((i >= 0) && (pStudioHdr->boneFlags(i) & boneMask))
+				if ((i >= 0) && HasFlag(pStudioHdr->boneFlags(i), boneMask))
 				{
 					Quaternion q0 = *(Quaternion32 *)pData;
 					QuaternionBlend( q[i], q0, flWeight, q[i] );
@@ -559,9 +559,9 @@ static void CalcZeroframeData( const CStudioHdr *pStudioHdr, const studiohdr_t *
 			else
 				i = j;
 
-			if (pAnimbone[j].flags & BONE_HAS_SAVEFRAME_POS)
+			if (HasFlag(pAnimbone[j].flags, BoneFlags::HasSaveframePos))
 			{
-				if ((i >= 0) && (pStudioHdr->boneFlags(i) & boneMask))
+				if ((i >= 0) && HasFlag(pStudioHdr->boneFlags(i), boneMask))
 				{
 					Vector p0 = *(((Vector48 *)pData) + i0);
 					Vector p1 = *(((Vector48 *)pData) + i1);
@@ -582,9 +582,9 @@ static void CalcZeroframeData( const CStudioHdr *pStudioHdr, const studiohdr_t *
 				}
 				pData += sizeof( Vector48 ) * animdesc.zeroframecount;
 			}
-			if (pAnimbone[j].flags & BONE_HAS_SAVEFRAME_ROT64)
+			if (HasFlag(pAnimbone[j].flags, BoneFlags::HasSaveframeRot64))
 			{
-				if ((i >= 0) && (pStudioHdr->boneFlags(i) & boneMask))
+				if ((i >= 0) && HasFlag(pStudioHdr->boneFlags(i), boneMask))
 				{
 					Quaternion q0 = *(((Quaternion64 *)pData) + i0);
 					Quaternion q1 = *(((Quaternion64 *)pData) + i1);
@@ -604,9 +604,9 @@ static void CalcZeroframeData( const CStudioHdr *pStudioHdr, const studiohdr_t *
 				}
 				pData += sizeof( Quaternion64 ) * animdesc.zeroframecount;
 			}
-			else if (pAnimbone[j].flags & BONE_HAS_SAVEFRAME_ROT32)
+			else if (HasFlag(pAnimbone[j].flags, BoneFlags::HasSaveframeRot32))
 			{
-				if ((i >= 0) && (pStudioHdr->boneFlags(i) & boneMask))
+				if ((i >= 0) && HasFlag(pStudioHdr->boneFlags(i), boneMask))
 				{
 					Quaternion q0 = *(((Quaternion32 *)pData) + i0);
 					Quaternion q1 = *(((Quaternion32 *)pData) + i1);
@@ -633,14 +633,14 @@ static void CalcZeroframeData( const CStudioHdr *pStudioHdr, const studiohdr_t *
 // Purpose: Extract and blend two frames from a mstudio_frame_anim_t block of data
 //-----------------------------------------------------------------------------
 
-inline uint8_t *ExtractTwoFrames( uint8_t flags, float s, uint8_t *RESTRICT pFrameData, uint8_t *&pConstantData, int framelength, BoneQuaternion &q, BoneVector &pos, bool bIsDelta = false, const mstudiolinearbone_t *pLinearBones = nullptr, int bone = 0 )
+inline uint8_t *ExtractTwoFrames( StudioFrameFlags flags, float s, uint8_t *RESTRICT pFrameData, uint8_t *&pConstantData, int framelength, BoneQuaternion &q, BoneVector &pos, bool bIsDelta = false, const mstudiolinearbone_t *pLinearBones = nullptr, int bone = 0 )
 {
 	Quaternion q1, q2;
 	// Making these aligned.  Could be VectorAligned instead, but I don't want to change the behavior of this code.
 	ALIGN16 Vector p1;
 	ALIGN16 Vector p2;
 
-	if (flags & STUDIO_FRAME_ANIM_ROT)
+	if (HasFlag(flags, StudioFrameFlags::AnimRot))
 	{
 		q1 = *((Quaternion48 *)(pFrameData));
 		q2 = *((Quaternion48 *)(pFrameData + framelength));
@@ -648,7 +648,7 @@ inline uint8_t *ExtractTwoFrames( uint8_t flags, float s, uint8_t *RESTRICT pFra
 		Assert( q.IsValid() );
 		pFrameData += sizeof( Quaternion48 );
 	}
-	else if (flags & STUDIO_FRAME_ANIM_ROT2)
+	else if (HasFlag(flags, StudioFrameFlags::AnimRot2))
 	{
 		q1 = *((Quaternion48S *)(pFrameData));
 		q2 = *((Quaternion48S *)(pFrameData + framelength));
@@ -656,13 +656,13 @@ inline uint8_t *ExtractTwoFrames( uint8_t flags, float s, uint8_t *RESTRICT pFra
 		Assert( q.IsValid() );
 		pFrameData += sizeof( Quaternion48S );
 	}
-	else if (flags & STUDIO_FRAME_CONST_ROT)
+	else if (HasFlag(flags, StudioFrameFlags::ConstRot))
 	{
 		q = *((Quaternion48 *)(pConstantData));
 		Assert( q.IsValid() );
 		pConstantData += sizeof( Quaternion48 );
 	}
-	else if (flags & STUDIO_FRAME_CONST_ROT2)
+	else if (HasFlag(flags, StudioFrameFlags::ConstRot2))
 	{
 		q = *((Quaternion48S *)(pConstantData));
 		Assert( q.IsValid() );
@@ -680,7 +680,7 @@ inline uint8_t *ExtractTwoFrames( uint8_t flags, float s, uint8_t *RESTRICT pFra
 			q = pLinearBones->quat( bone );
 		}
 	}
-	if (flags & STUDIO_FRAME_ANIM_POS)
+	if (HasFlag(flags, StudioFrameFlags::AnimPos))
 	{
 		p1 = *((Vector48 *)(pFrameData));
 		p2 = *((Vector48 *)(pFrameData + framelength));
@@ -688,13 +688,13 @@ inline uint8_t *ExtractTwoFrames( uint8_t flags, float s, uint8_t *RESTRICT pFra
 		Assert( pos.IsValid() );
 		pFrameData += sizeof( Vector48 );
 	}
-	else if (flags & STUDIO_FRAME_CONST_POS)
+	else if (HasFlag(flags, StudioFrameFlags::ConstPos))
 	{
 		pos = *((Vector48 *)(pConstantData));
 		Assert( pos.IsValid() );
 		pConstantData += sizeof( Vector48 );
 	}
-	else if (flags & STUDIO_FRAME_ANIM_POS2)
+	else if (HasFlag(flags, StudioFrameFlags::AnimPos2))
 	{
 		// pFrameData has no alignment guarantees, so using V_memcpy.
 		V_memcpy( &p1, pFrameData, sizeof( p1 ) );
@@ -703,7 +703,7 @@ inline uint8_t *ExtractTwoFrames( uint8_t flags, float s, uint8_t *RESTRICT pFra
 		Assert( pos.IsValid() );
 		pFrameData += sizeof( Vector );
 	}
-	else if (flags & STUDIO_FRAME_CONST_POS2)
+	else if (HasFlag(flags, StudioFrameFlags::ConstPos2))
 	{
 		// pFrameData has no alignment guarantees, so using V_memcpy.
 		V_memcpy( &pos, pConstantData, sizeof( pos ) );
@@ -729,27 +729,27 @@ inline uint8_t *ExtractTwoFrames( uint8_t flags, float s, uint8_t *RESTRICT pFra
 // Purpose: Extract one frame from a mstudio_frame_anim_t block of data
 //-----------------------------------------------------------------------------
 
-inline uint8_t *ExtractSingleFrame( uint8_t flags, uint8_t *pFrameData, uint8_t *&pConstantData, BoneQuaternion &q, BoneVector &pos, bool bIsDelta = false, const mstudiolinearbone_t *pLinearBones = nullptr, int bone = 0 )
+inline uint8_t *ExtractSingleFrame( StudioFrameFlags flags, uint8_t *pFrameData, uint8_t *&pConstantData, BoneQuaternion &q, BoneVector &pos, bool bIsDelta = false, const mstudiolinearbone_t *pLinearBones = nullptr, int bone = 0 )
 {
-	if (flags & STUDIO_FRAME_ANIM_ROT)
+	if (HasFlag(flags, StudioFrameFlags::AnimRot))
 	{
 		q = *((Quaternion48 *)(pFrameData));
 		Assert( q.IsValid() );
 		pFrameData += sizeof( Quaternion48 );
 	}
-	else if (flags & STUDIO_FRAME_ANIM_ROT2)
+	else if (HasFlag(flags, StudioFrameFlags::AnimRot2))
 	{
 		q = *((Quaternion48S *)(pFrameData));
 		Assert( q.IsValid() );
 		pFrameData += sizeof( Quaternion48S );
 	}
-	else if (flags & STUDIO_FRAME_CONST_ROT)
+	else if (HasFlag(flags, StudioFrameFlags::ConstRot))
 	{
 		q = *((Quaternion48 *)(pConstantData));
 		Assert( q.IsValid() );
 		pConstantData += sizeof( Quaternion48 );
 	}
-	else if (flags & STUDIO_FRAME_CONST_ROT2)
+	else if (HasFlag(flags, StudioFrameFlags::ConstRot2))
 	{
 		q = *((Quaternion48S *)(pConstantData));
 		Assert( q.IsValid() );
@@ -767,26 +767,26 @@ inline uint8_t *ExtractSingleFrame( uint8_t flags, uint8_t *pFrameData, uint8_t 
 			q = pLinearBones->quat( bone );
 		}
 	}
-	if (flags & STUDIO_FRAME_ANIM_POS)
+	if (HasFlag(flags, StudioFrameFlags::AnimPos))
 	{
 		pos = *((Vector48 *)(pFrameData));
 		Assert( pos.IsValid() );
 		pFrameData += sizeof( Vector48 );
 	}
-	else if (flags & STUDIO_FRAME_CONST_POS)
+	else if (HasFlag(flags, StudioFrameFlags::ConstPos))
 	{
 		pos = *((Vector48 *)(pConstantData));
 		Assert( pos.IsValid() );
 		pConstantData += sizeof( Vector48 );
 	}
-	else if (flags & STUDIO_FRAME_ANIM_POS2)
+	else if (HasFlag(flags, StudioFrameFlags::AnimPos2))
 	{
 		// pFrameData has no guarantee on alignment, so using V_memcpy.
 		V_memcpy( &pos, pFrameData, sizeof( Vector ) );
 		Assert( pos.IsValid() );
 		pFrameData += sizeof( Vector );
 	}
-	else if (flags & STUDIO_FRAME_CONST_POS2)
+	else if (HasFlag(flags, StudioFrameFlags::ConstPos2))
 	{
 		// pFrameData has no guarantee on alignment, so using V_memcpy.
 		V_memcpy( &pos, pConstantData, sizeof( Vector ) );
@@ -815,37 +815,37 @@ inline uint8_t *ExtractSingleFrame( uint8_t flags, uint8_t *pFrameData, uint8_t 
 // Purpose: Skip forward to the next bone in a mstudio_frame_anim_t block of data
 //-----------------------------------------------------------------------------
 
-inline uint8_t *SkipBoneFrame( uint8_t flags, uint8_t * RESTRICT pFrameData, uint8_t *&pConstantData )
+inline uint8_t *SkipBoneFrame( StudioFrameFlags flags, uint8_t * RESTRICT pFrameData, uint8_t *&pConstantData )
 {
-	if (flags & STUDIO_FRAME_ANIM_ROT)
+	if (HasFlag(flags, StudioFrameFlags::AnimRot))
 	{
 		pFrameData += sizeof( Quaternion48 );
 	}
-	else if (flags & STUDIO_FRAME_ANIM_ROT2)
+	else if (HasFlag(flags, StudioFrameFlags::AnimRot2))
 	{
 		pFrameData += sizeof( Quaternion48S );
 	}
-	else if (flags & STUDIO_FRAME_CONST_ROT)
+	else if (HasFlag(flags, StudioFrameFlags::ConstRot))
 	{
 		pConstantData += sizeof( Quaternion48 );
 	}
-	else if (flags & STUDIO_FRAME_CONST_ROT2)
+	else if (HasFlag(flags, StudioFrameFlags::ConstRot2))
 	{
 		pConstantData += sizeof( Quaternion48S );
 	}
-	if (flags & STUDIO_FRAME_ANIM_POS)
+	if (HasFlag(flags, StudioFrameFlags::AnimPos))
 	{
 		pFrameData += sizeof( Vector48 );
 	}
-	else if (flags & STUDIO_FRAME_CONST_POS)
+	else if (HasFlag(flags, StudioFrameFlags::ConstPos))
 	{
 		pConstantData += sizeof( Vector48 );
 	}
-	else if (flags & STUDIO_FRAME_ANIM_POS2)
+	else if (HasFlag(flags, StudioFrameFlags::AnimPos2))
 	{
 		pFrameData += sizeof( Vector );
 	}
-	else if (flags & STUDIO_FRAME_CONST_POS2)
+	else if (HasFlag(flags, StudioFrameFlags::ConstPos2))
 	{
 		pConstantData += sizeof( Vector );
 	}
@@ -878,14 +878,14 @@ void SetupSingleBoneMatrix(
 
 	bool bFound = false;
 
-	if (animdesc.flags & STUDIO_FRAMEANIM)
+	if (HasFlag(animdesc.flags, StudioSequenceFlags::FrameAnim))
 	{
 		/*
 		mstudio_frame_anim_t *pFrameanim = (mstudio_frame_anim_t *)animdesc.pAnim( &iLocalFrame );
 
 		if (pFrameanim)
 		{
-			byte *pBoneFlags = pFrameanim->pBoneFlags( );
+			StudioFrameFlags *pBoneFlags = pFrameanim->pBoneFlags( );
 			byte *pConstantData = pFrameanim->pConstantData( );
 			byte *pFrameData = pFrameanim->pFrameData( iLocalFrame );
 
@@ -921,7 +921,7 @@ void SetupSingleBoneMatrix(
 
 	if (!bFound)
 	{
-		if (animdesc.flags & STUDIO_DELTA)
+		if (HasFlag(animdesc.flags, StudioSequenceFlags::Delta))
 		{
 			boneQuat.Init( 0.0f, 0.0f, 0.0f, 1.0f );
 			bonePos.Init( 0.0f, 0.0f, 0.0f );
@@ -942,7 +942,7 @@ void SetupSingleBoneMatrix(
 //-----------------------------------------------------------------------------
 static void CalcVirtualAnimation( virtualmodel_t *pVModel, const CStudioHdr *pStudioHdr, BoneVector *pos, BoneQuaternion *q, 
 	mstudioseqdesc_t &seqdesc, int sequence, int animation,
-	float cycle, int boneMask )
+	float cycle, BoneFlags boneMask )
 {
 	BONE_PROFILE_FUNC(); // ex: x360: up to 1.4ms 
 
@@ -983,13 +983,13 @@ static void CalcVirtualAnimation( virtualmodel_t *pVModel, const CStudioHdr *pSt
 	const mstudio_rle_anim_t *panim = nullptr;
 	const mstudio_frame_anim_t *pFrameanim = nullptr;
 	
-	uint8_t *pBoneFlags = nullptr;
+	StudioFrameFlags *pBoneFlags = nullptr;
 	uint8_t *pConstantData = nullptr;
 	uint8_t *pFrameData = nullptr;
 	uint8_t *pFrameDataNext = nullptr;
 	int framelength = 0;
 	
-	if (animdesc.flags & STUDIO_FRAMEANIM)
+	if (HasFlag(animdesc.flags, StudioSequenceFlags::FrameAnim))
 	{
 		pFrameanim = (mstudio_frame_anim_t *)animdesc.pAnim( &iLocalFrame, flStall );
 		if ( pFrameanim )
@@ -1018,7 +1018,7 @@ static void CalcVirtualAnimation( virtualmodel_t *pVModel, const CStudioHdr *pSt
 	int nBoneListCount = 0;
 	for (i = 0; i < pStudioHdr->numbones(); i++)
 	{
-		if (pStudioHdr->boneFlags(i) & boneMask)
+		if (HasFlag(pStudioHdr->boneFlags(i), boneMask))
 		{
 			int j = pSeqGroup->boneMap[i];
 			if (j >= 0 && pweight[j] > 0.0f)
@@ -1028,7 +1028,7 @@ static void CalcVirtualAnimation( virtualmodel_t *pVModel, const CStudioHdr *pSt
 		}
 	}
 
-	if ( animdesc.flags & STUDIO_DELTA )
+	if ( HasFlag(animdesc.flags, StudioSequenceFlags::Delta) )
 	{
 		for ( i = 0; i < nBoneListCount; i++ )
 		{
@@ -1076,7 +1076,7 @@ static void CalcVirtualAnimation( virtualmodel_t *pVModel, const CStudioHdr *pSt
 			for (i = 0; i < pAnimStudioHdr->numbones; i++)
 			{
 				j = pAnimGroup->masterBone[i];
-				if ( j >= 0 && ( pStudioHdr->boneFlags(j) & boneMask ) )
+				if ( j >= 0 && HasFlag(pStudioHdr->boneFlags(j), boneMask) )
 				{
 					pFrameData = ExtractTwoFrames( *pBoneFlags, s, pFrameData, pConstantData, framelength, q[j], pos[j] );
 	#ifdef STUDIO_ENABLE_PERF_COUNTERS
@@ -1095,7 +1095,7 @@ static void CalcVirtualAnimation( virtualmodel_t *pVModel, const CStudioHdr *pSt
 			for (i = 0; i < pAnimStudioHdr->numbones; i++)
 			{
 				j = pAnimGroup->masterBone[i];
-				if ( j >= 0 && ( pStudioHdr->boneFlags(j) & boneMask ) )
+				if ( j >= 0 && HasFlag(pStudioHdr->boneFlags(j), boneMask) )
 				{
 					pFrameData = ExtractSingleFrame( *pBoneFlags, pFrameData, pConstantData, q[j], pos[j] );
 	#ifdef STUDIO_ENABLE_PERF_COUNTERS
@@ -1116,7 +1116,7 @@ static void CalcVirtualAnimation( virtualmodel_t *pVModel, const CStudioHdr *pSt
 		while (panim && panim->bone < 255)
 		{
 			j = pAnimGroup->masterBone[panim->bone];
-			if ( j >= 0 && ( pStudioHdr->boneFlags(j) & boneMask ) )
+			if ( j >= 0 && HasFlag(pStudioHdr->boneFlags(j), boneMask) )
 			{
 				k = pSeqGroup->boneMap[j];
 
@@ -1159,10 +1159,10 @@ static void CalcVirtualAnimation( virtualmodel_t *pVModel, const CStudioHdr *pSt
 				break;
 
 			int iBone = pAnimGroup->masterBone[pHierarchy->iBone];
-			if (iBone >= 0 && (pStudioHdr->boneFlags(iBone) & boneMask))
+			if (iBone >= 0 && HasFlag(pStudioHdr->boneFlags(iBone), boneMask))
 			{
 				int iNewParent = pAnimGroup->masterBone[pHierarchy->iNewParent];
-				if (iNewParent >= 0 && (pStudioHdr->boneFlags(iNewParent) & boneMask))
+				if (iNewParent >= 0 && HasFlag(pStudioHdr->boneFlags(iNewParent), boneMask))
 				{
 					CalcLocalHierarchyAnimation( pStudioHdr, boneToWorld, boneComputed, pos, q, pbone, pHierarchy, iBone, iNewParent, cycle, iFrame, s, boneMask );
 				}
@@ -1181,7 +1181,7 @@ static void CalcVirtualAnimation( virtualmodel_t *pVModel, const CStudioHdr *pSt
 void CalcAnimation( const CStudioHdr *pStudioHdr, BoneVector *pos, BoneQuaternion *q, 
 	mstudioseqdesc_t &seqdesc,
 	int sequence, int animation,
-	float cycle, int boneMask )
+	float cycle, BoneFlags boneMask )
 {
 #ifdef STUDIO_ENABLE_PERF_COUNTERS
 	pStudioHdr->m_nPerfAnimationLayers++;
@@ -1214,13 +1214,13 @@ void CalcAnimation( const CStudioHdr *pStudioHdr, BoneVector *pos, BoneQuaternio
 	const mstudio_rle_anim_t *panim = nullptr;
 	const mstudio_frame_anim_t *pFrameanim = nullptr;
 	
-	uint8_t *pBoneFlags = nullptr;
+	StudioFrameFlags *pBoneFlags = nullptr;
 	uint8_t *pConstantData = nullptr;
 	uint8_t *pFrameData = nullptr;
 	uint8_t *pFrameDataNext = nullptr;
 	int framelength = NULL;
 
-	if (animdesc.flags & STUDIO_FRAMEANIM)
+	if (HasFlag(animdesc.flags, StudioSequenceFlags::FrameAnim))
 	{
 		pFrameanim = (mstudio_frame_anim_t *)animdesc.pAnim( &iLocalFrame, flStall );
 		if ( pFrameanim )
@@ -1238,7 +1238,7 @@ void CalcAnimation( const CStudioHdr *pStudioHdr, BoneVector *pos, BoneQuaternio
 	}
 
 	float *pweight = seqdesc.pBoneweight( 0 );
-	bool bIsDelta = (animdesc.flags & STUDIO_DELTA) != 0;
+	bool bIsDelta = HasFlag(animdesc.flags, StudioSequenceFlags::Delta);
 
 	// if the animation isn't available, look for the zero frame cache
 	if (!panim && !pFrameanim)
@@ -1247,7 +1247,7 @@ void CalcAnimation( const CStudioHdr *pStudioHdr, BoneVector *pos, BoneQuaternio
 		// pre initialize
 		for (i = 0; i < pStudioHdr->numbones(); i++, pbone++, pweight++)
 		{
-			if (*pweight > 0 && (pStudioHdr->boneFlags(i) & boneMask))
+			if (*pweight > 0 && HasFlag(pStudioHdr->boneFlags(i), boneMask))
 			{
 				if (bIsDelta)
 				{
@@ -1279,7 +1279,7 @@ void CalcAnimation( const CStudioHdr *pStudioHdr, BoneVector *pos, BoneQuaternio
 		{
 			for (i = 0; i < pStudioHdr->numbones(); i++, pBoneFlags++, pweight++)
 			{
-				if (*pweight > 0 && (pStudioHdr->boneFlags(i) & boneMask))
+				if (*pweight > 0 && HasFlag(pStudioHdr->boneFlags(i), boneMask))
 				{
 					pFrameData = ExtractTwoFrames( *pBoneFlags, s, pFrameData, pConstantData, framelength, q[i], pos[i], bIsDelta, pLinearBones, i );
 	#ifdef STUDIO_ENABLE_PERF_COUNTERS
@@ -1297,7 +1297,7 @@ void CalcAnimation( const CStudioHdr *pStudioHdr, BoneVector *pos, BoneQuaternio
 		{
 			for (i = 0; i < pStudioHdr->numbones(); i++, pBoneFlags++, pweight++)
 			{
-				if (*pweight > 0 && (pStudioHdr->boneFlags(i) & boneMask))
+				if (*pweight > 0 && HasFlag(pStudioHdr->boneFlags(i), boneMask))
 				{
 					pFrameData = ExtractSingleFrame( *pBoneFlags, pFrameData, pConstantData, q[i], pos[i], bIsDelta, pLinearBones, i );
 	#ifdef STUDIO_ENABLE_PERF_COUNTERS
@@ -1319,7 +1319,7 @@ void CalcAnimation( const CStudioHdr *pStudioHdr, BoneVector *pos, BoneQuaternio
 		{
 			if (panim && panim->bone == i)
 			{
-				if (*pweight > 0 && (pStudioHdr->boneFlags(i) & boneMask))
+				if (*pweight > 0 && HasFlag(pStudioHdr->boneFlags(i), boneMask))
 				{
 					CalcBoneQuaternion( iLocalFrame, s, pbone, pLinearBones, panim, q[i] );
 					CalcBonePosition  ( iLocalFrame, s, pbone, pLinearBones, panim, pos[i] );
@@ -1330,7 +1330,7 @@ void CalcAnimation( const CStudioHdr *pStudioHdr, BoneVector *pos, BoneQuaternio
 				}
 				panim = panim->pNext();
 			}
-			else if (*pweight > 0 && (pStudioHdr->boneFlags(i) & boneMask))
+			else if (*pweight > 0 && HasFlag(pStudioHdr->boneFlags(i), boneMask))
 			{
 				if (bIsDelta)
 				{
@@ -1368,9 +1368,9 @@ void CalcAnimation( const CStudioHdr *pStudioHdr, BoneVector *pos, BoneQuaternio
 			if ( !pHierarchy )
 				break;
 
-			if (pStudioHdr->boneFlags(pHierarchy->iBone) & boneMask)
+			if (HasFlag(pStudioHdr->boneFlags(pHierarchy->iBone), boneMask))
 			{
-				if (pStudioHdr->boneFlags(pHierarchy->iNewParent) & boneMask)
+				if (HasFlag(pStudioHdr->boneFlags(pHierarchy->iNewParent), boneMask))
 				{
 					CalcLocalHierarchyAnimation( pStudioHdr, boneToWorld, boneComputed, pos, q, pbone, pHierarchy, pHierarchy->iBone, pHierarchy->iNewParent, cycle, iFrame, s, boneMask );
 				}

@@ -652,7 +652,7 @@ void CDmeDag::FindTransformChannels( CUtlVector< CDmeChannel * > &channelList ) 
 //-----------------------------------------------------------------------------
 CDmeTransformControl *CDmeDag::FindTransformControl() const
 {
-	CUtlVector< CDmeChannel* > channelList( 0, 4 );
+	CUtlVector< CDmeChannel* > channelList( 0u, 4 );
 	FindTransformChannels( channelList );
 	
 	int nChannels = channelList.Count();
@@ -746,7 +746,7 @@ void CDmeDag::FindRelevantOperators( CUtlVector< CDmeOperator * > &operatorList 
 //-----------------------------------------------------------------------------
 void CDmeDag::FindRelevantOperators( CUtlVector< CDmeChannel * > &channelList, CUtlVector< CDmeOperator * > &operatorList ) const
 {
-	CUtlVector< CDmeOperator* > allOperatorsList( 0, 128 );
+	CUtlVector< CDmeOperator* > allOperatorsList( 0u, 128 );
 	FindRelevantOperators( allOperatorsList );
 
 	int nTotalOperators = allOperatorsList.Count();
@@ -1398,8 +1398,8 @@ void CDmeDag::MoveToTarget( const CDmeDag *pTargetDag, const DmeLog_TimeSelectio
 			bool done = false;
 
 			int nAproxNumTimes = ( ( endTime - time ) / timeSelection.m_nResampleInterval ) + 2;
-			CUtlVector< Vector > samplePositions( 0, nAproxNumTimes );
-			CUtlVector< DmeTime_t > sampleTimes( 0, nAproxNumTimes );
+			CUtlVector< Vector > samplePositions( 0u, nAproxNumTimes );
+			CUtlVector< DmeTime_t > sampleTimes( 0u, nAproxNumTimes );
 
 			while ( !done )
 			{

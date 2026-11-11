@@ -24,7 +24,7 @@ class CDmElement;
 //-----------------------------------------------------------------------------
 // Serialization class for Key Values
 //-----------------------------------------------------------------------------
-abstract_class CImportKeyValueBase : public IDmSerializer
+class CImportKeyValueBase : public IDmSerializer
 {
 public:
 	// Inherited from IDMSerializer

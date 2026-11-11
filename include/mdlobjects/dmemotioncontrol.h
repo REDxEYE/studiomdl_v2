@@ -8,6 +8,7 @@
 
 
 #pragma once
+#include "studio.h"
 
 
 #ifdef _WIN32
@@ -28,11 +29,11 @@ class CDmeMotionControl : public CDmElement
 
 public:
 
-	// Sets the motion control booleans based on logical OR'd STUDIO_? flags in passed int
-	void SetStudioMotionControl( int nStudioMotionControl );
+	// Sets the motion control booleans from OR'd StudioMotionFlags
+	void SetStudioMotionControl( StudioMotionFlags nStudioMotionControl );
 
-	// Gets the motion control booleans as a logical OR'd STUDIO_? flags int
-	int GetStudioMotionControl() const;
+	// Gets the motion control booleans as OR'd StudioMotionFlags
+	StudioMotionFlags GetStudioMotionControl() const;
 
 	CDmaVar< bool > m_bX;
 	CDmaVar< bool > m_bY;

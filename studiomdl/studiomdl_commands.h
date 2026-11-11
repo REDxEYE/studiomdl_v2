@@ -5,19 +5,20 @@
 #pragma once
 
 #include "studiomdl/studiomdl.h"
+#include "common/scriplib.h"
 
 s_source_t *FindCachedSource(const char *name, const char *xext);
 void AddBodyFlexData(s_source_t *pSource, int imodel, bool bAddControllers = true);
 void AddBodyAttachments(s_source_t *pSource);
 void AddBodyFlexRules(s_source_t *pSource);
-void Option_Flexrule(s_model_t * pmodel , const char *name);
-int ParseAnimation(s_animation_t *panim, bool isAppend);
-int ParseEmpty(void);
-int ParseSequence(s_sequence_t *pseq, bool isAppend);
+void Option_Flexrule(ScriptTokenizer &qc, s_model_t * pmodel , const char *name);
+int ParseAnimation(ScriptTokenizer &qc, s_animation_t *panim, bool isAppend);
+int ParseEmpty(ScriptTokenizer &qc);
+int ParseSequence(ScriptTokenizer &qc, s_sequence_t *pseq, bool isAppend);
 
 struct MDLCommand_t {
-    char *m_pName;
-    void (*m_pCmd)();
+    const char *m_pName;
+    void (*m_pCmd)(ScriptTokenizer &qc);
 };
 
 extern MDLCommand_t g_Commands[];

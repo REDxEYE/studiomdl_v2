@@ -476,7 +476,7 @@ bool Studio_IKAnimationError( const CStudioHdr *pStudioHdr, mstudioikrule_t *pRu
 	// This shouldn't be necessary, but the Assert should help us catch whoever is screwing this up
 	flWeight = clamp( flWeight, 0.0f, 1.0f );
 
-	if (pRule->type != IK_GROUND && flWeight < 0.0001)
+	if (pRule->type != IkRuleType::Ground && flWeight < 0.0001)
 		return false;
 
 	mstudioikerror_t *pError = pRule->pError( iFrame );
@@ -612,12 +612,12 @@ bool Studio_IKSequenceError( const CStudioHdr *pStudioHdr, mstudioseqdesc_t &seq
 	ikRule.flWeight = Studio_IKRuleWeight( ikRule, flCycle );
 	if (ikRule.flWeight <= 0.001f)
 	{
-		// go ahead and allow IK_GROUND rules a virtual looping section
+		// go ahead and allow IkRuleType::Ground rules a virtual looping section
 		if ( weight[0] )
 		{
 			if ( panim[ 0 ]->pIKRule( iRule ) == nullptr)
 				return false;
-			if ( ( panim[ 0 ]->flags & STUDIO_LOOPING ) && panim[ 0 ]->pIKRule( iRule )->type == IK_GROUND && ikRule.end - ikRule.start > 0.75 )
+			if ( HasFlag(panim[ 0 ]->flags, StudioSequenceFlags::Looping) && panim[ 0 ]->pIKRule( iRule )->type == IkRuleType::Ground && ikRule.end - ikRule.start > 0.75 )
 			{
 				ikRule.flWeight = 0.001;
 				flCycle = ikRule.end - 0.001;
@@ -668,12 +668,12 @@ bool Studio_IKSequenceError( const CStudioHdr *pStudioHdr, mstudioseqdesc_t &seq
 				mstudioikrulezeroframe_t *pZeroFrameRule = panim[i]->pIKRuleZeroFrame( iRule );
 				if (pZeroFrameRule)
 				{
-					// zeroframe doesn't contain details, so force a IK_RELEASE
-					ikRule.type = IK_RELEASE;
+					// zeroframe doesn't contain details, so force a IkRuleType::Release
+					ikRule.type = IkRuleType::Release;
 					ikRule.chain = pZeroFrameRule->chain;
 					ikRule.slot = pZeroFrameRule->slot;
 					ikRule.bone = -1;
-					// Msg("IK_RELEASE %d %d : %.2f\n", ikRule.chain, ikRule.slot, ikRule.flWeight );
+					// Msg("IkRuleType::Release %d %d : %.2f\n", ikRule.chain, ikRule.slot, ikRule.flWeight );
 				}
 				else
 				{
@@ -688,10 +688,10 @@ bool Studio_IKSequenceError( const CStudioHdr *pStudioHdr, mstudioseqdesc_t &seq
 			// only check rules with error values
 			switch( ikRule.type )
 			{
-			case IK_SELF:
-			case IK_WORLD:
-			case IK_GROUND:
-			case IK_ATTACHMENT:
+			case IkRuleType::Self:
+			case IkRuleType::World:
+			case IkRuleType::Ground:
+			case IkRuleType::Attachment:
 				{
 					int bResult = Studio_IKAnimationError( pStudioHdr, pRule, panim[i], flCycle, pos1, q1, w );
 
@@ -710,7 +710,7 @@ bool Studio_IKSequenceError( const CStudioHdr *pStudioHdr, mstudioseqdesc_t &seq
 
 			ikRule.latched = Studio_IKShouldLatch( ikRule, flCycle ) * ikRule.flWeight;
 
-			if (ikRule.type == IK_ATTACHMENT)
+			if (ikRule.type == IkRuleType::Attachment)
 			{
 				ikRule.szLabel = pRule->pszAttachment();
 			}
@@ -728,7 +728,7 @@ bool Studio_IKSequenceError( const CStudioHdr *pStudioHdr, mstudioseqdesc_t &seq
 		QuaternionScale( ikRule.q, 1.0f / total, ikRule.q );
 	}
 
-	if (ikRule.type == IK_SELF && ikRule.bone != -1)
+	if (ikRule.type == IkRuleType::Self && ikRule.bone != -1)
 	{
 		// FIXME: this is anim local, not seq local!
 		ikRule.bone = pStudioHdr->RemapSeqBone( iSequence, ikRule.bone );
@@ -755,7 +755,7 @@ CIKContext::CIKContext()
 }
 
 
-void CIKContext::Init( const CStudioHdr *pStudioHdr, const QAngle &angles, const Vector &pos, float flTime, int iFramecounter, int boneMask )
+void CIKContext::Init( const CStudioHdr *pStudioHdr, const QAngle &angles, const Vector &pos, float flTime, int iFramecounter, BoneFlags boneMask )
 {
 
 	m_pStudioHdr = pStudioHdr;
@@ -802,7 +802,7 @@ void CIKContext::AddDependencies( mstudioseqdesc_t &seqdesc, int iSequence, floa
 	flWeight = clamp( flWeight, 0.0f, 1.0f );
 
 	// unify this
-	if (seqdesc.flags & STUDIO_REALTIME)
+	if (HasFlag(seqdesc.flags, StudioSequenceFlags::Realtime))
 	{
 		float cps = Studio_CPS( m_pStudioHdr, seqdesc, iSequence, poseParameters );
 		flCycle = m_flTime * cps;
@@ -810,7 +810,7 @@ void CIKContext::AddDependencies( mstudioseqdesc_t &seqdesc, int iSequence, floa
 	}
 	else if (flCycle < 0 || flCycle >= 1)
 	{
-		if (seqdesc.flags & STUDIO_LOOPING)
+		if (HasFlag(seqdesc.flags, StudioSequenceFlags::Looping))
 		{
 			flCycle = flCycle - (int)flCycle;
 			if (flCycle < 0) flCycle += 1;
@@ -834,11 +834,11 @@ void CIKContext::AddDependencies( mstudioseqdesc_t &seqdesc, int iSequence, floa
 
 		// don't add rule if the bone isn't going to be calculated
 		int bone = m_pStudioHdr->pIKChain( ikrule.chain )->pLink( 2 )->bone;
-		if ( !(m_pStudioHdr->boneFlags( bone ) & m_boneMask))
+		if ( !HasFlag(m_pStudioHdr->boneFlags( bone ), m_boneMask))
 			continue;
 
 		// or if its relative bone isn't going to be calculated
-		if ( ikrule.bone >= 0 && !(m_pStudioHdr->boneFlags( ikrule.bone ) & m_boneMask))
+		if ( ikrule.bone >= 0 && !HasFlag(m_pStudioHdr->boneFlags( ikrule.bone ), m_boneMask))
 			continue;
 
 		// FIXME: Brutal hackery to prevent a crash
@@ -853,11 +853,11 @@ void CIKContext::AddDependencies( mstudioseqdesc_t &seqdesc, int iSequence, floa
 
 		if (ikrule.flRuleWeight * ikrule.flWeight > 0.999)
 		{
-			if ( ikrule.type != IK_UNLATCH)
+			if ( ikrule.type != IkRuleType::Unlatch)
 			{
 				// clear out chain if rule is 100%
 				m_ikChainRule.Element( ikrule.chain ).RemoveAll( );
-				if ( ikrule.type == IK_RELEASE)
+				if ( ikrule.type == IkRuleType::Release)
 				{
 					continue;
 				}
@@ -895,7 +895,7 @@ void CIKContext::AddAutoplayLocks( BoneVector pos[], BoneQuaternion q[] )
 		int bone = pchain->pLink( 2 )->bone;
 
 		// don't bother with iklock if the bone isn't going to be calculated
-		if ( !(m_pStudioHdr->boneFlags( bone ) & m_boneMask))
+		if ( !HasFlag(m_pStudioHdr->boneFlags( bone ), m_boneMask))
 			continue;
 
 		// eval current ik'd bone
@@ -905,7 +905,7 @@ void CIKContext::AddAutoplayLocks( BoneVector pos[], BoneQuaternion q[] )
 
 		ikrule.chain = lock.chain;
 		ikrule.slot = i;
-		ikrule.type = IK_WORLD;
+		ikrule.type = IkRuleType::World;
 
 		MatrixAngles( boneToWorld[bone], ikrule.q, ikrule.pos );
 
@@ -956,7 +956,7 @@ void CIKContext::AddSequenceLocks( mstudioseqdesc_t &seqdesc, BoneVector pos[], 
 		int bone = pchain->pLink( 2 )->bone;
 
 		// don't bother with iklock if the bone isn't going to be calculated
-		if ( !(m_pStudioHdr->boneFlags( bone ) & m_boneMask))
+		if ( !HasFlag(m_pStudioHdr->boneFlags( bone ), m_boneMask))
 			continue;
 
 		// eval current ik'd bone
@@ -965,7 +965,7 @@ void CIKContext::AddSequenceLocks( mstudioseqdesc_t &seqdesc, BoneVector pos[], 
 		ikcontextikrule_t &ikrule = m_ikLock[i+ikOffset];
 		ikrule.chain = i;
 		ikrule.slot = i;
-		ikrule.type = IK_WORLD;
+		ikrule.type = IkRuleType::World;
 
 		MatrixAngles( boneToWorld[bone], ikrule.q, ikrule.pos );
 
@@ -1244,16 +1244,16 @@ void CIKContext::UpdateTargets( BoneVector pos[], BoneQuaternion q[], matrix3x4a
 
 			switch( pRule->type )
 			{
-			case IK_ATTACHMENT:
-			case IK_GROUND:
-			// case IK_SELF:
+			case IkRuleType::Attachment:
+			case IkRuleType::Ground:
+			// case IkRuleType::Self:
 				{
 					matrix3x4a_t footTarget;
 					CIKTarget *pTarget = &m_target[pRule->slot];
 					pTarget->chain = pRule->chain;
 					pTarget->type = pRule->type;
 
-					if (pRule->type == IK_ATTACHMENT)
+					if (pRule->type == IkRuleType::Attachment)
 					{
 						pTarget->offset.pAttachmentName = pRule->szLabel;
 					}
@@ -1286,14 +1286,14 @@ void CIKContext::UpdateTargets( BoneVector pos[], BoneQuaternion q[], matrix3x4a
 						pTarget->est.flWeight = Lerp( pRule->flRuleWeight, pTarget->est.flWeight, pRule->flWeight );
 					}
 
-					if ( pRule->type == IK_GROUND )
+					if ( pRule->type == IkRuleType::Ground )
 					{
 						pTarget->latched.deltaPos.z = 0;
 						pTarget->est.pos.z = pTarget->est.floor + m_rootxform[2][3];
 					}
 				}
 			break;
-			case IK_UNLATCH:
+			case IkRuleType::Unlatch:
 				{
 					CIKTarget *pTarget = &m_target[pRule->slot];
 					if (pRule->latched > 0.0)
@@ -1302,7 +1302,7 @@ void CIKContext::UpdateTargets( BoneVector pos[], BoneQuaternion q[], matrix3x4a
 						pTarget->est.latched = MIN( pTarget->est.latched, 1.0f - pRule->flWeight );
 				}
 				break;
-			case IK_RELEASE:
+			case IkRuleType::Release:
 				{
 					CIKTarget *pTarget = &m_target[pRule->slot];
 					if (pRule->latched > 0.0)
@@ -1486,7 +1486,7 @@ void CIKContext::AutoIKRelease( void )
 
 				ikrule.chain = pTarget->chain;
 				ikrule.bone = 0;
-				ikrule.type = IK_RELEASE;
+				ikrule.type = IkRuleType::Release;
 				ikrule.slot = i;
 				ikrule.flWeight = SimpleSpline( pTarget->error.ramp );
 				ikrule.flRuleWeight = 1.0;
@@ -1505,7 +1505,7 @@ void CIKContext::AutoIKRelease( void )
 							const mstudiobone_t *pBone = m_pStudioHdr->pBone( bone );
 							if (pBone != nullptr)
 							{
-								if ( !(m_pStudioHdr->boneFlags( bone ) & m_boneMask))
+								if ( !HasFlag(m_pStudioHdr->boneFlags( bone ), m_boneMask))
 								{
 									pTarget->error.bInError = false;
 									continue;
@@ -1571,7 +1571,7 @@ void CIKContext::SolveDependencies( BoneVector pos[], BoneQuaternion q[], matrix
 		pChainResult->flWeight = 0.0f;
 
 		// don't bother with chain if the bone isn't going to be calculated
-		if ( !(m_pStudioHdr->boneFlags( bone ) & m_boneMask))
+		if ( !HasFlag(m_pStudioHdr->boneFlags( bone ), m_boneMask))
 			continue;
 
 		// eval current ik'd bone
@@ -1591,7 +1591,7 @@ void CIKContext::SolveDependencies( BoneVector pos[], BoneQuaternion q[], matrix
 
 			switch( pRule->type )
 			{
-			case IK_SELF:
+			case IkRuleType::Self:
 				{
 					// xform IK target error into world space
 					matrix3x4a_t local;
@@ -1623,17 +1623,17 @@ void CIKContext::SolveDependencies( BoneVector pos[], BoneQuaternion q[], matrix
 					QuaternionSlerp( pChainResult->q, q2, flWeight, pChainResult->q );
 				}
 				break;
-			case IK_WORLD:
+			case IkRuleType::World:
 				Assert( 0 );
 				break;
 
-			case IK_ATTACHMENT:
+			case IkRuleType::Attachment:
 				break;
 
-			case IK_GROUND:
+			case IkRuleType::Ground:
 				break;
 
-			case IK_RELEASE:
+			case IkRuleType::Release:
 				{
 					// move target back towards original location
 					float flWeight = pRule->flWeight * pRule->flRuleWeight;
@@ -1651,7 +1651,7 @@ void CIKContext::SolveDependencies( BoneVector pos[], BoneQuaternion q[], matrix
 					QuaternionSlerp( pChainResult->q, q2, flWeight, pChainResult->q );
 				}
 				break;
-			case IK_UNLATCH:
+			case IkRuleType::Unlatch:
 				{
 					/*
 					pChainResult->flWeight = pChainResult->flWeight * (1 - pRule->flWeight) + pRule->flWeight;
@@ -1837,22 +1837,22 @@ void CIKContext::SolveDependencies_PS3( bonejob_SPU_2 *pBonejob, CBoneBitList &b
 
 			switch( pRule->type )
 			{
-			case IK_SELF:
+			case IkRuleType::Self:
 				{
 					pBonejob->ikchainElement_rules[ pBonejob->numikchainElements++ ] = pRule;
 				}
 				break;
-			case IK_WORLD:
+			case IkRuleType::World:
 				Assert( 0 );
 				break;
 
-			case IK_ATTACHMENT:
+			case IkRuleType::Attachment:
 				break;
 
-			case IK_GROUND:
+			case IkRuleType::Ground:
 				break;
 
-			case IK_RELEASE:
+			case IkRuleType::Release:
 				{
 					// move target back towards original location
 					mstudioikchain_t *pchain = m_pStudioHdr->pIKChain( pRule->chain );
@@ -1862,7 +1862,7 @@ void CIKContext::SolveDependencies_PS3( bonejob_SPU_2 *pBonejob, CBoneBitList &b
 					pBonejob->numikchainElements++;
 				}
 				break;
-			case IK_UNLATCH:
+			case IkRuleType::Unlatch:
 				{
 					/*
 					pChainResult->flWeight = pChainResult->flWeight * (1 - pRule->flWeight) + pRule->flWeight;
@@ -1961,7 +1961,7 @@ void CIKContext::AddAllLocks( BoneVector pos[], BoneQuaternion q[] )
 		int bone = pchain->pLink( 2 )->bone;
 
 		// don't bother with iklock if the bone isn't going to be calculated
-		if ( !(m_pStudioHdr->boneFlags( bone ) & m_boneMask))
+		if ( !HasFlag(m_pStudioHdr->boneFlags( bone ), m_boneMask))
 			continue;
 
 		// eval current ik'd bone
@@ -1971,7 +1971,7 @@ void CIKContext::AddAllLocks( BoneVector pos[], BoneQuaternion q[] )
 
 		ikrule.chain = i;
 		ikrule.slot = i;
-		ikrule.type = IK_WORLD;
+		ikrule.type = IkRuleType::World;
 
 		MatrixAngles( boneToWorld[bone], ikrule.q, ikrule.pos );
 
@@ -2039,7 +2039,7 @@ void CIKContext::SolveLock(
 	int bone = pchain->pLink( 2 )->bone;
 
 	// don't bother with iklock if the bone isn't going to be calculated
-	if ( !(m_pStudioHdr->boneFlags( bone ) & m_boneMask))
+	if ( !HasFlag(m_pStudioHdr->boneFlags( bone ), m_boneMask))
 		return;
 
 	// eval current ik'd bone
@@ -2095,7 +2095,7 @@ void CIKContext::CopyTo( CIKContext* pOther, const unsigned short * iRemapping  
 		FOR_EACH_VEC( m_ikChainRule[n], m )
 		{
 			int nIKChainBone = m_ikChainRule[n][m].bone;
-			if ( iRemapping != nullptr && m_ikChainRule[ n ][ m ].type != IK_RELEASE )
+			if ( iRemapping != nullptr && m_ikChainRule[ n ][ m ].type != IkRuleType::Release )
 			{
 				int nIKChainBoneRemapped = iRemapping[ nIKChainBone ];
 				if ( nIKChainBoneRemapped < 0 || nIKChainBoneRemapped >= MAXSTUDIOBONES )
@@ -2113,7 +2113,7 @@ void CIKContext::CopyTo( CIKContext* pOther, const unsigned short * iRemapping  
 	FOR_EACH_VEC( m_ikLock, n )
 	{
 		int nIKChainBone = m_ikLock[n].bone;
-		if ( iRemapping != nullptr && m_ikLock[ n ].type != IK_RELEASE )
+		if ( iRemapping != nullptr && m_ikLock[ n ].type != IkRuleType::Release )
 		{
 			int nIKChainBoneRemapped = iRemapping[ nIKChainBone ];
 			if ( nIKChainBoneRemapped < 0 || nIKChainBoneRemapped >= MAXSTUDIOBONES )

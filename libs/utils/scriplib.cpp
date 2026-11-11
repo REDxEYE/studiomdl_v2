@@ -6,22 +6,24 @@
 //
 //===========================================================================//
 
-// scriplib.c
-
 #include "tier1/strtools.h"
 #include "tier2/tier2.h"
 #include "cmdlib.h"
 #include "scriplib.h"
 #include "tier0/platform.h"
 
-#include <array>
+#include <algorithm>
+#include <format>
+#include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
-#if (defined(WIN32) | defined(_WIN32))
-#include "windows.h"
-#elif defined(POSIX)
-#include <sys/stat.h>
-#endif
+
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier1/utlbuffer.h"
+#include "filesystem/stdfile.h"
+
 /*
 =============================================================================
 
@@ -30,49 +32,120 @@
 =============================================================================
 */
 
-typedef struct {
+// $include and macro calls nest at most this deep (guards against recursive includes).
+constexpr size_t MAX_INCLUDES = 16;
+static constexpr std::string_view MEMORY_SCRIPT_NAME = "memory buffer";
+
+struct MacroArg {
+    std::string name;
+    std::string value;
+};
+
+struct ScriptTokenizer::Script {
     std::string filename; // UTF-8 path of the script, the macro name for macros, or "memory buffer"
-    char *buffer, *script_p, *end_p;
-    int line;
+    std::string owned;    // contents of files and expanded macros; memory scripts point into the caller's buffer
+    char *buffer = nullptr, *script_p = nullptr, *end_p = nullptr;
+    int line = 1;
+    bool isMemory = false;
+    std::vector<MacroArg> macroArgs; // arguments of an expanded macro, matched by "$name$" in its body
+};
 
-    char macrobuffer[4096];
-    char *macroparam[64];
-    char *macrovalue[64];
-    int nummacroparams;
-} script_t;
+struct ScriptTokenizer::Macro {
+    std::string name;
+    std::vector<std::string> params;
+    std::string body;
+    int line = 0;
+};
 
-constexpr uint32_t MAX_INCLUDES = 16;
-std::array<script_t, MAX_INCLUDES> scriptstack;
-script_t *script = nullptr;
-int scriptline;
+struct ScriptTokenizer::Variable {
+    std::string name;
+    std::string value;
+};
 
-char token[MAXTOKEN]{};
-qboolean endofscript;
-qboolean tokenready; // only true if UnGetToken was just called
-
-typedef struct {
-    char *param;
-    char *value;
-    char *param_lcase;
-} variable_t;
-
-CUtlVector<variable_t> g_definevariable;
-
-/*
-Callback stuff
-*/
-
-void DefaultScriptLoadedCallback(char const *pFilenameLoaded, char const *pIncludedFromFileName,
-                                 int nIncludeLineNumber) {
-    NULL;
+// Bytes >= 0x80 are UTF-8 sequence bytes and belong to tokens; plain char is signed on most targets.
+static bool IsSpace(char c) {
+    return static_cast<unsigned char>(c) <= ' ';
 }
 
-SCRIPT_LOADED_CALLBACK g_pfnCallback = DefaultScriptLoadedCallback;
+static bool IsLineComment(const char *p, const char *end) {
+    return *p == ';' || *p == '#' || (*p == '/' && p + 1 < end && p[1] == '/');
+}
 
-SCRIPT_LOADED_CALLBACK SetScriptLoadedCallback(SCRIPT_LOADED_CALLBACK pfnNewScriptLoadedCallback) {
-    SCRIPT_LOADED_CALLBACK pfnCallback = g_pfnCallback;
-    g_pfnCallback = pfnNewScriptLoadedCallback;
-    return pfnCallback;
+static bool IsBlockComment(const char *p, const char *end) {
+    return *p == '/' && p + 1 < end && p[1] == '*';
+}
+
+// p points at "/*"; returns the position just past the matching "*/", or end if the comment is unterminated.
+static char *SkipBlockComment(char *p, char *end) {
+    for (p += 2; p + 1 < end; ++p) {
+        if (p[0] == '*' && p[1] == '/')
+            return p + 2;
+    }
+    return end;
+}
+
+static bool EqualsNoCase(std::string_view a, std::string_view b) {
+    return a.size() == b.size() && (a.empty() || !V_strnicmp(a.data(), b.data(), a.size()));
+}
+
+ScriptTokenizer::ScriptTokenizer() = default;
+ScriptTokenizer::~ScriptTokenizer() = default;
+
+void ScriptTokenizer::SetLoadedCallback(LoadedCallback callback) {
+    m_loadedCallback = std::move(callback);
+}
+
+void ScriptTokenizer::SetErrorHandler(ErrorHandler handler) {
+    m_errorHandler = std::move(handler);
+}
+
+void ScriptTokenizer::ErrorV(std::string_view fmt, std::format_args args) const {
+    std::string message = std::vformat(fmt, args);
+    if (!m_stack.empty()) {
+        const Script &s = Current();
+        message = std::format("{}({}): - {}", s.filename, s.line, message);
+    }
+    if (!message.ends_with('\n'))
+        message += '\n';
+
+    if (m_errorHandler)
+        m_errorHandler(message);
+    ::Error("%s", message.c_str());
+    exit(-1);
+}
+
+void ScriptTokenizer::BadNumber(std::string_view kind, std::string_view what) const {
+    if (what.empty())
+        Error("expected {}, got \"{}\"", kind, token);
+    Error("{}: expected {}, got \"{}\"", what, kind, token);
+}
+
+void ScriptTokenizer::CheckTokenFits(std::string_view what, size_t maxLength) const {
+    if (token.size() > maxLength)
+        Error("{} \"{}\" is too long (max {} characters)", what.empty() ? "token" : what, token, maxLength);
+}
+
+bool ScriptTokenizer::GetPosition(std::string_view &filename, int &line) const {
+    if (m_stack.empty())
+        return false;
+    filename = Current().filename;
+    line = Current().line;
+    return true;
+}
+
+ScriptTokenizer::Script &ScriptTokenizer::PushScript(std::string filename) {
+    if (m_stack.size() == MAX_INCLUDES)
+        Error("too many nested $include files and macros (max {})", MAX_INCLUDES - 1);
+    auto &script = m_stack.emplace_back(std::make_unique<Script>());
+    script->filename = std::move(filename);
+    return *script;
+}
+
+void ScriptTokenizer::Close() {
+    m_stack.clear();
+    m_endOfScript = true;
+    m_tokenReady = false;
+    token.clear();
 }
 
 /*
@@ -80,432 +153,230 @@ SCRIPT_LOADED_CALLBACK SetScriptLoadedCallback(SCRIPT_LOADED_CALLBACK pfnNewScri
 AddScriptToStack
 ==============
 */
-void AddScriptToStack(const char *filename, ScriptPathMode_t pathMode = SCRIPT_USE_ABSOLUTE_PATH) {
-    int size;
+void ScriptTokenizer::AddScriptToStack(const char *filename, ScriptPathMode_t pathMode) {
+    std::string path = pathMode == SCRIPT_USE_RELATIVE_PATH ? std::string(filename) : std::string(ExpandPath(filename));
 
-    script++;
-    if (script == scriptstack.data() + MAX_INCLUDES)
-        Error("script file exceeded MAX_INCLUDES");
+    char *data = nullptr;
+    const int size = ::LoadFile(path.c_str(), (void **) &data);
 
-    if (pathMode == SCRIPT_USE_RELATIVE_PATH)
-        script->filename = filename;
-    else
-        script->filename = ExpandPath(filename);
+    const std::string includedFrom = m_stack.empty() ? std::string() : Current().filename;
+    const int includeLine = m_stack.empty() ? 0 : Current().line;
 
-    size = LoadFile(script->filename.c_str(), (void **) &script->buffer);
+    Script &script = PushScript(std::move(path));
+    script.owned.assign(data, size);
+    free(data);
+    script.buffer = script.script_p = script.owned.data();
+    script.end_p = script.buffer + size;
 
-    // printf ("entering %s\n", script->filename);
-    if (g_pfnCallback) {
-        if (script == scriptstack.data() + 1)
-            g_pfnCallback(script->filename.c_str(), nullptr, 0);
-        else
-            g_pfnCallback(script->filename.c_str(), script[-1].filename.c_str(), script[-1].line);
-    }
-
-    script->line = 1;
-
-    script->script_p = script->buffer;
-    script->end_p = script->buffer + size;
+    if (m_loadedCallback)
+        m_loadedCallback(script.filename.c_str(), includedFrom.empty() ? nullptr : includedFrom.c_str(), includeLine);
 }
 
-
-/*
-==============
-LoadScriptFile
-==============
-*/
-void LoadScriptFile(const char *filename, ScriptPathMode_t pathMode) {
-    script = &scriptstack[0];
+void ScriptTokenizer::LoadFile(const char *filename, ScriptPathMode_t pathMode) {
+    Close();
     AddScriptToStack(filename, pathMode);
-
-    endofscript = false;
-    tokenready = false;
+    m_endOfScript = false;
 }
 
+void ScriptTokenizer::LoadMemory(std::string &buffer) {
+    Close();
+    Script &script = PushScript(std::string(MEMORY_SCRIPT_NAME));
+    script.isMemory = true;
+    script.buffer = script.script_p = buffer.data();
+    script.end_p = script.buffer + buffer.size();
+    m_endOfScript = false;
+}
 
 /*
 ==============
+$definemacro <name> [params...] [\\]
+    <body; continues on the next line while a line ends in "\\">
 ==============
 */
+void ScriptTokenizer::DefineMacro(const std::string &name) {
+    Script &script = Current();
+    Macro macro;
+    macro.name = name;
+    macro.line = script.line;
 
-constexpr uint32_t MAX_MACROS = 128;
-std::vector<script_t *> macrolist;
-
-void DefineMacro(char *macroname) {
-    script_t *pmacro = new script_t();
-
-    pmacro->filename = macroname;
-    pmacro->line = script->line;
-    pmacro->nummacroparams = 0;
-
-    char *mp = pmacro->macrobuffer;
-    char *cp = script->script_p;
-
+    char *cp = script.script_p;
     while (TokenAvailable()) {
         GetToken(false);
-
-        if (token[0] == '\\' && token[1] == '\\') {
+        if (token[0] == '\\' && token[1] == '\\')
             break;
-        }
-        cp = script->script_p;
-
-        pmacro->macroparam[pmacro->nummacroparams++] = mp;
-
-        strcpy(mp, token);
-        mp += strlen(token) + 1;
-
-        if (mp >= pmacro->macrobuffer + sizeof(pmacro->macrobuffer))
-            Error("Macro buffer overflow\n");
+        cp = script.script_p;
+        macro.params.emplace_back(token.view());
     }
     // roll back script_p to previous valid location
-    script->script_p = cp;
+    script.script_p = cp;
 
     // find end of macro def
-    while (*cp && *cp != '\n') {
-        //Msg("%d ", *cp );
-        if (*cp == '\\' && *(cp + 1) == '\\') {
+    while (cp < script.end_p && *cp != '\n') {
+        if (*cp == '\\' && cp + 1 < script.end_p && *(cp + 1) == '\\') {
             // skip till end of line
-            while (*cp && *cp != '\n') {
+            while (cp < script.end_p && *cp != '\n') {
                 *cp = ' '; // replace with spaces
                 cp++;
             }
-
-            if (*cp) {
+            if (cp < script.end_p)
                 cp++;
-            }
         }
         else {
             cp++;
         }
     }
 
-    int size = (cp - script->script_p);
+    macro.body.assign(script.script_p, cp);
+    // the continuation lines were consumed as part of the body
+    script.line += static_cast<int>(std::count(script.script_p, cp, '\n'));
+    script.script_p = cp;
 
-    pmacro->buffer = (char *) malloc(size + 1);
-    memcpy(pmacro->buffer, script->script_p, size);
-    pmacro->buffer[size] = '\0';
-    pmacro->end_p = &pmacro->buffer[size];
-
-    macrolist.emplace_back(pmacro);
-    if (macrolist.size() == MAX_MACROS)
-        Error("script file exceeded MAX_MACROS");
-
-    script->script_p = cp;
+    m_macros.push_back(std::move(macro));
 }
 
+void ScriptTokenizer::DefineVariable(const std::string &name, bool redefine) {
+    if (!GetToken(false))
+        Error("{} {}: missing value", redefine ? "$redefinevariable" : "$definevariable", name);
 
-void DefineVariable(char *variablename) {
-    variable_t v;
+    auto existing = std::ranges::find(m_variables, name, &Variable::name);
+    if (redefine) {
+        if (existing == m_variables.end())
+            Error("Cannot redefine undefined variable \"{}\". Use $definevariable instead.", name);
+        existing->value = token.view();
+        return;
+    }
 
-    v.param = strdup(variablename);
-
-    GetToken(false);
-
-    v.value = strdup(token);
-
-    v.param_lcase = strlwr(strdup(v.param));
-
-    for (int i = 0; i < g_definevariable.Count(); i++) {
-        if (!V_strcmp(g_definevariable[i].value, v.value)) {
-            Warning("\"$definevariable %s %s\" already exists as \"%s\".", v.param_lcase, v.value,
-                    g_definevariable[i].param_lcase);
+    for (const Variable &variable: m_variables) {
+        if (variable.value == token.view()) {
+            Warning("\"$definevariable %s %s\" already exists as \"%s\".\n", name.c_str(), token.c_str(),
+                    variable.name.c_str());
         }
     }
-
-    g_definevariable.AddToTail(v);
-}
-
-void RedefineVariable(char *variablename) {
-    variable_t v;
-
-    v.param = strdup(variablename);
-
-    GetToken(false);
-
-    v.value = strdup(token);
-
-    int nIdx = -1;
-    for (int i = 0; i < g_definevariable.Count(); i++) {
-        if (!V_strcmp(g_definevariable[i].param, v.param)) {
-            nIdx = i;
-            break;
-        }
-    }
-
-    if (nIdx >= 0) {
-        g_definevariable[nIdx] = v;
-    }
-    else {
-        Error("Cannot redefine undefined variable \"%s\". Use $definevariable instead.\n", v.param);
-    }
+    m_variables.push_back({name, std::string(token.view())});
 }
 
 /*
 ==============
+A "$name" token naming a $definemacro: reads its arguments from the rest of the line and starts reading the body.
 ==============
 */
-bool AddMacroToStack(char *macroname) {
-    // lookup macro
-    if (macroname[0] != '$')
+bool ScriptTokenizer::AddMacroToStack(const std::string &name) {
+    if (name.size() < 2 || name[0] != '$')
         return false;
 
-    int i;
-    for (i = 0; i < macrolist.size(); i++) {
-        if (strcmpi(macrolist[i]->filename.c_str(), &macroname[1]) == 0) {
-            break;
-        }
-    }
-    if (i == macrolist.size())
+    const std::string_view macroName = std::string_view(name).substr(1);
+    const auto macro = std::ranges::find_if(m_macros, [&](const Macro &m) { return EqualsNoCase(m.name, macroName); });
+    if (macro == m_macros.end())
         return false;
 
-    script_t *pmacro = macrolist[i];
-
-    // get tokens
-    script_t *pnext = script + 1;
-
-    pnext++;
-    if (pnext == scriptstack.data() + MAX_INCLUDES)
-        Error("script file exceeded MAX_INCLUDES");
-
-    // get tokens
-    char *cp = pnext->macrobuffer;
-
-    pnext->nummacroparams = pmacro->nummacroparams;
-
-    for (i = 0; i < pnext->nummacroparams; i++) {
-        GetToken(false);
-
-        strcpy(cp, token);
-        pnext->macroparam[i] = pmacro->macroparam[i];
-        pnext->macrovalue[i] = cp;
-
-        cp += strlen(token) + 1;
-
-        if (cp >= pnext->macrobuffer + sizeof(pnext->macrobuffer))
-            Error("Macro buffer overflow\n");
+    const size_t depth = m_stack.size();
+    std::vector<MacroArg> args;
+    args.reserve(macro->params.size());
+    for (const std::string &param: macro->params) {
+        if (!GetToken(false))
+            Error("macro {}: missing argument for parameter \"{}\"", name, param);
+        if (m_stack.size() != depth)
+            Error("macro {}: arguments cannot expand macros or $include files", name);
+        args.push_back({param, std::string(token.view())});
     }
 
-    script = pnext;
-    script->filename = pmacro->filename;
-
-    int size = pmacro->end_p - pmacro->buffer;
-    script->buffer = (char *) malloc(size + 1);
-    memcpy(script->buffer, pmacro->buffer, size);
-    pmacro->buffer[size] = '\0';
-    script->script_p = script->buffer;
-    script->end_p = script->buffer + size;
-    script->line = pmacro->line;
-
+    Script &script = PushScript(macro->name);
+    script.owned = macro->body;
+    script.buffer = script.script_p = script.owned.data();
+    script.end_p = script.buffer + script.owned.size();
+    script.line = macro->line;
+    script.macroArgs = std::move(args);
     return true;
 }
 
+// "^name^" at the start of a token is replaced by the whole value of $definevariable name.
+bool ScriptTokenizer::ExpandSubMacroToken() {
+    if (token[0] != '^')
+        return false;
 
-bool ExpandSubMacroToken(char *&token_p) {
-    if (*token_p == '^') {
-        token_p++;
+    const char *close = strchr(token.c_str() + 1, '^');
+    if (close == nullptr)
+        return false;
 
-        char *szPotentialVar = token_p;
+    const std::string_view name(token.c_str() + 1, close - token.c_str() - 1);
+    const auto variable = std::ranges::find(m_variables, name, &Variable::name);
+    if (variable == m_variables.end())
+        return false;
+    token = variable->value;
+    return true;
+}
 
-        while (*token_p != '^') {
-            token_p++;
-        }
+// Copies an expansion into the token being built; token_end is the last usable byte (kept for the terminator).
+void ScriptTokenizer::PasteIntoToken(char *&token_p, const char *token_end, std::string_view value) {
+    if (token_p + value.size() > token_end)
+        Error("token too long (max {} characters)", MAXTOKEN - 1);
+    memcpy(token_p, value.data(), value.size());
+    token_p += value.size();
+}
 
-        *token_p = '\0';
+// script_p points at '$'; returns the "name" of a "$name$" word, or an empty view if the word has no closing '$'.
+static std::string_view DollarWord(char *script_p, char *end_p, char *&close) {
+    char *cp = script_p + 1;
+    while (cp < end_p && !IsSpace(*cp) && *cp != '$')
+        cp++;
+    if (cp >= end_p || *cp != '$')
+        return {};
+    close = cp;
+    return {script_p + 1, static_cast<size_t>(cp - script_p - 1)};
+}
 
-        token_p = szPotentialVar;
+// "$name$" inside a macro body is replaced by the argument passed for that parameter.
+bool ScriptTokenizer::ExpandMacroToken(char *&token_p, const char *token_end) {
+    Script &script = Current();
+    if (script.macroArgs.empty() || *script.script_p != '$')
+        return false;
 
-        int index;
-        for (index = 0; index < g_definevariable.Count(); index++) {
-            if (!Q_strcmp(g_definevariable[index].param, szPotentialVar)) {
-                strcpy(token, g_definevariable[index].value);
-                return true;
-            }
+    char *close = nullptr;
+    const std::string_view name = DollarWord(script.script_p, script.end_p, close);
+    if (name.empty())
+        return false;
+
+    for (const MacroArg &arg: script.macroArgs) {
+        if (EqualsNoCase(arg.name, name)) {
+            PasteIntoToken(token_p, token_end, arg.value);
+            script.script_p = close + 1;
+            return true;
         }
     }
+    // not a parameter: may still be a $definevariable
     return false;
 }
 
-bool ExpandMacroToken(char *&token_p) {
-    if (script->nummacroparams && *script->script_p == '$') {
-        char *cp = script->script_p + 1;
-
-        while (*cp > 32 && *cp != '$') {
-            cp++;
-        }
-
-        // found a word with $'s on either end?
-        if (*cp != '$')
-            return false;
-
-        // get token pointer
-        char *tp = script->script_p + 1;
-        int len = (cp - tp);
-        *(tp + len) = '\0';
-
-        // lookup macro parameter
-        int index = 0;
-        for (index = 0; index < script->nummacroparams; index++) {
-            if (stricmp(script->macroparam[index], tp) == 0)
-                break;
-        }
-        if (index >= script->nummacroparams) {
-            Error("unknown macro token \"%s\" in %s\n", tp, script->filename.c_str());
-        }
-
-        // paste token into
-        len = strlen(script->macrovalue[index]);
-        strcpy(token_p, script->macrovalue[index]);
-        token_p += len;
-
-        script->script_p = cp + 1;
-
-        if (script->script_p >= script->end_p)
-            Error("Macro expand overflow\n");
-
-        if (token_p >= &token[MAXTOKEN])
-            Error("Token too large on line %i\n", scriptline);
-
-        return true;
-    }
-    return false;
-}
-
-
-/*
-==============
-==============
-*/
+// "$name$" is replaced by the value of $definevariable name.
 // FIXME: this should create a new script context so the individual tokens in the variable can be parsed
-bool ExpandVariableToken(char *&token_p) {
-    if (*script->script_p == '$') {
-        char *cp = script->script_p + 1;
-
-        while (*cp > 32 && *cp != '$') {
-            cp++;
-        }
-
-        // found a word with $'s on either end?
-        if (*cp != '$')
-            return false;
-
-        // get token pointer
-        char *tp = script->script_p + 1;
-        int len = (cp - tp);
-        *(tp + len) = '\0';
-
-        // lookup macro parameter
-
-        int index;
-        for (index = 0; index < g_definevariable.Count(); index++) {
-            // [wills] just strcmp here, this was doing nearest partial comparison before which could result in a false positive variable name match. Bad!
-            if (!Q_strcmp(g_definevariable[index].param, tp))
-                break;
-        }
-
-        // if we can't find the variable, try again without case sensitivity, then complain loudly if we find anything
-        if (index >= g_definevariable.Count()) {
-            for (index = 0; index < g_definevariable.Count(); index++) {
-                char *tp_lower = strlwr(strdup(tp));
-                if (!Q_strcmp(g_definevariable[index].param_lcase, tp_lower)) {
-                    Warning(
-                        "Unknown variable token fell back to case-insensitive match ( found: \"%s\", matched it to: \"%s\" ) in %s\n",
-                        tp, g_definevariable[index].param, script->filename.c_str());
-                    break;
-                }
-            }
-        }
-
-        if (index >= g_definevariable.Count()) {
-            Error("unknown variable token \"%s\" in %s\n", tp, script->filename.c_str());
-        }
-
-        // paste token into
-        len = strlen(g_definevariable[index].value);
-        strcpy(token_p, g_definevariable[index].value);
-        token_p += len;
-
-        script->script_p = cp + 1;
-
-        if (script->script_p >= script->end_p)
-            Error("Macro expand overflow\n");
-
-        if (token_p >= &token[MAXTOKEN])
-            Error("Token too large on line %i\n", scriptline);
-
-        return true;
-    }
-    return false;
-}
-
-
-/*
-==============
-ParseFromMemory
-==============
-*/
-void ParseFromMemory(char *buffer, int size) {
-    script = &scriptstack[0];
-    script++;
-    if (script == scriptstack.data() + MAX_INCLUDES)
-        Error("script file exceeded MAX_INCLUDES");
-    script->filename = "memory buffer";
-
-    script->buffer = buffer;
-    script->line = 1;
-    script->script_p = script->buffer;
-    script->end_p = script->buffer + size;
-
-    endofscript = false;
-    tokenready = false;
-}
-
-
-//-----------------------------------------------------------------------------
-// Used instead of ParseFromMemory to temporarily add a memory buffer
-// to the script stack.  ParseFromMemory just blows away the stack.
-//-----------------------------------------------------------------------------
-void PushMemoryScript(char *pszBuffer, const int nSize) {
-    if (script == nullptr) {
-        script = &scriptstack[0];
-    }
-    script++;
-    if (script == scriptstack.data() + MAX_INCLUDES) {
-        Error("script file exceeded MAX_INCLUDES");
-    }
-    script->filename = "memory buffer";
-
-    script->buffer = pszBuffer;
-    script->line = 1;
-    script->script_p = script->buffer;
-    script->end_p = script->buffer + nSize;
-
-    endofscript = false;
-    tokenready = false;
-}
-
-
-//-----------------------------------------------------------------------------
-// Used after calling PushMemoryScript to clean up the memory buffer
-// added to the script stack.  The normal end of script terminates
-// all parsing at the end of a memory buffer even if there are more scripts
-// remaining on the script stack
-//-----------------------------------------------------------------------------
-bool PopMemoryScript() {
-    if (script->filename != "memory buffer")
+bool ScriptTokenizer::ExpandVariableToken(char *&token_p, const char *token_end) {
+    Script &script = Current();
+    if (*script.script_p != '$')
         return false;
 
-    if (script == &scriptstack[0]) {
-        endofscript = true;
+    char *close = nullptr;
+    const std::string_view name = DollarWord(script.script_p, script.end_p, close);
+    if (name.empty())
         return false;
+
+    // [wills] exact match first; a nearest partial comparison could give a false positive variable name match.
+    auto variable = std::ranges::find(m_variables, name, &Variable::name);
+    if (variable == m_variables.end()) {
+        // try again without case sensitivity, then complain loudly if we find anything
+        variable = std::ranges::find_if(m_variables, [&](const Variable &v) { return EqualsNoCase(v.name, name); });
+        if (variable == m_variables.end()) {
+            Error("unknown variable \"${}$\"{}", name,
+                  script.macroArgs.empty() ? "" : " (not a parameter of this macro either)");
+        }
+        Warning("%s(%d): unknown variable token fell back to case-insensitive match ( found: \"%.*s\", matched it to: \"%s\" )\n",
+                script.filename.c_str(), script.line, static_cast<int>(name.size()), name.data(),
+                variable->name.c_str());
     }
-    script--;
-    scriptline = script->line;
 
-    endofscript = false;
-
+    PasteIntoToken(token_p, token_end, variable->value);
+    script.script_p = close + 1;
     return true;
 }
-
 
 /*
 ==============
@@ -521,65 +392,137 @@ GetToken (false);
 could cross a line boundary.
 ==============
 */
-void UnGetToken() {
-    tokenready = true;
+void ScriptTokenizer::UnGetToken() {
+    m_tokenReady = true;
 }
 
-
-qboolean EndOfScript(qboolean crossline) {
-    if (!crossline)
-        Error("Line %i is incomplete\n", scriptline);
-
-    if (script->filename == "memory buffer") {
-        endofscript = true;
+// End of the current buffer while crossing lines: return to the including script, or flag the end of all input.
+// The root stays loaded so errors at the end of the file still report it.
+bool ScriptTokenizer::PopFinishedScript() {
+    if (m_stack.size() == 1 || Current().isMemory) {
+        m_endOfScript = true;
         return false;
     }
-
-    free(script->buffer);
-    script->buffer = nullptr;
-    if (script == scriptstack.data() + 1) {
-        endofscript = true;
-        return false;
-    }
-    script--;
-    scriptline = script->line;
-    // printf ("returning to %s\n", script->filename);
-    return GetToken(crossline);
+    m_stack.pop_back();
+    return true;
 }
 
-void AttemptConditionalInclude(void) {
+// Skips whitespace and comments up to the next token. Returns false if there is none: at the end of the current
+// line when !crossline (the newline or comment is left unread, so a later GetToken(true) still sees it), or at the
+// end of all input.
+bool ScriptTokenizer::SkipToToken(bool crossline) {
+    if (m_stack.empty())
+        return false;
+
+    while (true) {
+        Script &script = Current();
+        if (script.script_p >= script.end_p) {
+            if (!crossline || !PopFinishedScript())
+                return false;
+            continue;
+        }
+
+        const char c = *script.script_p;
+        if (c == '\n') {
+            if (!crossline)
+                return false;
+            script.script_p++;
+            script.line++;
+        }
+        else if (IsSpace(c)) {
+            script.script_p++;
+        }
+        else if (IsLineComment(script.script_p, script.end_p)) {
+            if (!crossline)
+                return false;
+            while (script.script_p < script.end_p && *script.script_p != '\n')
+                script.script_p++;
+        }
+        else if (IsBlockComment(script.script_p, script.end_p)) {
+            char *after = SkipBlockComment(script.script_p, script.end_p);
+            const auto newlines = std::count(script.script_p, after, '\n');
+            if (!crossline && newlines > 0)
+                return false;
+            script.line += static_cast<int>(newlines);
+            script.script_p = after;
+        }
+        else {
+            return true;
+        }
+    }
+}
+
+// Reads a quoted token; script_p points at the opening quote.
+void ScriptTokenizer::ReadQuotedToken(char *&token_p, const char *token_end) {
+    Script &script = Current();
+    const int startLine = script.line;
+    script.script_p++;
+    while (script.script_p < script.end_p && *script.script_p != '"') {
+        if (*script.script_p == '\n')
+            script.line++;
+        if (token_p == token_end)
+            Error("token too long (max {} characters)", MAXTOKEN - 1);
+        *token_p++ = *script.script_p++;
+    }
+    if (script.script_p >= script.end_p)
+        Error("unterminated quoted string starting on line {}", startLine);
+    script.script_p++; // closing quote
+}
+
+void ScriptTokenizer::AttemptConditionalInclude() {
     // Look for additional $include parameters, and only perform the include if the condition succeeds.
     // Right now, there's only a check for a file existing. This is a hacky way to get some logical
     // processing into qc, short of giving it full language-like arbitrary expression evaluation.
 
-    GetToken(false);
+    if (!GetToken(false))
+        Error("$include: missing file name");
 
-    const std::string savedPath = token;
+    const std::string savedPath(token.view());
 
     // check for a conditional flag
-
     bool bConditionSuccess = true;
 
-    if (TokenAvailable()) {
-        GetToken(false);
+    if (GetToken(false)) {
         if (!stricmp(token, "iffileexists")) {
             bConditionSuccess = false;
 
-            if (TokenAvailable()) {
-                GetToken(false);
+            if (GetToken(false)) {
                 bConditionSuccess = g_pFullFileSystem->FileExists(token) != 0;
             }
 
-            printf("Condition 'iffileexists' for input '%s' is %s.\n", token, bConditionSuccess ? "True" : "False");
+            printf("Condition 'iffileexists' for input '%s' is %s.\n", token.c_str(), bConditionSuccess ? "True" : "False");
         }
         else {
-            Error("Unknown $include parameter %s\n", token);
+            Error("Unknown $include parameter {}", token);
         }
     }
 
     printf("%s: %s\n", bConditionSuccess ? "Including" : "SKIPPING", savedPath.c_str());
     if (bConditionSuccess)
-        AddScriptToStack(savedPath.c_str());
+        AddScriptToStack(savedPath.c_str(), SCRIPT_USE_ABSOLUTE_PATH);
+}
+
+// Script directives handled inside the tokenizer. Returns true (with the next token's result) if token was one.
+bool ScriptTokenizer::HandleDirective(bool crossline, bool &result) {
+    if (!stricmp(token, "$include")) {
+        AttemptConditionalInclude();
+    }
+    else if (!stricmp(token, "$definemacro")) {
+        if (!GetToken(false))
+            Error("$definemacro: missing macro name");
+        DefineMacro(std::string(token.view()));
+    }
+    else if (!stricmp(token, "$definevariable") || !stricmp(token, "$redefinevariable")) {
+        const bool redefine = !stricmp(token, "$redefinevariable");
+        if (!GetToken(false))
+            Error("{}: missing variable name", redefine ? "$redefinevariable" : "$definevariable");
+        DefineVariable(std::string(token.view()), redefine);
+    }
+    else if (!AddMacroToStack(std::string(token.view()))) {
+        return false;
+    }
+    result = GetToken(crossline);
+    return true;
 }
 
 /*
@@ -587,325 +530,158 @@ void AttemptConditionalInclude(void) {
 GetToken
 ==============
 */
-qboolean GetToken(qboolean crossline) {
-    char *token_p;
-
-    if (tokenready) // is a token allready waiting?
+bool ScriptTokenizer::GetToken(bool crossline) {
+    if (m_tokenReady) // is a token allready waiting?
     {
-        tokenready = false;
+        m_tokenReady = false;
         return true;
     }
 
-    // printf("script_p %x (%x)\n", script->script_p, script->end_p ); fflush( stdout );
-
-    if (script->script_p >= script->end_p) {
-        return EndOfScript(crossline);
-    }
-
-    tokenready = false;
-
-    // skip space, ctrl chars
-skipspace:
-    while (*script->script_p <= 32) {
-        if (script->script_p >= script->end_p) {
-            return EndOfScript(crossline);
-        }
-        if (*(script->script_p++) == '\n') {
-            if (!crossline) {
-                Error("Line %i is incomplete\n", scriptline);
-            }
-            scriptline = ++script->line;
-        }
-    }
-
-    if (script->script_p >= script->end_p) {
-        return EndOfScript(crossline);
-    }
-
-    // strip single line comments
-    if (*script->script_p == ';' || *script->script_p == '#' || // semicolon and # is comment field
-        (*script->script_p == '/' && *((script->script_p) + 1) == '/')) // also make // a comment field
-    {
-        if (!crossline)
-            Error("Line %i is incomplete\n", scriptline);
-        while (*script->script_p++ != '\n') {
-            if (script->script_p >= script->end_p) {
-                return EndOfScript(crossline);
-            }
-        }
-        scriptline = ++script->line;
-        goto skipspace;
-    }
-
-    //  strip out matching /* */ comments
-    if (*script->script_p == '/' && *((script->script_p) + 1) == '*') {
-        script->script_p += 2;
-        while (*script->script_p != '*' || *((script->script_p) + 1) != '/') {
-            if (*script->script_p++ != '\n') {
-                if (script->script_p >= script->end_p) {
-                    return EndOfScript(crossline);
-                }
-
-                scriptline = ++script->line;
-            }
-        }
-        script->script_p += 2;
-        goto skipspace;
+    if (!SkipToToken(crossline)) {
+        token.clear();
+        return false;
     }
 
     // copy token to buffer
-    token_p = token;
+    char *token_p = token;
+    const char *const token_end = token.data() + MAXTOKEN - 1;
 
-    if (*script->script_p == '"') {
-        // quoted token
-        script->script_p++;
-        while (*script->script_p != '"') {
-            *token_p++ = *script->script_p++;
-            if (script->script_p == script->end_p)
-                break;
-            if (token_p == &token[MAXTOKEN])
-                Error("Token too large on line %i\n", scriptline);
-        }
-        script->script_p++;
+    if (*Current().script_p == '"') {
+        ReadQuotedToken(token_p, token_end);
     }
     else // regular token
-        while (*script->script_p > 32 && *script->script_p != ';') {
-            if (!ExpandMacroToken(token_p)) {
-                if (!ExpandVariableToken(token_p)) {
-                    *token_p++ = *script->script_p++;
-                    if (script->script_p == script->end_p)
-                        break;
-                    if (token_p == &token[MAXTOKEN])
-                        Error("Token too large on line %i\n", scriptline);
-                }
-            }
+    {
+        while (Current().script_p < Current().end_p && !IsSpace(*Current().script_p) && *Current().script_p != ';') {
+            if (ExpandMacroToken(token_p, token_end) || ExpandVariableToken(token_p, token_end))
+                continue;
+            if (token_p == token_end)
+                Error("token too long (max {} characters)", MAXTOKEN - 1);
+            *token_p++ = *Current().script_p++;
         }
+    }
 
     // add null to end of token
     *token_p = 0;
 
     // quick hack: check for submacro variables
-    char *token_submacro = token;
-    if (ExpandSubMacroToken(token_submacro)) {
+    if (ExpandSubMacroToken())
         return true;
-    }
 
-    // check for other commands
-    if (!stricmp(token, "$include")) {
-        AttemptConditionalInclude();
-        return GetToken(crossline);
-    }
-    else if (!stricmp(token, "$definemacro")) {
-        GetToken(false);
-        DefineMacro(token);
-        return GetToken(crossline);
-    }
-    else if (!stricmp(token, "$definevariable")) {
-        GetToken(false);
-        DefineVariable(token);
-        return GetToken(crossline);
-    }
-    else if (!stricmp(token, "$redefinevariable")) {
-        GetToken(false);
-        RedefineVariable(token);
-        return GetToken(crossline);
-    }
-    else if (AddMacroToStack(token)) {
-        return GetToken(crossline);
-    }
-
+    bool result = true;
+    if (HandleDirective(crossline, result))
+        return result;
     return true;
 }
-
 
 /*
 ==============
 GetExprToken - use C mathematical operator parsing rules to split tokens instead of whitespace
 ==============
 */
-qboolean GetExprToken(qboolean crossline) {
-    char *token_p;
-
-    if (tokenready) // is a token allready waiting?
+bool ScriptTokenizer::GetExprToken(bool crossline) {
+    if (m_tokenReady) // is a token allready waiting?
     {
-        tokenready = false;
+        m_tokenReady = false;
         return true;
     }
 
-    if (script->script_p >= script->end_p)
-        return EndOfScript(crossline);
-
-    tokenready = false;
-
-    //
-    // skip space
-    //
-skipspace:
-    while (*script->script_p <= 32) {
-        if (script->script_p >= script->end_p)
-            return EndOfScript(crossline);
-        if (*script->script_p++ == '\n') {
-            if (!crossline)
-                Error("Line %i is incomplete\n", scriptline);
-            scriptline = ++script->line;
-        }
+    if (!SkipToToken(crossline)) {
+        token.clear();
+        return false;
     }
 
-    if (script->script_p >= script->end_p)
-        return EndOfScript(crossline);
+    Script &script = Current();
+    char *token_p = token;
+    const char *const token_end = token.data() + MAXTOKEN - 1;
 
-    if (*script->script_p == ';' || *script->script_p == '#' || // semicolon and # is comment field
-        (*script->script_p == '/' && *((script->script_p) + 1) == '/')) // also make // a comment field
-    {
-        if (!crossline)
-            Error("Line %i is incomplete\n", scriptline);
-        while (*script->script_p++ != '\n')
-            if (script->script_p >= script->end_p)
-                return EndOfScript(crossline);
-        goto skipspace;
-    }
-
-    //
-    // copy token
-    //
-    token_p = token;
-
-    if (*script->script_p == '"') {
-        // quoted token
-        script->script_p++;
-        while (*script->script_p != '"') {
-            *token_p++ = *script->script_p++;
-            if (script->script_p == script->end_p)
-                break;
-            if (token_p == &token[MAXTOKEN])
-                Error("Token too large on line %i\n", scriptline);
+    const auto copyWhile = [&](auto predicate) {
+        while (script.script_p < script.end_p && predicate(*script.script_p)) {
+            if (token_p == token_end)
+                Error("token too long (max {} characters)", MAXTOKEN - 1);
+            *token_p++ = *script.script_p++;
         }
-        script->script_p++;
+    };
+
+    const char c = *script.script_p;
+    if (c == '"') {
+        ReadQuotedToken(token_p, token_end);
+    }
+    else if (V_isalpha(c) || c == '_') {
+        copyWhile([](char ch) { return V_isalnum(ch) || ch == '_'; });
+    }
+    else if (V_isdigit(c) || c == '.') {
+        copyWhile([](char ch) { return V_isdigit(ch) || ch == '.'; });
     }
     else {
-        if (V_isalpha(*script->script_p) || *script->script_p == '_') {
-            // regular token
-            while (V_isalnum(*script->script_p) || *script->script_p == '_') {
-                *token_p++ = *script->script_p++;
-                if (script->script_p == script->end_p)
-                    break;
-                if (token_p == &token[MAXTOKEN])
-                    Error("Token too large on line %i\n", scriptline);
-            }
-        }
-        else if (V_isdigit(*script->script_p) || *script->script_p == '.') {
-            // regular token
-            while (V_isdigit(*script->script_p) || *script->script_p == '.') {
-                *token_p++ = *script->script_p++;
-                if (script->script_p == script->end_p)
-                    break;
-                if (token_p == &token[MAXTOKEN])
-                    Error("Token too large on line %i\n", scriptline);
-            }
-        }
-        else {
-            // single char
-            *token_p++ = *script->script_p++;
-        }
+        // single char
+        *token_p++ = *script.script_p++;
     }
 
     *token_p = 0;
-
-    if (!stricmp(token, "$include")) {
-        AttemptConditionalInclude();
-        return GetToken(crossline);
-    }
-
     return true;
 }
-
 
 /*
 ==============
 TokenAvailable
 
-Returns true if there is another token on the line
+Returns true if there is another token on the line, i.e. GetToken(false) would succeed
 ==============
 */
-qboolean TokenAvailable() {
-    char *search_p;
-
-    if (tokenready) // is a token allready waiting?
-    {
+bool ScriptTokenizer::TokenAvailable() const {
+    if (m_tokenReady) // is a token allready waiting?
         return true;
-    }
-
-    search_p = script->script_p;
-
-    if (search_p >= script->end_p)
+    if (m_stack.empty())
         return false;
 
-    while (*search_p <= 32) {
-        if (*search_p == '\n')
+    const Script &script = Current();
+    char *search_p = script.script_p;
+    while (search_p < script.end_p) {
+        if (*search_p == '\n' || IsLineComment(search_p, script.end_p))
             return false;
-        if (*search_p == '\r' && *(search_p + 1) == '\n')
-            return false;
+        if (IsBlockComment(search_p, script.end_p)) {
+            char *after = SkipBlockComment(search_p, script.end_p);
+            if (std::find(search_p, after, '\n') != after)
+                return false;
+            search_p = after;
+            continue;
+        }
+        if (!IsSpace(*search_p))
+            return true;
         search_p++;
-        if (search_p == script->end_p)
-            return false;
     }
-
-    if (*search_p == ';' || *search_p == '#' || // semicolon and # is comment field
-        (*search_p == '/' && *((search_p) + 1) == '/')) // also make // a comment field
-        return false;
-
-    return true;
+    return false;
 }
 
-qboolean GetTokenizerStatus(char **pFilename, int *pLine) {
-    // is this the default state?
-    if (!script)
-        return false;
-
-    if (script->script_p >= script->end_p)
-        return false;
-
-    if (pFilename) {
-        *pFilename = script->filename.data();
-    }
-    if (pLine) {
-        *pLine = script->line;
-    }
-    return true;
+void ScriptTokenizer::ExpectToken(std::string_view what) {
+    const std::string previous(token.view()); // a failed read clears token
+    if (GetToken(false))
+        return;
+    if (what.empty())
+        Error("missing argument after \"{}\"", previous);
+    Error("expected {} after \"{}\"", what, previous);
 }
-
-
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier1/utlbuffer.h"
-#include "filesystem/stdfile.h"
 
 class CScriptLib : public IScriptLib {
 public:
-    virtual bool ReadFileToBuffer(const char *pSourceName, CUtlBuffer &buffer, bool bText = false,
-                                  bool bNoOpenFailureWarning = false);
+    bool ReadFileToBuffer(const char *pSourceName, CUtlBuffer &buffer, bool bText = false,
+                          bool bNoOpenFailureWarning = false) override;
 
-    virtual bool WriteBufferToFile(const char *pTargetName, CUtlBuffer &buffer, DiskWriteMode_t writeMode);
+    bool WriteBufferToFile(const char *pTargetName, CUtlBuffer &buffer, DiskWriteMode_t writeMode) override;
 
-    virtual int FindFiles(char *pFileMask, bool bRecurse, CUtlVector<fileList_t> &fileList);
+    int FindFiles(const char *pFileMask, bool bRecurse, CUtlVector<fileList_t> &fileList) override;
 
-    virtual char *MakeTemporaryFilename(char const *pchModPath, char *pPath, int pathSize);
+    void DeleteTemporaryFiles(const char *pFileMask) override;
 
-    virtual void DeleteTemporaryFiles(const char *pFileMask);
+    int CompareFileTime(const char *pFilenameA, const char *pFilenameB) override;
 
-    virtual int CompareFileTime(const char *pFilenameA, const char *pFilenameB);
-
-    virtual bool DoesFileExist(const char *pFilename);
+    bool DoesFileExist(const char *pFilename) override;
 
 private:
     int GetFileList(const char *pDirPath, const char *pPattern, CUtlVector<fileList_t> &fileList);
 
     void RecurseFileTree_r(const char *pDirPath, int depth, CUtlVector<CUtlString> &dirList);
 };
-
-static CScriptLib g_ScriptLib;
-IScriptLib *scriptlib = &g_ScriptLib;
-IScriptLib *g_pScriptLib = &g_ScriptLib;
 
 //-----------------------------------------------------------------------------
 // Existence check
@@ -1004,24 +780,6 @@ int CScriptLib::CompareFileTime(const char *pFilenameA, const char *pFilenameB) 
 }
 
 //-----------------------------------------------------------------------------
-// Make a temporary filename
-//-----------------------------------------------------------------------------
-char *CScriptLib::MakeTemporaryFilename(char const *pchModPath, char *pPath, int pathSize) {
-    char *pBuffer = _tempnam(pchModPath, "mgd_");
-    if (pBuffer[0] == '\\') {
-        pBuffer++;
-    }
-    if (pBuffer[strlen(pBuffer) - 1] == '.') {
-        pBuffer[strlen(pBuffer) - 1] = '\0';
-    }
-    V_snprintf(pPath, pathSize, "%s.tmp", pBuffer);
-
-    free(pBuffer);
-
-    return pPath;
-}
-
-//-----------------------------------------------------------------------------
 // Delete temporary files
 //-----------------------------------------------------------------------------
 void CScriptLib::DeleteTemporaryFiles(const char *pFileMask) {
@@ -1039,7 +797,7 @@ void CScriptLib::DeleteTemporaryFiles(const char *pFileMask) {
         CUtlVector<fileList_t> fileList;
         FindFiles(tempPath, false, fileList);
         for (int i = 0; i < fileList.Count(); i++) {
-            FS_RemoveFile(fileList[i].fileName.String());
+            FS_RemoveFile(fileList[i].fileName.c_str());
         }
     }
 }
@@ -1092,7 +850,7 @@ int CScriptLib::GetFileList(const char *pDirPath, const char *pPattern, CUtlVect
         strcat(fileName, findData.cFileName);
 
         int j = fileList.AddToTail();
-        fileList[j].fileName.Set(fileName);
+        fileList[j].fileName = fileName;
         FileStat_t stat;
         fileList[j].timeWrite = FS_Stat(fileName, stat) ? (time_t) stat.nModifyTime : 0;
     } while (FS_FindNext(hFind, findData));
@@ -1119,7 +877,7 @@ void CScriptLib::RecurseFileTree_r(const char *pDirPath, int depth, CUtlVector<C
 
     for (int i = 0; i < dirCount; i++) {
         // form new path name, recurse into
-        RecurseFileTree_r(fileList[i].fileName.String(), depth + 1, dirList);
+        RecurseFileTree_r(fileList[i].fileName.c_str(), depth + 1, dirList);
     }
 
     int j = dirList.AddToTail();
@@ -1129,7 +887,7 @@ void CScriptLib::RecurseFileTree_r(const char *pDirPath, int depth, CUtlVector<C
 //-----------------------------------------------------------------------------
 // Purpose: Generate a list of file matching mask
 //-----------------------------------------------------------------------------
-int CScriptLib::FindFiles(char *pFileMask, bool bRecurse, CUtlVector<fileList_t> &fileList) {
+int CScriptLib::FindFiles(const char *pFileMask, bool bRecurse, CUtlVector<fileList_t> &fileList) {
     char dirPath[MAX_PATH]{0};
     char pattern[MAX_PATH];
     char extension[MAX_PATH];

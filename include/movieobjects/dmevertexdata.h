@@ -188,7 +188,7 @@ protected:
 	void FindOrAddVertexField( const char *pFieldName );
 
 	// Returns the index of a particular field
-	int GetFieldIndex( int nVertexIndex, StandardFields_t nFieldIndex ) const;
+	int GetFieldIndex(uint32_t nVertexIndex, StandardFields_t nFieldIndex) const;
 	// List of names of attributes containing vertex data
 	CDmaStringArray m_VertexFormat;
 
@@ -282,14 +282,14 @@ inline const CDmAttribute* CDmeVertexDataBase::GetIndexData( FieldIndex_t nField
 //-----------------------------------------------------------------------------
 // Utility method for getting at various vertex field indices
 //-----------------------------------------------------------------------------
-inline int CDmeVertexDataBase::GetFieldIndex( int nVertexIndex, StandardFields_t nFieldId ) const
+inline int CDmeVertexDataBase::GetFieldIndex(const uint32_t nVertexIndex, const StandardFields_t nFieldId) const
 {
 	Assert( nVertexIndex < m_nVertexCount );
-	FieldIndex_t nFieldIndex = m_pStandardFieldIndex[nFieldId];
+	const FieldIndex_t nFieldIndex = m_pStandardFieldIndex[nFieldId];
 	if ( nFieldIndex < 0 )
 		return -1;
 
-	CDmrArrayConst<int> indices( GetIndexData( nFieldIndex ) );
+	const CDmrArrayConst<int> indices( GetIndexData( nFieldIndex ) );
 	return indices[ nVertexIndex ];
 }
 

@@ -321,8 +321,8 @@ int CDmeControlGroup::CompareByNameDecending( CDmeControlGroup * const *pGroupA,
 void CDmeControlGroup::SortChildrenByName( bool bAscending )
 {
 	// Copy the children into a temporary array to be sorted.
-	int nNumChildren = m_Children.Count();
-	CUtlVector< CDmeControlGroup * > sortedList( 0, nNumChildren );
+	uint32_t nNumChildren = m_Children.Count();
+	CUtlVector< CDmeControlGroup * > sortedList( 0u, nNumChildren );
 	
 	for ( int iChild = 0; iChild < nNumChildren; ++iChild )
 	{
@@ -503,7 +503,7 @@ bool CDmeControlGroup::DestroyEmptyChildren_R( CDmeControlGroup *pGroup )
 	// Build a list of the children which are empty and should be destroyed. This 
 	// process will recursively remove empty children of the children so that if 
 	// a child has only empty sub-children then it will still be removed.
-	CUtlVector< CDmeControlGroup * > childrenToDestroy( 0, nNumChildren );
+	CUtlVector< CDmeControlGroup * > childrenToDestroy( 0u, nNumChildren );
 	for ( int iChild = 0; iChild < nNumChildren; ++iChild )
 	{
 		CDmeControlGroup *pChild = pGroup->m_Children[ iChild ]; 
@@ -804,7 +804,7 @@ CDmeControlGroup *CDmeControlGroup::FindRootControlGroup()
 //-----------------------------------------------------------------------------
 void CDmeControlGroup::BuildPathFromRoot( CUtlVector< CDmeControlGroup * > &pathToGroup )
 {
-	CUtlVector< CDmeControlGroup * > pathToRoot( 0, 16 );
+	CUtlVector< CDmeControlGroup * > pathToRoot( 0u, 16u );
 
 	CDmeControlGroup *pCurrent = this;
 

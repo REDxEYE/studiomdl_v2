@@ -389,7 +389,7 @@ class CKeyValuesGrowableStringTable
 public: 
 	// Constructor
 	CKeyValuesGrowableStringTable() :
-	  m_vecStrings( 0, 512 * 1024 ),
+	  m_vecStrings( 0u, 512 * 1024u ),
 	  m_hashLookup( 2048, 0, 0, m_Functor, m_Functor )
 	{
 		m_vecStrings.AddToTail( '\0' );
@@ -3667,9 +3667,9 @@ KeyValues * KeyValues::FromString( char const *szName, char const *szStringVal, 
 		}
 
 		// Try to recognize some known types
-		if ( char const *szInt = StringAfterPrefix( szVarValue, "#int#" ) )
+		if ( auto szInt = string_after_prefix( szVarValue, "#int#" ) )
 		{
-			kv->SetInt( szVarName, atoi( szInt ) );
+			kv->SetInt( szVarName, vstd::str_to_int<int>( szInt.value() ) );
 		}
 		else if ( !V_stricmp( szVarValue, "#empty#" ) )
 		{

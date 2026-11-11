@@ -171,7 +171,7 @@ enum OffsetTypeEnum
 //////////////////////////////////////////////////////////////////////////
 // this class may be useful at runtime to use fast serialize interface (without data linking)
 // 
-abstract_class IBasicStream
+class IBasicStream
 {
 public:
 	virtual void* WriteBytes(uint32_t numBytes) = 0;
@@ -232,7 +232,7 @@ public:
 // WARNING: there are no error-checking facilities here. If you forget to set 
 //          a link, you'll have a NULL offset and no warnings or errors
 //
-abstract_class IStream: public IBasicStream
+class IStream: public IBasicStream
 {
 public:
 	template <typename T,int32_t nCookie>	T* WriteAndLink(Offset_t<T,nCookie>*pOffset, uint32_t count = 1);
@@ -257,7 +257,7 @@ public:
 // You can extend this to multiple object files linked at later stage (szDescription 
 // must be unique identifiers)
 // 
-abstract_class ILinkStream: public IStream
+class ILinkStream: public IStream
 {
 public:
 	virtual LinkSource_t WriteOffset(const char *szDescription) = 0;

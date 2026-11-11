@@ -10,60 +10,60 @@
 
 // This emulates the hardware matrix palette and keeps up with 
 // matrix usage, LRU's matrices, etc.
-class CHardwareMatrixState
-{
+class CHardwareMatrixState {
 public:
-	CHardwareMatrixState();
+    CHardwareMatrixState();
 
-	void Init( int numHardwareMatrices );
-	
-	// return false if there is no slot for this matrix.
-	bool AllocateMatrix( int globalMatrixID );
+    void Init(uint32_t numHardwareMatrices);
 
-	// deallocate the least recently used matrix
-	void DeallocateLRU( void );
-	void DeallocateLRU( int n );
+    // return false if there is no slot for this matrix.
+    bool AllocateMatrix(uint32_t globalMatrixID);
 
-	// return true if a matrix is allocate.
-	bool IsMatrixAllocated( int globalMatrixID ) const;
-	
-	// flush usage flags - signifies that none of the matrices are being used in the current strip
-	// do this when starting a new strip.
-	void SetAllUnused();
+    // deallocate the least recently used matrix
+    void DeallocateLRU();
 
-	void DeallocateAll();
+    void DeallocateLRU(uint32_t n);
 
-	// save the complete state of the hardware matrices
-	void SaveState();
+    // return true if a matrix is allocate.
+    bool IsMatrixAllocated(uint32_t globalMatrixID) const;
 
-	// restore the complete state of the hardware matrices
-	void RestoreState();
+    // flush usage flags - signifies that none of the matrices are being used in the current strip
+    // do this when starting a new strip.
+    void SetAllUnused();
 
-	// Returns the number of free + unsed matrices
-	int AllocatedMatrixCount() const;
-	int	FreeMatrixCount() const;
+    void DeallocateAll();
 
-	int GetNthBoneGlobalID( int n ) const;
+    // save the complete state of the hardware matrices
+    void SaveState();
 
-	void DumpState( void );
+    // restore the complete state of the hardware matrices
+    void RestoreState();
+
+    // Returns the number of free + unsed matrices
+    uint32_t AllocatedMatrixCount() const;
+
+    uint32_t FreeMatrixCount() const;
+
+    uint32_t GetNthBoneGlobalID(uint32_t n) const;
+
+    void DumpState();
 
 private:
-	int FindHardwareMatrix( int globalMatrixID );
-	int FindLocalLRUIndex( void );
+    uint32_t FindHardwareMatrix(uint32_t globalMatrixID) const;
 
-	// Increment and return LRU counter.
-	struct MatrixState_t
-	{
-		bool allocated;
-		int lastUsageID;
-		int globalMatrixID;
-	};
+    uint32_t FindLocalLRUIndex();
 
-	int m_LRUCounter;
-	int m_NumMatrices;
-	int m_AllocatedMatrices;
+    // Increment and return LRU counter.
+    struct MatrixState_t {
+        bool allocated;
+        uint32_t lastUsageID;
+        uint32_t globalMatrixID;
+    };
 
-	MatrixState_t *m_matrixState;
-	MatrixState_t *m_savedMatrixState;
+    uint32_t m_LRUCounter;
+    uint32_t m_NumMatrices;
+    uint32_t m_AllocatedMatrices;
+
+    std::vector<MatrixState_t> m_matrixState;
+    std::vector<MatrixState_t> m_savedMatrixState;
 };
-

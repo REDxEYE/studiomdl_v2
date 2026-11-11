@@ -267,7 +267,7 @@ inline CPrimList::CPrimList( int nFirstIndex, int nIndexCount )
 	m_NumIndices = nIndexCount;
 }
 
-abstract_class IVertexBuffer
+class IVertexBuffer
 {
 public:
 	// NOTE: The following two methods are only valid for static vertex buffers
@@ -323,7 +323,7 @@ enum MaterialPrimitiveType_t
     MATERIAL_HETEROGENOUS
 };
 
-abstract_class IIndexBuffer
+class IIndexBuffer
 {
 public:
 	// NOTE: The following two methods are only valid for static index buffers
@@ -360,7 +360,7 @@ public:
 };
 
 //-----------------------------------------------------------------------------
-abstract_class ICachedPerFrameMeshData
+class ICachedPerFrameMeshData
 {
 public:
 	virtual void Free() = 0;
@@ -369,7 +369,7 @@ public:
 //-----------------------------------------------------------------------------
 // Interface to the mesh - needs to contain an IVertexBuffer and an IIndexBuffer to emulate old mesh behavior
 //-----------------------------------------------------------------------------
-abstract_class IMesh : public IVertexBuffer, public IIndexBuffer
+class IMesh : public IVertexBuffer, public IIndexBuffer
 {
 public:
 	// -----------------------------------

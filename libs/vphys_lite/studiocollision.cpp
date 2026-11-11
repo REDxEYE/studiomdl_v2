@@ -13,7 +13,7 @@
 
 #include "mathlib/mathlib.h"
 #include "legacy_qhull/legacy_qhull_bridge.h"
-#include "studiomdl/studiomdl_global_state.hpp"
+#include "tier1_v2/function_timing.hpp"
 
 CStudioCollision g_StudioCollision;
 
@@ -2059,7 +2059,7 @@ static bool RayHits( const std::vector<StudioConvex_t*> &cv, const Vector &start
 
 StudioConvex_t *CStudioCollision::ConvexFromVerts( Vector **pVerts, int vertCount )
 {
-    FunctionTimingRecorder _("Phys");
+    vstd::FunctionTimingRecorder _("Phys");
     if(!pVerts||vertCount<4)return NULL;
     std::vector<Vector> input; input.reserve(vertCount);
     for(int i=0;i<vertCount;++i) if(pVerts[i]) input.push_back(*pVerts[i]);

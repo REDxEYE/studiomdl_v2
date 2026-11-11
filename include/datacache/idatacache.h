@@ -112,7 +112,7 @@ enum DataCacheReportType_t
 //			areas of the cache with thier own memory constraints and common
 //			management.
 //-----------------------------------------------------------------------------
-abstract_class IDataCacheSection
+class IDataCacheSection
 {
 public:
     virtual ~IDataCacheSection() { };
@@ -195,7 +195,7 @@ public:
 // Purpose: The global shared cache. Manages sections and overall budgets.
 //
 //-----------------------------------------------------------------------------
-abstract_class IDataCache
+class IDataCache
 {
 public:
 	//--------------------------------------------------------

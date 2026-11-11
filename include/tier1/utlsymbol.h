@@ -104,6 +104,7 @@ public:
 	
 	// Finds and/or creates a symbol based on the string
 	CUtlSymbol AddString( const char* pString );
+	CUtlSymbol AddString( std::string_view string );
 
 	// Finds the symbol for pString
 	CUtlSymbol Find( const char* pString ) const;

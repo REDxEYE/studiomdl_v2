@@ -68,13 +68,14 @@ int CDmxConvertApp::Main()
 	// This bit of hackery allows us to access files on the harddrive
 	g_pFullFileSystem->AddSearchPath( "", "LOCAL", PATH_ADD_TO_HEAD ); 
 
-	const std::string_view pInFileName = CommandLine()->ParmValue("-i" );
-	const std::string_view pOutFileName = CommandLine()->ParmValue("-o" );
-	const std::string_view pInFormat = CommandLine()->ParmValue("-if" );
-	const std::string_view pOutFormat = CommandLine()->ParmValue("-of" );
-	const std::string_view pOutEncoding = CommandLine()->ParmValue("-oe" );
+	const auto parm = []( const std::string_view key ) { return std::string( CommandLine()->ParmValue( key, std::string_view() ) ); };
+	const std::string inFileName = parm( "-i" );
+	std::string outFileName = parm( "-o" );
+	const std::string inFormat = parm( "-if" );
+	std::string outFormat = parm( "-of" );
+	std::string outEncoding = parm( "-oe" );
 
-	if ( !pInFileName.empty() )
+	if ( inFileName.empty() )
 	{
 		Msg( "Usage: dmxconvert -i <in file> [-if <in format_hint>] [-o <out file>] [-oe <out encoding>] [-of <out format>]\n" );
 		Msg( "If no output file is specified, dmx to dmx conversion will overwrite the input\n" );
@@ -97,43 +98,45 @@ int CDmxConvertApp::Main()
 	// and also append a couple 0s to the end of the buffer.
 	DmxHeader_t header;
 	CDmElement *pRoot;
-	if ( g_pDataModel->RestoreFromFile( pInFileName, nullptr, pInFormat, &pRoot, CR_DELETE_NEW, &header ) == DMFILEID_INVALID )
+	if ( g_pDataModel->RestoreFromFile( inFileName.c_str(), nullptr, inFormat.empty() ? nullptr : inFormat.c_str(), &pRoot, CR_DELETE_NEW, &header ) == DMFILEID_INVALID )
 	{
-		Error( "Encountered an error reading file \"%s\"!\n", pInFileName );
+		Error( "Encountered an error reading file \"%s\"!\n", inFileName.c_str() );
 		return -1;
 	}
 
-	if ( !pOutFormat )
+	if ( outFormat.empty() )
 	{
-		pOutFormat = header.formatName;
-		if ( !g_pDataModel->FindFormatUpdater( pOutFormat ) )
+		outFormat = header.formatName;
+		if ( !g_pDataModel->FindFormatUpdater( outFormat.c_str() ) )
 		{
-			pOutFormat = "dmx"; // default to generic dmx format for legacy files
+			outFormat = "dmx"; // default to generic dmx format for legacy files
 		}
 	}
 
-	if ( !pOutEncoding )
+	if ( outEncoding.empty() )
 	{
-		pOutEncoding = g_pDataModel->GetDefaultEncoding( pOutFormat );
-		if ( !pOutEncoding )
+		const char *pDefaultEncoding = g_pDataModel->GetDefaultEncoding( outFormat.c_str() );
+		if ( !pDefaultEncoding )
 		{
 			// no default encoding was found, try to convert the file to the generic dmx format
-			pOutFormat = GENERIC_DMX_FORMAT;
-			pOutEncoding = g_pDataModel->GetDefaultEncoding( pOutFormat );
+			outFormat = GENERIC_DMX_FORMAT;
+			pDefaultEncoding = g_pDataModel->GetDefaultEncoding( outFormat.c_str() );
 		}
+		if ( pDefaultEncoding )
+			outEncoding = pDefaultEncoding;
 	}
 
-	if ( !pOutFileName )
+	if ( outFileName.empty() )
 	{
-		pOutFileName = pInFileName;
+		outFileName = inFileName;
 	}
 
 	// TODO - in theory, at some point, we may have converters from pInFormat to pOutFormat
 	//		  until then, treat it as a noop, and hope for the best
 
-	if ( !g_pDataModel->SaveToFile( pOutFileName, nullptr, pOutEncoding, pOutFormat, pRoot ) )
+	if ( !g_pDataModel->SaveToFile( outFileName.c_str(), nullptr, outEncoding.c_str(), outFormat.c_str(), pRoot ) )
 	{
-		Error( "Encountered an error writing file \"%s\"!\n", pOutFileName );
+		Error( "Encountered an error writing file \"%s\"!\n", outFileName.c_str() );
 		return -1;
 	}
 

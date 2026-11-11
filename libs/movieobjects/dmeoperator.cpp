@@ -50,14 +50,14 @@ void CDmeOperator::GatherInputOperators( CUtlVector< CDmeOperator * > &operatorL
 	// the output attributes of the operators match any of the input attributes of this operator.
 
 	// Find the input attributes of this operator.
-	CUtlVector< CDmAttribute* > inputAttributes( 0, 32 );
+	CUtlVector< CDmAttribute* > inputAttributes( 0u, 32u );
 	GetInputAttributes( inputAttributes );
 
 	// Build a list of all the operators which are referencing any of the elements which own an input
 	// attribute of this operator, these are all the operators which can possibly be input operators.
-	int nInputAttributes = inputAttributes.Count();
-	CUtlVector< CDmeOperator* > connectedOperators( 0, nInputAttributes );
-	CUtlVector< CDmElement* > inputOwnerList( 0, nInputAttributes );
+	uint32_t nInputAttributes = inputAttributes.Count();
+	CUtlVector< CDmeOperator* > connectedOperators( 0u, nInputAttributes );
+	CUtlVector< CDmElement* > inputOwnerList( 0u, nInputAttributes );
 
 	for ( int iAttr = 0; iAttr < nInputAttributes; ++iAttr )
 	{
@@ -111,7 +111,7 @@ void CDmeOperator::GatherInputOperators( CUtlVector< CDmeOperator * > &operatorL
 	// Now check each of the connected operators to determine if any of its output attributes is one
 	// of this operator's input attributes. If so add it to the list of output operators if it is not
 	// already there. Note, as soon as one attribute match is found there is no need to check the rest.
-	CUtlVector< CDmAttribute* > outputAttributes( 0, 32 );
+	CUtlVector< CDmAttribute* > outputAttributes( 0u, 32u );
 
 	int nConnectedOperators = connectedOperators.Count();
 	for ( int iOper = 0; iOper < nConnectedOperators; ++iOper )

@@ -82,7 +82,7 @@ enum MDLCacheDataType_t
 	MDLCACHE_DECODEDANIMBLOCK
 };
 
-abstract_class IMDLCacheNotify
+class IMDLCacheNotify
 {
 public:
     virtual ~IMDLCacheNotify() { };
@@ -240,7 +240,7 @@ typedef void (*CombinedModelLoadedCallback)( void *pUserData, MDLHandle_t OldHan
 //-----------------------------------------------------------------------------
 // The main MDL cacher 
 //----------------------------------------------------------------------------- 
-abstract_class IMDLCache
+class IMDLCache
 {
 public:
 	// Used to install callbacks for when data is loaded + unloaded

@@ -241,9 +241,9 @@ template <typename T>
 class CDmAttributeInfo
 {
 private:
-	enum { ATTRIBUTE_TYPE = AT_TYPE_INVALID };
+	static constexpr DmAttributeType_t ATTRIBUTE_TYPE = AT_TYPE_INVALID;
 
-	typedef T StorageType_t;
+	using StorageType_t = T;
 	friend class CDmxAttribute;
 
 	static DmAttributeType_t AttributeType()
@@ -267,9 +267,9 @@ template <>
 class CDmAttributeInfo< DmUnknownAttribute_t >
 {
 public:
-	enum { ATTRIBUTE_TYPE = AT_UNKNOWN };
+	static constexpr DmAttributeType_t ATTRIBUTE_TYPE =  AT_UNKNOWN;
 
-	typedef DmUnknownAttribute_t StorageType_t;
+	using StorageType_t = DmUnknownAttribute_t;
 
 	static DmAttributeType_t AttributeType()
 	{
@@ -292,8 +292,8 @@ public:
 	template< > class CDmAttributeInfo< _className >						\
 	{																		\
 	public:																	\
-		enum { ATTRIBUTE_TYPE = _attributeType };							\
-		typedef _storageType StorageType_t;									\
+		static constexpr DmAttributeType_t ATTRIBUTE_TYPE =  _attributeType;\
+		using StorageType_t = _storageType;									\
 		static DmAttributeType_t AttributeType() { return _attributeType; }	\
 		static const char *AttributeTypeName() { return _attributeName; }	\
 		static void SetDefaultValue( _className& value ) { _defaultSetStatement }	\
@@ -303,8 +303,8 @@ public:
 	template< > class CDmAttributeInfo< CUtlVector<_className> >				\
 	{																			\
 	public:																		\
-		enum { ATTRIBUTE_TYPE = _attributeType };								\
-		typedef _storageType StorageType_t;										\
+		static const DmAttributeType_t ATTRIBUTE_TYPE = _attributeType;			\
+		using StorageType_t = _storageType;										\
 		static DmAttributeType_t AttributeType() { return _attributeType; }		\
 		static const char *AttributeTypeName() { return _attributeName; }		\
 		static void SetDefaultValue( CUtlVector< _className >& value ) { value.RemoveAll(); }	\

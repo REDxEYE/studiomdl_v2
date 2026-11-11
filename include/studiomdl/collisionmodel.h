@@ -3,15 +3,16 @@
 #include "mathlib/vector.h"
 
 class CDmElement;
+class ScriptTokenizer;
 struct s_source_t;
 
-void Cmd_CollisionText( void );
-int DoCollisionModel( bool separateJoints );
+void Cmd_CollisionText(ScriptTokenizer &qc);
+int DoCollisionModel(ScriptTokenizer &qc, bool separateJoints );
 
 #ifdef MDLCOMPILE
 int DoCollisionModel( s_source_t *pSource, CDmElement *pInfo, bool bStaticProp );
 void LoadCollisionText( const char *pszCollisionText );
-#endif MDLCOMPILE
+#endif // MDLCOMPILE
 
 // execute after simplification, before writing
 void CollisionModel_Build( void );

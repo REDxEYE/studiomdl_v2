@@ -5,9 +5,7 @@
 //=============================================================================//
 
 #pragma once
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 #include "studio.h"
 #include "optimize.h"
@@ -19,5 +17,5 @@ enum
 	SPEWPERFSTATS_SPREADSHEET = 4,
 };
 
-void SpewPerfStats( studiohdr_t *pStudioHdr, const char *pFilename, unsigned int flags );
+void SpewPerfStats( studiohdr_t *pStudioHdr, std::string_view pFilename, unsigned int flags );
 

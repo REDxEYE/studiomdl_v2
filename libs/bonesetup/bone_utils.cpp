@@ -37,7 +37,7 @@ CBoneCache *CBoneCache::CreateResource( const bonecacheparams_t &params )
 	for ( int i = 0; i < params.pStudioHdr->numbones(); i++ )
 	{
 		// skip bones that aren't part of the boneMask (and aren't the root bone)
-		if (i != 0 && !(params.pStudioHdr->boneFlags(i) & params.boneMask))
+		if (i != 0 && !HasFlag(params.pStudioHdr->boneFlags(i), params.boneMask))
 		{
 			studioToCachedIndex[i] = -1;
 			continue;
@@ -400,7 +400,7 @@ void SlerpBones(
 				const BoneQuaternionAligned q2[MAXSTUDIOBONES],
 				const BoneVector pos2[MAXSTUDIOBONES],
 				float s,
-				int boneMask )
+				BoneFlags boneMask )
 {
 	// copy off the input arrays for safety
 	int numBones =  pStudioHdr->numbones();
@@ -506,7 +506,7 @@ void ScaleBones(
 	BoneVector pos1[MAXSTUDIOBONES],
 	int sequence,
 	float s,
-	int boneMask )
+	BoneFlags boneMask )
 {
 	int			i, j;
 	Quaternion		q3;
@@ -526,7 +526,7 @@ void ScaleBones(
 	for (i = 0; i < pStudioHdr->numbones(); i++)
 	{
 		// skip unused bones
-		if (!(pStudioHdr->boneFlags(i) & boneMask))
+		if (!HasFlag(pStudioHdr->boneFlags(i), boneMask))
 		{
 			continue;
 		}
@@ -684,7 +684,7 @@ float Studio_SetController( const CStudioHdr *pStudioHdr, int iController, float
 	}
 
 	// wrap 0..360 if it's a rotational controller
-	if (pbonecontroller->type & (STUDIO_XR | STUDIO_YR | STUDIO_ZR))
+	if (HasFlag(pbonecontroller->type, StudioMotionFlags::XR | StudioMotionFlags::YR | StudioMotionFlags::ZR))
 	{
 		// ugly hack, invert value if end < start
 		if (pbonecontroller->end < pbonecontroller->start)
@@ -714,7 +714,7 @@ float Studio_SetController( const CStudioHdr *pStudioHdr, int iController, float
 	float flReturnVal = ((1.0 - ctlValue)*pbonecontroller->start + ctlValue *pbonecontroller->end);
 
 	// ugly hack, invert value if a rotational controller and end < start
-	if (pbonecontroller->type & (STUDIO_XR | STUDIO_YR | STUDIO_ZR) &&
+	if (HasFlag(pbonecontroller->type, StudioMotionFlags::XR | StudioMotionFlags::YR | StudioMotionFlags::ZR) &&
 		pbonecontroller->end < pbonecontroller->start				)
 	{
 		flReturnVal *= -1;
@@ -942,14 +942,14 @@ float Studio_CPS( const CStudioHdr *pStudioHdr, mstudioseqdesc_t &seqdesc, int i
 	{
 		mstudioautolayer_t *pLayer = seqdesc.pAutolayer( j );
 
-		if (pLayer->flags & STUDIO_AL_LOCAL)
+		if (HasFlag(pLayer->flags, AutoLayerFlags::Local))
 			continue;
 
 		float layerWeight = 0;
 
 		int iSequenceLocal = pStudioHdr->iRelativeSeq( iSequence, pLayer->iSequence );
 
-		if ( pLayer->start == 0 && pLayer->end == 0 && (pLayer->flags & STUDIO_AL_POSE) )
+		if ( pLayer->start == 0 && pLayer->end == 0 && HasFlag(pLayer->flags, AutoLayerFlags::Pose) )
 		{
 			int iPose = pStudioHdr->GetSharedPoseParameter( iSequenceLocal, pLayer->iPose );
 			if (iPose == -1)
@@ -962,7 +962,7 @@ float Studio_CPS( const CStudioHdr *pStudioHdr, mstudioseqdesc_t &seqdesc, int i
 
 			s = clamp( (s - pLayer->peak) / (pLayer->tail - pLayer->peak), 0, 1 );
 
-			if (pLayer->flags & STUDIO_AL_SPLINE)
+			if (HasFlag(pLayer->flags, AutoLayerFlags::Spline))
 			{
 				s = SimpleSpline( s );
 			}
@@ -1213,7 +1213,7 @@ bool Studio_SeqMovement( const CStudioHdr *pStudioHdr, int iSequence, float flCy
 				// FIXME: this makes no sense
 				deltaAngles = deltaAngles + localAngles * weight[i];
 			}
-			else if (!(panim[i]->flags & STUDIO_DELTA) && panim[i]->nummovements == 0 && seqdesc.weight(0) > 0.0)
+			else if (!HasFlag(panim[i]->flags, StudioSequenceFlags::Delta) && panim[i]->nummovements == 0 && seqdesc.weight(0) > 0.0)
 			{
 				found = true;
 			}
@@ -1225,14 +1225,14 @@ bool Studio_SeqMovement( const CStudioHdr *pStudioHdr, int iSequence, float flCy
 	{
 		mstudioautolayer_t *pLayer = seqdesc.pAutolayer( j );
 
-		if (pLayer->flags & STUDIO_AL_LOCAL)
+		if (HasFlag(pLayer->flags, AutoLayerFlags::Local))
 			continue;
 
 		float layerWeight = 0;
 
 		int iSequenceLocal = pStudioHdr->iRelativeSeq( iSequence, pLayer->iSequence );
 
-		if ( pLayer->start == 0 && pLayer->end == 0 && (pLayer->flags & STUDIO_AL_POSE) )
+		if ( pLayer->start == 0 && pLayer->end == 0 && HasFlag(pLayer->flags, AutoLayerFlags::Pose) )
 		{
 			int iPose = pStudioHdr->GetSharedPoseParameter( iSequenceLocal, pLayer->iPose );
 			if (iPose == -1)
@@ -1245,7 +1245,7 @@ bool Studio_SeqMovement( const CStudioHdr *pStudioHdr, int iSequence, float flCy
 
 			s = clamp( (s - pLayer->peak) / (pLayer->tail - pLayer->peak), 0, 1 );
 
-			if (pLayer->flags & STUDIO_AL_SPLINE)
+			if (HasFlag(pLayer->flags, AutoLayerFlags::Spline))
 			{
 				s = SimpleSpline( s );
 			}
@@ -1545,7 +1545,7 @@ void Studio_RunBoneFlexDrivers( float *pflFlexControllerWeights, const CStudioHd
 
 		const int nControllerCount = pBoneFlexDriver->m_nControlCount;
 
-		if ( pStudioBone->flags & BONE_USED_BY_BONE_MERGE )
+		if (HasFlag(pStudioBone->flags, BoneFlags::UsedByBoneMerge))
 		{
 			// The local space version of the bone is not available if this is a bonemerged bone
 			// so do the slow computation of the local version of the bone from boneToWorld

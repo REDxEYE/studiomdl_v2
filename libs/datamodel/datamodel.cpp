@@ -19,7 +19,7 @@
 #include "tier2/fileutils.h"
 #include <time.h>
 
-#include "studiomdl/studiomdl_global_state.hpp"
+#include "tier1_v2/function_timing.hpp"
 
 
 //-----------------------------------------------------------------------------
@@ -721,7 +721,7 @@ DmFileId_t
 CDataModel::RestoreFromFile(char const *pFileName, char const *pPathID, const char *pEncodingHint, CDmElement **ppRoot,
                             DmConflictResolution_t idConflictResolution /*= CR_DELETE_NEW*/,
                             DmxHeader_t *pHeaderOut /*= NULL*/ ) {
-    FunctionTimingRecorder _("DMX");
+    vstd::FunctionTimingRecorder _("DMX");
     // NOTE: This guarantees full path names for pathids
     char pFullPath[MAX_PATH]{0};
     if (!GenerateFullPath(pFileName, pPathID, pFullPath, sizeof(pFullPath))) {
@@ -961,7 +961,7 @@ int CDataModel::GetCurrentFormatVersion(const char *pFormatName) {
 bool
 CDataModel::Unserialize(CUtlBuffer &inBuf, const char *pEncodingName, const char *pRequiredFormat, const char *pUnused,
                         const char *pFileName, DmConflictResolution_t idConflictResolution, DmElementHandle_t &hRoot) {
-    FunctionTimingRecorder _("DMX");
+    vstd::FunctionTimingRecorder _("DMX");
     m_bDeleteOrphanedElements = true; // next time we delete unreferenced elements, delete orphaned subtrees as well
 
     if (!pEncodingName) {

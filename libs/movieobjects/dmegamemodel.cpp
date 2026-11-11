@@ -468,12 +468,12 @@ void CDmeGameModel::FindFlexControllerDependencies( CUtlVector< CUtlVector< int 
 
 			switch ( pOp->op )
 			{
-				case STUDIO_FETCH1:
-				case STUDIO_2WAY_0:
-				case STUDIO_2WAY_1:
-				case STUDIO_NWAY:
-				case STUDIO_DME_LOWER_EYELID:
-				case STUDIO_DME_UPPER_EYELID:
+				case StudioOpcode::Fetch1:
+				case StudioOpcode::TwoWay0:
+				case StudioOpcode::TwoWay1:
+				case StudioOpcode::NWay:
+				case StudioOpcode::DmeLowerEyelid:
+				case StudioOpcode::DmeUpperEyelid:
 					{
 						int globalIndex = studioHdr.pFlexcontroller( (LocalFlexController_t)pOp->d.index )->localToGlobal;
 						if ( ( globalIndex < MAXSTUDIOFLEXDESC ) && ( pRule->flex < MAXSTUDIOFLEXDESC ) && ( globalIndex >= 0 ) )

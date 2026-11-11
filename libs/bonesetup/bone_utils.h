@@ -8,14 +8,14 @@
 
 void CalcDecompressedAnimation( const mstudiocompressedikerror_t *pCompressed, int iFrame, float fraq, BoneVector &pos, BoneQuaternion &q );
 void QuaternionAccumulate( const Quaternion &p, float s, const Quaternion &q, Quaternion &qt );
-void CalcAnimation( const CStudioHdr *pStudioHdr, BoneVector *pos, BoneQuaternion *q, mstudioseqdesc_t &seqdesc, int sequence, int animation, float cycle, int boneMask );
-void BlendBones( const CStudioHdr *pStudioHdr, BoneQuaternionAligned q1[MAXSTUDIOBONES], BoneVector pos1[MAXSTUDIOBONES], mstudioseqdesc_t &seqdesc, int sequence, const BoneQuaternionAligned q2[MAXSTUDIOBONES], const BoneVector pos2[MAXSTUDIOBONES], float s, int boneMask );
-void ScaleBones( const CStudioHdr *pStudioHdr, BoneQuaternion q1[MAXSTUDIOBONES], BoneVector pos1[MAXSTUDIOBONES], int sequence, float s, int boneMask );
+void CalcAnimation( const CStudioHdr *pStudioHdr, BoneVector *pos, BoneQuaternion *q, mstudioseqdesc_t &seqdesc, int sequence, int animation, float cycle, BoneFlags boneMask );
+void BlendBones( const CStudioHdr *pStudioHdr, BoneQuaternionAligned q1[MAXSTUDIOBONES], BoneVector pos1[MAXSTUDIOBONES], mstudioseqdesc_t &seqdesc, int sequence, const BoneQuaternionAligned q2[MAXSTUDIOBONES], const BoneVector pos2[MAXSTUDIOBONES], float s, BoneFlags boneMask );
+void ScaleBones( const CStudioHdr *pStudioHdr, BoneQuaternion q1[MAXSTUDIOBONES], BoneVector pos1[MAXSTUDIOBONES], int sequence, float s, BoneFlags boneMask );
 
-void CalcPose( const CStudioHdr *pStudioHdr, CIKContext *pIKContext, BoneVector pos[], BoneQuaternionAligned q[], int sequence, float cycle, const float poseParameter[], int boneMask, float flWeight = 1.0f, float flTime = 0.0f );
-bool CalcPoseSingle( const CStudioHdr *pStudioHdr, BoneVector pos[], BoneQuaternionAligned q[], mstudioseqdesc_t &seqdesc, int sequence, float cycle, const float poseParameter[], int boneMask, float flTime );
+void CalcPose( const CStudioHdr *pStudioHdr, CIKContext *pIKContext, BoneVector pos[], BoneQuaternionAligned q[], int sequence, float cycle, const float poseParameter[], BoneFlags boneMask, float flWeight = 1.0f, float flTime = 0.0f );
+bool CalcPoseSingle( const CStudioHdr *pStudioHdr, BoneVector pos[], BoneQuaternionAligned q[], mstudioseqdesc_t &seqdesc, int sequence, float cycle, const float poseParameter[], BoneFlags boneMask, float flTime );
 
-void CalcBoneAdj( const CStudioHdr *pStudioHdr, BoneVector pos[], BoneQuaternion q[], const float controllers[], int boneMask );
+void CalcBoneAdj( const CStudioHdr *pStudioHdr, BoneVector pos[], BoneQuaternion q[], const float controllers[], BoneFlags boneMask );
 
 void BuildBoneChainPartial(
 	const CStudioHdr *pStudioHdr,
@@ -31,7 +31,7 @@ void BuildBoneChainPartial(
 class CBoneSetup
 {
 public:
-	CBoneSetup( const CStudioHdr *pStudioHdr, int boneMask, const float poseParameter[]);
+	CBoneSetup( const CStudioHdr *pStudioHdr, BoneFlags boneMask, const float poseParameter[]);
 	void InitPose( BoneVector pos[], BoneQuaternionAligned q[] );
 	void AccumulatePose( BoneVector pos[], BoneQuaternion q[], int sequence, float cycle, float flWeight, float flTime, CIKContext *pIKContext );
 	void CalcAutoplaySequences(	BoneVector pos[], BoneQuaternion q[], float flRealTime, CIKContext *pIKContext );
@@ -40,7 +40,7 @@ private:
 	void AddLocalLayers( BoneVector pos[], BoneQuaternion q[], mstudioseqdesc_t &seqdesc, int sequence, float cycle, float flWeight, float flTime, CIKContext *pIKContext );
 public:
 	const CStudioHdr *m_pStudioHdr;
-	int m_boneMask;
+	BoneFlags m_boneMask;
 	const float *m_flPoseParameter;
 };
 

@@ -370,7 +370,7 @@ void CDmeRig::FindInfluencedDags( CUtlVector< CDmeDag* > &dagList ) const
 	// First build a tree of all of the dag nodes that are part of the rig, we do this so that we
 	// can quickly determine if a dag which is influenced by some element of the rig is part of the
 	// rig and therefore should not be added to the list of influenced dag nodes.
-	CUtlVector< CDmElement* > elementList( 0, totalElements );
+	CUtlVector< CDmElement* > elementList( 0u, totalElements );
 	CUtlRBTree< const CDmeDag* > rigDags( 0, totalElements, DefLessFunc( const CDmeDag *) );
 	for ( int iAnimSet = 0; iAnimSet < nAnimSets; ++iAnimSet )
 	{
@@ -397,7 +397,7 @@ void CDmeRig::FindInfluencedDags( CUtlVector< CDmeDag* > &dagList ) const
 	// getting the output attributes of the operator and determining if any of those attributes 
 	// belong to a dag node which is not part of the rig.
 	CUtlRBTree< CDmeDag* > influencedDags( 0, totalElements, DefLessFunc( CDmeDag *) );
-	CUtlVector< CDmAttribute* > outputAttributes( 0, 32 );
+	CUtlVector< CDmAttribute* > outputAttributes( 0u, 32 );
 	int nElements = elementList.Count();
 	for ( int iElement = 0; iElement < nElements; ++iElement )
 	{
@@ -486,7 +486,7 @@ void CDmeRig::RemoveElementsFromShot( CDmeFilmClip *pShot )
 		const CDmaElementArray< CDmElement > &elements = pAnimSetElements->Elements();
 		int nElements = elements.Count();
 
-		CUtlVector< DmElementHandle_t > elementHandles( 0, nElements );
+		CUtlVector< DmElementHandle_t > elementHandles( 0u, nElements );
 		for ( int iElement = 0; iElement < nElements; ++iElement )
 		{
 			CDmElement *pElement = elements[ iElement ];

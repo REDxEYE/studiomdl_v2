@@ -12,9 +12,7 @@
 #endif
 
 #include "tier1/smartptr.h"
-#include "tier1_v2/path_utils.hpp"
-
-#include <fstream>
+#include "studiomdl/output_files.hpp"
 
 class CFileBuffer
 {
@@ -48,24 +46,17 @@ public:
 		{
 			if( !m_pUsed[i] )
 			{
-				printf( "offset %d not written, end of file invalid!\n", i );
+				std::print( "offset {} not written, end of file invalid!\n", i );
 				Assert( 0 );
 			}
 		}
 	}
 #endif
 	
-	// fileName is UTF-8
+	// fileName is UTF-8; stored for the single write at the end of WriteModelFiles
 	void WriteToFile( const char *fileName, int size )
 	{
-		std::ofstream file( vstd::paths::to_fs( fileName ), std::ios::binary | std::ios::trunc );
-		if( !file )
-		{
-			MdlWarning( "Can't open \"%s\" for writing!\n", fileName );
-			return;
-		}
-
-		file.write( reinterpret_cast<const char *>( m_pData ), size );
+		SaveOutputFile( fileName, m_pData, size );
 	}
 	
 	void WriteAt( int offset, void *data, int size, const char *name )
@@ -83,7 +74,7 @@ public:
 			{
 				if( !bitched )
 				{
-					printf( "overwrite at %d! (overwriting \"%s\" with \"%s\")\n", i + offset, used[i], name );
+					std::print( "overwrite at {}! (overwriting \"{}\" with \"{}\")\n", i + offset, used[i], name );
 					Assert( 0 );
 					bitched = true;
 				}

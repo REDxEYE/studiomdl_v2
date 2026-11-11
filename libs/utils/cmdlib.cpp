@@ -9,6 +9,7 @@
 // cmdlib.c
 // -----------------------
 #include "tier0/platform.h"
+#include "tier1_v2/function_timing.hpp"
 #ifdef IS_WINDOWS_PC
 #include <windows.h>
 #endif
@@ -810,8 +811,9 @@ int    LoadFile( const char *filename, void **bufferptr )
 SaveFile
 ==============
 */
-void    SaveFile( const char *filename, void *buffer, int count )
+void SaveFile( const char *filename, void *buffer, int count )
 {
+	vstd::FunctionTimingRecorder _("Write");
 	FileHandle_t f = SafeOpenWrite( filename );
 	SafeWrite( f, buffer, count );
 	g_pFileSystem->Close( f );

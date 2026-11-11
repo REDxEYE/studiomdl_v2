@@ -8,12 +8,15 @@
 #pragma once
 
 #include <cstddef>
+#include <iostream>
 #include <string_view>
+#include "studiomdl/studiomdl_log.hpp"
 
 namespace vstd {
-    constexpr char to_lower_ascii(const char c) noexcept { return c >= 'A' && c <= 'Z' ? static_cast<char>(c - 'A' + 'a') : c; }
+    constexpr char to_lower_ascii(const char c) noexcept {
+        return c >= 'A' && c <= 'Z' ? static_cast<char>(c - 'A' + 'a') : c;
+    }
 
-    // Q_stricmp(a, b) == 0
     constexpr bool iequals(const std::string_view a, const std::string_view b) noexcept {
         if (a.size() != b.size()) {
             return false;
@@ -25,6 +28,19 @@ namespace vstd {
         }
         return true;
     }
+
+
+    // Q_stricmp(a, b) == 0
+    template<size_t N>
+    constexpr bool iequals(const FixedString<N> &a, const char* b) noexcept {
+        return iequals(a.view(), b);
+    }
+
+    template<uint32_t N>
+    constexpr bool iequals(const FixedString<N> &a, const std::string_view b) noexcept {
+        return iequals(a.view(), b);
+    }
+
 
     // Q_strncasecmp(prefix, text, strlen(prefix)) == 0
     constexpr bool istarts_with(const std::string_view text, const std::string_view prefix) noexcept {
@@ -47,10 +63,46 @@ namespace vstd {
     // Q_strlower for std::string and vstd::FixedString
     template<typename S>
     void make_lower_ascii(S &text) noexcept {
-        char *data = text.data();
+        char* data = text.data();
         const size_t length = std::string_view(text).size();
         for (size_t i = 0; i < length; ++i) {
             data[i] = to_lower_ascii(data[i]);
         }
+    }
+
+    template<std::integral T>
+    T str_to_int(std::string_view view, uint32_t radix = 10) {
+        T val = 0;
+        auto [ptr, ec] = std::from_chars(view.data(), view.data() + view.size(), val, radix);
+
+        if (ec == std::errc()) {
+            return val;
+        }
+        if (ec == std::errc::result_out_of_range) {
+            MdlError("Number fits outside type bounds.\n");
+        }
+        MdlError("Failed to parse integer from string");
+    }
+
+    template<std::floating_point T>
+    T str_to_float(std::string_view view) {
+        T val = 0;
+        auto [ptr, ec] = std::from_chars(view.data(), view.data() + view.size(), val);
+
+        if (ec == std::errc()) {
+            return val;
+        }
+        if (ec == std::errc::result_out_of_range) {
+            MdlError("Number fits outside type bounds.\n");
+        }
+        MdlError("Failed to parse floating point value from string");
+    }
+
+    inline std::string substr_right(const std::string& str, size_t size) {
+        return str.substr(str.size() - std::min(size, str.size()));
+    }
+
+    inline std::string_view substr_right(const std::string_view str, size_t size) {
+        return str.substr(str.size() - std::min(size, str.size()));
     }
 }

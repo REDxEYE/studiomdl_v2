@@ -352,7 +352,7 @@ enum PreviewImageRetVal_t
 //-----------------------------------------------------------------------------
 // material interface
 //-----------------------------------------------------------------------------
-abstract_class IMaterial
+class IMaterial
 {
 public:
 	// Get the name of the material.  This is a full path to 

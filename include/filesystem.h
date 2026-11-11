@@ -357,7 +357,7 @@ public:
 //-----------------------------------------------------------------------------
 
 // This interface is for VPK files to communicate with FileTracker
-abstract_class IThreadedFileMD5Processor
+class IThreadedFileMD5Processor
 {
 public:
 	virtual int				SubmitThreadedMD5Request( uint8_t *pubBuffer, int cubBuffer, int PackFileID, int nPackFileNumber, int nPackFileFraction ) = 0;
@@ -365,7 +365,7 @@ public:
 	virtual bool			IsMD5RequestComplete( int iRequest, MD5Value_t *pMd5ValueOut ) = 0;
 };
 
-abstract_class IBaseFileSystem
+class IBaseFileSystem
 {
 public:
 	virtual int				Read( void* pOutput, int size, FileHandle_t file ) = 0;
@@ -397,7 +397,7 @@ public:
 	virtual bool			WriteFile( const char *pFileName, const char *pPath, CUtlBuffer &buf ) = 0;
 };
 
-abstract_class IIoStats
+class IIoStats
 {
 public:
 	virtual void OnFileSeek( int nTimeInMs ) = 0;
@@ -427,7 +427,7 @@ protected:
 //-----------------------------------------------------------------------------
 // Main file system interface
 //-----------------------------------------------------------------------------
-abstract_class IFileSystem : public IBaseFileSystem
+class IFileSystem : public IBaseFileSystem
 {
 public:
 	//--------------------------------------------------------
@@ -455,7 +455,7 @@ public:
 	//  override is cleared and the current .bsp is searched for an embedded PAK file
 	//  and this file becomes the highest priority search path ( i.e., it's looked at first
 	//   even before the mod's file system path ).
-	virtual void			AddSearchPath( const char *pPath, const char *pathID, SearchPathAdd_t addType = PATH_ADD_TO_TAIL ) = 0;
+	virtual void			AddSearchPath(std::string_view pPath, std::string_view pathID, SearchPathAdd_t addType = PATH_ADD_TO_TAIL) = 0;
 	virtual bool			RemoveSearchPath( const char *pPath, const char *pathID = nullptr ) = 0;
 
 	// Remove all search paths (including write path?)
@@ -582,8 +582,6 @@ public:
 	// Debugging operations
 	//--------------------------------------------------------
 
-	// Dump to printf/OutputDebugString the list of files that have not been closed
-	virtual void			PrintOpenedFiles( void ) = 0;
 	virtual void			PrintSearchPaths( void ) = 0;
 
 	// output
