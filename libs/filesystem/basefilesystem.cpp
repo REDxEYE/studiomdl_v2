@@ -11,6 +11,8 @@
 #include "tier1/keyvalues.h"
 #include "tier1/lzmaDecoder.h"
 #include "tier1/fmtstr.h"
+#include "tier1_v2/function_timing.hpp"
+#include "tier1_v2/path_utils.hpp"
 
 #ifndef DEDICATED
 #include "keyvaluescompiler.h"
@@ -492,7 +494,6 @@ void CBaseFileSystem::Shutdown()
 {
 
 	RemoveAllSearchPaths();
-	Trace_DumpUnclosedFiles();
 
 }
 
@@ -510,19 +511,6 @@ inline void CBaseFileSystem::ComputeFullWritePath( char* pDest, int maxlen, cons
 	Q_strncat( pDest, pRelativePath, maxlen, COPY_ALL_CHARACTERS );
 	Q_FixSlashes( pDest );
 }
-
-
-//-----------------------------------------------------------------------------
-// Purpose:
-// Input  : src1 -
-//			src2 -
-// Output : Returns true on success, false on failure.
-//-----------------------------------------------------------------------------
-bool CBaseFileSystem::OpenedFileLessFunc( COpenedFile const& src1, COpenedFile const& src2 )
-{
-	return src1.m_pFile < src2.m_pFile;
-}
-
 
 void CBaseFileSystem::InstallDirtyDiskReportFunc( FSDirtyDiskReportFunc_t func )
 {
@@ -548,12 +536,9 @@ void CBaseFileSystem::LogAccessToFile( char const *accesstype, char const *fullp
 
 
 //-----------------------------------------------------------------------------
-// Purpose:
-// Input  : *filename -
-//			*options -
-// Output : FILE
+// Opens a file on disk; nullptr when it can't be opened
 //-----------------------------------------------------------------------------
-CStdFile *CBaseFileSystem::Trace_FOpen( const char *filename, const char *options, unsigned flags, int64_t *size, CFileLoadInfo *pInfo )
+CStdFile *CBaseFileSystem::FOpen( const char *filename, const char *options, unsigned flags, int64_t *size, CFileLoadInfo *pInfo )
 {
 	if ( m_NonexistingFilesExtensions.GetNumStrings() )
 	{
@@ -568,46 +553,7 @@ CStdFile *CBaseFileSystem::Trace_FOpen( const char *filename, const char *option
 		}
 	}
 
-#ifdef NONEXISTING_FILES_CACHE_SUPPORT
-	bool bReadOnlyRequest = !strchr(options,'w') && !strchr(options,'a') && !strchr(options,'+');
-
-	static bool s_bNeverCheckFS = !CommandLine()->FindParm( "-alwayscheckfs" );
-	if ( s_bNeverCheckFS )
-	{
-		AUTO_LOCK( m_OpenedFilesMutex );
-
-		UtlSymId_t symFound = m_NonexistingFilesCache.Find( filename );
-		if ( symFound != UTL_INVAL_SYMBOL )
-		{
-			double &refCacheTime = m_NonexistingFilesCache[ symFound ];
-
-			if ( bReadOnlyRequest )
-			{
-				if ( refCacheTime != 0.0 )
-				{
-					Warning( "Trace_FOpen: duplicate request for missing file: %s [was missing %.3f sec ago]\n", filename, Plat_FloatTime() - refCacheTime );
-					return NULL;	// we looked for this file already, it doesn't exist
-				}
-				else
-				{
-					// This file was previously missing, but a write request was made and could have created the file, so this read call should fall through
-				}
-			}
-			else
-			{
-				// This is possibly a write request, so remove cached ENOENT record
-				Warning( "Trace_FOpen: possibly write request for missing file: %s [was missing %.3f sec ago]\n", filename, Plat_FloatTime() - refCacheTime );
-				refCacheTime = 0.0f;
-			}
-		}
-		else
-		{
-			// Nothing known about this file, fall through into syscall to fopen
-		}
-	}
-#endif
-
-	AUTOBLOCKREPORTER_FN( Trace_FOpen, this, true, filename, FILESYSTEM_BLOCKING_SYNCHRONOUS, FileBlockingItem::FB_ACCESS_OPEN );
+	AUTOBLOCKREPORTER_FN( FOpen, this, true, filename, FILESYSTEM_BLOCKING_SYNCHRONOUS, FileBlockingItem::FB_ACCESS_OPEN );
 
 	if ( pInfo )
 		pInfo->m_bLoadedFromSteamCache = false;
@@ -615,29 +561,8 @@ CStdFile *CBaseFileSystem::Trace_FOpen( const char *filename, const char *option
 	// stop newline characters at end of filename
 	Assert( !strchr( filename, '\n' ) && !strchr( filename, '\r' ) );
 	CStdFile *fp = CStdFile::Open( filename, options, size );
-
-#ifdef NONEXISTING_FILES_CACHE_SUPPORT
-	if ( s_bNeverCheckFS && !fp && bReadOnlyRequest )
-	{
-		double dblNow = Plat_FloatTime();
-
-		AUTO_LOCK( m_OpenedFilesMutex );
-		m_NonexistingFilesCache[ filename ] = dblNow;
-		Warning( "Trace_FOpen: missing file: %s [will never check again]\n", filename );
-	}
-#endif
-
 	if ( fp )
-	{
-		COpenedFile file;
-
-		file.SetName( filename );
-		file.m_pFile = fp;
-
-		m_OpenedFiles.AddToTail( file );
-
 		LogAccessToFile( "open", filename, options );
-	}
 
 	return fp;
 }
@@ -645,99 +570,15 @@ CStdFile *CBaseFileSystem::Trace_FOpen( const char *filename, const char *option
 void CBaseFileSystem::GetFileNameForHandle( FileHandle_t handle, char *buf, size_t buflen )
 {
 	V_strncpy( buf, "Unknown", buflen );
-	/*
-	CFileHandle *fh = ( CFileHandle *)handle;
-	if ( !fh )
-	{
-		buf[ 0 ] = 0;
-		return;
-	}
-
-	// Pack file filehandles store the underlying name for convenience
-	if ( fh->IsPack() )
-	{
-		Q_strncpy( buf, fh->Name(), buflen );
-		return;
-	}
-
-	AUTO_LOCK( m_OpenedFilesMutex );
-
-	COpenedFile file;
-	file.m_pFile = fh->GetFileHandle();
-
-	int result = m_OpenedFiles.Find( file );
-	if ( result != -1 )
-	{
-		COpenedFile found = m_OpenedFiles[ result ];
-		Q_strncpy( buf, found.GetName(), buflen );
-	}
-	else
-	{
-		buf[ 0 ] = 0;
-	}
-	*/
 }
 
 //-----------------------------------------------------------------------------
-// Purpose:
-// Input  : *fp -
+// Closes a file opened by FOpen
 //-----------------------------------------------------------------------------
-void CBaseFileSystem::Trace_FClose( CStdFile *fp )
+void CBaseFileSystem::FClose( CStdFile *fp )
 {
-	if ( fp )
-	{
-
-		COpenedFile file;
-		file.m_pFile = fp;
-
-		int result = m_OpenedFiles.Find( file );
-		if ( result != -1 /*m_OpenedFiles.InvalidIdx()*/ )
-		{
-			COpenedFile found = m_OpenedFiles[ result ];
-			m_OpenedFiles.Remove( result );
-		}
-		else
-		{
-			Assert( 0 );
-
-			if ( m_fwLevel >= FILESYSTEM_WARNING_REPORTALLACCESSES )
-			{
-				FileSystemWarning( FILESYSTEM_WARNING_REPORTALLACCESSES, "Tried to close unknown file pointer %p\n", fp );
-			}
-		}
-
-
-		delete fp;
-	}
+	delete fp;
 }
-
-//-----------------------------------------------------------------------------
-// Purpose:
-//-----------------------------------------------------------------------------
-void CBaseFileSystem::Trace_DumpUnclosedFiles( void )
-{
-	for ( int i = 0 ; i < m_OpenedFiles.Count(); i++ )
-	{
-		COpenedFile *found = &m_OpenedFiles[ i ];
-
-		if ( m_fwLevel >= FILESYSTEM_WARNING_REPORTUNCLOSED )
-		{
-			FileSystemWarning( FILESYSTEM_WARNING_REPORTUNCLOSED, "File %s was never closed\n", found->GetName() );
-		}
-	}
-}
-
-//-----------------------------------------------------------------------------
-// Purpose:
-//-----------------------------------------------------------------------------
-void CBaseFileSystem::PrintOpenedFiles( void )
-{
-	FileWarningLevel_t saveLevel = m_fwLevel;
-	m_fwLevel = FILESYSTEM_WARNING_REPORTUNCLOSED;
-	Trace_DumpUnclosedFiles();
-	m_fwLevel = saveLevel;
-}
-
 
 
 void CBaseFileSystem::PrintSearchPaths( void )
@@ -755,9 +596,6 @@ void CBaseFileSystem::PrintSearchPaths( void )
 
 		Msg( "%-20s \"%s\" %s%s\n", (const char *)pSearchPath->GetPathIDString(), pSearchPath->GetPathString(), pszType, pszPack );
 	}
-
-
-
 }
 
 
@@ -767,34 +605,31 @@ void CBaseFileSystem::PrintSearchPaths( void )
 //  path and then the paks if they exist for the path
 // Input  : *pPath -
 //-----------------------------------------------------------------------------
-void CBaseFileSystem::AddSearchPathInternal( const char *pPath, const char *pathID, SearchPathAdd_t addType, int iForceInsertIndex )
+void CBaseFileSystem::AddSearchPathInternal(const std::string_view pPath, const std::string_view pathID, SearchPathAdd_t addType, int iForceInsertIndex)
 {
 
 	// Clean up the name
-	char newPath[ MAX_FILEPATH ];
-	if ( pPath[0] == 0 )
+	std::string newPath;
+	if ( !pPath.empty() )
 	{
-		newPath[0] = newPath[1] = 0;
-	}
-	else
-	{
-		if ( Q_IsAbsolutePath( pPath ) )
-		{
-			Q_strncpy( newPath, pPath, sizeof( newPath ) );
-		}
-		else
-		{
-			Q_MakeAbsolutePath( newPath, sizeof(newPath), pPath );
-		}
+        if ( vstd::paths::is_absolute( pPath ) )
+        {
+            newPath = pPath;
+        }
+        else
+        {
+            newPath = vstd::paths::make_absolute_path(pPath);
+        }
 #ifdef _WIN32
-		Q_strlower( newPath );
+	    vstd::make_lower_ascii(newPath);
 #endif
-		AddSeperatorAndFixPath( newPath );
-	}
+        vstd::paths::fix_slashes(newPath);
+        vstd::paths::append_slash(newPath);
+    }
 
 	// Make sure that it doesn't already exist
 	CUtlSymbol pathSym, pathIDSym;
-	pathSym = g_PathIDTable.AddString( newPath );
+	pathSym = g_PathIDTable.AddString( newPath);
 	pathIDSym = g_PathIDTable.AddString( pathID );
 	int i;
 	int c = m_SearchPaths.Count();
@@ -861,86 +696,11 @@ void CBaseFileSystem::AddSearchPathInternal( const char *pPath, const char *path
 //-----------------------------------------------------------------------------
 // Create the search path.
 //-----------------------------------------------------------------------------
-void CBaseFileSystem::AddSearchPath( const char *pPath, const char *pathID, SearchPathAdd_t addType )
+void CBaseFileSystem::AddSearchPath(const std::string_view pPath, const std::string_view pathID, SearchPathAdd_t addType)
 {
-	char tempSymlinkBuffer[MAX_PATH]{0};
-	pPath = V_FormatFilenameForSymlinking( tempSymlinkBuffer, pPath );
-
 	// The PC has no concept of update/dlc discovery, it explicitly adds them now
 	// This layout matches the Xbox's search path layout, when the Xbox does late bind the DLC
 	// any platform, game, or mod search paths get subverted in order to prepend the DLC path
-	const char *pGameName = "csgo";
-
-	// CSGO compatibility VPKs
-	if ( const char *pActualPathID = pathID ? StringAfterPrefix( pathID, "COMPAT:" ) : nullptr)
-	{
-		if ( addType != PATH_ADD_TO_HEAD )
-			return;	// in non-vpk mode compatibility paths can only be added to head
-
-		// Build compatibility syntax path and proceed with adding
-		pathID = pActualPathID;
-		V_sprintf_safe( tempSymlinkBuffer, "csgo/compatibility/%s/", pPath );
-		pPath = tempSymlinkBuffer;
-	}
-
-	if ( V_stristr( pPath, pGameName ) &&
-		( !Q_stricmp( pathID, "GAME" ) || !Q_stricmp( pathID, "MOD" ) || !Q_stricmp( pathID, "PLATFORM" ) ) )
-	{
-		char szPathHead[MAX_PATH]{0};
-		char szUpdatePath[MAX_PATH]{0};
-		V_strncpy( szPathHead, pPath, sizeof( szPathHead ) );
-		V_StripLastDir( szPathHead, sizeof( szPathHead ) );
-
-		// xlsppatch trumps all
-		V_ComposeFileName( szPathHead, "xlsppatch", szUpdatePath, sizeof( szUpdatePath ) );
-		FileStat_t buf;
-		if ( FS_Stat( szUpdatePath, buf ) )
-		{
-			// found
-			AddSearchPathInternal( szUpdatePath, pathID, addType, true );
-		}
-
-		// followed by update
-		V_ComposeFileName( szPathHead, "update", szUpdatePath, sizeof( szUpdatePath ) );
-		if ( FS_Stat( szUpdatePath, buf ) )
-		{
-			// found
-			AddSearchPathInternal( szUpdatePath, pathID, addType, true );
-		}
-
-		// followed by dlc
-		if ( !Q_stricmp( pathID, "GAME" ) || !Q_stricmp( pathID, "MOD" ) )
-		{
-			// DS would have all DLC dirs
-			// find highest DLC dir available
-			int nHighestDLC = 1;
-			for ( ;nHighestDLC <= 99; nHighestDLC++ )
-			{
-				V_ComposeFileName( szPathHead, CFmtStr( "%s_dlc%d", pGameName, nHighestDLC ), szUpdatePath, sizeof( szUpdatePath ) );
-				if ( !FS_Stat( szUpdatePath, buf ) )
-				{
-					// does not exist, highest dlc available is previous
-					nHighestDLC--;
-					break;
-				}
-
-				V_ComposeFileName( szPathHead, CFmtStr( "%s_dlc%d/dlc_disabled.txt", pGameName, nHighestDLC ), szUpdatePath, sizeof( szUpdatePath ) );
-				if ( FS_Stat( szUpdatePath, buf ) )
-				{
-					// disabled, highest dlc available is previous
-					nHighestDLC--;
-					break;
-				}
-			}
-
-			// mount in correct order
-			for ( ;nHighestDLC >= 1; nHighestDLC-- )
-			{
-				V_ComposeFileName( szPathHead, CFmtStr( "%s_dlc%d", pGameName, nHighestDLC ), szUpdatePath, sizeof( szUpdatePath ) );
-				AddSearchPathInternal( szUpdatePath, pathID, addType, true );
-			}
-		}
-	}
 
 	int currCount = m_SearchPaths.Count();
 
@@ -1044,21 +804,6 @@ bool CBaseFileSystem::RemoveSearchPath( const char *pPath, const char *pathID )
 	char newPath[ MAX_FILEPATH ];
 	newPath[ 0 ] = 0;
 
-	if ( const char *pActualPathID = pathID ? StringAfterPrefix( pathID, "COMPAT:" ) : nullptr)
-	{
-		int c = m_SearchPaths.Count();
-		for ( int i = c - 1; i >= 0; i-- )
-		{
-			char newCompatPath[ MAX_PATH ] = {};
-			sprintf( newCompatPath, "/csgo/compatibility/%s/", pPath );
-			Q_FixSlashes( newCompatPath );
-			if ( V_strstr( m_SearchPaths[ i ].GetPathString(), newCompatPath ) )
-			{
-				m_SearchPaths.Remove( i );
-				return true;
-			}
-		}
-	}
 
 	if ( pPath )
 	{
@@ -1482,7 +1227,7 @@ void CBaseFileSystem::HandleOpenRegularFile( CFileOpenInfo &openInfo, bool bIsAb
 	const char *pFilename = openInfo.m_AbsolutePath;
 
 	int64_t size;
-	CStdFile *fp = Trace_FOpen( pFilename, openInfo.m_pOptions, openInfo.m_Flags, &size, &fileLoadInfo );
+	CStdFile *fp = FOpen( pFilename, openInfo.m_pOptions, openInfo.m_Flags, &size, &fileLoadInfo );
 	if ( fp )
 	{
 		if ( m_bOutputDebugString )
@@ -1601,7 +1346,7 @@ FileHandle_t CBaseFileSystem::OpenForWrite( const char *pFileName, const char *p
 	}
 
 	int64_t size;
-	CStdFile *fp = Trace_FOpen( pTmpFileName, pOptions, 0, &size );
+	CStdFile *fp = FOpen( pTmpFileName, pOptions, 0, &size );
 	if ( !fp )
 	{
 		return ( FileHandle_t )nullptr;
@@ -1725,7 +1470,6 @@ FileHandle_t CBaseFileSystem::OpenEx( const char *pFileName, const char *pOption
 //-----------------------------------------------------------------------------
 void CBaseFileSystem::Close( FileHandle_t file )
 {
-
 	if ( !file )
 	{
 		FileSystemWarning( FILESYSTEM_WARNING, "FS:  Tried to Close NULL file handle!\n" );
@@ -3138,74 +2882,6 @@ void CBaseFileSystem::FileSystemWarning( FileWarningLevel_t level, const char *f
 //-----------------------------------------------------------------------------
 // Purpose:
 //-----------------------------------------------------------------------------
-CBaseFileSystem::COpenedFile::COpenedFile( void )
-{
-	m_pFile = nullptr;
-	m_pName = nullptr;
-}
-
-//-----------------------------------------------------------------------------
-// Purpose:
-//-----------------------------------------------------------------------------
-CBaseFileSystem::COpenedFile::~COpenedFile( void )
-{
-	delete[] m_pName;
-}
-
-//-----------------------------------------------------------------------------
-// Purpose:
-// Input  : src -
-//-----------------------------------------------------------------------------
-CBaseFileSystem::COpenedFile::COpenedFile( const COpenedFile& src )
-{
-	m_pFile = src.m_pFile;
-	if ( src.m_pName )
-	{
-		int len = strlen( src.m_pName ) + 1;
-		m_pName = new char[ len ];
-		Q_strncpy( m_pName, src.m_pName, len );
-	}
-	else
-	{
-		m_pName = nullptr;
-	}
-}
-
-//-----------------------------------------------------------------------------
-// Purpose:
-// Input  : src -
-// Output : Returns true on success, false on failure.
-//-----------------------------------------------------------------------------
-bool CBaseFileSystem::COpenedFile::operator==( const CBaseFileSystem::COpenedFile& src ) const
-{
-	return src.m_pFile == m_pFile;
-}
-
-//-----------------------------------------------------------------------------
-// Purpose:
-// Input  : *name -
-//-----------------------------------------------------------------------------
-void CBaseFileSystem::COpenedFile::SetName( char const *name )
-{
-	delete[] m_pName;
-	int len = strlen( name ) + 1;
-	m_pName = new char[ len ];
-	Q_strncpy( m_pName, name, len );
-}
-
-//-----------------------------------------------------------------------------
-// Purpose:
-// Output : char
-//-----------------------------------------------------------------------------
-char const *CBaseFileSystem::COpenedFile::GetName( void )
-{
-	return m_pName ? m_pName : "???";
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose:
-//-----------------------------------------------------------------------------
 CBaseFileSystem::CSearchPath::CSearchPath( void )
 {
 	m_Path = g_PathIDTable.AddString( "" );
@@ -3490,15 +3166,9 @@ CFileHandle::~CFileHandle()
 	Assert( IsValid() );
 	delete[] m_pszTrueFileName;
 
-	if ( m_pPackFileHandle )
-	{
-		delete m_pPackFileHandle;
-		m_pPackFileHandle = nullptr;
-	}
-
 	if ( m_pFile )
 	{
-		m_fs->Trace_FClose( m_pFile );
+		m_fs->FClose( m_pFile );
 		m_pFile = nullptr;
 	}
 
@@ -3511,7 +3181,6 @@ void CFileHandle::Init( CBaseFileSystem *fs )
 	m_pFile = nullptr;
 	m_nLength = 0;
 	m_type = FT_NORMAL;
-	m_pPackFileHandle = nullptr;
 
 	m_fs = fs;
 

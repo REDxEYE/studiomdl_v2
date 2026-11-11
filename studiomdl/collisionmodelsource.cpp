@@ -54,7 +54,7 @@ void CCollisionModelSource::ConvertToWorldSpace( CUtlVector<Vector> &worldVerts,
 	else
 	{
 		matrix3x4_t srcBoneToWorld[MAXSTUDIOSRCBONES];	// bone transformation matrix
-		BuildRawTransforms( pmodel, "BindPose", 0, pmodel->scale, pmodel->adjust, pmodel->rotation, 0, srcBoneToWorld );
+		BuildRawTransforms( pmodel, "BindPose", 0, pmodel->scale, pmodel->adjust, pmodel->rotation, StudioSequenceFlags::None, srcBoneToWorld );
 
 		for (i = 0; i < pmodel->numvertices; i++)
 		{
@@ -80,7 +80,7 @@ void CCollisionModelSource::ConvertToWorldSpace( CUtlVector<Vector> &worldVerts,
 	if ( g_studiomdl.flCollisionPrecision > 0 )
 	{
 #ifdef DEBUG
-		printf("Applying collision precision truncation: %f\n", g_flCollisionPrecision );
+		std::print("Applying collision precision truncation: {:f}\n", g_flCollisionPrecision );
 #endif
 		for ( int i = 0; i < worldVerts.Count(); i++ )
 		{
@@ -109,7 +109,7 @@ void CCollisionModelSource::ConvertToBoneSpace( int boneIndex, CUtlVector<Vector
 	matrix3x4_t boneToPose;
 	if ( remapIndex < 0 )
 	{
-		MdlWarning("Error! physics for unused bone %s\n", m_pModel->localBone[boneIndex].name.c_str() );
+		MdlWarning("Error! physics for unused bone {}\n", m_pModel->localBone[boneIndex].name );
 		MatrixCopy( m_pModel->boneToPose[boneIndex], boneToPose );
 	}
 	else

@@ -335,7 +335,7 @@ int BuildTris (s_trianglevert_t (*x)[3], s_mesh_t *y, uint8_t **ppdata )
 
 		if (t != time(nullptr))
 		{
-			printf("%2d%%\r", (total * 100) / pmesh->numfaces );
+			std::print("{:2}%\r", (total * 100) / pmesh->numfaces );
 			t = time(nullptr);
 		}
 	}

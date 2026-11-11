@@ -30,7 +30,9 @@
 #include "studiomdl/studiobyteswap.h"
 #include "materialsystem/imaterial.h"
 #include "mdlobjects/dmeboneflexdriver.h"
+#include "tier1_v2/function_timing.hpp"
 #include "studiomdl/perfstats.h"
+#include "studiomdl/output_files.hpp"
 #include "studiomdl/studiomdl_global_state.hpp"
 #include "tier1_v2/path_utils.hpp"
 
@@ -149,7 +151,7 @@ static void AddToStringTable(void *base, int *ptr, const char *string) {
 //			fixup local pointers
 //-----------------------------------------------------------------------------
 static uint8_t *WriteStringTable(uint8_t *pData) {
-    FunctionTimingRecorder _("Write");
+    vstd::FunctionTimingRecorder _("Write");
     // force null at first address
     strings[0].addr = pData;
     *pData = '\0';
@@ -192,7 +194,7 @@ static int BoneNameCompare(const void *elem1, const void *elem2) {
 //-----------------------------------------------------------------------------
 //
 //-----------------------------------------------------------------------------
-template<class M, class S, int nType>
+template<class M, class S, ProcBoneType procType>
 static S *WriteBaseConstraint(M *pConstraint, mstudiobone_t *pbone) {
     if (!pConstraint)
         return nullptr;
@@ -207,7 +209,7 @@ static S *WriteBaseConstraint(M *pConstraint, mstudiobone_t *pbone) {
 
     const int k = pProc->m_slave.m_nBone;
     pbone[k].procindex = (uint8_t *) pProc - (uint8_t *) &pbone[k];
-    pbone[k].proctype = nType;
+    pbone[k].proctype = procType;
 
     mstudioconstrainttarget_t *pTarget = (mstudioconstrainttarget_t *) pData;
     pProc->m_nTargetCount = pConstraint->m_targets.Count();
@@ -228,7 +230,7 @@ static S *WriteBaseConstraint(M *pConstraint, mstudiobone_t *pbone) {
 
 
 static void WriteBoneInfo(studiohdr_t *phdr) {
-    FunctionTimingRecorder _("Write");
+    vstd::FunctionTimingRecorder _("Write");
     int i, j, k;
     mstudiobone_t *pbone;
     mstudiobonecontroller_t *pbonecontroller;
@@ -277,7 +279,7 @@ static void WriteBoneInfo(studiohdr_t *phdr) {
             j = g_studiomdl.axisinterpbonemap[i];
             k = g_studiomdl.axisinterpbones[j].bone;
             pbone[k].procindex = (uint8_t *) &pProc[i] - (uint8_t *) &pbone[k];
-            pbone[k].proctype = STUDIO_PROC_AXISINTERP;
+            pbone[k].proctype = ProcBoneType::AxisInterp;
             // printf("bone %d %d\n", j, pbone[k].procindex );
             pProc[i].control = g_studiomdl.axisinterpbones[j].control;
             pProc[i].axis = g_studiomdl.axisinterpbones[j].axis;
@@ -299,7 +301,7 @@ static void WriteBoneInfo(studiohdr_t *phdr) {
             j = g_studiomdl.quatinterpbonemap[i];
             k = g_studiomdl.quatinterpbones[j].bone;
             pbone[k].procindex = (uint8_t *) &pProc[i] - (uint8_t *) &pbone[k];
-            pbone[k].proctype = STUDIO_PROC_QUATINTERP;
+            pbone[k].proctype = ProcBoneType::QuatInterp;
             // printf("bone %d %d\n", j, pbone[k].procindex );
             pProc[i].control = g_studiomdl.quatinterpbones[j].control;
 
@@ -324,7 +326,7 @@ static void WriteBoneInfo(studiohdr_t *phdr) {
             j = g_studiomdl.jigglebonemap[i];
             k = g_studiomdl.jigglebones[j].bone;
             pbone[k].procindex = (uint8_t *) &jiggleInfo[i] - (uint8_t *) &pbone[k];
-            pbone[k].proctype = STUDIO_PROC_JIGGLE;
+            pbone[k].proctype = ProcBoneType::Jiggle;
 
             jiggleInfo[i] = g_studiomdl.jigglebones[j].data;
         }
@@ -340,8 +342,8 @@ static void WriteBoneInfo(studiohdr_t *phdr) {
             k = g_studiomdl.aimatbones[j].bone;
             pbone[k].procindex = (uint8_t *) &pProc[i] - (uint8_t *) &pbone[k];
             pbone[k].proctype = g_studiomdl.aimatbones[j].aimAttach == -1
-                                    ? STUDIO_PROC_AIMATBONE
-                                    : STUDIO_PROC_AIMATATTACH;
+                                    ? ProcBoneType::AimAtBone
+                                    : ProcBoneType::AimAtAttach;
             pProc[i].parent = g_studiomdl.aimatbones[j].parent;
             pProc[i].aim = g_studiomdl.aimatbones[j].aimAttach == -1
                                ? g_studiomdl.aimatbones[j].aimBone
@@ -385,7 +387,7 @@ static void WriteBoneInfo(studiohdr_t *phdr) {
                 pTarget[j].m_qBaseRotation = twistBoneTarget.m_qOffset;
 
                 pbone[k].procindex = (uint8_t *) &pProc[i] - (uint8_t *) &pbone[k];
-                pbone[k].proctype = j == 0 ? STUDIO_PROC_TWIST_MASTER : STUDIO_PROC_TWIST_SLAVE;
+                pbone[k].proctype = j == 0 ? ProcBoneType::TwistMaster : ProcBoneType::TwistSLAVE;
             }
         }
     }
@@ -401,7 +403,7 @@ static void WriteBoneInfo(studiohdr_t *phdr) {
             {
                 CPointConstraint *pConstraint = dynamic_cast<CPointConstraint *>(pConstraintBone);
                 if (pConstraint) {
-                    WriteBaseConstraint<CPointConstraint, mstudiopointconstraint_t, STUDIO_PROC_POINT_CONSTRAINT>(
+                    WriteBaseConstraint<CPointConstraint, mstudiopointconstraint_t, ProcBoneType::PointConstraint>(
                         pConstraint, pbone);
                     continue;
                 }
@@ -410,7 +412,7 @@ static void WriteBoneInfo(studiohdr_t *phdr) {
             {
                 COrientConstraint *pConstraint = dynamic_cast<COrientConstraint *>(pConstraintBone);
                 if (pConstraint) {
-                    WriteBaseConstraint<COrientConstraint, mstudioorientconstraint_t, STUDIO_PROC_ORIENT_CONSTRAINT>(
+                    WriteBaseConstraint<COrientConstraint, mstudioorientconstraint_t, ProcBoneType::OrientConstraint>(
                         pConstraint, pbone);
                     continue;
                 }
@@ -421,7 +423,7 @@ static void WriteBoneInfo(studiohdr_t *phdr) {
 
                 if (pConstraint) {
                     mstudioaimconstraint_t *pProc =
-                            WriteBaseConstraint<CAimConstraint, mstudioaimconstraint_t, STUDIO_PROC_AIM_CONSTRAINT>(
+                            WriteBaseConstraint<CAimConstraint, mstudioaimconstraint_t, ProcBoneType::AimConstraint>(
                                 pConstraint, pbone);
 
                     if (pProc) {
@@ -439,13 +441,13 @@ static void WriteBoneInfo(studiohdr_t *phdr) {
             {
                 CParentConstraint *pConstraint = dynamic_cast<CParentConstraint *>(pConstraintBone);
                 if (pConstraint) {
-                    WriteBaseConstraint<CParentConstraint, mstudioparentconstraint_t, STUDIO_PROC_PARENT_CONSTRAINT>(
+                    WriteBaseConstraint<CParentConstraint, mstudioparentconstraint_t, ProcBoneType::ParentConstraint>(
                         pConstraint, pbone);
                     continue;
                 }
             }
 
-            MdlWarning("Ignoring Constraint Bone: %s\n", pConstraintBone->m_slave.m_szBoneName);
+            MdlWarning("Ignoring Constraint Bone: {}\n", pConstraintBone->m_slave.m_szBoneName);
         }
     }
 
@@ -458,23 +460,23 @@ static void WriteBoneInfo(studiohdr_t *phdr) {
 
     for (i = 0; i < g_studiomdl.bonecontrollers.size(); i++) {
         j = g_studiomdl.bonecontrollers[i].bone;
-        switch (g_studiomdl.bonecontrollers[i].type & STUDIO_TYPES) {
-            case STUDIO_X:
+        switch (g_studiomdl.bonecontrollers[i].type & StudioMotionFlags::Types) {
+            case StudioMotionFlags::X:
                 pbone[j].bonecontroller[0] = i;
                 break;
-            case STUDIO_Y:
+            case StudioMotionFlags::Y:
                 pbone[j].bonecontroller[1] = i;
                 break;
-            case STUDIO_Z:
+            case StudioMotionFlags::Z:
                 pbone[j].bonecontroller[2] = i;
                 break;
-            case STUDIO_XR:
+            case StudioMotionFlags::XR:
                 pbone[j].bonecontroller[3] = i;
                 break;
-            case STUDIO_YR:
+            case StudioMotionFlags::YR:
                 pbone[j].bonecontroller[4] = i;
                 break;
-            case STUDIO_ZR:
+            case StudioMotionFlags::ZR:
                 pbone[j].bonecontroller[5] = i;
                 break;
             default:
@@ -531,8 +533,8 @@ static void WriteBoneInfo(studiohdr_t *phdr) {
 
         // save bbox info
         pbbox = (mstudiobbox_t *) pData;
-        for (auto& hitbox: set->hitboxes)
         for (i = 0; i < hitboxset->numhitboxes; i++) {
+            const s_bbox_t &hitbox = set->hitboxes[i];
             pbbox[i].bone = hitbox.bone;
             pbbox[i].group = hitbox.group;
             VectorCopy(hitbox.bmin, pbbox[i].bbmin);
@@ -596,7 +598,7 @@ void LoadPreexistingSequenceOrder(const char *pFilename) {
 }
 
 static void WriteSequenceInfo(studiohdr_t *phdr) {
-    FunctionTimingRecorder _("Write");
+    vstd::FunctionTimingRecorder _("Write");
     int i, j, k;
 
     mstudioseqdesc_t *pseqdesc;
@@ -808,20 +810,20 @@ static void WriteSequenceInfo(studiohdr_t *phdr) {
             else if (k == 0 && g_studiomdl.sequence[i].events[j].frame == 0)
                 pevent[j].cycle = 0;
             else {
-                MdlWarning("Event %d (frame %d) out of range in %s\n", g_studiomdl.sequence[i].events[j].event,
-                           g_studiomdl.sequence[i].events[j].frame, g_studiomdl.sequence[i].name.c_str());
+                MdlWarning("Event {} (frame {}) out of range in {}\n", g_studiomdl.sequence[i].events[j].event,
+                           g_studiomdl.sequence[i].events[j].frame, g_studiomdl.sequence[i].name);
                 bErrors = true;
             }
 
             //Adrian - Remove me once we phase out the old event system.
             if (V_isdigit(g_studiomdl.sequence[i].events[j].eventname[0])) {
                 pevent[j].event = atoi(g_studiomdl.sequence[i].events[j].eventname);
-                pevent[j].type = 0;
+                pevent[j].type = StudioEventType::OldStyle;
                 pevent[j].szeventindex = 0;
             }
             else {
                 AddToStringTable(&pevent[j], &pevent[j].szeventindex, g_studiomdl.sequence[i].events[j].eventname);
-                pevent[j].type = NEW_EVENT_STYLE;
+                pevent[j].type = StudioEventType::NewStyle;
             }
 
 
@@ -836,13 +838,13 @@ static void WriteSequenceInfo(studiohdr_t *phdr) {
 
         // save autolayers
         mstudioautolayer_t *pautolayer = (mstudioautolayer_t *) pData;
-        pseqdesc->numautolayers = g_studiomdl.sequence[i].numautolayers;
+        pseqdesc->numautolayers = g_studiomdl.sequence[i].autolayers.size();
         pseqdesc->autolayerindex = (pData - pSequenceStart);
         pData += pseqdesc->numautolayers * sizeof(mstudioautolayer_t);
-        for (j = 0; j < g_studiomdl.sequence[i].numautolayers; j++) {
-            pautolayer[j].iSequence = g_studiomdl.sequence[i].autolayer[j].sequence;
-            pautolayer[j].iPose = g_studiomdl.sequence[i].autolayer[j].pose;
-            pautolayer[j].flags = g_studiomdl.sequence[i].autolayer[j].flags;
+        for (j = 0; j < g_studiomdl.sequence[i].autolayers.size(); j++) {
+            pautolayer[j].iSequence = g_studiomdl.sequence[i].autolayers[j].sequence;
+            pautolayer[j].iPose = g_studiomdl.sequence[i].autolayers[j].pose;
+            pautolayer[j].flags = g_studiomdl.sequence[i].autolayers[j].flags;
 
             // autolayer indices are stored by index, so remap them now using the invertex lookup table
             if (bUseSeqOrderRemapping) {
@@ -853,21 +855,21 @@ static void WriteSequenceInfo(studiohdr_t *phdr) {
                 }
             }
 
-            if (!(pautolayer[j].flags & STUDIO_AL_POSE)) {
-                pautolayer[j].start = g_studiomdl.sequence[i].autolayer[j].start / (
+            if (!HasFlag(pautolayer[j].flags, AutoLayerFlags::Pose)) {
+                pautolayer[j].start = g_studiomdl.sequence[i].autolayers[j].start / (
                                           g_studiomdl.sequence[i].panim[0][0]->numframes - 1);
-                pautolayer[j].peak = g_studiomdl.sequence[i].autolayer[j].peak / (
+                pautolayer[j].peak = g_studiomdl.sequence[i].autolayers[j].peak / (
                                          g_studiomdl.sequence[i].panim[0][0]->numframes - 1);
-                pautolayer[j].tail = g_studiomdl.sequence[i].autolayer[j].tail / (
+                pautolayer[j].tail = g_studiomdl.sequence[i].autolayers[j].tail / (
                                          g_studiomdl.sequence[i].panim[0][0]->numframes - 1);
-                pautolayer[j].end = g_studiomdl.sequence[i].autolayer[j].end / (
+                pautolayer[j].end = g_studiomdl.sequence[i].autolayers[j].end / (
                                         g_studiomdl.sequence[i].panim[0][0]->numframes - 1);
             }
             else {
-                pautolayer[j].start = g_studiomdl.sequence[i].autolayer[j].start;
-                pautolayer[j].peak = g_studiomdl.sequence[i].autolayer[j].peak;
-                pautolayer[j].tail = g_studiomdl.sequence[i].autolayer[j].tail;
-                pautolayer[j].end = g_studiomdl.sequence[i].autolayer[j].end;
+                pautolayer[j].start = g_studiomdl.sequence[i].autolayers[j].start;
+                pautolayer[j].peak = g_studiomdl.sequence[i].autolayers[j].peak;
+                pautolayer[j].tail = g_studiomdl.sequence[i].autolayers[j].tail;
+                pautolayer[j].end = g_studiomdl.sequence[i].autolayers[j].end;
             }
         }
 
@@ -915,15 +917,15 @@ static void WriteSequenceInfo(studiohdr_t *phdr) {
 
         // save iklocks
         mstudioiklock_t *piklock = (mstudioiklock_t *) pData;
-        pseqdesc->numiklocks = g_studiomdl.sequence[i].numiklocks;
+        pseqdesc->numiklocks = g_studiomdl.sequence[i].iklocks.size();
         pseqdesc->iklockindex = (pData - pSequenceStart);
         pData += pseqdesc->numiklocks * sizeof(mstudioiklock_t);
         ALIGN4(pData);
 
         for (j = 0; j < pseqdesc->numiklocks; j++) {
-            piklock->chain = g_studiomdl.sequence[i].iklock[j].chain;
-            piklock->flPosWeight = g_studiomdl.sequence[i].iklock[j].flPosWeight;
-            piklock->flLocalQWeight = g_studiomdl.sequence[i].iklock[j].flLocalQWeight;
+            piklock->chain = g_studiomdl.sequence[i].iklocks[j].chain;
+            piklock->flPosWeight = g_studiomdl.sequence[i].iklocks[j].flPosWeight;
+            piklock->flLocalQWeight = g_studiomdl.sequence[i].iklocks[j].flLocalQWeight;
             piklock++;
         }
 
@@ -979,13 +981,13 @@ static void WriteSequenceInfo(studiohdr_t *phdr) {
             AddToStringTable(&panimtag[j], &panimtag[j].sztagindex, g_studiomdl.sequence[i].animtags[j].tagname);
         }
 
-        if (g_studiomdl.sequence[i].flags & STUDIO_ROOTXFORM) {
+        if (HasFlag(g_studiomdl.sequence[i].flags, StudioSequenceFlags::RootXform)) {
             int bone = findGlobalBone(g_studiomdl.sequence[i].rootDriverBoneName);
             if (bone != -1) {
                 pseqdesc->rootDriverIndex = bone;
             }
             else {
-                MdlError("unable to find bone %s\n", token);
+                MdlError("unable to find bone {}\n", g_studiomdl.sequence[i].rootDriverBoneName);
             }
         }
         else {
@@ -1077,7 +1079,7 @@ void WriteRLEAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanimde
     for (j = 0; j < g_StudioMdlContext.numbones; j++) {
         // destanim->weight = srcanim->weight[j];
         // printf( "%s %.1f\n", g_studiomdl.bonetable[j].name, destanim->weight );
-        destanim->flags = 0;
+        destanim->flags = StudioAnimFlags::None;
         s_compressed_t *psrcdata = &srcanim->anim[w][j];
 
         numPos[(psrcdata->num[0] != 0) + (psrcdata->num[1] != 0) + (psrcdata->num[2] != 0)]++;
@@ -1092,8 +1094,8 @@ void WriteRLEAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanimde
         destanim->bone = j;
 
         // copy flags over if delta animation
-        if (srcanim->flags & STUDIO_DELTA) {
-            destanim->flags |= STUDIO_ANIM_DELTA;
+        if (HasFlag(srcanim->flags, StudioSequenceFlags::Delta)) {
+            destanim->flags |= StudioAnimFlags::Delta;
         }
 
         if ((srcanim->numframes == 1) ||
@@ -1108,14 +1110,14 @@ void WriteRLEAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanimde
                 *((Quaternion64 *) pData) = q;
                 pData += sizeof(Quaternion64);
                 rawanimbytes += sizeof(Quaternion64);
-                destanim->flags |= STUDIO_ANIM_RAWROT2;
+                destanim->flags |= StudioAnimFlags::RawRot2;
             }
 
             if (psrcdata->num[0] != 0 || psrcdata->num[1] != 0 || psrcdata->num[2] != 0) {
                 *((Vector48 *) pData) = srcanim->sanim[iFrame][j].pos;
                 pData += sizeof(Vector48);
                 rawanimbytes += sizeof(Vector48);
-                destanim->flags |= STUDIO_ANIM_RAWPOS;
+                destanim->flags |= StudioAnimFlags::RawPos;
             }
         }
         else {
@@ -1154,7 +1156,7 @@ void WriteRLEAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanimde
                         }
                     }
                 }
-                destanim->flags |= STUDIO_ANIM_ANIMROT;
+                destanim->flags |= StudioAnimFlags::AnimRot;
             }
 
             if (posvptr) {
@@ -1171,7 +1173,7 @@ void WriteRLEAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanimde
                         }
                     }
                 }
-                destanim->flags |= STUDIO_ANIM_ANIMPOS;
+                destanim->flags |= StudioAnimFlags::AnimPos;
             }
             rawanimbytes += ((uint8_t *) destanimvalue - pData);
             pData = (uint8_t *) destanimvalue;
@@ -1196,7 +1198,7 @@ void WriteFrameAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanim
     pData += sizeof(*destframeanim);
 
     // write flags and constants
-    uint8_t *flag = pData;
+    StudioFrameFlags *flag = destframeanim->pBoneFlags();
     pData += g_StudioMdlContext.numbones * sizeof(*flag);
 
     ALIGN4(pData);
@@ -1212,14 +1214,14 @@ void WriteFrameAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanim
             // no change
         }
         else if (psrcdata->num[3] <= 2 && psrcdata->num[4] <= 2 && psrcdata->num[5] <= 2) {
-            flag[j] |= STUDIO_FRAME_CONST_ROT2;
+            flag[j] |= StudioFrameFlags::ConstRot2;
             Quaternion q;
             AngleQuaternion(srcanim->sanim[iFrame][j].rot, q);
             *((Quaternion48S *) pData) = q;
             pData += sizeof(Quaternion48S);
         }
         else {
-            flag[j] |= STUDIO_FRAME_ANIM_ROT2;
+            flag[j] |= StudioFrameFlags::AnimRot2;
             framelength += sizeof(Quaternion48S);
         }
 
@@ -1229,12 +1231,12 @@ void WriteFrameAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanim
         else if (psrcdata->num[0] <= 2 && psrcdata->num[1] <= 2 && psrcdata->num[2] <= 2) {
             // single frame
             if (g_StudioMdlContext.animblockHighRes) {
-                flag[j] |= STUDIO_FRAME_CONST_POS2;
+                flag[j] |= StudioFrameFlags::ConstPos2;
                 *((Vector *) pData) = srcanim->sanim[iFrame][j].pos;
                 pData += sizeof(Vector);
             }
             else {
-                flag[j] |= STUDIO_FRAME_CONST_POS;
+                flag[j] |= StudioFrameFlags::ConstPos;
                 *((Vector48 *) pData) = srcanim->sanim[iFrame][j].pos;
                 pData += sizeof(Vector48);
             }
@@ -1242,11 +1244,11 @@ void WriteFrameAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanim
         else {
             // multiple frames
             if (g_StudioMdlContext.animblockHighRes) {
-                flag[j] |= STUDIO_FRAME_ANIM_POS2;
+                flag[j] |= StudioFrameFlags::AnimPos2;
                 framelength += sizeof(Vector);
             }
             else {
-                flag[j] |= STUDIO_FRAME_ANIM_POS;
+                flag[j] |= StudioFrameFlags::AnimPos;
                 framelength += sizeof(Vector48);
             }
         }
@@ -1280,18 +1282,18 @@ void WriteFrameAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanim
     for (iFrame = iStartFrame; iFrame <= iEndFrame; iFrame++) {
         // save animation value info
         for (int j = 0; j < g_StudioMdlContext.numbones; j++) {
-            if (flag[j] & STUDIO_FRAME_ANIM_ROT2) {
+            if (HasFlag(flag[j], StudioFrameFlags::AnimRot2)) {
                 Quaternion q;
                 AngleQuaternion(srcanim->sanim[iFrame][j].rot, q);
                 *((Quaternion48S *) pData) = q;
                 pData += sizeof(Quaternion48S);
             }
 
-            if (flag[j] & STUDIO_FRAME_ANIM_POS) {
+            if (HasFlag(flag[j], StudioFrameFlags::AnimPos)) {
                 *((Vector48 *) pData) = srcanim->sanim[iFrame][j].pos;
                 pData += sizeof(Vector48);
             }
-            else if (flag[j] & STUDIO_FRAME_ANIM_POS2) {
+            else if (HasFlag(flag[j], StudioFrameFlags::AnimPos2)) {
                 *((Vector *) pData) = srcanim->sanim[iFrame][j].pos;
                 pData += sizeof(Vector);
             }
@@ -1304,7 +1306,7 @@ void WriteFrameAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanim
 
 void WriteAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanimdesc, uint8_t *&pLocalData,
                         uint8_t *&pExtData) {
-    FunctionTimingRecorder _("Write");
+    vstd::FunctionTimingRecorder _("Write");
     uint8_t *pData = nullptr;
 
     for (int w = 0; w < srcanim->numsections; w++) {
@@ -1321,11 +1323,11 @@ void WriteAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanimdesc,
 
         // use frameanim if not lowres data
         if (pExtData != nullptr && !g_StudioMdlContext.animblockLowRes) {
-            srcanim->flags |= STUDIO_FRAMEANIM;
-            destanimdesc->flags |= STUDIO_FRAMEANIM;
+            srcanim->flags |= StudioSequenceFlags::FrameAnim;
+            destanimdesc->flags |= StudioSequenceFlags::FrameAnim;
         }
 
-        if (srcanim->flags & STUDIO_FRAMEANIM) {
+        if (HasFlag(srcanim->flags, StudioSequenceFlags::FrameAnim)) {
             WriteFrameAnimationData(srcanim, destanimdesc, pData, w);
         }
         else {
@@ -1335,8 +1337,8 @@ void WriteAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanimdesc,
 
         if ((pData - pStartSection) > g_studiomdl.animblocksize && g_studiomdl.animblocksize > 0) {
             MdlWarning(
-                "Single animation \"%s\" is %d. Specificed block size is %d.  Use smaller animations or increase the block size.\n",
-                srcanim->name.c_str(), (uintptr_t) (pData - pStartSection), g_studiomdl.animblocksize);
+                "Single animation \"{}\" is {}. Specificed block size is {}.  Use smaller animations or increase the block size.\n",
+                srcanim->name, (uintptr_t) (pData - pStartSection), g_studiomdl.animblocksize);
         }
 
         // write into anim blocks if needed
@@ -1372,7 +1374,7 @@ void WriteAnimationData(s_animation_t *srcanim, mstudioanimdesc_t *destanimdesc,
 
 
 uint8_t *WriteIkErrors(s_animation_t *srcanim, uint8_t *pData) {
-    FunctionTimingRecorder _("Write");
+    vstd::FunctionTimingRecorder _("Write");
     int j, k;
 
     // write IK error keys
@@ -1447,7 +1449,7 @@ uint8_t *WriteIkErrors(s_animation_t *srcanim, uint8_t *pData) {
             pCompressed->scale[k] = srcanim->ikrules[j].errorData.scale[k];
             pCompressed->offset[k] = (pData - (uint8_t *) pCompressed);
             int size = srcanim->ikrules[j].errorData.numanim[k] * sizeof(mstudioanimvalue_t);
-            memmove(pData, srcanim->ikrules[j].errorData.anim[k], size);
+            memmove(pData, srcanim->ikrules[j].errorData.anim[k].data(), size);
             pData += size;
         }
 
@@ -1470,7 +1472,7 @@ uint8_t *WriteIkErrors(s_animation_t *srcanim, uint8_t *pData) {
 
 
 uint8_t *WriteLocalHierarchy(s_animation_t *srcanim, uint8_t *pData) {
-    FunctionTimingRecorder _("Write");
+    vstd::FunctionTimingRecorder _("Write");
     int j, k;
 
     // write hierarchy  keys
@@ -1528,7 +1530,7 @@ uint8_t *WriteLocalHierarchy(s_animation_t *srcanim, uint8_t *pData) {
             pCompressed->scale[k] = srcanim->localhierarchies[j].localData.scale[k];
             pCompressed->offset[k] = (pData - (uint8_t *) pCompressed);
             int size = srcanim->localhierarchies[j].localData.numanim[k] * sizeof(mstudioanimvalue_t);
-            memmove(pData, srcanim->localhierarchies[j].localData.anim[k], size);
+            memmove(pData, srcanim->localhierarchies[j].localData.anim[k].data(), size);
             pData += size;
         }
 
@@ -1543,7 +1545,7 @@ uint8_t *WriteLocalHierarchy(s_animation_t *srcanim, uint8_t *pData) {
 
 
 static uint8_t *WriteAnimations(uint8_t *pData, uint8_t *pStart, studiohdr_t *phdr) {
-    FunctionTimingRecorder _("Write");
+    vstd::FunctionTimingRecorder _("Write");
     int i, j;
 
     mstudioanimdesc_t *panimdesc;
@@ -1558,7 +1560,7 @@ static uint8_t *WriteAnimations(uint8_t *pData, uint8_t *pStart, studiohdr_t *ph
     ALIGN4(pData);
     //      ------------ ------- ------- : ------- (-------)
     if (g_StudioMdlContext.verbose && g_studiomdl.animations.size() > 0) {
-        printf("   animation       x       y       ips    angle\n");
+        std::print("   animation       x       y       ips    angle\n");
     }
 
     for (i = 0; i < g_studiomdl.animations.size(); i++) {
@@ -1582,8 +1584,8 @@ static uint8_t *WriteAnimations(uint8_t *pData, uint8_t *pStart, studiohdr_t *ph
         // destanim->motiontype = srcanim->motiontype;
         // destanim->motionbone = srcanim->motionbone;
         // VectorCopy( srcanim->linearpos, destanim->linearpos );
-        if (g_StudioMdlContext.verbose && (srcanim->numpiecewisekeys > 0)) {
-            j = srcanim->numpiecewisekeys - 1;
+        if (g_StudioMdlContext.verbose && (srcanim->piecewisemove.size() > 0)) {
+            j = srcanim->piecewisemove.size() - 1;
             if (srcanim->piecewisemove[j].pos[0] != 0 || srcanim->piecewisemove[j].pos[1] != 0) {
                 float t = (srcanim->numframes - 1) / srcanim->fps;
 
@@ -1591,7 +1593,7 @@ static uint8_t *WriteAnimations(uint8_t *pData, uint8_t *pStart, studiohdr_t *ph
 
                 float a = atan2(srcanim->piecewisemove[j].pos[1], srcanim->piecewisemove[j].pos[0]) * (180 / M_PI);
                 float d = sqrt(DotProduct(srcanim->piecewisemove[j].pos, srcanim->piecewisemove[j].pos));
-                printf("%12s %7.2f %7.2f : %7.2f (%7.2f) %.1f\n", srcanim->name.c_str(),
+                std::print("{:>12} {:7.2f} {:7.2f} : {:7.2f} ({:7.2f}) {:.1f}\n", srcanim->name,
                        srcanim->piecewisemove[j].pos[0],
                        srcanim->piecewisemove[j].pos[1], d * r, a, t);
             }
@@ -1723,7 +1725,7 @@ static uint8_t *WriteAnimations(uint8_t *pData, uint8_t *pStart, studiohdr_t *ph
         s_animation_t *anim = g_studiomdl.animations[i];
 
         // panimdesc[i].entrancevelocity = anim->entrancevelocity;
-        panimdesc[i].nummovements = anim->numpiecewisekeys;
+        panimdesc[i].nummovements = anim->piecewisemove.size();
         if (panimdesc[i].nummovements) {
             panimdesc[i].movementindex = pData - (uint8_t *) &panimdesc[i];
 
@@ -1753,33 +1755,33 @@ static uint8_t *WriteAnimations(uint8_t *pData, uint8_t *pStart, studiohdr_t *ph
         for (j = 0; j < g_StudioMdlContext.numbones; j++) {
             if ((g_studiomdl.bonetable[j].parent == -1) ||
                 (g_studiomdl.bonetable[j].posrange.Length() >= g_StudioMdlContext.minZeroFramePosDelta)) {
-                g_studiomdl.bonetable[j].flags |= BONE_HAS_SAVEFRAME_POS;
+                g_studiomdl.bonetable[j].flags |= BoneFlags::HasSaveframePos;
             }
             if (g_StudioMdlContext.zeroFramesHighres) {
-                g_studiomdl.bonetable[j].flags |= BONE_HAS_SAVEFRAME_ROT64;
+                g_studiomdl.bonetable[j].flags |= BoneFlags::HasSaveframeRot64;
             }
             else {
-                g_studiomdl.bonetable[j].flags |= BONE_HAS_SAVEFRAME_ROT32;
+                g_studiomdl.bonetable[j].flags |= BoneFlags::HasSaveframeRot32;
             }
 
 
-            if ((!g_StudioMdlContext.quiet) && (g_studiomdl.bonetable[j].flags &
-                                                (BONE_HAS_SAVEFRAME_POS | BONE_HAS_SAVEFRAME_ROT64 | BONE_HAS_SAVEFRAME_ROT32))) {
-                printf("$BoneSaveFrame \"%s\"", g_studiomdl.bonetable[j].name.c_str());
-                if (g_studiomdl.bonetable[j].flags & BONE_HAS_SAVEFRAME_POS) {
-                    printf(" position");
+            if ((!g_StudioMdlContext.quiet) && HasFlag(g_studiomdl.bonetable[j].flags,
+                                                       BoneFlags::HasSaveframePos | BoneFlags::HasSaveframeRot64 | BoneFlags::HasSaveframeRot32)) {
+                std::print("$BoneSaveFrame \"{}\"", g_studiomdl.bonetable[j].name);
+                if (HasFlag(g_studiomdl.bonetable[j].flags, BoneFlags::HasSaveframePos)) {
+                    std::print(" position");
                 }
-                if (g_studiomdl.bonetable[j].flags & BONE_HAS_SAVEFRAME_ROT64) {
-                    printf(" rotation64");
+                if (HasFlag(g_studiomdl.bonetable[j].flags, BoneFlags::HasSaveframeRot64)) {
+                    std::print(" rotation64");
                 }
-                else if (g_studiomdl.bonetable[j].flags & BONE_HAS_SAVEFRAME_ROT32) {
-                    printf(" rotation");
+                else if (HasFlag(g_studiomdl.bonetable[j].flags, BoneFlags::HasSaveframeRot32)) {
+                    std::print(" rotation");
                 }
-                if (!(g_studiomdl.bonetable[j].flags & BONE_HAS_SAVEFRAME_POS) && g_studiomdl.bonetable[j].posrange.
+                if (!HasFlag(g_studiomdl.bonetable[j].flags, BoneFlags::HasSaveframePos) && g_studiomdl.bonetable[j].posrange.
                     Length() > 0.1) {
-                    printf(" // (%.2f)", g_studiomdl.bonetable[j].posrange.Length());
+                    std::print(" // ({:.2f})", g_studiomdl.bonetable[j].posrange.Length());
                 }
-                printf("\n");
+                std::print("\n");
             }
         }
     }
@@ -1789,22 +1791,22 @@ static uint8_t *WriteAnimations(uint8_t *pData, uint8_t *pStart, studiohdr_t *ph
 
             if (j != -1) {
                 if (g_studiomdl.bonesaveframe[i].bSavePos) {
-                    g_studiomdl.bonetable[j].flags |= BONE_HAS_SAVEFRAME_POS;
+                    g_studiomdl.bonetable[j].flags |= BoneFlags::HasSaveframePos;
                 }
                 if (g_studiomdl.bonesaveframe[i].bSaveRot) {
                     if (g_StudioMdlContext.zeroFramesHighres) {
-                        g_studiomdl.bonetable[j].flags |= BONE_HAS_SAVEFRAME_ROT64;
+                        g_studiomdl.bonetable[j].flags |= BoneFlags::HasSaveframeRot64;
                     }
                     else {
-                        g_studiomdl.bonetable[j].flags |= BONE_HAS_SAVEFRAME_ROT32;
+                        g_studiomdl.bonetable[j].flags |= BoneFlags::HasSaveframeRot32;
                     }
                 }
                 else if (g_studiomdl.bonesaveframe[i].bSaveRot64) {
-                    g_studiomdl.bonetable[j].flags |= BONE_HAS_SAVEFRAME_ROT64;
+                    g_studiomdl.bonetable[j].flags |= BoneFlags::HasSaveframeRot64;
                 }
             }
             else {
-                MdlError("Unknown $BoneSaveFrame \"%s\"\n", g_studiomdl.bonesaveframe[i].name);
+                MdlError("Unknown $BoneSaveFrame \"{}\"\n", g_studiomdl.bonesaveframe[i].name);
             }
         }
     }
@@ -1824,7 +1826,7 @@ static uint8_t *WriteAnimations(uint8_t *pData, uint8_t *pStart, studiohdr_t *ph
             destanim->zeroframeindex = pData - (uint8_t *) destanim;
 
             int k = MIN(destanim->numframes - 1, 9);
-            if (destanim->flags & STUDIO_LOOPING) {
+            if (HasFlag(destanim->flags, StudioSequenceFlags::Looping)) {
                 k = MIN((destanim->numframes - 1) / 2, k);
             }
             destanim->zeroframespan = k;
@@ -1838,13 +1840,13 @@ static uint8_t *WriteAnimations(uint8_t *pData, uint8_t *pStart, studiohdr_t *ph
             destanim->zeroframecount = MIN(destanim->zeroframecount, g_StudioMdlContext.maxZeroFrames);
 
             for (j = 0; j < g_StudioMdlContext.numbones; j++) {
-                if (g_studiomdl.bonetable[j].flags & BONE_HAS_SAVEFRAME_POS) {
+                if (HasFlag(g_studiomdl.bonetable[j].flags, BoneFlags::HasSaveframePos)) {
                     for (int n = 0; n < destanim->zeroframecount; n++) {
                         *(Vector48 *) pData = anim->sanim[destanim->zeroframespan * n][j].pos;
                         pData += sizeof(Vector48);
                     }
                 }
-                if (g_studiomdl.bonetable[j].flags & BONE_HAS_SAVEFRAME_ROT64) {
+                if (HasFlag(g_studiomdl.bonetable[j].flags, BoneFlags::HasSaveframeRot64)) {
                     for (int n = 0; n < destanim->zeroframecount; n++) {
                         Quaternion q;
                         AngleQuaternion(anim->sanim[destanim->zeroframespan * n][j].rot, q);
@@ -1852,7 +1854,7 @@ static uint8_t *WriteAnimations(uint8_t *pData, uint8_t *pStart, studiohdr_t *ph
                         pData += sizeof(Quaternion64);
                     }
                 }
-                else if (g_studiomdl.bonetable[j].flags & BONE_HAS_SAVEFRAME_ROT32) {
+                else if (HasFlag(g_studiomdl.bonetable[j].flags, BoneFlags::HasSaveframeRot32)) {
                     for (int n = 0; n < destanim->zeroframecount; n++) {
                         Quaternion q;
                         AngleQuaternion(anim->sanim[destanim->zeroframespan * n][j].rot, q);
@@ -1901,7 +1903,7 @@ static uint8_t *WriteAnimations(uint8_t *pData, uint8_t *pStart, studiohdr_t *ph
 
 
 static void WriteTextures(studiohdr_t *phdr) {
-    FunctionTimingRecorder _("Write");
+    vstd::FunctionTimingRecorder _("Write");
     int i, j;
     short *pref;
 
@@ -1946,13 +1948,13 @@ static void WriteTextures(studiohdr_t *phdr) {
 // Write source bone transforms
 //-----------------------------------------------------------------------------
 static void WriteBoneTransforms(studiohdr2_t *phdr, const mstudiobone_t *pBone) {
-    FunctionTimingRecorder _("Write");
+    vstd::FunctionTimingRecorder _("Write");
     matrix3x4_t identity;
     SetIdentityMatrix(identity);
 
     int nTransformCount = 0;
     for (int i = 0; i < g_StudioMdlContext.numbones; i++) {
-        if (g_studiomdl.bonetable[i].flags & BONE_ALWAYS_PROCEDURAL)
+        if (HasFlag(g_studiomdl.bonetable[i].flags, BoneFlags::AlwaysProcedural))
             continue;
         int nParent = g_studiomdl.bonetable[i].parent;
 
@@ -1971,7 +1973,7 @@ static void WriteBoneTransforms(studiohdr2_t *phdr, const mstudiobone_t *pBone) 
     pData += nTransformCount * sizeof(mstudiosrcbonetransform_t);
     int bt = 0;
     for (int i = 0; i < g_StudioMdlContext.numbones; i++) {
-        if (g_studiomdl.bonetable[i].flags & BONE_ALWAYS_PROCEDURAL)
+        if (HasFlag(g_studiomdl.bonetable[i].flags, BoneFlags::AlwaysProcedural))
             continue;
         int nParent = g_studiomdl.bonetable[i].parent;
         if (MatricesAreEqual(identity, g_studiomdl.bonetable[i].srcRealign) &&
@@ -2013,7 +2015,7 @@ static void WriteBoneTransforms(studiohdr2_t *phdr, const mstudiobone_t *pBone) 
         for ( int i = 0; i < g_StudioMdlContext.numbones; i++) \
             dest[i] = pBone[i].srcfield;
 
-        WRITE_BONE_BLOCK(int, flags, pFlags, flagsindex);
+        WRITE_BONE_BLOCK(BoneFlags, flags, pFlags, flagsindex);
         WRITE_BONE_BLOCK(int, parent, pParent, parentindex);
         WRITE_BONE_BLOCK(Vector, pos, pPos, posindex);
         WRITE_BONE_BLOCK(Quaternion, quat, pQuat, quatindex);
@@ -2026,7 +2028,7 @@ static void WriteBoneTransforms(studiohdr2_t *phdr, const mstudiobone_t *pBone) 
 }
 
 static void WriteBodyGroupPresets(studiohdr2_t *pStudioHdr2) {
-    FunctionTimingRecorder _("Write");
+    vstd::FunctionTimingRecorder _("Write");
     ALIGN4(pData);
 
     pStudioHdr2->m_nBodyGroupPresetCount = g_studiomdl.numbodygrouppresets;
@@ -2052,7 +2054,7 @@ static void WriteBodyGroupPresets(studiohdr2_t *pStudioHdr2) {
 // Write the bone flex drivers
 //-----------------------------------------------------------------------------
 static void WriteBoneFlexDrivers(studiohdr2_t *pStudioHdr2) {
-    FunctionTimingRecorder _("Write");
+    vstd::FunctionTimingRecorder _("Write");
     ALIGN4(pData);
 
     pStudioHdr2->m_nBoneFlexDriverCount = 0;
@@ -2110,14 +2112,14 @@ static void WriteBoneFlexDrivers(studiohdr2_t *pStudioHdr2) {
 // Write the processed vertices
 //-----------------------------------------------------------------------------
 static void WriteVertices(studiohdr_t *phdr) {
-    FunctionTimingRecorder _("Write");
+    vstd::FunctionTimingRecorder _("Write");
     uint8_t *pStart;
     uint8_t *pData;
     int i = 0;
     int j = 0;
     int k = 0;
-    int cur = 0;
-    bool bExtraData = (phdr->flags & STUDIOHDR_FLAGS_EXTRA_VERTEX_DATA) != 0;
+    uintptr_t cur = 0;
+    const bool extraData = (phdr->flags & STUDIOHDR_FLAGS_EXTRA_VERTEX_DATA) != 0;
 
     if (!g_studiomdl.nummodelsbeforeLOD)
         return;
@@ -2125,14 +2127,14 @@ static void WriteVertices(studiohdr_t *phdr) {
     const std::string fileName = OutputModelPath(".vvd");
 
     if (!g_StudioMdlContext.quiet) {
-        printf("---------------------\n");
-        printf("writing %s:\n", fileName.c_str());
+        std::print("---------------------\n");
+        std::print("writing {}:\n", fileName);
     }
 
-    pStart = (uint8_t *) kalloc(1, FILEBUFFER);
+    pStart = static_cast<uint8_t *>(kalloc(1, FILEBUFFER));
     pData = pStart;
 
-    vertexFileHeader_t *fileHeader = (vertexFileHeader_t *) pData;
+    auto *fileHeader = reinterpret_cast<vertexFileHeader_t *>(pData);
     pData += sizeof(vertexFileHeader_t);
 
     fileHeader->id = MODEL_VERTEX_FILE_ID;
@@ -2184,7 +2186,7 @@ static void WriteVertices(studiohdr_t *phdr) {
         fileHeader->numLODVertexes[0] += pLodData->numvertices;
 
         if (!g_StudioMdlContext.quiet) {
-            printf("%d vertices \n", pLodData->numvertices);
+            std::print("{} vertices \n", pLodData->numvertices);
         }
     }
 
@@ -2201,7 +2203,7 @@ static void WriteVertices(studiohdr_t *phdr) {
         // save tangent space S
         ALIGN4(pData);
         cur = (uintptr_t) pData;
-        Vector4D *ptangents = (Vector4D *) pData;
+        auto *ptangents = reinterpret_cast<Vector4D *>(pData);
         pData += pLodData->numvertices * sizeof(Vector4D);
         for (j = 0; j < pLodData->numvertices; j++) {
             Vector4DCopy(pLodData->vertex[j].tangentS, ptangents[j]);
@@ -2212,27 +2214,27 @@ static void WriteVertices(studiohdr_t *phdr) {
         }
 
         if (!g_StudioMdlContext.quiet) {
-            printf("%d tangents\n", pLodData->numvertices);
+            std::print("{} tangents\n", pLodData->numvertices);
         }
     }
 
-    if (bExtraData) {
+    if (extraData) {
         ALIGN4(pData);
-        cur = (uintptr_t) pData;
+        cur = reinterpret_cast<uintptr_t>(pData);
 
-        uint8_t *pExtraDataStart = pData;
-        ExtraVertexAttributesHeader_t *pExtraheader = (ExtraVertexAttributesHeader_t *) pData;
+        uint8_t *extraDataStart = pData;
+        auto *pExtraheader = reinterpret_cast<ExtraVertexAttributesHeader_t *>(pData);
         pData += sizeof(ExtraVertexAttributesHeader_t);
         pExtraheader->m_count = sExtraTexcoordsToWrite;
-        ExtraVertexAttributeIndex_t *pIndex = (ExtraVertexAttributeIndex_t *) pData;
+        auto *pIndex = reinterpret_cast<ExtraVertexAttributeIndex_t *>(pData);
         pData += sizeof(ExtraVertexAttributeIndex_t) * sExtraTexcoordsToWrite;
 
         for (int e = 0; e < sExtraTexcoordsToWrite; ++e) {
             ALIGN4(pData);
 
             // Populate Index: type and byteoffset
-            pIndex[e].m_type = (ExtraVertexAttributeType_t) (STUDIO_EXTRA_ATTRIBUTE_TEXCOORD0 + e + 1);
-            pIndex[e].m_offset = (uintptr_t) (pData - pExtraDataStart);
+            pIndex[e].m_type = static_cast<ExtraVertexAttributeType_t>(STUDIO_EXTRA_ATTRIBUTE_TEXCOORD0 + e + 1);
+            pIndex[e].m_offset = static_cast<uintptr_t>(pData - extraDataStart);
             pIndex[e].m_bytes = 2 * sizeof(float);
 
             // store extra vertex data, one entry per vertex, order matches main vertex data
@@ -2245,7 +2247,7 @@ static void WriteVertices(studiohdr_t *phdr) {
 
                 // save extra texcoord
                 cur = (uintptr_t) pData;
-                float *pExtraTexcoord = (float *) pData;
+                auto *pExtraTexcoord = reinterpret_cast<float *>(pData);
                 for (j = 0; j < pLodData->numvertices; j++) {
                     const s_vertexinfo_t &lodVertex = pLodData->vertex[j];
 
@@ -2258,21 +2260,21 @@ static void WriteVertices(studiohdr_t *phdr) {
                 pData = (uint8_t *) pExtraTexcoord;
 
                 if (!g_StudioMdlContext.quiet) {
-                    printf("extra vertex data   %7llu bytes (%d vertices)\n", (uintptr_t) (pData - cur),
+                    std::print("extra vertex data   {:7} bytes ({} vertices)\n", (uintptr_t) (pData - cur),
                            pLodData->numvertices);
                 }
             }
         }
-        pExtraheader->m_totalbytes = (uintptr_t) (pData - pExtraDataStart);
+        pExtraheader->m_totalbytes = (uintptr_t) (pData - extraDataStart);
     }
 
     if (!g_StudioMdlContext.quiet) {
-        printf("total      %7lld bytes\n", pData - pStart);
+        std::print("total      {:7} bytes\n", pData - pStart);
     }
 
     // fileHeader->length = pData - pStart;
     {
-        SaveFile(fileName.c_str(), pStart, pData - pStart);
+        SaveOutputFile(fileName, pStart, pData - pStart);
     }
 }
 
@@ -2291,7 +2293,7 @@ float ComputeVertAnimFixedPointScale(studiohdr_t *pStudioHdr) {
         if (g_studiomdl.flexkeys[j].numvanims <= 0)
             continue;
 
-        const bool bWrinkleVAnim = (g_studiomdl.flexkeys[j].vanimtype == STUDIO_VERT_ANIM_WRINKLE);
+        const bool bWrinkleVAnim = (g_studiomdl.flexkeys[j].vanimtype == Wrinkle);
 
         s_vertanim_t *pVertAnim = g_studiomdl.flexkeys[j].vanim;
 
@@ -2335,7 +2337,7 @@ float ComputeVertAnimFixedPointScale(studiohdr_t *pStudioHdr) {
 
     if (flVertAnimRange > 0.0f) {
         if (flVertAnimRange > 32767) {
-            MdlWarning("Flex value too large: %.2f, Max: 32767\n", flVertAnimRange);
+            MdlWarning("Flex value too large: {:.2f}, Max: 32767\n", flVertAnimRange);
 
             flVertAnimFixedPointScale = 1.0f;
         }
@@ -2357,7 +2359,7 @@ float ComputeVertAnimFixedPointScale(studiohdr_t *pStudioHdr) {
 
 
 static void WriteModel(studiohdr_t *phdr) {
-    FunctionTimingRecorder _("Write");
+    vstd::FunctionTimingRecorder _("Write");
     int i, j, k, m;
     mstudiobodyparts_t *pbodypart;
     mstudiomodel_t *pmodel;
@@ -2495,8 +2497,8 @@ static void WriteModel(studiohdr_t *phdr) {
                 }
 
                 pFlexControllerUI->remaptype = remap.m_RemapType;
-                if (pFlexControllerUI->remaptype == FLEXCONTROLLER_REMAP_NWAY ||
-                    pFlexControllerUI->remaptype == FLEXCONTROLLER_REMAP_EYELID) {
+                if (pFlexControllerUI->remaptype == Nway ||
+                    pFlexControllerUI->remaptype == Eyelid) {
                     Assert(remap.m_MultiIndex != -1);
                     Assert(!pControllerHandled[remap.m_MultiIndex]);
                     pFlexControllerUI->szindex2 = (
@@ -2514,7 +2516,7 @@ static void WriteModel(studiohdr_t *phdr) {
         }
 
         if (!found) {
-            pFlexControllerUI->remaptype = FLEXCONTROLLER_REMAP_PASSTHRU;
+            pFlexControllerUI->remaptype = Passthru;
             pFlexControllerUI->szindex2 = 0; // Unused in this case
 
             if (j < g_studiomdl.flexcontrollers.size() - 1 &&
@@ -2648,7 +2650,7 @@ static void WriteModel(studiohdr_t *phdr) {
     }
 
     if (!g_StudioMdlContext.quiet) {
-        printf("ik/pose    %7llu bytes\n", (uintptr_t) (pData - pStart));
+        std::print("ik/pose    {:7} bytes\n", (uintptr_t) (pData - pStart));
     }
     cur = (uintptr_t) pData;
 
@@ -2705,18 +2707,18 @@ static void WriteModel(studiohdr_t *phdr) {
         if (pmodel[i].numvertices >= MAXSTUDIOVERTS) {
             // We have to check this here so that we don't screw up decal
             // vert caching in the runtime.
-            MdlError("Too many verts in model. (%d verts, MAXSTUDIOVERTS==%d)\n",
+            MdlError("Too many verts in model. ({} verts, MAXSTUDIOVERTS=={})\n",
                      pmodel[i].numvertices, (int) MAXSTUDIOVERTS);
         }
 
         mstudiomesh_t *pmesh = (mstudiomesh_t *) pData;
         pmodel[i].meshindex = (pData - pModelStart);
-        pData += psource->nummeshes * sizeof(mstudiomesh_t);
+        pData += psource->meshes.size() * sizeof(mstudiomesh_t);
         ALIGN4(pData);
 
-        pmodel[i].nummeshes = psource->nummeshes;
+        pmodel[i].nummeshes = psource->meshes.size();
         for (m = 0; m < pmodel[i].nummeshes; m++) {
-            n = psource->meshindex[m];
+            n = psource->meshes[m].material; // pLodData->mesh is indexed by material id
 
             pmesh[m].material = n;
             pmesh[m].modelindex = (uint8_t *) &pmodel[i] - (uint8_t *) &pmesh[m];
@@ -2769,7 +2771,7 @@ static void WriteModel(studiohdr_t *phdr) {
         }
 
         if (!g_StudioMdlContext.quiet) {
-            printf("eyeballs   %7llu bytes (%d eyeballs)\n", (uintptr_t) (pData - pStart),
+            std::print("eyeballs   {:7} bytes ({} eyeballs)\n", (uintptr_t) (pData - pStart),
                    g_studiomdl.model[i]->eyeballs.size());
         }
 
@@ -2825,7 +2827,7 @@ static void WriteModel(studiohdr_t *phdr) {
 
                     pvanim = g_studiomdl.flexkeys[j].vanim;
 
-                    bool bWrinkleVAnim = (pflex->vertanimtype == STUDIO_VERT_ANIM_WRINKLE);
+                    bool bWrinkleVAnim = (pflex->vertanimtype == Wrinkle);
                     int nVAnimDeltaSize = bWrinkleVAnim ? sizeof(mstudiovertanim_wrinkle_t) : sizeof(mstudiovertanim_t);
 
                     pvertanim = (mstudiovertanim_t *) pData;
@@ -2869,7 +2871,7 @@ static void WriteModel(studiohdr_t *phdr) {
         }
 
         if (!g_StudioMdlContext.quiet) {
-            printf("flexes     %7llu bytes (%d flexes)\n", (uintptr_t) (pData - pStart), g_studiomdl.flexkeys.size());
+            std::print("flexes     {:7} bytes ({} flexes)\n", (uintptr_t) (pData - pStart), g_studiomdl.flexkeys.size());
         }
         cur = (uintptr_t) pData;
     }
@@ -2903,7 +2905,7 @@ static void WriteModel(studiohdr_t *phdr) {
 }
 
 static void AssignMeshIDs(studiohdr_t *pStudioHdr) {
-    FunctionTimingRecorder _("Write");
+    vstd::FunctionTimingRecorder _("Write");
     int i;
     int j;
     int m;
@@ -2979,7 +2981,7 @@ void LoadMaterials(studiohdr_t *phdr) {
 
 
 void WriteKeyValues(studiohdr_t *phdr, std::string &pKeyValue) {
-    FunctionTimingRecorder _("Write");
+    vstd::FunctionTimingRecorder _("Write");
     phdr->keyvalueindex = (pData - pStart);
     phdr->keyvaluesize = KeyValueTextSize(pKeyValue);
     if (phdr->keyvaluesize) {
@@ -3040,9 +3042,8 @@ void EnsureFileDirectoryExists(const std::string &fileName) {
 }
 
 void WriteModelFiles() {
-    FunctionTimingRecorder _("Write");
-    FileHandle_t modelouthandle = nullptr;
-    FileHandle_t blockouthandle = nullptr;
+    vstd::FunctionTimingRecorder _("Write");
+    std::string blockFileName; // .ani
     int total = 0;
     int i;
     std::string filename;
@@ -3060,7 +3061,7 @@ void WriteModelFiles() {
         // write the non-default g_studiomdl.sequence group data to separate files
         sprintf(g_studiomdl.animblockname, "models/%s.ani", g_studiomdl.outname.c_str());
 
-        filename = g_StudioMdlContext.gameDir + g_studiomdl.animblockname.c_str();
+        blockFileName = g_StudioMdlContext.gameDir + g_studiomdl.animblockname.c_str();
 
         if (*g_studiomdl.szInternalName) {
             Q_StripExtension(g_studiomdl.szInternalName, g_studiomdl.szInternalName,
@@ -3068,11 +3069,7 @@ void WriteModelFiles() {
             sprintf(g_studiomdl.animblockname, "models/%s.ani", g_studiomdl.szInternalName.c_str());
         }
 
-        EnsureFileDirectoryExists(filename);
-
-        if (!g_StudioMdlContext.verifyOnly) {
-            blockouthandle = SafeOpenWrite(filename.c_str());
-        }
+        EnsureFileDirectoryExists(blockFileName);
 
         pBlockStart = (uint8_t *) kalloc(1, FILEBUFFER);
         pBlockData = pBlockStart;
@@ -3102,8 +3099,8 @@ void WriteModelFiles() {
 
 
     if (!g_StudioMdlContext.quiet) {
-        printf("---------------------\n");
-        printf("writing %s:\n", filename.c_str());
+        std::print("---------------------\n");
+        std::print("writing {}:\n", filename);
     }
 
     LoadPreexistingSequenceOrder(filename.c_str());
@@ -3112,12 +3109,9 @@ void WriteModelFiles() {
     if (g_StudioMdlContext.parseable_completion_output) {
         char szRelativePath[260];
         V_MakeRelativePath(filename.c_str(), getenv("VGAME"), szRelativePath, sizeof(szRelativePath));
-        printf("\nOUTPUT MODEL: %s\n", szRelativePath);
+        std::print("\nOUTPUT MODEL: {}\n", szRelativePath);
     }
 
-    if (!g_StudioMdlContext.verifyOnly) {
-        modelouthandle = SafeOpenWrite(filename.c_str());
-    }
 
     phdr->eyeposition = g_studiomdl.eyeposition;
     phdr->illumposition = g_studiomdl.illumposition;
@@ -3172,13 +3166,13 @@ void WriteModelFiles() {
 
     WriteBoneInfo(phdr);
     if (!g_StudioMdlContext.quiet) {
-        printf("bones      %7lld bytes (%d)\n", pData - pStart - total, g_StudioMdlContext.numbones);
+        std::print("bones      {:7} bytes ({})\n", pData - pStart - total, g_StudioMdlContext.numbones);
     }
     total = pData - pStart;
 
     pData = WriteAnimations(pData, pStart, phdr);
     if (!g_StudioMdlContext.quiet) {
-        printf("animations %7lld bytes (%lld anims) (%d frames) [%d:%02d]\n", pData - pStart - total,
+        std::print("animations {:7} bytes ({} anims) ({} frames) [{}:{:02}]\n", pData - pStart - total,
                g_studiomdl.animations.size(),
                totalframes,
                (int) totalseconds / 60, (int) totalseconds % 60);
@@ -3187,7 +3181,7 @@ void WriteModelFiles() {
 
     WriteSequenceInfo(phdr);
     if (!g_StudioMdlContext.quiet) {
-        printf("sequences  %7lld bytes (%d seq) \n", pData - pStart - total, g_studiomdl.sequence.Count());
+        std::print("sequences  {:7} bytes ({} seq) \n", pData - pStart - total, g_studiomdl.sequence.Count());
     }
     total = pData - pStart;
 
@@ -3196,14 +3190,14 @@ void WriteModelFiles() {
     //    Msg("hdr@%p=%p\n", &phdr, phdr);
 
     if (!g_StudioMdlContext.quiet) {
-        printf("models     %7lld bytes\n", pData - pStart - total);
+        std::print("models     {:7} bytes\n", pData - pStart - total);
     }
 
     total = pData - pStart;
 
     WriteTextures(phdr);
     if (!g_StudioMdlContext.quiet) {
-        printf("textures   %7lld bytes\n", pData - pStart - total);
+        std::print("textures   {:7} bytes\n", pData - pStart - total);
     }
     total = pData - pStart;
 
@@ -3213,7 +3207,7 @@ void WriteModelFiles() {
 
     WriteKeyValues(phdr, g_StudioMdlContext.KeyValueText);
     if (!g_StudioMdlContext.quiet) {
-        printf("keyvalues  %7lld bytes\n", pData - pStart - total);
+        std::print("keyvalues  {:7} bytes\n", pData - pStart - total);
     }
     total = pData - pStart;
 
@@ -3221,19 +3215,19 @@ void WriteModelFiles() {
     WriteBoneTransforms(phdr2, phdr->pBone(0));
     //    Msg("hdr@%p=%p\n", &phdr, phdr);
     if (!g_StudioMdlContext.quiet) {
-        printf("bone transforms  %7lld bytes\n", pData - pStart - total);
+        std::print("bone transforms  {:7} bytes\n", pData - pStart - total);
     }
     total = pData - pStart;
 
     WriteBoneFlexDrivers(phdr2);
     if (!g_StudioMdlContext.quiet) {
-        printf("bone flex driver %7lld bytes\n", pData - pStart - total);
+        std::print("bone flex driver {:7} bytes\n", pData - pStart - total);
     }
     total = pData - pStart;
 
     WriteBodyGroupPresets(phdr2);
     if (!g_StudioMdlContext.quiet) {
-        printf("bodygroup presets %7lld bytes\n", pData - pStart - total);
+        std::print("bodygroup presets {:7} bytes\n", pData - pStart - total);
     }
     total = pData - pStart;
 
@@ -3258,7 +3252,7 @@ void WriteModelFiles() {
 
 
     if (!g_StudioMdlContext.quiet) {
-        printf("collision  %7lld bytes\n", pData - pStart - total);
+        std::print("collision  {:7} bytes\n", pData - pStart - total);
     }
 
     AssignMeshIDs(phdr);
@@ -3268,29 +3262,25 @@ void WriteModelFiles() {
 
     phdr->length = pData - pStart;
     if (!g_StudioMdlContext.quiet) {
-        printf("total      %7d\n", phdr->length);
+        std::print("total      {:7}\n", phdr->length);
     }
 
     // Load materials for this model via the material system so that the
     // optimizer can ask questions about the materials.
     LoadMaterials(phdr);
 
-    SafeWrite(modelouthandle, pStart, phdr->length);
-
-    g_pFileSystem->Close(modelouthandle);
+    SaveOutputFile(filename, pStart, phdr->length);
 
     if (pBlockStart) {
         pblockhdr->length = pBlockData - pBlockStart;
 
-        SafeWrite(blockouthandle, pBlockStart, pblockhdr->length);
-        g_pFileSystem->Close(blockouthandle);
-
+        SaveOutputFile(blockFileName, pBlockStart, pblockhdr->length);
 
         if (!g_StudioMdlContext.quiet) {
-            printf("---------------------\n");
-            printf("writing %s:\n", g_studiomdl.animblockname.c_str());
-            printf("blocks	   %7d\n", g_studiomdl.animblocks.size());
-            printf("total      %7d\n", pblockhdr->length);
+            std::print("---------------------\n");
+            std::print("writing {}:\n", g_studiomdl.animblockname);
+            std::print("blocks	   {:7}\n", g_studiomdl.animblocks.size());
+            std::print("total      {:7}\n", pblockhdr->length);
         }
     }
 
@@ -3331,11 +3321,11 @@ void WriteModelFiles() {
         // re-open files, sort vertexes, perform fixups, and rewrite
         // purposely isolated as a post process for stability
         if (!FixupToSortedLODVertexes(phdr)) {
-            MdlError("Aborted vertex sort fixup on '%s':\n", filename.c_str());
+            MdlError("Aborted vertex sort fixup on '{}':\n", filename);
         }
 
         if (!Clamp_RootLOD(phdr)) {
-            MdlError("Aborted root lod shift '%s':\n", filename.c_str());
+            MdlError("Aborted root lod shift '{}':\n", filename);
         }
     }
 
@@ -3349,6 +3339,9 @@ void WriteModelFiles() {
     if (spewFlags) {
         SpewPerfStats(phdr, filename.c_str(), spewFlags);
     }
+
+    // everything above read back and rewrote the outputs in memory; this is the only write to disk
+    CommitOutputFiles();
 }
 
 const vertexFileHeader_t *mstudiomodel_t::CacheVertexData(void *pModelData) {
@@ -3363,16 +3356,16 @@ const vertexFileHeader_t *mstudiomodel_t::CacheVertexData(void *pModelData) {
 
     // load and persist the vertex file
     const std::string filename = OutputModelPath(".vvd");
-    LoadFile(filename.c_str(), (void **) &pVertexHdr);
+    LoadOutputFile(filename, (void **) &pVertexHdr);
 
     // check id
     if (pVertexHdr->id != MODEL_VERTEX_FILE_ID) {
-        MdlError("Error Vertex File: '%s' (id %d should be %d)\n", filename.c_str(), pVertexHdr->id, MODEL_VERTEX_FILE_ID);
+        MdlError("Error Vertex File: '{}' (id {} should be {})\n", filename, pVertexHdr->id, MODEL_VERTEX_FILE_ID);
     }
 
     // check version
     if (pVertexHdr->version != MODEL_VERTEX_FILE_VERSION) {
-        MdlError("Error Vertex File: '%s' (version %d should be %d)\n", filename.c_str(), pVertexHdr->version,
+        MdlError("Error Vertex File: '{}' (version {} should be {})\n", filename, pVertexHdr->version,
                  MODEL_VERTEX_FILE_VERSION);
     }
 
@@ -3783,7 +3776,7 @@ bool BuildSortedVertexList(const studiohdr_t *pStudioHdr, const void *pVtxBuff, 
 bool FixupVVDFile(const char *fileName, const studiohdr_t *pStudioHdr, const void *pVtxBuff,
                   const vertexPool_t *pVertexPools, int numVertexPools, const usedVertex_t *pVertexList,
                   int numVertexes) {
-    FunctionTimingRecorder _("Write");
+    vstd::FunctionTimingRecorder _("Write");
     OptimizedModel::FileHeader_t *pVtxHdr;
     vertexFileHeader_t *pFileHdr_old;
     vertexFileHeader_t *pFileHdr_new;
@@ -3829,7 +3822,7 @@ bool FixupVVDFile(const char *fileName, const studiohdr_t *pStudioHdr, const voi
 
     pVtxHdr = (OptimizedModel::FileHeader_t *) pVtxBuff;
 
-    LoadFile((char *) fileName, &pVvdBuff);
+    LoadOutputFile(fileName, &pVvdBuff);
 
     pFileHdr_old = (vertexFileHeader_t *) pVvdBuff;
     if (pFileHdr_old->numLODs != 1) {
@@ -4032,7 +4025,7 @@ bool FixupVVDFile(const char *fileName, const studiohdr_t *pStudioHdr, const voi
 
     // pFileHdr_new->length =  pData_new-pStart_new;
     {
-        SaveFile((char *) fileName, pStart_new, pData_new - pStart_new);
+        SaveOutputFile(fileName, pStart_new, pData_new - pStart_new);
     }
 
     free(pStart_base);
@@ -4051,7 +4044,7 @@ bool FixupVVDFile(const char *fileName, const studiohdr_t *pStudioHdr, const voi
 bool
 FixupVTXFile(const char *fileName, const studiohdr_t *pStudioHdr, const vertexPool_t *pVertexPools, int numVertexPools,
              const usedVertex_t *pVertexList, int numVertexes) {
-    FunctionTimingRecorder _("Write");
+    vstd::FunctionTimingRecorder _("Write");
     OptimizedModel::FileHeader_t *pVtxHdr;
     OptimizedModel::BodyPartHeader_t *pBodyPartHdr;
     OptimizedModel::ModelHeader_t *pModelHdr;
@@ -4069,7 +4062,7 @@ FixupVTXFile(const char *fileName, const studiohdr_t *pStudioHdr, const vertexPo
     int newMeshVertID;
     void *pVtxBuff;
 
-    VtxLen = LoadFile((char *) fileName, &pVtxBuff);
+    VtxLen = LoadOutputFile(fileName, &pVtxBuff);
     pVtxHdr = (OptimizedModel::FileHeader_t *) pVtxBuff;
 
     // iterate all lod's windings
@@ -4121,7 +4114,7 @@ FixupVTXFile(const char *fileName, const studiohdr_t *pStudioHdr, const vertexPo
 
     // pVtxHdr->length = VtxLen;
     {
-        SaveFile((char *) fileName, pVtxBuff, VtxLen);
+        SaveOutputFile(fileName, pVtxBuff, VtxLen);
     }
 
     free(pVtxBuff);
@@ -4241,7 +4234,7 @@ bool FixupMDLFile(const char *fileName, studiohdr_t *pStudioHdr, const void *pVt
     // Clear vertex data
 
     {
-        SaveFile((char *) fileName, (void *) pStudioHdr, pStudioHdr->length);
+        SaveOutputFile(fileName, pStudioHdr, pStudioHdr->length);
     }
 
     // success
@@ -4255,7 +4248,7 @@ bool FixupMDLFile(const char *fileName, studiohdr_t *pStudioHdr, const void *pVt
 // VTX files get their windings remapped to the sort.
 //-----------------------------------------------------------------------------
 bool FixupToSortedLODVertexes(studiohdr_t *pStudioHdr) {
-    FunctionTimingRecorder _("Write");
+    vstd::FunctionTimingRecorder _("Write");
     void *pVtxBuff;
     usedVertex_t *pVertexList;
     vertexPool_t *pVertexPools;
@@ -4271,7 +4264,7 @@ bool FixupToSortedLODVertexes(studiohdr_t *pStudioHdr) {
     // determine lod usage per vertex
     // all vtx files enumerate model's lod verts, but differ in their mesh makeup
     // use xxx.dx90.vtx to establish which vertexes are used by each lod
-    VtxLen = LoadFile(OutputModelPath(vtxPrefixes[idxPrefixLodUsage]).c_str(), &pVtxBuff);
+    VtxLen = LoadOutputFile(OutputModelPath(vtxPrefixes[idxPrefixLodUsage]).c_str(), &pVtxBuff);
 
     // build the sorted vertex tables
     if (!BuildSortedVertexList(pStudioHdr, pVtxBuff, &pVertexPools, &numVertexPools, &pVertexList, &numVertexes)) {
@@ -4317,14 +4310,14 @@ bool FixupToSortedLODVertexes(studiohdr_t *pStudioHdr) {
 
 uint8_t IsByte(int val) {
     if (val < 0 || val > 0xFF) {
-        MdlError("byte conversion out of range %d\n", val);
+        MdlError("byte conversion out of range {}\n", val);
     }
     return val;
 }
 
 char IsChar(int val) {
     if (val < -0x80 || val > 0x7F) {
-        MdlError("char conversion out of range %d\n", val);
+        MdlError("char conversion out of range {}\n", val);
     }
     return val;
 }
@@ -4332,7 +4325,7 @@ char IsChar(int val) {
 int IsInt24(int val) {
 #ifdef PEDANTIC_STUDIOMDL
     if (val < -0x800000 || val > 0x7FFFFF) {
-        MdlError("int24 conversion out of range %d\n", val);
+        MdlError("int24 conversion out of range {}\n", val);
     }
 #endif
     return val;
@@ -4341,14 +4334,14 @@ int IsInt24(int val) {
 
 short IsShort(int val) {
     if (val < -0x8000 || val > 0x7FFF) {
-        MdlError("short conversion out of range %d\n", val);
+        MdlError("short conversion out of range {}\n", val);
     }
     return val;
 }
 
 unsigned short IsUShort(int val) {
     if (val < 0 || val > 0xFFFF) {
-        MdlError("ushort conversion out of range %d\n", val);
+        MdlError("ushort conversion out of range {}\n", val);
     }
     return val;
 }
@@ -4358,7 +4351,7 @@ bool Clamp_MDL_LODS(const char *fileName, int rootLOD) {
     studiohdr_t *pStudioHdr;
     int len;
 
-    len = LoadFile((char *) fileName, (void **) &pStudioHdr);
+    len = LoadOutputFile(fileName, (void **) &pStudioHdr);
 
     Studio_SetRootLOD(pStudioHdr, rootLOD);
 
@@ -4370,9 +4363,9 @@ bool Clamp_MDL_LODS(const char *fileName, int rootLOD) {
 
         int nLodID;
         for (nLodID = 0; nLodID < rootLOD; nLodID++) {
-            int iLodMask = BONE_USED_BY_VERTEX_LOD0 << nLodID;
+            BoneFlags iLodMask = BoneUsedByVertexAtLod(nLodID);
 
-            if (pBone->flags & (BONE_USED_BY_VERTEX_LOD0 << rootLOD)) {
+            if (HasFlag(pBone->flags, BoneUsedByVertexAtLod(rootLOD))) {
                 pBone->flags = pBone->flags | iLodMask;
             }
             else {
@@ -4383,7 +4376,7 @@ bool Clamp_MDL_LODS(const char *fileName, int rootLOD) {
 #endif
 
     {
-        SaveFile((char *) fileName, pStudioHdr, len);
+        SaveOutputFile(fileName, pStudioHdr, len);
     }
 
     return true;
@@ -4394,7 +4387,7 @@ bool Clamp_VVD_LODS(const char *fileName, int rootLOD, bool bExtraData) {
     vertexFileHeader_t *pTempVvdHdr;
     int len;
 
-    len = LoadFile((char *) fileName, (void **) &pTempVvdHdr);
+    len = LoadOutputFile(fileName, (void **) &pTempVvdHdr);
 
     int newLength = Studio_VertexDataSize(pTempVvdHdr, rootLOD, true, bExtraData);
 
@@ -4405,15 +4398,15 @@ bool Clamp_VVD_LODS(const char *fileName, int rootLOD, bool bExtraData) {
     Studio_LoadVertexes(pTempVvdHdr, pNewVvdHdr, rootLOD, true, bExtraData);
 
     if (!g_StudioMdlContext.quiet) {
-        printf("---------------------\n");
-        printf("writing %s:\n", fileName);
-        printf("vertices   (%d vertices)\n", pNewVvdHdr->numLODVertexes[0]);
+        std::print("---------------------\n");
+        std::print("writing {}:\n", fileName);
+        std::print("vertices   ({} vertices)\n", pNewVvdHdr->numLODVertexes[0]);
     }
 
     // pNewVvdHdr->length = newLength;
 
     {
-        SaveFile((char *) fileName, pNewVvdHdr, newLength);
+        SaveOutputFile(fileName, pNewVvdHdr, newLength);
     }
 
     return true;
@@ -4428,7 +4421,7 @@ bool Clamp_VTX_LODS(const char *fileName, int rootLOD, studiohdr_t *pStudioHdr) 
     OptimizedModel::FileHeader_t *pVtxHdr;
     int len;
 
-    len = LoadFile((char *) fileName, (void **) &pVtxHdr);
+    len = LoadOutputFile(fileName, (void **) &pVtxHdr);
 
     OptimizedModel::FileHeader_t *pNewVtxHdr = (OptimizedModel::FileHeader_t *) calloc(FILEBUFFER, 1);
 
@@ -4630,12 +4623,12 @@ bool Clamp_VTX_LODS(const char *fileName, int rootLOD, studiohdr_t *pStudioHdr) 
     // pNewVtxHdr->length = newLen;
 
     if (!g_StudioMdlContext.quiet) {
-        printf("writing %s:\n", fileName);
-        printf("everything (%d bytes)\n", newLen);
+        std::print("writing {}:\n", fileName);
+        std::print("everything ({} bytes)\n", newLen);
     }
 
     {
-        SaveFile((char *) fileName, pNewVtxHdr, newLen);
+        SaveOutputFile(fileName, pNewVtxHdr, newLen);
     }
 
     free(pNewVtxHdr);
@@ -4645,7 +4638,7 @@ bool Clamp_VTX_LODS(const char *fileName, int rootLOD, studiohdr_t *pStudioHdr) 
 
 
 bool Clamp_RootLOD(studiohdr_t *phdr) {
-    FunctionTimingRecorder _("Write");
+    vstd::FunctionTimingRecorder _("Write");
     int i;
 
     const char *vtxPrefixes[] = {".dx90.vtx", ".dx80.vtx", ".sw.vtx"};

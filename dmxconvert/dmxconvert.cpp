@@ -68,13 +68,13 @@ int CDmxConvertApp::Main()
 	// This bit of hackery allows us to access files on the harddrive
 	g_pFullFileSystem->AddSearchPath( "", "LOCAL", PATH_ADD_TO_HEAD ); 
 
-	const char *pInFileName = CommandLine()->ParmValue("-i" );
-	const char *pOutFileName = CommandLine()->ParmValue("-o" );
-	const char *pInFormat = CommandLine()->ParmValue("-if" );
-	const char *pOutFormat = CommandLine()->ParmValue("-of" );
-	const char *pOutEncoding = CommandLine()->ParmValue("-oe" );
+	const std::string_view pInFileName = CommandLine()->ParmValue("-i" );
+	const std::string_view pOutFileName = CommandLine()->ParmValue("-o" );
+	const std::string_view pInFormat = CommandLine()->ParmValue("-if" );
+	const std::string_view pOutFormat = CommandLine()->ParmValue("-of" );
+	const std::string_view pOutEncoding = CommandLine()->ParmValue("-oe" );
 
-	if ( !pInFileName )
+	if ( !pInFileName.empty() )
 	{
 		Msg( "Usage: dmxconvert -i <in file> [-if <in format_hint>] [-o <out file>] [-oe <out encoding>] [-of <out format>]\n" );
 		Msg( "If no output file is specified, dmx to dmx conversion will overwrite the input\n" );

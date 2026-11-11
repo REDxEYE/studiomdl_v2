@@ -6,6 +6,7 @@
 
 // These are redefined in the project settings to prevent anyone from using them.
 // We in this module are of a higher caste and thus are privileged in their use.
+#include "tier1_v2/string_utils.hpp"
 #ifdef strncpy
 	#undef strncpy
 #endif
@@ -445,15 +446,13 @@ int V_strnicmp (const char *s1, const char *s2, int n)
 }
 
 
-const char *StringAfterPrefix( const char *str, const char *prefix )
+std::optional<std::string_view> string_after_prefix(const std::string_view str, const std::string_view prefix)
 {
-	do
-	{
-		if ( !*prefix )
-			return str;
-	}
-	while ( tolower( *str++ ) == tolower( *prefix++ ) );
-	return nullptr;
+    auto prefix_offset = vstd::ifind(str, prefix);
+    if (prefix_offset == std::string_view::npos) {
+        return std::nullopt;
+    }
+	return str.substr(prefix_offset + prefix.size());
 }
 
 const char *StringAfterPrefixCaseSensitive( const char *str, const char *prefix )
@@ -3019,58 +3018,6 @@ void V_StringToColor32( color32 *color, const char *pString )
 }
 
 
-
-// 3d memory copy
-void CopyMemory3D( void *pDest, void const *pSrc,		
-				   int nNumCols, int nNumRows, int nNumSlices, // dimensions of copy
-				   int nSrcBytesPerRow, int nSrcBytesPerSlice, // strides for source.
-				   int nDestBytesPerRow, int nDestBytesPerSlice // strides for dest
-	)
-{
-	if ( nNumSlices && nNumRows && nNumCols )
-	{
-		uint8_t *pDestAdr = reinterpret_cast<uint8_t *>( pDest );
-		uint8_t const *pSrcAdr = reinterpret_cast<uint8_t const *>( pSrc );
-		// first check for optimized cases
-		if ( ( nNumCols == nSrcBytesPerRow ) && ( nNumCols == nDestBytesPerRow ) ) // no row-to-row stride?
-		{
-			int n2DSize = nNumCols * nNumRows;
-			if ( nSrcBytesPerSlice == nDestBytesPerSlice  ) // can we do one memcpy?
-			{
-				memcpy( pDestAdr, pSrcAdr, n2DSize * nNumSlices );
-			}
-			else
-			{
-				// there might be some slice-to-slice stride
-				do
-				{
-					memcpy( pDestAdr, pSrcAdr, n2DSize );
-					pDestAdr += nDestBytesPerSlice;
-					pSrcAdr += nSrcBytesPerSlice;
-				} while( nNumSlices-- );
-			}
-		}
-		else
-		{
-			// there is row-by-row stride - we have to do the full nested loop
-			do
-			{
-				int nRowCtr = nNumRows;
-				uint8_t const *pSrcRow = pSrcAdr;
-				uint8_t *pDestRow = pDestAdr;
-				do
-				{
-					memcpy( pDestRow, pSrcRow, nNumCols );
-					pDestRow += nDestBytesPerRow;
-					pSrcRow += nSrcBytesPerRow;
-				} while( --nRowCtr );
-				pSrcAdr += nSrcBytesPerSlice;
-				pDestAdr += nDestBytesPerSlice;
-			} while( --nNumSlices );
-		}
-	}
-}
-
 void V_TranslateLineFeedsToUnix( char *pStr )
 {
 	char *pIn = pStr;
@@ -4647,117 +4594,6 @@ bool V_IsValidURLCharacter( const char *pch, int *pAdvanceBytes )
 
 }
 
-
-//-----------------------------------------------------------------------------
-// Purpose: helper function to get a domain from a url
-//			Checks both standard url and steam://openurl/<url>
-//-----------------------------------------------------------------------------
-bool V_ExtractDomainFromURL( const char *pchURL, char *pchDomain, int cchDomain )
-{
-	pchDomain[ 0 ] = 0;
-
-	static const char *k_pchSteamOpenUrl = "steam://openurl/";
-	static const char *k_pchSteamOpenUrlExt = "steam://openurl_external/";
-
-	const char *pchOpenUrlSuffix = StringAfterPrefix( pchURL, k_pchSteamOpenUrl );
-	if ( pchOpenUrlSuffix == nullptr)
-		pchOpenUrlSuffix = StringAfterPrefix( pchURL, k_pchSteamOpenUrlExt );
-
-	if ( pchOpenUrlSuffix )
-		pchURL = pchOpenUrlSuffix;
-
-	if ( !pchURL || pchURL[ 0 ] == '\0' )
-		return false;
-
-	const char *pchDoubleSlash = strstr( pchURL, "//" );
-
-	// Put the domain and everything after into pchDomain.
-	// We'll find where to terminate it later.
-	if ( pchDoubleSlash )
-	{
-		// Skip the slashes
-		pchDoubleSlash += 2;
-
-		// If that's all there was, then there's no domain here. Bail.
-		if ( *pchDoubleSlash == '\0' )
-		{
-			return false;
-		}
-
-		// Skip any extra slashes
-		// ex: http:///steamcommunity.com/
-		while ( *pchDoubleSlash == '/' )
-		{
-			pchDoubleSlash++;
-		}
-
-		Q_strncpy( pchDomain, pchDoubleSlash, cchDomain );
-	}
-	else
-	{
-		// No double slash, so pchURL has no protocol.
-		Q_strncpy( pchDomain, pchURL, cchDomain );
-	}
-
-	// First character has to be valid
-	if ( *pchDomain == '?' || *pchDomain == '\0' )
-	{
-		return false;
-	}
-
-	// terminate the domain after the first non domain char
-	int iAdvance = 0;
-	int iStrLen = 0;
-	char cLast = 0;
-	while ( pchDomain[ iStrLen ] )
-	{
-		if ( !V_IsValidDomainNameCharacter( pchDomain + iStrLen, &iAdvance ) || ( pchDomain[ iStrLen ] == '.' && cLast == '.' ) )
-		{
-			pchDomain[ iStrLen ] = 0;
-			break;
-		}
-
-		cLast = pchDomain[ iStrLen ];
-		iStrLen += iAdvance;
-	}
-
-	return ( pchDomain[ 0 ] != 0 );
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose: helper function to get a domain from a url
-//-----------------------------------------------------------------------------
-bool V_URLContainsDomain( const char *pchURL, const char *pchDomain )
-{
-	char rgchExtractedDomain[ 2048 ];
-	if ( V_ExtractDomainFromURL( pchURL, rgchExtractedDomain, sizeof( rgchExtractedDomain ) ) )
-	{
-		// see if the last part of the domain matches what we extracted
-		int cchExtractedDomain = V_strlen( rgchExtractedDomain );
-		if ( pchDomain[ 0 ] == '.' )
-		{
-			++pchDomain;		// If the domain has a leading '.', skip it. The test below assumes there is none.
-		}
-		int cchDomain = V_strlen( pchDomain );
-
-		if ( cchDomain > cchExtractedDomain )
-		{
-			return false;
-		}
-		else if ( cchExtractedDomain >= cchDomain )
-		{
-			// If the actual domain is longer than what we're searching for, the character previous
-			// to the domain we're searching for must be a period
-			if ( cchExtractedDomain > cchDomain && rgchExtractedDomain[ cchExtractedDomain - cchDomain - 1 ] != '.' )
-				return false;
-
-			if ( 0 == V_stricmp( rgchExtractedDomain + cchExtractedDomain - cchDomain, pchDomain ) )
-				return true;
-		}
-	}
-	return false;
-}
 
 //-----------------------------------------------------------------------------
 // Purpose: Strips all HTML tags not specified in rgszPreserveTags

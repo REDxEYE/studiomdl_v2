@@ -10,10 +10,10 @@
 #pragma warning( disable : 4748 )        // buffer overrun with optimizations off
 // This file has tons of problems with global optimizations. . turn 'em off.
 // NOTE: Would be nice to have a test case for this! - not verified in vs2005
-#pragma optimize( "g", off )
+// #pragma optimize( "g", off )
 
 // use this much memory to build an output file in memory.
-#define FILEBUFFER_SIZE ( 4 * 1024 * 1024 )
+#define FILEBUFFER_SIZE ( 8 * 1024 * 1024 )
 
 //#define IGNORE_BONES
 
@@ -42,6 +42,7 @@
 #define  SUBD_STUDIOMDL
 
 #include "studiomdl/optimize_subd.h"
+#include "tier1_v2/function_timing.hpp"
 #include "studiomdl/studiomdl_global_state.hpp"
 #include "tier1/utlhash.h"
 
@@ -54,7 +55,6 @@ bool g_bDumpGLViewFiles;
 extern int FindMaterialByName(const char *pMaterialName);
 
 namespace OptimizedModel {
-
     //-----------------------------------------------------------------------------
     // Defines which debugging output file we will see
     //-----------------------------------------------------------------------------
@@ -77,17 +77,17 @@ namespace OptimizedModel {
     // and also to display stats
     //-----------------------------------------------------------------------------
     struct TotalMeshStats_t {
-        int m_TotalBodyParts;
-        int m_TotalModels;
-        int m_TotalModelLODs;
-        int m_TotalMeshes;
-        int m_TotalStrips;
-        int m_TotalStripGroups;
-        int m_TotalVerts;
-        int m_TotalIndices;
-        int m_TotalTopologyIndices;
-        int m_TotalBoneStateChanges;
-        int m_TotalMaterialReplacements;
+        int32_t m_TotalBodyParts;
+        int32_t m_TotalModels;
+        int32_t m_TotalModelLODs;
+        int32_t m_TotalMeshes;
+        int32_t m_TotalStrips;
+        int32_t m_TotalStripGroups;
+        int32_t m_TotalVerts;
+        int32_t m_TotalIndices;
+        int32_t m_TotalTopologyIndices;
+        int32_t m_TotalBoneStateChanges;
+        int32_t m_TotalMaterialReplacements;
     };
 
     struct Face_t {
@@ -100,10 +100,11 @@ namespace OptimizedModel {
             }
         }
 
-        int vertID[4];                            // Indices into exploded vertex data with splits at vertex component discontinuities
-        int neighborID[4];                        // Neighboring faces across the four edges
-        int boneID[MAX_NUM_BONES_PER_VERT * 4]; // Worst case...allowing for quads
-        int numBones;
+        std::array<int, 4> vertID{};
+        // Indices into exploded vertex data with splits at vertex component discontinuities
+        std::array<int, 4> neighborID{}; // Neighboring faces across the four edges
+        std::array<int,MAX_NUM_BONES_PER_VERT * 4> boneID{}; // Worst case...allowing for quads
+        int32_t numBones{};
         bool touched;
     };
 
@@ -112,8 +113,8 @@ namespace OptimizedModel {
     // Associates software bone indices with hardware bone indices
     //-----------------------------------------------------------------------------
     struct BoneStateChange_t {
-        int hardwareID;
-        int newBoneID;
+        int32_t hardwareID;
+        int32_t newBoneID;
     };
 
     struct Strip_t {
@@ -124,24 +125,24 @@ namespace OptimizedModel {
         // these are the verts and indices that are used while building.
         // (there may be verts in here that aren't use in the stripGroup.)
         CUtlVector<Vertex_t> verts;
-        int numIndices;
-        int numTopologyIndices;
-        unsigned short *pIndices;
-        unsigned short *pTopologyIndices;
+        int32_t numIndices;
+        int32_t numTopologyIndices;
+        uint16_t *pIndices;
+        uint16_t *pTopologyIndices;
 
-        unsigned int flags;
-        int numBones;
+        uint32_t flags;
+        int32_t numBones;
 
         // These are the final, sorted verts as they appear in the strip group.
-        int stripGroupIndexOffset;            // offset into stripGroup's indices
-        int numStripGroupIndices;
-        int stripGroupTopologyOffset;        // offset into stripGroup's topology data
-        int numStripGroupTopologyIndices;
-        int stripGroupVertexOffset;            // offset into stripGroup's verts
-        int numStripGroupVerts;
+        int32_t stripGroupIndexOffset; // offset into stripGroup's indices
+        int32_t numStripGroupIndices;
+        int32_t stripGroupTopologyOffset; // offset into stripGroup's topology data
+        int32_t numStripGroupTopologyIndices;
+        int32_t stripGroupVertexOffset; // offset into stripGroup's verts
+        int32_t numStripGroupVerts;
 
-        int numBoneStateChanges;
-        BoneStateChange_t boneStateChanges[MAX_NUM_BONES_PER_STRIP];
+        int32_t numBoneStateChanges;
+        std::array<BoneStateChange_t, MAX_NUM_BONES_PER_STRIP> boneStateChanges;
     };
 
 
@@ -352,7 +353,7 @@ namespace OptimizedModel {
         bool MeshIsTeeth(studiohdr_t *pStudioHeader, mstudiomesh_t *pStudioMesh);
 
         // Tries to add neighboring vertices that'll fit into the matrix transform state
-        void BuildStripsRecursive(VertexIndexList_t &indices, FaceList_t &list, Face_t *face);
+        void BuildStripsRecursive(VertexIndexList_t &indices, FaceList_t &faceList, Face_t *face);
 
         // Figures out all bones affecting a particular face
         void BuildFaceBoneData(VertexList_t &list, Face_t &face);
@@ -376,6 +377,7 @@ namespace OptimizedModel {
         // Subdivision surface related processing methods
         bool
         ConditionMeshForSubdivision(FaceList_t &faceList, CUtlVector<int> *indexMapping, CUtlVector<Vector> *posList);
+
         //bool ConditionFace( Face_t &face, FaceList_t& faceList, CUtlVector<int> *indexMapping, CUtlVector<Vector> *posList );
         //int ConditionPoint( FaceList_t &faceList, int nV, int *nOtherPatchV, CUtlVector<int>* pNeighborPoints, CUtlVector<int> *indexMapping, CUtlVector<Vector> *posList );
         //bool QuadContainsVertex( Face_t &face, int posID );
@@ -557,48 +559,43 @@ namespace OptimizedModel {
 
 
     void COptimizedModel::OutputMemoryUsage() {
-        printf("body parts:   %7llu bytes\n", (uintptr_t) (m_ModelsOffset - m_BodyPartsOffset));
-        printf("models:       %7llu bytes\n", (uintptr_t) (m_MeshesOffset - m_ModelsOffset));
-        printf("model LODs:   %7llu bytes\n", (uintptr_t) (m_MeshesOffset - m_ModelLODsOffset));
-        printf("meshes:       %7llu bytes\n", (uintptr_t) (m_StripGroupsOffset - m_MeshesOffset));
-        printf("strip groups: %7llu bytes\n", (uintptr_t) (m_StripsOffset - m_StripGroupsOffset));
-        printf("strips:       %7llu bytes\n", (uintptr_t) (m_VertsOffset - m_StripsOffset));
-        printf("verts:        %7llu bytes\n", (uintptr_t) (m_IndicesOffset - m_VertsOffset));
-        printf("indices:      %7llu bytes\n", (uintptr_t) (m_BoneStateChangesOffset - m_IndicesOffset));
-        printf("bone changes: %7llu bytes\n", (uintptr_t) (m_EndOfFileOffset - m_BoneStateChangesOffset));
-        printf("everything:   %7llu bytes\n", (uintptr_t) (m_EndOfFileOffset));
+        std::print("body parts:   {:7} bytes\n", (uintptr_t) (m_ModelsOffset - m_BodyPartsOffset));
+        std::print("models:       {:7} bytes\n", (uintptr_t) (m_MeshesOffset - m_ModelsOffset));
+        std::print("model LODs:   {:7} bytes\n", (uintptr_t) (m_MeshesOffset - m_ModelLODsOffset));
+        std::print("meshes:       {:7} bytes\n", (uintptr_t) (m_StripGroupsOffset - m_MeshesOffset));
+        std::print("strip groups: {:7} bytes\n", (uintptr_t) (m_StripsOffset - m_StripGroupsOffset));
+        std::print("strips:       {:7} bytes\n", (uintptr_t) (m_VertsOffset - m_StripsOffset));
+        std::print("verts:        {:7} bytes\n", (uintptr_t) (m_IndicesOffset - m_VertsOffset));
+        std::print("indices:      {:7} bytes\n", (uintptr_t) (m_BoneStateChangesOffset - m_IndicesOffset));
+        std::print("bone changes: {:7} bytes\n", (uintptr_t) (m_EndOfFileOffset - m_BoneStateChangesOffset));
+        std::print("everything:   {:7} bytes\n", (uintptr_t) (m_EndOfFileOffset));
     }
 
     void COptimizedModel::SanityCheckAgainstStudioHDR(studiohdr_t *phdr) {
 #if 0 // garymcthack
-                                                                                                                                printf( "SanityCheckAgainstStudioHDR\n" );
-		FileHeader_t *header = ( FileHeader_t * )m_FileBuffer->GetPointer( 0 );
-		Assert( header->numBodyParts == phdr->numbodyparts );
-		for( int bodyPartID = 0; bodyPartID < header->numBodyParts; bodyPartID++ )
-		{
-			BodyPartHeader_t *bodyPart = header->pBodyPart( bodyPartID );
-			mstudiobodyparts_t *pStudioBodyPart = phdr->pBodypart( bodyPartID );
-			Assert( bodyPart->numModels == pStudioBodyPart->nummodels );
-			for( int modelID = 0; modelID < bodyPart->numModels; modelID++ )
-			{
-				ModelHeader_t *model = bodyPart->pModel( modelID );
-				mstudiomodel_t *pStudioModel = pStudioBodyPart->pModel( modelID );
-				Assert( model->numMeshes == pStudioModel->nummeshes );
-				for( int meshID = 0; meshID < model->numMeshes; meshID++ )
-				{
-					MeshHeader_t *mesh = model->pMesh( meshID );
-					mstudiomesh_t *pStudioMesh = pStudioModel->pMesh( meshID );
-					for( int stripGroupID = 0; stripGroupID < mesh->numStripGroups; stripGroupID++ )
-					{
-						StripGroupHeader_t *stripGroup = mesh->pStripGroup( stripGroupID );
-						for( int stripID = 0; stripID < stripGroup->numStrips; stripID++ )
-						{
-							StripHeader_t *strip = stripGroup->pStrip( stripID );
-						}
-					}
-				}
-			}
-		}
+        std::print("SanityCheckAgainstStudioHDR\n");
+        FileHeader_t *header = (FileHeader_t *) m_FileBuffer->GetPointer(0);
+        Assert(header->numBodyParts == phdr->numbodyparts);
+        for (int bodyPartID = 0; bodyPartID < header->numBodyParts; bodyPartID++) {
+            BodyPartHeader_t *bodyPart = header->pBodyPart(bodyPartID);
+            mstudiobodyparts_t *pStudioBodyPart = phdr->pBodypart(bodyPartID);
+            Assert(bodyPart->numModels == pStudioBodyPart->nummodels);
+            for (int modelID = 0; modelID < bodyPart->numModels; modelID++) {
+                ModelHeader_t *model = bodyPart->pModel(modelID);
+                mstudiomodel_t *pStudioModel = pStudioBodyPart->pModel(modelID);
+                Assert(model->numMeshes == pStudioModel->nummeshes);
+                for (int meshID = 0; meshID < model->numMeshes; meshID++) {
+                    MeshHeader_t *mesh = model->pMesh(meshID);
+                    mstudiomesh_t *pStudioMesh = pStudioModel->pMesh(meshID);
+                    for (int stripGroupID = 0; stripGroupID < mesh->numStripGroups; stripGroupID++) {
+                        StripGroupHeader_t *stripGroup = mesh->pStripGroup(stripGroupID);
+                        for (int stripID = 0; stripID < stripGroup->numStrips; stripID++) {
+                            StripHeader_t *strip = stripGroup->pStrip(stripID);
+                        }
+                    }
+                }
+            }
+        }
 #endif
     }
 
@@ -608,7 +605,6 @@ namespace OptimizedModel {
     // The following methods are all related to creating groups of meshes to strip
     //
     //-----------------------------------------------------------------------------
-
 
 
     //-----------------------------------------------------------------------------
@@ -704,10 +700,10 @@ namespace OptimizedModel {
 #ifdef USE_FLUSH
         m_HardwareMatrixState.DeallocateAll();
 #else
-                                                                                                                                // Remove bones until we have enough space...
-		int numToRemove = bestNumNewBones - m_HardwareMatrixState.FreeMatrixCount();
-		Assert( numToRemove > 0 );
-		m_HardwareMatrixState.DeallocateLRU(numToRemove);
+        // Remove bones until we have enough space...
+        int numToRemove = bestNumNewBones - m_HardwareMatrixState.FreeMatrixCount();
+        Assert(numToRemove > 0);
+        m_HardwareMatrixState.DeallocateLRU(numToRemove);
 #endif
 
         return bestFace;
@@ -738,7 +734,7 @@ namespace OptimizedModel {
     // best face that is close to the current hardware bone state.
     //-----------------------------------------------------------------------------
 
-    Face_t *COptimizedModel::GetNextFace(FaceList_t &faceList, bool allowNewStrip) {
+    Face_t *COptimizedModel::GetNextFace(FaceList_t &faceList, const bool allowNewStrip) {
         // First try to get a face that doesn't involve changing matrix state
         Face_t *face;
         face = GetNextUntouchedWithoutBoneStateChange(faceList);
@@ -784,9 +780,9 @@ namespace OptimizedModel {
     // Make sure all vertices we've added up to now use bones in the matrix list
     //-----------------------------------------------------------------------------
     void COptimizedModel::Stripify(VertexIndexList_t const &sourceIndices,
-                                   IndexTopologyList_t const &sourceTopologyIndices, bool bIsHWSkinned,
+                                   IndexTopologyList_t const &sourceTopologyIndices, const bool bIsHWSkinned,
                                    int *pNumIndices, int *pNumTopologyIndices, unsigned short **ppIndices,
-                                   unsigned short **ppTopologyIndices, bool bQuadSubd) {
+                                   unsigned short **ppTopologyIndices, const bool bQuadSubd) {
         if (sourceIndices.Count() == 0) {
             *ppIndices = nullptr;
             *pNumIndices = 0;
@@ -830,6 +826,7 @@ namespace OptimizedModel {
     // we run out of bones on the hardware.
     //-----------------------------------------------------------------------------
     void COptimizedModel::BuildStripsRecursive(VertexIndexList_t &indices, FaceList_t &faceList, Face_t *face) {
+        vstd::FunctionTimingRecorder _("Optimize", true);
         Assert(face);
 
         // Don't process the face if it's already been processed
@@ -844,11 +841,11 @@ namespace OptimizedModel {
         // then add the vertices of all the neighboring faces.
         face->touched = true;
 
-        indices.AddToTail((unsigned short) face->vertID[0]);
-        indices.AddToTail((unsigned short) face->vertID[1]);
-        indices.AddToTail((unsigned short) face->vertID[2]);
+        indices.AddToTail(static_cast<uint16_t>(face->vertID[0]));
+        indices.AddToTail(static_cast<uint16_t>(face->vertID[1]));
+        indices.AddToTail(static_cast<uint16_t>(face->vertID[2]));
         if (face->vertID[3] != -1)
-            indices.AddToTail((unsigned short) face->vertID[3]); // quad case
+            indices.AddToTail(static_cast<uint16_t>(face->vertID[3])); // quad case
 
         // Try to add our neighbors
         if (face->neighborID[0] != -1) {
@@ -870,12 +867,12 @@ namespace OptimizedModel {
     // Processes a HW-skinned strip group
     //-----------------------------------------------------------------------------
     void COptimizedModel::BuildHWSkinnedStrips(FaceList_t &faceList, VertexList_t &vertices, StripGroup_t *pStripGroup,
-                                               int maxBonesPerStrip) {
-        FunctionTimingRecorder _("Optimize");
+                                               const int maxBonesPerStrip) {
+        vstd::FunctionTimingRecorder _("Optimize");
         // Set up the hardware matrix state
         m_HardwareMatrixState.Init(maxBonesPerStrip);
 
-        int numVerts = faceList[0].vertID[3] == -1 ? 3 : 4;
+        const uint32_t numVerts = faceList[0].vertID[3] == -1 ? 3 : 4;
 
         // Empty out the list of faces to be stripified.
         VertexIndexList_t facesToStrip;
@@ -888,7 +885,7 @@ namespace OptimizedModel {
 #ifdef _DEBUG
             bool ok =
 #endif
-                    AllocateHardwareBonesForFace(pSeedFace);
+            AllocateHardwareBonesForFace(pSeedFace);
             Assert(ok);
 
             // Eat up face recursively by flood-filling around the model until
@@ -914,7 +911,8 @@ namespace OptimizedModel {
             // There are no more faces to eat up without causing a flush, so
             // go ahead and stripify what we have and flush.
             // NOTE: This allocates space for stripIndices.pIndices
-            Stripify(facesToStrip, IndexTopologyList_t(), true, &newStrip.numIndices, nullptr, &newStrip.pIndices, nullptr,
+            Stripify(facesToStrip, IndexTopologyList_t(), true, &newStrip.numIndices, nullptr, &newStrip.pIndices,
+                     nullptr,
                      numVerts == 4);
 
             // hack - should just build directly into newStrip.verts instead of using a global.
@@ -946,7 +944,7 @@ namespace OptimizedModel {
     //-----------------------------------------------------------------------------
     void COptimizedModel::BuildSWSkinnedStrips(FaceList_t &faceList, SubD_FaceList_t &subdFaceList,
                                                VertexList_t const &vertices, StripGroup_t *pStripGroup) {
-        FunctionTimingRecorder _("Optimize");
+        vstd::FunctionTimingRecorder _("Optimize");
         int nSubDFaces = subdFaceList.Count();
 
         // Save the results of the generated strip.
@@ -964,7 +962,7 @@ namespace OptimizedModel {
         IndexTopologyList_t topologyIndices;
         if (bSubDQuad) {
             topologyIndices.EnsureCapacity(
-                    nVertsPerFace == 4 ? nFaceCount * (MAX_SUBD_POINTS + 4 + 4) : nFaceCount * nVertsPerFace);
+                nVertsPerFace == 4 ? nFaceCount * (MAX_SUBD_POINTS + 4 + 4) : nFaceCount * nVertsPerFace);
         }
 
         bool bExtraFaces = false;
@@ -1014,7 +1012,7 @@ namespace OptimizedModel {
                 indices.AddToTail((unsigned short) face->vertID[2]);
                 indices.AddToTail((unsigned short) face->vertID[3]);
 
-                int j = 0;                                                                // Next, fill in topology indices...
+                int j = 0; // Next, fill in topology indices...
 
                 if (nSubDFaces == nFaceCount) {
                     // Subd verts, plus one-ring neighborhood
@@ -1045,7 +1043,8 @@ namespace OptimizedModel {
                         topologyIndices.AddToTail(subDFace->oneRing[j]);
                     }
                 }
-            } else {
+            }
+            else {
                 indices.AddToTail((unsigned short) face->vertID[0]);
                 indices.AddToTail((unsigned short) face->vertID[1]);
                 indices.AddToTail((unsigned short) face->vertID[2]);
@@ -1073,7 +1072,7 @@ namespace OptimizedModel {
     // Marks every vertex of the mesh that is part of a flex
     //-----------------------------------------------------------------------------
     void COptimizedModel::BuildFlexedVertexMap(mstudiomesh_t *pStudioMesh, std::vector<bool> &flexedVerts) {
-        FunctionTimingRecorder _("Optimize");
+        vstd::FunctionTimingRecorder _("Optimize");
         flexedVerts.assign(pStudioMesh->numvertices > 0 ? pStudioMesh->numvertices : 0, false);
 
         if (pStudioMesh->numflexes <= 0)
@@ -1104,10 +1103,11 @@ namespace OptimizedModel {
     // Computes flags for the strip group
     //-----------------------------------------------------------------------------
 
-    void COptimizedModel::ComputeStripGroupFlags(StripGroup_t *pStripGroup, bool bIsHWSkinned, bool bIsFlexed) {
+    void COptimizedModel::ComputeStripGroupFlags(StripGroup_t *pStripGroup, const bool bIsHWSkinned,
+                                                 const bool bIsFlexed) {
         pStripGroup->flags = 0;
         if (bIsFlexed) {
-            pStripGroup->flags |= STRIPGROUP_IS_DELTA_FLEXED;    // Going forward, DX9 models are delta flexed
+            pStripGroup->flags |= STRIPGROUP_IS_DELTA_FLEXED; // Going forward, DX9 models are delta flexed
         }
         if (bIsHWSkinned) {
             pStripGroup->flags |= STRIPGROUP_IS_HWSKINNED;
@@ -1122,7 +1122,7 @@ namespace OptimizedModel {
 #define MIN_BONE_INFLUENCE 1.0f
 
     static void TryToReduceBoneInfluence(Vertex_t &stripGroupVert,
-                                         mstudioboneweight_t const &boneWeights, int maxBones) {
+                                         mstudioboneweight_t const &boneWeights, const int maxBones) {
         int i;
         while (stripGroupVert.numBones > maxBones) {
             // Find the minimum bone weight...
@@ -1162,11 +1162,11 @@ namespace OptimizedModel {
 
     bool COptimizedModel::GenerateStripGroupVerticesFromFace(mstudioiface_t *pFace,
                                                              mstudiomesh_t *pStudioMesh,
-                                                             int maxPreferredBones,
+                                                             const int maxPreferredBones,
                                                              Vertex_t *pStripGroupVert,
-                                                             bool bQuadSubd,
+                                                             const bool bQuadSubd,
                                                              const std::vector<bool> &flexedVerts) {
-        FunctionTimingRecorder _("Optimize");
+        vstd::FunctionTimingRecorder _("Optimize");
         int vertIDs[4] = {pFace->a, pFace->b, pFace->c, pFace->d};
 
         const mstudio_meshvertexdata_t *vertData = pStudioMesh->GetVertexData();
@@ -1187,9 +1187,10 @@ namespace OptimizedModel {
 
             int bonesAffectingVertex = pBoneWeight->numbones;
             if (!g_studiomdl.staticprop && bonesAffectingVertex <= 0) {
-                MdlWarning("too few bones/vert (%d) : it has no bones!\n", bonesAffectingVertex);
-            } else if (bonesAffectingVertex > MAX_NUM_BONES_PER_VERT) {
-                MdlError("too many bones/vert (%d) : MAX_NUM_BONES_PER_VERT needs to be upped\n", bonesAffectingVertex);
+                MdlWarning("too few bones/vert ({}) : it has no bones!\n", bonesAffectingVertex);
+            }
+            else if (bonesAffectingVertex > MAX_NUM_BONES_PER_VERT) {
+                MdlError("too many bones/vert ({}) : MAX_NUM_BONES_PER_VERT needs to be upped\n", bonesAffectingVertex);
             }
 
             // Set the fields of the strip group's vert
@@ -1208,12 +1209,11 @@ namespace OptimizedModel {
                 pStripGroupVert[faceIndex].boneWeightIndex[boneID] = boneID;
             }
 #else
-                                                                                                                                    // don't let bones have any influence.
-			for( boneID = 0; boneID < MAX_NUM_BONES_PER_VERT; boneID++ )
-			{
-				pStripGroupVert[faceIndex].boneID[boneID] = 255;
-				pStripGroupVert[faceIndex].boneWeights[boneID] = 0;
-			}
+            // don't let bones have any influence.
+            for (boneID = 0; boneID < MAX_NUM_BONES_PER_VERT; boneID++) {
+                pStripGroupVert[faceIndex].boneID[boneID] = 255;
+                pStripGroupVert[faceIndex].boneWeights[boneID] = 0;
+            }
 #endif
 
             // For hardware skinning, we want to try to reduce the number of
@@ -1284,8 +1284,8 @@ namespace OptimizedModel {
         return HashInt(a.origMeshVertID);
     }
 
-    CUtlHash <StripVertLookup_t> g_StripGroupVertexLookup(65536, 0, 0, StripVertLookup_CompareFunc,
-                                                          StripVertLookup_KeyFunc);
+    CUtlHash<StripVertLookup_t> g_StripGroupVertexLookup(65536, 0, 0, StripVertLookup_CompareFunc,
+                                                         StripVertLookup_KeyFunc);
 
 
     //-----------------------------------------------------------------------------
@@ -1300,7 +1300,8 @@ namespace OptimizedModel {
             stripVertLookup.vertID = result;
             g_StripGroupVertexLookup.Insert(stripVertLookup);
             return result;
-        } else {
+        }
+        else {
             StripVertLookup_t &equivalentVertex = g_StripGroupVertexLookup.Element(vertexHandle);
             int result = equivalentVertex.vertID;
             // Double-check that the verts match
@@ -1356,18 +1357,20 @@ namespace OptimizedModel {
         int m_nFaceId;
     };
 
-    static void FindMatchingEdge(FaceList_t &list, int nFaceId, int nEdgeIndex,
+    static void FindMatchingEdge(FaceList_t &list, const int nFaceId, const int nEdgeIndex,
                                  const int *pVertIds, CUtlVector<intptr_t> &vertexToEdges,
                                  CUtlFixedLinkedList<EdgeInfo_t> &edges) {
         Face_t &face = list[nFaceId];
         Assert(face.neighborID[nEdgeIndex] == -1);
 
         int nOrder = (pVertIds[0] < pVertIds[1]) ? 0 : 1;
-        int nVertIndex = pVertIds[nOrder];                // the 'lower' of the edge's two verts (use this to search for a matching edge)
-        int nConnectedVertId = pVertIds[1 - nOrder];        // the 'higher' of the edge's two verts
+        int nVertIndex = pVertIds[nOrder];
+        // the 'lower' of the edge's two verts (use this to search for a matching edge)
+        int nConnectedVertId = pVertIds[1 - nOrder]; // the 'higher' of the edge's two verts
 
         intptr_t hFirstEdge = vertexToEdges[nVertIndex];
-        for (intptr_t hEdge = hFirstEdge; hEdge != CUtlFixedLinkedList<EdgeInfo_t>::InvalidIndex(); hEdge = edges.Next(hEdge)) {
+        for (intptr_t hEdge = hFirstEdge; hEdge != CUtlFixedLinkedList<EdgeInfo_t>::InvalidIndex();
+             hEdge = edges.Next(hEdge)) {
             EdgeInfo_t &edge = edges[hEdge];
             if (edge.m_nConnectedVertId != nConnectedVertId)
                 continue;
@@ -1640,7 +1643,7 @@ namespace OptimizedModel {
         COptimizeSubDBuilder subDBuilder(subDFaceList, vtxList, pVertexData, false);
     }
 
-    void COptimizedModel::BuildNeighborInfo(FaceList_t &faceList, int nMaxVertexId) {
+    void COptimizedModel::BuildNeighborInfo(FaceList_t &faceList, const int nMaxVertexId) {
         // NOTE: vertexToEdges[vertId] contains the index of the head of a linked list stored in edges
         CUtlFixedLinkedList<EdgeInfo_t> edges;
         CUtlVector<intptr_t> vertexToEdges;
@@ -1667,7 +1670,8 @@ namespace OptimizedModel {
                 pEdgeVertIds[0] = face.vertID[2];
                 pEdgeVertIds[1] = face.vertID[0];
                 FindMatchingEdge(faceList, i, 2, pEdgeVertIds, vertexToEdges, edges);
-            } else // must be a quad
+            }
+            else // must be a quad
             {
                 pEdgeVertIds[0] = face.vertID[2];
                 pEdgeVertIds[1] = face.vertID[3];
@@ -1684,14 +1688,15 @@ namespace OptimizedModel {
     //-----------------------------------------------------------------------------
     // Processes a single strip group
     //-----------------------------------------------------------------------------
-    void COptimizedModel::ProcessStripGroup(StripGroup_t *pStripGroup, bool bIsHWSkinned,
-                                            bool bIsFlexed, mstudiomodel_t *pStudioModel,
+    void COptimizedModel::ProcessStripGroup(StripGroup_t *pStripGroup, const bool bIsHWSkinned,
+                                            const bool bIsFlexed, mstudiomodel_t *pStudioModel,
                                             mstudiomesh_t *pStudioMesh,
                                             CUtlVector<mstudioiface_t> &srcFaces,
                                             FaceProcessedList_t &facesProcessed,
-                                            int maxBonesPerVert, int maxBonesPerFace,
-                                            int maxBonesPerStrip, bool bForceNoFlex, bool bHWFlex, bool bQuadSubd) {
-        FunctionTimingRecorder _("Optimize");
+                                            const int maxBonesPerVert, const int maxBonesPerFace,
+                                            const int maxBonesPerStrip, const bool bForceNoFlex, const bool bHWFlex,
+                                            const bool bQuadSubd) {
+        vstd::FunctionTimingRecorder _("Optimize");
         ComputeStripGroupFlags(pStripGroup, bIsHWSkinned, bIsFlexed);
 
         // Which vertices are flexed does not depend on the face: compute it once per strip group instead of
@@ -1710,7 +1715,7 @@ namespace OptimizedModel {
 
         // Add each face to the stripgroup, if it's appropriate
         for (int n = 0; n < srcFaces.Count(); ++n) {
-            if (facesProcessed[n])        // Don't bother processing a face that's already been done
+            if (facesProcessed[n]) // Don't bother processing a face that's already been done
                 continue;
 
             mstudioiface_t *pFace = &srcFaces[n];
@@ -1775,7 +1780,8 @@ namespace OptimizedModel {
         // Build the actual strips
         if (bIsHWSkinned) {
             BuildHWSkinnedStrips(stripGroupSourceFaces, stripGroupVertices, pStripGroup, maxBonesPerStrip);
-        } else {
+        }
+        else {
             BuildSWSkinnedStrips(stripGroupSourceFaces, stripGroupSubDFaces, stripGroupVertices, pStripGroup);
         }
     }
@@ -1830,7 +1836,7 @@ namespace OptimizedModel {
             // Make sure we have enough memory allocated
             pStripGroup->indices.EnsureCapacity(pStripGroup->indices.Count() + pStrip->numIndices);
             pStripGroup->topologyIndices.EnsureCapacity(
-                    pStripGroup->topologyIndices.Count() + pStrip->numTopologyIndices);
+                pStripGroup->topologyIndices.Count() + pStrip->numTopologyIndices);
 
             // Try to find each of the strip's vertices in the strip group
             int maxNumBones = 0;
@@ -1863,7 +1869,8 @@ namespace OptimizedModel {
                 UtlHashHandle_t vertexHandle = g_StripGroupVertexLookup.Find(stripVertLookup);
                 if (vertexHandle != g_StripGroupVertexLookup.InvalidHandle()) {
                     newIndex = g_StripGroupVertexLookup.Element(vertexHandle).vertID;
-                } else {
+                }
+                else {
                     // Didn't find it? Add the vertex to the list
                     newIndex = pStripGroup->verts.AddToTail(*pVert);
                     stripVertLookup.vertID = newIndex;
@@ -1874,7 +1881,7 @@ namespace OptimizedModel {
 
                 Assert(pVert->numBones <= MAX_NUM_BONES_PER_VERT);
                 if (pVert->numBones > MAX_NUM_BONES_PER_VERT) {
-                    MdlWarning("Error: vertex weight exceeds %i bones on one vertex!\n", MAX_NUM_BONES_PER_VERT);
+                    MdlWarning("Error: vertex weight exceeds {} bones on one vertex!\n", MAX_NUM_BONES_PER_VERT);
                 }
 
                 float weight = 0;
@@ -1883,7 +1890,7 @@ namespace OptimizedModel {
                 }
 
                 if (weight < 0.95 || weight > 1.05) {
-                    MdlWarning("Error: vertex is weighted at %f (that's beyond normalized range)\n", weight);
+                    MdlWarning("Error: vertex is weighted at {:f} (that's beyond normalized range)\n", weight);
                 }
 
                 /*
@@ -1968,9 +1975,9 @@ namespace OptimizedModel {
     //-----------------------------------------------------------------------------
 
     void COptimizedModel::ProcessMesh(Mesh_t *pMesh, studiohdr_t *pStudioHeader, CUtlVector<mstudioiface_t> &srcFaces,
-                                      mstudiomodel_t *pStudioModel, mstudiomesh_t *pStudioMesh, bool bForceNoFlex,
-                                      bool bForceSoftwareSkin, bool bHWFlex, bool bQuadSubd) {
-        FunctionTimingRecorder _("Optimize");
+                                      mstudiomodel_t *pStudioModel, mstudiomesh_t *pStudioMesh, const bool bForceNoFlex,
+                                      const bool bForceSoftwareSkin, const bool bHWFlex, const bool bQuadSubd) {
+        vstd::FunctionTimingRecorder _("Optimize");
         // Compute the mesh flags
         ComputeMeshFlags(pMesh, pStudioHeader, pStudioMesh);
 
@@ -1993,7 +2000,8 @@ namespace OptimizedModel {
                     realMaxBonesPerFace = 1;
                     realMaxBonesPerVert = 1;
                     realMaxBonesPerStrip = 1;
-                } else {
+                }
+                else {
                     realMaxBonesPerFace = m_MaxBonesPerFace;
                     realMaxBonesPerVert = m_MaxBonesPerVert;
                     realMaxBonesPerStrip = m_MaxBonesPerStrip;
@@ -2022,17 +2030,17 @@ namespace OptimizedModel {
     //-----------------------------------------------------------------------------
 
     void COptimizedModel::SetupMeshProcessing(studiohdr_t *pHdr, int vertexCacheSize,
-                                              bool usesFixedFunction, int maxBonesPerVert, int maxBonesPerFace,
+                                              const bool usesFixedFunction, int maxBonesPerVert, int maxBonesPerFace,
                                               int maxBonesPerStrip, const char *fileName) {
-        FunctionTimingRecorder _("Optimize");
+        vstd::FunctionTimingRecorder _("Optimize");
         if (!g_StudioMdlContext.quiet) {
-            printf("---------------------\n");
-            printf("Generating optimized mesh \"%s\":\n", fileName);
+            std::print("---------------------\n");
+            std::print("Generating optimized mesh \"{}\":\n", fileName);
 #ifdef _DEBUG
-            printf("\tvertex cache size: %d\n", vertexCacheSize);
-            printf("\tmax bones/tri:     %d\n", maxBonesPerFace);
-            printf("\tmax bones/vert:    %d\n", maxBonesPerVert);
-            printf("\tmax bones/strip:   %d\n", maxBonesPerStrip);
+            std::print("\tvertex cache size: {}\n", vertexCacheSize);
+            std::print("\tmax bones/tri:     {}\n", maxBonesPerFace);
+            std::print("\tmax bones/vert:    {}\n", maxBonesPerVert);
+            std::print("\tmax bones/strip:   {}\n", maxBonesPerStrip);
 #endif
         }
 
@@ -2151,7 +2159,7 @@ namespace OptimizedModel {
 
     void COptimizedModel::SourceMeshToFaceList(s_model_t *pSrcModel, s_mesh_t *pSrcMesh,
                                                CUtlVector<mstudioiface_t> &meshFaceList) {
-        FunctionTimingRecorder _("Optimize");
+        vstd::FunctionTimingRecorder _("Optimize");
         s_face_t *pFaces = pSrcModel->source->face + pSrcMesh->faceoffset;
         for (int i = 0; i < pSrcMesh->numfaces; i++) {
             const s_face_t &pFace = pFaces[i];
@@ -2247,25 +2255,23 @@ namespace OptimizedModel {
 	*/
 
 #if 0
-                                                                                                                            static void MStudioBoneWeightToSBoneWeight( s_boneweight_t &sbone, const mstudioboneweight_t &mbone,
-		const s_source_t *pSrc )
-	{
-		int i;
-		for( i = 0; i < mbone.numbones; i++ )
-		{
-			sbone.bone[i] = pSrc->boneimap[mbone.bone[i]];
-			//		sbone.bone[i] = mbone.bone[i];
-			sbone.weight[i] = mbone.weight[i];
-		}
-		sbone.numbones = mbone.numbones;
-	}
+    static void MStudioBoneWeightToSBoneWeight(s_boneweight_t &sbone, const mstudioboneweight_t &mbone,
+                                               const s_source_t *pSrc) {
+        int i;
+        for (i = 0; i < mbone.numbones; i++) {
+            sbone.bone[i] = pSrc->boneimap[mbone.bone[i]];
+            //		sbone.bone[i] = mbone.bone[i];
+            sbone.weight[i] = mbone.weight[i];
+        }
+        sbone.numbones = mbone.numbones;
+    }
 #endif
 
-    void COptimizedModel::CreateLODFaceList(s_model_t *pSrcModel, int nLodID, s_source_t *pSrc,
+    void COptimizedModel::CreateLODFaceList(s_model_t *pSrcModel, const int nLodID, s_source_t *pSrc,
                                             mstudiomodel_t *pStudioModel, mstudiomesh_t *pStudioMesh,
                                             CUtlVector<mstudioiface_t> &meshFaceList,
-                                            bool bQuadSubd, bool writeDebug) {
-        FunctionTimingRecorder _("Optimize");
+                                            const bool bQuadSubd, bool writeDebug) {
+        vstd::FunctionTimingRecorder _("Optimize");
         if (!pSrc || !pSrcModel)
             return;
 
@@ -2306,15 +2312,13 @@ namespace OptimizedModel {
         int i;
         int textureSearchID = MaterialToTexture(pStudioMesh->material);
 
-        // this is icky.. . pSrc->nummeshes really refers to the total number of non-empty meshes
-        // in the model.  In pSrc->meshes, there are some empty meshes in the middle if they
-        // don't exist for the material, so you have to go through all of the meshes to find
-        // the non-empty ones.
+        // pSrc is the LOD's source, which can have fewer meshes than the root model (pStudioModel->nummeshes);
+        // look through its own meshes (Valve read meshindex[] past nummeshes, getting material 0's slot)
         s_mesh_t *pSrcMesh = nullptr;
-        for (i = 0; i < pStudioModel->nummeshes; i++) {
-            if (pSrc->texmap[pSrc->meshindex[i]] == textureSearchID) {
+        for (i = 0; i < pSrc->meshes.size(); i++) {
+            if (pSrc->texmap[pSrc->meshes[i].material] == textureSearchID) {
                 // woo hoo!  found it.
-                pSrcMesh = &pSrc->mesh[pSrc->meshindex[i]];
+                pSrcMesh = &pSrc->meshes[i];
                 break;
             }
         }
@@ -2370,18 +2374,18 @@ namespace OptimizedModel {
     bool COptimizedModel::MeshNeedsRemoval(studiohdr_t *pHdr, mstudiomesh_t *pStudioMesh,
                                            LodScriptData_t &scriptLOD) {
         return false;
-//        mstudiotexture_t *ptexture;
-//        short *pskinref = pHdr->pSkinref(0);
-//        ptexture = pHdr->pTexture(pskinref[pStudioMesh->material]);
-//        const char *meshName = ptexture->material->GetName();
-//        int i;
-//        for (i = 0; i < scriptLOD.meshRemovals.Count(); i++) {
-//            const char *meshRemovalName = scriptLOD.meshRemovals[i].GetSrcName();
-//            if (ComparePath(meshName, meshRemovalName)) {
-//                return true;
-//            }
-//        }
-//        return false;
+        //        mstudiotexture_t *ptexture;
+        //        short *pskinref = pHdr->pSkinref(0);
+        //        ptexture = pHdr->pTexture(pskinref[pStudioMesh->material]);
+        //        const char *meshName = ptexture->material->GetName();
+        //        int i;
+        //        for (i = 0; i < scriptLOD.meshRemovals.Count(); i++) {
+        //            const char *meshRemovalName = scriptLOD.meshRemovals[i].GetSrcName();
+        //            if (ComparePath(meshName, meshRemovalName)) {
+        //                return true;
+        //            }
+        //        }
+        //        return false;
     }
 
 
@@ -2389,8 +2393,8 @@ namespace OptimizedModel {
     // Process the entire model, return stats...
     //-----------------------------------------------------------------------------
     void COptimizedModel::ProcessModel(studiohdr_t *pHdr, s_bodypart_t *pSrcBodyParts,
-                                       TotalMeshStats_t &stats, bool bForceSoftwareSkin, bool bHWFlex) {
-        FunctionTimingRecorder _("Optimize");
+                                       TotalMeshStats_t &stats, bool bForceSoftwareSkin, const bool bHWFlex) {
+        vstd::FunctionTimingRecorder _("Optimize");
         memset(&stats, 0, sizeof(stats));
         m_Models.RemoveAll();
 
@@ -2426,7 +2430,7 @@ namespace OptimizedModel {
                         //					printf( "bodyPart: %d model: %d modellod: %d mesh: %d\n", bodyPartID, modelID, lodID, meshID );
 #endif
                         mstudiomesh_t *pStudioMesh = pStudioModel->pMesh(meshID);
-                        s_mesh_t *pSrcMesh = &pSrcModel->source->mesh[pSrcModel->source->meshindex[meshID]];
+                        s_mesh_t *pSrcMesh = &pSrcModel->source->meshes[meshID];
 
                         int i = newLOD.meshes.AddToTail();
                         Assert(i == meshID);
@@ -2452,7 +2456,8 @@ namespace OptimizedModel {
                             // this expects built per lod-to-root mapping tables to generate faces
                             CreateLODFaceList(pSrcModel, lodID, pLODSource, pStudioModel, pStudioMesh, meshFaceList,
                                               bQuadSubd, false);
-                        } else {
+                        }
+                        else {
                             // build the face list from the unmapped source
                             SourceMeshToFaceList(pSrcModel, pSrcMesh, meshFaceList);
                         }
@@ -2523,10 +2528,12 @@ namespace OptimizedModel {
                                 for (boneStateChangeID = 0;
                                      boneStateChangeID < pStrip->numBoneStateChanges; boneStateChangeID++) {
                                     BoneStateChangeHeader_t *pBoneStateChange = pStrip->pBoneStateChange(
-                                            boneStateChangeID);
-                                    globalToHardwareBoneIndex[pBoneStateChange->newBoneID] = pBoneStateChange->hardwareID;
+                                        boneStateChangeID);
+                                    globalToHardwareBoneIndex[pBoneStateChange->newBoneID] = pBoneStateChange->
+                                            hardwareID;
                                     if (pBoneStateChange->hardwareID != -1) {
-                                        hardwareToGlobalBoneIndex[pBoneStateChange->hardwareID] = pBoneStateChange->newBoneID;
+                                        hardwareToGlobalBoneIndex[pBoneStateChange->hardwareID] = pBoneStateChange->
+                                                newBoneID;
                                     }
                                 }
                                 int vertID;
@@ -2545,7 +2552,7 @@ namespace OptimizedModel {
                                         Assert(globalBoneID >= 0 && globalBoneID < m_NumBones);
                                         vert->boneID[boneID] = globalToHardwareBoneIndex[globalBoneID];
                                         Assert(vert->boneID[boneID] >= 0 &&
-                                               vert->boneID[boneID] < header->maxBonesPerStrip);
+                                            vert->boneID[boneID] < header->maxBonesPerStrip);
                                     }
 
                                     // We only do index palette skinning when we're not doing fixed function
@@ -2566,15 +2573,15 @@ namespace OptimizedModel {
     }
 
 
-
     //-----------------------------------------------------------------------------
     //
     // The following methods are associated with writing a .vtx file
     //
     //-----------------------------------------------------------------------------
 
-    void COptimizedModel::WriteHeader(int vertCacheSize, int maxBonesPerVert,
-                                      int maxBonesPerFace, int maxBonesPerStrip, int numBodyParts, int32_t checkSum) {
+    void COptimizedModel::WriteHeader(const int vertCacheSize, const int maxBonesPerVert,
+                                      const int maxBonesPerFace, const int maxBonesPerStrip, const int numBodyParts,
+                                      const int32_t checkSum) {
         FileHeader_t fileHeader{0};
 
         fileHeader.version = OPTIMIZED_MODEL_FILE_VERSION;
@@ -2595,7 +2602,7 @@ namespace OptimizedModel {
     }
 
 
-    void COptimizedModel::WriteBodyPart(int bodyPartID, mstudiobodyparts_t *pBodyPart, int modelID) {
+    void COptimizedModel::WriteBodyPart(const int bodyPartID, mstudiobodyparts_t *pBodyPart, const int modelID) {
         BodyPartHeader_t bodyPart;
         bodyPart.numModels = pBodyPart->nummodels;
         int bodyPartOffset = m_BodyPartsOffset + bodyPartID * sizeof(BodyPartHeader_t);
@@ -2608,7 +2615,7 @@ namespace OptimizedModel {
 #endif
     }
 
-    void COptimizedModel::WriteModel(int modelID, mstudiomodel_t *pModel, int lodID) {
+    void COptimizedModel::WriteModel(const int modelID, mstudiomodel_t *pModel, const int lodID) {
         ModelHeader_t model;
         model.numLODs = IsChar(g_studiomdl.ScriptLODs.Count());
         int modelFileOffset = m_ModelsOffset + modelID * sizeof(ModelHeader_t);
@@ -2621,7 +2628,7 @@ namespace OptimizedModel {
 #endif
     }
 
-    void COptimizedModel::WriteModelLOD(int lodID, ModelLOD_t *pLOD, int meshID) {
+    void COptimizedModel::WriteModelLOD(const int lodID, ModelLOD_t *pLOD, const int meshID) {
         ModelLODHeader_t lod;
         int lodFileOffset = m_ModelLODsOffset + lodID * sizeof(ModelLODHeader_t);
         int meshFileOffset = m_MeshesOffset + meshID * sizeof(MeshHeader_t);
@@ -2635,7 +2642,7 @@ namespace OptimizedModel {
 #endif
     }
 
-    void COptimizedModel::WriteMesh(int meshID, Mesh_t *pMesh, int stripGroupID) {
+    void COptimizedModel::WriteMesh(const int meshID, Mesh_t *pMesh, const int stripGroupID) {
         MeshHeader_t mesh;
         mesh.numStripGroups = IsChar(pMesh->stripGroups.Count());
         int meshFileOffset = m_MeshesOffset + meshID * sizeof(MeshHeader_t);
@@ -2649,8 +2656,9 @@ namespace OptimizedModel {
 #endif
     }
 
-    void COptimizedModel::WriteStripGroup(int stripGroupID, StripGroup_t *pStripGroup,
-                                          int vertID, int indexID, int topologyID, int stripID) {
+    void COptimizedModel::WriteStripGroup(const int stripGroupID, StripGroup_t *pStripGroup,
+                                          const int vertID, const int indexID, const int topologyID,
+                                          const int stripID) {
         StripGroupHeader_t stripGroup;
         stripGroup.numVerts = pStripGroup->verts.Count();
         stripGroup.numIndices = pStripGroup->indices.Count();
@@ -2675,7 +2683,7 @@ namespace OptimizedModel {
 #endif
     }
 
-    int COptimizedModel::WriteVerts(int vertID, StripGroup_t *pStripGroup) {
+    int COptimizedModel::WriteVerts(const int vertID, StripGroup_t *pStripGroup) {
         int vertFileOffset = m_VertsOffset + vertID * sizeof(Vertex_t);
         int numVerts = pStripGroup->verts.Count();
         m_FileBuffer->WriteAt(vertFileOffset, &pStripGroup->verts[0], sizeof(Vertex_t) * numVerts, "verts");
@@ -2685,7 +2693,7 @@ namespace OptimizedModel {
         return numVerts;
     }
 
-    int COptimizedModel::WriteIndices(int indexID, StripGroup_t *pStripGroup) {
+    int COptimizedModel::WriteIndices(const int indexID, StripGroup_t *pStripGroup) {
         int indexFileOffset = m_IndicesOffset + indexID * sizeof(unsigned short);
         int numIndices = pStripGroup->indices.Count();
         m_FileBuffer->WriteAt(indexFileOffset, &pStripGroup->indices[0], sizeof(unsigned short) * numIndices,
@@ -2697,7 +2705,7 @@ namespace OptimizedModel {
     }
 
 
-    int COptimizedModel::WriteTopology(int topologyID, StripGroup_t *pStripGroup) {
+    int COptimizedModel::WriteTopology(const int topologyID, StripGroup_t *pStripGroup) {
         // If we didnt' generate topology data, there won't be any topology indices
         if (pStripGroup->topologyIndices.Count() == 0)
             return 0;
@@ -2714,7 +2722,8 @@ namespace OptimizedModel {
 
 
     void
-    COptimizedModel::WriteStrip(int stripID, Strip_t *pStrip, int indexID, int curTopology, int vertID, int boneID) {
+    COptimizedModel::WriteStrip(const int stripID, Strip_t *pStrip, int indexID, int curTopology, int vertID,
+                                const int boneID) {
         StripHeader_t stripHeader;
 
         stripHeader.numIndices = pStrip->numStripGroupIndices;
@@ -2736,14 +2745,14 @@ namespace OptimizedModel {
 #endif
     }
 
-    void COptimizedModel::WriteBoneStateChange(int boneID, BoneStateChange_t *boneStateChange) {
+    void COptimizedModel::WriteBoneStateChange(const int boneID, BoneStateChange_t *boneStateChange) {
         BoneStateChangeHeader_t boneHeader;
         boneHeader.hardwareID = boneStateChange->hardwareID;
         boneHeader.newBoneID = boneStateChange->newBoneID;
         int boneFileOffset = m_BoneStateChangesOffset + boneID * sizeof(BoneStateChangeHeader_t);
 #if 0
-                                                                                                                                printf( "\tboneStateChange: hwid: %d boneID %d\n", ( int )boneHeader.hardwareID,
-			( int )boneHeader.newBoneID );
+        std::print("\tboneStateChange: hwid: {} boneID {}\n", (int) boneHeader.hardwareID,
+                   (int) boneHeader.newBoneID);
 #endif
         m_FileBuffer->WriteAt(boneFileOffset, &boneHeader, sizeof(BoneStateChangeHeader_t), "bone");
 #ifdef _DEBUG
@@ -2780,7 +2789,7 @@ namespace OptimizedModel {
         }
     }
 
-    void COptimizedModel::WriteStringTable(int stringTableOffset) {
+    void COptimizedModel::WriteStringTable(const int stringTableOffset) {
         int stringTableSize = s_StringTable.CalcSize();
         if (stringTableSize == 0) {
             return;
@@ -2792,7 +2801,7 @@ namespace OptimizedModel {
         delete[] pTmp;
     }
 
-    void COptimizedModel::WriteMaterialReplacements(int materialReplacementsOffset) {
+    void COptimizedModel::WriteMaterialReplacements(const int materialReplacementsOffset) {
         int offset = materialReplacementsOffset;
         int i, j;
         int numLODs = g_studiomdl.ScriptLODs.Count();
@@ -2804,7 +2813,7 @@ namespace OptimizedModel {
                 tmpHeader.materialID = FindMaterialByName(materialReplacement.GetSrcName());
                 tmpHeader.replacementMaterialNameOffset = m_StringTableOffset +
                                                           s_StringTable.StringTableOffset(
-                                                                  materialReplacement.GetDstName()) - offset;
+                                                              materialReplacement.GetDstName()) - offset;
                 m_FileBuffer->WriteAt(offset, &tmpHeader, sizeof(tmpHeader), "material replacements");
                 offset += sizeof(MaterialReplacementHeader_t);
             }
@@ -2812,7 +2821,8 @@ namespace OptimizedModel {
     }
 
     void
-    COptimizedModel::WriteMaterialReplacementLists(int materialReplacementsOffset, int materialReplacementListOffset) {
+    COptimizedModel::WriteMaterialReplacementLists(const int materialReplacementsOffset,
+                                                   const int materialReplacementListOffset) {
         int replacementOffset = materialReplacementsOffset;
         int offset = materialReplacementListOffset;
         int i;
@@ -2864,7 +2874,7 @@ namespace OptimizedModel {
                                 for (i = 0; i < boneWeight.numbones; i++) {
                                     const mstudiobone_t *pBone = pStudioHdr->pBone(boneWeight.bone[i]);
                                     //								const char *pBoneName = pBone->pszName();
-                                    if (!(pBone->flags & (BONE_USED_BY_VERTEX_LOD0 << lodID))) {
+                                    if (!HasFlag(pBone->flags, BoneUsedByVertexAtLod(lodID))) {
                                         MdlError("Mismarked Bone flag");
                                     }
                                 }
@@ -2878,7 +2888,6 @@ namespace OptimizedModel {
 
     void COptimizedModel::WriteVTXFile(studiohdr_t *pHdr, const char *pFileName,
                                        TotalMeshStats_t const &stats) {
-
         // calculate file offsets
         m_FileBuffer = new CFileBuffer(FILEBUFFER_SIZE);
         m_BodyPartsOffset = sizeof(FileHeader_t);
@@ -2896,7 +2905,8 @@ namespace OptimizedModel {
         m_MaterialReplacementsListOffset =
                 m_MaterialReplacementsOffset + stats.m_TotalMaterialReplacements * sizeof(MaterialReplacementHeader_t);
         m_TopologyOffset =
-                m_MaterialReplacementsListOffset + g_studiomdl.ScriptLODs.Count() * sizeof(MaterialReplacementListHeader_t);
+                m_MaterialReplacementsListOffset + g_studiomdl.ScriptLODs.Count() * sizeof(
+                    MaterialReplacementListHeader_t);
         m_EndOfFileOffset = m_TopologyOffset + sizeof(unsigned short) * stats.m_TotalTopologyIndices;
 
         int curModel = 0;
@@ -3058,7 +3068,7 @@ namespace OptimizedModel {
     }
 
     static void MergeLikeBoneIndicesWithinVerts(studiohdr_t *pHdr) {
-        FunctionTimingRecorder _("Optimize");
+        vstd::FunctionTimingRecorder _("Optimize");
         int bodyPartID, modelID, vertID;
         for (bodyPartID = 0; bodyPartID < pHdr->numbodyparts; bodyPartID++) {
             mstudiobodyparts_t *pBodyPart = pHdr->pBodypart(bodyPartID);
@@ -3074,7 +3084,7 @@ namespace OptimizedModel {
         }
     }
 
-    void COptimizedModel::PrintBoneStateChanges(studiohdr_t *phdr, int lod) {
+    void COptimizedModel::PrintBoneStateChanges(studiohdr_t *phdr, const int lod) {
         FileHeader_t *header = (FileHeader_t *) m_FileBuffer->GetPointer(0);
         for (int bodyPartID = 0; bodyPartID < header->numBodyParts; bodyPartID++) {
             BodyPartHeader_t *bodyPart = header->pBodyPart(bodyPartID);
@@ -3092,11 +3102,11 @@ namespace OptimizedModel {
                                 for (int boneStateChangeID = 0;
                                      boneStateChangeID < pStrip->numBoneStateChanges; boneStateChangeID++) {
                                     BoneStateChangeHeader_t *pBoneStateChange = pStrip->pBoneStateChange(
-                                            boneStateChangeID);
-                                    printf("bone change: hwid: %llu boneid: %llu (%s)\n",
-                                           (uintptr_t) pBoneStateChange->hardwareID,
-                                           (uintptr_t) pBoneStateChange->newBoneID,
-                                           g_studiomdl.bonetable[pBoneStateChange->newBoneID].name.c_str());
+                                        boneStateChangeID);
+                                    std::print("bone change: hwid: {} boneid: {} ({})\n",
+                                               (uintptr_t) pBoneStateChange->hardwareID,
+                                               (uintptr_t) pBoneStateChange->newBoneID,
+                                               g_studiomdl.bonetable[pBoneStateChange->newBoneID].name);
                                 }
                             }
                         }
@@ -3106,7 +3116,7 @@ namespace OptimizedModel {
         }
     }
 
-    void COptimizedModel::PrintVerts(studiohdr_t *phdr, int lod) {
+    void COptimizedModel::PrintVerts(studiohdr_t *phdr, const int lod) {
         FileHeader_t *header = (FileHeader_t *) m_FileBuffer->GetPointer(0);
         for (int bodyPartID = 0; bodyPartID < header->numBodyParts; bodyPartID++) {
             BodyPartHeader_t *bodyPart = header->pBodyPart(bodyPartID);
@@ -3150,12 +3160,13 @@ namespace OptimizedModel {
     //
     //-----------------------------------------------------------------------------
 
-    bool COptimizedModel::OptimizeFromStudioHdr(studiohdr_t *pHdr, s_bodypart_t *pSrcBodyParts, int vertCacheSize,
-                                                bool usesFixedFunction, bool bForceSoftwareSkin, bool bHWFlex,
-                                                int maxBonesPerVert, int maxBonesPerFace,
-                                                int maxBonesPerStrip, const char *pFileName,
+    bool COptimizedModel::OptimizeFromStudioHdr(studiohdr_t *pHdr, s_bodypart_t *pSrcBodyParts, const int vertCacheSize,
+                                                const bool usesFixedFunction, const bool bForceSoftwareSkin,
+                                                const bool bHWFlex,
+                                                const int maxBonesPerVert, const int maxBonesPerFace,
+                                                const int maxBonesPerStrip, const char *pFileName,
                                                 const char *glViewFileName) {
-        FunctionTimingRecorder _("Optimize");
+        vstd::FunctionTimingRecorder _("Optimize");
         Assert(maxBonesPerVert <= MAX_NUM_BONES_PER_VERT);
         Assert(maxBonesPerStrip <= MAX_NUM_BONES_PER_STRIP);
 
@@ -3186,8 +3197,8 @@ namespace OptimizedModel {
 
         if (m_NumSkinnedAndFlexedVerts != 0) {
             MdlWarning(
-                    "!!!!WARNING!!!!: %d flexed verts had more than one bone influence. . will use SLOW path in engine\n",
-                    m_NumSkinnedAndFlexedVerts);
+                "!!!!WARNING!!!!: {} flexed verts had more than one bone influence. . will use SLOW path in engine\n",
+                m_NumSkinnedAndFlexedVerts);
         }
 
         CleanupEverything();
@@ -3220,28 +3231,28 @@ namespace OptimizedModel {
     //-----------------------------------------------------------------------------
 
     void COptimizedModel::PrintVert(Vertex_t *v, mstudiomodel_t *pStudioModel, mstudiomesh_t *pStudioMesh) {
-        printf("vert:\n");
+        std::print("vert:\n");
 #if 0
-                                                                                                                                printf( "\tposition: %f %f %f\n",
-			v->position[0], v->position[1], v->position[2] );
-		printf( "\tnormal: %f %f %f\n",
-			v->normal[0], v->normal[1], v->normal[2] );
-		printf( "\ttexcoord: %f %f\n",
-			v->texCoord[0], v->texCoord[1] );
+        std::print("\tposition: {:f} {:f} {:f}\n",
+                   v->position[0], v->position[1], v->position[2]);
+        std::print("\tnormal: {:f} {:f} {:f}\n",
+                   v->normal[0], v->normal[1], v->normal[2]);
+        std::print("\ttexcoord: {:f} {:f}\n",
+                   v->texCoord[0], v->texCoord[1]);
 #endif
-        printf("\torigMeshVertID: %d\n", v->origMeshVertID);
-        printf("\tnumBones: %d\n", v->numBones);
+        std::print("\torigMeshVertID: {}\n", v->origMeshVertID);
+        std::print("\tnumBones: {}\n", v->numBones);
         int i;
         //	for( i = 0; i < MAX_NUM_BONES_PER_VERT; i++ )
         for (i = 0; i < v->numBones; i++) {
             float boneWeight = GetOrigVertBoneWeightValue(pStudioModel, pStudioMesh, v, i);
-            printf("\tboneID[%d]: %llu weight: %f (%s)\n", i, (uintptr_t) v->boneID[i], boneWeight,
-                   g_studiomdl.bonetable[v->boneID[i]].name.c_str());
+            std::print("\tboneID[{}]: {} weight: {:f} ({})\n", i, (uintptr_t) v->boneID[i], boneWeight,
+                       g_studiomdl.bonetable[v->boneID[i]].name);
         }
     }
 
 
-    static float RandomFloat(float min, float max) {
+    static float RandomFloat(const float min, const float max) {
         float ret;
 
         ret = ((float) rand()) / (float) VALVE_RAND_MAX;
@@ -3260,7 +3271,7 @@ namespace OptimizedModel {
     }
 
     float COptimizedModel::GetOrigVertBoneWeightValue(mstudiomodel_t *pStudioModel, mstudiomesh_t *pStudioMesh,
-                                                      Vertex_t *pVert, int boneID) {
+                                                      Vertex_t *pVert, const int boneID) {
         Assert(pStudioMesh->pModel() == pStudioModel);
 
         const mstudio_meshvertexdata_t *vertData = pStudioMesh->GetVertexData();
@@ -3278,7 +3289,7 @@ namespace OptimizedModel {
     }
 
     int COptimizedModel::GetOrigVertBoneIndex(mstudiomodel_t *pStudioModel, mstudiomesh_t *pStudioMesh, Vertex_t *pVert,
-                                              int boneID) {
+                                              const int boneID) {
         Assert(pStudioMesh->pModel() == pStudioModel);
 
         const mstudio_meshvertexdata_t *vertData = pStudioMesh->GetVertexData();
@@ -3286,23 +3297,26 @@ namespace OptimizedModel {
         return vertData->BoneWeights(pVert->origMeshVertID)->bone[pVert->boneWeightIndex[boneID]];
     }
 
-    void COptimizedModel::SetMeshPropsColor(unsigned int meshFlags, Vector &color) {
+    void COptimizedModel::SetMeshPropsColor(const unsigned int meshFlags, Vector &color) {
         if (meshFlags & MESH_IS_TEETH) {
             color[0] = 1.0f;
             color[1] = 0.0f;
             color[2] = 0.0f;
-        } else if (meshFlags & MESH_IS_EYES) {
+        }
+        else if (meshFlags & MESH_IS_EYES) {
             color[0] = 1.0f;
             color[1] = 1.0f;
             color[2] = 0.0f;
-        } else {
+        }
+        else {
             color[0] = 0.0f;
             color[1] = 1.0f;
             color[2] = 0.0f;
         }
     }
 
-    void COptimizedModel::SetFlexedAndSkinColor(unsigned int glViewFlags, unsigned int stripGroupFlags, Vector &color) {
+    void COptimizedModel::SetFlexedAndSkinColor(const unsigned int glViewFlags, const unsigned int stripGroupFlags,
+                                                Vector &color) {
         if ((glViewFlags & WRITEGLVIEW_SHOWFLEXED) && (glViewFlags & WRITEGLVIEW_SHOWSW)) {
             if ((stripGroupFlags & STRIPGROUP_IS_DELTA_FLEXED) &&
                 (stripGroupFlags & STRIPGROUP_IS_HWSKINNED)) {
@@ -3310,44 +3324,51 @@ namespace OptimizedModel {
                 color[0] = 1.0f;
                 color[1] = 1.0f;
                 color[2] = 0.0f;
-            } else if (!(stripGroupFlags & STRIPGROUP_IS_DELTA_FLEXED) &&
-                       (stripGroupFlags & STRIPGROUP_IS_HWSKINNED)) {
+            }
+            else if (!(stripGroupFlags & STRIPGROUP_IS_DELTA_FLEXED) &&
+                     (stripGroupFlags & STRIPGROUP_IS_HWSKINNED)) {
                 // not flexed and hw skinned = green
                 color[0] = 0.0f;
                 color[1] = 1.0f;
                 color[2] = 0.0f;
-            } else if (!(stripGroupFlags & STRIPGROUP_IS_DELTA_FLEXED) &&
-                       !(stripGroupFlags & STRIPGROUP_IS_HWSKINNED)) {
+            }
+            else if (!(stripGroupFlags & STRIPGROUP_IS_DELTA_FLEXED) &&
+                     !(stripGroupFlags & STRIPGROUP_IS_HWSKINNED)) {
                 // not flexed and sw skinned = blue
                 color[0] = 0.0f;
                 color[1] = 0.0f;
                 color[2] = 1.0f;
-            } else if ((stripGroupFlags & STRIPGROUP_IS_DELTA_FLEXED) &&
-                       !(stripGroupFlags & STRIPGROUP_IS_HWSKINNED)) {
+            }
+            else if ((stripGroupFlags & STRIPGROUP_IS_DELTA_FLEXED) &&
+                     !(stripGroupFlags & STRIPGROUP_IS_HWSKINNED)) {
                 // flexed and sw skinned = red
                 color[0] = 1.0f;
                 color[1] = 0.0f;
                 color[2] = 0.0f;
-            } else {
+            }
+            else {
                 Assert(0);
             }
-
-        } else if (glViewFlags & WRITEGLVIEW_SHOWFLEXED) {
+        }
+        else if (glViewFlags & WRITEGLVIEW_SHOWFLEXED) {
             if (stripGroupFlags & STRIPGROUP_IS_DELTA_FLEXED) {
                 color[0] = 1.0f;
                 color[1] = 0.0f;
                 color[2] = 0.0f;
-            } else {
+            }
+            else {
                 color[0] = 0.0f;
                 color[1] = 1.0f;
                 color[2] = 0.0f;
             }
-        } else if (glViewFlags & WRITEGLVIEW_SHOWSW) {
+        }
+        else if (glViewFlags & WRITEGLVIEW_SHOWSW) {
             if (stripGroupFlags & STRIPGROUP_IS_HWSKINNED) {
                 color[0] = 0.0f;
                 color[1] = 1.0f;
                 color[2] = 0.0f;
-            } else {
+            }
+            else {
                 color[0] = 1.0f;
                 color[1] = 0.0f;
                 color[2] = 0.0f;
@@ -3355,13 +3376,13 @@ namespace OptimizedModel {
         }
     }
 
-    void COptimizedModel::SetColorFromNumVertexBones(int numBones, Vector &color) {
+    void COptimizedModel::SetColorFromNumVertexBones(const int numBones, Vector &color) {
         Vector numBonesColor[5] = {
-                Vector(0.0f, 0.0f, 0.0f), // 0 bones = black
-                Vector(0.0f, 1.0f, 0.0f), // 1 bone  = green
-                Vector(1.0f, 1.0f, 0.0f), // 2 bones = yellow
-                Vector(0.0f, 0.0f, 1.0f), // 3 bones = blue
-                Vector(1.0f, 0.0f, 0.0f)  // 4 bones = red
+            Vector(0.0f, 0.0f, 0.0f), // 0 bones = black
+            Vector(0.0f, 1.0f, 0.0f), // 1 bone  = green
+            Vector(1.0f, 1.0f, 0.0f), // 2 bones = yellow
+            Vector(0.0f, 0.0f, 1.0f), // 3 bones = blue
+            Vector(1.0f, 0.0f, 0.0f) // 4 bones = red
         };
         Assert(numBones >= 0 && numBones <= 4);
         VectorCopy(numBonesColor[numBones], color);
@@ -3371,19 +3392,19 @@ namespace OptimizedModel {
     void COptimizedModel::DrawGLViewTriangle(FILE *fp, Vector &pos1, Vector &pos2, Vector &pos3,
                                              Vector &color1, Vector &color2, Vector &color3) {
         numGLViewTrangles++;
-        fprintf(fp, "3\n");
-        fprintf(fp, "%f %f %f %f %f %f\n", pos1[0], pos1[1], pos1[2], color1[0], color1[1], color1[2]);
-        fprintf(fp, "%f %f %f %f %f %f\n", pos2[0], pos2[1], pos2[2], color2[0], color2[1], color2[2]);
-        fprintf(fp, "%f %f %f %f %f %f\n", pos3[0], pos3[1], pos3[2], color3[0], color3[1], color3[2]);
+        std::print(fp, "3\n");
+        std::print(fp, "{:f} {:f} {:f} {:f} {:f} {:f}\n", pos1[0], pos1[1], pos1[2], color1[0], color1[1], color1[2]);
+        std::print(fp, "{:f} {:f} {:f} {:f} {:f} {:f}\n", pos2[0], pos2[1], pos2[2], color2[0], color2[1], color2[2]);
+        std::print(fp, "{:f} {:f} {:f} {:f} {:f} {:f}\n", pos3[0], pos3[1], pos3[2], color3[0], color3[1], color3[2]);
     }
 
     //-----------------------------------------------------------------------------
     // use index to test for degenerates. . isn't used for anything else.
     //-----------------------------------------------------------------------------
 
-    void COptimizedModel::GLViewVert(FILE *fp, Vertex_t vert, int index,
+    void COptimizedModel::GLViewVert(FILE *fp, const Vertex_t vert, const int index,
                                      Vector &color, mstudiomodel_t *pStudioModel, mstudiomesh_t *pStudioMesh,
-                                     bool showSubStrips, float shrinkFactor) {
+                                     const bool showSubStrips, const float shrinkFactor) {
         //	CheckVertBoneWeights( &vert, pStudioModel, pStudioMesh );
         Assert(s_DrawMode != GLVIEWDRAW_NONE);
         int id = s_ListID % 3;
@@ -3401,7 +3422,8 @@ namespace OptimizedModel {
                                    s_LastThreePositions[2],
                                    color, color, color);
             }
-        } else {
+        }
+        else {
             // tristrip
             if (s_ListID >= 2) {
                 // spit out the face with both facings. . doesn't matter if we
@@ -3414,14 +3436,16 @@ namespace OptimizedModel {
                     if (showSubStrips) {
                         RandomColor(color);
                     }
-                } else if (!(s_ListID & 1)) {
+                }
+                else if (!(s_ListID & 1)) {
                     ShrinkVerts(shrinkFactor);
                     DrawGLViewTriangle(fp,
                                        s_LastThreePositions[(id + 0 - 2 + 3) % 3],
                                        s_LastThreePositions[(id + 1 - 2 + 3) % 3],
                                        s_LastThreePositions[(id + 2 - 2 + 3) % 3],
                                        color, color, color);
-                } else {
+                }
+                else {
                     ShrinkVerts(shrinkFactor);
                     DrawGLViewTriangle(fp,
                                        s_LastThreePositions[(id + 2 - 2 + 3) % 3],
@@ -3503,7 +3527,8 @@ namespace OptimizedModel {
 
 
     void
-    COptimizedModel::WriteGLViewFile(studiohdr_t *phdr, const char *pFileName, unsigned int flags, float shrinkFactor) {
+    COptimizedModel::WriteGLViewFile(studiohdr_t *phdr, const char *pFileName, const unsigned int flags,
+                                     const float shrinkFactor) {
         Vector color;
         RandomColor(color);
         FileHeader_t *header = (FileHeader_t *) m_FileBuffer->GetPointer(0);
@@ -3516,10 +3541,10 @@ namespace OptimizedModel {
                 for (int lodID = 0; lodID < model->numLODs; lodID++) {
                     char tmp[256];
                     sprintf(tmp, "%s.lod%d", pFileName, lodID);
-                    printf("writing %s\n", tmp);
+                    std::print("writing {}\n", tmp);
                     FILE *fp = fopen(tmp, "w");
                     if (!fp) {
-                        printf("can't write glview file %s\n", tmp);
+                        std::print("can't write glview file {}\n", tmp);
                         return;
                     }
 
@@ -3682,12 +3707,12 @@ namespace OptimizedModel {
     }
 
 
-    void COptimizedModel::GLViewDrawBegin(int mode) {
+    void COptimizedModel::GLViewDrawBegin(const int mode) {
         s_DrawMode = mode;
         s_ListID = 0;
     }
 
-    void COptimizedModel::ShrinkVerts(float shrinkFactor) {
+    void COptimizedModel::ShrinkVerts(const float shrinkFactor) {
         Vector center;
         Vector delta;
 
@@ -3738,19 +3763,19 @@ namespace OptimizedModel {
         hardwareVertexCache.Init(m_VertexCacheSize - CACHE_INEFFICIENCY);
 
         FileHeader_t *header = (FileHeader_t *) m_FileBuffer->GetPointer(0);
-        printf("header: %d body parts\n", header->numBodyParts);
+        std::print("header: {} body parts\n", header->numBodyParts);
         for (int bodyPartID = 0; bodyPartID < header->numBodyParts; bodyPartID++) {
             BodyPartHeader_t *bodyPart = header->pBodyPart(bodyPartID);
-            printf("  bodyPart %d: %d models\n", bodyPartID, bodyPart->numModels);
+            std::print("  bodyPart {}: {} models\n", bodyPartID, bodyPart->numModels);
             for (int modelID = 0; modelID < bodyPart->numModels; modelID++) {
                 ModelHeader_t *model = bodyPart->pModel(modelID);
-                printf("    model: %d lods\n", model->numLODs);
+                std::print("    model: {} lods\n", model->numLODs);
                 for (int lodID = 0; lodID < 1; lodID++) {
                     ModelLODHeader_t *pLOD = model->pLOD(lodID);
-                    printf("     lod: %d meshes\n", pLOD->numMeshes);
+                    std::print("     lod: {} meshes\n", pLOD->numMeshes);
                     for (int meshID = 0; meshID < pLOD->numMeshes; meshID++) {
                         MeshHeader_t *mesh = pLOD->pMesh(meshID);
-                        printf("       mesh %d: %d stripsgroups\n", meshID, mesh->numStripGroups);
+                        std::print("       mesh {}: {} stripsgroups\n", meshID, mesh->numStripGroups);
                         for (int stripGroupID = 0; stripGroupID < mesh->numStripGroups; stripGroupID++) {
                             StripGroupHeader_t *pStripGroup = mesh->pStripGroup(stripGroupID);
 
@@ -3761,8 +3786,8 @@ namespace OptimizedModel {
                                         int lastThreeIndices[3];
 
                                         StripHeader_t *pStrip = pStripGroup->pStrip(stripID);
-                                        printf("         strip: %d numIndices: %d indexOffset: %d\n", stripID,
-                                               pStrip->numIndices, pStrip->indexOffset);
+                                        std::print("         strip: {} numIndices: {} indexOffset: {}\n", stripID,
+                                                   pStrip->numIndices, pStrip->indexOffset);
 
                                         hardwareVertexCache.Flush();
 
@@ -3785,13 +3810,14 @@ namespace OptimizedModel {
                                             if (!hardwareVertexCache.IsPresent(index)) {
                                                 totalHWVertexCacheMisses++;
                                                 hardwareVertexCache.Insert(index);
-                                            } else {
+                                            }
+                                            else {
                                                 totalHWVertexCacheHits++;
                                             }
                                         }
                                     }
                                 }
-                            }  // if STRIP_IS_TRILIST
+                            } // if STRIP_IS_TRILIST
                         }
                     }
                 }
@@ -3799,28 +3825,28 @@ namespace OptimizedModel {
         }
         int totalRealHWTriangles = totalHWTriangles - totalHWDegenerates;
         int totalRealSWTriangles = totalSWTriangles - totalSWDegenerates;
-        printf("TotalHWTriangles: %d\n", totalHWTriangles);
-        printf("TotalHWDegenerates: %d\n", totalHWDegenerates);
-        printf("TotalRealHWTriangles: %d\n", totalRealHWTriangles);
-        printf("TotalHWIndices: %d\n", totalHWIndices);
-        printf("HW real tris/index: %f\n", (float) totalRealHWTriangles / (float) totalHWIndices);
-        printf("totalHWVertexCacheHits: %d\n", totalHWVertexCacheHits);
-        printf("totalHWVertexCacheMisses: %d\n", totalHWVertexCacheMisses);
-        printf("HW vertex cache hit/miss ratio: %f\n",
-               (float) totalHWVertexCacheHits / (float) totalHWVertexCacheMisses);
+        std::print("TotalHWTriangles: {}\n", totalHWTriangles);
+        std::print("TotalHWDegenerates: {}\n", totalHWDegenerates);
+        std::print("TotalRealHWTriangles: {}\n", totalRealHWTriangles);
+        std::print("TotalHWIndices: {}\n", totalHWIndices);
+        std::print("HW real tris/index: {:f}\n", (float) totalRealHWTriangles / (float) totalHWIndices);
+        std::print("totalHWVertexCacheHits: {}\n", totalHWVertexCacheHits);
+        std::print("totalHWVertexCacheMisses: {}\n", totalHWVertexCacheMisses);
+        std::print("HW vertex cache hit/miss ratio: {:f}\n",
+                   (float) totalHWVertexCacheHits / (float) totalHWVertexCacheMisses);
 
-        printf("TotalSWTriangles: %d\n", totalSWTriangles);
-        printf("TotalSWDegenerates: %d\n", totalSWDegenerates);
-        printf("TotalRealSWTriangles: %d\n", totalRealSWTriangles);
-        printf("TotalSWIndices: %d\n", totalSWIndices);
-        printf("SW real tris/index: %f\n", (float) totalRealSWTriangles / (float) totalSWIndices);
-        printf("totalSWVertexCacheHits: %d\n", totalSWVertexCacheHits);
-        printf("totalSWVertexCacheMisses: %d\n", totalSWVertexCacheMisses);
-        printf("SW vertex cache hit/miss ratio: %f\n",
-               (float) totalSWVertexCacheHits / (float) totalSWVertexCacheMisses);
+        std::print("TotalSWTriangles: {}\n", totalSWTriangles);
+        std::print("TotalSWDegenerates: {}\n", totalSWDegenerates);
+        std::print("TotalRealSWTriangles: {}\n", totalRealSWTriangles);
+        std::print("TotalSWIndices: {}\n", totalSWIndices);
+        std::print("SW real tris/index: {:f}\n", (float) totalRealSWTriangles / (float) totalSWIndices);
+        std::print("totalSWVertexCacheHits: {}\n", totalSWVertexCacheHits);
+        std::print("totalSWVertexCacheMisses: {}\n", totalSWVertexCacheMisses);
+        std::print("SW vertex cache hit/miss ratio: {:f}\n",
+                   (float) totalSWVertexCacheHits / (float) totalSWVertexCacheMisses);
     }
 
-    void COptimizedModel::CheckVert(Vertex_t *pVert, int maxBonesPerFace, int maxBonesPerVert) {
+    void COptimizedModel::CheckVert(Vertex_t *pVert, int maxBonesPerFace, const int maxBonesPerVert) {
 #ifndef IGNORE_BONES
 
 #ifdef _DEBUG
@@ -3835,10 +3861,9 @@ namespace OptimizedModel {
                 Assert(pVert->boneID[j] >= 0 && pVert->boneID[j] < maxBonesPerFace);
             }
 #if 0
-                                                                                                                                    if( pVert->boneWeights[j] != 0 )
-			{
-				Assert( pVert->boneID[j] != 255 );
-			}
+            if (pVert->boneWeights[j] != 0) {
+                Assert(pVert->boneID[j] != 255);
+            }
 #endif
         }
         // Test to make sure we are sorted.
@@ -3851,27 +3876,23 @@ namespace OptimizedModel {
 #endif
         }
 #if 0
-                                                                                                                                // Make sure that all the non-zero weights are first.
-		bool foundZero = false;
-		for( j = 0; j < maxBonesPerVert; j++ )
-		{
-			if( !foundZero )
-			{
-				if( pVert->boneWeights[j] == 0.0f )
-				{
-					foundZero = true;
-				}
-			}
-			else
-			{
-				Assert( pVert->boneWeights[j] == 0.0f );
-			}
-		}
+        // Make sure that all the non-zero weights are first.
+        bool foundZero = false;
+        for (j = 0; j < maxBonesPerVert; j++) {
+            if (!foundZero) {
+                if (pVert->boneWeights[j] == 0.0f) {
+                    foundZero = true;
+                }
+            }
+            else {
+                Assert(pVert->boneWeights[j] == 0.0f);
+            }
+        }
 #endif
 #endif
     }
 
-    void COptimizedModel::CheckAllVerts(int maxBonesPerFace, int maxBonesPerVert) {
+    void COptimizedModel::CheckAllVerts(const int maxBonesPerFace, const int maxBonesPerVert) {
         int i;
         for (i = m_VertsOffset; i < m_IndicesOffset; i += sizeof(Vertex_t)) {
             Vertex_t *vert = (Vertex_t *) m_FileBuffer->GetPointer(i);
@@ -3879,9 +3900,9 @@ namespace OptimizedModel {
         }
     }
 
-    void COptimizedModel::SortBonesWithinVertex(bool flexed, Vertex_t *vert, mstudiomodel_t *pStudioModel,
+    void COptimizedModel::SortBonesWithinVertex(const bool flexed, Vertex_t *vert, mstudiomodel_t *pStudioModel,
                                                 mstudiomesh_t *pStudioMesh, int *globalToHardwareBoneIndex,
-                                                int *hardwareToGlobalBoneIndex, int maxBonesPerFace,
+                                                int *hardwareToGlobalBoneIndex, const int maxBonesPerFace,
                                                 int maxBonesPerVert) {
         int i;
         /*
@@ -3898,27 +3919,24 @@ namespace OptimizedModel {
 		}
 		*/
 #if 0
-                                                                                                                                unsigned char tmpWeightIndex;
-		int tmpIndex;
-		int j;
-		// bubble sort the bones.
-		for( j = m_MaxBonesPerVert; j > 1; j-- )
-		{
-			int k;
-			for( k = 0; k < j - 1; k++ )
-			{
-				if( vert->boneID[k] > vert->boneID[k+1] )
-				{
-					// swap
-					tmpIndex = vert->boneID[k];
-					tmpWeightIndex = vert->boneWeightIndex[k];
-					vert->boneID[k] = vert->boneID[k+1];
-					vert->boneWeightIndex[k] = vert->boneWeightIndex[k+1];
-					vert->boneID[k+1] = tmpIndex;
-					vert->boneWeightIndex[k+1] = tmpWeightIndex;
-				}
-			}
-		}
+        unsigned char tmpWeightIndex;
+        int tmpIndex;
+        int j;
+        // bubble sort the bones.
+        for (j = m_MaxBonesPerVert; j > 1; j--) {
+            int k;
+            for (k = 0; k < j - 1; k++) {
+                if (vert->boneID[k] > vert->boneID[k + 1]) {
+                    // swap
+                    tmpIndex = vert->boneID[k];
+                    tmpWeightIndex = vert->boneWeightIndex[k];
+                    vert->boneID[k] = vert->boneID[k + 1];
+                    vert->boneWeightIndex[k] = vert->boneWeightIndex[k + 1];
+                    vert->boneID[k + 1] = tmpIndex;
+                    vert->boneWeightIndex[k + 1] = tmpWeightIndex;
+                }
+            }
+        }
 #else
 
         int origBoneWeightIndex[MAX_NUM_BONES_PER_VERT];
@@ -3941,15 +3959,16 @@ namespace OptimizedModel {
             //		if( vert->numBones > 1 )
             {
                 if (flexed) {
-                    printf("boneWeight: %f\n", boneWeight);
-                    printf("globalBoneIndex: %d\n", globalBoneIndex);
+                    std::print("boneWeight: {:f}\n", boneWeight);
+                    std::print("globalBoneIndex: {}\n", globalBoneIndex);
                 }
             }
             if (boneWeight > 0.0f) {
                 int hardwareBoneIndex = globalToHardwareBoneIndex[globalBoneIndex];
                 Assert(globalBoneIndex != -1);
                 origBoneWeightIndex[hardwareBoneIndex] = vert->boneWeightIndex[i];
-            } else {
+            }
+            else {
                 int hardwareBoneIndex = globalToHardwareBoneIndex[globalBoneIndex];
                 origBoneWeightIndex[hardwareBoneIndex] = zeroWeightIndex;
                 Assert(zeroWeightIndex != -1);
@@ -3964,9 +3983,9 @@ namespace OptimizedModel {
             int globalBoneIndex = GetOrigVertBoneIndex(pStudioModel, pStudioMesh, vert, i);
             if (flexed) {
                 Assert(boneWeight >= 0.0f && boneWeight <= 1.0f);
-                printf("boneWeight: %f ", boneWeight);
-                printf("globalBoneIndex: %d ", globalBoneIndex);
-                printf("hardwareBoneID: %d\n", i);
+                std::print("boneWeight: {:f} ", boneWeight);
+                std::print("globalBoneIndex: {} ", globalBoneIndex);
+                std::print("hardwareBoneID: {}\n", i);
             }
         }
         vert->numBones = maxBonesPerFace; // this may be different for software t&l stuff
@@ -4030,13 +4049,14 @@ namespace OptimizedModel {
                                 for (int boneStateChangeID = 0;
                                      boneStateChangeID < pStrip->numBoneStateChanges; boneStateChangeID++) {
                                     BoneStateChangeHeader_t *boneStateChange = pStrip->pBoneStateChange(
-                                            boneStateChangeID);
+                                        boneStateChangeID);
                                     Assert(boneStateChange->hardwareID >= 0 &&
-                                           boneStateChange->hardwareID < MAX_NUM_BONES_PER_STRIP);
+                                        boneStateChange->hardwareID < MAX_NUM_BONES_PER_STRIP);
                                     if (allocated[boneStateChange->hardwareID] &&
                                         hardwareBoneState[boneStateChange->hardwareID] == boneStateChange->newBoneID) {
                                         // already got this one!
-                                    } else {
+                                    }
+                                    else {
                                         changed[boneStateChange->hardwareID] = true;
                                         allocated[boneStateChange->hardwareID] = true;
                                         hardwareBoneState[boneStateChange->hardwareID] = boneStateChange->newBoneID;
@@ -4091,39 +4111,39 @@ namespace OptimizedModel {
     // Check that all replacematerial/removemesh commands map to valid source materials
     void ValidateLODReplacements(studiohdr_t *pHdr) {
         return;
-//        bool failed = false;
-//        int lodID;
-//        for (lodID = 0; lodID < g_ScriptLODs.Count(); lodID++) {
-//            LodScriptData_t &scriptLOD = g_ScriptLODs[lodID];
-//            int j;
-//            for (j = 0; j < scriptLOD.meshRemovals.Count(); j++) {
-//                const char *pName1 = scriptLOD.meshRemovals[j].GetSrcName();
-//                int i;
-//                for (i = 0; i < pHdr->numtextures; i++) {
-//                    const char *pName2 = pHdr->pTexture(i)->material->GetName();
-//                    if (ComparePath(pName1, pName2)) {
-//                        goto got_one;
-//                    }
-//                }
-//
-//                // no match
-//                MdlWarning("\"%s\" doesn't match any of the materals in the model\n", pName1);
-//                failed = true;
-//                got_one:;
-//            }
-//        }
-//        if (failed) {
-//            MdlWarning("possible materials in model:\n");
-//            int i;
-//            for (i = 0; i < pHdr->numtextures; i++) {
-//                MdlWarning("\t\"%s\"\n", pHdr->pTexture(i)->material->GetName());
-//            }
-//            MdlError("Exiting due to errors\n");
-//        }
+        //        bool failed = false;
+        //        int lodID;
+        //        for (lodID = 0; lodID < g_ScriptLODs.Count(); lodID++) {
+        //            LodScriptData_t &scriptLOD = g_ScriptLODs[lodID];
+        //            int j;
+        //            for (j = 0; j < scriptLOD.meshRemovals.Count(); j++) {
+        //                const char *pName1 = scriptLOD.meshRemovals[j].GetSrcName();
+        //                int i;
+        //                for (i = 0; i < pHdr->numtextures; i++) {
+        //                    const char *pName2 = pHdr->pTexture(i)->material->GetName();
+        //                    if (ComparePath(pName1, pName2)) {
+        //                        goto got_one;
+        //                    }
+        //                }
+        //
+        //                // no match
+        //                MdlWarning("\"%s\" doesn't match any of the materals in the model\n", pName1);
+        //                failed = true;
+        //                got_one:;
+        //            }
+        //        }
+        //        if (failed) {
+        //            MdlWarning("possible materials in model:\n");
+        //            int i;
+        //            for (i = 0; i < pHdr->numtextures; i++) {
+        //                MdlWarning("\t\"%s\"\n", pHdr->pTexture(i)->material->GetName());
+        //            }
+        //            MdlError("Exiting due to errors\n");
+        //        }
     }
 
     void WriteOptimizedFiles(studiohdr_t *phdr, s_bodypart_t *pSrcBodyParts) {
-        FunctionTimingRecorder _("Write");
+        vstd::FunctionTimingRecorder _("Write");
 
         ValidateLODReplacements(phdr);
 
@@ -4140,13 +4160,13 @@ namespace OptimizedModel {
             const std::string glViewFilename = filename + ".sw.glview";
             bool bForceSoftwareSkinning = phdr->numbones > 0 && !g_studiomdl.staticprop;
             s_OptimizedModel.OptimizeFromStudioHdr(phdr, pSrcBodyParts,
-                                                   512,    //vert cache size FIXME: figure out the correct size for L1
+                                                   512, //vert cache size FIXME: figure out the correct size for L1
                                                    false, /* doesn't use fixed function */
-                                                   bForceSoftwareSkinning,    // force software skinning if not static prop
+                                                   bForceSoftwareSkinning, // force software skinning if not static prop
                                                    false, // No hardware flex
-                                                   3,        // bones/vert
-                                                   3 * 3,        // bones/tri
-                                                   512,    // bones/strip
+                                                   3, // bones/vert
+                                                   3 * 3, // bones/tri
+                                                   512, // bones/strip
                                                    tmpFileName.c_str(), glViewFilename.c_str());
         }
 
@@ -4158,13 +4178,13 @@ namespace OptimizedModel {
                                                    false, /* doesn't use fixed function */
                                                    false, // don't force software skinning
                                                    false, // No hardware flex
-                                                   3  /* bones/vert */,
-                                                   9  /* bones/tri */,
-                                                   16  /* bones/strip */,
+                                                   3 /* bones/vert */,
+                                                   9 /* bones/tri */,
+                                                   16 /* bones/strip */,
                                                    tmpFileName.c_str(), glViewFilename.c_str());
         }
 
-        if (true)    // Always process dx90
+        if (true) // Always process dx90
         {
             const std::string tmpFileName = filename + ".dx90.vtx";
             const std::string glViewFilename = filename + ".dx90.glview";
@@ -4173,14 +4193,13 @@ namespace OptimizedModel {
                                                    false, /* doesn't use fixed function */
                                                    false, // don't force software skinning
                                                    true, // Hardware flex on DX9 parts
-                                                   3  /* bones/vert */,
-                                                   9  /* bones/tri */,
-                                                   53  /* bones/strip */,
+                                                   3 /* bones/vert */,
+                                                   9 /* bones/tri */,
+                                                   53 /* bones/strip */,
                                                    tmpFileName.c_str(), glViewFilename.c_str());
         }
 
         s_StringTable.Purge();
     }
-
 }; // namespace OptimizedModel
 #pragma optimize( "", on )

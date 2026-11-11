@@ -32,12 +32,8 @@
 #include "studiomdl/studiomdl.h"
 #include "studiomdl/studiomdl_global_state.hpp"
 
-
 bool IsEnd( char const* pLine );
-int SortAndBalanceBones( int iCount, int iMaxCount, int bones[], float weights[] );
 
-int AddToVlist( int v, int m, int n, int t, int firstref );
-void DecrementReferenceVlist( int uv, int numverts );
 int faceCompare( const void *elem1, const void *elem2 );
 
 
@@ -168,7 +164,7 @@ int Load_OBJ( s_source_t *psource )
 
 	if( !g_StudioMdlContext.quiet )
 	{
-		printf( "grabbing %s\n", psource->filename.c_str() );
+		std::print( "grabbing {}\n", psource->filename );
 	}
 
     g_StudioMdlContext.iLinecount = 0;
@@ -275,12 +271,11 @@ int Load_OBJ( s_source_t *psource )
 
 				Assert( v2 <= g_StudioMdlContext.numverts && t2 <= g_StudioMdlContext.numtexcoords[0] && n2 <= g_StudioMdlContext.numnormals );
 	
-				i = g_StudioMdlContext.numfaces++;
-				f.material = material;
-				f.a = v0 - 1; f.na = (n0 > 0) ? n0 - 1 : 0, f.ta[0] = (t0 > 0) ? t0 - 1 : 0;
-				f.b = v2 - 1; f.nb = (n2 > 0) ? n2 - 1 : 0, f.tb[0] = (t2 > 0) ? t2 - 1 : 0;
-				f.c = v1 - 1; f.nc = (n1 > 0) ? n1 - 1 : 0, f.tc[0] = (t1 > 0) ? t1 - 1 : 0;
-				g_StudioMdlContext.face[i] = f;
+				auto& new_face = g_StudioMdlContext.faces.emplace_back();
+				new_face.material = material;
+				new_face.a = v0 - 1; new_face.na = (n0 > 0) ? n0 - 1 : 0, new_face.ta[0] = (t0 > 0) ? t0 - 1 : 0;
+				new_face.b = v2 - 1; new_face.nb = (n2 > 0) ? n2 - 1 : 0, new_face.tb[0] = (t2 > 0) ? t2 - 1 : 0;
+				new_face.c = v1 - 1; new_face.nc = (n1 > 0) ? n1 - 1 : 0, new_face.tc[0] = (t1 > 0) ? t1 - 1 : 0;
 
 				v1 = v2; t1 = t2; n1 = n2;
 			}
@@ -315,12 +310,13 @@ int AppendVTAtoOBJ( s_source_t *psource, char *filename, int frame )
 
 	if( !g_StudioMdlContext.quiet )
 	{
-		printf ("grabbing %s\n", filename );
+		std::print("grabbing {}\n", filename );
 	}
 
     g_StudioMdlContext.iLinecount = 0;
 
-	g_StudioMdlContext.numverts = g_StudioMdlContext.numnormals = g_StudioMdlContext.numtexcoords[0] = g_StudioMdlContext.numfaces = 0;
+	g_StudioMdlContext.numverts = g_StudioMdlContext.numnormals = g_StudioMdlContext.numtexcoords[0] = 0;
+	g_StudioMdlContext.faces.clear();
 
 	while ( GetLineInput() ) 
 	{
@@ -365,29 +361,23 @@ int AppendVTAtoOBJ( s_source_t *psource, char *filename, int frame )
 			int v2, n2, t2;
 			int v3, n3, t3;
 
-			s_tmpface_t f;
-
-			i = g_StudioMdlContext.numfaces++;
 
 			j = sscanf( g_StudioMdlContext.szLine, "f %d/%d/%d %d/%d/%d %d/%d/%d %d/%d/%d", &v0, &t0, &n0, &v1, &t1, &n1, &v2, &t2, &n2, &v3, &t3, &n3 );
-
-			f.material = material;
-			f.a = v0 - 1; f.na = n0 - 1, f.ta[0] = 0;
-			f.b = v2 - 1; f.nb = n2 - 1, f.tb[0] = 0;
-			f.c = v1 - 1; f.nc = n1 - 1, f.tc[0] = 0;
+			auto& new_face = g_StudioMdlContext.faces.emplace_back();
+			new_face.material = material;
+			new_face.a = v0 - 1; new_face.na = n0 - 1, new_face.ta[0] = 0;
+			new_face.b = v2 - 1; new_face.nb = n2 - 1, new_face.tb[0] = 0;
+			new_face.c = v1 - 1; new_face.nc = n1 - 1, new_face.tc[0] = 0;
 
 			Assert( v0 <= g_StudioMdlContext.numverts && v1 <= g_StudioMdlContext.numverts && v2 <= g_StudioMdlContext.numverts );
 			Assert( n0 <= g_StudioMdlContext.numnormals && n1 <= g_StudioMdlContext.numnormals && n2 <= g_StudioMdlContext.numnormals );
 
-			g_StudioMdlContext.face[i] = f;
-
 			if (j == 12)
 			{
-				i = g_StudioMdlContext.numfaces++;
-				f.a = v0 - 1; f.na = n0 - 1, f.ta[0] = 0;
-				f.b = v3 - 1; f.nb = n3 - 1, f.tb[0] = 0;
-				f.c = v2 - 1; f.nc = n2 - 1, f.tc[0] = 0;
-				g_StudioMdlContext.face[i] = f;
+				auto& extra_face = g_StudioMdlContext.faces.emplace_back();
+				extra_face.a = v0 - 1; extra_face.na = n0 - 1, extra_face.ta[0] = 0;
+				extra_face.b = v3 - 1; extra_face.nb = n3 - 1, extra_face.tb[0] = 0;
+				extra_face.c = v2 - 1; extra_face.nc = n2 - 1, extra_face.tc[0] = 0;
 			}
 		}
 	}
@@ -412,10 +402,8 @@ int AppendVTAtoOBJ( s_source_t *psource, char *filename, int frame )
 		BuildIndividualMeshes( psource );
 	}
 
-	// printf("%d %d : %d\n", g_StudioMdlContext.numverts, g_StudioMdlContext.numnormals, numvlist );
-
 	int t = frame;
-	int count = g_studiomdl.numvlist;
+	int count = static_cast<int>( g_studiomdl.v_listdata.size() );
 
 	pSourceAnim->numvanims[t] = count;
 	pSourceAnim->vanim[t] = (s_vertanim_t *)calloc( count, sizeof( s_vertanim_t ) );

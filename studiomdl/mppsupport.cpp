@@ -136,13 +136,13 @@ static bool LoadLODs(s_source_t **ppRootLODSource, CDmeLODList *pLodList, bool &
         bool bIsShadowLOD = pLOD->m_bIsShadowLOD;
         if (bIsShadowLOD) {
             if ((g_studiomdl.gflags & STUDIOHDR_FLAGS_HASSHADOWLOD) != 0) {
-                MdlError("Invalid LOD: \"%s\": Multiple Shadow LODs Defined\n", pLOD->GetName());
+                MdlError("Invalid LOD: \"{}\": Multiple Shadow LODs Defined\n", pLOD->GetName());
                 return false;
             }
             g_studiomdl.gflags |= STUDIOHDR_FLAGS_HASSHADOWLOD;
         }
         else if (pLOD->m_flSwitchMetric.Get() < 0.0f) {
-            MdlError("Invalid LOD: \"%s\": Negative switch value\n", pLOD->GetName());
+            MdlError("Invalid LOD: \"{}\": Negative switch value\n", pLOD->GetName());
             return false;
         }
 
@@ -162,19 +162,19 @@ static bool LoadLODs(s_source_t **ppRootLODSource, CDmeLODList *pLodList, bool &
 
         // No model & no skeleton means LOD is invalid
         if (!bHasModel && !bHasSkeleton) {
-            MdlError("Invalid LOD: \"%s\": No Model or Skeleton defined\n", pLOD->GetName());
+            MdlError("Invalid LOD: \"{}\": No Model or Skeleton defined\n", pLOD->GetName());
             return false;
         }
 
         if (g_studiomdl.ScriptLODs.Count() == MAX_NUM_LODS) {
-            MdlError("Too many LODs (MAX_NUM_LODS==%d) while loading LOD: \"%s\"\n", static_cast<int>(MAX_NUM_LODS),
+            MdlError("Too many LODs (MAX_NUM_LODS=={}) while loading LOD: \"{}\"\n", static_cast<int>(MAX_NUM_LODS),
                      pLOD->GetName());
             return false;
         }
 
         // Check for overflow
         if (g_studiomdl.sources.full()) {
-            MdlError("Too many source models/animations (MAXSTUDIOSEQUENCES==%d) while loading LOD: \"%s\"\n",
+            MdlError("Too many source models/animations (MAXSTUDIOSEQUENCES=={}) while loading LOD: \"{}\"\n",
                      static_cast<int>(MAXSTUDIOSEQUENCES), pLOD->GetName());
             return false;
         }
@@ -182,7 +182,7 @@ static bool LoadLODs(s_source_t **ppRootLODSource, CDmeLODList *pLodList, bool &
         s_source_t *pLODSource = AllocateDmxSource(pLOD->m_Path.Get());
 
         if (!pLODSource) {
-            MdlError("Couldn't allocate new source while loading LOD: \"%s\"\n", pLOD->GetName());
+            MdlError("Couldn't allocate new source while loading LOD: \"{}\"\n", pLOD->GetName());
             return false;
         }
 
@@ -195,7 +195,7 @@ static bool LoadLODs(s_source_t **ppRootLODSource, CDmeLODList *pLodList, bool &
             BoneTransformMap_t boneMap;
             if (!LoadModelAndSkeleton(pLODSource, boneMap, pLOD->m_Skeleton, pLOD->m_Model, pLOD->m_CombinationOperator,
                                       bStaticProp)) {
-                MdlError("Couldn't load skeleton and model while loading LOD: \"%s\"\n", pLOD->GetName());
+                MdlError("Couldn't load skeleton and model while loading LOD: \"{}\"\n", pLOD->GetName());
                 return false;
             }
 
@@ -254,8 +254,8 @@ static void LoadEyeballs(s_model_t *ps_model_t, CDmeLODList *pDmeLODList) {
             continue;
 
         if (ps_model_t->eyeballs.full()) {
-            MdlWarning("1100: Max number of eyeballs reached for model %s, ignoring eyeball %s\n",
-                       ps_model_t->name.c_str(),
+            MdlWarning("1100: Max number of eyeballs reached for model {}, ignoring eyeball {}\n",
+                       ps_model_t->name,
                        pDmeEyeball->GetName());
             continue;
         }
@@ -270,8 +270,8 @@ static void LoadEyeballs(s_model_t *ps_model_t, CDmeLODList *pDmeLODList) {
         }
 
         if (nFoundBoneIndex < 0) {
-            MdlWarning("1101: Couldn't find bone %s on model %s, ignoring eyeball %s\n",
-                       pDmeEyeball->m_sParentBoneName.Get(), ps_model_t->name.c_str(), pDmeEyeball->GetName());
+            MdlWarning("1101: Couldn't find bone {} on model {}, ignoring eyeball {}\n",
+                       pDmeEyeball->m_sParentBoneName.Get(), ps_model_t->name, pDmeEyeball->GetName());
             continue;
         }
 
@@ -280,20 +280,11 @@ static void LoadEyeballs(s_model_t *ps_model_t, CDmeLODList *pDmeLODList) {
 
         const int nSearchMeshMatIndex = UseTextureAsMaterial(
             LookupTexture(pDmeEyeball->m_sMaterialName.Get(), bRelative));
-        int nFoundMeshMatIndex = -1;
-        for (int i = 0; i < ps_model_t->source->nummeshes; ++i) {
-            const int nTmpMeshMatIndex = ps_model_t->source->meshindex[i];
-            // meshes are internally stored by material index
-
-            if (nTmpMeshMatIndex == nSearchMeshMatIndex) {
-                nFoundMeshMatIndex = i;
-                break;
-            }
-        }
+        const int nFoundMeshMatIndex = FindSourceMeshIndex(ps_model_t->source, nSearchMeshMatIndex); // mesh slot
 
         if (nFoundMeshMatIndex < 0) {
-            MdlWarning("1102: Couldn't find eyeball material %s on model %s, ignoring eyeball %s\n",
-                       pDmeEyeball->m_sMaterialName.Get(), ps_model_t->name.c_str(), pDmeEyeball->GetName());
+            MdlWarning("1102: Couldn't find eyeball material {} on model {}, ignoring eyeball {}\n",
+                       pDmeEyeball->m_sMaterialName.Get(), ps_model_t->name, pDmeEyeball->GetName());
             continue;
         }
 
@@ -342,7 +333,7 @@ static void LoadEyeballs(s_model_t *ps_model_t, CDmeLODList *pDmeLODList) {
 
         if (!bHasEyeFlexController) {
             if (g_studiomdl.flexcontrollers.full()) {
-                MdlWarning("1103: Couldn't make eyes flexcontroller %s, too many flex controllers defined\n",
+                MdlWarning("1103: Couldn't make eyes flexcontroller {}, too many flex controllers defined\n",
                            szEyesFlexControllers[nNewFlexIndex]);
                 continue;
             }
@@ -410,7 +401,7 @@ static bool LoadBodyGroupList(s_source_t **ppMainSource, CDmeBodyGroupList *pBod
                 g_pCurrentModel = pModel;
 
                 if (!LoadLODs(&pModel->source, pDmeLODList, bSetUpAxis, bStaticProp)) {
-                    MdlError("Bad LOD On BodyGroup \"%s\".bodyPartList[%d]\n", pDmeBodyGroup->GetName(), j);
+                    MdlError("Bad LOD On BodyGroup \"{}\".bodyPartList[{}]\n", pDmeBodyGroup->GetName(), j);
                     return false;
                 }
 
@@ -464,19 +455,19 @@ bool LoadCollisionModel(CDmeCollisionModel *pCollisionInfo, bool bStaticProp) {
     // BoneRemap[bone index in file] == bone index in studiomdl
     CDmeDag *pSkeleton = pCollisionInfo->GetValueElement<CDmeDag>("skeleton");
     if (!pSkeleton) {
-        MdlError("%s(%s): No \"skeleton\" defined\n", pCollisionInfo->GetTypeString(), pCollisionInfo->GetName());
+        MdlError("{}({}): No \"skeleton\" defined\n", pCollisionInfo->GetTypeString(), pCollisionInfo->GetName());
         return false;
     }
 
     CDmeModel *pModel = pCollisionInfo->GetValueElement<CDmeModel>("model");
     if (!pModel) {
-        MdlError("%s(%s): No \"model\" defined\n", pCollisionInfo->GetTypeString(), pCollisionInfo->GetName());
+        MdlError("{}({}): No \"model\" defined\n", pCollisionInfo->GetTypeString(), pCollisionInfo->GetName());
         return false;
     }
 
     BoneTransformMap_t boneMap;
     if (!LoadModelAndSkeleton(pCollisionSource, boneMap, pSkeleton, pModel, nullptr, bStaticProp)) {
-        MdlError("%s(%s): Couldn't Load Skeleton: %s(%s) & Model: %s(%s)\n",
+        MdlError("{}({}): Couldn't Load Skeleton: {}({}) & Model: {}({})\n",
                  pCollisionInfo->GetTypeString(), pCollisionInfo->GetName(),
                  pSkeleton->GetTypeString(), pSkeleton->GetName(),
                  pModel->GetTypeString(), pModel->GetName());
@@ -517,7 +508,7 @@ static void LoadMaterialGroups(const CDmeMaterialGroupList *pDmeMaterialGroupLis
 
     const int nMaterialGroupCount = pDmeMaterialGroupList->m_MaterialGroups.Count();
     if (nMaterialGroupCount >= ARRAYSIZE(g_studiomdl.texturegroup[ 0 ])) {
-        MdlError("Too Many Material Groups, Max: %d\n", ARRAYSIZE(g_studiomdl.texturegroup[ 0 ]));
+        MdlError("Too Many Material Groups, Max: {}\n", ARRAYSIZE(g_studiomdl.texturegroup[ 0 ]));
         return;
     }
 
@@ -530,7 +521,7 @@ static void LoadMaterialGroups(const CDmeMaterialGroupList *pDmeMaterialGroupLis
 
         const int nMaterialCount = pDmeMaterialGroup->m_MaterialList.Count();
         if (nGroupIndex > 0 && nMaterialCount < nTextureCount) {
-            MdlWarning("Only Setting %d of %d Textures via MaterialGroup %d, Skin %d will have bad materials\n",
+            MdlWarning("Only Setting {} of {} Textures via MaterialGroup {}, Skin {} will have bad materials\n",
                        nMaterialCount, nTextureCount, nGroupIndex, nGroupIndex);
         }
         for (int nMaterialIndex = 0; nMaterialIndex < nMaterialCount; ++nMaterialIndex) {
@@ -559,7 +550,7 @@ static void LoadBoneMergeList(CDmAttribute *pDmeBoneMergeListAttr) {
 
     const int nBoneMergeCount = boneMergeList.Count();
     for (int nBoneMergeIndex = 0; nBoneMergeIndex < nBoneMergeCount; ++nBoneMergeIndex) {
-        g_studiomdl.BoneMerge.emplace_back(boneMergeList[nBoneMergeIndex]);
+        g_studiomdl.bone_merge.emplace_back(boneMergeList[nBoneMergeIndex]);
     }
 }
 
@@ -591,7 +582,7 @@ static void LoadBoneMaskList(CDmeBoneMaskList *pDmeBoneMaskList) {
         }
 
         if (nBoneMaskIndex >= MAXWEIGHTLISTS) {
-            MdlWarning("1300: Too many bone masks, max %d, ignoring %s\n", MAXWEIGHTLISTS, pDmeBoneMask->GetName());
+            MdlWarning("1300: Too many bone masks, max {}, ignoring {}\n", MAXWEIGHTLISTS, pDmeBoneMask->GetName());
         }
 
         bool bDuplicate = false;
@@ -599,7 +590,7 @@ static void LoadBoneMaskList(CDmeBoneMaskList *pDmeBoneMaskList) {
             if (g_studiomdl.weightlist[j].name && !
                 Q_stricmp(g_studiomdl.weightlist[ j ].name, pDmeBoneMask->GetName())) {
                 bDuplicate = true;
-                MdlWarning("1301: Ignoring duplicate bone mask %s\n", pDmeBoneMask->GetName());
+                MdlWarning("1301: Ignoring duplicate bone mask {}\n", pDmeBoneMask->GetName());
                 break;
             }
         }
@@ -618,7 +609,8 @@ static void LoadBoneMaskList(CDmeBoneMaskList *pDmeBoneMaskList) {
 
             int nBoneWeightIndex = pWeightList->numbones;
             if (nBoneWeightIndex >= MAXWEIGHTSPERLIST) {
-                MdlWarning("1302: Too many bones in weightlist %s, ignoring weight for %s (%f)\n", pWeightList->name,
+                MdlWarning("1302: Too many bones in weightlist {}, ignoring weight for {} ({:f})\n",
+                           pWeightList->name,
                            pDmeBoneWeight->GetName(), pDmeBoneWeight->m_flWeight.Get());
                 continue;
             }
@@ -636,7 +628,7 @@ static void LoadBoneMaskList(CDmeBoneMaskList *pDmeBoneMaskList) {
                 if (pWeightList->boneweight[nBoneWeightIndex] == 0 && pWeightList->boneposweight[nBoneWeightIndex] >
                     0) {
                     MdlWarning(
-                        "1303: Non-zero position weight with zero rotation weight not allowed for bone weight list %s:%s P: %f R: %f, ignoring position weight\n",
+                        "1303: Non-zero position weight with zero rotation weight not allowed for bone weight list {}:{} P: {:f} R: {:f}, ignoring position weight\n",
                         pWeightList->name, pWeightList->bonename[nBoneWeightIndex],
                         pWeightList->boneposweight[nBoneWeightIndex], pWeightList->boneweight[nBoneWeightIndex]);
                     pWeightList->boneposweight[nBoneWeightIndex] = pWeightList->boneweight[nBoneWeightIndex];
@@ -661,7 +653,7 @@ static void LoadPoseParameterList(CDmePoseParameterList *pDmePoseParameterList) 
         const CDmePoseParameter *pDmePoseParameter = pDmePoseParameterList->m_ePoseParameterList[i];
 
         if (g_studiomdl.numposeparameters >= MAXSTUDIOPOSEPARAM) {
-            MdlWarning("1900: Too many pose parameters, ignoring from %s\n", pDmePoseParameter->GetName());
+            MdlWarning("1900: Too many pose parameters, ignoring from {}\n", pDmePoseParameter->GetName());
         }
 
         // This is like FindOrCreatePoseParamater, name is copied into g_pose[].name
@@ -672,11 +664,11 @@ static void LoadPoseParameterList(CDmePoseParameterList *pDmePoseParameterList) 
         pPoseParameter->min = pDmePoseParameter->m_flMin;
         pPoseParameter->max = pDmePoseParameter->m_flMax;
         if (pDmePoseParameter->m_bWrap) {
-            pPoseParameter->flags |= STUDIO_LOOPING;
+            pPoseParameter->flags |= StudioSequenceFlags::Looping;
             pPoseParameter->loop = pPoseParameter->max - pPoseParameter->min;
         }
         else if (pDmePoseParameter->m_bLoop) {
-            pPoseParameter->flags |= STUDIO_LOOPING;
+            pPoseParameter->flags |= StudioSequenceFlags::Looping;
             pPoseParameter->loop = pDmePoseParameter->m_flLoopRange;
         }
     }
@@ -738,12 +730,12 @@ static void LoadIkChainList(CDmeSequenceList *pDmeSequenceList) {
 
         if (j < g_studiomdl.numikchains) {
             if (!g_StudioMdlContext.quiet) {
-                MdlWarning("1401: Duplicate IkChain: %s Ignored\n", pIkChainName);
+                MdlWarning("1401: Duplicate IkChain: {} Ignored\n", pIkChainName);
             }
         }
 
         // Set defaults
-        g_studiomdl.ikchain[g_studiomdl.numikchains].axis = STUDIO_Z; // Not actually used
+        g_studiomdl.ikchain[g_studiomdl.numikchains].axis = StudioMotionFlags::Z; // Not actually used
         g_studiomdl.ikchain[g_studiomdl.numikchains].value = 0.0; // Not actually used
 
         g_studiomdl.ikchain[g_studiomdl.numikchains].height = 18.0;
@@ -791,8 +783,8 @@ static void CreateAnimFromSkeleton(s_source_t *pSource, const char *pSequenceNam
 
 // motionControl is created with its owner when authoring, but not when a file lacks it (unserializing skips
 // InitAndCreate); no element means no motion extraction, like a default CDmeMotionControl
-static int MotionControlFlags(const CDmeMotionControl *pMotionControl) {
-    return pMotionControl ? pMotionControl->GetStudioMotionControl() : 0;
+static StudioMotionFlags MotionControlFlags(const CDmeMotionControl *pMotionControl) {
+    return pMotionControl ? pMotionControl->GetStudioMotionControl() : StudioMotionFlags::None;
 }
 
 void LoadAnimationOptions(CDmeSequence *pDmeSimpleSequence, s_animation_t *pAnimation) {
@@ -809,20 +801,20 @@ void LoadAnimationOptions(CDmeSequence *pDmeSimpleSequence, s_animation_t *pAnim
     pAnimation->looprestart = pDmeSimpleSequence->m_nStartLoop;
 
     if (pDmeSimpleSequence->m_bLoop) {
-        pAnimation->flags |= STUDIO_LOOPING;
+        pAnimation->flags |= StudioSequenceFlags::Looping;
     }
 
-    // This should be removed and handled by assemble, i.e. STUDIO_NOFORCELOOP should always be set
+    // This should be removed and handled by assemble, i.e. StudioSequenceFlags::NoForceLoop should always be set
     if (!pDmeSimpleSequence->m_bForceLoop) {
-        pAnimation->flags |= STUDIO_NOFORCELOOP;
+        pAnimation->flags |= StudioSequenceFlags::NoForceLoop;
     }
 
     if (pDmeSimpleSequence->m_bSnap) {
-        pAnimation->flags |= STUDIO_SNAP;
+        pAnimation->flags |= StudioSequenceFlags::Snap;
     }
 
     if (pDmeSimpleSequence->m_bPost) {
-        pAnimation->flags |= STUDIO_POST;
+        pAnimation->flags |= StudioSequenceFlags::Post;
     }
 
     if (pDmeSimpleSequence->m_bAutoIk) {
@@ -870,7 +862,7 @@ bool HandleDmeAnimCmdAlign(s_animcmd_t *pAnimCmd, CDmeAnimCmd *pDmeAnimCmd) {
 
     CDmeSequenceBase *pDmeSequenceBase = pDmeAnimCmdAlign->m_eAnimation.GetElement();
     if (!pDmeSequenceBase) {
-        MdlWarning("1608: No DmeSequence specified for %s:%s\n",
+        MdlWarning("1608: No DmeSequence specified for {}:{}\n",
                    pDmeAnimCmdAlign->GetTypeString(),
                    pDmeAnimCmd->GetName());
         return false;
@@ -878,7 +870,7 @@ bool HandleDmeAnimCmdAlign(s_animcmd_t *pAnimCmd, CDmeAnimCmd *pDmeAnimCmd) {
 
     s_animation_t *pExtAnim = LookupAnimation(pDmeSequenceBase->GetName());
     if (!pExtAnim) {
-        MdlWarning("1604: Unknown animation \"%s\" specified for %s:%s\n",
+        MdlWarning("1604: Unknown animation \"{}\" specified for {}:{}\n",
                    pDmeSequenceBase->GetName(),
                    pDmeAnimCmdAlign->GetTypeString(),
                    pDmeAnimCmd->GetName());
@@ -908,8 +900,8 @@ void LoadAnimationCommands(CDmeSequence *pDmeSimpleSequence, s_animation_t *pAni
             continue;
 
         if (pAnimation->cmds.full()) {
-            MdlWarning("1600: Too many animation commands for anim: %s, ignoring from %d:%s\n",
-                       pAnimation->name.c_str(), i, pDmeAnimCmd->GetName());
+            MdlWarning("1600: Too many animation commands for anim: {}, ignoring from {}:{}\n",
+                       pAnimation->name, i, pDmeAnimCmd->GetName());
             return;
         }
 
@@ -926,7 +918,7 @@ void LoadAnimationCommands(CDmeSequence *pDmeSimpleSequence, s_animation_t *pAni
 
             const int nWeightListIndex = FindWeightList(pDmeAnimCmdWeightList->m_sWeightListName);
             if (nWeightListIndex < 0) {
-                MdlWarning("1602: Unknown weightList \"%s\" specified for %s animation command %s.%s[%d] %s\n",
+                MdlWarning("1602: Unknown weightList \"{}\" specified for {} animation command {}.{}[{}] {}\n",
                            pDmeAnimCmdWeightList->m_sWeightListName.Get(),
                            pDmeAnimCmdWeightList->GetTypeString(),
                            pDmeSimpleSequence->GetName(),
@@ -949,11 +941,11 @@ void LoadAnimationCommands(CDmeSequence *pDmeSimpleSequence, s_animation_t *pAni
                     pAnimCmd->u.subtract.ref = pExtAnim;
                     pAnimCmd->u.subtract.frame = pDmeAnimCmdSubtract->m_nFrame;
                     if (!pDmeAnimCmd->IsA(CDmeAnimCmdPreSubtract::GetStaticTypeSymbol())) {
-                        pAnimCmd->u.subtract.flags |= STUDIO_POST;
+                        pAnimCmd->u.subtract.flags |= StudioSequenceFlags::Post;
                     }
                 }
                 else {
-                    MdlWarning("1603: Unknown animation \"%s\" specified for %s %s.%s[%d] %s\n",
+                    MdlWarning("1603: Unknown animation \"{}\" specified for {} {}.{}[{}] {}\n",
                                pDmeSequenceBase->GetName(),
                                pDmeAnimCmdSubtract->GetTypeString(),
                                pDmeSimpleSequence->GetName(),
@@ -963,7 +955,7 @@ void LoadAnimationCommands(CDmeSequence *pDmeSimpleSequence, s_animation_t *pAni
                 }
             }
             else {
-                MdlWarning("1607: No DmeSequenceBase specified for %s %s.%s[%d] %s\n",
+                MdlWarning("1607: No DmeSequenceBase specified for {} {}.{}[{}] {}\n",
                            pDmeAnimCmdSubtract->GetTypeString(),
                            pDmeSimpleSequence->GetName(),
                            pDmeSimpleSequence->m_eAnimationCommandList.GetAttribute()->GetName(), i,
@@ -1002,12 +994,12 @@ void LoadAnimationCommands(CDmeSequence *pDmeSimpleSequence, s_animation_t *pAni
         }
         else if (pDmeAnimCmd->IsA(CDmeAnimCmdLinearDelta::GetStaticTypeSymbol())) {
             pAnimCmd->cmd = CMD_LINEARDELTA;
-            pAnimCmd->u.linear.flags |= STUDIO_AL_POST;
+            pAnimCmd->u.linear.flags |= AutoLayerFlags::Post;
         }
         else if (pDmeAnimCmd->IsA(CDmeAnimCmdSplineDelta::GetStaticTypeSymbol())) {
             pAnimCmd->cmd = CMD_LINEARDELTA;
-            pAnimCmd->u.linear.flags |= STUDIO_AL_POST;
-            pAnimCmd->u.linear.flags |= STUDIO_AL_SPLINE;
+            pAnimCmd->u.linear.flags |= AutoLayerFlags::Post;
+            pAnimCmd->u.linear.flags |= AutoLayerFlags::Spline;
         }
         else if (pDmeAnimCmd->IsA(CDmeAnimCmdCompress::GetStaticTypeSymbol())) {
             CDmeAnimCmdCompress *pDmeAnimCmdCompress = CastElement<CDmeAnimCmdCompress>(pDmeAnimCmd);
@@ -1036,7 +1028,7 @@ void LoadAnimationCommands(CDmeSequence *pDmeSimpleSequence, s_animation_t *pAni
             pAnimCmd->cmd = CMD_NOANIMATION;
         }
         else {
-            MdlWarning("1601: Unhandled DmeAnimCmd %s (%s)\n", pDmeAnimCmd->GetTypeString(), pDmeAnimCmd->GetName());
+            MdlWarning("1601: Unhandled DmeAnimCmd {} ({})\n", pDmeAnimCmd->GetTypeString(), pDmeAnimCmd->GetName());
             continue;
         }
     }
@@ -1061,15 +1053,15 @@ void LoadIkRuleList(CDmeSequence *pDmeSimpleSequence, s_animation_t *pAnimation)
 
         if (pAnimation->cmds.full()) {
             // TODO: Issue a warning
-            MdlWarning("1503: Too many animation commands for anim: %s, ignoring from %s:%s\n",
-                       pAnimation->name.c_str(), pDmeIkRule->GetTypeString(), pDmeIkRule->GetName());
+            MdlWarning("1503: Too many animation commands for anim: {}, ignoring from {}:{}\n",
+                       pAnimation->name, pDmeIkRule->GetTypeString(), pDmeIkRule->GetName());
             return;
         }
 
         // Find the IkChain
         CDmeIkChain *pDmeIkChain = pDmeIkRule->m_eIkChain.GetElement();
         if (!pDmeIkChain) {
-            MdlError("1501: No IkChain element assigned to %s:%s\n", pDmeIkRule->GetTypeString(),
+            MdlError("1501: No IkChain element assigned to {}:{}\n", pDmeIkRule->GetTypeString(),
                      pDmeIkRule->GetName());
             continue;
         }
@@ -1083,7 +1075,7 @@ void LoadIkRuleList(CDmeSequence *pDmeSimpleSequence, s_animation_t *pAnimation)
         }
 
         if (nIkChainIndex < 0) {
-            MdlWarning("1504: Cannot find IkChain referenced by IkRule %s:%s, ignoring\n", pDmeIkRule->GetName(),
+            MdlWarning("1504: Cannot find IkChain referenced by IkRule {}:{}, ignoring\n", pDmeIkRule->GetName(),
                        pDmeIkRule->GetTypeString());
             continue;
         }
@@ -1091,7 +1083,7 @@ void LoadIkRuleList(CDmeSequence *pDmeSimpleSequence, s_animation_t *pAnimation)
         // calloc sets memory to 0
         s_ikrule_t *pIkRule = reinterpret_cast<s_ikrule_t *>(calloc(1, sizeof(s_ikrule_t)));
         if (!pIkRule) {
-            MdlWarning("1502: Cannot allocate memory for IkRule %s:%s, ignoring\n", pDmeIkRule->GetName(),
+            MdlWarning("1502: Cannot allocate memory for IkRule {}:{}, ignoring\n", pDmeIkRule->GetName(),
                        pDmeIkRule->GetTypeString());
             return;
         }
@@ -1105,11 +1097,11 @@ void LoadIkRuleList(CDmeSequence *pDmeSimpleSequence, s_animation_t *pAnimation)
         CDmeIkReleaseRule *pDmeIkReleaseRule = CastElement<CDmeIkReleaseRule>(pDmeIkRule);
 
         if (pDmeIkTouchRule) {
-            pIkRule->type = IK_SELF;
+            pIkRule->type = IkRuleType::Self;
             Q_strncpy(pIkRule->bonename, pDmeIkTouchRule->m_sBoneName, sizeof(pIkRule->bonename));
         }
         else if (pDmeIkFootstepRule) {
-            pIkRule->type = IK_GROUND;
+            pIkRule->type = IkRuleType::Ground;
             pIkRule->height = pDmeIkFootstepRule->GetValue<float>("height", g_studiomdl.ikchain[pIkRule->chain].height);
             pIkRule->floor = pDmeIkFootstepRule->GetValue<float>("floor", g_studiomdl.ikchain[pIkRule->chain].floor);
             pIkRule->radius = pDmeIkFootstepRule->GetValue<float>(
@@ -1119,7 +1111,7 @@ void LoadIkRuleList(CDmeSequence *pDmeSimpleSequence, s_animation_t *pAnimation)
             }
         }
         else if (pDmeIkAttachmentRule) {
-            pIkRule->type = IK_ATTACHMENT;
+            pIkRule->type = IkRuleType::Attachment;
             Q_strncpy(pIkRule->attachment, pDmeIkAttachmentRule->m_sAttachmentName, sizeof(pIkRule->attachment));
 
             if (pDmeIkAttachmentRule->HasAttribute("fallbackBone", AT_STRING)) {
@@ -1139,10 +1131,10 @@ void LoadIkRuleList(CDmeSequence *pDmeSimpleSequence, s_animation_t *pAnimation)
             }
         }
         else if (pDmeIkReleaseRule) {
-            pIkRule->type = IK_RELEASE;
+            pIkRule->type = IkRuleType::Release;
         }
         else {
-            MdlWarning("1500: Unknown IkRuleType %s:%s, ignoring\n", pDmeIkRule->GetName(),
+            MdlWarning("1500: Unknown IkRuleType {}:{}, ignoring\n", pDmeIkRule->GetName(),
                        pDmeIkRule->GetTypeString());
             continue;
         }
@@ -1191,7 +1183,7 @@ static void LoadSequenceList(CDmeMultiSequence *pDmeMultiSequence, CUtlVector<s_
 
         s_animation_t *pAnim = LookupAnimation(pDmeSubSequence->GetName());
         if (!pAnim) {
-            MdlWarning("1208: DmeSequence %s: Couldn't find referenced animation: %s\n", pDmeMultiSequence->GetName(),
+            MdlWarning("1208: DmeSequence {}: Couldn't find referenced animation: {}\n", pDmeMultiSequence->GetName(),
                        pDmeSubSequence->GetName());
             continue;
         }
@@ -1237,7 +1229,7 @@ static void LoadSequenceBlends(CDmeMultiSequence *pDmeMultiSequence, s_sequence_
             pSequence->paramcontrol[i] = MotionControlFlags(pDmeSequenceCalcBlend->m_eMotionControl.GetElement());
 
             if (pSequence->paramattachment[i] < 0) {
-                MdlWarning("1606: Unknown Attachment For %s - %s.%s = %s\n",
+                MdlWarning("1606: Unknown Attachment For {} - {}.{} = {}\n",
                            pDmeSequenceCalcBlend->GetTypeString(),
                            pDmeSequenceCalcBlend->GetName(),
                            pDmeSequenceCalcBlend->m_sAttachmentName.GetAttribute()->GetName(),
@@ -1259,7 +1251,7 @@ void LoadBlendRefCompCenter(CDmeMultiSequence *pDmeMultiSequence, s_sequence_t *
         if (pszBlendRef && *pszBlendRef) {
             pSequence->paramanim = LookupAnimation(pszBlendRef);
             if (pSequence->paramanim == nullptr) {
-                MdlWarning("1202: DmeSequence %s: Unknown .blendRef animation: %s\n", pDmeMultiSequence->GetName(),
+                MdlWarning("1202: DmeSequence {}: Unknown .blendRef animation: {}\n", pDmeMultiSequence->GetName(),
                            pszBlendRef);
             }
         }
@@ -1271,7 +1263,7 @@ void LoadBlendRefCompCenter(CDmeMultiSequence *pDmeMultiSequence, s_sequence_t *
         if (pszBlendComp && *pszBlendComp) {
             pSequence->paramcompanim = LookupAnimation(pszBlendComp);
             if (pSequence->paramcompanim == nullptr) {
-                MdlWarning("1203: DmeSequence %s: Unknown .blendComp animation: %s\n", pDmeMultiSequence->GetName(),
+                MdlWarning("1203: DmeSequence {}: Unknown .blendComp animation: {}\n", pDmeMultiSequence->GetName(),
                            pszBlendComp);
             }
         }
@@ -1283,7 +1275,7 @@ void LoadBlendRefCompCenter(CDmeMultiSequence *pDmeMultiSequence, s_sequence_t *
         if (pszBlendCenter && *pszBlendCenter) {
             pSequence->paramcenter = LookupAnimation(pszBlendCenter);
             if (pSequence->paramcenter == nullptr) {
-                MdlWarning("1204: DmeSequence %s: Unknown .blendCenter animation: %s\n", pDmeMultiSequence->GetName(),
+                MdlWarning("1204: DmeSequence {}: Unknown .blendCenter animation: {}\n", pDmeMultiSequence->GetName(),
                            pszBlendCenter);
             }
         }
@@ -1307,7 +1299,7 @@ void LoadAnimationEventList(CDmeSequenceBase *pDmeSequenceBase, s_sequence_t *pS
 
         // Not sure why this is +1... always one special event??
         if (pSequence->events.size() + 1 >= pSequence->events.capacity()) {
-            MdlError("1800: Too many %s's on %s:%s, ignoring from %s\n",
+            MdlError("1800: Too many {}'s on {}:{}, ignoring from {}\n",
                      pDmeAnimationEvent->GetTypeString(),
                      pDmeSequenceBase->GetTypeString(),
                      pDmeSequenceBase->GetName(),
@@ -1342,14 +1334,11 @@ void LoadLayerList(CDmeSequenceBase *pDmeSequenceBase, s_sequence_t *pSequence) 
             continue;
         }
 
-        if (pSequence->numautolayers >= ARRAYSIZE(pSequence->autolayer)) {
+        if (pSequence->autolayers.full()) {
             // TODO: Warning message - Too many layers
             break;
         }
-
-        Q_strncpy(pSequence->autolayer[pSequence->numautolayers].name, pDmeRefSeq->GetName(),
-                  sizeof(pSequence->autolayer[pSequence->numautolayers].name));
-
+        auto& autolater = pSequence->autolayers.emplace_back(s_autolayer_t{.name = pDmeRefSeq->GetName()});
         CDmeSequenceAddLayer *pDmeAddLayer = CastElement<CDmeSequenceAddLayer>(pDmeSequenceBase->m_eLayerList[i]);
         if (pDmeAddLayer) {
             // Nothing to do
@@ -1357,23 +1346,21 @@ void LoadLayerList(CDmeSequenceBase *pDmeSequenceBase, s_sequence_t *pSequence) 
 
         CDmeSequenceBlendLayer *pDmeBlendLayer = CastElement<CDmeSequenceBlendLayer>(pDmeSequenceBase->m_eLayerList[i]);
         if (pDmeBlendLayer) {
-            pSequence->autolayer[pSequence->numautolayers].start = pDmeBlendLayer->m_flStartFrame;
-            pSequence->autolayer[pSequence->numautolayers].peak = pDmeBlendLayer->m_flPeakFrame;
-            pSequence->autolayer[pSequence->numautolayers].tail = pDmeBlendLayer->m_flTailFrame;
-            pSequence->autolayer[pSequence->numautolayers].end = pDmeBlendLayer->m_flEndFrame;
-            pSequence->autolayer[pSequence->numautolayers].flags |= pDmeBlendLayer->m_bCrossfade ? STUDIO_AL_XFADE : 0;
-            pSequence->autolayer[pSequence->numautolayers].flags |= pDmeBlendLayer->m_bSpline ? STUDIO_AL_SPLINE : 0;
-            pSequence->autolayer[pSequence->numautolayers].flags |= pDmeBlendLayer->m_bNoBlend ? STUDIO_AL_NOBLEND : 0;
-            pSequence->autolayer[pSequence->numautolayers].flags |= pDmeBlendLayer->m_bLocal ? STUDIO_AL_LOCAL : 0;
-            pSequence->flags |= pDmeBlendLayer->m_bLocal ? STUDIO_AL_LOCAL : 0;
+            autolater.start = pDmeBlendLayer->m_flStartFrame;
+            autolater.peak = pDmeBlendLayer->m_flPeakFrame;
+            autolater.tail = pDmeBlendLayer->m_flTailFrame;
+            autolater.end = pDmeBlendLayer->m_flEndFrame;
+            autolater.flags |= pDmeBlendLayer->m_bCrossfade ? AutoLayerFlags::XFade : AutoLayerFlags::None;
+            autolater.flags |= pDmeBlendLayer->m_bSpline ? AutoLayerFlags::Spline : AutoLayerFlags::None;
+            autolater.flags |= pDmeBlendLayer->m_bNoBlend ? AutoLayerFlags::NoBlend : AutoLayerFlags::None;
+            autolater.flags |= pDmeBlendLayer->m_bLocal ? AutoLayerFlags::Local : AutoLayerFlags::None;
+            pSequence->flags |= pDmeBlendLayer->m_bLocal ? StudioSequenceFlags::Local : StudioSequenceFlags::None;
             if (!pDmeBlendLayer->m_sPoseParameterName.IsEmpty()) {
-                pSequence->autolayer[pSequence->numautolayers].flags |= STUDIO_AL_POSE;
-                pSequence->autolayer[pSequence->numautolayers].pose = LookupPoseParameter(
+                autolater.flags |= AutoLayerFlags::Pose;
+                autolater.pose = LookupPoseParameter(
                     pDmeBlendLayer->m_sPoseParameterName.Get());
             }
         }
-
-        pSequence->numautolayers++;
     }
 }
 
@@ -1389,19 +1376,19 @@ void LoadIkLockList(CDmeSequenceBase *pDmeSequenceBase, s_sequence_t *pSequence)
 
         // TODO: Check for duplicates?
         CDmeIkChain *pDmeIkChain = pDmeIkLock->m_eIkChain.GetElement();
+
+        auto &iklock = pSequence->iklocks.emplace_back();
+
         if (pDmeIkChain) {
-            Q_strncpy(pSequence->iklock[pSequence->numiklocks].name, pDmeIkChain->GetName(),
-                      sizeof(pSequence->iklock[pSequence->numiklocks].name));
+            iklock.name = pDmeIkChain->GetName();
         }
         else {
-            MdlError("1700: No IkChain element assigned to %s:%s\n", pDmeIkLock->GetTypeString(),
+            MdlError("1700: No IkChain element assigned to {}:{}\n", pDmeIkLock->GetTypeString(),
                      pDmeIkLock->GetName());
         }
-        pSequence->iklock[pSequence->numiklocks].flPosWeight = clamp(pDmeIkLock->m_flLockPosition.Get(), 0.0f, 1.0f);
-        pSequence->iklock[pSequence->numiklocks].flLocalQWeight = RemapValClamped(
-            pDmeIkLock->m_flLockRotation, 0.0f, 1.0f, 1.0f, 0.0f); // Invert it for historical reasons
+        iklock.flPosWeight = clamp(pDmeIkLock->m_flLockPosition.Get(), 0.0f, 1.0f);
+        iklock.flLocalQWeight = RemapValClamped(pDmeIkLock->m_flLockRotation, 0.0f, 1.0f, 1.0f, 0.0f); // Invert it for historical reasons
 
-        pSequence->numiklocks++;
     }
 }
 
@@ -1421,13 +1408,13 @@ static int LoadAndCreateSequences(s_source_t *pMainSource, CDmeSequenceList *pSe
     for (int nSequenceIndex = 0; nSequenceIndex < nSequenceCount; ++nSequenceIndex) {
         CDmeSequenceBase *pDmeSequenceBase = pSequenceList->m_Sequences[nSequenceIndex];
         if (!pDmeSequenceBase) {
-            MdlWarning("1201: Empty DmeSequence %s[ %d ]\n", pSequenceList->GetName(), nSequenceIndex);
+            MdlWarning("1201: Empty DmeSequence {}[ {} ]\n", pSequenceList->GetName(), nSequenceIndex);
             continue;
         }
 
         const char *pszSeqName = pDmeSequenceBase->GetName();
         if (pszSeqName == nullptr || *pszSeqName == '\0') {
-            MdlWarning("1200: Ignoring Unnamed Sequence On %s[%d]\n", pSequenceList->GetName(), nSequenceIndex);
+            MdlWarning("1200: Ignoring Unnamed Sequence On {}[{}]\n", pSequenceList->GetName(), nSequenceIndex);
             continue;
         }
 
@@ -1453,7 +1440,7 @@ static int LoadAndCreateSequences(s_source_t *pMainSource, CDmeSequenceList *pSe
             CDmeSequence *pDmeSimpleSequence = CastElement<CDmeSequence>(pDmeSequenceBase);
             CDmeMultiSequence *pDmeMultiSequence = CastElement<CDmeMultiSequence>(pDmeSequenceBase);
             if (!pDmeSimpleSequence && !pDmeMultiSequence) {
-                MdlWarning("1209: Invalid DmeSequence %s[ %d ], not Simple or Multi\n", pSequenceList->GetName(),
+                MdlWarning("1209: Invalid DmeSequence {}[ {} ], not Simple or Multi\n", pSequenceList->GetName(),
                            nSequenceIndex);
                 continue;
             }
@@ -1474,7 +1461,7 @@ static int LoadAndCreateSequences(s_source_t *pMainSource, CDmeSequenceList *pSe
 
                 CDmeDag *pDmeSkeleton = pDmeSimpleSequence->m_eSkeleton.GetElement();
                 if (!pDmeSkeleton) {
-                    MdlWarning("1205: Ignoring Sequence %s, No Skeleton Specified\n", pszSeqName);
+                    MdlWarning("1205: Ignoring Sequence {}, No Skeleton Specified\n", pszSeqName);
                     continue;
                 }
 
@@ -1482,7 +1469,7 @@ static int LoadAndCreateSequences(s_source_t *pMainSource, CDmeSequenceList *pSe
 
                 BoneTransformMap_t boneMap;
                 if (!LoadModelAndSkeleton(pSource, boneMap, pDmeSkeleton, pDmeModel, nullptr, false)) {
-                    MdlWarning("1206: Sequence %s: Ignoring Sequence, Couldn't Load Specified Skeleton: %s\n",
+                    MdlWarning("1206: Sequence {}: Ignoring Sequence, Couldn't Load Specified Skeleton: {}\n",
                                pszSeqName, pDmeSkeleton->GetName());
                     continue;
                 }
@@ -1506,7 +1493,7 @@ static int LoadAndCreateSequences(s_source_t *pMainSource, CDmeSequenceList *pSe
                             pDmeSimpleSequence->m_eAnimationCommandList[i]->IsA(
                                 CDmeAnimCmdSplineDelta::GetStaticTypeSymbol())) {
                             bDmeAnimCmdDelta = true;
-                            pSeq->flags |= STUDIO_DELTA;
+                            pSeq->flags |= StudioSequenceFlags::Delta;
                         }
                     }
 
@@ -1521,7 +1508,7 @@ static int LoadAndCreateSequences(s_source_t *pMainSource, CDmeSequenceList *pSe
                         pAnim->startframe = 0;
                         pAnim->endframe = MAXSTUDIOANIMFRAMES - 1;
 
-                        pAnim->name.format("@%s", pSeq->name.c_str());
+                        pAnim->name.format("@{}", pSeq->name);
                         pAnim->filename = pSource->filename;
 
                         VectorCopy(g_studiomdl.defaultadjust, pAnim->adjust);
@@ -1614,50 +1601,50 @@ static int LoadAndCreateSequences(s_source_t *pMainSource, CDmeSequenceList *pSe
                 }
 
                 if (pDmeSequenceActivity->m_sModifierList.Count() > MAXSTUDIOACTIVITYMODIFIERS) {
-                    MdlWarning("1210: Too many activity modifiers (%d) on DmeSequence %s, only using first %d\n",
+                    MdlWarning("1210: Too many activity modifiers ({}) on DmeSequence {}, only using first {}\n",
                                pDmeSequenceActivity->m_sModifierList.Count(),
-                               pSeq->name.c_str(),
+                               pSeq->name,
                                MAXSTUDIOACTIVITYMODIFIERS);
                 }
             }
         }
 
         if (pDmeSequenceBase->m_bLoop) {
-            pSeq->flags |= STUDIO_LOOPING;
+            pSeq->flags |= StudioSequenceFlags::Looping;
         }
 
         if (pDmeSequenceBase->m_bSnap) {
-            pSeq->flags |= STUDIO_SNAP;
+            pSeq->flags |= StudioSequenceFlags::Snap;
         }
 
         if (pDmeSequenceBase->m_bPost) {
-            pSeq->flags |= STUDIO_POST;
+            pSeq->flags |= StudioSequenceFlags::Post;
         }
 
         if (pDmeSequenceBase->m_bHidden) {
-            pSeq->flags |= STUDIO_HIDDEN;
+            pSeq->flags |= StudioSequenceFlags::Hidden;
         }
 
         if (pDmeSequenceBase->m_bDelta) {
-            pSeq->flags |= STUDIO_DELTA;
-            pSeq->flags |= STUDIO_POST;
+            pSeq->flags |= StudioSequenceFlags::Delta;
+            pSeq->flags |= StudioSequenceFlags::Post;
         }
 
         if (pDmeSequenceBase->m_bWorldSpace) {
-            pSeq->flags |= STUDIO_WORLD;
-            pSeq->flags |= STUDIO_POST;
+            pSeq->flags |= StudioSequenceFlags::World;
+            pSeq->flags |= StudioSequenceFlags::Post;
         }
 
         if (pDmeSequenceBase->m_bPreDelta) {
-            pSeq->flags |= STUDIO_DELTA;
+            pSeq->flags |= StudioSequenceFlags::Delta;
         }
 
         if (pDmeSequenceBase->m_bAutoPlay) {
-            pSeq->flags |= STUDIO_AUTOPLAY;
+            pSeq->flags |= StudioSequenceFlags::Autoplay;
         }
 
         if (pDmeSequenceBase->m_bRealtime) {
-            pSeq->flags |= STUDIO_REALTIME;
+            pSeq->flags |= StudioSequenceFlags::Realtime;
         }
 
         // AddLayer/BlendLayer
@@ -1689,7 +1676,7 @@ static int LoadAndCreateSequences(s_source_t *pMainSource, CDmeSequenceList *pSe
             ++nSequenceAddedCount;
         }
         else {
-            MdlWarning("1207: DmeSequence %s: No animations created or referenced, ignoring\n", pszSeqName);
+            MdlWarning("1207: DmeSequence {}: No animations created or referenced, ignoring\n", pszSeqName);
         }
 
         const CUtlString &keyValues = pDmeSequenceBase->m_sKeyValues.Get();
@@ -1709,7 +1696,7 @@ static void LoadIncludeModelList(CDmeIncludeModelList *pIncludeModelList) {
     const int nIncludeModelsCount = pIncludeModelList->m_IncludeModels.Count();
     for (int ni = 0; ni < nIncludeModelsCount; ++ni) {
         if (g_studiomdl.includemodels.full()) {
-            MdlError("Too Many Include Models while including: \"%s\", Max: %d\n",
+            MdlError("Too Many Include Models while including: \"{}\", Max: {}\n",
                      pIncludeModelList->m_IncludeModels[ni], g_studiomdl.includemodels.capacity());
         }
         auto &includemodel = g_studiomdl.includemodels.emplace_back(pIncludeModelList->m_IncludeModels[ni]);
@@ -1762,8 +1749,8 @@ static void UnderscoreSplitAndSortStrings(const char *pszString, CUtlVector<CUtl
     }
 }
 
-static bool GetContentsDescription(int &nContentsDescription, CDmElement *pDmElement) {
-    nContentsDescription = CONTENTS_SOLID;
+static bool GetContentsDescription(ContentType &nContentsDescription, CDmElement *pDmElement) {
+    nContentsDescription = ContentType::SOLID;
 
     if (!pDmElement)
         return false;
@@ -1781,21 +1768,21 @@ static bool GetContentsDescription(int &nContentsDescription, CDmElement *pDmEle
 
     struct ContentDesc_t {
         const char *m_pszName;
-        int m_nContentDescriptionFlags;
+        ContentType m_nContentDescriptionFlags;
     };
 
     ContentDesc_t contentDescs[] = {
-        {"notsolid", CONTENTS_EMPTY},
-        {"monster", CONTENTS_MONSTER},
-        {"ladder", CONTENTS_LADDER},
-        {"solid", CONTENTS_SOLID},
-        {"solid_monster", CONTENTS_SOLID | CONTENTS_MONSTER},
-        {"solid_ladder", CONTENTS_SOLID | CONTENTS_LADDER},
-        {"solid_monster_ladder", CONTENTS_SOLID | CONTENTS_MONSTER | CONTENTS_LADDER},
-        {"grate", CONTENTS_GRATE},
-        {"grate_monster", CONTENTS_GRATE | CONTENTS_MONSTER},
-        {"grate_ladder", CONTENTS_GRATE | CONTENTS_LADDER},
-        {"grate_monster_ladder", CONTENTS_GRATE | CONTENTS_MONSTER | CONTENTS_LADDER},
+        {"notsolid", ContentType::EMPTY},
+        {"monster", ContentType::MONSTER},
+        {"ladder", ContentType::LADDER},
+        {"solid", ContentType::SOLID},
+        {"solid_monster", ContentType::SOLID | ContentType::MONSTER},
+        {"solid_ladder", ContentType::SOLID | ContentType::LADDER},
+        {"solid_monster_ladder", ContentType::SOLID | ContentType::MONSTER | ContentType::LADDER},
+        {"grate", ContentType::GRATE},
+        {"grate_monster", ContentType::GRATE | ContentType::MONSTER},
+        {"grate_ladder", ContentType::GRATE | ContentType::LADDER},
+        {"grate_monster_ladder", ContentType::GRATE | ContentType::MONSTER | ContentType::LADDER},
     };
 
     CUtlVector<CUtlString> userContentsDesc;
@@ -1823,7 +1810,7 @@ static bool GetContentsDescription(int &nContentsDescription, CDmElement *pDmEle
         }
     }
 
-    MdlWarning("2100: Invalid \"contentsDescription\" \"%s\" on \"%s\"\n",
+    MdlWarning("2100: Invalid \"contentsDescription\" \"{}\" on \"{}\"\n",
                pszContentsDesc, pDmElement->GetName());
 
     static bool bWarned = false;
@@ -1842,7 +1829,7 @@ static bool GetContentsDescription(int &nContentsDescription, CDmElement *pDmEle
             }
         }
 
-        MdlWarning("      Valid ones are: %s\n", sWarn.Get());
+        MdlWarning("      Valid ones are: {}\n", sWarn.Get());
     }
 
     return false;
@@ -1862,7 +1849,7 @@ static void LoadDefineBoneList(CDmeDefineBoneList *pDmeDefineBoneList) {
             continue;
 
         if (g_studiomdl.numimportbones >= ARRAYSIZE(g_studiomdl.importbone)) {
-            MdlError("Too Many Define Bones while processing: \"%s\", Max: %d\n", pDmeDefineBone->GetName(),
+            MdlError("Too Many Define Bones while processing: \"{}\", Max: {}\n", pDmeDefineBone->GetName(),
                      ARRAYSIZE(g_studiomdl.importbone));
             break;
         }
@@ -1886,7 +1873,7 @@ static void LoadDefineBoneList(CDmeDefineBoneList *pDmeDefineBoneList) {
             SetIdentityMatrix(pImportBone->srcRealign);
         }
 
-        int nContentsDescription = CONTENTS_SOLID;
+        ContentType nContentsDescription = ContentType::SOLID;
         if (GetContentsDescription(nContentsDescription, pDmeDefineBone)) {
             ContentsName_t *pContentsName = nullptr;
 
@@ -1916,7 +1903,7 @@ static s_bbox_t *AllocateHitbox(s_hitboxset *pHitboxSet) {
     if (!pHitboxSet->hitboxes.full())
         return &pHitboxSet->hitboxes.emplace_back();
 
-    MdlWarning("Too many hitboxes request for hitbox set \"%s\", max %d\n", pHitboxSet->hitboxsetname.c_str(),
+    MdlWarning("Too many hitboxes request for hitbox set \"{}\", max {}\n", pHitboxSet->hitboxsetname,
                pHitboxSet->hitboxes.capacity());
     return nullptr;
 }
@@ -1959,7 +1946,7 @@ static void LoadHitboxSetList(const CDmeHitboxSetList *pDmeHitboxSetList) {
             if (!pSrcHitbox->m_sSurfaceProperty.IsEmpty()) {
                 const char *pSurfaceProp = FindSurfaceProp(pHitbox->name);
                 if (pSurfaceProp && Q_stricmp(pSurfaceProp, pSrcHitbox->m_sSurfaceProperty)) {
-                    MdlWarning("Hitbox surface property \"%s\" for bone \"%s\" conflicts with existing \"%s\"",
+                    MdlWarning("Hitbox surface property \"{}\" for bone \"{}\" conflicts with existing \"{}\"",
                                pSrcHitbox->m_sSurfaceProperty.Get(), pSrcHitbox->m_sBoneName.Get(), pSurfaceProp);
                 }
                 else {
@@ -1982,7 +1969,7 @@ static void LoadBoneFlexDriverList(const CDmeBoneFlexDriverList *pDmeBoneFlexDri
         char szTmpBuf1[40];
         UniqueIdToString(pDmeBoneFlexDriverList->GetId(), szTmpBuf1, sizeof(szTmpBuf1));
 
-        MdlError("DmeBoneFlexDriverList already defined (%s:%s), ignoring (%s:%s)\n",
+        MdlError("DmeBoneFlexDriverList already defined ({}:{}), ignoring ({}:{})\n",
                  pDmeTmp->GetName(), szTmpBuf0,
                  pDmeBoneFlexDriverList->GetName(), szTmpBuf1);
 
@@ -2011,77 +1998,66 @@ static void LoadKeyValues(const char *pszKeyValues) {
     g_StudioMdlContext.KeyValueText.append(pszFooter);
 }
 
-static void LoadGlobalFlags( CDmElement *pDmeRoot )
-{
+static void LoadGlobalFlags(CDmElement *pDmeRoot) {
     // Get default rotation as a matrix
     matrix3x4_t mDefRot;
-    AngleMatrix( g_studiomdl.defaultrotation, mDefRot );
+    AngleMatrix(g_studiomdl.defaultrotation, mDefRot);
 
     // QC $bbox
-    CDmeBBox *pDmeBBox = pDmeRoot->GetValueElement< CDmeBBox >( "bbox" );
-    if ( pDmeBBox )
-    {
-        ITransformAABB( mDefRot, pDmeBBox->m_vMinBounds, pDmeBBox->m_vMaxBounds, g_studiomdl.bbox[0], g_studiomdl.bbox[1] );
+    CDmeBBox *pDmeBBox = pDmeRoot->GetValueElement<CDmeBBox>("bbox");
+    if (pDmeBBox) {
+        ITransformAABB(mDefRot, pDmeBBox->m_vMinBounds, pDmeBBox->m_vMaxBounds, g_studiomdl.bbox[0],
+                       g_studiomdl.bbox[1]);
     }
 
-    if ( pDmeRoot->HasAttribute( "opacity" ) )
-    {
-        switch ( pDmeRoot->GetValue< int >( "opacity" ) )
-        {
-            case 0:	// Auto, do nothing
+    if (pDmeRoot->HasAttribute("opacity")) {
+        switch (pDmeRoot->GetValue<int>("opacity")) {
+            case 0: // Auto, do nothing
                 g_studiomdl.gflags &= ~STUDIOHDR_FLAGS_FORCE_OPAQUE;
                 g_studiomdl.gflags &= ~STUDIOHDR_FLAGS_TRANSLUCENT_TWOPASS;
                 break;
-            case 1:	// opaque
+            case 1: // opaque
                 // Opaque has precedence over Mostly Opaque (TRANSLUCENT_TWOPASS)
                 g_studiomdl.gflags |= STUDIOHDR_FLAGS_FORCE_OPAQUE;
                 g_studiomdl.gflags &= ~STUDIOHDR_FLAGS_TRANSLUCENT_TWOPASS;
                 break;
-            case 2:	// mostly opaque
+            case 2: // mostly opaque
                 // Opaque has precedence over Mostly Opaque (TRANSLUCENT_TWOPASS)
-                if ( ( g_studiomdl.gflags & STUDIOHDR_FLAGS_FORCE_OPAQUE) == 0)
-                {
+                if ((g_studiomdl.gflags & STUDIOHDR_FLAGS_FORCE_OPAQUE) == 0) {
                     g_studiomdl.gflags |= STUDIOHDR_FLAGS_TRANSLUCENT_TWOPASS;
                 }
                 break;
         }
     }
 
-    if ( pDmeRoot->HasAttribute( "illuminationPosition", AT_VECTOR3 ) )
-    {
-        VectorIRotate( pDmeRoot->GetValue< Vector >( "illuminationPosition"), mDefRot, g_studiomdl.illumposition );
+    if (pDmeRoot->HasAttribute("illuminationPosition", AT_VECTOR3)) {
+        VectorIRotate(pDmeRoot->GetValue<Vector>("illuminationPosition"), mDefRot, g_studiomdl.illumposition);
     }
 
-    if ( pDmeRoot->GetValue< bool >( "ambientBoost", false ) )
-    {
+    if (pDmeRoot->GetValue<bool>("ambientBoost", false)) {
         g_studiomdl.gflags |= STUDIOHDR_FLAGS_AMBIENT_BOOST;
     }
 
-    if ( pDmeRoot->GetValue< bool >( "subdivisionSurface", false ) )
-    {
+    if (pDmeRoot->GetValue<bool>("subdivisionSurface", false)) {
         g_studiomdl.gflags |= STUDIOHDR_FLAGS_SUBDIVISION_SURFACE;
     }
 
-    if ( pDmeRoot->GetValue< bool >( "doNotCastShadows", false ) )
-    {
+    if (pDmeRoot->GetValue<bool>("doNotCastShadows", false)) {
         g_studiomdl.gflags |= STUDIOHDR_FLAGS_DO_NOT_CAST_SHADOWS;
     }
 
-    if ( pDmeRoot->GetValue< bool >( "castTextureShadows", false ) )
-    {
+    if (pDmeRoot->GetValue<bool>("castTextureShadows", false)) {
         // Valve set DO_NOT_CAST_SHADOWS here; $casttextureshadows sets CAST_TEXTURE_SHADOWS
         g_studiomdl.gflags |= STUDIOHDR_FLAGS_CAST_TEXTURE_SHADOWS;
     }
 
     // CDmeAssetRoot names the attribute "noForcedFace" (dmeasset.cpp), so accept both spellings
-    if ( pDmeRoot->GetValue< bool >( "noForcedFade", false ) || pDmeRoot->GetValue< bool >( "noForcedFace", false ) )
-    {
+    if (pDmeRoot->GetValue<bool>("noForcedFade", false) || pDmeRoot->GetValue<bool>("noForcedFace", false)) {
         g_studiomdl.gflags |= STUDIOHDR_FLAGS_NO_FORCED_FADE;
     }
 
-    int nContentsDescription = CONTENTS_SOLID;
-    if ( GetContentsDescription( nContentsDescription, pDmeRoot ) )
-    {
+    ContentType nContentsDescription = ContentType::SOLID;
+    if (GetContentsDescription(nContentsDescription, pDmeRoot)) {
         s_nDefaultContents = nContentsDescription;
     }
 }
@@ -2211,7 +2187,7 @@ bool LoadPreprocessedFile(const char *pFileName, float flScale) {
     // use the full search tree, including mod hierarchy to find the file
     std::string fullPath;
     if (!GetGlobalFilePath(pFileName, fullPath)) {
-        MdlError("Invalid MPP Filename: %s\n", pFileName);
+        MdlError("Invalid MPP Filename: {}\n", pFileName);
         return false;
     }
 
@@ -2219,7 +2195,7 @@ bool LoadPreprocessedFile(const char *pFileName, float flScale) {
     // and also append a couple 0s to the end of the buffer.
     CDmElement *pRoot;
     if (g_pDataModel->RestoreFromFile(fullPath.c_str(), nullptr, nullptr, &pRoot) == DMFILEID_INVALID) {
-        MdlError("0001: Couldn't Load MPP File: %s\n", fullPath.c_str());
+        MdlError("0001: Couldn't Load MPP File: {}\n", fullPath);
         return false;
     }
 

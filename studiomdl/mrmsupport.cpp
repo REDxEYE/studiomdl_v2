@@ -25,6 +25,7 @@
 #include "common/scriplib.h"
 #include "mathlib/mathlib.h"
 #include "studio.h"
+#include "tier1_v2/function_timing.hpp"
 #include "studiomdl/studiomdl.h"
 #include "studiomdl/studiomdl_global_state.hpp"
 
@@ -40,71 +41,6 @@ bool IsEnd(char const *pLine) {
 }
 
 
-int SortAndBalanceBones(int iCount, int iMaxCount, int bones[], float weights[]) {
-    int i;
-
-    // collapse duplicate bone weights
-    for (i = 0; i < iCount - 1; i++) {
-        int j;
-        for (j = i + 1; j < iCount; j++) {
-            if (bones[i] == bones[j]) {
-                weights[i] += weights[j];
-                weights[j] = 0.0;
-            }
-        }
-    }
-
-    // do sleazy bubble sort
-    int bShouldSort;
-    do {
-        bShouldSort = false;
-        for (i = 0; i < iCount - 1; i++) {
-            if (weights[i + 1] > weights[i]) {
-                int j = bones[i + 1];
-                bones[i + 1] = bones[i];
-                bones[i] = j;
-                float w = weights[i + 1];
-                weights[i + 1] = weights[i];
-                weights[i] = w;
-                bShouldSort = true;
-            }
-        }
-    } while (bShouldSort);
-
-    // Small influences are kept on purpose: Valve's studiomdl dropped weights below 0.05 (mdlcompile: 0.0001) here
-
-    // clip to the top iMaxCount bones
-    if (iCount > iMaxCount) {
-        iCount = iMaxCount;
-    }
-
-    float t = 0;
-    for (i = 0; i < iCount; i++) {
-        t += weights[i];
-    }
-
-    if (t <= 0.0) {
-        // missing weights?, go ahead and evenly share?
-        // FIXME: shouldn't this error out?
-        t = 1.0 / iCount;
-
-        for (i = 0; i < iCount; i++) {
-            weights[i] = t;
-        }
-    }
-    else {
-        // scale to sum to 1.0
-        t = 1.0 / t;
-
-        for (i = 0; i < iCount; i++) {
-            weights[i] = weights[i] * t;
-        }
-    }
-
-    return iCount;
-}
-
-
 void Grab_Vertexlist(s_source_t *psource) {
     while (1) {
         if (g_StudioMdlContext.inputFile->Gets(g_StudioMdlContext.szLine, sizeof(g_StudioMdlContext.szLine)) !=
@@ -112,8 +48,9 @@ void Grab_Vertexlist(s_source_t *psource) {
             int j;
             int bone;
             Vector p;
-            int iCount, bones[4];
-            float weights[4];
+            int iCount;
+            std::array<int, 4> bones{};
+            std::array<float, 4> weights{};
 
             g_StudioMdlContext.iLinecount++;
 
@@ -133,8 +70,8 @@ void Grab_Vertexlist(s_source_t *psource) {
             if (i == 5) {
                 if (bone < 0 || bone >= psource->numbones) {
                     MdlWarning("bogus bone index\n");
-                    MdlWarning("%d %s :\n%s", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szFilename.c_str(),
-                               g_StudioMdlContext.szLine.c_str());
+                    MdlWarning("{} {} :\n{}", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szFilename,
+                               g_StudioMdlContext.szLine);
                     MdlError("Exiting due to errors\n");
                 }
 
@@ -154,8 +91,8 @@ void Grab_Vertexlist(s_source_t *psource) {
                 }
             }
             else {
-                MdlError("%s: error on line %d: %s", g_StudioMdlContext.szFilename.c_str(),
-                         g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine.c_str());
+                MdlError("{}: error on line {}: {}", g_StudioMdlContext.szFilename,
+                         g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
             }
         }
     }
@@ -178,11 +115,11 @@ void Grab_Facelist(s_source_t *psource) {
             if (sscanf(g_StudioMdlContext.szLine, "%d %d %d %d",
                        &j,
                        &f.a, &f.b, &f.c) == 4) {
-                g_StudioMdlContext.face[j] = f;
+                g_StudioMdlContext.faces[j] = f;
             }
             else {
-                MdlError("%s: error on line %d: %s", g_StudioMdlContext.szFilename.c_str(),
-                         g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine.c_str());
+                MdlError("{}: error on line {}: {}", g_StudioMdlContext.szFilename,
+                         g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
             }
         }
     }
@@ -219,7 +156,7 @@ void Grab_Materiallist(s_source_t *psource) {
                     psource->texmap[j] = LookupTexture(path);
                 }
                 else {
-                    MdlError("Too many materials, max %d\n", sizeof(psource->texmap));
+                    MdlError("Too many materials, max {}\n", sizeof(psource->texmap));
                 }
             }
         }
@@ -248,8 +185,8 @@ void Grab_Texcoordlist(s_source_t *psource) {
                 g_StudioMdlContext.texcoord[0][j][1] = t[1];
             }
             else {
-                MdlError("%s: error on line %d: %s", g_StudioMdlContext.szFilename.c_str(),
-                         g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine.c_str());
+                MdlError("{}: error on line {}: {}", g_StudioMdlContext.szFilename,
+                         g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
             }
         }
     }
@@ -277,16 +214,16 @@ void Grab_Normallist(s_source_t *psource) {
                        &n[0], &n[1], &n[2]) == 5) {
                 if (bone < 0 || bone >= psource->numbones) {
                     MdlWarning("bogus bone index\n");
-                    MdlWarning("%d %s :\n%s", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szFilename.c_str(),
-                               g_StudioMdlContext.szLine.c_str());
+                    MdlWarning("{} {} :\n{}", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szFilename,
+                               g_StudioMdlContext.szLine);
                     MdlError("Exiting due to errors\n");
                 }
 
                 VectorCopy(n, g_StudioMdlContext.normal[j]);
             }
             else {
-                MdlError("%s: error on line %d: %s", g_StudioMdlContext.szFilename.c_str(),
-                         g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine.c_str());
+                MdlError("{}: error on line {}: {}", g_StudioMdlContext.szFilename,
+                         g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
             }
         }
     }
@@ -315,13 +252,13 @@ void Grab_Faceattriblist(s_source_t *psource) {
                        &smooth,
                        &f.ta[0], &f.tb[0], &f.tc[0],
                        &f.na, &f.nb, &f.nc) == 9) {
-                f.a = g_StudioMdlContext.face[j].a;
-                f.b = g_StudioMdlContext.face[j].b;
-                f.c = g_StudioMdlContext.face[j].c;
+                f.a = g_StudioMdlContext.faces[j].a;
+                f.b = g_StudioMdlContext.faces[j].b;
+                f.c = g_StudioMdlContext.faces[j].c;
 
                 f.material = UseTextureAsMaterial(psource->texmap[material]);
                 if (f.material < 0) {
-                    MdlError("face %d references NULL texture %d\n", j, material);
+                    MdlError("face {} references NULL texture {}\n", j, material);
                 }
 
                 if (1) {
@@ -336,129 +273,99 @@ void Grab_Faceattriblist(s_source_t *psource) {
                     f.nc = s;
                 }
 
-                g_StudioMdlContext.face[j] = f;
+                g_StudioMdlContext.faces[j] = f;
             }
             else {
-                MdlError("%s: error on line %d: %s", g_StudioMdlContext.szFilename.c_str(),
-                         g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine.c_str());
+                MdlError("{}: error on line {}: {}", g_StudioMdlContext.szFilename,
+                         g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
             }
         }
     }
-}
-
-
-int closestNormal(int v, int n) {
-    float maxdot = -1.0;
-    float dot;
-    int r = n;
-
-    v_unify_t *cur = g_studiomdl.v_list[v];
-
-    while (cur) {
-        dot = DotProduct(g_StudioMdlContext.normal[cur->n], g_StudioMdlContext.normal[n]);
-        if (dot > maxdot) {
-            r = cur->n;
-            maxdot = dot;
-        }
-        cur = cur->next;
-    }
-
-    return r;
 }
 
 
 int AddToVlist(int v, int m, int n, std::array<uint32_t, MAXSTUDIOTEXCOORDS> &t, int firstref) {
-    v_unify_t *prev = nullptr;
-    v_unify_t *cur = g_studiomdl.v_list[v];
+    auto &entries = g_studiomdl.v_listdata;
+    auto &heads = g_studiomdl.v_list;
+    if (v < 0)
+        MdlError("Face references an invalid vertex index {}\n", v);
+    if (v >= static_cast<int>(heads.size()))
+        heads.resize(v + 1, -1);
 
-    while (cur) {
-        if (cur->m == m && cur->n == n) {
+    int prev = -1;
+    for (int cur = heads[v]; cur >= 0; cur = entries[cur].next) {
+        v_unify_t &entry = entries[cur];
+        if (entry.m == m && entry.n == n) {
             bool bMatch = true;
             for (int i = 0; (i < MAXSTUDIOTEXCOORDS) && bMatch; ++i) {
-                if (cur->t[i] != t[i]) {
+                if (entry.t[i] != t[i]) {
                     bMatch = false;
                 }
             }
             if (bMatch) {
-                cur->refcount++;
-                return cur - g_studiomdl.v_listdata;
+                entry.refcount++;
+                return cur;
             }
         }
         prev = cur;
-        cur = cur->next;
     }
 
-    if (g_studiomdl.numvlist >= MAXSTUDIOSRCVERTS) {
+    if (entries.size() >= MAXSTUDIOSRCVERTS) {
         MdlError("Too many unified vertices\n");
     }
 
-    cur = &g_studiomdl.v_listdata[g_studiomdl.numvlist++];
-    cur->lastref = -1;
-    cur->refcount = 1;
-    cur->v = v;
-    cur->m = m;
-    cur->n = n;
+    const int index = static_cast<int>(entries.size());
+    v_unify_t &entry = entries.emplace_back();
+    entry.lastref = -1;
+    entry.refcount = 1;
+    entry.v = v;
+    entry.m = m;
+    entry.n = n;
     for (int i = 0; i < MAXSTUDIOTEXCOORDS; ++i) {
-        cur->t[i] = t[i];
+        entry.t[i] = t[i];
     }
 
-    if (prev) {
-        prev->next = cur;
+    if (prev >= 0) {
+        entries[prev].next = index;
     }
     else {
-        g_studiomdl.v_list[v] = cur;
+        heads[v] = index;
     }
 
-    return g_studiomdl.numvlist - 1;
-}
-
-void DecrementReferenceVlist(int uv, int numverts) {
-    if (uv < 0 || uv > MAXSTUDIOSRCVERTS)
-        MdlError("decrement outside of range\n");
-
-    g_studiomdl.v_listdata[uv].refcount--;
-
-    if (g_studiomdl.v_listdata[uv].refcount == 0) {
-        g_studiomdl.v_listdata[uv].lastref = numverts;
-    }
-    else if (g_studiomdl.v_listdata[uv].refcount < 0) {
-        MdlError("<0 ref\n");
-    }
+    return index;
 }
 
 
 void UnifyIndices(s_source_t *psource) {
-    FunctionTimingRecorder _("DMX");
+    vstd::FunctionTimingRecorder _("DMX");
     int i;
 
     s_face_t uface;
 
-    // clear v_list
-    g_studiomdl.numvlist = 0;
-    memset(g_studiomdl.v_list, 0, sizeof(g_studiomdl.v_list));
-    memset(g_studiomdl.v_listdata, 0, sizeof(g_studiomdl.v_listdata));
+    // reset the unified vertices; the vectors keep their capacity for the next source
+    g_studiomdl.v_listdata.clear();
+    g_studiomdl.v_list.assign(g_StudioMdlContext.numverts, -1);
 
     // create an list of all the
-    for (i = 0; i < g_StudioMdlContext.numfaces; i++) {
-        uface.a = AddToVlist(g_StudioMdlContext.face[i].a, g_StudioMdlContext.face[i].material,
-                             g_StudioMdlContext.face[i].na, g_StudioMdlContext.face[i].ta, g_StudioMdlContext.numverts);
-        uface.b = AddToVlist(g_StudioMdlContext.face[i].b, g_StudioMdlContext.face[i].material,
-                             g_StudioMdlContext.face[i].nb, g_StudioMdlContext.face[i].tb, g_StudioMdlContext.numverts);
-        uface.c = AddToVlist(g_StudioMdlContext.face[i].c, g_StudioMdlContext.face[i].material,
-                             g_StudioMdlContext.face[i].nc, g_StudioMdlContext.face[i].tc, g_StudioMdlContext.numverts);
+    g_StudioMdlContext.src_uface.resize(g_StudioMdlContext.faces.size());
+    for (i = 0; i < g_StudioMdlContext.faces.size(); i++) {
+        uface.a = AddToVlist(g_StudioMdlContext.faces[i].a, g_StudioMdlContext.faces[i].material,
+                             g_StudioMdlContext.faces[i].na, g_StudioMdlContext.faces[i].ta, g_StudioMdlContext.numverts);
+        uface.b = AddToVlist(g_StudioMdlContext.faces[i].b, g_StudioMdlContext.faces[i].material,
+                             g_StudioMdlContext.faces[i].nb, g_StudioMdlContext.faces[i].tb, g_StudioMdlContext.numverts);
+        uface.c = AddToVlist(g_StudioMdlContext.faces[i].c, g_StudioMdlContext.faces[i].material,
+                             g_StudioMdlContext.faces[i].nc, g_StudioMdlContext.faces[i].tc, g_StudioMdlContext.numverts);
         uface.d = 0xFFFFFFFF;
 
-        if (g_StudioMdlContext.face[i].d != 0xFFFFFFFF) {
-            uface.d = AddToVlist(g_StudioMdlContext.face[i].d, g_StudioMdlContext.face[i].material,
-                                 g_StudioMdlContext.face[i].nd, g_StudioMdlContext.face[i].td,
+        if (g_StudioMdlContext.faces[i].d != 0xFFFFFFFF) {
+            uface.d = AddToVlist(g_StudioMdlContext.faces[i].d, g_StudioMdlContext.faces[i].material,
+                                 g_StudioMdlContext.faces[i].nd, g_StudioMdlContext.faces[i].td,
                                  g_StudioMdlContext.numverts);
         }
 
         // keep an original copy
         g_StudioMdlContext.src_uface[i] = uface;
     }
-
-    // printf("%d : %d %d %d\n", numvlist, g_StudioMdlContext.numverts, g_StudioMdlContext.numnormals, g_numtexcoords );
 }
 
 void CalcModelTangentSpaces(s_source_t *pSrc);
@@ -541,11 +448,12 @@ static int vlistCompare(const void *elem1, const void *elem2) {
 }
 
 static void SortVerticesByMaterial(int *pDesiredToVList, int *pVListToDesired) {
-    for (int i = 0; i < g_studiomdl.numvlist; i++) {
+    const int count = static_cast<int>(g_studiomdl.v_listdata.size());
+    for (int i = 0; i < count; i++) {
         pDesiredToVList[i] = i;
     }
-    qsort(pDesiredToVList, g_studiomdl.numvlist, sizeof(int), vlistCompare);
-    for (int i = 0; i < g_studiomdl.numvlist; i++) {
+    qsort(pDesiredToVList, count, sizeof(int), vlistCompare);
+    for (int i = 0; i < count; i++) {
         pVListToDesired[pDesiredToVList[i]] = i;
     }
 }
@@ -559,9 +467,9 @@ static int faceCompare(const void *elem1, const void *elem2) {
     int i2 = *(int *) elem2;
 
     // sort by material
-    if (g_StudioMdlContext.face[i1].material < g_StudioMdlContext.face[i2].material)
+    if (g_StudioMdlContext.faces[i1].material < g_StudioMdlContext.faces[i2].material)
         return -1;
-    if (g_StudioMdlContext.face[i1].material > g_StudioMdlContext.face[i2].material)
+    if (g_StudioMdlContext.faces[i1].material > g_StudioMdlContext.faces[i2].material)
         return 1;
 
     // sort by original usage
@@ -575,10 +483,10 @@ static int faceCompare(const void *elem1, const void *elem2) {
 
 static void SortFacesByMaterial(int *pDesiredToSrcFace) {
     // NOTE: Unlike SortVerticesByMaterial, srcFaceToDesired isn't needed, so we're not computing it
-    for (int i = 0; i < g_StudioMdlContext.numfaces; i++) {
+    for (int i = 0; i < g_StudioMdlContext.faces.size(); i++) {
         pDesiredToSrcFace[i] = i;
     }
-    qsort(pDesiredToSrcFace, g_StudioMdlContext.numfaces, sizeof(int), faceCompare);
+    qsort(pDesiredToSrcFace, g_StudioMdlContext.faces.size(), sizeof(int), faceCompare);
 }
 
 
@@ -586,41 +494,42 @@ static void SortFacesByMaterial(int *pDesiredToSrcFace) {
 // Builds mesh structures in the source
 //-----------------------------------------------------------------------------
 static void PointMeshesToVertexAndFaceData(s_source_t *pSource, int *pDesiredToSrcFace) {
-    // First, assign all meshes to be empty
-    // A mesh is a set of faces + vertices that all use 1 material
+    // A mesh is a set of faces + vertices that all use 1 material; count them per material id first
+    std::array<s_mesh_t, MAXSTUDIOSKINS> perMaterial{};
     for (int m = 0; m < MAXSTUDIOSKINS; m++) {
-        pSource->mesh[m].numvertices = 0;
-        pSource->mesh[m].vertexoffset = pSource->numvertices;
+        perMaterial[m].material = m;
+        perMaterial[m].numvertices = 0;
+        perMaterial[m].vertexoffset = pSource->numvertices;
 
-        pSource->mesh[m].numfaces = 0;
-        pSource->mesh[m].faceoffset = pSource->numfaces;
+        perMaterial[m].numfaces = 0;
+        perMaterial[m].faceoffset = pSource->numfaces;
     }
 
     // find first and count of vertices per material
     for (int i = 0; i < pSource->numvertices; i++) {
         int m = pSource->vertex[i].material;
-        pSource->mesh[m].numvertices++;
-        if (pSource->mesh[m].vertexoffset > i) {
-            pSource->mesh[m].vertexoffset = i;
+        perMaterial[m].numvertices++;
+        if (perMaterial[m].vertexoffset > i) {
+            perMaterial[m].vertexoffset = i;
         }
     }
 
     // find first and count of faces per material
     for (int i = 0; i < pSource->numfaces; i++) {
-        int m = g_StudioMdlContext.face[pDesiredToSrcFace[i]].material;
+        int m = g_StudioMdlContext.faces[pDesiredToSrcFace[i]].material;
 
-        pSource->mesh[m].numfaces++;
-        if (pSource->mesh[m].faceoffset > i) {
-            pSource->mesh[m].faceoffset = i;
+        perMaterial[m].numfaces++;
+        if (perMaterial[m].faceoffset > i) {
+            perMaterial[m].faceoffset = i;
         }
     }
 
-    /*
-    for (k = 0; k < MAXSTUDIOSKINS; k++)
-    {
-        printf("%d : %d:%d %d:%d\n", k, psource->mesh[k].numvertices, psource->mesh[k].vertexoffset, psource->mesh[k].numfaces, psource->mesh[k].faceoffset );
+    // the meshes are the materials with faces, in material order
+    pSource->meshes.clear();
+    for (const s_mesh_t &mesh: perMaterial) {
+        if (mesh.numfaces)
+            pSource->meshes.push_back(mesh);
     }
-    */
 }
 
 
@@ -629,22 +538,17 @@ static void PointMeshesToVertexAndFaceData(s_source_t *pSource, int *pDesiredToS
 //-----------------------------------------------------------------------------
 static void BuildFaceList(s_source_t *pSource, int *pVListToDesired, int *pDesiredToSrcFace) {
     pSource->face = (s_face_t *) calloc(pSource->numfaces, sizeof(s_face_t));
-    for (int m = 0; m < MAXSTUDIOSKINS; m++) {
-        if (!pSource->mesh[m].numfaces)
-            continue;
-
-        pSource->meshindex[pSource->nummeshes++] = m;
-
-        for (int i = pSource->mesh[m].faceoffset; i < pSource->mesh[m].numfaces + pSource->mesh[m].faceoffset; i++) {
+    for (const s_mesh_t &mesh: pSource->meshes) {
+        for (int i = mesh.faceoffset; i < mesh.numfaces + mesh.faceoffset; i++) {
             int j = pDesiredToSrcFace[i];
 
             // NOTE: per-face vertex indices a,b,c,d are mesh relative (hence the subtraction), while g_StudioMdlContext.src_uface are model relative
-            pSource->face[i].a = pVListToDesired[g_StudioMdlContext.src_uface[j].a] - pSource->mesh[m].vertexoffset;
-            pSource->face[i].b = pVListToDesired[g_StudioMdlContext.src_uface[j].b] - pSource->mesh[m].vertexoffset;
-            pSource->face[i].c = pVListToDesired[g_StudioMdlContext.src_uface[j].c] - pSource->mesh[m].vertexoffset;
+            pSource->face[i].a = pVListToDesired[g_StudioMdlContext.src_uface[j].a] - mesh.vertexoffset;
+            pSource->face[i].b = pVListToDesired[g_StudioMdlContext.src_uface[j].b] - mesh.vertexoffset;
+            pSource->face[i].c = pVListToDesired[g_StudioMdlContext.src_uface[j].c] - mesh.vertexoffset;
 
             if (g_StudioMdlContext.src_uface[j].d != 0xFFFFFFFF) {
-                pSource->face[i].d = pVListToDesired[g_StudioMdlContext.src_uface[j].d] - pSource->mesh[m].vertexoffset;
+                pSource->face[i].d = pVListToDesired[g_StudioMdlContext.src_uface[j].d] - mesh.vertexoffset;
             }
 
             Assert(((pSource->face[i].a & 0xF0000000) == 0) && ((pSource->face[i].b & 0xF0000000) == 0) &&
@@ -692,16 +596,17 @@ static void RemapVertexAnimations(s_source_t *pSource, int *pVListToDesired) {
 // to use the new indices
 //-----------------------------------------------------------------------------
 void BuildIndividualMeshes(s_source_t *pSource) {
-    FunctionTimingRecorder _("DMX");
-    int *v_listsort = (int *) malloc(g_studiomdl.numvlist * sizeof(int)); // map desired order to vlist entry
-    int *v_ilistsort = (int *) malloc(g_studiomdl.numvlist * sizeof(int)); // map vlist entry to desired order
-    int *facesort = (int *) malloc(g_StudioMdlContext.numfaces * sizeof(int)); // map desired order to src_face entry
+    vstd::FunctionTimingRecorder _("DMX");
+    const size_t numvlist = g_studiomdl.v_listdata.size();
+    int *v_listsort = (int *) malloc(numvlist * sizeof(int)); // map desired order to vlist entry
+    int *v_ilistsort = (int *) malloc(numvlist * sizeof(int)); // map vlist entry to desired order
+    int *facesort = (int *) malloc(g_StudioMdlContext.faces.size() * sizeof(int)); // map desired order to src_face entry
 
     SortVerticesByMaterial(v_listsort, v_ilistsort);
     SortFacesByMaterial(facesort);
 
-    pSource->numvertices = g_studiomdl.numvlist;
-    pSource->numfaces = g_StudioMdlContext.numfaces;
+    pSource->numvertices = static_cast<int>(numvlist);
+    pSource->numfaces = g_StudioMdlContext.faces.size();
 
     BuildUniqueVertexList(pSource, v_listsort);
     PointMeshesToVertexAndFaceData(pSource, facesort);
@@ -737,12 +642,13 @@ int Load_VRM(s_source_t *psource) {
     }
 
     if (!g_StudioMdlContext.quiet) {
-        printf("grabbing %s\n", psource->filename.c_str());
+        std::print("grabbing {}\n", psource->filename);
     }
 
     g_StudioMdlContext.iLinecount = 0;
 
-    while (g_StudioMdlContext.inputFile->Gets(g_StudioMdlContext.szLine, sizeof(g_StudioMdlContext.szLine)) != nullptr) {
+    while (g_StudioMdlContext.inputFile->Gets(g_StudioMdlContext.szLine, sizeof(g_StudioMdlContext.szLine)) !=
+           nullptr) {
         g_StudioMdlContext.iLinecount++;
         sscanf(g_StudioMdlContext.szLine, "%1023s %d", cmd, &option);
         if (stricmp(cmd, "version") == 0) {
@@ -756,7 +662,7 @@ int Load_VRM(s_source_t *psource) {
             g_StudioMdlContext.numverts = option;
         }
         else if (stricmp(cmd, "faces") == 0) {
-            g_StudioMdlContext.numfaces = option;
+            g_StudioMdlContext.faces.resize(option);
         }
         else if (stricmp(cmd, "materials") == 0) {
             // doesn't matter;
@@ -814,7 +720,7 @@ int Load_VRM(s_source_t *psource) {
                 }
         */
         else {
-            MdlError("unknown VRM command : %s \n", cmd);
+            MdlError("unknown VRM command : {} \n", cmd);
         }
     }
 

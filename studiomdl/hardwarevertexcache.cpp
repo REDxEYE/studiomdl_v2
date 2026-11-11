@@ -5,8 +5,8 @@
 // $NoKeywords: $
 //=============================================================================//
 
+#include <print>
 #include <stdlib.h>
-#include <stdio.h>
 #include "studiomdl/hardwarevertexcache.h"
 
 CHardwareVertexCache::CHardwareVertexCache()
@@ -66,6 +66,6 @@ void CHardwareVertexCache::Print( void )
 	int i;
 	for( i = 0; i < m_NumEntries; i++ )
 	{
-		printf( "fifo entry %d: %d\n", i, ( int )m_Fifo[( m_HeadIndex + i ) % m_Size] );
+		std::print( "fifo entry {}: {}\n", i, ( int )m_Fifo[( m_HeadIndex + i ) % m_Size] );
 	}
 }

@@ -41,11 +41,7 @@
 #define INCORRECT_PATH_SEPARATOR '\\'
 #endif
 
-#ifdef    _WIN32
 #define PATHSEPARATOR(c) ((c) == '\\' || (c) == '/')
-#elif defined(POSIX)
-#define PATHSEPARATOR(c) ((c) == '/')
-#endif    //_WIN32
 
 #define MAX_FILEPATH 512
 
@@ -161,7 +157,7 @@ public:
 };
 
 
-abstract_class CBaseFileSystem : public IFileSystem {
+class CBaseFileSystem : public IFileSystem {
     friend class CFileHandle;
 
     friend class CFileOpenInfo;
@@ -180,86 +176,86 @@ public:
     void ParsePathID(const char *&pFilename, const char *&pPathID, char tempPathID[MAX_PATH]);
 
     // file handling
-    virtual FileHandle_t Open(const char *pFileName, const char *pOptions, const char *pathID);
+    FileHandle_t Open(const char *pFileName, const char *pOptions, const char *pathID) override;
 
-    virtual FileHandle_t OpenEx(const char *pFileName, const char *pOptions, unsigned flags = 0, const char *pathID = nullptr,
-                                char **ppszResolvedFilename = nullptr);
+    FileHandle_t OpenEx(const char *pFileName, const char *pOptions, unsigned flags = 0, const char *pathID = nullptr,
+                        char **ppszResolvedFilename = nullptr) override;
 
-    virtual void Close(FileHandle_t);
+    void Close(FileHandle_t) override;
 
-    virtual void Seek(FileHandle_t file, int pos, FileSystemSeek_t method);
+    void Seek(FileHandle_t file, int pos, FileSystemSeek_t method) override;
 
-    virtual unsigned int Tell(FileHandle_t file);
+    unsigned int Tell(FileHandle_t file) override;
 
-    virtual unsigned int Size(FileHandle_t file);
+    unsigned int Size(FileHandle_t file) override;
 
-    virtual unsigned int Size(const char *pFileName, const char *pPathID);
+    unsigned int Size(const char *pFileName, const char *pPathID) override;
 
-    virtual bool IsOk(FileHandle_t file);
+    bool IsOk(FileHandle_t file) override;
 
-    virtual void Flush(FileHandle_t file);
+    void Flush(FileHandle_t file) override;
 
-    virtual bool Precache(const char *pFileName, const char *pPathID);
+    bool Precache(const char *pFileName, const char *pPathID) override;
 
-    virtual bool EndOfFile(FileHandle_t file);
+    bool EndOfFile(FileHandle_t file) override;
 
-    virtual int Read(void *pOutput, int size, FileHandle_t file);
+    int Read(void *pOutput, int size, FileHandle_t file) override;
 
-    virtual int ReadEx(void *pOutput, int sizeDest, int size, FileHandle_t file);
+    int ReadEx(void *pOutput, int sizeDest, int size, FileHandle_t file) override;
 
-    virtual int Write(void const *pInput, int size, FileHandle_t file);
+    int Write(void const *pInput, int size, FileHandle_t file) override;
 
-    virtual char *ReadLine(char *pOutput, int maxChars, FileHandle_t file);
+    char *ReadLine(char *pOutput, int maxChars, FileHandle_t file) override;
 
-    virtual int FPrintf(FileHandle_t file, PRINTF_FORMAT_STRING const char *pFormat, ...) FMTFUNCTION(3, 4);
+    int FPrintf(FileHandle_t file, PRINTF_FORMAT_STRING const char *pFormat, ...) override FMTFUNCTION(3, 4);
 
     // Reads/writes files to utlbuffers
-    virtual bool ReadFile(const char *pFileName, const char *pPath, CUtlBuffer &buf, int nMaxBytes, int nStartingByte,
-                          FSAllocFunc_t pfnAlloc = nullptr);
+    bool ReadFile(const char *pFileName, const char *pPath, CUtlBuffer &buf, int nMaxBytes, int nStartingByte,
+                  FSAllocFunc_t pfnAlloc = nullptr) override;
 
-    virtual bool WriteFile(const char *pFileName, const char *pPath, CUtlBuffer &buf);
+    bool WriteFile(const char *pFileName, const char *pPath, CUtlBuffer &buf) override;
 
-    virtual int
+    int
     ReadFileEx(const char *pFileName, const char *pPath, void **ppBuf, bool bNullTerminate, bool bOptimalAlloc,
-               int nMaxBytes = 0, int nStartingByte = 0, FSAllocFunc_t pfnAlloc = nullptr);
+               int nMaxBytes = 0, int nStartingByte = 0, FSAllocFunc_t pfnAlloc = nullptr) override;
 
-    virtual bool ReadToBuffer(FileHandle_t hFile, CUtlBuffer &buf, int nMaxBytes = 0, FSAllocFunc_t pfnAlloc = nullptr);
+    bool ReadToBuffer(FileHandle_t hFile, CUtlBuffer &buf, int nMaxBytes = 0, FSAllocFunc_t pfnAlloc = nullptr) override;
 
     // Optimal buffer
     bool
-    GetOptimalIOConstraints(FileHandle_t hFile, unsigned *pOffsetAlign, unsigned *pSizeAlign, unsigned *pBufferAlign);
+    GetOptimalIOConstraints(FileHandle_t hFile, unsigned *pOffsetAlign, unsigned *pSizeAlign, unsigned *pBufferAlign) override;
 
-    void *AllocOptimalReadBuffer(FileHandle_t hFile, unsigned nSize, unsigned nOffset) { return malloc(nSize); }
+    void *AllocOptimalReadBuffer(FileHandle_t hFile, unsigned nSize, unsigned nOffset) override { return malloc(nSize); }
 
-    void FreeOptimalReadBuffer(void *p) { free(p); }
+    void FreeOptimalReadBuffer(void *p) override { free(p); }
 
     // Gets the current working directory
-    virtual bool GetCurrentDirectory(char *pDirectory, int maxlen);
+    bool GetCurrentDirectory(char *pDirectory, int maxlen) override;
 
     // this isn't implementable on STEAM as is.
-    virtual void CreateDirHierarchy(const char *path, const char *pathID);
+    void CreateDirHierarchy(const char *path, const char *pathID) override;
 
     // returns true if the file is a directory
-    virtual bool IsDirectory(const char *pFileName, const char *pathID);
+    bool IsDirectory(const char *pFileName, const char *pathID) override;
 
     // path info
-    virtual const char *GetLocalPath(const char *pFileName, char *pLocalPath, int localPathBufferSize);
+    const char *GetLocalPath(const char *pFileName, char *pLocalPath, int localPathBufferSize) override;
 
-    virtual bool FullPathToRelativePath(const char *pFullpath, char *pRelative, int maxlen);
+    bool FullPathToRelativePath(const char *pFullpath, char *pRelative, int maxlen) override;
 
     // removes a file from disk
-    virtual void RemoveFile(char const *pRelativePath, const char *pathID);
+    void RemoveFile(char const *pRelativePath, const char *pathID) override;
 
     // Remove all search paths (including write path?)
-    virtual void RemoveAllSearchPaths(void);
+    void RemoveAllSearchPaths(void) override;
 
     // Purpose: Removes all search paths for a given pathID, such as all "GAME" paths.
-    virtual void RemoveSearchPaths(const char *pathID);
+    void RemoveSearchPaths(const char *pathID) override;
 
     // STUFF FROM IFileSystem
     // Add paths in priority order (mod dir, game dir, ....)
     // Can also add pak files (errr, NOT YET!)
-    void AddSearchPath(const char *pPath, const char *pathID, SearchPathAdd_t addType) override;
+    void AddSearchPath(std::string_view pPath, std::string_view pathID, SearchPathAdd_t addType) override;
 
     bool RemoveSearchPath(const char *pPath, const char *pathID) override;
 
@@ -293,8 +289,6 @@ public:
     FindFileAbsoluteList(CUtlVector<CUtlString> &outAbsolutePathNames, const char *pWildCard,
                          const char *pPathID) override;
 
-    void PrintOpenedFiles() override;
-
     void SetWarningFunc(void (*pfnWarning)(const char *fmt, ...)) override;
 
     void SetWarningLevel(FileWarningLevel_t level) override;
@@ -315,7 +309,7 @@ public:
 
     int GetPathIndex(const FileNameHandle_t &handle) override;
 
-    int64_t GetPathTime(const char *pFileName, const char *pPathID);
+    int64_t GetPathTime(const char *pFileName, const char *pPathID) override;
 
     void MarkAllCRCsUnverified() override;
 
@@ -595,49 +589,16 @@ protected:
     void GetFileNameForHandle(FileHandle_t handle, char *buf, size_t buflen);
 
 protected:
-    //-----------------------------------------------------------------------------
-    // Purpose: For tracking unclosed files
-    // NOTE:  The symbol table could take up memory that we don't want to eat here.
-    // In that case, we shouldn't store them in a table, or we should store them as locally allocates stings
-    //  so we can control the size
-    //-----------------------------------------------------------------------------
-    class COpenedFile {
-    public:
-        COpenedFile(void);
-
-        ~COpenedFile(void);
-
-        COpenedFile(const COpenedFile &src);
-
-        bool operator==(const COpenedFile &src) const;
-
-        void SetName(char const *name);
-
-        char const *GetName(void);
-
-        CStdFile *m_pFile;
-        char *m_pName;
-    };
-
-    //CUtlRBTree< COpenedFile, int > m_OpenedFiles;
-    CUtlVector<COpenedFile> m_OpenedFiles;
     CUtlStringMap<bool> m_NonexistingFilesExtensions;
-#ifdef NONEXISTING_FILES_CACHE_SUPPORT
-    CUtlStringMap< double >		m_NonexistingFilesCache;
-#endif
-
-    static bool OpenedFileLessFunc(COpenedFile const &src1, COpenedFile const &src2);
 
     FileWarningLevel_t m_fwLevel;
 
     void (*m_pfnWarning)(const char *fmt, ...);
 
-    CStdFile *
-    Trace_FOpen(const char *filename, const char *options, unsigned flags, int64_t *size, CFileLoadInfo *pInfo = nullptr);
+    CStdFile *FOpen(const char *filename, const char *options, unsigned flags, int64_t *size,
+                    CFileLoadInfo *pInfo = nullptr);
 
-    void Trace_FClose(CStdFile *fp);
-
-    void Trace_DumpUnclosedFiles(void);
+    void FClose(CStdFile *fp);
 
 public:
     void LogAccessToFile(char const *accesstype, char const *fullpath, char const *options);
@@ -674,7 +635,7 @@ protected:
     void ComputeFullWritePath(char *pDest, int maxlen, const char *pWritePathID, char const *pRelativePath);
 
     void
-    AddSearchPathInternal(const char *pPath, const char *pathID, SearchPathAdd_t addType, int iForceInsertIndex = 0);
+    AddSearchPathInternal(std::string_view pPath, std::string_view pathID, SearchPathAdd_t addType, int iForceInsertIndex = 0);
 
     // Opens a file for read or write
     FileHandle_t OpenForRead(const char *pFileName, const char *pOptions, unsigned flags, const char *pathID,

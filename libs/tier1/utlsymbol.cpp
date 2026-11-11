@@ -315,6 +315,60 @@ CUtlSymbol CUtlSymbolTable::AddString( const char* pString )
 	return CUtlSymbol( idx );
 }
 
+CUtlSymbol CUtlSymbolTable::AddString(std::string_view string) {
+    if (string.empty())
+        return CUtlSymbol( UTL_INVAL_SYMBOL );
+
+    std::string tmp = std::string{string};
+    CUtlSymbol id = Find( tmp.c_str() );
+
+    if (id.IsValid())
+        return id;
+
+    int lenString = string.size() + 1; // length of just the string
+    int lenDecorated = lenString + sizeof(hashDecoration_t); // and with its hash decoration
+    // make sure that all strings are aligned on 2-byte boundaries so the hashes will read correctly
+    COMPILE_TIME_ASSERT(sizeof(hashDecoration_t) == 2);
+    lenDecorated = (lenDecorated + 1) & (~0x01); // round up to nearest multiple of 2
+
+    // Find a pool with space for this string, or allocate a new one.
+    int iPool = FindPoolWithSpace( lenDecorated );
+    if ( iPool == -1 )
+    {
+        // Add a new pool.
+        int newPoolSize = MAX( lenDecorated + sizeof( StringPool_t ), MIN_STRING_POOL_SIZE );
+        StringPool_t *pPool = (StringPool_t*)malloc( newPoolSize );
+        pPool->m_TotalLen = newPoolSize - sizeof( StringPool_t );
+        pPool->m_SpaceUsed = 0;
+        iPool = m_StringPools.AddToTail( pPool );
+    }
+
+    // Compute a hash
+    hashDecoration_t hash = m_bInsensitive ? HashStringCaseless(string) : HashString(string) ;
+
+    // Copy the string in.
+    StringPool_t *pPool = m_StringPools[iPool];
+    Assert( pPool->m_SpaceUsed < 0xFFFF );	// This should never happen, because if we had a string > 64k, it
+    // would have been given its entire own pool.
+
+    unsigned short iStringOffset = pPool->m_SpaceUsed;
+    const char *startingAddr = &pPool->m_Data[pPool->m_SpaceUsed];
+
+    // store the hash at the head of the string
+    *((hashDecoration_t *)(startingAddr)) = hash;
+    // and then the string's data
+    memcpy( (void *)(startingAddr + sizeof(hashDecoration_t)), string.data(), lenString );
+    pPool->m_SpaceUsed += lenDecorated;
+
+    // insert the string into the vector.
+    CStringPoolIndex index;
+    index.m_iPool = iPool;
+    index.m_iOffset = iStringOffset;
+
+    UtlSymId_t idx = m_Lookup.Insert( index );
+    return CUtlSymbol( idx );
+}
+
 
 //-----------------------------------------------------------------------------
 // Look up the string associated with a particular symbol

@@ -58,6 +58,6 @@ bool CApplication::SetupSearchPaths(const char *pStartingDir, bool bOnlyUseStart
         return false;
 
     FileSystem_AddSearchPath_Platform(fsInfo.m_pFileSystem, steamInfo.m_GameInfoPath);
-    Q_strncpy(m_GameInfoPath, steamInfo.m_GameInfoPath, sizeof(m_GameInfoPath));
+    m_GameInfoPath = steamInfo.m_GameInfoPath;
     return true;
 }

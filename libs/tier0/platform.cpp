@@ -167,25 +167,6 @@ void Plat_MessageBox( const char *pTitle, const char *pMessage )
 }
 #endif
 
-#if defined( POSIX )
-//copied from platform_posix.cpp
-static char g_CmdLine[ 2048 ] = "";
-PLATFORM_INTERFACE void Plat_SetCommandLine( const char *cmdLine )
-{
-    strncpy( g_CmdLine, cmdLine, sizeof(g_CmdLine) );
-    g_CmdLine[ sizeof(g_CmdLine) -1 ] = 0;
-}
-#endif
-
-PLATFORM_INTERFACE const tchar *Plat_GetCommandLine() {
-#if LINUX
-    return CommandLine()->GetCmdLine();
-#elif defined( TCHAR_IS_WCHAR )
-    return GetCommandLineW();
-#else
-    return GetCommandLine();
-#endif
-}
 
 char const *Plat_GetEnv(char const *pEnvVarName) {
     return getenv(pEnvVarName);

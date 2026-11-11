@@ -11,116 +11,92 @@
 #include "common/cmdlib.h"
 #include "studiomdl/studiomdl.h"
 #include "studiomdl/perfstats.h"
+#include "studiomdl/output_files.hpp"
 
 #include "studiomdl/studiomdl_global_state.hpp"
 #include "tier1/tier1_logging.h"
-
-
-extern void MdlError( char const *pMsg, ... );
-
+#include "tier1_v2/path_utils.hpp"
 
 
 static CBufferedLoggingListener s_BufferedLoggingListener;
 
-void SpewPerfStats( studiohdr_t *pStudioHdr, const char *pFilename, unsigned int flags )
-{
-	char							fileName[260];
-	vertexFileHeader_t				*pNewVvdHdr;
-	vertexFileHeader_t				*pVvdHdr = nullptr;
-	OptimizedModel::FileHeader_t	*pVtxHdr = nullptr;
-//	studiohwdata_t					studioHWData;
-	int								vvdSize = 0;
-	
-	const char						*prefix[] = { ".dx90.vtx", ".dx80.vtx", ".sw.vtx" };
-	const int						numVtxFiles = ( g_gameinfo.bSupportsDX8 && !g_StudioMdlContext.fastBuild ) ? ARRAYSIZE( prefix ) : 1;
-	bool							bExtraData = (pStudioHdr->flags & STUDIOHDR_FLAGS_EXTRA_VERTEX_DATA) != 0;
+void SpewPerfStats(studiohdr_t* pStudioHdr, const std::string_view pFilename, unsigned int flags) {
+    std::string fileName = std::string{pFilename};
+    vertexFileHeader_t* pNewVvdHdr;
+    vertexFileHeader_t* pVvdHdr = nullptr;
+    OptimizedModel::FileHeader_t* pVtxHdr = nullptr;
+    //	studiohwdata_t					studioHWData;
+    int vvdSize = 0;
+
+    const char* prefix[] = {".dx90.vtx", ".dx80.vtx", ".sw.vtx"};
+    const int numVtxFiles = (g_gameinfo.bSupportsDX8 && !g_StudioMdlContext.fastBuild) ? ARRAYSIZE(prefix) : 1;
+    bool bExtraData = (pStudioHdr->flags & STUDIOHDR_FLAGS_EXTRA_VERTEX_DATA) != 0;
 
 
-	if( !( flags & SPEWPERFSTATS_SHOWSTUDIORENDERWARNINGS ) )
-	{
-		LoggingSystem_PushLoggingState();
-		LoggingSystem_RegisterLoggingListener( &s_BufferedLoggingListener );
-	}
+    if (!(flags & SPEWPERFSTATS_SHOWSTUDIORENDERWARNINGS)) {
+        LoggingSystem_PushLoggingState();
+        LoggingSystem_RegisterLoggingListener(&s_BufferedLoggingListener);
+    }
 
-	// no stats on these
-	if (!pStudioHdr->numbodyparts)
-		return;
+    // no stats on these
+    if (!pStudioHdr->numbodyparts)
+        return;
 
-	// persist the vvd data
-	Q_StripExtension( pFilename, fileName, sizeof( fileName ) );
-	strcat( fileName, ".vvd" );
+    // persist the vvd data
+    vstd::paths::strip_extension(fileName);
+    fileName+= ".vvd";
 
-	if (FileExists( fileName ))
-	{
-		vvdSize = LoadFile( fileName, (void**)&pVvdHdr );
-	}
-	else
-	{
-		MdlError( "Could not open '%s'\n", fileName );
-	}
+    vvdSize = LoadOutputFile(fileName, (void**) &pVvdHdr);
 
-	// validate header
-	if (pVvdHdr->id != MODEL_VERTEX_FILE_ID)
-	{
-		MdlError( "Bad id for '%s' (got %d expected %d)\n", fileName, pVvdHdr->id, MODEL_VERTEX_FILE_ID);
-	}
-	if (pVvdHdr->version != MODEL_VERTEX_FILE_VERSION)
-	{
-		MdlError( "Bad version for '%s' (got %d expected %d)\n", fileName, pVvdHdr->version, MODEL_VERTEX_FILE_VERSION);
-	}
-	if (pVvdHdr->checksum != pStudioHdr->checksum)
-	{
-		MdlError( "Bad checksum for '%s' (got %d expected %d)\n", fileName, pVvdHdr->checksum, pStudioHdr->checksum);
-	}
+    // validate header
+    if (pVvdHdr->id != MODEL_VERTEX_FILE_ID) {
+        MdlError("Bad id for '{}' (got {} expected {})\n", fileName, pVvdHdr->id, MODEL_VERTEX_FILE_ID);
+    }
+    if (pVvdHdr->version != MODEL_VERTEX_FILE_VERSION) {
+        MdlError("Bad version for '{}' (got {} expected {})\n", fileName, pVvdHdr->version, MODEL_VERTEX_FILE_VERSION);
+    }
+    if (pVvdHdr->checksum != pStudioHdr->checksum) {
+        MdlError("Bad checksum for '{}' (got {} expected {})\n", fileName, pVvdHdr->checksum, pStudioHdr->checksum);
+    }
 
-	if (pVvdHdr->numFixups)
-	{
-		// need to perform mesh relocation fixups
-		// allocate a new copy
-		pNewVvdHdr = (vertexFileHeader_t *)malloc( vvdSize );
-		if (!pNewVvdHdr)
-		{
-			MdlError( "Error allocating %d bytes for Vertex File '%s'\n", vvdSize, fileName );
-		}
+    if (pVvdHdr->numFixups) {
+        // need to perform mesh relocation fixups
+        // allocate a new copy
+        pNewVvdHdr = (vertexFileHeader_t*) malloc(vvdSize);
+        if (!pNewVvdHdr) {
+            MdlError("Error allocating {} bytes for Vertex File '{}'\n", vvdSize, fileName);
+        }
 
-		Studio_LoadVertexes( pVvdHdr, pNewVvdHdr, 0, true, bExtraData );
+        Studio_LoadVertexes(pVvdHdr, pNewVvdHdr, 0, true, bExtraData);
 
-		// discard original
-		free( pVvdHdr );
+        // discard original
+        free(pVvdHdr);
 
-		pVvdHdr = pNewVvdHdr;
-	}
-	
-	// iterate all ???.vtx files
-	for (int j = 0; j< numVtxFiles; j++)
-	{
-		// make vtx filename
-		Q_StripExtension( pFilename, fileName, sizeof( fileName ) );
-		strcat( fileName, prefix[j] );
+        pVvdHdr = pNewVvdHdr;
+    }
 
-		// persist the vtx data
-		if (FileExists(fileName))
-		{
-			LoadFile( fileName, (void**)&pVtxHdr );
-		}
-		else
-		{
-			MdlError( "Could not open '%s'\n", fileName );
-		}
+    // iterate all ???.vtx files
+    for (int j = 0; j < numVtxFiles; j++) {
+        // make vtx filename
+        fileName = pFilename;
+        vstd::paths::strip_extension(fileName);
+        fileName+= prefix[j];
 
-		// validate header
-		if (pVtxHdr->version != OPTIMIZED_MODEL_FILE_VERSION)
-		{
-			MdlError( "Bad version for '%s' (got %d expected %d)\n", fileName, pVtxHdr->version, OPTIMIZED_MODEL_FILE_VERSION );
-		}
-		if (pVtxHdr->checkSum != pStudioHdr->checksum)
-		{
-			MdlError( "Bad checksum for '%s' (got %d expected %d)\n", fileName, pVtxHdr->checkSum, pStudioHdr->checksum );
-		}
+        // persist the vtx data
+        LoadOutputFile(fileName, (void**) &pVtxHdr);
 
-		// studio render will request these through cache interface
-		pStudioHdr->SetVertexBase( (void *)pVvdHdr );
-		pStudioHdr->SetIndexBase( (void *)pVtxHdr );
+        // validate header
+        if (pVtxHdr->version != OPTIMIZED_MODEL_FILE_VERSION) {
+            MdlError("Bad version for '{}' (got {} expected {})\n", fileName, pVtxHdr->version,
+                     OPTIMIZED_MODEL_FILE_VERSION);
+        }
+        if (pVtxHdr->checkSum != pStudioHdr->checksum) {
+            MdlError("Bad checksum for '{}' (got {} expected {})\n", fileName, pVtxHdr->checkSum, pStudioHdr->checksum);
+        }
+
+        // studio render will request these through cache interface
+        pStudioHdr->SetVertexBase((void*) pVvdHdr);
+        pStudioHdr->SetIndexBase((void*) pVtxHdr);
 
         /*
 		g_pStudioRender->LoadModel( pStudioHdr, pVtxHdr, &studioHWData );
@@ -151,7 +127,7 @@ void SpewPerfStats( studiohdr_t *pStudioHdr, const char *pFilename, unsigned int
 				drawModelInfo.m_pClientEntity = 0;
 				drawModelInfo.m_pColorMeshes = 0;
 				drawModelInfo.m_pStudioHdr = pStudioHdr;
-				drawModelInfo.m_pHardwareData = &studioHWData;	
+				drawModelInfo.m_pHardwareData = &studioHWData;
 				CUtlBuffer statsOutput( 0, 0, CUtlBuffer::TEXT_BUFFER );
 				if( !( flags & SPEWPERFSTATS_SPREADSHEET ) )
 				{
@@ -178,16 +154,14 @@ void SpewPerfStats( studiohdr_t *pStudioHdr, const char *pFilename, unsigned int
 		}
 		g_pStudioRender->UnloadModel( &studioHWData );
         */
-		free(pVtxHdr);
-	}
+        free(pVtxHdr);
+    }
 
-	if (pVvdHdr)
-		free(pVvdHdr);
+    if (pVvdHdr)
+        free(pVvdHdr);
 
-	if( !( flags & SPEWPERFSTATS_SHOWSTUDIORENDERWARNINGS ) )
-	{
-		LoggingSystem_PopLoggingState();
-		s_BufferedLoggingListener.EmitBufferedSpew();
-	}
+    if (!(flags & SPEWPERFSTATS_SHOWSTUDIORENDERWARNINGS)) {
+        LoggingSystem_PopLoggingState();
+        s_BufferedLoggingListener.EmitBufferedSpew();
+    }
 }
-

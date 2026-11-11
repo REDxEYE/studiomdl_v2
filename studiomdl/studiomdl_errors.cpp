@@ -11,56 +11,42 @@
 #include "tier1_v2/path_utils.hpp"
 
 #include <filesystem>
+#include <print>
+#include <string>
 
 static bool g_bFirstWarning = true;
 
-void TokenError(const char *fmt, ...) {
-    static char output[1024];
-    va_list args;
-
-    char *pFilename;
-    int iLineNumber;
-
-    if (GetTokenizerStatus(&pFilename, &iLineNumber)) {
-                va_start(args, fmt);
-        vsnprintf(output, sizeof(output), fmt, args);
-
-        MdlError("%s(%d): - %s", pFilename, iLineNumber, output);
-    } else {
-                va_start(args, fmt);
-        vsnprintf(output, sizeof(output), fmt, args);
-        MdlError("%s", output);
+// In a -quiet run the first message is preceded by the QC path; every message is indented under it.
+static void PrintQuietPrefix() {
+    if (!g_StudioMdlContext.quiet)
+        return;
+    if (g_bFirstWarning) {
+        std::print("{} :\n", g_studiomdl.fullpath);
+        g_bFirstWarning = false;
     }
+    std::print("\t");
 }
 
-void MdlError(const char *fmt, ...) {
-    static char output[1024];
+void InstallMdlErrorHandler(ScriptTokenizer &tokenizer) {
+    tokenizer.SetErrorHandler([](const std::string &message) { MdlError("{}", message); });
+}
+
+void MdlErrorV(std::string_view fmt, std::format_args args) {
     static const char *const knownExtensions[] = {".mdl", ".ani", ".phy", ".sw.vtx", ".dx80.vtx", ".dx90.vtx", ".vvd"};
-    va_list args;
 
-//	Assert( 0 );
-    if (g_StudioMdlContext.quiet) {
-        if (g_bFirstWarning) {
-            printf("%s :\n", g_studiomdl.fullpath.c_str());
-            g_bFirstWarning = false;
-        }
-        printf("\t");
-    }
-
-    printf("ERROR: ");
-            va_start(args, fmt);
-    vprintf(fmt, args);
+    PrintQuietPrefix();
+    std::print("ERROR: {}", std::vformat(fmt, args));
 
     // delete premature files
     // unforunately, content is built without verification
     // ensuring that targets are not available, prevents check-in
     if (g_StudioMdlContext.hasModelName) {
         if (g_StudioMdlContext.quiet) {
-            printf("\t");
+            std::print("\t");
         }
 
         // undescriptive errors in batch processes could be anonymous
-        printf("ERROR: Aborted Processing on '%s'\n", g_studiomdl.outname.c_str());
+        std::print("ERROR: Aborted Processing on '{}'\n", g_studiomdl.outname);
 
         const std::string baseName = OutputModelPath("");
         for (const char *pExtension: knownExtensions) {
@@ -74,53 +60,45 @@ void MdlError(const char *fmt, ...) {
     }
 
     if (g_StudioMdlContext.parseable_completion_output) {
-        printf("\nRESULT: ERROR\n");
+        std::print("\nRESULT: ERROR\n");
     }
 
     exit(-1);
 }
 
-void MdlWarning(const char *fmt, ...) {
-    va_list args;
-    static char output[1024];
-
-    if (g_StudioMdlContext.noWarnings || g_StudioMdlContext.g_maxWarnings == 0)
+void MdlWarningV(std::string_view fmt, std::format_args args) {
+    if (g_StudioMdlContext.noWarnings || g_StudioMdlContext.maxWarnings == 0)
         return;
 
     uint16_t old = SetConsoleTextColor(1, 1, 0, 1);
 
-    if (g_StudioMdlContext.quiet) {
-        if (g_bFirstWarning) {
-            printf("%s :\n", g_studiomdl.fullpath.c_str());
-            g_bFirstWarning = false;
-        }
-        printf("\t");
-    }
+    PrintQuietPrefix();
+    std::print("WARNING: {}", std::vformat(fmt, args));
 
-    //Assert( 0 );
+    if (g_StudioMdlContext.maxWarnings > 0)
+        g_StudioMdlContext.maxWarnings--;
 
-    printf("WARNING: ");
-            va_start(args, fmt);
-    vprintf(fmt, args);
-
-    if (g_StudioMdlContext.g_maxWarnings > 0)
-        g_StudioMdlContext.g_maxWarnings--;
-
-    if (g_StudioMdlContext.g_maxWarnings == 0) {
+    if (g_StudioMdlContext.maxWarnings == 0) {
         if (g_StudioMdlContext.quiet) {
-            printf("\t");
+            std::print("\t");
         }
-        printf("suppressing further warnings...\n");
+        std::print("suppressing further warnings...\n");
     }
 
     RestoreConsoleTextColor(old);
+}
+
+void MdlMessageV(std::string_view fmt, std::format_args args) {
+    if (!g_StudioMdlContext.quiet) {
+        std::vprint_unicode(stdout, fmt, args);
+    }
 }
 
 void CMdlLoggingListener::Log(const LoggingContext_t *pContext, const tchar *pMessage) {
     if (pContext->m_Severity == LS_MESSAGE && g_StudioMdlContext.quiet) {
         // suppress
     } else if (pContext->m_Severity == LS_WARNING) {
-        MdlWarning("%s", pMessage);
+        MdlWarning("{}", pMessage);
     } else {
         CCmdLibStandardLoggingListener::Log(pContext, pMessage);
     }
@@ -129,7 +107,7 @@ void CMdlLoggingListener::Log(const LoggingContext_t *pContext, const tchar *pMe
 //#ifndef _DEBUG
 
 void MdlHandleCrash(const char *pMessage, bool bAssert) {
-    MdlError("'%s' (assert: %d)\n", pMessage, bAssert);
+    MdlError("'{}' (assert: {:d})\n", pMessage, bAssert);
 }
 
 // This is called if we crash inside our crash handler. It just terminates the process immediately.

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.22)
 project(tier1)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 if (CMAKE_SIZEOF_VOID_P EQUAL 8)
     set(PLATFORM_DEFINES COMPILER_MSVC64 COMPILER_MSVC)
 elseif (CMAKE_SIZEOF_VOID_P EQUAL 4)
@@ -35,7 +35,9 @@ add_library(tier1
         utlstring.cpp
         utlstringtoken.cpp
         utlsymbol.cpp
+        function_timing.cpp
         ../../include/tier1_v2/fixed_vector.hpp
+        ../../include/tier1_v2/function_timing.hpp
 )
 target_include_directories(tier1 PUBLIC ../../include)
 target_include_directories(tier1 PRIVATE ../../include/tier1)

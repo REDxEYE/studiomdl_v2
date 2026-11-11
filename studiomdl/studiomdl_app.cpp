@@ -12,6 +12,7 @@
 #include "tier1/keyvalues.h"
 #include "tier2/fileutils.h"
 #include "studiomdl/optimize.h"
+#include "tier1_v2/function_timing.hpp"
 #include "studiomdl/flexoptimize.h"
 #include "common/scriplib.h"
 #include "studiomdl/perfstats.h"
@@ -27,6 +28,7 @@
 #include <filesystem>
 
 #include "dmxsupport.hpp"
+#include "tier1_v2/math_utils.hpp"
 
 CMdlLoggingListener s_MdlLoggingListener;
 CStudioMDLApp s_ApplicationObject;
@@ -34,16 +36,16 @@ CStudioMDLApp s_ApplicationObject;
 class CClampedSource;
 
 static bool
-CStudioMDLApp_SuggestGameInfoDirFn(CFSSteamSetupInfo const *, char *pchPathBuffer, int nBufferLength,
-                                   bool *pbBubbleDirectories) {
-    const char *pProcessFileName = nullptr;
-    int nParmCount = CommandLine()->ParmCount();
+CStudioMDLApp_SuggestGameInfoDirFn(CFSSteamSetupInfo const*, char* pchPathBuffer, int nBufferLength,
+                                   bool* pbBubbleDirectories) {
+    std::optional<std::string_view> processFileName;
+    uint32_t nParmCount = CommandLine()->ParmCount();
     if (nParmCount > 1) {
-        pProcessFileName = CommandLine()->GetParm(nParmCount - 1);
+        processFileName = CommandLine()->GetParm(nParmCount - 1);
     }
 
-    if (pProcessFileName) {
-        Q_MakeAbsolutePath(pchPathBuffer, nBufferLength, pProcessFileName);
+    if (processFileName.has_value()) {
+        Q_MakeAbsolutePath(pchPathBuffer, nBufferLength, processFileName.value().data());
 
         if (pbBubbleDirectories)
             *pbBubbleDirectories = true;
@@ -54,12 +56,12 @@ CStudioMDLApp_SuggestGameInfoDirFn(CFSSteamSetupInfo const *, char *pchPathBuffe
     return false;
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
     StudioMdlCompat::EnableUtf8Console();
 
     // Paths are UTF-8 everywhere inside, starting with the command line
     std::vector<std::string> args = StudioMdlCompat::Utf8Arguments(argc, argv);
-    std::vector<char *> argPointers;
+    std::vector<char*> argPointers;
     argPointers.reserve(args.size() + 1);
     for (std::string &arg: args) {
         argPointers.push_back(arg.data());
@@ -94,7 +96,7 @@ void AddContentPaths() {
     g_pFullFileSystem->GetSearchPath("GAME", false, paths.data(), static_cast<int>(paths.size()));
     paths.resize(std::strlen(paths.c_str()));
     if (!g_StudioMdlContext.quiet)
-        printf("all paths:%s\n", paths.c_str());
+        std::print("all paths:{}\n", paths);
 
     // pull out the game names and insert them into a content path string
     constexpr std::string_view game = "game\\";
@@ -109,7 +111,7 @@ void AddContentPaths() {
         contentPath += post;
         CmdLib_AddBasePath(contentPath.c_str());
         if (!g_StudioMdlContext.quiet)
-            printf("content:%s\n", contentPath.c_str());
+            std::print("content:{}\n", contentPath);
         gamePos = nameEnd;
     }
 }
@@ -126,7 +128,7 @@ void ParseGameInfo() {
     gameinfoDefault.bSupportsXBox360 = false;
     gameinfoDefault.bSupportsDX8 = true;
 
-    auto *pKeyValues = new KeyValues("gameinfo.txt");
+    auto* pKeyValues = new KeyValues("gameinfo.txt");
     if (g_pFileSystem && pKeyValues->LoadFromFile(g_pFileSystem, "gameinfo.txt")) {
         bParsed = true;
     }
@@ -142,28 +144,20 @@ void ParseGameInfo() {
 ParseScript
 ===============
 */
-void ParseScript(const char *pExt) {
-    FunctionTimingRecorder _("Parse");
-    while (1) {
-        GetToken(true);
-        if (endofscript)
-            return;
-
+static void ParseScript(ScriptTokenizer &qc) {
+    vstd::FunctionTimingRecorder _("Parse");
+    while (qc.GetToken(true)) {
         // Check all the commands we know about.
         int i;
         for (i = 0; i < g_nMDLCommandCount; i++) {
-            if (Q_stricmp(g_Commands[i].m_pName, token))
+            if (Q_stricmp(g_Commands[i].m_pName, qc.token))
                 continue;
 
-            g_Commands[i].m_pCmd();
+            g_Commands[i].m_pCmd(qc);
             break;
         }
-        if (i == g_nMDLCommandCount) {
-            if (true) {
-                if (!g_StudioMdlContext.createMakefile) {
-                    TokenError("bad command %s\n", token);
-                }
-            }
+        if (i == g_nMDLCommandCount && !g_StudioMdlContext.createMakefile) {
+            qc.Error("bad command {}", qc.token);
         }
     }
 }
@@ -191,13 +185,13 @@ static bool ParsePreprocessedFile(const std::string &fullPath) {
     if (vstd::paths::is_absolute(outputName)) {
         char relative[4096] = {};
         if (!g_pFullFileSystem->FullPathToRelativePathEx(outputName.c_str(), "GAME", relative, sizeof(relative))) {
-            MdlError("Full path %s is not associated with the current mod!\n", outputName.c_str());
+            MdlError("Full path {} is not associated with the current mod!\n", outputName);
             return false;
         }
         std::string relativeName = relative;
         vstd::paths::fix_slashes(relativeName, '/');
         if (!vstd::istarts_with(relativeName, "models/")) {
-            MdlError("Full path %s is not under the 'models' directory\n", outputName.c_str());
+            MdlError("Full path {} is not under the 'models' directory\n", outputName);
             return false;
         }
         outputName = relativeName.substr(7);
@@ -210,11 +204,10 @@ static bool ParsePreprocessedFile(const std::string &fullPath) {
 // Used by the CheckSurfaceProps.py script.
 // They specify the .mdl file and it prints out all the surface props that the model uses.
 bool HandlePrintSurfaceProps(int &returnValue) {
-    const char *pFilename = CommandLine()->ParmValue("-PrintSurfaceProps", (const char *) nullptr);
-    if (pFilename) {
+    const auto filename = CommandLine()->ParmValue("-PrintSurfaceProps");
+    if (filename.has_value()) {
         CUtlVector<char> buf;
-
-        FILE *fp = fopen(pFilename, "rb");
+        FILE* fp = vstd::paths::open_file(*filename, "rb");
         if (fp) {
             fseek(fp, 0, SEEK_END);
             buf.SetSize(ftell(fp));
@@ -223,29 +216,32 @@ bool HandlePrintSurfaceProps(int &returnValue) {
 
             fclose(fp);
 
-            studiohdr_t *pHdr = (studiohdr_t *) buf.Base();
+            studiohdr_t* pHdr = (studiohdr_t*) buf.Base();
 
             Studio_ConvertStudioHdrToNewVersion(pHdr);
 
             if (pHdr->version == STUDIO_VERSION) {
                 for (int i = 0; i < pHdr->numbones; i++) {
-                    const mstudiobone_t *pBone = pHdr->pBone(i);
-                    printf("%s\n", pBone->pszSurfaceProp());
+                    const mstudiobone_t* pBone = pHdr->pBone(i);
+                    std::print("{}\n", pBone->pszSurfaceProp());
                 }
 
                 returnValue = 0;
-            } else {
-                printf("-PrintSurfaceProps: '%s' is wrong version (%d should be %d).\n",
-                       pFilename, pHdr->version, STUDIO_VERSION);
+            }
+            else {
+                std::print("-PrintSurfaceProps: '{}' is wrong version ({} should be {}).\n",
+                           *filename, pHdr->version, STUDIO_VERSION);
                 returnValue = 1;
             }
-        } else {
-            printf("-PrintSurfaceProps: can't open '%s'\n", pFilename);
+        }
+        else {
+            std::print("-PrintSurfaceProps: can't open '{}'\n", *filename);
             returnValue = 1;
         }
 
         return true;
-    } else {
+    }
+    else {
         return false;
     }
 }
@@ -253,11 +249,11 @@ bool HandlePrintSurfaceProps(int &returnValue) {
 // Used by the modelstats.pl script.
 // They specify the .mdl file and it prints out perf info.
 bool HandleMdlReport(int &returnValue) {
-    const char *pFilename = CommandLine()->ParmValue("-mdlreport", (const char *) nullptr);
-    if (pFilename) {
+    const auto filename = CommandLine()->ParmValue("-mdlreport");
+    if (filename.has_value()) {
         CUtlVector<char> buf;
 
-        FILE *fp = fopen(pFilename, "rb");
+        FILE* fp = vstd::paths::open_file(*filename, "rb");
         if (fp) {
             fseek(fp, 0, SEEK_END);
             buf.SetSize(ftell(fp));
@@ -266,71 +262,69 @@ bool HandleMdlReport(int &returnValue) {
 
             fclose(fp);
 
-            studiohdr_t *pHdr = (studiohdr_t *) buf.Base();
+            studiohdr_t* pHdr = (studiohdr_t*) buf.Base();
 
             Studio_ConvertStudioHdrToNewVersion(pHdr);
 
             if (pHdr->version == STUDIO_VERSION) {
                 int flags = SPEWPERFSTATS_SHOWPERF;
-                if (CommandLine()->CheckParm("-mdlreportspreadsheet", nullptr)) {
+                if (!CommandLine()->CheckParm("-mdlreportspreadsheet").empty()) {
                     flags |= SPEWPERFSTATS_SPREADSHEET;
                 }
-                SpewPerfStats(pHdr, pFilename, flags);
+                SpewPerfStats(pHdr, *filename, flags);
 
                 returnValue = 0;
-            } else {
-                printf("-mdlreport: '%s' is wrong version (%d should be %d).\n",
-                       pFilename, pHdr->version, STUDIO_VERSION);
+            }
+            else {
+                std::print("-mdlreport: '{}' is wrong version ({} should be {}).\n",
+                           *filename, pHdr->version, STUDIO_VERSION);
                 returnValue = 1;
             }
-        } else {
-            printf("-mdlreport: can't open '%s'\n", pFilename);
+        }
+        else {
+            std::print("-mdlreport: can't open '{}'\n", *filename);
             returnValue = 1;
         }
 
         return true;
-    } else {
+    }
+    else {
         return false;
     }
-}
-
-void
-StudioMdl_ScriptLoadedCallback(const char *pFilenameLoaded, const char *pIncludedFromFileName, int nIncludeLineNumber) {
-//    printf("Script loaded callback: %s",pFilenameLoaded);
 }
 
 void CreateMakefile_OutputMakefile() {
     if (!g_StudioMdlContext.hasModelName) {
         MdlError("Can't write makefile since a target mdl hasn't been specified!");
     }
-    FILE *fp = fopen("makefile.tmp", "a");
+    FILE* fp = fopen("makefile.tmp", "a");
     if (!fp) {
         MdlError("can't open makefile.tmp!\n");
     }
     const std::string mdlname = OutputModelPath(".mdl");
 
-    fprintf(fp, "%s:", mdlname.c_str());
+    std::print(fp, "{}:", mdlname);
     int i;
     for (i = 0; i < g_StudioMdlContext.CreateMakefileDependencies.size(); i++) {
-        fprintf(fp, " %s", g_StudioMdlContext.CreateMakefileDependencies[i].String());
+        std::print(fp, " {}", g_StudioMdlContext.CreateMakefileDependencies[i].String());
     }
-    fprintf(fp, "\n");
-    fprintf(fp, "\tmkdir \"%s\"\n", std::string(vstd::paths::parent(mdlname)).c_str());
-    fprintf(fp, "\t%s -quiet %s\n\n", CommandLine()->GetParm(0), g_studiomdl.fullpath.c_str());
+    std::print(fp, "\n");
+    std::print(fp, "\tmkdir \"{}\"\n", std::string(vstd::paths::parent(mdlname)));
+    std::print(fp, "\t{} -quiet {}\n\n", CommandLine()->GetParm(0).value(), g_studiomdl.fullpath);
     fclose(fp);
 }
 
-void ClampMaxVerticesPerModel(s_source_t *pOrigSource) {
+void ClampMaxVerticesPerModel(s_source_t* pOrigSource) {
     // check for overage
     if (pOrigSource->numvertices < g_StudioMdlContext.maxVertexLimit)
         return;
 
-    MdlWarning("model has too many verts, cutting into multiple models\n", pOrigSource->numvertices);
+    MdlWarning("model has too many verts, cutting into multiple models\n");
 
     CUtlVector<CClampedSource> newSource;
 
     int ns = newSource.AddToTail();
-    newSource[ns].Init(pOrigSource->numvertices);
+    newSource[ns].Init(pOrigSource->numvertices, pOrigSource);
 
     // Flex optimization: only meshes with flexes count against the engine's flex cache, so faces a flex can move are
     // put into the first pieces and the static faces into pieces of their own, which then carry no flex data.
@@ -340,7 +334,7 @@ void ClampMaxVerticesPerModel(s_source_t *pOrigSource) {
     if (bSortByFlex)
         moving = FlexOptimizeMovingVertices(pOrigSource);
 
-    auto isMovingFace = [&](const s_mesh_t *pMesh, const s_face_t &face) {
+    auto isMovingFace = [&](const s_mesh_t* pMesh, const s_face_t &face) {
         const uint32_t base = pMesh->vertexoffset;
         return moving[base + face.a] || moving[base + face.b] || moving[base + face.c] ||
                (face.d != 0 && moving[base + face.d]);
@@ -349,8 +343,8 @@ void ClampMaxVerticesPerModel(s_source_t *pOrigSource) {
     if (bSortByFlex) {
         // a second pass is only needed if the source has both moving and static faces
         bool bAnyMoving = false, bAnyStatic = false;
-        for (int meshSlot = 0; meshSlot < pOrigSource->nummeshes; meshSlot++) {
-            const s_mesh_t *pMesh = &pOrigSource->mesh[pOrigSource->meshindex[meshSlot]];
+        for (const s_mesh_t &mesh: pOrigSource->meshes) {
+            const s_mesh_t* pMesh = &mesh;
             for (int faceId = pMesh->faceoffset; faceId < pMesh->faceoffset + pMesh->numfaces; faceId++) {
                 if (isMovingFace(pMesh, pOrigSource->face[faceId]))
                     bAnyMoving = true;
@@ -363,66 +357,63 @@ void ClampMaxVerticesPerModel(s_source_t *pOrigSource) {
 
     const int nPasses = bSortByFlex ? 2 : 1;
     for (int pass = 0; pass < nPasses; pass++) {
-    const bool bMovingPass = (pass == 0);
-    if (pass == 1 && newSource[ns].m_face.Count() > 0) {
-        // static faces never share a piece with moving ones; this also keeps the faces of every mesh of a piece
-        // contiguous (each pass walks the meshes in order)
-        ns = newSource.AddToTail();
-        newSource[ns].Init(pOrigSource->numvertices);
-    }
-
-    // Meshes are stored by material index (see s_source_t::meshindex): the i'th mesh of a source lives in
-    // mesh[meshindex[i]], NOT in mesh[i]. The pieces keep the same layout so every face stays in the mesh of its
-    // material and the per-material bookkeeping (mesh/meshindex/texmap) of the original source is preserved.
-    for (int meshSlot = 0; meshSlot < pOrigSource->nummeshes; meshSlot++) {
-        const int nMesh = pOrigSource->meshindex[meshSlot];
-        const s_mesh_t *pOrigMesh = &pOrigSource->mesh[nMesh];
-        for (int faceId = pOrigMesh->faceoffset; faceId < pOrigMesh->faceoffset + pOrigMesh->numfaces; faceId++) {
-            // make sure all the total for all the meshes in the model don't go over limit
-            const s_face_t &origFace = pOrigSource->face[faceId];
-            if (bSortByFlex && isMovingFace(pOrigMesh, origFace) != bMovingPass)
-                continue;
-            int nVertsInFace = (origFace.d == 0) ? 3 : 4;
-            if ((newSource[ns].m_vertex.Count() + nVertsInFace) > g_StudioMdlContext.maxVertexClamp) {
-                // go to the next model
-                ns = newSource.AddToTail();
-                newSource[ns].Init(pOrigSource->numvertices);
-            }
-
-            // build face
-            s_face_t face;
-            face.a = newSource[ns].AddNewVert(pOrigSource, origFace.a, nMesh, nMesh);
-            face.b = newSource[ns].AddNewVert(pOrigSource, origFace.b, nMesh, nMesh);
-            face.c = newSource[ns].AddNewVert(pOrigSource, origFace.c, nMesh, nMesh);
-            if (nVertsInFace == 4) {
-                face.d = newSource[ns].AddNewVert(pOrigSource, origFace.d, nMesh, nMesh);
-                if (face.d == 0) {
-                    // d == 0 means "triangle" in s_face_t, but this quad's last vertex is the first vertex of the
-                    // mesh in this piece: rotate the quad (keeps the winding) so that it stays a quad
-                    face.d = face.c;
-                    face.c = face.b;
-                    face.b = face.a;
-                    face.a = 0;
-                }
-            } else {
-                face.d = 0;
-            }
-
-            s_mesh_t &dstMesh = newSource[ns].m_mesh[nMesh];
-            if (dstMesh.numfaces == 0) {
-                dstMesh.faceoffset = newSource[ns].m_face.Count();
-            }
-            newSource[ns].m_face.AddToTail(face);
-            dstMesh.numfaces++;
+        const bool bMovingPass = (pass == 0);
+        if (pass == 1 && newSource[ns].m_face.Count() > 0) {
+            // static faces never share a piece with moving ones; this also keeps the faces of every mesh of a piece
+            // contiguous (each pass walks the meshes in order)
+            ns = newSource.AddToTail();
+            newSource[ns].Init(pOrigSource->numvertices, pOrigSource);
         }
-    }
+
+        // Every piece has the original's meshes (same order and materials), so every face stays in the mesh of its
+        // material and the per-material bookkeeping (texmap) of the original source is preserved.
+        for (int nMesh = 0; nMesh < pOrigSource->meshes.size(); nMesh++) {
+            const s_mesh_t* pOrigMesh = &pOrigSource->meshes[nMesh];
+            for (int faceId = pOrigMesh->faceoffset; faceId < pOrigMesh->faceoffset + pOrigMesh->numfaces; faceId++) {
+                // make sure all the total for all the meshes in the model don't go over limit
+                const s_face_t &origFace = pOrigSource->face[faceId];
+                if (bSortByFlex && isMovingFace(pOrigMesh, origFace) != bMovingPass)
+                    continue;
+                int nVertsInFace = (origFace.d == 0) ? 3 : 4;
+                if ((newSource[ns].m_vertex.Count() + nVertsInFace) > g_StudioMdlContext.maxVertexClamp) {
+                    // go to the next model
+                    ns = newSource.AddToTail();
+                    newSource[ns].Init(pOrigSource->numvertices, pOrigSource);
+                }
+
+                // build face
+                s_face_t face;
+                face.a = newSource[ns].AddNewVert(pOrigSource, origFace.a, nMesh, nMesh);
+                face.b = newSource[ns].AddNewVert(pOrigSource, origFace.b, nMesh, nMesh);
+                face.c = newSource[ns].AddNewVert(pOrigSource, origFace.c, nMesh, nMesh);
+                if (nVertsInFace == 4) {
+                    face.d = newSource[ns].AddNewVert(pOrigSource, origFace.d, nMesh, nMesh);
+                    if (face.d == 0) {
+                        // d == 0 means "triangle" in s_face_t, but this quad's last vertex is the first vertex of the
+                        // mesh in this piece: rotate the quad (keeps the winding) so that it stays a quad
+                        face.d = face.c;
+                        face.c = face.b;
+                        face.b = face.a;
+                        face.a = 0;
+                    }
+                }
+                else {
+                    face.d = 0;
+                }
+
+                s_mesh_t &dstMesh = newSource[ns].m_meshes[nMesh];
+                if (dstMesh.numfaces == 0) {
+                    dstMesh.faceoffset = newSource[ns].m_face.Count();
+                }
+                newSource[ns].m_face.AddToTail(face);
+                dstMesh.numfaces++;
+            }
+        }
     }
 
     // Split animations into the new sub-models
     for (int n = 0; n < newSource.Count(); n++) {
         newSource[n].AddAnimations(pOrigSource);
-        newSource[n].m_nummeshes = pOrigSource->nummeshes;
-        memcpy(newSource[n].m_meshindex, pOrigSource->meshindex, sizeof(newSource[n].m_meshindex));
     }
 
     // Name of what was split, so the pieces can be told apart: the model using the source, or the source file
@@ -442,7 +433,7 @@ void ClampMaxVerticesPerModel(s_source_t *pOrigSource) {
 
     for (int n = 1; n < newSource.Count(); n++) {
         // create a new internal "source"
-        s_source_t *pSource = c_allocate<s_source_t>();
+        s_source_t* pSource = c_allocate<s_source_t>();
         g_studiomdl.sources.emplace_back(pSource);
 
         // copy all the members, in order
@@ -481,9 +472,9 @@ void ClampMaxVerticesPerModel(s_source_t *pOrigSource) {
         pSource->bNoAutoDMXRules = pOrigSource->bNoAutoDMXRules;
 
         // allocate a model
-        s_model_t *pModel = c_allocate<s_model_t>();
+        s_model_t* pModel = c_allocate<s_model_t>();
         pModel->source = pSource;
-        pModel->name.format("%s_cmodel%d", szOrigName, n);
+        pModel->name.format("{}_cmodel{}", szOrigName, n);
         pModel->filename = std::string(szOrigName) + "_cmesh" + std::to_string(n);
         int imodel = g_studiomdl.nummodels++;
         g_studiomdl.model[imodel] = pModel;
@@ -491,8 +482,9 @@ void ClampMaxVerticesPerModel(s_source_t *pOrigSource) {
         // make it a new bodypart
         s_bodypart_t &bodypart = g_studiomdl.bodypart[g_studiomdl.numbodyparts];
         bodypart.nummodels = 1;
-        bodypart.base = g_studiomdl.bodypart[g_studiomdl.numbodyparts - 1].base * g_studiomdl.bodypart[g_studiomdl.numbodyparts - 1].nummodels;
-        bodypart.name.format("%s_clamped%d", szOrigName, n);
+        bodypart.base = g_studiomdl.bodypart[g_studiomdl.numbodyparts - 1].base * g_studiomdl.bodypart[
+                            g_studiomdl.numbodyparts - 1].nummodels;
+        bodypart.name.format("{}_clamped{}", szOrigName, n);
         bodypart.pmodel[0] = pModel;
         g_studiomdl.numbodyparts++;
 
@@ -522,7 +514,8 @@ void SetSkinValues() {
         const size_t models = vstd::ifind(g_studiomdl.fullpath, "models");
         if (models != std::string::npos) {
             name = vstd::paths::parent(std::string_view(g_studiomdl.fullpath).substr(models));
-        } else {
+        }
+        else {
             name = "models/";
             name += vstd::paths::without_extension(g_studiomdl.outname.view());
         }
@@ -551,7 +544,8 @@ void SetSkinValues() {
 
     if (i != 0) {
         g_studiomdl.numskinfamilies = i;
-    } else {
+    }
+    else {
         g_studiomdl.numskinfamilies = 1;
     }
     g_studiomdl.numskinref = g_studiomdl.textures.size();
@@ -574,7 +568,7 @@ void ConsistencyCheckSurfaceProp() {
 
         if (j < 0) {
             MdlWarning("You specified a joint surface property for joint\n"
-                       "    \"%s\" which either doesn't exist or was optimized out.\n",
+                       "    \"{}\" which either doesn't exist or was optimized out.\n",
                        g_StudioMdlContext.JointSurfaceProp[i].m_pJointName);
         }
     }
@@ -589,7 +583,7 @@ void ConsistencyCheckContents() {
 
         if (j < 0) {
             MdlWarning("You specified a joint contents for joint\n"
-                       "    \"%s\" which either doesn't exist or was optimized out.\n",
+                       "    \"{}\" which either doesn't exist or was optimized out.\n",
                        g_StudioMdlContext.JointSurfaceProp[i].m_pJointName);
         }
     }
@@ -597,46 +591,46 @@ void ConsistencyCheckContents() {
 
 void UsageAndExit() {
     MdlError("Bad or missing options\n"
-             "usage: studiomdl [options] <file.qc>\n"
-             "options:\n"
-             "[-a <normal_blend_angle>]\n"
-             "[-checklengths]\n"
-             "[-d] - dump glview files\n"
-             "[-definebones]\n"
-             "[-f] - flip all triangles\n"
-             "[-fullcollide] - don't truncate really big collisionmodels\n"
-             "[-game <gamedir>]\n"
-             "[-h] - dump hboxes\n"
-             "[-i] - ignore warnings\n"
-             "[-minlod <lod>] - truncate to highest detail <lod>\n"
-             "[-n] - tag bad normals\n"
-             "[-perf] report perf info upon compiling model\n"
-             "[-printbones]\n"
-             "[-printgraph]\n"
-             "[-quiet] - operate silently\n"
-             "[-r] - tag reversed\n"
-             "[-t <texture>]\n"
-             "[-fastbuild] - write a single vertex windings file\n"
-             "[-nowarnings] - disable warnings\n"
-             "[-flexopt auto|on|off] - split flexed meshes to fit the engine flex cache (default auto)\n"
-             "[-flexopt_min_static <verts>] - smallest static part split off a flexed mesh (default 256)\n"
-             "[-dumpmaterials] - dump out material names\n"
-             "[-mdlreport] model.mdl - report perf info\n"
-             "[-mdlreportspreadsheet] - report perf info as a comma-delimited spreadsheet\n"
-             "[-striplods] - use only lod0\n"
-             "[-overridedefinebones] - equivalent to specifying $unlockdefinebones in " SRC_FILE_EXT " file\n"
-             "[-allowdebug]\n"
-             "[-ihvtest]\n"
-             "[-overridedefinebones]\n"
-             "[-verbose]\n"
-             "[-makefile]\n"
-             "[-verify]\n"
-             "[-fastbuild]\n"
-             "[-maxwarnings]\n"
-             "[-preview]\n"
-             "[-dumpmaterials]\n"
-             "[-basedir]\n"
-             "[-tempcontent]\n"
+        "usage: studiomdl [options] <file.qc>\n"
+        "options:\n"
+        "[-a <normal_blend_angle>]\n"
+        "[-checklengths]\n"
+        "[-d] - dump glview files\n"
+        "[-definebones]\n"
+        "[-f] - flip all triangles\n"
+        "[-fullcollide] - don't truncate really big collisionmodels\n"
+        "[-game <gamedir>]\n"
+        "[-h] - dump hboxes\n"
+        "[-i] - ignore warnings\n"
+        "[-minlod <lod>] - truncate to highest detail <lod>\n"
+        "[-n] - tag bad normals\n"
+        "[-perf] report perf info upon compiling model\n"
+        "[-printbones]\n"
+        "[-printgraph]\n"
+        "[-quiet] - operate silently\n"
+        "[-r] - tag reversed\n"
+        "[-t <texture>]\n"
+        "[-fastbuild] - write a single vertex windings file\n"
+        "[-nowarnings] - disable warnings\n"
+        "[-flexopt auto|on|off] - split flexed meshes to fit the engine flex cache (default auto)\n"
+        "[-flexopt_min_static <verts>] - smallest static part split off a flexed mesh (default 256)\n"
+        "[-dumpmaterials] - dump out material names\n"
+        "[-mdlreport] model.mdl - report perf info\n"
+        "[-mdlreportspreadsheet] - report perf info as a comma-delimited spreadsheet\n"
+        "[-striplods] - use only lod0\n"
+        "[-overridedefinebones] - equivalent to specifying $unlockdefinebones in " SRC_FILE_EXT " file\n"
+        "[-allowdebug]\n"
+        "[-ihvtest]\n"
+        "[-overridedefinebones]\n"
+        "[-verbose]\n"
+        "[-makefile]\n"
+        "[-verify]\n"
+        "[-fastbuild]\n"
+        "[-maxwarnings]\n"
+        "[-preview]\n"
+        "[-dumpmaterials]\n"
+        "[-basedir]\n"
+        "[-tempcontent]\n"
     );
 }
 
@@ -645,8 +639,9 @@ void UsageAndExit() {
 //-----------------------------------------------------------------------------
 int CStudioMDLApp::Main() {
     {
-        FunctionTimingRecorder _("main");
-        g_StudioMdlContext.numverts = g_StudioMdlContext.numnormals = g_StudioMdlContext.numfaces = 0;
+        vstd::FunctionTimingRecorder _("main");
+        g_StudioMdlContext.numverts = g_StudioMdlContext.numnormals = 0;
+        g_StudioMdlContext.faces.clear();
         for (int &g_numtexcoord: g_StudioMdlContext.numtexcoords) {
             g_numtexcoord = 0;
         }
@@ -664,9 +659,9 @@ int CStudioMDLApp::Main() {
 
         StudioMdlContext &context = g_StudioMdlContext;
         if (!context.quiet) {
-            printf("qdir:    \"%s\"\n", context.qdir.c_str());
-            printf("gamedir: \"%s\"\n", context.gameDir.c_str());
-            printf("g_path:  \"%s\"\n", context.qcPath.c_str());
+            std::print("qdir:    \"{}\"\n", context.qdir);
+            std::print("gamedir: \"{}\"\n", context.gameDir);
+            std::print("g_path:  \"{}\"\n", context.qcPath);
         }
 
         const std::string ext(vstd::paths::extension(context.qcPath));
@@ -675,27 +670,19 @@ int CStudioMDLApp::Main() {
 
         // Only source files are built (the .mdl stripping modes needed Valve's mdllib)
         if (vstd::iequals(ext, "mdl")) {
-            printf("ERROR: " SRC_FILE_EXT " or .mpp file should be specified to build.\n");
+            std::print("ERROR: " SRC_FILE_EXT " or .mpp file should be specified to build.\n");
             return 1;
         }
 
         if (!context.quiet)
-            printf("Building binary model files...\n");
+            std::print("Building binary model files...\n");
 
         // the input is read from qdir (its directory)
         context.qcPath = vstd::paths::file_base(context.qcPath);
         vstd::paths::default_extension(context.qcPath, bPreprocessed ? ".mpp" : SRC_FILE_EXT);
 
         if (!context.quiet) {
-            printf("Working on \"%s\"\n", context.qcPath.c_str());
-        }
-
-        // Set up script loading callback, discarding default callback
-        (void) SetScriptLoadedCallback(StudioMdl_ScriptLoadedCallback);
-
-        // load the script
-        if (!bPreprocessed) {
-            LoadScriptFile(context.qcPath.c_str());
+            std::print("Working on \"{}\"\n", context.qcPath);
         }
 
         g_studiomdl.fullpath = ExpandArg(ExpandPath(context.qcPath));
@@ -714,11 +701,15 @@ int CStudioMDLApp::Main() {
         //	strcpy( g_pPlatformName, "" );
         if (bPreprocessed) {
             if (!ParsePreprocessedFile(g_studiomdl.fullpath)) {
-                MdlError("Invalid MPP File: %s\n", context.qcPath.c_str());
+                MdlError("Invalid MPP File: {}\n", context.qcPath);
                 return 1;
             }
-        } else {
-            ParseScript(ext.empty() ? SRC_FILE_EXT : ext.c_str());
+        }
+        else {
+            ScriptTokenizer qc;
+            InstallMdlErrorHandler(qc);
+            qc.LoadFile(context.qcPath.c_str());
+            ParseScript(qc);
         }
 
         if (!g_StudioMdlContext.createMakefile) {
@@ -739,7 +730,6 @@ int CStudioMDLApp::Main() {
 
             ConsistencyCheckSurfaceProp();
             ConsistencyCheckContents();
-            // ValidateSharedAnimationGroups();
 
             WriteModelFiles();
             CollisionModel_Build();
@@ -751,18 +741,18 @@ int CStudioMDLApp::Main() {
         }
 
         if (!g_StudioMdlContext.quiet) {
-            printf("\nCompleted \"%s\"\n", g_StudioMdlContext.qcPath.c_str());
+            std::print("\nCompleted \"{}\"\n", g_StudioMdlContext.qcPath);
         }
 
         if (g_StudioMdlContext.parseable_completion_output) {
-            printf("\nRESULT: SUCCESS\n");
+            std::print("\nRESULT: SUCCESS\n");
         }
 
         g_pDataModel->UnloadFile(DMFILEID_INVALID);
     }
 
     if (g_StudioMdlContext.perf) {
-        PrintStats();
+        vstd::print_function_timings();
     }
 
     return 0;
@@ -803,21 +793,6 @@ bool CStudioMDLApp::Init() {
     return InitDataModel();
 }
 
-void CStudioMDLApp::PrintStats() {
-    for (const auto & timing : g_StudioMdlContext.timings) {
-        if (timing.duration<0.1) // Skip too short timings
-            continue;
-        for (int i = 0; i < timing.indent; ++i)
-            printf("  ");
-        printf("[%s]: %s: ", timing.stage_name.c_str(), timing.function_name.c_str());
-        const auto duration = timing.duration;
-        if (duration < 1000.0f)
-            printf("calls: %u, own: %.03fms, total: %.03fms\n", timing.calls, timing.own_duration, duration);
-        else
-            printf("calls: %u, own: %.03fs, total: %.03fs\n", timing.calls, timing.own_duration/1000.0f, duration/1000.0f);
-    }
-}
-
 void CStudioMDLApp::Shutdown() {
     ShutdownDataModel();
 }
@@ -836,7 +811,7 @@ static std::string AbsoluteDirectory(const std::filesystem::path &path) {
 }
 
 // Sets qdir from the QC path and gameDir from the gameinfo.txt directory
-static void SetupStandardDirectories(const char *pQCPath, const char *pGameInfoPath) {
+static void SetupStandardDirectories(const char* pQCPath, const std::string_view pGameInfoPath) {
     std::error_code ec;
     const std::filesystem::path qc = std::filesystem::absolute(vstd::paths::to_fs(pQCPath), ec).lexically_normal();
     g_StudioMdlContext.qdir = AbsoluteDirectory(qc.parent_path());
@@ -862,7 +837,7 @@ bool CStudioMDLApp::PreInit() {
 //-----------------------------------------------------------------------------
 bool CStudioMDLApp::ParseArguments() {
     g_studiomdl.currentscale = g_studiomdl.defaultscale = 1.0;
-    g_studiomdl.defaultrotation = RadianEuler(0, 0, M_PI / 2);
+    g_studiomdl.defaultrotation = RadianEuler(0, 0, std::numbers::pi / 2);
 
     // skip weightlist 0
     g_studiomdl.numweightlist = 1;
@@ -871,7 +846,7 @@ bool CStudioMDLApp::ParseArguments() {
     g_studiomdl.gflags = 0;
     g_studiomdl.numrep = 0;
 
-    g_studiomdl.normal_blend = cos(DEG2RAD(2.0));
+    g_studiomdl.normal_blend = std::cos(vstd::deg2rad(2.0f));
 
     g_studiomdl.gamma = 2.2;
 
@@ -889,157 +864,165 @@ bool CStudioMDLApp::ParseArguments() {
 
     g_StudioMdlContext.collapse_bones_message = false;
 
-    int argc = CommandLine()->ParmCount();
+    const uint32_t argc = CommandLine()->ParmCount();
     int i;
     for (i = 1; i < argc - 1; i++) {
-        const char *pArgv = CommandLine()->GetParm(i);
-        if (pArgv[0] != '-')
+        const auto optArgValue = CommandLine()->GetParm(i);
+        if (!optArgValue) {
+            break;
+        }
+        const std::string_view argValue = *optArgValue;
+        if (argValue[0] != '-')
             continue;
 
-        if (!Q_stricmp(pArgv, "-collapsereport")) {
+        if (vstd::iequals(argValue, "-collapsereport")) {
             g_StudioMdlContext.collapse_bones_message = true;
             continue;
         }
 
-        if (!Q_stricmp(pArgv, "-parsecompletion")) {
+        if (vstd::iequals(argValue, "-parsecompletion")) {
             // reliably prints output we can parse for automatically
             g_StudioMdlContext.parseable_completion_output = true;
             continue;
         }
 
-        if (!Q_stricmp(pArgv, "-allowdebug")) {
+        if (vstd::iequals(argValue, "-allowdebug")) {
             // Ignore, used by interface system to catch debug builds checked into release tree
             continue;
         }
 
-        if (!Q_stricmp(pArgv, "-mdlreport")) {
+        if (vstd::iequals(argValue, "-mdlreport")) {
             // Will reparse later, ignore rest of arguments.
             return true;
         }
 
-        if (!Q_stricmp(pArgv, "-mdlreportspreadsheet")) {
+        if (vstd::iequals(argValue, "-mdlreportspreadsheet")) {
             // Will reparse later, ignore for now.
             continue;
         }
 
-        if (!Q_stricmp(pArgv, "-overridedefinebones")) {
+        if (vstd::iequals(argValue, "-overridedefinebones")) {
             g_StudioMdlContext.defineBonesLockedByDefault = false;
             continue;
         }
 
-        if (!Q_stricmp(pArgv, "-striplods")) {
+        if (vstd::iequals(argValue, "-striplods")) {
             g_StudioMdlContext.stripLods = true;
             continue;
         }
 
-        if (!Q_stricmp(pArgv, "-quiet")) {
+        if (vstd::iequals(argValue, "-quiet")) {
             g_StudioMdlContext.quiet = true;
             g_StudioMdlContext.verbose = false;
             continue;
         }
 
-        if (!Q_stricmp(pArgv, "-verbose")) {
+        if (vstd::iequals(argValue, "-verbose")) {
             g_StudioMdlContext.quiet = false;
             g_StudioMdlContext.verbose = true;
             continue;
         }
 
 
-        if (!Q_stricmp(pArgv, "-checklengths")) {
+        if (vstd::iequals(argValue, "-checklengths")) {
             g_StudioMdlContext.checkLengths = true;
             continue;
         }
 
-        if (!Q_stricmp(pArgv, "-printbones")) {
+        if (vstd::iequals(argValue, "-printbones")) {
             g_StudioMdlContext.printBones = true;
             continue;
         }
 
-        if (!Q_stricmp(pArgv, "-perf")) {
+        if (vstd::iequals(argValue, "-perf")) {
             g_StudioMdlContext.perf = true;
             continue;
         }
 
-        if (!Q_stricmp(pArgv, "-printgraph")) {
+        if (vstd::iequals(argValue, "-printgraph")) {
             g_StudioMdlContext.dumpGraph = true;
             continue;
         }
 
-        if (!Q_stricmp(pArgv, "-definebones")) {
+        if (vstd::iequals(argValue, "-definebones")) {
             g_studiomdl.definebones = true;
             continue;
         }
 
-        if (!Q_stricmp(pArgv, "-makefile")) {
+        if (vstd::iequals(argValue, "-makefile")) {
             g_StudioMdlContext.createMakefile = true;
             g_StudioMdlContext.quiet = true;
             continue;
         }
 
-        if (!Q_stricmp(pArgv, "-verify")) {
+        if (vstd::iequals(argValue, "-verify")) {
             g_StudioMdlContext.verifyOnly = true;
             continue;
         }
 
-        if (!Q_stricmp(pArgv, "-minlod")) {
-            g_StudioMdlContext.minLod = atoi(CommandLine()->GetParm(++i));
+        if (vstd::iequals(argValue, "-minlod")) {
+            g_StudioMdlContext.minLod = vstd::str_to_int<int32_t>(CommandLine()->GetParm(++i).value());
             continue;
         }
 
-        if (!Q_stricmp(pArgv, "-fastbuild")) {
+        if (vstd::iequals(argValue, "-fastbuild")) {
             g_StudioMdlContext.fastBuild = true;
             continue;
         }
 
-        if (!Q_stricmp(pArgv, "-nowarnings")) {
+        if (vstd::iequals(argValue, "-nowarnings")) {
             g_StudioMdlContext.noWarnings = true;
             continue;
         }
 
-        if (!Q_stricmp(pArgv, "-flexopt")) {
-            const char *pMode = CommandLine()->GetParm(++i);
+        if (vstd::iequals(argValue, "-flexopt")) {
+            const std::string_view pMode = CommandLine()->GetParm(++i).value();
             if (!ParseFlexOptimizeMode(pMode, g_StudioMdlContext.flexOptimizeMode)) {
-                MdlError("-flexopt expects auto, on or off, got \"%s\"\n", pMode);
+                MdlError("-flexopt expects auto, on or off, got \"{}\"\n", pMode);
             }
             continue;
         }
 
-        if (!Q_stricmp(pArgv, "-flexopt_min_static")) {
-            g_StudioMdlContext.flexOptimizeMinStatic = atoi(CommandLine()->GetParm(++i));
+        if (vstd::iequals(argValue, "-flexopt_min_static")) {
+            g_StudioMdlContext.flexOptimizeMinStatic = vstd::str_to_int<int32_t>(CommandLine()->GetParm(++i).value());
             continue;
         }
 
-        if (!Q_stricmp(pArgv, "-maxwarnings")) {
-            g_StudioMdlContext.g_maxWarnings = atoi(CommandLine()->GetParm(++i));
+        if (vstd::iequals(argValue, "-maxwarnings")) {
+            g_StudioMdlContext.maxWarnings = vstd::str_to_int<int32_t>(CommandLine()->GetParm(++i).value());
             continue;
         }
 
-        if (!Q_stricmp(pArgv, "-preview")) {
+        if (vstd::iequals(argValue, "-preview")) {
             g_StudioMdlContext.buildPreview = true;
             continue;
         }
 
-        if (!Q_stricmp(pArgv, "-dumpmaterials")) {
+        if (vstd::iequals(argValue, "-dumpmaterials")) {
             g_StudioMdlContext.dumpMaterials = true;
             continue;
         }
 
-        if (pArgv[1] && pArgv[2] == '\0') {
-            switch (pArgv[1]) {
-                case 't':
+        if (argValue[1] && argValue[2] == '\0') {
+            switch (argValue[1]) {
+                case 't': {
                     i++;
-                    strcpy(g_studiomdl.defaulttextures[g_studiomdl.numrep], pArgv);
-                    if (i < argc - 2 && CommandLine()->GetParm(i + 1)[0] != '-') {
+                    auto& default_texture = g_studiomdl.defaulttextures[g_studiomdl.numrep];
+                    default_texture = argValue;
+                    if (i < argc - 2 && CommandLine()->GetParm(i + 1).value()[0] != '-') {
                         i++;
-                        strcpy(g_studiomdl.sourcetextures[g_studiomdl.numrep], pArgv);
-                        printf("Replacing %s with %s\n", g_studiomdl.sourcetextures[g_studiomdl.numrep].c_str(), g_studiomdl.defaulttextures[g_studiomdl.numrep].c_str());
+                        auto& source_texture = g_studiomdl.sourcetextures[g_studiomdl.numrep];
+                        source_texture = argValue;
+                        std::print("Replacing {} with {}\n", g_studiomdl.sourcetextures[g_studiomdl.numrep],
+                                   g_studiomdl.defaulttextures[g_studiomdl.numrep]);
                     }
-                    printf("Using default texture: %s\n", g_studiomdl.defaulttextures[0].c_str());
+                    std::print("Using default texture: {}\n", g_studiomdl.defaulttextures[0]);
                     g_studiomdl.numrep++;
                     break;
+                }
                 case 'a':
                     i++;
-                    g_studiomdl.normal_blend = cos(DEG2RAD(verify_atof(pArgv)));
+                    g_studiomdl.normal_blend = cos(vstd::deg2rad(vstd::str_to_float<float>(argValue)));
                     break;
                 case 'h':
                     g_studiomdl.dump_hboxes = 1;
@@ -1050,10 +1033,10 @@ bool CStudioMDLApp::ParseArguments() {
                 case 'd':
                     g_bDumpGLViewFiles = true;
                     break;
-//			case 'p':
-//				i++;
-//				strcpy( qproject, pArgv );
-//				break;
+                    //			case 'p':
+                    //				i++;
+                    //				strcpy( qproject, pArgv );
+                    //				break;
             }
         }
     }
@@ -1065,14 +1048,17 @@ bool CStudioMDLApp::ParseArguments() {
         return false;
     }
 
-    const std::string_view qcArgument = CommandLine()->GetParm(i);
-    g_StudioMdlContext.qcPath = qcArgument;
-    if (vstd::paths::is_absolute(qcArgument)) {
+    const auto qcArgument = CommandLine()->GetParm(i);
+    if (!qcArgument) {
+        UsageAndExit();
+    }
+    g_StudioMdlContext.qcPath = *qcArgument;
+    if (vstd::paths::is_absolute(*qcArgument)) {
         // Set the working directory to be the path of the qc file
         // so the relative-file fopen code works
         std::error_code ec;
-        std::filesystem::current_path(vstd::paths::to_fs(vstd::paths::directory(qcArgument)), ec);
+        std::filesystem::current_path(vstd::paths::to_fs(vstd::paths::directory(*qcArgument)), ec);
     }
-    g_studiomdl.outname = vstd::paths::without_extension(qcArgument);
+    g_studiomdl.outname = vstd::paths::without_extension(*qcArgument);
     return true;
 }

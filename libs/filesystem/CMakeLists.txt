@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.22)
 project(filesystem_stdio_v2)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     if (CMAKE_SIZEOF_VOID_P EQUAL 8)
         set(PLATFORM_DEFINES COMPILER_MSVC64 COMPILER_MSVC _AMD64_)

@@ -32,10 +32,12 @@
 #include "studiomdl_commands.h"
 #include "studiomdl/studiomdl.h"
 #include "tier1/fmtstr.h"
+#include "tier1_v2/function_timing.hpp"
 #include "studiomdl/studiomdl_global_state.hpp"
 #include "tier1_v2/path_utils.hpp"
 
 
+struct MeshInfo;
 //-----------------------------------------------------------------------------
 // The current model being loaded...
 //-----------------------------------------------------------------------------
@@ -132,11 +134,11 @@ static CUtlVector<DeltaState_t> s_DeltaStates;
 
 // Finds or adds delta states. These pointers are invalidated by calling FindOrAddDeltaState again
 //-----------------------------------------------------------------------------
-static DeltaState_t *FindOrAddDeltaState(const char *pDeltaStateName, int nBaseStateVertexCount) {
+static DeltaState_t *FindOrAddDeltaState(const char *pDeltaStateName, const int nBaseStateVertexCount) {
     int nCount = s_DeltaStates.Count();
     for (int i = 0; i < nCount; ++i) {
         if (!Q_stricmp(s_DeltaStates[i].m_Name, pDeltaStateName)) {
-            MdlWarning("Unsupported duplicate delta state named \"%s\" in DMX file\n", pDeltaStateName);
+            MdlWarning("Unsupported duplicate delta state named \"{}\" in DMX file\n", pDeltaStateName);
 
             s_DeltaStates[i].m_DeltaIndices.EnsureCount(nBaseStateVertexCount);
             return &s_DeltaStates[i];
@@ -258,8 +260,9 @@ static bool DefineUniqueVertices(CDmeVertexData *pBindState) {
 // Loads the vertices from the model
 //-----------------------------------------------------------------------------
 static bool
-LoadVertices(CDmeDag *pDmeDag, CDmeVertexData *pBindState, const matrix3x4_t &mat, float flScale, int nBoneAssign,
+LoadVertices(CDmeDag *pDmeDag, CDmeVertexData *pBindState, const matrix3x4_t &mat, const float flScale, int nBoneAssign,
              int *pBoneRemap, s_source_t *pSource) {
+    vstd::FunctionTimingRecorder _("DMX");
     // nBoneAssign is only used if the mesh has no skinning information
     // It's the DMX bone index, but it might be < 0, in which case
     // no bone has been defined yet.  There are two options, use the
@@ -288,15 +291,15 @@ LoadVertices(CDmeDag *pDmeDag, CDmeVertexData *pBindState, const matrix3x4_t &ma
     const CUtlVector<float> &balances = pBindState->GetBalanceData();
     const CUtlVector<float> &speeds = pBindState->GetMorphSpeedData();
 
-    int nCount = positions.Count();
+    int positionCount = positions.Count();
 
-    int nJointCount = pBindState->HasSkinningData() ? pBindState->JointCount() : 0;
-    if (nJointCount > MAXSTUDIOBONEWEIGHTS) {
+    const int jointCount = pBindState->HasSkinningData() ? pBindState->JointCount() : 0;
+    if (jointCount > MAXSTUDIOBONEWEIGHTS) {
         MdlError("Too many bone influences per vertex!\n");
         return false;
     }
 
-    if (nJointCount <= 0 && nBoneAssign == s_nDefaultRootNode && pDmeDag) {
+    if (jointCount <= 0 && nBoneAssign == s_nDefaultRootNode && pDmeDag) {
         // Use the bone created for the DmeDag node of the DmeMesh
         for (int i = 0; i < pSource->numbones; ++i) {
             if (!Q_strcmp(pDmeDag->GetName(), pSource->localBone[i].name)) {
@@ -306,18 +309,16 @@ LoadVertices(CDmeDag *pDmeDag, CDmeVertexData *pBindState, const matrix3x4_t &ma
         }
     }
 
-    bool pbWarnmap[MAXSTUDIOBONES];
-    Q_memset(pbWarnmap, 0, MAXSTUDIOBONES * sizeof(bool));
-
-    float *pWeightBuf = (float *) malloc(nJointCount * sizeof(float));
-    int *pIndexBuf = (int *) malloc(nJointCount * sizeof(int));
+    std::array<bool, MAXSTUDIOBONES> warnmap{};
+    std::array<float, MAXSTUDIOBONEWEIGHTS> weightBuf{};
+    std::array<int, MAXSTUDIOBONEWEIGHTS> indexBuf{};
 
     // Copy positions + bone info
-    for (int i = 0; i < nCount; ++i) {
+    for (int i = 0; i < positionCount; ++i) {
         // NOTE: The transform transforms the positions into the bind space
         VectorTransform(positions[i], mat, g_StudioMdlContext.vertex[g_StudioMdlContext.numverts]);
         g_StudioMdlContext.vertex[g_StudioMdlContext.numverts] *= flScale;
-        if (nJointCount == 0) {
+        if (jointCount == 0) {
             g_StudioMdlContext.bone[g_StudioMdlContext.numverts].numbones = 1;
             g_StudioMdlContext.bone[g_StudioMdlContext.numverts].bone[0] = nBoneAssign;
             g_StudioMdlContext.bone[g_StudioMdlContext.numverts].weight[0] = 1.0;
@@ -326,53 +327,49 @@ LoadVertices(CDmeDag *pDmeDag, CDmeVertexData *pBindState, const matrix3x4_t &ma
             const float *pJointWeights = pBindState->GetJointWeightData(i);
             const int *pJointIndices = pBindState->GetJointIndexData(i);
 
-            memcpy(pWeightBuf, pJointWeights, nJointCount * sizeof(float));
-            memcpy(pIndexBuf, pJointIndices, nJointCount * sizeof(int));
+            memcpy(weightBuf.data(), pJointWeights, jointCount * sizeof(float));
+            memcpy(indexBuf.data(), pJointIndices, jointCount * sizeof(int));
 
-            int nBoneCount = SortAndBalanceBones(nJointCount, MAXSTUDIOBONEWEIGHTS, pIndexBuf, pWeightBuf);
+            const int boneCount = SortAndBalanceBones(jointCount, MAXSTUDIOBONEWEIGHTS, indexBuf, weightBuf);
             int nBoneIndex = -1;
 
-            g_StudioMdlContext.bone[g_StudioMdlContext.numverts].numbones = nBoneCount;
-            for (int j = 0; j < nBoneCount; ++j) {
-                nBoneIndex = pBoneRemap[pIndexBuf[j]];
+            g_StudioMdlContext.bone[g_StudioMdlContext.numverts].numbones = boneCount;
+            for (int j = 0; j < boneCount; ++j) {
+                nBoneIndex = pBoneRemap[indexBuf[j]];
                 if (nBoneIndex < 0) {
-                    if (pIndexBuf[j] < MAXSTUDIOBONES && !pbWarnmap[pIndexBuf[j]]) {
-                        MdlWarning(
-                            "DmeMesh[%s] Verts Assigned To DmeModel.jointList[%d] Which Isn't Mapped To The Dag Hierarchy\n",
-                            pDmeDag->GetName(), pIndexBuf[j]);
-                        pbWarnmap[pIndexBuf[j]] = true;
+                    if (indexBuf[j] < MAXSTUDIOBONES && !warnmap[indexBuf[j]]) {
+                        MdlWarning("DmeMesh[{}] Verts Assigned To DmeModel.jointList[{}] Which Isn't Mapped To The Dag Hierarchy\n",
+                            pDmeDag->GetName(), indexBuf[j]);
+                        warnmap[indexBuf[j]] = true;
                     }
                     g_StudioMdlContext.bone[g_StudioMdlContext.numverts].bone[j] = nBoneAssign;
                 }
                 else {
                     g_StudioMdlContext.bone[g_StudioMdlContext.numverts].bone[j] = nBoneIndex;
                 }
-                g_StudioMdlContext.bone[g_StudioMdlContext.numverts].weight[j] = pWeightBuf[j];
+                g_StudioMdlContext.bone[g_StudioMdlContext.numverts].weight[j] = weightBuf[j];
             }
         }
         ++g_StudioMdlContext.numverts;
     }
 
-    free(pWeightBuf);
-    free(pIndexBuf);
-
     // Copy normals
     Vector vNormal;
-    nCount = normals.Count();
-    for (int i = 0; i < nCount; ++i) {
+    positionCount = normals.Count();
+    for (int i = 0; i < positionCount; ++i) {
         VectorCopy(normals[i], vNormal);
         VectorNormalize(vNormal);
         if (fabs(VectorLength(vNormal) - 1.0f) > 0.01) {
-            MdlWarning("Non-Unit Length Normal [%d] < %8.6f %8.6f %8.6f >\n", i, vNormal.x, vNormal.y, vNormal.z);
+            MdlWarning("Non-Unit Length Normal [{}] < {:8.6f} {:8.6f} {:8.6f} >\n", i, vNormal.x, vNormal.y, vNormal.z);
         }
         VectorRotate(vNormal, normalMat, g_StudioMdlContext.normal[g_StudioMdlContext.numnormals]);
         ++g_StudioMdlContext.numnormals;
     }
 
     // Copy texcoords
-    nCount = texcoords.Count();
+    positionCount = texcoords.Count();
     bool bFlipVCoordinate = pBindState->IsVCoordinateFlipped();
-    for (int i = 0; i < nCount; ++i) {
+    for (int i = 0; i < positionCount; ++i) {
         g_StudioMdlContext.texcoord[0][g_StudioMdlContext.numtexcoords[0]].x = texcoords[i].x;
         g_StudioMdlContext.texcoord[0][g_StudioMdlContext.numtexcoords[0]].y = bFlipVCoordinate
                                                                                    ? 1.0f - texcoords[i].y
@@ -383,16 +380,16 @@ LoadVertices(CDmeDag *pDmeDag, CDmeVertexData *pBindState, const matrix3x4_t &ma
     // Check for additional texcoords
     for (int i = 1; i < MAXSTUDIOTEXCOORDS; ++i) {
         g_StudioMdlContext.numtexcoords[i] = 0;
-        FieldIndex_t nFieldIndex = pBindState->FindFieldIndex(CFmtStr("texcoord$%d", i).Get());
-        if (nFieldIndex > -1) {
-            CDmrArrayConst<Vector2D> vertexData = pBindState->GetVertexData(nFieldIndex);
+        const FieldIndex_t fieldIndex = pBindState->FindFieldIndex(CFmtStr("texcoord$%d", i).Get());
+        if (fieldIndex >= 0) {
+            CDmrArrayConst<Vector2D> vertexData = pBindState->GetVertexData(fieldIndex);
             const CUtlVector<Vector2D> &extraTexcoords = vertexData.Get();
-            nCount = extraTexcoords.Count();
-            for (int j = 0; j < nCount; ++j) {
+            positionCount = extraTexcoords.Count();
+            for (int j = 0; j < positionCount; ++j) {
                 g_StudioMdlContext.texcoord[i][g_StudioMdlContext.numtexcoords[i]].x = extraTexcoords[j].x;
                 g_StudioMdlContext.texcoord[i][g_StudioMdlContext.numtexcoords[i]].y = bFlipVCoordinate
-                        ? 1.0f - extraTexcoords[j].y
-                        : extraTexcoords[j].y;
+                    ? 1.0f - extraTexcoords[j].y
+                    : extraTexcoords[j].y;
                 ++g_StudioMdlContext.numtexcoords[i];
             }
         }
@@ -423,7 +420,7 @@ LoadVertices(CDmeDag *pDmeDag, CDmeVertexData *pBindState, const matrix3x4_t &ma
 //-----------------------------------------------------------------------------
 // Hook delta into delta list
 //-----------------------------------------------------------------------------
-static void AddToDeltaList(DeltaState_t *pDeltaStateData, int nUniqueVertex) {
+static void AddToDeltaList(DeltaState_t *pDeltaStateData, const int nUniqueVertex) {
     DeltaIndex_t &index = pDeltaStateData->m_DeltaIndices[nUniqueVertex];
     if (!index.m_bInList) {
         index.m_nNextDelta = pDeltaStateData->m_nFirstDelta;
@@ -441,9 +438,10 @@ static bool LoadDeltaState(
     CDmeVertexDeltaData *pDeltaState,
     CDmeVertexData *pBindState,
     const matrix3x4_t &mat,
-    float flScale,
-    int nStartingUniqueVertex,
-    int nStartingUniqueVertexMap) {
+    const float flScale,
+    const int nStartingUniqueVertex,
+    const int nStartingUniqueVertexMap) {
+    vstd::FunctionTimingRecorder _("DMX");
     DeltaState_t *pDeltaStateData = FindOrAddDeltaState(pDeltaState->GetName(),
                                                         nStartingUniqueVertex + pBindState->VertexCount());
 
@@ -458,18 +456,18 @@ static bool LoadDeltaState(
     const CUtlVector<int> &wrinkleIndices = pDeltaState->GetVertexIndexData(CDmeVertexDataBase::FIELD_WRINKLE);
 
     if (positions.Count() != positionIndices.Count()) {
-        MdlError("DeltaState %s contains a different number of positions + position indices!\n",
+        MdlError("DeltaState {} contains a different number of positions + position indices!\n",
                  pDeltaState->GetName());
         return false;
     }
 
     if (normals.Count() != normalIndices.Count()) {
-        MdlError("DeltaState %s contains a different number of normals + normal indices!\n", pDeltaState->GetName());
+        MdlError("DeltaState {} contains a different number of normals + normal indices!\n", pDeltaState->GetName());
         return false;
     }
 
     if (wrinkle.Count() != wrinkleIndices.Count()) {
-        MdlError("DeltaState %s contains a different number of wrinkles + wrinkle indices!\n", pDeltaState->GetName());
+        MdlError("DeltaState {} contains a different number of wrinkles + wrinkle indices!\n", pDeltaState->GetName());
         return false;
     }
 
@@ -537,7 +535,7 @@ static bool LoadDeltaState(
 }
 
 
-static int GetExtraTexcoordIndex(CDmeVertexData *pVertexData, int nVertexIndex, int nChannel) {
+static int GetExtraTexcoordIndex(CDmeVertexData *pVertexData, const int nVertexIndex, const int nChannel) {
     FieldIndex_t nFieldIndex = pVertexData->FindFieldIndex(CFmtStr("texcoord$%d", nChannel).Get());
     if (nFieldIndex < 0)
         return -1;
@@ -548,122 +546,169 @@ static int GetExtraTexcoordIndex(CDmeVertexData *pVertexData, int nVertexIndex, 
 
 // JasonM TODO: unify ParseQuadFaceData() and ParseFaceData()
 
+struct MeshInfo {
+    bool hasPositions;
+    bool hasNormals;
+    bool hasTexCoords;
+    vstd::FixedVector<std::pair<uint32_t, FieldIndex_t>, MAXSTUDIOTEXCOORDS> activeUvFieldIndices;
+};
+
+
 //-----------------------------------------------------------------------------
 // Reads the quad face data from the DMX data
 //-----------------------------------------------------------------------------
-static void ParseQuadFaceData(CDmeVertexData *pVertexData, int material, int *pIndices, int vi, int ni, int *ti) {
-    s_tmpface_t f;
-    f.material = material;
+static void ParseQuadFaceData(CDmeVertexData *pVertexData, const int material,
+                              int *pIndices, const int vi, const int ni, int *ti,
+                              MeshInfo &meshInfo) {
+    vstd::FunctionTimingRecorder _("DMX");
+    auto &face = g_StudioMdlContext.faces.emplace_back();
+    face.material = material;
+    if (meshInfo.hasPositions) {
+        const int p0 = pVertexData->GetPositionIndex(pIndices[0]);
+        const int p1 = pVertexData->GetPositionIndex(pIndices[3]);
+        const int p2 = pVertexData->GetPositionIndex(pIndices[2]);
+        const int p3 = pVertexData->GetPositionIndex(pIndices[1]);
+        face.a = p0 >= 0 ? vi + p0 : 0;
+        face.b = p1 >= 0 ? vi + p1 : 0;
+        face.c = p2 >= 0 ? vi + p2 : 0;
+        face.d = p3 >= 0 ? vi + p3 : 0;
+    }
+    else {
+        face.a = face.b = face.c = face.d = 0;
+    }
+    if (meshInfo.hasNormals) {
+        const int n0 = pVertexData->GetNormalIndex(pIndices[0]);
+        const int n1 = pVertexData->GetNormalIndex(pIndices[3]);
+        const int n2 = pVertexData->GetNormalIndex(pIndices[2]);
+        const int n3 = pVertexData->GetNormalIndex(pIndices[1]);
 
-    int p, n, t;
-    p = pVertexData->GetPositionIndex(pIndices[0]);
-    n = pVertexData->GetNormalIndex(pIndices[0]);
-    t = pVertexData->GetTexCoordIndex(pIndices[0]);
-    f.a = (p >= 0) ? vi + p : 0;
-    f.na = (n >= 0) ? ni + n : 0;
-    f.ta[0] = (t >= 0) ? ti[0] + t : 0;
-    p = pVertexData->GetPositionIndex(pIndices[3]);
-    n = pVertexData->GetNormalIndex(pIndices[3]);
-    t = pVertexData->GetTexCoordIndex(pIndices[3]);
-    f.b = (p >= 0) ? vi + p : 0;
-    f.nb = (n >= 0) ? ni + n : 0;
-    f.tb[0] = (t >= 0) ? ti[0] + t : 0;
-    p = pVertexData->GetPositionIndex(pIndices[2]);
-    n = pVertexData->GetNormalIndex(pIndices[2]);
-    t = pVertexData->GetTexCoordIndex(pIndices[2]);
-    f.c = (p >= 0) ? vi + p : 0;
-    f.nc = (n >= 0) ? ni + n : 0;
-    f.tc[0] = (t >= 0) ? ti[0] + t : 0;
-    p = pVertexData->GetPositionIndex(pIndices[1]);
-    n = pVertexData->GetNormalIndex(pIndices[1]);
-    t = pVertexData->GetTexCoordIndex(pIndices[1]);
-    f.d = (p >= 0) ? vi + p : 0;
-    f.nd = (n >= 0) ? ni + n : 0;
-    f.td[0] = (t >= 0) ? ti[0] + t : 0;
-
-    Assert(f.a <= (uint32_t) g_StudioMdlContext.numverts && f.b <= (uint32_t) g_StudioMdlContext.numverts &&
-        f.c <= (uint32_t) g_StudioMdlContext.numverts && f.d <= (uint32_t) g_StudioMdlContext.numverts);
-    Assert(f.na <= (uint32_t) g_StudioMdlContext.numnormals && f.nb <= (uint32_t) g_StudioMdlContext.numnormals &&
-        f.nc <= (uint32_t) g_StudioMdlContext.numnormals && f.nd <= (uint32_t) g_StudioMdlContext.numnormals);
-    Assert(
-        f.ta[0] <= (uint32_t) g_StudioMdlContext.numtexcoords[0] && f.tb[0] <= (uint32_t) g_StudioMdlContext.
-        numtexcoords[0] &&
-        f.tc[0] <= (uint32_t) g_StudioMdlContext.numtexcoords[0] && f.td[0] <= (uint32_t) g_StudioMdlContext.
-        numtexcoords[0]);
-
-    for (int i = 1; i < (MAXSTUDIOTEXCOORDS); ++i) {
-        t = GetExtraTexcoordIndex(pVertexData, pIndices[0], i);
-        f.ta[i] = (t >= 0) ? ti[i] + t : 0;
-        t = GetExtraTexcoordIndex(pVertexData, pIndices[3], i);
-        f.tb[i] = (t >= 0) ? ti[i] + t : 0;
-        t = GetExtraTexcoordIndex(pVertexData, pIndices[2], i);
-        f.tc[i] = (t >= 0) ? ti[i] + t : 0;
-        t = GetExtraTexcoordIndex(pVertexData, pIndices[1], i);
-        f.td[i] = (t >= 0) ? ti[i] + t : 0;
-        Assert(
-            f.ta[i] <= (uint32_t) g_StudioMdlContext.numtexcoords[i] && f.tb[i] <= (uint32_t) g_StudioMdlContext.
-            numtexcoords[i] &&
-            f.tc[i] <= (uint32_t) g_StudioMdlContext.numtexcoords[i] && f.td[i] <= (uint32_t) g_StudioMdlContext.
-            numtexcoords[i]);
+        face.na = n0 >= 0 ? ni + n0 : 0;
+        face.nb = n1 >= 0 ? ni + n1 : 0;
+        face.nc = n2 >= 0 ? ni + n2 : 0;
+        face.nd = n3 >= 0 ? ni + n3 : 0;
+    }
+    else {
+        face.na = face.nb = face.nc = face.nd = 0;
     }
 
-    int i = g_StudioMdlContext.numfaces++;
-    g_StudioMdlContext.face[i] = f;
+    if (meshInfo.hasTexCoords) {
+        const int t0 = pVertexData->GetTexCoordIndex(pIndices[0]);
+        const int t1 = pVertexData->GetTexCoordIndex(pIndices[3]);
+        const int t2 = pVertexData->GetTexCoordIndex(pIndices[2]);
+        const int t3 = pVertexData->GetTexCoordIndex(pIndices[1]);
+        face.ta[0] = t0 >= 0 ? ti[0] + t0 : 0;
+        face.tb[0] = t1 >= 0 ? ti[0] + t1 : 0;
+        face.tc[0] = t2 >= 0 ? ti[0] + t2 : 0;
+        face.td[0] = t3 >= 0 ? ti[0] + t3 : 0;
+    }
+    else {
+        face.ta[0] = face.tb[0] = face.tc[0] = face.td[0] = 0;
+    }
+    Assert(
+        face.a <= (uint32_t) g_StudioMdlContext.numverts &&
+        face.b <= (uint32_t) g_StudioMdlContext.numverts &&
+        face.c <= (uint32_t) g_StudioMdlContext.numverts &&
+        face.d <= (uint32_t) g_StudioMdlContext.numverts);
+    Assert(
+        face.na <= (uint32_t) g_StudioMdlContext.numnormals &&
+        face.nb <= (uint32_t) g_StudioMdlContext.numnormals &&
+        face.nc <= (uint32_t) g_StudioMdlContext.numnormals &&
+        face.nd <= (uint32_t) g_StudioMdlContext.numnormals);
+    Assert(
+        face.ta[0] <= (uint32_t) g_StudioMdlContext.numtexcoords[0] &&
+        face.tb[0] <= (uint32_t) g_StudioMdlContext.numtexcoords[0] &&
+        face.tc[0] <= (uint32_t) g_StudioMdlContext.numtexcoords[0] &&
+        face.td[0] <= (uint32_t) g_StudioMdlContext.numtexcoords[0]);
+
+    for (auto [layerIndex, layerFieldIndex]: meshInfo.activeUvFieldIndices) {
+        CDmrArrayConst<int> indices(pVertexData->GetIndexData(layerFieldIndex));
+        face.ta[layerIndex] = ti[layerIndex] + indices[pIndices[0]];
+        face.tb[layerIndex] = ti[layerIndex] + indices[pIndices[3]];
+        face.tc[layerIndex] = ti[layerIndex] + indices[pIndices[2]];
+        face.td[layerIndex] = ti[layerIndex] + indices[pIndices[1]];
+        Assert(
+            face.ta[layerIndex] <= (uint32_t) g_StudioMdlContext.numtexcoords[layerIndex] &&
+            face.tb[layerIndex] <= (uint32_t) g_StudioMdlContext.numtexcoords[layerIndex] &&
+            face.tc[layerIndex] <= (uint32_t) g_StudioMdlContext.numtexcoords[layerIndex] &&
+            face.td[layerIndex] <= (uint32_t) g_StudioMdlContext.numtexcoords[layerIndex]
+        );
+    }
 }
 
 
 //-----------------------------------------------------------------------------
 // Reads the face data from the DMX data
 //-----------------------------------------------------------------------------
-static void ParseFaceData(CDmeVertexData *pVertexData, int material, int v1, int v2, int v3, int vi, int ni, int *ti) {
-    s_tmpface_t f;
-    f.material = material;
-
-    int p, n, t;
-    p = pVertexData->GetPositionIndex(v1);
-    n = pVertexData->GetNormalIndex(v1);
-    t = pVertexData->GetTexCoordIndex(v1);
-    f.a = (p >= 0) ? vi + p : 0;
-    f.na = (n >= 0) ? ni + n : 0;
-    f.ta[0] = (t >= 0) ? ti[0] + t : 0;
-    p = pVertexData->GetPositionIndex(v2);
-    n = pVertexData->GetNormalIndex(v2);
-    t = pVertexData->GetTexCoordIndex(v2);
-    f.b = (p >= 0) ? vi + p : 0;
-    f.nb = (n >= 0) ? ni + n : 0;
-    f.tb[0] = (t >= 0) ? ti[0] + t : 0;
-    p = pVertexData->GetPositionIndex(v3);
-    n = pVertexData->GetNormalIndex(v3);
-    t = pVertexData->GetTexCoordIndex(v3);
-    f.c = (p >= 0) ? vi + p : 0;
-    f.nc = (n >= 0) ? ni + n : 0;
-    f.tc[0] = (t >= 0) ? ti[0] + t : 0;
-
-    Assert(
-        f.a <= (uint32_t) g_StudioMdlContext.numverts && f.b <= (uint32_t) g_StudioMdlContext.numverts && f.c <= (
-            uint32_t) g_StudioMdlContext.numverts);
-    Assert(f.na <= (uint32_t) g_StudioMdlContext.numnormals && f.nb <= (uint32_t) g_StudioMdlContext.numnormals &&
-        f.nc <= (uint32_t) g_StudioMdlContext.numnormals);
-    Assert(
-        f.ta[0] <= (uint32_t) g_StudioMdlContext.numtexcoords[0] && f.tb[0] <= (uint32_t) g_StudioMdlContext.
-        numtexcoords[0] &&
-        f.tc[0] <= (uint32_t) g_StudioMdlContext.numtexcoords[0]);
-
-    for (int i = 1; i < (MAXSTUDIOTEXCOORDS); ++i) {
-        t = GetExtraTexcoordIndex(pVertexData, v1, i);
-        f.ta[i] = (t >= 0) ? ti[i] + t : 0;
-        t = GetExtraTexcoordIndex(pVertexData, v2, i);
-        f.tb[i] = (t >= 0) ? ti[i] + t : 0;
-        t = GetExtraTexcoordIndex(pVertexData, v3, i);
-        f.tc[i] = (t >= 0) ? ti[i] + t : 0;
-        Assert(
-            f.ta[i] <= (uint32_t) g_StudioMdlContext.numtexcoords[i] && f.tb[i] <= (uint32_t) g_StudioMdlContext.
-            numtexcoords[i] &&
-            f.tc[i] <= (uint32_t) g_StudioMdlContext.numtexcoords[i]);
+static void ParseFaceData(CDmeVertexData *pVertexData, const int material,
+                          const int v1, const int v2, const int v3,
+                          const int vi, const int ni, int *ti,
+                          MeshInfo &meshInfo) {
+    vstd::FunctionTimingRecorder _("DMX");
+    s_tmpface_t &face = g_StudioMdlContext.faces.emplace_back();
+    face.material = material;
+    if (meshInfo.hasPositions) {
+        const int p0 = pVertexData->GetPositionIndex(v1);
+        const int p1 = pVertexData->GetPositionIndex(v2);
+        const int p2 = pVertexData->GetPositionIndex(v3);
+        face.a = p0 >= 0 ? vi + p0 : 0;
+        face.b = p1 >= 0 ? vi + p1 : 0;
+        face.c = p2 >= 0 ? vi + p2 : 0;
+    }
+    else {
+        face.a = face.b = face.c = 0;
+    }
+    if (meshInfo.hasNormals) {
+        const int n0 = pVertexData->GetNormalIndex(v1);
+        const int n1 = pVertexData->GetNormalIndex(v2);
+        const int n2 = pVertexData->GetNormalIndex(v3);
+        face.na = n0 >= 0 ? ni + n0 : 0;
+        face.nb = n1 >= 0 ? ni + n1 : 0;
+        face.nc = n2 >= 0 ? ni + n2 : 0;
+    }
+    else {
+        face.na = face.nb = face.nc = 0;
+    }
+    if (meshInfo.hasTexCoords) {
+        const int t0 = pVertexData->GetTexCoordIndex(v1);
+        const int t1 = pVertexData->GetTexCoordIndex(v2);
+        const int t2 = pVertexData->GetTexCoordIndex(v3);
+        face.ta[0] = t0 >= 0 ? ti[0] + t0 : 0;
+        face.tb[0] = t1 >= 0 ? ti[0] + t1 : 0;
+        face.tc[0] = t2 >= 0 ? ti[0] + t2 : 0;
+    }
+    else {
+        face.ta[0] = face.tb[0] = face.tc[0] = 0;
     }
 
-    int i = g_StudioMdlContext.numfaces++;
-    g_StudioMdlContext.face[i] = f;
+    Assert(
+        face.a <= (uint32_t) g_StudioMdlContext.numverts &&
+        face.b <= (uint32_t) g_StudioMdlContext.numverts &&
+        face.c <= (uint32_t) g_StudioMdlContext.numverts
+    );
+    Assert(
+        face.na <= (uint32_t) g_StudioMdlContext.numnormals &&
+        face.nb <= (uint32_t) g_StudioMdlContext.numnormals &&
+        face.nc <= (uint32_t) g_StudioMdlContext.numnormals
+    );
+    Assert(
+        face.ta[0] <= (uint32_t) g_StudioMdlContext.numtexcoords[0] &&
+        face.tb[0] <= (uint32_t) g_StudioMdlContext.numtexcoords[0] &&
+        face.tc[0] <= (uint32_t) g_StudioMdlContext.numtexcoords[0]
+    );
+    for (auto [layerIndex, layerFieldIndex]: meshInfo.activeUvFieldIndices) {
+        CDmrArrayConst<int> indices(pVertexData->GetIndexData(layerFieldIndex));
+        const int ot1 = indices[v1];
+        const int ot2 = indices[v2];
+        const int ot3 = indices[v3];
+        face.ta[layerIndex] = ot1 >= 0 ? ti[layerIndex] + ot1 : 0;
+        face.tb[layerIndex] = ot2 >= 0 ? ti[layerIndex] + ot2 : 0;
+        face.tc[layerIndex] = ot3 >= 0 ? ti[layerIndex] + ot3 : 0;
+        Assert(
+            face.ta[layerIndex] <= (uint32_t) g_StudioMdlContext.numtexcoords[layerIndex] &&
+            face.tb[layerIndex] <= (uint32_t) g_StudioMdlContext.numtexcoords[layerIndex] &&
+            face.tc[layerIndex] <= (uint32_t) g_StudioMdlContext.numtexcoords[layerIndex]
+        );
+    }
 }
 
 
@@ -671,8 +716,9 @@ static void ParseFaceData(CDmeVertexData *pVertexData, int material, int v1, int
 // Reads the mesh data from the DMX data
 //-----------------------------------------------------------------------------
 static bool
-LoadMesh(CDmeDag *pDmeDag, CDmeMesh *pMesh, CDmeVertexData *pBindState, const matrix3x4_t &mat, float flScale,
-         int nBoneAssign, int *pBoneRemap, s_source_t *pSource) {
+LoadMesh(CDmeDag *pDmeDag, CDmeMesh *pMesh, CDmeVertexData *pBindState, const matrix3x4_t &mat, const float flScale,
+         const int nBoneAssign, int *pBoneRemap, s_source_t *pSource) {
+    vstd::FunctionTimingRecorder _("DMX");
     pMesh->CollapseRedundantNormals(g_studiomdl.normal_blend);
 
     // Load the vertices
@@ -733,40 +779,71 @@ LoadMesh(CDmeDag *pDmeDag, CDmeMesh *pMesh, CDmeVertexData *pBindState, const ma
 
         // Is this a quad-only subd?
         bool bQuadSubd = (g_studiomdl.gflags & STUDIOHDR_FLAGS_SUBDIVISION_SURFACE) != 0;
+        MeshInfo meshInfo;
+        meshInfo.hasPositions = pBindState->FindFieldIndex(CDmeVertexDataBase::FIELD_POSITION) >= 0;
+        meshInfo.hasTexCoords = pBindState->FindFieldIndex(CDmeVertexDataBase::FIELD_TEXCOORD) >= 0;
+        meshInfo.hasNormals = pBindState->FindFieldIndex(CDmeVertexDataBase::FIELD_NORMAL) >= 0;
+
+        for (uint32_t nChannel = 0; nChannel < MAXSTUDIOTEXCOORDS; ++nChannel) {
+            const FieldIndex_t fieldIndex = pBindState->FindFieldIndex(CFmtStr("texcoord$%d", nChannel).Get());
+            if (fieldIndex < 0)
+                continue;
+            meshInfo.activeUvFieldIndices.emplace_back(nChannel, fieldIndex);
+        }
 
         // prepare indices
-        int nFirstIndex = 0;
-        int nIndexCount = pFaceSet->NumIndices();
-        while (nFirstIndex < nIndexCount) {
-            int nVertexCount = pFaceSet->GetNextPolygonVertexCount(nFirstIndex);
-
-            // Quad subd face?
-            if (bQuadSubd && (nVertexCount == 4)) {
-                int quadIndices[4];
-
-                for (int j = 0; j < 4; j++) {
-                    quadIndices[j] = pFaceSet->GetIndex(nFirstIndex + j);
-                }
-
-                ParseQuadFaceData(pBindState, material, quadIndices, nStartingVertex, nStartingNormal,
-                                  nStartingTexCoord);
-
-                nFirstIndex += 5; // -1 in list between face indices, so jump over 5 elements, not 4
+        const uint32_t indexCount = pFaceSet->NumIndices();
+        const auto indicesArray = pFaceSet->GetIndices();
+        const uint32_t breakCount = std::count_if(indicesArray, indicesArray + indexCount,
+                                                  [](const int32_t index) { return index != -1; });
+        if (indexCount % 4 == 0 && (indexCount / 4 * 3) == breakCount) {
+            std::array<int, 3> triangleStorage{};
+            for (uint32_t faceStartVertex = 0; faceStartVertex < indexCount; faceStartVertex += 4) {
+                pMesh->ComputeTriangulatedIndices(pBindState, pFaceSet, faceStartVertex, triangleStorage.data());
+                ParseFaceData(pBindState, material,
+                              triangleStorage[0], triangleStorage[2], triangleStorage[1],
+                              nStartingVertex, nStartingNormal, nStartingTexCoord,
+                              meshInfo);
             }
-            else {
-                if (nVertexCount >= 3) {
-                    int nOutCount = (nVertexCount - 2) * 3;
-                    int *pIndices = (int *) malloc(nOutCount * sizeof(int));
-                    pMesh->ComputeTriangulatedIndices(pBindState, pFaceSet, nFirstIndex, pIndices, nOutCount);
-                    for (int ii = 0; ii < nOutCount; ii += 3) {
-                        ParseFaceData(pBindState, material, pIndices[ii], pIndices[ii + 2], pIndices[ii + 1],
-                                      nStartingVertex, nStartingNormal, nStartingTexCoord);
-                    }
-                    free(pIndices);
-                }
+        }
+        else {
+            uint32_t firstIndex = 0;
+            std::array<int, 32> triangleStorage{};
+            while (firstIndex < indexCount) {
+                const uint32_t vertexCount = pFaceSet->GetNextPolygonVertexCount(firstIndex);
 
-                nFirstIndex += nVertexCount +
-                        1; // -1 in list between face indices, so jump over nVertexCount + 1 elements, not nVertexCount elements
+                // Quad subd face?
+                if (bQuadSubd && (vertexCount == 4)) {
+                    int quadIndices[4];
+
+                    for (int j = 0; j < 4; j++) {
+                        quadIndices[j] = pFaceSet->GetIndex(firstIndex + j);
+                    }
+
+                    ParseQuadFaceData(pBindState, material, quadIndices, nStartingVertex, nStartingNormal,
+                                      nStartingTexCoord, meshInfo);
+
+                    firstIndex += 5; // -1 in list between face indices, so jump over 5 elements, not 4
+                }
+                else {
+                    if (vertexCount >= 3) {
+                        const uint32_t nOutCount = (vertexCount - 2) * 3;
+                        if (nOutCount > triangleStorage.size()) {
+                            MdlError("N-gon is too big, too many vertices: {} out of {}, increase triangleStorage size",
+                                     nOutCount, triangleStorage.size());
+                        }
+
+                        pMesh->ComputeTriangulatedIndices(pBindState, pFaceSet, firstIndex, triangleStorage.data());
+                        for (int ii = 0; ii < nOutCount; ii += 3) {
+                            ParseFaceData(pBindState, material, triangleStorage[ii], triangleStorage[ii + 2],
+                                          triangleStorage[ii + 1],
+                                          nStartingVertex, nStartingNormal, nStartingTexCoord, meshInfo);
+                        }
+                    }
+
+                    // -1 in list between face indices, so jump over nVertexCount + 1 elements, not nVertexCount elements
+                    firstIndex += vertexCount + 1;
+                }
             }
         }
     }
@@ -833,8 +910,8 @@ LoadMeshes(const LoadMeshInfo_t &info, CDmeDag *pDag, const matrix3x4_t &parentT
 //-----------------------------------------------------------------------------
 // Method used to add mesh data
 //-----------------------------------------------------------------------------
-static bool LoadMeshes(CDmeModel *pModel, float flScale, int *pBoneRemap, s_source_t *pSource) {
-    FunctionTimingRecorder _("DMX");
+static bool LoadMeshes(CDmeModel *pModel, const float flScale, int *pBoneRemap, s_source_t *pSource) {
+    vstd::FunctionTimingRecorder _("DMX");
     matrix3x4_t mat;
     SetIdentityMatrix(mat);
 
@@ -868,7 +945,7 @@ static bool LoadMeshes(CDmeModel *pModel, float flScale, int *pBoneRemap, s_sour
 // Builds s_vertanim_ts
 //-----------------------------------------------------------------------------
 static void BuildVertexAnimations(s_source_t *pSource) {
-    FunctionTimingRecorder _("DMX");
+    vstd::FunctionTimingRecorder _("DMX");
     int nCount = s_DeltaStates.Count();
     if (nCount == 0)
         return;
@@ -876,8 +953,9 @@ static void BuildVertexAnimations(s_source_t *pSource) {
     Assert(s_Speed.Count() > 0);
     Assert(s_Balance.Count() > 0);
 
-    Assert(s_UniqueVertices.Count() == g_numvlist);
-    s_vertanim_t *pVertAnim = (s_vertanim_t *) malloc(g_studiomdl.numvlist * sizeof(s_vertanim_t));
+    const auto &entries = g_studiomdl.v_listdata;
+    Assert(s_UniqueVertices.Count() == static_cast<int>(entries.size()));
+    s_vertanim_t *pVertAnim = (s_vertanim_t *) malloc(entries.size() * sizeof(s_vertanim_t));
     for (int i = 0; i < nCount; ++i) {
         DeltaState_t &state = s_DeltaStates[i];
 
@@ -897,13 +975,16 @@ static void BuildVertexAnimations(s_source_t *pSource) {
 
             VertIndices_t &uniqueVert = s_UniqueVertices[j];
 
-            const v_unify_t *pList = g_studiomdl.v_list[uniqueVert.v];
-            for (; pList; pList = pList->next) {
-                if (pList->n != uniqueVert.n || pList->t[0] != uniqueVert.t[0])
+            const int nFirst = uniqueVert.v < static_cast<int>(g_studiomdl.v_list.size())
+                                   ? g_studiomdl.v_list[uniqueVert.v]
+                                   : -1;
+            for (int nEntry = nFirst; nEntry >= 0; nEntry = entries[nEntry].next) {
+                const v_unify_t &entry = entries[nEntry];
+                if (entry.n != uniqueVert.n || entry.t[0] != uniqueVert.t[0])
                     continue;
 
                 s_vertanim_t &vertanim = pVertAnim[nVertAnimCount++];
-                vertanim.vertex = pList - g_studiomdl.v_listdata;
+                vertanim.vertex = nEntry;
                 vertanim.speed = s_Speed[s_UniqueVertices[j].speed];
                 vertanim.side = s_Balance[s_UniqueVertices[j].balance];
                 if (delta.m_nPositionIndex >= 0) {
@@ -946,7 +1027,7 @@ static void HandleDmeJiggleBone(const CDmeDag *pDmeDag) {
     const char *pName = pDmeJiggleBone->GetName();
     for (int i = 0; i < g_studiomdl.numjigglebones; ++i) {
         if (!Q_stricmp(pName, g_studiomdl.jigglebones[i].bonename)) {
-            MdlWarning("2000: Jiggle Bone: %s already defined, ignoring additional declarations\n", pName);
+            MdlWarning("2000: Jiggle Bone: {} already defined, ignoring additional declarations\n", pName);
             return;
         }
     }
@@ -973,16 +1054,22 @@ static void HandleDmeJiggleBone(const CDmeDag *pDmeDag) {
     // Common Parameters
     pJiggleBone->data.length = pDmeJiggleBone->m_flLength;
     pJiggleBone->data.tipMass = pDmeJiggleBone->m_flTipMass;
-    pJiggleBone->data.flags |= (pDmeJiggleBone->m_bLengthConstrained ? JIGGLE_HAS_LENGTH_CONSTRAINT : 0);
+    pJiggleBone->data.flags |= (pDmeJiggleBone->m_bLengthConstrained
+                                    ? JiggleBoneFlags::HasLengthConstraint
+                                    : JiggleBoneFlags::None);
     pJiggleBone->data.angleLimit = DEG2RAD(pDmeJiggleBone->m_flAngleLimit);
 
-    pJiggleBone->data.flags |= (pDmeJiggleBone->m_bYawConstrained ? JIGGLE_HAS_YAW_CONSTRAINT : 0);
+    pJiggleBone->data.flags |= (pDmeJiggleBone->m_bYawConstrained
+                                    ? JiggleBoneFlags::HasYawConstraint
+                                    : JiggleBoneFlags::None);
     pJiggleBone->data.minYaw = DEG2RAD(pDmeJiggleBone->m_flYawMin);
     pJiggleBone->data.maxYaw = DEG2RAD(pDmeJiggleBone->m_flYawMax);
     pJiggleBone->data.yawFriction = pDmeJiggleBone->m_flYawFriction;
     pJiggleBone->data.yawBounce = pDmeJiggleBone->m_flYawBounce;
 
-    pJiggleBone->data.flags |= (pDmeJiggleBone->m_bAngleConstrained ? JIGGLE_HAS_ANGLE_CONSTRAINT : 0);
+    pJiggleBone->data.flags |= (pDmeJiggleBone->m_bAngleConstrained
+                                    ? JiggleBoneFlags::HasAngleConstraint
+                                    : JiggleBoneFlags::None);
 
     pJiggleBone->data.minPitch = DEG2RAD(pDmeJiggleBone->m_flPitchMin);
     pJiggleBone->data.maxPitch = DEG2RAD(pDmeJiggleBone->m_flPitchMax);
@@ -991,11 +1078,13 @@ static void HandleDmeJiggleBone(const CDmeDag *pDmeDag) {
 
     if (pDmeJiggleBone->m_bFlexible) {
         if (pDmeJiggleBone->m_bRigid) {
-            MdlWarning("2001: Jiggle Bone %s: Both flexible and rigid set, ignoring rigid\n", pName);
+            MdlWarning("2001: Jiggle Bone {}: Both flexible and rigid set, ignoring rigid\n", pName);
         }
 
-        pJiggleBone->data.flags |= (JIGGLE_IS_FLEXIBLE);
-        pJiggleBone->data.flags |= (pDmeJiggleBone->m_bPitchConstrained ? JIGGLE_HAS_PITCH_CONSTRAINT : 0);
+        pJiggleBone->data.flags |= (JiggleBoneFlags::IsFlexible);
+        pJiggleBone->data.flags |= (pDmeJiggleBone->m_bPitchConstrained
+                                        ? JiggleBoneFlags::HasPitchConstraint
+                                        : JiggleBoneFlags::None);
 
         // flexible parameters - I think damping should be clamped [0, 10] but code
         // in studiomdl looks incorrect and clamps 0, 1000.0f
@@ -1009,7 +1098,7 @@ static void HandleDmeJiggleBone(const CDmeDag *pDmeDag) {
         pJiggleBone->data.alongDamping = clamp(pDmeJiggleBone->m_flAlongDamping.Get(), 0.0f, 10.0f);
     }
     else if (pDmeJiggleBone->m_bRigid) {
-        pJiggleBone->data.flags |= (JIGGLE_IS_FLEXIBLE | JIGGLE_HAS_LENGTH_CONSTRAINT);
+        pJiggleBone->data.flags |= (JiggleBoneFlags::IsFlexible | JiggleBoneFlags::HasLengthConstraint);
     }
     else {
         // TODO: Is neither rigid or flexible an error?
@@ -1041,7 +1130,7 @@ static void HandleDmeJiggleBone(const CDmeDag *pDmeDag) {
 // Loads the skeletal hierarchy from the game model, returns bone count
 //-----------------------------------------------------------------------------
 static bool
-AddDagJoint(CDmeModel *pModel, CDmeDag *pDag, std::array<s_node_t,MAXSTUDIOSRCBONES> &pNodes, int nParentIndex,
+AddDagJoint(CDmeModel *pModel, CDmeDag *pDag, std::array<s_node_t,MAXSTUDIOSRCBONES> &pNodes, const int nParentIndex,
             BoneTransformMap_t &boneMap) {
     CDmeTransform *pDmeTransform = pDag->GetTransform();
 
@@ -1050,7 +1139,7 @@ AddDagJoint(CDmeModel *pModel, CDmeDag *pDag, std::array<s_node_t,MAXSTUDIOSRCBO
 
     // Need room for one implicit bone added
     if (boneMap.m_nBoneCount >= (MAXSTUDIOSRCBONES - 1)) {
-        MdlWarning("Ignoring Bone %s and children, too many bones [max can be %d]!\n", pDag->GetName(),
+        MdlWarning("Ignoring Bone {} and children, too many bones [max can be {}]!\n", pDag->GetName(),
                    MAXSTUDIOSRCBONES - 1);
         return false;
     }
@@ -1066,7 +1155,7 @@ AddDagJoint(CDmeModel *pModel, CDmeDag *pDag, std::array<s_node_t,MAXSTUDIOSRCBO
             boneMap.m_pnMdlToDmeModel[nJointIndex] = nFoundIndex;
         }
         else {
-            MdlWarning("Joint %s doesn't appear in DmeModel[%s].jointList\n", pDag->GetName(), pModel->GetName());
+            MdlWarning("Joint {} doesn't appear in DmeModel[{}].jointList\n", pDag->GetName(), pModel->GetName());
         }
     }
 
@@ -1094,7 +1183,7 @@ AddDagJoint(CDmeModel *pModel, CDmeDag *pDag, std::array<s_node_t,MAXSTUDIOSRCBO
 //-----------------------------------------------------------------------------
 static int LoadSkeleton(CDmeDag *pRoot, CDmeModel *pModel, std::array<s_node_t,MAXSTUDIOSRCBONES> &pNodes,
                         BoneTransformMap_t &boneMap) {
-    FunctionTimingRecorder _("DMX");
+    vstd::FunctionTimingRecorder _("DMX");
     // Initialize bone indices
     boneMap.m_nBoneCount = 0;
     for (int i = 0; i < MAXSTUDIOSRCBONES; ++i) {
@@ -1128,7 +1217,7 @@ static int LoadSkeleton(CDmeDag *pRoot, CDmeModel *pModel, std::array<s_node_t,M
 //-----------------------------------------------------------------------------
 // Loads the attachments found in the file
 //-----------------------------------------------------------------------------
-static void LoadAttachments(CDmeDag *pRoot, CDmeDag *pDag, s_source_t *pSource, bool bStaticProp) {
+static void LoadAttachments(CDmeDag *pRoot, CDmeDag *pDag, s_source_t *pSource, const bool bStaticProp) {
     CDmeAttachment *pAttachment = CastElement<CDmeAttachment>(pDag->GetShape());
     if (pAttachment && (pDag != pRoot)) {
         int i = pSource->m_Attachments.AddToTail();
@@ -1146,10 +1235,10 @@ static void LoadAttachments(CDmeDag *pRoot, CDmeDag *pDag, s_source_t *pSource, 
         }
         else {
             if (pAttachment->m_bIsRigid) {
-                attachment.type |= IS_RIGID;
+                attachment.type |= AttachmentType::Rigid;
             }
             if (pAttachment->m_bIsWorldAligned) {
-                attachment.flags |= ATTACHMENT_FLAG_WORLD_ALIGN;
+                attachment.flags |= AttachmentFlags::WorldAlign;
             }
         }
     }
@@ -1169,7 +1258,8 @@ static void LoadAttachments(CDmeDag *pRoot, CDmeDag *pDag, s_source_t *pSource, 
 //-----------------------------------------------------------------------------
 // Loads the bind pose
 //-----------------------------------------------------------------------------
-static void LoadBindPose(CDmeModel *pModel, float flScale, const BoneTransformMap_t &boneMap, s_source_t *pSource) {
+static void LoadBindPose(CDmeModel *pModel, const float flScale, const BoneTransformMap_t &boneMap,
+                         s_source_t *pSource) {
     s_sourceanim_t *pSourceAnim = FindOrAddSourceAnim(pSource, "BindPose");
     pSourceAnim->startframe = 0;
     pSourceAnim->endframe = 0;
@@ -1210,7 +1300,7 @@ static void LoadBindPose(CDmeModel *pModel, float flScale, const BoneTransformMa
                 mdlBone.pos *= flScale;
             }
             else {
-                MdlWarning("Cannot find DmeTransform for MDL Bone %d\n", nMdlBoneIndex);
+                MdlWarning("Cannot find DmeTransform for MDL Bone {}\n", nMdlBoneIndex);
             }
         }
     }
@@ -1285,7 +1375,8 @@ static void PrepareChannels(
 //-----------------------------------------------------------------------------
 // Update channels so they are in position for the next frame
 //-----------------------------------------------------------------------------
-static void UpdateChannels(CUtlVector<IDmeOperator *> &operators, CDmeChannelsClip *pAnimation, DmeTime_t clipTime) {
+static void UpdateChannels(CUtlVector<IDmeOperator *> &operators, CDmeChannelsClip *pAnimation,
+                           const DmeTime_t clipTime) {
     int nChannelsCount = pAnimation->m_Channels.Count();
     DmeTime_t channelTime = pAnimation->ToChildMediaTime(clipTime);
     for (int i = 0; i < nChannelsCount; ++i) {
@@ -1302,7 +1393,8 @@ static void UpdateChannels(CUtlVector<IDmeOperator *> &operators, CDmeChannelsCl
 //-----------------------------------------------------------------------------
 // Initialize the pose for this frame
 //-----------------------------------------------------------------------------
-static void ComputeFramePose(s_sourceanim_t *pSourceAnim, int nFrame, float flScale, BoneTransformMap_t &boneMap) {
+static void ComputeFramePose(s_sourceanim_t *pSourceAnim, const int nFrame, const float flScale,
+                             BoneTransformMap_t &boneMap) {
     // LoadSkeleton appends the identity "defaultRoot" bone after the joints (numbones == m_nBoneCount + 1): the frame
     // needs a slot for it too, calloc leaves it at the identity
     pSourceAnim->rawanim[nFrame] = (s_bone_t *) calloc(boneMap.m_nBoneCount + 1, sizeof(s_bone_t));
@@ -1320,7 +1412,8 @@ static void ComputeFramePose(s_sourceanim_t *pSourceAnim, int nFrame, float flSc
 // Main entry point for loading animations
 //-----------------------------------------------------------------------------
 void
-LoadAnimations(s_source_t *pSource, CDmeAnimationList *pAnimationList, float flScale, BoneTransformMap_t &boneMap) {
+LoadAnimations(s_source_t *pSource, CDmeAnimationList *pAnimationList, const float flScale,
+               BoneTransformMap_t &boneMap) {
     int nAnimationCount = pAnimationList->GetAnimationCount();
     for (int i = 0; i < nAnimationCount; ++i) {
         CDmeChannelsClip *pAnimation = pAnimationList->GetAnimation(i);
@@ -1396,7 +1489,7 @@ void LoadModelInfo(CDmElement *pRoot, char const *pFullPath) {
             for (int kk = 0; kk < arrSources.Count(); ++kk) {
                 if (CDmElement *pModelSource = arrSources.Element(kk)) {
                     if (char const *szName = pModelSource->GetName()) {
-                        printf("* %s%c%s\n", pFullPath, CORRECT_PATH_SEPARATOR, szName);
+                        std::print("* {}{:c}{}\n", pFullPath, CORRECT_PATH_SEPARATOR, szName);
                     }
                 }
             }
@@ -1593,7 +1686,7 @@ static bool FindDuplicateConstraint(const CConstraintBoneBase *pConstraintA) {
 template<class S, class T>
 static bool LoadConstraint(CDmElement *pDmElement) {
     if (g_studiomdl.constraintBones.Count() == MAXSTUDIOBONES) {
-        MdlError("Too Many Constraint Bones, Max: %d\n", MAXSTUDIOBONES);
+        MdlError("Too Many Constraint Bones, Max: {}\n", MAXSTUDIOBONES);
         return false;
     }
 
@@ -1664,8 +1757,8 @@ void LoadConstraints(CDmElement *pDmeRoot) {
 // Load model and skeleton
 //-----------------------------------------------------------------------------
 bool LoadModelAndSkeleton(s_source_t *pSource, BoneTransformMap_t &boneMap, CDmeDag *pSkeleton, CDmeModel *pModel,
-                     CDmeCombinationOperator *pCombinationOperator, bool bStaticProp) {
-    FunctionTimingRecorder _("DMX");
+                          CDmeCombinationOperator *pCombinationOperator, const bool bStaticProp) {
+    vstd::FunctionTimingRecorder _("DMX");
     s_DeltaStates.RemoveAll();
     s_Balance.RemoveAll();
     s_Speed.RemoveAll();
@@ -1680,7 +1773,7 @@ bool LoadModelAndSkeleton(s_source_t *pSource, BoneTransformMap_t &boneMap, CDme
     if (pSource->numbones == 0)
         return false;
 
-    g_StudioMdlContext.numfaces = 0;
+    g_StudioMdlContext.faces.clear();
     if (pModel) {
         if (pCombinationOperator) {
             pCombinationOperator->GenerateWrinkleDeltas(false);
@@ -1694,9 +1787,9 @@ bool LoadModelAndSkeleton(s_source_t *pSource, BoneTransformMap_t &boneMap, CDme
         BuildIndividualMeshes(pSource);
     }
 
-    if (g_StudioMdlContext.numfaces == 0 && pSource->numbones == 1 && !V_strcmp(
+    if (g_StudioMdlContext.faces.empty() && pSource->numbones == 1 && !V_strcmp(
             pSource->localBone[0].name, "defaultRoot")) {
-        MdlError("Error - dmx has no contents: %s\n", pSource->filename.c_str());
+        MdlError("Error - dmx has no contents: {}\n", pSource->filename);
     }
 
     if (pCombinationOperator) {
@@ -1721,7 +1814,7 @@ static int FindModelIndex(s_model_t *pModel) {
                 return i;
         }
 
-        MdlWarning("Cannot Find s_model_t: \"%s\" in g_studiomdl.model\n", pModel->name.c_str());
+        MdlWarning("Cannot Find s_model_t: \"{}\" in g_studiomdl.model\n", pModel->name);
     }
 
     return -1;
@@ -1734,18 +1827,18 @@ static int FindModelIndex(s_model_t *pModel) {
 static bool AddFlexKey(
     s_source_t *pSource, s_model_t *pModel,
     const char *pszAnimationName,
-    int nFlexDesc,
-    int nFlexPair,
-    EyelidType_t nEyelidType,
-    float flLowererHeight,
-    float flNeutralHeight,
-    float flRaiserHeight,
-    float flSplit = 0.0f,
-    float flDecay = 1.0f,
-    int nFrame = 0) // DMX frame is always 0
+    const int nFlexDesc,
+    const int nFlexPair,
+    const EyelidType_t nEyelidType,
+    const float flLowererHeight,
+    const float flNeutralHeight,
+    const float flRaiserHeight,
+    const float flSplit = 0.0f,
+    const float flDecay = 1.0f,
+    const int nFrame = 0) // DMX frame is always 0
 {
     if (g_studiomdl.flexkeys.size() >= g_studiomdl.flexkeys.capacity()) {
-        MdlError("Too Many Flex Keys, Cannot Add %s\n", "TODO: FlexKeyName");
+        MdlError("Too Many Flex Keys, Cannot Add {}\n", "TODO: FlexKeyName");
         return false;
     }
 
@@ -1909,13 +2002,13 @@ static bool LoadEyelid(s_model_t *pModel, CDmeEyelid *pDmeEyelid) {
             bLeftOk = true;
         }
         else {
-            MdlWarning("Unknown Eyeball: %s\n", pEyeball->name.c_str());
+            MdlWarning("Unknown Eyeball: {}\n", pEyeball->name);
             continue;
         }
 
         for (int j = 0; j < kEyelidTypeCount; ++j) {
             if (fabs(eyelidData[j].m_flTarget) > pEyeball->radius) {
-                MdlError("Eyelid \"%s\" %s %.1f out of range (+-%.1f)\n", bUpper ? "upper" : "lower",
+                MdlError("Eyelid \"{}\" {} {:.1f} out of range (+-{:.1f})\n", bUpper ? "upper" : "lower",
                          eyelidData[j].m_pszSuffix, eyelidData[j].m_flTarget, pEyeball->radius);
             }
         }
@@ -1937,12 +2030,12 @@ static bool LoadEyelid(s_model_t *pModel, CDmeEyelid *pDmeEyelid) {
     }
 
     if (!bRightOk) {
-        MdlError("Could not find right eye \"%s\"\n", pDmeEyelid->m_sRightEyeballName.Get());
+        MdlError("Could not find right eye \"{}\"\n", pDmeEyelid->m_sRightEyeballName.Get());
         return false;
     }
 
     if (!bLeftOk) {
-        MdlError("Could not find left eye \"%s\"\n", pDmeEyelid->m_sLeftEyeballName.Get());
+        MdlError("Could not find left eye \"{}\"\n", pDmeEyelid->m_sLeftEyeballName.Get());
         return false;
     }
 
@@ -1994,7 +2087,7 @@ void LoadEyeballs(s_source_t *pSource, s_model_t *pModel, CDmrElementArray<CDmEl
             continue;
 
         if (pModel->eyeballs.full()) {
-            MdlWarning("1100: Max number of eyeballs reached for model %s, ignoring eyeball %s\n", pModel->name.c_str(),
+            MdlWarning("1100: Max number of eyeballs reached for model {}, ignoring eyeball {}\n", pModel->name,
                        pDmeEyeball->GetName());
             continue;
         }
@@ -2008,8 +2101,8 @@ void LoadEyeballs(s_source_t *pSource, s_model_t *pModel, CDmrElementArray<CDmEl
         }
 
         if (nFoundBoneIndex < 0) {
-            MdlWarning("1101: Couldn't find bone %s on model %s, ignoring eyeball %s\n",
-                       pDmeEyeball->m_sParentBoneName.Get(), pModel->name.c_str(), pDmeEyeball->GetName());
+            MdlWarning("1101: Couldn't find bone {} on model {}, ignoring eyeball {}\n",
+                       pDmeEyeball->m_sParentBoneName.Get(), pModel->name, pDmeEyeball->GetName());
             continue;
         }
 
@@ -2018,19 +2111,11 @@ void LoadEyeballs(s_source_t *pSource, s_model_t *pModel, CDmrElementArray<CDmEl
 
         const int nSearchMeshMatIndex = UseTextureAsMaterial(
             LookupTexture(pDmeEyeball->m_sMaterialName.Get(), bRelative));
-        int nFoundMeshMatIndex = -1;
-        for (int i = 0; i < pSource->nummeshes; ++i) {
-            const int nTmpMeshMatIndex = pSource->meshindex[i]; // meshes are internally stored by material index
-
-            if (nTmpMeshMatIndex == nSearchMeshMatIndex) {
-                nFoundMeshMatIndex = i;
-                break;
-            }
-        }
+        const int nFoundMeshMatIndex = FindSourceMeshIndex(pSource, nSearchMeshMatIndex); // mesh slot
 
         if (nFoundMeshMatIndex < 0) {
-            MdlWarning("1102: Couldn't find eyeball material %s on model %s, ignoring eyeball %s\n",
-                       pDmeEyeball->m_sMaterialName.Get(), pModel->name.c_str(), pDmeEyeball->GetName());
+            MdlWarning("1102: Couldn't find eyeball material {} on model {}, ignoring eyeball {}\n",
+                       pDmeEyeball->m_sMaterialName.Get(), pModel->name, pDmeEyeball->GetName());
             continue;
         }
 
@@ -2096,7 +2181,7 @@ void LoadEyeballs(s_source_t *pSource, s_model_t *pModel, CDmrElementArray<CDmEl
 
         if (!bHasEyeFlexController) {
             if (g_studiomdl.flexcontrollers.size() >= g_studiomdl.flexcontrollers.capacity()) {
-                MdlWarning("1103: Couldn't make eyes flexcontroller %s, too many flex controllers defined\n",
+                MdlWarning("1103: Couldn't make eyes flexcontroller {}, too many flex controllers defined\n",
                            szEyesFlexControllers[nNewFlexIndex]);
                 continue;
             }
@@ -2140,7 +2225,7 @@ void LoadQcModelElements(s_source_t *pSource, s_model_t *pModel, CDmeModel *pDme
 // Main entry point for loading DMX files
 //-----------------------------------------------------------------------------
 int Load_DMX(s_source_t *pSource) {
-    FunctionTimingRecorder _("Parse");
+    vstd::FunctionTimingRecorder _("Parse");
     DmFileId_t fileId;
 
     // use the full search tree, including mod hierarchy to find the file
@@ -2170,11 +2255,8 @@ int Load_DMX(s_source_t *pSource) {
     CDmeCombinationOperator *pCombinationOperator = pRoot->GetValueElement<CDmeCombinationOperator>(
         "combinationOperator");
     BoneTransformMap_t boneMap;
-    extern qboolean tokenready;
-    auto old_tokenread = tokenready;
     if (!LoadModelAndSkeleton(pSource, boneMap, pSkeleton, pModel, pCombinationOperator, false))
         goto dmxError;
-    tokenready = old_tokenread;
     LoadQcModelElements(pSource, g_pCurrentModel, pModel);
 
     if (CDmeAnimationList *pAnimationList = pRoot->GetValueElement<CDmeAnimationList>("animationList")) {

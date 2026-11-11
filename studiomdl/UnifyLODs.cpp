@@ -19,6 +19,7 @@
 #include "studiomdl/bone_setup.h"
 #include "tier1/strtools.h"
 #include "mathlib/vmatrix.h"
+#include "tier1_v2/function_timing.hpp"
 #include "studiomdl/optimize.h"
 #include "studiomdl/studiomdl_global_state.hpp"
 
@@ -465,9 +466,9 @@ int FindMaterialByName(const char *pMaterialName) {
 }
 
 static s_mesh_t *FindMeshByMaterial(s_source_t *pSrc, int nMaterialID) {
-    for (int m = 0; m < pSrc->nummeshes; m++) {
-        if (pSrc->meshindex[m] == nMaterialID)
-            return &pSrc->mesh[pSrc->meshindex[m]];
+    for (s_mesh_t &mesh: pSrc->meshes) {
+        if (mesh.material == nMaterialID)
+            return &mesh;
     }
 
     // this mesh/material doesn't exist at this lod.
@@ -483,7 +484,7 @@ static s_mesh_t *FindOrCullMesh(int nLodID, s_source_t *pSrc, int nMaterialID) {
     // determine mesh name
     int nTextureID = MaterialToTexture(nMaterialID);
     if (nTextureID == -1) {
-        MdlError("Unknown Texture for Material %d\n", nMaterialID);
+        MdlError("Unknown Texture for Material {}\n", nMaterialID);
     }
 
     Q_FileBase(g_studiomdl.textures[nTextureID].name, baseMeshName, sizeof(baseMeshName) - 1);
@@ -952,24 +953,24 @@ static int FindOrCreateExactVertexInDictionary(CVertexDictionary &vertexDict,
 }
 
 static void PrintBonesUsedInLOD(s_source_t *pSrc) {
-    printf("PrintBonesUsedInLOD\n");
+    std::print("PrintBonesUsedInLOD\n");
 
     int nVertexCount = pSrc->m_GlobalVertices.Count();
     for (int i = 0; i < nVertexCount; i++) {
         Vector &pos = pSrc->m_GlobalVertices[i].position;
         Vector &norm = pSrc->m_GlobalVertices[i].normal;
         Vector2D &texcoord = pSrc->m_GlobalVertices[i].texcoord[0];
-        printf("pos: %f %f %f norm: %f %f %f texcoord: %f %f\n",
+        std::print("pos: {:f} {:f} {:f} norm: {:f} {:f} {:f} texcoord: {:f} {:f}\n",
                pos[0], pos[1], pos[2], norm[0], norm[1], norm[2], texcoord[0], texcoord[1]);
         s_boneweight_t *pBoneWeight = &pSrc->m_GlobalVertices[i].boneweight;
         int j;
         for (j = 0; j < pBoneWeight->numbones; j++) {
             int globalBoneID = pBoneWeight->bone[j];
             const char *pBoneName = g_studiomdl.bonetable[globalBoneID].name;
-            printf("vert: %d bone: %d boneid: %d weight: %f name: \"%s\"\n", i, (int) j, (int) pBoneWeight->bone[j],
+            std::print("vert: {} bone: {} boneid: {} weight: {:f} name: \"{}\"\n", i, (int) j, (int) pBoneWeight->bone[j],
                    (float) pBoneWeight->weight[j], pBoneName);
         }
-        printf("\n");
+        std::print("\n");
         fflush(stdout);
     }
 }
@@ -982,7 +983,7 @@ static void MarkBonesUsedByLod(const s_boneweight_t &boneWeight, int nLodID) {
     for (int j = 0; j < boneWeight.numbones; ++j) {
         int nGlobalBoneID = boneWeight.bone[j];
         s_bonetable_t *pBone = &g_studiomdl.bonetable[nGlobalBoneID];
-        pBone->flags |= (BONE_USED_BY_VERTEX_LOD0 << nLodID);
+        pBone->flags |= BoneUsedByVertexAtLod(nLodID);
     }
 }
 
@@ -993,7 +994,7 @@ static void PrintSBoneWeight(s_boneweight_t *pBoneWeight, const s_source_t *pSrc
         int globalBoneID;
         globalBoneID = pBoneWeight->bone[j];
         const char *pBoneName = g_studiomdl.bonetable[globalBoneID].name;
-        printf("bone: %d boneid: %d weight: %f name: \"%s\"\n", (int) j, (int) pBoneWeight->bone[j],
+        std::print("bone: {} boneid: {} weight: {:f} name: \"{}\"\n", (int) j, (int) pBoneWeight->bone[j],
                (float) pBoneWeight->weight[j], pBoneName);
     }
 }
@@ -1075,7 +1076,7 @@ static void CreateLODVertsInDictionary(int nLodID, const s_source_t *pRootLODSrc
 
     int nNewVertsCreated = vertexDict.VertexCount() - nNumCurrentVerts;
     if (!g_StudioMdlContext.quiet && nNewVertsCreated) {
-        printf("Lod %d: vertexes: %d (%d new)\n", nLodID, vertexDict.VertexCount(), nNewVertsCreated);
+        std::print("Lod {}: vertexes: {} ({} new)\n", nLodID, vertexDict.VertexCount(), nNewVertsCreated);
     }
 }
 
@@ -1083,13 +1084,13 @@ static void PrintSourceVerts(s_source_t *pSrc) {
     int nVertexCount = pSrc->m_GlobalVertices.Count();
     for (int i = 0; i < nVertexCount; i++) {
         const s_vertexinfo_t &srcVertex = pSrc->m_GlobalVertices[i];
-        printf("v %d ", i);
-        printf("pos: %f %f %f ", srcVertex.position[0], srcVertex.position[1], srcVertex.position[2]);
-        printf("norm: %f %f %f ", srcVertex.normal[0], srcVertex.normal[1], srcVertex.normal[2]);
-        printf("texcoord: %f %f\n", srcVertex.texcoord[0].x, srcVertex.texcoord[1].y);
+        std::print("v {} ", i);
+        std::print("pos: {:f} {:f} {:f} ", srcVertex.position[0], srcVertex.position[1], srcVertex.position[2]);
+        std::print("norm: {:f} {:f} {:f} ", srcVertex.normal[0], srcVertex.normal[1], srcVertex.normal[2]);
+        std::print("texcoord: {:f} {:f}\n", srcVertex.texcoord[0].x, srcVertex.texcoord[1].y);
         int j;
         for (j = 0; j < srcVertex.boneweight.numbones; j++) {
-            printf("\t%d: %d %f\n", j, (int) srcVertex.boneweight.bone[j],
+            std::print("\t{}: {} {:f}\n", j, (int) srcVertex.boneweight.bone[j],
                    srcVertex.boneweight.weight[j]);
         }
         fflush(stdout);
@@ -1174,12 +1175,12 @@ static void BuildBoneLODMapping(CUtlVector<int> &boneMap, int lodID) {
         } else if (j == -1) {
             // FIXME: is this really an error?  It could just be  replacement command for bone that doesnt' exist anymore.
             if (g_StudioMdlContext.verbose) {
-                MdlWarning("Couldn't replace unknown bone \"%s\" with \"%s\"\n", src, dst);
+                MdlWarning("Couldn't replace unknown bone \"{}\" with \"{}\"\n", src, dst);
             }
         } else {
             // FIXME: is this really an error?  It could just be  replacement command for bone that doesnt' exist anymore.
             if (g_StudioMdlContext.verbose) {
-                MdlWarning("Couldn't replace bone \"%s\" with unknown \"%s\"\n", src, dst);
+                MdlWarning("Couldn't replace bone \"{}\" with unknown \"{}\"\n", src, dst);
             }
         }
     }
@@ -1238,8 +1239,10 @@ static void UnifyModelLODs(s_model_t *pSrcModel) {
     memset(meshes.Base(), 0, meshes.Count() * sizeof(s_mesh_t));
 
     int nMeshID;
-    for (nMeshID = 0; nMeshID < pSrcModel->source->nummeshes; nMeshID++) {
-        s_mesh_t *pVertexDictMesh = &meshes[pSrcModel->source->meshindex[nMeshID]];
+    for (nMeshID = 0; nMeshID < pSrcModel->source->meshes.size(); nMeshID++) {
+        // the LOD data is indexed by material id
+        s_mesh_t *pVertexDictMesh = &meshes[pSrcModel->source->meshes[nMeshID].material];
+        pVertexDictMesh->material = pSrcModel->source->meshes[nMeshID].material;
 
         pVertexDictMesh->numvertices = 0;
         pVertexDictMesh->vertexoffset = vertexDictionary.VertexCount();
@@ -1253,10 +1256,10 @@ static void UnifyModelLODs(s_model_t *pSrcModel) {
         s_source_t *pLOD0Source = pSrcModel->m_LodSources[0];
 
         // lookup the material used by this mesh
-        int nMaterialID = pLOD0Source->meshindex[nMeshID];
+        int nMaterialID = pLOD0Source->meshes[nMeshID].material;
         const char *pName = g_studiomdl.textures[nMaterialID].name;
         if (!g_StudioMdlContext.quiet) {
-            printf("Processing LOD for material: %s\n", pName);
+            std::print("Processing LOD for material: {}\n", pName);
         }
         s_mesh_t *pLOD0Mesh = FindMeshByMaterial(pLOD0Source, nMaterialID);
         if (!pLOD0Mesh)
@@ -1309,7 +1312,7 @@ static void UnifyModelLODs(s_model_t *pSrcModel) {
 // for all of the LODs of the model.
 //-----------------------------------------------------------------------------
 void UnifyLODs() {
-    FunctionTimingRecorder _("Simplify");
+    vstd::FunctionTimingRecorder _("Simplify");
     // todo: need to fixup the firstref/lastref stuff . . do we really need it anymore?
     for (int modelID = 0; modelID < g_studiomdl.nummodelsbeforeLOD; modelID++) {
         UnifyModelLODs(g_studiomdl.model[modelID]);
@@ -1320,7 +1323,7 @@ void UnifyLODs() {
 static void PrintSpaces(int numSpaces) {
     int i;
     for (i = 0; i < numSpaces; i++) {
-        printf(" ");
+        std::print(" ");
     }
 }
 
@@ -1328,29 +1331,29 @@ static void SpewBoneInfo(int globalBoneID, int depth) {
     s_bonetable_t *pBone = &g_studiomdl.bonetable[globalBoneID];
     if (g_StudioMdlContext.printBones) {
         PrintSpaces(depth * 2);
-        printf("%d \"%s\" ", depth, pBone->name.c_str());
+        std::print("{} \"{}\" ", depth, pBone->name);
     }
     int i;
     for (i = 0; i < 8; i++) {
-        if (pBone->flags & (BONE_USED_BY_VERTEX_LOD0 << i)) {
+        if (HasFlag(pBone->flags, BoneUsedByVertexAtLod(i))) {
             if (g_StudioMdlContext.printBones) {
-                printf("lod%d ", i);
+                std::print("lod{} ", i);
             }
             g_NumBonesInLOD[i]++;
         }
     }
 
     if (g_StudioMdlContext.printBones) {
-        if (pBone->flags & BONE_USED_BY_HITBOX)
-            printf("hitbox ");
+        if (HasFlag(pBone->flags, BoneFlags::UsedByHitbox))
+            std::print("hitbox ");
 
-        if (pBone->flags & BONE_USED_BY_ATTACHMENT)
-            printf("attachment ");
+        if (HasFlag(pBone->flags, BoneFlags::UsedByAttachment))
+            std::print("attachment ");
 
-        if (pBone->flags & BONE_USED_BY_BONE_MERGE)
-            printf("merge ");
+        if (HasFlag(pBone->flags, BoneFlags::UsedByBoneMerge))
+            std::print("merge ");
 
-        printf("\n");
+        std::print("\n");
     }
 
     int j;
@@ -1371,7 +1374,7 @@ void SpewBoneUsageStats() {
     if (g_StudioMdlContext.printBones) {
         int i;
         for (i = 0; i < g_studiomdl.ScriptLODs.Count(); i++) {
-            printf("\t%d bones used in lod %d\n", g_NumBonesInLOD[i], i);
+            std::print("\t{} bones used in lod {}\n", g_NumBonesInLOD[i], i);
         }
     }
 }
@@ -1379,8 +1382,7 @@ void SpewBoneUsageStats() {
 void MarkParentBoneLODs() {
     int i;
     for (i = 0; i < g_StudioMdlContext.numbones; i++) {
-        int flags = g_studiomdl.bonetable[i].flags;
-        flags &= BONE_USED_BY_VERTEX_MASK;
+        BoneFlags flags = g_studiomdl.bonetable[i].flags & BoneFlags::UsedByVertexMask;
         int globalBoneID = g_studiomdl.bonetable[i].parent;
         while (globalBoneID != -1) {
             g_studiomdl.bonetable[globalBoneID].flags |= flags;
@@ -1414,7 +1416,7 @@ static void GetLODSources(CUtlVector<s_source_t *> &lods, const s_model_t *pSrcM
 // Creates models to store converted data for the various LODs
 //-----------------------------------------------------------------------------
 void LoadLODSources() {
-    FunctionTimingRecorder _("Simplify");
+    vstd::FunctionTimingRecorder _("Simplify");
     g_studiomdl.nummodelsbeforeLOD = g_studiomdl.nummodels;
     for (int modelID = 0; modelID < g_studiomdl.nummodelsbeforeLOD; modelID++) {
         if (!Q_stricmp(g_studiomdl.model[modelID]->name, "blank")) {
@@ -1456,11 +1458,11 @@ static void ConvertSingleBoneTreeCollapseToReplaceBones(CLodScriptReplacement_t 
         ReplaceBonesRecursive(i, false, boneReplacements, g_studiomdl.bonetable[i].name);
         return;
     }
-    MdlWarning("Couldn't find bone %s for bonetreecollapse, skipping\n", boneTreeCollapse.GetSrcName());
+    MdlWarning("Couldn't find bone {} for bonetreecollapse, skipping\n", boneTreeCollapse.GetSrcName());
 }
 
 void ConvertBoneTreeCollapsesToReplaceBones() {
-    FunctionTimingRecorder _("Simplify");
+    vstd::FunctionTimingRecorder _("Simplify");
     int i;
     for (i = 0; i < g_studiomdl.ScriptLODs.Count(); i++) {
         LodScriptData_t &lod = g_studiomdl.ScriptLODs[i];
@@ -1514,7 +1516,7 @@ void FixupReplacedBonesForLOD(LodScriptData_t &lod) {
 }
 
 void FixupReplacedBones() {
-    FunctionTimingRecorder _("Simplify");
+    vstd::FunctionTimingRecorder _("Simplify");
     int i;
     for (i = 0; i < g_studiomdl.ScriptLODs.Count(); i++) {
         FixupReplacedBonesForLOD(g_studiomdl.ScriptLODs[i]);

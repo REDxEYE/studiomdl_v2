@@ -338,42 +338,10 @@ typedef void * HINSTANCE;
 
 // This implementation of compile time assert has zero cost (so it can safely be
 // included in release builds) and can be used at file scope or function scope.
-#ifdef __GNUC__
-       #define COMPILE_TIME_ASSERT( pred ) typedef int UNIQUE_ID[ (pred) ? 1 : -1 ]
-#else
-       #if _MSC_VER >= 1600
-       // If available use static_assert instead of weird language tricks. This
-       // leads to much more readable messages when compile time assert constraints
-       // are violated.
-       #define COMPILE_TIME_ASSERT( pred ) static_assert( pred, "Compile time assert constraint is not true: " #pred )
-       #else
-       // Due to gcc bugs this can in rare cases (some template functions) cause redeclaration
-       // errors when used multiple times in one scope. Fix by adding extra scoping.
-       #define COMPILE_TIME_ASSERT( pred ) typedef char compile_time_assert_type[(pred) ? 1 : -1];
-       #endif
-#endif
+#define COMPILE_TIME_ASSERT(pred) static_assert(pred, "Compile time assert constraint is not true: " #pred)
 // ASSERT_INVARIANT used to be needed in order to allow COMPILE_TIME_ASSERTs at global
 // scope. However the new COMPILE_TIME_ASSERT macro supports that by default.
 #define ASSERT_INVARIANT( pred )	COMPILE_TIME_ASSERT( pred )
-
-
-// This can be used to declare an abstract (interface only) class.
-// Classes marked abstract should not be instantiated.  If they are, and access violation will occur.
-//
-// Example of use:
-//
-// abstract_class CFoo
-// {
-//      ...
-// }
-//
-// MSDN __declspec(novtable) documentation: http://msdn.microsoft.com/library/default.asp?url=/library/en-us/vclang/html/_langref_novtable.asp
-//
-// Note: NJS: This is not enabled for regular PC, due to not knowing the implications of exporting a class with no no vtable.
-//       It's probable that this shouldn't be an issue, but an experiment should be done to verify this.
-//
-	#define abstract_class class
-
 
 //-----------------------------------------------------------------------------
 // Disable annoying unhelpful warnings
@@ -424,10 +392,10 @@ typedef void * HINSTANCE;
 // Pull in the /analyze code annotations.
 #include "annotations.h"
 
-#ifdef POSIX
-#pragma GCC diagnostic ignored "-Wswitch-enum"				// enumeration values not handled in switch
-#pragma GCC diagnostic ignored "-Wparentheses"				// using the result of an assignment as a condition without parentheses
-#endif
+// #ifdef POSIX
+// #pragma GCC diagnostic ignored "-Wswitch-enum"				// enumeration values not handled in switch
+// #pragma GCC diagnostic ignored "-Wparentheses"				// using the result of an assignment as a condition without parentheses
+// #endif
 
 #ifdef OSX
 #pragma GCC diagnostic ignored "-Wconversion-null"			// passing NULL to non-pointer argument 1

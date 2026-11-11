@@ -13,220 +13,170 @@
 #include "studio.h"
 #include "studiomdl/studiomdl.h"
 
-CHardwareMatrixState::CHardwareMatrixState()
-{
-	m_LRUCounter = 0;
-	m_NumMatrices = 0;
-	m_matrixState = nullptr;
-	m_savedMatrixState = nullptr;
+CHardwareMatrixState::CHardwareMatrixState() {
+    m_LRUCounter = 0;
+    m_NumMatrices = 0;
+    m_savedMatrixState.clear();
 }
 
-void CHardwareMatrixState::Init( int numHardwareMatrices )
-{
-	m_NumMatrices = numHardwareMatrices;
-	delete [] m_matrixState;
-	m_matrixState = new MatrixState_t[m_NumMatrices];
-	Assert( m_matrixState );
-	delete [] m_savedMatrixState;
-	m_savedMatrixState = new MatrixState_t[m_NumMatrices];
-	Assert( m_savedMatrixState );
-	m_LRUCounter = 0;
-	m_AllocatedMatrices = 0;
+void CHardwareMatrixState::Init(const uint32_t numHardwareMatrices) {
+    m_NumMatrices = numHardwareMatrices;
+    m_matrixState.clear();
+    m_matrixState.resize(m_NumMatrices);
+    Assert(!m_matrixState.empty());
+    m_savedMatrixState.clear();
+    m_savedMatrixState.resize(m_NumMatrices);
+    Assert(!m_savedMatrixState.empty());
+    m_LRUCounter = 0;
+    m_AllocatedMatrices = 0;
 
-	int i;
-	for( i = 0; i < m_NumMatrices; i++ )
-	{
-		m_matrixState[i].allocated = false;
-	}
+    for (uint32_t i = 0; i < m_NumMatrices; i++) {
+        m_matrixState[i].allocated = false;
+    }
 }
 
-bool CHardwareMatrixState::AllocateMatrix( int globalMatrixID )
-{
-	int i;
+bool CHardwareMatrixState::AllocateMatrix(uint32_t globalMatrixID) {
+    if (IsMatrixAllocated(globalMatrixID)) {
+        return true;
+    }
 
-	if( IsMatrixAllocated( globalMatrixID ) )
-	{
-		return true;
-	}
-
-	for( i = 0; i < m_NumMatrices; i++ )
-	{
-		if( !m_matrixState[i].allocated )
-		{
-			m_matrixState[i].globalMatrixID = globalMatrixID;
-			m_matrixState[i].allocated = true;
-			m_matrixState[i].lastUsageID = m_LRUCounter++;
-			++m_AllocatedMatrices;
-			DumpState();
-			return true;
-		}
-	}
-	DumpState();
-	return false;
+    for (int i = 0; i < m_NumMatrices; i++) {
+        if (!m_matrixState[i].allocated) {
+            m_matrixState[i].globalMatrixID = globalMatrixID;
+            m_matrixState[i].allocated = true;
+            m_matrixState[i].lastUsageID = m_LRUCounter++;
+            ++m_AllocatedMatrices;
+            DumpState();
+            return true;
+        }
+    }
+    DumpState();
+    return false;
 }
 
-int CHardwareMatrixState::FindLocalLRUIndex( void )
-{
-	int oldestLRUCounter = INT_MAX;
-	int i;
-	int oldestID = 0;
+uint32_t CHardwareMatrixState::FindLocalLRUIndex() {
+    uint32_t oldestLRUCounter = INT_MAX;
+    uint32_t oldestID = 0;
 
-	for( i = 0; i < m_NumMatrices; i++ )
-	{
-		if( !m_matrixState[i].allocated )
-		{
-			continue;
-		}
-		if( m_matrixState[i].lastUsageID < oldestLRUCounter )
-		{
-			oldestLRUCounter = m_matrixState[i].lastUsageID;
-			oldestID = i;
-		}
-	}
+    for (uint32_t i = 0; i < m_NumMatrices; i++) {
+        if (!m_matrixState[i].allocated) {
+            continue;
+        }
+        if (m_matrixState[i].lastUsageID < oldestLRUCounter) {
+            oldestLRUCounter = m_matrixState[i].lastUsageID;
+            oldestID = i;
+        }
+    }
 
-	Assert( oldestLRUCounter != INT_MAX );
-	return oldestID;
+    Assert(oldestLRUCounter != INT_MAX);
+    return oldestID;
 }
 
-void CHardwareMatrixState::DeallocateLRU( void )
-{
-	int id;
-
-	id = FindLocalLRUIndex();
-	m_matrixState[id].allocated = false;
-	--m_AllocatedMatrices;
+void CHardwareMatrixState::DeallocateLRU() {
+    const uint32_t id = FindLocalLRUIndex();
+    m_matrixState[id].allocated = false;
+    --m_AllocatedMatrices;
 }
 
-void CHardwareMatrixState::DeallocateLRU( int n )
-{
-	int i;
-
-	for( i = 0; i < n; i++ )
-	{
-		DeallocateLRU();
-	}
+void CHardwareMatrixState::DeallocateLRU(uint32_t n) {
+    for (uint32_t i = 0; i < n; i++) {
+        DeallocateLRU();
+    }
 }
 
-bool CHardwareMatrixState::IsMatrixAllocated( int globalMatrixID ) const
-{
-	int i;
-
-	for( i = 0; i < m_NumMatrices; i++ )
-	{
-		if( m_matrixState[i].globalMatrixID == globalMatrixID && 
-			m_matrixState[i].allocated )
-		{
-			return true;
-		}
-	}
-	return false;
+bool CHardwareMatrixState::IsMatrixAllocated(const uint32_t globalMatrixID) const {
+    for (uint32_t i = 0; i < m_NumMatrices; i++) {
+        if (m_matrixState[i].globalMatrixID == globalMatrixID &&
+            m_matrixState[i].allocated) {
+            return true;
+        }
+    }
+    return false;
 }
 
-void CHardwareMatrixState::DeallocateAll()
-{
-	int i;
+void CHardwareMatrixState::DeallocateAll() {
+    int i;
 
-	DumpState();
-	for( i = 0; i < m_NumMatrices; i++ )
-	{
-		m_matrixState[i].allocated = false;
-		m_matrixState[i].globalMatrixID = INT_MAX;
-		m_matrixState[i].lastUsageID = INT_MAX;
-	}
-	m_AllocatedMatrices = 0;
-	DumpState();
+    DumpState();
+    for (i = 0; i < m_NumMatrices; i++) {
+        m_matrixState[i].allocated = false;
+        m_matrixState[i].globalMatrixID = INT_MAX;
+        m_matrixState[i].lastUsageID = INT_MAX;
+    }
+    m_AllocatedMatrices = 0;
+    DumpState();
 }
 
-void CHardwareMatrixState::SaveState( void )
-{
-	int i;
+void CHardwareMatrixState::SaveState() {
+    int i;
 
-	for( i = 0; i < m_NumMatrices; i++ )
-	{
-		m_savedMatrixState[i] = m_matrixState[i];
-	}
+    for (i = 0; i < m_NumMatrices; i++) {
+        m_savedMatrixState[i] = m_matrixState[i];
+    }
 }
 
-void CHardwareMatrixState::RestoreState( void )
-{
-	int i;
+void CHardwareMatrixState::RestoreState() {
+    int i;
 
-	for( i = 0; i < m_NumMatrices; i++ )
-	{
-		m_matrixState[i] = m_savedMatrixState[i];
-	}
+    for (i = 0; i < m_NumMatrices; i++) {
+        m_matrixState[i] = m_savedMatrixState[i];
+    }
 }
 
-int CHardwareMatrixState::AllocatedMatrixCount() const
-{
-	return m_AllocatedMatrices;
+uint32_t CHardwareMatrixState::AllocatedMatrixCount() const {
+    return m_AllocatedMatrices;
 }
 
-int CHardwareMatrixState::FreeMatrixCount() const
-{
-	return m_NumMatrices - m_AllocatedMatrices;
+uint32_t CHardwareMatrixState::FreeMatrixCount() const {
+    return m_NumMatrices - m_AllocatedMatrices;
 }
 
-int CHardwareMatrixState::GetNthBoneGlobalID( int n ) const
-{
-	int i;
-	int m = 0;
+uint32_t CHardwareMatrixState::GetNthBoneGlobalID(uint32_t n) const {
+    int m = 0;
 
-	for( i = 0; i < m_NumMatrices; i++ )
-	{
-		if( m_matrixState[i].allocated )
-		{
-			if( n == m )
-			{
-				return m_matrixState[i].globalMatrixID;
-			}
-			m++;
-		}
-	}
-	Assert( 0 );
-	MdlError( "GetNthBoneGlobalID() Failure\n" );
-	return 0;
+    for (int i = 0; i < m_NumMatrices; i++) {
+        if (m_matrixState[i].allocated) {
+            if (n == m) {
+                return m_matrixState[i].globalMatrixID;
+            }
+            m++;
+        }
+    }
+    Assert(0);
+    MdlError("GetNthBoneGlobalID() Failure\n");
+    return 0;
 }
 
-void CHardwareMatrixState::DumpState( void )
-{
-	int i;
-	static char buf[256];
+void CHardwareMatrixState::DumpState() {
+    int i;
+    static char buf[256];
 
-//#ifndef _DEBUG
-	return;
-//#endif
-	
-	OutputDebugString( "DumpState\n:" );
-	for( i = 0; i < m_NumMatrices; i++ )
-	{
-		if( m_matrixState[i].allocated )
-		{
-			sprintf( buf, "%d: allocated: %s lastUsageID: %d globalMatrixID: %d\n",
-				i, 
-				m_matrixState[i].allocated ? "true " : "false",
-				m_matrixState[i].lastUsageID,
-				m_matrixState[i].globalMatrixID );
-			OutputDebugString( buf );
-		}
-	}
+    //#ifndef _DEBUG
+    return;
+    //#endif
+
+    OutputDebugString("DumpState\n:");
+    for (i = 0; i < m_NumMatrices; i++) {
+        if (m_matrixState[i].allocated) {
+            sprintf(buf, "%d: allocated: %s lastUsageID: %d globalMatrixID: %d\n",
+                    i,
+                    m_matrixState[i].allocated ? "true " : "false",
+                    m_matrixState[i].lastUsageID,
+                    m_matrixState[i].globalMatrixID);
+            OutputDebugString(buf);
+        }
+    }
 }
 
-int CHardwareMatrixState::FindHardwareMatrix( int globalMatrixID )
-{
-	int i;
+uint32_t CHardwareMatrixState::FindHardwareMatrix(const uint32_t globalMatrixID) const {
+    for (int i = 0; i < m_NumMatrices; i++) {
+        if (m_matrixState[i].globalMatrixID == globalMatrixID) {
+            return i;
+        }
+    }
 
-	for( i = 0; i < m_NumMatrices; i++ )
-	{
-		if( m_matrixState[i].globalMatrixID == globalMatrixID )
-		{
-			return i;
-		}
-	}
+    Assert(0);
+    MdlError("barfing in FindHardwareMatrix\n");
 
-	Assert( 0 );
-	MdlError( "barfing in FindHardwareMatrix\n" );
-
-	return 0;
+    return 0;
 }
-

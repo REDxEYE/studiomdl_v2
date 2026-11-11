@@ -5,9 +5,6 @@
 //=============================================================================
 
 #pragma once
-#ifdef _WIN32
-#pragma once
-#endif
 
 #include <math.h>
 #include "datamodel/dmelement.h"
@@ -206,7 +203,7 @@ struct DmeLogTransformParams_t
 //-----------------------------------------------------------------------------
 // CDmeLogLayer - abstract base class
 //-----------------------------------------------------------------------------
-abstract_class CDmeLogLayer : public CDmElement
+class CDmeLogLayer : public CDmElement
 {
 	friend class CDmeLog;
 
@@ -329,7 +326,7 @@ CDmeLogLayer *CreateLayer( CDmeTypedLog< T > *ownerLog );
 //-----------------------------------------------------------------------------
 // CDmeLogLayer - abstract base class
 //-----------------------------------------------------------------------------
-abstract_class CDmeCurveInfo : public CDmElement
+class CDmeCurveInfo : public CDmElement
 {
 	DEFINE_ELEMENT( CDmeCurveInfo, CDmElement );
 
@@ -355,7 +352,7 @@ template <class T > class CDmeTypedLogLayer;
 //-----------------------------------------------------------------------------
 // CDmeLog - abstract base class
 //-----------------------------------------------------------------------------
-abstract_class CDmeLog : public CDmElement
+class CDmeLog : public CDmElement
 {
 	DEFINE_ELEMENT( CDmeLog, CDmElement );
 

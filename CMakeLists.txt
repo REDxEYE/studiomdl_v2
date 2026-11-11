@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.22)
 project(studiomdl_v2)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)  # for clang-tidy / clangd
 if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
 
@@ -100,6 +100,8 @@ add_executable(studiomdl_v2
         studiomdl/studiomdl_app.h
         include/studiomdl/studiomdl_global_state.hpp
         studiomdl/mppsupport.cpp
+        studiomdl/output_files.cpp
+        include/studiomdl/output_files.hpp
         # pulls every mdlobjects element factory out of the static library (.mpp elements are created by type name)
         include/mdlobjects/mdlobjects.cpp
 )
@@ -129,6 +131,10 @@ target_link_libraries(studiomdl_v2 PRIVATE
 if (WIN32)
     # shell32: CommandLineToArgvW for the UTF-8 command line
     target_link_libraries(studiomdl_v2 PRIVATE shlwapi shell32)
+endif ()
+if (MINGW)
+    # libstdc++ keeps the Windows console part of std::print (__open_terminal, __write_to_terminal) in libstdc++exp
+    target_link_libraries(studiomdl_v2 PRIVATE stdc++exp)
 endif ()
 
 add_executable(dmxconvert

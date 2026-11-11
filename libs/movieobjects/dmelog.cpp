@@ -6449,7 +6449,7 @@ void InterleaveSampleTimes(CUtlVector<DmeTime_t> &times, int nFirstTime, DmeTime
     DmeTime_t sampleTime = startTime + resampleInterval;
     int nNumSampleTimes = ((endTime - sampleTime).GetTenthsOfMS() / resampleInterval.GetTenthsOfMS());
 
-    CUtlVector<DmeTime_t> combineTimes(0, times.Count() + nNumSampleTimes + 2);
+    CUtlVector<DmeTime_t> combineTimes(0u, times.Count() + nNumSampleTimes + 2);
     combineTimes.AddMultipleToTail(nFirstTime, times.Base());
 
     int nBlendTimeIndex = nFirstTime;
@@ -6503,8 +6503,8 @@ void CDmeTypedLog<T>::BlendLayersUsingTimeSelection(const DmeLog_TimeSelection_t
     int nTargetKeyCount = pTargetLayer->GetKeyCount();
     int nMaxSamples = nBaseKeyCount + nTargetKeyCount;
 
-    CUtlVector<DmeTime_t> times(0, nMaxSamples);
-    CUtlVector<T> values(0, nMaxSamples);
+    CUtlVector<DmeTime_t> times(0u, nMaxSamples);
+    CUtlVector<T> values(0u, nMaxSamples);
 
     int nBaseKeyIndex = 0;
     DmeTime_t currentTime = DMETIME_MINTIME;

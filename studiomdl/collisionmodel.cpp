@@ -40,6 +40,7 @@
 #include "datamodel/dmattributevar.h"
 #include "datamodel/dmelement.h"
 #include "mdlobjects/dmecollisionjoints.h"
+#include "tier1_v2/function_timing.hpp"
 #include "studiomdl/studiomdl_global_state.hpp"
 #include "tier1_v2/path_utils.hpp"
 
@@ -248,7 +249,7 @@ public:
 
     int CopyFaceVertsByBone(Vector **verts, Vector *worldVerts, int boneIndex);
 
-    void AddConvexSrc(const char *szFileName);
+    void AddConvexSrc(ScriptTokenizer &qc, const char *szFileName);
 
     void AddText(const char *pText) {
         int len = strlen(pText);
@@ -455,7 +456,7 @@ void CJointedModel::SortCollisionList(void) {
     delete[] pArray;
 }
 
-void CJointedModel::AddConvexSrc(const char *szFileName) {
+void CJointedModel::AddConvexSrc(ScriptTokenizer &qc, const char *szFileName) {
     s_source_t *pmodel;
 
     for (int i = 0; i < MAX_EXTRA_COLLISION_MODELS; i++) {
@@ -498,17 +499,17 @@ void CJointedModel::AddConvexSrc(const char *szFileName) {
             m_ExtraModels[i].m_pSrc = pmodel;
             m_ExtraModels[i].m_matOffset.SetToIdentity();
 
-            if (TokenAvailable()) {
-                GetToken(false);
+            if (qc.TokenAvailable()) {
+                qc.ExpectToken();
 
-                if (!V_strncmp(token, "offset", 6)) {
+                if (!V_strncmp(qc.token, "offset", 6)) {
                     Vector vecOffsetPosition;
                     vecOffsetPosition.Init();
                     QAngle angOffsetAngle;
                     angOffsetAngle.Init();
                     float flScale = 1;
 
-                    int nCount = sscanf(token, "offset pos[ %f %f %f ] angle[ %f %f %f ] scale[ %f ]",
+                    int nCount = sscanf(qc.token, "offset pos[ %f %f %f ] angle[ %f %f %f ] scale[ %f ]",
                                         &vecOffsetPosition.x, &vecOffsetPosition.y, &vecOffsetPosition.z,
                                         &angOffsetAngle.x, &angOffsetAngle.y, &angOffsetAngle.z,
                                         &flScale);
@@ -532,22 +533,22 @@ void CJointedModel::AddConvexSrc(const char *szFileName) {
                         MatrixCopy(matLocal, m_ExtraModels[i].m_matOffset);
                     }
                     else {
-                        MdlError("Malformed offset parameters to $addconvexsrc.");
+                        qc.Error("Malformed offset parameters to $addconvexsrc.");
                         return;
                     }
                 }
                 else {
-                    UnGetToken();
+                    qc.UnGetToken();
                 }
             }
 
-            if (TokenAvailable()) {
-                GetToken(false);
-                if (!V_strncmp(token, "concave", 7)) {
+            if (qc.TokenAvailable()) {
+                qc.ExpectToken();
+                if (!V_strncmp(qc.token, "concave", 7)) {
                     m_ExtraModels[i].m_bConcave = true;
                 }
                 else {
-                    UnGetToken();
+                    qc.UnGetToken();
                 }
             }
 
@@ -555,7 +556,7 @@ void CJointedModel::AddConvexSrc(const char *szFileName) {
         }
     }
 
-    MdlWarning("Cannot add more than %i extra collision models. Ignoring $addconvexsrc \"%s\".\n",
+    MdlWarning("Cannot add more than {} extra collision models. Ignoring $addconvexsrc \"{}\".\n",
                MAX_EXTRA_COLLISION_MODELS, szFileName);
 }
 
@@ -712,7 +713,7 @@ void CJointedModel::ComputeMass(void) {
         pList = pList->m_pNext;
     }
 
-    LOG_QUIET("Computed Mass: %.2f kg\n", m_totalMass);
+    MdlMessage("Computed Mass: {:.2f} kg\n", m_totalMass);
 }
 
 //-----------------------------------------------------------------------------
@@ -722,7 +723,7 @@ void CJointedModel::ComputeMass(void) {
 // Output : static CPhysCollisionModel
 //-----------------------------------------------------------------------------
 CPhysCollisionModel *CJointedModel::InitCollisionModel(const char *pJointName) {
-    FunctionTimingRecorder _("Phys");
+    vstd::FunctionTimingRecorder _("Phys");
     CPhysCollisionModel *pModel = GetCollisionModel(pJointName);
     if (!pModel) {
         int boneIndex = BoneIndex(pJointName);
@@ -832,8 +833,8 @@ int CJointedModel::CopyFaceVertsByBone(Vector **verts, Vector *worldVerts, int b
         vertChecked[b] = 0;
     }
 
-    for (int i = 0; i < m_pModel->nummeshes; i++) {
-        s_mesh_t *pmesh = m_pModel->mesh + m_pModel->meshindex[i];
+    for (int i = 0; i < m_pModel->meshes.size(); i++) {
+        s_mesh_t *pmesh = &m_pModel->meshes[i];
         for (int j = 0; j < pmesh->numfaces; j++) {
             s_face_t *face = m_pModel->face + pmesh->faceoffset + j;
             s_face_t globalFace;
@@ -919,8 +920,8 @@ void MarkConnectedMeshes(int *vertID, s_source_t *pmodel, int *vertMap) {
         marked = 0;
         faceid = 0;
 
-        for (i = 0; i < pmodel->nummeshes; i++) {
-            s_mesh_t *pmesh = pmodel->mesh + pmodel->meshindex[i];
+        for (i = 0; i < pmodel->meshes.size(); i++) {
+            s_mesh_t *pmesh = &pmodel->meshes[i];
             for (int j = 0; j < pmesh->numfaces; j++) {
                 s_face_t *face = pmodel->face + pmesh->faceoffset + j;
                 s_face_t globalFace;
@@ -983,7 +984,7 @@ void CJointedModel::FixBoneList() {
     while (pmodel) {
         int nodeIndex = FindLocalBoneNamed(pmodel->m_name);
         if (nodeIndex < 0) {
-            MdlWarning("Physics for unknown bone %s\n", pmodel->m_name);
+            MdlWarning("Physics for unknown bone {}\n", pmodel->m_name);
         }
         else {
             int count = 0;
@@ -1013,7 +1014,7 @@ void CJointedModel::FixBoneList() {
                 }
             }
             else {
-                MdlWarning("Physics for unknown bone %s\n", pmodel->m_name);
+                MdlWarning("Physics for unknown bone {}\n", pmodel->m_name);
             }
         }
 
@@ -1126,7 +1127,7 @@ void CreateCollide(CPhysCollisionModel *pBase, StudioConvex_t **pElements, int e
 // is this list of verts contained in a slab of epsilon width?  If so, it's probably
 // an error of some kind - we shouldn't be authoring flat or 2d collision models
 bool IsApproximatelyPlanar(Vector **verts, int vertCount, float epsilon) {
-    FunctionTimingRecorder _("Phys");
+    vstd::FunctionTimingRecorder _("Phys");
     if (vertCount < 4)
         return true;
 
@@ -1202,7 +1203,7 @@ void BuildConvexListByVertID(s_source_t *pmodel, CUtlVector<convexlist_t> &conve
 // build a list of vertex indices for each connected sub-piece
 void BuildSingleConvexForFaceList(s_source_t *pmodel, CUtlVector<convexlist_t> &convexList, CUtlVector<int> &vertList,
                                   const CUtlVector<s_face_t> &faceList) {
-    FunctionTimingRecorder _("Phys");
+    vstd::FunctionTimingRecorder _("Phys");
     CUtlVector<int> vertID;
     vertID.SetCount(pmodel->numvertices);
     int i;
@@ -1221,7 +1222,7 @@ void BuildSingleConvexForFaceList(s_source_t *pmodel, CUtlVector<convexlist_t> &
 
 void BuildConvexListForFaceList(s_source_t *pmodel, CUtlVector<convexlist_t> &convexList, CUtlVector<int> &vertList,
                                 const CUtlVector<s_face_t> &faceList) {
-    FunctionTimingRecorder _("Phys");
+    vstd::FunctionTimingRecorder _("Phys");
     CUtlVector<int> weldTable;
     weldTable.SetCount(pmodel->numvertices);
     BuildVertWeldTable(weldTable.Base(), pmodel);
@@ -1291,7 +1292,7 @@ void BuildConvexListForFaceList(s_source_t *pmodel, CUtlVector<convexlist_t> &co
 // return true if there are no errors detected
 bool BuildConvexesForLists(CUtlVector<StudioConvex_t *> &convexOut, const CUtlVector<convexlist_t> &convexList,
                            const CUtlVector<int> &vertList, const CUtlVector<Vector> &worldspaceVerts, bool bRemove2d) {
-    FunctionTimingRecorder _("Phys");
+    vstd::FunctionTimingRecorder _("Phys");
     bool bValid = true;
     CUtlVector<Vector *> vertsThisConvex;
     for (int i = 0; i < convexList.Count(); i++) {
@@ -1311,7 +1312,7 @@ bool BuildConvexesForLists(CUtlVector<StudioConvex_t *> &convexOut, const CUtlVe
             if (IsApproximatelyPlanar(vertsThisConvex.Base(), vertsThisConvex.Count(), g_epsilon_2d)) {
                 if (bRemove2d)
                     continue;
-                MdlWarning("Model has 2-dimensional geometry (less than %.3f inches thick on any axis)!!!\n",
+                MdlWarning("Model has 2-dimensional geometry (less than {:.3f} inches thick on any axis)!!!\n",
                            g_epsilon_2d);
                 bValid = false;
             }
@@ -1333,8 +1334,8 @@ bool BuildConvexesForLists(CUtlVector<StudioConvex_t *> &convexOut, const CUtlVe
 // Output : int
 //-----------------------------------------------------------------------------
 int CJointedModel::ProcessJointedModel() {
-    FunctionTimingRecorder _("Phys");
-    LOG_QUIET("Processing jointed collision model\n");
+    vstd::FunctionTimingRecorder _("Phys");
+    MdlMessage("Processing jointed collision model\n");
 
     // loop through each bone and form a collision model
     for (int boneIndex = 0; boneIndex < m_pModel->numbones; boneIndex++) {
@@ -1350,8 +1351,8 @@ int CJointedModel::ProcessJointedModel() {
         CUtlVector<StudioConvex_t *> convexOut;
         bool bValid = false;
 
-        for (int i = 0; i < m_pModel->nummeshes; i++) {
-            s_mesh_t *pmesh = m_pModel->mesh + m_pModel->meshindex[i];
+        for (int i = 0; i < m_pModel->meshes.size(); i++) {
+            s_mesh_t *pmesh = &m_pModel->meshes[i];
             for (int j = 0; j < pmesh->numfaces; j++) {
                 s_face_t *face = m_pModel->face + pmesh->faceoffset + j;
                 s_face_t globalFace;
@@ -1372,12 +1373,12 @@ int CJointedModel::ProcessJointedModel() {
         }
 
         if (convexOut.Count() > m_maxConvex) {
-            MdlWarning("COSTLY COLLISION MODEL!!!! (%d parts - %d allowed)\n", convexOut.Count(), m_maxConvex);
+            MdlWarning("COSTLY COLLISION MODEL!!!! ({} parts - {} allowed)\n", convexOut.Count(), m_maxConvex);
             bValid = false;
         }
 
         if (!bValid && convexOut.Count()) {
-            MdlWarning("Error with convex elements of %s, building single convex!!!!\n", m_pModel->filename.c_str());
+            MdlWarning("Error with convex elements of {}, building single convex!!!!\n", m_pModel->filename);
             for (int i = 0; i < convexOut.Count(); i++) {
                 g_StudioCollision.ConvexFree(convexOut[i]);
             }
@@ -1415,7 +1416,7 @@ int CJointedModel::ProcessJointedModel() {
             }
 
             CreateCollide(pPhys, convexOut.Base(), convexOut.Count(), bv);
-            LOG_QUIET("%-24s (%3d verts, %d convex elements) volume: %4.2f\n", pPhys->m_name, vertCount,
+            MdlMessage("{:<24} ({:3} verts, {} convex elements) volume: {:4.2f}\n", pPhys->m_name, vertCount,
                       convexOut.Count(), pPhys->m_volume);
             UnlinkCollisionModel(pPhys);
             AppendCollisionModel(pPhys);
@@ -1447,19 +1448,19 @@ void DumpToGLView(char const *pName, s_source_t *pmodel, Vector *worldVerts, int
     FILE *fp = fopen(pName, "w");
 
     // dump the model to a glview file
-    for (i = 0; i < pmodel->nummeshes; i++) {
-        s_mesh_t *pmesh = pmodel->mesh + pmodel->meshindex[i];
+    for (i = 0; i < pmodel->meshes.size(); i++) {
+        s_mesh_t *pmesh = &pmodel->meshes[i];
         for (int j = 0; j < pmesh->numfaces; j++) {
             s_face_t *face = pmodel->face + pmesh->faceoffset + j;
             s_face_t globalFace;
             GlobalFace(&globalFace, pmesh, face);
 
-            fprintf(fp, "3\n");
-            fprintf(fp, "%6.3f %6.3f %6.3f 0 1 0\n", worldVerts[globalFace.b].x, worldVerts[globalFace.b].y,
+            std::print(fp, "3\n");
+            std::print(fp, "{:6.3f} {:6.3f} {:6.3f} 0 1 0\n", worldVerts[globalFace.b].x, worldVerts[globalFace.b].y,
                     worldVerts[globalFace.b].z);
-            fprintf(fp, "%6.3f %6.3f %6.3f 1 0 0\n", worldVerts[globalFace.a].x, worldVerts[globalFace.a].y,
+            std::print(fp, "{:6.3f} {:6.3f} {:6.3f} 1 0 0\n", worldVerts[globalFace.a].x, worldVerts[globalFace.a].y,
                     worldVerts[globalFace.a].z);
-            fprintf(fp, "%6.3f %6.3f %6.3f 0 0 1\n", worldVerts[globalFace.c].x, worldVerts[globalFace.c].y,
+            std::print(fp, "{:6.3f} {:6.3f} {:6.3f} 0 0 1\n", worldVerts[globalFace.c].x, worldVerts[globalFace.c].y,
                     worldVerts[globalFace.c].z);
             used[globalFace.a] = 0;
             used[globalFace.b] = 0;
@@ -1472,14 +1473,14 @@ void DumpToGLView(char const *pName, s_source_t *pmodel, Vector *worldVerts, int
         if (used[i] < 0)
             continue;
 
-        fprintf(fp, "3\n");
+        std::print(fp, "3\n");
         Vector vert;
         vert = worldVerts[i] + Vector(0, 0, 5);
-        fprintf(fp, "%6.3f %6.3f %6.3f 1 0 0\n", vert.x, vert.y, vert.z);
+        std::print(fp, "{:6.3f} {:6.3f} {:6.3f} 1 0 0\n", vert.x, vert.y, vert.z);
         vert = worldVerts[i] + Vector(5, 0, -5);
-        fprintf(fp, "%6.3f %6.3f %6.3f 0 1 0\n", vert.x, vert.y, vert.z);
+        std::print(fp, "{:6.3f} {:6.3f} {:6.3f} 0 1 0\n", vert.x, vert.y, vert.z);
         vert = worldVerts[i] + Vector(-5, 0, -5);
-        fprintf(fp, "%6.3f %6.3f %6.3f 0 0 1\n", vert.x, vert.y, vert.z);
+        std::print(fp, "{:6.3f} {:6.3f} {:6.3f} 0 0 1\n", vert.x, vert.y, vert.z);
     }
 
     fclose(fp);
@@ -1565,8 +1566,8 @@ int CJointedModel::ProcessSingleBody() {
         CUtlVector<s_face_t> faceList;
         CUtlVector<int> vertList;
 
-        for (int i = 0; i < pConcaveSrc->nummeshes; i++) {
-            s_mesh_t *pmesh = pConcaveSrc->mesh + pConcaveSrc->meshindex[i];
+        for (int i = 0; i < pConcaveSrc->meshes.size(); i++) {
+            s_mesh_t *pmesh = &pConcaveSrc->meshes[i];
             for (int j = 0; j < pmesh->numfaces; j++) {
                 s_face_t *face = pConcaveSrc->face + pmesh->faceoffset + j;
                 s_face_t globalFace;
@@ -1616,7 +1617,7 @@ int CJointedModel::ProcessSingleBody() {
                 convexOut.AddToTail(pConvex);
             }
             else {
-                MdlWarning("Error with convex elements of %s!\n", pmodel->filename.c_str());
+                MdlWarning("Error with convex elements of {}!\n", pmodel->filename);
                 bValid = false;
             }
         }
@@ -1624,11 +1625,11 @@ int CJointedModel::ProcessSingleBody() {
 
     if (convexOut.Count() > m_maxConvex) {
         if (g_ConvexHullCountOverride) {
-            MdlWarning("Allowing costly collision model. Please be careful. (%d parts - %d normally allowed)\n",
+            MdlWarning("Allowing costly collision model. Please be careful. ({} parts - {} normally allowed)\n",
                        convexOut.Count(), m_maxConvex);
         }
         else {
-            MdlWarning("COSTLY COLLISION MODEL!!!! (%d parts - %d allowed)\n", convexOut.Count(), m_maxConvex);
+            MdlWarning("COSTLY COLLISION MODEL!!!! ({} parts - {} allowed)\n", convexOut.Count(), m_maxConvex);
             bValid = false;
         }
     }
@@ -1665,7 +1666,7 @@ int CJointedModel::ProcessSingleBody() {
     }
 
     if (convexOut.Count()) {
-        LOG_QUIET("Model has %d convex sub-parts\n", convexOut.Count());
+        MdlMessage("Model has {} convex sub-parts\n", convexOut.Count());
 
         CPhysCollisionModel *pPhys = new CPhysCollisionModel;
         SetCollisionModelDefaults(pPhys);
@@ -1704,12 +1705,12 @@ int CJointedModel::ProcessSingleBody() {
 //			maxCount - array size of pargs
 // Output : int - count actually used
 //-----------------------------------------------------------------------------
-int ReadArgs(char pArgs[][ARG_SIZE], int maxCount) {
+int ReadArgs(ScriptTokenizer &qc, char pArgs[][ARG_SIZE], int maxCount) {
     int argCount = 0;
 
-    while (argCount < maxCount && TokenAvailable()) {
-        GetToken(false);
-        strncpy(pArgs[argCount], token, ARG_SIZE);
+    while (argCount < maxCount && qc.TokenAvailable()) {
+        qc.ExpectToken();
+        strncpy(pArgs[argCount], qc.token, ARG_SIZE);
         argCount++;
     }
 
@@ -1760,7 +1761,7 @@ void CCmd_JointConstrain(CJointedModel &joints, const char *pJointName, const ch
     int axis = -1;
     int jointIndex = joints.FindLocalBoneNamed(pJointName);
     if (!g_StudioMdlContext.createMakefile && jointIndex < 0) {
-        MdlWarning("Can't find joint %s\n", pJointName);
+        MdlWarning("Can't find joint {}\n", pJointName);
         return;
     }
     pJointName = joints.m_pModel->localBone[jointIndex].name;
@@ -1769,7 +1770,7 @@ void CCmd_JointConstrain(CJointedModel &joints, const char *pJointName, const ch
         axis = tolower(pJointAxis[0]) - 'x';
     }
     if (axis < 0 || axis > 2 || limitMin > limitMax) {
-        MdlError("Invalid joint constraint for %s\nCan't build ragdoll!\n", pJointName);
+        MdlError("Invalid joint constraint for {}\nCan't build ragdoll!\n", pJointName);
         return;
     }
 
@@ -1784,7 +1785,7 @@ void CCmd_JointConstrain(CJointedModel &joints, const char *pJointName, const ch
         jointType = JOINT_LIMIT;
     }
     else {
-        MdlWarning("Unknown joint type %s (must be free, fixed, or limit)\n", pJointType);
+        MdlWarning("Unknown joint type {} (must be free, fixed, or limit)\n", pJointType);
         return;
     }
     joints.AddConstraint(pJointName, axis, jointType, limitMin, limitMax, friction);
@@ -1808,7 +1809,7 @@ void CCmd_JointConstrain(CJointedModel &joints, int nAxis, const char *pJointNam
 
     const int jointIndex = FindLocalBoneNamed(joints.m_pModel, pJointName);
     if (!g_StudioMdlContext.createMakefile && jointIndex < 0) {
-        MdlWarning("Can't find joint %s\n", pJointConstrain->GetName());
+        MdlWarning("Can't find joint {}\n", pJointConstrain->GetName());
         return;
     }
     pJointName = joints.m_pModel->localBone[jointIndex].name;
@@ -1818,13 +1819,13 @@ void CCmd_JointConstrain(CJointedModel &joints, int nAxis, const char *pJointNam
     const float friction = pJointConstrain->m_flFriction.Get();
 
     if (nAxis < 0 || nAxis > 2 || limitMin > limitMax) {
-        MdlError("Invalid joint constraint for %s\nCan't build ragdoll!\n", pJointName);
+        MdlError("Invalid joint constraint for {}\nCan't build ragdoll!\n", pJointName);
         return;
     }
 
     const int nJointType = pJointConstrain->m_nType.Get();
     if (nJointType < 0 || nJointType > 2) {
-        MdlWarning("Invalid joint constraint for %s, Unknown joint type %d (must be 0:free, 1:fixed, or 2:limit)\n",
+        MdlWarning("Invalid joint constraint for {}, Unknown joint type {} (must be 0:free, 1:fixed, or 2:limit)\n",
                    pJointName, nJointType);
         return;
     }
@@ -1845,7 +1846,7 @@ void CCmd_JointConstrain(CJointedModel &joints, int nAxis, const char *pJointNam
 void CCmd_JointSkip(CJointedModel &joints, const char *pName) {
     int boneIndex = joints.FindLocalBoneNamed(pName);
     if (boneIndex < 0) {
-        MdlWarning("Can't skip joint %s, not found\n", pName);
+        MdlWarning("Can't skip joint {}, not found\n", pName);
     }
     else {
         //			printf("skipping joint %s\n", pName );
@@ -1912,7 +1913,7 @@ void CCmd_JoinAnimatedFriction(CJointedModel &joints, CDmeJointAnimatedFriction 
 // Purpose: Parses all legal commands inside the $collisionjoints {} block
 // Input  : &joints -
 //-----------------------------------------------------------------------------
-void ParseCollisionCommands(CJointedModel &joints) {
+void ParseCollisionCommands(ScriptTokenizer &qc, CJointedModel &joints) {
     char command[512];
 
     char args[MAX_ARGS][ARG_SIZE];
@@ -1920,14 +1921,14 @@ void ParseCollisionCommands(CJointedModel &joints) {
 
     g_ConvexHullCountOverride = false;
 
-    while (GetToken(true)) {
-        if (!strcmp(token, "}"))
+    while (qc.GetToken(true)) {
+        if (!strcmp(qc.token, "}"))
             return;
 
-        strcpy(command, token);
+        strcpy(command, qc.token);
 
         if (!stricmp(command, "$mass")) {
-            argCount = ReadArgs(args, 1);
+            argCount = ReadArgs(qc, args, 1);
             CCmd_TotalMass(joints, args[0]);
         }
         // default properties
@@ -1935,28 +1936,28 @@ void ParseCollisionCommands(CJointedModel &joints) {
             joints.SetAutoMass();
         }
         else if (!stricmp(command, "$inertia")) {
-            argCount = ReadArgs(args, 1);
+            argCount = ReadArgs(qc, args, 1);
             joints.DefaultInertia(Safe_atof(args[0]));
         }
         else if (!stricmp(command, "$damping")) {
-            argCount = ReadArgs(args, 1);
+            argCount = ReadArgs(qc, args, 1);
             joints.DefaultDamping(Safe_atof(args[0]));
         }
         else if (!stricmp(command, "$rotdamping")) {
-            argCount = ReadArgs(args, 1);
+            argCount = ReadArgs(qc, args, 1);
             joints.DefaultRotdamping(Safe_atof(args[0]));
         }
         else if (!stricmp(command, "$drag")) {
-            argCount = ReadArgs(args, 1);
+            argCount = ReadArgs(qc, args, 1);
             joints.DefaultDrag(Safe_atof(args[0]));
         }
         else if (!stricmp(command, "$rollingDrag")) {
-            argCount = ReadArgs(args, 1);
+            argCount = ReadArgs(qc, args, 1);
             // JAY: Removed this in favor of heuristic/tuning approach
             //joints.DefaultRollingDrag( Safe_atof( args[0] ) );
         }
         else if (!stricmp(command, "$maxconvexpieces")) {
-            argCount = ReadArgs(args, 1);
+            argCount = ReadArgs(qc, args, 1);
             joints.SetMaxConvex(Safe_atoi(args[0]));
         }
         else if (!stricmp(command, "$remove2d")) {
@@ -1966,41 +1967,41 @@ void ParseCollisionCommands(CJointedModel &joints) {
             joints.AllowConcaveJoints();
         }
         else if (!stricmp(command, "$weldposition")) {
-            argCount = ReadArgs(args, 1);
+            argCount = ReadArgs(qc, args, 1);
             g_WeldVertEpsilon = Safe_atof(args[0]);
         }
         else if (!stricmp(command, "$weldnormal")) {
-            argCount = ReadArgs(args, 1);
+            argCount = ReadArgs(qc, args, 1);
             g_WeldNormalEpsilon = Safe_atof(args[0]);
         }
         else if (!stricmp(command, "$concave")) {
             joints.AllowConcave();
         }
         else if (!stricmp(command, "$convexhullcountoverride")) {
-            argCount = ReadArgs(args, 1);
+            argCount = ReadArgs(qc, args, 1);
             g_ConvexHullCountOverride = true;
         }
         else if (!stricmp(command, "$masscenter")) {
-            argCount = ReadArgs(args, 3);
+            argCount = ReadArgs(qc, args, 3);
             Vector center;
             center.Init(Safe_atof(args[0]), Safe_atof(args[1]), Safe_atof(args[2]));
             joints.ForceMassCenter(center);
         }
         // joint commands
         else if (!stricmp(command, "$jointskip")) {
-            argCount = ReadArgs(args, 1);
+            argCount = ReadArgs(qc, args, 1);
             CCmd_JointSkip(joints, args[0]);
         }
         else if (!stricmp(command, "$jointmerge")) {
-            argCount = ReadArgs(args, 2);
+            argCount = ReadArgs(qc, args, 2);
             CCmd_JointMerge(joints, args[0], args[1]);
         }
         else if (!stricmp(command, "$rootbone")) {
-            argCount = ReadArgs(args, 1);
+            argCount = ReadArgs(qc, args, 1);
             CCmd_JointRoot(joints, args[0]);
         }
         else if (!stricmp(command, "$jointconstrain")) {
-            argCount = ReadArgs(args, 6);
+            argCount = ReadArgs(qc, args, 6);
             char *pFriction = args[5];
             if (argCount < 6) {
                 pFriction = "1.0";
@@ -2009,30 +2010,30 @@ void ParseCollisionCommands(CJointedModel &joints) {
         }
         // joint properties
         else if (!stricmp(command, "$jointinertia")) {
-            argCount = ReadArgs(args, 2);
+            argCount = ReadArgs(qc, args, 2);
             joints.JointInertia(args[0], Safe_atof(args[1]));
         }
         else if (!stricmp(command, "$jointdamping")) {
-            argCount = ReadArgs(args, 2);
+            argCount = ReadArgs(qc, args, 2);
             joints.JointDamping(args[0], Safe_atof(args[1]));
         }
         else if (!stricmp(command, "$jointrotdamping")) {
-            argCount = ReadArgs(args, 2);
+            argCount = ReadArgs(qc, args, 2);
             joints.JointRotdamping(args[0], Safe_atof(args[1]));
         }
         else if (!stricmp(command, "$jointmassbias")) {
-            argCount = ReadArgs(args, 2);
+            argCount = ReadArgs(qc, args, 2);
             joints.JointMassBias(args[0], Safe_atof(args[1]));
         }
         else if (!stricmp(command, "$noselfcollisions")) {
             joints.SetNoSelfCollisions();
         }
         else if (!stricmp(command, "$jointcollide")) {
-            argCount = ReadArgs(args, 2);
+            argCount = ReadArgs(qc, args, 2);
             joints.AppendCollisionPair(args[0], args[1]);
         }
         else if (!stricmp(command, "$animatedfriction")) {
-            argCount = ReadArgs(args, 5);
+            argCount = ReadArgs(qc, args, 5);
 
             if (argCount == 5) {
                 CCmd_JoinAnimatedFriction(joints, args[0], args[1], args[2], args[3], args[4]);
@@ -2042,17 +2043,17 @@ void ParseCollisionCommands(CJointedModel &joints) {
             joints.m_bAssumeWorldspace = true;
         }
         else if (!stricmp(command, "$addconvexsrc")) {
-            argCount = ReadArgs(args, 1);
-            joints.AddConvexSrc(args[0]);
+            argCount = ReadArgs(qc, args, 1);
+            joints.AddConvexSrc(qc, args[0]);
         }
         else if (!stricmp(command, "$jointcollidealltoall")) {
             char szTempNames[32][256];
             int nNumEntries = 0;
 
-            GetToken(true);
-            if (token[0] == '{') {
-                while (GetToken(true) && nNumEntries < 32 && strcmp(token, "}")) {
-                    V_strcpy_safe(szTempNames[nNumEntries], token);
+            qc.GetToken(true);
+            if (qc.token[0] == '{') {
+                while (qc.GetToken(true) && nNumEntries < 32 && strcmp(qc.token, "}")) {
+                    V_strcpy_safe(szTempNames[nNumEntries], qc.token);
                     nNumEntries++;
                 }
             }
@@ -2071,35 +2072,35 @@ void ParseCollisionCommands(CJointedModel &joints) {
             }
         }
         else if (!stricmp(command, "$jointnocollide")) {
-            argCount = ReadArgs(args, 2);
+            argCount = ReadArgs(qc, args, 2);
             joints.RemoveCollisionPair(args[0], args[1]);
             joints.RemoveCollisionPair(args[1], args[0]); // lol
         }
         else {
-            MdlWarning("Unknown command %s in collision series\n", command);
+            MdlWarning("Unknown command {} in collision series\n", command);
         }
     }
 }
 
 
-void Cmd_CollisionText(void) {
+void Cmd_CollisionText(ScriptTokenizer &qc) {
     int level = 1;
 
-    if (!GetToken(true))
+    if (!qc.GetToken(true))
         return;
 
-    if (token[0] != '{')
+    if (qc.token[0] != '{')
         return;
 
 
-    while (GetToken(true)) {
-        if (!strcmp(token, "}")) {
+    while (qc.GetToken(true)) {
+        if (!strcmp(qc.token, "}")) {
             level--;
             if (level <= 0)
                 break;
             g_JointedModel.AddText(" }\n");
         }
-        else if (!strcmp(token, "{")) {
+        else if (!strcmp(qc.token, "{")) {
             g_JointedModel.AddText("{");
             level++;
         }
@@ -2107,11 +2108,11 @@ void Cmd_CollisionText(void) {
             // tokens inside braces  are quoted
             if (level > 1) {
                 g_JointedModel.AddText("\"");
-                g_JointedModel.AddText(token);
+                g_JointedModel.AddText(qc.token);
                 g_JointedModel.AddText("\" ");
             }
             else {
-                g_JointedModel.AddText(token);
+                g_JointedModel.AddText(qc.token);
                 g_JointedModel.AddText(" ");
             }
         }
@@ -2223,15 +2224,14 @@ void LoadSurfacePropsAll() {
 // Input  : separateJoints - whether this has a constraint system or not (true if it does)
 // Output : int
 //-----------------------------------------------------------------------------
-int DoCollisionModel(bool separateJoints) {
+int DoCollisionModel(ScriptTokenizer &qc, bool separateJoints) {
     char name[512];
     s_source_t *pmodel;
 
     // name
-    if (!GetToken(false))
-        return 0;
+    qc.ExpectToken();
 
-    strcpyn(name, token);
+    strcpyn(name, qc.token);
 
     //	CreateInterfaceFn physicsFactory = GetPhysicsFactory();
     //	g_pPhysics2 = (IPhysics2*)physicsFactory(VPHYSICS2_INTERFACE_VERSION, NULL);
@@ -2269,17 +2269,17 @@ int DoCollisionModel(bool separateJoints) {
     bool parseCommands = false;
 
     // If the next token is a { that means a data block for the collision model
-    if (GetToken(true)) {
-        if (!strcmp(token, "{")) {
+    if (qc.GetToken(true)) {
+        if (!strcmp(qc.token, "{")) {
             parseCommands = true;
         }
         else {
-            UnGetToken();
+            qc.UnGetToken();
         }
     }
 
     if (parseCommands) {
-        ParseCollisionCommands(g_JointedModel);
+        ParseCollisionCommands(qc, g_JointedModel);
     }
 
     g_JointedModel.m_isJointed = separateJoints;
@@ -2311,27 +2311,27 @@ float TotalVolume(CPhysCollisionModel *pList) {
 //			outputData - type specific output data
 //-----------------------------------------------------------------------------
 void KeyWriteInt(FILE *fp, const char *pKeyName, int outputData) {
-    fprintf(fp, "\"%s\" \"%d\"\n", pKeyName, outputData);
+    std::print(fp, "\"{}\" \"{}\"\n", pKeyName, outputData);
 }
 
 void KeyWriteIntPair(FILE *fp, const char *pKeyName, int outputData0, int outputData1) {
-    fprintf(fp, "\"%s\" \"%d,%d\"\n", pKeyName, outputData0, outputData1);
+    std::print(fp, "\"{}\" \"{},{}\"\n", pKeyName, outputData0, outputData1);
 }
 
 void KeyWriteString(FILE *fp, const char *pKeyName, const char *outputData) {
-    fprintf(fp, "\"%s\" \"%s\"\n", pKeyName, outputData);
+    std::print(fp, "\"{}\" \"{}\"\n", pKeyName, outputData);
 }
 
 void KeyWriteVector3(FILE *fp, const char *pKeyName, const Vector &outputData) {
-    fprintf(fp, "\"%s\" \"%f %f %f\"\n", pKeyName, outputData[0], outputData[1], outputData[2]);
+    std::print(fp, "\"{}\" \"{:f} {:f} {:f}\"\n", pKeyName, outputData[0], outputData[1], outputData[2]);
 }
 
 void KeyWriteQAngle(FILE *fp, const char *pKeyName, const QAngle &outputData) {
-    fprintf(fp, "\"%s\" \"%f %f %f\"\n", pKeyName, outputData[0], outputData[1], outputData[2]);
+    std::print(fp, "\"{}\" \"{:f} {:f} {:f}\"\n", pKeyName, outputData[0], outputData[1], outputData[2]);
 }
 
 void KeyWriteFloat(FILE *fp, const char *pKeyName, float outputData) {
-    fprintf(fp, "\"%s\" \"%f\"\n", pKeyName, outputData);
+    std::print(fp, "\"{}\" \"{:f}\"\n", pKeyName, outputData);
 }
 
 
@@ -2400,7 +2400,7 @@ void CJointedModel::FixCollisionHierarchy() {
 //			This must execute after the model has been simplified!!
 //-----------------------------------------------------------------------------
 void CollisionModel_Build(void) {
-    FunctionTimingRecorder _("Phys");
+    vstd::FunctionTimingRecorder _("Phys");
     // no collision model referenced
     if (!g_JointedModel.m_pModel && !g_JointedModel.m_bRootCollisionIsEmpty)
         return;
@@ -2417,21 +2417,21 @@ void CollisionModel_Build(void) {
         g_JointedModel.ProcessSingleBody();
     }
     g_JointedModel.FixCollisionHierarchy();
-    LOG_QUIET("Collision model completed.\n");
+    MdlMessage("Collision model completed.\n");
     g_JointedModel.ComputeMass();
 }
 
 void BuildRagdollConstraint(CPhysCollisionModel *pPhys, constraint_ragdollparams_t &ragdoll) {
-    FunctionTimingRecorder _("Phys");
+    vstd::FunctionTimingRecorder _("Phys");
     memset(&ragdoll, 0, sizeof(ragdoll));
     ragdoll.parentIndex = g_JointedModel.CollisionIndex(pPhys->m_parent);
     ragdoll.childIndex = g_JointedModel.CollisionIndex(pPhys->m_name);
     if (ragdoll.parentIndex < 0 || ragdoll.childIndex < 0) {
-        MdlWarning("Constraint between bone %s and %s\n", pPhys->m_name, pPhys->m_parent);
+        MdlWarning("Constraint between bone {} and {}\n", pPhys->m_name, pPhys->m_parent);
         if (ragdoll.childIndex < 0)
-            MdlWarning("\"%s\" does not appear in collision model!!!\n", pPhys->m_name);
+            MdlWarning("\"{}\" does not appear in collision model!!!\n", pPhys->m_name);
         if (ragdoll.parentIndex < 0)
-            MdlWarning("\"%s\" does not appear in collision model!!!\n", pPhys->m_parent);
+            MdlWarning("\"{}\" does not appear in collision model!!!\n", pPhys->m_parent);
         MdlError("Bad constraint in ragdoll\n");
     }
     CJointConstraint *pList = g_JointedModel.m_pConstraintList;
@@ -2439,12 +2439,12 @@ void BuildRagdollConstraint(CPhysCollisionModel *pPhys, constraint_ragdollparams
         int index = g_JointedModel.CollisionIndex(pList->m_pJointName);
         CPhysCollisionModel *pListModel = g_JointedModel.GetCollisionModel(pList->m_pJointName);
         if (index < 0) {
-            MdlError("Rotation constraint on bone \"%s\" which does not appear in collision model!!!\n",
+            MdlError("Rotation constraint on bone \"{}\" which does not appear in collision model!!!\n",
                      pList->m_pJointName);
         }
         else if ((!pListModel->m_parent || g_JointedModel.CollisionIndex(pListModel->m_parent) < 0) && stricmp(
                      pList->m_pJointName, g_JointedModel.m_rootName)) {
-            MdlError("Rotation constraint on bone \"%s\" which has no parent!!!\n", pList->m_pJointName);
+            MdlError("Rotation constraint on bone \"{}\" which has no parent!!!\n", pList->m_pJointName);
         }
         else if (index == ragdoll.childIndex) {
             switch (pList->m_jointType) {
@@ -2499,7 +2499,7 @@ void CollisionModel_SetName(const char *pName) {
 void CollisionModel_Write(long checkSum) {
     //	Physics2Collision_Write();
 
-    FunctionTimingRecorder _("Phys");
+    vstd::FunctionTimingRecorder _("Phys");
     if (g_JointedModel.m_pCollisionList) {
         CPhysCollisionModel *pPhys = g_JointedModel.m_pCollisionList;
 
@@ -2510,7 +2510,7 @@ void CollisionModel_Write(long checkSum) {
         if (volume <= 0)
             volume = 1;
 
-        LOG_QUIET("Collision model volume %.2f in^3\n", volume);
+        MdlMessage("Collision model volume {:.2f} in^3\n", volume);
 
         vstd::paths::set_extension(filename, ".phy");
         FILE *fp = vstd::paths::open_file(filename, "wb");
@@ -2550,7 +2550,7 @@ void CollisionModel_Write(long checkSum) {
                 if (pPhys->m_mass < 1.0)
                     pPhys->m_mass = 1.0;
 
-                fprintf(fp, "solid {\n");
+                std::print(fp, "solid {{\n");
                 KeyWriteInt(fp, "index", solidIndex);
                 KeyWriteString(fp, "name", pPhys->m_name);
                 if (pPhys->m_parent) {
@@ -2575,7 +2575,7 @@ void CollisionModel_Write(long checkSum) {
                     KeyWriteFloat(fp, "massbias", pPhys->m_massBias);
                 }
 
-                fprintf(fp, "}\n");
+                std::print(fp, "}}\n");
                 pPhys = pPhys->m_pNext;
                 solidIndex++;
             }
@@ -2588,7 +2588,7 @@ void CollisionModel_Write(long checkSum) {
                     constraint_ragdollparams_t ragdoll;
                     BuildRagdollConstraint(pPhys, ragdoll);
                     if (ragdoll.parentIndex != ragdoll.childIndex) {
-                        fprintf(fp, "ragdollconstraint {\n");
+                        std::print(fp, "ragdollconstraint {{\n");
                         KeyWriteInt(fp, "parent", ragdoll.parentIndex);
                         KeyWriteInt(fp, "child", ragdoll.childIndex);
                         KeyWriteFloat(fp, "xmin", ragdoll.axes[0].minRotation);
@@ -2600,18 +2600,18 @@ void CollisionModel_Write(long checkSum) {
                         KeyWriteFloat(fp, "zmin", ragdoll.axes[2].minRotation);
                         KeyWriteFloat(fp, "zmax", ragdoll.axes[2].maxRotation);
                         KeyWriteFloat(fp, "zfriction", ragdoll.axes[2].torque);
-                        fprintf(fp, "}\n");
+                        std::print(fp, "}}\n");
                     }
                 }
                 pPhys = pPhys->m_pNext;
             }
             if (g_JointedModel.m_noSelfCollisions) {
-                fprintf(fp, "collisionrules {\n");
+                std::print(fp, "collisionrules {{\n");
                 KeyWriteInt(fp, "selfcollisions", 0);
-                fprintf(fp, "}\n");
+                std::print(fp, "}}\n");
             }
             else if (g_JointedModel.m_pCollisionPairs) {
-                fprintf(fp, "collisionrules {\n");
+                std::print(fp, "collisionrules {{\n");
                 collisionpair_t *pPair = g_JointedModel.m_pCollisionPairs;
                 while (pPair) {
                     pPair->obj0 = g_JointedModel.CollisionIndex(pPair->pName0);
@@ -2620,25 +2620,25 @@ void CollisionModel_Write(long checkSum) {
                         KeyWriteIntPair(fp, "collisionpair", pPair->obj0, pPair->obj1);
                     }
                     else {
-                        MdlWarning("Invalid collision pair (%s, %s)\n", pPair->pName0, pPair->pName1);
+                        MdlWarning("Invalid collision pair ({}, {})\n", pPair->pName0, pPair->pName1);
                     }
                     pPair = pPair->pNext;
                 }
-                fprintf(fp, "}\n");
+                std::print(fp, "}}\n");
             }
 
             if (g_JointedModel.m_bHasAnimatedFriction == true) {
-                fprintf(fp, "animatedfriction {\n");
+                std::print(fp, "animatedfriction {{\n");
                 KeyWriteFloat(fp, "animfrictionmin", g_JointedModel.m_iMinAnimatedFriction);
                 KeyWriteFloat(fp, "animfrictionmax", g_JointedModel.m_iMaxAnimatedFriction);
                 KeyWriteFloat(fp, "animfrictiontimein", g_JointedModel.m_flFrictionTimeIn);
                 KeyWriteFloat(fp, "animfrictiontimeout", g_JointedModel.m_flFrictionTimeOut);
                 KeyWriteFloat(fp, "animfrictiontimehold", g_JointedModel.m_flFrictionTimeHold);
-                fprintf(fp, "}\n");
+                std::print(fp, "}}\n");
             }
 
             // block that is only parsed by the editor
-            fprintf(fp, "editparams {\n");
+            std::print(fp, "editparams {{\n");
             KeyWriteString(fp, "rootname", g_JointedModel.m_rootName);
             KeyWriteFloat(fp, "totalmass", g_JointedModel.m_totalMass);
             if (g_JointedModel.m_allowConcave) {
@@ -2651,7 +2651,7 @@ void CollisionModel_Write(long checkSum) {
                 KeyWriteString(fp, "jointmerge", buf);
             }
 
-            fprintf(fp, "}\n");
+            std::print(fp, "}}\n");
 
             char terminator = 0;
             if (g_JointedModel.m_textCommands.Count()) {
@@ -2661,7 +2661,7 @@ void CollisionModel_Write(long checkSum) {
             fclose(fp);
         }
         else {
-            MdlWarning("Error writing %s!!!\n", filename.c_str());
+            MdlWarning("Error writing {}!!!\n", filename);
         }
     }
 }
@@ -2704,7 +2704,7 @@ void ParseCollisionCommands(CJointedModel &joints, CDmeCollisionModel *pCollisio
 
     float flWeld = pCollisionModel->m_flWeldPositionTolerance.Get();
     if (flWeld < 0.0f) {
-        MdlWarning("1003: Invalid negative weld position tolerance (%f), ignoring and using %f\n", flWeld,
+        MdlWarning("1003: Invalid negative weld position tolerance ({:f}), ignoring and using {:f}\n", flWeld,
                    g_WeldVertEpsilon);
     }
     else {
@@ -2713,11 +2713,11 @@ void ParseCollisionCommands(CJointedModel &joints, CDmeCollisionModel *pCollisio
 
     flWeld = pCollisionModel->m_flWeldNormalTolerance.Get();
     if (flWeld < 0.0f) {
-        MdlWarning("1004: Invalid negative weld normal tolerance (%f), ignoring and using %f\n", flWeld,
+        MdlWarning("1004: Invalid negative weld normal tolerance ({:f}), ignoring and using {:f}\n", flWeld,
                    g_WeldNormalEpsilon);
     }
     else if (flWeld > g_WeldNormalEpsilon) {
-        MdlWarning("1005: Weld normal tolerance too high (%f), should be slightly less than 1, ignoring and using %f\n",
+        MdlWarning("1005: Weld normal tolerance too high ({:f}), should be slightly less than 1, ignoring and using {:f}\n",
                    flWeld, g_WeldNormalEpsilon);
     }
     else {
@@ -2760,7 +2760,7 @@ void ParseCollisionCommands(CJointedModel &joints, CDmeCollisionModel *pCollisio
         for (int i = 0; i < pCollisionJoints->m_JointList.Count(); ++i) {
             const CDmeCollisionJoint *pCollisionJoint = pCollisionJoints->m_JointList.Element(i);
             if (!pCollisionJoint) {
-                MdlWarning("1000: root.collisionModel.joints[ %d ] exists but undefined\n", i);
+                MdlWarning("1000: root.collisionModel.joints[ {} ] exists but undefined\n", i);
                 continue;
             }
 
@@ -2769,7 +2769,7 @@ void ParseCollisionCommands(CJointedModel &joints, CDmeCollisionModel *pCollisio
             const int nJointIndex = FindLocalBoneNamed(joints.m_pModel, pJointName);
             if (!g_StudioMdlContext.createMakefile && nJointIndex < 0) {
                 MdlWarning(
-                    "1001: root.collisionModel.joints[ %d ] refers to joint \"%s\" but that joint wasn't defined in the model\n",
+                    "1001: root.collisionModel.joints[ {} ] refers to joint \"{}\" but that joint wasn't defined in the model\n",
                     i, pJointName);
                 continue;
             }
