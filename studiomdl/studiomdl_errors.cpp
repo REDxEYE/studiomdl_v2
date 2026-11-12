@@ -14,6 +14,8 @@
 #include <print>
 #include <string>
 
+#include "../include/studiomdl/studiomdl_helpers.hpp"
+
 static bool g_bFirstWarning = true;
 
 // In a -quiet run the first message is preceded by the QC path; every message is indented under it.

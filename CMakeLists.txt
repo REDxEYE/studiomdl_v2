@@ -102,8 +102,12 @@ add_executable(studiomdl_v2
         studiomdl/mppsupport.cpp
         studiomdl/output_files.cpp
         include/studiomdl/output_files.hpp
+        studiomdl/weight_fit.cpp
+        include/studiomdl/weight_fit.hpp
         # pulls every mdlobjects element factory out of the static library (.mpp elements are created by type name)
         include/mdlobjects/mdlobjects.cpp
+        studiomdl/studiomdl_helpers.cpp
+        include/studiomdl/studiomdl_helpers.hpp
 )
 set_property(TARGET studiomdl_v2 APPEND_STRING PROPERTY COMPILE_FLAGS)
 
@@ -140,7 +144,9 @@ endif ()
 add_executable(dmxconvert
         dmxconvert/dmxconvert.cpp
         studiomdl/filesystem_init.cpp
-        include/studiomdl/studiomdl_constants.hpp
+        studiomdl/studiomdl_errors.cpp
+        studiomdl/studiomdl_helpers.cpp
+        include/studiomdl/studiomdl_helpers.hpp
 )
 
 set_property(TARGET dmxconvert APPEND_STRING PROPERTY COMPILE_FLAGS)

@@ -124,10 +124,6 @@ struct GameInfo_t g_gameinfo;
 void ParseGameInfo() {
     bool bParsed = false;
 
-    GameInfo_t gameinfoDefault{0};
-    gameinfoDefault.bSupportsXBox360 = false;
-    gameinfoDefault.bSupportsDX8 = true;
-
     auto* pKeyValues = new KeyValues("gameinfo.txt");
     if (g_pFileSystem && pKeyValues->LoadFromFile(g_pFileSystem, "gameinfo.txt")) {
         bParsed = true;
@@ -135,6 +131,7 @@ void ParseGameInfo() {
     pKeyValues->deleteThis();
 
     if (!bParsed) {
+        GameInfo_t gameinfoDefault{};
         g_gameinfo = gameinfoDefault;
     }
 }
@@ -268,7 +265,7 @@ bool HandleMdlReport(int &returnValue) {
 
             if (pHdr->version == STUDIO_VERSION) {
                 int flags = SPEWPERFSTATS_SHOWPERF;
-                if (!CommandLine()->CheckParm("-mdlreportspreadsheet").empty()) {
+                if (!CommandLine()->FindParm("-mdlreportspreadsheet").has_value()) {
                     flags |= SPEWPERFSTATS_SPREADSHEET;
                 }
                 SpewPerfStats(pHdr, *filename, flags);
@@ -603,6 +600,9 @@ void UsageAndExit() {
         "[-h] - dump hboxes\n"
         "[-i] - ignore warnings\n"
         "[-minlod <lod>] - truncate to highest detail <lod>\n"
+        "[-fitweights [<poses> | <fitting poses>,<test poses>]] - experimental: DMX vertices with more than 3\n"
+        "                bones get weights fitted to their motion instead of the 3 largest rescaled.\n"
+        "                Poses default to 24,24; one number sets both\n"
         "[-n] - tag bad normals\n"
         "[-perf] report perf info upon compiling model\n"
         "[-printbones]\n"
@@ -831,6 +831,31 @@ bool CStudioMDLApp::PreInit() {
     return true;
 }
 
+static constexpr int kMaxFitWeightsPoses = 4096;
+
+// The value of -fitweights: "<poses>" sets both counts, "<fitting poses>,<test poses>" sets each
+static bool ParseFitWeightsPoses(const std::string_view text, int &fitPoses, int &testPoses) {
+    const auto parseCount = [](const std::string_view part, int &count) {
+        if (part.empty() || part.size() > 4 || part.find_first_not_of("0123456789") != std::string_view::npos)
+            return false;
+        count = vstd::str_to_int<int>(part);
+        return count >= 1 && count <= kMaxFitWeightsPoses;
+    };
+
+    int fit, test;
+    if (const size_t comma = text.find(','); comma == std::string_view::npos) {
+        if (!parseCount(text, fit))
+            return false;
+        test = fit;
+    }
+    else if (!parseCount(text.substr(0, comma), fit) || !parseCount(text.substr(comma + 1), test)) {
+        return false;
+    }
+    fitPoses = fit;
+    testPoses = test;
+    return true;
+}
+
 
 //-----------------------------------------------------------------------------
 // Method which parses arguments
@@ -939,6 +964,23 @@ bool CStudioMDLApp::ParseArguments() {
             continue;
         }
 
+        if (vstd::iequals(argValue, "-fitweights")) {
+            g_StudioMdlContext.fitWeights = true;
+            // optional pose counts (the last argument is the QC file, never a value)
+            if (i + 1 < argc - 1) {
+                const auto optCounts = CommandLine()->GetParm(i + 1);
+                if (optCounts && !optCounts->empty() && (*optCounts)[0] >= '0' && (*optCounts)[0] <= '9') {
+                    if (!ParseFitWeightsPoses(*optCounts, g_StudioMdlContext.fitWeightsFitPoses,
+                                              g_StudioMdlContext.fitWeightsTestPoses)) {
+                        MdlError("-fitweights: expected <poses> or <fitting poses>,<test poses> (1-{} each), got \"{}\"\n",
+                                 kMaxFitWeightsPoses, *optCounts);
+                    }
+                    i++;
+                }
+            }
+            continue;
+        }
+
         if (vstd::iequals(argValue, "-printgraph")) {
             g_StudioMdlContext.dumpGraph = true;
             continue;
@@ -966,7 +1008,9 @@ bool CStudioMDLApp::ParseArguments() {
         }
 
         if (vstd::iequals(argValue, "-fastbuild")) {
-            g_StudioMdlContext.fastBuild = true;
+            // Does nothing now, it's already faster that original studiomdl with -fastbuild
+            // sw and dx80 are also strippped
+            // g_StudioMdlContext.fastBuild = true;
             continue;
         }
 

@@ -401,7 +401,7 @@ static void Cmd_Modelname(ScriptTokenizer &qc) {
 
 static void Cmd_InternalName(ScriptTokenizer &qc) {
     qc.ExpectToken("<path>");
-    Q_strncpy(g_studiomdl.szInternalName, qc.token, sizeof(g_studiomdl.szInternalName));
+    Q_strncpy(g_studiomdl.internalName, qc.token, sizeof(g_studiomdl.internalName));
 }
 
 

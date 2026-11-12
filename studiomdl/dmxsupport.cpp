@@ -34,6 +34,9 @@
 #include "tier1/fmtstr.h"
 #include "tier1_v2/function_timing.hpp"
 #include "studiomdl/studiomdl_global_state.hpp"
+#include "studiomdl/weight_fit.hpp"
+
+#include <optional>
 #include "tier1_v2/path_utils.hpp"
 
 
@@ -294,10 +297,6 @@ LoadVertices(CDmeDag *pDmeDag, CDmeVertexData *pBindState, const matrix3x4_t &ma
     int positionCount = positions.Count();
 
     const int jointCount = pBindState->HasSkinningData() ? pBindState->JointCount() : 0;
-    if (jointCount > MAXSTUDIOBONEWEIGHTS) {
-        MdlError("Too many bone influences per vertex!\n");
-        return false;
-    }
 
     if (jointCount <= 0 && nBoneAssign == s_nDefaultRootNode && pDmeDag) {
         // Use the bone created for the DmeDag node of the DmeMesh
@@ -310,8 +309,27 @@ LoadVertices(CDmeDag *pDmeDag, CDmeVertexData *pBindState, const matrix3x4_t &ma
     }
 
     std::array<bool, MAXSTUDIOBONES> warnmap{};
-    std::array<float, MAXSTUDIOBONEWEIGHTS> weightBuf{};
-    std::array<int, MAXSTUDIOBONEWEIGHTS> indexBuf{};
+    // Any number of joints per vertex is accepted; SortAndBalanceBones keeps the MAXSTUDIOBONEWEIGHTS largest
+    std::vector<float> weightBuf(jointCount);
+    std::vector<int> indexBuf(jointCount);
+
+    // Meshes with more influences per vertex than fit: measures what trimming loses, and with -fitweights refits
+    // the kept weights instead of just rescaling them
+    const bool bFitWeights = g_StudioMdlContext.fitWeights;
+    std::optional<CWeightFitter> fitter;
+    std::vector<float> fullWeights;
+    std::vector<int> fullBones;
+    struct TrimmedVertex {
+        int vertex;
+        s_boneweight_t boneweight;
+    };
+    std::vector<TrimmedVertex> trimmedVertices;
+    if (jointCount > static_cast<int>(MAXSTUDIOBONEWEIGHTS)) {
+        fitter.emplace(*pSource, bFitWeights, g_StudioMdlContext.fitWeightsFitPoses,
+                       g_StudioMdlContext.fitWeightsTestPoses);
+        fullWeights.resize(jointCount);
+        fullBones.resize(jointCount);
+    }
 
     // Copy positions + bone info
     for (int i = 0; i < positionCount; ++i) {
@@ -330,7 +348,59 @@ LoadVertices(CDmeDag *pDmeDag, CDmeVertexData *pBindState, const matrix3x4_t &ma
             memcpy(weightBuf.data(), pJointWeights, jointCount * sizeof(float));
             memcpy(indexBuf.data(), pJointIndices, jointCount * sizeof(int));
 
-            const int boneCount = SortAndBalanceBones(jointCount, MAXSTUDIOBONEWEIGHTS, indexBuf, weightBuf);
+            int boneCount;
+            if (fitter) {
+                // The full influence list on source bones, so joints mapped to the same bone collapse
+                for (int j = 0; j < jointCount; ++j) {
+                    const int nMapped = pBoneRemap[indexBuf[j]];
+                    // without -fitweights the default path below reports unmapped joints
+                    if (bFitWeights && nMapped < 0 && weightBuf[j] > 0 && indexBuf[j] < MAXSTUDIOBONES &&
+                        !warnmap[indexBuf[j]]) {
+                        MdlWarning("DmeMesh[{}] Verts Assigned To DmeModel.jointList[{}] Which Isn't Mapped To The Dag Hierarchy\n",
+                            pDmeDag->GetName(), indexBuf[j]);
+                        warnmap[indexBuf[j]] = true;
+                    }
+                    fullBones[j] = nMapped < 0 ? nBoneAssign : nMapped;
+                    fullWeights[j] = weightBuf[j];
+                }
+
+                // sorted, nothing dropped yet, summing to 1
+                int nUsed = SortAndBalanceBones(jointCount, jointCount, fullBones, fullWeights);
+                while (nUsed > 0 && fullWeights[nUsed - 1] <= 0) {
+                    --nUsed;
+                }
+                if (nUsed > static_cast<int>(MAXSTUDIOBONEWEIGHTS)) {
+                    if (bFitWeights) {
+                        // the plain trim, in case the fit turns out not to be better on this mesh
+                        TrimmedVertex &trimmed = trimmedVertices.emplace_back();
+                        trimmed.vertex = g_StudioMdlContext.numverts;
+                        trimmed.boneweight.numbones = MAXSTUDIOBONEWEIGHTS;
+                        const float flKeptSum = fullWeights[0] + fullWeights[1] + fullWeights[2];
+                        for (int j = 0; j < static_cast<int>(MAXSTUDIOBONEWEIGHTS); ++j) {
+                            trimmed.boneweight.bone[j] = fullBones[j];
+                            trimmed.boneweight.weight[j] = fullWeights[j] / flKeptSum;
+                        }
+                    }
+                    fitter->Reduce(g_StudioMdlContext.vertex[g_StudioMdlContext.numverts], fullBones, fullWeights,
+                                   nUsed);
+                }
+
+                if (bFitWeights) {
+                    // sorts the kept ones again; influences past nUsed have zero weight
+                    boneCount = SortAndBalanceBones(MAXSTUDIOBONEWEIGHTS, MAXSTUDIOBONEWEIGHTS, fullBones,
+                                                    fullWeights);
+
+                    g_StudioMdlContext.bone[g_StudioMdlContext.numverts].numbones = boneCount;
+                    for (int j = 0; j < boneCount; ++j) {
+                        g_StudioMdlContext.bone[g_StudioMdlContext.numverts].bone[j] = fullBones[j];
+                        g_StudioMdlContext.bone[g_StudioMdlContext.numverts].weight[j] = fullWeights[j];
+                    }
+                    ++g_StudioMdlContext.numverts;
+                    continue;
+                }
+            }
+
+            boneCount = SortAndBalanceBones(jointCount, MAXSTUDIOBONEWEIGHTS, indexBuf, weightBuf);
             int nBoneIndex = -1;
 
             g_StudioMdlContext.bone[g_StudioMdlContext.numverts].numbones = boneCount;
@@ -351,6 +421,17 @@ LoadVertices(CDmeDag *pDmeDag, CDmeVertexData *pBindState, const matrix3x4_t &ma
             }
         }
         ++g_StudioMdlContext.numverts;
+    }
+    if (fitter) {
+        if (bFitWeights && !fitter->FitIsBetter()) {
+            // not worth it on this mesh: back to the plain trim
+            for (const TrimmedVertex &trimmed: trimmedVertices) {
+                g_StudioMdlContext.bone[trimmed.vertex] = trimmed.boneweight;
+            }
+        }
+        if (!g_StudioMdlContext.quiet) {
+            fitter->Report(pDmeDag ? pDmeDag->GetName() : pSource->filename.c_str());
+        }
     }
 
     // Copy normals

@@ -36,8 +36,6 @@ public:
 
     std::string_view GetCmdLine() const override;
 
-    std::pair<std::string_view, std::string_view> CheckParm(std::string_view key, bool extract_value) const override;
-
     // A bool return of whether param exists, useful for just checking if param that is just a flag is set
     bool HasParm(const char* psz) const override;
 
@@ -349,28 +347,6 @@ void CCommandLine::AppendParm(std::string_view key, std::string_view values) {
 //-----------------------------------------------------------------------------
 std::string_view CCommandLine::GetCmdLine() const {
     return m_cmdLine;
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose: Search for the parameter in the current commandline
-// Input  : key - param name to look for
-//			extract_value - whether to extract the value
-// Output : pair of param and it's value
-//-----------------------------------------------------------------------------
-std::pair<std::string_view, std::string_view> CCommandLine::CheckParm(const std::string_view key,
-                                                                      const bool extract_value) const {
-    if (const auto i = FindParm(key)) {
-        if (extract_value) {
-            if (*i + 1 >= m_ppParms.size()) {
-                return {m_ppParms[*i], ""};
-            }
-            return {m_ppParms[*i], m_ppParms[*i + 1]};
-        }
-
-        return {m_ppParms[*i], ""};
-    }
-    return {};
 }
 
 

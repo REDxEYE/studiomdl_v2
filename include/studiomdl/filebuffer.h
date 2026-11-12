@@ -1,50 +1,40 @@
-//========= Copyright � 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
 //
-// Purpose: 
+// Purpose: Fixed-layout output file (.vtx): every block's offset is computed up front, then the blocks are written
+//          in any order with WriteAt. The size is fixed at construction, so pointers from GetPointer stay valid.
 //
-// $NoKeywords: $
 //=============================================================================//
 
 #pragma once
-#include "studiomdl_global_state.hpp"
-#ifdef _WIN32
-#pragma once
-#endif
 
-#include "tier1/smartptr.h"
-#include "studiomdl/output_files.hpp"
+#include <cstddef>
+#include <cstring>
+#include <print>
+#include <vector>
+
+#include "tier0/dbg.h"
+#include "tier1_v2/buffer.hpp"
+#include "studiomdl/studiomdl_log.hpp"
 
 class CFileBuffer
 {
 public:
-	CFileBuffer( int size )
+	explicit CFileBuffer( const size_t size ) : m_Data( size )
+#ifdef _DEBUG
+		, m_Used( size, nullptr )
+#endif
 	{
-		m_pData = new unsigned char[size];
-#ifdef _DEBUG
-		m_pUsed = new const char *[size];
-		memset( m_pUsed, 0, size * sizeof( const char * ) );
-#endif
-		m_Size = size;
-		m_pCurPos = m_pData;
-#ifdef _DEBUG
-		memset( m_pData, 0xbaadf00d, size );
-#endif
-	}
-	~CFileBuffer()
-	{
-		delete [] m_pData;
-#ifdef _DEBUG
-		delete [] m_pUsed;
-#endif
 	}
 
+	CFileBuffer( const CFileBuffer & ) = delete;
+	CFileBuffer &operator=( const CFileBuffer & ) = delete;
+
 #ifdef _DEBUG
-	void TestWritten( int EndOfFileOffset )
+	void TestWritten( const size_t endOfFileOffset ) const
 	{
-		int i;
-		for( i = 0; i < EndOfFileOffset; i++ )
+		for ( size_t i = 0; i < endOfFileOffset; i++ )
 		{
-			if( !m_pUsed[i] )
+			if ( !m_Used[i] )
 			{
 				std::print( "offset {} not written, end of file invalid!\n", i );
 				Assert( 0 );
@@ -52,64 +42,46 @@ public:
 		}
 	}
 #endif
-	
-	// fileName is UTF-8; stored for the single write at the end of WriteModelFiles
-	void WriteToFile( const char *fileName, int size )
+
+	void WriteAt( const size_t offset, const void *data, const size_t size, const char *name )
 	{
-		SaveOutputFile( fileName, m_pData, size );
-	}
-	
-	void WriteAt( int offset, void *data, int size, const char *name )
-	{
-//		printf( "WriteAt: \"%s\" offset: %d end: %d size: %d\n", name, offset, offset + size - 1, size );
-		m_pCurPos = m_pData + offset;
+		if ( offset + size > m_Data.size() )
+		{
+			MdlError( "{}: write of {} bytes at {} is past the end of the {} byte file\n", name, size, offset, m_Data.size() );
+		}
 
 #ifdef _DEBUG
-		int i;
-		const char **used = m_pUsed + offset;
-		bool bitched = false;
-		for( i = 0; i < size; i++ )
+		bool reported = false;
+		for ( size_t i = offset; i < offset + size; i++ )
 		{
-			if( used[i] )
+			if ( m_Used[i] )
 			{
-				if( !bitched )
+				if ( !reported )
 				{
-					std::print( "overwrite at {}! (overwriting \"{}\" with \"{}\")\n", i + offset, used[i], name );
+					std::print( "overwrite at {}! (overwriting \"{}\" with \"{}\")\n", i, m_Used[i], name );
 					Assert( 0 );
-					bitched = true;
+					reported = true;
 				}
 			}
 			else
 			{
-				used[i] = name;
+				m_Used[i] = name;
 			}
 		}
 #endif // _DEBUG
 
-		Append( data, size );
+		if ( size )
+			memcpy( m_Data.data() + offset, data, size );
 	}
-	int GetOffset( void )
-	{
-		return m_pCurPos - m_pData;
-	}
-	void *GetPointer( int offset )
-	{
-		return m_pData + offset;
-	}
+
+	void *GetPointer( const size_t offset ) { return m_Data.data() + offset; }
+
+	// the file contents; move it out once nothing reads the file through GetPointer anymore
+	vstd::Buffer &Data() { return m_Data; }
+
 private:
-	void Append( void *data, int size )
-	{
-		Assert( m_pCurPos + size - m_pData < m_Size );
-		memcpy( m_pCurPos, data, size );
-		m_pCurPos += size;
-	}
-	CFileBuffer(); // undefined
-	int m_Size;
-	unsigned char *m_pData;
-	unsigned char *m_pCurPos;
+	vstd::Buffer m_Data;
 #ifdef _DEBUG
-	const char **m_pUsed;
+	std::vector<const char *> m_Used; // which block wrote each byte
 #endif
 };
-	
-

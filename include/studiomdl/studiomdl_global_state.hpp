@@ -19,7 +19,7 @@ struct StudioMDLGlobalState {
     StudioMDLGlobalState() noexcept = default;
 
     StudioPath outname; // the output model name ($modelname): ASCII, relative to <game>/models/
-    StudioPath szInternalName;
+    StudioPath internalName;
     qboolean cdset;
 
     float flCollisionPrecision;
@@ -204,39 +204,39 @@ struct StudioMDLGlobalState {
 };
 
 struct StudioMdlContext {
-    unsigned parseable_completion_output: 1;
-    unsigned collapse_bones_message: 1;
-    unsigned collapse_bones: 1;
-    unsigned collapse_bones_aggressive: 1;
-    unsigned quiet: 1;
-    unsigned checkLengths: 1;
-    unsigned printBones: 1;
-    unsigned perf: 1;
-    unsigned dumpGraph: 1;
-    unsigned multistageGraph: 1;
-    unsigned verbose: 1;
-    unsigned createMakefile: 1;
-    unsigned ZBrush: 1;
-    unsigned verifyOnly: 1;
-    unsigned useBoneInBBox: 1;
-    unsigned lockBoneLengths: 1;
-    unsigned defineBonesLockedByDefault: 1;
-    unsigned fastBuild: 1;
-    unsigned buildPreview: 1;
-    unsigned preserveTriangleOrder: 1;
-    unsigned centerBonesOnVerts: 1;
-    unsigned dumpMaterials: 1;
-    unsigned stripLods: 1;
-    unsigned noAnimblockStall: 1;
-    unsigned animblockHighRes: 1;
-    unsigned animblockLowRes: 1;
-    unsigned zeroFramesHighres: 1;
-    unsigned lCaseAllSequences: 1;
-    unsigned errorOnSeqRemapFail: 1;
-    unsigned modelIntentionallyHasZeroSequences: 1;
-    unsigned contentRootRelative: 1;
-    unsigned hasModelName: 1;
-    unsigned noWarnings: 1;
+    uint32_t parseable_completion_output: 1;
+    uint32_t collapse_bones_message: 1;
+    uint32_t collapse_bones: 1;
+    uint32_t collapse_bones_aggressive: 1;
+    uint32_t quiet: 1;
+    uint32_t checkLengths: 1;
+    uint32_t printBones: 1;
+    uint32_t perf: 1;
+    uint32_t fitWeights: 1; // -fitweights (experimental), see weight_fit.hpp
+    uint32_t dumpGraph: 1;
+    uint32_t multistageGraph: 1;
+    uint32_t verbose: 1;
+    uint32_t createMakefile: 1;
+    uint32_t ZBrush: 1;
+    uint32_t verifyOnly: 1;
+    uint32_t useBoneInBBox: 1;
+    uint32_t lockBoneLengths: 1;
+    uint32_t defineBonesLockedByDefault: 1;
+    uint32_t buildPreview: 1;
+    uint32_t preserveTriangleOrder: 1;
+    uint32_t centerBonesOnVerts: 1;
+    uint32_t dumpMaterials: 1;
+    uint32_t stripLods: 1;
+    uint32_t noAnimblockStall: 1;
+    uint32_t animblockHighRes: 1;
+    uint32_t animblockLowRes: 1;
+    uint32_t zeroFramesHighres: 1;
+    uint32_t lCaseAllSequences: 1;
+    uint32_t errorOnSeqRemapFail: 1;
+    uint32_t modelIntentionallyHasZeroSequences: 1;
+    uint32_t contentRootRelative: 1;
+    uint32_t hasModelName: 1;
+    uint32_t noWarnings: 1;
     int maxWarnings = -1;
 
     // ---- Paths: UTF-8 std::string (never FixedString, its byte truncation can cut a UTF-8 sequence) ----
@@ -248,6 +248,9 @@ struct StudioMdlContext {
     std::vector<std::string> contentOriginalBasePaths; // the roots before the first CmdLib_AddNewSearchPath
 
     int minLod;
+    // -fitweights [<poses> | <fitting poses>,<test poses>], see CWeightFitter
+    int fitWeightsFitPoses;
+    int fitWeightsTestPoses;
     int numAllowedRootLODs;
     float defaultMotionRollback;
     float CollisionPrecision;
@@ -310,6 +313,7 @@ struct StudioMdlContext {
           checkLengths(0),
           printBones(0),
           perf(0),
+          fitWeights(0),
           dumpGraph(0),
           multistageGraph(0),
           verbose(0),
@@ -319,7 +323,6 @@ struct StudioMdlContext {
           useBoneInBBox(1),
           lockBoneLengths(0),
           defineBonesLockedByDefault(1),
-          fastBuild(0),
           buildPreview(0),
           preserveTriangleOrder(0),
           centerBonesOnVerts(0),
@@ -334,6 +337,8 @@ struct StudioMdlContext {
           modelIntentionallyHasZeroSequences(0),
           contentRootRelative(0),
           minLod(0),
+          fitWeightsFitPoses(24),
+          fitWeightsTestPoses(24),
           numAllowedRootLODs(0),
           hasModelName(0),
           noWarnings(0),

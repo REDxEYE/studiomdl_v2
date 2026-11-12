@@ -249,7 +249,7 @@ extern "C"
 #endif
 	double __cdecl fabs(double);
 	//_CRT_JIT_INTRINSIC  _CRTIMP float  __cdecl fabsf( __in float  _X);
-	float __cdecl fabsf( _In_ float );
+	float __cdecl fabsf( float );
 #ifdef __cplusplus
 }
 #endif

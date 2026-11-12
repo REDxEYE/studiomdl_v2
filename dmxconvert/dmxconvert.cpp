@@ -29,6 +29,7 @@
 
 class CDmElement;
 StudioMdlContext g_StudioMdlContext{};
+StudioMDLGlobalState g_studiomdl{};
 
 //-----------------------------------------------------------------------------
 // The application object

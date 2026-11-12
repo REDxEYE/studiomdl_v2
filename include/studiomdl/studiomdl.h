@@ -8,6 +8,7 @@
 
 #pragma once
 #include "studiomdl_constants.hpp"
+#include "studiomdl_helpers.hpp"
 
 #include <vector>
 #include <deque>
@@ -81,8 +82,6 @@ struct SurfacePropName_t {
 //////////////////////////////////////////////////////////////////////////
 
 struct GameInfo_t {
-    bool bSupportsXBox360;
-    bool bSupportsDX8;
 };
 
 extern GameInfo_t g_gameinfo;
@@ -710,8 +709,9 @@ public:
 struct s_animblock_t {
     int iStartAnim;
     int iEndAnim;
-    uint8_t *start;
-    uint8_t *end;
+    // byte offsets into the .ani data
+    uint32_t start;
+    uint32_t end;
 };
 
 
@@ -1319,8 +1319,7 @@ bool OpenGlobalFile(std::string_view src);
 // The full UTF-8 path of an existing, non-empty source file (same lookup as OpenGlobalFile)
 bool GetGlobalFilePath(std::string_view src, std::string &fullPath);
 
-// <gameDir>models/<$modelname without extension><extension>: UTF-8, native separators
-std::string OutputModelPath(std::string_view extension);
+
 
 s_source_t *Load_Source(const char *filename, const char *ext, bool reverse = false, bool isActiveModel = false,
                         bool bUseCache = true);

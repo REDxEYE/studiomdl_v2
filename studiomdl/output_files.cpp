@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "tier1_v2/function_timing.hpp"
@@ -12,13 +13,13 @@
 namespace {
     struct OutputFile {
         std::string name;
-        std::vector<uint8_t> data;
+        vstd::Buffer data;
     };
 
     // a handful of files per model: a vector keeps the write order deterministic
     std::vector<OutputFile> s_outputFiles;
 
-    OutputFile* FindOutputFile(const std::string &fileName) {
+    OutputFile* FindOutputFile(const std::string_view fileName) {
         for (OutputFile &file: s_outputFiles) {
             if (file.name == fileName)
                 return &file;
@@ -27,32 +28,49 @@ namespace {
     }
 }
 
-void SaveOutputFile(const std::string &fileName, const void* data, const size_t size) {
-    OutputFile* file = FindOutputFile(fileName);
-    if (!file)
-        file = &s_outputFiles.emplace_back(OutputFile{fileName, {}});
-
-    const auto* bytes = static_cast<const uint8_t*>(data);
-    file->data.assign(bytes, bytes + size);
+void SaveOutputFile(const std::string_view fileName, vstd::Buffer &&data) {
+    if (OutputFile* file = FindOutputFile(fileName))
+        file->data = std::move(data);
+    else
+        s_outputFiles.emplace_back(std::string(fileName), std::move(data));
 }
 
-int LoadOutputFile(const std::string &fileName, void** buffer) {
+void SaveOutputFile(const std::string_view fileName, const void* data, const size_t size) {
+    SaveOutputFile(fileName, vstd::Buffer::copy_of(vstd::ConstByteBufferView(static_cast<const uint8_t*>(data), size)));
+}
+
+size_t LoadOutputFile(const std::string_view fileName, void** buffer) {
     const OutputFile* file = FindOutputFile(fileName);
-    if (!file)
-        return LoadFile(fileName.c_str(), buffer);
+    if (!file) {
+        const std::string tmp(fileName);
+        return LoadFile(tmp.c_str(), buffer);
+    }
 
     const size_t size = file->data.size();
     auto* copy = static_cast<uint8_t*>(malloc(size + 1));
     memcpy(copy, file->data.data(), size);
     copy[size] = 0;
     *buffer = copy;
-    return static_cast<int>(size);
+    return size;
+}
+
+std::optional<vstd::Buffer> LoadOutputFile(std::string_view fileName) {
+    const OutputFile* file = FindOutputFile(fileName);
+    if (!file) {
+        const std::string tmp(fileName);
+        void* raw_data;
+        const size_t size= LoadFile(tmp.c_str(), &raw_data);
+        if (size == 0)
+            return std::nullopt;
+        return vstd::Buffer::copy_of(vstd::ConstByteBufferView(static_cast<uint8_t*>(raw_data), size));
+    }
+    return vstd::Buffer::copy_of(file->data.view());
 }
 
 void CommitOutputFiles() {
     vstd::FunctionTimingRecorder _("Write");
-    for (OutputFile &file: s_outputFiles) {
-        SaveFile(file.name.c_str(), file.data.data(), static_cast<int>(file.data.size()));
+    for (auto &[name, data]: s_outputFiles) {
+        SaveFile(name.c_str(), data.data(), static_cast<int>(data.size()));
     }
     s_outputFiles.clear();
 }

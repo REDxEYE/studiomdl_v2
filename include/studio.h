@@ -536,7 +536,7 @@ constexpr BoneFlags BoneUsedByVertexAtLod(const uint32_t lod) {
 // bones
 struct mstudiobone_t {
     int sznameindex;
-    char *const pszName(void) const { return ((char *) this) + sznameindex; }
+    char *const pszName() const { return ((char *) this) + sznameindex; }
     int parent; // parent bone
     int bonecontroller[6]; // bone controller index, -1 == none
 
@@ -559,8 +559,8 @@ struct mstudiobone_t {
         else return (void *) (((uint8_t *) this) + procindex);
     };
     int surfacepropidx; // index into string tablefor property name
-    char *const pszSurfaceProp(void) const { return ((char *) this) + surfacepropidx; }
-    int GetSurfaceProp(void) const { return surfacepropLookup; }
+    char *const pszSurfaceProp() const { return ((char *) this) + surfacepropidx; }
+    int GetSurfaceProp() const { return surfacepropLookup; }
 
     ContentType contents; // See BSPFlags.h for the contents flags
     int surfacepropLookup; // this index must be cached by the loader, not saved in the file
@@ -726,9 +726,9 @@ struct mstudiobbox_t {
 // demand loaded sequence groups
 struct mstudiomodelgroup_t {
     int szlabelindex; // textual name
-    char *const pszLabel(void) const { return ((char *) this) + szlabelindex; }
+    char *const pszLabel() const { return ((char *) this) + szlabelindex; }
     int sznameindex; // file name
-    char *const pszName(void) const { return ((char *) this) + sznameindex; }
+    char *const pszName() const { return ((char *) this) + sznameindex; }
 };
 
 struct mstudiomodelgrouplookup_t {
@@ -742,7 +742,7 @@ struct mstudioanimtag_t {
     float cycle;
 
     int sztagindex;
-    char *const pszTagName(void) const { return ((char *) this) + sztagindex; }
+    char *const pszTagName() const { return ((char *) this) + sztagindex; }
 };
 
 // events
@@ -751,11 +751,11 @@ struct mstudioevent_t {
     float cycle;
     int event;
     StudioEventType type;
-    const char *pszOptions(void) const { return options; }
+    const char *pszOptions() const { return options; }
     char options[64];
 
     int szeventindex;
-    char *const pszEventName(void) const { return ((char *) this) + szeventindex; }
+    char *const pszEventName() const { return ((char *) this) + szeventindex; }
 };
 
 // mstudioattachment_t::flags
@@ -769,7 +769,7 @@ ENUM_OPERATORS(AttachmentFlags)
 // attachment
 struct mstudioattachment_t {
     int sznameindex;
-    char *const pszName(void) const { return ((char *) this) + sznameindex; }
+    char *const pszName() const { return ((char *) this) + sznameindex; }
     AttachmentFlags flags;
     int localbone;
     matrix3x4_t local; // attachment point
@@ -852,7 +852,7 @@ struct mstudioikrule_t {
     int unused8;
 
     int szattachmentindex; // name of world attachment
-    char *const pszAttachment(void) const { return ((char *) this) + szattachmentindex; }
+    char *const pszAttachment() const { return ((char *) this) + szattachmentindex; }
 
     int unused[7];
 
@@ -939,18 +939,18 @@ struct mstudio_rle_anim_t {
     StudioAnimFlags flags; // weighing options
 
     // valid for animating data only
-    uint8_t *pData(void) const { return (((uint8_t *) this) + sizeof(struct mstudio_rle_anim_t)); };
-    mstudioanim_valueptr_t *pRotV(void) const { return (mstudioanim_valueptr_t *) (pData()); };
+    uint8_t *pData() const { return (((uint8_t *) this) + sizeof(struct mstudio_rle_anim_t)); };
+    mstudioanim_valueptr_t *pRotV() const { return (mstudioanim_valueptr_t *) (pData()); };
 
-    mstudioanim_valueptr_t *pPosV(void) const {
+    mstudioanim_valueptr_t *pPosV() const {
         return (mstudioanim_valueptr_t *) (pData()) + HasFlag(flags, StudioAnimFlags::AnimRot);
     };
 
     // valid if animation unvaring over timeline
-    Quaternion48 *pQuat48(void) const { return (Quaternion48 *) (pData()); };
-    Quaternion64 *pQuat64(void) const { return (Quaternion64 *) (pData()); };
+    Quaternion48 *pQuat48() const { return (Quaternion48 *) (pData()); };
+    Quaternion64 *pQuat64() const { return (Quaternion64 *) (pData()); };
 
-    Vector48 *pPos(void) const {
+    Vector48 *pPos() const {
         return (Vector48 *) (pData() + HasFlag(flags, StudioAnimFlags::RawRot) * sizeof(*pQuat48()) +
                              HasFlag(flags, StudioAnimFlags::RawRot2) * sizeof(*pQuat64()));
     };
@@ -958,7 +958,7 @@ struct mstudio_rle_anim_t {
     // points to next bone in the list
     short nextoffset;
 
-    mstudio_rle_anim_t *pNext(void) const {
+    mstudio_rle_anim_t *pNext() const {
         if (nextoffset != 0) return (mstudio_rle_anim_t *) (((uint8_t *) this) + nextoffset);
         else return nullptr;
     };
@@ -981,12 +981,12 @@ enum class StudioFrameFlags : uint8_t {
 ENUM_OPERATORS(StudioFrameFlags)
 
 struct mstudio_frame_anim_t {
-    StudioFrameFlags *pBoneFlags(void) const {
+    StudioFrameFlags *pBoneFlags() const {
         return (StudioFrameFlags *) (((uint8_t *) this) + sizeof(struct mstudio_frame_anim_t));
     };
 
     int constantsoffset;
-    uint8_t *pConstantData(void) const { return (((uint8_t *) this) + constantsoffset); };
+    uint8_t *pConstantData() const { return (((uint8_t *) this) + constantsoffset); };
 
     int frameoffset;
     int framelength;
@@ -1021,10 +1021,10 @@ struct mstudioanimsections_t {
 
 struct mstudioanimdesc_t {
     int baseptr;
-    studiohdr_t *pStudiohdr(void) const { return (studiohdr_t *) (((uint8_t *) this) + baseptr); }
+    studiohdr_t *pStudiohdr() const { return (studiohdr_t *) (((uint8_t *) this) + baseptr); }
 
     int sznameindex;
-    char *const pszName(void) const { return ((char *) this) + sznameindex; }
+    char *const pszName() const { return ((char *) this) + sznameindex; }
 
     float fps; // frames per second
     StudioSequenceFlags flags; // looping/non-looping flags
@@ -1109,13 +1109,13 @@ struct mstudioactivitymodifier_t {
 // sequence descriptions
 struct mstudioseqdesc_t {
     int baseptr;
-    studiohdr_t *pStudiohdr(void) const { return (studiohdr_t *) (((uint8_t *) this) + baseptr); }
+    studiohdr_t *pStudiohdr() const { return (studiohdr_t *) (((uint8_t *) this) + baseptr); }
 
     int szlabelindex;
-    char *const pszLabel(void) const { return ((char *) this) + szlabelindex; }
+    char *const pszLabel() const { return ((char *) this) + szlabelindex; }
 
     int szactivitynameindex;
-    char *const pszActivityName(void) const { return ((char *) this) + szactivitynameindex; }
+    char *const pszActivityName() const { return ((char *) this) + szactivitynameindex; }
 
     StudioSequenceFlags flags; // looping/non-looping flags
 
@@ -1210,7 +1210,7 @@ struct mstudioseqdesc_t {
     int keyvalueindex;
     int keyvaluesize;
 
-    const char *KeyValueText(void) const {
+    const char *KeyValueText() const {
         return keyvaluesize != 0 ? ((char *) this) + keyvalueindex : nullptr;
     }
 
@@ -1244,7 +1244,7 @@ struct mstudioseqdesc_t {
 
 struct mstudioposeparamdesc_t {
     int sznameindex;
-    char *const pszName(void) const { return ((char *) this) + sznameindex; }
+    char *const pszName() const { return ((char *) this) + sznameindex; }
     StudioSequenceFlags flags; // Looping or None
     float start; // starting value
     float end; // ending value
@@ -1253,15 +1253,15 @@ struct mstudioposeparamdesc_t {
 
 struct mstudioflexdesc_t {
     int szFACSindex;
-    char *const pszFACS(void) const { return ((char *) this) + szFACSindex; }
+    char *const pszFACS() const { return ((char *) this) + szFACSindex; }
 };
 
 
 struct mstudioflexcontroller_t {
     int sztypeindex;
-    char *const pszType(void) const { return ((char *) this) + sztypeindex; }
+    char *const pszType() const { return ((char *) this) + sztypeindex; }
     int sznameindex;
-    char *const pszName(void) const { return ((char *) this) + sznameindex; }
+    char *const pszName() const { return ((char *) this) + sznameindex; }
     mutable int localToGlobal; // remapped at load time to master list
     float min;
     float max;
@@ -1281,7 +1281,7 @@ class CStudioHdr;
 
 struct mstudioflexcontrollerui_t {
     int sznameindex;
-    char *const pszName(void) const { return ((char *) this) + sznameindex; }
+    char *const pszName() const { return ((char *) this) + sznameindex; }
 
     // These are used like a union to save space
     // Here are the possible configurations for a UI controller
@@ -1295,37 +1295,37 @@ struct mstudioflexcontrollerui_t {
     int szindex1;
     int szindex2;
 
-    const mstudioflexcontroller_t *pController(void) const {
+    const mstudioflexcontroller_t *pController() const {
         return !stereo ? (mstudioflexcontroller_t *) ((char *) this + szindex0) : nullptr;
     }
 
-    char *const pszControllerName(void) const { return !stereo ? pController()->pszName() : nullptr; }
+    char *const pszControllerName() const { return !stereo ? pController()->pszName() : nullptr; }
 
     inline int controllerIndex(const CStudioHdr &cStudioHdr) const;
 
-    const mstudioflexcontroller_t *pLeftController(void) const {
+    const mstudioflexcontroller_t *pLeftController() const {
         return stereo ? (mstudioflexcontroller_t *) ((char *) this + szindex0) : nullptr;
     }
 
-    char *const pszLeftName(void) const { return stereo ? pLeftController()->pszName() : nullptr; }
+    char *const pszLeftName() const { return stereo ? pLeftController()->pszName() : nullptr; }
 
     inline int leftIndex(const CStudioHdr &cStudioHdr) const;
 
-    const mstudioflexcontroller_t *pRightController(void) const {
+    const mstudioflexcontroller_t *pRightController() const {
         return stereo ? (mstudioflexcontroller_t *) ((char *) this + szindex1) : nullptr;
     }
 
-    char *const pszRightName(void) const { return stereo ? pRightController()->pszName() : nullptr; }
+    char *const pszRightName() const { return stereo ? pRightController()->pszName() : nullptr; }
 
     inline int rightIndex(const CStudioHdr &cStudioHdr) const;
 
-    const mstudioflexcontroller_t *pNWayValueController(void) const {
+    const mstudioflexcontroller_t *pNWayValueController() const {
         return remaptype == Nway
                    ? (mstudioflexcontroller_t *) ((char *) this + szindex2)
                    : nullptr;
     }
 
-    char *const pszNWayValueName(void) const {
+    char *const pszNWayValueName() const {
         return remaptype == Nway ? pNWayValueController()->pszName() : nullptr;
     }
 
@@ -1549,7 +1549,7 @@ private:
 // skin info
 struct mstudiotexture_t {
     int sznameindex;
-    char *const pszName(void) const { return ((char *) this) + sznameindex; }
+    char *const pszName() const { return ((char *) this) + sznameindex; }
     int flags;
     int used;
     int unused1;
@@ -1570,7 +1570,7 @@ struct mstudiotexture_t {
 // eyeball
 struct mstudioeyeball_t {
     int sznameindex;
-    char *const pszName(void) const { return ((char *) this) + sznameindex; }
+    char *const pszName() const { return ((char *) this) + sznameindex; }
     int bone;
     Vector org;
     float zoffset;
@@ -1620,7 +1620,7 @@ private:
 
 struct mstudioikchain_t {
     int sznameindex;
-    char *const pszName(void) const { return ((char *) this) + sznameindex; }
+    char *const pszName() const { return ((char *) this) + sznameindex; }
     int linktype;
     int numlinks;
     int linkindex;
@@ -1675,7 +1675,7 @@ struct mstudio_modelvertexdata_t {
 
     mstudiovertex_t *Vertex(int i) const;
 
-    bool HasTangentData(void) const;
+    bool HasTangentData() const;
 
     bool HasExtraData() const;
 
@@ -1707,7 +1707,7 @@ struct mstudio_meshvertexdata_t {
 
     mstudiovertex_t *Vertex(int i) const;
 
-    bool HasTangentData(void) const;
+    bool HasTangentData() const;
 
     int GetModelVertexIndex(int i) const;
 
@@ -1765,7 +1765,7 @@ private:
 
 // studio models
 struct mstudiomodel_t {
-    const char *pszName(void) const { return name; }
+    const char *pszName() const { return name; }
     char name[64];
 
     int type;
@@ -1809,7 +1809,7 @@ struct mstudiomodel_t {
 #pragma pack( pop )
 #endif
 
-inline bool mstudio_modelvertexdata_t::HasTangentData(void) const {
+inline bool mstudio_modelvertexdata_t::HasTangentData() const {
     return pTangentData != nullptr;
 }
 
@@ -1872,7 +1872,7 @@ inline mstudiomodel_t *mstudiomesh_t::pModel() const {
     return (mstudiomodel_t *) (((uint8_t *) this) + modelindex);
 }
 
-inline bool mstudio_meshvertexdata_t::HasTangentData(void) const {
+inline bool mstudio_meshvertexdata_t::HasTangentData() const {
     return modelvertexdata->HasTangentData();
 }
 
@@ -2042,7 +2042,7 @@ struct studiohwdata_t {
 // body part index
 struct mstudiobodyparts_t {
     int sznameindex;
-    char *const pszName(void) const { return ((char *) this) + sznameindex; }
+    char *const pszName() const { return ((char *) this) + sznameindex; }
     int nummodels;
     int base;
     int modelindex; // index into models array
@@ -2052,7 +2052,7 @@ struct mstudiobodyparts_t {
 // body group preset
 struct mstudiobodygrouppreset_t {
     int sznameindex;
-    char *const pszName(void) const { return ((char *) this) + sznameindex; }
+    char *const pszName() const { return ((char *) this) + sznameindex; }
     int iValue;
     int iMask;
 };
@@ -2072,7 +2072,7 @@ private:
 
 struct mstudiohitboxset_t {
     int sznameindex;
-    char *const pszName(void) const { return ((char *) this) + sznameindex; }
+    char *const pszName() const { return ((char *) this) + sznameindex; }
     int numhitboxes;
     int hitboxindex;
     mstudiobbox_t *pHitbox(int i) const { return (mstudiobbox_t *) (((uint8_t *) this) + hitboxindex) + i; };
@@ -2085,7 +2085,7 @@ struct mstudiohitboxset_t {
 //-----------------------------------------------------------------------------
 struct mstudiosrcbonetransform_t {
     int sznameindex;
-    const char *pszName(void) const { return ((char *) this) + sznameindex; }
+    const char *pszName() const { return ((char *) this) + sznameindex; }
     matrix3x4_t pretransform;
     matrix3x4_t posttransform;
 };
@@ -2097,12 +2097,12 @@ struct mstudiosrcbonetransform_t {
 
 class virtualgroup_t {
 public:
-    virtualgroup_t(void) { cache = nullptr; };
+    virtualgroup_t() { cache = nullptr; };
     // tool dependant.  In engine this is a model_t, in tool it's a direct pointer
     void *cache;
 
     // converts cache entry into a usable studiohdr_t *
-    const studiohdr_t *GetStudioHdr(void) const;
+    const studiohdr_t *GetStudioHdr() const;
 
     CUtlVector<int> boneMap; // maps global bone to local bone
     CUtlVector<int> masterBone; // maps local bone to global bone
@@ -2551,7 +2551,7 @@ struct studiohdr_t {
 
     int checksum; // this has to be the same in the phy and vtx files to load!
 
-    const char *pszName(void) const {
+    const char *pszName() const {
         if (studiohdr2index && pStudioHdr2()->pszName()) return pStudioHdr2()->pszName();
         else return name;
     }
@@ -2570,7 +2570,7 @@ struct studiohdr_t {
     Vector view_bbmin; // clipping bounding box
     Vector view_bbmax;
 
-    int flags;
+    uint32_t flags;
 
     int numbones; // bones
     int boneindex;
@@ -2690,11 +2690,11 @@ struct studiohdr_t {
 
     void SetSequenceActivity(int iSequence, int iActivity);
 
-    int GetActivityListVersion(void);
+    int GetActivityListVersion();
 
     void SetActivityListVersion(int version) const;
 
-    int GetEventListVersion(void);
+    int GetEventListVersion();
 
     void SetEventListVersion(int version);
 
@@ -2725,7 +2725,7 @@ struct studiohdr_t {
     int numbodyparts;
     int bodypartindex;
 
-    mstudiobodyparts_t *pBodypart(int i) const {
+    mstudiobodyparts_t *pBodypart(const int i) const {
         return (mstudiobodyparts_t *) (((uint8_t *) this) + bodypartindex) + i;
     };
 
@@ -2740,7 +2740,7 @@ struct studiohdr_t {
     };
 
     //public:
-    int GetNumAttachments(void) const;
+    int GetNumAttachments() const;
 
     const mstudioattachment_t &pAttachment(int i) const;
 
@@ -2762,7 +2762,7 @@ struct studiohdr_t {
 
     uint8_t *pLocalTransition(int i) const {
         Assert(i >= 0 && i < (numlocalnodes * numlocalnodes));
-        return (uint8_t *) (((uint8_t *) this) + localnodeindex) + i;
+        return (uint8_t *) this + localnodeindex + i;
     };
 
     //public:
@@ -2824,21 +2824,21 @@ struct studiohdr_t {
     };
 
     //public:
-    int GetNumPoseParameters(void) const;
+    int GetNumPoseParameters() const;
 
     const mstudioposeparamdesc_t &pPoseParameter(int i);
 
     int GetSharedPoseParameter(int iSequence, int iLocalPose) const;
 
     int surfacepropindex;
-    char *const pszSurfaceProp(void) const { return ((char *) this) + surfacepropindex; }
+    char *const pszSurfaceProp() const { return ((char *) this) + surfacepropindex; }
     int GetSurfaceProp() const { return surfacepropLookup; }
 
     // Key values
     int keyvalueindex;
     int keyvaluesize;
 
-    const char *KeyValueText(void) const {
+    const char *KeyValueText() const {
         return keyvaluesize != 0 ? ((char *) this) + keyvalueindex : nullptr;
     }
 
@@ -2850,7 +2850,7 @@ struct studiohdr_t {
         return (mstudioiklock_t *) (((uint8_t *) this) + localikautoplaylockindex) + i;
     };
 
-    int GetNumIKAutoplayLocks(void) const;
+    int GetNumIKAutoplayLocks() const;
 
     const mstudioiklock_t &pIKAutoplayLock(int i);
 
@@ -2879,11 +2879,11 @@ struct studiohdr_t {
     // implementation specific back pointer to virtual data. Relocated to studiohdr2_t
     int unused_virtualModel;
 
-    virtualmodel_t *GetVirtualModel(void) const;
+    virtualmodel_t *GetVirtualModel() const;
 
     // for demand loaded animation blocks
     int szanimblocknameindex;
-    char *const pszAnimBlockName(void) const { return ((char *) this) + szanimblocknameindex; }
+    char *const pszAnimBlockName() const { return ((char *) this) + szanimblocknameindex; }
     int numanimblocks;
     int animblockindex;
 
@@ -3064,7 +3064,7 @@ class CSoftbodyEnvironment;
 
 class CStudioHdr {
 public:
-    CStudioHdr(void);
+    CStudioHdr();
 
     CStudioHdr(const studiohdr_t *pStudioHdr, IMDLCache *mdlcache = nullptr);
 
@@ -3075,11 +3075,11 @@ public:
     void Term();
 
 public:
-    bool IsVirtual(void) { return (m_pVModel != nullptr); };
-    bool IsValid(void) { return (m_pStudioHdr != nullptr); };
-    bool IsReadyForAccess(void) const { return (m_pStudioHdr != nullptr); };
-    virtualmodel_t *GetVirtualModel(void) const { return m_pVModel; };
-    const studiohdr_t *GetRenderHdr(void) const { return m_pStudioHdr; };
+    bool IsVirtual() { return (m_pVModel != nullptr); };
+    bool IsValid() { return (m_pStudioHdr != nullptr); };
+    bool IsReadyForAccess() const { return (m_pStudioHdr != nullptr); };
+    virtualmodel_t *GetVirtualModel() const { return m_pVModel; };
+    const studiohdr_t *GetRenderHdr() const { return m_pStudioHdr; };
 
     const studiohdr_t *pSeqStudioHdr(int sequence);
 
@@ -3108,7 +3108,7 @@ private:
     int *m_pFrameUnlockCounter;
 
 public:
-    int numbones(void) const { return m_pStudioHdr->numbones; };
+    int numbones() const { return m_pStudioHdr->numbones; };
     const mstudiobone_t *pBone(int i) const { return m_pStudioHdr->pBone(i); };
 
     int RemapAnimBone(int iAnim, int iLocalBone) const; // maps local animations bone to global bone
@@ -3116,9 +3116,9 @@ public:
 
     bool SequencesAvailable() const;
 
-    int GetNumSeq_Internal(void) const;
+    int GetNumSeq_Internal() const;
 
-    int GetNumSeq(void) const {
+    int GetNumSeq() const {
         if (!m_pVModel)
             return m_pStudioHdr->numlocalseq;
         return GetNumSeq_Internal();
@@ -3154,15 +3154,15 @@ public:
 
     void SetSequenceActivity(int iSequence, int iActivity);
 
-    int GetActivityListVersion(void);
+    int GetActivityListVersion();
 
     void SetActivityListVersion(int version);
 
-    int GetEventListVersion(void);
+    int GetEventListVersion();
 
     void SetEventListVersion(int version);
 
-    int GetNumAttachments(void) const;
+    int GetNumAttachments() const;
 
     const mstudioattachment_t &pAttachment(int i);
 
@@ -3180,13 +3180,13 @@ public:
     // FIXME: where should this one be?
     int GetTransition(int iFrom, int iTo) const;
 
-    int GetNumPoseParameters(void) const;
+    int GetNumPoseParameters() const;
 
     const mstudioposeparamdesc_t &pPoseParameter(int i);
 
     int GetSharedPoseParameter(int iSequence, int iLocalPose) const;
 
-    int GetNumIKAutoplayLocks(void) const;
+    int GetNumIKAutoplayLocks() const;
 
     const mstudioiklock_t &pIKAutoplayLock(int i);
 
@@ -3197,11 +3197,11 @@ public:
     };
     int GetAutoplayList(unsigned short **pOut) const { return m_pStudioHdr->GetAutoplayList(pOut); };
 
-    int GetNumBoneControllers(void) const { return m_pStudioHdr->numbonecontrollers; };
+    int GetNumBoneControllers() const { return m_pStudioHdr->numbonecontrollers; };
     mstudiobonecontroller_t *pBonecontroller(int i) const { return m_pStudioHdr->pBonecontroller(i); };
 
     int numikchains() const { return m_pStudioHdr->numikchains; };
-    int GetNumIKChains(void) const { return m_pStudioHdr->numikchains; };
+    int GetNumIKChains() const { return m_pStudioHdr->numikchains; };
     mstudioikchain_t *pIKChain(int i) const { return m_pStudioHdr->pIKChain(i); };
 
     int numflexrules() const { return m_pStudioHdr->numflexrules; };
@@ -3241,7 +3241,7 @@ public:
 
     int flags() const { return m_pStudioHdr->flags; };
 
-    char *const pszSurfaceProp(void) const { return m_pStudioHdr->pszSurfaceProp(); };
+    char *const pszSurfaceProp() const { return m_pStudioHdr->pszSurfaceProp(); };
     int GetSurfaceProp() const { return m_pStudioHdr->surfacepropLookup; }
 
     float mass() const { return m_pStudioHdr->mass; };
@@ -3373,7 +3373,7 @@ public:
         // These must be here because IFM does not compile/link studio.cpp (?!?)
 
         // ctor
-        CActivityToSequenceMapping(void)
+        CActivityToSequenceMapping()
             : m_pSequenceTuples(nullptr), m_iSequenceTuplesCount(0), m_ActToSeqHash(8, 0, 0), m_expectedVModel(nullptr),
               m_pStudioHdr(nullptr) {
         };
@@ -3474,7 +3474,7 @@ public:
     }
 
     // Force this CStudioHdr's activity-to-sequence mapping to be reinitialized
-    void ReinitializeSequenceMapping(void) {
+    void ReinitializeSequenceMapping() {
         if (m_pActivityToSequence) {
             CActivityToSequenceMapping::ReleaseMapping(m_pActivityToSequence);
             m_pActivityToSequence = nullptr;
@@ -3491,7 +3491,7 @@ private:
 #ifdef STUDIO_ENABLE_PERF_COUNTERS
 
 public:
-    void ClearPerfCounters(void) {
+    void ClearPerfCounters() {
         m_nPerfAnimatedBones = 0;
         m_nPerfUsedBones = 0;
         m_nPerfAnimationLayers = 0;
@@ -3540,7 +3540,7 @@ struct flexweight_t {
 struct flexsetting_t {
     int nameindex;
 
-    char *pszName(void) const {
+    char *pszName() const {
         return (char *) (((uint8_t *) this) + nameindex);
     }
 
@@ -3575,7 +3575,7 @@ struct flexsettinghdr_t {
     int id;
     int version;
 
-    const char *pszName(void) const { return name; }
+    const char *pszName() const { return name; }
     char name[64];
     int length;
 

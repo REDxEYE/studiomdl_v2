@@ -1392,15 +1392,6 @@ void Grab_Vertexanimation(s_source_t *psource, const char *pAnimName) {
     MdlError("unexpected EOF: {}\n", psource->filename);
 }
 
-std::string OutputModelPath(const std::string_view extension) {
-    std::string path = g_StudioMdlContext.gameDir;
-    path += "models/";
-    path += vstd::paths::without_extension(g_studiomdl.outname.view());
-    path += extension;
-    vstd::paths::fix_slashes(path);
-    return path;
-}
-
 // Where a source file can be: below every content base path when src is below one of them, else src itself
 static std::vector<std::string> SourceFileCandidates(const std::string &fileName) {
     int pathLength;

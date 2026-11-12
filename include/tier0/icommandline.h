@@ -24,11 +24,7 @@ public:
 
     virtual std::string_view GetCmdLine() const = 0;
 
-    // Check whether a particular parameter exists
-    virtual std::pair<std::string_view, std::string_view> CheckParm(std::string_view key, bool extract_value) const
-    = 0;
-
-    virtual std::string_view CheckParm(const std::string_view key) const { return CheckParm(key, false).first; };
+    ;
 
     // A bool return of whether param exists, useful for just checking if param that is just a flag is set
     virtual bool HasParm(const char* psz) const = 0;

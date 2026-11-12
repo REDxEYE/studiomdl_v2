@@ -167,7 +167,7 @@ public:
 	inline fltx4 LoadUnalignedSIMD() const; // load onto a SIMD register without assumptions of being on a 16byte boundary  
 
 private:
-	Quaternion64( uint64_t xx, uint64_t yy, uint64_t zz, uint64_t ww ) : x(xx), y(yy), z(zz), wneg(ww) {}; // stricly for static construction
+	Quaternion64(const uint64_t xx, const uint64_t yy, const uint64_t zz, const uint64_t ww ) : x(xx), y(yy), z(zz), wneg(ww) {}; // stricly for static construction
 	uint64_t x:21;
 	uint64_t y:21;
 	uint64_t z:21;
@@ -494,7 +494,7 @@ public:
 	{ 
 		return Convert16bitFloatTo32bits( m_storage.rawWord ); 
 	}
-	void SetFloat( float in ) 
+	void SetFloat(const float in )
 	{ 
 		m_storage.rawWord = ConvertFloatTo16bits( in ); 
 	}
@@ -524,7 +524,7 @@ public:
 		const float *a, const float *b, const float *c, const float *d  );
 	
 	// unfortunately, function templates can't have default template parameters in 2010-era C++ 
-	inline static unsigned short ConvertFloatTo16bits( float input )
+	inline static unsigned short ConvertFloatTo16bits(const float input )
 	{	// default to branchless on ppc and branchy on x86
 		return ConvertFloatTo16bitsNonDefault<false>(input);
 	}	
@@ -536,9 +536,9 @@ protected:
 		uint32_t rawAsInt;
 		struct 
 		{
-			unsigned int mantissa : 23;
-			unsigned int biased_exponent : 8;
-			unsigned int sign : 1;
+			uint32_t mantissa : 23;
+			uint32_t biased_exponent : 8;
+			uint32_t sign : 1;
 		} bits;
 	};
 
@@ -553,11 +553,11 @@ protected:
 		} bits;
 	};
 
-	static bool IsNaN( float16bits in )
+	static bool IsNaN(const float16bits in )
 	{
 		return in.bits.biased_exponent == 31 && in.bits.mantissa != 0;
 	}
-	static bool IsInfinity( float16bits in )
+	static bool IsInfinity(const float16bits in )
 	{
 		return in.bits.biased_exponent == 31 && in.bits.mantissa == 0;
 	}
@@ -570,7 +570,7 @@ class float16_with_assign : public float16
 {
 public:
 	float16_with_assign() {}
-	float16_with_assign( float f ) { m_storage.rawWord = ConvertFloatTo16bits(f); }
+	float16_with_assign(const float f ) { m_storage.rawWord = ConvertFloatTo16bits(f); }
 
 	float16& operator=(const float16 &other) { m_storage.rawWord = ((float16_with_assign &)other).m_storage.rawWord; return *this; }
 	float16& operator=(const float &other) { m_storage.rawWord = ConvertFloatTo16bits(other); return *this; }
@@ -587,13 +587,13 @@ class Vector48
 public:
 	// Construction/destruction:
 	Vector48() {}
-	Vector48(vec_t X, vec_t Y, vec_t Z) { x.SetFloat( X ); y.SetFloat( Y ); z.SetFloat( Z ); }
+	Vector48(const vec_t X, const vec_t Y, const vec_t Z) { x.SetFloat( X ); y.SetFloat( Y ); z.SetFloat( Z ); }
 
 	// assignment
 	Vector48& operator=(const Vector &vOther);
 	operator Vector ();
 
-	const float operator[]( int i ) const { return (((float16 *)this)[i]).GetFloat(); }
+	const float operator[](const int i ) const { return (((float16 *)this)[i]).GetFloat(); }
 
 	float16 x;
 	float16 y;
@@ -728,7 +728,7 @@ inline unsigned short float16::ConvertFloatTo16bitsNonDefault( float input )
 	*/
 	output.bits.sign = inFloat.bits.sign;
 
-	if ( (inFloat.bits.biased_exponent==0) ) 
+	if ( inFloat.bits.biased_exponent==0u )
 	{ 
 		// zero and denorm both map to zero
 		output.bits.mantissa = 0;
@@ -738,7 +738,7 @@ inline unsigned short float16::ConvertFloatTo16bitsNonDefault( float input )
 	{
 		if ( !BRANCHLESS )
 		{
-			if ( (inFloat.bits.mantissa==0) ) 
+			if ( inFloat.bits.mantissa==0u )
 			{ 
 				/*
 				// infinity
@@ -750,7 +750,7 @@ inline unsigned short float16::ConvertFloatTo16bitsNonDefault( float input )
 				output.bits.mantissa = 0x3ff;
 				output.bits.biased_exponent = 0x1e;
 			}
-			else if ( (inFloat.bits.mantissa!=0) ) 
+			else if ( inFloat.bits.mantissa == 0 )
 			{ 
 				/*
 				// NaN
@@ -891,7 +891,7 @@ class Vector2d32
 public:
 	// Construction/destruction:
 	Vector2d32() {}
-	Vector2d32(vec_t X, vec_t Y) { x.SetFloat( X ); y.SetFloat( Y ); }
+	Vector2d32(const vec_t X, const vec_t Y) { x.SetFloat( X ); y.SetFloat( Y ); }
 
 	// assignment
 	Vector2d32& operator=(const Vector &vOther);
@@ -922,7 +922,7 @@ inline Vector2d32::operator Vector2D ()
 	return tmp;
 }
 
-inline void Vector2d32::Init( vec_t ix, vec_t iy )
+inline void Vector2d32::Init(const vec_t ix, const vec_t iy )
 {
 	x.SetFloat(ix);
 	y.SetFloat(iy);

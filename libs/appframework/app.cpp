@@ -8,7 +8,7 @@
 
 static CSimpleLoggingListener s_SimpleLoggingListener;
 
-int CApplication::Run(int argc, char **argv) {
+int CApplication::Run(const int argc, char **argv) {
     CommandLine()->CreateCmdLine(argc, argv);
     FileSystem_SetErrorMode(FS_ERRORMODE_AUTO);
 

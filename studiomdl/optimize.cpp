@@ -34,6 +34,7 @@
 #include <malloc.h>
 #include "meshoptimizer.h"
 #include "studiomdl/filebuffer.h"
+#include "studiomdl/output_files.hpp"
 #include "tier1/utlvector.h"
 #include "materialsystem/imaterial.h"
 #include "tier1/utllinkedlist.h"
@@ -2511,7 +2512,7 @@ namespace OptimizedModel {
                     mstudiomodel_t *pStudioModel = pStudioBodyPart->pModel(modelID);
                     ModelLODHeader_t *pLOD = model->pLOD(lodID);
                     for (int meshID = 0; meshID < pLOD->numMeshes; meshID++) {
-                        MeshHeader_t *mesh = pLOD->pMesh(meshID);
+                        const MeshHeader_t *mesh = pLOD->pMesh(meshID);
                         mstudiomesh_t *pStudioMesh = pStudioModel->pMesh(meshID);
                         for (int stripGroupID = 0; stripGroupID < mesh->numStripGroups; stripGroupID++) {
                             // Only do this to HW-skinned meshes
@@ -2889,7 +2890,6 @@ namespace OptimizedModel {
     void COptimizedModel::WriteVTXFile(studiohdr_t *pHdr, const char *pFileName,
                                        TotalMeshStats_t const &stats) {
         // calculate file offsets
-        m_FileBuffer = new CFileBuffer(FILEBUFFER_SIZE);
         m_BodyPartsOffset = sizeof(FileHeader_t);
         m_ModelsOffset = m_BodyPartsOffset + sizeof(BodyPartHeader_t) * stats.m_TotalBodyParts;
         m_ModelLODsOffset = m_ModelsOffset + sizeof(ModelHeader_t) * stats.m_TotalModels;
@@ -2908,6 +2908,9 @@ namespace OptimizedModel {
                 m_MaterialReplacementsListOffset + g_studiomdl.ScriptLODs.Count() * sizeof(
                     MaterialReplacementListHeader_t);
         m_EndOfFileOffset = m_TopologyOffset + sizeof(unsigned short) * stats.m_TotalTopologyIndices;
+
+        // the layout above is the whole file: allocate it exactly, every block is written at its offset
+        m_FileBuffer = new CFileBuffer(m_EndOfFileOffset);
 
         int curModel = 0;
         int curLOD = 0;
@@ -3020,8 +3023,6 @@ namespace OptimizedModel {
 #ifdef _DEBUG
         // ShowStats();
 #endif
-
-        m_FileBuffer->WriteToFile(pFileName, m_EndOfFileOffset);
 
         FileHeader_t *pVtxHeader = (FileHeader_t *) m_FileBuffer->GetPointer(0);
         SanityCheckVertexBoneLODFlags(pHdr, pVtxHeader);
@@ -3181,7 +3182,7 @@ namespace OptimizedModel {
         ProcessModel(pHdr, pSrcBodyParts, stats, bForceSoftwareSkin, bHWFlex);
         stats.m_TotalMaterialReplacements = CalcNumMaterialReplacements();
 
-        // Write it out to disk
+        // Lay out and fill the vtx (stored in the output files below, after the debug files have read it)
         WriteVTXFile(pHdr, pFileName, stats);
 
         // Write out debugging files....
@@ -3192,6 +3193,8 @@ namespace OptimizedModel {
         //	PrintBoneStateChanges( pHdr, 1 );
         //	PrintVerts( pHdr, 1 );
 
+        // nothing reads the file through m_FileBuffer anymore: hand the contents over for the final write
+        SaveOutputFile(pFileName, std::move(m_FileBuffer->Data()));
         delete m_FileBuffer;
         m_FileBuffer = nullptr;
 
@@ -4110,36 +4113,36 @@ namespace OptimizedModel {
 
     // Check that all replacematerial/removemesh commands map to valid source materials
     void ValidateLODReplacements(studiohdr_t *pHdr) {
-        return;
-        //        bool failed = false;
-        //        int lodID;
-        //        for (lodID = 0; lodID < g_ScriptLODs.Count(); lodID++) {
-        //            LodScriptData_t &scriptLOD = g_ScriptLODs[lodID];
-        //            int j;
-        //            for (j = 0; j < scriptLOD.meshRemovals.Count(); j++) {
-        //                const char *pName1 = scriptLOD.meshRemovals[j].GetSrcName();
-        //                int i;
-        //                for (i = 0; i < pHdr->numtextures; i++) {
-        //                    const char *pName2 = pHdr->pTexture(i)->material->GetName();
-        //                    if (ComparePath(pName1, pName2)) {
-        //                        goto got_one;
-        //                    }
-        //                }
-        //
-        //                // no match
-        //                MdlWarning("\"%s\" doesn't match any of the materals in the model\n", pName1);
-        //                failed = true;
-        //                got_one:;
-        //            }
-        //        }
-        //        if (failed) {
-        //            MdlWarning("possible materials in model:\n");
-        //            int i;
-        //            for (i = 0; i < pHdr->numtextures; i++) {
-        //                MdlWarning("\t\"%s\"\n", pHdr->pTexture(i)->material->GetName());
-        //            }
-        //            MdlError("Exiting due to errors\n");
-        //        }
+        // return;
+        bool failed = false;
+        int lodID;
+        for (lodID = 0; lodID < g_studiomdl.ScriptLODs.Count(); lodID++) {
+            LodScriptData_t &scriptLOD = g_studiomdl.ScriptLODs[lodID];
+            int j;
+            for (j = 0; j < scriptLOD.meshRemovals.Count(); j++) {
+                const char *pName1 = scriptLOD.meshRemovals[j].GetSrcName();
+                int i;
+                for (i = 0; i < pHdr->numtextures; i++) {
+                    const char *pName2 = pHdr->pTexture(i)->material->GetName();
+                    if (ComparePath(pName1, pName2)) {
+                        goto got_one;
+                    }
+                }
+
+                // no match
+                MdlWarning("\"%s\" doesn't match any of the materals in the model\n", pName1);
+                failed = true;
+                got_one:;
+            }
+        }
+        if (failed) {
+            MdlWarning("possible materials in model:\n");
+            int i;
+            for (i = 0; i < pHdr->numtextures; i++) {
+                MdlWarning("\t\"%s\"\n", pHdr->pTexture(i)->material->GetName());
+            }
+            MdlError("Exiting due to errors\n");
+        }
     }
 
     void WriteOptimizedFiles(studiohdr_t *phdr, s_bodypart_t *pSrcBodyParts) {
@@ -4154,35 +4157,6 @@ namespace OptimizedModel {
 
         // <game>/models/<name> without extension
         const std::string filename = OutputModelPath("");
-
-        if (g_gameinfo.bSupportsDX8 && !g_StudioMdlContext.fastBuild) {
-            const std::string tmpFileName = filename + ".sw.vtx";
-            const std::string glViewFilename = filename + ".sw.glview";
-            bool bForceSoftwareSkinning = phdr->numbones > 0 && !g_studiomdl.staticprop;
-            s_OptimizedModel.OptimizeFromStudioHdr(phdr, pSrcBodyParts,
-                                                   512, //vert cache size FIXME: figure out the correct size for L1
-                                                   false, /* doesn't use fixed function */
-                                                   bForceSoftwareSkinning, // force software skinning if not static prop
-                                                   false, // No hardware flex
-                                                   3, // bones/vert
-                                                   3 * 3, // bones/tri
-                                                   512, // bones/strip
-                                                   tmpFileName.c_str(), glViewFilename.c_str());
-        }
-
-        if (g_gameinfo.bSupportsDX8 && !g_StudioMdlContext.fastBuild) {
-            const std::string tmpFileName = filename + ".dx80.vtx";
-            const std::string glViewFilename = filename + ".dx80.glview";
-            s_OptimizedModel.OptimizeFromStudioHdr(phdr, pSrcBodyParts,
-                                                   24 /* vert cache size (real size, not effective!)*/,
-                                                   false, /* doesn't use fixed function */
-                                                   false, // don't force software skinning
-                                                   false, // No hardware flex
-                                                   3 /* bones/vert */,
-                                                   9 /* bones/tri */,
-                                                   16 /* bones/strip */,
-                                                   tmpFileName.c_str(), glViewFilename.c_str());
-        }
 
         if (true) // Always process dx90
         {
