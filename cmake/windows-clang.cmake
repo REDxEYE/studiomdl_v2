@@ -30,7 +30,8 @@ set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
 
 set(CMAKE_CXX_FLAGS_INIT "-fsized-deallocation -w")
 
-set(LINK_FLAGS "-fuse-ld=lld -B/usr/${TARGET}/bin -L${GCC_LIBDIR} -Wl,--strip-debug")
+# --strip-all: no debug info and no COFF symbol table in the outputs, like a MinSizeRel build (any build type)
+set(LINK_FLAGS "-fuse-ld=lld -B/usr/${TARGET}/bin -L${GCC_LIBDIR} -Wl,--strip-all")
 
 set(CMAKE_EXE_LINKER_FLAGS_INIT "${LINK_FLAGS} -static")
 set(CMAKE_SHARED_LINKER_FLAGS_INIT "${LINK_FLAGS}")

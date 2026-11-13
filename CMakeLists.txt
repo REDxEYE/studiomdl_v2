@@ -162,6 +162,10 @@ target_link_libraries(dmxconvert PRIVATE
         mathlib
         filesystem_stdio_v2_static
 )
+if (MINGW)
+    # studiomdl_errors.cpp uses std::print, see studiomdl_v2 above
+    target_link_libraries(dmxconvert PRIVATE stdc++exp)
+endif ()
 
 option(STUDIOMDL_BUILD_TESTS "Build the tests (ctest)" ON)
 if (STUDIOMDL_BUILD_TESTS)

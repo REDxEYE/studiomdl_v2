@@ -161,7 +161,7 @@ struct studiohdr_t;
 #define MAXSTUDIOSKINS		128		// total textures (compiler side limit; SFM renders models with more than 32)
 #define MAXSTUDIOBONES		256		// total bones actually used
 #define MAXSTUDIOFLEXDESC	1024	// maximum number of low level flexes (actual morph targets)
-#define MAXSTUDIOFLEXCTRL	96		// maximum number of flexcontrollers (input sliders)
+#define MAXSTUDIOFLEXCTRL	128		// maximum number of flexcontrollers (input sliders)
 #define MAXSTUDIOPOSEPARAM	24
 #define MAXSTUDIOBONECTRLS	4
 #define MAXSTUDIOANIMBLOCKS 256

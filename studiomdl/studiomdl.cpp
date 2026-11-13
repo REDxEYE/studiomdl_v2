@@ -1284,7 +1284,12 @@ int SortAndBalanceBones(uint32_t count, const uint32_t maxCount, std::span<int> 
         }
     } while (bShouldSort);
 
-    // Small influences are kept on purpose: Valve's studiomdl dropped weights below 0.05 (mdlcompile: 0.0001) here
+    // Small influences are kept on purpose: Valve's studiomdl dropped weights below 0.05 (mdlcompile: 0.0001) here.
+    // Zero weights still go (fixed-size joint lists pad with them, merged duplicates leave them): an influence of 0
+    // in numbones marks its bone as used by vertices, so the bone survives in the model for nothing.
+    while (count > 1 && weights[count - 1] <= 0.0f) {
+        count--;
+    }
 
     // clip to the top iMaxCount bones
     if (count > maxCount) {
