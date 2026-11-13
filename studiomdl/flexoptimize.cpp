@@ -497,18 +497,16 @@ namespace {
     }
 }
 
-bool ParseFlexOptimizeMode(const std::string_view pText, FlexOptimizeMode_t &mode) {
-    if (!pText.empty())
-        return false;
-    if (vstd::iequals(pText, "auto")) {
+bool ParseFlexOptimizeMode(const std::string_view text, FlexOptimizeMode_t &mode) {
+    if (vstd::iequals(text, "auto")) {
         mode = FLEXOPT_AUTO;
         return true;
     }
-    if (vstd::iequals(pText, "on")) {
+    if (vstd::iequals(text, "on")) {
         mode = FLEXOPT_ON;
         return true;
     }
-    if (vstd::iequals(pText, "off")) {
+    if (vstd::iequals(text, "off")) {
         mode = FLEXOPT_OFF;
         return true;
     }
