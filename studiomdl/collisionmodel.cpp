@@ -43,6 +43,7 @@
 #include "tier1_v2/function_timing.hpp"
 #include "studiomdl/studiomdl_global_state.hpp"
 #include "tier1_v2/path_utils.hpp"
+#include "tier1_v2/string_utils.hpp"
 
 //#include "vphysics2_interface.h"
 
@@ -134,7 +135,7 @@ struct collisionpair_t {
 };
 
 
-// Returns the index to pName in g_studiomdl.bonetable
+// Returns the index to pName in g_studiomdl.bones.bonetable
 int FindBoneInTable(const char *pName) {
     return findGlobalBone(pName);
 }
@@ -332,7 +333,7 @@ void CJointedModel::AddMergeCommand(char const *pParent, char const *pChild) {
 int CJointedModel::BoneIndex(const char *pName) {
     pName = RenameBone(pName);
     for (int boneIndex = 0; boneIndex < m_pModel->numbones; boneIndex++) {
-        if (!stricmp(m_pModel->localBone[boneIndex].name, pName))
+        if (vstd::iequals(m_pModel->localBone[boneIndex].name, pName))
             return boneIndex;
     }
 
@@ -461,8 +462,8 @@ void CJointedModel::AddConvexSrc(ScriptTokenizer &qc, const char *szFileName) {
 
     for (int i = 0; i < MAX_EXTRA_COLLISION_MODELS; i++) {
         if (m_ExtraModels[i].m_pSrc == NULL) {
-            int nummaterials = g_studiomdl.materials.size();
-            int numtextures = g_studiomdl.textures.size();
+            int nummaterials = g_studiomdl.materials.materials.size();
+            int numtextures = g_studiomdl.materials.textures.size();
 
             char szTempFileName[MAX_PATH];
             V_strcpy_safe(szTempFileName, szFileName);
@@ -489,10 +490,10 @@ void CJointedModel::AddConvexSrc(ScriptTokenizer &qc, const char *szFileName) {
                 return;
 
             // auto-remove any new materials/textures
-            if (nummaterials && numtextures && (numtextures != g_studiomdl.textures.size() || nummaterials !=
-                                                g_studiomdl.materials.size())) {
-                g_studiomdl.textures.resize(numtextures);
-                g_studiomdl.materials.resize(nummaterials);
+            if (nummaterials && numtextures && (numtextures != g_studiomdl.materials.textures.size() || nummaterials !=
+                                                g_studiomdl.materials.materials.size())) {
+                g_studiomdl.materials.textures.resize(numtextures);
+                g_studiomdl.materials.materials.resize(nummaterials);
                 pmodel->texmap[0] = 0;
             }
 
@@ -522,7 +523,7 @@ void CJointedModel::AddConvexSrc(ScriptTokenizer &qc, const char *szFileName) {
                         matrix3x4_t matLocal;
                         AngleMatrix(angOffsetAngle, vecOffsetPosition, matLocal);
 
-                        matLocal.ScaleUpper3x3Matrix(flScale * (1.0f / g_studiomdl.currentscale));
+                        matLocal.ScaleUpper3x3Matrix(flScale * (1.0f / g_studiomdl.script.currentscale));
 
                         matrix3x4_t matConvert;
                         matConvert.InitXYZ(Vector(0, 1, 0), Vector(-1, 0, 0), Vector(0, 0, 1), Vector(0, 0, 0));
@@ -1000,7 +1001,7 @@ void CJointedModel::FixBoneList() {
             if (nodeIndex >= 0) {
                 // bone collapse may have changed parent hierarchy, and the root name.
                 // The vertices are converted to the new reference by ConvertToWorldSpace(), as well as RemapVerticesToGlobalBones()
-                pmodel->m_name = g_studiomdl.bonetable[m_pModel->boneLocalToGlobal[nodeIndex]].name;
+                pmodel->m_name = g_studiomdl.bones.bonetable[m_pModel->boneLocalToGlobal[nodeIndex]].name;
                 pmodel->m_parent = NULL;
                 int parentIndex = m_pModel->localBone[nodeIndex].parent;
                 if (parentIndex >= 0 && parentIndex != nodeIndex) {
@@ -1009,7 +1010,7 @@ void CJointedModel::FixBoneList() {
                         pmodel->m_parent = m_pModel->localBone[parentIndex].name;
                     }
                     else {
-                        pmodel->m_parent = g_studiomdl.bonetable[m_pModel->boneLocalToGlobal[parentIndex]].name;
+                        pmodel->m_parent = g_studiomdl.bones.bonetable[m_pModel->boneLocalToGlobal[parentIndex]].name;
                     }
                 }
             }
@@ -1760,7 +1761,7 @@ void CCmd_JointConstrain(CJointedModel &joints, const char *pJointName, const ch
 
     int axis = -1;
     int jointIndex = joints.FindLocalBoneNamed(pJointName);
-    if (!g_StudioMdlContext.createMakefile && jointIndex < 0) {
+    if (!g_studiomdl.options.createMakefile && jointIndex < 0) {
         MdlWarning("Can't find joint {}\n", pJointName);
         return;
     }
@@ -1808,7 +1809,7 @@ void CCmd_JointConstrain(CJointedModel &joints, int nAxis, const char *pJointNam
         return;
 
     const int jointIndex = FindLocalBoneNamed(joints.m_pModel, pJointName);
-    if (!g_StudioMdlContext.createMakefile && jointIndex < 0) {
+    if (!g_studiomdl.options.createMakefile && jointIndex < 0) {
         MdlWarning("Can't find joint {}\n", pJointConstrain->GetName());
         return;
     }
@@ -2237,8 +2238,8 @@ int DoCollisionModel(ScriptTokenizer &qc, bool separateJoints) {
     //	g_pPhysics2 = (IPhysics2*)physicsFactory(VPHYSICS2_INTERFACE_VERSION, NULL);
     LoadSurfacePropsAll();
 
-    int nummaterials = g_studiomdl.materials.size();
-    int numtextures = g_studiomdl.textures.size();
+    int nummaterials = g_studiomdl.materials.materials.size();
+    int numtextures = g_studiomdl.materials.textures.size();
 
     // Special case where the input collision is empty.
     // This means that a list of collision meshes follows.
@@ -2254,10 +2255,9 @@ int DoCollisionModel(ScriptTokenizer &qc, bool separateJoints) {
             return 0;
 
         // auto-remove any new materials/textures
-        if (nummaterials && numtextures && (numtextures != g_studiomdl.textures.size() || nummaterials != g_studiomdl.
-                                            materials.size())) {
-            g_studiomdl.textures.resize(numtextures);
-            g_studiomdl.materials.resize(nummaterials);
+        if (nummaterials && numtextures && (numtextures != g_studiomdl.materials.textures.size() || nummaterials != g_studiomdl.materials.materials.size())) {
+            g_studiomdl.materials.textures.resize(numtextures);
+            g_studiomdl.materials.materials.resize(nummaterials);
 
             pmodel->texmap[0] = 0;
         }
@@ -2358,37 +2358,37 @@ void CJointedModel::FixCollisionHierarchy() {
 
         pPhys = m_pCollisionList;
         int i;
-        for (i = 0; i < g_StudioMdlContext.numbones; i++) {
-            g_studiomdl.bonetable[i].physicsBoneIndex = -1;
+        for (i = 0; i < std::ssize(g_studiomdl.bones.bonetable); i++) {
+            g_studiomdl.bones.bonetable[i].physicsBoneIndex = -1;
         }
         int index = 0;
         while (pPhys) {
             int boneIndex = FindBoneInTable(pPhys->m_name);
             if (boneIndex >= 0) {
-                g_studiomdl.bonetable[boneIndex].physicsBoneIndex = index;
+                g_studiomdl.bones.bonetable[boneIndex].physicsBoneIndex = index;
             }
             pPhys = pPhys->m_pNext;
             index++;
         }
-        for (i = 0; i < g_StudioMdlContext.numbones; i++) {
+        for (i = 0; i < std::ssize(g_studiomdl.bones.bonetable); i++) {
             // if no bone was set, set to parent bone
-            if (g_studiomdl.bonetable[i].physicsBoneIndex < 0) {
-                int index = g_studiomdl.bonetable[i].parent;
+            if (g_studiomdl.bones.bonetable[i].physicsBoneIndex < 0) {
+                int index = g_studiomdl.bones.bonetable[i].parent;
                 int bone = -1;
                 while (index >= 0) {
-                    bone = g_studiomdl.bonetable[index].physicsBoneIndex;
+                    bone = g_studiomdl.bones.bonetable[index].physicsBoneIndex;
                     if (bone >= 0)
                         break;
-                    index = g_studiomdl.bonetable[index].parent;
+                    index = g_studiomdl.bones.bonetable[index].parent;
                 }
 
                 // found one?
                 if (bone >= 0) {
-                    g_studiomdl.bonetable[i].physicsBoneIndex = bone;
+                    g_studiomdl.bones.bonetable[i].physicsBoneIndex = bone;
                 }
                 else {
                     // just set physics to affect root
-                    g_studiomdl.bonetable[i].physicsBoneIndex = 0;
+                    g_studiomdl.bones.bonetable[i].physicsBoneIndex = 0;
                 }
             }
         }
@@ -2503,8 +2503,8 @@ void CollisionModel_Write(long checkSum) {
     if (g_JointedModel.m_pCollisionList) {
         CPhysCollisionModel *pPhys = g_JointedModel.m_pCollisionList;
 
-        std::string filename = g_StudioMdlContext.gameDir + "models/";
-        filename += g_JointedModel.m_pOverrideName ? g_JointedModel.m_pOverrideName : g_studiomdl.outname.c_str();
+        std::string filename = g_studiomdl.paths.gameDir + "models/";
+        filename += g_JointedModel.m_pOverrideName ? g_JointedModel.m_pOverrideName : g_studiomdl.paths.outname.c_str();
 
         float volume = TotalVolume(pPhys);
         if (volume <= 0)
@@ -2767,7 +2767,7 @@ void ParseCollisionCommands(CJointedModel &joints, CDmeCollisionModel *pCollisio
             const char *pJointName = pCollisionJoint->GetName();
 
             const int nJointIndex = FindLocalBoneNamed(joints.m_pModel, pJointName);
-            if (!g_StudioMdlContext.createMakefile && nJointIndex < 0) {
+            if (!g_studiomdl.options.createMakefile && nJointIndex < 0) {
                 MdlWarning(
                     "1001: root.collisionModel.joints[ {} ] refers to joint \"{}\" but that joint wasn't defined in the model\n",
                     i, pJointName);

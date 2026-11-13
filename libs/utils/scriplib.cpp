@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include "tier1/utlbuffer.h"
 #include "filesystem/stdfile.h"
+#include "tier1_v2/string_utils.hpp"
 
 /*
 =============================================================================
@@ -483,7 +484,7 @@ void ScriptTokenizer::AttemptConditionalInclude() {
     bool bConditionSuccess = true;
 
     if (GetToken(false)) {
-        if (!stricmp(token, "iffileexists")) {
+        if (vstd::iequals(token, "iffileexists")) {
             bConditionSuccess = false;
 
             if (GetToken(false)) {
@@ -504,16 +505,16 @@ void ScriptTokenizer::AttemptConditionalInclude() {
 
 // Script directives handled inside the tokenizer. Returns true (with the next token's result) if token was one.
 bool ScriptTokenizer::HandleDirective(bool crossline, bool &result) {
-    if (!stricmp(token, "$include")) {
+    if (vstd::iequals(token, "$include")) {
         AttemptConditionalInclude();
     }
-    else if (!stricmp(token, "$definemacro")) {
+    else if (vstd::iequals(token, "$definemacro")) {
         if (!GetToken(false))
             Error("$definemacro: missing macro name");
         DefineMacro(std::string(token.view()));
     }
-    else if (!stricmp(token, "$definevariable") || !stricmp(token, "$redefinevariable")) {
-        const bool redefine = !stricmp(token, "$redefinevariable");
+    else if (vstd::iequals(token, "$definevariable") || vstd::iequals(token, "$redefinevariable")) {
+        const bool redefine = vstd::iequals(token, "$redefinevariable");
         if (!GetToken(false))
             Error("{}: missing variable name", redefine ? "$redefinevariable" : "$definevariable");
         DefineVariable(std::string(token.view()), redefine);

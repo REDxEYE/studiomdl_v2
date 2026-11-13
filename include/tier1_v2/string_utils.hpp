@@ -29,22 +29,36 @@ namespace vstd {
         return true;
     }
 
-
-    // Q_stricmp(a, b) == 0
-    template<size_t N>
-    constexpr bool iequals(const FixedString<N> &a, const char* b) noexcept {
-        return iequals(a.view(), b);
+    // The text of anything the case-insensitive helpers accept: const char *, std::string, std::string_view, FixedString,
+    // and Valve strings that convert to const char * (CUtlString, CDmaString)
+    constexpr std::string_view as_view(const std::string_view text) noexcept {
+        return text;
     }
 
-    template<uint32_t N>
-    constexpr bool iequals(const FixedString<N> &a, const std::string_view b) noexcept {
-        return iequals(a.view(), b);
+    constexpr std::string_view as_view(const char *text) noexcept {
+        return text;
+    }
+
+    template<size_t N>
+    constexpr std::string_view as_view(const FixedString<N> &text) noexcept {
+        return text.view();
+    }
+
+    // Q_stricmp(a, b) == 0 for any mix of the string types above
+    template<typename A, typename B>
+    constexpr bool iequals(const A &a, const B &b) noexcept {
+        return iequals(as_view(a), as_view(b));
     }
 
 
     // Q_strncasecmp(prefix, text, strlen(prefix)) == 0
     constexpr bool istarts_with(const std::string_view text, const std::string_view prefix) noexcept {
         return text.size() >= prefix.size() && iequals(text.substr(0, prefix.size()), prefix);
+    }
+
+    template<typename A, typename B>
+    constexpr bool istarts_with(const A &text, const B &prefix) noexcept {
+        return istarts_with(as_view(text), as_view(prefix));
     }
 
     // Position of the first case-insensitive match (Q_stristr), npos if there is none
@@ -60,11 +74,16 @@ namespace vstd {
         return std::string_view::npos;
     }
 
+    template<typename A, typename B>
+    constexpr size_t ifind(const A &text, const B &pattern) noexcept {
+        return ifind(as_view(text), as_view(pattern));
+    }
+
     // Q_strlower for std::string and vstd::FixedString
     template<typename S>
     void make_lower_ascii(S &text) noexcept {
         char* data = text.data();
-        const size_t length = std::string_view(text).size();
+        const size_t length = as_view(text).size();
         for (size_t i = 0; i < length; ++i) {
             data[i] = to_lower_ascii(data[i]);
         }

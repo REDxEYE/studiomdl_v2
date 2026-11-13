@@ -17,7 +17,6 @@
 // Number of vertices the flexed-vertex cache of studiorender can address per model draw
 constexpr int FLEX_CACHE_MAX_VERTICES = 65535;
 
-struct StudioMdlContext;
 struct s_source_t;
 enum FlexOptimizeMode_t : int;
 

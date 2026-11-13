@@ -167,123 +167,123 @@ static void WriteBoneInfo(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_
     int i, j, k;
 
     // save bone info
-    const auto pbones = buffer.allocate<mstudiobone_t>(g_StudioMdlContext.numbones);
-    phdr->numbones = g_StudioMdlContext.numbones;
+    const auto pbones = buffer.allocate<mstudiobone_t>(std::ssize(g_studiomdl.bones.bonetable));
+    phdr->numbones = std::ssize(g_studiomdl.bones.bonetable);
     phdr->boneindex = pbones.offset_as<int>();
 
     char* pSurfacePropName = GetDefaultSurfaceProp();
     AddToStringTable(phdr, phdr.field(&studiohdr_t::surfacepropindex), pSurfacePropName);
     phdr->contents = GetDefaultContents();
 
-    for (i = 0; i < g_StudioMdlContext.numbones; i++) {
-        AddToStringTable(pbones + i, (pbones + i).field(&mstudiobone_t::sznameindex), g_studiomdl.bonetable[i].name);
-        pbones[i].parent = g_studiomdl.bonetable[i].parent;
-        pbones[i].flags = g_studiomdl.bonetable[i].flags;
+    for (i = 0; i < std::ssize(g_studiomdl.bones.bonetable); i++) {
+        AddToStringTable(pbones + i, (pbones + i).field(&mstudiobone_t::sznameindex), g_studiomdl.bones.bonetable[i].name);
+        pbones[i].parent = g_studiomdl.bones.bonetable[i].parent;
+        pbones[i].flags = g_studiomdl.bones.bonetable[i].flags;
         pbones[i].procindex = 0;
-        pbones[i].physicsbone = g_studiomdl.bonetable[i].physicsBoneIndex;
-        pbones[i].pos = g_studiomdl.bonetable[i].pos;
-        pbones[i].rot = g_studiomdl.bonetable[i].rot;
-        pbones[i].posscale = g_studiomdl.bonetable[i].posscale;
-        pbones[i].rotscale = g_studiomdl.bonetable[i].rotscale;
-        MatrixInvert(g_studiomdl.bonetable[i].boneToPose, pbones[i].poseToBone);
-        pbones[i].qAlignment = g_studiomdl.bonetable[i].qAlignment;
+        pbones[i].physicsbone = g_studiomdl.bones.bonetable[i].physicsBoneIndex;
+        pbones[i].pos = g_studiomdl.bones.bonetable[i].pos;
+        pbones[i].rot = g_studiomdl.bones.bonetable[i].rot;
+        pbones[i].posscale = g_studiomdl.bones.bonetable[i].posscale;
+        pbones[i].rotscale = g_studiomdl.bones.bonetable[i].rotscale;
+        MatrixInvert(g_studiomdl.bones.bonetable[i].boneToPose, pbones[i].poseToBone);
+        pbones[i].qAlignment = g_studiomdl.bones.bonetable[i].qAlignment;
 
-        AngleQuaternion(RadianEuler(g_studiomdl.bonetable[i].rot[0], g_studiomdl.bonetable[i].rot[1],
-                                    g_studiomdl.bonetable[i].rot[2]),
+        AngleQuaternion(RadianEuler(g_studiomdl.bones.bonetable[i].rot[0], g_studiomdl.bones.bonetable[i].rot[1],
+                                    g_studiomdl.bones.bonetable[i].rot[2]),
                         pbones[i].quat);
         QuaternionAlign(pbones[i].qAlignment, pbones[i].quat, pbones[i].quat);
 
-        pSurfacePropName = GetSurfaceProp(g_studiomdl.bonetable[i].name);
+        pSurfacePropName = GetSurfaceProp(g_studiomdl.bones.bonetable[i].name);
         AddToStringTable(pbones + i, (pbones + i).field(&mstudiobone_t::surfacepropidx), pSurfacePropName);
-        pbones[i].contents = GetContents(g_studiomdl.bonetable[i].name);
+        pbones[i].contents = GetContents(g_studiomdl.bones.bonetable[i].name);
     }
 
     buffer.align(4);
 
     // save procedural bone info
-    if (g_studiomdl.numaxisinterpbones) {
-        auto proc_bone = buffer.allocate<mstudioaxisinterpbone_t>(g_studiomdl.numaxisinterpbones);
-        for (i = 0; i < g_studiomdl.numaxisinterpbones; i++) {
-            j = g_studiomdl.axisinterpbonemap[i];
-            k = g_studiomdl.axisinterpbones[j].bone;
+    if (std::ssize(g_studiomdl.bones.axisinterpbonemap)) {
+        auto proc_bone = buffer.allocate<mstudioaxisinterpbone_t>(std::ssize(g_studiomdl.bones.axisinterpbonemap));
+        for (i = 0; i < std::ssize(g_studiomdl.bones.axisinterpbonemap); i++) {
+            j = g_studiomdl.bones.axisinterpbonemap[i];
+            k = g_studiomdl.bones.axisinterpbones[j].bone;
             pbones[k].procindex = (proc_bone + i).offset_from<int>(pbones + k);
             pbones[k].proctype = ProcBoneType::AxisInterp;
             // printf("bone %d %d\n", j, pbone[k].procindex );
-            proc_bone[i].control = g_studiomdl.axisinterpbones[j].control;
-            proc_bone[i].axis = g_studiomdl.axisinterpbones[j].axis;
+            proc_bone[i].control = g_studiomdl.bones.axisinterpbones[j].control;
+            proc_bone[i].axis = g_studiomdl.bones.axisinterpbones[j].axis;
             for (k = 0; k < 6; k++) {
-                VectorCopy(g_studiomdl.axisinterpbones[j].pos[k], proc_bone[i].pos[k]);
-                proc_bone[i].quat[k] = g_studiomdl.axisinterpbones[j].quat[k];
+                VectorCopy(g_studiomdl.bones.axisinterpbones[j].pos[k], proc_bone[i].pos[k]);
+                proc_bone[i].quat[k] = g_studiomdl.bones.axisinterpbones[j].quat[k];
             }
         }
         buffer.align(4);
     }
 
-    if (g_studiomdl.numquatinterpbones) {
-        auto proc_bone = buffer.allocate<mstudioquatinterpbone_t>(g_studiomdl.numquatinterpbones);
+    if (std::ssize(g_studiomdl.bones.quatinterpbonemap)) {
+        auto proc_bone = buffer.allocate<mstudioquatinterpbone_t>(std::ssize(g_studiomdl.bones.quatinterpbonemap));
 
-        for (i = 0; i < g_studiomdl.numquatinterpbones; i++) {
-            j = g_studiomdl.quatinterpbonemap[i];
-            k = g_studiomdl.quatinterpbones[j].bone;
+        for (i = 0; i < std::ssize(g_studiomdl.bones.quatinterpbonemap); i++) {
+            j = g_studiomdl.bones.quatinterpbonemap[i];
+            k = g_studiomdl.bones.quatinterpbones[j].bone;
             pbones[k].procindex = (proc_bone + i).offset_from<int>(pbones + k);
             pbones[k].proctype = ProcBoneType::QuatInterp;
             // printf("bone %d %d\n", j, pbone[k].procindex );
-            proc_bone[i].control = g_studiomdl.quatinterpbones[j].control;
+            proc_bone[i].control = g_studiomdl.bones.quatinterpbones[j].control;
 
             // the count first: it sizes the allocation, which may move proc_bone's memory
-            proc_bone[i].numtriggers = g_studiomdl.quatinterpbones[j].numtriggers;
+            proc_bone[i].numtriggers = g_studiomdl.bones.quatinterpbones[j].numtriggers;
             auto trigger = buffer.allocate<mstudioquatinterpinfo_t>(proc_bone[i].numtriggers);
             proc_bone[i].triggerindex = trigger.offset_from<int>(proc_bone + i);
 
             for (k = 0; k < proc_bone[i].numtriggers; k++) {
-                trigger[k].inv_tolerance = 1.0 / g_studiomdl.quatinterpbones[j].tolerance[k];
-                trigger[k].trigger = g_studiomdl.quatinterpbones[j].trigger[k];
-                trigger[k].pos = g_studiomdl.quatinterpbones[j].pos[k];
-                trigger[k].quat = g_studiomdl.quatinterpbones[j].quat[k];
+                trigger[k].inv_tolerance = 1.0 / g_studiomdl.bones.quatinterpbones[j].tolerance[k];
+                trigger[k].trigger = g_studiomdl.bones.quatinterpbones[j].trigger[k];
+                trigger[k].pos = g_studiomdl.bones.quatinterpbones[j].pos[k];
+                trigger[k].quat = g_studiomdl.bones.quatinterpbones[j].quat[k];
             }
         }
         buffer.align(4);
     }
 
-    if (g_studiomdl.numjigglebones) {
-        auto jiggleInfo = buffer.allocate<mstudiojigglebone_t>(g_studiomdl.numjigglebones);
+    if (std::ssize(g_studiomdl.bones.jigglebonemap)) {
+        auto jiggleInfo = buffer.allocate<mstudiojigglebone_t>(std::ssize(g_studiomdl.bones.jigglebonemap));
 
-        for (i = 0; i < g_studiomdl.numjigglebones; i++) {
-            j = g_studiomdl.jigglebonemap[i];
-            k = g_studiomdl.jigglebones[j].bone;
+        for (i = 0; i < std::ssize(g_studiomdl.bones.jigglebonemap); i++) {
+            j = g_studiomdl.bones.jigglebonemap[i];
+            k = g_studiomdl.bones.jigglebones[j].bone;
             pbones[k].procindex = (jiggleInfo + i).offset_from<int>(pbones + k);
             pbones[k].proctype = ProcBoneType::Jiggle;
 
-            jiggleInfo[i] = g_studiomdl.jigglebones[j].data;
+            jiggleInfo[i] = g_studiomdl.bones.jigglebones[j].data;
         }
         buffer.align(4);
     }
 
     // write aim at bones
-    if (g_studiomdl.numaimatbones) {
-        auto pProc = buffer.allocate<mstudioaimatbone_t>(g_studiomdl.numaimatbones);
-        for (i = 0; i < g_studiomdl.numaimatbones; i++) {
-            j = g_studiomdl.aimatbonemap[i];
-            k = g_studiomdl.aimatbones[j].bone;
+    if (std::ssize(g_studiomdl.bones.aimatbonemap)) {
+        auto pProc = buffer.allocate<mstudioaimatbone_t>(std::ssize(g_studiomdl.bones.aimatbonemap));
+        for (i = 0; i < std::ssize(g_studiomdl.bones.aimatbonemap); i++) {
+            j = g_studiomdl.bones.aimatbonemap[i];
+            k = g_studiomdl.bones.aimatbones[j].bone;
             pbones[k].procindex = (pProc + i).offset_from<int>(pbones + k);
-            pbones[k].proctype = g_studiomdl.aimatbones[j].aimAttach == -1
+            pbones[k].proctype = g_studiomdl.bones.aimatbones[j].aimAttach == -1
                                      ? ProcBoneType::AimAtBone
                                      : ProcBoneType::AimAtAttach;
-            pProc[i].parent = g_studiomdl.aimatbones[j].parent;
-            pProc[i].aim = g_studiomdl.aimatbones[j].aimAttach == -1
-                               ? g_studiomdl.aimatbones[j].aimBone
-                               : g_studiomdl.aimatbones[j].aimAttach;
-            pProc[i].aimvector = g_studiomdl.aimatbones[j].aimvector;
-            pProc[i].upvector = g_studiomdl.aimatbones[j].upvector;
-            pProc[i].basepos = g_studiomdl.aimatbones[j].basepos;
+            pProc[i].parent = g_studiomdl.bones.aimatbones[j].parent;
+            pProc[i].aim = g_studiomdl.bones.aimatbones[j].aimAttach == -1
+                               ? g_studiomdl.bones.aimatbones[j].aimBone
+                               : g_studiomdl.bones.aimatbones[j].aimAttach;
+            pProc[i].aimvector = g_studiomdl.bones.aimatbones[j].aimvector;
+            pProc[i].upvector = g_studiomdl.bones.aimatbones[j].upvector;
+            pProc[i].basepos = g_studiomdl.bones.aimatbones[j].basepos;
         }
         buffer.align(4);
     }
 
     // Write constraint bones
-    if (g_studiomdl.constraintBones.Count() > 0) {
-        for (int i = 0; i < g_studiomdl.constraintBones.Count(); ++i) {
-            CConstraintBoneBase* pConstraintBone = g_studiomdl.constraintBones[i];
+    if (std::ssize(g_studiomdl.bones.constraintBones) > 0) {
+        for (int i = 0; i < std::ssize(g_studiomdl.bones.constraintBones); ++i) {
+            CConstraintBoneBase* pConstraintBone = g_studiomdl.bones.constraintBones[i];
             if (!pConstraintBone)
                 continue;
 
@@ -339,15 +339,15 @@ static void WriteBoneInfo(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_
     }
 
     // map g_studiomdl.bonecontroller to bones
-    for (i = 0; i < g_StudioMdlContext.numbones; i++) {
+    for (i = 0; i < std::ssize(g_studiomdl.bones.bonetable); i++) {
         for (j = 0; j < 6; j++) {
             pbones[i].bonecontroller[j] = -1;
         }
     }
 
-    for (i = 0; i < g_studiomdl.bonecontrollers.size(); i++) {
-        j = g_studiomdl.bonecontrollers[i].bone;
-        switch (g_studiomdl.bonecontrollers[i].type & StudioMotionFlags::Types) {
+    for (i = 0; i < g_studiomdl.bones.bonecontrollers.size(); i++) {
+        j = g_studiomdl.bones.bonecontrollers[i].bone;
+        switch (g_studiomdl.bones.bonecontrollers[i].type & StudioMotionFlags::Types) {
             case StudioMotionFlags::X:
                 pbones[j].bonecontroller[0] = i;
                 break;
@@ -372,43 +372,43 @@ static void WriteBoneInfo(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_
     }
 
     // save g_studiomdl.bonecontroller info
-    const auto pbonecontroller = buffer.allocate<mstudiobonecontroller_t>(g_studiomdl.bonecontrollers.size());
-    phdr->numbonecontrollers = g_studiomdl.bonecontrollers.size();
+    const auto pbonecontroller = buffer.allocate<mstudiobonecontroller_t>(g_studiomdl.bones.bonecontrollers.size());
+    phdr->numbonecontrollers = g_studiomdl.bones.bonecontrollers.size();
     phdr->bonecontrollerindex = pbonecontroller.offset_as<int>();
 
-    for (i = 0; i < g_studiomdl.bonecontrollers.size(); i++) {
-        pbonecontroller[i].bone = g_studiomdl.bonecontrollers[i].bone;
-        pbonecontroller[i].inputfield = g_studiomdl.bonecontrollers[i].inputfield;
-        pbonecontroller[i].type = g_studiomdl.bonecontrollers[i].type;
-        pbonecontroller[i].start = g_studiomdl.bonecontrollers[i].start;
-        pbonecontroller[i].end = g_studiomdl.bonecontrollers[i].end;
+    for (i = 0; i < g_studiomdl.bones.bonecontrollers.size(); i++) {
+        pbonecontroller[i].bone = g_studiomdl.bones.bonecontrollers[i].bone;
+        pbonecontroller[i].inputfield = g_studiomdl.bones.bonecontrollers[i].inputfield;
+        pbonecontroller[i].type = g_studiomdl.bones.bonecontrollers[i].type;
+        pbonecontroller[i].start = g_studiomdl.bones.bonecontrollers[i].start;
+        pbonecontroller[i].end = g_studiomdl.bones.bonecontrollers[i].end;
     }
     buffer.align(4);
 
     // save attachment info
-    const auto pattachment = buffer.allocate<mstudioattachment_t>(g_studiomdl.attachments.size());
-    phdr->numlocalattachments = g_studiomdl.attachments.size();
+    const auto pattachment = buffer.allocate<mstudioattachment_t>(g_studiomdl.bones.attachments.size());
+    phdr->numlocalattachments = g_studiomdl.bones.attachments.size();
     phdr->localattachmentindex = pattachment.offset_as<int>();
 
-    for (i = 0; i < g_studiomdl.attachments.size(); i++) {
-        pattachment[i].localbone = g_studiomdl.attachments[i].bone;
+    for (i = 0; i < g_studiomdl.bones.attachments.size(); i++) {
+        pattachment[i].localbone = g_studiomdl.bones.attachments[i].bone;
         AddToStringTable(pattachment + i, (pattachment + i).field(&mstudioattachment_t::sznameindex),
-                         g_studiomdl.attachments[i].name.c_str());
-        MatrixCopy(g_studiomdl.attachments[i].local, pattachment[i].local);
-        pattachment[i].flags = g_studiomdl.attachments[i].flags;
+                         g_studiomdl.bones.attachments[i].name.c_str());
+        MatrixCopy(g_studiomdl.bones.attachments[i].local, pattachment[i].local);
+        pattachment[i].flags = g_studiomdl.bones.attachments[i].flags;
     }
     buffer.align(4);
 
     // save hitbox sets
-    phdr->numhitboxsets = g_StudioMdlContext.hitboxsets.size();
+    phdr->numhitboxsets = g_studiomdl.bones.hitboxsets.size();
 
     // Remember start spot
     auto hitboxset = buffer.allocate<mstudiohitboxset_t>(phdr->numhitboxsets);
     phdr->hitboxsetindex = hitboxset.offset_as<int>();
     buffer.align(4);
 
-    for (int s = 0; s < g_StudioMdlContext.hitboxsets.size(); s++, hitboxset++) {
-        s_hitboxset* set = &g_StudioMdlContext.hitboxsets[s];
+    for (int s = 0; s < g_studiomdl.bones.hitboxsets.size(); s++, hitboxset++) {
+        s_hitboxset* set = &g_studiomdl.bones.hitboxsets[s];
 
         AddToStringTable(hitboxset, hitboxset.field(&mstudiohitboxset_t::sznameindex), set->hitboxsetname);
 
@@ -439,7 +439,7 @@ static void WriteBoneInfo(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_
     const std::span<uint8_t> sortedBones(boneTable.get(), phdr->numbones);
     std::iota(sortedBones.begin(), sortedBones.end(), uint8_t{0});
     std::ranges::stable_sort(sortedBones, [](const uint8_t a, const uint8_t b) {
-        return strcmpi(g_studiomdl.bonetable[a].name, g_studiomdl.bonetable[b].name) < 0;
+        return strcmpi(g_studiomdl.bones.bonetable[a].name, g_studiomdl.bones.bonetable[b].name) < 0;
     });
     buffer.align(4);
 }
@@ -451,7 +451,7 @@ static void LoadPreexistingSequenceOrder(const std::string &fileName) {
     s_preexistingSequences.clear();
 
     if (!FileExists(fileName.c_str())) {
-        if (g_StudioMdlContext.errorOnSeqRemapFail)
+        if (g_studiomdl.options.errorOnSeqRemapFail)
             MdlError(
                 "This model requires a sequence remapping match. Please sync to the latest model on disk before recompiling.\n");
         return;
@@ -471,10 +471,10 @@ static void LoadPreexistingSequenceOrder(const std::string &fileName) {
             s_preexistingSequences.emplace_back(pStudioHdr->pSeqdesc(i).pszLabel());
         }
     }
-    else if (g_StudioMdlContext.modelIntentionallyHasZeroSequences) {
+    else if (g_studiomdl.options.modelIntentionallyHasZeroSequences) {
         // some models like scaffolds, intentionally don't have input sequences. Not sure if this is the best way to allow this exception.
     }
-    else if (g_StudioMdlContext.errorOnSeqRemapFail) {
+    else if (g_studiomdl.options.errorOnSeqRemapFail) {
         MdlError("Zero-size file or no sequences. This model requires a sequence remapping match.\n");
     }
     else {
@@ -487,14 +487,14 @@ static void WriteSequenceInfo(vstd::Buffer &buffer, const vstd::BufferPtr<studio
     int i, j, k;
 
     // write models to disk with this flag set false. This will force
-    // the sequences to be indexed by activity whenever the g_studiomdl.model is loaded
+    // the sequences to be indexed by activity whenever the g_studiomdl.body.model is loaded
     // from disk.
     phdr->activitylistversion = 0;
     phdr->eventsindexed = 0;
 
-    // save g_studiomdl.sequence info
-    auto pseqdesc = buffer.allocate<mstudioseqdesc_t>(g_studiomdl.sequence.Count());
-    phdr->numlocalseq = g_studiomdl.sequence.Count();
+    // save g_studiomdl.anim.sequence info
+    auto pseqdesc = buffer.allocate<mstudioseqdesc_t>(std::ssize(g_studiomdl.anim.sequence));
+    phdr->numlocalseq = std::ssize(g_studiomdl.anim.sequence);
     phdr->localseqindex = pseqdesc.offset_as<int>();
 
     bool bErrors = false;
@@ -509,7 +509,7 @@ static void WriteSequenceInfo(vstd::Buffer &buffer, const vstd::BufferPtr<studio
     const int numPreexisting = static_cast<int>(s_preexistingSequences.size());
 
     if (numPreexisting) {
-        if (g_studiomdl.sequence.Count() < numPreexisting && !bAllowSequenceRemoval) {
+        if (std::ssize(g_studiomdl.anim.sequence) < numPreexisting && !bAllowSequenceRemoval) {
             MdlMessage("\n");
             MdlWarning(
                 "This model has fewer sequences than its predecessor.\nPlease confirm sequence deletion: [y/n] ");
@@ -528,18 +528,18 @@ static void WriteSequenceInfo(vstd::Buffer &buffer, const vstd::BufferPtr<studio
             std::vector<int> vecNewIndices;
 
             // map current sequences to their old indices
-            for (i = 0; i < g_studiomdl.sequence.Count(); i++) {
-                const auto old = std::ranges::find(s_preexistingSequences, g_studiomdl.sequence[i].name.view());
+            for (i = 0; i < std::ssize(g_studiomdl.anim.sequence); i++) {
+                const auto old = std::ranges::find(s_preexistingSequences, g_studiomdl.anim.sequence[i].name.view());
                 if (old != s_preexistingSequences.end()) {
                     nSeqOrderRemappingTable[old - s_preexistingSequences.begin()] = i;
                 }
                 else {
                     if (i < numPreexisting) {
                         MdlMessage("  Found new sequence \"{}\" using index of old sequence \"{}\".\n",
-                                   g_studiomdl.sequence[i].name, s_preexistingSequences[i]);
+                                   g_studiomdl.anim.sequence[i].name, s_preexistingSequences[i]);
                     }
                     else {
-                        MdlMessage("  Found new sequence \"{}\".\n", g_studiomdl.sequence[i].name);
+                        MdlMessage("  Found new sequence \"{}\".\n", g_studiomdl.anim.sequence[i].name);
                     }
 
                     vecNewIndices.push_back(i);
@@ -556,7 +556,7 @@ static void WriteSequenceInfo(vstd::Buffer &buffer, const vstd::BufferPtr<studio
             }
 
             // verify no indices are undefined
-            for (i = 0; i < g_studiomdl.sequence.Count(); i++) {
+            for (i = 0; i < std::ssize(g_studiomdl.anim.sequence); i++) {
                 if (nSeqOrderRemappingTable[i] == -1) {
                     if (bAllowSequenceRemoval) {
                         do {
@@ -594,116 +594,116 @@ static void WriteSequenceInfo(vstd::Buffer &buffer, const vstd::BufferPtr<studio
     }
 
     int m;
-    for (m = 0; m < g_studiomdl.sequence.Count(); m++, pseqdesc++) {
+    for (m = 0; m < std::ssize(g_studiomdl.anim.sequence); m++, pseqdesc++) {
         if (bUseSeqOrderRemapping) {
             i = nSeqOrderRemappingTable[m];
             if (i != m) {
                 MdlMessage("   Remapping sequence {} to index {} ({}) to retain existing order.\n", i, m,
-                           g_studiomdl.sequence[i].name);
+                           g_studiomdl.anim.sequence[i].name);
             }
         }
         else {
             i = m;
         }
 
-        AddToStringTable(pseqdesc, pseqdesc.field(&mstudioseqdesc_t::szlabelindex), g_studiomdl.sequence[i].name);
+        AddToStringTable(pseqdesc, pseqdesc.field(&mstudioseqdesc_t::szlabelindex), g_studiomdl.anim.sequence[i].name);
         AddToStringTable(pseqdesc, pseqdesc.field(&mstudioseqdesc_t::szactivitynameindex),
-                         g_studiomdl.sequence[i].activityname);
+                         g_studiomdl.anim.sequence[i].activityname);
 
         // offset from this descriptor back to the header
         pseqdesc->baseptr = phdr.offset_from<int>(pseqdesc);
 
-        pseqdesc->flags = g_studiomdl.sequence[i].flags;
+        pseqdesc->flags = g_studiomdl.anim.sequence[i].flags;
 
-        pseqdesc->numblends = g_studiomdl.sequence[i].numblends;
-        pseqdesc->groupsize[0] = g_studiomdl.sequence[i].groupsize[0];
-        pseqdesc->groupsize[1] = g_studiomdl.sequence[i].groupsize[1];
+        pseqdesc->numblends = g_studiomdl.anim.sequence[i].numblends;
+        pseqdesc->groupsize[0] = g_studiomdl.anim.sequence[i].groupsize[0];
+        pseqdesc->groupsize[1] = g_studiomdl.anim.sequence[i].groupsize[1];
 
-        pseqdesc->paramindex[0] = g_studiomdl.sequence[i].paramindex[0];
-        pseqdesc->paramstart[0] = g_studiomdl.sequence[i].paramstart[0];
-        pseqdesc->paramend[0] = g_studiomdl.sequence[i].paramend[0];
-        pseqdesc->paramindex[1] = g_studiomdl.sequence[i].paramindex[1];
-        pseqdesc->paramstart[1] = g_studiomdl.sequence[i].paramstart[1];
-        pseqdesc->paramend[1] = g_studiomdl.sequence[i].paramend[1];
+        pseqdesc->paramindex[0] = g_studiomdl.anim.sequence[i].paramindex[0];
+        pseqdesc->paramstart[0] = g_studiomdl.anim.sequence[i].paramstart[0];
+        pseqdesc->paramend[0] = g_studiomdl.anim.sequence[i].paramend[0];
+        pseqdesc->paramindex[1] = g_studiomdl.anim.sequence[i].paramindex[1];
+        pseqdesc->paramstart[1] = g_studiomdl.anim.sequence[i].paramstart[1];
+        pseqdesc->paramend[1] = g_studiomdl.anim.sequence[i].paramend[1];
 
-        if (g_studiomdl.sequence[i].groupsize[0] > 1 || g_studiomdl.sequence[i].groupsize[1] > 1) {
+        if (g_studiomdl.anim.sequence[i].groupsize[0] > 1 || g_studiomdl.anim.sequence[i].groupsize[1] > 1) {
             // save posekey values
             auto posekey = buffer.allocate<float>(pseqdesc->groupsize[0] + pseqdesc->groupsize[1]);
             pseqdesc->posekeyindex = posekey.offset_from<int>(pseqdesc);
             for (j = 0; j < pseqdesc->groupsize[0]; j++) {
-                *(posekey++) = g_studiomdl.sequence[i].param0.IsValidIndex(j) ? g_studiomdl.sequence[i].param0[j] : 0.0f;
+                *(posekey++) = j < std::ssize(g_studiomdl.anim.sequence[i].param0) ? g_studiomdl.anim.sequence[i].param0[j] : 0.0f;
             }
             for (j = 0; j < pseqdesc->groupsize[1]; j++) {
-                *(posekey++) = g_studiomdl.sequence[i].param1.IsValidIndex(j) ? g_studiomdl.sequence[i].param1[j] : 0.0f;
+                *(posekey++) = j < std::ssize(g_studiomdl.anim.sequence[i].param1) ? g_studiomdl.anim.sequence[i].param1[j] : 0.0f;
             }
         }
 
-        // pseqdesc->motiontype	= g_studiomdl.sequence[i].motiontype;
-        // pseqdesc->motionbone	= 0; // g_studiomdl.sequence[i].motionbone;
-        // VectorCopy( g_studiomdl.sequence[i].linearmovement, pseqdesc->linearmovement );
+        // pseqdesc->motiontype	= g_studiomdl.anim.sequence[i].motiontype;
+        // pseqdesc->motionbone	= 0; // g_studiomdl.anim.sequence[i].motionbone;
+        // VectorCopy( g_studiomdl.anim.sequence[i].linearmovement, pseqdesc->linearmovement );
 
-        pseqdesc->activity = g_studiomdl.sequence[i].activity;
-        pseqdesc->actweight = g_studiomdl.sequence[i].actweight;
+        pseqdesc->activity = g_studiomdl.anim.sequence[i].activity;
+        pseqdesc->actweight = g_studiomdl.anim.sequence[i].actweight;
 
-        pseqdesc->bbmin = g_studiomdl.sequence[i].bmin;
-        pseqdesc->bbmax = g_studiomdl.sequence[i].bmax;
+        pseqdesc->bbmin = g_studiomdl.anim.sequence[i].bmin;
+        pseqdesc->bbmax = g_studiomdl.anim.sequence[i].bmax;
 
-        pseqdesc->fadeintime = g_studiomdl.sequence[i].fadeintime;
-        pseqdesc->fadeouttime = g_studiomdl.sequence[i].fadeouttime;
+        pseqdesc->fadeintime = g_studiomdl.anim.sequence[i].fadeintime;
+        pseqdesc->fadeouttime = g_studiomdl.anim.sequence[i].fadeouttime;
 
-        pseqdesc->localentrynode = g_studiomdl.sequence[i].entrynode;
-        pseqdesc->localexitnode = g_studiomdl.sequence[i].exitnode;
-        //pseqdesc->entryphase	= g_studiomdl.sequence[i].entryphase;
-        //pseqdesc->exitphase		= g_studiomdl.sequence[i].exitphase;
-        pseqdesc->nodeflags = g_studiomdl.sequence[i].nodeflags;
+        pseqdesc->localentrynode = g_studiomdl.anim.sequence[i].entrynode;
+        pseqdesc->localexitnode = g_studiomdl.anim.sequence[i].exitnode;
+        //pseqdesc->entryphase	= g_studiomdl.anim.sequence[i].entryphase;
+        //pseqdesc->exitphase		= g_studiomdl.anim.sequence[i].exitphase;
+        pseqdesc->nodeflags = g_studiomdl.anim.sequence[i].nodeflags;
 
         // save events
         // the count first: it sizes the allocation
-        pseqdesc->numevents = g_studiomdl.sequence[i].events.size();
+        pseqdesc->numevents = g_studiomdl.anim.sequence[i].events.size();
         const auto pevent = buffer.allocate<mstudioevent_t>(pseqdesc->numevents);
         pseqdesc->eventindex = pevent.offset_from<int>(pseqdesc);
-        for (j = 0; j < g_studiomdl.sequence[i].events.size(); j++) {
-            k = g_studiomdl.sequence[i].panim[0][0]->numframes - 1;
+        for (j = 0; j < g_studiomdl.anim.sequence[i].events.size(); j++) {
+            k = g_studiomdl.anim.sequence[i].panim[0][0]->numframes - 1;
 
-            if (g_studiomdl.sequence[i].events[j].frame <= k)
-                pevent[j].cycle = g_studiomdl.sequence[i].events[j].frame / ((float) k);
-            else if (k == 0 && g_studiomdl.sequence[i].events[j].frame == 0)
+            if (g_studiomdl.anim.sequence[i].events[j].frame <= k)
+                pevent[j].cycle = g_studiomdl.anim.sequence[i].events[j].frame / ((float) k);
+            else if (k == 0 && g_studiomdl.anim.sequence[i].events[j].frame == 0)
                 pevent[j].cycle = 0;
             else {
-                MdlWarning("Event {} (frame {}) out of range in {}\n", g_studiomdl.sequence[i].events[j].event,
-                           g_studiomdl.sequence[i].events[j].frame, g_studiomdl.sequence[i].name);
+                MdlWarning("Event {} (frame {}) out of range in {}\n", g_studiomdl.anim.sequence[i].events[j].event,
+                           g_studiomdl.anim.sequence[i].events[j].frame, g_studiomdl.anim.sequence[i].name);
                 bErrors = true;
             }
 
             //Adrian - Remove me once we phase out the old event system.
-            if (V_isdigit(g_studiomdl.sequence[i].events[j].eventname[0])) {
-                pevent[j].event = atoi(g_studiomdl.sequence[i].events[j].eventname);
+            if (V_isdigit(g_studiomdl.anim.sequence[i].events[j].eventname[0])) {
+                pevent[j].event = atoi(g_studiomdl.anim.sequence[i].events[j].eventname);
                 pevent[j].type = StudioEventType::OldStyle;
                 pevent[j].szeventindex = 0;
             }
             else {
                 AddToStringTable(pevent + j, (pevent + j).field(&mstudioevent_t::szeventindex),
-                                 g_studiomdl.sequence[i].events[j].eventname);
+                                 g_studiomdl.anim.sequence[i].events[j].eventname);
                 pevent[j].type = StudioEventType::NewStyle;
             }
 
             // the buffer is zero-filled, which terminates the copied text
-            const std::string_view options = g_studiomdl.sequence[i].events[j].options.view();
+            const std::string_view options = g_studiomdl.anim.sequence[i].events[j].options.view();
             options.copy(pevent[j].options, sizeof(pevent[j].options) - 1);
         }
         buffer.align(4);
 
         // save ikrules
-        pseqdesc->numikrules = g_studiomdl.sequence[i].numikrules;
+        pseqdesc->numikrules = g_studiomdl.anim.sequence[i].numikrules;
 
         // save autolayers
-        pseqdesc->numautolayers = g_studiomdl.sequence[i].autolayers.size();
+        pseqdesc->numautolayers = g_studiomdl.anim.sequence[i].autolayers.size();
         const auto pautolayer = buffer.allocate<mstudioautolayer_t>(pseqdesc->numautolayers);
         pseqdesc->autolayerindex = pautolayer.offset_from<int>(pseqdesc);
-        for (j = 0; j < g_studiomdl.sequence[i].autolayers.size(); j++) {
-            pautolayer[j].iSequence = g_studiomdl.sequence[i].autolayers[j].sequence;
-            pautolayer[j].iPose = g_studiomdl.sequence[i].autolayers[j].pose;
-            pautolayer[j].flags = g_studiomdl.sequence[i].autolayers[j].flags;
+        for (j = 0; j < g_studiomdl.anim.sequence[i].autolayers.size(); j++) {
+            pautolayer[j].iSequence = g_studiomdl.anim.sequence[i].autolayers[j].sequence;
+            pautolayer[j].iPose = g_studiomdl.anim.sequence[i].autolayers[j].pose;
+            pautolayer[j].flags = g_studiomdl.anim.sequence[i].autolayers[j].flags;
 
             // autolayer indices are stored by index, so remap them now using the invertex lookup table
             if (bUseSeqOrderRemapping) {
@@ -716,20 +716,20 @@ static void WriteSequenceInfo(vstd::Buffer &buffer, const vstd::BufferPtr<studio
             }
 
             if (!HasFlag(pautolayer[j].flags, AutoLayerFlags::Pose)) {
-                pautolayer[j].start = g_studiomdl.sequence[i].autolayers[j].start / (
-                                          g_studiomdl.sequence[i].panim[0][0]->numframes - 1);
-                pautolayer[j].peak = g_studiomdl.sequence[i].autolayers[j].peak / (
-                                         g_studiomdl.sequence[i].panim[0][0]->numframes - 1);
-                pautolayer[j].tail = g_studiomdl.sequence[i].autolayers[j].tail / (
-                                         g_studiomdl.sequence[i].panim[0][0]->numframes - 1);
-                pautolayer[j].end = g_studiomdl.sequence[i].autolayers[j].end / (
-                                        g_studiomdl.sequence[i].panim[0][0]->numframes - 1);
+                pautolayer[j].start = g_studiomdl.anim.sequence[i].autolayers[j].start / (
+                                          g_studiomdl.anim.sequence[i].panim[0][0]->numframes - 1);
+                pautolayer[j].peak = g_studiomdl.anim.sequence[i].autolayers[j].peak / (
+                                         g_studiomdl.anim.sequence[i].panim[0][0]->numframes - 1);
+                pautolayer[j].tail = g_studiomdl.anim.sequence[i].autolayers[j].tail / (
+                                         g_studiomdl.anim.sequence[i].panim[0][0]->numframes - 1);
+                pautolayer[j].end = g_studiomdl.anim.sequence[i].autolayers[j].end / (
+                                        g_studiomdl.anim.sequence[i].panim[0][0]->numframes - 1);
             }
             else {
-                pautolayer[j].start = g_studiomdl.sequence[i].autolayers[j].start;
-                pautolayer[j].peak = g_studiomdl.sequence[i].autolayers[j].peak;
-                pautolayer[j].tail = g_studiomdl.sequence[i].autolayers[j].tail;
-                pautolayer[j].end = g_studiomdl.sequence[i].autolayers[j].end;
+                pautolayer[j].start = g_studiomdl.anim.sequence[i].autolayers[j].start;
+                pautolayer[j].peak = g_studiomdl.anim.sequence[i].autolayers[j].peak;
+                pautolayer[j].tail = g_studiomdl.anim.sequence[i].autolayers[j].tail;
+                pautolayer[j].end = g_studiomdl.anim.sequence[i].autolayers[j].end;
             }
         }
 
@@ -746,27 +746,27 @@ static void WriteSequenceInfo(vstd::Buffer &buffer, const vstd::BufferPtr<studio
             // only check newer boneweights than the last one
             if (prevWeights > weightOffset) {
                 weightOffset = prevWeights;
-                for (j = 0; j < g_StudioMdlContext.numbones; j++) {
+                for (j = 0; j < std::ssize(g_studiomdl.bones.bonetable); j++) {
                     // we're not walking the linear sequence list if we're remapping, so we need to remap this check
                     int nRemap = k;
                     if (bUseSeqOrderRemapping)
                         nRemap = nSeqOrderRemappingTable[k];
 
-                    if (g_studiomdl.sequence[i].weight[j] != g_studiomdl.sequence[nRemap].weight[j])
+                    if (g_studiomdl.anim.sequence[i].weight[j] != g_studiomdl.anim.sequence[nRemap].weight[j])
                         break;
                 }
-                if (j == g_StudioMdlContext.numbones)
+                if (j == std::ssize(g_studiomdl.bones.bonetable))
                     break;
             }
         }
 
         // check to see if all the bones matched
-        if (j < g_StudioMdlContext.numbones) {
+        if (j < std::ssize(g_studiomdl.bones.bonetable)) {
             // allocate new block
-            const auto pnewweight = buffer.allocate<float>(g_StudioMdlContext.numbones);
+            const auto pnewweight = buffer.allocate<float>(std::ssize(g_studiomdl.bones.bonetable));
             pseqdesc->weightlistindex = pnewweight.offset_from<int>(pseqdesc);
-            for (j = 0; j < g_StudioMdlContext.numbones; j++) {
-                pnewweight[j] = g_studiomdl.sequence[i].weight[j];
+            for (j = 0; j < std::ssize(g_studiomdl.bones.bonetable); j++) {
+                pnewweight[j] = g_studiomdl.anim.sequence[i].weight[j];
             }
         }
         else {
@@ -776,31 +776,31 @@ static void WriteSequenceInfo(vstd::Buffer &buffer, const vstd::BufferPtr<studio
 
 
         // save iklocks
-        pseqdesc->numiklocks = g_studiomdl.sequence[i].iklocks.size();
+        pseqdesc->numiklocks = g_studiomdl.anim.sequence[i].iklocks.size();
         auto piklock = buffer.allocate<mstudioiklock_t>(pseqdesc->numiklocks);
         pseqdesc->iklockindex = piklock.offset_from<int>(pseqdesc);
         buffer.align(4);
 
         for (j = 0; j < pseqdesc->numiklocks; j++) {
-            piklock->chain = g_studiomdl.sequence[i].iklocks[j].chain;
-            piklock->flPosWeight = g_studiomdl.sequence[i].iklocks[j].flPosWeight;
-            piklock->flLocalQWeight = g_studiomdl.sequence[i].iklocks[j].flLocalQWeight;
+            piklock->chain = g_studiomdl.anim.sequence[i].iklocks[j].chain;
+            piklock->flPosWeight = g_studiomdl.anim.sequence[i].iklocks[j].flPosWeight;
+            piklock->flLocalQWeight = g_studiomdl.anim.sequence[i].iklocks[j].flLocalQWeight;
             piklock++;
         }
 
         // Write animation blend parameters
         const auto blends = buffer.allocate<short>(
-            g_studiomdl.sequence[i].groupsize[0] * g_studiomdl.sequence[i].groupsize[1]);
+            g_studiomdl.anim.sequence[i].groupsize[0] * g_studiomdl.anim.sequence[i].groupsize[1]);
         pseqdesc->animindexindex = blends.offset_from<int>(pseqdesc);
         buffer.align(4);
 
-        for (j = 0; j < g_studiomdl.sequence[i].groupsize[0]; j++) {
-            for (k = 0; k < g_studiomdl.sequence[i].groupsize[1]; k++) {
+        for (j = 0; j < g_studiomdl.anim.sequence[i].groupsize[0]; j++) {
+            for (k = 0; k < g_studiomdl.anim.sequence[i].groupsize[1]; k++) {
                 // height value * width of row + width value
-                int offset = k * g_studiomdl.sequence[i].groupsize[0] + j;
+                int offset = k * g_studiomdl.anim.sequence[i].groupsize[0] + j;
 
-                if (g_studiomdl.sequence[i].panim[j][k]) {
-                    int animindex = g_studiomdl.sequence[i].panim[j][k]->index;
+                if (g_studiomdl.anim.sequence[i].panim[j][k]) {
+                    int animindex = g_studiomdl.anim.sequence[i].panim[j][k]->index;
 
                     Assert(animindex >= 0 && animindex < SHRT_MAX);
 
@@ -813,12 +813,12 @@ static void WriteSequenceInfo(vstd::Buffer &buffer, const vstd::BufferPtr<studio
         }
 
         // Write cycle overrides
-        pseqdesc->cycleposeindex = g_studiomdl.sequence[i].cycleposeindex;
+        pseqdesc->cycleposeindex = g_studiomdl.anim.sequence[i].cycleposeindex;
 
-        WriteSeqKeyValues(buffer, pseqdesc, g_studiomdl.sequence[i].KeyValue);
+        WriteSeqKeyValues(buffer, pseqdesc, g_studiomdl.anim.sequence[i].KeyValue);
 
         // Write activity modifiers
-        pseqdesc->numactivitymodifiers = g_studiomdl.sequence[i].numactivitymodifiers;
+        pseqdesc->numactivitymodifiers = g_studiomdl.anim.sequence[i].numactivitymodifiers;
         const auto pactivitymodifier = buffer.allocate<mstudioactivitymodifier_t>(pseqdesc->numactivitymodifiers);
         pseqdesc->activitymodifierindex = pactivitymodifier.offset_from<int>(pseqdesc);
         buffer.align(4);
@@ -826,29 +826,29 @@ static void WriteSequenceInfo(vstd::Buffer &buffer, const vstd::BufferPtr<studio
         for (j = 0; j < pseqdesc->numactivitymodifiers; j++) {
             AddToStringTable(pactivitymodifier + j,
                              (pactivitymodifier + j).field(&mstudioactivitymodifier_t::sznameindex),
-                             g_studiomdl.sequence[i].activitymodifier[j].name);
+                             g_studiomdl.anim.sequence[i].activitymodifier[j].name);
         }
 
 
         // save animtags
-        pseqdesc->numanimtags = g_studiomdl.sequence[i].animtags.size();
+        pseqdesc->numanimtags = g_studiomdl.anim.sequence[i].animtags.size();
         const auto panimtag = buffer.allocate<mstudioanimtag_t>(pseqdesc->numanimtags);
         pseqdesc->animtagindex = panimtag.offset_from<int>(pseqdesc);
         buffer.align(4);
 
-        for (j = 0; j < g_studiomdl.sequence[i].animtags.size(); j++) {
-            panimtag[j].cycle = g_studiomdl.sequence[i].animtags[j].cycle;
+        for (j = 0; j < g_studiomdl.anim.sequence[i].animtags.size(); j++) {
+            panimtag[j].cycle = g_studiomdl.anim.sequence[i].animtags[j].cycle;
             AddToStringTable(panimtag + j, (panimtag + j).field(&mstudioanimtag_t::sztagindex),
-                             g_studiomdl.sequence[i].animtags[j].tagname);
+                             g_studiomdl.anim.sequence[i].animtags[j].tagname);
         }
 
-        if (HasFlag(g_studiomdl.sequence[i].flags, StudioSequenceFlags::RootXform)) {
-            int bone = findGlobalBone(g_studiomdl.sequence[i].rootDriverBoneName);
+        if (HasFlag(g_studiomdl.anim.sequence[i].flags, StudioSequenceFlags::RootXform)) {
+            int bone = findGlobalBone(g_studiomdl.anim.sequence[i].rootDriverBoneName);
             if (bone != -1) {
                 pseqdesc->rootDriverIndex = bone;
             }
             else {
-                MdlError("unable to find bone {}\n", g_studiomdl.sequence[i].rootDriverBoneName);
+                MdlError("unable to find bone {}\n", g_studiomdl.anim.sequence[i].rootDriverBoneName);
             }
         }
         else {
@@ -862,23 +862,23 @@ static void WriteSequenceInfo(vstd::Buffer &buffer, const vstd::BufferPtr<studio
     }
 
     // save transition graph
-    auto pxnodename = buffer.allocate<int>(g_studiomdl.xnodenames.size());
+    auto pxnodename = buffer.allocate<int>(g_studiomdl.anim.xnodenames.size());
     phdr->localnodenameindex = pxnodename.offset_as<int>();
     buffer.align(4);
-    for (i = 0; i < g_studiomdl.xnodenames.size(); i++) {
-        AddToStringTable(phdr, pxnodename, g_studiomdl.xnodenames[i].c_str());
+    for (i = 0; i < g_studiomdl.anim.xnodenames.size(); i++) {
+        AddToStringTable(phdr, pxnodename, g_studiomdl.anim.xnodenames[i].c_str());
         // printf("%d : %s\n", i, g_studiomdl.xnodename[i+1] );
         pxnodename++;
     }
 
-    auto ptransition = buffer.allocate<uint8_t>(g_studiomdl.xnodenames.size() * g_studiomdl.xnodenames.size());
-    phdr->numlocalnodes = g_studiomdl.xnodenames.size();
+    auto ptransition = buffer.allocate<uint8_t>(g_studiomdl.anim.xnodenames.size() * g_studiomdl.anim.xnodenames.size());
+    phdr->numlocalnodes = g_studiomdl.anim.xnodenames.size();
     phdr->localnodeindex = ptransition.offset_as<int>();
     buffer.align(4);
-    for (i = 0; i < g_studiomdl.xnodenames.size(); i++) {
+    for (i = 0; i < g_studiomdl.anim.xnodenames.size(); i++) {
         //		printf("%2d (%12s) : ", i + 1, g_studiomdl.xnodename[i+1] );
-        for (j = 0; j < g_studiomdl.xnodenames.size(); j++) {
-            *ptransition++ = g_studiomdl.xnodes[i][j];
+        for (j = 0; j < g_studiomdl.anim.xnodenames.size(); j++) {
+            *ptransition++ = g_studiomdl.anim.xnodes[i][j];
             //			printf(" %2d", g_studiomdl.xnode[i][j] );
         }
         //		printf("\n" );
@@ -934,7 +934,7 @@ void WriteRLEAnimationData(s_animation_t* srcanim, vstd::Buffer &out, int w) {
     vstd::BufferPtr<mstudio_rle_anim_t> prevanim;
 
     // save animation value info
-    for (int j = 0; j < g_StudioMdlContext.numbones; j++) {
+    for (int j = 0; j < std::ssize(g_studiomdl.bones.bonetable); j++) {
         destanim->flags = StudioAnimFlags::None;
         s_compressed_t* psrcdata = &srcanim->anim[w][j];
 
@@ -1037,7 +1037,7 @@ void WriteFrameAnimationData(s_animation_t* srcanim, vstd::Buffer &out, int w) {
     const auto destframeanim = out.allocate<mstudio_frame_anim_t>();
 
     // write flags and constants (the flags follow the header, see mstudio_frame_anim_t::pBoneFlags)
-    const auto flag = out.allocate<StudioFrameFlags>(g_StudioMdlContext.numbones);
+    const auto flag = out.allocate<StudioFrameFlags>(std::ssize(g_studiomdl.bones.bonetable));
 
     out.align(4);
 
@@ -1045,7 +1045,7 @@ void WriteFrameAnimationData(s_animation_t* srcanim, vstd::Buffer &out, int w) {
     int framelength = 0;
     int iFrame = MIN(w * srcanim->sectionframes, srcanim->numframes - 1);
 
-    for (int j = 0; j < g_StudioMdlContext.numbones; j++) {
+    for (int j = 0; j < std::ssize(g_studiomdl.bones.bonetable); j++) {
         s_compressed_t* psrcdata = &srcanim->anim[w][j];
 
         if (psrcdata->num[3] == 0 && psrcdata->num[4] == 0 && psrcdata->num[5] == 0) {
@@ -1067,7 +1067,7 @@ void WriteFrameAnimationData(s_animation_t* srcanim, vstd::Buffer &out, int w) {
         }
         else if (psrcdata->num[0] <= 2 && psrcdata->num[1] <= 2 && psrcdata->num[2] <= 2) {
             // single frame
-            if (g_StudioMdlContext.animblockHighRes) {
+            if (g_studiomdl.options.animblockHighRes) {
                 flag[j] |= StudioFrameFlags::ConstPos2;
                 *out.allocate<Vector>() = srcanim->sanim[iFrame][j].pos;
             }
@@ -1078,7 +1078,7 @@ void WriteFrameAnimationData(s_animation_t* srcanim, vstd::Buffer &out, int w) {
         }
         else {
             // multiple frames
-            if (g_StudioMdlContext.animblockHighRes) {
+            if (g_studiomdl.options.animblockHighRes) {
                 flag[j] |= StudioFrameFlags::AnimPos2;
                 framelength += sizeof(Vector);
             }
@@ -1105,7 +1105,7 @@ void WriteFrameAnimationData(s_animation_t* srcanim, vstd::Buffer &out, int w) {
 
     for (iFrame = iStartFrame; iFrame <= iEndFrame; iFrame++) {
         // save animation value info
-        for (int j = 0; j < g_StudioMdlContext.numbones; j++) {
+        for (int j = 0; j < std::ssize(g_studiomdl.bones.bonetable); j++) {
             if (HasFlag(flag[j], StudioFrameFlags::AnimRot2)) {
                 Quaternion q;
                 AngleQuaternion(srcanim->sanim[iFrame][j].rot, q);
@@ -1140,7 +1140,7 @@ void WriteAnimationData(s_animation_t* srcanim, const vstd::BufferPtr<mstudioani
         const size_t startSection = out.size();
 
         // use frameanim if not lowres data
-        if (ext != nullptr && !g_StudioMdlContext.animblockLowRes) {
+        if (ext != nullptr && !g_studiomdl.options.animblockLowRes) {
             srcanim->flags |= StudioSequenceFlags::FrameAnim;
             destanimdesc->flags |= StudioSequenceFlags::FrameAnim;
         }
@@ -1153,26 +1153,25 @@ void WriteAnimationData(s_animation_t* srcanim, const vstd::BufferPtr<mstudioani
         }
 
         const size_t sectionSize = out.size() - startSection;
-        if (g_studiomdl.animblocksize > 0 && sectionSize > static_cast<size_t>(g_studiomdl.animblocksize)) {
+        if (g_studiomdl.anim.animblocksize > 0 && sectionSize > static_cast<size_t>(g_studiomdl.anim.animblocksize)) {
             MdlWarning(
                 "Single animation \"{}\" is {}. Specificed block size is {}.  Use smaller animations or increase the block size.\n",
-                srcanim->name, sectionSize, g_studiomdl.animblocksize);
+                srcanim->name, sectionSize, g_studiomdl.anim.animblocksize);
         }
 
         // write into anim blocks if needed
         if (destanimdesc->sectionindex) {
             if (bUseExtData) {
-                if (g_studiomdl.animblocks.size() &&
-                    static_cast<int64_t>(out.size()) - g_studiomdl.animblocks.back().start > g_studiomdl.
-                    animblocksize) {
+                if (g_studiomdl.anim.animblocks.size() &&
+                    static_cast<int64_t>(out.size()) - g_studiomdl.anim.animblocks.back().start > g_studiomdl.anim.animblocksize) {
                     // advance to next animblock
-                    g_studiomdl.animblocks.back().end = startSection;
-                    g_studiomdl.animblocks.emplace_back(s_animblock_t{.start = static_cast<uint32_t>(startSection)});
+                    g_studiomdl.anim.animblocks.back().end = startSection;
+                    g_studiomdl.anim.animblocks.emplace_back(s_animblock_t{.start = static_cast<uint32_t>(startSection)});
                 }
 
-                destanimdesc->pSection(w)->animblock = g_studiomdl.animblocks.size() - 1;
+                destanimdesc->pSection(w)->animblock = g_studiomdl.anim.animblocks.size() - 1;
                 destanimdesc->pSection(w)->animindex =
-                        static_cast<int>(startSection - g_studiomdl.animblocks.back().start);
+                        static_cast<int>(startSection - g_studiomdl.anim.animblocks.back().start);
             }
             else {
                 destanimdesc->pSection(w)->animblock = 0;
@@ -1322,26 +1321,26 @@ void WriteLocalHierarchy(s_animation_t* srcanim, vstd::Buffer &out) {
 
 
 // buffer: the .mdl data. blocks: the .ani data (already holding its header), nullptr when there is no .ani file.
-// g_studiomdl.animblocks start/end are offsets into blocks.
+// g_studiomdl.anim.animblocks start/end are offsets into blocks.
 static void WriteAnimations(vstd::Buffer &buffer, vstd::Buffer* blocks, const vstd::BufferPtr<studiohdr_t> phdr) {
     vstd::FunctionTimingRecorder _("Write");
     int i, j;
 
     // save animations
-    const auto panimdesc = buffer.allocate<mstudioanimdesc_t>(g_studiomdl.animations.size());
-    phdr->numlocalanim = g_studiomdl.animations.size();
+    const auto panimdesc = buffer.allocate<mstudioanimdesc_t>(g_studiomdl.anim.animations.size());
+    phdr->numlocalanim = g_studiomdl.anim.animations.size();
     phdr->localanimindex = panimdesc.offset_as<int>();
     buffer.align(4);
 
     // end of the committed .ani data (data past it still belongs to the animation being written)
     size_t blockData = blocks ? blocks->size() : 0;
     //      ------------ ------- ------- : ------- (-------)
-    if (g_StudioMdlContext.verbose && g_studiomdl.animations.size() > 0) {
+    if (g_studiomdl.options.verbose && g_studiomdl.anim.animations.size() > 0) {
         std::print("   animation       x       y       ips    angle\n");
     }
 
-    for (i = 0; i < g_studiomdl.animations.size(); i++) {
-        s_animation_t* srcanim = g_studiomdl.animations[i];
+    for (i = 0; i < g_studiomdl.anim.animations.size(); i++) {
+        s_animation_t* srcanim = g_studiomdl.anim.animations[i];
         const auto destanim = panimdesc + i;
         Assert(srcanim);
 
@@ -1361,7 +1360,7 @@ static void WriteAnimations(vstd::Buffer &buffer, vstd::Buffer* blocks, const vs
         // destanim->motiontype = srcanim->motiontype;
         // destanim->motionbone = srcanim->motionbone;
         // VectorCopy( srcanim->linearpos, destanim->linearpos );
-        if (g_StudioMdlContext.verbose && (srcanim->piecewisemove.size() > 0)) {
+        if (g_studiomdl.options.verbose && (srcanim->piecewisemove.size() > 0)) {
             j = srcanim->piecewisemove.size() - 1;
             if (srcanim->piecewisemove[j].pos[0] != 0 || srcanim->piecewisemove[j].pos[1] != 0) {
                 float t = (srcanim->numframes - 1) / srcanim->fps;
@@ -1388,29 +1387,29 @@ static void WriteAnimations(vstd::Buffer &buffer, vstd::Buffer* blocks, const vs
             blockData = blocks->size();
 
             // allocate the first block if needed
-            if (g_studiomdl.animblocks.size() == 0) {
-                g_studiomdl.animblocks.emplace_back();
-                g_studiomdl.animblocks.emplace_back(s_animblock_t{.start = static_cast<uint32_t>(blockData)});
+            if (g_studiomdl.anim.animblocks.size() == 0) {
+                g_studiomdl.anim.animblocks.emplace_back();
+                g_studiomdl.anim.animblocks.emplace_back(s_animblock_t{.start = static_cast<uint32_t>(blockData)});
             }
         }
 
-        if (!blocks || (g_studiomdl.bonesaveframe.Count() == 0 && srcanim->numframes == 1)) {
+        if (!blocks || (std::ssize(g_studiomdl.bones.bonesaveframe) == 0 && srcanim->numframes == 1)) {
             // hack
             srcanim->disableAnimblocks = true;
         }
-        else if (g_StudioMdlContext.noAnimblockStall) {
+        else if (g_studiomdl.options.noAnimblockStall) {
             srcanim->isFirstSectionLocal = true;
         }
 
         // make sure number of preload frames is initialized
         if (srcanim->numNostallFrames == 0) {
-            srcanim->numNostallFrames = srcanim->fps * g_StudioMdlContext.preloadTime;
+            srcanim->numNostallFrames = srcanim->fps * g_studiomdl.options.preloadTime;
         }
 
         // Offset of a position from its block: block zero is relative to me (animation data inside the .mdl),
         // the others to their start in the .ani data (slot 0 is a placeholder there)
         const auto blockRelative = [&](const int block, const size_t position) {
-            const int64_t base = block == 0 ? destanim.offset() : g_studiomdl.animblocks[block].start;
+            const int64_t base = block == 0 ? destanim.offset() : g_studiomdl.anim.animblocks[block].start;
             return static_cast<int>(static_cast<int64_t>(position) - base);
         };
 
@@ -1434,7 +1433,7 @@ static void WriteAnimations(vstd::Buffer &buffer, vstd::Buffer* blocks, const vs
                 // if sections were written, don't move the data already written to the last block
                 blockData = blocks->size();
             }
-            destanim->animblock = g_studiomdl.animblocks.size() - 1;
+            destanim->animblock = g_studiomdl.anim.animblocks.size() - 1;
             ikData = blocks->size();
             WriteIkErrors(srcanim, *blocks);
             localHierarchy = blocks->size();
@@ -1443,10 +1442,10 @@ static void WriteAnimations(vstd::Buffer &buffer, vstd::Buffer* blocks, const vs
 
         const size_t blockEnd = blocks ? blocks->size() : 0;
         if (blockData != blockEnd &&
-            static_cast<int64_t>(blockEnd) - g_studiomdl.animblocks.back().start > g_studiomdl.animblocksize) {
-            g_studiomdl.animblocks.back().end = blockData;
-            g_studiomdl.animblocks.emplace_back(s_animblock_t{.start = static_cast<uint32_t>(blockData)});
-            destanim->animblock = g_studiomdl.animblocks.size() - 1;
+            static_cast<int64_t>(blockEnd) - g_studiomdl.anim.animblocks.back().start > g_studiomdl.anim.animblocksize) {
+            g_studiomdl.anim.animblocks.back().end = blockData;
+            g_studiomdl.anim.animblocks.emplace_back(s_animblock_t{.start = static_cast<uint32_t>(blockData)});
+            destanim->animblock = g_studiomdl.anim.animblocks.size() - 1;
         }
 
         destanim->animindex = blockRelative(destanim->animblock, animData);
@@ -1465,13 +1464,13 @@ static void WriteAnimations(vstd::Buffer &buffer, vstd::Buffer* blocks, const vs
             destanim->localhierarchyindex = blockRelative(destanim->animblock, localHierarchy);
         }
 
-        if (g_studiomdl.animblocks.size()) {
-            g_studiomdl.animblocks.back().end = blockEnd;
+        if (g_studiomdl.anim.animblocks.size()) {
+            g_studiomdl.anim.animblocks.back().end = blockEnd;
             blockData = blockEnd;
         }
     }
 
-    if (!g_StudioMdlContext.quiet) {
+    if (!g_studiomdl.options.quiet) {
         /*
 		for (i = 0; i < g_studiomdl.numanimblocks; i++)
 		{
@@ -1480,7 +1479,7 @@ static void WriteAnimations(vstd::Buffer &buffer, vstd::Buffer* blocks, const vs
 		*/
     }
 
-    if (!g_StudioMdlContext.quiet) {
+    if (!g_studiomdl.options.quiet) {
         /*
 		printf("raw anim data %d : %d\n", rawanimbytes, animboneframes );
 		printf("pos  %d %d %d %d\n", numPos[0], numPos[1], numPos[2], numPos[3] );
@@ -1489,8 +1488,8 @@ static void WriteAnimations(vstd::Buffer &buffer, vstd::Buffer* blocks, const vs
     }
 
     // write movement keys
-    for (i = 0; i < g_studiomdl.animations.size(); i++) {
-        s_animation_t* anim = g_studiomdl.animations[i];
+    for (i = 0; i < g_studiomdl.anim.animations.size(); i++) {
+        s_animation_t* anim = g_studiomdl.anim.animations[i];
 
         panimdesc[i].nummovements = anim->piecewisemove.size();
         if (panimdesc[i].nummovements) {
@@ -1516,77 +1515,77 @@ static void WriteAnimations(vstd::Buffer &buffer, vstd::Buffer* blocks, const vs
 
 
     // calculate what bones should be have zero frame saved out
-    if (g_studiomdl.bonesaveframe.Count() == 0) {
-        for (j = 0; j < g_StudioMdlContext.numbones; j++) {
-            if ((g_studiomdl.bonetable[j].parent == -1) ||
-                (g_studiomdl.bonetable[j].posrange.Length() >= g_StudioMdlContext.minZeroFramePosDelta)) {
-                g_studiomdl.bonetable[j].flags |= BoneFlags::HasSaveframePos;
+    if (std::ssize(g_studiomdl.bones.bonesaveframe) == 0) {
+        for (j = 0; j < std::ssize(g_studiomdl.bones.bonetable); j++) {
+            if ((g_studiomdl.bones.bonetable[j].parent == -1) ||
+                (g_studiomdl.bones.bonetable[j].posrange.Length() >= g_studiomdl.options.minZeroFramePosDelta)) {
+                g_studiomdl.bones.bonetable[j].flags |= BoneFlags::HasSaveframePos;
             }
-            if (g_StudioMdlContext.zeroFramesHighres) {
-                g_studiomdl.bonetable[j].flags |= BoneFlags::HasSaveframeRot64;
+            if (g_studiomdl.options.zeroFramesHighres) {
+                g_studiomdl.bones.bonetable[j].flags |= BoneFlags::HasSaveframeRot64;
             }
             else {
-                g_studiomdl.bonetable[j].flags |= BoneFlags::HasSaveframeRot32;
+                g_studiomdl.bones.bonetable[j].flags |= BoneFlags::HasSaveframeRot32;
             }
 
 
-            if ((!g_StudioMdlContext.quiet) && HasFlag(g_studiomdl.bonetable[j].flags,
+            if ((!g_studiomdl.options.quiet) && HasFlag(g_studiomdl.bones.bonetable[j].flags,
                                                        BoneFlags::HasSaveframePos | BoneFlags::HasSaveframeRot64 |
                                                        BoneFlags::HasSaveframeRot32)) {
-                std::print("$BoneSaveFrame \"{}\"", g_studiomdl.bonetable[j].name);
-                if (HasFlag(g_studiomdl.bonetable[j].flags, BoneFlags::HasSaveframePos)) {
+                std::print("$BoneSaveFrame \"{}\"", g_studiomdl.bones.bonetable[j].name);
+                if (HasFlag(g_studiomdl.bones.bonetable[j].flags, BoneFlags::HasSaveframePos)) {
                     std::print(" position");
                 }
-                if (HasFlag(g_studiomdl.bonetable[j].flags, BoneFlags::HasSaveframeRot64)) {
+                if (HasFlag(g_studiomdl.bones.bonetable[j].flags, BoneFlags::HasSaveframeRot64)) {
                     std::print(" rotation64");
                 }
-                else if (HasFlag(g_studiomdl.bonetable[j].flags, BoneFlags::HasSaveframeRot32)) {
+                else if (HasFlag(g_studiomdl.bones.bonetable[j].flags, BoneFlags::HasSaveframeRot32)) {
                     std::print(" rotation");
                 }
-                if (!HasFlag(g_studiomdl.bonetable[j].flags, BoneFlags::HasSaveframePos) && g_studiomdl.bonetable[j].
+                if (!HasFlag(g_studiomdl.bones.bonetable[j].flags, BoneFlags::HasSaveframePos) && g_studiomdl.bones.bonetable[j].
                     posrange.
                     Length() > 0.1) {
-                    std::print(" // ({:.2f})", g_studiomdl.bonetable[j].posrange.Length());
+                    std::print(" // ({:.2f})", g_studiomdl.bones.bonetable[j].posrange.Length());
                 }
                 std::print("\n");
             }
         }
     }
     else {
-        for (i = 0; i < g_studiomdl.bonesaveframe.Count(); i++) {
-            j = findGlobalBone(g_studiomdl.bonesaveframe[i].name);
+        for (i = 0; i < std::ssize(g_studiomdl.bones.bonesaveframe); i++) {
+            j = findGlobalBone(g_studiomdl.bones.bonesaveframe[i].name);
 
             if (j != -1) {
-                if (g_studiomdl.bonesaveframe[i].bSavePos) {
-                    g_studiomdl.bonetable[j].flags |= BoneFlags::HasSaveframePos;
+                if (g_studiomdl.bones.bonesaveframe[i].bSavePos) {
+                    g_studiomdl.bones.bonetable[j].flags |= BoneFlags::HasSaveframePos;
                 }
-                if (g_studiomdl.bonesaveframe[i].bSaveRot) {
-                    if (g_StudioMdlContext.zeroFramesHighres) {
-                        g_studiomdl.bonetable[j].flags |= BoneFlags::HasSaveframeRot64;
+                if (g_studiomdl.bones.bonesaveframe[i].bSaveRot) {
+                    if (g_studiomdl.options.zeroFramesHighres) {
+                        g_studiomdl.bones.bonetable[j].flags |= BoneFlags::HasSaveframeRot64;
                     }
                     else {
-                        g_studiomdl.bonetable[j].flags |= BoneFlags::HasSaveframeRot32;
+                        g_studiomdl.bones.bonetable[j].flags |= BoneFlags::HasSaveframeRot32;
                     }
                 }
-                else if (g_studiomdl.bonesaveframe[i].bSaveRot64) {
-                    g_studiomdl.bonetable[j].flags |= BoneFlags::HasSaveframeRot64;
+                else if (g_studiomdl.bones.bonesaveframe[i].bSaveRot64) {
+                    g_studiomdl.bones.bonetable[j].flags |= BoneFlags::HasSaveframeRot64;
                 }
             }
             else {
-                MdlError("Unknown $BoneSaveFrame \"{}\"\n", g_studiomdl.bonesaveframe[i].name);
+                MdlError("Unknown $BoneSaveFrame \"{}\"\n", g_studiomdl.bones.bonesaveframe[i].name);
             }
         }
     }
 
-    for (j = 0; j < g_StudioMdlContext.numbones; j++) {
-        ((mstudiobone_t*) phdr->pBone(j))->flags |= g_studiomdl.bonetable[j].flags;
+    for (j = 0; j < std::ssize(g_studiomdl.bones.bonetable); j++) {
+        ((mstudiobone_t*) phdr->pBone(j))->flags |= g_studiomdl.bones.bonetable[j].flags;
     }
 
     buffer.align(4);
 
     // write zero frames
-    for (i = 0; i < g_studiomdl.animations.size(); i++) {
-        s_animation_t* anim = g_studiomdl.animations[i];
+    for (i = 0; i < g_studiomdl.anim.animations.size(); i++) {
+        s_animation_t* anim = g_studiomdl.anim.animations[i];
         const auto destanim = panimdesc + i;
 
         if (destanim->animblock != 0) {
@@ -1604,22 +1603,22 @@ static void WriteAnimations(vstd::Buffer &buffer, vstd::Buffer* blocks, const vs
             if (destanim->zeroframecount < 1)
                 destanim->zeroframecount = 1;
 
-            destanim->zeroframecount = MIN(destanim->zeroframecount, g_StudioMdlContext.maxZeroFrames);
+            destanim->zeroframecount = MIN(destanim->zeroframecount, g_studiomdl.options.maxZeroFrames);
 
-            for (j = 0; j < g_StudioMdlContext.numbones; j++) {
-                if (HasFlag(g_studiomdl.bonetable[j].flags, BoneFlags::HasSaveframePos)) {
+            for (j = 0; j < std::ssize(g_studiomdl.bones.bonetable); j++) {
+                if (HasFlag(g_studiomdl.bones.bonetable[j].flags, BoneFlags::HasSaveframePos)) {
                     for (int n = 0; n < destanim->zeroframecount; n++) {
                         *buffer.allocate<Vector48>() = anim->sanim[destanim->zeroframespan * n][j].pos;
                     }
                 }
-                if (HasFlag(g_studiomdl.bonetable[j].flags, BoneFlags::HasSaveframeRot64)) {
+                if (HasFlag(g_studiomdl.bones.bonetable[j].flags, BoneFlags::HasSaveframeRot64)) {
                     for (int n = 0; n < destanim->zeroframecount; n++) {
                         Quaternion q;
                         AngleQuaternion(anim->sanim[destanim->zeroframespan * n][j].rot, q);
                         *buffer.allocate<Quaternion64>() = q;
                     }
                 }
-                else if (HasFlag(g_studiomdl.bonetable[j].flags, BoneFlags::HasSaveframeRot32)) {
+                else if (HasFlag(g_studiomdl.bones.bonetable[j].flags, BoneFlags::HasSaveframeRot32)) {
                     for (int n = 0; n < destanim->zeroframecount; n++) {
                         Quaternion q;
                         AngleQuaternion(anim->sanim[destanim->zeroframespan * n][j].rot, q);
@@ -1638,7 +1637,7 @@ static void WriteAnimations(vstd::Buffer &buffer, vstd::Buffer* blocks, const vs
                 const auto psrcikrule = destanim->ikruleindex
                                             ? buffer.ptr_at<mstudioikrule_t>(destanim.offset() + destanim->ikruleindex)
                                             : blocks->ptr_at<mstudioikrule_t>(
-                                                g_studiomdl.animblocks[destanim->animblock].start +
+                                                g_studiomdl.anim.animblocks[destanim->animblock].start +
                                                 destanim->animblockikruleindex);
 
                 for (j = 0; j < destanim->numikrules; j++) {
@@ -1663,33 +1662,34 @@ static void WriteTextures(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_
     int i, j;
 
     // save texture info
-    const auto ptexture = buffer.allocate<mstudiotexture_t>(g_studiomdl.materials.size());
-    phdr->numtextures = g_studiomdl.materials.size();
+    const auto ptexture = buffer.allocate<mstudiotexture_t>(g_studiomdl.materials.materials.size());
+    phdr->numtextures = g_studiomdl.materials.materials.size();
     phdr->textureindex = ptexture.offset_as<int>();
-    for (i = 0; i < g_studiomdl.materials.size(); i++) {
-        j = g_studiomdl.materials[i];
+    for (i = 0; i < g_studiomdl.materials.materials.size(); i++) {
+        j = g_studiomdl.materials.materials[i];
         AddToStringTable(ptexture + i, (ptexture + i).field(&mstudiotexture_t::sznameindex),
-                         g_studiomdl.textures[j].name);
+                         g_studiomdl.materials.textures[j].name);
     }
     buffer.align(4);
 
-    const auto cdtextureoffset = buffer.allocate<int>(g_studiomdl.cdtextures.size());
-    phdr->numcdtextures = g_studiomdl.cdtextures.size();
+    const auto cdtextureoffset = buffer.allocate<int>(g_studiomdl.materials.cdtextures.size());
+    phdr->numcdtextures = g_studiomdl.materials.cdtextures.size();
     phdr->cdtextureindex = cdtextureoffset.offset_as<int>();
-    for (i = 0; i < g_studiomdl.cdtextures.size(); i++) {
-        AddToStringTable(phdr, cdtextureoffset + i, g_studiomdl.cdtextures[i]);
+    for (i = 0; i < g_studiomdl.materials.cdtextures.size(); i++) {
+        AddToStringTable(phdr, cdtextureoffset + i, g_studiomdl.materials.cdtextures[i]);
     }
     buffer.align(4);
 
-    // save texture directory info
-    phdr->numskinref = g_studiomdl.numskinref;
-    phdr->numskinfamilies = g_studiomdl.numskinfamilies;
+    // save texture directory info: one row per skin family, all rows as wide as the first
+    const auto &skinref = g_studiomdl.materials.skinref;
+    phdr->numskinref = skinref.empty() ? 0 : static_cast<int>(skinref[0].size());
+    phdr->numskinfamilies = static_cast<int>(skinref.size());
     const auto pref = buffer.allocate<short>(phdr->numskinfamilies * phdr->numskinref);
     phdr->skinindex = pref.offset_as<int>();
 
     for (i = 0; i < phdr->numskinfamilies; i++) {
         for (j = 0; j < phdr->numskinref; j++) {
-            pref[i * phdr->numskinref + j] = g_studiomdl.skinref[i][j];
+            pref[i * phdr->numskinref + j] = skinref[i][j];
         }
     }
     buffer.align(4);
@@ -1708,14 +1708,14 @@ static void WriteBoneTransforms(vstd::Buffer &buffer, const vstd::BufferPtr<stud
     SetIdentityMatrix(identity);
 
     int nTransformCount = 0;
-    for (int i = 0; i < g_StudioMdlContext.numbones; i++) {
-        if (HasFlag(g_studiomdl.bonetable[i].flags, BoneFlags::AlwaysProcedural))
+    for (int i = 0; i < std::ssize(g_studiomdl.bones.bonetable); i++) {
+        if (HasFlag(g_studiomdl.bones.bonetable[i].flags, BoneFlags::AlwaysProcedural))
             continue;
-        int nParent = g_studiomdl.bonetable[i].parent;
+        int nParent = g_studiomdl.bones.bonetable[i].parent;
 
         // Transformation is necessary if either you or your parent was realigned
-        if (MatricesAreEqual(identity, g_studiomdl.bonetable[i].srcRealign) &&
-            ((nParent < 0) || MatricesAreEqual(identity, g_studiomdl.bonetable[nParent].srcRealign)))
+        if (MatricesAreEqual(identity, g_studiomdl.bones.bonetable[i].srcRealign) &&
+            ((nParent < 0) || MatricesAreEqual(identity, g_studiomdl.bones.bonetable[nParent].srcRealign)))
             continue;
 
         ++nTransformCount;
@@ -1726,12 +1726,12 @@ static void WriteBoneTransforms(vstd::Buffer &buffer, const vstd::BufferPtr<stud
     phdr2->numsrcbonetransform = nTransformCount;
     phdr2->srcbonetransformindex = pSrcBoneTransform.offset_as<int>();
     int bt = 0;
-    for (int i = 0; i < g_StudioMdlContext.numbones; i++) {
-        if (HasFlag(g_studiomdl.bonetable[i].flags, BoneFlags::AlwaysProcedural))
+    for (int i = 0; i < std::ssize(g_studiomdl.bones.bonetable); i++) {
+        if (HasFlag(g_studiomdl.bones.bonetable[i].flags, BoneFlags::AlwaysProcedural))
             continue;
-        int nParent = g_studiomdl.bonetable[i].parent;
-        if (MatricesAreEqual(identity, g_studiomdl.bonetable[i].srcRealign) &&
-            ((nParent < 0) || MatricesAreEqual(identity, g_studiomdl.bonetable[nParent].srcRealign)))
+        int nParent = g_studiomdl.bones.bonetable[i].parent;
+        if (MatricesAreEqual(identity, g_studiomdl.bones.bonetable[i].srcRealign) &&
+            ((nParent < 0) || MatricesAreEqual(identity, g_studiomdl.bones.bonetable[nParent].srcRealign)))
             continue;
 
         // What's going on here?
@@ -1742,32 +1742,32 @@ static void WriteBoneTransforms(vstd::Buffer &buffer, const vstd::BufferPtr<stud
         //		CtoW = P * C = ( P * T ) * ( T^-1 * C )
         // therefore Cnew = ( T^-1 * C )
         if (nParent >= 0) {
-            MatrixInvert(g_studiomdl.bonetable[nParent].srcRealign, pSrcBoneTransform[bt].pretransform);
+            MatrixInvert(g_studiomdl.bones.bonetable[nParent].srcRealign, pSrcBoneTransform[bt].pretransform);
         }
         else {
             SetIdentityMatrix(pSrcBoneTransform[bt].pretransform);
         }
-        MatrixCopy(g_studiomdl.bonetable[i].srcRealign, pSrcBoneTransform[bt].posttransform);
+        MatrixCopy(g_studiomdl.bones.bonetable[i].srcRealign, pSrcBoneTransform[bt].posttransform);
         AddToStringTable(pSrcBoneTransform + bt,
                          (pSrcBoneTransform + bt).field(&mstudiosrcbonetransform_t::sznameindex),
-                         g_studiomdl.bonetable[i].name);
+                         g_studiomdl.bones.bonetable[i].name);
         ++bt;
     }
     buffer.align(4);
 
-    if (g_StudioMdlContext.numbones > 1) {
+    if (std::ssize(g_studiomdl.bones.bonetable) > 1) {
         // write second bone table
         const auto pLinearBone = buffer.allocate<mstudiolinearbone_t>();
         phdr2->linearboneindex = pLinearBone.offset_from<int>(phdr2);
 
-        pLinearBone->numbones = g_StudioMdlContext.numbones;
+        pLinearBone->numbones = std::ssize(g_studiomdl.bones.bonetable);
 
         // one array per bone field, each 4-aligned, indexed relative to pLinearBone
         const auto writeBoneBlock = [&]<typename F>(F mstudiobone_t::* srcfield, int mstudiolinearbone_t::* destindex) {
-            const auto dest = buffer.template allocate<F>(g_StudioMdlContext.numbones);
+            const auto dest = buffer.template allocate<F>(std::ssize(g_studiomdl.bones.bonetable));
             pLinearBone.get()->*destindex = dest.template offset_from<int>(pLinearBone);
             buffer.align(4);
-            for (int i = 0; i < g_StudioMdlContext.numbones; i++)
+            for (int i = 0; i < std::ssize(g_studiomdl.bones.bonetable); i++)
                 dest[i] = pBone[i].*srcfield;
         };
 
@@ -1787,21 +1787,21 @@ static void WriteBodyGroupPresets(vstd::Buffer &buffer, const vstd::BufferPtr<st
     vstd::FunctionTimingRecorder _("Write");
     buffer.align(4);
 
-    pStudioHdr2->m_nBodyGroupPresetCount = g_studiomdl.numbodygrouppresets;
+    pStudioHdr2->m_nBodyGroupPresetCount = std::ssize(g_studiomdl.body.bodygrouppresets);
     pStudioHdr2->m_nBodyGroupPresetIndex = 0;
 
-    if (g_studiomdl.numbodygrouppresets <= 0)
+    if (std::ssize(g_studiomdl.body.bodygrouppresets) <= 0)
         return;
 
-    const auto pBodygroupPreset = buffer.allocate<mstudiobodygrouppreset_t>(g_studiomdl.numbodygrouppresets);
+    const auto pBodygroupPreset = buffer.allocate<mstudiobodygrouppreset_t>(std::ssize(g_studiomdl.body.bodygrouppresets));
     pStudioHdr2->m_nBodyGroupPresetIndex = pBodygroupPreset.offset_from<int>(pStudioHdr2);
     buffer.align(4);
 
-    for (int i = 0; i < g_studiomdl.numbodygrouppresets; i++) {
+    for (int i = 0; i < std::ssize(g_studiomdl.body.bodygrouppresets); i++) {
         AddToStringTable(pBodygroupPreset + i, (pBodygroupPreset + i).field(&mstudiobodygrouppreset_t::sznameindex),
-                         g_studiomdl.bodygrouppresets[i].name);
-        pBodygroupPreset[i].iValue = g_studiomdl.bodygrouppresets[i].iValue;
-        pBodygroupPreset[i].iMask = g_studiomdl.bodygrouppresets[i].iMask;
+                         g_studiomdl.body.bodygrouppresets[i].name);
+        pBodygroupPreset[i].iValue = g_studiomdl.body.bodygrouppresets[i].iValue;
+        pBodygroupPreset[i].iMask = g_studiomdl.body.bodygrouppresets[i].iMask;
     }
 }
 
@@ -1816,7 +1816,7 @@ static void WriteBoneFlexDrivers(vstd::Buffer &buffer, const vstd::BufferPtr<stu
     pStudioHdr2->m_nBoneFlexDriverIndex = 0;
 
     CDmeBoneFlexDriverList* pDmeBoneFlexDriverList = GetElement<CDmeBoneFlexDriverList>(
-        g_StudioMdlContext.hDmeBoneFlexDriverList);
+        g_studiomdl.flex.hDmeBoneFlexDriverList);
     if (!pDmeBoneFlexDriverList)
         return;
 
@@ -1871,12 +1871,12 @@ static void WriteVertices(const studiohdr_t* hdr) {
     int k = 0;
     const bool extraData = (hdr->flags & STUDIOHDR_FLAGS_EXTRA_VERTEX_DATA) != 0;
 
-    if (!g_studiomdl.nummodelsbeforeLOD)
+    if (!g_studiomdl.body.nummodelsbeforeLOD)
         return;
 
     const std::string fileName = OutputModelPath(".vvd");
 
-    if (!g_StudioMdlContext.quiet) {
+    if (!g_studiomdl.options.quiet) {
         std::print("---------------------\n");
         std::print("writing {}:\n", fileName);
     }
@@ -1902,8 +1902,8 @@ static void WriteVertices(const studiohdr_t* hdr) {
     buffer.align(16);
 
     fileHeader->vertexDataStart = buffer.size();
-    for (i = 0; i < g_studiomdl.nummodelsbeforeLOD; i++) {
-        s_loddata_t* pLodData = g_studiomdl.model[i]->m_pLodData;
+    for (i = 0; i < g_studiomdl.body.nummodelsbeforeLOD; i++) {
+        s_loddata_t* pLodData = g_studiomdl.body.model[i]->m_pLodData;
 
         // skip blank empty model
         if (!pLodData)
@@ -1931,7 +1931,7 @@ static void WriteVertices(const studiohdr_t* hdr) {
 
         fileHeader->numLODVertexes[0] += pLodData->numvertices;
 
-        if (!g_StudioMdlContext.quiet) {
+        if (!g_studiomdl.options.quiet) {
             std::print("{} vertices \n", pLodData->numvertices);
         }
     }
@@ -1939,8 +1939,8 @@ static void WriteVertices(const studiohdr_t* hdr) {
     // store tangents grouped by mesh order
     buffer.align(4);
     fileHeader->tangentDataStart = buffer.size();
-    for (i = 0; i < g_studiomdl.nummodelsbeforeLOD; i++) {
-        s_loddata_t* pLodData = g_studiomdl.model[i]->m_pLodData;
+    for (i = 0; i < g_studiomdl.body.nummodelsbeforeLOD; i++) {
+        s_loddata_t* pLodData = g_studiomdl.body.model[i]->m_pLodData;
 
         // skip blank empty model
         if (!pLodData)
@@ -1957,7 +1957,7 @@ static void WriteVertices(const studiohdr_t* hdr) {
 #endif
         }
 
-        if (!g_StudioMdlContext.quiet) {
+        if (!g_studiomdl.options.quiet) {
             std::print("{} tangents\n", pLodData->numvertices);
         }
     }
@@ -1979,8 +1979,8 @@ static void WriteVertices(const studiohdr_t* hdr) {
             pIndex[e].m_bytes = 2 * sizeof(float);
 
             // store extra vertex data, one entry per vertex, order matches main vertex data
-            for (i = 0; i < g_studiomdl.nummodelsbeforeLOD; i++) {
-                s_loddata_t* pLodData = g_studiomdl.model[i]->m_pLodData;
+            for (i = 0; i < g_studiomdl.body.nummodelsbeforeLOD; i++) {
+                s_loddata_t* pLodData = g_studiomdl.body.model[i]->m_pLodData;
 
                 // skip blank empty model
                 if (!pLodData)
@@ -1995,7 +1995,7 @@ static void WriteVertices(const studiohdr_t* hdr) {
                     pExtraTexcoord[j * 2 + 1] = lodVertex.texcoord[e + 1].y;
                 }
 
-                if (!g_StudioMdlContext.quiet) {
+                if (!g_studiomdl.options.quiet) {
                     std::print("extra vertex data   {:7} bytes ({} vertices)\n",
                                buffer.end_ptr().offset_from<int>(pExtraTexcoord),
                                pLodData->numvertices);
@@ -2005,7 +2005,7 @@ static void WriteVertices(const studiohdr_t* hdr) {
         pExtraheader->m_totalbytes = buffer.end_ptr().offset_from<int>(extraDataStart);
     }
 
-    if (!g_StudioMdlContext.quiet) {
+    if (!g_studiomdl.options.quiet) {
         std::print("total      {:7} bytes\n", buffer.size());
     }
 
@@ -2023,7 +2023,7 @@ static void WriteVertices(const studiohdr_t* hdr) {
 float ComputeVertAnimFixedPointScale(studiohdr_t* pStudioHdr) {
     float flVertAnimRange = 0.0f;
 
-    for (const auto &flexkey: g_studiomdl.flexkeys) {
+    for (const auto &flexkey: g_studiomdl.flex.flexkeys) {
         if (flexkey.numvanims <= 0)
             continue;
 
@@ -2079,66 +2079,66 @@ static void WriteModel(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_t> 
     uintptr_t externalTangentsIndex = 0;
 
     // write bodypart info
-    const auto pbodypart = buffer.allocate<mstudiobodyparts_t>(g_studiomdl.numbodyparts);
-    phdr->numbodyparts = g_studiomdl.numbodyparts;
+    const auto pbodypart = buffer.allocate<mstudiobodyparts_t>(std::ssize(g_studiomdl.body.bodypart));
+    phdr->numbodyparts = std::ssize(g_studiomdl.body.bodypart);
     phdr->bodypartindex = pbodypart.offset_as<int>();
 
-    const auto pmodel = buffer.allocate<mstudiomodel_t>(g_studiomdl.nummodelsbeforeLOD);
+    const auto pmodel = buffer.allocate<mstudiomodel_t>(g_studiomdl.body.nummodelsbeforeLOD);
 
-    for (i = 0, j = 0; i < g_studiomdl.numbodyparts; i++) {
+    for (i = 0, j = 0; i < std::ssize(g_studiomdl.body.bodypart); i++) {
         AddToStringTable(pbodypart + i, (pbodypart + i).field(&mstudiobodyparts_t::sznameindex),
-                         g_studiomdl.bodypart[i].name);
-        pbodypart[i].nummodels = g_studiomdl.bodypart[i].nummodels;
-        pbodypart[i].base = g_studiomdl.bodypart[i].base;
+                         g_studiomdl.body.bodypart[i].name);
+        pbodypart[i].nummodels = std::ssize(g_studiomdl.body.bodypart[i].pmodel);
+        pbodypart[i].base = g_studiomdl.body.bodypart[i].base;
         pbodypart[i].modelindex = (pmodel + j).offset_from<int>(pbodypart + i);
-        j += g_studiomdl.bodypart[i].nummodels;
+        j += std::ssize(g_studiomdl.body.bodypart[i].pmodel);
     }
     buffer.align(4);
 
     // write global flex names
-    auto pflexdesc = buffer.allocate<mstudioflexdesc_t>(g_studiomdl.flexdescs.size());
-    phdr->numflexdesc = g_studiomdl.flexdescs.size();
+    auto pflexdesc = buffer.allocate<mstudioflexdesc_t>(g_studiomdl.flex.flexdescs.size());
+    phdr->numflexdesc = g_studiomdl.flex.flexdescs.size();
     phdr->flexdescindex = pflexdesc.offset_as<int>();
     buffer.align(4);
 
-    for (j = 0; j < g_studiomdl.flexdescs.size(); j++) {
-        AddToStringTable(pflexdesc, pflexdesc.field(&mstudioflexdesc_t::szFACSindex), g_studiomdl.flexdescs[j].FACS);
+    for (j = 0; j < g_studiomdl.flex.flexdescs.size(); j++) {
+        AddToStringTable(pflexdesc, pflexdesc.field(&mstudioflexdesc_t::szFACSindex), g_studiomdl.flex.flexdescs[j].FACS);
         pflexdesc++;
     }
 
     // write global flex controllers
-    const auto pflexcontrollers = buffer.allocate<mstudioflexcontroller_t>(g_studiomdl.flexcontrollers.size());
-    phdr->numflexcontrollers = g_studiomdl.flexcontrollers.size();
+    const auto pflexcontrollers = buffer.allocate<mstudioflexcontroller_t>(g_studiomdl.flex.flexcontrollers.size());
+    phdr->numflexcontrollers = g_studiomdl.flex.flexcontrollers.size();
     phdr->flexcontrollerindex = pflexcontrollers.offset_as<int>();
     buffer.align(4);
 
-    for (j = 0; j < g_studiomdl.flexcontrollers.size(); j++) {
+    for (j = 0; j < g_studiomdl.flex.flexcontrollers.size(); j++) {
         const auto pflexcontroller = pflexcontrollers + j;
         AddToStringTable(pflexcontroller, pflexcontroller.field(&mstudioflexcontroller_t::sznameindex),
-                         g_studiomdl.flexcontrollers[j].name);
+                         g_studiomdl.flex.flexcontrollers[j].name);
         AddToStringTable(pflexcontroller, pflexcontroller.field(&mstudioflexcontroller_t::sztypeindex),
-                         g_studiomdl.flexcontrollers[j].type);
-        pflexcontroller->min = g_studiomdl.flexcontrollers[j].min;
-        pflexcontroller->max = g_studiomdl.flexcontrollers[j].max;
+                         g_studiomdl.flex.flexcontrollers[j].type);
+        pflexcontroller->min = g_studiomdl.flex.flexcontrollers[j].min;
+        pflexcontroller->max = g_studiomdl.flex.flexcontrollers[j].max;
         pflexcontroller->localToGlobal = -1;
     }
 
     // write flex rules
-    auto pflexrule = buffer.allocate<mstudioflexrule_t>(g_studiomdl.flexrules.size());
-    phdr->numflexrules = g_studiomdl.flexrules.size();
+    auto pflexrule = buffer.allocate<mstudioflexrule_t>(g_studiomdl.flex.flexrules.size());
+    phdr->numflexrules = g_studiomdl.flex.flexrules.size();
     phdr->flexruleindex = pflexrule.offset_as<int>();
     buffer.align(4);
 
-    for (j = 0; j < g_studiomdl.flexrules.size(); j++) {
-        pflexrule->flex = g_studiomdl.flexrules[j].flex;
-        pflexrule->numops = g_studiomdl.flexrules[j].numops;
+    for (j = 0; j < g_studiomdl.flex.flexrules.size(); j++) {
+        pflexrule->flex = g_studiomdl.flex.flexrules[j].flex;
+        pflexrule->numops = g_studiomdl.flex.flexrules[j].numops;
 
         const auto pflexop = buffer.allocate<mstudioflexop_t>(pflexrule->numops);
         pflexrule->opindex = pflexop.offset_from<int>(pflexrule);
 
         for (i = 0; i < pflexrule->numops; i++) {
-            pflexop[i].op = g_studiomdl.flexrules[j].op[i].op;
-            pflexop[i].d.index = g_studiomdl.flexrules[j].op[i].d.index;
+            pflexop[i].op = g_studiomdl.flex.flexrules[j].op[i].op;
+            pflexop[i].d.index = g_studiomdl.flex.flexrules[j].op[i].d.index;
         }
 
         buffer.align(4);
@@ -2153,14 +2153,14 @@ static void WriteModel(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_t> 
     // Loop through all defined controllers and create a UI structure for them
     // All actual controllers will be defined as a member of some ui structure
     // and all actual controllers can only be a member of one ui structure
-    std::vector<bool> pControllerHandled(g_studiomdl.flexcontrollers.size(), false);
+    std::vector<bool> pControllerHandled(g_studiomdl.flex.flexcontrollers.size(), false);
 
-    for (j = 0; j < g_studiomdl.flexcontrollers.size(); ++j) {
+    for (j = 0; j < g_studiomdl.flex.flexcontrollers.size(); ++j) {
         // Don't handle controls twice
         if (pControllerHandled[j])
             continue;
 
-        const s_flexcontroller_t &flexcontroller = g_studiomdl.flexcontrollers[j];
+        const s_flexcontroller_t &flexcontroller = g_studiomdl.flex.flexcontrollers[j];
 
         const auto pFlexControllerUI = buffer.allocate<mstudioflexcontrollerui_t>();
         const auto uiName = pFlexControllerUI.field(&mstudioflexcontrollerui_t::sznameindex);
@@ -2172,8 +2172,8 @@ static void WriteModel(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_t> 
         bool found = false;
 
         // See if this controller is in the remap table
-        for (k = 0; k < g_StudioMdlContext.FlexControllerRemap.size(); ++k) {
-            s_flexcontrollerremap_t &remap = g_StudioMdlContext.FlexControllerRemap[k];
+        for (k = 0; k < g_studiomdl.flex.FlexControllerRemap.size(); ++k) {
+            s_flexcontrollerremap_t &remap = g_studiomdl.flex.FlexControllerRemap[k];
             if (j == remap.m_Index || j == remap.m_LeftIndex || j == remap.m_RightIndex || j == remap.m_MultiIndex) {
                 AddToStringTable(pFlexControllerUI, uiName, remap.m_Name);
 
@@ -2215,11 +2215,11 @@ static void WriteModel(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_t> 
             pFlexControllerUI->remaptype = Passthru;
             pFlexControllerUI->szindex2 = 0; // Unused in this case
 
-            if (j < g_studiomdl.flexcontrollers.size() - 1 &&
+            if (j < g_studiomdl.flex.flexcontrollers.size() - 1 &&
                 StringAfterPrefixCaseSensitive(flexcontroller.name, "right_") &&
-                StringAfterPrefixCaseSensitive(g_studiomdl.flexcontrollers[j + 1].name, "left_") &&
+                StringAfterPrefixCaseSensitive(g_studiomdl.flex.flexcontrollers[j + 1].name, "left_") &&
                 !Q_strcmp(StringAfterPrefixCaseSensitive(flexcontroller.name, "right_"),
-                          StringAfterPrefixCaseSensitive(g_studiomdl.flexcontrollers[j + 1].name, "left_"))) {
+                          StringAfterPrefixCaseSensitive(g_studiomdl.flex.flexcontrollers[j + 1].name, "left_"))) {
                 AddToStringTable(pFlexControllerUI, uiName, flexcontroller.name + 6);
 
                 pFlexControllerUI->stereo = true;
@@ -2234,9 +2234,9 @@ static void WriteModel(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_t> 
             }
             else if (j > 0 &&
                      StringAfterPrefixCaseSensitive(flexcontroller.name, "left_") &&
-                     StringAfterPrefixCaseSensitive(g_studiomdl.flexcontrollers[j - 1].name, "right_") &&
+                     StringAfterPrefixCaseSensitive(g_studiomdl.flex.flexcontrollers[j - 1].name, "right_") &&
                      !Q_strcmp(StringAfterPrefixCaseSensitive(flexcontroller.name, "left_"),
-                               StringAfterPrefixCaseSensitive(g_studiomdl.flexcontrollers[j - 1].name, "right_"))) {
+                               StringAfterPrefixCaseSensitive(g_studiomdl.flex.flexcontrollers[j - 1].name, "right_"))) {
                 AddToStringTable(pFlexControllerUI, uiName, flexcontroller.name + 5);
 
                 pFlexControllerUI->stereo = true;
@@ -2263,71 +2263,71 @@ static void WriteModel(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_t> 
     buffer.align(4);
 
 #ifdef _DEBUG
-    for (j = 0; j < g_studiomdl.flexcontrollers.size(); ++j) {
+    for (j = 0; j < g_studiomdl.flex.flexcontrollers.size(); ++j) {
         Assert(pControllerHandled[j]);
     }
 #endif // _DEBUG
 
     // write ik chains
-    auto pikchain = buffer.allocate<mstudioikchain_t>(g_studiomdl.numikchains);
-    phdr->numikchains = g_studiomdl.numikchains;
+    auto pikchain = buffer.allocate<mstudioikchain_t>(std::ssize(g_studiomdl.anim.ikchain));
+    phdr->numikchains = std::ssize(g_studiomdl.anim.ikchain);
     phdr->ikchainindex = pikchain.offset_as<int>();
     buffer.align(4);
 
-    for (j = 0; j < g_studiomdl.numikchains; j++) {
-        AddToStringTable(pikchain, pikchain.field(&mstudioikchain_t::sznameindex), g_studiomdl.ikchain[j].name);
-        pikchain->numlinks = g_studiomdl.ikchain[j].numlinks;
+    for (j = 0; j < std::ssize(g_studiomdl.anim.ikchain); j++) {
+        AddToStringTable(pikchain, pikchain.field(&mstudioikchain_t::sznameindex), g_studiomdl.anim.ikchain[j].name);
+        pikchain->numlinks = g_studiomdl.anim.ikchain[j].numlinks;
 
         const auto piklink = buffer.allocate<mstudioiklink_t>(pikchain->numlinks);
         pikchain->linkindex = piklink.offset_from<int>(pikchain);
 
         for (i = 0; i < pikchain->numlinks; i++) {
-            piklink[i].bone = g_studiomdl.ikchain[j].link[i].bone;
-            piklink[i].kneeDir = g_studiomdl.ikchain[j].link[i].kneeDir;
+            piklink[i].bone = g_studiomdl.anim.ikchain[j].link[i].bone;
+            piklink[i].kneeDir = g_studiomdl.anim.ikchain[j].link[i].kneeDir;
         }
 
         pikchain++;
     }
 
     // save autoplay locks
-    const auto piklock = buffer.allocate<mstudioiklock_t>(g_studiomdl.numikautoplaylocks);
-    phdr->numlocalikautoplaylocks = g_studiomdl.numikautoplaylocks;
+    const auto piklock = buffer.allocate<mstudioiklock_t>(std::ssize(g_studiomdl.anim.ikautoplaylock));
+    phdr->numlocalikautoplaylocks = std::ssize(g_studiomdl.anim.ikautoplaylock);
     phdr->localikautoplaylockindex = piklock.offset_as<int>();
     buffer.align(4);
 
-    for (j = 0; j < g_studiomdl.numikautoplaylocks; j++) {
-        piklock[j].chain = g_studiomdl.ikautoplaylock[j].chain;
-        piklock[j].flPosWeight = g_studiomdl.ikautoplaylock[j].flPosWeight;
-        piklock[j].flLocalQWeight = g_studiomdl.ikautoplaylock[j].flLocalQWeight;
+    for (j = 0; j < std::ssize(g_studiomdl.anim.ikautoplaylock); j++) {
+        piklock[j].chain = g_studiomdl.anim.ikautoplaylock[j].chain;
+        piklock[j].flPosWeight = g_studiomdl.anim.ikautoplaylock[j].flPosWeight;
+        piklock[j].flLocalQWeight = g_studiomdl.anim.ikautoplaylock[j].flLocalQWeight;
     }
 
     // save mouth info
-    const auto pmouth = buffer.allocate<mstudiomouth_t>(g_studiomdl.nummouths);
-    phdr->nummouths = g_studiomdl.nummouths;
+    const auto pmouth = buffer.allocate<mstudiomouth_t>(std::ssize(g_studiomdl.flex.mouth));
+    phdr->nummouths = std::ssize(g_studiomdl.flex.mouth);
     phdr->mouthindex = pmouth.offset_as<int>();
     buffer.align(4);
 
-    for (i = 0; i < g_studiomdl.nummouths; i++) {
-        pmouth[i].bone = g_studiomdl.mouth[i].bone;
-        VectorCopy(g_studiomdl.mouth[i].forward, pmouth[i].forward);
-        pmouth[i].flexdesc = g_studiomdl.mouth[i].flexdesc;
+    for (i = 0; i < std::ssize(g_studiomdl.flex.mouth); i++) {
+        pmouth[i].bone = g_studiomdl.flex.mouth[i].bone;
+        VectorCopy(g_studiomdl.flex.mouth[i].forward, pmouth[i].forward);
+        pmouth[i].flexdesc = g_studiomdl.flex.mouth[i].flexdesc;
     }
 
     // save pose parameters
-    const auto ppose = buffer.allocate<mstudioposeparamdesc_t>(g_studiomdl.numposeparameters);
-    phdr->numlocalposeparameters = g_studiomdl.numposeparameters;
+    const auto ppose = buffer.allocate<mstudioposeparamdesc_t>(std::ssize(g_studiomdl.anim.pose));
+    phdr->numlocalposeparameters = std::ssize(g_studiomdl.anim.pose);
     phdr->localposeparamindex = ppose.offset_as<int>();
     buffer.align(4);
 
-    for (i = 0; i < g_studiomdl.numposeparameters; i++) {
-        AddToStringTable(ppose + i, (ppose + i).field(&mstudioposeparamdesc_t::sznameindex), g_studiomdl.pose[i].name);
-        ppose[i].start = g_studiomdl.pose[i].min;
-        ppose[i].end = g_studiomdl.pose[i].max;
-        ppose[i].flags = g_studiomdl.pose[i].flags;
-        ppose[i].loop = g_studiomdl.pose[i].loop;
+    for (i = 0; i < std::ssize(g_studiomdl.anim.pose); i++) {
+        AddToStringTable(ppose + i, (ppose + i).field(&mstudioposeparamdesc_t::sznameindex), g_studiomdl.anim.pose[i].name);
+        ppose[i].start = g_studiomdl.anim.pose[i].min;
+        ppose[i].end = g_studiomdl.anim.pose[i].max;
+        ppose[i].flags = g_studiomdl.anim.pose[i].flags;
+        ppose[i].loop = g_studiomdl.anim.pose[i].loop;
     }
 
-    if (!g_StudioMdlContext.quiet) {
+    if (!g_studiomdl.options.quiet) {
         std::print("ik/pose    {:7} bytes\n", buffer.size());
     }
 
@@ -2338,12 +2338,12 @@ static void WriteModel(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_t> 
     bool bExtraVertexData = false;
     sExtraTexcoordsToWrite = 0;
     for (int i = 0; (i < phdr->numbodyparts) && !bExtraVertexData; ++i) {
-        for (int j = 0; j < g_studiomdl.bodypart[i].nummodels; ++j) {
-            if (g_studiomdl.bodypart[i].pmodel[j] && g_studiomdl.bodypart[i].pmodel[j]->source->numvertices > 0) {
-                if (g_studiomdl.bodypart[i].pmodel[j] && g_studiomdl.bodypart[i].pmodel[j]->source->vertex[0].
+        for (int j = 0; j < std::ssize(g_studiomdl.body.bodypart[i].pmodel); ++j) {
+            if (g_studiomdl.body.bodypart[i].pmodel[j] && g_studiomdl.body.bodypart[i].pmodel[j]->source->numvertices > 0) {
+                if (g_studiomdl.body.bodypart[i].pmodel[j] && g_studiomdl.body.bodypart[i].pmodel[j]->source->vertex[0].
                     texcoord.size() > 1) {
                     bExtraVertexData = true;
-                    sExtraTexcoordsToWrite = g_studiomdl.bodypart[i].pmodel[j]->source->vertex[0].texcoord.size() - 1;
+                    sExtraTexcoordsToWrite = g_studiomdl.body.bodypart[i].pmodel[j]->source->vertex[0].texcoord.size() - 1;
                     break;
                 }
             }
@@ -2355,15 +2355,15 @@ static void WriteModel(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_t> 
     }
 
     // write model
-    for (i = 0; i < g_studiomdl.nummodelsbeforeLOD; i++) {
+    for (i = 0; i < g_studiomdl.body.nummodelsbeforeLOD; i++) {
         int n = 0;
 
         const auto pModel = pmodel + i;
 
-        Q_strncpy(pModel->name, g_studiomdl.model[i]->filename.c_str(), sizeof(pModel->name));
+        Q_strncpy(pModel->name, g_studiomdl.body.model[i]->filename.c_str(), sizeof(pModel->name));
 
-        psource = g_studiomdl.model[i]->source;
-        s_loddata_t* pLodData = g_studiomdl.model[i]->m_pLodData;
+        psource = g_studiomdl.body.model[i]->source;
+        s_loddata_t* pLodData = g_studiomdl.body.model[i]->m_pLodData;
 
         // save mesh info
         if (pLodData) {
@@ -2406,37 +2406,37 @@ static void WriteModel(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_t> 
         externalTangentsIndex += pModel->numvertices * sizeof(Vector4D);
 
         // save eyeballs
-        const auto peyeball = buffer.allocate<mstudioeyeball_t>(g_studiomdl.model[i]->eyeballs.size());
-        pModel->numeyeballs = g_studiomdl.model[i]->eyeballs.size();
+        const auto peyeball = buffer.allocate<mstudioeyeball_t>(g_studiomdl.body.model[i]->eyeballs.size());
+        pModel->numeyeballs = g_studiomdl.body.model[i]->eyeballs.size();
         pModel->eyeballindex = peyeball.offset_from<int>(pModel);
 
         buffer.align(4);
-        for (j = 0; j < g_studiomdl.model[i]->eyeballs.size(); j++) {
-            k = g_studiomdl.model[i]->eyeballs[j].mesh;
+        for (j = 0; j < g_studiomdl.body.model[i]->eyeballs.size(); j++) {
+            k = g_studiomdl.body.model[i]->eyeballs[j].mesh;
             pmesh[k].materialtype = 1; // FIXME: tag custom material
             pmesh[k].materialparam = j; // FIXME: tag custom material
 
-            peyeball[j].bone = g_studiomdl.model[i]->eyeballs[j].bone;
-            VectorCopy(g_studiomdl.model[i]->eyeballs[j].org, peyeball[j].org);
-            peyeball[j].zoffset = g_studiomdl.model[i]->eyeballs[j].zoffset;
-            peyeball[j].radius = g_studiomdl.model[i]->eyeballs[j].radius;
-            VectorCopy(g_studiomdl.model[i]->eyeballs[j].up, peyeball[j].up);
-            VectorCopy(g_studiomdl.model[i]->eyeballs[j].forward, peyeball[j].forward);
-            peyeball[j].iris_scale = g_studiomdl.model[i]->eyeballs[j].iris_scale;
+            peyeball[j].bone = g_studiomdl.body.model[i]->eyeballs[j].bone;
+            VectorCopy(g_studiomdl.body.model[i]->eyeballs[j].org, peyeball[j].org);
+            peyeball[j].zoffset = g_studiomdl.body.model[i]->eyeballs[j].zoffset;
+            peyeball[j].radius = g_studiomdl.body.model[i]->eyeballs[j].radius;
+            VectorCopy(g_studiomdl.body.model[i]->eyeballs[j].up, peyeball[j].up);
+            VectorCopy(g_studiomdl.body.model[i]->eyeballs[j].forward, peyeball[j].forward);
+            peyeball[j].iris_scale = g_studiomdl.body.model[i]->eyeballs[j].iris_scale;
 
             for (k = 0; k < 3; k++) {
-                peyeball[j].upperflexdesc[k] = g_studiomdl.model[i]->eyeballs[j].upperflexdesc[k];
-                peyeball[j].lowerflexdesc[k] = g_studiomdl.model[i]->eyeballs[j].lowerflexdesc[k];
-                peyeball[j].uppertarget[k] = g_studiomdl.model[i]->eyeballs[j].uppertarget[k];
-                peyeball[j].lowertarget[k] = g_studiomdl.model[i]->eyeballs[j].lowertarget[k];
+                peyeball[j].upperflexdesc[k] = g_studiomdl.body.model[i]->eyeballs[j].upperflexdesc[k];
+                peyeball[j].lowerflexdesc[k] = g_studiomdl.body.model[i]->eyeballs[j].lowerflexdesc[k];
+                peyeball[j].uppertarget[k] = g_studiomdl.body.model[i]->eyeballs[j].uppertarget[k];
+                peyeball[j].lowertarget[k] = g_studiomdl.body.model[i]->eyeballs[j].lowertarget[k];
             }
 
-            peyeball[j].upperlidflexdesc = g_studiomdl.model[i]->eyeballs[j].upperlidflexdesc;
-            peyeball[j].lowerlidflexdesc = g_studiomdl.model[i]->eyeballs[j].lowerlidflexdesc;
+            peyeball[j].upperlidflexdesc = g_studiomdl.body.model[i]->eyeballs[j].upperlidflexdesc;
+            peyeball[j].lowerlidflexdesc = g_studiomdl.body.model[i]->eyeballs[j].lowerlidflexdesc;
         }
 
-        if (!g_StudioMdlContext.quiet) {
-            std::print("eyeballs   {:7} bytes ({} eyeballs)\n", buffer.size(), g_studiomdl.model[i]->eyeballs.size());
+        if (!g_studiomdl.options.quiet) {
+            std::print("eyeballs   {:7} bytes ({} eyeballs)\n", buffer.size(), g_studiomdl.body.model[i]->eyeballs.size());
         }
 
         // move flexes into individual meshes
@@ -2445,15 +2445,15 @@ static void WriteModel(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_t> 
             pmesh[m].numflexes = 0;
 
             // initialize array
-            for (j = 0; j < g_studiomdl.flexkeys.size(); j++) {
+            for (j = 0; j < g_studiomdl.flex.flexkeys.size(); j++) {
                 numflexkeys[j] = 0;
             }
 
             // count flex instances per mesh
-            for (j = 0; j < g_studiomdl.flexkeys.size(); j++) {
-                if (g_studiomdl.flexkeys[j].imodel == i) {
-                    for (k = 0; k < g_studiomdl.flexkeys[j].numvanims; k++) {
-                        n = g_studiomdl.flexkeys[j].vanim[k].vertex - pmesh[m].vertexoffset;
+            for (j = 0; j < g_studiomdl.flex.flexkeys.size(); j++) {
+                if (g_studiomdl.flex.flexkeys[j].imodel == i) {
+                    for (k = 0; k < g_studiomdl.flex.flexkeys[j].numvanims; k++) {
+                        n = g_studiomdl.flex.flexkeys[j].vanim[k].vertex - pmesh[m].vertexoffset;
                         if (n >= 0 && n < pmesh[m].numvertices) {
                             if (numflexkeys[j]++ == 0) {
                                 pmesh[m].numflexes++;
@@ -2468,20 +2468,20 @@ static void WriteModel(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_t> 
                 pmesh[m].flexindex = pflex.offset_from<int>(pmesh + m);
                 buffer.align(4);
 
-                for (j = 0; j < g_studiomdl.flexkeys.size(); j++) {
+                for (j = 0; j < g_studiomdl.flex.flexkeys.size(); j++) {
                     if (!numflexkeys[j])
                         continue;
 
-                    pflex->flexdesc = g_studiomdl.flexkeys[j].flexdesc;
-                    pflex->target0 = g_studiomdl.flexkeys[j].target0;
-                    pflex->target1 = g_studiomdl.flexkeys[j].target1;
-                    pflex->target2 = g_studiomdl.flexkeys[j].target2;
-                    pflex->target3 = g_studiomdl.flexkeys[j].target3;
+                    pflex->flexdesc = g_studiomdl.flex.flexkeys[j].flexdesc;
+                    pflex->target0 = g_studiomdl.flex.flexkeys[j].target0;
+                    pflex->target1 = g_studiomdl.flex.flexkeys[j].target1;
+                    pflex->target2 = g_studiomdl.flex.flexkeys[j].target2;
+                    pflex->target3 = g_studiomdl.flex.flexkeys[j].target3;
                     pflex->numverts = numflexkeys[j];
-                    pflex->flexpair = g_studiomdl.flexkeys[j].flexpair;
-                    pflex->vertanimtype = g_studiomdl.flexkeys[j].vanimtype;
+                    pflex->flexpair = g_studiomdl.flex.flexkeys[j].flexpair;
+                    pflex->vertanimtype = g_studiomdl.flex.flexkeys[j].vanimtype;
 
-                    pvanim = g_studiomdl.flexkeys[j].vanim;
+                    pvanim = g_studiomdl.flex.flexkeys[j].vanim;
 
                     const bool bWrinkleVAnim = (pflex->vertanimtype == Wrinkle);
                     const int nVAnimDeltaSize = bWrinkleVAnim
@@ -2493,8 +2493,8 @@ static void WriteModel(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_t> 
                     pflex->vertindex = pvertanim.offset_from<int>(pflex);
                     buffer.align(4);
 
-                    for (k = 0; k < g_studiomdl.flexkeys[j].numvanims; k++) {
-                        n = g_studiomdl.flexkeys[j].vanim[k].vertex - pmesh[m].vertexoffset;
+                    for (k = 0; k < g_studiomdl.flex.flexkeys[j].numvanims; k++) {
+                        n = g_studiomdl.flex.flexkeys[j].vanim[k].vertex - pmesh[m].vertexoffset;
                         if (n >= 0 && n < pmesh[m].numvertices) {
                             auto* pdelta = reinterpret_cast<mstudiovertanim_t*>(pvertanim.get());
                             pdelta->index = n;
@@ -2518,35 +2518,35 @@ static void WriteModel(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_t> 
             }
         }
 
-        if (!g_StudioMdlContext.quiet) {
-            std::print("flexes     {:7} bytes ({} flexes)\n", buffer.size(), g_studiomdl.flexkeys.size());
+        if (!g_studiomdl.options.quiet) {
+            std::print("flexes     {:7} bytes ({} flexes)\n", buffer.size(), g_studiomdl.flex.flexkeys.size());
         }
     }
 
 
     buffer.align(4);
 
-    auto pincludemodel = buffer.allocate<mstudiomodelgroup_t>(g_studiomdl.includemodels.size());
-    phdr->numincludemodels = g_studiomdl.includemodels.size();
+    auto pincludemodel = buffer.allocate<mstudiomodelgroup_t>(g_studiomdl.body.includemodels.size());
+    phdr->numincludemodels = g_studiomdl.body.includemodels.size();
     phdr->includemodelindex = pincludemodel.offset_as<int>();
 
-    for (i = 0; i < g_studiomdl.includemodels.size(); i++) {
+    for (i = 0; i < g_studiomdl.body.includemodels.size(); i++) {
         AddToStringTable(pincludemodel, pincludemodel.field(&mstudiomodelgroup_t::sznameindex),
-                         g_studiomdl.includemodels[i].name);
+                         g_studiomdl.body.includemodels[i].name);
         pincludemodel++;
     }
 
     // save animblock group info (block offsets are already relative to the .ani data)
-    const auto panimblock = buffer.allocate<mstudioanimblock_t>(g_studiomdl.animblocks.size());
-    phdr->numanimblocks = g_studiomdl.animblocks.size();
+    const auto panimblock = buffer.allocate<mstudioanimblock_t>(g_studiomdl.anim.animblocks.size());
+    phdr->numanimblocks = g_studiomdl.anim.animblocks.size();
     phdr->animblockindex = panimblock.offset_as<int>();
     buffer.align(4);
 
-    for (i = 1; i < g_studiomdl.animblocks.size(); i++) {
-        panimblock[i].datastart = g_studiomdl.animblocks[i].start;
-        panimblock[i].dataend = g_studiomdl.animblocks[i].end;
+    for (i = 1; i < g_studiomdl.anim.animblocks.size(); i++) {
+        panimblock[i].datastart = g_studiomdl.anim.animblocks[i].start;
+        panimblock[i].dataend = g_studiomdl.anim.animblocks[i].end;
     }
-    AddToStringTable(phdr, phdr.field(&studiohdr_t::szanimblocknameindex), g_studiomdl.animblockname);
+    AddToStringTable(phdr, phdr.field(&studiohdr_t::szanimblocknameindex), g_studiomdl.anim.animblockname);
 }
 
 static void AssignMeshIDs(studiohdr_t* pStudioHdr) {
@@ -2590,24 +2590,24 @@ void WriteKeyValues(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_t> phd
 void CapKeyValues() {
     const char* headCap = "mdlkeyvalue\n{\n";
     const char* tailCap = "}\\n";
-    if (g_StudioMdlContext.KeyValueText.size()) {
-        g_StudioMdlContext.KeyValueText.insert(g_StudioMdlContext.KeyValueText.begin(), headCap,
+    if (g_studiomdl.header.KeyValueText.size()) {
+        g_studiomdl.header.KeyValueText.insert(g_studiomdl.header.KeyValueText.begin(), headCap,
                                                headCap + std::strlen(headCap));
-        g_StudioMdlContext.KeyValueText.insert(g_StudioMdlContext.KeyValueText.end(), tailCap,
+        g_studiomdl.header.KeyValueText.insert(g_studiomdl.header.KeyValueText.end(), tailCap,
                                                tailCap + std::strlen(tailCap));
     }
 }
 
 void WriteQCPath() {
     char relativeQCDir[4096] = {};
-    g_pFullFileSystem->FullPathToRelativePathEx(g_StudioMdlContext.qdir.c_str(), "CONTENT", relativeQCDir,
+    g_pFullFileSystem->FullPathToRelativePathEx(g_studiomdl.paths.qdir.c_str(), "CONTENT", relativeQCDir,
                                                 sizeof(relativeQCDir));
     const std::string relativeQCPath = std::string(relativeQCDir) + std::string(
-                                           vstd::paths::file_name(g_studiomdl.fullpath));
+                                           vstd::paths::file_name(g_studiomdl.paths.fullpath));
 
     if (!relativeQCPath.empty()) {
         const std::string block = "qc_path {\n\"value\" \"" + relativeQCPath + "\" }\n";
-        g_StudioMdlContext.KeyValueText.insert(g_StudioMdlContext.KeyValueText.end(), block.begin(), block.end());
+        g_studiomdl.header.KeyValueText.insert(g_studiomdl.header.KeyValueText.end(), block.begin(), block.end());
     }
 }
 
@@ -2637,17 +2637,17 @@ void WriteModelFiles() {
     vstd::Buffer* blocks = nullptr;
     vstd::BufferPtr<studiohdr_t> pblockhdr;
 
-    vstd::paths::strip_extension(g_studiomdl.outname);
+    vstd::paths::strip_extension(g_studiomdl.paths.outname);
 
-    if (g_studiomdl.animblocksize != 0) {
-        // write the non-default g_studiomdl.sequence group data to separate files
-        g_studiomdl.animblockname.format("models/{}.ani", g_studiomdl.outname);
+    if (g_studiomdl.anim.animblocksize != 0) {
+        // write the non-default g_studiomdl.anim.sequence group data to separate files
+        g_studiomdl.anim.animblockname.format("models/{}.ani", g_studiomdl.paths.outname);
 
-        blockFileName = g_StudioMdlContext.gameDir + g_studiomdl.animblockname.c_str();
+        blockFileName = g_studiomdl.paths.gameDir + g_studiomdl.anim.animblockname.c_str();
 
-        if (*g_studiomdl.internalName) {
-            vstd::paths::strip_extension(g_studiomdl.internalName);
-            g_studiomdl.animblockname.format("models/{}.ani", g_studiomdl.internalName);
+        if (*g_studiomdl.paths.internalName) {
+            vstd::paths::strip_extension(g_studiomdl.paths.internalName);
+            g_studiomdl.anim.animblockname.format("models/{}.ani", g_studiomdl.paths.internalName);
         }
 
         EnsureFileDirectoryExists(blockFileName);
@@ -2659,14 +2659,14 @@ void WriteModelFiles() {
     }
 
     //
-    // write the g_studiomdl.model output file
+    // write the g_studiomdl.body.model output file
     //
     const auto phdr = model_data.allocate<studiohdr_t>();
 
     phdr->id = IDSTUDIOHEADER;
     phdr->version = STUDIO_VERSION;
 
-    g_studiomdl.outname.append(".mdl");
+    g_studiomdl.paths.outname.append(".mdl");
 
     filename = OutputModelPath(".mdl");
 
@@ -2675,7 +2675,7 @@ void WriteModelFiles() {
     EnsureFileDirectoryExists(filename);
 
 
-    if (!g_StudioMdlContext.quiet) {
+    if (!g_studiomdl.options.quiet) {
         std::print("---------------------\n");
         std::print("writing {}:\n", filename);
     }
@@ -2683,91 +2683,91 @@ void WriteModelFiles() {
     LoadPreexistingSequenceOrder(filename);
 
 
-    if (g_StudioMdlContext.parseable_completion_output) {
+    if (g_studiomdl.options.parseable_completion_output) {
         char szRelativePath[260];
         V_MakeRelativePath(filename.c_str(), getenv("VGAME"), szRelativePath, sizeof(szRelativePath));
         std::print("\nOUTPUT MODEL: {}\n", szRelativePath);
     }
 
 
-    phdr->eyeposition = g_studiomdl.eyeposition;
-    phdr->illumposition = g_studiomdl.illumposition;
+    phdr->eyeposition = g_studiomdl.header.eyeposition;
+    phdr->illumposition = g_studiomdl.header.illumposition;
 
-    if (!g_studiomdl.wrotebbox && g_studiomdl.sequence.Count() > 0) {
-        g_studiomdl.bbox[0] = g_studiomdl.sequence[0].bmin;
-        g_studiomdl.bbox[1] = g_studiomdl.sequence[0].bmax;
+    if (!g_studiomdl.header.wrotebbox && std::ssize(g_studiomdl.anim.sequence) > 0) {
+        g_studiomdl.header.bbox[0] = g_studiomdl.anim.sequence[0].bmin;
+        g_studiomdl.header.bbox[1] = g_studiomdl.anim.sequence[0].bmax;
         //        CollisionModel_ExpandBBox(bbox[0], bbox[1]);
-        g_studiomdl.sequence[0].bmin = g_studiomdl.bbox[0];
-        g_studiomdl.sequence[0].bmax = g_studiomdl.bbox[1];
+        g_studiomdl.anim.sequence[0].bmin = g_studiomdl.header.bbox[0];
+        g_studiomdl.anim.sequence[0].bmax = g_studiomdl.header.bbox[1];
     }
-    if (!g_studiomdl.wrotecbox) {
+    if (!g_studiomdl.header.wrotecbox) {
         // no default clipping box, just use per-sequence box
-        g_studiomdl.cbox[0] = vec3_origin;
-        g_studiomdl.cbox[1] = vec3_origin;
+        g_studiomdl.header.cbox[0] = vec3_origin;
+        g_studiomdl.header.cbox[1] = vec3_origin;
     }
 
-    phdr->hull_min = g_studiomdl.bbox[0];
-    phdr->hull_max = g_studiomdl.bbox[1];
-    phdr->view_bbmin = g_studiomdl.cbox[0];
-    phdr->view_bbmax = g_studiomdl.cbox[1];
+    phdr->hull_min = g_studiomdl.header.bbox[0];
+    phdr->hull_max = g_studiomdl.header.bbox[1];
+    phdr->view_bbmin = g_studiomdl.header.cbox[0];
+    phdr->view_bbmax = g_studiomdl.header.cbox[1];
 
-    phdr->flags = g_studiomdl.gflags;
+    phdr->flags = g_studiomdl.header.gflags;
     phdr->mass = 1;
-    phdr->constdirectionallightdot = g_studiomdl.constdirectionalightdot;
+    phdr->constdirectionallightdot = g_studiomdl.header.constdirectionalightdot;
 
-    if (g_StudioMdlContext.numAllowedRootLODs > 0) {
-        phdr->numAllowedRootLODs = g_StudioMdlContext.numAllowedRootLODs;
+    if (g_studiomdl.options.numAllowedRootLODs > 0) {
+        phdr->numAllowedRootLODs = g_studiomdl.options.numAllowedRootLODs;
     }
 
     // FIXME: Remove when we up the model version
     const auto phdr2 = model_data.allocate<studiohdr2_t>();
     phdr->studiohdr2index = phdr2.offset_as<int>();
 
-    phdr2->illumpositionattachmentindex = g_studiomdl.illumpositionattachment;
-    phdr2->flMaxEyeDeflection = g_studiomdl.flMaxEyeDeflection;
+    phdr2->illumpositionattachmentindex = g_studiomdl.header.illumpositionattachment;
+    phdr2->flMaxEyeDeflection = g_studiomdl.header.flMaxEyeDeflection;
 
     BeginStringTable();
 
-    if (*g_studiomdl.internalName) {
-        V_strncpy(phdr->name, g_studiomdl.internalName, sizeof(phdr->name) - 1);
-        AddToStringTable(phdr2, phdr2.field(&studiohdr2_t::sznameindex), g_studiomdl.internalName);
+    if (*g_studiomdl.paths.internalName) {
+        V_strncpy(phdr->name, g_studiomdl.paths.internalName, sizeof(phdr->name) - 1);
+        AddToStringTable(phdr2, phdr2.field(&studiohdr2_t::sznameindex), g_studiomdl.paths.internalName);
     }
     else {
-        V_strncpy(phdr->name, g_studiomdl.outname, sizeof(phdr->name) - 1);
-        AddToStringTable(phdr2, phdr2.field(&studiohdr2_t::sznameindex), g_studiomdl.outname);
+        V_strncpy(phdr->name, g_studiomdl.paths.outname, sizeof(phdr->name) - 1);
+        AddToStringTable(phdr2, phdr2.field(&studiohdr2_t::sznameindex), g_studiomdl.paths.outname);
     }
 
     WriteBoneInfo(model_data, phdr);
-    if (!g_StudioMdlContext.quiet) {
-        std::print("bones      {:7} bytes ({})\n", model_data.size() - total, g_StudioMdlContext.numbones);
+    if (!g_studiomdl.options.quiet) {
+        std::print("bones      {:7} bytes ({})\n", model_data.size() - total, std::ssize(g_studiomdl.bones.bonetable));
     }
     total = model_data.size();
 
     WriteAnimations(model_data, blocks, phdr);
-    if (!g_StudioMdlContext.quiet) {
+    if (!g_studiomdl.options.quiet) {
         std::print("animations {:7} bytes ({} anims) ({} frames) [{}:{:02}]\n", model_data.size() - total,
-                   g_studiomdl.animations.size(),
+                   g_studiomdl.anim.animations.size(),
                    totalframes,
                    (int) totalseconds / 60, (int) totalseconds % 60);
     }
     total = model_data.size();
 
     WriteSequenceInfo(model_data, phdr);
-    if (!g_StudioMdlContext.quiet) {
-        std::print("sequences  {:7} bytes ({} seq) \n", model_data.size() - total, g_studiomdl.sequence.Count());
+    if (!g_studiomdl.options.quiet) {
+        std::print("sequences  {:7} bytes ({} seq) \n", model_data.size() - total, std::ssize(g_studiomdl.anim.sequence));
     }
     total = model_data.size();
 
     WriteModel(model_data, phdr);
 
-    if (!g_StudioMdlContext.quiet) {
+    if (!g_studiomdl.options.quiet) {
         std::print("models     {:7} bytes\n", model_data.size() - total);
     }
 
     total = model_data.size();
 
     WriteTextures(model_data, phdr);
-    if (!g_StudioMdlContext.quiet) {
+    if (!g_studiomdl.options.quiet) {
         std::print("textures   {:7} bytes\n", model_data.size() - total);
     }
     total = model_data.size();
@@ -2776,26 +2776,26 @@ void WriteModelFiles() {
 
     CapKeyValues();
 
-    WriteKeyValues(model_data, phdr, g_StudioMdlContext.KeyValueText);
-    if (!g_StudioMdlContext.quiet) {
+    WriteKeyValues(model_data, phdr, g_studiomdl.header.KeyValueText);
+    if (!g_studiomdl.options.quiet) {
         std::print("keyvalues  {:7} bytes\n", model_data.size() - total);
     }
     total = model_data.size();
 
     WriteBoneTransforms(model_data, phdr, phdr2);
-    if (!g_StudioMdlContext.quiet) {
+    if (!g_studiomdl.options.quiet) {
         std::print("bone transforms  {:7} bytes\n", model_data.size() - total);
     }
     total = model_data.size();
 
     WriteBoneFlexDrivers(model_data, phdr2);
-    if (!g_StudioMdlContext.quiet) {
+    if (!g_studiomdl.options.quiet) {
         std::print("bone flex driver {:7} bytes\n", model_data.size() - total);
     }
     total = model_data.size();
 
     WriteBodyGroupPresets(model_data, phdr2);
-    if (!g_StudioMdlContext.quiet) {
+    if (!g_studiomdl.options.quiet) {
         std::print("bodygroup presets {:7} bytes\n", model_data.size() - total);
     }
     total = model_data.size();
@@ -2816,11 +2816,11 @@ void WriteModelFiles() {
         phdr->checksum = (int32_t) checksum;
     }
 
-    if (g_StudioMdlContext.verifyOnly)
+    if (g_studiomdl.options.verifyOnly)
         return;
 
 
-    if (!g_StudioMdlContext.quiet) {
+    if (!g_studiomdl.options.quiet) {
         std::print("collision  {:7} bytes\n", model_data.size() - total);
     }
 
@@ -2830,7 +2830,7 @@ void WriteModelFiles() {
     AssignMeshIDs(pStudioHdr);
 
     pStudioHdr->length = static_cast<int>(model_data.size());
-    if (!g_StudioMdlContext.quiet) {
+    if (!g_studiomdl.options.quiet) {
         std::print("total      {:7}\n", pStudioHdr->length);
     }
 
@@ -2840,10 +2840,10 @@ void WriteModelFiles() {
         const int length = static_cast<int>(blocks->size());
         pblockhdr->length = length;
 
-        if (!g_StudioMdlContext.quiet) {
+        if (!g_studiomdl.options.quiet) {
             std::print("---------------------\n");
-            std::print("writing {}:\n", g_studiomdl.animblockname);
-            std::print("blocks	   {:7}\n", g_studiomdl.animblocks.size());
+            std::print("writing {}:\n", g_studiomdl.anim.animblockname);
+            std::print("blocks	   {:7}\n", g_studiomdl.anim.animblocks.size());
             std::print("total      {:7}\n", length);
         }
 
@@ -2851,7 +2851,7 @@ void WriteModelFiles() {
         SaveOutputFile(blockFileName, std::move(*blocks));
     }
 
-    g_studiomdl.checksum = pStudioHdr->checksum;
+    g_studiomdl.header.checksum = pStudioHdr->checksum;
     if (pStudioHdr->numbodyparts != 0) {
         // vertices have become an external peer data store
         // write now prior to impending vertex access from any further code
@@ -2877,7 +2877,7 @@ void WriteModelFiles() {
 #endif
 
         // the optimizer only reads the source bodyparts
-        OptimizedModel::WriteOptimizedFiles(pStudioHdr, g_studiomdl.bodypart.Base());
+        OptimizedModel::WriteOptimizedFiles(pStudioHdr, g_studiomdl.body.bodypart.data());
 
         // now have external finalized vtx (windings) and vvd (vertexes)
         // re-open files, sort vertexes, perform fixups, and rewrite
@@ -2895,7 +2895,7 @@ void WriteModelFiles() {
     // make sure spewFlags ends up being zero.
     unsigned int spewFlags = SPEWPERFSTATS_SHOWSTUDIORENDERWARNINGS;
 
-    if (g_StudioMdlContext.perf) {
+    if (g_studiomdl.options.perf) {
         spewFlags |= SPEWPERFSTATS_SHOWPERF;
     }
     if (spewFlags) {
@@ -3831,7 +3831,7 @@ static void Clamp_VVD_LODS(const std::string &fileName, const int rootLOD, const
 
     Studio_LoadVertexes(pTempVvdHdr, pNewVvdHdr, rootLOD, true, bExtraData);
 
-    if (!g_StudioMdlContext.quiet) {
+    if (!g_studiomdl.options.quiet) {
         std::print("---------------------\n");
         std::print("writing {}:\n", fileName);
         std::print("vertices   ({} vertices)\n", pNewVvdHdr->numLODVertexes[0]);
@@ -3999,7 +3999,7 @@ static void Clamp_VTX_LODS(const std::string &fileName, const int rootLOD, const
         }
     }
 
-    if (!g_StudioMdlContext.quiet) {
+    if (!g_studiomdl.options.quiet) {
         std::print("writing {}:\n", fileName);
         std::print("everything ({} bytes)\n", buffer.size());
     }
@@ -4013,10 +4013,10 @@ bool Clamp_RootLOD(const studiohdr_t* phdr) {
 
     const bool extraData = (phdr->flags & STUDIOHDR_FLAGS_EXTRA_VERTEX_DATA) != 0;
 
-    int rootLOD = g_StudioMdlContext.minLod;
+    int rootLOD = g_studiomdl.options.minLod;
 
-    if (rootLOD > g_studiomdl.ScriptLODs.Count() - 1) {
-        rootLOD = g_studiomdl.ScriptLODs.Count() - 1;
+    if (rootLOD > std::ssize(g_studiomdl.body.ScriptLODs) - 1) {
+        rootLOD = std::ssize(g_studiomdl.body.ScriptLODs) - 1;
     }
 
     if (rootLOD == 0) {

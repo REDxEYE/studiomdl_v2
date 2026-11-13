@@ -46,6 +46,7 @@
 #include "tier1_v2/function_timing.hpp"
 #include "studiomdl/studiomdl_global_state.hpp"
 #include "tier1/utlhash.h"
+#include "tier1_v2/string_utils.hpp"
 
 bool g_bDumpGLViewFiles;
 
@@ -53,7 +54,7 @@ bool g_bDumpGLViewFiles;
 #define USE_FLUSH
 
 
-extern int FindMaterialByName(const char *pMaterialName);
+extern int FindMaterialByName(std::string_view pMaterialName);
 
 namespace OptimizedModel {
     //-----------------------------------------------------------------------------
@@ -164,11 +165,10 @@ namespace OptimizedModel {
     //-----------------------------------------------------------------------------
     class CStringTable {
     public:
-        int StringTableOffset(const char *string) {
-            int i;
+        int StringTableOffset(const std::string_view string) {
             int size = 0;
-            for (i = 0; i < m_Strings.Count(); i++) {
-                if (stricmp(m_Strings[i].Base(), string) == 0) {
+            for (int i = 0; i < m_Strings.Count(); i++) {
+                if (vstd::iequals(string, m_Strings[i].Base())) {
                     return size;
                 }
                 size += m_Strings[i].Count();
@@ -176,24 +176,24 @@ namespace OptimizedModel {
             return -1;
         }
 
-        bool StringPresent(const char *string) {
-            int i;
-            for (i = 0; i < m_Strings.Count(); i++) {
-                if (stricmp(m_Strings[i].Base(), string) == 0) {
+        bool StringPresent(const std::string_view string) {
+            for (int i = 0; i < m_Strings.Count(); i++) {
+                if (vstd::iequals(string, m_Strings[i].Base())) {
                     return true;
                 }
             }
             return false;
         }
 
-        void AddString(const char *newString) {
+        void AddString(const std::string_view newString) {
             if (StringPresent(newString)) {
                 return;
             }
             CUtlVector<char> &s = m_Strings[m_Strings.AddToTail()];
-            int size = strlen(newString) + 1;
+            const auto size = newString.size() + 1;
             s.AddMultipleToTail(size);
-            strcpy(s.Base(), newString);
+            std::memcpy(s.Base(), newString.data(), newString.size());
+            s.Base()[size-1] = '\0';
         }
 
         void Purge() {
@@ -797,7 +797,7 @@ namespace OptimizedModel {
             *ppTopologyIndices = nullptr;
 
         // Skip the reordering phase if we're building in preview mode, rendering quads or not hardware skinning
-        if (bQuadSubd || g_StudioMdlContext.buildPreview || !bIsHWSkinned || g_StudioMdlContext.preserveTriangleOrder) {
+        if (bQuadSubd || g_studiomdl.options.buildPreview || !bIsHWSkinned || g_studiomdl.options.preserveTriangleOrder) {
             *pNumIndices = sourceIndices.Count();
             *ppIndices = new unsigned short[*pNumIndices];
             memcpy(*ppIndices, sourceIndices.Base(), (*pNumIndices) * sizeof(unsigned short));
@@ -1187,7 +1187,7 @@ namespace OptimizedModel {
             mstudioboneweight_t *pBoneWeight = vertData->BoneWeights(vertex);
 
             int bonesAffectingVertex = pBoneWeight->numbones;
-            if (!g_studiomdl.staticprop && bonesAffectingVertex <= 0) {
+            if (!g_studiomdl.header.staticprop && bonesAffectingVertex <= 0) {
                 MdlWarning("too few bones/vert ({}) : it has no bones!\n", bonesAffectingVertex);
             }
             else if (bonesAffectingVertex > MAX_NUM_BONES_PER_VERT) {
@@ -1798,7 +1798,7 @@ namespace OptimizedModel {
         int i;
         for (i = 0; i < pStrip->numStripGroupVerts; i++) {
             Vertex_t *pVert = &pStripGroup->verts[i + pStrip->stripGroupVertexOffset];
-            if (!g_studiomdl.staticprop) {
+            if (!g_studiomdl.header.staticprop) {
                 Assert(pVert->numBones != 0);
             }
             int j;
@@ -2034,7 +2034,7 @@ namespace OptimizedModel {
                                               const bool usesFixedFunction, int maxBonesPerVert, int maxBonesPerFace,
                                               int maxBonesPerStrip, const char *fileName) {
         vstd::FunctionTimingRecorder _("Optimize");
-        if (!g_StudioMdlContext.quiet) {
+        if (!g_studiomdl.options.quiet) {
             std::print("---------------------\n");
             std::print("Generating optimized mesh \"{}\":\n", fileName);
 #ifdef _DEBUG
@@ -2350,7 +2350,7 @@ namespace OptimizedModel {
     }
 
 
-    bool ComparePath(const char *a, const char *b) {
+    static bool ComparePath(const char *a, const char *b) {
         if (strlen(a) != strlen(b)) {
             return false;
         }
@@ -2372,6 +2372,28 @@ namespace OptimizedModel {
         return true;
     }
 
+    static bool ComparePath(const std::string_view a, const std::string_view b) {
+        if (a.size() != b.size()) {
+            return false;
+        }
+
+        // Case and separator invariant
+        for (auto itA = a.begin(), itB = b.begin(); itA != a.end(); ++itA, ++itB) {
+            if (*itA == *itB) {
+                continue;
+            }
+            if (tolower(*itA) == tolower(*itB)) {
+                continue;
+            }
+            if ((*itA == '/' || *itA == '\\') &&
+                (*itB == '/' || *itB == '\\')) {
+                continue;
+            }
+            return false;
+        }
+        return true;
+    }
+
     bool COptimizedModel::MeshNeedsRemoval(studiohdr_t *pHdr, mstudiomesh_t *pStudioMesh,
                                            LodScriptData_t &scriptLOD) {
         return false;
@@ -2380,7 +2402,7 @@ namespace OptimizedModel {
         //        ptexture = pHdr->pTexture(pskinref[pStudioMesh->material]);
         //        const char *meshName = ptexture->material->GetName();
         //        int i;
-        //        for (i = 0; i < scriptLOD.meshRemovals.Count(); i++) {
+        //        for (i = 0; i < std::ssize(scriptLOD.meshRemovals); i++) {
         //            const char *meshRemovalName = scriptLOD.meshRemovals[i].GetSrcName();
         //            if (ComparePath(meshName, meshRemovalName)) {
         //                return true;
@@ -2408,8 +2430,8 @@ namespace OptimizedModel {
                 Model_t &newModel = m_Models[i];
                 mstudiomodel_t *pStudioModel = pBodyPart->pModel(modelID);
                 s_model_t *pSrcModel = pSrcBodyPart->pmodel[modelID];
-                for (lodID = 0; lodID < g_studiomdl.ScriptLODs.Count(); lodID++, stats.m_TotalModelLODs++) {
-                    LodScriptData_t &scriptLOD = g_studiomdl.ScriptLODs[lodID];
+                for (lodID = 0; lodID < std::ssize(g_studiomdl.body.ScriptLODs); lodID++, stats.m_TotalModelLODs++) {
+                    LodScriptData_t &scriptLOD = g_studiomdl.body.ScriptLODs[lodID];
                     s_source_t *pLODSource = pSrcModel->m_LodSources[lodID];
 
                     int i = newModel.modelLODs.AddToTail();
@@ -2419,7 +2441,7 @@ namespace OptimizedModel {
 
                     // In this case, we've been told to remove the model
                     if (!pLODSource) {
-                        if (pSrcModel && stricmp(pSrcModel->name, "blank") != 0) {
+                        if (pSrcModel && !vstd::iequals(pSrcModel->name, "blank")) {
                             // This is nonsensical
                             Assert(lodID != 0);
                         }
@@ -2445,7 +2467,7 @@ namespace OptimizedModel {
                         //					const char *pDebugName = pHdr->pTexture( textureSearchID )->pszName( );
 #endif
                         // Process Quad-only meshes in software
-                        bool bQuadSubd = (g_studiomdl.gflags & STUDIOHDR_FLAGS_SUBDIVISION_SURFACE) != 0;
+                        bool bQuadSubd = (g_studiomdl.header.gflags & STUDIOHDR_FLAGS_SUBDIVISION_SURFACE) != 0;
                         bForceSoftwareSkin = bQuadSubd || bForceSoftwareSkin;
 
                         // Only one of these will actually get used, depending on topology type (tris or quads)
@@ -2593,7 +2615,7 @@ namespace OptimizedModel {
         fileHeader.numBodyParts = numBodyParts;
         fileHeader.bodyPartOffset = sizeof(FileHeader_t);
         fileHeader.checkSum = checkSum;
-        fileHeader.numLODs = g_studiomdl.ScriptLODs.Count();
+        fileHeader.numLODs = std::ssize(g_studiomdl.body.ScriptLODs);
         fileHeader.materialReplacementListOffset = m_MaterialReplacementsListOffset;
         m_FileBuffer->WriteAt(0, &fileHeader, sizeof(FileHeader_t), "header");
 #ifdef _DEBUG
@@ -2618,7 +2640,7 @@ namespace OptimizedModel {
 
     void COptimizedModel::WriteModel(const int modelID, mstudiomodel_t *pModel, const int lodID) {
         ModelHeader_t model;
-        model.numLODs = IsChar(g_studiomdl.ScriptLODs.Count());
+        model.numLODs = IsChar(std::ssize(g_studiomdl.body.ScriptLODs));
         int modelFileOffset = m_ModelsOffset + modelID * sizeof(ModelHeader_t);
         int lodFileOffset = m_ModelLODsOffset + lodID * sizeof(ModelLODHeader_t);
         model.lodOffset = lodFileOffset - modelFileOffset;
@@ -2805,16 +2827,15 @@ namespace OptimizedModel {
     void COptimizedModel::WriteMaterialReplacements(const int materialReplacementsOffset) {
         int offset = materialReplacementsOffset;
         int i, j;
-        int numLODs = g_studiomdl.ScriptLODs.Count();
+        int numLODs = std::ssize(g_studiomdl.body.ScriptLODs);
         for (i = 0; i < numLODs; i++) {
-            LodScriptData_t &scriptLOD = g_studiomdl.ScriptLODs[i];
-            for (j = 0; j < scriptLOD.materialReplacements.Count(); j++) {
+            LodScriptData_t &scriptLOD = g_studiomdl.body.ScriptLODs[i];
+            for (j = 0; j < std::ssize(scriptLOD.materialReplacements); j++) {
                 CLodScriptReplacement_t &materialReplacement = scriptLOD.materialReplacements[j];
                 MaterialReplacementHeader_t tmpHeader;
                 tmpHeader.materialID = FindMaterialByName(materialReplacement.GetSrcName());
                 tmpHeader.replacementMaterialNameOffset = m_StringTableOffset +
-                                                          s_StringTable.StringTableOffset(
-                                                              materialReplacement.GetDstName()) - offset;
+                                                          s_StringTable.StringTableOffset(materialReplacement.GetDstName()) - offset;
                 m_FileBuffer->WriteAt(offset, &tmpHeader, sizeof(tmpHeader), "material replacements");
                 offset += sizeof(MaterialReplacementHeader_t);
             }
@@ -2827,11 +2848,11 @@ namespace OptimizedModel {
         int replacementOffset = materialReplacementsOffset;
         int offset = materialReplacementListOffset;
         int i;
-        int numLODs = g_studiomdl.ScriptLODs.Count();
+        int numLODs = std::ssize(g_studiomdl.body.ScriptLODs);
         for (i = 0; i < numLODs; i++) {
-            LodScriptData_t &scriptLOD = g_studiomdl.ScriptLODs[i];
+            LodScriptData_t &scriptLOD = g_studiomdl.body.ScriptLODs[i];
             MaterialReplacementListHeader_t tmpHeader;
-            tmpHeader.numReplacements = IsChar(scriptLOD.materialReplacements.Count());
+            tmpHeader.numReplacements = IsChar(std::ssize(scriptLOD.materialReplacements));
             tmpHeader.replacementOffset = IsInt24(replacementOffset - offset);
             m_FileBuffer->WriteAt(offset, &tmpHeader, sizeof(tmpHeader), "material replacement headers");
             MaterialReplacementListHeader_t *pDebugList =
@@ -2905,7 +2926,7 @@ namespace OptimizedModel {
         m_MaterialReplacementsListOffset =
                 m_MaterialReplacementsOffset + stats.m_TotalMaterialReplacements * sizeof(MaterialReplacementHeader_t);
         m_TopologyOffset =
-                m_MaterialReplacementsListOffset + g_studiomdl.ScriptLODs.Count() * sizeof(
+                m_MaterialReplacementsListOffset + std::ssize(g_studiomdl.body.ScriptLODs) * sizeof(
                     MaterialReplacementListHeader_t);
         m_EndOfFileOffset = m_TopologyOffset + sizeof(unsigned short) * stats.m_TotalTopologyIndices;
 
@@ -2940,7 +2961,7 @@ namespace OptimizedModel {
             for (int modelID = 0; modelID < pBodyPart->nummodels; modelID++) {
                 mstudiomodel_t *pStudioModel = pBodyPart->pModel(modelID);
                 Model_t *pModel = &m_Models[curModel + deltaModel];
-                for (int lodID = 0; lodID < g_studiomdl.ScriptLODs.Count(); lodID++) {
+                for (int lodID = 0; lodID < std::ssize(g_studiomdl.body.ScriptLODs); lodID++) {
                     //				printf( "lod: %d\n", lodID );
                     ModelLOD_t *pLOD = &pModel->modelLODs[lodID];
                     for (int meshID = 0; meshID < pStudioModel->nummeshes; meshID++) {
@@ -3010,12 +3031,12 @@ namespace OptimizedModel {
         //	DebugCompareVerts( phdr );
         SanityCheckAgainstStudioHDR(pHdr);
 
-        if (!g_StudioMdlContext.quiet) {
+        if (!g_studiomdl.options.quiet) {
             OutputMemoryUsage();
         }
 
         RemoveRedundantBoneStateChanges();
-        if (g_studiomdl.staticprop) {
+        if (g_studiomdl.header.staticprop) {
             ZeroNumBones();
         }
 
@@ -3107,7 +3128,7 @@ namespace OptimizedModel {
                                     std::print("bone change: hwid: {} boneid: {} ({})\n",
                                                (uintptr_t) pBoneStateChange->hardwareID,
                                                (uintptr_t) pBoneStateChange->newBoneID,
-                                               g_studiomdl.bonetable[pBoneStateChange->newBoneID].name);
+                                               g_studiomdl.bones.bonetable[pBoneStateChange->newBoneID].name);
                                 }
                             }
                         }
@@ -3147,10 +3168,10 @@ namespace OptimizedModel {
     static int CalcNumMaterialReplacements() {
         int i;
         int numReplacements = 0;
-        int numLODs = g_studiomdl.ScriptLODs.Count();
+        int numLODs = std::ssize(g_studiomdl.body.ScriptLODs);
         for (i = 0; i < numLODs; i++) {
-            LodScriptData_t &scriptLOD = g_studiomdl.ScriptLODs[i];
-            numReplacements += scriptLOD.materialReplacements.Count();
+            LodScriptData_t &scriptLOD = g_studiomdl.body.ScriptLODs[i];
+            numReplacements += std::ssize(scriptLOD.materialReplacements);
         }
         return numReplacements;
     }
@@ -3250,7 +3271,7 @@ namespace OptimizedModel {
         for (i = 0; i < v->numBones; i++) {
             float boneWeight = GetOrigVertBoneWeightValue(pStudioModel, pStudioMesh, v, i);
             std::print("\tboneID[{}]: {} weight: {:f} ({})\n", i, (uintptr_t) v->boneID[i], boneWeight,
-                       g_studiomdl.bonetable[v->boneID[i]].name);
+                       g_studiomdl.bones.bonetable[v->boneID[i]].name);
         }
     }
 
@@ -4100,10 +4121,10 @@ namespace OptimizedModel {
 
     static void AddMaterialReplacementsToStringTable() {
         int i, j;
-        int numLODs = g_studiomdl.ScriptLODs.Count();
+        int numLODs = std::ssize(g_studiomdl.body.ScriptLODs);
         for (i = 0; i < numLODs; i++) {
-            LodScriptData_t &scriptLOD = g_studiomdl.ScriptLODs[i];
-            for (j = 0; j < scriptLOD.materialReplacements.Count(); j++) {
+            LodScriptData_t &scriptLOD = g_studiomdl.body.ScriptLODs[i];
+            for (j = 0; j < std::ssize(scriptLOD.materialReplacements); j++) {
                 CLodScriptReplacement_t &materialReplacement = scriptLOD.materialReplacements[j];
                 s_StringTable.AddString(materialReplacement.GetDstName());
             }
@@ -4116,11 +4137,11 @@ namespace OptimizedModel {
         // return;
         bool failed = false;
         int lodID;
-        for (lodID = 0; lodID < g_studiomdl.ScriptLODs.Count(); lodID++) {
-            LodScriptData_t &scriptLOD = g_studiomdl.ScriptLODs[lodID];
+        for (lodID = 0; lodID < std::ssize(g_studiomdl.body.ScriptLODs); lodID++) {
+            LodScriptData_t &scriptLOD = g_studiomdl.body.ScriptLODs[lodID];
             int j;
-            for (j = 0; j < scriptLOD.meshRemovals.Count(); j++) {
-                const char *pName1 = scriptLOD.meshRemovals[j].GetSrcName();
+            for (j = 0; j < std::ssize(scriptLOD.meshRemovals); j++) {
+                const auto pName1 = scriptLOD.meshRemovals[j].GetSrcName();
                 int i;
                 for (i = 0; i < pHdr->numtextures; i++) {
                     const char *pName2 = pHdr->pTexture(i)->material->GetName();

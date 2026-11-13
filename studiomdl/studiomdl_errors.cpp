@@ -20,10 +20,10 @@ static bool g_bFirstWarning = true;
 
 // In a -quiet run the first message is preceded by the QC path; every message is indented under it.
 static void PrintQuietPrefix() {
-    if (!g_StudioMdlContext.quiet)
+    if (!g_studiomdl.options.quiet)
         return;
     if (g_bFirstWarning) {
-        std::print("{} :\n", g_studiomdl.fullpath);
+        std::print("{} :\n", g_studiomdl.paths.fullpath);
         g_bFirstWarning = false;
     }
     std::print("\t");
@@ -42,13 +42,13 @@ void MdlErrorV(std::string_view fmt, std::format_args args) {
     // delete premature files
     // unforunately, content is built without verification
     // ensuring that targets are not available, prevents check-in
-    if (g_StudioMdlContext.hasModelName) {
-        if (g_StudioMdlContext.quiet) {
+    if (g_studiomdl.paths.hasModelName) {
+        if (g_studiomdl.options.quiet) {
             std::print("\t");
         }
 
         // undescriptive errors in batch processes could be anonymous
-        std::print("ERROR: Aborted Processing on '{}'\n", g_studiomdl.outname);
+        std::print("ERROR: Aborted Processing on '{}'\n", g_studiomdl.paths.outname);
 
         const std::string baseName = OutputModelPath("");
         for (const char *pExtension: knownExtensions) {
@@ -61,7 +61,7 @@ void MdlErrorV(std::string_view fmt, std::format_args args) {
         g_pDataModel->UnloadFile(g_pDataModel->GetFileId(i));
     }
 
-    if (g_StudioMdlContext.parseable_completion_output) {
+    if (g_studiomdl.options.parseable_completion_output) {
         std::print("\nRESULT: ERROR\n");
     }
 
@@ -69,7 +69,7 @@ void MdlErrorV(std::string_view fmt, std::format_args args) {
 }
 
 void MdlWarningV(std::string_view fmt, std::format_args args) {
-    if (g_StudioMdlContext.noWarnings || g_StudioMdlContext.maxWarnings == 0)
+    if (g_studiomdl.options.noWarnings || g_studiomdl.options.maxWarnings == 0)
         return;
 
     uint16_t old = SetConsoleTextColor(1, 1, 0, 1);
@@ -77,11 +77,11 @@ void MdlWarningV(std::string_view fmt, std::format_args args) {
     PrintQuietPrefix();
     std::print("WARNING: {}", std::vformat(fmt, args));
 
-    if (g_StudioMdlContext.maxWarnings > 0)
-        g_StudioMdlContext.maxWarnings--;
+    if (g_studiomdl.options.maxWarnings > 0)
+        g_studiomdl.options.maxWarnings--;
 
-    if (g_StudioMdlContext.maxWarnings == 0) {
-        if (g_StudioMdlContext.quiet) {
+    if (g_studiomdl.options.maxWarnings == 0) {
+        if (g_studiomdl.options.quiet) {
             std::print("\t");
         }
         std::print("suppressing further warnings...\n");
@@ -91,13 +91,13 @@ void MdlWarningV(std::string_view fmt, std::format_args args) {
 }
 
 void MdlMessageV(std::string_view fmt, std::format_args args) {
-    if (!g_StudioMdlContext.quiet) {
+    if (!g_studiomdl.options.quiet) {
         std::vprint_unicode(stdout, fmt, args);
     }
 }
 
 void CMdlLoggingListener::Log(const LoggingContext_t *pContext, const tchar *pMessage) {
-    if (pContext->m_Severity == LS_MESSAGE && g_StudioMdlContext.quiet) {
+    if (pContext->m_Severity == LS_MESSAGE && g_studiomdl.options.quiet) {
         // suppress
     } else if (pContext->m_Severity == LS_WARNING) {
         MdlWarning("{}", pMessage);

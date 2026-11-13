@@ -10,6 +10,7 @@
 #include "collisionmodelsource.h"
 
 #include "studiomdl/studiomdl_global_state.hpp"
+#include "tier1_v2/string_utils.hpp"
 
 
 //-----------------------------------------------------------------------------
@@ -24,7 +25,7 @@ void CCollisionModelSource::ConvertToWorldSpace( CUtlVector<Vector> &worldVerts,
 	if (!m_bAssumeWorldspace)
 	{
 		matrix3x4_t boneToWorld[MAXSTUDIOSRCBONES];	// bone transformation matrix
-		CalcBoneTransforms( g_studiomdl.animations[0], 0, boneToWorld );
+		CalcBoneTransforms( g_studiomdl.anim.animations[0], 0, boneToWorld );
 
 		for (i = 0; i < pmodel->numvertices; i++)
 		{
@@ -42,7 +43,7 @@ void CCollisionModelSource::ConvertToWorldSpace( CUtlVector<Vector> &worldVerts,
 				Assert( globalBone >= 0 );
 
 				matrix3x4_t boneToPose;
-				ConcatTransforms( pmodel->boneToPose[localBone], g_studiomdl.bonetable[globalBone].srcRealign, boneToPose );
+				ConcatTransforms( pmodel->boneToPose[localBone], g_studiomdl.bones.bonetable[globalBone].srcRealign, boneToPose );
 				VectorITransform( pmodel->vertex[i].position, boneToPose, tmp2 );
 
 				// now transform to that bone's world-space position in this animation
@@ -77,16 +78,16 @@ void CCollisionModelSource::ConvertToWorldSpace( CUtlVector<Vector> &worldVerts,
 		}
 	}
 
-	if ( g_studiomdl.flCollisionPrecision > 0 )
+	if ( g_studiomdl.header.collisionPrecision > 0 )
 	{
 #ifdef DEBUG
 		std::print("Applying collision precision truncation: {:f}\n", g_flCollisionPrecision );
 #endif
 		for ( int i = 0; i < worldVerts.Count(); i++ )
 		{
-			worldVerts[i].x -= fmod( worldVerts[i].x, g_studiomdl.flCollisionPrecision );
-			worldVerts[i].y -= fmod( worldVerts[i].y, g_studiomdl.flCollisionPrecision );
-			worldVerts[i].z -= fmod( worldVerts[i].z, g_studiomdl.flCollisionPrecision );
+			worldVerts[i].x -= fmod( worldVerts[i].x, g_studiomdl.header.collisionPrecision );
+			worldVerts[i].y -= fmod( worldVerts[i].y, g_studiomdl.header.collisionPrecision );
+			worldVerts[i].z -= fmod( worldVerts[i].z, g_studiomdl.header.collisionPrecision );
 		}
 	}
 
@@ -114,7 +115,7 @@ void CCollisionModelSource::ConvertToBoneSpace( int boneIndex, CUtlVector<Vector
 	}
 	else
 	{
-		ConcatTransforms( m_pModel->boneToPose[boneIndex], g_studiomdl.bonetable[remapIndex].srcRealign, boneToPose );
+		ConcatTransforms( m_pModel->boneToPose[boneIndex], g_studiomdl.bones.bonetable[remapIndex].srcRealign, boneToPose );
 	}
 
 	for (i = 0; i < m_pModel->numvertices; i++)
@@ -166,7 +167,7 @@ void CCollisionModelSource::Simplify()
 	}
 
 	extern int g_rootIndex;
-	const char *pAnimationRootBone = g_studiomdl.bonetable[g_rootIndex].name;
+	const char *pAnimationRootBone = g_studiomdl.bones.bonetable[g_rootIndex].name;
 
 	// merge this root bone with the root of animation
 	MergeBones( pAnimationRootBone, m_rootName );
@@ -233,7 +234,7 @@ int FindLocalBoneNamed( const s_source_t *pSource, const char *pName )
 		int i;
 		for ( i = 0; i < pSource->numbones; i++ )
 		{
-			if ( !stricmp( pName, pSource->localBone[i].name ) )
+			if ( vstd::iequals(pName, pSource->localBone[i].name) )
 				return i;
 		}
 
@@ -241,7 +242,7 @@ int FindLocalBoneNamed( const s_source_t *pSource, const char *pName )
 
 		for ( i = 0; i < pSource->numbones; i++ )
 		{
-			if ( !stricmp( pName, pSource->localBone[i].name ) )
+			if ( vstd::iequals(pName, pSource->localBone[i].name) )
 				return i;
 		}
 	}

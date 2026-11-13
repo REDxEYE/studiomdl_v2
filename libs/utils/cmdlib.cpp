@@ -536,7 +536,7 @@ std::string ExpandPath( std::string_view path )
 	{
 		return std::string( path );
 	}
-	return g_StudioMdlContext.qdir + std::string( path );
+	return g_studiomdl.paths.qdir + std::string( path );
 }
 
 
@@ -666,28 +666,27 @@ FileHandle_t SafeOpenWrite( const char *filename )
 void CmdLib_AddBasePath( const char *pPath )
 {
 	printf( "CmdLib_AddBasePath( \"%s\" )\n", pPath );
-	vstd::paths::fix_slashes( g_StudioMdlContext.contentBasePaths.emplace_back( pPath ) );
+	vstd::paths::fix_slashes( g_studiomdl.paths.contentBasePaths.emplace_back( pPath ) );
 }
 
 
 void CmdLib_AddNewSearchPath( const char *pPath )
 {
-	StudioMdlContext &context = g_StudioMdlContext;
-	if ( context.contentRelativeDirs.empty() ) // first call: remember all original paths
+	if ( g_studiomdl.paths.contentRelativeDirs.empty() ) // first call: remember all original paths
 	{
-		context.contentOriginalBasePaths = context.contentBasePaths;
+		g_studiomdl.paths.contentOriginalBasePaths = g_studiomdl.paths.contentBasePaths;
 	}
-	vstd::paths::fix_slashes( context.contentRelativeDirs.emplace_back( pPath ) );
+	vstd::paths::fix_slashes( g_studiomdl.paths.contentRelativeDirs.emplace_back( pPath ) );
 
 	// the cross-product of the original paths and the new relative paths; each original path follows its children
-	context.contentBasePaths.clear();
-	for ( const std::string &original : context.contentOriginalBasePaths )
+	g_studiomdl.paths.contentBasePaths.clear();
+	for ( const std::string &original : g_studiomdl.paths.contentOriginalBasePaths )
 	{
-		for ( const std::string &added : context.contentRelativeDirs )
+		for ( const std::string &added : g_studiomdl.paths.contentRelativeDirs )
 		{
-			context.contentBasePaths.push_back( original + added );
+			g_studiomdl.paths.contentBasePaths.push_back( original + added );
 		}
-		context.contentBasePaths.push_back( original );
+		g_studiomdl.paths.contentBasePaths.push_back( original );
 	}
 }
 
@@ -697,7 +696,7 @@ bool CmdLib_HasBasePath( const char *pFileName, int &pathLength )
 	std::string fileName( pFileName );
 	vstd::paths::fix_slashes( fileName );
 	pathLength = 0;
-	for ( const std::string &basePath : g_StudioMdlContext.contentBasePaths )
+	for ( const std::string &basePath : g_studiomdl.paths.contentBasePaths )
 	{
 		// see if we can rip the base off of the filename.
 		if ( vstd::istarts_with( fileName, basePath ) )
@@ -716,7 +715,7 @@ FileHandle_t SafeOpenRead( const char *filename )
 	if( CmdLib_HasBasePath( filename, pathLength ) )
 	{
 		filename = filename + pathLength;
-		for ( const std::string &basePath : g_StudioMdlContext.contentBasePaths )
+		for ( const std::string &basePath : g_studiomdl.paths.contentBasePaths )
 		{
 			f = g_pFileSystem->Open( ( basePath + filename ).c_str(), "rb" );
 			if( f )

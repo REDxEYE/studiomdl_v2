@@ -55,6 +55,7 @@
 #include "studiomdl/collisionmodel.h"
 #include "studiomdl/studiomdl_global_state.hpp"
 #include "tier1_v2/path_utils.hpp"
+#include "tier1_v2/string_utils.hpp"
 
 
 struct BoneTransformMap_t {
@@ -75,12 +76,12 @@ struct BoneTransformMap_t {
 static s_source_t *AllocateDmxSource(const char *pSourceName) {
     // Allocate a new source
     s_source_t *pSource = c_allocate<s_source_t>();
-    g_studiomdl.sources.emplace_back(pSource);
+    g_studiomdl.anim.sources.emplace_back(pSource);
     pSource->filename = pSourceName;
     vstd::paths::set_extension(pSource->filename, "dmx");
-    VectorCopy(g_studiomdl.defaultadjust, pSource->adjust);
+    VectorCopy(g_studiomdl.script.defaultadjust, pSource->adjust);
     pSource->scale = 1.0f;
-    pSource->rotation = g_studiomdl.defaultrotation;
+    pSource->rotation = g_studiomdl.script.defaultrotation;
     return pSource;
 }
 
@@ -121,7 +122,7 @@ static bool LoadLODs(s_source_t **ppRootLODSource, CDmeLODList *pLodList, bool &
             if (pUpAxis) {
                 if (StringHasPrefix(pUpAxis, "Y")) {
                     // rotate 90 degrees around x to move y into z
-                    g_studiomdl.defaultrotation = RadianEuler(M_PI / 2.0f, 0.0f, M_PI / 2.0f);
+                    g_studiomdl.script.defaultrotation = RadianEuler(M_PI / 2.0f, 0.0f, M_PI / 2.0f);
                 }
             }
             bSetUpAxis = false;
@@ -135,11 +136,11 @@ static bool LoadLODs(s_source_t **ppRootLODSource, CDmeLODList *pLodList, bool &
 
         bool bIsShadowLOD = pLOD->m_bIsShadowLOD;
         if (bIsShadowLOD) {
-            if ((g_studiomdl.gflags & STUDIOHDR_FLAGS_HASSHADOWLOD) != 0) {
+            if ((g_studiomdl.header.gflags & STUDIOHDR_FLAGS_HASSHADOWLOD) != 0) {
                 MdlError("Invalid LOD: \"{}\": Multiple Shadow LODs Defined\n", pLOD->GetName());
                 return false;
             }
-            g_studiomdl.gflags |= STUDIOHDR_FLAGS_HASSHADOWLOD;
+            g_studiomdl.header.gflags |= STUDIOHDR_FLAGS_HASSHADOWLOD;
         }
         else if (pLOD->m_flSwitchMetric.Get() < 0.0f) {
             MdlError("Invalid LOD: \"{}\": Negative switch value\n", pLOD->GetName());
@@ -148,8 +149,8 @@ static bool LoadLODs(s_source_t **ppRootLODSource, CDmeLODList *pLodList, bool &
 
         // Skip lower LODs if we're stripping them
         bool bIsRootLOD = (pLOD == pRootLOD);
-        if (g_StudioMdlContext.stripLods && !bIsShadowLOD && (!bIsRootLOD)) {
-            if (!g_StudioMdlContext.quiet) {
+        if (g_studiomdl.options.stripLods && !bIsShadowLOD && (!bIsRootLOD)) {
+            if (!g_studiomdl.options.quiet) {
                 Msg("Stripped lod \"%s\" @ %.1f\n", pLOD->m_Model.GetElement() ? pLOD->m_Model->GetName() : "<none>",
                     pLOD->m_flSwitchMetric);
             }
@@ -166,14 +167,14 @@ static bool LoadLODs(s_source_t **ppRootLODSource, CDmeLODList *pLodList, bool &
             return false;
         }
 
-        if (g_studiomdl.ScriptLODs.Count() == MAX_NUM_LODS) {
+        if (std::ssize(g_studiomdl.body.ScriptLODs) == MAX_NUM_LODS) {
             MdlError("Too many LODs (MAX_NUM_LODS=={}) while loading LOD: \"{}\"\n", static_cast<int>(MAX_NUM_LODS),
                      pLOD->GetName());
             return false;
         }
 
         // Check for overflow
-        if (g_studiomdl.sources.full()) {
+        if (g_studiomdl.anim.sources.full()) {
             MdlError("Too many source models/animations (MAXSTUDIOSEQUENCES=={}) while loading LOD: \"{}\"\n",
                      static_cast<int>(MAXSTUDIOSEQUENCES), pLOD->GetName());
             return false;
@@ -207,16 +208,14 @@ static bool LoadLODs(s_source_t **ppRootLODSource, CDmeLODList *pLodList, bool &
 
         // Create LOD information in terms of how the old system does it
         // Shadow lod reserves -1 as switch value which uniquely identifies a shadow lod
-        int j = g_studiomdl.ScriptLODs.AddToTail();
-        LodScriptData_t &lod = g_studiomdl.ScriptLODs[j];
+        LodScriptData_t &lod = g_studiomdl.body.ScriptLODs.emplace_back();
         lod.switchValue = bIsShadowLOD ? -1.0f : pLOD->m_flSwitchMetric;
         lod.EnableFacialAnimation(bIsShadowLOD ? false : !pLOD->m_bNoFlex);
         lod.StripFromModel(false);
 
         // We only support simple model replacement here. Other processing
         // is expected to have occurred in the preprocessing phase
-        j = lod.modelReplacements.AddToTail();
-        CLodScriptReplacement_t &replacement = lod.modelReplacements[j];
+        CLodScriptReplacement_t &replacement = lod.modelReplacements.emplace_back();
         replacement.SetSrcName(pSrcLODName);
         replacement.SetDstName(pLODSource->filename.c_str());
         replacement.m_pSource = pLODSource;
@@ -229,11 +228,11 @@ static void LoadEyeballGlobals(CDmeEyeballGlobals *pDmeEyeballGlobals) {
     if (!pDmeEyeballGlobals)
         return;
 
-    g_studiomdl.flMaxEyeDeflection = cosf(DEG2RAD(pDmeEyeballGlobals->m_flMaxEyeDeflection.Get()));
+    g_studiomdl.header.flMaxEyeDeflection = cosf(DEG2RAD(pDmeEyeballGlobals->m_flMaxEyeDeflection.Get()));
 
     matrix3x4_t mDefRot;
-    AngleMatrix(g_studiomdl.defaultrotation, mDefRot);
-    VectorIRotate(pDmeEyeballGlobals->m_vEyePosition.Get(), mDefRot, g_studiomdl.eyeposition);
+    AngleMatrix(g_studiomdl.script.defaultrotation, mDefRot);
+    VectorIRotate(pDmeEyeballGlobals->m_vEyePosition.Get(), mDefRot, g_studiomdl.header.eyeposition);
 }
 
 static void LoadEyeballs(s_model_t *ps_model_t, CDmeLODList *pDmeLODList) {
@@ -241,7 +240,7 @@ static void LoadEyeballs(s_model_t *ps_model_t, CDmeLODList *pDmeLODList) {
         return;
 
     matrix3x4_t mDefRot;
-    AngleMatrix(g_studiomdl.defaultrotation, mDefRot);
+    AngleMatrix(g_studiomdl.script.defaultrotation, mDefRot);
     Vector vTmp;
 
     const int nEyeballCount = pDmeLODList->m_EyeballList.Count();
@@ -262,8 +261,7 @@ static void LoadEyeballs(s_model_t *ps_model_t, CDmeLODList *pDmeLODList) {
 
         int nFoundBoneIndex = -1;
         for (int nSearchBoneIndex = 0; nSearchBoneIndex < ps_model_t->source->numbones; ++nSearchBoneIndex) {
-            if (!Q_stricmp(ps_model_t->source->localBone[ nSearchBoneIndex ].name,
-                           pDmeEyeball->m_sParentBoneName.Get())) {
+            if (vstd::iequals(ps_model_t->source->localBone[ nSearchBoneIndex ].name, pDmeEyeball->m_sParentBoneName.Get())) {
                 nFoundBoneIndex = nSearchBoneIndex;
                 break;
             }
@@ -320,8 +318,8 @@ static void LoadEyeballs(s_model_t *ps_model_t, CDmeLODList *pDmeLODList) {
     for (int nNewFlexIndex = 0; nNewFlexIndex < ARRAYSIZE(szEyesFlexControllers); ++nNewFlexIndex) {
         bool bHasEyeFlexController = false;
 
-        for (int nFlexIndex = 0; nFlexIndex < g_studiomdl.flexcontrollers.size(); ++nFlexIndex) {
-            if (!Q_strcmp(szEyesFlexControllers[ nNewFlexIndex ], g_studiomdl.flexcontrollers[ nFlexIndex ].name)) {
+        for (int nFlexIndex = 0; nFlexIndex < g_studiomdl.flex.flexcontrollers.size(); ++nFlexIndex) {
+            if (!Q_strcmp(szEyesFlexControllers[ nNewFlexIndex ], g_studiomdl.flex.flexcontrollers[ nFlexIndex ].name)) {
                 bHasEyeFlexController = true;
                 break;
             }
@@ -332,12 +330,12 @@ static void LoadEyeballs(s_model_t *ps_model_t, CDmeLODList *pDmeLODList) {
         // [-45, 45 ] gives a maxium range that's useful
 
         if (!bHasEyeFlexController) {
-            if (g_studiomdl.flexcontrollers.full()) {
+            if (g_studiomdl.flex.flexcontrollers.full()) {
                 MdlWarning("1103: Couldn't make eyes flexcontroller {}, too many flex controllers defined\n",
                            szEyesFlexControllers[nNewFlexIndex]);
                 continue;
             }
-            g_studiomdl.flexcontrollers.emplace_back(s_flexcontroller_t{
+            g_studiomdl.flex.flexcontrollers.emplace_back(s_flexcontroller_t{
                 .name = szEyesFlexControllers[nNewFlexIndex],
                 .type = "eyes",
                 .min = -45.0f,
@@ -367,25 +365,15 @@ static bool LoadBodyGroupList(s_source_t **ppMainSource, CDmeBodyGroupList *pBod
     for (int i = 0; i < nDmeBodyGroupCount; ++i) {
         const CDmeBodyGroup *pDmeBodyGroup = dmeBodyGroups[i];
 
-        s_bodypart_t *pBodyPart = &g_studiomdl.bodypart[g_studiomdl.numbodyparts];
-        pBodyPart->nummodels = 0;
-        if (g_studiomdl.numbodyparts == 0) {
-            pBodyPart->base = 1;
-        }
-        else {
-            pBodyPart->base = g_studiomdl.bodypart[g_studiomdl.numbodyparts - 1].base * g_studiomdl.bodypart[
-                                  g_studiomdl.numbodyparts - 1].nummodels;
-        }
+        s_bodypart_t *pBodyPart = &g_studiomdl.body.AddBodyPart();
         pBodyPart->name = pDmeBodyGroup->GetName();
-        ++g_studiomdl.numbodyparts;
 
         // Load all body parts for this body group
         const int nDmeBodyPartCount = pDmeBodyGroup->m_BodyParts.Count();
         for (int j = 0; j < nDmeBodyPartCount; ++j) {
             s_model_t *pModel = c_allocate<s_model_t>();
-            const int nModel = g_studiomdl.nummodels++;
-            g_studiomdl.model[nModel] = pModel;
-            pBodyPart->pmodel[pBodyPart->nummodels++] = pModel;
+            const int nModel = g_studiomdl.body.AddModel(pModel);
+            pBodyPart->pmodel.push_back(pModel);
             pModel->scale = 1.0f;
 
             CDmeBodyPart *pDmeBodyPart = pDmeBodyGroup->m_BodyParts[j];
@@ -440,7 +428,7 @@ bool LoadCollisionModel(CDmeCollisionModel *pCollisionInfo, bool bStaticProp) {
         return false;
 
     // Check for overflow - TODO: Move to AllocateSource()
-    if (g_studiomdl.sources.full()) {
+    if (g_studiomdl.anim.sources.full()) {
         MdlError("Load_Source - overflowed g_numsources loading LODs.");
         return false;
     }
@@ -449,8 +437,8 @@ bool LoadCollisionModel(CDmeCollisionModel *pCollisionInfo, bool bStaticProp) {
     if (!pCollisionSource)
         return false;
 
-    int nummaterials = g_studiomdl.materials.size();
-    int numtextures = g_studiomdl.textures.size();
+    int nummaterials = g_studiomdl.materials.materials.size();
+    int numtextures = g_studiomdl.materials.textures.size();
 
     // BoneRemap[bone index in file] == bone index in studiomdl
     CDmeDag *pSkeleton = pCollisionInfo->GetValueElement<CDmeDag>("skeleton");
@@ -475,10 +463,9 @@ bool LoadCollisionModel(CDmeCollisionModel *pCollisionInfo, bool bStaticProp) {
     }
 
     // auto-remove any new materials/textures
-    if (nummaterials && numtextures && (numtextures != g_studiomdl.textures.size() || nummaterials != g_studiomdl.
-                                        materials.size())) {
-        g_studiomdl.textures.resize(numtextures);
-        g_studiomdl.materials.resize(nummaterials);
+    if (nummaterials && numtextures && (numtextures != g_studiomdl.materials.textures.size() || nummaterials != g_studiomdl.materials.materials.size())) {
+        g_studiomdl.materials.textures.resize(numtextures);
+        g_studiomdl.materials.materials.resize(nummaterials);
         pCollisionSource->texmap[0] = 0;
     }
 
@@ -497,23 +484,22 @@ static void LoadMaterialGroups(const CDmeMaterialGroupList *pDmeMaterialGroupLis
     if (!pDmeMaterialGroupList)
         return;
 
-    if (g_studiomdl.numskinref == 0)
-        g_studiomdl.numskinref = g_studiomdl.textures.size();
-
     // Studiomdl will read in multiple $texturegroup calls but only the first one
     // is ever used, so in mdlcompile, there will only ever be one
-    Assert(g_numtexturegroups == 0);
+    Assert(g_studiomdl.materials.texturegroups.empty());
 
     CDmeMaterialGroup *pDmeMaterialGroup = nullptr;
 
     const int nMaterialGroupCount = pDmeMaterialGroupList->m_MaterialGroups.Count();
-    if (nMaterialGroupCount >= ARRAYSIZE(g_studiomdl.texturegroup[ 0 ])) {
-        MdlError("Too Many Material Groups, Max: {}\n", ARRAYSIZE(g_studiomdl.texturegroup[ 0 ]));
+    if (nMaterialGroupCount >= MAXSTUDIOSKINS) {
+        MdlError("Too Many Material Groups, Max: {}\n", MAXSTUDIOSKINS);
         return;
     }
 
-    const int nTextureCount = g_studiomdl.textures.size();
+    const int nTextureCount = g_studiomdl.materials.textures.size();
 
+    // [skin family][index] = material
+    auto &families = g_studiomdl.materials.texturegroups.emplace_back();
     for (int nGroupIndex = 0; nGroupIndex < nMaterialGroupCount; ++nGroupIndex) {
         pDmeMaterialGroup = pDmeMaterialGroupList->m_MaterialGroups[nGroupIndex];
         if (!pDmeMaterialGroup)
@@ -527,17 +513,15 @@ static void LoadMaterialGroups(const CDmeMaterialGroupList *pDmeMaterialGroupLis
         for (int nMaterialIndex = 0; nMaterialIndex < nMaterialCount; ++nMaterialIndex) {
             const int nMdlMaterialIndex = UseTextureAsMaterial(
                 LookupTexture(pDmeMaterialGroup->m_MaterialList[nMaterialIndex], true));
-            g_studiomdl.texturegroup[g_studiomdl.numtexturegroups][nGroupIndex][nMaterialIndex] = nMdlMaterialIndex;
+            if (families.size() <= static_cast<size_t>(nGroupIndex))
+                families.resize(nGroupIndex + 1);
+            families[nGroupIndex].push_back(nMdlMaterialIndex);
             if (nGroupIndex != 0) {
-                g_studiomdl.textures[nMdlMaterialIndex].parent = g_studiomdl.texturegroup[g_studiomdl.numtexturegroups][
-                    0][nMaterialIndex];
+                g_studiomdl.materials.textures[nMdlMaterialIndex].parent =
+                        nMaterialIndex < std::ssize(families[0]) ? families[0][nMaterialIndex] : 0;
             }
-            g_studiomdl.numtexturelayers[g_studiomdl.numtexturegroups] = nGroupIndex + 1;
-            g_studiomdl.numtexturereps[g_studiomdl.numtexturegroups] = nMaterialIndex + 1;
         }
     }
-
-    ++g_studiomdl.numtexturegroups;
 }
 
 static void LoadBoneMergeList(CDmAttribute *pDmeBoneMergeListAttr) {
@@ -550,7 +534,7 @@ static void LoadBoneMergeList(CDmAttribute *pDmeBoneMergeListAttr) {
 
     const int nBoneMergeCount = boneMergeList.Count();
     for (int nBoneMergeIndex = 0; nBoneMergeIndex < nBoneMergeCount; ++nBoneMergeIndex) {
-        g_studiomdl.bone_merge.emplace_back(boneMergeList[nBoneMergeIndex]);
+        g_studiomdl.bones.bone_merge.emplace_back(boneMergeList[nBoneMergeIndex]);
     }
 }
 
@@ -575,20 +559,15 @@ static void LoadBoneMaskList(CDmeBoneMaskList *pDmeBoneMaskList) {
         if (!pDmeBoneMask)
             return;
 
-        int nBoneMaskIndex = g_studiomdl.numweightlist;
-
-        if (pDmeBoneMask == pDmeDefaultBoneMask) {
-            nBoneMaskIndex = 0;
-        }
-
-        if (nBoneMaskIndex >= MAXWEIGHTLISTS) {
+        const bool bDefault = pDmeBoneMask == pDmeDefaultBoneMask;
+        if (!bDefault && g_studiomdl.anim.weightlist.full()) {
             MdlWarning("1300: Too many bone masks, max {}, ignoring {}\n", MAXWEIGHTLISTS, pDmeBoneMask->GetName());
+            continue;
         }
 
         bool bDuplicate = false;
-        for (int j = 0; j < g_studiomdl.numweightlist; ++j) {
-            if (g_studiomdl.weightlist[j].name && !
-                Q_stricmp(g_studiomdl.weightlist[ j ].name, pDmeBoneMask->GetName())) {
+        for (size_t j = 0; j < g_studiomdl.anim.weightlist.size(); ++j) {
+            if (g_studiomdl.anim.weightlist[j].name && vstd::iequals(g_studiomdl.anim.weightlist[ j ].name, pDmeBoneMask->GetName())) {
                 bDuplicate = true;
                 MdlWarning("1301: Ignoring duplicate bone mask {}\n", pDmeBoneMask->GetName());
                 break;
@@ -598,7 +577,10 @@ static void LoadBoneMaskList(CDmeBoneMaskList *pDmeBoneMaskList) {
         if (bDuplicate)
             continue;
 
-        s_weightlist_t *pWeightList = &(g_studiomdl.weightlist[nBoneMaskIndex]);
+        // the default bone mask is weightlist [0]
+        s_weightlist_t *pWeightList = bDefault
+                                          ? &g_studiomdl.anim.weightlist[0]
+                                          : &g_studiomdl.anim.weightlist.emplace_back();
 
         Q_strncpy(pWeightList->name, pDmeBoneMask->GetName(), sizeof(pWeightList->name));
         pWeightList->numbones = 0;
@@ -637,10 +619,6 @@ static void LoadBoneMaskList(CDmeBoneMaskList *pDmeBoneMaskList) {
 
             ++pWeightList->numbones;
         }
-
-        if (nBoneMaskIndex != 0) {
-            ++g_studiomdl.numweightlist;
-        }
     }
 }
 
@@ -652,14 +630,14 @@ static void LoadPoseParameterList(CDmePoseParameterList *pDmePoseParameterList) 
     for (int i = 0; i < nPoseParameterCount; ++i) {
         const CDmePoseParameter *pDmePoseParameter = pDmePoseParameterList->m_ePoseParameterList[i];
 
-        if (g_studiomdl.numposeparameters >= MAXSTUDIOPOSEPARAM) {
+        if (std::ssize(g_studiomdl.anim.pose) >= MAXSTUDIOPOSEPARAM) {
             MdlWarning("1900: Too many pose parameters, ignoring from {}\n", pDmePoseParameter->GetName());
         }
 
         // This is like FindOrCreatePoseParamater, name is copied into g_pose[].name
         const int nPoseParameterIndex = LookupPoseParameter(pDmePoseParameter->GetName());
 
-        s_poseparameter_t *pPoseParameter = &g_studiomdl.pose[nPoseParameterIndex];
+        s_poseparameter_t *pPoseParameter = &g_studiomdl.anim.pose[nPoseParameterIndex];
         Q_strncpy(pPoseParameter->name, pDmePoseParameter->GetName(), sizeof(pPoseParameter->name));
         pPoseParameter->min = pDmePoseParameter->m_flMin;
         pPoseParameter->max = pDmePoseParameter->m_flMax;
@@ -678,22 +656,22 @@ static void LoadAnimBlockSize(CDmeAnimBlockSize *pDmeAnimBlockSize) {
     if (!pDmeAnimBlockSize)
         return;
 
-    g_studiomdl.animblocksize = pDmeAnimBlockSize->m_nSize;
-    if (g_studiomdl.animblocksize < 1024) {
-        g_studiomdl.animblocksize *= 1024;
+    g_studiomdl.anim.animblocksize = pDmeAnimBlockSize->m_nSize;
+    if (g_studiomdl.anim.animblocksize < 1024) {
+        g_studiomdl.anim.animblocksize *= 1024;
     }
 
-    g_StudioMdlContext.noAnimblockStall = !pDmeAnimBlockSize->m_bStall;
+    g_studiomdl.options.noAnimblockStall = !pDmeAnimBlockSize->m_bStall;
     switch (pDmeAnimBlockSize->m_nStorageType) {
         case CDmeAnimBlockSize::ANIMBLOCKSTORAGETYPE_HIRES:
-            g_StudioMdlContext.animblockLowRes = false;
-            g_StudioMdlContext.animblockHighRes = true;
+            g_studiomdl.options.animblockLowRes = false;
+            g_studiomdl.options.animblockHighRes = true;
             break;
         case CDmeAnimBlockSize::ANIMBLOCKSTORAGETYPE_LOWRES:
             // Fallthrough deliberate
         default:
-            g_StudioMdlContext.animblockLowRes = true;
-            g_StudioMdlContext.animblockHighRes = false;
+            g_studiomdl.options.animblockLowRes = true;
+            g_studiomdl.options.animblockHighRes = false;
             break;
     }
 }
@@ -723,36 +701,33 @@ static void LoadIkChainList(CDmeSequenceList *pDmeSequenceList) {
 
         // Check for duplicates
         int j;
-        for (j = 0; j < g_studiomdl.numikchains; ++j) {
-            if (!Q_stricmp(pIkChainName, g_studiomdl.ikchain[ j ].name))
+        for (j = 0; j < std::ssize(g_studiomdl.anim.ikchain); ++j) {
+            if (vstd::iequals(pIkChainName, g_studiomdl.anim.ikchain[ j ].name))
                 break;
         }
 
-        if (j < g_studiomdl.numikchains) {
-            if (!g_StudioMdlContext.quiet) {
+        if (j < std::ssize(g_studiomdl.anim.ikchain)) {
+            if (!g_studiomdl.options.quiet) {
                 MdlWarning("1401: Duplicate IkChain: {} Ignored\n", pIkChainName);
             }
         }
 
         // Set defaults
-        g_studiomdl.ikchain[g_studiomdl.numikchains].axis = StudioMotionFlags::Z; // Not actually used
-        g_studiomdl.ikchain[g_studiomdl.numikchains].value = 0.0; // Not actually used
+        s_ikchain_t &ikchain = g_studiomdl.anim.ikchain.emplace_back();
+        ikchain.axis = StudioMotionFlags::Z; // Not actually used
+        ikchain.value = 0.0; // Not actually used
 
-        g_studiomdl.ikchain[g_studiomdl.numikchains].height = 18.0;
-        g_studiomdl.ikchain[g_studiomdl.numikchains].floor = 0.0;
-        g_studiomdl.ikchain[g_studiomdl.numikchains].radius = 0.0;
+        ikchain.height = 18.0;
+        ikchain.floor = 0.0;
+        ikchain.radius = 0.0;
 
-        Q_strncpy(g_studiomdl.ikchain[g_studiomdl.numikchains].name, pIkChainName,
-                  sizeof(g_studiomdl.ikchain[g_studiomdl.numikchains].name));
-        Q_strncpy(g_studiomdl.ikchain[g_studiomdl.numikchains].bonename, pDmeIkChain->m_sEndJoint,
-                  sizeof(g_studiomdl.ikchain[g_studiomdl.numikchains].bonename));
-        g_studiomdl.ikchain[g_studiomdl.numikchains].height = pDmeIkChain->m_flHeight;
-        g_studiomdl.ikchain[g_studiomdl.numikchains].floor = pDmeIkChain->m_flFloor;
-        g_studiomdl.ikchain[g_studiomdl.numikchains].radius = pDmeIkChain->m_flPad / 2.0f;
-        g_studiomdl.ikchain[g_studiomdl.numikchains].link[0].kneeDir = pDmeIkChain->m_vKnee;
-        g_studiomdl.ikchain[g_studiomdl.numikchains].center = pDmeIkChain->m_vCenter;
-
-        ++g_studiomdl.numikchains;
+        Q_strncpy(ikchain.name, pIkChainName, sizeof(ikchain.name));
+        Q_strncpy(ikchain.bonename, pDmeIkChain->m_sEndJoint, sizeof(ikchain.bonename));
+        ikchain.height = pDmeIkChain->m_flHeight;
+        ikchain.floor = pDmeIkChain->m_flFloor;
+        ikchain.radius = pDmeIkChain->m_flPad / 2.0f;
+        ikchain.link[0].kneeDir = pDmeIkChain->m_vKnee;
+        ikchain.center = pDmeIkChain->m_vCenter;
     }
 }
 
@@ -773,7 +748,7 @@ static void CreateAnimFromSkeleton(s_source_t *pSource, const char *pSequenceNam
     for (int nBoneIndex = 0; nBoneIndex < boneMap.m_nBoneCount; ++nBoneIndex) {
         const CDmeTransform *pDmeTransform = boneMap.m_ppTransforms[nBoneIndex];
         s_bone_t &mdlBone = pSourceAnim->rawanim[0][nBoneIndex];
-        VectorCopy(pDmeTransform->GetPosition() * g_studiomdl.currentscale, mdlBone.pos);
+        VectorCopy(pDmeTransform->GetPosition() * g_studiomdl.script.currentscale, mdlBone.pos);
         QuaternionAngles(pDmeTransform->GetOrientation(), mdlBone.rot);
     }
 
@@ -844,8 +819,8 @@ void LoadAnimationOptions(CDmeSequence *pDmeSimpleSequence, s_animation_t *pAnim
 }
 
 int FindWeightList(const char *pWeightListName) {
-    for (int i = 0; i < g_studiomdl.numweightlist; ++i) {
-        if (!Q_stricmp(pWeightListName, g_studiomdl.weightlist[ i ].name))
+    for (int i = 0; i < std::ssize(g_studiomdl.anim.weightlist); ++i) {
+        if (vstd::iequals(pWeightListName, g_studiomdl.anim.weightlist[ i ].name))
             return i;
     }
 
@@ -1039,7 +1014,7 @@ void LoadIkRuleList(CDmeSequence *pDmeSimpleSequence, s_animation_t *pAnimation)
         return;
 
     matrix3x4_t mDefRot;
-    AngleMatrix(g_studiomdl.defaultrotation, mDefRot);
+    AngleMatrix(g_studiomdl.script.defaultrotation, mDefRot);
 
     // See if we have any IkRules to load
     const int nIkRuleCount = pDmeSimpleSequence->m_eIkRuleList.Count();
@@ -1067,8 +1042,8 @@ void LoadIkRuleList(CDmeSequence *pDmeSimpleSequence, s_animation_t *pAnimation)
         }
 
         int nIkChainIndex = -1;
-        for (int j = 0; j < g_studiomdl.numikchains; ++j) {
-            if (!Q_stricmp(pDmeIkChain->GetName(), g_studiomdl.ikchain[ j ].name)) {
+        for (int j = 0; j < std::ssize(g_studiomdl.anim.ikchain); ++j) {
+            if (vstd::iequals(pDmeIkChain->GetName(), g_studiomdl.anim.ikchain[ j ].name)) {
                 nIkChainIndex = j;
                 break;
             }
@@ -1102,10 +1077,10 @@ void LoadIkRuleList(CDmeSequence *pDmeSimpleSequence, s_animation_t *pAnimation)
         }
         else if (pDmeIkFootstepRule) {
             pIkRule->type = IkRuleType::Ground;
-            pIkRule->height = pDmeIkFootstepRule->GetValue<float>("height", g_studiomdl.ikchain[pIkRule->chain].height);
-            pIkRule->floor = pDmeIkFootstepRule->GetValue<float>("floor", g_studiomdl.ikchain[pIkRule->chain].floor);
+            pIkRule->height = pDmeIkFootstepRule->GetValue<float>("height", g_studiomdl.anim.ikchain[pIkRule->chain].height);
+            pIkRule->floor = pDmeIkFootstepRule->GetValue<float>("floor", g_studiomdl.anim.ikchain[pIkRule->chain].floor);
             pIkRule->radius = pDmeIkFootstepRule->GetValue<float>(
-                                  "pad", g_studiomdl.ikchain[pIkRule->chain].radius * 2.0f) / 2.0f;
+                                  "pad", g_studiomdl.anim.ikchain[pIkRule->chain].radius * 2.0f) / 2.0f;
             if (pDmeIkFootstepRule->HasAttribute("contact", AT_INT)) {
                 pIkRule->contact = pDmeIkFootstepRule->GetValue<int>("contact");
             }
@@ -1213,10 +1188,10 @@ static void LoadSequenceBlends(CDmeMultiSequence *pDmeMultiSequence, s_sequence_
             pSequence->paramstart[i] = pDmeSequenceBlend->m_flParamStart;
             pSequence->paramend[i] = pDmeSequenceBlend->m_flParamEnd;
 
-            g_studiomdl.pose[j].min = MIN(g_studiomdl.pose[j].min, pSequence->paramstart[i]);
-            g_studiomdl.pose[j].min = MIN(g_studiomdl.pose[j].min, pSequence->paramend[i]);
-            g_studiomdl.pose[j].max = MAX(g_studiomdl.pose[j].max, pSequence->paramstart[i]);
-            g_studiomdl.pose[j].max = MAX(g_studiomdl.pose[j].max, pSequence->paramend[i]);
+            g_studiomdl.anim.pose[j].min = MIN(g_studiomdl.anim.pose[j].min, pSequence->paramstart[i]);
+            g_studiomdl.anim.pose[j].min = MIN(g_studiomdl.anim.pose[j].min, pSequence->paramend[i]);
+            g_studiomdl.anim.pose[j].max = MAX(g_studiomdl.anim.pose[j].max, pSequence->paramstart[i]);
+            g_studiomdl.anim.pose[j].max = MAX(g_studiomdl.anim.pose[j].max, pSequence->paramend[i]);
         }
         else if (pDmeSequenceBlendBase->IsA(CDmeSequenceCalcBlend::GetStaticTypeSymbol())) {
             // TODO: This really isn't an animation command but the distinction might not be important?
@@ -1453,7 +1428,7 @@ static int LoadAndCreateSequences(s_source_t *pMainSource, CDmeSequenceList *pSe
                     if (pUpAxis) {
                         if (StringHasPrefix(pUpAxis, "Y")) {
                             // rotate 90 degrees around x to move y into z
-                            g_studiomdl.defaultrotation = RadianEuler(M_PI / 2.0f, 0.0f, M_PI / 2.0f);
+                            g_studiomdl.script.defaultrotation = RadianEuler(M_PI / 2.0f, 0.0f, M_PI / 2.0f);
                         }
                     }
                     bSetUpAxis = false;
@@ -1479,7 +1454,7 @@ static int LoadAndCreateSequences(s_source_t *pMainSource, CDmeSequenceList *pSe
 
                 if (pDmeAnimationList) {
                     // Simple sequence created from animation data
-                    LoadAnimations(pSource, pDmeAnimationList, g_studiomdl.currentscale, boneMap);
+                    LoadAnimations(pSource, pDmeAnimationList, g_studiomdl.script.currentscale, boneMap);
 
                     // Check for various CDmeAnimCmd's which may or may not be flagged with bDelta
                     bool bDmeAnimCmdDelta = false;
@@ -1499,8 +1474,8 @@ static int LoadAndCreateSequences(s_source_t *pMainSource, CDmeSequenceList *pSe
 
                     {
                         // allocate animation entry
-                        auto *anim = g_studiomdl.animations.emplace_back(c_allocate<s_animation_t>());
-                        anim->index = g_studiomdl.animations.size() - 1;
+                        auto *anim = g_studiomdl.anim.animations.emplace_back(c_allocate<s_animation_t>());
+                        anim->index = g_studiomdl.anim.animations.size() - 1;
                         pAnim = anim;
 
                         pAnim->isImplied = true;
@@ -1511,16 +1486,16 @@ static int LoadAndCreateSequences(s_source_t *pMainSource, CDmeSequenceList *pSe
                         pAnim->name.format("@{}", pSeq->name);
                         pAnim->filename = pSource->filename;
 
-                        VectorCopy(g_studiomdl.defaultadjust, pAnim->adjust);
+                        VectorCopy(g_studiomdl.script.defaultadjust, pAnim->adjust);
                         pAnim->scale = 1.0f;
 
                         // Don't re-orient delta animations
                         if (bDmeAnimCmdDelta || !(pDmeSimpleSequence->m_bDelta || pDmeSimpleSequence->m_bPreDelta)) {
-                            pAnim->rotation = g_studiomdl.defaultrotation;
+                            pAnim->rotation = g_studiomdl.script.defaultrotation;
                         }
 
                         pAnim->fps = 30;
-                        pAnim->motionrollback = g_StudioMdlContext.defaultMotionRollback;
+                        pAnim->motionrollback = g_studiomdl.options.defaultMotionRollback;
 
                         pAnim->source = pSource;
                         const int nSourceAnimCount = pAnim->source->m_Animations.Count();
@@ -1695,11 +1670,11 @@ static void LoadIncludeModelList(CDmeIncludeModelList *pIncludeModelList) {
 
     const int nIncludeModelsCount = pIncludeModelList->m_IncludeModels.Count();
     for (int ni = 0; ni < nIncludeModelsCount; ++ni) {
-        if (g_studiomdl.includemodels.full()) {
+        if (g_studiomdl.body.includemodels.full()) {
             MdlError("Too Many Include Models while including: \"{}\", Max: {}\n",
-                     pIncludeModelList->m_IncludeModels[ni], g_studiomdl.includemodels.capacity());
+                     pIncludeModelList->m_IncludeModels[ni], g_studiomdl.body.includemodels.capacity());
         }
-        auto &includemodel = g_studiomdl.includemodels.emplace_back(pIncludeModelList->m_IncludeModels[ni]);
+        auto &includemodel = g_studiomdl.body.includemodels.emplace_back(pIncludeModelList->m_IncludeModels[ni]);
         Q_FixSlashes(includemodel.name, '/');
     }
 }
@@ -1848,13 +1823,13 @@ static void LoadDefineBoneList(CDmeDefineBoneList *pDmeDefineBoneList) {
         if (!pDmeDefineBone)
             continue;
 
-        if (g_studiomdl.numimportbones >= ARRAYSIZE(g_studiomdl.importbone)) {
+        if (g_studiomdl.bones.importbone.full()) {
             MdlError("Too Many Define Bones while processing: \"{}\", Max: {}\n", pDmeDefineBone->GetName(),
-                     ARRAYSIZE(g_studiomdl.importbone));
+                     g_studiomdl.bones.importbone.capacity());
             break;
         }
 
-        pImportBone = &g_studiomdl.importbone[g_studiomdl.numimportbones++];
+        pImportBone = &g_studiomdl.bones.importbone.emplace_back();
 
         Q_strncpy(pImportBone->name, pDmeDefineBone->GetName(), MAXSTUDIONAME);
         Q_strncpy(pImportBone->parent, pDmeDefineBone->m_Parent.Get(), MAXSTUDIONAME);
@@ -1878,7 +1853,7 @@ static void LoadDefineBoneList(CDmeDefineBoneList *pDmeDefineBoneList) {
             ContentsName_t *pContentsName = nullptr;
 
             for (int j = 0; j < s_JointContents.Count(); ++j) {
-                if (!Q_stricmp(s_JointContents[j].m_pJointName, pDmeDefineBone->GetName())) {
+                if (vstd::iequals(s_JointContents[j].m_pJointName, pDmeDefineBone->GetName())) {
                     pContentsName = &s_JointContents[j];
                     break;
                 }
@@ -1896,7 +1871,7 @@ static void LoadDefineBoneList(CDmeDefineBoneList *pDmeDefineBoneList) {
 }
 
 static s_hitboxset *AllocateHitboxSet() {
-    return &g_StudioMdlContext.hitboxsets.emplace_back();
+    return &g_studiomdl.bones.hitboxsets.emplace_back();
 }
 
 static s_bbox_t *AllocateHitbox(s_hitboxset *pHitboxSet) {
@@ -1928,12 +1903,12 @@ static void LoadHitboxSetList(const CDmeHitboxSetList *pDmeHitboxSetList) {
             // Find bone
             s_bonetable_t *pStudioBone = nullptr;
             const int nBoneIndex = findGlobalBone(pSrcHitbox->m_sBoneName);
-            if (nBoneIndex >= 0 && nBoneIndex < g_StudioMdlContext.numbones) {
-                pStudioBone = &g_studiomdl.bonetable[nBoneIndex];
+            if (nBoneIndex >= 0 && nBoneIndex < std::ssize(g_studiomdl.bones.bonetable)) {
+                pStudioBone = &g_studiomdl.bones.bonetable[nBoneIndex];
             }
 
             // Find bone
-            for (int nBoneIndex = 0; nBoneIndex < g_StudioMdlContext.numbones; ++nBoneIndex) {
+            for (int nBoneIndex = 0; nBoneIndex < std::ssize(g_studiomdl.bones.bonetable); ++nBoneIndex) {
             }
 
             s_bbox_t *pHitbox = AllocateHitbox(pHitboxSet);
@@ -1962,7 +1937,7 @@ static void LoadBoneFlexDriverList(const CDmeBoneFlexDriverList *pDmeBoneFlexDri
         return;
 
     const CDmeBoneFlexDriverList *pDmeTmp = GetElement<CDmeBoneFlexDriverList>(
-        g_StudioMdlContext.hDmeBoneFlexDriverList);
+        g_studiomdl.flex.hDmeBoneFlexDriverList);
     if (pDmeTmp != nullptr) {
         char szTmpBuf0[40];
         UniqueIdToString(pDmeTmp->GetId(), szTmpBuf0, sizeof(szTmpBuf0));
@@ -1979,7 +1954,7 @@ static void LoadBoneFlexDriverList(const CDmeBoneFlexDriverList *pDmeBoneFlexDri
     CDmeBoneFlexDriverList *pDmeCopy = pDmeBoneFlexDriverList->Copy();
     pDmeCopy->SetFileId(DMFILEID_INVALID, TD_DEEP);
 
-    g_StudioMdlContext.hDmeBoneFlexDriverList = pDmeCopy->GetHandle();
+    g_studiomdl.flex.hDmeBoneFlexDriverList = pDmeCopy->GetHandle();
 }
 
 static void LoadKeyValues(const char *pszKeyValues) {
@@ -1993,67 +1968,67 @@ static void LoadKeyValues(const char *pszKeyValues) {
     const char *pszHeader = "mdlkeyvalue\n{\n";
     const char *pszFooter = "}\n";
 
-    g_StudioMdlContext.KeyValueText.append(pszHeader);
-    g_StudioMdlContext.KeyValueText.append(pszKeyValues, nKeyValueCount);
-    g_StudioMdlContext.KeyValueText.append(pszFooter);
+    g_studiomdl.header.KeyValueText.append(pszHeader);
+    g_studiomdl.header.KeyValueText.append(pszKeyValues, nKeyValueCount);
+    g_studiomdl.header.KeyValueText.append(pszFooter);
 }
 
 static void LoadGlobalFlags(CDmElement *pDmeRoot) {
     // Get default rotation as a matrix
     matrix3x4_t mDefRot;
-    AngleMatrix(g_studiomdl.defaultrotation, mDefRot);
+    AngleMatrix(g_studiomdl.script.defaultrotation, mDefRot);
 
     // QC $bbox
     CDmeBBox *pDmeBBox = pDmeRoot->GetValueElement<CDmeBBox>("bbox");
     if (pDmeBBox) {
-        ITransformAABB(mDefRot, pDmeBBox->m_vMinBounds, pDmeBBox->m_vMaxBounds, g_studiomdl.bbox[0],
-                       g_studiomdl.bbox[1]);
+        ITransformAABB(mDefRot, pDmeBBox->m_vMinBounds, pDmeBBox->m_vMaxBounds, g_studiomdl.header.bbox[0],
+                       g_studiomdl.header.bbox[1]);
     }
 
     if (pDmeRoot->HasAttribute("opacity")) {
         switch (pDmeRoot->GetValue<int>("opacity")) {
             case 0: // Auto, do nothing
-                g_studiomdl.gflags &= ~STUDIOHDR_FLAGS_FORCE_OPAQUE;
-                g_studiomdl.gflags &= ~STUDIOHDR_FLAGS_TRANSLUCENT_TWOPASS;
+                g_studiomdl.header.gflags &= ~STUDIOHDR_FLAGS_FORCE_OPAQUE;
+                g_studiomdl.header.gflags &= ~STUDIOHDR_FLAGS_TRANSLUCENT_TWOPASS;
                 break;
             case 1: // opaque
                 // Opaque has precedence over Mostly Opaque (TRANSLUCENT_TWOPASS)
-                g_studiomdl.gflags |= STUDIOHDR_FLAGS_FORCE_OPAQUE;
-                g_studiomdl.gflags &= ~STUDIOHDR_FLAGS_TRANSLUCENT_TWOPASS;
+                g_studiomdl.header.gflags |= STUDIOHDR_FLAGS_FORCE_OPAQUE;
+                g_studiomdl.header.gflags &= ~STUDIOHDR_FLAGS_TRANSLUCENT_TWOPASS;
                 break;
             case 2: // mostly opaque
                 // Opaque has precedence over Mostly Opaque (TRANSLUCENT_TWOPASS)
-                if ((g_studiomdl.gflags & STUDIOHDR_FLAGS_FORCE_OPAQUE) == 0) {
-                    g_studiomdl.gflags |= STUDIOHDR_FLAGS_TRANSLUCENT_TWOPASS;
+                if ((g_studiomdl.header.gflags & STUDIOHDR_FLAGS_FORCE_OPAQUE) == 0) {
+                    g_studiomdl.header.gflags |= STUDIOHDR_FLAGS_TRANSLUCENT_TWOPASS;
                 }
                 break;
         }
     }
 
     if (pDmeRoot->HasAttribute("illuminationPosition", AT_VECTOR3)) {
-        VectorIRotate(pDmeRoot->GetValue<Vector>("illuminationPosition"), mDefRot, g_studiomdl.illumposition);
+        VectorIRotate(pDmeRoot->GetValue<Vector>("illuminationPosition"), mDefRot, g_studiomdl.header.illumposition);
     }
 
     if (pDmeRoot->GetValue<bool>("ambientBoost", false)) {
-        g_studiomdl.gflags |= STUDIOHDR_FLAGS_AMBIENT_BOOST;
+        g_studiomdl.header.gflags |= STUDIOHDR_FLAGS_AMBIENT_BOOST;
     }
 
     if (pDmeRoot->GetValue<bool>("subdivisionSurface", false)) {
-        g_studiomdl.gflags |= STUDIOHDR_FLAGS_SUBDIVISION_SURFACE;
+        g_studiomdl.header.gflags |= STUDIOHDR_FLAGS_SUBDIVISION_SURFACE;
     }
 
     if (pDmeRoot->GetValue<bool>("doNotCastShadows", false)) {
-        g_studiomdl.gflags |= STUDIOHDR_FLAGS_DO_NOT_CAST_SHADOWS;
+        g_studiomdl.header.gflags |= STUDIOHDR_FLAGS_DO_NOT_CAST_SHADOWS;
     }
 
     if (pDmeRoot->GetValue<bool>("castTextureShadows", false)) {
         // Valve set DO_NOT_CAST_SHADOWS here; $casttextureshadows sets CAST_TEXTURE_SHADOWS
-        g_studiomdl.gflags |= STUDIOHDR_FLAGS_CAST_TEXTURE_SHADOWS;
+        g_studiomdl.header.gflags |= STUDIOHDR_FLAGS_CAST_TEXTURE_SHADOWS;
     }
 
     // CDmeAssetRoot names the attribute "noForcedFace" (dmeasset.cpp), so accept both spellings
     if (pDmeRoot->GetValue<bool>("noForcedFade", false) || pDmeRoot->GetValue<bool>("noForcedFace", false)) {
-        g_studiomdl.gflags |= STUDIOHDR_FLAGS_NO_FORCED_FADE;
+        g_studiomdl.header.gflags |= STUDIOHDR_FLAGS_NO_FORCED_FADE;
     }
 
     ContentType nContentsDescription = ContentType::SOLID;
@@ -2082,7 +2057,7 @@ static bool LoadPreprocessedRoot(CDmElement *pRoot, const std::string &fullPath)
     }
 
     // Get whether we're doing skinned LODs from the pre-process file
-    g_studiomdl.bSkinnedLODs = pRoot->GetValue<bool>("skinnedLODs", false);
+    g_studiomdl.options.bSkinnedLODs = pRoot->GetValue<bool>("skinnedLODs", false);
 
     // Load model info
     LoadModelInfo(pRoot, fullPath.c_str());
@@ -2199,7 +2174,7 @@ bool LoadPreprocessedFile(const char *pFileName, float flScale) {
         return false;
     }
 
-    if (!g_StudioMdlContext.quiet) {
+    if (!g_studiomdl.options.quiet) {
         Msg("Loaded Preprocessed File %s\n", fullPath.c_str());
     }
 

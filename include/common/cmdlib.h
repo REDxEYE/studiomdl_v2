@@ -164,7 +164,7 @@ void qprintf( char *format, ... );
 
 void ExpandWildcards (int *argc, char ***argv);
 
-// Content base paths live in g_StudioMdlContext.contentBasePaths (UTF-8)
+// Content base paths live in g_studiomdl.paths.contentBasePaths (UTF-8)
 void CmdLib_AddBasePath( const char *pBasePath );
 void CmdLib_AddNewSearchPath( const char *pBasePath );
 bool CmdLib_HasBasePath( const char *pFileName, int &pathLength );

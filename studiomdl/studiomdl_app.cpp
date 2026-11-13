@@ -2,6 +2,8 @@
 // Created by RED on 15.05.2024.
 //
 
+#include <numeric>
+
 #include "studiomdl/platform_compat.h"
 
 #include "studiomdl_app.h"
@@ -78,7 +80,7 @@ int main(int argc, char** argv) {
 //-----------------------------------------------------------------------------
 void AddContentPaths() {
     // look for the "content" in the path to the initial QC file
-    const std::string_view qdir = g_StudioMdlContext.qdir;
+    const std::string_view qdir = g_studiomdl.paths.qdir;
     constexpr std::string_view match = "content\\";
     const size_t contentPos = qdir.find(match);
     if (contentPos == std::string_view::npos)
@@ -95,7 +97,7 @@ void AddContentPaths() {
     std::string paths(g_pFullFileSystem->GetSearchPath("GAME", false, nullptr, 0), '\0');
     g_pFullFileSystem->GetSearchPath("GAME", false, paths.data(), static_cast<int>(paths.size()));
     paths.resize(std::strlen(paths.c_str()));
-    if (!g_StudioMdlContext.quiet)
+    if (!g_studiomdl.options.quiet)
         std::print("all paths:{}\n", paths);
 
     // pull out the game names and insert them into a content path string
@@ -110,7 +112,7 @@ void AddContentPaths() {
         contentPath.append(paths, nameStart, nameEnd - nameStart);
         contentPath += post;
         CmdLib_AddBasePath(contentPath.c_str());
-        if (!g_StudioMdlContext.quiet)
+        if (!g_studiomdl.options.quiet)
             std::print("content:{}\n", contentPath);
         gamePos = nameEnd;
     }
@@ -147,13 +149,13 @@ static void ParseScript(ScriptTokenizer &qc) {
         // Check all the commands we know about.
         int i;
         for (i = 0; i < g_nMDLCommandCount; i++) {
-            if (Q_stricmp(g_Commands[i].m_pName, qc.token))
+            if (!vstd::iequals(g_Commands[i].m_pName, qc.token))
                 continue;
 
             g_Commands[i].m_pCmd(qc);
             break;
         }
-        if (i == g_nMDLCommandCount && !g_StudioMdlContext.createMakefile) {
+        if (i == g_nMDLCommandCount && !g_studiomdl.options.createMakefile) {
             qc.Error("bad command {}", qc.token);
         }
     }
@@ -168,7 +170,7 @@ static bool ParsePreprocessedFile(const std::string &fullPath) {
     if (!LoadPreprocessedFile(fullPath.c_str(), 1.0f))
         return false;
 
-    if (g_StudioMdlContext.hasModelName)
+    if (g_studiomdl.paths.hasModelName)
         return true;
 
     char modPath[4096] = {};
@@ -291,7 +293,7 @@ bool HandleMdlReport(int &returnValue) {
 }
 
 void CreateMakefile_OutputMakefile() {
-    if (!g_StudioMdlContext.hasModelName) {
+    if (!g_studiomdl.paths.hasModelName) {
         MdlError("Can't write makefile since a target mdl hasn't been specified!");
     }
     FILE* fp = fopen("makefile.tmp", "a");
@@ -301,19 +303,18 @@ void CreateMakefile_OutputMakefile() {
     const std::string mdlname = OutputModelPath(".mdl");
 
     std::print(fp, "{}:", mdlname);
-    int i;
-    for (i = 0; i < g_StudioMdlContext.CreateMakefileDependencies.size(); i++) {
-        std::print(fp, " {}", g_StudioMdlContext.CreateMakefileDependencies[i].String());
+    for (const std::string &dependency: g_studiomdl.paths.CreateMakefileDependencies) {
+        std::print(fp, " {}", dependency);
     }
     std::print(fp, "\n");
     std::print(fp, "\tmkdir \"{}\"\n", std::string(vstd::paths::parent(mdlname)));
-    std::print(fp, "\t{} -quiet {}\n\n", CommandLine()->GetParm(0).value(), g_studiomdl.fullpath);
+    std::print(fp, "\t{} -quiet {}\n\n", CommandLine()->GetParm(0).value(), g_studiomdl.paths.fullpath);
     fclose(fp);
 }
 
 void ClampMaxVerticesPerModel(s_source_t* pOrigSource) {
     // check for overage
-    if (pOrigSource->numvertices < g_StudioMdlContext.maxVertexLimit)
+    if (pOrigSource->numvertices < g_studiomdl.options.maxVertexLimit)
         return;
 
     MdlWarning("model has too many verts, cutting into multiple models\n");
@@ -372,7 +373,7 @@ void ClampMaxVerticesPerModel(s_source_t* pOrigSource) {
                 if (bSortByFlex && isMovingFace(pOrigMesh, origFace) != bMovingPass)
                     continue;
                 int nVertsInFace = (origFace.d == 0) ? 3 : 4;
-                if ((newSource[ns].m_vertex.Count() + nVertsInFace) > g_StudioMdlContext.maxVertexClamp) {
+                if ((newSource[ns].m_vertex.Count() + nVertsInFace) > g_studiomdl.options.maxVertexClamp) {
                     // go to the next model
                     ns = newSource.AddToTail();
                     newSource[ns].Init(pOrigSource->numvertices, pOrigSource);
@@ -416,9 +417,9 @@ void ClampMaxVerticesPerModel(s_source_t* pOrigSource) {
     // Name of what was split, so the pieces can be told apart: the model using the source, or the source file
     char szOrigName[MAXSTUDIONAME];
     Q_FileBase(pOrigSource->filename.c_str(), szOrigName, sizeof(szOrigName));
-    for (int i = 0; i < g_studiomdl.nummodels; i++) {
-        if (g_studiomdl.model[i]->source == pOrigSource && g_studiomdl.model[i]->name[0]) {
-            Q_FileBase(g_studiomdl.model[i]->name, szOrigName, sizeof(szOrigName));
+    for (int i = 0; i < std::ssize(g_studiomdl.body.model); i++) {
+        if (g_studiomdl.body.model[i]->source == pOrigSource && g_studiomdl.body.model[i]->name[0]) {
+            Q_FileBase(g_studiomdl.body.model[i]->name, szOrigName, sizeof(szOrigName));
             break;
         }
     }
@@ -431,7 +432,7 @@ void ClampMaxVerticesPerModel(s_source_t* pOrigSource) {
     for (int n = 1; n < newSource.Count(); n++) {
         // create a new internal "source"
         s_source_t* pSource = c_allocate<s_source_t>();
-        g_studiomdl.sources.emplace_back(pSource);
+        g_studiomdl.anim.sources.emplace_back(pSource);
 
         // copy all the members, in order
         pSource->filename = pOrigSource->filename;
@@ -473,17 +474,12 @@ void ClampMaxVerticesPerModel(s_source_t* pOrigSource) {
         pModel->source = pSource;
         pModel->name.format("{}_cmodel{}", szOrigName, n);
         pModel->filename = std::string(szOrigName) + "_cmesh" + std::to_string(n);
-        int imodel = g_studiomdl.nummodels++;
-        g_studiomdl.model[imodel] = pModel;
+        const int imodel = g_studiomdl.body.AddModel(pModel);
 
         // make it a new bodypart
-        s_bodypart_t &bodypart = g_studiomdl.bodypart[g_studiomdl.numbodyparts];
-        bodypart.nummodels = 1;
-        bodypart.base = g_studiomdl.bodypart[g_studiomdl.numbodyparts - 1].base * g_studiomdl.bodypart[
-                            g_studiomdl.numbodyparts - 1].nummodels;
+        s_bodypart_t &bodypart = g_studiomdl.body.AddBodyPart();
         bodypart.name.format("{}_clamped{}", szOrigName, n);
-        bodypart.pmodel[0] = pModel;
-        g_studiomdl.numbodyparts++;
+        bodypart.pmodel.push_back(pModel);
 
         // finally, copy flex keys
         newSource[n].CopyFlexKeys(pOrigSource, pSource, imodel);
@@ -497,55 +493,54 @@ void SetSkinValues() {
     int index;
 
     // Check all textures to see if we have relative paths specified
-    for (i = 0; i < g_studiomdl.textures.size(); i++) {
-        if (g_studiomdl.textures[i].flags & RELATIVE_TEXTURE_PATH_SPECIFIED) {
+    for (i = 0; i < g_studiomdl.materials.textures.size(); i++) {
+        if (g_studiomdl.materials.textures[i].flags & RELATIVE_TEXTURE_PATH_SPECIFIED) {
             // Add an empty path to prepend if anything specifies a relative path
-            g_studiomdl.cdtextures.emplace_back();
+            g_studiomdl.materials.cdtextures.emplace_back();
             break;
         }
     }
 
-    if (g_studiomdl.cdtextures.size() == 0) {
+    if (g_studiomdl.materials.cdtextures.size() == 0) {
         // the QC directory from "models" on, else models/<model name>/
         std::string name;
-        const size_t models = vstd::ifind(g_studiomdl.fullpath, "models");
+        const size_t models = vstd::ifind(g_studiomdl.paths.fullpath, "models");
         if (models != std::string::npos) {
-            name = vstd::paths::parent(std::string_view(g_studiomdl.fullpath).substr(models));
+            name = vstd::paths::parent(std::string_view(g_studiomdl.paths.fullpath).substr(models));
         }
         else {
             name = "models/";
-            name += vstd::paths::without_extension(g_studiomdl.outname.view());
+            name += vstd::paths::without_extension(g_studiomdl.paths.outname.view());
         }
         name += '/';
-        g_studiomdl.cdtextures.emplace_back(strdup(name.c_str()));
+        g_studiomdl.materials.cdtextures.emplace_back(strdup(name.c_str()));
     }
 
-    for (i = 0; i < g_studiomdl.textures.size(); i++) {
+    for (i = 0; i < g_studiomdl.materials.textures.size(); i++) {
         char szName[256];
-        Q_StripExtension(g_studiomdl.textures[i].name, szName, sizeof(szName));
-        Q_strncpy(g_studiomdl.textures[i].name, szName, sizeof(g_studiomdl.textures[i].name));
+        Q_StripExtension(g_studiomdl.materials.textures[i].name, szName, sizeof(szName));
+        Q_strncpy(g_studiomdl.materials.textures[i].name, szName, sizeof(g_studiomdl.materials.textures[i].name));
     }
 
-    // build texture groups
-    for (i = 0; i < MAXSTUDIOSKINS; i++) {
-        for (j = 0; j < MAXSTUDIOSKINS; j++) {
-            g_studiomdl.skinref[i][j] = j;
+    // build the skin families: one row per family, mapping every material of family 0 to the family's own;
+    // only the first texture group is used
+    auto &skinref = g_studiomdl.materials.skinref;
+    const auto &groups = g_studiomdl.materials.texturegroups;
+    const size_t numFamilies = groups.empty() || groups[0].empty() ? 1 : groups[0].size();
+    skinref.clear();
+    for (size_t family = 0; family < numFamilies; family++) {
+        auto &row = skinref.emplace_back(g_studiomdl.materials.textures.size());
+        std::iota(row.begin(), row.end(), 0);
+    }
+    if (!groups.empty() && !groups[0].empty()) {
+        const auto &families = groups[0];
+        for (size_t family = 0; family < families.size(); family++) {
+            const size_t count = std::min(families[family].size(), families[0].size());
+            for (size_t j = 0; j < count; j++) {
+                skinref[family][families[0][j]] = families[family][j];
+            }
         }
     }
-    index = 0;
-    for (i = 0; i < g_studiomdl.numtexturelayers[0]; i++) {
-        for (j = 0; j < g_studiomdl.numtexturereps[0]; j++) {
-            g_studiomdl.skinref[i][g_studiomdl.texturegroup[0][0][j]] = g_studiomdl.texturegroup[0][i][j];
-        }
-    }
-
-    if (i != 0) {
-        g_studiomdl.numskinfamilies = i;
-    }
-    else {
-        g_studiomdl.numskinfamilies = 1;
-    }
-    g_studiomdl.numskinref = g_studiomdl.textures.size();
 
     FlexOptimizeFixupSkinFamilies();
 
@@ -560,13 +555,13 @@ void SetSkinValues() {
 // Returns surface property for a given joint
 //-----------------------------------------------------------------------------
 void ConsistencyCheckSurfaceProp() {
-    for (int i = g_StudioMdlContext.JointSurfaceProp.Count(); --i >= 0;) {
-        int j = findGlobalBone(g_StudioMdlContext.JointSurfaceProp[i].m_pJointName);
+    for (int i = std::ssize(g_studiomdl.materials.JointSurfaceProp); --i >= 0;) {
+        int j = findGlobalBone(g_studiomdl.materials.JointSurfaceProp[i].m_pJointName);
 
         if (j < 0) {
             MdlWarning("You specified a joint surface property for joint\n"
                        "    \"{}\" which either doesn't exist or was optimized out.\n",
-                       g_StudioMdlContext.JointSurfaceProp[i].m_pJointName);
+                       g_studiomdl.materials.JointSurfaceProp[i].m_pJointName);
         }
     }
 }
@@ -581,7 +576,7 @@ void ConsistencyCheckContents() {
         if (j < 0) {
             MdlWarning("You specified a joint contents for joint\n"
                        "    \"{}\" which either doesn't exist or was optimized out.\n",
-                       g_StudioMdlContext.JointSurfaceProp[i].m_pJointName);
+                       g_studiomdl.materials.JointSurfaceProp[i].m_pJointName);
         }
     }
 }
@@ -640,12 +635,6 @@ void UsageAndExit() {
 int CStudioMDLApp::Main() {
     {
         vstd::FunctionTimingRecorder _("main");
-        g_StudioMdlContext.numverts = g_StudioMdlContext.numnormals = 0;
-        g_StudioMdlContext.faces.clear();
-        for (int &g_numtexcoord: g_StudioMdlContext.numtexcoords) {
-            g_numtexcoord = 0;
-        }
-
         // This bit of hackery allows us to access files on the harddrive
         g_pFullFileSystem->AddSearchPath("", "LOCAL", PATH_ADD_TO_HEAD);
 
@@ -657,14 +646,13 @@ int CStudioMDLApp::Main() {
 
         ParseGameInfo();
 
-        StudioMdlContext &context = g_StudioMdlContext;
-        if (!context.quiet) {
-            std::print("qdir:    \"{}\"\n", context.qdir);
-            std::print("gamedir: \"{}\"\n", context.gameDir);
-            std::print("g_path:  \"{}\"\n", context.qcPath);
+        if (!g_studiomdl.options.quiet) {
+            std::print("qdir:    \"{}\"\n", g_studiomdl.paths.qdir);
+            std::print("gamedir: \"{}\"\n", g_studiomdl.paths.gameDir);
+            std::print("g_path:  \"{}\"\n", g_studiomdl.paths.qcPath);
         }
 
-        const std::string ext(vstd::paths::extension(context.qcPath));
+        const std::string ext(vstd::paths::extension(g_studiomdl.paths.qcPath));
         // .mpp: DMX model description instead of a QC (Valve's mdlcompile input)
         const bool bPreprocessed = vstd::iequals(ext, "mpp");
 
@@ -674,24 +662,24 @@ int CStudioMDLApp::Main() {
             return 1;
         }
 
-        if (!context.quiet)
+        if (!g_studiomdl.options.quiet)
             std::print("Building binary model files...\n");
 
         // the input is read from qdir (its directory)
-        context.qcPath = vstd::paths::file_base(context.qcPath);
-        vstd::paths::default_extension(context.qcPath, bPreprocessed ? ".mpp" : SRC_FILE_EXT);
+        g_studiomdl.paths.qcPath = vstd::paths::file_base(g_studiomdl.paths.qcPath);
+        vstd::paths::default_extension(g_studiomdl.paths.qcPath, bPreprocessed ? ".mpp" : SRC_FILE_EXT);
 
-        if (!context.quiet) {
-            std::print("Working on \"{}\"\n", context.qcPath);
+        if (!g_studiomdl.options.quiet) {
+            std::print("Working on \"{}\"\n", g_studiomdl.paths.qcPath);
         }
 
-        g_studiomdl.fullpath = ExpandArg(ExpandPath(context.qcPath));
+        g_studiomdl.paths.fullpath = ExpandArg(ExpandPath(g_studiomdl.paths.qcPath));
 
         // default to having one entry in the LOD list that doesn't do anything so
         // that we don't have to do any special cases for the first LOD.
-        g_studiomdl.ScriptLODs.Purge();
-        g_studiomdl.ScriptLODs.AddToTail(); // add an empty one
-        g_studiomdl.ScriptLODs[0].switchValue = 0.0f;
+        g_studiomdl.body.ScriptLODs.clear();
+        g_studiomdl.body.ScriptLODs.emplace_back(); // add an empty one
+        g_studiomdl.body.ScriptLODs[0].switchValue = 0.0f;
 
         //
         // parse it
@@ -700,25 +688,25 @@ int CStudioMDLApp::Main() {
 
         //	strcpy( g_pPlatformName, "" );
         if (bPreprocessed) {
-            if (!ParsePreprocessedFile(g_studiomdl.fullpath)) {
-                MdlError("Invalid MPP File: {}\n", context.qcPath);
+            if (!ParsePreprocessedFile(g_studiomdl.paths.fullpath)) {
+                MdlError("Invalid MPP File: {}\n", g_studiomdl.paths.qcPath);
                 return 1;
             }
         }
         else {
             ScriptTokenizer qc;
             InstallMdlErrorHandler(qc);
-            qc.LoadFile(context.qcPath.c_str());
+            qc.LoadFile(g_studiomdl.paths.qcPath.c_str());
             ParseScript(qc);
         }
 
-        if (!g_StudioMdlContext.createMakefile) {
+        if (!g_studiomdl.options.createMakefile) {
             FlexOptimizeSources();
 
-            int nCount = g_studiomdl.sources.size();
+            int nCount = g_studiomdl.anim.sources.size();
             for (int i = 0; i < nCount; i++) {
-                if (g_studiomdl.sources[i]->isActiveModel) {
-                    ClampMaxVerticesPerModel(g_studiomdl.sources[i]);
+                if (g_studiomdl.anim.sources[i]->isActiveModel) {
+                    ClampMaxVerticesPerModel(g_studiomdl.anim.sources[i]);
                 }
             }
 
@@ -733,25 +721,25 @@ int CStudioMDLApp::Main() {
 
             WriteModelFiles();
             CollisionModel_Build();
-            CollisionModel_Write(g_studiomdl.checksum);
+            CollisionModel_Write(g_studiomdl.header.checksum);
         }
 
-        if (g_StudioMdlContext.createMakefile) {
+        if (g_studiomdl.options.createMakefile) {
             CreateMakefile_OutputMakefile();
         }
 
-        if (!g_StudioMdlContext.quiet) {
-            std::print("\nCompleted \"{}\"\n", g_StudioMdlContext.qcPath);
+        if (!g_studiomdl.options.quiet) {
+            std::print("\nCompleted \"{}\"\n", g_studiomdl.paths.qcPath);
         }
 
-        if (g_StudioMdlContext.parseable_completion_output) {
+        if (g_studiomdl.options.parseable_completion_output) {
             std::print("\nRESULT: SUCCESS\n");
         }
 
         g_pDataModel->UnloadFile(DMFILEID_INVALID);
     }
 
-    if (g_StudioMdlContext.perf) {
+    if (g_studiomdl.options.perf) {
         vstd::print_function_timings();
     }
 
@@ -814,20 +802,20 @@ static std::string AbsoluteDirectory(const std::filesystem::path &path) {
 static void SetupStandardDirectories(const char* pQCPath, const std::string_view pGameInfoPath) {
     std::error_code ec;
     const std::filesystem::path qc = std::filesystem::absolute(vstd::paths::to_fs(pQCPath), ec).lexically_normal();
-    g_StudioMdlContext.qdir = AbsoluteDirectory(qc.parent_path());
+    g_studiomdl.paths.qdir = AbsoluteDirectory(qc.parent_path());
 #if !(PLATFORM_LINUX)
-    vstd::make_lower_ascii(g_StudioMdlContext.qdir);
+    vstd::make_lower_ascii(g_studiomdl.paths.qdir);
 #endif
-    g_StudioMdlContext.gameDir = AbsoluteDirectory(vstd::paths::to_fs(pGameInfoPath));
+    g_studiomdl.paths.gameDir = AbsoluteDirectory(vstd::paths::to_fs(pGameInfoPath));
 }
 
 bool CStudioMDLApp::PreInit() {
     g_pFileSystem = g_pFullFileSystem;
 
-    if (!SetupSearchPaths(g_StudioMdlContext.qcPath.c_str(), false, true))
+    if (!SetupSearchPaths(g_studiomdl.paths.qcPath.c_str(), false, true))
         return false;
 
-    SetupStandardDirectories(g_StudioMdlContext.qcPath.c_str(), GetGameInfoPath());
+    SetupStandardDirectories(g_studiomdl.paths.qcPath.c_str(), GetGameInfoPath());
     return true;
 }
 
@@ -861,33 +849,32 @@ static bool ParseFitWeightsPoses(const std::string_view text, int &fitPoses, int
 // Method which parses arguments
 //-----------------------------------------------------------------------------
 bool CStudioMDLApp::ParseArguments() {
-    g_studiomdl.currentscale = g_studiomdl.defaultscale = 1.0;
-    g_studiomdl.defaultrotation = RadianEuler(0, 0, std::numbers::pi / 2);
+    g_studiomdl.script.currentscale = g_studiomdl.script.defaultscale = 1.0;
+    g_studiomdl.script.defaultrotation = RadianEuler(0, 0, std::numbers::pi / 2);
 
-    // skip weightlist 0
-    g_studiomdl.numweightlist = 1;
+    // weightlist [0] is the default one ($defaultweightlist)
+    g_studiomdl.anim.weightlist.resize(1);
 
-    g_studiomdl.eyeposition = Vector(0, 0, 0);
-    g_studiomdl.gflags = 0;
-    g_studiomdl.numrep = 0;
+    g_studiomdl.header.eyeposition = Vector(0, 0, 0);
+    g_studiomdl.header.gflags = 0;
 
-    g_studiomdl.normal_blend = std::cos(vstd::deg2rad(2.0f));
+    g_studiomdl.options.normal_blend = std::cos(vstd::deg2rad(2.0f));
 
-    g_studiomdl.gamma = 2.2;
+    g_studiomdl.options.gamma = 2.2;
 
-    g_studiomdl.staticprop = false;
-    g_studiomdl.centerstaticprop = false;
+    g_studiomdl.header.staticprop = false;
+    g_studiomdl.header.centerstaticprop = false;
 
-    g_studiomdl.realignbones = false;
-    g_studiomdl.constdirectionalightdot = 0;
+    g_studiomdl.options.realignbones = false;
+    g_studiomdl.header.constdirectionalightdot = 0;
 
     g_bDumpGLViewFiles = false;
-    g_StudioMdlContext.quiet = false;
+    g_studiomdl.options.quiet = false;
 
-    g_studiomdl.illumpositionattachment = 0;
-    g_studiomdl.flMaxEyeDeflection = 0.0f;
+    g_studiomdl.header.illumpositionattachment = 0;
+    g_studiomdl.header.flMaxEyeDeflection = 0.0f;
 
-    g_StudioMdlContext.collapse_bones_message = false;
+    g_studiomdl.options.collapse_bones_message = false;
 
     const uint32_t argc = CommandLine()->ParmCount();
     int i;
@@ -901,13 +888,13 @@ bool CStudioMDLApp::ParseArguments() {
             continue;
 
         if (vstd::iequals(argValue, "-collapsereport")) {
-            g_StudioMdlContext.collapse_bones_message = true;
+            g_studiomdl.options.collapse_bones_message = true;
             continue;
         }
 
         if (vstd::iequals(argValue, "-parsecompletion")) {
             // reliably prints output we can parse for automatically
-            g_StudioMdlContext.parseable_completion_output = true;
+            g_studiomdl.options.parseable_completion_output = true;
             continue;
         }
 
@@ -927,51 +914,51 @@ bool CStudioMDLApp::ParseArguments() {
         }
 
         if (vstd::iequals(argValue, "-overridedefinebones")) {
-            g_StudioMdlContext.defineBonesLockedByDefault = false;
+            g_studiomdl.options.defineBonesLockedByDefault = false;
             continue;
         }
 
         if (vstd::iequals(argValue, "-striplods")) {
-            g_StudioMdlContext.stripLods = true;
+            g_studiomdl.options.stripLods = true;
             continue;
         }
 
         if (vstd::iequals(argValue, "-quiet")) {
-            g_StudioMdlContext.quiet = true;
-            g_StudioMdlContext.verbose = false;
+            g_studiomdl.options.quiet = true;
+            g_studiomdl.options.verbose = false;
             continue;
         }
 
         if (vstd::iequals(argValue, "-verbose")) {
-            g_StudioMdlContext.quiet = false;
-            g_StudioMdlContext.verbose = true;
+            g_studiomdl.options.quiet = false;
+            g_studiomdl.options.verbose = true;
             continue;
         }
 
 
         if (vstd::iequals(argValue, "-checklengths")) {
-            g_StudioMdlContext.checkLengths = true;
+            g_studiomdl.options.checkLengths = true;
             continue;
         }
 
         if (vstd::iequals(argValue, "-printbones")) {
-            g_StudioMdlContext.printBones = true;
+            g_studiomdl.options.printBones = true;
             continue;
         }
 
         if (vstd::iequals(argValue, "-perf")) {
-            g_StudioMdlContext.perf = true;
+            g_studiomdl.options.perf = true;
             continue;
         }
 
         if (vstd::iequals(argValue, "-fitweights")) {
-            g_StudioMdlContext.fitWeights = true;
+            g_studiomdl.options.fitWeights = true;
             // optional pose counts (the last argument is the QC file, never a value)
             if (i + 1 < argc - 1) {
                 const auto optCounts = CommandLine()->GetParm(i + 1);
                 if (optCounts && !optCounts->empty() && (*optCounts)[0] >= '0' && (*optCounts)[0] <= '9') {
-                    if (!ParseFitWeightsPoses(*optCounts, g_StudioMdlContext.fitWeightsFitPoses,
-                                              g_StudioMdlContext.fitWeightsTestPoses)) {
+                    if (!ParseFitWeightsPoses(*optCounts, g_studiomdl.options.fitWeightsFitPoses,
+                                              g_studiomdl.options.fitWeightsTestPoses)) {
                         MdlError("-fitweights: expected <poses> or <fitting poses>,<test poses> (1-{} each), got \"{}\"\n",
                                  kMaxFitWeightsPoses, *optCounts);
                     }
@@ -982,97 +969,95 @@ bool CStudioMDLApp::ParseArguments() {
         }
 
         if (vstd::iequals(argValue, "-printgraph")) {
-            g_StudioMdlContext.dumpGraph = true;
+            g_studiomdl.options.dumpGraph = true;
             continue;
         }
 
         if (vstd::iequals(argValue, "-definebones")) {
-            g_studiomdl.definebones = true;
+            g_studiomdl.options.definebones = true;
             continue;
         }
 
         if (vstd::iequals(argValue, "-makefile")) {
-            g_StudioMdlContext.createMakefile = true;
-            g_StudioMdlContext.quiet = true;
+            g_studiomdl.options.createMakefile = true;
+            g_studiomdl.options.quiet = true;
             continue;
         }
 
         if (vstd::iequals(argValue, "-verify")) {
-            g_StudioMdlContext.verifyOnly = true;
+            g_studiomdl.options.verifyOnly = true;
             continue;
         }
 
         if (vstd::iequals(argValue, "-minlod")) {
-            g_StudioMdlContext.minLod = vstd::str_to_int<int32_t>(CommandLine()->GetParm(++i).value());
+            g_studiomdl.options.minLod = vstd::str_to_int<int32_t>(CommandLine()->GetParm(++i).value());
             continue;
         }
 
         if (vstd::iequals(argValue, "-fastbuild")) {
             // Does nothing now, it's already faster that original studiomdl with -fastbuild
             // sw and dx80 are also strippped
-            // g_StudioMdlContext.fastBuild = true;
             continue;
         }
 
         if (vstd::iequals(argValue, "-nowarnings")) {
-            g_StudioMdlContext.noWarnings = true;
+            g_studiomdl.options.noWarnings = true;
             continue;
         }
 
         if (vstd::iequals(argValue, "-flexopt")) {
             const std::string_view pMode = CommandLine()->GetParm(++i).value();
-            if (!ParseFlexOptimizeMode(pMode, g_StudioMdlContext.flexOptimizeMode)) {
+            if (!ParseFlexOptimizeMode(pMode, g_studiomdl.options.flexOptimizeMode)) {
                 MdlError("-flexopt expects auto, on or off, got \"{}\"\n", pMode);
             }
             continue;
         }
 
         if (vstd::iequals(argValue, "-flexopt_min_static")) {
-            g_StudioMdlContext.flexOptimizeMinStatic = vstd::str_to_int<int32_t>(CommandLine()->GetParm(++i).value());
+            g_studiomdl.options.flexOptimizeMinStatic = vstd::str_to_int<int32_t>(CommandLine()->GetParm(++i).value());
             continue;
         }
 
         if (vstd::iequals(argValue, "-maxwarnings")) {
-            g_StudioMdlContext.maxWarnings = vstd::str_to_int<int32_t>(CommandLine()->GetParm(++i).value());
+            g_studiomdl.options.maxWarnings = vstd::str_to_int<int32_t>(CommandLine()->GetParm(++i).value());
             continue;
         }
 
         if (vstd::iequals(argValue, "-preview")) {
-            g_StudioMdlContext.buildPreview = true;
+            g_studiomdl.options.buildPreview = true;
             continue;
         }
 
         if (vstd::iequals(argValue, "-dumpmaterials")) {
-            g_StudioMdlContext.dumpMaterials = true;
+            g_studiomdl.options.dumpMaterials = true;
             continue;
         }
 
         if (argValue[1] && argValue[2] == '\0') {
             switch (argValue[1]) {
                 case 't': {
+                    // -t <default texture> [<texture it replaces>]; without the second, every texture is replaced
                     i++;
-                    auto& default_texture = g_studiomdl.defaulttextures[g_studiomdl.numrep];
-                    default_texture = argValue;
+                    auto &default_texture = g_studiomdl.materials.defaulttextures.emplace_back();
+                    auto &source_texture = g_studiomdl.materials.sourcetextures.emplace_back();
+                    default_texture = CommandLine()->GetParm(i).value();
                     if (i < argc - 2 && CommandLine()->GetParm(i + 1).value()[0] != '-') {
                         i++;
-                        auto& source_texture = g_studiomdl.sourcetextures[g_studiomdl.numrep];
-                        source_texture = argValue;
-                        std::print("Replacing {} with {}\n", g_studiomdl.sourcetextures[g_studiomdl.numrep],
-                                   g_studiomdl.defaulttextures[g_studiomdl.numrep]);
+                        source_texture = CommandLine()->GetParm(i).value();
+                        std::print("Replacing {} with {}\n", source_texture, default_texture);
                     }
-                    std::print("Using default texture: {}\n", g_studiomdl.defaulttextures[0]);
-                    g_studiomdl.numrep++;
+                    std::print("Using default texture: {}\n", g_studiomdl.materials.defaulttextures[0]);
                     break;
                 }
                 case 'a':
                     i++;
-                    g_studiomdl.normal_blend = cos(vstd::deg2rad(vstd::str_to_float<float>(argValue)));
+                    g_studiomdl.options.normal_blend = cos(vstd::deg2rad(vstd::str_to_float<float>(argValue)));
                     break;
                 case 'h':
-                    g_studiomdl.dump_hboxes = 1;
+                    g_studiomdl.options.dump_hboxes = 1;
                     break;
                 case 'i':
-                    g_studiomdl.ignore_warnings = 1;
+                    g_studiomdl.options.ignore_warnings = 1;
                     break;
                 case 'd':
                     g_bDumpGLViewFiles = true;
@@ -1096,13 +1081,13 @@ bool CStudioMDLApp::ParseArguments() {
     if (!qcArgument) {
         UsageAndExit();
     }
-    g_StudioMdlContext.qcPath = *qcArgument;
+    g_studiomdl.paths.qcPath = *qcArgument;
     if (vstd::paths::is_absolute(*qcArgument)) {
         // Set the working directory to be the path of the qc file
         // so the relative-file fopen code works
         std::error_code ec;
         std::filesystem::current_path(vstd::paths::to_fs(vstd::paths::directory(*qcArgument)), ec);
     }
-    g_studiomdl.outname = vstd::paths::without_extension(*qcArgument);
+    g_studiomdl.paths.outname = vstd::paths::without_extension(*qcArgument);
     return true;
 }

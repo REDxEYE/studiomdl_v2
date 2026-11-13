@@ -53,30 +53,24 @@
 #ifdef WIN32
 #undef strdup
 #define strdup _strdup
-#define strlwr _strlwr
 #endif
 
-// No "{}": value-initializing a class with a defaulted constructor memsets the whole object (tens of MB of fixed
-// arrays) at startup. Static storage is already zero, and untouched pages are never faulted in.
-StudioMDLGlobalState g_studiomdl;
-StudioMdlContext g_StudioMdlContext{};
+// No "{}": value-initializing the state would memset the whole object (tens of MB of fixed arrays) at startup.
+// Static storage is already zero, and untouched pages are never faulted in.
+StudioMdlState g_studiomdl;
 
 //-----------------------------------------------------------------------------
 //  Stuff for writing a makefile to build models incrementally.
 //-----------------------------------------------------------------------------
 void CreateMakefile_AddDependency(const char *pFileName) {
-    if (!g_StudioMdlContext.createMakefile) {
+    if (!g_studiomdl.options.createMakefile) {
         return;
     }
 
-    CUtlSymbol sym(pFileName);
-    int i;
-    for (i = 0; i < g_StudioMdlContext.CreateMakefileDependencies.size(); i++) {
-        if (g_StudioMdlContext.CreateMakefileDependencies[i] == sym) {
-            return;
-        }
+    auto &dependencies = g_studiomdl.paths.CreateMakefileDependencies;
+    if (std::ranges::find(dependencies, std::string_view(pFileName)) == dependencies.end()) {
+        dependencies.emplace_back(pFileName);
     }
-    g_StudioMdlContext.CreateMakefileDependencies.emplace_back(sym);
 }
 
 // Command-line number parsing; QC tokens use ScriptTokenizer::TokenInt/TokenFloat.
@@ -100,10 +94,10 @@ float verify_atof(const char *text) {
 // Read global input into common string
 //-----------------------------------------------------------------------------
 bool GetLineInput() {
-    while (g_StudioMdlContext.inputFile->Gets(g_StudioMdlContext.szLine, sizeof(g_StudioMdlContext.szLine)) != nullptr) {
-        g_StudioMdlContext.iLinecount++;
+    while (g_studiomdl.input.inputFile->Gets(g_studiomdl.input.szLine, sizeof(g_studiomdl.input.szLine)) != nullptr) {
+        g_studiomdl.input.iLinecount++;
         // skip comments
-        if (g_StudioMdlContext.szLine[0] == '/' && g_StudioMdlContext.szLine[1] == '/')
+        if (g_studiomdl.input.szLine[0] == '/' && g_studiomdl.input.szLine[1] == '/')
             continue;
 
         return true;
@@ -113,17 +107,16 @@ bool GetLineInput() {
 
 int LookupPoseParameter(const char *name) {
     int i;
-    for (i = 0; i < g_studiomdl.numposeparameters; i++) {
-        if (!stricmp(name, g_studiomdl.pose[i].name)) {
+    for (i = 0; i < std::ssize(g_studiomdl.anim.pose); i++) {
+        if (vstd::iequals(name, g_studiomdl.anim.pose[i].name)) {
             return i;
         }
     }
-    strcpyn(g_studiomdl.pose[i].name, name);
-    g_studiomdl.numposeparameters = i + 1;
 
-    if (g_studiomdl.numposeparameters > MAXSTUDIOPOSEPARAM) {
+    if (i >= MAXSTUDIOPOSEPARAM) {
         MdlError("too many pose parameters (max {})\n", MAXSTUDIOPOSEPARAM);
     }
+    strcpyn(g_studiomdl.anim.pose.emplace_back().name, name);
 
     return i;
 }
@@ -135,7 +128,7 @@ s_sourceanim_t *FindSourceAnim(s_source_t *pSource, const char *pAnimName) {
     int nCount = pSource->m_Animations.Count();
     for (int i = 0; i < nCount; ++i) {
         s_sourceanim_t *pAnim = &pSource->m_Animations[i];
-        if (!Q_stricmp(pAnimName, pAnim->animationname))
+        if (vstd::iequals(pAnimName, pAnim->animationname))
             return pAnim;
     }
     return nullptr;
@@ -148,7 +141,7 @@ const s_sourceanim_t *FindSourceAnim(const s_source_t *pSource, const char *pAni
     int nCount = pSource->m_Animations.Count();
     for (int i = 0; i < nCount; ++i) {
         const s_sourceanim_t *pAnim = &pSource->m_Animations[i];
-        if (!Q_stricmp(pAnimName, pAnim->animationname))
+        if (vstd::iequals(pAnimName, pAnim->animationname))
             return pAnim;
     }
     return nullptr;
@@ -161,7 +154,7 @@ s_sourceanim_t *FindOrAddSourceAnim(s_source_t *pSource, const char *pAnimName) 
     int nCount = pSource->m_Animations.Count();
     for (int i = 0; i < nCount; ++i) {
         s_sourceanim_t *pAnim = &pSource->m_Animations[i];
-        if (!Q_stricmp(pAnimName, pAnim->animationname))
+        if (vstd::iequals(pAnimName, pAnim->animationname))
             return pAnim;
     }
 
@@ -180,54 +173,54 @@ int LookupTexture(const char *pTextureName, bool bRelativePath) {
     Q_FileBase(pTextureName, pTextureBase, sizeof(pTextureBase));
 
     int nFlags = bRelativePath ? RELATIVE_TEXTURE_PATH_SPECIFIED : 0;
-    for (size_t i = 0; i < g_studiomdl.textures.size(); i++) {
-        if (g_studiomdl.textures[i].flags == nFlags) {
-            if (!Q_stricmp(pTextureNoExt, g_studiomdl.textures[i].name))
+    for (size_t i = 0; i < g_studiomdl.materials.textures.size(); i++) {
+        if (g_studiomdl.materials.textures[i].flags == nFlags) {
+            if (vstd::iequals(pTextureNoExt, g_studiomdl.materials.textures[i].name))
                 return i;
             continue;
         }
 
         // Comparing relative vs non-relative
         if (bRelativePath) {
-            if (!Q_stricmp(pTextureBase, g_studiomdl.textures[i].name))
+            if (vstd::iequals(pTextureBase, g_studiomdl.materials.textures[i].name))
                 return i;
             continue;
         }
 
         // Comparing non-relative vs relative
-        Q_FileBase(g_studiomdl.textures[i].name, pTextureBase2, sizeof(pTextureBase2));
+        Q_FileBase(g_studiomdl.materials.textures[i].name, pTextureBase2, sizeof(pTextureBase2));
         if (!Q_stricmp(pTextureNoExt, pTextureBase2))
             return i;
     }
 
-    if (g_studiomdl.textures.size() >= MAXSTUDIOSKINS) {
+    if (g_studiomdl.materials.textures.size() >= MAXSTUDIOSKINS) {
         MdlError("Too many materials used, max {}\n", (int) MAXSTUDIOSKINS);
     }
 
-    auto& newTexture = g_studiomdl.textures.emplace();
+    auto& newTexture = g_studiomdl.materials.textures.emplace();
 
     Q_strncpy(newTexture.name, pTextureNoExt, sizeof(newTexture.name));
     newTexture.material = -1;
     newTexture.flags = nFlags;
-    return static_cast<int>(g_studiomdl.textures.size() - 1);
+    return static_cast<int>(g_studiomdl.materials.textures.size() - 1);
 }
 
 int UseTextureAsMaterial(int textureindex) {
-    if (g_studiomdl.textures[textureindex].material == -1) {
-        if (g_StudioMdlContext.dumpMaterials) {
-            std::print("material {} {} {}\n", textureindex, g_studiomdl.materials.size(), g_studiomdl.textures[textureindex].name);
+    if (g_studiomdl.materials.textures[textureindex].material == -1) {
+        if (g_studiomdl.options.dumpMaterials) {
+            std::print("material {} {} {}\n", textureindex, g_studiomdl.materials.materials.size(), g_studiomdl.materials.textures[textureindex].name);
         }
-        g_studiomdl.materials.emplace_back(textureindex);
-        g_studiomdl.textures[textureindex].material = static_cast<int>(g_studiomdl.materials.size() - 1);
+        g_studiomdl.materials.materials.emplace_back(textureindex);
+        g_studiomdl.materials.textures[textureindex].material = static_cast<int>(g_studiomdl.materials.materials.size() - 1);
     }
 
-    return g_studiomdl.textures[textureindex].material;
+    return g_studiomdl.materials.textures[textureindex].material;
 }
 
 int MaterialToTexture(int material) {
     int i;
-    for (i = 0; i < g_studiomdl.textures.size(); i++) {
-        if (g_studiomdl.textures[i].material == material) {
+    for (i = 0; i < g_studiomdl.materials.textures.size(); i++) {
+        if (g_studiomdl.materials.textures[i].material == material) {
             return i;
         }
     }
@@ -236,7 +229,7 @@ int MaterialToTexture(int material) {
 
 //Wrong name for the use of it.
 void scale_vertex(Vector &org) {
-    org *= g_studiomdl.currentscale;
+    org *= g_studiomdl.script.currentscale;
 }
 
 void Build_Reference(s_source_t *pSource, const char *pAnimName) {
@@ -288,7 +281,7 @@ int Grab_Nodes(std::array<s_node_t, MAXSTUDIOSRCBONES> &pnodes) {
     }
 
     while (GetLineInput()) {
-        if (sscanf(g_StudioMdlContext.szLine, "%d \"%[^\"]\" %d", &index, name, &parent) == 3) {
+        if (sscanf(g_studiomdl.input.szLine, "%d \"%[^\"]\" %d", &index, name, &parent) == 3) {
             // check for duplicated bones
             /*
 			if (strlen(pnodes[index].name) != 0)
@@ -306,7 +299,7 @@ int Grab_Nodes(std::array<s_node_t, MAXSTUDIOSRCBONES> &pnodes) {
             return numbones + 1;
         }
     }
-    MdlError("Unexpected EOF at line {}\n", g_StudioMdlContext.iLinecount);
+    MdlError("Unexpected EOF at line {}\n", g_studiomdl.input.iLinecount);
     return 0;
 }
 
@@ -329,7 +322,7 @@ bool s_attachment_t::operator==(const s_attachment_t &rhs) const {
     if (Q_strcmp(name, rhs.name))
         return false;
 
-    if (Q_stricmp(bonename, rhs.bonename) ||
+    if (!vstd::iequals(bonename, rhs.bonename) ||
         bone != rhs.bone ||
         type != rhs.type ||
         flags != rhs.flags ||
@@ -607,10 +600,10 @@ void Grab_Animation(s_source_t *pSource, const char *pAnimName) {
     size = pSource->numbones * sizeof(s_bone_t);
 
     while (GetLineInput()) {
-        if (sscanf(g_StudioMdlContext.szLine.c_str(), "%d %f %f %f %f %f %f", &index, &pos[0], &pos[1], &pos[2], &rot[0], &rot[1], &rot[2]) ==
+        if (sscanf(g_studiomdl.input.szLine.c_str(), "%d %f %f %f %f %f %f", &index, &pos[0], &pos[1], &pos[2], &rot[0], &rot[1], &rot[2]) ==
             7) {
             if (pAnim->startframe < 0) {
-                MdlError("Missing frame start({}) : {}", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
+                MdlError("Missing frame start({}) : {}", g_studiomdl.input.iLinecount, g_studiomdl.input.szLine);
             }
 
             scale_vertex(pos);
@@ -621,8 +614,8 @@ void Grab_Animation(s_source_t *pSource, const char *pAnimName) {
             continue;
         }
 
-        if (sscanf(g_StudioMdlContext.szLine.c_str(), "%1023s %d", cmd, &index) == 0) {
-            MdlError("MdlError({}) : {}", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
+        if (sscanf(g_studiomdl.input.szLine.c_str(), "%1023s %d", cmd, &index) == 0) {
+            MdlError("MdlError({}) : {}", g_studiomdl.input.iLinecount, g_studiomdl.input.szLine);
             continue;
         }
 
@@ -632,7 +625,7 @@ void Grab_Animation(s_source_t *pSource, const char *pAnimName) {
                 pAnim->startframe = t;
             }
             if (t < pAnim->startframe) {
-                MdlError("Frame MdlError({}) : {}", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
+                MdlError("Frame MdlError({}) : {}", g_studiomdl.input.iLinecount, g_studiomdl.input.szLine);
             }
             if (t > pAnim->endframe) {
                 pAnim->endframe = t;
@@ -673,7 +666,7 @@ void Grab_Animation(s_source_t *pSource, const char *pAnimName) {
             return;
         }
 
-        MdlError("MdlError({}) : {}", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
+        MdlError("MdlError({}) : {}", g_studiomdl.input.iLinecount, g_studiomdl.input.szLine);
     }
 
     MdlError("unexpected EOF: {}\n", pSource->filename);
@@ -799,9 +792,9 @@ void AddSrcToSrc(s_source_t *pOrigSource, s_source_t *pAppendSource) {
 //-----------------------------------------------------------------------------
 // Loads an animation/model source
 //-----------------------------------------------------------------------------
-s_source_t *Load_Source(const char *name, const char *ext, bool reverse, bool isActiveModel, bool bUseCache) {
+s_source_t *Load_Source(const std::string_view name, const char *ext, bool reverse, bool isActiveModel, bool bUseCache) {
     vstd::FunctionTimingRecorder _("Parse");
-    if (g_studiomdl.sources.size() >= g_studiomdl.sources.capacity()) {
+    if (g_studiomdl.anim.sources.size() >= g_studiomdl.anim.sources.capacity()) {
         MdlError("Load_Source( {} ) - overflowed g_studiomdl_global_state.numsources.", name);
     }
 
@@ -834,16 +827,16 @@ s_source_t *Load_Source(const char *name, const char *ext, bool reverse, bool is
     // So we have to deal with setting everything up in this source prior to
     // calling the load func, and we cannot reference g_studiomdl_global_state.source anywhere below
     pSource = c_allocate<s_source_t>();
-    g_studiomdl.sources.emplace_back(pSource);
+    g_studiomdl.anim.sources.emplace_back(pSource);
     if (isActiveModel) {
         pSource->isActiveModel = true;
     }
 
     // copy over default settings of when the model was loaded
     // (since there's no actual animation for some of the systems)
-    VectorCopy(g_studiomdl.defaultadjust, pSource->adjust);
+    VectorCopy(g_studiomdl.script.defaultadjust, pSource->adjust);
     pSource->scale = 1.0f;
-    pSource->rotation = g_studiomdl.defaultrotation;
+    pSource->rotation = g_studiomdl.script.defaultrotation;
 
     const std::array supported_formats = {
             std::make_pair("vrm", Load_VRM),
@@ -858,17 +851,17 @@ s_source_t *Load_Source(const char *name, const char *ext, bool reverse, bool is
     };
     for (int fmt_id = 0; fmt_id < supported_formats.size(); ++fmt_id) {
         if ((!result && xext.empty()) || xext == supported_formats[fmt_id].first) {
-            g_StudioMdlContext.szFilename = g_studiomdl.cddir.back() + tempName + "." + supported_formats[fmt_id].first;
-            pSource->filename = g_StudioMdlContext.szFilename;
+            g_studiomdl.input.szFilename = g_studiomdl.paths.cddir.back() + tempName + "." + supported_formats[fmt_id].first;
+            pSource->filename = g_studiomdl.input.szFilename;
             result = (supported_formats[fmt_id].second)(pSource);
         }
     }
 
-    if (!g_StudioMdlContext.createMakefile && !result) {
+    if (!g_studiomdl.options.createMakefile && !result) {
         if (xext.empty()) {
-            MdlError("could not load file '{}{}'\n", g_studiomdl.cddir.back(), tempName);
+            MdlError("could not load file '{}{}'\n", g_studiomdl.paths.cddir.back(), tempName);
         } else {
-            MdlError("could not load file '{}{}.{}'\n", g_studiomdl.cddir.back(), tempName, xext);
+            MdlError("could not load file '{}{}.{}'\n", g_studiomdl.paths.cddir.back(), tempName, xext);
         }
     }
 
@@ -885,18 +878,18 @@ s_source_t *Load_Source(const char *name, const char *ext, bool reverse, bool is
 
 int Add_Flexdesc(const char *name) {
     int flexdesc;
-    for (flexdesc = 0; flexdesc < g_studiomdl.flexdescs.size(); flexdesc++) {
-        if (stricmp(name, g_studiomdl.flexdescs[flexdesc].FACS.c_str()) == 0) {
+    for (flexdesc = 0; flexdesc < g_studiomdl.flex.flexdescs.size(); flexdesc++) {
+        if (vstd::iequals(name, g_studiomdl.flex.flexdescs[flexdesc].FACS)) {
             break;
         }
     }
 
-    if (flexdesc >= g_studiomdl.flexdescs.capacity()) {
+    if (flexdesc >= g_studiomdl.flex.flexdescs.capacity()) {
         MdlError("Too many flex types, max {}\n", MAXSTUDIOFLEXDESC);
     }
 
-    if (flexdesc == g_studiomdl.flexdescs.size()) {
-        g_studiomdl.flexdescs.emplace_back(name);
+    if (flexdesc == g_studiomdl.flex.flexdescs.size()) {
+        g_studiomdl.flex.flexdescs.emplace_back(name);
     }
     return flexdesc;
 }
@@ -907,7 +900,7 @@ int Add_Flexdesc(const char *name) {
 int FindSourceFlexKey(s_source_t *pSource, const char *pName) {
     int nCount = pSource->m_FlexKeys.Count();
     for (int i = 0; i < nCount; ++i) {
-        if (!Q_stricmp(pSource->m_FlexKeys[i].animationname, pName))
+        if (vstd::iequals(pSource->m_FlexKeys[i].animationname, pName))
             return i;
     }
     return -1;
@@ -942,21 +935,21 @@ void FindOrAddFlexController(
         const char *pszFlexControllerType = "default",
         float flMin = 0.0f,
         float flMax = 1.0f) {
-    for (int i = 0; i < g_studiomdl.flexcontrollers.size(); ++i) {
-        if (!V_strcmp(g_studiomdl.flexcontrollers[i].name, pszFlexControllerName)) {
-            if (V_strcmp(g_studiomdl.flexcontrollers[i].type, pszFlexControllerType) ||
-                g_studiomdl.flexcontrollers[i].min != flMin ||
-                g_studiomdl.flexcontrollers[i].max != flMax) {
+    for (int i = 0; i < g_studiomdl.flex.flexcontrollers.size(); ++i) {
+        if (!V_strcmp(g_studiomdl.flex.flexcontrollers[i].name, pszFlexControllerName)) {
+            if (V_strcmp(g_studiomdl.flex.flexcontrollers[i].type, pszFlexControllerType) ||
+                g_studiomdl.flex.flexcontrollers[i].min != flMin ||
+                g_studiomdl.flex.flexcontrollers[i].max != flMax) {
                 MdlWarning("Flex Controller {} Defined Twice With Different Params: {}, {:f} {:f} vs {}, {:f} {:f}\n",
                            pszFlexControllerName,
                            pszFlexControllerType, flMin, flMax,
-                           g_studiomdl.flexcontrollers[i].type, g_studiomdl.flexcontrollers[i].min, g_studiomdl.flexcontrollers[i].max);
+                           g_studiomdl.flex.flexcontrollers[i].type, g_studiomdl.flex.flexcontrollers[i].min, g_studiomdl.flex.flexcontrollers[i].max);
             }
 
             return;
         }
     }
-    g_studiomdl.flexcontrollers.emplace_back(s_flexcontroller_t{
+    g_studiomdl.flex.flexcontrollers.emplace_back(s_flexcontroller_t{
         .name = pszFlexControllerName,
         .type = pszFlexControllerType,
         .min = flMin,
@@ -1131,34 +1124,35 @@ void AddCombination(s_source_t *pSource, CDmeCombinationOperator *pCombination) 
 void AddSurfaceProp(const char *pBoneName, const char *pSurfaceProperty) {
     // Search for the name in our list
     int i;
-    for (i = g_StudioMdlContext.JointSurfaceProp.Count(); --i >= 0;) {
-        if (!Q_stricmp(g_StudioMdlContext.JointSurfaceProp[i].m_pJointName, pBoneName))
+    for (i = std::ssize(g_studiomdl.materials.JointSurfaceProp); --i >= 0;) {
+        if (vstd::iequals(g_studiomdl.materials.JointSurfaceProp[i].m_pJointName, pBoneName))
             break;
     }
 
     // Add new entry if we haven't seen this name before
     if (i < 0) {
-        i = g_StudioMdlContext.JointSurfaceProp.AddToTail();
-        Q_strncpy(g_StudioMdlContext.JointSurfaceProp[i].m_pJointName, pBoneName, sizeof(g_StudioMdlContext.JointSurfaceProp[i].m_pJointName));
+        g_studiomdl.materials.JointSurfaceProp.emplace_back();
+        i = std::ssize(g_studiomdl.materials.JointSurfaceProp) - 1;
+        Q_strncpy(g_studiomdl.materials.JointSurfaceProp[i].m_pJointName, pBoneName, sizeof(g_studiomdl.materials.JointSurfaceProp[i].m_pJointName));
     }
 
-    Q_strncpy(g_StudioMdlContext.JointSurfaceProp[i].m_pSurfaceProp, pSurfaceProperty, sizeof(g_StudioMdlContext.JointSurfaceProp[i].m_pSurfaceProp));
+    Q_strncpy(g_studiomdl.materials.JointSurfaceProp[i].m_pSurfaceProp, pSurfaceProperty, sizeof(g_studiomdl.materials.JointSurfaceProp[i].m_pSurfaceProp));
 }
 
 //-----------------------------------------------------------------------------
 // Returns the default surface prop name
 //-----------------------------------------------------------------------------
 char *GetDefaultSurfaceProp() {
-    return g_StudioMdlContext.pDefaultSurfaceProp;
+    return g_studiomdl.materials.pDefaultSurfaceProp;
 }
 
 //-----------------------------------------------------------------------------
 // Returns surface property for a given joint
 //-----------------------------------------------------------------------------
 char *FindSurfaceProp(const char *pJointName) {
-    for (int i = g_StudioMdlContext.JointSurfaceProp.Count(); --i >= 0;) {
-        if (!Q_stricmp(g_StudioMdlContext.JointSurfaceProp[i].m_pJointName, pJointName))
-            return g_StudioMdlContext.JointSurfaceProp[i].m_pSurfaceProp;
+    for (int i = std::ssize(g_studiomdl.materials.JointSurfaceProp); --i >= 0;) {
+        if (vstd::iequals(g_studiomdl.materials.JointSurfaceProp[i].m_pJointName, pJointName))
+            return g_studiomdl.materials.JointSurfaceProp[i].m_pSurfaceProp;
     }
     return nullptr;
 }
@@ -1174,20 +1168,20 @@ char *GetSurfaceProp(const char *pJointName) {
             return pSurfaceProp;
 
         // If we can't find the joint, then find it's parent...
-        if (!g_StudioMdlContext.numbones)
-            return g_StudioMdlContext.pDefaultSurfaceProp;
+        if (!std::ssize(g_studiomdl.bones.bonetable))
+            return g_studiomdl.materials.pDefaultSurfaceProp;
 
         int i = findGlobalBone(pJointName);
 
-        if ((i >= 0) && (g_studiomdl.bonetable[i].parent >= 0)) {
-            pJointName = g_studiomdl.bonetable[g_studiomdl.bonetable[i].parent].name;
+        if ((i >= 0) && (g_studiomdl.bones.bonetable[i].parent >= 0)) {
+            pJointName = g_studiomdl.bones.bonetable[g_studiomdl.bones.bonetable[i].parent].name;
         } else {
             pJointName = nullptr;
         }
     }
 
     // No match, return the default one
-    return g_StudioMdlContext.pDefaultSurfaceProp;
+    return g_studiomdl.materials.pDefaultSurfaceProp;
 }
 
 
@@ -1209,7 +1203,7 @@ ContentType GetDefaultContents() {
 //-----------------------------------------------------------------------------
 static ContentType FindContents(const char *pJointName) {
     for (int i = s_JointContents.Count(); --i >= 0;) {
-        if (!stricmp(s_JointContents[i].m_pJointName, pJointName)) {
+        if (vstd::iequals(s_JointContents[i].m_pJointName, pJointName)) {
             return s_JointContents[i].m_nContents;
         }
     }
@@ -1227,13 +1221,13 @@ ContentType GetContents(const char *pJointName) {
             return nContents;
 
         // If we can't find the joint, then find it's parent...
-        if (!g_StudioMdlContext.numbones)
+        if (!std::ssize(g_studiomdl.bones.bonetable))
             return s_nDefaultContents;
 
         int i = findGlobalBone(pJointName);
 
-        if ((i >= 0) && (g_studiomdl.bonetable[i].parent >= 0)) {
-            pJointName = g_studiomdl.bonetable[g_studiomdl.bonetable[i].parent].name;
+        if ((i >= 0) && (g_studiomdl.bones.bonetable[i].parent >= 0)) {
+            pJointName = g_studiomdl.bones.bonetable[g_studiomdl.bones.bonetable[i].parent].name;
         } else {
             pJointName = nullptr;
         }
@@ -1245,8 +1239,8 @@ ContentType GetContents(const char *pJointName) {
 
 int LookupAttachment(const char *name) {
     int i;
-    for (i = 0; i < g_studiomdl.attachments.size(); i++) {
-        if (stricmp(g_studiomdl.attachments[i].name, name) == 0) {
+    for (i = 0; i < g_studiomdl.bones.attachments.size(); i++) {
+        if (vstd::iequals(g_studiomdl.bones.attachments[i].name, name)) {
             return i;
         }
     }
@@ -1334,18 +1328,18 @@ void Grab_Vertexanimation(s_source_t *psource, const char *pAnimName) {
 
     s_sourceanim_t *pAnim = FindSourceAnim(psource, pAnimName);
     if (!pAnim) {
-        MdlError("Unknown animation {}({}) : {}\n", pAnimName, g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
+        MdlError("Unknown animation {}({}) : {}\n", pAnimName, g_studiomdl.input.iLinecount, g_studiomdl.input.szLine);
     }
 
     while (GetLineInput()) {
-        if (sscanf(g_StudioMdlContext.szLine, "%d %f %f %f %f %f %f", &index, &pos[0], &pos[1], &pos[2], &normal[0], &normal[1],
+        if (sscanf(g_studiomdl.input.szLine, "%d %f %f %f %f %f %f", &index, &pos[0], &pos[1], &pos[2], &normal[0], &normal[1],
                    &normal[2]) == 7) {
             if (pAnim->startframe < 0) {
-                MdlError("Missing frame start({}) : {}", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
+                MdlError("Missing frame start({}) : {}", g_studiomdl.input.iLinecount, g_studiomdl.input.szLine);
             }
 
             if (t < 0) {
-                MdlError("VTA Frame Sync ({}) : {}", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
+                MdlError("VTA Frame Sync ({}) : {}", g_studiomdl.input.iLinecount, g_studiomdl.input.szLine);
             }
 
             tmpvanim[count].vertex = index;
@@ -1370,16 +1364,16 @@ void Grab_Vertexanimation(s_source_t *psource, const char *pAnimName) {
             }
 
             // next command
-            if (sscanf(g_StudioMdlContext.szLine, "%1023s %d", cmd, &index)) {
+            if (sscanf(g_studiomdl.input.szLine, "%1023s %d", cmd, &index)) {
                 if (stricmp(cmd, "time") == 0) {
                     t = index;
                     count = 0;
 
                     if (t < pAnim->startframe) {
-                        MdlError("Frame MdlError({}) : {}", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
+                        MdlError("Frame MdlError({}) : {}", g_studiomdl.input.iLinecount, g_studiomdl.input.szLine);
                     }
                     if (t > pAnim->endframe) {
-                        MdlError("Frame MdlError({}) : {}", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
+                        MdlError("Frame MdlError({}) : {}", g_studiomdl.input.iLinecount, g_studiomdl.input.szLine);
                     }
 
                     t -= pAnim->startframe;
@@ -1387,10 +1381,10 @@ void Grab_Vertexanimation(s_source_t *psource, const char *pAnimName) {
                     pAnim->numframes = pAnim->endframe - pAnim->startframe + 1;
                     return;
                 } else {
-                    MdlError("MdlError({}) : {}", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
+                    MdlError("MdlError({}) : {}", g_studiomdl.input.iLinecount, g_studiomdl.input.szLine);
                 }
             } else {
-                MdlError("MdlError({}) : {}", g_StudioMdlContext.iLinecount, g_StudioMdlContext.szLine);
+                MdlError("MdlError({}) : {}", g_studiomdl.input.iLinecount, g_studiomdl.input.szLine);
             }
         }
     }
@@ -1404,7 +1398,7 @@ static std::vector<std::string> SourceFileCandidates(const std::string &fileName
         return {fileName};
     }
     std::vector<std::string> candidates;
-    for (const std::string &basePath: g_StudioMdlContext.contentBasePaths) {
+    for (const std::string &basePath: g_studiomdl.paths.contentBasePaths) {
         candidates.push_back(basePath + fileName.substr(pathLength));
     }
     return candidates;
@@ -1425,7 +1419,7 @@ bool OpenGlobalFile(std::string_view src) {
     std::string filename = ExpandPath(src);
 
     // if the file doesn't exist it might be a relative content dir path
-    if (g_StudioMdlContext.contentRootRelative && !g_pFullFileSystem->FileExists(filename.c_str())) {
+    if (g_studiomdl.paths.contentRootRelative && !g_pFullFileSystem->FileExists(filename.c_str())) {
         char contentPath[4096] = {};
         g_pFullFileSystem->RelativePathToFullPath(std::string(src).c_str(), "CONTENT", contentPath, sizeof(contentPath));
         filename = contentPath;
@@ -1436,7 +1430,7 @@ bool OpenGlobalFile(std::string_view src) {
     for (const std::string &candidate: SourceFileCandidates(filename)) {
         FileStat_t stat;
         const bool bExists = FS_Stat(candidate.c_str(), stat);
-        if (g_StudioMdlContext.createMakefile && (bExists || bBelowBasePath)) {
+        if (g_studiomdl.options.createMakefile && (bExists || bBelowBasePath)) {
             CreateMakefile_AddDependency(candidate.c_str());
             return false;
         }
@@ -1444,8 +1438,8 @@ bool OpenGlobalFile(std::string_view src) {
             continue;
         }
 
-        g_StudioMdlContext.inputFile.reset(CStdFile::Open(candidate.c_str(), "r", nullptr));
-        if (!g_StudioMdlContext.inputFile) {
+        g_studiomdl.input.inputFile.reset(CStdFile::Open(candidate.c_str(), "r", nullptr));
+        if (!g_studiomdl.input.inputFile) {
             MdlWarning("reader: could not open file '{}'\n", std::string(src));
             return false;
         }
@@ -1461,14 +1455,14 @@ int Load_VTA(s_source_t *psource) {
     if (!OpenGlobalFile(psource->filename))
         return 0;
 
-    if (!g_StudioMdlContext.quiet)
+    if (!g_studiomdl.options.quiet)
         std::print("VTA MODEL {}\n", psource->filename);
 
-    g_StudioMdlContext.iLinecount = 0;
+    g_studiomdl.input.iLinecount = 0;
     while (GetLineInput()) {
-        g_StudioMdlContext.iLinecount++;
+        g_studiomdl.input.iLinecount++;
 
-        const int numRead = sscanf(g_StudioMdlContext.szLine, "%s %d", cmd, &option);
+        const int numRead = sscanf(g_studiomdl.input.szLine, "%s %d", cmd, &option);
 
         // No Command Was Parsed, Blank Line Usually
         if ((numRead == EOF) || (numRead == 0))
@@ -1486,10 +1480,10 @@ int Load_VTA(s_source_t *psource) {
             Grab_Vertexanimation(psource, "VertexAnimation");
         } else {
             MdlWarning("unknown studio command \"{}\" in vta file: \"{}\" line: {}\n", cmd, psource->filename,
-                       g_StudioMdlContext.iLinecount - 1);
+                       g_studiomdl.input.iLinecount - 1);
         }
     }
-    g_StudioMdlContext.inputFile.reset();
+    g_studiomdl.input.inputFile.reset();
 
     return 1;
 }

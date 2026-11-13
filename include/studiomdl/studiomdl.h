@@ -27,6 +27,7 @@
 #include "datamodel/dmelementhandle.h"
 #include "worldsize.h"
 #include "movieobjects/dmemodel.h"
+#include "tier1_v2/auto_grow_vector.hpp"
 #include "tier1_v2/fixed_string.hpp"
 #include "tier1_v2/fixed_vector.hpp"
 #include "studiomdl_log.hpp"
@@ -169,7 +170,7 @@ struct s_bonetable_t {
 
 
 extern int findGlobalBone(const char *name); // finds a named bone in the global bone table
-
+extern int findGlobalBone(std::string_view name);
 
 struct s_renamebone_t {
     StudioName from;
@@ -178,6 +179,7 @@ struct s_renamebone_t {
 
 
 const char *RenameBone(const char *pName); // returns new name if available, else return pName.
+std::string_view RenameBone(std::string_view name);
 
 
 struct s_importbone_t {
@@ -656,15 +658,15 @@ public:
 
     int numblends;
     int groupsize[2];
-    CUtlVectorAuto<CUtlVectorAuto<s_animation_t *> > panim; // [MAXSTUDIOBLENDS][MAXSTUDIOBLENDS];
+    vstd::AutoGrowVector<vstd::AutoGrowVector<s_animation_t *> > panim; // [blend 0][blend 1], filled by index
 
     int paramindex[2];
     float paramstart[2];
     float paramend[2];
     int paramattachment[2];
     StudioMotionFlags paramcontrol[2];
-    CUtlVectorAuto<float> param0; // [MAXSTUDIOBLENDS];
-    CUtlVectorAuto<float> param1; // [MAXSTUDIOBLENDS];
+    vstd::AutoGrowVector<float> param0; // per blend 0 index
+    vstd::AutoGrowVector<float> param1; // per blend 1 index
     s_animation_t *paramanim;
     s_animation_t *paramcompanim;
     s_animation_t *paramcenter;
@@ -1018,24 +1020,15 @@ struct s_combinationrule_t {
 
 struct s_bodypart_t {
     StudioName name;
-    int nummodels;
-    int base;
-    CUtlVectorAuto<s_model_t *> pmodel;
-
-    s_bodypart_t() {
-        memset(this, 0, sizeof(s_bodypart_t));
-    }
+    int base = 0; // bodygroup value stride: the product of the model counts of the bodyparts before it
+    std::vector<s_model_t *> pmodel; // the selectable models of this bodygroup
 };
 
 
 struct s_bodygrouppreset_t {
     StudioName name;
-    int iValue;
-    int iMask;
-
-    s_bodygrouppreset_t() {
-        memset(this, 0, sizeof(s_bodygrouppreset_t));
-    }
+    int iValue = 0;
+    int iMask = 0;
 };
 
 
@@ -1204,7 +1197,7 @@ public:
     char m_szChildBoneName[MAXSTUDIONAME];
     int m_nChildBone;
 
-    CUtlVector<s_constraintbonetarget_t> m_twistBoneTargets;
+    std::vector<s_constraintbonetarget_t> m_twistBoneTargets;
 
     CTwistBone() {
         m_bInverse = false;
@@ -1312,7 +1305,7 @@ struct s_bonesaveframe_t {
 };
 
 
-// Opens a source file (UTF-8 path relative to qdir or a content base path) as g_StudioMdlContext.inputFile.
+// Opens a source file (UTF-8 path relative to qdir or a content base path) as g_studiomdl.input.inputFile.
 // False if it doesn't exist or can't be read (or when only collecting makefile dependencies).
 bool OpenGlobalFile(std::string_view src);
 
@@ -1321,7 +1314,7 @@ bool GetGlobalFilePath(std::string_view src, std::string &fullPath);
 
 
 
-s_source_t *Load_Source(const char *filename, const char *ext, bool reverse = false, bool isActiveModel = false,
+s_source_t *Load_Source(std::string_view filename, const char *ext, bool reverse = false, bool isActiveModel = false,
                         bool bUseCache = true);
 
 void ApplyOffsetToSrcVerts(s_source_t *pModel, matrix3x4_t matOffset);
@@ -1483,57 +1476,30 @@ extern void BuildIndividualMeshes(s_source_t *psource);
 
 class CLodScriptReplacement_t {
 public:
-    void SetSrcName(const char *pSrcName) {
-        if (m_pSrcName) {
-            delete[] m_pSrcName;
-        }
-        m_pSrcName = new char[strlen(pSrcName) + 1];
-        strcpy(m_pSrcName, pSrcName);
-    }
+    void SetSrcName(const char *pSrcName) { m_srcName = pSrcName; }
+    void SetDstName(const char *pDstName) { m_dstName = pDstName; }
+    void SetSrcName(const std::string& pSrcName) { m_srcName = pSrcName; }
+    void SetDstName(const std::string& pDstName) { m_dstName = pDstName; }
 
-    void SetDstName(const char *pDstName) {
-        if (m_pDstName) {
-            delete[] m_pDstName;
-        }
-        m_pDstName = new char[strlen(pDstName) + 1];
-        strcpy(m_pDstName, pDstName);
-    }
+    const std::string& GetSrcName() const { return m_srcName; }
+    const std::string& GetDstName() const { return m_dstName; }
 
-    const char *GetSrcName() const {
-        return m_pSrcName;
-    }
-
-    const char *GetDstName() const {
-        return m_pDstName;
-    }
-
-    CLodScriptReplacement_t() {
-        m_pSrcName = nullptr;
-        m_pDstName = nullptr;
-        m_pSource = nullptr;
-    }
-
-    ~CLodScriptReplacement_t() {
-        delete[] m_pSrcName;
-        delete[] m_pDstName;
-    }
-
-    s_source_t *m_pSource;
+    s_source_t *m_pSource = nullptr;
 
 private:
-    char *m_pSrcName;
-    char *m_pDstName;
+    std::string m_srcName;
+    std::string m_dstName;
 };
 
 
 struct LodScriptData_t {
 public:
-    float switchValue;
-    CUtlVector<CLodScriptReplacement_t> modelReplacements;
-    CUtlVector<CLodScriptReplacement_t> boneReplacements;
-    CUtlVector<CLodScriptReplacement_t> boneTreeCollapses;
-    CUtlVector<CLodScriptReplacement_t> materialReplacements;
-    CUtlVector<CLodScriptReplacement_t> meshRemovals;
+    float switchValue = 0.0f;
+    std::vector<CLodScriptReplacement_t> modelReplacements;
+    std::vector<CLodScriptReplacement_t> boneReplacements;
+    std::vector<CLodScriptReplacement_t> boneTreeCollapses;
+    std::vector<CLodScriptReplacement_t> materialReplacements;
+    std::vector<CLodScriptReplacement_t> meshRemovals;
 
 
     void EnableFacialAnimation(bool val) {
@@ -1552,14 +1518,9 @@ public:
         return m_bStrippedFromModel;
     }
 
-    LodScriptData_t() {
-        m_bFacialAnimation = true;
-        m_bStrippedFromModel = false;
-    }
-
 private:
-    bool m_bFacialAnimation;
-    bool m_bStrippedFromModel;
+    bool m_bFacialAnimation = true;
+    bool m_bStrippedFromModel = false;
 };
 
 
