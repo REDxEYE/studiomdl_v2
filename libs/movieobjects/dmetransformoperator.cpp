@@ -5,7 +5,6 @@
 //=============================================================================
 #include "movieobjects/dmetransformoperator.h"
 #include "movieobjects/dmetransform.h"
-#include "movieobjects_interfaces.h"
 #include "datamodel/dmelementfactoryhelper.h"
 
 

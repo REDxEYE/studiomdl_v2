@@ -11,7 +11,6 @@
 #include "studiomdl/bone_setup.h"
 #include <cstring>
 
-#include "datacache/idatacache.h"
 
 
 #ifdef CLIENT_DLL

@@ -12,10 +12,8 @@
 #include "movieobjects/dmematerial.h"
 #include "movieobjects/dmetransform.h"
 #include "movieobjects/dmemodel.h"
-#include "movieobjects_interfaces.h"
 #include "movieobjects/dmecombinationoperator.h"
 #include "movieobjects/dmeselection.h"
-#include "movieobjects/dmedrawsettings.h"
 #include "movieobjects/dmmeshcomp.h"
 #include "tier1/keyvalues.h"
 
@@ -669,50 +667,6 @@ void CDmeMesh::WriteTriangluatedIndices(const CDmeVertexData *pBaseState, CDmeFa
             }
         }
         nFirstIndex += nVertexCount + 1;
-    }
-}
-
-
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-void CDmeMesh::CacheHighlightVerts(matrix3x4_t *pPoseToWorld, RenderVertexDelta_t *pDelta,
-                                   CDmeDrawSettings *pDmeDrawSettings) {
-    if (!pDmeDrawSettings)
-        return;
-
-    CDmeVertexData *pBind = GetBindBaseState();
-    if (!pBind)
-        return;
-
-    const CUtlVector<Vector> &posData = pBind->GetPositionData();
-    const int nPosCount = posData.Count();
-    bool *pbHighlight = reinterpret_cast<bool *>(stackalloc(nPosCount * sizeof( bool )));
-    Q_memset(pbHighlight, 0, nPosCount * sizeof( bool ));
-
-    for (int i = 0; i < m_DeltaStates.Count(); ++i) {
-        CDmeVertexDeltaData *pDmeDelta = m_DeltaStates[i];
-        if (!pDmeDelta || !pDmeDelta->m_bRenderVerts)
-            continue;
-
-        const CUtlVector<int> &deltaIndices = pDmeDelta->GetVertexIndexData(CDmeVertexDeltaData::FIELD_POSITION);
-        for (int j = 0; j < deltaIndices.Count(); ++j) {
-            pbHighlight[deltaIndices[j]] = true;
-        }
-    }
-
-    CDmeMeshRenderInfo renderInfo(pBind);
-    Assert(renderInfo.HasPositionData());
-
-    CUtlVector<Vector> &highlightPoints = pDmeDrawSettings->GetHighlightPoints();
-    Vector vPosition;
-
-    for (int i = 0; i < nPosCount; ++i) {
-        if (!pbHighlight[i])
-            continue;
-
-        renderInfo.ComputePosition(i, pPoseToWorld, pDelta, &vPosition);
-        highlightPoints.AddToTail(vPosition);
     }
 }
 

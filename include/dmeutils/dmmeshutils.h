@@ -23,8 +23,6 @@ class CDmeMesh;
 class CDmeModel;
 // class CDmMeshComp::CEdge;
 class CDmeCombinationOperator;
-class CDmePreset;
-class CDmePresetGroup;
 class CDmeFaceSet;
 
 class CMesh;
@@ -67,8 +65,6 @@ public:
 	static bool Merge( CDmeMesh *pSrcMesh, CDmElement *pRoot );
 
 	static bool Merge( CDmeMesh *pSrcMesh, CDmeMesh *pDstMesh, int nSkinningJointIndex, CUtlMap< int, int > *pJointMap = nullptr);
-
-	static bool CreateDeltasFromPresets( CDmeMesh *pMesh, CDmeVertexData *pPassedDst, const CUtlStringMap< CUtlString > &presetMap, bool bPurge, const CUtlVector< CUtlString > *pPurgeAllButThese = nullptr);
 
 	static bool PurgeUnusedDeltas( CDmeMesh *pMesh );
 
@@ -120,10 +116,6 @@ protected:
 	static bool MirrorDelta( CDmeVertexDeltaData *pDelta, int axis, const CUtlVector< int > &posMirrorMap, const CUtlVector< int > &normalMirrorMap, const CUtlVector< int > &uvMirrorMap );
 
 	static bool PurgeUnusedData( CDmeMesh *pMesh );
-
-	static void CreateDeltasFromPresetGroup( CDmePresetGroup *pPresetGroup, CDmeCombinationOperator * pComboOp, const CUtlVector< CUtlString > * pPurgeAllButThese, CDmeMesh * pMesh, CDmeVertexData * pDst, CUtlStringMap< CUtlString > &conflictingNames, CUtlStringMap< CDmePreset * > &presetMap );
-
-	static void PurgeUnreferencedDeltas( CDmeMesh *pMesh, CUtlStringMap< CDmePreset * > &presetMap, const CUtlVector< CUtlString > *pPurgeAllButThese, CDmeCombinationOperator *pComboOp );
 };
 
 

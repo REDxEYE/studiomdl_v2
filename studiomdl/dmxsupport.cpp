@@ -26,6 +26,14 @@
 #include "mdlobjects/dmeeyelid.h"
 #include "mdlobjects/dmejigglebone.h"
 #include "mdlobjects/dmemouth.h"
+#include "movieobjects/dmerig.h"
+#include "movieobjects/dmerighandle.h"
+#include "datamodel/dmelementfactoryhelper.h"
+
+// DmeRig / DmeRigHandle dags appear in rigged DMX hierarchies and as constraint targets; nothing casts to
+// them, so their factories must be pulled out of the static library explicitly to keep them typed dags
+USING_ELEMENT_FACTORY( DmeRig );
+USING_ELEMENT_FACTORY( DmeRigHandle );
 
 
 // Local includes

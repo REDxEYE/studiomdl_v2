@@ -16,21 +16,15 @@
 #include "datamodel/dmattributevar.h"
 #include "movieobjects/dmeshape.h"
 #include "movieobjects/dmetransform.h"
-#include "movieobjects/dmeoverlay.h"
 
 
 //-----------------------------------------------------------------------------
 // Forward declarations
 //-----------------------------------------------------------------------------
-class CDmeOverlay;
 class CDmeTransform;
 class CDmeShape;
-class CDmeDrawSettings;
 class CDmeChannel;
 class CDmeOperator;
-class CDmeClip;
-class DmeLog_TimeSelection_t;
-class CDmeTransformControl;
 
 
 //-----------------------------------------------------------------------------
@@ -101,10 +95,6 @@ public:
 	void GetAbsOrientation( Quaternion &absOrientation ) const;
 	void SetAbsOrientation( const Quaternion &absOrientation );
 
-	void BakeStaticTransforms( bool bRecurse = true );
-
-	void OnAttachToDmeDag( CDmeDag *pParentDag, bool bFixupLogs = true );
-	CDmeDag *GetParent() const;
 	template <class T>
 	T *FindParentDagOfType();
 
@@ -134,12 +124,7 @@ public:
 	// Find the dag node which is the root of the tree the dag node is in.
 	CDmeDag *FindRoot();
 
-	void BindTransformToDmeDag( const CDmeDag *pTargetDag, const DmeLog_TimeSelection_t &params, const CDmeClip *pMovie, const Vector& offsset, 
-								bool bPosition, bool bOrientation, bool bMaintainOffset );
-
-	void ComputeTransformAtTime( DmeTime_t globalTime,const CDmeClip* pMovie, matrix3x4_t &matAbsTransform, matrix3x4_t &localTransform );
-
-	void MoveToTarget( const CDmeDag *pTargetDag, const DmeLog_TimeSelection_t &params, const CDmeClip *pMovie );
+	CDmeDag *GetParent() const;
 
 	void GetParentWorldMatrix( matrix3x4_t &mat ) const;
 
@@ -156,9 +141,6 @@ public:
 
 	// Find the channels targeting the transform of the object either directly or through a constraint
 	void FindTransformChannels( CUtlVector< CDmeChannel * > &list ) const;
-
-	// Find the transform controls driving the dag node
-	CDmeTransformControl *FindTransformControl() const;
 
 	// Find all of the operators on which dag node is dependent, this recursively finds operators for the parents of the dag.
 	void FindRelevantOperators( CUtlVector< CDmeOperator * > &operatorList ) const;

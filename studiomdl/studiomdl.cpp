@@ -36,7 +36,6 @@
 #include "bitvec.h"
 #include "datamodel/idatamodel.h"
 #include "datamodel/dmelementfactoryhelper.h"
-#include "movieobjects/dmeanimationset.h"
 #include "movieobjects/dmecombinationoperator.h"
 #include "movieobjects/dmeflexrules.h"
 #include "tier1/keyvalues.h"

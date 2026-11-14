@@ -22,7 +22,6 @@ add_library(mdlobjects
         dmejigglebone.cpp
         dmeproceduralbone.cpp
         dmehitboxsetlist.cpp
-        dmematsysroot.cpp
         dmeincludemodellist.cpp
         dmesequencelist.cpp
         dmeboneweight.cpp

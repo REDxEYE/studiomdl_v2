@@ -6,7 +6,6 @@
 #include "movieobjects/dmemorphoperator.h"
 #include "movieobjects/dmevertexdata.h"
 #include "movieobjects/dmemesh.h"
-#include "movieobjects_interfaces.h"
 #include "datamodel/dmelementfactoryhelper.h"
 
 

@@ -49,7 +49,6 @@
 #include "mdlobjects/dmeboneflexdriver.h"
 #include "mdlobjects/dmeproceduralbone.h"
 #include "mdlobjects/dmejigglebone.h"
-#include "mdlobjects/dmematsysroot.h"
 #include "mdlobjects/dmeassemblycommand.h"
 #include "mdlobjects/dmeanimationassemblycommand.h"
 #include "mdlobjects/dmeeyelid.h"

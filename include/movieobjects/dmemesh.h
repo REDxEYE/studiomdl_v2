@@ -34,7 +34,6 @@ class CDmeDag;
 class CMeshBuilder;
 class CDmeCombinationOperator;
 class CDmeSingleIndexedComponent;
-class CDmeDrawSettings;
 class CDmMeshComp;
 
 
@@ -305,7 +304,6 @@ private:
 	void SetDeltaNormalData( int nDeltaIndex, int nNormalCount, Vector *pNormals );
 	// Renders normals 
 	void RenderNormals( matrix3x4_t *pPoseToWorld, RenderVertexDelta_t *pDelta );
-	void CacheHighlightVerts( matrix3x4_t *pPoseToWorld, RenderVertexDelta_t *pDelta, CDmeDrawSettings *pDmeDrawSettings );
 
 	// Writes triangulated indices for a face set into a meshbuilder
 	void WriteTriangluatedIndices( const CDmeVertexData *pBaseState, CDmeFaceSet *pFaceSet, CMeshBuilder &meshBuilder );

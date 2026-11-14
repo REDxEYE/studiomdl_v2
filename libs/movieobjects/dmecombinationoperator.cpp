@@ -4,7 +4,6 @@
 //
 //=============================================================================
 #include "movieobjects/dmecombinationoperator.h"
-#include "movieobjects_interfaces.h"
 #include "datamodel/dmelementfactoryhelper.h"
 #include "movieobjects/dmechannel.h"
 #include "movieobjects/dmemodel.h"

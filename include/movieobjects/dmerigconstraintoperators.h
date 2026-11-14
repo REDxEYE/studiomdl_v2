@@ -20,7 +20,6 @@
 // Forward declarations
 class CDmAttribute;
 class CDmeChannel;
-class CDmeFilmClip;
 class CDmeRigBaseConstraintOperator;
 
 //-----------------------------------------------------------------------------
@@ -237,12 +236,6 @@ public:
 	// Find the constraint on the dag of the specified type
 	static CDmeRigBaseConstraintOperator *FindDagConstraint( CDmeDag *pDag, EConstraintType constraintType );
 
-	// Destroy the specified constraint and remove it from the animation set.
-	static void DestroyConstraint( CDmeRigBaseConstraintOperator *pConstraint );
-
-	// Remove all of the constraints from the specified dag node.
-	static void RemoveConstraintsFromDag( CDmeDag *pDag );
-	
 	// Get the string name associated with the specified constraint type.
 	static char const *ConstraintTypeName( EConstraintType eType );
 

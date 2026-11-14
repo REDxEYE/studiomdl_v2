@@ -151,7 +151,6 @@ private:
 class CDmeChannel;
 class CDmeChannelsClip;
 class CDmeClip;
-class CDmeFilmClip;
 class CDmeLog;
 class CDmeLogLayer;
 struct DmeClipStack_t;
@@ -163,7 +162,6 @@ struct LayerSelectionData_t
 
 	CDmeHandle< CDmeChannel >		m_hChannel;
 	CDmeHandle< CDmeChannelsClip >	m_hOwner;
-	CDmeHandle< CDmeFilmClip >		m_hShot;
 	CDmeHandle< CDmeLog >			m_hLog;
 	DmAttributeType_t				m_DataType;
 	DmeTime_t						m_nTimes[ TS_TIME_COUNT ];

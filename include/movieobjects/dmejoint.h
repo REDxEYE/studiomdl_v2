@@ -15,10 +15,6 @@
 #include "movieobjects/dmedag.h"
 
 
-// Forward declarations
-class CDmeDrawSettings;
-
-
 //-----------------------------------------------------------------------------
 // A class representing a skeletal model
 //-----------------------------------------------------------------------------

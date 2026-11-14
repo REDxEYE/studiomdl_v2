@@ -19,7 +19,6 @@
 // Forward declarations
 //-----------------------------------------------------------------------------
 class CDmeTransform;
-class CDmeDrawSettings;
 class CDmeDag;
 
 

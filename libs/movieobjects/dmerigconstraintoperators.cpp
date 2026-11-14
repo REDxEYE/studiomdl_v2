@@ -10,8 +10,6 @@
 //=============================================================================
 #include "movieobjects/dmerigconstraintoperators.h"
 #include "movieobjects/dmechannel.h"
-#include "movieobjects/dmeanimationset.h"
-#include "movieobjects/dmerig.h"
 #include "tier1/fmtstr.h"
 #include "bone_constraints.h"
 
@@ -675,18 +673,6 @@ void CDmeRigBaseConstraintOperator::ReconnectSlaveChannels( CDmeConstraintSlave 
 		if ( pPosChannel )
 		{
 			pPosChannel->SetOutput( pTransform, TRANSFORM_POSITION );
-
-			// If the channel is in pass through mode, update the control value with the 
-			// transform value so that the result of the constraint will be maintained.
-			if ( pPosChannel->GetMode() == CM_PASS )
-			{				
-				CDmElement *pControl = pPosChannel->GetFromElement();
-				CDmeTransformControl *pTranformControl = CastElement< CDmeTransformControl >( pControl );
-				if ( pTranformControl )
-				{
-					pTranformControl->SetPosition( pTransform->GetPosition() );
-				}
-			}
 		}
 	}
 
@@ -698,18 +684,6 @@ void CDmeRigBaseConstraintOperator::ReconnectSlaveChannels( CDmeConstraintSlave 
 		if ( pRotChannel )
 		{
 			pRotChannel->SetOutput( pTransform, TRANSFORM_ORIENTATION );
-
-			// If the channel is in pass through mode, update the control value with the 
-			// transform value so that the result of the constraint will be maintained.
-			if ( pRotChannel->GetMode() == CM_PASS )
-			{			
-				CDmElement *pControl = pRotChannel->GetFromElement();
-				CDmeTransformControl *pTranformControl = CastElement< CDmeTransformControl >( pControl );
-				if ( pTranformControl )
-				{
-					pTranformControl->SetOrientation( pTransform->GetOrientation() );
-				}
-			}
 		}
 	}
 }
@@ -783,110 +757,6 @@ CDmeRigBaseConstraintOperator *CDmeRigBaseConstraintOperator::FindDagConstraint(
 
 	return nullptr;
 }
-
-
-
-//-------------------------------------------------------------------------------------------------
-// Purpose: Remove all of the constraints from the specified dag node.
-//-------------------------------------------------------------------------------------------------
-void CDmeRigBaseConstraintOperator::RemoveConstraintsFromDag( CDmeDag *pDag  )
-{
-	if ( pDag == nullptr)
-		return;
-
-	// Find the constraints associated with the specified dag node.
-	CUtlVector< CDmeConstraintSlave* > constraintSlaves;
-	FindAncestorsReferencingElement( pDag, constraintSlaves );
-
-	int nSlaves = constraintSlaves.Count();
-	for ( int i = 0; i < nSlaves; ++i )
-	{
-		CDmeConstraintSlave *pSlave = constraintSlaves[ i ];
-		if ( pSlave == nullptr)
-			continue;
-
-		CDmeRigBaseConstraintOperator *pConstraint = pSlave->GetConstraint();
-		if ( pConstraint )
-		{
-			DestroyConstraint( pConstraint );
-		}
-	}
-}
-
-
-//-------------------------------------------------------------------------------------------------
-// Purpose: Destroy the specified constraint and remove it from the animation set.
-//-------------------------------------------------------------------------------------------------
-void CDmeRigBaseConstraintOperator::DestroyConstraint( CDmeRigBaseConstraintOperator *pConstraint )
-{
-	if ( pConstraint == nullptr)
-		return;
-
-	CDmeAnimationSet *pAnimSet = FindAncestorReferencingElement< CDmeAnimationSet >( pConstraint );
-
-	// Find the weight channels associated with the constraint targets.	
-	const CDmaElementArray< CDmeConstraintTarget > &targetList = pConstraint->GetTargets();
-
-	int nTargets = targetList.Count();
-	for ( int iTarget = 0; iTarget < nTargets; ++iTarget )
-	{
-		CDmeConstraintTarget *pTarget = targetList[ iTarget ];
-		if ( pTarget == nullptr)
-			continue;
-
-		CDmeChannel *pWeightChannel = pTarget->FindWeightChannel();
-		if ( pWeightChannel == nullptr)
-			continue;
-
-		// Destroy the control associated with the channel
-		CDmElement* pControl = pWeightChannel->GetFromElement();
-		if ( pControl )
-		{
-			if ( pAnimSet )
-			{
-				pAnimSet->RemoveControl( pControl );
-			}
-			CDmeRig::RemoveElementFromRig( pControl );
-			DestroyElement( pControl );
-		}
-
-		// Remove the channel from the channels clip it belongs to
-		CDmeChannelsClip *pChannelsClip = FindAncestorReferencingElement< CDmeChannelsClip >( pWeightChannel );
-		if ( pChannelsClip )
-		{
-			pChannelsClip->RemoveChannel( pWeightChannel );
-		}
-
-		// Remove the channel from the rig.
-		CDmeRig::RemoveElementFromRig( pWeightChannel );
-
-		// Destroy the channel
-		DestroyElement( pWeightChannel );
-	}
-
-	// Reconnect the original channels of the constrained dag back to the transform.
-	pConstraint->ReconnectTransformChannels();
-
-	// Remove the constraint from the animation set's list of operators or 
-	// from the shot if the constraint did not belong to an animation set.
-	if ( pAnimSet )
-	{
-		pAnimSet->RemoveOperator( pConstraint );
-	}
-
-	CDmeFilmClip *pClip = FindAncestorReferencingElement< CDmeFilmClip >( pConstraint );
-	if ( pClip )
-	{
-		pClip->RemoveOperator( pConstraint );
-	}
-
-	// Remove the constraint from the rig it belongs to, if any
-	CDmeRig::RemoveElementFromRig( pConstraint );
-
-	// Destroy the constraint element
-	DestroyElement( pConstraint );
-}
-
 
 //-------------------------------------------------------------------------------------------------
 // Purpose: Get the string name associated with the specified constraint type.

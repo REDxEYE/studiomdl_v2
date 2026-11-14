@@ -17,7 +17,6 @@
 #include "movieobjects/dmeaxissystem.h"
 
 
-class CDmeDrawSettings;
 class CDmeMesh;
 
 //-----------------------------------------------------------------------------

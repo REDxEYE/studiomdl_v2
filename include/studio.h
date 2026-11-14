@@ -3056,8 +3056,6 @@ inline const thinModelVertices_t *mstudiomodel_t::GetThinVertexData(void *pModel
 // Purpose:
 //-----------------------------------------------------------------------------
 
-class IDataCache;
-class IMDLCache;
 class CFeModel;
 class CSoftbody;
 class CSoftbodyEnvironment;
@@ -3066,11 +3064,11 @@ class CStudioHdr {
 public:
     CStudioHdr();
 
-    CStudioHdr(const studiohdr_t *pStudioHdr, IMDLCache *mdlcache = nullptr);
+    CStudioHdr(const studiohdr_t *pStudioHdr);
 
     ~CStudioHdr() { Term(); }
 
-    void Init(const studiohdr_t *pStudioHdr, IMDLCache *mdlcache = nullptr);
+    void Init(const studiohdr_t *pStudioHdr);
 
     void Term();
 
@@ -3103,9 +3101,6 @@ private:
     const studiohdr_t *GroupStudioHdr(int group);
 
     mutable CUtlVector<const studiohdr_t *> m_pStudioHdrCache;
-
-    mutable int m_nFrameUnlockCounter;
-    int *m_pFrameUnlockCounter;
 
 public:
     int numbones() const { return m_pStudioHdr->numbones; };

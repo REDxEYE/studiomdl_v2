@@ -24,7 +24,6 @@
 //-----------------------------------------------------------------------------
 class CDmeClip;
 class CDmeChannel;
-class CDmeTimeSelection;
 
 void RemapFloatLogValues( CDmeChannel *pChannel, float flBias, float flScale );
 CDmeChannel *FindChannelTargetingAttribute( CDmAttribute *pTargetAttr );
@@ -73,7 +72,6 @@ struct LayerChannelInfo_t
 		, m_pRoot( nullptr )
 		, m_pShot( nullptr )
 	{
-		SetIdentityMatrix( m_Transform );
 	}
 
 	CDmeHandle< CDmeChannel > m_Channel;
@@ -85,10 +83,6 @@ struct LayerChannelInfo_t
 	DmeTime_t				m_HeadPosition;			// Time position of the head when the recording operation took place
 	TransformWriteMode_t	m_TransformWriteMode;	// Specification of how existing values in the channel are to be modified
 	bool					m_bManipulateInFalloff;	// Should manipulation be applied in falloff (true), or should interpolation be used (false)
-	matrix3x4_t				m_Transform;			// Transform matrix which was applied to the log positions of the channel
-	Quaternion				m_DeltaRotationLocal;	// Delta rotation value to be used with rotation operations	( local space )
-	Quaternion				m_DeltaRotationParent;	// Delta rotation value to be used with rotation operations	( parent space )
-	Vector					m_PivotPosition;		// Pivot position value to be used with rotation operations
 	LogComponents_t			m_ComponentFlags;		// Flags specifying which individual components of the channel can be modified
 	const CDmAttribute		*m_pPresetValue;		// Pointer to the attribute storing the preset value for the operation
 	const CDmAttribute		*m_pPresetTimes;		// Pointer to the attribute storing animated preset times for the operation
@@ -256,7 +250,6 @@ public:
 	void StoreChannelAttributeData( int nChannelIndex, bool fromAttr );
 
 	// Get the current time selection
-	void GetTimeSelection( CDmeTimeSelection &timeSelection ) const;
 	const DmeLog_TimeSelection_t &GetTimeSelection() const;
 	
 	// Methods which control various aspects of recording

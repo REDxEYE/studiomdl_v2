@@ -5,7 +5,6 @@
 //=============================================================================
 
 #include "movieobjects/dmevertexdata.h"
-#include "movieobjects_interfaces.h"
 #include <limits.h>
 
 #include "datamodel/dmelementfactoryhelper.h"

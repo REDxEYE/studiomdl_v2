@@ -5,8 +5,6 @@
 //=============================================================================
 
 #include "movieobjects/dmechannel.h"
-#include "movieobjects/dmetimeselection.h"
-#include "movieobjects/dmetransformcontrol.h"
 
 #include "tier1/keyvalues.h"
 
@@ -726,31 +724,6 @@ void CDmeChannelRecordingMgr::EnableModificationLayer( bool enable )
 
 
 //-----------------------------------------------------------------------------
-// Purpose: Get the current time selection as a CDmeTimeSelection element
-// Output : timeSelection - reference to the time selection to be returned with
-//			the current time selection values.
-//-----------------------------------------------------------------------------
-void CDmeChannelRecordingMgr::GetTimeSelection( CDmeTimeSelection &timeSelection ) const
-{
-	timeSelection.SetThreshold( m_TimeSelection.m_flThreshold );
-	timeSelection.SetCurrent( m_TimeSelection.m_nTimes );
-	timeSelection.SetFalloffInterpolatorType( 0, m_TimeSelection.m_nFalloffInterpolatorTypes[ 0 ] );
-	timeSelection.SetFalloffInterpolatorType( 1, m_TimeSelection.m_nFalloffInterpolatorTypes[ 1 ] );
-	timeSelection.SetResampleInterval( m_TimeSelection.m_nResampleInterval );
-
-	if ( m_TimeSelection.m_bInfinite[ 0 ] )
-	{
-		timeSelection.SetInfinite( 0 );
-	}
-
-	if ( m_TimeSelection.m_bInfinite[ 1 ] )
-	{
-		timeSelection.SetInfinite( 1 );
-	}
-}
-
-
-//-----------------------------------------------------------------------------
 // Purpose: Get the current time selection
 // Output : Returns a reference to the current time selection structure
 //-----------------------------------------------------------------------------
@@ -1055,16 +1028,6 @@ bool CDmeChannelRecordingMgr::ApplyRecordingLayer( CRecordingLayer &recordingLay
 					pToAttr->Unserialize( channelInfo.m_ToAttrData );
 				}
 			}
-
-			// Restore the transform, delta rotation, and pivot values in the control to the values used in the original operation.
-			CDmeTransformControl *pTransformControl = CastElement< CDmeTransformControl >( pChannel->GetFromElement() );
-			if ( pTransformControl )
-			{
-				pTransformControl->SetManipulationTransform( channelInfo.m_Transform );
-				pTransformControl->SetManipulationRotationLocal( channelInfo.m_DeltaRotationLocal );
-				pTransformControl->SetManipulationRotationParent( channelInfo.m_DeltaRotationParent );
-				pTransformControl->SetManipulationPivot( channelInfo.m_PivotPosition );
-			}
 		}
 
 		// Record the operation.
@@ -1119,19 +1082,6 @@ void CDmeChannelRecordingMgr::StoreChannelAttributeData( int nChannelIndex, bool
 			{
 				pAttr->Serialize( *pBuffer );
 			}
-		}
-
-		// If saving the from attribute, save the transform, delta rotation and pivot information.
-		if ( fromAttr )
-		{
-			CDmeTransformControl *pTransformControl =  CastElement< CDmeTransformControl >( pChannel->GetFromElement() );
-			if ( pTransformControl )
-			{
-				pTransformControl->GetManipulationTransform( info.m_Transform );
-				pTransformControl->GetManipulationRotationLocal( info.m_DeltaRotationLocal );
-				pTransformControl->GetManipulationRotationParent( info.m_DeltaRotationParent );
-				pTransformControl->GetManipulationPivot( info.m_PivotPosition );
-			}				
 		}
 	}
 }
@@ -2319,7 +2269,6 @@ void CopyPasteData( CUtlVector< KeyValues * > &dstList, const CUtlVector< KeyVal
 		// Copy the simple data element of the layer selection data
 		pDstLayerData->m_hChannel		= pSrcLayerData->m_hChannel;
 		pDstLayerData->m_hOwner			= pSrcLayerData->m_hOwner;
-		pDstLayerData->m_hShot			= pSrcLayerData->m_hShot;
 		pDstLayerData->m_hLog			= pSrcLayerData->m_hLog;
 		pDstLayerData->m_DataType		= pSrcLayerData->m_DataType;
 		pDstLayerData->m_nTimes[ 0 ]	= pSrcLayerData->m_nTimes[ 0 ];
@@ -2421,32 +2370,8 @@ void CDmeChannel::Record()
 				DmeLogTransformParams_t transformParams;
  				transformParams.m_nProceduralType = nType;
 
-				// If the element is a transform control, get the additional manipulation parameters from the 
-				// transform control and store them in the transform parameters so they can be used by the log.
-				CDmeTransformControl *pTransformControl = CastElement< CDmeTransformControl >( pElement );
-
-				if ( pTransformControl )
-				{
-					pTransformControl->GetManipulationTransform( transformParams.m_Transform );
-					pTransformControl->GetManipulationRotationLocal( transformParams.m_RotationLocal );
-					pTransformControl->GetManipulationRotationParent( transformParams.m_RotationParent );
-					pTransformControl->GetManipulationPivot( transformParams.m_Pivot );
-
-					CDmeChannel* pRotChannel = pTransformControl->GetOrientationChannel();
-					if ( pRotChannel )
-					{
-						CDmeLog* pLog = pRotChannel->GetLog();
-						if ( pLog && pLog->GetDataType() == AT_QUATERNION )
-						{
-							transformParams.m_pRotationLog = static_cast< CDmeTypedLog< Quaternion >* >( pLog );
-						}
-					}
-				}
-				else
-				{
-					// Only transform controls can have manipulation in falloff 
-					timeSelection.m_bManipulateInFalloff = false;
-				}
+				// Only transform controls (SFM, removed) can have manipulation in falloff
+				timeSelection.m_bManipulateInFalloff = false;
 
 				// Stamp the key at the current head position, re-sampling the current time selection if time is not moving or writing
 				// a key at the current time if time is moving. If the modification layer is active and the time is moving forward the

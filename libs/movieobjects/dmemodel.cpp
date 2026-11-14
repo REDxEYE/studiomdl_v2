@@ -4,9 +4,7 @@
 //
 //=============================================================================
 #include "movieobjects/dmemodel.h"
-#include "movieobjects_interfaces.h"
 #include "datamodel/dmelementfactoryhelper.h"
-#include "datacache/imdlcache.h"
 #include "studio.h"
 #include "movieobjects/dmemesh.h"
 #include "movieobjects/dmechannel.h"

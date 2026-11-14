@@ -17,7 +17,6 @@
 #include "mathlib/ssequaternion.h"
 #include "tier1/datamanager.h"
 
-#include "datacache/idatacache.h"
 
 
 #ifdef CLIENT_DLL

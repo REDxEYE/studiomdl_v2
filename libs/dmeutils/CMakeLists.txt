@@ -9,7 +9,6 @@ elseif (CMAKE_SIZEOF_VOID_P EQUAL 4)
 endif ()
 
 add_library(dmeutils
-        dmanimutils.cpp
         dmmeshutils.cpp
 )
 target_include_directories(dmeutils PUBLIC ../../include)

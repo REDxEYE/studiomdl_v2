@@ -11,38 +11,25 @@ endif ()
 add_library(movieobjects
         dmmeshcomp.cpp
         dmetransform.cpp
-        dmetrack.cpp
-        dmepackoperators.cpp
         dmefaceset.cpp
-        dmeusersettings.cpp
-        dmetrackgroup.cpp
-        dmegamemodel.cpp
         dmechannel.cpp
-        movieobjects_interfaces.cpp
         dmelog.cpp
         dmemodel.cpp
         dmerigconstraintoperators.cpp
+        dmerig.cpp
+        dmerighandle.cpp
         dmemdlmakefile.cpp
         dmemakefile.cpp
         dmeaxissystem.cpp
-        dmecamera.cpp
         dmetimeframe.cpp
-        dmecontrolgroup.cpp
         dmeoperator.cpp
-        dmeunpackoperators.cpp
         dmeconnectionoperator.cpp
         dmecycle.cpp
         dmeexpressionoperator.cpp
-        dmeoverlay.cpp
         dmobjserializer.cpp
         dmetransformoperator.cpp
         dmeexporttags.cpp
         dmemesh.cpp
-        dmerig.cpp
-        dmerighandle.cpp
-        dmephonememapping.cpp
-        exportfacialanimation.cpp
-        dmetransformcontrol.cpp
         dmeselection.cpp
         dmeshape.cpp
         dmecombinationoperator.cpp
@@ -50,18 +37,10 @@ add_library(movieobjects
         dmedag.cpp
         dmevertexdata.cpp
         dmejoint.cpp
-        dmetimeselection.cpp
-        dmeinput.cpp
-        dmesound.cpp
         dmematerial.cpp
         dmemorphoperator.cpp
-        dmeanimationset.cpp
         dmeclip.cpp
         dmeflexrules.cpp
-        dmeeditortypedictionary.cpp
-        dmetransforminput.cpp
-        dmebookmark.cpp
-        dmedrawsettings.cpp
         dmeattachment.cpp
         dmetransformlist.cpp
         dmeanimationlist.cpp

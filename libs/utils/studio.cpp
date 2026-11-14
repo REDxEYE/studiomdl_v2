@@ -7,8 +7,6 @@
 //=============================================================================//
 
 #include "studio.h"
-#include "datacache/idatacache.h"
-#include "datacache/imdlcache.h"
 
 #include "studiomdl/bone_setup.h"
 
@@ -698,24 +696,15 @@ int	studiohdr_t::RemapAnimBone( int iAnim, int iLocalBone ) const
 
 CStudioHdr::CStudioHdr( void )
 {
-	// set pointer to bogus value
-	m_nFrameUnlockCounter = 0;
-	m_pFrameUnlockCounter = &m_nFrameUnlockCounter;
 	Init(nullptr);
 }
 
-CStudioHdr::CStudioHdr( const studiohdr_t *pStudioHdr, IMDLCache *mdlcache )
+CStudioHdr::CStudioHdr( const studiohdr_t *pStudioHdr )
 {
-	// preset pointer to bogus value (it may be overwritten with legitimate data later)
-	m_nFrameUnlockCounter = 0;
-	m_pFrameUnlockCounter = &m_nFrameUnlockCounter;
-	Init( pStudioHdr, mdlcache );
+	Init( pStudioHdr );
 }
 
-
-// extern IDataCache *g_pDataCache;
-
-void CStudioHdr::Init( const studiohdr_t *pStudioHdr, IMDLCache *mdlcache )
+void CStudioHdr::Init( const studiohdr_t *pStudioHdr )
 {
 	m_pStudioHdr = pStudioHdr;
 
@@ -728,11 +717,6 @@ void CStudioHdr::Init( const studiohdr_t *pStudioHdr, IMDLCache *mdlcache )
 		return;
 	}
 
-	if ( mdlcache )
-	{
-		m_pFrameUnlockCounter = mdlcache->GetFrameUnlockCounterPtr( MDLCACHE_STUDIOHDR );
-		m_nFrameUnlockCounter = *m_pFrameUnlockCounter - 1;
-	}
 
 	if (m_pStudioHdr->numincludemodels != 0)
 	{
@@ -806,15 +790,6 @@ const studiohdr_t *CStudioHdr::GroupStudioHdr( int i )
 	if ( !this )
 	{
 		ExecuteNTimes( 5, Warning( "Call to NULL CStudioHdr::GroupStudioHdr()\n" ) );
-	}
-
-	if ( m_nFrameUnlockCounter != *m_pFrameUnlockCounter )
-	{
-		if ( *m_pFrameUnlockCounter != m_nFrameUnlockCounter ) // i.e., this thread got the mutex
-		{
-			memset( m_pStudioHdrCache.Base(), 0, m_pStudioHdrCache.Count() * sizeof(studiohdr_t *) );
-			m_nFrameUnlockCounter = *m_pFrameUnlockCounter;
-		}
 	}
 
 	if ( !m_pStudioHdrCache.IsValidIndex( i ) )
