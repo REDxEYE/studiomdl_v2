@@ -1,9 +1,7 @@
 //====== Copyright c 1996-2008, Valve Corporation, All rights reserved. =======
 
 #pragma once
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 #include "tier1/utlstring.h"
 #include "tier1/utlstack.h"

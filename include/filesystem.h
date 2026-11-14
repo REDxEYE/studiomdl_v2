@@ -7,15 +7,10 @@
 
 #pragma once
 
-#ifdef _WIN32
-#pragma once
-#endif
 
-#include <limits.h>
 
 #include "tier1/utlsymbol.h"
 #include "tier1/utlstring.h"
-#include "tier1/functors.h"
 #include "tier1/checksum_crc.h"
 #include "tier1/checksum_md5.h"
 #include "tier1/utlqueue.h"

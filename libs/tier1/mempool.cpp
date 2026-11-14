@@ -6,10 +6,7 @@
 
 #include <cstddef>
 #include "tier1/mempool.h"
-#include <stdio.h>
-#include <memory.h>
 
-#include <ctype.h>
 #include "tier1/strtools.h"
 
 #include <malloc.h>

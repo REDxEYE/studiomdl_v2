@@ -8,8 +8,6 @@
 
 #include "stringpool.h"
 #include "tier1/strtools.h"
-#include "generichash.h"
-
 
 
 //-----------------------------------------------------------------------------

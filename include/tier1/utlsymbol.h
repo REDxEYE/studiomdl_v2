@@ -8,16 +8,13 @@
 
 #pragma once
 
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 #include "tier0/platform.h"
 
 #include "tier1/utlrbtree.h"
 #include "tier1/utlvector.h"
 #include "tier1/utlbuffer.h"
-#include "tier1/utllinkedlist.h"
 #include "tier1/stringpool.h"
 
 

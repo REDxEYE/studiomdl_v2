@@ -5,12 +5,9 @@
 //=============================================================================
 
 #pragma once
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 #include <limits.h>
-#include <math.h>
 #include "tier0/dbg.h"
 
 enum RoundStyle_t

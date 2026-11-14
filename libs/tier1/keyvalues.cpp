@@ -20,7 +20,6 @@
 #include <vstdlib/ikeyvaluessystem.h>
 
 #include <color.h>
-#include <stdlib.h>
 #include <ctype.h>
 
 #include "utlvector.h"

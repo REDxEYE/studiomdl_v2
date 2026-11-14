@@ -127,7 +127,6 @@ static int FileSelect( const char *name, const char *mask );
 #endif 
 
 #include "tier1/fileio.h"
-#include "tier1/utlbuffer.h"
 #include "tier1/strtools.h"
 #include <cerrno>
 #include "vstdlib/vstrtools.h"

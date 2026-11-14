@@ -9,9 +9,6 @@
 #include "movieobjects/dmeexpressionoperator.h"
 #include "datamodel/dmelementfactoryhelper.h"
 #include "mathlib/noise.h"
-#include <ctype.h>
-
-
 
 
 void TestCalculator( const char *expr, float answer )

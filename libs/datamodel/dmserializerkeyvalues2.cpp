@@ -14,7 +14,6 @@
 #include "dmelementdictionary.h"
 #include "DmElementFramework.h"
 #include "tier1/utlbuffer.h"
-#include <limits.h>
 
 
 //-----------------------------------------------------------------------------

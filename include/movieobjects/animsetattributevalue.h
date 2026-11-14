@@ -5,9 +5,7 @@
 //=============================================================================
 
 #pragma once
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 #include "tier1/utlmap.h"
 #include "tier1/strtools.h"

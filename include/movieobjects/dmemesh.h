@@ -6,16 +6,11 @@
 
 #pragma once
 
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 #include "movieobjects/dmeshape.h"
 #include "movieobjects/dmevertexdata.h"
 #include "mathlib/vector.h"
-#include "tier1/utllinkedlist.h"
-#include "color.h"
-#include "materialsystem/imesh.h"
 
 
 //-----------------------------------------------------------------------------
@@ -260,8 +255,7 @@ private:
 		float m_flDeltaWrinkle;
 	};
 
-	VertexFormat_t ComputeHwMeshVertexFormat( void );
-	IMorph *CreateHwMorph( IMaterial *pMTL );
+IMorph *CreateHwMorph( IMaterial *pMTL );
 	IMesh *CreateHwMesh( CDmeFaceSet *pFaceSet );
 
 	// Build a map from vertex index to a list of triangles that share the vert.
@@ -305,10 +299,7 @@ private:
 	// Renders normals 
 	void RenderNormals( matrix3x4_t *pPoseToWorld, RenderVertexDelta_t *pDelta );
 
-	// Writes triangulated indices for a face set into a meshbuilder
-	void WriteTriangluatedIndices( const CDmeVertexData *pBaseState, CDmeFaceSet *pFaceSet, CMeshBuilder &meshBuilder );
-
-	// Initializes the normal material
+// Initializes the normal material
 	static void InitializeNormalMaterial();
 	// Initializes the wireframe material
 	static void InitializeWireframeMaterial();

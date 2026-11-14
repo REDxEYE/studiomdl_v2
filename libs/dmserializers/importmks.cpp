@@ -4,7 +4,6 @@
 //
 //=============================================================================
 
-#include "importkeyvaluebase.h"
 #include "dmserializers.h"
 #include "datamodel/idatamodel.h"
 #include "datamodel/dmelement.h"
@@ -13,6 +12,7 @@
 #include "tier1/utlbuffer.h"
 #include "datamodel/dmattribute.h"
 #include "filesystem.h"
+#include "interfaces/interfaces.h"
 #include "tier2/tier2.h"
 #include "materialobjects/amalgtexturevars.h"
 

@@ -7,20 +7,13 @@
 //=============================================================================//
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/stat.h>
-#include <math.h>
-#include <float.h>
 
 #include "common/cmdlib.h"
 #include "common/scriplib.h"
-#include "mathlib/mathlib.h"
 #include "studio.h"
 #include "studiomdl/studiomdl.h"
-#include "studiomdl/bone_setup.h"
 #include "tier1/strtools.h"
-#include "mathlib/vmatrix.h"
 #include "tier1_v2/function_timing.hpp"
-#include "studiomdl/optimize.h"
 #include "studiomdl/studiomdl_global_state.hpp"
 #include "tier1_v2/path_utils.hpp"
 #include "tier1_v2/string_utils.hpp"

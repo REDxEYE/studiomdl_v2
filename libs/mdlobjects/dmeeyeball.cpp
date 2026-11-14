@@ -8,11 +8,6 @@
 // Valve includes
 #include "datamodel/dmelementfactoryhelper.h"
 #include "mdlobjects/dmeeyeball.h"
-#include "movieobjects/dmedag.h"
-#include "movieobjects/dmematerial.h"
-
-
-
 
 
 //-----------------------------------------------------------------------------

@@ -10,7 +10,6 @@
 #include "movieobjects/dmevertexdata.h"
 #include "movieobjects/dmefaceset.h"
 #include "movieobjects/dmematerial.h"
-#include "movieobjects/dmetransform.h"
 #include "movieobjects/dmemodel.h"
 #include "movieobjects/dmecombinationoperator.h"
 #include "movieobjects/dmeselection.h"
@@ -19,8 +18,6 @@
 
 #include "datamodel/dmelementfactoryhelper.h"
 #include "studio.h"
-#include "materialsystem/imesh.h"
-#include "materialsystem/imaterial.h"
 #include "tier1_v2/function_timing.hpp"
 
 
@@ -644,34 +641,6 @@ bool CDmeMesh::BuildDeltaMesh(int nVertices, RenderVertexDelta_t *pRenderDelta) 
 
 
 //-----------------------------------------------------------------------------
-// Writes triangulated indices for a face set into a meshbuilder
-//-----------------------------------------------------------------------------
-void CDmeMesh::WriteTriangluatedIndices(const CDmeVertexData *pBaseState, CDmeFaceSet *pFaceSet,
-                                        CMeshBuilder &meshBuilder) {
-    int indices[256];
-
-    // prepare indices
-    int nFirstIndex = 0;
-    int nIndexCount = pFaceSet->NumIndices();
-    while (nFirstIndex < nIndexCount) {
-        int nVertexCount = pFaceSet->GetNextPolygonVertexCount(nFirstIndex);
-        if (nVertexCount >= 3) {
-            int nOutCount = (nVertexCount - 2) * 3;
-            int *pIndices = (nOutCount > ARRAYSIZE(indices)) ? new int[nOutCount] : indices;
-            ComputeTriangulatedIndices(pBaseState, pFaceSet, nFirstIndex, pIndices);
-            for (int ii = 0; ii < nOutCount; ++ii) {
-                meshBuilder.FastIndex(pIndices[ii]);
-            }
-            if (pIndices != indices) {
-                delete[] pIndices;
-            }
-        }
-        nFirstIndex += nVertexCount + 1;
-    }
-}
-
-
-//-----------------------------------------------------------------------------
 // Do we have active delta state data?
 //-----------------------------------------------------------------------------
 bool CDmeMesh::HasActiveDeltaStates() const {
@@ -965,21 +934,6 @@ void CDmeMesh::SetDeltaStateWeight(int nDeltaIndex, MeshDeltaWeightType_t type, 
     if (nDeltaIndex < m_DeltaStateWeights[type].Count()) {
         m_DeltaStateWeights[type].Set(nDeltaIndex, Vector2D(flLeftWeight, flRightWeight));
     }
-}
-
-//-----------------------------------------------------------------------------
-// Determines the appropriate vertex format for hardware meshes
-//-----------------------------------------------------------------------------
-VertexFormat_t CDmeMesh::ComputeHwMeshVertexFormat(void) {
-    VertexFormat_t vertexFormat = VERTEX_POSITION | VERTEX_COLOR | VERTEX_NORMAL | VERTEX_TEXCOORD_SIZE(0, 2) |
-                                  VERTEX_BONEWEIGHT(2) | VERTEX_BONE_INDEX
-                                  | VERTEX_USERDATA_SIZE(4);
-
-    // FIXME: set VERTEX_FORMAT_COMPRESSED if there are no artifacts and if it saves enough memory (use 'mem_dumpvballocs')
-    // vertexFormat |= VERTEX_FORMAT_COMPRESSED;
-    // FIXME: check for and strip unused vertex elements (see 'bHasNormals', etc, in CreateHwMesh below)
-
-    return vertexFormat;
 }
 
 //-----------------------------------------------------------------------------

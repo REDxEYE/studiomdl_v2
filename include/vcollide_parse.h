@@ -7,9 +7,7 @@
 
 #ifndef VCOLLIDE_PARSE_H
 #define VCOLLIDE_PARSE_H
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 #include "vphysics_interface.h"
 

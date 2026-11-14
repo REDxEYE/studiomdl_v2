@@ -11,7 +11,6 @@
 #include "datamodel/dmattributevar.h"
 #include "tier1/keyvalues.h"
 #include "tier1/utlbuffer.h"
-#include <limits.h>
 
 
 //-----------------------------------------------------------------------------

@@ -9,12 +9,7 @@
 
 #pragma once
 
-#ifdef _WIN32
-#pragma once
-#endif
 
-
-#include <string.h>
 #include "tier0/platform.h"
 
 #include "tier0/memalloc.h"
@@ -36,8 +31,6 @@ template<class T, class I = int>
 class CUtlMemory {
     template<class A, class B>
     friend class CUtlVector;
-    template<class A, size_t B>
-    friend class CUtlVectorFixedGrowableCompat;
 
 public:
     // constructor, destructor

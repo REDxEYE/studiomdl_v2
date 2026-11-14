@@ -12,7 +12,6 @@
 #endif
 
 #include <cstdio>
-#include <cstring>
 #include <cstdarg>
 #include <cstdlib>
 #include "color.h"

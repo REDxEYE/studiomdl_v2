@@ -6,7 +6,6 @@
 //=============================================================================//
 
 #include <print>
-#include <stdlib.h>
 #include "studiomdl/hardwarevertexcache.h"
 
 CHardwareVertexCache::CHardwareVertexCache()

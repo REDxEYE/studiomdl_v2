@@ -7,7 +7,6 @@
 //===========================================================================//
 
 #include "tier1/strtools.h"
-#include "tier2/tier2.h"
 #include "cmdlib.h"
 #include "scriplib.h"
 #include "tier0/platform.h"
@@ -19,10 +18,10 @@
 #include <string_view>
 #include <vector>
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
 #include "tier1/utlbuffer.h"
 #include "filesystem/stdfile.h"
+#include "interfaces/interfaces.h"
 #include "tier1_v2/string_utils.hpp"
 
 /*

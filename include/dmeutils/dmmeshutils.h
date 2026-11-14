@@ -15,7 +15,6 @@
 #include "movieobjects/dmedag.h"
 #include "movieobjects/dmmeshcomp.h"
 #include "movieobjects/dmevertexdata.h"
-#include "tier1/utlstring.h"
 #include "tier1/UtlStringMap.h"
 #include "tier1/utlvector.h"
 

@@ -8,7 +8,6 @@
 #include "datamodel/dmattributevar.h"
 #include "datamodel/dmelementfactoryhelper.h"
 #include "datamodel.h"
-#include "dependencygraph.h"
 #include "dmattributeinternal.h"
 #include "dmserializerkeyvalues.h"
 #include "dmserializerkeyvalues2.h"

@@ -5,7 +5,6 @@
 //=====================================================================================//
 
 #include <cmath>
-#include "tier0/basetypes.h"
 #include "mathlib/mathlib.h"
 #include "mathlib/vector.h"
 #include "mathlib/noise.h"

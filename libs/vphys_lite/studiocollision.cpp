@@ -1,6 +1,5 @@
 #include "studiocollision.h"
 
-#include <algorithm>
 #include <cmath>
 #include <cfloat>
 #include <cstdint>

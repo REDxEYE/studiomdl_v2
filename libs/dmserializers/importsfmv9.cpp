@@ -12,8 +12,6 @@
 #include "datamodel/dmelement.h"
 #include "datamodel/dmattributevar.h"
 #include "tier1/utlbuffer.h"
-#include "tier1/utlmap.h"
-#include <limits.h>
 
 
 //-----------------------------------------------------------------------------

@@ -5,11 +5,7 @@
 //===========================================================================//
 
 #pragma once
-#ifdef _WIN32
-#pragma once
-#endif
 
-#include <limits.h>
 
 #include "tier0/basetypes.h"
 #include "tier1/strtools.h"

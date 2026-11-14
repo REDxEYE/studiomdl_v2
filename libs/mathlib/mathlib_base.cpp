@@ -21,11 +21,7 @@
 #include "mathlib/vplane.h"
 #include "mathlib/vmatrix.h"
 
-#include "sse.h"
-
 #include "mathlib/ssemath.h"
-#include "mathlib/ssequaternion.h"
-
 
 
 bool s_bMathlibInitialized = false;

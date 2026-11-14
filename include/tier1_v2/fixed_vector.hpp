@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include <cstddef>
 #include <cstring>
 #include <initializer_list>
 #include <memory>

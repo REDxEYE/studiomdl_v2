@@ -7,10 +7,6 @@
 #include "mdlobjects/dmelod.h"
 #include "datamodel/dmelementfactoryhelper.h"
 #include "movieobjects/dmemodel.h"
-#include "movieobjects/dmedag.h"
-#include "movieobjects/dmecombinationoperator.h"
-
-
 
 
 //-----------------------------------------------------------------------------

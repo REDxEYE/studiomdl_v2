@@ -5,7 +5,6 @@
 //=============================================================================
 #include "movieobjects/dmedag.h"
 #include "datamodel/dmelementfactoryhelper.h"
-#include "movieobjects/dmeclip.h"
 #include "movieobjects/dmelog.h"
 #include "movieobjects/dmechannel.h"
 #include "movieobjects/dmerigconstraintoperators.h"

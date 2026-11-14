@@ -6,13 +6,11 @@
 #include <cstdio>
 #include <cstdlib>
 #include <vector>
-#include <cstring>
 #include <unordered_map>
 #include <cmath>
 #include <cstdint>
 
 #include "common/cmdlib.h"
-#include "mathlib/mathlib.h"
 #include "studio.h"
 #include "studiomdl/studiomdl.h"
 #include "studiomdl/flexoptimize.h"

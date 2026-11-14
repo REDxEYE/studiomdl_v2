@@ -5,12 +5,6 @@
 //=============================================================================
 
 #pragma once
-#ifdef _WIN32
-#pragma once
-#endif
-
-#include "filesystem.h"
-
 
 
 #define MAX_IMAGES_PER_FRAME 4

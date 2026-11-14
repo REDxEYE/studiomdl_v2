@@ -8,8 +8,8 @@
 //=============================================================================//
 
 #include "tier2/utlstreambuffer.h"
-#include "tier2/tier2.h"
 #include "filesystem.h"
+#include "interfaces/interfaces.h"
 
 // NOTE: This has to be the last file included!
 

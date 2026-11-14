@@ -11,7 +11,6 @@
 #include "tier1_v2/string_utils.hpp"
 
 #include "tier0/basetypes.h"
-#include <cstdio>
 #include "color.h"
 
 #include <cctype>

@@ -8,13 +8,8 @@
 
 #pragma once
 
-#ifdef _WIN32
-#pragma once
-#endif
-
-
-#include "tier1/stringpool.h"
-
+#include "tier1/generichash.h"
+#include "tier1/utlrbtree.h"
 //-----------------------------------------------------------------------------
 // CUtlSymbolTableLarge:
 // description:

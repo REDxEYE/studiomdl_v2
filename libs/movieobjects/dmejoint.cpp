@@ -5,9 +5,6 @@
 //=============================================================================
 #include "movieobjects/dmejoint.h"
 #include "datamodel/dmelementfactoryhelper.h"
-#include "tier1/keyvalues.h"
-
-
 
 
 //-----------------------------------------------------------------------------

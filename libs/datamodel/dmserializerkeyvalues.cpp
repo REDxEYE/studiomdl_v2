@@ -9,11 +9,9 @@
 #include "datamodel.h"
 #include "datamodel/dmelement.h"
 #include "datamodel/dmattributevar.h"
-#include "dmattributeinternal.h"
 #include "tier1/keyvalues.h"
 #include "tier1/utlbuffer.h"
 #include "tier1/utlvector.h"
-#include <limits.h>
 #include "DmElementFramework.h"
 
 

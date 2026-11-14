@@ -8,8 +8,6 @@
 // Valve includes
 #include "datamodel/dmelementfactoryhelper.h"
 #include "mdlobjects/dmeanimcmd.h"
-#include "mdlobjects/dmemotioncontrol.h"
-#include "mdlobjects/dmesequence.h"
 #include "mdlobjects/dmeanimationassemblycommand.h"
 #include "movieobjects/dmechannel.h"
 #include "studiomdl/bone_setup.h"

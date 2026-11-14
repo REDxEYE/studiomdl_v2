@@ -6,9 +6,7 @@
 
 #pragma once
 
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 // 16 bytes == 128 bit digest
 #define MD5_DIGEST_LENGTH 16  

@@ -4,21 +4,13 @@
 
 #include "dmxsupport.hpp"
 #include "movieobjects/dmeattributereference.h"
-#include "movieobjects/dmeconnectionoperator.h"
 #include "movieobjects/dmemodel.h"
 #include "movieobjects/dmemesh.h"
 #include "movieobjects/dmefaceset.h"
-#include "movieobjects/dmematerial.h"
-#include "movieobjects/dmeclip.h"
 #include "movieobjects/dmechannel.h"
-#include "movieobjects/dmeattachment.h"
 #include "movieobjects/dmeanimationlist.h"
 #include "movieobjects/dmecombinationoperator.h"
-#include "movieobjects/dmerigconstraintoperators.h"
 #include "mdlobjects/dmeeyeball.h"
-#include "mdlobjects/dmeeyelid.h"
-#include "mdlobjects/dmejigglebone.h"
-#include "mdlobjects/dmemouth.h"
 
 
 // Local includes

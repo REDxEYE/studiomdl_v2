@@ -6,7 +6,8 @@
 //===========================================================================//
 
 #include "basefilesystem.h"
-#include "tier0/threadtools.h"
+
+#include "interfaces/interfaces.h"
 #include "tier1/characterset.h"
 #include "tier1/keyvalues.h"
 #include "tier1/lzmaDecoder.h"

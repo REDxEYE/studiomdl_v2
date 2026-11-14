@@ -4,8 +4,6 @@
 //
 //=====================================================================================//
 
-#include "tier0/basetypes.h"
-#include "mathlib/mathlib.h"
 #include "mathlib/ssemath.h"
 #include "noisedata.h"
 

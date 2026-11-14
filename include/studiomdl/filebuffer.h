@@ -7,7 +7,6 @@
 
 #pragma once
 
-#include <cstddef>
 #include <cstring>
 #include <print>
 #include <vector>

@@ -15,12 +15,10 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/stat.h>
 
 #include "common/cmdlib.h"
 //#include "lbmlib.h"
 #include "common/scriplib.h"
-#include "mathlib/mathlib.h"
 #include "studio.h"
 #include "studiomdl/studiomdl.h"
 

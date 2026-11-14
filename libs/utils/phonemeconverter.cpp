@@ -6,7 +6,6 @@
 //
 //===========================================================================//
 #include <stdio.h>
-#include <string.h>
 #include "tier0/commonmacros.h"
 #include "tier0/dbg.h"
 

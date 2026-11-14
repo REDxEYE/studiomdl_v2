@@ -14,11 +14,9 @@
 
 #include "dmserializers.h"
 #include "dmserializers/idmserializers.h"
-#include "filesystem.h"
 #include "datamodel/idatamodel.h"
 #include "datamodel/dmattributevar.h"
 #include "datamodel/dmelementfactoryhelper.h"
-#include "tier2/tier2.h"
 #include "tier1/timeutils.h"
 #include "tier1/fmtstr.h"
 #include "tier1/utldict.h"

@@ -10,12 +10,9 @@ endif ()
 
 add_library(mathlib
         sse.cpp
-        disjoint_set_forest.cpp
         ssenoise.cpp
-        polygon.cpp
         sseconst.cpp
         simdvectormatrix.cpp
-        eigen.cpp
         powsse.cpp
         expressioncalculator.cpp
         sparse_convolution_noise.cpp

@@ -5,15 +5,12 @@
 //=============================================================================
 
 #pragma once
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 #include "datamodel/dmelement.h"
 #include "datamodel/dmattribute.h"
 #include "datamodel/dmattributevar.h"
 #include "datamodel/dmehandle.h"
-#include "tier1/utlmap.h"
 #include "datamodel/dmelementfactoryhelper.h"
 
 

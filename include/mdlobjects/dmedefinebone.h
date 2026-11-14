@@ -7,12 +7,6 @@
 #pragma once
 
 
-#ifdef _WIN32
-#pragma once
-#endif
-
-
-#include "datamodel/dmattributevar.h"
 #include "datamodel/dmelement.h"
 
 

@@ -3827,14 +3827,13 @@ inline int Studio_LoadVertexes(const vertexFileHeader_t *pTempVvdHdr, vertexFile
                                bool bNeedsTangentS, bool bHasExtraData) {
     int i;
     int target;
-    int numVertexes;
     vertexFileFixup_t *pFixupTable;
     ExtraVertexAttributeIndex_t *pExtraIndex = nullptr;
     ExtraVertexAttributeIndex_t *pNewExtraIndex = nullptr;
     ExtraVertexAttributesHeader_t *pExtraHeader = nullptr;
     ExtraVertexAttributesHeader_t *pNewExtraHeader = nullptr;
 
-    numVertexes = pTempVvdHdr->numLODVertexes[rootLOD];
+    int numVertexes = pTempVvdHdr->numLODVertexes[rootLOD];
 
     // copy all data up to start of vertexes
     memcpy((void *) pNewVvdHdr, (void *) pTempVvdHdr, pTempVvdHdr->vertexDataStart);

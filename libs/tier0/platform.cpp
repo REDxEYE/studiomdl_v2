@@ -5,7 +5,6 @@
 // $NoKeywords: $
 //===========================================================================//
 
-#include "pch_tier0.h"
 #include <ctime>
 #include <cstring>
 
@@ -13,11 +12,7 @@
 #define WINDOWS_LEAN_AND_MEAN
 #define _WIN32_WINNT 0x0403
 #include <windows.h>
-#include <direct.h>
-#include <io.h>
 #endif
-
-#include <cerrno>
 
 #include "tier0/memalloc.h"
 #include "dbg.h"

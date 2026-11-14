@@ -5,26 +5,14 @@
 //===========================================================================//
 
 #if defined( _WIN32 )
-#include <windows.h>
-#include <direct.h>
-#include <io.h> // _chmod
 #elif POSIX
 #include <unistd.h>
 #endif
 
-#include <stdio.h>
-#include <sys/stat.h>
-#include "tier1/strtools.h"
 #include "filesystem_tools.h"
-#include "tier0/icommandline.h"
-#include "tier1/keyvalues.h"
-#include "tier2/tier2.h"
 
-#ifdef MPI
-	#include "vmpi.h"
-	#include "vmpi_tools_shared.h"
-	#include "vmpi_filesystem.h"
-#endif
+#include "filesystem_init.h"
+#include "interfaces/interfaces.h"
 
 
 

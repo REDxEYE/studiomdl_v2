@@ -5,16 +5,13 @@
 //=============================================================================
 
 #pragma once
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 #include "datamodel/dmelement.h"
 #include "datamodel/dmattribute.h"
 #include "datamodel/dmattributevar.h"
 #include "movieobjects/dmeoperator.h"
 #include "movieobjects/dmeexpressionoperator.h"
-#include "datamodel/dmehandle.h"
 
 
 //-----------------------------------------------------------------------------

@@ -5,9 +5,7 @@
 //=============================================================================//
 
 #pragma once
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 #include "utlmultilist.h"
 #include "utlvector.h"

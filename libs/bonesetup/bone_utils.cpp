@@ -8,7 +8,6 @@
 
 
 #include "mathlib/mathlib.h"
-#include "tier0/threadtools.h"
 #include "studiomdl/bone_setup.h"
 #include <cstring>
 #ifdef POSIX

@@ -5,15 +5,10 @@
 //====================================================================//
 #pragma once
 
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 #include "tier0/platform.h"
-#include "tier0/basetypes.h"
 #include "logging.h"
-#include <cmath>
-#include <cstdio>
 #include <cstdarg>
 
 class Color;

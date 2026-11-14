@@ -30,8 +30,6 @@
 #include "tier0/platform.h"
 
 #if !defined(_MINIMUM_BUILD_)
-#include <stdio.h>  // Needed for file access
-#include <memory.h>
 #include <string.h> // Needed for strcat and strcpy
 #endif
 

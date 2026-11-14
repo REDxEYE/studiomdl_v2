@@ -8,9 +8,7 @@
 //=============================================================================
 
 #pragma once
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 #include "movieobjects/dmeattributereference.h"
 #include "movieobjects/dmeoperator.h" 

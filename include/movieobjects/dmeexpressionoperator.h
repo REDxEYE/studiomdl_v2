@@ -8,9 +8,7 @@
 //=============================================================================
 
 #pragma once
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 #include "movieobjects/dmeoperator.h"
 #include "mathlib/expressioncalculator.h"

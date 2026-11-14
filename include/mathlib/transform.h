@@ -12,7 +12,6 @@
 #pragma once
 #endif
 
-#include "tier0/memalloc.h"
 #include "mathlib/vector.h"
 #include "mathlib/mathlib.h"
 

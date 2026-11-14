@@ -13,7 +13,7 @@
 #include "tier1/utlbuffer.h"
 #include "datamodel/dmattribute.h"
 #include "filesystem.h"
-#include "tier2/tier2.h"
+#include "interfaces/interfaces.h"
 
 
 //-----------------------------------------------------------------------------

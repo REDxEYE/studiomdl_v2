@@ -11,7 +11,6 @@
 #include "datamodel/dmattribute.h"
 #include "datamodel/dmattributevar.h"
 #include "datamodel/dmehandle.h"
-#include "datamodel/dmattributevar.h"
 #include "interpolatortypes.h"
 #include "movieobjects/dmetimeselectiontimes.h"
 #include "movieobjects/proceduralpresets.h"

@@ -8,9 +8,7 @@
 
 #pragma once
 
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 #include <math.h>
 #include <float.h>
@@ -19,12 +17,10 @@
 #include "tier0/basetypes.h"
 
 // For rand(). We really need a library!
-#include <stdlib.h>
 
 
 #include "mathlib/vector.h"
 
-#include "mathlib/mathlib.h"
 #include "mathlib/ssemath.h"
 
 

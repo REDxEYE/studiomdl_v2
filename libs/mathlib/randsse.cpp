@@ -7,7 +7,6 @@
 #include <math.h>
 #include <float.h>	// needed for flt_epsilon
 #include "tier0/basetypes.h"
-#include <memory.h>
 
 #include "mathlib/mathlib.h"
 #include "mathlib/vector.h"

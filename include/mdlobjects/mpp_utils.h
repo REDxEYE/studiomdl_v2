@@ -14,7 +14,6 @@
 
 
 // Valve includes
-#include "movieobjects/dmechannel.h"
 #include "movieobjects/dmemodel.h"
 #include "mdlobjects/dmeasset.h"
 #include "mdlobjects/dmesequence.h"

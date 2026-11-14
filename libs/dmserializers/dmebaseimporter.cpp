@@ -3,7 +3,6 @@
 // Purpose: 
 //
 //=============================================================================
-#include "dmserializers.h"
 #include "dmebaseimporter.h"
 
 CDmeBaseImporter::CDmeBaseImporter( char const *formatName, char const *nextFormatName ) :

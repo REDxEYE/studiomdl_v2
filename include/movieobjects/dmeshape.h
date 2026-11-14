@@ -5,13 +5,12 @@
 //=============================================================================
 
 #pragma once
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 #include "mathlib/mathlib.h"
 #include "datamodel/dmelement.h"
 #include "datamodel/dmattribute.h"
+#include "mdlobjects/dmeik.h"
 #include "datamodel/dmattributevar.h"
 
 

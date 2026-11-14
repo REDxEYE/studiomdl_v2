@@ -8,7 +8,6 @@
 
 
 #include "studio.h"
-#include "optimize.h"
 
 enum
 {

@@ -10,11 +10,9 @@
 #pragma once
 
 #include <cstdarg>
-#include <cstddef>
 #include <cstdint>
 #include <fstream>
 #include <string>
-#include <vector>
 
 //-----------------------------------------------------------------------------
 // An open file. Seek origins are SEEK_SET / SEEK_CUR / SEEK_END.

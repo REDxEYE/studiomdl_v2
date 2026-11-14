@@ -8,24 +8,19 @@
 
 #pragma once
 #include "studiomdl_constants.hpp"
-#include "studiomdl_helpers.hpp"
 
 #include <vector>
 #include <deque>
 #include <array>
-#include <cstdio>
 #include <string>
 #include <string_view>
 
 #include "bspflags.h"
 #include "tier0/basetypes.h"
 #include "tier1/utlvector.h"
-#include "tier1/utlsymbol.h"
 #include "tier1/utlstring.h"
 #include "mathlib/vector.h"
 #include "studio.h"
-#include "datamodel/dmelementhandle.h"
-#include "worldsize.h"
 #include "movieobjects/dmemodel.h"
 #include "tier1_v2/auto_grow_vector.hpp"
 #include "tier1_v2/fixed_string.hpp"

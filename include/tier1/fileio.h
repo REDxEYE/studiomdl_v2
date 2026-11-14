@@ -18,7 +18,6 @@ typedef int64_t time64_t;
 #endif
 
 #include "tier0/platform.h"
-#include "tier0/t0constants.h"
 #include "tier1/utlstring.h"
 #include "tier1/utllinkedlist.h"
 #include "appinstance.h"

@@ -18,11 +18,8 @@
 #include <memory>
 #include <string>
 #include <string_view>
-#include <system_error>
 #include <vector>
 
-#include "tier0/basetypes.h"
-#include "tier1/utlstring.h"
 #include "tier1/utlvector.h"
 #include "tier1_v2/fixed_string.hpp"
 

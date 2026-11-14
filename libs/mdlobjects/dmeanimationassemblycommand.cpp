@@ -11,6 +11,8 @@
 #include "mdlobjects/dmebonemask.h"
 #include "mdlobjects/dmesequence.h"
 #include "mdlobjects/mpp_utils.h"
+#include "movieobjects/dmechannel.h"
+#include "movieobjects/dmeclip.h"
 #include "studiomdl/bone_setup.h"
 
 

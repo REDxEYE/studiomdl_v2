@@ -6,8 +6,6 @@
 
 #pragma once
 
-#include <emmintrin.h>
-
 #if defined(GNUC)
 #define USE_STDC_FOR_SIMD 0
 #else

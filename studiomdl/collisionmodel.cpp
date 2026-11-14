@@ -16,8 +16,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/stat.h>
-#include <math.h>
 
 #include "studioconstraints.h"
 #include "collisionmodelsource.h"
@@ -34,11 +32,10 @@
 #include "tier1/utlvector.h"
 #include "vcollide_parse.h"
 #include "tier1/strtools.h"
-#include "tier2/tier2.h"
 #include "tier1/keyvalues.h"
-#include "tier1/smartptr.h"
 #include "datamodel/dmattributevar.h"
 #include "datamodel/dmelement.h"
+#include "interfaces/interfaces.h"
 #include "mdlobjects/dmecollisionjoints.h"
 #include "tier1_v2/function_timing.hpp"
 #include "studiomdl/studiomdl_global_state.hpp"

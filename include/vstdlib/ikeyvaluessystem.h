@@ -5,9 +5,7 @@
 // $NoKeywords: $
 //=============================================================================//
 #pragma once
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 #include "vstdlib/vstdlib.h"
 
@@ -22,7 +20,9 @@ typedef int HKeySymbol;
 class IKeyValuesSystem
 {
 public:
-	// registers the size of the KeyValues in the specified instance
+    virtual ~IKeyValuesSystem() = default;
+
+    // registers the size of the KeyValues in the specified instance
 	// so it can build a properly sized memory pool for the KeyValues objects
 	// the sizes will usually never differ but this is for versioning safety
 	virtual void RegisterSizeofKeyValues(int size) = 0;

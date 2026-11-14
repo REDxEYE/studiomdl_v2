@@ -14,13 +14,8 @@
 
 #pragma once
 
-#ifdef _WIN32
-#pragma once
-#endif
 
-#include "datamodel/dmelement.h"
 #include "datamodel/dmattribute.h"
-#include "datamodel/dmattributevar.h"
 
 //-----------------------------------------------------------------------------
 // Forward declarations

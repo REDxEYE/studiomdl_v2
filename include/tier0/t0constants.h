@@ -6,9 +6,7 @@
 //=============================================================================
 
 #pragma once
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 //-----------------------------------------------------------------------------
 // numeric constants to avoid typos with wrong number of zeros

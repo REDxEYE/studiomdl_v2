@@ -8,9 +8,6 @@
 #include "dmserializers.h"
 #include "datamodel/idatamodel.h"
 #include "datamodel/dmelement.h"
-#include "datamodel/dmattributevar.h"
-#include "tier1/keyvalues.h"
-#include "tier1/utlbuffer.h"
 #include "datamodel/dmattribute.h"
 
 

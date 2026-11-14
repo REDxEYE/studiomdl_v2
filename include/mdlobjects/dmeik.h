@@ -7,14 +7,14 @@
 #pragma once
 
 
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 
 // Valve includes
 #include "datamodel/dmelement.h"
 #include "datamodel/dmattributevar.h"
+#include "mdlobjects/dmemotioncontrol.h"
+#include "mdlobjects/dmebonemask.h"
 
 
 //-----------------------------------------------------------------------------

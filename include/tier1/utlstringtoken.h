@@ -8,11 +8,6 @@
 
 #pragma once
 
-#ifdef _WIN32
-#pragma once
-#endif
-
-#include <limits.h>
 
 #include "tier1/mempool.h"
 #include "tier1/generichash.h"

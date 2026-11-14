@@ -6,9 +6,7 @@
 
 #pragma once
 
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 
 // The registry keys that vconfig uses to store the current vproject directory.

@@ -22,7 +22,6 @@
 
 #include <cstdio>
 #include <cstdlib>
-#include <cfloat>
 #include <vector>
 #include "mathlib/mathlib.h"
 #include "common/cmdlib.h"
@@ -36,15 +35,14 @@
 #include "studiomdl/filebuffer.h"
 #include "studiomdl/output_files.hpp"
 #include "tier1/utlvector.h"
-#include "materialsystem/imaterial.h"
 #include "tier1/utllinkedlist.h"
-#include "tier1/smartptr.h"
 
 #define  SUBD_STUDIOMDL
 
 #include "studiomdl/optimize_subd.h"
 #include "tier1_v2/function_timing.hpp"
 #include "studiomdl/studiomdl_global_state.hpp"
+#include "studiomdl/studiomdl_helpers.hpp"
 #include "tier1/utlhash.h"
 #include "tier1_v2/string_utils.hpp"
 
@@ -4136,15 +4134,14 @@ namespace OptimizedModel {
     void ValidateLODReplacements(studiohdr_t *pHdr) {
         // return;
         bool failed = false;
-        int lodID;
-        for (lodID = 0; lodID < std::ssize(g_studiomdl.body.ScriptLODs); lodID++) {
+        for (int lodID = 0; lodID < std::ssize(g_studiomdl.body.ScriptLODs); lodID++) {
             LodScriptData_t &scriptLOD = g_studiomdl.body.ScriptLODs[lodID];
             int j;
             for (j = 0; j < std::ssize(scriptLOD.meshRemovals); j++) {
                 const auto pName1 = scriptLOD.meshRemovals[j].GetSrcName();
                 int i;
                 for (i = 0; i < pHdr->numtextures; i++) {
-                    const char *pName2 = pHdr->pTexture(i)->material->GetName();
+                    const char *pName2 = pHdr->pTexture(i)->pszName();
                     if (ComparePath(pName1, pName2)) {
                         goto got_one;
                     }
@@ -4158,9 +4155,8 @@ namespace OptimizedModel {
         }
         if (failed) {
             MdlWarning("possible materials in model:\n");
-            int i;
-            for (i = 0; i < pHdr->numtextures; i++) {
-                MdlWarning("\t\"%s\"\n", pHdr->pTexture(i)->material->GetName());
+            for (int i = 0; i < pHdr->numtextures; i++) {
+                MdlWarning("\t\"%s\"\n", pHdr->pTexture(i)->pszName());
             }
             MdlError("Exiting due to errors\n");
         }

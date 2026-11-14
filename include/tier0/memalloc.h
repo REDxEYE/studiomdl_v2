@@ -7,9 +7,7 @@
 
 #pragma once
 
-#include <stddef.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstring>
 #include <malloc.h>
 #include <type_traits>
 #include <cstdio>

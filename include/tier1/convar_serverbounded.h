@@ -5,9 +5,7 @@
 //=============================================================================//
 
 #pragma once
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 
 // This class is used to virtualize a ConVar's value, so the client can restrict its 

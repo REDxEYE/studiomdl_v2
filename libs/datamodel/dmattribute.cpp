@@ -16,12 +16,9 @@
 #include "tier1/utlstring.h"
 #include "tier1/utlbuffer.h"
 #include "tier1/utlbufferutil.h"
-#include "tier1/keyvalues.h"
 #include "tier1/mempool.h"
 #include "mathlib/vmatrix.h"
 #include "datamodel/dmattributevar.h"
-#include <ctype.h>
-
 
 
 //-----------------------------------------------------------------------------
@@ -87,8 +84,6 @@ static bool Unserialize( CUtlBuffer &buf, DmUnknownAttribute_t &dest )
 	Assert( 0 );
 	return false;
 }
-
-#include "tier1/utlbufferutil.h"
 
 // The element attribute storage converts to DmElementHandle_t, which made ::Serialize/::Unserialize ambiguous in the
 // (never executed) element instantiations of the array attribute templates.

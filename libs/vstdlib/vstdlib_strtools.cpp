@@ -10,7 +10,6 @@
 #include "tier1/utlstring.h"
 #include "tier1/utlvector.h"
 #include "tier1/fmtstr.h"
-#include "tier1/characterset.h"
 
 // Prints out a memory dump where stuff that's ascii is human readable, etc.
 void V_LogMultiline(bool input, char const *label, const char *data, size_t len, CUtlString &output);

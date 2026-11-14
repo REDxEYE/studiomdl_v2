@@ -19,9 +19,7 @@
 #include "common/scriplib.h"
 #include "studiomdl/perfstats.h"
 #include "datamodel/idatamodel.h"
-#include "dmserializers/idmserializers.h"
 #include "tier2/tier2dm.h"
-#include "filesystem/filesystem_stdio.h"
 #include "studiomdl/collisionmodel.h"
 #include "studiomdl/studiomdl_global_state.hpp"
 #include "tier1_v2/path_utils.hpp"
@@ -30,6 +28,8 @@
 #include <filesystem>
 
 #include "dmxsupport.hpp"
+#include "filesystem_init.h"
+#include "studiomdl/studiomdl_helpers.hpp"
 #include "tier1_v2/math_utils.hpp"
 
 CMdlLoggingListener s_MdlLoggingListener;

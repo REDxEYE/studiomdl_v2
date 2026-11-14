@@ -9,9 +9,7 @@
 
 #pragma once
 
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 // cmdlib.h																   
 
@@ -24,15 +22,10 @@
 
 #endif
 
-#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <errno.h>
-#include <ctype.h>
 #include <time.h>
-#include <stdarg.h>
 #include "filesystem.h"
-#include "filesystem_tools.h"
 
 #include <string>
 #include <string_view>

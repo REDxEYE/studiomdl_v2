@@ -11,9 +11,7 @@
 #include "studio.h"
 
 
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 
 #include "datamodel/dmelement.h"

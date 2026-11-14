@@ -8,9 +8,7 @@
 #pragma once
 #include "tier1_v2/ptr_utils.hpp"
 
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 #include "studio.h"
 

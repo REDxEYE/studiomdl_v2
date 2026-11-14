@@ -8,11 +8,6 @@
 
 #pragma once
 
-#ifdef _WIN32
-#pragma once
-#endif
-
-#include "tier0/platform.h"
 
 enum LocalFlexController_t
 {

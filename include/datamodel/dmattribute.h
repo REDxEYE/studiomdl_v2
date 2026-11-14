@@ -5,9 +5,7 @@
 //=============================================================================
 
 #pragma once
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 #include "datamodel/attributeflags.h"
 #include "datamodel/idatamodel.h"

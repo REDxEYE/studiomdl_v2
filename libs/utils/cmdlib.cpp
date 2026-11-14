@@ -8,14 +8,14 @@
 // -----------------------
 // cmdlib.c
 // -----------------------
+#include <sys/stat.h>
+
 #include "tier0/platform.h"
 #include "tier1_v2/function_timing.hpp"
 #ifdef IS_WINDOWS_PC
 #include <windows.h>
 #endif
 #include "cmdlib.h"
-#include <sys/types.h>
-#include <sys/stat.h>
 #include "tier1/strtools.h"
 #ifdef _WIN32
 #include <conio.h>
@@ -23,7 +23,6 @@
 #include "tier1/utlvector.h"
 #include "filesystem_helpers.h"
 #include "tier1/utllinkedlist.h"
-#include "tier0/icommandline.h"
 #include "tier1/keyvalues.h"
 #include "filesystem_tools.h"
 #include "studiomdl/studiomdl_global_state.hpp"

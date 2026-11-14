@@ -6,9 +6,7 @@
 //=============================================================================//
 #pragma once
 #include <tier0/platform.h>
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 typedef uint32_t CRC32_t;
 

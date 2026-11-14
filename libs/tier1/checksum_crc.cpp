@@ -5,7 +5,6 @@
 //=============================================================================//
 
 #include "tier0/platform.h"
-#include "tier0/commonmacros.h"
 #include "tier1/checksum_crc.h"
 
 

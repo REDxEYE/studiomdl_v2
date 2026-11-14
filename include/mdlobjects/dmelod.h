@@ -6,12 +6,12 @@
 
 #pragma once
 
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 #include "datamodel/dmelement.h"
 #include "datamodel/dmattributevar.h"
+#include "movieobjects/dmecombinationoperator.h"
+#include "mdlobjects/dmeeyeball.h"
 
 
 //-----------------------------------------------------------------------------

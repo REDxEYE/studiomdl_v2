@@ -15,9 +15,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/stat.h>
-#include <math.h>
-#include <float.h>
 
 #include "common/cmdlib.h"
 #include "common/scriplib.h"
@@ -26,7 +23,6 @@
 #include "studiomdl/studiomdl.h"
 #include "studiomdl/bone_setup.h"
 #include "tier1/strtools.h"
-#include "mathlib/vmatrix.h"
 #include "mdlobjects/dmeboneflexdriver.h"
 #include "tier1_v2/function_timing.hpp"
 #include "studiomdl/studiomdl_global_state.hpp"

@@ -45,7 +45,6 @@
 
 // NOTE: I have to include stdio + stdarg first so vsnprintf gets compiled in
 #include <stdio.h>
-#include <stdarg.h>
 
 #include "tier0/basetypes.h"
 #include "tier0/platform.h"
@@ -65,7 +64,6 @@
 #define _strtoi64 strtoll
 #define _strtoui64 strtoull
 #elif _WIN32
-#include <direct.h>
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #endif
@@ -78,7 +76,6 @@
 
 #include "tier1/strtools.h"
 #include <string.h>
-#include <stdlib.h>
 #include "tier1/utldict.h"
 #include "tier1/characterset.h"
 #include "tier1/utlstring.h"

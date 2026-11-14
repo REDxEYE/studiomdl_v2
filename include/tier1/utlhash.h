@@ -14,7 +14,6 @@
 #include "utlmemory.h"
 #include "utlvector.h"
 #include "utllinkedlist.h"
-#include "utllinkedlist.h"
 #include "tier0/commonmacros.h"
 #include "generichash.h"
 

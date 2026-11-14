@@ -6,9 +6,7 @@
 //=============================================================================//
 
 #pragma once
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 // emulate a hardware post T&L vertex fifo
 

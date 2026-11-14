@@ -18,11 +18,6 @@
 
 #include <windows.h>
 #include <shellapi.h>
-#include <direct.h>
-#include <io.h>
-#include <processthreadsapi.h>
-#include <errhandlingapi.h>
-#include <minmax.h>
 
 #else // POSIX
 

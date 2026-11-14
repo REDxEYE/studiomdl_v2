@@ -9,15 +9,9 @@
 
 #pragma once
 
-#ifdef _WIN32
-#pragma once
-#endif
 
-#include <utility>
 #include "tier0/platform.h"
 #include "mathlib/mathlib.h"
-
-#include "tier0/memalloc.h"
 
 
 #pragma warning (disable:4100)

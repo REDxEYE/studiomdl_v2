@@ -5,16 +5,13 @@
 //=============================================================================
 
 #pragma once
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 #include "tier1/utlmap.h"
 #include "tier1/utlhash.h"
 #include "tier1/utlvector.h"
 #include "tier1/utlsymbol.h"
 #include "tier1/mempool.h"
-#include "datamodel/attributeflags.h"
 #include "datamodel/idatamodel.h"
 #include "datamodel/dmattribute.h"
 #include "datamodel/dmvar.h"

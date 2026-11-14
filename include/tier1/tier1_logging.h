@@ -12,7 +12,6 @@
 
 #include "tier0/logging.h"
 #include "utlbuffer.h"
-#include "color.h"
 
 class CBufferedLoggingListener : public ILoggingListener
 {

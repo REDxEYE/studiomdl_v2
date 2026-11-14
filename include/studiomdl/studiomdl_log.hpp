@@ -11,8 +11,6 @@
 #include <print>
 #include <string_view>
 
-#include "tier1_v2/fixed_string.hpp"
-
 // Type-erased implementations (studiomdl/studiomdl_errors.cpp); call the templates below instead.
 [[noreturn]] void MdlErrorV(std::string_view fmt, std::format_args args);
 void MdlWarningV(std::string_view fmt, std::format_args args);

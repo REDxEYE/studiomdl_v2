@@ -5,7 +5,6 @@
 //=====================================================================================//
 
 #include <cmath>
-#include <cfloat>    // needed for flt_epsilon
 #include "tier0/basetypes.h"
 
 #include "mathlib/mathlib.h"

@@ -11,15 +11,9 @@
 #include "movieobjects/dmeanimationlist.h"
 #include "movieobjects/dmechannel.h"
 #include "movieobjects/dmeconnectionoperator.h"
-#include "movieobjects/dmedag.h"
 #include "mdlobjects/dmeanimcmd.h"
-#include "mdlobjects/dmeik.h"
 #include "mdlobjects/dmemotioncontrol.h"
 #include "mdlobjects/dmesequence.h"
-#include "mdlobjects/dmebonemask.h"
-
-
-
 
 
 //-----------------------------------------------------------------------------

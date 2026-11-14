@@ -24,25 +24,20 @@
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
-#include <sys/stat.h>
 #include <cmath>
 #include <vector>
-#include "common/filesystem_tools.h"
 #include "common/cmdlib.h"
 #include "common/scriplib.h"
 
 #include "studiomdl/studiomdl.h"
 #include "bspflags.h"
 #include "bitvec.h"
-#include "datamodel/idatamodel.h"
 #include "datamodel/dmelementfactoryhelper.h"
 #include "movieobjects/dmecombinationoperator.h"
 #include "movieobjects/dmeflexrules.h"
-#include "tier1/keyvalues.h"
-#include "movieobjects/dmemodel.h"
 
 #include "studiomdl_commands.h"
-#include "studiomdl_errors.h"
+#include "interfaces/interfaces.h"
 #include "tier1_v2/function_timing.hpp"
 #include "studiomdl/studiomdl_global_state.hpp"
 #include "tier1_v2/path_utils.hpp"

@@ -6,11 +6,7 @@
 
 #pragma once
 
-#ifdef _WIN32
-#pragma once
-#endif
 
-#include "tier2/tier2.h"
 #include "color.h"
 
 //-----------------------------------------------------------------------------

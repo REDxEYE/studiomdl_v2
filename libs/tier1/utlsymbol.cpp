@@ -9,8 +9,6 @@
 #pragma warning (disable:4514)
 
 #include "utlsymbol.h"
-#include <stddef.h>
-
 
 
 #define INVALID_STRING_INDEX CStringPoolIndex( 0xFFFF, 0xFFFF )

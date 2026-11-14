@@ -20,13 +20,13 @@
 
 #include <cstdio>
 #include <cstdlib>
-#include <sys/stat.h>
 #include <cmath>
 #include "tier1/utlbuffer.h"
 #include "common/cmdlib.h"
 #include "common/scriplib.h"
 #include "mathlib/mathlib.h"
 #include "studio.h"
+#include "interfaces/interfaces.h"
 #include "tier1/characterset.h"
 #include "tier1_v2/path_utils.hpp"
 #include "studiomdl/studiomdl.h"

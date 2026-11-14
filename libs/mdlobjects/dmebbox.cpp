@@ -9,10 +9,6 @@
 #include "datamodel/dmelementfactoryhelper.h"
 #include "mdlobjects/dmebbox.h"
 #include "mathlib/mathlib.h"
-#include "tier2/renderutils.h"
-
-
-
 
 
 //-----------------------------------------------------------------------------

@@ -1,9 +1,7 @@
 //========== Copyright (c) Valve Corporation. All Rights Reserved. ============
 #pragma once
 
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 #include "resourcefile/resourcefile.h"
 

@@ -7,9 +7,9 @@
 
 #pragma once
 
-#include <cstddef>
 #include <iostream>
 #include <string_view>
+#include "fixed_string.hpp"
 #include "studiomdl/studiomdl_log.hpp"
 
 namespace vstd {

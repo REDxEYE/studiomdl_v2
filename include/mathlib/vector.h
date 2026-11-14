@@ -8,12 +8,9 @@
 
 #pragma once
 
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 #include <math.h>
-#include <float.h>
 
 // For vec_t, put this somewhere else?
 #include "tier0/basetypes.h"

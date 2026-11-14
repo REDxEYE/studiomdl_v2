@@ -5,10 +5,8 @@
 //===========================================================================//
 
 #include "tier2/fileutils.h"
-#include "tier2/tier2.h"
 #include "tier1/strtools.h"
 #include "filesystem.h"
-#include "tier0/icommandline.h"
 #include "tier1/utlbuffer.h"
 
 // NOTE: This has to be the last file included!

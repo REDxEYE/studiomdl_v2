@@ -8,9 +8,7 @@
 
 #pragma once
 
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 #include <math.h>
 #include <float.h>

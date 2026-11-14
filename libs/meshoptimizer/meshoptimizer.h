@@ -8,8 +8,8 @@
  */
 #pragma once
 
-#include <assert.h>
-#include <stddef.h>
+#include <cassert>
+#include <cstddef>
 
 /* Version macro; major * 1000 + minor * 10 + patch */
 #define MESHOPTIMIZER_VERSION 1030 /* 1.3 */

@@ -197,7 +197,6 @@ typedef void * HINSTANCE;
 //#define offsetof( type, var ) __builtin_offsetof( type, var ) 
 #define offsetof(s,m)	( (size_t)&(((s *)0x1000000)->m) - 0x1000000u )
 #else
-#include <stddef.h>
 #undef offsetof
 #define offsetof(s,m)	(size_t)&(((s *)0)->m)
 #endif
@@ -872,33 +871,6 @@ inline void ValidateAlignmentExplicit(void)
 	// Alignment should be a multiple of the base alignment of T
 //	ALIGN_ASSERT((ALIGN % VALIGNOF(T)) == 0);
 }
-
-// Portable alternative to __alignof
-template<class T> struct AlignOf_t { AlignOf_t(){} AlignOf_t & operator=(const AlignOf_t &) { return *this; } uint8_t b; T t; };
-
-template < size_t NUM, class T, int ALIGN > struct AlignedByteArrayExplicit_t{};
-template < size_t NUM, class T > struct AlignedByteArray_t : public AlignedByteArrayExplicit_t< NUM, T, VALIGNOF_TEMPLATE_SAFE(T) > {};
-
-#define DECLARE_ALIGNED_BYTE_ARRAY( ALIGN ) \
-	template < size_t NUM, class T > \
-	struct ALIGN_N( ALIGN ) AlignedByteArrayExplicit_t< NUM, T, ALIGN > \
-	{ \
-		/* NOTE: verify alignment in the constructor (which may be wrong if this is heap-allocated, for ALIGN > MEMALLOC_MAX_AUTO_ALIGN) */ \
-		AlignedByteArrayExplicit_t()	{ if ( (ALIGN-1) & (size_t)this ) DebuggerBreakIfDebugging(); } \
-		T *			Base( void )		{ ValidateAlignmentExplicit<T,ALIGN>(); return (T *)&m_Data; } \
-		const T *	Base( void ) const	{ ValidateAlignmentExplicit<T,ALIGN>(); return (const T *)&m_Data; } \
-	private: \
-		uint8_t m_Data[ NUM*sizeof( T ) ]; \
-	} ALIGN_N_POST( ALIGN );
-
-DECLARE_ALIGNED_BYTE_ARRAY(1);
-DECLARE_ALIGNED_BYTE_ARRAY(2);
-DECLARE_ALIGNED_BYTE_ARRAY(4);
-DECLARE_ALIGNED_BYTE_ARRAY(8);
-DECLARE_ALIGNED_BYTE_ARRAY(16);
-DECLARE_ALIGNED_BYTE_ARRAY(32);
-DECLARE_ALIGNED_BYTE_ARRAY(64);
-DECLARE_ALIGNED_BYTE_ARRAY(128);
 
 // Tier0 uses this for faster stricmp.
 PLATFORM_INTERFACE int V_tier0_stricmp( const char *a, const char *b );

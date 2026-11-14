@@ -15,14 +15,9 @@
 #include "mathlib/vector4d.h"
 #include "mathlib/vmatrix.h"
 #include "color.h"
-#include <stdio.h>
 #include <stdarg.h>
-#include <ctype.h>
-#include <stdlib.h>
-#include <limits.h>
 #include "tier1/utlstring.h"
 #include "tier1/strtools.h"
-#include "tier1/characterset.h"
 #include "tier1/utlsymbollarge.h"
 
 

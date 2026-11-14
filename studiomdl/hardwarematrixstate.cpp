@@ -9,8 +9,6 @@
 #include "studiomdl/hardwarematrixstate.h"
 #include <climits>
 #include <cstdio>
-#include <cstdlib>
-#include "studio.h"
 #include "studiomdl/studiomdl.h"
 
 CHardwareMatrixState::CHardwareMatrixState() {

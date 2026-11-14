@@ -5,18 +5,12 @@
 //=============================================================================
 
 #pragma once
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 
 #include "datamodel/dmattribute.h"
 #include "tier1/utlvector.h"
 #include "color.h"
-#include "mathlib/vector2d.h"
-#include "mathlib/vector.h"
-#include "mathlib/vector4d.h"
-#include "mathlib/vmatrix.h"
 #include "datamodel/dmelement.h"
 #include "datamodel/dmehandle.h"
 

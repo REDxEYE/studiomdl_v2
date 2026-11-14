@@ -3,7 +3,6 @@
 #include <cstddef>
 
 #include "mathlib/vector.h"
-#include "tier1/utlvector.h"
 
 struct StudioConvex_t;
 struct StudioCollide_t;

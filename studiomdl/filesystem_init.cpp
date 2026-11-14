@@ -13,14 +13,12 @@
 
 #if defined( _WIN32 )
 #include <windows.h>
-#include <direct.h>
 #include <io.h>
 #include <process.h>
 #elif defined( POSIX )
 #include <unistd.h>
 #endif
 #include <cstdio>
-#include <sys/stat.h>
 #include <filesystem>
 #include <fstream>
 #include <iterator>

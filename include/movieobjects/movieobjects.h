@@ -5,9 +5,7 @@
 //=============================================================================
 
 #pragma once
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 #include "movieobjects/dmeclip.h"
 #include "movieobjects/dmetransform.h"

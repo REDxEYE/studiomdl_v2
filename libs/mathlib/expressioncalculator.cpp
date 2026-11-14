@@ -9,8 +9,6 @@
 
 #include "mathlib/expressioncalculator.h"
 
-#include <ctype.h>
-
 
 //-----------------------------------------------------------------------------
 // Parsing helper methods

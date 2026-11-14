@@ -6,7 +6,6 @@
 
 #include "common/cmdlib.h"
 #include "studiomdl/platform_compat.h"
-#include "studiomdl/studiomdl_log.hpp"
 
 void MdlExceptionFilter(uint32_t code);
 LONG __stdcall VExceptionFilter(struct _EXCEPTION_POINTERS *ExceptionInfo);

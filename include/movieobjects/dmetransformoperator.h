@@ -5,9 +5,7 @@
 //=============================================================================
 
 #pragma once
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 #include "movieobjects/dmeoperator.h"
 #include "datamodel/dmelement.h"

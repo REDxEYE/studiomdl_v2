@@ -5,9 +5,7 @@
 //=============================================================================
 
 #pragma once
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 // IMPORTANT - only add preset enums to the END, and NEVER remove or replace any!!!
 

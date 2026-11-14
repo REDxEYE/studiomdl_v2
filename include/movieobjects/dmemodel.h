@@ -6,9 +6,7 @@
 
 #pragma once
 
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 #include "tier1/utlstack.h"
 #include "tier1/utlstringtoken.h"

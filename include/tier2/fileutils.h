@@ -6,6 +6,7 @@
 
 
 #pragma once
+#include "interfaces/interfaces.h"
 
 #if defined( _WIN32 )
 #pragma once

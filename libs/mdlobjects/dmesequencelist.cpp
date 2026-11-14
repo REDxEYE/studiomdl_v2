@@ -8,10 +8,6 @@
 #include "datamodel/dmelementfactoryhelper.h"
 #include "mdlobjects/dmesequence.h"
 #include "mdlobjects/dmesequencelist.h"
-#include "mdlobjects/dmeik.h"
-
-
-
 
 
 //-----------------------------------------------------------------------------

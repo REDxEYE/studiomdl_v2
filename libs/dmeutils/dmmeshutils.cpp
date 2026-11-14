@@ -17,8 +17,6 @@
 
 #include "tier1/utlstack.h"
 #include "tier1/utlstring.h"
-#include "tier1/UtlStringMap.h"
-#include "tier1/utlbuffer.h"
 #include "tier1/fmtstr.h"
 #include "filesystem.h"
 

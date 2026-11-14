@@ -13,7 +13,6 @@
 
 #include <limits.h>
 #include <stdexcept>
-#include <utility>
 
 
 union compressed_value_t {

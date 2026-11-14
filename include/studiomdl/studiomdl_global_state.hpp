@@ -11,6 +11,7 @@
 
 #include "studiomdl_constants.hpp"
 #include "studiomdl.h"
+#include "worldsize.h"
 #include "mathlib/vector.h"
 #include "tier0/platform.h"
 #include "filesystem/stdfile.h"

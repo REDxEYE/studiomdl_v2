@@ -1,7 +1,7 @@
 #include "appframework/app.h"
 
-#include "filesystem.h"
 #include "filesystem_init.h"
+#include "interfaces/interfaces.h"
 #include "tier0/icommandline.h"
 #include "tier0/logging.h"
 #include "tier1/strtools.h"

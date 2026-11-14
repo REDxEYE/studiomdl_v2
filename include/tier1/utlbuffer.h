@@ -9,14 +9,11 @@
 
 #pragma once
 
-#ifdef _WIN32
-#pragma once
-#endif
+
 
 //#include "unitlib/unitlib.h" // just here for tests - remove before checking in!!!
 
 #include "tier1/utlmemory.h"
-#include <cstdarg>
 #include "strtools.h"
 
 

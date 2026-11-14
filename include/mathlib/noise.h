@@ -6,8 +6,6 @@
 
 #pragma once
 
-#include <cmath>
-#include "tier0/basetypes.h"
 #include "mathlib/vector.h"
 
 

@@ -15,6 +15,7 @@
 #include "movieobjects/dmecombinationoperator.h"
 #include "movieobjects/dmemodel.h"
 #include "filesystem.h"
+#include "interfaces/interfaces.h"
 #include "tier2/tier2.h"
 #include "tier1/UtlStringMap.h"
 #include "mathlib/mathlib.h"

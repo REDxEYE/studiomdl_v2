@@ -10,7 +10,6 @@
 
 #include <cassert>
 #include <chrono>
-#include <cstddef>
 #include <cstdint>
 #include <source_location>
 #include <string>

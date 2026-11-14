@@ -21,6 +21,7 @@
 		34AA973C D4C4DAA4 F61EEB2B DBAD2731 6534016F
 */
 
+#include <cstdio>
 #if !defined(_MINIMUM_BUILD_)
 #include "checksum_sha1.h"
 #else
@@ -178,7 +179,7 @@ bool CSHA1::HashFile(const char *szFileName)
 	uint32_t ulFileSize = 0, ulRest = 0, ulBlocks = 0;
 	uint32_t i = 0;
 	uint8_t uData[MAX_FILE_READ_BUFFER];
-	FILE *fIn = nullptr;
+    std::FILE *fIn = nullptr;
 
 	if(szFileName == nullptr) return(false);
 
