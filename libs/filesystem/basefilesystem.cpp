@@ -10,12 +10,10 @@
 #include "interfaces/interfaces.h"
 #include "tier1/characterset.h"
 #include "tier1/keyvalues.h"
-#include "tier1/fmtstr.h"
 #include "tier1_v2/function_timing.hpp"
 #include "tier1_v2/path_utils.hpp"
 
 #ifndef DEDICATED
-#include "keyvaluescompiler.h"
 #endif
 
 #define FS_EXCLUDE_PATHS_FILENAME "allbad_exclude_paths.txt"
@@ -1813,17 +1811,7 @@ void CBaseFileSystem::MarkAllCRCsUnverified()
 
 void CBaseFileSystem::CacheFileCRCs( const char *pPathname, ECacheCRCType eType, IFileList *pFilter )
 {
-
-
-	// Get a list of the unique search path names (mod, game, platform, etc).
-	CUtlDict<int,int> searchPathNames;
-	for ( int i = 0; i <  m_SearchPaths.size(); i++ )
-	{
-		CSearchPath *pSearchPath = &m_SearchPaths[i];
-		if ( searchPathNames.Find( pSearchPath->GetPathIDString() ) == searchPathNames.InvalidIndex() )
-			searchPathNames.Insert( pSearchPath->GetPathIDString() );
-	}
-
+	// CRC caching isn't supported
 }
 
 EFileCRCStatus CBaseFileSystem::CheckCachedFileHash( const char *pPathID, const char *pRelativeFilename, int nFileFraction, FileHash_t *pFileHash )
@@ -2167,7 +2155,7 @@ const char *CBaseFileSystem::FindFirstHelper( const char *pWildCard, const char 
 	if( pFindData->findHandle != nullptr )
 	{
 		// Remember that we visited this file already.
-		pFindData->m_VisitedFiles.Insert( pFindData->findData.cFileName, 0 );
+		pFindData->m_VisitedFiles.emplace( pFindData->findData.cFileName );
 
 		if ( pFoundStoreID )
 			*pFoundStoreID = pFindData->m_CurrentStoreID;
@@ -2261,9 +2249,8 @@ const char *CBaseFileSystem::FindNext( FileFindHandle_t handle )
 	{
 		if( FindNextFileHelper( pFindData, nullptr) )
 		{
-			if ( pFindData->m_VisitedFiles.Find( pFindData->findData.cFileName ) == -1 )
+			if ( pFindData->m_VisitedFiles.emplace( pFindData->findData.cFileName ).second )
 			{
-				pFindData->m_VisitedFiles.Insert( pFindData->findData.cFileName, 0 );
 				return pFindData->findData.cFileName;
 			}
 		}

@@ -142,40 +142,14 @@ void CImportSFMV1::ConvertTimeAttribute( CDmElement *pElementInternal, const cha
 		pElementInternal->RemoveAttribute( pOldName );
 	}
 
-	CDmAttribute *pNewAttr = nullptr;
-
-	// this is disabled because even dmxconvert installs *some* movieobjects factories, when it probably shouldn't
-	// the method of installing movieobjects factories will change at some point in the future, and we can turn on this safety check then
-#if 0
-	int i = g_pDataModel->GetFirstFactory();
-	if ( g_pDataModel->IsValidFactory( i ) )
+	// Only plain CDmElements are converted here, so it's safe to add attributes
+	CDmAttribute *pNewAttr = pElementInternal->AddAttribute( pNewName, AT_INT );
+	if ( !pNewAttr )
 	{
-		// factories installed - most likely from within movieobjects.lib
-		// ie there may be different ways of allocating attributes, so it's not safe to add them here
-		pNewAttr = pElementInternal->GetAttribute( pNewName );
-		if ( !pNewAttr || pNewAttr->GetType() != AT_INT )
-		{
-			Assert( 0 );
-			Warning( "*** Converter error - expected element \"%s\" to contain int attribute \"%s\"!\n", pElementInternal->GetName(), pNewName );
-			Warning( "***                 - if you get this error, the converter is out of sync with the element library!\n" );
-			return;
-		}
+		Assert( 0 );
+		Warning( "*** Converter error - element \"%s\" already has a non-int attribute \"%s\"!\n", pElementInternal->GetName(), pNewName );
+		return;
 	}
-	else
-	{
-#endif
-		// no factories installed - most likely from within dmxconvert.exe
-		// ie we're just working with CDmElement subclasses, so it's safe to add attributes
-		pNewAttr = pElementInternal->AddAttribute( pNewName, AT_INT );
-		if ( !pNewAttr )
-		{
-			Assert( 0 );
-			Warning( "*** Converter error - element \"%s\" already has a non-int attribute \"%s\"!\n", pElementInternal->GetName(), pNewName );
-			return;
-		}
-#if 0
-	}
-#endif
 
 	pNewAttr->SetValue< int >( floor( time * 10000 + 0.5f ) );
 }

@@ -23,7 +23,7 @@
 #include "mdlobjects/dmebodypart.h"
 #include "mdlobjects/dmeboneflexdriver.h"
 #include "studiomdl/studiomdl.h"
-#include "tier1/fmtstr.h"
+
 #include "mdlobjects/dmebonemask.h"
 #include "mdlobjects/dmebonemasklist.h"
 #include "mdlobjects/dmeboneweight.h"

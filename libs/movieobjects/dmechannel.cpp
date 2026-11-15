@@ -27,8 +27,7 @@ static int FindSpanningLayerAndSetIntensity( DmeLog_TimeSelection_t &ts, LayerSe
 // Default constructor
 //-----------------------------------------------------------------------------
 CRecordingLayer::CRecordingLayer() 
-	: m_pPresetValuesDict( nullptr )
-	, m_tHeadShotTime( DMETIME_INVALID )
+	: m_tHeadShotTime( DMETIME_INVALID )
 	, m_ProceduralType( 0 )
 	, m_OperationFlags( 0 )
 	, m_RandomSeed( 0 )
@@ -469,7 +468,7 @@ void CDmeChannel::Operate()
 	}
 }
 
-void CDmeChannel::GetInputAttributes( CUtlVector< CDmAttribute * > &attrs )
+void CDmeChannel::GetInputAttributes( std::vector< CDmAttribute * > &attrs )
 {
 	ChannelMode_t mode = GetMode();
 	if ( mode == CM_OFF || mode == CM_PLAY )
@@ -478,11 +477,11 @@ void CDmeChannel::GetInputAttributes( CUtlVector< CDmAttribute * > &attrs )
 	CDmAttribute *pAttr = GetFromAttribute();
 	if ( pAttr != nullptr)
 	{
-		attrs.AddToTail( pAttr );
+		attrs.push_back( pAttr );
 	}
 }
 
-void CDmeChannel::GetOutputAttributes( CUtlVector< CDmAttribute * > &attrs )
+void CDmeChannel::GetOutputAttributes( std::vector< CDmAttribute * > &attrs )
 {
 	ChannelMode_t mode = GetMode();
 	if ( mode == CM_OFF )
@@ -497,7 +496,7 @@ void CDmeChannel::GetOutputAttributes( CUtlVector< CDmAttribute * > &attrs )
 	CDmAttribute *pAttr = GetToAttribute();
 	if ( pAttr != nullptr)
 	{
-		attrs.AddToTail( pAttr );
+		attrs.push_back( pAttr );
 	}
 }
 

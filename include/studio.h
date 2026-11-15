@@ -23,7 +23,6 @@
 #include "mathlib/mathlib.h"
 #include "tier1/utlvector.h"
 #include "tier1/utlhash.h"
-#include "tier1/utldict.h"
 #include "tier1/utlsymbol.h"
 #include "tier1/generichash.h"
 #include "localflexcontroller.h"
@@ -3347,12 +3346,6 @@ public:
         }
         m_pActivityToSequence = CActivityToSequenceMapping::FindMapping(this);
     }
-
-public:
-
-private:
-    CUtlDict<int, int> m_namedSequence;
-
 #ifdef STUDIO_ENABLE_PERF_COUNTERS
 
 public:

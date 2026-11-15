@@ -11,8 +11,8 @@
 #include <vstdlib/ikeyvaluessystem.h>
 #include "tier1/exprevaluator.h"
 
+#include "strtools.h"
 #include "tier0/dbg.h"
-#include "tier1/fmtstr.h"
 
 
 
@@ -157,7 +157,7 @@ bool CExpressionEvaluator::IsConditional( bool &bConditional, const char token )
 		}
 		else if ( m_pSyntaxErrorProc )
 		{
-			m_pSyntaxErrorProc( CFmtStr( "Bad expression operator: '%c%c', expected C style operator", token, nextchar ) );
+			m_pSyntaxErrorProc( vstd::fx_formatted( "Bad expression operator: '{}{}', expected C style operator", token, nextchar ) );
 			return false;
 		}
 	}
@@ -253,7 +253,7 @@ bool CExpressionEvaluator::MakeExprNode( ExprTree &tree, char token, Kind kind, 
 		if ( m_pSyntaxErrorProc )
 		{
 			Assert( 0 );
-			m_pSyntaxErrorProc( CFmtStr( "Logic Error in CExpressionEvaluator" ) );
+			m_pSyntaxErrorProc( vstd::fx_formatted( "Logic Error in CExpressionEvaluator" ) );
 		}
 		return false;
 	}
@@ -295,7 +295,7 @@ bool CExpressionEvaluator::MakeFactor( ExprTree &tree )
 		// This must be a bad token
 		if ( m_pSyntaxErrorProc )
 		{
-			m_pSyntaxErrorProc( CFmtStr( "Bad expression token: %c", m_CurToken ) );
+			m_pSyntaxErrorProc( vstd::fx_formatted( "Bad expression token: {}", m_CurToken ) );
 		}
 		return false;
 	}

@@ -13,7 +13,9 @@
 #include "datamodel/dmelement.h"
 #include "datamodel/dmehandle.h"
 #include "tier1/uniqueid.h"
-#include "tier1/utldict.h"
+#include "tier1_v2/string_utils.hpp"
+#include <map>
+#include <string_view>
 #include "tier1/utlhandletable.h"
 #include "tier1/utlhash.h"
 #include "notifymanager.h"
@@ -183,14 +185,6 @@ public:
     bool HasElementFactory(const char* pElementType) const override;
 
     void SetDefaultElementFactory(IDmElementFactory* pFactory) override;
-
-    int GetFirstFactory() const override;
-
-    int GetNextFactory(int index) const override;
-
-    bool IsValidFactory(int index) const override;
-
-    char const* GetFactoryName(int index) const override;
 
     DmElementHandle_t CreateElement(CUtlSymbolLarge typeSymbol, const char* pElementName, DmFileId_t fileid,
                                     const DmObjectId_t* pObjectID = nullptr) override;
@@ -455,6 +449,9 @@ private:
 private:
     CDmElement* Unserialize(CUtlBuffer &buf);
 
+    // Factory registered for the type name (case-insensitive), nullptr if none or pElementType is null
+    CDmElementFactoryHelper* FindFactoryHelper(const char* pElementType) const;
+
     void Serialize(CDmElement* element, CUtlBuffer &buf);
 
     // Read the header, return the version (or false if it's not a DMX file)
@@ -488,7 +485,7 @@ private:
 
     void OnElementReferenceRemoved(DmElementHandle_t hElement, HandleType_t handleType);
 
-    void BuildHistogramForHandles(CUtlMap<CUtlSymbolLarge, struct DmMemoryInfo_t> &typeHistogram,
+    void BuildHistogramForHandles(std::map<CUtlSymbolLarge, struct DmMemoryInfo_t> &typeHistogram,
                                   CUtlVector<DmElementHandle_t> &handles);
 
 private:
@@ -497,7 +494,8 @@ private:
     CUtlVector<IDmFormatUpdater*> m_FormatUpdaters;
 
     IDmElementFactory* m_pDefaultFactory;
-    CUtlDict<CDmElementFactoryHelper*, int> m_Factories;
+    // Keyed by the helpers' class names (string literals of the factory macros), compared case-insensitively
+    std::map<std::string_view, CDmElementFactoryHelper*, vstd::iless> m_Factories;
     CUtlSymbolTableLarge m_SymbolTable;
     CUtlHandleTable<CDmElement, 21> m_Handles;
     CUtlHandleTable<CDmAttribute, 21> m_AttributeHandles;

@@ -7,7 +7,10 @@
 
 #pragma once
 
+#include <algorithm>
+#include <format>
 #include <iostream>
+#include <string>
 #include <string_view>
 #include <vector>
 #include "fixed_string.hpp"
@@ -80,6 +83,25 @@ namespace vstd {
         return ifind(as_view(text), as_view(pattern));
     }
 
+    // Case-insensitive ordering (Q_stricmp(a, b) < 0). Transparent: a map keyed by std::string finds any string type above
+    struct iless {
+        using is_transparent = void;
+
+        template<typename A, typename B>
+        constexpr bool operator()(const A &a, const B &b) const noexcept {
+            const std::string_view lhs = as_view(a);
+            const std::string_view rhs = as_view(b);
+            const size_t count = std::min(lhs.size(), rhs.size());
+            for (size_t i = 0; i < count; ++i) {
+                const auto l = static_cast<unsigned char>(to_lower_ascii(lhs[i]));
+                const auto r = static_cast<unsigned char>(to_lower_ascii(rhs[i]));
+                if (l != r)
+                    return l < r;
+            }
+            return lhs.size() < rhs.size();
+        }
+    };
+
     // Q_strlower for std::string and vstd::FixedString
     template<typename S>
     void make_lower_ascii(S &text) noexcept {
@@ -136,5 +158,17 @@ namespace vstd {
         }
         out.emplace_back(in.substr(pos));
         return out;
+    }
+
+    template<typename... Args>
+    FixedString<256> fx_formatted(std::format_string<Args...> fmt, Args&&... args) {
+        FixedString<256> storage;
+        storage.format(fmt, std::forward<Args>(args)...);
+        return storage;
+    }
+
+    template<typename... Args>
+    std::string formatted(std::format_string<Args...> fmt, Args&&... args) {
+        return std::format(fmt, std::forward<Args>(args)...);
     }
 }

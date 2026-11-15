@@ -13,10 +13,9 @@
 #include "dmserializerkeyvalues2.h"
 #include "dmserializerbinary.h"
 #include "notifymanager.h"
-#include "tier1/fmtstr.h"
 #include "tier2/utlstreambuffer.h"
 #include "tier2/fileutils.h"
-#include <time.h>
+#include <ctime>
 
 #include "tier1_v2/function_timing.hpp"
 
@@ -108,7 +107,7 @@ bool CDataModel::Init() {
 
 //#define _ELEMENT_HISTOGRAM_
 #ifdef _ELEMENT_HISTOGRAM_
-CUtlMap< CUtlSymbolLarge, int > g_typeHistogram( 0, 100, DefLessFunc( CUtlSymbolLarge ) );
+std::map< CUtlSymbolLarge, int > g_typeHistogram;
 #endif _ELEMENT_HISTOGRAM_
 
 
@@ -118,9 +117,9 @@ CUtlMap< CUtlSymbolLarge, int > g_typeHistogram( 0, 100, DefLessFunc( CUtlSymbol
 void CDataModel::Shutdown() {
 #ifdef _ELEMENT_HISTOGRAM_
                                                                                                                             Msg( "element type histogram for %d elements allocated so far:\n", GetElementsAllocatedSoFar() );
-	for ( int i = g_typeHistogram.FirstInorder(); g_typeHistogram.IsValidIndex( i ); i = g_typeHistogram.NextInorder( i ) )
+	for ( const auto &[typeSym, count] : g_typeHistogram )
 	{
-		Msg( "%d\t%s\n", g_typeHistogram.Element( i ), GetString( g_typeHistogram.Key( i ) ) );
+		Msg( "%d\t%s\n", count, typeSym.String() );
 	}
 	Msg( "\n" );
 #endif _ELEMENT_HISTOGRAM_
@@ -130,7 +129,7 @@ void CDataModel::Shutdown() {
         Warning("CDataModel:  %i elements left in memory!!!\n", c);
     }
 
-    m_Factories.Purge();
+    m_Factories.clear();
     m_Serializers.Purge();
 }
 
@@ -226,7 +225,7 @@ struct DmMemoryInfo_t {
 };
 
 struct DmMemorySortInfo_t {
-    int m_nIndex;
+    const std::pair<const CUtlSymbolLarge, DmMemoryInfo_t> *m_pEntry;
     int m_nTotalSize;
 };
 
@@ -266,7 +265,7 @@ GatherElements_R(CDmElement *pElement, CUtlVector<DmElementHandle_t> &list, CUtl
     }
 }
 
-void CDataModel::BuildHistogramForHandles(CUtlMap<CUtlSymbolLarge, DmMemoryInfo_t> &typeHistogram,
+void CDataModel::BuildHistogramForHandles(std::map<CUtlSymbolLarge, DmMemoryInfo_t> &typeHistogram,
                                           CUtlVector<DmElementHandle_t> &handles) {
     CUtlHash<DmElementHandle_t> visited(1024, 0, 0, HandleCompare, HandleHash);
 
@@ -280,24 +279,18 @@ void CDataModel::BuildHistogramForHandles(CUtlMap<CUtlSymbolLarge, DmMemoryInfo_
         if (!pElement)
             continue;
 
-        unsigned short j = typeHistogram.Find(pElement->GetType());
-        if (!typeHistogram.IsValidIndex(j)) {
-            j = typeHistogram.Insert(pElement->GetType());
-            typeHistogram[j].m_nCount = 0;
-            typeHistogram[j].m_nSize = 0;
-            memset(typeHistogram[j].m_pCategories, 0, sizeof(typeHistogram[j].m_pCategories));
-        }
+        // Value-initialized (zeroed) on first use
+        DmMemoryInfo_t &info = typeHistogram[pElement->GetType()];
 
-        int nMemory = CDmeElementAccessor::EstimateMemoryUsage(pElement, visited, TD_NONE,
-                                                               typeHistogram[j].m_pCategories);
+        int nMemory = CDmeElementAccessor::EstimateMemoryUsage(pElement, visited, TD_NONE, info.m_pCategories);
 
-        ++typeHistogram[j].m_nCount;
-        typeHistogram[j].m_nSize += nMemory;
+        ++info.m_nCount;
+        info.m_nSize += nMemory;
     }
 }
 
 void CDataModel::DisplayMemoryStats(DmElementHandle_t hElement /*= DMELEMENT_HANDLE_INVALID*/ ) {
-    CUtlMap<CUtlSymbolLarge, DmMemoryInfo_t> typeHistogram(0, 100, DefLessFunc(CUtlSymbolLarge));
+    std::map<CUtlSymbolLarge, DmMemoryInfo_t> typeHistogram;
     CUtlHash<DmElementHandle_t> visited(1024, 0, 0, HandleCompare, HandleHash);
 
     CUtlVector<DmElementHandle_t> handles;
@@ -328,9 +321,9 @@ void CDataModel::DisplayMemoryStats(DmElementHandle_t hElement /*= DMELEMENT_HAN
     // Sort
     DmMemorySortInfo_t *pSortInfo = (DmMemorySortInfo_t *) _alloca(typeHistogram.size() * sizeof(DmMemorySortInfo_t));
     int nCount = 0;
-    for (int i = typeHistogram.FirstInorder(); typeHistogram.IsValidIndex(i); i = typeHistogram.NextInorder(i)) {
-        pSortInfo[nCount].m_nIndex = i;
-        pSortInfo[nCount].m_nTotalSize = typeHistogram.at(i).m_nSize;
+    for (const auto &entry : typeHistogram) {
+        pSortInfo[nCount].m_pEntry = &entry;
+        pSortInfo[nCount].m_nTotalSize = entry.second.m_nSize;
         ++nCount;
     }
     qsort(pSortInfo, nCount, sizeof(DmMemorySortInfo_t), DmMemorySortFunc);
@@ -342,13 +335,13 @@ void CDataModel::DisplayMemoryStats(DmElementHandle_t hElement /*= DMELEMENT_HAN
     int nTotalData = 0;
     ConMsg("Dm Memory usage: type\t\t\t\tcount\ttotalsize\twastage %%\touter\t\tinner\t\tdatamodel\trefs\t\ttree\t\tatts\t\tdata\t(att count)\n");
     for (int i = 0; i < nCount; ++i) {
-        const DmMemoryInfo_t &info = typeHistogram.at(pSortInfo[i].m_nIndex);
+        const DmMemoryInfo_t &info = pSortInfo[i].m_pEntry->second;
         float flPercentOverhead = 1.0f -
                                   ((info.m_nSize != 0) ? ((float) info.m_pCategories[MEMORY_CATEGORY_ATTRIBUTE_DATA] /
                                                           (float) info.m_nSize) : 0.0f);
         flPercentOverhead *= 100.0f;
 
-        ConMsg("%-40s\t%6d\t%9d\t\t%5.2f", typeHistogram.Key(pSortInfo[i].m_nIndex).String(),
+        ConMsg("%-40s\t%6d\t%9d\t\t%5.2f", pSortInfo[i].m_pEntry->first.String(),
                info.m_nCount, info.m_nSize, flPercentOverhead);
         int nTotal = 0;
         for (int j = 0; j < MEMORY_CATEGORY_COUNT; ++j) {
@@ -393,14 +386,8 @@ void CDataModel::DisplayMemoryStats(DmElementHandle_t hElement /*= DMELEMENT_HAN
 }
 
 
-void IncrementSymbolRefCount(CUtlSymbolLarge symbol, CUtlMap<CUtlSymbolLarge, int, int> &refCountMap) {
-    int nIndex = refCountMap.Find(symbol);
-    if (nIndex == refCountMap.InvalidIndex()) {
-        nIndex = refCountMap.Insert(symbol);
-        refCountMap[nIndex] = 1;
-    } else {
-        refCountMap[nIndex]++;
-    }
+void IncrementSymbolRefCount(CUtlSymbolLarge symbol, std::map<CUtlSymbolLarge, int> &refCountMap) {
+    ++refCountMap[symbol];
 }
 
 int CompareSymbolsAcending(const CUtlSymbolLarge *symA, const CUtlSymbolLarge *symB) {
@@ -415,7 +402,7 @@ void CDataModel::DumpSymbolTable() {
     // Estimate string table usage
     ConMsg("Datamodel symbol table: %d entries %I64u bytes\n", symbolCount, symbolBytes);
 
-    CUtlMap<CUtlSymbolLarge, int, int> symbolRefCountMap(0, symbolCount, DefLessFunc(CUtlSymbolLarge));
+    std::map<CUtlSymbolLarge, int> symbolRefCountMap;
 
     int nNumElements = (int) m_Handles.GetHandleCount();
     for (int iElement = 0; iElement < nNumElements; ++iElement) {
@@ -446,8 +433,8 @@ void CDataModel::DumpSymbolTable() {
     buf.Printf("Index      Address       References   String\n");
     for (int i = 0; i < symbolCount; ++i) {
         CUtlSymbolLarge symbol = elements[i];
-        int nIndex = symbolRefCountMap.Find(symbol);
-        int nRefCount = (nIndex != symbolRefCountMap.InvalidIndex()) ? symbolRefCountMap[nIndex] : 0;
+        const auto it = symbolRefCountMap.find(symbol);
+        int nRefCount = (it != symbolRefCountMap.end()) ? it->second : 0;
 
         const char *pString = symbol.String();
         buf.Printf("%05d,     0x%p,     %5d,      '%s'\n", i, pString, nRefCount, pString);
@@ -462,7 +449,7 @@ void CDataModel::DumpSymbolTable() {
     g_pFullFileSystem->GetCurrentDirectory(directory, sizeof(directory));
 
     while (nFileIndex < nMaxFileIndex) {
-        filename = CFmtStr("%s\\%s%i.txt", directory, baseFilename, nFileIndex);
+        filename = vstd::fx_formatted("{}\\{}{}.txt", directory, baseFilename, nFileIndex);
         if (!g_pFullFileSystem->FileExists(filename))
             break;
         ++nFileIndex;
@@ -1853,43 +1840,27 @@ void CDataModel::SetDefaultElementFactory(IDmElementFactory *pFactory) {
 void CDataModel::AddElementFactory(CDmElementFactoryHelper *pFactoryHelper) {
     Assert(pFactoryHelper);
     const char *pClassName = pFactoryHelper->GetClassname();
-    int idx = m_Factories.Find(pClassName);
-    if (idx == m_Factories.InvalidIndex()) {
-        m_Factories.Insert(pClassName, pFactoryHelper);
-    } else {
+    auto [it, inserted] = m_Factories.try_emplace(pClassName, pFactoryHelper);
+    if (!inserted) {
         // Override the factory?
-        m_Factories[idx] = pFactoryHelper;
+        it->second = pFactoryHelper;
         Warning("Factory for element type '%s' already exists\n", pClassName);
     }
 }
 
-CDmElementFactoryHelper *CDataModel::GetElementFactoryHelper(const char *pElementType) {
-    int idx = m_Factories.Find(pElementType);
-    if (idx == m_Factories.InvalidIndex())
+CDmElementFactoryHelper *CDataModel::FindFactoryHelper(const char *pElementType) const {
+    if (!pElementType)
         return nullptr;
+    const auto it = m_Factories.find(pElementType);
+    return it != m_Factories.end() ? it->second : nullptr;
+}
 
-    return m_Factories[idx];
+CDmElementFactoryHelper *CDataModel::GetElementFactoryHelper(const char *pElementType) {
+    return FindFactoryHelper(pElementType);
 }
 
 bool CDataModel::HasElementFactory(const char *pElementType) const {
-    int idx = m_Factories.Find(pElementType);
-    return (idx != m_Factories.InvalidIndex());
-}
-
-int CDataModel::GetFirstFactory() const {
-    return m_Factories.First();
-}
-
-int CDataModel::GetNextFactory(int index) const {
-    return m_Factories.Next(index);
-}
-
-bool CDataModel::IsValidFactory(int index) const {
-    return m_Factories.IsValidIndex(index);
-}
-
-char const *CDataModel::GetFactoryName(int index) const {
-    return m_Factories.GetElementName(index);
+    return FindFactoryHelper(pElementType) != nullptr;
 }
 
 //-----------------------------------------------------------------------------
@@ -1967,8 +1938,8 @@ CDataModel::CreateElement(const DmElementReference_t &ref, const char *pElementT
     } else {
         DMX_PROFILE_SCOPE(CreateElement_FindFactory);
 
-        int idx = m_Factories.Find(pElementType);
-        if (idx == m_Factories.InvalidIndex()) {
+        CDmElementFactoryHelper *pHelper = FindFactoryHelper(pElementType);
+        if (!pHelper) {
             if (!m_pDefaultFactory) {
                 Warning("Unable to create unknown element %s!\n", pElementType);
                 return nullptr;
@@ -1977,7 +1948,7 @@ CDataModel::CreateElement(const DmElementReference_t &ref, const char *pElementT
             pFactory = m_pDefaultFactory;
         } else {
             m_bUnableToCreateOnlyUntypedElements = true;
-            pFactory = m_Factories[idx]->GetFactory();
+            pFactory = pHelper->GetFactory();
         }
     }
     Assert(pFactory);
@@ -2009,15 +1980,7 @@ CDataModel::CreateElement(const DmElementReference_t &ref, const char *pElementT
 
 #ifdef _ELEMENT_HISTOGRAM_
                                                                                                                                 CUtlSymbolLarge typeSym = GetSymbol( pElementType );
-		short i = g_typeHistogram.Find( typeSym );
-		if ( g_typeHistogram.IsValidIndex( i ) )
-		{
-			++g_typeHistogram[ i ];
-		}
-		else
-		{
-			g_typeHistogram.Insert( typeSym, 1 );
-		}
+		++g_typeHistogram[ typeSym ];
 #endif _ELEMENT_HISTOGRAM_
     }
 
@@ -2086,8 +2049,8 @@ void CDataModel::DeleteElement(DmElementHandle_t hElement, DmHandleReleasePolicy
     if (m_bOnlyCreateUntypedElements) {
         pFactory = m_pDefaultFactory;
     } else {
-        int idx = m_Factories.Find(pElementType);
-        pFactory = idx == m_Factories.InvalidIndex() ? m_pDefaultFactory : m_Factories[idx]->GetFactory();
+        CDmElementFactoryHelper *pHelper = FindFactoryHelper(pElementType);
+        pFactory = pHelper ? pHelper->GetFactory() : m_pDefaultFactory;
     }
 
     CDmeElementAccessor::PerformDestruction(pElement);
@@ -2237,10 +2200,10 @@ void CDataModel::AddOnElementCreatedCallback(const char *pElementType, IDmeEleme
 
     IDmElementFactory *pFactory = nullptr;
 
-    int idx = m_Factories.Find(pElementType);
-    if (idx == m_Factories.InvalidIndex()) return;
+    CDmElementFactoryHelper *pHelper = FindFactoryHelper(pElementType);
+    if (!pHelper) return;
 
-    pFactory = m_Factories[idx]->GetFactory();
+    pFactory = pHelper->GetFactory();
 
     Assert(pFactory);
 
@@ -2252,10 +2215,10 @@ void CDataModel::RemoveOnElementCreatedCallback(const char *pElementType, IDmeEl
 
     IDmElementFactory *pFactory = nullptr;
 
-    int idx = m_Factories.Find(pElementType);
-    if (idx == m_Factories.InvalidIndex()) return;
+    CDmElementFactoryHelper *pHelper = FindFactoryHelper(pElementType);
+    if (!pHelper) return;
 
-    pFactory = m_Factories[idx]->GetFactory();
+    pFactory = pHelper->GetFactory();
 
     Assert(pFactory);
 

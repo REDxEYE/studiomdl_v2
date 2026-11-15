@@ -2,6 +2,7 @@
 
 #include "tier0/platform.h"
 #include <cmath>
+#include <cstdlib>
 
 #include "mathlib/mathlib.h"
 #include "mathlib/noise.h"
@@ -19,21 +20,20 @@
 // Parsing helper methods
 //-----------------------------------------------------------------------------
 static bool ParseLiteral(std::string_view &expr, float &value) {
-    const std::string_view startExpr = expr;
-    float32 tmpValue = 0.0f;
-    auto [endPtr, ec] = std::from_chars(expr.begin(), expr.end(), tmpValue);
-    if (ec != std::errc{}) {
-        return false;
-    };
-    value = tmpValue;
-    expr = endPtr;
-    return startExpr.data() != endPtr;
+    // Every view handed to the parser is a suffix of CExpressionCalculator::m_expr, so it is NUL-terminated and
+    // strtod keeps the original semantics (leading whitespace, hex, inf/nan, out-of-range -> HUGE_VAL).
+    Assert(expr.data()[expr.size()] == '\0');
+    char *end = nullptr;
+    value = static_cast<float>(strtod(expr.data(), &end));
+    const size_t consumed = end - expr.data();
+    expr.remove_prefix(consumed);
+    return consumed != 0;
 }
 
 static bool ParseString(std::string_view &expr, const std::string_view str) {
     const std::string_view startExpr = expr;
     std::string_view curExpr = expr;
-    while (!curExpr.empty() && (expr[0] == ' ' || expr[0] == '\t'))
+    while (!curExpr.empty() && (curExpr[0] == ' ' || curExpr[0] == '\t'))
         curExpr = curExpr.substr(1); // skip whitespace
 
     if (const auto tmp = string_after_prefix(curExpr, str)) {

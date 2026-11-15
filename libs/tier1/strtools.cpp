@@ -76,10 +76,9 @@
 
 #include "tier1/strtools.h"
 #include <string.h>
-#include "tier1/utldict.h"
 #include "tier1/characterset.h"
 #include "tier1/utlstring.h"
-#include "tier1/fmtstr.h"
+#include "tier1/utlvector.h"
 #include "tier1_v2/path_utils.hpp"
 
 

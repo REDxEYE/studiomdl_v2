@@ -12,7 +12,7 @@
 #include "studiomdl_errors.h"
 #include "movieobjects/movieobjects.h"
 #include "movieobjects/dmemdlmakefile.h"
-#include "tier1/fmtstr.h"
+
 #include "bspflags.h"
 #include "studiomdl/collisionmodel.h"
 #include "studiomdl/studiomdl_global_state.hpp"
@@ -928,16 +928,16 @@ void Option_VertexCacheAnimationFile(char *pszVtaFile, int nModelIndex) {
         });
     }
 
-    CFmtStr sTmp;
+    vstd::FixedString<256> sTmp;
 
     const int nActualFrameCount = pVtaSource->m_Animations.front().numframes - 1;
 
     for (int i = 0; i < nActualFrameCount; ++i) {
-        sTmp.sprintf("f%d", i);
+        sTmp.format("f{}", i);
 
         {
             g_studiomdl.flex.flexkeys.emplace(s_flexkey_t{
-                .flexdesc = Add_Flexdesc(sTmp.Access()),
+                .flexdesc = Add_Flexdesc(sTmp),
                 .flexpair = 0,
                 .source = pVtaSource,
                 .animationname = pVtaSource->m_Animations[0].animationname,
@@ -969,8 +969,8 @@ void Option_VertexCacheAnimationFile(char *pszVtaFile, int nModelIndex) {
     flexRemap.m_Name = szBuf;
 
     for (int i = 0; i < nActualFrameCount; ++i) {
-        sTmp.sprintf("f%d", i);
-        flexRemap.m_RawControls.emplace_back(sTmp.Access());
+        sTmp.format("f{}", i);
+        flexRemap.m_RawControls.emplace_back(sTmp);
     }
 
     for (size_t i = 0; i < flexRemap.m_RawControls.size(); ++i) {

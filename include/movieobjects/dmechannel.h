@@ -101,7 +101,6 @@ public:
 	CRecordingLayer();
 	~CRecordingLayer();
 
-	AttributeDict_t						*m_pPresetValuesDict;
 	DmeTime_t							m_tHeadShotTime;
 	int									m_ProceduralType;
 	int									m_OperationFlags;
@@ -235,8 +234,8 @@ public:
     bool IsDirty() override; // ie needs to operate
     void Operate() override;
 
-	virtual void GetInputAttributes ( CUtlVector< CDmAttribute * > &attrs );
-	virtual void GetOutputAttributes( CUtlVector< CDmAttribute * > &attrs );
+    void GetInputAttributes ( std::vector< CDmAttribute * > &attrs ) override;
+    void GetOutputAttributes( std::vector< CDmAttribute * > &attrs ) override;
 
 	void SetOutput( CDmElement* pElement, const char* pAttribute, int index = 0 );
 

@@ -9,7 +9,8 @@
 #include <tier1/keyvalues.h>
 #include "tier1/mempool.h"
 #include "tier1/utlsymbol.h"
-#include "tier1/utlmap.h"
+#include "tier1/utlrbtree.h"
+#include <unordered_map>
 #include "tier1/memstack.h"
 
 
@@ -132,7 +133,7 @@ private:
 	}
 	CUtlRBTree<MemoryLeakTracker_t, int> m_KeyValuesTrackingList;
 
-	CUtlMap< HKeySymbol, bool > m_KvConditionalSymbolTable;
+	std::unordered_map< HKeySymbol, bool > m_KvConditionalSymbolTable;
 
 };
 
@@ -153,8 +154,7 @@ IKeyValuesSystem *KeyValuesSystem()
 //-----------------------------------------------------------------------------
 CKeyValuesSystem::CKeyValuesSystem() :
 	m_HashItemMemPool(sizeof(hash_item_t), 64, CUtlMemoryPool::GROW_FAST, "CKeyValuesSystem::m_HashItemMemPool"),
-	m_KeyValuesTrackingList(0, 0, MemoryLeakTrackerLessFunc),
-	m_KvConditionalSymbolTable( DefLessFunc( HKeySymbol ) )
+	m_KeyValuesTrackingList(0, 0, MemoryLeakTrackerLessFunc)
 {
 	// initialize hash table
 	m_HashTable.AddMultipleToTail(2047);
@@ -510,7 +510,7 @@ void CKeyValuesSystem::SetKeyValuesExpressionSymbol( const char *name, bool bVal
 	
 	{
 		
-		m_KvConditionalSymbolTable.InsertOrReplace( hSym, bValue );
+		m_KvConditionalSymbolTable.insert_or_assign( hSym, bValue );
 	}
 }
 
@@ -526,11 +526,11 @@ bool CKeyValuesSystem::GetKeyValuesExpressionSymbol( const char *name )
 	if ( hSym != -1 )
 	{
 		
-		CUtlMap< HKeySymbol, bool >::IndexType_t idx = m_KvConditionalSymbolTable.Find( hSym );
-		if ( idx != m_KvConditionalSymbolTable.InvalidIndex() )
+		const auto it = m_KvConditionalSymbolTable.find( hSym );
+		if ( it != m_KvConditionalSymbolTable.end() )
 		{
 			// Found the symbol value in conditional symbol table
-			return m_KvConditionalSymbolTable.at( idx );
+			return it->second;
 		}
 	}
 

@@ -39,12 +39,12 @@ public:
 
 	// Add the input attribute used by the operator to the provided list of attributes, This is 
 	// generally used by the evaluation process to find the attributes an operator is dependent on.
-	virtual void GetInputAttributes( CUtlVector< CDmAttribute * > &attrs );
+    void GetInputAttributes( std::vector< CDmAttribute * > &attrs ) override;
 
 	// Add each of attributes the connection operator outputs to the provided list of attributes.
 	// This is generally used by the evaluation process to find out what attributes are written by
 	// the operator in order to determine what other operators are dependent on this operator.
-	virtual void GetOutputAttributes( CUtlVector< CDmAttribute * > &attrs );
+    void GetOutputAttributes( std::vector< CDmAttribute * > &attrs ) override;
 
 	// Determine if data has changed and the operator needs to be updated
     bool IsDirty() override;

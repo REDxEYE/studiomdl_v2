@@ -181,10 +181,10 @@ public:
 	virtual bool IsSlaveObject( char const *pchName ) const;
 
 	// Get the attributes that the constraint reads data from, Inputs are CDmeDags (handles usually)
-	virtual void GetInputAttributes ( CUtlVector< CDmAttribute * > &attrs );
+    void GetInputAttributes ( std::vector< CDmAttribute * > &attrs ) override;
 
 	// Get the attributes to which the attribute writes, Outputs are CDmeDags (bones or other CDmeRigHandles usually)
-	virtual void GetOutputAttributes( CUtlVector< CDmAttribute * > &attrs );
+    void GetOutputAttributes( std::vector< CDmAttribute * > &attrs ) override;
 
 	// Disconnect the channels driving the slave dag nodes from the dag transforms and connect them to the constraint
 	virtual void DisconnectTransformChannels();
@@ -207,10 +207,10 @@ public:
 protected:
 
 	// Add the specified type of attributes from the provided transform
-	static void AddAttribute( CUtlVector< CDmAttribute * > &attrs, enum EAddType type, class CDmeTransform *pTxForm );
+	static void AddAttribute( std::vector< CDmAttribute * > &attrs, enum EAddType type, class CDmeTransform *pTxForm );
 
 	// Add the position and orientation attributes the entire ancestry of the dag node.
-	static void AddAncestorAttributes( CUtlVector< CDmAttribute * > &attrs, CDmeDag *pDag );
+	static void AddAncestorAttributes( std::vector< CDmAttribute * > &attrs, CDmeDag *pDag );
 
 	// Compute the offsets of the specified target based on the relative transforms of the target to the slave
 	virtual void ComputeOffset( Vector &vOffset, Quaternion &qOffset, CDmeConstraintTarget *pTarget, bool bPreserveOffset );
@@ -291,7 +291,7 @@ public:
 
     void Operate() override;
 
-    void GetInputAttributes( CUtlVector< CDmAttribute * > &attrs ) override;
+    void GetInputAttributes( std::vector< CDmAttribute * > &attrs ) override;
 
     EAddType GetInputAttributeType() const override { return AA_TYPE_POSITION; } // Uses just positions of handles
     EAddType GetOutputAttributeType() const override { return AA_TYPE_ORIENTATION; } // Only writes angle of destination bone
@@ -333,7 +333,7 @@ public:
     void Operate() override;
 
 	// Get the list of input attributes the operation is dependent on this includes all of the axis values and rotations
-    void GetInputAttributes( CUtlVector< CDmAttribute * > &attrs ) override;
+    void GetInputAttributes( std::vector< CDmAttribute * > &attrs ) override;
 
 private:
 
@@ -388,9 +388,9 @@ public:
     EAddType GetOutputAttributeType() const override { Assert( 0 ); return AA_TYPE_UNKNOWN; } // Only writes angle of destination bone
 
 	// Overridden
-    void GetInputAttributes( CUtlVector< CDmAttribute * > &attrs ) override;
+    void GetInputAttributes( std::vector< CDmAttribute * > &attrs ) override;
 
-    void GetOutputAttributes( CUtlVector< CDmAttribute * > &attrs ) override;
+    void GetOutputAttributes( std::vector< CDmAttribute * > &attrs ) override;
 
 	// Find all of the channels relevant to all of the target handles 
     void GatherInputOperators( std::vector< CDmeOperator * > &operatorList ) override;
@@ -511,7 +511,7 @@ public:
     EAddType GetOutputAttributeType() const override { return AA_TYPE_ORIENTATION; } // Only writes orientation of destination bone
 
 	// Overridden
-    void GetOutputAttributes( CUtlVector< CDmAttribute * > &attrs ) override;
+    void GetOutputAttributes( std::vector< CDmAttribute * > &attrs ) override;
 
 	// Get a pointer to the dag node the constraint is controlling
     const CDmeDag *GetSlave() const override;

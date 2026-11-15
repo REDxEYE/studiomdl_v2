@@ -82,7 +82,7 @@ namespace vstd {
         // Returns false if text was truncated
         bool assign(const char* text) noexcept { return assign(text ? std::string_view(text) : std::string_view()); }
 
-        bool assign(std::string_view text) noexcept {
+        bool assign(const std::string_view text) noexcept {
             const size_t count = text.size() < capacity() ? text.size() : capacity();
             std::memmove(m_data, text.data(), count);
             m_data[count] = '\0';
@@ -151,7 +151,7 @@ namespace vstd {
             const size_t room = capacity() - offset;
             const auto result = std::format_to_n(m_data + offset, static_cast<std::ptrdiff_t>(room), fmt,
                                                  std::forward<Args>(args)...);
-            const size_t needed = static_cast<size_t>(result.size);
+            const auto needed = static_cast<size_t>(result.size);
             m_data[offset + std::min(needed, room)] = '\0';
             return needed <= room;
         }
@@ -161,6 +161,8 @@ namespace vstd {
 
     static_assert(sizeof(FixedString<1>) == 1, "sizeof(FixedString<N>!=N)");
     static_assert(sizeof(FixedString<64>) == 64, "sizeof(FixedString<N>!=N)");
+
+    using FStr256 = FixedString<256>;
 }
 
 template<size_t N>

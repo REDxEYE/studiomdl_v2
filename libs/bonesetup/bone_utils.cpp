@@ -14,13 +14,6 @@
 #define _rotl(x,k) (((x)<<(k)) | ((x)>>(32-(k))))
 #endif
 #include "mathlib/ssequaternion.h"
-#include "tier1/datamanager.h"
-
-
-
-#ifdef CLIENT_DLL
-	#include "posedebugger.h"
-#endif
 
 #include "bone_utils.h"
 
@@ -103,9 +96,6 @@ short *CBoneCache::CachedToStudio()
 {
 	return (short *)( (char *)(this+1) + m_cachedToStudioOffset );
 }
-
-// Construct a singleton
-static CDataManager<CBoneCache, bonecacheparams_t, CBoneCache *> g_StudioBoneCache( 128 * 1024L );
 
 
 //-----------------------------------------------------------------------------

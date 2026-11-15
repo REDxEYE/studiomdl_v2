@@ -39,7 +39,7 @@ USING_ELEMENT_FACTORY( DmeRigHandle );
 // Local includes
 #include "studiomdl_commands.h"
 #include "studiomdl/studiomdl.h"
-#include "tier1/fmtstr.h"
+
 #include "tier1_v2/function_timing.hpp"
 #include "studiomdl/studiomdl_global_state.hpp"
 #include "studiomdl/weight_fit.hpp"
@@ -202,7 +202,7 @@ static bool DefineUniqueVertices(const CDmeVertexData *pBindState) {
     const CUtlVector<int> *extraTexcoordIndices[MAXSTUDIOTEXCOORDS - 1];
 
     for (int i = 1; i < MAXSTUDIOTEXCOORDS; ++i) {
-        FieldIndex_t nExtra = pBindState->FindFieldIndex(CFmtStr("texcoord$%d", i).Get());
+        FieldIndex_t nExtra = pBindState->FindFieldIndex(vstd::fx_formatted("texcoord${}", i));
         if (nExtra != -1) {
             extraTexcoordIndices[i - 1] = &pBindState->GetVertexIndexData(nExtra);
             nExtraTexcoordCount[i - 1] = extraTexcoordIndices[i - 1]->size();
@@ -463,7 +463,7 @@ LoadVertices(CDmeDag *pDmeDag, CDmeVertexData *pBindState, const matrix3x4_t &ma
     // Check for additional texcoords
     for (int i = 1; i < MAXSTUDIOTEXCOORDS; ++i) {
         g_studiomdl.input.texcoord[i].clear();
-        const FieldIndex_t fieldIndex = pBindState->FindFieldIndex(CFmtStr("texcoord$%d", i).Get());
+        const FieldIndex_t fieldIndex = pBindState->FindFieldIndex(vstd::fx_formatted("texcoord${}", i));
         if (fieldIndex >= 0) {
             CDmrArrayConst<Vector2D> vertexData = pBindState->GetVertexData(fieldIndex);
             const CUtlVector<Vector2D> &extraTexcoords = vertexData.Get();
@@ -860,7 +860,7 @@ LoadMesh(CDmeDag *pDmeDag, CDmeMesh *pMesh, CDmeVertexData *pBindState, const ma
         meshInfo.hasNormals = pBindState->FindFieldIndex(CDmeVertexDataBase::FIELD_NORMAL) >= 0;
 
         for (uint32_t nChannel = 0; nChannel < MAXSTUDIOTEXCOORDS; ++nChannel) {
-            const FieldIndex_t fieldIndex = pBindState->FindFieldIndex(CFmtStr("texcoord$%d", nChannel).Get());
+            const FieldIndex_t fieldIndex = pBindState->FindFieldIndex(vstd::fx_formatted("texcoord${}", nChannel));
             if (fieldIndex < 0)
                 continue;
             meshInfo.activeUvFieldIndices.emplace_back(nChannel, fieldIndex);

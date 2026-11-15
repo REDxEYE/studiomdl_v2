@@ -7,7 +7,7 @@
 #pragma once
 
 
-#include "tier1/utlmap.h"
+#include "mathlib/mathlib.h"
 #include "tier1/strtools.h"
 
 
@@ -85,16 +85,4 @@ struct AnimationControlAttributes_t : public AttributeValue_t
 	CDmAttribute* m_pValueAttribute[ ANIM_CONTROL_FULL_COUNT ];
 	CDmAttribute* m_pTimesAttribute[ ANIM_CONTROL_FULL_COUNT ];
 };
-
-typedef CUtlMap< DmElementHandle_t, AnimationControlAttributes_t, unsigned short > AttributeDict_t;
-
-inline AttributeDict_t *CopyAttributeDict( AttributeDict_t *pSrc )
-{
-	if ( !pSrc )
-		return nullptr;
-
-	AttributeDict_t *pDest = new AttributeDict_t();
-	pDest->AccessTree()->CopyFrom( *pSrc->AccessTree() );
-	return pDest;
-}
 

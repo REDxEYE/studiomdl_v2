@@ -7,7 +7,8 @@
 #pragma once
 
 
-#include "tier1/utlmap.h"
+#include <unordered_map>
+#include "tier1/utlrbtree.h"
 #include "tier1/utlhash.h"
 #include "tier1/utlvector.h"
 #include "tier1/utlsymbol.h"
@@ -349,7 +350,7 @@ protected:
     static void DeleteAttributeVarElementArray(T &array);
 
 private:
-    typedef CUtlMap<DmElementHandle_t, DmElementHandle_t, int> CRefMap;
+    typedef std::unordered_map<DmElementHandle_t, DmElementHandle_t> CRefMap;
 
     // Bogus constructor
     CDmElement();
@@ -1059,16 +1060,16 @@ int DmeEstimateMemorySize(T *pElement) {
 //-----------------------------------------------------------------------------
 template<class T>
 void CopyElements(const CUtlVector<T *> &from, CUtlVector<T *> &to, TraversalDepth_t depth) {
-    CUtlMap<DmElementHandle_t, DmElementHandle_t, int> refmap(DefLessFunc(DmElementHandle_t));
+    std::unordered_map<DmElementHandle_t, DmElementHandle_t> refmap;
 
     int c = from.size();
     for (int i = 0; i < c; ++i) {
         T *pCopy = nullptr;
 
         if (CDmElement *pFrom = from[i]) {
-            int idx = refmap.Find(pFrom->GetHandle());
-            if (idx != refmap.InvalidIndex()) {
-                pCopy = GetElement<T>(refmap[idx]);
+            const auto it = refmap.find(pFrom->GetHandle());
+            if (it != refmap.end()) {
+                pCopy = GetElement<T>(it->second);
             } else {
                 pCopy = GetElement<T>(
                         g_pDataModel->CreateElement(pFrom->GetType(), pFrom->GetName(), pFrom->GetFileId()));

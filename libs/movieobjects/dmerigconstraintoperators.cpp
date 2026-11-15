@@ -10,7 +10,6 @@
 //=============================================================================
 #include "movieobjects/dmerigconstraintoperators.h"
 #include "movieobjects/dmechannel.h"
-#include "tier1/fmtstr.h"
 #include "bone_constraints.h"
 
 
@@ -199,7 +198,7 @@ bool CDmeRigBaseConstraintOperator::IsSlaveObject( char const *pchName ) const
 // Purpose: Get the attributes that the constraint reads data from, Inputs are 
 // CDmeDags (handles usually)
 //-----------------------------------------------------------------------------
-void CDmeRigBaseConstraintOperator::GetInputAttributes( CUtlVector< CDmAttribute * > &attrs )
+void CDmeRigBaseConstraintOperator::GetInputAttributes( std::vector< CDmAttribute * > &attrs )
 {
 	for ( int i = 0; i < m_Targets.size(); ++i )
 	{
@@ -216,7 +215,7 @@ void CDmeRigBaseConstraintOperator::GetInputAttributes( CUtlVector< CDmAttribute
 		CDmAttribute *pWeightAttr = m_Targets[ i ]->GetWeightAttribute();
 		if ( pWeightAttr )
 		{
-			attrs.AddToTail( pWeightAttr );
+			attrs.push_back( pWeightAttr );
 		}
 	}
 
@@ -228,13 +227,13 @@ void CDmeRigBaseConstraintOperator::GetInputAttributes( CUtlVector< CDmAttribute
 	CDmAttribute *pSlavePosAttr = m_Slave->m_BasePosition.GetAttribute();
 	if ( pSlavePosAttr )
 	{
-		attrs.AddToTail( pSlavePosAttr );
+		attrs.push_back( pSlavePosAttr );
 	}
 
 	CDmAttribute *pSlaveRotAttr = m_Slave->m_BaseOrientation.GetAttribute();
 	if ( pSlaveRotAttr )
 	{
-		attrs.AddToTail( pSlaveRotAttr );
+		attrs.push_back( pSlaveRotAttr );
 	}
 
 }
@@ -244,7 +243,7 @@ void CDmeRigBaseConstraintOperator::GetInputAttributes( CUtlVector< CDmAttribute
 // Purpose: Get the attributes to which the attribute writes, Outputs are
 // CDmeDags (bones or other CDmeRigHandles usually)
 //-----------------------------------------------------------------------------
-void CDmeRigBaseConstraintOperator::GetOutputAttributes( CUtlVector< CDmAttribute * > &attrs )
+void CDmeRigBaseConstraintOperator::GetOutputAttributes( std::vector< CDmAttribute * > &attrs )
 {
 	if ( !m_Slave->m_Dag )
 		return;
@@ -256,7 +255,7 @@ void CDmeRigBaseConstraintOperator::GetOutputAttributes( CUtlVector< CDmAttribut
 //-----------------------------------------------------------------------------
 // Purpose: Add the specified type of attributes from the provided transform
 //-----------------------------------------------------------------------------
-void CDmeRigBaseConstraintOperator::AddAttribute( CUtlVector< CDmAttribute * > &attrs, enum EAddType type, CDmeTransform *pTxForm )
+void CDmeRigBaseConstraintOperator::AddAttribute( std::vector< CDmAttribute * > &attrs, enum EAddType type, CDmeTransform *pTxForm )
 {
 	if ( !pTxForm )
 		return;
@@ -266,13 +265,13 @@ void CDmeRigBaseConstraintOperator::AddAttribute( CUtlVector< CDmAttribute * > &
 	{
 		CDmAttribute *pAttrib = pTxForm->GetPositionAttribute();
 		if ( pAttrib )
-			attrs.AddToTail( pAttrib );
+			attrs.push_back( pAttrib );
 	}
 	if ( type & AA_TYPE_ORIENTATION )
 	{
 		CDmAttribute *pAttrib = pTxForm->GetOrientationAttribute();
 		if ( pAttrib )
-			attrs.AddToTail( pAttrib );
+			attrs.push_back( pAttrib );
 	}
 }
 
@@ -281,7 +280,7 @@ void CDmeRigBaseConstraintOperator::AddAttribute( CUtlVector< CDmAttribute * > &
 // Purpose: Add the position and orientation attributes the entire ancestry of 
 // the dag node.
 //-----------------------------------------------------------------------------
-void CDmeRigBaseConstraintOperator::AddAncestorAttributes(  CUtlVector< CDmAttribute * > &attrs, CDmeDag *pDagNode )
+void CDmeRigBaseConstraintOperator::AddAncestorAttributes(  std::vector< CDmAttribute * > &attrs, CDmeDag *pDagNode )
 {
 	if ( pDagNode == nullptr)
 		return;
@@ -920,7 +919,7 @@ void CDmeRigAimConstraintOperator::Operate()
 // Purpose: Get the attributes that the constraint reads data from, Inputs are 
 // CDmeDags (handles usually)
 //-----------------------------------------------------------------------------
-void CDmeRigAimConstraintOperator::GetInputAttributes( CUtlVector< CDmAttribute * > &attrs )
+void CDmeRigAimConstraintOperator::GetInputAttributes( std::vector< CDmAttribute * > &attrs )
 {
 	CDmeRigBaseConstraintOperator::GetInputAttributes( attrs );
 
@@ -1002,10 +1001,10 @@ void CDmeRigRotationConstraintOperator::Operate()
 // of attributes, This is generally used by the evaluation process to find the 
 // attributes an operator is dependent on.
 //-----------------------------------------------------------------------------
-void CDmeRigRotationConstraintOperator::GetInputAttributes( CUtlVector< CDmAttribute * > &attrs )
+void CDmeRigRotationConstraintOperator::GetInputAttributes( std::vector< CDmAttribute * > &attrs )
 {
-	attrs.AddToTail( m_Axies.GetAttribute() );
-	attrs.AddToTail( m_Rotations.GetAttribute() );
+	attrs.push_back( m_Axies.GetAttribute() );
+	attrs.push_back( m_Rotations.GetAttribute() );
 }
 
 
@@ -1431,7 +1430,7 @@ void CDmeRigIKConstraintOperator::Operate()
 //-----------------------------------------------------------------------------
 // Purpose: Get the attributes which are written to by the constraint.
 //-----------------------------------------------------------------------------
-void CDmeRigIKConstraintOperator::GetOutputAttributes( CUtlVector< CDmAttribute * > &attrs )
+void CDmeRigIKConstraintOperator::GetOutputAttributes( std::vector< CDmAttribute * > &attrs )
 {
 	AddAttribute( attrs, AA_TYPE_ORIENTATION, m_StartJoint->GetTransform() );
 	AddAttribute( attrs, AA_TYPE_ORIENTATION, m_MidJoint->GetTransform() );
@@ -1441,7 +1440,7 @@ void CDmeRigIKConstraintOperator::GetOutputAttributes( CUtlVector< CDmAttribute 
 //-----------------------------------------------------------------------------
 // Purpose: Get the attributes upon which the constraint is dependent.
 //-----------------------------------------------------------------------------
-void CDmeRigIKConstraintOperator::GetInputAttributes( CUtlVector< CDmAttribute * > &attrs )
+void CDmeRigIKConstraintOperator::GetInputAttributes( std::vector< CDmAttribute * > &attrs )
 {
 	BaseClass::GetInputAttributes( attrs );
 	
@@ -1682,7 +1681,7 @@ void CDmeRigTwistConstraintOperator::Operate()
 //-----------------------------------------------------------------------------
 // Purpose: Get the attributes which are written to by the constraint.
 //-----------------------------------------------------------------------------
-void CDmeRigTwistConstraintOperator::GetOutputAttributes( CUtlVector< CDmAttribute * > &attrs )
+void CDmeRigTwistConstraintOperator::GetOutputAttributes( std::vector< CDmAttribute * > &attrs )
 {
 	for ( int i = 0; i < m_eSlaves.size(); ++i )
 	{

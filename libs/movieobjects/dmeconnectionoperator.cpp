@@ -8,7 +8,6 @@
 //=============================================================================
 #include "movieobjects/dmeconnectionoperator.h"
 #include "datamodel/dmelementfactoryhelper.h"
-#include "tier1/fmtstr.h"
 
 
 
@@ -92,12 +91,12 @@ bool CDmeConnectionOperator::IsDirty()
 // Purpose: Add the input attribute used by the operator to the provided list of attributes, This 
 // is generally used by the evaluation process to find the attributes an operator is dependent on.
 //-------------------------------------------------------------------------------------------------
-void CDmeConnectionOperator::GetInputAttributes( CUtlVector< CDmAttribute * > &attrs )
+void CDmeConnectionOperator::GetInputAttributes( std::vector< CDmAttribute * > &attrs )
 {
 	CDmAttribute *pInputAttr = m_Input->GetReferencedAttribute();
 	if ( pInputAttr )
 	{
-		attrs.AddToTail( pInputAttr );
+		attrs.push_back( pInputAttr );
 	}
 }
 
@@ -108,7 +107,7 @@ void CDmeConnectionOperator::GetInputAttributes( CUtlVector< CDmAttribute * > &a
 // written by the operator in order to determine what other operators are dependent on this 
 // operator.
 //-------------------------------------------------------------------------------------------------
-void CDmeConnectionOperator::GetOutputAttributes( CUtlVector< CDmAttribute * > &attrs )
+void CDmeConnectionOperator::GetOutputAttributes( std::vector< CDmAttribute * > &attrs )
 {
 	int nOutputs = m_Outputs.size();
 	for ( int iOutput = 0; iOutput < nOutputs; ++iOutput )
@@ -116,7 +115,7 @@ void CDmeConnectionOperator::GetOutputAttributes( CUtlVector< CDmAttribute * > &
 		CDmAttribute *pOutputAttr = m_Outputs[ iOutput ]->GetReferencedAttribute();
 		if ( pOutputAttr )
 		{
-			attrs.AddToTail( pOutputAttr );
+			attrs.push_back( pOutputAttr );
 		}
 	}
 }

@@ -13,7 +13,6 @@
 
 
 #include "memstack.h"
-#include "utlmap.h"
 
 void PrintStatus( void* p )
 {

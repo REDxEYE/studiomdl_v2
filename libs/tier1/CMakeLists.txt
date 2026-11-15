@@ -12,7 +12,6 @@ add_library(tier1
         exprevaluator.cpp
         characterset.cpp
         checksum_crc.cpp
-        datamanager.cpp
         generichash.cpp
         keyvalues.cpp
         strtools.cpp

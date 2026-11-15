@@ -278,11 +278,6 @@ public:
 	// This factory will be used to instance all elements whose type name isn't found.
 	virtual void			SetDefaultElementFactory( IDmElementFactory *pFactory ) = 0;
 
-	virtual int				GetFirstFactory() const = 0;
-	virtual int				GetNextFactory( int index ) const = 0;
-	virtual bool			IsValidFactory( int index ) const = 0;
-	virtual const char		*GetFactoryName( int index ) const = 0;
-
 	// create/destroy element methods - proxies to installed element factories
 	virtual DmElementHandle_t	CreateElement( CUtlSymbolLarge typeSymbol, const char *pElementName, DmFileId_t fileid, const DmObjectId_t *pObjectID = nullptr) = 0;
 	virtual DmElementHandle_t	CreateElement( const char *pTypeName, const char *pElementName, DmFileId_t fileid, const DmObjectId_t *pObjectID = nullptr) = 0;

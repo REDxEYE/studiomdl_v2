@@ -6,7 +6,6 @@
 #include "datamodel/dmelementfactoryhelper.h"
 #include "movieobjects/dmechannel.h"
 #include "movieobjects/dmemodel.h"
-#include "tier1/fmtstr.h"
 
 
 #include "movieobjects/dmeaxissystem.h"

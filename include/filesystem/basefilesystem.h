@@ -14,7 +14,9 @@
 #include "filesystem/stdfile.h"
 
 #include <cstdio>
-#include "tier1/utldict.h"
+#include <set>
+#include <string>
+#include "tier1_v2/string_utils.hpp"
 
 #include "filesystem.h"
 #include "tier1/utlvector.h"
@@ -514,7 +516,7 @@ public:
 
         CUtlSymbol m_FilterPathID;            // What path ID are we looking at? Ignore all others. (Only set by FindFirstEx).
 
-        CUtlDict<int, int> m_VisitedFiles;            // We go through the search paths in priority order, and we use this to make sure
+        std::set<std::string, vstd::iless> m_VisitedFiles;            // We go through the search paths in priority order, and we use this to make sure
         // that we don't return the same file more than once.
     };
 

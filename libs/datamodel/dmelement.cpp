@@ -428,7 +428,7 @@ CDmElement* CDmElement::CopyInternal( TraversalDepth_t depth /* = TD_DEEP */ ) c
 //-----------------------------------------------------------------------------
 void CDmElement::CopyAttributesTo( CDmElement *pCopy, TraversalDepth_t depth ) const
 {
-	CUtlMap< DmElementHandle_t, DmElementHandle_t, int > refmap( DefLessFunc( DmElementHandle_t ) );
+	CRefMap refmap;
 	CopyAttributesTo( pCopy, refmap, depth );
 
 	CUtlHashFast< DmElementHandle_t > visited;
@@ -462,10 +462,10 @@ void CDmElement::CopyElementAttribute( const CDmAttribute *pSrcAttr, CDmAttribut
 		return;
 	}
 
-	int idx = refmap.Find( hSrc );
-	if ( idx != refmap.InvalidIndex() )
+	const auto it = refmap.find( hSrc );
+	if ( it != refmap.end() )
 	{
-		pDestAttr->SetValue( refmap[ idx ] );
+		pDestAttr->SetValue( it->second );
 		return;
 	}
 
@@ -518,10 +518,10 @@ void CDmElement::CopyElementArrayAttribute( const CDmAttribute *pAttr, CDmAttrib
 			continue;
 		}
 
-		int idx = refmap.Find( hSrc );
-		if ( idx != refmap.InvalidIndex() )
+		const auto it = refmap.find( hSrc );
+		if ( it != refmap.end() )
 		{
-			destAttr.AddToTail( refmap[ idx ] );
+			destAttr.AddToTail( it->second );
 			continue;
 		}
 
@@ -545,7 +545,7 @@ void CDmElement::CopyElementArrayAttribute( const CDmAttribute *pAttr, CDmAttrib
 //-----------------------------------------------------------------------------
 void CDmElement::CopyAttributesTo( CDmElement *pCopy, CRefMap &refmap, TraversalDepth_t depth ) const
 {
-	refmap.Insert( this->GetHandle(), pCopy->GetHandle() );
+	refmap.emplace( this->GetHandle(), pCopy->GetHandle() );
 
 	// loop attrs, copying - element (and element array) attrs can be marked to always copy deep(er)
 	for ( const CDmAttribute *pAttr = FirstAttribute(); pAttr != nullptr; pAttr = pAttr->NextAttribute() )
@@ -617,8 +617,8 @@ void CDmElement::FixupReferences( CUtlHashFast< DmElementHandle_t > &visited, co
 		if ( type == AT_ELEMENT )
 		{
 			DmElementHandle_t handle = pAttr->GetValue<DmElementHandle_t>();
-			int idx = refmap.Find( handle );
-			if ( idx == refmap.InvalidIndex() )
+			const auto it = refmap.find( handle );
+			if ( it == refmap.end() )
 			{
 				CDmElement *pElement = GetElement< CDmElement >( handle );
 				if ( pElement == nullptr || !bCopy )
@@ -628,7 +628,7 @@ void CDmElement::FixupReferences( CUtlHashFast< DmElementHandle_t > &visited, co
 			}
 			else
 			{
-				pAttr->SetValue( refmap[ idx ] );
+				pAttr->SetValue( it->second );
 			}
 		}
 		else if ( type == AT_ELEMENT_ARRAY )
@@ -638,8 +638,8 @@ void CDmElement::FixupReferences( CUtlHashFast< DmElementHandle_t > &visited, co
 			for ( int i = 0; i < nElements; ++i )
 			{
 				DmElementHandle_t handle = attrArray.GetHandle( i );
-				int idx = refmap.Find( handle );
-				if ( idx == refmap.InvalidIndex() )
+				const auto it = refmap.find( handle );
+				if ( it == refmap.end() )
 				{
 					CDmElement *pElement = GetElement< CDmElement >( handle );
 					if ( pElement == nullptr || !bCopy )
@@ -649,7 +649,7 @@ void CDmElement::FixupReferences( CUtlHashFast< DmElementHandle_t > &visited, co
 				}
 				else
 				{
-					attrArray.SetHandle( i, refmap[ idx ] );
+					attrArray.SetHandle( i, it->second );
 				}
 			}
 		}

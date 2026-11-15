@@ -18,8 +18,10 @@
 #include "datamodel/dmattributevar.h"
 #include "datamodel/dmelementfactoryhelper.h"
 #include "tier1/timeutils.h"
-#include "tier1/fmtstr.h"
-#include "tier1/utldict.h"
+#include "tier1_v2/string_utils.hpp"
+
+#include <map>
+#include <string>
 
 //-----------------------------------------------------------------------------
 // format updater macros
@@ -631,7 +633,7 @@ bool Update17(CDmElement* pElement) {
             CDmrElementArray<> controlValueElements(pControlValuesAttr);
             int nControlValues = controlValueElements.Count();
             if (nControlValues > 0) {
-                CUtlDict<CDmElement*, int> mergedControls;
+                std::map<std::string, CDmElement*, vstd::iless> mergedControls;
                 CUtlVector<DmElementHandle_t> validControlValues(0u, nControlValues);
 
                 for (int iValue = 0; iValue < nControlValues; ++iValue) {
@@ -665,16 +667,11 @@ bool Update17(CDmElement* pElement) {
                     baseName[pComponentStart - pName] = 0;
 
                     // Find or create the new control value
-                    CDmElement* pNewControlValue = nullptr;
-                    int nIndex = mergedControls.Find(baseName);
-                    if (nIndex == CUtlDict<CDmElement*>::InvalidIndex()) {
+                    CDmElement*& pNewControlValue = mergedControls[baseName];
+                    if (pNewControlValue == nullptr) {
                         pNewControlValue = CreateElement<CDmElement>("DmElement", baseName, pElement->GetFileId());
                         pNewControlValue->SetParity(pElement->GetParity());
-                        nIndex = mergedControls.Insert(baseName, pNewControlValue);
                         validControlValues.AddToTail(pNewControlValue->GetHandle());
-                    }
-                    else {
-                        pNewControlValue = mergedControls.Element(nIndex);
                     }
 
                     // Copy the value from the old control value element
@@ -2369,7 +2366,7 @@ bool Update2(CDmElement* pElement) {
                             // Build the pos and rot versions
                             for (int k = 0; k < 2; ++k) {
                                 CDmElement* control = CreateElement<CDmElement>(
-                                    CFmtStr("%s - %s", pchControlName, g_pSuffix[k]), pElement->GetFileId());
+                                    vstd::fx_formatted("{} - {}", pchControlName, g_pSuffix[k]), pElement->GetFileId());
                                 control->SetParity(pElement->GetParity());
                                 control->SetValue<bool>("transform", true);
                                 control->SetValue<bool>(g_pControlType[k], true);
@@ -2401,7 +2398,7 @@ bool Update2(CDmElement* pElement) {
                                 added.AddToTail(control);
 
                                 CDmElement* groupControl = CreateElement<CDmElement>(
-                                    CFmtStr("%s - %s", pchControlName, g_pSuffix[k]), pElement->GetFileId());
+                                    vstd::fx_formatted("{} - {}", pchControlName, g_pSuffix[k]), pElement->GetFileId());
                                 groupControl->SetParity(pElement->GetParity());
                                 groupControl->SetValue<bool>("isGroup", false);
                                 newControls.AddToTail(groupControl);

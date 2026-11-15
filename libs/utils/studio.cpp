@@ -9,6 +9,7 @@
 #include "studio.h"
 
 #include "studiomdl/bone_setup.h"
+#include <unordered_map>
 
 
 // preload up to 1 second worth of blocks ahead.
@@ -975,7 +976,7 @@ struct StudioHdrToActivityMapEntry_t
 	CStudioHdr::CActivityToSequenceMapping *pMap;
 };
 
-CUtlMap<const studiohdr_t *, StudioHdrToActivityMapEntry_t> g_StudioHdrToActivityMaps( DefLessFunc( const studiohdr_t * ) );
+std::unordered_map<const studiohdr_t *, StudioHdrToActivityMapEntry_t> g_StudioHdrToActivityMaps;
 
 CStudioHdr::CActivityToSequenceMapping *CStudioHdr::CActivityToSequenceMapping::FindMapping( const CStudioHdr *pHdr )
 {
@@ -989,32 +990,31 @@ CStudioHdr::CActivityToSequenceMapping *CStudioHdr::CActivityToSequenceMapping::
 	Assert( !pHdr->m_pActivityToSequence );
 
 	const studiohdr_t *pRealHdr = pHdr->m_pStudioHdr;
-	int i = g_StudioHdrToActivityMaps.Find( pRealHdr );
-	if ( i != g_StudioHdrToActivityMaps.InvalidIndex() )
+	auto it = g_StudioHdrToActivityMaps.find( pRealHdr );
+	if ( it != g_StudioHdrToActivityMaps.end() )
 	{
-		if ( ( g_StudioHdrToActivityMaps[i].checksum != pRealHdr->checksum || Q_strcmp( g_StudioHdrToActivityMaps[i].name, pRealHdr->name ) != 0 ) )
+		StudioHdrToActivityMapEntry_t &entry = it->second;
+		if ( entry.checksum != pRealHdr->checksum || Q_strcmp( entry.name, pRealHdr->name ) != 0 )
 		{
-			AssertFatal( g_StudioHdrToActivityMaps[i].nRefs == 0 );
-			delete g_StudioHdrToActivityMaps[i].pMap;
-			g_StudioHdrToActivityMaps.RemoveAt( i );
+			AssertFatal( entry.nRefs == 0 );
+			delete entry.pMap;
+			g_StudioHdrToActivityMaps.erase( it );
 		}
 		else
 		{
-			Assert( g_StudioHdrToActivityMaps[i].checksum == pRealHdr->checksum && Q_strcmp( g_StudioHdrToActivityMaps[i].name, pRealHdr->name ) == 0 );
-			g_StudioHdrToActivityMaps[i].nRefs++;
-			return g_StudioHdrToActivityMaps[i].pMap;
+			entry.nRefs++;
+			return entry.pMap;
 		}
 	}
 
-	i = g_StudioHdrToActivityMaps.Insert( pRealHdr );
+	StudioHdrToActivityMapEntry_t &entry = g_StudioHdrToActivityMaps[pRealHdr];
+	entry.checksum = pRealHdr->checksum;
+	Q_strncpy( entry.name, pRealHdr->name, 64 );
+	entry.nRefs = 1;
+	entry.pMap = new CStudioHdr::CActivityToSequenceMapping;
+	entry.pMap->Initialize( pHdr );
 
-	g_StudioHdrToActivityMaps[i].checksum = pRealHdr->checksum;
-	Q_strncpy( g_StudioHdrToActivityMaps[i].name, pRealHdr->name, 64 );
-	g_StudioHdrToActivityMaps[i].nRefs = 1;
-	g_StudioHdrToActivityMaps[i].pMap = new CStudioHdr::CActivityToSequenceMapping;
-	g_StudioHdrToActivityMaps[i].pMap->Initialize( pHdr );
-
-	return g_StudioHdrToActivityMaps[i].pMap;
+	return entry.pMap;
 }
 
 void CStudioHdr::CActivityToSequenceMapping::ReleaseMapping( CActivityToSequenceMapping *pMap )
@@ -1022,11 +1022,11 @@ void CStudioHdr::CActivityToSequenceMapping::ReleaseMapping( CActivityToSequence
 	if ( pMap && pMap != &emptyMapping)
 	{
 
-		int i = g_StudioHdrToActivityMaps.Find( pMap->m_pStudioHdr );
-		if ( i != g_StudioHdrToActivityMaps.InvalidIndex() )
+		const auto it = g_StudioHdrToActivityMaps.find( pMap->m_pStudioHdr );
+		if ( it != g_StudioHdrToActivityMaps.end() )
 		{
-			Assert( g_StudioHdrToActivityMaps[i].nRefs > 0 );
-			g_StudioHdrToActivityMaps[i].nRefs--;
+			Assert( it->second.nRefs > 0 );
+			it->second.nRefs--;
 		}
 		else
 		{

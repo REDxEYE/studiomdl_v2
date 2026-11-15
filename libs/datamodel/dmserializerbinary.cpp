@@ -16,6 +16,10 @@
 #include "DmElementFramework.h"
 #include "tier1_v2/function_timing.hpp"
 
+#include <string_view>
+#include <unordered_map>
+#include <vector>
+
 
 //-----------------------------------------------------------------------------
 // Forward declarations
@@ -66,10 +70,11 @@ public:
                      DmFileId_t fileid, DmConflictResolution_t idConflictResolution, CDmElement **ppRoot) override;
 
 private:
-    // For serialize
-    typedef CUtlDict<int, int> mapSymbolToIndex_t;
-    // For unserialize
-    typedef CUtlMap<int, CUtlSymbolLarge> mapIndexToSymbol_t;
+    // For serialize: string -> index in the file's string table (case-sensitive; views into the gathered symbol table)
+    typedef std::unordered_map<std::string_view, int> mapSymbolToIndex_t;
+    static int FindSymbolIndex(const mapSymbolToIndex_t *pStringValueSymbols, const char *pString);
+    // For unserialize: the file's string table, indexed by string number
+    typedef std::vector<CUtlSymbolLarge> mapIndexToSymbol_t;
 
     // Methods related to serialization
     void SerializeElementIndex(CUtlBuffer &buf, CDmElementSerializationDictionary &list, DmElementHandle_t hElement,
@@ -113,12 +118,12 @@ private:
         if (uSym == DMELEMENT_HANDLE_INVALID) {
             return "";
         }
-        return pMap->at(uSym).String();
+        return (*pMap)[uSym].String();
     }
 
     inline CUtlSymbolLarge Dme_GetSymbolFromBuffer(CUtlBuffer &buf, bool bUseLargeSymbols, mapIndexToSymbol_t *pMap) {
         unsigned int uSym = (bUseLargeSymbols) ? buf.GetInt() : buf.GetShort();
-        return pMap->at(uSym);
+        return (*pMap)[uSym];
     }
 };
 
@@ -194,6 +199,13 @@ void CDmSerializerBinary::SerializeElementArrayAttribute(CUtlBuffer &buf, CDmEle
     }
 }
 
+int CDmSerializerBinary::FindSymbolIndex(const mapSymbolToIndex_t *pStringValueSymbols, const char *pString) {
+    if (!pString)
+        return -1;
+    const auto it = pStringValueSymbols->find(pString);
+    return it != pStringValueSymbols->end() ? it->second : -1;
+}
+
 
 //-----------------------------------------------------------------------------
 // Writes out all attributes
@@ -216,7 +228,7 @@ bool CDmSerializerBinary::SerializeAttributes(CUtlBuffer &buf, CDmElementSeriali
         CDmAttribute *pAttribute = ppAttributes[i];
         Assert(pAttribute);
 
-        buf.PutInt(pStringValueSymbols->Find(pAttribute->GetName()));
+        buf.PutInt(FindSymbolIndex(pStringValueSymbols, pAttribute->GetName()));
         buf.PutChar(pAttribute->GetType());
         switch (pAttribute->GetType()) {
             default:
@@ -232,7 +244,7 @@ bool CDmSerializerBinary::SerializeAttributes(CUtlBuffer &buf, CDmElementSeriali
                 break;
 
             case AT_STRING:
-                buf.PutInt(pStringValueSymbols->Find(pAttribute->GetValueString()));
+                buf.PutInt(FindSymbolIndex(pStringValueSymbols, pAttribute->GetValueString()));
                 break;
         }
     }
@@ -249,8 +261,8 @@ bool CDmSerializerBinary::SaveElement(CUtlBuffer &buf, CDmElementSerializationDi
 
 bool CDmSerializerBinary::SaveElementDict(CUtlBuffer &buf, mapSymbolToIndex_t *pStringValueSymbols,
                                           CDmElement *pElement) {
-    buf.PutInt(pStringValueSymbols->Find(pElement->GetTypeString()));
-    buf.PutInt(pStringValueSymbols->Find(pElement->GetName()));
+    buf.PutInt(FindSymbolIndex(pStringValueSymbols, pElement->GetTypeString()));
+    buf.PutInt(FindSymbolIndex(pStringValueSymbols, pElement->GetName()));
     buf.Put(&pElement->GetId(), sizeof(DmObjectId_t));
     return buf.IsValid();
 }
@@ -290,13 +302,14 @@ bool CDmSerializerBinary::Serialize(CUtlBuffer &outBuf, CDmElement *pRoot) {
     stringSymbols.GetElements(0, nSymbols, symbols.data());
 
     // It's case sensitive
-    mapSymbolToIndex_t symbolToIndexMap(k_eDictCompareTypeCaseSensitive);
+    mapSymbolToIndex_t symbolToIndexMap;
+    symbolToIndexMap.reserve(nSymbols);
 
     // Build the helper map based on the gathered symbols
     for (int si = 0; si < nSymbols; ++si) {
         CUtlSymbolLarge sym = symbols[si];
         const char *pStr = sym.String();
-        symbolToIndexMap.Insert(pStr, si);
+        symbolToIndexMap.emplace(pStr, si);
         outBuf.PutString(pStr);
     }
 
@@ -566,10 +579,10 @@ DmElementHandle_t CreateElementWithFallback(const char *pType, const char *pName
 void CDmSerializerBinary::GetStringTable(CUtlBuffer &buf, uint32_t nStrings, uint32_t nEncodingVersion,
                                          mapIndexToSymbol_t *pMap) {
     char pStrBuf[2048];
+    pMap->reserve(pMap->size() + nStrings);
     for (int i = 0; i < nStrings; ++i) {
         buf.GetString(pStrBuf, sizeof(pStrBuf));
-        CUtlSymbolLarge sym = g_pDataModel->GetSymbol(pStrBuf);
-        pMap->Insert(i, sym);
+        pMap->push_back(g_pDataModel->GetSymbol(pStrBuf));
     }
 }
 
@@ -592,7 +605,7 @@ bool CDmSerializerBinary::Unserialize(CUtlBuffer &buf, const char *pEncodingName
     bool bReadSymbolTable = nEncodingVersion >= DM_BINARY_VER_STRINGTABLE;
 
     // Read string table
-    mapIndexToSymbol_t indexToSymbolMap(0, 0, DefLessFunc(int));
+    mapIndexToSymbol_t indexToSymbolMap;
 
     if (bReadSymbolTable) {
         uint32_t nStrings = 0;
