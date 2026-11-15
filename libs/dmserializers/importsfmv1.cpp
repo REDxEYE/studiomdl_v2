@@ -23,7 +23,7 @@ public:
 	CImportSFMV1( char const *formatName, char const *nextFormatName );
 
 private:
-	virtual bool DoFixup( CDmElement *pSourceRoot );
+    bool DoFixup( CDmElement *pSourceRoot ) override;
 
 	// Fixes up a single time attribute - converting from float seconds to int tenths-of-a-millisecond
 	void ConvertTimeAttribute( CDmElement *pElementInternal, const char *pOldName, const char *pNewName );

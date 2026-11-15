@@ -38,111 +38,13 @@ FORCEINLINE fltx4 UnpackQuaternion48SIMD( const Quaternion48 * RESTRICT pVec );
 // fit a 3D vector into 32 bits
 //=========================================================
 
-class Vector32
-{
-public:
-	// Construction/destruction:
-	Vector32(void); 
-	Vector32(vec_t X, vec_t Y, vec_t Z);
-
-	// assignment
-	Vector32& operator=(const Vector &vOther);
-	operator Vector ();
-
-private:
-	unsigned short x:10;
-	unsigned short y:10;
-	unsigned short z:10;
-	unsigned short exp:2;
-};
-
-inline Vector32& Vector32::operator=(const Vector &vOther)	
-{
-	CHECK_VALID(vOther);
-
-	static float expScale[4] = { 4.0f, 16.0f, 32.f, 64.f };
-
-	float fmax = MAX( fabs( vOther.x ), fabs( vOther.y ) );
-	fmax = fpmax( fmax, fabs( vOther.z ) );
-
-	for (exp = 0; exp < 3; exp++)
-	{
-		if (fmax < expScale[exp])
-			break;
-	}
-	Assert( fmax < expScale[exp] );
-
-	float fexp = 512.0f / expScale[exp];
-
-	x = clamp( (int)(vOther.x * fexp) + 512, 0, 1023 );
-	y = clamp( (int)(vOther.y * fexp) + 512, 0, 1023 );
-	z = clamp( (int)(vOther.z * fexp) + 512, 0, 1023 );
-	return *this; 
-}
-
-
-inline Vector32::operator Vector ()
-{
-	Vector tmp;
-
-	static float expScale[4] = { 4.0f, 16.0f, 32.f, 64.f };
-
-	float fexp = expScale[exp] / 512.0f;
-
-	tmp.x = (((int)x) - 512) * fexp;
-	tmp.y = (((int)y) - 512) * fexp;
-	tmp.z = (((int)z) - 512) * fexp; 
-	return tmp; 
-}
 
 
 //=========================================================
 // Fit a unit vector into 32 bits
 //=========================================================
 
-class Normal32
-{
-public:
-	// Construction/destruction:
-	Normal32(void); 
-	Normal32(vec_t X, vec_t Y, vec_t Z);
 
-	// assignment
-	Normal32& operator=(const Vector &vOther);
-	operator Vector ();
-
-private:
-	unsigned short x:15;
-	unsigned short y:15;
-	unsigned short zneg:1;
-};
-
-
-inline Normal32& Normal32::operator=(const Vector &vOther)	
-{
-	CHECK_VALID(vOther);
-
-	x = clamp( (int)(vOther.x * 16384) + 16384, 0, 32767 );
-	y = clamp( (int)(vOther.y * 16384) + 16384, 0, 32767 );
-	zneg = (vOther.z < 0);
-	//x = vOther.x; 
-	//y = vOther.y; 
-	//z = vOther.z; 
-	return *this; 
-}
-
-
-inline Normal32::operator Vector ()
-{
-	Vector tmp;
-
-	tmp.x = ((int)x - 16384) * (1 / 16384.0);
-	tmp.y = ((int)y - 16384) * (1 / 16384.0);
-	tmp.z = sqrt( 1 - tmp.x * tmp.x - tmp.y * tmp.y );
-	if (zneg)
-		tmp.z = -tmp.z;
-	return tmp; 
-}
 
 
 //=========================================================
@@ -562,18 +464,6 @@ protected:
 	float16bits m_storage;
 };
 
-class float16_with_assign : public float16
-{
-public:
-	float16_with_assign() {}
-	float16_with_assign(const float f ) { m_storage.rawWord = ConvertFloatTo16bits(f); }
-
-	float16& operator=(const float16 &other) { m_storage.rawWord = ((float16_with_assign &)other).m_storage.rawWord; return *this; }
-	float16& operator=(const float &other) { m_storage.rawWord = ConvertFloatTo16bits(other); return *this; }
-//	operator unsigned short () const { return m_storage.rawWord; }
-	operator float () const { return Convert16bitFloatTo32bits( m_storage.rawWord ); }
-};
-
 //=========================================================
 // Fit a 3D vector in 48 bits
 //=========================================================
@@ -881,48 +771,6 @@ inline Vector48::operator Vector ()
 //=========================================================
 // Fit a 2D vector in 32 bits
 //=========================================================
-
-class Vector2d32
-{
-public:
-	// Construction/destruction:
-	Vector2d32() {}
-	Vector2d32(const vec_t X, const vec_t Y) { x.SetFloat( X ); y.SetFloat( Y ); }
-
-	// assignment
-	Vector2d32& operator=(const Vector &vOther);
-	Vector2d32& operator=(const Vector2D &vOther);
-
-	operator Vector2D ();
-
-	void Init( vec_t ix = 0.f, vec_t iy = 0.f);
-
-	float16_with_assign x;
-	float16_with_assign y;
-};
-
-inline Vector2d32& Vector2d32::operator=(const Vector2D &vOther)	
-{
-	x.SetFloat( vOther.x );
-	y.SetFloat( vOther.y );
-	return *this; 
-}
-
-inline Vector2d32::operator Vector2D ()
-{
-	Vector2D tmp;
-
-	tmp.x = x.GetFloat();
-	tmp.y = y.GetFloat();
-
-	return tmp;
-}
-
-inline void Vector2d32::Init(const vec_t ix, const vec_t iy )
-{
-	x.SetFloat(ix);
-	y.SetFloat(iy);
-}
 
 
 

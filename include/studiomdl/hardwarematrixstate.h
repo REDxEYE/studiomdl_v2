@@ -27,17 +27,7 @@ public:
     // return true if a matrix is allocate.
     bool IsMatrixAllocated(uint32_t globalMatrixID) const;
 
-    // flush usage flags - signifies that none of the matrices are being used in the current strip
-    // do this when starting a new strip.
-    void SetAllUnused();
-
     void DeallocateAll();
-
-    // save the complete state of the hardware matrices
-    void SaveState();
-
-    // restore the complete state of the hardware matrices
-    void RestoreState();
 
     // Returns the number of free + unsed matrices
     uint32_t AllocatedMatrixCount() const;
@@ -49,7 +39,6 @@ public:
     void DumpState();
 
 private:
-    uint32_t FindHardwareMatrix(uint32_t globalMatrixID) const;
 
     uint32_t FindLocalLRUIndex();
 

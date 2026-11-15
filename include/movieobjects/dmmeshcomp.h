@@ -43,10 +43,6 @@ public:
 
 		int PositionIndex() const;
 
-		const Vector *Position() const;
-
-		const CUtlVector< int > *VertexIndices() const;
-
 		bool operator==( const CVert &rhs ) const;
 
 	protected:
@@ -73,8 +69,6 @@ public:
 		bool IsBorderEdge() const { return m_faceCount == 1; }
 
 		bool ConnectedTo( const CEdge *pEdge ) const { return m_pVert0 == pEdge->m_pVert0 || m_pVert0 == pEdge->m_pVert1 || m_pVert1 == pEdge->m_pVert0 || m_pVert1 == pEdge->m_pVert1; }
-
-		Vector EdgeVector() const;
 
 		// Returns true if the edge starts and stops at the same point in local space
 		bool operator==( const CEdge &rhs ) const;
@@ -106,11 +100,7 @@ public:
 
 	CFace *CreateFace( const CUtlVector< CVert * > &verts, const CUtlVector< CEdge * > &edges, const CUtlVector< bool > &edgeReverseMap );
 
-	int FindFacesWithVert( int vIndex, CUtlVector< CFace * > &faces );
-
 	int FindNeighbouringVerts( int vIndex, CUtlVector< CVert * > &verts );
-
-	int GetBorderEdges( CUtlVector< CUtlVector< CEdge * > > &borderEdges );
 
 	CDmeMesh *m_pMesh;
 	CDmeVertexData *m_pBase;

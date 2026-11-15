@@ -16,8 +16,6 @@
 // Filesystem initialization.
 // ---------------------------------------------------------------------------------------- //
 
-bool				FileSystem_SetGame( const char *szModDir );
-
 
 extern IBaseFileSystem	*g_pFileSystem;
 

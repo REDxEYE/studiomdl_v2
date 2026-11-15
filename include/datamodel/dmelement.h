@@ -133,8 +133,6 @@ struct DmElementReference_t {
 
     void RemoveAttribute(CDmAttribute *pAttribute);
 
-    bool FindAttribute(CDmAttribute *pAttribute);
-
     bool IsStronglyReferenced() // should this element be kept around (even if it's DmElementHandle_t is invalidated)
     {
         return m_attributes.m_hAttribute != DMATTRIBUTE_HANDLE_INVALID || m_nStrongHandleCount > 0;
@@ -271,15 +269,11 @@ public:
     // Doesn't create an attribute if it doesn't exist and always preserves attribute type
     void SetValueFromString(const char *pAttributeName, const char *value);
 
-    const char *GetValueAsString(const char *pAttributeName, char *pBuffer, size_t buflen) const;
-
     // Helpers for our RTTI
     template<class E>
     bool IsA() const;
 
     bool IsA(const char *pTypeName) const;
-
-    int GetInheritanceDepth(const char *pTypeName) const;
 
     static CUtlSymbolLarge GetStaticTypeSymbol();
 
@@ -310,22 +304,10 @@ public:
 
     void SetOnlyInUndo(bool bOnlyInUndo);
 
-    // returns the first path to the element found traversing all element/element
-    // array attributes - not necessarily the shortest.
-    // cycle-safe (skips any references to elements in the current path)
-    // but may re-traverse elements via different paths
-    bool
-    FindElement(const CDmElement *pElement, CUtlVector<ElementPathItem_t> &elementPath, TraversalDepth_t depth) const;
-
     bool
     FindReferer(DmElementHandle_t hElement, CUtlVector<ElementPathItem_t> &elementPath, TraversalDepth_t depth) const;
 
-    void RemoveAllReferencesToElement(CDmElement *pElement);
-
     bool IsStronglyReferenced() { return m_ref.IsStronglyReferenced(); }
-
-    // Estimates the memory usage of the element, its attributes, and child elements
-    int EstimateMemoryUsage(TraversalDepth_t depth = TD_DEEP);
 
     // mostly used for internal stuff, but it's occasionally useful to mark yourself dirty...
     bool IsDirty() const;
@@ -884,23 +866,21 @@ T *FindReferringElement(const CDmElement *pElement, CUtlSymbolLarge symAttrName 
 }
 
 template<class T>
-bool FindReferringElements(CUtlVector<T *> &list, const CDmElement *pElement, CUtlSymbolLarge symAttrName,
+bool FindReferringElements(std::vector<T *> &list, const CDmElement *pElement, CUtlSymbolLarge symAttrName,
                            bool bMustBeInSameFile = true, TraversalDepth_t depth = TD_ALL) {
     for (CAttributeReferenceIterator it(pElement); it; ++it) {
         if (T *pParent = it.FilterReference<T>(symAttrName, bMustBeInSameFile, depth)) {
-            list.AddToTail(pParent);
+            list.push_back(pParent);
         }
     }
 
-    return list.Count() > 0;
+    return !list.empty();
 }
 
 
-void RemoveElementFromRefereringAttributes(CDmElement *pElement, bool bPreserveOrder = true);
-
 
 template<class T>
-void FindAncestorsReferencingElement(const CDmElement *target, CUtlVector<T *> &list) {
+void FindAncestorsReferencingElement(const CDmElement *target, std::vector<T *> &list) {
     FindReferringElements(list, target, UTL_INVAL_SYMBOL_LARGE, false);
 }
 
@@ -998,10 +978,6 @@ public:
 
     CDmElement *GetElement();
 
-    CDmElement *GetParent(int i);
-
-    int GetChildIndex(int i);
-
 private:
     struct State_t {
         State_t(CDmElement *p, int i) : pElement(p), nIndex(i) {}
@@ -1055,15 +1031,6 @@ private:
     const CUtlVector<E *> &m_array;
 };
 
-
-// returns startindex if none found, 2 if only "prefix" found, and n+1 if "prefixn" found
-int GenerateUniqueNameIndex(const char *prefix, const CUtlVector<DmElementHandle_t> &array, int startindex = 0);
-
-bool GenerateUniqueName(char *name, int memsize, const char *prefix, const CUtlVector<DmElementHandle_t> &array);
-
-int SplitStringIntoBaseAndIntegerSuffix(const char *pName, int len, char *pBaseName);
-
-void MakeElementNameUnique(CDmElement *pElement, const CUtlVector<DmElementHandle_t> &array);
 
 
 //-----------------------------------------------------------------------------

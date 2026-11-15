@@ -17,20 +17,21 @@
 class CImportCommentary : public CImportKeyValueBase
 {
 public:
-	virtual const char *GetName() const { return "commentary"; }
-	virtual const char *GetDescription() const { return "Commentary File"; }
-	virtual int GetCurrentVersion() const { return 0; } // doesn't store a version
-	virtual const char *GetImportedFormat() const { return "commentary"; }
-	virtual int GetImportedVersion() const { return 1; }
+    const char *GetName() const override { return "commentary"; }
+    const char *GetDescription() const override { return "Commentary File"; }
+    int GetCurrentVersion() const override { return 0; } // doesn't store a version
+    const char *GetImportedFormat() const override { return "commentary"; }
+    int GetImportedVersion() const override { return 1; }
 
-	virtual bool Serialize( CUtlBuffer &outBuf, CDmElement *pRoot );
-	virtual bool Unserialize( CUtlBuffer &buf, const char *pEncodingName, int nEncodingVersion,
-		const char *pSourceFormatName, int nSourceFormatVersion,
-		DmFileId_t fileid, DmConflictResolution_t idConflictResolution, CDmElement **ppRoot );
+    bool Serialize( CUtlBuffer &outBuf, CDmElement *pRoot ) override;
+
+    bool Unserialize( CUtlBuffer &buf, const char *pEncodingName, int nEncodingVersion,
+                      const char *pSourceFormatName, int nSourceFormatVersion,
+                      DmFileId_t fileid, DmConflictResolution_t idConflictResolution, CDmElement **ppRoot ) override;
 
 protected:
 	// Main entry point for derived classes to implement unserialization
-	virtual CDmElement* UnserializeFromKeyValues( KeyValues *pKeyValues ) { Assert( 0 ); return nullptr; }
+    CDmElement* UnserializeFromKeyValues( KeyValues *pKeyValues ) override { Assert( 0 ); return nullptr; }
 };
 
 
@@ -60,8 +61,7 @@ bool CImportCommentary::Serialize( CUtlBuffer &buf, CDmElement *pRoot )
 class CElementForKeyValueCallback : public IElementForKeyValueCallback
 {
 public:
-	const char *GetElementForKeyValue( const char *pszKeyName, int iNestingLevel )
-	{
+	const char *GetElementForKeyValue( const char *pszKeyName, int iNestingLevel ) override {
 		if ( iNestingLevel == 1 && !Q_strncmp(pszKeyName, "entity", 6) )
 			return "DmeCommentaryNodeEntity";
 

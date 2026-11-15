@@ -75,11 +75,6 @@ float DmeFramerate_t::GetFramesPerSecond() const
 	return 10000.0f * m_num / float( m_den );
 }
 
-DmeTime_t DmeFramerate_t::GetTimePerFrame() const
-{
-	return DmeTime_t( m_den / m_num );
-}
-
 
 ////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -122,11 +117,6 @@ DmeTime_t DmeTime_t::operator/=( float f )
 void DmeTime_t::Clamp( DmeTime_t lo, DmeTime_t hi )
 {
 	m_tms = clamp( m_tms, lo.m_tms, hi.m_tms );
-}
-
-bool DmeTime_t::IsInRange( DmeTime_t lo, DmeTime_t hi ) const
-{
-	return m_tms >= lo.m_tms && m_tms < hi.m_tms;
 }
 
 
@@ -188,32 +178,17 @@ int DmeTime_t::CurrentFrame( DmeFramerate_t framerate, RoundStyle_t roundStyle /
 	return int( prod / den );
 }
 
-DmeTime_t DmeTime_t::TimeAtCurrentFrame( DmeFramerate_t framerate, RoundStyle_t roundStyle /*=ROUND_DOWN*/ ) const
-{
-	int frame = CurrentFrame( framerate, roundStyle );
-	return DmeTime_t( frame, framerate );
-}
 DmeTime_t DmeTime_t::TimeAtNextFrame( DmeFramerate_t framerate ) const
 {
 	// since we always round towards -inf, go to next frame whether we're on a frame or not
 	int frame = CurrentFrame( framerate, ROUND_DOWN );
 	return DmeTime_t( frame + 1, framerate );
 }
-DmeTime_t DmeTime_t::TimeAtPrevFrame( DmeFramerate_t framerate ) const
-{
-	int frame = CurrentFrame( framerate, ROUND_UP );
-	return DmeTime_t( frame - 1, framerate ); // we're exactly on a frame
-}
 
 
 int DmeTime_t::RoundSecondsToTMS( float sec )
 {
 	return (int)floor( 10000.0f * sec + 0.5f ); // round at half-tms boundary
-}
-
-int DmeTime_t::RoundSecondsToTMS( double sec )
-{
-	return (int)floor( 10000.0 * sec + 0.5 ); // round at half-tms boundary
 }
 
 

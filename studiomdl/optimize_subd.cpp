@@ -77,42 +77,9 @@ namespace OptimizedModel
 	COptimizeSubDBuilder::COptimizeSubDBuilder(SubD_FaceList_t& subDFaceList, const SubD_VertexList_t& vertexList, const SubD_VertexData_t &vertexData, bool bIsTagged, bool bMendVertices)
 		: m_faceList(subDFaceList), m_vtxList(vertexList), m_vtxData(vertexData)
 	{
-		m_numPatches = (int) subDFaceList.Count();
+		m_numPatches = (int) subDFaceList.size();
 
 		ProcessPatches(bIsTagged,bMendVertices);
-	}
-
-	void dumpPatch(SubD_Face_t *patch)
-	{
-		Msg( "Patch: %d\n", patch->patchID );
-		Msg( "                    vtxIDs: %d %d %d %d\n", patch->vtxIDs[0], patch->vtxIDs[1], patch->vtxIDs[2], patch->vtxIDs[3] );
-		Msg( "                  valences: %d %d %d %d\n", patch->valences[0], patch->valences[1], patch->valences[2], patch->valences[3] );
-		Msg( "              vtx1RingSize: %d %d %d %d\n", patch->vtx1RingSize[0], patch->vtx1RingSize[1], patch->vtx1RingSize[2], patch->vtx1RingSize[3] );
-		Msg( "  vtx1RingCenterQuadOffset: %d %d %d %d\n", patch->vtx1RingCenterQuadOffset[0], patch->vtx1RingCenterQuadOffset[1], patch->vtx1RingCenterQuadOffset[2], patch->vtx1RingCenterQuadOffset[3] );
-		Msg( "                    bndVtx: %d %d %d %d\n", patch->bndVtx[0], patch->bndVtx[1], patch->bndVtx[2], patch->bndVtx[3] );
-		Msg( "                 cornerVtx: %d %d %d %d\n", patch->cornerVtx[0], patch->cornerVtx[1], patch->cornerVtx[2], patch->cornerVtx[3] );
-		Msg( "                   BndEdge: %d %d %d %d\n", patch->bndEdge[0], patch->bndEdge[1], patch->bndEdge[2], patch->bndEdge[3] );
-		Msg( "            halfEdges.twin: %d/%d %d/%d %d/%d %d/%d\n", 
-			patch->halfEdges[0].twin ? patch->halfEdges[0].twin->patch->patchID : -1, patch->halfEdges[0].twin ? patch->halfEdges[0].twin->localID: -1,
-			patch->halfEdges[1].twin ? patch->halfEdges[1].twin->patch->patchID : -1, patch->halfEdges[1].twin ? patch->halfEdges[1].twin->localID: -1,
-			patch->halfEdges[2].twin ? patch->halfEdges[2].twin->patch->patchID : -1, patch->halfEdges[2].twin ? patch->halfEdges[2].twin->localID: -1,
-			patch->halfEdges[3].twin ? patch->halfEdges[3].twin->patch->patchID : -1, patch->halfEdges[3].twin ? patch->halfEdges[3].twin->localID: -1 );
-		Msg( "     halfEdges.sectorStart: %d/%d %d/%d %d/%d %d/%d\n", 
-			patch->halfEdges[0].sectorStart ? patch->halfEdges[0].sectorStart->patch->patchID : -1, patch->halfEdges[0].sectorStart ? patch->halfEdges[0].sectorStart->localID: -1,
-			patch->halfEdges[1].sectorStart ? patch->halfEdges[1].sectorStart->patch->patchID : -1, patch->halfEdges[1].sectorStart ? patch->halfEdges[1].sectorStart->localID: -1,
-			patch->halfEdges[2].sectorStart ? patch->halfEdges[2].sectorStart->patch->patchID : -1, patch->halfEdges[2].sectorStart ? patch->halfEdges[2].sectorStart->localID: -1,
-			patch->halfEdges[3].sectorStart ? patch->halfEdges[3].sectorStart->patch->patchID : -1, patch->halfEdges[3].sectorStart ? patch->halfEdges[3].sectorStart->localID: -1 );
-		Msg( "               nbCornerVtx: %x %x %x %x\n", patch->nbCornerVtx[0], patch->nbCornerVtx[1], patch->nbCornerVtx[2], patch->nbCornerVtx[3] );
-		Msg( "              loopGapAngle: %d %d %d %d\n", patch->loopGapAngle[0], patch->loopGapAngle[1], patch->loopGapAngle[2], patch->loopGapAngle[3] );
-	}
-
-	void dumpPatches( SubD_FaceList_t &quads )
-	{
-		size_t nQuads = quads.Count();
-		for (size_t k=0; k<nQuads; k++)
-		{
-			dumpPatch(&quads[k]);
-		}
 	}
 
 	void COptimizeSubDBuilder::ProcessPatches( bool bIsTagged, bool bMendVertices )
@@ -206,22 +173,22 @@ namespace OptimizedModel
 
 			if ( FaceIsRegular( pPatch ) )
 			{
-				regFaceList.AddToTail( *pPatch );
+				regFaceList.push_back( *pPatch );
 			}
 			else
 			{
-				extraFaceList.AddToTail( *pPatch );
+				extraFaceList.push_back( *pPatch );
 			}
 		}
 
 		// recombine
-		int nRegFaces = regFaceList.Count();
+		int nRegFaces = (int) regFaceList.size();
 		for ( int i=0; i<nRegFaces; i++ )
 		{
 			m_faceList[i] = regFaceList[i];
 		}
 
-		int nExtraFaces = extraFaceList.Count();
+		int nExtraFaces = (int) extraFaceList.size();
 		for ( int i=0; i<nExtraFaces; i++ )
 		{
 			m_faceList[i+nRegFaces] = extraFaceList[i];
@@ -302,14 +269,14 @@ namespace OptimizedModel
 	// Positions appear redundantly in vertex data, so we need a mapping so that SetMinOneRingIndices() can do the right thing
 	void COptimizeSubDBuilder::RemapIndices()
 	{
-		for ( int i=0; i<m_vtxList.Count(); i++ )
+		for ( int i=0; i<(int)m_vtxList.size(); i++ )
 		{
-			m_IndexRemapTable.AddToTail(i);					// Set identity mapping
+			m_IndexRemapTable.push_back(i);					// Set identity mapping
 		}
 
-		for ( int i=0; i<m_vtxList.Count(); i++ )			// Walk indices again
+		for ( int i=0; i<(int)m_vtxList.size(); i++ )			// Walk indices again
 		{
-			for ( int j=i+1; j<m_vtxList.Count(); j++ )		// Look at later indices
+			for ( int j=i+1; j<(int)m_vtxList.size(); j++ )		// Look at later indices
 			{
 				Vector vPosi = VTXPOS( i ); 
 				Vector vPosj = VTXPOS( j ); 
@@ -321,7 +288,7 @@ namespace OptimizedModel
 			}
 		}
 /*
-		for ( int i=0; i<m_vtxList.Count(); i++ )
+		for ( int i=0; i<(int)m_vtxList.size(); i++ )
 		{
 			if ( i != m_IndexRemapTable[i] )
 			{
@@ -560,38 +527,6 @@ namespace OptimizedModel
 		baseQuad->loopGapAngle[baseLocalID] = (unsigned int) ( ( 65535.0 * loopGapAngleF ) / ( 2 * PI ) );
 	}
 
-	void COptimizeSubDBuilder::MendVertices(SubD_Face_t *baseQuad, unsigned short baseLocalID)
-	{
-		HalfEdge *he = baseQuad->halfEdges[ baseLocalID ].sectorStart; 
-		unsigned short vtxID = baseQuad->vtxIDs[ baseLocalID ];
-		
-		Vector p = VTXPOS( vtxID );
-		Vector n = VTXNOR( vtxID );
-
-		HalfEdge *heEnd = he->twin;
-		he = he->PrevInFace();
-
-		do
-		{
-			if (( VTXPOS( he->patch->vtxIDs[ MOD4[he->localID+1] ]) == p ) &&
-				( VTXNOR( he->patch->vtxIDs[ MOD4[he->localID+1] ]) == n ))
-			{
-				he->patch->vtxIDs[ MOD4[he->localID+1] ] = vtxID;
-		
-			}
-
-			if ( (he->twin) && 
-				( VTXPOS( he->twin->patch->vtxIDs[ MOD4[he->twin->localID] ] ) == p) &&
-				( VTXNOR( he->twin->patch->vtxIDs[ MOD4[he->twin->localID] ] ) == n) )
-			{
-				he->twin->patch->vtxIDs[ MOD4[he->twin->localID] ] = vtxID;
-			}
-
-			he = he->NextByHead();
-		} while (( he != nullptr) && (he != heEnd));
-		
-	}
-
 	// Computes a bitfield with bits set if the corresponding neighbor-vertex is a concave corner
 	// this has to go in a second pass as all per-face-per-vertex flags from the first pass to be computed beforehand
 	void COptimizeSubDBuilder::ComputeNbCorners( SubD_Face_t *baseQuad, unsigned short baseLocalID )
@@ -728,22 +663,6 @@ namespace OptimizedModel
 		}
 	}
 
-	void DumpPatchLite( SubD_Face_t *patch )
-	{
-		Msg( "Patch: %d\n", patch->patchID );
-		Msg( "                    vtxIDs: %d %d %d %d\n", patch->vtxIDs[0], patch->vtxIDs[1], patch->vtxIDs[2], patch->vtxIDs[3] );
-		Msg( "            halfEdges.twin: %d/%d %d/%d %d/%d %d/%d\n", 
-			patch->halfEdges[0].twin ? patch->halfEdges[0].twin->patch->patchID : -1, patch->halfEdges[0].twin ? patch->halfEdges[0].twin->localID: -1,
-			patch->halfEdges[1].twin ? patch->halfEdges[1].twin->patch->patchID : -1, patch->halfEdges[1].twin ? patch->halfEdges[1].twin->localID: -1,
-			patch->halfEdges[2].twin ? patch->halfEdges[2].twin->patch->patchID : -1, patch->halfEdges[2].twin ? patch->halfEdges[2].twin->localID: -1,
-			patch->halfEdges[3].twin ? patch->halfEdges[3].twin->patch->patchID : -1, patch->halfEdges[3].twin ? patch->halfEdges[3].twin->localID: -1 );
-		Msg( "     halfEdges.sectorStart: %d/%d %d/%d %d/%d %d/%d\n", 
-			patch->halfEdges[0].sectorStart ? patch->halfEdges[0].sectorStart->patch->patchID : -1, patch->halfEdges[0].sectorStart ? patch->halfEdges[0].sectorStart->localID: -1,
-			patch->halfEdges[1].sectorStart ? patch->halfEdges[1].sectorStart->patch->patchID : -1, patch->halfEdges[1].sectorStart ? patch->halfEdges[1].sectorStart->localID: -1,
-			patch->halfEdges[2].sectorStart ? patch->halfEdges[2].sectorStart->patch->patchID : -1, patch->halfEdges[2].sectorStart ? patch->halfEdges[2].sectorStart->localID: -1,
-			patch->halfEdges[3].sectorStart ? patch->halfEdges[3].sectorStart->patch->patchID : -1, patch->halfEdges[3].sectorStart ? patch->halfEdges[3].sectorStart->localID: -1 );
-	}
-
 	// Rotate a particular face one step (element N grabs from element N-1)
 	void COptimizeSubDBuilder::RotateOnce( SubD_Face_t *pPatch )
 	{
@@ -806,7 +725,7 @@ namespace OptimizedModel
 		return i;
 	}
 
-	void COptimizeSubDBuilder::Propagate( CUtlVector<Orientation> & orientationArray, HalfEdge *pEdge, bool dir )
+	void COptimizeSubDBuilder::Propagate( std::vector<Orientation> & orientationArray, HalfEdge *pEdge, bool dir )
 	{
 		Assert( pEdge );
 
@@ -848,25 +767,10 @@ namespace OptimizedModel
 	}
 
 
-	static HalfEdge *FaceEdge( SubD_Face_t *pPatch, int idx )
-	{
-		int i = 0;
-		HalfEdge *pEdge = &pPatch->halfEdges[0];
-
-		while ( i != idx )
-		{
-			i++;
-			pEdge = pEdge->NextInFace();
-		}
-
-		return pEdge;
-	}
-
 	// Reorient faces in order to avoid parametric discontinuities.
 	void COptimizeSubDBuilder::ConsistentPatchOrientation()
 	{
-		CUtlVector<Orientation> orientationArray;
-		orientationArray.AddMultipleToTail( m_numPatches ); 
+		std::vector<Orientation> orientationArray( m_numPatches );
 
 		for( int f = 0; f < m_numPatches; f++ )
 		{

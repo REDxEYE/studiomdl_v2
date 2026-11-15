@@ -1138,7 +1138,7 @@ void LoadIkRuleList(CDmeSequence *pDmeSimpleSequence, s_animation_t *pAnimation)
 }
 
 
-static void LoadSequenceList(CDmeMultiSequence *pDmeMultiSequence, CUtlVector<s_animation_t *> &animations) {
+static void LoadSequenceList(CDmeMultiSequence *pDmeMultiSequence, std::vector<s_animation_t *> &animations) {
     if (!pDmeMultiSequence)
         return;
 
@@ -1156,7 +1156,7 @@ static void LoadSequenceList(CDmeMultiSequence *pDmeMultiSequence, CUtlVector<s_
         }
 
         // TODO: Limit to 64?
-        animations.AddToTail(pAnim);
+        animations.push_back(pAnim);
     }
 }
 
@@ -1369,7 +1369,7 @@ static int LoadAndCreateSequences(s_source_t *pMainSource, CDmeSequenceList *pSe
     char szSeqName[MAX_PATH];
     const int nSequenceCount = pSequenceList ? pSequenceList->m_Sequences.Count() : 0;
 
-    CUtlVector<CDmeSequenceBase *> sortedSequenceList;
+    std::vector<CDmeSequenceBase *> sortedSequenceList;
 
     // Add all CDmeSequence elements to the list first
     for (int nSequenceIndex = 0; nSequenceIndex < nSequenceCount; ++nSequenceIndex) {
@@ -1385,15 +1385,15 @@ static int LoadAndCreateSequences(s_source_t *pMainSource, CDmeSequenceList *pSe
             continue;
         }
 
-        sortedSequenceList.AddToTail(pDmeSequenceBase);
+        sortedSequenceList.push_back(pDmeSequenceBase);
     }
 
-    qsort(sortedSequenceList.Base(), sortedSequenceList.Count(), sizeof(CDmeSequenceBase *),
+    qsort(sortedSequenceList.data(), sortedSequenceList.size(), sizeof(CDmeSequenceBase *),
           CDmeSequenceBase::QSortFunction);
 
     // Process the reordered DmeSequenceBase list
-    for (int nSequenceIndex = 0; nSequenceIndex < sortedSequenceList.Count(); ++nSequenceIndex) {
-        CUtlVector<s_animation_t *> animations;
+    for (size_t nSequenceIndex = 0; nSequenceIndex < sortedSequenceList.size(); ++nSequenceIndex) {
+        std::vector<s_animation_t *> animations;
 
         CDmeSequenceBase *pDmeSequenceBase = sortedSequenceList[nSequenceIndex];
         // Already checked for NULL & unnamed
@@ -1490,7 +1490,7 @@ static int LoadAndCreateSequences(s_source_t *pMainSource, CDmeSequenceList *pSe
                         pAnim->motionrollback = g_studiomdl.options.defaultMotionRollback;
 
                         pAnim->source = pSource;
-                        const int nSourceAnimCount = pAnim->source->m_Animations.Count();
+                        const int nSourceAnimCount = std::ssize(pAnim->source->m_Animations);
                         if (nSourceAnimCount > 0) {
                             s_sourceanim_t *pSourceAnim = &pAnim->source->m_Animations[nSourceAnimCount - 1];
                             Q_strncpy(pAnim->animationname,
@@ -1519,7 +1519,7 @@ static int LoadAndCreateSequences(s_source_t *pMainSource, CDmeSequenceList *pSe
                 }
 
                 Assert(pAnim);
-                animations.AddToTail(pAnim);
+                animations.push_back(pAnim);
 
                 // Hack to allow animations commands to refer to same sequence in a simple DmeSequence
                 pSeq->panim[0][0] = pAnim;
@@ -1638,8 +1638,8 @@ static int LoadAndCreateSequences(s_source_t *pMainSource, CDmeSequenceList *pSe
             }
         }
 
-        if (animations.Count() > 0) {
-            ProcessSequence(pSeq, animations.Count(), animations.Base(), false);
+        if (!animations.empty()) {
+            ProcessSequence(pSeq, std::ssize(animations), animations.data(), false);
             ++nSequenceAddedCount;
         }
         else {
@@ -1677,43 +1677,21 @@ static bool IsZero(const QAngle &qa, float tolerance = 0.01f) {
             qa.z > -tolerance && qa.z < tolerance);
 }
 
-static void UnderscoreSplitAndSortStrings(const char *pszString, CUtlVector<CUtlString> &splitAndSortedString) {
-    splitAndSortedString.RemoveAll();
-
-    const int nStrLen = Q_strlen(pszString);
-    if (nStrLen <= 0)
-        return;
-
-    char *pszTmpString = reinterpret_cast<char *>(stackalloc(( nStrLen + 1 ) * sizeof( char )));
-    if (!pszTmpString)
-        return;
-
-    Q_memset(pszTmpString, 0, ( nStrLen + 1 ) * sizeof( char ));
-    Q_strncpy(pszTmpString, pszString, nStrLen + 1);
-
-    char *pszEnd = nullptr;
-    for (char *pszName = pszTmpString; pszName && *pszName; pszName = pszEnd) {
-        pszEnd = strchr(pszName, '_');
-        if (!pszEnd) {
-            splitAndSortedString.AddToTail(CUtlString(pszName));
-        }
-        else {
-            *pszEnd = '\0';
-            ++pszEnd;
-            splitAndSortedString.AddToTail(CUtlString(pszName));
-        }
+// Splits the string at '_' and sorts the parts case-insensitively
+static std::vector<std::string> UnderscoreSplitAndSortStrings(const std::string_view string) {
+    std::vector<std::string> parts;
+    for (size_t start = 0; start < string.size();) {
+        const size_t end = string.find('_', start);
+        parts.emplace_back(string.substr(start, end == std::string_view::npos ? std::string_view::npos : end - start));
+        if (end == std::string_view::npos)
+            break;
+        start = end + 1;
     }
 
-    // Insertion sort
-    for (int i = 1; i < splitAndSortedString.Count(); ++i) {
-        const CUtlString sValue = splitAndSortedString[i];
-        int j = i - 1;
-        while (j >= 0 && Q_stricmp(splitAndSortedString[j].Get(), sValue.Get()) > 0) {
-            splitAndSortedString[j + 1] = splitAndSortedString[j];
-            --j;
-        }
-        splitAndSortedString[j + 1] = sValue;
-    }
+    std::ranges::stable_sort(parts, [](const std::string &a, const std::string &b) {
+        return Q_stricmp(a.c_str(), b.c_str()) < 0;
+    });
+    return parts;
 }
 
 static bool GetContentsDescription(ContentType &nContentsDescription, CDmElement *pDmElement) {
@@ -1752,20 +1730,17 @@ static bool GetContentsDescription(ContentType &nContentsDescription, CDmElement
         {"grate_monster_ladder", ContentType::GRATE | ContentType::MONSTER | ContentType::LADDER},
     };
 
-    CUtlVector<CUtlString> userContentsDesc;
-    UnderscoreSplitAndSortStrings(pszContentsDesc, userContentsDesc);
-
-    CUtlVector<CUtlString> validContentsDesc;
+    const std::vector<std::string> userContentsDesc = UnderscoreSplitAndSortStrings(pszContentsDesc);
 
     for (int i = 0; i < ARRAYSIZE(contentDescs); ++i) {
-        UnderscoreSplitAndSortStrings(contentDescs[i].m_pszName, validContentsDesc);
-        if (userContentsDesc.Count() != validContentsDesc.Count())
+        const std::vector<std::string> validContentsDesc = UnderscoreSplitAndSortStrings(contentDescs[i].m_pszName);
+        if (userContentsDesc.size() != validContentsDesc.size())
             continue;
 
         bool bFound = true;
 
-        for (int j = 0; j < userContentsDesc.Count(); ++j) {
-            if (Q_stricmp(userContentsDesc[j].Get(), validContentsDesc[j].Get())) {
+        for (size_t j = 0; j < userContentsDesc.size(); ++j) {
+            if (!vstd::iequals(userContentsDesc[j], validContentsDesc[j])) {
                 bFound = false;
                 break;
             }
@@ -1784,7 +1759,7 @@ static bool GetContentsDescription(ContentType &nContentsDescription, CDmElement
     if (!bWarned) {
         bWarned = true;
 
-        CUtlString sWarn;
+        std::string sWarn;
 
         const int nContentDescsCount = ARRAYSIZE(contentDescs);
         if (nContentDescsCount > 0) {
@@ -1796,7 +1771,7 @@ static bool GetContentsDescription(ContentType &nContentsDescription, CDmElement
             }
         }
 
-        MdlWarning("      Valid ones are: {}\n", sWarn.Get());
+        MdlWarning("      Valid ones are: {}\n", sWarn);
     }
 
     return false;
@@ -1844,7 +1819,7 @@ static void LoadDefineBoneList(CDmeDefineBoneList *pDmeDefineBoneList) {
         if (GetContentsDescription(nContentsDescription, pDmeDefineBone)) {
             ContentsName_t *pContentsName = nullptr;
 
-            for (int j = 0; j < s_JointContents.Count(); ++j) {
+            for (size_t j = 0; j < s_JointContents.size(); ++j) {
                 if (vstd::iequals(s_JointContents[j].m_pJointName, pDmeDefineBone->GetName())) {
                     pContentsName = &s_JointContents[j];
                     break;
@@ -1852,7 +1827,7 @@ static void LoadDefineBoneList(CDmeDefineBoneList *pDmeDefineBoneList) {
             }
 
             if (!pContentsName) {
-                pContentsName = &s_JointContents[s_JointContents.AddToTail()];
+                pContentsName = &s_JointContents.emplace_back();
                 Q_strncpy(pContentsName->m_pJointName, pDmeDefineBone->GetName(),
                           ARRAYSIZE(pContentsName->m_pJointName));
             }

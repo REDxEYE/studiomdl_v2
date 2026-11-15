@@ -35,7 +35,6 @@ struct UniqueId_t
 //-----------------------------------------------------------------------------
 void CreateUniqueId( UniqueId_t *pDest );
 void InvalidateUniqueId( UniqueId_t *pDest );
-bool IsUniqueIdValid( const UniqueId_t &id );
 bool IsUniqueIdEqual( const UniqueId_t &id1, const UniqueId_t &id2 );
 void UniqueIdToString( const UniqueId_t &id, char *pBuf, int nMaxLen );
 bool UniqueIdFromString( UniqueId_t *pDest, const char *pBuf, int nMaxLen = 0 );

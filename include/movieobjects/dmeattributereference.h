@@ -22,11 +22,8 @@ class CDmeAttributeReference : public CDmElement
 	public:
 
 		// Process notifications of changed attributes and update the attribute handles if needed.
-		virtual void OnAttributeChanged( CDmAttribute *pAttribute );
+    void OnAttributeChanged( CDmAttribute *pAttribute ) override;
 		
-		// Set the attribute by specifying the element, name of the attribute and optionally the array index of the attribute.
-		bool SetAttribute( CDmElement* pElement, const char* pchAttributeName, int index = 0 );
-
 		// Get the attribute using the cached handle or looking up the handle if needed.
 		CDmAttribute* GetReferencedAttribute() const;
 

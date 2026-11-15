@@ -21,7 +21,6 @@
 #include <conio.h>
 #endif
 #include "tier1/utlvector.h"
-#include "filesystem_helpers.h"
 #include "tier1/utllinkedlist.h"
 #include "tier1/keyvalues.h"
 #include "filesystem_tools.h"
@@ -489,25 +488,6 @@ void ExpandWildcards( int *argc, char ***argv )
 
 // only printf if in verbose mode
 qboolean verbose = false;
-void qprintf( char *format, ... )
-{
-	if ( !verbose )
-		return;
-
-	va_list argptr;
-	va_start( argptr, format );
-
-	char str[ 2048 ];
-	V_vsprintf_safe( str, format, argptr );
-
-#if defined( CMDLIB_NODBGLIB )
-	printf( "%s", str );
-#else
-	Msg( "%s", str );
-#endif
-
-	va_end( argptr );
-}
 
 
 // ---------------------------------------------------------------------------------------------------- //
@@ -549,47 +529,7 @@ char *copystring(const char *s)
 }
 
 
-void GetHourMinuteSeconds( int nInputSeconds, int &nHours, int &nMinutes, int &nSeconds )
-{
-}
 
-
-void GetHourMinuteSecondsString( int nInputSeconds, char *pOut, int outLen )
-{
-	int nMinutes = nInputSeconds / 60;
-	int nSeconds = nInputSeconds - nMinutes * 60;
-	int nHours = nMinutes / 60;
-	nMinutes -= nHours * 60;
-
-	char *extra[ 2 ] = { "", "s" };
-	
-	if ( nHours > 0 )
-	{
-		Q_snprintf( pOut, outLen, "%d hour%s, %d minute%s, %d second%s", nHours, extra[ nHours != 1 ], nMinutes, extra[ nMinutes != 1 ], nSeconds, extra[ nSeconds != 1 ] );
-	}
-	else if ( nMinutes > 0 )
-	{
-		Q_snprintf( pOut, outLen, "%d minute%s, %d second%s", nMinutes, extra[ nMinutes != 1 ], nSeconds, extra[ nSeconds != 1 ] );
-	}
-	else
-	{
-		Q_snprintf( pOut, outLen, "%d second%s", nSeconds, extra[ nSeconds != 1 ] );
-	}
-}
-
-
-void Q_mkdir( char *path )
-{
-#if defined( _WIN32 ) || defined( WIN32 )
-	if ( _mkdir( path ) != -1)
-		return;
-#else
-	if ( mkdir( path, 0777 ) != -1)
-		return;
-#endif
-//	if (errno != EEXIST)
-	Error( "mkdir failed %s\n", path );
-}
 
 
 /*
@@ -599,10 +539,6 @@ COM_Parse
 Parse a token out of a string
 ==============
 */
-char *COM_Parse( char *data )
-{
-	return ( char* )ParseFile( data, com_token, nullptr);
-}
 
 
 /*
@@ -622,18 +558,6 @@ Checks for the given parameter in the program's command line arguments
 Returns the argument number (1 to argc-1) or 0 if not present
 =================
 */
-int CheckParm( char *check )
-{
-	int i;
-
-	for ( i = 1; i < myargc; i++ )
-	{
-		if ( !Q_strcasecmp( check, myargv[ i ] ) )
-			return i;
-	}
-
-	return 0;
-}
 
 
 
@@ -832,73 +756,13 @@ Extract file parts
 ParseNum / ParseHex
 ==============
 */
-int ParseHex( char *hex )
-{
-	char    *str;
-	int    num;
 
-	num = 0;
-	str = hex;
-
-	while ( *str )
-	{
-		num <<= 4;
-		if ( *str >= '0' && *str <= '9' )
-		{
-			num += *str - '0';
-		}
-		else if ( *str >= 'a' && *str <= 'f' )
-		{
-			num += 10 + *str - 'a';
-		}
-		else if ( *str >= 'A' && *str <= 'F' )
-		{
-			num += 10 + *str - 'A';
-		}
-		else
-		{
-			Error( "Bad hex number: %s", hex );
-		}
-		str++;
-	}
-
-	return num;
-}
-
-
-int ParseNum( char *str )
-{
-	if ( str[ 0 ] == '$' )
-		return ParseHex( str + 1 );
-	if ( str[ 0 ] == '0' && str[ 1 ] == 'x' )
-		return ParseHex( str + 2 );
-	return atol( str );
-}
 
 /*
 ============
 CreatePath
 ============
 */
-void CreatePath( char *path )
-{
-	char	*ofs, c;
-
-	// strip the drive
-	if ( path[ 1 ] == ':' )
-		path += 2;
-
-	for ( ofs = path + 1; *ofs; ofs++)
-	{
-		c = *ofs;
-		if ( c == '/' || c == '\\' )
-		{	// create the directory
-			*ofs = 0;
-			Q_mkdir( path );
-			*ofs = c;
-		}
-	}
-}
 
 //-----------------------------------------------------------------------------
 // Creates a path, path may already exist
@@ -937,16 +801,6 @@ QCopyFile
   Used to archive source files
 ============
 */
-void QCopyFile( char *from, char *to )
-{
-	void	*buffer;
-	int		length;
-
-	length = LoadFile( from, &buffer );
-	CreatePath( to );
-	SaveFile( to, buffer, length );
-	free( buffer );
-}
 
 #if !defined( _WIN32 ) && !defined( WIN32 )
 // POSIX replacements for the Win32 console code above: ANSI colours on a tty, plain stdout/stderr otherwise.

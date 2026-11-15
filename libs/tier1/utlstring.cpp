@@ -14,53 +14,6 @@
 
 static const int64_t k_nMillion = 1000000;
 
-//-----------------------------------------------------------------------------
-// Purpose: Helper: Find s substring
-//-----------------------------------------------------------------------------
-static ptrdiff_t IndexOf(const char *pstrToSearch, const char *pstrTarget)
-{
-	const char *pstrHit = V_strstr(pstrToSearch, pstrTarget);
-	if (pstrHit == nullptr)
-	{
-		return -1;	// Not found.
-	}
-	return (pstrHit - pstrToSearch);
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose: Helper: kill all whitespace.
-//-----------------------------------------------------------------------------
-static size_t RemoveWhitespace(char *pszString)
-{
-	if (pszString == nullptr)
-		return 0;
-
-	char *pstrDest = pszString;
-	size_t cRemoved = 0;
-	for (char *pstrWalker = pszString; *pstrWalker != 0; pstrWalker++)
-	{
-		if (!V_isspace((unsigned char)*pstrWalker))
-		{
-			*pstrDest = *pstrWalker;
-			pstrDest++;
-		}
-		else
-			cRemoved += 1;
-	}
-	*pstrDest = 0;
-
-	return cRemoved;
-}
-
-int V_vscprintf(const char *format, va_list params)
-{
-#ifdef _WIN32
-	return _vscprintf(format, params);
-#else
-	return vsnprintf(nullptr, 0, format, params);
-#endif
-}
 
 //-----------------------------------------------------------------------------
 // Base class, containing simple memory management
@@ -264,22 +217,9 @@ char *CUtlString::Get()
 	return reinterpret_cast< char* >( m_Storage.Get() );
 }
 
-char *CUtlString::GetForModify()
-{
-	return Get();
-}
-
 void CUtlString::Purge()
 {
 	m_Storage.Purge();
-}
-
-void CUtlString::ToUpper()
-{
-	for (int nLength = Length() - 1; nLength >= 0; nLength--)
-	{
-		m_Storage[nLength] = toupper(m_Storage[nLength]);
-	}
 }
 
 void CUtlString::ToLower()
@@ -383,14 +323,6 @@ CUtlString &CUtlString::operator+=( double rhs )
 	return operator+=( tmpBuf );
 }
 
-bool CUtlString::MatchesPattern( const CUtlString &Pattern, int nFlags )
-{
-	const char *pszSource = String();
-	const char *pszPattern = Pattern.String();
-
-	return V_StringMatchesPattern( pszSource, pszPattern, nFlags );
-}
-
 
 int CUtlString::Format( const char *pFormat, ... )
 {
@@ -416,23 +348,6 @@ int CUtlString::FormatV( const char *pFormat, va_list marker )
 	//va_end( marker );
 	Set( tmpBuf );
 	return len;
-}
-
-//-----------------------------------------------------------------------------
-// Strips the trailing slash
-//-----------------------------------------------------------------------------
-void CUtlString::StripTrailingSlash()
-{
-	if ( IsEmpty() )
-		return;
-
-	int nLastChar = Length() - 1;
-	char c = m_Storage[ nLastChar ];
-	if ( c == '\\' || c == '/' )
-	{
-		m_Storage[ nLastChar ] = 0;
-		m_Storage.SetLength( m_Storage.Length() - 1 );
-	}
 }
 
 CUtlString CUtlString::Slice( int32_t nStart, int32_t nEnd )
@@ -468,11 +383,6 @@ CUtlString CUtlString::Slice( int32_t nStart, int32_t nEnd )
 CUtlString CUtlString::Left( int32_t nChars )
 {
 	return Slice( 0, nChars );
-}
-
-CUtlString CUtlString::Right( int32_t nChars )
-{
-	return Slice( -nChars );
 }
 
 // Get a string with the specified substring removed
@@ -569,11 +479,6 @@ CUtlString CUtlString::Replace( char cFrom, char cTo )
 	return ret;
 }
 
-void CUtlString::RemoveDotSlashes(char separator)
-{
-	V_RemoveDotSlashes(Get(), separator);
-}
-
 void CUtlString::Swap( CUtlString &src )
 {
 	CUtlString tmp = src;
@@ -589,20 +494,6 @@ CUtlString CUtlString::AbsPath( const char *pStartingDir ) const
 	return CUtlString( szNew );
 }
 
-CUtlString CUtlString::UnqualifiedFilename() const
-{
-	const char *pFilename = V_UnqualifiedFileName( this->String() );
-	return CUtlString( pFilename );
-}
-
-CUtlString CUtlString::DirName()
-{
-	CUtlString ret( this->String() );
-	V_StripLastDir( (char*)ret.m_Storage.Get(), ret.m_Storage.Length() );
-	V_StripTrailingSlash( (char*)ret.m_Storage.Get() );
-	return ret;
-}
-
 CUtlString CUtlString::StripExtension() const
 {
 	char szTemp[MAX_FILEPATH];
@@ -610,37 +501,6 @@ CUtlString CUtlString::StripExtension() const
 	return CUtlString( szTemp );
 }
 
-CUtlString CUtlString::StripFilename() const
-{
-	const char *pFilename = V_UnqualifiedFileName( Get() ); // NOTE: returns 'Get()' on failure, never NULL
-	int nCharsToCopy = pFilename - Get();
-	CUtlString result;
-	result.SetDirect( Get(), nCharsToCopy );
-	result.StripTrailingSlash();
-	return result;
-}
-
-CUtlString CUtlString::GetBaseFilename() const
-{
-	char szTemp[MAX_FILEPATH];
-	V_FileBase( String(), szTemp, sizeof( szTemp ) );
-	return CUtlString( szTemp );
-}
-
-CUtlString CUtlString::GetExtension() const
-{
-	char szTemp[MAX_FILEPATH];
-	V_ExtractFileExtension( String(), szTemp, sizeof( szTemp ) );
-	return CUtlString( szTemp );
-}
-
-
-CUtlString CUtlString::PathJoin( const char *pStr1, const char *pStr2 )
-{
-	char szPath[MAX_PATH]{0};
-	V_ComposeFileName( pStr1, pStr2, szPath, sizeof( szPath ) );
-	return CUtlString( szPath );
-}
 
 
 //-----------------------------------------------------------------------------
@@ -671,81 +531,3 @@ void CUtlString::Append(const char *pchAddition, int nMaxChars)
 // Trim
 //--------------------------------------------------------------------------------------------------
 
-void CUtlString::TrimLeft( const char *szTargets )
-{
-	int i;
-
-	if ( IsEmpty() )
-	{
-		return;
-	}
-
-	char* pSrc = Get();
-
-	for ( i = 0; pSrc[ i ] != 0; i++ )
-	{
-		bool bWhitespace = false;
-
-		for ( int j = 0; szTargets[ j ] != 0; j++ )
-		{
-			if ( pSrc[ i ] == szTargets[ j ] )
-			{
-				bWhitespace = true;
-				break;
-			}
-		}
-
-		if ( !bWhitespace )
-		{
-			break;
-		}
-	}
-
-	// We have some whitespace to remove
-	if ( i > 0 )
-	{
-		memmove( pSrc, &pSrc[ i ], Length() - i );
-		SetLength( Length() - i );
-		m_Storage[ Length() ] = '\0';
-	}
-}
-
-void CUtlString::TrimRight( const char *szTargets )
-{
-	const int nLastCharIndex = Length() - 1;
-	int i;
-
-	char* pSrc = Get();
-
-	for ( i = nLastCharIndex; i >= 0; i-- )
-	{
-		bool bWhitespace = false;
-
-		for ( int j = 0; szTargets[ j ] != 0; j++ )
-		{
-			if ( pSrc[ i ] == szTargets[ j ] )
-			{
-				bWhitespace = true;
-				break;
-			}
-		}
-
-		if ( !bWhitespace )
-		{
-			break;
-		}
-	}
-
-	// We have some whitespace to remove
-	if ( i < nLastCharIndex )
-	{
-		pSrc[ i + 1 ] = 0;
-		SetLength( i + 1 );
-	}
-}
-
-void CUtlString::Trim( const char *szTargets )
-{
-	TrimLeft( szTargets );
-	TrimRight( szTargets );
-}

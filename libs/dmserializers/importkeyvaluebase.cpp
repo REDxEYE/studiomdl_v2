@@ -183,19 +183,6 @@ bool CImportKeyValueBase::AddStringAttribute( CDmElement* pElement, KeyValues *p
 }
 
 
-//-----------------------------------------------------------------------------
-// Used to add typed attributes from keyvalues
-//-----------------------------------------------------------------------------
-bool CImportKeyValueBase::AddBoolAttributeFlags( CDmElement* pElement, KeyValues *pKeyValue, const char *pKeyName, int nFlags, bool *pDefault )
-{
-	if ( !AddBoolAttribute( pElement, pKeyValue, pKeyName, pDefault )  )
-		return false;
-
-	CDmAttribute *pAttribute = pElement->GetAttribute( pKeyName );
-	pAttribute->AddFlag( nFlags );
-	return true;
-}
-
 bool CImportKeyValueBase::AddIntAttributeFlags( CDmElement* pElement, KeyValues *pKeyValue, const char *pKeyName, int nFlags, int *pDefault )
 {
 	if ( !AddIntAttribute( pElement, pKeyValue, pKeyName, pDefault ) )

@@ -18,7 +18,7 @@
 // Input  : *psource - 
 //			*worldVerts - 
 //-----------------------------------------------------------------------------
-void CCollisionModelSource::ConvertToWorldSpace( CUtlVector<Vector> &worldVerts, s_source_t *pmodel )
+void CCollisionModelSource::ConvertToWorldSpace( std::vector<Vector> &worldVerts, s_source_t *pmodel )
 {
 	int i, n;
 
@@ -83,7 +83,7 @@ void CCollisionModelSource::ConvertToWorldSpace( CUtlVector<Vector> &worldVerts,
 #ifdef DEBUG
 		std::print("Applying collision precision truncation: {:f}\n", g_flCollisionPrecision );
 #endif
-		for ( int i = 0; i < worldVerts.Count(); i++ )
+		for ( size_t i = 0; i < worldVerts.size(); i++ )
 		{
 			worldVerts[i].x -= fmod( worldVerts[i].x, g_studiomdl.header.collisionPrecision );
 			worldVerts[i].y -= fmod( worldVerts[i].y, g_studiomdl.header.collisionPrecision );
@@ -102,7 +102,7 @@ void CCollisionModelSource::ConvertToWorldSpace( CUtlVector<Vector> &worldVerts,
 //			boneIndex - 
 //			*boneVerts - 
 //-----------------------------------------------------------------------------
-void CCollisionModelSource::ConvertToBoneSpace( int boneIndex, CUtlVector<Vector> &boneVerts )
+void CCollisionModelSource::ConvertToBoneSpace( int boneIndex, std::vector<Vector> &boneVerts )
 {
 	int i;
 
@@ -184,7 +184,7 @@ void CCollisionModelSource::SkipBone( int boneIndex )
 
 void CCollisionModelSource::InitBoneMap( void )
 {
-	m_bonemap.SetSize(m_pModel->numbones);
+	m_bonemap.resize(m_pModel->numbones);
 	for ( int i = 0; i < m_pModel->numbones; i++ )
 	{
 		m_bonemap[i] = i;
@@ -304,38 +304,6 @@ int	CCollisionModelSource::RemapBone( int boneIndex ) const
 	if ( boneIndex >= 0 )
 		return m_bonemap[boneIndex];
 	return boneIndex;
-}
-
-
-
-s_face_t CCollisionModelSource::GetGlobalFace( s_mesh_t *pMesh, int nFace )
-{
-	s_face_t output;
-	GlobalFace(&output, pMesh, m_pModel->face + pMesh->faceoffset + nFace);
-	return output;
-}
-
-
-void CCollisionModelSource::FindBoundBones(s_mesh_t *pMesh, CUtlVector<int>&setBones)
-{
-	s_face_t *pFaces = m_pModel->face + pMesh->faceoffset;
-	s_vertexinfo_t *pVertices = m_pModel->vertex + pMesh->vertexoffset;
-
-	for ( int nFace = 0; nFace < pMesh->numfaces; nFace++ )
-	{
-		FindBoundBones(pVertices[pFaces[nFace].a].boneweight, setBones);
-		FindBoundBones(pVertices[pFaces[nFace].b].boneweight, setBones);
-		FindBoundBones(pVertices[pFaces[nFace].c].boneweight, setBones);
-	}
-}
-
-void CCollisionModelSource::FindBoundBones(s_boneweight_t &weights, CUtlVector<int>&setBones)
-{
-	for(int nBoundBone = 0; nBoundBone < weights.numbones; ++nBoundBone)
-	{	int boneIndex = RemapBone(weights.bone[nBoundBone]);
-		if(!setBones.HasElement(boneIndex))
-			setBones.AddToTail(boneIndex);
-	}
 }
 
 

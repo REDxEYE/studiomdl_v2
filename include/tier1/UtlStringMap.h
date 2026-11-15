@@ -168,14 +168,3 @@ private:
 };
 
 
-template< class T >
-class CUtlStringMapAutoPurge : public CUtlStringMap < T >
-{
-public:
-	~CUtlStringMapAutoPurge( void )
-	{
-		this->PurgeAndDeleteElements();
-	}
-
-};
-

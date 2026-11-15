@@ -24,14 +24,7 @@
 //-----------------------------------------------------------------------------
 // Ok to pass NULL
 //-----------------------------------------------------------------------------
-void ReorientMppFile( CDmElement *pDmElementRoot, bool bMakeZUp );
-void MppReorient( CDmElement *pDmElementRoot, bool bMakeZUp );
 
-void GetAbsMotion( CDmeChannel **ppDmePChannel, CDmeChannel **ppDmeOChannel, CDmeDag *pDmeDag );
-bool SetAbsMotion( CDmeDag *pDmeDag, CDmeChannel *pDmePositionChannel, CDmeChannel *pDmeOrientationChannel );
-
-// Creates a guaranteed unique DmFileId_t
-DmFileId_t CreateUniqueDmFileId();
 
 //-----------------------------------------------------------------------------
 // Iterates over all CDmeSequence's in the MPP File (Not CDmeMultiSequence)
@@ -47,7 +40,6 @@ class MppSequenceIt
 public:
 	MppSequenceIt( CDmeAssetRoot *pDmeAssetRoot );
 	CDmeSequence *Get() const;
-	bool IsDone() const;
 	void Next();
 	void Reset();
 
@@ -64,16 +56,6 @@ enum MppSkeletonMask_t
 	MPP_MODEL_SKELETON_MASK =	1 << 2,
 	MPP_ALL_SKELETON_MASK = MPP_ANIM_SKELETON_MASK | MPP_PHYSICS_SKELETON_MASK | MPP_MODEL_SKELETON_MASK
 };
-
-// Returns a list of all unique skeletons under the specified MPP DmeAssetRoot
-void MppGetSkeletonList( CUtlVector< CDmeModel * > &skeletonList, CDmeAssetRoot *pDmeAssetRoot, int nMppSkeletonMask = MPP_ALL_SKELETON_MASK );
-
-// Connects all of the non-animation skeletons to each animation skeleton via DmeConnectionOperators
-DmFileId_t MppConnectSkeletonsForAnimation( CDmeAssetRoot *pDmeAssetRoot );
-
-// Disconnects all of the non-animation skeletons from each animation skeleton
-// and destroys the elements created by MppConnectSkeletonsForAnimation
-void MppDisconnectSkeletonsFromAnimation( CDmeAssetRoot *pDmeAssetRoot );
 
 // Utility to return DmElement id as name:string
 CUtlString ComputeDmElementIdStr( const CDmElement *pDmElement );

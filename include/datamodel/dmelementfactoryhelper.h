@@ -28,9 +28,11 @@ public:
 	virtual CUtlSymbolLarge GetElementTypeSymbol() const = 0;
 	virtual CUtlSymbolLarge GetParentElementTypeSymbol() const = 0;
 
-	virtual void AddOnElementCreatedCallback( IDmeElementCreated *pCallback );
-	virtual void RemoveOnElementCreatedCallback( IDmeElementCreated *pCallback );
-	virtual void OnElementCreated( CDmElement* pElement );
+    void AddOnElementCreatedCallback( IDmeElementCreated *pCallback ) override;
+
+    void RemoveOnElementCreatedCallback( IDmeElementCreated *pCallback ) override;
+
+    void OnElementCreated( CDmElement* pElement ) override;
 	
 private:
 	CUtlVector< IDmeElementCreated* > m_CallBackList;
@@ -107,13 +109,11 @@ public:
 	CDmElementFactory( const char *pLookupName ) : m_pLookupName( pLookupName ) {}
 
 	// Creation, destruction
-	virtual CDmElement* Create( DmElementHandle_t handle, const char *pElementType, const char *pElementName, DmFileId_t fileid, const DmObjectId_t &id )
-	{
+    CDmElement* Create( DmElementHandle_t handle, const char *pElementType, const char *pElementName, DmFileId_t fileid, const DmObjectId_t &id ) override {
 		return new T( handle, m_pLookupName, id, pElementName, fileid );
 	}
 
-	virtual void Destroy( DmElementHandle_t hElement )
-	{
+    void Destroy( DmElementHandle_t hElement ) override {
 		CDmElement *pElement = g_pDataModel->GetElement( hElement );
 		if ( pElement )
 		{
@@ -123,19 +123,17 @@ public:
 	}
 
 	// Sets the type symbol, used for "isa" implementation
-	virtual void SetElementTypeSymbol( CUtlSymbolLarge sym )
-	{
+    void SetElementTypeSymbol( CUtlSymbolLarge sym ) override {
 		T::SetTypeSymbol( sym );
 	}
 
-	virtual bool IsAbstract() const { return false; }
+    bool IsAbstract() const override { return false; }
 
-	virtual CUtlSymbolLarge GetElementTypeSymbol() const
-	{
+    CUtlSymbolLarge GetElementTypeSymbol() const override {
 		return T::GetStaticTypeSymbol();
 	}
-	virtual CUtlSymbolLarge GetParentElementTypeSymbol() const
-	{
+
+    CUtlSymbolLarge GetParentElementTypeSymbol() const override {
 		CUtlSymbolLarge baseClassSym = T::BaseClass::GetStaticTypeSymbol();
 		if ( baseClassSym == T::GetStaticTypeSymbol() )
 			return UTL_INVAL_SYMBOL_LARGE; // only CDmElement has itself as it's BaseClass - this lets us know we're at the top of the hierarchy
@@ -154,29 +152,25 @@ public:
 	CDmAbstractElementFactory() {}
 
 	// Creation, destruction
-	virtual CDmElement* Create( DmElementHandle_t handle, const char *pElementType, const char *pElementName, DmFileId_t fileid, const DmObjectId_t &id )
-	{
+    CDmElement* Create( DmElementHandle_t handle, const char *pElementType, const char *pElementName, DmFileId_t fileid, const DmObjectId_t &id ) override {
 		return nullptr;
 	}
 
-	virtual void Destroy( DmElementHandle_t hElement )
-	{
+    void Destroy( DmElementHandle_t hElement ) override {
 	}
 
 	// Sets the type symbol, used for "isa" implementation
-	virtual void SetElementTypeSymbol( CUtlSymbolLarge sym )
-	{
+    void SetElementTypeSymbol( CUtlSymbolLarge sym ) override {
 		T::SetTypeSymbol( sym );
 	}
 
-	virtual bool IsAbstract() const { return true; }
+    bool IsAbstract() const override { return true; }
 
-	virtual CUtlSymbolLarge GetElementTypeSymbol() const
-	{
+    CUtlSymbolLarge GetElementTypeSymbol() const override {
 		return T::GetStaticTypeSymbol();
 	}
-	virtual CUtlSymbolLarge GetParentElementTypeSymbol() const
-	{
+
+    CUtlSymbolLarge GetParentElementTypeSymbol() const override {
 		CUtlSymbolLarge baseClassSym = T::BaseClass::GetStaticTypeSymbol();
 		if ( baseClassSym == T::GetStaticTypeSymbol() )
 			return UTL_INVAL_SYMBOL_LARGE; // only CDmElement has itself as it's BaseClass - this lets us know we're at the top of the hierarchy

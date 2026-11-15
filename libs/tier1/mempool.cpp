@@ -92,27 +92,6 @@ void CUtlMemoryPool::Clear()
 }
 
 
-//-----------------------------------------------------------------------------
-// Is an allocation within the pool? 
-//-----------------------------------------------------------------------------
-bool CUtlMemoryPool::IsAllocationWithinPool( void *pMem ) const
-{
-	for( CBlob *pCur = m_BlobHead.m_pNext; pCur != &m_BlobHead; pCur = pCur->m_pNext )
-	{
-		// Is the allocation within the blob?
-		if ( ( pMem < pCur->m_Data ) || ( pMem >= pCur->m_Data + pCur->m_NumBytes ) )
-			continue;
-
-		// Make sure the allocation is on a block boundary
-		intptr_t pFirstAllocation = AlignValue( ( intptr_t ) pCur->m_Data, m_nAlignment );
-
-		intptr_t nOffset = (intptr_t)pMem - pFirstAllocation;
-		return ( nOffset % m_BlockSize ) == 0;
-	}
-
-	return false;
-}
-
 
 //-----------------------------------------------------------------------------
 // Purpose: Reports memory leaks 
@@ -323,16 +302,5 @@ void CUtlMemoryPool::Free( void *memBlock )
 
 	// the list head is now the new block
 	m_pHeadOfFreeList = memBlock;
-}
-
-int CUtlMemoryPool::Size() const		
-{ 
-	uint32_t size = 0;
-
-	for( CBlob *pCur=m_BlobHead.m_pNext; pCur != &m_BlobHead; pCur=pCur->m_pNext )
-	{
-		size += pCur->m_NumBytes;
-	}
-	return size;
 }
 

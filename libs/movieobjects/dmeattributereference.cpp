@@ -54,20 +54,6 @@ void CDmeAttributeReference::OnAttributeChanged( CDmAttribute *pAttribute )
 }
 
 
-//-------------------------------------------------------------------------------------------------
-// Purpose: Set the attribute by specifying the element, name of the attribute and optionally the 
-// array index of the attribute.
-//-------------------------------------------------------------------------------------------------
-bool CDmeAttributeReference::SetAttribute( CDmElement* pElement, const char* pchAttributeName, int index )
-{
-	m_Element = pElement;
-	m_AttributeName = pchAttributeName;
-	m_AttributeIndex = index;
-
-	CDmAttribute *pAttr = LookupAttributeHandle();
-	return ( pAttr != nullptr);
-}
-
 
 //-------------------------------------------------------------------------------------------------
 // Purpose: Lookup and cache the attribute handle

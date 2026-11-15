@@ -9,6 +9,7 @@
 
 #include <iostream>
 #include <string_view>
+#include <vector>
 #include "fixed_string.hpp"
 #include "studiomdl/studiomdl_log.hpp"
 
@@ -123,5 +124,17 @@ namespace vstd {
 
     inline std::string_view substr_right(const std::string_view str, size_t size) {
         return str.substr(str.size() - std::min(size, str.size()));
+    }
+
+    inline std::vector<std::string_view> split(const std::string_view in, const std::string_view sep) {
+        std::vector<std::string_view> out;
+        size_t pos = 0;
+        size_t next = 0;
+        while ((next = in.find(sep, pos)) != std::string_view::npos) {
+            out.emplace_back(in.substr(pos, next - pos));
+            pos = next + sep.size();
+        }
+        out.emplace_back(in.substr(pos));
+        return out;
     }
 }

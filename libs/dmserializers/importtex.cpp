@@ -19,25 +19,24 @@
 class CImportTex : public IDmSerializer
 {
 public:
-	virtual const char *GetName() const { return "tex_source1"; }
-	virtual const char *GetDescription() const { return "Valve Texture Configuration File"; }
-	virtual bool IsBinaryFormat() const { return false; }
-	virtual bool StoresVersionInFile() const { return false; }
-	virtual int GetCurrentVersion() const { return 0; } // doesn't store a version
- 	virtual const char *GetImportedFormat() const { return "tex"; }
- 	virtual int GetImportedVersion() const { return 1; }
+    const char *GetName() const override { return "tex_source1"; }
+    const char *GetDescription() const override { return "Valve Texture Configuration File"; }
+    bool IsBinaryFormat() const override { return false; }
+    bool StoresVersionInFile() const override { return false; }
+    int GetCurrentVersion() const override { return 0; } // doesn't store a version
+    const char *GetImportedFormat() const override { return "tex"; }
+    int GetImportedVersion() const override { return 1; }
 
-	bool Serialize( CUtlBuffer &outBuf, CDmElement *pRoot ) { return false; }
+	bool Serialize( CUtlBuffer &outBuf, CDmElement *pRoot ) override { return false; }
 	// Read from the UtlBuffer, return true if successful, and return the read-in root in ppRoot.
 	bool Unserialize( CUtlBuffer &buf, const char *pEncodingName, int nEncodingVersion, const char *pSourceFormatName, 
-		int nSourceFormatVersion, DmFileId_t fileid, DmConflictResolution_t idConflictResolution, CDmElement **ppRoot );
+		int nSourceFormatVersion, DmFileId_t fileid, DmConflictResolution_t idConflictResolution, CDmElement **ppRoot ) override;
 
 private:
 	bool ParseOptionKey( const char *pKeyName,  const char *pKeyValue, CDmElement *pTexture );
 	const char *GetPossiblyQuotedWord( const char *pInBuf, char *pOutbuf );
 	bool GetKeyValueFromBuffer( CUtlBuffer &buffer, char *key, char *val );
 	CDmElement *AddProcessor( CDmElement *pElement, const char *pProcessorType, const char *pName );
-	CDmElement *FindProcessor( CDmElement *pElement, const char *pProcessorType, const char *pName );
 
 	// Information for the mipmap processor
 	bool m_bNoNice;
@@ -67,17 +66,6 @@ CDmElement *CImportTex::AddProcessor( CDmElement *pElement, const char *pProcess
 	CDmElement* pProcessor = CreateElement< CDmElement >( pProcessorType, pName, pElement->GetFileId() );
 	processors.AddToTail( pProcessor );
 	return pProcessor;
-}
-
-CDmElement *CImportTex::FindProcessor( CDmElement *pElement, const char *pProcessorType, const char *pName )
-{
-	CDmrElementArrayConst< CDmElement > processors( pElement, "processors" );
-	for ( int i = 0; i < processors.Count(); ++i )
-	{
-		if ( !Q_stricmp( pProcessorType, processors[i]->GetTypeString() ) && !Q_stricmp( pName, processors[i]->GetName() ) )
-			return processors[i];
-	}
-	return nullptr;
 }
 
 

@@ -47,36 +47,36 @@ class CKeyValuesSystem : public IKeyValuesSystem
 {
 public:
 	CKeyValuesSystem();
-	~CKeyValuesSystem();
+	~CKeyValuesSystem() override;
 
 	// registers the size of the KeyValues in the specified instance
 	// so it can build a properly sized memory pool for the KeyValues objects
 	// the sizes will usually never differ but this is for versioning safety
-	void RegisterSizeofKeyValues(int size);
+	void RegisterSizeofKeyValues(int size) override;
 
 	// allocates/frees a KeyValues object from the shared mempool
-	void *AllocKeyValuesMemory(int size);
-	void FreeKeyValuesMemory(void *pMem);
+	void *AllocKeyValuesMemory(int size) override;
+	void FreeKeyValuesMemory(void *pMem) override;
 
 	// symbol table access (used for key names)
-	HKeySymbol GetSymbolForString( const char *name, bool bCreate );
-	const char *GetStringForSymbol(HKeySymbol symbol);
+	HKeySymbol GetSymbolForString( const char *name, bool bCreate ) override;
+	const char *GetStringForSymbol(HKeySymbol symbol) override;
 
 	// returns the wide version of ansi, also does the lookup on #'d strings
-	void GetLocalizedFromANSI( const char *ansi, wchar_t *outBuf, int unicodeBufferSizeInBytes);
-	void GetANSIFromLocalized( const wchar_t *wchar, char *outBuf, int ansiBufferSizeInBytes );
 
 	// for debugging, adds KeyValues record into global list so we can track memory leaks
-	virtual void AddKeyValuesToMemoryLeakList(void *pMem, HKeySymbol name);
-	virtual void RemoveKeyValuesFromMemoryLeakList(void *pMem);
+    void AddKeyValuesToMemoryLeakList(void *pMem, HKeySymbol name) override;
+
+    void RemoveKeyValuesFromMemoryLeakList(void *pMem) override;
 
 	// set/get a value for keyvalues resolution symbol
 	// e.g.: SetKeyValuesExpressionSymbol( "LOWVIOLENCE", true ) - enables [$LOWVIOLENCE]
-	virtual void SetKeyValuesExpressionSymbol( const char *name, bool bValue );
-	virtual bool GetKeyValuesExpressionSymbol( const char *name );
+    void SetKeyValuesExpressionSymbol( const char *name, bool bValue ) override;
+
+    bool GetKeyValuesExpressionSymbol( const char *name ) override;
 
 	// symbol table access from code with case-preserving requirements (used for key names)
-	virtual HKeySymbol GetSymbolForStringCaseSensitive( HKeySymbol &hCaseInsensitiveSymbol, const char *name, bool bCreate = true );
+    HKeySymbol GetSymbolForStringCaseSensitive( HKeySymbol &hCaseInsensitiveSymbol, const char *name, bool bCreate = true ) override;
 
 private:
 #ifdef KEYVALUES_USE_POOL

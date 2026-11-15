@@ -61,8 +61,7 @@ public:
 
         if (pValue) {
             m_bExisted = true;
-            m_OriginalValue.SetSize(strlen(pValue) + 1);
-            memcpy(m_OriginalValue.Base(), pValue, m_OriginalValue.Count());
+            m_OriginalValue = pValue;
         }
         else {
             m_bExisted = false;
@@ -73,7 +72,7 @@ public:
         if (m_bRestoreOriginalValue) {
             // Restore the original value.
             if (m_bExisted) {
-                SetValue("%s", m_OriginalValue.Base());
+                SetValue("%s", m_OriginalValue.c_str());
             }
             else {
                 ClearValue();
@@ -136,7 +135,7 @@ private:
     bool m_bRestoreOriginalValue;
     const char* m_pVarName;
     bool m_bExisted;
-    CUtlVector<char> m_OriginalValue;
+    std::string m_OriginalValue;
 };
 
 
@@ -160,19 +159,6 @@ public:
     CTempEnvVar m_SteamAppUser;
     CTempEnvVar m_Path;
 };
-
-// ---------------------------------------------------------------------------------------------------- //
-// Helpers.
-// ---------------------------------------------------------------------------------------------------- //
-// The current directory (UTF-8) with a trailing separator
-void Q_getwd(char* out, int outSize) {
-    if (!V_GetCurrentDirectory(out, outSize)) {
-        out[0] = '\0';
-        return;
-    }
-    Q_AppendSlash(out, outSize);
-    Q_FixSlashes(out);
-}
 
 // ---------------------------------------------------------------------------------------------------- //
 // Module interface.
@@ -199,10 +185,6 @@ CFSMountContentInfo::CFSMountContentInfo() {
 }
 
 
-const char* FileSystem_GetLastErrorString() {
-    return g_FileSystemError;
-}
-
 void AddGameBinDir(IFileSystem* pFileSystem, const char* pLocation, bool bForceHead = false) {
     char temp[MAX_PATH];
     Q_snprintf(temp, sizeof(temp), "%s%cbin", pLocation, CORRECT_PATH_SEPARATOR);
@@ -214,14 +196,10 @@ KeyValues* ReadKeyValuesFile(const char* pFilename) {
     std::ifstream file(vstd::paths::to_fs(pFilename), std::ios::binary);
     if (!file)
         return nullptr;
-    CUtlVector<char> buf;
     const std::string text((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-    buf.SetSize((int) text.size() + 1);
-    memcpy(buf.Base(), text.data(), text.size());
-    buf[buf.Count() - 1] = 0;
 
     KeyValues* kv = new KeyValues("");
-    if (!kv->LoadFromBuffer(pFilename, buf.Base())) {
+    if (!kv->LoadFromBuffer(pFilename, text.c_str())) {
         kv->deleteThis();
         return nullptr;
     }
@@ -821,211 +799,6 @@ ShowError:
                                 GAMEINFO_FILENAME, GAMEINFO_FILENAME);
 }
 
-bool DoesPathExistAlready(const char* pPathEnvVar, const char* pTestPath) {
-    // Fix the slashes in the input arguments.
-    char correctedPathEnvVar[8192], correctedTestPath[MAX_PATH];
-    Q_strncpy(correctedPathEnvVar, pPathEnvVar, sizeof(correctedPathEnvVar));
-    Q_FixSlashes(correctedPathEnvVar);
-    pPathEnvVar = correctedPathEnvVar;
-
-    Q_strncpy(correctedTestPath, pTestPath, sizeof(correctedTestPath));
-    Q_FixSlashes(correctedTestPath);
-    if (strlen(correctedTestPath) > 0 && PATHSEPARATOR(correctedTestPath[strlen(correctedTestPath)-1]))
-        correctedTestPath[strlen(correctedTestPath) - 1] = 0;
-
-    pTestPath = correctedTestPath;
-
-    const char* pCurPos = pPathEnvVar;
-    while (1) {
-        const char* pTestPos = Q_stristr(pCurPos, pTestPath);
-        if (!pTestPos)
-            return false;
-
-        // Ok, we found pTestPath in the path, but it's only valid if it's followed by an optional slash and a semicolon.
-        pTestPos += strlen(pTestPath);
-        if (pTestPos[0] == 0 || pTestPos[0] == ';' || (PATHSEPARATOR(pTestPos[0]) && pTestPos[1] == ';'))
-            return true;
-
-        // Advance our marker..
-        pCurPos = pTestPos;
-    }
-}
-
-FSReturnCode_t SetSteamInstallPath(char* steamInstallPath, int steamInstallPathLen, CSteamEnvVars &steamEnvVars,
-                                   bool bErrorsAsWarnings) {
-    if (IsPosix())
-        return FS_OK;
-    // under posix the content does not live with steam.dll up the path, rely on the environment already being set by steam
-
-    // Start at our bin directory and move up until we find a directory with steam.dll in it.
-    std::string executablePath;
-    if (!FileSystem_GetExecutableDir(executablePath)) {
-        if (bErrorsAsWarnings) {
-            Warning("SetSteamInstallPath: FileSystem_GetExecutableDir failed.\n");
-            return FS_INVALID_PARAMETERS;
-        }
-        else {
-            return SetupFileSystemError(FS_INVALID_PARAMETERS, "FileSystem_GetExecutableDir failed.");
-        }
-    }
-    Q_strncpy(steamInstallPath, executablePath.c_str(), steamInstallPathLen);
-#ifdef WIN32
-    const char* pchSteamDLL = "steam" DLL_EXT_STRING;
-#elif defined(OSX) || defined(LINUX)
-    const char* pchSteamDLL = "libsteam" DLL_EXT_STRING;
-
-    // under Linux & OSX the bin lives in the bin/ folder, so step back one
-
-    Q_StripLastDir(steamInstallPath, steamInstallPathLen);
-#else
-#error
-#endif
-    while (1) {
-        // Ignore steamapp.cfg here in case they're debugging. We still need to know the real steam path so we can find their username.
-        // find
-        if (DoesFileExistIn(steamInstallPath, pchSteamDLL) && !DoesFileExistIn(steamInstallPath, "steamapp.cfg"))
-            break;
-
-        if (!Q_StripLastDir(steamInstallPath, steamInstallPathLen)) {
-            if (bErrorsAsWarnings) {
-                Warning("Can't find %s relative to executable path: %s.\n", pchSteamDLL, executablePath.c_str());
-                return FS_MISSING_STEAM_DLL;
-            }
-            else {
-                return SetupFileSystemError(FS_MISSING_STEAM_DLL,
-                                            "Can't find %s relative to executable path: %s.", pchSteamDLL,
-                                            executablePath.c_str());
-            }
-        }
-    }
-
-    // Also, add the install path to their PATH environment variable, so filesystem_steam.dll can get to steam.dll.
-    char szPath[8192];
-    steamEnvVars.m_Path.GetValue(szPath, sizeof(szPath));
-    if (!DoesPathExistAlready(szPath, steamInstallPath)) {
-#ifdef WIN32
-#define PATH_SEP ";"
-#else
-#define PATH_SEP ":"
-#endif
-        steamEnvVars.m_Path.SetValue("%s%s%s", szPath, PATH_SEP, steamInstallPath);
-    }
-    return FS_OK;
-}
-
-FSReturnCode_t GetSteamCfgPath(char* steamCfgPath, int steamCfgPathLen) {
-    steamCfgPath[0] = 0;
-    std::string executablePath;
-    if (!FileSystem_GetExecutableDir(executablePath)) {
-        return SetupFileSystemError(FS_INVALID_PARAMETERS, "FileSystem_GetExecutableDir failed.");
-    }
-    Q_strncpy(steamCfgPath, executablePath.c_str(), steamCfgPathLen);
-    while (1) {
-        if (DoesFileExistIn(steamCfgPath, "steam.cfg"))
-            break;
-
-        if (!Q_StripLastDir(steamCfgPath, steamCfgPathLen)) {
-            // the file isnt found, thats ok, its not mandatory
-            return FS_OK;
-        }
-    }
-    Q_AppendSlash(steamCfgPath, steamCfgPathLen);
-    Q_strncat(steamCfgPath, "steam.cfg", steamCfgPathLen, COPY_ALL_CHARACTERS);
-
-    return FS_OK;
-}
-
-void SetSteamAppUser(KeyValues* pSteamInfo, const char* steamInstallPath, CSteamEnvVars &steamEnvVars) {
-    // Always inherit the Steam user if it's already set, since it probably means we (or the
-    // the app that launched us) were launched from Steam.
-    char appUser[MAX_PATH];
-    if (steamEnvVars.m_SteamAppUser.GetValue(appUser, sizeof(appUser)))
-        return;
-
-    const char* pTempAppUser = nullptr;
-    if (pSteamInfo && (pTempAppUser = pSteamInfo->GetString("SteamAppUser", nullptr)) != nullptr) {
-        Q_strncpy(appUser, pTempAppUser, sizeof(appUser));
-    }
-    else {
-        // They don't have SteamInfo.txt, or it's missing SteamAppUser. Try to figure out the user
-        // by looking in <steam install path>\config\SteamAppData.vdf.
-        char fullFilename[MAX_PATH];
-        Q_strncpy(fullFilename, steamInstallPath, sizeof(fullFilename));
-        Q_AppendSlash(fullFilename, sizeof(fullFilename));
-        Q_strncat(fullFilename, "config\\SteamAppData.vdf", sizeof(fullFilename), COPY_ALL_CHARACTERS);
-
-        KeyValues* pSteamAppData = ReadKeyValuesFile(fullFilename);
-        if (!pSteamAppData || (pTempAppUser = pSteamAppData->GetString("AutoLoginUser", nullptr)) == nullptr) {
-            Error("Can't find steam app user info.");
-        }
-        Q_strncpy(appUser, pTempAppUser, sizeof(appUser));
-
-        pSteamAppData->deleteThis();
-    }
-
-    Q_strlower(appUser);
-    steamEnvVars.m_SteamAppUser.SetValue("%s", appUser);
-}
-
-void SetSteamUserPassphrase(KeyValues* pSteamInfo, CSteamEnvVars &steamEnvVars) {
-    // Always inherit the passphrase if it's already set, since it probably means we (or the
-    // the app that launched us) were launched from Steam.
-    char szPassPhrase[MAX_PATH];
-    if (steamEnvVars.m_SteamUserPassphrase.GetValue(szPassPhrase, sizeof(szPassPhrase)))
-        return;
-
-    // SteamUserPassphrase.
-    const char* pStr;
-    if (pSteamInfo && (pStr = pSteamInfo->GetString("SteamUserPassphrase", nullptr)) != nullptr) {
-        steamEnvVars.m_SteamUserPassphrase.SetValue("%s", pStr);
-    }
-}
-
-void SetSteamAppId(KeyValues* pFileSystemInfo, const char* pGameInfoDirectory, CSteamEnvVars &steamEnvVars) {
-    // SteamAppId is in gameinfo.txt->FileSystem->FileSystemInfo_Steam->SteamAppId.
-    int iAppId = pFileSystemInfo->GetInt("SteamAppId", -1);
-    if (iAppId == -1)
-        Error("Missing SteamAppId in %s\\%s.", pGameInfoDirectory, GAMEINFO_FILENAME);
-
-    steamEnvVars.m_SteamAppId.SetValue("%d", iAppId);
-}
-
-FSReturnCode_t SetupSteamStartupEnvironment(KeyValues* pFileSystemInfo, const char* pGameInfoDirectory,
-                                            CSteamEnvVars &steamEnvVars) {
-    // Ok, we're going to run Steam. See if they have SteamInfo.txt. If not, we'll try to deduce what we can.
-    char steamInfoFile[MAX_PATH];
-    Q_strncpy(steamInfoFile, pGameInfoDirectory, sizeof(steamInfoFile));
-    Q_AppendSlash(steamInfoFile, sizeof(steamInfoFile));
-    Q_strncat(steamInfoFile, "steaminfo.txt", sizeof(steamInfoFile), COPY_ALL_CHARACTERS);
-    KeyValues* pSteamInfo = ReadKeyValuesFile(steamInfoFile);
-
-    char steamInstallPath[MAX_PATH];
-    FSReturnCode_t ret = SetSteamInstallPath(steamInstallPath, sizeof(steamInstallPath), steamEnvVars, false);
-    if (ret != FS_OK)
-        return ret;
-
-    SetSteamAppUser(pSteamInfo, steamInstallPath, steamEnvVars);
-    SetSteamUserPassphrase(pSteamInfo, steamEnvVars);
-    SetSteamAppId(pFileSystemInfo, pGameInfoDirectory, steamEnvVars);
-
-    if (pSteamInfo)
-        pSteamInfo->deleteThis();
-
-    return FS_OK;
-}
-
-FSReturnCode_t GetSteamExtraAppId(const char* pDirectoryName, int* nExtraAppId) {
-    // Now, load gameinfo.txt (to make sure it's there)
-    KeyValues *pMainFile = nullptr, *pFileSystemInfo = nullptr, *pSearchPaths = nullptr;
-    FSReturnCode_t ret = LoadGameInfoFile(pDirectoryName, pMainFile, pFileSystemInfo, pSearchPaths);
-    if (ret != FS_OK)
-        return ret;
-
-    *nExtraAppId = pFileSystemInfo->GetInt("ToolsAppId", -1);
-    pMainFile->deleteThis();
-    return FS_OK;
-}
-
 FSReturnCode_t FileSystem_SetBasePaths(IFileSystem* pFileSystem) {
     pFileSystem->RemoveSearchPaths("EXECUTABLE_PATH");
 
@@ -1071,17 +844,6 @@ FSReturnCode_t FileSystem_MountContent(CFSMountContentInfo &mountContentInfo) {
 
 void FileSystem_SetErrorMode(FSErrorMode_t errorMode) {
     g_FileSystemErrorMode = errorMode;
-}
-
-void FileSystem_ClearSteamEnvVars() {
-    CSteamEnvVars envVars;
-
-    // Change the values and don't restore the originals.
-    envVars.m_SteamAppId.SetValue("");
-    envVars.m_SteamUserPassphrase.SetValue("");
-    envVars.m_SteamAppUser.SetValue("");
-
-    envVars.SetRestoreOriginalValue_ALL(false);
 }
 
 //-----------------------------------------------------------------------------

@@ -202,28 +202,14 @@ public:
 	// Does a fast inverse, assuming the matrix only contains translation and rotation.
 	void		InverseTR( VMatrix &mRet ) const;
 
-	// Usually used for debug checks. Returns true if the upper 3x3 contains
-	// unit vectors and they are all orthogonal.
-	bool		IsRotationMatrix() const;
-	
 #ifndef VECTOR_NO_SLOW_OPERATIONS
 	// This calls the other InverseTR and returns the result.
 	VMatrix		InverseTR() const;
-
-	// Get the scale of the matrix's basis vectors.
-	Vector		GetScale() const;
-
-	// (Fast) multiply by a scaling matrix setup from vScale.
-	VMatrix		Scale(const Vector &vScale);	
-
-	// Normalize the basis vectors.
-	VMatrix		NormalizeBasisVectors() const;
 
 	// Transpose.
 	VMatrix		Transpose() const;
 
 	// Transpose upper-left 3x3.
-	VMatrix		Transpose3x3() const;
 #endif
 
 public:
@@ -238,30 +224,6 @@ public:
 //-----------------------------------------------------------------------------
 
 #ifndef VECTOR_NO_SLOW_OPERATIONS
-
-// Setup an identity matrix.
-VMatrix		SetupMatrixIdentity();
-
-// Setup as a scaling matrix.
-VMatrix		SetupMatrixScale(const Vector &vScale);
-
-// Setup a translation matrix.
-VMatrix		SetupMatrixTranslation(const Vector &vTranslation);
-
-// Setup a matrix to reflect around the plane.
-VMatrix		SetupMatrixReflection(const VPlane &thePlane);
-
-// Setup a matrix to project from vOrigin onto thePlane.
-VMatrix		SetupMatrixProjection(const Vector &vOrigin, const VPlane &thePlane);
-
-// Setup a matrix to rotate the specified amount around the specified axis.
-VMatrix		SetupMatrixAxisRot(const Vector &vAxis, vec_t fDegrees);
-
-// Setup a matrix to rotate one axis onto another. Input vectors must be normalized.
-VMatrix		SetupMatrixAxisToAxisRot(const Vector &vFromAxis, const Vector &vToAxis);
-
-// Setup a matrix from euler angles. Just sets identity and calls MatrixAngles.
-VMatrix		SetupMatrixAngles(const QAngle &vAngles);
 
 // Setup a matrix for origin and angles.
 VMatrix		SetupMatrixOrgAngles(const Vector &origin, const QAngle &vAngles);
@@ -306,17 +268,7 @@ void Vector3DMultiplyPositionProjective( const VMatrix& src1, const Vector &src2
 // NOTE: src1 had better be an inverse transpose to use this correctly
 void Vector3DMultiplyProjective( const VMatrix& src1, const Vector &src2, Vector& dst );
 
-void Vector4DMultiply( const VMatrix& src1, const Vector4D& src2, Vector4D& dst );
-
-// Same as Vector4DMultiply except that src2 has an implicit W of 1
-void Vector4DMultiplyPosition( const VMatrix& src1, const Vector &src2, Vector4D& dst );
-
 // Multiplies the vector by the transpose of the matrix
-void Vector3DMultiplyTranspose( const VMatrix& src1, const Vector& src2, Vector& dst );
-void Vector4DMultiplyTranspose( const VMatrix& src1, const Vector4D& src2, Vector4D& dst );
-
-// Transform a plane
-void MatrixTransformPlane( const VMatrix &src, const cplane_t &inPlane, cplane_t &outPlane );
 
 // Transform a plane that has an axis-aligned normal
 void MatrixTransformAxisAlignedPlane( const VMatrix &src, int nDim, float flSign, float flDist, cplane_t &outPlane );
@@ -344,59 +296,9 @@ inline void MatrixRotate( VMatrix& dst, const Vector& vAxisOfRot, float angleDeg
 	dst = temp;
 }
 
-// Builds a rotation matrix that rotates one direction vector into another
-void MatrixBuildRotation( VMatrix &dst, const Vector& initialDirection, const Vector& finalDirection );
-
 // Builds a scale matrix
 void MatrixBuildScale( VMatrix &dst, float x, float y, float z );
 void MatrixBuildScale( VMatrix &dst, const Vector& scale );
-
-// Build a perspective matrix.
-// zNear and zFar are assumed to be positive.
-// You end up looking down positive Z, X is to the right, Y is up.
-// X range: [0..1]
-// Y range: [0..1]
-// Z range: [0..1]
-void MatrixBuildPerspective( VMatrix &dst, float fovX, float fovY, float zNear, float zFar );
-
-//-----------------------------------------------------------------------------
-// Given a projection matrix, take the extremes of the space in transformed into world space and
-// get a bounding box.
-//-----------------------------------------------------------------------------
-void CalculateAABBFromProjectionMatrix( const VMatrix &worldToVolume, Vector *pMins, Vector *pMaxs );
-
-//-----------------------------------------------------------------------------
-// Given a projection matrix, take the extremes of the space in transformed into world space and
-// get a bounding sphere.
-//-----------------------------------------------------------------------------
-void CalculateSphereFromProjectionMatrix( const VMatrix &worldToVolume, Vector *pCenter, float *pflRadius );
-
-//-----------------------------------------------------------------------------
-// Given an inverse projection matrix, take the extremes of the space in transformed into world space and
-// get a bounding box.
-//-----------------------------------------------------------------------------
-void CalculateAABBFromProjectionMatrixInverse( const VMatrix &volumeToWorld, Vector *pMins, Vector *pMaxs );
-
-//-----------------------------------------------------------------------------
-// Given an inverse projection matrix, take the extremes of the space in transformed into world space and
-// get a bounding sphere.
-//-----------------------------------------------------------------------------
-void CalculateSphereFromProjectionMatrixInverse( const VMatrix &volumeToWorld, Vector *pCenter, float *pflRadius );
-
-//-----------------------------------------------------------------------------
-// Calculate frustum planes given a clip->world space transform.
-//-----------------------------------------------------------------------------
-void FrustumPlanesFromMatrix( const VMatrix &clipToWorld, Frustum_t &frustum );
-
-//-----------------------------------------------------------------------------
-// Setup a matrix from euler angles. 
-//-----------------------------------------------------------------------------
-void MatrixFromAngles( const QAngle& vAngles, VMatrix& dst );
-
-//-----------------------------------------------------------------------------
-// Creates euler angles from a matrix 
-//-----------------------------------------------------------------------------
-void MatrixToAngles( const VMatrix& src, QAngle& vAngles );
 
 //-----------------------------------------------------------------------------
 // Does a fast inverse, assuming the matrix only contains translation and rotation.
@@ -990,16 +892,6 @@ inline void ExtractClipPlanesFromTransposedMatrix( const VMatrix &transposedView
 	vPlane = -GetMatrixColumnAsVector4D( transposedViewProjMatrix, 2 ) + GetMatrixColumnAsVector4D( transposedViewProjMatrix, 3 );
 	pPlanesOut[ FRUSTUM_FARZ ].Init( vPlane.AsVector3D(), -vPlane.w );
 }
-
-//-----------------------------------------------------------------------------
-// Extracts clip planes from an arbitrary view projection matrix.
-// Differences from ExtractClipPlanesFromTransposedMatrix():
-// This function assumes the matrix has NOT been transposed.
-// If bD3DClippingRange is true, the projection space clipping range is assumed
-// to be [0,1], vs. the OpenGL range [-1,1].
-// This function always returns normalized planes.
-//-----------------------------------------------------------------------------
-void ExtractClipPlanesFromNonTransposedMatrix( const VMatrix &viewProjMatrix, VPlane *pPlanesOut, bool bD3DClippingRange = true );
 
 
 

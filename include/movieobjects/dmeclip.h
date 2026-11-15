@@ -34,22 +34,15 @@ public:
 	int GetClipCount() const { return m_clips.Count(); }
 	const CDmeClip *GetClip( int i ) const { return m_clips[ i ]; }
 	      CDmeClip *GetClip( int i )       { return m_clips[ i ]; }
-	int FindClip( const CDmeClip *pClip ) const;
 	int InvalidClipIndex() const { return m_clips.InvalidIndex(); }
 
 	bool BuildClipStack( const CDmeClip *pRoot, const CDmeClip *pShot, const CDmeClip *pClip );
 
 	int AddClipToHead( const CDmeClip *pClip );
-	int AddClipToTail( const CDmeClip *pClip );
 	void RemoveClip( int i ) { m_clips.Remove( i ); m_bOptimized = false; }
 	void RemoveAll() { m_clips.RemoveAll(); m_bOptimized = false; }
 
 	DmeTime_t ToChildMediaTime  ( DmeTime_t t, bool bClamp = true ) const;
-	DmeTime_t FromChildMediaTime( DmeTime_t t, bool bClamp = true ) const;
-	DmeTime_t ToChildMediaDuration ( DmeTime_t t ) const;
-	DmeTime_t FromChildMediaDuration( DmeTime_t t ) const;
-
-	void ToChildMediaTime( TimeSelection_t &params ) const;
 
 protected:
 	CUtlVector< CDmeHandle< CDmeClip > > m_clips;
@@ -72,22 +65,14 @@ class CDmeClip : public CDmElement
 
 public:
 	// Returns the time frame
-	CDmeTimeFrame *GetTimeFrame() const;
 	DmeTime_t ToChildMediaTime  ( DmeTime_t t, bool bClamp = true ) const;
 	DmeTime_t FromChildMediaTime( DmeTime_t t, bool bClamp = true ) const;
-	DmeTime_t ToChildMediaDuration  ( DmeTime_t dt ) const;
 	DmeTime_t FromChildMediaDuration( DmeTime_t dt ) const;
 	DmeTime_t GetStartTime() const;
 	DmeTime_t GetEndTime() const;
 	DmeTime_t GetDuration() const;
 	DmeTime_t GetTimeOffset() const;
-	DmeTime_t GetStartInChildMediaTime() const;
-	DmeTime_t GetEndInChildMediaTime() const;
 	float GetTimeScale() const;
-	void SetStartTime ( DmeTime_t t );
-	void SetDuration  ( DmeTime_t t );
-	void SetTimeOffset( DmeTime_t t );
-	void SetTimeScale ( float s );
 
 	virtual void BakeTimeScale( float scale = 1.0f );
 
@@ -95,8 +80,6 @@ public:
 	// film clip / track hierarchy was removed), so this only succeeds when this clip is pRoot
 	// (and pShot is null or this clip as well)
 	bool BuildClipStack( DmeClipStack_t* pStack, const CDmeClip *pRoot, CDmeClip *pShot = nullptr);
-
-	void SetClipColor( const Color& clr );
 
 	// Checks for muteness
 	void SetMute( bool state );
@@ -147,28 +130,7 @@ class CDmeChannelsClip : public CDmeClip
 	DEFINE_ELEMENT( CDmeChannelsClip, CDmeClip );
 
 public:
-	virtual void BakeTimeScale( float scale = 1.0f );
-
-	CDmeChannel *CreatePassThruConnection
-	( 
-		char const *passThruName,
-		CDmElement *pFrom, 
-		char const *pFromAttribute, 
-		CDmElement *pTo, 
-		char const *pToAttribute,
-		int index = 0 
-	);
-
-	void RemoveChannel( CDmeChannel *pChannel );
-	
-	// Set the mode of all of the channels in the clip
-	void SetChannelMode( const ChannelMode_t &mode );
-
-	// Operate all of the channels in the clip
-	void OperateChannels();
-
-	// Play all of the channels in the clip
-	void PlayChannels(); 
+    void BakeTimeScale( float scale = 1.0f ) override;
 
 	CDmaElementArray< CDmeChannel > m_Channels;
 };
@@ -178,4 +140,3 @@ public:
 // helper methods
 //-----------------------------------------------------------------------------
 CDmeChannel *FindChannelTargetingElement( CDmElement *pElement, const char *pAttributeName = nullptr);
-CDmeChannel *FindChannelTargetingElement( CDmeChannelsClip *pChannelsClip, CDmElement *pElement, const char *pAttributeName = nullptr);

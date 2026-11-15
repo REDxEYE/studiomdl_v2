@@ -17,8 +17,6 @@
 
 #include "bspflags.h"
 #include "tier0/basetypes.h"
-#include "tier1/utlvector.h"
-#include "tier1/utlstring.h"
 #include "mathlib/vector.h"
 #include "studio.h"
 #include "movieobjects/dmemodel.h"
@@ -45,25 +43,9 @@ int KeyValueTextSize(const std::string &pKeyValue);
 
 const char *KeyValueText(const std::string &pKeyValue);
 
-extern vec_t Q_rint(vec_t in);
-
 extern void WriteModelFiles(void);
 
 // --------------------------------------------------------------------
-
-template<class T>
-class CUtlVectorAuto : public CUtlVector<T> {
-    // typedef CUtlVectorAuto< T, CUtlVector<T > > BaseClass;
-public:
-    T &operator[](int i);
-};
-
-template<typename T>
-inline T &CUtlVectorAuto<T>::operator[](int i) {
-    this->EnsureCount(i + 1);
-    Assert(this->IsValidIndex(i));
-    return this->Base()[i];
-}
 
 //-----------------------------------------------------------------------------
 // Assigns a default surface property to the entire model
@@ -131,11 +113,6 @@ struct s_vertexinfo_t {
 
 
 //============================================================================
-
-// dstudiobone_t bone[MAXSTUDIOBONES];
-struct s_bonefixup_t {
-    matrix3x4_t m;
-};
 
 struct s_bonetable_t {
     StudioName name; // bone name for symbolic links
@@ -571,7 +548,7 @@ struct s_animation_t {
     // compressed animation data
     int numsections;
     int sectionframes;
-    CUtlVectorAuto<CUtlVectorAuto<s_compressed_t> > anim;
+    vstd::AutoGrowVector<vstd::AutoGrowVector<s_compressed_t> > anim;
 
     // int				weightlist;
     std::array<float,MAXSTUDIOSRCBONES> weight;
@@ -721,10 +698,6 @@ struct s_poseparameter_t {
 };
 
 
-struct rgb_t {
-    uint8_t r, g, b;
-};
-
 struct rgb2_t {
     float r, g, b, a;
 };
@@ -791,7 +764,7 @@ public:
     int numframes;
     int startframe;
     int endframe;
-    CUtlVectorAuto<s_bone_t *> rawanim;
+    vstd::AutoGrowVector<s_bone_t *> rawanim;
 
     // vertex animation
     bool newStyleVertexAnimations; // new style doesn't store a base pose in vertex anim[0]
@@ -830,13 +803,13 @@ struct s_source_t {
     s_vertexinfo_t *vertex;
 
     // vertices defined in "global" space (remapped to global bones)
-    CUtlVector<s_vertexinfo_t> m_GlobalVertices;
+    std::vector<s_vertexinfo_t> m_GlobalVertices;
 
     int numfaces;
     s_face_t *face; // vertex indexs per face
 
     // raw skeletal animation
-    CUtlVector<s_sourceanim_t> m_Animations;
+    std::vector<s_sourceanim_t> m_Animations;
 
     // default adjustments
     Vector adjust;
@@ -846,26 +819,26 @@ struct s_source_t {
 
     // Flex keys stored in the source data
     bool bNoAutoDMXRules;
-    CUtlVector<s_flexkey_t> m_FlexKeys;
+    std::vector<s_flexkey_t> m_FlexKeys;
 
     // Combination controls stored in the source data
-    CUtlVector<s_combinationcontrol_t> m_CombinationControls;
+    std::vector<s_combinationcontrol_t> m_CombinationControls;
 
     // Combination rules stored in the source data
-    CUtlVector<s_combinationrule_t> m_CombinationRules;
+    std::vector<s_combinationrule_t> m_CombinationRules;
 
     // Flexcontroller remaps
-    CUtlVector<s_flexcontrollerremap_t> m_FlexControllerRemaps;
+    std::vector<s_flexcontrollerremap_t> m_FlexControllerRemaps;
 
     // Attachment points stored in the SMD/DMX/etc. file
-    CUtlVector<s_attachment_t> m_Attachments;
+    std::vector<s_attachment_t> m_Attachments;
 
     // Information about how flex controller remaps map into flex rules
     int m_nKeyStartIndex; // The index at which the flex keys for this model start in the global list
-    CUtlVector<int> m_rawIndexToRemapSourceIndex;
-    CUtlVector<int> m_rawIndexToRemapLocalIndex;
-    CUtlVector<int> m_leftRemapIndexToGlobalFlexControllIndex;
-    CUtlVector<int> m_rightRemapIndexToGlobalFlexControllIndex;
+    std::vector<int> m_rawIndexToRemapSourceIndex;
+    std::vector<int> m_rawIndexToRemapLocalIndex;
+    std::vector<int> m_leftRemapIndexToGlobalFlexControllIndex;
+    std::vector<int> m_rightRemapIndexToGlobalFlexControllIndex;
 };
 
 // Index in pSource->meshes of the mesh with material nMaterial, -1 if the source has no faces with it
@@ -917,7 +890,7 @@ struct s_model_t {
     vstd::FixedVector<s_eyeball_t, 4> eyeballs;
 
     // References to sources which are the LODs for this model
-    CUtlVector<s_source_t *> m_LodSources;
+    std::vector<s_source_t *> m_LodSources;
 
     // processed aggregate lod data
     s_loddata_t *m_pLodData;
@@ -941,15 +914,15 @@ struct s_flexcontroller_t {
 
 
 struct s_flexcontrollerremap_t {
-    CUtlString m_Name;
+    std::string m_Name;
     FlexControllerRemapType_t m_RemapType;
     bool m_bIsStereo;
-    std::vector<CUtlString> m_RawControls;
+    std::vector<std::string> m_RawControls;
     int m_Index; ///< The model relative index of the slider control for value for this if it's not split, -1 otherwise
     int m_LeftIndex; ///< The model relative index of the left slider control for this if it's split, -1 otherwise
     int m_RightIndex; ///< The model relative index of the right slider control for this if it's split, -1 otherwise
     int m_MultiIndex; ///< The model relative index of the value slider control for this if it's multi, -1 otherwise
-    CUtlString m_EyesUpDownFlexName; // The name of the eyes up/down flex controller
+    std::string m_EyesUpDownFlexName; // The name of the eyes up/down flex controller
     int m_EyesUpDownFlexController; // The global index of the Eyes Up/Down Flex Controller
     int m_BlinkController; // The global index of the Blink Up/Down Flex Controller
 };
@@ -999,13 +972,13 @@ struct s_flexrule_t {
 
 
 struct s_combinationcontrol_t {
-    char name[MAX_PATH];
+    StudioPath name;
 };
 
 struct s_combinationrule_t {
     // The 'ints' here are indices into the m_Controls array
-    CUtlVector<int> m_Combination;
-    CUtlVector<CUtlVector<int> > m_Dominators;
+    std::vector<int> m_Combination;
+    std::vector<std::vector<int> > m_Dominators;
 
     // The index into the flexkeys to put the result in
     // (should affect both left + right if the key is sided)
@@ -1163,16 +1136,14 @@ public:
     vstd::FixedVector<s_mesh_t, MAXSTUDIOSKINS> m_meshes;
 
     // vertices defined in "local" space (not remapped to global bones)
-    CUtlVector<int> m_nOrigMap; // maps the original index to the new index
-    CUtlVector<s_vertexinfo_t> m_vertex;
-    CUtlVector<s_face_t> m_face;
-    CUtlVector<s_sourceanim_t> m_Animations;
+    std::vector<int> m_nOrigMap; // maps the original index to the new index
+    std::vector<s_vertexinfo_t> m_vertex;
+    std::vector<s_face_t> m_face;
+    std::vector<s_sourceanim_t> m_Animations;
 
     int AddNewVert(s_source_t *pOrigSource, int nVert, int nSrcMesh, int nDstMesh, int nPreOffset = 0);
 
     void AddAnimations(const s_source_t *pOrigSource);
-
-    void DestroyAnimations(s_source_t *pNewSource);
 
     void Copy(s_source_t *pDstSource);
 
@@ -1214,7 +1185,7 @@ public:
     virtual ~CConstraintBoneBase() {
     }
 
-    CUtlVector<s_constraintbonetarget_t> m_targets;
+    std::vector<s_constraintbonetarget_t> m_targets;
     s_constraintboneslave_t m_slave;
 
     bool operator==(const CConstraintBoneBase &rhs) const;
@@ -1289,8 +1260,6 @@ struct s_limitrotation_t {
 };
 
 
-extern int BuildTris(s_trianglevert_t (*x)[3], s_mesh_t *y, uint8_t **ppdata);
-
 
 struct s_bonesaveframe_t {
     char name[MAXSTUDIOHITBOXSETNAME];
@@ -1339,10 +1308,6 @@ void Grab_Animation(s_source_t *psource, const char *pAnimName);
 // Processes source comment line and extracts information about the data file
 void ProcessSourceComment(s_source_t *psource, const char *pCommentString);
 
-// Processes original content file "szOriginalContentFile" that was used to generate
-// data file "szDataFile"
-void ProcessOriginalContentFile(const char *szDataFile, const char *szOriginalContentFile);
-
 //-----------------------------------------------------------------------------
 // Utility methods to get or add animation data from sources
 //-----------------------------------------------------------------------------
@@ -1380,8 +1345,6 @@ void clip_rotations(RadianEuler &rot);
 
 void clip_rotations(Vector &rot);
 
-char *stristr(const char *string, const char *string2);
-
 #define strcpyn(a, b) strncpy( a, b, sizeof( a ) )
 
 void CalcBoneTransforms(s_animation_t *panimation, int frame, matrix3x4_t *pBoneToWorld);
@@ -1417,9 +1380,6 @@ class ScriptTokenizer;
 void Cmd_LOD(ScriptTokenizer &qc, const char *cmdname);
 
 void Cmd_ShadowLOD(ScriptTokenizer &qc);
-
-// Fixes up the LOD source files
-void FixupLODSources();
 
 // Get model LOD source
 s_source_t *GetModelLODSource(const char *pModelName,
@@ -1521,8 +1481,6 @@ private:
 
 void CreateMakefile_AddDependency(const char *pFileName);
 
-void EnsureDependencyFileCheckedIn(const char *pFileName);
-
 void AddSurfaceProp(const char *pBoneName, const char *pSurfaceProperty);
 
 char *FindSurfaceProp(const char *pBoneName);
@@ -1552,7 +1510,7 @@ struct ContentsName_t {
 };
 
 extern ContentType s_nDefaultContents; // in studiomdl.cpp
-extern CUtlVector<ContentsName_t> s_JointContents; // in studiomdl.cpp
+extern std::vector<ContentsName_t> s_JointContents; // in studiomdl.cpp
 
 //-----------------------------------------------------------------------------
 //
@@ -1570,10 +1528,6 @@ enum EyelidType_t {
 //-----------------------------------------------------------------------------
 extern s_model_t *g_pCurrentModel;
 
-
-int verify_atoi(const char *token);
-
-float verify_atof(const char *token);
 
 int LookupPoseParameter(const char *name);
 

@@ -9,16 +9,11 @@ elseif (CMAKE_SIZEOF_VOID_P EQUAL 4)
 endif ()
 
 add_library(mathlib
-        sse.cpp
-        ssenoise.cpp
         sseconst.cpp
-        simdvectormatrix.cpp
-        powsse.cpp
         expressioncalculator.cpp
         sparse_convolution_noise.cpp
         mathlib_base.cpp
         randsse.cpp
-        transform.cpp
         vmatrix.cpp
 )
 target_include_directories(mathlib PUBLIC ../../include)

@@ -22,16 +22,22 @@ public:
     ~CFileSystem_Stdio();
 
     // Higher level filesystem methods requiring specific behavior
-    virtual void GetLocalCopy( const char *pFileName );
-    virtual int	HintResourceNeed( const char *hintlist, int forgetEverything );
-    virtual bool IsFileImmediatelyAvailable(const char *pFileName);
-    virtual WaitForResourcesHandle_t WaitForResources( const char *resourcelist );
-    virtual bool GetWaitForResourcesProgress( WaitForResourcesHandle_t handle, float *progress /* out */ , bool *complete /* out */ );
-    virtual void CancelWaitForResources( WaitForResourcesHandle_t handle );
-    virtual bool IsSteam() const { return false; }
-    virtual	FilesystemMountRetval_t MountSteamContent( int nExtraAppId = -1 ) { return FILESYSTEM_MOUNT_OK; }
+    void GetLocalCopy( const char *pFileName ) override;
 
-    bool GetOptimalIOConstraints( FileHandle_t hFile, unsigned *pOffsetAlign, unsigned *pSizeAlign, unsigned *pBufferAlign );
+    int	HintResourceNeed( const char *hintlist, int forgetEverything ) override;
+
+    bool IsFileImmediatelyAvailable(const char *pFileName) override;
+
+    WaitForResourcesHandle_t WaitForResources( const char *resourcelist ) override;
+
+    bool GetWaitForResourcesProgress( WaitForResourcesHandle_t handle, float *progress /* out */ , bool *complete /* out */ ) override;
+
+    void CancelWaitForResources( WaitForResourcesHandle_t handle ) override;
+
+    bool IsSteam() const override { return false; }
+    FilesystemMountRetval_t MountSteamContent( int nExtraAppId = -1 ) override { return FILESYSTEM_MOUNT_OK; }
+
+    bool GetOptimalIOConstraints( FileHandle_t hFile, unsigned *pOffsetAlign, unsigned *pSizeAlign, unsigned *pBufferAlign ) override;
 };
 
 // The filesystem instance (g_pFullFileSystem points at it)

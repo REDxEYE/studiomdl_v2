@@ -23,7 +23,7 @@ class CDmeMaterialGroup : public CDmeMdlList
 	DEFINE_ELEMENT( CDmeMaterialGroup, CDmeMdlList );
 
 public:
-	virtual CDmAttribute *GetListAttr() { return m_MaterialList.GetAttribute(); }
+    CDmAttribute *GetListAttr() override { return m_MaterialList.GetAttribute(); }
 
 #ifndef SWIG
 	CDmaStringArray m_MaterialList;

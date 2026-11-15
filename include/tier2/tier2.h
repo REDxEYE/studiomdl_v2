@@ -17,8 +17,6 @@
 //-----------------------------------------------------------------------------
 // Call this to get the file system set up to stdio for utilities, etc:
 //-----------------------------------------------------------------------------
-void InitDefaultFileSystem(void);
-void ShutdownDefaultFileSystem(void);
 
 
 

@@ -45,7 +45,7 @@ class CDmeFixupLoop : public CDmeAnimationAssemblyCommand
 
 public:
 	// From CDmeAssemblyCommand
-	virtual bool Apply( CDmElement *pDmElement );
+    bool Apply( CDmElement *pDmElement ) override;
 
 	CDmaVar< int > m_nStartFrame;
 	CDmaVar< int > m_nEndFrame;
@@ -67,7 +67,7 @@ class CDmeSubtract : public CDmeAnimationAssemblyCommand
 
 public:
 	// From CDmeAssemblyCommand
-	virtual bool Apply( CDmElement *pDmElement );
+    bool Apply( CDmElement *pDmElement ) override;
 
 	CDmaElement< CDmeSequenceBase > m_eSequence;
 	CDmaVar< int > m_nFrame;
@@ -101,15 +101,15 @@ class CDmePreSubtract : public CDmeSubtract
 public:
 
 protected:
-	virtual void Subtract(
+    void Subtract(
 		Vector &vResult,
 		const Vector &vDst,
-		const Vector &vSrc ) const;
+		const Vector &vSrc ) const override;
 
-	virtual void Subtract(
+    void Subtract(
 		Quaternion &vResult,
 		const Quaternion &vDst,
-		const Quaternion &vSrc ) const;
+		const Quaternion &vSrc ) const override;
 
 };
 
@@ -123,7 +123,7 @@ class CDmeRotateTo : public CDmeAnimationAssemblyCommand
 
 public:
 	// From CDmeAssemblyCommand
-	virtual bool Apply( CDmElement *pDmElement );
+    bool Apply( CDmElement *pDmElement ) override;
 
 	CDmaVar< float > m_flAngle;	// Specified in degrees
 
@@ -142,7 +142,7 @@ class CDmeBoneMaskCmd : public CDmeAnimationAssemblyCommand
 
 public:
 	// From CDmeAssemblyCommand
-	virtual bool Apply( CDmElement *pDmElement );
+    bool Apply( CDmElement *pDmElement ) override;
 
 protected:
 	void SubApply( CDmeChannelsClip *pDmeChannelsClip, CDmeDag *pDmeDag, CDmeBoneMask *pDmeBoneMask );

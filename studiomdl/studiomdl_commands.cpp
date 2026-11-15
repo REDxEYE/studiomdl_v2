@@ -576,7 +576,7 @@ void Cmd_Body(ScriptTokenizer &qc) {
 // will be purged later after they are linked to bones
 //-----------------------------------------------------------------------------
 void AddBodyAttachments(s_source_t *pSource) {
-    for (int i = 0; i < pSource->m_Attachments.Count(); ++i) {
+    for (size_t i = 0; i < pSource->m_Attachments.size(); ++i) {
         if (g_studiomdl.bones.attachments.size() >= g_studiomdl.bones.attachments.capacity()) {
             MdlWarning("Too Many Attachments (Max {}), Ignoring Attachment {}:{}\n",
                        g_studiomdl.bones.attachments.capacity(), pSource->filename,
@@ -591,25 +591,21 @@ void AddBodyAttachments(s_source_t *pSource) {
 // Adds flex controller data to a particular source
 //-----------------------------------------------------------------------------
 void AddFlexControllers(s_source_t *pSource) {
-    CUtlVector<int> &r2s = pSource->m_rawIndexToRemapSourceIndex;
-    CUtlVector<int> &r2l = pSource->m_rawIndexToRemapLocalIndex;
-    CUtlVector<int> &l2i = pSource->m_leftRemapIndexToGlobalFlexControllIndex;
-    CUtlVector<int> &r2i = pSource->m_rightRemapIndexToGlobalFlexControllIndex;
+    std::vector<int> &r2s = pSource->m_rawIndexToRemapSourceIndex;
+    std::vector<int> &r2l = pSource->m_rawIndexToRemapLocalIndex;
+    std::vector<int> &l2i = pSource->m_leftRemapIndexToGlobalFlexControllIndex;
+    std::vector<int> &r2i = pSource->m_rightRemapIndexToGlobalFlexControllIndex;
 
     // Number of Raw controls in this source
-    const int nRawControlCount = pSource->m_CombinationControls.Count();
+    const int nRawControlCount = std::ssize(pSource->m_CombinationControls);
     // Initialize rawToRemapIndices
-    r2s.SetSize(nRawControlCount);
-    r2l.SetSize(nRawControlCount);
-    for (int i = 0; i < nRawControlCount; ++i) {
-        r2s[i] = -1;
-        r2l[i] = -1;
-    }
+    r2s.assign(nRawControlCount, -1);
+    r2l.assign(nRawControlCount, -1);
 
     // Number of Remapped Controls in this source
-    const int nRemappedControlCount = pSource->m_FlexControllerRemaps.Count();
-    l2i.SetSize(nRemappedControlCount);
-    r2i.SetSize(nRemappedControlCount);
+    const int nRemappedControlCount = std::ssize(pSource->m_FlexControllerRemaps);
+    l2i.resize(nRemappedControlCount);
+    r2i.resize(nRemappedControlCount);
 
     for (int i = 0; i < nRemappedControlCount; ++i) {
         s_flexcontrollerremap_t &remapControl = pSource->m_FlexControllerRemaps[i];
@@ -638,22 +634,18 @@ void AddFlexControllers(s_source_t *pSource) {
             if ((g_studiomdl.flex.flexcontrollers.size() + 1) >= g_studiomdl.flex.flexcontrollers.capacity())
                 MdlError("Line {}: Too many flex controllers, max {}, cannot add split control {} from source {}",
                          g_studiomdl.input.iLinecount, g_studiomdl.flex.flexcontrollers.capacity(),
-                         remapControl.m_Name.Get(),
+                         remapControl.m_Name,
                          pSource->filename);
 
 
-            int nLen = remapControl.m_Name.Length();
-            char *pTemp = (char *) _alloca(nLen + 7); // 'left_' && 'right_'
-
-            memcpy(pTemp + 6, remapControl.m_Name.Get(), nLen + 1);
-            memcpy(pTemp, "right_", 6);
-            pTemp[nLen + 6] = '\0';
+            const std::string rightName = "right_" + remapControl.m_Name;
+            const std::string leftName = "left_" + remapControl.m_Name;
 
             r2i[i] = remapControl.m_RightIndex = g_studiomdl.flex.flexcontrollers.size();
             {
                 auto &pController = g_studiomdl.flex.flexcontrollers.emplace_back(s_flexcontroller_t{
-                    .name = pTemp,
-                    .type = pTemp
+                    .name = rightName.c_str(),
+                    .type = rightName.c_str()
                 });
 
                 if (remapControl.m_RemapType == _2way ||
@@ -665,17 +657,13 @@ void AddFlexControllers(s_source_t *pSource) {
                     pController.min = 0.0f;
                     pController.max = 1.0f;
                 }
-
-                memcpy(pTemp + 5, remapControl.m_Name.Get(), nLen + 1);
-                memcpy(pTemp, "left_", 5);
-                pTemp[nLen + 5] = '\0';
             }
 
             l2i[i] = remapControl.m_LeftIndex = g_studiomdl.flex.flexcontrollers.size();
             {
                 auto &pController = g_studiomdl.flex.flexcontrollers.emplace_back(s_flexcontroller_t{
-                    .name = pTemp,
-                    .type = pTemp
+                    .name = leftName.c_str(),
+                    .type = leftName.c_str()
                 });
 
                 if (remapControl.m_RemapType == _2way ||
@@ -694,13 +682,13 @@ void AddFlexControllers(s_source_t *pSource) {
             if (g_studiomdl.flex.flexcontrollers.size() >= g_studiomdl.flex.flexcontrollers.capacity())
                 MdlError("Line {}: Too many flex controllers, max {}, cannot add control {} from source {}",
                          g_studiomdl.input.iLinecount, g_studiomdl.flex.flexcontrollers.capacity(),
-                         remapControl.m_Name.Get(),
+                         remapControl.m_Name,
                          pSource->filename);
 
             r2i[i] = l2i[i] = remapControl.m_Index = g_studiomdl.flex.flexcontrollers.size();
             s_flexcontroller_t &pController = g_studiomdl.flex.flexcontrollers.emplace_back(s_flexcontroller_t{
-                .name = remapControl.m_Name.Get(),
-                .type = remapControl.m_Name.Get()
+                .name = remapControl.m_Name.c_str(),
+                .type = remapControl.m_Name.c_str()
             });
 
             if (remapControl.m_RemapType == _2way ||
@@ -719,21 +707,16 @@ void AddFlexControllers(s_source_t *pSource) {
             if (g_studiomdl.flex.flexcontrollers.size() >= g_studiomdl.flex.flexcontrollers.capacity())
                 MdlError(
                     "Line {}: Too many flex controllers, max {}, cannot add value control for nWay {} from source {}",
-                    g_studiomdl.input.iLinecount, g_studiomdl.flex.flexcontrollers.capacity(), remapControl.m_Name.Get(),
+                    g_studiomdl.input.iLinecount, g_studiomdl.flex.flexcontrollers.capacity(), remapControl.m_Name,
                     pSource->filename);
 
             remapControl.m_MultiIndex = g_studiomdl.flex.flexcontrollers.size();
 
-            const int nLen = remapControl.m_Name.Length();
-            char *pTemp = (char *) _alloca(nLen + 6 + 1); // 'multi_' + 1 for the NULL
-
-            memcpy(pTemp, "multi_", 6);
-            memcpy(pTemp + 6, remapControl.m_Name.Get(), nLen + 1);
-            pTemp[nLen + 6] = '\0';
+            const std::string multiName = "multi_" + remapControl.m_Name;
 
             g_studiomdl.flex.flexcontrollers.emplace_back(s_flexcontroller_t{
-                .name = pTemp,
-                .type = pTemp,
+                .name = multiName.c_str(),
+                .type = multiName.c_str(),
                 .min = -1.0f,
                 .max = 1.0f
             });
@@ -745,7 +728,7 @@ void AddFlexControllers(s_source_t *pSource) {
             if (g_studiomdl.flex.flexcontrollers.size() >= g_studiomdl.flex.flexcontrollers.capacity())
                 MdlError(
                     "Line {}: Too many flex controllers, max {}, cannot add value control for nWay {} from source {}",
-                    g_studiomdl.input.iLinecount, g_studiomdl.flex.flexcontrollers.capacity(), remapControl.m_Name.Get(),
+                    g_studiomdl.input.iLinecount, g_studiomdl.flex.flexcontrollers.capacity(), remapControl.m_Name,
                     pSource->filename);
 
             remapControl.m_BlinkController = g_studiomdl.flex.flexcontrollers.size();
@@ -771,7 +754,7 @@ void AddFlexControllers(s_source_t *pSource) {
 // Adds flex controller remappers
 //-----------------------------------------------------------------------------
 void AddBodyFlexRemaps(s_source_t *pSource) {
-    int nCount = pSource->m_FlexControllerRemaps.Count();
+    const int nCount = std::ssize(pSource->m_FlexControllerRemaps);
     for (int i = 0; i < nCount; ++i) {
         g_studiomdl.flex.FlexControllerRemap.emplace_back();
         s_flexcontrollerremap_t &remap = g_studiomdl.flex.FlexControllerRemap.back();
@@ -786,7 +769,7 @@ void AddBodyFlexData(s_source_t *pSource, int imodel, bool bAddControllers) {
     pSource->m_nKeyStartIndex = g_studiomdl.flex.flexkeys.size();
 
     // Add flex keys
-    int nCount = pSource->m_FlexKeys.Count();
+    const int nCount = std::ssize(pSource->m_FlexKeys);
     for (int i = 0; i < nCount; ++i) {
         s_flexkey_t &key = pSource->m_FlexKeys[i];
 
@@ -923,7 +906,7 @@ void Option_VertexCacheAnimationFile(char *pszVtaFile, int nModelIndex) {
     s_source_t *pSource = g_studiomdl.body.model[nModelIndex]->source;
     s_source_t *pVtaSource = Load_Source(pszVtaFile, "vta");
 
-    if (pVtaSource->m_Animations.Count() <= 0) {
+    if (pVtaSource->m_Animations.empty()) {
         MdlError("{}: No animations in VertexCacheAnimationFile \"{}\"\n", __FUNCTION__, pszVtaFile);
         return;
     }
@@ -947,7 +930,7 @@ void Option_VertexCacheAnimationFile(char *pszVtaFile, int nModelIndex) {
 
     CFmtStr sTmp;
 
-    const int nActualFrameCount = pVtaSource->m_Animations.Head().numframes - 1;
+    const int nActualFrameCount = pVtaSource->m_Animations.front().numframes - 1;
 
     for (int i = 0; i < nActualFrameCount; ++i) {
         sTmp.sprintf("f%d", i);
@@ -970,7 +953,7 @@ void Option_VertexCacheAnimationFile(char *pszVtaFile, int nModelIndex) {
         }
     }
 
-    s_flexcontrollerremap_t &flexRemap = pSource->m_FlexControllerRemaps[pSource->m_FlexControllerRemaps.AddToTail()];
+    s_flexcontrollerremap_t &flexRemap = pSource->m_FlexControllerRemaps.emplace_back();
 
     flexRemap.m_RemapType = Nway;
     flexRemap.m_bIsStereo = false;
@@ -990,28 +973,27 @@ void Option_VertexCacheAnimationFile(char *pszVtaFile, int nModelIndex) {
         flexRemap.m_RawControls.emplace_back(sTmp.Access());
     }
 
-    for (int i = 0; i < flexRemap.m_RawControls.size(); ++i) {
+    for (size_t i = 0; i < flexRemap.m_RawControls.size(); ++i) {
         int nFlexKey = -1;
         for (int j = 0; j < g_studiomdl.flex.flexkeys.size(); ++j) {
-            if (vstd::iequals(g_studiomdl.flex.flexdescs[g_studiomdl.flex.flexkeys[j].flexdesc].FACS, flexRemap.m_RawControls[i].Get())) {
+            if (vstd::iequals(g_studiomdl.flex.flexdescs[g_studiomdl.flex.flexkeys[j].flexdesc].FACS, flexRemap.m_RawControls[i])) {
                 nFlexKey = j;
                 break;
             }
         }
 
         if (nFlexKey < 0) {
-            MdlError("{} Cannot find flex to group \"{}\"\n", __FUNCTION__, flexRemap.m_RawControls[i].Get());
-            pSource->m_FlexControllerRemaps.RemoveMultipleFromTail(1);
+            MdlError("{} Cannot find flex to group \"{}\"\n", __FUNCTION__, flexRemap.m_RawControls[i]);
+            pSource->m_FlexControllerRemaps.pop_back();
             return;
         }
 
-        s_combinationcontrol_t &combinationControl = pSource->m_CombinationControls[pSource->m_CombinationControls.
-            AddToTail()];
-        V_strncpy(combinationControl.name, flexRemap.m_RawControls[i].Get(), ARRAYSIZE(combinationControl.name));
+        s_combinationcontrol_t &combinationControl = pSource->m_CombinationControls.emplace_back();
+        V_strncpy(combinationControl.name, flexRemap.m_RawControls[i].c_str(), ARRAYSIZE(combinationControl.name));
 
-        s_combinationrule_t &combinationRule = pSource->m_CombinationRules[pSource->m_CombinationRules.AddToTail()];
+        s_combinationrule_t &combinationRule = pSource->m_CombinationRules.emplace_back();
         combinationRule.m_nFlex = nFlexKey;
-        combinationRule.m_Combination.AddToTail(nFlexKey - 1);
+        combinationRule.m_Combination.push_back(nFlexKey - 1);
     }
 
     AddFlexControllers(pSource);
@@ -1076,7 +1058,7 @@ void Option_Spherenormals(ScriptTokenizer &qc, s_source_t *psource) {
 //          and is also a new style (i.e. DMX) vertex animation
 //-----------------------------------------------------------------------------
 const s_sourceanim_t *GetNewStyleSourceVertexAnim(s_source_t *pSource, const char *pszVertexAnimName) {
-    for (int i = 0; i < pSource->m_Animations.Count(); ++i) {
+    for (size_t i = 0; i < pSource->m_Animations.size(); ++i) {
         const s_sourceanim_t *pSourceAnim = &(pSource->m_Animations[i]);
         if (!pSourceAnim || !pSourceAnim->newStyleVertexAnimations)
             continue;
@@ -1110,14 +1092,14 @@ void Option_DmxEyelid(ScriptTokenizer &qc, int imodel) {
     }
 
     // (exr)
-    CUtlString sSourceFile;
+    std::string sSourceFile;
     qc.ExpectToken();
     sSourceFile = qc.token;
 
-    s_source_t *pSource = Load_Source(sSourceFile.Get(), "dmx");
+    s_source_t *pSource = Load_Source(sSourceFile.c_str(), "dmx");
     if (!pSource) {
         qc.Error("({}) : {}:  Cannot load source file \"{}\"\n", g_studiomdl.input.iLinecount,
-                 g_studiomdl.input.szLine, sSourceFile.Get());
+                 g_studiomdl.input.szLine, sSourceFile);
         return;
     }
 
@@ -1141,8 +1123,8 @@ void Option_DmxEyelid(ScriptTokenizer &qc, int imodel) {
         {{-1, -1}, nullptr, 0.0f, "raiser"}
     };
 
-    CUtlString sRightEyeball;
-    CUtlString sLeftEyeball;
+    std::string sRightEyeball;
+    std::string sLeftEyeball;
 
     while (qc.TokenAvailable()) {
         qc.ExpectToken();
@@ -1157,7 +1139,7 @@ void Option_DmxEyelid(ScriptTokenizer &qc, int imodel) {
                 if (eyelidData[i].m_pSourceAnim == nullptr) {
                     qc.Error("({}) : {}:  No DMX vertex animation named \"{}\" in source \"{}\"\n",
                              g_studiomdl.input.iLinecount,
-                             g_studiomdl.input.szLine, qc.token, sSourceFile.Get());
+                             g_studiomdl.input.szLine, qc.token, sSourceFile);
                     return;
                 }
 
@@ -1185,26 +1167,20 @@ void Option_DmxEyelid(ScriptTokenizer &qc, int imodel) {
     // Where <type> is "upper" or "lower"
     int nRightLeftBaseDesc[kRightLeftTypeCount] = {-1, -1};
 
-    CUtlString sRightBaseDesc = pszType;
-    sRightBaseDesc += "_right";
-    nRightLeftBaseDesc[kRight] = Add_Flexdesc(sRightBaseDesc.Get());
+    const std::string sRightBaseDesc = std::string(pszType) + "_right";
+    nRightLeftBaseDesc[kRight] = Add_Flexdesc(sRightBaseDesc.c_str());
 
     for (int i = 0; i < kEyelidTypeCount; ++i) {
-        CUtlString sRightLocalDesc = sRightBaseDesc;
-        sRightLocalDesc += "_";
-        sRightLocalDesc += eyelidData[i].m_pszSuffix;
-        eyelidData[i].m_nFlexDesc[kRight] = Add_Flexdesc(sRightLocalDesc.Get());
+        const std::string sRightLocalDesc = sRightBaseDesc + "_" + eyelidData[i].m_pszSuffix;
+        eyelidData[i].m_nFlexDesc[kRight] = Add_Flexdesc(sRightLocalDesc.c_str());
     }
 
-    CUtlString sLeftBaseDesc = pszType;
-    sLeftBaseDesc += "_left";
-    nRightLeftBaseDesc[kLeft] = Add_Flexdesc(sLeftBaseDesc.Get());
+    const std::string sLeftBaseDesc = std::string(pszType) + "_left";
+    nRightLeftBaseDesc[kLeft] = Add_Flexdesc(sLeftBaseDesc.c_str());
 
     for (int i = 0; i < kEyelidTypeCount; ++i) {
-        CUtlString sLeftLocalDesc = sLeftBaseDesc;
-        sLeftLocalDesc += "_";
-        sLeftLocalDesc += eyelidData[i].m_pszSuffix;
-        eyelidData[i].m_nFlexDesc[kLeft] = Add_Flexdesc(sLeftLocalDesc.Get());
+        const std::string sLeftLocalDesc = sLeftBaseDesc + "_" + eyelidData[i].m_pszSuffix;
+        eyelidData[i].m_nFlexDesc[kLeft] = Add_Flexdesc(sLeftLocalDesc.c_str());
     }
 
     for (int i = 0; i < kEyelidTypeCount; ++i) {
@@ -1295,11 +1271,11 @@ void Option_DmxEyelid(ScriptTokenizer &qc, int imodel) {
     }
 
     if (!bRightOk) {
-        qc.Error("Could not find right eye \"{}\"\n", sRightEyeball.Get());
+        qc.Error("Could not find right eye \"{}\"\n", sRightEyeball);
     }
 
     if (!bLeftOk) {
-        qc.Error("Could not find left eye \"{}\"\n", sRightEyeball.Get());
+        qc.Error("Could not find left eye \"{}\"\n", sRightEyeball);
     }
 }
 
@@ -1471,7 +1447,7 @@ void Option_Flex(ScriptTokenizer &qc, char *name, char *vtafile, int imodel, flo
     // link to source
     s_source_t *pSource = Load_Source(vtafile, "vta");
     new_flexkey.source = pSource;
-    if (pSource->m_Animations.Count()) {
+    if (!pSource->m_Animations.empty()) {
         new_flexkey.animationname = pSource->m_Animations[0].animationname;
     }
     else {
@@ -1867,9 +1843,9 @@ void AddBodyFlexFetchRule(
     s_source_t *pSource,
     s_flexrule_t *pRule,
     int rawIndex,
-    const CUtlVector<int> &pRawIndexToRemapSourceIndex,
-    const CUtlVector<int> &pRawIndexToRemapLocalIndex,
-    const CUtlVector<int> &pRemapSourceIndexToGlobalFlexControllerIndex) {
+    const std::vector<int> &pRawIndexToRemapSourceIndex,
+    const std::vector<int> &pRawIndexToRemapLocalIndex,
+    const std::vector<int> &pRemapSourceIndexToGlobalFlexControllerIndex) {
     // Lookup the various indices of the requested input to fetch
     // Relative to the remapped controls in the current s_source_t
     const int remapSourceIndex = pRawIndexToRemapSourceIndex[rawIndex];
@@ -2028,9 +2004,9 @@ void AddBodyFlexRule(
     s_source_t *pSource,
     s_combinationrule_t &rule,
     int nFlexDesc,
-    const CUtlVector<int> &pRawIndexToRemapSourceIndex,
-    const CUtlVector<int> &pRawIndexToRemapLocalIndex,
-    const CUtlVector<int> &pRemapSourceIndexToGlobalFlexControllerIndex) {
+    const std::vector<int> &pRawIndexToRemapSourceIndex,
+    const std::vector<int> &pRawIndexToRemapLocalIndex,
+    const std::vector<int> &pRemapSourceIndexToGlobalFlexControllerIndex) {
     if (g_studiomdl.flex.flexrules.size() >= g_studiomdl.flex.flexrules.capacity())
         MdlError("Line {}: Too many flex rules, max {}",
                  g_studiomdl.input.iLinecount, g_studiomdl.flex.flexrules.capacity());
@@ -2040,7 +2016,7 @@ void AddBodyFlexRule(
     });
 
     // This will multiply the combination together
-    const int nCombinationCount = rule.m_Combination.Count();
+    const int nCombinationCount = std::ssize(rule.m_Combination);
     if (nCombinationCount) {
         for (int j = 0; j < nCombinationCount; ++j) {
             // Handle any controller remapping
@@ -2057,9 +2033,9 @@ void AddBodyFlexRule(
     }
 
     // This will multiply in the suppressors
-    int nDominators = rule.m_Dominators.Count();
+    const int nDominators = std::ssize(rule.m_Dominators);
     for (int j = 0; j < nDominators; ++j) {
-        const int nFactorCount = rule.m_Dominators[j].Count();
+        const int nFactorCount = std::ssize(rule.m_Dominators[j]);
         if (nFactorCount) {
             for (int k = 0; k < nFactorCount; ++k) {
                 AddBodyFlexFetchRule(pSource, &pRule, rule.m_Dominators[j][k],
@@ -2076,12 +2052,12 @@ void AddBodyFlexRule(
 
 
 void AddBodyFlexRules(s_source_t *pSource) {
-    const int nRemapCount = pSource->m_FlexControllerRemaps.Count();
+    const int nRemapCount = std::ssize(pSource->m_FlexControllerRemaps);
     for (int i = 0; i < nRemapCount; ++i) {
         s_flexcontrollerremap_t &remap = pSource->m_FlexControllerRemaps[i];
-        if (remap.m_RemapType == Eyelid && !remap.m_EyesUpDownFlexName.IsEmpty()) {
+        if (remap.m_RemapType == Eyelid && !remap.m_EyesUpDownFlexName.empty()) {
             for (int j = 0; j < g_studiomdl.flex.flexcontrollers.size(); ++j) {
-                if (!Q_strcmp(g_studiomdl.flex.flexcontrollers[j].name.c_str(), remap.m_EyesUpDownFlexName.Get())) {
+                if (g_studiomdl.flex.flexcontrollers[j].name.c_str() == remap.m_EyesUpDownFlexName) {
                     Assert(remap.m_EyesUpDownFlexController == -1);
                     remap.m_EyesUpDownFlexController = j;
                     break;
@@ -2090,7 +2066,7 @@ void AddBodyFlexRules(s_source_t *pSource) {
         }
     }
 
-    const int nCount = pSource->m_CombinationRules.Count();
+    const int nCount = std::ssize(pSource->m_CombinationRules);
     for (int i = 0; i < nCount; ++i) {
         s_combinationrule_t &rule = pSource->m_CombinationRules[i];
         s_flexkey_t &flexKey = g_studiomdl.flex.flexkeys[pSource->m_nKeyStartIndex + rule.m_nFlex];
@@ -2183,7 +2159,7 @@ void Option_Eyelid(ScriptTokenizer &qc, int imodel) {
         .decay = 0.0,
     });
 
-    if (pSource->m_Animations.Count() > 0) {
+    if (!pSource->m_Animations.empty()) {
         lower_flexkey.animationname = pSource->m_Animations[0].animationname;
     }
     else {
@@ -2825,7 +2801,7 @@ void Cmd_JointContents(ScriptTokenizer &qc) {
 
     // Search for the name in our list
     int i;
-    for (i = s_JointContents.Count(); --i >= 0;) {
+    for (i = std::ssize(s_JointContents); --i >= 0;) {
         if (vstd::iequals(s_JointContents[i].m_pJointName, qc.token)) {
             break;
         }
@@ -2833,7 +2809,8 @@ void Cmd_JointContents(ScriptTokenizer &qc) {
 
     // Add new entry if we haven't seen this name before
     if (i < 0) {
-        i = s_JointContents.AddToTail();
+        i = std::ssize(s_JointContents);
+        s_JointContents.emplace_back();
         strcpyn(s_JointContents[i].m_pJointName, qc.token);
     }
 
@@ -3871,17 +3848,6 @@ float ParseJiggleStiffness(ScriptTokenizer &qc) {
     const float maxStiffness = 1000.0f;
 
     return clamp(stiffness, minStiffness, maxStiffness);
-}
-
-float ParseJiggleDamping(ScriptTokenizer &qc) {
-    qc.ExpectToken("damping value");
-
-    float damping = qc.TokenFloat();
-
-    const float minDamping = 0.0f;
-    const float maxDamping = 10.0f;
-
-    return clamp(damping, minDamping, maxDamping);
 }
 
 //
@@ -5830,7 +5796,7 @@ void Cmd_Animation(ScriptTokenizer &qc) {
     qc.ExpectStringToken(panim->filename);
 
     panim->source = Load_Source(panim->filename.c_str(), "");
-    if (panim->source->m_Animations.Count()) {
+    if (!panim->source->m_Animations.empty()) {
         s_sourceanim_t *pSourceAnim = &panim->source->m_Animations[0];
         panim->startframe = pSourceAnim->startframe;
         panim->endframe = pSourceAnim->endframe;
@@ -5968,7 +5934,7 @@ s_animation_t *ProcessImpliedAnimation(s_sequence_t *psequence, const char *file
 
     //panim->source = Load_Source( panim->filename, "smd" );
     panim->source = Load_Source(panim->filename.c_str(), "");
-    if (panim->source->m_Animations.Count()) {
+    if (!panim->source->m_Animations.empty()) {
         s_sourceanim_t *pSourceAnim = &panim->source->m_Animations[0];
         Q_strncpy(panim->animationname, panim->source->m_Animations[0].animationname, sizeof(panim->animationname));
         if (panim->startframe < pSourceAnim->startframe) {

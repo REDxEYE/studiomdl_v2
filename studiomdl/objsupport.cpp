@@ -21,12 +21,13 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
-#include "tier1/utlbuffer.h"
+#include <string>
+#include <string_view>
+#include <vector>
 #include "common/cmdlib.h"
 #include "common/scriplib.h"
 #include "mathlib/mathlib.h"
 #include "studio.h"
-#include "interfaces/interfaces.h"
 #include "tier1/characterset.h"
 #include "tier1_v2/path_utils.hpp"
 #include "studiomdl/studiomdl.h"
@@ -42,13 +43,146 @@ void UnifyIndices( s_source_t *psource );
 
 struct MtlInfo_t
 {
-	CUtlString m_MtlName;
-	CUtlString m_TgaName;
+	std::string m_MtlName;
+	std::string m_TgaName;
 };
 
-static CUtlVector<MtlInfo_t> g_MtlLib;
+static std::vector<MtlInfo_t> g_MtlLib;
 
-void ParseMtlLib( CUtlBuffer &buf )
+//-----------------------------------------------------------------------------
+// Read cursor over text, with the semantics of the CUtlBuffer text calls it replaces (GetLine, ParseToken without
+// comment parsing): reading past the end puts the cursor in the error state (IsValid() == false)
+//-----------------------------------------------------------------------------
+class CTextCursor
+{
+public:
+	explicit CTextCursor( std::string_view text ) : m_Text( text ) {}
+
+	bool IsValid() const { return !m_bError; }
+
+	// The next character, 0 at the end
+	char Peek() const { return m_nPos < m_Text.size() ? m_Text[m_nPos] : 0; }
+
+	// Copies the next line, including its '\n' or '\r', into pLine (truncated to nMaxChars - 1 characters)
+	void GetLine( char *pLine, size_t nMaxChars )
+	{
+		*pLine = 0;
+		if ( m_bError )
+			return;
+
+		size_t nLen = 0;	// line length + 1 (the terminating zero), CUtlBuffer::PeekLineLength
+		size_t i = m_nPos;
+		for ( ; i < m_Text.size(); ++i )
+		{
+			if ( m_Text[i] == '\n' || m_Text[i] == '\r' )
+			{
+				nLen = i - m_nPos + 2;
+				break;
+			}
+			if ( m_Text[i] == 0 )
+			{
+				nLen = i - m_nPos + 1;
+				break;
+			}
+		}
+		if ( i == m_Text.size() )
+			nLen = ( i == m_nPos ) ? 0 : i - m_nPos + 1;
+
+		if ( nLen == 0 )
+		{
+			m_bError = true;
+			return;
+		}
+
+		const size_t nCopy = ( nLen <= nMaxChars ) ? nLen - 1 : nMaxChars - 1;
+		m_Text.copy( pLine, nCopy, m_nPos );
+		pLine[nCopy] = 0;
+		m_nPos += nCopy;
+		if ( nLen > nMaxChars )
+			m_nPos += nLen - 1 - nMaxChars;	// (sic) CUtlBuffer leaves one character of the overlong line behind
+	}
+
+	// Skips whitespace, then reads a quoted string, a single break character or a word; returns its length, -1 at the end
+	int ParseToken( const characterset_t &breaks, char *pTokenBuf, int nMaxLen )
+	{
+		pTokenBuf[0] = 0;
+		if ( m_bError )
+			return -1;
+		while ( m_nPos < m_Text.size() && V_isspace( static_cast<unsigned char>( m_Text[m_nPos] ) ) )
+			++m_nPos;
+
+		char c = GetChar();
+		if ( c == 0 )
+			return -1;
+
+		if ( c == '\"' )
+		{
+			int nLen = 0;
+			while ( IsValid() )
+			{
+				c = GetChar();
+				if ( c == '\"' || !c )
+				{
+					pTokenBuf[nLen] = 0;
+					return nLen;
+				}
+				pTokenBuf[nLen] = c;
+				if ( ++nLen == nMaxLen )
+				{
+					pTokenBuf[nLen - 1] = 0;
+					return nMaxLen;
+				}
+			}
+			pTokenBuf[nLen] = 0;
+			return nLen;
+		}
+
+		if ( IN_CHARACTERSET( breaks, static_cast<unsigned char>( c ) ) )
+		{
+			pTokenBuf[0] = c;
+			pTokenBuf[1] = 0;
+			return 1;
+		}
+
+		int nLen = 0;
+		while ( true )
+		{
+			pTokenBuf[nLen] = c;
+			if ( ++nLen == nMaxLen )
+			{
+				pTokenBuf[nLen - 1] = 0;
+				return nMaxLen;
+			}
+			c = GetChar();
+			if ( !IsValid() )
+				break;
+
+			if ( IN_CHARACTERSET( breaks, static_cast<unsigned char>( c ) ) || c == '\"' || c <= ' ' )
+			{
+				--m_nPos;
+				break;
+			}
+		}
+
+		pTokenBuf[nLen] = 0;
+		return nLen;
+	}
+
+private:
+	char GetChar()
+	{
+		if ( m_nPos < m_Text.size() )
+			return m_Text[m_nPos++];
+		m_bError = true;
+		return 0;
+	}
+
+	std::string_view m_Text;
+	size_t m_nPos = 0;
+	bool m_bError = false;
+};
+
+static void ParseMtlLib( CTextCursor &buf )
 {
 	int nCurrentMtl = -1;
 	while ( buf.IsValid() )
@@ -60,9 +194,10 @@ void ParseMtlLib( CUtlBuffer &buf )
 			char mtlName[1024];
 			if ( sscanf( g_studiomdl.input.szLine, "newmtl %s", mtlName ) == 1 )
 			{
-				nCurrentMtl = g_MtlLib.AddToTail( );
-				g_MtlLib[nCurrentMtl].m_MtlName = mtlName;
-				g_MtlLib[nCurrentMtl].m_TgaName = "debugempty";
+				nCurrentMtl = std::ssize( g_MtlLib );
+				MtlInfo_t &mtl = g_MtlLib.emplace_back();
+				mtl.m_MtlName = mtlName;
+				mtl.m_TgaName = "debugempty";
 			}
 			continue;
 		}
@@ -84,21 +219,20 @@ void ParseMtlLib( CUtlBuffer &buf )
 	}
 }
 
-const char *FindMtlEntry( const char *pTgaName )
+static const char *FindMtlEntry( const char *pTgaName )
 {
-	int nCount = g_MtlLib.Count();
-	for ( int i = 0; i < nCount; ++i )
+	for ( const MtlInfo_t &mtl : g_MtlLib )
 	{
-		if ( !Q_stricmp( g_MtlLib[i].m_MtlName, pTgaName ) )
-			return g_MtlLib[i].m_TgaName;
+		if ( !Q_stricmp( mtl.m_MtlName.c_str(), pTgaName ) )
+			return mtl.m_TgaName.c_str();
 	}
 	return pTgaName;
-}									 
+}
 
-static bool ParseVertex( CUtlBuffer& bufParse, characterset_t &breakSet, int &v, int &t, int &n )
+static bool ParseVertex( CTextCursor& bufParse, characterset_t &breakSet, int &v, int &t, int &n )
 {
 	char	cmd[1024];
-	int nLen = bufParse.ParseToken( &breakSet, cmd, sizeof(cmd), false );
+	int nLen = bufParse.ParseToken( breakSet, cmd, sizeof(cmd) );
 	if ( nLen <= 0 )
 		return false;
 
@@ -106,23 +240,23 @@ static bool ParseVertex( CUtlBuffer& bufParse, characterset_t &breakSet, int &v,
 	n = 0;
 	t = 0;
 
-	char c = *(char*)bufParse.PeekGet();
+	char c = bufParse.Peek();
 	bool bHasTexCoord = IN_CHARACTERSET( breakSet, c ) != 0;
 	bool bHasNormal = false;
 	if ( bHasTexCoord )
 	{
 		// Snag the '/'
-		nLen = bufParse.ParseToken( &breakSet, cmd, sizeof(cmd), false );
+		nLen = bufParse.ParseToken( breakSet, cmd, sizeof(cmd) );
 		Assert( nLen == 1 );
 
-		c = *(char*)bufParse.PeekGet();
+		c = bufParse.Peek();
 		if ( !IN_CHARACTERSET( breakSet, c ) )
 		{
-			nLen = bufParse.ParseToken( &breakSet, cmd, sizeof(cmd), false );
+			nLen = bufParse.ParseToken( breakSet, cmd, sizeof(cmd) );
 			Assert( nLen > 0 );
 			t = atoi( cmd );
 
-			c = *(char*)bufParse.PeekGet();
+			c = bufParse.Peek();
 			bHasNormal = IN_CHARACTERSET( breakSet, c ) != 0;
 		}
 		else
@@ -134,10 +268,10 @@ static bool ParseVertex( CUtlBuffer& bufParse, characterset_t &breakSet, int &v,
 		if ( bHasNormal )
 		{
 			// Snag the '/'
-			nLen = bufParse.ParseToken( &breakSet, cmd, sizeof(cmd), false );
+			nLen = bufParse.ParseToken( breakSet, cmd, sizeof(cmd) );
 			Assert( nLen == 1 );
 
-			nLen = bufParse.ParseToken( &breakSet, cmd, sizeof(cmd), false );
+			nLen = bufParse.ParseToken( breakSet, cmd, sizeof(cmd) );
 			Assert( nLen > 0 );
 			n = atoi( cmd );
 		}
@@ -152,7 +286,7 @@ int Load_OBJ( s_source_t *psource )
 	int		i;
 	int		material = -1;
 
-	g_MtlLib.RemoveAll();
+	g_MtlLib.clear();
 
 	if ( !OpenGlobalFile( psource->filename ) )
 		return 0;
@@ -219,11 +353,18 @@ int Load_OBJ( s_source_t *psource )
 		if ( !Q_strncmp( g_studiomdl.input.szLine, "mtllib ", 7 ) )
 		{
 			sscanf( g_studiomdl.input.szLine, "mtllib %s", &cmd );
-			CUtlBuffer buf( 0, 0, CUtlBuffer::TEXT_BUFFER );
 
 			const std::string fullMtlLibPath = vstd::paths::join( fullDir, cmd );
-			if ( g_pFullFileSystem->ReadFile( fullMtlLibPath.c_str(), nullptr, buf ) )
+			// text mode like the filesystem's ReadFile into a text buffer
+			if ( FILE *fp = vstd::paths::open_file( fullMtlLibPath, "rt" ) )
 			{
+				std::string text;
+				char chunk[4096];
+				for ( size_t nRead; ( nRead = fread( chunk, 1, sizeof( chunk ), fp ) ) > 0; )
+					text.append( chunk, nRead );
+				fclose( fp );
+
+				CTextCursor buf( text );
 				ParseMtlLib( buf );
 			}
 			continue;
@@ -259,7 +400,7 @@ int Load_OBJ( s_source_t *psource )
 			char *pData = g_studiomdl.input.szLine + 2;
 			int nLen = Q_strlen( pData );
 
-			CUtlBuffer bufParse( pData, nLen, CUtlBuffer::TEXT_BUFFER | CUtlBuffer::READ_ONLY );
+			CTextCursor bufParse( std::string_view( pData, nLen ) );
 
 			ParseVertex( bufParse, breakSet, v0, t0, n0 );
 			ParseVertex( bufParse, breakSet, v1, t1, n1 );

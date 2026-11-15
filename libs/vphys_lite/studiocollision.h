@@ -39,8 +39,6 @@ public:
         const StudioConvertConvexParams_t &params );
 
     void CollideSetMassCenter( StudioCollide_t *pCollide, const Vector &massCenter );
-    void CollideGetAABB( Vector *pMins, Vector *pMaxs, const StudioCollide_t *pCollide,
-        const Vector &collideOrigin, const QAngle &collideAngles ) const;
 
     int CollideSize( const StudioCollide_t *pCollide ) const;
     int CollideWrite( char *pDest, const StudioCollide_t *pCollide ) const;

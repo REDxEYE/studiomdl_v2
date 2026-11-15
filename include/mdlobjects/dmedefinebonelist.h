@@ -29,7 +29,7 @@ class CDmeDefineBoneList : public CDmeMdlList
 	DEFINE_ELEMENT( CDmeDefineBoneList, CDmeMdlList );
 
 public:
-	virtual CDmAttribute *GetListAttr() { return m_DefineBones.GetAttribute(); }
+    CDmAttribute *GetListAttr() override { return m_DefineBones.GetAttribute(); }
 
 	CDmaElementArray< CDmeDefineBone > m_DefineBones;
 

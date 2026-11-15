@@ -71,14 +71,14 @@ CDependencyGraph::CDependencyGraph() :
 {
 }
 
-void CDependencyGraph::Reset( const CUtlVector< IDmeOperator * > &operators )
+void CDependencyGraph::Reset( const std::vector< IDmeOperator * > &operators )
 {
 
 
 	Cleanup();
 
-	CUtlVector< CDmAttribute * > attrs; // moved outside the loop to function as a temporary memory pool for performance
-	int on = operators.Count();
+	std::vector< CDmAttribute * > attrs; // moved outside the loop to function as a temporary memory pool for performance
+	const int on = std::ssize( operators );
 	CUtlRBTree< IDmeOperator * > operatorDict( 0, on * 2, DefLessFunc(IDmeOperator *) );
 	for ( int i = 0; i < on; ++i )
 	{
@@ -96,18 +96,18 @@ void CDependencyGraph::Reset( const CUtlVector< IDmeOperator * > &operators )
 		COperatorNode *pOpNode = g_OperatorNodePool.Alloc();
 		pOpNode->m_operator = pOp;
 
-		attrs.RemoveAll();
+		attrs.clear();
 		pOp->GetInputAttributes( attrs );
-		int an = attrs.Count();
+		int an = std::ssize( attrs );
 		for ( int ai = 0; ai < an; ++ai )
 		{
 			CAttributeNode *pAttrNode = FindAttrNode( attrs[ ai ] );
 			pAttrNode->m_InputDependentOperators.AddToTail( pOpNode );
 		}
 
-		attrs.RemoveAll();
+		attrs.clear();
 		pOp->GetOutputAttributes( attrs );
-		an = attrs.Count();
+		an = std::ssize( attrs );
 		for ( int ai = 0; ai < an; ++ai )
 		{
             CAttributeNode *pAttrNode = FindAttrNode( attrs[ ai ] );
@@ -163,7 +163,7 @@ void CDependencyGraph::Cleanup()
 	m_opRoots.RemoveAll();
 	m_opNodes.RemoveAll();
 	m_attrNodes.RemoveAll();
-	m_operators.RemoveAll();
+	m_operators.clear();
 }
 
 
@@ -226,11 +226,11 @@ bool CDependencyGraph::CullAndSortOperators()
 {
 	FindRoots();
 
-	m_operators.RemoveAll();
+	m_operators.clear();
 
 	bool cycle = GetOperatorOrdering( m_opRoots, m_operators ); // leaves to roots (outputs to inputs)
 
-	int on = m_operators.Count();
+	const int on = std::ssize( m_operators );
 	int oh = on / 2;
 	for ( int oi = 0; oi < oh; ++oi )
 	{
@@ -253,7 +253,7 @@ bool CDependencyGraph::CullAndSortOperators()
 //   (skipping children, which are attrnodes)
 //   returns true if a cycle found - in this case, an arbitrary link of the cycle will be ignored
 //-----------------------------------------------------------------------------
-bool CDependencyGraph::GetOperatorOrdering( CUtlVector< COperatorNode * > &pOpNodes, CUtlVector< IDmeOperator * > &operators )
+bool CDependencyGraph::GetOperatorOrdering( CUtlVector< COperatorNode * > &pOpNodes, std::vector< IDmeOperator * > &operators )
 {
 	bool cycle = false;
 
@@ -284,7 +284,7 @@ bool CDependencyGraph::GetOperatorOrdering( CUtlVector< COperatorNode * > &pOpNo
 			}
 		}
 
-		operators.AddToTail( pOpNode->m_operator );
+		operators.push_back( pOpNode->m_operator );
 		pOpNode->m_state = TS_VISITED; // mark as done visiting
 	}
 	return cycle;
@@ -319,11 +319,3 @@ CAttributeNode *CDependencyGraph::FindAttrNode( CDmAttribute *pAttr )
 	return pAttrNode;
 }
 
-//-----------------------------------------------------------------------------
-// temporary internal debugging function
-//-----------------------------------------------------------------------------
-void CDependencyGraph::DBG_PrintOperator( const char *pIndent, IDmeOperator *pOp )
-{
-	CDmElement *pElement = dynamic_cast< CDmElement* >( pOp );
-	Msg( "%s%s <%s> {\n", pIndent, pElement->GetName(), pElement->GetType().String() );
-}

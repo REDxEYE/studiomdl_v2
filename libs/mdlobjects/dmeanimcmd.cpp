@@ -62,14 +62,6 @@ void CDmeAnimCmdFixupLoop::OnDestruction()
 }
 
 
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-const char *CDmeAnimCmdFixupLoop::GetAssemblyDmElementTypeString()
-{
-	return CDmeFixupLoop::GetStaticTypeSymbol().String();
-}
-
 
 //-----------------------------------------------------------------------------
 // Expose this class to the scene database 
@@ -117,14 +109,6 @@ void CDmeAnimCmdSubtract::OnDestruction()
 {
 }
 
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-const char *CDmeAnimCmdSubtract::GetAssemblyDmElementTypeString()
-{
-	return CDmeSubtract::GetStaticTypeSymbol().String();
-}
-
 
 //-----------------------------------------------------------------------------
 // Expose this class to the scene database 
@@ -147,14 +131,6 @@ void CDmeAnimCmdPreSubtract::OnDestruction()
 {
 }
 
-
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-const char *CDmeAnimCmdPreSubtract::GetAssemblyDmElementTypeString()
-{
-	return CDmePreSubtract::GetStaticTypeSymbol().String();
-}
 
 
 //-----------------------------------------------------------------------------
@@ -212,14 +188,6 @@ void CDmeAnimCmdRotateTo::OnDestruction()
 {
 }
 
-
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-const char *CDmeAnimCmdRotateTo::GetAssemblyDmElementTypeString()
-{
-	return CDmeRotateTo::GetStaticTypeSymbol().String();
-}
 
 
 //-----------------------------------------------------------------------------

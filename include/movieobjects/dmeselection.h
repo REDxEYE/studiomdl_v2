@@ -34,7 +34,7 @@ public:
 	};
 
 	// resolve internal data from changed attributes
-	virtual void Resolve();
+    void Resolve() override;
 
 	// What type of component is this
 	Component_t Type() const;
@@ -131,20 +131,12 @@ class CDmeSingleIndexedComponent : public CDmeComponent
 
 public:
 	// resolve internal data from changed attributes
-	virtual void Resolve();
+    void Resolve() override;
 
 	// From CDmeComponent
-	virtual int Count() const;
-
-	bool SetType( Component_t type );
+    int Count() const override;
 
 	void AddComponent( int component, float weight = 1.0f );
-
-	void AddComponents( const CUtlVector< int > &components );
-
-	void AddComponents( const CUtlVector< int > &components, const CUtlVector< float > &weights );
-
-	void RemoveComponent( int component );
 
 	bool GetComponent( int index, int &component, float &weight ) const;
 
@@ -154,13 +146,9 @@ public:
 
 	void GetComponents( CUtlVector< int > &components, CUtlVector< float > &weights ) const;
 
-	void SetComplete( int nComplete );
-
-	int GetComplete() const;
-
 	bool HasComponent( int component ) const;
 
-	virtual void Clear();
+    void Clear() override;
 
 	void Add( const CDmeSingleIndexedComponent &rhs );
 

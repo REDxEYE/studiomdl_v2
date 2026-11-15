@@ -105,22 +105,6 @@ void CHardwareMatrixState::DeallocateAll() {
     DumpState();
 }
 
-void CHardwareMatrixState::SaveState() {
-    int i;
-
-    for (i = 0; i < m_NumMatrices; i++) {
-        m_savedMatrixState[i] = m_matrixState[i];
-    }
-}
-
-void CHardwareMatrixState::RestoreState() {
-    int i;
-
-    for (i = 0; i < m_NumMatrices; i++) {
-        m_matrixState[i] = m_savedMatrixState[i];
-    }
-}
-
 uint32_t CHardwareMatrixState::AllocatedMatrixCount() const {
     return m_AllocatedMatrices;
 }
@@ -166,15 +150,3 @@ void CHardwareMatrixState::DumpState() {
     }
 }
 
-uint32_t CHardwareMatrixState::FindHardwareMatrix(const uint32_t globalMatrixID) const {
-    for (int i = 0; i < m_NumMatrices; i++) {
-        if (m_matrixState[i].globalMatrixID == globalMatrixID) {
-            return i;
-        }
-    }
-
-    Assert(0);
-    MdlError("barfing in FindHardwareMatrix\n");
-
-    return 0;
-}

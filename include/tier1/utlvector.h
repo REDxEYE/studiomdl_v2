@@ -47,7 +47,7 @@ class CUtlVector : public base_vector_t {
 public:
     using ElemType_t = T;
     using iterator = T *;
-    using const_iterator = T *;
+    using const_iterator = const T *;
 
     // Set the growth policy and initial capacity. Count will always be zero. This is different from std::vector
     // where the constructor sets count as well as capacity.
@@ -252,15 +252,6 @@ private:
     void InPlaceQuickSort_r(int (__cdecl *pfnCompare)(const T *, const T *), int nLeft, int nRight);
 };
 
-
-// this is kind of ugly, but until C++ gets templatized typedefs in C++0x, it's our only choice
-template<class T>
-class CUtlBlockVector : public CUtlVector<T, CUtlBlockMemory<T, int> > {
-public:
-    explicit CUtlBlockVector(int growSize = 0, int initSize = 0)
-        : CUtlVector<T, CUtlBlockMemory<T, int> >(growSize, initSize) {
-    }
-};
 
 //-----------------------------------------------------------------------------
 // The CUtlVectorMT class:
@@ -989,56 +980,6 @@ void CUtlVector<T, A>::Validate(CValidator &validator, char *pchName) {
     validator.Pop();
 }
 #endif // DBGFLAG_VALIDATE
-
-// A vector class for storing pointers, so that the elements pointed to by the pointers are deleted
-// on exit.
-template<class T>
-class CUtlVectorAutoPurge : public CUtlVector<T, CUtlMemory<T, int> > {
-public:
-    ~CUtlVectorAutoPurge(void) {
-        this->PurgeAndDeleteElements();
-    }
-};
-
-// easy string list class with dynamically allocated strings. For use with V_SplitString, etc.
-// Frees the dynamic strings in destructor.
-class CUtlStringList : public CUtlVectorAutoPurge<char *> {
-public:
-    void CopyAndAddToTail(char const *pString) // clone the string and add to the end
-    {
-        char *pNewStr = new char[1 + strlen(pString)];
-        V_strcpy(pNewStr, pString);
-        AddToTail(pNewStr);
-    }
-
-    static int __cdecl SortFunc(char *const *sz1, char *const *sz2) {
-        return strcmp(*sz1, *sz2);
-    }
-
-    CUtlStringList() {
-    }
-
-    CUtlStringList(char const *pString, char const *pSeparator) {
-        SplitString(pString, pSeparator);
-    }
-
-    CUtlStringList(char const *pString, const char **pSeparators, int nSeparators) {
-        SplitString2(pString, pSeparators, nSeparators);
-    }
-
-    void SplitString(char const *pString, char const *pSeparator) {
-        V_SplitString(pString, pSeparator, *this);
-    }
-
-    void SplitString2(char const *pString, const char **pSeparators, int nSeparators) {
-        V_SplitString2(pString, pSeparators, nSeparators, *this);
-    }
-
-private:
-    CUtlStringList(const CUtlStringList &other);
-
-    // copying directly will cause double-release of the same strings; maybe we need to do a deep copy, but unless and until such need arises, this will guard against double-release
-};
 
 
 // <Sergiy> placing it here a few days before Cert to minimize disruption to the rest of codebase

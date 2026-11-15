@@ -23,7 +23,7 @@ public:
 	CImportSFMV2( char const *formatName, char const *nextFormatName );
 
 private:
-	virtual bool DoFixup( CDmElement *pSourceRoot );
+    bool DoFixup( CDmElement *pSourceRoot ) override;
 
 
 	void FixupElement( CDmElement *pElement );
@@ -95,17 +95,6 @@ char const *GetLogLayerType( int nDataType )
 	for ( int i = 0; i < c; ++i )
 	{
 		if ( nDataType == g_LayerTypes[ i ].datatype )
-			return g_LayerTypes[ i ].loglayertype;
-	}
-	return nullptr;
-}
-
-char const *GetLogLayerType( char const *logType )
-{
-	int c = ARRAYSIZE( g_LayerTypes );
-	for ( int i = 0; i < c; ++i )
-	{
-		if ( !Q_stricmp( logType, g_LayerTypes[ i ].logtype ) )
 			return g_LayerTypes[ i ].loglayertype;
 	}
 	return nullptr;

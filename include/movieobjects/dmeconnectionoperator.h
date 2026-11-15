@@ -35,7 +35,7 @@ class CDmeConnectionOperator : public CDmeOperator
 public:
 
 	// Run the operator, which copies the value from the source attribute to the destination attributes.
-	virtual void Operate();
+    void Operate() override;
 
 	// Add the input attribute used by the operator to the provided list of attributes, This is 
 	// generally used by the evaluation process to find the attributes an operator is dependent on.
@@ -47,22 +47,7 @@ public:
 	virtual void GetOutputAttributes( CUtlVector< CDmAttribute * > &attrs );
 
 	// Determine if data has changed and the operator needs to be updated
-	virtual bool IsDirty();
-
-	// Set the input attribute of the connection.
-	void SetInput( CDmElement* pElement, const char* pchAttributeName, int index = 0 );
-
-	// Add an attribute to be written to by the connection.
-	void AddOutput( CDmElement* pElement, const char* pchAttributeName, int index = 0 );
-
-	// Get the number of output attributes
-	int NumOutputAttributes() const;
-
-	// Get the specified output attribute
-	CDmAttribute *GetOutputAttribute( int index ) const;
-
-	// Get the input attribute
-	CDmAttribute *GetInputAttribute();
+    bool IsDirty() override;
 
 
 protected:

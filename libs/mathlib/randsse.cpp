@@ -70,33 +70,4 @@ void SeedRandSIMD(uint32_t seed)
 		s_SIMDRandContexts[i].Seed( seed+i );
 }
 
-fltx4 RandSIMD( int nContextIndex )
-{
-	return s_SIMDRandContexts[nContextIndex].RandSIMD();
-}
 
-int GetSIMDRandContext( void )
-{
-	for(;;)
-	{
-		for(int i=0; i < NELEMS( s_SIMDRandContexts ); i++)
-		{
-			if ( ! s_nRandContextsInUse[i] )				// available?
-			{
-				// try to take it!
-                return i;								// done!
-			}
-		}
-	}
-}
-
-void ReleaseSIMDRandContext( int nContext )
-{
-	s_nRandContextsInUse[ nContext ] = 0;
-}
-
-
-fltx4 RandSIMD( void )
-{
-	return s_SIMDRandContexts[0].RandSIMD();
-}

@@ -48,9 +48,6 @@ public:
 									const DmObjectId_t &newId,
 									DmConflictResolution_t idConflictResolution );
 
-	// Finds an element into the table
-	DmElementDictHandle_t FindElement( CDmElement *pElement );
-
  	// Hook up all element references (which were unserialized as object ids)
 	void HookUpElementReferences();
 

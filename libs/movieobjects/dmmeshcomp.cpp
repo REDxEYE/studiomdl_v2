@@ -160,22 +160,6 @@ int CDmMeshComp::CVert::PositionIndex() const
 }
 
 
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-const Vector *CDmMeshComp::CVert::Position() const
-{
-	return m_pPosition;
-}
-
-
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-const CUtlVector< int > *CDmMeshComp::CVert::VertexIndices() const
-{
-	return m_pVertexIndices;
-}
 
 
 //-----------------------------------------------------------------------------
@@ -239,17 +223,6 @@ bool CDmMeshComp::CEdge::operator==( const CEdge &rhs ) const
 		( *m_pVert0 == *rhs.m_pVert1 && *m_pVert1 == *rhs.m_pVert0 ) );
 }
 
-
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-Vector CDmMeshComp::CEdge::EdgeVector() const
-{
-	if ( m_pVert0 && m_pVert1 )
-		return *m_pVert1->Position() - *m_pVert0->Position();
-
-	return vec3_origin;
-}
 
 
 //-----------------------------------------------------------------------------
@@ -343,30 +316,6 @@ CDmMeshComp::CFace *CDmMeshComp::CreateFace( const CUtlVector< CVert * > &verts,
 }
 
 
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-int CDmMeshComp::FindFacesWithVert( int vIndex, CUtlVector< CFace * > &faces )
-{
-	// TODO: optimize this by adding a vector of face pointers to each vertex
-	faces.RemoveAll();
-
-	for ( intptr_t fi( m_faces.Head() ); fi != m_faces.InvalidIndex(); fi = m_faces.Next( fi ) )
-	{
-		CFace &face( m_faces[ fi ] );
-		for ( int i = 0; i < face.m_verts.Count(); ++i )
-		{
-			if ( face.m_verts[ i ]->PositionIndex() == vIndex )
-			{
-				faces.AddToTail( &face );
-				break;
-			}
-		}
-	}
-
-	return faces.Count();
-}
-
 
 //-----------------------------------------------------------------------------
 //
@@ -394,86 +343,3 @@ int CDmMeshComp::FindNeighbouringVerts( int vIndex, CUtlVector< CVert * > &verts
 }
 
 
-//-----------------------------------------------------------------------------
-// Find all edges that are only used by 1 face
-//-----------------------------------------------------------------------------
-int CDmMeshComp::GetBorderEdges( CUtlVector< CUtlVector< CEdge * > > &borderEdgesList )
-{
-	// TODO: optimize this by stepping from edge to edge to build chains, using CVert::m_edges
-	int retVal = 0;
-
-	borderEdgesList.RemoveAll();
-
-	bool connected;
-
-	for ( int ei = 0; ei < m_edges.Count(); ei++ )
-	{
-		CEdge *pEdge = m_edges[ ei ];
-		if ( pEdge->IsBorderEdge() )
-		{
-			++retVal;
-			connected = false;
-
-			for ( int i = borderEdgesList.Count() - 1; !connected && i >= 0; --i )
-			{
-				CUtlVector< CEdge * > &borderEdges = borderEdgesList[ i ];
-				for ( int j = borderEdges.Count() - 1; j >= 0; --j )
-				{
-					if ( borderEdges[ j ]->ConnectedTo( pEdge ) )
-					{
-						borderEdges.AddToTail( pEdge );
-						connected = true;
-						break;
-					}
-				}
-			}
-
-			if ( !connected )
-			{
-				CUtlVector< CEdge * > &borderEdges = borderEdgesList[ borderEdgesList.AddToTail() ];
-				borderEdges.AddToTail( pEdge );
-			}
-		}
-	}
-
-	// Shrink the borderEdgesList to minimum number required
-
-	bool anyConnected = false;
-	do 
-	{
-		anyConnected = false;
-
-		for ( int i = borderEdgesList.Count() - 1; i >= 0; --i )
-		{
-			CUtlVector< CEdge * > &srcBorderEdges = borderEdgesList[ i ];
-			for ( int j = srcBorderEdges.Count() - 1; j >= 0; --j )
-			{
-				CEdge *pSrcEdge = srcBorderEdges[ j ];
-				connected = false;
-
-				for ( int k = 0; !connected && k < i; ++k )
-				{
-					CUtlVector< CEdge * > &dstBorderEdges = borderEdgesList[ k ];
-					for ( int l = dstBorderEdges.Count() - 1; l >= 0; --l )
-					{
-						if ( dstBorderEdges[ l ]->ConnectedTo( pSrcEdge ) )
-						{
-							connected = true;
-							anyConnected = true;
-							dstBorderEdges.AddToTail( pSrcEdge );
-							srcBorderEdges.Remove( j );
-							break;
-						}
-					}
-				}
-			}
-
-			if ( srcBorderEdges.Count() == 0 )
-			{
-				borderEdgesList.Remove( i );
-			}
-		}
-	} while( anyConnected );
-
-	return retVal;
-}

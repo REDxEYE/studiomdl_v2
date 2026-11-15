@@ -272,9 +272,9 @@ float Interpolate(float t, const float &ti, const float &tj, LogComponents_t com
 
 // Color version
 template<>
-Color Interpolate(float t, const Color &ti, const Color &tj, LogComponents_t componentFlags) {
-    int ri, gi, bi, ai;
-    int rj, gj, bj, aj;
+Color Interpolate(const float t, const Color &ti, const Color &tj, LogComponents_t componentFlags) {
+    uint8_t ri, gi, bi, ai;
+    uint8_t rj, gj, bj, aj;
 
     ti.GetColor(ri, gi, bi, ai);
     tj.GetColor(rj, gj, bj, aj);
@@ -729,13 +729,6 @@ T TransformRelative(const matrix3x4_t &transformMatrix, const T &value) {
 }
 
 template<>
-Vector TransformRelative(const matrix3x4_t &transformMatrix, const Vector &value) {
-    Vector result;
-    VectorRotate(value, transformMatrix, result);
-    return result;
-}
-
-template<>
 Quaternion TransformRelative(const matrix3x4_t &transformMatrix, const Quaternion &rotation) {
     Quaternion result;
     Vector newAxis;
@@ -746,16 +739,6 @@ Quaternion TransformRelative(const matrix3x4_t &transformMatrix, const Quaternio
     result.y = newAxis.y * sa;
     result.z = newAxis.z * sa;
     result.w = rotation.w;
-    return result;
-}
-
-template<>
-matrix3x4_t TransformRelative(const matrix3x4_t &transformMatrix, const matrix3x4_t &value) {
-    // result = transform * value * transform-1
-    matrix3x4_t transformInv, temp, result;
-    MatrixInvert(transformMatrix, transformInv);
-    ConcatTransforms(value, transformInv, temp);
-    ConcatTransforms(transformMatrix, temp, result);
     return result;
 }
 
@@ -777,13 +760,6 @@ Quaternion TransformAbsolute(const matrix3x4_t &transformMatrix, const Quaternio
     Quaternion quat, result;
     MatrixQuaternion(transformMatrix, quat);
     QuaternionMult(quat, rotation, result);
-    return result;
-}
-
-template<>
-matrix3x4_t TransformAbsolute(const matrix3x4_t &transformMatrix, const matrix3x4_t &value) {
-    matrix3x4_t result;
-    ConcatTransforms(transformMatrix, value, result);
     return result;
 }
 
@@ -1143,10 +1119,6 @@ void CDmeLogLayer::OnConstruction() {
 void CDmeLogLayer::OnDestruction() {
 }
 
-CDmeLog *CDmeLogLayer::GetOwnerLog() {
-    return m_pOwnerLog;
-}
-
 const CDmeLog *CDmeLogLayer::GetOwnerLog() const {
     return m_pOwnerLog;
 }
@@ -1172,19 +1144,6 @@ DmeTime_t CDmeLogLayer::GetEndTime(bool bAllowInfinite) const {
     return m_times[tn - 1];
 }
 
-
-// Validates that all keys are correctly sorted in time
-bool CDmeLogLayer::ValidateKeys() const {
-    int nCount = m_times.Count();
-    for (int i = 1; i < nCount; ++i) {
-        if (m_times[i] < m_times[i - 1]) {
-            Warning("Error in log %s! Key times are out of order [keys %d->%d: %d->%d]!\n",
-                    GetName(), i - 1, i, m_times[i - 1].GetTenthsOfMS(), m_times[i].GetTenthsOfMS());
-            return false;
-        }
-    }
-    return true;
-}
 
 int CDmeLogLayer::FindKey(DmeTime_t time) const {
     int tn = m_times.Count();
@@ -1249,23 +1208,6 @@ DmeTime_t CDmeLogLayer::GetKeyTime(int nKeyIndex) const {
     return m_times[nKeyIndex];
 }
 
-
-//-----------------------------------------------------------------------------
-// Scale + bias key times
-//-----------------------------------------------------------------------------
-void CDmeLogLayer::ScaleBiasKeyTimes(double flScale, DmeTime_t nBias) {
-    // Don't waste time on the identity transform
-    if ((nBias == DMETIME_ZERO) && (fabs(flScale - 1.0) < 1e-5))
-        return;
-
-    int nCount = GetKeyCount();
-    for (int i = 0; i < nCount; ++i) {
-        DmeTime_t t = GetKeyTime(i);
-        t.SetSeconds(t.GetSeconds() * flScale);
-        t += nBias;
-        SetKeyTime(i, t);
-    }
-}
 
 
 //-----------------------------------------------------------------------------
@@ -1381,19 +1323,6 @@ int CDmeLogLayer::GetDefaultCurveType() const {
     return GetOwnerLog()->GetDefaultCurveType();
 }
 
-void CDmeLogLayer::SetKeyCurveType(int nKeyIndex, int curveType) {
-    Assert(GetOwnerLog());
-    if (!GetOwnerLog())
-        return;
-
-    Assert(GetOwnerLog()->IsUsingCurveTypes());
-    Assert(m_CurveTypes.IsValidIndex( nKeyIndex ));
-    if (!m_CurveTypes.IsValidIndex(nKeyIndex))
-        return;
-
-    m_CurveTypes.Set(nKeyIndex, curveType);
-}
-
 int CDmeLogLayer::GetKeyCurveType(int nKeyIndex) const {
     Assert(GetOwnerLog());
     if (!GetOwnerLog())
@@ -1413,33 +1342,6 @@ void CDmeLogLayer::SetInfinite(bool bLeftInfinite, bool bRightInfinite) {
     m_bRightInfinite = bRightInfinite;
 }
 
-
-//-----------------------------------------------------------------------------
-// Removes all keys outside the specified time range
-//-----------------------------------------------------------------------------
-void CDmeLogLayer::RemoveKeysOutsideRange(DmeTime_t tStart, DmeTime_t tEnd) {
-    int i;
-    int nKeysToRemove = 0;
-    int nKeyCount = m_times.Count();
-    for (i = 0; i < nKeyCount; ++i, ++nKeysToRemove) {
-        if (m_times[i] >= tStart)
-            break;
-    }
-
-    if (nKeysToRemove) {
-        RemoveKey(0, nKeysToRemove);
-    }
-
-    nKeyCount = m_times.Count();
-    for (i = 0; i < nKeyCount; ++i) {
-        if (m_times[i] > tEnd)
-            break;
-    }
-    nKeysToRemove = nKeyCount - i;
-    if (nKeysToRemove) {
-        RemoveKey(i, nKeysToRemove);
-    }
-}
 
 
 SegmentInterpolation_t CDmeLogLayer::GetSegmentInterpolationSetting(int nKeyIndex) const {
@@ -3536,25 +3438,12 @@ void CDmeCurveInfo::OnConstruction() {
 void CDmeCurveInfo::OnDestruction() {
 }
 
-// Global override for all keys unless overriden by specific key
-void CDmeCurveInfo::SetDefaultCurveType(int curveType) {
-    m_DefaultCurveType = curveType;
-}
-
 int CDmeCurveInfo::GetDefaultCurveType() const {
     return m_DefaultCurveType.Get();
 }
 
-void CDmeCurveInfo::SetMinValue(float val) {
-    m_MinValue = val;
-}
-
 float CDmeCurveInfo::GetMinValue() const {
     return m_MinValue;
-}
-
-void CDmeCurveInfo::SetMaxValue(float val) {
-    m_MaxValue = val;
 }
 
 float CDmeCurveInfo::GetMaxValue() const {
@@ -3670,16 +3559,6 @@ void CDmeTypedCurveInfo<float>::GetZeroValue(int side, float &val) const {
     }
 
     val = m_DefaultEdgeValue;
-}
-
-template<>
-bool CDmeTypedCurveInfo<float>::IsEdgeActive(int edge) const {
-    return m_bEdgeActive[edge];
-}
-
-template<>
-void CDmeTypedCurveInfo<float>::GetEdgeValue(int edge, float &value) const {
-    value = m_EdgeValue[edge];
 }
 
 template<>
@@ -3886,21 +3765,6 @@ int CDmeLog::GetKeyCount() const {
 }
 
 
-//-----------------------------------------------------------------------------
-// Scale + bias key times
-//-----------------------------------------------------------------------------
-void CDmeLog::ScaleBiasKeyTimes(double flScale, DmeTime_t nBias) {
-    // Don't waste time on the identity transform
-    if ((nBias == DMETIME_ZERO) && (fabs(flScale - 1.0) < 1e-5))
-        return;
-
-    int nCount = GetNumLayers();
-    for (int i = 0; i < nCount; ++i) {
-        CDmeLogLayer *pLayer = GetLayer(i);
-        pLayer->ScaleBiasKeyTimes(flScale, nBias);
-    }
-}
-
 
 //-----------------------------------------------------------------------------
 // Resolve - keeps non-attribute data in sync with attribute data
@@ -3931,14 +3795,6 @@ bool CDmeLog::IsUsingCurveTypes() const {
     return m_CurveInfo.GetElement() != nullptr;
 }
 
-const CDmeCurveInfo *CDmeLog::GetCurveInfo() const {
-    return m_CurveInfo.GetElement();
-}
-
-CDmeCurveInfo *CDmeLog::GetCurveInfo() {
-    return m_CurveInfo.GetElement();
-}
-
 // accessors for CurveInfo data
 int CDmeLog::GetDefaultCurveType() const {
     Assert(IsUsingCurveTypes());
@@ -3951,184 +3807,18 @@ float CDmeLog::GetMinValue() const {
     return m_CurveInfo->GetMinValue();
 }
 
-void CDmeLog::SetMinValue(float val) {
-    Assert(IsUsingCurveTypes());
-    m_CurveInfo->SetMinValue(val);
-}
-
 float CDmeLog::GetMaxValue() const {
     Assert(IsUsingCurveTypes());
     return m_CurveInfo->GetMaxValue();
 }
 
-void CDmeLog::SetMaxValue(float val) {
-    Assert(IsUsingCurveTypes());
-    m_CurveInfo->SetMaxValue(val);
-}
-
-void CDmeLog::SetKeyCurveType(int nKeyIndex, int curveType) {
-    int bestLayer = GetTopmostLayer();
-    if (bestLayer < 0)
-        return;
-
-    GetLayer(bestLayer)->SetKeyCurveType(nKeyIndex, curveType);
-}
-
-int CDmeLog::GetKeyCurveType(int nKeyIndex) const {
-    int bestLayer = GetTopmostLayer();
-    if (bestLayer < 0)
-        return CURVE_DEFAULT;
-
-    return GetLayer(bestLayer)->GetKeyCurveType(nKeyIndex);
-}
 
 
-//-----------------------------------------------------------------------------
-// Removes all keys in a certain time interval
-//-----------------------------------------------------------------------------
-bool CDmeLog::RemoveKeys(DmeTime_t tStartTime, DmeTime_t tEndTime) {
-    CDmeLogLayer *pLayer = GetLayer(GetTopmostLayer());
-
-    int nKeyCount = pLayer->GetKeyCount();
-    int nFirstRemove = -1;
-    int nLastRemove = -1;
-    for (int nKey = 0; nKey < nKeyCount; ++nKey) {
-        DmeTime_t tKeyTime = pLayer->GetKeyTime(nKey);
-        if (tKeyTime < tStartTime)
-            continue;
-        if (tKeyTime > tEndTime)
-            break;
-        if (nFirstRemove == -1) {
-            nFirstRemove = nKey;
-        }
-        nLastRemove = nKey;
-    }
-
-    if (nFirstRemove != -1) {
-        int nRemoveCount = nLastRemove - nFirstRemove + 1;
-        pLayer->RemoveKey(nFirstRemove, nRemoveCount);
-        return true;
-    }
-    return false;
-}
 
 
-//-----------------------------------------------------------------------------
-// Add keys at tStartTime and tEndTime, and remove all keys outside the range
-//-----------------------------------------------------------------------------
-void CDmeLog::TrimKeys(DmeTime_t tStartTime, DmeTime_t tEndTime) {
-    CDmeLogLayer *pLayer = GetLayer(GetTopmostLayer());
-    if (!pLayer)
-        return;
-
-    pLayer->TrimKeys(tStartTime, tEndTime);
-}
 
 
-//-----------------------------------------------------------------------------
-// Get the number of bookmark times associated with the specified component of
-// the log.
-//-----------------------------------------------------------------------------
-int CDmeLog::GetNumBookmarks(int nComponentIndex) const {
-    if (nComponentIndex < GetNumBookmarkComponents()) {
-        return m_BookmarkTimes[nComponentIndex].Count();
-    }
 
-    Assert(nComponentIndex < GetNumBookmarkComponents());
-    return -1;
-}
-
-
-//-----------------------------------------------------------------------------
-// Get the time of the specified bookmark
-//-----------------------------------------------------------------------------
-DmeTime_t CDmeLog::GetBookmarkTime(int nBookmarkIndex, int nComponentIndex) const {
-    if (nComponentIndex < GetNumBookmarkComponents()) {
-        if (nBookmarkIndex < m_BookmarkTimes[nComponentIndex].Count()) {
-            return m_BookmarkTimes[nComponentIndex][nBookmarkIndex];
-        }
-        Assert(nBookmarkIndex < m_BookmarkTimes[ nComponentIndex ].Count());
-    }
-
-    Assert(nComponentIndex < GetNumBookmarkComponents());
-    return DmeTime_t(0);
-}
-
-
-//-----------------------------------------------------------------------------
-// Add a bookmark time for the specified component. Bookmarks times are stored
-// in order, so the time will be inserted at the appropriate location in the
-// list.
-//-----------------------------------------------------------------------------
-void CDmeLog::AddBookmark(DmeTime_t time, int nComponentIndex) {
-    if (nComponentIndex >= GetNumBookmarkComponents())
-        return;
-
-    // Search the existing bookmarks to see if there is already one at the specified time.
-    CDmaArray<DmeTime_t> &times = m_BookmarkTimes[nComponentIndex];
-    int nBookmarks = times.Count();
-
-
-    for (int i = 0; i < nBookmarks; ++i) {
-        if (times[i] == time) {
-            return;
-        }
-        else if (times[i] > time) {
-            times.InsertBefore(i, time);
-            return;
-        }
-    }
-
-    times.AddToTail(time);
-}
-
-
-//-----------------------------------------------------------------------------
-// Remove the bookmark at the specified time.
-//-----------------------------------------------------------------------------
-bool CDmeLog::RemoveBookmark(DmeTime_t time, int nComponentIndex) {
-    if (nComponentIndex >= GetNumBookmarkComponents())
-        return false;
-
-    CDmaArray<DmeTime_t> &times = m_BookmarkTimes[nComponentIndex];
-    int nBookmarks = times.Count();
-
-    for (int i = 0; i < nBookmarks; ++i) {
-        if (times[i] >= time) {
-            // Remove the time entry if it matches the specified time,
-            // fast remove cannot be used because the times are sorted.
-            if (times[i] == time) {
-                times.Remove(i);
-                return true;
-            }
-            else {
-                return false;
-            }
-        }
-    }
-
-    return false;
-}
-
-
-//-----------------------------------------------------------------------------
-// Remove all bookmarks from the log
-//-----------------------------------------------------------------------------
-void CDmeLog::RemoveAllBookmarks(int nComponentIndex) {
-    if (nComponentIndex < GetNumBookmarkComponents()) {
-        m_BookmarkTimes[nComponentIndex].RemoveAll();
-    }
-}
-
-
-//-----------------------------------------------------------------------------
-// Set all of the bookmark times for the log, clearing out any previous values
-//-----------------------------------------------------------------------------
-void CDmeLog::SetAllBookmarks(int nComponentIndex, const CUtlVector<DmeTime_t> &times) {
-    if (nComponentIndex < GetNumBookmarkComponents()) {
-        m_BookmarkTimes[nComponentIndex] = times;
-    }
-}
 
 
 //-----------------------------------------------------------------------------
@@ -6969,44 +6659,6 @@ template<class T>
 void DumpLayers(const CDmeTypedLogLayer<T> *baseLayer, CDmeTypedLogLayer<T> *writeLayer) {
 }
 
-template<>
-void DumpLayers<Vector>(const CDmeTypedLogLayer<Vector> *baseLayer, CDmeTypedLogLayer<Vector> *writeLayer) {
-    int kc = baseLayer->GetKeyCount();
-    if (kc != writeLayer->GetKeyCount()) {
-        return;
-    }
-
-    for (int i = 0; i < kc; ++i) {
-        Vector v1 = baseLayer->GetKeyValue(i);
-        Vector v2 = writeLayer->GetKeyValue(i);
-
-        DmeTime_t t1 = baseLayer->GetKeyTime(i);
-        DmeTime_t t2 = writeLayer->GetKeyTime(i);
-
-        float spd1 = 0.0f;
-        float spd2 = 0.0f;
-
-        if (i > 0) {
-            DmeTime_t dt1 = t1 - baseLayer->GetKeyTime(i - 1);
-            DmeTime_t dt2 = t2 - writeLayer->GetKeyTime(i - 1);
-
-            Vector d1 = v1 - baseLayer->GetKeyValue(i - 1);
-            Vector d2 = v2 - writeLayer->GetKeyValue(i - 1);
-
-            if (dt1 > DMETIME_ZERO) {
-                spd1 = d1.Length() / dt1.GetSeconds();
-            }
-
-            if (dt2 > DMETIME_ZERO) {
-                spd2 = d2.Length() / dt2.GetSeconds();
-            }
-        }
-        Msg("%i:  %d %d v1 %.3f v2 %.3f = (%f %f %f) (%f %f %f)\n",
-            i, t1.GetTenthsOfMS(), t2.GetTenthsOfMS(),
-            spd1, spd2, VectorExpand(v1), VectorExpand(v2));
-    }
-}
-
 template<class T>
 void CDmeTypedLog<T>::HoldOrReleaseUsingTimeSelection(const DmeLog_TimeSelection_t &params, bool bHold,
                                                       const CDmeLogLayer *pBaseLayer, CDmeLogLayer *pWriteLayer) {
@@ -7662,14 +7314,6 @@ void EnsureSeparation(Vector &minVal, Vector &maxVal, float separation) {
     VectorMax(maxVal, vecForceMax, maxVal);
 }
 
-void EnsureSeparation(float &minVal, float &maxVal, float separation) {
-    float flAvg = (minVal + maxVal) * 0.5f;
-    float flForceMin = flAvg - (separation * 0.5f);
-    float flForceMax = flAvg + (separation * 0.5f);
-    minVal = MIN(minVal, flForceMin);
-    maxVal = MAX(maxVal, flForceMax);
-}
-
 
 template<>
 void CDmeTypedLog<Vector>::BuildNormalizedLayer(int nChannels, CDmeTypedLogLayer<float> **pChannels, int nLayer) {
@@ -8110,109 +7754,7 @@ CDmeLog *CDmeLog::CreateLog(DmAttributeType_t type, DmFileId_t fileid) {
 //template<> void CDmeTypedLog< QAngle >::FinishTimeSelection( DmeLog_TimeSelection_t& params ) { Assert( 0 ); }
 
 
-//-----------------------------------------------------------------------------
-// Helpers for particular types of log layers
-//-----------------------------------------------------------------------------
-void GenerateRotationLog(CDmeQuaternionLogLayer *pLayer, const Vector &vecAxis, DmeTime_t pTime[4],
-                         float pRevolutionsPerSec[4]) {
-    for (int i = 1; i < 4; ++i) {
-        if (pTime[i] < pTime[i - 1]) {
-            Warning("Bogus times passed into GenerateRotationLog\n");
-            return;
-        }
-    }
 
-    // Gets the initial value
-    matrix3x4_t initial;
-    Quaternion q = pLayer->GetValue(pTime[0]);
-    QuaternionMatrix(q, initial);
-
-    // Find the max rps, and compute the total rotation in degrees
-    // by the time we reach the transition points. The total rotation =
-    // integral from 0 to t of 360 * ( rate[i] - rate[i-1] ) t / tl + rate[i-1] )
-    // == 360 * ( ( rate[i] - rate[i-1] ) t^2 / 2 + rate[i-1] t )
-    float pTotalRotation[4];
-    float flMaxRPS = pRevolutionsPerSec[0];
-    pTotalRotation[0] = 0.0f;
-    for (int i = 1; i < 4; ++i) {
-        if (pRevolutionsPerSec[i] > flMaxRPS) {
-            flMaxRPS = pRevolutionsPerSec[i];
-        }
-        float dt = pTime[i].GetSeconds() - pTime[i - 1].GetSeconds();
-        float dRot = pRevolutionsPerSec[i] - pRevolutionsPerSec[i - 1];
-        pTotalRotation[i] = 360.0f * (dRot * dt * 0.5 + pRevolutionsPerSec[i - 1] * dt) + pTotalRotation[i - 1];
-    }
-
-    // We need to compute how long a single rotation takes, then create samples
-    // at 1/4 the frequency of that amount of time
-    VMatrix rot;
-    matrix3x4_t total;
-    QAngle angles;
-    float flMaxRotationTime = (flMaxRPS != 0.0f)
-                                  ? (0.125f / flMaxRPS)
-                                  : (pTime[3].GetSeconds() - pTime[0].GetSeconds());
-    DmeTime_t dt(flMaxRotationTime);
-    for (DmeTime_t t = pTime[0]; t <= pTime[3]; t += dt) {
-        int i = (t < pTime[1]) ? 1 : ((t < pTime[2]) ? 2 : 3);
-        float flInterval = t.GetSeconds() - pTime[i - 1].GetSeconds();
-        float flOOSegmentDur = pTime[i].GetSeconds() - pTime[i - 1].GetSeconds();
-        if (flOOSegmentDur == 0.0f) {
-            Assert(flInterval == 0.0f);
-            flOOSegmentDur = 1.0f;
-        }
-        else {
-            flOOSegmentDur = 1.0f / flOOSegmentDur;
-        }
-        float dRot = pRevolutionsPerSec[i] - pRevolutionsPerSec[i - 1];
-        float flRotation = 360.0f * (dRot * flInterval * flInterval * 0.5f * flOOSegmentDur + pRevolutionsPerSec[i - 1]
-                                     * flInterval) + pTotalRotation[i - 1];
-
-        MatrixBuildRotationAboutAxis(rot, vecAxis, flRotation);
-        ConcatTransforms(initial, rot.As3x4(), total);
-        MatrixToAngles(VMatrix(total), angles);
-        AngleQuaternion(angles, q);
-        pLayer->SetKey(t, q);
-    }
-}
-
-
-//-----------------------------------------------------------------------------
-// Transforms a position log
-//-----------------------------------------------------------------------------
-void RotatePositionLog(CDmeVector3LogLayer *pPositionLog, const matrix3x4_t &matrix) {
-    Assert(fabs( matrix[0][3] ) < 1e-3 && fabs( matrix[1][3] ) < 1e-3 && fabs( matrix[2][3] ) < 1e-3);
-    Vector position;
-    int nCount = pPositionLog->GetKeyCount();
-    for (int i = 0; i < nCount; ++i) {
-        const Vector &srcPosition = pPositionLog->GetKeyValue(i);
-        VectorTransform(srcPosition, matrix, position);
-        pPositionLog->SetKeyValue(i, position);
-    }
-}
-
-
-//-----------------------------------------------------------------------------
-// Transforms a orientation log
-//-----------------------------------------------------------------------------
-void RotateOrientationLog(CDmeQuaternionLogLayer *pOrientationLog, const matrix3x4_t &matrix,
-                          bool bPreMultiply = false) {
-    Assert(fabs( matrix[0][3] ) < 1e-3 && fabs( matrix[1][3] ) < 1e-3 && fabs( matrix[2][3] ) < 1e-3);
-    matrix3x4_t orientation, newOrientation;
-    Quaternion q;
-    int nCount = pOrientationLog->GetKeyCount();
-    for (int i = 0; i < nCount; ++i) {
-        const Quaternion &srcQuat = pOrientationLog->GetKeyValue(i);
-        QuaternionMatrix(srcQuat, orientation);
-        if (bPreMultiply) {
-            ConcatTransforms(matrix, orientation, newOrientation);
-        }
-        else {
-            ConcatTransforms(orientation, matrix, newOrientation);
-        }
-        MatrixQuaternion(newOrientation, q);
-        pOrientationLog->SetKeyValue(i, q);
-    }
-}
 
 
 float ComputeInterpolationFactor(float flFactor, int nInterpolatorType) {

@@ -18,7 +18,6 @@ public:
 	void Insert( int index );
 	bool IsPresent( int index );
 	void Flush( void );
-	void Print( void );
 private:
 	int m_Size;
 	int *m_Fifo;

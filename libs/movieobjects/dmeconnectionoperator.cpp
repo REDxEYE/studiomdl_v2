@@ -122,66 +122,7 @@ void CDmeConnectionOperator::GetOutputAttributes( CUtlVector< CDmAttribute * > &
 }
 
 
-//-------------------------------------------------------------------------------------------------
-// Purpose: Set the input attribute of the connection.
-//-------------------------------------------------------------------------------------------------
-void CDmeConnectionOperator::SetInput( CDmElement* pElement, const char* pchAttributeName, int index )
-{
-	m_Input->SetAttribute( pElement, pchAttributeName, index );
-}
 
 
-//-------------------------------------------------------------------------------------------------
-// Purpose: Add an attribute to be written to by the connection.
-//-------------------------------------------------------------------------------------------------
-void CDmeConnectionOperator::AddOutput( CDmElement* pElement, const char* pchAttributeName, int index )
-{
-	if ( ( pElement == nullptr) || ( pchAttributeName == nullptr) )
-		return;
 
-	CDmeAttributeReference *pAttrRef = CreateElement< CDmeAttributeReference >( CFmtStr( "%s_%s", pElement->GetName() , pchAttributeName ), GetFileId() );
-	if ( pAttrRef )
-	{
-		if ( pAttrRef->SetAttribute( pElement, pchAttributeName, index ) )
-		{
-			// Add the new reference to the list of outputs of the connection.
-			m_Outputs.AddToTail( pAttrRef );
-		}
-		else
-		{
-			// If the specified attribute was not valid destroy the reference.
-			g_pDataModel->DestroyElement( pAttrRef->GetHandle() );
-		}
-	}
-}
-
-
-//-------------------------------------------------------------------------------------------------
-// Purpose: Get the number of output attributes
-//-------------------------------------------------------------------------------------------------
-int CDmeConnectionOperator::NumOutputAttributes() const
-{
-	return m_Outputs.Count();
-}
-
-
-//-------------------------------------------------------------------------------------------------
-// Purpose: Get the specified output attribute
-//-------------------------------------------------------------------------------------------------
-CDmAttribute *CDmeConnectionOperator::GetOutputAttribute( int index ) const
-{
-	if ( index >= m_Outputs.Count() )
-		return nullptr;
-
-	return m_Outputs[ index ]->GetReferencedAttribute();	
-}
-
-
-//-------------------------------------------------------------------------------------------------
-// Purpose: Get the input attribute
-//-------------------------------------------------------------------------------------------------
-CDmAttribute *CDmeConnectionOperator::GetInputAttribute()
-{
-	return m_Input.GetAttribute();
-}
 

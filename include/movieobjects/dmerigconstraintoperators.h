@@ -74,15 +74,6 @@ public:
 	// Clear the position and rotation offset
 	void ClearOffset();
 
-	// Find the channel driving the weight value of the constraint
-	CDmeChannel *FindWeightChannel() const;
-
-	// Get the constraint to which the target belongs.
-	CDmeRigBaseConstraintOperator *GetConstraint();
-
-	// Find the control attached to constraint's weight
-	CDmElement *FindWeightControl() const;
-
 	// Get the dag node that is the source of the target
 	CDmeDag *GetDag() { return m_Handle; }
 
@@ -177,7 +168,7 @@ public:
 	virtual EConstraintType GetConstraintType() const { Error( "Derived must implement" ); return CT_UNKNOWN; }
 	virtual EAddType GetInputAttributeType() const { Error( "Derived must implement" ); return AA_TYPE_UNKNOWN; };
 	virtual EAddType GetOutputAttributeType() const { Error( "Derived must implement" ); return AA_TYPE_UNKNOWN; };
-	virtual void Operate() { Error( "Derived must implement" ); };
+    void Operate() override { Error( "Derived must implement" ); };
 
 	// Determine if data has changed and the operator needs to be updated
 	// FIXME:  Each op type should check extra fields
@@ -202,40 +193,16 @@ public:
 	virtual void ReconnectTransformChannels();
 
 	// Find all of the operators the evaluation of the constraint operator is dependent on
-	virtual void GatherInputOperators( CUtlVector< CDmeOperator * > &operatorList );
+    void GatherInputOperators( std::vector< CDmeOperator * > &operatorList ) override;
 
 	// Get a pointer to the dag node the constraint is controlling
 	virtual const CDmeDag *GetSlave() const;
-
-	// Add target handles to the the constraint with the specified weights
-	void AddHandles( int nCount, CDmeDag *const pRigHandles[], const float *pflWeights, bool bPreserveOffset, CUtlVector< CDmeConstraintTarget* > *pTargetList );
-
-	// Remove all target handles from the constraint
-	void ClearHandles();
-	
-	// Set the dag node which the constraint is controlling
-	void SetSlave( CDmeDag *pSlave );
-
-	// Set the operating mode of the constraint
-	void SetMode( RigOperatorMode_t mode );
 
 	// Get the list of target handles used by the constraint
 	const CDmaElementArray< CDmeConstraintTarget > &GetTargets() const { return m_Targets; }
 
 	// Get the constraint slave
 	const CDmeConstraintSlave* GetConstraintSlave() const { return m_Slave.GetElement(); }
-
-	// Find the constraint target for the specified dag node
-	CDmeConstraintTarget *FindConstraintTargetForDag( CDmeDag* pDag ) const;
-
-	// Find all of the constraints that target the specified dag node
-	static void FindDagConstraints( const CDmeDag *pDagNode, CUtlVector< CDmeRigBaseConstraintOperator* > &constraintList );
-
-	// Find the constraint on the dag of the specified type
-	static CDmeRigBaseConstraintOperator *FindDagConstraint( CDmeDag *pDag, EConstraintType constraintType );
-
-	// Get the string name associated with the specified constraint type.
-	static char const *ConstraintTypeName( EConstraintType eType );
 
 protected:
 
@@ -281,12 +248,12 @@ public:
 	DEFINE_ELEMENT( CDmeRigPointConstraintOperator, CDmeRigBaseConstraintOperator );
 
 public:
+    EConstraintType GetConstraintType() const override { return CT_POINT; }
 
-	virtual EConstraintType GetConstraintType() const { return CT_POINT; }
+    void Operate() override;
 
-	virtual void Operate();
-	virtual EAddType GetInputAttributeType() const { return (EAddType)( AA_TYPE_POSITION | AA_TYPE_ORIENTATION ); } // Requires position and orientation, orientation is needed for offset
-	virtual EAddType GetOutputAttributeType() const { return AA_TYPE_POSITION; } // Only writes position of destination bone
+    EAddType GetInputAttributeType() const override { return (EAddType)( AA_TYPE_POSITION | AA_TYPE_ORIENTATION ); } // Requires position and orientation, orientation is needed for offset
+    EAddType GetOutputAttributeType() const override { return AA_TYPE_POSITION; } // Only writes position of destination bone
 };
 
 
@@ -301,12 +268,12 @@ public:
 	DEFINE_ELEMENT( CDmeRigOrientConstraintOperator, CDmeRigBaseConstraintOperator );
 
 public:
+    EConstraintType GetConstraintType() const override { return CT_ORIENT; }
 
-	virtual EConstraintType GetConstraintType() const { return CT_ORIENT; }
+    void Operate() override;
 
-	virtual void Operate();
-	virtual EAddType GetInputAttributeType() const { return AA_TYPE_ORIENTATION; } // Uses just orientations of handles
-	virtual EAddType GetOutputAttributeType() const { return AA_TYPE_ORIENTATION; } // Only writes orientation of destination bone
+    EAddType GetInputAttributeType() const override { return AA_TYPE_ORIENTATION; } // Uses just orientations of handles
+    EAddType GetOutputAttributeType() const override { return AA_TYPE_ORIENTATION; } // Only writes orientation of destination bone
 };
 
 
@@ -320,30 +287,22 @@ public:
 	DEFINE_ELEMENT( CDmeRigAimConstraintOperator, CDmeRigBaseConstraintOperator );
 
 public:
+    EConstraintType GetConstraintType() const override { return CT_AIM; }
 
-	virtual EConstraintType GetConstraintType() const { return CT_AIM; }
+    void Operate() override;
 
-	virtual void Operate();
-	virtual void GetInputAttributes( CUtlVector< CDmAttribute * > &attrs );
-	virtual EAddType GetInputAttributeType() const { return AA_TYPE_POSITION; } // Uses just positions of handles
-	virtual EAddType GetOutputAttributeType() const { return AA_TYPE_ORIENTATION; } // Only writes angle of destination bone
+    void GetInputAttributes( CUtlVector< CDmAttribute * > &attrs ) override;
 
-	virtual void PostHandlesAdded( bool bPreserveOffset );
+    EAddType GetInputAttributeType() const override { return AA_TYPE_POSITION; } // Uses just positions of handles
+    EAddType GetOutputAttributeType() const override { return AA_TYPE_ORIENTATION; } // Only writes angle of destination bone
 
-	// Set the world up vector in the space of the provided dag node and update the offset 
-	void SetUpVector( const Vector &upVector, bool bPreserveOffset, const CDmeDag *pUpSpaceTarget );
-
-	// Set the type of up vector, from CConstraintBones::AimConstraintUpType_t
-	void SetUpType( int nUpType );
+    void PostHandlesAdded( bool bPreserveOffset ) override;
 
 private:
 
 	// Calculate the orientation needed to make a transform with the specified forward vector
 	void AimAt( const Vector &vecForward, const Vector &referenceUp, Quaternion &q );
 
-	// Re-calculate the offset value based on the target location and the current orientation of the slave
-	void UpdateOffset( bool bPreserveOffset );
-	
 	// Calculate the orientation to apply to the slave to make it look at the target position.
 	float CalculateOrientation( Quaternion &targetOrientation );
 
@@ -366,26 +325,15 @@ public:
 	DEFINE_ELEMENT( CDmeRigRotationConstraintOperator, CDmeRigBaseConstraintOperator );
 
 public:
-
-
-	virtual EConstraintType GetConstraintType() const { return CT_ROTATION; }
-	virtual EAddType GetInputAttributeType() const { return AA_TYPE_UNKNOWN; }		// Does not use target input values
-	virtual EAddType GetOutputAttributeType() const { return AA_TYPE_ORIENTATION; } // Only writes orientation of destination dag
+    EConstraintType GetConstraintType() const override { return CT_ROTATION; }
+    EAddType GetInputAttributeType() const override { return AA_TYPE_UNKNOWN; }		// Does not use target input values
+    EAddType GetOutputAttributeType() const override { return AA_TYPE_ORIENTATION; } // Only writes orientation of destination dag
 
 	// Run the operator, this calculates the quaternion orientation by concatenating the axis angle rotations.
-	virtual void Operate();
+    void Operate() override;
 
 	// Get the list of input attributes the operation is dependent on this includes all of the axis values and rotations
-	virtual void GetInputAttributes( CUtlVector< CDmAttribute * > &attrs );
-
-	// Add a rotation axis
-	int AddAxis( const Vector &axis );
-
-	// Set the axis around which the rotation is to occur
-	void SetAxis( const Vector &axis, int index);
-
-	// Set current rotation value
-	void SetRotation( float rotation, int index );
+    void GetInputAttributes( CUtlVector< CDmAttribute * > &attrs ) override;
 
 private:
 
@@ -404,12 +352,12 @@ public:
 	DEFINE_ELEMENT( CDmeRigParentConstraintOperator, CDmeRigBaseConstraintOperator );
 
 public:
+    EConstraintType GetConstraintType() const override { return CT_PARENT; }
 
-	virtual EConstraintType GetConstraintType() const { return CT_PARENT; }
+    void Operate() override;
 
-	virtual void Operate();
-	virtual EAddType GetInputAttributeType() const { return (EAddType)( AA_TYPE_POSITION | AA_TYPE_ORIENTATION); } // Uses both position and orientations of handles
-	virtual EAddType GetOutputAttributeType() const { return (EAddType)( AA_TYPE_POSITION | AA_TYPE_ORIENTATION); } // Writes full transform of destination object
+    EAddType GetInputAttributeType() const override { return (EAddType)( AA_TYPE_POSITION | AA_TYPE_ORIENTATION); } // Uses both position and orientations of handles
+    EAddType GetOutputAttributeType() const override { return (EAddType)( AA_TYPE_POSITION | AA_TYPE_ORIENTATION); } // Writes full transform of destination object
 
 private:
 
@@ -417,7 +365,7 @@ private:
 	float ComputeTargetPositionOrientation( Vector &wsTargetPos, Quaternion &wsTargetOrientation );
 
 	// Compute the offsets of the specified target based on the relative transforms of the target to the slave
-	virtual void ComputeOffset( Vector &vOffset, Quaternion &qOffset, CDmeConstraintTarget *pTarget, bool bPreserveOffset );
+    void ComputeOffset( Vector &vOffset, Quaternion &qOffset, CDmeConstraintTarget *pTarget, bool bPreserveOffset ) override;
 
 };
 
@@ -432,48 +380,40 @@ public:
 	DEFINE_ELEMENT( CDmeRigIKConstraintOperator, CDmeRigBaseConstraintOperator );
 
 public:
+    EConstraintType GetConstraintType() const override { return CT_IK; }
 
-	virtual EConstraintType GetConstraintType() const { return CT_IK; }
+    void Operate() override;
 
-	virtual void Operate();
-	virtual EAddType GetInputAttributeType() const { return AA_TYPE_POSITION; } // Uses just positions of handles
-	virtual EAddType GetOutputAttributeType() const { Assert( 0 ); return AA_TYPE_UNKNOWN; } // Only writes angle of destination bone
+    EAddType GetInputAttributeType() const override { return AA_TYPE_POSITION; } // Uses just positions of handles
+    EAddType GetOutputAttributeType() const override { Assert( 0 ); return AA_TYPE_UNKNOWN; } // Only writes angle of destination bone
 
 	// Overridden
-	virtual void GetInputAttributes( CUtlVector< CDmAttribute * > &attrs );
-	virtual void GetOutputAttributes( CUtlVector< CDmAttribute * > &attrs );
+    void GetInputAttributes( CUtlVector< CDmAttribute * > &attrs ) override;
+
+    void GetOutputAttributes( CUtlVector< CDmAttribute * > &attrs ) override;
 
 	// Find all of the channels relevant to all of the target handles 
-	virtual void GatherInputOperators( CUtlVector< CDmeOperator * > &operatorList );
+    void GatherInputOperators( std::vector< CDmeOperator * > &operatorList ) override;
 
 	// Disconnect the channels driving the slave dag nodes from the dag transforms and connect them to the constraint
-	virtual void DisconnectTransformChannels();
+    void DisconnectTransformChannels() override;
 
 	// Reconnect the base channels of each slave directly to the dag
-	virtual void ReconnectTransformChannels();
-
-	// Assign the joints that are to be controlled
-	void SetJoints( CDmeDag *pStartJoint, CDmeDag *pMidJoint, CDmeDag *pEndJoint );
-
-	// Set the pole vector which determines the direction the middle joint is to be moved within the plane
-	void SetPoleVector( const Vector &worldPos );
-
-	// Set the pole vector target, a dag node toward which the pole vector will point, overrides the standard pole vector.
-	void SetPoleVectorTarget( CDmeDag *pPoleVectorTarget );
+    void ReconnectTransformChannels() override;
 
 	// Validates that the start and end effector are set up and that there is only one intermediate bone between them forming a 2 bone ik chain.
 	bool Setup( bool bPreserveOffset );
 
 	// Get a pointer to the dag node the constraint is controlling
-	virtual const CDmeDag *GetSlave() const;
+    const CDmeDag *GetSlave() const override;
 
 	// Determine if the the constraint has slave with the specified name, for the ik constraint this is always false.
-	virtual bool IsSlaveObject( char const *pchName ) const;
+    bool IsSlaveObject( char const *pchName ) const override;
 
 private:
 
 	// Compute the offsets of the specified target based on the relative transforms of the target to the slave
-	virtual void ComputeOffset( Vector &vOffset, Quaternion &qOffset, CDmeConstraintTarget *pTarget, bool bPreserveOffset );
+    void ComputeOffset( Vector &vOffset, Quaternion &qOffset, CDmeConstraintTarget *pTarget, bool bPreserveOffset ) override;
 
 	// Calculate the orientation needed to make a transform with the specified forward vector
 	void AimAt( const Vector &vecForward, const Vector &referenceUp, Quaternion &q );
@@ -535,9 +475,6 @@ public:
 	// Sets the value of the m_bInverse attribute
 	void SetUpAxis( const Vector &vUpAxis ) { m_vUpAxis = vUpAxis; }
 
-	// Get the Target dag that is the child joint
-	bool SetTargets( CDmeDag *pDmeDagParent, CDmeDag *pDmeDagChild );
-
 	// Get the Target dag that is the parent joint
 	CDmeDag *GetParentTarget() const;
 
@@ -546,9 +483,6 @@ public:
 
 	// Remove all slaves
 	void ClearSlaves();
-
-	// Add slave
-	int AddSlave( CDmeDag *pDmeDagSlave, float flWeight );
 
 	// Get slave count
 	int SlaveCount() const { return m_eSlaves.Count(); }
@@ -562,46 +496,38 @@ public:
 	// Get parent bind rotation
 	const Quaternion &GetParentBindRotation() const { return m_qParentBindRotation; }
 
-	// Get parent bind rotation
-	void SetParentBindRotation( const Quaternion &qBindRotation );
-
 	// Get child bind rotation
 	const Quaternion &GetChildBindRotation() const { return m_qChildBindRotation; }
-
-	// Get child bind rotation
-	void SetChildBindRotation( const Quaternion &qBindRotation );
 
 	// Get slave bind rotation
 	const Quaternion &GetSlaveBindOrientation( int i ) const;
 
-	// Get slave bind rotation
-	void SetSlaveBindOrientation( const Quaternion &qBindRotation, int i );
-
 	// From CDmeRigBaseConstraintOperator
-	virtual EConstraintType GetConstraintType() const { return CT_TWIST; }
+    EConstraintType GetConstraintType() const override { return CT_TWIST; }
 
-	virtual void Operate();
-	virtual EAddType GetInputAttributeType() const { return (EAddType)( AA_TYPE_POSITION | AA_TYPE_ORIENTATION ); } // Requires position and orientation
-	virtual EAddType GetOutputAttributeType() const { return AA_TYPE_ORIENTATION; } // Only writes orientation of destination bone
+    void Operate() override;
+
+    EAddType GetInputAttributeType() const override { return (EAddType)( AA_TYPE_POSITION | AA_TYPE_ORIENTATION ); } // Requires position and orientation
+    EAddType GetOutputAttributeType() const override { return AA_TYPE_ORIENTATION; } // Only writes orientation of destination bone
 
 	// Overridden
-	virtual void GetOutputAttributes( CUtlVector< CDmAttribute * > &attrs );
+    void GetOutputAttributes( CUtlVector< CDmAttribute * > &attrs ) override;
 
 	// Get a pointer to the dag node the constraint is controlling
-	virtual const CDmeDag *GetSlave() const;
+    const CDmeDag *GetSlave() const override;
 
 	// Determine if the the constraint has slave with the specified name, for the ik constraint this is always false.
-	virtual bool IsSlaveObject( char const *pchName ) const;
+    bool IsSlaveObject( char const *pchName ) const override;
 
 private:
 	// Compute the offsets of the specified target based on the relative transforms of the target to the slave
-	virtual void ComputeOffset( Vector &vOffset, Quaternion &qOffset, CDmeConstraintTarget *pTarget, bool bPreserveOffset );
+    void ComputeOffset( Vector &vOffset, Quaternion &qOffset, CDmeConstraintTarget *pTarget, bool bPreserveOffset ) override;
 
 	// Disconnect the channels driving the slave dag nodes from the dag transforms and connect them to the constraint
-	virtual void DisconnectTransformChannels();
+    void DisconnectTransformChannels() override;
 
 	// Reconnect the base channels of each slave directly to the dag
-	virtual void ReconnectTransformChannels();
+    void ReconnectTransformChannels() override;
 	CDmaVar< bool > m_bInverse;
 	CDmaVar< Vector > m_vUpAxis;
 	CDmaArray< float > m_flWeights;

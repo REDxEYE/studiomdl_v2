@@ -23,7 +23,7 @@ class CDmeTimeFrame : public CDmElement
 
 public:
 	// Methods of IDmElement
-	virtual void	OnAttributeChanged( CDmAttribute *pAttribute );
+    void	OnAttributeChanged( CDmAttribute *pAttribute ) override;
 
 	DmeTime_t ToChildMediaTime( DmeTime_t t, bool bClamp = true ) const;
 	DmeTime_t FromChildMediaTime( DmeTime_t t, bool bClamp = true ) const;
@@ -43,8 +43,6 @@ public:
 	void SetTimeOffset( DmeTime_t offset );
 	void SetTimeScale( float flScale );
 
-	void SetEndTime( DmeTime_t endTime, bool bChangeDuration );
-	void SetTimeScale( float flScale, DmeTime_t scaleCenter, bool bChangeDuration );
 
 private:
 	CDmaTime m_Start;

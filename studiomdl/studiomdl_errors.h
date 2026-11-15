@@ -11,6 +11,6 @@ void MdlExceptionFilter(uint32_t code);
 LONG __stdcall VExceptionFilter(struct _EXCEPTION_POINTERS *ExceptionInfo);
 
 class CMdlLoggingListener : public CCmdLibStandardLoggingListener {
-    virtual void Log(const LoggingContext_t *pContext, const tchar *pMessage);
+    void Log(const LoggingContext_t *pContext, const tchar *pMessage) override;
 };
 

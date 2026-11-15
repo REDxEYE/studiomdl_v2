@@ -7,6 +7,7 @@
 #pragma once
 
 
+#include <vector>
 #include "tier1/utlvector.h"
 #include "tier1/utlsymbollarge.h"
 #include "datamodel/dmattributetypes.h"
@@ -80,13 +81,13 @@ public:
 
 	virtual DmPhase_t GetPhase() = 0;
 
-	virtual void SetOperators( const CUtlVector< IDmeOperator* > &operators ) = 0;
+	virtual void SetOperators( const std::vector< IDmeOperator* > &operators ) = 0;
 
 	virtual void BeginEdit() = 0; // ends in edit phase, forces apply/resolve if from edit phase
 	virtual void Operate( bool bResolve ) = 0; // ends in output phase
 	virtual void Resolve() = 0;
 
-	virtual const CUtlVector< IDmeOperator* > &GetSortedOperators() const = 0;
+	virtual const std::vector< IDmeOperator* > &GetSortedOperators() const = 0;
 };
 
 
@@ -110,12 +111,14 @@ extern IDmElementFramework *g_pDmElementFramework;
 class IDmeOperator
 {
 public:
-	virtual bool IsDirty() = 0; // ie needs to operate
+    virtual ~IDmeOperator() = default;
+
+    virtual bool IsDirty() = 0; // ie needs to operate
 	virtual void Operate() = 0;
 	virtual const char* GetOperatorName() const { return "Unknown"; }
 
-	virtual void GetInputAttributes ( CUtlVector< CDmAttribute * > &attrs ) = 0;
-	virtual void GetOutputAttributes( CUtlVector< CDmAttribute * > &attrs ) = 0;
+	virtual void GetInputAttributes ( std::vector< CDmAttribute * > &attrs ) = 0;
+	virtual void GetOutputAttributes( std::vector< CDmAttribute * > &attrs ) = 0;
 
 	virtual void SetSortKey( int key ) = 0;
 	virtual int GetSortKey() const = 0;
@@ -498,61 +501,6 @@ private:
 		}														\
 	}
 
-
-//-----------------------------------------------------------------------------
-// Purpose: Simple helper class to disable notifications when in scope
-//-----------------------------------------------------------------------------
-class CChangeNotifyScopeGuard
-{
-public:
-	CChangeNotifyScopeGuard( bool bNewState )
-	{
-		m_bReleased = false;
-		m_bOldValue = g_pDataModel->IsSuppressingNotify();
-		g_pDataModel->SetSuppressingNotify( bNewState );
-	};
-
-	~CChangeNotifyScopeGuard()
-	{
-		Release();
-	}
-
-	void Release()
-	{
-		// Releases the guard...
-		if ( !m_bReleased )
-		{
-			g_pDataModel->SetSuppressingNotify( m_bOldValue );
-			m_bReleased = true;
-		}
-	}
-
-private:
-	bool m_bOldValue;
-	bool m_bReleased;
-};
-
-class CDisableNotifyScopeGuard : public CChangeNotifyScopeGuard
-{
-	typedef CChangeNotifyScopeGuard BaseClass;
-
-public:
-	CDisableNotifyScopeGuard() : BaseClass( true ) { }
-
-private:
-	CDisableNotifyScopeGuard( const CDisableNotifyScopeGuard& g );
-};
-
-class CEnableNotifyScopeGuard : public CChangeNotifyScopeGuard
-{
-	typedef CChangeNotifyScopeGuard BaseClass;
-
-public:
-	CEnableNotifyScopeGuard( ) : BaseClass( false ) { }
-
-private:
-	CEnableNotifyScopeGuard( const CEnableNotifyScopeGuard& g );
-};
 
 
 //-----------------------------------------------------------------------------

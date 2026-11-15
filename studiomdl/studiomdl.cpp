@@ -67,23 +67,6 @@ void CreateMakefile_AddDependency(const char *pFileName) {
     }
 }
 
-// Command-line number parsing; QC tokens use ScriptTokenizer::TokenInt/TokenFloat.
-int verify_atoi(const char *text) {
-    for (int i = 0; i < strlen(text); i++) {
-        if (text[i] != '-' && (text[i] < '0' || text[i] > '9'))
-            MdlError("expecting integer, got \"{}\"\n", text);
-    }
-    return atoi(text);
-}
-
-float verify_atof(const char *text) {
-    for (int i = 0; i < strlen(text); i++) {
-        if (text[i] != '-' && text[i] != '.' && (text[i] < '0' || text[i] > '9'))
-            MdlError("expecting float, got \"{}\"\n", text);
-    }
-    return atof(text);
-}
-
 //-----------------------------------------------------------------------------
 // Read global input into common string
 //-----------------------------------------------------------------------------
@@ -119,7 +102,7 @@ int LookupPoseParameter(const char *name) {
 // Stuff for writing a makefile to build models incrementally.
 //-----------------------------------------------------------------------------
 s_sourceanim_t *FindSourceAnim(s_source_t *pSource, const char *pAnimName) {
-    int nCount = pSource->m_Animations.Count();
+    const int nCount = std::ssize(pSource->m_Animations);
     for (int i = 0; i < nCount; ++i) {
         s_sourceanim_t *pAnim = &pSource->m_Animations[i];
         if (vstd::iequals(pAnimName, pAnim->animationname))
@@ -132,7 +115,7 @@ const s_sourceanim_t *FindSourceAnim(const s_source_t *pSource, const char *pAni
     if (!pAnimName[0])
         return nullptr;
 
-    int nCount = pSource->m_Animations.Count();
+    const int nCount = std::ssize(pSource->m_Animations);
     for (int i = 0; i < nCount; ++i) {
         const s_sourceanim_t *pAnim = &pSource->m_Animations[i];
         if (vstd::iequals(pAnimName, pAnim->animationname))
@@ -145,16 +128,14 @@ s_sourceanim_t *FindOrAddSourceAnim(s_source_t *pSource, const char *pAnimName) 
     if (!pAnimName[0])
         return nullptr;
 
-    int nCount = pSource->m_Animations.Count();
+    const int nCount = std::ssize(pSource->m_Animations);
     for (int i = 0; i < nCount; ++i) {
         s_sourceanim_t *pAnim = &pSource->m_Animations[i];
         if (vstd::iequals(pAnimName, pAnim->animationname))
             return pAnim;
     }
 
-    int nIndex = pSource->m_Animations.AddToTail();
-    s_sourceanim_t *pAnim = &pSource->m_Animations[nIndex];
-    memset(pAnim, 0, sizeof(s_sourceanim_t));
+    s_sourceanim_t *pAnim = &pSource->m_Animations.emplace_back();
     Q_strncpy(pAnim->animationname, pAnimName, sizeof(pAnim->animationname));
     return pAnim;
 }
@@ -387,10 +368,10 @@ bool CConstraintBoneBase::operator==(const CConstraintBoneBase &rhs) const {
     if (m_slave != rhs.m_slave)
         return false;
 
-    if (m_targets.Count() != rhs.m_targets.Count())
+    if (m_targets.size() != rhs.m_targets.size())
         return false;
 
-    for (int i = 0; i < m_targets.Count(); ++i) {
+    for (size_t i = 0; i < m_targets.size(); ++i) {
         if (m_targets[i] != rhs.m_targets[i])
             return false;
     }
@@ -411,7 +392,8 @@ int CClampedSource::AddNewVert(s_source_t *pOrigSource, int nVert, int nSrcMesh,
     nVert += (nPreOffset + pOrigSource->meshes[nSrcMesh].vertexoffset);
 
     if (m_nOrigMap[nVert] == -1) {
-        m_nOrigMap[nVert] = m_vertex.AddToTail(pOrigSource->vertex[nVert - nPreOffset]);
+        m_nOrigMap[nVert] = std::ssize(m_vertex);
+        m_vertex.push_back(pOrigSource->vertex[nVert - nPreOffset]);
 
         if (m_meshes[nDstMesh].numvertices == 0) {
             m_meshes[nDstMesh].vertexoffset = m_nOrigMap[nVert];
@@ -424,11 +406,9 @@ int CClampedSource::AddNewVert(s_source_t *pOrigSource, int nVert, int nSrcMesh,
 
 void CClampedSource::AddAnimations(const s_source_t *pOrigSource) {
     // invert the vertex mapping (maps the new index to the original index)
-    CUtlVector<int> nReverseMap;
-    int numvertices = m_vertex.Count();
-    nReverseMap.AddMultipleToTail(numvertices);
+    const int numvertices = std::ssize(m_vertex);
+    std::vector<int> nReverseMap(numvertices, -1);
     if (numvertices > 0) {
-        memset(nReverseMap.Base(), 0xffffffff, numvertices * sizeof(int));
         for (int i = 0; i < pOrigSource->numvertices; i++) {
             if (m_nOrigMap[i] != -1) {
                 Assert(nReverseMap[m_nOrigMap[i]] == -1);
@@ -441,7 +421,7 @@ void CClampedSource::AddAnimations(const s_source_t *pOrigSource) {
     }
 
     // copy animations
-    int nAnimations = pOrigSource->m_Animations.Count();
+    const int nAnimations = std::ssize(pOrigSource->m_Animations);
     for (int nAnim = 0; nAnim < nAnimations; nAnim++) {
         const s_sourceanim_t &srcAnim = pOrigSource->m_Animations[nAnim];
         if (srcAnim.vanim_mapcount || srcAnim.vanim_map || srcAnim.vanim_flag) {
@@ -450,19 +430,18 @@ void CClampedSource::AddAnimations(const s_source_t *pOrigSource) {
             continue;
         }
 
-        s_sourceanim_t &dstAnim = m_Animations[m_Animations.AddToTail()];
-        memset(&dstAnim, 0, sizeof(dstAnim));
+        s_sourceanim_t &dstAnim = m_Animations.emplace_back();
 
         // bone anims can be copied as-is
         memcpy(dstAnim.animationname, srcAnim.animationname, sizeof(dstAnim.animationname));
         dstAnim.numframes = srcAnim.numframes;
         dstAnim.startframe = srcAnim.startframe;
         dstAnim.endframe = srcAnim.endframe;
-        dstAnim.rawanim.RemoveAll();
-        dstAnim.rawanim.AddMultipleToTail(srcAnim.rawanim.Count());
-        for (int i = 0; i < srcAnim.rawanim.Count(); i++) {
+        dstAnim.rawanim.clear();
+        dstAnim.rawanim.resize(srcAnim.rawanim.size());
+        for (size_t i = 0; i < srcAnim.rawanim.size(); i++) {
             dstAnim.rawanim[i] = new s_bone_t[pOrigSource->numbones];
-            memcpy(dstAnim.rawanim.Element(i), srcAnim.rawanim.Element(i), pOrigSource->numbones * sizeof(s_bone_t));
+            memcpy(dstAnim.rawanim[i], srcAnim.rawanim[i], pOrigSource->numbones * sizeof(s_bone_t));
         }
 
         // vertex animations need remapping
@@ -497,13 +476,13 @@ void CClampedSource::AddAnimations(const s_source_t *pOrigSource) {
 
 void CClampedSource::Copy(s_source_t *pDstSource) {
     // copy over new meshes
-    pDstSource->numfaces = m_face.Count();
+    pDstSource->numfaces = std::ssize(m_face);
     pDstSource->face = (s_face_t *) calloc(pDstSource->numfaces, sizeof(s_face_t));
     for (int i = 0; i < pDstSource->numfaces; i++) {
         pDstSource->face[i] = m_face[i];
     }
 
-    pDstSource->numvertices = m_vertex.Count();
+    pDstSource->numvertices = std::ssize(m_vertex);
     pDstSource->vertex = (s_vertexinfo_t *) calloc(pDstSource->numvertices, sizeof(s_vertexinfo_t));
     for (int i = 0; i < pDstSource->numvertices; i++) {
         pDstSource->vertex[i] = m_vertex[i];
@@ -512,16 +491,9 @@ void CClampedSource::Copy(s_source_t *pDstSource) {
     // the piece's meshes, in the original source's mesh order
     pDstSource->meshes = m_meshes;
 
-    // copy over new animations (just copy the structs, pointers and all)
-    int nAnimations = m_Animations.Count();
-    pDstSource->m_Animations.RemoveAll(); // NOTE: this leaks, but we just dont care
-    pDstSource->m_Animations.SetCount(nAnimations);
-    for (int i = 0; i < nAnimations; i++) {
-        memcpy(&pDstSource->m_Animations[i], &m_Animations[i], sizeof(s_sourceanim_t));
-        // Clear the source structure so its embedded CUtlVectorAuto thinks it's empty upon destruction:
-        memset(&m_Animations[i], 0, sizeof(s_sourceanim_t));
-    }
-    m_Animations.RemoveAll();
+    // move over the new animations (the source's old animations leak, but we just dont care)
+    pDstSource->m_Animations = std::move(m_Animations);
+    m_Animations.clear();
 }
 
 void CClampedSource::CopyFlexKeys(const s_source_t *pOrigSource, s_source_t *pNewSource, int imodel) {
@@ -535,8 +507,8 @@ void CClampedSource::CopyFlexKeys(const s_source_t *pOrigSource, s_source_t *pNe
 
 // TODO: need to change g_defaultflexkey so it works with this (set a flag on the default flexkey (error if the user sets two defaults), duplicate the flag with that flexkey in here, update RemapVertexAnimations to use the flag)
 
-    pNewSource->m_FlexKeys.RemoveAll();
-    for (int i = 0; i < pOrigSource->m_FlexKeys.Count(); i++) {
+    pNewSource->m_FlexKeys.clear();
+    for (size_t i = 0; i < pOrigSource->m_FlexKeys.size(); i++) {
         const s_flexkey_t &origKey = pOrigSource->m_FlexKeys[i];
 
         // AddAnimations() already remapped the vertex animations to this piece (Copy() moved them into pNewSource)
@@ -544,7 +516,7 @@ void CClampedSource::CopyFlexKeys(const s_source_t *pOrigSource, s_source_t *pNe
         if (pAnim && pAnim->newStyleVertexAnimations && pAnim->numvanims[origKey.frame] == 0)
             continue;
 
-        s_flexkey_t &key = pNewSource->m_FlexKeys[pNewSource->m_FlexKeys.AddToTail(origKey)];
+        s_flexkey_t &key = pNewSource->m_FlexKeys.emplace_back(origKey);
         key.source = pNewSource;
     }
 
@@ -562,7 +534,8 @@ void CClampedSource::Init(int numvertices, const s_source_t *pMeshLayout) {
             empty.material = mesh.material;
         }
     }
-    m_nOrigMap.EnsureCount(numvertices);
+    if (std::ssize(m_nOrigMap) < numvertices)
+        m_nOrigMap.resize(numvertices);
     for (int v = 0; v < numvertices; v++) {
         m_nOrigMap[v] = -1;
     }
@@ -626,9 +599,8 @@ void Grab_Animation(s_source_t *pSource, const char *pAnimName) {
             }
             t -= pAnim->startframe;
 
-            if (t >= pAnim->rawanim.Count()) {
-                s_bone_t *ptr = nullptr;
-                pAnim->rawanim.AddMultipleToTail(t - pAnim->rawanim.Count() + 1, &ptr);
+            if (t >= std::ssize(pAnim->rawanim)) {
+                pAnim->rawanim.resize(t + 1);
             }
 
             if (pAnim->rawanim[t] != nullptr) {
@@ -732,7 +704,7 @@ void AddSrcToSrc(s_source_t *pOrigSource, s_source_t *pAppendSource, matrix3x4_t
             //	newSource.m_mesh[0].faceoffset = newSource.m_face.Count();
             //}
 
-            newSource.m_face.AddToTail(face);
+            newSource.m_face.push_back(face);
             newSource.m_meshes[0].numfaces++;
         }
     }
@@ -766,7 +738,7 @@ void AddSrcToSrc(s_source_t *pOrigSource, s_source_t *pAppendSource, matrix3x4_t
                 else
                     face.d = 0;
 
-                newSource.m_face.AddToTail(face);
+                newSource.m_face.push_back(face);
                 newSource.m_meshes[0].numfaces++;
             }
         }
@@ -892,7 +864,7 @@ int Add_Flexdesc(const char *name) {
 // Adds combination data to the source
 //-----------------------------------------------------------------------------
 int FindSourceFlexKey(s_source_t *pSource, const char *pName) {
-    int nCount = pSource->m_FlexKeys.Count();
+    const int nCount = std::ssize(pSource->m_FlexKeys);
     for (int i = 0; i < nCount; ++i) {
         if (vstd::iequals(pSource->m_FlexKeys[i].animationname, pName))
             return i;
@@ -908,10 +880,7 @@ void AddFlexKey(s_source_t *pSource, CDmeCombinationOperator *pComboOp, const ch
     if (FindSourceFlexKey(pSource, pFlexKeyName) >= 0)
         return;
 
-    int i = pSource->m_FlexKeys.AddToTail();
-
-    s_flexkey_t &key = pSource->m_FlexKeys[i];
-    memset(&key, 0, sizeof(key));
+    s_flexkey_t &key = pSource->m_FlexKeys.emplace_back();
 
     key.target0 = 0.0f;
     key.target1 = 1.0f;
@@ -1038,9 +1007,8 @@ void AddCombination(s_source_t *pSource, CDmeCombinationOperator *pCombination) 
     // Define the remapped controls
     int nControlCount = pCombination->GetRawControlCount();
     for (int i = 0; i < nControlCount; ++i) {
-        int m = pSource->m_CombinationControls.AddToTail();
-        s_combinationcontrol_t &control = pSource->m_CombinationControls[m];
-        Q_strncpy(control.name, pCombination->GetRawControlName(i), sizeof(control.name));
+        s_combinationcontrol_t &control = pSource->m_CombinationControls.emplace_back();
+        control.name = pCombination->GetRawControlName(i);
     }
 
     // Define the combination + domination rules
@@ -1056,14 +1024,14 @@ void AddCombination(s_source_t *pSource, CDmeCombinationOperator *pCombination) 
             if (nFlex < 0)
                 continue;
 
-            int k = pSource->m_CombinationRules.AddToTail();
-            s_combinationrule_t &rule = pSource->m_CombinationRules[k];
+            s_combinationrule_t &rule = pSource->m_CombinationRules.emplace_back();
             rule.m_nFlex = nFlex;
-            rule.m_Combination = pCombination->GetOperationControls(i, j);
+            const std::vector<int> &controls = pCombination->GetOperationControls(i, j);
+            rule.m_Combination.assign(controls.begin(), controls.end());
             int nDominatorCount = pCombination->GetOperationDominatorCount(i, j);
             for (int l = 0; l < nDominatorCount; ++l) {
-                int m = rule.m_Dominators.AddToTail();
-                rule.m_Dominators[m] = pCombination->GetOperationDominator(i, j, l);
+                const std::vector<int> &dominator = pCombination->GetOperationDominator(i, j, l);
+                rule.m_Dominators.emplace_back(dominator.begin(), dominator.end());
             }
         }
     }
@@ -1071,8 +1039,7 @@ void AddCombination(s_source_t *pSource, CDmeCombinationOperator *pCombination) 
     // Define the remapping controls
     nControlCount = pCombination->GetControlCount();
     for (int i = 0; i < nControlCount; ++i) {
-        int k = pSource->m_FlexControllerRemaps.AddToTail();
-        s_flexcontrollerremap_t &remap = pSource->m_FlexControllerRemaps[k];
+        s_flexcontrollerremap_t &remap = pSource->m_FlexControllerRemaps.emplace_back();
         remap.m_Name = pCombination->GetControlName(i);
         remap.m_bIsStereo = pCombination->IsStereoControl(i);
         remap.m_Index = -1;            // Don't know this right now
@@ -1183,7 +1150,7 @@ char *GetSurfaceProp(const char *pJointName) {
 // Assigns a default contents to the entire model
 //-----------------------------------------------------------------------------
 ContentType s_nDefaultContents = ContentType::SOLID;
-CUtlVector<ContentsName_t> s_JointContents;
+std::vector<ContentsName_t> s_JointContents;
 
 //-----------------------------------------------------------------------------
 // Returns the default contents
@@ -1196,7 +1163,7 @@ ContentType GetDefaultContents() {
 // Returns contents for a given joint
 //-----------------------------------------------------------------------------
 static ContentType FindContents(const char *pJointName) {
-    for (int i = s_JointContents.Count(); --i >= 0;) {
+    for (int i = std::ssize(s_JointContents); --i >= 0;) {
         if (vstd::iequals(s_JointContents[i].m_pJointName, pJointName)) {
             return s_JointContents[i].m_nContents;
         }

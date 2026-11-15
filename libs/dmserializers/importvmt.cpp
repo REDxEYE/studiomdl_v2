@@ -22,14 +22,14 @@
 class CImportVMT : public CImportKeyValueBase
 {
 public:
-	virtual const char *GetName() const { return "vmt"; }
-	virtual const char *GetDescription() const { return "Valve Material File"; }
-	virtual int GetCurrentVersion() const { return 0; } // doesn't store a version
-  	virtual const char *GetImportedFormat() const { return "vmt"; }
- 	virtual int GetImportedVersion() const { return 1; }
+    const char *GetName() const override { return "vmt"; }
+    const char *GetDescription() const override { return "Valve Material File"; }
+    int GetCurrentVersion() const override { return 0; } // doesn't store a version
+    const char *GetImportedFormat() const override { return "vmt"; }
+    int GetImportedVersion() const override { return 1; }
 
-	bool Serialize( CUtlBuffer &outBuf, CDmElement *pRoot );
-	CDmElement* UnserializeFromKeyValues( KeyValues *pKeyValues );
+	bool Serialize( CUtlBuffer &outBuf, CDmElement *pRoot ) override;
+	CDmElement* UnserializeFromKeyValues( KeyValues *pKeyValues ) override;
 
 private:
 	// Unserialize fallbacks

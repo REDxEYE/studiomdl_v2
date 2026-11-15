@@ -26,20 +26,6 @@ void CDmeClip::OnDestruction() {
 }
 
 
-//-----------------------------------------------------------------------------
-// Clip color
-//-----------------------------------------------------------------------------
-void CDmeClip::SetClipColor(const Color &clr) {
-    m_ClipColor.Set(clr);
-}
-
-//-------------------------------------
-// Returns the time frame
-//-----------------------------------------------------------------------------
-CDmeTimeFrame *CDmeClip::GetTimeFrame() const {
-    return m_TimeFrame.GetElement();
-}
-
 DmeTime_t CDmeClip::ToChildMediaTime(DmeTime_t t, bool bClamp) const {
     CDmeTimeFrame *tf = m_TimeFrame.GetElement();
     return tf ? tf->ToChildMediaTime(t, bClamp) : DmeTime_t(0);
@@ -48,11 +34,6 @@ DmeTime_t CDmeClip::ToChildMediaTime(DmeTime_t t, bool bClamp) const {
 DmeTime_t CDmeClip::FromChildMediaTime(DmeTime_t t, bool bClamp) const {
     CDmeTimeFrame *tf = m_TimeFrame.GetElement();
     return tf ? tf->FromChildMediaTime(t, bClamp) : DmeTime_t(0);
-}
-
-DmeTime_t CDmeClip::ToChildMediaDuration(DmeTime_t dt) const {
-    CDmeTimeFrame *tf = m_TimeFrame.GetElement();
-    return tf ? tf->ToChildMediaDuration(dt) : DmeTime_t(0);
 }
 
 DmeTime_t CDmeClip::FromChildMediaDuration(DmeTime_t dt) const {
@@ -83,44 +64,6 @@ DmeTime_t CDmeClip::GetEndTime() const {
 DmeTime_t CDmeClip::GetDuration() const {
     CDmeTimeFrame *tf = m_TimeFrame.GetElement();
     return tf ? tf->GetDuration() : DmeTime_t(0);
-}
-
-DmeTime_t CDmeClip::GetStartInChildMediaTime() const {
-    CDmeTimeFrame *tf = m_TimeFrame.GetElement();
-    return tf ? tf->GetStartInChildMediaTime() : DmeTime_t(0);
-}
-
-DmeTime_t CDmeClip::GetEndInChildMediaTime() const {
-    CDmeTimeFrame *tf = m_TimeFrame.GetElement();
-    return tf ? tf->GetEndInChildMediaTime() : DmeTime_t(0);
-}
-
-void CDmeClip::SetTimeOffset(DmeTime_t t) {
-    CDmeTimeFrame *tf = m_TimeFrame.GetElement();
-    if (tf) {
-        tf->SetTimeOffset(t);
-    }
-}
-
-void CDmeClip::SetTimeScale(float s) {
-    CDmeTimeFrame *tf = m_TimeFrame.GetElement();
-    if (tf) {
-        tf->SetTimeScale(s);
-    }
-}
-
-void CDmeClip::SetStartTime(DmeTime_t t) {
-    CDmeTimeFrame *tf = m_TimeFrame.GetElement();
-    if (tf) {
-        tf->SetStartTime(t);
-    }
-}
-
-void CDmeClip::SetDuration(DmeTime_t t) {
-    CDmeTimeFrame *tf = m_TimeFrame.GetElement();
-    if (tf) {
-        tf->SetDuration(t);
-    }
 }
 
 
@@ -160,27 +103,12 @@ bool DmeClipStack_t::BuildClipStack(const CDmeClip *pMovie, const CDmeClip *pSho
     return true;
 }
 
-int DmeClipStack_t::FindClip(const CDmeClip *pClip) const {
-    if (!pClip)
-        return m_clips.InvalidIndex();
-
-    return m_clips.Find(pClip->GetHandle());
-}
-
 int DmeClipStack_t::AddClipToHead(const CDmeClip *pClip) {
     if (!pClip)
         return m_clips.InvalidIndex();
 
     m_bOptimized = false;
     return m_clips.AddToHead(pClip->GetHandle());
-}
-
-int DmeClipStack_t::AddClipToTail(const CDmeClip *pClip) {
-    if (!pClip)
-        return m_clips.InvalidIndex();
-
-    m_bOptimized = false;
-    return m_clips.AddToTail(pClip->GetHandle());
 }
 
 void DmeClipStack_t::Optimize() const {
@@ -230,40 +158,6 @@ DmeTime_t DmeClipStack_t::ToChildMediaTime(DmeTime_t t, bool bClamp /*=true*/) c
     return (t + m_tOffset) * m_flScale;
 }
 
-DmeTime_t DmeClipStack_t::FromChildMediaTime(DmeTime_t t, bool bClamp /*=true*/) const {
-    if (!m_bOptimized) {
-        Optimize();
-    }
-
-    t = t / m_flScale - m_tOffset;
-    if (bClamp) {
-        t.Clamp(DMETIME_ZERO, m_tDuration);
-    }
-    return t + m_tStart;
-}
-
-DmeTime_t DmeClipStack_t::ToChildMediaDuration(DmeTime_t t) const {
-    if (!m_bOptimized) {
-        Optimize();
-    }
-
-    return t * m_flScale;
-}
-
-DmeTime_t DmeClipStack_t::FromChildMediaDuration(DmeTime_t t) const {
-    if (!m_bOptimized) {
-        Optimize();
-    }
-
-    return t / m_flScale;
-}
-
-void DmeClipStack_t::ToChildMediaTime(TimeSelection_t &params) const {
-    for (int i = 0; i < TS_TIME_COUNT; ++i) {
-        params.m_Times[i] = ToChildMediaTime(params.m_Times[i], false);
-    }
-}
-
 
 //-----------------------------------------------------------------------------
 // CDmeChannelsClip - timeframe view into a set of channels
@@ -291,72 +185,8 @@ void CDmeChannelsClip::BakeTimeScale(float scale /*= 1.0f*/) {
     BaseClass::BakeTimeScale(scale);
 }
 
-CDmeChannel *CDmeChannelsClip::CreatePassThruConnection(char const *passThruName,
-                                                        CDmElement *pFrom, char const *pFromAttribute,
-                                                        CDmElement *pTo, char const *pToAttribute, int index /*= 0*/) {
-    CDmeChannel *helper = CreateElement<CDmeChannel>(passThruName, GetFileId());
-    Assert(helper);
-
-    helper->SetMode(CM_PASS);
-    helper->SetInput(pFrom, pFromAttribute);
-    helper->SetOutput(pTo, pToAttribute, index);
-
-    m_Channels.AddToTail(helper);
-
-    return helper;
-}
-
-void CDmeChannelsClip::RemoveChannel(CDmeChannel *pChannel) {
-    int nCount = m_Channels.Count();
-    for (int i = 0; i < nCount; ++i) {
-        if (pChannel == m_Channels[i]) {
-            m_Channels.Remove(i);
-            break;
-        }
-    }
-}
 
 
-//-----------------------------------------------------------------------------
-// Purpose: Set the mode of all of the channels in the clip
-//-----------------------------------------------------------------------------
-void CDmeChannelsClip::SetChannelMode(const ChannelMode_t &mode) {
-    int nCount = m_Channels.Count();
-    for (int i = 0; i < nCount; ++i) {
-        CDmeChannel *pChannel = m_Channels[i];
-        if (pChannel) {
-            pChannel->SetMode(mode);
-        }
-    }
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose: Operate all of the channels in the clip
-//-----------------------------------------------------------------------------
-void CDmeChannelsClip::OperateChannels() {
-    int nCount = m_Channels.Count();
-    for (int i = 0; i < nCount; ++i) {
-        CDmeChannel *pChannel = m_Channels[i];
-        if (pChannel) {
-            pChannel->Operate();
-        }
-    }
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose: Play all of the channels in the clip
-//-----------------------------------------------------------------------------
-void CDmeChannelsClip::PlayChannels() {
-    int nCount = m_Channels.Count();
-    for (int i = 0; i < nCount; ++i) {
-        CDmeChannel *pChannel = m_Channels[i];
-        if (pChannel) {
-            pChannel->Play();
-        }
-    }
-}
 
 
 //-----------------------------------------------------------------------------
@@ -364,10 +194,10 @@ void CDmeChannelsClip::PlayChannels() {
 // attribute.
 //-----------------------------------------------------------------------------
 CDmeChannel *FindChannelTargetingElement(CDmElement *pElement, const char *pAttributeName) {
-    CUtlVector<CDmeChannel *> channels(0u, 8);
+    std::vector<CDmeChannel *> channels(8);
     FindAncestorsReferencingElement(pElement, channels);
 
-    int nChannels = channels.Count();
+    int nChannels = channels.size();
     for (int i = 0; i < nChannels; ++i) {
         CDmeChannel *pChannel = channels[i];
         if (!pChannel)
@@ -387,27 +217,3 @@ CDmeChannel *FindChannelTargetingElement(CDmElement *pElement, const char *pAttr
 }
 
 
-//-----------------------------------------------------------------------------
-// Purpose: Find the channel within the specified channels clip targeting the
-// specified element and attribute.
-//-----------------------------------------------------------------------------
-CDmeChannel *FindChannelTargetingElement(CDmeChannelsClip *pChannelsClip, CDmElement *pElement,
-                                         const char *pAttributeName) {
-    int nChannels = pChannelsClip->m_Channels.Count();
-    for (int i = 0; i < nChannels; ++i) {
-        CDmeChannel *pChannel = pChannelsClip->m_Channels[i];
-        if (!pChannel)
-            continue;
-
-        CDmElement *toElement = pChannel->GetToElement();
-        if (toElement != pElement)
-            continue;
-
-        if (pAttributeName && (Q_stricmp(pChannel->GetToAttribute()->GetName(), pAttributeName) != 0))
-            continue;
-
-        return pChannel;
-    }
-
-    return nullptr;
-}

@@ -53,11 +53,6 @@ public:
 
 	// Sets/gets the makefile that was used to build this source
 	// NOTE: This information isn't saved and must be reconstructed each frame
-	void SetDependentMakefile( CDmeMakefile *pMakeFile );
-	CDmeMakefile *GetDependentMakefile();
-
-	// Call this to open the source file in an editor
-	void OpenEditor();
 
 private:
 	// The makefile that built this source
@@ -86,27 +81,15 @@ class CDmeMakefile : public CDmElement
 public:
 	// NOTE: Adding or removing sources of the specified type will invalidate the index
 	// NOTE: This index is the same index used in GetSources()
-	CDmeSource *AddSource( const char *pSourceType, const char *pFullPath );
 	template< class T >
 	T* AddSource( const char *pFullPath );
-	CDmeSource *SetSingleSource( const char *pSourceType, const char *pFullPath );
 	template< class T >
 	T* SetSingleSource( const char *pFullPath );
-	CDmeSource *FindSource( const char *pSourceType, const char *pFullPath );
-	void RemoveSource( const char *pSourceType, const char *pFullPath );
-	void RemoveSource( CDmeSource *pSource );
-	void RemoveAllSources( const char *pSourceType );
-	bool HasSourceOfType( const char *pSourceType );
 
 	// Gets/sets paths associated with sources
-	void SetSourceFullPath( CDmeSource *pSource, const char *pFullPath );
-	void GetSourceFullPath( CDmeSource *pSource, char *pFullPath, int nBufLen );
 
 	// Returns the output directory we expect to compile files into
 	bool GetOutputDirectory( char *pFullPath, int nBufLen );
-
-	// Returns the output name (output directory + filename, no extension)
-	bool GetOutputName( char *pFullPath, int nBufLen );
 
 	// Call this to change the file the makefile is stored in
 	// Will make all sources be relative to this path
@@ -114,13 +97,10 @@ public:
 	const char *GetFileName() const;
 
 	// Gets a list of all sources of a particular type
-	void GetSources( const char *pSourceType, CUtlVector< CDmeHandle< CDmeSource > > &sources );
 	template< class T >
 	void GetSources( CUtlVector< CDmeHandle<T> > &sources );
 
 	// Gets a list of all sources, regardless of type
-	int GetSourceCount();
-	CDmeSource *GetSource( int nIndex );
 
 	virtual DmeMakefileType_t *GetMakefileType() { return nullptr; }
 	virtual DmeMakefileType_t* GetSourceTypes() { Assert(0); return nullptr; }
@@ -133,22 +113,14 @@ public:
 
 	// These methods are used to help traverse a dependency graph.
 	// They work with information that is not saved.
-	void SetAssociation( CDmeSource *pSource, CDmeMakefile *pSourceMakefile );
-	CDmeMakefile *FindDependentMakefile( CDmeSource *pSource );
-	CDmeSource *FindAssociatedSource( CDmeMakefile *pChildMakefile );
-	CDmElement *GetOutputElement( bool bCreateIfNecessary = false );
 
 	// Performs compilation steps
-	void PreCompile( );
-	void PostCompile( );
 
 	// Dirty, dirty!
 	bool IsDirty() const;
 	void SetDirty( bool bDirty );
 
 protected:
-	// Make all outputs writeable
-	void MakeOutputsWriteable( );
 
 	// Gets the path of the makefile
 	void GetMakefilePath( char *pFullPath, int nBufLen );
@@ -160,11 +132,6 @@ private:
 	virtual const char *GetOutputDirectoryID() { return "makefilegamedir:"; }
 
 private:
-	// Relative path to full path
-	void RelativePathToFullPath( const char *pRelativePath, char *pFullPath, int nBufLen );
-
-	// Fullpath to relative path
-	void FullPathToRelativePath( const char *pFullPath, char *pRelativePath, int nBufLen );
 
 	// Updates the source names to be relative to a particular path
 	bool UpdateSourceNames( const char *pOldRootDir, const char *pNewRootDir, bool bApplyChanges );

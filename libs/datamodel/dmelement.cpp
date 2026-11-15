@@ -83,18 +83,6 @@ void DmElementReference_t::RemoveAttribute( CDmAttribute *pAttribute )
 	Assert( 0 );
 }
 
-bool DmElementReference_t::FindAttribute( CDmAttribute *pAttribute )
-{
-	DmAttributeHandle_t hAttribute = pAttribute->GetHandle();
-	for ( DmAttributeList_t *pLink = &m_attributes; pLink; pLink = pLink->m_pNext )
-	{
-		if ( pLink->m_hAttribute == hAttribute )
-			return true;
-	}
-
-	return false;
-}
-
 
 //-----------------------------------------------------------------------------
 // Class factory 
@@ -189,13 +177,6 @@ int	CDmElement::GetInheritanceDepth( CUtlSymbolLarge typeSymbol ) const
 	// calls in the implementation of IsA. The IsA_Implementation is 
 	// all static function calls.
 	return GetInheritanceDepth_Implementation( typeSymbol, 0 ); 
-}
-
-// Helper for GetInheritanceDepth
-int CDmElement::GetInheritanceDepth( const char *pTypeName ) const
-{
-	CUtlSymbolLarge typeSymbol = g_pDataModel->GetSymbol( pTypeName );
-	return GetInheritanceDepth( typeSymbol ); 
 }
 
 
@@ -383,56 +364,6 @@ void CDmElement::SetOnlyInUndo( bool bOnlyInUndo )
 // returns the first path to the element found traversing all element/element array attributes - not necessarily the shortest
 //-----------------------------------------------------------------------------
 
-// do we want a true visited set to avoid retraversing the same subtree over and over again?
-// for most dag trees, it's probably a perf loss, since multiple instances are rare, (and searching the visited set costs log(n))
-// for trees that include channels, it's probably a perf win, since many channels link into the same element most of the time
-bool CDmElement::FindElement( const CDmElement *pElement, CUtlVector< ElementPathItem_t > &elementPath, TraversalDepth_t depth ) const
-{
-	if ( this == pElement )
-		return true;
-
-	ElementPathItem_t search( GetHandle() );
-	if ( elementPath.Find( search ) != elementPath.InvalidIndex() )
-		return false;
-
-	int idx = elementPath.AddToTail( search );
-	ElementPathItem_t &pathItem = elementPath[ idx ];
-
-	for ( const CDmAttribute *pAttr = FirstAttribute(); pAttr != nullptr; pAttr = pAttr->NextAttribute() )
-	{
-		if ( !ShouldTraverse( pAttr, depth ) )
-			continue;
-
-		if ( pAttr->GetType() == AT_ELEMENT )
-		{
-			pathItem.hAttribute = const_cast< CDmAttribute* >( pAttr )->GetHandle();
-			pathItem.nIndex = -1;
-
-			CDmElement *pChild = pAttr->GetValueElement<CDmElement>();
-			if ( pChild && pChild->FindElement( pElement, elementPath, depth ) )
-				return true;
-		}
-		else if ( pAttr->GetType() == AT_ELEMENT_ARRAY )
-		{
-			pathItem.hAttribute = const_cast< CDmAttribute* >( pAttr )->GetHandle();
-
-			CDmrElementArrayConst<> elementArrayAttr( pAttr );
-			int nChildren = elementArrayAttr.Count();
-			for ( int i = 0; i < nChildren; ++i )
-			{
-				pathItem.nIndex = i;
-
-				CDmElement *pChild = elementArrayAttr[ i ];
-				if ( pChild && pChild->FindElement( pElement, elementPath, depth ) )
-					return true;
-			}
-		}
-	}
-
-	elementPath.Remove( idx );
-	return false;
-}
-
 bool CDmElement::FindReferer( DmElementHandle_t hElement, CUtlVector< ElementPathItem_t > &elementPath, TraversalDepth_t depth /* = TD_SHALLOW */ ) const
 {
 	DmElementHandle_t hThis = GetHandle();
@@ -473,39 +404,6 @@ bool CDmElement::FindReferer( DmElementHandle_t hElement, CUtlVector< ElementPat
 	}
 
 	return false;
-}
-
-void CDmElement::RemoveAllReferencesToElement( CDmElement *pElement )
-{
-	for ( CDmAttribute *pAttr = FirstAttribute(); pAttr != nullptr; pAttr = pAttr->NextAttribute() )
-	{
-		if ( pAttr->GetType() == AT_ELEMENT )
-		{
-			CDmElement *pChild = pAttr->GetValueElement<CDmElement>();
-			if ( pChild == pElement )
-			{
-				pAttr->SetValue( DMELEMENT_HANDLE_INVALID );
-			}
-		}
-		else if ( pAttr->GetType() == AT_ELEMENT_ARRAY )
-		{
-			CDmrElementArray<> elementArrayAttr( pAttr );
-			int nChildren = elementArrayAttr.Count();
-			for ( int i = nChildren - 1; i >= 0; --i )
-			{
-				CDmElement *pChild = elementArrayAttr[ i ];
-				if ( pChild == pElement )
-				{
-					elementArrayAttr.Remove( i );
-				}
-			}
-		}
-	}
-}
-
-int CDmElement::EstimateMemoryUsage( TraversalDepth_t depth /* = TD_DEEP */ )
-{
-	return g_pDataModel->EstimateMemoryUsage( GetHandle(), depth );
 }
 
 
@@ -955,21 +853,6 @@ void CDmElement::SetValueFromString( const char *pAttributeName, const char *pVa
 }
 
 
-//-----------------------------------------------------------------------------
-// Writes an attribute as a string
-//-----------------------------------------------------------------------------
-const char *CDmElement::GetValueAsString( const char *pAttributeName, char *pBuffer, size_t nBufLen ) const
-{
-	Assert( pBuffer );
-														    
-	const CDmAttribute *pAttribute = FindAttribute( pAttributeName );
-	if ( pAttribute )
-		return pAttribute->GetValueAsString( pBuffer, nBufLen );
-
-	pBuffer[ 0 ] = 0;
-	return pBuffer;
-}
-
 
 //-----------------------------------------------------------------------------
 // Adds, removes attributes
@@ -1197,16 +1080,6 @@ CDmElement *CElementTreeTraversal::GetElement()
 	return state.nIndex == NOT_VISITED ? nullptr : state.pElement;
 }
 
-CDmElement *CElementTreeTraversal::GetParent( int i = 0 )
-{
-	return i + 1 < m_state.Count() ? m_state[ m_state.Count() - i - 1 ].pElement : nullptr;
-}
-
-int CElementTreeTraversal::GetChildIndex( int i )
-{
-	return i + 1 < m_state.Count() ? m_state[ m_state.Count() - i - 1 ].nIndex : NOT_VISITED;
-}
-
 
 //-----------------------------------------------------------------------------
 //
@@ -1214,81 +1087,3 @@ int CElementTreeTraversal::GetChildIndex( int i )
 //
 //-----------------------------------------------------------------------------
 
-// returns startindex if none found, 1 if only "prefix" found, and n+1 if "prefixn" found
-int GenerateUniqueNameIndex( const char *prefix, const CUtlVector< DmElementHandle_t > &array, int startindex /*= 0*/ )
-{
-	return V_GenerateUniqueNameIndex( prefix, ElementArrayNameAccessor< DmElementHandle_t >( array ), startindex );
-}
-
-bool GenerateUniqueName( char *name, int memsize, const char *prefix, const CUtlVector< DmElementHandle_t > &array )
-{
-	return V_GenerateUniqueName( name, memsize, prefix, ElementArrayNameAccessor< DmElementHandle_t >( array ) );
-}
-
-int SplitStringIntoBaseAndIntegerSuffix( const char *pName, int len, char *pBaseName )
-{
-	int baselen = len;
-	while ( baselen > 0 && V_isdigit( pName[ baselen - 1 ] ) )
-	{
-		--baselen;
-	}
-	V_strncpy( pBaseName, pName, baselen + 1 );
-
-	return ( baselen < len ) ? V_atoi( pName + baselen ) : 0;
-}
-
-void MakeElementNameUnique( CDmElement *pElement, const CUtlVector< DmElementHandle_t > &array )
-{
-	if ( !pElement )
-		return;
-
-	const char *pName = pElement->GetName();
-	int len = V_strlen( pName );
-	char *pBaseName = ( char* )stackalloc( len + 1 );
-	int nStartingIndex = SplitStringIntoBaseAndIntegerSuffix( pName, len, pBaseName );
-
-	int i = GenerateUniqueNameIndex( pBaseName, array, nStartingIndex );
-	if ( i <= 0 )
-	{
-		pElement->SetName( pBaseName );
-		return;
-	}
-
-	int newlen = len + 11; // reserve at least enough space for 10 digits and a terminating '\0'
-	char *pNewName = ( char* )stackalloc( newlen );
-	Q_snprintf( pNewName, newlen, "%s%d", pBaseName, i );
-
-	pElement->SetName( pNewName );
-}
-
-void RemoveElementFromRefereringAttributes( CDmElement *pElement, bool bPreserveOrder /*= true*/ )
-{
-	for ( DmAttributeReferenceIterator_t i = g_pDataModel->FirstAttributeReferencingElement( pElement->GetHandle() );
-		i != DMATTRIBUTE_REFERENCE_ITERATOR_INVALID;
-		i = g_pDataModel->FirstAttributeReferencingElement( pElement->GetHandle() ) ) // always re-get the FIRST attribute, since we're removing from this list
-	{
-		CDmAttribute *pAttribute = g_pDataModel->GetAttribute( i );
-		Assert( pAttribute );
-		if ( !pAttribute )
-			continue;
-
-		if ( IsArrayType( pAttribute->GetType() ) )
-		{
-			CDmrElementArray<> array( pAttribute );
-			int i = array.Find( pElement );
-			Assert( i != array.InvalidIndex() );
-			if ( bPreserveOrder )
-			{
-				array.Remove( i );
-			}
-			else
-			{
-				array.FastRemove( i );
-			}
-		}
-		else
-		{
-			pAttribute->SetValue( DMELEMENT_HANDLE_INVALID );
-		}
-	}
-}

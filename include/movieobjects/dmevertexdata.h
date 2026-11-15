@@ -53,7 +53,7 @@ public:
 	};
 
 	// resolve internal data from changed attributes
-	virtual void Resolve();
+    void Resolve() override;
 
 	// Returns the number of joints per vertex
 	int JointCount() const;
@@ -61,38 +61,19 @@ public:
 	// Vertex accessors
 	int VertexCount() const;
 	const Vector& GetPosition( int nVertexIndex ) const;
-	const Vector& GetNormal( int nVertexIndex ) const;
-	const Vector2D& GetTexCoord( int nVertexIndex ) const;
-	const Vector4D& GetTangent( int nVertexIndex ) const;
 	const Color& GetColor( int nVertexIndex ) const;
-	const float *GetJointWeights( int nVertexIndex ) const;
-	const float *GetJointPositionWeights( int nPositionIndex ) const;
-	const int *GetJointIndices( int nVertexIndex ) const;
-	const int *GetJointPositionIndices( int nPositionIndex ) const;
-	float GetBalance( int nVertexIndex ) const;
-	float GetMorphSpeed( int nVertexIndex ) const;
-	float GetWrinkle( int nVertexIndex ) const;
 	float GetWeight( int nVertexIndex ) const;
 
 	// Returns indices into the various fields
 	int GetPositionIndex( int nVertexIndex ) const;
 	int GetNormalIndex( int nVertexIndex ) const;
-	int GetTangentIndex( int nVertexIndex ) const;
 	int GetTexCoordIndex( int nVertexIndex ) const;
-	int GetColorIndex( int nVertexIndex ) const;
-	int GetBalanceIndex( int nVertexIndex ) const;
-	int GetMorphSpeedIndex( int nVertexIndex ) const;
-	int GetWrinkleIndex( int nVertexIndex ) const;
-	int GetWeightIndex( int nVertexIndex ) const;
 
 	// Creates a new vertex field. NOTE: This cannot be used to create joint weights + indices
 	template< class T >
 	FieldIndex_t CreateField( const char *pFieldName );
 	FieldIndex_t CreateField( const char *pFieldName, DmAttributeType_t type );
 	FieldIndex_t CreateField( StandardFields_t fieldId );
-
-	// Use this to create vertex fields for joint weights + indices
-	void CreateJointWeightsAndIndices( int nJointCount, FieldIndex_t *pJointWeightsField, FieldIndex_t *pJointIndicesField );
 
 	// Returns the field index of a particular field
 	FieldIndex_t FindFieldIndex( const char *pFieldName ) const;
@@ -120,13 +101,11 @@ public:
 	const CUtlVector<Vector> &GetNormalData( ) const;
 	const CUtlVector<Vector4D> &GetTangentData( ) const;
 	const CUtlVector<Vector2D> &GetTextureCoordData( ) const;
-	const CUtlVector<Color> &GetColorData( ) const;
 	const float *GetJointWeightData( int nDataIndex ) const;
 	const int *GetJointIndexData( int nDataIndex ) const;
 	const CUtlVector<float> &GetBalanceData( ) const;
 	const CUtlVector<float> &GetMorphSpeedData( ) const;
 	const CUtlVector<float> &GetWrinkleData( ) const;
-	const CUtlVector<float> &GetWeightData( ) const;
 
 	// Returns well-known index data
 	const CUtlVector<int> &GetVertexIndexData( FieldIndex_t nFieldIndex ) const;
@@ -135,11 +114,7 @@ public:
 	// Do we have skinning data?
 	bool HasSkinningData() const;
 	// Do we have cloth_enable data? 
-	bool HasClothData();
 	
-	// Do we need tangent data? (Utility method for applications to know if they should call ComputeDefaultTangentData)
-	bool NeedsTangentData() const;
-
 	// Should we flip the V coordinates?
 	bool IsVCoordinateFlipped() const;
 	void FlipVCoordinate( bool bFlip );
@@ -151,14 +126,6 @@ public:
 	int FieldCount() const;
 
 	const char *FieldName( int i ) const;
-
-	void CopyFrom( CDmeVertexDataBase *pSrc );
-
-	void CopyTo( CDmeVertexDataBase *pDst ) const;
-
-	// Reskins the vertex data to new bones
-	// The joint index remap maps an initial bone index to a new bone index
-	void Reskin( const int *pJointTransformIndexRemap );
 
 protected:
 	struct FieldInfo_t
@@ -302,11 +269,9 @@ class CDmeVertexData : public CDmeVertexDataBase
 	DEFINE_ELEMENT( CDmeVertexData, CDmeVertexDataBase );
 
 public:
-	// Adds a new vertex; creates a new entry in all vertex data fields
-	int AddVertexIndices( int nCount );
 
 private:
-	virtual bool IsVertexDeltaData() const { return false; }
+    bool IsVertexDeltaData() const override { return false; }
 };
 
 
@@ -324,18 +289,11 @@ public:
 	// NOTE: Pass in negative scales to get 'compression', positive to get 'expansion'
 	void GenerateWrinkleDelta( CDmeVertexData *pBindState, float flScale, bool bOverwrite, bool bUseNormalForSign = false );
 
-	// Updates existing data or generates new data
-	void UpdateWrinkleDelta( CDmeVertexData *pBindState, float flOldScale, float flNewScale );
-
-	// Computes a float map which is the distance between the base and delta position
-	// The maximum distance any vertex is moved is returned
-	float GenerateWeightDelta( CDmeVertexData *pBindState );
-
 	CDmaVar< bool > m_bCorrected;
 	CDmaVar< bool > m_bRenderVerts;
 
 private:
-	virtual bool IsVertexDeltaData() const { return true; }
+    bool IsVertexDeltaData() const override { return true; }
 
 	// Computes max positional delta length
 	float ComputeMaxDeflection( );

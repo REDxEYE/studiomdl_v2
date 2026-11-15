@@ -28,11 +28,6 @@ CDataManagerBase::~CDataManagerBase()
 	Assert( !m_freeOnDestruct || m_listsAreFreed );
 }
 
-unsigned int CDataManagerBase::FlushToTargetSize()
-{
-	return EnsureCapacity(0);
-}
-
 // Frees everything!  The LRU AND the LOCKED items.  This is only used to forcibly free the resources,
 // not to make space.
 
@@ -85,23 +80,6 @@ unsigned int CDataManagerBase::Purge( unsigned int nBytesToPurge )
 }
 
 
-void CDataManagerBase::DestroyResource( memhandle_t handle )
-{
-	unsigned short index = FromHandle( handle );
-	if ( !m_memoryLists.IsValidIndex(index) )
-	{
-		return;
-	}
-	
-	Assert( m_memoryLists[index].lockCount == 0  );
-	if ( m_memoryLists[index].lockCount )
-		BreakLock( handle );
-	m_memoryLists.Unlink( m_lruList, index );
-	void *p = GetForFreeByIndex( index );
-
-	DestroyResourceStorage( p );
-}
-
 
 void *CDataManagerBase::LockResource( memhandle_t handle )
 {
@@ -142,28 +120,6 @@ void *CDataManagerBase::LockResourceReturnCount( int *pCount, memhandle_t handle
 	return nullptr;
 }
 
-int CDataManagerBase::UnlockResource( memhandle_t handle )
-{
-
-	unsigned short memoryIndex = FromHandle(handle);
-	if ( memoryIndex != m_memoryLists.InvalidIndex() )
-	{
-		Assert( m_memoryLists[memoryIndex].lockCount > 0 );
-		if ( m_memoryLists[memoryIndex].lockCount > 0 )
-		{
-			m_memoryLists[memoryIndex].lockCount--;
-			if ( m_memoryLists[memoryIndex].lockCount == 0 )
-			{
-				m_memoryLists.Unlink( m_lockList, memoryIndex );
-				m_memoryLists.LinkToTail( m_lruList, memoryIndex );
-			}
-		}
-		return m_memoryLists[memoryIndex].lockCount;
-	}
-
-	return 0;
-}
-
 void *CDataManagerBase::GetResource_NoLockNoLRUTouch( memhandle_t handle )
 {
 
@@ -188,22 +144,6 @@ void *CDataManagerBase::GetResource_NoLock( memhandle_t handle )
 	return nullptr;
 }
 
-
-int CDataManagerBase::BreakLock( memhandle_t handle )
-{
-
-	unsigned short memoryIndex = FromHandle(handle);
-	if ( memoryIndex != m_memoryLists.InvalidIndex() && m_memoryLists[memoryIndex].lockCount )
-	{
-		int nBroken = m_memoryLists[memoryIndex].lockCount;
-		m_memoryLists[memoryIndex].lockCount = 0;
-		m_memoryLists.Unlink( m_lockList, memoryIndex );
-		m_memoryLists.LinkToTail( m_lruList, memoryIndex );
-
-		return nBroken;
-	}
-	return 0;
-}
 
 unsigned short CDataManagerBase::CreateHandle( bool bCreateLocked )
 {

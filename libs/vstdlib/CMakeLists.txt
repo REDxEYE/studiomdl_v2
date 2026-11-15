@@ -12,9 +12,6 @@ endif ()
 set(VTSDLIB_SOURCE
 #        cvar.cpp
         keyvaluessystem.cpp
-        random.cpp
-        vstrtools.cpp
-        vstdlib_strtools.cpp
         )
 
 add_library(vstdlib_static ${VTSDLIB_SOURCE})

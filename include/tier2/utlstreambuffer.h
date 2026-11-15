@@ -37,9 +37,6 @@ public:
 	// Is the file open?
 	bool IsOpen() const;
 
-	// try flushing the file
-	bool TryFlushToFile( int nFlushToFileBytes );
-
 private:
 	// error flags
 	enum

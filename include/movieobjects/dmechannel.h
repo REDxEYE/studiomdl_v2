@@ -23,8 +23,6 @@
 class CDmeClip;
 class CDmeChannel;
 
-void RemapFloatLogValues( CDmeChannel *pChannel, float flBias, float flScale );
-CDmeChannel *FindChannelTargetingAttribute( CDmAttribute *pTargetAttr );
 
 //-----------------------------------------------------------------------------
 // different channel modes of operation
@@ -119,23 +117,6 @@ public:
 };
 
 
-//-----------------------------------------------------------------------------
-// Simple helper structure used to specify a channel and the components of the
-// channel that should be modified. 
-//-----------------------------------------------------------------------------
-class ModifyChannel
-{	
-public:
-
-	explicit ModifyChannel( CDmeChannel *pChannel = nullptr, LogComponents_t nComponentFlags = LOG_COMPONENTS_ALL ) 
-		: m_pChannel( pChannel ), m_nComponentFlags( nComponentFlags ) { }	
-
-	static bool IsChannelInList( CUtlVector< ModifyChannel > const &modifyList, CDmeChannel *pChannel );
-
-	CDmeChannel		*m_pChannel;
-	LogComponents_t	m_nComponentFlags;
-};
-
 
 //-----------------------------------------------------------------------------
 // The channel modification layer manages a group of log layer modifications
@@ -150,36 +131,6 @@ public:
 	
 	// Destructor
 	~CDmeChannelModificationLayer();
-
-	// Add a channel to the modification layer if it is not already present,
-	// adding the channel to the modification layer causes a new log layer to
-	// be added to the channel to which modifications will be made.
-	int AddChannel( CDmeChannel *pChannel );
-
-	// Add a recording layer to the modification layer.
-	CRecordingLayer *AddRecordingLayer();
-
-	// Remove the last recording layer from the modification layer.
-	void RemoveLastRecordingLayer();
-
-	// Complete the channel modification layer by flattening all the log layers of 
-	// the active channels and clearing out the contents of the modification layer.
-	void Finish( bool bFlattenLayers, bool bSaveChanges, bool bRunChannelCallbacks );
-
-	// Return the modification layer of each channel to is base state.
-	void WipeChannelModifications();
-
-	// Get the number of recording layers in the modification layer
-	int NumRecordingLayers() const;
-
-	// Get a reference to the specified recording layer
-	CRecordingLayer &GetRecordingLayer( int index );
-
-	// Is the modification layer visible to the user
-	bool IsVisible() const; 
-
-	// Apply the specified transform write mode all of the active channels in each of the recording layers
-	void UpdateTransformWriteMode( TransformWriteMode_t mode );
 
 
 private:
@@ -208,82 +159,30 @@ public:
 
 	// Start and complete a modification layer. All recording layers must be placed within a modification
 	// layer, so a modification layer must be active before starting a recording layer.
-	void StartModificationLayer( const DmeLog_TimeSelection_t *pTimeSelection = nullptr, bool createLayer = true );
-	void FinishModificationLayer( bool bSaveChanges = true, bool bFlattenLayers = true );
-
-	// Enable or disable use of the modification layer.
-	void EnableModificationLayer( bool enable );
 
 	// Activates, deactivates layer recording.
-	void StartLayerRecording( AttributeDict_t *pPresetValuesDict = nullptr, DmeTime_t tHeadShotTime = DMETIME_INVALID, int proceduralType = PROCEDURAL_PRESET_NOT, int recordFlags = 0, FnRecordChannelCallback pfnAddChannel = nullptr, FnRecordChannelCallback pfnFinishChannel = nullptr);
-	void FinishLayerRecording( float flThreshold, bool bFlattenLayers = true, bool bAllowFinishModification = true );
-	void CancelLayerRecording();
-
-	// Adds a channel to the recording layer
-	int AddChannelToRecordingLayer( CDmeChannel *pChannel, LogComponents_t componentWriteFlags = LOG_COMPONENTS_ALL, CDmeClip *pRoot = nullptr, CDmeClip *pShot = nullptr);
 
 	// Used to iterate over all channels currently being recorded
 	// NOTE: Use CDmeChannel::AddToRecordingLayer to add a channel to the recording layer
-	int GetLayerRecordingChannelCount();
-	CDmeChannel* GetLayerRecordingChannel( int nIndex );
 
 	// Computes time selection info in log time for a particular recorded channel
 	// NOTE: Only valid if IsUsingTimeSelection() returns true
 	void GetLocalTimeSelection( DmeLog_TimeSelection_t& selection, int nIndex );
 
-	// Get the index of the modification base layer for the specified channel within the current recording layer.
-	int GetModificationBaseLayer( int nIndex );
-
-	// Set the time selection for the modification layer and re-apply all recording layers that are on the current modification
-	// layer with the new time selection. Must be done with active modification layer, but without an active recording layer.
-	void SetTimeSelection( const DmeLog_TimeSelection_t &timeSelection, bool bUpdateBaseTime );
-	
-	// Start or continue processing of the recording layers within the modification layer.
-	CRecordingLayer *ProcessModificationLayer( int &recordingLayer );
-
-	// Complete the modification layer processing for the specified recording layer.
-	void CompleteModificationProcessing( );
-
 	// Save the to or from attribute data of the specified channel within the current recording layer.
 	void StoreChannelAttributeData( int nChannelIndex, bool fromAttr );
 
-	// Get the current time selection
-	const DmeLog_TimeSelection_t &GetTimeSelection() const;
-	
 	// Methods which control various aspects of recording
-	void UpdateTimeAdvancing( bool bPaused, DmeTime_t tCurTime );
-	void UpdateRecordingChannelHeadPositions( DmeTime_t tCurTime );
-	void UpdateRecordingTimeSelectionTimes( const DmeLog_TimeSelection_t& timeSelection );
-	void SetIntensityOnAllLayers( float flIntensity );
-	void SetRecordingMode( RecordingMode_t mode );
-	void SetPresetValue( CDmeChannel* pChannel, const CDmAttribute *pPresetValue, const CDmAttribute *pPresetTimes );
 
 
-	void SetProceduralTarget( int nProceduralMode, const CDmAttribute *pTarget );
-	void SetProceduralTarget( int nProceduralMode, const CUtlVector< KeyValues * >& list, int randomSeed );
 	int GetProceduralType() const;
 	const CDmAttribute *GetProceduralTarget() const;
 	const CUtlVector< KeyValues * > &GetPasteTarget() const;
 
-	void SetModificationLayerDirty();
-	CDmeChannelModificationLayer *GetModificationLayer();
 
-	void				 SetTransformWriteMode( TransformWriteMode_t mode );
-	TransformWriteMode_t GetTransformWriteMode() const;	
 
-	void				UpdateActiveLayerManipulateInFalloff( bool bManipulateInFalloff );
-	
-	static void RunFinishCallbacksOnRecordingLayer( CRecordingLayer *pRecordingLayer );
-	
 	// Methods to query aspects of recording
-	bool IsTimeAdvancing() const;
-	bool IsUsingDetachedTimeSelection() const;
-	bool IsUsingTimeSelection() const;
-	bool IsRecordingLayerActive() const;
 	bool IsModificationLayerActive() const;
-	bool IsModificationLayerVisible() const;
-	bool IsProcessingModifications() const;
-	bool IsModificationLayerEnabled() const;
 
 private:
 	
@@ -291,11 +190,6 @@ private:
 	bool ShouldRecordUsingTimeSelection() const;
 
 	// Internal methods
-	void FlattenLayers( CRecordingLayer *pRecordingLayer );
-	void RemoveAllChannelsFromRecordingLayer( CRecordingLayer *pRecordingLayer, bool destroyLogLayers );
-
-	// Apply the effects of the recording layer to its channels with the active time selection.
-	bool ApplyRecordingLayer( CRecordingLayer &recordingLayer );
 
 	bool									m_bUseTimeSelection : 1;				
 	bool									m_bModificationLayerDirty : 1;
@@ -338,17 +232,14 @@ class CDmeChannel : public CDmeOperator
 	DEFINE_ELEMENT( CDmeChannel, CDmeOperator );
 
 public:
-	virtual bool IsDirty(); // ie needs to operate
-	virtual void Operate();
+    bool IsDirty() override; // ie needs to operate
+    void Operate() override;
 
 	virtual void GetInputAttributes ( CUtlVector< CDmAttribute * > &attrs );
 	virtual void GetOutputAttributes( CUtlVector< CDmAttribute * > &attrs );
 
-	void SetInput ( CDmElement* pElement, const char* pAttribute, int index = 0 );
 	void SetOutput( CDmElement* pElement, const char* pAttribute, int index = 0 );
 
-	void SetInput( CDmAttribute *pAttribute, int index = 0 );
-	void SetOutput( CDmAttribute *pAttribute, int index = 0 );
 
 	CDmElement *GetFromElement() const;
 	CDmElement *GetToElement() const;
@@ -359,33 +250,23 @@ public:
 	int GetFromArrayIndex() const;
 	int GetToArrayIndex() const;
 
-	int GetRecordLayerIndex() const;
-	void SetRecordLayerIndex( int layerIndex );
 
 	ChannelMode_t GetMode();
 	void SetMode( ChannelMode_t mode );
 
-	void ClearLog();
 	CDmeLog *GetLog();
-	void SetLog( CDmeLog *pLog );
 	CDmeLog *CreateLog( DmAttributeType_t type );
 	template < class T > CDmeTypedLog<T> *CreateLog();
 
-	void ClearTimeMetric();
-	void SetCurrentTime( DmeTime_t time, DmeTime_t start, DmeTime_t end );
 	void SetCurrentTime( DmeTime_t time ); // Simple version. Only works if multiple active channels clips do not reference the same channels
 	DmeTime_t GetCurrentTime() const;
 	
-	const TimeState_t &GetTimeState() const;
-	void SetTimeState( TimeState_t &TimeState );
 		
-	void SetChannelToPlayToSelf( const char *outputAttributeName, float defaultValue, bool force = false );
-
 	template< class T >
 	void SetValueOnInput( const T &value );
 
 	// need this until we have the EditApply message queue
-	void OnAttributeChanged( CDmAttribute *pAttribute );
+	void OnAttributeChanged( CDmAttribute *pAttribute ) override;
 
 	template< class T >
 	bool GetInputValue( T &value );
@@ -399,15 +280,10 @@ public:
 	void Play( bool useEmptyLog = false );
 	void Record();
 
-	void SetNextKeyCurveType( int nCurveType );
-
 	// Builds a clip stack for the channel
-	CDmeClip* FindOwnerClipForChannel( CDmeClip *pRoot );
 	bool BuildClipStack( DmeClipStack_t *pClipStack, CDmeClip *pRoot, CDmeClip *pShot ) const;
 
 	void ScaleSampleTimes( float scale );
-
-	void ClearAndAddSampleAtTime( DmeTime_t time );
 
 protected:
 	// Used to cache off handles to attributes

@@ -18,11 +18,7 @@ class CDataManagerBase
 {
 public:
 
-	void					DestroyResource( memhandle_t handle );
-	int						UnlockResource( memhandle_t handle );
-	int						BreakLock( memhandle_t handle );
 
-	unsigned int			FlushToTargetSize();
 	unsigned int			FlushAll();
 	unsigned int			Purge( unsigned int nBytesToPurge );
 	unsigned int			EnsureCapacity( unsigned int size );
@@ -95,8 +91,7 @@ public:
 	CDataManager<STORAGE_TYPE, CREATE_PARAMS, LOCK_TYPE>( unsigned int size = (unsigned)-1 ) : BaseClass(size) {}
 	
 
-	~CDataManager<STORAGE_TYPE, CREATE_PARAMS, LOCK_TYPE>()
-	{
+	~CDataManager<STORAGE_TYPE, CREATE_PARAMS, LOCK_TYPE>() override {
 		// NOTE: This must be called in all implementations of CDataManager
 		if ( m_freeOnDestruct )
 		{
@@ -202,13 +197,11 @@ private:
 		return static_cast<STORAGE_TYPE *>(pMem);
 	}
 
-	virtual void DestroyResourceStorage( void *pStore )
-	{
+    void DestroyResourceStorage( void *pStore ) override {
 		StoragePointer(pStore)->DestroyResource();
 	}
-	
-	virtual unsigned int GetRealSize( void *pStore )
-	{
+
+    unsigned int GetRealSize( void *pStore ) override {
 		return StoragePointer(pStore)->Size();
 	}
 

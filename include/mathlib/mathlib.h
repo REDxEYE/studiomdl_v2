@@ -78,22 +78,16 @@ enum
 	FRUSTUM_NUMPLANES	= 6
 };
 
-extern int SignbitsForPlane( cplane_t *out );
 class Frustum_t;
 
 // Computes Y fov from an X fov and a screen aspect ratio + X from Y
-float CalcFovY( float flFovX, float flScreenAspect );
-float CalcFovX( float flFovY, float flScreenAspect );
 
 // Generate a frustum based on perspective view parameters
 // NOTE: FOV is specified in degrees, as the *full* view angle (not half-angle)
 class VPlane;
-void GeneratePerspectiveFrustum( const Vector& origin, const QAngle &angles, float flZNear, float flZFar, float flFovX, float flAspectRatio, Frustum_t &frustum );
-void GeneratePerspectiveFrustum( const Vector& origin, const Vector &forward, const Vector &right, const Vector &up, float flZNear, float flZFar, float flFovX, float flFovY, VPlane *pPlanesOut );
 // Cull the world-space bounding box to the specified frustum.
 // bool R_CullBox( const Vector& mins, const Vector& maxs, const Frustum_t &frustum );
 // bool R_CullBoxSkipNear( const Vector& mins, const Vector& maxs, const Frustum_t &frustum );
-void GenerateOrthoFrustum( const Vector &origin, const Vector &forward, const Vector &right, const Vector &up, float flLeft, float flRight, float flBottom, float flTop, float flZNear, float flZFar, VPlane *pPlanesOut );
 
 class CTransform;
 class matrix3x4a_t;
@@ -143,14 +137,12 @@ struct matrix3x4_t
 	inline void InitFromQAngles( const QAngle &angles );
 	inline void InitFromRadianEuler( const RadianEuler &angles, const Vector &vPosition );
 	inline void InitFromRadianEuler( const RadianEuler &angles );
-	inline void InitFromCTransform( const CTransform &transform );
 	inline void InitFromQuaternion( const Quaternion &orientation, const Vector &vPosition );
 	inline void InitFromQuaternion( const Quaternion &orientation );
 	inline void InitFromDiagonal( const Vector &vDiagonal );
 
 	inline Quaternion ToQuaternion() const;
 	inline QAngle ToQAngle() const;
-	inline CTransform ToCTransform() const;
 
 	inline void SetToIdentity();
 
@@ -433,8 +425,6 @@ FORCEINLINE void VectorMA( const float * start, float scale, const float *direct
 }
 
 
-int VectorCompare (const float *v1, const float *v2);
-
 inline float VectorLength(const float *v)
 {
 	return FastSqrt( v[0]*v[0] + v[1]*v[1] + v[2]*v[2] + FLT_EPSILON );
@@ -456,8 +446,6 @@ inline float CrossProductZ( const Vector & v1, const Vector& v2 )
 {
 	return v1.x * v2.y - v1.y * v2.x;
 }
-
-qboolean VectorsEqual( const float *v1, const float *v2 );
 
 inline vec_t RoundInt (vec_t in)
 {
@@ -569,11 +557,6 @@ FORCEINLINE uint32_t LargestPowerOfTwoLessThanOrEqual( uint32_t x )
 
 
 // Math routines for optimizing division
-void FloorDivMod (double numer, double denom, int *quotient, int *rem);
-int GreatestCommonDivisor (int i1, int i2);
-
-// Test for FPU denormal mode
-bool IsDenormal( const float &val );
 
 // MOVEMENT INFO
 enum
@@ -585,7 +568,6 @@ enum
 
 void MatrixVectorsFLU( const matrix3x4_t &matrix, Vector* pForward, Vector *pLeft, Vector *pUp );
 void MatrixAngles( const matrix3x4_t & matrix, float *angles ); // !!!!
-void MatrixVectors( const matrix3x4_t &matrix, Vector* pForward, Vector *pRight, Vector *pUp );
 void VectorTransform (const float *in1, const matrix3x4_t & in2, float *out);
 void VectorITransform (const float *in1, const matrix3x4_t & in2, float *out);
 void VectorRotate( const float *in1, const matrix3x4_t & in2, float *out);
@@ -603,12 +585,9 @@ inline const Vector VectorRotate( const Vector &vIn1, const Quaternion &qIn2 )
 
 #ifndef VECTOR_NO_SLOW_OPERATIONS
 
-QAngle TransformAnglesToLocalSpace( const QAngle &angles, const matrix3x4_t &parentMatrix );
-QAngle TransformAnglesToWorldSpace( const QAngle &angles, const matrix3x4_t &parentMatrix );
 
 #endif
 
-void MatrixInitialize( matrix3x4_t &mat, const Vector &vecOrigin, const Vector &vecXAxis, const Vector &vecYAxis, const Vector &vecZAxis );
 void MatrixCopy( const matrix3x4_t &in, matrix3x4_t &out );
 void MatrixInvert( const matrix3x4_t &in, matrix3x4_t &out );
 
@@ -619,7 +598,6 @@ void MatrixGetColumn( const matrix3x4_t &in, int column, Vector &out );
 void MatrixSetColumn( const Vector &in, int column, matrix3x4_t &out );
 
 //void DecomposeRotation( const matrix3x4_t &mat, float *out );
-void ConcatRotations (const matrix3x4_t &in1, const matrix3x4_t &in2, matrix3x4_t &out);
 void ConcatTransforms (const matrix3x4_t &in1, const matrix3x4_t &in2, matrix3x4_t &out);
 // faster version assumes m0, m1, out are 16-byte aligned addresses
 void ConcatTransforms_Aligned( const matrix3x4a_t &m0, const matrix3x4a_t &m1, matrix3x4a_t &out );
@@ -633,12 +611,10 @@ inline void MatrixMultiply ( const matrix3x4_t &in1, const matrix3x4_t &in2, mat
 void QuaternionExp( const Quaternion &p, Quaternion &q );
 void QuaternionLn( const Quaternion &p, Quaternion &q );
 void QuaternionAverageExponential( Quaternion &q, int nCount, const Quaternion *pQuaternions, const float *pflWeights = nullptr);
-void QuaternionLookAt( const Vector &vecForward, const Vector &referenceUp, Quaternion &q );
 void QuaternionSlerp( const Quaternion &p, const Quaternion &q, float t, Quaternion &qt );
 void QuaternionSlerpNoAlign( const Quaternion &p, const Quaternion &q, float t, Quaternion &qt );
 void QuaternionBlend( const Quaternion &p, const Quaternion &q, float t, Quaternion &qt );
 void QuaternionBlendNoAlign( const Quaternion &p, const Quaternion &q, float t, Quaternion &qt );
-void QuaternionIdentityBlend( const Quaternion &p, float t, Quaternion &qt );
 float QuaternionAngleDiff( const Quaternion &p, const Quaternion &q );
 void QuaternionScale( const Quaternion &p, float t, Quaternion &q );
 void QuaternionAlign( const Quaternion &p, const Quaternion &q, Quaternion &qt );
@@ -646,7 +622,6 @@ float QuaternionDotProduct( const Quaternion &p, const Quaternion &q );
 void QuaternionConjugate( const Quaternion &p, Quaternion &q );
 void QuaternionInvert( const Quaternion &p, Quaternion &q );
 float QuaternionNormalize( Quaternion &q );
-void QuaternionMultiply( const Quaternion &q, const Vector &v, Vector &result );
 void QuaternionAdd( const Quaternion &p, const Quaternion &q, Quaternion &qt );
 void QuaternionMult( const Quaternion &p, const Quaternion &q, Quaternion &qt );
 void QuaternionMatrix( const Quaternion &q, matrix3x4_t &matrix );
@@ -655,10 +630,7 @@ void QuaternionMatrix( const Quaternion &q, const Vector &pos, const Vector &vSc
 void QuaternionAngles( const Quaternion &q, QAngle &angles );
 void AngleQuaternion( const QAngle& angles, Quaternion &qt );
 void QuaternionAngles( const Quaternion &q, RadianEuler &angles );
-void QuaternionVectorsFLU( Quaternion const &q, Vector *pForward, Vector *pLeft, Vector *pUp );
-void QuaternionVectorsForward( const Quaternion& q, Vector *pForward );
 void AngleQuaternion( RadianEuler const &angles, Quaternion &qt );
-void QuaternionAxisAngle( const Quaternion &q, Vector &axis, float &angle );
 void AxisAngleQuaternion( const Vector &axis, float angle, Quaternion &q );
 void BasisToQuaternion( const Vector &vecForward, const Vector &vecRight, const Vector &vecUp, Quaternion &q );
 void MatrixQuaternion( const matrix3x4_t &mat, Quaternion &q );
@@ -666,7 +638,6 @@ void MatrixQuaternion( const matrix3x4_t &mat, Quaternion &q );
 
 void MatrixQuaternionFast( const matrix3x4_t &mat, Quaternion &q );
 void MatrixPosition( const matrix3x4_t &matrix, Vector &position );
-Vector MatrixNormalize( const matrix3x4_t &in, matrix3x4_t &out );
 
 inline void MatrixQuaternion( const matrix3x4_t &mat, Quaternion &q, Vector &o )
 {
@@ -676,8 +647,6 @@ inline void MatrixQuaternion( const matrix3x4_t &mat, Quaternion &q, Vector &o )
 
 
 
-float MatrixQuaternionTest( uint32_t );
-float MatrixQuaternionTest2( uint32_t );
 
 /// qt = p + s * q
 void QuaternionAccumulate( const Quaternion &p, float s, const Quaternion &q, Quaternion &qt );
@@ -815,9 +784,6 @@ inline const matrix3x4_t QuaternionMatrix( const Quaternion &q, const Vector &po
 	return mat;
 }
 
-//! Shortest-arc quaternion that rotates vector v1 into vector v2
-const Quaternion RotateBetween( const Vector& v1, const Vector& v2 );
-
 inline const Quaternion QuaternionConjugate( const Quaternion &p )
 {
 	Quaternion q;
@@ -933,21 +899,6 @@ FORCEINLINE T Lerp( float flPercent, T const &A, T const &B )
 FORCEINLINE float Sqr( float f )
 {
 	return f*f;
-}
-
-// 5-argument floating point linear interpolation.
-// FLerp(f1,f2,i1,i2,x)=
-//    f1 at x=i1
-//    f2 at x=i2
-//   smooth lerp between f1 and f2 at x>i1 and x<i2
-//   extrapolation for x<i1 or x>i2
-//
-//   If you know a function f(x)'s value (f1) at position i1, and its value (f2) at position i2,
-//   the function can be linearly interpolated with FLerp(f1,f2,i1,i2,x)
-//    i2=i1 will cause a divide by zero.
-static inline float FLerp(float f1, float f2, float i1, float i2, float x)
-{
-  return f1+(f2-f1)*(x-i1)/(i2-i1);
 }
 
 
@@ -1067,15 +1018,6 @@ inline int ClampArrayBounds( int n, unsigned maxindex )
 
 
 
-// Turn a number "inside out". 
-// See Recording Animation in Binary Order for Progressive Temporal Refinement
-// by Paul Heckbert from "Graphics Gems".
-//
-// If you want to iterate something from 0 to n, you can use this to iterate non-sequentially, in
-// such a way that you will start with widely separated values and then refine the gaps between
-// them, as you would for progressive refinement. This works with non-power of two ranges.
-int InsideOut( int nTotal, int nCounter );
-
 #define BOX_ON_PLANE_SIDE(emins, emaxs, p)	\
 	(((p)->type < 3)?						\
 	(										\
@@ -1096,21 +1038,14 @@ int InsideOut( int nTotal, int nCounter );
 // FIXME: Vector versions.... the float versions will go away hopefully soon!
 //-----------------------------------------------------------------------------
 
-void AngleVectors (const QAngle& angles, Vector *forward);
-void AngleVectors (const QAngle& angles, Vector *forward, Vector *right, Vector *up);
-void AngleVectorsTranspose (const QAngle& angles, Vector *forward, Vector *right, Vector *up);
 void AngleVectorsFLU( const QAngle& angles, Vector *pForward, Vector *pLeft, Vector *pUp );
 void AngleMatrix (const QAngle &angles, matrix3x4_t &mat );
 void AngleMatrix( const QAngle &angles, const Vector &position, matrix3x4_t &mat );
 void AngleMatrix (const RadianEuler &angles, matrix3x4_t &mat );
 void AngleMatrix( RadianEuler const &angles, const Vector &position, matrix3x4_t &mat );
 void AngleIMatrix (const QAngle &angles, matrix3x4_t &mat );
-void AngleIMatrix (const QAngle &angles, const Vector &position, matrix3x4_t &mat );
 void AngleIMatrix (const RadianEuler &angles, matrix3x4_t &mat );
 void VectorAngles( const Vector &forward, QAngle &angles );
-void VectorAngles( const Vector &forward, const Vector &pseudoup, QAngle &angles );
-void VectorMatrix( const Vector &forward, matrix3x4_t &mat );
-void VectorVectors( const Vector &forward, Vector &right, Vector &up );
 void SetIdentityMatrix( matrix3x4_t &mat );
 void SetScaleMatrix( float x, float y, float z, matrix3x4_t &dst );
 void MatrixBuildRotationAboutAxis( const Vector &vAxisOfRot, float angleDegrees, matrix3x4_t &dst );
@@ -1313,124 +1248,18 @@ void ClearBounds (Vector& mins, Vector& maxs);
 void AddPointToBounds (const Vector& v, Vector& mins, Vector& maxs);
 
 
-// solve for "x" where "a x^2 + b x + c = 0", return true if solution exists
-bool SolveQuadratic( float a, float b, float c, float &root1, float &root2 );
-
 // solves for "a, b, c" where "a x^2 + b x + c = y", return true if solution exists
 bool SolveInverseQuadratic( float x1, float y1, float x2, float y2, float x3, float y3, float &a, float &b, float &c );
 
-// solves for a,b,c specified as above, except that it always creates a monotonically increasing or
-// decreasing curve if the data is monotonically increasing or decreasing. In order to enforce the
-// monoticity condition, it is possible that the resulting quadratic will only approximate the data
-// instead of interpolating it. This code is not especially fast.
-bool SolveInverseQuadraticMonotonic( float x1, float y1, float x2, float y2, 
-									 float x3, float y3, float &a, float &b, float &c );
 
 
-
-
-// solves for "a, b, c" where "1/(a x^2 + b x + c ) = y", return true if solution exists
-bool SolveInverseReciprocalQuadratic( float x1, float y1, float x2, float y2, float x3, float y3, float &a, float &b, float &c );
 
 // rotate a vector around the Z axis (YAW)
 void VectorYawRotate( const Vector& in, float flYaw, Vector &out);
 
 
-// Bias takes an X value between 0 and 1 and returns another value between 0 and 1
-// The curve is biased towards 0 or 1 based on biasAmt, which is between 0 and 1.
-// Lower values of biasAmt bias the curve towards 0 and higher values bias it towards 1.
-//
-// For example, with biasAmt = 0.2, the curve looks like this:
-//
-// 1
-// |				  *
-// |				  *
-// |			     *
-// |			   **
-// |			 **
-// |	  	 ****
-// |*********
-// |___________________
-// 0                   1
-//
-//
-// With biasAmt = 0.8, the curve looks like this:
-//
-// 1
-// | 	**************
-// |  **
-// | * 
-// | *
-// |* 
-// |* 
-// |*  
-// |___________________
-// 0                   1
-//
-// With a biasAmt of 0.5, Bias returns X.
-float Bias( float x, float biasAmt );
 
 
-// Gain is similar to Bias, but biasAmt biases towards or away from 0.5.
-// Lower bias values bias towards 0.5 and higher bias values bias away from it.
-//
-// For example, with biasAmt = 0.2, the curve looks like this:
-//
-// 1
-// | 				  *
-// | 				 *
-// | 				**
-// |  ***************
-// | **
-// | *
-// |*
-// |___________________
-// 0                   1
-//
-//
-// With biasAmt = 0.8, the curve looks like this:
-//
-// 1
-// |  		    *****
-// |  		 ***
-// |  		*
-// | 		*
-// | 		*
-// |   	 ***
-// |*****
-// |___________________
-// 0                   1
-float Gain( float x, float biasAmt );
-
-
-// SmoothCurve maps a 0-1 value into another 0-1 value based on a cosine wave
-// where the derivatives of the function at 0 and 1 (and 0.5) are 0. This is useful for
-// any fadein/fadeout effect where it should start and end smoothly.
-//
-// The curve looks like this:
-//
-// 1
-// |  		**
-// | 	   *  *
-// | 	  *	   *
-// | 	  *	   *
-// | 	 *		*
-// |   **		 **
-// |***			   ***
-// |___________________
-// 0                   1
-//
-float SmoothCurve( float x );
-
-
-// This works like SmoothCurve, with two changes:
-//
-// 1. Instead of the curve peaking at 0.5, it will peak at flPeakPos.
-//    (So if you specify flPeakPos=0.2, then the peak will slide to the left).
-//
-// 2. flPeakSharpness is a 0-1 value controlling the sharpness of the peak.
-//    Low values blunt the peak and high values sharpen the peak.
-float SmoothCurve_Tweak( float x, float flPeakPos=0.5, float flPeakSharpness=0.5 );
 
 
 //float ExponentialDecay( float halflife, float dt );
@@ -1730,16 +1559,7 @@ inline bool QuickBoxIntersectTest(
 }
 
 
-extern float GammaToLinearFullRange( float gamma );
-extern float LinearToGammaFullRange( float linear );
-extern float GammaToLinear( float gamma );
-extern float LinearToGamma( float linear );
 
-extern float SrgbGammaToLinear( float flSrgbGammaValue );
-extern float SrgbLinearToGamma( float flLinearValue );
-extern float X360GammaToLinear( float fl360GammaValue );
-extern float X360LinearToGamma( float flLinearValue );
-extern float SrgbGammaTo360Gamma( float flSrgbGammaValue );
 
 // linear (0..4) to screen corrected vertex space (0..1?)
 FORCEINLINE float LinearToVertexLight( float f )
@@ -1825,23 +1645,6 @@ void Catmull_Rom_Spline_Tangent(
 	float t, 
 	Vector &output );
 
-// area under the curve [0..t]
-void Catmull_Rom_Spline_Integral( 
-	const Vector &p1,
-	const Vector &p2,
-	const Vector &p3,
-	const Vector &p4,
-	float t, 
-	Vector& output );
-
-// area under the curve [0..1]
-void Catmull_Rom_Spline_Integral( 
-	const Vector &p1,
-	const Vector &p2,
-	const Vector &p3,
-	const Vector &p4,
-	Vector& output );
-
 // Interpolate a Catmull-Rom spline.
 // Normalize p2->p1 and p3->p4 to be the same length as p2->p3
 void Catmull_Rom_Spline_Normalize(
@@ -1851,16 +1654,6 @@ void Catmull_Rom_Spline_Normalize(
 	const Vector &p4,
 	float t, 
 	Vector &output );
-
-// area under the curve [0..t]
-// Normalize p2->p1 and p3->p4 to be the same length as p2->p3
-void Catmull_Rom_Spline_Integral_Normalize(
-	const Vector &p1,
-	const Vector &p2,
-	const Vector &p3,
-	const Vector &p4,
-	float t, 
-	Vector& output );
 
 // Interpolate a Catmull-Rom spline.
 // Normalize p2.x->p1.x and p3.x->p4.x to be the same length as p2.x->p3.x
@@ -1881,46 +1674,6 @@ void Catmull_Rom_Spline_NormalizeX(
 	float t, 
 	Vector& output );
 
-// Interpolate a Hermite spline.
-// t is a [0,1] value and interpolates a curve between p1 and p2 with the deltas d1 and d2.
-void Hermite_Spline(
-	const Vector &p1,
-	const Vector &p2,
-	const Vector &d1,
-	const Vector &d2,
-	float t, 
-	Vector& output );
-
-float Hermite_Spline(
-	float p1,
-	float p2,
-	float d1,
-	float d2,
-	float t );
-
-// t is a [0,1] value and interpolates a curve between p1 and p2 with the slopes p0->p1 and p1->p2
-void Hermite_Spline(
-	const Vector &p0,
-	const Vector &p1,
-	const Vector &p2,
-	float t, 
-	Vector& output );
-
-float Hermite_Spline(
-	float p0,
-	float p1,
-	float p2,
-	float t );
-
-
-void Hermite_SplineBasis( float t, float basis[] );
-
-void Hermite_Spline( 
-	const Quaternion &q0, 
-	const Quaternion &q1, 
-	const Quaternion &q2, 
-	float t, 
-	Quaternion &output );
 
 
 // See http://en.wikipedia.org/wiki/Kochanek-Bartels_curves
@@ -1984,37 +1737,8 @@ void BSpline(
 	float t, 
 	Vector& output );
 
-void BSpline_NormalizeX(
-	const Vector &p1,
-	const Vector &p2,
-	const Vector &p3,
-	const Vector &p4,
-	float t, 
-	Vector& output );
-
-// See link at Kochanek_Bartels_Spline for info on the basis matrix used
-void Parabolic_Spline(
-	const Vector &p1,
-	const Vector &p2,
-	const Vector &p3,
-	const Vector &p4,
-	float t, 
-	Vector& output );
-
-void Parabolic_Spline_NormalizeX(
-	const Vector &p1,
-	const Vector &p2,
-	const Vector &p3,
-	const Vector &p4,
-	float t, 
-	Vector& output );
-
 // Evaluate the cubic Bernstein basis for the input parametric coordinate.
 // Output is the coefficient for that basis polynomial.
-float CubicBasis0( float t );
-float CubicBasis1( float t );
-float CubicBasis2( float t );
-float CubicBasis3( float t );
 
 // quintic interpolating polynomial from Perlin.
 // 0->0, 1->1, smooth-in between with smooth tangents
@@ -2027,23 +1751,11 @@ inline float QuinticInterpolatingPolynomial(float t)
 // given a table of sorted tabulated positions, return the two indices and blendfactor to linear
 // interpolate. Does a search. Can be used to find the blend value to interpolate between
 // keyframes.
-void GetInterpolationData( float const *pKnotPositions, 
-						   float const *pKnotValues,
-						   int nNumValuesinList,
-						   int nInterpolationRange,
-						   float flPositionToInterpolateAt,
-						   bool bWrap,
-						   float *pValueA, 
-						   float *pValueB,
-						   float *pInterpolationValue);
-float RangeCompressor( float flValue, float flMin, float flMax, float flBase );
 
 // Get the minimum distance from vOrigin to the bounding box defined by [mins,maxs]
 // using voronoi regions.
 // 0 is returned if the origin is inside the box.
 float CalcSqrDistanceToAABB( const Vector &mins, const Vector &maxs, const Vector &point );
-void CalcClosestPointOnAABB( const Vector &mins, const Vector &maxs, const Vector &point, Vector &closestOut );
-void CalcSqrDistAndClosestPointOnAABB( const Vector &mins, const Vector &maxs, const Vector &point, Vector &closestOut, float &distSqrOut );
 
 inline float CalcDistanceToAABB( const Vector &mins, const Vector &maxs, const Vector &point )
 {
@@ -2055,68 +1767,22 @@ inline float CalcDistanceToAABB( const Vector &mins, const Vector &maxs, const V
 // calculate the shortest distance from P to the line.
 // If you pass in a value for t, it will tell you the t for (A + (B-A)t) to get the closest point.
 // If the closest point lies on the segment between A and B, then 0 <= t <= 1.
-void  CalcClosestPointOnLine( const Vector &P, const Vector &vLineA, const Vector &vLineB, Vector &vClosest, float *t=nullptr );
-float CalcDistanceToLine( const Vector &P, const Vector &vLineA, const Vector &vLineB, float *t=nullptr );
-float CalcDistanceSqrToLine( const Vector &P, const Vector &vLineA, const Vector &vLineB, float *t=nullptr );
 
 // The same three functions as above, except now the line is closed between A and B.
-void  CalcClosestPointOnLineSegment( const Vector &P, const Vector &vLineA, const Vector &vLineB, Vector &vClosest, float *t=nullptr );
-float CalcDistanceToLineSegment( const Vector &P, const Vector &vLineA, const Vector &vLineB, float *t=nullptr );
-float CalcDistanceSqrToLineSegment( const Vector &P, const Vector &vLineA, const Vector &vLineB, float *t=nullptr );
-
-// A function to compute the closes line segment connnection two lines (or false if the lines are parallel, etc.)
-bool CalcLineToLineIntersectionSegment(
-   const Vector& p1,const Vector& p2,const Vector& p3,const Vector& p4,Vector *s1,Vector *s2,
-   float *t1, float *t2 );
 
 // The above functions in 2D
-void  CalcClosestPointOnLine2D( Vector2D const &P, Vector2D const &vLineA, Vector2D const &vLineB, Vector2D &vClosest, float *t=nullptr );
-float CalcDistanceToLine2D( Vector2D const &P, Vector2D const &vLineA, Vector2D const &vLineB, float *t=nullptr );
-float CalcDistanceSqrToLine2D( Vector2D const &P, Vector2D const &vLineA, Vector2D const &vLineB, float *t=nullptr );
-void  CalcClosestPointOnLineSegment2D( Vector2D const &P, Vector2D const &vLineA, Vector2D const &vLineB, Vector2D &vClosest, float *t=nullptr );
-float CalcDistanceToLineSegment2D( Vector2D const &P, Vector2D const &vLineA, Vector2D const &vLineB, float *t=nullptr );
-float CalcDistanceSqrToLineSegment2D( Vector2D const &P, Vector2D const &vLineA, Vector2D const &vLineB, float *t=nullptr );
 
 // Init the mathlib
 void MathLib_Init( float gamma = 2.2f, float texGamma = 2.2f, float brightness = 0.0f, int overbright = 2.0f, bool bAllow3DNow = true, bool bAllowSSE = true, bool bAllowSSE2 = true, bool bAllowMMX = true );
-bool MathLib_MMXEnabled( void );
-bool MathLib_SSEEnabled( void );
-bool MathLib_SSE2Enabled( void );
 
 inline float Approach( float target, float value, float speed );
-float ApproachAngle( float target, float value, float speed );
-float AngleDiff( float destAngle, float srcAngle );
-float AngleDistance( float next, float cur );
 float AngleNormalize( float angle );
 
 // ensure that 0 <= angle <= 360
 float AngleNormalizePositive( float angle );
 
-bool AnglesAreEqual( float a, float b, float tolerance = 0.0f );
 
 
-void RotationDeltaAxisAngle( const QAngle &srcAngles, const QAngle &destAngles, Vector &deltaAxis, float &deltaAngle );
-void RotationDelta( const QAngle &srcAngles, const QAngle &destAngles, QAngle *out );
-
-//-----------------------------------------------------------------------------
-// Clips a line segment such that only the portion in the positive half-space
-// of the plane remains.  If the segment is entirely clipped, the vectors
-// are set to vec3_invalid (all components are FLT_MAX).
-//
-// flBias is added to the dot product with the normal.  A positive bias 
-// results in a more inclusive positive half-space, while a negative bias
-// results in a more exclusive positive half-space.
-//-----------------------------------------------------------------------------
-void ClipLineSegmentToPlane( const Vector &vNormal, const Vector &vPlanePoint, Vector *p1, Vector *p2, float flBias = 0.0f );
-
-void ComputeTrianglePlane( const Vector& v1, const Vector& v2, const Vector& v3, Vector& normal, float& intercept );
-int PolyFromPlane( Vector *pOutVerts, const Vector& normal, float dist, float fHalfScale = 9000.0f );
-void PolyFromPlane_SIMD( fltx4 *pOutVerts, const fltx4 & plane, float fHalfScale = 9000.0f );
-int ClipPolyToPlane( Vector *inVerts, int vertCount, Vector *outVerts, const Vector& normal, float dist, float fOnPlaneEpsilon = 0.1f );
-int ClipPolyToPlane_SIMD( fltx4 *pInVerts, int vertCount, fltx4 *pOutVerts, const fltx4& plane, float fOnPlaneEpsilon = 0.1f );
-int ClipPolyToPlane_Precise( double *inVerts, int vertCount, double *outVerts, const double *normal, double dist, double fOnPlaneEpsilon = 0.1 );
-float TetrahedronVolume( const Vector &p0, const Vector &p1, const Vector &p2, const Vector &p3 );
-float TriangleArea( const Vector &p0, const Vector &p1, const Vector &p2 );
 
 /// return surface area of an AABB
 FORCEINLINE float BoxSurfaceArea( Vector const &vecBoxMin, Vector const &vecBoxMax )
@@ -2193,8 +1859,6 @@ inline void MatrixITransformPlane( const matrix3x4_t &src, const cplane_t &inPla
 	outPlane.dist -= outPlane.normal.x * vecInvTranslation[0] + outPlane.normal.y * vecInvTranslation[1] + outPlane.normal.z * vecInvTranslation[2];
 }
 
-int CeilPow2( int in );
-int FloorPow2( int in );
 
 FORCEINLINE float * UnpackNormal_HEND3N( const unsigned int *pPackedNormal, float *pNormal )
 {
@@ -2487,16 +2151,6 @@ FORCEINLINE void RGB2YUV( int &nR, int &nG, int &nB, float &fY, float &fU, float
 }
 
 
-//-----------------------------------------------------------------------------
-// Convert RGB to HSV
-//-----------------------------------------------------------------------------
-void RGBtoHSV( const Vector &rgb, Vector &hsv );
-
-
-//-----------------------------------------------------------------------------
-// Convert HSV to RGB
-//-----------------------------------------------------------------------------
-void HSVtoRGB( const Vector &hsv, Vector &rgb );
 
 
 //-----------------------------------------------------------------------------
@@ -2811,8 +2465,6 @@ inline float matrix3x4_t::GetSylvestersCriterion()const
 // |/  |/
 // 0---4   --> +x
 //
-void PointsFromBox( const Vector &mins, const Vector &maxs, Vector *points );
-void BuildTransformedBox( Vector *v2, Vector const &bbmin, Vector const &bbmax, const matrix3x4_t& m );
 
 
 

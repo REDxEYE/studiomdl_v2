@@ -197,7 +197,6 @@ public:
 	bool			IsExternallyAllocated() const;
 	void			AssumeMemory( void *pMemory, int nSize, int nInitialPut, int nFlags = 0 );
 	void			*Detach();
-	void*			DetachMemory();
 
 	// copies data from another buffer
 	void			CopyBuffer( const CUtlBuffer &buffer );
@@ -207,9 +206,6 @@ public:
 	void			Swap( CUtlMemory<uint8_t> &mem );
 
 	// Controls endian-ness of binary utlbufs - default matches the current platform
-	void			ActivateByteSwapping( bool bActivate );
-	void			SetBigEndian( bool bigEndian );
-	bool			IsBigEndian( void );
 
 	// Resets the buffer; but doesn't free memory
 	void			Clear();
@@ -244,14 +240,9 @@ public:
 	// Used for getting objects that have a byteswap datadesc defined
 	template <typename T> void GetObjects( T *dest, int count = 1 );
 
-	// This will get at least 1 byte and up to nSize bytes. 
-	// It will return the number of bytes actually read.
-	int				GetUpTo( void *pMem, int nSize );
-
 	// This version of GetString converts \" to \\ and " to \, etc.
 	// It also reads a " at the beginning and end of the string
 	void			GetDelimitedString( CUtlCharConversion *pConv, char *pString, int nMaxChars = 0 );
-	char			GetDelimitedChar( CUtlCharConversion *pConv );
 
 	// This will return the # of characters of the string about to be read out
 	// NOTE: The count will *include* the terminating 0!!
@@ -321,7 +312,6 @@ public:
 	// This version of PutString converts \ to \\ and " to \", etc.
 	// It also places " at the beginning and end of the string
 	void			PutDelimitedString( CUtlCharConversion *pConv, const char *pString );
-	void			PutDelimitedChar( CUtlCharConversion *pConv, char c );
 
 	// Just like printf, writes a terminating zero in binary mode
 	void			Printf( PRINTF_FORMAT_STRING const char* pFmt, ... ) FMTFUNCTION( 2, 3 );
@@ -543,61 +533,7 @@ public:
 	// Routines returning buffer-inplace-pointers
 	//
 public:
-	//
-	// Upon success, determines the line length, fills out the pointer to the
-	// beginning of the line and the line length, advances the "get" pointer
-	// offset by the line length and returns "true".
-	//
-	// If end of file is reached or upon error returns "false".
-	//
-	// Note:	the returned length of the line is at least one character because the
-	//			trailing newline characters are also included as part of the line.
-	//
-	// Note:	the pointer returned points into the local memory of this buffer, in
-	//			case the buffer gets relocated or destroyed the pointer becomes invalid.
-	//
-	// e.g.:	-------------
-	//
-	//			char *pszLine;
-	//			int nLineLen;
-	//			while ( pUtlInplaceBuffer->InplaceGetLinePtr( &pszLine, &nLineLen ) )
-	//			{
-	//				...
-	//			}
-	//
-	//			-------------
-	//
-	// @param	ppszInBufferPtr		on return points into this buffer at start of line
-	// @param	pnLineLength		on return holds num bytes accessible via (*ppszInBufferPtr)
-	//
-	// @returns	true				if line was successfully read
-	//			false				when EOF is reached or error occurs
-	//
-	bool InplaceGetLinePtr( /* out */ char **ppszInBufferPtr, /* out */ int *pnLineLength );
 
-	//
-	// Determines the line length, advances the "get" pointer offset by the line length,
-	// replaces the newline character with null-terminator and returns the initial pointer
-	// to now null-terminated line.
-	//
-	// If end of file is reached or upon error returns NULL.
-	//
-	// Note:	the pointer returned points into the local memory of this buffer, in
-	//			case the buffer gets relocated or destroyed the pointer becomes invalid.
-	//
-	// e.g.:	-------------
-	//
-	//			while ( char *pszLine = pUtlInplaceBuffer->InplaceGetLinePtr() )
-	//			{
-	//				...
-	//			}
-	//
-	//			-------------
-	//
-	// @returns	ptr-to-zero-terminated-line		if line was successfully read and buffer modified
-	//			NULL							when EOF is reached or error occurs
-	//
-	char * InplaceGetLinePtr( void );
 };
 
 

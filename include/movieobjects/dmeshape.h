@@ -32,15 +32,6 @@ public:
 	virtual void GetBoundingSphere( Vector &c, float &r ) const;
 	virtual void GetBoundingBox( Vector &min, Vector &max ) const { min.Zero(); max.Zero(); }
 
-	// Find out how many DmeDag's have this DmeShape as their shape, could be 0
-	int GetParentCount() const;
-
-	// Get the nth DmeDag that has this DmeShape as its shape.  The order is defined by g_pDataModel->FirstAttributeReferencingElement/NextAttr...
-	CDmeDag *GetParent( int nParentIndex = 0 ) const;
-
-	// Get the Nth World Matrix for the shape (the world matrix of the Nth DmeDag parent)
-	void GetShapeToWorldTransform( matrix3x4_t &mat, int nParentIndex = 0 ) const;
-
 protected:
 	CDmaVar< bool > m_visible;
 };

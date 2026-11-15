@@ -52,8 +52,6 @@ class CUtlMemory;
 template<class T, class A>
 class CUtlVector;
 
-extern const char* nexttoken(char* token, const char* str, char sep);
-
 #ifdef OSX
 size_t strnlen(const char* s, size_t n);
 #endif
@@ -199,10 +197,6 @@ int64_t V_atoi64(const char* str);
 
 uint64_t V_atoui64(const char* str);
 
-int64_t V_strtoi64(const char* nptr, char** endptr, int base);
-
-uint64_t V_strtoui64(const char* nptr, char** endptr, int base);
-
 float V_atof(const char* str);
 
 double V_atod(const char* str);
@@ -214,10 +208,6 @@ const char* V_stristr(const char* pStr, const char* pSearch);
 const char* V_strnistr(const char* pStr, const char* pSearch, int n);
 
 const char* V_strnchr(const char* pStr, char c, int n);
-
-wchar_t* V_wcsistr(wchar_t* pStr, const wchar_t* pSearch);
-
-const wchar_t* V_wcsistr(const wchar_t* pStr, const wchar_t* pSearch);
 
 void V_qsort_s(void* base, size_t num, size_t width, int (__cdecl *compare)(void*, const void*, const void*),
                void* context);
@@ -508,32 +498,7 @@ enum EStringConvertErrorPolicy {
     STRINGCONVERT_ASSERT_FAIL = _STRINGCONVERTFLAG_ASSERT + STRINGCONVERT_FAIL,
 };
 
-// Unicode (UTF-8, UTF-16, UTF-32) fundamental conversion functions.
-bool Q_IsValidUChar32(uchar32 uValue);
-
-int Q_UChar32ToUTF8Len(uchar32 uValue);
-
-int Q_UChar32ToUTF8(uchar32 uValue, char* pOut);
-
-int Q_UChar32ToUTF16Len(uchar32 uValue);
-
-int Q_UChar32ToUTF16(uchar32 uValue, uchar16* pOut);
-
-// Validate that a Unicode string is well-formed and contains only valid code points
-bool Q_UnicodeValidate(const char* pUTF8);
-
-bool Q_UnicodeValidate(const uchar16* pUTF16);
-
-bool Q_UnicodeValidate(const uchar32* pUTF32);
-
 #define V_UnicodeValidate Q_UnicodeValidate
-
-// Returns length of string in Unicode code points (printed glyphs or non-printing characters)
-int Q_UnicodeLength(const char* pUTF8);
-
-int Q_UnicodeLength(const uchar16* pUTF16);
-
-int Q_UnicodeLength(const uchar32* pUTF32);
 
 #define V_UnicodeLength			Q_UnicodeLength
 
@@ -551,17 +516,6 @@ inline int Q_strlen32(const uchar32* puc32) {
     return nElems;
 }
 
-
-// Repair invalid Unicode strings by dropping truncated characters and fixing improperly-double-encoded UTF-16 sequences.
-// Unlike conversion functions which replace with '?' by default, a repair operation assumes that you know that something
-// is wrong with the string (eg, mid-sequence truncation) and you just want to do the best possible job of cleaning it up.
-// You can pass a REPLACE or FAIL policy if you would prefer to replace characters with '?' or clear the entire string.
-// Returns nonzero on success, or 0 if the policy is FAIL and an invalid sequence was found.
-int Q_UnicodeRepair(char* pUTF8, EStringConvertErrorPolicy ePolicy = STRINGCONVERT_SKIP);
-
-int Q_UnicodeRepair(uchar16* pUTF16, EStringConvertErrorPolicy ePolicy = STRINGCONVERT_SKIP);
-
-int Q_UnicodeRepair(uchar32* pUTF32, EStringConvertErrorPolicy ePolicy = STRINGCONVERT_SKIP);
 
 // Advance pointer forward by N Unicode code points (printed glyphs or non-printing characters), stopping at terminating null if encountered.
 char* Q_UnicodeAdvance(char* pUTF8, int nCharacters);
@@ -630,22 +584,13 @@ int Q_UTF8CharsToUTF32(const char* pUTF8, int nElements, OUT_Z_BYTECAP(cubDestSi
 int Q_UTF16CharsToUTF8(const uchar16* pUTF16, int nElements, OUT_Z_BYTECAP(cubDestSizeInBytes) char* pUTF8,
                        int cubDestSizeInBytes, EStringConvertErrorPolicy ePolicy = STRINGCONVERT_ASSERT_REPLACE);
 
-int Q_UTF16CharsToUTF32(const uchar16* pUTF16, int nElements, OUT_Z_BYTECAP(cubDestSizeInBytes) uchar32* pUTF32,
-                        int cubDestSizeInBytes, EStringConvertErrorPolicy ePolicy = STRINGCONVERT_ASSERT_REPLACE);
-
 int Q_UTF32CharsToUTF8(const uchar32* pUTF32, int nElements, OUT_Z_BYTECAP(cubDestSizeInBytes) char* pUTF8,
                        int cubDestSizeInBytes, EStringConvertErrorPolicy ePolicy = STRINGCONVERT_ASSERT_REPLACE);
-
-int Q_UTF32CharsToUTF16(const uchar32* pUTF32, int nElements, OUT_Z_BYTECAP(cubDestSizeInBytes) uchar16* pUTF16,
-                        int cubDestSizeInBytes, EStringConvertErrorPolicy ePolicy = STRINGCONVERT_ASSERT_REPLACE);
 
 // Decode a single UTF-8 character to a uchar32, returns number of UTF-8 bytes parsed
 int Q_UTF8ToUChar32(const char* pUTF8_, uchar32 &uValueOut, bool &bErrorOut);
 
 #define V_UTF8ToUChar32 Q_UTF8ToUChar32
-
-// Decode a single UTF-16 character to a uchar32, returns number of UTF-16 characters (NOT BYTES) consumed
-int Q_UTF16ToUChar32(const uchar16* pUTF16, uchar32 &uValueOut, bool &bErrorOut);
 
 
 // NOTE: WString means either UTF32 or UTF16 depending on the platform and compiler settings.
@@ -714,9 +659,6 @@ template<size_t maxLenInCharacters>
 int V_vsprintf_safe(OUT_Z_ARRAY char (&pDest)[maxLenInCharacters], PRINTF_FORMAT_STRING const char* pFormat,
                     va_list params) { return V_vsnprintf(pDest, maxLenInCharacters, pFormat, params); }
 
-int V_vsnwprintf(OUT_Z_CAP(maxLenInCharacters) wchar_t* pDest, int maxLenInCharacters,
-                 PRINTF_FORMAT_STRING const wchar_t* pFormat, va_list params);
-
 template<size_t maxLenInCharacters>
 int V_vswprintf_safe(OUT_Z_ARRAY wchar_t (&pDest)[maxLenInCharacters], PRINTF_FORMAT_STRING const wchar_t* pFormat,
                      va_list params) { return V_vsnwprintf(pDest, maxLenInCharacters, pFormat, params); }
@@ -754,8 +696,6 @@ char* V_pretifynum(int64_t value);
 
 // Prints out a memory dump where stuff that's ascii is human readable, etc.
 class CUtlString;
-
-void V_LogMultiline(bool input, char const* label, const char* data, size_t len, CUtlString &output);
 
 // conversion functions wchar_t <-> char, returning the number of characters converted
 int _V_UTF8ToUnicode(const char* pUTF8, OUT_Z_BYTECAP(cubDestSizeInBytes) wchar_t* pwchDest, int cubDestSizeInBytes);
@@ -828,15 +768,6 @@ void V_FileBase(const char* in, OUT_Z_CAP(maxlen) char* out, int maxlen);
 // Remove the final characters of ppath if it's '\' or '/'.
 void V_StripTrailingSlash(char* ppath);
 
-// Remove the final characters of ppline if they are whitespace (uses V_isspace)
-void V_StripTrailingWhitespace(char* ppline);
-
-// Remove the initial characters of ppline if they are whitespace (uses V_isspace)
-void V_StripLeadingWhitespace(char* ppline);
-
-// Remove the initial/final characters of ppline if they are " quotes
-void V_StripSurroundingQuotes(char* ppline);
-
 // Remove any extension from in and return resulting string in out
 void V_StripExtension(const char* in, char* out, int outLen);
 
@@ -868,9 +799,6 @@ void V_ExtractFileExtension(const char* path, char* dest, int destSize);
 // Returns a pointer to the file extension or NULL if one doesn't exist
 const char* V_GetFileExtension(const char* path);
 
-// (everything after the last path seperator)
-const char* V_GetFileExtensionSafe(const char* path);
-
 // Dear branch integrator: V_GetFileName was removed! It was identical to V_UnqualifiedFileName.
 inline const char* V_GetFileName(const char* path) { return V_UnqualifiedFileName(path); }
 
@@ -898,9 +826,6 @@ inline void V_MakeAbsolutePath(char* pOut, int outLen, const char* pPath, const 
 // The second is the full path of the directory to make the first file relative to
 // Returns false if they can't be made relative (on separate drives, for example)
 bool V_MakeRelativePath(const char* pFullPath, const char* pDirectory, char* pRelativePath, int nBufLen);
-
-// Fixes up a file name, replacing ' ' with '_'
-void V_FixupPathSpaceToUnderscore(char* pPath);
 
 // Fixes up a file name, removing dot slashes, fixing slashes, converting to lowercase, etc.
 void V_FixupPathName(OUT_Z_CAP(nOutLen) char* pOut, int nOutLen, IN_Z const char* pPath);
@@ -937,27 +862,13 @@ void V_SplitString(const char* pString, const char* pSeparator,
 void V_SplitString2(const char* pString, const char** pSeparators, int nSeparators,
                     CUtlVector<char*, CUtlMemory<char*, int> > &outStrings);
 
-// Split string for wide character strings
-void V_SplitWString(const wchar_t* pString, const wchar_t* pSeparator,
-                    CUtlVector<wchar_t*, CUtlMemory<wchar_t*, int> > &outStrings);
-
-// Just like V_SplitString, but for wide character strings
-void V_SplitWString2(const wchar_t* pString, const wchar_t** pSeparators, int nSeparators,
-                     CUtlVector<wchar_t*, CUtlMemory<wchar_t*, int> > &outStrings);
-
 // Returns false if the buffer is not large enough to hold the working directory name.
 bool V_GetCurrentDirectory(char* pOut, int maxLen);
-
-// Set the working directory thus.
-bool V_SetCurrentDirectory(const char* pDirName);
 
 typedef enum {
     PATTERN_NONE = 0x00000000,
     PATTERN_DIRECTORY = 0x00000001
 } TStringPattern;
-
-// String matching using wildcards (*) for partial matches.
-bool V_StringMatchesPattern(const char* szString, const char* szPattern, int flags = 0);
 
 // This function takes a slice out of pStr and stores it in pOut.
 // It follows the Python slice convention:
@@ -971,18 +882,11 @@ void V_StrLeft(const char* pStr, int nChars, char* pOut, int outSize);
 // Chop off the right nChars of a string.
 void V_StrRight(const char* pStr, int nChars, char* pOut, int outSize);
 
-// change "special" characters to have their c-style backslash sequence. like \n, \r, \t, ", etc.
-// returns a pointer to a newly allocated string, which you must delete[] when finished with.
-char* V_AddBackSlashesToSpecialChars(char const* pSrc);
-
 // Force slashes of either type to be = separator character
 void V_FixSlashes(char* pname, char separator = CORRECT_PATH_SEPARATOR);
 
 // This function fixes cases of filenames like materials\\blah.vmt or somepath\otherpath\\ and removes the extra double slash.
 void V_FixDoubleSlashes(char* pStr);
-
-// Check if 2 paths are the same, works if slashes are different.
-bool V_PathsMatch(const char* pPath1, const char* pPath2);
 
 // Convert multibyte to wchar + back
 // Specify -1 for nInSize for null-terminated string
@@ -1000,30 +904,6 @@ inline void V_wcscat(INOUT_Z_CAP(cchDest) wchar_t* dest, const wchar_t* src, int
     V_wcsncat(dest, src, cchDest, COPY_ALL_CHARACTERS);
 }
 
-// Convert from a string to an array of integers.
-// Returns the actual # of ints converted
-int V_StringToIntArray(OUT_CAP(count) int* pVector, int count, const char* pString);
-
-// Convert from a string to an array of floats.
-// Returns the actual # of floats converted
-int V_StringToFloatArray(OUT_CAP(count) float* pVector, int count, const char* pString);
-
-// Convert from a string to a vector3 type
-void V_StringToVector(OUT_CAP(3) float* pVector, const char* pString);
-
-// Convert from a string to a 4 byte color value.
-void V_StringToColor32(color32* color, const char* pString);
-
-// Convert \r\n (Windows linefeeds) to \n (Unix linefeeds).
-void V_TranslateLineFeedsToUnix(char* pStr);
-
-/// Given two file paths, return the length of the common starting substring containing matching components. Case insensitive, and treats slash and backslash the same
-/// Assert( LengthOfMatchingPaths( "d:/a/b", "d:/a/b" ) == 6 );
-/// Assert( LengthOfMatchingPaths( "d:/a/b", "d:/a/" ) == 5 );
-/// Assert( LengthOfMatchingPaths( "d:/a/b", "d:/a" ) == 5 );
-/// Assert( LengthOfMatchingPaths( "d:/a/ba", "d:/a/b" ) == 5 );
-int LengthOfMatchingPaths(char const* pFilenamePath, char const* pMatchPath);
-
 inline void V_RemoveFormatSpecifications(const char* pszFrom, char* pszTo, size_t sizeDest) {
     while (*pszFrom && --sizeDest) {
         if (*pszFrom == '%') {
@@ -1040,70 +920,6 @@ inline void V_RemoveFormatSpecifications(const char* pszFrom, char* pszTo, size_
     *pszTo = 0;
 }
 
-// If pBreakCharacters == NULL, then the tokenizer will split tokens at the following characters:
-//    { } ( ) ' :
-// White-space, '//' comments, and quoted strings are always handled.
-char const* V_ParseToken(char const* pStrIn, OUT_Z_CAP(bufsize) char* pToken, int bufsize, bool* pbOverflowed = nullptr,
-                         struct characterset_t* pTokenBreakCharacters = nullptr);
-
-// Parses a single line, does not trim any whitespace from start or end.  Does not include the final '\n'.
-char const* V_ParseLine(char const* pStrIn, OUT_Z_CAP(bufsize) char* pToken, int bufsize, bool* pbOverflowed = nullptr);
-
-// Returns true if additional data is waiting to be processed on this line
-bool V_TokenWaiting(const char* buffer);
-
-// Performs boyer moore search, returns offset of first occurrence of needle in haystack, or -1 on failure.  Note that haystack and the needle can be binary (non-text) data
-int V_BoyerMooreSearch(const uint8_t* pNeedle, int nNeedleLength, const uint8_t* pHayStack, int nHayStackLength);
-
-// Creates a random ascii string (alphanumeric only) of specified length
-CUtlString V_RandomString(int nLength);
-
-// Encode a string for display as HTML -- this only encodes ' " & < >, which are the important ones to encode for
-// security and ensuring HTML display doesn't break.  Other special chars like the ? sign and so forth will not
-// be encoded
-//
-// Returns false if there was not enough room in pDest to encode the entire source string, otherwise true
-bool V_BasicHtmlEntityEncode(OUT_Z_CAP(nDestSize) char* pDest, const int nDestSize, char const* pIn, const int nInSize,
-                             bool bPreserveWhitespace = false);
-
-// Decode a string with htmlentities HTML -- this should handle all special chars, not just the ones Q_BasicHtmlEntityEncode uses.
-//
-// Returns false if there was not enough room in pDest to decode the entire source string, otherwise true
-bool V_HtmlEntityDecodeToUTF8(OUT_Z_CAP(nDestSize) char* pDest, const int nDestSize, char const* pIn,
-                              const int nInSize);
-
-// strips HTML from a string.  Should call Q_HTMLEntityDecodeToUTF8 afterward.
-void V_StripAndPreserveHTML(CUtlBuffer* pbuffer, const char* pchHTML, const char** rgszPreserveTags,
-                            uint32_t cPreserveTags, uint32_t cMaxResultSize);
-
-void V_StripAndPreserveHTMLCore(CUtlBuffer* pbuffer, const char* pchHTML, const char** rgszPreserveTags,
-                                uint32_t cPreserveTags, const char** rgszNoCloseTags, uint32_t cNoCloseTags,
-                                uint32_t cMaxResultSize);
-
-// Extracts the domain from a URL
-bool V_ExtractDomainFromURL(const char* pchURL, OUT_Z_CAP(cchDomain) char* pchDomain, int cchDomain);
-
-//-----------------------------------------------------------------------------
-// returns true if the character is allowed in a URL, false otherwise
-//-----------------------------------------------------------------------------
-bool V_IsValidURLCharacter(const char* pch, int* pAdvanceBytes);
-
-//-----------------------------------------------------------------------------
-// returns true if the character is allowed in a DNS doman name, false otherwise
-//-----------------------------------------------------------------------------
-bool V_IsValidDomainNameCharacter(const char* pch, int* pAdvanceBytes);
-
-// Converts BBCode tags to HTML tags
-bool V_BBCodeToHTML(OUT_Z_CAP(nDestSize) char* pDest, const int nDestSize, char const* pIn, const int nInSize);
-
-
-// helper to identify "mean" spaces, which we don't like in visible identifiers
-// such as player Name
-bool V_IsMeanSpaceW(wchar_t wch);
-
-// helper to identify characters which are deprecated in Unicode,
-// and we simply don't accept
-bool V_IsDeprecatedW(wchar_t wch);
 
 //-----------------------------------------------------------------------------
 // generic unique name helper functions
@@ -1177,10 +993,6 @@ bool V_GenerateUniqueName(char* name, int memsize, const char* prefix, const Nam
 }
 
 
-extern bool V_StringToBin(const char* pString, void* pBin, uint32_t nBinSize);
-
-extern bool V_BinToString(char* pString, void* pBin, uint32_t nBinSize);
-
 template<typename T>
 struct BinString_t {
     BinString_t() {
@@ -1212,32 +1024,6 @@ template<typename T>
 inline BinString_t<T> MakeBinString(const T &that) {
     return BinString_t<T>(that);
 }
-
-// Encodes a string (or binary data) in URL encoding format, see rfc1738 section 2.2.
-// Dest buffer should be 3 times the size of source buffer to guarantee it has room to encode.
-void Q_URLEncodeRaw(OUT_Z_CAP(nDestLen) char* pchDest, int nDestLen, const char* pchSource, int nSourceLen);
-
-// Decodes a string (or binary data) from URL encoding format, see rfc1738 section 2.2.
-// Dest buffer should be at least as large as source buffer to gurantee room for decode.
-// Dest buffer being the same as the source buffer (decode in-place) is explicitly allowed.
-//
-// Returns the amount of space actually used in the output buffer.
-size_t Q_URLDecodeRaw(OUT_CAP(nDecodeDestLen) char* pchDecodeDest, int nDecodeDestLen, const char* pchEncodedSource,
-                      int nEncodedSourceLen);
-
-// Encodes a string (or binary data) in URL encoding format, this isn't the strict rfc1738 format, but instead uses + for spaces.
-// This is for historical reasons and HTML spec foolishness that lead to + becoming a de facto standard for spaces when encoding form data.
-// Dest buffer should be 3 times the size of source buffer to guarantee it has room to encode.
-void Q_URLEncode(OUT_Z_CAP(nDestLen) char* pchDest, int nDestLen, const char* pchSource, int nSourceLen);
-
-// Decodes a string (or binary data) in URL encoding format, this isn't the strict rfc1738 format, but instead uses + for spaces.
-// This is for historical reasons and HTML spec foolishness that lead to + becoming a de facto standard for spaces when encoding form data.
-// Dest buffer should be at least as large as source buffer to gurantee room for decode.
-// Dest buffer being the same as the source buffer (decode in-place) is explicitly allowed.
-//
-// Returns the amount of space actually used in the output buffer.
-size_t Q_URLDecode(OUT_CAP(nDecodeDestLen) char* pchDecodeDest, int nDecodeDestLen, const char* pchEncodedSource,
-                   int nEncodedSourceLen);
 
 
 //-----------------------------------------------------------------------------
@@ -1543,25 +1329,7 @@ inline int V_strcspn(const char* s1, const char* search) { return (int) (strcspn
 #endif
 
 namespace AsianWordWrap {
-    // Functions used by Asian language line wrapping to determine if a character can end a line, begin a line, or be broken up when repeated (eg: "...")
-    bool CanEndLine(wchar_t wcCandidate);
 
-    bool CanBeginLine(wchar_t wcCandidate);
-
-    bool CanBreakRepeated(wchar_t wcCandidate);
-
-    // Used to determine if we can break a line between the first two characters passed; calls the above functions on each character
-    bool CanBreakAfter(const wchar_t* wsz);
 }
 
-// We use this function to determine where it is permissible to break lines
-// of text while wrapping them. On most platforms, the native iswspace() function
-// returns FALSE for the "non-breaking space" characters 0x00a0 and 0x202f, and so we don't
-// break on them. On the 360, however, iswspace returns TRUE for them. So, on that
-// platform, we work around it by defining this wrapper which returns false
-// for &nbsp; and calls through to the library function for everything else.
-int isbreakablewspace(wchar_t ch);
 
-
-// Strip white space at the beginning and end of a string
-int V_StrTrim(char* pStr);

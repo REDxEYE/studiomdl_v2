@@ -171,7 +171,6 @@ public:
 	char *Access() { return Get(); }
 	const char	*Get( ) const;
 	char		*Get();
-	char*		GetForModify();
 
 	void Clear() { Set(nullptr); }
 
@@ -201,7 +200,6 @@ public:
 	void		Swap(CUtlString &src);
 
 	// Case Change
-	void		ToUpper();
 	void		ToLower( );
 	void		Append( const char *pchAddition );
 	void		Append(const char *pchAddition, int nMaxChars);
@@ -209,9 +207,6 @@ public:
 		char temp[2] = { chAddition, 0 };
 		Append(temp);
 	}
-
-	// Strips the trailing slash
-	void		StripTrailingSlash();
 
 	char operator[] ( int idx ) const;
 	char& operator[] ( int idx );
@@ -260,7 +255,6 @@ public:
 
 	// Grab a substring starting from the left or the right side.
 	CUtlString Left( int32_t nChars );
-	CUtlString Right( int32_t nChars );
 
 	CUtlString Remove(char const *pTextToRemove, bool bCaseSensitive) const;
 
@@ -273,12 +267,7 @@ public:
 		/// helper func for caseless replace
 	CUtlString ReplaceCaseless( char const *pchFrom, const char *pchTo ) const { return Replace( pchFrom, pchTo, false ); }
 
-	void RemoveDotSlashes(char separator = CORRECT_PATH_SEPARATOR);
-
 	// Trim whitespace
-	void		TrimLeft( const char *szTargets = "\t\r\n " );
-	void		TrimRight( const char *szTargets = "\t\r\n " );
-	void		Trim( const char *szTargets = "\t\r\n " );
 
 	// Calls right through to V_MakeAbsolutePath.
 	CUtlString AbsPath( const char *pStartingDir= nullptr) const;	
@@ -293,26 +282,8 @@ public:
 		return result;
 	}
 
-	// Gets the filename (everything except the path.. c:\a\b\c\somefile.txt -> somefile.txt).
-	CUtlString UnqualifiedFilename() const;
-	
-	// Strips off one directory. Uses V_StripLastDir but strips the last slash also!
-	CUtlString DirName();
-
 	// Get a string with the extension removed (with V_StripExtension).
 	CUtlString StripExtension() const;
-
-	// Get a string with the filename removed (uses V_UnqualifiedFileName and also strips the last slash)
-	CUtlString StripFilename() const;
-
-	// Get a string with the base filename (with V_FileBase).
-	CUtlString GetBaseFilename() const;
-
-	// Get a string with the file extension (with V_FileBase).
-	CUtlString GetExtension() const;
-
-	// Works like V_ComposeFileName.
-	static CUtlString PathJoin( const char *pStr1, const char *pStr2 );
 
 	// These can be used for utlvector sorts.
 	static int __cdecl SortCaseInsensitive( const CUtlString *pString1, const CUtlString *pString2 );
@@ -535,4 +506,3 @@ typedef	CUtlConstStringBase<char>		CUtlConstString;
 typedef	CUtlConstStringBase<wchar_t>	CUtlConstWideString;
 
 
-int V_vscprintf(const char *format, va_list argptr);

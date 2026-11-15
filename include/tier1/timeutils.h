@@ -32,7 +32,6 @@ public:
 	void SetFramerateNTSC( int multiplier = 30 );
 
 	float GetFramesPerSecond() const;
-	DmeTime_t GetTimePerFrame() const;
 
 	bool operator==( DmeFramerate_t f ) const { return m_num == f.m_num && m_den == f.m_den; }
 	bool operator!=( DmeFramerate_t f ) const { return m_num != f.m_num && m_den != f.m_den; }
@@ -126,7 +125,6 @@ public:
 	// helper methods
 
 	void Clamp( DmeTime_t lo, DmeTime_t hi );
-	bool IsInRange( DmeTime_t lo, DmeTime_t hi ) const;
 
 
 	// helper functions
@@ -144,16 +142,13 @@ public:
 	// framerate-dependent conversions to/from frames
 
 	int CurrentFrame( DmeFramerate_t framerate, RoundStyle_t roundStyle = ROUND_DOWN ) const;
-	DmeTime_t TimeAtCurrentFrame( DmeFramerate_t framerate, RoundStyle_t roundStyle = ROUND_DOWN ) const;
 	DmeTime_t TimeAtNextFrame( DmeFramerate_t framerate ) const;
-	DmeTime_t TimeAtPrevFrame( DmeFramerate_t framerate ) const;
 
 private:
 	explicit DmeTime_t( int64_t tms ) : m_tms( int( tms ) ) {}
 
 	// conversion helper methods - implementation
 	static int RoundSecondsToTMS( float sec );
-	static int RoundSecondsToTMS( double sec );
 
 	int m_tms;
 };

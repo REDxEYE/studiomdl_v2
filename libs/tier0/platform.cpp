@@ -100,30 +100,6 @@ uint32_t Plat_MSTime()
 
 #endif // PLATFORM_WINDOWS/PLATFORM_PS3
 
-void Plat_GetLocalTime(struct tm *pNow) {
-    time_t ltime;
-    time(&ltime);
-
-    tm *pTime = localtime(&ltime);
-    if (pTime)
-        *pNow = *pTime;
-    else
-        memset(pNow, 0, sizeof(*pNow));
-}
-
-void Plat_GetModuleFilename(char *pOut, int nMaxBytes) {
-#ifdef PLATFORM_WINDOWS_PC
-    SetLastError( ERROR_SUCCESS ); // clear the error code
-    GetModuleFileName( NULL, pOut, nMaxBytes );
-    if ( GetLastError() != ERROR_SUCCESS )
-        Error( "Plat_GetModuleFilename: The buffer given is too small (%d bytes).", nMaxBytes );
-#else
-    // We shouldn't need this on POSIX.
-    Assert(false);
-    pOut[0] = 0x00;    // Null the returned string in release builds
-#endif
-}
-
 void Plat_ExitProcess(int nCode) {
 #if defined( _WIN32 )
     // We don't want global destructors in our process OR in any DLL to get executed.

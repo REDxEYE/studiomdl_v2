@@ -41,14 +41,6 @@ void CDmeMaterial::Resolve()
 }
 
 
-//-----------------------------------------------------------------------------
-// Sets the material
-//-----------------------------------------------------------------------------
-void CDmeMaterial::SetMaterial( const char *pMaterialName )
-{
-	m_mtlName = pMaterialName;
-}
-
 
 //-----------------------------------------------------------------------------
 // Returns the material name

@@ -271,43 +271,6 @@ bool CUtlStreamBuffer::StreamPutOverflow( int nSize )
 	return true;
 }
 
-//-----------------------------------------------------------------------------
-// Commit some of the stream to disk upon requests
-//-----------------------------------------------------------------------------
-bool CUtlStreamBuffer::TryFlushToFile( int nFlushToFileBytes )
-{
-	if ( !IsValid() || IsReadOnly() || ( m_Error & PUT_OVERFLOW ) )
-		return false;
-
-	// m_nOffset represents the location in the virtual buffer of m_Memory[0].
-	// Compute the number of bytes that we've buffered up in memory so that we know what to write to disk.
-	int nBytesToWrite = TellPut() - m_nOffset;
-	if ( nFlushToFileBytes < nBytesToWrite )
-		nBytesToWrite = nFlushToFileBytes;	// cannot write more than what we have, but can flush beginning of buffer up to certain amount
-
-	if ( nBytesToWrite <= 0 )
-		return true;	// nothing buffered to write
-
-	if ( m_hFileHandle == FILESYSTEM_INVALID_HANDLE )
-	{
-		m_hFileHandle = OpenFile( m_pFileName, m_pPath, m_nOpenFileFlags );
-	}
-
-	// Write out the data that we have buffered if we have any.
-	int nBytesWritten = g_pFullFileSystem->Write( Base(), nBytesToWrite, m_hFileHandle );
-	if ( nBytesWritten != nBytesToWrite )
-	{
-		m_Error |= PUT_OVERFLOW;	// Flag the buffer the same way as if put overflow callback failed
-		return false;				// Let caller know about file IO failure
-	}
-
-	// Move the uncommitted data over and advance the offset up by as many bytes
-	memmove( Base(), ( const char* ) Base() + nBytesWritten, ( TellPut() - m_nOffset ) - nBytesWritten + 1 ); // + 1 byte for null termination character
-	m_nOffset += nBytesWritten;
-
-	return true;
-}
-
 
 
 //-----------------------------------------------------------------------------

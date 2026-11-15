@@ -98,43 +98,7 @@ public:
 	// Returns one of [ AS_LEFT_HANDED, AS_RIGHT_HANDED ] from m_nCoordSys
 	CoordSys_t GetCoordSys() const;
 
-	// Get the matrix to convert the identity to this axis system
-	static void ComputeMatrix( matrix3x4a_t &mMatrix, PredefinedAxisSystem ePredefinedAxisSystem );
-
-	// Get the matrix to convert data from the specified axis system to the specified axis system
-	static void GetConversionMatrix(
-		matrix3x4a_t &mMat,
-		PredefinedAxisSystem eFromAxisSystem,
-		PredefinedAxisSystem eToAxisSystem );
-
-	static void GetConversionMatrix( matrix3x4a_t &mMat,
-		Axis_t eFromUpAxis, ForwardParity_t eFromForwardParity,
-		Axis_t eToUpAxis, ForwardParity_t eToForwardParity );
-
-	static void GetConversionMatrix( matrix3x4a_t &mMat,
-		Axis_t eFromUpAxis, ForwardParity_t eFromForwardParity, CoordSys_t eFromCoordSys,
-		Axis_t eToUpAxis, ForwardParity_t eToForwardParity, CoordSys_t eToCoordSys );
-
-	static CUtlString GetAxisString(
-		Axis_t eUpAxis,
-		ForwardParity_t eForwardParity,
-		CoordSys_t eCoordSys );
-
 protected:
-	// Returns one of [ AS_AXIS_X, AS_AXIS_Y, AS_AXIS_Z ] along with one of [ -1, 1 ] to indicate the sign
-	Axis_t GetAbsUpAxisAndSign( int &nSign ) const;
-
-	// Returns one of [ AS_PARITY_EVEN, AS_PARITY_ODD ] along with one of [ -1, 1 ] to indicate the sign
-	ForwardParity_t GetAbsForwardParityAndSign( int &nSign ) const;
-
-	// Returns one of [ AS_AXIS_X, AS_AXIS_Y, AS_AXIS_Z ] along with one of [ -1, 1 ] to indicate the sign
-	Axis_t ComputeAbsForwardAxisAndSign( int &nSign ) const;
-
-	// Returns one of [ AS_AXIS_X, AS_AXIS_Y, AS_AXIS_Z ] along with one of [ -1, 1 ] to indicate the sign
-	Axis_t ComputeLeftAxis( int &nSign ) const;
-
-	// Computes the matrix for the specified upAxis, forwardParity and coordSys values
-	static void ComputeMatrix( matrix3x4a_t &mMatrix, Axis_t eUpAxis, ForwardParity_t eForwardParity, CoordSys_t eCoordSys );
 
 	CDmaVar< int > m_nUpAxis;			// [ +/- AS_AXIS_X, +/- AS_AXIS_Y, +/- AS_AXIS_Z ]
 	CDmaVar< int > m_nForwardParity;	// [ +/- AS_PARITY_EVEN, +/- AS_PARITY_ODD ]

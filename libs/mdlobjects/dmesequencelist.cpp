@@ -59,20 +59,3 @@ void CDmeSequenceList::GetSortedSequenceList( CUtlVector< CDmeSequenceBase * > &
 }
 
 
-//-----------------------------------------------------------------------------
-// Sorts the sequences in the m_Sequences attribute in order of priority
-// Sequences that are referred to come before the sequences that refer to them
-//-----------------------------------------------------------------------------
-void CDmeSequenceList::SortSequences()
-{
-	CUtlVector< CDmeSequenceBase * > sortedSequenceList;
-
-	GetSortedSequenceList( sortedSequenceList );
-
-	m_Sequences.RemoveAll();
-	m_Sequences.EnsureCount( sortedSequenceList.Count() );
-	for ( int i = 0; i < m_Sequences.Count(); ++i )
-	{
-		m_Sequences.Set( i, sortedSequenceList[i] );
-	}
-}

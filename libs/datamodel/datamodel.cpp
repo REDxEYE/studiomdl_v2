@@ -39,24 +39,24 @@ class KeyValues;
 class CDmElementFactoryDefault : public IDmElementFactory {
 public:
     // Creation, destruction
-    virtual CDmElement *
+    CDmElement *
     Create(DmElementHandle_t handle, const char *pElementType, const char *pElementName, DmFileId_t fileid,
-           const DmObjectId_t &id) {
+           const DmObjectId_t &id) override {
         return new CDmElement(handle, pElementType, id, pElementName, fileid);
     }
 
-    virtual void Destroy(DmElementHandle_t hElement) {
+    void Destroy(DmElementHandle_t hElement) override {
         if (hElement != DMELEMENT_HANDLE_INVALID) {
             CDmElement *pElement = g_pDataModel->GetElement(hElement);
             delete static_cast<CDmElement *>( pElement );
         }
     }
 
-    virtual void AddOnElementCreatedCallback(IDmeElementCreated *callback) {};
+    void AddOnElementCreatedCallback(IDmeElementCreated *callback) override {};
 
-    virtual void RemoveOnElementCreatedCallback(IDmeElementCreated *callback) {};
+    void RemoveOnElementCreatedCallback(IDmeElementCreated *callback) override {};
 
-    virtual void OnElementCreated(CDmElement *pElement) {};
+    void OnElementCreated(CDmElement *pElement) override {};
 };
 
 static CDmElementFactoryDefault s_DefaultElementFactory;
@@ -2024,41 +2024,6 @@ CDataModel::CreateElement(const DmElementReference_t &ref, const char *pElementT
     return pElement;
 }
 
-void CDataModel::UpdateReferenceToElements(CDmAttribute *pAttr, CDmElement *pChild, bool bDetach) {
-    if (!pAttr || !pChild)
-        return;
-
-    if (bDetach) {
-// 		Msg( "removing " );
-        OnElementReferenceRemoved(pChild->GetHandle(), pAttr);
-    } else {
-        Assert(!CDmeElementAccessor::GetReference(pChild)->FindAttribute(pAttr));
-// 		Msg( "adding   " );
-        OnElementReferenceAdded(pChild->GetHandle(), pAttr);
-    }
-
-// 	CDmElement *pOwner = pAttr->GetOwner();
-// 	Msg( "reference to %s 0x%x '%s' from %s 0x%x '%s' %s\n",
-// 		pChild->GetTypeString(), pChild->GetHandle(), pChild->GetName(),
-// 		pOwner->GetTypeString(), pOwner->GetHandle(), pOwner->GetName(),
-// 		pAttr->GetName() );
-}
-
-void CDataModel::UpdateReferencesToElements(CDmElement *pElement, bool bDetach) {
-    for (CDmAttribute *pAttr = pElement->FirstAttribute(); pAttr; pAttr = pAttr->NextAttribute()) {
-        DmAttributeType_t type = pAttr->GetType();
-        if (type == AT_ELEMENT) {
-            UpdateReferenceToElements(pAttr, pAttr->GetValueElement<CDmElement>(), bDetach);
-        } else if (type == AT_ELEMENT_ARRAY) {
-            const CDmrElementArrayConst<> elementArray(pAttr);
-            int nChildren = elementArray.Count();
-            for (int i = 0; i < nChildren; ++i) {
-                UpdateReferenceToElements(pAttr, elementArray[i], bDetach);
-            }
-        }
-    }
-}
-
 
 //-----------------------------------------------------------------------------
 // Purpose: Destroys a scene object
@@ -2162,30 +2127,6 @@ void CDataModel::MarkHandleInvalid(DmElementHandle_t hElement) {
 void CDataModel::MarkHandleValid(DmElementHandle_t hElement) {
     m_Handles.MarkHandleValid(hElement);
     NotifyState(NOTIFY_CHANGE_TOPOLOGICAL);
-}
-
-void CDataModel::GetInvalidHandles(CUtlVector<DmElementHandle_t> &handles) {
-    unsigned int nHandles = m_Handles.GetHandleCount();
-    for (unsigned int i = 0; i < nHandles; ++i) {
-        DmElementHandle_t h = (DmElementHandle_t) m_Handles.GetHandleFromIndex(i);
-        if (!m_Handles.IsHandleValid(h)) {
-            handles.AddToTail(h);
-        }
-    }
-}
-
-void CDataModel::MarkHandlesValid(CUtlVector<DmElementHandle_t> &handles) {
-    int nHandles = handles.Count();
-    for (int i = 0; i < nHandles; ++i) {
-        m_Handles.MarkHandleValid(handles[i]);
-    }
-}
-
-void CDataModel::MarkHandlesInvalid(CUtlVector<DmElementHandle_t> &handles) {
-    int nHandles = handles.Count();
-    for (int i = 0; i < nHandles; ++i) {
-        m_Handles.MarkHandleInvalid(handles[i]);
-    }
 }
 
 

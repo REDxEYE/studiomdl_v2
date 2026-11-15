@@ -30,15 +30,10 @@ class CDmeBBox : public CDmeShape
 public:
 	void Clear();
 	bool Empty() const;
-	void TransformUsing ( const matrix3x4_t &mMatrix );
-	void Expand( const Vector &vPoint );
-	void Expand( const CDmeBBox &bbox );
-	bool Contains( const Vector &vPoint ) const;
 	bool Intersects( const CDmeBBox &bbox ) const;
 	float Width() const;	// X
 	float Height() const;	// Y
 	float Depth() const;	// Z
-	Vector Center() const;
 	const Vector &Min() const;
 	const Vector &Max() const;
 

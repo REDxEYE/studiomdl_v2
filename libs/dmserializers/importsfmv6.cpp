@@ -23,7 +23,7 @@ public:
 	CImportSFMV6( char const *formatName, char const *nextFormatName );
 
 private:
-	virtual bool DoFixup( CDmElement *pSourceRoot );
+    bool DoFixup( CDmElement *pSourceRoot ) override;
 
 	Quaternion DirectionToOrientation( const Vector &dir );
 

@@ -12,28 +12,18 @@ add_library(tier1
         exprevaluator.cpp
         characterset.cpp
         checksum_crc.cpp
-        checksum_sha1.cpp
         datamanager.cpp
-        fileio.cpp
         generichash.cpp
         keyvalues.cpp
-        keyvaluesjson.cpp
-        kvpacker.cpp
-        sparsematrix.cpp
-        splitstring.cpp
-        stringpool.cpp
         strtools.cpp
-        strtools_unicode.cpp
         tier1_logging.cpp
         timeutils.cpp
-        undiff.cpp
         memstack.cpp
         mempool.cpp
         uniqueid.cpp
         utlbuffer.cpp
         utlbufferutil.cpp
         utlstring.cpp
-        utlstringtoken.cpp
         utlsymbol.cpp
         function_timing.cpp
         ../../include/tier1_v2/fixed_vector.hpp

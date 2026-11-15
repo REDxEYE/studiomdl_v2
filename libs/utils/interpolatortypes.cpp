@@ -37,19 +37,6 @@ static InterpolatorNameMap_t g_InterpolatorNameMap[] =
 	{ INTERPOLATE_HOLD,							"hold",						"Hold" },
 };
 
-int Interpolator_InterpolatorForName( char const *name )
-{
-	for ( int i = 0; i < NUM_INTERPOLATE_TYPES; ++i )
-	{
-		InterpolatorNameMap_t *slot = &g_InterpolatorNameMap[ i ];
-		if ( !Q_stricmp( name, slot->name ) )
-			return slot->type;
-	}
-	
-	Assert( !"Interpolator_InterpolatorForName failed!!!" );
-	return INTERPOLATE_DEFAULT;
-}
-
 char const *Interpolator_NameForInterpolator( int type, bool printname )
 {
 	int i = (int)type;
@@ -88,37 +75,6 @@ static CurveNameMap_t g_CurveNameMap[] =
 	{ CURVE_SIMPLE_CUBIC_TO_SIMPLE_CUBIC,						'0' },
 };
 
-// Turn enum into string and vice versa
-int Interpolator_CurveTypeForName( const char *name )
-{
-	char sz[ 128 ];
-	Q_strncpy( sz, name, sizeof( sz ) );
-
-	int leftcurve = 0;
-	int rightcurve = 0;
-
-	int skip = Q_strlen( "curve_" );
-
-	if ( StringHasPrefix( sz, "curve_" ) )
-	{
-		char *p = sz + skip;
-		char *second = Q_stristr( p, "_to_curve_" );
-		
-		char save = *second;
-		*second = 0;
-
-		leftcurve = Interpolator_InterpolatorForName( p );
-
-		*second = save;
-
-		p = second + Q_strlen( "_to_curve_" );
-
-		rightcurve = Interpolator_InterpolatorForName( p );
-	}
-
-	return MAKE_CURVE_TYPE( leftcurve, rightcurve );
-}
-
 const char *Interpolator_NameForCurveType( int type, bool printname )
 {
 	static char outname[ 256 ];
@@ -146,19 +102,6 @@ void Interpolator_CurveInterpolatorsForType( int type, int& inbound, int& outbou
 {
 	inbound = GET_LEFT_CURVE( type );
 	outbound = GET_RIGHT_CURVE( type );
-}
-
-int Interpolator_CurveTypeForHotkey( int key )
-{
-	int c = ARRAYSIZE( g_CurveNameMap );
-	for ( int i = 0; i < c; ++i )
-	{
-		CurveNameMap_t *slot = &g_CurveNameMap[ i ];
-		if ( slot->hotkey == key )
-			return slot->type;
-	}
-
-	return -1;
 }
 
 void Interpolator_GetKochanekBartelsParams( int interpolationType, float& tension, float& bias, float& continuity )

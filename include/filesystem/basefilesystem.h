@@ -106,8 +106,6 @@ public:
 
     int Size();
 
-    int64_t AbsoluteBaseOffset();
-
     bool EndOfFile();
 
     char *m_pszTrueFileName;
@@ -161,8 +159,6 @@ public:
     // Never called: Valve's app framework never registered the filesystem as an app system, so these did not run
     // before the interface system was removed either (path IDs "BSP"/"GAME", fs_debug).
     bool Init();
-
-    void Shutdown();
 
     void ParsePathID(const char *&pFilename, const char *&pPathID, char tempPathID[MAX_PATH]);
 
@@ -349,8 +345,6 @@ public:
 
     FSDirtyDiskReportFunc_t GetDirtyDiskReportFunc() override { return m_DirtyDiskReportFunc; }
 
-
-    void BuildExcludeList();
 
     bool GetStringFromKVPool(CRC32_t poolKey, unsigned int key, char *pOutBuff, int buflen) override;
 

@@ -18,7 +18,7 @@ class CBufferedLoggingListener : public ILoggingListener
 public:
 	CBufferedLoggingListener();
 
-	virtual void Log( const LoggingContext_t *pContext, const tchar *pMessage );
+    void Log( const LoggingContext_t *pContext, const tchar *pMessage ) override;
 
 	void EmitBufferedSpew();
 

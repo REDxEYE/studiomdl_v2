@@ -7,6 +7,7 @@
 #pragma once
 
 
+#include <vector>
 #include "tier1/utlvector.h"
 #include "tier1/utlhash.h"
 
@@ -28,17 +29,16 @@ public:
 	CDependencyGraph();
 	~CDependencyGraph();
 
-	void Reset( const CUtlVector< IDmeOperator * > &operators );
+	void Reset( const std::vector< IDmeOperator * > &operators );
 
 	// caches only the operators that need to be evaluated, sorted by dependencies
 	// returns true if a cycle found - in this case, an arbitrary link of the cycle will be ignored
 	bool CullAndSortOperators();
 
-	const CUtlVector< IDmeOperator* > &GetSortedOperators() const { return m_operators; }
+	const std::vector< IDmeOperator* > &GetSortedOperators() const { return m_operators; }
 
 private:
-	static bool GetOperatorOrdering( CUtlVector< COperatorNode* > &pOpNodes, CUtlVector< IDmeOperator * > &operators );
-	static void DBG_PrintOperator( const char *pIndent, IDmeOperator *pOp );
+	static bool GetOperatorOrdering( CUtlVector< COperatorNode* > &pOpNodes, std::vector< IDmeOperator * > &operators );
 
 	friend class CDmElementFramework;
 
@@ -53,6 +53,6 @@ private:
 
 	CUtlHash< CAttributeNode* > m_attrNodes;
 
-	CUtlVector< IDmeOperator* > m_operators;
+	std::vector< IDmeOperator* > m_operators;
 };
 

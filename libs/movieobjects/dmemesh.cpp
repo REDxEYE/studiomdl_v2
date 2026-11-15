@@ -21,105 +21,6 @@
 #include "tier1_v2/function_timing.hpp"
 
 
-//-----------------------------------------------------------------------------
-// Computes a skin matrix
-//-----------------------------------------------------------------------------
-static const matrix3x4_t *ComputeSkinMatrix(int nBoneCount, const float *pJointWeight, const int *pJointIndices,
-                                            const matrix3x4_t *pPoseToWorld, matrix3x4_t &result) {
-    float flWeight0, flWeight1, flWeight2, flWeight3;
-
-    switch (nBoneCount) {
-        default:
-        case 1:
-            return &pPoseToWorld[pJointIndices[0]];
-
-        case 2: {
-            const matrix3x4_t &boneMat0 = pPoseToWorld[pJointIndices[0]];
-            const matrix3x4_t &boneMat1 = pPoseToWorld[pJointIndices[1]];
-            flWeight0 = pJointWeight[0];
-            flWeight1 = pJointWeight[1];
-
-            // NOTE: Inlining here seems to make a fair amount of difference
-            result[0][0] = boneMat0[0][0] * flWeight0 + boneMat1[0][0] * flWeight1;
-            result[0][1] = boneMat0[0][1] * flWeight0 + boneMat1[0][1] * flWeight1;
-            result[0][2] = boneMat0[0][2] * flWeight0 + boneMat1[0][2] * flWeight1;
-            result[0][3] = boneMat0[0][3] * flWeight0 + boneMat1[0][3] * flWeight1;
-            result[1][0] = boneMat0[1][0] * flWeight0 + boneMat1[1][0] * flWeight1;
-            result[1][1] = boneMat0[1][1] * flWeight0 + boneMat1[1][1] * flWeight1;
-            result[1][2] = boneMat0[1][2] * flWeight0 + boneMat1[1][2] * flWeight1;
-            result[1][3] = boneMat0[1][3] * flWeight0 + boneMat1[1][3] * flWeight1;
-            result[2][0] = boneMat0[2][0] * flWeight0 + boneMat1[2][0] * flWeight1;
-            result[2][1] = boneMat0[2][1] * flWeight0 + boneMat1[2][1] * flWeight1;
-            result[2][2] = boneMat0[2][2] * flWeight0 + boneMat1[2][2] * flWeight1;
-            result[2][3] = boneMat0[2][3] * flWeight0 + boneMat1[2][3] * flWeight1;
-        }
-            return &result;
-
-        case 3: {
-            const matrix3x4_t &boneMat0 = pPoseToWorld[pJointIndices[0]];
-            const matrix3x4_t &boneMat1 = pPoseToWorld[pJointIndices[1]];
-            const matrix3x4_t &boneMat2 = pPoseToWorld[pJointIndices[2]];
-            flWeight0 = pJointWeight[0];
-            flWeight1 = pJointWeight[1];
-            flWeight2 = pJointWeight[2];
-
-            result[0][0] = boneMat0[0][0] * flWeight0 + boneMat1[0][0] * flWeight1 + boneMat2[0][0] * flWeight2;
-            result[0][1] = boneMat0[0][1] * flWeight0 + boneMat1[0][1] * flWeight1 + boneMat2[0][1] * flWeight2;
-            result[0][2] = boneMat0[0][2] * flWeight0 + boneMat1[0][2] * flWeight1 + boneMat2[0][2] * flWeight2;
-            result[0][3] = boneMat0[0][3] * flWeight0 + boneMat1[0][3] * flWeight1 + boneMat2[0][3] * flWeight2;
-            result[1][0] = boneMat0[1][0] * flWeight0 + boneMat1[1][0] * flWeight1 + boneMat2[1][0] * flWeight2;
-            result[1][1] = boneMat0[1][1] * flWeight0 + boneMat1[1][1] * flWeight1 + boneMat2[1][1] * flWeight2;
-            result[1][2] = boneMat0[1][2] * flWeight0 + boneMat1[1][2] * flWeight1 + boneMat2[1][2] * flWeight2;
-            result[1][3] = boneMat0[1][3] * flWeight0 + boneMat1[1][3] * flWeight1 + boneMat2[1][3] * flWeight2;
-            result[2][0] = boneMat0[2][0] * flWeight0 + boneMat1[2][0] * flWeight1 + boneMat2[2][0] * flWeight2;
-            result[2][1] = boneMat0[2][1] * flWeight0 + boneMat1[2][1] * flWeight1 + boneMat2[2][1] * flWeight2;
-            result[2][2] = boneMat0[2][2] * flWeight0 + boneMat1[2][2] * flWeight1 + boneMat2[2][2] * flWeight2;
-            result[2][3] = boneMat0[2][3] * flWeight0 + boneMat1[2][3] * flWeight1 + boneMat2[2][3] * flWeight2;
-        }
-            return &result;
-
-        case 4: {
-            const matrix3x4_t &boneMat0 = pPoseToWorld[pJointIndices[0]];
-            const matrix3x4_t &boneMat1 = pPoseToWorld[pJointIndices[1]];
-            const matrix3x4_t &boneMat2 = pPoseToWorld[pJointIndices[2]];
-            const matrix3x4_t &boneMat3 = pPoseToWorld[pJointIndices[3]];
-            flWeight0 = pJointWeight[0];
-            flWeight1 = pJointWeight[1];
-            flWeight2 = pJointWeight[2];
-            flWeight3 = pJointWeight[3];
-
-            result[0][0] = boneMat0[0][0] * flWeight0 + boneMat1[0][0] * flWeight1 + boneMat2[0][0] * flWeight2 +
-                           boneMat3[0][0] * flWeight3;
-            result[0][1] = boneMat0[0][1] * flWeight0 + boneMat1[0][1] * flWeight1 + boneMat2[0][1] * flWeight2 +
-                           boneMat3[0][1] * flWeight3;
-            result[0][2] = boneMat0[0][2] * flWeight0 + boneMat1[0][2] * flWeight1 + boneMat2[0][2] * flWeight2 +
-                           boneMat3[0][2] * flWeight3;
-            result[0][3] = boneMat0[0][3] * flWeight0 + boneMat1[0][3] * flWeight1 + boneMat2[0][3] * flWeight2 +
-                           boneMat3[0][3] * flWeight3;
-            result[1][0] = boneMat0[1][0] * flWeight0 + boneMat1[1][0] * flWeight1 + boneMat2[1][0] * flWeight2 +
-                           boneMat3[1][0] * flWeight3;
-            result[1][1] = boneMat0[1][1] * flWeight0 + boneMat1[1][1] * flWeight1 + boneMat2[1][1] * flWeight2 +
-                           boneMat3[1][1] * flWeight3;
-            result[1][2] = boneMat0[1][2] * flWeight0 + boneMat1[1][2] * flWeight1 + boneMat2[1][2] * flWeight2 +
-                           boneMat3[1][2] * flWeight3;
-            result[1][3] = boneMat0[1][3] * flWeight0 + boneMat1[1][3] * flWeight1 + boneMat2[1][3] * flWeight2 +
-                           boneMat3[1][3] * flWeight3;
-            result[2][0] = boneMat0[2][0] * flWeight0 + boneMat1[2][0] * flWeight1 + boneMat2[2][0] * flWeight2 +
-                           boneMat3[2][0] * flWeight3;
-            result[2][1] = boneMat0[2][1] * flWeight0 + boneMat1[2][1] * flWeight1 + boneMat2[2][1] * flWeight2 +
-                           boneMat3[2][1] * flWeight3;
-            result[2][2] = boneMat0[2][2] * flWeight0 + boneMat1[2][2] * flWeight1 + boneMat2[2][2] * flWeight2 +
-                           boneMat3[2][2] * flWeight3;
-            result[2][3] = boneMat0[2][3] * flWeight0 + boneMat1[2][3] * flWeight1 + boneMat2[2][3] * flWeight2 +
-                           boneMat3[2][3] * flWeight3;
-        }
-            return &result;
-    }
-
-    Assert(0);
-    return nullptr;
-}
-
 
 //-----------------------------------------------------------------------------
 // Constructor
@@ -145,133 +46,7 @@ CDmeMeshRenderInfo::CDmeMeshRenderInfo(CDmeVertexData *pBaseState) : m_PositionI
 }
 
 
-//-----------------------------------------------------------------------------
-// Computes where a vertex is
-//-----------------------------------------------------------------------------
-void CDmeMeshRenderInfo::ComputePosition(int nPosIndex, const matrix3x4_t *pPoseToWorld, Vector *pDeltaPosition,
-                                         Vector *pPosition) {
-    matrix3x4_t result;
-    Vector vecMorphPosition;
-    const matrix3x4_t *pSkinMatrix = pPoseToWorld;
 
-    if (m_bHasSkinningData) {
-        const FieldIndex_t nJointWeightsFieldIndex = m_pBaseState->FindFieldIndex(CDmeVertexData::FIELD_JOINT_WEIGHTS);
-        if (nJointWeightsFieldIndex >= 0) {
-            const FieldIndex_t nJointIndicesFieldIndex = m_pBaseState->FindFieldIndex(
-                CDmeVertexData::FIELD_JOINT_INDICES);
-            if (nJointIndicesFieldIndex >= 0) {
-                const CDmrArrayConst<float> jointWeights(m_pBaseState->GetVertexData(nJointWeightsFieldIndex));
-                const float *pJointWeight = &jointWeights[nPosIndex * m_pBaseState->JointCount()];
-
-                const CDmrArrayConst<int> jointIndices(m_pBaseState->GetVertexData(nJointIndicesFieldIndex));
-                const int *pJointIndices = &jointIndices[nPosIndex * m_pBaseState->JointCount()];
-
-                pSkinMatrix = ComputeSkinMatrix(m_nJointCount, pJointWeight, pJointIndices, pPoseToWorld, result);
-            }
-        }
-    }
-
-    const Vector *pPositionData = &m_PositionData[nPosIndex];
-
-    if (pDeltaPosition) {
-        VectorAdd(*pPositionData, *(pDeltaPosition + nPosIndex), vecMorphPosition);
-        pPositionData = &vecMorphPosition;
-    }
-
-    VectorTransform(*pPositionData, *pSkinMatrix, *(pPosition + nPosIndex));
-}
-
-
-//-----------------------------------------------------------------------------
-// Computes where a vertex is
-//-----------------------------------------------------------------------------
-void CDmeMeshRenderInfo::ComputePosition(
-    int nPosIndex,
-    const matrix3x4_t *pPoseToWorld,
-    CDmeMesh::RenderVertexDelta_t *pDelta,
-    Vector *pPosition) {
-    matrix3x4_t result;
-    Vector vecMorphPosition, vecMorphNormal;
-    const matrix3x4_t *pSkinMatrix = pPoseToWorld;
-
-    if (m_bHasSkinningData) {
-        const FieldIndex_t nJointWeightsFieldIndex = m_pBaseState->FindFieldIndex(CDmeVertexData::FIELD_JOINT_WEIGHTS);
-        if (nJointWeightsFieldIndex >= 0) {
-            const FieldIndex_t nJointIndicesFieldIndex = m_pBaseState->FindFieldIndex(
-                CDmeVertexData::FIELD_JOINT_INDICES);
-            if (nJointIndicesFieldIndex >= 0) {
-                const CDmrArrayConst<float> jointWeights(m_pBaseState->GetVertexData(nJointWeightsFieldIndex));
-                const float *pJointWeight = &jointWeights[nPosIndex * m_pBaseState->JointCount()];
-
-                const CUtlVector<int> &jointIndices = m_pBaseState->GetVertexIndexData(nJointIndicesFieldIndex);
-                const int *pJointIndices = &jointIndices[nPosIndex * m_pBaseState->JointCount()];
-
-                pSkinMatrix = ComputeSkinMatrix(m_nJointCount, pJointWeight, pJointIndices, pPoseToWorld, result);
-            }
-        }
-    }
-
-    const Vector *pPositionData = &m_PositionData[nPosIndex];
-
-    if (pDelta) {
-        VectorAdd(*pPositionData, pDelta[nPosIndex].m_vecDeltaPosition, vecMorphPosition);
-        pPositionData = &vecMorphPosition;
-    }
-
-    VectorTransform(*pPositionData, *pSkinMatrix, *pPosition);
-}
-
-
-//-----------------------------------------------------------------------------
-// Computes where a vertex is
-//-----------------------------------------------------------------------------
-void CDmeMeshRenderInfo::ComputeVertex(
-    int vi,
-    const matrix3x4_t *pPoseToWorld,
-    CDmeMesh::RenderVertexDelta_t *pDelta,
-    Vector *pPosition, Vector *pNormal, Vector4D *pTangent) {
-    matrix3x4_t result;
-    Vector vecMorphPosition, vecMorphNormal;
-    const matrix3x4_t *pSkinMatrix = pPoseToWorld;
-
-    if (m_bHasSkinningData) {
-        const float *pJointWeight = m_pBaseState->GetJointWeights(vi);
-        const int *pJointIndices = m_pBaseState->GetJointIndices(vi);
-        pSkinMatrix = ComputeSkinMatrix(m_nJointCount, pJointWeight, pJointIndices, pPoseToWorld, result);
-    }
-
-    int pi = m_PositionIndices[vi];
-    const Vector *pPositionData = &m_PositionData[pi];
-    if (pDelta) {
-        VectorAdd(*pPositionData, pDelta[pi].m_vecDeltaPosition, vecMorphPosition);
-        pPositionData = &vecMorphPosition;
-    }
-    VectorTransform(*pPositionData, *pSkinMatrix, *pPosition);
-
-    if (m_bHasNormalData) {
-        int ni = m_NormalIndices[vi];
-        const Vector *pNormalData = &m_NormalData[ni];
-        if (pDelta) {
-            VectorAdd(*pNormalData, pDelta[ni].m_vecDeltaNormal, vecMorphNormal);
-            pNormalData = &vecMorphNormal;
-        }
-        VectorRotate(*pNormalData, *pSkinMatrix, *pNormal);
-        VectorNormalize(*pNormal);
-    }
-    else {
-        pNormal->Init(0.0f, 0.0f, 1.0f);
-    }
-
-    if (m_bHasTangentData) {
-        const Vector4D &tangentData = m_TangentData[m_TangentIndices[vi]];
-        VectorRotate(tangentData.AsVector3D(), *pSkinMatrix, pTangent->AsVector3D());
-        VectorNormalize(pTangent->AsVector3D());
-        pTangent->w = tangentData.w;
-    }
-    else {
-        pTangent->Init(1.0f, 0.0f, 0.0f, 1.0f);
-    }
-}
 
 
 //-----------------------------------------------------------------------------
@@ -388,55 +163,6 @@ bool CDmeMesh::AddVertexDelta(
 }
 
 
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-void CDmeMesh::AddTexCoordDelta(RenderVertexDelta_t *pRenderDelta, float flWeight, CDmeVertexDeltaData *pDeltaState) {
-    if (!pDeltaState)
-        return;
-
-    FieldIndex_t nFieldIndex = pDeltaState->FindFieldIndex(CDmeVertexDeltaData::FIELD_TEXCOORD);
-    if (nFieldIndex < 0)
-        return;
-
-    bool bIsVCoordinateFlipped = pDeltaState->IsVCoordinateFlipped();
-    const CDmrArray<int> indices = pDeltaState->GetIndexData(nFieldIndex);
-    const CDmrArray<Vector2D> delta = pDeltaState->GetVertexData(nFieldIndex);
-    int nDeltaCount = indices.Count();
-    for (int j = 0; j < nDeltaCount; ++j) {
-        Vector2D uvDelta = delta.Get(j);
-        if (bIsVCoordinateFlipped) {
-            uvDelta.y = -uvDelta.y;
-        }
-        Vector2D &vec2D = pRenderDelta[indices.Get(j)].m_vecDeltaUV;
-        Vector2DMA(vec2D, flWeight, uvDelta, vec2D);
-    }
-}
-
-
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-void CDmeMesh::AddColorDelta(RenderVertexDelta_t *pRenderDelta, float flWeight, CDmeVertexDeltaData *pDeltaState) {
-    if (!pDeltaState)
-        return;
-
-    FieldIndex_t nFieldIndex = pDeltaState->FindFieldIndex(CDmeVertexDeltaData::FIELD_COLOR);
-    if (nFieldIndex < 0)
-        return;
-
-    const CDmrArray<int> indices = pDeltaState->GetIndexData(nFieldIndex);
-    const CDmrArray<Color> delta = pDeltaState->GetVertexData(nFieldIndex);
-    int nDeltaCount = indices.Count();
-    for (int j = 0; j < nDeltaCount; ++j) {
-        const Color &srcDeltaColor = delta[j];
-        Vector4D &vecDelta = pRenderDelta[indices[j]].m_vecDeltaColor;
-        vecDelta[0] += flWeight * srcDeltaColor.r();
-        vecDelta[1] += flWeight * srcDeltaColor.g();
-        vecDelta[2] += flWeight * srcDeltaColor.b();
-        vecDelta[3] += flWeight * srcDeltaColor.a();
-    }
-}
 
 template<class T>
 bool CDmeMesh::AddStereoVertexDelta(
@@ -502,158 +228,7 @@ bool CDmeMesh::AddStereoVertexDelta(
 }
 
 
-//-----------------------------------------------------------------------------
-// Build a color map of one value for each position data value.  The color
-// is the length of the delta normalized by the maximum delta length
-// if delta state is tagged to be highlighted
-//-----------------------------------------------------------------------------
-Color *BuildDeltaColorMap(CUtlVector<Color> &colorMapDelta, CDmeMesh *pDmeMesh, const Color &cHighlight) {
-    CDmeVertexData *pDmeBind = pDmeMesh->GetBindBaseState();
-    if (!pDmeBind)
-        return nullptr;
 
-    const FieldIndex_t nBasePosField = pDmeBind->FindFieldIndex(CDmeVertexData::FIELD_POSITION);
-    if (nBasePosField < 0)
-        return nullptr;
-
-    const CUtlVector<Vector> &basePosData = CDmrArrayConst<Vector>(pDmeBind->GetVertexData(nBasePosField)).Get();
-
-    const int nBasePosCount = basePosData.Count();
-    if (nBasePosCount <= 0)
-        return nullptr;
-
-    float *pflDeltaLengths = reinterpret_cast<float *>(stackalloc(nBasePosCount * sizeof( float )));
-    Q_memset(pflDeltaLengths, 0, nBasePosCount * sizeof( float ));
-
-    float flMaxDeltaLen = 0.0f;
-
-    const int nDeltaCount = pDmeMesh->DeltaStateCount();
-    for (int i = 0; i < nDeltaCount; ++i) {
-        CDmeVertexDeltaData *pDmeDelta = pDmeMesh->GetDeltaState(i);
-        if (!pDmeDelta || !pDmeDelta->m_bRenderVerts)
-            continue;
-
-        const FieldIndex_t nDeltaPosField = pDmeDelta->FindFieldIndex(CDmeVertexDeltaData::FIELD_POSITION);
-        if (nDeltaPosField < 0)
-            continue;
-
-        const CUtlVector<Vector> &posData = CDmrArrayConst<Vector>(pDmeDelta->GetVertexData(nDeltaPosField)).Get();
-        const CUtlVector<int> &posIndices = pDmeDelta->GetVertexIndexData(CDmeVertexDeltaData::FIELD_POSITION);
-
-        const int nDeltaPosCount = MIN(posData.Count(), posIndices.Count());
-        for (int j = 0; j < nDeltaPosCount; ++j) {
-            const float flDeltaLen = posData[j].Length();
-            if (flDeltaLen > flMaxDeltaLen) {
-                flMaxDeltaLen = flDeltaLen;
-            }
-            pflDeltaLengths[posIndices[j]] = MAX(pflDeltaLengths[posIndices[j]], flDeltaLen);
-        }
-    }
-
-    if (flMaxDeltaLen <= 0.0f)
-        return nullptr;
-
-    flMaxDeltaLen = 1.0f / flMaxDeltaLen;
-
-    colorMapDelta.SetCount(nBasePosCount);
-
-    color32 c32;
-    c32.a = 0xff;
-    const color32 cHighlight32 = cHighlight.ToColor32();
-    float flLerp = 0.0f;
-
-    for (int i = 0; i < nBasePosCount; ++i) {
-        flLerp = pflDeltaLengths[i] * flMaxDeltaLen;
-        c32.r = Lerp<uint8_t>(flLerp, 0xff, cHighlight32.r);
-        c32.g = Lerp<uint8_t>(flLerp, 0xff, cHighlight32.g);
-        c32.b = Lerp<uint8_t>(flLerp, 0xff, cHighlight32.b);
-        colorMapDelta[i] = c32;
-    }
-
-    return colorMapDelta.Base();
-}
-
-
-//-----------------------------------------------------------------------------
-// Draws the mesh when it uses too many bones
-//-----------------------------------------------------------------------------
-bool CDmeMesh::BuildDeltaMesh(int nVertices, RenderVertexDelta_t *pRenderDelta) {
-    bool bHasWrinkleDelta = false;
-
-    memset(pRenderDelta, 0, nVertices * sizeof(RenderVertexDelta_t));
-    int nCount = m_DeltaStateWeights[MESH_DELTA_WEIGHT_NORMAL].Count();
-    Assert(
-        m_DeltaStateWeights[MESH_DELTA_WEIGHT_NORMAL].Count() == m_DeltaStateWeights[MESH_DELTA_WEIGHT_LAGGED].Count());
-
-    CDmeVertexData *pBindState = GetBindBaseState();
-
-    const FieldIndex_t nBalanceFieldIndex = pBindState->FindFieldIndex(CDmeVertexDeltaData::FIELD_BALANCE);
-    const FieldIndex_t nSpeedFieldIndex = pBindState->FindFieldIndex(CDmeVertexDeltaData::FIELD_MORPH_SPEED);
-    const bool bDoLag = nSpeedFieldIndex >= 0;
-    if (nBalanceFieldIndex < 0) {
-        for (int i = 0; i < nCount; ++i) {
-            float flWeight = m_DeltaStateWeights[MESH_DELTA_WEIGHT_NORMAL][i].x;
-            float flLaggedWeight = m_DeltaStateWeights[MESH_DELTA_WEIGHT_LAGGED][i].x;
-            if (flWeight <= 0.0f && flLaggedWeight <= 0.0f)
-                continue;
-
-            // prepare vertices
-            CDmeVertexDeltaData *pDeltaState = GetDeltaState(i);
-            AddVertexDelta<Vector>(pBindState, &pRenderDelta->m_vecDeltaPosition, sizeof(RenderVertexDelta_t),
-                                   CDmeVertexDeltaData::FIELD_POSITION, i, bDoLag);
-            AddVertexDelta<Vector>(pBindState, &pRenderDelta->m_vecDeltaNormal, sizeof(RenderVertexDelta_t),
-                                   CDmeVertexDeltaData::FIELD_NORMAL, i, bDoLag);
-            AddTexCoordDelta(pRenderDelta, flWeight, pDeltaState);
-            AddColorDelta(pRenderDelta, flWeight, pDeltaState);
-            bool bWrinkle = AddVertexDelta<float>(pBindState, &pRenderDelta->m_flDeltaWrinkle,
-                                                  sizeof(RenderVertexDelta_t), CDmeVertexDeltaData::FIELD_WRINKLE, i,
-                                                  bDoLag);
-            bHasWrinkleDelta = bHasWrinkleDelta || bWrinkle;
-        }
-
-        return bHasWrinkleDelta;
-    }
-
-    for (int i = 0; i < nCount; ++i) {
-        float flLeftWeight = m_DeltaStateWeights[MESH_DELTA_WEIGHT_NORMAL][i].x;
-        float flRightWeight = m_DeltaStateWeights[MESH_DELTA_WEIGHT_NORMAL][i].y;
-        float flLeftWeightLagged = m_DeltaStateWeights[MESH_DELTA_WEIGHT_LAGGED][i].x;
-        float flRightWeightLagged = m_DeltaStateWeights[MESH_DELTA_WEIGHT_LAGGED][i].y;
-        if (flLeftWeight <= 0.0f && flRightWeight <= 0.0f && flLeftWeightLagged <= 0.0f && flRightWeightLagged <= 0.0f)
-            continue;
-
-        // FIXME: Need to make balanced versions of texcoord + color
-        bool bWrinkle;
-        CDmeVertexDeltaData *pDeltaState = GetDeltaState(i);
-        AddStereoVertexDelta<Vector>(pBindState, &pRenderDelta->m_vecDeltaPosition, sizeof(RenderVertexDelta_t),
-                                     CDmeVertexDeltaData::FIELD_POSITION, i, bDoLag);
-        AddStereoVertexDelta<Vector>(pBindState, &pRenderDelta->m_vecDeltaNormal, sizeof(RenderVertexDelta_t),
-                                     CDmeVertexDeltaData::FIELD_NORMAL, i, bDoLag);
-        bWrinkle = AddStereoVertexDelta<float>(pBindState, &pRenderDelta->m_flDeltaWrinkle, sizeof(RenderVertexDelta_t),
-                                               CDmeVertexDeltaData::FIELD_WRINKLE, i, bDoLag);
-        bHasWrinkleDelta = bHasWrinkleDelta || bWrinkle;
-        AddTexCoordDelta(pRenderDelta, flLeftWeight, pDeltaState);
-        AddColorDelta(pRenderDelta, flLeftWeight, pDeltaState);
-    }
-
-    return bHasWrinkleDelta;
-}
-
-
-//-----------------------------------------------------------------------------
-// Do we have active delta state data?
-//-----------------------------------------------------------------------------
-bool CDmeMesh::HasActiveDeltaStates() const {
-    for (int t = 0; t < MESH_DELTA_WEIGHT_TYPE_COUNT; ++t) {
-        int nCount = m_DeltaStateWeights[t].Count();
-        for (int i = 0; i < nCount; ++i) {
-            if (m_DeltaStateWeights[t][i].x != 0.0f || m_DeltaStateWeights[t][i].y != 0.0f)
-                return true;
-        }
-    }
-
-    return false;
-}
 
 
 //-----------------------------------------------------------------------------
@@ -665,18 +240,6 @@ int CDmeMesh::FaceSetCount() const {
 
 CDmeFaceSet *CDmeMesh::GetFaceSet(int faceSetIndex) {
     return m_FaceSets[faceSetIndex];
-}
-
-const CDmeFaceSet *CDmeMesh::GetFaceSet(int faceSetIndex) const {
-    return m_FaceSets[faceSetIndex];
-}
-
-void CDmeMesh::AddFaceSet(CDmeFaceSet *faceSet) {
-    m_FaceSets.AddToTail(faceSet);
-}
-
-void CDmeMesh::RemoveFaceSet(int faceSetIndex) {
-    m_FaceSets.Remove(faceSetIndex);
 }
 
 
@@ -695,47 +258,7 @@ CDmeVertexData *CDmeMesh::FindBaseState(const char *pStateName) const {
 }
 
 
-//-----------------------------------------------------------------------------
-// Find a base state by name, add a new one if not found
-//-----------------------------------------------------------------------------
-CDmeVertexData *CDmeMesh::FindOrCreateBaseState(const char *pStateName) {
-    CDmeVertexData *pBaseState = FindBaseState(pStateName);
-    if (pBaseState)
-        return pBaseState;
 
-    pBaseState = CreateElement<CDmeVertexData>(pStateName, GetFileId());
-    m_BaseStates.AddToTail(pBaseState);
-
-    return pBaseState;
-}
-
-
-//-----------------------------------------------------------------------------
-// Remove a base state by name
-//-----------------------------------------------------------------------------
-bool CDmeMesh::DeleteBaseState(const char *pStateName) {
-    const int nBaseStateCount = BaseStateCount();
-    for (int i = 0; i < nBaseStateCount; ++i) {
-        const CDmeVertexData *pBaseState = GetBaseState(i);
-        if (!Q_stricmp(pStateName, pBaseState->GetName())) {
-            m_BaseStates.Remove(i);
-            g_pDataModel->DestroyElement(pBaseState->GetHandle());
-
-            // TODO: Fix up all dependent states
-            return true;
-        }
-    }
-
-    return false;
-}
-
-
-//-----------------------------------------------------------------------------
-// Selects a particular base state to be current state
-//-----------------------------------------------------------------------------
-void CDmeMesh::SetCurrentBaseState(const char *pStateName) {
-    m_CurrentBaseState = FindBaseState(pStateName);
-}
 
 
 //-----------------------------------------------------------------------------
@@ -754,20 +277,6 @@ const CDmeVertexData *CDmeMesh::GetCurrentBaseState() const {
 }
 
 
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-bool CDmeMesh::SetBindBaseState(CDmeVertexData *pBaseState) {
-    if (!pBaseState)
-        return false;
-
-    CDmeVertexData *pCheckState = FindBaseState(pBaseState->GetName());
-    if (pCheckState != pBaseState)
-        return false;
-
-    return true;
-}
-
 
 //-----------------------------------------------------------------------------
 //
@@ -780,17 +289,6 @@ CDmeVertexData *CDmeMesh::GetBindBaseState() {
     return FindBaseState("bind");
 }
 
-
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-const CDmeVertexData *CDmeMesh::GetBindBaseState() const {
-    if (m_BindBaseState.GetElement())
-        return m_BindBaseState;
-
-    // Backwards compatibility
-    return FindBaseState("bind");
-}
 
 
 //-----------------------------------------------------------------------------
@@ -819,12 +317,20 @@ CDmeVertexDeltaData *CDmeMesh::FindDeltaState(const char *pDeltaName, bool bSort
     return GetDeltaState(FindDeltaStateIndex(pDeltaName, bSortDeltaName));
 }
 
+CDmeVertexDeltaData* CDmeMesh::FindDeltaState(const std::string_view deltaName, bool bSortDeltaName) const {
+    return GetDeltaState(FindDeltaStateIndex(deltaName, bSortDeltaName));
+}
+
 
 //-----------------------------------------------------------------------------
 //
 //-----------------------------------------------------------------------------
 int SortDeltaNameFunc(const void *a, const void *b) {
     return Q_strcmp(*( const char ** )( a ), *( const char ** )( b ));
+}
+
+static int SortDeltaNameFunc(const std::string_view &a, const std::string_view &b) {
+    return a.compare(b);
 }
 
 
@@ -864,36 +370,46 @@ static const char *SortDeltaName(CUtlString &sDeltaName, const char *pszInDeltaN
 
     return sDeltaName.Get();
 }
+static std::string_view SortDeltaName(std::string &sDeltaName, const std::string_view pszInDeltaName) {
+    if (!pszInDeltaName.contains('_'))
+        return pszInDeltaName;
 
+    std::vector<std::string_view > nameComponents = vstd::split(pszInDeltaName, "\\");
 
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-CDmeVertexDeltaData *CDmeMesh::FindOrCreateDeltaState(const char *pInDeltaName, bool bSortDeltaName /* = true */) {
-    CDmeVertexDeltaData *pDeltaState = FindDeltaState(pInDeltaName, bSortDeltaName);
-    if (pDeltaState)
-        return pDeltaState;
+    if (!nameComponents.empty()) {
+        std::vector<std::string_view> deltaNames;
+        for (auto & nameComponent : nameComponents) {
+            deltaNames.emplace_back(nameComponent);
+        }
+        std::ranges::sort(deltaNames);
 
-    CUtlString sDeltaName(pInDeltaName);
-    if (bSortDeltaName) {
-        SortDeltaName(sDeltaName, pInDeltaName);
+        sDeltaName.clear();
+
+        for (int i = 0; i < deltaNames.size(); ++i) {
+            if (deltaNames[i].empty())
+                continue;
+
+            if (!sDeltaName.empty()) {
+                sDeltaName += '_';
+            }
+
+            sDeltaName += deltaNames[i];
+        }
     }
 
-    pDeltaState = CreateElement<CDmeVertexDeltaData>(sDeltaName.Get(), GetFileId());
-    if (pDeltaState) {
-        m_DeltaStates.AddToTail(pDeltaState);
-    }
+    nameComponents.clear();
 
-    return pDeltaState;
+    return sDeltaName;
 }
+
 
 
 //-----------------------------------------------------------------------------
 // Finds a delta state index by comparing names, if it can't be found
 // searches for all permutations of the delta name
 //-----------------------------------------------------------------------------
-int CDmeMesh::FindDeltaStateIndex(const char *pInDeltaName, bool bSortDeltaName /* = true */) const {
-    CUtlString sDeltaName(pInDeltaName);
+int CDmeMesh::FindDeltaStateIndex(const char *inDeltaName, bool bSortDeltaName /* = true */) const {
+    CUtlString sDeltaName(inDeltaName);
 
     const int nDeltaStateCount = DeltaStateCount();
     for (int i = 0; i < nDeltaStateCount; ++i) {
@@ -903,7 +419,7 @@ int CDmeMesh::FindDeltaStateIndex(const char *pInDeltaName, bool bSortDeltaName 
     }
 
     if (bSortDeltaName && strchr(sDeltaName.Get(), '_')) {
-        SortDeltaName(sDeltaName, pInDeltaName);
+        SortDeltaName(sDeltaName, inDeltaName);
     }
 
     for (int i = 0; i < nDeltaStateCount; ++i) {
@@ -914,27 +430,29 @@ int CDmeMesh::FindDeltaStateIndex(const char *pInDeltaName, bool bSortDeltaName 
 
     return -1;
 }
+int CDmeMesh::FindDeltaStateIndex( const std::string_view inDeltaName, bool bSortDeltaName) const {
+    std::string sDeltaName(inDeltaName);
 
-
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-void CDmeMesh::SetDeltaStateWeight(int nDeltaIndex, MeshDeltaWeightType_t type, float flMorphWeight) {
-    if (nDeltaIndex < m_DeltaStateWeights[type].Count()) {
-        m_DeltaStateWeights[type].Set(nDeltaIndex, Vector2D(flMorphWeight, flMorphWeight));
+    const int nDeltaStateCount = DeltaStateCount();
+    for (int i = 0; i < nDeltaStateCount; ++i) {
+        CDmeVertexDeltaData *pDeltaState = GetDeltaState(i);
+        if (vstd::iequals(sDeltaName, pDeltaState->GetName()))
+            return i;
     }
+    if (bSortDeltaName && sDeltaName.contains('_')) {
+        SortDeltaName(sDeltaName, inDeltaName);
+    }
+
+    for (int i = 0; i < nDeltaStateCount; ++i) {
+        CDmeVertexDeltaData *pDeltaState = GetDeltaState(i);
+        if (vstd::iequals(sDeltaName, pDeltaState->GetName()))
+            return i;
+    }
+
+    return -1;
 }
 
 
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-void CDmeMesh::SetDeltaStateWeight(int nDeltaIndex, MeshDeltaWeightType_t type, float flLeftWeight,
-                                   float flRightWeight) {
-    if (nDeltaIndex < m_DeltaStateWeights[type].Count()) {
-        m_DeltaStateWeights[type].Set(nDeltaIndex, Vector2D(flLeftWeight, flRightWeight));
-    }
-}
 
 //-----------------------------------------------------------------------------
 // Compute triangulated indices
@@ -981,675 +499,24 @@ void CDmeMesh::ComputeTriangulatedIndices(const CDmeVertexData *pBaseState, cons
 }
 
 
-//-----------------------------------------------------------------------------
-// Build a map from vertex index to a list of triangles that share the vert.
-//-----------------------------------------------------------------------------
-void CDmeMesh::BuildTriangleMap(const CDmeVertexData *pBaseState, CDmeFaceSet *pFaceSet,
-                                CUtlVector<Triangle_t> &triangles, CUtlVector<CUtlVector<int> > *pVertToTriMap) const {
-    vstd::FunctionTimingRecorder _("DMX");
-    std::array<int, 8192> indices;
 
-    // prepare indices
-    uint32_t firstIndex = 0;
-    const uint32_t nIndexCount = pFaceSet->NumIndices();
-    while (firstIndex < nIndexCount) {
-        const int nVertexCount = pFaceSet->GetNextPolygonVertexCount(firstIndex);
-        if (nVertexCount >= 3) {
-            const int nOutCount = (nVertexCount - 2) * 3;
-            int *pIndices = nOutCount > indices.size() ? new int[nOutCount] : indices.data();
-            ComputeTriangulatedIndices(pBaseState, pFaceSet, firstIndex, pIndices);
-            for (int ii = 0; ii < nOutCount; ii += 3) {
-                int t = triangles.AddToTail();
-                Triangle_t &triangle = triangles[t];
 
-                triangle.m_nIndex[0] = pIndices[ii];
-                triangle.m_nIndex[1] = pIndices[ii + 1];
-                triangle.m_nIndex[2] = pIndices[ii + 2];
 
-                if (pVertToTriMap) {
-                    (*pVertToTriMap)[pIndices[ii]].AddToTail(t);
-                    (*pVertToTriMap)[pIndices[ii + 1]].AddToTail(t);
-                    (*pVertToTriMap)[pIndices[ii + 2]].AddToTail(t);
-                }
-            }
-            if (pIndices != indices.data()) {
-                delete[] pIndices;
-            }
-        }
-        firstIndex += nVertexCount + 1;
-    }
-}
 
 
-//-----------------------------------------------------------------------------
-// Computes tangent space data for triangles
-//-----------------------------------------------------------------------------
-void CDmeMesh::ComputeTriangleTangets(const CDmeVertexData *pVertexData, CUtlVector<Triangle_t> &triangles) {
-    // Calculate the tangent space for each triangle.
-    int nTriangleCount = triangles.Count();
-    for (int triID = 0; triID < nTriangleCount; triID++) {
-        Triangle_t &triangle = triangles[triID];
 
-        const Vector &p0 = pVertexData->GetPosition(triangle.m_nIndex[0]);
-        const Vector &p1 = pVertexData->GetPosition(triangle.m_nIndex[1]);
-        const Vector &p2 = pVertexData->GetPosition(triangle.m_nIndex[2]);
-        const Vector2D &t0 = pVertexData->GetTexCoord(triangle.m_nIndex[0]);
-        const Vector2D &t1 = pVertexData->GetTexCoord(triangle.m_nIndex[1]);
-        const Vector2D &t2 = pVertexData->GetTexCoord(triangle.m_nIndex[2]);
-        CalcTriangleTangentSpace(p0, p1, p2, t0, t1, t2, triangle.m_vecTangentS, triangle.m_vecTangentT);
-    }
-}
 
 
-//-----------------------------------------------------------------------------
-// Build a map from vertex index to a list of triangles that share the vert.
-//-----------------------------------------------------------------------------
-void CDmeMesh::ComputeAverageTangent(CDmeVertexData *pVertexData, bool bSmoothTangents,
-                                     CUtlVector<CUtlVector<int> > &vertToTriMap, CUtlVector<Triangle_t> &triangles) {
-    FieldIndex_t posField = pVertexData->FindFieldIndex(CDmeVertexData::FIELD_POSITION);
-    FieldIndex_t normalField = pVertexData->FindFieldIndex(CDmeVertexData::FIELD_NORMAL);
-    FieldIndex_t tangentField = pVertexData->FindFieldIndex(CDmeVertexData::FIELD_TANGENT);
 
-    const CDmrArray<int> pPositionIndices = pVertexData->GetIndexData(posField);
-    const CDmrArray<Vector> pPositionData = pVertexData->GetVertexData(posField);
-    const CDmrArray<int> pNormalIndices = pVertexData->GetIndexData(normalField);
-    const CDmrArray<Vector> pNormalData = pVertexData->GetVertexData(normalField);
 
-    // calculate an average tangent space for each vertex.
-    int nVertexCount = pVertexData->VertexCount();
-    Vector4D finalSVect;
-    for (int vertID = 0; vertID < nVertexCount; vertID++) {
-        CUtlVector<int> &triangleList = vertToTriMap[vertID];
 
-        Vector sVect, tVect;
-        sVect.Init(0.0f, 0.0f, 0.0f);
-        tVect.Init(0.0f, 0.0f, 0.0f);
-        int nTriangleCount = triangleList.Count();
-        for (int triID = 0; triID < nTriangleCount; triID++) {
-            Triangle_t &tri = triangles[triangleList[triID]];
-            sVect += tri.m_vecTangentS;
-            tVect += tri.m_vecTangentT;
-        }
 
-        // In the case of zbrush, everything needs to be treated as smooth.
-        if (bSmoothTangents) {
-            const Vector &vertPos1 = pPositionData.Get(pPositionIndices.Get(vertID));
-            for (int vertID2 = 0; vertID2 < nVertexCount; vertID2++) {
-                if (vertID2 == vertID)
-                    continue;
 
-                const Vector &vertPos2 = pPositionData.Get(pPositionIndices.Get(vertID2));
-                if (vertPos1 != vertPos2)
-                    continue;
 
-                CUtlVector<int> &triangleList2 = vertToTriMap[vertID2];
-                int nTriangleCount2 = triangleList2.Count();
-                for (int triID2 = 0; triID2 < nTriangleCount2; triID2++) {
-                    Triangle_t &tri2 = triangles[triangleList2[triID2]];
-                    sVect += tri2.m_vecTangentS;
-                    tVect += tri2.m_vecTangentT;
-                }
-            }
-        }
 
-        // make an orthonormal system.
-        // need to check if we are left or right handed.
-        Vector tmpVect;
-        CrossProduct(sVect, tVect, tmpVect);
-        const Vector &normal = pNormalData.Get(pNormalIndices.Get(vertID));
-        bool bLeftHanded = DotProduct(tmpVect, normal) < 0.0f;
-        if (!bLeftHanded) {
-            CrossProduct(normal, sVect, tVect);
-            CrossProduct(tVect, normal, sVect);
-            VectorNormalize(sVect);
-            VectorNormalize(tVect);
-            finalSVect[0] = sVect[0];
-            finalSVect[1] = sVect[1];
-            finalSVect[2] = sVect[2];
-            finalSVect[3] = 1.0f;
-        }
-        else {
-            CrossProduct(sVect, normal, tVect);
-            CrossProduct(normal, tVect, sVect);
-            VectorNormalize(sVect);
-            VectorNormalize(tVect);
-            finalSVect[0] = sVect[0];
-            finalSVect[1] = sVect[1];
-            finalSVect[2] = sVect[2];
-            finalSVect[3] = -1.0f;
-        }
 
-        pVertexData->SetVertexData(tangentField, vertID, 1, AT_VECTOR4, &finalSVect);
-        pVertexData->SetVertexIndices(tangentField, vertID, 1, &vertID);
-    }
-}
 
 
-//-----------------------------------------------------------------------------
-// Builds a map from vertex index to all triangles that use it
-//-----------------------------------------------------------------------------
-void CDmeMesh::BuildVertToTriMap(const CDmeVertexData *pVertexData, CUtlVector<Triangle_t> &triangles,
-                                 CUtlVector<CUtlVector<int> > &vertToTriMap) {
-    vertToTriMap.AddMultipleToTail(pVertexData->VertexCount());
-
-    int nCount = FaceSetCount();
-    for (int i = 0; i < nCount; ++i) {
-        CDmeFaceSet *pFaceSet = GetFaceSet(i);
-        BuildTriangleMap(pVertexData, pFaceSet, triangles, &vertToTriMap);
-    }
-}
-
-
-//-----------------------------------------------------------------------------
-// Compute a default per-vertex tangent given normal data + uv data
-//-----------------------------------------------------------------------------
-void CDmeMesh::ComputeDefaultTangentData(CDmeVertexData *pVertexData, bool bSmoothTangents) {
-    if (!pVertexData)
-        return;
-
-    // Need to have valid pos, uv, and normal to perform this operation
-    FieldIndex_t posField = pVertexData->FindFieldIndex(CDmeVertexData::FIELD_POSITION);
-    FieldIndex_t normalField = pVertexData->FindFieldIndex(CDmeVertexData::FIELD_NORMAL);
-    FieldIndex_t uvField = pVertexData->FindFieldIndex(CDmeVertexData::FIELD_TEXCOORD);
-    if (posField < 0 || uvField < 0 || normalField < 0)
-        return;
-
-    // FIXME: Need to do a pass to make sure no vertex is referenced by
-    // multiple facesets that have different materials in them.
-    // In that case, we need to add extra copies of that vertex and modify
-    // the face set data to refer to the new vertices
-
-    // Build a map from vertex to a list of triangles that share the vert.
-    CUtlVector<Triangle_t> triangles(0u, 1024);
-    CUtlVector<CUtlVector<int> > vertToTriMap;
-    vertToTriMap.AddMultipleToTail(pVertexData->VertexCount());
-
-    int nCount = FaceSetCount();
-    for (int i = 0; i < nCount; ++i) {
-        CDmeFaceSet *pFaceSet = GetFaceSet(i);
-        BuildTriangleMap(pVertexData, pFaceSet, triangles, &vertToTriMap);
-    }
-
-    ComputeTriangleTangets(pVertexData, triangles);
-
-    // FIXME: We could do a pass to determine the unique combinations of
-    // position + tangent indices in the vertex data. We only need to have
-    // a unique tangent for each of these unique vertices. For simplicity
-    // (and speed), I'll assume all tangents are unique per vertex.
-    FieldIndex_t tangent = pVertexData->CreateField<Vector4D>("tangents");
-    pVertexData->RemoveAllVertexData(tangent);
-    pVertexData->AddVertexData(tangent, pVertexData->VertexCount());
-
-    ComputeAverageTangent(pVertexData, bSmoothTangents, vertToTriMap, triangles);
-}
-
-
-//-----------------------------------------------------------------------------
-// Compute a default per-vertex tangent given normal data + uv data for all vertex data referenced by this mesh
-//-----------------------------------------------------------------------------
-void CDmeMesh::ComputeDefaultTangentData(bool bSmoothTangents) {
-    const int nBaseStateCount = m_BaseStates.Count();
-    for (int i = 0; i < nBaseStateCount; ++i) {
-        if (m_BaseStates[i] && m_BaseStates[i]->NeedsTangentData()) {
-            ComputeDefaultTangentData(m_BaseStates[i], bSmoothTangents);
-        }
-    }
-}
-
-
-//-----------------------------------------------------------------------------
-// Utility method to compute default tangent data on all meshes in the sub-dag hierarchy
-//-----------------------------------------------------------------------------
-void ComputeDefaultTangentData(CDmeDag *pDag, bool bSmoothTangents) {
-    if (!pDag)
-        return;
-
-    CDmeMesh *pMesh = CastElement<CDmeMesh>(pDag->GetShape());
-    if (pMesh) {
-        pMesh->ComputeDefaultTangentData(bSmoothTangents);
-    }
-
-    int nChildCount = pDag->GetChildCount();
-    for (int i = 0; i < nChildCount; ++i) {
-        ComputeDefaultTangentData(pDag->GetChild(i), bSmoothTangents);
-    }
-}
-
-
-//-----------------------------------------------------------------------------
-// Compute the dimensionality of the delta state (how many inputs affect it)
-//-----------------------------------------------------------------------------
-int CDmeMesh::ComputeDeltaStateDimensionality(int nDeltaIndex) {
-    CDmeVertexDeltaData *pDeltaState = GetDeltaState(nDeltaIndex);
-    const char *pDeltaStateName = pDeltaState->GetName();
-
-    const char *pUnderBar = pDeltaStateName;
-    int nDimensions = 0;
-    while (pUnderBar) {
-        ++nDimensions;
-        pUnderBar = strchr(pUnderBar, '_');
-        if (pUnderBar) {
-            ++pUnderBar;
-        }
-    }
-
-    return nDimensions;
-}
-
-
-//-----------------------------------------------------------------------------
-// Computes the aggregate position for all vertices after applying a set of delta states
-//-----------------------------------------------------------------------------
-void CDmeMesh::AddDelta(CDmeVertexData *pBaseState, Vector *pDeltaPosition, int nDeltaStateIndex,
-                        CDmeVertexData::StandardFields_t fieldId) {
-    CDmeVertexDeltaData *pDeltaState = GetDeltaState(nDeltaStateIndex);
-    FieldIndex_t nFieldIndex = pDeltaState->FindFieldIndex(fieldId);
-    if (nFieldIndex < 0)
-        return;
-
-    if (pBaseState->FindFieldIndex(CDmeVertexData::FIELD_BALANCE) != -1) {
-        AddStereoVertexDelta<Vector>(pBaseState, pDeltaPosition, sizeof(Vector), fieldId, nDeltaStateIndex, true);
-    }
-    else {
-        AddVertexDelta<Vector>(pBaseState, pDeltaPosition, sizeof(Vector), fieldId, nDeltaStateIndex, true);
-    }
-}
-
-
-//-----------------------------------------------------------------------------
-// Computes correctly averaged vertex normals from position data
-//-----------------------------------------------------------------------------
-void CDmeMesh::ComputeNormalsFromPositions(
-    CDmeVertexData *pBase,
-    const Vector *pPosition,
-    const CUtlVector<Triangle_t> &triangles,
-    int nNormalCount,
-    Vector *pNormals) {
-    Assert(nNormalCount == pBase->GetNormalData().Count());
-    int *pNormalsAdded = (int *) _alloca(nNormalCount * sizeof(int));
-    memset(pNormalsAdded, 0, nNormalCount * sizeof(int));
-    memset(pNormals, 0, nNormalCount * sizeof(Vector));
-
-    const CUtlVector<int> &positionIndices = pBase->GetVertexIndexData(CDmeVertexData::FIELD_POSITION);
-    const CUtlVector<int> &normalIndices = pBase->GetVertexIndexData(CDmeVertexData::FIELD_NORMAL);
-
-    int nTriangleCount = triangles.Count();
-    for (int i = 0; i < nTriangleCount; ++i) {
-        const Triangle_t &tri = triangles[i];
-        int p1 = positionIndices[tri.m_nIndex[0]];
-        int p2 = positionIndices[tri.m_nIndex[1]];
-        int p3 = positionIndices[tri.m_nIndex[2]];
-
-        int n1 = normalIndices[tri.m_nIndex[0]];
-        int n2 = normalIndices[tri.m_nIndex[1]];
-        int n3 = normalIndices[tri.m_nIndex[2]];
-
-        Vector vecDelta, vecDelta2, vecNormal;
-        VectorSubtract(pPosition[p2], pPosition[p1], vecDelta);
-        VectorSubtract(pPosition[p3], pPosition[p1], vecDelta2);
-        CrossProduct(vecDelta, vecDelta2, vecNormal);
-        VectorNormalize(vecNormal);
-
-        pNormals[n1] += vecNormal;
-        pNormals[n2] += vecNormal;
-        pNormals[n3] += vecNormal;
-
-        ++pNormalsAdded[n1];
-        ++pNormalsAdded[n2];
-        ++pNormalsAdded[n3];
-    }
-
-    for (int i = 0; i < nNormalCount; ++i) {
-        if (pNormalsAdded[i] > 0) {
-            pNormals[i] /= pNormalsAdded[i];
-            VectorNormalize(pNormals[i]);
-        }
-        else {
-            pNormals[i].Init(0, 1, 0);
-        }
-    }
-}
-
-
-//-----------------------------------------------------------------------------
-// Converts pose-space normals into deltas appropriate for correction delta states
-//-----------------------------------------------------------------------------
-void CDmeMesh::ComputeCorrectedNormalsFromActualNormals(const CUtlVector<int> &deltaStateList, int nNormalCount,
-                                                        Vector *pNormals) {
-    CDmeVertexData *pBind = GetBindBaseState();
-    if (!pBind)
-        return;
-
-    Assert(nNormalCount == pBind->GetNormalData().Count());
-
-    // Subtract out all other normal contributions
-    Vector *pUncorrectedNormals = (Vector *) _alloca(nNormalCount * sizeof(Vector));
-    memcpy(pUncorrectedNormals, pBind->GetNormalData().Base(), nNormalCount * sizeof(Vector));
-    int nDeltaStateCount = deltaStateList.Count();
-    for (int i = 0; i < nDeltaStateCount; ++i) {
-        AddDelta(pBind, pUncorrectedNormals, deltaStateList[i], CDmeVertexData::FIELD_NORMAL);
-    }
-
-    for (int i = 0; i < nNormalCount; ++i) {
-        pNormals[i] -= pUncorrectedNormals[i];
-    }
-}
-
-
-//-----------------------------------------------------------------------------
-// Copies the corrected normal data into a delta state
-//-----------------------------------------------------------------------------
-void CDmeMesh::SetDeltaNormalData(int nDeltaIndex, int nNormalCount, Vector *pNormals) {
-    // pNormals represents the correct normal delta state for this combination
-    // Copy it into the delta state for this combination.
-    // Use tolerance to deal with precision errors introduced by the various computations
-    CDmeVertexDeltaData *pDeltaState = GetDeltaState(nDeltaIndex);
-    FieldIndex_t nNormalField = pDeltaState->FindFieldIndex(CDmeVertexDeltaData::FIELD_NORMAL);
-    if (nNormalField >= 0) {
-        pDeltaState->RemoveAllVertexData(nNormalField);
-    }
-    else {
-        nNormalField = pDeltaState->CreateField(CDmeVertexDeltaData::FIELD_NORMAL);
-    }
-
-    for (int i = 0; i < nNormalCount; ++i) {
-        if (pNormals[i].LengthSqr() < 1e-4)
-            continue;
-
-        int nNormalIndex = pDeltaState->AddVertexData(nNormalField, 1);
-        pDeltaState->SetVertexData(nNormalField, nNormalIndex, 1, AT_VECTOR3, &pNormals[i]);
-        pDeltaState->SetVertexIndices(nNormalField, nNormalIndex, 1, &i);
-    }
-}
-
-
-//-----------------------------------------------------------------------------
-// Discovers the atomic controls used by the various delta states
-//-----------------------------------------------------------------------------
-static int DeltaStateUsageLessFunc(const int *lhs, const int *rhs) {
-    return *lhs - *rhs;
-}
-
-
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-void CDmeMesh::BuildAtomicControlLists(int nCount, DeltaComputation_t *pInfo,
-                                       CUtlVector<CUtlVector<int> > &deltaStateUsage) {
-    CUtlVector<CUtlString> atomicControls;
-    deltaStateUsage.SetCount(nCount);
-
-    // Build a list of atomic controls
-    int nCurrentDelta;
-    for (nCurrentDelta = 0; nCurrentDelta < nCount; ++nCurrentDelta) {
-        if (pInfo[nCurrentDelta].m_nDimensionality != 1)
-            break;
-        int j = atomicControls.AddToTail(GetDeltaState(pInfo[nCurrentDelta].m_nDeltaIndex)->GetName());
-        deltaStateUsage[nCurrentDelta].AddToTail(j);
-    }
-
-    char tempBuf[256];
-
-    for (; nCurrentDelta < nCount; ++nCurrentDelta) {
-        CDmeVertexDeltaData *pDeltaState = GetDeltaState(pInfo[nCurrentDelta].m_nDeltaIndex);
-        int nLen = Q_strlen(pDeltaState->GetName()) + 1;
-        char *pTempBuf = (nLen > ARRAYSIZE(tempBuf)) ? new char[nLen] : tempBuf;
-        memcpy(pTempBuf, pDeltaState->GetName(), nLen);
-        char *pNext;
-        for (char *pUnderBar = pTempBuf; pUnderBar; pUnderBar = pNext) {
-            pNext = strchr(pUnderBar, '_');
-            if (pNext) {
-                *pNext = 0;
-                ++pNext;
-            }
-
-            // Find this name in the list of strings
-            int j;
-            int nControlCount = atomicControls.Count();
-            for (j = 0; j < nControlCount; ++j) {
-                if (!Q_stricmp(pUnderBar, atomicControls[j]))
-                    break;
-            }
-            if (j == nControlCount) {
-                j = atomicControls.AddToTail(pUnderBar);
-            }
-            deltaStateUsage[nCurrentDelta].AddToTail(j);
-        }
-        deltaStateUsage[nCurrentDelta].Sort(DeltaStateUsageLessFunc);
-
-        if (pTempBuf != tempBuf) {
-            delete[] pTempBuf;
-        }
-    }
-}
-
-
-//-----------------------------------------------------------------------------
-// Construct list of all n-1 -> 1 dimensional delta states
-// that will be active when this delta state is active
-//-----------------------------------------------------------------------------
-void CDmeMesh::ComputeDependentDeltaStateList(CUtlVector<DeltaComputation_t> &compList) {
-    if (compList.Count() == 0) {
-        ComputeDeltaStateComputationList(compList);
-    }
-
-    CUtlVector<CUtlVector<int> > deltaStateUsage;
-    const int nCount(compList.Count());
-    BuildAtomicControlLists(nCount, compList.Base(), deltaStateUsage);
-
-    // Now build up a list of dependent delta states based on usage
-    // NOTE: Usage is sorted in ascending order.
-    for (int i = 1; i < nCount; ++i) {
-        int nUsageCount1 = deltaStateUsage[i].Count();
-        for (int j = 0; j < i; ++j) {
-            // At the point they have the same dimensionality, no more need to check
-            if (compList[j].m_nDimensionality == compList[i].m_nDimensionality)
-                break;
-
-            int ii = 0;
-            bool bSubsetFound = true;
-            int nUsageCount2 = deltaStateUsage[j].Count();
-            for (int ji = 0; ji < nUsageCount2; ++ji) {
-                for (bSubsetFound = false; ii < nUsageCount1; ++ii) {
-                    if (deltaStateUsage[j][ji] == deltaStateUsage[i][ii]) {
-                        ++ii;
-                        bSubsetFound = true;
-                        break;
-                    }
-
-                    if (deltaStateUsage[j][ji] < deltaStateUsage[i][ii])
-                        break;
-                }
-
-                if (!bSubsetFound)
-                    break;
-            }
-
-            if (bSubsetFound) {
-                compList[i].m_DependentDeltas.AddToTail(compList[j].m_nDeltaIndex);
-            }
-        }
-    }
-}
-
-
-//-----------------------------------------------------------------------------
-// Sorts DeltaComputation_t's by dimensionality
-//-----------------------------------------------------------------------------
-int CDmeMesh::DeltaStateLessFunc(const void *lhs, const void *rhs) {
-    DeltaComputation_t &info1 = *(DeltaComputation_t *) lhs;
-    DeltaComputation_t &info2 = *(DeltaComputation_t *) rhs;
-    return info1.m_nDimensionality - info2.m_nDimensionality;
-}
-
-
-//-----------------------------------------------------------------------------
-// Generates a sorted list in order of dimensionality of the delta states
-// NOTE: This assumes a naming scheme where delta state names have _ that separate control names
-//-----------------------------------------------------------------------------
-void CDmeMesh::ComputeDeltaStateComputationList(CUtlVector<DeltaComputation_t> &compList) {
-    // Do all combinations in order of dimensionality, lowest dimension first
-    const int nCount = DeltaStateCount();
-    compList.EnsureCount(nCount); // Resets the CUtlVector
-    for (int i = 0; i < nCount; ++i) {
-        compList[i].m_nDeltaIndex = i;
-        compList[i].m_nDimensionality = ComputeDeltaStateDimensionality(i);
-    }
-    qsort(compList.Base(), nCount, sizeof(DeltaComputation_t), DeltaStateLessFunc);
-}
-
-
-//-----------------------------------------------------------------------------
-// Computes normal deltas for all delta states based on position deltas
-// NOTE: This assumes a naming scheme where delta state names have _ that separate control names
-//-----------------------------------------------------------------------------
-void CDmeMesh::ComputeDeltaStateNormals() {
-    CDmeVertexData *pBind = GetBindBaseState();
-    if (!pBind)
-        return;
-
-    const FieldIndex_t nBindNormalIndex = pBind->CreateField(CDmeVertexData::FIELD_NORMAL);
-
-    const CUtlVector<Vector> &basePosData = pBind->GetPositionData();
-    const int nPosCount = basePosData.Count();
-
-    // Build a map from vertex to a list of triangles that share the vert.
-    CUtlVector<Triangle_t> triangles(0u, 1024);
-    CUtlVector<CUtlVector<int> > vertToTriMap;
-    vertToTriMap.AddMultipleToTail(pBind->VertexCount());
-
-    const int nFaceSetCount = FaceSetCount();
-    for (int i = 0; i < nFaceSetCount; ++i) {
-        CDmeFaceSet *pFaceSet = GetFaceSet(i);
-        BuildTriangleMap(pBind, pFaceSet, triangles, &vertToTriMap);
-    }
-
-    // Temporary storage for normals
-    auto *pNormals = reinterpret_cast<Vector *>(alloca(nPosCount * sizeof( Vector )));
-
-    // Make all of the normals in the bind pose smooth
-    {
-        const CUtlVector<int> &basePosIndices = pBind->GetVertexIndexData(CDmeVertexData::FIELD_POSITION);
-
-        pBind->SetVertexIndices(nBindNormalIndex, 0, basePosIndices.Count(), basePosIndices.Base());
-        pBind->RemoveAllVertexData(nBindNormalIndex);
-        pBind->AddVertexData(nBindNormalIndex, nPosCount);
-
-        ComputeNormalsFromPositions(pBind, basePosData.Base(), triangles, nPosCount, pNormals);
-        pBind->SetVertexData(nBindNormalIndex, 0, nPosCount, AT_VECTOR3, pNormals);
-
-        // Fix up the current state to have smooth normals if current is not bind
-        CDmeVertexData *pCurrent = GetCurrentBaseState();
-        if (pCurrent != pBind) {
-            const FieldIndex_t nCurrentNormalIndex = pCurrent->CreateField(CDmeVertexData::FIELD_NORMAL);
-            pCurrent->SetVertexIndices(nCurrentNormalIndex, 0, basePosIndices.Count(), basePosIndices.Base());
-            pCurrent->RemoveAllVertexData(nCurrentNormalIndex);
-            pCurrent->AddVertexData(nCurrentNormalIndex, nPosCount);
-
-            const CUtlVector<Vector> &currPosData = pCurrent->GetPositionData();
-            ComputeNormalsFromPositions(pCurrent, currPosData.Base(), triangles, nPosCount, pNormals);
-            pCurrent->SetVertexData(nCurrentNormalIndex, 0, nPosCount, AT_VECTOR3, pNormals);
-        }
-    }
-
-    // Temporary storage for the positions
-    Vector *pPosData = reinterpret_cast<Vector *>(alloca(nPosCount * sizeof( Vector )));
-
-    // Compute the dependent delta state list like thing
-    CUtlVector<DeltaComputation_t> computationOrder;
-    ComputeDependentDeltaStateList(computationOrder);
-
-    const int nDeltaStateCount = computationOrder.Count();
-    for (int i = 0; i < nDeltaStateCount; ++i) {
-        const DeltaComputation_t &deltaComputation = computationOrder[i];
-
-        memcpy(pPosData, basePosData.Base(), nPosCount * sizeof(Vector));
-
-        const CUtlVector<int> &depDeltas = deltaComputation.m_DependentDeltas;
-        const int nDepStateCount = depDeltas.Count();
-        for (int j = 0; j < nDepStateCount; ++j) {
-            AddDelta(GetDeltaState(depDeltas[j]), pPosData, nPosCount, CDmeVertexData::FIELD_POSITION);
-        }
-
-        AddDelta(GetDeltaState(deltaComputation.m_nDeltaIndex), pPosData, nPosCount, CDmeVertexData::FIELD_POSITION);
-
-        ComputeNormalsFromPositions(pBind, pPosData, triangles, nPosCount, pNormals);
-
-        SetDeltaNormalDataFromActualNormals(computationOrder[i].m_nDeltaIndex, depDeltas, nPosCount, pNormals);
-    }
-}
-
-
-//-----------------------------------------------------------------------------
-// Computes normal deltas for all delta states based on position deltas
-// NOTE: This assumes a naming scheme where delta state names have _ that separate control names
-//-----------------------------------------------------------------------------
-void CDmeMesh::SetDeltaNormalDataFromActualNormals(int nDeltaIndex, const CUtlVector<int> &deltaStateList,
-                                                   int nNormalCount, Vector *pNormals) {
-    // Store off the current state values
-    CUtlVector<Vector2D> deltaStateWeights[MESH_DELTA_WEIGHT_TYPE_COUNT];
-    for (int i = 0; i < MESH_DELTA_WEIGHT_TYPE_COUNT; ++i) {
-        deltaStateWeights[i] = m_DeltaStateWeights[i].Get();
-
-        // Turn on the current weights to all be 1 to get max effect of morphs
-        int nCount = m_DeltaStateWeights[i].Count();
-        for (int j = 0; j < nCount; ++j) {
-            m_DeltaStateWeights[i].Set(j, Vector2D(1.0f, 1.0f));
-        }
-    }
-
-    ComputeCorrectedNormalsFromActualNormals(deltaStateList, nNormalCount, pNormals);
-
-    // Finally, store the corrected normals into the delta state
-    SetDeltaNormalData(nDeltaIndex, nNormalCount, pNormals);
-
-    // Restore weights to their current value
-    for (int i = 0; i < MESH_DELTA_WEIGHT_TYPE_COUNT; ++i) {
-        m_DeltaStateWeights[i] = deltaStateWeights[i];
-    }
-}
-
-
-//-----------------------------------------------------------------------------
-// A recursive algorithm to compute nCk, i.e. the number of order independent
-// Combinations without any repeats of k items taking n at a time
-// The size of the returned array is:
-//
-//       n!
-// -------------
-// k! ( n - r )!
-//
-// e.g. 4C4 = { 0 1 2 3 }
-// e.g. 3C4 = { 0 1 2 }, { 0 1 3 }, { 0 2 3 }, { 1 2 3 }
-// e.g. 2C4 = { 0 1 }, { 0 2 }, { 0 3 }, { 1 2 }, { 1 3 }, { 2 3 }
-// e.g. 1C4 = { 0 }, { 1 }, { 2 }, { 3 }
-//
-// It's recursive and meant to be called by the user with just n, k and combos
-// the other default arguments are for the recursive steps
-//-----------------------------------------------------------------------------
-void CDmeMesh::Combinations(
-    int n,
-    int k,
-    CUtlVector<CUtlVector<int> > &combos,
-    int *pTmpArray,
-    int start,
-    int currentK) {
-    if (!pTmpArray) {
-        pTmpArray = reinterpret_cast<int *>(alloca(k * sizeof( int )));
-        memset(pTmpArray, 0, k * sizeof(int));
-    }
-
-    if (currentK >= k) {
-        combos[combos.AddToTail()].CopyArray(pTmpArray, k);
-        return;
-    }
-
-    for (int i(start); i < n; ++i) {
-        pTmpArray[currentK] = i;
-
-        Combinations(n, k, combos, pTmpArray, i + 1, currentK + 1);
-    }
-}
 
 
 //-----------------------------------------------------------------------------
@@ -1703,132 +570,7 @@ bool CDmeMesh::GetControlDeltaIndices(
 }
 
 
-//-----------------------------------------------------------------------------
-// Builds a list of all of the underlying control delta indices for each
-// delta state in the mesh
-//
-// e.g. Say the delta states are (in this order): A, B, C, A_C, A_B_C
-//
-// Will build: {
-//               { 0 },
-//               { 1 },
-//               { 2 },
-//               { 0, 2 },
-//               { 0, 1, 2 }
-//             }
-//
-// Returns true if all of the control states exist, false otherwise
-//-----------------------------------------------------------------------------
-bool CDmeMesh::BuildCompleteDeltaStateControlList(
-    CUtlVector<CUtlVector<int> > &deltaStateControlList) const {
-    deltaStateControlList.RemoveAll();
 
-    CUtlVector<int> tmpControlDeltaIndices;
-
-    const int nDeltas(m_DeltaStates.Count());
-    for (int i = 0; i < nDeltas; ++i) {
-        if (!GetControlDeltaIndices(m_DeltaStates[i], tmpControlDeltaIndices))
-            return false;
-
-        deltaStateControlList[deltaStateControlList.AddToTail()].CopyArray(
-            tmpControlDeltaIndices.Base(), tmpControlDeltaIndices.Count());
-    }
-
-    return true;
-}
-
-
-//-----------------------------------------------------------------------------
-// Searches controlList for a sub array that has exactly the same indices as
-// controlIndices.  The order of the indices do not have to match but all of
-// them must be present and no extras can be present.
-// It assumes that the controlList is in the same order as m_deltaStates
-//-----------------------------------------------------------------------------
-int CDmeMesh::FindDeltaIndexFromControlIndices(
-    const CUtlVector<int> &controlIndices,
-    const CUtlVector<CUtlVector<int> > &controlList) const {
-    const int nControlIndices(controlIndices.Count());
-    const int nControlList(controlList.Count());
-
-    int nControlListIndices;
-    int foundCount;
-
-    for (int i = 0; i < nControlList; ++i) {
-        const CUtlVector<int> &controlListIndices(controlList[i]);
-        nControlListIndices = controlListIndices.Count();
-        if (nControlListIndices == nControlIndices) {
-            foundCount = 0;
-
-            for (int j(0); j < nControlListIndices; ++j) {
-                for (int k(0); k < nControlIndices; ++k) {
-                    if (controlListIndices[j] == controlIndices[k]) {
-                        ++foundCount;
-                        break;
-                    }
-                }
-            }
-
-            if (foundCount == nControlIndices)
-                return i;
-        }
-    }
-
-    return -1;
-}
-
-
-//-----------------------------------------------------------------------------
-// Builds a list of all of the required underlying deltas that make up this
-// state whether that do not exist.  All of the control deltas must exist
-// though (Deltas without '_' in their name).
-//
-// e.g. Say only Delta states A, B, C, D, A_B_C_D exist and A_B_C_D is
-//      passed in.  This function will return:
-//
-//		A_B_C, A_B_D, A_C_D, B_C_D, A_B, A_C, A_D, B_C, B_D, C_D
-//
-// Returns true if all of the control states exist, false otherwise
-//-----------------------------------------------------------------------------
-bool CDmeMesh::BuildMissingDependentDeltaList(
-    CDmeVertexDeltaData *pDeltaState,
-    CUtlVector<int> &controlIndices,
-    CUtlVector<CUtlVector<int> > &dependentStates) const {
-    dependentStates.RemoveAll();
-
-    CUtlVector<CUtlVector<int> > deltaStateControlList;
-    BuildCompleteDeltaStateControlList(deltaStateControlList);
-
-    if (!GetControlDeltaIndices(pDeltaState, controlIndices))
-        return false;
-
-    const int nControlIndices(controlIndices.Count());
-
-    CUtlVector<int> comboControls;
-
-    for (int i(nControlIndices - 1); i > 0; --i) {
-        CUtlVector<CUtlVector<int> > combos;
-        Combinations(nControlIndices, i, combos);
-        const int nCombos(combos.Count());
-        for (int j(0); j < nCombos; ++j) {
-            const CUtlVector<int> &comboIndices(combos[j]);
-            const int nComboIndices(comboIndices.Count());
-            if (comboIndices.Count()) {
-                comboControls.RemoveAll();
-                comboControls.EnsureCapacity(nComboIndices);
-
-                for (int k(0); k < nComboIndices; ++k) {
-                    comboControls.AddToTail(controlIndices[comboIndices[k]]);
-                }
-
-                if (FindDeltaIndexFromControlIndices(comboControls, deltaStateControlList) < 0) {
-                    dependentStates[dependentStates.AddToTail()].CopyArray(comboControls.Base(), comboControls.Count());
-                }
-            }
-        }
-    }
-
-    return true;
-}
 
 
 //-----------------------------------------------------------------------------
@@ -1967,82 +709,6 @@ template void CDmeMesh::AddDelta<Vector2D>(const CDmeVertexDeltaData *, Vector2D
 template void CDmeMesh::AddDelta<Vector>(const CDmeVertexDeltaData *, Vector *, int, CDmeVertexData::StandardFields_t,
                                          float, const CDmeSingleIndexedComponent *);
 
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-void CDmeMesh::ComputeAllCorrectedPositionsFromActualPositions() {
-    const CDmeVertexData *pBase = GetBindBaseState();
-    if (!pBase)
-        return;
-
-    CUtlVector<DeltaComputation_t> deltaList;
-    ComputeDependentDeltaStateList(deltaList);
-
-    const int nDeltas(deltaList.Count());
-
-    const int nPositions(pBase->GetPositionData().Count());
-
-    Vector *pPositions(reinterpret_cast<Vector *>(alloca(nPositions * sizeof( Vector ))));
-    int *pIndices(reinterpret_cast<int *>(alloca(nPositions * sizeof( int ))));
-
-    int pCount;
-
-    for (int i = 0; i < nDeltas; ++i) {
-        const DeltaComputation_t &deltaComputation(deltaList[i]);
-        CDmeVertexDeltaData *pDelta(m_DeltaStates[deltaComputation.m_nDeltaIndex]);
-        if (!pDelta->GetValue<bool>("corrected")) {
-            const FieldIndex_t pIndex(pDelta->FindFieldIndex(CDmeVertexDeltaData::FIELD_POSITION));
-            if (pIndex < 0)
-                continue;
-
-            GenerateCompleteDataForDelta(pDelta, pPositions, nPositions, CDmeVertexData::FIELD_POSITION);
-
-            const CUtlVector<int> &dependentDeltas(deltaComputation.m_DependentDeltas);
-            const int nDependentDeltas(dependentDeltas.Count());
-            for (int j(0); j < nDependentDeltas; ++j) {
-                const CDmeVertexDeltaData *pDependentDelta(m_DeltaStates[dependentDeltas[j]]);
-                const CUtlVector<Vector> &dPositions(pDependentDelta->GetPositionData());
-                const CUtlVector<int> &dIndices(pDependentDelta->GetVertexIndexData(CDmeVertexData::FIELD_POSITION));
-                Assert(dPositions.Count() == dIndices.Count());
-                const int nIndices(dIndices.Count());
-
-                int index;
-
-                int k(0);
-                for (int l(0); l < nIndices; ++l) {
-                    index = dIndices[l];
-                    while (index > k) {
-                        ++k;
-                    }
-
-                    Assert(k < nPositions);
-                    pPositions[k] -= dPositions[l];
-                }
-            }
-
-            pCount = 0;
-            for (int j(0); j < nPositions; ++j) {
-                const Vector &v(pPositions[j]);
-                // Kind of a magic number but it's because of 16 bit compression of the delta values
-                if (fabs(v.x) >= (1 / 4096.0f) || fabs(v.y) >= (1 / 4096.0f) || fabs(v.z) >= (1 / 4096.0f)) {
-                    pPositions[pCount] = v;
-                    pIndices[pCount] = j;
-                    ++pCount;
-                }
-            }
-
-            pDelta->RemoveAllVertexData(pIndex);
-
-            if (pCount) {
-                pDelta->AddVertexData(pIndex, pCount);
-                pDelta->SetVertexData(pIndex, 0, pCount, AT_VECTOR3, pPositions);
-                pDelta->SetVertexIndices(pIndex, 0, pCount, pIndices);
-            }
-            pDelta->SetValue("corrected", true);
-        }
-    }
-}
-
 
 //-----------------------------------------------------------------------------
 // There's no guarantee that fields are added in any order, nor that only
@@ -2164,190 +830,8 @@ void CDmeMesh::AddRawDelta(
 }
 
 
-//-----------------------------------------------------------------------------
-// Sets the specified base state to the specified delta
-// If no delta is specified then the current state is copied from the bind state
-// If no base state is specified then the current base state is used
-// The specified base state or the current base state cannot be the bind state
-//-----------------------------------------------------------------------------
-bool CDmeMesh::SetBaseStateToDelta(const CDmeVertexDeltaData *pDelta, CDmeVertexData *pPassedBase /* = NULL */) {
-    CDmeVertexData *pBase = pPassedBase ? pPassedBase : GetCurrentBaseState();
-    const CDmeVertexData *pBind = GetBindBaseState();
-
-    if (!pBase || !pBind || pBase == pBind)
-        return false;
-
-    pBind->CopyTo(pBase);
-
-    if (!pDelta)
-        return true;
-
-    // This should be cached and recomputed only when states are added
-    CUtlVector<DeltaComputation_t> compList;
-    ComputeDependentDeltaStateList(compList);
-
-    const int nDeltas(compList.Count());
-    for (int i = 0; i < nDeltas; ++i) {
-        if (pDelta != GetDeltaState(compList[i].m_nDeltaIndex))
-            continue;
-
-        const int nBaseField(pBase->FieldCount());
-        const int nDeltaField(pDelta->FieldCount());
-
-        for (int j(0); j < nBaseField; ++j) {
-            const CUtlString &baseFieldName(pBase->FieldName(j));
-
-            for (int k(0); k < nDeltaField; ++k) {
-                const CUtlString &deltaFieldName(pDelta->FieldName(k));
-
-                if (baseFieldName != deltaFieldName)
-                    continue;
-
-                const FieldIndex_t baseFieldIndex(pBase->FindFieldIndex(baseFieldName));
-                const FieldIndex_t deltaFieldIndex(pDelta->FindFieldIndex(deltaFieldName));
-                if (baseFieldIndex < 0 || deltaFieldIndex < 0)
-                    break;
-
-                CDmAttribute *pBaseData(pBase->GetVertexData(baseFieldIndex));
-                const CDmAttribute *pDeltaData(pDelta->GetVertexData(deltaFieldIndex));
-
-                if (pBaseData->GetType() != pDeltaData->GetType())
-                    break;
-
-                const CUtlVector<int> &baseIndices(pBase->GetVertexIndexData(baseFieldIndex));
-
-                switch (pBaseData->GetType()) {
-                    case AT_FLOAT_ARRAY:
-                        AddCorrectedDelta(AsLvalue(CDmrArray<float>(pBaseData)), baseIndices, compList[i],
-                                          baseFieldName);
-                        break;
-                    case AT_COLOR_ARRAY:
-                        AddCorrectedDelta(AsLvalue(CDmrArray<Vector>(pBaseData)), baseIndices, compList[i],
-                                          baseFieldName);
-                        break;
-                    case AT_VECTOR2_ARRAY:
-                        AddCorrectedDelta(AsLvalue(CDmrArray<Vector2D>(pBaseData)), baseIndices, compList[i],
-                                          baseFieldName);
-                        break;
-                    case AT_VECTOR3_ARRAY:
-                        AddCorrectedDelta(AsLvalue(CDmrArray<Vector>(pBaseData)), baseIndices, compList[i],
-                                          baseFieldName);
-                        break;
-                    default:
-                        break;
-                }
-                break;
-            }
-        }
-    }
-
-    return true;
-}
 
 
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-void CDmeMesh::SelectVerticesFromDelta(
-    CDmeVertexDeltaData *pDelta,
-    CDmeSingleIndexedComponent *pSelection) {
-    if (!pSelection)
-        return;
-
-    pSelection->Clear();
-
-    if (!pDelta)
-        return;
-
-    const FieldIndex_t pField(pDelta->FindFieldIndex(CDmeVertexData::FIELD_POSITION));
-    if (pField < 0)
-        return;
-
-    const CUtlVector<int> &pIndicies(pDelta->GetVertexIndexData(CDmeVertexData::FIELD_POSITION));
-
-    pSelection->AddComponents(pIndicies);
-}
-
-
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-void CDmeMesh::SelectAllVertices(CDmeSingleIndexedComponent *pSelection, CDmeVertexData *pPassedBase /* = NULL */) {
-    const CDmeVertexData *pBase = pPassedBase ? pPassedBase : GetCurrentBaseState();
-
-    if (!pBase) {
-        pBase = GetBindBaseState();
-    }
-
-    if (!pBase)
-        return;
-
-    if (!pSelection)
-        return;
-
-    pSelection->Clear();
-
-    const FieldIndex_t pField(pBase->FindFieldIndex(CDmeVertexData::FIELD_POSITION));
-    if (pField < 0)
-        return;
-
-    CUtlVector<int> indices;
-    indices.EnsureCount(CDmrArrayConst<Vector>(pBase->GetVertexData(pField)).Count());
-    const int nIndices = indices.Count();
-    for (int i = 0; i < nIndices; ++i) {
-        indices[i] = i;
-    }
-
-    pSelection->AddComponents(indices);
-}
-
-
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-void CDmeMesh::SelectHalfVertices(SelectHalfType_t selectHalfType, CDmeSingleIndexedComponent *pSelection,
-                                  CDmeVertexData *pPassedBase /* = NULL */) {
-    const CDmeVertexData *pBase = pPassedBase ? pPassedBase : GetCurrentBaseState();
-
-    if (!pBase) {
-        pBase = GetBindBaseState();
-    }
-
-    if (!pBase)
-        return;
-
-    if (!pSelection)
-        return;
-
-    pSelection->Clear();
-
-    const FieldIndex_t pField(pBase->FindFieldIndex(CDmeVertexData::FIELD_POSITION));
-    if (pField < 0)
-        return;
-
-    const CDmrArrayConst<Vector> pos(pBase->GetVertexData(pField));
-    const int nPosCount = pos.Count();
-
-    CUtlVector<int> indices;
-    indices.EnsureCapacity(nPosCount);
-
-    if (selectHalfType == kRight) {
-        for (int i = 0; i < nPosCount; ++i) {
-            if (pos[i].x <= 0.0f) {
-                indices.AddToTail(i);
-            }
-        }
-    }
-    else {
-        for (int i = 0; i < nPosCount; ++i) {
-            if (pos[i].x >= 0.0f) {
-                indices.AddToTail(i);
-            }
-        }
-    }
-
-    pSelection->AddComponents(indices);
-}
 
 
 //-----------------------------------------------------------------------------
@@ -2493,170 +977,7 @@ bool CDmeMesh::CreateDeltaFieldFromBaseField(
     return true;
 }
 
-//-----------------------------------------------------------------------------
-// Creates a delta from the difference between the bind base state and the
-// specified base state.  If pBaseName is NULL the current base state is used
-//-----------------------------------------------------------------------------
-CDmeVertexDeltaData *CDmeMesh::ModifyOrCreateDeltaStateFromBaseState(const char *pDeltaName,
-                                                                     CDmeVertexData *pPassedBase /* = NULL */,
-                                                                     bool absolute /* = false */) {
-    // Find All States Which Have This Guy
-    CDmeVertexData *pBase = pPassedBase ? pPassedBase : GetCurrentBaseState();
-    if (!pBase)
-        return nullptr;
 
-    CDmeVertexData *pBind = GetBindBaseState();
-    if (!pBind)
-        return nullptr;
-
-    // It's ok if pBase == pBind
-
-    CUtlVector<int> superiorDeltaStates;
-    ComputeSuperiorDeltaStateList(pDeltaName, superiorDeltaStates);
-    const int nSuperior = superiorDeltaStates.Count();
-
-    if (nSuperior > 0) {
-        UniqueId_t id;
-        char idBuf[MAX_PATH];
-
-        CDmeVertexData *pTmpBaseState = nullptr;
-        do {
-            CreateUniqueId(&id);
-            UniqueIdToString(id, idBuf, sizeof(idBuf));
-            pTmpBaseState = FindBaseState(idBuf);
-        } while (pTmpBaseState != nullptr);
-
-        pTmpBaseState = FindOrCreateBaseState(idBuf);
-        if (!pTmpBaseState)
-            return nullptr;
-
-        for (int i = 0; i < nSuperior; ++i) {
-            Assert(superiorDeltaStates[ i ] < DeltaStateCount());
-            CDmeVertexDeltaData *pSuperiorDelta = GetDeltaState(superiorDeltaStates[i]);
-            if (pSuperiorDelta->GetValue<bool>("corrected")) {
-                // Only fiddle with states that are "corrected"
-                if (!SetBaseStateToDelta(pSuperiorDelta, pTmpBaseState))
-                    return nullptr;
-
-                if (!ModifyOrCreateDeltaStateFromBaseState(CUtlString(pSuperiorDelta->GetName()), pTmpBaseState, true))
-                    return nullptr;
-            }
-        }
-
-        DeleteBaseState(idBuf);
-    }
-
-    ResetDeltaState(pDeltaName);
-    CDmeVertexDeltaData *pDelta = FindOrCreateDeltaState(pDeltaName);
-    if (!pDelta)
-        return nullptr;
-
-    CDmeVertexData::StandardFields_t deltaFields[] =
-    {
-        CDmeVertexData::FIELD_POSITION,
-        CDmeVertexData::FIELD_NORMAL,
-        CDmeVertexData::FIELD_WRINKLE
-    };
-
-    for (int i = 0; i < sizeof(deltaFields) / sizeof(deltaFields[0]); ++i) {
-        CDmeVertexData::StandardFields_t standardFieldIndex(deltaFields[i]);
-        const FieldIndex_t baseFieldIndex(pBase->FindFieldIndex(standardFieldIndex));
-        const FieldIndex_t bindFieldIndex(pBind->FindFieldIndex(standardFieldIndex));
-
-        if (baseFieldIndex < 0 || bindFieldIndex < 0)
-            continue;
-
-        CDmAttribute *pBaseData(pBase->GetVertexData(baseFieldIndex));
-        CDmAttribute *pBindData(pBind->GetVertexData(bindFieldIndex));
-
-        if (pBaseData->GetType() != pBindData->GetType())
-            continue;
-
-        switch (pBaseData->GetType()) {
-            case AT_FLOAT_ARRAY:
-                CreateDeltaFieldFromBaseField(standardFieldIndex, AsLvalue(CDmrArrayConst<float>(pBaseData)),
-                                              AsLvalue(CDmrArrayConst<float>(pBindData)), pDelta);
-                break;
-            case AT_COLOR_ARRAY:
-                CreateDeltaFieldFromBaseField(standardFieldIndex, AsLvalue(CDmrArrayConst<Vector>(pBaseData)),
-                                              AsLvalue(CDmrArrayConst<Vector>(pBindData)), pDelta);
-                break;
-            case AT_VECTOR2_ARRAY:
-                CreateDeltaFieldFromBaseField(standardFieldIndex, AsLvalue(CDmrArrayConst<Vector2D>(pBaseData)),
-                                              AsLvalue(CDmrArrayConst<Vector2D>(pBindData)), pDelta);
-                break;
-            case AT_VECTOR3_ARRAY:
-                CreateDeltaFieldFromBaseField(standardFieldIndex, AsLvalue(CDmrArrayConst<Vector>(pBaseData)),
-                                              AsLvalue(CDmrArrayConst<Vector>(pBindData)), pDelta);
-                break;
-            default:
-                break;
-        }
-    }
-
-    if (!strchr(pDelta->GetName(), '_')) {
-        const static CUtlSymbolLarge symTargets = g_pDataModel->GetSymbol("targets");
-        CDmeCombinationOperator *pCombo(FindReferringElement<CDmeCombinationOperator>(this, symTargets));
-        if (pCombo) {
-            pCombo->FindOrCreateControl(pDelta->GetName(), false, true);
-        }
-    }
-
-    if (!absolute) {
-        ComputeAllCorrectedPositionsFromActualPositions();
-    }
-
-    return pDelta;
-}
-
-
-//-----------------------------------------------------------------------------
-// TODO: Uncorrect all superior states and then correct them afterwards
-//-----------------------------------------------------------------------------
-bool CDmeMesh::DeleteDeltaState(const char *pDeltaName) {
-    const int nDeltaIndex = FindDeltaStateIndex(pDeltaName);
-    if (nDeltaIndex < 0)
-        return false;
-
-    Assert(m_DeltaStates.Count() == m_DeltaStateWeights[ MESH_DELTA_WEIGHT_NORMAL ].Count());
-    Assert(m_DeltaStates.Count() == m_DeltaStateWeights[ MESH_DELTA_WEIGHT_LAGGED ].Count());
-    CDmeVertexDeltaData *pDelta(m_DeltaStates[nDeltaIndex]);
-    if (!pDelta)
-        return false;
-
-    m_DeltaStates.Remove(nDeltaIndex);
-    m_DeltaStateWeights[MESH_DELTA_WEIGHT_NORMAL].Remove(nDeltaIndex);
-    m_DeltaStateWeights[MESH_DELTA_WEIGHT_LAGGED].Remove(nDeltaIndex);
-    g_pDataModel->DestroyElement(pDelta->GetHandle());
-
-    const static CUtlSymbolLarge symTargets = g_pDataModel->GetSymbol("targets");
-    CDmeCombinationOperator *pCombo(FindReferringElement<CDmeCombinationOperator>(this, symTargets));
-    if (pCombo) {
-        pCombo->Purge();
-    }
-
-    return true;
-}
-
-
-//-----------------------------------------------------------------------------
-// TODO: Uncorrect all superior states and then correct them afterwards
-//-----------------------------------------------------------------------------
-bool CDmeMesh::ResetDeltaState(const char *pDeltaName) {
-    const int nDeltaIndex = FindDeltaStateIndex(pDeltaName);
-    if (nDeltaIndex < 0)
-        return false;
-
-    CDmeVertexDeltaData *pOldDelta = m_DeltaStates[nDeltaIndex];
-    CDmeVertexDeltaData *pNewDelta = CreateElement<CDmeVertexDeltaData>(pOldDelta->GetName(), GetFileId());
-    if (!pNewDelta)
-        return false;
-
-    m_DeltaStates.Set(nDeltaIndex, pNewDelta);
-    g_pDataModel->DestroyElement(pOldDelta->GetHandle());
-
-    return true;
-}
 
 
 //-----------------------------------------------------------------------------
@@ -2675,8 +996,6 @@ public:
     void AddVert(int vIndex, float weight = 1.0f);
 
     int AddToSelection(CDmeSingleIndexedComponent *pSelection) const;
-
-    int RemoveFromSelection(CDmeSingleIndexedComponent *pSelection, bool bAllowEmpty) const;
 
 protected:
     CUtlVector<CVert> m_verts;
@@ -2732,24 +1051,6 @@ int CSelectionHelper::AddToSelection(CDmeSingleIndexedComponent *pSelection) con
 }
 
 
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-int CSelectionHelper::RemoveFromSelection(CDmeSingleIndexedComponent *pSelection, bool bAllowEmpty) const {
-    const int nVerts = m_verts.Count();
-    int nVertsRemovedCount = 0;
-
-    for (int i = 0; i < nVerts; ++i) {
-        const CVert &v(m_verts[i]);
-        if (bAllowEmpty || pSelection->Count() > 1) {
-            pSelection->RemoveComponent(v.m_index);
-            ++nVertsRemovedCount;
-        }
-    }
-
-    return nVertsRemovedCount;
-}
-
 
 //-----------------------------------------------------------------------------
 // Searches for the component in the sorted component list and returns the
@@ -2780,99 +1081,6 @@ int CSelectionHelper::BinarySearch(int vIndex) const {
 }
 
 
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-void CDmeMesh::GrowSelection(int nSize, CDmeSingleIndexedComponent *pSelection, CDmMeshComp *pPassedMeshComp) {
-    if (nSize <= 0 || !pSelection)
-        return;
-
-    CUtlVector<int> sIndices;
-    CUtlVector<float> sWeights;
-    pSelection->GetComponents(sIndices, sWeights);
-    const int nVertices = sIndices.Count();
-
-    CDmMeshComp *pMeshComp = pPassedMeshComp ? pPassedMeshComp : new CDmMeshComp(this);
-
-    CUtlVector<CDmMeshComp::CVert *> neighbours;
-
-    CSelectionHelper sHelper;
-
-    for (int i = 0; i < nVertices; ++i) {
-        const int nNeighbours = pMeshComp->FindNeighbouringVerts(sIndices[i], neighbours);
-        for (int j = 0; j < nNeighbours; ++j) {
-            CDmMeshComp::CVert *pNeighbour = neighbours[j];
-            Assert(pNeighbour);
-            if (pNeighbour) {
-                const int vIndex = pNeighbour->PositionIndex();
-                if (!pSelection->HasComponent(vIndex)) {
-                    sHelper.AddVert(vIndex, sWeights[i]);
-                }
-            }
-        }
-    }
-
-    if (sHelper.AddToSelection(pSelection) > 0) {
-        GrowSelection(nSize - 1, pSelection, pMeshComp);
-    }
-
-    if (pMeshComp != pPassedMeshComp) {
-        delete pMeshComp;
-    }
-}
-
-
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-void CDmeMesh::ShrinkSelection(int nSize, CDmeSingleIndexedComponent *pSelection, CDmMeshComp *pPassedMeshComp) {
-    if (nSize <= 0 || !pSelection)
-        return;
-
-    CUtlVector<int> sIndices;
-    CUtlVector<float> sWeights;
-    pSelection->GetComponents(sIndices, sWeights);
-    const int nVertices = sIndices.Count();
-
-    CDmMeshComp *pMeshComp = pPassedMeshComp ? pPassedMeshComp : new CDmMeshComp(this);
-
-    CUtlVector<CDmMeshComp::CVert *> neighbours;
-
-    CSelectionHelper sHelper;
-
-    for (int i = 0; i < nVertices; ++i) {
-        bool hasSelectedNeighbour = false;
-        bool hasUnselectedNeighbour = false;
-
-        const int vIndex = sIndices[i];
-        const int nNeighbours = pMeshComp->FindNeighbouringVerts(vIndex, neighbours);
-        for (int j = 0; j < nNeighbours; ++j) {
-            const int nvIndex = neighbours[j]->PositionIndex();
-            if (pSelection->HasComponent(nvIndex)) {
-                hasSelectedNeighbour = true;
-                if (hasUnselectedNeighbour) {
-                    sHelper.AddVert(vIndex);
-                    break;
-                }
-            }
-            else {
-                hasUnselectedNeighbour = true;
-                if (hasSelectedNeighbour) {
-                    sHelper.AddVert(vIndex);
-                    break;
-                }
-            }
-        }
-    }
-
-    if (sHelper.RemoveFromSelection(pSelection, false) > 0) {
-        ShrinkSelection(nSize - 1, pSelection, pMeshComp);
-    }
-
-    if (pMeshComp != pPassedMeshComp) {
-        delete pMeshComp;
-    }
-}
 
 
 CDmeSingleIndexedComponent *CDmeMesh::FeatherSelection(
@@ -2968,165 +1176,6 @@ CDmeSingleIndexedComponent *CDmeMesh::FeatherSelection(
 }
 
 
-//-----------------------------------------------------------------------------
-// Add the specified delta, scaled by the weight value to the DmeVertexData
-// base state specified.  Optionally the add can be masked by a specified
-// weight map.
-//
-// If a DmeVertexData is not explicitly specified, the current state of the
-// mesh is modified unless it's the bind state.  The bind state will never
-// be modified even if it is explicitly specified.
-//
-// Only the delta specified is added.  No dependent states are added.
-//-----------------------------------------------------------------------------
-bool CDmeMesh::AddMaskedDelta(
-    CDmeVertexDeltaData *pDelta,
-    CDmeVertexData *pDst /* = NULL */,
-    float weight /* = 1.0f */,
-    const CDmeSingleIndexedComponent *pMask /* = NULL */) {
-    CDmeVertexData *pBase = pDst ? pDst : GetCurrentBaseState();
-
-    if (!pBase || pBase == GetBindBaseState())
-        return false;
-
-    bool retVal = true;
-
-    const int nBaseField(pBase->FieldCount());
-    const int nDeltaField(pDelta->FieldCount());
-
-    // Try to add every field of the base state
-    for (int j(0); j < nBaseField; ++j) {
-        const CUtlString &baseFieldName(pBase->FieldName(j));
-
-        // Find the corresponding field in the delta
-        for (int k(0); k < nDeltaField; ++k) {
-            const CUtlString &deltaFieldName(pDelta->FieldName(k));
-
-            if (baseFieldName != deltaFieldName)
-                continue;
-
-            const FieldIndex_t baseFieldIndex(pBase->FindFieldIndex(baseFieldName));
-            const FieldIndex_t deltaFieldIndex(pDelta->FindFieldIndex(deltaFieldName));
-            if (baseFieldIndex < 0 || deltaFieldIndex < 0)
-                break;
-
-            CDmAttribute *pBaseData(pBase->GetVertexData(baseFieldIndex));
-            CDmAttribute *pDeltaData(pDelta->GetVertexData(deltaFieldIndex));
-
-            if (pBaseData->GetType() != pDeltaData->GetType())
-                break;
-
-            switch (pBaseData->GetType()) {
-                case AT_FLOAT_ARRAY:
-                    AddRawDelta(pDelta, AsLvalue(CDmrArray<float>(pBaseData)), baseFieldIndex, weight, pMask);
-                    break;
-                case AT_COLOR_ARRAY:
-                    // TODO: Color is missing some algebraic operators
-                    //				AddRawDelta( pDelta, CDmrArray< Color >( pBaseData ), baseFieldIndex, weight, pMask );
-                    break;
-                case AT_VECTOR2_ARRAY:
-                    AddRawDelta(pDelta, AsLvalue(CDmrArray<Vector2D>(pBaseData)), baseFieldIndex, weight, pMask);
-                    break;
-                case AT_VECTOR3_ARRAY:
-                    AddRawDelta(pDelta, AsLvalue(CDmrArray<Vector>(pBaseData)), baseFieldIndex, weight, pMask);
-                    break;
-                default:
-                    break;
-            }
-            break;
-        }
-    }
-
-    return retVal;
-}
-
-
-//-----------------------------------------------------------------------------
-// Add the specified delta, scaled by the weight value to the DmeVertexData
-// base state specified.  Optionally the add can be masked by a specified
-// weight map.
-//
-// If a DmeVertexData is not explicitly specified, the current state of the
-// mesh is modified unless it's the bind state.  The bind state will never
-// be modified even if it is explicitly specified.
-//
-// Only the delta specified is added.  No dependent states are added.
-//-----------------------------------------------------------------------------
-bool CDmeMesh::AddCorrectedMaskedDelta(
-    CDmeVertexDeltaData *pDelta,
-    CDmeVertexData *pDst /* = NULL */,
-    float weight /* = 1.0f */,
-    const CDmeSingleIndexedComponent *pMask /* = NULL */) {
-    CDmeVertexData *pBase = pDst ? pDst : GetCurrentBaseState();
-
-    if (!pBase || pBase == GetBindBaseState())
-        return false;
-
-    bool retVal = true;
-
-    const int nBaseField(pBase->FieldCount());
-    const int nDeltaField(pDelta->FieldCount());
-
-    // This should be cached and recomputed only when states are added
-    CUtlVector<DeltaComputation_t> compList;
-    ComputeDependentDeltaStateList(compList);
-
-    const int nDeltas(compList.Count());
-    for (int i = 0; i < nDeltas; ++i) {
-        if (pDelta != GetDeltaState(compList[i].m_nDeltaIndex))
-            continue;
-
-        // Try to add every field of the base state
-        for (int j(0); j < nBaseField; ++j) {
-            const CUtlString &baseFieldName(pBase->FieldName(j));
-
-            // Find the corresponding field in the delta
-            for (int k(0); k < nDeltaField; ++k) {
-                const CUtlString &deltaFieldName(pDelta->FieldName(k));
-
-                if (baseFieldName != deltaFieldName)
-                    continue;
-
-                const FieldIndex_t baseFieldIndex(pBase->FindFieldIndex(baseFieldName));
-                const FieldIndex_t deltaFieldIndex(pDelta->FindFieldIndex(deltaFieldName));
-                if (baseFieldIndex < 0 || deltaFieldIndex < 0)
-                    break;
-
-                CDmAttribute *pBaseData(pBase->GetVertexData(baseFieldIndex));
-                CDmAttribute *pDeltaData(pDelta->GetVertexData(deltaFieldIndex));
-
-                if (pBaseData->GetType() != pDeltaData->GetType())
-                    break;
-
-                const CUtlVector<int> &baseIndices(pBase->GetVertexIndexData(baseFieldIndex));
-
-                switch (pBaseData->GetType()) {
-                    case AT_FLOAT_ARRAY:
-                        AddCorrectedDelta(AsLvalue(CDmrArray<float>(pBaseData)), baseIndices, compList[i],
-                                          baseFieldName, weight, pMask);
-                        break;
-                    case AT_COLOR_ARRAY:
-                        AddCorrectedDelta(AsLvalue(CDmrArray<Vector>(pBaseData)), baseIndices, compList[i],
-                                          baseFieldName, weight, pMask);
-                        break;
-                    case AT_VECTOR2_ARRAY:
-                        AddCorrectedDelta(AsLvalue(CDmrArray<Vector2D>(pBaseData)), baseIndices, compList[i],
-                                          baseFieldName, weight, pMask);
-                        break;
-                    case AT_VECTOR3_ARRAY:
-                        AddCorrectedDelta(AsLvalue(CDmrArray<Vector>(pBaseData)), baseIndices, compList[i],
-                                          baseFieldName, weight, pMask);
-                        break;
-                    default:
-                        break;
-                }
-                break;
-            }
-        }
-    }
-
-    return retVal;
-}
 
 
 //-----------------------------------------------------------------------------
@@ -3252,112 +1301,6 @@ bool CDmeMesh::InterpMaskedData(
 }
 
 
-//-----------------------------------------------------------------------------
-// Interpolates between the specified VertexData and the specified Delta
-// If pBase is NULL it will become the current state
-// If pDelta is NULL then the state to interpolate to will be the bind state
-//-----------------------------------------------------------------------------
-bool CDmeMesh::InterpMaskedDelta(
-    CDmeVertexDeltaData *pDelta,
-    CDmeVertexData *pDst /* = NULL */,
-    float weight /*= 1.0f */,
-    const CDmeSingleIndexedComponent *pMask /*= NULL */) {
-    CDmeVertexData *pDstBase = pDst ? pDst : GetCurrentBaseState();
-    CDmeVertexData *pBind = GetBindBaseState();
-
-    if (!pDstBase || !pBind || pDstBase == pBind)
-        return false;
-
-    if (pDelta == nullptr) {
-        // Interpolate between specified state and bind state
-        return InterpMaskedData(pDstBase, pBind, weight, pMask);
-    }
-
-    // This should be cached and recomputed only when states are added
-    CUtlVector<DeltaComputation_t> compList;
-    ComputeDependentDeltaStateList(compList);
-
-    bool retVal = false;
-
-    const int nDeltas(compList.Count());
-    for (int i = 0; i < nDeltas; ++i) {
-        if (pDelta != GetDeltaState(compList[i].m_nDeltaIndex))
-            continue;
-
-        retVal = true;
-
-        const int nBaseField(pDstBase->FieldCount());
-        const int nBindField(pBind->FieldCount());
-        const int nDeltaField(pDelta->FieldCount());
-
-        CUtlVector<float> floatData;
-        CUtlVector<Vector2D> vector2DData;
-        CUtlVector<Vector> vectorData;
-        CUtlVector<Vector4D> vector4DData;
-
-        for (int j(0); j < nBaseField; ++j) {
-            const CUtlString &baseFieldName(pDstBase->FieldName(j));
-
-            for (int k = 0; k < nBindField; ++k) {
-                const CUtlString &bindFieldName(pBind->FieldName(k));
-                if (baseFieldName != bindFieldName)
-                    continue;
-
-                for (int l = 0; l < nDeltaField; ++l) {
-                    const CUtlString &deltaFieldName(pDelta->FieldName(l));
-                    if (bindFieldName != deltaFieldName)
-                        continue;
-
-                    const FieldIndex_t baseFieldIndex(pDstBase->FindFieldIndex(baseFieldName));
-                    const FieldIndex_t bindFieldIndex(pBind->FindFieldIndex(bindFieldName));
-                    const FieldIndex_t deltaFieldIndex(pDelta->FindFieldIndex(deltaFieldName));
-
-                    if (baseFieldIndex < 0 || bindFieldIndex < 0 || deltaFieldIndex < 0)
-                        break;
-
-                    CDmAttribute *pDstBaseData(pDstBase->GetVertexData(baseFieldIndex));
-                    CDmAttribute *pBindData(pBind->GetVertexData(bindFieldIndex));
-                    CDmAttribute *pDeltaData(pDelta->GetVertexData(deltaFieldIndex));
-
-                    if (pDstBaseData->GetType() != pBindData->GetType() || pBindData->GetType() != pDeltaData->
-                        GetType())
-                        break;
-
-                    const CUtlVector<int> &bindIndices(pBind->GetVertexIndexData(bindFieldIndex));
-
-                    switch (pDstBaseData->GetType()) {
-                        case AT_FLOAT_ARRAY:
-                            floatData = CDmrArrayConst<float>(pBindData).Get();
-                            AddCorrectedDelta(floatData, bindIndices, compList[i], baseFieldName);
-                            InterpMaskedData(AsLvalue(CDmrArray<float>(pDstBaseData)), floatData, weight, pMask);
-                            break;
-                        case AT_COLOR_ARRAY:
-                            vector4DData = CDmrArrayConst<Vector4D>(pBindData).Get();
-                            AddCorrectedDelta(vector4DData, bindIndices, compList[i], baseFieldName);
-                            InterpMaskedData(AsLvalue(CDmrArray<Vector4D>(pDstBaseData)), vector4DData, weight, pMask);
-                            break;
-                        case AT_VECTOR2_ARRAY:
-                            vector2DData = CDmrArrayConst<Vector2D>(pBindData).Get();
-                            AddCorrectedDelta(vector2DData, bindIndices, compList[i], baseFieldName);
-                            InterpMaskedData(AsLvalue(CDmrArray<Vector2D>(pDstBaseData)), vector2DData, weight, pMask);
-                            break;
-                        case AT_VECTOR3_ARRAY:
-                            vectorData = CDmrArrayConst<Vector>(pBindData).Get();
-                            AddCorrectedDelta(vectorData, bindIndices, compList[i], baseFieldName);
-                            InterpMaskedData(AsLvalue(CDmrArray<Vector>(pDstBaseData)), vectorData, weight, pMask);
-                            break;
-                        default:
-                            break;
-                    }
-                    break;
-                }
-            }
-        }
-    }
-
-    return retVal;
-}
-
 
 //-----------------------------------------------------------------------------
 // Returns the index of the closest selected vertex in the mesh to vIndex
@@ -3399,156 +1342,8 @@ int CDmeMesh::ClosestSelectedVertex(int vIndex, CDmeSingleIndexedComponent *pSel
 }
 
 
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-float CDmeMesh::DistanceBetween(int vIndex0, int vIndex1, const CDmeVertexData *pPassedBase /*= NULL */) const {
-    const CDmeVertexData *pBase = pPassedBase ? pPassedBase : GetCurrentBaseState();
-    if (!pBase)
-        return 0.0f;
-
-    const CUtlVector<Vector> &positions(pBase->GetPositionData());
-    const int nPositions = positions.Count();
-
-    if (vIndex0 >= nPositions || vIndex1 >= nPositions)
-        return 0.0f;
-
-    return positions[vIndex0].DistTo(positions[vIndex1]);
-}
 
 
-//-----------------------------------------------------------------------------
-// Sorts DeltaComputation_t's by dimensionality
-//-----------------------------------------------------------------------------
-int ControlIndexLessFunc(const void *lhs, const void *rhs) {
-    const int &lVal = *reinterpret_cast<const int *>(lhs);
-    const int &rVal = *reinterpret_cast<const int *>(rhs);
-    return lVal - rVal;
-}
-
-//-----------------------------------------------------------------------------
-// This will compute a list of delta states that are superior to the passed
-// delta state name (which has the form of <NAME>[_<NAME>]..., i.e. controls
-// separated by underscores.  The states will be returned in order from
-// most superior to least superior.  Since the deltas need to be broken down
-// by the control deltas, if any control delta doesn't exist it will return false.
-//
-// A superior delta state is defined as a delta which has this delta as
-// a dependent (or inferior) delta.
-//
-// Given the network of:
-//
-// A, B, C
-// A_B, A_C, B_C
-// A_B_C
-//
-// A_B_C is superior to A, B, A_B, A_C & B_C
-// A_B is superior to A, B & C
-// A_C is superior to A, B & C
-// B_C is superior to A, B & C
-//
-// Input	Output
-// -------  --------------------
-// A		A_B_C, A_B, A_C, B_C
-// B		A_B_C, A_B, A_C, B_C
-// C		A_B_C, A_B, A_C, B_C
-// A_B		A_B_C
-// A_C		A_B_C
-// B_C		A_B_C
-// A_B_C
-//-----------------------------------------------------------------------------
-bool CDmeMesh::ComputeSuperiorDeltaStateList(const char *pInferiorDeltaName, CUtlVector<int> &superiorDeltaStates) {
-    // TODO: Compute this data only when the deltas are added, removed or renamed
-    CUtlVector<DeltaComputation_t> compList;
-    ComputeDeltaStateComputationList(compList);
-
-    // Typically the passed delta won't be in the list yet, but it could be, that's ok
-    // Treat it like it isn't to be sure.
-    CUtlVector<int> inferiorIndices;
-    if (!GetControlDeltaIndices(pInferiorDeltaName, inferiorIndices))
-        return false;
-
-    const int nInferiorIndices = inferiorIndices.Count();
-    qsort(inferiorIndices.Base(), nInferiorIndices, sizeof(int), ControlIndexLessFunc);
-
-    CUtlVector<int> superiorIndices;
-    int nSuperiorIndices;
-    CDmeVertexDeltaData *pSuperiorDelta;
-
-    for (int i = compList.Count() - 1; i >= 0; --i) {
-        const DeltaComputation_t &deltaComp = compList[i];
-
-        // For a delta to be superior, it has to have more control inputs than the specified delta
-        // compList is sorted in order of dimensionality, so safe to abort
-        if (nInferiorIndices >= deltaComp.m_nDimensionality)
-            break;
-
-        pSuperiorDelta = GetDeltaState(deltaComp.m_nDeltaIndex);
-        if (!pSuperiorDelta)
-            continue;
-
-        if (!GetControlDeltaIndices(pSuperiorDelta, superiorIndices))
-            continue;
-
-        nSuperiorIndices = superiorIndices.Count();
-
-        qsort(superiorIndices.Base(), nSuperiorIndices, sizeof(int), ControlIndexLessFunc);
-
-        int nFound = 0;
-        int si = 0;
-        for (int ii = 0; ii < nInferiorIndices; ++ii) {
-            const int &iIndex = inferiorIndices[ii];
-            while (si < nSuperiorIndices && iIndex != superiorIndices[si]) {
-                ++si;
-            }
-
-            if (si < nSuperiorIndices) {
-                ++nFound;
-            }
-        }
-
-        if (nFound == nInferiorIndices) {
-            superiorDeltaStates.AddToTail(deltaComp.m_nDeltaIndex);
-        }
-    }
-
-    return true;
-}
-
-
-//-----------------------------------------------------------------------------
-// Removes the passed base state from the list of base states in the mesh
-// if it exists in the list of base states in the mesh, but doesn't delete
-// the element itself
-//-----------------------------------------------------------------------------
-bool CDmeMesh::RemoveBaseState(CDmeVertexData *pBase) {
-    const int nBaseStates = m_BaseStates.Count();
-    for (int i = 0; i < nBaseStates; ++i) {
-        CDmeVertexData *pTmpBase = m_BaseStates[i];
-        if (pTmpBase == pBase) {
-            m_BaseStates.Remove(i);
-            return true;
-        }
-    }
-
-    return false;
-}
-
-
-//-----------------------------------------------------------------------------
-// Adds an existing element to the list of base states of the mesh if it
-// isn't already one of the base states
-//-----------------------------------------------------------------------------
-CDmeVertexData *CDmeMesh::FindOrAddBaseState(CDmeVertexData *pBase) {
-    const int nBaseStates = m_BaseStates.Count();
-    for (int i = 0; i < nBaseStates; ++i) {
-        if (m_BaseStates[i] == pBase) {
-            return pBase;
-        }
-    }
-
-    return m_BaseStates[m_BaseStates.AddToTail(pBase)];
-}
 
 
 //-----------------------------------------------------------------------------
@@ -3757,101 +1552,7 @@ bool CDmeMesh::SetBaseDataToDeltas(
 }
 
 
-//-----------------------------------------------------------------------------
-// Sets the specified based state to the version of the mesh specified by the
-// current weighted deltas
-// It's ok to modify the bind state... if you know what you're doing
-//-----------------------------------------------------------------------------
-bool CDmeMesh::SetBaseStateToDeltas(CDmeVertexData *pPassedBase /*= NULL */) {
-    CDmeVertexData *pBind = GetBindBaseState();
-    CDmeVertexData *pBase = pPassedBase ? pPassedBase : GetCurrentBaseState();
 
-    if (!pBind || !pBase)
-        return false;
-
-    CDmeVertexData::StandardFields_t deltaFields[] =
-    {
-        CDmeVertexData::FIELD_POSITION,
-        CDmeVertexData::FIELD_NORMAL,
-        CDmeVertexData::FIELD_WRINKLE
-    };
-
-    const bool bDoStereo = (pBind->FindFieldIndex(CDmeVertexDeltaData::FIELD_BALANCE) >= 0);
-
-    for (int i = 0; i < sizeof(deltaFields) / sizeof(deltaFields[0]); ++i) {
-        const CDmeVertexDeltaData::StandardFields_t nStandardField = deltaFields[i];
-        const int nSrcField = pBind->FindFieldIndex(nStandardField);
-        const int nDstField = pBase->FindFieldIndex(nStandardField);
-        if (nSrcField < 0 || nDstField < 0)
-            continue;
-
-        const CDmAttribute *pSrcAttr = pBind->GetVertexData(nSrcField);
-        CDmAttribute *pDstAttr = pBase->GetVertexData(nDstField);
-        if (!pSrcAttr || !pDstAttr || pSrcAttr->GetType() != pDstAttr->GetType())
-            continue;
-
-        switch (pDstAttr->GetType()) {
-            case AT_FLOAT_ARRAY:
-                SetBaseDataToDeltas(pBind, nStandardField, AsLvalue(CDmrArrayConst<float>(pSrcAttr)),
-                                    AsLvalue(CDmrArray<float>(pDstAttr)), bDoStereo, false);
-                break;
-            case AT_VECTOR3_ARRAY:
-                SetBaseDataToDeltas(pBind, nStandardField, AsLvalue(CDmrArrayConst<Vector>(pSrcAttr)),
-                                    AsLvalue(CDmrArray<Vector>(pDstAttr)), bDoStereo, false);
-                break;
-            default:
-                Assert(0);
-                break;
-        }
-    }
-
-    return true;
-}
-
-
-//-----------------------------------------------------------------------------
-// Replace all instances of a material with a different material
-//-----------------------------------------------------------------------------
-void CDmeMesh::ReplaceMaterial(const char *pOldMaterialName, const char *pNewMaterialName) {
-    char pOldFixedName[MAX_PATH];
-    char pNewFixedName[MAX_PATH];
-    char pFixedName[MAX_PATH];
-    if (pOldMaterialName) {
-        Q_FixupPathName(pOldFixedName, sizeof(pOldFixedName), pOldMaterialName);
-    }
-    Q_FixupPathName(pNewFixedName, sizeof(pNewFixedName), pNewMaterialName);
-    CDmeMaterial *pReplacementMaterial = nullptr;
-
-    int nCount = m_FaceSets.Count();
-    for (int i = 0; i < nCount; ++i) {
-        CDmeFaceSet *pFaceSet = m_FaceSets[i];
-        CDmeMaterial *pMaterial = pFaceSet->GetMaterial();
-        if (pOldMaterialName) {
-            const char *pMaterialName = pMaterial->GetMaterialName();
-            Q_FixupPathName(pFixedName, sizeof(pFixedName), pMaterialName);
-            if (Q_stricmp(pFixedName, pOldFixedName))
-                continue;
-        }
-
-        if (!pReplacementMaterial) {
-            pReplacementMaterial = CreateElement<CDmeMaterial>(pMaterial->GetName(), pMaterial->GetFileId());
-            pReplacementMaterial->SetMaterial(pNewFixedName);
-        }
-        pFaceSet->SetMaterial(pReplacementMaterial);
-    }
-}
-
-
-//-----------------------------------------------------------------------------
-// Reskins the mesh to new bones
-// The joint index remap maps an initial bone index to a new bone index
-//-----------------------------------------------------------------------------
-void CDmeMesh::Reskin(const int *pJointTransformIndexRemap) {
-    int nCount = m_BaseStates.Count();
-    for (int i = 0; i < nCount; ++i) {
-        m_BaseStates[i]->Reskin(pJointTransformIndexRemap);
-    }
-}
 
 
 //-----------------------------------------------------------------------------

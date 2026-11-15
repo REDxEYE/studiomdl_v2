@@ -86,24 +86,6 @@ int CDmeSingleIndexedComponent::Count() const
 }
 
 
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-bool CDmeSingleIndexedComponent::SetType( Component_t type )
-{
-	switch ( type )
-	{
-	case COMP_VTX:
-	case COMP_FACE:
-		m_Type.Set( type );
-		return true;
-	default:
-		break;
-	}
-
-	return false;
-}
-
 
 //-----------------------------------------------------------------------------
 //
@@ -134,47 +116,7 @@ void CDmeSingleIndexedComponent::AddComponent( int component, float weight /*= 1
 }
 
 
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-void CDmeSingleIndexedComponent::AddComponents( const CUtlVector< int > &components )
-{
-	const int nComponents( components.Count() );
-	for ( int i( 0 ); i < nComponents; ++i )
-	{
-		AddComponent( components[ i ] );
-	}
-}
 
-
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-void CDmeSingleIndexedComponent::AddComponents(
-	const CUtlVector< int > &components, const CUtlVector< float > &weights )
-{
-	const int nComponents( MIN( components.Count(), weights.Count() ) );
-	for ( int i( 0 ); i < nComponents; ++i )
-	{
-		AddComponent( components[ i ], weights[ i ] );
-	}
-}
-
-
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-void CDmeSingleIndexedComponent::RemoveComponent( int component )
-{
-	Assert( !IsComplete() );	// TODO: Convert from complete to complete - component
-
-	const int cIndex = BinarySearch( component );
-	if ( cIndex >= m_Components.Count() || m_Components[ cIndex ] != component )	// Component not in selection
-		return;
-
-	m_Components.Remove( cIndex );
-	m_Weights.Remove( cIndex );
-}
 
 
 //-----------------------------------------------------------------------------
@@ -260,25 +202,6 @@ void CDmeSingleIndexedComponent::GetComponents( CUtlVector< int > &components ) 
 }
 
 
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-void CDmeSingleIndexedComponent::SetComplete( int nComplete )
-{
-	m_bComplete.Set( true );
-	m_CompleteCount.Set( MAX( 0, nComplete ) );
-	m_Components.Purge();
-	m_Weights.Purge();
-}
-
-
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-int CDmeSingleIndexedComponent::GetComplete() const
-{
-	return IsComplete() ? m_CompleteCount.Get() : 0;
-}
 
 
 //-----------------------------------------------------------------------------

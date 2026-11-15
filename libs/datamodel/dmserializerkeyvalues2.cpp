@@ -35,8 +35,6 @@ public:
 
 	// Current line control
 	void IncrementCurrentLine();
-	void SetCurrentLine( int nLine );
-	int GetCurrentLine() const;
 
 	// entering a new keyvalues block, save state for errors
 	// Not save symbols instead of pointers because the pointers can move!
@@ -97,16 +95,6 @@ void CKeyValues2ErrorStack::SetFilename( const char *pFilename )
 void CKeyValues2ErrorStack::IncrementCurrentLine()
 {
 	++m_nFileLine;
-}
-
-void CKeyValues2ErrorStack::SetCurrentLine( int nLine )
-{
-	m_nFileLine = nLine;
-}
-
-int CKeyValues2ErrorStack::GetCurrentLine() const
-{
-	return m_nFileLine;
 }
 
 
@@ -225,17 +213,20 @@ public:
 	CDmSerializerKeyValues2( bool bFlatMode ) : m_bFlatMode( bFlatMode ) {}
 
 	// Inherited from IDMSerializer
-	virtual const char *GetName() const { return m_bFlatMode ? "keyvalues2_flat" : "keyvalues2"; }
-	virtual const char *GetDescription() const { return m_bFlatMode ? "KeyValues2 (flat)" : "KeyValues2"; }
-	virtual bool StoresVersionInFile() const { return true; }
-	virtual bool IsBinaryFormat() const { return false; }
-	virtual int GetCurrentVersion() const { return 1; }
- 	virtual int GetImportedVersion() const { return 1; }
-	virtual bool Serialize( CUtlBuffer &buf, CDmElement *pRoot );
-	virtual bool Unserialize( CUtlBuffer &buf, const char *pEncodingName, int nEncodingVersion,
-		const char *pSourceFormatName, int nSourceFormatVersion,
-		DmFileId_t fileid, DmConflictResolution_t idConflictResolution, CDmElement **ppRoot );
-	virtual const char *GetImportedFormat() const { return nullptr; }
+    const char *GetName() const override { return m_bFlatMode ? "keyvalues2_flat" : "keyvalues2"; }
+    const char *GetDescription() const override { return m_bFlatMode ? "KeyValues2 (flat)" : "KeyValues2"; }
+    bool StoresVersionInFile() const override { return true; }
+    bool IsBinaryFormat() const override { return false; }
+    int GetCurrentVersion() const override { return 1; }
+    int GetImportedVersion() const override { return 1; }
+
+    bool Serialize( CUtlBuffer &buf, CDmElement *pRoot ) override;
+
+    bool Unserialize( CUtlBuffer &buf, const char *pEncodingName, int nEncodingVersion,
+                      const char *pSourceFormatName, int nSourceFormatVersion,
+                      DmFileId_t fileid, DmConflictResolution_t idConflictResolution, CDmElement **ppRoot ) override;
+
+    const char *GetImportedFormat() const override { return nullptr; }
 
 private:
 	enum TokenType_t

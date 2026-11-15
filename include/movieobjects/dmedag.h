@@ -32,38 +32,17 @@ class CDmeDag : public CDmElement
 	DEFINE_ELEMENT( CDmeDag, CDmElement );
 
 public:
-
-	virtual void Resolve();
+    void Resolve() override;
 
 	// Accessors
 	CDmeTransform *GetTransform() const;
 	CDmeShape *GetShape();
 
-	// Changes the shage
-	void SetShape( CDmeShape *pShape );
-
-	bool IsVisible() const;
-	void SetVisible( bool bVisible = true );
 
 	// child helpers
-	const CUtlVector< DmElementHandle_t > &GetChildren() const;
 	int GetChildCount() const;
 	CDmeDag *GetChild( int i ) const;
-	bool AddChild( CDmeDag* pDag );
-	void RemoveChild( int i );
-	void RemoveChild( const CDmeDag *pChild, bool bRecurse = false );
-	int FindChild( const CDmeDag *pChild ) const;
-	int FindChild( CDmeDag *&pParent, const CDmeDag *pChild );
-	int FindChild( const char *name ) const;
-	CDmeDag *FindOrAddChild( const char *name );
-	void RemoveAllChildren();
-	bool SetParent( CDmeDag *pDmeDagParent );
 
-	CDmeDag *FindChildByName_R( const char *name ) const;
-
-
-	// Count the number of steps between the node and the specified child node, returns -1 if not related
-	int StepsToChild( const CDmeDag *pChild ) const;
 
 	// Recursively render the Dag hierarchy
 	void GetBoundingSphere( Vector &center, float &radius ) const
@@ -79,10 +58,7 @@ public:
 		GetBoundingBox( min, max, identity );
 	}
 
-	void GetShapeToWorldTransform( matrix3x4_t &mat );
-
 	void GetLocalMatrix( matrix3x4_t &mat ) const;
-	void SetLocalMatrix( matrix3x4_t &mat );
 
 	void GetAbsTransform( matrix3x4_t &matAbsTransform ) const;
 	void SetAbsTransform( const matrix3x4_t &matAbsTransform );
@@ -90,7 +66,6 @@ public:
 	void GetAbsPosition( Vector &absPos ) const;
 	void SetAbsPosition( const Vector &absPos );
 	void GetAbsOrientation( Quaternion &absOrientation ) const;
-	void SetAbsOrientation( const Quaternion &absOrientation );
 
 	template <class T>
 	T *FindParentDagOfType();
@@ -106,47 +81,21 @@ public:
 	const CDmeDag *GetOverrideParent( bool bIgnoreEnable = false ) const;
 	const CDmeDag *GetOverrideParent( bool &bPosition, bool &bRotation, bool bIgnoreEnable = false ) const;
 
-	// Set the current override parent, if the parameter is NULL the overrider parent will be cleared.
-	void SetOverrideParent( const CDmeDag *pParentDag, bool bPosition, bool bRotation );
-
-	// Set the flag which enables or disables the override parent 
-	void EnableOverrideParent( bool bEnable );
-
-	// Determine if the override parent is enabled ( This only says if an override parent is allowed, not if the dag has an override parent)
-	bool IsOverrideParentEnabled() const;
-
-	// Determine if this dag node is ancestor of the specified dag 
-	bool IsAncestorOfDag( const CDmeDag *pDag ) const;
-
-	// Find the dag node which is the root of the tree the dag node is in.
-	CDmeDag *FindRoot();
-
 	CDmeDag *GetParent() const;
 
 	void GetParentWorldMatrix( matrix3x4_t &mat ) const;
 
 	void GetTranslationParentWorldMatrix( matrix3x4_t &mParentToWorld );
 
-	static void DrawUsingEngineCoordinates( bool bEnable );
-
-	static void DrawZUp( bool bZUp );
 	static bool IsDrawZUp() { return !s_bDrawZUp; }
 
 	// Transform from DME to engine coordinates
-	static void DmeToEngineMatrix( matrix3x4_t& dmeToEngine, bool bZUp );
-	static void EngineToDmeMatrix( matrix3x4_t& engineToDme, bool bZUp );
-
-	// Find the channels targeting the transform of the object either directly or through a constraint
-	void FindTransformChannels( CUtlVector< CDmeChannel * > &list ) const;
 
 	// Find all of the operators on which dag node is dependent, this recursively finds operators for the parents of the dag.
-	void FindRelevantOperators( CUtlVector< CDmeOperator * > &operatorList ) const;
-
-	// Find all of the operators on which the dag node is dependent, splitting the channels into a separate list.
-	void FindRelevantOperators( CUtlVector< CDmeChannel * > &list, CUtlVector< CDmeOperator * > &operatorList ) const;
+	void FindRelevantOperators( std::vector< CDmeOperator * > &operatorList ) const;
 
 	// This one only looks at the current CDmeDag
-	void FindLocalOperators( CUtlVector< CDmeOperator * > &operatorList ) const;
+	void FindLocalOperators( std::vector< CDmeOperator * > &operatorList ) const;
 
 
 protected:
@@ -154,9 +103,6 @@ protected:
 	void GetBoundingSphere( Vector &center, float &radius, const matrix3x4_t &pMat ) const;
 	void GetBoundingBox( Vector &min, Vector &max, const matrix3x4_t &pMat ) const;
 
-	void PushDagTransform();
-	void PopDagTransform();
-	CDmAttribute *GetVisibilityAttribute();
 
 	CDmaVar< bool >					m_Visible;
 	CDmaVar< bool >					m_bDisableOverrideParent;
@@ -177,8 +123,6 @@ private:
 	static bool s_bDrawZUp;									// NOTE: s_bZUp doesn't mean the model is in engine coordinates, it means it's Z Up, -Y Front & X Right.  Engine is Z Up, X Front & Y Right.
 };
 
-
-void RemoveDagFromParents( CDmeDag *pDag, bool bRecursivelyRemoveEmptyDagsFromParents = false );
 
 template <class T>
 inline T *CDmeDag::FindParentDagOfType()

@@ -26,7 +26,10 @@
 #include "mdlobjects/dmeboneflexdriver.h"
 #include "tier1_v2/function_timing.hpp"
 #include "studiomdl/studiomdl_global_state.hpp"
-#include "tier1/utlspheretree.h"
+
+#include <cmath>
+#include <unordered_map>
+#include <vector>
 #include "tier1_v2/string_utils.hpp"
 
 
@@ -506,19 +509,6 @@ void lookupLinearMotion( s_animation_t *panim, int motiontype, int startframe, i
 // v1 = -3 * d3 + 4 * d2 + 2 * d3
 // v1 = -1 * d3 + 4 * d2
 
-
-void ConvertToAnimLocal(s_animation_t* panim, Vector &pos, QAngle &angles) {
-    matrix3x4_t bonematrix;
-    matrix3x4_t adjmatrix;
-
-    // convert explicit position/angle into animation relative values
-    AngleMatrix(angles, pos, bonematrix);
-    AngleMatrix(panim->rotation, panim->adjust, adjmatrix);
-    MatrixInvert(adjmatrix, adjmatrix);
-    ConcatTransforms(adjmatrix, bonematrix, bonematrix);
-    MatrixAngles(bonematrix, angles, pos);
-    // pos = pos * panim->scale;
-}
 
 //-----------------------------------------------------------------------------
 // Purpose: find the linear movement/rotation between two frames, subtract that
@@ -1553,8 +1543,8 @@ void BuildRawTransforms(const s_source_t* psource, const char* pAnimationName,
 
     // build source space local to world transforms
     for (k = 0; k < psource->numbones; k++) {
-        VectorScale(pSourceAnim->rawanim.Element(frame)[k].pos, scale, pos);
-        VectorCopy(pSourceAnim->rawanim.Element(frame)[k].rot, rot);
+        VectorScale(pSourceAnim->rawanim[frame][k].pos, scale, pos);
+        VectorCopy(pSourceAnim->rawanim[frame][k].rot, rot);
 
         if (psource->localBone[k].parent == -1) {
             // translate
@@ -2432,6 +2422,55 @@ static void BuildVAnimFlags(s_source_t* pVSource, s_sourceanim_t* pVSourceAnim, 
 #define MAX_VANIM_DIST_SQR ( MAX_VANIM_DIST * MAX_VANIM_DIST )
 
 //-----------------------------------------------------------------------------
+// Uniform grid over points for radius queries. The cells are MAX_VANIM_DIST wide, so a query with a radius of at most
+// MAX_VANIM_DIST only has to look at the 27 cells around its center. A point is found when
+// (center - point).LengthSqr() <= radius * radius (the leaf test of the sphere tree this replaces).
+//-----------------------------------------------------------------------------
+class CVertexGrid {
+public:
+    void Insert(const int index, const Vector &position) {
+        m_Cells[Key(Cell(position.x), Cell(position.y), Cell(position.z))].push_back({index, position});
+    }
+
+    void Query(const Vector &center, const float radius, std::vector<int> &result) const {
+        Assert(radius <= MAX_VANIM_DIST);
+        result.clear();
+        const int64_t cx = Cell(center.x), cy = Cell(center.y), cz = Cell(center.z);
+        const float radiusSqr = radius * radius;
+        for (int64_t x = cx - 1; x <= cx + 1; x++) {
+            for (int64_t y = cy - 1; y <= cy + 1; y++) {
+                for (int64_t z = cz - 1; z <= cz + 1; z++) {
+                    const auto cell = m_Cells.find(Key(x, y, z));
+                    if (cell == m_Cells.end())
+                        continue;
+                    for (const Point &point: cell->second) {
+                        const Vector delta = center - point.position;
+                        if (delta.LengthSqr() <= radiusSqr)
+                            result.push_back(point.index);
+                    }
+                }
+            }
+        }
+    }
+
+private:
+    struct Point {
+        int index;
+        Vector position;
+    };
+
+    static int64_t Cell(const float v) { return static_cast<int64_t>(std::floor(v / MAX_VANIM_DIST)); }
+
+    static uint64_t Key(const int64_t x, const int64_t y, const int64_t z) {
+        constexpr int64_t bias = int64_t(1) << 20; // 21 bits per axis
+        return (static_cast<uint64_t>(x + bias) & 0x1FFFFF) << 42 | (static_cast<uint64_t>(y + bias) & 0x1FFFFF) << 21 |
+               (static_cast<uint64_t>(z + bias) & 0x1FFFFF);
+    }
+
+    std::unordered_map<uint64_t, std::vector<Point>> m_Cells;
+};
+
+//-----------------------------------------------------------------------------
 // Purpose: Build an array indexed by model vertex which indicates which vanim vertex corresponds best to it
 //-----------------------------------------------------------------------------
 static void BuildModelToVAnimMap(s_source_t* pVSource, const s_sourceanim_t* pVSourceAnim,
@@ -2446,8 +2485,8 @@ static void BuildModelToVAnimMap(s_source_t* pVSource, const s_sourceanim_t* pVS
         pModelToVAnim[j] = -1;
     }
 
-    // Build a sphere tree to accelerate this search process:
-    CUtlSphereTree sphereTree;
+    // Build a grid to accelerate this search process:
+    CVertexGrid vertexGrid;
     const int nMinLod = MIN(g_studiomdl.options.minLod, std::ssize(g_studiomdl.body.ScriptLODs) - 1);
     for (int k = 0; k < pmLodSource->numvertices; k++) {
         // go ahead and skip vertices that are just going to be stripped later
@@ -2456,13 +2495,12 @@ static void BuildModelToVAnimMap(s_source_t* pVSource, const s_sourceanim_t* pVS
         if (nMinLod && !(vertex.lodFlag & (0xFFFFFF << nMinLod)))
             continue;
 
-        Sphere_t sphere(vertex.position.x, vertex.position.y, vertex.position.z, 0);
-        sphereTree.Insert((void*) k, &sphere);
+        vertexGrid.Insert(k, vertex.position);
     }
 
     int nError = 0, nTests = 0, nBumps = 0;
     float flErrorDist = 0.0f;
-    CUtlVector<void*> candidates;
+    std::vector<int> candidates;
     float searchRadius = MAX_VANIM_DIST;
 
     // TODO: this would be faster if we inserted the pVSource into the spheretree instead (we could avoid 'scatter' writes to imapdist[] and imapdot[] in the inner loop)
@@ -2475,20 +2513,18 @@ static void BuildModelToVAnimMap(s_source_t* pVSource, const s_sourceanim_t* pVS
                                            : pVSourceAnim->vanim[0][j].normal;
 
         // Search for verts within a small radius (shrink the radius over time, to converge on a reasonable minimum search radius)
-        Sphere_t searchSphere(vecModelPos.x, vecModelPos.y, vecModelPos.z, searchRadius);
-        sphereTree.IntersectWithSphere(searchSphere, true, candidates, 0, nullptr);
-        while (!candidates.Count() && (searchRadius < MAX_VANIM_DIST)) {
+        vertexGrid.Query(vecModelPos, searchRadius, candidates);
+        while (candidates.empty() && (searchRadius < MAX_VANIM_DIST)) {
             searchRadius = MIN(MAX_VANIM_DIST, searchRadius * 2);
-            searchSphere.w = searchRadius;
-            sphereTree.IntersectWithSphere(searchSphere, true, candidates, 0, nullptr);
+            vertexGrid.Query(vecModelPos, searchRadius, candidates);
             nBumps++;
         }
         searchRadius = MAX(0.001f * MAX_VANIM_DIST, searchRadius * 0.95f);
 
         float flMinDist = 1E30;
-        for (int i = 0; i < candidates.Count(); i++) {
+        for (size_t i = 0; i < candidates.size(); i++) {
             nTests++;
-            const int index = (int) (intptr_t) candidates[i];
+            const int index = candidates[i];
 
             s_lodvertexinfo_t &vertex = pmLodSource->vertex[index];
 
@@ -2770,7 +2806,7 @@ void RemapVertexAnimations() {
 // landed in the pool. Returns false when it doesn't apply; pModelToVAnim is then unspecified.
 static bool BuildModelToVAnimMapFromRootLOD(const s_model_t* pModel, const s_source_t* pVSource, int* pModelToVAnim) {
     const s_loddata_t* pLodData = pModel->m_pLodData;
-    if (!pLodData || pModel->m_LodSources.Count() == 0 || pModel->m_LodSources[0] != pVSource ||
+    if (!pLodData || pModel->m_LodSources.empty() || pModel->m_LodSources[0] != pVSource ||
         !pLodData->pMeshVertIndexMaps[0])
         return false;
 
@@ -3452,15 +3488,6 @@ bool BoneHasAnimation(const char* pName) {
 bool BoneIsBonemerge(char const* pname) {
     for (int k = 0; k < g_studiomdl.bones.bone_merge.size(); k++) {
         if (vstd::iequals(g_studiomdl.bones.bone_merge[k].bonename, pname)) {
-            return true;
-        }
-    }
-    return false;
-}
-
-bool BoneShouldAlwaysSetup(char const* pname) {
-    for (int k = 0; k < g_studiomdl.bones.bone_always_setup.size(); k++) {
-        if (vstd::iequals(g_studiomdl.bones.bone_always_setup[k].bonename, pname)) {
             return true;
         }
     }
@@ -4485,15 +4512,15 @@ static void TagConstraintBones() {
 
         g_studiomdl.bones.bonetable[pConstraintBone->m_slave.m_nBone].flags |= BoneFlags::AlwaysProcedural;
 
-        for (int j = pConstraintBone->m_targets.Count() - 1; j >= 0; --j) {
+        for (int j = std::ssize(pConstraintBone->m_targets) - 1; j >= 0; --j) {
             s_constraintbonetarget_t &target = pConstraintBone->m_targets[j];
             target.m_nBone = findGlobalBone(target.m_szBoneName);
             if (target.m_nBone < 0) {
-                pConstraintBone->m_targets.Remove(j);
+                pConstraintBone->m_targets.erase(pConstraintBone->m_targets.begin() + j);
             }
         }
 
-        if (pConstraintBone->m_targets.Count() <= 0) {
+        if (pConstraintBone->m_targets.empty()) {
             g_studiomdl.bones.constraintBones.erase(g_studiomdl.bones.constraintBones.begin() + i);
         }
 
@@ -4751,7 +4778,7 @@ static void RemapConstraintBones() {
         if (!pConstraintBone)
             continue;
 
-        for (int j = 0; j < pConstraintBone->m_targets.Count(); ++j) {
+        for (size_t j = 0; j < pConstraintBone->m_targets.size(); ++j) {
             s_constraintbonetarget_t &target = pConstraintBone->m_targets[j];
             const int nBoneIndex = findGlobalBone(target.m_szBoneName);
             if (nBoneIndex < 0 || nBoneIndex != target.m_nBone) {
@@ -5298,7 +5325,7 @@ void CenterBonesOnVerts() {
             pSourceAnim = &pSource->m_Animations[0];
         }
 
-        pSource->m_GlobalVertices.AddMultipleToTail(pSource->numvertices);
+        pSource->m_GlobalVertices.resize(pSource->m_GlobalVertices.size() + pSource->numvertices);
 
         Vector p;
         for (j = 0; j < pSource->numvertices; j++) {
@@ -5820,16 +5847,6 @@ void CalcSeqTransforms(int sequence, int frame, matrix3x4_t* pBoneToWorld) {
 // Purpose:
 //-----------------------------------------------------------------------------
 
-void CalcBonePos(s_animation_t* panimation, int frame, int bone, Vector &pos) {
-    matrix3x4_t boneToWorld[MAXSTUDIOSRCBONES]; // bone transformation matrix
-
-    CalcBoneTransforms(panimation, frame, boneToWorld);
-
-    pos.x = boneToWorld[bone][0][3];
-    pos.y = boneToWorld[bone][1][3];
-    pos.z = boneToWorld[bone][2][3];
-}
-
 
 #define SMALL_FLOAT 1e-12
 
@@ -5910,31 +5927,26 @@ static void CalcTriangleTangentSpace(s_source_t* pSrc, int v1, int v2, int v3,
     */
 }
 
-typedef CUtlVector<int> CIntVector;
-
 void CalcModelTangentSpaces(s_source_t* pSrc) {
     // Build a map from vertex to a list of faces that share the vert
     int meshID;
     for (meshID = 0; meshID < pSrc->meshes.size(); meshID++) {
         const s_mesh_t* pMesh = &pSrc->meshes[meshID];
-        CUtlVector<CIntVector> vertToFaceMap;
-        vertToFaceMap.AddMultipleToTail(pMesh->numvertices);
+        std::vector<std::vector<int>> vertToFaceMap(pMesh->numvertices);
         for (int faceID = 0; faceID < pMesh->numfaces; faceID++) {
             const s_face_t* pFace = &pSrc->face[faceID + pMesh->faceoffset];
-            vertToFaceMap[pFace->a].AddToTail(faceID);
-            vertToFaceMap[pFace->b].AddToTail(faceID);
-            vertToFaceMap[pFace->c].AddToTail(faceID);
+            vertToFaceMap[pFace->a].push_back(faceID);
+            vertToFaceMap[pFace->b].push_back(faceID);
+            vertToFaceMap[pFace->c].push_back(faceID);
             if (pFace->d != 0xFFFFFFFF) // SubD Quad face
             {
-                vertToFaceMap[pFace->d].AddToTail(faceID);
+                vertToFaceMap[pFace->d].push_back(faceID);
             }
         }
 
         // Calculate the tangent space for each face
-        CUtlVector<Vector> faceSVect;
-        CUtlVector<Vector> faceTVect;
-        faceSVect.AddMultipleToTail(pMesh->numfaces);
-        faceTVect.AddMultipleToTail(pMesh->numfaces);
+        std::vector<Vector> faceSVect(pMesh->numfaces);
+        std::vector<Vector> faceTVect(pMesh->numfaces);
         for (int faceID = 0; faceID < pMesh->numfaces; faceID++) {
             const s_face_t* pFace = &pSrc->face[faceID + pMesh->faceoffset];
 
@@ -5953,7 +5965,7 @@ void CalcModelTangentSpaces(s_source_t* pSrc) {
 
             sVect.Init(0.0f, 0.0f, 0.0f);
             tVect.Init(0.0f, 0.0f, 0.0f);
-            for (int faceID = 0; faceID < vertToFaceMap[vertID].Count(); faceID++) {
+            for (size_t faceID = 0; faceID < vertToFaceMap[vertID].size(); faceID++) {
                 sVect += faceSVect[vertToFaceMap[vertID][faceID]];
                 tVect += faceTVect[vertToFaceMap[vertID][faceID]];
             }
@@ -5969,7 +5981,7 @@ void CalcModelTangentSpaces(s_source_t* pSrc) {
                     Vector vertPos2(pSrc->vertex[vertID2].position[0], pSrc->vertex[vertID2].position[1],
                                     pSrc->vertex[vertID2].position[2]);
                     if (vertPos1 == vertPos2) {
-                        for (int faceID = 0; faceID < vertToFaceMap[vertID2].Count(); faceID++) {
+                        for (size_t faceID = 0; faceID < vertToFaceMap[vertID2].size(); faceID++) {
                             sVect += faceSVect[vertToFaceMap[vertID2][faceID]];
                             tVect += faceTVect[vertToFaceMap[vertID2][faceID]];
                         }
@@ -6102,14 +6114,14 @@ void RemapVerticesToGlobalBones() {
         BuildRawTransforms(pSource, pSourceAnim->animationname, 0, srcBoneToWorld);
         TranslateAnimations(pSource, srcBoneToWorld, destBoneToWorld);
 
-        pSource->m_GlobalVertices.AddMultipleToTail(pSource->numvertices);
+        pSource->m_GlobalVertices.resize(pSource->m_GlobalVertices.size() + pSource->numvertices);
 
         for (int j = 0; j < pSource->numvertices; j++) {
             InitRemappedVertex(pSource, destBoneToWorld, pSource->vertex[j], pSource->m_GlobalVertices[j]);
         }
 
         // Loop through all animations on this source and remap vertex animations
-        for (int nAnimIndex = 0; nAnimIndex < pSource->m_Animations.Count(); ++nAnimIndex) {
+        for (size_t nAnimIndex = 0; nAnimIndex < pSource->m_Animations.size(); ++nAnimIndex) {
             const s_sourceanim_t* pAnim = &pSource->m_Animations[nAnimIndex];
 
             // Only remap newStyleVertexAnimations
@@ -6733,8 +6745,8 @@ static void ProcessIKRules() {
                 matrix3x4_t boneToWorld[MAXSTUDIOBONES];
                 int nBone = findGlobalBone(pRule.bonename);
 
-                CUtlVector<float> vecPosAnim;
-                CUtlVector<float> vecPosAnimSorted;
+                std::vector<float> vecPosAnim;
+                std::vector<float> vecPosAnimSorted;
 
                 int nHighestIndex = INT_MIN;
                 float flHighestZ = FLT_MIN;
@@ -6745,15 +6757,15 @@ static void ProcessIKRules() {
                     Vector vecTemp;
                     MatrixPosition(boneToWorld[nBone], vecTemp);
 
-                    vecPosAnim.AddToTail(vecTemp.z - fmod(vecTemp.z, flModuloClamp));
-                    vecPosAnimSorted.AddToTail(vecTemp.z - fmod(vecTemp.z, flModuloClamp));
+                    vecPosAnim.push_back(vecTemp.z - fmod(vecTemp.z, flModuloClamp));
+                    vecPosAnimSorted.push_back(vecTemp.z - fmod(vecTemp.z, flModuloClamp));
 
                     if (vecTemp.z > flHighestZ) {
                         nHighestIndex = nFrame;
                         flHighestZ = vecTemp.z;
                     }
                 }
-                qsort(vecPosAnimSorted.Base(), vecPosAnimSorted.Count(), sizeof(float), SortPosAnim);
+                qsort(vecPosAnimSorted.data(), vecPosAnimSorted.size(), sizeof(float), SortPosAnim);
 
                 // crawl up from the lowest z, finding the number of curve intersections.
                 // we want 2x nNumSteps intersections.
@@ -6763,7 +6775,7 @@ static void ProcessIKRules() {
 
                 int nCrawlIndex = -1;
 
-                for (int nCrawl = 0; nCrawl < vecPosAnimSorted.Count(); nCrawl++) {
+                for (int nCrawl = 0; nCrawl < std::ssize(vecPosAnimSorted); nCrawl++) {
                     flCrawlHeight = vecPosAnimSorted[nCrawl];
 
                     if (bFoundSteps && flCrawlHeight > vecPosAnimSorted[0] + flHeightFailsafe)
@@ -6806,8 +6818,7 @@ static void ProcessIKRules() {
                 }
 
                 // extract footdowns from the last successful crawlheight
-                CUtlVector<s_footdown_t> vecFootDowns;
-                vecFootDowns.RemoveAll();
+                std::vector<s_footdown_t> vecFootDowns;
                 s_footdown_t temp;
 
                 flCrawlHeight = vecPosAnimSorted[nCrawlIndex];
@@ -6828,12 +6839,12 @@ static void ProcessIKRules() {
                     }
 
                     if ((vecPosAnim[nCurrent] <= flCrawlHeight && vecPosAnim[nNext] > flCrawlHeight)) {
-                        vecFootDowns.AddToTail(temp);
+                        vecFootDowns.push_back(temp);
                     }
                 }
 
-                bool bSuccess = (bFoundSteps && vecFootDowns.Count() > 0 && vecFootDowns.Count() == nNumSteps &&
-                                 vecFootDowns.Count() > nStepIndex);
+                const int nFootDowns = std::ssize(vecFootDowns);
+                bool bSuccess = (bFoundSteps && nFootDowns > 0 && nFootDowns == nNumSteps && nFootDowns > nStepIndex);
                 Assert(bSuccess);
 
                 if (!bSuccess)
@@ -8143,8 +8154,8 @@ void SetupHitBoxes() {
     }
 }
 
-void SetupFullBoneRenderBounds(CUtlVector<CBoneRenderBounds> &boneRenderBounds) {
-    boneRenderBounds.SetSize(std::ssize(g_studiomdl.bones.bonetable));
+void SetupFullBoneRenderBounds(std::vector<CBoneRenderBounds> &boneRenderBounds) {
+    boneRenderBounds.resize(g_studiomdl.bones.bonetable.size());
 
 
     // First, add the ones already calculated from vertices.
@@ -8176,7 +8187,7 @@ void CalcSequenceBoundingBoxes() {
     int n;
     int m;
 
-    CUtlVector<CBoneRenderBounds> boneRenderBounds;
+    std::vector<CBoneRenderBounds> boneRenderBounds;
     SetupFullBoneRenderBounds(boneRenderBounds);
 
     // find bounding box for each g_studiomdl.anim.sequence

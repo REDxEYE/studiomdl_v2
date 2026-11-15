@@ -10,7 +10,6 @@ endif ()
 
 add_library(tier0
         platform.cpp
-        pch_tier0.cpp
         logging.cpp
         dbg.cpp
         tier0_strtools.cpp

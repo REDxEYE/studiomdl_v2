@@ -122,8 +122,8 @@ namespace OptimizedModel
 
 	inline unsigned short &HalfEdge::BndEdge() { return patch->bndEdge[localID]; }
 
-	typedef CUtlVector<SubD_Face_t>		    SubD_FaceList_t;
-	typedef CUtlVector<Vertex_t>		    SubD_VertexList_t;
+	typedef std::vector<SubD_Face_t>		    SubD_FaceList_t;
+	typedef std::vector<Vertex_t>		    SubD_VertexList_t;
 	typedef const mstudio_meshvertexdata_t *SubD_VertexData_t;
 
 	class COptimizeSubDBuilder
@@ -143,7 +143,6 @@ namespace OptimizedModel
 		void ComputeSectorOneRing( SubD_Face_t *baseQuad, unsigned short baseLocalID );
 		unsigned short FindNeighborVertex( HalfEdge** ppOutMirrorEdge, const HalfEdge *pHalfEdge, int indexAlongEdge );
 		void ComputeNeighborTexcoords( SubD_Face_t *baseQuad );
-		void MendVertices( SubD_Face_t *quad, unsigned short baseLocalID );
 		void TagCreases();
 
 	private:
@@ -152,7 +151,7 @@ namespace OptimizedModel
 		void RotateOnce( SubD_Face_t *pFace );
 		void RotateFace( SubD_Face_t *pFace, int nTimesToRotate );
 		int FaceEdgeIndex( SubD_Face_t *pFace, HalfEdge *pEdge );
-		void Propagate( CUtlVector<Orientation> & orientationArray, HalfEdge *pEdge, bool dir );
+		void Propagate( std::vector<Orientation> & orientationArray, HalfEdge *pEdge, bool dir );
 		void ConsistentPatchOrientation();
 		void RemapIndices();
 		void SetMinOneRingIndices();
@@ -161,7 +160,7 @@ namespace OptimizedModel
 		const SubD_VertexList_t &m_vtxList;
 		const SubD_VertexData_t &m_vtxData;
 		int						 m_numPatches;
-		CUtlVector<int>			 m_IndexRemapTable;
+		std::vector<int>			 m_IndexRemapTable;
 	};
 
 

@@ -60,11 +60,3 @@ void CHardwareVertexCache::Insert( int index )
 //	Print();
 }
 
-void CHardwareVertexCache::Print( void )
-{
-	int i;
-	for( i = 0; i < m_NumEntries; i++ )
-	{
-		std::print( "fifo entry {}: {}\n", i, ( int )m_Fifo[( m_HeadIndex + i ) % m_Size] );
-	}
-}

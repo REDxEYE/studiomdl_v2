@@ -187,9 +187,6 @@ public:
     // Gets
     const void *GetUntyped(int i) const;
 
-    // String conversion
-    const char *GetAsString(int i, char *pBuffer, size_t nBufLen) const;
-
     const CDmAttribute *GetAttribute() const;
 
     bool IsValid() const;
@@ -220,9 +217,6 @@ public:
     void SetMultiple(int i, int nCount, DmAttributeType_t valueType, const void *pValue);
 
     void Set(int i, DmAttributeType_t valueType, const void *pValue);
-
-    // String conversion
-    void SetFromString(int i, const char *pValue);
 
     CDmAttribute *GetAttribute();
 

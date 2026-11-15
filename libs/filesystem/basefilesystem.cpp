@@ -10,7 +10,6 @@
 #include "interfaces/interfaces.h"
 #include "tier1/characterset.h"
 #include "tier1/keyvalues.h"
-#include "tier1/lzmaDecoder.h"
 #include "tier1/fmtstr.h"
 #include "tier1_v2/function_timing.hpp"
 #include "tier1_v2/path_utils.hpp"
@@ -19,11 +18,7 @@
 #include "keyvaluescompiler.h"
 #endif
 
-#define FS_DVDDEV_REMAP_ROOT ""
-#define FS_DVDDEV_ROOT "dvddev???:::"
 #define FS_EXCLUDE_PATHS_FILENAME "allbad_exclude_paths.txt"
-
-#define IsDvdDevPathString( x ) false
 
 
 #pragma warning( disable : 4355 )  // warning C4355: 'this' : used in base member initializer list
@@ -36,101 +31,6 @@ CUtlSymbolTable g_PathIDTable( 0, 32, true );
 
 int g_iNextSearchPathID = 1;
 
-
-void FixUpPathCaseForPS3(const char* pFilePath)
-{
-    char* prev_ptr = nullptr;
-    char* last_ptr = nullptr;
-	// This is really bad but the EA code does it so let's give it a try for now
-	char* pFilePathNonConst = const_cast< char * >( pFilePath );
-	char* ptr = pFilePathNonConst;
-
-	//Convert all "\" to forward "/" and reformat relative paths
-    while ( *ptr )
-    {
-        if ( *ptr == '\\' || *ptr == '/' )
-        {
-            *ptr='/';
-            while(ptr[1]=='\\' || ptr[1] == '/') //Get rid of multiple slashes
-            {
-                strcpy(ptr+1,ptr+2);
-            }
-             if(strncmp(ptr+1,"..",2)==0 && ptr[3]!=0 && ptr[4]!=0 && last_ptr) //Some relative paths are used at runtime in Team Fortress
-             {
-                 //printf("Changing relative path %s to ... ", pFilePathNonConst);
-                 strcpy(last_ptr+1, ptr+4); //Remove relative path
-                 if(strncmp(last_ptr+1,"..",2)==0 && last_ptr[3]!=0 && last_ptr[4]!=0 && prev_ptr) //Sometimes get /../../ strings
-                 {
-                     strcpy(prev_ptr+1, last_ptr+4);
-                     if(strncmp(prev_ptr+1,"..",2)==0)
-                     {
-                         printf("Error: Can't process PS3 filenames containing /../../../\n");
-                         Assert(0);
-                     }
-                 }
-                 //printf("%s\n", pFilePathNonConst);
-             }
-            prev_ptr = last_ptr;
-            last_ptr = ptr;
-        }
-        ptr++;
-    }
-
-    // terrible, terrible cruft: savegames (*.HL?) are written with uppercase from a million
-	// different places. For now, I'm just going to leave them alone here, rather than try
-	// to find every single possible place that has a savegame go through it (as an alias
-	// of a copy of an alias of a string that's impossible to track by grepping). Y-U-C-K.
-	if ( V_strstr(pFilePath, ".HL") )
-	{
-		return;
-	}
-
-
-	//PS3 file system is case sensitive (though this isn't enforced for /app_home/)
-    if(pFilePathNonConst[0]=='/')
-    {
-		// if we're in the USRDIR directory, don't mess with paths up to that point
-		char *pAfterUsrDir = V_strstr(pFilePathNonConst, "USRDIR");
-		if ( pAfterUsrDir )
-		{
-			strlwr( pAfterUsrDir + 6 );
-		}
-        else if ((strnicmp(pFilePathNonConst,"/app_home/",10)==0) || (strnicmp(pFilePathNonConst,"/dev_bdvd/",10)==0) || (strnicmp(pFilePathNonConst,"/host_root/",11)==0))
-        {
-            strlwr(pFilePathNonConst+10);
-        }
-	    else if (strnicmp(pFilePathNonConst,"/dev_hdd0/game/",15)==0)
-	    {
-		    strlwr(pFilePathNonConst+15);
-	    }
-	    else
-	    {
-		    //Lowercase everything after second "/"
-		    ptr=strchr(pFilePathNonConst,'/');
-		    if (ptr) ptr=strchr(ptr+1,'/');
-		    if (ptr) strlwr(ptr);
-	    }
-    }
-    else
-    {
-	    //Lowercase everything
-	    strlwr(pFilePathNonConst);
-    }
-
-}
-
-// Look for cases like materials\\blah.vmt.
-bool V_CheckDoubleSlashes( const char *pStr )
-{
-	int len = V_strlen( pStr );
-
-	for ( int i=1; i < len-1; i++ )
-	{
-		if ( (pStr[i] == '/' || pStr[i] == '\\') && (pStr[i+1] == '/' || pStr[i+1] == '\\') )
-			return true;
-	}
-	return false;
-}
 
 //
 // Format relative filename when used under a search path
@@ -184,10 +84,6 @@ static char const * V_FormatFilenameForSymlinking( char (&tempSymlinkBuffer)[MAX
 // CBaseFileSystem objects.  We'll let it manage BaseFileSystem() itself.
 #if !( defined( _WIN32 ) && defined( DEDICATED ) )
 static CBaseFileSystem *g_pBaseFileSystem;
-CBaseFileSystem *BaseFileSystem()
-{
-	return g_pBaseFileSystem;
-}
 #endif
 
 
@@ -320,18 +216,26 @@ class CIoStats : public IIoStats
 {
 public:
 	CIoStats();
-	~CIoStats();
+	~CIoStats() override;
 
-	virtual void OnFileSeek( int nTimeInMs );
-	virtual void OnFileRead( int nTimeInMs, int nBytesRead );
-	virtual void OnFileOpen( const char * pFileName );
-	virtual int GetNumberOfFileSeeks();
-	virtual int GetTimeInFileSeek();
-	virtual int GetNumberOfFileReads();
-	virtual int GetTimeInFileReads();
-	virtual int GetFileReadTotalSize();
-	virtual int GetNumberOfFileOpens();
-	void Reset();
+    void OnFileSeek( int nTimeInMs ) override;
+
+    void OnFileRead( int nTimeInMs, int nBytesRead ) override;
+
+    void OnFileOpen( const char * pFileName ) override;
+
+    int GetNumberOfFileSeeks() override;
+
+    int GetTimeInFileSeek() override;
+
+    int GetNumberOfFileReads() override;
+
+    int GetTimeInFileReads() override;
+
+    int GetFileReadTotalSize() override;
+
+    int GetNumberOfFileOpens() override;
+	void Reset() override;
 
 private:
 	int m_nNumberOfFileSeeks;
@@ -489,18 +393,6 @@ bool CBaseFileSystem::Init()
 	}
 
 	return true;
-}
-
-void CBaseFileSystem::Shutdown()
-{
-
-	RemoveAllSearchPaths();
-
-}
-
-void CBaseFileSystem::BuildExcludeList()
-{
-    return;
 }
 
 //-----------------------------------------------------------------------------
@@ -686,12 +578,6 @@ void CBaseFileSystem::AddSearchPathInternal(const std::string_view pPath, const 
 
 	// all matching paths have a reference to the same store
 	sp->m_storeId = id;
-
-	// classify the dvddev path
-	if ( IsDvdDevPathString( newPath ) )
-	{
-		sp->m_bIsDvdDevPath = true;
-	}
 }
 
 //-----------------------------------------------------------------------------
@@ -1750,60 +1636,6 @@ KeyValues *CBaseFileSystem::LoadKeyValues( KeyValuesPreloadType_t type, char con
 	}
 
 	return kv;
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: This is the fallback method of reading the name of the first key in the file
-// Input  : *filename -
-//			*pPathID -
-//			*rootName -
-//			bufsize -
-// Output : Returns true on success, false on failure.
-//-----------------------------------------------------------------------------
-bool CBaseFileSystem::LookupKeyValuesRootKeyName( char const *filename, char const *pPathID, char *rootName, size_t bufsize )
-{
-	if ( FileExists( filename, pPathID ) )
-	{
-		// open file and get shader name
-		FileHandle_t hFile = Open( filename, "r", pPathID );
-		if ( hFile == FILESYSTEM_INVALID_HANDLE )
-		{
-			return false;
-		}
-
-		char buf[ 128 ];
-		ReadLine( buf, sizeof( buf ), hFile );
-		Close( hFile );
-
-		// The name will possibly come in as "foo"\n
-
-		// So we need to strip the starting " character
-		char *pStart = buf;
-		if ( *pStart == '\"' )
-		{
-			++pStart;
-		}
-		// Then copy the rest of the string
-		Q_strncpy( rootName, pStart, bufsize );
-
-		// And then strip off the \n and the " character at the end, in that order
-		int len = Q_strlen( pStart );
-		while ( len > 0 && rootName[ len - 1 ] == '\n' )
-		{
-			rootName[ len - 1 ] = 0;
-			--len;
-		}
-		while ( len > 0 && rootName[ len - 1 ] == '\"' )
-		{
-			rootName[ len - 1 ] = 0;
-			--len;
-		}
-	}
-	else
-	{
-		return false;
-	}
-	return true;
 }
 
 //-----------------------------------------------------------------------------
@@ -3288,17 +3120,6 @@ int CFileHandle::Size()
 	}
 
 	return nReturnedSize;
-}
-
-int64_t CFileHandle::AbsoluteBaseOffset()
-{
-	Assert( IsValid() );
-
-	if ( m_pFile )
-	{
-		return 0;
-	}
-    return 0;
 }
 
 bool CFileHandle::EndOfFile()

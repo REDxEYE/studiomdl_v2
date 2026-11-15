@@ -59,7 +59,6 @@ public:
     ScriptTokenizer(const ScriptTokenizer &) = delete;
     ScriptTokenizer &operator=(const ScriptTokenizer &) = delete;
 
-    void SetLoadedCallback(LoadedCallback callback);
     void SetErrorHandler(ErrorHandler handler);
 
     // If pathMode is SCRIPT_USE_ABSOLUTE_PATH, then it uses ExpandPath() on the filename before
@@ -200,9 +199,6 @@ public:
         ErrorV(fmt.get(), std::make_format_args(args...));
     }
     [[noreturn]] void ErrorV(std::string_view fmt, std::format_args args) const;
-
-    // Position of the script being read (the innermost $include or macro). False if nothing is loaded.
-    bool GetPosition(std::string_view &filename, int &line) const;
 
 private:
     struct Script;

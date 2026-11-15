@@ -31,17 +31,20 @@ class CDmSerializerKeyValues : public IDmSerializer
 {
 public:
 	// Inherited from IDMSerializer
-	virtual const char *GetName() const { return "keyvalues"; }
-	virtual const char *GetDescription() const { return "KeyValues"; }
-	virtual bool StoresVersionInFile() const { return false; }
-	virtual bool IsBinaryFormat() const { return false; }
-	virtual int GetCurrentVersion() const { return 0; } // doesn't store a version
- 	virtual int GetImportedVersion() const { return 1; }
-	virtual bool Serialize( CUtlBuffer &buf, CDmElement *pRoot );
-	virtual bool Unserialize( CUtlBuffer &buf, const char *pEncodingName, int nEncodingVersion,
-							  const char *pSourceFormatName, int nSourceFormatVersion,
-							  DmFileId_t fileid, DmConflictResolution_t idConflictResolution, CDmElement **ppRoot );
-	virtual const char *GetImportedFormat() const { return "dmx"; }
+    const char *GetName() const override { return "keyvalues"; }
+    const char *GetDescription() const override { return "KeyValues"; }
+    bool StoresVersionInFile() const override { return false; }
+    bool IsBinaryFormat() const override { return false; }
+    int GetCurrentVersion() const override { return 0; } // doesn't store a version
+    int GetImportedVersion() const override { return 1; }
+
+    bool Serialize( CUtlBuffer &buf, CDmElement *pRoot ) override;
+
+    bool Unserialize( CUtlBuffer &buf, const char *pEncodingName, int nEncodingVersion,
+                      const char *pSourceFormatName, int nSourceFormatVersion,
+                      DmFileId_t fileid, DmConflictResolution_t idConflictResolution, CDmElement **ppRoot ) override;
+
+    const char *GetImportedFormat() const override { return "dmx"; }
 
 private:
 	// Methods related to serialization

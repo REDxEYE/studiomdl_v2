@@ -14,7 +14,9 @@
 #ifndef COLLISION_MODEL_OPTIONS_H
 #define COLLISION_MODEL_OPTIONS_H
 
-#include "tier1/utlvector.h"
+#include <vector>
+
+struct s_mesh_t;
 
 #define MAX_EXTRA_COLLISION_MODELS 24
 
@@ -35,13 +37,13 @@ public:
 	bool					m_allowConcave;
 	int						m_maxConvex;
 	char *					m_pOverrideName;
-	CUtlVector<int>			m_bonemap/*[MAXSTUDIOSRCBONES]*/;
+	std::vector<int>			m_bonemap/*[MAXSTUDIOSRCBONES]*/;
 	char					m_rootName[128];
 	bool					m_allowConcaveJoints;
 	bool					m_bRootCollisionIsEmpty;
 public:
-	void ConvertToWorldSpace(CUtlVector<Vector> &worldVerts, s_source_t *pmodel);
-	void ConvertToBoneSpace( int boneIndex, CUtlVector<Vector> &boneVerts );
+	void ConvertToWorldSpace(std::vector<Vector> &worldVerts, s_source_t *pmodel);
+	void ConvertToBoneSpace( int boneIndex, std::vector<Vector> &boneVerts );
 	bool ShouldProcessBone( int boneIndex );
 	void Simplify();
 	void SkipBone( int boneIndex );
@@ -50,10 +52,6 @@ public:
 	void MergeBones(const char *parent, const char *child);
 	int FindLocalBoneNamed( const char *pName );
 	bool FaceHasVertOnBone( const struct s_face_t &face, int boneIndex );
-	s_face_t GetGlobalFace( struct s_mesh_t *pMesh, int nFace );
-
-	void FindBoundBones(struct s_mesh_t *pMesh, CUtlVector<int>&setBones);
-	void FindBoundBones(struct s_boneweight_t &weights, CUtlVector<int>&setBones);
 	int	RemapBone( int boneIndex ) const;
 };
 

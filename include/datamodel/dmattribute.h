@@ -71,7 +71,6 @@ public:
 
 	// Convert to and from string
 	void SetValueFromString( const char *pValue );
-	const char *GetValueAsString( char *pBuffer, size_t nBufLen ) const;
 
 	// Used for in-place modification of the data; preferable to set value
 	// for large data like arrays or binary blocks
@@ -81,7 +80,6 @@ public:
 	// Used for element and element array attributes; it specifies which type of
 	// elements are valid to be referred to by this attribute
 	void		SetElementTypeSymbol( CUtlSymbolLarge typeSymbol );
-	CUtlSymbolLarge	GetElementTypeSymbol() const;
 
 	// Returns the next attribute
 	CDmAttribute *NextAttribute();
@@ -100,23 +98,18 @@ public:
 	// Serialization
 	bool	Serialize( CUtlBuffer &buf ) const;
 	bool	Unserialize( CUtlBuffer &buf );
-	bool    IsIdenticalToSerializedValue( CUtlBuffer &buf ) const;
 
 	// Serialization of a single element. 
 	// First version of UnserializeElement adds to tail if it worked
 	// Second version overwrites, but does not add, the element at the specified index 
 	bool	SerializeElement( int nElement, CUtlBuffer &buf ) const;
 	bool	UnserializeElement( CUtlBuffer &buf );
-	bool	UnserializeElement( int nElement, CUtlBuffer &buf );
 
 	// Does this attribute serialize on multiple lines?
 	bool	SerializesOnMultipleLines() const;
 
 	// Get the attribute/create an attribute handle
 	DmAttributeHandle_t GetHandle( bool bCreate = true );
-
-	// estimate memory overhead
-	int		EstimateMemoryUsage( TraversalDepth_t depth ) const;
 
 private:
 	// Class factory

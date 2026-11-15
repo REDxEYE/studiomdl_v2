@@ -105,17 +105,6 @@ LoggingChannelID_t CLoggingSystem::RegisterLoggingChannel( const char *pChannelN
 	return m_nChannelCount ++;
 }
 
-void CLoggingSystem::SetChannelSpewLevelByName( const char *pName, LoggingSeverity_t minimumSeverity )
-{
-	for ( int i = 0; i < m_nChannelCount; ++ i )
-	{
-		if ( V_tier0_stricmp( m_RegisteredChannels[i].m_Name, pName ) == 0 )
-		{
-			m_RegisteredChannels[i].m_MinimumSeverity = minimumSeverity;
-		}
-	}
-}
-
 void CLoggingSystem::PushLoggingState()
 {
 	int nNewState = FindUnusedStateIndex();
@@ -161,12 +150,6 @@ void CLoggingSystem::ResetCurrentLoggingState()
 	LoggingState_t *pState = GetCurrentState();
 	pState->m_nListenerCount = 0;
 	pState->m_pLoggingResponse = &m_DefaultLoggingResponse;
-}
-
-void CLoggingSystem::SetLoggingResponsePolicy( ILoggingResponsePolicy *pLoggingResponse )
-{
-	LoggingState_t *pState = GetCurrentState();
-	pState->m_pLoggingResponse = pLoggingResponse ? pLoggingResponse : &m_DefaultLoggingResponse;
 }
 
 LoggingResponse_t CLoggingSystem::LogDirect( LoggingChannelID_t channelID, LoggingSeverity_t severity, Color color, const tchar *pMessage )
@@ -244,11 +227,6 @@ void LoggingSystem_RegisterLoggingListener( ILoggingListener *pListener )
 	GetGlobalLoggingSystem()->RegisterLoggingListener( pListener );
 }
 
-void LoggingSystem_SetLoggingResponsePolicy( ILoggingResponsePolicy *pResponsePolicy )
-{
-	GetGlobalLoggingSystem()->SetLoggingResponsePolicy( pResponsePolicy );
-}
-
 void LoggingSystem_PushLoggingState()
 {
 	GetGlobalLoggingSystem()->PushLoggingState();
@@ -262,11 +240,6 @@ void LoggingSystem_PopLoggingState()
 bool LoggingSystem_IsChannelEnabled( LoggingChannelID_t channelID, LoggingSeverity_t severity )
 {
 	return GetGlobalLoggingSystem()->IsChannelEnabled( channelID, severity );
-}
-
-void LoggingSystem_SetChannelSpewLevelByName( const char *pName, LoggingSeverity_t minimumSeverity )
-{
-	GetGlobalLoggingSystem()->SetChannelSpewLevelByName( pName, minimumSeverity );
 }
 
 LoggingResponse_t LoggingSystem_Log( LoggingChannelID_t channelID, LoggingSeverity_t severity, const char *pMessageFormat, ... )
@@ -284,21 +257,6 @@ LoggingResponse_t LoggingSystem_Log( LoggingChannelID_t channelID, LoggingSeveri
 	return GetGlobalLoggingSystem()->LogDirect( channelID, severity, UNSPECIFIED_LOGGING_COLOR, formattedMessage );
 }
 
-LoggingResponse_t LoggingSystem_Log( LoggingChannelID_t channelID, LoggingSeverity_t severity, Color spewColor, const char *pMessageFormat, ... )
-{
-	if ( !GetGlobalLoggingSystem()->IsChannelEnabled( channelID, severity ) )
-		return LR_CONTINUE;
-
-	tchar formattedMessage[MAX_LOGGING_MESSAGE_LENGTH];
-
-	va_list args;
-	va_start( args, pMessageFormat );
-	Tier0Internal_vsntprintf( formattedMessage, MAX_LOGGING_MESSAGE_LENGTH, pMessageFormat, args );
-	va_end( args );
-
-	return GetGlobalLoggingSystem()->LogDirect( channelID, severity, spewColor, formattedMessage );
-}
-
 LoggingResponse_t LoggingSystem_LogDirect( LoggingChannelID_t channelID, LoggingSeverity_t severity, Color spewColor, const char *pMessage )
 {
 	if ( !GetGlobalLoggingSystem()->IsChannelEnabled( channelID, severity ) )
@@ -306,17 +264,3 @@ LoggingResponse_t LoggingSystem_LogDirect( LoggingChannelID_t channelID, Logging
 	return GetGlobalLoggingSystem()->LogDirect( channelID, severity, spewColor, pMessage );
 }
 
-LoggingResponse_t LoggingSystem_LogAssert( const char *pMessageFormat, ... )
-{
-	if ( !GetGlobalLoggingSystem()->IsChannelEnabled( LOG_ASSERT, LS_ASSERT ) )
-		return LR_CONTINUE;
-
-	tchar formattedMessage[MAX_LOGGING_MESSAGE_LENGTH];
-
-	va_list args;
-	va_start( args, pMessageFormat );
-	Tier0Internal_vsntprintf( formattedMessage, MAX_LOGGING_MESSAGE_LENGTH, pMessageFormat, args );
-	va_end( args );
-
-	return GetGlobalLoggingSystem()->LogDirect( LOG_ASSERT, LS_ASSERT, UNSPECIFIED_LOGGING_COLOR, formattedMessage );
-}

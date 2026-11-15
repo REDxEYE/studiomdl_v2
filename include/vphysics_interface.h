@@ -737,7 +737,7 @@ public:
 class IPredictedPhysicsObject : public IPhysicsObject
 {
 public:
-	virtual ~IPredictedPhysicsObject( void ) {}
+    ~IPredictedPhysicsObject( void ) override {}
 
 	virtual void SetErrorDelta_Position( const Vector &vPosition ) = 0;
 	virtual void SetErrorDelta_Velocity( const Vector &vVelocity ) = 0;

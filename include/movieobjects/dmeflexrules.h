@@ -32,8 +32,9 @@ class CDmeFlexRuleBase : public CDmeOperator
 public:
 
 	// CDmeOperator
-	virtual void GetInputAttributes ( CUtlVector< CDmAttribute * > &attrs );
-	virtual void GetOutputAttributes( CUtlVector< CDmAttribute * > &attrs );
+    void GetInputAttributes ( std::vector< CDmAttribute * > &attrs ) override;
+
+    void GetOutputAttributes( std::vector< CDmAttribute * > &attrs ) override;
 
 	CDmAttribute *ResultAttr() { return m_flResult.GetAttribute(); }
 
@@ -55,7 +56,7 @@ class CDmeFlexRulePassThrough : public CDmeFlexRuleBase
 
 public:
 	// CDmeOperator
-	virtual void Operate();
+    void Operate() override;
 
 protected:
 	friend class CDmeFlexRules;
@@ -73,10 +74,10 @@ class CDmeFlexRuleExpression : public CDmeFlexRuleBase
 public:
 
 	// CDmeOperator
-	virtual void Operate();
-	virtual void Resolve();
+    void Operate() override;
 
-	bool SetExpression( const char *pszExpression );
+    void Resolve() override;
+
 	const char *GetExpression() const { return m_expr.Get(); }
 
 protected:
@@ -110,17 +111,16 @@ class CDmeFlexRules : public CDmeOperator
 
 public:
 	// From DmeOperator
-	virtual void GetInputAttributes ( CUtlVector< CDmAttribute * > &attrs );
-	virtual void GetOutputAttributes( CUtlVector< CDmAttribute * > &attrs );
-	virtual void Operate();
-	virtual void Resolve();
+    void GetInputAttributes ( std::vector< CDmAttribute * > &attrs ) override;
 
-	void AddFlexRule( CDmeFlexRuleBase *pDmeFlexRule );
+    void GetOutputAttributes( std::vector< CDmAttribute * > &attrs ) override;
+
+    void Operate() override;
+
+    void Resolve() override;
+
 	int GetRuleCount() const { return m_eDeltaStates.Count(); }
 	CDmeFlexRuleBase *GetRule( int i ) const { return ( i < 0 || i >= GetRuleCount() ) ? nullptr : m_eDeltaStates[i]; }
-	void RemoveAllRules();
-
-	void SetTarget( CDmElement *pDmElement );
 
 	int GetDeltaStateIndex( const char *pszDeltaName ) const;
 	float GetDeltaStateWeight( const char *pszDeltaName ) const;
@@ -135,9 +135,7 @@ protected:
 
 	CDmaElement< CDmElement > m_eTarget;
 
-	CDmeCombinationOperator *GetComboOp() const;
-
-	CUtlVector< int > m_deltaToTargetMap;
+	std::vector< int > m_deltaToTargetMap;
 };
 
 

@@ -27,9 +27,6 @@ class CDmeMotionControl : public CDmElement
 
 public:
 
-	// Sets the motion control booleans from OR'd StudioMotionFlags
-	void SetStudioMotionControl( StudioMotionFlags nStudioMotionControl );
-
 	// Gets the motion control booleans as OR'd StudioMotionFlags
 	StudioMotionFlags GetStudioMotionControl() const;
 

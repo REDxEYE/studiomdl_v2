@@ -130,9 +130,6 @@ public:
 std::string_view GetVProjectCmdLineValue();
 
 
-// Call this to use a bin directory relative to VPROJECT
-void FileSystem_UseVProjectBinDir(bool bEnable);
-
 // Step 1: set up the steam environment and get back the gameinfo.txt path
 FSReturnCode_t FileSystem_SetupSteamEnvironment(CFSSteamSetupInfo &info);
 
@@ -159,7 +156,5 @@ void FileSystem_AddSearchPath_Platform(IFileSystem* pFileSystem, std::string_vie
 void FileSystem_SetErrorMode(FSErrorMode_t errorMode = FS_ERRORMODE_VCONFIG);
 
 bool FileSystem_GetExecutableDir(std::string &exedir);
-
-void Q_getwd(char* out, int outSize);
 
 KeyValues* ReadKeyValuesFile(const char* pFilename);

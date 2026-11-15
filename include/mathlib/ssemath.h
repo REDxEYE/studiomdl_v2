@@ -2031,9 +2031,6 @@ public:
 	bool CullBoxCenterExtents( const fltx4 &fl4Center, const fltx4 &fl4Extents ) const;
 
 
-	// Return true if frustum contains this bounding volume, false if any corner is outside
-	bool Contains( const Vector &mins, const Vector &maxs ) const;
-
 	// Return true if this frustum intersects the frustum, false if it is outside
 	bool Intersects( Frustum_t &otherFrustum ) const;
 
@@ -2056,13 +2053,6 @@ public:
 	// Version that accepts angles instead of vectors
 	void CreatePerspectiveFrustum( const Vector& origin, const QAngle &angles, float flZNear, 
 		float flZFar, float flFovX, float flAspectRatio );
-
-	// Generate a frustum based on orthographic parameters
-	void CreateOrthoFrustum( const Vector &origin, const Vector &forward, const Vector &right, const Vector &up, 
-		float flLeft, float flRight, float flBottom, float flTop, float flZNear, float flZFar );
-
-	void CreateOrthoFrustumFLU( const Vector &vOrigin, const Vector &vForward, const Vector &vLeft, const Vector &vUp, 
-		float flLeft, float flRight, float flBottom, float flTop, float flZNear, float flZFar );
 
 	// The points returned correspond to the corners of the frustum faces 
 	// Points 0 to 3 correspond to the near face 
@@ -2272,13 +2262,6 @@ public:
 	inline void RotateBy( const FourQuaternions &quats );
 	******/
 
-	/// You can use this to rotate a long array of FourVectors all by the same
-	/// matrix. The first parameter is the head of the array. The second is the
-	/// number of vectors to rotate. The third is the matrix.
-	static void RotateManyBy(FourVectors * RESTRICT pVectors, unsigned int numVectors, const matrix3x4_t& rotationMatrix );
-
-	static void RotateManyBy(FourVectors * RESTRICT pVectors, unsigned int numVectors, const matrix3x4_t& rotationMatrix, FourVectors * RESTRICT pOut );
-
 	/// Assume the vectors are points, and transform them in place by the matrix.
 	inline void TransformBy(const matrix3x4_t& matrix);
 
@@ -2296,8 +2279,6 @@ public:
 	/// This is an in-place transformation.
 	static void TransformManyBy(FourVectors * RESTRICT pVectors, unsigned int numVectors, const matrix3x4_t& rotationMatrix );
 
-	static void CalcClosestPointOnLineSIMD( const FourVectors &P, const FourVectors &vLineA, const FourVectors &vLineB, FourVectors &vClosest, fltx4 *outT = nullptr);
-	static fltx4 CalcClosestPointToLineTSIMD( const FourVectors &P, const FourVectors &vLineA, const FourVectors &vLineB, FourVectors &vDir );
 
 	// X(),Y(),Z() - get at the desired component of the i'th (0..3) vector.
 	FORCEINLINE const float & X(int idx) const
@@ -2853,12 +2834,6 @@ void FourVectors::TransformBy(const matrix3x4_t& matrix)
 
 fltx4 NoiseSIMD( FourVectors const &v );
 
-// vector valued noise direction
-FourVectors DNoiseSIMD( FourVectors const &v );
-
-// vector value "curl" noise function. see http://hyperphysics.phy-astr.gsu.edu/hbase/curl.html
-FourVectors CurlNoiseSIMD( FourVectors const &v );
-
 //#endif // !defined SPU
 
 
@@ -2938,8 +2913,6 @@ void SeedRandSIMD(uint32_t seed);								// seed the random # generator
 fltx4 RandSIMD( int nContext = 0 );							// return 4 numbers in the 0..1 range
 
 // for multithreaded, you need to use these and use the argument form of RandSIMD:
-int GetSIMDRandContext( void );
-void ReleaseSIMDRandContext( int nContext );
 
 FORCEINLINE fltx4 RandSignedSIMD( void )					// -1..1
 {
@@ -3132,78 +3105,6 @@ FORCEINLINE int BoxOnPlaneSideSIMD( const fltx4& emins, const fltx4& emaxs, cons
 }
 
 
-// k-dop bounding volume. 26-dop bounds with 13 plane-pairs plus 3 other "arbitrary bounds". The arbitrary values could be used to hold type info, etc,
-// which can compare against "for free"
-class KDop32_t
-{
-public:
-	fltx4 m_Mins[4];
-	fltx4 m_Maxes[4];
-
-	FORCEINLINE bool Intersects( KDop32_t const &other ) const;
-
-	FORCEINLINE void operator|=( KDop32_t const & other );
-
-	FORCEINLINE bool IsEmpty( void ) const;
-
-	FORCEINLINE void Init( void )
-	{
-		for( int i = 0; i < ARRAYSIZE( m_Mins ); i++ )
-		{
-			m_Mins[i] = Four_FLT_MAX;
-			m_Maxes[i] = Four_Negative_FLT_MAX;
-		}
-	}
-
-	// given a set of points, expand the kdop to contain them
-	void AddPointSet( Vector const *pPoints, int nPnts );
-
-	void CreateFromPointSet( Vector const *pPoints, int nPnts );
-};
-
-FORCEINLINE void KDop32_t::operator|=( KDop32_t const & other )
-{
-	m_Mins[0] = MinSIMD( m_Mins[0], other.m_Mins[0] );
-	m_Mins[1] = MinSIMD( m_Mins[1], other.m_Mins[1] );
-	m_Mins[2] = MinSIMD( m_Mins[2], other.m_Mins[2] );
-	m_Mins[3] = MinSIMD( m_Mins[3], other.m_Mins[3] );
-
-	m_Maxes[0] = MaxSIMD( m_Maxes[0], other.m_Maxes[0] );
-	m_Maxes[1] = MaxSIMD( m_Maxes[1], other.m_Maxes[1] );
-	m_Maxes[2] = MaxSIMD( m_Maxes[2], other.m_Maxes[2] );
-	m_Maxes[3] = MaxSIMD( m_Maxes[3], other.m_Maxes[3] );
-
-
-}
-
-FORCEINLINE bool KDop32_t::Intersects( KDop32_t const &other ) const
-{
-	bi32x4 c00 = CmpLeSIMD( m_Mins[0], other.m_Maxes[0] );
-	bi32x4 c01 = CmpLeSIMD( m_Mins[1], other.m_Maxes[1] );
-	bi32x4 c02 = CmpLeSIMD( m_Mins[2], other.m_Maxes[2] );
-	bi32x4 c03 = CmpLeSIMD( m_Mins[3], other.m_Maxes[3] );
-
-	bi32x4 c10 = CmpGeSIMD( m_Maxes[0], other.m_Mins[0] );
-	bi32x4 c11 = CmpGeSIMD( m_Maxes[1], other.m_Mins[1] );
-	bi32x4 c12 = CmpGeSIMD( m_Maxes[2], other.m_Mins[2] );
-	bi32x4 c13 = CmpGeSIMD( m_Maxes[3], other.m_Mins[3] );
-	
-	bi32x4 a0 = AndSIMD( AndSIMD( c00, c01 ), AndSIMD( c02, c03 ) );
-	bi32x4 a1 = AndSIMD( AndSIMD( c10, c11 ), AndSIMD( c12, c13 ) );
-	
-	return ! ( IsAnyZeros( AndSIMD( a1, a0 ) ) );
-}
-
-
-FORCEINLINE bool KDop32_t::IsEmpty( void ) const
-{
-	bi32x4 c00 = CmpLtSIMD( m_Maxes[0], m_Mins[0] );
-	bi32x4 c01 = CmpLtSIMD( m_Maxes[1], m_Mins[1] );
-	bi32x4 c02 = CmpLtSIMD( m_Maxes[2], m_Mins[2] );
-	bi32x4 c03 = CmpLtSIMD( m_Maxes[3], m_Mins[3] );
-
-	return IsAnyTrue( OrSIMD( OrSIMD( c00, c01 ), OrSIMD( c02, c03 ) ) );
-}
 
 
 extern const fltx4 g_KDop32XDirs[4];

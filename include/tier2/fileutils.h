@@ -34,12 +34,6 @@ void ComputeModFilename( const char *pContentFileName, char *pBuf, size_t nBufLe
 // Generates a filename under the 'content' subdirectory given a subdirectory of 'game'
 void ComputeModContentFilename( const char *pGameFileName, char *pBuf, size_t nBufLen );
 
-// Finds all files matching the a name within a directory and its sub directories. Output entries are paths to found files (relative to and including szStartDirectory)
-void RecursiveFindFilesMatchingName( CUtlVector< CUtlString > *outFileList, const char* szStartDirectory, const char* szTargetFileName, const char *pathID );
-
-// Builds a list of all files under a directory with a particular extension
-void AddFilesToList( CUtlVector< CUtlString > &list, const char *pDirectory, const char *pPath, const char *pExtension );
-
 // Returns the search path as a list of paths
 void GetSearchPath( CUtlVector< CUtlString > &path, const char *pPathID );
 
@@ -55,9 +49,6 @@ bool GenerateFullPath( const char *pFileName, char const *pPathID, char *pBuf, i
 #define UOC_NOT_CREATED	0
 #define UOC_CREATED		1
 typedef bool ( *CreateCallback_t )( const char *pSourceName, const char *pTargetName, const char *pPathID, void *pExtraData );
-int UpdateOrCreate( const char *pSourceName, char *pTargetName, int targetLen, const char *pPathID, CreateCallback_t pfnCreate, bool bForce = false, void *pExtraData = nullptr);
-
-char *CreatePlatformFilename( const char *pSourceName, char *pTargetName, int targetLen );
 
 FORCEINLINE const char *AdjustFileExtensionForPlatform( const char *pSourceName, char *pTargetName, int targetLen )
 {
@@ -105,9 +96,6 @@ public:
 	{
 		return g_pFullFileSystem->ReadLine( pOutput, maxChars, m_FileHandle );
 	}
-
-	// read every line of the file into a vector of strings
-	void ReadLines( CUtlStringList &sList, int nMaxLineLength = 2048 );
 
 	int Read( void* pOutput, int size )
 	{
@@ -178,138 +166,6 @@ public:
 	}
 
 	void ReadFile( CUtlBuffer &dataBuf );
-};
-
-class COutputFile : public CBaseFile
-{
-public:
-	void Open( char const *pFname )
-	{
-		CBaseFile::Open( pFname, "wb" );
-	}
-
-	COutputFile( char const *pFname ) : CBaseFile()
-	{
-		Open( pFname );
-	}
-
-	COutputFile( void ) : CBaseFile()
-	{
-	}
-};
-
-class COutputTextFile : public CBaseFile
-{
-public:
-	void Open( char const *pFname )
-	{
-		CBaseFile::Open( pFname, "w" );
-	}
-
-	COutputTextFile( char const *pFname ) : CBaseFile()
-	{
-		Open( pFname );
-	}
-
-	COutputTextFile( void ) : CBaseFile()
-	{
-	}
-};
-
-class CAppendTextFile : public CBaseFile
-{
-public:
-	void Open( char const *pFname )
-	{
-		CBaseFile::Open( pFname, "a+" );
-	}
-
-	CAppendTextFile( char const *pFname ) : CBaseFile()
-	{
-		Open( pFname );
-	}
-
-	CAppendTextFile( void ) : CBaseFile()
-	{
-	}
-};
-
-class CInputFile : public CBaseFile
-{
-public:
-	void Open( char const *pFname )
-	{
-		CBaseFile::Open( pFname, "rb" );
-	}
-
-	CInputFile( char const *pFname ) : CBaseFile()
-	{
-		Open( pFname );
-	}
-	CInputFile( void ) : CBaseFile()
-	{
-	}
-};
-
-class CInputTextFile : public CBaseFile
-{
-public:
-	void Open( char const *pFname )
-	{
-		CBaseFile::Open( pFname, "r" );
-	}
-
-	CInputTextFile( char const *pFname ) : CBaseFile()
-	{
-		Open( pFname );
-	}
-	CInputTextFile( void ) : CBaseFile()
-	{
-	}
-	
-
-};
-
-class CRequiredInputTextFile : public CBaseFile
-{
-public:
-	void Open( char const *pFname )
-	{
-		CBaseFile::Open( pFname, "r" );
-		if ( ! IsOk() )
-		{
-			Error("error opening required file %s\n", pFname );
-		}
-	}
-
-	CRequiredInputTextFile( char const *pFname ) : CBaseFile()
-	{
-		Open( pFname );
-	}
-	CRequiredInputTextFile( void ) : CBaseFile()
-	{
-	}
-};
-
-class CRequiredInputFile : public CBaseFile
-{
-public:
-	void Open( char const *pFname )
-	{
-		CBaseFile::Open( pFname, "rb" );
-		if ( ! IsOk() )
-		{
-			Error("error opening required file %s\n", pFname );
-		}
-	}
-
-	CRequiredInputFile( char const *pFname ) : CBaseFile()
-	{
-		Open( pFname );
-	}
-	CRequiredInputFile( void ) : CBaseFile()
-	{
-	}
 };
 
 

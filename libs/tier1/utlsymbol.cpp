@@ -79,11 +79,6 @@ const char* CUtlSymbol::String( ) const
 }
 
 
-void CUtlSymbol::DisableStaticSymbolTable()
-{
-	s_bAllowStaticSymbolTable = false;
-}
-
 //-----------------------------------------------------------------------------
 // checks if the symbol matches a string
 //-----------------------------------------------------------------------------
@@ -522,30 +517,3 @@ void CUtlFilenameSymbolTable::RemoveAll()
 	m_FileStringPool.FreeAll();
 }
 
-void CUtlFilenameSymbolTable::SpewStrings()
-{
-
-	m_PathStringPool.SpewStrings();
-	m_FileStringPool.SpewStrings();
-
-}
-
-bool CUtlFilenameSymbolTable::SaveToBuffer( CUtlBuffer &buffer )
-{
-
-	bool bResult = m_PathStringPool.SaveToBuffer( buffer );
-	bResult = bResult && m_FileStringPool.SaveToBuffer( buffer );
-
-
-	return bResult;
-}
-
-bool CUtlFilenameSymbolTable::RestoreFromBuffer( CUtlBuffer &buffer )
-{
-
-	bool bResult = m_PathStringPool.RestoreFromBuffer( buffer );
-	bResult = bResult && m_FileStringPool.RestoreFromBuffer( buffer );
-
-
-	return bResult;
-}

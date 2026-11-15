@@ -8,7 +8,6 @@
 // Valve includes
 #include "datamodel/dmelementfactoryhelper.h"
 #include "mdlobjects/dmehitbox.h"
-#include "tier2/renderutils.h"
 
 
 

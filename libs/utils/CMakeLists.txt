@@ -11,10 +11,8 @@ endif ()
 add_library(utils
         cmdlib.cpp
         filesystem_tools.cpp
-        filesystem_helpers.cpp
         scriplib.cpp
         studio.cpp
-        phonemeconverter.cpp
         interpolatortypes.cpp
 )
 target_include_directories(utils PUBLIC ../../include)

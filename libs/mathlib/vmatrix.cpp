@@ -26,166 +26,6 @@
 
 #ifndef VECTOR_NO_SLOW_OPERATIONS
 
-VMatrix SetupMatrixIdentity()
-{
-	return VMatrix(
-		1.0f, 0.0f, 0.0f, 0.0f,
-		0.0f, 1.0f, 0.0f, 0.0f,
-		0.0f, 0.0f, 1.0f, 0.0f,
-		0.0f, 0.0f, 0.0f, 1.0f);
-}
-
-VMatrix SetupMatrixTranslation(const Vector &vTranslation)
-{
-	return VMatrix(
-		1.0f, 0.0f, 0.0f, vTranslation.x,
-		0.0f, 1.0f, 0.0f, vTranslation.y,
-		0.0f, 0.0f, 1.0f, vTranslation.z,
-		0.0f, 0.0f, 0.0f, 1.0f
-		);
-}
-
-VMatrix SetupMatrixScale(const Vector &vScale)
-{
-	return VMatrix(
-		vScale.x, 0.0f,     0.0f,     0.0f,
-		0.0f,     vScale.y, 0.0f,     0.0f,
-		0.0f,     0.0f,     vScale.z, 0.0f,
-		0.0f,     0.0f,     0.0f,     1.0f
-		);
-}
-
-VMatrix SetupMatrixReflection(const VPlane &thePlane)
-{
-	VMatrix mReflect, mBack, mForward;
-	Vector vOrigin, N;
-
-	N = thePlane.m_Normal;
-
-	mReflect.Init( 
-		-2.0f*N.x*N.x + 1.0f,	-2.0f*N.x*N.y,			-2.0f*N.x*N.z,			0.0f,
-		-2.0f*N.y*N.x,			-2.0f*N.y*N.y + 1.0f,	-2.0f*N.y*N.z,			0.0f,
-		-2.0f*N.z*N.x,			-2.0f*N.z*N.y,			-2.0f*N.z*N.z + 1.0f,	0.0f,
-		0.0f,					0.0f,					0.0f,					1.0f
-		);
-
-	vOrigin = thePlane.GetPointOnPlane();
-
-	mBack.Identity();
-	mBack.SetTranslation(-vOrigin);
-
-	mForward.Identity();
-	mForward.SetTranslation(vOrigin);
-
-	// (multiplied in reverse order, so it translates to the origin point,
-	// reflects, and translates back).
-	return mForward * mReflect * mBack;
-}
-
-VMatrix SetupMatrixProjection(const Vector &vOrigin, const VPlane &thePlane)
-{
-	vec_t dot;
-	VMatrix mRet;
-
-
-	#define PN thePlane.m_Normal
-	#define PD thePlane.m_Dist;
-
-		dot = PN[0]*vOrigin.x + PN[1]*vOrigin.y + PN[2]*vOrigin.z - PD;
-
-		mRet.m[0][0] = dot - vOrigin.x * PN[0];
-		mRet.m[0][1] = -vOrigin.x * PN[1];
-		mRet.m[0][2] = -vOrigin.x * PN[2];
-		mRet.m[0][3] = -vOrigin.x * -PD;
-
-		mRet.m[1][0] = -vOrigin.y * PN[0];
-		mRet.m[1][1] = dot - vOrigin.y * PN[1];
-		mRet.m[1][2] = -vOrigin.y * PN[2];
-		mRet.m[1][3] = -vOrigin.y * -PD;
-
-		mRet.m[2][0] = -vOrigin.z * PN[0];
-		mRet.m[2][1] = -vOrigin.z * PN[1];
-		mRet.m[2][2] = dot - vOrigin.z * PN[2];
-		mRet.m[2][3] = -vOrigin.z * -PD;
-
-		mRet.m[3][0] = -PN[0];
-		mRet.m[3][1] = -PN[1];
-		mRet.m[3][2] = -PN[2];
-		mRet.m[3][3] = dot + PD;
-
-	#undef PN
-	#undef PD	
-
-	return mRet;
-}
-
-VMatrix SetupMatrixAxisRot(const Vector &vAxis, vec_t fDegrees)
-{
-	vec_t s, c, t; // sin, cos, 1-cos
-	vec_t tx, ty, tz;
-	vec_t sx, sy, sz;
-	vec_t fRadians;
-
-
-	fRadians = fDegrees * (M_PI / 180.0f);
-	
-	s = (vec_t)sin(fRadians);
-	c = (vec_t)cos(fRadians);
-	t = 1.0f - c;
-
-	tx = t * vAxis.x;	ty = t * vAxis.y;	tz = t * vAxis.z;
-	sx = s * vAxis.x;	sy = s * vAxis.y;	sz = s * vAxis.z;
-
-	return VMatrix(
-		tx*vAxis.x + c,  tx*vAxis.y - sz, tx*vAxis.z + sy, 0.0f,
-		tx*vAxis.y + sz, ty*vAxis.y + c,  ty*vAxis.z - sx, 0.0f,
-		tx*vAxis.z - sy, ty*vAxis.z + sx, tz*vAxis.z + c,  0.0f,
-		0.0f, 0.0f, 0.0f, 1.0f);
-}
-
-
-// Basically takes a cross product and then does the same thing as SetupMatrixAxisRot
-// above, but takes advantage of the fact that the sin angle is precomputed.
-VMatrix	SetupMatrixAxisToAxisRot(const Vector &vFromAxis, const Vector &vToAxis)
-{
-	Assert( vFromAxis.LengthSqr() == 1 ); // these axes
-	Assert( vToAxis.LengthSqr() == 1 ); // must be normal.
-
-	vec_t s, c, t; // sin(theta), cos(theta), 1-cos
-	vec_t tx, ty, tz;
-	vec_t sx, sy, sz;
-
-	Vector vAxis = vFromAxis.Cross(vToAxis);
-
-	s = vAxis.Length();
-	c = vFromAxis.Dot(vToAxis);
-	t = 1.0f - c;
-
-	if ( s > 0 )
-	{
-		vAxis *= 1.0/s;
-
-		tx = t * vAxis.x;	ty = t * vAxis.y;	tz = t * vAxis.z;
-		sx = s * vAxis.x;	sy = s * vAxis.y;	sz = s * vAxis.z;
-
-		return VMatrix(
-			tx*vAxis.x + c,  tx*vAxis.y - sz, tx*vAxis.z + sy, 0.0f,
-			tx*vAxis.y + sz, ty*vAxis.y + c,  ty*vAxis.z - sx, 0.0f,
-			tx*vAxis.z - sy, ty*vAxis.z + sx, tz*vAxis.z + c,  0.0f,
-			0.0f, 0.0f, 0.0f, 1.0f);
-	}
-	else
-	{
-		return SetupMatrixIdentity();
-	}	
-}
-
-VMatrix SetupMatrixAngles(const QAngle &vAngles)
-{
-	VMatrix mRet;
-	MatrixFromAngles( vAngles, mRet );
-	return mRet;
-}
 
 VMatrix SetupMatrixOrgAngles(const Vector &origin, const QAngle &vAngles)
 {
@@ -473,50 +313,6 @@ VMatrix VMatrix::InverseTR() const
 	return ret;
 }
 
-Vector VMatrix::GetScale() const
-{
-	Vector vecs[3];
-
-	GetBasisVectors(vecs[0], vecs[1], vecs[2]);
-
-	return Vector(
-		vecs[0].Length(),
-		vecs[1].Length(),
-		vecs[2].Length()
-		);
-}
-
-VMatrix VMatrix::Scale(const Vector &vScale)
-{
-	return VMatrix(
-		m[0][0]*vScale.x, m[0][1]*vScale.y, m[0][2]*vScale.z, m[0][3],
-		m[1][0]*vScale.x, m[1][1]*vScale.y, m[1][2]*vScale.z, m[1][3],
-		m[2][0]*vScale.x, m[2][1]*vScale.y, m[2][2]*vScale.z, m[2][3],
-		m[3][0]*vScale.x, m[3][1]*vScale.y, m[3][2]*vScale.z, 1.0f
-		);
-}
-
-VMatrix VMatrix::NormalizeBasisVectors() const
-{
-	Vector vecs[3];
-	VMatrix mRet;
-
-
-	GetBasisVectors(vecs[0], vecs[1], vecs[2]);
-	
-	VectorNormalize( vecs[0] );
-	VectorNormalize( vecs[1] );
-	VectorNormalize( vecs[2] );
-
-	mRet.SetBasisVectors(vecs[0], vecs[1], vecs[2]);
-	
-	// Set everything but basis vectors to identity.
-	mRet.m[3][0] = mRet.m[3][1] = mRet.m[3][2] = 0.0f;
-	mRet.m[3][3] = 1.0f;
-
-	return mRet;
-}
-
 VMatrix VMatrix::Transpose() const
 {
 	return VMatrix(
@@ -526,33 +322,8 @@ VMatrix VMatrix::Transpose() const
 		m[0][3], m[1][3], m[2][3], m[3][3]);
 }
 
-// Transpose upper-left 3x3.
-VMatrix VMatrix::Transpose3x3() const
-{
-	return VMatrix(
-		m[0][0], m[1][0], m[2][0], m[0][3],
-		m[0][1], m[1][1], m[2][1], m[1][3],
-		m[0][2], m[1][2], m[2][2], m[2][3],
-		m[3][0], m[3][1], m[3][2], m[3][3]);
-}
-
 #endif // VECTOR_NO_SLOW_OPERATIONS
 
-
-bool VMatrix::IsRotationMatrix() const
-{
-	Vector &v1 = (Vector&)m[0][0];
-	Vector &v2 = (Vector&)m[1][0];
-	Vector &v3 = (Vector&)m[2][0];
-
-	return 
-		FloatMakePositive( 1 - v1.Length() ) < 0.01f && 
-		FloatMakePositive( 1 - v2.Length() ) < 0.01f && 
-		FloatMakePositive( 1 - v3.Length() ) < 0.01f && 
-		FloatMakePositive( v1.Dot(v2) ) < 0.01f &&
-		FloatMakePositive( v1.Dot(v3) ) < 0.01f &&
-		FloatMakePositive( v2.Dot(v3) ) < 0.01f;
-}
 
 void VMatrix::SetupMatrixOrgAngles( const Vector &origin, const QAngle &vAngles )
 {
@@ -599,64 +370,6 @@ void MatrixSetIdentity( VMatrix &dst )
 }
 
 
-//-----------------------------------------------------------------------------
-// Setup a matrix from euler angles. 
-//-----------------------------------------------------------------------------
-void MatrixFromAngles( const QAngle& vAngles, VMatrix& dst )
-{
-	dst.SetupMatrixOrgAngles( vec3_origin, vAngles );
-}
-
-
-//-----------------------------------------------------------------------------
-// Creates euler angles from a matrix 
-//-----------------------------------------------------------------------------
-void MatrixToAngles( const VMatrix& src, QAngle& vAngles )
-{
-	float forward[3];
-	float left[3];
-	float up[3];
-
-	// Extract the basis vectors from the matrix. Since we only need the Z
-	// component of the up vector, we don't get X and Y.
-	forward[0] = src[0][0];
-	forward[1] = src[1][0];
-	forward[2] = src[2][0];
-	left[0] = src[0][1];
-	left[1] = src[1][1];
-	left[2] = src[2][1];
-	up[2] = src[2][2];
-
-	float xyDist = sqrtf( forward[0] * forward[0] + forward[1] * forward[1] );
-	
-	// enough here to get angles?
-	if ( xyDist > 0.001f )
-	{
-		// (yaw)	y = ATAN( forward.y, forward.x );		-- in our space, forward is the X axis
-		vAngles[1] = RAD2DEG( atan2f( forward[1], forward[0] ) );
-
-		// The engine does pitch inverted from this, but we always end up negating it in the DLL
-		// UNDONE: Fix the engine to make it consistent
-		// (pitch)	x = ATAN( -forward.z, sqrt(forward.x*forward.x+forward.y*forward.y) );
-		vAngles[0] = RAD2DEG( atan2f( -forward[2], xyDist ) );
-
-		// (roll)	z = ATAN( left.z, up.z );
-		vAngles[2] = RAD2DEG( atan2f( left[2], up[2] ) );
-	}
-	else	// forward is mostly Z, gimbal lock-
-	{
-		// (yaw)	y = ATAN( -left.x, left.y );			-- forward is mostly z, so use right for yaw
-		vAngles[1] = RAD2DEG( atan2f( -left[0], left[1] ) );
-
-		// The engine does pitch inverted from this, but we always end up negating it in the DLL
-		// UNDONE: Fix the engine to make it consistent
-		// (pitch)	x = ATAN( -forward.z, sqrt(forward.x*forward.x+forward.y*forward.y) );
-		vAngles[0] = RAD2DEG( atan2f( -forward[2], xyDist ) );
-
-		// Assume no roll in this case as one degree of freedom has been lost (i.e. yaw == roll)
-		vAngles[2] = 0;
-	}
-}
 
 
 //-----------------------------------------------------------------------------
@@ -748,43 +461,9 @@ void MatrixMultiply( const VMatrix& src1, const VMatrix& src2, VMatrix& dst )
 // Matrix/vector multiply
 //-----------------------------------------------------------------------------
 
-void Vector4DMultiply( const VMatrix& src1, Vector4D const& src2, Vector4D& dst )
-{
-	// Make sure it works if src2 == dst
-	Vector4D tmp;
-	Vector4D const&v = (&src2 == &dst) ? tmp : src2;
-
-	if (&src2 == &dst)
-	{
-		Vector4DCopy( src2, tmp );
-	}
-
-	dst[0] = src1[0][0] * v[0] + src1[0][1] * v[1] + src1[0][2] * v[2] + src1[0][3] * v[3];
-	dst[1] = src1[1][0] * v[0] + src1[1][1] * v[1] + src1[1][2] * v[2] + src1[1][3] * v[3];
-	dst[2] = src1[2][0] * v[0] + src1[2][1] * v[1] + src1[2][2] * v[2] + src1[2][3] * v[3];
-	dst[3] = src1[3][0] * v[0] + src1[3][1] * v[1] + src1[3][2] * v[2] + src1[3][3] * v[3];
-}
-
 //-----------------------------------------------------------------------------
 // Matrix/vector multiply
 //-----------------------------------------------------------------------------
-
-void Vector4DMultiplyPosition( const VMatrix& src1, Vector const& src2, Vector4D& dst )
-{
-	// Make sure it works if src2 == dst
-	Vector tmp;
-	Vector const&v = ( &src2 == &dst.AsVector3D() ) ? static_cast<const Vector>(tmp) : src2;
-
-	if (&src2 == &dst.AsVector3D())
-	{
-		VectorCopy( src2, tmp );
-	}
-
-	dst[0] = src1[0][0] * v[0] + src1[0][1] * v[1] + src1[0][2] * v[2] + src1[0][3];
-	dst[1] = src1[1][0] * v[0] + src1[1][1] * v[1] + src1[1][2] * v[2] + src1[1][3];
-	dst[2] = src1[2][0] * v[0] + src1[2][1] * v[1] + src1[2][2] * v[2] + src1[2][3];
-	dst[3] = src1[3][0] * v[0] + src1[3][1] * v[1] + src1[3][2] * v[2] + src1[3][3];
-}
 
 
 
@@ -866,75 +545,6 @@ void Vector3DMultiplyProjective( const VMatrix& src1, const Vector &src2, Vector
 }
 
 
-//-----------------------------------------------------------------------------
-// Multiplies the vector by the transpose of the matrix
-//-----------------------------------------------------------------------------
-void Vector4DMultiplyTranspose( const VMatrix& src1, Vector4D const& src2, Vector4D& dst )
-{
-	// Make sure it works if src2 == dst
-	bool srcEqualsDst = (&src2 == &dst);
-
-	Vector4D tmp;
-	Vector4D const&v = srcEqualsDst ? tmp : src2;
-
-	if (srcEqualsDst)
-	{
-		Vector4DCopy( src2, tmp );
-	}
-
-	dst[0] = src1[0][0] * v[0] + src1[1][0] * v[1] + src1[2][0] * v[2] + src1[3][0] * v[3];
-	dst[1] = src1[0][1] * v[0] + src1[1][1] * v[1] + src1[2][1] * v[2] + src1[3][1] * v[3];
-	dst[2] = src1[0][2] * v[0] + src1[1][2] * v[1] + src1[2][2] * v[2] + src1[3][2] * v[3];
-	dst[3] = src1[0][3] * v[0] + src1[1][3] * v[1] + src1[2][3] * v[2] + src1[3][3] * v[3];
-}
-
-//-----------------------------------------------------------------------------
-// Multiplies the vector by the transpose of the matrix
-//-----------------------------------------------------------------------------
-void Vector3DMultiplyTranspose( const VMatrix& src1, const Vector& src2, Vector& dst )
-{
-	// Make sure it works if src2 == dst
-	bool srcEqualsDst = (&src2 == &dst);
-
-	Vector tmp;
-	const Vector&v = srcEqualsDst ? static_cast<const Vector>(tmp) : src2;
-
-	if (srcEqualsDst)
-	{
-		VectorCopy( src2, tmp );
-	}
-
-	dst[0] = src1[0][0] * v[0] + src1[1][0] * v[1] + src1[2][0] * v[2];
-	dst[1] = src1[0][1] * v[0] + src1[1][1] * v[1] + src1[2][1] * v[2];
-	dst[2] = src1[0][2] * v[0] + src1[1][2] * v[1] + src1[2][2] * v[2];
-}
-
-
-//-----------------------------------------------------------------------------
-// Transform a plane
-//-----------------------------------------------------------------------------
-void MatrixTransformPlane( const VMatrix &src, const cplane_t &inPlane, cplane_t &outPlane )
-{
-	// What we want to do is the following:
-	// 1) transform the normal into the new space.
-	// 2) Determine a point on the old plane given by plane dist * plane normal
-	// 3) Transform that point into the new space
-	// 4) Plane dist = DotProduct( new normal, new point )
-
-	// An optimized version, which works if the plane is orthogonal.
-	// 1) Transform the normal into the new space
-	// 2) Realize that transforming the old plane point into the new space
-	// is given by [ d * n'x + Tx, d * n'y + Ty, d * n'z + Tz ]
-	// where d = old plane dist, n' = transformed normal, Tn = translational component of transform
-	// 3) Compute the new plane dist using the dot product of the normal result of #2
-
-	// For a correct result, this should be an inverse-transpose matrix
-	// but that only matters if there are nonuniform scale or skew factors in this matrix.
-	Vector vTrans;
-	Vector3DMultiply( src, inPlane.normal, outPlane.normal );
-	outPlane.dist = inPlane.dist * DotProduct( outPlane.normal, outPlane.normal );
-	outPlane.dist += DotProduct( outPlane.normal, src.GetTranslation(vTrans) );
-}
 
 
 #ifndef VECTOR_NO_SLOW_OPERATIONS
@@ -991,59 +601,6 @@ void MatrixBuildRotationAboutAxis( VMatrix &dst, const Vector &vAxisOfRot, float
 
 
 //-----------------------------------------------------------------------------
-// Builds a rotation matrix that rotates one direction vector into another
-//-----------------------------------------------------------------------------
-void MatrixBuildRotation( VMatrix &dst, const Vector& initialDirection, const Vector& finalDirection )
-{
-	float angle = DotProduct( initialDirection, finalDirection );
-	Assert( IsFinite(angle) );
-	
-	Vector axis;
-
-	// No rotation required
-	if (angle - 1.0 > -1e-3)
-	{
-		// parallel case
-		MatrixSetIdentity(dst);
-		return;
-	}
-	else if (angle + 1.0 < 1e-3)
-	{
-		// antiparallel case, pick any axis in the plane
-		// perpendicular to the final direction. Choose the direction (x,y,z)
-		// which has the minimum component of the final direction, use that
-		// as an initial guess, then subtract out the component which is 
-		// parallel to the final direction
-		int idx = 0;
-		if (FloatMakePositive(finalDirection[1]) < FloatMakePositive(finalDirection[idx]))
-			idx = 1;
-		if (FloatMakePositive(finalDirection[2]) < FloatMakePositive(finalDirection[idx]))
-			idx = 2;
-
-		axis.Init( 0, 0, 0 );
-		axis[idx] = 1.0f;
-		VectorMA( axis, -DotProduct( axis, finalDirection ), finalDirection, axis );
-		VectorNormalize(axis);
-		angle = 180.0f;
-	}
-	else
-	{
-		CrossProduct( initialDirection, finalDirection, axis );
-		VectorNormalize( axis );
-		angle = acos(angle) * 180 / M_PI;
-	}
-
-	MatrixBuildRotationAboutAxis( dst, axis, angle );
-
-#ifdef _DEBUG
-	Vector test;
-	Vector3DMultiply( dst, initialDirection, test );
-	test -= finalDirection;
-	Assert( test.LengthSqr() < 1e-3 );
-#endif
-}
-
-//-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 void MatrixBuildRotateZ( VMatrix &dst, float angleDegrees )
 {
@@ -1072,40 +629,6 @@ void MatrixBuildScale( VMatrix &dst, const Vector& scale )
 	MatrixBuildScale( dst, scale.x, scale.y, scale.z );
 }
 
-void MatrixBuildPerspective( VMatrix &dst, float fovX, float fovY, float zNear, float zFar )
-{
-	// FIXME: collapse all of this into one matrix after we figure out what all should be in here.
-	float width = 2 * zNear * tan( fovX * ( M_PI/180.0f ) * 0.5f );
-	float height = 2 * zNear * tan( fovY * ( M_PI/180.0f ) * 0.5f );
-
-	memset( dst.Base(), 0, sizeof( dst ) );
-	dst[0][0]  = 2.0F * zNear / width;
-	dst[1][1]  = 2.0F * zNear / height;
-	dst[2][2] = -zFar / ( zNear - zFar );
-	dst[3][2] = 1.0f;
-	dst[2][3] = zNear * zFar / ( zNear - zFar );
-
-	// negate X and Y so that X points right, and Y points up.
-	VMatrix negateXY;
-	negateXY.Identity();
-	negateXY[0][0] = -1.0f;
-	negateXY[1][1] = -1.0f;
-	MatrixMultiply( negateXY, dst, dst );
-	
-	VMatrix addW;
-	addW.Identity();
-	addW[0][3] = 1.0f;
-	addW[1][3] = 1.0f;
-	addW[2][3] = 0.0f;
-	MatrixMultiply( addW, dst, dst );
-	
-	VMatrix scaleHalf;
-	scaleHalf.Identity();
-	scaleHalf[0][0] = 0.5f;
-	scaleHalf[1][1] = 0.5f;
-	MatrixMultiply( scaleHalf, dst, dst );
-}
-
 static inline void CalculateAABBForNormalizedFrustum_Helper( float x, float y, float z, const VMatrix &volumeToWorld, Vector &mins, Vector &maxs )
 {
 	Vector volumeSpacePos( x, y, z );
@@ -1123,80 +646,6 @@ static inline void CalculateAABBForNormalizedFrustum_Helper( float x, float y, f
 	AddPointToBounds( worldPos, mins, maxs );
 }
 
-//-----------------------------------------------------------------------------
-// Given an inverse projection matrix, take the extremes of the space in transformed into world space and
-// get a bounding box.
-//-----------------------------------------------------------------------------
-void CalculateAABBFromProjectionMatrixInverse( const VMatrix &volumeToWorld, Vector *pMins, Vector *pMaxs )
-{
-	// FIXME: Could maybe do better than the compile with all of these multiplies by 0 and 1.
-	ClearBounds( *pMins, *pMaxs );
-	CalculateAABBForNormalizedFrustum_Helper( 0, 0, 0, volumeToWorld, *pMins, *pMaxs );
-	CalculateAABBForNormalizedFrustum_Helper( 0, 0, 1, volumeToWorld, *pMins, *pMaxs );
-	CalculateAABBForNormalizedFrustum_Helper( 0, 1, 0, volumeToWorld, *pMins, *pMaxs );
-	CalculateAABBForNormalizedFrustum_Helper( 0, 1, 1, volumeToWorld, *pMins, *pMaxs );
-	CalculateAABBForNormalizedFrustum_Helper( 1, 0, 0, volumeToWorld, *pMins, *pMaxs );
-	CalculateAABBForNormalizedFrustum_Helper( 1, 0, 1, volumeToWorld, *pMins, *pMaxs );
-	CalculateAABBForNormalizedFrustum_Helper( 1, 1, 0, volumeToWorld, *pMins, *pMaxs );
-	CalculateAABBForNormalizedFrustum_Helper( 1, 1, 1, volumeToWorld, *pMins, *pMaxs );
-}
-
-void CalculateAABBFromProjectionMatrix( const VMatrix &worldToVolume, Vector *pMins, Vector *pMaxs )
-{
-	VMatrix volumeToWorld;
-	MatrixInverseGeneral( worldToVolume, volumeToWorld );
-	CalculateAABBFromProjectionMatrixInverse( volumeToWorld, pMins, pMaxs );
-}
-
-//-----------------------------------------------------------------------------
-// Given an inverse projection matrix, take the extremes of the space in transformed into world space and
-// get a bounding sphere.
-//-----------------------------------------------------------------------------
-void CalculateSphereFromProjectionMatrixInverse( const VMatrix &volumeToWorld, Vector *pCenter, float *pflRadius )
-{
-	// FIXME: Could maybe do better than the compile with all of these multiplies by 0 and 1.
-
-	// Need 3 points: the endpoint of the line through the center of the near + far planes,
-	// and one point on the far plane. From that, we can derive a point somewhere on the center	line
-	// which would produce the smallest bounding sphere.
-	Vector vecCenterNear, vecCenterFar, vecNearEdge, vecFarEdge;
-	Vector3DMultiplyPositionProjective( volumeToWorld, Vector( 0.5f, 0.5f, 0.0f ), vecCenterNear );
-	Vector3DMultiplyPositionProjective( volumeToWorld, Vector( 0.5f, 0.5f, 1.0f ), vecCenterFar );
-	Vector3DMultiplyPositionProjective( volumeToWorld, Vector( 0.0f, 0.0f, 0.0f ), vecNearEdge );
-	Vector3DMultiplyPositionProjective( volumeToWorld, Vector( 0.0f, 0.0f, 1.0f ), vecFarEdge );
-
-	// Let the distance between the near + far center points = l
-	// Let the distance between the near center point + near edge point = h1
-	// Let the distance between the far center point + far edge point = h2
-	// Let the distance along the center line from the near point to the sphere center point = x
-	// Then let the distance between the sphere center point + near edge point == 
-	//	the distance between the sphere center point + far edge point == r == radius of sphere
-	// Then h1^2 + x^2 == r^2 == (l-x)^2 + h2^2
-	// h1^x + x^2 = l^2 - 2 * l * x + x^2 + h2^2
-	// 2 * l * x = l^2 + h2^2 - h1^2
-	// x = (l^2 + h2^2 - h1^2) / (2 * l)
-	// r = sqrt( hl^1 + x^2 )
-	Vector vecDelta;
-	VectorSubtract( vecCenterFar, vecCenterNear, vecDelta );
-	float l = vecDelta.Length();
-	float h1Sqr = vecCenterNear.DistToSqr( vecNearEdge );
-	float h2Sqr = vecCenterFar.DistToSqr( vecFarEdge );
-	float x = (l*l + h2Sqr - h1Sqr) / (2.0f * l);
-	VectorMA( vecCenterNear, (x / l), vecDelta, *pCenter );
-	*pflRadius = sqrt( h1Sqr + x*x );
-}
-
-//-----------------------------------------------------------------------------
-// Given a projection matrix, take the extremes of the space in transformed into world space and
-// get a bounding sphere.
-//-----------------------------------------------------------------------------
-void CalculateSphereFromProjectionMatrix( const VMatrix &worldToVolume, Vector *pCenter, float *pflRadius )
-{
-	VMatrix volumeToWorld;
-	MatrixInverseGeneral( worldToVolume, volumeToWorld );
-	CalculateSphereFromProjectionMatrixInverse( volumeToWorld, pCenter, pflRadius );
-}
-
 
 static inline void FrustumPlanesFromMatrixHelper( const VMatrix &shadowToWorld, const Vector &p1, const Vector &p2, const Vector &p3, VPlane &plane )
 {
@@ -1212,31 +661,6 @@ static inline void FrustumPlanesFromMatrixHelper( const VMatrix &shadowToWorld, 
 	CrossProduct( v1, v2, plane.m_Normal );
 	VectorNormalize( plane.m_Normal );
 	plane.m_Dist = DotProduct( plane.m_Normal, world1 );	
-}
-
-void FrustumPlanesFromMatrix( const VMatrix &clipToWorld, Frustum_t &frustum )
-{
-	VPlane planes[6];
-
-	FrustumPlanesFromMatrixHelper( clipToWorld, 
-		Vector( 0.0f, 0.0f, 0.0f ), Vector( 1.0f, 0.0f, 0.0f ), Vector( 0.0f, 1.0f, 0.0f ), planes[FRUSTUM_NEARZ] );
-	
-	FrustumPlanesFromMatrixHelper( clipToWorld, 
-		Vector( 0.0f, 0.0f, 1.0f ), Vector( 0.0f, 1.0f, 1.0f ), Vector( 1.0f, 0.0f, 1.0f ), planes[FRUSTUM_FARZ] );
-
-	FrustumPlanesFromMatrixHelper( clipToWorld, 
-		Vector( 1.0f, 0.0f, 0.0f ), Vector( 1.0f, 1.0f, 1.0f ), Vector( 1.0f, 1.0f, 0.0f ), planes[FRUSTUM_RIGHT] );
-
-	FrustumPlanesFromMatrixHelper( clipToWorld, 
-		Vector( 0.0f, 0.0f, 0.0f ), Vector( 0.0f, 1.0f, 1.0f ), Vector( 0.0f, 0.0f, 1.0f ), planes[FRUSTUM_LEFT] );
-
-	FrustumPlanesFromMatrixHelper( clipToWorld, 
-		Vector( 1.0f, 1.0f, 0.0f ), Vector( 1.0f, 1.0f, 1.0f ), Vector( 0.0f, 1.0f, 1.0f ), planes[FRUSTUM_TOP] );
-
-	FrustumPlanesFromMatrixHelper( clipToWorld, 
-		Vector( 1.0f, 0.0f, 0.0f ), Vector( 0.0f, 0.0f, 1.0f ), Vector( 1.0f, 0.0f, 1.0f ), planes[FRUSTUM_BOTTOM] );
-	
-	frustum.SetPlanes(planes);
 }
 
 // BEWARE: top/bottom are FLIPPED relative to D3DXMatrixOrthoOffCenterRH().
@@ -1298,54 +722,6 @@ void MatrixBuildPerspectiveOffCenterX( VMatrix& dst, double flFovX, double flAsp
 				0.0f,  2.0f*flZNear/(flTop-flBottom), (flTop+flBottom)/(flTop-flBottom),                            0.0f,
 				0.0f,                           0.0f,           flZFar/(flZNear-flZFar),  flZNear*flZFar/(flZNear-flZFar),
 				0.0f,                           0.0f,                             -1.0f,                            0.0f );
-}
-
-void ExtractClipPlanesFromNonTransposedMatrix( const VMatrix &viewProjMatrix, VPlane *pPlanesOut, bool bD3DClippingRange )
-{
-	// Left
-	Vector4D vPlane = MatrixGetRowAsVector4D( viewProjMatrix, 0 ) + MatrixGetRowAsVector4D( viewProjMatrix, 3 );
-	pPlanesOut[ FRUSTUM_LEFT ].Init( vPlane.AsVector3D(), -vPlane.w );
-
-	// Right
-	vPlane = -MatrixGetRowAsVector4D( viewProjMatrix, 0 ) + MatrixGetRowAsVector4D( viewProjMatrix, 3 );
-	pPlanesOut[ FRUSTUM_RIGHT ].Init( vPlane.AsVector3D(), -vPlane.w );
-
-	// Bottom
-	vPlane = MatrixGetRowAsVector4D( viewProjMatrix, 1 ) + MatrixGetRowAsVector4D( viewProjMatrix, 3 );
-	pPlanesOut[ FRUSTUM_BOTTOM ].Init( vPlane.AsVector3D(), -vPlane.w );
-
-	// Top
-	vPlane = -MatrixGetRowAsVector4D( viewProjMatrix, 1 ) + MatrixGetRowAsVector4D( viewProjMatrix, 3 );
-	pPlanesOut[ FRUSTUM_TOP ].Init( vPlane.AsVector3D(), -vPlane.w );
-
-	// Near
-	if ( bD3DClippingRange )
-	{
-		// [0,1] Z clipping range (D3D-style)
-		vPlane = MatrixGetRowAsVector4D( viewProjMatrix, 2 );
-	}
-	else
-	{
-		// [-1,1] Z clipping range (OpenGL-style)
-		vPlane = MatrixGetRowAsVector4D( viewProjMatrix, 2 ) + MatrixGetRowAsVector4D( viewProjMatrix, 3 );
-	}
-
-	pPlanesOut[ FRUSTUM_NEARZ ].Init( vPlane.AsVector3D(), -vPlane.w );
-
-	// Far
-	vPlane = -MatrixGetRowAsVector4D( viewProjMatrix, 2 ) + MatrixGetRowAsVector4D( viewProjMatrix, 3 );
-	pPlanesOut[ FRUSTUM_FARZ ].Init( vPlane.AsVector3D(), -vPlane.w );
-
-	for ( uint32_t i = 0; i < FRUSTUM_NUMPLANES; ++i )
-	{
-		float flLen2 = pPlanesOut[i].m_Normal.x * pPlanesOut[i].m_Normal.x + pPlanesOut[i].m_Normal.y * pPlanesOut[i].m_Normal.y + pPlanesOut[i].m_Normal.z * pPlanesOut[i].m_Normal.z;
-		if ( flLen2 != 0.0f )
-		{
-			float flScale = 1.0f / sqrt( flLen2 );
-			pPlanesOut[i].m_Normal *= flScale;
-			pPlanesOut[i].m_Dist *= flScale;
-		}
-	}
 }
 
 #endif // !_STATIC_LINKED || _SHARED_LIB

@@ -57,9 +57,6 @@ public:
 	// Gets the string associated with the symbol
 	const char* String( ) const;
 
-	// Modules can choose to disable the static symbol table so to prevent accidental use of them.
-	static void DisableStaticSymbolTable();
-
 
 protected:
 	UtlSymId_t   m_Id;
@@ -257,9 +254,6 @@ public:
 	int					PathIndex( const FileNameHandle_t &handle ) { return (( const FileNameHandleInternal_t * )&handle)->GetPath(); }
 	bool				String( const FileNameHandle_t& handle, char *buf, int buflen );
 	void				RemoveAll();
-	void				SpewStrings();
-	bool				SaveToBuffer( CUtlBuffer &buffer );
-	bool				RestoreFromBuffer( CUtlBuffer &buffer );
 
 private:
 	CCountedStringPoolBase<unsigned short> m_PathStringPool;

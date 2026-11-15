@@ -26,7 +26,7 @@ class CDmeTransform : public CDmElement
 	DEFINE_ELEMENT( CDmeTransform, CDmElement );
 
 public:
-	virtual void OnAttributeChanged( CDmAttribute *pAttribute );
+    void OnAttributeChanged( CDmAttribute *pAttribute ) override;
 
 	void SetTransform( const matrix3x4_t &transform );
 	void GetTransform( matrix3x4_t &transform );
@@ -38,9 +38,6 @@ public:
 
 	CDmAttribute *GetPositionAttribute();
 	CDmAttribute *GetOrientationAttribute();
-
-	// If transform is contained inside some kind of CDmeDag, return that (it's "parent")
-	CDmeDag *GetDag();
 
 private:
 	CDmaVar<Vector> m_Position;

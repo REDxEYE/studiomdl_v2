@@ -19,15 +19,6 @@ class CBoneAccessor;
 class IPoseDebugger;
 
 
-// This provides access to networked arrays, so if this code actually changes a value, 
-// the entity is marked as changed.
-class IParameterAccess
-{
-public:
-	virtual float GetParameter( int iParam ) = 0;
-	virtual void SetParameter( int iParam, float flValue ) = 0;
-};
-
 
 
 class CBoneBitList : public CBitVec<MAXSTUDIOBONES>
@@ -82,18 +73,7 @@ private:
 
 // Given two samples of a bone separated in time by dt, 
 // compute the velocity and angular velocity of that bone
-void CalcBoneDerivatives( Vector &velocity, AngularImpulse &angVel, const matrix3x4_t &prev, const matrix3x4_t &current, float dt );
 // Give a derivative of a bone, compute the velocity & angular velocity of that bone
-void CalcBoneVelocityFromDerivative( const QAngle &vecAngles, Vector &velocity, AngularImpulse &angVel, const matrix3x4_t &current );
-
-// This function sets up the local transform for a single frame of animation. It doesn't handle
-// pose parameters or interpolation between frames.
-void SetupSingleBoneMatrix( 
-	CStudioHdr *pOwnerHdr, 
-	int nSequence, 
-	int iFrame,
-	int iBone, 
-	matrix3x4_t &mBoneLocal );
 
 
 // Purpose: build boneToWorld transforms for a specific bone
@@ -123,22 +103,10 @@ void BuildBoneChain(
 class CIKTarget
 {
 public:
-	void SetOwner( int entindex, const Vector &pos, const QAngle &angles );
-	void ClearOwner( void );
 	int GetOwner( void );
-	void UpdateOwner( int entindex, const Vector &pos, const QAngle &angles );
-	void SetPos( const Vector &pos );
-	void SetAngles( const QAngle &angles );
-	void SetQuaternion( const Quaternion &q );
-	void SetNormal( const Vector &normal );
-	void SetPosWithNormalOffset( const Vector &pos, const Vector &normal );
-	void SetOnWorld( bool bOnWorld = true );
 
-	bool IsActive( void );
-	void IKFailed( void );
 	int chain;
 	IkRuleType type;
-	void MoveReferenceFrame( Vector &deltaPos, QAngle &deltaAngles );
 	// accumulated offset from ideal footplant location
 public:
 	struct x2 {
@@ -273,28 +241,17 @@ class CIKContext
 public:
 	CIKContext( );
 	void Init( const CStudioHdr *pStudioHdr, const QAngle &angles, const Vector &pos, float flTime, int iFramecounter, BoneFlags boneMask );
-	void AddDependencies(  mstudioseqdesc_t &seqdesc, int iSequence, float flCycle, const float poseParameters[], float flWeight = 1.0f );
 
 
 	void ClearTargets( void );
-	void UpdateTargets( BoneVector pos[], BoneQuaternion q[], matrix3x4a_t boneToWorld[], CBoneBitList &boneComputed );
-	void AutoIKRelease( void );
 	void SolveDependencies( BoneVector pos[], BoneQuaternion q[], matrix3x4a_t boneToWorld[], CBoneBitList &boneComputed );
 
-	void AddAutoplayLocks( BoneVector pos[], BoneQuaternion q[] );
-	void SolveAutoplayLocks( BoneVector pos[], BoneQuaternion q[] );
 
-	void AddSequenceLocks( mstudioseqdesc_t &SeqDesc, BoneVector pos[], BoneQuaternion q[] );
-	void SolveSequenceLocks( mstudioseqdesc_t &SeqDesc, BoneVector pos[], 	BoneQuaternion q[] );
 	
-	void AddAllLocks( BoneVector pos[], BoneQuaternion q[] );
-	void SolveAllLocks( BoneVector pos[], BoneQuaternion q[] );
 
 	void SolveLock( const mstudioiklock_t *plock, int i, BoneVector pos[], BoneQuaternion q[], matrix3x4a_t boneToWorld[], CBoneBitList &boneComputed );
 
 	CUtlVectorFixed< CIKTarget, 12 >	m_target;
-
-	void CopyTo( CIKContext* pOther, const unsigned short * iRemapping );
 
 	void BuildBoneChain( const BoneVector pos[], const BoneQuaternion q[], int iBone, matrix3x4a_t *pBoneToWorld, CBoneBitList &boneComputed );
 
@@ -322,73 +279,16 @@ private:
 //-----------------------------------------------------------------------------
 
 
-// replaces the bonetoworld transforms for all bones that are procedural
-bool CalcProceduralBone(
-	const CStudioHdr *pStudioHdr,
-	int iBone,
-	CBoneAccessor &bonetoworld
-	);
-
-void Studio_BuildMatrices(
-	const CStudioHdr *pStudioHdr,
-	const QAngle& angles, 
-	const Vector& origin, 
-	const BoneVector pos[],
-	const BoneQuaternion q[],
-	int iBone,
-	float flScale,
-	matrix3x4a_t bonetoworld[MAXSTUDIOBONES],
-	BoneFlags boneMask
-	);
 
 
-// Get a bone->bone relative transform
-void Studio_CalcBoneToBoneTransform( const CStudioHdr *pStudioHdr, int inputBoneIndex, int outputBoneIndex, matrix3x4_t &matrixOut );
-
-// Given a bone rotation value, figures out the value you need to give to the controller
-// to have the bone at that value.
-// [in]  flValue  = the desired bone rotation value
-// [out] ctlValue = the (0-1) value to set the controller t.
-// return value   = flValue, unwrapped to lie between the controller's start and end.
-float Studio_SetController( const CStudioHdr *pStudioHdr, int iController, float flValue, float &ctlValue );
-
-
-// Given a 0-1 controller value, maps it into the controller's start and end and returns the bone rotation angle.
-// [in] ctlValue  = value in controller space (0-1).
-// return value   = value in bone space
-float Studio_GetController( const CStudioHdr *pStudioHdr, int iController, float ctlValue );
-
-void Studio_CalcDefaultPoseParameters( const CStudioHdr *pStudioHdr, float flPoseParameter[MAXSTUDIOPOSEPARAM], int nCount );
-float Studio_GetPoseParameter( const CStudioHdr *pStudioHdr, int iParameter, float ctlValue );
-float Studio_SetPoseParameter( const CStudioHdr *pStudioHdr, int iParameter, float flValue, float &ctlValue );
 
 // converts a global 0..1 pose parameter into the local sequences blending value
 int Studio_LocalPoseParameter( const CStudioHdr *pStudioHdr, const float poseParameter[], mstudioseqdesc_t &seqdesc, int iSequence, int iLocalIndex, float &flSetting );
 
 void Studio_SeqAnims( const CStudioHdr *pStudioHdr, mstudioseqdesc_t &seqdesc, int iSequence, const float poseParameter[], mstudioanimdesc_t *panim[4], float *weight );
-int Studio_MaxFrame( const CStudioHdr *pStudioHdr, int iSequence, const float poseParameter[] );
-float Studio_FPS( const CStudioHdr *pStudioHdr, int iSequence, const float poseParameter[] );
 float Studio_CPS( const CStudioHdr *pStudioHdr, mstudioseqdesc_t &seqdesc, int iSequence, const float poseParameter[] );
-float Studio_Duration( const CStudioHdr *pStudioHdr, int iSequence, const float poseParameter[] );
-void Studio_MovementRate( const CStudioHdr *pStudioHdr, int iSequence, const float poseParameter[], Vector *pVec );
-float Studio_SeqMovementAndDuration( const CStudioHdr *pStudioHdr, int iSequence, float flCycleFrom, float flCycleTo, const float poseParameter[], Vector &deltaPos );
 
 // void Studio_Movement( const CStudioHdr *pStudioHdr, int iSequence, const float poseParameter[], Vector *pVec );
-
-//void Studio_AnimPosition( mstudioanimdesc_t *panim, float flCycle, Vector &vecPos, Vector &vecAngle );
-//void Studio_AnimVelocity( mstudioanimdesc_t *panim, float flCycle, Vector &vecVelocity );
-//float Studio_FindAnimDistance( mstudioanimdesc_t *panim, float flDist );
-bool Studio_AnimMovement( mstudioanimdesc_t *panim, float flCycleFrom, float flCycleTo, Vector &deltaPos, QAngle &deltaAngle );
-bool Studio_SeqMovement( const CStudioHdr *pStudioHdr, int iSequence, float flCycleFrom, float flCycleTo, const float poseParameter[], Vector &deltaMovement, QAngle &deltaAngle );
-bool Studio_SeqVelocity( const CStudioHdr *pStudioHdr, int iSequence, float flCycle, const float poseParameter[], Vector &vecVelocity );
-float Studio_FindSeqDistance( const CStudioHdr *pStudioHdr, int iSequence, const float poseParameter[], float flDist );
-float Studio_FindSeqVelocity( const CStudioHdr *pStudioHdr, int iSequence, const float poseParameter[], float flVelocity );
-int Studio_FindAttachment( const CStudioHdr *pStudioHdr, const char *pAttachmentName );
-int Studio_FindRandomAttachment( const CStudioHdr *pStudioHdr, const char *pAttachmentName );
-int Studio_BoneIndexByName( const CStudioHdr *pStudioHdr, const char *pName );
-const char *Studio_GetDefaultSurfaceProps( CStudioHdr *pstudiohdr );
-float Studio_GetMass( CStudioHdr *pstudiohdr );
-const char *Studio_GetKeyValueText( const CStudioHdr *pStudioHdr, int iSequence );
 
 FORWARD_DECLARE_HANDLE( memhandle_t );
 struct bonecacheparams_t
@@ -405,8 +305,6 @@ public:
 
 	// you must implement these static functions for the ResourceManager
 	// -----------------------------------------------------------
-	static CBoneCache *CreateResource( const bonecacheparams_t &params );
-	static unsigned int EstimatedSize( const bonecacheparams_t &params );
 	// -----------------------------------------------------------
 	// member functions that must be present for the ResourceManager
 	void			DestroyResource();
@@ -420,9 +318,6 @@ public:
 	void			Init( const bonecacheparams_t &params, unsigned int size, short *pStudioToCached, short *pCachedToStudio, int cachedBoneCount );
 	
 	void			UpdateBones( const matrix3x4a_t *pBoneToWorld, int numbones, float curtime );
-	matrix3x4a_t	*GetCachedBone( int studioIndex );
-	void			ReadCachedBones( matrix3x4a_t *pBoneToWorld );
-	void			ReadCachedBonePointers( matrix3x4_t **bones, int numbones );
 
 	bool			IsValid( float curtime, float dt = 0.1f );
 
@@ -445,23 +340,4 @@ private:
 
 void QuaternionSM( float s, const Quaternion &p, const Quaternion &q, Quaternion &qt );
 void QuaternionMA( const Quaternion &p, float s, const Quaternion &q, Quaternion &qt );
-
-bool Studio_PrefetchSequence( const CStudioHdr *pStudioHdr, int iSequence );
-
-void Studio_RunBoneFlexDrivers( float *pFlexController, const CStudioHdr *pStudioHdr, const Vector *pPositions, const matrix3x4_t *pBoneToWorld, const matrix3x4_t &mRootToWorld );
-
-//-----------------------------------------------------------------------------
-// Computes a number of twist bones given a parent/child pair
-// pqTwists, pflWeights, pqTwistBinds must all have at least nCount elements 
-//-----------------------------------------------------------------------------
-void ComputeTwistBones(
-	Quaternion *pqTwists,
-	int nCount,
-	bool bInverse,
-	const Vector &vUp,
-	const Quaternion &qParent,
-	const matrix3x4_t &mChild,
-	const Quaternion &qBaseInv,
-	const float *pflWeights,
-	const Quaternion *pqTwistBinds );
 

@@ -186,14 +186,6 @@ DmElementHandle_t CDmElementDictionary::SetElementId( DmElementDictHandle_t hDic
 }
 
 
-//-----------------------------------------------------------------------------
-// Finds an element into the table
-//-----------------------------------------------------------------------------
-DmElementDictHandle_t CDmElementDictionary::FindElement( CDmElement *pElement )
-{
-	return m_Dict.Find( pElement ? pElement->GetHandle() : DMELEMENT_HANDLE_INVALID );
-}
-
 
 //-----------------------------------------------------------------------------
 // Hook up all element references (which were unserialized as object ids)

@@ -2277,13 +2277,6 @@ void CStudioCollision::CollideSetMassCenter( StudioCollide_t *c,const Vector &ma
     if(!c||c->surface.size()<sizeof(CompactSurfaceDisk_t))return;Vector p=ToPhysics(massCenter);CompactSurfaceDisk_t *s=(CompactSurfaceDisk_t*)&c->surface[0];s->massCenter[0]=p.x;s->massCenter[1]=p.y;s->massCenter[2]=p.z;
 }
 
-void CStudioCollision::CollideGetAABB( Vector *mins,Vector *maxs,const StudioCollide_t *c,const Vector &origin,const QAngle &angles ) const
-{
-    if(!mins||!maxs||!c)return;
-    // StudioMDL calls this with identity transform. Keep a conservative translated result for non-identity callers.
-    *mins=c->minsHL+origin;*maxs=c->maxsHL+origin;
-}
-
 int CStudioCollision::CollideSize( const StudioCollide_t *c ) const{return c?int(sizeof(CompactSurfaceFileHeader_t)+c->surface.size()):0;}
 
 static void PatchSerializedTreeLedgeIndicesRecursive( unsigned char *surface, int surfaceSize,

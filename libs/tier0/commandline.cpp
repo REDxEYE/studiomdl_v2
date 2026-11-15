@@ -27,7 +27,7 @@ public:
     // Construction
     CCommandLine();
 
-    virtual ~CCommandLine();
+    ~CCommandLine() override;
 
     // Implements ICommandLine
     void CreateCmdLine(const char* commandline) override;

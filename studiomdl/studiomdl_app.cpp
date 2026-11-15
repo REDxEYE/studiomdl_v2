@@ -205,17 +205,17 @@ static bool ParsePreprocessedFile(const std::string &fullPath) {
 bool HandlePrintSurfaceProps(int &returnValue) {
     const auto filename = CommandLine()->ParmValue("-PrintSurfaceProps");
     if (filename.has_value()) {
-        CUtlVector<char> buf;
+        std::vector<char> buf;
         FILE* fp = vstd::paths::open_file(*filename, "rb");
         if (fp) {
             fseek(fp, 0, SEEK_END);
-            buf.SetSize(ftell(fp));
+            buf.resize(ftell(fp));
             fseek(fp, 0, SEEK_SET);
-            fread(buf.Base(), 1, buf.Count(), fp);
+            fread(buf.data(), 1, buf.size(), fp);
 
             fclose(fp);
 
-            studiohdr_t* pHdr = (studiohdr_t*) buf.Base();
+            studiohdr_t* pHdr = (studiohdr_t*) buf.data();
 
             Studio_ConvertStudioHdrToNewVersion(pHdr);
 
@@ -250,18 +250,18 @@ bool HandlePrintSurfaceProps(int &returnValue) {
 bool HandleMdlReport(int &returnValue) {
     const auto filename = CommandLine()->ParmValue("-mdlreport");
     if (filename.has_value()) {
-        CUtlVector<char> buf;
+        std::vector<char> buf;
 
         FILE* fp = vstd::paths::open_file(*filename, "rb");
         if (fp) {
             fseek(fp, 0, SEEK_END);
-            buf.SetSize(ftell(fp));
+            buf.resize(ftell(fp));
             fseek(fp, 0, SEEK_SET);
-            fread(buf.Base(), 1, buf.Count(), fp);
+            fread(buf.data(), 1, buf.size(), fp);
 
             fclose(fp);
 
-            studiohdr_t* pHdr = (studiohdr_t*) buf.Base();
+            studiohdr_t* pHdr = (studiohdr_t*) buf.data();
 
             Studio_ConvertStudioHdrToNewVersion(pHdr);
 
@@ -319,16 +319,16 @@ void ClampMaxVerticesPerModel(s_source_t* pOrigSource) {
 
     MdlWarning("model has too many verts, cutting into multiple models\n");
 
-    CUtlVector<CClampedSource> newSource;
+    std::vector<CClampedSource> newSource;
 
-    int ns = newSource.AddToTail();
-    newSource[ns].Init(pOrigSource->numvertices, pOrigSource);
+    int ns = 0;
+    newSource.emplace_back().Init(pOrigSource->numvertices, pOrigSource);
 
     // Flex optimization: only meshes with flexes count against the engine's flex cache, so faces a flex can move are
     // put into the first pieces and the static faces into pieces of their own, which then carry no flex data.
     // Without it there is one pass over all faces, in source order.
     std::vector<bool> moving;
-    bool bSortByFlex = FlexOptimizeIsActive() && pOrigSource->m_FlexKeys.Count() > 0;
+    bool bSortByFlex = FlexOptimizeIsActive() && !pOrigSource->m_FlexKeys.empty();
     if (bSortByFlex)
         moving = FlexOptimizeMovingVertices(pOrigSource);
 
@@ -356,11 +356,11 @@ void ClampMaxVerticesPerModel(s_source_t* pOrigSource) {
     const int nPasses = bSortByFlex ? 2 : 1;
     for (int pass = 0; pass < nPasses; pass++) {
         const bool bMovingPass = (pass == 0);
-        if (pass == 1 && newSource[ns].m_face.Count() > 0) {
+        if (pass == 1 && !newSource[ns].m_face.empty()) {
             // static faces never share a piece with moving ones; this also keeps the faces of every mesh of a piece
             // contiguous (each pass walks the meshes in order)
-            ns = newSource.AddToTail();
-            newSource[ns].Init(pOrigSource->numvertices, pOrigSource);
+            ns = std::ssize(newSource);
+            newSource.emplace_back().Init(pOrigSource->numvertices, pOrigSource);
         }
 
         // Every piece has the original's meshes (same order and materials), so every face stays in the mesh of its
@@ -373,10 +373,10 @@ void ClampMaxVerticesPerModel(s_source_t* pOrigSource) {
                 if (bSortByFlex && isMovingFace(pOrigMesh, origFace) != bMovingPass)
                     continue;
                 int nVertsInFace = (origFace.d == 0) ? 3 : 4;
-                if ((newSource[ns].m_vertex.Count() + nVertsInFace) > g_studiomdl.options.maxVertexClamp) {
+                if ((std::ssize(newSource[ns].m_vertex) + nVertsInFace) > g_studiomdl.options.maxVertexClamp) {
                     // go to the next model
-                    ns = newSource.AddToTail();
-                    newSource[ns].Init(pOrigSource->numvertices, pOrigSource);
+                    ns = std::ssize(newSource);
+                    newSource.emplace_back().Init(pOrigSource->numvertices, pOrigSource);
                 }
 
                 // build face
@@ -401,16 +401,16 @@ void ClampMaxVerticesPerModel(s_source_t* pOrigSource) {
 
                 s_mesh_t &dstMesh = newSource[ns].m_meshes[nMesh];
                 if (dstMesh.numfaces == 0) {
-                    dstMesh.faceoffset = newSource[ns].m_face.Count();
+                    dstMesh.faceoffset = std::ssize(newSource[ns].m_face);
                 }
-                newSource[ns].m_face.AddToTail(face);
+                newSource[ns].m_face.push_back(face);
                 dstMesh.numfaces++;
             }
         }
     }
 
     // Split animations into the new sub-models
-    for (int n = 0; n < newSource.Count(); n++) {
+    for (size_t n = 0; n < newSource.size(); n++) {
         newSource[n].AddAnimations(pOrigSource);
     }
 
@@ -429,7 +429,7 @@ void ClampMaxVerticesPerModel(s_source_t* pOrigSource) {
     free(pOrigSource->vertex);
     newSource[0].Copy(pOrigSource);
 
-    for (int n = 1; n < newSource.Count(); n++) {
+    for (size_t n = 1; n < newSource.size(); n++) {
         // create a new internal "source"
         s_source_t* pSource = c_allocate<s_source_t>();
         g_studiomdl.anim.sources.emplace_back(pSource);
@@ -570,7 +570,7 @@ void ConsistencyCheckSurfaceProp() {
 // Checks specified contents
 //-----------------------------------------------------------------------------
 void ConsistencyCheckContents() {
-    for (int i = s_JointContents.Count(); --i >= 0;) {
+    for (int i = std::ssize(s_JointContents); --i >= 0;) {
         int j = findGlobalBone(s_JointContents[i].m_pJointName);
 
         if (j < 0) {
@@ -703,8 +703,8 @@ int CStudioMDLApp::Main() {
         if (!g_studiomdl.options.createMakefile) {
             FlexOptimizeSources();
 
-            int nCount = g_studiomdl.anim.sources.size();
-            for (int i = 0; i < nCount; i++) {
+            size_t count = g_studiomdl.anim.sources.size();
+            for (int i = 0; i < count; i++) {
                 if (g_studiomdl.anim.sources[i]->isActiveModel) {
                     ClampMaxVerticesPerModel(g_studiomdl.anim.sources[i]);
                 }

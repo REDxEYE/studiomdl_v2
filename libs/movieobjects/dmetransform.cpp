@@ -84,9 +84,3 @@ CDmAttribute *CDmeTransform::GetOrientationAttribute()
 	return m_Orientation.GetAttribute();
 }
 
-CDmeDag *CDmeTransform::GetDag()
-{
-	static CUtlSymbolLarge symTransform = g_pDataModel->GetSymbol( "transform" );
-	CDmeDag *pDag = FindReferringElement< CDmeDag >( this, symTransform );
-	return pDag;
-}

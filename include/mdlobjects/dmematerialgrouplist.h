@@ -29,7 +29,7 @@ class CDmeMaterialGroupList : public CDmeMdlList
 	DEFINE_ELEMENT( CDmeMaterialGroupList, CDmeMdlList );
 
 public:
-	virtual CDmAttribute *GetListAttr() { return m_MaterialGroups.GetAttribute(); }
+    CDmAttribute *GetListAttr() override { return m_MaterialGroups.GetAttribute(); }
 
 	CDmaElementArray< CDmeMaterialGroup > m_MaterialGroups;
 

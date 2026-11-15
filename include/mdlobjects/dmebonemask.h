@@ -29,7 +29,7 @@ class CDmeBoneMask : public CDmeMdlList
 	DEFINE_ELEMENT( CDmeBoneMask, CDmeMdlList );
 
 public:
-	virtual CDmAttribute *GetListAttr() { return m_BoneWeights.GetAttribute(); }
+    CDmAttribute *GetListAttr() override { return m_BoneWeights.GetAttribute(); }
 
 	// Does a case-insensitive search for the specified bone name and returns the weight if it exists or 1.0f if it doesn't
 	float GetBoneWeight( const char *pszBoneName );

@@ -23,18 +23,18 @@
 class CImportMKS : public IDmSerializer
 {
 public:
-	virtual const char *GetName() const { return "mks"; }
-	virtual const char *GetDescription() const { return "Valve Make Sheet File"; }
-	virtual bool IsBinaryFormat() const { return false; }
-	virtual bool StoresVersionInFile() const { return false; }
-	virtual int GetCurrentVersion() const { return 0; } // doesn't store a version
- 	virtual const char *GetImportedFormat() const { return "mks"; }
- 	virtual int GetImportedVersion() const { return 1; }
+    const char *GetName() const override { return "mks"; }
+    const char *GetDescription() const override { return "Valve Make Sheet File"; }
+    bool IsBinaryFormat() const override { return false; }
+    bool StoresVersionInFile() const override { return false; }
+    int GetCurrentVersion() const override { return 0; } // doesn't store a version
+    const char *GetImportedFormat() const override { return "mks"; }
+    int GetImportedVersion() const override { return 1; }
 
-	bool Serialize( CUtlBuffer &outBuf, CDmElement *pRoot );
+	bool Serialize( CUtlBuffer &outBuf, CDmElement *pRoot ) override;
 	// Read from the UtlBuffer, return true if successful, and return the read-in root in ppRoot.
 	bool Unserialize( CUtlBuffer &buf, const char *pEncodingName, int nEncodingVersion, const char *pSourceFormatName, 
-		int nSourceFormatVersion, DmFileId_t fileid, DmConflictResolution_t idConflictResolution, CDmElement **ppRoot );
+		int nSourceFormatVersion, DmFileId_t fileid, DmConflictResolution_t idConflictResolution, CDmElement **ppRoot ) override;
 
 private:
 

@@ -26,14 +26,16 @@ public:
 	void Shutdown() override;
 
 	// Methods of IDmElementFramework
-	virtual DmPhase_t GetPhase();
-	virtual void SetOperators( const CUtlVector< IDmeOperator* > &operators );
-	virtual void BeginEdit(); // ends in edit phase, forces apply/resolve if from edit phase
-	virtual void Operate( bool bResolve ); // ends in output phase
-	virtual void Resolve();
+    DmPhase_t GetPhase() override;
+
+    void SetOperators( const std::vector< IDmeOperator* > &operators ) override;
+
+    void BeginEdit() override; // ends in edit phase, forces apply/resolve if from edit phase
+    void Operate( bool bResolve ) override; // ends in output phase
+    void Resolve() override;
 
 	// Get the sorted operators in their current order, does not perform sort.
-	virtual const CUtlVector< IDmeOperator* > &GetSortedOperators() const; 
+    const std::vector< IDmeOperator* > &GetSortedOperators() const override;
 
 	
 public:

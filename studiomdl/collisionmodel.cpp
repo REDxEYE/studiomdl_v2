@@ -29,7 +29,7 @@
 #include "studiocollision.h"
 #include "studiosurfaceprops.h"
 #include "phyfile.h"
-#include "tier1/utlvector.h"
+#include <vector>
 #include "vcollide_parse.h"
 #include "tier1/strtools.h"
 #include "tier1/keyvalues.h"
@@ -160,8 +160,8 @@ public:
     float m_defaultRotdamping;
     float m_defaultInertia;
     float m_defaultDrag;
-    CUtlVector<char> m_textCommands;
-    CUtlVector<mergelist_t> m_mergeList;
+    std::vector<char> m_textCommands;
+    std::vector<mergelist_t> m_mergeList;
 
     CJointedModel(void);
 
@@ -245,15 +245,11 @@ public:
 
     int ProcessJointedModel();
 
-    int CopyFaceVertsByBone(Vector **verts, Vector *worldVerts, int boneIndex);
-
     void AddConvexSrc(ScriptTokenizer &qc, const char *szFileName);
 
     void AddText(const char *pText) {
         int len = strlen(pText);
-        int count = m_textCommands.Count();
-        m_textCommands.AddMultipleToTail(len);
-        memcpy(m_textCommands.Base() + count, pText, len);
+        m_textCommands.insert(m_textCommands.end(), pText, pText + len);
     }
 
     void ComputeMass(void);
@@ -284,7 +280,7 @@ CJointedModel::CJointedModel(void) {
     m_pCollisionPairs = NULL;
     m_totalMass = 1.0;
 
-    m_bonemap.SetSize(0);
+    m_bonemap.clear();
     m_pConstraintList = NULL;
     m_constraintCount = 0;
 
@@ -321,9 +317,9 @@ void CJointedModel::SetSource(s_source_t *pmodel) {
 
 
 void CJointedModel::AddMergeCommand(char const *pParent, char const *pChild) {
-    int i = m_mergeList.AddToTail();
-    m_mergeList[i].pParent = strdup(pParent);
-    m_mergeList[i].pChild = strdup(pChild);
+    mergelist_t &merge = m_mergeList.emplace_back();
+    merge.pParent = strdup(pParent);
+    merge.pChild = strdup(pChild);
 }
 
 
@@ -779,88 +775,6 @@ void CJointedModel::DefaultDrag(float drag) {
 }
 
 
-//-----------------------------------------------------------------------------
-// Purpose: Copy all verts assigned to this bone.
-//			NOTE: Leaves gaps in the model around joints
-// Input  : **verts -
-//			*worldVerts -
-//			&joints -
-//			boneIndex -
-// Output : int vertCount
-//-----------------------------------------------------------------------------
-int CopyVertsByBone(Vector **verts, Vector *worldVerts, const CJointedModel &joints, int boneIndex) {
-    int vertCount = 0;
-    s_source_t *pmodel = joints.m_pModel;
-
-    // loop through each vert to find those assigned to this bone
-    for (int i = 0; i < pmodel->numvertices; i++) {
-        s_boneweight_t *pweight = &pmodel->vertex[i].boneweight;
-
-        // look at each assignment for this vert
-        for (int j = 0; j < pweight->numbones; j++) {
-            // Discover the local bone index for this bone
-            int localBone = pweight->bone[j];
-
-            // assigned to boneIndex?
-            if (joints.RemapBone(localBone) == boneIndex) {
-                // add this vert to model
-                verts[vertCount++] = &worldVerts[i];
-            }
-        }
-    }
-
-    return vertCount;
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose: Copy all verts that are referenced by a face which has a vert assigned
-//			to this bone.
-//			NOTE: convex hulls of each bone will overlap at the joints
-// Input  : **verts -
-//			*worldVerts -
-//			&joints -
-//			boneIndex -
-// Output : int
-//-----------------------------------------------------------------------------
-int CJointedModel::CopyFaceVertsByBone(Vector **verts, Vector *worldVerts, int boneIndex) {
-    int vertCount = 0;
-
-    int *vertChecked = new int[m_pModel->numvertices];
-    for (int b = 0; b < m_pModel->numvertices; b++) {
-        vertChecked[b] = 0;
-    }
-
-    for (int i = 0; i < m_pModel->meshes.size(); i++) {
-        s_mesh_t *pmesh = &m_pModel->meshes[i];
-        for (int j = 0; j < pmesh->numfaces; j++) {
-            s_face_t *face = m_pModel->face + pmesh->faceoffset + j;
-            s_face_t globalFace;
-            GlobalFace(&globalFace, pmesh, face);
-            if (FaceHasVertOnBone(globalFace, boneIndex)) {
-                if (!vertChecked[globalFace.a]) {
-                    // add this vert to model
-                    verts[vertCount++] = &worldVerts[globalFace.a];
-                }
-                if (!vertChecked[globalFace.b]) {
-                    // add this vert to model
-                    verts[vertCount++] = &worldVerts[globalFace.b];
-                }
-                if (!vertChecked[globalFace.c]) {
-                    // add this vert to model
-                    verts[vertCount++] = &worldVerts[globalFace.c];
-                }
-                // mark these verts so you only add them once
-                vertChecked[globalFace.a] = 1;
-                vertChecked[globalFace.b] = 1;
-                vertChecked[globalFace.c] = 1;
-            }
-        }
-    }
-
-    delete[] vertChecked;
-    return vertCount;
-}
 
 
 //-----------------------------------------------------------------------------
@@ -886,72 +800,6 @@ void BuildVertWeldTable(int *weldTable, s_source_t *pmodel) {
             weldTable[i] = i;
         }
     }
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: marks all verts with a unique ID.  Each set of connected verts has
-//			the same ID.  IDs are the index of the lowest numbered face on the
-//			mesh
-// Input  : *vertID - array that holds IDs
-//			*pmodel - model to process
-//-----------------------------------------------------------------------------
-void MarkConnectedMeshes(int *vertID, s_source_t *pmodel, int *vertMap) {
-    int i;
-
-    // mark all verts as max faceid + 1
-    for (i = 0; i < pmodel->numvertices; i++) {
-        // If these verts have been welded to a lower-index vert, mark them
-        // as already processed to avoid making additional convex objects out of them.
-        if (vertMap[i] != i) {
-            vertID[i] = -1;
-        }
-        else {
-            vertID[i] = pmodel->numfaces + 1;
-        }
-    }
-
-    int marked = 0;
-    int faceid = 0;
-    // iterate the face list, minimizing the vertID at each vert
-    // until we have an iteration where no vertIDs are changed
-    do {
-        marked = 0;
-        faceid = 0;
-
-        for (i = 0; i < pmodel->meshes.size(); i++) {
-            s_mesh_t *pmesh = &pmodel->meshes[i];
-            for (int j = 0; j < pmesh->numfaces; j++) {
-                s_face_t *face = pmodel->face + pmesh->faceoffset + j;
-                s_face_t globalFace;
-                GlobalFace(&globalFace, pmesh, face);
-                // account for welding
-                globalFace.a = vertMap[globalFace.a];
-                globalFace.b = vertMap[globalFace.b];
-                globalFace.c = vertMap[globalFace.c];
-
-
-                // find min(faceid, vertID[a], vertID[b], vertID[c]);
-                int newid = MIN(faceid, vertID[globalFace.a]);
-                newid = MIN(newid, vertID[globalFace.b]);
-                newid = MIN(newid, vertID[globalFace.c]);
-
-                // mark all verts with the minimum, count the number we had to mark
-                if (vertID[globalFace.a] != newid) {
-                    vertID[globalFace.a] = newid;
-                    marked++;
-                }
-                if (vertID[globalFace.b] != newid) {
-                    vertID[globalFace.b] = newid;
-                    marked++;
-                }
-                if (vertID[globalFace.c] != newid) {
-                    vertID[globalFace.c] = newid;
-                    marked++;
-                }
-                faceid++;
-            }
-        }
-    } while (marked != 0);
 }
 
 
@@ -1172,8 +1020,8 @@ bool IsApproximatelyPlanar(Vector **verts, int vertCount, float epsilon) {
 }
 
 
-void BuildConvexListByVertID(s_source_t *pmodel, CUtlVector<convexlist_t> &convexList, CUtlVector<int> &vertList,
-                             CUtlVector<int> &vertID) {
+void BuildConvexListByVertID(s_source_t *pmodel, std::vector<convexlist_t> &convexList, std::vector<int> &vertList,
+                             std::vector<int> &vertID) {
     // loop through each island of verts and append it to the convex list
     convexlist_t current;
     for (int i = 0; i < pmodel->numvertices; i++) {
@@ -1181,35 +1029,31 @@ void BuildConvexListByVertID(s_source_t *pmodel, CUtlVector<convexlist_t> &conve
         if (vertID[i] < 0 || vertID[i] > pmodel->numfaces)
             continue;
 
-        current.firstVertIndex = vertList.Count();
+        current.firstVertIndex = std::ssize(vertList);
         current.numVertIndex = 0;
 
         int id = vertID[i];
 
         for (int j = i; j < pmodel->numvertices; j++) {
             if (vertID[j] == id) {
-                vertList.AddToTail(j);
+                vertList.push_back(j);
                 current.numVertIndex++;
                 // don't reuse this vert
                 vertID[j] = -1;
             }
         }
-        convexList.AddToTail(current);
+        convexList.push_back(current);
     }
 }
 
 // build a list of vertex indices for each connected sub-piece
-void BuildSingleConvexForFaceList(s_source_t *pmodel, CUtlVector<convexlist_t> &convexList, CUtlVector<int> &vertList,
-                                  const CUtlVector<s_face_t> &faceList) {
+void BuildSingleConvexForFaceList(s_source_t *pmodel, std::vector<convexlist_t> &convexList, std::vector<int> &vertList,
+                                  const std::vector<s_face_t> &faceList) {
     vstd::FunctionTimingRecorder _("Phys");
-    CUtlVector<int> vertID;
-    vertID.SetCount(pmodel->numvertices);
-    int i;
-    for (i = 0; i < pmodel->numvertices; i++) {
-        vertID[i] = -1;
-    }
+    std::vector<int> vertID(pmodel->numvertices, -1);
+    size_t i;
 
-    for (i = 0; i < faceList.Count(); i++) {
+    for (i = 0; i < faceList.size(); i++) {
         const s_face_t &globalFace = faceList[i];
         vertID[globalFace.a] = 1;
         vertID[globalFace.b] = 1;
@@ -1218,16 +1062,14 @@ void BuildSingleConvexForFaceList(s_source_t *pmodel, CUtlVector<convexlist_t> &
     BuildConvexListByVertID(pmodel, convexList, vertList, vertID);
 }
 
-void BuildConvexListForFaceList(s_source_t *pmodel, CUtlVector<convexlist_t> &convexList, CUtlVector<int> &vertList,
-                                const CUtlVector<s_face_t> &faceList) {
+void BuildConvexListForFaceList(s_source_t *pmodel, std::vector<convexlist_t> &convexList, std::vector<int> &vertList,
+                                const std::vector<s_face_t> &faceList) {
     vstd::FunctionTimingRecorder _("Phys");
-    CUtlVector<int> weldTable;
-    weldTable.SetCount(pmodel->numvertices);
-    BuildVertWeldTable(weldTable.Base(), pmodel);
+    std::vector<int> weldTable(pmodel->numvertices);
+    BuildVertWeldTable(weldTable.data(), pmodel);
 
     int i;
-    CUtlVector<int> vertID;
-    vertID.SetCount(pmodel->numvertices);
+    std::vector<int> vertID(pmodel->numvertices);
 
     // mark all verts as max faceid + 1
     for (i = 0; i < pmodel->numvertices; i++) {
@@ -1241,8 +1083,8 @@ void BuildConvexListForFaceList(s_source_t *pmodel, CUtlVector<convexlist_t> &co
         }
     }
 
-    Assert(convexList.Count()==0);
-    Assert(vertList.Count()==0);
+    Assert(convexList.empty());
+    Assert(vertList.empty());
 
     int marked = 0;
     int faceid = 0;
@@ -1254,7 +1096,7 @@ void BuildConvexListForFaceList(s_source_t *pmodel, CUtlVector<convexlist_t> &co
 
         // basically this flood fills ids out to the verts until each island of connected
         // verts shares a single id (so new verts got marked)
-        for (i = 0; i < faceList.Count(); i++) {
+        for (i = 0; i < std::ssize(faceList); i++) {
             s_face_t globalFace = faceList[i];
             // account for welding
             globalFace.a = weldTable[globalFace.a];
@@ -1288,26 +1130,26 @@ void BuildConvexListForFaceList(s_source_t *pmodel, CUtlVector<convexlist_t> &co
 
 // take a list of convex elements (lists of vert indices into master vert list) and build StudioConvex_t out of them
 // return true if there are no errors detected
-bool BuildConvexesForLists(CUtlVector<StudioConvex_t *> &convexOut, const CUtlVector<convexlist_t> &convexList,
-                           const CUtlVector<int> &vertList, const CUtlVector<Vector> &worldspaceVerts, bool bRemove2d) {
+bool BuildConvexesForLists(std::vector<StudioConvex_t *> &convexOut, const std::vector<convexlist_t> &convexList,
+                           const std::vector<int> &vertList, const std::vector<Vector> &worldspaceVerts, bool bRemove2d) {
     vstd::FunctionTimingRecorder _("Phys");
     bool bValid = true;
-    CUtlVector<Vector *> vertsThisConvex;
-    for (int i = 0; i < convexList.Count(); i++) {
+    std::vector<Vector *> vertsThisConvex;
+    for (size_t i = 0; i < convexList.size(); i++) {
         const convexlist_t &elem = convexList[i];
-        vertsThisConvex.RemoveAll();
+        vertsThisConvex.clear();
         for (int j = 0; j < elem.numVertIndex; j++) {
             // this is ok because physcollision won't modify these, but wants non-const
             Vector *pVert = const_cast<Vector *>(&worldspaceVerts[vertList[j + elem.firstVertIndex]]);
-            vertsThisConvex.AddToTail(pVert);
+            vertsThisConvex.push_back(pVert);
         }
 
         // need at least 3 verts to build a StudioConvex_t
-        if (vertsThisConvex.Count() > 2) {
+        if (vertsThisConvex.size() > 2) {
             const float g_epsilon_2d = 0.5f;
             // HACKHACK: A heuristic to detect models without smoothing groups set
             // UNDONE: Do a BSP to decompose arbitrary models to convex?
-            if (IsApproximatelyPlanar(vertsThisConvex.Base(), vertsThisConvex.Count(), g_epsilon_2d)) {
+            if (IsApproximatelyPlanar(vertsThisConvex.data(), std::ssize(vertsThisConvex), g_epsilon_2d)) {
                 if (bRemove2d)
                     continue;
                 MdlWarning("Model has 2-dimensional geometry (less than {:.3f} inches thick on any axis)!!!\n",
@@ -1315,11 +1157,11 @@ bool BuildConvexesForLists(CUtlVector<StudioConvex_t *> &convexOut, const CUtlVe
                 bValid = false;
             }
             // go ahead and build it out
-            auto *pConvex = g_StudioCollision.ConvexFromVerts(vertsThisConvex.Base(), vertsThisConvex.Count());
+            auto *pConvex = g_StudioCollision.ConvexFromVerts(vertsThisConvex.data(), std::ssize(vertsThisConvex));
             if (pConvex) {
                 // Got something valid, attach this convex data to the root model
                 g_StudioCollision.SetConvexGameData(pConvex, 0);
-                convexOut.AddToTail(pConvex);
+                convexOut.push_back(pConvex);
             }
         }
     }
@@ -1340,13 +1182,12 @@ int CJointedModel::ProcessJointedModel() {
         if (!ShouldProcessBone(boneIndex))
             continue;
 
-        CUtlVector<Vector> bonespaceVerts;
-        bonespaceVerts.SetCount(m_pModel->numvertices);
+        std::vector<Vector> bonespaceVerts(m_pModel->numvertices);
         ConvertToBoneSpace(boneIndex, bonespaceVerts);
-        CUtlVector<s_face_t> faceList;
-        CUtlVector<convexlist_t> convexList;
-        CUtlVector<int> vertList;
-        CUtlVector<StudioConvex_t *> convexOut;
+        std::vector<s_face_t> faceList;
+        std::vector<convexlist_t> convexList;
+        std::vector<int> vertList;
+        std::vector<StudioConvex_t *> convexOut;
         bool bValid = false;
 
         for (int i = 0; i < m_pModel->meshes.size(); i++) {
@@ -1356,7 +1197,7 @@ int CJointedModel::ProcessJointedModel() {
                 s_face_t globalFace;
                 GlobalFace(&globalFace, pmesh, face);
                 if (FaceHasVertOnBone(globalFace, boneIndex)) {
-                    faceList.AddToTail(globalFace);
+                    faceList.push_back(globalFace);
                 }
             }
 
@@ -1370,20 +1211,20 @@ int CJointedModel::ProcessJointedModel() {
             bValid = BuildConvexesForLists(convexOut, convexList, vertList, bonespaceVerts, m_remove2d);
         }
 
-        if (convexOut.Count() > m_maxConvex) {
-            MdlWarning("COSTLY COLLISION MODEL!!!! ({} parts - {} allowed)\n", convexOut.Count(), m_maxConvex);
+        if (std::ssize(convexOut) > m_maxConvex) {
+            MdlWarning("COSTLY COLLISION MODEL!!!! ({} parts - {} allowed)\n", convexOut.size(), m_maxConvex);
             bValid = false;
         }
 
-        if (!bValid && convexOut.Count()) {
+        if (!bValid && !convexOut.empty()) {
             MdlWarning("Error with convex elements of {}, building single convex!!!!\n", m_pModel->filename);
-            for (int i = 0; i < convexOut.Count(); i++) {
+            for (size_t i = 0; i < convexOut.size(); i++) {
                 g_StudioCollision.ConvexFree(convexOut[i]);
             }
-            convexOut.Purge();
+            convexOut.clear();
         }
 
-        if (convexOut.Count()) {
+        if (!convexOut.empty()) {
             int i;
 
             CPhysCollisionModel *pPhys = InitCollisionModel(m_pModel->localBone[boneIndex].name);
@@ -1400,22 +1241,22 @@ int CJointedModel::ProcessJointedModel() {
             boundingvolume_t bv;
             ClearBounds(bv.mins, bv.maxs);
             int vertCount = 0;
-            for (i = 0; i < convexList.Count(); i++) {
+            for (i = 0; i < std::ssize(convexList); i++) {
                 const convexlist_t &elem = convexList[i];
                 for (int j = 0; j < elem.numVertIndex; j++) {
                     AddPointToBounds(bonespaceVerts[vertList[elem.firstVertIndex + j]], bv.mins, bv.maxs);
                     vertCount++;
                 }
             }
-            for (i = 0; i < convexOut.Count(); i++) {
+            for (i = 0; i < std::ssize(convexOut); i++) {
                 // Attach this convex data to this particular bone
                 int globalBoneIndex = m_pModel->boneLocalToGlobal[boneIndex];
                 g_StudioCollision.SetConvexGameData(convexOut[i], globalBoneIndex + 1);
             }
 
-            CreateCollide(pPhys, convexOut.Base(), convexOut.Count(), bv);
+            CreateCollide(pPhys, convexOut.data(), std::ssize(convexOut), bv);
             MdlMessage("{:<24} ({:3} verts, {} convex elements) volume: {:4.2f}\n", pPhys->m_name, vertCount,
-                      convexOut.Count(), pPhys->m_volume);
+                      convexOut.size(), pPhys->m_volume);
             UnlinkCollisionModel(pPhys);
             AppendCollisionModel(pPhys);
         }
@@ -1546,23 +1387,22 @@ int CJointedModel::ProcessSingleBody() {
     }
 
 
-    CUtlVector<StudioConvex_t *> convexOut;
-    CUtlVector<convexlist_t> convexList;
+    std::vector<StudioConvex_t *> convexOut;
+    std::vector<convexlist_t> convexList;
 
-    CUtlVector<Vector> allworldspaceVerts;
+    std::vector<Vector> allworldspaceVerts;
 
     bool bValid = true;
 
     // if concavity is allowed, build out pConcaveSrc
     if (pConcaveSrc && m_allowConcave) {
-        CUtlVector<Vector> worldspaceVerts;
-        worldspaceVerts.SetCount(pConcaveSrc->numvertices);
+        std::vector<Vector> worldspaceVerts(pConcaveSrc->numvertices);
         ConvertToWorldSpace(worldspaceVerts, pConcaveSrc);
 
-        allworldspaceVerts.AddVectorToTail(worldspaceVerts);
+        allworldspaceVerts.insert(allworldspaceVerts.end(), worldspaceVerts.begin(), worldspaceVerts.end());
 
-        CUtlVector<s_face_t> faceList;
-        CUtlVector<int> vertList;
+        std::vector<s_face_t> faceList;
+        std::vector<int> vertList;
 
         for (int i = 0; i < pConcaveSrc->meshes.size(); i++) {
             s_mesh_t *pmesh = &pConcaveSrc->meshes[i];
@@ -1570,7 +1410,7 @@ int CJointedModel::ProcessSingleBody() {
                 s_face_t *face = pConcaveSrc->face + pmesh->faceoffset + j;
                 s_face_t globalFace;
                 GlobalFace(&globalFace, pmesh, face);
-                faceList.AddToTail(globalFace);
+                faceList.push_back(globalFace);
             }
         }
         BuildConvexListForFaceList(pConcaveSrc, convexList, vertList, faceList);
@@ -1589,30 +1429,27 @@ int CJointedModel::ProcessSingleBody() {
         if (m_ExtraModels[i].m_pSrc != NULL && !m_ExtraModels[i].m_bConcave) {
             s_source_t *pmodel = m_ExtraModels[i].m_pSrc;
 
-            CUtlVector<Vector> worldspaceVertsExtra;
-            worldspaceVertsExtra.SetCount(pmodel->numvertices);
+            std::vector<Vector> worldspaceVertsExtra(pmodel->numvertices);
             ConvertToWorldSpace(worldspaceVertsExtra, pmodel);
 
-            allworldspaceVerts.AddVectorToTail(worldspaceVertsExtra);
+            allworldspaceVerts.insert(allworldspaceVerts.end(), worldspaceVertsExtra.begin(), worldspaceVertsExtra.end());
 
-            CUtlVector<Vector *> vertsThisConvex;
-            vertsThisConvex.RemoveAll();
+            std::vector<Vector *> vertsThisConvex;
 
-            FOR_EACH_VEC(worldspaceVertsExtra, j) {
+            for (Vector &vert: worldspaceVertsExtra) {
                 // transform the verts using the offset
-                //worldspaceVertsExtra[j] = VectorTransform( worldspaceVertsExtra[j], m_ExtraModels[i].m_matOffset );
+                //vert = VectorTransform( vert, m_ExtraModels[i].m_matOffset );
 
-                // this is ok because physcollision won't modify these, but wants non-const
-                Vector *pVert = const_cast<Vector *>(&worldspaceVertsExtra[j]);
-                vertsThisConvex.AddToTail(pVert);
+                // physcollision won't modify these
+                vertsThisConvex.push_back(&vert);
             }
 
             StudioConvex_t *pConvex = g_StudioCollision.
-                    ConvexFromVerts(vertsThisConvex.Base(), vertsThisConvex.Count());
+                    ConvexFromVerts(vertsThisConvex.data(), std::ssize(vertsThisConvex));
             if (pConvex) {
                 // Got something valid, attach this convex data to the root model
                 g_StudioCollision.SetConvexGameData(pConvex, 0);
-                convexOut.AddToTail(pConvex);
+                convexOut.push_back(pConvex);
             }
             else {
                 MdlWarning("Error with convex elements of {}!\n", pmodel->filename);
@@ -1621,60 +1458,58 @@ int CJointedModel::ProcessSingleBody() {
         }
     }
 
-    if (convexOut.Count() > m_maxConvex) {
+    if (std::ssize(convexOut) > m_maxConvex) {
         if (g_ConvexHullCountOverride) {
             MdlWarning("Allowing costly collision model. Please be careful. ({} parts - {} normally allowed)\n",
-                       convexOut.Count(), m_maxConvex);
+                       convexOut.size(), m_maxConvex);
         }
         else {
-            MdlWarning("COSTLY COLLISION MODEL!!!! ({} parts - {} allowed)\n", convexOut.Count(), m_maxConvex);
+            MdlWarning("COSTLY COLLISION MODEL!!!! ({} parts - {} allowed)\n", convexOut.size(), m_maxConvex);
             bValid = false;
         }
     }
 
     if (!bValid) {
-        for (int i = 0; i < convexOut.Count(); i++) {
+        for (size_t i = 0; i < convexOut.size(); i++) {
             g_StudioCollision.ConvexFree(convexOut[i]);
         }
-        convexOut.Purge();
+        convexOut.clear();
     }
 
     // either we don't want concave, or there was an error building it
-    if (!convexOut.Count() || !m_allowConcave) {
-        convexOut.Purge();
+    if (convexOut.empty() || !m_allowConcave) {
+        convexOut.clear();
 
-        CUtlVector<Vector *> vertsThisConvex;
-        vertsThisConvex.RemoveAll();
+        std::vector<Vector *> vertsThisConvex;
 
-        FOR_EACH_VEC(allworldspaceVerts, j) {
-            // this is ok because physcollision won't modify these, but wants non-const
-            Vector *pVert = const_cast<Vector *>(&allworldspaceVerts[j]);
-            vertsThisConvex.AddToTail(pVert);
+        for (Vector &vert: allworldspaceVerts) {
+            // physcollision won't modify these
+            vertsThisConvex.push_back(&vert);
         }
 
-        StudioConvex_t *pConvex = g_StudioCollision.ConvexFromVerts(vertsThisConvex.Base(), vertsThisConvex.Count());
+        StudioConvex_t *pConvex = g_StudioCollision.ConvexFromVerts(vertsThisConvex.data(), std::ssize(vertsThisConvex));
         if (pConvex) {
             // Got something valid, attach this convex data to the root model
             g_StudioCollision.SetConvexGameData(pConvex, 0);
-            convexOut.AddToTail(pConvex);
+            convexOut.push_back(pConvex);
         }
         else {
             Error("Error building fallback convex hull!\n");
         }
     }
 
-    if (convexOut.Count()) {
-        MdlMessage("Model has {} convex sub-parts\n", convexOut.Count());
+    if (!convexOut.empty()) {
+        MdlMessage("Model has {} convex sub-parts\n", convexOut.size());
 
         CPhysCollisionModel *pPhys = new CPhysCollisionModel;
         SetCollisionModelDefaults(pPhys);
 
         boundingvolume_t bv;
         ClearBounds(bv.mins, bv.maxs);
-        for (int i = allworldspaceVerts.Count() - 1; --i >= 0;) {
+        for (int i = std::ssize(allworldspaceVerts) - 1; --i >= 0;) {
             AddPointToBounds(allworldspaceVerts[i], bv.mins, bv.maxs);
         }
-        CreateCollide(pPhys, convexOut.Base(), convexOut.Count(), bv);
+        CreateCollide(pPhys, convexOut.data(), std::ssize(convexOut), bv);
 
         // Init mass, write routine will distribute the total mass
         pPhys->m_mass = 1.0;
@@ -2081,116 +1916,6 @@ void ParseCollisionCommands(ScriptTokenizer &qc, CJointedModel &joints) {
 }
 
 
-void Cmd_CollisionText(ScriptTokenizer &qc) {
-    int level = 1;
-
-    if (!qc.GetToken(true))
-        return;
-
-    if (qc.token[0] != '{')
-        return;
-
-
-    while (qc.GetToken(true)) {
-        if (!strcmp(qc.token, "}")) {
-            level--;
-            if (level <= 0)
-                break;
-            g_JointedModel.AddText(" }\n");
-        }
-        else if (!strcmp(qc.token, "{")) {
-            g_JointedModel.AddText("{");
-            level++;
-        }
-        else {
-            // tokens inside braces  are quoted
-            if (level > 1) {
-                g_JointedModel.AddText("\"");
-                g_JointedModel.AddText(qc.token);
-                g_JointedModel.AddText("\" ");
-            }
-            else {
-                g_JointedModel.AddText(qc.token);
-                g_JointedModel.AddText(" ");
-            }
-        }
-    }
-}
-
-
-static bool LoadSurfaceProps(const char *pMaterialFilename, const char *pathID) {
-    FileHandle_t fp = g_pFileSystem->Open(pMaterialFilename, "rb", pathID);
-    if (fp == FILESYSTEM_INVALID_HANDLE) {
-        Warning("Failed to load %s, but file specified in the surfaceproperties_manifest.txt!\n", pMaterialFilename);
-        return false;
-    }
-
-    int len = g_pFileSystem->Size(fp);
-    char *pText = new char[len + 1];
-    g_pFileSystem->Read(pText, len, fp);
-    g_pFileSystem->Close(fp);
-
-    pText[len] = 0;
-
-    g_StudioSurfaceProps.ParseSurfaceData(pMaterialFilename, pText);
-
-    delete[] pText;
-
-    return true;
-}
-
-bool TryLoadAllSurfaceProps(const char *pathID) {
-    bool result = false;
-    const char *SURFACEPROP_MANIFEST_FILE = SURFPROP_MANIFEST;
-    KeyValues *manifest = new KeyValues(SURFACEPROP_MANIFEST_FILE);
-    if (manifest->LoadFromFile(g_pFileSystem, SURFACEPROP_MANIFEST_FILE, pathID)) {
-        result = true;
-        for (KeyValues *sub = manifest->GetFirstSubKey(); sub != NULL; sub = sub->GetNextKey()) {
-            if (!Q_stricmp(sub->GetName(), "file")) {
-                // Add
-                LoadSurfaceProps(sub->GetString(), pathID);
-                continue;
-            }
-        }
-    }
-    manifest->deleteThis();
-
-    return result;
-}
-
-static bool LoadEmbeddedSurfaceProps(const char *pMaterialFilename) {
-    std::string text;
-    // if ( !EmbeddedResources::GetText( pMaterialFilename, text ) )
-    // {
-    // 	Warning( "Embedded surfaceprop resource %s was not found!\n", pMaterialFilename );
-    // 	return false;
-    // }
-
-    g_StudioSurfaceProps.ParseSurfaceData(pMaterialFilename, text.c_str());
-    return true;
-}
-
-static bool TryLoadAllEmbeddedSurfaceProps() {
-    const char *SURFACEPROP_MANIFEST_FILE = SURFPROP_MANIFEST;
-    std::string manifestText;
-    // if ( !EmbeddedResources::GetText( SURFACEPROP_MANIFEST_FILE, manifestText ) )
-    // 	return false;
-
-    bool result = false;
-    KeyValues *manifest = new KeyValues(SURFACEPROP_MANIFEST_FILE);
-    if (manifest->LoadFromBuffer(SURFACEPROP_MANIFEST_FILE, manifestText.c_str())) {
-        result = true;
-        for (KeyValues *sub = manifest->GetFirstSubKey(); sub != NULL; sub = sub->GetNextKey()) {
-            if (!Q_stricmp(sub->GetName(), "file")) {
-                LoadEmbeddedSurfaceProps(sub->GetString());
-                continue;
-            }
-        }
-    }
-    manifest->deleteThis();
-
-    return result;
-}
 
 void LoadSurfacePropsAll() {
     static bool bIsLoaded = false;
@@ -2317,14 +2042,6 @@ void KeyWriteIntPair(FILE *fp, const char *pKeyName, int outputData0, int output
 
 void KeyWriteString(FILE *fp, const char *pKeyName, const char *outputData) {
     std::print(fp, "\"{}\" \"{}\"\n", pKeyName, outputData);
-}
-
-void KeyWriteVector3(FILE *fp, const char *pKeyName, const Vector &outputData) {
-    std::print(fp, "\"{}\" \"{:f} {:f} {:f}\"\n", pKeyName, outputData[0], outputData[1], outputData[2]);
-}
-
-void KeyWriteQAngle(FILE *fp, const char *pKeyName, const QAngle &outputData) {
-    std::print(fp, "\"{}\" \"{:f} {:f} {:f}\"\n", pKeyName, outputData[0], outputData[1], outputData[2]);
 }
 
 void KeyWriteFloat(FILE *fp, const char *pKeyName, float outputData) {
@@ -2459,35 +2176,6 @@ void BuildRagdollConstraint(CPhysCollisionModel *pPhys, constraint_ragdollparams
         }
         pList = pList->m_pNext;
     }
-}
-
-float GetCollisionModelMass() {
-    return g_JointedModel.m_totalMass;
-}
-
-void CollisionModel_ExpandBBox(Vector &mins, Vector &maxs) {
-    // don't do fixup for ragdolls
-    if (g_JointedModel.m_isJointed)
-        return;
-
-    if (g_JointedModel.m_pCollisionList) {
-        Vector collideMins, collideMaxs;
-
-        g_StudioCollision.CollideGetAABB(&collideMins, &collideMaxs, g_JointedModel.m_pCollisionList->m_pCollisionData,
-                                         vec3_origin, vec3_angle);
-
-        // add the 0.25 inch collision separation as well
-        const float radius = 0.25;
-        collideMins -= Vector(radius, radius, radius);
-        collideMaxs += Vector(radius, radius, radius);
-
-        AddPointToBounds(collideMins, mins, maxs);
-        AddPointToBounds(collideMaxs, mins, maxs);
-    }
-}
-
-void CollisionModel_SetName(const char *pName) {
-    g_JointedModel.SetOverrideName(pName);
 }
 
 //-----------------------------------------------------------------------------
@@ -2641,7 +2329,7 @@ void CollisionModel_Write(long checkSum) {
             if (g_JointedModel.m_allowConcave) {
                 KeyWriteInt(fp, "concave", 1);
             }
-            for (int k = 0; k < g_JointedModel.m_mergeList.Count(); k++) {
+            for (size_t k = 0; k < g_JointedModel.m_mergeList.size(); k++) {
                 char buf[512];
                 Q_snprintf(buf, sizeof(buf), "%s,%s", g_JointedModel.m_mergeList[k].pParent,
                            g_JointedModel.m_mergeList[k].pChild);
@@ -2651,8 +2339,8 @@ void CollisionModel_Write(long checkSum) {
             std::print(fp, "}}\n");
 
             char terminator = 0;
-            if (g_JointedModel.m_textCommands.Count()) {
-                fwrite(g_JointedModel.m_textCommands.Base(), g_JointedModel.m_textCommands.Count(), 1, fp);
+            if (!g_JointedModel.m_textCommands.empty()) {
+                fwrite(g_JointedModel.m_textCommands.data(), g_JointedModel.m_textCommands.size(), 1, fp);
             }
             fwrite(&terminator, sizeof(terminator), 1, fp);
             fclose(fp);

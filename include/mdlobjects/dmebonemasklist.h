@@ -29,7 +29,7 @@ class CDmeBoneMaskList : public CDmeMdlList
 	DEFINE_ELEMENT( CDmeBoneMaskList, CDmeMdlList );
 
 public:
-	virtual CDmAttribute *GetListAttr() { return m_BoneMaskList.GetAttribute(); }
+    CDmAttribute *GetListAttr() override { return m_BoneMaskList.GetAttribute(); }
 
 	CDmaElement< CDmeBoneMask > m_eDefaultBoneMask;
 	CDmaElementArray< CDmeBoneMask > m_BoneMaskList;

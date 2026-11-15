@@ -310,15 +310,6 @@ inline bool color32::operator!=( const color32 &other ) const
 #endif
 
 
-//-----------------------------------------------------------------------------
-// MaterialRect_t struct - used for DrawDebugText
-//-----------------------------------------------------------------------------
-struct Rect_t
-{
-	int x, y;
-	int width, height;
-};
-
 struct Rect3D_t
 {
 	int x, y, z;
@@ -341,15 +332,6 @@ struct Rect3D_t
 };
 
 
-
-//-----------------------------------------------------------------------------
-// Interval, used by soundemittersystem + the game
-//-----------------------------------------------------------------------------
-struct interval_t
-{
-	float start;
-	float range;
-};
 
 
 //-----------------------------------------------------------------------------

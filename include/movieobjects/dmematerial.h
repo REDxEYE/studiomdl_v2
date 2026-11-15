@@ -26,10 +26,9 @@ class CDmeMaterial : public CDmElement
 	DEFINE_ELEMENT( CDmeMaterial, CDmElement );
 
 public:
-	void SetMaterial( const char *pMaterialName );
 	const char *GetMaterialName() const;
 
-	virtual void Resolve();
+    void Resolve() override;
 
 private:
 	CDmaString m_mtlName;

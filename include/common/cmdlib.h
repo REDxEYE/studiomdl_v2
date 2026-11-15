@@ -69,18 +69,11 @@ extern char **myargv;
 
 int Q_filelength (FileHandle_t f);
 
-void	Q_mkdir( char *path );
-
 // UTF-8 paths
 std::string ExpandArg( std::string_view path );	// absolute, relative to the current directory
 std::string ExpandPath( std::string_view path );	// absolute, relative to qdir (the QC directory)
 
-// Fills in pOut with "X hours, Y minutes, Z seconds". Leaves out hours or minutes if they're zero.
-void GetHourMinuteSecondsString( int nInputSeconds, char *pOut, int outLen );
 
-
-
-int		CheckParm (char *check);
 
 FileHandle_t	SafeOpenWrite ( const char *filename );
 FileHandle_t	SafeOpenRead ( const char *filename );
@@ -91,14 +84,11 @@ int		LoadFile ( const char *filename, void **bufferptr );
 void	SaveFile ( const char *filename, void *buffer, int count );
 qboolean	FileExists ( const char *filename );
 
-int 	ParseNum (char *str);
-
 // Do a printf in the specified color.
 #define CP_ERROR	stderr, 1, 0, 0, 1		// default colors..
 #define CP_WARNING	stderr, 1, 1, 0, 1		
 #define CP_STARTUP	stdout, 0, 1, 1, 1		
 #define CP_NOTIFY	stdout, 1, 1, 1, 1
-void ColorPrintf( FILE *pFile, bool red, bool green, bool blue, bool intensity, char const *pFormat, ... );
 
 // Initialize spew output.
 void InstallSpewFunction();
@@ -120,14 +110,15 @@ void RestoreConsoleTextColor( unsigned short color );
 class CCmdLibStandardLoggingListener : public ILoggingListener
 {
 public:
-	virtual void Log( const LoggingContext_t *pContext, const tchar *pMessage );
+    void Log( const LoggingContext_t *pContext, const tchar *pMessage ) override;
 };
 
 class CCmdLibFileLoggingListener : public ILoggingListener
 {
 public:
 	CCmdLibFileLoggingListener();
-	virtual void Log( const LoggingContext_t *pContext, const tchar *pMessage );
+
+    void Log( const LoggingContext_t *pContext, const tchar *pMessage ) override;
 	void Open( char const *pFilename );
 	void Close();
 
@@ -138,22 +129,16 @@ private:
 extern CCmdLibStandardLoggingListener g_CmdLibOutputLoggingListener;
 extern CCmdLibFileLoggingListener g_CmdLibFileLoggingListener;
 
-char *COM_Parse (char *data);
-
 extern	char		com_token[1024];
 
 char *copystring(const char *s);
 
-void	CreatePath( char *path );
-void	QCopyFile( char *from, char *to );
 void	SafeCreatePath( char *path );
 
 extern	qboolean		archive;
 extern	char			archivedir[1024];
 
 extern	qboolean verbose;
-
-void qprintf( char *format, ... );
 
 void ExpandWildcards (int *argc, char ***argv);
 

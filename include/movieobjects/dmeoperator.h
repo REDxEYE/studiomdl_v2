@@ -10,7 +10,7 @@
 #include "datamodel/dmelement.h"
 #include "datamodel/dmattributevar.h"
 
-#include "tier1/utlvector.h"
+#include <vector>
 
 
 //-----------------------------------------------------------------------------
@@ -21,18 +21,19 @@ class CDmeOperator : public IDmeOperator, public CDmElement
 	DEFINE_ELEMENT( CDmeOperator, CDmElement );
 
 public:
-	virtual bool IsDirty(); // ie needs to operate
-	virtual void Operate() {}
-	virtual const char* GetOperatorName() const { return m_Name.Get(); }
+    bool IsDirty() override; // ie needs to operate
+    void Operate() override {}
+    const char* GetOperatorName() const override { return m_Name.Get(); }
 
-	virtual void GetInputAttributes ( CUtlVector< CDmAttribute * > &attrs ) {}
-	virtual void GetOutputAttributes( CUtlVector< CDmAttribute * > &attrs ) {}
-	virtual void GatherInputOperators( CUtlVector< CDmeOperator * > &operators );
+    void GetInputAttributes ( std::vector< CDmAttribute * > &attrs ) override {}
+    void GetOutputAttributes( std::vector< CDmAttribute * > &attrs ) override {}
+	virtual void GatherInputOperators( std::vector< CDmeOperator * > &operators );
 
-	virtual void SetSortKey( int key );
-	virtual int GetSortKey() const;
+    void SetSortKey( int key ) override;
+
+    int GetSortKey() const override;
 	int	m_nSortKey;
 };
 
-void GatherOperatorsForElement(  CDmElement *pElement, CUtlVector< CDmeOperator * > &operators );
+void GatherOperatorsForElement(  CDmElement *pElement, std::vector< CDmeOperator * > &operators );
 

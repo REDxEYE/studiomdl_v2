@@ -28,7 +28,7 @@ class CDmeHitboxSetList : public CDmeMdlList
 	DEFINE_ELEMENT( CDmeHitboxSetList, CDmeMdlList );
 
 public:
-	virtual CDmAttribute *GetListAttr() { return m_HitboxSetList.GetAttribute(); }
+    CDmAttribute *GetListAttr() override { return m_HitboxSetList.GetAttribute(); }
 
 	CDmaElementArray< CDmeHitboxSet > m_HitboxSetList;
 

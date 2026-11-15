@@ -59,50 +59,7 @@ void CDmeConstraintTarget::ClearOffset()
 }
 
 
-//-----------------------------------------------------------------------------
-// Purpose: Find the channel driving the weight value of the constraint
-//-----------------------------------------------------------------------------
-CDmeChannel *CDmeConstraintTarget::FindWeightChannel() const
-{
-	for ( DmAttributeReferenceIterator_t it = g_pDataModel->FirstAttributeReferencingElement( GetHandle() );
-		it != DMATTRIBUTE_REFERENCE_ITERATOR_INVALID;
-		it = g_pDataModel->NextAttributeReferencingElement( it ) )
-	{
-		CDmAttribute *pAttr = g_pDataModel->GetAttribute( it );
-		CDmElement *pElement = pAttr->GetOwner();
-		if ( pElement == nullptr)
-			continue;
 
-		CDmeChannel *pChannel = CastElement< CDmeChannel >( pElement );
-		if ( pChannel )
-		{		
-			if ( pChannel->GetToAttribute() == m_flWeight.GetAttribute() )
-				return pChannel;
-		}
-	}
-
-	return nullptr;
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose: Get the constraint that target belongs to.
-//-----------------------------------------------------------------------------
-CDmeRigBaseConstraintOperator *CDmeConstraintTarget::GetConstraint()
-{
-	return FindAncestorReferencingElement< CDmeRigBaseConstraintOperator >( this );
-}
-
-
-//-----------------------------------------------------------------------------
-// Get the control attached to constraint
-//-----------------------------------------------------------------------------
-CDmElement *CDmeConstraintTarget::FindWeightControl() const
-{
-	CDmElement *pWeightChannel = FindWeightChannel();
-	CDmElement *pControl = FindReferringElement< CDmElement >( pWeightChannel, "channel" );
-	return pControl;
-}
 
 
 
@@ -338,79 +295,7 @@ void CDmeRigBaseConstraintOperator::AddAncestorAttributes(  CUtlVector< CDmAttri
 }
 
 
-//-----------------------------------------------------------------------------
-// Purpose: Add target handles to the the constraint with the specified 
-// weights. Returns the index of the first target added.
-//-----------------------------------------------------------------------------
-void CDmeRigBaseConstraintOperator::AddHandles( int nCount, CDmeDag *const pTargetDags[], const float *pflWeights, bool bPreserveOffset, CUtlVector< CDmeConstraintTarget* > *pTargetList )
-{
-	// If a target list is provided, allocate the space to hold all
-	// of the constraint targets for the list of input dag nodes.
-	if ( pTargetList )
-	{
-		pTargetList->EnsureCapacity( pTargetList->Count() + nCount );
-	}
 
-	for ( int i = 0; i < nCount; ++i )
-	{
-		Assert( pTargetDags[ i ] );
-		if ( !pTargetDags[ i ] )
-			continue;
-		
-		// Check to see if the constraint already has a target with the specified dag node
-		CDmeConstraintTarget *pTarget = FindConstraintTargetForDag( pTargetDags[ i ] );
-
-		if ( pTarget == nullptr)
-		{
-			pTarget = CreateElement< CDmeConstraintTarget >( CFmtStr( "%s", pTargetDags[ i ]->GetName() ), GetFileId() );
-			m_Targets.AddToTail( pTarget );		
-		}
-
-		if ( pTarget != nullptr)
-		{
-			pTarget->m_Handle = pTargetDags[ i ];
-			pTarget->m_flWeight = ( pflWeights != nullptr) ? pflWeights[ i ] : 1.0f;
-
-			Vector vOffset = vec3_origin;
-			Quaternion qOffset = quat_identity;
-			ComputeOffset( vOffset, qOffset, pTarget, bPreserveOffset );
-			pTarget->m_vecOffset = vOffset;
-			pTarget->m_qOffset = qOffset;
-
-			if ( pTargetList )
-			{
-				pTargetList->AddToTail( pTarget );
-			}
-		}
-	}
-
-	PostHandlesAdded( bPreserveOffset );
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose: Remove all target handles from the constraint
-//-----------------------------------------------------------------------------
-void CDmeRigBaseConstraintOperator::ClearHandles()
-{
-	m_Targets.RemoveAll();
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose: Set the dag node which the constraint is controlling
-//-----------------------------------------------------------------------------
-void CDmeRigBaseConstraintOperator::SetSlave( CDmeDag *pSlave )
-{
-	m_Slave->m_Dag = pSlave;
-
-	CDmeTransform *pTransform = pSlave->GetTransform();
-	if ( pTransform )
-	{
-		m_Slave->SetBasePosition( pTransform->GetPosition() );
-		m_Slave->SetBaseOrientation( pTransform->GetOrientation() );
-	}
-}
 
 
 //-----------------------------------------------------------------------------
@@ -421,14 +306,6 @@ const CDmeDag *CDmeRigBaseConstraintOperator::GetSlave() const
 	return m_Slave->m_Dag;
 }
 
-
-//-----------------------------------------------------------------------------
-// Purpose: Set the operating mode of the constraint
-//-----------------------------------------------------------------------------
-void CDmeRigBaseConstraintOperator::SetMode( RigOperatorMode_t mode )
-{
-	m_mode = mode;
-}
 
 
 //-----------------------------------------------------------------------------
@@ -561,7 +438,7 @@ float CDmeRigBaseConstraintOperator::ComputeTargetOrientation( Quaternion &wsTar
 // Purpose: Get a list of all of the operators that the operation of the 
 // constraint depends on.
 //-----------------------------------------------------------------------------
-void CDmeRigBaseConstraintOperator::GatherInputOperators( CUtlVector< CDmeOperator * > &operatorList )
+void CDmeRigBaseConstraintOperator::GatherInputOperators( std::vector< CDmeOperator * > &operatorList )
 {
 	// Iterate through the targets and add the operator 
 	// dependencies for the associated dag nodes.
@@ -689,100 +566,7 @@ void CDmeRigBaseConstraintOperator::ReconnectSlaveChannels( CDmeConstraintSlave 
 }
 
 
-//-----------------------------------------------------------------------------
-// Purpose: Find the constraint target for the specified dag node
-//-----------------------------------------------------------------------------
-CDmeConstraintTarget *CDmeRigBaseConstraintOperator::FindConstraintTargetForDag( CDmeDag* pDagNode ) const
-{
-	if ( pDagNode == nullptr)
-		return nullptr;
 
-	int nTargets = m_Targets.Count();
-	for ( int iTarget = 0; iTarget < nTargets; ++iTarget )
-	{
-		CDmeConstraintTarget *pTarget = m_Targets[ iTarget ];
-		if ( pTarget )
-		{
-			if ( pTarget->GetDag() == pDagNode )
-			{
-				return pTarget;
-			}
-		}
-	}
-
-	return nullptr;
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose: Find all of the constraints that target the specified dag node
-//-----------------------------------------------------------------------------
-void CDmeRigBaseConstraintOperator::FindDagConstraints( const CDmeDag *pDagNode, CUtlVector< CDmeRigBaseConstraintOperator* > &constraintList )
-{
-	if ( pDagNode == nullptr)
-		return;
-
-	// Find the slave instances targeting the specified node
-	CUtlVector< CDmeConstraintSlave* > slaveList;
-	FindAncestorsReferencingElement( pDagNode, slaveList );
-
-	// Find the constraints for each slave instance
-	for ( int i = 0; i < slaveList.Count(); ++i ) 
-	{
-		FindAncestorsReferencingElement( slaveList[ i ], constraintList );
-	}
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose: Find the constraint on the dag of the specified type
-//-----------------------------------------------------------------------------
-CDmeRigBaseConstraintOperator *CDmeRigBaseConstraintOperator::FindDagConstraint( CDmeDag *pDag, EConstraintType constraintType )
-{
-	CUtlVector< CDmeRigBaseConstraintOperator* > constraintList;
-	FindDagConstraints( pDag, constraintList );
-
-	int nConstraints = constraintList.Count();
-	for ( int iConstraint = 0; iConstraint < nConstraints; ++iConstraint )
-	{
-		CDmeRigBaseConstraintOperator *pConstraint = constraintList[ iConstraint ];
-		if ( pConstraint )
-		{
-			if ( pConstraint->GetConstraintType() == constraintType )
-			{
-				return pConstraint;
-			}
-		}
-	}
-
-	return nullptr;
-}
-
-//-------------------------------------------------------------------------------------------------
-// Purpose: Get the string name associated with the specified constraint type.
-//-------------------------------------------------------------------------------------------------
-char const *CDmeRigBaseConstraintOperator::ConstraintTypeName( EConstraintType eType )
-{
-	switch ( eType )
-	{
-		case CT_POINT:
-			return( "pointConstraint" );
-		case CT_ORIENT:
-			return( "orientConstraint" );
-		case CT_AIM:
-			return( "aimConstraint" );
-		case CT_IK:
-			return( "ikConstraint" );
-		case CT_PARENT:
-			return( "parentConstraint" );
-		case CT_ROTATION:
-			return( "rotationConstraint" );
-		default:
-			break;
-	}
-	Assert( 0 );
-	return "unknown";
-}
 
 
 
@@ -950,37 +734,6 @@ void CDmeRigAimConstraintOperator::PostHandlesAdded( bool bPreserveOffset )
 }
 
 
-//-----------------------------------------------------------------------------
-// Purpose: Set the up vector to be used when calculating the orientation from 
-// the target position. The up vector may be in world space or in the space of
-// a specified dag node.
-//-----------------------------------------------------------------------------
-void CDmeRigAimConstraintOperator::SetUpVector( const Vector &upVector, bool bPreserveOffset, const CDmeDag *pUpSpaceTarget )
-{
-	CDmeDag *pDag = m_Slave->GetDag();
-	if ( pDag == nullptr)
-		return;
-
-	m_UpVector = upVector.Normalized();
-	m_UpSpaceTarget = pUpSpaceTarget;
-	UpdateOffset( bPreserveOffset );
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose: Set the up vector to be used when calculating the orientation from 
-// the target position. The up vector may be in world space or in the space of
-// a specified dag node.
-//-----------------------------------------------------------------------------
-void CDmeRigAimConstraintOperator::SetUpType( int nUpType )
-{
-	if ( nUpType < CConstraintBones::AC_UP_TYPE_FIRST || nUpType > CConstraintBones::AC_UP_TYPE_LAST )
-	{
-		nUpType = CConstraintBones::AC_UP_TYPE_OBJECT_ROTATION;
-	}
-
-	m_UpType = CConstraintBones::AC_UP_TYPE_OBJECT_ROTATION;
-}
 
 
 //-----------------------------------------------------------------------------
@@ -1128,40 +881,6 @@ float CDmeRigAimConstraintOperator::CalculateOrientation( Quaternion &targetOrie
 }
 
 
-//-----------------------------------------------------------------------------
-// Purpose: Calculate the rotational offset which will be applied after aiming
-// the transform at the target location. The rotational offset essentially 
-// allows the selection of which direction within the slave's space will be
-// considered the forward direction and will point towards the target.
-//-----------------------------------------------------------------------------
-void CDmeRigAimConstraintOperator::UpdateOffset( bool bPreserveOffset )
-{
-	if ( !bPreserveOffset )
-	{
-		m_AimOffset = quat_identity;
-		return;
-	}
-
-	CDmeDag *pDag = m_Slave->GetDag();
-	if ( pDag == nullptr)
-		return;
-
-	CDmeTransform *pTransform = pDag->GetTransform();
-	if ( pTransform == nullptr)
-		return;
-
-	// Calculate the desired orientation based the target position
-	Quaternion targetOrientation;
-	CalculateOrientation( targetOrientation );
-
-	// Compute the difference between the slave's current orientation and the target orientation
-	Quaternion slaveOrientation = pTransform->GetOrientation();
-	Quaternion qInv, aimOffset;
-	QuaternionInvert( targetOrientation, qInv );
-	QuaternionMult( qInv, slaveOrientation, aimOffset );
-	m_AimOffset = aimOffset;
-}
-
 
 //-----------------------------------------------------------------------------
 // Purpose: Operate the aim constraint, modifying the orientation of the slave 
@@ -1290,40 +1009,7 @@ void CDmeRigRotationConstraintOperator::GetInputAttributes( CUtlVector< CDmAttri
 }
 
 
-//-----------------------------------------------------------------------------
-// Purpose: Add a rotation axis
-//-----------------------------------------------------------------------------
-int CDmeRigRotationConstraintOperator::AddAxis( const Vector &axis )
-{
-	int index = m_Axies.AddToTail( axis );
-	m_Rotations.AddToTail( 0.0f );
-	Assert( m_Rotations.Count() == m_Axies.Count() );
-	return index;
-}
 
-
-//-----------------------------------------------------------------------------
-// Purpose: Set the axis around which the rotation is to occur
-//-----------------------------------------------------------------------------
-void CDmeRigRotationConstraintOperator::SetAxis( const Vector &axis, int index )
-{
-	if ( index < m_Axies.Count() )
-	{
-		m_Axies.Set( index, axis );
-	}
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose: Set current rotation value
-//-----------------------------------------------------------------------------
-void CDmeRigRotationConstraintOperator::SetRotation( float rotation, int index )
-{
-	if ( index < m_Rotations.Count() )
-	{
-		m_Rotations.Set( index, rotation );
-	}
-}
 
 
 
@@ -1739,34 +1425,7 @@ void CDmeRigIKConstraintOperator::Operate()
 }
 
 
-//-----------------------------------------------------------------------------
-// Purpose: Assign the dag nodes that to be controlled by the ik constraint.
-//-----------------------------------------------------------------------------
-void CDmeRigIKConstraintOperator::SetJoints( CDmeDag *pStartJoint, CDmeDag *pMidJoint, CDmeDag *pEndJoint )
-{
-	m_StartJoint->SetDag( pStartJoint );
-	m_MidJoint->SetDag( pMidJoint );
-	m_EndJoint->SetDag( pEndJoint );
-}
 
-
-//-----------------------------------------------------------------------------
-// Purpose: Set the world space pole vector for the ik constraint
-//-----------------------------------------------------------------------------
-void CDmeRigIKConstraintOperator::SetPoleVector( const Vector &poleVector )
-{
-	m_PoleVector = poleVector;
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose: Set the pole vector target, a dag node toward which the pole vector
-// will point, overrides the standard pole vector.
-//-----------------------------------------------------------------------------
-void CDmeRigIKConstraintOperator::SetPoleVectorTarget( CDmeDag *pPoleVectorTarget )
-{
-	m_PoleVectorTarget = pPoleVectorTarget;
-}
 
 
 //-----------------------------------------------------------------------------
@@ -1797,7 +1456,7 @@ void CDmeRigIKConstraintOperator::GetInputAttributes( CUtlVector< CDmAttribute *
 //-----------------------------------------------------------------------------
 // Purpose: Find all of the channels relevant to all of the target handles 
 //-----------------------------------------------------------------------------
-void CDmeRigIKConstraintOperator::GatherInputOperators( CUtlVector< CDmeOperator * > &operatorList )
+void CDmeRigIKConstraintOperator::GatherInputOperators( std::vector< CDmeOperator * > &operatorList )
 {	
 	if ( m_PoleVectorTarget.GetElement() )
 	{
@@ -1929,24 +1588,6 @@ void CDmeRigTwistConstraintOperator::OnDestruction()
 }
 
 
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-bool CDmeRigTwistConstraintOperator::SetTargets( CDmeDag *pDmeDagParent, CDmeDag *pDmeDagChild )
-{
-	ClearHandles();
-
-	if ( !pDmeDagParent || !pDmeDagChild )
-		return false;
-
-	CDmeDag *dmeDags[] = { pDmeDagParent, pDmeDagChild };
-	float flWeights[] = { 1.0f, 1.0f };
-
-	AddHandles( 2, dmeDags, flWeights, false, nullptr);
-
-	return true;
-}
-
 
 //-----------------------------------------------------------------------------
 // Purpose: Return the DmeDag parent target or NULL
@@ -1984,29 +1625,6 @@ void CDmeRigTwistConstraintOperator::ClearSlaves()
 }
 
 
-//-----------------------------------------------------------------------------
-// Purpose: Add the specified DmeDag as a slave with the specified weight
-// Returns: The index of the slave, -1 on failure
-//-----------------------------------------------------------------------------
-int CDmeRigTwistConstraintOperator::AddSlave( CDmeDag *pDmeDagSlave, float flWeight )
-{
-	CDmeRigTwistSlave *pDmeRigTwistSlave = CreateElement< CDmeRigTwistSlave >( pDmeDagSlave->GetName(), GetFileId() );
-	if ( !pDmeRigTwistSlave )
-		return -1;
-
-	// This assume the current rotation of the specified dag is the base/bind rotation
-	matrix3x4_t mBind;
-	pDmeDagSlave->GetLocalMatrix( mBind );
-	Quaternion qBind;
-	MatrixQuaternion( mBind, qBind );
-
-	pDmeRigTwistSlave->SetDag( pDmeDagSlave );
-	pDmeRigTwistSlave->SetWeight( flWeight );
-	pDmeRigTwistSlave->SetBaseOrientation( qBind );
-
-	return m_eSlaves.AddToTail( pDmeRigTwistSlave );
-}
-
 
 //-----------------------------------------------------------------------------
 // Purpose: Return the DmeDag of the slave at the specified index
@@ -2026,22 +1644,6 @@ float CDmeRigTwistConstraintOperator::GetSlaveWeight( int i ) const
 }
 
 
-//-----------------------------------------------------------------------------
-// Purpose: Set the bind orientation of the parent
-//-----------------------------------------------------------------------------
-void CDmeRigTwistConstraintOperator::SetParentBindRotation( const Quaternion &qBindRotation )
-{
-	m_qParentBindRotation = qBindRotation;
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose: Set the bind orientation of the child
-//-----------------------------------------------------------------------------
-void CDmeRigTwistConstraintOperator::SetChildBindRotation( const Quaternion &qBindRotation )
-{
-	m_qChildBindRotation = qBindRotation;
-}
 
 
 //-----------------------------------------------------------------------------
@@ -2059,17 +1661,6 @@ const Quaternion &CDmeRigTwistConstraintOperator::GetSlaveBindOrientation( int i
 	}
 }
 
-
-//-----------------------------------------------------------------------------
-// Purpose: Set the bind orientation of the slave at the specified index
-//-----------------------------------------------------------------------------
-void CDmeRigTwistConstraintOperator::SetSlaveBindOrientation( const Quaternion &qBindRotation, int i )
-{
-	if ( m_eSlaves.Count() > i )
-	{
-		m_eSlaves[i]->SetBaseOrientation( qBindRotation );
-	}
-}
 
 
 //-----------------------------------------------------------------------------

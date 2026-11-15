@@ -21,17 +21,9 @@ unsigned FASTCALL HashStringCaseless(const char* pszKey);
 
 unsigned FASTCALL HashStringCaseless(std::string_view key);
 
-unsigned FASTCALL HashStringCaselessConventional(const char* pszKey);
-
-unsigned FASTCALL Hash4(const void* pKey);
-
 unsigned FASTCALL Hash8(const void* pKey);
 
 unsigned FASTCALL Hash12(const void* pKey);
-
-unsigned FASTCALL Hash16(const void* pKey);
-
-unsigned FASTCALL HashBlock(const void* pKey, unsigned size);
 
 unsigned FASTCALL HashInt(const int key);
 
@@ -141,4 +133,3 @@ uint32_t MurmurHash2(const void* key, int len, uint32_t seed);
 // return murmurhash2 of a downcased string
 uint32_t MurmurHash2LowerCase(char const* pString, uint32_t nSeed);
 
-uint64_t MurmurHash64(const void* key, int len, uint32_t seed);

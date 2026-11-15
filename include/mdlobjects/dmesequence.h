@@ -240,14 +240,6 @@ public:
 		DmeFramerate_t fallbackFrameRate = DmeFramerate_t( 30 ),
 		bool bForceFallback = false ) const;
 
-	// Put all DmeChannel's in this DmeSequence to CM_PLAY
-	void PrepareChannels( CUtlVector< IDmeOperator * > &dmeOperatorList );
-
-	// Operate all DmeChannel's in this DmeSequence
-	// Pass the dmeOperatorList returned by PrepareChannels
-	void UpdateChannels( CUtlVector< IDmeOperator * > &dmeOperatorList, DmeTime_t nClipTime );
-
-	void GetDependentOperators( CUtlVector< IDmeOperator * > &operatorList, CDmeOperator *pDmeOperator ) const;
 };
 
 

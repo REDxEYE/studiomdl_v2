@@ -79,9 +79,5 @@ class CDmeSkinner : public CDmeDag
 public:
 	CDmAttribute *GetListAttr() { return m_Children.GetAttribute(); }
 
-	bool ReskinMeshes( CDmeModel *pDmeModel, int nJointPerVertexCount );
-
-	bool ReskinMesh( CDmeModel *pDmeModel, CDmeMesh *pDmeMesh, int nJointPerVertexCount );
-
 };
 

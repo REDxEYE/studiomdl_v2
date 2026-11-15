@@ -388,7 +388,7 @@ namespace {
         }
 
         // Vertex animations index source vertices
-        for (int i = 0; i < pSource->m_Animations.Count(); i++) {
+        for (size_t i = 0; i < pSource->m_Animations.size(); i++) {
             s_sourceanim_t &anim = pSource->m_Animations[i];
             if (!anim.newStyleVertexAnimations)
                 continue;
@@ -695,7 +695,7 @@ void CheckFlexCacheBudget() {
                 bool bShow = meshCost[i] > 0;
                 for (const MeshStats &row: modelRows[i])
                     bShow = bShow || IsAliasMaterial(row.material);
-                bShow = bShow || (pSource && pSource->m_FlexKeys.Count() > 0);
+                bShow = bShow || (pSource && !pSource->m_FlexKeys.empty());
                 if (!bShow)
                     continue;
                 for (MeshStats row: modelRows[i]) {

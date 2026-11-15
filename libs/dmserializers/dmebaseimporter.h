@@ -16,10 +16,11 @@ class CDmeBaseImporter : public IDmLegacyUpdater
 public:
 	CDmeBaseImporter( char const *formatName, char const *nextFormatName );
 
-	virtual const char *GetName() const { return m_pFormatName; }
-	virtual bool IsLatestVersion() const;
+    const char *GetName() const override { return m_pFormatName; }
 
-	virtual bool Update( CDmElement **ppRoot );
+    bool IsLatestVersion() const override;
+
+    bool Update( CDmElement **ppRoot ) override;
 
 private:
 	virtual bool DoFixup( CDmElement *pRoot ) = 0;

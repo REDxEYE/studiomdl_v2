@@ -51,19 +51,19 @@ public:
     }
 
     // Inherited from IDMSerializer
-    virtual const char *GetName() const { return "binary"; }
-    virtual const char *GetDescription() const { return "Binary"; }
-    virtual bool StoresVersionInFile() const { return true; }
-    virtual bool IsBinaryFormat() const { return true; }
-    virtual int GetCurrentVersion() const { return DM_BINARY_VER_STRINGTABLE_LARGESYMBOLS; }
-    virtual const char *GetImportedFormat() const { return nullptr; }
-    virtual int GetImportedVersion() const { return 1; }
+    const char *GetName() const override { return "binary"; }
+    const char *GetDescription() const override { return "Binary"; }
+    bool StoresVersionInFile() const override { return true; }
+    bool IsBinaryFormat() const override { return true; }
+    int GetCurrentVersion() const override { return DM_BINARY_VER_STRINGTABLE_LARGESYMBOLS; }
+    const char *GetImportedFormat() const override { return nullptr; }
+    int GetImportedVersion() const override { return 1; }
 
-    virtual bool Serialize(CUtlBuffer &buf, CDmElement *pRoot);
+    bool Serialize(CUtlBuffer &buf, CDmElement *pRoot) override;
 
-    virtual bool Unserialize(CUtlBuffer &buf, const char *pEncodingName, int nEncodingVersion,
-                             const char *pSourceFormatName, int nFormatVersion,
-                             DmFileId_t fileid, DmConflictResolution_t idConflictResolution, CDmElement **ppRoot);
+    bool Unserialize(CUtlBuffer &buf, const char *pEncodingName, int nEncodingVersion,
+                     const char *pSourceFormatName, int nFormatVersion,
+                     DmFileId_t fileid, DmConflictResolution_t idConflictResolution, CDmElement **ppRoot) override;
 
 private:
     // For serialize

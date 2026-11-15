@@ -36,9 +36,6 @@ public:
 
 	void SetVariable( const char *var, float value );
 	void SetVariable( int nVariableIndex, float value );
-	void ModifyVariable( const char *var, float value );
-
-	int FindVariableIndex( const char *var );
 
 	bool Evaluate( float &value );
 
@@ -72,8 +69,5 @@ private:
 	CUtlStack<float> m_stack;
 	bool m_bIsBuildingArgumentList;
 };
-
-// simple warppers for using cExpressionCalculator
-float EvaluateExpression( char const *pExprString, float flValueToReturnIfFailure );
 
 

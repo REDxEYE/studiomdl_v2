@@ -133,24 +133,3 @@ inline void MemAlloc_OutOfMemory()
 	}
 }
 
-struct aligned_tmp_t
-{
-	// empty base class
-};
-
-// template here to allow adding alignment at levels of hierarchy that aren't the base
-template< int bytesAlignment = 16, class T = aligned_tmp_t >
-class CAlignedNewDelete : public T
-{
-public:
-	void *operator new( size_t nSize )
-	{
-		return MemAlloc_AllocAligned( nSize, bytesAlignment );
-	}
-
-	void operator delete( void *pData )
-	{
-		MemAlloc_FreeAligned( pData );
-	}
-};
-

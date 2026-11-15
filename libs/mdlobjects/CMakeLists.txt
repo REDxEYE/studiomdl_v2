@@ -55,4 +55,4 @@ add_library(mdlobjects
 target_include_directories(mdlobjects PUBLIC ../../include)
 target_include_directories(mdlobjects PRIVATE ../../include/mdlobjects)
 target_compile_definitions(mdlobjects PRIVATE -DSTATIC_TIER0)
-target_link_libraries(mdlobjects PRIVATE)
+target_link_libraries(mdlobjects PRIVATE movieobjects datamodel bonesetup)

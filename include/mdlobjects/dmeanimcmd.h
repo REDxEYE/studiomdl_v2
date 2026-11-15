@@ -45,7 +45,6 @@ class CDmeAnimCmdFixupLoop : public CDmeAnimCmd
 	DEFINE_ELEMENT( CDmeAnimCmdFixupLoop, CDmeAnimCmd );
 
 public:
-	static const char *GetAssemblyDmElementTypeString();
 
 	CDmaVar< int > m_nStartFrame;
 	CDmaVar< int > m_nEndFrame;
@@ -75,7 +74,6 @@ class CDmeAnimCmdSubtract : public CDmeAnimCmd
 	DEFINE_ELEMENT( CDmeAnimCmdSubtract, CDmeAnimCmd );
 
 public:
-	static const char *GetAssemblyDmElementTypeString();
 
 	CDmaElement< CDmeSequenceBase > m_eAnimation;
 	CDmaVar< int > m_nFrame;
@@ -90,7 +88,6 @@ class CDmeAnimCmdPreSubtract : public CDmeAnimCmdSubtract
 	DEFINE_ELEMENT( CDmeAnimCmdPreSubtract, CDmeAnimCmdSubtract );
 
 public:
-	static const char *GetAssemblyDmElementTypeString();
 
 };
 
@@ -131,7 +128,6 @@ class CDmeAnimCmdRotateTo : public CDmeAnimCmd
 	DEFINE_ELEMENT( CDmeAnimCmdRotateTo, CDmeAnimCmd );
 
 public:
-	static const char *GetAssemblyDmElementTypeString();
 
 	CDmaVar< float > m_flAngle;	// Specified in degrees
 };

@@ -41,15 +41,16 @@ public:
 	CUniformRandomStream();
 
 	// Sets the seed of the random number generator
-	virtual void	SetSeed( int iSeed );
+    void	SetSeed( int iSeed ) override;
 
 	// Generates random numbers
-	virtual float	RandomFloat( float flMinVal = 0.0f, float flMaxVal = 1.0f );
-	virtual int		RandomInt( int iMinVal, int iMaxVal );
-	virtual float	RandomFloatExp( float flMinVal = 0.0f, float flMaxVal = 1.0f, float flExponent = 1.0f );
+    float	RandomFloat( float flMinVal = 0.0f, float flMaxVal = 1.0f ) override;
+
+    int		RandomInt( int iMinVal, int iMaxVal ) override;
+
+    float	RandomFloatExp( float flMinVal = 0.0f, float flMaxVal = 1.0f, float flExponent = 1.0f ) override;
 
 private:
-	int		GenerateRandomNumber();
 
 	int m_idum;
 	int m_iy;
@@ -68,9 +69,6 @@ public:
 	// installed global random number generator
 	CGaussianRandomStream( IUniformRandomStream *pUniformStream = nullptr);
 
-	// Attaches to a random uniform stream
-	void	AttachToStream( IUniformRandomStream *pUniformStream = nullptr);
-
 	// Generates random numbers
 	float	RandomFloat( float flMean = 0.0f, float flStdDev = 1.0f );
 
@@ -85,17 +83,8 @@ private:
 //-----------------------------------------------------------------------------
 // A couple of convenience functions to access the library's global uniform stream
 //-----------------------------------------------------------------------------
-VSTDLIB_INTERFACE void	RandomSeed( int iSeed );
 VSTDLIB_INTERFACE float	RandomFloat( float flMinVal = 0.0f, float flMaxVal = 1.0f );
-VSTDLIB_INTERFACE float	RandomFloatExp( float flMinVal = 0.0f, float flMaxVal = 1.0f, float flExponent = 1.0f );
-VSTDLIB_INTERFACE int	RandomInt( int iMinVal, int iMaxVal );
-VSTDLIB_INTERFACE float	RandomGaussianFloat( float flMean = 0.0f, float flStdDev = 1.0f );
 
-
-//-----------------------------------------------------------------------------
-// Installs a global random number generator, which will affect the Random functions above
-//-----------------------------------------------------------------------------
-VSTDLIB_INTERFACE void	InstallUniformRandomStream( IUniformRandomStream *pStream );
 
 #pragma warning(pop)
 

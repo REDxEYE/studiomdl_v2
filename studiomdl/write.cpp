@@ -26,6 +26,7 @@
 #include <optional>
 #include <span>
 #include <tuple>
+#include <unordered_map>
 #include <vector>
 
 #include "common/cmdlib.h"
@@ -146,12 +147,12 @@ static vstd::BufferPtr<S> WriteBaseConstraint(vstd::Buffer &buffer, M* pConstrai
     pbone[k].procindex = pProc.template offset_from<int>(pbone + k);
     pbone[k].proctype = procType;
 
-    pProc->m_nTargetCount = pConstraint->m_targets.Count();
+    pProc->m_nTargetCount = std::ssize(pConstraint->m_targets);
     const auto pTarget = buffer.allocate<mstudioconstrainttarget_t>(pProc->m_nTargetCount);
     pProc->m_nTargetIndex = pTarget.template offset_from<int>(pProc);
     buffer.align(4);
 
-    for (int j = 0; j < pConstraint->m_targets.Count(); ++j) {
+    for (int j = 0; j < std::ssize(pConstraint->m_targets); ++j) {
         s_constraintbonetarget_t &target = pConstraint->m_targets[j];
         pTarget[j].m_nBone = target.m_nBone;
         pTarget[j].m_flWeight = target.m_flWeight;
@@ -890,10 +891,6 @@ static void WriteSequenceInfo(vstd::Buffer &buffer, const vstd::BufferPtr<studio
 // Purpose: Stub implementation
 // Input  : *group -
 //-----------------------------------------------------------------------------
-
-const studiohdr_t* studiohdr_t::FindModel(void** cache, char const* modelname) const {
-    return nullptr;
-}
 
 virtualmodel_t* studiohdr_t::GetVirtualModel() const {
     return nullptr;
@@ -2176,7 +2173,7 @@ static void WriteModel(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_t> 
         for (k = 0; k < g_studiomdl.flex.FlexControllerRemap.size(); ++k) {
             s_flexcontrollerremap_t &remap = g_studiomdl.flex.FlexControllerRemap[k];
             if (j == remap.m_Index || j == remap.m_LeftIndex || j == remap.m_RightIndex || j == remap.m_MultiIndex) {
-                AddToStringTable(pFlexControllerUI, uiName, remap.m_Name);
+                AddToStringTable(pFlexControllerUI, uiName, remap.m_Name.c_str());
 
                 pFlexControllerUI->stereo = remap.m_bIsStereo;
                 if (pFlexControllerUI->stereo) {
@@ -3016,20 +3013,10 @@ static bool UsedVertexLess(const usedVertex_t &a, const usedVertex_t &b) {
 }
 
 //-----------------------------------------------------------------------------
-// UsedVertexLookup_t is used to accelerate the sorted-to-unsorted mapping
+// Key of the sorted-to-unsorted mapping: (mesh vertex offset, mesh relative vertex id)
 //-----------------------------------------------------------------------------
-struct UsedVertexLookup_t {
-    int32_t vertexOffset;
-    int32_t meshVertID;
-    int32_t index;
-};
-
-bool UsedVertexCompareFunc(const UsedVertexLookup_t &a, const UsedVertexLookup_t &b) {
-    return ((a.vertexOffset == b.vertexOffset) && (a.meshVertID == b.meshVertID));
-}
-
-unsigned int UsedVertexKeyFunc(const UsedVertexLookup_t &a) {
-    return Hash8(&a);
+static uint64_t UsedVertexKey(const int32_t vertexOffset, const int32_t meshVertID) {
+    return (static_cast<uint64_t>(static_cast<uint32_t>(vertexOffset)) << 32) | static_cast<uint32_t>(meshVertID);
 }
 
 //-----------------------------------------------------------------------------
@@ -3205,21 +3192,19 @@ bool BuildSortedVertexList(const studiohdr_t* pStudioHdr, const vstd::Buffer &vt
     std::ranges::sort(vertexList, UsedVertexLess);
 
     // build a mapping table from mesh relative indexes to the flat lod sorted array
-    CUtlHash<UsedVertexLookup_t> usedVertexHash(vstd::as_signed_checked<int>(numVertexes), 0, 0, UsedVertexCompareFunc,
-                                                UsedVertexKeyFunc);
+    std::unordered_map<uint64_t, int> usedVertexMap;
+    usedVertexMap.reserve(numVertexes);
     for (k = 0; k < numVertexes; k++) {
-        UsedVertexLookup_t usedVertexLookup = {vertexList[k].vertexOffset, vertexList[k].meshVertID, k};
-        usedVertexHash.Insert(usedVertexLookup);
+        usedVertexMap.try_emplace(UsedVertexKey(vertexList[k].vertexOffset, vertexList[k].meshVertID), k);
     }
     vertexOffset = 0;
     for (i = 0; i < numVertexPools; i++) {
         pPool = &vertexPools[i];
         for (j = 0; j < pPool->vertexList.size(); j++) {
             // search flattened sorted vertexes
-            UsedVertexLookup_t usedVertexLookup = {vstd::as_signed_checked<int>(vertexOffset), j, -1};
-            UtlHashHandle_t handle = usedVertexHash.Find(usedVertexLookup);
-            Assert(handle != usedVertexHash.InvalidHandle());
-            pPool->vertexMap[j] = usedVertexHash[handle].index;
+            const auto found = usedVertexMap.find(UsedVertexKey(vstd::as_signed_checked<int>(vertexOffset), j));
+            Assert(found != usedVertexMap.end());
+            pPool->vertexMap[j] = found->second;
         }
         vertexOffset += pPool->vertexList.size();
     }

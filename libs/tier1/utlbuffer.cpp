@@ -27,7 +27,7 @@ public:
 	CUtlCStringConversion( char nEscapeChar, const char *pDelimiter, int nCount, ConversionArray_t *pArray );
 
 	// Finds a conversion for the passed-in string, returns length
-	virtual char FindConversion( const char *pString, int *pLength );
+    char FindConversion( const char *pString, int *pLength ) override;
 
 private:
 	char m_pConversion[256];
@@ -44,7 +44,7 @@ public:
 		CUtlCharConversion( nEscapeChar, pDelimiter, nCount, pArray ) {}
 
 	// Finds a conversion for the passed-in string, returns length
-	virtual char FindConversion( const char *pString, int *pLength ) { *pLength = 0; return 0; }
+    char FindConversion( const char *pString, int *pLength ) override { *pLength = 0; return 0; }
 };
 
 
@@ -403,20 +403,6 @@ void CUtlBuffer::AssumeMemory( void *pMemory, int nSize, int nInitialPut, int nF
 }
 
 
-//-----------------------------------------------------------------------------
-// Allows the caller to control memory
-//-----------------------------------------------------------------------------
-void* CUtlBuffer::DetachMemory()
-{
-	// Reset all indices; we just changed memory
-	m_Get = 0;
-	m_Put = 0;
-	m_nTab = 0;
-	m_Error = 0;
-	m_nOffset = 0;
-	return m_Memory.DetachMemory( );
-}
-
 
 //-----------------------------------------------------------------------------
 // Makes sure we've got at least this much memory
@@ -455,21 +441,6 @@ bool CUtlBuffer::Get( void* pMem, int size )
 	return false;
 }
 
-
-//-----------------------------------------------------------------------------
-// This will get at least 1 byte and up to nSize bytes. 
-// It will return the number of bytes actually read.
-//-----------------------------------------------------------------------------
-int CUtlBuffer::GetUpTo( void *pMem, int nSize )
-{
-	if ( CheckArbitraryPeekGet( 0, nSize ) )
-	{
-		memcpy( pMem, &m_Memory[m_Get - m_nOffset], nSize );
-		m_Get += nSize;
-		return nSize;
-	}
-	return 0;	
-}
 
 	
 //-----------------------------------------------------------------------------
@@ -805,13 +776,6 @@ char CUtlBuffer::GetDelimitedCharInternal( CUtlCharConversion *pConv )
 	}
 
 	return c;
-}
-
-char CUtlBuffer::GetDelimitedChar( CUtlCharConversion *pConv )
-{
-	if ( !IsText() || !pConv )
-		return GetChar( );
-	return GetDelimitedCharInternal( pConv );
 }
 
 void CUtlBuffer::GetDelimitedString( CUtlCharConversion *pConv, char *pString, int nMaxChars )
@@ -1509,17 +1473,6 @@ inline void CUtlBuffer::PutDelimitedCharInternal( CUtlCharConversion *pConv, cha
 	}
 }
 
-void CUtlBuffer::PutDelimitedChar( CUtlCharConversion *pConv, char c )
-{
-	if ( !IsText() || !pConv )
-	{
-		PutChar( c );
-		return;
-	}
-
-	PutDelimitedCharInternal( pConv, c );
-}
-
 void CUtlBuffer::PutDelimitedString( CUtlCharConversion *pConv, const char *pString )
 {
 	if ( !IsText() || !pConv )
@@ -1814,63 +1767,3 @@ CUtlInplaceBuffer::CUtlInplaceBuffer( int growSize /* = 0 */, int initSize /* = 
 {
 }
 
-bool CUtlInplaceBuffer::InplaceGetLinePtr( char **ppszInBufferPtr, int *pnLineLength )
-{
-	Assert( IsText() && !ContainsCRLF() );
-
-	int nLineLen = PeekLineLength();
-	if ( nLineLen <= 1 )
-	{
-		SeekGet( SEEK_TAIL, 0 );
-		return false;
-	}
-
-	-- nLineLen; // because it accounts for putting a terminating null-character
-
-	char *pszLine = ( char * ) const_cast< void * >( PeekGet() );
-	SeekGet( SEEK_CURRENT, nLineLen );
-
-	// Set the out args
-	if ( ppszInBufferPtr )
-		*ppszInBufferPtr = pszLine;
-	
-	if ( pnLineLength )
-		*pnLineLength = nLineLen;
-
-	return true;
-}
-
-char * CUtlInplaceBuffer::InplaceGetLinePtr( void )
-{
-	char *pszLine = nullptr;
-	int nLineLen = 0;
-	
-	if ( InplaceGetLinePtr( &pszLine, &nLineLen ) )
-	{
-		Assert( nLineLen >= 1 );
-
-		switch ( pszLine[ nLineLen - 1 ] )
-		{
-		case '\n':
-		case '\r':
-			pszLine[ nLineLen - 1 ] = 0;
-			if ( -- nLineLen )
-			{
-				switch ( pszLine[ nLineLen - 1 ] )
-				{
-				case '\n':
-				case '\r':
-					pszLine[ nLineLen - 1 ] = 0;
-					break;
-				}
-			}
-			break;
-		
-		default:
-			Assert( pszLine[ nLineLen ] == 0 );
-			break;
-		}
-	}
-
-	return pszLine;
-}

@@ -12,7 +12,6 @@ add_library(bonesetup
         bone_constraints.cpp
         bone_decode.cpp
         bone_ik.cpp
-        bone_setup.cpp
         bone_utils.cpp
         )
 target_include_directories(bonesetup PUBLIC ../../include)

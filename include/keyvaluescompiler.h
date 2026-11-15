@@ -92,18 +92,11 @@ public:
 		m_StringTable.AddString( "" );
 	}
 
-	void AppendKeyValuesFile( char const *filename );
 	void WriteFile( char const *outfile );
 
 private:
 
-	void Describe( const KVFile_t& file );
-
-	void BuildKVData_R( KeyValues *kv, int parent );
-
 	void WriteStringTable( CUtlBuffer& buf );
-	void WriteData( CUtlBuffer& buf );
-	void WriteFiles( CUtlBuffer &buf );
 
 	CUtlVector< KVFile_t >		m_Files;
 	CUtlVector< KVInfo_t >		m_Data;
@@ -116,8 +109,6 @@ class CRunTimeKeyValuesStringTable
 {
 public:
 
-	bool ReadStringTable( int numStrings, CUtlBuffer& buf );
-	
 	inline int Count() const
 	{
 		return m_Strings.Count();
@@ -141,7 +132,6 @@ public:
 	bool		LoadFile( char const *filename );
 
 	KeyValues	*Instance( char const *kvfilename );
-	bool		InstanceInPlace( KeyValues& head, char const *kvfilename );
 	bool		LookupKeyValuesRootKeyName( char const *kvfilename, char *outbuf, size_t bufsize );
 
 	int			First() const;
@@ -170,8 +160,6 @@ private:
 		}
 	};
 
-	KeyValues *CreateFromData( const FileInfo_t& info );
-	bool CreateInPlaceFromData( KeyValues& head, const FileInfo_t& info );
 
 	// Now get the actual files
 	CUtlRBTree< FileInfo_t, unsigned short >	m_Dict;

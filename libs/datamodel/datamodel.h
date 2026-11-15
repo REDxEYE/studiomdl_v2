@@ -393,12 +393,6 @@ public:
     // remove orphaned element subtrees
     void FindAndDeleteOrphanedElements();
 
-    void GetInvalidHandles(CUtlVector<DmElementHandle_t> &handles);
-
-    void MarkHandlesValid(CUtlVector<DmElementHandle_t> &handles);
-
-    void MarkHandlesInvalid(CUtlVector<DmElementHandle_t> &handles);
-
     // search id->handle table (both loaded and unloaded) for id, and if not found, create a new handle, map it to the id and return it
     DmElementHandle_t FindOrCreateElementHandle(const DmObjectId_t &id);
 
@@ -418,10 +412,6 @@ public:
     int EstimateMemoryOverhead() const;
 
     bool IsCreatingUntypedElements() const { return m_bOnlyCreateUntypedElements; }
-
-    void UpdateReferenceToElements(CDmAttribute* pAttr, CDmElement* pChild, bool bDetach);
-
-    void UpdateReferencesToElements(CDmElement* pElement, bool bDetach);
 
 private:
     struct MailingList_t {

@@ -83,19 +83,6 @@ class KeyValues
 	friend class CKeyValuesTokenReader;
 
 public:
-	//	By default, the KeyValues class uses a string table for the key names that is
-	//	limited to 4MB. The game will exit in error if this space is exhausted. In
-	//	general this is preferable for game code for performance and memory fragmentation
-	//	reasons.
-	//
-	//	If this is not acceptable, you can use this call to switch to a table that can grow
-	//	arbitrarily. This call must be made before any KeyValues objects are allocated or it
-	//	will result in undefined behavior. If you use the growable string table, you cannot
-	//	share KeyValues pointers directly with any other module. You can serialize them across
-	//	module boundaries. These limitations are acceptable in the Steam backend code 
-	//	this option was written for, but may not be in other situations. Make sure to
-	//	understand the implications before using this.
-	static void SetUseGrowableStringTable( bool bUseGrowableTable );
 
 	explicit KeyValues( const char *setName );
 
@@ -177,8 +164,6 @@ public:
 	bool ContainsSubKey( KeyValues *pSubKey ); // Returns true if this key values contains the specified sub key, false otherwise.
 	void SwapSubKey( KeyValues *pExistingSubKey, KeyValues *pNewSubKey );	// Swaps an existing subkey for a new one, DOES NOT DELETE THE OLD ONE but takes ownership of the new one
 	void ElideSubKey( KeyValues *pSubKey );	// Removes a subkey but inserts all of its children in its place, in-order (flattens a tree, like firing a manager!)
-	KeyValues* CreateKey( const char *keyName );
-	KeyValues* CreatePeerKey( const char *keyName );
 
 	// Key iteration.
 	//
@@ -248,7 +233,6 @@ public:
 	void SetUint64( const char *keyName, uint64_t value );
 	void SetFloat( const char *keyName, float value );
 	void SetPtr( const char *keyName, void *value );
-	void SetColor( const char *keyName, Color value);
 	void SetBool( const char *keyName, bool value ) { SetInt( keyName, value ? 1 : 0 ); }
 
 	// Memory allocation (optimized)
@@ -259,20 +243,10 @@ public:
 
 	KeyValues& operator=( KeyValues& src );
 
-	bool IsEqual( KeyValues *pRHS );
-
-	// Adds a chain... if we don't find stuff in this keyvalue, we'll look
-	// in the one we're chained to.
-	void ChainKeyValue( KeyValues* pChain );
-	
 	void RecursiveSaveToFile( CUtlBuffer& buf, int indentLevel );
 
-	bool WriteAsBinary( CUtlBuffer &buffer ) const;
-	bool ReadAsBinary( CUtlBuffer &buffer, int nStackDepth = 0 );
 
 	// Same as the other binary functions, but filter out and remove empty keys (like when seralizing to a file )
-	bool WriteAsBinaryFiltered( CUtlBuffer &buffer );
-	bool ReadAsBinaryFiltered( CUtlBuffer &buffer, int nStackDepth = 0 );
 
 	// Allocate & create a new copy of the keys
 	KeyValues *MakeCopy( void ) const;
@@ -307,12 +281,6 @@ public:
 
 	void SetStringValue( char const *strValue );
 
-	// unpack a key values list into a structure
-	void UnpackIntoStructure( struct KeyValuesUnpackStructure const *pUnpackTable, void *pDest );
-
-	// Process conditional keys for widescreen support.
-	bool ProcessResolutionKeys( const char *pResString );
-
 	// Dump keyvalues recursively into a dump context
 	bool Dump( IKeyValuesDumpContext *pDump, int nIndentLevel = 0 );
 
@@ -324,11 +292,7 @@ public:
 		MERGE_KV_DELETE,	// update values specify keys that get deleted from storage
 		MERGE_KV_BORROW,	// update values only update existing keys in storage, keys in update that do not exist in storage are discarded
 	};
-	void MergeFrom( KeyValues *kvMerge, MergeKeyValuesOp_t eOp = MERGE_KV_ALL );
 
-	// Assign keyvalues from a string
-	static KeyValues * FromString( char const *szName, char const *szStringVal, char const **ppEndOfParse = nullptr);
-		
 	/// Create a child key, given that we know which child is currently the last child.
 	/// This avoids the O(N^2) behaviour when adding children in sequence to KV,
 	/// when CreateKey() wil have to re-locate the end of the list each time.  This happens,
@@ -369,10 +333,6 @@ private:
 	void Init();
 	void WriteIndents( IBaseFileSystem *filesystem, FileHandle_t f, CUtlBuffer *pBuf, int indentLevel );
 
-	void FreeAllocatedValue();
-	void AllocateValueBlock(int size);
-
-	bool ReadAsBinaryPooledFormat( CUtlBuffer &buf, IBaseFileSystem *pFileSystem, unsigned int poolKey, GetSymbolProc_t pfnEvaluateSymbolProc );
 
 	bool EvaluateConditional( const char *pExpressionString, GetSymbolProc_t pfnEvaluateSymbolProc );
 
@@ -415,8 +375,6 @@ public:
 	static const char *GetStringForSymbolClassic( int symbol );
 	
 	// Functions that use the growable string table
-	static int GetSymbolForStringGrowable( const char *name, bool bCreate = true );
-	static const char *GetStringForSymbolGrowable( int symbol );
 };
 
 typedef KeyValues::AutoDelete KeyValuesAD;
@@ -513,9 +471,11 @@ public:
 class IKeyValuesDumpContextAsText : public IKeyValuesDumpContext
 {
 public:
-	virtual bool KvBeginKey( KeyValues *pKey, int nIndentLevel );
-	virtual bool KvWriteValue( KeyValues *pValue, int nIndentLevel );
-	virtual bool KvEndKey( KeyValues *pKey, int nIndentLevel );
+    bool KvBeginKey( KeyValues *pKey, int nIndentLevel ) override;
+
+    bool KvWriteValue( KeyValues *pValue, int nIndentLevel ) override;
+
+    bool KvEndKey( KeyValues *pKey, int nIndentLevel ) override;
 
 public:
 	virtual bool KvWriteIndent( int nIndentLevel );
@@ -529,8 +489,9 @@ public:
 	CKeyValuesDumpContextAsDevMsg( int nDeveloperLevel = 1 ) : m_nDeveloperLevel( nDeveloperLevel ) {}
 
 public:
-	virtual bool KvBeginKey( KeyValues *pKey, int nIndentLevel );
-	virtual bool KvWriteText( char const *szText );
+    bool KvBeginKey( KeyValues *pKey, int nIndentLevel ) override;
+
+    bool KvWriteText( char const *szText ) override;
 
 protected:
 	int m_nDeveloperLevel;

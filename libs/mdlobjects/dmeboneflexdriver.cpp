@@ -42,16 +42,6 @@ void CDmeBoneFlexDriverControl::OnDestruction()
 }
 
 
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-int CDmeBoneFlexDriverControl::SetBoneComponent( int nBoneComponent )
-{
-	// Range [STUDIO_BONE_FLEX_TX, STUDIO_BONE_FLEX_RZ]
-	m_nBoneComponent = clamp( nBoneComponent, 0, 5 );
-	return m_nBoneComponent.Get();
-}
-
 
 //===========================================================================//
 // CDmeBoneFlexDriver

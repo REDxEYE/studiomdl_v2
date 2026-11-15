@@ -20,14 +20,14 @@
 class CImportVMF : public CImportKeyValueBase
 {
 public:
-	virtual const char *GetName() const { return "vmf"; }
-	virtual const char *GetDescription() const { return "Valve Map File"; }
-	virtual int GetCurrentVersion() const { return 0; } // doesn't store a version
- 	virtual const char *GetImportedFormat() const { return "vmf"; }
- 	virtual int GetImportedVersion() const { return 1; }
+    const char *GetName() const override { return "vmf"; }
+    const char *GetDescription() const override { return "Valve Map File"; }
+    int GetCurrentVersion() const override { return 0; } // doesn't store a version
+    const char *GetImportedFormat() const override { return "vmf"; }
+    int GetImportedVersion() const override { return 1; }
 
-	bool Serialize( CUtlBuffer &outBuf, CDmElement *pRoot );
-	CDmElement* UnserializeFromKeyValues( KeyValues *pKeyValues );
+	bool Serialize( CUtlBuffer &outBuf, CDmElement *pRoot ) override;
+	CDmElement* UnserializeFromKeyValues( KeyValues *pKeyValues ) override;
 
 private:
 	// Reads a single entity

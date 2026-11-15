@@ -6,7 +6,6 @@ class CDmElement;
 class ScriptTokenizer;
 struct s_source_t;
 
-void Cmd_CollisionText(ScriptTokenizer &qc);
 int DoCollisionModel(ScriptTokenizer &qc, bool separateJoints );
 
 #ifdef MDLCOMPILE
@@ -18,7 +17,4 @@ void LoadCollisionText( const char *pszCollisionText );
 void CollisionModel_Build( void );
 // execute during writing
 extern void CollisionModel_Write( long checkSum );
-extern void CollisionModel_SetName( const char *pName );
-
-void CollisionModel_ExpandBBox( Vector &mins, Vector &maxs );
 

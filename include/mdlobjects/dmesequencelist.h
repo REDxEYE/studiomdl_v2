@@ -27,7 +27,7 @@ class CDmeSequenceList : public CDmeMdlList
 	DEFINE_ELEMENT( CDmeSequenceList, CDmeMdlList );
 
 public:
-	virtual CDmAttribute *GetListAttr() { return m_Sequences.GetAttribute(); }
+    CDmAttribute *GetListAttr() override { return m_Sequences.GetAttribute(); }
 
 	CDmaElementArray< CDmeSequenceBase> m_Sequences;
 	CDmaElementArray< CDmeIkChain > m_eIkChainList;
@@ -36,9 +36,6 @@ public:
 	// Sequences that are referred to come before the sequences that refer to them
 	void GetSortedSequenceList( CUtlVector< CDmeSequenceBase * > &sortedSequenceList ) const;
 
-	// Sorts the sequences in the m_Sequences attribute in order of priority
-	// Sequences that are referred to come before the sequences that refer to them
-	void SortSequences();
 };
 
 

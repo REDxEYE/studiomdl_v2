@@ -21,146 +21,14 @@
 
 //(0.5/N_IMPULSES_PER_CELL)
 
-static inline int LatticeCoord(float x)
-{
-	return ((int) floor(x)) & 0xff;
-}
-
-static inline int Hash4D(int ix, int iy, int iz, int idx)
-{
-	int ret=perm_a[ix];
-	ret=perm_b[(ret+iy) & 0xff];
-	ret=perm_c[(ret+iz) & 0xff];
-	ret=perm_d[(ret+idx) & 0xff];
-	return ret;
-}
-
 #define SQ(x) ((x)*(x))
 
-static float CellNoise( int ix, int iy, int iz, float xfrac, float yfrac, float zfrac,
-						float (*pNoiseShapeFunction)(float) )
-{
-	float ret=0;
-	for(int idx=0;idx<N_IMPULSES_PER_CELL;idx++)
-	{
-		int coord_idx=Hash4D( ix, iy, iz, idx );
-		float dsq=SQ(impulse_xcoords[coord_idx]-xfrac)+
-			SQ(impulse_ycoords[coord_idx]-yfrac)+
-			SQ(impulse_zcoords[coord_idx]-zfrac);
-		dsq = sqrt( dsq );
-		if (dsq < 1.0 )
-		{
-			ret += (*pNoiseShapeFunction)( 1-dsq );
-		}
-	}
-	return ret;
-}
-
-
-float SparseConvolutionNoise( Vector const &pnt )
-{
-	return SparseConvolutionNoise( pnt, QuinticInterpolatingPolynomial );
-}
-
-float FractalNoise( Vector const &pnt, int n_octaves)
-{
-	float scale=1.0;
-	float iscale=1.0;
-	float ret=0;
-	float sumscale=0;
-	for(int o=0;o<n_octaves;o++)
-	{
-		Vector p1=pnt;
-		p1 *= scale;
-		ret+=iscale * SparseConvolutionNoise( p1 );
-		sumscale += iscale;
-		scale *= 2.0;
-		iscale *= 0.5;
-	}
-	return ret * ( 1.0/sumscale );
-}
-
-float Turbulence( Vector const &pnt, int n_octaves)
-{
-	float scale=1.0;
-	float iscale=1.0;
-	float ret=0;
-	float sumscale=0;
-	for(int o=0;o<n_octaves;o++)
-	{
-		Vector p1=pnt;
-		p1 *= scale;
-		ret+=iscale * fabs ( 2.0*( SparseConvolutionNoise( p1 )-.5 ) );
-		sumscale += iscale;
-		scale *= 2.0;
-		iscale *= 0.5;
-	}
-	return ret * ( 1.0/sumscale );
-}
 
 #ifdef MEASURE_RANGE
 float fmin1=10000000.0;
 float fmax1=-1000000.0;
 #endif
 
-float SparseConvolutionNoise(Vector const &pnt, float (*pNoiseShapeFunction)(float) )
-{
-	// computer integer lattice point
-	int ix=LatticeCoord(pnt.x);
-	int iy=LatticeCoord(pnt.y);
-	int iz=LatticeCoord(pnt.z);
-
-	// compute offsets within unit cube
-	float xfrac=pnt.x-floor(pnt.x);
-	float yfrac=pnt.y-floor(pnt.y);
-	float zfrac=pnt.z-floor(pnt.z);
-
-	float sum_out=0.;
-
-	for(int ox=-1; ox<=1; ox++)
-		for(int oy=-1; oy<=1; oy++)
-			for(int oz=-1; oz<=1; oz++)
-			{
-				sum_out += CellNoise( ix+ox, iy+oy, iz+oz,
-									  xfrac-ox, yfrac-oy, zfrac-oz,
-									  pNoiseShapeFunction );
-			}
-#ifdef MEASURE_RANGE
-	fmin1=min(sum_out,fmin1);
-	fmax1=max(sum_out,fmax1);
-#endif
-	return RemapValClamped( sum_out, .544487, 9.219176, 0.0, 1.0 );
-}
-
-
-float TileableSparseConvolutionNoise(Vector const &pnt, float (*pNoiseShapeFunction)(float) )
-{
-	// computer integer lattice point
-	int ix=LatticeCoord(pnt.x);
-	int iy=LatticeCoord(pnt.y);
-	int iz=LatticeCoord(pnt.z);
-
-	// compute offsets within unit cube
-	float xfrac=pnt.x-floor(pnt.x);
-	float yfrac=pnt.y-floor(pnt.y);
-	float zfrac=pnt.z-floor(pnt.z);
-
-	float sum_out=0.;
-
-	for(int ox=-1; ox<=1; ox++)
-		for(int oy=-1; oy<=1; oy++)
-			for(int oz=-1; oz<=1; oz++)
-			{
-				sum_out += CellNoise( ix+ox, iy+oy, iz+oz,
-									  xfrac-ox, yfrac-oy, zfrac-oz,
-									  pNoiseShapeFunction );
-			}
-#ifdef MEASURE_RANGE
-	fmin1=min(sum_out,fmin1);
-	fmax1=max(sum_out,fmax1);
-#endif
-	return RemapValClamped( sum_out, .544487, 9.219176, 0.0, 1.0 );
-}
 
 
 

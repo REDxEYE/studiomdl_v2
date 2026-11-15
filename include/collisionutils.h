@@ -95,10 +95,6 @@ bool IntersectInfiniteRayWithSphere( const Vector &vecRayOrigin, const Vector &v
 	const Vector &vecSphereCenter, float flRadius, float *pT1, float *pT2 );
 
 
-// returns true if the sphere and cone intersect
-// NOTE: cone sine/cosine are the half angle of the cone
-bool IsSphereIntersectingCone( const Vector &sphereCenter, float sphereRadius, const Vector &coneOrigin, const Vector &coneNormal, float coneSine, float coneCosine );
-
 //-----------------------------------------------------------------------------
 //
 // IntersectRayWithPlane
@@ -110,9 +106,6 @@ bool IsSphereIntersectingCone( const Vector &sphereCenter, float sphereRadius, c
 float IntersectRayWithPlane( const Ray_t& ray, const cplane_t& plane ); 
 float IntersectRayWithPlane( const Vector& org, const Vector& dir, const cplane_t& plane );
 float IntersectRayWithPlane( const Vector& org, const Vector& dir, const Vector& normal, float dist );
-
-// This version intersects a ray with an axis-aligned plane
-float IntersectRayWithAAPlane( const Vector& vecStart, const Vector& vecEnd, int nAxis, float flSign, float flDist );
 
 
 //-----------------------------------------------------------------------------
@@ -184,9 +177,6 @@ bool IsSphereIntersectingSphere( const Vector& center1, float radius1,
 bool IsBoxIntersectingSphere( const Vector& boxMin, const Vector& boxMax, 
 						      const Vector& center, float radius );
 
-bool IsBoxIntersectingSphereExtents( const Vector& boxCenter, const Vector& boxHalfDiag, 
-									const Vector& center, float radius );
-
 
 //-----------------------------------------------------------------------------
 // Returns true if a box intersects with a sphere
@@ -207,12 +197,6 @@ FORCEINLINE bool IsBoxIntersectingSphere( const Vector& boxMin, const Vector& bo
 	return IsAllGreaterThan( f4RadiusSq, f4DistSq );
 }
 
-
-//-----------------------------------------------------------------------------
-// returns true if there's an intersection between ray and sphere
-//-----------------------------------------------------------------------------
-bool IsRayIntersectingSphere( const Vector &vecRayOrigin, const Vector &vecRayDelta, 
-	const Vector &vecSphereCenter, float flRadius, float flTolerance = 0.0f );
 
 
 //-----------------------------------------------------------------------------
@@ -235,9 +219,6 @@ bool IsCircleIntersectingRectangle( const Vector2D& boxMin, const Vector2D& boxM
 //-----------------------------------------------------------------------------
 bool IsBoxIntersectingBox( const Vector& boxMin1, const Vector& boxMax1, 
 						   const Vector& boxMin2, const Vector& boxMax2 );
-
-bool IsBoxIntersectingBoxExtents( const Vector& boxCenter1, const Vector& boxHalfDiagonal1, 
-						   const Vector& boxCenter2, const Vector& boxHalfDiagonal2 );
 
 
 
@@ -315,21 +296,6 @@ FORCEINLINE bool IsPointInBox( const fltx4& pt, const fltx4& boxMin, const fltx4
 
 
 //-----------------------------------------------------------------------------
-// Purpose: returns true if pt intersects the truncated cone
-// origin - cone tip, axis unit cone axis, cosAngle - cosine of cone axis to surface angle
-//-----------------------------------------------------------------------------
-bool IsPointInCone( const Vector &pt, const Vector &origin, const Vector &axis, float cosAngle, float length );
-
-//-----------------------------------------------------------------------------
-// Intersects a plane with a triangle (using barycentric definition)
-// The return value, in pIntersection, is an array of barycentric coordinates 
-// describing at most 2 intersection points. 
-// The return value is the number of intersection points
-//-----------------------------------------------------------------------------
-int IntersectTriangleWithPlaneBarycentric( const Vector& org, const Vector& edgeU, const Vector& edgeV, 
-										   const Vector4D& plane, Vector2D* pIntersection );
-
-//-----------------------------------------------------------------------------
 //
 // PointInQuadBarycentric
 //
@@ -347,14 +313,7 @@ enum QuadBarycentricRetval_t
 	BARY_QUADRATIC_NEGATIVE_DISCRIMINANT	= 2
 };
 
-QuadBarycentricRetval_t PointInQuadToBarycentric( const Vector &v1, const Vector &v2, 
-	const Vector &v3, const Vector &v4, const Vector &point, Vector2D &uv );
 
-
-void PointInQuadFromBarycentric( const Vector &v1, const Vector &v2, const Vector &v3, const Vector &v4,
-								 const Vector2D &uv, Vector &point );
-void TexCoordInQuadFromBarycentric( const Vector2D &v1, const Vector2D &v2, const Vector2D &v3, const Vector2D &v4,
-								    const Vector2D &uv, Vector2D &texCoord );
 
 
 //-----------------------------------------------------------------------------
@@ -367,20 +326,6 @@ void ComputePointFromBarycentric( const Vector2D& v0, const Vector2D& v1, const 
 								 float u, float v, Vector2D& pt );
 
 
-//-----------------------------------------------------------------------------
-// Swept OBB test
-//-----------------------------------------------------------------------------
-bool IsRayIntersectingOBB( const Ray_t &ray, const Vector& org, const QAngle& angles, 
-						  const Vector& mins, const Vector& maxs );
-
-
-//-----------------------------------------------------------------------------
-// Compute a separating plane between two boxes (expensive!)
-// Returns false if no separating plane exists
-//-----------------------------------------------------------------------------
-bool ComputeSeparatingPlane( const Vector& org1, const QAngle& angles1, const Vector& min1, const Vector& max1, 
-	const Vector& org2, const QAngle& angles2, const Vector& min2, const Vector& max2, 
-	float tolerance, cplane_t* pPlane );
 
 //-----------------------------------------------------------------------------
 // IsBoxIntersectingTriangle
@@ -402,55 +347,10 @@ bool IsBoxIntersectingTriangle( const Vector &vecBoxCenter, const Vector &vecBox
 						        const cplane_t &plane, float flTolerance );
 
 
-Vector CalcClosestPointOnTriangle( const Vector &P, const Vector &v0, const Vector &v1, const Vector &v2 );
-
-
-//-----------------------------------------------------------------------------
-// Compute if the OBB intersects the quad plane, and whether the entire
-// OBB/Quad intersection is contained within the quad itself
-//
-// False if no intersection exists, or if part of the intersection is
-// outside the quad's extents
-//-----------------------------------------------------------------------------
-bool OBBHasFullyContainedIntersectionWithQuad( const Vector &vOBBExtent1_Scaled, const Vector &vOBBExtent2_Scaled, const Vector &vOBBExtent3_Scaled, const Vector &ptOBBCenter,
-											  const Vector &vQuadNormal, float fQuadPlaneDist, const Vector &ptQuadCenter,
-											  const Vector &vQuadExtent1_Normalized, float fQuadExtent1Length, 
-											  const Vector &vQuadExtent2_Normalized, float fQuadExtent2Length );
-
-
-//-----------------------------------------------------------------------------
-// Compute if the Ray intersects the quad plane, and whether the entire
-// Ray/Quad intersection is contained within the quad itself
-//
-// False if no intersection exists, or if part of the intersection is
-// outside the quad's extents
-//-----------------------------------------------------------------------------
-bool RayHasFullyContainedIntersectionWithQuad( const Ray_t &ray,
-											  const Vector &vQuadNormal, float fQuadPlaneDist, const Vector &ptQuadCenter,
-											  const Vector &vQuadExtent1_Normalized, float fQuadExtent1Length, 
-											  const Vector &vQuadExtent2_Normalized, float fQuadExtent2Length );
 
 
 
-//-----------------------------------------------------------------------------
-// Compute the intersection of a line and a circle
-//-----------------------------------------------------------------------------
-bool LineCircleIntersection(const Vector2D &center,
-							const float radius,
-							const Vector2D &vLinePt,
-							const Vector2D &vLineDir,
-							float *fIntersection1,
-							float *fIntersection2);
 
-
-//-----------------------------------------------------------------------------
-// Find the intersection of a ray with an axis-aligned cylinder
-//-----------------------------------------------------------------------------
-bool IntersectRayWithAACylinder( const Ray_t &ray, 
-								 const Vector &center, 
-								 float radius, 
-								 float height, 
-								 CBaseTrace *pTrace );
 
 //-----------------------------------------------------------------------------
 // INLINES

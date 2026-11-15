@@ -30,7 +30,7 @@ class CVertexDictionary;
 
 struct VertexInfo_t;
 
-static void BuildBoneLODMapping(CUtlVector<int> &boneMap, int lodID);
+static void BuildBoneLODMapping(std::vector<int> &boneMap, int lodID);
 
 
 //-----------------------------------------------------------------------------
@@ -152,7 +152,7 @@ public:
     void SetRootVertexRange(int start, int end);
 
 private:
-    CUtlVector<VertexInfo_t> m_Verts;
+    std::vector<VertexInfo_t> m_Verts;
     int m_nPrevLODCount;
     int m_nRootLODStart;
     int m_nRootLODEnd;
@@ -215,8 +215,8 @@ void CVertexDictionary::SetRootVertexRange(int start, int end) {
 // Adds a vertex to the dictionary
 //-----------------------------------------------------------------------------
 int CVertexDictionary::AddVertex(const VertexInfo_t &srcVertex) {
-    int nDstVertID = m_Verts.AddToTail(srcVertex);
-    VertexInfo_t &vertex = m_Verts[nDstVertID];
+    const int nDstVertID = std::ssize(m_Verts);
+    VertexInfo_t &vertex = m_Verts.emplace_back(srcVertex);
     ValidateBoneWeight(vertex.m_BoneWeight);
     SortBoneWeightByIndex(vertex.m_BoneWeight);
     ValidateBoneWeight(vertex.m_BoneWeight);
@@ -229,8 +229,8 @@ int CVertexDictionary::AddVertex(const VertexInfo_t &srcVertex) {
 // Copies in a particular vertex from the s_source_t
 //-----------------------------------------------------------------------------
 int CVertexDictionary::AddVertexFromSource(const s_source_t *pSrc, int nVertexIndex, int nLod) {
-    int nDstVertID = m_Verts.AddToTail();
-    VertexInfo_t &vertex = m_Verts[nDstVertID];
+    const int nDstVertID = std::ssize(m_Verts);
+    VertexInfo_t &vertex = m_Verts.emplace_back();
 
     const s_vertexinfo_t &srcVertex = pSrc->m_GlobalVertices[nVertexIndex];
     vertex.m_Position = srcVertex.position;
@@ -257,7 +257,7 @@ int CVertexDictionary::AddVertexFromSource(const s_source_t *pSrc, int nVertexIn
 // How many vertices in the dictionary?
 //-----------------------------------------------------------------------------
 int CVertexDictionary::VertexCount() const {
-    return m_Verts.Count();
+    return std::ssize(m_Verts);
 }
 
 
@@ -503,12 +503,12 @@ static void CopyVerts(int nLodID, const s_source_t *pSrc, const s_mesh_t *pSrcMe
 }
 
 static void
-CopyFaces(const s_source_t *pSrc, const s_mesh_t *pSrcMesh, CUtlVector<s_face_t> &faces, s_mesh_t *pDstMesh) {
+CopyFaces(const s_source_t *pSrc, const s_mesh_t *pSrcMesh, std::vector<s_face_t> &faces, s_mesh_t *pDstMesh) {
     int srcFaceID;
     for (srcFaceID = 0; srcFaceID < pSrcMesh->numfaces; srcFaceID++) {
         int srcID = srcFaceID + pSrcMesh->faceoffset;
         s_face_t *pSrcFace = &pSrc->face[srcID];
-        s_face_t *pDstFace = &faces[faces.AddToTail()];
+        s_face_t *pDstFace = &faces.emplace_back();
         pDstFace->a = pSrcFace->a;
         pDstFace->b = pSrcFace->b;
         pDstFace->c = pSrcFace->c;
@@ -659,7 +659,7 @@ FindBoneWeightWithinModel(const VertexInfo_t &searchVertex, const s_source_t *pS
         flTangentSError = 0;
     }
 
-    int nVertexCount = pSrc->m_GlobalVertices.Count();
+    const int nVertexCount = std::ssize(pSrc->m_GlobalVertices);
     for (int i = 0; i < nVertexCount; i++) {
         const s_vertexinfo_t &srcVertex = pSrc->m_GlobalVertices[i];
 
@@ -716,9 +716,9 @@ FindBoneWeightWithinModel(const VertexInfo_t &searchVertex, const s_source_t *pS
 //-----------------------------------------------------------------------------
 // Modify the bone weights in all of the vertices....
 //-----------------------------------------------------------------------------
-static void RemapBoneWeights(const CUtlVector<int> &boneMap, s_boneweight_t &boneWeight) {
+static void RemapBoneWeights(const std::vector<int> &boneMap, s_boneweight_t &boneWeight) {
     for (int i = 0; i < boneWeight.numbones; i++) {
-        Assert(boneWeight.bone[i] >= 0 && boneWeight.bone[i] < boneMap.Count());
+        Assert(boneWeight.bone[i] >= 0 && boneWeight.bone[i] < std::ssize(boneMap));
         boneWeight.bone[i] = boneMap[boneWeight.bone[i]];
     }
 }
@@ -824,27 +824,6 @@ static void CalculateIdealVert(const VertexInfo_t &searchVertex, CVertexDictiona
 }
 
 
-static bool FuzzyFloatCompare(float f1, float f2, float epsilon) {
-    if (fabs(f1 - f2) < epsilon) {
-        return true;
-    } else {
-        return false;
-    }
-}
-
-
-//-----------------------------------------------------------------------------
-// Is this bone weight structure sorted by bone?
-//-----------------------------------------------------------------------------
-static bool IsBoneWeightSortedByBone(const s_boneweight_t &src) {
-    for (int i = 1; i < src.numbones; ++i) {
-        Assert(src.bone[i] != -1);
-        if (src.bone[i - 1] > src.bone[i])
-            return false;
-    }
-
-    return true;
-}
 
 
 //-----------------------------------------------------------------------------
@@ -939,29 +918,6 @@ static int FindOrCreateExactVertexInDictionary(CVertexDictionary &vertexDict,
     return nMeshVertID - pDstMesh->vertexoffset;
 }
 
-static void PrintBonesUsedInLOD(s_source_t *pSrc) {
-    std::print("PrintBonesUsedInLOD\n");
-
-    int nVertexCount = pSrc->m_GlobalVertices.Count();
-    for (int i = 0; i < nVertexCount; i++) {
-        Vector &pos = pSrc->m_GlobalVertices[i].position;
-        Vector &norm = pSrc->m_GlobalVertices[i].normal;
-        Vector2D &texcoord = pSrc->m_GlobalVertices[i].texcoord[0];
-        std::print("pos: {:f} {:f} {:f} norm: {:f} {:f} {:f} texcoord: {:f} {:f}\n",
-               pos[0], pos[1], pos[2], norm[0], norm[1], norm[2], texcoord[0], texcoord[1]);
-        s_boneweight_t *pBoneWeight = &pSrc->m_GlobalVertices[i].boneweight;
-        int j;
-        for (j = 0; j < pBoneWeight->numbones; j++) {
-            int globalBoneID = pBoneWeight->bone[j];
-            const char *pBoneName = g_studiomdl.bones.bonetable[globalBoneID].name;
-            std::print("vert: {} bone: {} boneid: {} weight: {:f} name: \"{}\"\n", i, (int) j, (int) pBoneWeight->bone[j],
-                   (float) pBoneWeight->weight[j], pBoneName);
-        }
-        std::print("\n");
-        fflush(stdout);
-    }
-}
-
 
 //-----------------------------------------------------------------------------
 // Indicates a particular set of bones is used by a particular LOD
@@ -974,17 +930,6 @@ static void MarkBonesUsedByLod(const s_boneweight_t &boneWeight, int nLodID) {
     }
 }
 
-
-static void PrintSBoneWeight(s_boneweight_t *pBoneWeight, const s_source_t *pSrc) {
-    int j;
-    for (j = 0; j < pBoneWeight->numbones; j++) {
-        int globalBoneID;
-        globalBoneID = pBoneWeight->bone[j];
-        const char *pBoneName = g_studiomdl.bones.bonetable[globalBoneID].name;
-        std::print("bone: {} boneid: {} weight: {:f} name: \"{}\"\n", (int) j, (int) pBoneWeight->bone[j],
-               (float) pBoneWeight->weight[j], pBoneName);
-    }
-}
 
 
 //-----------------------------------------------------------------------------
@@ -1003,7 +948,7 @@ static void CreateLODVertsInDictionary(int nLodID, const s_source_t *pRootLODSrc
     // Used to control where we look for vertices + merging rules
     vertexDict.StartNewLOD();
 
-    CUtlVector<int> boneMap;
+    std::vector<int> boneMap;
     BuildBoneLODMapping(boneMap, nLodID);
 
     for (int nSrcVertID = 0; nSrcVertID < pCurrLODMesh->numvertices; ++nSrcVertID) {
@@ -1067,23 +1012,6 @@ static void CreateLODVertsInDictionary(int nLodID, const s_source_t *pRootLODSrc
     }
 }
 
-static void PrintSourceVerts(s_source_t *pSrc) {
-    int nVertexCount = pSrc->m_GlobalVertices.Count();
-    for (int i = 0; i < nVertexCount; i++) {
-        const s_vertexinfo_t &srcVertex = pSrc->m_GlobalVertices[i];
-        std::print("v {} ", i);
-        std::print("pos: {:f} {:f} {:f} ", srcVertex.position[0], srcVertex.position[1], srcVertex.position[2]);
-        std::print("norm: {:f} {:f} {:f} ", srcVertex.normal[0], srcVertex.normal[1], srcVertex.normal[2]);
-        std::print("texcoord: {:f} {:f}\n", srcVertex.texcoord[0].x, srcVertex.texcoord[1].y);
-        int j;
-        for (j = 0; j < srcVertex.boneweight.numbones; j++) {
-            std::print("\t{}: {} {:f}\n", j, (int) srcVertex.boneweight.bone[j],
-                   srcVertex.boneweight.weight[j]);
-        }
-        fflush(stdout);
-    }
-}
-
 
 //-----------------------------------------------------------------------------
 // Copy the vertex dictionary to the finalized processed data
@@ -1091,7 +1019,7 @@ static void PrintSourceVerts(s_source_t *pSrc) {
 // Routines can then choose which data they operate on
 //-----------------------------------------------------------------------------
 static void SetProcessedWithDictionary(s_model_t *pSrcModel, CVertexDictionary &vertexDict,
-                                       CUtlVector<s_face_t> &faces, CUtlVector<s_mesh_t> &meshes,
+                                       std::vector<s_face_t> &faces, std::vector<s_mesh_t> &meshes,
                                        int *pMeshVertIndexMaps[MAX_NUM_LODS]) {
     int i;
 
@@ -1104,8 +1032,8 @@ static void SetProcessedWithDictionary(s_model_t *pSrcModel, CVertexDictionary &
 
     pLodData->vertex = (s_lodvertexinfo_t *) calloc(nVertexCount, sizeof(s_lodvertexinfo_t));
     pLodData->numvertices = nVertexCount;
-    pLodData->face = (s_face_t *) calloc(faces.Count(), sizeof(s_face_t));
-    pLodData->numfaces = faces.Count();
+    pLodData->face = (s_face_t *) calloc(faces.size(), sizeof(s_face_t));
+    pLodData->numfaces = std::ssize(faces);
 
     for (i = 0; i < nVertexCount; ++i) {
         const VertexInfo_t &srcVertex = vertexDict.Vertex(i);
@@ -1125,8 +1053,8 @@ static void SetProcessedWithDictionary(s_model_t *pSrcModel, CVertexDictionary &
         }
     }
 
-    memcpy(pLodData->face, faces.Base(), faces.Count() * sizeof(s_face_t));
-    memcpy(pLodData->mesh, meshes.Base(), meshes.Count() * sizeof(s_mesh_t));
+    memcpy(pLodData->face, faces.data(), faces.size() * sizeof(s_face_t));
+    memcpy(pLodData->mesh, meshes.data(), meshes.size() * sizeof(s_mesh_t));
 
     for (i = 0; i < MAX_NUM_LODS; i++) {
         pLodData->pMeshVertIndexMaps[i] = pMeshVertIndexMaps[i];
@@ -1138,10 +1066,10 @@ static void SetProcessedWithDictionary(s_model_t *pSrcModel, CVertexDictionary &
 // This fills out boneMap, which is a mapping from src bone to src bone replacement (or to itself
 // if there is no bone replacement.
 //-----------------------------------------------------------------------------
-static void BuildBoneLODMapping(CUtlVector<int> &boneMap, int lodID) {
-    boneMap.AddMultipleToTail(std::ssize(g_studiomdl.bones.bonetable));
+static void BuildBoneLODMapping(std::vector<int> &boneMap, int lodID) {
+    boneMap.resize(boneMap.size() + g_studiomdl.bones.bonetable.size());
 
-    Assert(lodID < g_ScriptLODs.Count());
+    Assert(lodID < std::ssize(g_studiomdl.body.ScriptLODs));
     LodScriptData_t &scriptLOD = g_studiomdl.body.ScriptLODs[lodID];
 
     // First, create a direct mapping where no bones are collapsed
@@ -1175,7 +1103,7 @@ static void BuildBoneLODMapping(CUtlVector<int> &boneMap, int lodID) {
 static void MarkRootLODBones(CVertexDictionary &vertexDictionary) {
     // should result in an identity mapping
     // because their are no bone remaps at the root lod
-    CUtlVector<int> boneMap;
+    std::vector<int> boneMap;
     BuildBoneLODMapping(boneMap, 0);
 
     // iterate and mark bones
@@ -1200,12 +1128,12 @@ static void UnifyModelLODs(s_model_t *pSrcModel) {
         return;
 
     // each lod has a unique vertex mapping table
-    int nNumLODs = pSrcModel->m_LodSources.Count();
+    const int nNumLODs = std::ssize(pSrcModel->m_LodSources);
     int nLodID;
     int *pMeshVertIndexMaps[MAX_NUM_LODS];
     for (nLodID = 0; nLodID < MAX_NUM_LODS; nLodID++) {
         if (nLodID < nNumLODs && pSrcModel->m_LodSources[nLodID]) {
-            int nVertexCount = pSrcModel->m_LodSources[nLodID]->m_GlobalVertices.Count();
+            const int nVertexCount = std::ssize(pSrcModel->m_LodSources[nLodID]->m_GlobalVertices);
             pMeshVertIndexMaps[nLodID] = new int[nVertexCount];
 #ifdef _DEBUG
             memset(pMeshVertIndexMaps[nLodID], 0xDD, nVertexCount * sizeof(int));
@@ -1217,12 +1145,8 @@ static void UnifyModelLODs(s_model_t *pSrcModel) {
 
     // These hold the aggregate data for the model that grows as lods are processed
     CVertexDictionary vertexDictionary;
-    CUtlVector<s_face_t> faces;
-    CUtlVector<s_mesh_t> meshes;
-
-    meshes.AddMultipleToTail(MAXSTUDIOSKINS);
-    Assert(meshes.Count() == MAXSTUDIOSKINS);
-    memset(meshes.Base(), 0, meshes.Count() * sizeof(s_mesh_t));
+    std::vector<s_face_t> faces;
+    std::vector<s_mesh_t> meshes(MAXSTUDIOSKINS);
 
     int nMeshID;
     for (nMeshID = 0; nMeshID < pSrcModel->source->meshes.size(); nMeshID++) {
@@ -1233,7 +1157,7 @@ static void UnifyModelLODs(s_model_t *pSrcModel) {
         pVertexDictMesh->numvertices = 0;
         pVertexDictMesh->vertexoffset = vertexDictionary.VertexCount();
         pVertexDictMesh->numfaces = 0;
-        pVertexDictMesh->faceoffset = faces.Count();
+        pVertexDictMesh->faceoffset = std::ssize(faces);
 
         // First build up information for LOD 0
         if (!pSrcModel->m_LodSources[0])
@@ -1381,9 +1305,10 @@ void MarkParentBoneLODs() {
 //-----------------------------------------------------------------------------
 // Returns the sources associated with the various LODs based on the script commands
 //-----------------------------------------------------------------------------
-static void GetLODSources(CUtlVector<s_source_t *> &lods, const s_model_t *pSrcModel) {
-    int nNumLODs = std::ssize(g_studiomdl.body.ScriptLODs);
-    lods.EnsureCount(nNumLODs);
+static void GetLODSources(std::vector<s_source_t *> &lods, const s_model_t *pSrcModel) {
+    const int nNumLODs = std::ssize(g_studiomdl.body.ScriptLODs);
+    if (std::ssize(lods) < nNumLODs)
+        lods.resize(nNumLODs);
     for (int lodID = 0; lodID < nNumLODs; lodID++) {
         LodScriptData_t &scriptLOD = g_studiomdl.body.ScriptLODs[lodID];
 
@@ -1407,10 +1332,7 @@ void LoadLODSources() {
     for (int modelID = 0; modelID < g_studiomdl.body.nummodelsbeforeLOD; modelID++) {
         if (vstd::iequals(g_studiomdl.body.model[modelID]->name, "blank")) {
             int nNumLODs = std::ssize(g_studiomdl.body.ScriptLODs);
-            g_studiomdl.body.model[modelID]->m_LodSources.SetCount(nNumLODs);
-            for (int i = 0; i < nNumLODs; ++i) {
-                g_studiomdl.body.model[modelID]->m_LodSources[i] = nullptr;
-            }
+            g_studiomdl.body.model[modelID]->m_LodSources.assign(nNumLODs, nullptr);
             continue;
         }
 

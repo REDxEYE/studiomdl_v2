@@ -95,13 +95,6 @@ void InvalidateUniqueId( UniqueId_t *pDest )
 	memset( pDest, 0, sizeof( UniqueId_t ) );
 }
 
-bool IsUniqueIdValid( const UniqueId_t &id )
-{
-	UniqueId_t invalidId;
-	memset( &invalidId, 0, sizeof( UniqueId_t ) );
-	return !IsUniqueIdEqual( invalidId, id );
-}
-
 bool IsUniqueIdEqual( const UniqueId_t &id1, const UniqueId_t &id2 )
 {
 	return memcmp( &id1, &id2, sizeof( UniqueId_t ) ) == 0; 

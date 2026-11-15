@@ -287,74 +287,9 @@ typedef CFmtStrN<8192> CFmtStrMax;
 //			storing the length in the class).
 //-----------------------------------------------------------------------------
 
-class CNumStr
-{
-public:
-	CNumStr() { m_szBuf[0] = 0; }
-
-	explicit CNumStr(const bool b )		{ SetBool( b ); }
-
-	explicit CNumStr(const int8_t n8 )		{ SetInt8( n8 ); }
-	explicit CNumStr(const uint8_t un8 )	{ SetUint8( un8 );  }
-	explicit CNumStr(const int16_t n16 )	{ SetInt16( n16 ); }
-	explicit CNumStr(const uint16_t un16 )	{ SetUint16( un16 );  }
-	explicit CNumStr(const int32_t n32 )	{ SetInt32( n32 ); }
-	explicit CNumStr(const uint32_t un32 )	{ SetUint32( un32 ); }
-	explicit CNumStr(const int64_t n64 )	{ SetInt64( n64 ); }
-	explicit CNumStr(const uint64_t un64 )	{ SetUint64( un64 ); }
-
-	explicit CNumStr(const double f )	{ SetDouble( f ); }
-	explicit CNumStr(const float f )		{ SetFloat( f ); }
-
-	inline void SetBool(const bool b )			{ Q_memcpy( m_szBuf, b ? "1" : "0", 2 ); }
-
-#ifdef _WIN32
-	inline void SetInt8(const int8_t n8 )			{ _itoa( (int32_t)n8, m_szBuf, 10 ); }
-	inline void SetUint8(const uint8_t un8 )		{ _itoa( (int32_t)un8, m_szBuf, 10 ); }
-	inline void SetInt16(const int16_t n16 )		{ _itoa( (int32_t)n16, m_szBuf, 10 ); }
-	inline void SetUint16(const uint16_t un16 )	{ _itoa( (int32_t)un16, m_szBuf, 10 ); }
-	inline void SetInt32(const int32_t n32 )		{ _itoa( n32, m_szBuf, 10 ); }
-	inline void SetUint32(const uint32_t un32 )	{ _i64toa( (int64_t)un32, m_szBuf, 10 ); }
-	inline void SetInt64(const int64_t n64 )		{ _i64toa( n64, m_szBuf, 10 ); }
-	inline void SetUint64(const uint64_t un64 )	{ _ui64toa( un64, m_szBuf, 10 ); }
-#else
-	inline void SetInt8(const int8_t n8 )			{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%d", (int32_t)n8 ); }
-	inline void SetUint8(const uint8_t un8 )		{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%d", static_cast<int32_t>(un8) ); }
-	inline void SetInt16(const int16_t n16 )		{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%d", static_cast<int32_t>(n16) ); }
-	inline void SetUint16(const uint16_t un16 )	{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%d", static_cast<int32_t>(un16) ); }
-	inline void SetInt32(const int32_t n32 )		{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%d", n32 ); }
-	inline void SetUint32(const uint32_t un32 )	{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%u", un32 ); }
-	inline void SetInt64(const int64_t n64 )		{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%lld", n64 ); }
-	inline void SetUint64(const uint64_t un64 )	{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%llu", un64 ); }
-#endif
-
-	inline void SetDouble(const double f )		{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%.18g", f ); }
-	inline void SetFloat(const float f )			{ Q_snprintf( m_szBuf, sizeof(m_szBuf), "%.18g", f ); }
-
-	inline void SetHexUint64( uint64_t un64 )	{ Q_binarytohex( (uint8_t *)&un64, sizeof( un64 ), m_szBuf, sizeof( m_szBuf ) ); }
-
-	operator const char *() const { return m_szBuf; }
-	const char* String() const { return m_szBuf; }
-
-	void AddQuotes()
-	{
-		Assert( m_szBuf[0] != '"' );
-		const int nLength = Q_strlen( m_szBuf );
-		Q_memmove( m_szBuf + 1, m_szBuf, nLength );
-		m_szBuf[0] = '"';
-		m_szBuf[nLength + 1] = '"';
-		m_szBuf[nLength + 2] = 0;
-	}
-
-protected:
-	char m_szBuf[28]; // long enough to hold 18 digits of precision, a decimal, a - sign, e+### suffix, and quotes
-
-};
-
 
 //=============================================================================
 
 const int k_cchFormattedDate = 64;
 const int k_cchFormattedTime = 32;
-bool BGetLocalFormattedTime( time_t timeVal, char *pchDate, int cubDate, char *pchTime, int cubTime );
 

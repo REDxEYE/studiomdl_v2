@@ -635,13 +635,6 @@ inline int64_t CastPtrToInt64( const void *p )
 PLATFORM_INTERFACE double			Plat_FloatTime();		// Returns time in seconds since the module was loaded.
 PLATFORM_INTERFACE uint32_t			Plat_MSTime();			// Time in milliseconds.
 
-// Get the local calendar time.
-// Same as time() followed by localtime(), but non-crash-prone.
-PLATFORM_INTERFACE void				Plat_GetLocalTime( struct tm *pNow );
-
-// Get the process' executable filename.
-PLATFORM_INTERFACE void				Plat_GetModuleFilename( char *pOut, int nMaxBytes );
-
 PLATFORM_INTERFACE void				Plat_ExitProcess( int nCode );
 
 #define Plat_FastMemset memset
@@ -659,27 +652,6 @@ PLATFORM_INTERFACE void				Plat_ExitProcess( int nCode );
 // way to let a va_list be used multiple times.  Unfortunately Windows
 // does not have va_copy, so here we provide things to hide the difference.
 //-----------------------------------------------------------------------------
-
-class CReuseVaList
-{
-public:
-	CReuseVaList( va_list List )
-	{
-#if defined(LINUX) || defined(OSX)
-		va_copy( m_ReuseList, List );
-#else
-		m_ReuseList = List;
-#endif
-	}
-	~CReuseVaList()
-	{
-#if defined(LINUX) || defined(OSX)
-		va_end( m_ReuseList );
-#endif
-	}
-
-	va_list m_ReuseList;
-};
 
 //-----------------------------------------------------------------------------
 // C++11 helpers

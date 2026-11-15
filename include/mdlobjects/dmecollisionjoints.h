@@ -21,7 +21,7 @@ class CDmeJointConstrain : public CDmElement
 {
 	DEFINE_ELEMENT( CDmeJointConstrain, CDmElement );
 
-	virtual void OnAttributeChanged( CDmAttribute *pAttribute );
+    void OnAttributeChanged( CDmAttribute *pAttribute ) override;
 
 public:
 	CDmaVar< int >								m_nType;		// 0: Free, 1: Fixed, 2: Limit

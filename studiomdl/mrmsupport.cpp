@@ -565,8 +565,8 @@ static void BuildFaceList(s_source_t *pSource, int *pVListToDesired, int *pDesir
 // Remaps the vertex animations based on the new vertex ordering
 //-----------------------------------------------------------------------------
 static void RemapVertexAnimations(s_source_t *pSource, int *pVListToDesired) {
-    CUtlVectorAuto<int> temp;
-    int nAnimationCount = pSource->m_Animations.Count();
+    vstd::AutoGrowVector<int> temp;
+    const int nAnimationCount = std::ssize(pSource->m_Animations);
     for (int i = 0; i < nAnimationCount; ++i) {
         s_sourceanim_t &anim = pSource->m_Animations[i];
         if (!anim.newStyleVertexAnimations)

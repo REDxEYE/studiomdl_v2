@@ -67,59 +67,8 @@ bool CDmeBBox::Empty() const
 }
 
 
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-void CDmeBBox::TransformUsing( const matrix3x4_t &mMatrix )
-{
-	Vector vMin;
-	Vector vMax;
-
-	TransformAABB( mMatrix, m_vMinBounds, m_vMaxBounds, vMin, vMax );
-
-	m_vMinBounds = vMin;
-	m_vMaxBounds = vMax;
-}
 
 
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-void CDmeBBox::Expand( const Vector &vPoint )
-{
-	Vector vMin = m_vMinBounds;
-	Vector vMax = m_vMaxBounds;
-
-	AddPointToBounds( vPoint, vMin, vMax );
-
-	m_vMinBounds = vMin;
-	m_vMaxBounds = vMax;
-}
-
-
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-void CDmeBBox::Expand( const CDmeBBox &bbox )
-{
-	Expand( bbox.m_vMinBounds );
-	Expand( bbox.m_vMaxBounds );
-}
-
-
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-bool CDmeBBox::Contains( const Vector &vPoint ) const
-{
-	const Vector &vMin = m_vMinBounds.Get();
-	const Vector &vMax = m_vMaxBounds.Get();
-
-	return
-		vPoint.x >= vMin.x && vPoint.x <= vMax.x &&
-		vPoint.y >= vMin.y && vPoint.y <= vMax.y &&
-		vPoint.z >= vMin.z && vPoint.z <= vMax.z;
-}
 
 
 //-----------------------------------------------------------------------------
@@ -131,49 +80,8 @@ bool CDmeBBox::Intersects( const CDmeBBox &bbox ) const
 }
 
 
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-float CDmeBBox::Width() const
-{
-	const float flWidth = m_vMaxBounds.Get().x - m_vMinBounds.Get().x;
-	return flWidth > 0.0f ? flWidth : 0.0f;
-}
 
 
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-float CDmeBBox::Height() const
-{
-	const float flHeight = m_vMaxBounds.Get().y - m_vMinBounds.Get().y;
-	return flHeight > 0.0f ? flHeight : 0.0f;
-}
-
-
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-float CDmeBBox::Depth() const
-{
-	const float flDepth = m_vMaxBounds.Get().z - m_vMinBounds.Get().z;
-	return flDepth > 0.0f ? flDepth : 0.0f;
-}
-
-
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-Vector CDmeBBox::Center() const
-{
-	const Vector &vMin = m_vMinBounds.Get();
-	const Vector &vMax = m_vMaxBounds.Get();
-
-	return Vector(
-		( vMax.x + vMin.x ) / 2.0f,
-		( vMax.y + vMin.y ) / 2.0f,
-		( vMax.z + vMin.z ) / 2.0f );
-}
 
 
 //-----------------------------------------------------------------------------

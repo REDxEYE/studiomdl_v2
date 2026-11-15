@@ -23,8 +23,6 @@ class CDmeBoneFlexDriverControl : public CDmElement
 	DEFINE_ELEMENT( CDmeBoneFlexDriverControl, CDmElement );
 
 public:
-	// Sets the bone component to be in the range [STUDIO_BONE_FLEX_TX, STUDIO_BONE_FLEX_RZ]
-	int SetBoneComponent( int nBoneComponent );
 
 	CDmaString m_sFlexControllerName;	// Name of flex controller to drive
 	CDmaVar< int > m_nBoneComponent;	// Component of bone to drive flex controller, StudioBoneFlexComponent_t
@@ -42,7 +40,7 @@ class CDmeBoneFlexDriver : public CDmeMdlList
 	DEFINE_ELEMENT( CDmeBoneFlexDriver, CDmeMdlList );
 
 public:
-	virtual CDmAttribute *GetListAttr() { return m_eControlList.GetAttribute(); }
+    CDmAttribute *GetListAttr() override { return m_eControlList.GetAttribute(); }
 
 	CDmeBoneFlexDriverControl *FindOrCreateControl( const char *pszControlName );
 
@@ -60,7 +58,7 @@ class CDmeBoneFlexDriverList : public CDmeMdlList
 	DEFINE_ELEMENT( CDmeBoneFlexDriverList, CDmeMdlList );
 
 public:
-	virtual CDmAttribute *GetListAttr() { return m_eBoneFlexDriverList.GetAttribute(); }
+    CDmAttribute *GetListAttr() override { return m_eBoneFlexDriverList.GetAttribute(); }
 
 	CDmeBoneFlexDriver *FindOrCreateBoneFlexDriver( const char *pszBoneName );
 

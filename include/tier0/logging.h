@@ -152,8 +152,7 @@ public:
 	{
 	}
 
-	virtual void Log( const LoggingContext_t *pContext, const tchar *pMessage )
-	{
+    void Log( const LoggingContext_t *pContext, const tchar *pMessage ) override {
 		if ( !m_bQuietPrintf )
 		{
 			_tprintf( _T("%s"), pMessage );
@@ -177,8 +176,7 @@ public:
 class CSimpleWindowsLoggingListener : public ILoggingListener
 {
 public:
-	virtual void Log( const LoggingContext_t *pContext, const tchar *pMessage )
-	{
+    void Log( const LoggingContext_t *pContext, const tchar *pMessage ) override {
 		if ( Plat_IsInDebugSession() )
 		{
 			Plat_DebugString( pMessage );
@@ -197,8 +195,7 @@ public:
 class CDefaultLoggingResponsePolicy : public ILoggingResponsePolicy
 {
 public:
-	virtual LoggingResponse_t OnLog( const LoggingContext_t *pContext )
-	{
+    LoggingResponse_t OnLog( const LoggingContext_t *pContext ) override {
 		if ( pContext->m_Severity == LS_ASSERT && !CommandLine()->FindParm( "-noassert" ) )
 		{
 			return LR_DEBUGGER;
@@ -218,8 +215,7 @@ public:
 class CNonFatalLoggingResponsePolicy : public ILoggingResponsePolicy
 {
 public:
-	virtual LoggingResponse_t OnLog( const LoggingContext_t *pContext )
-	{
+    LoggingResponse_t OnLog( const LoggingContext_t *pContext ) override {
 		if ( ( pContext->m_Severity == LS_ASSERT && !CommandLine()->FindParm( "-noassert" ) ) || pContext->m_Severity == LS_ERROR )
 		{
 			return LR_DEBUGGER;
@@ -258,9 +254,6 @@ public:
 	// Returns true if the given channel will spew at the given severity level.
 	bool IsChannelEnabled( LoggingChannelID_t channelID, LoggingSeverity_t severity ) const { return IsValidChannelID( channelID ) && m_RegisteredChannels[channelID].IsEnabled( severity ); }
 
-	// Sets the spew level of all channels with the given name.
-	void SetChannelSpewLevelByName( const char *pName, LoggingSeverity_t minimumSeverity );
-
 	Color GetChannelColor( LoggingChannelID_t channelID ) const { return m_RegisteredChannels[channelID].m_SpewColor; }
 
 	// Saves the current logging state on a stack and starts a new, clear state
@@ -274,11 +267,6 @@ public:
 	// Clears out all of the current logging state (removes all listeners,
 	// sets the response policy to the default).
 	void ResetCurrentLoggingState();
-
-	// Sets a policy class to decide what should happen when messages of a
-	// particular severity are logged (e.g. exit on error, break into debugger).
-	// If pLoggingResponse is NULL, uses the default response policy class.
-	void SetLoggingResponsePolicy( ILoggingResponsePolicy *pLoggingResponse );
 
 	// Logs a message to the specified channel using a given severity and
 	// spew color.  Passing in UNSPECIFIED_LOGGING_COLOR for 'color' allows
@@ -362,17 +350,14 @@ PLATFORM_INTERFACE LoggingChannelID_t LoggingSystem_RegisterLoggingChannel( cons
 
 PLATFORM_INTERFACE void LoggingSystem_RegisterLoggingListener( ILoggingListener *pListener );
 PLATFORM_INTERFACE void LoggingSystem_ResetCurrentLoggingState();
-PLATFORM_INTERFACE void LoggingSystem_SetLoggingResponsePolicy( ILoggingResponsePolicy *pResponsePolicy );
 PLATFORM_INTERFACE void LoggingSystem_PushLoggingState();
 PLATFORM_INTERFACE void LoggingSystem_PopLoggingState();
 
 PLATFORM_INTERFACE bool LoggingSystem_IsChannelEnabled( LoggingChannelID_t channelID, LoggingSeverity_t severity );
-PLATFORM_INTERFACE void LoggingSystem_SetChannelSpewLevelByName( const char *pName, LoggingSeverity_t minimumSeverity );
 
 // Logs a variable-argument message to a given channel with the specified severity.
 PLATFORM_INTERFACE LoggingResponse_t LoggingSystem_Log( LoggingChannelID_t channelID, LoggingSeverity_t severity, PRINTF_FORMAT_STRING const char *pMessageFormat, ... ) FMTFUNCTION( 3, 4 );
 PLATFORM_OVERLOAD LoggingResponse_t LoggingSystem_Log( LoggingChannelID_t channelID, LoggingSeverity_t severity, Color spewColor, PRINTF_FORMAT_STRING const char *pMessageFormat, ... ) FMTFUNCTION( 4, 5 );
 
 PLATFORM_INTERFACE LoggingResponse_t LoggingSystem_LogDirect( LoggingChannelID_t channelID, LoggingSeverity_t severity, Color spewColor, const char *pMessage );
-PLATFORM_INTERFACE LoggingResponse_t LoggingSystem_LogAssert( PRINTF_FORMAT_STRING const char *pMessageFormat, ... ) FMTFUNCTION( 1, 2 );
 

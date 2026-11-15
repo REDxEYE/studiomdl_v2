@@ -166,30 +166,6 @@ DmeMakefileType_t *CDmeMDLMakefile::GetMakefileType()
 }
 
 
-//-----------------------------------------------------------------------------
-// Add, remove sources
-//-----------------------------------------------------------------------------
-void CDmeMDLMakefile::SetSkin( const char *pFullPath )
-{
-	RemoveAllSources( "DmeSourceSkin" );
-	AddSource( "DmeSourceSkin", pFullPath );
-}
-
-void CDmeMDLMakefile::AddAnimation( const char *pFullPath )
-{
-	AddSource( "animation", pFullPath );
-}
-
-void CDmeMDLMakefile::RemoveAnimation( const char *pFullPath )
-{
-	RemoveSource( "animation", pFullPath );
-}
-
-void CDmeMDLMakefile::RemoveAllAnimations( )
-{
-	RemoveAllSources( "animation" );
-}
-
 
 //-----------------------------------------------------------------------------
 // Inherited classes should re-implement these methods

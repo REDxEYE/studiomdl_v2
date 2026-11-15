@@ -68,7 +68,6 @@ add_subdirectory(libs/datamodel)
 add_subdirectory(libs/movieobjects)
 add_subdirectory(libs/mdlobjects)
 add_subdirectory(libs/dmserializers)
-add_subdirectory(libs/dmeutils)
 add_subdirectory(libs/utils)
 add_subdirectory(libs/bonesetup)
 add_subdirectory(libs/filesystem)
@@ -126,7 +125,6 @@ target_link_libraries(studiomdl_v2 PRIVATE
         movieobjects
         bonesetup
         mdlobjects
-        dmeutils
         appframework
         meshoptimizer
         filesystem_stdio_v2_static

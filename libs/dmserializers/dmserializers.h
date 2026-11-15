@@ -42,9 +42,6 @@ void InstallVMFImporter( IDataModel *pFactory );
 void InstallMKSImporter( IDataModel *pFactory );
 void InstallTEXImporter( IDataModel *pFactory );
 
-void InstallDMXUpdater( IDataModel *pFactory );
-void InstallSFMSessionUpdater( IDataModel *pFactory );
-void InstallPCFUpdater( IDataModel *pFactory );
 
 
 

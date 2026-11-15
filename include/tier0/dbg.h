@@ -21,8 +21,6 @@ class Color;
 //   AssertFatal( p );   // exits the application when enabled
 //-----------------------------------------------------------------------------
 
-PLATFORM_INTERFACE void _ExitOnFatalAssert( const tchar* pFile, int line );
-
 /* Used to define macros, never use these directly. */
 #define  _AssertMsg( _exp, _msg, _executeExp, _bFatal )	\
 	do {																\

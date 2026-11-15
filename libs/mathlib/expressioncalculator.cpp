@@ -90,20 +90,6 @@ void CExpressionCalculator::SetVariable(const char* var, float value) {
     }
 }
 
-void CExpressionCalculator::ModifyVariable(const char* var, float value) {
-    int vi = FindString(m_varNames, var);
-    if (vi >= 0) {
-        m_varValues[vi] += value;
-    }
-    else {
-        SetVariable(var, value);
-    }
-}
-
-int CExpressionCalculator::FindVariableIndex(const char* var) {
-    return FindString(m_varNames, var);
-}
-
 bool CExpressionCalculator::Evaluate(float &value) {
     m_bIsBuildingArgumentList = false;
     m_stack.PopMultiple(m_stack.Count());
@@ -716,9 +702,3 @@ CExpressionCalculator& CExpressionCalculator::operator=(const CExpressionCalcula
     return *this;
 }
 
-float EvaluateExpression(char const* pExpr, float flValueToReturnIfFailure) {
-    CExpressionCalculator myEvaluator(pExpr);
-    float flResult;
-    bool bSuccess = myEvaluator.Evaluate(flResult);
-    return (bSuccess) ? flResult : flValueToReturnIfFailure;
-}

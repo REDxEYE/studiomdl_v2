@@ -17,12 +17,6 @@
 #include "color.h"
 #include "tier0/dbg.h"
 
-void _ExitOnFatalAssert( const tchar* pFile, int line )
-{
-	Log_Msg( LOG_ASSERT, _T("Fatal assert failed: %s, line %d.  Application exiting.\n"), pFile, line );
-	Plat_ExitProcess( EXIT_FAILURE );
-}
-
 //-----------------------------------------------------------------------------
 // Templates to assist in validating pointers:
 //-----------------------------------------------------------------------------

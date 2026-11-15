@@ -24,11 +24,6 @@ add_library(movieobjects
         dmetimeframe.cpp
         dmeoperator.cpp
         dmeconnectionoperator.cpp
-        dmecycle.cpp
-        dmeexpressionoperator.cpp
-        dmobjserializer.cpp
-        dmetransformoperator.cpp
-        dmeexporttags.cpp
         dmemesh.cpp
         dmeselection.cpp
         dmeshape.cpp
@@ -38,7 +33,6 @@ add_library(movieobjects
         dmevertexdata.cpp
         dmejoint.cpp
         dmematerial.cpp
-        dmemorphoperator.cpp
         dmeclip.cpp
         dmeflexrules.cpp
         dmeattachment.cpp

@@ -134,26 +134,43 @@ template< class T >
 class CDmAttributeOp : public IDmAttributeOp
 {
 public:
-	virtual void* CreateAttributeData();
-	virtual void DestroyAttributeData( void *pData );
-	virtual void SetDefaultValue( void *pData );
-	virtual int DataSize();
-	virtual int ValueSize();
-	virtual bool SerializesOnMultipleLines();
-	virtual bool SkipUnserialize( CUtlBuffer& buf );
-	virtual const char *AttributeTypeName();
+    void* CreateAttributeData() override;
 
-	virtual void SetValue( CDmAttribute *pAttribute, DmAttributeType_t valueType, const void *pValue );
-	virtual void SetMultiple( CDmAttribute *pAttribute, int i, int nCount, DmAttributeType_t valueType, const void *pValue );
-	virtual void Set( CDmAttribute *pAttribute, int i, DmAttributeType_t valueType, const void *pValue );
-	virtual void SetToDefaultValue( CDmAttribute *pAttribute );
-	virtual bool Serialize( const CDmAttribute *pData, CUtlBuffer &buf );
-	virtual bool Unserialize( CDmAttribute *pAttribute, CUtlBuffer &buf );
-	virtual bool SerializeElement( const CDmAttribute *pAttribute, int nElement, CUtlBuffer &buf );
-	virtual bool UnserializeElement( CDmAttribute *pAttribute, CUtlBuffer &buf );
-	virtual bool UnserializeElement( CDmAttribute *pAttribute, int nElement, CUtlBuffer &buf );
-	virtual void OnUnserializationFinished( CDmAttribute *pAttribute );
-	virtual bool IsIdenticalToSerializedValue( const CDmAttribute *pAttribute, CUtlBuffer &buf ) const;
+    void DestroyAttributeData( void *pData ) override;
+
+    void SetDefaultValue( void *pData ) override;
+
+    int DataSize() override;
+
+    int ValueSize() override;
+
+    bool SerializesOnMultipleLines() override;
+
+    bool SkipUnserialize( CUtlBuffer& buf ) override;
+
+    const char *AttributeTypeName() override;
+
+    void SetValue( CDmAttribute *pAttribute, DmAttributeType_t valueType, const void *pValue ) override;
+
+    void SetMultiple( CDmAttribute *pAttribute, int i, int nCount, DmAttributeType_t valueType, const void *pValue ) override;
+
+    void Set( CDmAttribute *pAttribute, int i, DmAttributeType_t valueType, const void *pValue ) override;
+
+    void SetToDefaultValue( CDmAttribute *pAttribute ) override;
+
+    bool Serialize( const CDmAttribute *pData, CUtlBuffer &buf ) override;
+
+    bool Unserialize( CDmAttribute *pAttribute, CUtlBuffer &buf ) override;
+
+    bool SerializeElement( const CDmAttribute *pAttribute, int nElement, CUtlBuffer &buf ) override;
+
+    bool UnserializeElement( CDmAttribute *pAttribute, CUtlBuffer &buf ) override;
+
+    bool UnserializeElement( CDmAttribute *pAttribute, int nElement, CUtlBuffer &buf ) override;
+
+    void OnUnserializationFinished( CDmAttribute *pAttribute ) override;
+
+    bool IsIdenticalToSerializedValue( const CDmAttribute *pAttribute, CUtlBuffer &buf ) const override;
 };
 
 
@@ -610,14 +627,21 @@ class CDmArrayAttributeOp : public CDmAttributeOp< CUtlVector< T > >
 
 public:
 	// Inherited from IDmAttributeOp
-	virtual void SetValue( CDmAttribute *pAttribute, DmAttributeType_t valueType, const void *pValue );
-	virtual void SetMultiple( CDmAttribute *pAttribute, int i, int nCount, DmAttributeType_t valueType, const void *pValue );
-	virtual void Set( CDmAttribute *pAttribute, int i, DmAttributeType_t valueType, const void *pValue );
-	virtual bool Unserialize( CDmAttribute *pAttribute, CUtlBuffer &buf );
-	virtual bool SerializeElement( const CDmAttribute *pData, int nElement, CUtlBuffer &buf );
-	virtual bool UnserializeElement( CDmAttribute *pData, CUtlBuffer &buf );
-	virtual bool UnserializeElement( CDmAttribute *pData, int nElement, CUtlBuffer &buf );
-	virtual void OnUnserializationFinished( CDmAttribute *pAttribute );
+    void SetValue( CDmAttribute *pAttribute, DmAttributeType_t valueType, const void *pValue ) override;
+
+    void SetMultiple( CDmAttribute *pAttribute, int i, int nCount, DmAttributeType_t valueType, const void *pValue ) override;
+
+    void Set( CDmAttribute *pAttribute, int i, DmAttributeType_t valueType, const void *pValue ) override;
+
+    bool Unserialize( CDmAttribute *pAttribute, CUtlBuffer &buf ) override;
+
+    bool SerializeElement( const CDmAttribute *pData, int nElement, CUtlBuffer &buf ) override;
+
+    bool UnserializeElement( CDmAttribute *pData, CUtlBuffer &buf ) override;
+
+    bool UnserializeElement( CDmAttribute *pData, int nElement, CUtlBuffer &buf ) override;
+
+    void OnUnserializationFinished( CDmAttribute *pAttribute ) override;
 
 	// Other methods used by CDmaArrayBase
 	CDmArrayAttributeOp() : m_pAttribute(nullptr), m_pData(nullptr) {}
@@ -1502,24 +1526,6 @@ void CDmAttribute::SetElementTypeSymbol( CUtlSymbolLarge typeSymbol )
 	}
 }
 
-CUtlSymbolLarge CDmAttribute::GetElementTypeSymbol() const
-{
-	switch ( GetType() )
-	{
-	case AT_ELEMENT:
-		return GetData< DmElementHandle_t >()->m_ElementType;
-
-	case AT_ELEMENT_ARRAY:
-		return GetArrayData< DmElementHandle_t >()->m_ElementType;
-
-	default:
-		Assert(0);
-		break;
-	}
-
-	return UTL_INVAL_SYMBOL_LARGE;
-}
-
 
 //-----------------------------------------------------------------------------
 // Is modification allowed in this phase?
@@ -2025,14 +2031,6 @@ void CDmAttribute::SetValueFromString( const char *pValue )
 	}
 }
 
-const char *CDmAttribute::GetValueAsString( char *pBuffer, size_t nBufLen ) const
-{
-	Assert( pBuffer );
-	CUtlBuffer buf( pBuffer, nBufLen, CUtlBuffer::TEXT_BUFFER );
-	Serialize( buf );
-	return pBuffer;
-}
-
 
 //-----------------------------------------------------------------------------
 // Name, type
@@ -2090,11 +2088,6 @@ bool CDmAttribute::Unserialize( CUtlBuffer &buf )
 	return s_pAttrInfo[ GetType() ]->Unserialize( this, buf );
 }
 
-bool CDmAttribute::IsIdenticalToSerializedValue( CUtlBuffer &buf ) const
-{
-	return s_pAttrInfo[ GetType() ]->IsIdenticalToSerializedValue( this, buf );
-}
-
 bool CDmAttribute::SerializeElement( int nElement, CUtlBuffer &buf ) const
 {
 	return s_pAttrInfo[ GetType() ]->SerializeElement( this, nElement, buf );
@@ -2103,11 +2096,6 @@ bool CDmAttribute::SerializeElement( int nElement, CUtlBuffer &buf ) const
 bool CDmAttribute::UnserializeElement( CUtlBuffer &buf )
 {
 	return s_pAttrInfo[ GetType() ]->UnserializeElement( this, buf );
-}
-
-bool CDmAttribute::UnserializeElement( int nElement, CUtlBuffer &buf )
-{
-	return s_pAttrInfo[ GetType() ]->UnserializeElement( this, nElement, buf );
 }
 
 // Called by elements after unserialization of their attributes is complete
@@ -2149,12 +2137,6 @@ bool HandleCompare( const DmElementHandle_t &a, const DmElementHandle_t &b )
 unsigned int HandleHash( const DmElementHandle_t &h )
 {
 	return (unsigned int)h;
-}
-
-int CDmAttribute::EstimateMemoryUsage( TraversalDepth_t depth ) const
-{
-	CUtlHash< DmElementHandle_t > visited( 1024, 0, 0, HandleCompare, HandleHash );
-	return EstimateMemoryUsageInternal( visited, depth, nullptr ) ;
 }
 
 int CDmAttribute::EstimateMemoryUsageInternal( CUtlHash< DmElementHandle_t > &visited, TraversalDepth_t depth, int *pCategories ) const
@@ -2632,20 +2614,6 @@ const void* CDmrGenericArrayConst::GetUntyped( int i ) const
 	return nullptr;
 }
 
-const char* CDmrGenericArrayConst::GetAsString( int i, char *pBuffer, size_t nBufLen ) const
-{
-	if ( ( Count() > i ) && ( i >= 0 ) )
-	{
-		CUtlBuffer buf( pBuffer, nBufLen, CUtlBuffer::TEXT_BUFFER );
-		m_pAttribute->SerializeElement( i, buf );
-	}
-	else
-	{
-		pBuffer[0] = 0;
-	}
-	return pBuffer;
-}
-
 
 CDmrGenericArray::CDmrGenericArray( CDmAttribute* pAttribute )
 {
@@ -2686,25 +2654,6 @@ void CDmrGenericArray::SetMultiple( int i, int nCount, DmAttributeType_t valueTy
 void CDmrGenericArray::Set( int i, DmAttributeType_t valueType, const void *pValue )
 {
 	s_pAttrInfo[ m_pAttribute->GetType() ]->Set( m_pAttribute, i, valueType, pValue );
-}
-
-void CDmrGenericArray::SetFromString( int i, const char *pValue )
-{
-	if ( ( Count() > i ) && ( i >= 0 ) )
-	{
-		if ( m_pAttribute->GetType() == AT_STRING_ARRAY )
-		{
-			CDmArrayAttributeOp< CUtlSymbolLarge > array( m_pAttribute );
-			CUtlSymbolLarge symbol = g_pDataModel->GetSymbol( pValue );
-			array.Set( i, symbol );
-		}
-		else
-		{
-			int nLen = pValue ? Q_strlen( pValue ) : 0;
-			CUtlBuffer buf( pValue, nLen, CUtlBuffer::TEXT_BUFFER | CUtlBuffer::READ_ONLY );
-			m_pAttribute->UnserializeElement( i, buf );
-		}
-	}
 }
 
 

@@ -10,11 +10,7 @@ endif ()
 
 add_library(tier2
         fileutils.cpp
-        meshutils.cpp
-        tier2_logging.cpp
-        tokenreader.cpp
         utlstreambuffer.cpp
-        vconfig.cpp
         )
 target_include_directories(tier2 PUBLIC ../../include)
 target_include_directories(tier2 PRIVATE ../../include/tier2)

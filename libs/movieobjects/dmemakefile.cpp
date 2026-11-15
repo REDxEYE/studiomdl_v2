@@ -32,19 +32,6 @@ void CDmeSource::OnDestruction()
 }
 
 
-//-----------------------------------------------------------------------------
-// Sets/gets the makefile that was used to build this source
-//-----------------------------------------------------------------------------
-void CDmeSource::SetDependentMakefile( CDmeMakefile *pMakeFile )
-{
-	m_DependentMakefile = pMakeFile;
-}
-
-CDmeMakefile *CDmeSource::GetDependentMakefile()
-{
-	return m_DependentMakefile.Get();
-}
-
 
 
 
@@ -71,41 +58,6 @@ void CDmeMakefile::OnDestruction()
 }
 
 						   
-//-----------------------------------------------------------------------------
-// Performs pre-compilation step
-//-----------------------------------------------------------------------------
-void CDmeMakefile::PreCompile( )
-{
-	// Make all outputs writeable
-	MakeOutputsWriteable();
-
-	// Destroy the current output object; we'll need to reload it
-	// NOTE: Don't check for m_hOutput == 0; we always need to call DestroyOutputElement
-	// Sometimes makefiles have to do stuff even if m_hOutput == NULL
-	DestroyOutputElement( m_hOutput );
-	m_hOutput = nullptr;
-}
-
-void CDmeMakefile::PostCompile( )
-{
-}
-
-
-//-----------------------------------------------------------------------------
-// Gets the output element created by compilation of this makefile
-//-----------------------------------------------------------------------------
-CDmElement *CDmeMakefile::GetOutputElement( bool bCreateIfNecessary )
-{
-	if ( m_hOutput.Get() )
-		return m_hOutput.Get();
-
-	if ( !bCreateIfNecessary )
-		return nullptr;
-
-    m_hOutput = CreateOutputElement();
-
-	return m_hOutput.Get();
-}
 
 
 //-----------------------------------------------------------------------------
@@ -129,27 +81,6 @@ bool CDmeMakefile::GetOutputDirectory( char *pFullPath, int nBufLen )
 	return GetDefaultDirectory( GetOutputDirectoryID(), pFullPath, nBufLen );
 }
 
-
-//-----------------------------------------------------------------------------
-// Returns the output name (output directory + filename, no extension)
-//-----------------------------------------------------------------------------
-bool CDmeMakefile::GetOutputName( char *pFullPath, int nBufLen )
-{
-	pFullPath[0] = 0;
-
-	char pOutputPath[MAX_PATH]{0};
-	if ( !GetDefaultDirectory( GetOutputDirectoryID(), pOutputPath, sizeof(pOutputPath) ) )
-		return false;
-
-	DmFileId_t fileId = GetFileId();
-	const char *pFileName = ( fileId != DMFILEID_INVALID ) ? g_pDataModel->GetFileName( fileId ) : "";
-	if ( !pFileName || !pFileName[0] )
-		return false;
-
-	Q_ComposeFileName( pOutputPath, Q_UnqualifiedFileName(pFileName), pFullPath, nBufLen );
-	Q_RemoveDotSlashes( pFullPath );
-	return true;
-}
 
 
 //-----------------------------------------------------------------------------
@@ -217,235 +148,16 @@ bool CDmeMakefile::GetDefaultDirectory( const char *pDefaultDirectoryID, char *p
 }
 
 
-//-----------------------------------------------------------------------------
-// Relative path to full path
-//-----------------------------------------------------------------------------
-void CDmeMakefile::RelativePathToFullPath( const char *pRelativePath, char *pFullPath, int nBufLen )
-{
-	if ( !pRelativePath[0] )
-	{
-		pFullPath[0] = 0;
-		return;
-	}
-	char pRootDir[ MAX_PATH ];
-	GetMakefilePath( pRootDir, sizeof(pRootDir) );
-	Q_ComposeFileName( pRootDir, pRelativePath, pFullPath, nBufLen );
-	Q_RemoveDotSlashes( pFullPath );
-}
 
 
-//-----------------------------------------------------------------------------
-// Fullpath to relative path
-//-----------------------------------------------------------------------------
-void CDmeMakefile::FullPathToRelativePath( const char *pFullPath, char *pRelativePath, int nBufLen )
-{
-	if ( !pFullPath[0] )
-	{
-		pRelativePath[0] = 0;
-		return;
-	}
-	char pRootDir[ MAX_PATH ];
-	GetMakefilePath( pRootDir, sizeof(pRootDir) );
-	if ( pRootDir[0] )
-	{
-		Q_MakeRelativePath( pFullPath, pRootDir, pRelativePath, nBufLen );
-	}
-	else
-	{
-		Q_strncpy( pRelativePath, pFullPath, nBufLen );
-		Q_FixSlashes( pRelativePath );
-	}
-}
 
 
-//-----------------------------------------------------------------------------
-// Adds a single source
-//-----------------------------------------------------------------------------
-CDmeSource *CDmeMakefile::AddSource( const char *pSourceType, const char *pFullPath )
-{
-	if ( pFullPath[0] && FindSource( pSourceType, pFullPath ) )
-	{
-		Warning( "Attempted to add the same source twice %s!\n", pFullPath );
-		return nullptr;
-	}
-
-	CDmElement *pElement = GetElement< CDmElement >( g_pDataModel->CreateElement( pSourceType, "", GetFileId() ) );
-	CDmeSource *pSource = CastElement< CDmeSource >( pElement );
-	Assert( pSource );
-	if ( !pSource )
-	{
-		Warning( "Invalid source type name %s!\n", pSourceType );
-		if ( pElement )
-		{
-			DestroyElement( pElement );
-		}
-		return nullptr;
-	}
-
-	char pRelativePath[MAX_PATH]{0};
-	FullPathToRelativePath( pFullPath, pRelativePath, sizeof( pRelativePath ) );
-	pSource->SetRelativeFileName( pRelativePath );
-	m_Sources.AddToTail( pSource );
-	return pSource;
-}
 
 
-//-----------------------------------------------------------------------------
-// Removes a single source
-//-----------------------------------------------------------------------------
-CDmeSource *CDmeMakefile::FindSource( const char *pSourceType, const char *pFullPath )
-{
-	char pRelativePath[MAX_PATH]{0};
-	FullPathToRelativePath( pFullPath, pRelativePath, sizeof( pRelativePath ) );
-	int nCount = m_Sources.Count();
-	for ( int i = 0; i < nCount; ++i )
-	{
-		if ( Q_stricmp( pSourceType, m_Sources[i]->GetTypeString() ) )
-			continue;
-
-		if ( !Q_stricmp( pRelativePath, m_Sources[i]->GetRelativeFileName() ) )
-			return m_Sources[i];
-	}
-	return nullptr;
-}
 
 
-//-----------------------------------------------------------------------------
-// Sets a source to be a single source
-//-----------------------------------------------------------------------------
-CDmeSource *CDmeMakefile::SetSingleSource( const char *pSourceType, const char *pFullPath )
-{
-	// FIXME: we maybe shouldn't remove everything if the source can't be created for some reason?
-	RemoveAllSources( pSourceType );
-	return AddSource( pSourceType, pFullPath );
-}
 
 
-//-----------------------------------------------------------------------------
-// Changes a source
-//-----------------------------------------------------------------------------
-void CDmeMakefile::SetSourceFullPath( CDmeSource *pSource, const char *pFullPath )
-{
-	char pRelativePath[MAX_PATH]{0};
-	FullPathToRelativePath( pFullPath, pRelativePath, sizeof( pRelativePath ) );
-
-	if ( Q_stricmp( pRelativePath, pSource->GetRelativeFileName() ) )
-	{
-		pSource->SetRelativeFileName( pRelativePath );
-
-		// FIXME: Should we delete the dependent makefile?
-		pSource->SetDependentMakefile(nullptr);
-	}
-}
-
-
-//-----------------------------------------------------------------------------
-// Returns the full path of a source
-//-----------------------------------------------------------------------------
-void CDmeMakefile::GetSourceFullPath( CDmeSource *pSource, char *pFullPath, int nBufLen )
-{
-	const char *pRelativePath = pSource->GetRelativeFileName( );
-	RelativePathToFullPath( pRelativePath, pFullPath, nBufLen );
-}
-
-
-//-----------------------------------------------------------------------------
-// Returns a list of sources
-//-----------------------------------------------------------------------------
-void CDmeMakefile::GetSources( const char *pSourceType, CUtlVector< CDmeHandle< CDmeSource > > &sources )
-{
-	int nCount = m_Sources.Count();
-	sources.EnsureCapacity( nCount );
-	for ( int i = 0; i < nCount; ++i )
-	{
-		if ( m_Sources[i]->IsA( pSourceType ) )
-		{
-			int j = sources.AddToTail();
-			sources[j] = m_Sources[i];
-		}
-	}
-}
-
-
-//-----------------------------------------------------------------------------
-// Gets a list of all sources, regardless of type
-//-----------------------------------------------------------------------------
-int CDmeMakefile::GetSourceCount()
-{
-	return m_Sources.Count();
-}
-
-CDmeSource *CDmeMakefile::GetSource( int nIndex )
-{
-	return m_Sources[nIndex];
-}
-
-
-//-----------------------------------------------------------------------------
-// Removes a single source
-//-----------------------------------------------------------------------------
-void CDmeMakefile::RemoveSource( CDmeSource *pSource )
-{
-	int nCount = m_Sources.Count();
-	for ( int i = 0; i < nCount; ++i )
-	{
-		if ( m_Sources[i] == pSource )
-		{
-			m_Sources.Remove( i );
-			break;
-		}
-	}
-}
-
-void CDmeMakefile::RemoveSource( const char *pSourceType, const char *pFullPath )
-{
-	char pRelativePath[MAX_PATH]{0};
-	FullPathToRelativePath( pFullPath, pRelativePath, sizeof( pRelativePath ) );
-	int nCount = m_Sources.Count();
-	for ( int i = 0; i < nCount; ++i )
-	{
-		if ( Q_stricmp( pSourceType, m_Sources[i]->GetTypeString() ) )
-			continue;
-
-		if ( !Q_stricmp( pRelativePath, m_Sources[i]->GetRelativeFileName() ) )
-		{
-			m_Sources.Remove( i );
-			break;
-		}
-	}
-}
-
-
-//-----------------------------------------------------------------------------
-// Removes all sources of a particular type
-//-----------------------------------------------------------------------------
-void CDmeMakefile::RemoveAllSources( const char *pSourceType )
-{
-	int nCount = m_Sources.Count();
-	for ( int i = nCount; --i >= 0; )
-	{
-		if ( !Q_stricmp( pSourceType, m_Sources[i]->GetTypeString() ) )
-		{
-			// NOTE: This works because we're iterating backward
-			m_Sources.Remove( i );
-		}
-	}
-}
-
-
-//-----------------------------------------------------------------------------
-// Source iteration
-//-----------------------------------------------------------------------------
-bool CDmeMakefile::HasSourceOfType( const char *pSourceType )
-{
-	int nCount = m_Sources.Count();
-	for ( int i = nCount; --i >= 0; )
-	{
-		if ( !Q_stricmp( pSourceType, m_Sources[i]->GetTypeString() ) )
-			return true;
-	}
-	return false;
-}
 
 
 //-----------------------------------------------------------------------------
@@ -529,82 +241,7 @@ bool CDmeMakefile::SetFileName( const char *pFileName )
 }
 
 
-//-----------------------------------------------------------------------------
-// Make all outputs writeable
-//-----------------------------------------------------------------------------
-void CDmeMakefile::MakeOutputsWriteable( )
-{
-	// When we publish, we'll check them out.
-	CUtlVector<CUtlString> outputs;
-	GetOutputs( outputs );
-	int nCount = outputs.Count();
-	for ( int i = 0; i < nCount; ++i )
-	{
-		g_pFullFileSystem->SetFileWritable( outputs[i], true );
-	}
-}
 
 
 
-//-----------------------------------------------------------------------------
-// Sets a makefile/source association
-//-----------------------------------------------------------------------------
-void CDmeMakefile::SetAssociation( CDmeSource *pSource, CDmeMakefile *pSourceMakefile )
-{
-	if ( !pSource )
-		return;
-
-	int nCount = m_Sources.Count();
-	for ( int i = 0; i < nCount; ++i )
-	{
-		if ( m_Sources[i] != pSource )
-			continue;
-
-		CDmeMakefile *pDependentMakeFile = m_Sources[i]->GetDependentMakefile();
-		if ( pSourceMakefile != pDependentMakeFile )
-		{
-			// FIXME: Should I recursively delete pDependentMakeFile ?
-			m_Sources[i]->SetDependentMakefile( pSourceMakefile );
-		}
-		return;
-	}
-}
-
-
-//-----------------------------------------------------------------------------
-// Finds a dependent makefile
-//-----------------------------------------------------------------------------
-CDmeMakefile *CDmeMakefile::FindDependentMakefile( CDmeSource *pSource )
-{
-	if ( !pSource )
-		return nullptr;
-
-	int nCount = m_Sources.Count();
-	for ( int i = 0; i < nCount; ++i )
-	{
-		if ( m_Sources[i] == pSource )
-			return m_Sources[i]->GetDependentMakefile();
-	}
-
-	return nullptr;
-}
-
-
-//-----------------------------------------------------------------------------
-// Finds the associated source
-//-----------------------------------------------------------------------------
-CDmeSource *CDmeMakefile::FindAssociatedSource( CDmeMakefile *pChildMakefile )
-{
-	if ( !pChildMakefile )
-		return nullptr;
-
-	int nCount = m_Sources.Count();
-	for ( int i = 0; i < nCount; ++i )
-	{
-		if ( m_Sources[i]->GetDependentMakefile() == pChildMakefile )
-			return m_Sources[i];
-	}
-
-	return nullptr;
-}
 

@@ -60,21 +60,6 @@ protected:
 	T					m_current;
 };
 
-//-----------------------------------------------------------------------------
-// The CUtlQueueFixed class:
-// A queue class with a fixed allocation scheme
-//-----------------------------------------------------------------------------
-template< class T, size_t MAX_SIZE >
-class CUtlQueueFixed : public CUtlQueue< T, CUtlMemoryFixed<T, MAX_SIZE > >
-{
-	typedef CUtlQueue< T, CUtlMemoryFixed<T, MAX_SIZE > > BaseClass;
-public:
-
-	// constructor, destructor
-	CUtlQueueFixed( int growSize = 0, int initSize = 0 ) : BaseClass( growSize, initSize ) {}
-	CUtlQueueFixed( T* pMemory, int numElements ) : BaseClass( pMemory, numElements ) {}
-};
-
 template< class T, class M >
 inline CUtlQueue<T, M>::CUtlQueue( int growSize, int initSize ) :
 	m_heap(growSize, initSize)

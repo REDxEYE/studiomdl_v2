@@ -24,7 +24,7 @@ public:
 	CImportSFMV9( const char *formatName, const char *nextFormatName );
 
 private:
-	virtual bool DoFixup( CDmElement *pSourceRoot );
+    bool DoFixup( CDmElement *pSourceRoot ) override;
 
 
 	void FixupElement( CDmElement *pElement );

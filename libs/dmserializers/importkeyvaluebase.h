@@ -26,12 +26,14 @@ class CImportKeyValueBase : public IDmSerializer
 {
 public:
 	// Inherited from IDMSerializer
-	virtual bool StoresVersionInFile() const { return false; }
-	virtual bool IsBinaryFormat() const { return false; }
-	virtual bool Serialize( CUtlBuffer &buf, CDmElement *pRoot );
-	virtual bool Unserialize( CUtlBuffer &buf, const char *pEncodingName, int nEncodingVersion,
-							  const char *pSourceFormatName, int nSourceFormatVersion,
-							  DmFileId_t fileid, DmConflictResolution_t idConflictResolution, CDmElement **ppRoot );
+    bool StoresVersionInFile() const override { return false; }
+    bool IsBinaryFormat() const override { return false; }
+
+    bool Serialize( CUtlBuffer &buf, CDmElement *pRoot ) override;
+
+    bool Unserialize( CUtlBuffer &buf, const char *pEncodingName, int nEncodingVersion,
+                      const char *pSourceFormatName, int nSourceFormatVersion,
+                      DmFileId_t fileid, DmConflictResolution_t idConflictResolution, CDmElement **ppRoot ) override;
 
 protected:
 	// Main entry point for derived classes to implement unserialization
@@ -53,7 +55,6 @@ protected:
 	bool AddStringAttribute( CDmElement* pElement, KeyValues *pKeyValue, const char *pKeyName, const char *pDefault = nullptr);
 
 	// Used to add typed attributes from keyvalues
-	bool AddBoolAttributeFlags( CDmElement* pElement, KeyValues *pKeyValue, const char *pKeyName, int nFlags, bool *pDefault = nullptr);
 	bool AddIntAttributeFlags( CDmElement* pElement, KeyValues *pKeyValue, const char *pKeyName, int nFlags, int *pDefault = nullptr);
 	bool AddFloatAttributeFlags( CDmElement* pElement, KeyValues *pKeyValue, const char *pKeyName, int nFlags, float *pDefault = nullptr);
 	bool AddStringAttributeFlags( CDmElement* pElement, KeyValues *pKeyValue, const char *pKeyName, int nFlags, const char *pDefault = nullptr);

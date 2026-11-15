@@ -552,14 +552,7 @@ Vector RandomVector( vec_t minVal, vec_t maxVal );
 
 #endif
 
-float RandomVectorInUnitSphere( Vector *pVector );
-Vector RandomVectorInUnitSphere();
-Vector RandomVectorInUnitSphere( IUniformRandomStream *pRnd );
 
-float RandomVectorInUnitCircle( Vector2D *pVector );
-
-Vector RandomVectorOnUnitSphere();
-Vector RandomVectorOnUnitSphere( IUniformRandomStream *pRnd );
 
 
 //-----------------------------------------------------------------------------
@@ -863,127 +856,17 @@ inline Vector Vector::ProjectOnto( const Vector& onto )
 //-----------------------------------------------------------------------------
 
 
-inline void ShortVector::Init( short ix, short iy, short iz, short iw )    
-{ 
-	x = ix; y = iy; z = iz; w = iw;
-}
-
-FORCEINLINE void ShortVector::Set( const ShortVector& vOther )
-{
-   x = vOther.x;
-   y = vOther.y;
-   z = vOther.z;
-   w = vOther.w;
-}
-
-FORCEINLINE void ShortVector::Set( const short ix, const short iy, const short iz, const short iw )
-{
-   x = ix;
-   y = iy;
-   z = iz;
-   w = iw;
-}
-
-
-//-----------------------------------------------------------------------------
-// Array access
-//-----------------------------------------------------------------------------
-inline short ShortVector::operator[](int i) const
-{
-	Assert( (i >= 0) && (i < 4) );
-	return ((short*)this)[i];
-}
-
-inline short& ShortVector::operator[](int i)
-{
-	Assert( (i >= 0) && (i < 4) );
-	return ((short*)this)[i];
-}
-
-//-----------------------------------------------------------------------------
-// Base address...
-//-----------------------------------------------------------------------------
-inline short* ShortVector::Base()
-{
-	return (short*)this;
-}
-
-inline short const* ShortVector::Base() const
-{
-	return (short const*)this;
-}
 
 
 //-----------------------------------------------------------------------------
 // comparison
 //-----------------------------------------------------------------------------
 
-inline bool ShortVector::operator==( const ShortVector& src ) const
-{
-	return (src.x == x) && (src.y == y) && (src.z == z) && (src.w == w);
-}
-
-inline bool ShortVector::operator!=( const ShortVector& src ) const
-{
-	return (src.x != x) || (src.y != y) || (src.z != z) || (src.w != w);
-}
-
 
 
 //-----------------------------------------------------------------------------
 // standard math operations
 //-----------------------------------------------------------------------------
-
-FORCEINLINE  ShortVector& ShortVector::operator+=(const ShortVector& v)	
-{ 
-	x+=v.x; y+=v.y; z += v.z; w += v.w;
-	return *this;
-}
-
-FORCEINLINE  ShortVector& ShortVector::operator-=(const ShortVector& v)	
-{ 
-	x-=v.x; y-=v.y; z -= v.z; w -= v.w;
-	return *this;
-}
-
-FORCEINLINE  ShortVector& ShortVector::operator*=(float fl)	
-{
-	x = (short)(x * fl);
-	y = (short)(y * fl);
-	z = (short)(z * fl);
-	w = (short)(w * fl);
-	return *this;
-}
-
-FORCEINLINE  ShortVector& ShortVector::operator*=(const ShortVector& v)	
-{ 
-	x = (short)(x * v.x);
-	y = (short)(y * v.y);
-	z = (short)(z * v.z);
-	w = (short)(w * v.w);
-	return *this;
-}
-
-FORCEINLINE  ShortVector& ShortVector::operator/=(float fl)	
-{
-	Assert( fl != 0.0f );
-	float oofl = 1.0f / fl;
-	x = (short)(x * oofl);
-	y = (short)(y * oofl);
-	z = (short)(z * oofl);
-	w = (short)(w * oofl);
-	return *this;
-}
-
-FORCEINLINE  ShortVector& ShortVector::operator/=(const ShortVector& v)	
-{ 
-	Assert( v.x != 0 && v.y != 0 && v.z != 0 && v.w != 0 );
-	x = (short)(x / v.x);
-	y = (short)(y / v.y);
-	z = (short)(z / v.z);
-	w = (short)(w / v.w);
-	return *this;
-}
 
 FORCEINLINE void ShortVectorMultiply( const ShortVector& src, float fl, ShortVector& res )
 {
@@ -992,13 +875,6 @@ FORCEINLINE void ShortVectorMultiply( const ShortVector& src, float fl, ShortVec
 	res.y = (short)(src.y * fl);
 	res.z = (short)(src.z * fl);
 	res.w = (short)(src.w * fl);
-}
-
-FORCEINLINE ShortVector ShortVector::operator*(float fl) const
-{ 
-	ShortVector res;
-	ShortVectorMultiply( *this, fl, res );
-	return res;	
 }
 
 
@@ -1765,8 +1641,6 @@ public:
 // should be good for random generation of orientation for unit tests and for game
 // NOTE: Nothing trivial like Quaternion(RandomAngle(0,180)) will do the trick , 
 //       one needs to take special care to generate a uniformly distributed quaternion.
-const Quaternion RandomQuaternion();
-const Quaternion RandomQuaternion();
 inline const Quaternion Conjugate( const Quaternion &q )
 {
 	return Quaternion( -q.x, -q.y, -q.z, q.w );

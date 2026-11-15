@@ -25,7 +25,6 @@ void SpewPerfStats(studiohdr_t* pStudioHdr, const std::string_view pFilename, un
     vertexFileHeader_t* pNewVvdHdr;
     vertexFileHeader_t* pVvdHdr = nullptr;
     OptimizedModel::FileHeader_t* pVtxHdr = nullptr;
-    //	studiohwdata_t					studioHWData;
     int vvdSize = 0;
 
     bool bExtraData = (pStudioHdr->flags & STUDIOHDR_FLAGS_EXTRA_VERTEX_DATA) != 0;
@@ -95,62 +94,6 @@ void SpewPerfStats(studiohdr_t* pStudioHdr, const std::string_view pFilename, un
     pStudioHdr->SetVertexBase((void*) pVvdHdr);
     pStudioHdr->SetIndexBase((void*) pVtxHdr);
 
-    /*
-	g_pStudioRender->LoadModel( pStudioHdr, pVtxHdr, &studioHWData );
-
-	if( flags & SPEWPERFSTATS_SHOWPERF )
-	{
-		if(  flags & SPEWPERFSTATS_SPREADSHEET )
-		{
-			printf( "%s,%s,%d,", fileName, prefix[j], studioHWData.m_NumLODs - studioHWData.m_RootLOD );
-		}
-		else
-		{
-			printf( "\n" );
-			printf( "Performance Stats: %s\n", fileName );
-			printf( "------------------\n" );
-		}
-	}
-
-	int i;
-	if( flags & SPEWPERFSTATS_SHOWPERF )
-	{
-		for( i = studioHWData.m_RootLOD; i < studioHWData.m_NumLODs; i++ )
-		{
-			DrawModelInfo_t drawModelInfo;
-			drawModelInfo.m_Skin = 0;
-			drawModelInfo.m_Body = 0;
-			drawModelInfo.m_HitboxSet = 0;
-			drawModelInfo.m_pClientEntity = 0;
-			drawModelInfo.m_pColorMeshes = 0;
-			drawModelInfo.m_pStudioHdr = pStudioHdr;
-			drawModelInfo.m_pHardwareData = &studioHWData;
-			CUtlBuffer statsOutput( 0, 0, CUtlBuffer::TEXT_BUFFER );
-			if( !( flags & SPEWPERFSTATS_SPREADSHEET ) )
-			{
-				printf( "LOD:%d\n", i );
-			}
-			drawModelInfo.m_Lod = i;
-			DrawModelResults_t results;
-			g_pStudioRender->GetPerfStats( &results, drawModelInfo, &statsOutput );
-			if( flags & SPEWPERFSTATS_SPREADSHEET )
-			{
-				printf( "%d,%d,%d,", results.m_ActualTriCount, results.m_NumBatches, results.m_NumMaterials  );
-			}
-			else
-			{
-				printf( "    actual tris:%d\n", ( int )results.m_ActualTriCount );
-				printf( "    texture memory bytes: %d (only valid in a rendering app)\n", ( int )results.m_TextureMemoryBytes );
-				printf( ( char * )statsOutput.Base() );
-			}
-		}
-		if( flags & SPEWPERFSTATS_SPREADSHEET )
-		{
-			printf( "\n" );
-		}
-	}
-	g_pStudioRender->UnloadModel( &studioHWData );
-    */
     free(pVtxHdr);
 
     if (pVvdHdr)

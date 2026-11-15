@@ -44,25 +44,6 @@ void CDmeMotionControl::OnDestruction() {
 }
 
 
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-void CDmeMotionControl::SetStudioMotionControl(StudioMotionFlags nStudioMotionControl) {
-    m_bX = HasFlag(nStudioMotionControl, StudioMotionFlags::X);
-    m_bY = HasFlag(nStudioMotionControl, StudioMotionFlags::Y);
-    m_bZ = HasFlag(nStudioMotionControl, StudioMotionFlags::Z);
-    m_bXR = HasFlag(nStudioMotionControl, StudioMotionFlags::XR);
-    m_bYR = HasFlag(nStudioMotionControl, StudioMotionFlags::YR);
-    m_bZR = HasFlag(nStudioMotionControl, StudioMotionFlags::ZR);
-    m_bLX = HasFlag(nStudioMotionControl, StudioMotionFlags::LX);
-    m_bLY = HasFlag(nStudioMotionControl, StudioMotionFlags::LY);
-    m_bLZ = HasFlag(nStudioMotionControl, StudioMotionFlags::LZ);
-    m_bLXR = HasFlag(nStudioMotionControl, StudioMotionFlags::LXR);
-    m_bLYR = HasFlag(nStudioMotionControl, StudioMotionFlags::LYR);
-    m_bLZR = HasFlag(nStudioMotionControl, StudioMotionFlags::LZR);
-    m_bLM = HasFlag(nStudioMotionControl, StudioMotionFlags::Linear);
-}
-
 
 //-----------------------------------------------------------------------------
 //
