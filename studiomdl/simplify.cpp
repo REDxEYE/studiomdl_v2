@@ -3634,7 +3634,7 @@ void CollapseBones() {
         if (HasFlag(g_studiomdl.bones.bonetable[k].flags, BoneFlags::UsedByVertexMask) || !BoneShouldCollapse(
                 g_studiomdl.bones.bonetable[k].name)) {
             if (g_studiomdl.options.collapse_bones_message) {
-                Msg("[%08x] [keeping]    %s \n", sBoneFlags, szBoneReport);
+                Msg("[{:08x}] [keeping]    {} \n", std::to_underlying(sBoneFlags), szBoneReport);
             }
             continue;
         }
@@ -3642,7 +3642,7 @@ void CollapseBones() {
         count++;
 
         if (g_studiomdl.options.collapse_bones_message) {
-            Msg("[%08x] [collapsing] %s \n", sBoneFlags, szBoneReport);
+            Msg("[{:08x}] [collapsing] {} \n", std::to_underlying(sBoneFlags), szBoneReport);
         }
 
         const int m = g_studiomdl.bones.bonetable[k].parent;
@@ -3660,7 +3660,7 @@ void CollapseBones() {
     }
 
     if (!g_studiomdl.options.quiet && count) {
-        Msg("Collapsed %d bones\n", count);
+        Msg("Collapsed {:d} bones\n", count);
     }
 }
 
@@ -4139,7 +4139,7 @@ const char* RenameBone(const char* pName) {
     for (int k = 0; k < g_studiomdl.bones.szStripBonePrefix.size(); k++) {
         if (!Q_strncmp(pName, g_studiomdl.bones.szStripBonePrefix[k],
                        V_strlen(g_studiomdl.bones.szStripBonePrefix[k]))) {
-            //Msg("Stripping bone prefix %s from %s\n", g_studiomdl.bones.szStripBonePrefix[k], pName );
+            //Msg("Stripping bone prefix {} from {}\n", g_studiomdl.bones.szStripBonePrefix[k], pName );
 
             // recurse in case we're removing more than one prefix? Not sure if this is necessary, but maybe you want to remove "Alpha" then "Beta" from bone "AlphaBetaCharlie" ?
             return RenameBone(pName + V_strlen(g_studiomdl.bones.szStripBonePrefix[k]));
@@ -4157,7 +4157,7 @@ std::string_view RenameBone(const std::string_view name) {
     // check for prefixes to strip
     for (auto &prefix: g_studiomdl.bones.szStripBonePrefix) {
         if (name.starts_with(prefix)) {
-            //Msg("Stripping bone prefix %s from %s\n", g_studiomdl.bones.szStripBonePrefix[k], pName );
+            //Msg("Stripping bone prefix {} from {}\n", g_studiomdl.bones.szStripBonePrefix[k], pName );
 
             // recurse in case we're removing more than one prefix? Not sure if this is necessary, but maybe you want to remove "Alpha" then "Beta" from bone "AlphaBetaCharlie" ?
             return RenameBone(name.substr(prefix.size()));
@@ -4195,7 +4195,7 @@ void InsertPredefinedBones(bool bUnlocked) {
                 // another imported bone which is further along in the list
                 g_studiomdl.bones.bonetable[k].parent = findGlobalBone(g_studiomdl.bones.importbone[i].parent);
                 if (g_studiomdl.bones.bonetable[k].parent == -1) {
-                    Warning("Imported bone %s tried to access parent bone %s and failed!\n",
+                    Warning("Imported bone {} tried to access parent bone {} and failed!\n",
                             g_studiomdl.bones.importbone[i].name.c_str(),
                             g_studiomdl.bones.importbone[i].parent.c_str());
                 }
@@ -6811,7 +6811,7 @@ static void ProcessIKRules() {
                     //	{
                     //		V_strcat_safe( szTemp, "*" );
                     //	}
-                    //	Msg( "%s\n", szTemp );
+                    //	Msg( "{}\n", szTemp );
                     //}
 
                     MdlError("Failed to detect exactly {} footsteps in {}.\n", nNumSteps, panim->name);
@@ -6855,7 +6855,7 @@ static void ProcessIKRules() {
                 int nFootDownFrame = vecFootDowns[nStepIndex].nIndex;
                 int nFootDownDuration = vecFootDowns[nStepIndex].nLength;
 
-                //Msg( "Detected footstep (%s) on frame %i of %s. Step #(%i).\n", pRule->bonename, nFootDownFrame, panim->name, nStepIndex );
+                //Msg( "Detected footstep ({}) on frame {:d} of {}. Step #({:d}).\n", pRule->bonename, nFootDownFrame, panim->name, nStepIndex );
 
                 pRule.start = nFootDownFrame;
                 pRule.peak = nFootDownFrame + (int) (nFootDownDuration * 0.2f);
@@ -6888,7 +6888,7 @@ static void ProcessIKRules() {
                 //	if ( nFrame == pRule->end )
                 //		V_strcat_safe( szTemp, "<-end----------" );
                 //
-                //	Msg( "%s\n", szTemp );
+                //	Msg( "{}\n", szTemp );
                 //}
                 //Msg( "************************\n" );
             }
@@ -7914,7 +7914,7 @@ void DumpDefineBones() {
 
             const int nBoneId = findGlobalBone(scriptLOD.boneReplacements[j].GetSrcName());
             if (nBoneId < 0) {
-                Warning("Can't Find BoneReplacement Bone %s\n", scriptLOD.boneReplacements[j].GetSrcName().c_str());
+                Warning("Can't Find BoneReplacement Bone {}\n", scriptLOD.boneReplacements[j].GetSrcName().c_str());
                 continue;
             }
 

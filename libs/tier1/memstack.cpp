@@ -279,12 +279,12 @@ void CMemoryStack::PrintContents() const
 		GetModuleFileName( (HMODULE) info.AllocationBase, moduleName, _countof( moduleName ) );
 		moduleName[ _countof( moduleName )-1 ] = 0;
 	}
-	Msg( "CMemoryStack %s in %s\n", m_pszAllocOwner, moduleName );
+	Msg( "CMemoryStack {} in {}\n", m_pszAllocOwner, moduleName );
 #else
-	Msg( "CMemoryStack %s\n", m_pszAllocOwner );
+	Msg( "CMemoryStack {}\n", m_pszAllocOwner );
 #endif
-	Msg( "    Total used memory:      %d KB\n", GetUsed() / 1024 );
-	Msg( "    Total committed memory: %d KB\n", GetSize() / 1024 );
-	Msg( "    Max committed memory: %u KB out of %d KB\n", (unsigned)highest / 1024, GetMaxSize() / 1024 );
+	Msg( "    Total used memory:      {:d} KB\n", GetUsed() / 1024 );
+	Msg( "    Total committed memory: {:d} KB\n", GetSize() / 1024 );
+	Msg( "    Max committed memory: {:d} KB out of {:d} KB\n", (unsigned)highest / 1024, GetMaxSize() / 1024 );
 }
 

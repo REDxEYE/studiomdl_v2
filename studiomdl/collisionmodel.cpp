@@ -465,17 +465,17 @@ void CJointedModel::AddConvexSrc(ScriptTokenizer &qc, const char *szFileName) {
 
             if (!bFoundSource) {
                 V_SetExtension(szTempFileName, ".smd", sizeof(szTempFileName));
-                bFoundSource = g_pFullFileSystem->FileExists(szTempFileName, "CONTENT");
+                bFoundSource = g_pFullFileSystem->FileExists(szTempFileName, IBaseFileSystem::PathID::Content);
             }
 
             if (!bFoundSource) {
                 V_SetExtension(szTempFileName, ".dmx", sizeof(szTempFileName));
-                bFoundSource = g_pFullFileSystem->FileExists(szTempFileName, "CONTENT");
+                bFoundSource = g_pFullFileSystem->FileExists(szTempFileName, IBaseFileSystem::PathID::Content);
             }
 
             if (!bFoundSource) {
                 V_SetExtension(szTempFileName, ".fbx", sizeof(szTempFileName));
-                bFoundSource = g_pFullFileSystem->FileExists(szTempFileName, "CONTENT");
+                bFoundSource = g_pFullFileSystem->FileExists(szTempFileName, IBaseFileSystem::PathID::Content);
             }
 
             pmodel = Load_Source(szTempFileName, "SMD", false, false, false);
@@ -963,9 +963,9 @@ void CreateCollide(CPhysCollisionModel *pBase, StudioConvex_t **pElements, int e
 
     // debug output for the drag area calculations
 #if 0
-    Msg("Drag epsilon is %.3f\n", params.dragAreaEpsilon);
+    Msg("Drag epsilon is {:.3f}\n", params.dragAreaEpsilon);
     Vector areas = g_StudioCollision.CollideGetOrthographicAreas(pBase->m_pCollisionData);
-    Msg("Drag fractions are %.3f %.3f %.3f\n", areas.x, areas.y, areas.z);
+    Msg("Drag fractions are {:.3f} {:.3f} {:.3f}\n", areas.x, areas.y, areas.z);
 #endif
 }
 

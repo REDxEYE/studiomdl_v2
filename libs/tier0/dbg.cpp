@@ -12,8 +12,9 @@
 #endif
 
 #include <cstdio>
-#include <cstdarg>
 #include <cstdlib>
+#include <format>
+#include <string>
 #include "color.h"
 #include "tier0/dbg.h"
 
@@ -54,57 +55,50 @@ PLATFORM_INTERFACE void _AssertValidStringPtr( const tchar* ptr, int maxchar/* =
 // Forward declare for internal use only.
 CLoggingSystem *GetGlobalLoggingSystem();
 
-#define Log_LegacyHelperColor( Channel, Severity, Color, MessageFormat ) \
-	do \
-	{ \
-		CLoggingSystem *pLoggingSystem = GetGlobalLoggingSystem(); \
-		if ( pLoggingSystem->IsChannelEnabled( Channel, Severity ) ) \
-		{ \
-			tchar formattedMessage[MAX_LOGGING_MESSAGE_LENGTH]; \
-			va_list args; \
-			va_start( args, MessageFormat ); \
-			Tier0Internal_vsntprintf( formattedMessage, MAX_LOGGING_MESSAGE_LENGTH, MessageFormat, args ); \
-			va_end( args ); \
-			pLoggingSystem->LogDirect( Channel, Severity, Color, formattedMessage ); \
-		} \
-	} while( 0 )
-
-#define Log_LegacyHelper( Channel, Severity, MessageFormat ) Log_LegacyHelperColor( Channel, Severity, pLoggingSystem->GetChannelColor( Channel ), MessageFormat )
-
-void Msg( const tchar* pMsgFormat, ... )
+// Formats and logs the message if the channel accepts the severity (formatting is skipped otherwise)
+static void LogFormatted( LoggingChannelID_t channel, LoggingSeverity_t severity, const Color *pColor, std::string_view fmt, std::format_args args )
 {
-	Log_LegacyHelper( LOG_GENERAL, LS_MESSAGE, pMsgFormat );
+	CLoggingSystem *pLoggingSystem = GetGlobalLoggingSystem();
+	if ( !pLoggingSystem->IsChannelEnabled( channel, severity ) )
+		return;
+	const std::string message = std::vformat( fmt, args );
+	pLoggingSystem->LogDirect( channel, severity, pColor ? *pColor : pLoggingSystem->GetChannelColor( channel ), message.c_str() );
 }
 
-void Warning( const tchar *pMsgFormat, ... )
+void MsgV( std::string_view fmt, std::format_args args )
 {
-	Log_LegacyHelper( LOG_GENERAL, LS_WARNING, pMsgFormat );
+	LogFormatted( LOG_GENERAL, LS_MESSAGE, nullptr, fmt, args );
 }
 
-void Error( const tchar *pMsgFormat, ... )
+void WarningV( std::string_view fmt, std::format_args args )
 {
-	Log_LegacyHelper( LOG_GENERAL, LS_ERROR, pMsgFormat );
+	LogFormatted( LOG_GENERAL, LS_WARNING, nullptr, fmt, args );
+}
+
+void ErrorV( std::string_view fmt, std::format_args args )
+{
+	LogFormatted( LOG_GENERAL, LS_ERROR, nullptr, fmt, args );
 	// Many places that call Error assume that execution will not continue afterwards so it
 	// is important to exit here. The function prototype promises that this will happen.
 	Plat_ExitProcess( 100 );
 }
 
-void DevMsg( const tchar *pMsgFormat, ... )
+void DevMsgV( std::string_view fmt, std::format_args args )
 {
-	Log_LegacyHelper( LOG_DEVELOPER, LS_MESSAGE, pMsgFormat );
+	LogFormatted( LOG_DEVELOPER, LS_MESSAGE, nullptr, fmt, args );
 }
 
-void DevWarning( const tchar *pMsgFormat, ... )
+void DevWarningV( std::string_view fmt, std::format_args args )
 {
-	Log_LegacyHelper( LOG_DEVELOPER, LS_WARNING, pMsgFormat );
+	LogFormatted( LOG_DEVELOPER, LS_WARNING, nullptr, fmt, args );
 }
 
-void ConColorMsg( const Color& clr, const tchar* pMsgFormat, ... )
+void ConColorMsgV( const Color &clr, std::string_view fmt, std::format_args args )
 {
-	Log_LegacyHelperColor( LOG_CONSOLE, LS_MESSAGE, clr, pMsgFormat );
+	LogFormatted( LOG_CONSOLE, LS_MESSAGE, &clr, fmt, args );
 }
 
-void ConMsg( const tchar *pMsgFormat, ... )
+void ConMsgV( std::string_view fmt, std::format_args args )
 {
-	Log_LegacyHelper( LOG_CONSOLE, LS_MESSAGE, pMsgFormat );
+	LogFormatted( LOG_CONSOLE, LS_MESSAGE, nullptr, fmt, args );
 }

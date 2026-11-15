@@ -16,6 +16,7 @@
 #include "bspflags.h"
 #include "studiomdl/collisionmodel.h"
 #include "studiomdl/studiomdl_global_state.hpp"
+#include "tier1_v2/math_utils.hpp"
 #include "tier1_v2/path_utils.hpp"
 #include "tier1_v2/string_utils.hpp"
 
@@ -52,11 +53,11 @@ static void ParseContents(ScriptTokenizer &qc, ContentType &addFlags, ContentTyp
     } while (qc.TokenAvailable());
 }
 
-void ProcessModelName(const char *pModelName) {
+void ProcessModelName(const char* pModelName) {
     // Abort early if modelname is too big
 
     const int nModelNameLen = Q_strlen(pModelName);
-    char *pTmpBuf = reinterpret_cast<char *>(_alloca((nModelNameLen + 1) * sizeof(char)));
+    char* pTmpBuf = reinterpret_cast<char*>(_alloca((nModelNameLen + 1) * sizeof(char)));
     Q_StripExtension(pModelName, pTmpBuf, nModelNameLen + 1);
     // write.cpp strips extension then adds .mdl and writes that into studiohdr_t::name
 
@@ -80,7 +81,7 @@ void ProcessModelName(const char *pModelName) {
 //-----------------------------------------------------------------------------
 // Parse the studio options from a .qc file
 //-----------------------------------------------------------------------------
-bool ParseOptionStudio(ScriptTokenizer &qc, CDmeSourceSkin *pSkin) {
+bool ParseOptionStudio(ScriptTokenizer &qc, CDmeSourceSkin* pSkin) {
     qc.ExpectToken("<reference mesh>");
 
     pSkin->SetRelativeFileName(qc.token);
@@ -125,7 +126,7 @@ bool ParseOptionStudio(ScriptTokenizer &qc, CDmeSourceSkin *pSkin) {
 //-----------------------------------------------------------------------------
 // Parse the body command from a .qc file
 //-----------------------------------------------------------------------------
-void ProcessOptionStudio(s_model_t *pmodel, const char *pFullPath, float flScale, bool bFlipTriangles, bool bQuadSubd) {
+void ProcessOptionStudio(s_model_t* pmodel, const char* pFullPath, float flScale, bool bFlipTriangles, bool bQuadSubd) {
     pmodel->filename = pFullPath;
 
     if (flScale != 0.0f) {
@@ -150,12 +151,12 @@ void ProcessOptionStudio(s_model_t *pmodel, const char *pFullPath, float flScale
 //-----------------------------------------------------------------------------
 // Process a body command
 //-----------------------------------------------------------------------------
-void ProcessCmdBody(const char *pFullPath, const char *pBodyPartName, float flScale, bool bFlipTriangles,
+void ProcessCmdBody(const char* pFullPath, const char* pBodyPartName, float flScale, bool bFlipTriangles,
                     bool bQuadSubd) {
     s_bodypart_t &bodypart = g_studiomdl.body.AddBodyPart();
     Q_strncpy(bodypart.name, pBodyPartName, sizeof(bodypart.name));
 
-    s_model_t *pmodel = c_allocate<s_model_t>();
+    s_model_t* pmodel = c_allocate<s_model_t>();
     const int imodel = g_studiomdl.body.AddModel(pmodel);
     bodypart.pmodel.push_back(pmodel);
 
@@ -172,7 +173,7 @@ void ProcessCmdBody(const char *pFullPath, const char *pBodyPartName, float flSc
 //-----------------------------------------------------------------------------
 void Cmd_BoneFlexDriver(ScriptTokenizer &qc) {
     // Find or create the DmeBoneFlexDriverList
-    CDmeBoneFlexDriverList *pDmeBoneFlexDriverList = GetElement<CDmeBoneFlexDriverList>(
+    CDmeBoneFlexDriverList* pDmeBoneFlexDriverList = GetElement<CDmeBoneFlexDriverList>(
         g_studiomdl.flex.hDmeBoneFlexDriverList);
     if (!pDmeBoneFlexDriverList) {
         pDmeBoneFlexDriverList = CreateElement<CDmeBoneFlexDriverList>("boneDriverFlexList", DMFILEID_INVALID);
@@ -188,7 +189,7 @@ void Cmd_BoneFlexDriver(ScriptTokenizer &qc) {
 
     // <bone name>
     qc.ExpectToken();
-    CDmeBoneFlexDriver *pDmeBoneFlexDriver = pDmeBoneFlexDriverList->FindOrCreateBoneFlexDriver(qc.token);
+    CDmeBoneFlexDriver* pDmeBoneFlexDriver = pDmeBoneFlexDriverList->FindOrCreateBoneFlexDriver(qc.token);
     if (!pDmeBoneFlexDriver) {
         qc.Error("{}: Couldn't find or create DmeBoneFlexDriver for bone \"{}\"\n", "$boneflexdriver", qc.token);
         return;
@@ -196,7 +197,7 @@ void Cmd_BoneFlexDriver(ScriptTokenizer &qc) {
 
     // <tx|ty|tz|rx|ry|rz>
     qc.ExpectToken();
-    const char *ppszComponentTypeList[] = {"tx", "ty", "tz"};
+    const char* ppszComponentTypeList[] = {"tx", "ty", "tz"};
     int nBoneComponent = -1;
     for (int i = 0; i < ARRAYSIZE(ppszComponentTypeList); ++i) {
         if (StringHasPrefix(qc.token, ppszComponentTypeList[i])) {
@@ -212,7 +213,7 @@ void Cmd_BoneFlexDriver(ScriptTokenizer &qc) {
 
     // <flex controller name>
     qc.ExpectToken();
-    CDmeBoneFlexDriverControl *pDmeBoneFlexDriverControl = pDmeBoneFlexDriver->FindOrCreateControl(qc.token);
+    CDmeBoneFlexDriverControl* pDmeBoneFlexDriverControl = pDmeBoneFlexDriver->FindOrCreateControl(qc.token);
     if (!pDmeBoneFlexDriverControl) {
         qc.Error("{}: Couldn't find or create DmeBoneFlexDriverControl for bone \"{}\"\n", "$boneflexdriver",
                  qc.token);
@@ -270,7 +271,7 @@ void Cmd_OverrideMaterial(ScriptTokenizer &qc) {
     qc.ExpectToken();
     strcpy(to, qc.token);
 
-    Msg("$overridematerial is replacing ALL material references with %s.\n", to);
+    Msg("$overridematerial is replacing ALL material references with {}.\n", to);
 
     int i;
     for (i = 0; i < g_studiomdl.materials.textures.size(); i++) {
@@ -298,7 +299,7 @@ void Cmd_RenameMaterial(ScriptTokenizer &qc) {
 
     for (i = 0; i < g_studiomdl.materials.textures.size(); i++) {
         if (vstd::ifind(g_studiomdl.materials.textures[i].name, from) != std::string_view::npos) {
-            Msg("$renamematerial fell back to partial match: Replacing %s with %s.\n",
+            Msg("$renamematerial fell back to partial match: Replacing {} with {}.\n",
                 g_studiomdl.materials.textures[i].name.c_str(), to);
             strcpy(g_studiomdl.materials.textures[i].name, to);
             return;
@@ -333,7 +334,7 @@ void Cmd_AddSearchDir(ScriptTokenizer &qc) {
     if (!g_studiomdl.options.quiet) {
         std::print("New search path: {}\n", qc.token);
     }
-    CmdLib_AddNewSearchPath(qc.token);
+    CmdLib_AddNewSearchPath(qc.token.view());
 }
 
 //-----------------------------------------------------------------------------
@@ -407,8 +408,8 @@ static void Cmd_Autocenter(ScriptTokenizer &qc) {
 //-----------------------------------------------------------------------------
 // Parse + process the studio options from a .qc file
 //-----------------------------------------------------------------------------
-void Option_Studio(ScriptTokenizer &qc, s_model_t *pmodel) {
-    CDmeSourceSkin *pSourceSkin = CreateElement<CDmeSourceSkin>("", DMFILEID_INVALID);
+void Option_Studio(ScriptTokenizer &qc, s_model_t* pmodel) {
+    CDmeSourceSkin* pSourceSkin = CreateElement<CDmeSourceSkin>("", DMFILEID_INVALID);
 
     // Set defaults
     pSourceSkin->m_flScale = g_studiomdl.script.defaultscale;
@@ -424,10 +425,10 @@ void Option_Studio(ScriptTokenizer &qc, s_model_t *pmodel) {
 
 // Adds a "blank" model to the bodypart
 int Option_Blank(s_bodypart_t &bodypart) {
-    s_model_t *pmodel = c_allocate<s_model_t>();
+    s_model_t* pmodel = c_allocate<s_model_t>();
     g_studiomdl.body.AddModel(pmodel);
 
-    auto *source = c_allocate<s_source_t>();
+    auto* source = c_allocate<s_source_t>();
     g_studiomdl.anim.sources.emplace_back(source);
 
     pmodel->source = source;
@@ -456,7 +457,7 @@ void Cmd_Bodygroup(ScriptTokenizer &qc) {
             break;
         }
         else if (vstd::iequals("studio", qc.token)) {
-            s_model_t *pmodel = c_allocate<s_model_t>();
+            s_model_t* pmodel = c_allocate<s_model_t>();
             const int imodel = g_studiomdl.body.AddModel(pmodel);
             bodypart.pmodel.push_back(pmodel);
 
@@ -545,7 +546,7 @@ void Cmd_BodygroupPreset(ScriptTokenizer &qc) {
     newpreset.iValue = nAccumValue;
     newpreset.iMask = nAccumMask;
 
-    //Msg( "Built bodygroup preset: %s, value: %i, mask:%i\n", newpreset.name, newpreset.iValue, newpreset.iMask );
+    //Msg( "Built bodygroup preset: {}, value: {:d}, mask:{:d}\n", newpreset.name, newpreset.iValue, newpreset.iMask );
 
     g_studiomdl.body.bodygrouppresets.push_back(newpreset);
 }
@@ -557,7 +558,7 @@ void Cmd_Body(ScriptTokenizer &qc) {
     vstd::FunctionTimingRecorder _("Parse");
     qc.ExpectToken("body <name>");
 
-    CDmeSourceSkin *pSourceSkin = CreateElement<CDmeSourceSkin>("", DMFILEID_INVALID);
+    CDmeSourceSkin* pSourceSkin = CreateElement<CDmeSourceSkin>("", DMFILEID_INVALID);
 
     // Set defaults
     pSourceSkin->m_flScale = g_studiomdl.script.defaultscale;
@@ -575,7 +576,7 @@ void Cmd_Body(ScriptTokenizer &qc) {
 // stopping when the g_studiomdl.attachment array is full.  Duplicate attachments
 // will be purged later after they are linked to bones
 //-----------------------------------------------------------------------------
-void AddBodyAttachments(s_source_t *pSource) {
+void AddBodyAttachments(s_source_t* pSource) {
     for (size_t i = 0; i < pSource->m_Attachments.size(); ++i) {
         if (g_studiomdl.bones.attachments.size() >= g_studiomdl.bones.attachments.capacity()) {
             MdlWarning("Too Many Attachments (Max {}), Ignoring Attachment {}:{}\n",
@@ -590,7 +591,7 @@ void AddBodyAttachments(s_source_t *pSource) {
 //-----------------------------------------------------------------------------
 // Adds flex controller data to a particular source
 //-----------------------------------------------------------------------------
-void AddFlexControllers(s_source_t *pSource) {
+void AddFlexControllers(s_source_t* pSource) {
     std::vector<int> &r2s = pSource->m_rawIndexToRemapSourceIndex;
     std::vector<int> &r2l = pSource->m_rawIndexToRemapLocalIndex;
     std::vector<int> &l2i = pSource->m_leftRemapIndexToGlobalFlexControllIndex;
@@ -753,7 +754,7 @@ void AddFlexControllers(s_source_t *pSource) {
 //-----------------------------------------------------------------------------
 // Adds flex controller remappers
 //-----------------------------------------------------------------------------
-void AddBodyFlexRemaps(s_source_t *pSource) {
+void AddBodyFlexRemaps(s_source_t* pSource) {
     const int nCount = std::ssize(pSource->m_FlexControllerRemaps);
     for (int i = 0; i < nCount; ++i) {
         g_studiomdl.flex.FlexControllerRemap.emplace_back();
@@ -765,7 +766,7 @@ void AddBodyFlexRemaps(s_source_t *pSource) {
 //-----------------------------------------------------------------------------
 // Process a body command
 //-----------------------------------------------------------------------------
-void AddBodyFlexData(s_source_t *pSource, int imodel, bool bAddControllers) {
+void AddBodyFlexData(s_source_t* pSource, int imodel, bool bAddControllers) {
     pSource->m_nKeyStartIndex = g_studiomdl.flex.flexkeys.size();
 
     // Add flex keys
@@ -805,7 +806,7 @@ void AddBodyFlexData(s_source_t *pSource, int imodel, bool bAddControllers) {
 }
 
 
-void Option_Eyeball(ScriptTokenizer &qc, s_model_t *pmodel) {
+void Option_Eyeball(ScriptTokenizer &qc, s_model_t* pmodel) {
     Vector tmp;
     int i, j;
     vstd::FixedString<256> szMeshMaterial;
@@ -897,17 +898,17 @@ void Option_Eyeball(ScriptTokenizer &qc, s_model_t *pmodel) {
 // Then an NWAY controller will be defined to play back the flex data
 // as an animation as the controller goes from [0,1]
 //-----------------------------------------------------------------------------
-void Option_VertexCacheAnimationFile(char *pszVtaFile, int nModelIndex) {
-    if (g_studiomdl.flex.flexkeys.size() > 0) {
+static void Option_VertexCacheAnimationFile(const std::string_view vtaFilePath, const size_t modelIndex) {
+    if (!g_studiomdl.flex.flexkeys.empty()) {
         MdlError("{}: Flexes already defined.  vcafile can be only flex option in $model block\n", __FUNCTION__);
         return;
     }
 
-    s_source_t *pSource = g_studiomdl.body.model[nModelIndex]->source;
-    s_source_t *pVtaSource = Load_Source(pszVtaFile, "vta");
+    s_source_t* pSource = g_studiomdl.body.model[modelIndex]->source;
+    s_source_t* pVtaSource = Load_Source(vtaFilePath, "vta");
 
     if (pVtaSource->m_Animations.empty()) {
-        MdlError("{}: No animations in VertexCacheAnimationFile \"{}\"\n", __FUNCTION__, pszVtaFile);
+        MdlError("{}: No animations in VertexCacheAnimationFile \"{}\"\n", __FUNCTION__, vtaFilePath);
         return;
     }
 
@@ -917,7 +918,7 @@ void Option_VertexCacheAnimationFile(char *pszVtaFile, int nModelIndex) {
             .flexpair = 0,
             .source = pVtaSource,
             .animationname = pVtaSource->m_Animations[0].animationname,
-            .imodel = nModelIndex,
+            .imodel = vstd::as_signed_checked<int>(modelIndex),
             .frame = 0,
             .target0 = 0.0,
             .target1 = 1.0,
@@ -941,7 +942,7 @@ void Option_VertexCacheAnimationFile(char *pszVtaFile, int nModelIndex) {
                 .flexpair = 0,
                 .source = pVtaSource,
                 .animationname = pVtaSource->m_Animations[0].animationname,
-                .imodel = nModelIndex,
+                .imodel = vstd::as_signed_checked<int>(modelIndex),
                 .frame = (i + 1),
                 .target0 = 0.0,
                 .target1 = 1.0,
@@ -953,43 +954,40 @@ void Option_VertexCacheAnimationFile(char *pszVtaFile, int nModelIndex) {
         }
     }
 
-    s_flexcontrollerremap_t &flexRemap = pSource->m_FlexControllerRemaps.emplace_back();
+    s_flexcontrollerremap_t &flexRemap = pSource->m_FlexControllerRemaps.emplace_back(s_flexcontrollerremap_t{
+        .m_Name = std::string(vstd::paths::file_base(pVtaSource->filename)),
+        .m_RemapType = Nway,
+        .m_bIsStereo = false,
+        .m_Index = -1, // Don't know this right now
+        .m_LeftIndex = -1, // Don't know this right now
+        .m_RightIndex = -1, // Don't know this right now
+        .m_MultiIndex = -1, // Don't know this right now
+        .m_EyesUpDownFlexController = -1,
+        .m_BlinkController = -1,
+    });
 
-    flexRemap.m_RemapType = Nway;
-    flexRemap.m_bIsStereo = false;
-    flexRemap.m_Index = -1; // Don't know this right now
-    flexRemap.m_LeftIndex = -1; // Don't know this right now
-    flexRemap.m_RightIndex = -1; // Don't know this right now
-    flexRemap.m_MultiIndex = -1; // Don't know this right now
-    flexRemap.m_EyesUpDownFlexController = -1;
-    flexRemap.m_BlinkController = -1;
-
-    char szBuf[MAX_PATH];
-    V_FileBase(pVtaSource->filename.c_str(), szBuf, ARRAYSIZE(szBuf));
-    flexRemap.m_Name = szBuf;
 
     for (int i = 0; i < nActualFrameCount; ++i) {
         sTmp.format("f{}", i);
         flexRemap.m_RawControls.emplace_back(sTmp);
     }
 
-    for (size_t i = 0; i < flexRemap.m_RawControls.size(); ++i) {
+    for (auto &m_RawControl: flexRemap.m_RawControls) {
         int nFlexKey = -1;
         for (int j = 0; j < g_studiomdl.flex.flexkeys.size(); ++j) {
-            if (vstd::iequals(g_studiomdl.flex.flexdescs[g_studiomdl.flex.flexkeys[j].flexdesc].FACS, flexRemap.m_RawControls[i])) {
+            if (vstd::iequals(g_studiomdl.flex.flexdescs[g_studiomdl.flex.flexkeys[j].flexdesc].FACS, m_RawControl)) {
                 nFlexKey = j;
                 break;
             }
         }
 
         if (nFlexKey < 0) {
-            MdlError("{} Cannot find flex to group \"{}\"\n", __FUNCTION__, flexRemap.m_RawControls[i]);
+            MdlError("{} Cannot find flex to group \"{}\"\n", __FUNCTION__, m_RawControl);
             pSource->m_FlexControllerRemaps.pop_back();
             return;
         }
 
-        s_combinationcontrol_t &combinationControl = pSource->m_CombinationControls.emplace_back();
-        V_strncpy(combinationControl.name, flexRemap.m_RawControls[i].c_str(), ARRAYSIZE(combinationControl.name));
+        pSource->m_CombinationControls.emplace_back(m_RawControl);
 
         s_combinationrule_t &combinationRule = pSource->m_CombinationRules.emplace_back();
         combinationRule.m_nFlex = nFlexKey;
@@ -1002,7 +1000,7 @@ void Option_VertexCacheAnimationFile(char *pszVtaFile, int nModelIndex) {
 }
 
 
-void Option_Spherenormals(ScriptTokenizer &qc, s_source_t *psource) {
+void Option_Spherenormals(ScriptTokenizer &qc, s_source_t* psource) {
     Vector pos;
     int i, j;
     int mesh_material;
@@ -1025,7 +1023,7 @@ void Option_Spherenormals(ScriptTokenizer &qc, s_source_t *psource) {
         const s_mesh_t &mesh = psource->meshes[i];
 
         if (mesh.material == mesh_material) {
-            s_vertexinfo_t *vertex = &psource->vertex[mesh.vertexoffset];
+            s_vertexinfo_t* vertex = &psource->vertex[mesh.vertexoffset];
 
             for (int k = 0; k < mesh.numvertices; k++) {
                 Vector n = vertex[k].position - pos;
@@ -1057,9 +1055,9 @@ void Option_Spherenormals(ScriptTokenizer &qc, s_source_t *psource) {
 //          that matches the specified animation name (case insensitive)
 //          and is also a new style (i.e. DMX) vertex animation
 //-----------------------------------------------------------------------------
-const s_sourceanim_t *GetNewStyleSourceVertexAnim(s_source_t *pSource, const char *pszVertexAnimName) {
+const s_sourceanim_t* GetNewStyleSourceVertexAnim(s_source_t* pSource, const char* pszVertexAnimName) {
     for (size_t i = 0; i < pSource->m_Animations.size(); ++i) {
-        const s_sourceanim_t *pSourceAnim = &(pSource->m_Animations[i]);
+        const s_sourceanim_t* pSourceAnim = &(pSource->m_Animations[i]);
         if (!pSourceAnim || !pSourceAnim->newStyleVertexAnimations)
             continue;
 
@@ -1078,7 +1076,7 @@ const s_sourceanim_t *GetNewStyleSourceVertexAnim(s_source_t *pSource, const cha
 //-----------------------------------------------------------------------------
 void Option_DmxEyelid(ScriptTokenizer &qc, int imodel) {
     // upper | lower
-    const char *pszType = nullptr;
+    const char* pszType = nullptr;
     qc.ExpectToken();
     if (vstd::iequals("upper", qc.token)) {
         pszType = "upper";
@@ -1096,7 +1094,7 @@ void Option_DmxEyelid(ScriptTokenizer &qc, int imodel) {
     qc.ExpectToken();
     sSourceFile = qc.token;
 
-    s_source_t *pSource = Load_Source(sSourceFile.c_str(), "dmx");
+    s_source_t* pSource = Load_Source(sSourceFile.c_str(), "dmx");
     if (!pSource) {
         qc.Error("({}) : {}:  Cannot load source file \"{}\"\n", g_studiomdl.input.iLinecount,
                  g_studiomdl.input.szLine, sSourceFile);
@@ -1111,9 +1109,9 @@ void Option_DmxEyelid(ScriptTokenizer &qc, int imodel) {
 
     struct EyelidData_t {
         int m_nFlexDesc[kRightLeftTypeCount];
-        const s_sourceanim_t *m_pSourceAnim;
+        const s_sourceanim_t* m_pSourceAnim;
         float m_flTarget;
-        const char *m_pszSuffix;
+        const char* m_pszSuffix;
     };
 
     EyelidData_t eyelidData[3] =
@@ -1184,7 +1182,7 @@ void Option_DmxEyelid(ScriptTokenizer &qc, int imodel) {
     }
 
     for (int i = 0; i < kEyelidTypeCount; ++i) {
-        s_flexkey_t *pFlexKey = &g_studiomdl.flex.flexkeys.emplace_back(s_flexkey_t{
+        s_flexkey_t* pFlexKey = &g_studiomdl.flex.flexkeys.emplace_back(s_flexkey_t{
             .flexdesc = nRightLeftBaseDesc[kLeft],
             .flexpair = nRightLeftBaseDesc[kRight],
             .source = pSource,
@@ -1222,9 +1220,9 @@ void Option_DmxEyelid(ScriptTokenizer &qc, int imodel) {
     bool bRightOk = false;
     bool bLeftOk = false;
 
-    s_model_t *pModel = g_studiomdl.body.model[imodel];
+    s_model_t* pModel = g_studiomdl.body.model[imodel];
     for (int i = 0; i < pModel->eyeballs.size(); ++i) {
-        s_eyeball_t *pEyeball = &(pModel->eyeballs[i]);
+        s_eyeball_t* pEyeball = &(pModel->eyeballs[i]);
         if (!pEyeball)
             continue;
 
@@ -1279,7 +1277,7 @@ void Option_DmxEyelid(ScriptTokenizer &qc, int imodel) {
     }
 }
 
-int Option_Mouth(ScriptTokenizer &qc, s_model_t *pmodel) {
+int Option_Mouth(ScriptTokenizer &qc, s_model_t* pmodel) {
     // index
     qc.ExpectToken();
     int index = qc.TokenInt();
@@ -1297,7 +1295,7 @@ int Option_Mouth(ScriptTokenizer &qc, s_model_t *pmodel) {
     return 0;
 }
 
-void Option_Flexcontroller(ScriptTokenizer &qc, s_model_t *pmodel) {
+void Option_Flexcontroller(ScriptTokenizer &qc, s_model_t* pmodel) {
     char type[256];
     float range_min = 0.0f;
     float range_max = 1.0f;
@@ -1331,7 +1329,7 @@ void Option_Flexcontroller(ScriptTokenizer &qc, s_model_t *pmodel) {
     // this needs to be per model.
 }
 
-void Option_NoAutoDMXRules(s_source_t *pSource) {
+void Option_NoAutoDMXRules(s_source_t* pSource) {
     // zero out the automatic flex controllers
     g_studiomdl.flex.flexcontrollers.clear();
     pSource->bNoAutoDMXRules = true;
@@ -1379,7 +1377,7 @@ int ParseEmpty(ScriptTokenizer &qc) {
     return 0;
 }
 
-void Option_Flex(ScriptTokenizer &qc, char *name, char *vtafile, int imodel, float pairsplit) {
+void Option_Flex(ScriptTokenizer &qc, char* name, char* vtafile, int imodel, float pairsplit) {
     if (g_studiomdl.flex.flexkeys.size() >= MAXSTUDIOFLEXKEYS) {
         qc.Error("Too many flexes, max {}\n", MAXSTUDIOFLEXKEYS);
     }
@@ -1445,7 +1443,7 @@ void Option_Flex(ScriptTokenizer &qc, char *name, char *vtafile, int imodel, flo
     }
 
     // link to source
-    s_source_t *pSource = Load_Source(vtafile, "vta");
+    s_source_t* pSource = Load_Source(vtafile, "vta");
     new_flexkey.source = pSource;
     if (!pSource->m_Animations.empty()) {
         new_flexkey.animationname = pSource->m_Animations[0].animationname;
@@ -1457,7 +1455,7 @@ void Option_Flex(ScriptTokenizer &qc, char *name, char *vtafile, int imodel, flo
 }
 
 
-void PrintFlexrule(s_flexrule_t *pRule) {
+void PrintFlexrule(s_flexrule_t* pRule) {
     std::print("{} = ", g_studiomdl.flex.flexdescs[pRule->flex].FACS);
     for (int i = 0; i < pRule->numops; i++) {
         switch (pRule->op[i].op) {
@@ -1530,9 +1528,9 @@ void PrintFlexrule(s_flexrule_t *pRule) {
 }
 
 
-void Option_Flexrule(ScriptTokenizer &qc, s_model_t * /* pmodel */, const char *name) {
+void Option_Flexrule(ScriptTokenizer &qc, s_model_t* /* pmodel */, const char* name) {
     int precedence[32];
-    auto prec = [&precedence](StudioOpcode op) -> int & { return precedence[std::to_underlying(op)]; };
+    auto prec = [&precedence](StudioOpcode op) -> int& { return precedence[std::to_underlying(op)]; };
     prec(StudioOpcode::Const) = 0;
     prec(StudioOpcode::Fetch1) = 0;
     prec(StudioOpcode::Fetch2) = 0;
@@ -1840,8 +1838,8 @@ void Option_Flexrule(ScriptTokenizer &qc, s_model_t * /* pmodel */, const char *
 // Add A Body Flex Rule
 //-----------------------------------------------------------------------------
 void AddBodyFlexFetchRule(
-    s_source_t *pSource,
-    s_flexrule_t *pRule,
+    s_source_t* pSource,
+    s_flexrule_t* pRule,
     int rawIndex,
     const std::vector<int> &pRawIndexToRemapSourceIndex,
     const std::vector<int> &pRawIndexToRemapLocalIndex,
@@ -2001,7 +1999,7 @@ void AddBodyFlexFetchRule(
 // Add A Body Flex Rule
 //-----------------------------------------------------------------------------
 void AddBodyFlexRule(
-    s_source_t *pSource,
+    s_source_t* pSource,
     s_combinationrule_t &rule,
     int nFlexDesc,
     const std::vector<int> &pRawIndexToRemapSourceIndex,
@@ -2051,7 +2049,7 @@ void AddBodyFlexRule(
 }
 
 
-void AddBodyFlexRules(s_source_t *pSource) {
+void AddBodyFlexRules(s_source_t* pSource) {
     const int nRemapCount = std::ssize(pSource->m_FlexControllerRemaps);
     for (int i = 0; i < nRemapCount; ++i) {
         s_flexcontrollerremap_t &remap = pSource->m_FlexControllerRemaps[i];
@@ -2145,7 +2143,7 @@ void Option_Eyelid(ScriptTokenizer &qc, int imodel) {
         }
     }
 
-    s_source_t *pSource = Load_Source(vtafile, "vta");
+    s_source_t* pSource = Load_Source(vtafile, "vta");
     auto &lower_flexkey = g_studiomdl.flex.flexkeys.emplace_back(s_flexkey_t{
         .flexdesc = basedesc,
         .source = pSource,
@@ -2193,9 +2191,9 @@ void Option_Eyelid(ScriptTokenizer &qc, int imodel) {
         .decay = 0.0,
     });
 
-    s_model_t *pmodel = g_studiomdl.body.model[imodel];
+    s_model_t* pmodel = g_studiomdl.body.model[imodel];
     for (int i = 0; i < pmodel->eyeballs.size(); i++) {
-        s_eyeball_t *peyeball = &(pmodel->eyeballs[i]);
+        s_eyeball_t* peyeball = &(pmodel->eyeballs[i]);
 
         if (szEyeball[0] != '\0') {
             if (!vstd::iequals(peyeball->name, szEyeball))
@@ -2236,7 +2234,7 @@ void Option_Eyelid(ScriptTokenizer &qc, int imodel) {
 }
 
 void Cmd_Model(ScriptTokenizer &qc) {
-    s_model_t *pmodel = c_allocate<s_model_t>();
+    s_model_t* pmodel = c_allocate<s_model_t>();
     const int imodel = g_studiomdl.body.AddModel(pmodel);
 
     // name
@@ -2296,7 +2294,7 @@ void Cmd_Model(ScriptTokenizer &qc) {
         else if (vstd::iequals("vcafile", qc.token)) {
             // vertex cache animation file
             qc.ExpectToken(); // file
-            Option_VertexCacheAnimationFile(qc.token, imodel);
+            Option_VertexCacheAnimationFile(qc.token.view(), imodel);
         }
         else if (vstd::iequals("flex", qc.token)) {
             // g_flex
@@ -2381,7 +2379,6 @@ void Cmd_Model(ScriptTokenizer &qc) {
         // In case there was data added by some other eyeball command (like eyelid)
         AddBodyFlexRules(pmodel->source);
     }
-
 }
 
 void Cmd_FakeVTA(ScriptTokenizer &qc) {
@@ -2434,7 +2431,7 @@ void Cmd_FakeVTA(ScriptTokenizer &qc) {
 }
 
 
-StudioMotionFlags lookupControl(char *string) {
+StudioMotionFlags lookupControl(char* string) {
     if (stricmp(string, "X") == 0) return StudioMotionFlags::X;
     if (stricmp(string, "Y") == 0) return StudioMotionFlags::Y;
     if (stricmp(string, "Z") == 0) return StudioMotionFlags::Z;
@@ -2694,7 +2691,7 @@ void Cmd_Hitbox(ScriptTokenizer &qc) {
     }
 
     // Last one
-    s_hitboxset *set = &g_studiomdl.bones.hitboxsets[g_studiomdl.bones.hitboxsets.size() - 1];
+    s_hitboxset* set = &g_studiomdl.bones.hitboxsets[g_studiomdl.bones.hitboxsets.size() - 1];
     if (autogenerated) {
         memset(set, 0, sizeof(*set));
 
@@ -2749,7 +2746,7 @@ void Cmd_Hitbox(ScriptTokenizer &qc) {
 void Cmd_HitboxSet(ScriptTokenizer &qc) {
     // Add a new hitboxset
     g_studiomdl.bones.hitboxsets.emplace_back();
-    s_hitboxset *set = &g_studiomdl.bones.hitboxsets.back();
+    s_hitboxset* set = &g_studiomdl.bones.hitboxsets.back();
     qc.ExpectToken();
     memset(set, 0, sizeof(*set));
     strcpy(set->hitboxsetname, qc.token);
@@ -2758,8 +2755,9 @@ void Cmd_HitboxSet(ScriptTokenizer &qc) {
 //-----------------------------------------------------------------------------
 // Assigns a default surface property to the entire model
 //-----------------------------------------------------------------------------
-void SetDefaultSurfaceProp(const char *pSurfaceProperty) {
-    Q_strncpy(g_studiomdl.materials.pDefaultSurfaceProp, pSurfaceProperty, sizeof(g_studiomdl.materials.pDefaultSurfaceProp));
+void SetDefaultSurfaceProp(const char* pSurfaceProperty) {
+    Q_strncpy(g_studiomdl.materials.pDefaultSurfaceProp, pSurfaceProperty,
+              sizeof(g_studiomdl.materials.pDefaultSurfaceProp));
 }
 
 void Cmd_SurfaceProp(ScriptTokenizer &qc) {
@@ -2838,7 +2836,7 @@ void Internal_Cmd_Attachment(ScriptTokenizer &qc, int nAttachmentTarget = g_stud
     // name
     qc.ExpectToken("attachment <name>");
 
-    s_attachment_t *attachment;
+    s_attachment_t* attachment;
 
     if (nAttachmentTarget == g_studiomdl.bones.attachments.size()) {
         if (g_studiomdl.bones.attachments.full()) {
@@ -2938,7 +2936,7 @@ void Cmd_RedefineAttachment(ScriptTokenizer &qc) {
 
     for (int n = 0; n < g_studiomdl.bones.attachments.size(); n++) {
         if (vstd::iequals(qc.token, g_studiomdl.bones.attachments[n].name)) {
-            Msg("Found pre-existing attachment matching name: %s\n", qc.token.c_str());
+            Msg("Found pre-existing attachment matching name: {}\n", qc.token.c_str());
             std::print("Found pre-existing attachment matching name: {}\n", qc.token);
             Internal_Cmd_Attachment(qc, n);
             return;
@@ -2967,7 +2965,7 @@ void Cmd_StripBonePrefix(ScriptTokenizer &qc) {
 
         // make sure it's not a duplicate
         for (int k = 0; k < g_studiomdl.bones.szStripBonePrefix.size(); k++) {
-            if (g_studiomdl.bones.szStripBonePrefix[k] == (const char *) qc.token) {
+            if (g_studiomdl.bones.szStripBonePrefix[k] == (const char*) qc.token) {
                 MdlWarning("Ignoring duplicate $bonestripprefix for token {}\n", qc.token);
                 return;
             }
@@ -2990,7 +2988,7 @@ void Cmd_RenameBoneSubstr(ScriptTokenizer &qc) {
 }
 
 // Returns the 1-based id of the named transition node, adding it if needed
-int LookupXNode(const char *name) {
+int LookupXNode(const char* name) {
     for (size_t i = 0; i < g_studiomdl.anim.xnodenames.size(); i++) {
         if (vstd::iequals(name, g_studiomdl.anim.xnodenames[i])) {
             return static_cast<int>(i + 1);
@@ -3031,9 +3029,9 @@ void Cmd_Skiptransition(ScriptTokenizer &qc) {
 //-----------------------------------------------------------------------------
 // Checks to see if the model source was already loaded
 //-----------------------------------------------------------------------------
-s_source_t *FindCachedSource(const char *name, const char *xext) {
+s_source_t* FindCachedSource(const char* name, const char* xext) {
     const std::string base = g_studiomdl.paths.cddir.back() + name + ".";
-    const auto find = [&base](const std::string_view ext) -> s_source_t * {
+    const auto find = [&base](const std::string_view ext) -> s_source_t* {
         g_studiomdl.input.szFilename = base;
         g_studiomdl.input.szFilename += ext;
         for (int i = 0; i < g_studiomdl.anim.sources.size(); i++) {
@@ -3049,8 +3047,8 @@ s_source_t *FindCachedSource(const char *name, const char *xext) {
     }
 
     // we don't know what extension to use, so look for all of 'em (not .vta).
-    for (const char *pExt: {"vrm", "dmx", "smd", "xml", "obj"}) {
-        if (s_source_t *pSource = find(pExt)) {
+    for (const char* pExt: {"vrm", "dmx", "smd", "xml", "obj"}) {
+        if (s_source_t* pSource = find(pExt)) {
             return pSource;
         }
     }
@@ -3069,7 +3067,7 @@ static void Cmd_ReplaceModel(ScriptTokenizer &qc, LodScriptData_t &lodData) {
     qc.ExpectToken();
 
     // Strip off extensions for the source...
-    char *pDot = strrchr(qc.token, '.');
+    char* pDot = strrchr(qc.token, '.');
     if (pDot) {
         *pDot = 0;
     }
@@ -3123,7 +3121,7 @@ static void Cmd_RemoveModel(ScriptTokenizer &qc, LodScriptData_t &lodData) {
     qc.ExpectToken();
 
     // Strip off extensions...
-    char *pDot = strrchr(qc.token, '.');
+    char* pDot = strrchr(qc.token, '.');
     if (pDot)
         *pDot = 0;
 
@@ -3201,7 +3199,7 @@ static void Cmd_RemoveMesh(ScriptTokenizer &qc, LodScriptData_t &lodData) {
     newReplacement.SetSrcName(qc.token);
 }
 
-void Cmd_LOD(ScriptTokenizer &qc, const char *cmdname) {
+void Cmd_LOD(ScriptTokenizer &qc, const char* cmdname) {
     if (g_studiomdl.header.gflags & STUDIOHDR_FLAGS_HASSHADOWLOD) {
         qc.Error("Model can only have one $shadowlod and it must be the last lod in the " SRC_FILE_EXT " ({}) : {}\n",
                  g_studiomdl.input.iLinecount, g_studiomdl.input.szLine);
@@ -3531,7 +3529,7 @@ void Cmd_QCAssert(ScriptTokenizer &qc) {
     //get the assert type
     qc.ExpectToken();
 
-    //Msg( "Validating QC Assert '%s'\n", token.c_str() );
+    //Msg( "Validating QC Assert '{}'\n", token.c_str() );
 
     //start building assert description line
     char szAssertLine[1024] = "QC Assert: ";
@@ -3550,7 +3548,7 @@ void Cmd_QCAssert(ScriptTokenizer &qc) {
 
         // src name
         qc.ExpectToken();
-        s_source_t *pSrc = Load_Source(qc.token.view(), "");
+        s_source_t* pSrc = Load_Source(qc.token.view(), "");
 
         strcat(szAssertLine, " ");
         strcat(szAssertLine, qc.token);
@@ -3662,7 +3660,7 @@ void Cmd_DefineBone(ScriptTokenizer &qc) {
     }
 }
 
-bool ParseJiggleAngleConstraint(ScriptTokenizer &qc, s_jigglebone_t *jiggleInfo) {
+bool ParseJiggleAngleConstraint(ScriptTokenizer &qc, s_jigglebone_t* jiggleInfo) {
     jiggleInfo->data.flags |= JiggleBoneFlags::HasAngleConstraint;
 
     qc.ExpectToken("angle value");
@@ -3672,7 +3670,7 @@ bool ParseJiggleAngleConstraint(ScriptTokenizer &qc, s_jigglebone_t *jiggleInfo)
     return true;
 }
 
-bool ParseJiggleYawConstraint(ScriptTokenizer &qc, s_jigglebone_t *jiggleInfo) {
+bool ParseJiggleYawConstraint(ScriptTokenizer &qc, s_jigglebone_t* jiggleInfo) {
     jiggleInfo->data.flags |= JiggleBoneFlags::HasYawConstraint;
 
     qc.ExpectToken("minimum yaw value");
@@ -3686,7 +3684,7 @@ bool ParseJiggleYawConstraint(ScriptTokenizer &qc, s_jigglebone_t *jiggleInfo) {
     return true;
 }
 
-bool ParseJigglePitchConstraint(ScriptTokenizer &qc, s_jigglebone_t *jiggleInfo) {
+bool ParseJigglePitchConstraint(ScriptTokenizer &qc, s_jigglebone_t* jiggleInfo) {
     jiggleInfo->data.flags |= JiggleBoneFlags::HasPitchConstraint;
 
     qc.ExpectToken("minimum pitch value");
@@ -3703,10 +3701,10 @@ bool ParseJigglePitchConstraint(ScriptTokenizer &qc, s_jigglebone_t *jiggleInfo)
 void Grab_AxisInterpBones() {
     char cmd[1024], tmp[1025];
     Vector basepos;
-    s_axisinterpbone_t *pAxis = nullptr;
+    s_axisinterpbone_t* pAxis = nullptr;
     // parsed into a scratch entry that is appended once its "bone" line matched
     auto scratch = s_axisinterpbone_t(); // () zero-fills; {} would leave the Vector members uninitialized
-    s_axisinterpbone_t *pBone = &scratch;
+    s_axisinterpbone_t* pBone = &scratch;
 
     while (GetLineInput()) {
         if (IsEnd(g_studiomdl.input.szLine)) {
@@ -3750,7 +3748,7 @@ void Grab_AxisInterpBones() {
 // This assumes a token has already been read, and returns true if
 // the token is recognized and parsed.
 //
-bool ParseCommonJiggle(ScriptTokenizer &qc, s_jigglebone_t *jiggleInfo) {
+bool ParseCommonJiggle(ScriptTokenizer &qc, s_jigglebone_t* jiggleInfo) {
     if (vstd::iequals(qc.token, "tip_mass")) {
         qc.ExpectToken();
 
@@ -3808,7 +3806,7 @@ bool ParseCommonJiggle(ScriptTokenizer &qc, s_jigglebone_t *jiggleInfo) {
 //
 // Parse parameters for is_rigid subsection
 //
-bool ParseRigidJiggle(ScriptTokenizer &qc, s_jigglebone_t *jiggleInfo) {
+bool ParseRigidJiggle(ScriptTokenizer &qc, s_jigglebone_t* jiggleInfo) {
     jiggleInfo->data.flags |= (JiggleBoneFlags::IsRigid | JiggleBoneFlags::HasLengthConstraint);
 
     bool gotOpenBracket = false;
@@ -3853,7 +3851,7 @@ float ParseJiggleStiffness(ScriptTokenizer &qc) {
 //
 // Parse parameters for has_base_spring subsection
 //
-bool ParseBaseSpringJiggle(ScriptTokenizer &qc, s_jigglebone_t *jiggleInfo) {
+bool ParseBaseSpringJiggle(ScriptTokenizer &qc, s_jigglebone_t* jiggleInfo) {
     jiggleInfo->data.flags |= JiggleBoneFlags::HasBaseSpring;
 
     bool gotOpenBracket = false;
@@ -3940,7 +3938,7 @@ bool ParseBaseSpringJiggle(ScriptTokenizer &qc, s_jigglebone_t *jiggleInfo) {
 //
 // Parse parameters for is_flexible subsection
 //
-bool ParseFlexibleJiggle(ScriptTokenizer &qc, s_jigglebone_t *jiggleInfo) {
+bool ParseFlexibleJiggle(ScriptTokenizer &qc, s_jigglebone_t* jiggleInfo) {
     jiggleInfo->data.flags |= (JiggleBoneFlags::IsFlexible | JiggleBoneFlags::HasLengthConstraint);
 
     bool gotOpenBracket = false;
@@ -3995,7 +3993,7 @@ bool ParseFlexibleJiggle(ScriptTokenizer &qc, s_jigglebone_t *jiggleInfo) {
 // Parse $jigglebone parameters
 //
 void Cmd_JiggleBone(ScriptTokenizer &qc) {
-    s_jigglebone_t *jiggleInfo = &g_studiomdl.bones.jigglebones.emplace_back();
+    s_jigglebone_t* jiggleInfo = &g_studiomdl.bones.jigglebones.emplace_back();
 
     // bone name
     qc.ExpectStringToken(jiggleInfo->bonename);
@@ -4054,7 +4052,7 @@ void Cmd_JiggleBone(ScriptTokenizer &qc) {
     }
 
     if (!g_studiomdl.options.quiet)
-        Msg("Marking bone %s as a jiggle bone\n", jiggleInfo->bonename.c_str());
+        Msg("Marking bone {} as a jiggle bone\n", jiggleInfo->bonename.c_str());
 }
 
 
@@ -4165,7 +4163,7 @@ void Cmd_BaseLOD(ScriptTokenizer &qc) {
 //-----------------------------------------------------------------------------
 // Key value block
 //-----------------------------------------------------------------------------
-static void AppendKeyValueText(std::string &pKeyValue, const char *pString) {
+static void AppendKeyValueText(std::string &pKeyValue, const char* pString) {
     int nLen = strlen(pString);
     pKeyValue.append(pString, nLen);
 }
@@ -4174,7 +4172,7 @@ int KeyValueTextSize(const std::string &pKeyValue) {
     return pKeyValue.size();
 }
 
-const char *KeyValueText(const std::string &pKeyValue) {
+const char* KeyValueText(const std::string &pKeyValue) {
     return pKeyValue.data();
 }
 
@@ -4238,7 +4236,8 @@ void Cmd_MinLOD(ScriptTokenizer &qc) {
     qc.ExpectIntToken(g_studiomdl.options.minLod);
 
     // "minlod" rules over "allowrootlods"
-    if (g_studiomdl.options.numAllowedRootLODs > 0 && g_studiomdl.options.numAllowedRootLODs < g_studiomdl.options.minLod) {
+    if (g_studiomdl.options.numAllowedRootLODs > 0 && g_studiomdl.options.numAllowedRootLODs < g_studiomdl.options.
+        minLod) {
         MdlWarning("$minlod {} overrides $allowrootlods {}, proceeding with $allowrootlods {}.\n",
                    g_studiomdl.options.minLod,
                    g_studiomdl.options.numAllowedRootLODs, g_studiomdl.options.minLod);
@@ -4250,7 +4249,8 @@ void Cmd_AllowRootLODs(ScriptTokenizer &qc) {
     qc.ExpectIntToken(g_studiomdl.options.numAllowedRootLODs);
 
     // Root LOD restriction has to obey "minlod" request
-    if (g_studiomdl.options.numAllowedRootLODs > 0 && g_studiomdl.options.numAllowedRootLODs < g_studiomdl.options.minLod) {
+    if (g_studiomdl.options.numAllowedRootLODs > 0 && g_studiomdl.options.numAllowedRootLODs < g_studiomdl.options.
+        minLod) {
         MdlWarning("$allowrootlods {} is conflicting with $minlod {}, proceeding with $allowrootlods {}.\n",
                    g_studiomdl.options.numAllowedRootLODs, g_studiomdl.options.minLod, g_studiomdl.options.minLod);
         g_studiomdl.options.numAllowedRootLODs = g_studiomdl.options.minLod;
@@ -4341,7 +4341,7 @@ void Cmd_BoneMerge(ScriptTokenizer &qc) {
 //-----------------------------------------------------------------------------
 // Purpose: create named list of boneweights
 //-----------------------------------------------------------------------------
-void Option_Weightlist(ScriptTokenizer &qc, s_weightlist_t *pweightlist) {
+void Option_Weightlist(ScriptTokenizer &qc, s_weightlist_t* pweightlist) {
     int depth = 0;
     int i;
 
@@ -4546,8 +4546,8 @@ void Cmd_AnimBlockSize(ScriptTokenizer &qc) {
 void Cmd_AppendSource(ScriptTokenizer &qc) {
     qc.ExpectToken();
 
-    s_source_t *pOrigSource = g_studiomdl.body.model[0]->source;
-    s_source_t *pAppendSource = Load_Source(qc.token.view(), "", false, false,
+    s_source_t* pOrigSource = g_studiomdl.body.model[0]->source;
+    s_source_t* pAppendSource = Load_Source(qc.token.view(), "", false, false,
                                             false
                                             /* don't use cached lookup, since this might be a dup of the starting src */);
 
@@ -4611,7 +4611,7 @@ void Cmd_maxVerts(ScriptTokenizer &qc) {
     }
 }
 
-s_sequence_t *LookupSequence(const char *name) {
+s_sequence_t* LookupSequence(const char* name) {
     int i;
     for (i = 0; i < std::ssize(g_studiomdl.anim.sequence); ++i) {
         if (vstd::iequals(g_studiomdl.anim.sequence[i].name, name))
@@ -4621,14 +4621,14 @@ s_sequence_t *LookupSequence(const char *name) {
 }
 
 
-s_animation_t *LookupAnimation(const char *name, int nFallbackRecursionDepth) {
+s_animation_t* LookupAnimation(const char* name, int nFallbackRecursionDepth) {
     int i;
     for (i = 0; i < g_studiomdl.anim.animations.size(); i++) {
         if (vstd::iequals(g_studiomdl.anim.animations[i]->name, name))
             return g_studiomdl.anim.animations[i];
     }
 
-    s_sequence_t *pseq = LookupSequence(name);
+    s_sequence_t* pseq = LookupSequence(name);
 
     // pseq->panim grows on access, so check the sizes instead of reading panim[0][0]: this is only a lookup
     if (pseq && !pseq->panim.empty() && !pseq->panim.at(0).empty()) {
@@ -4644,12 +4644,12 @@ s_animation_t *LookupAnimation(const char *name, int nFallbackRecursionDepth) {
     return nullptr;
 }
 
-s_animation_t *LookupAnimation(const char *name) {
+s_animation_t* LookupAnimation(const char* name) {
     return LookupAnimation(name, 0);
 }
 
 
-int Option_AnimTag(ScriptTokenizer &qc, s_sequence_t *psequence) {
+int Option_AnimTag(ScriptTokenizer &qc, s_sequence_t* psequence) {
     if (psequence->animtags.full()) {
         qc.Error("too many animtags\n");
     }
@@ -4667,7 +4667,7 @@ int Option_AnimTag(ScriptTokenizer &qc, s_sequence_t *psequence) {
     return 0;
 }
 
-int Option_Event(ScriptTokenizer &qc, s_sequence_t *psequence) {
+int Option_Event(ScriptTokenizer &qc, s_sequence_t* psequence) {
     if (psequence->events.full()) {
         qc.Error("too many events\n");
     }
@@ -4693,7 +4693,7 @@ int Option_Event(ScriptTokenizer &qc, s_sequence_t *psequence) {
 }
 
 
-void Option_IKRule(ScriptTokenizer &qc, s_ikrule_t *pRule) {
+void Option_IKRule(ScriptTokenizer &qc, s_ikrule_t* pRule) {
     // chain
     qc.ExpectToken();
 
@@ -4884,7 +4884,7 @@ int ParseCmdlistToken(ScriptTokenizer &qc, s_cmdlist_t::AnimCmdVector &cmds) {
 
         qc.ExpectToken();
 
-        s_animation_t *extanim = LookupAnimation(qc.token);
+        s_animation_t* extanim = LookupAnimation(qc.token);
         if (extanim == nullptr) {
             qc.Error("unknown subtract animation '{}\'\n", qc.token);
         }
@@ -4901,7 +4901,7 @@ int ParseCmdlistToken(ScriptTokenizer &qc, s_cmdlist_t::AnimCmdVector &cmds) {
 
         qc.ExpectToken();
 
-        s_animation_t *extanim = LookupAnimation(qc.token);
+        s_animation_t* extanim = LookupAnimation(qc.token);
         if (extanim == nullptr) {
             qc.Error("unknown presubtract animation '{}\'\n", qc.token);
         }
@@ -4916,7 +4916,7 @@ int ParseCmdlistToken(ScriptTokenizer &qc, s_cmdlist_t::AnimCmdVector &cmds) {
         cmd.u.ao.pBonename = nullptr;
 
         qc.ExpectToken();
-        s_animation_t *extanim = LookupAnimation(qc.token);
+        s_animation_t* extanim = LookupAnimation(qc.token);
         if (extanim == nullptr) {
             qc.Error("unknown alignto animation '{}\'\n", qc.token);
         }
@@ -4932,7 +4932,7 @@ int ParseCmdlistToken(ScriptTokenizer &qc, s_cmdlist_t::AnimCmdVector &cmds) {
         cmd.u.ao.pBonename = nullptr;
 
         qc.ExpectToken();
-        s_animation_t *extanim = LookupAnimation(qc.token);
+        s_animation_t* extanim = LookupAnimation(qc.token);
         if (extanim == nullptr) {
             qc.Error("unknown align animation '{}\'\n", qc.token);
         }
@@ -4964,7 +4964,7 @@ int ParseCmdlistToken(ScriptTokenizer &qc, s_cmdlist_t::AnimCmdVector &cmds) {
         cmd.u.ao.pBonename = strdup(qc.token);
 
         qc.ExpectToken();
-        s_animation_t *extanim = LookupAnimation(qc.token);
+        s_animation_t* extanim = LookupAnimation(qc.token);
         if (extanim == nullptr) {
             qc.Error("unknown alignboneto animation '{}\'\n", qc.token);
         }
@@ -4981,7 +4981,7 @@ int ParseCmdlistToken(ScriptTokenizer &qc, s_cmdlist_t::AnimCmdVector &cmds) {
         cmd.u.ao.pBonename = strdup(qc.token);
 
         qc.ExpectToken();
-        s_animation_t *extanim = LookupAnimation(qc.token);
+        s_animation_t* extanim = LookupAnimation(qc.token);
         if (extanim == nullptr) {
             qc.Error("unknown alignboneto animation '{}\'\n", qc.token);
         }
@@ -5011,7 +5011,7 @@ int ParseCmdlistToken(ScriptTokenizer &qc, s_cmdlist_t::AnimCmdVector &cmds) {
 
         qc.ExpectToken();
 
-        s_animation_t *extanim = LookupAnimation(qc.token);
+        s_animation_t* extanim = LookupAnimation(qc.token);
         if (extanim == nullptr) {
             qc.Error("unknown match animation '{}\'\n", qc.token);
         }
@@ -5023,7 +5023,7 @@ int ParseCmdlistToken(ScriptTokenizer &qc, s_cmdlist_t::AnimCmdVector &cmds) {
 
         qc.ExpectToken();
 
-        s_animation_t *extanim = LookupAnimation(qc.token);
+        s_animation_t* extanim = LookupAnimation(qc.token);
         if (extanim == nullptr) {
             qc.Error("unknown match animation '{}\'\n", qc.token);
         }
@@ -5047,7 +5047,7 @@ int ParseCmdlistToken(ScriptTokenizer &qc, s_cmdlist_t::AnimCmdVector &cmds) {
 
         qc.ExpectToken();
 
-        s_animation_t *extanim = LookupAnimation(qc.token);
+        s_animation_t* extanim = LookupAnimation(qc.token);
         if (extanim == nullptr) {
             qc.Error("unknown worldspaceblend animation '{}\'\n", qc.token);
         }
@@ -5061,7 +5061,7 @@ int ParseCmdlistToken(ScriptTokenizer &qc, s_cmdlist_t::AnimCmdVector &cmds) {
 
         qc.ExpectToken();
 
-        s_animation_t *extanim = LookupAnimation(qc.token);
+        s_animation_t* extanim = LookupAnimation(qc.token);
         if (extanim == nullptr) {
             qc.Error("unknown worldspaceblend animation '{}\'\n", qc.token);
         }
@@ -5080,14 +5080,14 @@ int ParseCmdlistToken(ScriptTokenizer &qc, s_cmdlist_t::AnimCmdVector &cmds) {
     else if (vstd::iequals("ikrule", qc.token)) {
         cmd.cmd = CMD_IKRULE;
 
-        cmd.u.ikrule.pRule = (s_ikrule_t *) calloc(1, sizeof(s_ikrule_t));
+        cmd.u.ikrule.pRule = (s_ikrule_t*) calloc(1, sizeof(s_ikrule_t));
 
         Option_IKRule(qc, cmd.u.ikrule.pRule);
     }
     else if (vstd::iequals("ikfixup", qc.token)) {
         cmd.cmd = CMD_IKFIXUP;
 
-        cmd.u.ikfixup.pRule = (s_ikrule_t *) calloc(1, sizeof(s_ikrule_t));
+        cmd.u.ikfixup.pRule = (s_ikrule_t*) calloc(1, sizeof(s_ikrule_t));
 
         Option_IKRule(qc, cmd.u.ikrule.pRule);
     }
@@ -5130,7 +5130,7 @@ int ParseCmdlistToken(ScriptTokenizer &qc, s_cmdlist_t::AnimCmdVector &cmds) {
         cmd.u.motion.iSrcFrame = cmd.u.motion.iEndFrame;
 
         qc.ExpectToken(); // reference animation
-        s_animation_t *extanim = LookupAnimation(qc.token);
+        s_animation_t* extanim = LookupAnimation(qc.token);
         if (extanim == nullptr) {
             qc.Error("unknown alignto animation '{}\'\n", qc.token);
         }
@@ -5172,7 +5172,7 @@ int ParseCmdlistToken(ScriptTokenizer &qc, s_cmdlist_t::AnimCmdVector &cmds) {
 
         // reference animation
         qc.ExpectToken();
-        s_animation_t *extanim = LookupAnimation(qc.token);
+        s_animation_t* extanim = LookupAnimation(qc.token);
         if (extanim == nullptr) {
             qc.Error("unknown alignto animation '{}\'\n", qc.token);
         }
@@ -5434,7 +5434,7 @@ int ParseCmdlistToken(ScriptTokenizer &qc, s_cmdlist_t::AnimCmdVector &cmds) {
         cmd.cmd = CMD_APPENDANIM;
 
         qc.ExpectToken(); // reference animation
-        s_animation_t *extanim = LookupAnimation(qc.token);
+        s_animation_t* extanim = LookupAnimation(qc.token);
         if (extanim == nullptr) {
             qc.Error("unknown appendanim '{}\'\n", qc.token);
         }
@@ -5494,7 +5494,7 @@ void Cmd_Cmdlist(ScriptTokenizer &qc) {
 //-----------------------------------------------------------------------------
 // Purpose: parse order independant s_animation_t token for $animations
 //-----------------------------------------------------------------------------
-bool ParseAnimationToken(ScriptTokenizer &qc, s_animation_t *panim) {
+bool ParseAnimationToken(ScriptTokenizer &qc, s_animation_t* panim) {
     if (vstd::iequals("if", qc.token)) {
         // fixme: add expression evaluation
         qc.ExpectToken();
@@ -5607,7 +5607,7 @@ bool ParseAnimationToken(ScriptTokenizer &qc, s_animation_t *panim) {
         }
 
         // NOTE: This always affects the first source anim read in
-        s_sourceanim_t *pSourceAnim = FindSourceAnim(panim->source, panim->animationname);
+        s_sourceanim_t* pSourceAnim = FindSourceAnim(panim->source, panim->animationname);
         if (pSourceAnim) {
             if (panim->startframe < pSourceAnim->startframe) {
                 panim->startframe = pSourceAnim->startframe;
@@ -5629,7 +5629,7 @@ bool ParseAnimationToken(ScriptTokenizer &qc, s_animation_t *panim) {
 
     if (vstd::iequals("blockname", qc.token)) {
         qc.ExpectToken();
-        s_sourceanim_t *pSourceAnim = FindSourceAnim(panim->source, qc.token);
+        s_sourceanim_t* pSourceAnim = FindSourceAnim(panim->source, qc.token);
 
         // NOTE: This always affects the first source anim read in
         if (pSourceAnim) {
@@ -5722,7 +5722,7 @@ bool ParseAnimationToken(ScriptTokenizer &qc, s_animation_t *panim) {
 // Purpose: wrapper for parsing $animation tokens
 //-----------------------------------------------------------------------------
 
-int ParseAnimation(ScriptTokenizer &qc, s_animation_t *panim, bool isAppend) {
+int ParseAnimation(ScriptTokenizer &qc, s_animation_t* panim, bool isAppend) {
     int depth = 0;
 
     while (1) {
@@ -5773,7 +5773,7 @@ void Cmd_Animation(ScriptTokenizer &qc) {
     // name
     qc.ExpectToken();
 
-    s_animation_t *panim = LookupAnimation(qc.token);
+    s_animation_t* panim = LookupAnimation(qc.token);
 
     if (panim != nullptr) {
         if (!panim->isOverride) {
@@ -5797,7 +5797,7 @@ void Cmd_Animation(ScriptTokenizer &qc) {
 
     panim->source = Load_Source(panim->filename.c_str(), "");
     if (!panim->source->m_Animations.empty()) {
-        s_sourceanim_t *pSourceAnim = &panim->source->m_Animations[0];
+        s_sourceanim_t* pSourceAnim = &panim->source->m_Animations[0];
         panim->startframe = pSourceAnim->startframe;
         panim->endframe = pSourceAnim->endframe;
         Q_strncpy(panim->animationname, pSourceAnim->animationname, sizeof(panim->animationname));
@@ -5823,8 +5823,8 @@ void Cmd_Animation(ScriptTokenizer &qc) {
 //-----------------------------------------------------------------------------
 // Purpose: allocate an entry for $sequence
 //-----------------------------------------------------------------------------
-s_sequence_t *ProcessCmdSequence(const char *pSequenceName) {
-    s_animation_t *panim = LookupAnimation(pSequenceName);
+s_sequence_t* ProcessCmdSequence(const char* pSequenceName) {
+    s_animation_t* panim = LookupAnimation(pSequenceName);
 
     // allocate sequence
     if (panim != nullptr) {
@@ -5842,7 +5842,7 @@ s_sequence_t *ProcessCmdSequence(const char *pSequenceName) {
     }
 
     // value-initialized: everything zero
-    s_sequence_t *pseq = &g_studiomdl.anim.sequence.emplace_back();
+    s_sequence_t* pseq = &g_studiomdl.anim.sequence.emplace_back();
 
     // initialize sequence
     Q_strncpy(pseq->name, pSequenceName, sizeof(pseq->name));
@@ -5863,7 +5863,7 @@ s_sequence_t *ProcessCmdSequence(const char *pSequenceName) {
 }
 
 
-int Option_Activity(ScriptTokenizer &qc, s_sequence_t *psequence) {
+int Option_Activity(ScriptTokenizer &qc, s_sequence_t* psequence) {
     qboolean found;
 
     found = false;
@@ -5888,7 +5888,7 @@ int Option_Activity(ScriptTokenizer &qc, s_sequence_t *psequence) {
 }
 
 
-int Option_ActivityModifier(ScriptTokenizer &qc, s_sequence_t *psequence) {
+int Option_ActivityModifier(ScriptTokenizer &qc, s_sequence_t* psequence) {
     qc.ExpectToken();
 
     if (qc.token[0] == '{') {
@@ -5912,9 +5912,9 @@ int Option_ActivityModifier(ScriptTokenizer &qc, s_sequence_t *psequence) {
 //-----------------------------------------------------------------------------
 // Purpose: create a virtual $animation command from a $sequence reference
 //-----------------------------------------------------------------------------
-s_animation_t *ProcessImpliedAnimation(s_sequence_t *psequence, const char *filename) {
+s_animation_t* ProcessImpliedAnimation(s_sequence_t* psequence, const char* filename) {
     // allocate animation entry
-    s_animation_t *panim = g_studiomdl.anim.animations.emplace_back(c_allocate<s_animation_t>());
+    s_animation_t* panim = g_studiomdl.anim.animations.emplace_back(c_allocate<s_animation_t>());
     panim->index = g_studiomdl.anim.animations.size() - 1;
 
     panim->isImplied = true;
@@ -5935,7 +5935,7 @@ s_animation_t *ProcessImpliedAnimation(s_sequence_t *psequence, const char *file
     //panim->source = Load_Source( panim->filename, "smd" );
     panim->source = Load_Source(panim->filename.c_str(), "");
     if (!panim->source->m_Animations.empty()) {
-        s_sourceanim_t *pSourceAnim = &panim->source->m_Animations[0];
+        s_sourceanim_t* pSourceAnim = &panim->source->m_Animations[0];
         Q_strncpy(panim->animationname, panim->source->m_Animations[0].animationname, sizeof(panim->animationname));
         if (panim->startframe < pSourceAnim->startframe) {
             panim->startframe = pSourceAnim->startframe;
@@ -5964,7 +5964,7 @@ s_animation_t *ProcessImpliedAnimation(s_sequence_t *psequence, const char *file
 // Purpose: copy globally reavent $animation options from one $animation to another
 //-----------------------------------------------------------------------------
 
-void CopyAnimationSettings(s_animation_t *pdest, s_animation_t *psrc) {
+void CopyAnimationSettings(s_animation_t* pdest, s_animation_t* psrc) {
     pdest->fps = psrc->fps;
 
     VectorCopy(psrc->adjust, pdest->adjust);
@@ -5997,7 +5997,7 @@ void CopyAnimationSettings(s_animation_t *pdest, s_animation_t *psrc) {
 //-----------------------------------------------------------------------------
 // Performs processing on a sequence
 //-----------------------------------------------------------------------------
-void ProcessSequence(s_sequence_t *pseq, int numblends, s_animation_t **animations, bool isAppend) {
+void ProcessSequence(s_sequence_t* pseq, int numblends, s_animation_t** animations, bool isAppend) {
     if (isAppend)
         return;
 
@@ -6051,11 +6051,11 @@ void ProcessSequence(s_sequence_t *pseq, int numblends, s_animation_t **animatio
 //-----------------------------------------------------------------------------
 // Purpose: parse options unique to $sequence
 //-----------------------------------------------------------------------------
-int ParseSequence(ScriptTokenizer &qc, s_sequence_t *pseq, bool isAppend) {
+int ParseSequence(ScriptTokenizer &qc, s_sequence_t* pseq, bool isAppend) {
     g_studiomdl.script.szInCurrentSeqName = pseq->name;
 
     int depth = 0;
-    s_animation_t *animations[64];
+    s_animation_t* animations[64];
     int i, j, n;
     int numblends = 0;
 
@@ -6354,13 +6354,13 @@ void Cmd_Sequence(ScriptTokenizer &qc) {
         vstd::make_lower_ascii(qc.token);
 
     // Find existing sequences
-    const char *pSequenceName = qc.token;
-    s_animation_t *panim = LookupAnimation(pSequenceName);
+    const char* pSequenceName = qc.token;
+    s_animation_t* panim = LookupAnimation(pSequenceName);
     if (panim != nullptr && panim->isOverride) {
         ParseEmpty(qc);
     }
 
-    s_sequence_t *pseq = ProcessCmdSequence(pSequenceName);
+    s_sequence_t* pseq = ProcessCmdSequence(pSequenceName);
     if (pseq) {
         ParseSequence(qc, pseq, false);
     }
@@ -6373,14 +6373,14 @@ void Cmd_Append(ScriptTokenizer &qc) {
     qc.ExpectToken();
 
 
-    s_sequence_t *pseq = LookupSequence(qc.token);
+    s_sequence_t* pseq = LookupSequence(qc.token);
 
     if (pseq) {
         ParseSequence(qc, pseq, true);
         return;
     }
     else {
-        s_animation_t *panim = LookupAnimation(qc.token);
+        s_animation_t* panim = LookupAnimation(qc.token);
 
         if (panim) {
             ParseAnimation(qc, panim, true);
@@ -6393,9 +6393,9 @@ void Cmd_Append(ScriptTokenizer &qc) {
 void Cmd_Prepend(ScriptTokenizer &qc) {
     qc.ExpectToken();
 
-    s_sequence_t *pseq = LookupSequence(qc.token);
+    s_sequence_t* pseq = LookupSequence(qc.token);
     int count = 0;
-    s_animation_t *panim = nullptr;
+    s_animation_t* panim = nullptr;
     int iRet = false;
 
     if (pseq) {
@@ -6426,7 +6426,7 @@ void Cmd_Prepend(ScriptTokenizer &qc) {
 void Cmd_Continue(ScriptTokenizer &qc) {
     qc.ExpectToken();
 
-    s_sequence_t *pseq = LookupSequence(qc.token);
+    s_sequence_t* pseq = LookupSequence(qc.token);
 
     if (pseq) {
         if (!qc.GetToken(true))
@@ -6437,7 +6437,7 @@ void Cmd_Continue(ScriptTokenizer &qc) {
         return;
     }
     else {
-        s_animation_t *panim = LookupAnimation(qc.token);
+        s_animation_t* panim = LookupAnimation(qc.token);
 
         if (panim) {
             if (!qc.GetToken(true))
@@ -6460,7 +6460,7 @@ void Cmd_DeclareSequence(ScriptTokenizer &qc) {
     }
 
     // value-initialized: everything zero
-    s_sequence_t *pseq = &g_studiomdl.anim.sequence.emplace_back();
+    s_sequence_t* pseq = &g_studiomdl.anim.sequence.emplace_back();
     pseq->flags = StudioSequenceFlags::Override;
 
     // initialize sequence
@@ -6477,7 +6477,7 @@ void Cmd_DeclareAnimation(ScriptTokenizer &qc) {
     }
 
     // allocate animation entry
-    s_animation_t *panim = g_studiomdl.anim.animations.emplace_back(c_allocate<s_animation_t>());
+    s_animation_t* panim = g_studiomdl.anim.animations.emplace_back(c_allocate<s_animation_t>());
     panim->index = g_studiomdl.anim.animations.size() - 1;
     panim->flags = StudioSequenceFlags::Override;
 
@@ -6494,7 +6494,7 @@ bool Grab_AimAtBones() {
                scratch.parentname.data(),
                scratch.aimname.data()) ==
         3) {
-        s_aimatbone_t *pAimAtBone = &g_studiomdl.bones.aimatbones.emplace_back(scratch);
+        s_aimatbone_t* pAimAtBone = &g_studiomdl.bones.aimatbones.emplace_back(scratch);
 
         char cmd[1024];
         Vector vector;
@@ -6509,7 +6509,7 @@ bool Grab_AimAtBones() {
             if (sscanf(g_studiomdl.input.szLine, "%1024s %f %f %f", cmd, &vector[0], &vector[1], &vector[2]) != 4) {
                 // Allow blank lines to be skipped without error
                 bool allSpace(true);
-                for (const char *pC(g_studiomdl.input.szLine); *pC != '\0' && pC < (g_studiomdl.input.szLine + 4096);
+                for (const char* pC(g_studiomdl.input.szLine); *pC != '\0' && pC < (g_studiomdl.input.szLine + 4096);
                      ++pC) {
                     if (!V_isspace(*pC)) {
                         allSpace = false;
@@ -6552,10 +6552,10 @@ void Grab_QuatInterpBones() {
     Vector basepos;
     RadianEuler rotateaxis(0.0f, 0.0f, 0.0f);
     RadianEuler jointorient(0.0f, 0.0f, 0.0f);
-    s_quatinterpbone_t *pAxis = nullptr;
+    s_quatinterpbone_t* pAxis = nullptr;
     // parsed into a scratch entry that is appended once its "<helper>" line matched
     auto scratch = s_quatinterpbone_t(); // () zero-fills; {} would leave the Vector members uninitialized
-    s_quatinterpbone_t *pBone = &scratch;
+    s_quatinterpbone_t* pBone = &scratch;
 
     while (GetLineInput()) {
         g_studiomdl.input.iLinecount++;
@@ -6692,7 +6692,7 @@ void Grab_QuatInterpBones() {
         else {
             // Allow blank lines to be skipped without error
             bool allSpace(true);
-            for (const char *pC(g_studiomdl.input.szLine); *pC != '\0' && pC < (g_studiomdl.input.szLine + 4096); ++
+            for (const char* pC(g_studiomdl.input.szLine); *pC != '\0' && pC < (g_studiomdl.input.szLine + 4096); ++
                  pC) {
                 if (!V_isspace(*pC)) {
                     allSpace = false;
@@ -6716,7 +6716,7 @@ void Load_ProceduralBones(ScriptTokenizer &qc) {
     const std::string filename = qc.token.str();
 
     if (!OpenGlobalFile(filename)) {
-        Error("unknown $procedural file \"%s\"\n", filename.c_str());
+        Error("unknown $procedural file \"{}\"\n", filename.c_str());
         return;
     }
 

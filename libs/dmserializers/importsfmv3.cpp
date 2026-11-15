@@ -118,12 +118,12 @@ void MoveAttribute( CDmElement *pFromElement, const char *pFromAttrName, CDmElem
 		if ( !pToAttr )
 		{
 			Warning( "*** Problem in converter encountered!\n" );
-			Warning( "*** Unable to find or add attribute \"%s\" to element \"%s\"!\n", pToAttrName, pToElement->GetName() );
+			Warning( "*** Unable to find or add attribute \"{}\" to element \"{}\"!\n", pToAttrName, pToElement->GetName() );
 		}
 		else if ( fromType != toType )
 		{
 			Warning( "*** Problem in file encountered!\n" );
-			Warning( "*** Element \"%s\" has attribute \"%s\" with an unexpected type!\n", pFromElement->GetName(), pFromAttrName );
+			Warning( "*** Element \"{}\" has attribute \"{}\" with an unexpected type!\n", pFromElement->GetName(), pFromAttrName );
 		}
 		else
 		{

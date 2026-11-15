@@ -43,7 +43,7 @@ struct MacroArg {
 
 struct ScriptTokenizer::Script {
     std::string filename; // UTF-8 path of the script, the macro name for macros, or "memory buffer"
-    std::string owned;    // contents of files and expanded macros; memory scripts point into the caller's buffer
+    std::string owned; // contents of files and expanded macros; memory scripts point into the caller's buffer
     char *buffer = nullptr, *script_p = nullptr, *end_p = nullptr;
     int line = 1;
     bool isMemory = false;
@@ -67,16 +67,16 @@ static bool IsSpace(char c) {
     return static_cast<unsigned char>(c) <= ' ';
 }
 
-static bool IsLineComment(const char *p, const char *end) {
+static bool IsLineComment(const char* p, const char* end) {
     return *p == ';' || *p == '#' || (*p == '/' && p + 1 < end && p[1] == '/');
 }
 
-static bool IsBlockComment(const char *p, const char *end) {
+static bool IsBlockComment(const char* p, const char* end) {
     return *p == '/' && p + 1 < end && p[1] == '*';
 }
 
 // p points at "/*"; returns the position just past the matching "*/", or end if the comment is unterminated.
-static char *SkipBlockComment(char *p, char *end) {
+static char* SkipBlockComment(char* p, char* end) {
     for (p += 2; p + 1 < end; ++p) {
         if (p[0] == '*' && p[1] == '/')
             return p + 2;
@@ -89,6 +89,7 @@ static bool EqualsNoCase(std::string_view a, std::string_view b) {
 }
 
 ScriptTokenizer::ScriptTokenizer() = default;
+
 ScriptTokenizer::~ScriptTokenizer() = default;
 
 void ScriptTokenizer::SetErrorHandler(ErrorHandler handler) {
@@ -106,7 +107,7 @@ void ScriptTokenizer::ErrorV(std::string_view fmt, std::format_args args) const 
 
     if (m_errorHandler)
         m_errorHandler(message);
-    ::Error("%s", message.c_str());
+    ::Error("{}", message);
     exit(-1);
 }
 
@@ -121,7 +122,7 @@ void ScriptTokenizer::CheckTokenFits(std::string_view what, size_t maxLength) co
         Error("{} \"{}\" is too long (max {} characters)", what.empty() ? "token" : what, token, maxLength);
 }
 
-ScriptTokenizer::Script &ScriptTokenizer::PushScript(std::string filename) {
+ScriptTokenizer::Script& ScriptTokenizer::PushScript(std::string filename) {
     if (m_stack.size() == MAX_INCLUDES)
         Error("too many nested $include files and macros (max {})", MAX_INCLUDES - 1);
     auto &script = m_stack.emplace_back(std::make_unique<Script>());
@@ -141,26 +142,24 @@ void ScriptTokenizer::Close() {
 AddScriptToStack
 ==============
 */
-void ScriptTokenizer::AddScriptToStack(const char *filename, ScriptPathMode_t pathMode) {
+void ScriptTokenizer::AddScriptToStack(const std::string_view filename, ScriptPathMode_t pathMode) {
     std::string path = pathMode == SCRIPT_USE_RELATIVE_PATH ? std::string(filename) : std::string(ExpandPath(filename));
 
-    char *data = nullptr;
-    const int size = ::LoadFile(path.c_str(), (void **) &data);
+    const auto buffer = ::LoadFile(path);
 
     const std::string includedFrom = m_stack.empty() ? std::string() : Current().filename;
     const int includeLine = m_stack.empty() ? 0 : Current().line;
 
     Script &script = PushScript(std::move(path));
-    script.owned.assign(data, size);
-    free(data);
+    script.owned.assign(reinterpret_cast<const char*>(buffer->data()), buffer->size());
     script.buffer = script.script_p = script.owned.data();
-    script.end_p = script.buffer + size;
+    script.end_p = script.buffer + buffer->size();
 
     if (m_loadedCallback)
         m_loadedCallback(script.filename.c_str(), includedFrom.empty() ? nullptr : includedFrom.c_str(), includeLine);
 }
 
-void ScriptTokenizer::LoadFile(const char *filename, ScriptPathMode_t pathMode) {
+void ScriptTokenizer::LoadFile(const std::string_view filename, ScriptPathMode_t pathMode) {
     Close();
     AddScriptToStack(filename, pathMode);
     m_endOfScript = false;
@@ -187,7 +186,7 @@ void ScriptTokenizer::DefineMacro(const std::string &name) {
     macro.name = name;
     macro.line = script.line;
 
-    char *cp = script.script_p;
+    char* cp = script.script_p;
     while (TokenAvailable()) {
         GetToken(false);
         if (token[0] == '\\' && token[1] == '\\')
@@ -236,7 +235,7 @@ void ScriptTokenizer::DefineVariable(const std::string &name, bool redefine) {
 
     for (const Variable &variable: m_variables) {
         if (variable.value == token.view()) {
-            Warning("\"$definevariable %s %s\" already exists as \"%s\".\n", name.c_str(), token.c_str(),
+            Warning("\"$definevariable {} {}\" already exists as \"{}\".\n", name.c_str(), token.c_str(),
                     variable.name.c_str());
         }
     }
@@ -282,7 +281,7 @@ bool ScriptTokenizer::ExpandSubMacroToken() {
     if (token[0] != '^')
         return false;
 
-    const char *close = strchr(token.c_str() + 1, '^');
+    const char* close = strchr(token.c_str() + 1, '^');
     if (close == nullptr)
         return false;
 
@@ -290,12 +289,12 @@ bool ScriptTokenizer::ExpandSubMacroToken() {
     const auto variable = std::ranges::find(m_variables, name, &Variable::name);
     if (variable == m_variables.end())
         return false;
-    token = variable->value;
+    token = std::string_view(variable->value);
     return true;
 }
 
 // Copies an expansion into the token being built; token_end is the last usable byte (kept for the terminator).
-void ScriptTokenizer::PasteIntoToken(char *&token_p, const char *token_end, std::string_view value) {
+void ScriptTokenizer::PasteIntoToken(char*&token_p, const char* token_end, std::string_view value) const {
     if (token_p + value.size() > token_end)
         Error("token too long (max {} characters)", MAXTOKEN - 1);
     memcpy(token_p, value.data(), value.size());
@@ -303,8 +302,8 @@ void ScriptTokenizer::PasteIntoToken(char *&token_p, const char *token_end, std:
 }
 
 // script_p points at '$'; returns the "name" of a "$name$" word, or an empty view if the word has no closing '$'.
-static std::string_view DollarWord(char *script_p, char *end_p, char *&close) {
-    char *cp = script_p + 1;
+static std::string_view DollarWord(char* script_p, char* end_p, char*&close) {
+    char* cp = script_p + 1;
     while (cp < end_p && !IsSpace(*cp) && *cp != '$')
         cp++;
     if (cp >= end_p || *cp != '$')
@@ -314,12 +313,12 @@ static std::string_view DollarWord(char *script_p, char *end_p, char *&close) {
 }
 
 // "$name$" inside a macro body is replaced by the argument passed for that parameter.
-bool ScriptTokenizer::ExpandMacroToken(char *&token_p, const char *token_end) {
+bool ScriptTokenizer::ExpandMacroToken(char*&token_p, const char* token_end) {
     Script &script = Current();
     if (script.macroArgs.empty() || *script.script_p != '$')
         return false;
 
-    char *close = nullptr;
+    char* close = nullptr;
     const std::string_view name = DollarWord(script.script_p, script.end_p, close);
     if (name.empty())
         return false;
@@ -337,12 +336,12 @@ bool ScriptTokenizer::ExpandMacroToken(char *&token_p, const char *token_end) {
 
 // "$name$" is replaced by the value of $definevariable name.
 // FIXME: this should create a new script context so the individual tokens in the variable can be parsed
-bool ScriptTokenizer::ExpandVariableToken(char *&token_p, const char *token_end) {
+bool ScriptTokenizer::ExpandVariableToken(char*&token_p, const char* token_end) {
     Script &script = Current();
     if (*script.script_p != '$')
         return false;
 
-    char *close = nullptr;
+    char* close = nullptr;
     const std::string_view name = DollarWord(script.script_p, script.end_p, close);
     if (name.empty())
         return false;
@@ -356,9 +355,9 @@ bool ScriptTokenizer::ExpandVariableToken(char *&token_p, const char *token_end)
             Error("unknown variable \"${}$\"{}", name,
                   script.macroArgs.empty() ? "" : " (not a parameter of this macro either)");
         }
-        Warning("%s(%d): unknown variable token fell back to case-insensitive match ( found: \"%.*s\", matched it to: \"%s\" )\n",
-                script.filename.c_str(), script.line, static_cast<int>(name.size()), name.data(),
-                variable->name.c_str());
+        Warning(
+            "{}({:d}): unknown variable token fell back to case-insensitive match ( found: \"{}\", matched it to: \"{}\" )\n",
+            script.filename, script.line, name, variable->name);
     }
 
     PasteIntoToken(token_p, token_end, variable->value);
@@ -427,7 +426,7 @@ bool ScriptTokenizer::SkipToToken(bool crossline) {
                 script.script_p++;
         }
         else if (IsBlockComment(script.script_p, script.end_p)) {
-            char *after = SkipBlockComment(script.script_p, script.end_p);
+            char* after = SkipBlockComment(script.script_p, script.end_p);
             const auto newlines = std::count(script.script_p, after, '\n');
             if (!crossline && newlines > 0)
                 return false;
@@ -441,7 +440,7 @@ bool ScriptTokenizer::SkipToToken(bool crossline) {
 }
 
 // Reads a quoted token; script_p points at the opening quote.
-void ScriptTokenizer::ReadQuotedToken(char *&token_p, const char *token_end) {
+void ScriptTokenizer::ReadQuotedToken(char*&token_p, const char* token_end) {
     Script &script = Current();
     const int startLine = script.line;
     script.script_p++;
@@ -478,7 +477,8 @@ void ScriptTokenizer::AttemptConditionalInclude() {
                 bConditionSuccess = g_pFullFileSystem->FileExists(token) != 0;
             }
 
-            printf("Condition 'iffileexists' for input '%s' is %s.\n", token.c_str(), bConditionSuccess ? "True" : "False");
+            printf("Condition 'iffileexists' for input '%s' is %s.\n", token.c_str(),
+                   bConditionSuccess ? "True" : "False");
         }
         else {
             Error("Unknown $include parameter {}", token);
@@ -531,8 +531,8 @@ bool ScriptTokenizer::GetToken(bool crossline) {
     }
 
     // copy token to buffer
-    char *token_p = token;
-    const char *const token_end = token.data() + MAXTOKEN - 1;
+    char* token_p = token;
+    const char* const token_end = token.data() + MAXTOKEN - 1;
 
     if (*Current().script_p == '"') {
         ReadQuotedToken(token_p, token_end);
@@ -579,8 +579,8 @@ bool ScriptTokenizer::GetExprToken(bool crossline) {
     }
 
     Script &script = Current();
-    char *token_p = token;
-    const char *const token_end = token.data() + MAXTOKEN - 1;
+    char* token_p = token;
+    const char* const token_end = token.data() + MAXTOKEN - 1;
 
     const auto copyWhile = [&](auto predicate) {
         while (script.script_p < script.end_p && predicate(*script.script_p)) {
@@ -623,12 +623,12 @@ bool ScriptTokenizer::TokenAvailable() const {
         return false;
 
     const Script &script = Current();
-    char *search_p = script.script_p;
+    char* search_p = script.script_p;
     while (search_p < script.end_p) {
         if (*search_p == '\n' || IsLineComment(search_p, script.end_p))
             return false;
         if (IsBlockComment(search_p, script.end_p)) {
-            char *after = SkipBlockComment(search_p, script.end_p);
+            char* after = SkipBlockComment(search_p, script.end_p);
             if (std::find(search_p, after, '\n') != after)
                 return false;
             search_p = after;
@@ -654,6 +654,4 @@ class CScriptLib : public IScriptLib {
 public:
 
 private:
-
 };
-

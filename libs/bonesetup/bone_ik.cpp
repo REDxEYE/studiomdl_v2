@@ -588,7 +588,7 @@ bool Studio_IKSequenceError( const CStudioHdr *pStudioHdr, mstudioseqdesc_t &seq
 				}
 				else
 				{
-					// Msg("%s %s - IK Stall\n", pStudioHdr->name(), seqdesc.pszLabel() );
+					// Msg("{} {} - IK Stall\n", pStudioHdr->name(), seqdesc.pszLabel() );
 					return false;
 				}
 			}
@@ -673,11 +673,11 @@ bool Studio_IKSequenceError( const CStudioHdr *pStudioHdr, mstudioseqdesc_t &seq
 					ikRule.chain = pZeroFrameRule->chain;
 					ikRule.slot = pZeroFrameRule->slot;
 					ikRule.bone = -1;
-					// Msg("IkRuleType::Release %d %d : %.2f\n", ikRule.chain, ikRule.slot, ikRule.flWeight );
+					// Msg("IkRuleType::Release {:d} {:d} : {:.2f}\n", ikRule.chain, ikRule.slot, ikRule.flWeight );
 				}
 				else
 				{
-					// Msg("%s %s - IK Stall\n", pStudioHdr->name(), seqdesc.pszLabel() );
+					// Msg("{} {} - IK Stall\n", pStudioHdr->name(), seqdesc.pszLabel() );
 					return false;
 				}
 			}

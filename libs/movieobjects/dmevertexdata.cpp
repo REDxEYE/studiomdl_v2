@@ -88,7 +88,7 @@ void CDmeVertexDataBase::UpdateStandardFieldInfo( int nFieldIndex, const char *p
 		{
 			if ( attrType != g_pStandardFieldTypes[i] )
 			{
-				Warning( "Standard field %s has incorrect attribute type!\n", pFieldName );
+				Warning( "Standard field {} has incorrect attribute type!\n", pFieldName );
 				return;
 			}
 			m_pStandardFieldIndex[i] = nFieldIndex;

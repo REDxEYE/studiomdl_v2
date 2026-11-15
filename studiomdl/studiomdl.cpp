@@ -1354,20 +1354,20 @@ void Grab_Vertexanimation(s_source_t *psource, const char *pAnimName) {
 
 // Where a source file can be: below every content base path when src is below one of them, else src itself
 static std::vector<std::string> SourceFileCandidates(const std::string &fileName) {
-    int pathLength;
-    if (!CmdLib_HasBasePath(fileName.c_str(), pathLength)) {
-        return {fileName};
+    if (auto result = CmdLib_HasBasePath(fileName)) {
+        auto [_, remainder] = *result;
+        std::vector<std::string> candidates;
+        for (const std::string &basePath: g_studiomdl.paths.contentBasePaths) {
+            candidates.push_back(vstd::paths::join(basePath, remainder));
+        }
+        return candidates;
     }
-    std::vector<std::string> candidates;
-    for (const std::string &basePath: g_studiomdl.paths.contentBasePaths) {
-        candidates.push_back(basePath + fileName.substr(pathLength));
-    }
-    return candidates;
+    return {fileName};
 }
 
 bool GetGlobalFilePath(std::string_view src, std::string &fullPath) {
     for (const std::string &candidate: SourceFileCandidates(ExpandPath(src))) {
-        FileStat_t stat;
+        FileStat_t stat{};
         if (FS_Stat(candidate.c_str(), stat) && !stat.bDirectory && stat.nSize > 0) {
             fullPath = candidate;
             return true;
@@ -1382,16 +1382,15 @@ bool OpenGlobalFile(std::string_view src) {
     // if the file doesn't exist it might be a relative content dir path
     if (g_studiomdl.paths.contentRootRelative && !g_pFullFileSystem->FileExists(filename.c_str())) {
         char contentPath[4096] = {};
-        g_pFullFileSystem->RelativePathToFullPath(std::string(src).c_str(), "CONTENT", contentPath, sizeof(contentPath));
+        g_pFullFileSystem->RelativePathToFullPath(std::string(src).c_str(), IBaseFileSystem::PathID::Content, contentPath, sizeof(contentPath));
         filename = contentPath;
     }
 
-    int pathLength;
-    const bool bBelowBasePath = CmdLib_HasBasePath(filename.c_str(), pathLength);
+    const auto bBelowBasePath = CmdLib_HasBasePath(filename);
     for (const std::string &candidate: SourceFileCandidates(filename)) {
-        FileStat_t stat;
+        FileStat_t stat{};
         const bool bExists = FS_Stat(candidate.c_str(), stat);
-        if (g_studiomdl.options.createMakefile && (bExists || bBelowBasePath)) {
+        if (g_studiomdl.options.createMakefile && (bExists || bBelowBasePath.has_value())) {
             CreateMakefile_AddDependency(candidate.c_str());
             return false;
         }

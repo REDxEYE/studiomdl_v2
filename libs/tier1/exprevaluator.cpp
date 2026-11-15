@@ -91,7 +91,7 @@ bool DefaultConditionalSymbolProc( const char *pKey )
 
 void DefaultConditionalErrorProc( const char *pReason )
 {
-	Warning( "Conditional Error: %s\n", pReason );
+	Warning( "Conditional Error: {}\n", pReason );
 }
 
 CExpressionEvaluator::CExpressionEvaluator()

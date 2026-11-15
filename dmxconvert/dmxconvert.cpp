@@ -67,7 +67,7 @@ int CDmxConvertApp::Main()
 	g_pDataModel->SetDefaultElementFactory(nullptr );
 
 	// This bit of hackery allows us to access files on the harddrive
-	g_pFullFileSystem->AddSearchPath( "", "LOCAL", PATH_ADD_TO_HEAD ); 
+	g_pFullFileSystem->AddSearchPath( "", IBaseFileSystem::PathID::Local, PATH_ADD_TO_HEAD ); 
 
 	const auto parm = []( const std::string_view key ) { return std::string( CommandLine()->ParmValue( key, std::string_view() ) ); };
 	const std::string inFileName = parm( "-i" );
@@ -83,13 +83,13 @@ int CDmxConvertApp::Main()
 		Msg( "Supported DMX file encodings:\n" );
 		for ( int i = 0; i < g_pDataModel->GetEncodingCount(); ++i )
 		{
-			Msg( "   %s\n", g_pDataModel->GetEncodingName( i ) );
+			Msg( "   {}\n", g_pDataModel->GetEncodingName( i ) );
 		}
 
 		Msg( "Supported DMX file formats:\n" );
 		for ( int i = 0; i < g_pDataModel->GetFormatCount(); ++i )
 		{
-			Msg( "   %s\n", g_pDataModel->GetFormatName( i ) );
+			Msg( "   {}\n", g_pDataModel->GetFormatName( i ) );
 		}
 
 		return -1;
@@ -101,7 +101,7 @@ int CDmxConvertApp::Main()
 	CDmElement *pRoot;
 	if ( g_pDataModel->RestoreFromFile( inFileName.c_str(), nullptr, inFormat.empty() ? nullptr : inFormat.c_str(), &pRoot, CR_DELETE_NEW, &header ) == DMFILEID_INVALID )
 	{
-		Error( "Encountered an error reading file \"%s\"!\n", inFileName.c_str() );
+		Error( "Encountered an error reading file \"{}\"!\n", inFileName.c_str() );
 		return -1;
 	}
 
@@ -137,7 +137,7 @@ int CDmxConvertApp::Main()
 
 	if ( !g_pDataModel->SaveToFile( outFileName.c_str(), nullptr, outEncoding.c_str(), outFormat.c_str(), pRoot ) )
 	{
-		Error( "Encountered an error writing file \"%s\"!\n", outFileName.c_str() );
+		Error( "Encountered an error writing file \"{}\"!\n", outFileName.c_str() );
 		return -1;
 	}
 

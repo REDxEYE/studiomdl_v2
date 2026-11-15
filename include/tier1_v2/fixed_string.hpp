@@ -41,6 +41,7 @@ namespace vstd {
 
         FixedString(const char* text) noexcept { assign(text); }
         FixedString(const std::string_view text) noexcept { assign(text); }
+        FixedString(const std::string &text) noexcept { assign(text); }
 
         template<size_t M>
         FixedString(const FixedString<M> &other) noexcept { assign(other.view()); }

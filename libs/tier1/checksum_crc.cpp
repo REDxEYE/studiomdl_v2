@@ -200,7 +200,7 @@ static const CRC64_t pCRC64Table[ NUM_CRC64_TABLE_ENTRIES ] =
 		if ( i % 4 == 0 )
 			Msg( "\n" );
 
-		Msg( "0x%016llXULL, ", part );
+		Msg( "0x{:016X}ULL, ", part );
 	}
 	*/
 	0x0000000000000000ULL, 0x7AD870C830358979ULL, 0xF5B0E190606B12F2ULL, 0x8F689158505E9B8BULL, 

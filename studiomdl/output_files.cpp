@@ -39,30 +39,11 @@ void SaveOutputFile(const std::string_view fileName, const void* data, const siz
     SaveOutputFile(fileName, vstd::Buffer::copy_of(vstd::ConstByteBufferView(static_cast<const uint8_t*>(data), size)));
 }
 
-size_t LoadOutputFile(const std::string_view fileName, void** buffer) {
+
+std::optional<vstd::Buffer> LoadOutputFile(const std::string_view fileName) {
     const OutputFile* file = FindOutputFile(fileName);
     if (!file) {
-        const std::string tmp(fileName);
-        return LoadFile(tmp.c_str(), buffer);
-    }
-
-    const size_t size = file->data.size();
-    auto* copy = static_cast<uint8_t*>(malloc(size + 1));
-    memcpy(copy, file->data.data(), size);
-    copy[size] = 0;
-    *buffer = copy;
-    return size;
-}
-
-std::optional<vstd::Buffer> LoadOutputFile(std::string_view fileName) {
-    const OutputFile* file = FindOutputFile(fileName);
-    if (!file) {
-        const std::string tmp(fileName);
-        void* raw_data;
-        const size_t size= LoadFile(tmp.c_str(), &raw_data);
-        if (size == 0)
-            return std::nullopt;
-        return vstd::Buffer::copy_of(vstd::ConstByteBufferView(static_cast<uint8_t*>(raw_data), size));
+        return LoadFile(fileName);
     }
     return vstd::Buffer::copy_of(file->data.view());
 }
@@ -70,7 +51,7 @@ std::optional<vstd::Buffer> LoadOutputFile(std::string_view fileName) {
 void CommitOutputFiles() {
     vstd::FunctionTimingRecorder _("Write");
     for (auto &[name, data]: s_outputFiles) {
-        SaveFile(name.c_str(), data.data(), static_cast<int>(data.size()));
+        SaveFile(name, data);
     }
     s_outputFiles.clear();
 }

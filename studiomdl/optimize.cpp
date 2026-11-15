@@ -1434,15 +1434,15 @@ namespace OptimizedModel {
 
 	void ReportTopologyError( int a, int b, int c, std::vector<int> *indexMapping, std::vector<Vector> *posList )
 	{
-		Msg( "Topology error at vertices %d, %d, %d\n", a, b, c );
+		Msg( "Topology error at vertices {:d}, {:d}, {:d}\n", a, b, c );
 
 		Vector &vA = posList->Element( a );
 		Vector &vB = posList->Element( b );
 		Vector &vC = posList->Element( c );
 
-		Msg( "spaceLocator -p %.4f %.4f %.4f;\n", vA.x, vA.y, vA.z );
-		Msg( "spaceLocator -p %.4f %.4f %.4f;\n", vB.x, vB.y, vB.z );
-		Msg( "spaceLocator -p %.4f %.4f %.4f;\n", vC.x, vC.y, vC.z );
+		Msg( "spaceLocator -p {:.4f} {:.4f} {:.4f};\n", vA.x, vA.y, vA.z );
+		Msg( "spaceLocator -p {:.4f} {:.4f} {:.4f};\n", vB.x, vB.y, vB.z );
+		Msg( "spaceLocator -p {:.4f} {:.4f} {:.4f};\n", vC.x, vC.y, vC.z );
 	}
 
 
@@ -1469,7 +1469,7 @@ namespace OptimizedModel {
 		int iFarEdgePoint = FindLocalIndexForPointInQuad( pCurrentQuad, nOtherPatchV[2] );
 		if ( iFarEdgePoint < 0 )
 		{
-			Msg( "Topology error at vertex %d\n", nOtherPatchV[2] );
+			Msg( "Topology error at vertex {:d}\n", nOtherPatchV[2] );
 		}
 
 		int iOffEdgePoint = pCurrentQuad->posID[ (iFarEdgePoint + 1)%4 ];
@@ -1550,9 +1550,9 @@ namespace OptimizedModel {
 		int NumNeighbors = NeighborPoints.Count();
 
 #ifdef _DEBUG
-		//	Msg( "  Neighbors: %d\n", NumNeighbors );
-		//	Msg( "  Valences: %d %d %d %d\n", face.valence[0], face.valence[1], face.valence[2], face.valence[3] );
-		//	Msg( "  Prefixes: %d %d %d %d\n", face.prefix[0], face.prefix[1], face.prefix[2], face.prefix[3] );
+		//	Msg( "  Neighbors: {:d}\n", NumNeighbors );
+		//	Msg( "  Valences: {:d} {:d} {:d} {:d}\n", face.valence[0], face.valence[1], face.valence[2], face.valence[3] );
+		//	Msg( "  Prefixes: {:d} {:d} {:d} {:d}\n", face.prefix[0], face.prefix[1], face.prefix[2], face.prefix[3] );
 #endif
 
 		// Move neighbors into the points list

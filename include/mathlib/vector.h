@@ -1684,7 +1684,7 @@ inline bool Quaternion::operator!=( const Quaternion &src ) const
 void Quaternion::Print() const
 {
 #ifndef _CERT
-	Msg("q{ %.3fi + %.3fj + %.3fk + %.3f }", x, y, z, w );
+	Msg("q{{{{ {{:.3f}}i + {{:.3f}}j + {{:.3f}}k + {{:.3f}} }}}}", x, y, z, w );
 #endif
 }
 

@@ -358,7 +358,7 @@ int CDmeSequenceBase::QSortFunction( const void *pVoidSeq1, const void *pVoidSeq
 
 	if ( bRef[0] && bRef[1] )
 	{
-		Error( "Animation %s & %s reference each other, circular references are not allowed\n", pSeq1->GetName(), pSeq2->GetName() );
+		Error( "Animation {} & {} reference each other, circular references are not allowed\n", pSeq1->GetName(), pSeq2->GetName() );
 		return 0;
 	}
 

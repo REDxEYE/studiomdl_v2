@@ -143,7 +143,7 @@ bool CDmSerializerKeyValues::SerializeAttributes( CUtlBuffer& buf, CDmElement *p
 		case AT_VOID_ARRAY:
 		case AT_ELEMENT:
 		case AT_ELEMENT_ARRAY:
-			Warning("KeyValues: Can't serialize attribute of type %s into KeyValues files!\n", 
+			Warning("KeyValues: Can't serialize attribute of type {} into KeyValues files!\n", 
 				g_pDataModel->GetAttributeNameForType( nAttrType ) );
 			buf.PutChar( '\"' );
 			buf.PutChar( '\"' );
@@ -209,7 +209,7 @@ DmElementHandle_t CDmSerializerKeyValues::CreateDmElement( const char *pElementT
 	DmElementHandle_t hElement = g_pDataModel->CreateElement( pElementType, pElementName, m_fileid );
 	if ( hElement == DMELEMENT_HANDLE_INVALID )
 	{
-		Warning("KeyValues: Element uses unknown element type %s\n", pElementType );
+		Warning("KeyValues: Element uses unknown element type {}\n", pElementType );
 		return DMELEMENT_HANDLE_INVALID;
 	}
 
@@ -297,14 +297,14 @@ void CDmSerializerKeyValues::UnserializeAttribute( CDmElement *pElement, KeyValu
 	if ( type == AT_UNKNOWN )
 	{
 		// Assume this is an empty attribute or attribute array element
-		Warning("Dm Unserialize: Attempted to read an attribute (\"%s\") of an inappropriate type!\n", pLowerName.String() );
+		Warning("Dm Unserialize: Attempted to read an attribute (\"{}\") of an inappropriate type!\n", pLowerName.String() );
 		return;
 	}
 
 	CDmAttribute *pAttribute = pElement->AddAttribute( pLowerName, type );
 	if ( !pAttribute )
 	{
-		Warning("Dm Unserialize: Attempted to read an attribute (\"%s\") of an inappropriate type!\n", pLowerName.String() );
+		Warning("Dm Unserialize: Attempted to read an attribute (\"{}\") of an inappropriate type!\n", pLowerName.String() );
 		return;
 	}
 

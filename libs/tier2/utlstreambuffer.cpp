@@ -290,7 +290,7 @@ int CUtlStreamBuffer::ReadBytesFromFile( int nBytesToRead, int nReadOffset )
 		m_hFileHandle = OpenFile( m_pFileName, m_pPath, m_nOpenFileFlags );
 		if ( m_hFileHandle == FILESYSTEM_INVALID_HANDLE )
 		{
-			Error( "Unable to read file %s!\n", m_pFileName );
+			Error( "Unable to read file {}!\n", m_pFileName );
 			return 0;
 		}
 		if ( m_nOffset != 0 )
@@ -377,5 +377,5 @@ FileHandle_t CUtlStreamBuffer::OpenFile( const char *pFileName, const char *pPat
 	options[ 0 ] = IsReadOnly() ? 'r' : 'w';
 	options[ 1 ] = IsText() && !ContainsCRLF() ? 't' : 'b';
 
-	return g_pFullFileSystem->OpenEx( pFileName, options, nOpenFileFlags, pPath );
+	return g_pFullFileSystem->OpenEx( pFileName, options, nOpenFileFlags, IBaseFileSystem::ToPathID( pPath ) );
 }

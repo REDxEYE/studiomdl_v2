@@ -1193,7 +1193,7 @@ inline void CUtlBuffer::Spew( )
 	{
 		V_memset( pTmpLine, 0, sizeof(pTmpLine) );
 		Get( pTmpLine, MIN( ( size_t )GetBytesRemaining(), sizeof(pTmpLine)-1 ) );
-		Msg( _T( "%s" ), pTmpLine );
+		Msg( _T( "{}" ), pTmpLine );
 	}
 }
 

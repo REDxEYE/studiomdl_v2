@@ -173,7 +173,7 @@ bool CImportTex::ParseOptionKey( const char *pKeyName, const char *pKeyValue, CD
 	}
 	else
 	{
-		Warning("unrecognized option in text file - %s\n", pKeyName );
+		Warning("unrecognized option in text file - {}\n", pKeyName );
 	}
 
 	return true;
@@ -415,7 +415,7 @@ bool CImportTex::ParseOptionKey( const char *pKeyName, const char *pKeyValue, CD
 				}
 				else
 				{
-					Warning( "invalid mipblend setting \"%s\"\n", pKeyValue );
+					Warning( "invalid mipblend setting \"{}\"\n", pKeyValue );
 				}
 			}
 		}
@@ -525,7 +525,7 @@ bool CImportTex::Unserialize( CUtlBuffer &buf, const char *pEncodingName, int nE
 
 	if ( pVal[0] )
 	{
-		Warning( "Error importing txt file! %s\n", pVal );
+		Warning( "Error importing txt file! {}\n", pVal );
 		return false;
 	}
 

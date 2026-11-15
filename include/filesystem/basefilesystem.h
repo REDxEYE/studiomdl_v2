@@ -13,9 +13,13 @@
 
 #include "filesystem/stdfile.h"
 
+#include <array>
+#include <cstdint>
 #include <cstdio>
 #include <set>
 #include <string>
+#include <string_view>
+#include <vector>
 #include "tier1_v2/string_utils.hpp"
 
 #include "filesystem.h"
@@ -40,8 +44,6 @@
 
 #define SUPPORT_IODELAY_MONITORING
 
-
-extern CUtlSymbolTable g_PathIDTable;
 
 
 enum FileMode_t {
@@ -162,12 +164,16 @@ public:
     // before the interface system was removed either (path IDs "BSP"/"GAME", fs_debug).
     bool Init();
 
-    void ParsePathID(const char *&pFilename, const char *&pPathID, char tempPathID[MAX_PATH]);
+    // UNC-like "//pathid/file" syntax: strips the prefix from the file name and overrides the path ID ("*" = any)
+    void ParsePathID(std::string_view &fileName, PathID &pathID);
+
+    // Same, for NUL-terminated names (pFilename stays NUL-terminated: it is advanced past the prefix)
+    void ParsePathID(const char *&pFilename, PathID &pathID);
 
     // file handling
-    FileHandle_t Open(const char *pFileName, const char *pOptions, const char *pathID) override;
+    FileHandle_t Open(std::string_view fileName, std::string_view options, PathID pathID) override;
 
-    FileHandle_t OpenEx(const char *pFileName, const char *pOptions, unsigned flags = 0, const char *pathID = nullptr,
+    FileHandle_t OpenEx(std::string_view fileName, std::string_view options, unsigned flags = 0, PathID pathID = PathID::Unspecified,
                         char **ppszResolvedFilename = nullptr) override;
 
     void Close(FileHandle_t) override;
@@ -178,34 +184,34 @@ public:
 
     unsigned int Size(FileHandle_t file) override;
 
-    unsigned int Size(const char *pFileName, const char *pPathID) override;
+    unsigned int Size(const char *pFileName, PathID pathID) override;
 
     bool IsOk(FileHandle_t file) override;
 
     void Flush(FileHandle_t file) override;
 
-    bool Precache(const char *pFileName, const char *pPathID) override;
+    bool Precache(const char *pFileName, PathID pathID) override;
 
     bool EndOfFile(FileHandle_t file) override;
 
-    int Read(void *pOutput, int size, FileHandle_t file) override;
+    int Read(void *pOutput, size_t size, FileHandle_t file) override;
 
     int ReadEx(void *pOutput, int sizeDest, int size, FileHandle_t file) override;
 
-    int Write(void const *pInput, int size, FileHandle_t file) override;
+    int Write(void const *pInput, size_t size, FileHandle_t file) override;
 
     char *ReadLine(char *pOutput, int maxChars, FileHandle_t file) override;
 
     int FPrintf(FileHandle_t file, PRINTF_FORMAT_STRING const char *pFormat, ...) override FMTFUNCTION(3, 4);
 
     // Reads/writes files to utlbuffers
-    bool ReadFile(const char *pFileName, const char *pPath, CUtlBuffer &buf, int nMaxBytes, int nStartingByte,
+    bool ReadFile(const char *pFileName, PathID pathID, CUtlBuffer &buf, int nMaxBytes, int nStartingByte,
                   FSAllocFunc_t pfnAlloc = nullptr) override;
 
-    bool WriteFile(const char *pFileName, const char *pPath, CUtlBuffer &buf) override;
+    bool WriteFile(const char *pFileName, PathID pathID, CUtlBuffer &buf) override;
 
     int
-    ReadFileEx(const char *pFileName, const char *pPath, void **ppBuf, bool bNullTerminate, bool bOptimalAlloc,
+    ReadFileEx(const char *pFileName, PathID pathID, void **ppBuf, bool bNullTerminate, bool bOptimalAlloc,
                int nMaxBytes = 0, int nStartingByte = 0, FSAllocFunc_t pfnAlloc = nullptr) override;
 
     bool ReadToBuffer(FileHandle_t hFile, CUtlBuffer &buf, int nMaxBytes = 0, FSAllocFunc_t pfnAlloc = nullptr) override;
@@ -222,10 +228,10 @@ public:
     bool GetCurrentDirectory(char *pDirectory, int maxlen) override;
 
     // this isn't implementable on STEAM as is.
-    void CreateDirHierarchy(const char *path, const char *pathID) override;
+    void CreateDirHierarchy(const char *path, PathID pathID) override;
 
     // returns true if the file is a directory
-    bool IsDirectory(const char *pFileName, const char *pathID) override;
+    bool IsDirectory(const char *pFileName, PathID pathID) override;
 
     // path info
     const char *GetLocalPath(const char *pFileName, char *pLocalPath, int localPathBufferSize) override;
@@ -233,40 +239,40 @@ public:
     bool FullPathToRelativePath(const char *pFullpath, char *pRelative, int maxlen) override;
 
     // removes a file from disk
-    void RemoveFile(char const *pRelativePath, const char *pathID) override;
+    void RemoveFile(char const *pRelativePath, PathID pathID) override;
 
     // Remove all search paths (including write path?)
     void RemoveAllSearchPaths(void) override;
 
     // Purpose: Removes all search paths for a given pathID, such as all "GAME" paths.
-    void RemoveSearchPaths(const char *pathID) override;
+    void RemoveSearchPaths(PathID pathID) override;
 
     // STUFF FROM IFileSystem
     // Add paths in priority order (mod dir, game dir, ....)
     // Can also add pak files (errr, NOT YET!)
-    void AddSearchPath(std::string_view pPath, std::string_view pathID, SearchPathAdd_t addType) override;
+    void AddSearchPath(std::string_view pPath, PathID pathID, SearchPathAdd_t addType) override;
 
-    bool RemoveSearchPath(const char *pPath, const char *pathID) override;
+    bool RemoveSearchPath(const char *pPath, PathID pathID) override;
 
     void PrintSearchPaths() override;
 
-    void MarkPathIDByRequestOnly(const char *pPathID, bool bRequestOnly) override;
+    void MarkPathIDByRequestOnly(PathID pathID, bool bRequestOnly) override;
 
-    bool IsFileInReadOnlySearchPath(const char *pPath, const char *pathID = nullptr) override;
+    bool IsFileInReadOnlySearchPath(const char *pPath, PathID pathID = PathID::Unspecified) override;
 
-    bool FileExists(const char *pFileName, const char *pPathID = nullptr) override;
+    bool FileExists(const char *pFileName, PathID pathID = PathID::Unspecified) override;
 
-    int64_t GetFileTime(const char *pFileName, const char *pPathID = nullptr) override;
+    int64_t GetFileTime(const char *pFileName, PathID pathID = PathID::Unspecified) override;
 
-    bool IsFileWritable(char const *pFileName, const char *pPathID = nullptr) override;
+    bool IsFileWritable(char const *pFileName, PathID pathID = PathID::Unspecified) override;
 
-    bool SetFileWritable(char const *pFileName, bool writable, const char *pPathID = nullptr) override;
+    bool SetFileWritable(char const *pFileName, bool writable, PathID pathID = PathID::Unspecified) override;
 
     void FileTimeToString(char *pString, int maxChars, int64_t fileTime) override;
 
     const char *FindFirst(const char *pWildCard, FileFindHandle_t *pHandle) override;
 
-    const char *FindFirstEx(const char *pWildCard, const char *pPathID, FileFindHandle_t *pHandle) override;
+    const char *FindFirstEx(const char *pWildCard, PathID pathID, FileFindHandle_t *pHandle) override;
 
     const char *FindNext(FileFindHandle_t handle) override;
 
@@ -276,7 +282,7 @@ public:
 
     void
     FindFileAbsoluteList(CUtlVector<CUtlString> &outAbsolutePathNames, const char *pWildCard,
-                         const char *pPathID) override;
+                         PathID pathID) override;
 
     void SetWarningFunc(void (*pfnWarning)(const char *fmt, ...)) override;
 
@@ -286,7 +292,7 @@ public:
 
     void RemoveLoggingFunc(FileSystemLoggingFunc_t logFunc) override;
 
-    bool RenameFile(char const *pOldPath, char const *pNewPath, const char *pathID) override;
+    bool RenameFile(char const *pOldPath, char const *pNewPath, PathID pathID) override;
 
     void GetLocalCopy(const char *pFileName) override;
 
@@ -298,13 +304,13 @@ public:
 
     int GetPathIndex(const FileNameHandle_t &handle) override;
 
-    int64_t GetPathTime(const char *pFileName, const char *pPathID) override;
+    int64_t GetPathTime(const char *pFileName, PathID pathID) override;
 
     void MarkAllCRCsUnverified() override;
 
     void CacheFileCRCs(const char *pPathname, ECacheCRCType eType, IFileList *pFilter) override;
 
-    EFileCRCStatus CheckCachedFileHash(const char *pPathID, const char *pRelativeFilename, int nFileFraction,
+    EFileCRCStatus CheckCachedFileHash(PathID pathID, const char *pRelativeFilename, int nFileFraction,
                                        FileHash_t *pFileHash) override;
 
     int GetUnverifiedFileHashes(CUnverifiedFileHash *pFiles, int nMaxFiles) override;
@@ -322,26 +328,26 @@ public:
     // converts a partial path into a full path
     // can be filtered to restrict path types and can provide info about resolved path
     const char *
-    RelativePathToFullPath(const char *pFileName, const char *pPathID, char *pFullPath, int fullPathBufferSize,
+    RelativePathToFullPath(const char *pFileName, PathID pathID, char *pFullPath, int fullPathBufferSize,
                            PathTypeFilter_t pathFilter = FILTER_NONE, PathTypeQuery_t *pPathType = nullptr) override;
 
 
     // Returns the search path, each path is separated by ;s. Returns the length of the string returned
-    int GetSearchPath(const char *pathID, bool bGetPackFiles, char *pPath, int nMaxLen) override;
+    int GetSearchPath(PathID pathID, bool bGetPackFiles, char *pPath, int nMaxLen) override;
 
     int GetSearchPathID(char *pPath, int nMaxLen) override;
 
 
     bool GetFileTypeForFullPath(char const *pFullPath, wchar_t *buf, size_t bufSizeInBytes) override;
 
-    bool FullPathToRelativePathEx(const char *pFullpath, const char *pPathId, char *pRelative, int maxlen) override;
+    bool FullPathToRelativePathEx(const char *pFullpath, PathID pathID, char *pRelative, int maxlen) override;
 
     // If the "PreloadedData" hasn't been purged, then this'll try and instance the KeyValues using the fast path of compiled keyvalues loaded during startup.
     // Otherwise, it'll just fall through to the regular KeyValues loading routines
-    KeyValues *LoadKeyValues(KeyValuesPreloadType_t type, char const *filename, char const *pPathID = nullptr) override;
+    KeyValues *LoadKeyValues(KeyValuesPreloadType_t type, char const *filename, PathID pathID = PathID::Unspecified) override;
 
     bool
-    LoadKeyValues(KeyValues &head, KeyValuesPreloadType_t type, char const *filename, char const *pPathID = nullptr) override;
+    LoadKeyValues(KeyValues &head, KeyValuesPreloadType_t type, char const *filename, PathID pathID = PathID::Unspecified) override;
 
     bool FixupSearchPathsAfterInstall() override;
 
@@ -356,57 +362,28 @@ public:
     //------------------------------------
     // Synchronous path for file operations
     //------------------------------------
-    class CPathIDInfo {
-    public:
-        const CUtlSymbol &GetPathID() const;
-
-        const char *GetPathIDString() const;
-
-        void SetPathID(CUtlSymbol sym);
-
-    public:
-        // See MarkPathIDByRequestOnly.
-        bool m_bByRequestOnly=false;
-
-    private:
-        CUtlSymbol m_PathID;
-    };
-
     ////////////////////////////////////////////////
     // IMPLEMENTATION DETAILS FOR CBaseFileSystem //
     ////////////////////////////////////////////////
 
     class CSearchPath {
     public:
-        CSearchPath(void);
+        const char *GetPathString() const { return m_Path.c_str(); }
 
-        ~CSearchPath(void);
+        // Search path (c:\hl2\hl2), with a trailing separator
+        const std::string &GetPath() const { return m_Path; }
 
-        const char *GetPathString() const;
+        void SetPath(std::string path) { m_Path = std::move(path); }
 
-        // Path ID ("game", "mod", "gamebin") accessors.
-        const CUtlSymbol &GetPathID() const;
+        PathID m_PathID = PathID::Unspecified;
 
-        const char *GetPathIDString() const;
+        int m_storeId = 0;
 
-        // Search path (c:\hl2\hl2) accessors.
-        void SetPath(CUtlSymbol id);
-
-        const CUtlSymbol &GetPath() const;
-
-        int m_storeId;
-
-        // Used to track if its search
-        CPathIDInfo *m_pPathIDInfo;
-
-        bool m_bIsDvdDevPath;
+        bool m_bIsDvdDevPath = false;
+        bool m_bIsLocalizedPath = false;
 
     private:
-        CUtlSymbol m_Path;
-        const char *m_pDebugPath;
-        CPackFile *m_pPackFile;
-    public:
-        bool m_bIsLocalizedPath;
+        std::string m_Path;
     };
 
     static void MarkLocalizedPath(CSearchPath *sp);
@@ -431,23 +408,21 @@ public:
 
     class CSearchPathsIterator {
     public:
-        CSearchPathsIterator(CBaseFileSystem *pFileSystem, const char **ppszFilename, const char *pszPathID,
+        CSearchPathsIterator(CBaseFileSystem *pFileSystem, const char **ppszFilename, PathID pathID,
                              PathTypeFilter_t pathTypeFilter = FILTER_NONE)
-                : m_iCurrent(-1),
+                : m_pFileSystem(pFileSystem),
+                  m_iCurrent(-1),
                   m_PathTypeFilter(pathTypeFilter),
                   m_bExcluded(false) {
-            char tempPathID[MAX_PATH]{0};
             if (*ppszFilename && (*ppszFilename)[0] == '/' &&
                 (*ppszFilename)[1] == '/') // ONLY '//' (and not '\\') for our special format
             {
-                // Allow for UNC-type syntax to specify the path ID.
-                pFileSystem->ParsePathID(*ppszFilename, pszPathID, tempPathID);
+                // Allow for UNC-type syntax to specify the path ID. The view stays a suffix of the NUL-terminated name.
+                std::string_view fileName(*ppszFilename);
+                pFileSystem->ParsePathID(fileName, pathID);
+                *ppszFilename = fileName.data();
             }
-            if (pszPathID) {
-                m_pathID = g_PathIDTable.AddString(pszPathID);
-            } else {
-                m_pathID = UTL_INVAL_SYMBOL;
-            }
+            m_pathID = pathID;
 
             if (*ppszFilename && !Q_IsAbsolutePath(*ppszFilename)) {
                 // Copy paths to minimize mutex lock time
@@ -457,48 +432,42 @@ public:
             } else {
                 // If it's an absolute path, it isn't worth using the paths at all. Simplify
                 // client logic by pretending there's a search path of 1
-                m_EmptyPathIDInfo.m_bByRequestOnly = false;
-                m_EmptySearchPath.m_pPathIDInfo = &m_EmptyPathIDInfo;
-                m_EmptySearchPath.SetPath(m_pathID);
                 m_EmptySearchPath.m_storeId = -1;
                 m_Filename[0] = '\0';
             }
         }
 
-        CSearchPathsIterator(CBaseFileSystem *pFileSystem, const char *pszPathID,
+        CSearchPathsIterator(CBaseFileSystem *pFileSystem, PathID pathID,
                              PathTypeFilter_t pathTypeFilter = FILTER_NONE)
-                : m_iCurrent(-1),
+                : m_pFileSystem(pFileSystem),
+                  m_iCurrent(-1),
+                  m_pathID(pathID),
                   m_PathTypeFilter(pathTypeFilter),
                   m_bExcluded(false) {
-            if (pszPathID) {
-                m_pathID = g_PathIDTable.AddString(pszPathID);
-            } else {
-                m_pathID = UTL_INVAL_SYMBOL;
-            }
             // Copy paths to minimize mutex lock time
             CopySearchPaths(pFileSystem->m_SearchPaths);
             m_Filename[0] = '\0';
         }
+
+        CSearchPathsIterator(const CSearchPathsIterator &) = delete;
+
+        CSearchPathsIterator &operator=(const CSearchPathsIterator &) = delete;
 
         CSearchPath *GetFirst();
 
         CSearchPath *GetNext();
 
     private:
-        CSearchPathsIterator(const CSearchPathsIterator &);
-
-        void operator=(const CSearchPathsIterator &);
-
-        void CopySearchPaths(const CUtlVector<CSearchPath> &searchPaths) {
+        void CopySearchPaths(const std::vector<CSearchPath> &searchPaths) {
             m_SearchPaths = searchPaths;
         }
 
+        const CBaseFileSystem *m_pFileSystem;
         int m_iCurrent;
-        CUtlSymbol m_pathID;
-        CUtlVector<CSearchPath> m_SearchPaths;
+        PathID m_pathID = PathID::Unspecified;
+        std::vector<CSearchPath> m_SearchPaths;
         CSearchPathsVisits m_visits;
         CSearchPath m_EmptySearchPath;
-        CPathIDInfo m_EmptyPathIDInfo;
         PathTypeFilter_t m_PathTypeFilter;
         char m_Filename[MAX_PATH]{0};    // set for relative names only
         bool m_bExcluded;
@@ -514,7 +483,7 @@ public:
         CSearchPathsVisits m_VisitedSearchPaths;    // This is a copy of IDs for the search paths we've visited, so avoids searching duplicate paths.
         int m_CurrentStoreID;        // CSearchPath::m_storeId of the current search path.
 
-        CUtlSymbol m_FilterPathID;            // What path ID are we looking at? Ignore all others. (Only set by FindFirstEx).
+        PathID m_FilterPathID = PathID::Unspecified;            // What path ID are we looking at? Ignore all others. (Only set by FindFirstEx).
 
         std::set<std::string, vstd::iless> m_VisitedFiles;            // We go through the search paths in priority order, and we use this to make sure
         // that we don't return the same file more than once.
@@ -525,8 +494,10 @@ public:
     // logging functions
     CUtlVector<FileSystemLoggingFunc_t> m_LogFuncs;
 
-    CUtlVector<CSearchPath> m_SearchPaths;
-    CUtlVector<CPathIDInfo *> m_PathIDInfos;
+    // std::vector: CSearchPath owns a std::string, which CUtlVector's memmove-based shifting can't relocate
+    std::vector<CSearchPath> m_SearchPaths;
+    // See MarkPathIDByRequestOnly: unspecified lookups skip these path IDs
+    std::array<bool, static_cast<size_t>(PathID::Count)> m_PathIDByRequestOnly{};
     CUtlLinkedList<FindData_t> m_FindData;
 
     int m_iMapLoad;
@@ -595,7 +566,7 @@ public:
 protected:
     // Note: if pFoundStoreID is passed in, then it will set that to the CSearchPath::m_storeId value of the search path it found the file in.
     const char *
-    FindFirstHelper(const char *pWildCard, const char *pPathID, FileFindHandle_t *pHandle, int *pFoundStoreID);
+    FindFirstHelper(const char *pWildCard, PathID pathID, FileFindHandle_t *pHandle, int *pFoundStoreID);
 
     bool FindNextFileHelper(FindData_t *pFindData, int *pFoundStoreID);
 
@@ -604,42 +575,41 @@ protected:
 
 
     // Goes through all the search paths (or just the one specified) and calls FindFile on them. Returns the first successful result, if any.
-    FileHandle_t FindFileInSearchPaths(const char *pFileName, const char *pOptions, const char *pathID, unsigned flags,
+    FileHandle_t FindFileInSearchPaths(const std::string &fileName, const std::string &options, PathID pathID, unsigned flags,
                                        char **ppszResolvedFilename = nullptr, bool bTrackCRCs = false);
 
     void HandleOpenRegularFile(CFileOpenInfo &openInfo, bool bIsAbsolutePath);
 
-    FileHandle_t FindFile(const CSearchPath *path, const char *pFileName, const char *pOptions, unsigned flags,
+    FileHandle_t FindFile(const CSearchPath *path, std::string_view fileName, const std::string &options, unsigned flags,
                           char **ppszResolvedFilename = nullptr, bool bTrackCRCs = false);
 
     int FastFindFile(const CSearchPath *path, const char *pFileName);
 
     int64_t FastFileTime(const CSearchPath *path, const char *pFileName);
 
-    const char *GetWritePath(const char *pFilename, const char *pathID);
+    // Directory (with trailing separator) to write relative names to for the path ID
+    const std::string &GetWritePath(PathID pathID);
 
-    // Computes a full write path
-    void ComputeFullWritePath(char *pDest, int maxlen, const char *pWritePathID, char const *pRelativePath);
+    // Write directory + relative path, slashes fixed
+    std::string ComputeFullWritePath(std::string_view relativePath, PathID writePathID);
 
     void
-    AddSearchPathInternal(std::string_view pPath, std::string_view pathID, SearchPathAdd_t addType, int iForceInsertIndex = 0);
+    AddSearchPathInternal(std::string_view pPath, PathID pathID, SearchPathAdd_t addType, int iForceInsertIndex = 0);
 
     // Opens a file for read or write
-    FileHandle_t OpenForRead(const char *pFileName, const char *pOptions, unsigned flags, const char *pathID,
+    FileHandle_t OpenForRead(const std::string &fileName, const std::string &options, unsigned flags, PathID pathID,
                              char **ppszResolvedFilename = nullptr);
 
-    FileHandle_t OpenForWrite(const char *pFileName, const char *pOptions, const char *pathID);
+    FileHandle_t OpenForWrite(const std::string &fileName, const std::string &options, PathID pathID);
 
-    CSearchPath *FindWritePath(const char *pFilename, const char *pathID);
+    // First search path tagged pathID (any path for Unspecified)
+    CSearchPath *FindWritePath(PathID pathID);
 
 
-    bool LookupKeyValuesRootKeyName(char const *filename, char const *pPathID, char *rootName, size_t bufsize);
+    bool LookupKeyValuesRootKeyName(char const *filename, PathID pathID, char *rootName, size_t bufsize);
 
-    // If bByRequestOnly is -1, then it will default to false if it doesn't already exist, and it
-    // won't change it if it does already exist. Otherwise, it will be set to the value of bByRequestOnly.
-    CPathIDInfo *FindOrAddPathIDInfo(const CUtlSymbol &id, int bByRequestOnly);
-
-    static bool FilterByPathID(const CSearchPath *pSearchPath, const CUtlSymbol &pathID);
+    // True if the search path must be skipped for a lookup with the given path ID
+    bool FilterByPathID(const CSearchPath &searchPath, PathID pathID) const;
 
     // Global/shared filename/path table
     CUtlFilenameSymbolTable m_FileNames;
@@ -647,8 +617,6 @@ protected:
     // This manages most of the info we use for pure servers (whether files came from Steam caches or off-disk, their CRCs, which ones are unverified, etc).
     FSDirtyDiskReportFunc_t m_DirtyDiskReportFunc;
 
-    static CUtlSymbol m_GamePathID;
-    static CUtlSymbol m_BSPPathID;
 
     static bool m_bSearchPathsPatchedAfterInstall;
 
@@ -662,64 +630,13 @@ protected:
 
 };
 
-inline const CUtlSymbol &CBaseFileSystem::CPathIDInfo::GetPathID() const {
-    return m_PathID;
-}
-
-
-inline const char *CBaseFileSystem::CPathIDInfo::GetPathIDString() const {
-    return g_PathIDTable.String(m_PathID);
-}
-
-
-inline const char *CBaseFileSystem::CSearchPath::GetPathString() const {
-    return g_PathIDTable.String(m_Path);
-}
-
-
-inline void CBaseFileSystem::CPathIDInfo::SetPathID(CUtlSymbol sym) {
-    m_PathID = sym;
-}
-
-
-inline const CUtlSymbol &CBaseFileSystem::CSearchPath::GetPathID() const {
-    return m_pPathIDInfo->GetPathID();
-}
-
-
-inline const char *CBaseFileSystem::CSearchPath::GetPathIDString() const {
-    return m_pPathIDInfo->GetPathIDString();
-}
-
-
-inline void CBaseFileSystem::CSearchPath::SetPath(CUtlSymbol id) {
-    m_Path = id;
-    m_pDebugPath = g_PathIDTable.String(m_Path);
-    MarkLocalizedPath(this);
-}
-
-
-inline const CUtlSymbol &CBaseFileSystem::CSearchPath::GetPath() const {
-    return m_Path;
-}
-
-
-inline bool CBaseFileSystem::FilterByPathID(const CSearchPath *pSearchPath, const CUtlSymbol &pathID) {
-    if ((UtlSymId_t) pathID == UTL_INVAL_SYMBOL) {
+inline bool CBaseFileSystem::FilterByPathID(const CSearchPath &searchPath, const PathID pathID) const {
+    if (pathID == PathID::Unspecified) {
         // They didn't specify a specific search path, so if this search path's path ID is by
         // request only, then ignore it.
-        return pSearchPath->m_pPathIDInfo->m_bByRequestOnly;
-    } else {
-        // Bit of a hack, but specifying "BSP" as the search path will search in "GAME" for only the map/.bsp pack file path
-        if (pathID == m_BSPPathID) {
-            if (pSearchPath->GetPathID() != m_GamePathID)
-                return true;
-
-            return false;
-        } else {
-            return (pSearchPath->GetPathID() != pathID);
-        }
+        return m_PathIDByRequestOnly[static_cast<size_t>(searchPath.m_PathID)];
     }
+    return searchPath.m_PathID != pathID;
 }
 
 

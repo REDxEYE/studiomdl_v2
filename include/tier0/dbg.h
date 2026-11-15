@@ -10,6 +10,8 @@
 #include "tier0/platform.h"
 #include "logging.h"
 #include <cstdarg>
+#include <format>
+#include <string_view>
 
 class Color;
 
@@ -127,20 +129,40 @@ DECLARE_LOGGING_CHANNEL( LOG_CONSOLE );
 // Channel for all DevMsg and DevWarning commands.
 DECLARE_LOGGING_CHANNEL( LOG_DEVELOPER );
 
-// Legacy logging functions
+// Legacy logging functions, with std::format syntax ("{}", not "%s") like MdlMessage/MdlWarning/MdlError.
+// The format string is checked at compile time; the message goes through the logging system (channels, listeners).
 
-// This function does not return.
-PLATFORM_INTERFACE void Error( PRINTF_FORMAT_STRING const tchar *pMsg, ... ) FMTFUNCTION( 1, 2 );
+// Type-erased implementations (dbg.cpp); call the templates below instead.
+[[noreturn]] void ErrorV( std::string_view fmt, std::format_args args );
+void MsgV( std::string_view fmt, std::format_args args );
+void WarningV( std::string_view fmt, std::format_args args );
+void DevMsgV( std::string_view fmt, std::format_args args );
+void DevWarningV( std::string_view fmt, std::format_args args );
+void ConColorMsgV( const Color &clr, std::string_view fmt, std::format_args args );
+void ConMsgV( std::string_view fmt, std::format_args args );
+
+// Logs on LOG_GENERAL with LS_ERROR, then exits the process. This function does not return.
+template<typename... Args>
+[[noreturn]] void Error( std::format_string<Args...> fmt, Args &&...args ) { ErrorV( fmt.get(), std::make_format_args( args... ) ); }
 #define Plat_FatalError( ... ) do { Log_Error( LOG_GENERAL, ##__VA_ARGS__ ); Plat_ExitProcess( EXIT_FAILURE ); } while( 0 )
 
-PLATFORM_INTERFACE void Msg( PRINTF_FORMAT_STRING const tchar* pMsg, ... ) FMTFUNCTION( 1, 2 );
-PLATFORM_INTERFACE void Warning( PRINTF_FORMAT_STRING const tchar *pMsg, ... ) FMTFUNCTION( 1, 2 );
+template<typename... Args>
+void Msg( std::format_string<Args...> fmt, Args &&...args ) { MsgV( fmt.get(), std::make_format_args( args... ) ); }
 
-PLATFORM_OVERLOAD void DevMsg( PRINTF_FORMAT_STRING const tchar* pMsg, ... ) FMTFUNCTION( 1, 2 );
-PLATFORM_OVERLOAD void DevWarning( PRINTF_FORMAT_STRING const tchar *pMsg, ... ) FMTFUNCTION( 1, 2 );
+template<typename... Args>
+void Warning( std::format_string<Args...> fmt, Args &&...args ) { WarningV( fmt.get(), std::make_format_args( args... ) ); }
 
-PLATFORM_OVERLOAD void ConColorMsg( const Color& clr, PRINTF_FORMAT_STRING const tchar* pMsg, ... ) FMTFUNCTION( 2, 3 );
-PLATFORM_OVERLOAD void ConMsg( PRINTF_FORMAT_STRING const tchar* pMsg, ... ) FMTFUNCTION( 1, 2 );
+template<typename... Args>
+void DevMsg( std::format_string<Args...> fmt, Args &&...args ) { DevMsgV( fmt.get(), std::make_format_args( args... ) ); }
+
+template<typename... Args>
+void DevWarning( std::format_string<Args...> fmt, Args &&...args ) { DevWarningV( fmt.get(), std::make_format_args( args... ) ); }
+
+template<typename... Args>
+void ConColorMsg( const Color &clr, std::format_string<Args...> fmt, Args &&...args ) { ConColorMsgV( clr, fmt.get(), std::make_format_args( args... ) ); }
+
+template<typename... Args>
+void ConMsg( std::format_string<Args...> fmt, Args &&...args ) { ConMsgV( fmt.get(), std::make_format_args( args... ) ); }
 
 // You can use this macro like a runtime assert macro.
 // If the condition fails, then Error is called with the message. This macro is called

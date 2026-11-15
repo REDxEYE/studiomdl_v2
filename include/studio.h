@@ -2916,28 +2916,6 @@ struct studiohdr_t {
         return studiohdr2index ? pStudioHdr2()->pBodyGroupPreset(i) : nullptr;
     }
 
-    void *VirtualModel() const { return studiohdr2index ? (void *) (pStudioHdr2()->virtualModel) : nullptr; }
-
-    void SetVirtualModel(void *ptr) {
-        Assert(studiohdr2index);
-        if (studiohdr2index) { pStudioHdr2()->virtualModel = ptr; }
-    }
-
-    void *VertexBase() const { return studiohdr2index ? (void *) (pStudioHdr2()->pVertexBase) : nullptr; }
-
-    void SetVertexBase(void *pVertexBase) const {
-        Assert(studiohdr2index);
-        if (studiohdr2index) { pStudioHdr2()->pVertexBase = pVertexBase; }
-    }
-
-    void *IndexBase() const { return studiohdr2index ? (void *) (pStudioHdr2()->pIndexBase) : nullptr; }
-
-    void SetIndexBase(void *pIndexBase) const {
-        Assert(studiohdr2index);
-        if (studiohdr2index) { pStudioHdr2()->pIndexBase = pIndexBase; }
-    }
-
-
     // NOTE: No room to add stuff? Up the .mdl file format version
     // [and move all fields in studiohdr2_t into studiohdr_t and kill studiohdr2_t],
     // or add your stuff to studiohdr2_t. See NumSrcBoneTransforms/SrcBoneTransform for the pattern to use.

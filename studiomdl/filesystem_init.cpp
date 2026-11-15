@@ -188,7 +188,7 @@ CFSMountContentInfo::CFSMountContentInfo() {
 void AddGameBinDir(IFileSystem* pFileSystem, const char* pLocation, bool bForceHead = false) {
     char temp[MAX_PATH];
     Q_snprintf(temp, sizeof(temp), "%s%cbin", pLocation, CORRECT_PATH_SEPARATOR);
-    pFileSystem->AddSearchPath(temp, "GAMEBIN", bForceHead ? PATH_ADD_TO_HEAD : PATH_ADD_TO_TAIL);
+    pFileSystem->AddSearchPath(temp, IBaseFileSystem::PathID::GameBin, bForceHead ? PATH_ADD_TO_HEAD : PATH_ADD_TO_TAIL);
 }
 
 KeyValues* ReadKeyValuesFile(const char* pFilename) {
@@ -306,7 +306,7 @@ FSReturnCode_t SetupFileSystemError(FSReturnCode_t retVal, const char* pMsg, ...
     Q_vsnprintf(g_FileSystemError, sizeof(g_FileSystemError), pMsg, marker);
     va_end(marker);
 
-    Warning("%s\n", g_FileSystemError);
+    Warning("{}\n", g_FileSystemError);
 
     // Run vconfig?
     // Don't do it if they specifically asked for it not to, or if they manually specified a vconfig with -game or -vproject.
@@ -314,7 +314,7 @@ FSReturnCode_t SetupFileSystemError(FSReturnCode_t retVal, const char* pMsg, ...
     if (g_FileSystemErrorMode == FS_ERRORMODE_AUTO) {
         // this may happen when we eject disk while loading the game.
         {
-            Error("%s\n", g_FileSystemError);
+            Error("{}\n", g_FileSystemError);
         }
     }
 
@@ -416,7 +416,7 @@ static void FileSystem_AddLoadedSearchPath(
     // Now resolve any ./'s.
     V_FixSlashes(fullLocationPath);
     if (!V_RemoveDotSlashes(fullLocationPath))
-        Error("FileSystem_AddLoadedSearchPath - Can't resolve pathname for '%s'", fullLocationPath);
+        Error("FileSystem_AddLoadedSearchPath - Can't resolve pathname for '{}'", fullLocationPath);
 
     // Add language, mod, and gamebin search paths automatically.
     if (Q_stricmp(pPathID, "game") == 0) {
@@ -426,19 +426,19 @@ static void FileSystem_AddLoadedSearchPath(
         if (bLowViolence && bDoAllPaths) {
             char szPath[MAX_PATH];
             Q_snprintf(szPath, sizeof(szPath), "%s_lv", fullLocationPath);
-            initInfo.m_pFileSystem->AddSearchPath(szPath, pPathID, PATH_ADD_TO_TAIL);
+            initInfo.m_pFileSystem->AddSearchPath(szPath, IBaseFileSystem::ToPathID(pPathID), PATH_ADD_TO_TAIL);
         }
 
         if (CommandLine()->FindParm("-tempcontent") != 0 && bDoAllPaths) {
             char szPath[MAX_PATH];
             Q_snprintf(szPath, sizeof(szPath), "%s_tempcontent", fullLocationPath);
-            initInfo.m_pFileSystem->AddSearchPath(szPath, pPathID, PATH_ADD_TO_TAIL);
+            initInfo.m_pFileSystem->AddSearchPath(szPath, IBaseFileSystem::ToPathID(pPathID), PATH_ADD_TO_TAIL);
         }
 
         // mark the first "game" dir as the "MOD" dir
         if (*bFirstGamePath) {
             *bFirstGamePath = false;
-            initInfo.m_pFileSystem->AddSearchPath(fullLocationPath, "MOD", PATH_ADD_TO_TAIL);
+            initInfo.m_pFileSystem->AddSearchPath(fullLocationPath, IBaseFileSystem::PathID::Mod, PATH_ADD_TO_TAIL);
             initInfo.m_ModPath = fullLocationPath;
         }
 
@@ -448,7 +448,7 @@ static void FileSystem_AddLoadedSearchPath(
         }
     }
 
-    initInfo.m_pFileSystem->AddSearchPath(fullLocationPath, pPathID, PATH_ADD_TO_TAIL);
+    initInfo.m_pFileSystem->AddSearchPath(fullLocationPath, IBaseFileSystem::ToPathID(pPathID), PATH_ADD_TO_TAIL);
 }
 
 
@@ -550,7 +550,7 @@ FSReturnCode_t FileSystem_LoadSearchPaths(CFSSearchPathsInit &initInfo) {
     // Add the "platform" directory as a game searchable path
     char pPlatformPath[MAX_PATH];
     V_ComposeFileName(baseDir.c_str(), "platform", pPlatformPath, sizeof(pPlatformPath));
-    initInfo.m_pFileSystem->AddSearchPath(pPlatformPath, "GAME", PATH_ADD_TO_TAIL);
+    initInfo.m_pFileSystem->AddSearchPath(pPlatformPath, IBaseFileSystem::PathID::Game, PATH_ADD_TO_TAIL);
 
     // these specialized tool paths are not used on 360 and cause a costly constant perf tax, so inhibited
     if (IsPC()) {
@@ -564,9 +564,9 @@ FSReturnCode_t FileSystem_LoadSearchPaths(CFSSearchPathsInit &initInfo) {
 
         V_strncat(szContentRoot, "\\content", sizeof(szContentRoot));
 
-        int nLen = initInfo.m_pFileSystem->GetSearchPath("GAME", false, nullptr, 0);
+        int nLen = initInfo.m_pFileSystem->GetSearchPath(IBaseFileSystem::PathID::Game, false, nullptr, 0);
         char* pSearchPath = (char*) stackalloc(nLen * sizeof(char));
-        initInfo.m_pFileSystem->GetSearchPath("GAME", false, pSearchPath, nLen);
+        initInfo.m_pFileSystem->GetSearchPath(IBaseFileSystem::PathID::Game, false, pSearchPath, nLen);
         char* pPath = pSearchPath;
         while (pPath) {
             char* pSemiColon = strchr(pPath, ';');
@@ -586,23 +586,23 @@ FSReturnCode_t FileSystem_LoadSearchPaths(CFSSearchPathsInit &initInfo) {
                 continue;
 
             Q_ComposeFileName(szContentRoot, pRelativePath, pContentPath, sizeof(pContentPath));
-            initInfo.m_pFileSystem->AddSearchPath(pContentPath, "CONTENT");
+            initInfo.m_pFileSystem->AddSearchPath(pContentPath, IBaseFileSystem::PathID::Content);
         }
 
         // Also, mark specific path IDs as "by request only". That way, we won't waste time searching in them
         // when people forget to specify a search path.
-        initInfo.m_pFileSystem->MarkPathIDByRequestOnly("content", true);
+        initInfo.m_pFileSystem->MarkPathIDByRequestOnly(IBaseFileSystem::PathID::Content, true);
     }
 
     // Also, mark specific path IDs as "by request only". That way, we won't waste time searching in them
     // when people forget to specify a search path.
-    initInfo.m_pFileSystem->MarkPathIDByRequestOnly("executable_path", true);
-    initInfo.m_pFileSystem->MarkPathIDByRequestOnly("gamebin", true);
-    initInfo.m_pFileSystem->MarkPathIDByRequestOnly("mod", true);
+    initInfo.m_pFileSystem->MarkPathIDByRequestOnly(IBaseFileSystem::PathID::ExecutablePath, true);
+    initInfo.m_pFileSystem->MarkPathIDByRequestOnly(IBaseFileSystem::PathID::GameBin, true);
+    initInfo.m_pFileSystem->MarkPathIDByRequestOnly(IBaseFileSystem::PathID::Mod, true);
 
     // Add the write path last.
     if (initInfo.m_ModPath[0] != 0) {
-        initInfo.m_pFileSystem->AddSearchPath(initInfo.m_ModPath, "DEFAULT_WRITE_PATH", PATH_ADD_TO_TAIL);
+        initInfo.m_pFileSystem->AddSearchPath(initInfo.m_ModPath, IBaseFileSystem::PathID::DefaultWritePath, PATH_ADD_TO_TAIL);
     }
 
 #ifdef _DEBUG
@@ -615,12 +615,11 @@ FSReturnCode_t FileSystem_LoadSearchPaths(CFSSearchPathsInit &initInfo) {
         (CommandLine()->FindParm("-internalbuild") != 0)) //steam beta is ok
     {
         char szSearchPaths[4096];
-        //int CBaseFileSystem::GetSearchPath( const char *pathID, bool bGetPackFiles, char *pPath, int nMaxLen )
-        int iLength1 = initInfo.m_pFileSystem->GetSearchPath("EXECUTABLE_PATH", false, szSearchPaths, 4096);
+        int iLength1 = initInfo.m_pFileSystem->GetSearchPath(IBaseFileSystem::PathID::ExecutablePath, false, szSearchPaths, 4096);
         if (iLength1 == 1)
             iLength1 = 0;
 
-        int iLength2 = initInfo.m_pFileSystem->GetSearchPath("GAMEBIN", false, szSearchPaths + iLength1,
+        int iLength2 = initInfo.m_pFileSystem->GetSearchPath(IBaseFileSystem::PathID::GameBin, false, szSearchPaths + iLength1,
                                                              4096 - iLength1);
         if ((iLength2 > 1) && (iLength1 > 1)) {
             szSearchPaths[iLength1 - 1] = ';'; //replace first null terminator
@@ -800,13 +799,13 @@ ShowError:
 }
 
 FSReturnCode_t FileSystem_SetBasePaths(IFileSystem* pFileSystem) {
-    pFileSystem->RemoveSearchPaths("EXECUTABLE_PATH");
+    pFileSystem->RemoveSearchPaths(IBaseFileSystem::PathID::ExecutablePath);
 
     std::string executablePath;
     if (!FileSystem_GetExecutableDir(executablePath))
         return SetupFileSystemError(FS_INVALID_PARAMETERS, "FileSystem_GetExecutableDir failed.");
 
-    pFileSystem->AddSearchPath(executablePath.c_str(), "EXECUTABLE_PATH");
+    pFileSystem->AddSearchPath(executablePath.c_str(), IBaseFileSystem::PathID::ExecutablePath);
     return FS_OK;
 }
 
@@ -854,5 +853,5 @@ void FileSystem_AddSearchPath_Platform(IFileSystem* pFileSystem, const std::stri
     vstd::paths::strip_trailing_slash(platform);
     platform += "/../platform";
 
-    pFileSystem->AddSearchPath(platform, "PLATFORM");
+    pFileSystem->AddSearchPath(platform, IBaseFileSystem::PathID::Platform);
 }

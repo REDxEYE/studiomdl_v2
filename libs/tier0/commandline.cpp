@@ -358,7 +358,7 @@ void CCommandLine::AddArgument(const std::string_view arg) {
         return;
 
     if (m_ppParms.size() >= MAX_PARAMETERS)
-        Error("CCommandLine::AddArgument: exceeded %d parameters", MAX_PARAMETERS);
+        Error("CCommandLine::AddArgument: exceeded {{}} parameters", uint32_t(MAX_PARAMETERS));
 
     m_ppParms.emplace_back(arg);
 }

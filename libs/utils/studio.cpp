@@ -128,7 +128,7 @@ uint8_t *mstudioanimdesc_t::pAnim( int *piFrame, float &flStall ) const
 				{
 					// This will preload the block
 					pAnimBlock( pSection( i )->animblock, pSection( i )->animindex, true );
-					// Msg( "[%8.3f] precaching %s:%s:%d:%d.\n",  Plat_FloatTime(), pStudiohdr()->pszName(), pszName(), i, pSection( i )->animblock );
+					// Msg( "[{:8.3f}] precaching {}:{}:{:d}:{:d}.\n",  Plat_FloatTime(), pStudiohdr()->pszName(), pszName(), i, pSection( i )->animblock );
 				}
 
 				prevBlock = pSection( i )->animblock;
@@ -532,7 +532,7 @@ const studiohdr_t *CStudioHdr::GroupStudioHdr( int i )
 	{
 		const char *pszName;
 		pszName = ( m_pStudioHdr ) ? m_pStudioHdr->pszName() : "<<null>>";
-		ExecuteNTimes( 5, Warning( "Invalid index passed to CStudioHdr(%s)::GroupStudioHdr(): %d [%d]\n", pszName, i, m_pStudioHdrCache.size() ) );
+		ExecuteNTimes( 5, Warning( "Invalid index passed to CStudioHdr({})::GroupStudioHdr(): {:d} [{:d}]\n", pszName, i, m_pStudioHdrCache.size() ) );
 		DebuggerBreakIfDebugging();
 		return m_pStudioHdr; // return something known to probably exist, certainly things will be messed up, but hopefully not crash before the warning is noticed
 	}

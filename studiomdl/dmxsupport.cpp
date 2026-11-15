@@ -1817,7 +1817,7 @@ void LoadConstraints(CDmElement *pDmeRoot) {
         if (LoadConstraint<CDmeRigParentConstraintOperator, CParentConstraint>(constraints[i]))
             continue;
 
-        Error("TODO: Support Constraint: %s\n", constraints[i]->GetName());
+        Error("TODO: Support Constraint: {}\n", constraints[i]->GetName());
     }
 }
 
@@ -2302,7 +2302,7 @@ int Load_DMX(s_source_t *pSource) {
         return 0;
 
     if (!g_studiomdl.options.quiet) {
-        Msg("DMX Model %s\n", fullPath.c_str());
+        Msg("DMX Model {}\n", fullPath.c_str());
     }
 
     // Load model info
@@ -2356,7 +2356,7 @@ int Load_FBX(s_source_t *pSource) {
         return 0;
 
     if (!g_quiet) {
-        Msg("FBX Model %s\n", pFullPath);
+        Msg("FBX Model {}\n", pFullPath);
     }
 
     // Load model info

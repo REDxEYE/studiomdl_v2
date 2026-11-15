@@ -144,7 +144,7 @@ bool CImportVMT::SerializeShaderParameter( CUtlBuffer &buf, CDmAttribute *pAttri
 		break;
 
 	default:
-		Warning( "Attempted to serialize an unsupported shader parameter type %s (%s)\n", 
+		Warning( "Attempted to serialize an unsupported shader parameter type {} ({})\n", 
 			pAttribute->GetName(), g_pDataModel->GetAttributeNameForType( pAttribute->GetType() ) );
 		return false;
 	}
@@ -341,7 +341,7 @@ int ParseVectorFromKeyValueString( const char *pParamName, const char* pScan, co
 		{
 			if (*pScan != ']' && *pScan != '}')
 			{
-				Warning( "Warning in .VMT file (%s): no ']' or '}' found in vector key \"%s\".\n"
+				Warning( "Warning in .VMT file ({{}}): no ']' or '}}}}' found in vector key \"{{}}\".\n"
 					"Did you forget to surround the vector with \"s?\n", pMaterialName, pParamName );
 			}
 
@@ -355,7 +355,7 @@ int ParseVectorFromKeyValueString( const char *pParamName, const char* pScan, co
 		vecVal[i] = strtod( pScan, &pEnd );
 		if (pScan == pEnd)
 		{
-			Warning( "Error in .VMT file: error parsing vector element \"%s\" in \"%s\"\n", pParamName, pMaterialName );
+			Warning( "Error in .VMT file: error parsing vector element \"{}\" in \"{}\"\n", pParamName, pMaterialName );
 			return 0;
 		}
 
@@ -555,7 +555,7 @@ bool CImportVMT::UnserializeProxies( CDmElement *pElement, KeyValues *pKeyValues
 				return true;
 
 			default:
-				Warning( "Unhandled proxy keyvalues type (proxy %s var %s)\n", pProxy->GetName(), pProxyParam->GetName() );
+				Warning( "Unhandled proxy keyvalues type (proxy {} var {})\n", pProxy->GetName(), pProxyParam->GetName() );
 				return false;
 			}
 		}
@@ -586,7 +586,7 @@ bool CImportVMT::UnserializeFallbacks( CDmElement *pElement, KeyValues *pFallbac
 	{
 		if ( !UnserializeShaderParam( pFallback, pShaderParam ) )
 		{
-			Warning( "Error importing vmt shader parameter %s\n", pShaderParam->GetName() );
+			Warning( "Error importing vmt shader parameter {}\n", pShaderParam->GetName() );
 			return NULL;
 		}
 	}
@@ -720,7 +720,7 @@ CDmElement* CImportVMT::UnserializeFromKeyValues( KeyValues *pKeyValues )
 	{
 		if ( !UnserializeShaderParam( pRoot, pShaderParam ) )
 		{
-			Warning( "Error importing vmt shader parameter %s\n", pShaderParam->GetName() );
+			Warning( "Error importing vmt shader parameter {}\n", pShaderParam->GetName() );
 			return nullptr;
 		}
 	}

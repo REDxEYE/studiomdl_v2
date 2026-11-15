@@ -106,7 +106,7 @@ public:
 	{
 		int ret=Read( pOutput, size );
 		if (ret != size )
-			Error("failed to read %d bytes\n", size );
+			Error("failed to read {:d} bytes\n", size );
 	}
 	
 	int Write( void const* pInput, int size)

@@ -143,8 +143,8 @@ static bool LoadLODs(s_source_t **ppRootLODSource, CDmeLODList *pLodList, bool &
         bool bIsRootLOD = (pLOD == pRootLOD);
         if (g_studiomdl.options.stripLods && !bIsShadowLOD && (!bIsRootLOD)) {
             if (!g_studiomdl.options.quiet) {
-                Msg("Stripped lod \"%s\" @ %.1f\n", pLOD->m_Model.GetElement() ? pLOD->m_Model->GetName() : "<none>",
-                    pLOD->m_flSwitchMetric);
+                Msg("Stripped lod \"{}\" @ {:.1f}\n", pLOD->m_Model.GetElement() ? pLOD->m_Model->GetName() : "<none>",
+                    pLOD->m_flSwitchMetric.Get());
             }
             continue;
         }
@@ -2142,7 +2142,7 @@ bool LoadPreprocessedFile(const char *pFileName, float flScale) {
     }
 
     if (!g_studiomdl.options.quiet) {
-        Msg("Loaded Preprocessed File %s\n", fullPath.c_str());
+        Msg("Loaded Preprocessed File {}\n", fullPath.c_str());
     }
 
     const bool bLoaded = LoadPreprocessedRoot(pRoot, fullPath);

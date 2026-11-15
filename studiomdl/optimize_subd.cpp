@@ -292,11 +292,11 @@ namespace OptimizedModel
 		{
 			if ( i != m_IndexRemapTable[i] )
 			{
-				Msg( "(%d, %d)  ***\n", i, m_IndexRemapTable[i] );
+				Msg( "({:d}, {:d})  ***\n", i, m_IndexRemapTable[i] );
 			}
 			else
 			{
-				Msg( "(%d, %d)\n", i, m_IndexRemapTable[i] );
+				Msg( "({:d}, {:d})\n", i, m_IndexRemapTable[i] );
 			}
 		}
 */
@@ -341,15 +341,15 @@ namespace OptimizedModel
 				if (( pPatch->halfEdges[k].twin != nullptr) && (pPatch->halfEdges[k].twin->twin != &pPatch->halfEdges[k]) )
 				{
 
-					Msg( "Topology error at vertices %d, %d, %d\n", pPatch->vtxIDs[MOD4[k+3]], pPatch->vtxIDs[MOD4[k+0]], pPatch->vtxIDs[MOD4[k+1]] );
+					Msg( "Topology error at vertices {:d}, {:d}, {:d}\n", pPatch->vtxIDs[MOD4[k+3]], pPatch->vtxIDs[MOD4[k+0]], pPatch->vtxIDs[MOD4[k+1]] );
 
 					Vector vA = VTXPOS( pPatch->vtxIDs[MOD4[k+3]] );
 					Vector vB = VTXPOS( pPatch->vtxIDs[MOD4[k+0]] );
 					Vector vC = VTXPOS( pPatch->vtxIDs[MOD4[k+1]] );
 
-					Msg( "spaceLocator -p %.4f %.4f %.4f;\n", vA.x, vA.y, vA.z );
-					Msg( "spaceLocator -p %.4f %.4f %.4f;\n", vB.x, vB.y, vB.z );
-					Msg( "spaceLocator -p %.4f %.4f %.4f;\n", vC.x, vC.y, vC.z );
+					Msg( "spaceLocator -p {:.4f} {:.4f} {:.4f};\n", vA.x, vA.y, vA.z );
+					Msg( "spaceLocator -p {:.4f} {:.4f} {:.4f};\n", vB.x, vB.y, vB.z );
+					Msg( "spaceLocator -p {:.4f} {:.4f} {:.4f};\n", vC.x, vC.y, vC.z );
 
 				}
 			}

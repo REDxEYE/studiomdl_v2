@@ -334,13 +334,13 @@ public:
 		DmeTime_t test;
 		if ( !Unserialize( buf, test ) )
 		{
-			Msg( "TestUnserialize: %d failed\n", time.GetTenthsOfMS() );
+			Msg( "TestUnserialize: {:d} failed\n", time.GetTenthsOfMS() );
 			return;
 		}
 
 		if ( time != test )
 		{
-			Msg( "TestUnserialize: %d != %d\n", test.GetTenthsOfMS(), time.GetTenthsOfMS() );
+			Msg( "TestUnserialize: {:d} != {:d}\n", test.GetTenthsOfMS(), time.GetTenthsOfMS() );
 		}
 	}
 
@@ -352,7 +352,7 @@ public:
 		{
 			if ( bExpectedSuccess )
 			{
-				Msg( "TestUnserialize: %s failed\n", pStr );
+				Msg( "TestUnserialize: {} failed\n", pStr );
 			}
 			return;
 		}
@@ -370,7 +370,7 @@ public:
 
 		if ( V_strcmp( pTestStr, pExpectedStr ) )
 		{
-			Msg( "TestUnserialize: %s != %s\n", pTestStr, pExpectedStr );
+			Msg( "TestUnserialize: {} != {}\n", pTestStr, pExpectedStr );
 		}
 	}
 };

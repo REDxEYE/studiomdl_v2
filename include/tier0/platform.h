@@ -634,7 +634,7 @@ inline int64_t CastPtrToInt64( const void *p )
 PLATFORM_INTERFACE double			Plat_FloatTime();		// Returns time in seconds since the module was loaded.
 PLATFORM_INTERFACE uint32_t			Plat_MSTime();			// Time in milliseconds.
 
-PLATFORM_INTERFACE void				Plat_ExitProcess( int nCode );
+[[noreturn]] PLATFORM_INTERFACE void	Plat_ExitProcess( int nCode );
 
 #define Plat_FastMemset memset
 

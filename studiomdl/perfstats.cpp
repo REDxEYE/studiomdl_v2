@@ -22,10 +22,6 @@ static CBufferedLoggingListener s_BufferedLoggingListener;
 
 void SpewPerfStats(studiohdr_t* pStudioHdr, const std::string_view pFilename, unsigned int flags) {
     std::string fileName = std::string{pFilename};
-    vertexFileHeader_t* pNewVvdHdr;
-    vertexFileHeader_t* pVvdHdr = nullptr;
-    OptimizedModel::FileHeader_t* pVtxHdr = nullptr;
-    int vvdSize = 0;
 
     bool bExtraData = (pStudioHdr->flags & STUDIOHDR_FLAGS_EXTRA_VERTEX_DATA) != 0;
 
@@ -43,7 +39,12 @@ void SpewPerfStats(studiohdr_t* pStudioHdr, const std::string_view pFilename, un
     vstd::paths::strip_extension(fileName);
     fileName+= ".vvd";
 
-    vvdSize = LoadOutputFile(fileName, (void**) &pVvdHdr);
+    auto vvdFileOpt = LoadOutputFile(fileName);
+    if (!vvdFileOpt)
+        return;
+    auto vvdFile = std::move(vvdFileOpt.value());
+
+    auto* pVvdHdr = vvdFile.reinterpret_at<vertexFileHeader_t>(0);
 
     // validate header
     if (pVvdHdr->id != MODEL_VERTEX_FILE_ID) {
@@ -59,16 +60,15 @@ void SpewPerfStats(studiohdr_t* pStudioHdr, const std::string_view pFilename, un
     if (pVvdHdr->numFixups) {
         // need to perform mesh relocation fixups
         // allocate a new copy
-        pNewVvdHdr = (vertexFileHeader_t*) malloc(vvdSize);
+        auto newVvdBuffer = vstd::Buffer(vvdFile.size());
+        auto* pNewVvdHdr = newVvdBuffer.reinterpret_at<vertexFileHeader_t>(0);
         if (!pNewVvdHdr) {
-            MdlError("Error allocating {} bytes for Vertex File '{}'\n", vvdSize, fileName);
+            MdlError("Error allocating {} bytes for Vertex File '{}'\n", vvdFile.size(), fileName);
         }
 
         Studio_LoadVertexes(pVvdHdr, pNewVvdHdr, 0, true, bExtraData);
-
-        // discard original
-        free(pVvdHdr);
-
+        vvdFile = std::move(newVvdBuffer);
+        pNewVvdHdr = vvdFile.reinterpret_at<vertexFileHeader_t>(0);
         pVvdHdr = pNewVvdHdr;
     }
 
@@ -79,7 +79,12 @@ void SpewPerfStats(studiohdr_t* pStudioHdr, const std::string_view pFilename, un
     fileName+= ".dx90.vtx";
 
     // persist the vtx data
-    LoadOutputFile(fileName, (void**) &pVtxHdr);
+    auto vtxFileOpt = LoadOutputFile(fileName);
+    if (!vtxFileOpt)
+        return;
+    auto vtxFile = std::move(vtxFileOpt.value());
+
+    auto* pVtxHdr = vtxFile.reinterpret_at<OptimizedModel::FileHeader_t>(0);
 
     // validate header
     if (pVtxHdr->version != OPTIMIZED_MODEL_FILE_VERSION) {
@@ -89,15 +94,6 @@ void SpewPerfStats(studiohdr_t* pStudioHdr, const std::string_view pFilename, un
     if (pVtxHdr->checkSum != pStudioHdr->checksum) {
         MdlError("Bad checksum for '{}' (got {} expected {})\n", fileName, pVtxHdr->checkSum, pStudioHdr->checksum);
     }
-
-    // studio render will request these through cache interface
-    pStudioHdr->SetVertexBase((void*) pVvdHdr);
-    pStudioHdr->SetIndexBase((void*) pVtxHdr);
-
-    free(pVtxHdr);
-
-    if (pVvdHdr)
-        free(pVvdHdr);
 
     if (!(flags & SPEWPERFSTATS_SHOWSTUDIORENDERWARNINGS)) {
         LoggingSystem_PopLoggingState();

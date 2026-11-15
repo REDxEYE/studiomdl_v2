@@ -128,13 +128,13 @@ void CImportSFMV1::ConvertTimeAttribute( CDmElement *pElementInternal, const cha
 	if ( !pOldAttr )
 	{
 		Warning( "*** Problem in file encountered!\n" );
-		Warning( "*** TimeFrame \"%s\" is missing attribute \"%s\"!\n", pElementInternal->GetName(), pOldName );
-		Warning( "*** Setting new attribute \"%s\" to 0\n", pNewName );
+		Warning( "*** TimeFrame \"{}\" is missing attribute \"{}\"!\n", pElementInternal->GetName(), pOldName );
+		Warning( "*** Setting new attribute \"{}\" to 0\n", pNewName );
 	}
 	else if ( pOldAttr->GetType() != AT_FLOAT )
 	{
 		Warning( "*** Problem in file encountered!\n" );
-		Warning( "*** TimeFrame \"%s\" has attribute \"%s\" with an unexpected type (expected float)!\n", pElementInternal->GetName(), pOldName );
+		Warning( "*** TimeFrame \"{}\" has attribute \"{}\" with an unexpected type (expected float)!\n", pElementInternal->GetName(), pOldName );
 	}
 	else
 	{
@@ -147,7 +147,7 @@ void CImportSFMV1::ConvertTimeAttribute( CDmElement *pElementInternal, const cha
 	if ( !pNewAttr )
 	{
 		Assert( 0 );
-		Warning( "*** Converter error - element \"%s\" already has a non-int attribute \"%s\"!\n", pElementInternal->GetName(), pNewName );
+		Warning( "*** Converter error - element \"{}\" already has a non-int attribute \"{}\"!\n", pElementInternal->GetName(), pNewName );
 		return;
 	}
 
@@ -173,14 +173,14 @@ void CImportSFMV1::FixupLog( CDmElement *pElementInternal )
 	if ( !pAttr )
 	{
 		Warning( "*** Problem in file encountered!\n" );
-		Warning( "*** Log \"%s\" is missing attribute \"%s\"!\n", pElementInternal->GetName(), "times" );
+		Warning( "*** Log \"{}\" is missing attribute \"{}\"!\n", pElementInternal->GetName(), "times" );
 		return;
 	}
 
 	if ( pAttr->GetType() != AT_INT_ARRAY )
 	{
 		Warning( "*** Problem in file encountered!\n" );
-		Warning( "*** Log \"%s\" has attribute \"%s\" with an unexpected type (expected int array)!\n", pElementInternal->GetName(), "times" );
+		Warning( "*** Log \"{}\" has attribute \"{}\" with an unexpected type (expected int array)!\n", pElementInternal->GetName(), "times" );
 		return;
 	}
 

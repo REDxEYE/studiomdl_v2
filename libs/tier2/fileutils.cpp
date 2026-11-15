@@ -18,8 +18,8 @@
 void GetModSubdirectory( const char *pSubDir, char *pBuf, int nBufLen )
 {
 	// Compute starting directory
-	Assert( g_pFullFileSystem->GetSearchPath( "MOD", false, NULL, 0 ) < nBufLen );
-	g_pFullFileSystem->GetSearchPath( "MOD", false, pBuf, nBufLen );
+	Assert( g_pFullFileSystem->GetSearchPath( IBaseFileSystem::PathID::Mod, false, NULL, 0 ) < nBufLen );
+	g_pFullFileSystem->GetSearchPath( IBaseFileSystem::PathID::Mod, false, pBuf, nBufLen );
 	char *pSemi = strchr( pBuf, ';' );
 	if ( pSemi )
 	{
@@ -55,14 +55,14 @@ void GetModContentSubdirectory( const char *pSubDir, char *pBuf, int nBufLen )
 void ComputeModFilename( const char *pContentFileName, char *pBuf, size_t nBufLen )
 {
 	char pRelativePath[ MAX_PATH ];
-	if ( !g_pFullFileSystem->FullPathToRelativePathEx( pContentFileName, "CONTENT", pRelativePath, sizeof(pRelativePath) ) )
+	if ( !g_pFullFileSystem->FullPathToRelativePathEx( pContentFileName, IBaseFileSystem::PathID::Content, pRelativePath, sizeof(pRelativePath) ) )
 	{
 		Q_strncpy( pBuf, pContentFileName, nBufLen );
 		return;
 	}
 
 	char pGameRoot[ MAX_PATH ];
-	g_pFullFileSystem->GetSearchPath( "GAME", false, pGameRoot, sizeof(pGameRoot) );
+	g_pFullFileSystem->GetSearchPath( IBaseFileSystem::PathID::Game, false, pGameRoot, sizeof(pGameRoot) );
 	char *pSemi = strchr( pGameRoot, ';' );
 	if ( pSemi )
 	{
@@ -79,14 +79,14 @@ void ComputeModFilename( const char *pContentFileName, char *pBuf, size_t nBufLe
 void ComputeModContentFilename( const char *pGameFileName, char *pBuf, size_t nBufLen )
 {
 	char pRelativePath[ MAX_PATH ];
-	if ( !g_pFullFileSystem->FullPathToRelativePathEx( pGameFileName, "GAME", pRelativePath, sizeof(pRelativePath) ) )
+	if ( !g_pFullFileSystem->FullPathToRelativePathEx( pGameFileName, IBaseFileSystem::PathID::Game, pRelativePath, sizeof(pRelativePath) ) )
 	{
 		Q_strncpy( pBuf, pGameFileName, nBufLen );
 		return;
 	}
 
 	char pContentRoot[ MAX_PATH ];
-	g_pFullFileSystem->GetSearchPath( "CONTENT", false, pContentRoot, sizeof(pContentRoot) );
+	g_pFullFileSystem->GetSearchPath( IBaseFileSystem::PathID::Content, false, pContentRoot, sizeof(pContentRoot) );
 	char *pSemi = strchr( pContentRoot, ';' );
 	if ( pSemi )
 	{
@@ -103,9 +103,9 @@ void ComputeModContentFilename( const char *pGameFileName, char *pBuf, size_t nB
 //-----------------------------------------------------------------------------
 void GetSearchPath( CUtlVector< CUtlString > &path, const char *pPathID )
 {
-	int nMaxLen = g_pFullFileSystem->GetSearchPath( pPathID, false, nullptr, 0 );
+	int nMaxLen = g_pFullFileSystem->GetSearchPath( IBaseFileSystem::ToPathID( pPathID ), false, nullptr, 0 );
 	char *pBuf = (char*)stackalloc( nMaxLen );
-	g_pFullFileSystem->GetSearchPath( pPathID, false, pBuf, nMaxLen );
+	g_pFullFileSystem->GetSearchPath( IBaseFileSystem::ToPathID( pPathID ), false, pBuf, nMaxLen );
 
 	char *pSemi;
 	while (nullptr != ( pSemi = strchr( pBuf, ';' ) ) )
@@ -128,7 +128,7 @@ bool GenerateFullPath( const char *pFileName, char const *pPathID, char *pBuf, i
 		return true;
 	}
 
-	const char *pFullPath = g_pFullFileSystem->RelativePathToFullPath( pFileName, pPathID, pBuf, nBufLen );
+	const char *pFullPath = g_pFullFileSystem->RelativePathToFullPath( pFileName, IBaseFileSystem::ToPathID( pPathID ), pBuf, nBufLen );
 	if ( pFullPath && Q_IsAbsolutePath( pFullPath ) )
 		return true;
 

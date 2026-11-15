@@ -32,7 +32,7 @@ CDmElement* CImportKeyValueBase::CreateDmElement( const char *pElementType, cons
 	DmElementHandle_t hElement = g_pDataModel->CreateElement( pElementType, pElementName, DMFILEID_INVALID, pId );
 	if ( hElement == DMELEMENT_HANDLE_INVALID )
 	{
-		Warning("%s: Element uses unknown element type %s\n", m_pFileName, pElementType );
+		Warning("{}: Element uses unknown element type {}\n", m_pFileName, pElementType );
 		return nullptr;
 	}
 

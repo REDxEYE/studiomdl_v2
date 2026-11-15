@@ -22,10 +22,11 @@
 
 #endif
 
-#include <string.h>
-#include <stdlib.h>
-#include <time.h>
+#include <cstring>
+#include <cstdlib>
+#include <ctime>
 #include "filesystem.h"
+#include "tier1_v2/buffer.hpp"
 
 #include <string>
 #include <string_view>
@@ -67,21 +68,19 @@ extern IBaseFileSystem *g_pFileSystem;
 extern int myargc;
 extern char **myargv;
 
-int Q_filelength (FileHandle_t f);
-
 // UTF-8 paths
 std::string ExpandArg( std::string_view path );	// absolute, relative to the current directory
 std::string ExpandPath( std::string_view path );	// absolute, relative to qdir (the QC directory)
 
 
 
-FileHandle_t	SafeOpenWrite ( const char *filename );
-FileHandle_t	SafeOpenRead ( const char *filename );
-void			SafeRead( FileHandle_t f, void *buffer, int count);
-void			SafeWrite( FileHandle_t f, void *buffer, int count);
+FileHandle_t	SafeOpenWrite (std::string_view filename);
+FileHandle_t	SafeOpenRead (std::string_view filename);
+void			SafeRead(FileHandle_t f, vstd::Buffer &buffer);
+void			SafeWrite(FileHandle_t f, const vstd::Buffer &buffer);
 
-int		LoadFile ( const char *filename, void **bufferptr );
-void	SaveFile ( const char *filename, void *buffer, int count );
+std::optional<vstd::Buffer> LoadFile(std::string_view filename);
+void	SaveFile (std::string_view filename, const vstd::Buffer &buffer);
 qboolean	FileExists ( const char *filename );
 
 // Do a printf in the specified color.
@@ -140,12 +139,11 @@ extern	char			archivedir[1024];
 
 extern	qboolean verbose;
 
-void ExpandWildcards (int *argc, char ***argv);
-
 // Content base paths live in g_studiomdl.paths.contentBasePaths (UTF-8)
-void CmdLib_AddBasePath( const char *pBasePath );
-void CmdLib_AddNewSearchPath( const char *pBasePath );
-bool CmdLib_HasBasePath( const char *pFileName, int &pathLength );
+void CmdLib_AddBasePath(std::string_view path);
+void CmdLib_AddNewSearchPath(std::string_view path);
+
+std::optional<std::pair<std::string_view, std::string_view>> CmdLib_HasBasePath(std::string_view fileNameSv);
 
 extern bool g_bStopOnExit;
 

@@ -605,7 +605,7 @@ CDmElement* CImportVMF::UnserializeFromKeyValues( KeyValues *pKeyValues )
 
 		if ( !bOk )
 		{
-			Warning( "Error importing VMF element %s\n", pKeyValues->GetName() );
+			Warning( "Error importing VMF element {}\n", pKeyValues->GetName() );
 			return nullptr;
 		}
 	}

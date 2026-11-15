@@ -457,7 +457,7 @@ bool CDmSerializerBinary::UnserializeAttributes(CUtlBuffer &buf, CDmElement *pEl
         Assert(nAttributeType != AT_UNKNOWN);
 
         if (nAttributeType == AT_TIME && bReadTimeAsObjectId) {
-            Warning("CDmSerializerBinary: Removing deprecated objectid attribute '%s' of element '%s'\n", pName,
+            Warning("CDmSerializerBinary: Removing deprecated objectid attribute '{}' of element '{}'\n", pName,
                     pElement->GetName());
             DmObjectId_t id;
             ::Unserialize(buf, id);
@@ -472,11 +472,11 @@ bool CDmSerializerBinary::UnserializeAttributes(CUtlBuffer &buf, CDmElement *pEl
             if (pElement && !pAttribute) {
                 CDmAttribute *pExistingAttr = pElement->GetAttribute(pName);
                 if (pExistingAttr) {
-                    Warning("CDmSerializerBinary: Attribute '%s' of element '%s' read as '%s' but expected '%s'\n",
+                    Warning("CDmSerializerBinary: Attribute '{}' of element '{}' read as '{}' but expected '{}'\n",
                             pName, pElement->GetName(), GetTypeString(nAttributeType), pExistingAttr->GetTypeString());
                 }
                 else {
-                    Warning("CDmSerializerBinary: Unknown error reading '%s' attribute '%s' of element '%s'\n",
+                    Warning("CDmSerializerBinary: Unknown error reading '{}' attribute '{}' of element '{}'\n",
                             GetTypeString(nAttributeType), pName, pElement->GetName());
                     return false;
                 }
@@ -569,7 +569,7 @@ DmElementHandle_t CreateElementWithFallback(const char *pType, const char *pName
                                             const DmObjectId_t &id) {
     DmElementHandle_t hElement = g_pDataModel->CreateElement(pType, pName, fileid, &id);
     if (hElement == DMELEMENT_HANDLE_INVALID) {
-        Warning("Binary: Element uses unknown element type %s\n", pType);
+        Warning("Binary: Element uses unknown element type {}\n", pType);
         hElement = g_pDataModel->CreateElement("DmElement", pName, fileid, &id);
         Assert(hElement != DMELEMENT_HANDLE_INVALID);
     }

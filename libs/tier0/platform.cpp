@@ -105,6 +105,7 @@ void Plat_ExitProcess(int nCode) {
     // We don't want global destructors in our process OR in any DLL to get executed.
     // _exit() avoids calling global destructors in our module, but not in other DLLs.
     TerminateProcess( GetCurrentProcess(), nCode );
+    _exit(nCode); // not reached: TerminateProcess on the current process does not return
 #else
     _exit(nCode);
 #endif

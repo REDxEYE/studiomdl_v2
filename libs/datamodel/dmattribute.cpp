@@ -2057,7 +2057,7 @@ void CDmAttribute::SetName( const char *pNewName )
 {
 	if ( m_pOwner->HasAttribute( pNewName ) && Q_stricmp( GetName(), pNewName ) )
 	{
-		Warning( "Tried to rename from '%s' to '%s', but '%s' already exists\n",
+		Warning( "Tried to rename from '{}' to '{}', but '{}' already exists\n",
 			GetName(), pNewName, pNewName );
 		return;
 	}

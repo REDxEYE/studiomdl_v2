@@ -153,7 +153,7 @@ void CImportSFMV2::FixupElement( CDmElement *pElement )
 		char buf[ 128 ];
 		g_pDataModel->ToString( pElement->GetId(), buf, sizeof( buf ) );
 
-		Msg( "Processing %s %s id %s\n",
+		Msg( "Processing {} {} id {}\n",
 			pElement->GetTypeString(), pElement->GetName(), buf );
 		*/
 

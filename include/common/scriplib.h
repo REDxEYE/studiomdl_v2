@@ -64,7 +64,7 @@ public:
     // If pathMode is SCRIPT_USE_ABSOLUTE_PATH, then it uses ExpandPath() on the filename before
     // trying to open it. Otherwise, it passes the filename straight into the filesystem
     // (so you can leave it as a relative path). filename is UTF-8.
-    void LoadFile(const char *filename, ScriptPathMode_t pathMode = SCRIPT_USE_ABSOLUTE_PATH);
+    void LoadFile(std::string_view filename, ScriptPathMode_t pathMode = SCRIPT_USE_ABSOLUTE_PATH);
     // Parses buffer, which must outlive the parse ($definemacro edits it in place). Errors report it as "memory buffer".
     void LoadMemory(std::string &buffer);
     // Releases every loaded script; GetPosition reports nothing afterwards. Macros and variables are kept.
@@ -210,14 +210,14 @@ private:
 
     Script &Current() const { return *m_stack.back(); }
     Script &PushScript(std::string filename);
-    void AddScriptToStack(const char *filename, ScriptPathMode_t pathMode);
+    void AddScriptToStack(std::string_view filename, ScriptPathMode_t pathMode);
     bool PopFinishedScript();
     bool SkipToToken(bool crossline);
     void ReadQuotedToken(char *&token_p, const char *token_end);
     bool ExpandMacroToken(char *&token_p, const char *token_end);
     bool ExpandVariableToken(char *&token_p, const char *token_end);
     bool ExpandSubMacroToken();
-    void PasteIntoToken(char *&token_p, const char *token_end, std::string_view value);
+    void PasteIntoToken(char *&token_p, const char *token_end, std::string_view value) const;
     bool HandleDirective(bool crossline, bool &result);
     void AttemptConditionalInclude();
     void DefineMacro(const std::string &name);

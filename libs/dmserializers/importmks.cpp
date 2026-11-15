@@ -153,7 +153,7 @@ int CImportMKS::ParsePackingMode( char *word )
 	
 	if ( eRequestedMode == PCKM_INVALID )
 	{
-		Warning( "*** line %d: invalid packmode specified, allowed values are 'rgba' or 'rgb+a'!\n", m_NumActualLinesRead );
+		Warning( "*** line {:d}: invalid packmode specified, allowed values are 'rgba' or 'rgb+a'!\n", m_NumActualLinesRead );
 	}	
 
 	return eRequestedMode;
@@ -183,7 +183,7 @@ int CImportMKS::ParseSequenceType( char *word )
 	}
 	else
 	{
-		Warning( "*** line %d: invalid sequence type '%s', allowed 'sequence-rgba' or 'sequence-rgb' or 'sequence-a'!\n", m_NumActualLinesRead, word );
+		Warning( "*** line {:d}: invalid sequence type '{}', allowed 'sequence-rgba' or 'sequence-rgb' or 'sequence-a'!\n", m_NumActualLinesRead, word );
 	}
 
 	return eMode;
@@ -226,13 +226,13 @@ bool CImportMKS::SetPackingMode( int eMode )
 		// flat -> rgb+a
 		if ( currentPackingMode == PCKM_FLAT && eMode == PCKM_RGB_A )
 		{
-			Msg( "Warning changing packing mode when %d sequences already defined. This may not be serialized correctly.\n", sequences.Count() );
+			Msg( "Warning changing packing mode when {:d} sequences already defined. This may not be serialized correctly.\n", sequences.Count() );
 			pCurrentPackingModeAttr->SetValue< int >( eMode );
 		}
 		// everything else
 		else
 		{
-			Msg( "*** line error: incompatible packmode change when %d sequences already defined!\n", sequences.Count() );
+			Msg( "*** line error: incompatible packmode change when {:d} sequences already defined!\n", sequences.Count() );
 			return false;
 		}
 	}
@@ -257,7 +257,7 @@ bool CImportMKS::ValidateSequenceType( int eMode, char *word )
 		case SQM_RGBA:	
 			break;
 		default:
-			Msg( "*** line error: invalid sequence type '%s', packing 'flat' allows only 'sequence-rgba'!\n", word );
+			Msg( "*** line error: invalid sequence type '{}', packing 'flat' allows only 'sequence-rgba'!\n", word );
 			return false;	
 		}
 		break;
@@ -316,7 +316,7 @@ bool CImportMKS::ValidateImagePacking( CDmElement *pBitmap, char *pImageName )
 
 			if ( ( mode != SQM_RGBA ) &&  ( mode != currentMode ) )
 			{
-				Msg( "*** line error: 'rgb+a' packing cannot pack image '%s' belonging to sequences %d and %d!\n", 
+				Msg( "*** line error: 'rgb+a' packing cannot pack image '{}' belonging to sequences {:d} and {:d}!\n", 
 					pImageName,
 					sequenceNumber, 
 					currentSequenceNumber );
@@ -338,7 +338,7 @@ CDmElement *CImportMKS::CreateDmeAmalgamatedTexture( const char *pName )
 	DmElementHandle_t hElement = g_pDataModel->CreateElement( "DmeAmalgamatedTexture", "CDmeAmalgamatedTexture", m_Fileid );
 	if ( hElement == DMELEMENT_HANDLE_INVALID )
 	{
-		Warning( "Element uses unknown element type %s\n", "CDmeAmalgamatedTexture" );
+		Warning( "Element uses unknown element type {}\n", "CDmeAmalgamatedTexture" );
 		return nullptr;
 	}
 
@@ -364,7 +364,7 @@ CDmElement *CImportMKS::CreateDmeSequence( const char *pName )
 	DmElementHandle_t hElement = g_pDataModel->CreateElement( "DmeSheetSequence", pName, m_Fileid );
 	if ( hElement == DMELEMENT_HANDLE_INVALID )
 	{
-		Warning( "Element uses unknown element type %s\n", "CDmeSheetSequence" );
+		Warning( "Element uses unknown element type {}\n", "CDmeSheetSequence" );
 		return nullptr;
 	}
 
@@ -397,7 +397,7 @@ CDmElement *CImportMKS::CreateDmeSequenceFrame( const char *pName )
 	DmElementHandle_t hElement = g_pDataModel->CreateElement( "DmeSheetSequenceFrame", pName, m_Fileid );
 	if ( hElement == DMELEMENT_HANDLE_INVALID )
 	{
-		Warning( "Element uses unknown element type %s\n", "CDmeSheetSequenceFrame" );
+		Warning( "Element uses unknown element type {}\n", "CDmeSheetSequenceFrame" );
 		return nullptr;
 	}
 
@@ -418,7 +418,7 @@ CDmElement *CImportMKS::CreateDmeSheetImage( const char *pImageName )
 	DmElementHandle_t hElement = g_pDataModel->CreateElement( "DmeSheetImage", pImageName, m_Fileid );
 	if ( hElement == DMELEMENT_HANDLE_INVALID )
 	{
-		Warning("Element uses unknown element type %s\n", "CDmeSheetImage" );
+		Warning("Element uses unknown element type {}\n", "CDmeSheetImage" );
 		return nullptr;
 	}
 
@@ -625,7 +625,7 @@ bool CImportMKS::Unserialize( CUtlBuffer &buf, const char *pEncodingName, int nE
 			if ( m_pCurrentSequence )
 			{
 				float ftime = atof( words[ words.size() - 1 ] );
-//				Warning( "ftime is %f\n", ftime );
+//				Warning( "ftime is {:f}\n", ftime );
 				
 				CUtlVector<char *> imageNames;
 				ParseFrameImages( words, imageNames );
@@ -643,7 +643,7 @@ bool CImportMKS::Unserialize( CUtlBuffer &buf, const char *pEncodingName, int nE
 		}
 		else
 		{
-			Warning( "*** line %d: Bad command \"%s\"!\n", m_NumActualLinesRead, in_str );
+			Warning( "*** line {:d}: Bad command \"{}\"!\n", m_NumActualLinesRead, in_str );
 			return NULL;
 		}
 		words.PurgeAndDeleteElements();
@@ -659,7 +659,7 @@ bool CImportMKS::Unserialize( CUtlBuffer &buf, const char *pEncodingName, int nE
 		CDmElement *pTextureCompileSettings = nullptr;
 		if ( !g_pDataModel->RestoreFromFile( pTexFile, nullptr, "tex_source1", &pTextureCompileSettings, CR_COPY_NEW ) )
 		{
-			Warning( "Error reading texture compile settings file \"%s\"!\n", pTexFile );
+			Warning( "Error reading texture compile settings file \"{}\"!\n", pTexFile );
 			return NULL;
 		}
 

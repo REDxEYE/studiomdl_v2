@@ -2598,7 +2598,7 @@ void CapKeyValues() {
 
 void WriteQCPath() {
     char relativeQCDir[4096] = {};
-    g_pFullFileSystem->FullPathToRelativePathEx(g_studiomdl.paths.qdir.c_str(), "CONTENT", relativeQCDir,
+    g_pFullFileSystem->FullPathToRelativePathEx(g_studiomdl.paths.qdir.c_str(), IBaseFileSystem::PathID::Content, relativeQCDir,
                                                 sizeof(relativeQCDir));
     const std::string relativeQCPath = std::string(relativeQCDir) + std::string(
                                            vstd::paths::file_name(g_studiomdl.paths.fullpath));

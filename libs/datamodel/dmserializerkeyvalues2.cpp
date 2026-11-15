@@ -25,41 +25,39 @@ class CUtlBuffer;
 //-----------------------------------------------------------------------------
 // a simple class to keep track of a stack of valid parsed symbols
 //-----------------------------------------------------------------------------
-class CKeyValues2ErrorStack
-{
+class CKeyValues2ErrorStack {
 public:
-	CKeyValues2ErrorStack();
+    CKeyValues2ErrorStack();
 
-	// Sets the filename to report with errors; sets the line number to 0
-	void SetFilename( const char *pFilename );
+    // Sets the filename to report with errors; sets the line number to 0
+    void SetFilename(const char* pFilename);
 
-	// Current line control
-	void IncrementCurrentLine();
+    // Current line control
+    void IncrementCurrentLine();
 
-	// entering a new keyvalues block, save state for errors
-	// Not save symbols instead of pointers because the pointers can move!
-	int Push( CUtlSymbolLarge symName );
+    // entering a new keyvalues block, save state for errors
+    // Not save symbols instead of pointers because the pointers can move!
+    int Push(CUtlSymbolLarge symName);
 
-	// exiting block, error isn't in this block, remove.
-	void Pop();
+    // exiting block, error isn't in this block, remove.
+    void Pop();
 
-	// Allows you to keep the same stack level, but change the name as you parse peers
-	void Reset( int stackLevel, CUtlSymbolLarge symName );
+    // Allows you to keep the same stack level, but change the name as you parse peers
+    void Reset(int stackLevel, CUtlSymbolLarge symName);
 
-	// Hit an error, report it and the parsing stack for context
-	void ReportError( const char *pError, ... );
+    // Hit an error, report it and the parsing stack for context
+    void ReportError(const char* pError, ...);
 
 private:
-	enum
-	{
-		MAX_ERROR_STACK = 64
-	};
+    enum {
+        MAX_ERROR_STACK = 64
+    };
 
-	CUtlSymbolLarge	m_errorStack[MAX_ERROR_STACK];
-	const char *m_pFilename;
-	int		m_nFileLine;
-	int		m_errorIndex;
-	int		m_maxErrorIndex;
+    CUtlSymbolLarge m_errorStack[MAX_ERROR_STACK];
+    const char* m_pFilename;
+    int m_nFileLine;
+    int m_errorIndex;
+    int m_maxErrorIndex;
 };
 
 
@@ -72,29 +70,26 @@ static CKeyValues2ErrorStack g_KeyValues2ErrorStack;
 //-----------------------------------------------------------------------------
 // Constructor
 //-----------------------------------------------------------------------------
-CKeyValues2ErrorStack::CKeyValues2ErrorStack() : 
-	m_pFilename("NULL"), m_errorIndex(0), m_maxErrorIndex(0), m_nFileLine(1) 
-{
+CKeyValues2ErrorStack::CKeyValues2ErrorStack() : m_pFilename("NULL"), m_errorIndex(0), m_maxErrorIndex(0),
+                                                 m_nFileLine(1) {
 }
 
 
 //-----------------------------------------------------------------------------
 // Sets the filename
 //-----------------------------------------------------------------------------
-void CKeyValues2ErrorStack::SetFilename( const char *pFilename )
-{
-	m_pFilename = pFilename;
-	m_maxErrorIndex = 0;
-	m_nFileLine = 1;
+void CKeyValues2ErrorStack::SetFilename(const char* pFilename) {
+    m_pFilename = pFilename;
+    m_maxErrorIndex = 0;
+    m_nFileLine = 1;
 }
 
 
 //-----------------------------------------------------------------------------
 // Current line control
 //-----------------------------------------------------------------------------
-void CKeyValues2ErrorStack::IncrementCurrentLine()
-{
-	++m_nFileLine;
+void CKeyValues2ErrorStack::IncrementCurrentLine() {
+    ++m_nFileLine;
 }
 
 
@@ -102,421 +97,398 @@ void CKeyValues2ErrorStack::IncrementCurrentLine()
 // entering a new keyvalues block, save state for errors
 // Not save symbols instead of pointers because the pointers can move!
 //-----------------------------------------------------------------------------
-int CKeyValues2ErrorStack::Push( CUtlSymbolLarge symName )
-{
-	if ( m_errorIndex < MAX_ERROR_STACK )
-	{
-		m_errorStack[m_errorIndex] = symName;
-	}
-	m_errorIndex++;
-	m_maxErrorIndex = MAX( m_maxErrorIndex, (m_errorIndex-1) );
-	return m_errorIndex-1;
+int CKeyValues2ErrorStack::Push(CUtlSymbolLarge symName) {
+    if (m_errorIndex < MAX_ERROR_STACK) {
+        m_errorStack[m_errorIndex] = symName;
+    }
+    m_errorIndex++;
+    m_maxErrorIndex = MAX(m_maxErrorIndex, (m_errorIndex-1));
+    return m_errorIndex - 1;
 }
 
 
 //-----------------------------------------------------------------------------
 // exiting block, error isn't in this block, remove.
 //-----------------------------------------------------------------------------
-void CKeyValues2ErrorStack::Pop()
-{
-	m_errorIndex--;
-	Assert(m_errorIndex>=0);
+void CKeyValues2ErrorStack::Pop() {
+    m_errorIndex--;
+    Assert(m_errorIndex>=0);
 }
 
 
 //-----------------------------------------------------------------------------
 // Allows you to keep the same stack level, but change the name as you parse peers
 //-----------------------------------------------------------------------------
-void CKeyValues2ErrorStack::Reset( int stackLevel, CUtlSymbolLarge symName )
-{
-	Assert( stackLevel >= 0 && stackLevel < m_errorIndex );
-	m_errorStack[stackLevel] = symName;
+void CKeyValues2ErrorStack::Reset(int stackLevel, CUtlSymbolLarge symName) {
+    Assert(stackLevel >= 0 && stackLevel < m_errorIndex);
+    m_errorStack[stackLevel] = symName;
 }
 
 
 //-----------------------------------------------------------------------------
 // Hit an error, report it and the parsing stack for context
 //-----------------------------------------------------------------------------
-void CKeyValues2ErrorStack::ReportError( const char *pFmt, ... )
-{
-	char temp[2048];
+void CKeyValues2ErrorStack::ReportError(const char* pFmt, ...) {
+    char temp[2048];
 
-	va_list args;
-	va_start( args, pFmt );
-	Q_vsnprintf( temp, sizeof( temp ), pFmt, args );
-	va_end( args );
+    va_list args;
+    va_start(args, pFmt);
+    Q_vsnprintf(temp, sizeof(temp), pFmt, args);
+    va_end(args);
 
-	char temp2[2048];
-	Q_snprintf( temp2, sizeof( temp2 ), "%s(%d) : %s\n", m_pFilename, m_nFileLine, temp );
-	Warning( temp2 );
+    char temp2[2048];
+    Q_snprintf(temp2, sizeof(temp2), "%s(%d) : %s\n", m_pFilename, m_nFileLine, temp);
+    Warning("{{}}", temp2);
 
-	for ( int i = 0; i < m_maxErrorIndex; i++ )
-	{
-		if ( !m_errorStack[i].IsValid() )
-			continue;
+    for (int i = 0; i < m_maxErrorIndex; i++) {
+        if (!m_errorStack[i].IsValid())
+            continue;
 
-		if ( i < m_errorIndex )
-		{
-			Warning( "%s, ", m_errorStack[i].String() );
-		}
-		else
-		{
-			Warning( "(*%s*), ", m_errorStack[i].String() );
-		}
-	}
-	Warning( "\n" );
+        if (i < m_errorIndex) {
+            Warning("{{}}, ", m_errorStack[i].String());
+        }
+        else {
+            Warning("(*{{}}*), ", m_errorStack[i].String());
+        }
+    }
+    Warning("\n");
 }
 
 
 //-----------------------------------------------------------------------------
 // a simple helper that creates stack entries as it goes in & out of scope
 //-----------------------------------------------------------------------------
-class CKeyValues2ErrorContext
-{
+class CKeyValues2ErrorContext {
 public:
-	CKeyValues2ErrorContext( const char *pSymName )
-	{
-		Init( g_pDataModel->GetSymbol( pSymName ) );
-	}
+    CKeyValues2ErrorContext(const char* pSymName) {
+        Init(g_pDataModel->GetSymbol(pSymName));
+    }
 
-	CKeyValues2ErrorContext( CUtlSymbolLarge symName )
-	{
-		Init( symName );
-	}
+    CKeyValues2ErrorContext(CUtlSymbolLarge symName) {
+        Init(symName);
+    }
 
-	~CKeyValues2ErrorContext()
-	{
-		g_KeyValues2ErrorStack.Pop();
-	}
+    ~CKeyValues2ErrorContext() {
+        g_KeyValues2ErrorStack.Pop();
+    }
 
-	void Reset( CUtlSymbolLarge symName )
-	{
-		g_KeyValues2ErrorStack.Reset( m_stackLevel, symName );
-	}
+    void Reset(CUtlSymbolLarge symName) {
+        g_KeyValues2ErrorStack.Reset(m_stackLevel, symName);
+    }
 
 private:
-	void Init( CUtlSymbolLarge symName )
-	{
-		m_stackLevel = g_KeyValues2ErrorStack.Push( symName );
-	}
+    void Init(CUtlSymbolLarge symName) {
+        m_stackLevel = g_KeyValues2ErrorStack.Push(symName);
+    }
 
-	int m_stackLevel;
+    int m_stackLevel;
 };
 
 
 //-----------------------------------------------------------------------------
 // Serialization class for Key Values 2
 //-----------------------------------------------------------------------------
-class CDmSerializerKeyValues2 : public IDmSerializer
-{
+class CDmSerializerKeyValues2 : public IDmSerializer {
 public:
-	CDmSerializerKeyValues2( bool bFlatMode ) : m_bFlatMode( bFlatMode ) {}
+    CDmSerializerKeyValues2(bool bFlatMode) : m_bFlatMode(bFlatMode) {
+    }
 
-	// Inherited from IDMSerializer
-    const char *GetName() const override { return m_bFlatMode ? "keyvalues2_flat" : "keyvalues2"; }
-    const char *GetDescription() const override { return m_bFlatMode ? "KeyValues2 (flat)" : "KeyValues2"; }
+    // Inherited from IDMSerializer
+    const char* GetName() const override { return m_bFlatMode ? "keyvalues2_flat" : "keyvalues2"; }
+    const char* GetDescription() const override { return m_bFlatMode ? "KeyValues2 (flat)" : "KeyValues2"; }
     bool StoresVersionInFile() const override { return true; }
     bool IsBinaryFormat() const override { return false; }
     int GetCurrentVersion() const override { return 1; }
     int GetImportedVersion() const override { return 1; }
 
-    bool Serialize( CUtlBuffer &buf, CDmElement *pRoot ) override;
+    bool Serialize(CUtlBuffer &buf, CDmElement* pRoot) override;
 
-    bool Unserialize( CUtlBuffer &buf, const char *pEncodingName, int nEncodingVersion,
-                      const char *pSourceFormatName, int nSourceFormatVersion,
-                      DmFileId_t fileid, DmConflictResolution_t idConflictResolution, CDmElement **ppRoot ) override;
+    bool Unserialize(CUtlBuffer &buf, const char* pEncodingName, int nEncodingVersion,
+                     const char* pSourceFormatName, int nSourceFormatVersion,
+                     DmFileId_t fileid, DmConflictResolution_t idConflictResolution, CDmElement** ppRoot) override;
 
-    const char *GetImportedFormat() const override { return nullptr; }
+    const char* GetImportedFormat() const override { return nullptr; }
 
 private:
-	enum TokenType_t
-	{
-		TOKEN_INVALID = -1,		// A bogus token
-		TOKEN_OPEN_BRACE,		// {
-		TOKEN_CLOSE_BRACE,		// }
-		TOKEN_OPEN_BRACKET,		// [
-		TOKEN_CLOSE_BRACKET,	// ]
-		TOKEN_COMMA,			// ,
-//		TOKEN_STRING,			// Any non-quoted string
-		TOKEN_DELIMITED_STRING,	// Any quoted string
-		TOKEN_INCLUDE,			// #include
-		TOKEN_EOF,				// End of buffer
-	};
+    enum TokenType_t {
+        TOKEN_INVALID = -1, // A bogus token
+        TOKEN_OPEN_BRACE, // {
+        TOKEN_CLOSE_BRACE, // }
+        TOKEN_OPEN_BRACKET, // [
+        TOKEN_CLOSE_BRACKET, // ]
+        TOKEN_COMMA, // ,
+        //		TOKEN_STRING,			// Any non-quoted string
+        TOKEN_DELIMITED_STRING, // Any quoted string
+        TOKEN_INCLUDE, // #include
+        TOKEN_EOF, // End of buffer
+    };
 
-	// Methods related to serialization
-	void SerializeArrayAttribute( CUtlBuffer& buf, CDmAttribute *pAttribute );
-	void SerializeElementAttribute( CUtlBuffer& buf, CDmElementSerializationDictionary &dict, CDmAttribute *pAttribute );
-	void SerializeElementArrayAttribute( CUtlBuffer& buf, CDmElementSerializationDictionary &dict, CDmAttribute *pAttribute );
-	bool SerializeAttributes( CUtlBuffer& buf, CDmElementSerializationDictionary &dict, CDmElement *pElement );
-	bool SaveElement( CUtlBuffer& buf, CDmElementSerializationDictionary &dict, CDmElement *pElement, bool bWriteDelimiters = true );
+    // Methods related to serialization
+    void SerializeArrayAttribute(CUtlBuffer &buf, CDmAttribute* pAttribute);
 
-	// Methods related to unserialization
-	void EatWhitespacesAndComments( CUtlBuffer &buf );
-	TokenType_t ReadToken( CUtlBuffer &buf, CUtlBuffer &token );
-	DmElementDictHandle_t CreateDmElement( const char *pElementType );
-	bool UnserializeAttributeValueFromToken( CDmAttribute *pAttribute, CUtlBuffer &tokenBuf );
-	bool UnserializeElementAttribute( CUtlBuffer &buf, DmElementDictHandle_t hElement, const char *pAttributeName, const char *pElementType );
-	bool UnserializeElementArrayAttribute( CUtlBuffer &buf, DmElementDictHandle_t hElement, const char *pAttributeName );
-	bool UnserializeArrayAttribute( CUtlBuffer &buf, DmElementDictHandle_t hElement, const char *pAttributeName, DmAttributeType_t nAttrType );
-	bool UnserializeAttribute( CUtlBuffer &buf, DmElementDictHandle_t hElement, const char *pAttributeName, DmAttributeType_t nAttrType );
-	bool UnserializeElement( CUtlBuffer &buf, const char *pElementType, DmElementDictHandle_t *pHandle );
-	bool UnserializeElement( CUtlBuffer &buf, DmElementDictHandle_t *pHandle );
-	bool UnserializeElements( CUtlBuffer &buf, DmFileId_t fileid, DmConflictResolution_t idConflictResolution, CDmElement **ppRoot );
+    void SerializeElementAttribute(CUtlBuffer &buf, CDmElementSerializationDictionary &dict, CDmAttribute* pAttribute);
 
-	// For unserialization
-	CDmElementDictionary m_ElementDict;
-	DmElementDictHandle_t m_hRoot;
-	bool m_bFlatMode;
-	DmConflictResolution_t m_idConflictResolution;
-	DmFileId_t m_fileid;
+    void SerializeElementArrayAttribute(CUtlBuffer &buf, CDmElementSerializationDictionary &dict,
+                                        CDmAttribute* pAttribute);
+
+    bool SerializeAttributes(CUtlBuffer &buf, CDmElementSerializationDictionary &dict, CDmElement* pElement);
+
+    bool SaveElement(CUtlBuffer &buf, CDmElementSerializationDictionary &dict, CDmElement* pElement,
+                     bool bWriteDelimiters = true);
+
+    // Methods related to unserialization
+    void EatWhitespacesAndComments(CUtlBuffer &buf);
+
+    TokenType_t ReadToken(CUtlBuffer &buf, CUtlBuffer &token);
+
+    DmElementDictHandle_t CreateDmElement(const char* pElementType);
+
+    bool UnserializeAttributeValueFromToken(CDmAttribute* pAttribute, CUtlBuffer &tokenBuf);
+
+    bool UnserializeElementAttribute(CUtlBuffer &buf, DmElementDictHandle_t hElement, const char* pAttributeName,
+                                     const char* pElementType);
+
+    bool UnserializeElementArrayAttribute(CUtlBuffer &buf, DmElementDictHandle_t hElement, const char* pAttributeName);
+
+    bool UnserializeArrayAttribute(CUtlBuffer &buf, DmElementDictHandle_t hElement, const char* pAttributeName,
+                                   DmAttributeType_t nAttrType);
+
+    bool UnserializeAttribute(CUtlBuffer &buf, DmElementDictHandle_t hElement, const char* pAttributeName,
+                              DmAttributeType_t nAttrType);
+
+    bool UnserializeElement(CUtlBuffer &buf, const char* pElementType, DmElementDictHandle_t* pHandle);
+
+    bool UnserializeElement(CUtlBuffer &buf, DmElementDictHandle_t* pHandle);
+
+    bool UnserializeElements(CUtlBuffer &buf, DmFileId_t fileid, DmConflictResolution_t idConflictResolution,
+                             CDmElement** ppRoot);
+
+    // For unserialization
+    CDmElementDictionary m_ElementDict;
+    DmElementDictHandle_t m_hRoot;
+    bool m_bFlatMode;
+    DmConflictResolution_t m_idConflictResolution;
+    DmFileId_t m_fileid;
 };
 
 
 //-----------------------------------------------------------------------------
 // Singleton instance
 //-----------------------------------------------------------------------------
-static CDmSerializerKeyValues2 s_DMSerializerKeyValues2( false );
-static CDmSerializerKeyValues2 s_DMSerializerKeyValues2Flat( true );
+static CDmSerializerKeyValues2 s_DMSerializerKeyValues2(false);
+static CDmSerializerKeyValues2 s_DMSerializerKeyValues2Flat(true);
 
-void InstallKeyValues2Serializer( IDataModel *pFactory )
-{
-	pFactory->AddSerializer( &s_DMSerializerKeyValues2 );
-	pFactory->AddSerializer( &s_DMSerializerKeyValues2Flat );
+void InstallKeyValues2Serializer(IDataModel* pFactory) {
+    pFactory->AddSerializer(&s_DMSerializerKeyValues2);
+    pFactory->AddSerializer(&s_DMSerializerKeyValues2Flat);
 }
 
 
 //-----------------------------------------------------------------------------
 // Serializes a single element attribute
 //-----------------------------------------------------------------------------
-void CDmSerializerKeyValues2::SerializeElementAttribute( CUtlBuffer& buf, CDmElementSerializationDictionary &dict, CDmAttribute *pAttribute )
-{
-	CDmElement *pElement = pAttribute->GetValueElement<CDmElement>();
-	if ( dict.ShouldInlineElement( pElement ) )
-	{
-		buf.Printf( "\"%s\"\n{\n", pElement->GetTypeString() );
-		if ( pElement )
-		{
-			SaveElement( buf, dict, pElement, false );
-		}
-		buf.Printf( "}\n" );
-	}
-	else
-	{
-		buf.Printf( "\"%s\" \"", g_pDataModel->GetAttributeNameForType( AT_ELEMENT ) );
-		if ( pElement )
-		{
-			::Serialize( buf, pElement->GetId() );
-		}
-		buf.PutChar( '\"' );
-	}
+void CDmSerializerKeyValues2::SerializeElementAttribute(CUtlBuffer &buf, CDmElementSerializationDictionary &dict,
+                                                        CDmAttribute* pAttribute) {
+    CDmElement* pElement = pAttribute->GetValueElement<CDmElement>();
+    if (dict.ShouldInlineElement(pElement)) {
+        buf.Printf("\"%s\"\n{\n", pElement->GetTypeString());
+        if (pElement) {
+            SaveElement(buf, dict, pElement, false);
+        }
+        buf.Printf("}\n");
+    }
+    else {
+        buf.Printf("\"%s\" \"", g_pDataModel->GetAttributeNameForType(AT_ELEMENT));
+        if (pElement) {
+            ::Serialize(buf, pElement->GetId());
+        }
+        buf.PutChar('\"');
+    }
 }
 
 
 //-----------------------------------------------------------------------------
 // Serializes an array element attribute
 //-----------------------------------------------------------------------------
-void CDmSerializerKeyValues2::SerializeElementArrayAttribute( CUtlBuffer& buf, CDmElementSerializationDictionary &dict, CDmAttribute *pAttribute )
-{
-	CDmrElementArray<> array( pAttribute );
+void CDmSerializerKeyValues2::SerializeElementArrayAttribute(CUtlBuffer &buf, CDmElementSerializationDictionary &dict,
+                                                             CDmAttribute* pAttribute) {
+    CDmrElementArray<> array(pAttribute);
 
-	buf.Printf( "\n[\n" );
-	buf.PushTab();
+    buf.Printf("\n[\n");
+    buf.PushTab();
 
-	int nCount = array.Count();
-	for ( int i = 0; i < nCount; ++i )
-	{
-		CDmElement *pElement = array[i];
-		if ( dict.ShouldInlineElement( pElement ) )
-		{
-			buf.Printf( "\"%s\"\n{\n", pElement->GetTypeString() );
-			if ( pElement )
-			{
-				SaveElement( buf, dict, pElement, false );
-			}
-			buf.PutChar( '}' );
-		}
-		else
-		{
-			const char *pAttributeType = AttributeTypeName( AT_ELEMENT );
-			buf.Printf( "\"%s\" \"", pAttributeType );
-			if ( pElement )
-			{
-				::Serialize( buf, pElement->GetId() );
-			}
-			buf.PutChar( '\"' );
-		}
+    int nCount = array.Count();
+    for (int i = 0; i < nCount; ++i) {
+        CDmElement* pElement = array[i];
+        if (dict.ShouldInlineElement(pElement)) {
+            buf.Printf("\"%s\"\n{\n", pElement->GetTypeString());
+            if (pElement) {
+                SaveElement(buf, dict, pElement, false);
+            }
+            buf.PutChar('}');
+        }
+        else {
+            const char* pAttributeType = AttributeTypeName(AT_ELEMENT);
+            buf.Printf("\"%s\" \"", pAttributeType);
+            if (pElement) {
+                ::Serialize(buf, pElement->GetId());
+            }
+            buf.PutChar('\"');
+        }
 
-		if ( i != nCount - 1 )
-		{
-			buf.PutChar( ',' );
-		}
-		buf.PutChar( '\n' );
-	}
+        if (i != nCount - 1) {
+            buf.PutChar(',');
+        }
+        buf.PutChar('\n');
+    }
 
-	buf.PopTab();
-	buf.Printf( "]" );
+    buf.PopTab();
+    buf.Printf("]");
 }
 
 
 //-----------------------------------------------------------------------------
 // Serializes array attributes
 //-----------------------------------------------------------------------------
-void CDmSerializerKeyValues2::SerializeArrayAttribute( CUtlBuffer& buf, CDmAttribute *pAttribute )
-{
-	CDmrGenericArray array( pAttribute );
-	int nCount = array.Count();
+void CDmSerializerKeyValues2::SerializeArrayAttribute(CUtlBuffer &buf, CDmAttribute* pAttribute) {
+    CDmrGenericArray array(pAttribute);
+    int nCount = array.Count();
 
-	buf.PutString( "\n[\n" );
-	buf.PushTab();
+    buf.PutString("\n[\n");
+    buf.PushTab();
 
-	for ( int i = 0; i < nCount; ++i )
-	{
-		if ( pAttribute->GetType() != AT_STRING_ARRAY )
-		{
-			buf.PutChar( '\"' );
-			buf.PushTab();
-		}
+    for (int i = 0; i < nCount; ++i) {
+        if (pAttribute->GetType() != AT_STRING_ARRAY) {
+            buf.PutChar('\"');
+            buf.PushTab();
+        }
 
-		array.GetAttribute()->SerializeElement( i, buf );
+        array.GetAttribute()->SerializeElement(i, buf);
 
-		if ( pAttribute->GetType() != AT_STRING_ARRAY )
-		{
-			buf.PopTab();
-			buf.PutChar( '\"' );
-		}
+        if (pAttribute->GetType() != AT_STRING_ARRAY) {
+            buf.PopTab();
+            buf.PutChar('\"');
+        }
 
-		if ( i != nCount - 1 )
-		{
-			buf.PutChar( ',' );
-		}
-		buf.PutChar( '\n' );
-	}
-	buf.PopTab();
-	buf.PutChar( ']' );
+        if (i != nCount - 1) {
+            buf.PutChar(',');
+        }
+        buf.PutChar('\n');
+    }
+    buf.PopTab();
+    buf.PutChar(']');
 }
 
 
 //-----------------------------------------------------------------------------
 // Serializes all attributes in an element
 //-----------------------------------------------------------------------------
-bool CDmSerializerKeyValues2::SerializeAttributes( CUtlBuffer& buf, CDmElementSerializationDictionary &dict, CDmElement *pElement )
-{
-	// Collect the attributes to be written
-	CDmAttribute **ppAttributes = ( CDmAttribute** )_alloca( pElement->AttributeCount() * sizeof( CDmAttribute* ) );
-	int nAttributes = 0;
-	for ( CDmAttribute *pAttribute = pElement->FirstAttribute(); pAttribute; pAttribute = pAttribute->NextAttribute() )
-	{
-		if ( pAttribute->IsFlagSet( FATTRIB_DONTSAVE ) )
-			continue;
+bool CDmSerializerKeyValues2::SerializeAttributes(CUtlBuffer &buf, CDmElementSerializationDictionary &dict,
+                                                  CDmElement* pElement) {
+    // Collect the attributes to be written
+    CDmAttribute** ppAttributes = (CDmAttribute**) _alloca(pElement->AttributeCount() * sizeof( CDmAttribute* ));
+    int nAttributes = 0;
+    for (CDmAttribute* pAttribute = pElement->FirstAttribute(); pAttribute; pAttribute = pAttribute->NextAttribute()) {
+        if (pAttribute->IsFlagSet(FATTRIB_DONTSAVE))
+            continue;
 
-		ppAttributes[ nAttributes++ ] = pAttribute;
-	}
+        ppAttributes[nAttributes++] = pAttribute;
+    }
 
-	// Now write them all out in reverse order, since FirstAttribute is actually the *last* attribute for perf reasons
-	for ( int i = nAttributes - 1; i >= 0; --i )
-	{
-		CDmAttribute *pAttribute = ppAttributes[ i ];
-		Assert( pAttribute );
+    // Now write them all out in reverse order, since FirstAttribute is actually the *last* attribute for perf reasons
+    for (int i = nAttributes - 1; i >= 0; --i) {
+        CDmAttribute* pAttribute = ppAttributes[i];
+        Assert(pAttribute);
 
-		const char *pName = pAttribute->GetName( );
-		DmAttributeType_t nAttrType = pAttribute->GetType();
-		if ( nAttrType != AT_ELEMENT )
-		{
-			buf.Printf( "\"%s\" \"%s\" ", pName, g_pDataModel->GetAttributeNameForType( nAttrType ) );
-		}
-		else
-		{
-			// Elements either serialize their type name or "element" depending on whether they are inlined
-			buf.Printf( "\"%s\" ", pName );
-		}
+        const char* pName = pAttribute->GetName();
+        DmAttributeType_t nAttrType = pAttribute->GetType();
+        if (nAttrType != AT_ELEMENT) {
+            buf.Printf("\"%s\" \"%s\" ", pName, g_pDataModel->GetAttributeNameForType(nAttrType));
+        }
+        else {
+            // Elements either serialize their type name or "element" depending on whether they are inlined
+            buf.Printf("\"%s\" ", pName);
+        }
 
-		switch( nAttrType )
-		{
-		default:
-			if ( nAttrType >= AT_FIRST_ARRAY_TYPE )
-			{
-				SerializeArrayAttribute( buf, pAttribute );
-			}
-			else
-			{
-				if ( pAttribute->SerializesOnMultipleLines() )
-				{
-					buf.PutChar( '\n' );
-				}
+        switch (nAttrType) {
+            default:
+                if (nAttrType >= AT_FIRST_ARRAY_TYPE) {
+                    SerializeArrayAttribute(buf, pAttribute);
+                }
+                else {
+                    if (pAttribute->SerializesOnMultipleLines()) {
+                        buf.PutChar('\n');
+                    }
 
-				buf.PutChar( '\"' );
-				buf.PushTab();
-				pAttribute->Serialize( buf );
-				buf.PopTab();
-				buf.PutChar( '\"' );
-			}
-			break;
+                    buf.PutChar('\"');
+                    buf.PushTab();
+                    pAttribute->Serialize(buf);
+                    buf.PopTab();
+                    buf.PutChar('\"');
+                }
+                break;
 
-		case AT_STRING:
-			// Don't explicitly add string delimiters; serialization does that.
-			pAttribute->Serialize( buf );
-			break;
+            case AT_STRING:
+                // Don't explicitly add string delimiters; serialization does that.
+                pAttribute->Serialize(buf);
+                break;
 
-		case AT_ELEMENT:
-			SerializeElementAttribute( buf, dict, pAttribute );
-			break;
+            case AT_ELEMENT:
+                SerializeElementAttribute(buf, dict, pAttribute);
+                break;
 
-		case AT_ELEMENT_ARRAY:
-			SerializeElementArrayAttribute( buf, dict, pAttribute );
-			break;
-		}
+            case AT_ELEMENT_ARRAY:
+                SerializeElementArrayAttribute(buf, dict, pAttribute);
+                break;
+        }
 
- 		buf.PutChar( '\n' );
-	}
+        buf.PutChar('\n');
+    }
 
-	return true;
+    return true;
 }
 
-bool CDmSerializerKeyValues2::SaveElement( CUtlBuffer& buf, CDmElementSerializationDictionary &dict, CDmElement *pElement, bool bWriteDelimiters )
-{
-	if ( bWriteDelimiters )
-	{
-		buf.Printf( "\"%s\"\n{\n", pElement->GetTypeString() );
-	}
-	buf.PushTab();
+bool CDmSerializerKeyValues2::SaveElement(CUtlBuffer &buf, CDmElementSerializationDictionary &dict,
+                                          CDmElement* pElement, bool bWriteDelimiters) {
+    if (bWriteDelimiters) {
+        buf.Printf("\"%s\"\n{\n", pElement->GetTypeString());
+    }
+    buf.PushTab();
 
-	// explicitly serialize id, now that it's no longer an attribute
-	buf.PutString( "\"id\" \"elementid\" " );
-	buf.PutChar( '\"' );
-	::Serialize( buf, pElement->GetId() );
-	buf.PutString( "\"\n" );
+    // explicitly serialize id, now that it's no longer an attribute
+    buf.PutString("\"id\" \"elementid\" ");
+    buf.PutChar('\"');
+    ::Serialize(buf, pElement->GetId());
+    buf.PutString("\"\n");
 
-	SerializeAttributes( buf, dict, pElement );
+    SerializeAttributes(buf, dict, pElement);
 
-	buf.PopTab();
-	if ( bWriteDelimiters )
-	{
-		buf.Printf( "}\n" );
-	}
-	return true;
+    buf.PopTab();
+    if (bWriteDelimiters) {
+        buf.Printf("}\n");
+    }
+    return true;
 }
 
-bool CDmSerializerKeyValues2::Serialize( CUtlBuffer &outBuf, CDmElement *pRoot )
-{
-	SetSerializationDelimiter( GetCStringCharConversion() );
-	SetSerializationArrayDelimiter( "," );
+bool CDmSerializerKeyValues2::Serialize(CUtlBuffer &outBuf, CDmElement* pRoot) {
+    SetSerializationDelimiter(GetCStringCharConversion());
+    SetSerializationArrayDelimiter(",");
 
-	// Save elements, attribute links
-	CDmElementSerializationDictionary dict;
-	dict.BuildElementList( pRoot, m_bFlatMode );
+    // Save elements, attribute links
+    CDmElementSerializationDictionary dict;
+    dict.BuildElementList(pRoot, m_bFlatMode);
 
-	// Save elements to buffer
-	DmElementDictHandle_t i;
-	for ( i = dict.FirstRootElement(); i != ELEMENT_DICT_HANDLE_INVALID; i = dict.NextRootElement(i) )
-	{
-		SaveElement( outBuf, dict, dict.GetRootElement( i ) );
-		outBuf.PutChar( '\n' );
-	}
+    // Save elements to buffer
+    DmElementDictHandle_t i;
+    for (i = dict.FirstRootElement(); i != ELEMENT_DICT_HANDLE_INVALID; i = dict.NextRootElement(i)) {
+        SaveElement(outBuf, dict, dict.GetRootElement(i));
+        outBuf.PutChar('\n');
+    }
 
-	SetSerializationDelimiter(nullptr);
-	SetSerializationArrayDelimiter(nullptr);
+    SetSerializationDelimiter(nullptr);
+    SetSerializationArrayDelimiter(nullptr);
 
-	return true;
+    return true;
 }
 
 
@@ -525,49 +497,44 @@ bool CDmSerializerKeyValues2::Serialize( CUtlBuffer &outBuf, CDmElement *pRoot )
 //-----------------------------------------------------------------------------
 #pragma warning (disable:4706)
 
-void CDmSerializerKeyValues2::EatWhitespacesAndComments( CUtlBuffer &buf )
-{
-	// eating white spaces and remarks loop
-	int nMaxPut = buf.TellMaxPut() - buf.TellGet();
-	int nOffset = 0;
-	while ( nOffset < nMaxPut )	
-	{
-		// Eat whitespaces, keep track of line count
-		const char *pPeek = nullptr;
-		while ( pPeek = (const char *)buf.PeekGet( sizeof(char), nOffset ) )
-		{
-			if ( !V_isspace( *pPeek ) )
-				break;
+void CDmSerializerKeyValues2::EatWhitespacesAndComments(CUtlBuffer &buf) {
+    // eating white spaces and remarks loop
+    int nMaxPut = buf.TellMaxPut() - buf.TellGet();
+    int nOffset = 0;
+    while (nOffset < nMaxPut) {
+        // Eat whitespaces, keep track of line count
+        const char* pPeek = nullptr;
+        while (pPeek = (const char*) buf.PeekGet(sizeof(char), nOffset)) {
+            if (!V_isspace(*pPeek))
+                break;
 
-			if ( *pPeek == '\n' )
-			{
-				g_KeyValues2ErrorStack.IncrementCurrentLine();
-			}
-			if ( ++nOffset >= nMaxPut )
-				break;
-		}
+            if (*pPeek == '\n') {
+                g_KeyValues2ErrorStack.IncrementCurrentLine();
+            }
+            if (++nOffset >= nMaxPut)
+                break;
+        }
 
-		// If we don't have a a c++ style comment next, we're done
-		pPeek = (const char *)buf.PeekGet( 2 * sizeof(char), nOffset );
-		if ( ( nOffset >= nMaxPut ) || !pPeek || ( pPeek[0] != '/' ) || ( pPeek[1] != '/' ) )
-			break;
+        // If we don't have a a c++ style comment next, we're done
+        pPeek = (const char*) buf.PeekGet(2 * sizeof(char), nOffset);
+        if ((nOffset >= nMaxPut) || !pPeek || (pPeek[0] != '/') || (pPeek[1] != '/'))
+            break;
 
-		// Deal with c++ style comments
-		nOffset += 2;
+        // Deal with c++ style comments
+        nOffset += 2;
 
-		// read complete line
-		while ( pPeek = (const char *)buf.PeekGet( sizeof(char), nOffset ) )
-		{
-			if ( *pPeek == '\n' )
-				break;
-			if ( ++nOffset >= nMaxPut )
-				break;
-		}
+        // read complete line
+        while (pPeek = (const char*) buf.PeekGet(sizeof(char), nOffset)) {
+            if (*pPeek == '\n')
+                break;
+            if (++nOffset >= nMaxPut)
+                break;
+        }
 
-		g_KeyValues2ErrorStack.IncrementCurrentLine();
-	}
+        g_KeyValues2ErrorStack.IncrementCurrentLine();
+    }
 
-	buf.SeekGet( CUtlBuffer::SEEK_CURRENT, nOffset );
+    buf.SeekGet(CUtlBuffer::SEEK_CURRENT, nOffset);
 }
 
 #pragma warning (default:4706)
@@ -575,424 +542,387 @@ void CDmSerializerKeyValues2::EatWhitespacesAndComments( CUtlBuffer &buf )
 //-----------------------------------------------------------------------------
 // Reads a single token, points the token utlbuffer at it
 //-----------------------------------------------------------------------------
-CDmSerializerKeyValues2::TokenType_t CDmSerializerKeyValues2::ReadToken( CUtlBuffer &buf, CUtlBuffer &token )
-{
-	EatWhitespacesAndComments( buf );
+CDmSerializerKeyValues2::TokenType_t CDmSerializerKeyValues2::ReadToken(CUtlBuffer &buf, CUtlBuffer &token) {
+    EatWhitespacesAndComments(buf);
 
-	// if message text buffers go over this size
- 	// change this value to make sure they will fit
- 	// affects loading of last active chat window
-	if ( !buf.IsValid() || ( buf.TellGet() == buf.TellMaxPut() ) )
-		return TOKEN_EOF;
+    // if message text buffers go over this size
+    // change this value to make sure they will fit
+    // affects loading of last active chat window
+    if (!buf.IsValid() || (buf.TellGet() == buf.TellMaxPut()))
+        return TOKEN_EOF;
 
-	// Compute token length and type
-	int nLength = 0;
-	TokenType_t t = TOKEN_INVALID;
-	char c = *((const char *)buf.PeekGet());
-	switch( c )
-	{
-	case '{':
-		nLength = 1;
-		t = TOKEN_OPEN_BRACE;
-		break;
+    // Compute token length and type
+    int nLength = 0;
+    TokenType_t t = TOKEN_INVALID;
+    char c = *((const char*) buf.PeekGet());
+    switch (c) {
+        case '{':
+            nLength = 1;
+            t = TOKEN_OPEN_BRACE;
+            break;
 
-	case '}':
-		nLength = 1;
-		t = TOKEN_CLOSE_BRACE;
-		break;
+        case '}':
+            nLength = 1;
+            t = TOKEN_CLOSE_BRACE;
+            break;
 
-	case '[':
-		nLength = 1;
-		t = TOKEN_OPEN_BRACKET;
-		break;
+        case '[':
+            nLength = 1;
+            t = TOKEN_OPEN_BRACKET;
+            break;
 
-	case ']':
-		nLength = 1;
-		t = TOKEN_CLOSE_BRACKET;
-		break;
+        case ']':
+            nLength = 1;
+            t = TOKEN_CLOSE_BRACKET;
+            break;
 
-	case ',':
-		nLength = 1;
-		t = TOKEN_COMMA;
-		break;
+        case ',':
+            nLength = 1;
+            t = TOKEN_COMMA;
+            break;
 
-	case '\"':
-		// NOTE: The -1 is because peek includes room for the /0
-		nLength = buf.PeekDelimitedStringLength( GetCStringCharConversion(), false ) - 1;
-		if ( (nLength <= 1) || ( *(const char *)buf.PeekGet( nLength - 1 ) != '\"' ))
-		{
-			g_KeyValues2ErrorStack.ReportError( "Unexpected EOF in quoted string" );
-			t = TOKEN_INVALID;
-		}
-		else
-		{
-			t = TOKEN_DELIMITED_STRING;
-		}
-		break;
+        case '\"':
+            // NOTE: The -1 is because peek includes room for the /0
+            nLength = buf.PeekDelimitedStringLength(GetCStringCharConversion(), false) - 1;
+            if ((nLength <= 1) || (*(const char*) buf.PeekGet(nLength - 1) != '\"')) {
+                g_KeyValues2ErrorStack.ReportError("Unexpected EOF in quoted string");
+                t = TOKEN_INVALID;
+            }
+            else {
+                t = TOKEN_DELIMITED_STRING;
+            }
+            break;
 
-	default:
-		t = TOKEN_INVALID;
-		break;
-	}
+        default:
+            t = TOKEN_INVALID;
+            break;
+    }
 
-	token.EnsureCapacity( nLength );
-	buf.Get( token.Base(), nLength );
-	token.SeekGet( CUtlBuffer::SEEK_HEAD, 0 );
-	token.SeekPut( CUtlBuffer::SEEK_HEAD, nLength );
+    token.EnsureCapacity(nLength);
+    buf.Get(token.Base(), nLength);
+    token.SeekGet(CUtlBuffer::SEEK_HEAD, 0);
+    token.SeekPut(CUtlBuffer::SEEK_HEAD, nLength);
 
-	// Count the number of crs in the token + update the current line
-	const char *pMem = (const char *)token.Base();
-	for ( int i = 0; i < nLength; ++i )
-	{
-		if ( pMem[i] == '\n' )
-		{
-			g_KeyValues2ErrorStack.IncrementCurrentLine();
-		}
-	}
+    // Count the number of crs in the token + update the current line
+    const char* pMem = (const char*) token.Base();
+    for (int i = 0; i < nLength; ++i) {
+        if (pMem[i] == '\n') {
+            g_KeyValues2ErrorStack.IncrementCurrentLine();
+        }
+    }
 
-	return t;
+    return t;
 }
 
 
 //-----------------------------------------------------------------------------
 // Creates a scene object, adds it to the element dictionary
 //-----------------------------------------------------------------------------
-DmElementDictHandle_t CDmSerializerKeyValues2::CreateDmElement( const char *pElementType )
-{
-	// See if we can create an element of that type
-	DmElementHandle_t hElement = g_pDataModel->CreateElement( pElementType, "", m_fileid );
-	if ( hElement == DMELEMENT_HANDLE_INVALID )
-	{
-		g_KeyValues2ErrorStack.ReportError("Element uses unknown element type %s\n", pElementType );
-		return ELEMENT_DICT_HANDLE_INVALID;
-	}
+DmElementDictHandle_t CDmSerializerKeyValues2::CreateDmElement(const char* pElementType) {
+    // See if we can create an element of that type
+    DmElementHandle_t hElement = g_pDataModel->CreateElement(pElementType, "", m_fileid);
+    if (hElement == DMELEMENT_HANDLE_INVALID) {
+        g_KeyValues2ErrorStack.ReportError("Element uses unknown element type %s\n", pElementType);
+        return ELEMENT_DICT_HANDLE_INVALID;
+    }
 
-	CDmElement *pElement = g_pDataModel->GetElement( hElement );
-	CDmeElementAccessor::DisableOnChangedCallbacks( pElement );
-	return m_ElementDict.InsertElement( pElement );
+    CDmElement* pElement = g_pDataModel->GetElement(hElement);
+    CDmeElementAccessor::DisableOnChangedCallbacks(pElement);
+    return m_ElementDict.InsertElement(pElement);
 }
 
 
 //-----------------------------------------------------------------------------
 // Reads an attribute for an element
 //-----------------------------------------------------------------------------
-bool CDmSerializerKeyValues2::UnserializeElementAttribute( CUtlBuffer &buf, DmElementDictHandle_t hElement, const char *pAttributeName, const char *pElementType )
-{
-	CDmElement *pElement = m_ElementDict.GetElement( hElement );
-	CDmAttribute *pAttribute = pElement->AddAttribute( pAttributeName, AT_ELEMENT );
-	if ( !pAttribute )
-	{
-		g_KeyValues2ErrorStack.ReportError("Attempted to read an attribute (\"%s\") of unknown type %s!\n", pAttributeName, pElementType );
-		return false;
-	}
+bool CDmSerializerKeyValues2::UnserializeElementAttribute(CUtlBuffer &buf, DmElementDictHandle_t hElement,
+                                                          const char* pAttributeName, const char* pElementType) {
+    CDmElement* pElement = m_ElementDict.GetElement(hElement);
+    CDmAttribute* pAttribute = pElement->AddAttribute(pAttributeName, AT_ELEMENT);
+    if (!pAttribute) {
+        g_KeyValues2ErrorStack.ReportError("Attempted to read an attribute (\"%s\") of unknown type %s!\n",
+                                           pAttributeName, pElementType);
+        return false;
+    }
 
-	DmElementDictHandle_t h;
-	bool bOk = UnserializeElement( buf, pElementType, &h );
-	if ( bOk )
-	{
-		CDmElement *pNewElement = m_ElementDict.GetElement( h );
-		pAttribute->SetValue( pNewElement ? pNewElement->GetHandle() : DMELEMENT_HANDLE_INVALID );
-	}
-	return bOk;
+    DmElementDictHandle_t h;
+    bool bOk = UnserializeElement(buf, pElementType, &h);
+    if (bOk) {
+        CDmElement* pNewElement = m_ElementDict.GetElement(h);
+        pAttribute->SetValue(pNewElement ? pNewElement->GetHandle() : DMELEMENT_HANDLE_INVALID);
+    }
+    return bOk;
 }
 
 
 //-----------------------------------------------------------------------------
 // Reads an attribute for an element array
 //-----------------------------------------------------------------------------
-bool CDmSerializerKeyValues2::UnserializeElementArrayAttribute( CUtlBuffer &buf, DmElementDictHandle_t hElement, const char *pAttributeName )
-{
-	CDmElement *pElement = m_ElementDict.GetElement( hElement );
-	CDmAttribute *pAttribute = pElement->AddAttribute( pAttributeName, AT_ELEMENT_ARRAY );
-	if ( !pAttribute )
-	{
-		g_KeyValues2ErrorStack.ReportError("Attempted to read an attribute (\"%s\") of an inappropriate type!\n", pAttributeName );
-		return false;
-	}
+bool CDmSerializerKeyValues2::UnserializeElementArrayAttribute(CUtlBuffer &buf, DmElementDictHandle_t hElement,
+                                                               const char* pAttributeName) {
+    CDmElement* pElement = m_ElementDict.GetElement(hElement);
+    CDmAttribute* pAttribute = pElement->AddAttribute(pAttributeName, AT_ELEMENT_ARRAY);
+    if (!pAttribute) {
+        g_KeyValues2ErrorStack.ReportError("Attempted to read an attribute (\"%s\") of an inappropriate type!\n",
+                                           pAttributeName);
+        return false;
+    }
 
-	// Arrays first must have a '[' specified
-	TokenType_t token;
-	CUtlBuffer tokenBuf( 0, 0, CUtlBuffer::TEXT_BUFFER );
-	CUtlCharConversion *pConv = GetCStringCharConversion();
+    // Arrays first must have a '[' specified
+    TokenType_t token;
+    CUtlBuffer tokenBuf(0, 0, CUtlBuffer::TEXT_BUFFER);
+    CUtlCharConversion* pConv = GetCStringCharConversion();
 
-	token = ReadToken( buf, tokenBuf );
-	if ( token != TOKEN_OPEN_BRACKET )
-	{
-		g_KeyValues2ErrorStack.ReportError( "Expecting '[', didn't find it!" );
-		return false;
-	}
+    token = ReadToken(buf, tokenBuf);
+    if (token != TOKEN_OPEN_BRACKET) {
+        g_KeyValues2ErrorStack.ReportError("Expecting '[', didn't find it!");
+        return false;
+    }
 
-	int nElementIndex = 0;
+    int nElementIndex = 0;
 
-	// Now read a list of array values, separated by commas
-	while ( buf.IsValid() )
-	{
-		token = ReadToken( buf, tokenBuf );
-		if ( token == TOKEN_INVALID || token == TOKEN_EOF )
-		{
-			g_KeyValues2ErrorStack.ReportError( "Expecting ']', didn't find it!" );
-			return false;
-		}
+    // Now read a list of array values, separated by commas
+    while (buf.IsValid()) {
+        token = ReadToken(buf, tokenBuf);
+        if (token == TOKEN_INVALID || token == TOKEN_EOF) {
+            g_KeyValues2ErrorStack.ReportError("Expecting ']', didn't find it!");
+            return false;
+        }
 
-		// Then, keep reading until we hit a ']'
-		if ( token == TOKEN_CLOSE_BRACKET )
-			break;
+        // Then, keep reading until we hit a ']'
+        if (token == TOKEN_CLOSE_BRACKET)
+            break;
 
-		// If we've already read in an array value, we need to read a comma next
-		if ( nElementIndex > 0 )
-		{
-			if ( token != TOKEN_COMMA )
-			{
-				g_KeyValues2ErrorStack.ReportError( "Expecting ',', didn't find it!" );
-				return false;
-			}
+        // If we've already read in an array value, we need to read a comma next
+        if (nElementIndex > 0) {
+            if (token != TOKEN_COMMA) {
+                g_KeyValues2ErrorStack.ReportError("Expecting ',', didn't find it!");
+                return false;
+            }
 
-			// Read in the next thing, which should be a value
-			token = ReadToken( buf, tokenBuf );
-		}
+            // Read in the next thing, which should be a value
+            token = ReadToken(buf, tokenBuf);
+        }
 
-		// Ok, we must be reading an array type value
-		if ( token != TOKEN_DELIMITED_STRING )
-		{
-			g_KeyValues2ErrorStack.ReportError( "Expecting element type, didn't find it!" );
-			return false;
-		}
+        // Ok, we must be reading an array type value
+        if (token != TOKEN_DELIMITED_STRING) {
+            g_KeyValues2ErrorStack.ReportError("Expecting element type, didn't find it!");
+            return false;
+        }
 
-		// Get the element type out
-		char elementType[ 256 ];
-		tokenBuf.GetDelimitedString( pConv, elementType, sizeof( elementType ) );
+        // Get the element type out
+        char elementType[256];
+        tokenBuf.GetDelimitedString(pConv, elementType, sizeof(elementType));
 
-		// Use the element type to figure out if we're using a element reference or an inlined element
-		if ( !V_strcmp( elementType, g_pDataModel->GetAttributeNameForType( AT_ELEMENT ) ) )
-		{
-			token = ReadToken( buf, tokenBuf );
+        // Use the element type to figure out if we're using a element reference or an inlined element
+        if (!V_strcmp(elementType, g_pDataModel->GetAttributeNameForType( AT_ELEMENT ))) {
+            token = ReadToken(buf, tokenBuf);
 
-			// Ok, we must be reading an array type value
-			if ( token != TOKEN_DELIMITED_STRING )
-			{
-				g_KeyValues2ErrorStack.ReportError( "Expecting element reference, didn't find it!" );
-				return false;
-			}
+            // Ok, we must be reading an array type value
+            if (token != TOKEN_DELIMITED_STRING) {
+                g_KeyValues2ErrorStack.ReportError("Expecting element reference, didn't find it!");
+                return false;
+            }
 
-			// Get the element type out
-			char elementId[ 256 ];
-			tokenBuf.GetDelimitedString( pConv, elementId, sizeof( elementId ) );
+            // Get the element type out
+            char elementId[256];
+            tokenBuf.GetDelimitedString(pConv, elementId, sizeof(elementId));
 
-			if ( elementId[ 0 ] == '\0' )
-			{
-				m_ElementDict.AddArrayAttribute( pAttribute, ELEMENT_DICT_HANDLE_INVALID );
-			}
-			else
-			{
-				DmObjectId_t id;
-				if ( !UniqueIdFromString( &id, elementId ) )
-				{
-					g_KeyValues2ErrorStack.ReportError( "Encountered invalid element ID data!" );
-					return false;
-				}
+            if (elementId[0] == '\0') {
+                m_ElementDict.AddArrayAttribute(pAttribute, ELEMENT_DICT_HANDLE_INVALID);
+            }
+            else {
+                DmObjectId_t id;
+                if (!UniqueIdFromString(&id, elementId)) {
+                    g_KeyValues2ErrorStack.ReportError("Encountered invalid element ID data!");
+                    return false;
+                }
 
-				Assert( IsUniqueIdValid( id ) );
-				m_ElementDict.AddArrayAttribute( pAttribute, id );
-			}
-		}
-		else
-		{
-			DmElementDictHandle_t hArrayElement;
-			bool bOk = UnserializeElement( buf, elementType, &hArrayElement );
-			if ( !bOk )
-				return false;
-			m_ElementDict.AddArrayAttribute( pAttribute, hArrayElement );
-		}
+                Assert(IsUniqueIdValid( id ));
+                m_ElementDict.AddArrayAttribute(pAttribute, id);
+            }
+        }
+        else {
+            DmElementDictHandle_t hArrayElement;
+            bool bOk = UnserializeElement(buf, elementType, &hArrayElement);
+            if (!bOk)
+                return false;
+            m_ElementDict.AddArrayAttribute(pAttribute, hArrayElement);
+        }
 
-		// Ok, we've read in another value
-		++nElementIndex;
-	}
+        // Ok, we've read in another value
+        ++nElementIndex;
+    }
 
-	return true;
+    return true;
 }
 
 
 //-----------------------------------------------------------------------------
 // Unserializes an attribute from a token buffer
 //-----------------------------------------------------------------------------
-bool CDmSerializerKeyValues2::UnserializeAttributeValueFromToken( CDmAttribute *pAttribute, CUtlBuffer &tokenBuf )
-{
-	// NOTE: This code is necessary because the attribute code is using Scanf
-	// which is not really friendly toward delimiters, so we must pass in
-	// non-delimited buffers. Sucky. There must be a better way of doing this
-	const char *pBuf = (const char*)tokenBuf.Base();
-	int nLength = tokenBuf.TellMaxPut();
-	char *pTemp = (char*)stackalloc( nLength + 1 );
+bool CDmSerializerKeyValues2::UnserializeAttributeValueFromToken(CDmAttribute* pAttribute, CUtlBuffer &tokenBuf) {
+    // NOTE: This code is necessary because the attribute code is using Scanf
+    // which is not really friendly toward delimiters, so we must pass in
+    // non-delimited buffers. Sucky. There must be a better way of doing this
+    const char* pBuf = (const char*) tokenBuf.Base();
+    int nLength = tokenBuf.TellMaxPut();
+    char* pTemp = (char*) stackalloc(nLength + 1);
 
-	bool bIsString = ( pAttribute->GetType() == AT_STRING ) || ( pAttribute->GetType() == AT_STRING_ARRAY );
-	if ( !bIsString )
-	{
-		nLength = tokenBuf.PeekDelimitedStringLength( GetCStringCharConversion() );
-		tokenBuf.GetDelimitedString( GetCStringCharConversion(), pTemp, nLength + 1 );
-		pBuf = pTemp;
-	}
-	else
-	{
-		SetSerializationDelimiter( GetCStringCharConversion() );
-	}
+    bool bIsString = (pAttribute->GetType() == AT_STRING) || (pAttribute->GetType() == AT_STRING_ARRAY);
+    if (!bIsString) {
+        nLength = tokenBuf.PeekDelimitedStringLength(GetCStringCharConversion());
+        tokenBuf.GetDelimitedString(GetCStringCharConversion(), pTemp, nLength + 1);
+        pBuf = pTemp;
+    }
+    else {
+        SetSerializationDelimiter(GetCStringCharConversion());
+    }
 
-	bool bOk;
-	CUtlBuffer buf( pBuf, nLength, CUtlBuffer::TEXT_BUFFER | CUtlBuffer::READ_ONLY );
-	if ( pAttribute->GetType() < AT_FIRST_ARRAY_TYPE )
-	{
-		bOk = pAttribute->Unserialize( buf );
-	}
-	else
-	{
-		bOk = pAttribute->UnserializeElement( buf );
-	}
+    bool bOk;
+    CUtlBuffer buf(pBuf, nLength, CUtlBuffer::TEXT_BUFFER | CUtlBuffer::READ_ONLY);
+    if (pAttribute->GetType() < AT_FIRST_ARRAY_TYPE) {
+        bOk = pAttribute->Unserialize(buf);
+    }
+    else {
+        bOk = pAttribute->UnserializeElement(buf);
+    }
 
-	if ( bIsString )
-	{
-		SetSerializationDelimiter(nullptr);
-	}
+    if (bIsString) {
+        SetSerializationDelimiter(nullptr);
+    }
 
-	return bOk;
+    return bOk;
 }
 
 
 //-----------------------------------------------------------------------------
 // Reads an attribute for an element array
 //-----------------------------------------------------------------------------
-bool CDmSerializerKeyValues2::UnserializeArrayAttribute( CUtlBuffer &buf, DmElementDictHandle_t hElement, const char *pAttributeName, DmAttributeType_t nAttrType )
-{
-	CDmElement *pElement = m_ElementDict.GetElement( hElement );
-	CDmAttribute *pAttribute = pElement->AddAttribute( pAttributeName, nAttrType );
-	if ( !pAttribute )
-	{
-		g_KeyValues2ErrorStack.ReportError("Attempted to read an attribute (\"%s\") of an inappropriate type %s!\n", 
-			pAttributeName, g_pDataModel->GetAttributeNameForType( nAttrType ) );
-		return false;
-	}
+bool CDmSerializerKeyValues2::UnserializeArrayAttribute(CUtlBuffer &buf, DmElementDictHandle_t hElement,
+                                                        const char* pAttributeName, DmAttributeType_t nAttrType) {
+    CDmElement* pElement = m_ElementDict.GetElement(hElement);
+    CDmAttribute* pAttribute = pElement->AddAttribute(pAttributeName, nAttrType);
+    if (!pAttribute) {
+        g_KeyValues2ErrorStack.ReportError("Attempted to read an attribute (\"%s\") of an inappropriate type %s!\n",
+                                           pAttributeName, g_pDataModel->GetAttributeNameForType(nAttrType));
+        return false;
+    }
 
-	// Arrays first must have a '[' specified
-	TokenType_t token;
-	CUtlBuffer tokenBuf( 0, 0, CUtlBuffer::TEXT_BUFFER );
-	token = ReadToken( buf, tokenBuf );
-	if ( token != TOKEN_OPEN_BRACKET )
-	{
-		g_KeyValues2ErrorStack.ReportError( "Expecting '[', didn't find it!" );
-		return false;
-	}
+    // Arrays first must have a '[' specified
+    TokenType_t token;
+    CUtlBuffer tokenBuf(0, 0, CUtlBuffer::TEXT_BUFFER);
+    token = ReadToken(buf, tokenBuf);
+    if (token != TOKEN_OPEN_BRACKET) {
+        g_KeyValues2ErrorStack.ReportError("Expecting '[', didn't find it!");
+        return false;
+    }
 
-	int nElementIndex = 0;
+    int nElementIndex = 0;
 
-	// Now read a list of array values, separated by commas
-	while ( buf.IsValid() )
-	{
-		token = ReadToken( buf, tokenBuf );
-		if ( token == TOKEN_INVALID || token == TOKEN_EOF )
-		{
-			g_KeyValues2ErrorStack.ReportError( "Expecting ']', didn't find it!" );
-			return false;
-		}
+    // Now read a list of array values, separated by commas
+    while (buf.IsValid()) {
+        token = ReadToken(buf, tokenBuf);
+        if (token == TOKEN_INVALID || token == TOKEN_EOF) {
+            g_KeyValues2ErrorStack.ReportError("Expecting ']', didn't find it!");
+            return false;
+        }
 
-		// Then, keep reading until we hit a ']'
-		if ( token == TOKEN_CLOSE_BRACKET )
-			break;
+        // Then, keep reading until we hit a ']'
+        if (token == TOKEN_CLOSE_BRACKET)
+            break;
 
-		// If we've already read in an array value, we need to read a comma next
-		if ( nElementIndex > 0 )
-		{
-			if ( token != TOKEN_COMMA )
-			{
-				g_KeyValues2ErrorStack.ReportError( "Expecting ',', didn't find it!" );
-				return false;
-			}
+        // If we've already read in an array value, we need to read a comma next
+        if (nElementIndex > 0) {
+            if (token != TOKEN_COMMA) {
+                g_KeyValues2ErrorStack.ReportError("Expecting ',', didn't find it!");
+                return false;
+            }
 
-			// Read in the next thing, which should be a value
-			token = ReadToken( buf, tokenBuf );
-		}
+            // Read in the next thing, which should be a value
+            token = ReadToken(buf, tokenBuf);
+        }
 
-		// Ok, we must be reading an attributearray value
-		if ( token != TOKEN_DELIMITED_STRING )
-		{
-			g_KeyValues2ErrorStack.ReportError( "Expecting array attribute value, didn't find it!" );
-			return false;
-		}
+        // Ok, we must be reading an attributearray value
+        if (token != TOKEN_DELIMITED_STRING) {
+            g_KeyValues2ErrorStack.ReportError("Expecting array attribute value, didn't find it!");
+            return false;
+        }
 
-		if ( !UnserializeAttributeValueFromToken( pAttribute, tokenBuf ) )
-		{
-			g_KeyValues2ErrorStack.ReportError("Error reading in array attribute \"%s\" element %d", pAttributeName, nElementIndex );
-			return false;
-		}
+        if (!UnserializeAttributeValueFromToken(pAttribute, tokenBuf)) {
+            g_KeyValues2ErrorStack.ReportError("Error reading in array attribute \"%s\" element %d", pAttributeName,
+                                               nElementIndex);
+            return false;
+        }
 
-		// Ok, we've read in another value
-		++nElementIndex;
-	}
+        // Ok, we've read in another value
+        ++nElementIndex;
+    }
 
-	return true;
+    return true;
 }
 
 
 //-----------------------------------------------------------------------------
 // Reads an attribute for an element
 //-----------------------------------------------------------------------------
-bool CDmSerializerKeyValues2::UnserializeAttribute( CUtlBuffer &buf, 
-	DmElementDictHandle_t hElement, const char *pAttributeName, DmAttributeType_t nAttrType )
-{
-	// Read the attribute value
-	CUtlBuffer tokenBuf( 0, 0, CUtlBuffer::TEXT_BUFFER );
-	TokenType_t token = ReadToken( buf, tokenBuf );
-	if ( token != TOKEN_DELIMITED_STRING )
-	{
-		g_KeyValues2ErrorStack.ReportError( "Expecting quoted attribute value for attribute \"%s\", didn't find one!", pAttributeName );
-		return false;
-	}
+bool CDmSerializerKeyValues2::UnserializeAttribute(CUtlBuffer &buf,
+                                                   DmElementDictHandle_t hElement, const char* pAttributeName,
+                                                   DmAttributeType_t nAttrType) {
+    // Read the attribute value
+    CUtlBuffer tokenBuf(0, 0, CUtlBuffer::TEXT_BUFFER);
+    TokenType_t token = ReadToken(buf, tokenBuf);
+    if (token != TOKEN_DELIMITED_STRING) {
+        g_KeyValues2ErrorStack.ReportError("Expecting quoted attribute value for attribute \"%s\", didn't find one!",
+                                           pAttributeName);
+        return false;
+    }
 
-	CDmElement *pElement = m_ElementDict.GetElement( hElement );
-	CDmAttribute *pAttribute = pElement->AddAttribute( pAttributeName, nAttrType );
-	if ( !pAttribute )
-	{
-		g_KeyValues2ErrorStack.ReportError("Attempted to read an attribute (\"%s\") of an inappropriate type %s!\n", 
-			pAttributeName, g_pDataModel->GetAttributeNameForType( nAttrType ) );
-		return false;
-	}
-	 
-	switch( nAttrType )
-	{
-	case AT_ELEMENT:
-		{
-			// Get the attribute value out
-			CUtlCharConversion *pConv = GetCStringCharConversion();
-			int nLength = tokenBuf.PeekDelimitedStringLength( pConv );
-			char *pAttributeValue = (char*)stackalloc( nLength * sizeof(char) );
-			tokenBuf.GetDelimitedString( pConv, pAttributeValue, nLength );
+    CDmElement* pElement = m_ElementDict.GetElement(hElement);
+    CDmAttribute* pAttribute = pElement->AddAttribute(pAttributeName, nAttrType);
+    if (!pAttribute) {
+        g_KeyValues2ErrorStack.ReportError("Attempted to read an attribute (\"%s\") of an inappropriate type %s!\n",
+                                           pAttributeName, g_pDataModel->GetAttributeNameForType(nAttrType));
+        return false;
+    }
 
-			// No string? that's ok, it means we have a NULL pointer
-			if ( !pAttributeValue[0] )
-				return true;
+    switch (nAttrType) {
+        case AT_ELEMENT: {
+            // Get the attribute value out
+            CUtlCharConversion* pConv = GetCStringCharConversion();
+            int nLength = tokenBuf.PeekDelimitedStringLength(pConv);
+            char* pAttributeValue = (char*) stackalloc(nLength * sizeof(char));
+            tokenBuf.GetDelimitedString(pConv, pAttributeValue, nLength);
 
-			DmObjectId_t id;
-			if ( !UniqueIdFromString( &id, pAttributeValue ) )
-			{
-				g_KeyValues2ErrorStack.ReportError("Invalid format for element ID encountered for attribute \"%s\"", pAttributeName );
-				return false;
-			}
+            // No string? that's ok, it means we have a NULL pointer
+            if (!pAttributeValue[0])
+                return true;
 
-			m_ElementDict.AddAttribute( pAttribute, id );
-		}
-		return true;
+            DmObjectId_t id;
+            if (!UniqueIdFromString(&id, pAttributeValue)) {
+                g_KeyValues2ErrorStack.ReportError("Invalid format for element ID encountered for attribute \"%s\"",
+                                                   pAttributeName);
+                return false;
+            }
 
-	default:
-		if ( UnserializeAttributeValueFromToken( pAttribute, tokenBuf ) )
-			return true;
+            m_ElementDict.AddAttribute(pAttribute, id);
+        }
+            return true;
 
-		g_KeyValues2ErrorStack.ReportError("Error reading attribute \"%s\"", pAttributeName );
-		return false;
-	}
+        default:
+            if (UnserializeAttributeValueFromToken(pAttribute, tokenBuf))
+                return true;
+
+            g_KeyValues2ErrorStack.ReportError("Error reading attribute \"%s\"", pAttributeName);
+            return false;
+    }
 }
 
 
 /*
 //-----------------------------------------------------------------------------
-// Purpose: 
-// Input  : includedKeys - 
+// Purpose:
+// Input  : includedKeys -
 //-----------------------------------------------------------------------------
 void KeyValues::AppendIncludedKeys( CUtlVector< KeyValues * >& includedKeys )
 {
@@ -1014,13 +944,13 @@ void KeyValues::AppendIncludedKeys( CUtlVector< KeyValues * >& includedKeys )
 	}
 }
 
-void KeyValues::ParseIncludedKeys( char const *resourceName, const char *filetoinclude, 
+void KeyValues::ParseIncludedKeys( char const *resourceName, const char *filetoinclude,
 		IBaseFileSystem* pFileSystem, const char *pPathID, CUtlVector< KeyValues * >& includedKeys )
 {
 	Assert( resourceName );
 	Assert( filetoinclude );
 	Assert( pFileSystem );
-	
+
 	// Load it...
 	if ( !pFileSystem )
 	{
@@ -1040,8 +970,8 @@ void KeyValues::ParseIncludedKeys( char const *resourceName, const char *filetoi
 		{
 			break;
 		}
-		
-		if ( fullpath[ len - 1 ] == '\\' || 
+
+		if ( fullpath[ len - 1 ] == '\\' ||
 			 fullpath[ len - 1 ] == '/' )
 		{
 			break;
@@ -1067,7 +997,7 @@ void KeyValues::ParseIncludedKeys( char const *resourceName, const char *filetoi
 	}
 	else
 	{
-		DevMsg( "KeyValues::ParseIncludedKeys: Couldn't load included keyvalue file %s\n", fullpath );
+		DevMsg( "KeyValues::ParseIncludedKeys: Couldn't load included keyvalue file {}\n", fullpath );
 		newKV->deleteThis();
 	}
 
@@ -1085,12 +1015,12 @@ bool KeyValues::LoadFromBuffer( char const *resourceName, const char *pBuffer, I
 	KeyValues *pCurrentKey = this;
 	CUtlVector< KeyValues * > includedKeys;
 	bool wasQuoted;
-	g_KeyValues2ErrorStack.SetFilename( resourceName );	
-	do 
+	g_KeyValues2ErrorStack.SetFilename( resourceName );
+	do
 	{
 		// the first thing must be a key
 		const char *s = ReadToken( &pfile, wasQuoted );
-		
+
 		if ( !pfile || !s || *s == 0 )
 			break;
 
@@ -1147,7 +1077,7 @@ bool KeyValues::LoadFromBuffer( char const *resourceName, const char *pBuffer, I
 
 	AppendIncludedKeys( includedKeys );
 
-	g_KeyValues2ErrorStack.SetFilename( "" );	
+	g_KeyValues2ErrorStack.SetFilename( "" );
 
 	return true;
 }
@@ -1157,222 +1087,208 @@ bool KeyValues::LoadFromBuffer( char const *resourceName, const char *pBuffer, I
 //-----------------------------------------------------------------------------
 // Unserializes a single element given the type name
 //-----------------------------------------------------------------------------
-bool CDmSerializerKeyValues2::UnserializeElement( CUtlBuffer &buf, const char *pElementType, DmElementDictHandle_t *pHandle )
-{
-	*pHandle = ELEMENT_DICT_HANDLE_INVALID;
+bool CDmSerializerKeyValues2::UnserializeElement(CUtlBuffer &buf, const char* pElementType,
+                                                 DmElementDictHandle_t* pHandle) {
+    *pHandle = ELEMENT_DICT_HANDLE_INVALID;
 
-	// Create the element
-	DmElementDictHandle_t hElement = CreateDmElement( pElementType );
-	if ( hElement == ELEMENT_DICT_HANDLE_INVALID )
-		return false;
+    // Create the element
+    DmElementDictHandle_t hElement = CreateDmElement(pElementType);
+    if (hElement == ELEMENT_DICT_HANDLE_INVALID)
+        return false;
 
-	// Report errors relative to this type name
-	CKeyValues2ErrorContext errorReport( pElementType );
+    // Report errors relative to this type name
+    CKeyValues2ErrorContext errorReport(pElementType);
 
-	TokenType_t token;
-	CUtlBuffer tokenBuf( 0, 0, CUtlBuffer::TEXT_BUFFER );
-	CUtlCharConversion *pConv = GetCStringCharConversion();
+    TokenType_t token;
+    CUtlBuffer tokenBuf(0, 0, CUtlBuffer::TEXT_BUFFER);
+    CUtlCharConversion* pConv = GetCStringCharConversion();
 
-	// Then we expect a '{'
-	token = ReadToken( buf, tokenBuf );
-	if ( token != TOKEN_OPEN_BRACE )
-	{
-		g_KeyValues2ErrorStack.ReportError( "Expecting '{', didn't find it!" );
-		return false;
-	}
+    // Then we expect a '{'
+    token = ReadToken(buf, tokenBuf);
+    if (token != TOKEN_OPEN_BRACE) {
+        g_KeyValues2ErrorStack.ReportError("Expecting '{', didn't find it!");
+        return false;
+    }
 
-	while ( buf.IsValid() )
-	{
-		token = ReadToken( buf, tokenBuf );
-		if ( token == TOKEN_INVALID || token == TOKEN_EOF )
-		{
-			g_KeyValues2ErrorStack.ReportError( "Expecting '}', didn't find it!" );
-			return false;
-		}
+    while (buf.IsValid()) {
+        token = ReadToken(buf, tokenBuf);
+        if (token == TOKEN_INVALID || token == TOKEN_EOF) {
+            g_KeyValues2ErrorStack.ReportError("Expecting '}', didn't find it!");
+            return false;
+        }
 
-		// Then, keep reading until we hit a '}'
-		if ( token == TOKEN_CLOSE_BRACE )
-			break;
+        // Then, keep reading until we hit a '}'
+        if (token == TOKEN_CLOSE_BRACE)
+            break;
 
-		// Ok, we must be reading an attribute
-		if ( token != TOKEN_DELIMITED_STRING )
-		{
-			g_KeyValues2ErrorStack.ReportError( "Expecting attribute name, didn't find it!" );
-			return false;
-		}
+        // Ok, we must be reading an attribute
+        if (token != TOKEN_DELIMITED_STRING) {
+            g_KeyValues2ErrorStack.ReportError("Expecting attribute name, didn't find it!");
+            return false;
+        }
 
-		// First, read an attribute name
-		char attributeName[ 256 ];
-		tokenBuf.GetDelimitedString( pConv, attributeName, sizeof( attributeName ) );
+        // First, read an attribute name
+        char attributeName[256];
+        tokenBuf.GetDelimitedString(pConv, attributeName, sizeof(attributeName));
 
-		// Next, read an attribute type
-		token = ReadToken( buf, tokenBuf );
-		if ( token != TOKEN_DELIMITED_STRING )
-		{
-			g_KeyValues2ErrorStack.ReportError( "Expecting attribute type for attribute %s, didn't find it!", attributeName );
-			return false;
-		}
+        // Next, read an attribute type
+        token = ReadToken(buf, tokenBuf);
+        if (token != TOKEN_DELIMITED_STRING) {
+            g_KeyValues2ErrorStack.ReportError("Expecting attribute type for attribute %s, didn't find it!",
+                                               attributeName);
+            return false;
+        }
 
-		char attributeType[ 256 ];
-		tokenBuf.GetDelimitedString( pConv, attributeType, sizeof( attributeType ) );
+        char attributeType[256];
+        tokenBuf.GetDelimitedString(pConv, attributeType, sizeof(attributeType));
 
-		// read element's id (or any other id attribute, if any)
-		if ( !V_strcmp( attributeType, "elementid" ) )
-		{
-			// Next, read the id
-			token = ReadToken( buf, tokenBuf );
-			if ( token != TOKEN_DELIMITED_STRING )
-			{
-				g_KeyValues2ErrorStack.ReportError( "Expecting attribute type for attribute %s, didn't find it!", attributeName );
-				return false;
-			}
+        // read element's id (or any other id attribute, if any)
+        if (!V_strcmp(attributeType, "elementid")) {
+            // Next, read the id
+            token = ReadToken(buf, tokenBuf);
+            if (token != TOKEN_DELIMITED_STRING) {
+                g_KeyValues2ErrorStack.ReportError("Expecting attribute type for attribute %s, didn't find it!",
+                                                   attributeName);
+                return false;
+            }
 
-			char elementId[ 256 ];
-			tokenBuf.GetDelimitedString( pConv, elementId, sizeof( elementId ) );
+            char elementId[256];
+            tokenBuf.GetDelimitedString(pConv, elementId, sizeof(elementId));
 
-			Assert( !V_stricmp( attributeName, "id" ) );
-			if ( !V_stricmp( attributeName, "id" ) )
-			{
-				DmObjectId_t id;
-				if ( !UniqueIdFromString( &id, elementId ) )
-				{
-					g_KeyValues2ErrorStack.ReportError( "Encountered invalid element ID data!" );
-					return false;
-				}
+            Assert(!V_stricmp( attributeName, "id" ));
+            if (!V_stricmp(attributeName, "id")) {
+                DmObjectId_t id;
+                if (!UniqueIdFromString(&id, elementId)) {
+                    g_KeyValues2ErrorStack.ReportError("Encountered invalid element ID data!");
+                    return false;
+                }
 
-				m_ElementDict.SetElementId( hElement, id, m_idConflictResolution );
-			}
-			continue;
-		}
-		DmAttributeType_t nAttrType = g_pDataModel->GetAttributeTypeForName( attributeType );
+                m_ElementDict.SetElementId(hElement, id, m_idConflictResolution);
+            }
+            continue;
+        }
+        DmAttributeType_t nAttrType = g_pDataModel->GetAttributeTypeForName(attributeType);
 
-		// Next, read an attribute value
-		bool bOk = true;
-		switch( nAttrType )
-		{
-		case AT_UNKNOWN:
-			bOk = UnserializeElementAttribute( buf, hElement, attributeName, attributeType );
-			break;
+        // Next, read an attribute value
+        bool bOk = true;
+        switch (nAttrType) {
+            case AT_UNKNOWN:
+                bOk = UnserializeElementAttribute(buf, hElement, attributeName, attributeType);
+                break;
 
-		case AT_ELEMENT_ARRAY:
-			bOk = UnserializeElementArrayAttribute( buf, hElement, attributeName );
-			break;
+            case AT_ELEMENT_ARRAY:
+                bOk = UnserializeElementArrayAttribute(buf, hElement, attributeName);
+                break;
 
-		default:
-			if ( nAttrType >= AT_FIRST_ARRAY_TYPE )
-			{
-				bOk = UnserializeArrayAttribute( buf, hElement, attributeName, nAttrType );
-			}
-			else
-			{
-				bOk = UnserializeAttribute( buf, hElement, attributeName, nAttrType );
-			}
-			break;
-		}
+            default:
+                if (nAttrType >= AT_FIRST_ARRAY_TYPE) {
+                    bOk = UnserializeArrayAttribute(buf, hElement, attributeName, nAttrType);
+                }
+                else {
+                    bOk = UnserializeAttribute(buf, hElement, attributeName, nAttrType);
+                }
+                break;
+        }
 
-		if ( !bOk )
-			return false;
-	}
+        if (!bOk)
+            return false;
+    }
 
-	*pHandle = hElement;
-	return true;
+    *pHandle = hElement;
+    return true;
 }
 
-	
+
 //-----------------------------------------------------------------------------
 // Unserializes a single element
 //-----------------------------------------------------------------------------
-bool CDmSerializerKeyValues2::UnserializeElement( CUtlBuffer &buf, DmElementDictHandle_t *pHandle )
-{
-	*pHandle = ELEMENT_DICT_HANDLE_INVALID;
+bool CDmSerializerKeyValues2::UnserializeElement(CUtlBuffer &buf, DmElementDictHandle_t* pHandle) {
+    *pHandle = ELEMENT_DICT_HANDLE_INVALID;
 
-	// First, read the type name
-	CUtlBuffer tokenBuf( 0, 0, CUtlBuffer::TEXT_BUFFER );
+    // First, read the type name
+    CUtlBuffer tokenBuf(0, 0, CUtlBuffer::TEXT_BUFFER);
 
-	TokenType_t token = ReadToken( buf, tokenBuf );
-	if ( token == TOKEN_INVALID )
-		return false;
-	
-	if ( token == TOKEN_EOF )
-		return true;
+    TokenType_t token = ReadToken(buf, tokenBuf);
+    if (token == TOKEN_INVALID)
+        return false;
 
-	// Get the type name out
-	if ( token != TOKEN_DELIMITED_STRING )
-	{
-		g_KeyValues2ErrorStack.ReportError( "Expecting element type name, didn't find it!" );
-		return false;
-	}
+    if (token == TOKEN_EOF)
+        return true;
 
-	CUtlCharConversion* pConv = GetCStringCharConversion();
-	int nLength = tokenBuf.PeekDelimitedStringLength( pConv );
-	char *pTypeName = (char*)stackalloc( nLength * sizeof(char) );
-	tokenBuf.GetDelimitedString( pConv, pTypeName, nLength );
+    // Get the type name out
+    if (token != TOKEN_DELIMITED_STRING) {
+        g_KeyValues2ErrorStack.ReportError("Expecting element type name, didn't find it!");
+        return false;
+    }
 
-	return UnserializeElement( buf, pTypeName, pHandle );
+    CUtlCharConversion* pConv = GetCStringCharConversion();
+    int nLength = tokenBuf.PeekDelimitedStringLength(pConv);
+    char* pTypeName = (char*) stackalloc(nLength * sizeof(char));
+    tokenBuf.GetDelimitedString(pConv, pTypeName, nLength);
+
+    return UnserializeElement(buf, pTypeName, pHandle);
 }
 
-			   
+
 //-----------------------------------------------------------------------------
 // Main entry point for the unserialization
 //-----------------------------------------------------------------------------
-bool CDmSerializerKeyValues2::Unserialize( CUtlBuffer &buf, const char *pEncodingName, int nEncodingVersion,
-										   const char *pSourceFormatName, int nSourceFormatVersion,
-										   DmFileId_t fileid, DmConflictResolution_t idConflictResolution, CDmElement **ppRoot )
-{
-	bool bSuccess = UnserializeElements( buf, fileid, idConflictResolution, ppRoot );
-	if ( !bSuccess )
-		return false;
+bool CDmSerializerKeyValues2::Unserialize(CUtlBuffer &buf, const char* pEncodingName, int nEncodingVersion,
+                                          const char* pSourceFormatName, int nSourceFormatVersion,
+                                          DmFileId_t fileid, DmConflictResolution_t idConflictResolution,
+                                          CDmElement** ppRoot) {
+    bool bSuccess = UnserializeElements(buf, fileid, idConflictResolution, ppRoot);
+    if (!bSuccess)
+        return false;
 
-	return g_pDataModel->UpdateUnserializedElements( pSourceFormatName, nSourceFormatVersion, fileid, idConflictResolution, ppRoot );
+    return g_pDataModel->UpdateUnserializedElements(pSourceFormatName, nSourceFormatVersion, fileid,
+                                                    idConflictResolution, ppRoot);
 }
 
-bool CDmSerializerKeyValues2::UnserializeElements( CUtlBuffer &buf, DmFileId_t fileid, DmConflictResolution_t idConflictResolution, CDmElement **ppRoot )
-{
-	*ppRoot = nullptr;
+bool CDmSerializerKeyValues2::UnserializeElements(CUtlBuffer &buf, DmFileId_t fileid,
+                                                  DmConflictResolution_t idConflictResolution, CDmElement** ppRoot) {
+    *ppRoot = nullptr;
 
-	m_idConflictResolution = idConflictResolution;
+    m_idConflictResolution = idConflictResolution;
 
-	m_fileid = fileid;
+    m_fileid = fileid;
 
-	g_KeyValues2ErrorStack.SetFilename( g_pDataModel->GetFileName( fileid ) );
-	m_hRoot = ELEMENT_DICT_HANDLE_INVALID;
-	m_ElementDict.Clear();
+    g_KeyValues2ErrorStack.SetFilename(g_pDataModel->GetFileName(fileid));
+    m_hRoot = ELEMENT_DICT_HANDLE_INVALID;
+    m_ElementDict.Clear();
 
-	bool bOk = true;
-	while ( buf.IsValid() )
-	{
-		DmElementDictHandle_t h;
-		bOk = UnserializeElement( buf, &h );
-		if ( !bOk || ( h == ELEMENT_DICT_HANDLE_INVALID ) )
-			break;
+    bool bOk = true;
+    while (buf.IsValid()) {
+        DmElementDictHandle_t h;
+        bOk = UnserializeElement(buf, &h);
+        if (!bOk || (h == ELEMENT_DICT_HANDLE_INVALID))
+            break;
 
-		if ( m_hRoot == ELEMENT_DICT_HANDLE_INVALID )
-		{
-			m_hRoot = h;
-		}
-	}
+        if (m_hRoot == ELEMENT_DICT_HANDLE_INVALID) {
+            m_hRoot = h;
+        }
+    }
 
-	// do this *before* getting the root, since the first element might be deleted due to id conflicts
-	m_ElementDict.HookUpElementReferences();
+    // do this *before* getting the root, since the first element might be deleted due to id conflicts
+    m_ElementDict.HookUpElementReferences();
 
-	*ppRoot = m_ElementDict.GetElement( m_hRoot );
+    *ppRoot = m_ElementDict.GetElement(m_hRoot);
 
-	// mark all unserialized elements as done unserializing, and call Resolve()
-	for ( DmElementDictHandle_t h = m_ElementDict.FirstElement();
-		h != ELEMENT_DICT_HANDLE_INVALID;
-		h = m_ElementDict.NextElement( h ) )
-	{
-		CDmElement *pElement = m_ElementDict.GetElement( h );
-		if ( !pElement )
-			continue;
+    // mark all unserialized elements as done unserializing, and call Resolve()
+    for (DmElementDictHandle_t h = m_ElementDict.FirstElement();
+         h != ELEMENT_DICT_HANDLE_INVALID;
+         h = m_ElementDict.NextElement(h)) {
+        CDmElement* pElement = m_ElementDict.GetElement(h);
+        if (!pElement)
+            continue;
 
-		CDmeElementAccessor::EnableOnChangedCallbacks( pElement );
-		CDmeElementAccessor::FinishUnserialization( pElement );
-	}
+        CDmeElementAccessor::EnableOnChangedCallbacks(pElement);
+        CDmeElementAccessor::FinishUnserialization(pElement);
+    }
 
-	m_fileid = DMFILEID_INVALID;
+    m_fileid = DMFILEID_INVALID;
 
-	g_pDmElementFrameworkImp->RemoveCleanElementsFromDirtyList( );
-	m_ElementDict.Clear();
-	return bOk;
+    g_pDmElementFrameworkImp->RemoveCleanElementsFromDirtyList();
+    m_ElementDict.Clear();
+    return bOk;
 }

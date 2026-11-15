@@ -186,7 +186,7 @@ CKeyValuesSystem::~CKeyValuesSystem()
 	// display any memory leaks
 	if (m_pMemPool && m_pMemPool->Count() > 0)
 	{
-		DevMsg("Leaked KeyValues blocks: %d\n", m_pMemPool->Count());
+		DevMsg("Leaked KeyValues blocks: {:d}\n", m_pMemPool->Count());
 	}
 
 	// iterate all the existing keyvalues displaying their names
@@ -194,7 +194,7 @@ CKeyValuesSystem::~CKeyValuesSystem()
 	{
 		if (m_KeyValuesTrackingList.IsValidIndex(i))
 		{
-			DevMsg("\tleaked KeyValues(%s)\n", &m_Strings[m_KeyValuesTrackingList[i].nameIndex]);
+			DevMsg("\tleaked KeyValues({})\n", &m_Strings[m_KeyValuesTrackingList[i].nameIndex]);
 		}
 	}
 #endif
@@ -225,7 +225,7 @@ static void KVLeak( char const *fmt, ... )
     Q_vsnprintf(data, sizeof( data ), fmt, argptr);
     va_end(argptr);
 
-	Msg( "%s", data );
+	Msg( "{}", data );
 }
 
 //-----------------------------------------------------------------------------
@@ -577,6 +577,6 @@ bool CKeyValuesSystem::GetKeyValuesExpressionSymbol( const char *name )
 
 	// purposely warn on these to prevent syntax errors
 	// need to get these fixed asap, otherwise unintended false behavior
-	Warning( "KV Conditional: Unknown symbol %s\n", name );
+	Warning( "KV Conditional: Unknown symbol {}\n", name );
 	return false;
 }

@@ -126,7 +126,7 @@ void CDependencyGraph::Reset( const std::vector< IDmeOperator * > &operators )
 				{
 					CDmElement *pOp1 = dynamic_cast< CDmElement* >( pOperator );
 					CDmElement *pOp2 = dynamic_cast< CDmElement* >( pOp );
-					Warning( "Found dependent operator '%s' referenced by operator '%s' that wasn't in the scene or trackgroups!\n", pOp1->GetName(), pOp2->GetName() );
+					Warning( "Found dependent operator '{}' referenced by operator '{}' that wasn't in the scene or trackgroups!\n", pOp1->GetName(), pOp2->GetName() );
 				}
 			}
 #endif
@@ -198,7 +198,7 @@ void CDependencyGraph::FindRoots()
 	for ( ; h != m_attrNodes.InvalidHandle(); h = m_attrNodes.GetNextHandle( h ) )
 	{
 		CAttributeNode *pAttrNode = m_attrNodes[ h ];
-		//Msg( "attrib %s %p\n", pAttrNode->m_attribute->GetName(), pAttrNode->m_attribute );
+		//Msg( "attrib {} {}\n", pAttrNode->m_attribute->GetName(), pAttrNode->m_attribute );
 		if ( !pAttrNode->m_bIsOutputToOperator &&
 			pAttrNode->m_attribute->IsFlagSet( FATTRIB_OPERATOR_DIRTY ) )
 		{

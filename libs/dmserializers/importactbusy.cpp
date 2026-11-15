@@ -173,7 +173,7 @@ CDmElement* CImportActBusy::UnserializeFromKeyValues( KeyValues *pKeyValues )
 	{
 		if ( !UnserializeActBusyKey( pChildren, pActBusyKey ) )
 		{
-			Warning( "Error importing actbusy element %s\n", pActBusyKey->GetName() );
+			Warning( "Error importing actbusy element {}\n", pActBusyKey->GetName() );
 			return nullptr;
 		}
 	}

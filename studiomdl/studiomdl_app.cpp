@@ -94,8 +94,8 @@ void AddContentPaths() {
     const std::string_view post = qdir.substr(postPos);
 
     // get a copy of the game search paths
-    std::string paths(g_pFullFileSystem->GetSearchPath("GAME", false, nullptr, 0), '\0');
-    g_pFullFileSystem->GetSearchPath("GAME", false, paths.data(), static_cast<int>(paths.size()));
+    std::string paths(g_pFullFileSystem->GetSearchPath(IBaseFileSystem::PathID::Game, false, nullptr, 0), '\0');
+    g_pFullFileSystem->GetSearchPath(IBaseFileSystem::PathID::Game, false, paths.data(), static_cast<int>(paths.size()));
     paths.resize(std::strlen(paths.c_str()));
     if (!g_studiomdl.options.quiet)
         std::print("all paths:{}\n", paths);
@@ -183,7 +183,7 @@ static bool ParsePreprocessedFile(const std::string &fullPath) {
 
     if (vstd::paths::is_absolute(outputName)) {
         char relative[4096] = {};
-        if (!g_pFullFileSystem->FullPathToRelativePathEx(outputName.c_str(), "GAME", relative, sizeof(relative))) {
+        if (!g_pFullFileSystem->FullPathToRelativePathEx(outputName.c_str(), IBaseFileSystem::PathID::Game, relative, sizeof(relative))) {
             MdlError("Full path {} is not associated with the current mod!\n", outputName);
             return false;
         }
@@ -636,7 +636,7 @@ int CStudioMDLApp::Main() {
     {
         vstd::FunctionTimingRecorder _("main");
         // This bit of hackery allows us to access files on the harddrive
-        g_pFullFileSystem->AddSearchPath("", "LOCAL", PATH_ADD_TO_HEAD);
+        g_pFullFileSystem->AddSearchPath("", IBaseFileSystem::PathID::Local, PATH_ADD_TO_HEAD);
 
         int nReturnValue;
         if (HandleMdlReport(nReturnValue))

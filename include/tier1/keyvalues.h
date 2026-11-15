@@ -191,11 +191,11 @@ public:
 	// So if you wanted to iterate all subkeys, then all values, it would look like this:
 	//     for ( KeyValues *pKey = pRoot->GetFirstTrueSubKey(); pKey; pKey = pKey->GetNextTrueSubKey() )
 	//     {
-	//		   Msg( "Key name: %s\n", pKey->GetName() );
+	//		   Msg( "Key name: {}\n", pKey->GetName() );
 	//     }
 	//     for ( KeyValues *pValue = pRoot->GetFirstValue(); pKey; pKey = pKey->GetNextValue() )
 	//     {
-	//         Msg( "Int value: %d\n", pValue->GetInt() );  // Assuming pValue->GetDataType() == TYPE_INT...
+	//         Msg( "Int value: {:d}\n", pValue->GetInt() );  // Assuming pValue->GetDataType() == TYPE_INT...
 	//     }
 	KeyValues* GetFirstTrueSubKey();
 	KeyValues* GetNextTrueSubKey();

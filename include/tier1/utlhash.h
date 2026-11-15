@@ -463,7 +463,7 @@ inline void CUtlHash<Data, C, K>::Dump( )
 	int numBucketsEmpty = 0;
 
 	int bucketCount = m_Buckets.size();
-	Msg( "\n%d Buckets\n", bucketCount ); 
+	Msg( "\n{:d} Buckets\n", bucketCount ); 
 
 	for( int ndxBucket = 0; ndxBucket < bucketCount; ndxBucket++ )
 	{
@@ -473,11 +473,11 @@ inline void CUtlHash<Data, C, K>::Dump( )
 		if( count == 0 )
 			numBucketsEmpty++;
 
-		Msg( "Bucket %d: %d\n", ndxBucket, count );
+		Msg( "Bucket {:d}: {:d}\n", ndxBucket, count );
 	}
 
-	Msg( "\nBucketHeads Used: %d\n", bucketCount - numBucketsEmpty );
-	Msg( "Max Bucket Size: %d\n", maxBucketSize );
+	Msg( "\nBucketHeads Used: {:d}\n", bucketCount - numBucketsEmpty );
+	Msg( "Max Bucket Size: {:d}\n", maxBucketSize );
 }
 
 //=============================================================================

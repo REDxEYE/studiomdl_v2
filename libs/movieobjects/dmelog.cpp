@@ -116,7 +116,7 @@ T Average(const T *pValues, int nValues) {
         static bool first = true;
         if (first) {
             first = false;
-            Warning("CDmeLog: interpolable type %s doesn't have an averaging function!",
+            Warning("CDmeLog: interpolable type {} doesn't have an averaging function!",
                     CDmAttributeInfo<T>::AttributeTypeName());
         }
     }
@@ -256,7 +256,7 @@ T Interpolate(float t, const T &ti, const T &tj, LogComponents_t componentFlags 
         static bool first = true;
         if (first) {
             first = false;
-            Warning("CDmeLog: interpolable type %s doesn't have an interpolation function!",
+            Warning("CDmeLog: interpolable type {} doesn't have an interpolation function!",
                     CDmAttributeInfo<T>::AttributeTypeName());
         }
     }
@@ -343,7 +343,7 @@ T Curve_Interpolate(float t, DmeTime_t times[4], const T values[4], int curveTyp
         static bool first = true;
         if (first) {
             first = false;
-            Warning("CDmeLog: interpolable type %s doesn't have an interpolation function!",
+            Warning("CDmeLog: interpolable type {} doesn't have an interpolation function!",
                     CDmAttributeInfo<T>::AttributeTypeName());
         }
     }
@@ -1594,7 +1594,7 @@ void CDmeTypedLogLayer<T>::CompressValues(CDmaArray<T> &stream, CUtlBinaryBlock 
 
         if (scale > flMaxError) {
             // Dynamic range was too large
-            Warning("compression error would be too large %f [%f %f]\n", scale, minv[k], maxv[k]);
+            Warning("compression error would be too large {:f} [{:f} {:f}]\n", scale, minv[k], maxv[k]);
             delete[] scratch;
             return;
         }
@@ -4076,7 +4076,7 @@ template<class T>
 static void SpewEvents(CUtlRBTree<LayerEvent_t<T> > &events) {
     for (unsigned short idx = events.FirstInorder(); idx != events.InvalidIndex(); idx = events.NextInorder(idx)) {
         LayerEvent_t<T> *pEvent = &events[idx];
-        Msg("Event %u layer %i at time %i type %s\n",
+        Msg("Event {:d} layer {:d} at time {:d} type {}\n",
             (unsigned) idx, pEvent->m_nLayer, pEvent->m_Time.GetTenthsOfMS(),
             pEvent->m_Type == LayerEvent_t<T>::LE_START ? "start" : "end");
     }
@@ -4090,58 +4090,58 @@ static void SpewKey(const T &) {
 
 template<>
 void SpewKey<float>(const float &val) {
-    Msg("%f", val);
+    Msg("{:f}", val);
 }
 
 template<>
 void SpewKey<int>(const int &val) {
-    Msg("%d", val);
+    Msg("{:d}", val);
 }
 
 template<>
 void SpewKey<Vector2D>(const Vector2D &val) {
-    Msg("%f,%f", val.x, val.y);
+    Msg("{:f},{:f}", val.x, val.y);
 }
 
 template<>
 void SpewKey<Vector4D>(const Vector4D &val) {
-    Msg("%f,%f,%f,%f", val.x, val.y, val.z, val.w);
+    Msg("{:f},{:f},{:f},{:f}", val.x, val.y, val.z, val.w);
 }
 
 template<>
 void SpewKey<DmeTime_t>(const DmeTime_t &val) {
-    Msg("%d", val.GetTenthsOfMS());
+    Msg("{:d}", val.GetTenthsOfMS());
 }
 
 template<>
 void SpewKey<bool>(const bool &val) {
-    Msg("%s", val ? "true" : "false");
+    Msg("{}", val ? "true" : "false");
 }
 
 template<>
 void SpewKey<Color>(const Color &val) {
-    Msg("%08x", val.GetRawColor());
+    Msg("{:08x}", val.GetRawColor());
 }
 
 template<>
 void SpewKey(const Vector &val) {
-    Msg("[%f %f %f]", val.x, val.y, val.z);
+    Msg("[{:f} {:f} {:f}]", val.x, val.y, val.z);
 }
 
 template<>
 void SpewKey(const Quaternion &val) {
-    Msg("[%f %f %f %f]", val.x, val.y, val.z, val.w);
+    Msg("[{:f} {:f} {:f} {:f}]", val.x, val.y, val.z, val.w);
 }
 
 template<>
 void SpewKey(const QAngle &val) {
-    Msg("[%f %f %f]", val.x, val.y, val.z);
+    Msg("[{:f} {:f} {:f}]", val.x, val.y, val.z);
 }
 
 template<class T>
 static void SpewFlattenedKey(CDmeTypedLogLayer<T> *pLogLayer, ActiveLayer_t<T> *pActiveLayer, DmeTime_t t,
                              const T &val) {
-    Msg("Layer %d:  adding key at time %d [%d -> %d], value ",
+    Msg("Layer {:d}:  adding key at time {:d} [{:d} -> {:d}], value ",
         pActiveLayer->priority, t.GetTenthsOfMS(), pActiveLayer->firstTime.GetTenthsOfMS(),
         pActiveLayer->lastTime.GetTenthsOfMS());
     SpewKey(val);
@@ -4210,9 +4210,9 @@ static void AddDiscontinitySample(CDmeTypedLogLayer<T> *pTargetLayer, CDmeTypedL
 
     if (pLog->IsUsingCurveTypes()) {
         if (pSpewLabel) {
-            Msg("Adding %s helper key at %d value ", pSpewLabel, tKeyTime.GetTenthsOfMS());
+            Msg("Adding {} helper key at {:d} value ", pSpewLabel, tKeyTime.GetTenthsOfMS());
             SpewKey(val);
-            Msg(" [curvetype %s]\n", Interpolator_NameForCurveType(pLog->GetDefaultCurveType(), false));
+            Msg(" [curvetype {}]\n", Interpolator_NameForCurveType(pLog->GetDefaultCurveType(), false));
         }
         pTargetLayer->SetKey(tKeyTime, val,
                              pTargetLayer->GetSegmentInterpolationSetting(tKeyTime, DMETIME_INVALID, false),
@@ -4220,7 +4220,7 @@ static void AddDiscontinitySample(CDmeTypedLogLayer<T> *pTargetLayer, CDmeTypedL
     }
     else {
         if (pSpewLabel) {
-            Msg("Adding %s helper key at %d value ", pSpewLabel, tKeyTime.GetTenthsOfMS());
+            Msg("Adding {} helper key at {:d} value ", pSpewLabel, tKeyTime.GetTenthsOfMS());
             SpewKey(val);
             Msg("\n");
         }
@@ -4247,7 +4247,7 @@ static DmeTime_t ProcessStartLayerStartEvent(
         return pEvent->m_Time;
 
     if (bSpew) {
-        Msg("adding layer %d to stack\n", layerlist[pEvent->m_nLayer].priority);
+        Msg("adding layer {:d} to stack\n", layerlist[pEvent->m_nLayer].priority);
     }
     active.Insert(&layerlist[pEvent->m_nLayer]);
 
@@ -4280,7 +4280,7 @@ static DmeTime_t ProcessStartLayerEndEvent(
 
     // Push it onto the active stack if it's not already on the stack
     if (bSpew) {
-        Msg("removing layer %d from stack\n", layerlist[pEvent->m_nLayer].priority);
+        Msg("removing layer {:d} from stack\n", layerlist[pEvent->m_nLayer].priority);
     }
 
     // We'll need to add a "discontinuity" fixup sample from the
@@ -4785,7 +4785,7 @@ void CLogFalloffBlend<float>::InsertClampTransitionPoints(CDmeTypedLogLayer<floa
         tCrossing.Clamp(clampHelper.m_tLastTime, t - DMETIME_MINDELTA);
         pWriteLayer->InsertKey(tCrossing, m_MinValue, SEGMENT_INTERPOLATE, m_nCurveType);
         if (bSpew) {
-            Msg("	Clamp Crossing Key: %d %f\n", tCrossing.GetTenthsOfMS(), m_MinValue);
+            Msg("	Clamp Crossing Key: {:d} {:f}\n", tCrossing.GetTenthsOfMS(), m_MinValue);
         }
     }
     else if (bLastGreater && !bCurrGreater) {
@@ -4795,7 +4795,7 @@ void CLogFalloffBlend<float>::InsertClampTransitionPoints(CDmeTypedLogLayer<floa
         tCrossing.Clamp(clampHelper.m_tLastTime, t - DMETIME_MINDELTA);
         pWriteLayer->InsertKey(tCrossing, m_MaxValue, SEGMENT_INTERPOLATE, m_nCurveType);
         if (bSpew) {
-            Msg("	Clamp Crossing Key: %d %f\n", tCrossing.GetTenthsOfMS(), m_MaxValue);
+            Msg("	Clamp Crossing Key: {:d} {:f}\n", tCrossing.GetTenthsOfMS(), m_MaxValue);
         }
     }
 
@@ -4808,7 +4808,7 @@ void CLogFalloffBlend<float>::InsertClampTransitionPoints(CDmeTypedLogLayer<floa
         tCrossing.Clamp(clampHelper.m_tLastTime + DMETIME_MINDELTA, t);
         pWriteLayer->InsertKey(tCrossing, m_MinValue, SEGMENT_INTERPOLATE, m_nCurveType);
         if (bSpew) {
-            Msg("	Clamp Crossing Key: %d %f\n", tCrossing.GetTenthsOfMS(), m_MinValue);
+            Msg("	Clamp Crossing Key: {:d} {:f}\n", tCrossing.GetTenthsOfMS(), m_MinValue);
         }
     }
     else if (!bLastGreater && bCurrGreater) {
@@ -4818,7 +4818,7 @@ void CLogFalloffBlend<float>::InsertClampTransitionPoints(CDmeTypedLogLayer<floa
         tCrossing.Clamp(clampHelper.m_tLastTime + DMETIME_MINDELTA, t);
         pWriteLayer->InsertKey(tCrossing, m_MaxValue, SEGMENT_INTERPOLATE, m_nCurveType);
         if (bSpew) {
-            Msg("	Clamp Crossing Key: %d %f\n", tCrossing.GetTenthsOfMS(), m_MaxValue);
+            Msg("	Clamp Crossing Key: {:d} {:f}\n", tCrossing.GetTenthsOfMS(), m_MaxValue);
         }
     }
 
@@ -4973,7 +4973,7 @@ void CLogFalloffBlend<T>::StampKey(CDmeTypedLogLayer<T> *pWriteLayer, DmeTime_t 
     pWriteLayer->InsertKey(t, maskedVal, pReadLayer->GetSegmentInterpolationSetting(t), m_nCurveType, false);
 
     if (bSpew) {
-        Msg("	Key: %d ", t.GetTenthsOfMS());
+        Msg("	Key: {:d} ", t.GetTenthsOfMS());
         SpewKey(clampedVal);
         Msg(" [");
         SpewKey(newVal);
@@ -5186,7 +5186,7 @@ void CDmeTypedLog<T>::_StampKeyAtHeadResample(DmeTime_t tHeadPosition, const Dme
     const T *pInterpTarget = bPerformInterpolation ? &interpTarget : NULL;
 
     if (bSpew) {
-        Msg("Stamp key at head resample: %s\n", GetName());
+        Msg("Stamp key at head resample: {}\n", GetName());
     }
 
     LogClampHelper_t<T> clampHelper;
@@ -5242,7 +5242,7 @@ void CDmeTypedLog<T>::_StampKeyAtHeadResample(DmeTime_t tHeadPosition, const Dme
             tResampleTime = tResampleStartTime[nNextTransition];
 
             if (bSpew) {
-                Msg("   Entering region %d\n", nNextTransition - 1);
+                Msg("   Entering region {:d}\n", nNextTransition - 1);
             }
         }
 

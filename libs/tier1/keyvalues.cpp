@@ -98,18 +98,18 @@ public:
 	// Hit an error, report it and the parsing stack for context
 	void ReportError( const char *pError )
 	{
-		Warning( "KeyValues Error: %s in file %s\n", pError, m_pFilename );
+		Warning( "KeyValues Error: {} in file {}\n", pError, m_pFilename );
 		for ( int i = 0; i < m_maxErrorIndex; i++ )
 		{
 			if ( i < MAX_ERROR_STACK && m_errorStack[i] != INVALID_KEY_SYMBOL )
 			{
 				if ( i < m_errorIndex )
 				{
-					Warning( "%s, ", KeyValuesSystem()->GetStringForSymbol(m_errorStack[i]) );
+					Warning( "{}, ", KeyValuesSystem()->GetStringForSymbol(m_errorStack[i]) );
 				}
 				else
 				{
-					Warning( "(*%s*), ", KeyValuesSystem()->GetStringForSymbol(m_errorStack[i]) );
+					Warning( "(*{}*), ", KeyValuesSystem()->GetStringForSymbol(m_errorStack[i]) );
 				}
 			}
 		}
@@ -680,7 +680,7 @@ bool KeyValues::LoadFromFile( IBaseFileSystem *filesystem, const char *resourceN
 {
 	//TM_ZONE_FILTERED( TELEMETRY_LEVEL0, 50, TMZF_NONE, "%s %s", __FUNCTION__, tmDynamicString( TELEMETRY_LEVEL0, resourceName ) );
 
-	FileHandle_t f = filesystem->Open(resourceName, "rb", pathID);
+	FileHandle_t f = filesystem->Open(resourceName ? resourceName : "", "rb", IBaseFileSystem::ToPathID(pathID));
 	if ( !f )
 		return false;
 
@@ -717,11 +717,11 @@ bool KeyValues::LoadFromFile( IBaseFileSystem *filesystem, const char *resourceN
 bool KeyValues::SaveToFile( IBaseFileSystem *filesystem, const char *resourceName, const char *pathID, bool bWriteEmptySubkeys )
 {
 	// create a write file
-	FileHandle_t f = filesystem->Open(resourceName, "wb", pathID);
+	FileHandle_t f = filesystem->Open(resourceName ? resourceName : "", "wb", IBaseFileSystem::ToPathID(pathID));
 
 	if ( f == FILESYSTEM_INVALID_HANDLE )
 	{
-		DevMsg( "KeyValues::SaveToFile: couldn't open file \"%s\" in path \"%s\".\n", 
+		DevMsg( "KeyValues::SaveToFile: couldn't open file \"{}\" in path \"{}\".\n", 
 			resourceName?resourceName:"NULL", pathID?pathID:"NULL" );
 		return false;
 	}
@@ -1976,7 +1976,7 @@ void KeyValues::ParseIncludedKeys( char const *resourceName, const char *filetoi
 	}
 	else
 	{
-		DevMsg( "KeyValues::ParseIncludedKeys: Couldn't load included keyvalue file %s\n", fullpath );
+		DevMsg( "KeyValues::ParseIncludedKeys: Couldn't load included keyvalue file {}\n", fullpath );
 		delete newKV;
 	}
 
@@ -2660,11 +2660,11 @@ bool CKeyValuesDumpContextAsDevMsg::KvWriteText( char const *szText )
 {
 	if ( m_nDeveloperLevel > 0 )
 	{
-		DevMsg( "%s", szText );
+		DevMsg( "{}", szText );
 	}
 	else
 	{
-		Msg( "%s", szText );
+		Msg( "{}", szText );
 	}
 	return true;
 }

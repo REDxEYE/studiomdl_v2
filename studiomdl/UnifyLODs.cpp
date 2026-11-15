@@ -1207,7 +1207,7 @@ static void UnifyModelLODs(s_model_t *pSrcModel) {
     }
 
 #ifdef _DEBUG
-    Msg("Total vertex count: %d\n", vertexDictionary.VertexCount());
+    Msg("Total vertex count: {:d}\n", vertexDictionary.VertexCount());
 #endif
 
     // save the data we just built into the processed data section
