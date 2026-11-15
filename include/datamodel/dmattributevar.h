@@ -240,22 +240,22 @@ public:
     // Accessors
     const CUtlVector<T> &Get() const;
 
-    const T *Base() const;
+    const T *data() const;
 
     // Iteration
-    uint32_t Count() const;
+    size_t size() const;
 
-    const T &operator[](uint32_t i) const;
+    const T &operator[](size_t i) const;
 
-    const T &Element(int i) const;
+    const T &at(size_t i) const;
 
-    const T &Get(int i) const;
+    const T &Get(size_t i) const;
 
-    const void *GetUntyped(int i) const;
+    const void *GetUntyped(size_t i) const;
 
-    bool IsValidIndex(int i) const;
+    bool IsValidIndex(size_t i) const;
 
-    int InvalidIndex(void) const;
+    int InvalidIndex() const;
 
     // Search
     int Find(const T &value) const;
@@ -534,13 +534,13 @@ class CDmaArray : public CDmaDecorator<T, CDmaArrayBase<T, CDmaDataInternal<CUtl
 
 public:
     const CDmaArray<T> &operator=(const CDmaArray<T> &val) {
-        this->CopyArray(val.Base(), val.Count());
+        this->CopyArray(val.data(), val.size());
         return *this;
     }
 
     template<class C>
     const CDmaArray<T> &operator=(const C &val) {
-        this->CopyArray(val.Base(), val.Count());
+        this->CopyArray(val.data(), val.size());
         return *this;
     }
 
@@ -564,13 +564,13 @@ class CDmrArray : public CDmrDecorator<T, CDmaArrayBase<T, CDmaDataExternal<CUtl
 
 public:
     const CDmrArray<T> &operator=(const CDmrArray<T> &val) {
-        this->CopyArray(val.Base(), val.Count());
+        this->CopyArray(val.data(), val.size());
         return *this;
     }
 
     template<class C>
     const CDmrArray<T> &operator=(const C &val) {
-        this->CopyArray(val.Base(), val.Count());
+        this->CopyArray(val.data(), val.size());
         return *this;
     }
 };
@@ -583,13 +583,13 @@ class CDmaStringArray : public CDmaDecorator<CUtlSymbolLarge, CDmaStringArrayBas
 
 public:
     const CDmaStringArray &operator=(const CDmaStringArray &val) {
-        this->CopyArray(val.Base(), val.Count());
+        this->CopyArray(val.data(), val.size());
         return *this;
     }
 
     template<class C>
     const CDmaStringArray &operator=(const C &val) {
-        this->CopyArray(val.Base(), val.Count());
+        this->CopyArray(val.data(), val.size());
         return *this;
     }
 
@@ -609,13 +609,13 @@ public:
     CDmrStringArray(CDmrStringArray &var) { this->Init(var.GetAttribute()); }
 
     const CDmrStringArray &operator=(const CDmrStringArray &val) {
-        this->CopyArray(val.Base(), val.Count());
+        this->CopyArray(val.data(), val.size());
         return *this;
     }
 
     template<class C>
     const CDmrStringArray &operator=(const C &val) {
-        this->CopyArray(val.Base(), val.Count());
+        this->CopyArray(val.data(), val.size());
         return *this;
     }
 };
@@ -662,13 +662,13 @@ public:
 
     template<typename C>
     CDmaElementArray<E> &operator=(const C &val) {
-        this->CopyArray(val.Base(), val.Count());
+        this->CopyArray(val.data(), val.size());
         return *this;
     }
 
     // NOTE: The copy operator= must be defined in addition to the generic one
     const CDmaElementArray<E> &operator=(const CDmaElementArray<E> &val) {
-        this->CopyArray(val.Base(), val.Count());
+        this->CopyArray(val.data(), val.size());
         return *this;
     }
 
@@ -728,7 +728,7 @@ public:
     }
 
     int Count() const {
-        return this->IsValid() ? this->Value().Count() : 0;
+        return this->IsValid() ? this->Value().size() : 0;
     }
 
     bool IsValid() const {
@@ -787,7 +787,7 @@ public:
     }
 
     int Count() const {
-        return IsValid() ? this->Value().Count() : 0;
+        return IsValid() ? this->Value().size() : 0;
     }
 
     bool IsValid() const {
@@ -796,13 +796,13 @@ public:
 
     template<typename C>
     CDmrElementArray<T> &operator=(const C &val) {
-        this->CopyArray(val.Base(), val.Count());
+        this->CopyArray(val.data(), val.size());
         return *this;
     }
 
     // NOTE: The copy operator= must be defined in addition to the generic one
     const CDmrElementArray<T> &operator=(const CDmrElementArray<T> &val) {
-        this->CopyArray(val.Base(), val.Count());
+        this->CopyArray(val.data(), val.Count());
         return *this;
     }
 };
@@ -1225,37 +1225,37 @@ inline const CUtlVector<T> &CDmaArrayConstBase<T, B>::Get() const {
 }
 
 template<class T, class B>
-inline const T *CDmaArrayConstBase<T, B>::Base() const {
-    return this->Value().Base();
+inline const T *CDmaArrayConstBase<T, B>::data() const {
+    return this->Value().data();
 }
 
 template<class T, class B>
-inline const T &CDmaArrayConstBase<T, B>::operator[](const uint32_t i) const {
+inline const T &CDmaArrayConstBase<T, B>::operator[](const size_t i) const {
     return this->Value()[i];
 }
 
 template<class T, class B>
-const T &CDmaArrayConstBase<T, B>::Element(int i) const {
+const T &CDmaArrayConstBase<T, B>::at(size_t i) const {
     return this->Value()[i];
 }
 
 template<class T, class B>
-inline const T &CDmaArrayConstBase<T, B>::Get(int i) const {
+inline const T &CDmaArrayConstBase<T, B>::Get(size_t i) const {
     return this->Value()[i];
 }
 
 template<class T, class B>
-const void *CDmaArrayConstBase<T, B>::GetUntyped(int i) const {
+const void *CDmaArrayConstBase<T, B>::GetUntyped(size_t i) const {
     return &(this->Value()[i]);
 }
 
 template<class T, class B>
-inline uint32_t CDmaArrayConstBase<T, B>::Count() const {
-    return this->Value().Count();
+inline size_t CDmaArrayConstBase<T, B>::size() const {
+    return this->Value().size();
 }
 
 template<class T, class B>
-inline bool CDmaArrayConstBase<T, B>::IsValidIndex(int i) const {
+inline bool CDmaArrayConstBase<T, B>::IsValidIndex(size_t i) const {
     return this->Value().IsValidIndex(i);
 }
 

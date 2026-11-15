@@ -25,7 +25,7 @@ public:
 	{
 		CUtlSymbol symbol = m_SymbolTable.AddString( pString );
 		int index = ( int )( UtlSymId_t )symbol;
-		if( m_Vector.Count() <= index )
+		if( m_Vector.size() <= index )
 		{
 			m_Vector.EnsureCount( index + 1 );
 		}
@@ -48,7 +48,7 @@ public:
 	unsigned int Count() const
 	{
 		Assert( m_Vector.Count() == m_SymbolTable.GetNumStrings() );
-		return m_Vector.Count();
+		return m_Vector.size();
 	}
 
 	bool Defined( const char *pString ) const
@@ -65,7 +65,7 @@ public:
 	{
 		CUtlSymbol symbol = m_SymbolTable.AddString( pString );
 		int index = ( int )( UtlSymId_t )symbol;
-		if( m_Vector.Count() <= index )
+		if( m_Vector.size() <= index )
 		{
 			m_Vector.EnsureCount( index + 1 );
 		}
@@ -80,12 +80,12 @@ public:
 	{
 		CUtlSymbol symbol = m_SymbolTable.AddString( pString );
 		UtlSymId_t index = symbol; // implicit coercion
-		if ( m_Vector.Count() > index ) 
+		if ( m_Vector.size() > index )
 		{
 			// this string is already in the dictionary.
 
 		}
-		else if ( m_Vector.Count() == index )
+		else if ( m_Vector.size() == index )
 		{
 			// this is the expected case when we've added one more to the tail.
 			m_Vector.AddToTail( item );

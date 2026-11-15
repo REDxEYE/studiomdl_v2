@@ -231,7 +231,7 @@ int studiohdr_t::GetNumSeq_Internal( void ) const
 {
 	virtualmodel_t *pVModel = (virtualmodel_t *)GetVirtualModel();
 	Assert( pVModel );
-	return pVModel->m_seq.Count();
+	return pVModel->m_seq.size();
 }
 
 //-----------------------------------------------------------------------------
@@ -503,10 +503,10 @@ const virtualmodel_t * CStudioHdr::ResetVModel( const virtualmodel_t *pVModel ) 
 	if (pVModel != nullptr)
 	{
 		m_pVModel = (virtualmodel_t *)pVModel;
-		m_pStudioHdrCache.SetCount( m_pVModel->m_group.Count() );
+		m_pStudioHdrCache.SetCount( m_pVModel->m_group.size() );
 
 		int i;
-		for (i = 0; i < m_pStudioHdrCache.Count(); i++)
+		for (i = 0; i < m_pStudioHdrCache.size(); i++)
 		{
 			m_pStudioHdrCache[ i ] = nullptr;
 		}
@@ -531,7 +531,7 @@ const studiohdr_t *CStudioHdr::GroupStudioHdr( int i )
 	{
 		const char *pszName;
 		pszName = ( m_pStudioHdr ) ? m_pStudioHdr->pszName() : "<<null>>";
-		ExecuteNTimes( 5, Warning( "Invalid index passed to CStudioHdr(%s)::GroupStudioHdr(): %d [%d]\n", pszName, i, m_pStudioHdrCache.Count() ) );
+		ExecuteNTimes( 5, Warning( "Invalid index passed to CStudioHdr(%s)::GroupStudioHdr(): %d [%d]\n", pszName, i, m_pStudioHdrCache.size() ) );
 		DebuggerBreakIfDebugging();
 		return m_pStudioHdr; // return something known to probably exist, certainly things will be messed up, but hopefully not crash before the warning is noticed
 	}
@@ -566,7 +566,7 @@ mstudioanimdesc_t &CStudioHdr::pAnimdesc_Internal( int i )
 
 int CStudioHdr::GetNumSeq_Internal( void ) const
 {
-	return m_pVModel->m_seq.Count();
+	return m_pVModel->m_seq.size();
 }
 
 //-----------------------------------------------------------------------------

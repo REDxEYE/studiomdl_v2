@@ -765,10 +765,10 @@ void CIKContext::Init( const CStudioHdr *pStudioHdr, const QAngle &angles, const
 		m_ikChainRule.SetSize( pStudioHdr->numikchains() );
 
 		// FIXME: Brutal hackery to prevent a crash
-		if (m_target.Count() == 0)
+		if (m_target.size() == 0)
 		{
 			m_target.SetSize(12);
-			memset( m_target.Base(), 0, sizeof(m_target[0])*m_target.Count() );
+			memset( m_target.data(), 0, sizeof(m_target[0])*m_target.size() );
 			ClearTargets();
 		}
 
@@ -902,7 +902,7 @@ int CIKTarget::GetOwner( void )
 void CIKContext::ClearTargets( void )
 {
 	int i;
-	for (i = 0; i < m_target.Count(); i++)
+	for (i = 0; i < m_target.size(); i++)
 	{
 		m_target[i].latched.iFramecounter = -9999;
 	}
@@ -922,9 +922,6 @@ void CIKContext::ClearTargets( void )
 
 void CIKContext::SolveDependencies( BoneVector pos[], BoneQuaternion q[], matrix3x4a_t boneToWorld[], CBoneBitList &boneComputed	)
 {
-	BONE_PROFILE_FUNC(); // ex: x360: up to 1.16ms
-//	ASSERT_NO_REENTRY();
-
 	matrix3x4a_t worldTarget;
 	int i, j;
 
@@ -950,11 +947,11 @@ void CIKContext::SolveDependencies( BoneVector pos[], BoneQuaternion q[], matrix
 		MatrixAngles( boneToWorld[bone], pChainResult->q, pChainResult->pos );
 	}
 
-	for( j = 0; j < m_ikChainRule.Count(); j++ )
+	for( j = 0; j < m_ikChainRule.size(); j++ )
 	{
-		for( i = 0; i < m_ikChainRule.Element( j ).Count(); i++ )
+		for( i = 0; i < m_ikChainRule.at( j ).size(); i++ )
 		{
-			ikcontextikrule_t *pRule = &m_ikChainRule.Element( j ).Element( i );
+			ikcontextikrule_t *pRule = &m_ikChainRule.at( j ).at( i );
 			ikchainresult_t *pChainResult = &chainResult[ pRule->chain ];
 			pChainResult->target = -1;
 
@@ -1035,7 +1032,7 @@ void CIKContext::SolveDependencies( BoneVector pos[], BoneQuaternion q[], matrix
 		}
 	}
 
-	for (i = 0; i < m_target.Count(); i++)
+	for (i = 0; i < m_target.size(); i++)
 	{
 		CIKTarget *pTarget = &m_target[i];
 
@@ -1110,176 +1107,7 @@ void CIKContext::SolveDependencies( BoneVector pos[], BoneQuaternion q[], matrix
 			}
 		}
 	}
-
-#if 0
-		Vector p1, p2, p3;
-		Quaternion q1, q2, q3;
-
-		// current p and q
-		MatrixAngles( boneToWorld[bone], q1, p1 );
-
-
-		// target p and q
-		MatrixAngles( worldTarget, q2, p2 );
-
-		// blend in position and angles
-		p3 = p1 * (1.0 - m_ikRule[i].flWeight ) + p2 * m_ikRule[i].flWeight;
-
-		// do exact IK solution
-		// FIXME: once per link!
-		Studio_SolveIK(pchain, p3, boneToWorld );
-
-		// force angle (bad?)
-		QuaternionSlerp( q1, q2, m_ikRule[i].flWeight, q3 );
-		MatrixGetColumn( boneToWorld[bone], 3, p3 );
-		QuaternionMatrix( q3, p3, boneToWorld[bone] );
-
-		// rebuild chain
-		SolveBone( m_pStudioHdr, pchain->pLink( 2 )->bone, boneToWorld, pos, q );
-		SolveBone( m_pStudioHdr, pchain->pLink( 1 )->bone, boneToWorld, pos, q );
-		SolveBone( m_pStudioHdr, pchain->pLink( 0 )->bone, boneToWorld, pos, q );
-#endif
 }
-
-
-#if 0
-//-----------------------------------------------------------------------------------------------------------------------
-//
-// SolveDependencies path abandoned for now, code here for reference
-// in order for this to be efficient (multiple pass bone setup) we need to find a more appropriate
-// point at which to perform multiple passes over baseanimating jobs (i.e. after each generation)
-//
-//-----------------------------------------------------------------------------------------------------------------------
-//-----------------------------------------------------------------------------------------------------------------------
-// Pass1/2 here (PPU) - Pass2/2 done on SPU
-// Fill bonejob data
-//-----------------------------------------------------------------------------------------------------------------------
-void CIKContext::SolveDependencies_PS3( bonejob_SPU_2 *pBonejob, CBoneBitList &boneComputed )
-{
-
-	int i, j;
-
-	pBonejob->rootxform          = m_rootxform;
-
-	// copy over computed
-	pBonejob->boneComputed.ResetMarkedBones( m_pStudioHdr->numbones() );
-
-	for( i = 0; i < m_pStudioHdr->numbones(); i++ )
-	{
-		if( boneComputed.IsBoneMarked( i ) )
-		{
-			// mark bone
-			pBonejob->boneComputed.MarkBone( i );
-
-			// copy matrix
-			//pBonejob->boneToWorld[ i ] = boneToWorld[ i ];
-			// could build a dma list so we only copy over valid matrices?
-		}
-	}
-
-	pBonejob->numikchainElements	= 0;
-	pBonejob->studiohdr_numikchains = m_pStudioHdr->numikchains();
-
-	// init chain rules
-	for( i = 0; i < m_pStudioHdr->numikchains(); i++ )
-	{
-		mstudioikchain_t *pchain	 = m_pStudioHdr->pIKChain( i );
-
-		ikChain_SPU      *pchain_SPU = &pBonejob->ikChains[ i ];
-
-		pchain_SPU->bone0	 = pchain->pLink( 0 )->bone;
-		pchain_SPU->bone1	 = pchain->pLink( 1 )->bone;
-		pchain_SPU->bone2	 = pchain->pLink( 2 )->bone;
-		pchain_SPU->kneeDir0 = pchain->pLink( 0 )->kneeDir;
-
-		// don't bother with chain if the bone isn't going to be calculated
-		if ( !(m_pStudioHdr->boneFlags( pchain_SPU->bone2 ) & m_boneMask))
-			pchain_SPU->bone2 = -1;
-	}
-
-	for( j = 0; j < m_ikChainRule.Count(); j++ )
-	{
-		for( i = 0; i < m_ikChainRule.Element( j ).Count(); i++ )
-		{
-			ikcontextikrule_t *pRule = &m_ikChainRule.Element( j ).Element( i );
-
-			AssertFatal( pBonejob->numikchainElements >= MAX_IKCHAINELEMENTS );
-
-			switch( pRule->type )
-			{
-			case IkRuleType::Self:
-				{
-					pBonejob->ikchainElement_rules[ pBonejob->numikchainElements++ ] = pRule;
-				}
-				break;
-			case IkRuleType::World:
-				Assert( 0 );
-				break;
-
-			case IkRuleType::Attachment:
-				break;
-
-			case IkRuleType::Ground:
-				break;
-
-			case IkRuleType::Release:
-				{
-					// move target back towards original location
-					mstudioikchain_t *pchain = m_pStudioHdr->pIKChain( pRule->chain );
-
-					pBonejob->ikchainElement_rules[ pBonejob->numikchainElements ] = pRule;
-					pBonejob->ikchainElement_bones[ pBonejob->numikchainElements ] = pchain->pLink( 2 )->bone;
-					pBonejob->numikchainElements++;
-				}
-				break;
-			case IkRuleType::Unlatch:
-				{
-					/*
-					pChainResult->flWeight = pChainResult->flWeight * (1 - pRule->flWeight) + pRule->flWeight;
-
-					pChainResult->pos = pChainResult->pos * (1.0 - pRule->flWeight ) + pChainResult->local.pos * pRule->flWeight;
-					QuaternionSlerp( pChainResult->q, pChainResult->local.q, pRule->flWeight, pChainResult->q );
-					*/
-				}
-				break;
-			}
-		}
-	}
-
-	pBonejob->iktargetcount = m_target.Count();
-
-	for (i = 0; i < m_target.Count(); i++)
-	{
-		CIKTarget *pTarget = &m_target[i];
-
-		pBonejob->iktargets[ i ] = pTarget;
-	}
-}
-
-
-#endif
-
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
-
-
-
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
-
-
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
-
-
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
-
-
 
 //-----------------------------------------------------------------------------
 // Purpose: 
@@ -1295,7 +1123,6 @@ void CIKContext::SolveLock(
 	CBoneBitList &boneComputed
 	)
 {
-	BONE_PROFILE_FUNC(); // ex: x360:up to 1.18 ms
 	mstudioikchain_t *pchain = m_pStudioHdr->pIKChain( plock->chain );
 	int bone = pchain->pLink( 2 )->bone;
 

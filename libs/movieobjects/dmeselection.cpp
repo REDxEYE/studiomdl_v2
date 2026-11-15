@@ -82,7 +82,7 @@ void CDmeSingleIndexedComponent::Resolve()
 //-----------------------------------------------------------------------------
 int CDmeSingleIndexedComponent::Count() const
 {
-	return IsComplete() ? m_CompleteCount.Get() : m_Components.Count();
+	return IsComplete() ? m_CompleteCount.Get() : m_Components.size();
 }
 
 
@@ -98,7 +98,7 @@ void CDmeSingleIndexedComponent::AddComponent( int component, float weight /*= 1
 	const int index( BinarySearch( component ) );
 	Assert( index >= 0 );
 	Assert( index <= m_Components.Count() );
-	if ( index == m_Components.Count() )
+	if ( index == m_Components.size() )
 	{
 		m_Components.AddToTail( component );
 		m_Weights.AddToTail( weight );
@@ -168,10 +168,10 @@ void CDmeSingleIndexedComponent::GetComponents( CUtlVector< int > &components, C
 	else
 	{
 		components.RemoveAll();
-		components.CopyArray( m_Components.Base(), m_Components.Count() );
+		components.CopyArray( m_Components.data(), m_Components.size() );
 
 		weights.RemoveAll();
-		weights.CopyArray( m_Weights.Base(), m_Weights.Count() );
+		weights.CopyArray( m_Weights.data(), m_Weights.size() );
 	}
 }
 
@@ -197,7 +197,7 @@ void CDmeSingleIndexedComponent::GetComponents( CUtlVector< int > &components ) 
 	else
 	{
 		components.RemoveAll();
-		components.CopyArray( m_Components.Base(), m_Components.Count() );
+		components.CopyArray( m_Components.data(), m_Components.size() );
 	}
 }
 
@@ -224,7 +224,7 @@ inline void CDmeSingleIndexedComponent::Clear()
 int CDmeSingleIndexedComponent::BinarySearch( int component ) const
 {
 	const CUtlVector< int > &components( m_Components.Get() );
-	const int nComponents( components.Count() );
+	const int nComponents( components.size() );
 
 	int left( 0 );
 	int right( nComponents - 1 );
@@ -260,7 +260,7 @@ bool CDmeSingleIndexedComponent::HasComponent( int component ) const
 		return true;
 
 	const int cIndex = BinarySearch( component );
-	if ( cIndex >= m_Components.Count() )
+	if ( cIndex >= m_Components.size() )
 		return false;
 
 	if ( m_Components[ cIndex ] == component )
@@ -278,7 +278,7 @@ bool CDmeSingleIndexedComponent::GetWeight( int component, float &weight ) const
 	Assert( !IsComplete() );
 
 	const int cIndex = BinarySearch( component );
-	if ( cIndex >= m_Components.Count() )
+	if ( cIndex >= m_Components.size() )
 		return false;
 
 	if ( m_Components[ cIndex ] == component )
@@ -338,8 +338,8 @@ void CDmeSingleIndexedComponent::Subtract( const CDmeSingleIndexedComponent &rhs
 			}
 		}
 
-		m_Components.CopyArray( newComponents.Base(), newComponents.Count() );
-		m_Weights.CopyArray( newWeights.Base(), newWeights.Count() );
+		m_Components.CopyArray( newComponents.data(), newComponents.size() );
+		m_Weights.CopyArray( newWeights.data(), newWeights.size() );
 	}
 
 	m_CompleteCount.Set( 0 );
@@ -387,8 +387,8 @@ void CDmeSingleIndexedComponent::Add( const CDmeSingleIndexedComponent &rhs )
 						++r;
 					}
 
-					m_Components.CopyArray( newComponents.Base(), newComponents.Count() );
-					m_Weights.CopyArray( newWeights.Base(), newWeights.Count() );
+					m_Components.CopyArray( newComponents.data(), newComponents.size() );
+					m_Weights.CopyArray( newWeights.data(), newWeights.size() );
 
 					m_CompleteCount.Set( 0 );
 					m_bComplete.Set( false );
@@ -434,8 +434,8 @@ void CDmeSingleIndexedComponent::Add( const CDmeSingleIndexedComponent &rhs )
 			}
 		}
 
-		m_Components.CopyArray( newComponents.Base(), newComponents.Count() );
-		m_Weights.CopyArray( newWeights.Base(), newWeights.Count() );
+		m_Components.CopyArray( newComponents.data(), newComponents.size() );
+		m_Weights.CopyArray( newWeights.data(), newWeights.size() );
 	}
 
 	m_CompleteCount.Set( 0 );
@@ -490,8 +490,8 @@ void CDmeSingleIndexedComponent::Intersection( const CDmeSingleIndexedComponent 
 			}
 		}
 
-		m_Components.CopyArray( newComponents.Base(), newComponents.Count() );
-		m_Weights.CopyArray( newWeights.Base(), newWeights.Count() );
+		m_Components.CopyArray( newComponents.data(), newComponents.size() );
+		m_Weights.CopyArray( newWeights.data(), newWeights.size() );
 	}
 
 	m_CompleteCount.Set( 0 );

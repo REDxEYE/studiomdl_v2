@@ -146,7 +146,7 @@ void CDmElementFactoryInternal::RemoveOnElementCreatedCallback( IDmeElementCreat
 
 void CDmElementFactoryInternal::OnElementCreated( CDmElement* pElement )
 {
-	for ( int i = 0; i < m_CallBackList.Count(); i++ )
+	for ( int i = 0; i < m_CallBackList.size(); i++ )
 	{
 		m_CallBackList[i]->OnElementCreated( pElement );
 	}

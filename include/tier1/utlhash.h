@@ -133,9 +133,9 @@ inline bool CUtlHash<Data, C, K>::IsValidHandle( UtlHashHandle_t handle ) const
 	// look at the definition of the Get..Index functions for why. However,
 	// if you override those functions, you will need to override this one
 	// as well. 
-	if( /*( ndxBucket >= 0 ) && */      ( ndxBucket < m_Buckets.Count() ) )
+	if( /*( ndxBucket >= 0 ) && */      ( ndxBucket < m_Buckets.size() ) )
 	{
-		if( /*( ndxKeyData >= 0 ) && */ ( ndxKeyData < m_Buckets[ndxBucket].Count() ) )
+		if( /*( ndxKeyData >= 0 ) && */ ( ndxKeyData < m_Buckets[ndxBucket].size() ) )
 			return true;
 	}
 	
@@ -149,10 +149,10 @@ inline int CUtlHash<Data, C, K>::Count( void ) const
 {
 	int count = 0;
 
-	int bucketCount = m_Buckets.Count();
+	int bucketCount = m_Buckets.size();
 	for( int ndxBucket = 0; ndxBucket < bucketCount; ndxBucket++ )
 	{
-		count += m_Buckets[ndxBucket].Count();
+		count += m_Buckets[ndxBucket].size();
 	}
 
 	return count;
@@ -197,7 +197,7 @@ inline UtlHashHandle_t CUtlHash<Data, C, K>::BuildHandle( int ndxBucket, int ndx
 template<class Data, typename C, typename K>
 inline void CUtlHash<Data, C, K>::Purge( void )
 {
-	int bucketCount = m_Buckets.Count();
+	int bucketCount = m_Buckets.size();
 	for( int ndxBucket = 0; ndxBucket < bucketCount; ndxBucket++ )
 	{
 		m_Buckets[ndxBucket].Purge();
@@ -220,16 +220,16 @@ inline bool CUtlHash<Data, C, K>::DoFind( Data const &src, unsigned int *pBucket
 	}
 	else
 	{
-		int bucketCount = m_Buckets.Count();
+		int bucketCount = m_Buckets.size();
 		*pBucket = ndxBucket = key % bucketCount;
 	}
 
 	int ndxKeyData = 0;
 	const CUtlVector<Data> &bucket = m_Buckets[ndxBucket];
-	int keyDataCount = bucket.Count();
+	int keyDataCount = bucket.size();
 	for( ndxKeyData = 0; ndxKeyData < keyDataCount; ndxKeyData++ )
 	{
-		if( m_CompareFunc( bucket.Element( ndxKeyData ), src ) )
+		if( m_CompareFunc( bucket.at( ndxKeyData ), src ) )
 			break;
 	}
 
@@ -338,7 +338,7 @@ inline void CUtlHash<Data, C, K>::Remove( UtlHashHandle_t handle )
 template<class Data, typename C, typename K>
 inline void CUtlHash<Data, C, K>::RemoveAll()
 {
-	int bucketCount = m_Buckets.Count();
+	int bucketCount = m_Buckets.size();
 	for( int ndxBucket = 0; ndxBucket < bucketCount; ndxBucket++ )
 	{
 		m_Buckets[ndxBucket].RemoveAll();
@@ -354,7 +354,7 @@ inline Data &CUtlHash<Data, C, K>::Element( UtlHashHandle_t handle )
 	int ndxBucket = GetBucketIndex( handle );
 	int ndxKeyData = GetKeyDataIndex( handle );
 
-	return ( m_Buckets[ndxBucket].Element( ndxKeyData ) );
+	return ( m_Buckets[ndxBucket].at( ndxKeyData ) );
 }
 
 //-----------------------------------------------------------------------------
@@ -365,7 +365,7 @@ inline Data const &CUtlHash<Data, C, K>::Element( UtlHashHandle_t handle ) const
 	int ndxBucket = GetBucketIndex( handle );
 	int ndxKeyData = GetKeyDataIndex( handle );
 
-	return ( m_Buckets[ndxBucket].Element( ndxKeyData ) );
+	return ( m_Buckets[ndxBucket].at( ndxKeyData ) );
 }
 
 
@@ -377,7 +377,7 @@ inline Data &CUtlHash<Data, C, K>::operator[]( UtlHashHandle_t handle )
 	int ndxBucket = GetBucketIndex( handle );
 	int ndxKeyData = GetKeyDataIndex( handle );
 
-	return ( m_Buckets[ndxBucket].Element( ndxKeyData ) );
+	return ( m_Buckets[ndxBucket].at( ndxKeyData ) );
 }
 
 
@@ -389,7 +389,7 @@ inline Data const &CUtlHash<Data, C, K>::operator[]( UtlHashHandle_t handle ) co
 	int ndxBucket = GetBucketIndex( handle );
 	int ndxKeyData = GetKeyDataIndex( handle );
 
-	return ( m_Buckets[ndxBucket].Element( ndxKeyData ) );
+	return ( m_Buckets[ndxBucket].at( ndxKeyData ) );
 }
 
 //-----------------------------------------------------------------------------
@@ -408,10 +408,10 @@ inline UtlHashHandle_t CUtlHash<Data, C, K>::GetNextHandle( UtlHashHandle_t hand
 	int bi = GetBucketIndex( handle );
 	int ki =  GetKeyDataIndex( handle );
 
-	int nBuckets = m_Buckets.Count();
+	int nBuckets = m_Buckets.size();
 	for ( ; bi < nBuckets; ++bi )
 	{
-		if ( ki < m_Buckets[ bi ].Count() )
+		if ( ki < m_Buckets[ bi ].size() )
 			return BuildHandle( bi, ki );
 
 		ki = 0;
@@ -433,12 +433,12 @@ inline void CUtlHash<Data, C, K>::Log( const char *filename )
 	int maxBucketSize = 0;
 	int numBucketsEmpty = 0;
 
-	int bucketCount = m_Buckets.Count();
+	int bucketCount = m_Buckets.size();
 	fprintf( pDebugFp, "\n%d Buckets\n", bucketCount ); 
 
 	for( int ndxBucket = 0; ndxBucket < bucketCount; ndxBucket++ )
 	{
-		int count = m_Buckets[ndxBucket].Count();
+		int count = m_Buckets[ndxBucket].size();
 		
 		if( count > maxBucketSize ) { maxBucketSize = count; }
 		if( count == 0 )
@@ -462,12 +462,12 @@ inline void CUtlHash<Data, C, K>::Dump( )
 	int maxBucketSize = 0;
 	int numBucketsEmpty = 0;
 
-	int bucketCount = m_Buckets.Count();
+	int bucketCount = m_Buckets.size();
 	Msg( "\n%d Buckets\n", bucketCount ); 
 
 	for( int ndxBucket = 0; ndxBucket < bucketCount; ndxBucket++ )
 	{
-		int count = m_Buckets[ndxBucket].Count();
+		int count = m_Buckets[ndxBucket].size();
 
 		if( count > maxBucketSize ) { maxBucketSize = count; }
 		if( count == 0 )
@@ -759,7 +759,7 @@ template<class Data, class HashFuncs>
 	CUtlHashFast<Data,HashFuncs>::First() const
 {
 	// walk through the buckets to find the first one that has some data
-	int bucketCount = m_aBuckets.Count();
+	int bucketCount = m_aBuckets.size();
 	const UtlHashFastHandle_t invalidIndex = m_aDataPool.InvalidIndex();
 	for ( int bucket = 0 ; bucket < bucketCount ; ++bucket )
 	{
@@ -790,7 +790,7 @@ template<class Data, class HashFuncs>
 	}
 	
 	// otherwise look for the next bucket with data
-	int bucketCount = m_aBuckets.Count();
+	int bucketCount = m_aBuckets.size();
 	for ( int bucket = iter.bucket+1 ; bucket < bucketCount ; ++bucket )
 	{
 		UtlHashFastHandle_t next = m_aBuckets[bucket]; // get the head of the bucket

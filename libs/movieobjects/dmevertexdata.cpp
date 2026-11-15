@@ -110,7 +110,7 @@ void CDmeVertexDataBase::ComputeFieldInfo()
 {
 	// Clear existing field info, 
 	// but keep the old names around so field indices remain constant
-	int nCurrentCount = m_FieldInfo.Count();
+	int nCurrentCount = m_FieldInfo.size();
 	for ( int i = 0; i < nCurrentCount; ++i )
 	{
 		m_FieldInfo[i].m_pIndexData = nullptr;
@@ -120,13 +120,13 @@ void CDmeVertexDataBase::ComputeFieldInfo()
 	CUtlVectorFixedGrowable< char, 256 > indicesName;
 
 	// FIXME: Want to maintain field indices as constants for all time 
-	int nFieldCount = m_VertexFormat.Count();
+	int nFieldCount = m_VertexFormat.size();
 	for ( int i = 0; i < nFieldCount; ++i )
 	{
 		const char *pFieldName = m_VertexFormat[i];
 		int nLen = Q_strlen( pFieldName ) + 21;
 		indicesName.EnsureCount( nLen );
-		Q_snprintf( indicesName.Base(), nLen, "%sIndices", pFieldName );
+		Q_snprintf( indicesName.data(), nLen, "%sIndices", pFieldName );
 
 		CDmAttribute *pVerticesArray = GetAttribute( pFieldName );
 		if ( !pVerticesArray || !IsArrayType( pVerticesArray->GetType() ) )
@@ -136,7 +136,7 @@ void CDmeVertexDataBase::ComputeFieldInfo()
 		if ( Q_stricmp( pFieldName, g_pStandardFieldNames[FIELD_JOINT_WEIGHTS] ) &&
 			Q_stricmp( pFieldName, g_pStandardFieldNames[FIELD_JOINT_INDICES] ) )
 		{
-			pIndicesArray = GetAttribute( indicesName.Base() );
+			pIndicesArray = GetAttribute( indicesName.data() );
 			if ( !pIndicesArray || pIndicesArray->GetType() != AT_INT_ARRAY )
 				continue;
 		}
@@ -160,7 +160,7 @@ void CDmeVertexDataBase::ComputeFieldInfo()
 //-----------------------------------------------------------------------------
 void CDmeVertexDataBase::ComputeVertexCount()
 {
-	int nCount = m_FieldInfo.Count();
+	int nCount = m_FieldInfo.size();
 	if ( nCount == 0 )
 	{
 		m_nVertexCount = 0;
@@ -201,7 +201,7 @@ void CDmeVertexDataBase::Resolve()
 	}
 
 	// Mark inverse map dirty if necessary
-	int nCount = m_FieldInfo.Count();
+	int nCount = m_FieldInfo.size();
 	for ( int i = 0; i < nCount; ++i )
 	{
 		if ( m_FieldInfo[i].m_pIndexData && m_FieldInfo[i].m_pIndexData->IsFlagSet( FATTRIB_DIRTY ) )
@@ -284,7 +284,7 @@ float CDmeVertexDataBase::GetWeight( int nIndex ) const
 void CDmeVertexDataBase::FindOrAddVertexField( const char *pFieldName )
 {
 	int i;
-	int nFormatCount = m_VertexFormat.Count();
+	int nFormatCount = m_VertexFormat.size();
 	for ( i = 0; i < nFormatCount; ++i )
 	{
 		if ( !Q_stricmp( pFieldName, m_VertexFormat[i] ) )
@@ -399,7 +399,7 @@ void CDmeVertexDataBase::RemoveAllVertexData( FieldIndex_t nFieldIndex )
 //-----------------------------------------------------------------------------
 FieldIndex_t CDmeVertexDataBase::FindFieldIndex( const char *pFieldName ) const
 {
-	int nCount = m_FieldInfo.Count();
+	int nCount = m_FieldInfo.size();
 	for ( int i = 0; i < nCount; ++i )
 	{
 		if ( !Q_stricmp( m_FieldInfo[i].m_Name, pFieldName ) )
@@ -421,7 +421,7 @@ static CUtlVector<float> s_EmptyFloat;
 const CUtlVector<Vector> &CDmeVertexDataBase::GetPositionData( ) const
 {
 	FieldIndex_t nFieldIndex = m_pStandardFieldIndex[ FIELD_POSITION ];
-	if ( nFieldIndex < 0 || nFieldIndex >= m_FieldInfo.Count() )
+	if ( nFieldIndex < 0 || nFieldIndex >= m_FieldInfo.size() )
 		return s_EmptyVector;
 
 	CDmrArrayConst<Vector> vertexData = GetVertexData( nFieldIndex );
@@ -431,7 +431,7 @@ const CUtlVector<Vector> &CDmeVertexDataBase::GetPositionData( ) const
 const CUtlVector<Vector> &CDmeVertexDataBase::GetNormalData( ) const
 {
 	FieldIndex_t nFieldIndex = m_pStandardFieldIndex[ FIELD_NORMAL ];
-	if ( nFieldIndex < 0 || nFieldIndex >= m_FieldInfo.Count() )
+	if ( nFieldIndex < 0 || nFieldIndex >= m_FieldInfo.size() )
 		return s_EmptyVector;
 
 	CDmrArrayConst<Vector> vertexData = GetVertexData( nFieldIndex );
@@ -441,7 +441,7 @@ const CUtlVector<Vector> &CDmeVertexDataBase::GetNormalData( ) const
 const CUtlVector<Vector4D> &CDmeVertexDataBase::GetTangentData( ) const
 {
 	FieldIndex_t nFieldIndex = m_pStandardFieldIndex[ FIELD_TANGENT ];
-	if ( nFieldIndex < 0 || nFieldIndex >= m_FieldInfo.Count() )
+	if ( nFieldIndex < 0 || nFieldIndex >= m_FieldInfo.size() )
 		return s_EmptyVector4D;
 
 	CDmrArrayConst<Vector4D> vertexData = GetVertexData( nFieldIndex );
@@ -451,7 +451,7 @@ const CUtlVector<Vector4D> &CDmeVertexDataBase::GetTangentData( ) const
 const CUtlVector<Vector2D> &CDmeVertexDataBase::GetTextureCoordData( ) const
 {
 	FieldIndex_t nFieldIndex = m_pStandardFieldIndex[ FIELD_TEXCOORD ];
-	if ( nFieldIndex < 0 || nFieldIndex >= m_FieldInfo.Count() )
+	if ( nFieldIndex < 0 || nFieldIndex >= m_FieldInfo.size() )
 		return s_EmptyVector2D;
 
 	CDmrArrayConst<Vector2D> vertexData = GetVertexData( nFieldIndex );
@@ -461,7 +461,7 @@ const CUtlVector<Vector2D> &CDmeVertexDataBase::GetTextureCoordData( ) const
 const float *CDmeVertexDataBase::GetJointWeightData( int nDataIndex ) const
 {
 	FieldIndex_t nFieldIndex = m_pStandardFieldIndex[FIELD_JOINT_WEIGHTS];
-	if ( nFieldIndex < 0 || nFieldIndex >= m_FieldInfo.Count() )
+	if ( nFieldIndex < 0 || nFieldIndex >= m_FieldInfo.size() )
 		return nullptr;
 
 	CDmrArrayConst<float> vertexData = GetVertexData( nFieldIndex );
@@ -471,17 +471,17 @@ const float *CDmeVertexDataBase::GetJointWeightData( int nDataIndex ) const
 const int *CDmeVertexDataBase::GetJointIndexData( int nDataIndex ) const
 {
 	FieldIndex_t nFieldIndex = m_pStandardFieldIndex[FIELD_JOINT_INDICES];
-	if ( nFieldIndex < 0 || nFieldIndex >= m_FieldInfo.Count() )
+	if ( nFieldIndex < 0 || nFieldIndex >= m_FieldInfo.size() )
 		return nullptr;
 
 	CDmrArrayConst<int> vertexData = GetVertexData( nFieldIndex );
-	return &vertexData.Element( nDataIndex * m_nJointCount );
+	return &vertexData.at( nDataIndex * m_nJointCount );
 }
 
 const CUtlVector<float> &CDmeVertexDataBase::GetBalanceData( ) const
 {
 	FieldIndex_t nFieldIndex = m_pStandardFieldIndex[ FIELD_BALANCE ];
-	if ( nFieldIndex < 0 || nFieldIndex >= m_FieldInfo.Count() )
+	if ( nFieldIndex < 0 || nFieldIndex >= m_FieldInfo.size() )
 		return s_EmptyFloat;
 
 	CDmrArrayConst<float> vertexData = GetVertexData( nFieldIndex );
@@ -491,7 +491,7 @@ const CUtlVector<float> &CDmeVertexDataBase::GetBalanceData( ) const
 const CUtlVector<float> &CDmeVertexDataBase::GetMorphSpeedData( ) const
 {
 	FieldIndex_t nFieldIndex = m_pStandardFieldIndex[ FIELD_MORPH_SPEED ];
-	if ( nFieldIndex < 0 || nFieldIndex >= m_FieldInfo.Count() )
+	if ( nFieldIndex < 0 || nFieldIndex >= m_FieldInfo.size() )
 		return s_EmptyFloat;
 
 	CDmrArrayConst<float> vertexData = GetVertexData( nFieldIndex );
@@ -501,7 +501,7 @@ const CUtlVector<float> &CDmeVertexDataBase::GetMorphSpeedData( ) const
 const CUtlVector<float> &CDmeVertexDataBase::GetWrinkleData( ) const
 {
 	FieldIndex_t nFieldIndex = m_pStandardFieldIndex[ FIELD_WRINKLE ];
-	if ( nFieldIndex < 0 || nFieldIndex >= m_FieldInfo.Count() )
+	if ( nFieldIndex < 0 || nFieldIndex >= m_FieldInfo.size() )
 		return s_EmptyFloat;
 
 	CDmrArrayConst<float> vertexData = GetVertexData( nFieldIndex );
@@ -515,7 +515,7 @@ const CUtlVector<float> &CDmeVertexDataBase::GetWrinkleData( ) const
 static CUtlVector<int> s_EmptyInt; 
 const CUtlVector<int> &CDmeVertexDataBase::GetVertexIndexData( FieldIndex_t nFieldIndex ) const
 {
-	if ( nFieldIndex < 0 || nFieldIndex >= m_FieldInfo.Count() )
+	if ( nFieldIndex < 0 || nFieldIndex >= m_FieldInfo.size() )
 		return s_EmptyInt;
 
 	CDmrArrayConst<int> indexData = GetIndexData( nFieldIndex );
@@ -543,7 +543,7 @@ const CUtlVector< int > &CDmeVertexDataBase::FindVertexIndicesFromDataIndex( Fie
 		CDmrGenericArray vertexArray( info.m_pVertexData );
 
 		int nDataCount = vertexArray.Count();
-		int nCount = array.Count();
+		int nCount = array.size();
 
 		// Clear out the utlvectors
 		info.m_InverseMap.RemoveAll();
@@ -589,7 +589,7 @@ bool CDmeVertexDataBase::HasSkinningData() const
 
 	CDmrArrayConst<float> weightData = GetVertexData( nWeightFieldIndex );
 	CDmrArrayConst<int> indexData = GetVertexData( nIndexFieldIndex );
-	return ( weightData.Count() > 0 && indexData.Count() > 0 );
+	return ( weightData.size() > 0 && indexData.size() > 0 );
 }
 
 
@@ -599,7 +599,7 @@ bool CDmeVertexDataBase::HasSkinningData() const
 //-----------------------------------------------------------------------------
 int CDmeVertexDataBase::FieldCount() const
 {
-	return m_VertexFormat.Count();
+	return m_VertexFormat.size();
 }
 
 
@@ -608,7 +608,7 @@ int CDmeVertexDataBase::FieldCount() const
 //-----------------------------------------------------------------------------
 const char *CDmeVertexDataBase::FieldName( int i ) const
 {
-	if ( i < 0 || i >= m_VertexFormat.Count() )
+	if ( i < 0 || i >= m_VertexFormat.size() )
 		return nullptr;
 
 	return m_VertexFormat[ i ];
@@ -675,7 +675,7 @@ float CDmeVertexDeltaData::ComputeMaxDeflection( )
 	float flMaxDeflection = 0.0f;
 
 	const CUtlVector<Vector> &pos = GetPositionData();
-	int nCount = pos.Count();
+	int nCount = pos.size();
 	for ( int i = 0; i < nCount; ++i )
 	{
 		float flDeflection = pos[i].Length();
@@ -732,12 +732,12 @@ void CDmeVertexDeltaData::GenerateWrinkleDelta(
 	const CUtlVector<int> &baseTexCoordIndices = pBindState->GetVertexIndexData( nBaseTexCoordIndex );
 
 	CDmrArrayConst<Vector2D> texData( pBindState->GetVertexData( nBaseTexCoordIndex ) );
-	int nBaseTexCoordCount = texData.Count();
+	int nBaseTexCoordCount = texData.size();
 	int nBufSize = ( ( nBaseTexCoordCount + 7 ) >> 3 );
 	unsigned char *pUsedBits = (unsigned char*)_alloca( nBufSize );
 	memset( pUsedBits, 0, nBufSize );
 
-	const int nCount = pos.Count();
+	const int nCount = pos.size();
 
 	if ( bUseNormalForSign )
 	{
@@ -756,7 +756,7 @@ void CDmeVertexDeltaData::GenerateWrinkleDelta(
 			// NOTE: This will produce bad behavior in cases where two positions share the
 			// same texcoord, which shouldn't theoretically happen.
 			const CUtlVector< int > &baseVerts = pBindState->FindVertexIndicesFromDataIndex( FIELD_POSITION, positionIndices[i] );
-			int nBaseVertCount = baseVerts.Count();
+			int nBaseVertCount = baseVerts.size();
 			for ( int j = 0; j < nBaseVertCount; ++j )
 			{
 				// See if we have a delta for this texcoord...
@@ -793,7 +793,7 @@ void CDmeVertexDeltaData::GenerateWrinkleDelta(
 			// NOTE: This will produce bad behavior in cases where two positions share the
 			// same texcoord, which shouldn't theoretically happen.
 			const CUtlVector< int > &baseVerts = pBindState->FindVertexIndicesFromDataIndex( FIELD_POSITION, positionIndices[i] );
-			int nBaseVertCount = baseVerts.Count();
+			int nBaseVertCount = baseVerts.size();
 			for ( int j = 0; j < nBaseVertCount; ++j )
 			{
 				// See if we have a delta for this texcoord...

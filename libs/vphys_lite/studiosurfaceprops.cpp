@@ -42,7 +42,7 @@ CStudioSurfaceProps::CStudioSurfaceProps()
 int CStudioSurfaceProps::GetSurfaceIndex( const char *pName ) const
 {
     if ( !pName || !pName[0] ) pName = "default";
-    for ( int i = 0; i < m_Surface.Count(); ++i )
+    for ( int i = 0; i < m_Surface.size(); ++i )
         if ( !Q_stricmp( m_Surface[i].name.String(), pName ) ) return i;
     return -1;
 }
@@ -53,11 +53,11 @@ void CStudioSurfaceProps::GetPhysicsProperties( int index, float *pDensity, floa
     // Match CPhysicsSurfaceProps::GetPhysicsProperties(): an unknown material
     // falls back to the "default" surface instead of returning zero density.
     // Returning zero here makes $automass compute a total mass of 0 kg.
-    if ( index < 0 || index >= m_Surface.Count() )
+    if ( index < 0 || index >= m_Surface.size() )
         index = GetSurfaceIndex( "default" );
 
     float density = 0.0f, thickness = 0.0f;
-    if ( index >= 0 && index < m_Surface.Count() )
+    if ( index >= 0 && index < m_Surface.size() )
     {
         const Surface_t &s = m_Surface[index];
         density = s.density;

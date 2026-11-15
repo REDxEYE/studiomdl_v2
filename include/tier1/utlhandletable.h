@@ -116,7 +116,7 @@ void CUtlHandleTable<T, HandleBits>::RemoveHandle( UtlHandle_t handle )
 {
 	unsigned int nIndex = GetListIndex( handle );
 	Assert( nIndex < ( unsigned int )m_list.Count() );
-	if ( nIndex >= ( unsigned int )m_list.Count() )
+	if ( nIndex >= ( unsigned int )m_list.size() )
 		return;
 
 	EntryType_t &entry = m_list[ nIndex ];
@@ -185,7 +185,7 @@ bool CUtlHandleTable<T, HandleBits>::IsHandleValid( UtlHandle_t handle ) const
 
 	unsigned int nIndex = GetListIndex( handle );
 	AssertOnce( nIndex < ( unsigned int )m_list.Count() );
-	if ( nIndex >= ( unsigned int )m_list.Count() )
+	if ( nIndex >= ( unsigned int )m_list.size() )
 		return false;
 
 	const EntryType_t &entry = m_list[ nIndex ];
@@ -211,7 +211,7 @@ unsigned int CUtlHandleTable<T, HandleBits>::GetValidHandleCount() const
 template< class T, int HandleBits >
 unsigned int CUtlHandleTable<T, HandleBits>::GetHandleCount() const
 {
-	return m_list.Count();
+	return m_list.size();
 }
 
 template< class T, int HandleBits >
@@ -267,7 +267,7 @@ const typename CUtlHandleTable<T, HandleBits>::EntryType_t *CUtlHandleTable<T, H
 
 	unsigned int nIndex = GetListIndex( handle );
 	Assert( nIndex < ( unsigned int )m_list.Count() );
-	if ( nIndex >= ( unsigned int )m_list.Count() )
+	if ( nIndex >= ( unsigned int )m_list.size() )
 		return nullptr;
 
 	const EntryType_t &entry = m_list[ nIndex ];
@@ -289,7 +289,7 @@ void CUtlHandleTable<T, HandleBits>::MarkHandleInvalid( UtlHandle_t handle )
 
 	unsigned int nIndex = GetListIndex( handle );
 	Assert( nIndex < ( unsigned int )m_list.Count() );
-	if ( nIndex >= ( unsigned int )m_list.Count() )
+	if ( nIndex >= ( unsigned int )m_list.size() )
 		return;
 
 	EntryType_t &entry = m_list[ nIndex ];
@@ -311,7 +311,7 @@ void CUtlHandleTable<T, HandleBits>::MarkHandleValid( UtlHandle_t handle )
 
 	unsigned int nIndex = GetListIndex( handle );
 	Assert( nIndex < ( unsigned int )m_list.Count() );
-	if ( nIndex >= ( unsigned int )m_list.Count() )
+	if ( nIndex >= ( unsigned int )m_list.size() )
 		return;
 
 	EntryType_t &entry = m_list[ nIndex ];

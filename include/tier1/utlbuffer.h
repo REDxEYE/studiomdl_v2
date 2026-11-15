@@ -1127,12 +1127,12 @@ inline bool CUtlBuffer::IsReadOnly() const
 //-----------------------------------------------------------------------------
 inline const void* CUtlBuffer::Base() const	
 { 
-	return m_Memory.Base(); 
+	return m_Memory.data(); 
 }
 
 inline void* CUtlBuffer::Base()
 {
-	return m_Memory.Base(); 
+	return m_Memory.data(); 
 }
 
 inline int CUtlBuffer::Size() const			

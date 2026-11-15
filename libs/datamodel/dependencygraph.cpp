@@ -148,7 +148,7 @@ void CDependencyGraph::Cleanup()
 {
 
 
-	int on = m_opNodes.Count();
+	int on = m_opNodes.size();
 	for ( int oi = 0; oi < on; ++oi )
 	{
 		g_OperatorNodePool.Free( m_opNodes[ oi ] );
@@ -175,7 +175,7 @@ void CDependencyGraph::FindRoots()
 	m_opRoots.RemoveAll();
 
 	uint32_t oi;
-	uint32_t on = m_opNodes.Count();
+	uint32_t on = m_opNodes.size();
 
 	for ( oi = 0; oi < on; ++oi )
 	{
@@ -202,7 +202,7 @@ void CDependencyGraph::FindRoots()
 		if ( !pAttrNode->m_bIsOutputToOperator &&
 			pAttrNode->m_attribute->IsFlagSet( FATTRIB_OPERATOR_DIRTY ) )
 		{
-			on = pAttrNode->m_InputDependentOperators.Count();
+			on = pAttrNode->m_InputDependentOperators.size();
 			for ( oi = 0; oi < on; ++oi )
 			{
 				COperatorNode *pOpNode = pAttrNode->m_InputDependentOperators[ oi ];
@@ -257,7 +257,7 @@ bool CDependencyGraph::GetOperatorOrdering( CUtlVector< COperatorNode * > &pOpNo
 {
 	bool cycle = false;
 
-	uint32_t on = pOpNodes.Count();
+	uint32_t on = pOpNodes.size();
 	for ( uint32_t oi = 0; oi < on; ++oi )
 	{
 		COperatorNode *pOpNode = pOpNodes[ oi ];
@@ -274,7 +274,7 @@ bool CDependencyGraph::GetOperatorOrdering( CUtlVector< COperatorNode * > &pOpNo
 		// DBG_PrintOperator( pIndent, pOpNode->m_operator );
 
 		// leaves to roots (outputs to inputs)
-		uint32_t an = pOpNode->m_OutputAttributes.Count();
+		uint32_t an = pOpNode->m_OutputAttributes.size();
 		for ( uint32_t ai = 0; ai < an; ++ai )
 		{
 			CAttributeNode *pAttrNode = pOpNode->m_OutputAttributes[ ai ];

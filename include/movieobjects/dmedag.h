@@ -149,7 +149,7 @@ inline T *CDmeDag::FindParentDagOfType()
 template< class T >
 void CDmeDag::FindChildrenOfType( CUtlVector< T* > &children )
 {
-	int nChildren = m_Children.Count();
+	int nChildren = m_Children.size();
 	for ( int iChild = 0; iChild < nChildren; ++iChild )
 	{
 		CDmeDag *pChild = m_Children[ iChild ];

@@ -102,7 +102,7 @@ void CDmeOperator::GatherInputOperators(std::vector<CDmeOperator*> &operatorList
     // already there. Note, as soon as one attribute match is found there is no need to check the rest.
     std::vector<CDmAttribute*> outputAttributes(32u);
 
-    int nConnectedOperators = connectedOperators.Count();
+    int nConnectedOperators = connectedOperators.size();
     for (int iOper = 0; iOper < nConnectedOperators; ++iOper) {
         CDmeOperator* pOperator = connectedOperators[iOper];
 

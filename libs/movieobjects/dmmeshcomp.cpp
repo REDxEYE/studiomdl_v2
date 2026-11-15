@@ -33,7 +33,7 @@ CDmMeshComp::CDmMeshComp( CDmeMesh *pMesh, CDmeVertexData *pPassedBase )
 	const CUtlVector< Vector > &pPositionData( m_pBase->GetPositionData() );
 	const CUtlVector<int> &pPositionIndices( m_pBase->GetVertexIndexData( CDmeVertexData::FIELD_POSITION ) );
 
-	const int nVertices( pPositionData.Count() );
+	const int nVertices( pPositionData.size() );
 	if ( nVertices <= 0 )
 		return;
 
@@ -56,7 +56,7 @@ CDmMeshComp::CDmMeshComp( CDmeMesh *pMesh, CDmeVertexData *pPassedBase )
 			continue;
 
 		m_faces.EnsureCapacity( m_faces.Count() + nIndices / 4 ); // # new faces <= nIndices/4 (tri + -1)
-		m_edges.EnsureCapacity( m_edges.Count() + nIndices / 2 ); // # new edges <= 2*new faces
+		m_edges.EnsureCapacity( m_edges.size() + nIndices / 2 ); // # new edges <= 2*new faces
 
 		int facePosIndex( -1 );
 		int edgePosIndex0( -1 );
@@ -147,7 +147,7 @@ CDmMeshComp::CVert::CVert( const CVert &src )
 , m_pPosition( src.m_pPosition )
 , m_edges( 8, 8 )
 {
-	m_edges.AddMultipleToTail( src.m_edges.Count(), src.m_edges.Base() );
+	m_edges.AddMultipleToTail( src.m_edges.size(), src.m_edges.data() );
 }
 
 
@@ -264,7 +264,7 @@ CDmMeshComp::CEdge *CDmMeshComp::FindOrCreateEdge( int vIndex0, int vIndex1, boo
 CDmMeshComp::CEdge *CDmMeshComp::FindEdge( int vIndex0, int vIndex1, bool *pReverse /* = NULL */ )
 {
 	CUtlVector< CEdge * > &edges = m_verts[ vIndex0 ]->m_edges;
-	for ( int i = 0; i < edges.Count(); i++ )
+	for ( int i = 0; i < edges.size(); i++ )
 	{
 		CEdge *e = edges[ i ];
 
@@ -307,7 +307,7 @@ CDmMeshComp::CFace *CDmMeshComp::CreateFace( const CUtlVector< CVert * > &verts,
 	pFace->m_edgeReverseMap.RemoveAll();
 	pFace->m_edgeReverseMap.AddVectorToTail( edgeReverseMap );
 
-	for ( int nEdgeIndex = edges.Count() - 1; nEdgeIndex >= 0; --nEdgeIndex )
+	for ( int nEdgeIndex = edges.size() - 1; nEdgeIndex >= 0; --nEdgeIndex )
 	{
 		edges[ nEdgeIndex ]->m_faceCount += 1;
 	}
@@ -326,7 +326,7 @@ int CDmMeshComp::FindNeighbouringVerts( int vIndex, CUtlVector< CVert * > &verts
 
 	const CUtlVector< CEdge * > & edges = m_verts[ vIndex ]->m_edges;
 
-	for ( int i = 0; i < edges.Count(); ++i )
+	for ( int i = 0; i < edges.size(); ++i )
 	{
 		CEdge *e = edges[ i ];
 		if ( e->GetVertPositionIndex( 0 ) == vIndex )
@@ -339,7 +339,7 @@ int CDmMeshComp::FindNeighbouringVerts( int vIndex, CUtlVector< CVert * > &verts
 		}
 	}
 
-	return verts.Count();
+	return verts.size();
 }
 
 

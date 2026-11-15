@@ -32,7 +32,7 @@ public:
 //-----------------------------------------------------------------------------
 inline int CDmeTransformList::GetTransformCount() const
 {
-	return m_Transforms.Count();
+	return m_Transforms.size();
 }
 
 inline CDmeTransform *CDmeTransformList::GetTransform( int nIndex )

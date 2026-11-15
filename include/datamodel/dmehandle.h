@@ -214,7 +214,7 @@ typedef CUtlVector< CDmeHandle<CDmElement> > DmeHandleVec_t;
 template< typename T >
 inline void ConvertHandleToPtrVector( const CUtlVector< CDmeHandle< T > > &in, CUtlVector< T * > &out )
 {
-	int c = in.Count();
+	int c = in.size();
 	for ( int i = 0; i < c; ++i )
 	{
 		out.AddToTail( in[ i ].Get() );
@@ -224,7 +224,7 @@ inline void ConvertHandleToPtrVector( const CUtlVector< CDmeHandle< T > > &in, C
 template< typename T >
 inline void ConvertPtrToHandleVector( const CUtlVector< T * > &in, CUtlVector< CDmeHandle< T > > &out )
 {
-	int c = in.Count();
+	int c = in.size();
 	for ( int i = 0; i < c; ++i )
 	{
 		out.AddToTail( CDmeHandle< T >( in[ i ] ) );

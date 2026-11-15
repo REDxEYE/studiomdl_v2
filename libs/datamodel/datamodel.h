@@ -96,15 +96,15 @@ protected:
             *pBucket = ndxBucket = (key & m_ModMask);
         }
         else {
-            int bucketCount = m_Buckets.Count();
+            int bucketCount = m_Buckets.size();
             *pBucket = ndxBucket = key % bucketCount;
         }
 
         int ndxKeyData;
         CUtlVector<DmElementHandle_t> &bucket = m_Buckets[ndxBucket];
-        int keyDataCount = bucket.Count();
+        int keyDataCount = bucket.size();
         for (ndxKeyData = 0; ndxKeyData < keyDataCount; ndxKeyData++) {
-            if (IdCompareFunc(bucket.Element(ndxKeyData), src))
+            if (IdCompareFunc(bucket.at(ndxKeyData), src))
                 break;
         }
 

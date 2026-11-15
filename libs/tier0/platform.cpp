@@ -89,7 +89,7 @@ static void InitTime()
 double Plat_FloatTime()
 {
     InitTime();
-    return (double)( Plat_MonotonicUS() - g_ClockStartUS ) * 1e-6;
+    return static_cast<double>(Plat_MonotonicUS() - g_ClockStartUS) * 1e-6;
 }
 
 uint32_t Plat_MSTime()

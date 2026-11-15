@@ -194,13 +194,13 @@ class CBitVecT : public BASE_OPS
 {
 public:
 	CBitVecT();
-	explicit CBitVecT(int numBits);			// Must be initialized with the number of bits
+	explicit CBitVecT(size_t numBits);			// Must be initialized with the number of bits
 
-	void	Init(int val = 0);
+	void	Init(size_t val = 0);
 
 	// Access the bits like an array.
-	CBitVecAccessor	operator[](int i);
-	uint32_t operator[]( int i )const;
+	CBitVecAccessor	operator[](size_t i);
+	uint32_t operator[]( size_t i )const;
 
 	// Do NOT override bitwise operators (see note in header)
 	void	And(const CBitVecT &andStr, CBitVecT *out) const;
@@ -217,10 +217,10 @@ public:
 	bool	IsAllSet() const;		// Are all bits one?
 
 	uint32_t	Get( uint32_t bitNum ) const;
-	bool 	IsBitSet( int bitNum ) const;
-	void 	Set( int bitNum );
-	void 	Set( int bitNum, bool bNewVal );
-	void 	Clear(int bitNum);
+	bool 	IsBitSet( size_t bitNum ) const;
+	void 	Set( size_t bitNum );
+	void 	Set( size_t bitNum, bool bNewVal );
+	void 	Clear(size_t bitNum);
 
 	bool	TestAndSet(int bitNum);
 
@@ -228,11 +228,11 @@ public:
 	void 	Clear( uint32_t offset, uint32_t mask );
 	uint32_t	Get( uint32_t offset, uint32_t mask );
 
-	void	SetAll(void);			// Sets all bits
-	void	ClearAll(void);			// Clears all bits
+	void	SetAll();			// Sets all bits
+	void	ClearAll();			// Clears all bits
 
-	uint32_t	GetDWord(int i) const;
-	void	SetDWord(int i, uint32_t val);
+	uint32_t	GetDWord(size_t i) const;
+	void	SetDWord(size_t i, uint32_t val);
 	uint32_t    PopulationCount()const;
 
 	CBitVecT<BASE_OPS>&	operator=(const CBitVecT<BASE_OPS> &other)	{ other.CopyTo( this ); return *this; }
@@ -293,8 +293,8 @@ public:
 	void	Resize( int numBits, bool bClearAll = false )	{ Assert(numBits == NUM_BITS); if ( bClearAll ) Plat_FastMemset( m_Ints, 0, NUM_INTS * sizeof(uint32_t) ); }// for syntatic consistency (for when using templates)
 	
 	int 			GetNumDWords() const					{ return NUM_INTS; }
-	uint32_t *		Base()									{ return m_Ints;	}
-	const uint32_t *	Base() const							{ return m_Ints;	}
+	uint32_t *		data()									{ return m_Ints;	}
+	const uint32_t *	data() const							{ return m_Ints;	}
 
 	int		FindNextSetBit(int iStartBit) const; // returns -1 if no set bit was found
 
@@ -380,7 +380,7 @@ inline CBitVecT<BASE_OPS>::CBitVecT()
 
 //-----------------------------------------------------------------------------
 template <class BASE_OPS>
-inline CBitVecT<BASE_OPS>::CBitVecT(int numBits)
+inline CBitVecT<BASE_OPS>::CBitVecT(size_t numBits)
  : BASE_OPS( numBits )
 {
 	// undef this is ints are not 4 bytes
@@ -395,26 +395,26 @@ inline CBitVecT<BASE_OPS>::CBitVecT(int numBits)
 //-----------------------------------------------------------------------------
 
 template <class BASE_OPS>
-inline CBitVecAccessor CBitVecT<BASE_OPS>::operator[](int i)	
+inline CBitVecAccessor CBitVecT<BASE_OPS>::operator[](size_t i)
 {
 	Assert(i >= 0 && i < this->GetNumBits());
-	return CBitVecAccessor(this->Base(), i);
+	return CBitVecAccessor(this->data(), i);
 }
 
 template <class BASE_OPS>
-inline uint32_t CBitVecT<BASE_OPS>::operator[]( int i )const
+inline uint32_t CBitVecT<BASE_OPS>::operator[]( size_t i )const
 {
 	Assert( i >= 0 && i < this->GetNumBits() );
-	return this->Base()[ i >> 5 ] & ( 1 << ( i & 31 ) );
+	return this->data()[ i >> 5 ] & ( 1 << ( i & 31 ) );
 }
 
 //-----------------------------------------------------------------------------
 
 template <class BASE_OPS>
-inline void CBitVecT<BASE_OPS>::Init( int val )
+inline void CBitVecT<BASE_OPS>::Init( size_t val )
 {
-	if ( this->Base() )
-		Plat_FastMemset( this->Base(), ( val ) ? 0xff : 0, this->GetNumDWords() * sizeof(int) );
+	if ( this->data() )
+		Plat_FastMemset( this->data(), ( val ) ? 0xff : 0, this->GetNumDWords() * sizeof(int) );
 }
 
 //-----------------------------------------------------------------------------
@@ -423,27 +423,27 @@ template <class BASE_OPS>
 inline uint32_t CBitVecT<BASE_OPS>::Get( uint32_t bitNum ) const
 {
 	Assert( bitNum < (uint32_t)this->GetNumBits() );
-	const uint32_t *pInt = this->Base() + BitVec_Int( bitNum );
+	const uint32_t *pInt = this->data() + BitVec_Int( bitNum );
 	return ( *pInt & BitVec_Bit( bitNum ) );
 }
 
 //-----------------------------------------------------------------------------
 
 template <class BASE_OPS>
-inline bool CBitVecT<BASE_OPS>::IsBitSet( int bitNum ) const
+inline bool CBitVecT<BASE_OPS>::IsBitSet( size_t bitNum ) const
 {
 	Assert( bitNum >= 0 && bitNum < this->GetNumBits() );
-	const uint32_t *pInt = this->Base() + BitVec_Int( bitNum );
+	const uint32_t *pInt = this->data() + BitVec_Int( bitNum );
 	return ( ( *pInt & BitVec_Bit( bitNum ) ) != 0 );
 }
 
 //-----------------------------------------------------------------------------
 
 template <class BASE_OPS>
-inline void CBitVecT<BASE_OPS>::Set( int bitNum )			
+inline void CBitVecT<BASE_OPS>::Set( size_t bitNum )
 {
 	Assert( bitNum >= 0 && bitNum < this->GetNumBits() );
-	uint32_t *pInt = this->Base() + BitVec_Int( bitNum );
+	uint32_t *pInt = this->data() + BitVec_Int( bitNum );
 	*pInt |= BitVec_Bit( bitNum );
 }
 
@@ -454,7 +454,7 @@ inline bool CBitVecT<BASE_OPS>::TestAndSet(int bitNum)
 {
 	Assert( bitNum >= 0 && bitNum < this->GetNumBits() );
 	uint32_t bitVecBit = BitVec_Bit( bitNum );
-	uint32_t *pInt = this->Base() + BitVec_Int( bitNum );
+	uint32_t *pInt = this->data() + BitVec_Int( bitNum );
 	bool bResult = ( ( *pInt & bitVecBit) != 0 );
 	*pInt |= bitVecBit;
 	return bResult;
@@ -463,19 +463,19 @@ inline bool CBitVecT<BASE_OPS>::TestAndSet(int bitNum)
 //-----------------------------------------------------------------------------
 
 template <class BASE_OPS>
-inline void CBitVecT<BASE_OPS>::Clear(int bitNum)		
+inline void CBitVecT<BASE_OPS>::Clear(size_t bitNum)
 {
 	Assert( bitNum >= 0 && bitNum < this->GetNumBits() );
-	uint32_t *pInt = this->Base() + BitVec_Int( bitNum );
+	uint32_t *pInt = this->data() + BitVec_Int( bitNum );
 	*pInt &= ~BitVec_Bit( bitNum );
 }
 
 //-----------------------------------------------------------------------------
 
 template <class BASE_OPS>
-inline void CBitVecT<BASE_OPS>::Set( int bitNum, bool bNewVal )
+inline void CBitVecT<BASE_OPS>::Set( size_t bitNum, bool bNewVal )
 {
-	uint32_t *pInt = this->Base() + BitVec_Int( bitNum );
+	uint32_t *pInt = this->data() + BitVec_Int( bitNum );
 	uint32_t bitMask = BitVec_Bit( bitNum );
 	if ( bNewVal )
 	{
@@ -492,7 +492,7 @@ inline void CBitVecT<BASE_OPS>::Set( int bitNum, bool bNewVal )
 template <class BASE_OPS>
 inline void CBitVecT<BASE_OPS>::Set( uint32_t offset, uint32_t mask )
 {
-	uint32_t *pInt = this->Base() + offset;
+	uint32_t *pInt = this->data() + offset;
 	*pInt |= mask;
 }
 
@@ -501,7 +501,7 @@ inline void CBitVecT<BASE_OPS>::Set( uint32_t offset, uint32_t mask )
 template <class BASE_OPS>
 inline void CBitVecT<BASE_OPS>::Clear( uint32_t offset, uint32_t mask )
 {
-	uint32_t *pInt = this->Base() + offset;
+	uint32_t *pInt = this->data() + offset;
 	*pInt &= ~mask;
 }
 
@@ -510,7 +510,7 @@ inline void CBitVecT<BASE_OPS>::Clear( uint32_t offset, uint32_t mask )
 template <class BASE_OPS>
 inline uint32_t CBitVecT<BASE_OPS>::Get( uint32_t offset, uint32_t mask )
 {
-	uint32_t *pInt = this->Base() + offset;
+	uint32_t *pInt = this->data() + offset;
 	return ( *pInt & mask );
 }
 
@@ -525,9 +525,9 @@ inline void CBitVecT<BASE_OPS>::And(const CBitVecT &addStr, CBitVecT *out) const
 	ValidateOperand( addStr );
 	ValidateOperand( *out );
 	
-	uint32_t *	   pDest		= out->Base();
-	const uint32_t *pOperand1	= this->Base();
-	const uint32_t *pOperand2	= addStr.Base();
+	uint32_t *	   pDest		= out->data();
+	const uint32_t *pOperand1	= this->data();
+	const uint32_t *pOperand2	= addStr.data();
 
 	for (int i = this->GetNumDWords() - 1; i >= 0 ; --i) 
 	{
@@ -546,9 +546,9 @@ inline void CBitVecT<BASE_OPS>::Or(const CBitVecT &orStr, CBitVecT *out) const
 	ValidateOperand( orStr );
 	ValidateOperand( *out );
 
-	uint32_t *	   pDest		= out->Base();
-	const uint32_t *pOperand1	= this->Base();
-	const uint32_t *pOperand2	= orStr.Base();
+	uint32_t *	   pDest		= out->data();
+	const uint32_t *pOperand1	= this->data();
+	const uint32_t *pOperand2	= orStr.data();
 
 	for (int i = this->GetNumDWords() - 1; i >= 0; --i) 
 	{
@@ -564,9 +564,9 @@ inline void CBitVecT<BASE_OPS>::Or(const CBitVecT &orStr, CBitVecT *out) const
 template <class BASE_OPS>
 inline void CBitVecT<BASE_OPS>::Xor(const CBitVecT &xorStr, CBitVecT *out) const
 {
-	uint32_t *	   pDest		= out->Base();
-	const uint32_t *pOperand1	= this->Base();
-	const uint32_t *pOperand2	= xorStr.Base();
+	uint32_t *	   pDest		= out->data();
+	const uint32_t *pOperand1	= this->data();
+	const uint32_t *pOperand2	= xorStr.data();
 
 	for (int i = this->GetNumDWords() - 1; i >= 0; --i) 
 	{
@@ -584,8 +584,8 @@ inline void CBitVecT<BASE_OPS>::Not(CBitVecT *out) const
 {
 	this->ValidateOperand( *out );
 
-	uint32_t *	   pDest	= out->Base();
-	const uint32_t *pOperand	= this->Base();
+	uint32_t *	   pDest	= out->data();
+	const uint32_t *pOperand	= this->data();
 
 	for (int i = this->GetNumDWords() - 1; i >= 0; --i) 
 	{
@@ -606,7 +606,7 @@ inline void CBitVecT<BASE_OPS>::CopyTo(CBitVecT *out) const
 	this->ValidateOperand( *out );
 	Assert( out != this );
 	
-	memcpy( out->Base(), this->Base(), this->GetNumDWords() * sizeof( int ) );
+	memcpy( out->data(), this->data(), this->GetNumDWords() * sizeof( int ) );
 }
 
 //-----------------------------------------------------------------------------
@@ -620,11 +620,11 @@ inline bool CBitVecT<BASE_OPS>::IsAllClear() const
 	// Number of available bits may be more than the number
 	// actually used, so make sure to mask out unused bits
 	// before testing for zero
-	(const_cast<CBitVecT *>(this))->Base()[this->GetNumDWords()-1] &= CBitVecT<BASE_OPS>::GetEndMask(); // external semantics of const retained
+	(const_cast<CBitVecT *>(this))->data()[this->GetNumDWords()-1] &= CBitVecT<BASE_OPS>::GetEndMask(); // external semantics of const retained
 
 	for (int i = this->GetNumDWords() - 1; i >= 0; --i) 
 	{
-		if ( this->Base()[i] !=0 ) 
+		if ( this->data()[i] !=0 )
 		{
 			return false;
 		}
@@ -643,11 +643,11 @@ inline bool CBitVecT<BASE_OPS>::IsAllSet() const
 	// Number of available bits may be more than the number
 	// actually used, so make sure to mask out unused bits
 	// before testing for set bits
-	(const_cast<CBitVecT *>(this))->Base()[this->GetNumDWords()-1] |= ~CBitVecT<BASE_OPS>::GetEndMask();  // external semantics of const retained
+	(const_cast<CBitVecT *>(this))->data()[this->GetNumDWords()-1] |= ~CBitVecT<BASE_OPS>::GetEndMask();  // external semantics of const retained
 
 	for (int i = this->GetNumDWords() - 1; i >= 0; --i) 
 	{
-		if ( this->Base()[i] != ~0 ) 
+		if ( this->data()[i] != ~0 )
 		{
 			return false;
 		}
@@ -663,8 +663,8 @@ inline bool CBitVecT<BASE_OPS>::IsAllSet() const
 template <class BASE_OPS>
 inline void CBitVecT<BASE_OPS>::SetAll(void)		
 {
-	if ( this->Base() )
-		Plat_FastMemset( this->Base(), 0xff, this->GetNumDWords() * sizeof(int) );
+	if ( this->data() )
+		Plat_FastMemset( this->data(), 0xff, this->GetNumDWords() * sizeof(int) );
 }
 
 //-----------------------------------------------------------------------------
@@ -675,8 +675,8 @@ inline void CBitVecT<BASE_OPS>::SetAll(void)
 template <class BASE_OPS>
 inline void CBitVecT<BASE_OPS>::ClearAll(void)		
 {
-	if ( this->Base() )
-		Plat_FastMemset( this->Base(), 0, this->GetNumDWords() * sizeof(int) );
+	if ( this->data() )
+		Plat_FastMemset( this->data(), 0, this->GetNumDWords() * sizeof(int) );
 }
 
 //-----------------------------------------------------------------------------
@@ -693,7 +693,7 @@ inline void CBitVecT<BASE_OPS>::Copy( const CBitVecT<BASE_OPS> &other, int nBits
 	this->ValidateOperand( other );
 	Assert( &other != this );
 
-	memcpy( this->Base(), other.Base(), this->GetNumDWords() * sizeof( uint32_t ) );
+	memcpy( this->data(), other.data(), this->GetNumDWords() * sizeof( uint32_t ) );
 }
 
 //-----------------------------------------------------------------------------
@@ -715,28 +715,28 @@ inline bool CBitVecT<BASE_OPS>::Compare( const CBitVecT<BASE_OPS> &other, int nB
 		return false;
 	}
 
-	(const_cast<CBitVecT *>(this))->Base()[this->GetNumDWords()-1] &= CBitVecT<BASE_OPS>::GetEndMask(); // external semantics of const retained
-	(const_cast<CBitVecT *>(&other))->Base()[this->GetNumDWords()-1] &= other.CBitVecT<BASE_OPS>::GetEndMask(); // external semantics of const retained
+	(const_cast<CBitVecT *>(this))->data()[this->GetNumDWords()-1] &= CBitVecT<BASE_OPS>::GetEndMask(); // external semantics of const retained
+	(const_cast<CBitVecT *>(&other))->data()[this->GetNumDWords()-1] &= other.CBitVecT<BASE_OPS>::GetEndMask(); // external semantics of const retained
 
 	int nBytes = PAD_NUMBER( nBits, 8 ) >> 3;
 
-	return ( memcmp( this->Base(), other.Base(), nBytes ) == 0 );
+	return ( memcmp( this->data(), other.data(), nBytes ) == 0 );
 }
 
 //-----------------------------------------------------------------------------
 template <class BASE_OPS>
-inline uint32_t CBitVecT<BASE_OPS>::GetDWord(int i) const
+inline uint32_t CBitVecT<BASE_OPS>::GetDWord(size_t i) const
 {
 	Assert(i >= 0 && i < this->GetNumDWords());
-	return this->Base()[i];
+	return this->data()[i];
 }
 
 //-----------------------------------------------------------------------------
 template <class BASE_OPS>
-inline void CBitVecT<BASE_OPS>::SetDWord(int i, uint32_t val)
+inline void CBitVecT<BASE_OPS>::SetDWord(size_t i, uint32_t val)
 {
 	Assert(i >= 0 && i < this->GetNumDWords());
-	this->Base()[i] = val;
+	this->data()[i] = val;
 }
 
 //-----------------------------------------------------------------------------
@@ -744,7 +744,7 @@ template <class BASE_OPS>
 inline uint32_t CBitVecT<BASE_OPS>::PopulationCount() const
 {
 	int nDwordCount = this->GetNumDWords();
-	const uint32_t *pBase = this->Base();
+	const uint32_t *pBase = this->data();
 	uint32_t nCount = 0;
 	for( int i = 0; i < nDwordCount; ++i )
 	{
@@ -924,7 +924,7 @@ inline int CFixedBitVecBase<NUM_BITS>::FindNextSetBit( int startBit ) const
 		// handle non dword lengths
 		if ( (NUM_BITS % BITS_PER_INT) != 0 )
 		{
-			unsigned int elem = Base()[wordIndex];
+			unsigned int elem = data()[wordIndex];
 			elem &= startMask;
 			if ( wordIndex == NUM_INTS-1)
 			{
@@ -942,18 +942,18 @@ inline int CFixedBitVecBase<NUM_BITS>::FindNextSetBit( int startBit ) const
 				// iterate the words
 				for ( int i = wordIndex+1; i < NUM_INTS-1; i++ )
 				{
-					elem = Base()[i];
+					elem = data()[i];
 					if ( elem )
 						return FirstBitInWord(elem, i << 5);
 				}
-				elem = Base()[NUM_INTS-1] & GetEndMask();
+				elem = data()[NUM_INTS-1] & GetEndMask();
 				if ( elem )
 					return FirstBitInWord(elem, (NUM_INTS-1) << 5);
 			}
 		}
 		else
 		{
-			const uint32_t * RESTRICT pCurElem = Base() + wordIndex;
+			const uint32_t * RESTRICT pCurElem = data() + wordIndex;
 			unsigned int elem = *pCurElem;
 			elem &= startMask;
 			do 
@@ -977,9 +977,9 @@ inline int CFixedBitVecBase<NUM_BITS>::FindNextSetBit( int startBit ) const
 template<> 
 FORCEINLINE_TEMPLATE void CBitVecT< CFixedBitVecBase<256> >::And(const CBitVecT &addStr, CBitVecT *out) const
 {
-	uint32_t *	   pDest		= out->Base();
-	const uint32_t *pOperand1	= Base();
-	const uint32_t *pOperand2	= addStr.Base();
+	uint32_t *	   pDest		= out->data();
+	const uint32_t *pOperand1	= data();
+	const uint32_t *pOperand2	= addStr.data();
 
 	pDest[0] = pOperand1[0] & pOperand2[0];
 	pDest[1] = pOperand1[1] & pOperand2[1];
@@ -994,15 +994,15 @@ FORCEINLINE_TEMPLATE void CBitVecT< CFixedBitVecBase<256> >::And(const CBitVecT 
 template<> 
 FORCEINLINE_TEMPLATE  bool CBitVecT< CFixedBitVecBase<256> >::IsAllClear() const
 {
-	const uint32_t *pInts = Base();
+	const uint32_t *pInts = data();
 	return ( pInts[0] == 0 && pInts[1] == 0 && pInts[2] == 0 && pInts[3] == 0 && pInts[4] == 0 && pInts[5] == 0 && pInts[6] == 0 && pInts[7] == 0 );
 }
 
 template<> 
 FORCEINLINE_TEMPLATE  void CBitVecT< CFixedBitVecBase<256> >::CopyTo(CBitVecT *out) const
 {
-	uint32_t *	   pDest = out->Base();
-	const uint32_t *pInts = Base();
+	uint32_t *	   pDest = out->data();
+	const uint32_t *pInts = data();
 
 	pDest[0] = pInts[0];
 	pDest[1] = pInts[1];
@@ -1017,9 +1017,9 @@ FORCEINLINE_TEMPLATE  void CBitVecT< CFixedBitVecBase<256> >::CopyTo(CBitVecT *o
 template<> 
 FORCEINLINE_TEMPLATE  void CBitVecT< CFixedBitVecBase<128> >::And(const CBitVecT &addStr, CBitVecT *out) const
 {
-	uint32_t *	   pDest		= out->Base();
-	const uint32_t *pOperand1	= Base();
-	const uint32_t *pOperand2	= addStr.Base();
+	uint32_t *	   pDest		= out->data();
+	const uint32_t *pOperand1	= data();
+	const uint32_t *pOperand2	= addStr.data();
 
 	pDest[0] = pOperand1[0] & pOperand2[0];
 	pDest[1] = pOperand1[1] & pOperand2[1];
@@ -1030,15 +1030,15 @@ FORCEINLINE_TEMPLATE  void CBitVecT< CFixedBitVecBase<128> >::And(const CBitVecT
 template<> 
 FORCEINLINE_TEMPLATE  bool CBitVecT< CFixedBitVecBase<128> >::IsAllClear() const
 {
-	const uint32_t *pInts = Base();
+	const uint32_t *pInts = data();
 	return ( pInts[0] == 0 && pInts[1] == 0 && pInts[2] == 0 && pInts[3] == 0 );
 }
 
 template<> 
 FORCEINLINE_TEMPLATE  void CBitVecT< CFixedBitVecBase<128> >::CopyTo(CBitVecT *out) const
 {
-	uint32_t *	   pDest = out->Base();
-	const uint32_t *pInts = Base();
+	uint32_t *	   pDest = out->data();
+	const uint32_t *pInts = data();
 
 	pDest[0] = pInts[0];
 	pDest[1] = pInts[1];
@@ -1049,9 +1049,9 @@ FORCEINLINE_TEMPLATE  void CBitVecT< CFixedBitVecBase<128> >::CopyTo(CBitVecT *o
 template<> 
 inline void CBitVecT< CFixedBitVecBase<96> >::And(const CBitVecT &addStr, CBitVecT *out) const
 {
-	uint32_t *	   pDest		= out->Base();
-	const uint32_t *pOperand1	= Base();
-	const uint32_t *pOperand2	= addStr.Base();
+	uint32_t *	   pDest		= out->data();
+	const uint32_t *pOperand1	= data();
+	const uint32_t *pOperand2	= addStr.data();
 
 	pDest[0] = pOperand1[0] & pOperand2[0];
 	pDest[1] = pOperand1[1] & pOperand2[1];
@@ -1061,15 +1061,15 @@ inline void CBitVecT< CFixedBitVecBase<96> >::And(const CBitVecT &addStr, CBitVe
 template<> 
 inline bool CBitVecT< CFixedBitVecBase<96> >::IsAllClear() const
 {
-	const uint32_t *pInts = Base();
+	const uint32_t *pInts = data();
 	return ( pInts[0] == 0 && pInts[1] == 0 && pInts[2] == 0 );
 }
 
 template<> 
 inline void CBitVecT< CFixedBitVecBase<96> >::CopyTo(CBitVecT *out) const
 {
-	uint32_t *	   pDest = out->Base();
-	const uint32_t *pInts = Base();
+	uint32_t *	   pDest = out->data();
+	const uint32_t *pInts = data();
 
 	pDest[0] = pInts[0];
 	pDest[1] = pInts[1];
@@ -1079,9 +1079,9 @@ inline void CBitVecT< CFixedBitVecBase<96> >::CopyTo(CBitVecT *out) const
 template<> 
 inline void CBitVecT< CFixedBitVecBase<64> >::And(const CBitVecT &addStr, CBitVecT *out) const
 {
-	uint32_t *	   pDest		= out->Base();
-	const uint32_t *pOperand1	= Base();
-	const uint32_t *pOperand2	= addStr.Base();
+	uint32_t *	   pDest		= out->data();
+	const uint32_t *pOperand1	= data();
+	const uint32_t *pOperand2	= addStr.data();
 
 	pDest[0] = pOperand1[0] & pOperand2[0];
 	pDest[1] = pOperand1[1] & pOperand2[1];
@@ -1090,15 +1090,15 @@ inline void CBitVecT< CFixedBitVecBase<64> >::And(const CBitVecT &addStr, CBitVe
 template<> 
 inline bool CBitVecT< CFixedBitVecBase<64> >::IsAllClear() const
 {
-	const uint32_t *pInts = Base();
+	const uint32_t *pInts = data();
 	return ( pInts[0] == 0 && pInts[1] == 0 );
 }
 
 template<> 
 inline void CBitVecT< CFixedBitVecBase<64> >::CopyTo(CBitVecT *out) const
 {
-	uint32_t *	   pDest = out->Base();
-	const uint32_t *pInts = Base();
+	uint32_t *	   pDest = out->data();
+	const uint32_t *pInts = data();
 
 	pDest[0] = pInts[0];
 	pDest[1] = pInts[1];
@@ -1107,9 +1107,9 @@ inline void CBitVecT< CFixedBitVecBase<64> >::CopyTo(CBitVecT *out) const
 template<> 
 inline void CBitVecT< CFixedBitVecBase<32> >::And(const CBitVecT &addStr, CBitVecT *out) const
 {
-	uint32_t *	   pDest		= out->Base();
-	const uint32_t *pOperand1	= Base();
-	const uint32_t *pOperand2	= addStr.Base();
+	uint32_t *	   pDest		= out->data();
+	const uint32_t *pOperand1	= data();
+	const uint32_t *pOperand2	= addStr.data();
 
 	pDest[0] = pOperand1[0] & pOperand2[0];
 }
@@ -1117,7 +1117,7 @@ inline void CBitVecT< CFixedBitVecBase<32> >::And(const CBitVecT &addStr, CBitVe
 template<> 
 inline bool CBitVecT< CFixedBitVecBase<32> >::IsAllClear() const
 {
-	const uint32_t *pInts = Base();
+	const uint32_t *pInts = data();
 
 	return ( pInts[0] == 0 );
 }
@@ -1125,8 +1125,8 @@ inline bool CBitVecT< CFixedBitVecBase<32> >::IsAllClear() const
 template<> 
 inline void CBitVecT< CFixedBitVecBase<32> >::CopyTo(CBitVecT *out) const
 {
-	uint32_t *	   pDest = out->Base();
-	const uint32_t *pInts = Base();
+	uint32_t *	   pDest = out->data();
+	const uint32_t *pInts = data();
 
 	pDest[0] = pInts[0];
 }
@@ -1136,46 +1136,46 @@ inline void CBitVecT< CFixedBitVecBase<32> >::CopyTo(CBitVecT *out) const
 template <>
 inline uint32_t CBitVecT< CFixedBitVecBase<32> >::Get( uint32_t bitNum ) const
 {
-	return ( *Base() & BitVec_Bit( bitNum ) );
+	return ( *data() & BitVec_Bit( bitNum ) );
 }
 
 //-----------------------------------------------------------------------------
 
 template <>
-inline bool CBitVecT< CFixedBitVecBase<32> >::IsBitSet( int bitNum ) const
+inline bool CBitVecT< CFixedBitVecBase<32> >::IsBitSet( size_t bitNum ) const
 {
-	return ( ( *Base() & BitVec_Bit( bitNum ) ) != 0 );
+	return ( ( *data() & BitVec_Bit( bitNum ) ) != 0 );
 }
 
 //-----------------------------------------------------------------------------
 
 template <>
-inline void CBitVecT< CFixedBitVecBase<32> >::Set( int bitNum )			
+inline void CBitVecT< CFixedBitVecBase<32> >::Set( size_t bitNum )
 {
-	*Base() |= BitVec_Bit( bitNum );
+	*data() |= BitVec_Bit( bitNum );
 }
 
 //-----------------------------------------------------------------------------
 
 template <>
-inline void CBitVecT< CFixedBitVecBase<32> >::Clear(int bitNum)		
+inline void CBitVecT< CFixedBitVecBase<32> >::Clear(size_t bitNum)
 {
-	*Base() &= ~BitVec_Bit( bitNum );
+	*data() &= ~BitVec_Bit( bitNum );
 }
 
 //-----------------------------------------------------------------------------
 
 template <>
-inline void CBitVecT< CFixedBitVecBase<32> >::Set( int bitNum, bool bNewVal )
+inline void CBitVecT< CFixedBitVecBase<32> >::Set( size_t bitNum, bool bNewVal )
 {
 	uint32_t bitMask = BitVec_Bit( bitNum );
 	if ( bNewVal )
 	{
-		*Base() |= bitMask;
+		*data() |= bitMask;
 	}
 	else
 	{
-		*Base() &= ~bitMask;
+		*data() &= ~bitMask;
 	}
 }
 

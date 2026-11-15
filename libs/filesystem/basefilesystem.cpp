@@ -102,100 +102,6 @@ struct FileOpenDuplicateTime_t
 };
 CUtlVector< FileOpenDuplicateTime_t* > g_FileOpenDuplicateTimes;	// Used to debug approximate time spent reading files duplicate times
 
-#if defined( TRACK_BLOCKING_IO )
-
-// If we hit more than 100 items in a frame, we're probably doing a level load...
-#define MAX_ITEMS	100
-
-class CBlockingFileItemList : public IBlockingFileItemList
-{
-public:
-	CBlockingFileItemList( CBaseFileSystem *fs )
-		:
-		m_pFS( fs ),
-		m_bLocked( false )
-	{
-	}
-
-	// You can't call any of the below calls without calling these methods!!!!
-	virtual void	LockMutex()
-	{
-		Assert( !m_bLocked );
-		if ( m_bLocked )
-			return;
-		m_bLocked = true;
-		m_pFS->BlockingFileAccess_EnterCriticalSection();
-	}
-
-	virtual void	UnlockMutex()
-	{
-		Assert( m_bLocked );
-		if ( !m_bLocked )
-			return;
-
-		m_pFS->BlockingFileAccess_LeaveCriticalSection();
-		m_bLocked = false;
-	}
-
-	virtual int First() const
-	{
-		if ( !m_bLocked )
-		{
-			Error( "CBlockingFileItemList::First() w/o calling EnterCriticalSectionFirst!" );
-		}
-		return m_Items.Head();
-	}
-
-	virtual int Next( int i ) const
-	{
-		if ( !m_bLocked )
-		{
-			Error( "CBlockingFileItemList::Next() w/o calling EnterCriticalSectionFirst!" );
-		}
-		return m_Items.Next( i );
-	}
-
-	virtual int InvalidIndex() const
-	{
-		return m_Items.InvalidIndex();
-	}
-
-	virtual const FileBlockingItem& Get( int index ) const
-	{
-		if ( !m_bLocked )
-		{
-			Error( "CBlockingFileItemList::Get( %d ) w/o calling EnterCriticalSectionFirst!", index );
-		}
-		return m_Items[ index ];
-	}
-
-	virtual void Reset()
-	{
-		if ( !m_bLocked )
-		{
-			Error( "CBlockingFileItemList::Reset() w/o calling EnterCriticalSectionFirst!" );
-		}
-		m_Items.RemoveAll();
-	}
-
-	void Add( const FileBlockingItem& item )
-	{
-		// Ack, should use a linked list probably...
-		while ( m_Items.Count() > MAX_ITEMS )
-		{
-			m_Items.Remove( m_Items.Head() );
-		}
-		m_Items.AddToTail( item );
-	}
-
-
-private:
-	CUtlLinkedList< FileBlockingItem, unsigned short >	m_Items;
-	CBaseFileSystem						*m_pFS;
-	bool								m_bLocked;
-};
-#endif
-
 CUtlSymbol	CBaseFileSystem::m_GamePathID;
 CUtlSymbol	CBaseFileSystem::m_BSPPathID;
 bool		CBaseFileSystem::m_bSearchPathsPatchedAfterInstall;
@@ -417,7 +323,7 @@ void CBaseFileSystem::InstallDirtyDiskReportFunc( FSDirtyDiskReportFunc_t func )
 //-----------------------------------------------------------------------------
 void CBaseFileSystem::LogAccessToFile( char const *accesstype, char const *fullpath, char const *options )
 {
-	int c = m_LogFuncs.Count();
+	int c = m_LogFuncs.size();
 	if ( !c )
 		return;
 
@@ -479,7 +385,7 @@ void CBaseFileSystem::PrintSearchPaths( void )
 	int i;
 	Msg( "---------------\n" );
 	Msg( "%-20s %s\n", "Path ID:", "File Path:" );
-	int c = m_SearchPaths.Count();
+	int c = m_SearchPaths.size();
 	for( i = 0; i < c; i++ )
 	{
 		CSearchPath *pSearchPath = &m_SearchPaths[i];
@@ -525,7 +431,7 @@ void CBaseFileSystem::AddSearchPathInternal(const std::string_view pPath, const 
 	pathSym = g_PathIDTable.AddString( newPath);
 	pathIDSym = g_PathIDTable.AddString( pathID );
 	int i;
-	int c = m_SearchPaths.Count();
+	int c = m_SearchPaths.size();
 	int id = 0;
 	for ( i = 0; i < c; i++ )
 	{
@@ -557,11 +463,11 @@ void CBaseFileSystem::AddSearchPathInternal(const std::string_view pPath, const 
 
 	// Add to list
 	bool bAdded = false;
-	int nIndex = m_SearchPaths.Count();
+	int nIndex = m_SearchPaths.size();
 
     if ( addType == PATH_ADD_TO_HEAD )
     {
-        nIndex = m_SearchPaths.Count() - nIndex;
+        nIndex = m_SearchPaths.size() - nIndex;
         Assert( nIndex >= 0 );
     }
 
@@ -589,11 +495,11 @@ void CBaseFileSystem::AddSearchPath(const std::string_view pPath, const std::str
 	// This layout matches the Xbox's search path layout, when the Xbox does late bind the DLC
 	// any platform, game, or mod search paths get subverted in order to prepend the DLC path
 
-	int currCount = m_SearchPaths.Count();
+	int currCount = m_SearchPaths.size();
 
 	AddSearchPathInternal( pPath, pathID, addType, true );
 
-	if ( currCount != m_SearchPaths.Count() )
+	if ( currCount != m_SearchPaths.size() )
 	{
 #if !defined( DEDICATED ) && !defined( _CERT )
 
@@ -664,7 +570,7 @@ int CBaseFileSystem::GetSearchPathID( char *pPath, int nMaxLen )
 
 	// determine unique PathIDs
 	CUtlVector< CUtlSymbol > list;
-	for ( int i = 0 ; i < m_SearchPaths.Count(); i++ )
+	for ( int i = 0 ; i < m_SearchPaths.size(); i++ )
 	{
 		CUtlSymbol pathID = m_SearchPaths[i].GetPathID();
 		if ( pathID.IsValid() && list.Find( pathID ) == -1 )
@@ -717,7 +623,7 @@ bool CBaseFileSystem::RemoveSearchPath( const char *pPath, const char *pathID )
 
 	// Count backward since we're possibly deleting one or more pack files, too
 	int i;
-	int c = m_SearchPaths.Count();
+	int c = m_SearchPaths.size();
 	for( i = c - 1; i >= 0; i-- )
 	{
 		if ( newPath && m_SearchPaths[i].GetPath() != lookup )
@@ -739,10 +645,10 @@ bool CBaseFileSystem::RemoveSearchPath( const char *pPath, const char *pathID )
 //-----------------------------------------------------------------------------
 void CBaseFileSystem::RemoveSearchPaths( const char *pathID )
 {
-	int nCount = m_SearchPaths.Count();
+	int nCount = m_SearchPaths.size();
 	for (int i = nCount - 1; i >= 0; i--)
 	{
-		if (!Q_stricmp(m_SearchPaths.Element(i).GetPathIDString(), pathID))
+		if (!Q_stricmp(m_SearchPaths.at(i).GetPathIDString(), pathID))
 		{
 			m_SearchPaths.FastRemove(i);
 		}
@@ -759,7 +665,7 @@ CBaseFileSystem::CSearchPath *CBaseFileSystem::FindWritePath( const char *pFilen
 
 
 	// a pathID has been specified, find the first match in the path list
-	int c = m_SearchPaths.Count();
+	int c = m_SearchPaths.size();
 	for ( int i = 0; i < c; i++ )
 	{
 		// pak files are not allowed to be written to...
@@ -1032,9 +938,9 @@ bool CBaseFileSystem::WriteFile( const char *pFileName, const char *pPath, CUtlB
 void CBaseFileSystem::RemoveAllSearchPaths( void )
 {
 	// Sergiy: AaronS said it is a good idea to destroy these paths in reverse order
-	while( m_SearchPaths.Count() )
+	while( m_SearchPaths.size() )
 	{
-		m_SearchPaths.Remove( m_SearchPaths.Count() - 1 );
+		m_SearchPaths.Remove( m_SearchPaths.size() - 1 );
 	}
 	//m_PackFileHandles.Purge();
 }
@@ -1830,7 +1736,7 @@ int64_t CBaseFileSystem::GetFileTime( const char *pFileName, const char *pPathID
 		int64_t ft = FastFileTime( pSearchPath, tempFileName );
 		if ( ft != 0L )
 		{
-			if ( m_LogFuncs.Count() )
+			if ( m_LogFuncs.size() )
 			{
 				char pTmpFileName[ MAX_FILEPATH ];
 				if ( strchr( tempFileName, ':' ) ) //
@@ -1874,7 +1780,7 @@ int64_t CBaseFileSystem::GetPathTime( const char *pFileName, const char *pPathID
 			pathTime = ft;
 		if ( ft != 0L )
 		{
-			if (  m_LogFuncs.Count() )
+			if (  m_LogFuncs.size() )
 			{
 				char pTmpFileName[ MAX_FILEPATH ];
 				if ( strchr( tempFileName, ':' ) )
@@ -1911,7 +1817,7 @@ void CBaseFileSystem::CacheFileCRCs( const char *pPathname, ECacheCRCType eType,
 
 	// Get a list of the unique search path names (mod, game, platform, etc).
 	CUtlDict<int,int> searchPathNames;
-	for ( int i = 0; i <  m_SearchPaths.Count(); i++ )
+	for ( int i = 0; i <  m_SearchPaths.size(); i++ )
 	{
 		CSearchPath *pSearchPath = &m_SearchPaths[i];
 		if ( searchPathNames.Find( pSearchPath->GetPathIDString() ) == searchPathNames.InvalidIndex() )
@@ -2150,8 +2056,8 @@ void CBaseFileSystem::FindFileAbsoluteList( CUtlVector< CUtlString > &outAbsolut
 	}
 	int maxlen = strlen( pWildCard ) + 1;
 	findData.wildCardString.AddMultipleToTail( maxlen );
-	Q_strncpy( findData.wildCardString.Base(), pWildCard, maxlen );
-	Q_FixSlashes( findData.wildCardString.Base() );
+	Q_strncpy( findData.wildCardString.data(), pWildCard, maxlen );
+	Q_FixSlashes( findData.wildCardString.data() );
 	findData.findHandle = nullptr;
 
 	if ( Q_IsAbsolutePath( pWildCard ) )
@@ -2160,7 +2066,7 @@ void CBaseFileSystem::FindFileAbsoluteList( CUtlVector< CUtlString > &outAbsolut
 	}
 	else
 	{
-		int c = m_SearchPaths.Count();
+		int c = m_SearchPaths.size();
 		for (	findData.currentSearchPathID = 0;
 			findData.currentSearchPathID < c;
 			findData.currentSearchPathID++ )
@@ -2176,7 +2082,7 @@ void CBaseFileSystem::FindFileAbsoluteList( CUtlVector< CUtlString > &outAbsolut
 				continue;
 
 			char tempFileName[ MAX_FILEPATH ];
-			Q_snprintf( tempFileName, sizeof( tempFileName ), "%s%s", pSearchPath->GetPathString(), findData.wildCardString.Base() );
+			Q_snprintf( tempFileName, sizeof( tempFileName ), "%s%s", pSearchPath->GetPathString(), findData.wildCardString.data() );
 			Q_FixSlashes( tempFileName );
 
 			FindFileAbsoluteListHelper( outAbsolutePathNames, findData, tempFileName );
@@ -2213,8 +2119,8 @@ const char *CBaseFileSystem::FindFirstHelper( const char *pWildCard, const char 
 	}
 	int maxlen = strlen( pWildCard ) + 1;
 	pFindData->wildCardString.AddMultipleToTail( maxlen );
-	Q_strncpy( pFindData->wildCardString.Base(), pWildCard, maxlen );
-	Q_FixSlashes( pFindData->wildCardString.Base() );
+	Q_strncpy( pFindData->wildCardString.data(), pWildCard, maxlen );
+	Q_FixSlashes( pFindData->wildCardString.data() );
 	pFindData->findHandle = nullptr;
 
 	if ( Q_IsAbsolutePath( pWildCard ) )
@@ -2227,7 +2133,7 @@ const char *CBaseFileSystem::FindFirstHelper( const char *pWildCard, const char 
 	}
 	else
 	{
-		int c = m_SearchPaths.Count();
+		int c = m_SearchPaths.size();
 		for (	pFindData->currentSearchPathID = 0;
 				pFindData->currentSearchPathID < c;
 				pFindData->currentSearchPathID++ )
@@ -2243,7 +2149,7 @@ const char *CBaseFileSystem::FindFirstHelper( const char *pWildCard, const char 
 				continue;
 
 			char tempFileName[ MAX_FILEPATH ];
-			Q_snprintf( tempFileName, sizeof( tempFileName ), "%s%s", pSearchPath->GetPathString(), pFindData->wildCardString.Base() );
+			Q_snprintf( tempFileName, sizeof( tempFileName ), "%s%s", pSearchPath->GetPathString(), pFindData->wildCardString.data() );
 			Q_FixSlashes( tempFileName );
 
 
@@ -2309,7 +2215,7 @@ bool CBaseFileSystem::FindNextFileHelper( FindData_t *pFindData, int *pFoundStor
 	}
 	pFindData->findHandle = nullptr;
 
-	int c = m_SearchPaths.Count();
+	int c = m_SearchPaths.size();
 	for( ; pFindData->currentSearchPathID < c; ++pFindData->currentSearchPathID )
 	{
 		CSearchPath *pSearchPath = &m_SearchPaths[pFindData->currentSearchPathID];
@@ -2322,7 +2228,7 @@ bool CBaseFileSystem::FindNextFileHelper( FindData_t *pFindData, int *pFoundStor
 			continue;
 
 		char tempFileName[ MAX_FILEPATH ];
-		Q_snprintf( tempFileName, sizeof( tempFileName ), "%s%s", pSearchPath->GetPathString(), pFindData->wildCardString.Base() );
+		Q_snprintf( tempFileName, sizeof( tempFileName ), "%s%s", pSearchPath->GetPathString(), pFindData->wildCardString.data() );
 		Q_FixSlashes( tempFileName );
 
 
@@ -2503,7 +2409,7 @@ bool CBaseFileSystem::FullPathToRelativePathEx( const char *pFullPath, const cha
 		lookup = g_PathIDTable.AddString( pPathId );
 	}
 
-	int c = m_SearchPaths.Count();
+	int c = m_SearchPaths.size();
 	for( int i = 0; i < c; i++ )
 	{
 		// Skip paths that are not on the specified search path
@@ -2739,7 +2645,7 @@ CBaseFileSystem::CSearchPath::~CSearchPath( void )
 //-----------------------------------------------------------------------------
 CBaseFileSystem::CSearchPath *CBaseFileSystem::CSearchPathsIterator::GetFirst()
 {
-	if ( m_SearchPaths.Count() )
+	if ( m_SearchPaths.size() )
 	{
 		m_visits.Reset();
 		m_iCurrent = -1;
@@ -2763,7 +2669,7 @@ CBaseFileSystem::CSearchPath *CBaseFileSystem::CSearchPathsIterator::GetNext()
 	// excluding a local search path falls through to its cloned dvddev cache path
 	// map paths are exempt from this exclusion logic
     // nominal behavior
-    for ( m_iCurrent++; m_iCurrent < m_SearchPaths.Count(); m_iCurrent++ )
+    for ( m_iCurrent++; m_iCurrent < m_SearchPaths.size(); m_iCurrent++ )
     {
         pSearchPath = &m_SearchPaths[m_iCurrent];
 
@@ -2779,7 +2685,7 @@ CBaseFileSystem::CSearchPath *CBaseFileSystem::CSearchPathsIterator::GetNext()
             break;
     }
 
-	if ( m_iCurrent < m_SearchPaths.Count() )
+	if ( m_iCurrent < m_SearchPaths.size() )
 	{
 		return pSearchPath;
 	}
@@ -2855,7 +2761,7 @@ int	CBaseFileSystem::GetPathIndex( const FileNameHandle_t &handle )
 
 CBaseFileSystem::CPathIDInfo* CBaseFileSystem::FindOrAddPathIDInfo( const CUtlSymbol &id, int bByRequestOnly )
 {
-	for ( int i=0; i < m_PathIDInfos.Count(); i++ )
+	for ( int i=0; i < m_PathIDInfos.size(); i++ )
 	{
 		CBaseFileSystem::CPathIDInfo *pInfo = m_PathIDInfos[i];
 		if ( pInfo->GetPathID() == id )

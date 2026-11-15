@@ -21,10 +21,10 @@
 
 // This is a useful macro to iterate from head to tail in a linked list.
 #define FOR_EACH_LL( listName, iteratorName ) \
-	for( auto iteratorName=(listName).Head(); (listName).IsUtlLinkedList && iteratorName != (listName).InvalidIndex(); iteratorName = (listName).Next( iteratorName ) )
+	for( auto iteratorName=(listName).front(); (listName).IsUtlLinkedList && iteratorName != (listName).InvalidIndex(); iteratorName = (listName).Next( iteratorName ) )
 
 #define FOR_EACH_LL_BACK( listName, iteratorName ) \
-	for( auto iteratorName=(listName).Tail(); (listName).IsUtlLinkedList && iteratorName != (listName).InvalidIndex(); iteratorName = (listName).Previous( iteratorName ) )
+	for( auto iteratorName=(listName).back(); (listName).IsUtlLinkedList && iteratorName != (listName).InvalidIndex(); iteratorName = (listName).Previous( iteratorName ) )
 
 //-----------------------------------------------------------------------------
 // class CUtlLinkedList:
@@ -68,7 +68,7 @@ public:
 	enum { IsUtlLinkedList = true }; // Used to match this at compiletime 
 
 	// constructor, destructor
-	CUtlLinkedList( int growSize = 0, int initSize = 0 );
+	CUtlLinkedList( size_t growSize = 0, size_t initSize = 0 );
 	~CUtlLinkedList();
 
 	CUtlLinkedList( const CUtlLinkedList& ) = delete;
@@ -140,15 +140,15 @@ public:
 	int	Count() const;
 	inline bool IsEmpty( void ) const
 	{
-		return ( Head() == InvalidIndex() );
+		return ( front() == InvalidIndex() );
 	}
 
 	I	MaxElementIndex() const;
 	I	NumAllocated( void ) const { return m_NumAlloced; }
 
 	// Traversing the list
-	I  Head() const;
-	I  Tail() const;
+	I  front() const;
+	I  back() const;
 	I  Previous( I i ) const;
 	I  Next( I i ) const;
 
@@ -198,7 +198,7 @@ public:
 			Assert( m_index != m_list->Head() );
 			if ( m_index == m_list->InvalidIndex() )
 			{
-				m_index = m_list->Tail();
+				m_index = m_list->back();
 			}
 			else
 			{
@@ -231,7 +231,7 @@ public:
 
 		const ElemType_t& operator*() const
 		{
-			return m_list->Element( m_index );
+			return m_list->at( m_index );
 		}
 
 		const ElemType_t* operator->() const
@@ -291,7 +291,7 @@ public:
 			Assert( Base::m_index != Base::m_list->Head() );
 			if ( Base::m_index == Base::m_list->InvalidIndex() )
 			{
-				Base::m_index = Base::m_list->Tail();
+				Base::m_index = Base::m_list->back();
 			}
 			else
 			{
@@ -315,7 +315,7 @@ public:
 			// Const_cast to allow sharing the implementation with the
 			// base class.
 			List_t* pMutableList = const_cast<List_t*>( Base::m_list );
-			return pMutableList->Element( Base::m_index );
+			return pMutableList->at( Base::m_index );
 		}
 
 		ElemType_t* operator->() const
@@ -328,11 +328,11 @@ public:
 	typedef _CUtlLinkedList_iterator_t<CUtlLinkedList<T, S, ML, I, M> > iterator;
 	const_iterator begin() const
 	{
-		return const_iterator( *this, Head() );
+		return const_iterator( *this, front() );
 	}
 	iterator begin()
 	{
-		return iterator( *this, Head() );
+		return iterator( *this, front() );
 	}
 
 	const_iterator end() const
@@ -380,7 +380,7 @@ protected:
 
 	void ResetDbgInfo()
 	{
-		m_pElements = m_Memory.Base();
+		m_pElements = m_Memory.data();
 	}
 };
 
@@ -420,7 +420,7 @@ private:
 //-----------------------------------------------------------------------------
 
 template <class T, class S, bool ML, class I, class M>
-CUtlLinkedList<T,S,ML,I,M>::CUtlLinkedList( int growSize, int initSize ) :
+CUtlLinkedList<T,S,ML,I,M>::CUtlLinkedList( size_t growSize, size_t initSize ) :
 	m_Memory( growSize, initSize ), m_LastAlloc( m_Memory.InvalidIterator() )
 {
 #if !defined( PLATFORM_WINDOWS_PC64 ) && !defined( PLATFORM_64BITS )
@@ -501,13 +501,13 @@ inline I CUtlLinkedList<T,S,ML,I,M>::MaxElementIndex() const
 //-----------------------------------------------------------------------------
 
 template <class T, class S, bool ML, class I, class M>
-inline I  CUtlLinkedList<T,S,ML,I,M>::Head() const  
+inline I  CUtlLinkedList<T,S,ML,I,M>::front() const
 { 
 	return m_Head; 
 }
 
 template <class T, class S, bool ML, class I, class M>
-inline I  CUtlLinkedList<T,S,ML,I,M>::Tail() const  
+inline I  CUtlLinkedList<T,S,ML,I,M>::back() const
 { 
 	return m_Tail; 
 }
@@ -634,7 +634,7 @@ template<class T, class S, bool ML, class I, class M>
 void CUtlLinkedList<T,S,ML,I,M>::PurgeAndDeleteElements()
 {
 	I iNext;
-	for( I i=Head(); i != InvalidIndex(); i=iNext )
+	for( I i=front(); i != InvalidIndex(); i=iNext )
 	{
 		iNext = Next(i);
 		delete Element(i);
@@ -842,7 +842,7 @@ inline I CUtlLinkedList<T,S,ML,I,M>::AddToTail( T const& src )
 template<class T, class S, bool ML, class I, class M>
 I CUtlLinkedList<T,S,ML,I,M>::Find( const T &src ) const
 {
-	for ( I i=Head(); i != InvalidIndex(); i = Next( i ) )
+	for ( I i=front(); i != InvalidIndex(); i = Next( i ) )
 	{
 		if ( Element( i ) == src )
 			return i;
@@ -909,7 +909,7 @@ void  CUtlLinkedList<T,S,ML,I,M>::RemoveAll()
 	}
 	else
 	{
-		I i = Head();
+		I i = front();
 		I next;
 		while ( i != InvalidIndex() )
 		{
@@ -920,9 +920,9 @@ void  CUtlLinkedList<T,S,ML,I,M>::RemoveAll()
 			internalElem.m_Next = next == InvalidIndex() ? m_FirstFree : next;
 			i = next;
 		}
-		if ( Head() != InvalidIndex() )
+		if ( front() != InvalidIndex() )
 		{
-			m_FirstFree = Head();
+			m_FirstFree = front();
 		}
 	}
 

@@ -94,7 +94,7 @@ static bool LoadLODs(s_source_t **ppRootLODSource, CDmeLODList *pLodList, bool &
     // of loading LODs from the mpp file without reloading the giant mpp
     // file over and over again.
     *ppRootLODSource = nullptr;
-    int nCount = pLodList->m_LODs.Count();
+    int nCount = pLodList->m_LODs.size();
     if (nCount == 0)
         return true;
 
@@ -235,7 +235,7 @@ static void LoadEyeballs(s_model_t *ps_model_t, CDmeLODList *pDmeLODList) {
     AngleMatrix(g_studiomdl.script.defaultrotation, mDefRot);
     Vector vTmp;
 
-    const int nEyeballCount = pDmeLODList->m_EyeballList.Count();
+    const int nEyeballCount = pDmeLODList->m_EyeballList.size();
     if (nEyeballCount <= 0)
         return;
 
@@ -345,7 +345,7 @@ static bool LoadBodyGroupList(s_source_t **ppMainSource, CDmeBodyGroupList *pBod
     *ppMainSource = nullptr;
 
     CDmaElementArray<CDmeBodyGroup> &dmeBodyGroups = pBodyGroupList->m_BodyGroups;
-    const int nDmeBodyGroupCount = dmeBodyGroups.Count();
+    const int nDmeBodyGroupCount = dmeBodyGroups.size();
     if (nDmeBodyGroupCount == 0)
         return true;
 
@@ -361,7 +361,7 @@ static bool LoadBodyGroupList(s_source_t **ppMainSource, CDmeBodyGroupList *pBod
         pBodyPart->name = pDmeBodyGroup->GetName();
 
         // Load all body parts for this body group
-        const int nDmeBodyPartCount = pDmeBodyGroup->m_BodyParts.Count();
+        const int nDmeBodyPartCount = pDmeBodyGroup->m_BodyParts.size();
         for (int j = 0; j < nDmeBodyPartCount; ++j) {
             s_model_t *pModel = c_allocate<s_model_t>();
             const int nModel = g_studiomdl.body.AddModel(pModel);
@@ -482,7 +482,7 @@ static void LoadMaterialGroups(const CDmeMaterialGroupList *pDmeMaterialGroupLis
 
     CDmeMaterialGroup *pDmeMaterialGroup = nullptr;
 
-    const int nMaterialGroupCount = pDmeMaterialGroupList->m_MaterialGroups.Count();
+    const int nMaterialGroupCount = pDmeMaterialGroupList->m_MaterialGroups.size();
     if (nMaterialGroupCount >= MAXSTUDIOSKINS) {
         MdlError("Too Many Material Groups, Max: {}\n", MAXSTUDIOSKINS);
         return;
@@ -497,7 +497,7 @@ static void LoadMaterialGroups(const CDmeMaterialGroupList *pDmeMaterialGroupLis
         if (!pDmeMaterialGroup)
             continue;
 
-        const int nMaterialCount = pDmeMaterialGroup->m_MaterialList.Count();
+        const int nMaterialCount = pDmeMaterialGroup->m_MaterialList.size();
         if (nGroupIndex > 0 && nMaterialCount < nTextureCount) {
             MdlWarning("Only Setting {} of {} Textures via MaterialGroup {}, Skin {} will have bad materials\n",
                        nMaterialCount, nTextureCount, nGroupIndex, nGroupIndex);
@@ -524,7 +524,7 @@ static void LoadBoneMergeList(CDmAttribute *pDmeBoneMergeListAttr) {
     if (!boneMergeList.IsValid())
         return;
 
-    const int nBoneMergeCount = boneMergeList.Count();
+    const int nBoneMergeCount = boneMergeList.size();
     for (int nBoneMergeIndex = 0; nBoneMergeIndex < nBoneMergeCount; ++nBoneMergeIndex) {
         g_studiomdl.bones.bone_merge.emplace_back(boneMergeList[nBoneMergeIndex]);
     }
@@ -546,7 +546,7 @@ static void LoadBoneMaskList(CDmeBoneMaskList *pDmeBoneMaskList) {
 
     CDmeBoneMask *pDmeDefaultBoneMask = pDmeBoneMaskList->m_eDefaultBoneMask.GetElement();
 
-    for (int i = 0; i < pDmeBoneMaskList->m_BoneMaskList.Count(); ++i) {
+    for (int i = 0; i < pDmeBoneMaskList->m_BoneMaskList.size(); ++i) {
         CDmeBoneMask *pDmeBoneMask = pDmeBoneMaskList->m_BoneMaskList.Element(i);
         if (!pDmeBoneMask)
             return;
@@ -576,7 +576,7 @@ static void LoadBoneMaskList(CDmeBoneMaskList *pDmeBoneMaskList) {
 
         Q_strncpy(pWeightList->name, pDmeBoneMask->GetName(), sizeof(pWeightList->name));
         pWeightList->numbones = 0;
-        for (int j = 0; j < pDmeBoneMask->m_BoneWeights.Count(); ++j) {
+        for (int j = 0; j < pDmeBoneMask->m_BoneWeights.size(); ++j) {
             CDmeBoneWeight *pDmeBoneWeight = pDmeBoneMask->m_BoneWeights.Element(j);
             if (!pDmeBoneWeight)
                 continue;
@@ -618,7 +618,7 @@ static void LoadPoseParameterList(CDmePoseParameterList *pDmePoseParameterList) 
     if (!pDmePoseParameterList)
         return;
 
-    const int nPoseParameterCount = pDmePoseParameterList->m_ePoseParameterList.Count();
+    const int nPoseParameterCount = pDmePoseParameterList->m_ePoseParameterList.size();
     for (int i = 0; i < nPoseParameterCount; ++i) {
         const CDmePoseParameter *pDmePoseParameter = pDmePoseParameterList->m_ePoseParameterList[i];
 
@@ -683,7 +683,7 @@ static void LoadIkChainList(CDmeSequenceList *pDmeSequenceList) {
     if (!pDmeSequenceList)
         return;
 
-    const int nIkChainCount = pDmeSequenceList->m_eIkChainList.Count();
+    const int nIkChainCount = pDmeSequenceList->m_eIkChainList.size();
     for (int i = 0; i < nIkChainCount; ++i) {
         CDmeIkChain *pDmeIkChain = pDmeSequenceList->m_eIkChainList[i];
         if (!pDmeIkChain)
@@ -860,7 +860,7 @@ void LoadAnimationCommands(CDmeSequence *pDmeSimpleSequence, s_animation_t *pAni
     if (!pDmeSimpleSequence || !pAnimation)
         return;
 
-    const int nAnimCmdCount = pDmeSimpleSequence->m_eAnimationCommandList.Count();
+    const int nAnimCmdCount = pDmeSimpleSequence->m_eAnimationCommandList.size();
     for (int i = 0; i < nAnimCmdCount; ++i) {
         CDmeAnimCmd *pDmeAnimCmd = pDmeSimpleSequence->m_eAnimationCommandList[i];
         if (!pDmeAnimCmd)
@@ -1009,7 +1009,7 @@ void LoadIkRuleList(CDmeSequence *pDmeSimpleSequence, s_animation_t *pAnimation)
     AngleMatrix(g_studiomdl.script.defaultrotation, mDefRot);
 
     // See if we have any IkRules to load
-    const int nIkRuleCount = pDmeSimpleSequence->m_eIkRuleList.Count();
+    const int nIkRuleCount = pDmeSimpleSequence->m_eIkRuleList.size();
     if (nIkRuleCount <= 0)
         return;
 
@@ -1142,7 +1142,7 @@ static void LoadSequenceList(CDmeMultiSequence *pDmeMultiSequence, std::vector<s
     if (!pDmeMultiSequence)
         return;
 
-    const int nSequenceCount = pDmeMultiSequence->m_eSequenceList.Count();
+    const int nSequenceCount = pDmeMultiSequence->m_eSequenceList.size();
     for (int i = 0; i < nSequenceCount; ++i) {
         CDmeSequence *pDmeSubSequence = pDmeMultiSequence->m_eSequenceList[i];
         if (!pDmeSubSequence)
@@ -1164,7 +1164,7 @@ static void LoadSequenceBlends(CDmeMultiSequence *pDmeMultiSequence, s_sequence_
     if (!pSequence || !pDmeMultiSequence)
         return;
 
-    const int nBlendCount = pDmeMultiSequence->m_eBlendList.Count();
+    const int nBlendCount = pDmeMultiSequence->m_eBlendList.size();
     for (int i = 0; i < nBlendCount; ++i) {
         CDmeSequenceBlendBase *pDmeSequenceBlendBase = pDmeMultiSequence->m_eBlendList[i];
         if (!pDmeSequenceBlendBase)
@@ -1258,7 +1258,7 @@ void LoadAnimationEventList(CDmeSequenceBase *pDmeSequenceBase, s_sequence_t *pS
     if (pBlah) {
         nFoo = CDmrGenericArrayConst(pBlah).Count();
     }
-    const int nAnimEventCount = pDmeSequenceBase->m_eAnimationEventList.Count();
+    const int nAnimEventCount = pDmeSequenceBase->m_eAnimationEventList.size();
     for (int i = 0; i < nAnimEventCount; ++i) {
         CDmeAnimationEvent *pDmeAnimationEvent = pDmeSequenceBase->m_eAnimationEventList[i];
         if (!pDmeAnimationEvent)
@@ -1289,7 +1289,7 @@ void LoadLayerList(CDmeSequenceBase *pDmeSequenceBase, s_sequence_t *pSequence) 
     if (!pDmeSequenceBase || !pSequence)
         return;
 
-    const int nLayerCount = pDmeSequenceBase->m_eLayerList.Count();
+    const int nLayerCount = pDmeSequenceBase->m_eLayerList.size();
     for (int i = 0; i < nLayerCount; ++i) {
         CDmeSequenceLayerBase *pDmeLayerBase = pDmeSequenceBase->m_eLayerList[i];
         if (!pDmeLayerBase)
@@ -1335,7 +1335,7 @@ void LoadIkLockList(CDmeSequenceBase *pDmeSequenceBase, s_sequence_t *pSequence)
     if (!pDmeSequenceBase || !pSequence)
         return;
 
-    const int nIkLockCount = pDmeSequenceBase->m_eIkLockList.Count();
+    const int nIkLockCount = pDmeSequenceBase->m_eIkLockList.size();
     for (int i = 0; i < nIkLockCount; ++i) {
         CDmeIkLock *pDmeIkLock = pDmeSequenceBase->m_eIkLockList[i];
         if (!pDmeIkLock)
@@ -1367,7 +1367,7 @@ static int LoadAndCreateSequences(s_source_t *pMainSource, CDmeSequenceList *pSe
     int nSequenceAddedCount = 0;
 
     char szSeqName[MAX_PATH];
-    const int nSequenceCount = pSequenceList ? pSequenceList->m_Sequences.Count() : 0;
+    const int nSequenceCount = pSequenceList ? pSequenceList->m_Sequences.size() : 0;
 
     std::vector<CDmeSequenceBase *> sortedSequenceList;
 
@@ -1450,7 +1450,7 @@ static int LoadAndCreateSequences(s_source_t *pMainSource, CDmeSequenceList *pSe
 
                     // Check for various CDmeAnimCmd's which may or may not be flagged with bDelta
                     bool bDmeAnimCmdDelta = false;
-                    for (int i = 0; i < pDmeSimpleSequence->m_eAnimationCommandList.Count(); ++i) {
+                    for (int i = 0; i < pDmeSimpleSequence->m_eAnimationCommandList.size(); ++i) {
                         if (pDmeSimpleSequence->m_eAnimationCommandList[i]->IsA(
                                 CDmeAnimCmdSubtract::GetStaticTypeSymbol()) ||
                             pDmeSimpleSequence->m_eAnimationCommandList[i]->IsA(
@@ -1558,7 +1558,7 @@ static int LoadAndCreateSequences(s_source_t *pMainSource, CDmeSequenceList *pSe
                 Q_strncpy(pSeq->activityname, pszActivityName, sizeof(pSeq->activityname));
                 pSeq->actweight = pDmeSequenceActivity->m_nWeight.Get();
 
-                for (int nModifierIndex = 0; nModifierIndex < pDmeSequenceActivity->m_sModifierList.Count(); ++
+                for (int nModifierIndex = 0; nModifierIndex < pDmeSequenceActivity->m_sModifierList.size(); ++
                      nModifierIndex) {
                     strcpyn(pSeq->activitymodifier[ pSeq->numactivitymodifiers++ ].name,
                             pDmeSequenceActivity->m_sModifierList.Get( nModifierIndex ));
@@ -1567,9 +1567,9 @@ static int LoadAndCreateSequences(s_source_t *pMainSource, CDmeSequenceList *pSe
                         break;
                 }
 
-                if (pDmeSequenceActivity->m_sModifierList.Count() > MAXSTUDIOACTIVITYMODIFIERS) {
+                if (pDmeSequenceActivity->m_sModifierList.size() > MAXSTUDIOACTIVITYMODIFIERS) {
                     MdlWarning("1210: Too many activity modifiers ({}) on DmeSequence {}, only using first {}\n",
-                               pDmeSequenceActivity->m_sModifierList.Count(),
+                               pDmeSequenceActivity->m_sModifierList.size(),
                                pSeq->name,
                                MAXSTUDIOACTIVITYMODIFIERS);
                 }
@@ -1660,7 +1660,7 @@ static void LoadIncludeModelList(CDmeIncludeModelList *pIncludeModelList) {
     if (!pIncludeModelList)
         return;
 
-    const int nIncludeModelsCount = pIncludeModelList->m_IncludeModels.Count();
+    const int nIncludeModelsCount = pIncludeModelList->m_IncludeModels.size();
     for (int ni = 0; ni < nIncludeModelsCount; ++ni) {
         if (g_studiomdl.body.includemodels.full()) {
             MdlError("Too Many Include Models while including: \"{}\", Max: {}\n",
@@ -1784,7 +1784,7 @@ static void LoadDefineBoneList(CDmeDefineBoneList *pDmeDefineBoneList) {
     CDmeDefineBone *pDmeDefineBone = nullptr;
     s_importbone_t *pImportBone = nullptr;
 
-    const int nDefineBoneCount = pDmeDefineBoneList->m_DefineBones.Count();
+    const int nDefineBoneCount = pDmeDefineBoneList->m_DefineBones.size();
     for (int ni = 0; ni < nDefineBoneCount; ++ni) {
         pDmeDefineBone = pDmeDefineBoneList->m_DefineBones[ni];
         if (!pDmeDefineBone)
@@ -1855,7 +1855,7 @@ static void LoadHitboxSetList(const CDmeHitboxSetList *pDmeHitboxSetList) {
     if (!pDmeHitboxSetList)
         return;
 
-    const int nHitboxSetCount = pDmeHitboxSetList->m_HitboxSetList.Count();
+    const int nHitboxSetCount = pDmeHitboxSetList->m_HitboxSetList.size();
     for (int nHitBoxSetIndex = 0; nHitBoxSetIndex < nHitboxSetCount; ++nHitBoxSetIndex) {
         CDmeHitboxSet *pSrcHitboxSet = pDmeHitboxSetList->m_HitboxSetList[nHitBoxSetIndex];
 
@@ -1863,7 +1863,7 @@ static void LoadHitboxSetList(const CDmeHitboxSetList *pDmeHitboxSetList) {
         s_hitboxset *pHitboxSet = AllocateHitboxSet();
         Q_strncpy(pHitboxSet->hitboxsetname, pSrcHitboxSet->GetName(), sizeof(pHitboxSet->hitboxsetname));
 
-        int nHitboxCount = pSrcHitboxSet->m_HitboxList.Count();
+        int nHitboxCount = pSrcHitboxSet->m_HitboxList.size();
         for (int nHitboxIndex = 0; nHitboxIndex < nHitboxCount; ++nHitboxIndex) {
             CDmeHitbox *pSrcHitbox = pSrcHitboxSet->m_HitboxList[nHitboxIndex];
 

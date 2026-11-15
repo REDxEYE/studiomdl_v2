@@ -77,7 +77,7 @@ CDmeBoneFlexDriverControl *CDmeBoneFlexDriver::FindOrCreateControl( const char *
 {
 	CDmeBoneFlexDriverControl *pDmeBoneFlexDriverControl = nullptr;
 
-	for ( int i = 0; i < m_eControlList.Count(); ++i )
+	for ( int i = 0; i < m_eControlList.size(); ++i )
 	{
 		pDmeBoneFlexDriverControl = m_eControlList[i];
 		if ( !pDmeBoneFlexDriverControl )
@@ -131,7 +131,7 @@ CDmeBoneFlexDriver *CDmeBoneFlexDriverList::FindOrCreateBoneFlexDriver( const ch
 {
 	CDmeBoneFlexDriver *pDmeBoneFlexDriver = nullptr;
 
-	for ( int i = 0; i < m_eBoneFlexDriverList.Count(); ++i )
+	for ( int i = 0; i < m_eBoneFlexDriverList.size(); ++i )
 	{
 		pDmeBoneFlexDriver = m_eBoneFlexDriverList[i];
 		if ( !pDmeBoneFlexDriver )

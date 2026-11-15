@@ -433,7 +433,7 @@ void CDmElement::CopyAttributesTo( CDmElement *pCopy, TraversalDepth_t depth ) c
 
 	CUtlHashFast< DmElementHandle_t > visited;
 	uint32_t nPow2Size = 1;
-	while( nPow2Size < refmap.Count() )
+	while( nPow2Size < refmap.size() )
 	{
 		nPow2Size <<= 1;
 	}
@@ -1031,7 +1031,7 @@ void CElementTreeTraversal::Reset( CDmElement *pRoot, const char *pAttrName )
 
 CDmElement *CElementTreeTraversal::Next( bool bSkipChildren /*= false*/ )
 {
-	if ( m_state.Count() == 1 && m_state[ 0 ].nIndex == NOT_VISITED )
+	if ( m_state.size() == 1 && m_state[ 0 ].nIndex == NOT_VISITED )
 	{
 		m_state[ 0 ].nIndex = VISITING;
 		return m_state[ 0 ].pElement;
@@ -1039,10 +1039,10 @@ CDmElement *CElementTreeTraversal::Next( bool bSkipChildren /*= false*/ )
 
 	if ( bSkipChildren )
 	{
-		m_state.Remove( m_state.Count() - 1 );
+		m_state.Remove( m_state.size() - 1 );
 	}
 
-	while ( int nCount = m_state.Count() )
+	while ( int nCount = m_state.size() )
 	{
 		State_t &state = m_state[ nCount - 1 ];
 		Assert( state.pElement );
@@ -1071,7 +1071,7 @@ CDmElement *CElementTreeTraversal::Next( bool bSkipChildren /*= false*/ )
 
 CDmElement *CElementTreeTraversal::GetElement()
 {
-	int nCount = m_state.Count();
+	int nCount = m_state.size();
 	if ( nCount < 1 )
 		return nullptr;
 

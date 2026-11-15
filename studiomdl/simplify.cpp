@@ -3845,7 +3845,7 @@ void MapFlexDriveBonesToGlobalBoneTable() {
         return;
 
     // Loop backwards so we can remove elements as we go
-    for (int i = pDmeBoneFlexDriverList->m_eBoneFlexDriverList.Count() - 1; i >= 0; --i) {
+    for (int i = pDmeBoneFlexDriverList->m_eBoneFlexDriverList.size() - 1; i >= 0; --i) {
         CDmeBoneFlexDriver* pDmeBoneFlexDriver = pDmeBoneFlexDriverList->m_eBoneFlexDriverList[i];
         if (!pDmeBoneFlexDriver) {
             pDmeBoneFlexDriverList->m_eBoneFlexDriverList.Remove(i);
@@ -3863,7 +3863,7 @@ void MapFlexDriveBonesToGlobalBoneTable() {
 
                 pDmeBoneFlexDriver->SetValue("__boneIndex", j);
                 // Map the axis for Y up stuff
-                for (int k = 0; k < pDmeBoneFlexDriver->m_eControlList.Count(); ++k) {
+                for (int k = 0; k < pDmeBoneFlexDriver->m_eControlList.size(); ++k) {
                     pDmeBoneFlexDriver->m_eControlList[k]->m_nBoneComponent = GetRemappedBoneAxis(j,
                         pDmeBoneFlexDriver->m_eControlList[k]->m_nBoneComponent);
                 }
@@ -3900,14 +3900,14 @@ void TagFlexDriverBones(s_source_t* pSource) {
         return;
 
     // Loop backwards so we can remove elements as we go
-    for (int i = pDmeBoneFlexDriverList->m_eBoneFlexDriverList.Count() - 1; i >= 0; --i) {
+    for (int i = pDmeBoneFlexDriverList->m_eBoneFlexDriverList.size() - 1; i >= 0; --i) {
         CDmeBoneFlexDriver* pDmeBoneFlexDriver = pDmeBoneFlexDriverList->m_eBoneFlexDriverList[i];
         if (!pDmeBoneFlexDriver) {
             pDmeBoneFlexDriverList->m_eBoneFlexDriverList.Remove(i);
             continue;
         }
 
-        for (int j = pDmeBoneFlexDriver->m_eControlList.Count() - 1; j >= 0; --j) {
+        for (int j = pDmeBoneFlexDriver->m_eControlList.size() - 1; j >= 0; --j) {
             CDmeBoneFlexDriverControl* pDmeBoneFlexDriverControl = pDmeBoneFlexDriver->m_eControlList[j];
             if (!pDmeBoneFlexDriverControl) {
                 pDmeBoneFlexDriver->m_eControlList.Remove(j);
@@ -3940,7 +3940,7 @@ void TagFlexDriverBones(s_source_t* pSource) {
             }
         }
 
-        if (pDmeBoneFlexDriver->m_eControlList.Count() <= 0) {
+        if (pDmeBoneFlexDriver->m_eControlList.size() <= 0) {
             MdlWarning("DmeBoneFlexDriver Bone: {} - No Flex Controllers Defined, Ignoring\n",
                        pDmeBoneFlexDriver->m_sBoneName.Get());
             pDmeBoneFlexDriverList->m_eBoneFlexDriverList.Remove(i);

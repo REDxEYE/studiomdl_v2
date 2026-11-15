@@ -111,7 +111,7 @@ public:
 
 	inline int Count() const
 	{
-		return m_Strings.Count();
+		return m_Strings.size();
 	}
 
 	inline char const *Lookup( short index )

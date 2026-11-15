@@ -96,12 +96,12 @@ inline CUtlBinaryBlock& CUtlBinaryBlock::operator= ( CUtlBinaryBlock&& src )
 
 inline const void *CUtlBinaryBlock::Get( ) const
 {
-	return m_Memory.Base();
+	return m_Memory.data();
 }
 
 inline void *CUtlBinaryBlock::Get( )
 {
-	return m_Memory.Base();
+	return m_Memory.data();
 }
 
 inline int CUtlBinaryBlock::Length() const

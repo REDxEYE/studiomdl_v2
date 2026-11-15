@@ -849,10 +849,10 @@ DmAttributeType_t CDmeTypedLogLayer<T>::GetDataType() const
 template< class T >
 bool CDmeTypedLogLayer<T>::IsConstantValued() const
 {
-	if ( m_values.Count() < 2 )
+	if ( m_values.size() < 2 )
 		return true;
 
-	if ( m_values.Count() == 2 && !GetTypedOwnerLog()->ValuesDiffer( m_values[ 0 ], m_values[ 1 ] ) )
+	if ( m_values.size() == 2 && !GetTypedOwnerLog()->ValuesDiffer( m_values[ 0 ], m_values[ 1 ] ) )
 		return true;
 
 	// we're throwing away duplicate values during recording, so this is generally correct
@@ -878,7 +878,7 @@ void CDmeTypedLog<T>::SetValueThreshold( float thresh )
 template< class T >
 bool CDmeTypedLog<T>::IsConstantValued() const
 {
-	int c = m_Layers.Count();
+	int c = m_Layers.size();
 	for ( int i = 0; i < c; ++i )
 	{
 		if ( !GetLayer( i )->IsConstantValued() )

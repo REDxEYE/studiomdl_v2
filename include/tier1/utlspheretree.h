@@ -838,7 +838,7 @@ inline void CUtlSphereTree::CutByPlanes(Cut *outputCut, const Cut *inputCut, con
         // TODO: it would be quicker to modify the input Cut in-place (given that node order is not important,
         //       you can process nodes in order, addtotail new items and replace removed items with the last entry)
         completeCut.m_NodeRefs.RemoveAll();
-        completeCut.m_NodeRefs.AddMultipleToTail(inputCut->m_NodeRefs.Count(), inputCut->m_NodeRefs.Base());
+        completeCut.m_NodeRefs.AddMultipleToTail(inputCut->m_NodeRefs.Count(), inputCut->m_NodeRefs.data());
         inputCut = &completeCut;
     }
 

@@ -200,7 +200,7 @@ inline void CUtlDict<T, I>::SetElementName( I i, char const *pName )
 template <class T, class I>
 inline	unsigned int CUtlDict<T, I>::Count() const          
 { 
-	return m_Elements.Count(); 
+	return m_Elements.size(); 
 }
 
 //-----------------------------------------------------------------------------

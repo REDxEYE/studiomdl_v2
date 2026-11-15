@@ -270,7 +270,7 @@ void CDataModel::BuildHistogramForHandles(CUtlMap<CUtlSymbolLarge, DmMemoryInfo_
                                           CUtlVector<DmElementHandle_t> &handles) {
     CUtlHash<DmElementHandle_t> visited(1024, 0, 0, HandleCompare, HandleHash);
 
-    int c = handles.Count();
+    int c = handles.size();
     for (int i = 0; i < c; ++i) {
         DmElementHandle_t h = handles[i];
         if (h == DMELEMENT_HANDLE_INVALID)
@@ -326,11 +326,11 @@ void CDataModel::DisplayMemoryStats(DmElementHandle_t hElement /*= DMELEMENT_HAN
     BuildHistogramForHandles(typeHistogram, handles);
 
     // Sort
-    DmMemorySortInfo_t *pSortInfo = (DmMemorySortInfo_t *) _alloca(typeHistogram.Count() * sizeof(DmMemorySortInfo_t));
+    DmMemorySortInfo_t *pSortInfo = (DmMemorySortInfo_t *) _alloca(typeHistogram.size() * sizeof(DmMemorySortInfo_t));
     int nCount = 0;
     for (int i = typeHistogram.FirstInorder(); typeHistogram.IsValidIndex(i); i = typeHistogram.NextInorder(i)) {
         pSortInfo[nCount].m_nIndex = i;
-        pSortInfo[nCount].m_nTotalSize = typeHistogram.Element(i).m_nSize;
+        pSortInfo[nCount].m_nTotalSize = typeHistogram.at(i).m_nSize;
         ++nCount;
     }
     qsort(pSortInfo, nCount, sizeof(DmMemorySortInfo_t), DmMemorySortFunc);
@@ -342,7 +342,7 @@ void CDataModel::DisplayMemoryStats(DmElementHandle_t hElement /*= DMELEMENT_HAN
     int nTotalData = 0;
     ConMsg("Dm Memory usage: type\t\t\t\tcount\ttotalsize\twastage %%\touter\t\tinner\t\tdatamodel\trefs\t\ttree\t\tatts\t\tdata\t(att count)\n");
     for (int i = 0; i < nCount; ++i) {
-        const DmMemoryInfo_t &info = typeHistogram.Element(pSortInfo[i].m_nIndex);
+        const DmMemoryInfo_t &info = typeHistogram.at(pSortInfo[i].m_nIndex);
         float flPercentOverhead = 1.0f -
                                   ((info.m_nSize != 0) ? ((float) info.m_pCategories[MEMORY_CATEGORY_ATTRIBUTE_DATA] /
                                                           (float) info.m_nSize) : 0.0f);
@@ -439,7 +439,7 @@ void CDataModel::DumpSymbolTable() {
     buf.Printf("Datamodel symbol table: %d entries %I64u bytes\n", symbolCount, symbolBytes);
     CUtlVector<CUtlSymbolLarge> elements;
     elements.EnsureCount(symbolCount);
-    m_SymbolTable.GetElements(0, symbolCount, elements.Base());
+    m_SymbolTable.GetElements(0, symbolCount, elements.data());
     elements.Sort(CompareSymbolsAcending);
 
 
@@ -504,7 +504,7 @@ const char *CDataModel::GetFormatDescription(const char *pFormatName) {
 }
 
 int CDataModel::GetFormatCount() const {
-    return m_FormatUpdaters.Count();
+    return m_FormatUpdaters.size();
 }
 
 const char *CDataModel::GetFormatName(int i) const {
@@ -562,7 +562,7 @@ void CDataModel::AddFormatUpdater(IDmFormatUpdater *pUpdater) {
 // encoding-related methods
 //-----------------------------------------------------------------------------
 int CDataModel::GetEncodingCount() const {
-    return m_Serializers.Count();
+    return m_Serializers.size();
 }
 
 const char *CDataModel::GetEncodingName(int i) const {
@@ -589,7 +589,7 @@ bool CDataModel::DoesEncodingStoreVersionInFile(const char *pEncodingName) const
 
 
 IDmSerializer *CDataModel::FindSerializer(const char *pEncodingName) const {
-    int nSerializers = m_Serializers.Count();
+    int nSerializers = m_Serializers.size();
     for (int i = 0; i < nSerializers; ++i) {
         IDmSerializer *pSerializer = m_Serializers[i];
         Assert(pSerializer);
@@ -604,7 +604,7 @@ IDmSerializer *CDataModel::FindSerializer(const char *pEncodingName) const {
 }
 
 IDmLegacyUpdater *CDataModel::FindLegacyUpdater(const char *pLegacyFormatName) const {
-    int nUpdaters = m_LegacyUpdaters.Count();
+    int nUpdaters = m_LegacyUpdaters.size();
     for (int i = 0; i < nUpdaters; ++i) {
         IDmLegacyUpdater *pUpdater = m_LegacyUpdaters[i];
         Assert(pUpdater);
@@ -619,7 +619,7 @@ IDmLegacyUpdater *CDataModel::FindLegacyUpdater(const char *pLegacyFormatName) c
 }
 
 IDmFormatUpdater *CDataModel::FindFormatUpdater(const char *pFormatName) const {
-    int nUpdaters = m_FormatUpdaters.Count();
+    int nUpdaters = m_FormatUpdaters.size();
     for (int i = 0; i < nUpdaters; ++i) {
         IDmFormatUpdater *pUpdater = m_FormatUpdaters[i];
         Assert(pUpdater);

@@ -41,7 +41,7 @@ void CDmeBoneMask::OnDestruction()
 //-----------------------------------------------------------------------------
 float CDmeBoneMask::GetBoneWeight( const char *pszBoneName )
 {
-	for ( int i = 0; i < m_BoneWeights.Count(); ++i )
+	for ( int i = 0; i < m_BoneWeights.size(); ++i )
 	{
 		CDmeBoneWeight *pDmeBoneWeight = m_BoneWeights[i];
 		if ( !pDmeBoneWeight )

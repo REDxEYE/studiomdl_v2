@@ -37,8 +37,8 @@ void CDmeCombinationInputControl::OnDestruction() {
 void CDmeCombinationInputControl::OnElementUnserialized() {
     BaseClass::OnElementUnserialized();
 
-    int nWrinkleCount = m_WrinkleScales.Count();
-    int nControlCount = m_RawControlNames.Count();
+    int nWrinkleCount = m_WrinkleScales.size();
+    int nControlCount = m_RawControlNames.size();
     if (nWrinkleCount < nControlCount) {
         for (int i = nWrinkleCount; i < nControlCount; ++i) {
             m_WrinkleScales.AddToTail(0.0f);
@@ -54,7 +54,7 @@ void CDmeCombinationInputControl::OnElementUnserialized() {
 // Iterates remapped controls
 //-----------------------------------------------------------------------------
 int CDmeCombinationInputControl::RawControlCount() const {
-    return m_RawControlNames.Count();
+    return m_RawControlNames.size();
 }
 
 const char* CDmeCombinationInputControl::RawControlName(int nIndex) const {
@@ -79,7 +79,7 @@ bool CDmeCombinationInputControl::IsEyelid() const {
 
 
 float CDmeCombinationInputControl::WrinkleScale(int nIndex) {
-    if (nIndex < 0 || (nIndex >= m_WrinkleScales.Count()))
+    if (nIndex < 0 || (nIndex >= m_WrinkleScales.size()))
         return 0.0f;
     return m_WrinkleScales[nIndex];
 }
@@ -132,7 +132,7 @@ void CDmeCombinationDominationRule::OnAttributeChanged(CDmAttribute* pAttribute)
 // Iteration
 //-----------------------------------------------------------------------------
 int CDmeCombinationDominationRule::DominatorCount() const {
-    return m_Dominators.Count();
+    return m_Dominators.size();
 }
 
 const char* CDmeCombinationDominationRule::GetDominator(int i) const {
@@ -140,7 +140,7 @@ const char* CDmeCombinationDominationRule::GetDominator(int i) const {
 }
 
 int CDmeCombinationDominationRule::SuppressedCount() const {
-    return m_Suppressed.Count();
+    return m_Suppressed.size();
 }
 
 const char* CDmeCombinationDominationRule::GetSuppressed(int i) const {
@@ -191,7 +191,7 @@ void CDmeCombinationOperator::OnElementUnserialized() {
     BaseClass::OnElementUnserialized();
 
     // Mark all of the input as not being in their default state since we read it from a file
-    int nCount = m_InputControls.Count();
+    int nCount = m_InputControls.size();
     m_IsDefaultValue.resize(nCount);
     for (int i = 0; i < nCount; ++i) {
         m_IsDefaultValue[i] = false;
@@ -203,7 +203,7 @@ void CDmeCombinationOperator::OnElementUnserialized() {
 // Finds the index of the input control with the specified name
 //-----------------------------------------------------------------------------
 ControlIndex_t CDmeCombinationOperator::FindControlIndex(const char* pControlName) {
-    int nCount = m_InputControls.Count();
+    int nCount = m_InputControls.size();
     for (int i = 0; i < nCount; ++i) {
         if (!m_InputControls[i])
             continue;
@@ -293,7 +293,7 @@ bool CDmeCombinationOperator::IsMultiControl(ControlIndex_t nControlIndex) const
 // Iterates controls
 //-----------------------------------------------------------------------------
 int CDmeCombinationOperator::GetControlCount() const {
-    return m_InputControls.Count();
+    return m_InputControls.size();
 }
 
 const char* CDmeCombinationOperator::GetControlName(ControlIndex_t i) const {
@@ -347,7 +347,7 @@ bool CDmeCombinationOperator::IsDeltaStateStereo(const char* pDeltaStateName) {
 void CDmeCombinationOperator::RebuildRawControlList() {
     m_RawControlInfo.clear();
 
-    int nControlCount = m_InputControls.Count();
+    int nControlCount = m_InputControls.size();
     for (int i = 0; i < nControlCount; ++i) {
         CDmeCombinationInputControl* pInputControl = m_InputControls[i];
         Assert(pInputControl);
@@ -415,7 +415,7 @@ void CDmeCombinationOperator::RebuildRawControlList() {
 //-----------------------------------------------------------------------------
 void CDmeCombinationOperator::RebuildDominatorInfo() {
     m_DominatorInfo.clear();
-    int nCount = m_Dominators.Count();
+    int nCount = m_Dominators.size();
     int* pDominators = (int*) _alloca(m_RawControlInfo.size() * sizeof(int));
     int* pSuppressed = (int*) _alloca(m_RawControlInfo.size() * sizeof(int));
     for (int i = 0; i < nCount; ++i) {
@@ -465,7 +465,7 @@ void CDmeCombinationOperator::RemoveDominationRule(int nIndex) {
 }
 
 void CDmeCombinationOperator::RemoveDominationRule(CDmeCombinationDominationRule* pRule) {
-    int nCount = m_Dominators.Count();
+    int nCount = m_Dominators.size();
     for (int i = 0; i < nCount; ++i) {
         if (m_Dominators[i] == pRule) {
             RemoveDominationRule(i);
@@ -479,7 +479,7 @@ void CDmeCombinationOperator::RemoveDominationRule(CDmeCombinationDominationRule
 // Iteration
 //-----------------------------------------------------------------------------
 int CDmeCombinationOperator::DominationRuleCount() const {
-    return m_Dominators.Count();
+    return m_Dominators.size();
 }
 
 CDmeCombinationDominationRule* CDmeCombinationOperator::GetDominationRule(int i) {
@@ -576,11 +576,11 @@ void CDmeCombinationOperator::ComputeCombinationInfo(int nIndex) {
     CDmrArray<Vector2D> weightsLagged(pSource, "deltaStateWeightsLagged");
 
     // This is an error state
-    if (deltas.Count() > weights.Count())
+    if (deltas.Count() > weights.size())
         return;
 
     // This is an error state
-    if (weightsLagged.IsValid() && deltas.Count() > weightsLagged.Count())
+    if (weightsLagged.IsValid() && deltas.Count() > weightsLagged.size())
         return;
 
     info.m_hDestAttribute[COMBO_CONTROL_NORMAL] = weights.GetAttribute()->GetHandle();
@@ -613,7 +613,7 @@ void CDmeCombinationOperator::ComputeCombinationInfo(int nIndex) {
 // Purpose:
 //-----------------------------------------------------------------------------
 void CDmeCombinationOperator::ComputeCombinationInfo() {
-    int nTargetCount = m_Targets.Count();
+    int nTargetCount = m_Targets.size();
     for (int i = 0; i < nTargetCount; ++i) {
         ComputeCombinationInfo(i);
     }
@@ -722,7 +722,7 @@ void CDmeCombinationOperator::ComputeLaggedInputValues() {
     m_flLastLaggedComputationTime = t;
     float flFactor = ExponentialDecay(0.8, 0.033, dt);
 
-    int nCount = m_ControlValues[COMBO_CONTROL_NORMAL].Count();
+    int nCount = m_ControlValues[COMBO_CONTROL_NORMAL].size();
     for (int i = 0; i < nCount; ++i) {
         Vector vecLerp;
         VectorLerp(m_ControlValues[COMBO_CONTROL_NORMAL][i], m_ControlValues[COMBO_CONTROL_LAGGED][i], flFactor,
@@ -822,7 +822,7 @@ void CDmeCombinationOperator::GetOutputAttributes(std::vector<CDmAttribute*> &at
 // Used by studiomdl to discover the various combination rules
 //-----------------------------------------------------------------------------
 int CDmeCombinationOperator::GetOperationTargetCount() const {
-    return m_Targets.Count();
+    return m_Targets.size();
 }
 
 CDmElement* CDmeCombinationOperator::GetOperationTarget(int nTargetIndex) {
@@ -889,7 +889,7 @@ void CDmeCombinationOperator::GenerateWrinkleDeltas(
 
 void CDmeCombinationOperator::GenerateWrinkleDeltas(bool bOverwrite /* = true */, bool bUseNormalForSign /* = false */,
                                                     float flScale /* = 1.0f */) {
-    int nTargetCount = m_Targets.Count();
+    int nTargetCount = m_Targets.size();
     for (int i = 0; i < nTargetCount; ++i) {
         GenerateWrinkleDeltas(CastElement<CDmeShape>(m_Targets[i]), bOverwrite, bUseNormalForSign, flScale);
     }
@@ -904,7 +904,7 @@ void CDmeCombinationOperator::GenerateWrinkleDeltas(bool bOverwrite /* = true */
 void CDmeCombinationOperator::Purge() {
     bool bDelete = true;
 
-    const int nTargetCount = m_Targets.Count();
+    const int nTargetCount = m_Targets.size();
     for (int i = 0; i < nTargetCount; ++i) {
         CDmElement* pSource = m_Targets[i];
         if (!pSource)

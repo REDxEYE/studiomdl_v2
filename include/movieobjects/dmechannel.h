@@ -348,7 +348,7 @@ template< class T >
 inline bool CDmeChannel::GetPlaybackValueAtTime( DmeTime_t time, T& value )
 {
 	CDmeTypedLog< T > *pLog = CastElement< CDmeTypedLog< T > >( GetLog() );
-	if ( !pLog || pLog->IsEmpty() )
+	if ( !pLog || pLog->empty() )
 		return false;
 
 	DmeTime_t t0 = pLog->GetBeginTime();
@@ -387,7 +387,7 @@ inline bool CDmeChannel::GetValue( T &value, const CDmAttribute *pAttr, int nInd
 		if ( IsArrayType( pAttr->GetType() ) )
 		{
 			CDmrArrayConst< T > array( pAttr );
-			if ( nIndex >= 0 && nIndex < array.Count() )
+			if ( nIndex >= 0 && nIndex < array.size() )
 			{
 				value = array[ nIndex ];
 				return true;

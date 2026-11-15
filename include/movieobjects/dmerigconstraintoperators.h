@@ -485,7 +485,7 @@ public:
 	void ClearSlaves();
 
 	// Get slave count
-	int SlaveCount() const { return m_eSlaves.Count(); }
+	int SlaveCount() const { return m_eSlaves.size(); }
 
 	// Get slave count
 	CDmeDag *GetSlaveDag( int i ) const;

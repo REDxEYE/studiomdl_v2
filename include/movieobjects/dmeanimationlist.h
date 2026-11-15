@@ -39,7 +39,7 @@ private:
 //-----------------------------------------------------------------------------
 inline int CDmeAnimationList::GetAnimationCount() const
 {
-	return m_Animations.Count();
+	return m_Animations.size();
 }
 
 inline CDmeChannelsClip *CDmeAnimationList::GetAnimation( int nIndex )

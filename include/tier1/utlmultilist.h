@@ -145,7 +145,7 @@ protected:
 
 	void ResetDbgInfo()
 	{
-		m_pElements = m_Memory.Base();
+		m_pElements = m_Memory.data();
 
 #ifdef _DEBUG
 		// Allocate space for the element list (which list is each element in)
@@ -754,7 +754,7 @@ void  CUtlMultiList<T,I>::RemoveAll()
 	m_FirstFree = 0;
 	
 	// Clear everything else out
-	for (I list = m_List.Head(); list != m_List.InvalidIndex(); list = m_List.Next(list) )
+	for (I list = m_List.front(); list != m_List.InvalidIndex(); list = m_List.Next(list) )
 	{
 		m_List[list].m_Head = InvalidIndex(); 
 		m_List[list].m_Tail = InvalidIndex();

@@ -198,7 +198,7 @@ public:
 		list.EnsureCount( nCount );
 		for ( int i = 0; i < nCount; ++i )
 		{
-			pElements[ i ] = CNonThreadsafeTreeType::Element( i )->ToSymbol();
+			pElements[ i ] = CNonThreadsafeTreeType::at( i )->ToSymbol();
 		}
 
 		return nCount;
@@ -260,7 +260,7 @@ public:
 
 	int GetNumStrings( void ) const
 	{
-		return m_Lookup.Count();
+		return m_Lookup.size();
 	}
 
 	void Commit()
@@ -276,14 +276,14 @@ public:
 
 	const char *GetElementString(int nElement) const
 	{
-		return m_Lookup.Element(nElement)->String();
+		return m_Lookup.at(nElement)->String();
 	}
 
 	uint64_t GetMemoryUsage() const
 	{
 		uint64_t unBytesUsed = 0u;
 
-		for ( int i=0; i < m_StringPools.Count(); i++ )
+		for ( int i=0; i < m_StringPools.size(); i++ )
 		{
 			StringPool_t *pPool = m_StringPools[i];
 
@@ -353,7 +353,7 @@ inline CUtlSymbolLarge CUtlSymbolTableLargeBase<TreeType, CASEINSENSITIVE, POOL_
 template < class TreeType, bool CASEINSENSITIVE, size_t POOL_SIZE >
 inline int CUtlSymbolTableLargeBase<TreeType, CASEINSENSITIVE, POOL_SIZE>::FindPoolWithSpace( int len )	const
 {
-	for ( int i=0; i < m_StringPools.Count(); i++ )
+	for ( int i=0; i < m_StringPools.size(); i++ )
 	{
 		StringPool_t *pPool = m_StringPools[i];
 
@@ -418,7 +418,7 @@ inline CUtlSymbolLarge CUtlSymbolTableLargeBase<TreeType, CASEINSENSITIVE, POOL_
 	Q_memcpy( pText, pString, lenString );
 
 	// insert the string into the database
-	return m_Lookup.Element( m_Lookup.Insert( entry ) )->ToSymbol();
+	return m_Lookup.at( m_Lookup.Insert( entry ) )->ToSymbol();
 }
 
 //-----------------------------------------------------------------------------
@@ -432,7 +432,7 @@ inline void CUtlSymbolTableLargeBase<TreeType, CASEINSENSITIVE, POOL_SIZE>::Remo
 {
 	m_Lookup.Purge();
 
-	for ( int i=0; i < m_StringPools.Count(); i++ )
+	for ( int i=0; i < m_StringPools.size(); i++ )
 		free( m_StringPools[i] );
 
 	m_StringPools.RemoveAll();

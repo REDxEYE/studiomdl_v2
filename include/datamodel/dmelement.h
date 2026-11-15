@@ -970,11 +970,11 @@ public:
 
     void Reset(CDmElement *pRoot, const char *pAttrName);
 
-    bool IsValid() { return m_state.Count() > 0; }
+    bool IsValid() { return m_state.size() > 0; }
 
     CDmElement *Next(bool bSkipChildren = false);
 
-    int CurrentDepth() { return m_state.Count() - 1; }
+    int CurrentDepth() { return m_state.size() - 1; }
 
     CDmElement *GetElement();
 
@@ -1002,7 +1002,7 @@ struct ElementArrayNameAccessor {
     ElementArrayNameAccessor(const CUtlVector<T> &array) : m_array(array) {}
 
     int Count() const {
-        return m_array.Count();
+        return m_array.size();
     }
 
     const char *operator[](int i) const {
@@ -1019,7 +1019,7 @@ struct ElementArrayNameAccessor<E *> {
     ElementArrayNameAccessor(const CUtlVector<E *> &array) : m_array(array) {}
 
     int Count() const {
-        return m_array.Count();
+        return m_array.size();
     }
 
     const char *operator[](int i) const {
@@ -1038,7 +1038,7 @@ private:
 //-----------------------------------------------------------------------------
 template<class T>
 inline void CDmElement::DeleteAttributeVarElementArray(T &array) {
-    int nElements = array.Count();
+    int nElements = array.size();
     for (int i = 0; i < nElements; ++i) {
         g_pDataModel->DestroyElement(array.GetHandle(i));
     }
@@ -1061,7 +1061,7 @@ template<class T>
 void CopyElements(const CUtlVector<T *> &from, CUtlVector<T *> &to, TraversalDepth_t depth) {
     CUtlMap<DmElementHandle_t, DmElementHandle_t, int> refmap(DefLessFunc(DmElementHandle_t));
 
-    int c = from.Count();
+    int c = from.size();
     for (int i = 0; i < c; ++i) {
         T *pCopy = nullptr;
 
@@ -1083,7 +1083,7 @@ void CopyElements(const CUtlVector<T *> &from, CUtlVector<T *> &to, TraversalDep
 
     CUtlHashFast<DmElementHandle_t> visited;
     uint32_t nPow2Size = 1;
-    while (nPow2Size < refmap.Count()) {
+    while (nPow2Size < refmap.size()) {
         nPow2Size <<= 1;
     }
     visited.Init(nPow2Size);
@@ -1133,7 +1133,7 @@ void CopyElements(const CUtlVector<T *> &from, CUtlVector<T *> &to, TraversalDep
 //-----------------------------------------------------------------------------
 #define DEFINE_ELEMENT(className, baseClassName)    \
     public:                                            \
-        virtual bool IsA( CUtlSymbolLarge typeSymbol ) const    \
+        bool IsA( CUtlSymbolLarge typeSymbol ) const  override    \
         {                                            \
             return IsA_Implementation( typeSymbol );\
         }                                            \
@@ -1149,7 +1149,7 @@ void CopyElements(const CUtlVector<T *> &from, CUtlVector<T *> &to, TraversalDep
             return IsA( _ElementType::GetStaticTypeSymbol() ); \
         }                                            \
                                                     \
-        virtual int GetInheritanceDepth( CUtlSymbolLarge typeSymbol ) const    \
+        int GetInheritanceDepth( CUtlSymbolLarge typeSymbol ) const  override  \
         {                                            \
             return GetInheritanceDepth_Implementation( typeSymbol, 0 );    \
         }                                            \
@@ -1168,17 +1168,17 @@ void CopyElements(const CUtlVector<T *> &from, CUtlVector<T *> &to, TraversalDep
             baseClassName( handle, pElementTypeName, id, pElementName, fileid )                    \
         {                                                                                        \
         }                                                                                        \
-        virtual ~className()                                                                    \
+        ~className()  override                                                                  \
         {                                                                                        \
         }                                                                                        \
         void OnConstruction();                                                                    \
         void OnDestruction();                                                                    \
-        virtual void PerformConstruction()                                                        \
+        void PerformConstruction()         override                                               \
         {                                                                                        \
             BaseClass::PerformConstruction();                                                    \
             OnConstruction();                                                                    \
         }                                                                                        \
-        virtual void PerformDestruction()                                                        \
+        void PerformDestruction()            override                                            \
         {                                                                                        \
             OnDestruction();                                                                    \
             BaseClass::PerformDestruction();                                                    \
@@ -1201,7 +1201,7 @@ void CopyElements(const CUtlVector<T *> &from, CUtlVector<T *> &to, TraversalDep
                 return nCurrentDepth;                                                            \
             return BaseClass::GetInheritanceDepth_Implementation( typeSymbol, nCurrentDepth+1 );\
         }                                                                                        \
-        virtual int AllocatedSize() const { return DmeEstimateMemorySize( this ); }                \
+        int AllocatedSize() const override { return DmeEstimateMemorySize( this ); }                \
                                                                                                 \
     private:                                                                                    \
         DECLARE_FIXEDSIZE_ALLOCATOR( className );                                                \

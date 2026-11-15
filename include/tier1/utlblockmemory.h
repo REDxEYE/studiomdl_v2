@@ -30,15 +30,15 @@ class CUtlBlockMemory
 {
 public:
 	// constructor, destructor
-	CUtlBlockMemory( int nGrowSize = 0, int nInitSize = 0 );
+	CUtlBlockMemory( size_t nGrowSize = 0, size_t nInitSize = 0 );
 	~CUtlBlockMemory();
 
 	// Set the size by which the memory grows - round up to the next power of 2
-	void Init( int nGrowSize = 0, int nInitSize = 0 );
+	void Init( size_t nGrowSize = 0, size_t nInitSize = 0 );
 
 	// here to match CUtlMemory, but only used by ResetDbgInfo, so it can just return NULL
-	T* Base() { return nullptr; }
-	const T* Base() const { return nullptr; }
+	T* data() { return nullptr; }
+	const T* data() const { return nullptr; }
 
 	class Iterator_t
 	{
@@ -102,7 +102,7 @@ protected:
 //-----------------------------------------------------------------------------
 
 template< class T, class I >
-CUtlBlockMemory<T,I>::CUtlBlockMemory( int nGrowSize, int nInitAllocationCount )
+CUtlBlockMemory<T,I>::CUtlBlockMemory( size_t nGrowSize, size_t nInitAllocationCount )
 : m_pMemory( nullptr ), m_nBlocks( 0 ), m_nIndexMask( 0 ), m_nIndexShift( 0 )
 {
 	Init( nGrowSize, nInitAllocationCount );
@@ -138,7 +138,7 @@ void CUtlBlockMemory<T,I>::Swap( CUtlBlockMemory< T, I > &mem )
 // Set the size by which the memory grows - round up to the next power of 2
 //-----------------------------------------------------------------------------
 template< class T, class I >
-void CUtlBlockMemory<T,I>::Init( int nGrowSize /* = 0 */, int nInitSize /* = 0 */ )
+void CUtlBlockMemory<T,I>::Init( size_t nGrowSize /* = 0 */, size_t nInitSize /* = 0 */ )
 {
 	Purge();
 

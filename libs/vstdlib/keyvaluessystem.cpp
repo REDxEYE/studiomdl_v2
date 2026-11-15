@@ -158,7 +158,7 @@ CKeyValuesSystem::CKeyValuesSystem() :
 {
 	// initialize hash table
 	m_HashTable.AddMultipleToTail(2047);
-	for (int i = 0; i < m_HashTable.Count(); i++)
+	for (int i = 0; i < m_HashTable.size(); i++)
 	{
 		m_HashTable[i].stringIndex = 0;
 		m_HashTable[i].next = nullptr;
@@ -271,7 +271,7 @@ HKeySymbol CKeyValuesSystem::GetSymbolForString( const char *name, bool bCreate 
 
 	
 
-	int hash = CaseInsensitiveHash(name, m_HashTable.Count());
+	int hash = CaseInsensitiveHash(name, m_HashTable.size());
 	int i = 0;
 	hash_item_t *item = &m_HashTable[hash];
 	while (1)
@@ -334,7 +334,7 @@ HKeySymbol CKeyValuesSystem::GetSymbolForStringCaseSensitive( HKeySymbol &hCaseI
 
 	
 
-	int hash = CaseInsensitiveHash(name, m_HashTable.Count());
+	int hash = CaseInsensitiveHash(name, m_HashTable.size());
 	int numNameStringBytes = -1;
 	int i = 0;
 	hash_item_t *item = &m_HashTable[hash];
@@ -530,7 +530,7 @@ bool CKeyValuesSystem::GetKeyValuesExpressionSymbol( const char *name )
 		if ( idx != m_KvConditionalSymbolTable.InvalidIndex() )
 		{
 			// Found the symbol value in conditional symbol table
-			return m_KvConditionalSymbolTable.Element( idx );
+			return m_KvConditionalSymbolTable.at( idx );
 		}
 	}
 

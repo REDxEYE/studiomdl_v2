@@ -185,18 +185,18 @@ struct VertexLookupKeyHash_t {
 //-----------------------------------------------------------------------------
 // Loads the vertices from the model
 //-----------------------------------------------------------------------------
-static bool DefineUniqueVertices(CDmeVertexData *pBindState) {
+static bool DefineUniqueVertices(const CDmeVertexData *pBindState) {
     const CUtlVector<int> &positionIndices = pBindState->GetVertexIndexData(CDmeVertexData::FIELD_POSITION);
     const CUtlVector<int> &normalIndices = pBindState->GetVertexIndexData(CDmeVertexData::FIELD_NORMAL);
     const CUtlVector<int> &texcoordIndices = pBindState->GetVertexIndexData(CDmeVertexData::FIELD_TEXCOORD);
     const CUtlVector<int> &balanceIndices = pBindState->GetVertexIndexData(CDmeVertexData::FIELD_BALANCE);
     const CUtlVector<int> &speedIndices = pBindState->GetVertexIndexData(CDmeVertexData::FIELD_MORPH_SPEED);
 
-    int nPositionCount = positionIndices.Count();
-    int nNormalCount = normalIndices.Count();
-    int nTexcoordCount = texcoordIndices.Count();
-    int nBalanceCount = balanceIndices.Count();
-    int nSpeedCount = speedIndices.Count();
+    size_t nPositionCount = positionIndices.size();
+    size_t nNormalCount = normalIndices.size();
+    size_t nTexcoordCount = texcoordIndices.size();
+    size_t nBalanceCount = balanceIndices.size();
+    size_t nSpeedCount = speedIndices.size();
 
     int nExtraTexcoordCount[MAXSTUDIOTEXCOORDS - 1];
     const CUtlVector<int> *extraTexcoordIndices[MAXSTUDIOTEXCOORDS - 1];
@@ -205,7 +205,7 @@ static bool DefineUniqueVertices(CDmeVertexData *pBindState) {
         FieldIndex_t nExtra = pBindState->FindFieldIndex(CFmtStr("texcoord$%d", i).Get());
         if (nExtra != -1) {
             extraTexcoordIndices[i - 1] = &pBindState->GetVertexIndexData(nExtra);
-            nExtraTexcoordCount[i - 1] = extraTexcoordIndices[i - 1]->Count();
+            nExtraTexcoordCount[i - 1] = extraTexcoordIndices[i - 1]->size();
             if (nPositionCount != nExtraTexcoordCount[i - 1]) {
                 MdlError(
                     "Encountered a mesh with invalid geometry (different number of indices for various data fields)\n");
@@ -249,7 +249,7 @@ static bool DefineUniqueVertices(CDmeVertexData *pBindState) {
         vert.speed = std::ssize(s_Speed) + ((nSpeedCount > 0) ? speedIndices[i] : 0);
         for (int j = 1; j < MAXSTUDIOTEXCOORDS; ++j) {
             vert.t[j] = (nExtraTexcoordCount[j - 1] > 0)
-                            ? static_cast<int>(g_studiomdl.input.texcoord[j].size()) + extraTexcoordIndices[j - 1]->Element(i)
+                            ? static_cast<int>(g_studiomdl.input.texcoord[j].size()) + extraTexcoordIndices[j - 1]->at(i)
                             : -1;
         }
 
@@ -270,7 +270,7 @@ static bool DefineUniqueVertices(CDmeVertexData *pBindState) {
 //-----------------------------------------------------------------------------
 static bool
 LoadVertices(CDmeDag *pDmeDag, CDmeVertexData *pBindState, const matrix3x4_t &mat, const float flScale, int nBoneAssign,
-             int *pBoneRemap, s_source_t *pSource) {
+             const int *pBoneRemap, s_source_t *pSource) {
     vstd::FunctionTimingRecorder _("DMX");
     // nBoneAssign is only used if the mesh has no skinning information
     // It's the DMX bone index, but it might be < 0, in which case
@@ -300,7 +300,7 @@ LoadVertices(CDmeDag *pDmeDag, CDmeVertexData *pBindState, const matrix3x4_t &ma
     const CUtlVector<float> &balances = pBindState->GetBalanceData();
     const CUtlVector<float> &speeds = pBindState->GetMorphSpeedData();
 
-    int positionCount = positions.Count();
+    int positionCount = positions.size();
 
     const int jointCount = pBindState->HasSkinningData() ? pBindState->JointCount() : 0;
 
@@ -442,7 +442,7 @@ LoadVertices(CDmeDag *pDmeDag, CDmeVertexData *pBindState, const matrix3x4_t &ma
 
     // Copy normals
     Vector vNormal;
-    positionCount = normals.Count();
+    positionCount = normals.size();
     for (int i = 0; i < positionCount; ++i) {
         VectorCopy(normals[i], vNormal);
         VectorNormalize(vNormal);
@@ -453,7 +453,7 @@ LoadVertices(CDmeDag *pDmeDag, CDmeVertexData *pBindState, const matrix3x4_t &ma
     }
 
     // Copy texcoords
-    positionCount = texcoords.Count();
+    positionCount = texcoords.size();
     bool bFlipVCoordinate = pBindState->IsVCoordinateFlipped();
     for (int i = 0; i < positionCount; ++i) {
         g_studiomdl.input.texcoord[0].emplace_back(texcoords[i].x,
@@ -467,7 +467,7 @@ LoadVertices(CDmeDag *pDmeDag, CDmeVertexData *pBindState, const matrix3x4_t &ma
         if (fieldIndex >= 0) {
             CDmrArrayConst<Vector2D> vertexData = pBindState->GetVertexData(fieldIndex);
             const CUtlVector<Vector2D> &extraTexcoords = vertexData.Get();
-            positionCount = extraTexcoords.Count();
+            positionCount = extraTexcoords.size();
             for (int j = 0; j < positionCount; ++j) {
                 g_studiomdl.input.texcoord[i].emplace_back(extraTexcoords[j].x,
                                                            bFlipVCoordinate ? 1.0f - extraTexcoords[j].y
@@ -480,14 +480,14 @@ LoadVertices(CDmeDag *pDmeDag, CDmeVertexData *pBindState, const matrix3x4_t &ma
     }
 
     // In the event of no speed or balance map, use the same value of 1 for all vertices
-    if (balances.Count()) {
+    if (balances.size()) {
         s_Balance.insert(s_Balance.end(), balances.begin(), balances.end());
     }
     else {
         s_Balance.push_back(1.0f);
     }
 
-    if (speeds.Count()) {
+    if (speeds.size()) {
         s_Speed.insert(s_Speed.end(), speeds.begin(), speeds.end());
     }
     else {
@@ -536,24 +536,24 @@ static bool LoadDeltaState(
     const CUtlVector<float> &wrinkle = pDeltaState->GetWrinkleData();
     const CUtlVector<int> &wrinkleIndices = pDeltaState->GetVertexIndexData(CDmeVertexDataBase::FIELD_WRINKLE);
 
-    if (positions.Count() != positionIndices.Count()) {
+    if (positions.size() != positionIndices.size()) {
         MdlError("DeltaState {} contains a different number of positions + position indices!\n",
                  pDeltaState->GetName());
         return false;
     }
 
-    if (normals.Count() != normalIndices.Count()) {
+    if (normals.size() != normalIndices.size()) {
         MdlError("DeltaState {} contains a different number of normals + normal indices!\n", pDeltaState->GetName());
         return false;
     }
 
-    if (wrinkle.Count() != wrinkleIndices.Count()) {
+    if (wrinkle.size() != wrinkleIndices.size()) {
         MdlError("DeltaState {} contains a different number of wrinkles + wrinkle indices!\n", pDeltaState->GetName());
         return false;
     }
 
     // Copy position delta
-    int nCount = positions.Count();
+    int nCount = positions.size();
     for (int i = 0; i < nCount; ++i) {
         Vector vecDelta;
 
@@ -569,7 +569,7 @@ static bool LoadDeltaState(
         // Indices
         const CUtlVector<int> &baseVerts = pBindState->FindVertexIndicesFromDataIndex(CDmeVertexData::FIELD_POSITION,
             positionIndices[i]);
-        int nBaseVertCount = baseVerts.Count();
+        int nBaseVertCount = baseVerts.size();
         for (int k = 0; k < nBaseVertCount; ++k) {
             int nUniqueVertexIndex = s_UniqueVerticesMap[nStartingUniqueVertexMap + baseVerts[k]];
             AddToDeltaList(pDeltaStateData, nUniqueVertexIndex);
@@ -579,7 +579,7 @@ static bool LoadDeltaState(
     }
 
     // Copy normals
-    nCount = normals.Count();
+    nCount = normals.size();
     for (int i = 0; i < nCount; ++i) {
         Vector vecDelta;
         VectorRotate(normals[i], normalMat, vecDelta);
@@ -589,7 +589,7 @@ static bool LoadDeltaState(
         // Indices
         const CUtlVector<int> &baseVerts = pBindState->FindVertexIndicesFromDataIndex(CDmeVertexData::FIELD_NORMAL,
             normalIndices[i]);
-        int nBaseVertCount = baseVerts.Count();
+        int nBaseVertCount = baseVerts.size();
         for (int k = 0; k < nBaseVertCount; ++k) {
             int nUniqueVertexIndex = s_UniqueVerticesMap[nStartingUniqueVertexMap + baseVerts[k]];
             AddToDeltaList(pDeltaStateData, nUniqueVertexIndex);
@@ -599,7 +599,7 @@ static bool LoadDeltaState(
     }
 
     // Copy wrinkle
-    nCount = wrinkle.Count();
+    nCount = wrinkle.size();
     for (int i = 0; i < nCount; ++i) {
         const int nWrinkleIndex = std::ssize(pDeltaStateData->m_WrinkleDeltas);
         pDeltaStateData->m_WrinkleDeltas.push_back(wrinkle[i]);
@@ -607,7 +607,7 @@ static bool LoadDeltaState(
         // Indices
         const CUtlVector<int> &baseVerts = pBindState->FindVertexIndicesFromDataIndex(CDmeVertexData::FIELD_WRINKLE,
             wrinkleIndices[i]);
-        int nBaseVertCount = baseVerts.Count();
+        int nBaseVertCount = baseVerts.size();
         for (int k = 0; k < nBaseVertCount; ++k) {
             int nUniqueVertexIndex = s_UniqueVerticesMap[nStartingUniqueVertexMap + baseVerts[k]];
             AddToDeltaList(pDeltaStateData, nUniqueVertexIndex);
@@ -960,8 +960,7 @@ LoadMeshes(const LoadMeshInfo_t &info, CDmeDag *pDag, const matrix3x4_t &parentT
         ConcatTransforms(parentToBindPose, dagToParent, dagToBindPose);
     }
 
-    CDmeMesh *pMesh = CastElement<CDmeMesh>(pDag->GetShape());
-    if (pMesh) {
+    if (auto *pMesh = CastElement<CDmeMesh>(pDag->GetShape())) {
         CDmeVertexData *pBindState = pMesh->FindBaseState("bind");
         if (!pBindState)
             return false;
@@ -1435,7 +1434,7 @@ static void GetDependentOperators(std::vector<IDmeOperator *> &operatorList, CDm
 static void PrepareChannels(
     std::vector<IDmeOperator *> &operatorList,
     CDmeChannelsClip *pAnimation) {
-    int nChannelsCount = pAnimation->m_Channels.Count();
+    int nChannelsCount = pAnimation->m_Channels.size();
     for (int i = 0; i < nChannelsCount; ++i) {
         pAnimation->m_Channels[i]->SetMode(CM_PLAY);
         GetDependentOperators(operatorList, pAnimation->m_Channels[i]);
@@ -1448,7 +1447,7 @@ static void PrepareChannels(
 //-----------------------------------------------------------------------------
 static void UpdateChannels(std::vector<IDmeOperator *> &operators, CDmeChannelsClip *pAnimation,
                            const DmeTime_t clipTime) {
-    int nChannelsCount = pAnimation->m_Channels.Count();
+    int nChannelsCount = pAnimation->m_Channels.size();
     DmeTime_t channelTime = pAnimation->ToChildMediaTime(clipTime);
     for (int i = 0; i < nChannelsCount; ++i) {
         pAnimation->m_Channels[i]->SetCurrentTime(channelTime);
@@ -1646,12 +1645,12 @@ bool LoadTwistConstraint(CDmElement *pDmElement) {
 bool LoadBaseConstraintParams(CConstraintBoneBase *pConstraintBone, CDmeRigBaseConstraintOperator *pDmeBaseConstraint) {
     const CDmaElementArray<CDmeConstraintTarget> &constraintTargets = pDmeBaseConstraint->GetTargets();
 
-    if (constraintTargets.Count() <= 0)
+    if (constraintTargets.size() <= 0)
         return false;
 
     const Quaternion qRot = Quaternion(g_studiomdl.script.defaultrotation);
 
-    for (int i = 0; i < constraintTargets.Count(); ++i) {
+    for (int i = 0; i < constraintTargets.size(); ++i) {
         CDmeConstraintTarget *pDmeConstraintTarget = constraintTargets[i];
         if (!pDmeConstraintTarget)
             continue;

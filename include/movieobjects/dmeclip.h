@@ -31,7 +31,7 @@ public:
 	DmeClipStack_t() : m_bOptimized( false ) {}
 	DmeClipStack_t( const CDmeClip *pRoot, CDmeClip *pShot, CDmeClip *pClip ) { BuildClipStack( pRoot, pShot, pClip ); }
 
-	int GetClipCount() const { return m_clips.Count(); }
+	int GetClipCount() const { return m_clips.size(); }
 	const CDmeClip *GetClip( int i ) const { return m_clips[ i ]; }
 	      CDmeClip *GetClip( int i )       { return m_clips[ i ]; }
 	int InvalidClipIndex() const { return m_clips.InvalidIndex(); }

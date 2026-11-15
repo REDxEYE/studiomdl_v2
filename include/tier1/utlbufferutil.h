@@ -130,7 +130,7 @@ bool Serialize( CUtlBuffer &buf, const CUtlVector<T> &src )
 {
 	extern const char *s_pUtlBufferUtilArrayDelim;
 
-	int nCount = src.Count();
+	int nCount = src.size();
 
 	if ( !buf.IsText() )
 	{

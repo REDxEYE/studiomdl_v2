@@ -137,7 +137,7 @@ bool CDmeFixupLoop::Apply( CDmElement *pDmElement )
 	DmeTime_t nStartTime( nStartFrame, dmeFrameRateDst );
 	DmeTime_t nEndTime( nEndFrame, dmeFrameRateDst );
 
-	for ( int i = 0; i < pDmeChannelsClipDst->m_Channels.Count(); ++i )
+	for ( int i = 0; i < pDmeChannelsClipDst->m_Channels.size(); ++i )
 	{
 		CDmeChannel *pDmeChannelDst = pDmeChannelsClipDst->m_Channels[i];
 		if ( !pDmeChannelDst )
@@ -371,7 +371,7 @@ bool CDmeSubtract::Apply( CDmElement *pDmElement )
 	}
 
 	// Match up channels by name.
-	for ( int i = 0; i < pDmeChannelsClipDst->m_Channels.Count(); ++i )
+	for ( int i = 0; i < pDmeChannelsClipDst->m_Channels.size(); ++i )
 	{
 		CDmeChannel *pDmeChannelDst = pDmeChannelsClipDst->m_Channels[i];
 		if ( !pDmeChannelDst )
@@ -388,7 +388,7 @@ bool CDmeSubtract::Apply( CDmElement *pDmElement )
 
 		bool bFound = false;
 
-		for ( int j = 0; j < pDmeChannelsClipSrc->m_Channels.Count(); ++j )
+		for ( int j = 0; j < pDmeChannelsClipSrc->m_Channels.size(); ++j )
 		{
 			CDmeChannel *pDmeChannelSrc = pDmeChannelsClipSrc->m_Channels[j];
 			if ( !pDmeChannelSrc || Q_stricmp( pszDmeChannelName, pDmeChannelSrc->GetName() ) )
@@ -597,7 +597,7 @@ static bool GetDmeChannelsForDag(
 	if ( !pDmeTransform )
 		return false;
 
-	for ( int i = 0; pDmeChannelsClip->m_Channels.Count(); ++i )
+	for ( int i = 0; pDmeChannelsClip->m_Channels.size(); ++i )
 	{
 		CDmeChannel *pDmeChannel = pDmeChannelsClip->m_Channels[i];
 		if ( !pDmeChannel )
@@ -682,7 +682,7 @@ static void ComputeMergedKeyTimes(
 
 	for ( CUtlRBTree< DmeTime_t >::IndexType_t i = timesTree.FirstInorder(); timesTree.IsValidIndex( i ); i = timesTree.NextInorder( i ) )
 	{
-		mergedTimes.AddToTail( timesTree.Element( i ) );
+		mergedTimes.AddToTail( timesTree.at( i ) );
 	}
 }
 
@@ -791,7 +791,7 @@ void CDmeRotateTo::SubApply( CDmeDag *pDmeDag, CDmeChannelsClip *pDmeChannelsCli
 	Quaternion qTmp;
 	CUtlVector< Quaternion > qValues;
 
-	for ( int i = 0; i < mergedKeyTimes.Count(); ++i )
+	for ( int i = 0; i < mergedKeyTimes.size(); ++i )
 	{
 		const DmeTime_t &dmeTime = mergedKeyTimes[i];
 		AngleMatrix( RadianEuler( pDmeRotateLog->GetValue( dmeTime ) ), pDmeTranslateLog->GetValue( dmeTime ), mSrc );
@@ -929,7 +929,7 @@ void CDmeBoneMaskCmd::SubApply( CDmeChannelsClip *pDmeChannelsClip, CDmeDag *pDm
 
 	GetAllKeys( vTimes, vValues, pDmeTranslateLog );
 
-	for ( int i = 0; i < vValues.Count(); ++i )
+	for ( int i = 0; i < vValues.size(); ++i )
 	{
 		VectorScale( vValues[i], flWeight, vTmp );
 		vValues[i] = vTmp;
@@ -941,7 +941,7 @@ void CDmeBoneMaskCmd::SubApply( CDmeChannelsClip *pDmeChannelsClip, CDmeDag *pDm
 	
 	GetAllKeys( qTimes, qValues, pDmeRotateLog );
 
-	for ( int i = 0; i < qValues.Count(); ++i )
+	for ( int i = 0; i < qValues.size(); ++i )
 	{
 		QuaternionScale( qValues[i], flWeight, qTmp );
 		qValues[i] = qTmp;

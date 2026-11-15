@@ -156,9 +156,9 @@ bool CImportVMF::SerializeOther( CUtlBuffer &buf, CDmAttribute *pOther, const ch
 
 		int nLen = Q_strlen( pElementName ) + 1;
 		temp.EnsureCount( nLen );
-		Q_strncpy( temp.Base(), pElementName, nLen );
-		Q_strlower( temp.Base() );
-		buf.Printf( "%s\n", temp.Base() );
+		Q_strncpy( temp.data(), pElementName, nLen );
+		Q_strlower( temp.data() );
+		buf.Printf( "%s\n", temp.data() );
 		buf.Printf( "{\n" );
 		buf.PushTab();
 

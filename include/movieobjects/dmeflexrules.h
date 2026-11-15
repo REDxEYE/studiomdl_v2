@@ -119,11 +119,11 @@ public:
 
     void Resolve() override;
 
-	int GetRuleCount() const { return m_eDeltaStates.Count(); }
+	int GetRuleCount() const { return m_eDeltaStates.size(); }
 	CDmeFlexRuleBase *GetRule( int i ) const { return ( i < 0 || i >= GetRuleCount() ) ? nullptr : m_eDeltaStates[i]; }
 
-	int GetDeltaStateIndex( const char *pszDeltaName ) const;
-	float GetDeltaStateWeight( const char *pszDeltaName ) const;
+	int GetDeltaStateIndex(std::string_view pszDeltaName) const;
+	float GetDeltaStateWeight(std::string_view pszDeltaName) const;
 
 protected:
 	friend class CDmeFlexRuleBase;

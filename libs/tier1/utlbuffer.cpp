@@ -247,27 +247,27 @@ CUtlBuffer::CUtlBuffer( const CUtlBuffer& copyFrom )
 , m_GetOverflowFunc( copyFrom.m_GetOverflowFunc )
 , m_PutOverflowFunc( copyFrom.m_PutOverflowFunc )
 {
-	if(copyFrom.m_Memory.Count() > 0)
+	if(copyFrom.m_Memory.size() > 0)
 	{
 		Assert( false ); // This is a slow path, don't do this.
 
 		// copy memory
-		m_Memory.EnsureCapacity( copyFrom.m_Memory.Count() );
-		memcpy( m_Memory.Base(), copyFrom.m_Memory.Base(), copyFrom.m_Memory.Count() );
+		m_Memory.EnsureCapacity( copyFrom.m_Memory.size() );
+		memcpy( m_Memory.data(), copyFrom.m_Memory.data(), copyFrom.m_Memory.size() );
 	}
 }
 
 
 CUtlBuffer& CUtlBuffer::operator=( const CUtlBuffer& copyFrom )
 {
-	if ( copyFrom.m_Memory.Count() > 0 )
+	if ( copyFrom.m_Memory.size() > 0 )
 	{
 		Assert( false ); // This is a slow path, don't do this.
 		if(this != &copyFrom)
 		{
 			m_Memory.Purge();
-			m_Memory.EnsureCapacity( copyFrom.m_Memory.Count() );
-			memcpy( m_Memory.Base(), copyFrom.m_Memory.Base(), copyFrom.m_Memory.Count() );
+			m_Memory.EnsureCapacity( copyFrom.m_Memory.size() );
+			memcpy( m_Memory.data(), copyFrom.m_Memory.data(), copyFrom.m_Memory.size() );
 		}
 	}
 	m_Get = copyFrom.m_Get;
@@ -1752,8 +1752,8 @@ void CUtlBuffer::Swap( CUtlBuffer &buf )
 void CUtlBuffer::Swap( CUtlMemory<uint8_t> &mem )
 {
 	m_Get = 0;
-	m_Put = mem.Count();
-	m_nMaxPut = mem.Count();
+	m_Put = mem.size();
+	m_nMaxPut = mem.size();
 	m_Error = 0;
 	m_Memory.Swap( mem );
 }

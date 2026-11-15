@@ -948,7 +948,7 @@ int V_GenerateUniqueNameIndex(const char* prefix, const NameArray &nameArray, in
 
     int freeindex = startindex;
 
-    int nNames = nameArray.Count();
+    int nNames = nameArray.size();
     for (int i = 0; i < nNames; ++i) {
         int index = V_IndexAfterPrefix(nameArray[i], prefix, 1); // returns -1 if no match, 0 for exact match, N for
         if (index >= freeindex) {

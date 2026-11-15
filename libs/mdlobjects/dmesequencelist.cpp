@@ -42,7 +42,7 @@ void CDmeSequenceList::GetSortedSequenceList( CUtlVector< CDmeSequenceBase * > &
 {
 	sortedSequenceList.RemoveAll();
 
-	const int nSequenceCount = m_Sequences.Count();
+	const int nSequenceCount = m_Sequences.size();
 
 	sortedSequenceList.EnsureCapacity( nSequenceCount );
 
@@ -55,7 +55,7 @@ void CDmeSequenceList::GetSortedSequenceList( CUtlVector< CDmeSequenceBase * > &
 		sortedSequenceList.AddToTail( pDmeSequenceBase );
 	}
 
-	qsort( sortedSequenceList.Base(), sortedSequenceList.Count(), sizeof( CDmeSequenceBase * ), CDmeSequenceBase::QSortFunction );
+	qsort( sortedSequenceList.data(), sortedSequenceList.size(), sizeof( CDmeSequenceBase * ), CDmeSequenceBase::QSortFunction );
 }
 
 

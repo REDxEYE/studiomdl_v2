@@ -45,18 +45,18 @@ void CDmeModel::OnDestruction()
 //-----------------------------------------------------------------------------
 // Returns the number of joint transforms we know about
 //-----------------------------------------------------------------------------
-int CDmeModel::GetJointCount() const
+size_t CDmeModel::GetJointCount() const
 {
-	return m_JointList.Count();
+	return m_JointList.size();
 }
 
 
 //-----------------------------------------------------------------------------
 // Determines joint transform index	given a joint transform
 //-----------------------------------------------------------------------------
-int CDmeModel::GetJointIndex( CDmeDag *pJoint ) const
+int CDmeModel::GetJointIndex(const CDmeDag *pJoint ) const
 {
-	const int nJointCount = m_JointList.Count();
+	const auto nJointCount = m_JointList.size();
 	for ( int i = 0; i < nJointCount; ++i )
 	{
 		if ( pJoint == m_JointList[ i ] )
@@ -74,9 +74,8 @@ int CDmeModel::GetJointIndex( CDmeDag *pJoint ) const
 //-----------------------------------------------------------------------------
 // Determines joint transform index	given a joint name
 //-----------------------------------------------------------------------------
-CDmeTransform *CDmeModel::GetJointTransform( int nIndex )
-{
-	return m_JointList[ nIndex ]->GetTransform();
+CDmeTransform *CDmeModel::GetJointTransform(size_t index) const {
+	return m_JointList[ index ]->GetTransform();
 }
 
 
@@ -86,7 +85,7 @@ CDmeTransform *CDmeModel::GetJointTransform( int nIndex )
 //-----------------------------------------------------------------------------
 CDmeTransformList *CDmeModel::FindBaseState( const char *pBaseStateName )
 {
-	int nCount = m_BaseStates.Count();
+	int nCount = m_BaseStates.size();
 	for ( int i = 0; i < nCount; ++i )
 	{
 		if ( !V_stricmp( m_BaseStates[i]->GetName(), pBaseStateName ) )

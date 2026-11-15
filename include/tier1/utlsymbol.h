@@ -116,7 +116,7 @@ public:
 
 	int GetNumStrings( void ) const
 	{
-		return m_Lookup.Count();
+		return m_Lookup.size();
 	}
 
 	// We store one of these at the beginning of every string to speed

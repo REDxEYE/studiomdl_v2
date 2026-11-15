@@ -123,7 +123,7 @@ CDmElement* GetLogLayerFromChannel(CDmElement* pChannel) {
         return nullptr;
 
     const CUtlVector<DmElementHandle_t> &layers = pLog->GetValue<CUtlVector<DmElementHandle_t> >("layers");
-    if (layers.Count() != 1)
+    if (layers.size() != 1)
         return nullptr;
 
     return g_pDataModel->GetElement(layers[0]);
@@ -386,7 +386,7 @@ void RemoveInvalidTransformControls(CDmElement* pAnimSet) {
         }
     }
 
-    int nNumInvalid = invalidControls.Count();
+    int nNumInvalid = invalidControls.size();
     for (int iInvalid = 0; iInvalid < nNumInvalid; ++iInvalid) {
         CDmElement* pInvalidControl = invalidControls[iInvalid];
         if (pInvalidControl == nullptr)
@@ -518,7 +518,7 @@ void FixupRigGroupsForAnimationSet(CDmElement* pRig, CDmElement* pAnimSetElement
         }
 
         // Remove the empty groups
-        int nNumEmptyGroups = emptyGroups.Count();
+        int nNumEmptyGroups = emptyGroups.size();
         for (int iEmptyGroup = 0; iEmptyGroup < nNumEmptyGroups; ++iEmptyGroup) {
             CDmElement* pEmptyGroup = emptyGroups[iEmptyGroup];
             int nIndex = children.Find(pEmptyGroup);
@@ -1750,7 +1750,7 @@ bool Update6(CDmElement* pElement) {
             Vector temp;
             CDmAttribute* pAttr = pPosLog->GetAttribute("values", AT_VECTOR3_ARRAY);
             CDmrArray<Vector> values(pAttr);
-            int nValues = values.Count();
+            int nValues = values.size();
             for (int i = 0; i < nValues; ++i) {
                 ConcatTransforms(parentQuat, parentPos, quat_identity, values[i], qDummy, temp);
                 values.Set(i, temp);
@@ -1765,7 +1765,7 @@ bool Update6(CDmElement* pElement) {
             Vector vDummy;
             CDmAttribute* pAttr = pRotLog->GetAttribute("values", AT_QUATERNION_ARRAY);
             CDmrArray<Quaternion> values(pAttr);
-            int nValues = values.Count();
+            int nValues = values.size();
             for (int i = 0; i < nValues; ++i) {
                 ConcatTransforms(parentQuat, parentPos, values[i], vec3_origin, temp, vDummy);
                 values.Set(i, temp);
@@ -2014,7 +2014,7 @@ bool Update3(CDmElement* pElement) {
                 continue;
 
             CDmrStringArray rawControlNames(pRawControlNames);
-            float flDefaultValue = rawControlNames.Count() == 2 ? 0.5f : 0.0f;
+            float flDefaultValue = rawControlNames.size() == 2 ? 0.5f : 0.0f;
 
             float flLeftValue, flRightValue;
 
@@ -2170,7 +2170,7 @@ bool Update3(CDmElement* pElement) {
 
                 // convert and copy log data
                 int vi = 0, bi = 0;
-                int vn = valueTimes.Count(), bn = balanceTimes.Count();
+                int vn = valueTimes.size(), bn = balanceTimes.size();
                 leftTimes.EnsureCapacity(MAX(vn, bn));
                 leftValues.EnsureCapacity(MAX(vn, bn));
                 rightTimes.EnsureCapacity(MAX(vn, bn));
@@ -2329,7 +2329,7 @@ bool Update2(CDmElement* pElement) {
                     CDmAttribute* pNewControlsAttr = pGroup->AddAttribute("controls", AT_ELEMENT_ARRAY);
                     CDmrElementArray<CDmElement> newControls(pNewControlsAttr);
 
-                    for (int j = 0; j < controlsInGroup.Count(); ++j) {
+                    for (int j = 0; j < controlsInGroup.size(); ++j) {
                         char const* pchControlName = controlsInGroup[j];
 
                         CDmElement* pNewControl = CreateElement<CDmElement>(pchControlName, pElement->GetFileId());

@@ -183,7 +183,6 @@ typedef double				float64;
 
 #ifdef PLATFORM_POSIX
 typedef void * HINSTANCE;
-#define _MAX_PATH PATH_MAX
 #endif
 
 // MSVC CRT uses 0x7fff while gcc uses MAX_INT, leading to mismatches between platforms

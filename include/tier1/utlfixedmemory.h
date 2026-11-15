@@ -26,15 +26,15 @@ class CUtlFixedMemory
 {
 public:
 	// constructor, destructor
-	CUtlFixedMemory( int nGrowSize = 0, int nInitSize = 0 );
+	CUtlFixedMemory( size_t nGrowSize = 0, size_t nInitSize = 0 );
 	~CUtlFixedMemory();
 
 	// Set the size by which the memory grows
-	void Init( int nGrowSize = 0, int nInitSize = 0 );
+	void Init( size_t nGrowSize = 0, size_t nInitSize = 0 );
 
 	// here to match CUtlMemory, but only used by ResetDbgInfo, so it can just return NULL
-	T* Base() { return nullptr; }
-	const T* Base() const { return nullptr; }
+	T* data() { return nullptr; }
+	const T* data() const { return nullptr; }
 
 protected:
 	struct BlockHeader_t;
@@ -43,9 +43,9 @@ public:
 	class Iterator_t
 	{
 	public:
-		Iterator_t( BlockHeader_t *p, int i ) : m_pBlockHeader( p ), m_nIndex( i ) {}
+		Iterator_t( BlockHeader_t *p, size_t i ) : m_pBlockHeader( p ), m_nIndex( i ) {}
 		BlockHeader_t *m_pBlockHeader;
-		intptr_t m_nIndex;
+		size_t m_nIndex;
 
 		bool operator==( const Iterator_t it ) const	{ return m_pBlockHeader == it.m_pBlockHeader && m_nIndex == it.m_nIndex; }
 		bool operator!=( const Iterator_t it ) const	{ return m_pBlockHeader != it.m_pBlockHeader || m_nIndex != it.m_nIndex; }
@@ -93,8 +93,8 @@ public:
 	// element access
 	T& operator[]( intptr_t i );
 	const T& operator[]( intptr_t i ) const;
-	T& Element( intptr_t i );
-	const T& Element( intptr_t i ) const;
+	T& at( intptr_t i );
+	const T& at( intptr_t i ) const;
 
 	// Can we use this index?
 	bool IsIdxValid( intptr_t i ) const;
@@ -146,7 +146,7 @@ protected:
 //-----------------------------------------------------------------------------
 
 template< class T >
-CUtlFixedMemory<T>::CUtlFixedMemory( int nGrowSize, int nInitAllocationCount )
+CUtlFixedMemory<T>::CUtlFixedMemory( size_t nGrowSize, size_t nInitAllocationCount )
 	: m_pBlocks( nullptr ), m_nAllocationCount( 0 ), m_nGrowSize( 0 )
 {
 	Init( nGrowSize, nInitAllocationCount );
@@ -175,7 +175,7 @@ void CUtlFixedMemory<T>::Swap( CUtlFixedMemory< T > &mem )
 // Set the size by which the memory grows - round up to the next power of 2
 //-----------------------------------------------------------------------------
 template< class T >
-void CUtlFixedMemory<T>::Init( int nGrowSize /* = 0 */, int nInitSize /* = 0 */ )
+void CUtlFixedMemory<T>::Init( size_t nGrowSize /* = 0 */, size_t nInitSize /* = 0 */ )
 {
 	Purge();
 
@@ -202,14 +202,14 @@ inline const T& CUtlFixedMemory<T>::operator[]( intptr_t i ) const
 }
 
 template< class T >
-inline T& CUtlFixedMemory<T>::Element( intptr_t i )
+inline T& CUtlFixedMemory<T>::at( intptr_t i )
 {
 	Assert( IsIdxValid(i) );
 	return *( T* )i;
 }
 
 template< class T >
-inline const T& CUtlFixedMemory<T>::Element( intptr_t i ) const
+inline const T& CUtlFixedMemory<T>::at( intptr_t i ) const
 {
 	Assert( IsIdxValid(i) );
 	return *( T* )i;

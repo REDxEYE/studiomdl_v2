@@ -115,7 +115,7 @@ inline CCountedStringPoolBase<T>::CCountedStringPoolBase( StringPoolCase_t caseS
 {
 	m_HashTable.EnsureCount(HASH_TABLE_SIZE);
 
-	for( int i = 0; i < m_HashTable.Count(); i++ )
+	for( int i = 0; i < m_HashTable.size(); i++ )
 	{
 		m_HashTable[i] = INVALID_ELEMENT;		
 	}
@@ -141,7 +141,7 @@ inline void CCountedStringPoolBase<T>::FreeAll()
 	int i;
 
 	// Reset the hash table:
-	for( i = 0; i < m_HashTable.Count(); i++ )
+	for( i = 0; i < m_HashTable.size(); i++ )
 	{
 		m_HashTable[i] = INVALID_ELEMENT;		
 	}
@@ -149,7 +149,7 @@ inline void CCountedStringPoolBase<T>::FreeAll()
 	// Blow away the free list:
 	m_FreeListStart = INVALID_ELEMENT;
 
-	for( i = 0; i < m_Elements.Count(); i++ )
+	for( i = 0; i < m_Elements.size(); i++ )
 	{
 		if( m_Elements[i].pString )
 		{
@@ -285,7 +285,7 @@ inline void CCountedStringPoolBase<T>::DereferenceString( const char* pIntrinsic
 	if (!pIntrinsic)
 		return;
 
-	T nHashBucketIndex = (Hash( pIntrinsic ) % m_HashTable.Count());
+	T nHashBucketIndex = (Hash( pIntrinsic ) % m_HashTable.size());
 	T nCurrentBucket =  m_HashTable[ nHashBucketIndex ];
 
 	// If there isn't anything in the bucket, just return.
@@ -338,14 +338,14 @@ template<class T>
 inline void CCountedStringPoolBase<T>::SpewStrings()
 {
 	int i;
-	for ( i = 0; i < m_Elements.Count(); i++ )
+	for ( i = 0; i < m_Elements.size(); i++ )
 	{
 		char* string = m_Elements[i].pString;
 
 		Msg("String %d: ref:%d %s\n", i, m_Elements[i].nReferenceCount, string == nullptr ? "EMPTY - ok for slot zero only!" : string);
 	}
 
-	Msg("\n%d total counted strings.", m_Elements.Count());
+	Msg("\n%d total counted strings.", m_Elements.size());
 }
 
 #define STRING_POOL_VERSION		MAKEID( 'C', 'S', 'P', '1' )
@@ -354,7 +354,7 @@ inline void CCountedStringPoolBase<T>::SpewStrings()
 template<>
 inline bool CCountedStringPoolBase<unsigned short>::SaveToBuffer( CUtlBuffer &buffer )
 {
-	if ( m_Elements.Count() <= 1 )
+	if ( m_Elements.size() <= 1 )
 	{
 		// pool is empty, saving nothing
 		// caller can check put position of buffer to detect
@@ -366,14 +366,14 @@ inline bool CCountedStringPoolBase<unsigned short>::SaveToBuffer( CUtlBuffer &bu
 
 	buffer.PutUnsignedShort( m_FreeListStart );
 
-	buffer.PutInt( m_HashTable.Count() );
-	for ( int i = 0; i < m_HashTable.Count(); i++ )
+	buffer.PutInt( m_HashTable.size() );
+	for ( int i = 0; i < m_HashTable.size(); i++ )
 	{
 		buffer.PutUnsignedShort( m_HashTable[i] );
 	}
 
-	buffer.PutInt( m_Elements.Count() );
-	for ( int i = 1; i < m_Elements.Count(); i++ )
+	buffer.PutInt( m_Elements.size() );
+	for ( int i = 1; i < m_Elements.size(); i++ )
 	{
 		buffer.PutUnsignedShort( m_Elements[i].nNextElement );
 		buffer.PutUnsignedChar( m_Elements[i].nReferenceCount );
@@ -432,7 +432,7 @@ inline bool CCountedStringPoolBase<unsigned short>::RestoreFromBuffer( CUtlBuffe
 template<>
 inline bool CCountedStringPoolBase<unsigned int>::SaveToBuffer( CUtlBuffer &buffer )
 {
-	if ( m_Elements.Count() <= 1 )
+	if ( m_Elements.size() <= 1 )
 	{
 		// pool is empty, saving nothing
 		// caller can check put position of buffer to detect
@@ -444,14 +444,14 @@ inline bool CCountedStringPoolBase<unsigned int>::SaveToBuffer( CUtlBuffer &buff
 
 	buffer.PutUnsignedInt( m_FreeListStart );
 
-	buffer.PutInt( m_HashTable.Count() );
-	for ( int i = 0; i < m_HashTable.Count(); i++ )
+	buffer.PutInt( m_HashTable.size() );
+	for ( int i = 0; i < m_HashTable.size(); i++ )
 	{
 		buffer.PutUnsignedInt( m_HashTable[i] );
 	}
 
-	buffer.PutInt( m_Elements.Count() );
-	for ( int i = 1; i < m_Elements.Count(); i++ )
+	buffer.PutInt( m_Elements.size() );
+	for ( int i = 1; i < m_Elements.size(); i++ )
 	{
 		buffer.PutUnsignedInt( m_Elements[i].nNextElement );
 		buffer.PutUnsignedChar( m_Elements[i].nReferenceCount );

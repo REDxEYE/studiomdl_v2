@@ -123,7 +123,7 @@ void CopyValues( int layerType, CDmElement *pElement, CDmElement *pLayer, CDmAtt
 	CDmrArray<int> inCurveTypes( pInCurveTypeAttribute );
 
 	Assert( inValues.Count() == inTimes.Count() );
-	int c = inValues.Count();
+	int c = inValues.size();
 	for ( int i = 0; i < c; ++i )
 	{
 		outTimes.AddToTail( inTimes[ i ] );

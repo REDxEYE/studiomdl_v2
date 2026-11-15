@@ -168,7 +168,7 @@ bool CDmeMakefile::UpdateSourceNames( const char *pOldRootDir, const char *pNewR
 	char pOldSourcePath[ MAX_PATH ];
 	char pNewSourcePath[ MAX_PATH ];
 
-	int nCount = m_Sources.Count();
+	int nCount = m_Sources.size();
 	for ( int i = 0; i < nCount; ++i )
 	{
 		const char *pOldRelativePath = m_Sources[i]->GetRelativeFileName();

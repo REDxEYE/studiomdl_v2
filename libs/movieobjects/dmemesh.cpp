@@ -38,9 +38,9 @@ CDmeMeshRenderInfo::CDmeMeshRenderInfo(CDmeVertexData *pBaseState) : m_PositionI
                                                                              CDmeVertexData::FIELD_TANGENT)),
                                                                      m_TangentData(pBaseState->GetTangentData()) {
     m_pBaseState = pBaseState;
-    m_bHasPositionData = m_PositionIndices.Count() > 0;
-    m_bHasNormalData = m_NormalIndices.Count() > 0;
-    m_bHasTangentData = m_TangentIndices.Count() > 0;
+    m_bHasPositionData = m_PositionIndices.size() > 0;
+    m_bHasNormalData = m_NormalIndices.size() > 0;
+    m_bHasTangentData = m_TangentIndices.size() > 0;
     m_nJointCount = pBaseState->JointCount();
     m_bHasSkinningData = pBaseState->HasSkinningData() && m_nJointCount > 0;
 }
@@ -84,10 +84,10 @@ void CDmeMesh::OnAttributeChanged(CDmAttribute *pAttribute) {
     BaseClass::OnAttributeChanged(pAttribute);
 
     if (pAttribute == m_DeltaStates.GetAttribute()) {
-        int nDeltaStateCount = m_DeltaStates.Count();
+        int nDeltaStateCount = m_DeltaStates.size();
         for (int i = 0; i < MESH_DELTA_WEIGHT_TYPE_COUNT; ++i) {
             // Make sure we have the correct number of weights
-            int nWeightCount = m_DeltaStateWeights[i].Count();
+            int nWeightCount = m_DeltaStateWeights[i].size();
             if (nWeightCount < nDeltaStateCount) {
                 for (int j = nWeightCount; j < nDeltaStateCount; ++j) {
                     m_DeltaStateWeights[i].AddToTail(Vector2D(0.0f, 0.0f));
@@ -121,7 +121,7 @@ bool CDmeMesh::AddVertexDelta(
 
     const CDmrArray<int> indices = pDeltaState->GetIndexData(nDeltaFieldIndex);
     const CDmrArray<T> delta = pDeltaState->GetVertexData(nDeltaFieldIndex);
-    const int nDeltaCount = indices.Count();
+    const int nDeltaCount = indices.size();
 
     const float flWeight = m_DeltaStateWeights[MESH_DELTA_WEIGHT_NORMAL][nIndex].x;
 
@@ -185,7 +185,7 @@ bool CDmeMesh::AddStereoVertexDelta(
     const CDmrArray<T> delta = pDeltaState->GetVertexData(nDeltaFieldIndex);
     const CUtlVector<int> &balanceIndices = pBaseState->GetVertexIndexData(CDmeVertexData::FIELD_BALANCE);
     const CUtlVector<float> &balanceDelta = pBaseState->GetBalanceData();
-    const int nDeltaCount = indices.Count();
+    const int nDeltaCount = indices.size();
 
     const FieldIndex_t nSpeedFieldIndex = pBaseState->FindFieldIndex(CDmeVertexData::FIELD_MORPH_SPEED);
 
@@ -235,7 +235,7 @@ bool CDmeMesh::AddStereoVertexDelta(
 // Face sets
 //-----------------------------------------------------------------------------
 int CDmeMesh::FaceSetCount() const {
-    return m_FaceSets.Count();
+    return m_FaceSets.size();
 }
 
 CDmeFaceSet *CDmeMesh::GetFaceSet(int faceSetIndex) {
@@ -295,7 +295,7 @@ CDmeVertexData *CDmeMesh::GetBindBaseState() {
 // Delta states
 //-----------------------------------------------------------------------------
 int CDmeMesh::DeltaStateCount() const {
-    return m_DeltaStates.Count();
+    return m_DeltaStates.size();
 }
 
 
@@ -303,7 +303,7 @@ int CDmeMesh::DeltaStateCount() const {
 // Returns the delta
 //-----------------------------------------------------------------------------
 CDmeVertexDeltaData *CDmeMesh::GetDeltaState(int nDeltaIndex) const {
-    if (nDeltaIndex < 0 || nDeltaIndex >= m_DeltaStates.Count())
+    if (nDeltaIndex < 0 || nDeltaIndex >= m_DeltaStates.size())
         return nullptr;
 
     return m_DeltaStates[nDeltaIndex];
@@ -344,17 +344,17 @@ static const char *SortDeltaName(CUtlString &sDeltaName, const char *pszInDeltaN
     CUtlVector<char *, CUtlMemory<char *, int> > nameComponents;
     V_SplitString(pszInDeltaName, "\\", nameComponents);
 
-    if (nameComponents.Count() > 0) {
+    if (nameComponents.size() > 0) {
         CUtlVector<char *> deltaNames;
-        for (int i = 0; i < nameComponents.Count(); ++i) {
+        for (int i = 0; i < nameComponents.size(); ++i) {
             deltaNames.AddToTail(nameComponents[i]);
         }
 
-        qsort(deltaNames.Base(), deltaNames.Count(), sizeof(char *), SortDeltaNameFunc);
+        qsort(deltaNames.data(), deltaNames.size(), sizeof(char *), SortDeltaNameFunc);
 
         sDeltaName.Clear();
 
-        for (int i = 0; i < deltaNames.Count(); ++i) {
+        for (int i = 0; i < deltaNames.size(); ++i) {
             if (V_strlen(deltaNames[i]) <= 0)
                 continue;
 
@@ -589,7 +589,7 @@ int CDmeMesh::GenerateCompleteDataForDelta(
         CDmrArrayConst<T_t> fDataArray(pDelta->GetVertexData(fIndex));
         const CUtlVector<T_t> &fData(fDataArray.Get());
         const CUtlVector<int> &fIndexData(pDelta->GetVertexIndexData(fIndex));
-        const int nIndexData(fIndexData.Count());
+        const int nIndexData(fIndexData.size());
 
         Assert(nIndexData <= nFullData);
 
@@ -629,7 +629,7 @@ void CDmeMesh::AddDelta(
         CDmrArrayConst<T_t> fDataArray(pDelta->GetVertexData(fieldIndex));
         const CUtlVector<T_t> &fData(fDataArray.Get());
         const CUtlVector<int> &fIndexData(pDelta->GetVertexIndexData(fieldIndex));
-        const int nIndexData(fIndexData.Count());
+        const int nIndexData(fIndexData.size());
 
         T_t t;
 
@@ -723,9 +723,9 @@ void CDmeMesh::AddCorrectedDelta(
     float weight,
     const CDmeSingleIndexedComponent *pMask) {
     const CUtlVector<T_t> &baseData(baseDataArray.Get());
-    const int nData(baseData.Count());
+    const int nData(baseData.size());
     T_t *pData(reinterpret_cast<T_t *>(alloca(nData * sizeof( T_t ))));
-    Q_memcpy(pData, baseData.Base(), nData * sizeof( T_t ));
+    Q_memcpy(pData, baseData.data(), nData * sizeof( T_t ));
 
     CDmeVertexDeltaData *pDelta(GetDeltaState(deltaComputation.m_nDeltaIndex));
 
@@ -736,7 +736,7 @@ void CDmeMesh::AddCorrectedDelta(
     AddDelta(pDelta, pData, nData, deltaFieldIndex, weight, pMask);
 
     const CUtlVector<int> &depDeltas(deltaComputation.m_DependentDeltas);
-    const int nDepDeltas(depDeltas.Count());
+    const int nDepDeltas(depDeltas.size());
     for (int j(0); j < nDepDeltas; ++j) {
         pDelta = GetDeltaState(depDeltas[j]);
 
@@ -762,7 +762,7 @@ void CDmeMesh::AddCorrectedDelta(
     const char *pFieldName,
     float weight,
     const CDmeSingleIndexedComponent *pMask) {
-    const int nData(baseData.Count());
+    const int nData(baseData.size());
 
     CDmeVertexDeltaData *pDelta(GetDeltaState(deltaComputation.m_nDeltaIndex));
 
@@ -770,10 +770,10 @@ void CDmeMesh::AddCorrectedDelta(
     if (deltaFieldIndex < 0)
         return;
 
-    AddDelta(pDelta, baseData.Base(), nData, deltaFieldIndex, weight, pMask);
+    AddDelta(pDelta, baseData.data(), nData, deltaFieldIndex, weight, pMask);
 
     const CUtlVector<int> &depDeltas(deltaComputation.m_DependentDeltas);
-    const int nDepDeltas(depDeltas.Count());
+    const int nDepDeltas(depDeltas.size());
     for (int j(0); j < nDepDeltas; ++j) {
         pDelta = GetDeltaState(depDeltas[j]);
 
@@ -781,7 +781,7 @@ void CDmeMesh::AddCorrectedDelta(
         if (depFieldIndex < 0)
             continue;
 
-        AddDelta(pDelta, baseData.Base(), nData, depFieldIndex, weight, pMask);
+        AddDelta(pDelta, baseData.data(), nData, depFieldIndex, weight, pMask);
     }
 }
 
@@ -801,9 +801,9 @@ void CDmeMesh::AddRawDelta(
         return;
 
     const CUtlVector<T_t> &baseData(baseDataArray.Get());
-    const int nData(baseData.Count());
+    const int nData(baseData.size());
     T_t *pData(reinterpret_cast<T_t *>(alloca(nData * sizeof( T_t ))));
-    Q_memcpy(pData, baseData.Base(), nData * sizeof( T_t ));
+    Q_memcpy(pData, baseData.data(), nData * sizeof( T_t ));
 
     AddDelta(pDelta, pData, nData, nDeltaFieldIndex, weight, pMask);
 
@@ -824,9 +824,9 @@ void CDmeMesh::AddRawDelta(
     if (!pDelta || nDeltaFieldIndex < 0)
         return;
 
-    const int nData(baseData.Count());
+    const int nData(baseData.size());
 
-    AddDelta(pDelta, baseData.Base(), nData, nDeltaFieldIndex, weight, pMask);
+    AddDelta(pDelta, baseData.data(), nData, nDeltaFieldIndex, weight, pMask);
 }
 
 
@@ -842,12 +842,12 @@ bool CDmeMesh::CreateDeltaFieldFromBaseField(
     const CDmrArrayConst<float> &baseArray,
     const CDmrArrayConst<float> &bindArray,
     CDmeVertexDeltaData *pDelta) {
-    const int nData(baseArray.Count());
-    if (nData != bindArray.Count())
+    const int nData(baseArray.size());
+    if (nData != bindArray.size())
         return false;
 
-    const float *pBaseData(baseArray.Get().Base());
-    const float *pBindData(bindArray.Get().Base());
+    const float *pBaseData(baseArray.Get().data());
+    const float *pBindData(bindArray.Get().data());
 
     float *pData(reinterpret_cast<float *>(nData * sizeof(float)));
     Q_memcpy(pData, pBaseData, nData * sizeof( float ));
@@ -890,12 +890,12 @@ bool CDmeMesh::CreateDeltaFieldFromBaseField(
     const CDmrArrayConst<Vector2D> &baseArray,
     const CDmrArrayConst<Vector2D> &bindArray,
     CDmeVertexDeltaData *pDelta) {
-    const int nData(baseArray.Count());
-    if (nData != bindArray.Count())
+    const int nData(baseArray.size());
+    if (nData != bindArray.size())
         return false;
 
-    const Vector2D *pBaseData(baseArray.Get().Base());
-    const Vector2D *pBindData(bindArray.Get().Base());
+    const Vector2D *pBaseData(baseArray.Get().data());
+    const Vector2D *pBindData(bindArray.Get().data());
 
     Vector2D *pData(reinterpret_cast<Vector2D *>(nData * sizeof(Vector2D)));
     Q_memcpy(pData, pBaseData, nData * sizeof( Vector2D ));
@@ -938,12 +938,12 @@ bool CDmeMesh::CreateDeltaFieldFromBaseField(
     const CDmrArrayConst<Vector> &baseArray,
     const CDmrArrayConst<Vector> &bindArray,
     CDmeVertexDeltaData *pDelta) {
-    const int nData(baseArray.Count());
-    if (nData != bindArray.Count())
+    const int nData(baseArray.size());
+    if (nData != bindArray.size())
         return false;
 
-    const Vector *pBaseData(baseArray.Get().Base());
-    const Vector *pBindData(bindArray.Get().Base());
+    const Vector *pBaseData(baseArray.Get().data());
+    const Vector *pBindData(bindArray.Get().data());
 
     Vector *pData(reinterpret_cast<Vector *>(alloca(nData * sizeof( Vector ))));
     Q_memcpy(pData, pBaseData, nData * sizeof( Vector ));
@@ -1011,7 +1011,7 @@ void CSelectionHelper::AddVert(int vIndex, float weight /* = 1.0f */) {
     // Find the vertex, add it if necessary
     const int index = BinarySearch(vIndex);
 
-    if (index == m_verts.Count()) {
+    if (index == m_verts.size()) {
         // New Add to end
         CVert &v(m_verts[m_verts.AddToTail()]);
         v.m_index = vIndex;
@@ -1039,7 +1039,7 @@ void CSelectionHelper::AddVert(int vIndex, float weight /* = 1.0f */) {
 //
 //-----------------------------------------------------------------------------
 int CSelectionHelper::AddToSelection(CDmeSingleIndexedComponent *pSelection) const {
-    const int nVerts = m_verts.Count();
+    const int nVerts = m_verts.size();
 
     for (int i = 0; i < nVerts; ++i) {
         const CVert &v(m_verts[i]);
@@ -1058,7 +1058,7 @@ int CSelectionHelper::AddToSelection(CDmeSingleIndexedComponent *pSelection) con
 // should be inserted to maintain the sorted order of the component list
 //-----------------------------------------------------------------------------
 int CSelectionHelper::BinarySearch(int vIndex) const {
-    const int nVerts(m_verts.Count());
+    const int nVerts(m_verts.size());
 
     int left(0);
     int right(nVerts - 1);
@@ -1129,7 +1129,7 @@ CDmeSingleIndexedComponent *CDmeMesh::FeatherSelection(
     }
 
     const CUtlVector<Vector> &positions(pBase->GetPositionData());
-    const int nPositions = positions.Count();
+    const int nPositions = positions.size();
 
     if (!pBase)
         return nullptr;
@@ -1146,7 +1146,7 @@ CDmeSingleIndexedComponent *CDmeMesh::FeatherSelection(
         CSelectionHelper sHelper;
 
         pNewSelection->GetComponents(sIndices);
-        int nVertices = sIndices.Count();
+        int nVertices = sIndices.size();
 
         for (int i = 0; i < nVertices; ++i) {
             const int nNeighbours = pMeshComp->FindNeighbouringVerts(sIndices[i], neighbours);
@@ -1191,9 +1191,9 @@ bool CDmeMesh::InterpMaskedData(
     const CUtlVector<T_t> &bData,
     float weight,
     const CDmeSingleIndexedComponent *pMask) const {
-    const int nDst = aData.Count();
+    const int nDst = aData.size();
 
-    if (bData.Count() != nDst)
+    if (bData.size() != nDst)
         return false;
 
     // The wacky way of writing these expression is because Vector4D is missing operators
@@ -1270,7 +1270,7 @@ bool CDmeMesh::InterpMaskedData(
             if (paAttr->GetType() != pbAttr->GetType())
                 break;
 
-            if (paData->GetVertexIndexData(aFieldIndex).Count() != pbData->GetVertexIndexData(bFieldIndex).Count())
+            if (paData->GetVertexIndexData(aFieldIndex).size() != pbData->GetVertexIndexData(bFieldIndex).size())
                 break;
 
             switch (paAttr->GetType()) {
@@ -1314,14 +1314,14 @@ int CDmeMesh::ClosestSelectedVertex(int vIndex, CDmeSingleIndexedComponent *pSel
 
     const CUtlVector<Vector> &positions(pBase->GetPositionData());
 
-    if (vIndex >= positions.Count())
+    if (vIndex >= positions.size())
         return -1;
 
     const Vector &p(positions[vIndex]);
 
     CUtlVector<int> verts;
     pSelection->GetComponents(verts);
-    const int nVerts = verts.Count();
+    const int nVerts = verts.size();
 
     if (nVerts <= 0)
         return -1;
@@ -1365,7 +1365,7 @@ void CDmeMesh::GetBoundingSphere(
         return;
 
     const CUtlVector<Vector> &pData(pBase->GetPositionData());
-    const int nPositions = pData.Count();
+    const int nPositions = pData.size();
 
     if (pPassedSelection) {
         const int nSelectionCount = pPassedSelection->Count();
@@ -1427,7 +1427,7 @@ void CDmeMesh::GetBoundingBox(Vector &min, Vector &max, CDmeVertexData *pPassedB
         return;
 
     const CUtlVector<Vector> &pData(pBase->GetPositionData());
-    const int nPositions = pData.Count();
+    const int nPositions = pData.size();
 
     if (pPassedSelection) {
         const int nSelectionCount = pPassedSelection->Count();
@@ -1508,17 +1508,17 @@ bool CDmeMesh::SetBaseDataToDeltas(
     CDmeVertexData *pBase,
     CDmeVertexData::StandardFields_t nStandardField, CDmrArrayConst<T_t> &srcData, CDmrArray<T_t> &dstData,
     bool bDoStereo, bool bDoLag) {
-    const int nDataCount = dstData.Count();
-    if (srcData.Count() != nDataCount)
+    const int nDataCount = dstData.size();
+    if (srcData.size() != nDataCount)
         return false;
 
     // Create the temp buffer for the data
     T_t *pData = reinterpret_cast<T_t *>(alloca(nDataCount * sizeof( T_t )));
 
     // Copy the data from the src base state
-    memcpy(pData, srcData.Base(), nDataCount * sizeof(T_t));
+    memcpy(pData, srcData.data(), nDataCount * sizeof(T_t));
 
-    const int nCount = m_DeltaStateWeights[MESH_DELTA_WEIGHT_NORMAL].Count();
+    const int nCount = m_DeltaStateWeights[MESH_DELTA_WEIGHT_NORMAL].size();
     Assert(
         m_DeltaStateWeights[MESH_DELTA_WEIGHT_NORMAL].Count() == m_DeltaStateWeights[MESH_DELTA_WEIGHT_LAGGED].Count());
 
@@ -1572,13 +1572,13 @@ static void CollapseRedundantDeltaNormals(CDmeVertexDeltaData *pDmeDelta, const 
     Assert(oldNormalData.Count() == oldNormalIndices.Count());
 
     CUtlVector<bool> done;
-    done.SetCount(normalMap.Count());
-    Q_memset(done.Base(), 0, done.Count() * sizeof( bool ));
+    done.SetCount(normalMap.size());
+    Q_memset(done.data(), 0, done.size() * sizeof( bool ));
 
     CUtlVector<Vector> newNormalData;
     CUtlVector<int> newNormalIndices;
 
-    for (int i = 0; i < oldNormalIndices.Count(); ++i) {
+    for (int i = 0; i < oldNormalIndices.size(); ++i) {
         const int nNewIndex = normalMap[oldNormalIndices[i]];
         if (nNewIndex < 0 || done[nNewIndex])
             continue;
@@ -1590,9 +1590,9 @@ static void CollapseRedundantDeltaNormals(CDmeVertexDeltaData *pDmeDelta, const 
 
     pDmeDelta->RemoveAllVertexData(nNormalFieldIndex);
     nNormalFieldIndex = pDmeDelta->CreateField(CDmeVertexDeltaData::FIELD_NORMAL);
-    pDmeDelta->AddVertexData(nNormalFieldIndex, newNormalData.Count());
-    pDmeDelta->SetVertexData(nNormalFieldIndex, 0, newNormalData.Count(), AT_VECTOR3, newNormalData.Base());
-    pDmeDelta->SetVertexIndices(nNormalFieldIndex, 0, newNormalIndices.Count(), newNormalIndices.Base());
+    pDmeDelta->AddVertexData(nNormalFieldIndex, newNormalData.size());
+    pDmeDelta->SetVertexData(nNormalFieldIndex, 0, newNormalData.size(), AT_VECTOR3, newNormalData.data());
+    pDmeDelta->SetVertexIndices(nNormalFieldIndex, 0, newNormalIndices.size(), newNormalIndices.data());
 }
 
 
@@ -1621,23 +1621,23 @@ static bool CollapseRedundantBaseNormals(CDmeVertexData *pDmeVertexData, CUtlVec
     CUtlVector<Vector> newNormalData;
     CUtlVector<int> newNormalIndices;
 
-    newNormalIndices.SetCount(oldNormalIndices.Count());
-    for (int i = 0; i < newNormalIndices.Count(); ++i) {
+    newNormalIndices.SetCount(oldNormalIndices.size());
+    for (int i = 0; i < newNormalIndices.size(); ++i) {
         newNormalIndices[i] = -1;
     }
 
-    const int nPositionDataCount = pDmeVertexData->GetPositionData().Count();
+    const int nPositionDataCount = pDmeVertexData->GetPositionData().size();
     for (int i = 0; i < nPositionDataCount; ++i) {
-        int nNewNormalDataIndex = newNormalData.Count();
+        int nNewNormalDataIndex = newNormalData.size();
 
         const CUtlVector<int> &vertexIndices = pDmeVertexData->FindVertexIndicesFromDataIndex(
             CDmeVertexData::FIELD_POSITION, i);
-        for (int j = 0; j < vertexIndices.Count(); ++j) {
+        for (int j = 0; j < vertexIndices.size(); ++j) {
             bool bUnique = true;
             const int nVertexIndex = vertexIndices[j];
             const Vector &vNormal = oldNormalData[oldNormalIndices[vertexIndices[j]]];
 
-            for (int k = nNewNormalDataIndex; k < newNormalData.Count(); ++k) {
+            for (int k = nNewNormalDataIndex; k < newNormalData.size(); ++k) {
                 if (DotProduct(vNormal, newNormalData[k]) > flNormalBlend) {
                     newNormalIndices[nVertexIndex] = k;
                     bUnique = false;
@@ -1652,23 +1652,23 @@ static bool CollapseRedundantBaseNormals(CDmeVertexData *pDmeVertexData, CUtlVec
         }
     }
 
-    for (int i = 0; i < newNormalIndices.Count(); ++i) {
+    for (int i = 0; i < newNormalIndices.size(); ++i) {
         if (newNormalIndices[i] == -1) {
             newNormalIndices[i] = newNormalData.AddToTail(oldNormalData[oldNormalIndices[i]]);
         }
     }
 
     // If it's the same or more don't do anything
-    if (newNormalData.Count() >= oldNormalData.Count())
+    if (newNormalData.size() >= oldNormalData.size())
         return false;
 
-    normalMap.SetCount(oldNormalData.Count());
-    for (int i = 0; i < normalMap.Count(); ++i) {
+    normalMap.SetCount(oldNormalData.size());
+    for (int i = 0; i < normalMap.size(); ++i) {
         normalMap[i] = -1;
     }
 
     Assert(newNormalIndices.Count() == oldNormalIndices.Count());
-    for (int i = 0; i < oldNormalIndices.Count(); ++i) {
+    for (int i = 0; i < oldNormalIndices.size(); ++i) {
         if (normalMap[oldNormalIndices[i]] == -1) {
             normalMap[oldNormalIndices[i]] = newNormalIndices[i];
         }
@@ -1679,9 +1679,9 @@ static bool CollapseRedundantBaseNormals(CDmeVertexData *pDmeVertexData, CUtlVec
 
     pDmeVertexData->RemoveAllVertexData(nNormalFieldIndex);
     nNormalFieldIndex = pDmeVertexData->CreateField(CDmeVertexDeltaData::FIELD_NORMAL);
-    pDmeVertexData->AddVertexData(nNormalFieldIndex, newNormalData.Count());
-    pDmeVertexData->SetVertexData(nNormalFieldIndex, 0, newNormalData.Count(), AT_VECTOR3, newNormalData.Base());
-    pDmeVertexData->SetVertexIndices(nNormalFieldIndex, 0, newNormalIndices.Count(), newNormalIndices.Base());
+    pDmeVertexData->AddVertexData(nNormalFieldIndex, newNormalData.size());
+    pDmeVertexData->SetVertexData(nNormalFieldIndex, 0, newNormalData.size(), AT_VECTOR3, newNormalData.data());
+    pDmeVertexData->SetVertexIndices(nNormalFieldIndex, 0, newNormalIndices.size(), newNormalIndices.data());
 
     return true;
 }
@@ -1702,15 +1702,15 @@ static bool CollapseRedundantBaseNormalsAggressive(CDmeVertexData *pDmeVertexDat
     const CUtlVector<int> &oldNormalIndices = pDmeVertexData->GetVertexIndexData(nNormalFieldIndex);
 
     CUtlVector<int> normalMap;
-    normalMap.SetCount(oldNormalData.Count());
+    normalMap.SetCount(oldNormalData.size());
 
     CUtlVector<Vector> newNormalData;
 
-    for (int i = 0; i < oldNormalData.Count(); ++i) {
+    for (int i = 0; i < oldNormalData.size(); ++i) {
         bool bUnique = true;
         const Vector &vNormal = oldNormalData[i];
 
-        for (int j = 0; j < newNormalData.Count(); ++j) {
+        for (int j = 0; j < newNormalData.size(); ++j) {
             if (DotProduct(vNormal, newNormalData[j]) > flNormalBlend) {
                 normalMap[i] = j;
                 bUnique = false;
@@ -1725,21 +1725,21 @@ static bool CollapseRedundantBaseNormalsAggressive(CDmeVertexData *pDmeVertexDat
     }
 
     // If it's the same then don't do anything.
-    if (newNormalData.Count() >= oldNormalData.Count())
+    if (newNormalData.size() >= oldNormalData.size())
         return false;
 
     CUtlVector<int> newNormalIndices;
-    newNormalIndices.SetCount(oldNormalIndices.Count());
+    newNormalIndices.SetCount(oldNormalIndices.size());
 
-    for (int i = 0; i < oldNormalIndices.Count(); ++i) {
+    for (int i = 0; i < oldNormalIndices.size(); ++i) {
         newNormalIndices[i] = normalMap[oldNormalIndices[i]];
     }
 
     pDmeVertexData->RemoveAllVertexData(nNormalFieldIndex);
     nNormalFieldIndex = pDmeVertexData->CreateField(CDmeVertexDeltaData::FIELD_NORMAL);
-    pDmeVertexData->AddVertexData(nNormalFieldIndex, newNormalData.Count());
-    pDmeVertexData->SetVertexData(nNormalFieldIndex, 0, newNormalData.Count(), AT_VECTOR3, newNormalData.Base());
-    pDmeVertexData->SetVertexIndices(nNormalFieldIndex, 0, newNormalIndices.Count(), newNormalIndices.Base());
+    pDmeVertexData->AddVertexData(nNormalFieldIndex, newNormalData.size());
+    pDmeVertexData->SetVertexData(nNormalFieldIndex, 0, newNormalData.size(), AT_VECTOR3, newNormalData.data());
+    pDmeVertexData->SetVertexIndices(nNormalFieldIndex, 0, newNormalIndices.size(), newNormalIndices.data());
 
     return true;
 }
@@ -1765,7 +1765,7 @@ void CDmeMesh::NormalizeNormals() {
             continue;
 
         CDmrArray<Vector> normalData(pDmNormalAttr);
-        for (int j = 0; j < normalData.Count(); ++j) {
+        for (int j = 0; j < normalData.size(); ++j) {
             vNormal = normalData.Get(j);
             VectorNormalize(vNormal);
             normalData.Set(j, vNormal);

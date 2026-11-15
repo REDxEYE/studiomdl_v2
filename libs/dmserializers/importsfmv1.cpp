@@ -211,7 +211,7 @@ void CImportSFMV1::FixupLog( CDmElement *pElementInternal )
 	}
 
 	CDmrArray<int> array( pAttr );
-	int c = array.Count();
+	int c = array.size();
 	for ( int i = 0; i < c; ++i )
 	{
 		// convert all log times from int milliseconds to int tenths-of-a-millisecond

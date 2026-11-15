@@ -171,7 +171,7 @@ void CDmeRigBaseConstraintOperator::OnDestruction()
 {
 	g_pDataModel->DestroyElement( m_Slave.GetHandle() );
 
-	for ( int i = 0 ;i < m_Targets.Count(); ++i )
+	for ( int i = 0 ;i < m_Targets.size(); ++i )
 	{
 		if ( m_Targets[ i ] )
 		{
@@ -201,7 +201,7 @@ bool CDmeRigBaseConstraintOperator::IsSlaveObject( char const *pchName ) const
 //-----------------------------------------------------------------------------
 void CDmeRigBaseConstraintOperator::GetInputAttributes( CUtlVector< CDmAttribute * > &attrs )
 {
-	for ( int i = 0; i < m_Targets.Count(); ++i )
+	for ( int i = 0; i < m_Targets.size(); ++i )
 	{
 		if ( !m_Targets[ i ])
 			continue;
@@ -346,7 +346,7 @@ float CDmeRigBaseConstraintOperator::ComputeTargetPosition( Vector &wsTargetPosi
 	wsTargetPosition = vec3_origin;
 
 	float flWeightSum = 0.0f;
-	int nTargets = m_Targets.Count();
+	int nTargets = m_Targets.size();
 	for ( int i = 0; i < nTargets; ++i )
 	{
 		CDmeConstraintTarget *pTarget = m_Targets[ i ];
@@ -380,7 +380,7 @@ static const int MAX_RIG_TARGETS = 4;
 //-----------------------------------------------------------------------------
 float CDmeRigBaseConstraintOperator::ComputeTargetOrientation( Quaternion &wsTargetOrientation )
 {
-	int nTargets = m_Targets.Count();
+	int nTargets = m_Targets.size();
 
 
 	// If there is only one target, for efficiency don't bother with the weighting
@@ -442,7 +442,7 @@ void CDmeRigBaseConstraintOperator::GatherInputOperators( std::vector< CDmeOpera
 {
 	// Iterate through the targets and add the operator 
 	// dependencies for the associated dag nodes.
-	int nTargets = m_Targets.Count();
+	int nTargets = m_Targets.size();
 	for ( int i = 0; i < nTargets; ++i )
 	{
 		CDmeConstraintTarget *pTarget = m_Targets[ i ];
@@ -727,7 +727,7 @@ void CDmeRigAimConstraintOperator::OnDestruction()
 //-----------------------------------------------------------------------------
 void CDmeRigAimConstraintOperator::PostHandlesAdded( bool bPreserveOffset )
 {
-	for ( int i = 0; i < m_Targets.Count(); ++i )
+	for ( int i = 0; i < m_Targets.size(); ++i )
 	{
 		m_Targets[ i ]->ClearOffset();
 	}
@@ -980,7 +980,7 @@ void CDmeRigRotationConstraintOperator::Operate()
 
 	Quaternion finalOrientation = quat_identity;
 
-	int nAxies = MIN( m_Axies.Count(), m_Rotations.Count() );
+	int nAxies = MIN( m_Axies.size(), m_Rotations.size() );
 	for ( int iAxis = 0; iAxis < nAxies; ++iAxis )
 	{
 		Vector axis = m_Axies[ iAxis ];
@@ -1076,7 +1076,7 @@ float CDmeRigParentConstraintOperator::ComputeTargetPositionOrientation( Vector 
 	Quaternion *pQuats = s_Quats;
 	float *flQuatWeights = s_flQuatWeights;
 
-	int nTargets = m_Targets.Count();
+	int nTargets = m_Targets.size();
 	if ( nTargets > MAX_RIG_TARGETS )
 	{
 		pQuats = (Quaternion *)stackalloc( nTargets * sizeof( Quaternion ) );
@@ -1225,7 +1225,7 @@ bool CDmeRigIKConstraintOperator::Setup( bool bPreserveOffset )
 		return false;
 
 	// Make sure there is one and only one target and that it is valid
-	if ( m_Targets.Count() != 1 )
+	if ( m_Targets.size() != 1 )
 		return false;
 	
 	CDmeDag *pTargetDag = m_Targets[ 0 ]->GetDag();
@@ -1595,7 +1595,7 @@ void CDmeRigTwistConstraintOperator::OnDestruction()
 //-----------------------------------------------------------------------------
 CDmeDag *CDmeRigTwistConstraintOperator::GetParentTarget() const
 {
-	return m_Targets.Count() >= 1 ? m_Targets[0]->GetDag() : nullptr;
+	return m_Targets.size() >= 1 ? m_Targets[0]->GetDag() : nullptr;
 }
 
 
@@ -1605,7 +1605,7 @@ CDmeDag *CDmeRigTwistConstraintOperator::GetParentTarget() const
 //-----------------------------------------------------------------------------
 CDmeDag *CDmeRigTwistConstraintOperator::GetChildTarget() const
 {
-	return m_Targets.Count() >= 2 ? m_Targets[1]->GetDag() : nullptr;
+	return m_Targets.size() >= 2 ? m_Targets[1]->GetDag() : nullptr;
 }
 
 
@@ -1614,7 +1614,7 @@ CDmeDag *CDmeRigTwistConstraintOperator::GetChildTarget() const
 //-----------------------------------------------------------------------------
 void CDmeRigTwistConstraintOperator::ClearSlaves()
 {
-	for ( int i = 0; i < m_eSlaves.Count(); ++i )
+	for ( int i = 0; i < m_eSlaves.size(); ++i )
 	{
 		CDmeConstraintSlave *pDmeConstraintSlave = m_eSlaves[i];
 		if ( !pDmeConstraintSlave )
@@ -1631,7 +1631,7 @@ void CDmeRigTwistConstraintOperator::ClearSlaves()
 //-----------------------------------------------------------------------------
 CDmeDag *CDmeRigTwistConstraintOperator::GetSlaveDag( int i ) const
 {
-	return m_eSlaves.Count() > i ? m_eSlaves[i]->GetDag() : nullptr;
+	return m_eSlaves.size() > i ? m_eSlaves[i]->GetDag() : nullptr;
 }
 
 
@@ -1640,7 +1640,7 @@ CDmeDag *CDmeRigTwistConstraintOperator::GetSlaveDag( int i ) const
 //-----------------------------------------------------------------------------
 float CDmeRigTwistConstraintOperator::GetSlaveWeight( int i ) const
 {
-	return m_eSlaves.Count() > i ? m_eSlaves[i]->GetWeight() : 0.0f;
+	return m_eSlaves.size() > i ? m_eSlaves[i]->GetWeight() : 0.0f;
 }
 
 
@@ -1651,7 +1651,7 @@ float CDmeRigTwistConstraintOperator::GetSlaveWeight( int i ) const
 //-----------------------------------------------------------------------------
 const Quaternion &CDmeRigTwistConstraintOperator::GetSlaveBindOrientation( int i ) const
 {
-	if ( m_eSlaves.Count() > i )
+	if ( m_eSlaves.size() > i )
 	{
 		return m_eSlaves[i]->GetBaseOrientation();
 	}
@@ -1684,7 +1684,7 @@ void CDmeRigTwistConstraintOperator::Operate()
 //-----------------------------------------------------------------------------
 void CDmeRigTwistConstraintOperator::GetOutputAttributes( CUtlVector< CDmAttribute * > &attrs )
 {
-	for ( int i = 0; i < m_eSlaves.Count(); ++i )
+	for ( int i = 0; i < m_eSlaves.size(); ++i )
 	{
 		CDmeConstraintSlave *pDmeConstraintSlave = m_eSlaves[i];
 		if ( !pDmeConstraintSlave )
@@ -1714,7 +1714,7 @@ void CDmeRigTwistConstraintOperator::ComputeOffset( Vector &vOffset, Quaternion 
 //-----------------------------------------------------------------------------
 void CDmeRigTwistConstraintOperator::DisconnectTransformChannels()
 {
-	for ( int i = 0; i < m_eSlaves.Count(); ++i )
+	for ( int i = 0; i < m_eSlaves.size(); ++i )
 	{
 		CDmeConstraintSlave *pDmeConstraintSlave = m_eSlaves[i];
 		if ( !pDmeConstraintSlave )
@@ -1730,7 +1730,7 @@ void CDmeRigTwistConstraintOperator::DisconnectTransformChannels()
 //-----------------------------------------------------------------------------
 void CDmeRigTwistConstraintOperator::ReconnectTransformChannels()
 {
-	for ( int i = 0; i < m_eSlaves.Count(); ++i )
+	for ( int i = 0; i < m_eSlaves.size(); ++i )
 	{
 		CDmeConstraintSlave *pDmeConstraintSlave = m_eSlaves[i];
 		if ( !pDmeConstraintSlave )
@@ -1747,7 +1747,7 @@ void CDmeRigTwistConstraintOperator::ReconnectTransformChannels()
 //-----------------------------------------------------------------------------
 const CDmeDag *CDmeRigTwistConstraintOperator::GetSlave() const
 {
-	return m_eSlaves.Count() ? m_eSlaves[0]->GetDag() : nullptr;
+	return m_eSlaves.size() ? m_eSlaves[0]->GetDag() : nullptr;
 }
 
 
@@ -1756,7 +1756,7 @@ const CDmeDag *CDmeRigTwistConstraintOperator::GetSlave() const
 //-----------------------------------------------------------------------------
 bool CDmeRigTwistConstraintOperator::IsSlaveObject( char const *pchName ) const
 {
-	for ( int i = 0; i < m_eSlaves.Count(); ++i )
+	for ( int i = 0; i < m_eSlaves.size(); ++i )
 	{
 		CDmeConstraintSlave *pDmeConstraintSlave = m_eSlaves[i];
 		if ( !pDmeConstraintSlave )

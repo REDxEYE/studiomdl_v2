@@ -329,7 +329,7 @@ public:
 	}
 	~CLeakTrack()
 	{
-		if ( keys.Count() != 0 )
+		if ( keys.size() != 0 )
 		{
 			Assert( 0 );
 		}
@@ -352,7 +352,7 @@ public:
 
 	void RemoveKv( KeyValues *kv )
 	{
-		int c = keys.Count();
+		int c = keys.size();
 		for ( int i = 0; i < c; i++ )
 		{
 			if ( keys[i].kv == kv )
@@ -399,7 +399,7 @@ public:
 	  {
 		  // Put the current details into our hash functor
 		  m_Functor.SetCurString( name );
-		  m_Functor.SetCurStringBase( (const char *)m_vecStrings.Base() );
+		  m_Functor.SetCurStringBase( (const char *)m_vecStrings.data() );
 
 		  if ( bCreate )
 		  {
@@ -426,7 +426,7 @@ public:
 	  // Translates an index back to a string
 	  const char *GetStringForSymbol( int symbol )
 	  {
-		  return (const char *)m_vecStrings.Base() + symbol;
+		  return (const char *)m_vecStrings.data() + symbol;
 	  }
 
 private:
@@ -965,12 +965,12 @@ KeyValues *KeyValues::FindKey(const char *keyName, bool bCreate)
 		Assert( size >= 0 );
 		Assert( size < 1024 * 1024 );
 		szBuf.EnsureCount( size + 1 );
-		V_memcpy( szBuf.Base(), keyName, size );
+		V_memcpy( szBuf.data(), keyName, size );
 		szBuf[size] = 0;
 		if ( V_strlen( keyName ) > 1 )
 		{
 			// If the key name is just '/', we don't treat is as a key with subfields, but use the '/' as a key name directly
-			searchStr = szBuf.Base();
+			searchStr = szBuf.data();
 		}
 	}
 
@@ -1906,7 +1906,7 @@ KeyValues::types_t KeyValues::GetDataType( void ) const
 void KeyValues::AppendIncludedKeys( CUtlVector< KeyValues * >& includedKeys )
 {
 	// Append any included keys, too...
-	int includeCount = includedKeys.Count();
+	int includeCount = includedKeys.size();
 	int i;
 	for ( i = 0; i < includeCount; i++ )
 	{
@@ -1989,7 +1989,7 @@ void KeyValues::ParseIncludedKeys( char const *resourceName, const char *filetoi
 //-----------------------------------------------------------------------------
 void KeyValues::MergeBaseKeys( CUtlVector< KeyValues * >& baseKeys )
 {
-	int includeCount = baseKeys.Count();
+	int includeCount = baseKeys.size();
 	int i;
 	for ( i = 0; i < includeCount; i++ )
 	{
@@ -2176,7 +2176,7 @@ bool KeyValues::LoadFromBuffer( char const *resourceName, CUtlBuffer &buf, IBase
 	{
 		// delete included keys!
 		int i;
-		for ( i = includedKeys.Count() - 1; i > 0; i-- )
+		for ( i = includedKeys.size() - 1; i > 0; i-- )
 		{
 			KeyValues *kv = includedKeys[ i ];
 			delete kv;
@@ -2187,7 +2187,7 @@ bool KeyValues::LoadFromBuffer( char const *resourceName, CUtlBuffer &buf, IBase
 	{
 		// delete base keys!
 		int i;
-		for ( i = baseKeys.Count() - 1; i >= 0; i-- )
+		for ( i = baseKeys.size() - 1; i >= 0; i-- )
 		{
 			KeyValues *kv = baseKeys[ i ];
 			delete kv;

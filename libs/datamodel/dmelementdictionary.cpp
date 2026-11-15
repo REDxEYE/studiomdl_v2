@@ -101,9 +101,9 @@ void CDmElementDictionary::AddArrayAttribute( CDmAttribute *pAttribute, const Dm
 //-----------------------------------------------------------------------------
 void CDmElementDictionary::RemoveAttributeInfosOfElement( AttributeList_t &attributes, DmElementHandle_t hElement )
 {
-	while ( attributes.Count() > 0 && attributes.Tail().m_pAttribute->GetOwner()->GetHandle() == hElement )
+	while ( attributes.size() > 0 && attributes.back().m_pAttribute->GetOwner()->GetHandle() == hElement )
 	{
-		attributes.Remove( attributes.Count() - 1 );
+		attributes.Remove( attributes.size() - 1 );
 	}
 }
 
@@ -192,7 +192,7 @@ DmElementHandle_t CDmElementDictionary::SetElementId( DmElementDictHandle_t hDic
 //-----------------------------------------------------------------------------
 void CDmElementDictionary::HookUpElementAttributes()
 {
-	int n = m_Attributes.Count();
+	int n = m_Attributes.size();
 	for ( int i = 0; i < n; ++i )
 	{
 		Assert( m_Attributes[i].m_pAttribute->GetType() == AT_ELEMENT );
@@ -215,7 +215,7 @@ void CDmElementDictionary::HookUpElementArrayAttributes()
 {
 	// Find unique array attributes; we need to clear them all before adding stuff.
 	// This clears them of stuff added during their construction phase.
-	int n = m_ArrayAttributes.Count();
+	int n = m_ArrayAttributes.size();
 	CUtlRBTree< CDmAttribute*, unsigned short >	lookup( 0, n, DefLessFunc(CDmAttribute*) );
 	for ( int i = 0; i < n; ++i )
 	{
@@ -259,7 +259,7 @@ void CDmElementDictionary::HookUpElementArrayAttributes()
 //-----------------------------------------------------------------------------
 void CDmElementDictionary::HookUpElementReferences()
 {
-	int nElementsToDelete = m_elementsToDelete.Count();
+	int nElementsToDelete = m_elementsToDelete.size();
 	for ( int i = 0; i < nElementsToDelete; ++i )
 	{
 		DmElementDictHandle_t hDictIndex = m_elementsToDelete[i].m_hDictHandle;
@@ -429,7 +429,7 @@ DmElementDictHandle_t CDmElementSerializationDictionary::FirstRootElement() cons
 	// NOTE: I don't have to use First/NextInorder here because there
 	// are guaranteed to be no removals from the dictionary.
 	// Also, using inorder traversal won't get my actual root element to be first in the file
-	int nCount = m_Dict.Count();
+	int nCount = m_Dict.size();
 	for ( DmElementDictHandle_t h = 0; h < nCount; ++h )
 	{
 		if ( m_Dict[h].m_bRoot )
@@ -446,7 +446,7 @@ DmElementDictHandle_t CDmElementSerializationDictionary::NextRootElement( DmElem
 	// are guaranteed to be no removals from the dictionary.
 	// Also, using inorder traversal won't get my actual root element to be first in the file
 	++h;
-	int nCount = m_Dict.Count();
+	int nCount = m_Dict.size();
 	for ( ; h < nCount; ++h )
 	{
 		if ( m_Dict[h].m_bRoot )

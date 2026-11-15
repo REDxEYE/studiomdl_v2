@@ -139,7 +139,7 @@ public:
 	static int SortWeights( const CJointWeight *pLhs, const CJointWeight *pRhs );
 
 	int Count() const {
-		return MIN( m_nWeightPerVertex, m_weights.Count() );
+		return MIN( m_nWeightPerVertex, m_weights.size() );
 	}
 
 	void Reset()
@@ -163,7 +163,7 @@ public:
 
 	float GetWeight( int nWeightIndex ) const
 	{
-		if ( nWeightIndex < m_weights.Count() )
+		if ( nWeightIndex < m_weights.size() )
 			return m_weights[ nWeightIndex ].m_flWeight;
 
 		return 0.0f;
@@ -171,7 +171,7 @@ public:
 
 	int GetJointIndex( int nWeightIndex ) const
 	{
-		if ( nWeightIndex < m_weights.Count() )
+		if ( nWeightIndex < m_weights.size() )
 			return m_weights[ nWeightIndex ].m_nJointDataIndex;
 
 		return 0;

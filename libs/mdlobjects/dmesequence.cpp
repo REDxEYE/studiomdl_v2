@@ -329,7 +329,7 @@ int CDmeSequenceBase::QSortFunction( const void *pVoidSeq1, const void *pVoidSeq
 
 	for ( int i = 0; i < 2; ++i )
 	{
-		for ( int j = 0; j < pSeq[i]->m_eAnimationCommandList.Count(); ++j )
+		for ( int j = 0; j < pSeq[i]->m_eAnimationCommandList.size(); ++j )
 		{
 			const CDmeAnimCmd *pAnimCmd = pSeq[i]->m_eAnimationCommandList[j];
 			const CDmeAnimCmdSubtract *pAnimCmdSubtract = CastElement< CDmeAnimCmdSubtract >( pAnimCmd );
@@ -362,11 +362,11 @@ int CDmeSequenceBase::QSortFunction( const void *pVoidSeq1, const void *pVoidSeq
 		return 0;
 	}
 
-	if ( pSeq1->m_eAnimationCommandList.Count() < pSeq2->m_eAnimationCommandList.Count() )
+	if ( pSeq1->m_eAnimationCommandList.size() < pSeq2->m_eAnimationCommandList.size() )
 	{
 		return -1;
 	}
-	else if ( pSeq1->m_eAnimationCommandList.Count() > pSeq2->m_eAnimationCommandList.Count() )
+	else if ( pSeq1->m_eAnimationCommandList.size() > pSeq2->m_eAnimationCommandList.size() )
 	{
 		return 1;
 	}

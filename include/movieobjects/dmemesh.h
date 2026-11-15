@@ -312,7 +312,7 @@ public:
 //-----------------------------------------------------------------------------
 inline int CDmeMesh::BaseStateCount() const
 {
-	return m_BaseStates.Count();
+	return m_BaseStates.size();
 }
 
 

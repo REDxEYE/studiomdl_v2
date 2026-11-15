@@ -64,16 +64,16 @@ public:
 	void EnsureCapacity( int num )							{ m_Tree.EnsureCapacity( num ); }
 
 	// gets particular elements
-	ElemType_t &		Element( IndexType_t i )			{ return m_Tree.Element( i ).elem; }
-	const ElemType_t &	Element( IndexType_t i ) const		{ return m_Tree.Element( i ).elem; }
-	ElemType_t &		operator[]( IndexType_t i )			{ return m_Tree.Element( i ).elem; }
-	const ElemType_t &	operator[]( IndexType_t i ) const	{ return m_Tree.Element( i ).elem; }
-	KeyType_t &			Key( IndexType_t i )				{ return m_Tree.Element( i ).key; }
-	const KeyType_t &	Key( IndexType_t i ) const			{ return m_Tree.Element( i ).key; }
+	ElemType_t &		at( IndexType_t i )			{ return m_Tree.at( i ).elem; }
+	const ElemType_t &	at( IndexType_t i ) const		{ return m_Tree.at( i ).elem; }
+	ElemType_t &		operator[]( IndexType_t i )			{ return m_Tree.at( i ).elem; }
+	const ElemType_t &	operator[]( IndexType_t i ) const	{ return m_Tree.at( i ).elem; }
+	KeyType_t &			Key( IndexType_t i )				{ return m_Tree.at( i ).key; }
+	const KeyType_t &	Key( IndexType_t i ) const			{ return m_Tree.at( i ).key; }
 
 	
 	// Num elements
-	unsigned int Count() const								{ return m_Tree.Count(); }
+	unsigned int size() const								{ return m_Tree.size(); }
 	
 	// Max "size" of the vector
 	IndexType_t  MaxElement() const							{ return m_Tree.MaxElement(); }
@@ -160,7 +160,7 @@ public:
 		IndexType_t i = Find( key );
 		if ( i == InvalidIndex() )
 			return defaultValue;
-		return Element( i );
+		return at( i );
 	}
 
 
@@ -217,7 +217,7 @@ public:
 		IndexType_t i = Find( key );
 		if ( i != InvalidIndex() )
 		{
-			Element( i ) = insert;
+			at( i ) = insert;
 			return i;
 		}
 		
@@ -283,7 +283,7 @@ inline void CUtlMap<K, T, I, LessFunc_t>::PurgeAndDeleteElements()
 		if ( !IsValidIndex( i ) ) 
 			continue; 
 
-		delete Element( i );
+		delete at( i );
 	}
 
 	Purge();

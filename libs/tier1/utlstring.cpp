@@ -50,7 +50,7 @@ void CUtlBinaryBlock::Get( void *pValue, int nLen ) const
 
 	if ( nLen > 0 )
 	{
-		memcpy( pValue, m_Memory.Base(), nLen );
+		memcpy( pValue, m_Memory.data(), nLen );
 	}
 }
 
@@ -74,7 +74,7 @@ void CUtlBinaryBlock::SetLength( int nLength )
 #ifdef _DEBUG
 	if ( m_Memory.NumAllocated() > m_nActualLength )
 	{
-		memset( ( ( char * )m_Memory.Base() ) + m_nActualLength, 0xEB, m_Memory.NumAllocated() - m_nActualLength );
+		memset( ( ( char * )m_Memory.data() ) + m_nActualLength, 0xEB, m_Memory.NumAllocated() - m_nActualLength );
 	}
 #endif
 }
@@ -93,14 +93,14 @@ void CUtlBinaryBlock::Set( const void *pValue, int nLen )
 
 	if ( m_nActualLength )
 	{
-		if ( ( ( const char * )m_Memory.Base() ) >= ( ( const char * )pValue ) + nLen ||
-			 ( ( const char * )m_Memory.Base() ) + m_nActualLength <= ( ( const char * )pValue ) )
+		if ( ( ( const char * )m_Memory.data() ) >= ( ( const char * )pValue ) + nLen ||
+			 ( ( const char * )m_Memory.data() ) + m_nActualLength <= ( ( const char * )pValue ) )
 		{
-			memcpy( m_Memory.Base(), pValue, m_nActualLength );
+			memcpy( m_Memory.data(), pValue, m_nActualLength );
 		}
 		else
 		{
-			memmove( m_Memory.Base(), pValue, m_nActualLength );
+			memmove( m_Memory.data(), pValue, m_nActualLength );
 		}
 	}
 }

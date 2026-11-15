@@ -2,11 +2,8 @@
 
 #pragma once
 
-
-#include "tier1/utlstring.h"
-#include "tier1/utlstack.h"
-#include "tier1/utlvector.h"
-
+#include <string>
+#include <string_view>
 
 //-----------------------------------------------------------------------------
 // Calculator Parsing class
@@ -20,54 +17,67 @@
 //		||
 //		?:
 //-----------------------------------------------------------------------------
-class CExpressionCalculator
-{
+class CExpressionCalculator {
 public:
-	CExpressionCalculator( const char *expr = nullptr) : m_expr( expr ) {}
+    CExpressionCalculator(const std::string_view expr = "") : m_expr(expr) {
+    }
 
-	CExpressionCalculator( const CExpressionCalculator& x );
-	CExpressionCalculator& operator=( const CExpressionCalculator& x );
-	
+    CExpressionCalculator(const CExpressionCalculator &x) = default;
+
+    CExpressionCalculator& operator=(const CExpressionCalculator &x) = default;
+
 public:
-	void SetExpression( const char *expr ) 
-	{
-		m_expr = expr;
-	}
+    void SetExpression(const char* expr) {
+        m_expr = expr;
+    }
 
-	void SetVariable( const char *var, float value );
-	void SetVariable( int nVariableIndex, float value );
+    void SetVariable(std::string_view var, float value);
 
-	bool Evaluate( float &value );
+    void SetVariable(size_t variableIndex, float value);
 
-	// Builds a list of variable names from the expression
-	bool BuildVariableListFromExpression( );
+    bool Evaluate(float &value);
 
-	// Iterate over variables
-	int VariableCount();
-	const char *VariableName( int nIndex );
+    // Builds a list of variable names from the expression
+    bool BuildVariableListFromExpression();
+
+    // Iterate over variables
+    size_t VariableCount() const;
+
+    std::string_view VariableName(size_t index);
 
 private:
-	bool ParseExpr		 ( const char *&expr );
-	bool ParseConditional( const char *&expr );
-	bool ParseOr		 ( const char *&expr );
-	bool ParseAnd		 ( const char *&expr );
-	bool ParseEquality	 ( const char *&expr );
-	bool ParseLessGreater( const char *&expr );
-	bool ParseAddSub	 ( const char *&expr );
-	bool ParseDivMul	 ( const char *&expr );
-	bool ParseUnary		 ( const char *&expr );
-	bool ParsePrimary	 ( const char *&expr );
-	bool Parse1ArgFunc	 ( const char *&expr );
-	bool Parse2ArgFunc	 ( const char *&expr );
-	bool Parse3ArgFunc	 ( const char *&expr );
-	//	bool Parse4ArgFunc	 ( const char *&expr );
-	bool Parse5ArgFunc	 ( const char *&expr );
+    bool ParseExpr(std::string_view &expr);
 
-	CUtlString m_expr;
-	CUtlVector< CUtlString > m_varNames;
-	CUtlVector<float> m_varValues;
-	CUtlStack<float> m_stack;
-	bool m_bIsBuildingArgumentList;
+    bool ParseConditional(std::string_view &expr);
+
+    bool ParseOr(std::string_view &expr);
+
+    bool ParseAnd(std::string_view &expr);
+
+    bool ParseEquality(std::string_view &expr);
+
+    bool ParseLessGreater(std::string_view &expr);
+
+    bool ParseAddSub(std::string_view &expr);
+
+    bool ParseDivMul(std::string_view &expr);
+
+    bool ParseUnary(std::string_view &expr);
+
+    bool ParsePrimary(std::string_view &expr);
+
+    bool Parse1ArgFunc(std::string_view &expr);
+
+    bool Parse2ArgFunc(std::string_view &expr);
+
+    bool Parse3ArgFunc(std::string_view &expr);
+
+    //	bool Parse4ArgFunc	 ( const char *&expr );
+    bool Parse5ArgFunc(std::string_view &expr);
+
+    std::string m_expr;
+    std::vector<std::string> m_varNames;
+    std::vector<float> m_varValues;
+    std::vector<float> m_stack;
+    bool m_bIsBuildingArgumentList{};
 };
-
-

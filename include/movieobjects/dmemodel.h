@@ -27,15 +27,15 @@ public:
 	// Add joint
 
 	// Returns the number of joint transforms we know about
-	int GetJointCount() const;
+    size_t GetJointCount() const;
 
 	// Returns the DmeDag for the specified joint index
 
 	// Returns the DmeTransform for the specified joint index
-	CDmeTransform *GetJointTransform( int nIndex );
+	CDmeTransform *GetJointTransform(size_t index) const;
 
 	// Determines joint index of a given a joint
-	int GetJointIndex( CDmeDag *pJoint ) const;
+	int GetJointIndex(const CDmeDag *pJoint ) const;
 
 	// Finds a base state by name, returns NULL if not found
 	CDmeTransformList *FindBaseState( const char *pBaseStateName );

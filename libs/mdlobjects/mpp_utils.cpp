@@ -67,7 +67,7 @@ MppSequenceIt::MppSequenceIt( CDmeAssetRoot *pDmeAssetRoot )
 			CUtlVector< CDmeSequenceBase * > sortedSequenceList;
 			pDmeSequenceList->GetSortedSequenceList( sortedSequenceList );
 
-			const int nSortedSequenceCount = sortedSequenceList.Count();
+			const int nSortedSequenceCount = sortedSequenceList.size();
 			m_hDmeSequenceList.EnsureCapacity( nSortedSequenceCount );
 			for ( int i = 0; i < nSortedSequenceCount; ++i )
 			{
@@ -89,7 +89,7 @@ MppSequenceIt::MppSequenceIt( CDmeAssetRoot *pDmeAssetRoot )
 //-----------------------------------------------------------------------------
 CDmeSequence *MppSequenceIt::Get() const
 {
-	if ( m_nSequenceIndex < 0 || m_nSequenceIndex >= m_hDmeSequenceList.Count() )
+	if ( m_nSequenceIndex < 0 || m_nSequenceIndex >= m_hDmeSequenceList.size() )
 		return nullptr;
 
 	return CastElement< CDmeSequence >( g_pDataModel->GetElement( m_hDmeSequenceList[m_nSequenceIndex] ) );
@@ -102,7 +102,7 @@ CDmeSequence *MppSequenceIt::Get() const
 //-----------------------------------------------------------------------------
 void MppSequenceIt::Next()
 {
-	for ( int i = m_nSequenceIndex + 1; i < m_hDmeSequenceList.Count(); ++i )
+	for ( int i = m_nSequenceIndex + 1; i < m_hDmeSequenceList.size(); ++i )
 	{
 		CDmeSequence *pDmeSequence = CastElement< CDmeSequence >( g_pDataModel->GetElement( m_hDmeSequenceList[i] ) );
 		if ( pDmeSequence )
@@ -112,7 +112,7 @@ void MppSequenceIt::Next()
 		}
 	}
 
-	m_nSequenceIndex = m_hDmeSequenceList.Count();
+	m_nSequenceIndex = m_hDmeSequenceList.size();
 }
 
 

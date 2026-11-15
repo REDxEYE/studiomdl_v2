@@ -46,7 +46,7 @@ CDmeMaterial *CDmeFaceSet::GetMaterial()
 uint32_t CDmeFaceSet::GetNextPolygonVertexCount(const uint32_t nFirstIndex) const
 {
 	uint32_t nCurrIndex = nFirstIndex;
-	const uint32_t nTotalCount = m_indices.Count();
+	const uint32_t nTotalCount = m_indices.size();
 	while( nCurrIndex < nTotalCount )
 	{
 		if ( m_indices[nCurrIndex] == -1 )

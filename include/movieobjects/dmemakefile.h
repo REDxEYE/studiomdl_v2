@@ -162,7 +162,7 @@ inline void CDmeMakefile::SetDirty( bool bDirty )
 template< class T >
 void CDmeMakefile::GetSources( CUtlVector< CDmeHandle<T> > &sources )
 {
-	int nCount = m_Sources.Count();
+	int nCount = m_Sources.size();
 	sources.EnsureCapacity( nCount );
 	for ( int i = 0; i < nCount; ++i )
 	{

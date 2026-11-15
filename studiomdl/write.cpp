@@ -1818,7 +1818,7 @@ static void WriteBoneFlexDrivers(vstd::Buffer &buffer, const vstd::BufferPtr<stu
     if (!pDmeBoneFlexDriverList)
         return;
 
-    const int nBoneFlexDriverCount = pDmeBoneFlexDriverList->m_eBoneFlexDriverList.Count();
+    const int nBoneFlexDriverCount = pDmeBoneFlexDriverList->m_eBoneFlexDriverList.size();
     if (nBoneFlexDriverCount <= 0)
         return;
 
@@ -1834,7 +1834,7 @@ static void WriteBoneFlexDrivers(vstd::Buffer &buffer, const vstd::BufferPtr<stu
         Assert(pDmeBoneFlexDriver->GetValue<int>("__boneIndex", -1) >= 0);
 
         pBoneFlexDriver->m_nBoneIndex = pDmeBoneFlexDriver->GetValue<int>("__boneIndex", 0);
-        pBoneFlexDriver->m_nControlCount = pDmeBoneFlexDriver->m_eControlList.Count();
+        pBoneFlexDriver->m_nControlCount = pDmeBoneFlexDriver->m_eControlList.size();
 
         const auto pControl = buffer.allocate<mstudioboneflexdrivercontrol_t>(pBoneFlexDriver->m_nControlCount);
         pBoneFlexDriver->m_nControlIndex = pControl.offset_from<int>(pBoneFlexDriver);

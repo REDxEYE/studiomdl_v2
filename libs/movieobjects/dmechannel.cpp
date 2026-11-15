@@ -46,7 +46,7 @@ CRecordingLayer::CRecordingLayer()
 //-----------------------------------------------------------------------------
 CRecordingLayer::~CRecordingLayer()
 {
-	int nChannels = m_LayerChannels.Count();
+	int nChannels = m_LayerChannels.size();
 	for ( int iChannel = 0; iChannel < nChannels; ++iChannel )
 	{
 		LayerChannelInfo_t &info = m_LayerChannels[ iChannel ];		
@@ -692,7 +692,7 @@ CDmeLogLayer *FindLayerInSnapshot( const CDmrElementArray<CDmElement>& snapshotA
 
 KeyValues *FindLayerInPasteData( const CUtlVector< KeyValues * > &list, CDmeLog *log )
 {
-	int c = list.Count();
+	int c = list.size();
 	for ( int i = 0; i  < c; ++i )
 	{
 		KeyValues *kv = list[ i ];
@@ -723,7 +723,7 @@ static int FindSpanningLayerAndSetIntensity( DmeLog_TimeSelection_t &ts, LayerSe
 
 	float frac = ts.m_flIntensity;
 	int i = 0;
-	for ( ; i < data->m_vecData.Count() - 1; ++i )
+	for ( ; i < data->m_vecData.size() - 1; ++i )
 	{
 		LayerSelectionData_t::DataLayer_t *current = &data->m_vecData[ i ];
 		LayerSelectionData_t::DataLayer_t *next = &data->m_vecData[ i + 1 ];

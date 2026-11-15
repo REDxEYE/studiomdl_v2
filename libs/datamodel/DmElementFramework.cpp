@@ -47,7 +47,7 @@ void CDmElementFramework::EditApply()
 
 void CDmElementFramework::Resolve( bool clearDirtyFlags )
 {
-	int nCount = m_dirtyElements.Count();
+	int nCount = m_dirtyElements.size();
 	for ( int ei = 0; ei < nCount; ++ei )
 	{
 		DmElementHandle_t h = m_dirtyElements[ ei ];
@@ -173,7 +173,7 @@ void CDmElementFramework::AddElementToDirtyList( DmElementHandle_t hElement )
 
 void CDmElementFramework::RemoveCleanElementsFromDirtyList()
 {
-	int nCount = m_dirtyElements.Count();
+	int nCount = m_dirtyElements.size();
 	while ( --nCount >= 0 )
 	{
 		DmElementHandle_t h = m_dirtyElements[ nCount ];

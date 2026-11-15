@@ -397,7 +397,7 @@ CDmElement* CDmSerializerKeyValues::UnserializeFromKeyValues( KeyValues *pKeyVal
 	}
 
 	// mark all unserialized elements as done unserializing, and call Resolve()
-	int c = m_ElementList.Count();
+	int c = m_ElementList.size();
 	for ( int i = 0; i < c; ++i )
 	{
 		CDmElement *pElement = g_pDataModel->GetElement( m_ElementList[i] );

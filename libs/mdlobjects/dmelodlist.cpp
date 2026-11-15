@@ -40,7 +40,7 @@ void CDmeLODList::OnDestruction()
 //-----------------------------------------------------------------------------
 int CDmeLODList::LODCount() const
 {
-	return m_LODs.Count();
+	return m_LODs.size();
 }
 
 
@@ -49,7 +49,7 @@ int CDmeLODList::LODCount() const
 //-----------------------------------------------------------------------------
 CDmeLOD* CDmeLODList::GetRootLOD()
 {
-	int nCount = m_LODs.Count();
+	int nCount = m_LODs.size();
 	int nMinIndex = -1;
 	float flMinMetric = FLT_MAX;
 	for ( int i = 0; i < nCount; ++i )
@@ -71,7 +71,7 @@ CDmeLOD* CDmeLODList::GetRootLOD()
 //-----------------------------------------------------------------------------
 CDmeLOD* CDmeLODList::GetShadowLOD()
 {
-	int nCount = m_LODs.Count();
+	int nCount = m_LODs.size();
 	for ( int i = 0; i < nCount; ++i )
 	{
 		if ( m_LODs[i]->m_bIsShadowLOD )

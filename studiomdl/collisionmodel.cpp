@@ -2436,13 +2436,13 @@ void ParseCollisionCommands(CJointedModel &joints, CDmeCollisionModel *pCollisio
         CCmd_JointRoot(joints, pCollisionJoints->m_RootBone.Get());
         CCmd_JoinAnimatedFriction(joints, pCollisionJoints->m_AnimatedFriction.GetElement());
 
-        for (int nIndex = 0; nIndex < pCollisionJoints->m_JointSkipList.Count(); ++nIndex) {
+        for (int nIndex = 0; nIndex < pCollisionJoints->m_JointSkipList.size(); ++nIndex) {
             CCmd_JointSkip(joints, pCollisionJoints->m_JointSkipList.Element(nIndex));
         }
 
         int nValidCollisionJointCount = 0;
 
-        for (int i = 0; i < pCollisionJoints->m_JointList.Count(); ++i) {
+        for (int i = 0; i < pCollisionJoints->m_JointList.size(); ++i) {
             const CDmeCollisionJoint *pCollisionJoint = pCollisionJoints->m_JointList.Element(i);
             if (!pCollisionJoint) {
                 MdlWarning("1000: root.collisionModel.joints[ {} ] exists but undefined\n", i);
@@ -2470,11 +2470,11 @@ void ParseCollisionCommands(CJointedModel &joints, CDmeCollisionModel *pCollisio
             CCmd_JointConstrain(joints, 1 /* y */, pJointName, pCollisionJoint->m_ConstrainY.GetElement());
             CCmd_JointConstrain(joints, 2 /* z */, pJointName, pCollisionJoint->m_ConstrainZ.GetElement());
 
-            for (int j = 0; j < pCollisionJoint->m_JointMergeList.Count(); ++j) {
+            for (int j = 0; j < pCollisionJoint->m_JointMergeList.size(); ++j) {
                 CCmd_JointMerge(joints, pJointName, pCollisionJoint->m_JointMergeList.Element(j));
             }
 
-            for (int j = 0; j < pCollisionJoint->m_JointMergeList.Count(); ++j) {
+            for (int j = 0; j < pCollisionJoint->m_JointMergeList.size(); ++j) {
                 joints.AppendCollisionPair(pJointName, pCollisionJoint->m_JointCollideList.Element(j));
             }
 

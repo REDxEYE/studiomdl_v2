@@ -49,12 +49,12 @@ private:
 //-----------------------------------------------------------------------------
 inline uint32_t CDmeFaceSet::NumIndices() const
 {
-	return m_indices.Count();
+	return m_indices.size();
 }
 
 inline const int *CDmeFaceSet::GetIndices() const
 {
-	return m_indices.Base();
+	return m_indices.data();
 }
 
 inline int CDmeFaceSet::GetIndex(uint32_t i) const

@@ -114,7 +114,7 @@ int DmeClipStack_t::AddClipToHead(const CDmeClip *pClip) {
 void DmeClipStack_t::Optimize() const {
     m_bOptimized = true;
 
-    int nClips = m_clips.Count();
+    int nClips = m_clips.size();
     if (nClips == 0) {
         m_tStart = m_tOffset = DMETIME_MINTIME + DMETIME_MAXTIME / 2; // HACK
         m_tDuration = DMETIME_MAXTIME;
@@ -174,7 +174,7 @@ void CDmeChannelsClip::OnDestruction() {
 void CDmeChannelsClip::BakeTimeScale(float scale /*= 1.0f*/) {
     float flNewScale = scale * GetTimeScale();
 
-    int nChannels = m_Channels.Count();
+    int nChannels = m_Channels.size();
     for (int i = 0; i < nChannels; ++i) {
         CDmeChannel *pChannel = m_Channels[i];
         if (!pChannel)

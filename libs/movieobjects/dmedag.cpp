@@ -74,12 +74,12 @@ CDmeShape *CDmeDag::GetShape()
 
 int CDmeDag::GetChildCount() const
 {
-	return m_Children.Count();
+	return m_Children.size();
 }
 
 CDmeDag *CDmeDag::GetChild( int i ) const
 {
-	if ( i < 0 || i >= m_Children.Count() )
+	if ( i < 0 || i >= m_Children.size() )
 		return nullptr;
 
 	return m_Children.Get( i );
@@ -264,7 +264,7 @@ void CDmeDag::GetBoundingSphere( Vector &c0, float &r0, const matrix3x4_t &pMat 
 	VectorTransform( c0, pMat, vTemp );
 	c0 = vTemp;
 
-	const int nChildren = m_Children.Count();
+	const int nChildren = m_Children.size();
 	if ( nChildren > 0 )
 	{
 		Vector c1;	// Child center
@@ -422,7 +422,7 @@ void CDmeDag::GetBoundingBox( Vector &min, Vector &max, const matrix3x4_t &pMat 
 		}
 	}
 
-	for ( int i = 0, nChildren = m_Children.Count(); i < nChildren; ++ i )
+	for ( int i = 0, nChildren = m_Children.size(); i < nChildren; ++ i )
 	{
 		CDmeDag *pChild = m_Children[i];
 

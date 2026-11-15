@@ -65,7 +65,7 @@ void CNotifyManager::PopNotificationScope( bool bAbort )
 			 !m_bSuppressingNotify && 
 			 ( ( m_nNotifyFlags & NOTIFY_CHANGE_MASK ) != 0 ) )
 		{
-			int nNotifyCount = m_Notifiers.Count();
+			int nNotifyCount = m_Notifiers.size();
 			for( int i = 0; i < nNotifyCount; ++i )
 			{
 				m_Notifiers[i]->NotifyDataChanged( m_pNotifyReason, m_nNotifySource, m_nNotifyFlags );

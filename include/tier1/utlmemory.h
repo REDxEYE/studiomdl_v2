@@ -80,9 +80,9 @@ public:
 
     const T &operator[](I i) const;
 
-    T &Element(I i);
+    T &at(I i);
 
-    const T &Element(I i) const;
+    const T &at(I i) const;
 
     // Can we use this index?
     bool IsIdxValid(I i) const;
@@ -92,16 +92,16 @@ public:
     static I InvalidIndex() { return INVALID_INDEX; }
 
     // Gets the base address (can change when adding elements!)
-    T *Base();
+    T *data();
 
-    const T *Base() const;
+    const T *data() const;
 
     // Attaches the buffer to external memory....
     void SetExternalBuffer(T *pMemory, uint32_t numElements);
 
     void SetExternalBuffer(const T *pMemory, uint32_t numElements);
 
-    void AssumeMemory(T *pMemory, int nSize);
+    void AssumeMemory(T *pMemory, size_t nSize);
 
     T *Detach();
 
@@ -117,7 +117,7 @@ public:
     // Size
     uint32_t NumAllocated() const;
 
-    uint32_t Count() const;
+    uint32_t size() const;
 
     // Grows the memory, so that at least allocated + num elements are allocated
     void Grow(uint32_t num = 1);
@@ -201,23 +201,23 @@ template<typename T, size_t SIZE, uint32_t nAlignment = 0>
 class CUtlMemoryFixed {
 public:
     // constructor, destructor
-    CUtlMemoryFixed(uint32_t nGrowSize = 0, uint32_t nInitSize = 0) { Assert(nInitSize == 0 || nInitSize == SIZE); }
-    CUtlMemoryFixed(T *pMemory, uint32_t numElements) { Assert(0); }
+    CUtlMemoryFixed(size_t nGrowSize = 0, size_t nInitSize = 0) { Assert(nInitSize == 0 || nInitSize == SIZE); }
+    CUtlMemoryFixed(T *pMemory, size_t numElements) { Assert(0); }
 
     // Can we use this index?
-    bool IsIdxValid(uint32_t i) const { return (i >= 0) && (i < SIZE); }
+    bool IsIdxValid(int32_t i) const { return (i >= 0) && (i < SIZE); }
 
     // Specify the invalid ('null') index that we'll only return on failure
     static const int INVALID_INDEX = -1; // For use with COMPILE_TIME_ASSERT
     static int InvalidIndex() { return INVALID_INDEX; }
 
     // Gets the base address
-    T *Base() {
+    T *data() {
         if (nAlignment == 0) return (T *) (&m_Memory[0]);
         else return (T *) AlignValue(&m_Memory[0], nAlignment);
     }
 
-    const T *Base() const {
+    const T *data() const {
         if (nAlignment == 0) return (T *) (&m_Memory[0]);
         else return (T *) AlignValue(&m_Memory[0], nAlignment);
     }
@@ -225,22 +225,22 @@ public:
     // element access
     T &operator[](int i) {
         Assert(IsIdxValid(i));
-        return Base()[i];
+        return data()[i];
     }
 
     const T &operator[](int i) const {
         Assert(IsIdxValid(i));
-        return Base()[i];
+        return data()[i];
     }
 
     T &Element(int i) {
         Assert(IsIdxValid(i));
-        return Base()[i];
+        return data()[i];
     }
 
     const T &Element(int i) const {
         Assert(IsIdxValid(i));
-        return Base()[i];
+        return data()[i];
     }
 
     // Attaches the buffer to external memory....
@@ -446,7 +446,7 @@ void CUtlMemory<T, I>::SetExternalBuffer(const T *pMemory, uint32_t numElements)
 }
 
 template<class T, class I>
-void CUtlMemory<T, I>::AssumeMemory(T *pMemory, int numElements) {
+void CUtlMemory<T, I>::AssumeMemory(T *pMemory, size_t numElements) {
     // Blow away any existing allocated memory
     Purge();
 
@@ -489,14 +489,14 @@ inline const T &CUtlMemory<T, I>::operator[](I i) const {
 }
 
 template<class T, class I>
-inline T &CUtlMemory<T, I>::Element(I i) {
+inline T &CUtlMemory<T, I>::at(I i) {
     Assert(!IsReadOnly());
     Assert(IsIdxValid(i));
     return m_pMemory[i];
 }
 
 template<class T, class I>
-inline const T &CUtlMemory<T, I>::Element(I i) const {
+inline const T &CUtlMemory<T, I>::at(I i) const {
     Assert(IsIdxValid(i));
     return m_pMemory[i];
 }
@@ -533,13 +533,13 @@ void CUtlMemory<T, I>::SetGrowSize(uint32_t nSize) {
 // Gets the base address (can change when adding elements!)
 //-----------------------------------------------------------------------------
 template<class T, class I>
-inline T *CUtlMemory<T, I>::Base() {
+inline T *CUtlMemory<T, I>::data() {
     Assert(!IsReadOnly());
     return m_pMemory;
 }
 
 template<class T, class I>
-inline const T *CUtlMemory<T, I>::Base() const {
+inline const T *CUtlMemory<T, I>::data() const {
     return m_pMemory;
 }
 
@@ -553,7 +553,7 @@ inline uint32_t CUtlMemory<T, I>::NumAllocated() const {
 }
 
 template<class T, class I>
-inline uint32_t CUtlMemory<T, I>::Count() const {
+inline uint32_t CUtlMemory<T, I>::size() const {
     return m_nAllocationCount;
 }
 

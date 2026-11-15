@@ -1,11 +1,5 @@
 
 
-
-#define BONE_PROFILE_LOOP(ID,COUNT)
-#define BONE_PROFILE_FUNC()  
-
-
-
 void CalcDecompressedAnimation( const mstudiocompressedikerror_t *pCompressed, int iFrame, float fraq, BoneVector &pos, BoneQuaternion &q );
 void QuaternionAccumulate( const Quaternion &p, float s, const Quaternion &q, Quaternion &qt );
 

@@ -36,7 +36,7 @@ void CDmeConnectionOperator::OnDestruction()
 {
 	g_pDataModel->DestroyElement( m_Input.GetHandle() );
 
-	int nOutputs = m_Outputs.Count();
+	int nOutputs = m_Outputs.size();
 	for ( int i = 0 ;i < nOutputs; ++i )
 	{
 		if ( m_Outputs[ i ] )
@@ -58,7 +58,7 @@ void CDmeConnectionOperator::Operate()
 	if ( !m_Input->IsValid() )
 		return;
 
-	int nOutputs = m_Outputs.Count();
+	int nOutputs = m_Outputs.size();
 	if ( nOutputs == 0 )
 		return;
 			
@@ -110,7 +110,7 @@ void CDmeConnectionOperator::GetInputAttributes( CUtlVector< CDmAttribute * > &a
 //-------------------------------------------------------------------------------------------------
 void CDmeConnectionOperator::GetOutputAttributes( CUtlVector< CDmAttribute * > &attrs )
 {
-	int nOutputs = m_Outputs.Count();
+	int nOutputs = m_Outputs.size();
 	for ( int iOutput = 0; iOutput < nOutputs; ++iOutput )
 	{
 		CDmAttribute *pOutputAttr = m_Outputs[ iOutput ]->GetReferencedAttribute();

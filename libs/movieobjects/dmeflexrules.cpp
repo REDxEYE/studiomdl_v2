@@ -204,10 +204,10 @@ void CDmeFlexRules::Operate() {
         Resolve();
     }
 
-    const int nDeltaCount = MIN(m_eDeltaStates.Count(), m_deltaToTargetMap.size());
+    const int nDeltaCount = MIN(m_eDeltaStates.size(), m_deltaToTargetMap.size());
 
     CDmrArray<Vector2D> targetWeights(m_eTarget, "deltaStateWeights");
-    const int nTargetWeightCount = targetWeights.Count();
+    const int nTargetWeightCount = targetWeights.size();
 
     for (int i = 0; i < nDeltaCount; ++i) {
         const int nTargetIndex = m_deltaToTargetMap[i];
@@ -234,11 +234,11 @@ void CDmeFlexRules::Operate() {
 //-----------------------------------------------------------------------------
 void CDmeFlexRules::Resolve() {
     if (m_deltaToTargetMap.size() <= 0 || m_eTarget.IsDirty() || m_eDeltaStates.IsDirty()) {
-        m_deltaToTargetMap.resize(m_eDeltaStates.Count());
+        m_deltaToTargetMap.resize(m_eDeltaStates.size());
 
         const CDmrElementArrayConst<CDmElement> targetStates(m_eTarget, "deltaStates");
 
-        for (int i = 0; i < m_eDeltaStates.Count(); ++i) {
+        for (int i = 0; i < m_eDeltaStates.size(); ++i) {
             m_deltaToTargetMap[i] = -1;
 
             CDmeFlexRuleBase* pDmeFlexRuleBase = m_eDeltaStates[i];
@@ -263,7 +263,7 @@ void CDmeFlexRules::GetInputAttributes(std::vector<CDmAttribute*> &attrs) {
     attrs.emplace_back(m_eDeltaStates.GetAttribute());
     attrs.emplace_back(m_vDeltaStateWeights.GetAttribute());
 
-    for (int i = 0; i < m_eDeltaStates.Count(); ++i) {
+    for (int i = 0; i < m_eDeltaStates.size(); ++i) {
         m_eDeltaStates[i]->GetOutputAttributes(attrs);
     }
 }
@@ -284,9 +284,9 @@ void CDmeFlexRules::GetOutputAttributes(std::vector<CDmAttribute*> &attrs) {
 //-----------------------------------------------------------------------------
 //
 //-----------------------------------------------------------------------------
-int CDmeFlexRules::GetDeltaStateIndex(const char* pszDeltaName) const {
-    for (int i = 0; i < m_eDeltaStates.Count(); ++i) {
-        if (!V_strcmp(pszDeltaName, m_eDeltaStates[i]->GetName()))
+int CDmeFlexRules::GetDeltaStateIndex(const std::string_view pszDeltaName) const {
+    for (int i = 0; i < m_eDeltaStates.size(); ++i) {
+        if (pszDeltaName==m_eDeltaStates[i]->GetName())
             return i;
     }
 
@@ -297,9 +297,9 @@ int CDmeFlexRules::GetDeltaStateIndex(const char* pszDeltaName) const {
 //-----------------------------------------------------------------------------
 //
 //-----------------------------------------------------------------------------
-float CDmeFlexRules::GetDeltaStateWeight(const char* pszDeltaName) const {
+float CDmeFlexRules::GetDeltaStateWeight(const std::string_view pszDeltaName) const {
     const int nDeltaStateIndex = GetDeltaStateIndex(pszDeltaName);
-    if (nDeltaStateIndex < 0 || nDeltaStateIndex >= m_vDeltaStateWeights.Count())
+    if (nDeltaStateIndex < 0 || nDeltaStateIndex >= m_vDeltaStateWeights.size())
         return 0.0f;
 
     return m_vDeltaStateWeights[nDeltaStateIndex].x; // Weights are stereo...

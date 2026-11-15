@@ -105,7 +105,7 @@ static void ApplyMacros( char * in_buf )
 {
 	CUtlVector<char *> Words;
 	V_SplitString( in_buf, " ", Words);
-	if ( ( Words.Count() == 4 ) && (! stricmp( Words[0],"ga_frame") ) )
+	if ( ( Words.size() == 4 ) && (! stricmp( Words[0],"ga_frame") ) )
 	{
 		// ga_frame frm1 frm2 n -> frame frm1{r=a},frm1{g=a},frm1{b=a},frm2{a=a} n
 		sprintf( in_buf, "frame %s{r=0},%s{g=a},%s{b=0},%s{a=a} %s",
@@ -470,7 +470,7 @@ bool CImportMKS::CreateNewFrame( CUtlVector<char *> &imageNames, float ftime )
 	Assert( pDisplayTimeAttr );
 	pDisplayTimeAttr->SetValue< float >( ftime );
 
-	for ( int i = 0; i < imageNames.Count(); ++i )
+	for ( int i = 0; i < imageNames.size(); ++i )
 	{	
 		Assert( imageNames.Count() <= MAX_IMAGES_PER_FRAME );
 		AddImage( pNewFrame, imageNames[i] );	
@@ -536,7 +536,7 @@ void CImportMKS::AddImage( CDmElement *pSequenceEntry, char *pImageName )
 
 void CImportMKS::ParseFrameImages( CUtlVector<char *> &words, CUtlVector<char *> &outImageNames )
 {
-	for ( int i = 0; i < words.Count() - 2; i++ )
+	for ( int i = 0; i < words.size() - 2; i++ )
 	{
 		char *fnamebuf = words[i+1];
 		outImageNames.AddToTail( fnamebuf );	
@@ -583,11 +583,11 @@ bool CImportMKS::Unserialize( CUtlBuffer &buf, const char *pEncodingName, int nE
 		ApplyMacros( in_str );
 		CUtlVector<char *> words;
 		V_SplitString( in_str, " ", words);
-		if ( ( words.Count() == 1) && ( !stricmp( words[0], "loop" ) ) )
+		if ( ( words.size() == 1) && ( !stricmp( words[0], "loop" ) ) )
 		{
 			SetCurrentSequenceClamp( false );
 		}
-		else if ( ( words.Count() == 2 ) && ( !stricmp( words[0], "packmode" ) ) )
+		else if ( ( words.size() == 2 ) && ( !stricmp( words[0], "packmode" ) ) )
 		{
 			// Read in the packing mode requested.
 			int eRequestedMode = ParsePackingMode( words[1] );
@@ -597,7 +597,7 @@ bool CImportMKS::Unserialize( CUtlBuffer &buf, const char *pEncodingName, int nE
 				return NULL;
 			}
 		}
-		else if ( ( words.Count() == 2) && StringHasPrefix( words[0], "sequence" ) )
+		else if ( ( words.size() == 2) && StringHasPrefix( words[0], "sequence" ) )
 		{
 			int seq_no = atoi( words[1] );
 			if ( seq_no != m_SequenceCount )
@@ -620,11 +620,11 @@ bool CImportMKS::Unserialize( CUtlBuffer &buf, const char *pEncodingName, int nE
 				return NULL;
 			}
 		}
-		else if  ( ( words.Count() >= 3) && (! stricmp( words[0], "frame" ) ) )
+		else if  ( ( words.size() >= 3) && (! stricmp( words[0], "frame" ) ) )
 		{
 			if ( m_pCurrentSequence )
 			{
-				float ftime = atof( words[ words.Count() - 1 ] );
+				float ftime = atof( words[ words.size() - 1 ] );
 //				Warning( "ftime is %f\n", ftime );
 				
 				CUtlVector<char *> imageNames;

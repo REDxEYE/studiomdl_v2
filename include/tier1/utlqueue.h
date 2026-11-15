@@ -44,7 +44,7 @@ public:
 	bool		Check( T const element );
 
 	// Returns the count of elements in the queue
-	int			Count() const { return m_heap.Count(); }
+	int			Count() const { return m_heap.size(); }
 	
 	// Is element index valid?
 	bool IsIdxValid( int i ) const;
@@ -107,7 +107,7 @@ inline T const& CUtlQueue<T,M>::Element( int i ) const
 template< class T, class M >
 inline bool CUtlQueue<T,M>::IsIdxValid( int i ) const
 {
-	return (i >= 0) && (i < m_heap.Count());
+	return (i >= 0) && (i < m_heap.size());
 }
 
 template <class T, class M>
@@ -121,8 +121,8 @@ inline T const& CUtlQueue<T, M>::RemoveAtHead()
 template <class T, class M>
 inline T const& CUtlQueue<T, M>::RemoveAtTail()
 {
-	m_current = m_heap[ m_heap.Count() - 1 ];
-	m_heap.Remove((int)(m_heap.Count() - 1));
+	m_current = m_heap[ m_heap.size() - 1 ];
+	m_heap.Remove((int)(m_heap.size() - 1));
 	return m_current; 
 }
 
@@ -136,7 +136,7 @@ inline T const& CUtlQueue<T, M>::Head()
 template <class T, class M>
 inline T const& CUtlQueue<T, M>::Tail()
 {
-	m_current = m_heap[ m_heap.Count() - 1 ];
+	m_current = m_heap[ m_heap.size() - 1 ];
 	return m_current; 
 }
 

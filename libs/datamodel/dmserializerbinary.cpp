@@ -113,12 +113,12 @@ private:
         if (uSym == DMELEMENT_HANDLE_INVALID) {
             return "";
         }
-        return pMap->Element(uSym).String();
+        return pMap->at(uSym).String();
     }
 
     inline CUtlSymbolLarge Dme_GetSymbolFromBuffer(CUtlBuffer &buf, bool bUseLargeSymbols, mapIndexToSymbol_t *pMap) {
         unsigned int uSym = (bUseLargeSymbols) ? buf.GetInt() : buf.GetShort();
-        return pMap->Element(uSym);
+        return pMap->at(uSym);
     }
 };
 
@@ -287,7 +287,7 @@ bool CDmSerializerBinary::Serialize(CUtlBuffer &outBuf, CDmElement *pRoot) {
 
     CUtlVector<CUtlSymbolLarge> symbols;
     symbols.EnsureCount(nSymbols);
-    stringSymbols.GetElements(0, nSymbols, symbols.Base());
+    stringSymbols.GetElements(0, nSymbols, symbols.data());
 
     // It's case sensitive
     mapSymbolToIndex_t symbolToIndexMap(k_eDictCompareTypeCaseSensitive);

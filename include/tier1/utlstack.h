@@ -94,7 +94,7 @@ private:
 template< class T, class M >
 inline void CUtlStack<T,M>::ResetDbgInfo()
 {
-	m_pElements = m_Memory.Base();
+	m_pElements = m_Memory.data();
 }
 
 //-----------------------------------------------------------------------------
@@ -170,13 +170,13 @@ inline T const& CUtlStack<T,M>::Element( int i ) const
 template< class T, class M >
 inline T* CUtlStack<T,M>::Base()
 {
-	return m_Memory.Base();
+	return m_Memory.data();
 }
 
 template< class T, class M >
 inline T const* CUtlStack<T,M>::Base() const
 {
-	return m_Memory.Base();
+	return m_Memory.data();
 }
 
 //-----------------------------------------------------------------------------

@@ -67,7 +67,7 @@ bool g_bStopOnExit = false;
 void CmdLib_FPrintf( FileHandle_t hFile, const char *pFormat, ... )
 {
 	static CUtlVector<char> buf;
-	if ( buf.Count() == 0 )
+	if ( buf.size() == 0 )
 	{
 		buf.SetCount( 1024 );
 	}
@@ -77,20 +77,20 @@ void CmdLib_FPrintf( FileHandle_t hFile, const char *pFormat, ... )
 	
 	while ( 1 )
 	{
-		int ret = Q_vsnprintf( buf.Base(), buf.Count(), pFormat, marker );
+		int ret = Q_vsnprintf( buf.data(), buf.size(), pFormat, marker );
 		if ( ret >= 0 )
 		{
 			// Write the string.
-			g_pFileSystem->Write( buf.Base(), ret, hFile );
+			g_pFileSystem->Write( buf.data(), ret, hFile );
 			
 			break;
 		}
 		else
 		{
 			// Make the buffer larger.
-			int newSize = buf.Count() * 2;
+			int newSize = buf.size() * 2;
 			buf.SetCount( newSize );
-			if ( buf.Count() != newSize )
+			if ( buf.size() != newSize )
 			{
 				Error( "CmdLib_FPrintf: can't allocate space for text." );
 			}
