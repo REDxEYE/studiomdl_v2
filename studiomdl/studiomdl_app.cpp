@@ -24,6 +24,7 @@
 #include "studiomdl/studiomdl_global_state.hpp"
 #include "tier1_v2/path_utils.hpp"
 #include "tier1_v2/string_utils.hpp"
+#include "studiomdl/processing.hpp"
 
 #include <filesystem>
 
@@ -756,6 +757,9 @@ bool CStudioMDLApp::Create() {
 
     SetUnhandledExceptionFilter(VExceptionFilter);
 
+    // Clean process-wide state (datamodel, search paths) before this compile sets anything up
+    if (!BeginProcessing())
+        return false;
 
     if (CommandLine()->ParmCount() == 1) {
         UsageAndExit();
@@ -773,15 +777,13 @@ bool CStudioMDLApp::Create() {
     return true;
 }
 
-bool CStudioMDLApp::Init() {
-    return InitDataModel();
-}
-
 void CStudioMDLApp::Shutdown() {
-    ShutdownDataModel();
+    EndProcessing();
 }
 
 void CStudioMDLApp::Destroy() {
+    // No-op after Shutdown; ends the processing when Create/PreInit failed after BeginProcessing
+    EndProcessing();
     LoggingSystem_PopLoggingState();
     m_pDiagnostics.reset();
     m_pState.reset();

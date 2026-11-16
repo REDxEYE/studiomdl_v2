@@ -25,6 +25,7 @@
 #include "tier2/tier2.h"
 #include "tier2/tier2dm.h"
 #include "common/filesystem_tools.h"
+#include "studiomdl/processing.hpp"
 
 
 class CDmElement;
@@ -36,9 +37,9 @@ class CDmxConvertApp : public CApplication
 {
 protected:
 	bool PreInit() override;
-	bool Init() override { return InitDataModel(); }
+	bool Init() override { return BeginProcessing(); }
 	int Main() override;
-	void Shutdown() override { ShutdownDataModel(); }
+	void Shutdown() override { EndProcessing(); }
 };
 
 int main( int argc, char **argv )

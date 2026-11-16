@@ -67,10 +67,6 @@ extern IBaseFileSystem *g_pFileSystem;
 #define myoffsetof(type,identifier) offsetof( type, identifier )
 
 
-// set these before calling CheckParm
-extern int myargc;
-extern char **myargv;
-
 // UTF-8 paths
 std::string ExpandArg( std::string_view path );	// absolute, relative to the current directory
 std::string ExpandPath( std::string_view qdir, std::string_view path );	// absolute, relative to qdir (the QC directory)
@@ -105,12 +101,6 @@ void InstallSpewFunction();
 // Install allocation hooks so we error out if an allocation can't happen.
 void InstallAllocationFunctions();
 
-// This shuts down mgrs that use threads gracefully. If you just call exit(), the threads can
-// get in a state where you can't tell if they are shutdown or not, and it can stall forever.
-typedef void (*CleanupFn)();
-void CmdLib_AtCleanup( CleanupFn pFn );	// register a callback when Cleanup() is called.
-void CmdLib_Cleanup();
-
 // entrypoint if chaining spew functions
 unsigned short SetConsoleTextColor( int red, int green, int blue, int intensity );
 void RestoreConsoleTextColor( unsigned short color );
@@ -137,24 +127,15 @@ private:
 extern CCmdLibStandardLoggingListener g_CmdLibOutputLoggingListener;
 extern CCmdLibFileLoggingListener g_CmdLibFileLoggingListener;
 
-extern	char		com_token[1024];
-
 char *copystring(const char *s);
 
 void	SafeCreatePath( char *path );
-
-extern	qboolean		archive;
-extern	char			archivedir[1024];
-
-extern	qboolean verbose;
 
 void CmdLib_AddBasePath(CmdLibContentPaths &content, std::string_view path);
 void CmdLib_AddNewSearchPath(CmdLibContentPaths &content, std::string_view path);
 
 // If fileName is below a content base path: (that base path, the rest of fileName with '/' separators)
 std::optional<std::pair<std::string, std::string>> CmdLib_HasBasePath(const CmdLibContentPaths &content, std::string_view fileName);
-
-extern bool g_bStopOnExit;
 
 // for compression routines
 typedef struct

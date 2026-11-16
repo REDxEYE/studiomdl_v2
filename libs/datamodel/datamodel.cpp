@@ -85,7 +85,9 @@ std::map< CUtlSymbolLarge, int > g_typeHistogram;
 
 
 //-----------------------------------------------------------------------------
-// Purpose:
+// Back to the state after construction, except the symbol table: element classes keep static type symbols that
+// point into it, and the next Init() reinstalls the same names. Called between compiles (EndProcessing), so every
+// element and file is destroyed here; Init() can run again afterwards.
 //-----------------------------------------------------------------------------
 void CDataModel::Shutdown() {
 #ifdef _ELEMENT_HISTOGRAM_
@@ -102,9 +104,41 @@ void CDataModel::Shutdown() {
         Warning("CDataModel:  {:d} elements left in memory!!!\n", c);
     }
 
+    // Every remaining element, of any file or of none (scratch elements). Deleting one can delete others
+    // (OnDestruction cascades), so each slot is re-checked.
+    for (int i = 0; i < static_cast<int>(m_Handles.GetHandleCount()); ++i) {
+        const DmElementHandle_t hElement = static_cast<DmElementHandle_t>(m_Handles.GetHandleFromIndex(i));
+        if (hElement != DMELEMENT_HANDLE_INVALID && GetElement(hElement)) {
+            DeleteElement(hElement, HR_ALWAYS);
+        }
+    }
+    // Handles kept (marked invalid) for elements unloaded while still referenced
+    for (int i = 0; i < static_cast<int>(m_Handles.GetHandleCount()); ++i) {
+        const UtlHandle_t h = m_Handles.GetHandleFromIndex(i);
+        if (h != UTLHANDLE_INVALID) {
+            m_Handles.RemoveHandle(h);
+        }
+    }
+    for (int i = 0; i < static_cast<int>(m_openFiles.GetHandleCount()); ++i) {
+        const DmFileId_t fileid = static_cast<DmFileId_t>(m_openFiles.GetHandleFromIndex(i));
+        if (fileid != DMFILEID_INVALID) {
+            RemoveFileId(fileid);
+        }
+    }
+    m_elementIds.RemoveAll();
+    m_unloadedIdElementMap.RemoveAll();
+
     m_ElementTypes.clear();
     m_UnknownElementTypeName = {};
     m_Serializers.Purge();
+    m_LegacyUpdaters.Purge();
+    m_FormatUpdaters.Purge();
+    m_pKeyvaluesCallbackInterface = nullptr;
+
+    m_bIsUnserializing = false;
+    m_bOnlyCreateUntypedElements = false;
+    m_bUnableToCreateOnlyUntypedElements = false;
+    m_bDeleteOrphanedElements = false;
 }
 
 

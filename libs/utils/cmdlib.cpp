@@ -45,22 +45,6 @@
 #endif
 
 
-// set these before calling CheckParm
-int myargc;
-char** myargv;
-
-int newdirs = 0;
-
-char com_token[1024];
-
-qboolean archive;
-char archivedir[1024];
-
-
-CUtlLinkedList<CleanupFn, unsigned short> g_CleanupFunctions;
-
-bool g_bStopOnExit = false;
-
 #if defined( _WIN32 ) || defined( WIN32 )
 
 void CmdLib_FPrintf(FileHandle_t hFile, const char* pFormat, ...) {
@@ -119,19 +103,6 @@ char* CmdLib_FGets(char* pOut, int outSize, FileHandle_t hFile) {
     pOut[iCur] = 0;
     return pOut;
 }
-
-#include <wincon.h>
-
-// This pauses before exiting if they use -StopOnExit. Useful for debugging.
-class CExitStopper {
-public:
-    ~CExitStopper() {
-        if (g_bStopOnExit) {
-            Warning("\nPress any key to quit.\n");
-            getch();
-        }
-    }
-} g_ExitStopper;
 
 
 static unsigned short g_InitialColor = 0xFFFF;
@@ -316,8 +287,8 @@ CCmdLibStandardLoggingListener g_CmdLibOutputLoggingListener;
 CCmdLibFileLoggingListener g_CmdLibFileLoggingListener;
 bool g_bInstalledSpewFunction = false;
 
+// Process-wide console/logging setup; later calls do nothing (a host may run several compiles)
 void InstallSpewFunction() {
-    Assert(!g_bInstalledSpewFunction);
     if (!g_bInstalledSpewFunction) {
         g_bInstalledSpewFunction = true;
         setvbuf(stdout, NULL, _IONBF, 0);
@@ -356,37 +327,9 @@ std::set_new_handler (CmdLib_NewHandler_CPP);
 }
 #endif
 
-void CmdLib_AtCleanup(CleanupFn pFn) {
-    g_CleanupFunctions.AddToTail(pFn);
-}
-
-
-void CmdLib_Cleanup() {
-    if (g_bInstalledSpewFunction) {
-        LoggingSystem_PopLoggingState();
-    }
-
-    g_CmdLibFileLoggingListener.Close();
-
-    FOR_EACH_LL(g_CleanupFunctions, i) {
-        g_CleanupFunctions[i]();
-    }
-
-#if defined( MPI )
-// Unfortunately, when you call exit(), even if you have things registered with atexit(),
-// threads go into a seemingly undefined state where GetExitCodeThread gives STILL_ACTIVE
-// and WaitForSingleObject will stall forever on the thread. Because of this, we must cleanup
-// everything that uses threads before exiting.
-VMPI_Finalize();
-#endif
-}
-
 
 #endif
 
-
-// only printf if in verbose mode
-qboolean verbose = false;
 
 
 // ---------------------------------------------------------------------------------------------------- //

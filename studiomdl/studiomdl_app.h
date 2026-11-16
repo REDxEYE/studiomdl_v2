@@ -16,11 +16,11 @@ class ScopedMdlDiagnostics;
 //-----------------------------------------------------------------------------
 class CStudioMDLApp : public CApplication {
 protected:
+    // Starts with BeginProcessing() (before PreInit adds the compile's search paths); EndProcessing() runs in Shutdown,
+    // or in Destroy when an earlier step failed
     bool Create() override;
 
     bool PreInit() override;
-
-    bool Init() override;
 
     int Main() override;
 

@@ -74,7 +74,8 @@ add_subdirectory(libs/filesystem)
 add_subdirectory(libs/vphys_lite)
 
 
-add_executable(studiomdl_v2
+# Everything of studiomdl except the entry point (studiomdl/studiomdl_app.cpp), also built into tests/repeat_process
+set(STUDIOMDL_SOURCES
         studiomdl/dmxsupport.cpp
         studiomdl/mrmsupport.cpp
         studiomdl/v1support.cpp
@@ -94,7 +95,6 @@ add_executable(studiomdl_v2
         studiomdl/collisionmodelsource.cpp
         studiomdl/studiomdl_commands.cpp
         studiomdl/studiomdl_errors.cpp
-        studiomdl/studiomdl_app.cpp
         studiomdl/studiomdl_app.h
         include/studiomdl/studiomdl_global_state.hpp
         studiomdl/mppsupport.cpp
@@ -106,37 +106,44 @@ add_executable(studiomdl_v2
         include/mdlobjects/mdlobjects.cpp
         studiomdl/studiomdl_helpers.cpp
         include/studiomdl/studiomdl_helpers.hpp
+        studiomdl/processing.cpp
+        include/studiomdl/processing.hpp
 )
-set_property(TARGET studiomdl_v2 APPEND_STRING PROPERTY COMPILE_FLAGS)
+list(TRANSFORM STUDIOMDL_SOURCES PREPEND ${PROJECT_SOURCE_DIR}/)
 
-target_compile_definitions(studiomdl_v2 PRIVATE -DSTATIC_TIER0)
-target_compile_definitions(studiomdl_v2 PRIVATE -DMDLCOMPILE)
-#target_compile_definitions(studiomdl_v2 PRIVATE -DFBX_SUPPORT)
-target_include_directories(studiomdl_v2 PUBLIC include)
-target_link_libraries(studiomdl_v2 PRIVATE
-        tier0
-        tier1
-        tier2
-        mathlib
-        utils
-        datamodel
-        dmserializers
-        movieobjects
-        bonesetup
-        mdlobjects
-        appframework
-        meshoptimizer
-        filesystem_stdio_v2_static
-        vphys_lite
-)
-if (WIN32)
-    # shell32: CommandLineToArgvW for the UTF-8 command line
-    target_link_libraries(studiomdl_v2 PRIVATE shlwapi shell32)
-endif ()
-if (MINGW)
-    # libstdc++ keeps the Windows console part of std::print (__open_terminal, __write_to_terminal) in libstdc++exp
-    target_link_libraries(studiomdl_v2 PRIVATE stdc++exp)
-endif ()
+# Compile definitions, includes and libraries of a target built from STUDIOMDL_SOURCES
+function(studiomdl_configure target)
+    target_compile_definitions(${target} PRIVATE -DSTATIC_TIER0 -DMDLCOMPILE)
+    #target_compile_definitions(${target} PRIVATE -DFBX_SUPPORT)
+    target_include_directories(${target} PUBLIC ${PROJECT_SOURCE_DIR}/include)
+    target_link_libraries(${target} PRIVATE
+            tier0
+            tier1
+            tier2
+            mathlib
+            utils
+            datamodel
+            dmserializers
+            movieobjects
+            bonesetup
+            mdlobjects
+            appframework
+            meshoptimizer
+            filesystem_stdio_v2_static
+            vphys_lite
+    )
+    if (WIN32)
+        # shell32: CommandLineToArgvW for the UTF-8 command line
+        target_link_libraries(${target} PRIVATE shlwapi shell32)
+    endif ()
+    if (MINGW)
+        # libstdc++ keeps the Windows console part of std::print (__open_terminal, __write_to_terminal) in libstdc++exp
+        target_link_libraries(${target} PRIVATE stdc++exp)
+    endif ()
+endfunction()
+
+add_executable(studiomdl_v2 ${STUDIOMDL_SOURCES} studiomdl/studiomdl_app.cpp)
+studiomdl_configure(studiomdl_v2)
 
 add_executable(dmxconvert
         dmxconvert/dmxconvert.cpp
@@ -144,6 +151,8 @@ add_executable(dmxconvert
         studiomdl/studiomdl_errors.cpp
         studiomdl/studiomdl_helpers.cpp
         include/studiomdl/studiomdl_helpers.hpp
+        studiomdl/processing.cpp
+        include/studiomdl/processing.hpp
 )
 
 set_property(TARGET dmxconvert APPEND_STRING PROPERTY COMPILE_FLAGS)

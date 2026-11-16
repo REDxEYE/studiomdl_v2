@@ -31,9 +31,12 @@ bool CDmElementFramework::Init( )
 	return true;
 }
 
+// Back to the constructed state (edit phase, nothing dirty, no operators) so the next compile starts clean
 void CDmElementFramework::Shutdown()
 {
 	m_dependencyGraph.Cleanup();
+	m_dirtyElements.RemoveAll();
+	m_phase = PH_EDIT;
 }
 
 

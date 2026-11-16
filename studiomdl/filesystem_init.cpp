@@ -805,7 +805,7 @@ FSReturnCode_t FileSystem_SetBasePaths(IFileSystem* pFileSystem) {
     if (!FileSystem_GetExecutableDir(executablePath))
         return SetupFileSystemError(FS_INVALID_PARAMETERS, "FileSystem_GetExecutableDir failed.");
 
-    pFileSystem->AddSearchPath(executablePath.c_str(), IBaseFileSystem::PathID::ExecutablePath);
+    pFileSystem->AddSearchPath(executablePath, IBaseFileSystem::PathID::ExecutablePath);
     return FS_OK;
 }
 
