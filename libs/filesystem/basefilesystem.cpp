@@ -204,7 +204,7 @@ CStdFile* CBaseFileSystem::FOpen(const char* filename, const char* options, unsi
             UtlSymId_t symFound = m_NonexistingFilesExtensions.Find(pszExt);
             if ((symFound != UTL_INVAL_SYMBOL) && m_NonexistingFilesExtensions[symFound]) {
                 DevWarning(
-                    "Known VPK-only extension [{{}}], file {{{{{{}}}}}} declared missing. Run with -fullfsvalveds to search filesystem.\n",
+                    "Known VPK-only extension [{}], file {{{}}} declared missing. Run with -fullfsvalveds to search filesystem.\n",
                     pszExt, filename);
                 return nullptr;
             }

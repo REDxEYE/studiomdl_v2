@@ -4120,7 +4120,7 @@ void SpewKey<bool>(const bool &val) {
 
 template<>
 void SpewKey<Color>(const Color &val) {
-    Msg("{:08x}", val.GetRawColor());
+    Msg("{:08x}", static_cast<uint32_t>(val.GetRawColor()));
 }
 
 template<>

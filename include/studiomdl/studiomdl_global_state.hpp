@@ -18,8 +18,11 @@
 #include "tier1_v2/auto_grow_vector.hpp"
 #include "tier1_v2/fixed_string.hpp"
 #include "tier1_v2/fixed_vector.hpp"
+#include "tier1_v2/buffer.hpp"
+#include "common/cmdlib.h"
 
-// The whole state of one studiomdl run (a single model per process), as one global: g_studiomdl.
+// The whole state of one studiomdl compile. Created by the entry point and passed explicitly (StudioMdlState &ctx)
+// to every function that needs it; nothing else holds it.
 
 // Command line switches and compile settings
 struct StudioMdlOptions {
@@ -101,9 +104,7 @@ struct StudioMdlPaths {
     std::string fullpath; // absolute UTF-8 path of the QC
     std::string qdir; // absolute QC directory, native separators, trailing separator; sources are relative to it
     std::string gameDir; // absolute game directory (outputs go to <gameDir>/models/), trailing separator
-    std::vector<std::string> contentBasePaths; // content roots that mirror the game search paths (CmdLib_AddBasePath)
-    std::vector<std::string> contentRelativeDirs; // CmdLib_AddNewSearchPath: directories added below every root
-    std::vector<std::string> contentOriginalBasePaths; // the roots before the first CmdLib_AddNewSearchPath
+    CmdLibContentPaths content; // content roots that mirror the game search paths (CmdLib_AddBasePath / CmdLib_AddNewSearchPath)
 
     // Directory stack (UTF-8, '/' terminated): [0] is the base ($cd, or "" = relative to qdir), $pushd/$popd push/pop on top.
     // Never empty: FindCachedSource and $pushd read back().
@@ -296,6 +297,49 @@ struct StudioMdlBody {
     std::vector<LodScriptData_t> ScriptLODs; // [0] is the root LOD
 };
 
+// Per-compile state that used to be file-scope globals, grouped by the code that owns it. Prefer a local of the
+// top-level function (or a class member) over a field here; only state that lives across phases belongs here.
+struct StudioMdlCommandsState {}; // studiomdl_commands.cpp, studiomdl_app.cpp
+// simplify.cpp
+struct StudioMdlSimplifyState {
+    int rootIndex = 0; // global bone index of the animation root ($root), set by processAnimations()
+};
+// write.cpp, optimize.cpp, optimize_subd.cpp, output_files.cpp, perfstats.cpp
+struct StudioMdlWriteState {
+    // -d: write .glview debug files of the optimized strips
+    bool dumpGLViewFiles = false;
+
+    // Model output files (.mdl, .ani, .vvd, .vtx) built in memory until CommitOutputFiles() (output_files.hpp).
+    // A handful of files per model: a vector keeps the write order deterministic.
+    struct OutputFile {
+        std::string name;
+        vstd::Buffer data;
+    };
+    std::vector<OutputFile> outputFiles{};
+};
+// mppsupport.cpp, dmxsupport.cpp, objsupport.cpp, v1support.cpp
+struct StudioMdlImportState {
+    s_model_t *pCurrentModel = nullptr; // model whose QcModelElements a DMX load attaches to (set around Load_Source)
+    bool contentsDescriptionWarned = false; // listed the valid "contentsDescription" values once
+};
+// studiomdl.cpp, UnifyLODs.cpp, mrmsupport.cpp, flexoptimize.cpp, studiomdl_errors.cpp
+struct StudioMdlCoreState {
+    ContentType defaultContents = ContentType::SOLID; // $contents
+    std::vector<ContentsName_t> jointContents; // $jointcontents
+    bool flexOptimizeActive = false; // FlexOptimizeSources() decided to optimize this model
+    bool quietHeaderPrinted = false; // -quiet: the QC path was printed before the first message
+};
+// collisionmodel.cpp, collisionmodelsource.cpp
+class CJointedModel; // collisionmodel.cpp
+struct StudioMdlCollisionState {
+    // The $collisionmodel / $collisionjoints (or DMX collision model) setup, built and written after simplification.
+    // Created by the first command that configures it. Constructor and destructor are defined in collisionmodel.cpp,
+    // where CJointedModel is complete (both odr-use ~unique_ptr).
+    std::unique_ptr<CJointedModel> jointedModel;
+    StudioMdlCollisionState();
+    ~StudioMdlCollisionState();
+};
+
 struct StudioMdlState {
     StudioMdlOptions options;
     StudioMdlPaths paths;
@@ -307,6 +351,11 @@ struct StudioMdlState {
     StudioMdlAnimation anim;
     StudioMdlFlex flex;
     StudioMdlBody body;
-};
 
-extern StudioMdlState g_studiomdl;
+    StudioMdlCommandsState commands;
+    StudioMdlSimplifyState simplify;
+    StudioMdlWriteState write;
+    StudioMdlImportState importers;
+    StudioMdlCoreState core;
+    StudioMdlCollisionState collision;
+};

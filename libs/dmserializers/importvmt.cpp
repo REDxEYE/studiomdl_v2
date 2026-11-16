@@ -341,7 +341,7 @@ int ParseVectorFromKeyValueString( const char *pParamName, const char* pScan, co
 		{
 			if (*pScan != ']' && *pScan != '}')
 			{
-				Warning( "Warning in .VMT file ({{}}): no ']' or '}}}}' found in vector key \"{{}}\".\n"
+				Warning( "Warning in .VMT file ({}): no ']' or '}}' found in vector key \"{}\".\n"
 					"Did you forget to surround the vector with \"s?\n", pMaterialName, pParamName );
 			}
 

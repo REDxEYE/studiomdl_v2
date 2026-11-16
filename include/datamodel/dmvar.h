@@ -14,7 +14,7 @@ class CDmAttribute;
 //-----------------------------------------------------------------------------
 template<typename T>
 class CDmaVar {
-    typedef typename CDmAttributeInfo<T>::StorageType_t D;
+    using D = CDmAttributeInfo<T>::StorageType_t;
 
 public:
     CDmaVar();
@@ -102,7 +102,7 @@ public:
 
     CDmaString& operator=(const char* src);
 
-    const CDmaString& operator=(const CDmaString &src);
+    CDmaString& operator=(const CDmaString &src);
 
     // Returns strlen
     int Length() const;

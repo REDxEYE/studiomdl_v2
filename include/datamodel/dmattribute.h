@@ -111,7 +111,7 @@ public:
 	// Get the attribute/create an attribute handle
 	DmAttributeHandle_t GetHandle( bool bCreate = true );
 
-private:
+	// Datamodel internals, used by CDmElement, the attribute wrappers (CDma*/CDmr*) and the attribute ops
 	// Class factory
 	static CDmAttribute *CreateAttribute( CDmElement *pOwner, DmAttributeType_t type, const char *pAttributeName );
 	static CDmAttribute *CreateExternalAttribute( CDmElement *pOwner, DmAttributeType_t type, const char *pAttributeName, void *pExternalMemory );
@@ -173,15 +173,6 @@ private:
 	DmAttributeHandle_t m_Handle;
 	uint16_t m_nFlags;
 	CUtlSymbolLarge m_Name;
-
-	friend class CDmElement;
-	friend class CDmAttributeAccessor;
-	template< class T > friend class CDmrElementArray;
-	template< class E > friend class CDmrElementArrayConst;
-	template< class T > friend class CDmaArrayAccessor;
-	template< class T, class B > friend class CDmrDecorator;
-	template< class T, class B > friend class CDmrDecoratorConst;
-	template< class T > friend class CDmArrayAttributeOp;
 };
 
 

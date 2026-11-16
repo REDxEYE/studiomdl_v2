@@ -16,15 +16,28 @@
 
 #include "../include/studiomdl/studiomdl_helpers.hpp"
 
-static bool g_bFirstWarning = true;
+// The diagnostics are called from ~400 places, libraries included, that know nothing about a compile, so they can't
+// take the compile state as a parameter. Instead the compile entry point installs a ScopedMdlDiagnostics, and they read
+// the options, paths and the -quiet header flag through this pointer. This is the ONLY implicit access to the compile
+// state in studiomdl; nothing else may read it. nullptr (no scope, e.g. dmxconvert): print without the compile parts.
+static thread_local StudioMdlState *s_pDiagnosticsState = nullptr;
+
+ScopedMdlDiagnostics::ScopedMdlDiagnostics(StudioMdlState &ctx) : m_pPrevious(s_pDiagnosticsState) {
+    s_pDiagnosticsState = &ctx;
+}
+
+ScopedMdlDiagnostics::~ScopedMdlDiagnostics() {
+    s_pDiagnosticsState = m_pPrevious;
+}
 
 // In a -quiet run the first message is preceded by the QC path; every message is indented under it.
 static void PrintQuietPrefix() {
-    if (!g_studiomdl.options.quiet)
+    StudioMdlState *ctx = s_pDiagnosticsState;
+    if (!ctx || !ctx->options.quiet)
         return;
-    if (g_bFirstWarning) {
-        std::print("{} :\n", g_studiomdl.paths.fullpath);
-        g_bFirstWarning = false;
+    if (!ctx->core.quietHeaderPrinted) {
+        std::print("{} :\n", ctx->paths.fullpath);
+        ctx->core.quietHeaderPrinted = true;
     }
     std::print("\t");
 }
@@ -34,7 +47,9 @@ void InstallMdlErrorHandler(ScriptTokenizer &tokenizer) {
 }
 
 void MdlErrorV(std::string_view fmt, std::format_args args) {
-    static const char *const knownExtensions[] = {".mdl", ".ani", ".phy", ".sw.vtx", ".dx80.vtx", ".dx90.vtx", ".vvd"};
+    static constexpr const char *knownExtensions[] = {".mdl", ".ani", ".phy", ".sw.vtx", ".dx80.vtx", ".dx90.vtx", ".vvd"};
+
+    StudioMdlState *ctx = s_pDiagnosticsState;
 
     PrintQuietPrefix();
     std::print("ERROR: {}", std::vformat(fmt, args));
@@ -42,15 +57,15 @@ void MdlErrorV(std::string_view fmt, std::format_args args) {
     // delete premature files
     // unforunately, content is built without verification
     // ensuring that targets are not available, prevents check-in
-    if (g_studiomdl.paths.hasModelName) {
-        if (g_studiomdl.options.quiet) {
+    if (ctx && ctx->paths.hasModelName) {
+        if (ctx->options.quiet) {
             std::print("\t");
         }
 
         // undescriptive errors in batch processes could be anonymous
-        std::print("ERROR: Aborted Processing on '{}'\n", g_studiomdl.paths.outname);
+        std::print("ERROR: Aborted Processing on '{}'\n", ctx->paths.outname);
 
-        const std::string baseName = OutputModelPath("");
+        const std::string baseName = OutputModelPath(*ctx, "");
         for (const char *pExtension: knownExtensions) {
             std::error_code ec;
             std::filesystem::remove(vstd::paths::to_fs(baseName + pExtension), ec);
@@ -61,7 +76,7 @@ void MdlErrorV(std::string_view fmt, std::format_args args) {
         g_pDataModel->UnloadFile(g_pDataModel->GetFileId(i));
     }
 
-    if (g_studiomdl.options.parseable_completion_output) {
+    if (ctx && ctx->options.parseable_completion_output) {
         std::print("\nRESULT: ERROR\n");
     }
 
@@ -69,7 +84,8 @@ void MdlErrorV(std::string_view fmt, std::format_args args) {
 }
 
 void MdlWarningV(std::string_view fmt, std::format_args args) {
-    if (g_studiomdl.options.noWarnings || g_studiomdl.options.maxWarnings == 0)
+    StudioMdlState *ctx = s_pDiagnosticsState;
+    if (ctx && (ctx->options.noWarnings || ctx->options.maxWarnings == 0))
         return;
 
     uint16_t old = SetConsoleTextColor(1, 1, 0, 1);
@@ -77,27 +93,31 @@ void MdlWarningV(std::string_view fmt, std::format_args args) {
     PrintQuietPrefix();
     std::print("WARNING: {}", std::vformat(fmt, args));
 
-    if (g_studiomdl.options.maxWarnings > 0)
-        g_studiomdl.options.maxWarnings--;
+    if (ctx) {
+        if (ctx->options.maxWarnings > 0)
+            ctx->options.maxWarnings--;
 
-    if (g_studiomdl.options.maxWarnings == 0) {
-        if (g_studiomdl.options.quiet) {
-            std::print("\t");
+        if (ctx->options.maxWarnings == 0) {
+            if (ctx->options.quiet) {
+                std::print("\t");
+            }
+            std::print("suppressing further warnings...\n");
         }
-        std::print("suppressing further warnings...\n");
     }
 
     RestoreConsoleTextColor(old);
 }
 
 void MdlMessageV(std::string_view fmt, std::format_args args) {
-    if (!g_studiomdl.options.quiet) {
+    const StudioMdlState *ctx = s_pDiagnosticsState;
+    if (!ctx || !ctx->options.quiet) {
         std::vprint_unicode(stdout, fmt, args);
     }
 }
 
 void CMdlLoggingListener::Log(const LoggingContext_t *pContext, const tchar *pMessage) {
-    if (pContext->m_Severity == LS_MESSAGE && g_studiomdl.options.quiet) {
+    const StudioMdlState *ctx = s_pDiagnosticsState;
+    if (pContext->m_Severity == LS_MESSAGE && ctx && ctx->options.quiet) {
         // suppress
     } else if (pContext->m_Severity == LS_WARNING) {
         MdlWarning("{}", pMessage);

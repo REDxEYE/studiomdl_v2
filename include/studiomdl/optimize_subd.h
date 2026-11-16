@@ -100,12 +100,12 @@ namespace OptimizedModel
 
 	inline HalfEdge *HalfEdge::NextInFace()
 	{
-		static int MOD4[8] = {0,1,2,3,0,1,2,3};
+		static constexpr int MOD4[8] = {0,1,2,3,0,1,2,3};
 		return &patch->halfEdges[MOD4[localID+1]];
 	}
 	inline HalfEdge *HalfEdge::PrevInFace()
 	{
-		static int MOD4[8] = {0,1,2,3,0,1,2,3};
+		static constexpr int MOD4[8] = {0,1,2,3,0,1,2,3};
 		return &patch->halfEdges[MOD4[localID+3]];
 	}
 	inline HalfEdge *HalfEdge::NextByHead() { return (twin== nullptr)? nullptr : twin->PrevInFace(); }

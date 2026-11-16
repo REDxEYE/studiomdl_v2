@@ -216,7 +216,7 @@ DmElementHandle_t CDmSerializerKeyValues::CreateDmElement( const char *pElementT
 	m_ElementList.AddToTail( hElement );
 
 	CDmElement *pElement = g_pDataModel->GetElement( hElement );
-	CDmeElementAccessor::DisableOnChangedCallbacks( pElement );
+	pElement->DisableOnChangedCallbacks();
 	return hElement;
 }
 
@@ -401,8 +401,8 @@ CDmElement* CDmSerializerKeyValues::UnserializeFromKeyValues( KeyValues *pKeyVal
 	for ( int i = 0; i < c; ++i )
 	{
 		CDmElement *pElement = g_pDataModel->GetElement( m_ElementList[i] );
-		CDmeElementAccessor::EnableOnChangedCallbacks( pElement );
-		CDmeElementAccessor::FinishUnserialization( pElement );
+		pElement->EnableOnChangedCallbacks();
+		pElement->FinishUnserialization();
 	}
 
 	g_pDmElementFrameworkImp->RemoveCleanElementsFromDirtyList( );

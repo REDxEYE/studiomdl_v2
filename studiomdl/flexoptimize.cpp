@@ -22,8 +22,6 @@
 
 
 namespace {
-    bool s_bFlexOptimizeActive = false;
-
     // RemapVertexAnimationsNewVersion drops deltas below (0.001^2, 0.001, 0.001). The deltas are transformed between
     // here and there, so deltas close to those thresholds may still end up as flex data: count them as moving too,
     // with thresholds 10x lower. A vertex wrongly marked as moving only costs a few cache entries; a moving vertex
@@ -83,12 +81,12 @@ namespace {
     };
 
     // Marks every vertex of the source that is moved by any of its flex keys
-    SourceFlexInfo GatherSourceFlexInfo(s_source_t *pSource) {
+    SourceFlexInfo GatherSourceFlexInfo(StudioMdlState &ctx, s_source_t *pSource) {
         SourceFlexInfo info;
         info.moving.assign(pSource->numvertices, false);
 
-        for (int i = 0; i < g_studiomdl.flex.flexkeys.size(); i++) {
-            const s_flexkey_t &key = g_studiomdl.flex.flexkeys[i];
+        for (int i = 0; i < ctx.flex.flexkeys.size(); i++) {
+            const s_flexkey_t &key = ctx.flex.flexkeys[i];
             if (key.source != pSource)
                 continue;
 
@@ -156,17 +154,17 @@ namespace {
     // The engine budget counts the flexed meshes of every model in every bodypart, whichever bodygroups are active
     // (observed in HLMV: hiding a bodygroup does not help)
     template<typename ModelCost>
-    int TotalFlexCacheCost(ModelCost modelCost) {
+    int TotalFlexCacheCost(StudioMdlState &ctx, ModelCost modelCost) {
         int total = 0;
-        for (int b = 0; b < std::ssize(g_studiomdl.body.bodypart); b++) {
-            for (int m = 0; m < std::ssize(g_studiomdl.body.bodypart[b].pmodel); m++)
-                total += modelCost(g_studiomdl.body.bodypart[b].pmodel[m]);
+        for (int b = 0; b < std::ssize(ctx.body.bodypart); b++) {
+            for (int m = 0; m < std::ssize(ctx.body.bodypart[b].pmodel); m++)
+                total += modelCost(ctx.body.bodypart[b].pmodel[m]);
         }
         return total;
     }
 
-    void PrintBudget(const char *pLabel, int nBudget) {
-        if (g_studiomdl.options.quiet)
+    void PrintBudget(StudioMdlState &ctx, const char *pLabel, int nBudget) {
+        if (ctx.options.quiet)
             return;
         if (nBudget > FLEX_CACHE_MAX_VERTICES) {
             std::print("  {}: {} / {} (over by {} flexed-mesh verts)\n", pLabel, nBudget, FLEX_CACHE_MAX_VERTICES,
@@ -178,12 +176,12 @@ namespace {
         }
     }
 
-    const char *MaterialName(const int material) {
-        return g_studiomdl.materials.textures[g_studiomdl.materials.materials[material]].name;
+    const char *MaterialName(StudioMdlState &ctx, const int material) {
+        return ctx.materials.textures[ctx.materials.materials[material]].name;
     }
 
-    bool IsAliasMaterial(int material) {
-        for (const auto &alias: g_studiomdl.materials.flexAliasMaterials) {
+    bool IsAliasMaterial(StudioMdlState &ctx, int material) {
+        for (const auto &alias: ctx.materials.flexAliasMaterials) {
             if (alias.first == material)
                 return true;
         }
@@ -208,8 +206,8 @@ namespace {
 
     // Prints one row per mesh, most flexed vertices first; "cache" is what the mesh adds to the engine's flex cache
     // (whole mesh if it has flexes)
-    void PrintMeshStats(const char *pTitle, std::vector<MeshStats> rows) {
-        if (g_studiomdl.options.quiet)
+    void PrintMeshStats(StudioMdlState &ctx, const char *pTitle, std::vector<MeshStats> rows) {
+        if (ctx.options.quiet)
             return;
 
         std::stable_sort(rows.begin(), rows.end(), [](const MeshStats &a, const MeshStats &b) {
@@ -225,15 +223,15 @@ namespace {
             if (row.verts == 0)
                 continue; // empty mesh slot (e.g. a material that has no faces in a clamped piece)
             char meshName[MAX_PATH]{};
-            V_snprintf(meshName, sizeof(meshName), "%s%s", MaterialName(row.material),
-                       IsAliasMaterial(row.material) ? " (static)" : "");
+            V_snprintf(meshName, sizeof(meshName), "%s%s", MaterialName(ctx, row.material),
+                       IsAliasMaterial(ctx, row.material) ? " (static)" : "");
             std::print("    {:<16.16} {:<22.22} {:<24.24} {:7} {:7} {:6} {:7}\n", row.bodypart, row.model, meshName, row.verts,
                    row.flexedVerts, row.flexes, row.flexes > 0 ? row.verts : 0);
         }
     }
 
     // Per mesh of the source: vertices moved by a flex, and flex keys moving at least one of its vertices
-    void SourceMeshStats(s_source_t *pSource, const std::vector<bool> &moving, const char *pBodypart,
+    void SourceMeshStats(StudioMdlState &ctx, s_source_t *pSource, const std::vector<bool> &moving, const char *pBodypart,
                          const char *pModel, std::vector<MeshStats> &rows) {
         std::vector<int> vertexSlot(pSource->numvertices, -1);
         for (int slot = 0; slot < pSource->meshes.size(); slot++) {
@@ -243,7 +241,7 @@ namespace {
         }
 
         std::vector<int> flexes(pSource->meshes.size(), 0);
-        for (const auto & key : g_studiomdl.flex.flexkeys) {
+        for (const auto & key : ctx.flex.flexkeys) {
             if (key.source != pSource || key.frame < 0 || key.frame >= MAXSTUDIOANIMFRAMES)
                 continue;
             const s_sourceanim_t *pAnim = FindSourceAnim(pSource, key.animationname.view());
@@ -271,24 +269,24 @@ namespace {
     }
 
     // Material that renders exactly like nBaseMaterial but gives a source a second mesh slot with that look
-    int GetAliasMaterial(int nBaseMaterial) {
-        for (const auto &alias: g_studiomdl.materials.flexAliasMaterials) {
+    int GetAliasMaterial(StudioMdlState &ctx, int nBaseMaterial) {
+        for (const auto &alias: ctx.materials.flexAliasMaterials) {
             if (alias.second == nBaseMaterial)
                 return alias.first;
         }
 
-        if (g_studiomdl.materials.textures.size() >= MAXSTUDIOSKINS) {
+        if (ctx.materials.textures.size() >= MAXSTUDIOSKINS) {
             MdlError("Too many materials used, max {}\n", (int) MAXSTUDIOSKINS);
         }
 
         // LookupTexture() would return the existing texture of that name, the alias needs its own slot
-        const int nBaseTexture = g_studiomdl.materials.materials[nBaseMaterial];
-        auto &aliasTexture = g_studiomdl.materials.textures.emplace(g_studiomdl.materials.textures[nBaseTexture]);
-        const int nAliasTexture = g_studiomdl.materials.textures.size() - 1;
+        const int nBaseTexture = ctx.materials.materials[nBaseMaterial];
+        auto &aliasTexture = ctx.materials.textures.emplace(ctx.materials.textures[nBaseTexture]);
+        const int nAliasTexture = ctx.materials.textures.size() - 1;
         aliasTexture.material = -1;
 
-        const int nAliasMaterial = UseTextureAsMaterial(nAliasTexture);
-        g_studiomdl.materials.flexAliasMaterials.emplace_back(nAliasMaterial, nBaseMaterial);
+        const int nAliasMaterial = UseTextureAsMaterial(ctx, nAliasTexture);
+        ctx.materials.flexAliasMaterials.emplace_back(nAliasMaterial, nBaseMaterial);
         return nAliasMaterial;
     }
 
@@ -340,7 +338,7 @@ namespace {
     }
 
     // Rebuilds vertex/face/mesh arrays of the source with the planned splits and remaps its vertex animations
-    void ApplySplits(s_source_t *pSource, const std::vector<MeshSplit> &splits) {
+    void ApplySplits(StudioMdlState &ctx, s_source_t *pSource, const std::vector<MeshSplit> &splits) {
         std::vector<s_vertexinfo_t> vertices;
         std::vector<s_face_t> faces;
         std::vector<int> oldToNew(pSource->numvertices, -1);
@@ -425,15 +423,15 @@ namespace {
         // texmap maps the source's materials to textures 1:1 for DMX/OBJ/SMD sources
         for (int i = 0; i < newMeshCount; i++) {
             const int nMaterial = newMeshIndex[i];
-            pSource->texmap[g_studiomdl.materials.materials[nMaterial]] = g_studiomdl.materials.materials[nMaterial];
+            pSource->texmap[ctx.materials.materials[nMaterial]] = ctx.materials.materials[nMaterial];
         }
     }
 
     // Plans the split of every mesh of a source; returns true if at least one mesh is split
-    bool PlanSplits(s_source_t *pSource, const std::vector<bool> &moving, const std::vector<bool> &eyeballMaterial,
+    bool PlanSplits(StudioMdlState &ctx, s_source_t *pSource, const std::vector<bool> &moving, const std::vector<bool> &eyeballMaterial,
                     std::vector<MeshSplit> &splits) {
         bool bAnySplit = false;
-        const int nMinStatic = g_studiomdl.options.flexOptimizeMinStatic;
+        const int nMinStatic = ctx.options.flexOptimizeMinStatic;
         splits.clear();
 
         for (int slot = 0; slot < pSource->meshes.size(); slot++) {
@@ -457,21 +455,21 @@ namespace {
             for (bool used: staticUsed)
                 split.staticVertexCount += used ? 1 : 0;
 
-            const char *pMaterialName = MaterialName(split.material);
+            const char *pMaterialName = MaterialName(ctx, split.material);
             if (split.movingFaces.empty() || split.staticFaces.empty()) {
                 // not flexed at all, or every face moves: nothing to gain
             }
             else if (eyeballMaterial[split.material]) {
-                if (!g_studiomdl.options.quiet)
+                if (!ctx.options.quiet)
                     std::print("  skipped {} mesh \"{}\": used by an eyeball\n", pSource->filename, pMaterialName);
             }
             else if (split.staticVertexCount < nMinStatic) {
-                if (!g_studiomdl.options.quiet)
+                if (!ctx.options.quiet)
                     std::print("  skipped {} mesh \"{}\": static part {} verts < {}\n", pSource->filename,
                            pMaterialName, split.staticVertexCount, nMinStatic);
             }
             else {
-                split.aliasMaterial = GetAliasMaterial(split.material);
+                split.aliasMaterial = GetAliasMaterial(ctx, split.material);
                 bAnySplit = true;
             }
             splits.push_back(std::move(split));
@@ -479,8 +477,8 @@ namespace {
         return bAnySplit;
     }
 
-    void PrintSplits(const s_source_t *pSource, const std::vector<MeshSplit> &splits) {
-        if (g_studiomdl.options.quiet)
+    void PrintSplits(StudioMdlState &ctx, const s_source_t *pSource, const std::vector<MeshSplit> &splits) {
+        if (ctx.options.quiet)
             return;
         for (const MeshSplit &split: splits) {
             if (split.aliasMaterial < 0)
@@ -489,7 +487,7 @@ namespace {
             const s_mesh_t &flexed = pSource->meshes[split.slot];
             const s_mesh_t &statik = pSource->meshes[FindSourceMeshIndex(pSource, split.aliasMaterial)];
             std::print("  {} mesh \"{}\": flexed {} + static {} verts\n", pSource->filename,
-                   MaterialName(split.material), flexed.numvertices, statik.numvertices);
+                   MaterialName(ctx, split.material), flexed.numvertices, statik.numvertices);
         }
     }
 }
@@ -510,18 +508,18 @@ bool ParseFlexOptimizeMode(const std::string_view text, FlexOptimizeMode_t &mode
     return false;
 }
 
-void FlexOptimizeSources() {
+void FlexOptimizeSources(StudioMdlState &ctx) {
     vstd::FunctionTimingRecorder _("Optimize");
-    if (g_studiomdl.options.flexOptimizeMode == FLEXOPT_OFF)
+    if (ctx.options.flexOptimizeMode == FLEXOPT_OFF)
         return;
 
     // Sources of all models; a source may be shared between models
     std::unordered_map<s_source_t *, SourceFlexInfo> sourceInfo;
-    for (int i = 0; i < std::ssize(g_studiomdl.body.model); i++) {
-        s_source_t *pSource = g_studiomdl.body.model[i]->source;
+    for (int i = 0; i < std::ssize(ctx.body.model); i++) {
+        s_source_t *pSource = ctx.body.model[i]->source;
         if (!pSource || !pSource->isActiveModel || sourceInfo.contains(pSource))
             continue;
-        sourceInfo.emplace(pSource, GatherSourceFlexInfo(pSource));
+        sourceInfo.emplace(pSource, GatherSourceFlexInfo(ctx, pSource));
     }
 
     bool bAnyFlexes = false;
@@ -538,44 +536,44 @@ void FlexOptimizeSources() {
             return 0;
         return SourceFlexCacheCost(pModel->source, it->second.moving);
     };
-    const int nBudgetBefore = TotalFlexCacheCost(modelCost);
+    const int nBudgetBefore = TotalFlexCacheCost(ctx, modelCost);
 
-    if (!g_studiomdl.options.quiet) {
+    if (!ctx.options.quiet) {
         std::print("Flex optimization\n");
 
         std::vector<MeshStats> rows;
-        for (int b = 0; b < std::ssize(g_studiomdl.body.bodypart); b++) {
-            for (int m = 0; m < std::ssize(g_studiomdl.body.bodypart[b].pmodel); m++) {
-                const s_model_t *pModel = g_studiomdl.body.bodypart[b].pmodel[m];
+        for (int b = 0; b < std::ssize(ctx.body.bodypart); b++) {
+            for (int m = 0; m < std::ssize(ctx.body.bodypart[b].pmodel); m++) {
+                const s_model_t *pModel = ctx.body.bodypart[b].pmodel[m];
                 if (!pModel || !pModel->source)
                     continue;
                 auto it = sourceInfo.find(pModel->source);
                 if (it == sourceInfo.end() || !it->second.hasFlexKeys)
                     continue;
-                SourceMeshStats(pModel->source, it->second.moving, g_studiomdl.body.bodypart[b].name, ModelName(pModel),
+                SourceMeshStats(ctx, pModel->source, it->second.moving, ctx.body.bodypart[b].name, ModelName(pModel),
                                 rows);
             }
         }
-        PrintMeshStats("meshes of models with flexes, before:", rows);
+        PrintMeshStats(ctx, "meshes of models with flexes, before:", rows);
     }
-    PrintBudget("flex cache budget (all bodygroups)", nBudgetBefore);
+    PrintBudget(ctx, "flex cache budget (all bodygroups)", nBudgetBefore);
 
-    if (g_studiomdl.options.flexOptimizeMode == FLEXOPT_AUTO && nBudgetBefore <= FLEX_CACHE_MAX_VERTICES) {
-        if (!g_studiomdl.options.quiet)
+    if (ctx.options.flexOptimizeMode == FLEXOPT_AUTO && nBudgetBefore <= FLEX_CACHE_MAX_VERTICES) {
+        if (!ctx.options.quiet)
             std::print("  within budget, meshes are left as they are\n");
         return;
     }
 
-    if (g_studiomdl.header.gflags & STUDIOHDR_FLAGS_SUBDIVISION_SURFACE) {
+    if (ctx.header.gflags & STUDIOHDR_FLAGS_SUBDIVISION_SURFACE) {
         MdlWarning("Flex optimization: subdivision surface models are not supported, meshes are left as they are\n");
         return;
     }
-    s_bFlexOptimizeActive = true;
+    ctx.core.flexOptimizeActive = true;
 
     // Materials of eyeball meshes: eyeballs refer to their mesh and the eye shader needs all of its faces
     std::vector<bool> eyeballMaterial(MAXSTUDIOSKINS, false);
-    for (int i = 0; i < std::ssize(g_studiomdl.body.model); i++) {
-        const s_model_t *pModel = g_studiomdl.body.model[i];
+    for (int i = 0; i < std::ssize(ctx.body.model); i++) {
+        const s_model_t *pModel = ctx.body.model[i];
         if (!pModel->source)
             continue;
         for (int e = 0; e < pModel->eyeballs.size(); e++) {
@@ -586,8 +584,8 @@ void FlexOptimizeSources() {
     }
 
     std::vector<MeshSplit> splits;
-    for (int i = 0; i < std::ssize(g_studiomdl.body.model); i++) {
-        s_source_t *pSource = g_studiomdl.body.model[i]->source;
+    for (int i = 0; i < std::ssize(ctx.body.model); i++) {
+        s_source_t *pSource = ctx.body.model[i]->source;
         auto it = sourceInfo.find(pSource);
         if (it == sourceInfo.end() || !it->second.hasFlexKeys)
             continue;
@@ -599,44 +597,44 @@ void FlexOptimizeSources() {
             continue;
         }
 
-        if (PlanSplits(pSource, info.moving, eyeballMaterial, splits)) {
-            ApplySplits(pSource, splits);
-            PrintSplits(pSource, splits);
-            info.moving = GatherSourceFlexInfo(pSource).moving;
+        if (PlanSplits(ctx, pSource, info.moving, eyeballMaterial, splits)) {
+            ApplySplits(ctx, pSource, splits);
+            PrintSplits(ctx, pSource, splits);
+            info.moving = GatherSourceFlexInfo(ctx, pSource).moving;
         }
         info.hasFlexKeys = false; // done, sources shared by several models are split once
     }
 
-    PrintBudget("flex cache budget after splitting (estimate)", TotalFlexCacheCost(modelCost));
+    PrintBudget(ctx, "flex cache budget after splitting (estimate)", TotalFlexCacheCost(ctx, modelCost));
 }
 
-bool FlexOptimizeIsActive() {
-    return s_bFlexOptimizeActive;
+bool FlexOptimizeIsActive(StudioMdlState &ctx) {
+    return ctx.core.flexOptimizeActive;
 }
 
-std::vector<bool> FlexOptimizeMovingVertices(s_source_t *pSource) {
-    return GatherSourceFlexInfo(pSource).moving;
+std::vector<bool> FlexOptimizeMovingVertices(StudioMdlState &ctx, s_source_t *pSource) {
+    return GatherSourceFlexInfo(ctx, pSource).moving;
 }
 
-void FlexOptimizeFixupSkinFamilies() {
+void FlexOptimizeFixupSkinFamilies(StudioMdlState &ctx) {
     // The alias material shows the same texture as its base material in every skin family
-    for (const auto &alias: g_studiomdl.materials.flexAliasMaterials) {
-        for (int family = 0; family < std::ssize(g_studiomdl.materials.skinref); family++) {
-            g_studiomdl.materials.skinref[family][alias.first] = g_studiomdl.materials.skinref[family][alias.second];
+    for (const auto &alias: ctx.materials.flexAliasMaterials) {
+        for (int family = 0; family < std::ssize(ctx.materials.skinref); family++) {
+            ctx.materials.skinref[family][alias.first] = ctx.materials.skinref[family][alias.second];
         }
     }
 }
 
-void CheckFlexCacheBudget() {
+void CheckFlexCacheBudget(StudioMdlState &ctx) {
     vstd::FunctionTimingRecorder _("Optimize");
     // Same rule as WriteModel: a mesh has flexes if a vertex animation of a flex key of its model lands in its range
-    std::vector<int> meshCost(g_studiomdl.body.nummodelsbeforeLOD, 0);
+    std::vector<int> meshCost(ctx.body.nummodelsbeforeLOD, 0);
     std::unordered_map<const s_model_t *, int> modelIndex;
-    std::vector<std::vector<MeshStats> > modelRows(g_studiomdl.body.nummodelsbeforeLOD);
+    std::vector<std::vector<MeshStats> > modelRows(ctx.body.nummodelsbeforeLOD);
     bool bAnyFlexes = false;
 
-    for (int i = 0; i < g_studiomdl.body.nummodelsbeforeLOD; i++) {
-        const s_model_t *pModel = g_studiomdl.body.model[i];
+    for (int i = 0; i < ctx.body.nummodelsbeforeLOD; i++) {
+        const s_model_t *pModel = ctx.body.model[i];
         modelIndex[pModel] = i;
         const s_loddata_t *pLodData = pModel->m_pLodData;
         if (!pLodData || !pModel->source)
@@ -647,12 +645,12 @@ void CheckFlexCacheBudget() {
             const s_mesh_t &mesh = pLodData->mesh[nMaterial];
             std::vector<bool> flexedVertex(mesh.numvertices, false);
             int flexes = 0;
-            for (int j = 0; j < g_studiomdl.flex.flexkeys.size(); j++) {
-                if (g_studiomdl.flex.flexkeys[j].imodel != i)
+            for (int j = 0; j < ctx.flex.flexkeys.size(); j++) {
+                if (ctx.flex.flexkeys[j].imodel != i)
                     continue;
                 bool bTouches = false;
-                for (int k = 0; k < g_studiomdl.flex.flexkeys[j].numvanims; k++) {
-                    const int n = g_studiomdl.flex.flexkeys[j].vanim[k].vertex - (int) mesh.vertexoffset;
+                for (int k = 0; k < ctx.flex.flexkeys[j].numvanims; k++) {
+                    const int n = ctx.flex.flexkeys[j].vanim[k].vertex - (int) mesh.vertexoffset;
                     if (n >= 0 && n < (int) mesh.numvertices) {
                         bTouches = true;
                         flexedVertex[n] = true;
@@ -678,34 +676,34 @@ void CheckFlexCacheBudget() {
         auto it = modelIndex.find(pModel);
         return it == modelIndex.end() ? 0 : meshCost[it->second];
     };
-    const int nBudget = TotalFlexCacheCost(modelCost);
+    const int nBudget = TotalFlexCacheCost(ctx, modelCost);
 
-    if (!g_studiomdl.options.quiet) {
+    if (!ctx.options.quiet) {
         std::print("Flex optimization: result\n");
         // every mesh of every model that has flexes or whose source had flexes (static parts, clamped pieces)
         std::vector<MeshStats> rows;
-        for (int b = 0; b < std::ssize(g_studiomdl.body.bodypart); b++) {
-            for (int m = 0; m < std::ssize(g_studiomdl.body.bodypart[b].pmodel); m++) {
-                auto it = modelIndex.find(g_studiomdl.body.bodypart[b].pmodel[m]);
+        for (int b = 0; b < std::ssize(ctx.body.bodypart); b++) {
+            for (int m = 0; m < std::ssize(ctx.body.bodypart[b].pmodel); m++) {
+                auto it = modelIndex.find(ctx.body.bodypart[b].pmodel[m]);
                 if (it == modelIndex.end())
                     continue;
                 const int i = it->second;
-                const s_source_t *pSource = g_studiomdl.body.model[i]->source;
+                const s_source_t *pSource = ctx.body.model[i]->source;
                 bool bShow = meshCost[i] > 0;
                 for (const MeshStats &row: modelRows[i])
-                    bShow = bShow || IsAliasMaterial(row.material);
+                    bShow = bShow || IsAliasMaterial(ctx, row.material);
                 bShow = bShow || (pSource && !pSource->m_FlexKeys.empty());
                 if (!bShow)
                     continue;
                 for (MeshStats row: modelRows[i]) {
-                    row.bodypart = g_studiomdl.body.bodypart[b].name;
+                    row.bodypart = ctx.body.bodypart[b].name;
                     rows.push_back(row);
                 }
             }
         }
-        PrintMeshStats("meshes of models with flexes, after:", rows);
+        PrintMeshStats(ctx, "meshes of models with flexes, after:", rows);
     }
-    PrintBudget("flex cache budget (all bodygroups)", nBudget);
+    PrintBudget(ctx, "flex cache budget (all bodygroups)", nBudget);
 
     if (nBudget <= FLEX_CACHE_MAX_VERTICES)
         return;
@@ -720,12 +718,12 @@ void CheckFlexCacheBudget() {
         int cost;
     };
     std::vector<ModelEntry> entries;
-    for (int b = 0; b < std::ssize(g_studiomdl.body.bodypart); b++) {
-        for (int m = 0; m < std::ssize(g_studiomdl.body.bodypart[b].pmodel); m++) {
-            const s_model_t *pModel = g_studiomdl.body.bodypart[b].pmodel[m];
+    for (int b = 0; b < std::ssize(ctx.body.bodypart); b++) {
+        for (int m = 0; m < std::ssize(ctx.body.bodypart[b].pmodel); m++) {
+            const s_model_t *pModel = ctx.body.bodypart[b].pmodel[m];
             const int cost = modelCost(pModel);
             if (cost > 0)
-                entries.push_back({g_studiomdl.body.bodypart[b].name, pModel, cost});
+                entries.push_back({ctx.body.bodypart[b].name, pModel, cost});
         }
     }
     std::stable_sort(entries.begin(), entries.end(),

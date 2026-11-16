@@ -53,25 +53,25 @@ static void ParseContents(ScriptTokenizer &qc, ContentType &addFlags, ContentTyp
     } while (qc.TokenAvailable());
 }
 
-void ProcessModelName(std::string_view modelName) {
+void ProcessModelName(StudioMdlState &ctx, std::string_view modelName) {
     // Abort early if modelname is too big
     std::string rawModelName(modelName);
     vstd::paths::strip_extension(rawModelName);
     // write.cpp strips extension then adds .mdl and writes that into studiohdr_t::name
 
     // Need one for sizeof operation to work...
-    if (rawModelName.size() + 4 >= g_studiomdl.paths.outname.capacity()) {
+    if (rawModelName.size() + 4 >= ctx.paths.outname.capacity()) {
         MdlError("Model Name \"{}.mdl\" Too Big, {} Characters, Max {} Characters\n",
                  rawModelName,
                  rawModelName.size() + 4,
-                 g_studiomdl.paths.outname.capacity() - 1);
+                 ctx.paths.outname.capacity() - 1);
     }
 
-    g_studiomdl.paths.hasModelName = true;
-    g_studiomdl.paths.outname = modelName;
+    ctx.paths.hasModelName = true;
+    ctx.paths.outname = modelName;
 #ifdef POSIX
-    // "$modelname dir\\name.mdl" is common in QCs written on Windows; the output path is built from g_studiomdl.paths.outname
-    vstd::paths::fix_slashes(g_studiomdl.paths.outname);
+    // "$modelname dir\\name.mdl" is common in QCs written on Windows; the output path is built from ctx.paths.outname
+    vstd::paths::fix_slashes(ctx.paths.outname);
 #endif
 }
 
@@ -123,44 +123,44 @@ bool ParseOptionStudio(ScriptTokenizer &qc, CDmeSourceSkin* pSkin) {
 //-----------------------------------------------------------------------------
 // Parse the body command from a .qc file
 //-----------------------------------------------------------------------------
-void ProcessOptionStudio(s_model_t* pmodel, const char* pFullPath, float flScale, bool bFlipTriangles, bool bQuadSubd) {
+void ProcessOptionStudio(StudioMdlState &ctx, s_model_t* pmodel, const char* pFullPath, float flScale, bool bFlipTriangles, bool bQuadSubd) {
     pmodel->filename = pFullPath;
 
     if (flScale != 0.0f) {
-        pmodel->scale = g_studiomdl.script.currentscale = flScale;
+        pmodel->scale = ctx.script.currentscale = flScale;
     }
     else {
-        pmodel->scale = g_studiomdl.script.currentscale = g_studiomdl.script.defaultscale;
+        pmodel->scale = ctx.script.currentscale = ctx.script.defaultscale;
     }
 
-    g_pCurrentModel = pmodel;
+    ctx.importers.pCurrentModel = pmodel;
 
     // load source
-    pmodel->source = Load_Source(pmodel->filename.c_str(), "", bFlipTriangles, true);
+    pmodel->source = Load_Source(ctx, pmodel->filename.c_str(), "", bFlipTriangles, true);
 
-    g_pCurrentModel = nullptr;
+    ctx.importers.pCurrentModel = nullptr;
 
     // Reset currentscale to whatever global we currently have set
-    // g_studiomdl.script.defaultscale gets set in Cmd_ScaleUp everytime the $scale command is used.
-    g_studiomdl.script.currentscale = g_studiomdl.script.defaultscale;
+    // ctx.script.defaultscale gets set in Cmd_ScaleUp everytime the $scale command is used.
+    ctx.script.currentscale = ctx.script.defaultscale;
 }
 
 //-----------------------------------------------------------------------------
 // Process a body command
 //-----------------------------------------------------------------------------
-void ProcessCmdBody(const char* pFullPath, const char* pBodyPartName, float flScale, bool bFlipTriangles,
+void ProcessCmdBody(StudioMdlState &ctx, const char* pFullPath, const char* pBodyPartName, float flScale, bool bFlipTriangles,
                     bool bQuadSubd) {
-    s_bodypart_t &bodypart = g_studiomdl.body.AddBodyPart();
+    s_bodypart_t &bodypart = ctx.body.AddBodyPart();
     Q_strncpy(bodypart.name, pBodyPartName, sizeof(bodypart.name));
 
     s_model_t* pmodel = c_allocate<s_model_t>();
-    const int imodel = g_studiomdl.body.AddModel(pmodel);
+    const int imodel = ctx.body.AddModel(pmodel);
     bodypart.pmodel.push_back(pmodel);
 
-    ProcessOptionStudio(pmodel, pFullPath, flScale, bFlipTriangles, bQuadSubd);
+    ProcessOptionStudio(ctx, pmodel, pFullPath, flScale, bFlipTriangles, bQuadSubd);
 
     // Body command should add any flex commands in the source loaded
-    PostProcessSource(pmodel->source, imodel);
+    PostProcessSource(ctx, pmodel->source, imodel);
 }
 
 
@@ -168,14 +168,14 @@ void ProcessCmdBody(const char* pFullPath, const char* pBodyPartName, float flSc
 // Purpose: Handle the $boneflexdriver command
 // QC: $boneflexdriver <bone name> <tx|ty|tz> <flex controller name> <min> <max>
 //-----------------------------------------------------------------------------
-void Cmd_BoneFlexDriver(ScriptTokenizer &qc) {
+void Cmd_BoneFlexDriver(StudioMdlState &ctx, ScriptTokenizer &qc) {
     // Find or create the DmeBoneFlexDriverList
     CDmeBoneFlexDriverList* pDmeBoneFlexDriverList = GetElement<CDmeBoneFlexDriverList>(
-        g_studiomdl.flex.hDmeBoneFlexDriverList);
+        ctx.flex.hDmeBoneFlexDriverList);
     if (!pDmeBoneFlexDriverList) {
         pDmeBoneFlexDriverList = CreateElement<CDmeBoneFlexDriverList>("boneDriverFlexList", DMFILEID_INVALID);
         if (pDmeBoneFlexDriverList) {
-            g_studiomdl.flex.hDmeBoneFlexDriverList = pDmeBoneFlexDriverList->GetHandle();
+            ctx.flex.hDmeBoneFlexDriverList = pDmeBoneFlexDriverList->GetHandle();
         }
     }
 
@@ -228,41 +228,41 @@ void Cmd_BoneFlexDriver(ScriptTokenizer &qc) {
     pDmeBoneFlexDriverControl->m_flMax = qc.TokenFloat();
 }
 
-void Cmd_PoseParameter(ScriptTokenizer &qc) {
-    if (std::ssize(g_studiomdl.anim.pose) >= MAXSTUDIOPOSEPARAM) {
+void Cmd_PoseParameter(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    if (std::ssize(ctx.anim.pose) >= MAXSTUDIOPOSEPARAM) {
         qc.Error("too many pose parameters (max {})\n", MAXSTUDIOPOSEPARAM);
     }
 
     qc.ExpectToken(); //[wills] unless you want a pose parameter named "poseparameter", should probably GetToken here
 
-    int i = LookupPoseParameter(qc.token);
-    strcpyn(g_studiomdl.anim.pose[i].name, qc.token);
+    int i = LookupPoseParameter(ctx, qc.token);
+    strcpyn(ctx.anim.pose[i].name, qc.token);
 
     if (qc.TokenAvailable()) {
         // min
-        qc.ExpectFloatToken(g_studiomdl.anim.pose[i].min);
+        qc.ExpectFloatToken(ctx.anim.pose[i].min);
     }
 
     if (qc.TokenAvailable()) {
         // max
-        qc.ExpectFloatToken(g_studiomdl.anim.pose[i].max);
+        qc.ExpectFloatToken(ctx.anim.pose[i].max);
     }
 
     while (qc.TokenAvailable()) {
         qc.ExpectToken();
 
         if (vstd::iequals(qc.token, "wrap")) {
-            g_studiomdl.anim.pose[i].flags |= StudioSequenceFlags::Looping;
-            g_studiomdl.anim.pose[i].loop = g_studiomdl.anim.pose[i].max - g_studiomdl.anim.pose[i].min;
+            ctx.anim.pose[i].flags |= StudioSequenceFlags::Looping;
+            ctx.anim.pose[i].loop = ctx.anim.pose[i].max - ctx.anim.pose[i].min;
         }
         else if (vstd::iequals(qc.token, "loop")) {
-            g_studiomdl.anim.pose[i].flags |= StudioSequenceFlags::Looping;
-            qc.ExpectFloatToken(g_studiomdl.anim.pose[i].loop);
+            ctx.anim.pose[i].flags |= StudioSequenceFlags::Looping;
+            qc.ExpectFloatToken(ctx.anim.pose[i].loop);
         }
     }
 }
 
-void Cmd_OverrideMaterial(ScriptTokenizer &qc) {
+void Cmd_OverrideMaterial(StudioMdlState &ctx, ScriptTokenizer &qc) {
     char to[256];
 
     qc.ExpectToken();
@@ -271,12 +271,12 @@ void Cmd_OverrideMaterial(ScriptTokenizer &qc) {
     Msg("$overridematerial is replacing ALL material references with {}.\n", to);
 
     int i;
-    for (i = 0; i < g_studiomdl.materials.textures.size(); i++) {
-        strcpy(g_studiomdl.materials.textures[i].name, to);
+    for (i = 0; i < ctx.materials.textures.size(); i++) {
+        strcpy(ctx.materials.textures[i].name, to);
     }
 }
 
-void Cmd_RenameMaterial(ScriptTokenizer &qc) {
+void Cmd_RenameMaterial(StudioMdlState &ctx, ScriptTokenizer &qc) {
     char from[256];
     char to[256];
 
@@ -287,18 +287,18 @@ void Cmd_RenameMaterial(ScriptTokenizer &qc) {
     strcpy(to, qc.token);
 
     int i;
-    for (i = 0; i < g_studiomdl.materials.textures.size(); i++) {
-        if (vstd::iequals(g_studiomdl.materials.textures[i].name, from)) {
-            strcpy(g_studiomdl.materials.textures[i].name, to);
+    for (i = 0; i < ctx.materials.textures.size(); i++) {
+        if (vstd::iequals(ctx.materials.textures[i].name, from)) {
+            strcpy(ctx.materials.textures[i].name, to);
             return;
         }
     }
 
-    for (i = 0; i < g_studiomdl.materials.textures.size(); i++) {
-        if (vstd::ifind(g_studiomdl.materials.textures[i].name, from) != std::string_view::npos) {
+    for (i = 0; i < ctx.materials.textures.size(); i++) {
+        if (vstd::ifind(ctx.materials.textures[i].name, from) != std::string_view::npos) {
             Msg("$renamematerial fell back to partial match: Replacing {} with {}.\n",
-                g_studiomdl.materials.textures[i].name.c_str(), to);
-            strcpy(g_studiomdl.materials.textures[i].name, to);
+                ctx.materials.textures[i].name.c_str(), to);
+            strcpy(ctx.materials.textures[i].name, to);
             return;
         }
     }
@@ -306,127 +306,127 @@ void Cmd_RenameMaterial(ScriptTokenizer &qc) {
     qc.Error("unknown material \"{}\" in rename\n", from);
 }
 
-void Cmd_Eyeposition(ScriptTokenizer &qc) {
-    // rotate points into frame of reference so g_studiomdl.body.model points down the positive x
+void Cmd_Eyeposition(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    // rotate points into frame of reference so ctx.body.model points down the positive x
     // axis
     //	FIXME: these coords are bogus
-    qc.ExpectFloatToken(g_studiomdl.header.eyeposition[1]);
+    qc.ExpectFloatToken(ctx.header.eyeposition[1]);
 
     qc.ExpectToken();
-    g_studiomdl.header.eyeposition[0] = -qc.TokenFloat();
+    ctx.header.eyeposition[0] = -qc.TokenFloat();
 
-    qc.ExpectFloatToken(g_studiomdl.header.eyeposition[2]);
+    qc.ExpectFloatToken(ctx.header.eyeposition[2]);
 }
 
-void Cmd_MaxEyeDeflection(ScriptTokenizer &qc) {
+void Cmd_MaxEyeDeflection(StudioMdlState &ctx, ScriptTokenizer &qc) {
     qc.ExpectToken();
-    g_studiomdl.header.flMaxEyeDeflection = cosf(qc.TokenFloat() * M_PI / 180.0f);
+    ctx.header.flMaxEyeDeflection = cosf(qc.TokenFloat() * M_PI / 180.0f);
 }
 
 //-----------------------------------------------------------------------------
 // Cmd_AddSearchDir: add the custom defined path to an array that we will add to the search paths
 //-----------------------------------------------------------------------------
-void Cmd_AddSearchDir(ScriptTokenizer &qc) {
+void Cmd_AddSearchDir(StudioMdlState &ctx, ScriptTokenizer &qc) {
     qc.ExpectToken();
-    if (!g_studiomdl.options.quiet) {
+    if (!ctx.options.quiet) {
         std::print("New search path: {}\n", qc.token);
     }
-    CmdLib_AddNewSearchPath(qc.token.view());
+    CmdLib_AddNewSearchPath(ctx.paths.content, qc.token.view());
 }
 
 //-----------------------------------------------------------------------------
 // Cmd_Illumposition
 //-----------------------------------------------------------------------------
-void Cmd_Illumposition(ScriptTokenizer &qc) {
-    qc.ExpectFloatToken("illumposition <x>", g_studiomdl.header.illumposition[0]);
+void Cmd_Illumposition(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    qc.ExpectFloatToken("illumposition <x>", ctx.header.illumposition[0]);
 
-    qc.ExpectFloatToken("illumposition <y>", g_studiomdl.header.illumposition[1]);
+    qc.ExpectFloatToken("illumposition <y>", ctx.header.illumposition[1]);
 
-    qc.ExpectFloatToken("illumposition <z>", g_studiomdl.header.illumposition[2]);
+    qc.ExpectFloatToken("illumposition <z>", ctx.header.illumposition[2]);
 
     if (qc.TokenAvailable()) {
         qc.ExpectToken();
 
-        auto &attachment = g_studiomdl.bones.attachments.emplace_back(s_attachment_t{
+        auto &attachment = ctx.bones.attachments.emplace_back(s_attachment_t{
             .name = "__illumPosition",
             .bonename = qc.token,
             .type = AttachmentType::Rigid,
         });
 
-        AngleMatrix(QAngle(0, 0, 0), g_studiomdl.header.illumposition, attachment.local);
+        AngleMatrix(QAngle(0, 0, 0), ctx.header.illumposition, attachment.local);
 
-        g_studiomdl.header.illumpositionattachment = vstd::as_signed_checked<int>(g_studiomdl.bones.attachments.size());
+        ctx.header.illumpositionattachment = vstd::as_signed_checked<int>(ctx.bones.attachments.size());
         // No -1 because 0 is used as no illumposiotion attachment
     }
     else {
-        g_studiomdl.header.illumpositionattachment = 0;
+        ctx.header.illumpositionattachment = 0;
 
         // rotate points into frame of reference so
-        // g_studiomdl.body.model points down the positive x axis
+        // ctx.body.model points down the positive x axis
         // FIXME: these coords are bogus
-        const float flTemp = g_studiomdl.header.illumposition[0];
-        g_studiomdl.header.illumposition[0] = -g_studiomdl.header.illumposition[1];
-        g_studiomdl.header.illumposition[1] = flTemp;
+        const float flTemp = ctx.header.illumposition[0];
+        ctx.header.illumposition[0] = -ctx.header.illumposition[1];
+        ctx.header.illumposition[1] = flTemp;
     }
 
-    g_studiomdl.header.illumpositionset = true;
+    ctx.header.illumpositionset = true;
 }
 
 //-----------------------------------------------------------------------------
 // Parse Cmd_Modelname
 //-----------------------------------------------------------------------------
-static void Cmd_Modelname(ScriptTokenizer &qc) {
+static void Cmd_Modelname(StudioMdlState &ctx, ScriptTokenizer &qc) {
     qc.ExpectToken("<path>");
 
     if (qc.token[0] == '/' || qc.token[0] == '\\') {
         MdlWarning("$modelname key has slash as first character. Removing.\n");
-        ProcessModelName(&qc.token[1]);
+        ProcessModelName(ctx, &qc.token[1]);
     }
     else {
-        ProcessModelName(qc.token.view());
+        ProcessModelName(ctx, qc.token.view());
     }
 }
 
-static void Cmd_InternalName(ScriptTokenizer &qc) {
+static void Cmd_InternalName(StudioMdlState &ctx, ScriptTokenizer &qc) {
     qc.ExpectToken("<path>");
-    Q_strncpy(g_studiomdl.paths.internalName, qc.token, sizeof(g_studiomdl.paths.internalName));
+    Q_strncpy(ctx.paths.internalName, qc.token, sizeof(ctx.paths.internalName));
 }
 
 
-static void Cmd_PreserveTriangleOrder(ScriptTokenizer &_) {
-    g_studiomdl.options.preserveTriangleOrder = true;
+static void Cmd_PreserveTriangleOrder(StudioMdlState &ctx, ScriptTokenizer &_) {
+    ctx.options.preserveTriangleOrder = true;
 }
 
-static void Cmd_Autocenter(ScriptTokenizer &_) {
-    g_studiomdl.header.centerstaticprop = true;
+static void Cmd_Autocenter(StudioMdlState &ctx, ScriptTokenizer &_) {
+    ctx.header.centerstaticprop = true;
 }
 
 
 //-----------------------------------------------------------------------------
 // Parse + process the studio options from a .qc file
 //-----------------------------------------------------------------------------
-void Option_Studio(ScriptTokenizer &qc, s_model_t* pmodel) {
+void Option_Studio(StudioMdlState &ctx, ScriptTokenizer &qc, s_model_t* pmodel) {
     auto* pSourceSkin = CreateElement<CDmeSourceSkin>("", DMFILEID_INVALID);
 
     // Set defaults
-    pSourceSkin->m_flScale = g_studiomdl.script.defaultscale;
+    pSourceSkin->m_flScale = ctx.script.defaultscale;
     pSourceSkin->m_bQuadSubd = false;
     pSourceSkin->m_bFlipTriangles = false;
 
     if (ParseOptionStudio(qc, pSourceSkin)) {
-        ProcessOptionStudio(pmodel, pSourceSkin->GetRelativeFileName(), pSourceSkin->m_flScale,
+        ProcessOptionStudio(ctx, pmodel, pSourceSkin->GetRelativeFileName(), pSourceSkin->m_flScale,
                             pSourceSkin->m_bFlipTriangles, pSourceSkin->m_bQuadSubd);
     }
     DestroyElement(pSourceSkin);
 }
 
 // Adds a "blank" model to the bodypart
-int Option_Blank(s_bodypart_t &bodypart) {
+int Option_Blank(StudioMdlState &ctx, s_bodypart_t &bodypart) {
     auto* pmodel = c_allocate<s_model_t>();
-    g_studiomdl.body.AddModel(pmodel);
+    ctx.body.AddModel(pmodel);
 
     auto* source = c_allocate<s_source_t>();
-    g_studiomdl.anim.sources.emplace_back(source);
+    ctx.anim.sources.emplace_back(source);
 
     pmodel->source = source;
     bodypart.pmodel.push_back(pmodel);
@@ -435,13 +435,13 @@ int Option_Blank(s_bodypart_t &bodypart) {
     return 0;
 }
 
-void Cmd_Bodygroup(ScriptTokenizer &qc) {
+void Cmd_Bodygroup(StudioMdlState &ctx, ScriptTokenizer &qc) {
     vstd::FunctionTimingRecorder _("Parse");
     int is_started = 0;
 
     qc.ExpectToken("bodygroup <name>");
 
-    s_bodypart_t &bodypart = g_studiomdl.body.AddBodyPart();
+    s_bodypart_t &bodypart = ctx.body.AddBodyPart();
     strcpyn(bodypart.name, qc.token);
 
     do {
@@ -455,16 +455,16 @@ void Cmd_Bodygroup(ScriptTokenizer &qc) {
         }
         else if (vstd::iequals("studio", qc.token)) {
             auto* pmodel = c_allocate<s_model_t>();
-            const int imodel = g_studiomdl.body.AddModel(pmodel);
+            const int imodel = ctx.body.AddModel(pmodel);
             bodypart.pmodel.push_back(pmodel);
 
-            Option_Studio(qc, pmodel);
+            Option_Studio(ctx, qc, pmodel);
 
             // Body command should add any flex commands in the source loaded
-            PostProcessSource(pmodel->source, imodel);
+            PostProcessSource(ctx, pmodel->source, imodel);
         }
         else if (vstd::iequals("blank", qc.token)) {
-            Option_Blank(bodypart);
+            Option_Blank(ctx, bodypart);
         }
         else {
             qc.Error("unknown bodygroup option: \"{}\"\n", qc.token);
@@ -472,20 +472,20 @@ void Cmd_Bodygroup(ScriptTokenizer &qc) {
     } while (1);
 }
 
-void Cmd_AppendBlankBodygroup(ScriptTokenizer &qc) {
+void Cmd_AppendBlankBodygroup(StudioMdlState &ctx, ScriptTokenizer &qc) {
     // stick a blank bodygroup on the end of the current part
-    if (g_studiomdl.body.bodypart.empty()) {
+    if (ctx.body.bodypart.empty()) {
         qc.Error("$appendblankbodygroup: no bodygroup to append to\n");
     }
-    Option_Blank(g_studiomdl.body.bodypart.back());
+    Option_Blank(ctx, ctx.body.bodypart.back());
 }
 
-void Cmd_BodygroupPreset(ScriptTokenizer &qc) {
+void Cmd_BodygroupPreset(StudioMdlState &ctx, ScriptTokenizer &qc) {
     qc.ExpectToken("preset <name>");
 
     // make sure this name is unused
-    for (size_t i = 0; i < g_studiomdl.body.bodygrouppresets.size(); i++) {
-        if (!V_strcmp(qc.token, g_studiomdl.body.bodygrouppresets[i].name)) {
+    for (size_t i = 0; i < ctx.body.bodygrouppresets.size(); i++) {
+        if (!V_strcmp(qc.token, ctx.body.bodygrouppresets[i].name)) {
             qc.Error("Error: bodygroup preset \"{}\" already exists.\n", qc.token);
             return;
         }
@@ -510,7 +510,7 @@ void Cmd_BodygroupPreset(ScriptTokenizer &qc) {
             //gather up name:value pairs into a baked bodygroup value and mask
 
             bool bFoundPart = false;
-            for (const s_bodypart_t &bodypart: g_studiomdl.body.bodypart) {
+            for (const s_bodypart_t &bodypart: ctx.body.bodypart) {
                 if (!V_strcmp(bodypart.name, qc.token)) {
                     const int numModels = static_cast<int>(bodypart.pmodel.size());
                     int iValue;
@@ -545,24 +545,24 @@ void Cmd_BodygroupPreset(ScriptTokenizer &qc) {
 
     //Msg( "Built bodygroup preset: {}, value: {:d}, mask:{:d}\n", newpreset.name, newpreset.iValue, newpreset.iMask );
 
-    g_studiomdl.body.bodygrouppresets.push_back(newpreset);
+    ctx.body.bodygrouppresets.push_back(newpreset);
 }
 
 //-----------------------------------------------------------------------------
 // Parse the body command from a .qc file
 //-----------------------------------------------------------------------------
-void Cmd_Body(ScriptTokenizer &qc) {
+void Cmd_Body(StudioMdlState &ctx, ScriptTokenizer &qc) {
     vstd::FunctionTimingRecorder _("Parse");
     qc.ExpectToken("body <name>");
 
     CDmeSourceSkin* pSourceSkin = CreateElement<CDmeSourceSkin>("", DMFILEID_INVALID);
 
     // Set defaults
-    pSourceSkin->m_flScale = g_studiomdl.script.defaultscale;
+    pSourceSkin->m_flScale = ctx.script.defaultscale;
 
     pSourceSkin->m_SkinName = qc.token;
     if (ParseOptionStudio(qc, pSourceSkin)) {
-        ProcessCmdBody(pSourceSkin->GetRelativeFileName(), pSourceSkin->m_SkinName.Get(),
+        ProcessCmdBody(ctx, pSourceSkin->GetRelativeFileName(), pSourceSkin->m_SkinName.Get(),
                        pSourceSkin->m_flScale, pSourceSkin->m_bFlipTriangles, pSourceSkin->m_bQuadSubd);
     }
     DestroyElement(pSourceSkin);
@@ -570,25 +570,25 @@ void Cmd_Body(ScriptTokenizer &qc) {
 
 //-----------------------------------------------------------------------------
 // Add all attachments from the source to the global attachment list
-// stopping when the g_studiomdl.attachment array is full.  Duplicate attachments
+// stopping when the ctx.attachment array is full.  Duplicate attachments
 // will be purged later after they are linked to bones
 //-----------------------------------------------------------------------------
-void AddBodyAttachments(s_source_t* pSource) {
+void AddBodyAttachments(StudioMdlState &ctx, s_source_t* pSource) {
     for (size_t i = 0; i < pSource->m_Attachments.size(); ++i) {
-        if (g_studiomdl.bones.attachments.size() >= g_studiomdl.bones.attachments.capacity()) {
+        if (ctx.bones.attachments.size() >= ctx.bones.attachments.capacity()) {
             MdlWarning("Too Many Attachments (Max {}), Ignoring Attachment {}:{}\n",
-                       g_studiomdl.bones.attachments.capacity(), pSource->filename,
+                       ctx.bones.attachments.capacity(), pSource->filename,
                        pSource->m_Attachments[i].name);
             continue;;
         }
-        g_studiomdl.bones.attachments.emplace_back(pSource->m_Attachments[i]);
+        ctx.bones.attachments.emplace_back(pSource->m_Attachments[i]);
     }
 }
 
 //-----------------------------------------------------------------------------
 // Adds flex controller data to a particular source
 //-----------------------------------------------------------------------------
-void AddFlexControllers(s_source_t* pSource) {
+void AddFlexControllers(StudioMdlState &ctx, s_source_t* pSource) {
     std::vector<int> &r2s = pSource->m_rawIndexToRemapSourceIndex;
     std::vector<int> &r2l = pSource->m_rawIndexToRemapLocalIndex;
     std::vector<int> &l2i = pSource->m_leftRemapIndexToGlobalFlexControllIndex;
@@ -629,9 +629,9 @@ void AddFlexControllers(s_source_t* pSource) {
             // hlfaceposer to recognize them
 
             // See if we can add two more flex controllers
-            if ((g_studiomdl.flex.flexcontrollers.size() + 1) >= g_studiomdl.flex.flexcontrollers.capacity())
+            if ((ctx.flex.flexcontrollers.size() + 1) >= ctx.flex.flexcontrollers.capacity())
                 MdlError("Line {}: Too many flex controllers, max {}, cannot add split control {} from source {}",
-                         g_studiomdl.input.iLinecount, g_studiomdl.flex.flexcontrollers.capacity(),
+                         ctx.input.iLinecount, ctx.flex.flexcontrollers.capacity(),
                          remapControl.m_Name,
                          pSource->filename);
 
@@ -639,9 +639,9 @@ void AddFlexControllers(s_source_t* pSource) {
             const std::string rightName = "right_" + remapControl.m_Name;
             const std::string leftName = "left_" + remapControl.m_Name;
 
-            r2i[i] = remapControl.m_RightIndex = g_studiomdl.flex.flexcontrollers.size();
+            r2i[i] = remapControl.m_RightIndex = ctx.flex.flexcontrollers.size();
             {
-                auto &pController = g_studiomdl.flex.flexcontrollers.emplace_back(s_flexcontroller_t{
+                auto &pController = ctx.flex.flexcontrollers.emplace_back(s_flexcontroller_t{
                     .name = rightName.c_str(),
                     .type = rightName.c_str()
                 });
@@ -657,9 +657,9 @@ void AddFlexControllers(s_source_t* pSource) {
                 }
             }
 
-            l2i[i] = remapControl.m_LeftIndex = g_studiomdl.flex.flexcontrollers.size();
+            l2i[i] = remapControl.m_LeftIndex = ctx.flex.flexcontrollers.size();
             {
-                auto &pController = g_studiomdl.flex.flexcontrollers.emplace_back(s_flexcontroller_t{
+                auto &pController = ctx.flex.flexcontrollers.emplace_back(s_flexcontroller_t{
                     .name = leftName.c_str(),
                     .type = leftName.c_str()
                 });
@@ -677,14 +677,14 @@ void AddFlexControllers(s_source_t* pSource) {
         }
         else {
             // See if we can add one more flex controller
-            if (g_studiomdl.flex.flexcontrollers.size() >= g_studiomdl.flex.flexcontrollers.capacity())
+            if (ctx.flex.flexcontrollers.size() >= ctx.flex.flexcontrollers.capacity())
                 MdlError("Line {}: Too many flex controllers, max {}, cannot add control {} from source {}",
-                         g_studiomdl.input.iLinecount, g_studiomdl.flex.flexcontrollers.capacity(),
+                         ctx.input.iLinecount, ctx.flex.flexcontrollers.capacity(),
                          remapControl.m_Name,
                          pSource->filename);
 
-            r2i[i] = l2i[i] = remapControl.m_Index = g_studiomdl.flex.flexcontrollers.size();
-            s_flexcontroller_t &pController = g_studiomdl.flex.flexcontrollers.emplace_back(s_flexcontroller_t{
+            r2i[i] = l2i[i] = remapControl.m_Index = ctx.flex.flexcontrollers.size();
+            s_flexcontroller_t &pController = ctx.flex.flexcontrollers.emplace_back(s_flexcontroller_t{
                 .name = remapControl.m_Name.c_str(),
                 .type = remapControl.m_Name.c_str()
             });
@@ -702,17 +702,17 @@ void AddFlexControllers(s_source_t* pSource) {
 
         if (remapControl.m_RemapType == Nway ||
             remapControl.m_RemapType == Eyelid) {
-            if (g_studiomdl.flex.flexcontrollers.size() >= g_studiomdl.flex.flexcontrollers.capacity())
+            if (ctx.flex.flexcontrollers.size() >= ctx.flex.flexcontrollers.capacity())
                 MdlError(
                     "Line {}: Too many flex controllers, max {}, cannot add value control for nWay {} from source {}",
-                    g_studiomdl.input.iLinecount, g_studiomdl.flex.flexcontrollers.capacity(), remapControl.m_Name,
+                    ctx.input.iLinecount, ctx.flex.flexcontrollers.capacity(), remapControl.m_Name,
                     pSource->filename);
 
-            remapControl.m_MultiIndex = g_studiomdl.flex.flexcontrollers.size();
+            remapControl.m_MultiIndex = ctx.flex.flexcontrollers.size();
 
             const std::string multiName = "multi_" + remapControl.m_Name;
 
-            g_studiomdl.flex.flexcontrollers.emplace_back(s_flexcontroller_t{
+            ctx.flex.flexcontrollers.emplace_back(s_flexcontroller_t{
                 .name = multiName.c_str(),
                 .type = multiName.c_str(),
                 .min = -1.0f,
@@ -723,14 +723,14 @@ void AddFlexControllers(s_source_t* pSource) {
         if (remapControl.m_RemapType == Eyelid) {
             // Make a blink controller
 
-            if (g_studiomdl.flex.flexcontrollers.size() >= g_studiomdl.flex.flexcontrollers.capacity())
+            if (ctx.flex.flexcontrollers.size() >= ctx.flex.flexcontrollers.capacity())
                 MdlError(
                     "Line {}: Too many flex controllers, max {}, cannot add value control for nWay {} from source {}",
-                    g_studiomdl.input.iLinecount, g_studiomdl.flex.flexcontrollers.capacity(), remapControl.m_Name,
+                    ctx.input.iLinecount, ctx.flex.flexcontrollers.capacity(), remapControl.m_Name,
                     pSource->filename);
 
-            remapControl.m_BlinkController = g_studiomdl.flex.flexcontrollers.size();
-            g_studiomdl.flex.flexcontrollers.emplace_back(s_flexcontroller_t{
+            remapControl.m_BlinkController = ctx.flex.flexcontrollers.size();
+            ctx.flex.flexcontrollers.emplace_back(s_flexcontroller_t{
                 .name = "blink",
                 .type = "blink",
                 .min = 0.0f,
@@ -751,11 +751,11 @@ void AddFlexControllers(s_source_t* pSource) {
 //-----------------------------------------------------------------------------
 // Adds flex controller remappers
 //-----------------------------------------------------------------------------
-void AddBodyFlexRemaps(s_source_t* pSource) {
+void AddBodyFlexRemaps(StudioMdlState &ctx, s_source_t* pSource) {
     const int nCount = std::ssize(pSource->m_FlexControllerRemaps);
     for (int i = 0; i < nCount; ++i) {
-        g_studiomdl.flex.FlexControllerRemap.emplace_back();
-        s_flexcontrollerremap_t &remap = g_studiomdl.flex.FlexControllerRemap.back();
+        ctx.flex.FlexControllerRemap.emplace_back();
+        s_flexcontrollerremap_t &remap = ctx.flex.FlexControllerRemap.back();
         remap = pSource->m_FlexControllerRemaps[i];
     }
 }
@@ -763,32 +763,32 @@ void AddBodyFlexRemaps(s_source_t* pSource) {
 //-----------------------------------------------------------------------------
 // Process a body command
 //-----------------------------------------------------------------------------
-void AddBodyFlexData(s_source_t* pSource, int imodel, bool bAddControllers) {
-    pSource->m_nKeyStartIndex = vstd::as_signed_checked<int>(g_studiomdl.flex.flexkeys.size());
+void AddBodyFlexData(StudioMdlState &ctx, s_source_t* pSource, int imodel, bool bAddControllers) {
+    pSource->m_nKeyStartIndex = vstd::as_signed_checked<int>(ctx.flex.flexkeys.size());
 
     // Add flex keys
     const auto nCount = std::ssize(pSource->m_FlexKeys);
     for (int i = 0; i < nCount; ++i) {
         s_flexkey_t &key = pSource->m_FlexKeys[i];
 
-        if (g_studiomdl.flex.flexkeys.size() >= g_studiomdl.flex.flexkeys.capacity())
+        if (ctx.flex.flexkeys.size() >= ctx.flex.flexkeys.capacity())
             MdlError("Line {}: Too many flex keys, max {}, cannot add flexKey {} from source {}",
-                     g_studiomdl.input.iLinecount, MAXSTUDIOFLEXKEYS, key.animationname,
+                     ctx.input.iLinecount, MAXSTUDIOFLEXKEYS, key.animationname,
                      pSource->filename);
 
-        auto &new_flex = g_studiomdl.flex.flexkeys.emplace(key);
+        auto &new_flex = ctx.flex.flexkeys.emplace(key);
         new_flex.imodel = imodel;
 
         // flexpair was set up in AddFlexKey
         if (key.flexpair) {
             char mod[512];
             Q_snprintf(mod, sizeof(mod), "%sL", key.animationname.c_str());
-            new_flex.flexdesc = Add_Flexdesc(mod);
+            new_flex.flexdesc = Add_Flexdesc(ctx, mod);
             Q_snprintf(mod, sizeof(mod), "%sR", key.animationname.c_str());
-            new_flex.flexpair = Add_Flexdesc(mod);
+            new_flex.flexpair = Add_Flexdesc(ctx, mod);
         }
         else {
-            new_flex.flexdesc = Add_Flexdesc(key.animationname);
+            new_flex.flexdesc = Add_Flexdesc(ctx, key.animationname);
             new_flex.flexpair = 0;
         }
     }
@@ -796,14 +796,14 @@ void AddBodyFlexData(s_source_t* pSource, int imodel, bool bAddControllers) {
     // Flex controllers and their remaps are global: pieces of a split model (ClampMaxVerticesPerModel) share the
     // ones that were added for the original source and must not add them again.
     if (bAddControllers) {
-        AddFlexControllers(pSource);
+        AddFlexControllers(ctx, pSource);
 
-        AddBodyFlexRemaps(pSource);
+        AddBodyFlexRemaps(ctx, pSource);
     }
 }
 
 
-void Option_Eyeball(ScriptTokenizer &qc, s_model_t* pmodel) {
+void Option_Eyeball(StudioMdlState &ctx, ScriptTokenizer &qc, s_model_t* pmodel) {
     Vector tmp;
     int i, j;
     vstd::FixedString<256> szMeshMaterial;
@@ -821,7 +821,7 @@ void Option_Eyeball(ScriptTokenizer &qc, s_model_t* pmodel) {
             break;
         }
     }
-    if (!g_studiomdl.options.createMakefile && i >= pmodel->source->numbones) {
+    if (!ctx.options.createMakefile && i >= pmodel->source->numbones) {
         qc.Error("unknown eyeball bone \"{}\"\n", qc.token);
     }
 
@@ -836,7 +836,7 @@ void Option_Eyeball(ScriptTokenizer &qc, s_model_t* pmodel) {
 
     // mesh material
     qc.ExpectStringToken(szMeshMaterial);
-    auto mesh_material = UseTextureAsMaterial(LookupTexture(szMeshMaterial.view()));
+    auto mesh_material = UseTextureAsMaterial(ctx, LookupTexture(ctx, szMeshMaterial.view()));
 
     // diameter
     qc.ExpectToken();
@@ -864,7 +864,7 @@ void Option_Eyeball(ScriptTokenizer &qc, s_model_t* pmodel) {
         }
     }
 
-    if (!g_studiomdl.options.createMakefile && i >= pmodel->source->meshes.size()) {
+    if (!ctx.options.createMakefile && i >= pmodel->source->meshes.size()) {
         qc.Error("can't find eyeball texture \"{}\" on model\n", szMeshMaterial);
     }
 
@@ -872,7 +872,7 @@ void Option_Eyeball(ScriptTokenizer &qc, s_model_t* pmodel) {
     VectorITransform(tmp, pmodel->source->boneToPose[eyeball.bone], eyeball.org);
 
     matrix3x4_t vtmp;
-    AngleMatrix(g_studiomdl.script.defaultrotation, vtmp);
+    AngleMatrix(ctx.script.defaultrotation, vtmp);
 
     VectorIRotate(Vector(0, 0, 1), vtmp, tmp);
     VectorIRotate(tmp, pmodel->source->boneToPose[eyeball.bone], eyeball.up);
@@ -895,14 +895,14 @@ void Option_Eyeball(ScriptTokenizer &qc, s_model_t* pmodel) {
 // Then an NWAY controller will be defined to play back the flex data
 // as an animation as the controller goes from [0,1]
 //-----------------------------------------------------------------------------
-static void Option_VertexCacheAnimationFile(const std::string_view vtaFilePath, const size_t modelIndex) {
-    if (!g_studiomdl.flex.flexkeys.empty()) {
+static void Option_VertexCacheAnimationFile(StudioMdlState &ctx, const std::string_view vtaFilePath, const size_t modelIndex) {
+    if (!ctx.flex.flexkeys.empty()) {
         MdlError("{}: Flexes already defined.  vcafile can be only flex option in $model block\n", __FUNCTION__);
         return;
     }
 
-    s_source_t* pSource = g_studiomdl.body.model[modelIndex]->source;
-    s_source_t* pVtaSource = Load_Source(vtaFilePath, "vta");
+    s_source_t* pSource = ctx.body.model[modelIndex]->source;
+    s_source_t* pVtaSource = Load_Source(ctx, vtaFilePath, "vta");
 
     if (pVtaSource->m_Animations.empty()) {
         MdlError("{}: No animations in VertexCacheAnimationFile \"{}\"\n", __FUNCTION__, vtaFilePath);
@@ -910,8 +910,8 @@ static void Option_VertexCacheAnimationFile(const std::string_view vtaFilePath, 
     }
 
     {
-        g_studiomdl.flex.flexkeys.emplace(s_flexkey_t{
-            .flexdesc = Add_Flexdesc("default"),
+        ctx.flex.flexkeys.emplace(s_flexkey_t{
+            .flexdesc = Add_Flexdesc(ctx, "default"),
             .flexpair = 0,
             .source = pVtaSource,
             .animationname = pVtaSource->m_Animations[0].animationname,
@@ -934,8 +934,8 @@ static void Option_VertexCacheAnimationFile(const std::string_view vtaFilePath, 
         sTmp.format("f{}", i);
 
         {
-            g_studiomdl.flex.flexkeys.emplace(s_flexkey_t{
-                .flexdesc = Add_Flexdesc(sTmp),
+            ctx.flex.flexkeys.emplace(s_flexkey_t{
+                .flexdesc = Add_Flexdesc(ctx, sTmp),
                 .flexpair = 0,
                 .source = pVtaSource,
                 .animationname = pVtaSource->m_Animations[0].animationname,
@@ -971,8 +971,8 @@ static void Option_VertexCacheAnimationFile(const std::string_view vtaFilePath, 
 
     for (auto &m_RawControl: flexRemap.m_RawControls) {
         int nFlexKey = -1;
-        for (int j = 0; j < g_studiomdl.flex.flexkeys.size(); ++j) {
-            if (vstd::iequals(g_studiomdl.flex.flexdescs[g_studiomdl.flex.flexkeys[j].flexdesc].FACS, m_RawControl)) {
+        for (int j = 0; j < ctx.flex.flexkeys.size(); ++j) {
+            if (vstd::iequals(ctx.flex.flexdescs[ctx.flex.flexkeys[j].flexdesc].FACS, m_RawControl)) {
                 nFlexKey = j;
                 break;
             }
@@ -991,19 +991,19 @@ static void Option_VertexCacheAnimationFile(const std::string_view vtaFilePath, 
         combinationRule.m_Combination.push_back(nFlexKey - 1);
     }
 
-    AddFlexControllers(pSource);
+    AddFlexControllers(ctx, pSource);
 
-    AddBodyFlexRemaps(pSource);
+    AddBodyFlexRemaps(ctx, pSource);
 }
 
 
-void Option_Spherenormals(ScriptTokenizer &qc, s_source_t* psource) {
+void Option_Spherenormals(StudioMdlState &ctx, ScriptTokenizer &qc, s_source_t* psource) {
     Vector pos;
     vstd::FixedString<256> szMeshMaterial;
 
     // mesh material
     qc.ExpectStringToken(szMeshMaterial);
-    const auto meshMaterial = UseTextureAsMaterial(LookupTexture(qc.token.view()));
+    const auto meshMaterial = UseTextureAsMaterial(ctx, LookupTexture(ctx, qc.token.view()));
 
     // X
     qc.ExpectFloatToken(pos[0]);
@@ -1059,7 +1059,7 @@ const s_sourceanim_t* GetNewStyleSourceVertexAnim(const s_source_t* source, cons
 // QC Syntax: dmxeyelid <upper|lower> <source> lowerer <delta> <-0.20 neutral F00 0.19 raiser F02 0.28 righteyeball righteye lefteyeball lefteye
 // e.g: dmxeyelid upper "coach_model_merged.dmx" lowerer F01 -0.20 neutral F00 0.19 raiser F02 0.28 righteyeball righteye lefteyeball lefteye
 //-----------------------------------------------------------------------------
-void Option_DmxEyelid(ScriptTokenizer &qc, int imodel) {
+void Option_DmxEyelid(StudioMdlState &ctx, ScriptTokenizer &qc, int imodel) {
     // upper | lower
     const char* pszType = nullptr;
     qc.ExpectToken();
@@ -1079,10 +1079,10 @@ void Option_DmxEyelid(ScriptTokenizer &qc, int imodel) {
     qc.ExpectToken();
     sSourceFile = qc.token;
 
-    s_source_t* pSource = Load_Source(sSourceFile.c_str(), "dmx");
+    s_source_t* pSource = Load_Source(ctx, sSourceFile.c_str(), "dmx");
     if (!pSource) {
-        qc.Error("({}) : {}:  Cannot load source file \"{}\"\n", g_studiomdl.input.iLinecount,
-                 g_studiomdl.input.szLine, sSourceFile);
+        qc.Error("({}) : {}:  Cannot load source file \"{}\"\n", ctx.input.iLinecount,
+                 ctx.input.szLine, sSourceFile);
         return;
     }
 
@@ -1121,8 +1121,8 @@ void Option_DmxEyelid(ScriptTokenizer &qc, int imodel) {
                 eyelid.m_pSourceAnim = GetNewStyleSourceVertexAnim(pSource, qc.token.view());
                 if (eyelid.m_pSourceAnim == nullptr) {
                     qc.Error("({}) : {}:  No DMX vertex animation named \"{}\" in source \"{}\"\n",
-                             g_studiomdl.input.iLinecount,
-                             g_studiomdl.input.szLine, qc.token, sSourceFile);
+                             ctx.input.iLinecount,
+                             ctx.input.szLine, qc.token, sSourceFile);
                     return;
                 }
 
@@ -1151,23 +1151,23 @@ void Option_DmxEyelid(ScriptTokenizer &qc, int imodel) {
     int nRightLeftBaseDesc[kRightLeftTypeCount] = {-1, -1};
 
     const std::string sRightBaseDesc = std::string(pszType) + "_right";
-    nRightLeftBaseDesc[kRight] = Add_Flexdesc(sRightBaseDesc.c_str());
+    nRightLeftBaseDesc[kRight] = Add_Flexdesc(ctx, sRightBaseDesc.c_str());
 
     for (int i = 0; i < kEyelidTypeCount; ++i) {
         const std::string sRightLocalDesc = sRightBaseDesc + "_" + eyelidData[i].m_pszSuffix;
-        eyelidData[i].m_nFlexDesc[kRight] = Add_Flexdesc(sRightLocalDesc.c_str());
+        eyelidData[i].m_nFlexDesc[kRight] = Add_Flexdesc(ctx, sRightLocalDesc.c_str());
     }
 
     const std::string sLeftBaseDesc = std::string(pszType) + "_left";
-    nRightLeftBaseDesc[kLeft] = Add_Flexdesc(sLeftBaseDesc.c_str());
+    nRightLeftBaseDesc[kLeft] = Add_Flexdesc(ctx, sLeftBaseDesc.c_str());
 
     for (int i = 0; i < kEyelidTypeCount; ++i) {
         const std::string sLeftLocalDesc = sLeftBaseDesc + "_" + eyelidData[i].m_pszSuffix;
-        eyelidData[i].m_nFlexDesc[kLeft] = Add_Flexdesc(sLeftLocalDesc.c_str());
+        eyelidData[i].m_nFlexDesc[kLeft] = Add_Flexdesc(ctx, sLeftLocalDesc.c_str());
     }
 
     for (int i = 0; i < kEyelidTypeCount; ++i) {
-        s_flexkey_t* pFlexKey = &g_studiomdl.flex.flexkeys.emplace_back(s_flexkey_t{
+        s_flexkey_t* pFlexKey = &ctx.flex.flexkeys.emplace_back(s_flexkey_t{
             .flexdesc = nRightLeftBaseDesc[kLeft],
             .flexpair = nRightLeftBaseDesc[kRight],
             .source = pSource,
@@ -1205,7 +1205,7 @@ void Option_DmxEyelid(ScriptTokenizer &qc, int imodel) {
     bool bRightOk = false;
     bool bLeftOk = false;
 
-    s_model_t* pModel = g_studiomdl.body.model[imodel];
+    s_model_t* pModel = ctx.body.model[imodel];
     for (int i = 0; i < pModel->eyeballs.size(); ++i) {
         s_eyeball_t* pEyeball = &(pModel->eyeballs[i]);
         if (!pEyeball)
@@ -1262,25 +1262,25 @@ void Option_DmxEyelid(ScriptTokenizer &qc, int imodel) {
     }
 }
 
-int Option_Mouth(ScriptTokenizer &qc, s_model_t* pmodel) {
+int Option_Mouth(StudioMdlState &ctx, ScriptTokenizer &qc, s_model_t* pmodel) {
     // index
     qc.ExpectToken();
     int index = qc.TokenInt();
     // flex controller name
     qc.ExpectToken();
-    g_studiomdl.flex.mouth[index].flexdesc = Add_Flexdesc(qc.token);
+    ctx.flex.mouth[index].flexdesc = Add_Flexdesc(ctx, qc.token);
 
     // bone name
-    qc.ExpectStringToken(g_studiomdl.flex.mouth[index].bonename);
+    qc.ExpectStringToken(ctx.flex.mouth[index].bonename);
 
     // vector
-    qc.ExpectFloatToken(g_studiomdl.flex.mouth[index].forward[0]);
-    qc.ExpectFloatToken(g_studiomdl.flex.mouth[index].forward[1]);
-    qc.ExpectFloatToken(g_studiomdl.flex.mouth[index].forward[2]);
+    qc.ExpectFloatToken(ctx.flex.mouth[index].forward[0]);
+    qc.ExpectFloatToken(ctx.flex.mouth[index].forward[1]);
+    qc.ExpectFloatToken(ctx.flex.mouth[index].forward[2]);
     return 0;
 }
 
-void Option_Flexcontroller(ScriptTokenizer &qc, s_model_t* pmodel) {
+void Option_Flexcontroller(StudioMdlState &ctx, ScriptTokenizer &qc, s_model_t* pmodel) {
     char type[256];
     float range_min = 0.0f;
     float range_max = 1.0f;
@@ -1298,11 +1298,11 @@ void Option_Flexcontroller(ScriptTokenizer &qc, s_model_t* pmodel) {
             qc.ExpectFloatToken(range_max);
         }
         else {
-            if (g_studiomdl.flex.flexcontrollers.size() >= g_studiomdl.flex.flexcontrollers.capacity()) {
-                qc.Error("Too many flex controllers, max {}\n", g_studiomdl.flex.flexcontrollers.capacity());
+            if (ctx.flex.flexcontrollers.size() >= ctx.flex.flexcontrollers.capacity()) {
+                qc.Error("Too many flex controllers, max {}\n", ctx.flex.flexcontrollers.capacity());
             }
 
-            g_studiomdl.flex.flexcontrollers.emplace_back(s_flexcontroller_t{
+            ctx.flex.flexcontrollers.emplace_back(s_flexcontroller_t{
                 .name = qc.token,
                 .type = type,
                 .min = range_min,
@@ -1314,9 +1314,9 @@ void Option_Flexcontroller(ScriptTokenizer &qc, s_model_t* pmodel) {
     // this needs to be per model.
 }
 
-void Option_NoAutoDMXRules(s_source_t* pSource) {
+void Option_NoAutoDMXRules(StudioMdlState &ctx, s_source_t* pSource) {
     // zero out the automatic flex controllers
-    g_studiomdl.flex.flexcontrollers.clear();
+    ctx.flex.flexcontrollers.clear();
     pSource->bNoAutoDMXRules = true;
 }
 
@@ -1362,8 +1362,8 @@ int ParseEmpty(ScriptTokenizer &qc) {
     return 0;
 }
 
-void Option_Flex(ScriptTokenizer &qc, char* name, char* vtafile, int imodel, float pairsplit) {
-    if (g_studiomdl.flex.flexkeys.size() >= MAXSTUDIOFLEXKEYS) {
+void Option_Flex(StudioMdlState &ctx, ScriptTokenizer &qc, char* name, char* vtafile, int imodel, float pairsplit) {
+    if (ctx.flex.flexkeys.size() >= MAXSTUDIOFLEXKEYS) {
         qc.Error("Too many flexes, max {}\n", MAXSTUDIOFLEXKEYS);
     }
 
@@ -1372,18 +1372,18 @@ void Option_Flex(ScriptTokenizer &qc, char* name, char* vtafile, int imodel, flo
     if (pairsplit != 0) {
         char mod[256];
         sprintf(mod, "%sR", name);
-        flexdesc = Add_Flexdesc(mod);
+        flexdesc = Add_Flexdesc(ctx, mod);
 
         sprintf(mod, "%sL", name);
-        flexpair = Add_Flexdesc(mod);
+        flexpair = Add_Flexdesc(ctx, mod);
     }
     else {
-        flexdesc = Add_Flexdesc(name);
+        flexdesc = Add_Flexdesc(ctx, name);
         flexpair = 0;
     }
 
     // initialize
-    auto &new_flexkey = g_studiomdl.flex.flexkeys.emplace(s_flexkey_t{
+    auto &new_flexkey = ctx.flex.flexkeys.emplace(s_flexkey_t{
         .flexdesc = flexdesc,
         .flexpair = flexpair,
         .imodel = imodel,
@@ -1395,7 +1395,7 @@ void Option_Flex(ScriptTokenizer &qc, char* name, char* vtafile, int imodel, flo
         .decay = 1.0,
     });
 
-    const auto current_count = g_studiomdl.flex.flexkeys.size() - 1;
+    const auto current_count = ctx.flex.flexkeys.size() - 1;
 
     while (qc.TokenAvailable()) {
         qc.ExpectToken();
@@ -1420,15 +1420,15 @@ void Option_Flex(ScriptTokenizer &qc, char* name, char* vtafile, int imodel, flo
     }
 
     if (current_count > 1) {
-        if (g_studiomdl.flex.flexkeys[current_count - 1].flexdesc == new_flexkey.flexdesc) {
-            g_studiomdl.flex.flexkeys[current_count - 1].target2 = g_studiomdl.flex.flexkeys[current_count - 1].target1;
-            g_studiomdl.flex.flexkeys[current_count - 1].target3 = new_flexkey.target1;
-            new_flexkey.target0 = g_studiomdl.flex.flexkeys[current_count - 1].target1;
+        if (ctx.flex.flexkeys[current_count - 1].flexdesc == new_flexkey.flexdesc) {
+            ctx.flex.flexkeys[current_count - 1].target2 = ctx.flex.flexkeys[current_count - 1].target1;
+            ctx.flex.flexkeys[current_count - 1].target3 = new_flexkey.target1;
+            new_flexkey.target0 = ctx.flex.flexkeys[current_count - 1].target1;
         }
     }
 
     // link to source
-    s_source_t* pSource = Load_Source(vtafile, "vta");
+    s_source_t* pSource = Load_Source(ctx, vtafile, "vta");
     new_flexkey.source = pSource;
     if (!pSource->m_Animations.empty()) {
         new_flexkey.animationname = pSource->m_Animations[0].animationname;
@@ -1440,15 +1440,15 @@ void Option_Flex(ScriptTokenizer &qc, char* name, char* vtafile, int imodel, flo
 }
 
 
-void PrintFlexrule(s_flexrule_t* pRule) {
-    std::print("{} = ", g_studiomdl.flex.flexdescs[pRule->flex].FACS);
+void PrintFlexrule(StudioMdlState &ctx, s_flexrule_t* pRule) {
+    std::print("{} = ", ctx.flex.flexdescs[pRule->flex].FACS);
     for (int i = 0; i < pRule->numops; i++) {
         switch (pRule->op[i].op) {
             case StudioOpcode::Const:
                 std::print("{:f} ", pRule->op[i].d.value);
                 break;
             case StudioOpcode::Fetch1:
-                std::print("{} ", g_studiomdl.flex.flexcontrollers[pRule->op[i].d.index].name);
+                std::print("{} ", ctx.flex.flexcontrollers[pRule->op[i].d.index].name);
                 break;
             case StudioOpcode::Fetch2:
                 std::print("[{}] ", pRule->op[i].d.index);
@@ -1513,7 +1513,7 @@ void PrintFlexrule(s_flexrule_t* pRule) {
 }
 
 
-void Option_Flexrule(ScriptTokenizer &qc, s_model_t* /* pmodel */, const char* name) {
+void Option_Flexrule(StudioMdlState &ctx, ScriptTokenizer &qc, s_model_t* /* pmodel */, const char* name) {
     int precedence[32];
     auto prec = [&precedence](StudioOpcode op) -> int& { return precedence[std::to_underlying(op)]; };
     prec(StudioOpcode::Const) = 0;
@@ -1537,19 +1537,19 @@ void Option_Flexrule(ScriptTokenizer &qc, s_model_t* /* pmodel */, const char* n
     int j = 0;
     int k = 0;
 
-    if (g_studiomdl.flex.flexrules.size() + 1 > g_studiomdl.flex.flexrules.capacity()) {
-        qc.Error("Too many flex rules (max {})\n", g_studiomdl.flex.flexrules.capacity());
+    if (ctx.flex.flexrules.size() + 1 > ctx.flex.flexrules.capacity()) {
+        qc.Error("Too many flex rules (max {})\n", ctx.flex.flexrules.capacity());
     }
-    auto &pRule = g_studiomdl.flex.flexrules.emplace_back();
+    auto &pRule = ctx.flex.flexrules.emplace_back();
 
     int flexdesc;
-    for (flexdesc = 0; flexdesc < g_studiomdl.flex.flexdescs.size(); flexdesc++) {
-        if (vstd::iequals(name, g_studiomdl.flex.flexdescs[flexdesc].FACS)) {
+    for (flexdesc = 0; flexdesc < ctx.flex.flexdescs.size(); flexdesc++) {
+        if (vstd::iequals(name, ctx.flex.flexdescs[flexdesc].FACS)) {
             break;
         }
     }
 
-    if (flexdesc >= g_studiomdl.flex.flexdescs.size()) {
+    if (flexdesc >= ctx.flex.flexdescs.size()) {
         qc.Error("Rule for unknown flex {}\n", name);
     }
 
@@ -1625,26 +1625,26 @@ void Option_Flexrule(ScriptTokenizer &qc, s_model_t* /* pmodel */, const char* n
                     qc.Error("expected flex name after '%'\n");
                 }
 
-                for (k = 0; k < g_studiomdl.flex.flexdescs.size(); k++) {
-                    if (vstd::iequals(qc.token, g_studiomdl.flex.flexdescs[k].FACS)) {
+                for (k = 0; k < ctx.flex.flexdescs.size(); k++) {
+                    if (vstd::iequals(qc.token, ctx.flex.flexdescs[k].FACS)) {
                         stream[i].op = StudioOpcode::Fetch2;
                         stream[i++].d.index = k;
                         break;
                     }
                 }
-                if (k >= g_studiomdl.flex.flexdescs.size()) {
+                if (k >= ctx.flex.flexdescs.size()) {
                     qc.Error("unknown flex {}\n", qc.token);
                 }
             }
             else {
-                for (k = 0; k < g_studiomdl.flex.flexcontrollers.size(); k++) {
-                    if (vstd::iequals(qc.token, g_studiomdl.flex.flexcontrollers[k].name)) {
+                for (k = 0; k < ctx.flex.flexcontrollers.size(); k++) {
+                    if (vstd::iequals(qc.token, ctx.flex.flexcontrollers[k].name)) {
                         stream[i].op = StudioOpcode::Fetch1;
                         stream[i++].d.index = k;
                         break;
                     }
                 }
-                if (k >= g_studiomdl.flex.flexcontrollers.size()) {
+                if (k >= ctx.flex.flexcontrollers.size()) {
                     qc.Error("unknown controller {}\n", qc.token);
                 }
             }
@@ -1652,18 +1652,18 @@ void Option_Flexrule(ScriptTokenizer &qc, s_model_t* /* pmodel */, const char* n
     }
 
     if (i > MAX_OPS) {
-        qc.Error("expression {} too complicated\n", g_studiomdl.flex.flexdescs[pRule.flex].FACS);
+        qc.Error("expression {} too complicated\n", ctx.flex.flexdescs[pRule.flex].FACS);
     }
 
     if (0) {
-        std::print("{} = ", g_studiomdl.flex.flexdescs[pRule.flex].FACS);
+        std::print("{} = ", ctx.flex.flexdescs[pRule.flex].FACS);
         for (k = 0; k < i; k++) {
             switch (stream[k].op) {
                 case StudioOpcode::Const:
                     std::print("{:f} ", stream[k].d.value);
                     break;
                 case StudioOpcode::Fetch1:
-                    std::print("{} ", g_studiomdl.flex.flexcontrollers[stream[k].d.index].name);
+                    std::print("{} ", ctx.flex.flexcontrollers[stream[k].d.index].name);
                     break;
                 case StudioOpcode::Fetch2:
                     std::print("[{}] ", stream[k].d.index);
@@ -1710,7 +1710,7 @@ void Option_Flexrule(ScriptTokenizer &qc, s_model_t* /* pmodel */, const char* n
     j = 0;
     for (k = 0; k < i; k++) {
         if (j >= MAX_OPS) {
-            qc.Error("expression {} too complicated\n", g_studiomdl.flex.flexdescs[pRule.flex].FACS);
+            qc.Error("expression {} too complicated\n", ctx.flex.flexdescs[pRule.flex].FACS);
         }
         switch (stream[k].op) {
             case StudioOpcode::Const:
@@ -1771,14 +1771,14 @@ void Option_Flexrule(ScriptTokenizer &qc, s_model_t* /* pmodel */, const char* n
                 break;
         }
         if (pRule.numops >= MAX_OPS)
-            qc.Error("expression for \"{}\" too complicated\n", g_studiomdl.flex.flexdescs[pRule.flex].FACS);
+            qc.Error("expression for \"{}\" too complicated\n", ctx.flex.flexdescs[pRule.flex].FACS);
     }
     // pop all operators off of the stack
     while (j > 0) {
         pRule.op[pRule.numops++] = stack[j - 1];
         j--;
         if (pRule.numops >= MAX_OPS)
-            qc.Error("expression for \"{}\" too complicated\n", g_studiomdl.flex.flexdescs[pRule.flex].FACS);
+            qc.Error("expression for \"{}\" too complicated\n", ctx.flex.flexdescs[pRule.flex].FACS);
     }
 
     // reprocess the operands, eating commas for all functions
@@ -1810,12 +1810,12 @@ void Option_Flexrule(ScriptTokenizer &qc, s_model_t* /* pmodel */, const char* n
     }
 
     if (pRule.numops > MAX_OPS) {
-        qc.Error("expression {} too complicated\n", g_studiomdl.flex.flexdescs[pRule.flex].FACS);
+        qc.Error("expression {} too complicated\n", ctx.flex.flexdescs[pRule.flex].FACS);
     }
 
     if (0) {
         // TODO REDxEYE: Should be a cli-flag maybe
-        PrintFlexrule(&pRule);
+        PrintFlexrule(ctx, &pRule);
     }
 }
 
@@ -1983,18 +1983,18 @@ void AddBodyFlexFetchRule(
 //-----------------------------------------------------------------------------
 // Add A Body Flex Rule
 //-----------------------------------------------------------------------------
-void AddBodyFlexRule(
+void AddBodyFlexRule(StudioMdlState &ctx, 
     s_source_t* pSource,
     s_combinationrule_t &rule,
     int nFlexDesc,
     const std::vector<int> &pRawIndexToRemapSourceIndex,
     const std::vector<int> &pRawIndexToRemapLocalIndex,
     const std::vector<int> &pRemapSourceIndexToGlobalFlexControllerIndex) {
-    if (g_studiomdl.flex.flexrules.size() >= g_studiomdl.flex.flexrules.capacity())
+    if (ctx.flex.flexrules.size() >= ctx.flex.flexrules.capacity())
         MdlError("Line {}: Too many flex rules, max {}",
-                 g_studiomdl.input.iLinecount, g_studiomdl.flex.flexrules.capacity());
+                 ctx.input.iLinecount, ctx.flex.flexrules.capacity());
 
-    s_flexrule_t &pRule = g_studiomdl.flex.flexrules.emplace_back(s_flexrule_t{
+    s_flexrule_t &pRule = ctx.flex.flexrules.emplace_back(s_flexrule_t{
         .flex = nFlexDesc,
     });
 
@@ -2034,13 +2034,13 @@ void AddBodyFlexRule(
 }
 
 
-void AddBodyFlexRules(s_source_t* pSource) {
+void AddBodyFlexRules(StudioMdlState &ctx, s_source_t* pSource) {
     const int nRemapCount = std::ssize(pSource->m_FlexControllerRemaps);
     for (int i = 0; i < nRemapCount; ++i) {
         s_flexcontrollerremap_t &remap = pSource->m_FlexControllerRemaps[i];
         if (remap.m_RemapType == Eyelid && !remap.m_EyesUpDownFlexName.empty()) {
-            for (int j = 0; j < g_studiomdl.flex.flexcontrollers.size(); ++j) {
-                if (g_studiomdl.flex.flexcontrollers[j].name.c_str() == remap.m_EyesUpDownFlexName) {
+            for (int j = 0; j < ctx.flex.flexcontrollers.size(); ++j) {
+                if (ctx.flex.flexcontrollers[j].name.c_str() == remap.m_EyesUpDownFlexName) {
                     Assert(remap.m_EyesUpDownFlexController == -1);
                     remap.m_EyesUpDownFlexController = j;
                     break;
@@ -2052,19 +2052,19 @@ void AddBodyFlexRules(s_source_t* pSource) {
     const int nCount = std::ssize(pSource->m_CombinationRules);
     for (int i = 0; i < nCount; ++i) {
         s_combinationrule_t &rule = pSource->m_CombinationRules[i];
-        s_flexkey_t &flexKey = g_studiomdl.flex.flexkeys[pSource->m_nKeyStartIndex + rule.m_nFlex];
-        AddBodyFlexRule(pSource, rule, flexKey.flexdesc,
+        s_flexkey_t &flexKey = ctx.flex.flexkeys[pSource->m_nKeyStartIndex + rule.m_nFlex];
+        AddBodyFlexRule(ctx, pSource, rule, flexKey.flexdesc,
                         pSource->m_rawIndexToRemapSourceIndex, pSource->m_rawIndexToRemapLocalIndex,
                         pSource->m_leftRemapIndexToGlobalFlexControllIndex);
         if (flexKey.flexpair != 0) {
-            AddBodyFlexRule(pSource, rule, flexKey.flexpair,
+            AddBodyFlexRule(ctx, pSource, rule, flexKey.flexpair,
                             pSource->m_rawIndexToRemapSourceIndex, pSource->m_rawIndexToRemapLocalIndex,
                             pSource->m_rightRemapIndexToGlobalFlexControllIndex);
         }
     }
 }
 
-void Option_Eyelid(ScriptTokenizer &qc, int imodel) {
+void Option_Eyelid(StudioMdlState &ctx, ScriptTokenizer &qc, int imodel) {
     char type[256];
     char vtafile[256];
 
@@ -2087,8 +2087,8 @@ void Option_Eyelid(ScriptTokenizer &qc, int imodel) {
     float split = 0;
     char szEyeball[64] = {""};
 
-    basedesc = g_studiomdl.flex.flexdescs.size();
-    g_studiomdl.flex.flexdescs.emplace_back(type);
+    basedesc = ctx.flex.flexdescs.size();
+    ctx.flex.flexdescs.emplace_back(type);
 
     while (qc.TokenAvailable()) {
         qc.ExpectToken();
@@ -2101,20 +2101,20 @@ void Option_Eyelid(ScriptTokenizer &qc, int imodel) {
         if (vstd::iequals(qc.token, "lowerer")) {
             qc.ExpectIntToken(lowererframe);
             qc.ExpectFloatToken(lowerertarget);
-            lowererdesc = g_studiomdl.flex.flexdescs.size();
-            g_studiomdl.flex.flexdescs.emplace_back(localdesc);
+            lowererdesc = ctx.flex.flexdescs.size();
+            ctx.flex.flexdescs.emplace_back(localdesc);
         }
         else if (vstd::iequals(qc.token, "neutral")) {
             qc.ExpectIntToken(neutralframe);
             qc.ExpectFloatToken(neutraltarget);
-            neutraldesc = g_studiomdl.flex.flexdescs.size();
-            g_studiomdl.flex.flexdescs.emplace_back(localdesc);
+            neutraldesc = ctx.flex.flexdescs.size();
+            ctx.flex.flexdescs.emplace_back(localdesc);
         }
         else if (vstd::iequals(qc.token, "raiser")) {
             qc.ExpectIntToken(raiserframe);
             qc.ExpectFloatToken(raisertarget);
-            raiserdesc = g_studiomdl.flex.flexdescs.size();
-            g_studiomdl.flex.flexdescs.emplace_back(localdesc);
+            raiserdesc = ctx.flex.flexdescs.size();
+            ctx.flex.flexdescs.emplace_back(localdesc);
         }
         else if (vstd::iequals(qc.token, "split")) {
             qc.ExpectFloatToken(split);
@@ -2128,8 +2128,8 @@ void Option_Eyelid(ScriptTokenizer &qc, int imodel) {
         }
     }
 
-    s_source_t* pSource = Load_Source(vtafile, "vta");
-    auto &lower_flexkey = g_studiomdl.flex.flexkeys.emplace_back(s_flexkey_t{
+    s_source_t* pSource = Load_Source(ctx, vtafile, "vta");
+    auto &lower_flexkey = ctx.flex.flexkeys.emplace_back(s_flexkey_t{
         .flexdesc = basedesc,
         .source = pSource,
         .imodel = imodel,
@@ -2148,7 +2148,7 @@ void Option_Eyelid(ScriptTokenizer &qc, int imodel) {
     else {
         lower_flexkey.animationname = "";
     }
-    g_studiomdl.flex.flexkeys.emplace_back(s_flexkey_t{
+    ctx.flex.flexkeys.emplace_back(s_flexkey_t{
         .flexdesc = basedesc,
         .source = lower_flexkey.source,
         .animationname = lower_flexkey.animationname,
@@ -2162,7 +2162,7 @@ void Option_Eyelid(ScriptTokenizer &qc, int imodel) {
         .decay = 0.0,
     });
 
-    g_studiomdl.flex.flexkeys.emplace_back(s_flexkey_t{
+    ctx.flex.flexkeys.emplace_back(s_flexkey_t{
         .flexdesc = basedesc,
         .source = lower_flexkey.source,
         .animationname = lower_flexkey.animationname,
@@ -2176,7 +2176,7 @@ void Option_Eyelid(ScriptTokenizer &qc, int imodel) {
         .decay = 0.0,
     });
 
-    s_model_t* pmodel = g_studiomdl.body.model[imodel];
+    s_model_t* pmodel = ctx.body.model[imodel];
     for (int i = 0; i < pmodel->eyeballs.size(); i++) {
         s_eyeball_t* peyeball = &(pmodel->eyeballs[i]);
 
@@ -2218,24 +2218,24 @@ void Option_Eyelid(ScriptTokenizer &qc, int imodel) {
     }
 }
 
-void Cmd_Model(ScriptTokenizer &qc) {
+void Cmd_Model(StudioMdlState &ctx, ScriptTokenizer &qc) {
     s_model_t* pmodel = c_allocate<s_model_t>();
-    const int imodel = g_studiomdl.body.AddModel(pmodel);
+    const int imodel = ctx.body.AddModel(pmodel);
 
     // name
     qc.ExpectStringToken("<name>", pmodel->name);
 
-    // fake g_studiomdl.body.bodypart stuff
-    s_bodypart_t &bodypart = g_studiomdl.body.AddBodyPart();
+    // fake ctx.body.bodypart stuff
+    s_bodypart_t &bodypart = ctx.body.AddBodyPart();
     strcpyn(bodypart.name, qc.token);
     bodypart.pmodel.push_back(pmodel);
 
-    Option_Studio(qc, pmodel);
+    Option_Studio(ctx, qc, pmodel);
 
     if (pmodel->source) {
         // Body command should add any flex commands in the source loaded
-        AddBodyFlexData(pmodel->source, imodel);
-        AddBodyAttachments(pmodel->source);
+        AddBodyFlexData(ctx, pmodel->source, imodel);
+        AddBodyAttachments(ctx, pmodel->source);
     }
 
     int depth = 0;
@@ -2268,18 +2268,18 @@ void Cmd_Model(ScriptTokenizer &qc) {
             depth--;
         }
         else if (vstd::iequals("eyeball", qc.token)) {
-            Option_Eyeball(qc, pmodel);
+            Option_Eyeball(ctx, qc, pmodel);
         }
         else if (vstd::iequals("eyelid", qc.token)) {
-            Option_Eyelid(qc, imodel);
+            Option_Eyelid(ctx, qc, imodel);
         }
         else if (vstd::iequals("dmxeyelid", qc.token)) {
-            Option_DmxEyelid(qc, imodel);
+            Option_DmxEyelid(ctx, qc, imodel);
         }
         else if (vstd::iequals("vcafile", qc.token)) {
             // vertex cache animation file
             qc.ExpectToken(); // file
-            Option_VertexCacheAnimationFile(qc.token.view(), imodel);
+            Option_VertexCacheAnimationFile(ctx, qc.token.view(), imodel);
         }
         else if (vstd::iequals("flex", qc.token)) {
             // g_flex
@@ -2290,7 +2290,7 @@ void Cmd_Model(ScriptTokenizer &qc) {
                 qc.ExpectToken();
                 strcpy(vtafile, qc.token);
             }
-            Option_Flex(qc, FAC, vtafile, imodel, 0.0);
+            Option_Flex(ctx, qc, FAC, vtafile, imodel, 0.0);
             // FIXME: this needs to point to a model used, not loaded!!!
         }
         else if (vstd::iequals("flexpair", qc.token)) {
@@ -2306,7 +2306,7 @@ void Cmd_Model(ScriptTokenizer &qc) {
                 qc.ExpectToken();
                 strcpy(vtafile, qc.token);
             }
-            Option_Flex(qc, FAC, vtafile, imodel, split);
+            Option_Flex(ctx, qc, FAC, vtafile, imodel, split);
             // FIXME: this needs to point to a model used, not loaded!!!
         }
         else if (vstd::iequals("defaultflex", qc.token)) {
@@ -2318,8 +2318,8 @@ void Cmd_Model(ScriptTokenizer &qc) {
 
             // g_flex
             // FIXME: this needs to point to a model used, not loaded!!!
-            Option_Flex(qc, "default", vtafile, imodel, 0.0);
-            g_studiomdl.flex.defaultflexkey = &g_studiomdl.flex.flexkeys.back();
+            Option_Flex(ctx, qc, "default", vtafile, imodel, 0.0);
+            ctx.flex.defaultflexkey = &ctx.flex.flexkeys.back();
         }
         else if (vstd::iequals("flexfile", qc.token)) {
             // file
@@ -2329,26 +2329,26 @@ void Cmd_Model(ScriptTokenizer &qc) {
         else if (vstd::iequals("localvar", qc.token)) {
             while (qc.TokenAvailable()) {
                 qc.ExpectToken();
-                Add_Flexdesc(qc.token);
+                Add_Flexdesc(ctx, qc.token);
             }
         }
         else if (vstd::iequals("mouth", qc.token)) {
-            Option_Mouth(qc, pmodel);
+            Option_Mouth(ctx, qc, pmodel);
         }
         else if (vstd::iequals("flexcontroller", qc.token)) {
-            Option_Flexcontroller(qc, pmodel);
+            Option_Flexcontroller(ctx, qc, pmodel);
         }
         else if (qc.token[0] == '%') {
-            Option_Flexrule(qc, pmodel, &qc.token[1]);
+            Option_Flexrule(ctx, qc, pmodel, &qc.token[1]);
         }
         else if (vstd::iequals("attachment", qc.token)) {
             // 	Option_Attachment( pmodel );
         }
         else if (vstd::iequals(qc.token, "spherenormals")) {
-            Option_Spherenormals(qc, pmodel->source);
+            Option_Spherenormals(ctx, qc, pmodel->source);
         }
         else if (vstd::iequals(qc.token, "noautodmxrules")) {
-            Option_NoAutoDMXRules(pmodel->source);
+            Option_NoAutoDMXRules(ctx, pmodel->source);
         }
         else {
             qc.Error("unknown model option \"{}\"\n", qc.token);
@@ -2362,17 +2362,17 @@ void Cmd_Model(ScriptTokenizer &qc) {
     if (!pmodel->source->bNoAutoDMXRules) {
         // Actually connect up the expressions between the Dme Flex Controllers & Flex Descriptors
         // In case there was data added by some other eyeball command (like eyelid)
-        AddBodyFlexRules(pmodel->source);
+        AddBodyFlexRules(ctx, pmodel->source);
     }
 }
 
-void Cmd_FakeVTA(ScriptTokenizer &qc) {
+void Cmd_FakeVTA(StudioMdlState &ctx, ScriptTokenizer &qc) {
     int depth = 0;
 
     qc.ExpectToken();
 
     auto psource = c_allocate<s_source_t>();
-    g_studiomdl.anim.sources.emplace_back(psource);
+    ctx.anim.sources.emplace_back(psource);
     psource->filename = qc.token;
 
     while (1) {
@@ -2410,7 +2410,7 @@ void Cmd_FakeVTA(ScriptTokenizer &qc) {
             qc.ExpectToken();
             int frame = qc.TokenInt();
 
-            AppendVTAtoOBJ(psource, filename, frame);
+            AppendVTAtoOBJ(ctx, psource, filename, frame);
         }
     }
 }
@@ -2438,17 +2438,17 @@ StudioMotionFlags lookupControl(char* string) {
 }
 
 
-void Cmd_IKChain(ScriptTokenizer &qc) {
+void Cmd_IKChain(StudioMdlState &ctx, ScriptTokenizer &qc) {
     qc.ExpectToken();
 
     int i;
-    for (i = 0; i < std::ssize(g_studiomdl.anim.ikchain); i++) {
-        if (vstd::iequals(qc.token, g_studiomdl.anim.ikchain[i].name)) {
+    for (i = 0; i < std::ssize(ctx.anim.ikchain); i++) {
+        if (vstd::iequals(qc.token, ctx.anim.ikchain[i].name)) {
             break;
         }
     }
-    if (i < std::ssize(g_studiomdl.anim.ikchain)) {
-        if (!g_studiomdl.options.quiet) {
+    if (i < std::ssize(ctx.anim.ikchain)) {
+        if (!ctx.options.quiet) {
             std::print("duplicate ikchain \"{}\" ignored\n", qc.token);
         }
         while (qc.TokenAvailable()) {
@@ -2457,7 +2457,7 @@ void Cmd_IKChain(ScriptTokenizer &qc) {
         return;
     }
 
-    s_ikchain_t &ikchain = g_studiomdl.anim.ikchain.emplace_back();
+    s_ikchain_t &ikchain = ctx.anim.ikchain.emplace_back();
     strcpyn(ikchain.name, qc.token);
 
     qc.ExpectStringToken(ikchain.bonename);
@@ -2498,8 +2498,8 @@ void Cmd_IKChain(ScriptTokenizer &qc) {
     }
 }
 
-void Cmd_IKAutoplayLock(ScriptTokenizer &qc) {
-    s_iklock_t &lock = g_studiomdl.anim.ikautoplaylock.emplace_back();
+void Cmd_IKAutoplayLock(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    s_iklock_t &lock = ctx.anim.ikautoplaylock.emplace_back();
     qc.ExpectStringToken(lock.name);
 
     qc.ExpectFloatToken(lock.flPosWeight);
@@ -2507,11 +2507,11 @@ void Cmd_IKAutoplayLock(ScriptTokenizer &qc) {
     qc.ExpectFloatToken(lock.flLocalQWeight);
 }
 
-void Cmd_Root(ScriptTokenizer &qc) {
-    qc.ExpectStringToken("bone name", g_studiomdl.script.rootname);
+void Cmd_Root(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    qc.ExpectStringToken("bone name", ctx.script.rootname);
 }
 
-void Cmd_Controller(ScriptTokenizer &qc) {
+void Cmd_Controller(StudioMdlState &ctx, ScriptTokenizer &qc) {
     qc.ExpectToken("controller <number>");
     s_bonecontroller_t controller;
 
@@ -2525,7 +2525,7 @@ void Cmd_Controller(ScriptTokenizer &qc) {
     qc.ExpectToken("controller <axis>");
     const auto axis = lookupControl(qc.token);
     if (axis == StudioMotionFlags::Invalid) {
-        MdlWarning("unknown g_studiomdl.bonecontroller type '{}'\n", qc.token);
+        MdlWarning("unknown ctx.bonecontroller type '{}'\n", qc.token);
         return;
     }
     controller.type = axis;
@@ -2538,12 +2538,12 @@ void Cmd_Controller(ScriptTokenizer &qc) {
             controller.type |= StudioMotionFlags::RLoop;
         }
     }
-    g_studiomdl.bones.bonecontrollers.emplace_back(controller);
+    ctx.bones.bonecontrollers.emplace_back(controller);
 }
 
-void Cmd_ScreenAlign(ScriptTokenizer &qc) {
+void Cmd_ScreenAlign(StudioMdlState &ctx, ScriptTokenizer &qc) {
     if (qc.GetToken(false)) {
-        s_screenalignedbone_t &bone = g_studiomdl.bones.screenalignedbone.emplace_back();
+        s_screenalignedbone_t &bone = ctx.bones.screenalignedbone.emplace_back();
         strcpyn(bone.name, qc.token);
         bone.flags = BoneFlags::ScreenAlignSphere;
 
@@ -2561,9 +2561,9 @@ void Cmd_ScreenAlign(ScriptTokenizer &qc) {
     }
 }
 
-void Cmd_WorldAlign(ScriptTokenizer &qc) {
+void Cmd_WorldAlign(StudioMdlState &ctx, ScriptTokenizer &qc) {
     if (qc.GetToken(false)) {
-        s_worldalignedbone_t &bone = g_studiomdl.bones.worldalignedbone.emplace_back();
+        s_worldalignedbone_t &bone = ctx.bones.worldalignedbone.emplace_back();
         strcpyn(bone.name, qc.token);
         bone.flags = BoneFlags::WorldAlign;
     }
@@ -2572,48 +2572,48 @@ void Cmd_WorldAlign(ScriptTokenizer &qc) {
     }
 }
 
-void Cmd_BBox(ScriptTokenizer &qc) {
-    qc.ExpectFloatToken(g_studiomdl.header.bbox[0][0]);
+void Cmd_BBox(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    qc.ExpectFloatToken(ctx.header.bbox[0][0]);
 
-    qc.ExpectFloatToken(g_studiomdl.header.bbox[0][1]);
+    qc.ExpectFloatToken(ctx.header.bbox[0][1]);
 
-    qc.ExpectFloatToken(g_studiomdl.header.bbox[0][2]);
+    qc.ExpectFloatToken(ctx.header.bbox[0][2]);
 
-    qc.ExpectFloatToken(g_studiomdl.header.bbox[1][0]);
+    qc.ExpectFloatToken(ctx.header.bbox[1][0]);
 
-    qc.ExpectFloatToken(g_studiomdl.header.bbox[1][1]);
+    qc.ExpectFloatToken(ctx.header.bbox[1][1]);
 
-    qc.ExpectFloatToken(g_studiomdl.header.bbox[1][2]);
+    qc.ExpectFloatToken(ctx.header.bbox[1][2]);
 
-    g_studiomdl.header.wrotebbox = true;
+    ctx.header.wrotebbox = true;
 }
 
-void Cmd_BBoxOnlyVerts(ScriptTokenizer &qc) {
-    g_studiomdl.header.bboxonlyverts = true;
+void Cmd_BBoxOnlyVerts(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    ctx.header.bboxonlyverts = true;
 }
 
-void Cmd_CBox(ScriptTokenizer &qc) {
-    qc.ExpectFloatToken(g_studiomdl.header.cbox[0][0]);
+void Cmd_CBox(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    qc.ExpectFloatToken(ctx.header.cbox[0][0]);
 
-    qc.ExpectFloatToken(g_studiomdl.header.cbox[0][1]);
+    qc.ExpectFloatToken(ctx.header.cbox[0][1]);
 
-    qc.ExpectFloatToken(g_studiomdl.header.cbox[0][2]);
+    qc.ExpectFloatToken(ctx.header.cbox[0][2]);
 
-    qc.ExpectFloatToken(g_studiomdl.header.cbox[1][0]);
+    qc.ExpectFloatToken(ctx.header.cbox[1][0]);
 
-    qc.ExpectFloatToken(g_studiomdl.header.cbox[1][1]);
+    qc.ExpectFloatToken(ctx.header.cbox[1][1]);
 
-    qc.ExpectFloatToken(g_studiomdl.header.cbox[1][2]);
+    qc.ExpectFloatToken(ctx.header.cbox[1][2]);
 
-    g_studiomdl.header.wrotecbox = true;
+    ctx.header.wrotecbox = true;
 }
 
-void Cmd_Gamma(ScriptTokenizer &qc) {
-    qc.ExpectFloatToken(g_studiomdl.options.gamma);
+void Cmd_Gamma(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    qc.ExpectFloatToken(ctx.options.gamma);
 }
 
-void Cmd_TextureGroup(ScriptTokenizer &qc) {
-    if (g_studiomdl.options.createMakefile) {
+void Cmd_TextureGroup(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    if (ctx.options.createMakefile) {
         return;
     }
     int i;
@@ -2625,7 +2625,7 @@ void Cmd_TextureGroup(ScriptTokenizer &qc) {
     qc.ExpectToken();
 
     // [skin family][index] = material
-    auto &families = g_studiomdl.materials.texturegroups.emplace_back();
+    auto &families = ctx.materials.texturegroups.emplace_back();
 
     while (1) {
         if (!qc.GetToken(true)) {
@@ -2651,32 +2651,32 @@ void Cmd_TextureGroup(ScriptTokenizer &qc) {
             index = 0;
         }
         else if (depth == 2) {
-            i = UseTextureAsMaterial(LookupTexture(qc.token.view()));
+            i = UseTextureAsMaterial(ctx, LookupTexture(ctx, qc.token.view()));
             if (families.size() <= static_cast<size_t>(group))
                 families.resize(group + 1);
             families[group].push_back(i);
             if (group != 0)
-                g_studiomdl.materials.textures[i].parent = index < std::ssize(families[0]) ? families[0][index] : 0;
+                ctx.materials.textures[i].parent = index < std::ssize(families[0]) ? families[0][index] : 0;
             index++;
         }
     }
 }
 
-void Cmd_Hitgroup(ScriptTokenizer &qc) {
-    auto &hitgroup = g_studiomdl.bones.hitgroups.emplace_back();
+void Cmd_Hitgroup(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    auto &hitgroup = ctx.bones.hitgroups.emplace_back();
     qc.ExpectIntToken(hitgroup.group);
     qc.ExpectStringToken(hitgroup.name);
 }
 
-void Cmd_Hitbox(ScriptTokenizer &qc) {
+void Cmd_Hitbox(StudioMdlState &ctx, ScriptTokenizer &qc) {
     bool autogenerated = false;
-    if (g_studiomdl.bones.hitboxsets.size() == 0) {
-        g_studiomdl.bones.hitboxsets.emplace_back();
+    if (ctx.bones.hitboxsets.size() == 0) {
+        ctx.bones.hitboxsets.emplace_back();
         autogenerated = true;
     }
 
     // Last one
-    s_hitboxset* set = &g_studiomdl.bones.hitboxsets[g_studiomdl.bones.hitboxsets.size() - 1];
+    s_hitboxset* set = &ctx.bones.hitboxsets[ctx.bones.hitboxsets.size() - 1];
     if (autogenerated) {
         memset(set, 0, sizeof(*set));
 
@@ -2717,8 +2717,8 @@ void Cmd_Hitbox(ScriptTokenizer &qc) {
     }
 
     //Scale hitboxes
-    scale_vertex(hitbox.bmin);
-    scale_vertex(hitbox.bmax);
+    scale_vertex(ctx, hitbox.bmin);
+    scale_vertex(ctx, hitbox.bmax);
     // clear out the hitboxname:
     memset(hitbox.hitboxname, 0, sizeof(hitbox.hitboxname));
 
@@ -2728,10 +2728,10 @@ void Cmd_Hitbox(ScriptTokenizer &qc) {
     }
 }
 
-void Cmd_HitboxSet(ScriptTokenizer &qc) {
+void Cmd_HitboxSet(StudioMdlState &ctx, ScriptTokenizer &qc) {
     // Add a new hitboxset
-    g_studiomdl.bones.hitboxsets.emplace_back();
-    s_hitboxset* set = &g_studiomdl.bones.hitboxsets.back();
+    ctx.bones.hitboxsets.emplace_back();
+    s_hitboxset* set = &ctx.bones.hitboxsets.back();
     qc.ExpectToken();
     memset(set, 0, sizeof(*set));
     strcpy(set->hitboxsetname, qc.token);
@@ -2740,20 +2740,20 @@ void Cmd_HitboxSet(ScriptTokenizer &qc) {
 //-----------------------------------------------------------------------------
 // Assigns a default surface property to the entire model
 //-----------------------------------------------------------------------------
-void SetDefaultSurfaceProp(const char* pSurfaceProperty) {
-    Q_strncpy(g_studiomdl.materials.pDefaultSurfaceProp, pSurfaceProperty,
-              sizeof(g_studiomdl.materials.pDefaultSurfaceProp));
+void SetDefaultSurfaceProp(StudioMdlState &ctx, const char* pSurfaceProperty) {
+    Q_strncpy(ctx.materials.pDefaultSurfaceProp, pSurfaceProperty,
+              sizeof(ctx.materials.pDefaultSurfaceProp));
 }
 
-void Cmd_SurfaceProp(ScriptTokenizer &qc) {
+void Cmd_SurfaceProp(StudioMdlState &ctx, ScriptTokenizer &qc) {
     qc.ExpectToken();
-    SetDefaultSurfaceProp(qc.token);
+    SetDefaultSurfaceProp(ctx, qc.token);
 }
 
 //-----------------------------------------------------------------------------
 // Assigns a surface property to a particular joint
 //-----------------------------------------------------------------------------
-void Cmd_JointSurfaceProp(ScriptTokenizer &qc) {
+void Cmd_JointSurfaceProp(StudioMdlState &ctx, ScriptTokenizer &qc) {
     // Get joint name...
     qc.ExpectToken();
 
@@ -2762,60 +2762,60 @@ void Cmd_JointSurfaceProp(ScriptTokenizer &qc) {
 
     // surface property name
     qc.ExpectToken();
-    AddSurfaceProp(pJointName, qc.token);
+    AddSurfaceProp(ctx, pJointName, qc.token);
 }
 
 //-----------------------------------------------------------------------------
 // Assigns a default contents to the entire model
 //-----------------------------------------------------------------------------
-void Cmd_Contents(ScriptTokenizer &qc) {
+void Cmd_Contents(StudioMdlState &ctx, ScriptTokenizer &qc) {
     ContentType nAddFlags, nRemoveFlags;
     ParseContents(qc, nAddFlags, nRemoveFlags);
-    s_nDefaultContents |= nAddFlags;
-    s_nDefaultContents &= ~nRemoveFlags;
+    ctx.core.defaultContents |= nAddFlags;
+    ctx.core.defaultContents &= ~nRemoveFlags;
 }
 
 //-----------------------------------------------------------------------------
 // Assigns contents to a particular joint
 //-----------------------------------------------------------------------------
-void Cmd_JointContents(ScriptTokenizer &qc) {
+void Cmd_JointContents(StudioMdlState &ctx, ScriptTokenizer &qc) {
     // Get joint name...
     qc.ExpectToken();
 
     // Search for the name in our list
     int i;
-    for (i = std::ssize(s_JointContents); --i >= 0;) {
-        if (vstd::iequals(s_JointContents[i].m_pJointName, qc.token)) {
+    for (i = std::ssize(ctx.core.jointContents); --i >= 0;) {
+        if (vstd::iequals(ctx.core.jointContents[i].m_pJointName, qc.token)) {
             break;
         }
     }
 
     // Add new entry if we haven't seen this name before
     if (i < 0) {
-        i = std::ssize(s_JointContents);
-        s_JointContents.emplace_back();
-        strcpyn(s_JointContents[i].m_pJointName, qc.token);
+        i = std::ssize(ctx.core.jointContents);
+        ctx.core.jointContents.emplace_back();
+        strcpyn(ctx.core.jointContents[i].m_pJointName, qc.token);
     }
 
     ContentType nAddFlags, nRemoveFlags;
     ParseContents(qc, nAddFlags, nRemoveFlags);
-    s_JointContents[i].m_nContents = ContentType::SOLID;
-    s_JointContents[i].m_nContents |= nAddFlags;
-    s_JointContents[i].m_nContents &= ~nRemoveFlags;
+    ctx.core.jointContents[i].m_nContents = ContentType::SOLID;
+    ctx.core.jointContents[i].m_nContents |= nAddFlags;
+    ctx.core.jointContents[i].m_nContents &= ~nRemoveFlags;
 }
 
-void Cmd_BoneAlwaysSetup(ScriptTokenizer &qc) {
-    if (g_studiomdl.options.createMakefile)
+void Cmd_BoneAlwaysSetup(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    if (ctx.options.createMakefile)
         return;
 
-    g_studiomdl.bones.bone_always_setup.emplace_back();
+    ctx.bones.bone_always_setup.emplace_back();
 
     // bone name
-    qc.ExpectStringToken(g_studiomdl.bones.bone_always_setup.back().bonename);
+    qc.ExpectStringToken(ctx.bones.bone_always_setup.back().bonename);
 }
 
-void Internal_Cmd_Attachment(ScriptTokenizer &qc, int nAttachmentTarget = g_studiomdl.bones.attachments.size()) {
-    if (g_studiomdl.options.createMakefile)
+void Internal_Cmd_Attachment(StudioMdlState &ctx, ScriptTokenizer &qc, int nAttachmentTarget) {
+    if (ctx.options.createMakefile)
         return;
 
     // name
@@ -2823,15 +2823,15 @@ void Internal_Cmd_Attachment(ScriptTokenizer &qc, int nAttachmentTarget = g_stud
 
     s_attachment_t* attachment;
 
-    if (nAttachmentTarget == g_studiomdl.bones.attachments.size()) {
-        if (g_studiomdl.bones.attachments.full()) {
+    if (nAttachmentTarget == ctx.bones.attachments.size()) {
+        if (ctx.bones.attachments.full()) {
             qc.Error("Too many attachments");
             return;
         }
-        attachment = &g_studiomdl.bones.attachments.emplace_back();
+        attachment = &ctx.bones.attachments.emplace_back();
     }
     else {
-        attachment = &g_studiomdl.bones.attachments[nAttachmentTarget];
+        attachment = &ctx.bones.attachments[nAttachmentTarget];
     }
 
     attachment->name = qc.token;
@@ -2846,7 +2846,7 @@ void Internal_Cmd_Attachment(ScriptTokenizer &qc, int nAttachmentTarget = g_stud
     qc.ExpectFloatToken("attachment <Y position>", tmp.y);
     qc.ExpectFloatToken("attachment <Z position>", tmp.z);
 
-    scale_vertex(tmp);
+    scale_vertex(ctx, tmp);
     // identity matrix
     AngleMatrix(QAngle(0, 0, 0), attachment->local);
 
@@ -2855,8 +2855,8 @@ void Internal_Cmd_Attachment(ScriptTokenizer &qc, int nAttachmentTarget = g_stud
 
         if (vstd::iequals(qc.token, "absolute")) {
             attachment->type |= AttachmentType::Absolute;
-            AngleIMatrix(g_studiomdl.script.defaultrotation, attachment->local);
-            // AngleIMatrix( Vector( 0, 0, 0 ), g_studiomdl.attachment[nAttachmentTarget].local );
+            AngleIMatrix(ctx.script.defaultrotation, attachment->local);
+            // AngleIMatrix( Vector( 0, 0, 0 ), ctx.attachment[nAttachmentTarget].local );
         }
         else if (vstd::iequals(qc.token, "rigid")) {
             attachment->type |= AttachmentType::Rigid;
@@ -2908,10 +2908,10 @@ void Internal_Cmd_Attachment(ScriptTokenizer &qc, int nAttachmentTarget = g_stud
     attachment->local[2][3] = tmp.z;
 }
 
-void Cmd_RedefineAttachment(ScriptTokenizer &qc) {
+void Cmd_RedefineAttachment(StudioMdlState &ctx, ScriptTokenizer &qc) {
     // find a pre-existing attachment of the given name and re-populate its values
 
-    if (g_studiomdl.options.createMakefile)
+    if (ctx.options.createMakefile)
         return;
 
     // name
@@ -2919,11 +2919,11 @@ void Cmd_RedefineAttachment(ScriptTokenizer &qc) {
 
     qc.UnGetToken();
 
-    for (int n = 0; n < g_studiomdl.bones.attachments.size(); n++) {
-        if (vstd::iequals(qc.token, g_studiomdl.bones.attachments[n].name)) {
+    for (int n = 0; n < ctx.bones.attachments.size(); n++) {
+        if (vstd::iequals(qc.token, ctx.bones.attachments[n].name)) {
             Msg("Found pre-existing attachment matching name: {}\n", qc.token.c_str());
             std::print("Found pre-existing attachment matching name: {}\n", qc.token);
-            Internal_Cmd_Attachment(qc, n);
+            Internal_Cmd_Attachment(ctx, qc, n);
             return;
         }
     }
@@ -2931,12 +2931,12 @@ void Cmd_RedefineAttachment(ScriptTokenizer &qc) {
     qc.Error("Can't redefine attachment \"{}\" because it wasn't found.\n", qc.token);
 }
 
-void Cmd_Attachment(ScriptTokenizer &qc) {
-    Internal_Cmd_Attachment(qc, g_studiomdl.bones.attachments.size());
+void Cmd_Attachment(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    Internal_Cmd_Attachment(ctx, qc, ctx.bones.attachments.size());
 }
 
-void Cmd_Renamebone(ScriptTokenizer &qc) {
-    s_renamebone_t &rename = g_studiomdl.bones.renamedbone.emplace_back();
+void Cmd_Renamebone(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    s_renamebone_t &rename = ctx.bones.renamedbone.emplace_back();
     // from
     qc.ExpectStringToken(rename.from);
 
@@ -2944,27 +2944,27 @@ void Cmd_Renamebone(ScriptTokenizer &qc) {
     qc.ExpectStringToken(rename.to);
 }
 
-void Cmd_StripBonePrefix(ScriptTokenizer &qc) {
-    if (!g_studiomdl.bones.szStripBonePrefix.full()) {
+void Cmd_StripBonePrefix(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    if (!ctx.bones.szStripBonePrefix.full()) {
         qc.ExpectToken();
 
         // make sure it's not a duplicate
-        for (int k = 0; k < g_studiomdl.bones.szStripBonePrefix.size(); k++) {
-            if (g_studiomdl.bones.szStripBonePrefix[k] == (const char*) qc.token) {
+        for (int k = 0; k < ctx.bones.szStripBonePrefix.size(); k++) {
+            if (ctx.bones.szStripBonePrefix[k] == (const char*) qc.token) {
                 MdlWarning("Ignoring duplicate $bonestripprefix for token {}\n", qc.token);
                 return;
             }
         }
 
-        g_studiomdl.bones.szStripBonePrefix.emplace_back(qc.token);
+        ctx.bones.szStripBonePrefix.emplace_back(qc.token);
     }
     else {
         qc.Error("Too many bone strip prefixes!\n");
     }
 }
 
-void Cmd_RenameBoneSubstr(ScriptTokenizer &qc) {
-    s_renamebone_t &rename = g_studiomdl.bones.szRenameBoneSubstr.emplace_back();
+void Cmd_RenameBoneSubstr(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    s_renamebone_t &rename = ctx.bones.szRenameBoneSubstr.emplace_back();
     // from
     qc.ExpectStringToken(rename.from);
 
@@ -2973,32 +2973,32 @@ void Cmd_RenameBoneSubstr(ScriptTokenizer &qc) {
 }
 
 // Returns the 1-based id of the named transition node, adding it if needed
-int LookupXNode(const char* name) {
-    for (size_t i = 0; i < g_studiomdl.anim.xnodenames.size(); i++) {
-        if (vstd::iequals(name, g_studiomdl.anim.xnodenames[i])) {
+int LookupXNode(StudioMdlState &ctx, const char* name) {
+    for (size_t i = 0; i < ctx.anim.xnodenames.size(); i++) {
+        if (vstd::iequals(name, ctx.anim.xnodenames[i])) {
             return static_cast<int>(i + 1);
         }
     }
-    if (g_studiomdl.anim.xnodenames.full()) {
-        MdlError("Too many transition nodes, max {}\n", (int) g_studiomdl.anim.xnodenames.capacity());
+    if (ctx.anim.xnodenames.full()) {
+        MdlError("Too many transition nodes, max {}\n", (int) ctx.anim.xnodenames.capacity());
     }
-    g_studiomdl.anim.xnodenames.emplace_back(name);
-    return static_cast<int>(g_studiomdl.anim.xnodenames.size());
+    ctx.anim.xnodenames.emplace_back(name);
+    return static_cast<int>(ctx.anim.xnodenames.size());
 }
 
-void Cmd_Skiptransition(ScriptTokenizer &qc) {
+void Cmd_Skiptransition(StudioMdlState &ctx, ScriptTokenizer &qc) {
     int nskips = 0;
     int list[10];
 
     while (qc.TokenAvailable()) {
         qc.ExpectToken();
-        list[nskips++] = LookupXNode(qc.token);
+        list[nskips++] = LookupXNode(ctx, qc.token);
     }
 
     for (int i = 0; i < nskips; i++) {
         for (int j = 0; j < nskips; j++) {
             if (list[i] != list[j]) {
-                g_studiomdl.anim.xnodeskips.emplace_back(std::array{list[i], list[j]});
+                ctx.anim.xnodeskips.emplace_back(std::array{list[i], list[j]});
             }
         }
     }
@@ -3014,14 +3014,14 @@ void Cmd_Skiptransition(ScriptTokenizer &qc) {
 //-----------------------------------------------------------------------------
 // Checks to see if the model source was already loaded
 //-----------------------------------------------------------------------------
-s_source_t* FindCachedSource(const char* name, const char* xext) {
-    const std::string base = g_studiomdl.paths.cddir.back() + name + ".";
-    const auto find = [&base](const std::string_view ext) -> s_source_t* {
-        g_studiomdl.input.szFilename = base;
-        g_studiomdl.input.szFilename += ext;
-        for (int i = 0; i < g_studiomdl.anim.sources.size(); i++) {
-            if (vstd::iequals(g_studiomdl.input.szFilename, g_studiomdl.anim.sources[i]->filename))
-                return g_studiomdl.anim.sources[i];
+s_source_t* FindCachedSource(StudioMdlState &ctx, const char* name, const char* xext) {
+    const std::string base = ctx.paths.cddir.back() + name + ".";
+    const auto find = [&ctx, &base](const std::string_view ext) -> s_source_t* {
+        ctx.input.szFilename = base;
+        ctx.input.szFilename += ext;
+        for (int i = 0; i < ctx.anim.sources.size(); i++) {
+            if (vstd::iequals(ctx.input.szFilename, ctx.anim.sources[i]->filename))
+                return ctx.anim.sources[i];
         }
         return nullptr;
     };
@@ -3045,7 +3045,7 @@ s_source_t* FindCachedSource(const char* name, const char* xext) {
 // Parse replacemodel command, causes an LOD to use a new model
 //-----------------------------------------------------------------------------
 
-static void Cmd_ReplaceModel(ScriptTokenizer &qc, LodScriptData_t &lodData) {
+static void Cmd_ReplaceModel(StudioMdlState &ctx, ScriptTokenizer &qc, LodScriptData_t &lodData) {
     CLodScriptReplacement_t &newReplacement = lodData.modelReplacements.emplace_back();
 
     // from
@@ -3057,7 +3057,7 @@ static void Cmd_ReplaceModel(ScriptTokenizer &qc, LodScriptData_t &lodData) {
         *pDot = 0;
     }
 
-    if (!FindCachedSource(qc.token, "")) {
+    if (!FindCachedSource(ctx, qc.token, "")) {
         // must have prior knowledge of the from
         qc.Error("Unknown replace model '{}'\n", qc.token);
     }
@@ -3088,9 +3088,9 @@ static void Cmd_ReplaceModel(ScriptTokenizer &qc, LodScriptData_t &lodData) {
 
     // Load the source right here baby! That way its bones will get converted
     if (!lodData.IsStrippedFromModel()) {
-        newReplacement.m_pSource = Load_Source(newReplacement.GetDstName(), "smd", reverse, false);
+        newReplacement.m_pSource = Load_Source(ctx, newReplacement.GetDstName(), "smd", reverse, false);
     }
-    else if (!g_studiomdl.options.quiet) {
+    else if (!ctx.options.quiet) {
         std::print("Stripped lod \"{}\" @ {:.1f}\n", newReplacement.GetDstName(), lodData.switchValue);
     }
 }
@@ -3154,7 +3154,7 @@ static void Cmd_BoneTreeCollapse(ScriptTokenizer &qc, LodScriptData_t &lodData) 
 // Parse replacematerial command, causes a material to be used in place of another
 //-----------------------------------------------------------------------------
 
-static void Cmd_ReplaceMaterial(ScriptTokenizer &qc, LodScriptData_t &lodData) {
+static void Cmd_ReplaceMaterial(StudioMdlState &ctx, ScriptTokenizer &qc, LodScriptData_t &lodData) {
     CLodScriptReplacement_t &newReplacement = lodData.materialReplacements.emplace_back();
 
     // from
@@ -3167,7 +3167,7 @@ static void Cmd_ReplaceMaterial(ScriptTokenizer &qc, LodScriptData_t &lodData) {
 
     if (!lodData.IsStrippedFromModel()) {
         // make sure it goes into the master list
-        UseTextureAsMaterial(LookupTexture(qc.token.view()));
+        UseTextureAsMaterial(ctx, LookupTexture(ctx, qc.token.view()));
     }
 }
 
@@ -3184,15 +3184,15 @@ static void Cmd_RemoveMesh(ScriptTokenizer &qc, LodScriptData_t &lodData) {
     newReplacement.SetSrcName(qc.token);
 }
 
-void Cmd_LOD(ScriptTokenizer &qc, const char* cmdname) {
-    if (g_studiomdl.header.gflags & STUDIOHDR_FLAGS_HASSHADOWLOD) {
+void Cmd_LOD(StudioMdlState &ctx, ScriptTokenizer &qc, const char* cmdname) {
+    if (ctx.header.gflags & STUDIOHDR_FLAGS_HASSHADOWLOD) {
         qc.Error("Model can only have one $shadowlod and it must be the last lod in the " SRC_FILE_EXT " ({}) : {}\n",
-                 g_studiomdl.input.iLinecount, g_studiomdl.input.szLine);
+                 ctx.input.iLinecount, ctx.input.szLine);
     }
 
-    LodScriptData_t &newLOD = g_studiomdl.body.ScriptLODs.emplace_back();
+    LodScriptData_t &newLOD = ctx.body.ScriptLODs.emplace_back();
 
-    if (std::ssize(g_studiomdl.body.ScriptLODs) > MAX_NUM_LODS) {
+    if (std::ssize(ctx.body.ScriptLODs) > MAX_NUM_LODS) {
         qc.Error("Too many LODs (MAX_NUM_LODS=={})\n", (int) MAX_NUM_LODS);
     }
 
@@ -3205,8 +3205,8 @@ void Cmd_LOD(ScriptTokenizer &qc, const char* cmdname) {
     if (isShadowCall) {
         if (qc.TokenAvailable()) {
             qc.ExpectToken();
-            MdlWarning("({}) : {}:  Ignoring switch value on {} command line\n", cmdname, g_studiomdl.input.iLinecount,
-                       g_studiomdl.input.szLine);
+            MdlWarning("({}) : {}:  Ignoring switch value on {} command line\n", cmdname, ctx.input.iLinecount,
+                       ctx.input.szLine);
         }
 
         // Disable facial animation by default
@@ -3216,8 +3216,8 @@ void Cmd_LOD(ScriptTokenizer &qc, const char* cmdname) {
         if (qc.TokenAvailable()) {
             qc.ExpectFloatToken(newLOD.switchValue);
             if (newLOD.switchValue < 0.0f) {
-                qc.Error("Negative switch value reserved for $shadowlod ({}) : {}\n", g_studiomdl.input.iLinecount,
-                         g_studiomdl.input.szLine);
+                qc.Error("Negative switch value reserved for $shadowlod ({}) : {}\n", ctx.input.iLinecount,
+                         ctx.input.szLine);
             }
         }
         else {
@@ -3230,14 +3230,14 @@ void Cmd_LOD(ScriptTokenizer &qc, const char* cmdname) {
     }
 
     // In case we are stripping all lods and it's not Lod0, strip it
-    if (g_studiomdl.body.ScriptLODs.size() > 1 && g_studiomdl.options.stripLods)
+    if (ctx.body.ScriptLODs.size() > 1 && ctx.options.stripLods)
         newLOD.StripFromModel(true);
 
     while (1) {
         if (!qc.GetToken(true))
             qc.Error("{}: missing '}}' at end of file", cmdname);
         if (vstd::iequals("replacemodel", qc.token)) {
-            Cmd_ReplaceModel(qc, newLOD);
+            Cmd_ReplaceModel(ctx, qc, newLOD);
         }
         else if (vstd::iequals("removemodel", qc.token)) {
             Cmd_RemoveModel(qc, newLOD);
@@ -3249,7 +3249,7 @@ void Cmd_LOD(ScriptTokenizer &qc, const char* cmdname) {
             Cmd_BoneTreeCollapse(qc, newLOD);
         }
         else if (vstd::iequals("replacematerial", qc.token)) {
-            Cmd_ReplaceMaterial(qc, newLOD);
+            Cmd_ReplaceMaterial(ctx, qc, newLOD);
         }
         else if (vstd::iequals("removemesh", qc.token)) {
             Cmd_RemoveMesh(qc, newLOD);
@@ -3267,7 +3267,7 @@ void Cmd_LOD(ScriptTokenizer &qc, const char* cmdname) {
         }
         else if (vstd::iequals("use_shadowlod_materials", qc.token)) {
             if (isShadowCall) {
-                g_studiomdl.header.gflags |= STUDIOHDR_FLAGS_USE_SHADOWLOD_MATERIALS;
+                ctx.header.gflags |= STUDIOHDR_FLAGS_USE_SHADOWLOD_MATERIALS;
             }
         }
         else if (vstd::iequals("}", qc.token)) {
@@ -3280,163 +3280,163 @@ void Cmd_LOD(ScriptTokenizer &qc, const char* cmdname) {
 
     // If the LOD is stripped, then forget we saw it
     if (newLOD.IsStrippedFromModel()) {
-        g_studiomdl.body.ScriptLODs.pop_back(); // the entry just added
+        ctx.body.ScriptLODs.pop_back(); // the entry just added
     }
 }
 
-void Cmd_ShadowLOD(ScriptTokenizer &qc) {
-    if (!g_studiomdl.options.quiet) {
+void Cmd_ShadowLOD(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    if (!ctx.options.quiet) {
         std::print("Processing $shadowlod\n");
     }
 
     // Act like it's a regular lod entry
-    Cmd_LOD(qc, "$shadowlod");
+    Cmd_LOD(ctx, qc, "$shadowlod");
 
     // Mark .mdl as having shadow lod (we also check above that we have only one of these
     // and that it's the last entered lod )
-    g_studiomdl.header.gflags |= STUDIOHDR_FLAGS_HASSHADOWLOD;
+    ctx.header.gflags |= STUDIOHDR_FLAGS_HASSHADOWLOD;
 }
 
 
 //-----------------------------------------------------------------------------
 // A couple commands related to translucency sorting
 //-----------------------------------------------------------------------------
-void Cmd_Opaque(ScriptTokenizer &qc) {
+void Cmd_Opaque(StudioMdlState &ctx, ScriptTokenizer &qc) {
     // Force Opaque has precedence
-    g_studiomdl.header.gflags |= STUDIOHDR_FLAGS_FORCE_OPAQUE;
-    g_studiomdl.header.gflags &= ~STUDIOHDR_FLAGS_TRANSLUCENT_TWOPASS;
+    ctx.header.gflags |= STUDIOHDR_FLAGS_FORCE_OPAQUE;
+    ctx.header.gflags &= ~STUDIOHDR_FLAGS_TRANSLUCENT_TWOPASS;
 }
 
-void Cmd_TranslucentTwoPass(ScriptTokenizer &qc) {
+void Cmd_TranslucentTwoPass(StudioMdlState &ctx, ScriptTokenizer &qc) {
     // Force Opaque has precedence
-    if ((g_studiomdl.header.gflags & STUDIOHDR_FLAGS_FORCE_OPAQUE) == 0) {
-        g_studiomdl.header.gflags |= STUDIOHDR_FLAGS_TRANSLUCENT_TWOPASS;
+    if ((ctx.header.gflags & STUDIOHDR_FLAGS_FORCE_OPAQUE) == 0) {
+        ctx.header.gflags |= STUDIOHDR_FLAGS_TRANSLUCENT_TWOPASS;
     }
 }
 
 //-----------------------------------------------------------------------------
 // Indicates the model be rendered with ambient boost heuristic (first used on Alyx in Episode 1)
 //-----------------------------------------------------------------------------
-void Cmd_AmbientBoost(ScriptTokenizer &qc) {
-    g_studiomdl.header.gflags |= STUDIOHDR_FLAGS_AMBIENT_BOOST;
+void Cmd_AmbientBoost(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    ctx.header.gflags |= STUDIOHDR_FLAGS_AMBIENT_BOOST;
 }
 
 //-----------------------------------------------------------------------------
 // Indicates the model contains a quad-only Catmull-Clark subd mesh
 //-----------------------------------------------------------------------------
-void Cmd_SubdivisionSurface(ScriptTokenizer &qc) {
-    g_studiomdl.header.gflags |= STUDIOHDR_FLAGS_SUBDIVISION_SURFACE;
+void Cmd_SubdivisionSurface(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    ctx.header.gflags |= STUDIOHDR_FLAGS_SUBDIVISION_SURFACE;
 }
 
 
 //-----------------------------------------------------------------------------
 // Indicates the model should not cast shadows (useful for first-person models as used in L4D)
 //-----------------------------------------------------------------------------
-void Cmd_DoNotCastShadows(ScriptTokenizer &qc) {
-    g_studiomdl.header.gflags |= STUDIOHDR_FLAGS_DO_NOT_CAST_SHADOWS;
+void Cmd_DoNotCastShadows(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    ctx.header.gflags |= STUDIOHDR_FLAGS_DO_NOT_CAST_SHADOWS;
 }
 
 //-----------------------------------------------------------------------------
 // Indicates the model should cast texture-based shadows in vrad (NOTE: only applicable to prop_static)
 //-----------------------------------------------------------------------------
-void Cmd_CastTextureShadows(ScriptTokenizer &qc) {
-    g_studiomdl.header.gflags |= STUDIOHDR_FLAGS_CAST_TEXTURE_SHADOWS;
+void Cmd_CastTextureShadows(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    ctx.header.gflags |= STUDIOHDR_FLAGS_CAST_TEXTURE_SHADOWS;
 }
 
 
 //-----------------------------------------------------------------------------
 // Indicates the model should not fade out even if the level or fallback settings say to
 //-----------------------------------------------------------------------------
-void Cmd_NoForcedFade(ScriptTokenizer &qc) {
-    g_studiomdl.header.gflags |= STUDIOHDR_FLAGS_NO_FORCED_FADE;
+void Cmd_NoForcedFade(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    ctx.header.gflags |= STUDIOHDR_FLAGS_NO_FORCED_FADE;
 }
 
 
 //-----------------------------------------------------------------------------
 // Indicates the model should not use the bone origin when calculating bboxes, sequence boxes, etc.
 //-----------------------------------------------------------------------------
-void Cmd_SkipBoneInBBox(ScriptTokenizer &qc) {
-    g_studiomdl.options.useBoneInBBox = false;
+void Cmd_SkipBoneInBBox(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    ctx.options.useBoneInBBox = false;
 }
 
 
 //-----------------------------------------------------------------------------
 // Indicates the model will lengthen the viseme check to always include two phonemes
 //-----------------------------------------------------------------------------
-void Cmd_ForcePhonemeCrossfade(ScriptTokenizer &qc) {
-    g_studiomdl.header.gflags |= STUDIOHDR_FLAGS_FORCE_PHONEME_CROSSFADE;
+void Cmd_ForcePhonemeCrossfade(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    ctx.header.gflags |= STUDIOHDR_FLAGS_FORCE_PHONEME_CROSSFADE;
 }
 
 //-----------------------------------------------------------------------------
 // Indicates the model should keep pre-defined bone lengths regardless of animation changes
 //-----------------------------------------------------------------------------
-void Cmd_LockBoneLengths(ScriptTokenizer &qc) {
-    g_studiomdl.options.lockBoneLengths = true;
+void Cmd_LockBoneLengths(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    ctx.options.lockBoneLengths = true;
 }
 
 //-----------------------------------------------------------------------------
 // Indicates the model should replace pre-defined bone bind poses
 //-----------------------------------------------------------------------------
-void Cmd_UnlockDefineBones(ScriptTokenizer &qc) {
-    g_studiomdl.options.defineBonesLockedByDefault = false;
+void Cmd_UnlockDefineBones(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    ctx.options.defineBonesLockedByDefault = false;
 }
 
 //-----------------------------------------------------------------------------
 // Mark this model as obsolete so that it'll show the obsolete material in game.
 //-----------------------------------------------------------------------------
-void Cmd_Obsolete(ScriptTokenizer &qc) {
+void Cmd_Obsolete(StudioMdlState &ctx, ScriptTokenizer &qc) {
     // Force Opaque has precedence
-    g_studiomdl.header.gflags |= STUDIOHDR_FLAGS_OBSOLETE;
+    ctx.header.gflags |= STUDIOHDR_FLAGS_OBSOLETE;
 }
 
 //-----------------------------------------------------------------------------
 // The bones should be moved so that they center themselves on the verts they own.
 //-----------------------------------------------------------------------------
-void Cmd_CenterBonesOnVerts(ScriptTokenizer &qc) {
+void Cmd_CenterBonesOnVerts(StudioMdlState &ctx, ScriptTokenizer &qc) {
     // force centering on bones
-    g_studiomdl.options.centerBonesOnVerts = true;
+    ctx.options.centerBonesOnVerts = true;
 }
 
 //-----------------------------------------------------------------------------
 // How far back should simple motion extract pull back from the last frame
 //-----------------------------------------------------------------------------
-void Cmd_MotionExtractionRollBack(ScriptTokenizer &qc) {
-    qc.ExpectFloatToken(g_studiomdl.options.defaultMotionRollback);
+void Cmd_MotionExtractionRollBack(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    qc.ExpectFloatToken(ctx.options.defaultMotionRollback);
 }
 
 //-----------------------------------------------------------------------------
 // rules for breaking up long animations into multiple sub anims
 //-----------------------------------------------------------------------------
-void Cmd_SectionFrames(ScriptTokenizer &qc) {
+void Cmd_SectionFrames(StudioMdlState &ctx, ScriptTokenizer &qc) {
     qc.ExpectToken();
-    g_studiomdl.options.sectionFrames = qc.TokenFloat();
-    qc.ExpectIntToken(g_studiomdl.options.minSectionFrameLimit);
+    ctx.options.sectionFrames = qc.TokenFloat();
+    qc.ExpectIntToken(ctx.options.minSectionFrameLimit);
 }
 
 
 //-----------------------------------------------------------------------------
 // world space clamping boundaries for animations
 //-----------------------------------------------------------------------------
-void Cmd_ClampWorldspace(ScriptTokenizer &qc) {
-    qc.ExpectFloatToken(g_studiomdl.options.vecMinWorldspace[0]);
+void Cmd_ClampWorldspace(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    qc.ExpectFloatToken(ctx.options.vecMinWorldspace[0]);
 
-    qc.ExpectFloatToken(g_studiomdl.options.vecMinWorldspace[1]);
+    qc.ExpectFloatToken(ctx.options.vecMinWorldspace[1]);
 
-    qc.ExpectFloatToken(g_studiomdl.options.vecMinWorldspace[2]);
+    qc.ExpectFloatToken(ctx.options.vecMinWorldspace[2]);
 
-    qc.ExpectFloatToken(g_studiomdl.options.vecMaxWorldspace[0]);
+    qc.ExpectFloatToken(ctx.options.vecMaxWorldspace[0]);
 
-    qc.ExpectFloatToken(g_studiomdl.options.vecMaxWorldspace[1]);
+    qc.ExpectFloatToken(ctx.options.vecMaxWorldspace[1]);
 
-    qc.ExpectFloatToken(g_studiomdl.options.vecMaxWorldspace[2]);
+    qc.ExpectFloatToken(ctx.options.vecMaxWorldspace[2]);
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: force a specific parent child relationship
 //-----------------------------------------------------------------------------
 
-void Cmd_ForcedHierarchy(ScriptTokenizer &qc) {
-    s_forcedhierarchy_t &hierarchy = g_studiomdl.bones.forcedhierarchy.emplace_back();
+void Cmd_ForcedHierarchy(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    s_forcedhierarchy_t &hierarchy = ctx.bones.forcedhierarchy.emplace_back();
     // child name
     qc.ExpectStringToken(hierarchy.childname);
 
@@ -3449,8 +3449,8 @@ void Cmd_ForcedHierarchy(ScriptTokenizer &qc) {
 // Purpose: insert a virtual bone between a child and parent (currently unsupported)
 //-----------------------------------------------------------------------------
 
-void Cmd_InsertHierarchy(ScriptTokenizer &qc) {
-    s_forcedhierarchy_t &hierarchy = g_studiomdl.bones.forcedhierarchy.emplace_back();
+void Cmd_InsertHierarchy(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    s_forcedhierarchy_t &hierarchy = ctx.bones.forcedhierarchy.emplace_back();
     // child name
     qc.ExpectStringToken(hierarchy.childname);
 
@@ -3466,8 +3466,8 @@ void Cmd_InsertHierarchy(ScriptTokenizer &qc) {
 // Purpose: rotate a specific bone
 //-----------------------------------------------------------------------------
 
-void Cmd_ForceRealign(ScriptTokenizer &qc) {
-    s_forcedrealign_t &realign = g_studiomdl.bones.forcedrealign.emplace_back();
+void Cmd_ForceRealign(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    s_forcedrealign_t &realign = ctx.bones.forcedrealign.emplace_back();
     // bone name
     qc.ExpectStringToken(realign.name);
 
@@ -3492,8 +3492,8 @@ void Cmd_ForceRealign(ScriptTokenizer &qc) {
 // Purpose: specify a bone to allow > 180 but < 360 rotation (forces a calculated "mid point" to rotation)
 //-----------------------------------------------------------------------------
 
-void Cmd_LimitRotation(ScriptTokenizer &qc) {
-    s_limitrotation_t &limit = g_studiomdl.bones.limitrotation.emplace_back();
+void Cmd_LimitRotation(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    s_limitrotation_t &limit = ctx.bones.limitrotation.emplace_back();
     // bone name
     qc.ExpectStringToken(limit.name);
 
@@ -3510,7 +3510,7 @@ void Cmd_LimitRotation(ScriptTokenizer &qc) {
 // into commonly iterated models. This could be anything from bones that are expected (or not)
 // to polycounts, material references, etc.- It's just an "Assert" for content.
 //-----------------------------------------------------------------------------
-void Cmd_QCAssert(ScriptTokenizer &qc) {
+void Cmd_QCAssert(StudioMdlState &ctx, ScriptTokenizer &qc) {
     //get the assert type
     qc.ExpectToken();
 
@@ -3533,7 +3533,7 @@ void Cmd_QCAssert(ScriptTokenizer &qc) {
 
         // src name
         qc.ExpectToken();
-        s_source_t* pSrc = Load_Source(qc.token.view(), "");
+        s_source_t* pSrc = Load_Source(ctx, qc.token.view(), "");
 
         strcat(szAssertLine, " ");
         strcat(szAssertLine, qc.token);
@@ -3553,8 +3553,8 @@ void Cmd_QCAssert(ScriptTokenizer &qc) {
         strcat(szAssertLine, " ");
         strcat(szAssertLine, szBoneName);
 
-        for (int n = 0; n < std::ssize(g_studiomdl.bones.importbone); n++) {
-            if (vstd::iequals(szBoneName, g_studiomdl.bones.importbone[n].name)) {
+        for (int n = 0; n < std::ssize(ctx.bones.importbone); n++) {
+            if (vstd::iequals(szBoneName, ctx.bones.importbone[n].name)) {
                 bQueryValue = true;
                 break;
             }
@@ -3595,15 +3595,15 @@ void Cmd_QCAssert(ScriptTokenizer &qc) {
 // Purpose: specify bones to store, even if nothing references them
 //-----------------------------------------------------------------------------
 
-void Cmd_DefineBone(ScriptTokenizer &qc) {
-    s_importbone_t &bone = g_studiomdl.bones.importbone.emplace_back();
+void Cmd_DefineBone(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    s_importbone_t &bone = ctx.bones.importbone.emplace_back();
     // bone name
     qc.ExpectStringToken(bone.name);
 
     // parent name
     qc.ExpectStringToken(bone.parent);
 
-    bone.bUnlocked = !g_studiomdl.options.defineBonesLockedByDefault;
+    bone.bUnlocked = !ctx.options.defineBonesLockedByDefault;
 
     qc.ExpectToken();
     if (!V_strcmp(qc.token, "unlocked")) {
@@ -3683,7 +3683,7 @@ bool ParseJigglePitchConstraint(ScriptTokenizer &qc, s_jigglebone_t* jiggleInfo)
     return true;
 }
 
-void Grab_AxisInterpBones() {
+void Grab_AxisInterpBones(StudioMdlState &ctx) {
     char cmd[1024], tmp[1025];
     Vector basepos;
     s_axisinterpbone_t* pAxis = nullptr;
@@ -3691,17 +3691,17 @@ void Grab_AxisInterpBones() {
     auto scratch = s_axisinterpbone_t(); // () zero-fills; {} would leave the Vector members uninitialized
     s_axisinterpbone_t* pBone = &scratch;
 
-    while (GetLineInput()) {
-        if (IsEnd(g_studiomdl.input.szLine)) {
+    while (GetLineInput(ctx)) {
+        if (IsEnd(ctx.input.szLine)) {
             return;
         }
-        int i = sscanf(g_studiomdl.input.szLine, "%1023s \"%[^\"]\" \"%[^\"]\" \"%[^\"]\" \"%[^\"]\" %d", cmd,
+        int i = sscanf(ctx.input.szLine, "%1023s \"%[^\"]\" \"%[^\"]\" \"%[^\"]\" \"%[^\"]\" %d", cmd,
                        pBone->bonename.data(), tmp,
                        pBone->controlname.data(), tmp, &pBone->axis);
         if (i == 6 && stricmp(cmd, "bone") == 0) {
             // printf( "\"%s\" \"%s\" \"%s\" \"%s\"\n", cmd, pBone->bonename, tmp, pBone->controlname );
             pBone->axis = pBone->axis - 1; // MAX uses 1..3, engine 0..2
-            pAxis = &g_studiomdl.bones.axisinterpbones.emplace_back(scratch);
+            pAxis = &ctx.bones.axisinterpbones.emplace_back(scratch);
             scratch = s_axisinterpbone_t();
         }
         else if (stricmp(cmd, "display") == 0) {
@@ -3711,14 +3711,14 @@ void Grab_AxisInterpBones() {
             // skip all type info
         }
         else if (stricmp(cmd, "basepos") == 0) {
-            i = sscanf(g_studiomdl.input.szLine, "basepos %f %f %f", &basepos.x, &basepos.y, &basepos.z);
+            i = sscanf(ctx.input.szLine, "basepos %f %f %f", &basepos.x, &basepos.y, &basepos.z);
             // skip all type info
         }
         else if (stricmp(cmd, "axis") == 0) {
             Vector pos;
             QAngle rot;
             int j;
-            i = sscanf(g_studiomdl.input.szLine, "axis %d %f %f %f %f %f %f", &j, &pos[0], &pos[1], &pos[2], &rot[2],
+            i = sscanf(ctx.input.szLine, "axis %d %f %f %f %f %f %f", &j, &pos[0], &pos[1], &pos[2], &rot[2],
                        &rot[0], &rot[1]);
             if (i == 7) {
                 VectorAdd(basepos, pos, pAxis->pos[j]);
@@ -3977,8 +3977,8 @@ bool ParseFlexibleJiggle(ScriptTokenizer &qc, s_jigglebone_t* jiggleInfo) {
 //
 // Parse $jigglebone parameters
 //
-void Cmd_JiggleBone(ScriptTokenizer &qc) {
-    s_jigglebone_t* jiggleInfo = &g_studiomdl.bones.jigglebones.emplace_back();
+void Cmd_JiggleBone(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    s_jigglebone_t* jiggleInfo = &ctx.bones.jigglebones.emplace_back();
 
     // bone name
     qc.ExpectStringToken(jiggleInfo->bonename);
@@ -4036,7 +4036,7 @@ void Cmd_JiggleBone(ScriptTokenizer &qc) {
         }
     }
 
-    if (!g_studiomdl.options.quiet)
+    if (!ctx.options.quiet)
         Msg("Marking bone {} as a jiggle bone\n", jiggleInfo->bonename.c_str());
 }
 
@@ -4045,25 +4045,25 @@ void Cmd_JiggleBone(ScriptTokenizer &qc) {
 // Purpose: specify bones to store, even if nothing references them
 //-----------------------------------------------------------------------------
 
-void Cmd_IncludeModel(ScriptTokenizer &qc) {
+void Cmd_IncludeModel(StudioMdlState &ctx, ScriptTokenizer &qc) {
     qc.ExpectToken();
-    g_studiomdl.body.includemodels.emplace_back(StudioName::from_format("models/{}", qc.token));
+    ctx.body.includemodels.emplace_back(StudioName::from_format("models/{}", qc.token));
 }
 
-void Cmd_CD(ScriptTokenizer &qc) {
-    if (g_studiomdl.paths.cdset)
+void Cmd_CD(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    if (ctx.paths.cdset)
         qc.Error("Two $cd in one model");
-    g_studiomdl.paths.cdset = true;
+    ctx.paths.cdset = true;
     qc.ExpectToken("<path>");
-    g_studiomdl.paths.cddir.clear();
-    g_studiomdl.paths.cddir.push_back(std::string(qc.token) + "/");
+    ctx.paths.cddir.clear();
+    ctx.paths.cddir.push_back(std::string(qc.token) + "/");
 }
 
-void Cmd_ContentRootRelative(ScriptTokenizer &qc) {
-    g_studiomdl.paths.contentRootRelative = true;
+void Cmd_ContentRootRelative(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    ctx.paths.contentRootRelative = true;
 }
 
-void Cmd_CDMaterials(ScriptTokenizer &qc) {
+void Cmd_CDMaterials(StudioMdlState &ctx, ScriptTokenizer &qc) {
     while (qc.TokenAvailable()) {
         qc.ExpectToken();
 
@@ -4076,73 +4076,73 @@ void Cmd_CDMaterials(ScriptTokenizer &qc) {
         }
 
         Q_FixSlashes(szPath);
-        g_studiomdl.materials.cdtextures.emplace_back(strdup(szPath));
+        ctx.materials.cdtextures.emplace_back(strdup(szPath));
     }
 }
 
-void Cmd_Pushd(ScriptTokenizer &qc) {
+void Cmd_Pushd(StudioMdlState &ctx, ScriptTokenizer &qc) {
     qc.ExpectToken();
 
-    std::string newDir = g_studiomdl.paths.cddir.back() + qc.token.str() + "/";
-    g_studiomdl.paths.cddir.push_back(std::move(newDir));
+    std::string newDir = ctx.paths.cddir.back() + qc.token.str() + "/";
+    ctx.paths.cddir.push_back(std::move(newDir));
 }
 
-void Cmd_Popd(ScriptTokenizer &qc) {
-    if (g_studiomdl.paths.cddir.size() > 1)
-        g_studiomdl.paths.cddir.pop_back();
+void Cmd_Popd(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    if (ctx.paths.cddir.size() > 1)
+        ctx.paths.cddir.pop_back();
 }
 
 
-void Cmd_ExternalTextures(ScriptTokenizer &qc) {
+void Cmd_ExternalTextures(StudioMdlState &ctx, ScriptTokenizer &qc) {
     MdlWarning("ignoring $externaltextures, obsolete...");
 }
 
-void Cmd_ClipToTextures(ScriptTokenizer &qc) {
-    g_studiomdl.options.clip_texcoords = 1;
+void Cmd_ClipToTextures(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    ctx.options.clip_texcoords = 1;
 }
 
-void Cmd_CollapseBones(ScriptTokenizer &qc) {
-    g_studiomdl.options.collapse_bones = true;
+void Cmd_CollapseBones(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    ctx.options.collapse_bones = true;
 }
 
-void Cmd_SkinnedLODs(ScriptTokenizer &qc) {
-    g_studiomdl.options.bSkinnedLODs = true;
+void Cmd_SkinnedLODs(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    ctx.options.bSkinnedLODs = true;
 }
 
-void Cmd_CollapseBonesAggressive(ScriptTokenizer &qc) {
-    g_studiomdl.options.collapse_bones = true;
-    g_studiomdl.options.collapse_bones_aggressive = true;
+void Cmd_CollapseBonesAggressive(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    ctx.options.collapse_bones = true;
+    ctx.options.collapse_bones_aggressive = true;
 }
 
-void Cmd_AlwaysCollapse(ScriptTokenizer &qc) {
-    g_studiomdl.options.collapse_bones = true;
+void Cmd_AlwaysCollapse(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    ctx.options.collapse_bones = true;
     qc.ExpectToken();
-    g_studiomdl.bones.collapse.emplace_back(qc.token);
+    ctx.bones.collapse.emplace_back(qc.token);
 }
 
-void Cmd_CalcTransitions(ScriptTokenizer &qc) {
-    g_studiomdl.options.multistageGraph = true;
+void Cmd_CalcTransitions(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    ctx.options.multistageGraph = true;
 }
 
-void ProcessStaticProp() {
-    g_studiomdl.header.staticprop = true;
-    g_studiomdl.header.gflags |= STUDIOHDR_FLAGS_STATIC_PROP;
+void ProcessStaticProp(StudioMdlState &ctx) {
+    ctx.header.staticprop = true;
+    ctx.header.gflags |= STUDIOHDR_FLAGS_STATIC_PROP;
 }
 
-void Cmd_StaticProp(ScriptTokenizer &qc) {
-    ProcessStaticProp();
+void Cmd_StaticProp(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    ProcessStaticProp(ctx);
 }
 
-void Cmd_ZBrush(ScriptTokenizer &qc) {
-    g_studiomdl.options.ZBrush = true;
+void Cmd_ZBrush(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    ctx.options.ZBrush = true;
 }
 
-void Cmd_RealignBones(ScriptTokenizer &qc) {
-    g_studiomdl.options.realignbones = true;
+void Cmd_RealignBones(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    ctx.options.realignbones = true;
 }
 
-void Cmd_BaseLOD(ScriptTokenizer &qc) {
-    Cmd_LOD(qc, "$lod");
+void Cmd_BaseLOD(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    Cmd_LOD(ctx, qc, "$lod");
 }
 
 //-----------------------------------------------------------------------------
@@ -4206,43 +4206,43 @@ void Option_KeyValues(ScriptTokenizer &qc, std::string &pKeyValue) {
     }
 }
 
-void Cmd_KeyValues(ScriptTokenizer &qc) {
-    Option_KeyValues(qc, g_studiomdl.header.KeyValueText);
+void Cmd_KeyValues(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    Option_KeyValues(qc, ctx.header.KeyValueText);
 }
 
-void Cmd_ConstDirectionalLight(ScriptTokenizer &qc) {
-    g_studiomdl.header.gflags |= STUDIOHDR_FLAGS_CONSTANT_DIRECTIONAL_LIGHT_DOT;
+void Cmd_ConstDirectionalLight(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    ctx.header.gflags |= STUDIOHDR_FLAGS_CONSTANT_DIRECTIONAL_LIGHT_DOT;
 
     qc.ExpectToken();
-    g_studiomdl.header.constdirectionalightdot = (uint8_t) (qc.TokenFloat() * 255.0f);
+    ctx.header.constdirectionalightdot = (uint8_t) (qc.TokenFloat() * 255.0f);
 }
 
-void Cmd_MinLOD(ScriptTokenizer &qc) {
-    qc.ExpectIntToken(g_studiomdl.options.minLod);
+void Cmd_MinLOD(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    qc.ExpectIntToken(ctx.options.minLod);
 
     // "minlod" rules over "allowrootlods"
-    if (g_studiomdl.options.numAllowedRootLODs > 0 && g_studiomdl.options.numAllowedRootLODs < g_studiomdl.options.
+    if (ctx.options.numAllowedRootLODs > 0 && ctx.options.numAllowedRootLODs < ctx.options.
         minLod) {
         MdlWarning("$minlod {} overrides $allowrootlods {}, proceeding with $allowrootlods {}.\n",
-                   g_studiomdl.options.minLod,
-                   g_studiomdl.options.numAllowedRootLODs, g_studiomdl.options.minLod);
-        g_studiomdl.options.numAllowedRootLODs = g_studiomdl.options.minLod;
+                   ctx.options.minLod,
+                   ctx.options.numAllowedRootLODs, ctx.options.minLod);
+        ctx.options.numAllowedRootLODs = ctx.options.minLod;
     }
 }
 
-void Cmd_AllowRootLODs(ScriptTokenizer &qc) {
-    qc.ExpectIntToken(g_studiomdl.options.numAllowedRootLODs);
+void Cmd_AllowRootLODs(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    qc.ExpectIntToken(ctx.options.numAllowedRootLODs);
 
     // Root LOD restriction has to obey "minlod" request
-    if (g_studiomdl.options.numAllowedRootLODs > 0 && g_studiomdl.options.numAllowedRootLODs < g_studiomdl.options.
+    if (ctx.options.numAllowedRootLODs > 0 && ctx.options.numAllowedRootLODs < ctx.options.
         minLod) {
         MdlWarning("$allowrootlods {} is conflicting with $minlod {}, proceeding with $allowrootlods {}.\n",
-                   g_studiomdl.options.numAllowedRootLODs, g_studiomdl.options.minLod, g_studiomdl.options.minLod);
-        g_studiomdl.options.numAllowedRootLODs = g_studiomdl.options.minLod;
+                   ctx.options.numAllowedRootLODs, ctx.options.minLod, ctx.options.minLod);
+        ctx.options.numAllowedRootLODs = ctx.options.minLod;
     }
 }
 
-void Cmd_BoneSaveFrame(ScriptTokenizer &qc) {
+void Cmd_BoneSaveFrame(StudioMdlState &ctx, ScriptTokenizer &qc) {
     s_bonesaveframe_t tmp;
 
     // bone name
@@ -4267,60 +4267,56 @@ void Cmd_BoneSaveFrame(ScriptTokenizer &qc) {
         }
     }
 
-    g_studiomdl.bones.bonesaveframe.push_back(tmp);
+    ctx.bones.bonesaveframe.push_back(tmp);
 }
 
 
-static bool s_bFlexClothBorderJoints = false;
-QAngle s_angClothPrerotate(0, 0, 0);
-
-
-void Cmd_SetDefaultFadeInTime(ScriptTokenizer &qc) {
+void Cmd_SetDefaultFadeInTime(StudioMdlState &ctx, ScriptTokenizer &qc) {
     qc.ExpectToken();
 
-    g_studiomdl.options.defaultFadeInTime = qc.TokenFloat();
+    ctx.options.defaultFadeInTime = qc.TokenFloat();
 }
 
-void Cmd_SetDefaultFadeOutTime(ScriptTokenizer &qc) {
+void Cmd_SetDefaultFadeOutTime(StudioMdlState &ctx, ScriptTokenizer &qc) {
     qc.ExpectToken();
 
-    g_studiomdl.options.defaultFadeOutTime = qc.TokenFloat();
+    ctx.options.defaultFadeOutTime = qc.TokenFloat();
 }
 
-void Cmd_LCaseAllSequences(ScriptTokenizer &qc) {
-    g_studiomdl.options.lCaseAllSequences = true;
+void Cmd_LCaseAllSequences(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    ctx.options.lCaseAllSequences = true;
 }
 
-void Cmd_AllowActivityName(ScriptTokenizer &qc) {
+void Cmd_AllowActivityName(StudioMdlState &ctx, ScriptTokenizer &qc) {
     qc.ExpectToken();
 
-    g_studiomdl.anim.AllowedActivityNames.emplace_back(qc.token);
+    ctx.anim.AllowedActivityNames.emplace_back(qc.token);
 }
 
-void Cmd_CollisionPrecision(ScriptTokenizer &qc) {
+void Cmd_CollisionPrecision(StudioMdlState &ctx, ScriptTokenizer &qc) {
     qc.ExpectToken();
 
-    g_studiomdl.header.collisionPrecision = qc.TokenFloat();
+    ctx.header.collisionPrecision = qc.TokenFloat();
 }
 
-void Cmd_ErrorOnSeqRemapFail(ScriptTokenizer &qc) {
-    g_studiomdl.options.errorOnSeqRemapFail = true;
-}
-
-
-void Cmd_SetModelIntentionallyHasZeroSequences(ScriptTokenizer &qc) {
-    g_studiomdl.options.modelIntentionallyHasZeroSequences = true;
+void Cmd_ErrorOnSeqRemapFail(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    ctx.options.errorOnSeqRemapFail = true;
 }
 
 
-void Cmd_BoneMerge(ScriptTokenizer &qc) {
-    if (g_studiomdl.options.createMakefile)
+void Cmd_SetModelIntentionallyHasZeroSequences(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    ctx.options.modelIntentionallyHasZeroSequences = true;
+}
+
+
+void Cmd_BoneMerge(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    if (ctx.options.createMakefile)
         return;
 
-    g_studiomdl.bones.bone_merge.emplace_back();
+    ctx.bones.bone_merge.emplace_back();
 
     // bone name
-    qc.ExpectStringToken(g_studiomdl.bones.bone_merge.back().bonename);
+    qc.ExpectStringToken(ctx.bones.bone_merge.back().bonename);
 }
 
 //-----------------------------------------------------------------------------
@@ -4387,28 +4383,28 @@ void Option_Weightlist(ScriptTokenizer &qc, s_weightlist_t* pweightlist) {
     };
 }
 
-void Cmd_Weightlist(ScriptTokenizer &qc) {
+void Cmd_Weightlist(StudioMdlState &ctx, ScriptTokenizer &qc) {
     qc.ExpectToken();
 
-    if (g_studiomdl.anim.weightlist.size() >= MAXWEIGHTLISTS) {
+    if (ctx.anim.weightlist.size() >= MAXWEIGHTLISTS) {
         qc.Error("Too many weightlist commands ({})\n", MAXWEIGHTLISTS);
     }
 
     // [0] is the default weightlist
-    for (size_t i = 1; i < g_studiomdl.anim.weightlist.size(); i++) {
-        if (vstd::iequals(g_studiomdl.anim.weightlist[i].name, qc.token)) {
+    for (size_t i = 1; i < ctx.anim.weightlist.size(); i++) {
+        if (vstd::iequals(ctx.anim.weightlist[i].name, qc.token)) {
             qc.Error("Duplicate weightlist '{}'\n", qc.token);
         }
     }
 
-    s_weightlist_t &weightlist = g_studiomdl.anim.weightlist.emplace_back();
+    s_weightlist_t &weightlist = ctx.anim.weightlist.emplace_back();
     strcpyn(weightlist.name, qc.token);
 
     Option_Weightlist(qc, &weightlist);
 }
 
-void Cmd_DefaultWeightlist(ScriptTokenizer &qc) {
-    Option_Weightlist(qc, &g_studiomdl.anim.weightlist[0]);
+void Cmd_DefaultWeightlist(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    Option_Weightlist(qc, &ctx.anim.weightlist[0]);
 }
 
 /*
@@ -4416,31 +4412,31 @@ void Cmd_DefaultWeightlist(ScriptTokenizer &qc) {
 Cmd_Origin
 =================
 */
-void Cmd_Origin(ScriptTokenizer &qc) {
-    qc.ExpectFloatToken(g_studiomdl.script.defaultadjust.x);
+void Cmd_Origin(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    qc.ExpectFloatToken(ctx.script.defaultadjust.x);
 
-    qc.ExpectFloatToken(g_studiomdl.script.defaultadjust.y);
+    qc.ExpectFloatToken(ctx.script.defaultadjust.y);
 
-    qc.ExpectFloatToken(g_studiomdl.script.defaultadjust.z);
+    qc.ExpectFloatToken(ctx.script.defaultadjust.z);
 
     if (qc.TokenAvailable()) {
         qc.ExpectToken();
-        g_studiomdl.script.defaultrotation.z = DEG2RAD(qc.TokenFloat() + 90);
+        ctx.script.defaultrotation.z = DEG2RAD(qc.TokenFloat() + 90);
     }
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: Set the default root rotation so that the Y axis is up instead of the Z axis (for Maya)
 //-----------------------------------------------------------------------------
-void ProcessUpAxis(const RadianEuler &angles) {
-    g_studiomdl.script.defaultrotation = angles;
+void ProcessUpAxis(StudioMdlState &ctx, const RadianEuler &angles) {
+    ctx.script.defaultrotation = angles;
 }
 
 
 //-----------------------------------------------------------------------------
 // Purpose: Set the default root rotation so that the Y axis is up instead of the Z axis (for Maya)
 //-----------------------------------------------------------------------------
-void Cmd_UpAxis(ScriptTokenizer &qc) {
+void Cmd_UpAxis(StudioMdlState &ctx, ScriptTokenizer &qc) {
     // We want to create a rotation that rotates from the art space
     // (specified by the up direction) to a z up space
     // Note: x, -x, -y are untested
@@ -4481,46 +4477,46 @@ void Cmd_UpAxis(ScriptTokenizer &qc) {
         return;
     }
 
-    ProcessUpAxis(angles);
+    ProcessUpAxis(ctx, angles);
 }
 
 
-void Cmd_ScaleUp(ScriptTokenizer &qc) {
-    qc.ExpectFloatToken(g_studiomdl.script.defaultscale);
+void Cmd_ScaleUp(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    qc.ExpectFloatToken(ctx.script.defaultscale);
 
-    g_studiomdl.script.currentscale = g_studiomdl.script.defaultscale;
+    ctx.script.currentscale = ctx.script.defaultscale;
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: Sets how what size chunks to cut the animations into
 //-----------------------------------------------------------------------------
-void Cmd_AnimBlockSize(ScriptTokenizer &qc) {
-    qc.ExpectIntToken(g_studiomdl.anim.animblocksize);
-    if (g_studiomdl.anim.animblocksize < 1024) {
-        g_studiomdl.anim.animblocksize *= 1024;
+void Cmd_AnimBlockSize(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    qc.ExpectIntToken(ctx.anim.animblocksize);
+    if (ctx.anim.animblocksize < 1024) {
+        ctx.anim.animblocksize *= 1024;
     }
     while (qc.TokenAvailable()) {
         qc.ExpectToken();
         if (vstd::iequals(qc.token, "nostall")) {
-            g_studiomdl.options.noAnimblockStall = true;
+            ctx.options.noAnimblockStall = true;
         }
         else if (vstd::iequals(qc.token, "highres")) {
-            g_studiomdl.options.animblockHighRes = true;
-            g_studiomdl.options.animblockLowRes = false;
+            ctx.options.animblockHighRes = true;
+            ctx.options.animblockLowRes = false;
         }
         else if (vstd::iequals(qc.token, "lowres")) {
-            g_studiomdl.options.animblockLowRes = true;
-            g_studiomdl.options.animblockHighRes = false;
+            ctx.options.animblockLowRes = true;
+            ctx.options.animblockHighRes = false;
         }
         else if (vstd::iequals(qc.token, "numframes")) {
             qc.ExpectToken();
-            g_studiomdl.options.maxZeroFrames = clamp(qc.TokenInt(), 1, 4);
+            ctx.options.maxZeroFrames = clamp(qc.TokenInt(), 1, 4);
         }
         else if (vstd::iequals(qc.token, "cachehighres")) {
-            g_studiomdl.options.zeroFramesHighres = true;
+            ctx.options.zeroFramesHighres = true;
         }
         else if (vstd::iequals(qc.token, "posdelta")) {
-            qc.ExpectFloatToken(g_studiomdl.options.minZeroFramePosDelta);
+            qc.ExpectFloatToken(ctx.options.minZeroFramePosDelta);
         }
         else {
             qc.Error("unknown option \"{}\" on $animblocksize command\n", qc.token);
@@ -4528,17 +4524,17 @@ void Cmd_AnimBlockSize(ScriptTokenizer &qc) {
     }
 }
 
-void Cmd_AppendSource(ScriptTokenizer &qc) {
+void Cmd_AppendSource(StudioMdlState &ctx, ScriptTokenizer &qc) {
     qc.ExpectToken();
 
-    s_source_t* pOrigSource = g_studiomdl.body.model[0]->source;
-    s_source_t* pAppendSource = Load_Source(qc.token.view(), "", false, false,
+    s_source_t* pOrigSource = ctx.body.model[0]->source;
+    s_source_t* pAppendSource = Load_Source(ctx, qc.token.view(), "", false, false,
                                             false
                                             /* don't use cached lookup, since this might be a dup of the starting src */);
 
     matrix3x4_t matTemp;
     matTemp.SetToIdentity();
-    matTemp.ScaleUpper3x3Matrix(g_studiomdl.script.currentscale);
+    matTemp.ScaleUpper3x3Matrix(ctx.script.currentscale);
 
     if (qc.TokenAvailable()) {
         qc.ExpectToken();
@@ -4557,7 +4553,7 @@ void Cmd_AppendSource(ScriptTokenizer &qc) {
 
             if (nCount == 7) {
                 AngleMatrix(angOffsetAngle, vecOffsetPosition, matTemp);
-                matTemp.ScaleUpper3x3Matrix(flScale * (1.0f / g_studiomdl.script.currentscale));
+                matTemp.ScaleUpper3x3Matrix(flScale * (1.0f / ctx.script.currentscale));
             }
             else {
                 qc.Error("Malformed offset parameters to $appendsource.");
@@ -4572,48 +4568,48 @@ void Cmd_AppendSource(ScriptTokenizer &qc) {
     AddSrcToSrc(pOrigSource, pAppendSource, matTemp);
 }
 
-void Cmd_FlexOptimize(ScriptTokenizer &qc) {
+void Cmd_FlexOptimize(StudioMdlState &ctx, ScriptTokenizer &qc) {
     // $flexoptimize auto|on|off [min static verts]
     qc.ExpectToken();
-    if (!ParseFlexOptimizeMode(qc.token.view(), g_studiomdl.options.flexOptimizeMode)) {
+    if (!ParseFlexOptimizeMode(qc.token.view(), ctx.options.flexOptimizeMode)) {
         qc.Error("$flexoptimize expects auto, on or off, got \"{}\"\n", qc.token);
     }
     if (qc.TokenAvailable()) {
-        qc.ExpectIntToken(g_studiomdl.options.flexOptimizeMinStatic);
+        qc.ExpectIntToken(ctx.options.flexOptimizeMinStatic);
     }
 }
 
-void Cmd_maxVerts(ScriptTokenizer &qc) {
+void Cmd_maxVerts(StudioMdlState &ctx, ScriptTokenizer &qc) {
     // first limit
     qc.ExpectToken();
-    g_studiomdl.options.maxVertexLimit = clamp(qc.TokenInt(), 1024, MAXSTUDIOVERTS);
-    g_studiomdl.options.maxVertexClamp = MIN(g_studiomdl.options.maxVertexLimit, MAXSTUDIOVERTS / 2);
+    ctx.options.maxVertexLimit = clamp(qc.TokenInt(), 1024, MAXSTUDIOVERTS);
+    ctx.options.maxVertexClamp = MIN(ctx.options.maxVertexLimit, MAXSTUDIOVERTS / 2);
 
     if (qc.TokenAvailable()) {
         // actual target limit
         qc.ExpectToken();
-        g_studiomdl.options.maxVertexClamp = clamp(qc.TokenInt(), 1024, MAXSTUDIOVERTS);
+        ctx.options.maxVertexClamp = clamp(qc.TokenInt(), 1024, MAXSTUDIOVERTS);
     }
 }
 
-s_sequence_t* LookupSequence(const char* name) {
+s_sequence_t* LookupSequence(StudioMdlState &ctx, const char* name) {
     int i;
-    for (i = 0; i < std::ssize(g_studiomdl.anim.sequence); ++i) {
-        if (vstd::iequals(g_studiomdl.anim.sequence[i].name, name))
-            return &g_studiomdl.anim.sequence[i];
+    for (i = 0; i < std::ssize(ctx.anim.sequence); ++i) {
+        if (vstd::iequals(ctx.anim.sequence[i].name, name))
+            return &ctx.anim.sequence[i];
     }
     return nullptr;
 }
 
 
-s_animation_t* LookupAnimation(const char* name, int nFallbackRecursionDepth) {
+s_animation_t* LookupAnimation(StudioMdlState &ctx, const char* name, int nFallbackRecursionDepth) {
     int i;
-    for (i = 0; i < g_studiomdl.anim.animations.size(); i++) {
-        if (vstd::iequals(g_studiomdl.anim.animations[i]->name, name))
-            return g_studiomdl.anim.animations[i];
+    for (i = 0; i < ctx.anim.animations.size(); i++) {
+        if (vstd::iequals(ctx.anim.animations[i]->name, name))
+            return ctx.anim.animations[i];
     }
 
-    s_sequence_t* pseq = LookupSequence(name);
+    s_sequence_t* pseq = LookupSequence(ctx, name);
 
     // pseq->panim grows on access, so check the sizes instead of reading panim[0][0]: this is only a lookup
     if (pseq && !pseq->panim.empty() && !pseq->panim.at(0).empty()) {
@@ -4623,14 +4619,14 @@ s_animation_t* LookupAnimation(const char* name, int nFallbackRecursionDepth) {
     // check optional fallbacks or reserved name syntax
 
     if (nFallbackRecursionDepth == 0 && !V_strcmp(name, "this")) {
-        return LookupAnimation(g_studiomdl.script.szInCurrentSeqName, 1);
+        return LookupAnimation(ctx, ctx.script.szInCurrentSeqName, 1);
     }
 
     return nullptr;
 }
 
-s_animation_t* LookupAnimation(const char* name) {
-    return LookupAnimation(name, 0);
+s_animation_t* LookupAnimation(StudioMdlState &ctx, const char* name) {
+    return LookupAnimation(ctx, name, 0);
 }
 
 
@@ -4678,17 +4674,17 @@ int Option_Event(ScriptTokenizer &qc, s_sequence_t* psequence) {
 }
 
 
-void Option_IKRule(ScriptTokenizer &qc, s_ikrule_t* pRule) {
+void Option_IKRule(StudioMdlState &ctx, ScriptTokenizer &qc, s_ikrule_t* pRule) {
     // chain
     qc.ExpectToken();
 
     int i;
-    for (i = 0; i < std::ssize(g_studiomdl.anim.ikchain); i++) {
-        if (vstd::iequals(qc.token, g_studiomdl.anim.ikchain[i].name)) {
+    for (i = 0; i < std::ssize(ctx.anim.ikchain); i++) {
+        if (vstd::iequals(qc.token, ctx.anim.ikchain[i].name)) {
             break;
         }
     }
-    if (i >= std::ssize(g_studiomdl.anim.ikchain)) {
+    if (i >= std::ssize(ctx.anim.ikchain)) {
         qc.Error("unknown chain \"{}\" in ikrule\n", qc.token);
     }
     pRule->chain = i;
@@ -4705,9 +4701,9 @@ void Option_IKRule(ScriptTokenizer &qc, s_ikrule_t* pRule) {
 
         pRule->type = IkRuleType::Ground;
 
-        pRule->height = g_studiomdl.anim.ikchain[pRule->chain].height;
-        pRule->floor = g_studiomdl.anim.ikchain[pRule->chain].floor;
-        pRule->radius = g_studiomdl.anim.ikchain[pRule->chain].radius;
+        pRule->height = ctx.anim.ikchain[pRule->chain].height;
+        pRule->floor = ctx.anim.ikchain[pRule->chain].floor;
+        pRule->radius = ctx.anim.ikchain[pRule->chain].radius;
 
         pRule->start = -2;
         pRule->peak = -1;
@@ -4722,9 +4718,9 @@ void Option_IKRule(ScriptTokenizer &qc, s_ikrule_t* pRule) {
     else if (vstd::iequals(qc.token, "footstep")) {
         pRule->type = IkRuleType::Ground;
 
-        pRule->height = g_studiomdl.anim.ikchain[pRule->chain].height;
-        pRule->floor = g_studiomdl.anim.ikchain[pRule->chain].floor;
-        pRule->radius = g_studiomdl.anim.ikchain[pRule->chain].radius;
+        pRule->height = ctx.anim.ikchain[pRule->chain].height;
+        pRule->floor = ctx.anim.ikchain[pRule->chain].floor;
+        pRule->radius = ctx.anim.ikchain[pRule->chain].radius;
     }
     else if (vstd::iequals(qc.token, "attachment")) {
         pRule->type = IkRuleType::Attachment;
@@ -4837,7 +4833,7 @@ static float TokenFloatOrNull(ScriptTokenizer &qc) {
 //-----------------------------------------------------------------------------
 // Purpose: parse order dependant s_animcmd_t token for $animations
 //-----------------------------------------------------------------------------
-int ParseCmdlistToken(ScriptTokenizer &qc, s_cmdlist_t::AnimCmdVector &cmds) {
+int ParseCmdlistToken(StudioMdlState &ctx, ScriptTokenizer &qc, s_cmdlist_t::AnimCmdVector &cmds) {
     if (cmds.full()) {
         return false;
     }
@@ -4853,12 +4849,12 @@ int ParseCmdlistToken(ScriptTokenizer &qc, s_cmdlist_t::AnimCmdVector &cmds) {
         qc.ExpectToken();
 
         int i;
-        for (i = 1; i < std::ssize(g_studiomdl.anim.weightlist); i++) {
-            if (vstd::iequals(g_studiomdl.anim.weightlist[i].name, qc.token)) {
+        for (i = 1; i < std::ssize(ctx.anim.weightlist); i++) {
+            if (vstd::iequals(ctx.anim.weightlist[i].name, qc.token)) {
                 break;
             }
         }
-        if (i == std::ssize(g_studiomdl.anim.weightlist)) {
+        if (i == std::ssize(ctx.anim.weightlist)) {
             qc.Error("unknown weightlist '{}\'\n", qc.token);
         }
         cmd.cmd = CMD_WEIGHTS;
@@ -4869,7 +4865,7 @@ int ParseCmdlistToken(ScriptTokenizer &qc, s_cmdlist_t::AnimCmdVector &cmds) {
 
         qc.ExpectToken();
 
-        s_animation_t* extanim = LookupAnimation(qc.token);
+        s_animation_t* extanim = LookupAnimation(ctx, qc.token);
         if (extanim == nullptr) {
             qc.Error("unknown subtract animation '{}\'\n", qc.token);
         }
@@ -4886,7 +4882,7 @@ int ParseCmdlistToken(ScriptTokenizer &qc, s_cmdlist_t::AnimCmdVector &cmds) {
 
         qc.ExpectToken();
 
-        s_animation_t* extanim = LookupAnimation(qc.token);
+        s_animation_t* extanim = LookupAnimation(ctx, qc.token);
         if (extanim == nullptr) {
             qc.Error("unknown presubtract animation '{}\'\n", qc.token);
         }
@@ -4901,7 +4897,7 @@ int ParseCmdlistToken(ScriptTokenizer &qc, s_cmdlist_t::AnimCmdVector &cmds) {
         cmd.u.ao.pBonename = nullptr;
 
         qc.ExpectToken();
-        s_animation_t* extanim = LookupAnimation(qc.token);
+        s_animation_t* extanim = LookupAnimation(ctx, qc.token);
         if (extanim == nullptr) {
             qc.Error("unknown alignto animation '{}\'\n", qc.token);
         }
@@ -4917,7 +4913,7 @@ int ParseCmdlistToken(ScriptTokenizer &qc, s_cmdlist_t::AnimCmdVector &cmds) {
         cmd.u.ao.pBonename = nullptr;
 
         qc.ExpectToken();
-        s_animation_t* extanim = LookupAnimation(qc.token);
+        s_animation_t* extanim = LookupAnimation(ctx, qc.token);
         if (extanim == nullptr) {
             qc.Error("unknown align animation '{}\'\n", qc.token);
         }
@@ -4949,7 +4945,7 @@ int ParseCmdlistToken(ScriptTokenizer &qc, s_cmdlist_t::AnimCmdVector &cmds) {
         cmd.u.ao.pBonename = strdup(qc.token);
 
         qc.ExpectToken();
-        s_animation_t* extanim = LookupAnimation(qc.token);
+        s_animation_t* extanim = LookupAnimation(ctx, qc.token);
         if (extanim == nullptr) {
             qc.Error("unknown alignboneto animation '{}\'\n", qc.token);
         }
@@ -4966,7 +4962,7 @@ int ParseCmdlistToken(ScriptTokenizer &qc, s_cmdlist_t::AnimCmdVector &cmds) {
         cmd.u.ao.pBonename = strdup(qc.token);
 
         qc.ExpectToken();
-        s_animation_t* extanim = LookupAnimation(qc.token);
+        s_animation_t* extanim = LookupAnimation(ctx, qc.token);
         if (extanim == nullptr) {
             qc.Error("unknown alignboneto animation '{}\'\n", qc.token);
         }
@@ -4996,7 +4992,7 @@ int ParseCmdlistToken(ScriptTokenizer &qc, s_cmdlist_t::AnimCmdVector &cmds) {
 
         qc.ExpectToken();
 
-        s_animation_t* extanim = LookupAnimation(qc.token);
+        s_animation_t* extanim = LookupAnimation(ctx, qc.token);
         if (extanim == nullptr) {
             qc.Error("unknown match animation '{}\'\n", qc.token);
         }
@@ -5008,7 +5004,7 @@ int ParseCmdlistToken(ScriptTokenizer &qc, s_cmdlist_t::AnimCmdVector &cmds) {
 
         qc.ExpectToken();
 
-        s_animation_t* extanim = LookupAnimation(qc.token);
+        s_animation_t* extanim = LookupAnimation(ctx, qc.token);
         if (extanim == nullptr) {
             qc.Error("unknown match animation '{}\'\n", qc.token);
         }
@@ -5032,7 +5028,7 @@ int ParseCmdlistToken(ScriptTokenizer &qc, s_cmdlist_t::AnimCmdVector &cmds) {
 
         qc.ExpectToken();
 
-        s_animation_t* extanim = LookupAnimation(qc.token);
+        s_animation_t* extanim = LookupAnimation(ctx, qc.token);
         if (extanim == nullptr) {
             qc.Error("unknown worldspaceblend animation '{}\'\n", qc.token);
         }
@@ -5046,7 +5042,7 @@ int ParseCmdlistToken(ScriptTokenizer &qc, s_cmdlist_t::AnimCmdVector &cmds) {
 
         qc.ExpectToken();
 
-        s_animation_t* extanim = LookupAnimation(qc.token);
+        s_animation_t* extanim = LookupAnimation(ctx, qc.token);
         if (extanim == nullptr) {
             qc.Error("unknown worldspaceblend animation '{}\'\n", qc.token);
         }
@@ -5067,14 +5063,14 @@ int ParseCmdlistToken(ScriptTokenizer &qc, s_cmdlist_t::AnimCmdVector &cmds) {
 
         cmd.u.ikrule.pRule = (s_ikrule_t*) calloc(1, sizeof(s_ikrule_t));
 
-        Option_IKRule(qc, cmd.u.ikrule.pRule);
+        Option_IKRule(ctx, qc, cmd.u.ikrule.pRule);
     }
     else if (vstd::iequals("ikfixup", qc.token)) {
         cmd.cmd = CMD_IKFIXUP;
 
         cmd.u.ikfixup.pRule = (s_ikrule_t*) calloc(1, sizeof(s_ikrule_t));
 
-        Option_IKRule(qc, cmd.u.ikrule.pRule);
+        Option_IKRule(ctx, qc, cmd.u.ikrule.pRule);
     }
     else if (vstd::iequals("walkframe", qc.token)) {
         cmd.cmd = CMD_MOTION;
@@ -5115,7 +5111,7 @@ int ParseCmdlistToken(ScriptTokenizer &qc, s_cmdlist_t::AnimCmdVector &cmds) {
         cmd.u.motion.iSrcFrame = cmd.u.motion.iEndFrame;
 
         qc.ExpectToken(); // reference animation
-        s_animation_t* extanim = LookupAnimation(qc.token);
+        s_animation_t* extanim = LookupAnimation(ctx, qc.token);
         if (extanim == nullptr) {
             qc.Error("unknown alignto animation '{}\'\n", qc.token);
         }
@@ -5157,7 +5153,7 @@ int ParseCmdlistToken(ScriptTokenizer &qc, s_cmdlist_t::AnimCmdVector &cmds) {
 
         // reference animation
         qc.ExpectToken();
-        s_animation_t* extanim = LookupAnimation(qc.token);
+        s_animation_t* extanim = LookupAnimation(ctx, qc.token);
         if (extanim == nullptr) {
             qc.Error("unknown alignto animation '{}\'\n", qc.token);
         }
@@ -5419,7 +5415,7 @@ int ParseCmdlistToken(ScriptTokenizer &qc, s_cmdlist_t::AnimCmdVector &cmds) {
         cmd.cmd = CMD_APPENDANIM;
 
         qc.ExpectToken(); // reference animation
-        s_animation_t* extanim = LookupAnimation(qc.token);
+        s_animation_t* extanim = LookupAnimation(ctx, qc.token);
         if (extanim == nullptr) {
             qc.Error("unknown appendanim '{}\'\n", qc.token);
         }
@@ -5431,12 +5427,12 @@ int ParseCmdlistToken(ScriptTokenizer &qc, s_cmdlist_t::AnimCmdVector &cmds) {
     return true;
 }
 
-void Cmd_Cmdlist(ScriptTokenizer &qc) {
+void Cmd_Cmdlist(StudioMdlState &ctx, ScriptTokenizer &qc) {
     int depth = 0;
 
     // name
     qc.ExpectToken();
-    auto &cmd = g_studiomdl.anim.cmdlists.emplace_back(s_cmdlist_t{
+    auto &cmd = ctx.anim.cmdlists.emplace_back(s_cmdlist_t{
         .name = qc.token,
     });
 
@@ -5464,7 +5460,7 @@ void Cmd_Cmdlist(ScriptTokenizer &qc) {
         else if (vstd::iequals("}", qc.token)) {
             depth--;
         }
-        else if (ParseCmdlistToken(qc, cmd.cmds)) {
+        else if (ParseCmdlistToken(ctx, qc, cmd.cmds)) {
         }
         else {
             qc.Error("unknown command: {}\n", qc.token);
@@ -5479,7 +5475,7 @@ void Cmd_Cmdlist(ScriptTokenizer &qc) {
 //-----------------------------------------------------------------------------
 // Purpose: parse order independant s_animation_t token for $animations
 //-----------------------------------------------------------------------------
-bool ParseAnimationToken(ScriptTokenizer &qc, s_animation_t* panim) {
+bool ParseAnimationToken(StudioMdlState &ctx, ScriptTokenizer &qc, s_animation_t* panim) {
     if (vstd::iequals("if", qc.token)) {
         // fixme: add expression evaluation
         qc.ExpectToken();
@@ -5603,7 +5599,7 @@ bool ParseAnimationToken(ScriptTokenizer &qc, s_animation_t* panim) {
             }
         }
 
-        if (!g_studiomdl.options.createMakefile && panim->endframe < panim->startframe) {
+        if (!ctx.options.createMakefile && panim->endframe < panim->startframe) {
             qc.Error("end frame before start frame in {}", panim->name);
         }
 
@@ -5621,7 +5617,7 @@ bool ParseAnimationToken(ScriptTokenizer &qc, s_animation_t* panim) {
             panim->startframe = pSourceAnim->startframe;
             panim->endframe = pSourceAnim->endframe;
 
-            if (!g_studiomdl.options.createMakefile && panim->endframe < panim->startframe) {
+            if (!ctx.options.createMakefile && panim->endframe < panim->startframe) {
                 qc.Error("end frame before start frame in {}", panim->name);
             }
 
@@ -5649,22 +5645,22 @@ bool ParseAnimationToken(ScriptTokenizer &qc, s_animation_t* panim) {
         return true;
     }
 
-    if (ParseCmdlistToken(qc, panim->cmds))
+    if (ParseCmdlistToken(ctx, qc, panim->cmds))
         return true;
 
     if (vstd::iequals("cmdlist", qc.token)) {
         qc.ExpectToken(); // A
 
         int i;
-        for (i = 0; i < g_studiomdl.anim.cmdlists.size(); i++) {
-            if (vstd::iequals(g_studiomdl.anim.cmdlists[i].name, qc.token)) {
+        for (i = 0; i < ctx.anim.cmdlists.size(); i++) {
+            if (vstd::iequals(ctx.anim.cmdlists[i].name, qc.token)) {
                 break;
             }
         }
-        if (i == g_studiomdl.anim.cmdlists.size())
+        if (i == ctx.anim.cmdlists.size())
             qc.Error("unknown cmdlist {}\n", qc.token);
 
-        for (auto & cmd : g_studiomdl.anim.cmdlists[i].cmds) {
+        for (auto & cmd : ctx.anim.cmdlists[i].cmds) {
             if (panim->cmds.full()) {
                 qc.Error("Too many cmds in {}\n", panim->name);
             }
@@ -5707,7 +5703,7 @@ bool ParseAnimationToken(ScriptTokenizer &qc, s_animation_t* panim) {
 // Purpose: wrapper for parsing $animation tokens
 //-----------------------------------------------------------------------------
 
-int ParseAnimation(ScriptTokenizer &qc, s_animation_t* panim, bool isAppend) {
+int ParseAnimation(StudioMdlState &ctx, ScriptTokenizer &qc, s_animation_t* panim, bool isAppend) {
     int depth = 0;
 
     while (true) {
@@ -5736,7 +5732,7 @@ int ParseAnimation(ScriptTokenizer &qc, s_animation_t* panim, bool isAppend) {
         else if (vstd::iequals("}", qc.token)) {
             depth--;
         }
-        else if (ParseAnimationToken(qc, panim)) {
+        else if (ParseAnimationToken(ctx, qc, panim)) {
         }
         else {
             qc.Error("Unknown animation option\'{}\'\n", qc.token);
@@ -5754,11 +5750,11 @@ int ParseAnimation(ScriptTokenizer &qc, s_animation_t* panim, bool isAppend) {
 //-----------------------------------------------------------------------------
 // Purpose: allocate an entry for $animation
 //-----------------------------------------------------------------------------
-void Cmd_Animation(ScriptTokenizer &qc) {
+void Cmd_Animation(StudioMdlState &ctx, ScriptTokenizer &qc) {
     // name
     qc.ExpectToken();
 
-    s_animation_t* panim = LookupAnimation(qc.token);
+    s_animation_t* panim = LookupAnimation(ctx, qc.token);
 
     if (panim != nullptr) {
         if (!panim->isOverride) {
@@ -5772,15 +5768,15 @@ void Cmd_Animation(ScriptTokenizer &qc) {
     }
 
     // allocate animation entry
-    panim = g_studiomdl.anim.animations.emplace_back(c_allocate<s_animation_t>());
+    panim = ctx.anim.animations.emplace_back(c_allocate<s_animation_t>());
 
-    panim->index = g_studiomdl.anim.animations.size() - 1;
+    panim->index = ctx.anim.animations.size() - 1;
     panim->name = qc.token;
 
     // filename
     qc.ExpectStringToken(panim->filename);
 
-    panim->source = Load_Source(panim->filename.c_str(), "");
+    panim->source = Load_Source(ctx, panim->filename.c_str(), "");
     if (!panim->source->m_Animations.empty()) {
         s_sourceanim_t* pSourceAnim = &panim->source->m_Animations[0];
         panim->startframe = pSourceAnim->startframe;
@@ -5792,13 +5788,13 @@ void Cmd_Animation(ScriptTokenizer &qc) {
         panim->endframe = 0;
         Q_strncpy(panim->animationname, "", sizeof(panim->animationname));
     }
-    VectorCopy(g_studiomdl.script.defaultadjust, panim->adjust);
-    panim->rotation = g_studiomdl.script.defaultrotation;
+    VectorCopy(ctx.script.defaultadjust, panim->adjust);
+    panim->rotation = ctx.script.defaultrotation;
     panim->scale = 1.0f;
     panim->fps = 30.0;
-    panim->motionrollback = g_studiomdl.options.defaultMotionRollback;
+    panim->motionrollback = ctx.options.defaultMotionRollback;
 
-    ParseAnimation(qc, panim, false);
+    ParseAnimation(ctx, qc, panim, false);
 
     panim->numframes = panim->endframe - panim->startframe + 1;
 
@@ -5808,8 +5804,8 @@ void Cmd_Animation(ScriptTokenizer &qc) {
 //-----------------------------------------------------------------------------
 // Purpose: allocate an entry for $sequence
 //-----------------------------------------------------------------------------
-s_sequence_t* ProcessCmdSequence(const char* pSequenceName) {
-    s_animation_t* panim = LookupAnimation(pSequenceName);
+s_sequence_t* ProcessCmdSequence(StudioMdlState &ctx, const char* pSequenceName) {
+    s_animation_t* panim = LookupAnimation(ctx, pSequenceName);
 
     // allocate sequence
     if (panim != nullptr) {
@@ -5822,12 +5818,12 @@ s_sequence_t* ProcessCmdSequence(const char* pSequenceName) {
         }
     }
 
-    if (std::ssize(g_studiomdl.anim.sequence) >= MAXSTUDIOSEQUENCES) {
+    if (std::ssize(ctx.anim.sequence) >= MAXSTUDIOSEQUENCES) {
         MdlError("Too many sequences ({} max)\n", MAXSTUDIOSEQUENCES);
     }
 
     // value-initialized: everything zero
-    s_sequence_t* pseq = &g_studiomdl.anim.sequence.emplace_back();
+    s_sequence_t* pseq = &ctx.anim.sequence.emplace_back();
 
     // initialize sequence
     Q_strncpy(pseq->name, pSequenceName, sizeof(pseq->name));
@@ -5842,13 +5838,13 @@ s_sequence_t* ProcessCmdSequence(const char* pSequenceName) {
     pseq->groupsize[0] = 0;
     pseq->groupsize[1] = 0;
 
-    pseq->fadeintime = g_studiomdl.options.defaultFadeInTime;
-    pseq->fadeouttime = g_studiomdl.options.defaultFadeOutTime;
+    pseq->fadeintime = ctx.options.defaultFadeInTime;
+    pseq->fadeouttime = ctx.options.defaultFadeOutTime;
     return pseq;
 }
 
 
-int Option_Activity(ScriptTokenizer &qc, s_sequence_t* psequence) {
+int Option_Activity(StudioMdlState &ctx, ScriptTokenizer &qc, s_sequence_t* psequence) {
     qboolean found;
 
     found = false;
@@ -5856,9 +5852,9 @@ int Option_Activity(ScriptTokenizer &qc, s_sequence_t* psequence) {
     qc.ExpectToken();
     strcpy(psequence->activityname, qc.token);
 
-    if (g_studiomdl.anim.AllowedActivityNames.size()) {
-        if (std::ranges::find(g_studiomdl.anim.AllowedActivityNames, qc.token.view()) ==
-            g_studiomdl.anim.AllowedActivityNames.end()) {
+    if (ctx.anim.AllowedActivityNames.size()) {
+        if (std::ranges::find(ctx.anim.AllowedActivityNames, qc.token.view()) ==
+            ctx.anim.AllowedActivityNames.end()) {
             qc.Error("Unknown sequence activity \"{}\" in \"{}\".", qc.token, psequence->name);
         }
     }
@@ -5897,10 +5893,10 @@ int Option_ActivityModifier(ScriptTokenizer &qc, s_sequence_t* psequence) {
 //-----------------------------------------------------------------------------
 // Purpose: create a virtual $animation command from a $sequence reference
 //-----------------------------------------------------------------------------
-s_animation_t* ProcessImpliedAnimation(s_sequence_t* psequence, const char* filename) {
+s_animation_t* ProcessImpliedAnimation(StudioMdlState &ctx, s_sequence_t* psequence, const char* filename) {
     // allocate animation entry
-    s_animation_t* panim = g_studiomdl.anim.animations.emplace_back(c_allocate<s_animation_t>());
-    panim->index = g_studiomdl.anim.animations.size() - 1;
+    s_animation_t* panim = ctx.anim.animations.emplace_back(c_allocate<s_animation_t>());
+    panim->index = ctx.anim.animations.size() - 1;
 
     panim->isImplied = true;
 
@@ -5911,14 +5907,14 @@ s_animation_t* ProcessImpliedAnimation(s_sequence_t* psequence, const char* file
     strcat(panim->name, psequence->name);
     panim->filename = filename;
 
-    VectorCopy(g_studiomdl.script.defaultadjust, panim->adjust);
+    VectorCopy(ctx.script.defaultadjust, panim->adjust);
     panim->scale = 1.0f;
-    panim->rotation = g_studiomdl.script.defaultrotation;
+    panim->rotation = ctx.script.defaultrotation;
     panim->fps = 30;
-    panim->motionrollback = g_studiomdl.options.defaultMotionRollback;
+    panim->motionrollback = ctx.options.defaultMotionRollback;
 
     //panim->source = Load_Source( panim->filename, "smd" );
-    panim->source = Load_Source(panim->filename.c_str(), "");
+    panim->source = Load_Source(ctx, panim->filename.c_str(), "");
     if (!panim->source->m_Animations.empty()) {
         s_sourceanim_t* pSourceAnim = &panim->source->m_Animations[0];
         Q_strncpy(panim->animationname, panim->source->m_Animations[0].animationname, sizeof(panim->animationname));
@@ -5934,7 +5930,7 @@ s_animation_t* ProcessImpliedAnimation(s_sequence_t* psequence, const char* file
         Q_strncpy(panim->animationname, "", sizeof(panim->animationname));
     }
 
-    if (!g_studiomdl.options.createMakefile && panim->endframe < panim->startframe) {
+    if (!ctx.options.createMakefile && panim->endframe < panim->startframe) {
         MdlError("end frame before start frame in {}", panim->name);
     }
 
@@ -6036,8 +6032,8 @@ void ProcessSequence(s_sequence_t* pseq, int numblends, s_animation_t** animatio
 //-----------------------------------------------------------------------------
 // Purpose: parse options unique to $sequence
 //-----------------------------------------------------------------------------
-int ParseSequence(ScriptTokenizer &qc, s_sequence_t* pseq, bool isAppend) {
-    g_studiomdl.script.szInCurrentSeqName = pseq->name;
+int ParseSequence(StudioMdlState &ctx, ScriptTokenizer &qc, s_sequence_t* pseq, bool isAppend) {
+    ctx.script.szInCurrentSeqName = pseq->name;
 
     int depth = 0;
     s_animation_t* animations[64];
@@ -6087,14 +6083,14 @@ int ParseSequence(ScriptTokenizer &qc, s_sequence_t* pseq, bool isAppend) {
             depth -= Option_Event(qc, pseq);
         }
         else if (vstd::iequals("activity", qc.token)) {
-            Option_Activity(qc, pseq);
+            Option_Activity(ctx, qc, pseq);
         }
         else if ((vstd::iequals("activitymodifier", qc.token)) || (vstd::iequals("actmod", qc.token))) {
             Option_ActivityModifier(qc, pseq);
         }
         else if (vstd::istarts_with(qc.token, "ACT_")) {
             qc.UnGetToken();
-            Option_Activity(qc, pseq);
+            Option_Activity(ctx, qc, pseq);
         }
         else if (vstd::iequals("snap", qc.token)) {
             pseq->flags |= StudioSequenceFlags::Snap;
@@ -6109,16 +6105,16 @@ int ParseSequence(ScriptTokenizer &qc, s_sequence_t* pseq, bool isAppend) {
             }
 
             qc.ExpectToken();
-            j = LookupPoseParameter(qc.token);
+            j = LookupPoseParameter(ctx, qc.token);
             pseq->paramindex[i] = j;
             pseq->paramattachment[i] = -1;
             qc.ExpectFloatToken(pseq->paramstart[i]);
             qc.ExpectFloatToken(pseq->paramend[i]);
 
-            g_studiomdl.anim.pose[j].min = std::min(g_studiomdl.anim.pose[j].min, pseq->paramstart[i]);
-            g_studiomdl.anim.pose[j].min = std::min(g_studiomdl.anim.pose[j].min, pseq->paramend[i]);
-            g_studiomdl.anim.pose[j].max = std::max(g_studiomdl.anim.pose[j].max, pseq->paramstart[i]);
-            g_studiomdl.anim.pose[j].max = std::max(g_studiomdl.anim.pose[j].max, pseq->paramend[i]);
+            ctx.anim.pose[j].min = std::min(ctx.anim.pose[j].min, pseq->paramstart[i]);
+            ctx.anim.pose[j].min = std::min(ctx.anim.pose[j].min, pseq->paramend[i]);
+            ctx.anim.pose[j].max = std::max(ctx.anim.pose[j].max, pseq->paramstart[i]);
+            ctx.anim.pose[j].max = std::max(ctx.anim.pose[j].max, pseq->paramend[i]);
         }
         else if (vstd::iequals("calcblend", qc.token)) {
             i = 0;
@@ -6127,11 +6123,11 @@ int ParseSequence(ScriptTokenizer &qc, s_sequence_t* pseq, bool isAppend) {
             }
 
             qc.ExpectToken();
-            j = LookupPoseParameter(qc.token);
+            j = LookupPoseParameter(ctx, qc.token);
             pseq->paramindex[i] = j;
 
             qc.ExpectToken();
-            pseq->paramattachment[i] = LookupAttachment(qc.token);
+            pseq->paramattachment[i] = LookupAttachment(ctx, qc.token);
             if (pseq->paramattachment[i] == -1) {
                 qc.Error("Unknown calcblend attachment \"{}\"\n", qc.token);
             }
@@ -6141,40 +6137,40 @@ int ParseSequence(ScriptTokenizer &qc, s_sequence_t* pseq, bool isAppend) {
         }
         else if (vstd::iequals("blendref", qc.token)) {
             qc.ExpectToken();
-            pseq->paramanim = LookupAnimation(qc.token);
+            pseq->paramanim = LookupAnimation(ctx, qc.token);
             if (pseq->paramanim == nullptr) {
                 qc.Error("Unknown blendref animation \"{}\"\n", qc.token);
             }
         }
         else if (vstd::iequals("blendcomp", qc.token)) {
             qc.ExpectToken();
-            pseq->paramcompanim = LookupAnimation(qc.token);
+            pseq->paramcompanim = LookupAnimation(ctx, qc.token);
             if (pseq->paramcompanim == nullptr) {
                 qc.Error("Unknown blendcomp animation \"{}\"\n", qc.token);
             }
         }
         else if (vstd::iequals("blendcenter", qc.token)) {
             qc.ExpectToken();
-            pseq->paramcenter = LookupAnimation(qc.token);
+            pseq->paramcenter = LookupAnimation(ctx, qc.token);
             if (pseq->paramcenter == nullptr) {
                 qc.Error("Unknown blendcenter animation \"{}\"\n", qc.token);
             }
         }
         else if (vstd::iequals("node", qc.token)) {
             qc.ExpectToken();
-            pseq->entrynode = pseq->exitnode = LookupXNode(qc.token);
+            pseq->entrynode = pseq->exitnode = LookupXNode(ctx, qc.token);
         }
         else if (vstd::iequals("transition", qc.token)) {
             qc.ExpectToken();
-            pseq->entrynode = LookupXNode(qc.token);
+            pseq->entrynode = LookupXNode(ctx, qc.token);
             qc.ExpectToken();
-            pseq->exitnode = LookupXNode(qc.token);
+            pseq->exitnode = LookupXNode(ctx, qc.token);
         }
         else if (vstd::iequals("rtransition", qc.token)) {
             qc.ExpectToken();
-            pseq->entrynode = LookupXNode(qc.token);
+            pseq->entrynode = LookupXNode(ctx, qc.token);
             qc.ExpectToken();
-            pseq->exitnode = LookupXNode(qc.token);
+            pseq->exitnode = LookupXNode(ctx, qc.token);
             pseq->nodeflags |= 1;
         }
         else if (vstd::iequals("exitphase", qc.token)) {
@@ -6223,7 +6219,7 @@ int ParseSequence(ScriptTokenizer &qc, s_sequence_t* pseq, bool isAppend) {
             pseq->flags |= StudioSequenceFlags::CyclePose;
 
             qc.ExpectToken();
-            pseq->cycleposeindex = LookupPoseParameter(qc.token);
+            pseq->cycleposeindex = LookupPoseParameter(ctx, qc.token);
         }
         else if (vstd::iequals("hidden", qc.token)) {
             pseq->flags |= StudioSequenceFlags::Hidden;
@@ -6283,7 +6279,7 @@ int ParseSequence(ScriptTokenizer &qc, s_sequence_t* pseq, bool isAppend) {
                 else if (vstd::iequals("poseparameter", qc.token)) {
                     auto_layer.flags |= AutoLayerFlags::Pose;
                     qc.ExpectToken();
-                    auto_layer.pose = LookupPoseParameter(qc.token);
+                    auto_layer.pose = LookupPoseParameter(ctx, qc.token);
                 }
                 else if (vstd::iequals("local", qc.token)) {
                     auto_layer.flags |= AutoLayerFlags::Local;
@@ -6295,21 +6291,21 @@ int ParseSequence(ScriptTokenizer &qc, s_sequence_t* pseq, bool isAppend) {
                 }
             }
         }
-        else if ((numblends || isAppend) && ParseAnimationToken(qc, animations[0])) {
+        else if ((numblends || isAppend) && ParseAnimationToken(ctx, qc, animations[0])) {
         }
         else if (!isAppend) {
             // assume it's an animation reference
             // first look up an existing animation
-            for (n = 0; n < g_studiomdl.anim.animations.size(); n++) {
-                if (vstd::iequals(qc.token, g_studiomdl.anim.animations[n]->name)) {
-                    animations[numblends++] = g_studiomdl.anim.animations[n];
+            for (n = 0; n < ctx.anim.animations.size(); n++) {
+                if (vstd::iequals(qc.token, ctx.anim.animations[n]->name)) {
+                    animations[numblends++] = ctx.anim.animations[n];
                     break;
                 }
             }
 
-            if (n >= g_studiomdl.anim.animations.size()) {
+            if (n >= ctx.anim.animations.size()) {
                 // assume it's an implied animation
-                animations[numblends++] = ProcessImpliedAnimation(pseq, qc.token);
+                animations[numblends++] = ProcessImpliedAnimation(ctx, pseq, qc.token);
             }
             // hack to allow animation commands to refer to same sequence
             if (numblends == 1) {
@@ -6332,53 +6328,53 @@ int ParseSequence(ScriptTokenizer &qc, s_sequence_t* pseq, bool isAppend) {
 //-----------------------------------------------------------------------------
 // Process the sequence command
 //-----------------------------------------------------------------------------
-void Cmd_Sequence(ScriptTokenizer &qc) {
+void Cmd_Sequence(StudioMdlState &ctx, ScriptTokenizer &qc) {
     qc.ExpectToken();
 
-    if (g_studiomdl.options.lCaseAllSequences)
+    if (ctx.options.lCaseAllSequences)
         vstd::make_lower_ascii(qc.token);
 
     // Find existing sequences
     const char* pSequenceName = qc.token;
-    s_animation_t* panim = LookupAnimation(pSequenceName);
+    s_animation_t* panim = LookupAnimation(ctx, pSequenceName);
     if (panim != nullptr && panim->isOverride) {
         ParseEmpty(qc);
     }
 
-    s_sequence_t* pseq = ProcessCmdSequence(pSequenceName);
+    s_sequence_t* pseq = ProcessCmdSequence(ctx, pSequenceName);
     if (pseq) {
-        ParseSequence(qc, pseq, false);
+        ParseSequence(ctx, qc, pseq, false);
     }
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: append commands to either a sequence or an animation
 //-----------------------------------------------------------------------------
-void Cmd_Append(ScriptTokenizer &qc) {
+void Cmd_Append(StudioMdlState &ctx, ScriptTokenizer &qc) {
     qc.ExpectToken();
 
 
-    s_sequence_t* pseq = LookupSequence(qc.token);
+    s_sequence_t* pseq = LookupSequence(ctx, qc.token);
 
     if (pseq) {
-        ParseSequence(qc, pseq, true);
+        ParseSequence(ctx, qc, pseq, true);
         return;
     }
     else {
-        s_animation_t* panim = LookupAnimation(qc.token);
+        s_animation_t* panim = LookupAnimation(ctx, qc.token);
 
         if (panim) {
-            ParseAnimation(qc, panim, true);
+            ParseAnimation(ctx, qc, panim, true);
             return;
         }
     }
     qc.Error("unknown append animation {}\n", qc.token);
 }
 
-void Cmd_Prepend(ScriptTokenizer &qc) {
+void Cmd_Prepend(StudioMdlState &ctx, ScriptTokenizer &qc) {
     qc.ExpectToken();
 
-    s_sequence_t* pseq = LookupSequence(qc.token);
+    s_sequence_t* pseq = LookupSequence(ctx, qc.token);
     int count = 0;
     s_animation_t* panim = nullptr;
     int iRet = false;
@@ -6386,13 +6382,13 @@ void Cmd_Prepend(ScriptTokenizer &qc) {
     if (pseq) {
         panim = pseq->panim[0][0];
         count = panim->cmds.size();
-        iRet = ParseSequence(qc, pseq, true);
+        iRet = ParseSequence(ctx, qc, pseq, true);
     }
     else {
-        panim = LookupAnimation(qc.token);
+        panim = LookupAnimation(ctx, qc.token);
         if (panim) {
             count = panim->cmds.size();
-            iRet = ParseAnimation(qc, panim, true);
+            iRet = ParseAnimation(ctx, qc, panim, true);
         }
     }
     if (panim && count != panim->cmds.size()) {
@@ -6408,28 +6404,28 @@ void Cmd_Prepend(ScriptTokenizer &qc) {
     qc.Error("unknown prepend animation \"{}\"\n", qc.token);
 }
 
-void Cmd_Continue(ScriptTokenizer &qc) {
+void Cmd_Continue(StudioMdlState &ctx, ScriptTokenizer &qc) {
     qc.ExpectToken();
 
-    s_sequence_t* pseq = LookupSequence(qc.token);
+    s_sequence_t* pseq = LookupSequence(ctx, qc.token);
 
     if (pseq) {
         if (!qc.GetToken(true))
             return;
         qc.UnGetToken();
         if (qc.token[0] != '$')
-            ParseSequence(qc, pseq, true);
+            ParseSequence(ctx, qc, pseq, true);
         return;
     }
     else {
-        s_animation_t* panim = LookupAnimation(qc.token);
+        s_animation_t* panim = LookupAnimation(ctx, qc.token);
 
         if (panim) {
             if (!qc.GetToken(true))
                 return;
             qc.UnGetToken();
             if (qc.token[0] != '$')
-                ParseAnimation(qc, panim, true);
+                ParseAnimation(ctx, qc, panim, true);
             return;
         }
     }
@@ -6439,13 +6435,13 @@ void Cmd_Continue(ScriptTokenizer &qc) {
 //-----------------------------------------------------------------------------
 // Purpose: foward declare an empty sequence
 //-----------------------------------------------------------------------------
-void Cmd_DeclareSequence(ScriptTokenizer &qc) {
-    if (std::ssize(g_studiomdl.anim.sequence) >= MAXSTUDIOSEQUENCES) {
+void Cmd_DeclareSequence(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    if (std::ssize(ctx.anim.sequence) >= MAXSTUDIOSEQUENCES) {
         qc.Error("Too many sequences ({} max)\n", MAXSTUDIOSEQUENCES);
     }
 
     // value-initialized: everything zero
-    s_sequence_t* pseq = &g_studiomdl.anim.sequence.emplace_back();
+    s_sequence_t* pseq = &ctx.anim.sequence.emplace_back();
     pseq->flags = StudioSequenceFlags::Override;
 
     // initialize sequence
@@ -6456,45 +6452,45 @@ void Cmd_DeclareSequence(ScriptTokenizer &qc) {
 //-----------------------------------------------------------------------------
 // Purpose: forward declare an empty sequence
 //-----------------------------------------------------------------------------
-void Cmd_DeclareAnimation(ScriptTokenizer &qc) {
-    if (g_studiomdl.anim.animations.size() >= g_studiomdl.anim.animations.capacity()) {
+void Cmd_DeclareAnimation(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    if (ctx.anim.animations.size() >= ctx.anim.animations.capacity()) {
         qc.Error("Too many animations ({} max)\n", MAXSTUDIOANIMS);
     }
 
     // allocate animation entry
-    s_animation_t* panim = g_studiomdl.anim.animations.emplace_back(c_allocate<s_animation_t>());
-    panim->index = g_studiomdl.anim.animations.size() - 1;
+    s_animation_t* panim = ctx.anim.animations.emplace_back(c_allocate<s_animation_t>());
+    panim->index = ctx.anim.animations.size() - 1;
     panim->flags = StudioSequenceFlags::Override;
 
     // initialize animation
     qc.ExpectStringToken(panim->name);
 }
 
-bool Grab_AimAtBones() {
+bool Grab_AimAtBones(StudioMdlState &ctx) {
     // parsed into a scratch entry that is appended once the names matched
     auto scratch = s_aimatbone_t(); // () zero-fills; {} would leave the Vector members uninitialized
 
     // Already know it's <aimconstraint> in the first string, otherwise wouldn't be here
-    if (sscanf(g_studiomdl.input.szLine, "%*s %127s %127s %127s", scratch.bonename.data(),
+    if (sscanf(ctx.input.szLine, "%*s %127s %127s %127s", scratch.bonename.data(),
                scratch.parentname.data(),
                scratch.aimname.data()) ==
         3) {
-        s_aimatbone_t* pAimAtBone = &g_studiomdl.bones.aimatbones.emplace_back(scratch);
+        s_aimatbone_t* pAimAtBone = &ctx.bones.aimatbones.emplace_back(scratch);
 
         char cmd[1024];
         Vector vector;
 
-        while (GetLineInput()) {
-            g_studiomdl.input.iLinecount++;
+        while (GetLineInput(ctx)) {
+            ctx.input.iLinecount++;
 
-            if (IsEnd(g_studiomdl.input.szLine)) {
+            if (IsEnd(ctx.input.szLine)) {
                 return false;
             }
 
-            if (sscanf(g_studiomdl.input.szLine, "%1024s %f %f %f", cmd, &vector[0], &vector[1], &vector[2]) != 4) {
+            if (sscanf(ctx.input.szLine, "%1024s %f %f %f", cmd, &vector[0], &vector[1], &vector[2]) != 4) {
                 // Allow blank lines to be skipped without error
                 bool allSpace(true);
-                for (const char* pC(g_studiomdl.input.szLine); *pC != '\0' && pC < (g_studiomdl.input.szLine + 4096);
+                for (const char* pC(ctx.input.szLine); *pC != '\0' && pC < (ctx.input.szLine + 4096);
                      ++pC) {
                     if (!V_isspace(*pC)) {
                         allSpace = false;
@@ -6532,7 +6528,7 @@ bool Grab_AimAtBones() {
     return false;
 }
 
-void Grab_QuatInterpBones() {
+void Grab_QuatInterpBones(StudioMdlState &ctx) {
     char cmd[1024];
     Vector basepos;
     RadianEuler rotateaxis(0.0f, 0.0f, 0.0f);
@@ -6542,28 +6538,28 @@ void Grab_QuatInterpBones() {
     auto scratch = s_quatinterpbone_t(); // () zero-fills; {} would leave the Vector members uninitialized
     s_quatinterpbone_t* pBone = &scratch;
 
-    while (GetLineInput()) {
-        g_studiomdl.input.iLinecount++;
-        if (IsEnd(g_studiomdl.input.szLine)) {
+    while (GetLineInput(ctx)) {
+        ctx.input.iLinecount++;
+        if (IsEnd(ctx.input.szLine)) {
             return;
         }
 
-        int i = sscanf(g_studiomdl.input.szLine, "%s %s %s %s %s", cmd, pBone->bonename.data(),
+        int i = sscanf(ctx.input.szLine, "%s %s %s %s %s", cmd, pBone->bonename.data(),
                        pBone->parentname.data(),
                        pBone->controlparentname.data(),
                        pBone->controlname.data());
 
         while (i == 4 && stricmp(cmd, "<aimconstraint>") == 0) {
             // If Grab_AimAtBones() returns false, there file is at EOF
-            if (!Grab_AimAtBones()) {
+            if (!Grab_AimAtBones(ctx)) {
                 return;
             }
 
-            // Grab_AimAtBones will read input into g_studiomdl.input.szLine same as here until it gets a line it doesn't understand, at which point
-            // it will exit leaving that line in g_studiomdl.input.szLine, so check for the end and scan the current buffer again and continue on with
+            // Grab_AimAtBones will read input into ctx.input.szLine same as here until it gets a line it doesn't understand, at which point
+            // it will exit leaving that line in ctx.input.szLine, so check for the end and scan the current buffer again and continue on with
             // the normal QuatInterpBones process
 
-            i = sscanf(g_studiomdl.input.szLine, "%s %s %s %s %s", cmd, pBone->bonename.data(),
+            i = sscanf(ctx.input.szLine, "%s %s %s %s %s", cmd, pBone->bonename.data(),
                        pBone->parentname.data(),
                        pBone->controlparentname.data(),
                        pBone->controlname.data());
@@ -6571,7 +6567,7 @@ void Grab_QuatInterpBones() {
 
         if (i == 5 && stricmp(cmd, "<helper>") == 0) {
             // printf( "\"%s\" \"%s\" \"%s\" \"%s\"\n", cmd, pBone->bonename, tmp, pBone->controlname );
-            pAxis = &g_studiomdl.bones.quatinterpbones.emplace_back(scratch);
+            pAxis = &ctx.bones.quatinterpbones.emplace_back(scratch);
             scratch = s_quatinterpbone_t();
         }
         else if (i > 0) {
@@ -6581,14 +6577,14 @@ void Grab_QuatInterpBones() {
             // any of these checks to be valid... Still kind of buggy as these checks
             // do case insensitive stricmp but then the sscanf does case sensitive
             // matching afterwards... Should probably change those to
-            // sscanf( g_studiomdl.input.szLine, "%*s %f ... ) etc...
+            // sscanf( ctx.input.szLine, "%*s %f ... ) etc...
 
             if (stricmp(cmd, "<display>") == 0) {
                 // skip all display info
                 Vector size;
                 float distance;
 
-                i = sscanf(g_studiomdl.input.szLine, "<display> %f %f %f %f",
+                i = sscanf(ctx.input.szLine, "<display> %f %f %f %f",
                            &size[0], &size[1], &size[2],
                            &distance);
 
@@ -6597,22 +6593,22 @@ void Grab_QuatInterpBones() {
                     pAxis->size = size;
                 }
                 else {
-                    MdlError("Line {}: Unable to parse procedual <display> bone: {}", g_studiomdl.input.iLinecount,
-                             g_studiomdl.input.szLine);
+                    MdlError("Line {}: Unable to parse procedual <display> bone: {}", ctx.input.iLinecount,
+                             ctx.input.szLine);
                 }
             }
             else if (stricmp(cmd, "<basepos>") == 0) {
-                i = sscanf(g_studiomdl.input.szLine, "<basepos> %f %f %f", &basepos.x, &basepos.y, &basepos.z);
+                i = sscanf(ctx.input.szLine, "<basepos> %f %f %f", &basepos.x, &basepos.y, &basepos.z);
                 // skip all type info
             }
             else if (stricmp(cmd, "<rotateaxis>") == 0) {
-                i = sscanf(g_studiomdl.input.szLine, "%*s %f %f %f", &rotateaxis.x, &rotateaxis.y, &rotateaxis.z);
+                i = sscanf(ctx.input.szLine, "%*s %f %f %f", &rotateaxis.x, &rotateaxis.y, &rotateaxis.z);
                 rotateaxis.x = DEG2RAD(rotateaxis.x);
                 rotateaxis.y = DEG2RAD(rotateaxis.y);
                 rotateaxis.z = DEG2RAD(rotateaxis.z);
             }
             else if (stricmp(cmd, "<jointorient>") == 0) {
-                i = sscanf(g_studiomdl.input.szLine, "%*s %f %f %f", &jointorient.x, &jointorient.y, &jointorient.z);
+                i = sscanf(ctx.input.szLine, "%*s %f %f %f", &jointorient.x, &jointorient.y, &jointorient.z);
                 jointorient.x = DEG2RAD(jointorient.x);
                 jointorient.y = DEG2RAD(jointorient.y);
                 jointorient.z = DEG2RAD(jointorient.z);
@@ -6625,7 +6621,7 @@ void Grab_QuatInterpBones() {
 
                 QAngle rot;
                 int j;
-                i = sscanf(g_studiomdl.input.szLine, "<trigger> %f %f %f %f %f %f %f %f %f %f",
+                i = sscanf(ctx.input.szLine, "<trigger> %f %f %f %f %f %f %f %f %f %f",
                            &tolerance,
                            &trigger.x, &trigger.y, &trigger.z,
                            &ang.x, &ang.y, &ang.z,
@@ -6665,19 +6661,19 @@ void Grab_QuatInterpBones() {
                     pAxis->quat[j] = q;
                 }
                 else {
-                    MdlError("Line {}: Unable to parse procedual <trigger> bone: {}", g_studiomdl.input.iLinecount,
-                             g_studiomdl.input.szLine);
+                    MdlError("Line {}: Unable to parse procedual <trigger> bone: {}", ctx.input.iLinecount,
+                             ctx.input.szLine);
                 }
             }
             else {
-                MdlError("Line {}: Unable to parse procedual bone data: {}", g_studiomdl.input.iLinecount,
-                         g_studiomdl.input.szLine);
+                MdlError("Line {}: Unable to parse procedual bone data: {}", ctx.input.iLinecount,
+                         ctx.input.szLine);
             }
         }
         else {
             // Allow blank lines to be skipped without error
             bool allSpace(true);
-            for (const char* pC(g_studiomdl.input.szLine); *pC != '\0' && pC < (g_studiomdl.input.szLine + 4096); ++
+            for (const char* pC(ctx.input.szLine); *pC != '\0' && pC < (ctx.input.szLine + 4096); ++
                  pC) {
                 if (!V_isspace(*pC)) {
                     allSpace = false;
@@ -6686,34 +6682,34 @@ void Grab_QuatInterpBones() {
             }
 
             if (!allSpace) {
-                MdlError("Line {}: Unable to parse procedual bone data: {}", g_studiomdl.input.iLinecount,
-                         g_studiomdl.input.szLine);
+                MdlError("Line {}: Unable to parse procedual bone data: {}", ctx.input.iLinecount,
+                         ctx.input.szLine);
             }
         }
     }
 }
 
-void Load_ProceduralBones(ScriptTokenizer &qc) {
+void Load_ProceduralBones(StudioMdlState &ctx, ScriptTokenizer &qc) {
     char cmd[1024];
     int option;
 
     qc.ExpectToken();
     const std::string filename = qc.token.str();
 
-    if (!OpenGlobalFile(filename)) {
+    if (!OpenGlobalFile(ctx, filename)) {
         Error("unknown $procedural file \"{}\"\n", filename.c_str());
         return;
     }
 
-    g_studiomdl.input.iLinecount = 0;
+    ctx.input.iLinecount = 0;
 
     if (vstd::iequals(vstd::paths::extension(filename), "vrd")) {
-        Grab_QuatInterpBones();
+        Grab_QuatInterpBones(ctx);
     }
     else {
-        while (GetLineInput()) {
-            g_studiomdl.input.iLinecount++;
-            const int numRead = sscanf(g_studiomdl.input.szLine, "%s", cmd, &option);
+        while (GetLineInput(ctx)) {
+            ctx.input.iLinecount++;
+            const int numRead = sscanf(ctx.input.szLine, "%s", cmd, &option);
 
             // No Command Was Parsed, Blank Line Usually
             if ((numRead == EOF) || (numRead == 0))
@@ -6725,26 +6721,26 @@ void Load_ProceduralBones(ScriptTokenizer &qc) {
                 }
             }
             else if (stricmp(cmd, "proceduralbones") == 0) {
-                Grab_AxisInterpBones();
+                Grab_AxisInterpBones(ctx);
             }
         }
     }
-    g_studiomdl.input.inputFile.reset();
+    ctx.input.inputFile.reset();
 }
 
-void Cmd_CollisionModel(ScriptTokenizer &qc) {
-    DoCollisionModel(qc, false);
+void Cmd_CollisionModel(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    DoCollisionModel(ctx, qc, false);
 }
 
-void Cmd_CollisionJoints(ScriptTokenizer &qc) {
-    DoCollisionModel(qc, true);
+void Cmd_CollisionJoints(StudioMdlState &ctx, ScriptTokenizer &qc) {
+    DoCollisionModel(ctx, qc, true);
 }
 
 //
 // This is the master list of the commands a QC file supports.
 // To add a new command to the QC files, add it here.
 //
-MDLCommand_t g_Commands[] =
+constexpr MDLCommand_t g_Commands[] =
 {
 
     {"$collisionmodel", Cmd_CollisionModel},
@@ -6868,4 +6864,4 @@ MDLCommand_t g_Commands[] =
     {"$contentrootrelative", Cmd_ContentRootRelative,},
 };
 
-int g_nMDLCommandCount = ARRAYSIZE(g_Commands);
+constexpr int g_nMDLCommandCount = ARRAYSIZE(g_Commands);

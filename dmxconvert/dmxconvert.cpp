@@ -25,11 +25,9 @@
 #include "tier2/tier2.h"
 #include "tier2/tier2dm.h"
 #include "common/filesystem_tools.h"
-#include "studiomdl/studiomdl_global_state.hpp"
 
 
 class CDmElement;
-StudioMdlState g_studiomdl;
 
 //-----------------------------------------------------------------------------
 // The application object
@@ -64,7 +62,6 @@ int CDmxConvertApp::Main()
 {
     MathLib_Init(2.2f, 2.2f, 0.0f, 2.0f, false, false, false, false);
 	g_pDataModel->OnlyCreateUntypedElements( true );
-	g_pDataModel->SetDefaultElementFactory(nullptr );
 
 	// This bit of hackery allows us to access files on the harddrive
 	g_pFullFileSystem->AddSearchPath( "", IBaseFileSystem::PathID::Local, PATH_ADD_TO_HEAD ); 

@@ -22,28 +22,6 @@ class CDmElement;
 
 
 //-----------------------------------------------------------------------------
-// Utility class to allow datamodel objects to access private members of CDmAttribute
-//-----------------------------------------------------------------------------
-class CDmAttributeAccessor
-{
-public:
-	static void OnChanged( CDmAttribute *pAttribute, bool bArrayCountChanged = false, bool bIsTopological = false )
-	{
-		pAttribute->OnChanged( bArrayCountChanged, bIsTopological );
-	}
-
-	static void DestroyAttribute( CDmAttribute *pOldAttribute )
-	{
-		CDmAttribute::DestroyAttribute( pOldAttribute );
-	}
-
-	static bool MarkDirty( CDmAttribute *pAttribute )
-	{
-		return pAttribute->MarkDirty();
-	}
-};
-
-//-----------------------------------------------------------------------------
 // For serialization, set the delimiter rules
 //-----------------------------------------------------------------------------
 void SetSerializationDelimiter( CUtlCharConversion *pConv );

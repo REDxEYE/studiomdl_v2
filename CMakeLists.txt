@@ -85,7 +85,6 @@ add_executable(studiomdl_v2
         studiomdl/optimize.cpp
         studiomdl/optimize_subd.cpp
         studiomdl/simplify.cpp
-        studiomdl/tristrip.cpp
         studiomdl/UnifyLODs.cpp
         studiomdl/write.cpp
         studiomdl/flexoptimize.cpp

@@ -28,6 +28,7 @@
 #include "tier1_v2/function_timing.hpp"
 #include "studiomdl/studiomdl.h"
 #include "studiomdl/studiomdl_global_state.hpp"
+#include "tier1_v2/sort_utils.hpp"
 
 bool IsEnd(char const *pLine) {
     if (strncmp("end", pLine, 3) != 0)
@@ -41,9 +42,9 @@ bool IsEnd(char const *pLine) {
 }
 
 
-void Grab_Vertexlist(s_source_t *psource) {
+static void Grab_Vertexlist(StudioMdlState &ctx, s_source_t *psource) {
     while (1) {
-        if (g_studiomdl.input.inputFile->Gets(g_studiomdl.input.szLine, sizeof(g_studiomdl.input.szLine)) !=
+        if (ctx.input.inputFile->Gets(ctx.input.szLine, sizeof(ctx.input.szLine)) !=
             nullptr) {
             int j;
             int bone;
@@ -52,14 +53,14 @@ void Grab_Vertexlist(s_source_t *psource) {
             std::array<int, 4> bones{};
             std::array<float, 4> weights{};
 
-            g_studiomdl.input.iLinecount++;
+            ctx.input.iLinecount++;
 
             // check for end
-            if (IsEnd(g_studiomdl.input.szLine))
+            if (IsEnd(ctx.input.szLine))
                 return;
 
 
-            int i = sscanf(g_studiomdl.input.szLine, "%d %d %f %f %f %d %d %f %d %f %d %f %d %f",
+            int i = sscanf(ctx.input.szLine, "%d %d %f %f %f %d %d %f %d %f %d %f %d %f",
                            &j,
                            &bone,
                            &p[0], &p[1], &p[2],
@@ -70,13 +71,13 @@ void Grab_Vertexlist(s_source_t *psource) {
             if (i == 5) {
                 if (bone < 0 || bone >= psource->numbones) {
                     MdlWarning("bogus bone index\n");
-                    MdlWarning("{} {} :\n{}", g_studiomdl.input.iLinecount, g_studiomdl.input.szFilename,
-                               g_studiomdl.input.szLine);
+                    MdlWarning("{} {} :\n{}", ctx.input.iLinecount, ctx.input.szFilename,
+                               ctx.input.szLine);
                     MdlError("Exiting due to errors\n");
                 }
 
-                VectorCopy(p, g_studiomdl.input.vertex[j]);
-                s_boneweight_t &boneWeight = g_studiomdl.input.bone[j];
+                VectorCopy(p, ctx.input.vertex[j]);
+                s_boneweight_t &boneWeight = ctx.input.bone[j];
                 boneWeight.numbones = 1;
                 boneWeight.bone[0] = bone;
                 boneWeight.weight[0] = 1.0;
@@ -84,8 +85,8 @@ void Grab_Vertexlist(s_source_t *psource) {
             else if (i > 5) {
                 iCount = SortAndBalanceBones(iCount, MAXSTUDIOBONEWEIGHTS, bones, weights);
 
-                VectorCopy(p, g_studiomdl.input.vertex[j]);
-                s_boneweight_t &boneWeight = g_studiomdl.input.bone[j];
+                VectorCopy(p, ctx.input.vertex[j]);
+                s_boneweight_t &boneWeight = ctx.input.bone[j];
                 boneWeight.numbones = iCount;
                 for (i = 0; i < iCount; i++) {
                     boneWeight.bone[i] = bones[i];
@@ -93,44 +94,44 @@ void Grab_Vertexlist(s_source_t *psource) {
                 }
             }
             else {
-                MdlError("{}: error on line {}: {}", g_studiomdl.input.szFilename,
-                         g_studiomdl.input.iLinecount, g_studiomdl.input.szLine);
+                MdlError("{}: error on line {}: {}", ctx.input.szFilename,
+                         ctx.input.iLinecount, ctx.input.szLine);
             }
         }
     }
 }
 
 
-void Grab_Facelist(s_source_t *psource) {
+static void Grab_Facelist(StudioMdlState &ctx, s_source_t *psource) {
     while (1) {
-        if (g_studiomdl.input.inputFile->Gets(g_studiomdl.input.szLine, sizeof(g_studiomdl.input.szLine)) !=
+        if (ctx.input.inputFile->Gets(ctx.input.szLine, sizeof(ctx.input.szLine)) !=
             nullptr) {
             int j;
             s_tmpface_t f;
 
-            g_studiomdl.input.iLinecount++;
+            ctx.input.iLinecount++;
 
             // check for end
-            if (IsEnd(g_studiomdl.input.szLine))
+            if (IsEnd(ctx.input.szLine))
                 return;
 
-            if (sscanf(g_studiomdl.input.szLine, "%d %d %d %d",
+            if (sscanf(ctx.input.szLine, "%d %d %d %d",
                        &j,
                        &f.a, &f.b, &f.c) == 4) {
-                g_studiomdl.input.faces[j] = f;
+                ctx.input.faces[j] = f;
             }
             else {
-                MdlError("{}: error on line {}: {}", g_studiomdl.input.szFilename,
-                         g_studiomdl.input.iLinecount, g_studiomdl.input.szLine);
+                MdlError("{}: error on line {}: {}", ctx.input.szFilename,
+                         ctx.input.iLinecount, ctx.input.szLine);
             }
         }
     }
 }
 
 
-void Grab_Materiallist(s_source_t *psource) {
+static void Grab_Materiallist(StudioMdlState &ctx, s_source_t *psource) {
     while (1) {
-        if (g_studiomdl.input.inputFile->Gets(g_studiomdl.input.szLine, sizeof(g_studiomdl.input.szLine)) !=
+        if (ctx.input.inputFile->Gets(ctx.input.szLine, sizeof(ctx.input.szLine)) !=
             nullptr) {
             // char name[256];
             char path[MAX_PATH];
@@ -138,13 +139,13 @@ void Grab_Materiallist(s_source_t *psource) {
             float g;
             int j;
 
-            g_studiomdl.input.iLinecount++;
+            ctx.input.iLinecount++;
 
             // check for end
-            if (IsEnd(g_studiomdl.input.szLine))
+            if (IsEnd(ctx.input.szLine))
                 return;
 
-            if (sscanf(g_studiomdl.input.szLine, "%d  %f %f %f %f   %f %f %f %f  %f %f %f %f  %f \"%[^\"]s",
+            if (sscanf(ctx.input.szLine, "%d  %f %f %f %f   %f %f %f %f  %f %f %f %f  %f \"%[^\"]s",
                        &j,
                        &a.r, &a.g, &a.b, &a.a,
                        &d.r, &d.g, &d.b, &d.a,
@@ -155,7 +156,7 @@ void Grab_Materiallist(s_source_t *psource) {
                     psource->texmap[j] = -1;
                 }
                 else if (j < sizeof(psource->texmap)) {
-                    psource->texmap[j] = LookupTexture(path);
+                    psource->texmap[j] = LookupTexture(ctx, path);
                 }
                 else {
                     MdlError("Too many materials, max {}\n", sizeof(psource->texmap));
@@ -166,74 +167,74 @@ void Grab_Materiallist(s_source_t *psource) {
 }
 
 
-void Grab_Texcoordlist(s_source_t *psource) {
+static void Grab_Texcoordlist(StudioMdlState &ctx, s_source_t *psource) {
     while (1) {
-        if (g_studiomdl.input.inputFile->Gets(g_studiomdl.input.szLine, sizeof(g_studiomdl.input.szLine)) !=
+        if (ctx.input.inputFile->Gets(ctx.input.szLine, sizeof(ctx.input.szLine)) !=
             nullptr) {
             int j;
             Vector2D t;
 
-            g_studiomdl.input.iLinecount++;
+            ctx.input.iLinecount++;
 
             // check for end
-            if (IsEnd(g_studiomdl.input.szLine))
+            if (IsEnd(ctx.input.szLine))
                 return;
 
-            if (sscanf(g_studiomdl.input.szLine, "%d %f %f",
+            if (sscanf(ctx.input.szLine, "%d %f %f",
                        &j,
                        &t[0], &t[1]) == 3) {
                 t[1] = 1.0 - t[1];
-                g_studiomdl.input.texcoord[0][j] = t;
+                ctx.input.texcoord[0][j] = t;
             }
             else {
-                MdlError("{}: error on line {}: {}", g_studiomdl.input.szFilename,
-                         g_studiomdl.input.iLinecount, g_studiomdl.input.szLine);
+                MdlError("{}: error on line {}: {}", ctx.input.szFilename,
+                         ctx.input.iLinecount, ctx.input.szLine);
             }
         }
     }
 }
 
 
-void Grab_Normallist(s_source_t *psource) {
+static void Grab_Normallist(StudioMdlState &ctx, s_source_t *psource) {
     while (1) {
-        if (g_studiomdl.input.inputFile->Gets(g_studiomdl.input.szLine, sizeof(g_studiomdl.input.szLine)) !=
+        if (ctx.input.inputFile->Gets(ctx.input.szLine, sizeof(ctx.input.szLine)) !=
             nullptr) {
             int j;
             int bone;
             Vector n;
 
-            g_studiomdl.input.iLinecount++;
+            ctx.input.iLinecount++;
 
             // check for end
-            if (IsEnd(g_studiomdl.input.szLine))
+            if (IsEnd(ctx.input.szLine))
                 return;
 
 
-            if (sscanf(g_studiomdl.input.szLine, "%d %d %f %f %f",
+            if (sscanf(ctx.input.szLine, "%d %d %f %f %f",
                        &j,
                        &bone,
                        &n[0], &n[1], &n[2]) == 5) {
                 if (bone < 0 || bone >= psource->numbones) {
                     MdlWarning("bogus bone index\n");
-                    MdlWarning("{} {} :\n{}", g_studiomdl.input.iLinecount, g_studiomdl.input.szFilename,
-                               g_studiomdl.input.szLine);
+                    MdlWarning("{} {} :\n{}", ctx.input.iLinecount, ctx.input.szFilename,
+                               ctx.input.szLine);
                     MdlError("Exiting due to errors\n");
                 }
 
-                VectorCopy(n, g_studiomdl.input.normal[j]);
+                VectorCopy(n, ctx.input.normal[j]);
             }
             else {
-                MdlError("{}: error on line {}: {}", g_studiomdl.input.szFilename,
-                         g_studiomdl.input.iLinecount, g_studiomdl.input.szLine);
+                MdlError("{}: error on line {}: {}", ctx.input.szFilename,
+                         ctx.input.iLinecount, ctx.input.szLine);
             }
         }
     }
 }
 
 
-void Grab_Faceattriblist(s_source_t *psource) {
+static void Grab_Faceattriblist(StudioMdlState &ctx, s_source_t *psource) {
     while (1) {
-        if (g_studiomdl.input.inputFile->Gets(g_studiomdl.input.szLine, sizeof(g_studiomdl.input.szLine)) !=
+        if (ctx.input.inputFile->Gets(ctx.input.szLine, sizeof(ctx.input.szLine)) !=
             nullptr) {
             int j;
             int smooth;
@@ -241,23 +242,23 @@ void Grab_Faceattriblist(s_source_t *psource) {
             s_tmpface_t f;
             unsigned short s;
 
-            g_studiomdl.input.iLinecount++;
+            ctx.input.iLinecount++;
 
             // check for end
-            if (IsEnd(g_studiomdl.input.szLine))
+            if (IsEnd(ctx.input.szLine))
                 return;
 
-            if (sscanf(g_studiomdl.input.szLine, "%d %d %d %d %d %d %d %d %d",
+            if (sscanf(ctx.input.szLine, "%d %d %d %d %d %d %d %d %d",
                        &j,
                        &material,
                        &smooth,
                        &f.ta[0], &f.tb[0], &f.tc[0],
                        &f.na, &f.nb, &f.nc) == 9) {
-                f.a = g_studiomdl.input.faces[j].a;
-                f.b = g_studiomdl.input.faces[j].b;
-                f.c = g_studiomdl.input.faces[j].c;
+                f.a = ctx.input.faces[j].a;
+                f.b = ctx.input.faces[j].b;
+                f.c = ctx.input.faces[j].c;
 
-                f.material = UseTextureAsMaterial(psource->texmap[material]);
+                f.material = UseTextureAsMaterial(ctx, psource->texmap[material]);
                 if (f.material < 0) {
                     MdlError("face {} references NULL texture {}\n", j, material);
                 }
@@ -274,20 +275,20 @@ void Grab_Faceattriblist(s_source_t *psource) {
                     f.nc = s;
                 }
 
-                g_studiomdl.input.faces[j] = f;
+                ctx.input.faces[j] = f;
             }
             else {
-                MdlError("{}: error on line {}: {}", g_studiomdl.input.szFilename,
-                         g_studiomdl.input.iLinecount, g_studiomdl.input.szLine);
+                MdlError("{}: error on line {}: {}", ctx.input.szFilename,
+                         ctx.input.iLinecount, ctx.input.szLine);
             }
         }
     }
 }
 
 
-int AddToVlist(int v, int m, int n, std::array<uint32_t, MAXSTUDIOTEXCOORDS> &t, int firstref) {
-    auto &entries = g_studiomdl.input.v_listdata;
-    auto &heads = g_studiomdl.input.v_list;
+static int AddToVlist(StudioMdlState &ctx, int v, int m, int n, std::array<uint32_t, MAXSTUDIOTEXCOORDS> &t, int firstref) {
+    auto &entries = ctx.input.v_listdata;
+    auto &heads = ctx.input.v_list;
     if (v < 0)
         MdlError("Face references an invalid vertex index {}\n", v);
     if (v >= static_cast<int>(heads.size()))
@@ -337,52 +338,52 @@ int AddToVlist(int v, int m, int n, std::array<uint32_t, MAXSTUDIOTEXCOORDS> &t,
 }
 
 
-void UnifyIndices(s_source_t *psource) {
+void UnifyIndices(StudioMdlState &ctx, s_source_t *psource) {
     vstd::FunctionTimingRecorder _("DMX");
     int i;
 
     s_face_t uface;
 
     // reset the unified vertices; the vectors keep their capacity for the next source
-    g_studiomdl.input.v_listdata.clear();
-    g_studiomdl.input.v_list.assign(static_cast<int>(g_studiomdl.input.vertex.size()), -1);
+    ctx.input.v_listdata.clear();
+    ctx.input.v_list.assign(static_cast<int>(ctx.input.vertex.size()), -1);
 
     // create an list of all the
-    g_studiomdl.input.src_uface.resize(g_studiomdl.input.faces.size());
-    for (i = 0; i < g_studiomdl.input.faces.size(); i++) {
-        uface.a = AddToVlist(g_studiomdl.input.faces[i].a, g_studiomdl.input.faces[i].material,
-                             g_studiomdl.input.faces[i].na, g_studiomdl.input.faces[i].ta, static_cast<int>(g_studiomdl.input.vertex.size()));
-        uface.b = AddToVlist(g_studiomdl.input.faces[i].b, g_studiomdl.input.faces[i].material,
-                             g_studiomdl.input.faces[i].nb, g_studiomdl.input.faces[i].tb, static_cast<int>(g_studiomdl.input.vertex.size()));
-        uface.c = AddToVlist(g_studiomdl.input.faces[i].c, g_studiomdl.input.faces[i].material,
-                             g_studiomdl.input.faces[i].nc, g_studiomdl.input.faces[i].tc, static_cast<int>(g_studiomdl.input.vertex.size()));
+    ctx.input.src_uface.resize(ctx.input.faces.size());
+    for (i = 0; i < ctx.input.faces.size(); i++) {
+        uface.a = AddToVlist(ctx, ctx.input.faces[i].a, ctx.input.faces[i].material,
+                             ctx.input.faces[i].na, ctx.input.faces[i].ta, static_cast<int>(ctx.input.vertex.size()));
+        uface.b = AddToVlist(ctx, ctx.input.faces[i].b, ctx.input.faces[i].material,
+                             ctx.input.faces[i].nb, ctx.input.faces[i].tb, static_cast<int>(ctx.input.vertex.size()));
+        uface.c = AddToVlist(ctx, ctx.input.faces[i].c, ctx.input.faces[i].material,
+                             ctx.input.faces[i].nc, ctx.input.faces[i].tc, static_cast<int>(ctx.input.vertex.size()));
         uface.d = 0xFFFFFFFF;
 
-        if (g_studiomdl.input.faces[i].d != 0xFFFFFFFF) {
-            uface.d = AddToVlist(g_studiomdl.input.faces[i].d, g_studiomdl.input.faces[i].material,
-                                 g_studiomdl.input.faces[i].nd, g_studiomdl.input.faces[i].td,
-                                 static_cast<int>(g_studiomdl.input.vertex.size()));
+        if (ctx.input.faces[i].d != 0xFFFFFFFF) {
+            uface.d = AddToVlist(ctx, ctx.input.faces[i].d, ctx.input.faces[i].material,
+                                 ctx.input.faces[i].nd, ctx.input.faces[i].td,
+                                 static_cast<int>(ctx.input.vertex.size()));
         }
 
         // keep an original copy
-        g_studiomdl.input.src_uface[i] = uface;
+        ctx.input.src_uface[i] = uface;
     }
 }
 
-void CalcModelTangentSpaces(s_source_t *pSrc);
+void CalcModelTangentSpaces(StudioMdlState &ctx, s_source_t *pSrc);
 
 
 //-----------------------------------------------------------------------------
 // Builds a list of unique vertices in a source
 //-----------------------------------------------------------------------------
-static void BuildUniqueVertexList(s_source_t *pSource, const int *pDesiredToVList) {
+static void BuildUniqueVertexList(StudioMdlState &ctx, s_source_t *pSource, const int *pDesiredToVList) {
     // allocate memory
     pSource->vertex = (s_vertexinfo_t *) calloc(pSource->numvertices, sizeof(s_vertexinfo_t));
 
     int numValidTexcoords = 1;
 
     for (int i = 1; i < MAXSTUDIOTEXCOORDS; ++i) {
-        if (static_cast<int>(g_studiomdl.input.texcoord[i].size())) {
+        if (static_cast<int>(ctx.input.texcoord[i].size())) {
             numValidTexcoords++;
         }
         else {
@@ -395,24 +396,24 @@ static void BuildUniqueVertexList(s_source_t *pSource, const int *pDesiredToVLis
         int j = pDesiredToVList[i];
 
         s_vertexinfo_t &vertex = pSource->vertex[i];
-        VectorCopy(g_studiomdl.input.vertex[g_studiomdl.input.v_listdata[j].v], vertex.position);
-        VectorCopy(g_studiomdl.input.normal[g_studiomdl.input.v_listdata[j].n], vertex.normal);
+        VectorCopy(ctx.input.vertex[ctx.input.v_listdata[j].v], vertex.position);
+        VectorCopy(ctx.input.normal[ctx.input.v_listdata[j].n], vertex.normal);
 
-        vertex.boneweight.numbones = g_studiomdl.input.bone[g_studiomdl.input.v_listdata[j].v].numbones;
+        vertex.boneweight.numbones = ctx.input.bone[ctx.input.v_listdata[j].v].numbones;
         int k;
         for (k = 0; k < MAXSTUDIOBONEWEIGHTS; k++) {
-            vertex.boneweight.bone[k] = g_studiomdl.input.bone[g_studiomdl.input.v_listdata[j].v].bone[k];
-            vertex.boneweight.weight[k] = g_studiomdl.input.bone[g_studiomdl.input.v_listdata[j].v].weight[k];
+            vertex.boneweight.bone[k] = ctx.input.bone[ctx.input.v_listdata[j].v].bone[k];
+            vertex.boneweight.weight[k] = ctx.input.bone[ctx.input.v_listdata[j].v].weight[k];
         }
 
         vertex.texcoord.resize(numValidTexcoords);
 
         for (k = 0; k < numValidTexcoords; ++k) {
-            Vector2Copy(g_studiomdl.input.texcoord[k][g_studiomdl.input.v_listdata[j].t[k]], vertex.texcoord[k]);
+            Vector2Copy(ctx.input.texcoord[k][ctx.input.v_listdata[j].t[k]], vertex.texcoord[k]);
         }
 
         // store a bunch of other info
-        vertex.material = g_studiomdl.input.v_listdata[j].m;
+        vertex.material = ctx.input.v_listdata[j].m;
 
 #if 0
         pSource->vertexInfo[i].firstref = v_listdata[j].firstref;
@@ -426,11 +427,12 @@ static void BuildUniqueVertexList(s_source_t *pSource, const int *pDesiredToVLis
 //-----------------------------------------------------------------------------
 // sort new vertices by materials, last used
 //-----------------------------------------------------------------------------
-static int vlistCompare(const void *elem1, const void *elem2) {
+static int vlistCompare(const void *elem1, const void *elem2, void *context) {
+    const auto &v_listdata = *static_cast<const decltype(StudioMdlInput::v_listdata) *>(context);
     const int i1 = *(const int *) elem1;
     const int i2 = *(const int *) elem2;
-    const v_unify_t *u1 = &g_studiomdl.input.v_listdata[i1];
-    const v_unify_t *u2 = &g_studiomdl.input.v_listdata[i2];
+    const v_unify_t *u1 = &v_listdata[i1];
+    const v_unify_t *u2 = &v_listdata[i2];
 
     // sort by material
     if (u1->m < u2->m)
@@ -448,12 +450,12 @@ static int vlistCompare(const void *elem1, const void *elem2) {
     return (i1 > i2) - (i1 < i2);
 }
 
-static void SortVerticesByMaterial(int *pDesiredToVList, int *pVListToDesired) {
-    const int count = static_cast<int>(g_studiomdl.input.v_listdata.size());
+static void SortVerticesByMaterial(StudioMdlState &ctx, int *pDesiredToVList, int *pVListToDesired) {
+    const int count = static_cast<int>(ctx.input.v_listdata.size());
     for (int i = 0; i < count; i++) {
         pDesiredToVList[i] = i;
     }
-    qsort(pDesiredToVList, count, sizeof(int), vlistCompare);
+    vstd::qsort_with_context(pDesiredToVList, count, sizeof(int), vlistCompare, &ctx.input.v_listdata);
     for (int i = 0; i < count; i++) {
         pVListToDesired[pDesiredToVList[i]] = i;
     }
@@ -463,14 +465,15 @@ static void SortVerticesByMaterial(int *pDesiredToVList, int *pVListToDesired) {
 //-----------------------------------------------------------------------------
 // sort new faces by materials, last used
 //-----------------------------------------------------------------------------
-static int faceCompare(const void *elem1, const void *elem2) {
+static int faceCompare(const void *elem1, const void *elem2, void *context) {
+    const auto &faces = *static_cast<const decltype(StudioMdlInput::faces) *>(context);
     int i1 = *(int *) elem1;
     int i2 = *(int *) elem2;
 
     // sort by material
-    if (g_studiomdl.input.faces[i1].material < g_studiomdl.input.faces[i2].material)
+    if (faces[i1].material < faces[i2].material)
         return -1;
-    if (g_studiomdl.input.faces[i1].material > g_studiomdl.input.faces[i2].material)
+    if (faces[i1].material > faces[i2].material)
         return 1;
 
     // sort by original usage
@@ -482,19 +485,19 @@ static int faceCompare(const void *elem1, const void *elem2) {
     return 0;
 }
 
-static void SortFacesByMaterial(int *pDesiredToSrcFace) {
+static void SortFacesByMaterial(StudioMdlState &ctx, int *pDesiredToSrcFace) {
     // NOTE: Unlike SortVerticesByMaterial, srcFaceToDesired isn't needed, so we're not computing it
-    for (int i = 0; i < g_studiomdl.input.faces.size(); i++) {
+    for (int i = 0; i < ctx.input.faces.size(); i++) {
         pDesiredToSrcFace[i] = i;
     }
-    qsort(pDesiredToSrcFace, g_studiomdl.input.faces.size(), sizeof(int), faceCompare);
+    vstd::qsort_with_context(pDesiredToSrcFace, ctx.input.faces.size(), sizeof(int), faceCompare, &ctx.input.faces);
 }
 
 
 //-----------------------------------------------------------------------------
 // Builds mesh structures in the source
 //-----------------------------------------------------------------------------
-static void PointMeshesToVertexAndFaceData(s_source_t *pSource, int *pDesiredToSrcFace) {
+static void PointMeshesToVertexAndFaceData(StudioMdlState &ctx, s_source_t *pSource, int *pDesiredToSrcFace) {
     // A mesh is a set of faces + vertices that all use 1 material; count them per material id first
     std::array<s_mesh_t, MAXSTUDIOSKINS> perMaterial{};
     for (int m = 0; m < MAXSTUDIOSKINS; m++) {
@@ -517,7 +520,7 @@ static void PointMeshesToVertexAndFaceData(s_source_t *pSource, int *pDesiredToS
 
     // find first and count of faces per material
     for (int i = 0; i < pSource->numfaces; i++) {
-        int m = g_studiomdl.input.faces[pDesiredToSrcFace[i]].material;
+        int m = ctx.input.faces[pDesiredToSrcFace[i]].material;
 
         perMaterial[m].numfaces++;
         if (perMaterial[m].faceoffset > i) {
@@ -537,19 +540,19 @@ static void PointMeshesToVertexAndFaceData(s_source_t *pSource, int *pDesiredToS
 //-----------------------------------------------------------------------------
 // Builds the face list in the mesh
 //-----------------------------------------------------------------------------
-static void BuildFaceList(s_source_t *pSource, int *pVListToDesired, int *pDesiredToSrcFace) {
+static void BuildFaceList(StudioMdlState &ctx, s_source_t *pSource, int *pVListToDesired, int *pDesiredToSrcFace) {
     pSource->face = (s_face_t *) calloc(pSource->numfaces, sizeof(s_face_t));
     for (const s_mesh_t &mesh: pSource->meshes) {
         for (int i = mesh.faceoffset; i < mesh.numfaces + mesh.faceoffset; i++) {
             int j = pDesiredToSrcFace[i];
 
-            // NOTE: per-face vertex indices a,b,c,d are mesh relative (hence the subtraction), while g_studiomdl.input.src_uface are model relative
-            pSource->face[i].a = pVListToDesired[g_studiomdl.input.src_uface[j].a] - mesh.vertexoffset;
-            pSource->face[i].b = pVListToDesired[g_studiomdl.input.src_uface[j].b] - mesh.vertexoffset;
-            pSource->face[i].c = pVListToDesired[g_studiomdl.input.src_uface[j].c] - mesh.vertexoffset;
+            // NOTE: per-face vertex indices a,b,c,d are mesh relative (hence the subtraction), while ctx.input.src_uface are model relative
+            pSource->face[i].a = pVListToDesired[ctx.input.src_uface[j].a] - mesh.vertexoffset;
+            pSource->face[i].b = pVListToDesired[ctx.input.src_uface[j].b] - mesh.vertexoffset;
+            pSource->face[i].c = pVListToDesired[ctx.input.src_uface[j].c] - mesh.vertexoffset;
 
-            if (g_studiomdl.input.src_uface[j].d != 0xFFFFFFFF) {
-                pSource->face[i].d = pVListToDesired[g_studiomdl.input.src_uface[j].d] - mesh.vertexoffset;
+            if (ctx.input.src_uface[j].d != 0xFFFFFFFF) {
+                pSource->face[i].d = pVListToDesired[ctx.input.src_uface[j].d] - mesh.vertexoffset;
             }
 
             Assert(((pSource->face[i].a & 0xF0000000) == 0) && ((pSource->face[i].b & 0xF0000000) == 0) &&
@@ -596,24 +599,24 @@ static void RemapVertexAnimations(s_source_t *pSource, int *pVListToDesired) {
 // Sorts vertices by material type, re-maps data structures that refer to those vertices
 // to use the new indices
 //-----------------------------------------------------------------------------
-void BuildIndividualMeshes(s_source_t *pSource) {
+void BuildIndividualMeshes(StudioMdlState &ctx, s_source_t *pSource) {
     vstd::FunctionTimingRecorder _("DMX");
-    const size_t numvlist = g_studiomdl.input.v_listdata.size();
+    const size_t numvlist = ctx.input.v_listdata.size();
     int *v_listsort = (int *) malloc(numvlist * sizeof(int)); // map desired order to vlist entry
     int *v_ilistsort = (int *) malloc(numvlist * sizeof(int)); // map vlist entry to desired order
-    int *facesort = (int *) malloc(g_studiomdl.input.faces.size() * sizeof(int)); // map desired order to src_face entry
+    int *facesort = (int *) malloc(ctx.input.faces.size() * sizeof(int)); // map desired order to src_face entry
 
-    SortVerticesByMaterial(v_listsort, v_ilistsort);
-    SortFacesByMaterial(facesort);
+    SortVerticesByMaterial(ctx, v_listsort, v_ilistsort);
+    SortFacesByMaterial(ctx, facesort);
 
     pSource->numvertices = static_cast<int>(numvlist);
-    pSource->numfaces = g_studiomdl.input.faces.size();
+    pSource->numfaces = ctx.input.faces.size();
 
-    BuildUniqueVertexList(pSource, v_listsort);
-    PointMeshesToVertexAndFaceData(pSource, facesort);
-    BuildFaceList(pSource, v_ilistsort, facesort);
+    BuildUniqueVertexList(ctx, pSource, v_listsort);
+    PointMeshesToVertexAndFaceData(ctx, pSource, facesort);
+    BuildFaceList(ctx, pSource, v_ilistsort, facesort);
     RemapVertexAnimations(pSource, v_ilistsort);
-    CalcModelTangentSpaces(pSource);
+    CalcModelTangentSpaces(ctx, pSource);
 
     free(facesort);
     free(v_ilistsort);
@@ -621,37 +624,37 @@ void BuildIndividualMeshes(s_source_t *pSource) {
 }
 
 
-void Grab_MRMFaceupdates(s_source_t *psource) {
+static void Grab_MRMFaceupdates(StudioMdlState &ctx, s_source_t *psource) {
     while (1) {
-        if (g_studiomdl.input.inputFile->Gets(g_studiomdl.input.szLine, sizeof(g_studiomdl.input.szLine)) !=
+        if (ctx.input.inputFile->Gets(ctx.input.szLine, sizeof(ctx.input.szLine)) !=
             nullptr) {
-            g_studiomdl.input.iLinecount++;
+            ctx.input.iLinecount++;
 
             // check for end
-            if (IsEnd(g_studiomdl.input.szLine))
+            if (IsEnd(ctx.input.szLine))
                 return;
         }
     }
 }
 
-int Load_VRM(s_source_t *psource) {
+int Load_VRM(StudioMdlState &ctx, s_source_t *psource) {
     char cmd[1024];
     int option;
 
-    if (!OpenGlobalFile(psource->filename)) {
+    if (!OpenGlobalFile(ctx, psource->filename)) {
         return 0;
     }
 
-    if (!g_studiomdl.options.quiet) {
+    if (!ctx.options.quiet) {
         std::print("grabbing {}\n", psource->filename);
     }
 
-    g_studiomdl.input.iLinecount = 0;
+    ctx.input.iLinecount = 0;
 
-    while (g_studiomdl.input.inputFile->Gets(g_studiomdl.input.szLine, sizeof(g_studiomdl.input.szLine)) !=
+    while (ctx.input.inputFile->Gets(ctx.input.szLine, sizeof(ctx.input.szLine)) !=
            nullptr) {
-        g_studiomdl.input.iLinecount++;
-        sscanf(g_studiomdl.input.szLine, "%1023s %d", cmd, &option);
+        ctx.input.iLinecount++;
+        sscanf(ctx.input.szLine, "%1023s %d", cmd, &option);
         if (stricmp(cmd, "version") == 0) {
             if (option != 2) {
                 MdlError("bad version\n");
@@ -660,44 +663,44 @@ int Load_VRM(s_source_t *psource) {
         else if (stricmp(cmd, "name") == 0) {
         }
         else if (stricmp(cmd, "vertices") == 0) {
-            g_studiomdl.input.vertex.resize(option);
-            g_studiomdl.input.bone.resize(option);
+            ctx.input.vertex.resize(option);
+            ctx.input.bone.resize(option);
         }
         else if (stricmp(cmd, "faces") == 0) {
-            g_studiomdl.input.faces.resize(option);
+            ctx.input.faces.resize(option);
         }
         else if (stricmp(cmd, "materials") == 0) {
             // doesn't matter;
         }
         else if (stricmp(cmd, "texcoords") == 0) {
-            g_studiomdl.input.texcoord[0].resize(option);
+            ctx.input.texcoord[0].resize(option);
             if (option == 0)
                 MdlError("model has no texture coordinates\n");
         }
         else if (stricmp(cmd, "normals") == 0) {
-            g_studiomdl.input.normal.resize(option);
+            ctx.input.normal.resize(option);
         }
         else if (stricmp(cmd, "tristrips") == 0) {
             // should be 0;
         }
 
         else if (stricmp(cmd, "vertexlist") == 0) {
-            Grab_Vertexlist(psource);
+            Grab_Vertexlist(ctx, psource);
         }
         else if (stricmp(cmd, "facelist") == 0) {
-            Grab_Facelist(psource);
+            Grab_Facelist(ctx, psource);
         }
         else if (stricmp(cmd, "materiallist") == 0) {
-            Grab_Materiallist(psource);
+            Grab_Materiallist(ctx, psource);
         }
         else if (stricmp(cmd, "texcoordlist") == 0) {
-            Grab_Texcoordlist(psource);
+            Grab_Texcoordlist(ctx, psource);
         }
         else if (stricmp(cmd, "normallist") == 0) {
-            Grab_Normallist(psource);
+            Grab_Normallist(ctx, psource);
         }
         else if (stricmp(cmd, "faceattriblist") == 0) {
-            Grab_Faceattriblist(psource);
+            Grab_Faceattriblist(ctx, psource);
         }
 
         else if (stricmp(cmd, "MRM") == 0) {
@@ -707,14 +710,14 @@ int Load_VRM(s_source_t *psource) {
         else if (stricmp(cmd, "MRMfaces") == 0) {
         }
         else if (stricmp(cmd, "MRMfaceupdates") == 0) {
-            Grab_MRMFaceupdates(psource);
+            Grab_MRMFaceupdates(ctx, psource);
         }
 
         else if (stricmp(cmd, "nodes") == 0) {
-            psource->numbones = Grab_Nodes(psource->localBone);
+            psource->numbones = Grab_Nodes(ctx, psource->localBone);
         }
         else if (stricmp(cmd, "skeleton") == 0) {
-            Grab_Animation(psource, "BindPose");
+            Grab_Animation(ctx, psource, "BindPose");
         }
         /*
                 else if (stricmp( cmd, "triangles" ) == 0) {
@@ -726,10 +729,10 @@ int Load_VRM(s_source_t *psource) {
         }
     }
 
-    UnifyIndices(psource);
-    BuildIndividualMeshes(psource);
+    UnifyIndices(ctx, psource);
+    BuildIndividualMeshes(ctx, psource);
 
-    g_studiomdl.input.inputFile.reset();
+    ctx.input.inputFile.reset();
 
     return 1;
 }

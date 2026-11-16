@@ -315,17 +315,15 @@ public:
 
     void MarkDirty(bool dirty = true);
 
-protected:
-    // NOTE: These are protected to ensure that the factory is the only thing that can create these
-    CDmElement(DmElementHandle_t handle, const char *objectType, const DmObjectId_t &id, const char *objectName,
-               DmFileId_t fileid);
+    // Lifecycle, driven by the datamodel: elements are created through their registered DmElementTypeInfo
+    // (CreateInstance) and deleted by IDataModel::DestroyElement
+    template<class Self = CDmElement>
+    static CDmElement *CreateInstance(DmElementHandle_t handle, const char *pElementTypeName, const DmObjectId_t &id,
+                                      const char *pElementName, DmFileId_t fileid) {
+        return new Self(handle, pElementTypeName, id, pElementName, fileid);
+    }
 
     virtual                ~CDmElement();
-
-    // Used by derived classes to do construction and setting up CDmaVars
-    void OnConstruction() {}
-
-    void OnDestruction() {}
 
     virtual void PerformConstruction();
 
@@ -335,9 +333,19 @@ protected:
 
     virtual void OnOrphanedToUndo() {}
 
-    // Internal methods related to RTII
+    // Sets the class's type symbol (done once per class when the element types are installed)
     static void SetTypeSymbol(CUtlSymbolLarge sym);
 
+protected:
+    CDmElement(DmElementHandle_t handle, const char *objectType, const DmObjectId_t &id, const char *objectName,
+               DmFileId_t fileid);
+
+    // Used by derived classes to do construction and setting up CDmaVars
+    void OnConstruction() {}
+
+    void OnDestruction() {}
+
+    // Internal methods related to RTII
     static bool IsA_Implementation(CUtlSymbolLarge typeSymbol);
 
     static int GetInheritanceDepth_Implementation(CUtlSymbolLarge typeSymbol, int nCurrentDepth);
@@ -350,10 +358,12 @@ protected:
     static void DeleteAttributeVarElementArray(T &array);
 
 private:
-    typedef std::unordered_map<DmElementHandle_t, DmElementHandle_t> CRefMap;
-
     // Bogus constructor
     CDmElement();
+
+    // Datamodel internals, used by the attribute wrappers, serializers and the datamodel itself
+public:
+    typedef std::unordered_map<DmElementHandle_t, DmElementHandle_t> CRefMap;
 
     // internal recursive copy method - builds refmap of old element's handle -> copy's handle, and uses it to fixup references
     void CopyAttributesTo(CDmElement *pCopy, CRefMap &refmap, TraversalDepth_t depth) const;
@@ -425,38 +435,7 @@ private:
     // Stores the type symbol
     static CUtlSymbolLarge m_classType;
 
-    // Factories can access our constructors
-    template<class T> friend
-    class CDmElementFactory;
-
-    template<class T> friend
-    class CDmAbstractElementFactory;
-
-    template<class T> friend
-    class CDmaVar;
-
-    template<class T> friend
-    class CDmaArray;
-
-    template<class T> friend
-    class CDmaElementArray;
-
-    template<class T, class B> friend
-    class CDmaDecorator;
-
-    template<class T> friend
-    class CDmrElementArray;
-
-    friend class CDmElementFactoryDefault;
-
-    friend class CDmeElementAccessor;
-
-    friend class CDmeOperator;
-
-    template<class T>
-    friend void CopyElements(const CUtlVector<T *> &from, CUtlVector<T *> &to, TraversalDepth_t depth);
-
-DECLARE_FIXEDSIZE_ALLOCATOR(CDmElement);
+    DECLARE_FIXEDSIZE_ALLOCATOR(CDmElement);
 
     typedef CDmElement BaseClass; // only CDmElement has itself as it's BaseClass - this lets us know we're at the top of the hierarchy
 };
@@ -1164,6 +1143,17 @@ void CopyElements(const CUtlVector<T *> &from, CUtlVector<T *> &to, TraversalDep
         {                                                                \
             return static_cast< className* >( CopyInternal( depth ) );    \
         }                                                                \
+                                                                        \
+        template< class Self = className >                                \
+        static CDmElement *CreateInstance( DmElementHandle_t handle, const char *pElementTypeName, const DmObjectId_t &id, const char *pElementName, DmFileId_t fileid ) \
+        {                                                                \
+            return new Self( handle, pElementTypeName, id, pElementName, fileid ); \
+        }                                                                \
+                                                                        \
+        static void SetTypeSymbol( CUtlSymbolLarge typeSymbol )            \
+        {                                                                \
+            m_classType = typeSymbol;                                    \
+        }                                                                \
     protected:                                                            \
         className( DmElementHandle_t handle, const char *pElementTypeName, const DmObjectId_t &id, const char *pElementName, DmFileId_t fileid ) :    \
             baseClassName( handle, pElementTypeName, id, pElementName, fileid )                    \
@@ -1184,11 +1174,6 @@ void CopyElements(const CUtlVector<T *> &from, CUtlVector<T *> &to, TraversalDep
             OnDestruction();                                                                    \
             BaseClass::PerformDestruction();                                                    \
         }                                                                                        \
-        static void SetTypeSymbol( CUtlSymbolLarge typeSymbol )                                        \
-        {                                                                                        \
-            m_classType = typeSymbol;                                                            \
-        }                                                                                        \
-                                                                                                \
         static bool IsA_Implementation( CUtlSymbolLarge typeSymbol )                                    \
         {                                                                                        \
             if ( typeSymbol == m_classType )                                                    \
@@ -1208,8 +1193,6 @@ void CopyElements(const CUtlVector<T *> &from, CUtlVector<T *> &to, TraversalDep
         DECLARE_FIXEDSIZE_ALLOCATOR( className );                                                \
         typedef baseClassName BaseClass;                                                        \
         typedef className ThisClass;                                                            \
-        template <class _ElementT> friend class CDmElementFactory;                                        \
-        template <class _ElementT> friend class CDmAbstractElementFactory;                                \
         static CUtlSymbolLarge m_classType
 
 #define IMPLEMENT_ELEMENT(className) \

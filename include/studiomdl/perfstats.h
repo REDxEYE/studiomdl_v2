@@ -16,5 +16,7 @@ enum
 	SPEWPERFSTATS_SPREADSHEET = 4,
 };
 
-void SpewPerfStats( studiohdr_t *pStudioHdr, std::string_view pFilename, unsigned int flags );
+struct StudioMdlState;
+
+void SpewPerfStats( StudioMdlState &ctx, studiohdr_t *pStudioHdr, std::string_view pFilename, unsigned int flags );
 

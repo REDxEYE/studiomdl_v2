@@ -28,8 +28,11 @@
 #include "filesystem.h"
 #include "tier1_v2/buffer.hpp"
 
+#include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 
 // Tools should use this as the read path ID. It'll look into the paths specified by gameinfo.txt
@@ -70,16 +73,22 @@ extern char **myargv;
 
 // UTF-8 paths
 std::string ExpandArg( std::string_view path );	// absolute, relative to the current directory
-std::string ExpandPath( std::string_view path );	// absolute, relative to qdir (the QC directory)
+std::string ExpandPath( std::string_view qdir, std::string_view path );	// absolute, relative to qdir (the QC directory)
 
+// Content roots that mirror the game search paths (UTF-8, native separators); owned by the caller (studiomdl: per compile)
+struct CmdLibContentPaths {
+	std::vector<std::string> basePaths; // CmdLib_AddBasePath, then rebuilt by CmdLib_AddNewSearchPath
+	std::vector<std::string> relativeDirs; // CmdLib_AddNewSearchPath: directories added below every root
+	std::vector<std::string> originalBasePaths; // the roots before the first CmdLib_AddNewSearchPath
+};
 
 
 FileHandle_t	SafeOpenWrite (std::string_view filename);
-FileHandle_t	SafeOpenRead (std::string_view filename);
+FileHandle_t	SafeOpenRead (const CmdLibContentPaths &content, std::string_view filename);
 void			SafeRead(FileHandle_t f, vstd::Buffer &buffer);
 void			SafeWrite(FileHandle_t f, const vstd::Buffer &buffer);
 
-std::optional<vstd::Buffer> LoadFile(std::string_view filename);
+std::optional<vstd::Buffer> LoadFile(const CmdLibContentPaths &content, std::string_view filename);
 void	SaveFile (std::string_view filename, const vstd::Buffer &buffer);
 qboolean	FileExists ( const char *filename );
 
@@ -139,11 +148,11 @@ extern	char			archivedir[1024];
 
 extern	qboolean verbose;
 
-// Content base paths live in g_studiomdl.paths.contentBasePaths (UTF-8)
-void CmdLib_AddBasePath(std::string_view path);
-void CmdLib_AddNewSearchPath(std::string_view path);
+void CmdLib_AddBasePath(CmdLibContentPaths &content, std::string_view path);
+void CmdLib_AddNewSearchPath(CmdLibContentPaths &content, std::string_view path);
 
-std::optional<std::pair<std::string_view, std::string_view>> CmdLib_HasBasePath(std::string_view fileNameSv);
+// If fileName is below a content base path: (that base path, the rest of fileName with '/' separators)
+std::optional<std::pair<std::string, std::string>> CmdLib_HasBasePath(const CmdLibContentPaths &content, std::string_view fileName);
 
 extern bool g_bStopOnExit;
 

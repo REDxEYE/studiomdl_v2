@@ -23,6 +23,8 @@
 #include "tier1/utlvector.h"
 #include "tier1_v2/fixed_string.hpp"
 
+struct CmdLibContentPaths;
+
 enum ScriptPathMode_t {
     SCRIPT_USE_ABSOLUTE_PATH,
     SCRIPT_USE_RELATIVE_PATH
@@ -54,15 +56,17 @@ public:
     // The current token. Callers may modify it in place (strlwr, ...).
     vstd::FixedString<MAXTOKEN> token;
 
-    ScriptTokenizer();
+    // qdir: directory that SCRIPT_USE_ABSOLUTE_PATH file names (and $include) are relative to (ExpandPath).
+    // pContent: content roots used to open script files (LoadFile); nullptr = none. Must outlive the tokenizer.
+    explicit ScriptTokenizer(std::string qdir = {}, const CmdLibContentPaths *pContent = nullptr);
     ~ScriptTokenizer();
     ScriptTokenizer(const ScriptTokenizer &) = delete;
     ScriptTokenizer &operator=(const ScriptTokenizer &) = delete;
 
     void SetErrorHandler(ErrorHandler handler);
 
-    // If pathMode is SCRIPT_USE_ABSOLUTE_PATH, then it uses ExpandPath() on the filename before
-    // trying to open it. Otherwise, it passes the filename straight into the filesystem
+    // If pathMode is SCRIPT_USE_ABSOLUTE_PATH, then it uses ExpandPath() with the qdir given to the constructor on the
+    // filename before trying to open it. Otherwise, it passes the filename straight into the filesystem
     // (so you can leave it as a relative path). filename is UTF-8.
     void LoadFile(std::string_view filename, ScriptPathMode_t pathMode = SCRIPT_USE_ABSOLUTE_PATH);
     // Parses buffer, which must outlive the parse ($definemacro edits it in place). Errors report it as "memory buffer".
@@ -229,6 +233,8 @@ private:
     std::vector<Variable> m_variables;
     bool m_tokenReady = false; // only true if UnGetToken was just called
     bool m_endOfScript = true;
+    std::string m_qdir; // ExpandPath base for SCRIPT_USE_ABSOLUTE_PATH
+    const CmdLibContentPaths *m_pContent; // never nullptr: points at an empty set when none was given
     LoadedCallback m_loadedCallback;
     ErrorHandler m_errorHandler;
 };

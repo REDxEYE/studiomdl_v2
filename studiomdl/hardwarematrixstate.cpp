@@ -14,6 +14,7 @@
 CHardwareMatrixState::CHardwareMatrixState() {
     m_LRUCounter = 0;
     m_NumMatrices = 0;
+    m_AllocatedMatrices = 0;
     m_savedMatrixState.clear();
 }
 
@@ -131,7 +132,7 @@ uint32_t CHardwareMatrixState::GetNthBoneGlobalID(uint32_t n) const {
 
 void CHardwareMatrixState::DumpState() {
     int i;
-    static char buf[256];
+    char buf[256];
 
     //#ifndef _DEBUG
     return;

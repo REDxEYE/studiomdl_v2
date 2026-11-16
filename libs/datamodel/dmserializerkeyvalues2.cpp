@@ -138,17 +138,17 @@ void CKeyValues2ErrorStack::ReportError(const char* pFmt, ...) {
 
     char temp2[2048];
     Q_snprintf(temp2, sizeof(temp2), "%s(%d) : %s\n", m_pFilename, m_nFileLine, temp);
-    Warning("{{}}", temp2);
+    Warning("{}", temp2);
 
     for (int i = 0; i < m_maxErrorIndex; i++) {
         if (!m_errorStack[i].IsValid())
             continue;
 
         if (i < m_errorIndex) {
-            Warning("{{}}, ", m_errorStack[i].String());
+            Warning("{}, ", m_errorStack[i].String());
         }
         else {
-            Warning("(*{{}}*), ", m_errorStack[i].String());
+            Warning("(*{}*), ", m_errorStack[i].String());
         }
     }
     Warning("\n");
@@ -627,7 +627,7 @@ DmElementDictHandle_t CDmSerializerKeyValues2::CreateDmElement(const char* pElem
     }
 
     CDmElement* pElement = g_pDataModel->GetElement(hElement);
-    CDmeElementAccessor::DisableOnChangedCallbacks(pElement);
+    pElement->DisableOnChangedCallbacks();
     return m_ElementDict.InsertElement(pElement);
 }
 
@@ -1282,8 +1282,8 @@ bool CDmSerializerKeyValues2::UnserializeElements(CUtlBuffer &buf, DmFileId_t fi
         if (!pElement)
             continue;
 
-        CDmeElementAccessor::EnableOnChangedCallbacks(pElement);
-        CDmeElementAccessor::FinishUnserialization(pElement);
+        pElement->EnableOnChangedCallbacks();
+        pElement->FinishUnserialization();
     }
 
     m_fileid = DMFILEID_INVALID;

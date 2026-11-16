@@ -16,9 +16,8 @@
 
 #define OPTIMIZED_MODEL_FILE_VERSION 7
 
-extern bool g_bDumpGLViewFiles;
-
 struct s_bodypart_t;
+struct StudioMdlState;
 
 namespace OptimizedModel {
 #pragma pack(1)
@@ -244,5 +243,5 @@ namespace OptimizedModel {
 
 #pragma pack()
 
-    void WriteOptimizedFiles(studiohdr_t* phdr, s_bodypart_t* pSrcBodyParts);
+    void WriteOptimizedFiles(StudioMdlState &ctx, studiohdr_t* phdr, s_bodypart_t* pSrcBodyParts);
 }; // namespace OptimizedModel

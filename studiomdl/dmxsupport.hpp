@@ -10,17 +10,18 @@
 struct s_model_t;
 struct BoneTransformMap_t;
 struct s_source_t;
+struct StudioMdlState;
 
-bool LoadPreprocessedFile( const char *pFileName, float flScale );
+bool LoadPreprocessedFile(StudioMdlState &ctx, std::string_view fileName, float flScale);
 
 // Prints the root "makefile.sources" of a DMX (Valve scheduled them for Perforce check-in)
 void LoadModelInfo(CDmElement *pRoot, char const *pFullPath);
 
-bool LoadModelAndSkeleton(s_source_t *pSource, BoneTransformMap_t &boneMap, CDmeDag *pSkeleton, CDmeModel *pModel,
-                     CDmeCombinationOperator *pCombinationOperator, bool bStaticProp);
+bool LoadModelAndSkeleton(StudioMdlState &ctx, s_source_t *pSource, BoneTransformMap_t &boneMap, CDmeDag *pSkeleton,
+                          CDmeModel *pModel, CDmeCombinationOperator *pCombinationOperator, bool bStaticProp);
 
-void LoadQcModelElements(s_source_t *pSource, s_model_t *pModel, CDmeModel *pDmeModel);
+void LoadQcModelElements(StudioMdlState &ctx, s_source_t *pSource, s_model_t *pModel, CDmeModel *pDmeModel);
 
-void LoadEyeballs(s_source_t *pSource, s_model_t *pModel, CDmrElementArray<CDmElement> &elementArray);
+void LoadEyeballs(StudioMdlState &ctx, s_source_t *pSource, s_model_t *pModel, CDmrElementArray<CDmElement> &elementArray);
 
 void LoadAnimations(s_source_t *pSource, CDmeAnimationList *pAnimationList, float flScale, BoneTransformMap_t &boneMap);

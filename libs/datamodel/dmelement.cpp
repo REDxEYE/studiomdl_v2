@@ -91,10 +91,14 @@ IMPLEMENT_ELEMENT_FACTORY( DmElement, CDmElement );
 
 
 //-----------------------------------------------------------------------------
-// For backward compat: DmeElement -> creates a CDmElement class
+// For backward compat: DmeElement -> creates a CDmElement of type "DmElement" and leaves CDmElement's type symbol alone
 //-----------------------------------------------------------------------------
-CDmElementFactory< CDmElement > g_CDmeElement_Factory( "DmElement" );
-CDmElementFactoryHelper g_CDmeElement_Helper( "DmeElement", &g_CDmeElement_Factory, true );
+DmElementTypeInfo g_CDmeElement_TypeInfo( "DmeElement",
+	[]( DmElementHandle_t handle, const char *, const DmObjectId_t &id, const char *pElementName, DmFileId_t fileid )
+	{
+		return CDmElement::CreateInstance( handle, "DmElement", id, pElementName, fileid );
+	},
+	[]( CUtlSymbolLarge ) {} );
 
 
 //-----------------------------------------------------------------------------

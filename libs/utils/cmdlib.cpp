@@ -25,7 +25,6 @@
 #include "tier1/utllinkedlist.h"
 #include "tier1/keyvalues.h"
 #include "filesystem_tools.h"
-#include "studiomdl/studiomdl_global_state.hpp"
 #include "tier1_v2/path_utils.hpp"
 #include "tier1_v2/string_utils.hpp"
 
@@ -407,11 +406,11 @@ std::string ExpandArg(std::string_view path) {
 
 
 // Path relative to qdir (the QC directory) made absolute
-std::string ExpandPath(std::string_view path) {
+std::string ExpandPath(const std::string_view qdir, std::string_view path) {
     if (vstd::paths::is_absolute(path)) {
         return std::string(path);
     }
-    return g_studiomdl.paths.qdir + std::string(path);
+    return std::string(qdir) + std::string(path);
 }
 
 
@@ -435,34 +434,35 @@ FileHandle_t SafeOpenWrite(const std::string_view filename) {
     return f;
 }
 
-void CmdLib_AddBasePath(const std::string_view path) {
-    printf("CmdLib_AddBasePath( \"%s\" )\n", path);
-    vstd::paths::fix_slashes(g_studiomdl.paths.contentBasePaths.emplace_back(path));
+void CmdLib_AddBasePath(CmdLibContentPaths &content, const std::string_view path) {
+    printf("CmdLib_AddBasePath( \"%.*s\" )\n", static_cast<int>(path.size()), path.data());
+    vstd::paths::fix_slashes(content.basePaths.emplace_back(path));
 }
 
 
-void CmdLib_AddNewSearchPath(const std::string_view path) {
-    if (g_studiomdl.paths.contentRelativeDirs.empty()) // first call: remember all original paths
+void CmdLib_AddNewSearchPath(CmdLibContentPaths &content, const std::string_view path) {
+    if (content.relativeDirs.empty()) // first call: remember all original paths
     {
-        g_studiomdl.paths.contentOriginalBasePaths = g_studiomdl.paths.contentBasePaths;
+        content.originalBasePaths = content.basePaths;
     }
-    vstd::paths::fix_slashes(g_studiomdl.paths.contentRelativeDirs.emplace_back(path));
+    vstd::paths::fix_slashes(content.relativeDirs.emplace_back(path));
 
     // the cross-product of the original paths and the new relative paths; each original path follows its children
-    g_studiomdl.paths.contentBasePaths.clear();
-    for (const std::string &original: g_studiomdl.paths.contentOriginalBasePaths) {
-        for (const std::string &added: g_studiomdl.paths.contentRelativeDirs) {
-            g_studiomdl.paths.contentBasePaths.push_back(original + added);
+    content.basePaths.clear();
+    for (const std::string &original: content.originalBasePaths) {
+        for (const std::string &added: content.relativeDirs) {
+            content.basePaths.push_back(original + added);
         }
-        g_studiomdl.paths.contentBasePaths.push_back(original);
+        content.basePaths.push_back(original);
     }
 }
 
 
-std::optional<std::pair<std::string_view, std::string_view> > CmdLib_HasBasePath(const std::string_view fileNameSv) {
+std::optional<std::pair<std::string, std::string> > CmdLib_HasBasePath(const CmdLibContentPaths &content,
+                                                                      const std::string_view fileNameSv) {
     std::string fileName(fileNameSv);
     vstd::paths::fix_slashes(fileName);
-    for (const std::string &basePath: g_studiomdl.paths.contentBasePaths) {
+    for (const std::string &basePath: content.basePaths) {
         // see if we can rip the base off of the filename.
         if (vstd::istarts_with(fileName, basePath)) {
             return std::pair{basePath, fileName.substr(basePath.size())};
@@ -471,10 +471,10 @@ std::optional<std::pair<std::string_view, std::string_view> > CmdLib_HasBasePath
     return std::nullopt;
 }
 
-FileHandle_t SafeOpenRead(const std::string_view filename) {
+FileHandle_t SafeOpenRead(const CmdLibContentPaths &content, const std::string_view filename) {
     FileHandle_t f = nullptr;
-    if (auto result = CmdLib_HasBasePath(filename)) {
-        auto [basePath, remainder] = *result;
+    if (auto result = CmdLib_HasBasePath(content, filename)) {
+        const auto &[basePath, remainder] = *result;
         const auto full_path = vstd::paths::join(basePath, remainder);
         f = g_pFileSystem->Open(full_path, "rb");
         if (f) {
@@ -525,8 +525,8 @@ qboolean FileExists(const char* filename) {
 LoadFile
 ==============
 */
-std::optional<vstd::Buffer> LoadFile(const std::string_view filename) {
-    if (const auto f = SafeOpenRead(filename); FILESYSTEM_INVALID_HANDLE != f) {
+std::optional<vstd::Buffer> LoadFile(const CmdLibContentPaths &content, const std::string_view filename) {
+    if (const auto f = SafeOpenRead(content, filename); FILESYSTEM_INVALID_HANDLE != f) {
         vstd::Buffer fileBuffer;
         const size_t length = g_pFileSystem->Size(f);
         fileBuffer.resize(length);

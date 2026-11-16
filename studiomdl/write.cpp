@@ -45,22 +45,17 @@
 #include "tier1_v2/buffer.hpp"
 #include "tier1_v2/math_utils.hpp"
 
-int totalframes = 0;
-float totalseconds = 0;
-
 // WriteModelFiles builds the .mdl/.ani/.vvd/.vtx data in vstd::Buffer objects; every section writer appends to the
 // buffer and stores reallocation-safe vstd::BufferPtr positions instead of raw pointers.
 
-bool FixupToSortedLODVertexes(studiohdr_t* pStudioHdr);
+bool FixupToSortedLODVertexes(StudioMdlState &ctx, studiohdr_t* pStudioHdr);
 
-bool Clamp_RootLOD(const studiohdr_t* phdr);
-
-static int sExtraTexcoordsToWrite = 0;
+bool Clamp_RootLOD(StudioMdlState &ctx, const studiohdr_t* phdr);
 
 void WriteSeqKeyValues(vstd::Buffer &buffer, vstd::BufferPtr<mstudioseqdesc_t> pseqdesc, std::string &pKeyValue);
 
 //-----------------------------------------------------------------------------
-// Purpose: stringtable is a session global string table.
+// Purpose: stringtable is the string table of the file being written (a local of the writer that owns it).
 // An entry locates its base and offset field as byte offsets inside the buffer that receives the strings, so the
 // buffer may reallocate before WriteStringTable.
 //-----------------------------------------------------------------------------
@@ -74,34 +69,35 @@ struct stringtable_t {
     size_t addr; // where the string was written
 };
 
-static std::vector<stringtable_t> s_strings;
+using StringTable = std::vector<stringtable_t>;
 
-static void BeginStringTable() {
-    s_strings.assign(1, {"", -1, nullptr, 0, 0, 0});
+static void BeginStringTable(StringTable &strings) {
+    strings.assign(1, {"", -1, nullptr, 0, 0, 0});
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: add a string to the file-global string table.
+// Purpose: add a string to the string table.
 //			Keep track of fixup locations
 //-----------------------------------------------------------------------------
 template<typename B>
-static void AddToStringTable(const vstd::BufferPtr<B> &base, const vstd::BufferPtr<int> &field, const char* string) {
+static void AddToStringTable(StringTable &strings, const vstd::BufferPtr<B> &base, const vstd::BufferPtr<int> &field,
+                             const char* string) {
     if (!string) {
         string = "";
     }
 
-    const auto dup = std::ranges::find_if(s_strings, [string](const stringtable_t &entry) {
+    const auto dup = std::ranges::find_if(strings, [string](const stringtable_t &entry) {
         return strcmp(string, entry.string) == 0;
     });
-    const int dupindex = dup == s_strings.end() ? -1 : static_cast<int>(dup - s_strings.begin());
-    s_strings.push_back({string, dupindex, base.buffer(), base.offset(), field.offset(), 0});
+    const int dupindex = dup == strings.end() ? -1 : static_cast<int>(dup - strings.begin());
+    strings.push_back({string, dupindex, base.buffer(), base.offset(), field.offset(), 0});
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: Write out stringtable
 //			fixup local pointers
 //-----------------------------------------------------------------------------
-static void WriteStringTable(vstd::Buffer &buffer) {
+static void WriteStringTable(StringTable &strings, vstd::Buffer &buffer) {
     vstd::FunctionTimingRecorder _("Write");
     const auto emit = [&buffer](const char* string) {
         const size_t size = strlen(string) + 1;
@@ -111,14 +107,14 @@ static void WriteStringTable(vstd::Buffer &buffer) {
     };
 
     // force null at first address
-    s_strings[0].addr = emit("");
+    strings[0].addr = emit("");
 
     // save all the rest
-    for (size_t i = 1; i < s_strings.size(); i++) {
-        stringtable_t &entry = s_strings[i];
+    for (size_t i = 1; i < strings.size(); i++) {
+        stringtable_t &entry = strings[i];
         Assert(entry.buffer == &buffer);
         // keep track of the address in case of duplication; an already stored string is reused
-        entry.addr = entry.dupindex == -1 ? emit(entry.string) : s_strings[entry.dupindex].addr;
+        entry.addr = entry.dupindex == -1 ? emit(entry.string) : strings[entry.dupindex].addr;
         // offset relative to the local base; memcpy: the field may be unaligned (packed .vtx structs)
         const int offset = buffer.ptr_at<uint8_t>(entry.addr).offset_from<int>(buffer.ptr_at<uint8_t>(entry.base));
         memcpy(buffer.ptr_at<uint8_t>(entry.field).get(), &offset, sizeof(offset));
@@ -164,128 +160,130 @@ static vstd::BufferPtr<S> WriteBaseConstraint(vstd::Buffer &buffer, M* pConstrai
 }
 
 
-static void WriteBoneInfo(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_t> phdr) {
+static void WriteBoneInfo(StudioMdlState &ctx, StringTable &strings, vstd::Buffer &buffer,
+                          const vstd::BufferPtr<studiohdr_t> phdr) {
     vstd::FunctionTimingRecorder _("Write");
     int i, j, k;
 
     // save bone info
-    const auto pbones = buffer.allocate<mstudiobone_t>(std::ssize(g_studiomdl.bones.bonetable));
-    phdr->numbones = std::ssize(g_studiomdl.bones.bonetable);
+    const auto pbones = buffer.allocate<mstudiobone_t>(std::ssize(ctx.bones.bonetable));
+    phdr->numbones = std::ssize(ctx.bones.bonetable);
     phdr->boneindex = pbones.offset_as<int>();
 
-    char* pSurfacePropName = GetDefaultSurfaceProp();
-    AddToStringTable(phdr, phdr.field(&studiohdr_t::surfacepropindex), pSurfacePropName);
-    phdr->contents = GetDefaultContents();
+    char* pSurfacePropName = GetDefaultSurfaceProp(ctx);
+    AddToStringTable(strings, phdr, phdr.field(&studiohdr_t::surfacepropindex), pSurfacePropName);
+    phdr->contents = GetDefaultContents(ctx);
 
-    for (i = 0; i < std::ssize(g_studiomdl.bones.bonetable); i++) {
-        AddToStringTable(pbones + i, (pbones + i).field(&mstudiobone_t::sznameindex), g_studiomdl.bones.bonetable[i].name);
-        pbones[i].parent = g_studiomdl.bones.bonetable[i].parent;
-        pbones[i].flags = g_studiomdl.bones.bonetable[i].flags;
+    for (i = 0; i < std::ssize(ctx.bones.bonetable); i++) {
+        AddToStringTable(strings, pbones + i, (pbones + i).field(&mstudiobone_t::sznameindex),
+                         ctx.bones.bonetable[i].name);
+        pbones[i].parent = ctx.bones.bonetable[i].parent;
+        pbones[i].flags = ctx.bones.bonetable[i].flags;
         pbones[i].procindex = 0;
-        pbones[i].physicsbone = g_studiomdl.bones.bonetable[i].physicsBoneIndex;
-        pbones[i].pos = g_studiomdl.bones.bonetable[i].pos;
-        pbones[i].rot = g_studiomdl.bones.bonetable[i].rot;
-        pbones[i].posscale = g_studiomdl.bones.bonetable[i].posscale;
-        pbones[i].rotscale = g_studiomdl.bones.bonetable[i].rotscale;
-        MatrixInvert(g_studiomdl.bones.bonetable[i].boneToPose, pbones[i].poseToBone);
-        pbones[i].qAlignment = g_studiomdl.bones.bonetable[i].qAlignment;
+        pbones[i].physicsbone = ctx.bones.bonetable[i].physicsBoneIndex;
+        pbones[i].pos = ctx.bones.bonetable[i].pos;
+        pbones[i].rot = ctx.bones.bonetable[i].rot;
+        pbones[i].posscale = ctx.bones.bonetable[i].posscale;
+        pbones[i].rotscale = ctx.bones.bonetable[i].rotscale;
+        MatrixInvert(ctx.bones.bonetable[i].boneToPose, pbones[i].poseToBone);
+        pbones[i].qAlignment = ctx.bones.bonetable[i].qAlignment;
 
-        AngleQuaternion(RadianEuler(g_studiomdl.bones.bonetable[i].rot[0], g_studiomdl.bones.bonetable[i].rot[1],
-                                    g_studiomdl.bones.bonetable[i].rot[2]),
+        AngleQuaternion(RadianEuler(ctx.bones.bonetable[i].rot[0], ctx.bones.bonetable[i].rot[1],
+                                    ctx.bones.bonetable[i].rot[2]),
                         pbones[i].quat);
         QuaternionAlign(pbones[i].qAlignment, pbones[i].quat, pbones[i].quat);
 
-        pSurfacePropName = GetSurfaceProp(g_studiomdl.bones.bonetable[i].name);
-        AddToStringTable(pbones + i, (pbones + i).field(&mstudiobone_t::surfacepropidx), pSurfacePropName);
-        pbones[i].contents = GetContents(g_studiomdl.bones.bonetable[i].name);
+        pSurfacePropName = GetSurfaceProp(ctx, ctx.bones.bonetable[i].name);
+        AddToStringTable(strings, pbones + i, (pbones + i).field(&mstudiobone_t::surfacepropidx), pSurfacePropName);
+        pbones[i].contents = GetContents(ctx, ctx.bones.bonetable[i].name);
     }
 
     buffer.align(4);
 
     // save procedural bone info
-    if (std::ssize(g_studiomdl.bones.axisinterpbonemap)) {
-        auto proc_bone = buffer.allocate<mstudioaxisinterpbone_t>(std::ssize(g_studiomdl.bones.axisinterpbonemap));
-        for (i = 0; i < std::ssize(g_studiomdl.bones.axisinterpbonemap); i++) {
-            j = g_studiomdl.bones.axisinterpbonemap[i];
-            k = g_studiomdl.bones.axisinterpbones[j].bone;
+    if (std::ssize(ctx.bones.axisinterpbonemap)) {
+        auto proc_bone = buffer.allocate<mstudioaxisinterpbone_t>(std::ssize(ctx.bones.axisinterpbonemap));
+        for (i = 0; i < std::ssize(ctx.bones.axisinterpbonemap); i++) {
+            j = ctx.bones.axisinterpbonemap[i];
+            k = ctx.bones.axisinterpbones[j].bone;
             pbones[k].procindex = (proc_bone + i).offset_from<int>(pbones + k);
             pbones[k].proctype = ProcBoneType::AxisInterp;
             // printf("bone %d %d\n", j, pbone[k].procindex );
-            proc_bone[i].control = g_studiomdl.bones.axisinterpbones[j].control;
-            proc_bone[i].axis = g_studiomdl.bones.axisinterpbones[j].axis;
+            proc_bone[i].control = ctx.bones.axisinterpbones[j].control;
+            proc_bone[i].axis = ctx.bones.axisinterpbones[j].axis;
             for (k = 0; k < 6; k++) {
-                VectorCopy(g_studiomdl.bones.axisinterpbones[j].pos[k], proc_bone[i].pos[k]);
-                proc_bone[i].quat[k] = g_studiomdl.bones.axisinterpbones[j].quat[k];
+                VectorCopy(ctx.bones.axisinterpbones[j].pos[k], proc_bone[i].pos[k]);
+                proc_bone[i].quat[k] = ctx.bones.axisinterpbones[j].quat[k];
             }
         }
         buffer.align(4);
     }
 
-    if (std::ssize(g_studiomdl.bones.quatinterpbonemap)) {
-        auto proc_bone = buffer.allocate<mstudioquatinterpbone_t>(std::ssize(g_studiomdl.bones.quatinterpbonemap));
+    if (std::ssize(ctx.bones.quatinterpbonemap)) {
+        auto proc_bone = buffer.allocate<mstudioquatinterpbone_t>(std::ssize(ctx.bones.quatinterpbonemap));
 
-        for (i = 0; i < std::ssize(g_studiomdl.bones.quatinterpbonemap); i++) {
-            j = g_studiomdl.bones.quatinterpbonemap[i];
-            k = g_studiomdl.bones.quatinterpbones[j].bone;
+        for (i = 0; i < std::ssize(ctx.bones.quatinterpbonemap); i++) {
+            j = ctx.bones.quatinterpbonemap[i];
+            k = ctx.bones.quatinterpbones[j].bone;
             pbones[k].procindex = (proc_bone + i).offset_from<int>(pbones + k);
             pbones[k].proctype = ProcBoneType::QuatInterp;
             // printf("bone %d %d\n", j, pbone[k].procindex );
-            proc_bone[i].control = g_studiomdl.bones.quatinterpbones[j].control;
+            proc_bone[i].control = ctx.bones.quatinterpbones[j].control;
 
             // the count first: it sizes the allocation, which may move proc_bone's memory
-            proc_bone[i].numtriggers = g_studiomdl.bones.quatinterpbones[j].numtriggers;
+            proc_bone[i].numtriggers = ctx.bones.quatinterpbones[j].numtriggers;
             auto trigger = buffer.allocate<mstudioquatinterpinfo_t>(proc_bone[i].numtriggers);
             proc_bone[i].triggerindex = trigger.offset_from<int>(proc_bone + i);
 
             for (k = 0; k < proc_bone[i].numtriggers; k++) {
-                trigger[k].inv_tolerance = 1.0 / g_studiomdl.bones.quatinterpbones[j].tolerance[k];
-                trigger[k].trigger = g_studiomdl.bones.quatinterpbones[j].trigger[k];
-                trigger[k].pos = g_studiomdl.bones.quatinterpbones[j].pos[k];
-                trigger[k].quat = g_studiomdl.bones.quatinterpbones[j].quat[k];
+                trigger[k].inv_tolerance = 1.0 / ctx.bones.quatinterpbones[j].tolerance[k];
+                trigger[k].trigger = ctx.bones.quatinterpbones[j].trigger[k];
+                trigger[k].pos = ctx.bones.quatinterpbones[j].pos[k];
+                trigger[k].quat = ctx.bones.quatinterpbones[j].quat[k];
             }
         }
         buffer.align(4);
     }
 
-    if (std::ssize(g_studiomdl.bones.jigglebonemap)) {
-        auto jiggleInfo = buffer.allocate<mstudiojigglebone_t>(std::ssize(g_studiomdl.bones.jigglebonemap));
+    if (std::ssize(ctx.bones.jigglebonemap)) {
+        auto jiggleInfo = buffer.allocate<mstudiojigglebone_t>(std::ssize(ctx.bones.jigglebonemap));
 
-        for (i = 0; i < std::ssize(g_studiomdl.bones.jigglebonemap); i++) {
-            j = g_studiomdl.bones.jigglebonemap[i];
-            k = g_studiomdl.bones.jigglebones[j].bone;
+        for (i = 0; i < std::ssize(ctx.bones.jigglebonemap); i++) {
+            j = ctx.bones.jigglebonemap[i];
+            k = ctx.bones.jigglebones[j].bone;
             pbones[k].procindex = (jiggleInfo + i).offset_from<int>(pbones + k);
             pbones[k].proctype = ProcBoneType::Jiggle;
 
-            jiggleInfo[i] = g_studiomdl.bones.jigglebones[j].data;
+            jiggleInfo[i] = ctx.bones.jigglebones[j].data;
         }
         buffer.align(4);
     }
 
     // write aim at bones
-    if (std::ssize(g_studiomdl.bones.aimatbonemap)) {
-        auto pProc = buffer.allocate<mstudioaimatbone_t>(std::ssize(g_studiomdl.bones.aimatbonemap));
-        for (i = 0; i < std::ssize(g_studiomdl.bones.aimatbonemap); i++) {
-            j = g_studiomdl.bones.aimatbonemap[i];
-            k = g_studiomdl.bones.aimatbones[j].bone;
+    if (std::ssize(ctx.bones.aimatbonemap)) {
+        auto pProc = buffer.allocate<mstudioaimatbone_t>(std::ssize(ctx.bones.aimatbonemap));
+        for (i = 0; i < std::ssize(ctx.bones.aimatbonemap); i++) {
+            j = ctx.bones.aimatbonemap[i];
+            k = ctx.bones.aimatbones[j].bone;
             pbones[k].procindex = (pProc + i).offset_from<int>(pbones + k);
-            pbones[k].proctype = g_studiomdl.bones.aimatbones[j].aimAttach == -1
+            pbones[k].proctype = ctx.bones.aimatbones[j].aimAttach == -1
                                      ? ProcBoneType::AimAtBone
                                      : ProcBoneType::AimAtAttach;
-            pProc[i].parent = g_studiomdl.bones.aimatbones[j].parent;
-            pProc[i].aim = g_studiomdl.bones.aimatbones[j].aimAttach == -1
-                               ? g_studiomdl.bones.aimatbones[j].aimBone
-                               : g_studiomdl.bones.aimatbones[j].aimAttach;
-            pProc[i].aimvector = g_studiomdl.bones.aimatbones[j].aimvector;
-            pProc[i].upvector = g_studiomdl.bones.aimatbones[j].upvector;
-            pProc[i].basepos = g_studiomdl.bones.aimatbones[j].basepos;
+            pProc[i].parent = ctx.bones.aimatbones[j].parent;
+            pProc[i].aim = ctx.bones.aimatbones[j].aimAttach == -1
+                               ? ctx.bones.aimatbones[j].aimBone
+                               : ctx.bones.aimatbones[j].aimAttach;
+            pProc[i].aimvector = ctx.bones.aimatbones[j].aimvector;
+            pProc[i].upvector = ctx.bones.aimatbones[j].upvector;
+            pProc[i].basepos = ctx.bones.aimatbones[j].basepos;
         }
         buffer.align(4);
     }
 
     // Write constraint bones
-    if (std::ssize(g_studiomdl.bones.constraintBones) > 0) {
-        for (int i = 0; i < std::ssize(g_studiomdl.bones.constraintBones); ++i) {
-            CConstraintBoneBase* pConstraintBone = g_studiomdl.bones.constraintBones[i];
+    if (std::ssize(ctx.bones.constraintBones) > 0) {
+        for (int i = 0; i < std::ssize(ctx.bones.constraintBones); ++i) {
+            CConstraintBoneBase* pConstraintBone = ctx.bones.constraintBones[i];
             if (!pConstraintBone)
                 continue;
 
@@ -340,16 +338,16 @@ static void WriteBoneInfo(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_
         }
     }
 
-    // map g_studiomdl.bonecontroller to bones
-    for (i = 0; i < std::ssize(g_studiomdl.bones.bonetable); i++) {
+    // map ctx.bonecontroller to bones
+    for (i = 0; i < std::ssize(ctx.bones.bonetable); i++) {
         for (j = 0; j < 6; j++) {
             pbones[i].bonecontroller[j] = -1;
         }
     }
 
-    for (i = 0; i < g_studiomdl.bones.bonecontrollers.size(); i++) {
-        j = g_studiomdl.bones.bonecontrollers[i].bone;
-        switch (g_studiomdl.bones.bonecontrollers[i].type & StudioMotionFlags::Types) {
+    for (i = 0; i < ctx.bones.bonecontrollers.size(); i++) {
+        j = ctx.bones.bonecontrollers[i].bone;
+        switch (ctx.bones.bonecontrollers[i].type & StudioMotionFlags::Types) {
             case StudioMotionFlags::X:
                 pbones[j].bonecontroller[0] = i;
                 break;
@@ -369,50 +367,50 @@ static void WriteBoneInfo(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_
                 pbones[j].bonecontroller[5] = i;
                 break;
             default:
-                MdlError("unknown g_studiomdl.bonecontroller type\n");
+                MdlError("unknown ctx.bonecontroller type\n");
         }
     }
 
-    // save g_studiomdl.bonecontroller info
-    const auto pbonecontroller = buffer.allocate<mstudiobonecontroller_t>(g_studiomdl.bones.bonecontrollers.size());
-    phdr->numbonecontrollers = g_studiomdl.bones.bonecontrollers.size();
+    // save ctx.bonecontroller info
+    const auto pbonecontroller = buffer.allocate<mstudiobonecontroller_t>(ctx.bones.bonecontrollers.size());
+    phdr->numbonecontrollers = ctx.bones.bonecontrollers.size();
     phdr->bonecontrollerindex = pbonecontroller.offset_as<int>();
 
-    for (i = 0; i < g_studiomdl.bones.bonecontrollers.size(); i++) {
-        pbonecontroller[i].bone = g_studiomdl.bones.bonecontrollers[i].bone;
-        pbonecontroller[i].inputfield = g_studiomdl.bones.bonecontrollers[i].inputfield;
-        pbonecontroller[i].type = g_studiomdl.bones.bonecontrollers[i].type;
-        pbonecontroller[i].start = g_studiomdl.bones.bonecontrollers[i].start;
-        pbonecontroller[i].end = g_studiomdl.bones.bonecontrollers[i].end;
+    for (i = 0; i < ctx.bones.bonecontrollers.size(); i++) {
+        pbonecontroller[i].bone = ctx.bones.bonecontrollers[i].bone;
+        pbonecontroller[i].inputfield = ctx.bones.bonecontrollers[i].inputfield;
+        pbonecontroller[i].type = ctx.bones.bonecontrollers[i].type;
+        pbonecontroller[i].start = ctx.bones.bonecontrollers[i].start;
+        pbonecontroller[i].end = ctx.bones.bonecontrollers[i].end;
     }
     buffer.align(4);
 
     // save attachment info
-    const auto pattachment = buffer.allocate<mstudioattachment_t>(g_studiomdl.bones.attachments.size());
-    phdr->numlocalattachments = g_studiomdl.bones.attachments.size();
+    const auto pattachment = buffer.allocate<mstudioattachment_t>(ctx.bones.attachments.size());
+    phdr->numlocalattachments = ctx.bones.attachments.size();
     phdr->localattachmentindex = pattachment.offset_as<int>();
 
-    for (i = 0; i < g_studiomdl.bones.attachments.size(); i++) {
-        pattachment[i].localbone = g_studiomdl.bones.attachments[i].bone;
-        AddToStringTable(pattachment + i, (pattachment + i).field(&mstudioattachment_t::sznameindex),
-                         g_studiomdl.bones.attachments[i].name.c_str());
-        MatrixCopy(g_studiomdl.bones.attachments[i].local, pattachment[i].local);
-        pattachment[i].flags = g_studiomdl.bones.attachments[i].flags;
+    for (i = 0; i < ctx.bones.attachments.size(); i++) {
+        pattachment[i].localbone = ctx.bones.attachments[i].bone;
+        AddToStringTable(strings, pattachment + i, (pattachment + i).field(&mstudioattachment_t::sznameindex),
+                         ctx.bones.attachments[i].name.c_str());
+        MatrixCopy(ctx.bones.attachments[i].local, pattachment[i].local);
+        pattachment[i].flags = ctx.bones.attachments[i].flags;
     }
     buffer.align(4);
 
     // save hitbox sets
-    phdr->numhitboxsets = g_studiomdl.bones.hitboxsets.size();
+    phdr->numhitboxsets = ctx.bones.hitboxsets.size();
 
     // Remember start spot
     auto hitboxset = buffer.allocate<mstudiohitboxset_t>(phdr->numhitboxsets);
     phdr->hitboxsetindex = hitboxset.offset_as<int>();
     buffer.align(4);
 
-    for (int s = 0; s < g_studiomdl.bones.hitboxsets.size(); s++, hitboxset++) {
-        s_hitboxset* set = &g_studiomdl.bones.hitboxsets[s];
+    for (int s = 0; s < ctx.bones.hitboxsets.size(); s++, hitboxset++) {
+        s_hitboxset* set = &ctx.bones.hitboxsets[s];
 
-        AddToStringTable(hitboxset, hitboxset.field(&mstudiohitboxset_t::sznameindex), set->hitboxsetname);
+        AddToStringTable(strings, hitboxset, hitboxset.field(&mstudiohitboxset_t::sznameindex), set->hitboxsetname);
 
         hitboxset->numhitboxes = set->hitboxes.size();
 
@@ -428,7 +426,8 @@ static void WriteBoneInfo(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_
             VectorCopy(hitbox.angOffsetOrientation, pbbox[i].angOffsetOrientation);
             pbbox[i].flCapsuleRadius = hitbox.flCapsuleRadius;
             pbbox[i].szhitboxnameindex = 0;
-            AddToStringTable(pbbox + i, (pbbox + i).field(&mstudiobbox_t::szhitboxnameindex), hitbox.hitboxname);
+            AddToStringTable(strings, pbbox + i, (pbbox + i).field(&mstudiobbox_t::szhitboxnameindex),
+                             hitbox.hitboxname);
         }
 
         buffer.align(4);
@@ -440,20 +439,19 @@ static void WriteBoneInfo(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_
     // a table in bone order, sorted by bone name
     const std::span<uint8_t> sortedBones(boneTable.get(), phdr->numbones);
     std::iota(sortedBones.begin(), sortedBones.end(), uint8_t{0});
-    std::ranges::stable_sort(sortedBones, [](const uint8_t a, const uint8_t b) {
-        return strcmpi(g_studiomdl.bones.bonetable[a].name, g_studiomdl.bones.bonetable[b].name) < 0;
+    std::ranges::stable_sort(sortedBones, [&ctx](const uint8_t a, const uint8_t b) {
+        return strcmpi(ctx.bones.bonetable[a].name, ctx.bones.bonetable[b].name) < 0;
     });
     buffer.align(4);
 }
 
 // load a preexisting model to remember its sequence names and indices
-static std::vector<std::string> s_preexistingSequences;
-
-static void LoadPreexistingSequenceOrder(const std::string &fileName) {
-    s_preexistingSequences.clear();
+static void LoadPreexistingSequenceOrder(StudioMdlState &ctx, const std::string &fileName,
+                                         std::vector<std::string> &preexistingSequences) {
+    preexistingSequences.clear();
 
     if (!FileExists(fileName.c_str())) {
-        if (g_studiomdl.options.errorOnSeqRemapFail)
+        if (ctx.options.errorOnSeqRemapFail)
             MdlError(
                 "This model requires a sequence remapping match. Please sync to the latest model on disk before recompiling.\n");
         return;
@@ -461,7 +459,7 @@ static void LoadPreexistingSequenceOrder(const std::string &fileName) {
 
     MdlMessage("Loading preexisting model: {}\n", fileName);
 
-    auto data = LoadOutputFile(fileName);
+    auto data = LoadOutputFile(ctx, fileName);
     studiohdr_t* pStudioHdr = data && data->size() >= sizeof(studiohdr_t)
                                   ? data->reinterpret_at<studiohdr_t>(0)
                                   : nullptr;
@@ -470,13 +468,13 @@ static void LoadPreexistingSequenceOrder(const std::string &fileName) {
         MdlMessage("   Found {} preexisting sequences.\n", pStudioHdr->GetNumSeq());
 
         for (int i = 0; i < pStudioHdr->GetNumSeq(); i++) {
-            s_preexistingSequences.emplace_back(pStudioHdr->pSeqdesc(i).pszLabel());
+            preexistingSequences.emplace_back(pStudioHdr->pSeqdesc(i).pszLabel());
         }
     }
-    else if (g_studiomdl.options.modelIntentionallyHasZeroSequences) {
+    else if (ctx.options.modelIntentionallyHasZeroSequences) {
         // some models like scaffolds, intentionally don't have input sequences. Not sure if this is the best way to allow this exception.
     }
-    else if (g_studiomdl.options.errorOnSeqRemapFail) {
+    else if (ctx.options.errorOnSeqRemapFail) {
         MdlError("Zero-size file or no sequences. This model requires a sequence remapping match.\n");
     }
     else {
@@ -484,19 +482,21 @@ static void LoadPreexistingSequenceOrder(const std::string &fileName) {
     }
 }
 
-static void WriteSequenceInfo(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_t> phdr) {
+static void WriteSequenceInfo(StudioMdlState &ctx, StringTable &strings, vstd::Buffer &buffer,
+                              const vstd::BufferPtr<studiohdr_t> phdr,
+                              const std::vector<std::string> &preexistingSequences) {
     vstd::FunctionTimingRecorder _("Write");
     int i, j, k;
 
     // write models to disk with this flag set false. This will force
-    // the sequences to be indexed by activity whenever the g_studiomdl.body.model is loaded
+    // the sequences to be indexed by activity whenever the ctx.body.model is loaded
     // from disk.
     phdr->activitylistversion = 0;
     phdr->eventsindexed = 0;
 
-    // save g_studiomdl.anim.sequence info
-    auto pseqdesc = buffer.allocate<mstudioseqdesc_t>(std::ssize(g_studiomdl.anim.sequence));
-    phdr->numlocalseq = std::ssize(g_studiomdl.anim.sequence);
+    // save ctx.anim.sequence info
+    auto pseqdesc = buffer.allocate<mstudioseqdesc_t>(std::ssize(ctx.anim.sequence));
+    phdr->numlocalseq = std::ssize(ctx.anim.sequence);
     phdr->localseqindex = pseqdesc.offset_as<int>();
 
     bool bErrors = false;
@@ -508,10 +508,10 @@ static void WriteSequenceInfo(vstd::Buffer &buffer, const vstd::BufferPtr<studio
     nSeqOrderRemappingTable.fill(-1);
 
     bool bAllowSequenceRemoval = false;
-    const int numPreexisting = static_cast<int>(s_preexistingSequences.size());
+    const int numPreexisting = static_cast<int>(preexistingSequences.size());
 
     if (numPreexisting) {
-        if (std::ssize(g_studiomdl.anim.sequence) < numPreexisting && !bAllowSequenceRemoval) {
+        if (std::ssize(ctx.anim.sequence) < numPreexisting && !bAllowSequenceRemoval) {
             MdlMessage("\n");
             MdlWarning(
                 "This model has fewer sequences than its predecessor.\nPlease confirm sequence deletion: [y/n] ");
@@ -530,18 +530,18 @@ static void WriteSequenceInfo(vstd::Buffer &buffer, const vstd::BufferPtr<studio
             std::vector<int> vecNewIndices;
 
             // map current sequences to their old indices
-            for (i = 0; i < std::ssize(g_studiomdl.anim.sequence); i++) {
-                const auto old = std::ranges::find(s_preexistingSequences, g_studiomdl.anim.sequence[i].name.view());
-                if (old != s_preexistingSequences.end()) {
-                    nSeqOrderRemappingTable[old - s_preexistingSequences.begin()] = i;
+            for (i = 0; i < std::ssize(ctx.anim.sequence); i++) {
+                const auto old = std::ranges::find(preexistingSequences, ctx.anim.sequence[i].name.view());
+                if (old != preexistingSequences.end()) {
+                    nSeqOrderRemappingTable[old - preexistingSequences.begin()] = i;
                 }
                 else {
                     if (i < numPreexisting) {
                         MdlMessage("  Found new sequence \"{}\" using index of old sequence \"{}\".\n",
-                                   g_studiomdl.anim.sequence[i].name, s_preexistingSequences[i]);
+                                   ctx.anim.sequence[i].name, preexistingSequences[i]);
                     }
                     else {
-                        MdlMessage("  Found new sequence \"{}\".\n", g_studiomdl.anim.sequence[i].name);
+                        MdlMessage("  Found new sequence \"{}\".\n", ctx.anim.sequence[i].name);
                     }
 
                     vecNewIndices.push_back(i);
@@ -558,7 +558,7 @@ static void WriteSequenceInfo(vstd::Buffer &buffer, const vstd::BufferPtr<studio
             }
 
             // verify no indices are undefined
-            for (i = 0; i < std::ssize(g_studiomdl.anim.sequence); i++) {
+            for (i = 0; i < std::ssize(ctx.anim.sequence); i++) {
                 if (nSeqOrderRemappingTable[i] == -1) {
                     if (bAllowSequenceRemoval) {
                         do {
@@ -596,116 +596,117 @@ static void WriteSequenceInfo(vstd::Buffer &buffer, const vstd::BufferPtr<studio
     }
 
     int m;
-    for (m = 0; m < std::ssize(g_studiomdl.anim.sequence); m++, pseqdesc++) {
+    for (m = 0; m < std::ssize(ctx.anim.sequence); m++, pseqdesc++) {
         if (bUseSeqOrderRemapping) {
             i = nSeqOrderRemappingTable[m];
             if (i != m) {
                 MdlMessage("   Remapping sequence {} to index {} ({}) to retain existing order.\n", i, m,
-                           g_studiomdl.anim.sequence[i].name);
+                           ctx.anim.sequence[i].name);
             }
         }
         else {
             i = m;
         }
 
-        AddToStringTable(pseqdesc, pseqdesc.field(&mstudioseqdesc_t::szlabelindex), g_studiomdl.anim.sequence[i].name);
-        AddToStringTable(pseqdesc, pseqdesc.field(&mstudioseqdesc_t::szactivitynameindex),
-                         g_studiomdl.anim.sequence[i].activityname);
+        AddToStringTable(strings, pseqdesc, pseqdesc.field(&mstudioseqdesc_t::szlabelindex),
+                         ctx.anim.sequence[i].name);
+        AddToStringTable(strings, pseqdesc, pseqdesc.field(&mstudioseqdesc_t::szactivitynameindex),
+                         ctx.anim.sequence[i].activityname);
 
         // offset from this descriptor back to the header
         pseqdesc->baseptr = phdr.offset_from<int>(pseqdesc);
 
-        pseqdesc->flags = g_studiomdl.anim.sequence[i].flags;
+        pseqdesc->flags = ctx.anim.sequence[i].flags;
 
-        pseqdesc->numblends = g_studiomdl.anim.sequence[i].numblends;
-        pseqdesc->groupsize[0] = g_studiomdl.anim.sequence[i].groupsize[0];
-        pseqdesc->groupsize[1] = g_studiomdl.anim.sequence[i].groupsize[1];
+        pseqdesc->numblends = ctx.anim.sequence[i].numblends;
+        pseqdesc->groupsize[0] = ctx.anim.sequence[i].groupsize[0];
+        pseqdesc->groupsize[1] = ctx.anim.sequence[i].groupsize[1];
 
-        pseqdesc->paramindex[0] = g_studiomdl.anim.sequence[i].paramindex[0];
-        pseqdesc->paramstart[0] = g_studiomdl.anim.sequence[i].paramstart[0];
-        pseqdesc->paramend[0] = g_studiomdl.anim.sequence[i].paramend[0];
-        pseqdesc->paramindex[1] = g_studiomdl.anim.sequence[i].paramindex[1];
-        pseqdesc->paramstart[1] = g_studiomdl.anim.sequence[i].paramstart[1];
-        pseqdesc->paramend[1] = g_studiomdl.anim.sequence[i].paramend[1];
+        pseqdesc->paramindex[0] = ctx.anim.sequence[i].paramindex[0];
+        pseqdesc->paramstart[0] = ctx.anim.sequence[i].paramstart[0];
+        pseqdesc->paramend[0] = ctx.anim.sequence[i].paramend[0];
+        pseqdesc->paramindex[1] = ctx.anim.sequence[i].paramindex[1];
+        pseqdesc->paramstart[1] = ctx.anim.sequence[i].paramstart[1];
+        pseqdesc->paramend[1] = ctx.anim.sequence[i].paramend[1];
 
-        if (g_studiomdl.anim.sequence[i].groupsize[0] > 1 || g_studiomdl.anim.sequence[i].groupsize[1] > 1) {
+        if (ctx.anim.sequence[i].groupsize[0] > 1 || ctx.anim.sequence[i].groupsize[1] > 1) {
             // save posekey values
             auto posekey = buffer.allocate<float>(pseqdesc->groupsize[0] + pseqdesc->groupsize[1]);
             pseqdesc->posekeyindex = posekey.offset_from<int>(pseqdesc);
             for (j = 0; j < pseqdesc->groupsize[0]; j++) {
-                *(posekey++) = j < std::ssize(g_studiomdl.anim.sequence[i].param0) ? g_studiomdl.anim.sequence[i].param0[j] : 0.0f;
+                *(posekey++) = j < std::ssize(ctx.anim.sequence[i].param0) ? ctx.anim.sequence[i].param0[j] : 0.0f;
             }
             for (j = 0; j < pseqdesc->groupsize[1]; j++) {
-                *(posekey++) = j < std::ssize(g_studiomdl.anim.sequence[i].param1) ? g_studiomdl.anim.sequence[i].param1[j] : 0.0f;
+                *(posekey++) = j < std::ssize(ctx.anim.sequence[i].param1) ? ctx.anim.sequence[i].param1[j] : 0.0f;
             }
         }
 
-        // pseqdesc->motiontype	= g_studiomdl.anim.sequence[i].motiontype;
-        // pseqdesc->motionbone	= 0; // g_studiomdl.anim.sequence[i].motionbone;
-        // VectorCopy( g_studiomdl.anim.sequence[i].linearmovement, pseqdesc->linearmovement );
+        // pseqdesc->motiontype	= ctx.anim.sequence[i].motiontype;
+        // pseqdesc->motionbone	= 0; // ctx.anim.sequence[i].motionbone;
+        // VectorCopy( ctx.anim.sequence[i].linearmovement, pseqdesc->linearmovement );
 
-        pseqdesc->activity = g_studiomdl.anim.sequence[i].activity;
-        pseqdesc->actweight = g_studiomdl.anim.sequence[i].actweight;
+        pseqdesc->activity = ctx.anim.sequence[i].activity;
+        pseqdesc->actweight = ctx.anim.sequence[i].actweight;
 
-        pseqdesc->bbmin = g_studiomdl.anim.sequence[i].bmin;
-        pseqdesc->bbmax = g_studiomdl.anim.sequence[i].bmax;
+        pseqdesc->bbmin = ctx.anim.sequence[i].bmin;
+        pseqdesc->bbmax = ctx.anim.sequence[i].bmax;
 
-        pseqdesc->fadeintime = g_studiomdl.anim.sequence[i].fadeintime;
-        pseqdesc->fadeouttime = g_studiomdl.anim.sequence[i].fadeouttime;
+        pseqdesc->fadeintime = ctx.anim.sequence[i].fadeintime;
+        pseqdesc->fadeouttime = ctx.anim.sequence[i].fadeouttime;
 
-        pseqdesc->localentrynode = g_studiomdl.anim.sequence[i].entrynode;
-        pseqdesc->localexitnode = g_studiomdl.anim.sequence[i].exitnode;
-        //pseqdesc->entryphase	= g_studiomdl.anim.sequence[i].entryphase;
-        //pseqdesc->exitphase		= g_studiomdl.anim.sequence[i].exitphase;
-        pseqdesc->nodeflags = g_studiomdl.anim.sequence[i].nodeflags;
+        pseqdesc->localentrynode = ctx.anim.sequence[i].entrynode;
+        pseqdesc->localexitnode = ctx.anim.sequence[i].exitnode;
+        //pseqdesc->entryphase	= ctx.anim.sequence[i].entryphase;
+        //pseqdesc->exitphase		= ctx.anim.sequence[i].exitphase;
+        pseqdesc->nodeflags = ctx.anim.sequence[i].nodeflags;
 
         // save events
         // the count first: it sizes the allocation
-        pseqdesc->numevents = g_studiomdl.anim.sequence[i].events.size();
+        pseqdesc->numevents = ctx.anim.sequence[i].events.size();
         const auto pevent = buffer.allocate<mstudioevent_t>(pseqdesc->numevents);
         pseqdesc->eventindex = pevent.offset_from<int>(pseqdesc);
-        for (j = 0; j < g_studiomdl.anim.sequence[i].events.size(); j++) {
-            k = g_studiomdl.anim.sequence[i].panim[0][0]->numframes - 1;
+        for (j = 0; j < ctx.anim.sequence[i].events.size(); j++) {
+            k = ctx.anim.sequence[i].panim[0][0]->numframes - 1;
 
-            if (g_studiomdl.anim.sequence[i].events[j].frame <= k)
-                pevent[j].cycle = g_studiomdl.anim.sequence[i].events[j].frame / ((float) k);
-            else if (k == 0 && g_studiomdl.anim.sequence[i].events[j].frame == 0)
+            if (ctx.anim.sequence[i].events[j].frame <= k)
+                pevent[j].cycle = ctx.anim.sequence[i].events[j].frame / ((float) k);
+            else if (k == 0 && ctx.anim.sequence[i].events[j].frame == 0)
                 pevent[j].cycle = 0;
             else {
-                MdlWarning("Event {} (frame {}) out of range in {}\n", g_studiomdl.anim.sequence[i].events[j].event,
-                           g_studiomdl.anim.sequence[i].events[j].frame, g_studiomdl.anim.sequence[i].name);
+                MdlWarning("Event {} (frame {}) out of range in {}\n", ctx.anim.sequence[i].events[j].event,
+                           ctx.anim.sequence[i].events[j].frame, ctx.anim.sequence[i].name);
                 bErrors = true;
             }
 
             //Adrian - Remove me once we phase out the old event system.
-            if (V_isdigit(g_studiomdl.anim.sequence[i].events[j].eventname[0])) {
-                pevent[j].event = atoi(g_studiomdl.anim.sequence[i].events[j].eventname);
+            if (V_isdigit(ctx.anim.sequence[i].events[j].eventname[0])) {
+                pevent[j].event = atoi(ctx.anim.sequence[i].events[j].eventname);
                 pevent[j].type = StudioEventType::OldStyle;
                 pevent[j].szeventindex = 0;
             }
             else {
-                AddToStringTable(pevent + j, (pevent + j).field(&mstudioevent_t::szeventindex),
-                                 g_studiomdl.anim.sequence[i].events[j].eventname);
+                AddToStringTable(strings, pevent + j, (pevent + j).field(&mstudioevent_t::szeventindex),
+                                 ctx.anim.sequence[i].events[j].eventname);
                 pevent[j].type = StudioEventType::NewStyle;
             }
 
             // the buffer is zero-filled, which terminates the copied text
-            const std::string_view options = g_studiomdl.anim.sequence[i].events[j].options.view();
+            const std::string_view options = ctx.anim.sequence[i].events[j].options.view();
             options.copy(pevent[j].options, sizeof(pevent[j].options) - 1);
         }
         buffer.align(4);
 
         // save ikrules
-        pseqdesc->numikrules = g_studiomdl.anim.sequence[i].numikrules;
+        pseqdesc->numikrules = ctx.anim.sequence[i].numikrules;
 
         // save autolayers
-        pseqdesc->numautolayers = g_studiomdl.anim.sequence[i].autolayers.size();
+        pseqdesc->numautolayers = ctx.anim.sequence[i].autolayers.size();
         const auto pautolayer = buffer.allocate<mstudioautolayer_t>(pseqdesc->numautolayers);
         pseqdesc->autolayerindex = pautolayer.offset_from<int>(pseqdesc);
-        for (j = 0; j < g_studiomdl.anim.sequence[i].autolayers.size(); j++) {
-            pautolayer[j].iSequence = g_studiomdl.anim.sequence[i].autolayers[j].sequence;
-            pautolayer[j].iPose = g_studiomdl.anim.sequence[i].autolayers[j].pose;
-            pautolayer[j].flags = g_studiomdl.anim.sequence[i].autolayers[j].flags;
+        for (j = 0; j < ctx.anim.sequence[i].autolayers.size(); j++) {
+            pautolayer[j].iSequence = ctx.anim.sequence[i].autolayers[j].sequence;
+            pautolayer[j].iPose = ctx.anim.sequence[i].autolayers[j].pose;
+            pautolayer[j].flags = ctx.anim.sequence[i].autolayers[j].flags;
 
             // autolayer indices are stored by index, so remap them now using the invertex lookup table
             if (bUseSeqOrderRemapping) {
@@ -718,20 +719,20 @@ static void WriteSequenceInfo(vstd::Buffer &buffer, const vstd::BufferPtr<studio
             }
 
             if (!HasFlag(pautolayer[j].flags, AutoLayerFlags::Pose)) {
-                pautolayer[j].start = g_studiomdl.anim.sequence[i].autolayers[j].start / (
-                                          g_studiomdl.anim.sequence[i].panim[0][0]->numframes - 1);
-                pautolayer[j].peak = g_studiomdl.anim.sequence[i].autolayers[j].peak / (
-                                         g_studiomdl.anim.sequence[i].panim[0][0]->numframes - 1);
-                pautolayer[j].tail = g_studiomdl.anim.sequence[i].autolayers[j].tail / (
-                                         g_studiomdl.anim.sequence[i].panim[0][0]->numframes - 1);
-                pautolayer[j].end = g_studiomdl.anim.sequence[i].autolayers[j].end / (
-                                        g_studiomdl.anim.sequence[i].panim[0][0]->numframes - 1);
+                pautolayer[j].start = ctx.anim.sequence[i].autolayers[j].start / (
+                                          ctx.anim.sequence[i].panim[0][0]->numframes - 1);
+                pautolayer[j].peak = ctx.anim.sequence[i].autolayers[j].peak / (
+                                         ctx.anim.sequence[i].panim[0][0]->numframes - 1);
+                pautolayer[j].tail = ctx.anim.sequence[i].autolayers[j].tail / (
+                                         ctx.anim.sequence[i].panim[0][0]->numframes - 1);
+                pautolayer[j].end = ctx.anim.sequence[i].autolayers[j].end / (
+                                        ctx.anim.sequence[i].panim[0][0]->numframes - 1);
             }
             else {
-                pautolayer[j].start = g_studiomdl.anim.sequence[i].autolayers[j].start;
-                pautolayer[j].peak = g_studiomdl.anim.sequence[i].autolayers[j].peak;
-                pautolayer[j].tail = g_studiomdl.anim.sequence[i].autolayers[j].tail;
-                pautolayer[j].end = g_studiomdl.anim.sequence[i].autolayers[j].end;
+                pautolayer[j].start = ctx.anim.sequence[i].autolayers[j].start;
+                pautolayer[j].peak = ctx.anim.sequence[i].autolayers[j].peak;
+                pautolayer[j].tail = ctx.anim.sequence[i].autolayers[j].tail;
+                pautolayer[j].end = ctx.anim.sequence[i].autolayers[j].end;
             }
         }
 
@@ -748,27 +749,27 @@ static void WriteSequenceInfo(vstd::Buffer &buffer, const vstd::BufferPtr<studio
             // only check newer boneweights than the last one
             if (prevWeights > weightOffset) {
                 weightOffset = prevWeights;
-                for (j = 0; j < std::ssize(g_studiomdl.bones.bonetable); j++) {
+                for (j = 0; j < std::ssize(ctx.bones.bonetable); j++) {
                     // we're not walking the linear sequence list if we're remapping, so we need to remap this check
                     int nRemap = k;
                     if (bUseSeqOrderRemapping)
                         nRemap = nSeqOrderRemappingTable[k];
 
-                    if (g_studiomdl.anim.sequence[i].weight[j] != g_studiomdl.anim.sequence[nRemap].weight[j])
+                    if (ctx.anim.sequence[i].weight[j] != ctx.anim.sequence[nRemap].weight[j])
                         break;
                 }
-                if (j == std::ssize(g_studiomdl.bones.bonetable))
+                if (j == std::ssize(ctx.bones.bonetable))
                     break;
             }
         }
 
         // check to see if all the bones matched
-        if (j < std::ssize(g_studiomdl.bones.bonetable)) {
+        if (j < std::ssize(ctx.bones.bonetable)) {
             // allocate new block
-            const auto pnewweight = buffer.allocate<float>(std::ssize(g_studiomdl.bones.bonetable));
+            const auto pnewweight = buffer.allocate<float>(std::ssize(ctx.bones.bonetable));
             pseqdesc->weightlistindex = pnewweight.offset_from<int>(pseqdesc);
-            for (j = 0; j < std::ssize(g_studiomdl.bones.bonetable); j++) {
-                pnewweight[j] = g_studiomdl.anim.sequence[i].weight[j];
+            for (j = 0; j < std::ssize(ctx.bones.bonetable); j++) {
+                pnewweight[j] = ctx.anim.sequence[i].weight[j];
             }
         }
         else {
@@ -778,31 +779,31 @@ static void WriteSequenceInfo(vstd::Buffer &buffer, const vstd::BufferPtr<studio
 
 
         // save iklocks
-        pseqdesc->numiklocks = g_studiomdl.anim.sequence[i].iklocks.size();
+        pseqdesc->numiklocks = ctx.anim.sequence[i].iklocks.size();
         auto piklock = buffer.allocate<mstudioiklock_t>(pseqdesc->numiklocks);
         pseqdesc->iklockindex = piklock.offset_from<int>(pseqdesc);
         buffer.align(4);
 
         for (j = 0; j < pseqdesc->numiklocks; j++) {
-            piklock->chain = g_studiomdl.anim.sequence[i].iklocks[j].chain;
-            piklock->flPosWeight = g_studiomdl.anim.sequence[i].iklocks[j].flPosWeight;
-            piklock->flLocalQWeight = g_studiomdl.anim.sequence[i].iklocks[j].flLocalQWeight;
+            piklock->chain = ctx.anim.sequence[i].iklocks[j].chain;
+            piklock->flPosWeight = ctx.anim.sequence[i].iklocks[j].flPosWeight;
+            piklock->flLocalQWeight = ctx.anim.sequence[i].iklocks[j].flLocalQWeight;
             piklock++;
         }
 
         // Write animation blend parameters
         const auto blends = buffer.allocate<short>(
-            g_studiomdl.anim.sequence[i].groupsize[0] * g_studiomdl.anim.sequence[i].groupsize[1]);
+            ctx.anim.sequence[i].groupsize[0] * ctx.anim.sequence[i].groupsize[1]);
         pseqdesc->animindexindex = blends.offset_from<int>(pseqdesc);
         buffer.align(4);
 
-        for (j = 0; j < g_studiomdl.anim.sequence[i].groupsize[0]; j++) {
-            for (k = 0; k < g_studiomdl.anim.sequence[i].groupsize[1]; k++) {
+        for (j = 0; j < ctx.anim.sequence[i].groupsize[0]; j++) {
+            for (k = 0; k < ctx.anim.sequence[i].groupsize[1]; k++) {
                 // height value * width of row + width value
-                int offset = k * g_studiomdl.anim.sequence[i].groupsize[0] + j;
+                int offset = k * ctx.anim.sequence[i].groupsize[0] + j;
 
-                if (g_studiomdl.anim.sequence[i].panim[j][k]) {
-                    int animindex = g_studiomdl.anim.sequence[i].panim[j][k]->index;
+                if (ctx.anim.sequence[i].panim[j][k]) {
+                    int animindex = ctx.anim.sequence[i].panim[j][k]->index;
 
                     Assert(animindex >= 0 && animindex < SHRT_MAX);
 
@@ -815,42 +816,42 @@ static void WriteSequenceInfo(vstd::Buffer &buffer, const vstd::BufferPtr<studio
         }
 
         // Write cycle overrides
-        pseqdesc->cycleposeindex = g_studiomdl.anim.sequence[i].cycleposeindex;
+        pseqdesc->cycleposeindex = ctx.anim.sequence[i].cycleposeindex;
 
-        WriteSeqKeyValues(buffer, pseqdesc, g_studiomdl.anim.sequence[i].KeyValue);
+        WriteSeqKeyValues(buffer, pseqdesc, ctx.anim.sequence[i].KeyValue);
 
         // Write activity modifiers
-        pseqdesc->numactivitymodifiers = g_studiomdl.anim.sequence[i].numactivitymodifiers;
+        pseqdesc->numactivitymodifiers = ctx.anim.sequence[i].numactivitymodifiers;
         const auto pactivitymodifier = buffer.allocate<mstudioactivitymodifier_t>(pseqdesc->numactivitymodifiers);
         pseqdesc->activitymodifierindex = pactivitymodifier.offset_from<int>(pseqdesc);
         buffer.align(4);
 
         for (j = 0; j < pseqdesc->numactivitymodifiers; j++) {
-            AddToStringTable(pactivitymodifier + j,
+            AddToStringTable(strings, pactivitymodifier + j,
                              (pactivitymodifier + j).field(&mstudioactivitymodifier_t::sznameindex),
-                             g_studiomdl.anim.sequence[i].activitymodifier[j].name);
+                             ctx.anim.sequence[i].activitymodifier[j].name);
         }
 
 
         // save animtags
-        pseqdesc->numanimtags = g_studiomdl.anim.sequence[i].animtags.size();
+        pseqdesc->numanimtags = ctx.anim.sequence[i].animtags.size();
         const auto panimtag = buffer.allocate<mstudioanimtag_t>(pseqdesc->numanimtags);
         pseqdesc->animtagindex = panimtag.offset_from<int>(pseqdesc);
         buffer.align(4);
 
-        for (j = 0; j < g_studiomdl.anim.sequence[i].animtags.size(); j++) {
-            panimtag[j].cycle = g_studiomdl.anim.sequence[i].animtags[j].cycle;
-            AddToStringTable(panimtag + j, (panimtag + j).field(&mstudioanimtag_t::sztagindex),
-                             g_studiomdl.anim.sequence[i].animtags[j].tagname);
+        for (j = 0; j < ctx.anim.sequence[i].animtags.size(); j++) {
+            panimtag[j].cycle = ctx.anim.sequence[i].animtags[j].cycle;
+            AddToStringTable(strings, panimtag + j, (panimtag + j).field(&mstudioanimtag_t::sztagindex),
+                             ctx.anim.sequence[i].animtags[j].tagname);
         }
 
-        if (HasFlag(g_studiomdl.anim.sequence[i].flags, StudioSequenceFlags::RootXform)) {
-            int bone = findGlobalBone(g_studiomdl.anim.sequence[i].rootDriverBoneName);
+        if (HasFlag(ctx.anim.sequence[i].flags, StudioSequenceFlags::RootXform)) {
+            int bone = findGlobalBone(ctx, ctx.anim.sequence[i].rootDriverBoneName);
             if (bone != -1) {
                 pseqdesc->rootDriverIndex = bone;
             }
             else {
-                MdlError("unable to find bone {}\n", g_studiomdl.anim.sequence[i].rootDriverBoneName);
+                MdlError("unable to find bone {}\n", ctx.anim.sequence[i].rootDriverBoneName);
             }
         }
         else {
@@ -864,24 +865,24 @@ static void WriteSequenceInfo(vstd::Buffer &buffer, const vstd::BufferPtr<studio
     }
 
     // save transition graph
-    auto pxnodename = buffer.allocate<int>(g_studiomdl.anim.xnodenames.size());
+    auto pxnodename = buffer.allocate<int>(ctx.anim.xnodenames.size());
     phdr->localnodenameindex = pxnodename.offset_as<int>();
     buffer.align(4);
-    for (i = 0; i < g_studiomdl.anim.xnodenames.size(); i++) {
-        AddToStringTable(phdr, pxnodename, g_studiomdl.anim.xnodenames[i].c_str());
-        // printf("%d : %s\n", i, g_studiomdl.xnodename[i+1] );
+    for (i = 0; i < ctx.anim.xnodenames.size(); i++) {
+        AddToStringTable(strings, phdr, pxnodename, ctx.anim.xnodenames[i].c_str());
+        // printf("%d : %s\n", i, ctx.xnodename[i+1] );
         pxnodename++;
     }
 
-    auto ptransition = buffer.allocate<uint8_t>(g_studiomdl.anim.xnodenames.size() * g_studiomdl.anim.xnodenames.size());
-    phdr->numlocalnodes = g_studiomdl.anim.xnodenames.size();
+    auto ptransition = buffer.allocate<uint8_t>(ctx.anim.xnodenames.size() * ctx.anim.xnodenames.size());
+    phdr->numlocalnodes = ctx.anim.xnodenames.size();
     phdr->localnodeindex = ptransition.offset_as<int>();
     buffer.align(4);
-    for (i = 0; i < g_studiomdl.anim.xnodenames.size(); i++) {
-        //		printf("%2d (%12s) : ", i + 1, g_studiomdl.xnodename[i+1] );
-        for (j = 0; j < g_studiomdl.anim.xnodenames.size(); j++) {
-            *ptransition++ = g_studiomdl.anim.xnodes[i][j];
-            //			printf(" %2d", g_studiomdl.xnode[i][j] );
+    for (i = 0; i < ctx.anim.xnodenames.size(); i++) {
+        //		printf("%2d (%12s) : ", i + 1, ctx.xnodename[i+1] );
+        for (j = 0; j < ctx.anim.xnodenames.size(); j++) {
+            *ptransition++ = ctx.anim.xnodes[i][j];
+            //			printf(" %2d", ctx.xnode[i][j] );
         }
         //		printf("\n" );
     }
@@ -913,16 +914,8 @@ int studiohdr_t::GetAutoplayList(unsigned short** pOut) const {
 }
 
 
-int rawanimbytes = 0;
-int animboneframes = 0;
-
-int numAxis[4] = {0, 0, 0, 0};
-int numPos[4] = {0, 0, 0, 0};
-int useRaw = 0;
-
-
 // out: the buffer the section is appended to, the .mdl data or the .ani block data
-void WriteRLEAnimationData(s_animation_t* srcanim, vstd::Buffer &out, int w) {
+void WriteRLEAnimationData(StudioMdlState &ctx, s_animation_t* srcanim, vstd::Buffer &out, int w) {
     int k, n;
 
     auto destanim = out.allocate<mstudio_rle_anim_t>();
@@ -932,12 +925,9 @@ void WriteRLEAnimationData(s_animation_t* srcanim, vstd::Buffer &out, int w) {
     vstd::BufferPtr<mstudio_rle_anim_t> prevanim;
 
     // save animation value info
-    for (int j = 0; j < std::ssize(g_studiomdl.bones.bonetable); j++) {
+    for (int j = 0; j < std::ssize(ctx.bones.bonetable); j++) {
         destanim->flags = StudioAnimFlags::None;
         s_compressed_t* psrcdata = &srcanim->anim[w][j];
-
-        numPos[(psrcdata->num[0] != 0) + (psrcdata->num[1] != 0) + (psrcdata->num[2] != 0)]++;
-        numAxis[(psrcdata->num[3] != 0) + (psrcdata->num[4] != 0) + (psrcdata->num[5] != 0)]++;
 
         if (psrcdata->num[0] + psrcdata->num[1] + psrcdata->num[2] + psrcdata->num[3] + psrcdata->num[4] +
             psrcdata->num[5] == 0) {
@@ -961,23 +951,15 @@ void WriteRLEAnimationData(s_animation_t* srcanim, vstd::Buffer &out, int w) {
                 Quaternion q;
                 AngleQuaternion(srcanim->sanim[iFrame][j].rot, q);
                 *out.allocate<Quaternion64>() = q;
-                rawanimbytes += sizeof(Quaternion64);
                 destanim->flags |= StudioAnimFlags::RawRot2;
             }
 
             if (psrcdata->num[0] != 0 || psrcdata->num[1] != 0 || psrcdata->num[2] != 0) {
                 *out.allocate<Vector48>() = srcanim->sanim[iFrame][j].pos;
-                rawanimbytes += sizeof(Vector48);
                 destanim->flags |= StudioAnimFlags::RawPos;
             }
         }
         else {
-            // look to see if storing raw quat's would have taken less space
-            if (psrcdata->num[3] >= srcanim->numframes && psrcdata->num[4] >= srcanim->numframes &&
-                psrcdata->num[5] >= srcanim->numframes) {
-                useRaw++;
-            }
-
             // allocate room for rotation ptrs
             const auto rotvptr = out.allocate<mstudioanim_valueptr_t>();
 
@@ -987,7 +969,6 @@ void WriteRLEAnimationData(s_animation_t* srcanim, vstd::Buffer &out, int w) {
                 posvptr = out.allocate<mstudioanim_valueptr_t>();
             }
 
-            const size_t valuesStart = out.size();
             // appends the values of one channel, sets its offset relative to vptr
             const auto writeChannel = [&](const vstd::BufferPtr<mstudioanim_valueptr_t> &vptr, const int slot,
                                           const int channel) {
@@ -1015,7 +996,6 @@ void WriteRLEAnimationData(s_animation_t* srcanim, vstd::Buffer &out, int w) {
                 }
                 destanim->flags |= StudioAnimFlags::AnimPos;
             }
-            rawanimbytes += out.size() - valuesStart;
         }
 
         prevanim = destanim;
@@ -1030,12 +1010,12 @@ void WriteRLEAnimationData(s_animation_t* srcanim, vstd::Buffer &out, int w) {
     out.align(4);
 }
 
-void WriteFrameAnimationData(s_animation_t* srcanim, vstd::Buffer &out, int w) {
+void WriteFrameAnimationData(StudioMdlState &ctx, s_animation_t* srcanim, vstd::Buffer &out, int w) {
     // allocate room for header
     const auto destframeanim = out.allocate<mstudio_frame_anim_t>();
 
     // write flags and constants (the flags follow the header, see mstudio_frame_anim_t::pBoneFlags)
-    const auto flag = out.allocate<StudioFrameFlags>(std::ssize(g_studiomdl.bones.bonetable));
+    const auto flag = out.allocate<StudioFrameFlags>(std::ssize(ctx.bones.bonetable));
 
     out.align(4);
 
@@ -1043,7 +1023,7 @@ void WriteFrameAnimationData(s_animation_t* srcanim, vstd::Buffer &out, int w) {
     int framelength = 0;
     int iFrame = MIN(w * srcanim->sectionframes, srcanim->numframes - 1);
 
-    for (int j = 0; j < std::ssize(g_studiomdl.bones.bonetable); j++) {
+    for (int j = 0; j < std::ssize(ctx.bones.bonetable); j++) {
         s_compressed_t* psrcdata = &srcanim->anim[w][j];
 
         if (psrcdata->num[3] == 0 && psrcdata->num[4] == 0 && psrcdata->num[5] == 0) {
@@ -1065,7 +1045,7 @@ void WriteFrameAnimationData(s_animation_t* srcanim, vstd::Buffer &out, int w) {
         }
         else if (psrcdata->num[0] <= 2 && psrcdata->num[1] <= 2 && psrcdata->num[2] <= 2) {
             // single frame
-            if (g_studiomdl.options.animblockHighRes) {
+            if (ctx.options.animblockHighRes) {
                 flag[j] |= StudioFrameFlags::ConstPos2;
                 *out.allocate<Vector>() = srcanim->sanim[iFrame][j].pos;
             }
@@ -1076,7 +1056,7 @@ void WriteFrameAnimationData(s_animation_t* srcanim, vstd::Buffer &out, int w) {
         }
         else {
             // multiple frames
-            if (g_studiomdl.options.animblockHighRes) {
+            if (ctx.options.animblockHighRes) {
                 flag[j] |= StudioFrameFlags::AnimPos2;
                 framelength += sizeof(Vector);
             }
@@ -1103,7 +1083,7 @@ void WriteFrameAnimationData(s_animation_t* srcanim, vstd::Buffer &out, int w) {
 
     for (iFrame = iStartFrame; iFrame <= iEndFrame; iFrame++) {
         // save animation value info
-        for (int j = 0; j < std::ssize(g_studiomdl.bones.bonetable); j++) {
+        for (int j = 0; j < std::ssize(ctx.bones.bonetable); j++) {
             if (HasFlag(flag[j], StudioFrameFlags::AnimRot2)) {
                 Quaternion q;
                 AngleQuaternion(srcanim->sanim[iFrame][j].rot, q);
@@ -1125,7 +1105,7 @@ void WriteFrameAnimationData(s_animation_t* srcanim, vstd::Buffer &out, int w) {
 
 // Writes the sections of srcanim: into local (the .mdl data, where destanimdesc lives) or, when anim blocks are
 // in use, into ext (the .ani block data; nullptr when there's no .ani file).
-void WriteAnimationData(s_animation_t* srcanim, const vstd::BufferPtr<mstudioanimdesc_t> destanimdesc,
+void WriteAnimationData(StudioMdlState &ctx, s_animation_t* srcanim, const vstd::BufferPtr<mstudioanimdesc_t> destanimdesc,
                         vstd::Buffer &local, vstd::Buffer* ext) {
     vstd::FunctionTimingRecorder _("Write");
 
@@ -1138,38 +1118,38 @@ void WriteAnimationData(s_animation_t* srcanim, const vstd::BufferPtr<mstudioani
         const size_t startSection = out.size();
 
         // use frameanim if not lowres data
-        if (ext != nullptr && !g_studiomdl.options.animblockLowRes) {
+        if (ext != nullptr && !ctx.options.animblockLowRes) {
             srcanim->flags |= StudioSequenceFlags::FrameAnim;
             destanimdesc->flags |= StudioSequenceFlags::FrameAnim;
         }
 
         if (HasFlag(srcanim->flags, StudioSequenceFlags::FrameAnim)) {
-            WriteFrameAnimationData(srcanim, out, w);
+            WriteFrameAnimationData(ctx, srcanim, out, w);
         }
         else {
-            WriteRLEAnimationData(srcanim, out, w);
+            WriteRLEAnimationData(ctx, srcanim, out, w);
         }
 
         const size_t sectionSize = out.size() - startSection;
-        if (g_studiomdl.anim.animblocksize > 0 && sectionSize > static_cast<size_t>(g_studiomdl.anim.animblocksize)) {
+        if (ctx.anim.animblocksize > 0 && sectionSize > static_cast<size_t>(ctx.anim.animblocksize)) {
             MdlWarning(
                 "Single animation \"{}\" is {}. Specificed block size is {}.  Use smaller animations or increase the block size.\n",
-                srcanim->name, sectionSize, g_studiomdl.anim.animblocksize);
+                srcanim->name, sectionSize, ctx.anim.animblocksize);
         }
 
         // write into anim blocks if needed
         if (destanimdesc->sectionindex) {
             if (bUseExtData) {
-                if (g_studiomdl.anim.animblocks.size() &&
-                    static_cast<int64_t>(out.size()) - g_studiomdl.anim.animblocks.back().start > g_studiomdl.anim.animblocksize) {
+                if (ctx.anim.animblocks.size() &&
+                    static_cast<int64_t>(out.size()) - ctx.anim.animblocks.back().start > ctx.anim.animblocksize) {
                     // advance to next animblock
-                    g_studiomdl.anim.animblocks.back().end = startSection;
-                    g_studiomdl.anim.animblocks.emplace_back(s_animblock_t{.start = static_cast<uint32_t>(startSection)});
+                    ctx.anim.animblocks.back().end = startSection;
+                    ctx.anim.animblocks.emplace_back(s_animblock_t{.start = static_cast<uint32_t>(startSection)});
                 }
 
-                destanimdesc->pSection(w)->animblock = g_studiomdl.anim.animblocks.size() - 1;
+                destanimdesc->pSection(w)->animblock = ctx.anim.animblocks.size() - 1;
                 destanimdesc->pSection(w)->animindex =
-                        static_cast<int>(startSection - g_studiomdl.anim.animblocks.back().start);
+                        static_cast<int>(startSection - ctx.anim.animblocks.back().start);
             }
             else {
                 destanimdesc->pSection(w)->animblock = 0;
@@ -1319,30 +1299,31 @@ void WriteLocalHierarchy(s_animation_t* srcanim, vstd::Buffer &out) {
 
 
 // buffer: the .mdl data. blocks: the .ani data (already holding its header), nullptr when there is no .ani file.
-// g_studiomdl.anim.animblocks start/end are offsets into blocks.
-static void WriteAnimations(vstd::Buffer &buffer, vstd::Buffer* blocks, const vstd::BufferPtr<studiohdr_t> phdr) {
+// ctx.anim.animblocks start/end are offsets into blocks. totalframes/totalseconds accumulate the animation lengths.
+static void WriteAnimations(StudioMdlState &ctx, StringTable &strings, vstd::Buffer &buffer, vstd::Buffer* blocks,
+                            const vstd::BufferPtr<studiohdr_t> phdr, int &totalframes, float &totalseconds) {
     vstd::FunctionTimingRecorder _("Write");
     int i, j;
 
     // save animations
-    const auto panimdesc = buffer.allocate<mstudioanimdesc_t>(g_studiomdl.anim.animations.size());
-    phdr->numlocalanim = g_studiomdl.anim.animations.size();
+    const auto panimdesc = buffer.allocate<mstudioanimdesc_t>(ctx.anim.animations.size());
+    phdr->numlocalanim = ctx.anim.animations.size();
     phdr->localanimindex = panimdesc.offset_as<int>();
     buffer.align(4);
 
     // end of the committed .ani data (data past it still belongs to the animation being written)
     size_t blockData = blocks ? blocks->size() : 0;
     //      ------------ ------- ------- : ------- (-------)
-    if (g_studiomdl.options.verbose && g_studiomdl.anim.animations.size() > 0) {
+    if (ctx.options.verbose && ctx.anim.animations.size() > 0) {
         std::print("   animation       x       y       ips    angle\n");
     }
 
-    for (i = 0; i < g_studiomdl.anim.animations.size(); i++) {
-        s_animation_t* srcanim = g_studiomdl.anim.animations[i];
+    for (i = 0; i < ctx.anim.animations.size(); i++) {
+        s_animation_t* srcanim = ctx.anim.animations[i];
         const auto destanim = panimdesc + i;
         Assert(srcanim);
 
-        AddToStringTable(destanim, destanim.field(&mstudioanimdesc_t::sznameindex), srcanim->name);
+        AddToStringTable(strings, destanim, destanim.field(&mstudioanimdesc_t::sznameindex), srcanim->name);
 
         destanim->baseptr = phdr.offset_from<int>(destanim);
         destanim->fps = srcanim->fps;
@@ -1358,7 +1339,7 @@ static void WriteAnimations(vstd::Buffer &buffer, vstd::Buffer* blocks, const vs
         // destanim->motiontype = srcanim->motiontype;
         // destanim->motionbone = srcanim->motionbone;
         // VectorCopy( srcanim->linearpos, destanim->linearpos );
-        if (g_studiomdl.options.verbose && (srcanim->piecewisemove.size() > 0)) {
+        if (ctx.options.verbose && (srcanim->piecewisemove.size() > 0)) {
             j = srcanim->piecewisemove.size() - 1;
             if (srcanim->piecewisemove[j].pos[0] != 0 || srcanim->piecewisemove[j].pos[1] != 0) {
                 float t = (srcanim->numframes - 1) / srcanim->fps;
@@ -1385,29 +1366,29 @@ static void WriteAnimations(vstd::Buffer &buffer, vstd::Buffer* blocks, const vs
             blockData = blocks->size();
 
             // allocate the first block if needed
-            if (g_studiomdl.anim.animblocks.size() == 0) {
-                g_studiomdl.anim.animblocks.emplace_back();
-                g_studiomdl.anim.animblocks.emplace_back(s_animblock_t{.start = static_cast<uint32_t>(blockData)});
+            if (ctx.anim.animblocks.size() == 0) {
+                ctx.anim.animblocks.emplace_back();
+                ctx.anim.animblocks.emplace_back(s_animblock_t{.start = static_cast<uint32_t>(blockData)});
             }
         }
 
-        if (!blocks || (std::ssize(g_studiomdl.bones.bonesaveframe) == 0 && srcanim->numframes == 1)) {
+        if (!blocks || (std::ssize(ctx.bones.bonesaveframe) == 0 && srcanim->numframes == 1)) {
             // hack
             srcanim->disableAnimblocks = true;
         }
-        else if (g_studiomdl.options.noAnimblockStall) {
+        else if (ctx.options.noAnimblockStall) {
             srcanim->isFirstSectionLocal = true;
         }
 
         // make sure number of preload frames is initialized
         if (srcanim->numNostallFrames == 0) {
-            srcanim->numNostallFrames = srcanim->fps * g_studiomdl.options.preloadTime;
+            srcanim->numNostallFrames = srcanim->fps * ctx.options.preloadTime;
         }
 
         // Offset of a position from its block: block zero is relative to me (animation data inside the .mdl),
         // the others to their start in the .ani data (slot 0 is a placeholder there)
         const auto blockRelative = [&](const int block, const size_t position) {
-            const int64_t base = block == 0 ? destanim.offset() : g_studiomdl.anim.animblocks[block].start;
+            const int64_t base = block == 0 ? destanim.offset() : ctx.anim.animblocks[block].start;
             return static_cast<int>(static_cast<int64_t>(position) - base);
         };
 
@@ -1418,7 +1399,7 @@ static void WriteAnimations(vstd::Buffer &buffer, vstd::Buffer* blocks, const vs
         if (srcanim->disableAnimblocks || srcanim->isFirstSectionLocal) {
             destanim->animblock = 0;
             animData = buffer.size();
-            WriteAnimationData(srcanim, destanim, buffer, blocks);
+            WriteAnimationData(ctx, srcanim, destanim, buffer, blocks);
             ikData = buffer.size();
             WriteIkErrors(srcanim, buffer);
             localHierarchy = buffer.size();
@@ -1426,12 +1407,12 @@ static void WriteAnimations(vstd::Buffer &buffer, vstd::Buffer* blocks, const vs
         }
         else {
             animData = blocks->size();
-            WriteAnimationData(srcanim, destanim, buffer, blocks);
+            WriteAnimationData(ctx, srcanim, destanim, buffer, blocks);
             if (destanim->sectionindex) {
                 // if sections were written, don't move the data already written to the last block
                 blockData = blocks->size();
             }
-            destanim->animblock = g_studiomdl.anim.animblocks.size() - 1;
+            destanim->animblock = ctx.anim.animblocks.size() - 1;
             ikData = blocks->size();
             WriteIkErrors(srcanim, *blocks);
             localHierarchy = blocks->size();
@@ -1440,10 +1421,10 @@ static void WriteAnimations(vstd::Buffer &buffer, vstd::Buffer* blocks, const vs
 
         const size_t blockEnd = blocks ? blocks->size() : 0;
         if (blockData != blockEnd &&
-            static_cast<int64_t>(blockEnd) - g_studiomdl.anim.animblocks.back().start > g_studiomdl.anim.animblocksize) {
-            g_studiomdl.anim.animblocks.back().end = blockData;
-            g_studiomdl.anim.animblocks.emplace_back(s_animblock_t{.start = static_cast<uint32_t>(blockData)});
-            destanim->animblock = g_studiomdl.anim.animblocks.size() - 1;
+            static_cast<int64_t>(blockEnd) - ctx.anim.animblocks.back().start > ctx.anim.animblocksize) {
+            ctx.anim.animblocks.back().end = blockData;
+            ctx.anim.animblocks.emplace_back(s_animblock_t{.start = static_cast<uint32_t>(blockData)});
+            destanim->animblock = ctx.anim.animblocks.size() - 1;
         }
 
         destanim->animindex = blockRelative(destanim->animblock, animData);
@@ -1462,32 +1443,24 @@ static void WriteAnimations(vstd::Buffer &buffer, vstd::Buffer* blocks, const vs
             destanim->localhierarchyindex = blockRelative(destanim->animblock, localHierarchy);
         }
 
-        if (g_studiomdl.anim.animblocks.size()) {
-            g_studiomdl.anim.animblocks.back().end = blockEnd;
+        if (ctx.anim.animblocks.size()) {
+            ctx.anim.animblocks.back().end = blockEnd;
             blockData = blockEnd;
         }
     }
 
-    if (!g_studiomdl.options.quiet) {
+    if (!ctx.options.quiet) {
         /*
-		for (i = 0; i < g_studiomdl.numanimblocks; i++)
+		for (i = 0; i < ctx.numanimblocks; i++)
 		{
-			printf("%2d (%3d:%3d): %d\n", i, g_studiomdl.animblock[i].iStartAnim, g_studiomdl.animblock[i].iEndAnim, g_studiomdl.animblock[i].end - g_studiomdl.animblock[i].start );
+			printf("%2d (%3d:%3d): %d\n", i, ctx.animblock[i].iStartAnim, ctx.animblock[i].iEndAnim, ctx.animblock[i].end - ctx.animblock[i].start );
 		}
 		*/
     }
 
-    if (!g_studiomdl.options.quiet) {
-        /*
-		printf("raw anim data %d : %d\n", rawanimbytes, animboneframes );
-		printf("pos  %d %d %d %d\n", numPos[0], numPos[1], numPos[2], numPos[3] );
-		printf("axis %d %d %d %d : %d\n", numAxis[0], numAxis[1], numAxis[2], numAxis[3], useRaw );
-		*/
-    }
-
     // write movement keys
-    for (i = 0; i < g_studiomdl.anim.animations.size(); i++) {
-        s_animation_t* anim = g_studiomdl.anim.animations[i];
+    for (i = 0; i < ctx.anim.animations.size(); i++) {
+        s_animation_t* anim = ctx.anim.animations[i];
 
         panimdesc[i].nummovements = anim->piecewisemove.size();
         if (panimdesc[i].nummovements) {
@@ -1513,77 +1486,77 @@ static void WriteAnimations(vstd::Buffer &buffer, vstd::Buffer* blocks, const vs
 
 
     // calculate what bones should be have zero frame saved out
-    if (std::ssize(g_studiomdl.bones.bonesaveframe) == 0) {
-        for (j = 0; j < std::ssize(g_studiomdl.bones.bonetable); j++) {
-            if ((g_studiomdl.bones.bonetable[j].parent == -1) ||
-                (g_studiomdl.bones.bonetable[j].posrange.Length() >= g_studiomdl.options.minZeroFramePosDelta)) {
-                g_studiomdl.bones.bonetable[j].flags |= BoneFlags::HasSaveframePos;
+    if (std::ssize(ctx.bones.bonesaveframe) == 0) {
+        for (j = 0; j < std::ssize(ctx.bones.bonetable); j++) {
+            if ((ctx.bones.bonetable[j].parent == -1) ||
+                (ctx.bones.bonetable[j].posrange.Length() >= ctx.options.minZeroFramePosDelta)) {
+                ctx.bones.bonetable[j].flags |= BoneFlags::HasSaveframePos;
             }
-            if (g_studiomdl.options.zeroFramesHighres) {
-                g_studiomdl.bones.bonetable[j].flags |= BoneFlags::HasSaveframeRot64;
+            if (ctx.options.zeroFramesHighres) {
+                ctx.bones.bonetable[j].flags |= BoneFlags::HasSaveframeRot64;
             }
             else {
-                g_studiomdl.bones.bonetable[j].flags |= BoneFlags::HasSaveframeRot32;
+                ctx.bones.bonetable[j].flags |= BoneFlags::HasSaveframeRot32;
             }
 
 
-            if ((!g_studiomdl.options.quiet) && HasFlag(g_studiomdl.bones.bonetable[j].flags,
+            if ((!ctx.options.quiet) && HasFlag(ctx.bones.bonetable[j].flags,
                                                        BoneFlags::HasSaveframePos | BoneFlags::HasSaveframeRot64 |
                                                        BoneFlags::HasSaveframeRot32)) {
-                std::print("$BoneSaveFrame \"{}\"", g_studiomdl.bones.bonetable[j].name);
-                if (HasFlag(g_studiomdl.bones.bonetable[j].flags, BoneFlags::HasSaveframePos)) {
+                std::print("$BoneSaveFrame \"{}\"", ctx.bones.bonetable[j].name);
+                if (HasFlag(ctx.bones.bonetable[j].flags, BoneFlags::HasSaveframePos)) {
                     std::print(" position");
                 }
-                if (HasFlag(g_studiomdl.bones.bonetable[j].flags, BoneFlags::HasSaveframeRot64)) {
+                if (HasFlag(ctx.bones.bonetable[j].flags, BoneFlags::HasSaveframeRot64)) {
                     std::print(" rotation64");
                 }
-                else if (HasFlag(g_studiomdl.bones.bonetable[j].flags, BoneFlags::HasSaveframeRot32)) {
+                else if (HasFlag(ctx.bones.bonetable[j].flags, BoneFlags::HasSaveframeRot32)) {
                     std::print(" rotation");
                 }
-                if (!HasFlag(g_studiomdl.bones.bonetable[j].flags, BoneFlags::HasSaveframePos) && g_studiomdl.bones.bonetable[j].
+                if (!HasFlag(ctx.bones.bonetable[j].flags, BoneFlags::HasSaveframePos) && ctx.bones.bonetable[j].
                     posrange.
                     Length() > 0.1) {
-                    std::print(" // ({:.2f})", g_studiomdl.bones.bonetable[j].posrange.Length());
+                    std::print(" // ({:.2f})", ctx.bones.bonetable[j].posrange.Length());
                 }
                 std::print("\n");
             }
         }
     }
     else {
-        for (i = 0; i < std::ssize(g_studiomdl.bones.bonesaveframe); i++) {
-            j = findGlobalBone(g_studiomdl.bones.bonesaveframe[i].name);
+        for (i = 0; i < std::ssize(ctx.bones.bonesaveframe); i++) {
+            j = findGlobalBone(ctx, ctx.bones.bonesaveframe[i].name);
 
             if (j != -1) {
-                if (g_studiomdl.bones.bonesaveframe[i].bSavePos) {
-                    g_studiomdl.bones.bonetable[j].flags |= BoneFlags::HasSaveframePos;
+                if (ctx.bones.bonesaveframe[i].bSavePos) {
+                    ctx.bones.bonetable[j].flags |= BoneFlags::HasSaveframePos;
                 }
-                if (g_studiomdl.bones.bonesaveframe[i].bSaveRot) {
-                    if (g_studiomdl.options.zeroFramesHighres) {
-                        g_studiomdl.bones.bonetable[j].flags |= BoneFlags::HasSaveframeRot64;
+                if (ctx.bones.bonesaveframe[i].bSaveRot) {
+                    if (ctx.options.zeroFramesHighres) {
+                        ctx.bones.bonetable[j].flags |= BoneFlags::HasSaveframeRot64;
                     }
                     else {
-                        g_studiomdl.bones.bonetable[j].flags |= BoneFlags::HasSaveframeRot32;
+                        ctx.bones.bonetable[j].flags |= BoneFlags::HasSaveframeRot32;
                     }
                 }
-                else if (g_studiomdl.bones.bonesaveframe[i].bSaveRot64) {
-                    g_studiomdl.bones.bonetable[j].flags |= BoneFlags::HasSaveframeRot64;
+                else if (ctx.bones.bonesaveframe[i].bSaveRot64) {
+                    ctx.bones.bonetable[j].flags |= BoneFlags::HasSaveframeRot64;
                 }
             }
             else {
-                MdlError("Unknown $BoneSaveFrame \"{}\"\n", g_studiomdl.bones.bonesaveframe[i].name);
+                MdlError("Unknown $BoneSaveFrame \"{}\"\n", ctx.bones.bonesaveframe[i].name);
             }
         }
     }
 
-    for (j = 0; j < std::ssize(g_studiomdl.bones.bonetable); j++) {
-        ((mstudiobone_t*) phdr->pBone(j))->flags |= g_studiomdl.bones.bonetable[j].flags;
+    for (j = 0; j < std::ssize(ctx.bones.bonetable); j++) {
+        ((mstudiobone_t*) phdr->pBone(j))->flags |= ctx.bones.bonetable[j].flags;
     }
 
     buffer.align(4);
 
     // write zero frames
-    for (i = 0; i < g_studiomdl.anim.animations.size(); i++) {
-        s_animation_t* anim = g_studiomdl.anim.animations[i];
+    for (i = 0; i < ctx.anim.animations.size(); i++) {
+        s_animation_t* anim = ctx.anim.animations[i];
         const auto destanim = panimdesc + i;
 
         if (destanim->animblock != 0) {
@@ -1601,22 +1574,22 @@ static void WriteAnimations(vstd::Buffer &buffer, vstd::Buffer* blocks, const vs
             if (destanim->zeroframecount < 1)
                 destanim->zeroframecount = 1;
 
-            destanim->zeroframecount = MIN(destanim->zeroframecount, g_studiomdl.options.maxZeroFrames);
+            destanim->zeroframecount = MIN(destanim->zeroframecount, ctx.options.maxZeroFrames);
 
-            for (j = 0; j < std::ssize(g_studiomdl.bones.bonetable); j++) {
-                if (HasFlag(g_studiomdl.bones.bonetable[j].flags, BoneFlags::HasSaveframePos)) {
+            for (j = 0; j < std::ssize(ctx.bones.bonetable); j++) {
+                if (HasFlag(ctx.bones.bonetable[j].flags, BoneFlags::HasSaveframePos)) {
                     for (int n = 0; n < destanim->zeroframecount; n++) {
                         *buffer.allocate<Vector48>() = anim->sanim[destanim->zeroframespan * n][j].pos;
                     }
                 }
-                if (HasFlag(g_studiomdl.bones.bonetable[j].flags, BoneFlags::HasSaveframeRot64)) {
+                if (HasFlag(ctx.bones.bonetable[j].flags, BoneFlags::HasSaveframeRot64)) {
                     for (int n = 0; n < destanim->zeroframecount; n++) {
                         Quaternion q;
                         AngleQuaternion(anim->sanim[destanim->zeroframespan * n][j].rot, q);
                         *buffer.allocate<Quaternion64>() = q;
                     }
                 }
-                else if (HasFlag(g_studiomdl.bones.bonetable[j].flags, BoneFlags::HasSaveframeRot32)) {
+                else if (HasFlag(ctx.bones.bonetable[j].flags, BoneFlags::HasSaveframeRot32)) {
                     for (int n = 0; n < destanim->zeroframecount; n++) {
                         Quaternion q;
                         AngleQuaternion(anim->sanim[destanim->zeroframespan * n][j].rot, q);
@@ -1635,7 +1608,7 @@ static void WriteAnimations(vstd::Buffer &buffer, vstd::Buffer* blocks, const vs
                 const auto psrcikrule = destanim->ikruleindex
                                             ? buffer.ptr_at<mstudioikrule_t>(destanim.offset() + destanim->ikruleindex)
                                             : blocks->ptr_at<mstudioikrule_t>(
-                                                g_studiomdl.anim.animblocks[destanim->animblock].start +
+                                                ctx.anim.animblocks[destanim->animblock].start +
                                                 destanim->animblockikruleindex);
 
                 for (j = 0; j < destanim->numikrules; j++) {
@@ -1655,31 +1628,32 @@ static void WriteAnimations(vstd::Buffer &buffer, vstd::Buffer* blocks, const vs
 }
 
 
-static void WriteTextures(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_t> phdr) {
+static void WriteTextures(StudioMdlState &ctx, StringTable &strings, vstd::Buffer &buffer,
+                          const vstd::BufferPtr<studiohdr_t> phdr) {
     vstd::FunctionTimingRecorder _("Write");
     int i, j;
 
     // save texture info
-    const auto ptexture = buffer.allocate<mstudiotexture_t>(g_studiomdl.materials.materials.size());
-    phdr->numtextures = g_studiomdl.materials.materials.size();
+    const auto ptexture = buffer.allocate<mstudiotexture_t>(ctx.materials.materials.size());
+    phdr->numtextures = ctx.materials.materials.size();
     phdr->textureindex = ptexture.offset_as<int>();
-    for (i = 0; i < g_studiomdl.materials.materials.size(); i++) {
-        j = g_studiomdl.materials.materials[i];
-        AddToStringTable(ptexture + i, (ptexture + i).field(&mstudiotexture_t::sznameindex),
-                         g_studiomdl.materials.textures[j].name);
+    for (i = 0; i < ctx.materials.materials.size(); i++) {
+        j = ctx.materials.materials[i];
+        AddToStringTable(strings, ptexture + i, (ptexture + i).field(&mstudiotexture_t::sznameindex),
+                         ctx.materials.textures[j].name);
     }
     buffer.align(4);
 
-    const auto cdtextureoffset = buffer.allocate<int>(g_studiomdl.materials.cdtextures.size());
-    phdr->numcdtextures = g_studiomdl.materials.cdtextures.size();
+    const auto cdtextureoffset = buffer.allocate<int>(ctx.materials.cdtextures.size());
+    phdr->numcdtextures = ctx.materials.cdtextures.size();
     phdr->cdtextureindex = cdtextureoffset.offset_as<int>();
-    for (i = 0; i < g_studiomdl.materials.cdtextures.size(); i++) {
-        AddToStringTable(phdr, cdtextureoffset + i, g_studiomdl.materials.cdtextures[i]);
+    for (i = 0; i < ctx.materials.cdtextures.size(); i++) {
+        AddToStringTable(strings, phdr, cdtextureoffset + i, ctx.materials.cdtextures[i]);
     }
     buffer.align(4);
 
     // save texture directory info: one row per skin family, all rows as wide as the first
-    const auto &skinref = g_studiomdl.materials.skinref;
+    const auto &skinref = ctx.materials.skinref;
     phdr->numskinref = skinref.empty() ? 0 : static_cast<int>(skinref[0].size());
     phdr->numskinfamilies = static_cast<int>(skinref.size());
     const auto pref = buffer.allocate<short>(phdr->numskinfamilies * phdr->numskinref);
@@ -1698,7 +1672,8 @@ static void WriteTextures(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_
 // Write source bone transforms
 //-----------------------------------------------------------------------------
 // The bones are read from phdr's bone array; the counts and indices go to phdr2
-static void WriteBoneTransforms(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_t> phdr,
+static void WriteBoneTransforms(StudioMdlState &ctx, StringTable &strings, vstd::Buffer &buffer,
+                                const vstd::BufferPtr<studiohdr_t> phdr,
                                 const vstd::BufferPtr<studiohdr2_t> phdr2) {
     vstd::FunctionTimingRecorder _("Write");
     const auto pBone = buffer.ptr_at<mstudiobone_t>(phdr->boneindex);
@@ -1706,14 +1681,14 @@ static void WriteBoneTransforms(vstd::Buffer &buffer, const vstd::BufferPtr<stud
     SetIdentityMatrix(identity);
 
     int nTransformCount = 0;
-    for (int i = 0; i < std::ssize(g_studiomdl.bones.bonetable); i++) {
-        if (HasFlag(g_studiomdl.bones.bonetable[i].flags, BoneFlags::AlwaysProcedural))
+    for (int i = 0; i < std::ssize(ctx.bones.bonetable); i++) {
+        if (HasFlag(ctx.bones.bonetable[i].flags, BoneFlags::AlwaysProcedural))
             continue;
-        int nParent = g_studiomdl.bones.bonetable[i].parent;
+        int nParent = ctx.bones.bonetable[i].parent;
 
         // Transformation is necessary if either you or your parent was realigned
-        if (MatricesAreEqual(identity, g_studiomdl.bones.bonetable[i].srcRealign) &&
-            ((nParent < 0) || MatricesAreEqual(identity, g_studiomdl.bones.bonetable[nParent].srcRealign)))
+        if (MatricesAreEqual(identity, ctx.bones.bonetable[i].srcRealign) &&
+            ((nParent < 0) || MatricesAreEqual(identity, ctx.bones.bonetable[nParent].srcRealign)))
             continue;
 
         ++nTransformCount;
@@ -1724,12 +1699,12 @@ static void WriteBoneTransforms(vstd::Buffer &buffer, const vstd::BufferPtr<stud
     phdr2->numsrcbonetransform = nTransformCount;
     phdr2->srcbonetransformindex = pSrcBoneTransform.offset_as<int>();
     int bt = 0;
-    for (int i = 0; i < std::ssize(g_studiomdl.bones.bonetable); i++) {
-        if (HasFlag(g_studiomdl.bones.bonetable[i].flags, BoneFlags::AlwaysProcedural))
+    for (int i = 0; i < std::ssize(ctx.bones.bonetable); i++) {
+        if (HasFlag(ctx.bones.bonetable[i].flags, BoneFlags::AlwaysProcedural))
             continue;
-        int nParent = g_studiomdl.bones.bonetable[i].parent;
-        if (MatricesAreEqual(identity, g_studiomdl.bones.bonetable[i].srcRealign) &&
-            ((nParent < 0) || MatricesAreEqual(identity, g_studiomdl.bones.bonetable[nParent].srcRealign)))
+        int nParent = ctx.bones.bonetable[i].parent;
+        if (MatricesAreEqual(identity, ctx.bones.bonetable[i].srcRealign) &&
+            ((nParent < 0) || MatricesAreEqual(identity, ctx.bones.bonetable[nParent].srcRealign)))
             continue;
 
         // What's going on here?
@@ -1740,32 +1715,32 @@ static void WriteBoneTransforms(vstd::Buffer &buffer, const vstd::BufferPtr<stud
         //		CtoW = P * C = ( P * T ) * ( T^-1 * C )
         // therefore Cnew = ( T^-1 * C )
         if (nParent >= 0) {
-            MatrixInvert(g_studiomdl.bones.bonetable[nParent].srcRealign, pSrcBoneTransform[bt].pretransform);
+            MatrixInvert(ctx.bones.bonetable[nParent].srcRealign, pSrcBoneTransform[bt].pretransform);
         }
         else {
             SetIdentityMatrix(pSrcBoneTransform[bt].pretransform);
         }
-        MatrixCopy(g_studiomdl.bones.bonetable[i].srcRealign, pSrcBoneTransform[bt].posttransform);
-        AddToStringTable(pSrcBoneTransform + bt,
+        MatrixCopy(ctx.bones.bonetable[i].srcRealign, pSrcBoneTransform[bt].posttransform);
+        AddToStringTable(strings, pSrcBoneTransform + bt,
                          (pSrcBoneTransform + bt).field(&mstudiosrcbonetransform_t::sznameindex),
-                         g_studiomdl.bones.bonetable[i].name);
+                         ctx.bones.bonetable[i].name);
         ++bt;
     }
     buffer.align(4);
 
-    if (std::ssize(g_studiomdl.bones.bonetable) > 1) {
+    if (std::ssize(ctx.bones.bonetable) > 1) {
         // write second bone table
         const auto pLinearBone = buffer.allocate<mstudiolinearbone_t>();
         phdr2->linearboneindex = pLinearBone.offset_from<int>(phdr2);
 
-        pLinearBone->numbones = std::ssize(g_studiomdl.bones.bonetable);
+        pLinearBone->numbones = std::ssize(ctx.bones.bonetable);
 
         // one array per bone field, each 4-aligned, indexed relative to pLinearBone
         const auto writeBoneBlock = [&]<typename F>(F mstudiobone_t::* srcfield, int mstudiolinearbone_t::* destindex) {
-            const auto dest = buffer.template allocate<F>(std::ssize(g_studiomdl.bones.bonetable));
+            const auto dest = buffer.template allocate<F>(std::ssize(ctx.bones.bonetable));
             pLinearBone.get()->*destindex = dest.template offset_from<int>(pLinearBone);
             buffer.align(4);
-            for (int i = 0; i < std::ssize(g_studiomdl.bones.bonetable); i++)
+            for (int i = 0; i < std::ssize(ctx.bones.bonetable); i++)
                 dest[i] = pBone[i].*srcfield;
         };
 
@@ -1781,32 +1756,35 @@ static void WriteBoneTransforms(vstd::Buffer &buffer, const vstd::BufferPtr<stud
     }
 }
 
-static void WriteBodyGroupPresets(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr2_t> pStudioHdr2) {
+static void WriteBodyGroupPresets(StudioMdlState &ctx, StringTable &strings, vstd::Buffer &buffer,
+                                  const vstd::BufferPtr<studiohdr2_t> pStudioHdr2) {
     vstd::FunctionTimingRecorder _("Write");
     buffer.align(4);
 
-    pStudioHdr2->m_nBodyGroupPresetCount = std::ssize(g_studiomdl.body.bodygrouppresets);
+    pStudioHdr2->m_nBodyGroupPresetCount = std::ssize(ctx.body.bodygrouppresets);
     pStudioHdr2->m_nBodyGroupPresetIndex = 0;
 
-    if (std::ssize(g_studiomdl.body.bodygrouppresets) <= 0)
+    if (std::ssize(ctx.body.bodygrouppresets) <= 0)
         return;
 
-    const auto pBodygroupPreset = buffer.allocate<mstudiobodygrouppreset_t>(std::ssize(g_studiomdl.body.bodygrouppresets));
+    const auto pBodygroupPreset = buffer.allocate<mstudiobodygrouppreset_t>(std::ssize(ctx.body.bodygrouppresets));
     pStudioHdr2->m_nBodyGroupPresetIndex = pBodygroupPreset.offset_from<int>(pStudioHdr2);
     buffer.align(4);
 
-    for (int i = 0; i < std::ssize(g_studiomdl.body.bodygrouppresets); i++) {
-        AddToStringTable(pBodygroupPreset + i, (pBodygroupPreset + i).field(&mstudiobodygrouppreset_t::sznameindex),
-                         g_studiomdl.body.bodygrouppresets[i].name);
-        pBodygroupPreset[i].iValue = g_studiomdl.body.bodygrouppresets[i].iValue;
-        pBodygroupPreset[i].iMask = g_studiomdl.body.bodygrouppresets[i].iMask;
+    for (int i = 0; i < std::ssize(ctx.body.bodygrouppresets); i++) {
+        AddToStringTable(strings, pBodygroupPreset + i,
+                         (pBodygroupPreset + i).field(&mstudiobodygrouppreset_t::sznameindex),
+                         ctx.body.bodygrouppresets[i].name);
+        pBodygroupPreset[i].iValue = ctx.body.bodygrouppresets[i].iValue;
+        pBodygroupPreset[i].iMask = ctx.body.bodygrouppresets[i].iMask;
     }
 }
 
 //-----------------------------------------------------------------------------
 // Write the bone flex drivers
 //-----------------------------------------------------------------------------
-static void WriteBoneFlexDrivers(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr2_t> pStudioHdr2) {
+static void WriteBoneFlexDrivers(StudioMdlState &ctx, vstd::Buffer &buffer,
+                                 const vstd::BufferPtr<studiohdr2_t> pStudioHdr2) {
     vstd::FunctionTimingRecorder _("Write");
     buffer.align(4);
 
@@ -1814,7 +1792,7 @@ static void WriteBoneFlexDrivers(vstd::Buffer &buffer, const vstd::BufferPtr<stu
     pStudioHdr2->m_nBoneFlexDriverIndex = 0;
 
     CDmeBoneFlexDriverList* pDmeBoneFlexDriverList = GetElement<CDmeBoneFlexDriverList>(
-        g_studiomdl.flex.hDmeBoneFlexDriverList);
+        ctx.flex.hDmeBoneFlexDriverList);
     if (!pDmeBoneFlexDriverList)
         return;
 
@@ -1860,21 +1838,21 @@ static void WriteBoneFlexDrivers(vstd::Buffer &buffer, const vstd::BufferPtr<stu
 
 
 //-----------------------------------------------------------------------------
-// Write the processed vertices
+// Write the processed vertices. extraTexcoordsToWrite: extra texcoord sets per vertex (set by WriteModel)
 //-----------------------------------------------------------------------------
-static void WriteVertices(const studiohdr_t* hdr) {
+static void WriteVertices(StudioMdlState &ctx, const studiohdr_t* hdr, const int extraTexcoordsToWrite) {
     vstd::FunctionTimingRecorder _("Write");
     int i = 0;
     int j = 0;
     int k = 0;
     const bool extraData = (hdr->flags & STUDIOHDR_FLAGS_EXTRA_VERTEX_DATA) != 0;
 
-    if (!g_studiomdl.body.nummodelsbeforeLOD)
+    if (!ctx.body.nummodelsbeforeLOD)
         return;
 
-    const std::string fileName = OutputModelPath(".vvd");
+    const std::string fileName = OutputModelPath(ctx, ".vvd");
 
-    if (!g_studiomdl.options.quiet) {
+    if (!ctx.options.quiet) {
         std::print("---------------------\n");
         std::print("writing {}:\n", fileName);
     }
@@ -1900,8 +1878,8 @@ static void WriteVertices(const studiohdr_t* hdr) {
     buffer.align(16);
 
     fileHeader->vertexDataStart = buffer.size();
-    for (i = 0; i < g_studiomdl.body.nummodelsbeforeLOD; i++) {
-        s_loddata_t* pLodData = g_studiomdl.body.model[i]->m_pLodData;
+    for (i = 0; i < ctx.body.nummodelsbeforeLOD; i++) {
+        s_loddata_t* pLodData = ctx.body.model[i]->m_pLodData;
 
         // skip blank empty model
         if (!pLodData)
@@ -1929,7 +1907,7 @@ static void WriteVertices(const studiohdr_t* hdr) {
 
         fileHeader->numLODVertexes[0] += pLodData->numvertices;
 
-        if (!g_studiomdl.options.quiet) {
+        if (!ctx.options.quiet) {
             std::print("{} vertices \n", pLodData->numvertices);
         }
     }
@@ -1937,8 +1915,8 @@ static void WriteVertices(const studiohdr_t* hdr) {
     // store tangents grouped by mesh order
     buffer.align(4);
     fileHeader->tangentDataStart = buffer.size();
-    for (i = 0; i < g_studiomdl.body.nummodelsbeforeLOD; i++) {
-        s_loddata_t* pLodData = g_studiomdl.body.model[i]->m_pLodData;
+    for (i = 0; i < ctx.body.nummodelsbeforeLOD; i++) {
+        s_loddata_t* pLodData = ctx.body.model[i]->m_pLodData;
 
         // skip blank empty model
         if (!pLodData)
@@ -1955,7 +1933,7 @@ static void WriteVertices(const studiohdr_t* hdr) {
 #endif
         }
 
-        if (!g_studiomdl.options.quiet) {
+        if (!ctx.options.quiet) {
             std::print("{} tangents\n", pLodData->numvertices);
         }
     }
@@ -1965,10 +1943,10 @@ static void WriteVertices(const studiohdr_t* hdr) {
 
         auto extraDataStart = buffer.end_ptr();
         auto pExtraheader = buffer.allocate<ExtraVertexAttributesHeader_t>();
-        pExtraheader->m_count = sExtraTexcoordsToWrite;
-        auto pIndex = buffer.allocate<ExtraVertexAttributeIndex_t>(sExtraTexcoordsToWrite);
+        pExtraheader->m_count = extraTexcoordsToWrite;
+        auto pIndex = buffer.allocate<ExtraVertexAttributeIndex_t>(extraTexcoordsToWrite);
 
-        for (int e = 0; e < sExtraTexcoordsToWrite; ++e) {
+        for (int e = 0; e < extraTexcoordsToWrite; ++e) {
             buffer.align(4);
 
             // Populate Index: type and byteoffset
@@ -1977,8 +1955,8 @@ static void WriteVertices(const studiohdr_t* hdr) {
             pIndex[e].m_bytes = 2 * sizeof(float);
 
             // store extra vertex data, one entry per vertex, order matches main vertex data
-            for (i = 0; i < g_studiomdl.body.nummodelsbeforeLOD; i++) {
-                s_loddata_t* pLodData = g_studiomdl.body.model[i]->m_pLodData;
+            for (i = 0; i < ctx.body.nummodelsbeforeLOD; i++) {
+                s_loddata_t* pLodData = ctx.body.model[i]->m_pLodData;
 
                 // skip blank empty model
                 if (!pLodData)
@@ -1993,7 +1971,7 @@ static void WriteVertices(const studiohdr_t* hdr) {
                     pExtraTexcoord[j * 2 + 1] = lodVertex.texcoord[e + 1].y;
                 }
 
-                if (!g_studiomdl.options.quiet) {
+                if (!ctx.options.quiet) {
                     std::print("extra vertex data   {:7} bytes ({} vertices)\n",
                                buffer.end_ptr().offset_from<int>(pExtraTexcoord),
                                pLodData->numvertices);
@@ -2003,11 +1981,11 @@ static void WriteVertices(const studiohdr_t* hdr) {
         pExtraheader->m_totalbytes = buffer.end_ptr().offset_from<int>(extraDataStart);
     }
 
-    if (!g_studiomdl.options.quiet) {
+    if (!ctx.options.quiet) {
         std::print("total      {:7} bytes\n", buffer.size());
     }
 
-    SaveOutputFile(fileName, std::move(buffer));
+    SaveOutputFile(ctx, fileName, std::move(buffer));
 }
 
 
@@ -2018,10 +1996,10 @@ static void WriteVertices(const studiohdr_t* hdr) {
 // Returns the fixed point scale and also sets appropriate values & flags in
 // passed studiohdr_t
 //-----------------------------------------------------------------------------
-float ComputeVertAnimFixedPointScale(studiohdr_t* pStudioHdr) {
+float ComputeVertAnimFixedPointScale(StudioMdlState &ctx, studiohdr_t* pStudioHdr) {
     float flVertAnimRange = 0.0f;
 
-    for (const auto &flexkey: g_studiomdl.flex.flexkeys) {
+    for (const auto &flexkey: ctx.flex.flexkeys) {
         if (flexkey.numvanims <= 0)
             continue;
 
@@ -2065,7 +2043,9 @@ float ComputeVertAnimFixedPointScale(studiohdr_t* pStudioHdr) {
 }
 
 
-static void WriteModel(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_t> phdr) {
+// extraTexcoordsToWrite: receives the number of extra texcoord sets per vertex, for WriteVertices
+static void WriteModel(StudioMdlState &ctx, StringTable &strings, vstd::Buffer &buffer,
+                       const vstd::BufferPtr<studiohdr_t> phdr, int &extraTexcoordsToWrite) {
     vstd::FunctionTimingRecorder _("Write");
     int i, j, k, m;
     s_source_t* psource;
@@ -2077,66 +2057,67 @@ static void WriteModel(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_t> 
     uintptr_t externalTangentsIndex = 0;
 
     // write bodypart info
-    const auto pbodypart = buffer.allocate<mstudiobodyparts_t>(std::ssize(g_studiomdl.body.bodypart));
-    phdr->numbodyparts = std::ssize(g_studiomdl.body.bodypart);
+    const auto pbodypart = buffer.allocate<mstudiobodyparts_t>(std::ssize(ctx.body.bodypart));
+    phdr->numbodyparts = std::ssize(ctx.body.bodypart);
     phdr->bodypartindex = pbodypart.offset_as<int>();
 
-    const auto pmodel = buffer.allocate<mstudiomodel_t>(g_studiomdl.body.nummodelsbeforeLOD);
+    const auto pmodel = buffer.allocate<mstudiomodel_t>(ctx.body.nummodelsbeforeLOD);
 
-    for (i = 0, j = 0; i < std::ssize(g_studiomdl.body.bodypart); i++) {
-        AddToStringTable(pbodypart + i, (pbodypart + i).field(&mstudiobodyparts_t::sznameindex),
-                         g_studiomdl.body.bodypart[i].name);
-        pbodypart[i].nummodels = std::ssize(g_studiomdl.body.bodypart[i].pmodel);
-        pbodypart[i].base = g_studiomdl.body.bodypart[i].base;
+    for (i = 0, j = 0; i < std::ssize(ctx.body.bodypart); i++) {
+        AddToStringTable(strings, pbodypart + i, (pbodypart + i).field(&mstudiobodyparts_t::sznameindex),
+                         ctx.body.bodypart[i].name);
+        pbodypart[i].nummodels = std::ssize(ctx.body.bodypart[i].pmodel);
+        pbodypart[i].base = ctx.body.bodypart[i].base;
         pbodypart[i].modelindex = (pmodel + j).offset_from<int>(pbodypart + i);
-        j += std::ssize(g_studiomdl.body.bodypart[i].pmodel);
+        j += std::ssize(ctx.body.bodypart[i].pmodel);
     }
     buffer.align(4);
 
     // write global flex names
-    auto pflexdesc = buffer.allocate<mstudioflexdesc_t>(g_studiomdl.flex.flexdescs.size());
-    phdr->numflexdesc = g_studiomdl.flex.flexdescs.size();
+    auto pflexdesc = buffer.allocate<mstudioflexdesc_t>(ctx.flex.flexdescs.size());
+    phdr->numflexdesc = ctx.flex.flexdescs.size();
     phdr->flexdescindex = pflexdesc.offset_as<int>();
     buffer.align(4);
 
-    for (j = 0; j < g_studiomdl.flex.flexdescs.size(); j++) {
-        AddToStringTable(pflexdesc, pflexdesc.field(&mstudioflexdesc_t::szFACSindex), g_studiomdl.flex.flexdescs[j].FACS);
+    for (j = 0; j < ctx.flex.flexdescs.size(); j++) {
+        AddToStringTable(strings, pflexdesc, pflexdesc.field(&mstudioflexdesc_t::szFACSindex),
+                         ctx.flex.flexdescs[j].FACS);
         pflexdesc++;
     }
 
     // write global flex controllers
-    const auto pflexcontrollers = buffer.allocate<mstudioflexcontroller_t>(g_studiomdl.flex.flexcontrollers.size());
-    phdr->numflexcontrollers = g_studiomdl.flex.flexcontrollers.size();
+    const auto pflexcontrollers = buffer.allocate<mstudioflexcontroller_t>(ctx.flex.flexcontrollers.size());
+    phdr->numflexcontrollers = ctx.flex.flexcontrollers.size();
     phdr->flexcontrollerindex = pflexcontrollers.offset_as<int>();
     buffer.align(4);
 
-    for (j = 0; j < g_studiomdl.flex.flexcontrollers.size(); j++) {
+    for (j = 0; j < ctx.flex.flexcontrollers.size(); j++) {
         const auto pflexcontroller = pflexcontrollers + j;
-        AddToStringTable(pflexcontroller, pflexcontroller.field(&mstudioflexcontroller_t::sznameindex),
-                         g_studiomdl.flex.flexcontrollers[j].name);
-        AddToStringTable(pflexcontroller, pflexcontroller.field(&mstudioflexcontroller_t::sztypeindex),
-                         g_studiomdl.flex.flexcontrollers[j].type);
-        pflexcontroller->min = g_studiomdl.flex.flexcontrollers[j].min;
-        pflexcontroller->max = g_studiomdl.flex.flexcontrollers[j].max;
+        AddToStringTable(strings, pflexcontroller, pflexcontroller.field(&mstudioflexcontroller_t::sznameindex),
+                         ctx.flex.flexcontrollers[j].name);
+        AddToStringTable(strings, pflexcontroller, pflexcontroller.field(&mstudioflexcontroller_t::sztypeindex),
+                         ctx.flex.flexcontrollers[j].type);
+        pflexcontroller->min = ctx.flex.flexcontrollers[j].min;
+        pflexcontroller->max = ctx.flex.flexcontrollers[j].max;
         pflexcontroller->localToGlobal = -1;
     }
 
     // write flex rules
-    auto pflexrule = buffer.allocate<mstudioflexrule_t>(g_studiomdl.flex.flexrules.size());
-    phdr->numflexrules = g_studiomdl.flex.flexrules.size();
+    auto pflexrule = buffer.allocate<mstudioflexrule_t>(ctx.flex.flexrules.size());
+    phdr->numflexrules = ctx.flex.flexrules.size();
     phdr->flexruleindex = pflexrule.offset_as<int>();
     buffer.align(4);
 
-    for (j = 0; j < g_studiomdl.flex.flexrules.size(); j++) {
-        pflexrule->flex = g_studiomdl.flex.flexrules[j].flex;
-        pflexrule->numops = g_studiomdl.flex.flexrules[j].numops;
+    for (j = 0; j < ctx.flex.flexrules.size(); j++) {
+        pflexrule->flex = ctx.flex.flexrules[j].flex;
+        pflexrule->numops = ctx.flex.flexrules[j].numops;
 
         const auto pflexop = buffer.allocate<mstudioflexop_t>(pflexrule->numops);
         pflexrule->opindex = pflexop.offset_from<int>(pflexrule);
 
         for (i = 0; i < pflexrule->numops; i++) {
-            pflexop[i].op = g_studiomdl.flex.flexrules[j].op[i].op;
-            pflexop[i].d.index = g_studiomdl.flex.flexrules[j].op[i].d.index;
+            pflexop[i].op = ctx.flex.flexrules[j].op[i].op;
+            pflexop[i].d.index = ctx.flex.flexrules[j].op[i].d.index;
         }
 
         buffer.align(4);
@@ -2151,14 +2132,14 @@ static void WriteModel(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_t> 
     // Loop through all defined controllers and create a UI structure for them
     // All actual controllers will be defined as a member of some ui structure
     // and all actual controllers can only be a member of one ui structure
-    std::vector<bool> pControllerHandled(g_studiomdl.flex.flexcontrollers.size(), false);
+    std::vector<bool> pControllerHandled(ctx.flex.flexcontrollers.size(), false);
 
-    for (j = 0; j < g_studiomdl.flex.flexcontrollers.size(); ++j) {
+    for (j = 0; j < ctx.flex.flexcontrollers.size(); ++j) {
         // Don't handle controls twice
         if (pControllerHandled[j])
             continue;
 
-        const s_flexcontroller_t &flexcontroller = g_studiomdl.flex.flexcontrollers[j];
+        const s_flexcontroller_t &flexcontroller = ctx.flex.flexcontrollers[j];
 
         const auto pFlexControllerUI = buffer.allocate<mstudioflexcontrollerui_t>();
         const auto uiName = pFlexControllerUI.field(&mstudioflexcontrollerui_t::sznameindex);
@@ -2170,10 +2151,10 @@ static void WriteModel(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_t> 
         bool found = false;
 
         // See if this controller is in the remap table
-        for (k = 0; k < g_studiomdl.flex.FlexControllerRemap.size(); ++k) {
-            s_flexcontrollerremap_t &remap = g_studiomdl.flex.FlexControllerRemap[k];
+        for (k = 0; k < ctx.flex.FlexControllerRemap.size(); ++k) {
+            s_flexcontrollerremap_t &remap = ctx.flex.FlexControllerRemap[k];
             if (j == remap.m_Index || j == remap.m_LeftIndex || j == remap.m_RightIndex || j == remap.m_MultiIndex) {
-                AddToStringTable(pFlexControllerUI, uiName, remap.m_Name.c_str());
+                AddToStringTable(strings, pFlexControllerUI, uiName, remap.m_Name.c_str());
 
                 pFlexControllerUI->stereo = remap.m_bIsStereo;
                 if (pFlexControllerUI->stereo) {
@@ -2213,12 +2194,12 @@ static void WriteModel(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_t> 
             pFlexControllerUI->remaptype = Passthru;
             pFlexControllerUI->szindex2 = 0; // Unused in this case
 
-            if (j < g_studiomdl.flex.flexcontrollers.size() - 1 &&
+            if (j < ctx.flex.flexcontrollers.size() - 1 &&
                 StringAfterPrefixCaseSensitive(flexcontroller.name, "right_") &&
-                StringAfterPrefixCaseSensitive(g_studiomdl.flex.flexcontrollers[j + 1].name, "left_") &&
+                StringAfterPrefixCaseSensitive(ctx.flex.flexcontrollers[j + 1].name, "left_") &&
                 !Q_strcmp(StringAfterPrefixCaseSensitive(flexcontroller.name, "right_"),
-                          StringAfterPrefixCaseSensitive(g_studiomdl.flex.flexcontrollers[j + 1].name, "left_"))) {
-                AddToStringTable(pFlexControllerUI, uiName, flexcontroller.name + 6);
+                          StringAfterPrefixCaseSensitive(ctx.flex.flexcontrollers[j + 1].name, "left_"))) {
+                AddToStringTable(strings, pFlexControllerUI, uiName, flexcontroller.name + 6);
 
                 pFlexControllerUI->stereo = true;
 
@@ -2232,10 +2213,10 @@ static void WriteModel(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_t> 
             }
             else if (j > 0 &&
                      StringAfterPrefixCaseSensitive(flexcontroller.name, "left_") &&
-                     StringAfterPrefixCaseSensitive(g_studiomdl.flex.flexcontrollers[j - 1].name, "right_") &&
+                     StringAfterPrefixCaseSensitive(ctx.flex.flexcontrollers[j - 1].name, "right_") &&
                      !Q_strcmp(StringAfterPrefixCaseSensitive(flexcontroller.name, "left_"),
-                               StringAfterPrefixCaseSensitive(g_studiomdl.flex.flexcontrollers[j - 1].name, "right_"))) {
-                AddToStringTable(pFlexControllerUI, uiName, flexcontroller.name + 5);
+                               StringAfterPrefixCaseSensitive(ctx.flex.flexcontrollers[j - 1].name, "right_"))) {
+                AddToStringTable(strings, pFlexControllerUI, uiName, flexcontroller.name + 5);
 
                 pFlexControllerUI->stereo = true;
 
@@ -2248,7 +2229,7 @@ static void WriteModel(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_t> 
                 pControllerHandled[j - 1] = true;
             }
             else {
-                AddToStringTable(pFlexControllerUI, uiName, flexcontroller.name);
+                AddToStringTable(strings, pFlexControllerUI, uiName, flexcontroller.name);
                 pFlexControllerUI->stereo = false;
                 pFlexControllerUI->szindex0 = controllerOffset(j);
                 pFlexControllerUI->szindex1 = 0; // Unused in this case
@@ -2261,87 +2242,88 @@ static void WriteModel(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_t> 
     buffer.align(4);
 
 #ifdef _DEBUG
-    for (j = 0; j < g_studiomdl.flex.flexcontrollers.size(); ++j) {
+    for (j = 0; j < ctx.flex.flexcontrollers.size(); ++j) {
         Assert(pControllerHandled[j]);
     }
 #endif // _DEBUG
 
     // write ik chains
-    auto pikchain = buffer.allocate<mstudioikchain_t>(std::ssize(g_studiomdl.anim.ikchain));
-    phdr->numikchains = std::ssize(g_studiomdl.anim.ikchain);
+    auto pikchain = buffer.allocate<mstudioikchain_t>(std::ssize(ctx.anim.ikchain));
+    phdr->numikchains = std::ssize(ctx.anim.ikchain);
     phdr->ikchainindex = pikchain.offset_as<int>();
     buffer.align(4);
 
-    for (j = 0; j < std::ssize(g_studiomdl.anim.ikchain); j++) {
-        AddToStringTable(pikchain, pikchain.field(&mstudioikchain_t::sznameindex), g_studiomdl.anim.ikchain[j].name);
-        pikchain->numlinks = g_studiomdl.anim.ikchain[j].numlinks;
+    for (j = 0; j < std::ssize(ctx.anim.ikchain); j++) {
+        AddToStringTable(strings, pikchain, pikchain.field(&mstudioikchain_t::sznameindex), ctx.anim.ikchain[j].name);
+        pikchain->numlinks = ctx.anim.ikchain[j].numlinks;
 
         const auto piklink = buffer.allocate<mstudioiklink_t>(pikchain->numlinks);
         pikchain->linkindex = piklink.offset_from<int>(pikchain);
 
         for (i = 0; i < pikchain->numlinks; i++) {
-            piklink[i].bone = g_studiomdl.anim.ikchain[j].link[i].bone;
-            piklink[i].kneeDir = g_studiomdl.anim.ikchain[j].link[i].kneeDir;
+            piklink[i].bone = ctx.anim.ikchain[j].link[i].bone;
+            piklink[i].kneeDir = ctx.anim.ikchain[j].link[i].kneeDir;
         }
 
         pikchain++;
     }
 
     // save autoplay locks
-    const auto piklock = buffer.allocate<mstudioiklock_t>(std::ssize(g_studiomdl.anim.ikautoplaylock));
-    phdr->numlocalikautoplaylocks = std::ssize(g_studiomdl.anim.ikautoplaylock);
+    const auto piklock = buffer.allocate<mstudioiklock_t>(std::ssize(ctx.anim.ikautoplaylock));
+    phdr->numlocalikautoplaylocks = std::ssize(ctx.anim.ikautoplaylock);
     phdr->localikautoplaylockindex = piklock.offset_as<int>();
     buffer.align(4);
 
-    for (j = 0; j < std::ssize(g_studiomdl.anim.ikautoplaylock); j++) {
-        piklock[j].chain = g_studiomdl.anim.ikautoplaylock[j].chain;
-        piklock[j].flPosWeight = g_studiomdl.anim.ikautoplaylock[j].flPosWeight;
-        piklock[j].flLocalQWeight = g_studiomdl.anim.ikautoplaylock[j].flLocalQWeight;
+    for (j = 0; j < std::ssize(ctx.anim.ikautoplaylock); j++) {
+        piklock[j].chain = ctx.anim.ikautoplaylock[j].chain;
+        piklock[j].flPosWeight = ctx.anim.ikautoplaylock[j].flPosWeight;
+        piklock[j].flLocalQWeight = ctx.anim.ikautoplaylock[j].flLocalQWeight;
     }
 
     // save mouth info
-    const auto pmouth = buffer.allocate<mstudiomouth_t>(std::ssize(g_studiomdl.flex.mouth));
-    phdr->nummouths = std::ssize(g_studiomdl.flex.mouth);
+    const auto pmouth = buffer.allocate<mstudiomouth_t>(std::ssize(ctx.flex.mouth));
+    phdr->nummouths = std::ssize(ctx.flex.mouth);
     phdr->mouthindex = pmouth.offset_as<int>();
     buffer.align(4);
 
-    for (i = 0; i < std::ssize(g_studiomdl.flex.mouth); i++) {
-        pmouth[i].bone = g_studiomdl.flex.mouth[i].bone;
-        VectorCopy(g_studiomdl.flex.mouth[i].forward, pmouth[i].forward);
-        pmouth[i].flexdesc = g_studiomdl.flex.mouth[i].flexdesc;
+    for (i = 0; i < std::ssize(ctx.flex.mouth); i++) {
+        pmouth[i].bone = ctx.flex.mouth[i].bone;
+        VectorCopy(ctx.flex.mouth[i].forward, pmouth[i].forward);
+        pmouth[i].flexdesc = ctx.flex.mouth[i].flexdesc;
     }
 
     // save pose parameters
-    const auto ppose = buffer.allocate<mstudioposeparamdesc_t>(std::ssize(g_studiomdl.anim.pose));
-    phdr->numlocalposeparameters = std::ssize(g_studiomdl.anim.pose);
+    const auto ppose = buffer.allocate<mstudioposeparamdesc_t>(std::ssize(ctx.anim.pose));
+    phdr->numlocalposeparameters = std::ssize(ctx.anim.pose);
     phdr->localposeparamindex = ppose.offset_as<int>();
     buffer.align(4);
 
-    for (i = 0; i < std::ssize(g_studiomdl.anim.pose); i++) {
-        AddToStringTable(ppose + i, (ppose + i).field(&mstudioposeparamdesc_t::sznameindex), g_studiomdl.anim.pose[i].name);
-        ppose[i].start = g_studiomdl.anim.pose[i].min;
-        ppose[i].end = g_studiomdl.anim.pose[i].max;
-        ppose[i].flags = g_studiomdl.anim.pose[i].flags;
-        ppose[i].loop = g_studiomdl.anim.pose[i].loop;
+    for (i = 0; i < std::ssize(ctx.anim.pose); i++) {
+        AddToStringTable(strings, ppose + i, (ppose + i).field(&mstudioposeparamdesc_t::sznameindex),
+                         ctx.anim.pose[i].name);
+        ppose[i].start = ctx.anim.pose[i].min;
+        ppose[i].end = ctx.anim.pose[i].max;
+        ppose[i].flags = ctx.anim.pose[i].flags;
+        ppose[i].loop = ctx.anim.pose[i].loop;
     }
 
-    if (!g_studiomdl.options.quiet) {
+    if (!ctx.options.quiet) {
         std::print("ik/pose    {:7} bytes\n", buffer.size());
     }
 
-    const float flVertAnimFixedPointScale = ComputeVertAnimFixedPointScale(phdr.get());
+    const float flVertAnimFixedPointScale = ComputeVertAnimFixedPointScale(ctx, phdr.get());
 
     // Check all source models for extra texcoords
     // If any exist, add model flag to indicate that extra vertex data will be appended to the VVD file
     bool bExtraVertexData = false;
-    sExtraTexcoordsToWrite = 0;
+    extraTexcoordsToWrite = 0;
     for (int i = 0; (i < phdr->numbodyparts) && !bExtraVertexData; ++i) {
-        for (int j = 0; j < std::ssize(g_studiomdl.body.bodypart[i].pmodel); ++j) {
-            if (g_studiomdl.body.bodypart[i].pmodel[j] && g_studiomdl.body.bodypart[i].pmodel[j]->source->numvertices > 0) {
-                if (g_studiomdl.body.bodypart[i].pmodel[j] && g_studiomdl.body.bodypart[i].pmodel[j]->source->vertex[0].
+        for (int j = 0; j < std::ssize(ctx.body.bodypart[i].pmodel); ++j) {
+            if (ctx.body.bodypart[i].pmodel[j] && ctx.body.bodypart[i].pmodel[j]->source->numvertices > 0) {
+                if (ctx.body.bodypart[i].pmodel[j] && ctx.body.bodypart[i].pmodel[j]->source->vertex[0].
                     texcoord.size() > 1) {
                     bExtraVertexData = true;
-                    sExtraTexcoordsToWrite = g_studiomdl.body.bodypart[i].pmodel[j]->source->vertex[0].texcoord.size() - 1;
+                    extraTexcoordsToWrite = ctx.body.bodypart[i].pmodel[j]->source->vertex[0].texcoord.size() - 1;
                     break;
                 }
             }
@@ -2353,15 +2335,15 @@ static void WriteModel(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_t> 
     }
 
     // write model
-    for (i = 0; i < g_studiomdl.body.nummodelsbeforeLOD; i++) {
+    for (i = 0; i < ctx.body.nummodelsbeforeLOD; i++) {
         int n = 0;
 
         const auto pModel = pmodel + i;
 
-        Q_strncpy(pModel->name, g_studiomdl.body.model[i]->filename.c_str(), sizeof(pModel->name));
+        Q_strncpy(pModel->name, ctx.body.model[i]->filename.c_str(), sizeof(pModel->name));
 
-        psource = g_studiomdl.body.model[i]->source;
-        s_loddata_t* pLodData = g_studiomdl.body.model[i]->m_pLodData;
+        psource = ctx.body.model[i]->source;
+        s_loddata_t* pLodData = ctx.body.model[i]->m_pLodData;
 
         // save mesh info
         if (pLodData) {
@@ -2404,37 +2386,37 @@ static void WriteModel(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_t> 
         externalTangentsIndex += pModel->numvertices * sizeof(Vector4D);
 
         // save eyeballs
-        const auto peyeball = buffer.allocate<mstudioeyeball_t>(g_studiomdl.body.model[i]->eyeballs.size());
-        pModel->numeyeballs = g_studiomdl.body.model[i]->eyeballs.size();
+        const auto peyeball = buffer.allocate<mstudioeyeball_t>(ctx.body.model[i]->eyeballs.size());
+        pModel->numeyeballs = ctx.body.model[i]->eyeballs.size();
         pModel->eyeballindex = peyeball.offset_from<int>(pModel);
 
         buffer.align(4);
-        for (j = 0; j < g_studiomdl.body.model[i]->eyeballs.size(); j++) {
-            k = g_studiomdl.body.model[i]->eyeballs[j].mesh;
+        for (j = 0; j < ctx.body.model[i]->eyeballs.size(); j++) {
+            k = ctx.body.model[i]->eyeballs[j].mesh;
             pmesh[k].materialtype = 1; // FIXME: tag custom material
             pmesh[k].materialparam = j; // FIXME: tag custom material
 
-            peyeball[j].bone = g_studiomdl.body.model[i]->eyeballs[j].bone;
-            VectorCopy(g_studiomdl.body.model[i]->eyeballs[j].org, peyeball[j].org);
-            peyeball[j].zoffset = g_studiomdl.body.model[i]->eyeballs[j].zoffset;
-            peyeball[j].radius = g_studiomdl.body.model[i]->eyeballs[j].radius;
-            VectorCopy(g_studiomdl.body.model[i]->eyeballs[j].up, peyeball[j].up);
-            VectorCopy(g_studiomdl.body.model[i]->eyeballs[j].forward, peyeball[j].forward);
-            peyeball[j].iris_scale = g_studiomdl.body.model[i]->eyeballs[j].iris_scale;
+            peyeball[j].bone = ctx.body.model[i]->eyeballs[j].bone;
+            VectorCopy(ctx.body.model[i]->eyeballs[j].org, peyeball[j].org);
+            peyeball[j].zoffset = ctx.body.model[i]->eyeballs[j].zoffset;
+            peyeball[j].radius = ctx.body.model[i]->eyeballs[j].radius;
+            VectorCopy(ctx.body.model[i]->eyeballs[j].up, peyeball[j].up);
+            VectorCopy(ctx.body.model[i]->eyeballs[j].forward, peyeball[j].forward);
+            peyeball[j].iris_scale = ctx.body.model[i]->eyeballs[j].iris_scale;
 
             for (k = 0; k < 3; k++) {
-                peyeball[j].upperflexdesc[k] = g_studiomdl.body.model[i]->eyeballs[j].upperflexdesc[k];
-                peyeball[j].lowerflexdesc[k] = g_studiomdl.body.model[i]->eyeballs[j].lowerflexdesc[k];
-                peyeball[j].uppertarget[k] = g_studiomdl.body.model[i]->eyeballs[j].uppertarget[k];
-                peyeball[j].lowertarget[k] = g_studiomdl.body.model[i]->eyeballs[j].lowertarget[k];
+                peyeball[j].upperflexdesc[k] = ctx.body.model[i]->eyeballs[j].upperflexdesc[k];
+                peyeball[j].lowerflexdesc[k] = ctx.body.model[i]->eyeballs[j].lowerflexdesc[k];
+                peyeball[j].uppertarget[k] = ctx.body.model[i]->eyeballs[j].uppertarget[k];
+                peyeball[j].lowertarget[k] = ctx.body.model[i]->eyeballs[j].lowertarget[k];
             }
 
-            peyeball[j].upperlidflexdesc = g_studiomdl.body.model[i]->eyeballs[j].upperlidflexdesc;
-            peyeball[j].lowerlidflexdesc = g_studiomdl.body.model[i]->eyeballs[j].lowerlidflexdesc;
+            peyeball[j].upperlidflexdesc = ctx.body.model[i]->eyeballs[j].upperlidflexdesc;
+            peyeball[j].lowerlidflexdesc = ctx.body.model[i]->eyeballs[j].lowerlidflexdesc;
         }
 
-        if (!g_studiomdl.options.quiet) {
-            std::print("eyeballs   {:7} bytes ({} eyeballs)\n", buffer.size(), g_studiomdl.body.model[i]->eyeballs.size());
+        if (!ctx.options.quiet) {
+            std::print("eyeballs   {:7} bytes ({} eyeballs)\n", buffer.size(), ctx.body.model[i]->eyeballs.size());
         }
 
         // move flexes into individual meshes
@@ -2443,15 +2425,15 @@ static void WriteModel(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_t> 
             pmesh[m].numflexes = 0;
 
             // initialize array
-            for (j = 0; j < g_studiomdl.flex.flexkeys.size(); j++) {
+            for (j = 0; j < ctx.flex.flexkeys.size(); j++) {
                 numflexkeys[j] = 0;
             }
 
             // count flex instances per mesh
-            for (j = 0; j < g_studiomdl.flex.flexkeys.size(); j++) {
-                if (g_studiomdl.flex.flexkeys[j].imodel == i) {
-                    for (k = 0; k < g_studiomdl.flex.flexkeys[j].numvanims; k++) {
-                        n = g_studiomdl.flex.flexkeys[j].vanim[k].vertex - pmesh[m].vertexoffset;
+            for (j = 0; j < ctx.flex.flexkeys.size(); j++) {
+                if (ctx.flex.flexkeys[j].imodel == i) {
+                    for (k = 0; k < ctx.flex.flexkeys[j].numvanims; k++) {
+                        n = ctx.flex.flexkeys[j].vanim[k].vertex - pmesh[m].vertexoffset;
                         if (n >= 0 && n < pmesh[m].numvertices) {
                             if (numflexkeys[j]++ == 0) {
                                 pmesh[m].numflexes++;
@@ -2466,20 +2448,20 @@ static void WriteModel(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_t> 
                 pmesh[m].flexindex = pflex.offset_from<int>(pmesh + m);
                 buffer.align(4);
 
-                for (j = 0; j < g_studiomdl.flex.flexkeys.size(); j++) {
+                for (j = 0; j < ctx.flex.flexkeys.size(); j++) {
                     if (!numflexkeys[j])
                         continue;
 
-                    pflex->flexdesc = g_studiomdl.flex.flexkeys[j].flexdesc;
-                    pflex->target0 = g_studiomdl.flex.flexkeys[j].target0;
-                    pflex->target1 = g_studiomdl.flex.flexkeys[j].target1;
-                    pflex->target2 = g_studiomdl.flex.flexkeys[j].target2;
-                    pflex->target3 = g_studiomdl.flex.flexkeys[j].target3;
+                    pflex->flexdesc = ctx.flex.flexkeys[j].flexdesc;
+                    pflex->target0 = ctx.flex.flexkeys[j].target0;
+                    pflex->target1 = ctx.flex.flexkeys[j].target1;
+                    pflex->target2 = ctx.flex.flexkeys[j].target2;
+                    pflex->target3 = ctx.flex.flexkeys[j].target3;
                     pflex->numverts = numflexkeys[j];
-                    pflex->flexpair = g_studiomdl.flex.flexkeys[j].flexpair;
-                    pflex->vertanimtype = g_studiomdl.flex.flexkeys[j].vanimtype;
+                    pflex->flexpair = ctx.flex.flexkeys[j].flexpair;
+                    pflex->vertanimtype = ctx.flex.flexkeys[j].vanimtype;
 
-                    pvanim = g_studiomdl.flex.flexkeys[j].vanim;
+                    pvanim = ctx.flex.flexkeys[j].vanim;
 
                     const bool bWrinkleVAnim = (pflex->vertanimtype == Wrinkle);
                     const int nVAnimDeltaSize = bWrinkleVAnim
@@ -2491,8 +2473,8 @@ static void WriteModel(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_t> 
                     pflex->vertindex = pvertanim.offset_from<int>(pflex);
                     buffer.align(4);
 
-                    for (k = 0; k < g_studiomdl.flex.flexkeys[j].numvanims; k++) {
-                        n = g_studiomdl.flex.flexkeys[j].vanim[k].vertex - pmesh[m].vertexoffset;
+                    for (k = 0; k < ctx.flex.flexkeys[j].numvanims; k++) {
+                        n = ctx.flex.flexkeys[j].vanim[k].vertex - pmesh[m].vertexoffset;
                         if (n >= 0 && n < pmesh[m].numvertices) {
                             auto* pdelta = reinterpret_cast<mstudiovertanim_t*>(pvertanim.get());
                             pdelta->index = n;
@@ -2516,35 +2498,35 @@ static void WriteModel(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_t> 
             }
         }
 
-        if (!g_studiomdl.options.quiet) {
-            std::print("flexes     {:7} bytes ({} flexes)\n", buffer.size(), g_studiomdl.flex.flexkeys.size());
+        if (!ctx.options.quiet) {
+            std::print("flexes     {:7} bytes ({} flexes)\n", buffer.size(), ctx.flex.flexkeys.size());
         }
     }
 
 
     buffer.align(4);
 
-    auto pincludemodel = buffer.allocate<mstudiomodelgroup_t>(g_studiomdl.body.includemodels.size());
-    phdr->numincludemodels = g_studiomdl.body.includemodels.size();
+    auto pincludemodel = buffer.allocate<mstudiomodelgroup_t>(ctx.body.includemodels.size());
+    phdr->numincludemodels = ctx.body.includemodels.size();
     phdr->includemodelindex = pincludemodel.offset_as<int>();
 
-    for (i = 0; i < g_studiomdl.body.includemodels.size(); i++) {
-        AddToStringTable(pincludemodel, pincludemodel.field(&mstudiomodelgroup_t::sznameindex),
-                         g_studiomdl.body.includemodels[i].name);
+    for (i = 0; i < ctx.body.includemodels.size(); i++) {
+        AddToStringTable(strings, pincludemodel, pincludemodel.field(&mstudiomodelgroup_t::sznameindex),
+                         ctx.body.includemodels[i].name);
         pincludemodel++;
     }
 
     // save animblock group info (block offsets are already relative to the .ani data)
-    const auto panimblock = buffer.allocate<mstudioanimblock_t>(g_studiomdl.anim.animblocks.size());
-    phdr->numanimblocks = g_studiomdl.anim.animblocks.size();
+    const auto panimblock = buffer.allocate<mstudioanimblock_t>(ctx.anim.animblocks.size());
+    phdr->numanimblocks = ctx.anim.animblocks.size();
     phdr->animblockindex = panimblock.offset_as<int>();
     buffer.align(4);
 
-    for (i = 1; i < g_studiomdl.anim.animblocks.size(); i++) {
-        panimblock[i].datastart = g_studiomdl.anim.animblocks[i].start;
-        panimblock[i].dataend = g_studiomdl.anim.animblocks[i].end;
+    for (i = 1; i < ctx.anim.animblocks.size(); i++) {
+        panimblock[i].datastart = ctx.anim.animblocks[i].start;
+        panimblock[i].dataend = ctx.anim.animblocks[i].end;
     }
-    AddToStringTable(phdr, phdr.field(&studiohdr_t::szanimblocknameindex), g_studiomdl.anim.animblockname);
+    AddToStringTable(strings, phdr, phdr.field(&studiohdr_t::szanimblocknameindex), ctx.anim.animblockname);
 }
 
 static void AssignMeshIDs(studiohdr_t* pStudioHdr) {
@@ -2585,27 +2567,27 @@ void WriteKeyValues(vstd::Buffer &buffer, const vstd::BufferPtr<studiohdr_t> phd
 }
 
 
-void CapKeyValues() {
+void CapKeyValues(StudioMdlState &ctx) {
     const char* headCap = "mdlkeyvalue\n{\n";
     const char* tailCap = "}\\n";
-    if (g_studiomdl.header.KeyValueText.size()) {
-        g_studiomdl.header.KeyValueText.insert(g_studiomdl.header.KeyValueText.begin(), headCap,
+    if (ctx.header.KeyValueText.size()) {
+        ctx.header.KeyValueText.insert(ctx.header.KeyValueText.begin(), headCap,
                                                headCap + std::strlen(headCap));
-        g_studiomdl.header.KeyValueText.insert(g_studiomdl.header.KeyValueText.end(), tailCap,
+        ctx.header.KeyValueText.insert(ctx.header.KeyValueText.end(), tailCap,
                                                tailCap + std::strlen(tailCap));
     }
 }
 
-void WriteQCPath() {
+void WriteQCPath(StudioMdlState &ctx) {
     char relativeQCDir[4096] = {};
-    g_pFullFileSystem->FullPathToRelativePathEx(g_studiomdl.paths.qdir.c_str(), IBaseFileSystem::PathID::Content, relativeQCDir,
+    g_pFullFileSystem->FullPathToRelativePathEx(ctx.paths.qdir.c_str(), IBaseFileSystem::PathID::Content, relativeQCDir,
                                                 sizeof(relativeQCDir));
     const std::string relativeQCPath = std::string(relativeQCDir) + std::string(
-                                           vstd::paths::file_name(g_studiomdl.paths.fullpath));
+                                           vstd::paths::file_name(ctx.paths.fullpath));
 
     if (!relativeQCPath.empty()) {
         const std::string block = "qc_path {\n\"value\" \"" + relativeQCPath + "\" }\n";
-        g_studiomdl.header.KeyValueText.insert(g_studiomdl.header.KeyValueText.end(), block.begin(), block.end());
+        ctx.header.KeyValueText.insert(ctx.header.KeyValueText.end(), block.begin(), block.end());
     }
 }
 
@@ -2623,11 +2605,25 @@ void EnsureFileDirectoryExists(const std::string &fileName) {
     std::filesystem::create_directories(vstd::paths::to_fs(fileName).parent_path(), ec);
 }
 
-void WriteModelFiles() {
+// The .vvd as the vertex accessors read it: mstudiomodel_t::GetVertexData(pStudioHdr) calls CacheVertexData, which
+// finds this through studiohdr2_t::pVertexBase ("used by tools only that don't cache, but persist mdl's peer data").
+// WriteModelFiles points pVertexBase at it once the .vvd is written; FixupMDLFile clears it with the other runtime
+// pointers before the .mdl is stored.
+struct VertexFileCache {
+    StudioMdlState &ctx;
+    std::optional<vstd::Buffer> data{}; // loaded by the first accessor call
+};
+
+void WriteModelFiles(StudioMdlState &ctx) {
     vstd::FunctionTimingRecorder _("Write");
     std::string blockFileName; // .ani
     size_t total = 0;
     std::string filename;
+    int totalframes = 0;
+    float totalseconds = 0;
+    std::vector<std::string> preexistingSequences; // sequence names of the model on disk, in their order
+    int extraTexcoordsToWrite = 0;
+    StringTable strings;
 
     // static, like the never-freed buffers they replace: the later steps keep using the header
     vstd::Buffer model_data;
@@ -2635,17 +2631,17 @@ void WriteModelFiles() {
     vstd::Buffer* blocks = nullptr;
     vstd::BufferPtr<studiohdr_t> pblockhdr;
 
-    vstd::paths::strip_extension(g_studiomdl.paths.outname);
+    vstd::paths::strip_extension(ctx.paths.outname);
 
-    if (g_studiomdl.anim.animblocksize != 0) {
-        // write the non-default g_studiomdl.anim.sequence group data to separate files
-        g_studiomdl.anim.animblockname.format("models/{}.ani", g_studiomdl.paths.outname);
+    if (ctx.anim.animblocksize != 0) {
+        // write the non-default ctx.anim.sequence group data to separate files
+        ctx.anim.animblockname.format("models/{}.ani", ctx.paths.outname);
 
-        blockFileName = g_studiomdl.paths.gameDir + g_studiomdl.anim.animblockname.c_str();
+        blockFileName = ctx.paths.gameDir + ctx.anim.animblockname.c_str();
 
-        if (*g_studiomdl.paths.internalName) {
-            vstd::paths::strip_extension(g_studiomdl.paths.internalName);
-            g_studiomdl.anim.animblockname.format("models/{}.ani", g_studiomdl.paths.internalName);
+        if (*ctx.paths.internalName) {
+            vstd::paths::strip_extension(ctx.paths.internalName);
+            ctx.anim.animblockname.format("models/{}.ani", ctx.paths.internalName);
         }
 
         EnsureFileDirectoryExists(blockFileName);
@@ -2657,148 +2653,148 @@ void WriteModelFiles() {
     }
 
     //
-    // write the g_studiomdl.body.model output file
+    // write the ctx.body.model output file
     //
     const auto phdr = model_data.allocate<studiohdr_t>();
 
     phdr->id = IDSTUDIOHEADER;
     phdr->version = STUDIO_VERSION;
 
-    g_studiomdl.paths.outname.append(".mdl");
+    ctx.paths.outname.append(".mdl");
 
-    filename = OutputModelPath(".mdl");
+    filename = OutputModelPath(ctx, ".mdl");
 
 
     // Create the directory.
     EnsureFileDirectoryExists(filename);
 
 
-    if (!g_studiomdl.options.quiet) {
+    if (!ctx.options.quiet) {
         std::print("---------------------\n");
         std::print("writing {}:\n", filename);
     }
 
-    LoadPreexistingSequenceOrder(filename);
+    LoadPreexistingSequenceOrder(ctx, filename, preexistingSequences);
 
 
-    if (g_studiomdl.options.parseable_completion_output) {
+    if (ctx.options.parseable_completion_output) {
         char szRelativePath[260];
         V_MakeRelativePath(filename.c_str(), getenv("VGAME"), szRelativePath, sizeof(szRelativePath));
         std::print("\nOUTPUT MODEL: {}\n", szRelativePath);
     }
 
 
-    phdr->eyeposition = g_studiomdl.header.eyeposition;
-    phdr->illumposition = g_studiomdl.header.illumposition;
+    phdr->eyeposition = ctx.header.eyeposition;
+    phdr->illumposition = ctx.header.illumposition;
 
-    if (!g_studiomdl.header.wrotebbox && std::ssize(g_studiomdl.anim.sequence) > 0) {
-        g_studiomdl.header.bbox[0] = g_studiomdl.anim.sequence[0].bmin;
-        g_studiomdl.header.bbox[1] = g_studiomdl.anim.sequence[0].bmax;
+    if (!ctx.header.wrotebbox && std::ssize(ctx.anim.sequence) > 0) {
+        ctx.header.bbox[0] = ctx.anim.sequence[0].bmin;
+        ctx.header.bbox[1] = ctx.anim.sequence[0].bmax;
         //        CollisionModel_ExpandBBox(bbox[0], bbox[1]);
-        g_studiomdl.anim.sequence[0].bmin = g_studiomdl.header.bbox[0];
-        g_studiomdl.anim.sequence[0].bmax = g_studiomdl.header.bbox[1];
+        ctx.anim.sequence[0].bmin = ctx.header.bbox[0];
+        ctx.anim.sequence[0].bmax = ctx.header.bbox[1];
     }
-    if (!g_studiomdl.header.wrotecbox) {
+    if (!ctx.header.wrotecbox) {
         // no default clipping box, just use per-sequence box
-        g_studiomdl.header.cbox[0] = vec3_origin;
-        g_studiomdl.header.cbox[1] = vec3_origin;
+        ctx.header.cbox[0] = vec3_origin;
+        ctx.header.cbox[1] = vec3_origin;
     }
 
-    phdr->hull_min = g_studiomdl.header.bbox[0];
-    phdr->hull_max = g_studiomdl.header.bbox[1];
-    phdr->view_bbmin = g_studiomdl.header.cbox[0];
-    phdr->view_bbmax = g_studiomdl.header.cbox[1];
+    phdr->hull_min = ctx.header.bbox[0];
+    phdr->hull_max = ctx.header.bbox[1];
+    phdr->view_bbmin = ctx.header.cbox[0];
+    phdr->view_bbmax = ctx.header.cbox[1];
 
-    phdr->flags = g_studiomdl.header.gflags;
+    phdr->flags = ctx.header.gflags;
     phdr->mass = 1;
-    phdr->constdirectionallightdot = g_studiomdl.header.constdirectionalightdot;
+    phdr->constdirectionallightdot = ctx.header.constdirectionalightdot;
 
-    if (g_studiomdl.options.numAllowedRootLODs > 0) {
-        phdr->numAllowedRootLODs = g_studiomdl.options.numAllowedRootLODs;
+    if (ctx.options.numAllowedRootLODs > 0) {
+        phdr->numAllowedRootLODs = ctx.options.numAllowedRootLODs;
     }
 
     // FIXME: Remove when we up the model version
     const auto phdr2 = model_data.allocate<studiohdr2_t>();
     phdr->studiohdr2index = phdr2.offset_as<int>();
 
-    phdr2->illumpositionattachmentindex = g_studiomdl.header.illumpositionattachment;
-    phdr2->flMaxEyeDeflection = g_studiomdl.header.flMaxEyeDeflection;
+    phdr2->illumpositionattachmentindex = ctx.header.illumpositionattachment;
+    phdr2->flMaxEyeDeflection = ctx.header.flMaxEyeDeflection;
 
-    BeginStringTable();
+    BeginStringTable(strings);
 
-    if (*g_studiomdl.paths.internalName) {
-        V_strncpy(phdr->name, g_studiomdl.paths.internalName, sizeof(phdr->name) - 1);
-        AddToStringTable(phdr2, phdr2.field(&studiohdr2_t::sznameindex), g_studiomdl.paths.internalName);
+    if (*ctx.paths.internalName) {
+        V_strncpy(phdr->name, ctx.paths.internalName, sizeof(phdr->name) - 1);
+        AddToStringTable(strings, phdr2, phdr2.field(&studiohdr2_t::sznameindex), ctx.paths.internalName);
     }
     else {
-        V_strncpy(phdr->name, g_studiomdl.paths.outname, sizeof(phdr->name) - 1);
-        AddToStringTable(phdr2, phdr2.field(&studiohdr2_t::sznameindex), g_studiomdl.paths.outname);
+        V_strncpy(phdr->name, ctx.paths.outname, sizeof(phdr->name) - 1);
+        AddToStringTable(strings, phdr2, phdr2.field(&studiohdr2_t::sznameindex), ctx.paths.outname);
     }
 
-    WriteBoneInfo(model_data, phdr);
-    if (!g_studiomdl.options.quiet) {
-        std::print("bones      {:7} bytes ({})\n", model_data.size() - total, std::ssize(g_studiomdl.bones.bonetable));
+    WriteBoneInfo(ctx, strings, model_data, phdr);
+    if (!ctx.options.quiet) {
+        std::print("bones      {:7} bytes ({})\n", model_data.size() - total, std::ssize(ctx.bones.bonetable));
     }
     total = model_data.size();
 
-    WriteAnimations(model_data, blocks, phdr);
-    if (!g_studiomdl.options.quiet) {
+    WriteAnimations(ctx, strings, model_data, blocks, phdr, totalframes, totalseconds);
+    if (!ctx.options.quiet) {
         std::print("animations {:7} bytes ({} anims) ({} frames) [{}:{:02}]\n", model_data.size() - total,
-                   g_studiomdl.anim.animations.size(),
+                   ctx.anim.animations.size(),
                    totalframes,
                    (int) totalseconds / 60, (int) totalseconds % 60);
     }
     total = model_data.size();
 
-    WriteSequenceInfo(model_data, phdr);
-    if (!g_studiomdl.options.quiet) {
-        std::print("sequences  {:7} bytes ({} seq) \n", model_data.size() - total, std::ssize(g_studiomdl.anim.sequence));
+    WriteSequenceInfo(ctx, strings, model_data, phdr, preexistingSequences);
+    if (!ctx.options.quiet) {
+        std::print("sequences  {:7} bytes ({} seq) \n", model_data.size() - total, std::ssize(ctx.anim.sequence));
     }
     total = model_data.size();
 
-    WriteModel(model_data, phdr);
+    WriteModel(ctx, strings, model_data, phdr, extraTexcoordsToWrite);
 
-    if (!g_studiomdl.options.quiet) {
+    if (!ctx.options.quiet) {
         std::print("models     {:7} bytes\n", model_data.size() - total);
     }
 
     total = model_data.size();
 
-    WriteTextures(model_data, phdr);
-    if (!g_studiomdl.options.quiet) {
+    WriteTextures(ctx, strings, model_data, phdr);
+    if (!ctx.options.quiet) {
         std::print("textures   {:7} bytes\n", model_data.size() - total);
     }
     total = model_data.size();
 
-    WriteQCPath();
+    WriteQCPath(ctx);
 
-    CapKeyValues();
+    CapKeyValues(ctx);
 
-    WriteKeyValues(model_data, phdr, g_studiomdl.header.KeyValueText);
-    if (!g_studiomdl.options.quiet) {
+    WriteKeyValues(model_data, phdr, ctx.header.KeyValueText);
+    if (!ctx.options.quiet) {
         std::print("keyvalues  {:7} bytes\n", model_data.size() - total);
     }
     total = model_data.size();
 
-    WriteBoneTransforms(model_data, phdr, phdr2);
-    if (!g_studiomdl.options.quiet) {
+    WriteBoneTransforms(ctx, strings, model_data, phdr, phdr2);
+    if (!ctx.options.quiet) {
         std::print("bone transforms  {:7} bytes\n", model_data.size() - total);
     }
     total = model_data.size();
 
-    WriteBoneFlexDrivers(model_data, phdr2);
-    if (!g_studiomdl.options.quiet) {
+    WriteBoneFlexDrivers(ctx, model_data, phdr2);
+    if (!ctx.options.quiet) {
         std::print("bone flex driver {:7} bytes\n", model_data.size() - total);
     }
     total = model_data.size();
 
-    WriteBodyGroupPresets(model_data, phdr2);
-    if (!g_studiomdl.options.quiet) {
+    WriteBodyGroupPresets(ctx, strings, model_data, phdr2);
+    if (!ctx.options.quiet) {
         std::print("bodygroup presets {:7} bytes\n", model_data.size() - total);
     }
     total = model_data.size();
 
-    WriteStringTable(model_data);
+    WriteStringTable(strings, model_data);
 
     total = model_data.size();
 
@@ -2814,11 +2810,11 @@ void WriteModelFiles() {
         phdr->checksum = (int32_t) checksum;
     }
 
-    if (g_studiomdl.options.verifyOnly)
+    if (ctx.options.verifyOnly)
         return;
 
 
-    if (!g_studiomdl.options.quiet) {
+    if (!ctx.options.quiet) {
         std::print("collision  {:7} bytes\n", model_data.size() - total);
     }
 
@@ -2828,33 +2824,37 @@ void WriteModelFiles() {
     AssignMeshIDs(pStudioHdr);
 
     pStudioHdr->length = static_cast<int>(model_data.size());
-    if (!g_studiomdl.options.quiet) {
+    if (!ctx.options.quiet) {
         std::print("total      {:7}\n", pStudioHdr->length);
     }
 
-    SaveOutputFile(filename, model_data.data(), pStudioHdr->length);
+    SaveOutputFile(ctx, filename, model_data.data(), pStudioHdr->length);
 
     if (blocks) {
         const int length = static_cast<int>(blocks->size());
         pblockhdr->length = length;
 
-        if (!g_studiomdl.options.quiet) {
+        if (!ctx.options.quiet) {
             std::print("---------------------\n");
-            std::print("writing {}:\n", g_studiomdl.anim.animblockname);
-            std::print("blocks	   {:7}\n", g_studiomdl.anim.animblocks.size());
+            std::print("writing {}:\n", ctx.anim.animblockname);
+            std::print("blocks	   {:7}\n", ctx.anim.animblocks.size());
             std::print("total      {:7}\n", length);
         }
 
         // nothing reads the .ani data after this
-        SaveOutputFile(blockFileName, std::move(*blocks));
+        SaveOutputFile(ctx, blockFileName, std::move(*blocks));
     }
 
-    g_studiomdl.header.checksum = pStudioHdr->checksum;
+    ctx.header.checksum = pStudioHdr->checksum;
     if (pStudioHdr->numbodyparts != 0) {
         // vertices have become an external peer data store
         // write now prior to impending vertex access from any further code
         // vertex accessors hide shifting vertex data
-        WriteVertices(pStudioHdr);
+        WriteVertices(ctx, pStudioHdr, extraTexcoordsToWrite);
+
+        // vertex accessors read the .vvd through pVertexBase until FixupMDLFile clears it
+        VertexFileCache vertexFileCache{ctx};
+        pStudioHdr->pStudioHdr2()->pVertexBase = &vertexFileCache;
 
 #ifdef _DEBUG
         int bodyPartID;
@@ -2863,7 +2863,7 @@ void WriteModelFiles() {
             int modelID;
             for (modelID = 0; modelID < pBodyPart->nummodels; modelID++) {
                 mstudiomodel_t* pModel = pBodyPart->pModel(modelID);
-                const mstudio_modelvertexdata_t* vertData = pModel->GetVertexData();
+                const mstudio_modelvertexdata_t* vertData = pModel->GetVertexData(pStudioHdr);
                 Assert(vertData); // This can only return nullptr on X360 for now
                 int vertID;
                 for (vertID = 0; vertID < pModel->numvertices; vertID++) {
@@ -2875,16 +2875,16 @@ void WriteModelFiles() {
 #endif
 
         // the optimizer only reads the source bodyparts
-        OptimizedModel::WriteOptimizedFiles(pStudioHdr, g_studiomdl.body.bodypart.data());
+        OptimizedModel::WriteOptimizedFiles(ctx, pStudioHdr, ctx.body.bodypart.data());
 
         // now have external finalized vtx (windings) and vvd (vertexes)
         // re-open files, sort vertexes, perform fixups, and rewrite
         // purposely isolated as a post process for stability
-        if (!FixupToSortedLODVertexes(pStudioHdr)) {
+        if (!FixupToSortedLODVertexes(ctx, pStudioHdr)) {
             MdlError("Aborted vertex sort fixup on '{}':\n", filename);
         }
 
-        if (!Clamp_RootLOD(pStudioHdr)) {
+        if (!Clamp_RootLOD(ctx, pStudioHdr)) {
             MdlError("Aborted root lod shift '{}':\n", filename);
         }
     }
@@ -2893,34 +2893,37 @@ void WriteModelFiles() {
     // make sure spewFlags ends up being zero.
     unsigned int spewFlags = SPEWPERFSTATS_SHOWSTUDIORENDERWARNINGS;
 
-    if (g_studiomdl.options.perf) {
+    if (ctx.options.perf) {
         spewFlags |= SPEWPERFSTATS_SHOWPERF;
     }
     if (spewFlags) {
-        SpewPerfStats(pStudioHdr, filename.c_str(), spewFlags);
+        SpewPerfStats(ctx, pStudioHdr, filename.c_str(), spewFlags);
     }
 
     // everything above read back and rewrote the outputs in memory; this is the only write to disk
-    CommitOutputFiles();
+    CommitOutputFiles(ctx);
 }
 
 const vertexFileHeader_t* mstudiomodel_t::CacheVertexData(void* pModelData) {
-    // studiomdl is a single model process, can simply persist data in static
-    static std::optional<vstd::Buffer> vertexData;
+    // pModelData is the studiohdr_t being written; its studiohdr2_t::pVertexBase holds the VertexFileCache set up by
+    // WriteModelFiles
+    Assert(pModelData != nullptr);
+    const studiohdr_t* pStudioHdr = static_cast<const studiohdr_t*>(pModelData);
+    void* pVertexBase = pStudioHdr->pStudioHdr2()->pVertexBase;
+    Assert(pVertexBase != nullptr);
+    VertexFileCache &cache = *static_cast<VertexFileCache*>(pVertexBase);
 
-    Assert(pModelData == nullptr);
-
-    if (vertexData) {
-        return vertexData->reinterpret_at<vertexFileHeader_t>(0);
+    if (cache.data) {
+        return cache.data->reinterpret_at<vertexFileHeader_t>(0);
     }
 
     // load and persist the vertex file
-    const std::string filename = OutputModelPath(".vvd");
-    vertexData = LoadOutputFile(filename);
-    if (!vertexData) {
+    const std::string filename = OutputModelPath(cache.ctx, ".vvd");
+    cache.data = LoadOutputFile(cache.ctx, filename);
+    if (!cache.data) {
         MdlError("Error Vertex File: '{}' is missing\n", filename);
     }
-    const auto* pVertexHdr = vertexData->reinterpret_at<vertexFileHeader_t>(0);
+    const auto* pVertexHdr = cache.data->reinterpret_at<vertexFileHeader_t>(0);
 
     // check id
     if (pVertexHdr->id != MODEL_VERTEX_FILE_ID) {
@@ -3282,7 +3285,8 @@ bool BuildSortedVertexList(const studiohdr_t* pStudioHdr, const vstd::Buffer &vt
 //
 // VVD files get vertexes remapped to a flat lod sorted order.
 //-----------------------------------------------------------------------------
-static bool FixupVVDFile(const std::string_view fileName, const studiohdr_t* pStudioHdr, const vstd::Buffer &pVtxBuff,
+static bool FixupVVDFile(StudioMdlState &ctx, const std::string_view fileName, const studiohdr_t* pStudioHdr,
+                         const vstd::Buffer &pVtxBuff,
                          const std::vector<vertexPool_t> &vertexPools, const std::vector<usedVertex_t> &vertexList) {
     vstd::FunctionTimingRecorder _("Write");
     mstudiobodyparts_t* pStudioBodyPart;
@@ -3314,7 +3318,7 @@ static bool FixupVVDFile(const std::string_view fileName, const studiohdr_t* pSt
 
     auto* vtxHdr = pVtxBuff.reinterpret_at<OptimizedModel::FileHeader_t>(0);
 
-    auto oldVvdBuffOpt = LoadOutputFile(fileName);
+    auto oldVvdBuffOpt = LoadOutputFile(ctx, fileName);
     if (!oldVvdBuffOpt) {
         MdlError("Failed to load old VVD file for fixup");
     }
@@ -3514,7 +3518,7 @@ static bool FixupVVDFile(const std::string_view fileName, const studiohdr_t* pSt
             }
         }
     }
-    SaveOutputFile(fileName, std::move(buffer));
+    SaveOutputFile(ctx, fileName, std::move(buffer));
 
     // success
     return true;
@@ -3525,11 +3529,11 @@ static bool FixupVVDFile(const std::string_view fileName, const studiohdr_t* pSt
 //
 // VTX files get their windings remapped.
 //-----------------------------------------------------------------------------
-bool FixupVTXFile(const std::string_view fileName, const studiohdr_t* pStudioHdr,
+bool FixupVTXFile(StudioMdlState &ctx, const std::string_view fileName, const studiohdr_t* pStudioHdr,
                   const std::vector<vertexPool_t> &vertexPools, const std::vector<usedVertex_t> &vertexList) {
     vstd::FunctionTimingRecorder _("Write");
 
-    auto vtxBuffOpt = LoadOutputFile(fileName);
+    auto vtxBuffOpt = LoadOutputFile(ctx, fileName);
     if (!vtxBuffOpt) {
         MdlError("Failed to load VTX file({}) for fixup", fileName);
         return false;
@@ -3584,7 +3588,7 @@ bool FixupVTXFile(const std::string_view fileName, const studiohdr_t* pStudioHdr
         }
     }
 
-    SaveOutputFile(fileName, std::move(vtxBuff));
+    SaveOutputFile(ctx, fileName, std::move(vtxBuff));
 
     return true;
 }
@@ -3594,7 +3598,7 @@ bool FixupVTXFile(const std::string_view fileName, const studiohdr_t* pStudioHdr
 //
 // MDL files get flexes/vertex/tangent data offsets fixed
 //-----------------------------------------------------------------------------
-bool FixupMDLFile(const std::string_view fileName, const studiohdr_t* pStudioHdr,
+bool FixupMDLFile(StudioMdlState &ctx, const std::string_view fileName, const studiohdr_t* pStudioHdr,
                   const vstd::Buffer &pVtxBuff, const std::vector<vertexPool_t> &vertexPools,
                   const std::vector<usedVertex_t> &vertexList) {
     mstudiobodyparts_t* pStudioBodyPart;
@@ -3691,10 +3695,13 @@ bool FixupMDLFile(const std::string_view fileName, const studiohdr_t* pStudioHdr
         }
     }
 
+    // the vertex accessors' .vvd (see VertexFileCache)
+    pStudioHdr->pStudioHdr2()->pVertexBase = nullptr;
+
     // Clear vertex data
 
     {
-        SaveOutputFile(fileName, pStudioHdr, pStudioHdr->length);
+        SaveOutputFile(ctx, fileName, pStudioHdr, pStudioHdr->length);
     }
 
     // success
@@ -3707,7 +3714,7 @@ bool FixupMDLFile(const std::string_view fileName, const studiohdr_t* pStudioHdr
 // VVD files get vertexes fixed to a flat sorted order, ascending in lower detail lod usage
 // VTX files get their windings remapped to the sort.
 //-----------------------------------------------------------------------------
-bool FixupToSortedLODVertexes(studiohdr_t* pStudioHdr) {
+bool FixupToSortedLODVertexes(StudioMdlState &ctx, studiohdr_t* pStudioHdr) {
     vstd::FunctionTimingRecorder _("Write");
     std::vector<vertexPool_t> vertexPools;
     std::vector<usedVertex_t> vertexList;
@@ -3715,7 +3722,7 @@ bool FixupToSortedLODVertexes(studiohdr_t* pStudioHdr) {
     // determine lod usage per vertex
     // all vtx files enumerate model's lod verts, but differ in their mesh makeup
     // use xxx.dx90.vtx to establish which vertexes are used by each lod
-    auto vtxBufferOpt = LoadOutputFile(OutputModelPath(".dx90.vtx"));
+    auto vtxBufferOpt = LoadOutputFile(ctx, OutputModelPath(ctx, ".dx90.vtx"));
     if (!vtxBufferOpt) {
         MdlError("Failed to load .dx90.vtx file for LOD fixup");
         return false;
@@ -3729,18 +3736,18 @@ bool FixupToSortedLODVertexes(studiohdr_t* pStudioHdr) {
     }
 
     // fixup ???.vvd
-    if (!FixupVVDFile(OutputModelPath(".vvd"), pStudioHdr, vtxBuffer, vertexPools, vertexList)) {
+    if (!FixupVVDFile(ctx, OutputModelPath(ctx, ".vvd"), pStudioHdr, vtxBuffer, vertexPools, vertexList)) {
         // data error
         return false;
     }
 
-    if (!FixupVTXFile(OutputModelPath(".dx90.vtx"), pStudioHdr, vertexPools, vertexList)) {
+    if (!FixupVTXFile(ctx, OutputModelPath(ctx, ".dx90.vtx"), pStudioHdr, vertexPools, vertexList)) {
         // data error
         return false;
     }
 
     // fixup ???.mdl
-    if (!FixupMDLFile(OutputModelPath(".mdl"), pStudioHdr, vtxBuffer, vertexPools, vertexList)) {
+    if (!FixupMDLFile(ctx, OutputModelPath(ctx, ".mdl"), pStudioHdr, vtxBuffer, vertexPools, vertexList)) {
         // data error
         return false;
     }
@@ -3789,25 +3796,25 @@ unsigned short IsUShort(int val) {
 }
 
 
-static vstd::Buffer LoadOutputFileOrError(const std::string &fileName) {
-    auto data = LoadOutputFile(fileName);
+static vstd::Buffer LoadOutputFileOrError(StudioMdlState &ctx, const std::string &fileName) {
+    auto data = LoadOutputFile(ctx, fileName);
     if (!data) {
         MdlError("Failed to load '{}' for the root LOD clamp\n", fileName);
     }
     return std::move(*data);
 }
 
-static void Clamp_MDL_LODS(const std::string &fileName, const int rootLOD) {
-    auto mdlData = LoadOutputFileOrError(fileName);
+static void Clamp_MDL_LODS(StudioMdlState &ctx, const std::string &fileName, const int rootLOD) {
+    auto mdlData = LoadOutputFileOrError(ctx, fileName);
 
     Studio_SetRootLOD(mdlData.reinterpret_at<studiohdr_t>(0), rootLOD);
 
-    SaveOutputFile(fileName, std::move(mdlData));
+    SaveOutputFile(ctx, fileName, std::move(mdlData));
 }
 
 
-static void Clamp_VVD_LODS(const std::string &fileName, const int rootLOD, const bool bExtraData) {
-    const auto vvdData = LoadOutputFileOrError(fileName);
+static void Clamp_VVD_LODS(StudioMdlState &ctx, const std::string &fileName, const int rootLOD, const bool bExtraData) {
+    const auto vvdData = LoadOutputFileOrError(ctx, fileName);
     const auto* pTempVvdHdr = vvdData.reinterpret_at<vertexFileHeader_t>(0);
 
     const int newLength = Studio_VertexDataSize(pTempVvdHdr, rootLOD, true, bExtraData);
@@ -3817,21 +3824,22 @@ static void Clamp_VVD_LODS(const std::string &fileName, const int rootLOD, const
 
     Studio_LoadVertexes(pTempVvdHdr, pNewVvdHdr, rootLOD, true, bExtraData);
 
-    if (!g_studiomdl.options.quiet) {
+    if (!ctx.options.quiet) {
         std::print("---------------------\n");
         std::print("writing {}:\n", fileName);
         std::print("vertices   ({} vertices)\n", pNewVvdHdr->numLODVertexes[0]);
     }
 
-    SaveOutputFile(fileName, std::move(newData));
+    SaveOutputFile(ctx, fileName, std::move(newData));
 }
 
 
 // Rewrites the .vtx without the LODs above rootLOD; their headers point at the root LOD's data
-static void Clamp_VTX_LODS(const std::string &fileName, const int rootLOD, const studiohdr_t* pStudioHdr) {
+static void Clamp_VTX_LODS(StudioMdlState &ctx, const std::string &fileName, const int rootLOD,
+                           const studiohdr_t* pStudioHdr) {
     namespace vtx = OptimizedModel;
 
-    auto vtxData = LoadOutputFileOrError(fileName);
+    auto vtxData = LoadOutputFileOrError(ctx, fileName);
     auto* pVtxHdr = vtxData.reinterpret_at<vtx::FileHeader_t>(0);
 
     vstd::Buffer buffer;
@@ -3852,7 +3860,8 @@ static void Clamp_VTX_LODS(const std::string &fileName, const int rootLOD, const
     const auto newLists = buffer.allocate<vtx::MaterialReplacementListHeader_t>(pVtxHdr->numLODs);
     newHdr->materialReplacementListOffset = newLists.offset_from<int>(newHdr);
 
-    BeginStringTable();
+    StringTable strings;
+    BeginStringTable(strings);
 
     // allocate replacement list arrays
     for (int nLodID = rootLOD; nLodID < pVtxHdr->numLODs; nLodID++) {
@@ -3868,12 +3877,12 @@ static void Clamp_VTX_LODS(const std::string &fileName, const int rootLOD, const
             const auto newReplacement = newReplacements + i;
 
             newReplacement->materialID = pReplacement->materialID;
-            AddToStringTable(newReplacement,
+            AddToStringTable(strings, newReplacement,
                              newReplacement.field(&vtx::MaterialReplacementHeader_t::replacementMaterialNameOffset),
                              pReplacement->pMaterialReplacementName());
         }
     }
-    WriteStringTable(buffer);
+    WriteStringTable(strings, buffer);
 
     // link previous LODs to higher LODs
     const auto rootList = newLists + rootLOD;
@@ -3985,24 +3994,24 @@ static void Clamp_VTX_LODS(const std::string &fileName, const int rootLOD, const
         }
     }
 
-    if (!g_studiomdl.options.quiet) {
+    if (!ctx.options.quiet) {
         std::print("writing {}:\n", fileName);
         std::print("everything ({} bytes)\n", buffer.size());
     }
 
-    SaveOutputFile(fileName, std::move(buffer));
+    SaveOutputFile(ctx, fileName, std::move(buffer));
 }
 
 
-bool Clamp_RootLOD(const studiohdr_t* phdr) {
+bool Clamp_RootLOD(StudioMdlState &ctx, const studiohdr_t* phdr) {
     vstd::FunctionTimingRecorder _("Write");
 
     const bool extraData = (phdr->flags & STUDIOHDR_FLAGS_EXTRA_VERTEX_DATA) != 0;
 
-    int rootLOD = g_studiomdl.options.minLod;
+    int rootLOD = ctx.options.minLod;
 
-    if (rootLOD > std::ssize(g_studiomdl.body.ScriptLODs) - 1) {
-        rootLOD = std::ssize(g_studiomdl.body.ScriptLODs) - 1;
+    if (rootLOD > std::ssize(ctx.body.ScriptLODs) - 1) {
+        rootLOD = std::ssize(ctx.body.ScriptLODs) - 1;
     }
 
     if (rootLOD == 0) {
@@ -4010,9 +4019,9 @@ bool Clamp_RootLOD(const studiohdr_t* phdr) {
     }
 
     // shift the files so that g_minLod is the root LOD
-    Clamp_MDL_LODS(OutputModelPath(".mdl"), rootLOD);
-    Clamp_VVD_LODS(OutputModelPath(".vvd"), rootLOD, extraData);
-    Clamp_VTX_LODS(OutputModelPath(".dx90.vtx"), rootLOD, phdr);
+    Clamp_MDL_LODS(ctx, OutputModelPath(ctx, ".mdl"), rootLOD);
+    Clamp_VVD_LODS(ctx, OutputModelPath(ctx, ".vvd"), rootLOD, extraData);
+    Clamp_VTX_LODS(ctx, OutputModelPath(ctx, ".dx90.vtx"), rootLOD, phdr);
 
     return true;
 }

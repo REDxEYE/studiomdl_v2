@@ -41,5 +41,5 @@ add_library(movieobjects
         )
 target_include_directories(movieobjects PUBLIC ../../include)
 target_include_directories(movieobjects PRIVATE ../../include/movieobjects)
-target_compile_definitions(movieobjects PRIVATE -DMOVIEOBJECTS_LIB -DSTATIC_TIER0)
+target_compile_definitions(movieobjects PRIVATE -DSTATIC_TIER0)
 target_link_libraries(movieobjects PRIVATE datamodel)

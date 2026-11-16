@@ -39,8 +39,6 @@ public:
     Vector m_Maxs;
 };
 
-// this is computed once so render models and their physics hulls get translated by the same amount
-static Vector g_PropCenterOffset(0, 0, 0);
 
 
 //----------------------------------------------------------------------
@@ -75,61 +73,60 @@ void QuaternionMAAngles(Quaternion const &p, float s, Quaternion const &q, Radia
 //			fixup missing frames from looping animations
 //			create "delta" animations
 //-----------------------------------------------------------------------------
-int g_rootIndex = 0;
 
 
-void buildAnimationWeights();
+void buildAnimationWeights(StudioMdlState &ctx);
 
-void extractLinearMotion(s_animation_t* panim, StudioMotionFlags motiontype, int iStartFrame, int iEndFrame,
+void extractLinearMotion(StudioMdlState &ctx, s_animation_t* panim, StudioMotionFlags motiontype, int iStartFrame, int iEndFrame,
                          int iSrcFrame,
                          s_animation_t* pRefAnim, int iRefFrame /* , Vector pos, QAngle angles */);
 
-void fixupMissingFrame(s_animation_t* panim);
+void fixupMissingFrame(StudioMdlState &ctx, s_animation_t* panim);
 
-void realignLooping(s_animation_t* panim);
+void realignLooping(StudioMdlState &ctx, s_animation_t* panim);
 
-void extractUnusedMotion(s_animation_t* panim);
+void extractUnusedMotion(StudioMdlState &ctx, s_animation_t* panim);
 
 // TODO: psrc and pdest as terms are ambigious, replace with something better
-void setAnimationWeight(s_animation_t* panim, int index);
+void setAnimationWeight(StudioMdlState &ctx, s_animation_t* panim, int index);
 
-void processMatch(s_animation_t* psrc, s_animation_t* pdest, int flags);
+void processMatch(StudioMdlState &ctx, s_animation_t* psrc, s_animation_t* pdest, int flags);
 
-void worldspaceBlend(s_animation_t* psrc, s_animation_t* pdest, int srcframe, int flags);
+void worldspaceBlend(StudioMdlState &ctx, s_animation_t* psrc, s_animation_t* pdest, int srcframe, int flags);
 
-void processAutoorigin(s_animation_t* psrc, s_animation_t* pdest, StudioMotionFlags motiontype, int srcframe,
+void processAutoorigin(StudioMdlState &ctx, s_animation_t* psrc, s_animation_t* pdest, StudioMotionFlags motiontype, int srcframe,
                        int destframe, int bone);
 
-void subtractBaseAnimations(s_animation_t* psrc, s_animation_t* pdest, int srcframe, StudioSequenceFlags flags);
+void subtractBaseAnimations(StudioMdlState &ctx, s_animation_t* psrc, s_animation_t* pdest, int srcframe, StudioSequenceFlags flags);
 
-void fixupLoopingDiscontinuities(s_animation_t* panim, int start, int end);
+void fixupLoopingDiscontinuities(StudioMdlState &ctx, s_animation_t* panim, int start, int end);
 
 void
-matchBlend(s_animation_t* pDestAnim, s_animation_t* pSrcAnimation, int iSrcFrame, int iDestFrame, int iPre, int iPost);
+matchBlend(StudioMdlState &ctx, s_animation_t* pDestAnim, s_animation_t* pSrcAnimation, int iSrcFrame, int iDestFrame, int iPre, int iPost);
 
-void makeAngle(s_animation_t* panim, float angle);
+void makeAngle(StudioMdlState &ctx, s_animation_t* panim, float angle);
 
-void fixupIKErrors(s_animation_t* panim, s_ikrule_t* pRule);
+void fixupIKErrors(StudioMdlState &ctx, s_animation_t* panim, s_ikrule_t* pRule);
 
-void createDerivative(s_animation_t* panim, float scale);
+void createDerivative(StudioMdlState &ctx, s_animation_t* panim, float scale);
 
-void clearAnimations(s_animation_t* panim, bool bRetainDuration = false);
+void clearAnimations(StudioMdlState &ctx, s_animation_t* panim, bool bRetainDuration = false);
 
-void counterRotateBone(s_animation_t* panim, int bone, QAngle target);
+void counterRotateBone(StudioMdlState &ctx, s_animation_t* panim, int bone, QAngle target);
 
-void localHierarchy(s_animation_t* panim, char* pBonename, char* pParentname, int start, int peak, int tail, int end);
+void localHierarchy(StudioMdlState &ctx, s_animation_t* panim, char* pBonename, char* pParentname, int start, int peak, int tail, int end);
 
-void linearDelta(s_animation_t* psrc, s_animation_t* pdest, int srcframe, AutoLayerFlags flags);
+void linearDelta(StudioMdlState &ctx, s_animation_t* psrc, s_animation_t* pdest, int srcframe, AutoLayerFlags flags);
 
-void reencodeAnimation(s_animation_t* panim, int frameskip);
+void reencodeAnimation(StudioMdlState &ctx, s_animation_t* panim, int frameskip);
 
-void forceNumframes(s_animation_t* panim, int frames);
+void forceNumframes(StudioMdlState &ctx, s_animation_t* panim, int frames);
 
-void forceAnimationLoop(s_animation_t* panim);
+void forceAnimationLoop(StudioMdlState &ctx, s_animation_t* panim);
 
-void solveBone(s_animation_t* panim, int iFrame, int iBone, matrix3x4_t* pBoneToWorld);
+void solveBone(StudioMdlState &ctx, s_animation_t* panim, int iFrame, int iBone, matrix3x4_t* pBoneToWorld);
 
-void DumpDefineBones();
+void DumpDefineBones(StudioMdlState &ctx);
 
 
 void ClearModel() {
@@ -152,30 +149,30 @@ float DriverHelperRanges(int nTarget, int nStart, int nPeak, int nTail, int nEnd
 }
 
 
-void processAnimations() {
+void processAnimations(StudioMdlState &ctx) {
     vstd::FunctionTimingRecorder _("Simplify");
     int i, j;
 
     // find global root bone.
-    if (strlen(g_studiomdl.script.rootname)) {
-        g_rootIndex = findGlobalBone(g_studiomdl.script.rootname);
-        if (g_rootIndex == -1)
-            g_rootIndex = 0;
+    if (strlen(ctx.script.rootname)) {
+        ctx.simplify.rootIndex = findGlobalBone(ctx, ctx.script.rootname);
+        if (ctx.simplify.rootIndex == -1)
+            ctx.simplify.rootIndex = 0;
     }
 
-    buildAnimationWeights();
+    buildAnimationWeights(ctx);
 
-    for (i = 0; i < g_studiomdl.anim.animations.size(); i++) {
-        s_animation_t* panim = g_studiomdl.anim.animations[i];
+    for (i = 0; i < ctx.anim.animations.size(); i++) {
+        s_animation_t* panim = ctx.anim.animations[i];
 
-        extractUnusedMotion(panim); // FIXME: this should be part of LinearMotion()
+        extractUnusedMotion(ctx, panim); // FIXME: this should be part of LinearMotion()
 
-        setAnimationWeight(panim, 0);
+        setAnimationWeight(ctx, panim, 0);
 
         int startframe = 0;
 
         if (panim->fudgeloop) {
-            fixupMissingFrame(panim);
+            fixupMissingFrame(ctx, panim);
         }
 
         for (j = 0; j < panim->cmds.size(); j++) {
@@ -183,32 +180,32 @@ void processAnimations() {
 
             switch (pcmd->cmd) {
                 case CMD_WEIGHTS:
-                    setAnimationWeight(panim, pcmd->u.weightlist.index);
+                    setAnimationWeight(ctx, panim, pcmd->u.weightlist.index);
                     break;
                 case CMD_SUBTRACT:
                     panim->flags |= StudioSequenceFlags::Delta;
-                    subtractBaseAnimations(pcmd->u.subtract.ref, panim, pcmd->u.subtract.frame, pcmd->u.subtract.flags);
+                    subtractBaseAnimations(ctx, pcmd->u.subtract.ref, panim, pcmd->u.subtract.frame, pcmd->u.subtract.flags);
                     break;
                 case CMD_AO: {
-                    int bone = g_rootIndex;
+                    int bone = ctx.simplify.rootIndex;
                     if (pcmd->u.ao.pBonename != nullptr) {
-                        bone = findGlobalBone(pcmd->u.ao.pBonename);
+                        bone = findGlobalBone(ctx, pcmd->u.ao.pBonename);
                         if (bone == -1) {
                             MdlError("unable to find bone {} to alignbone\n", pcmd->u.ao.pBonename);
                         }
                     }
-                    processAutoorigin(pcmd->u.ao.ref, panim, pcmd->u.ao.motiontype, pcmd->u.ao.srcframe,
+                    processAutoorigin(ctx, pcmd->u.ao.ref, panim, pcmd->u.ao.motiontype, pcmd->u.ao.srcframe,
                                       pcmd->u.ao.destframe, bone);
                 }
                 break;
                 case CMD_MATCH:
-                    processMatch(pcmd->u.match.ref, panim, false);
+                    processMatch(ctx, pcmd->u.match.ref, panim, false);
                     break;
                 case CMD_FIXUP:
-                    fixupLoopingDiscontinuities(panim, pcmd->u.fixuploop.start, pcmd->u.fixuploop.end);
+                    fixupLoopingDiscontinuities(ctx, panim, pcmd->u.fixuploop.start, pcmd->u.fixuploop.end);
                     break;
                 case CMD_ANGLE:
-                    makeAngle(panim, pcmd->u.angle.angle);
+                    makeAngle(ctx, panim, pcmd->u.angle.angle);
                     break;
                 case CMD_IKFIXUP:
                     break;
@@ -216,7 +213,7 @@ void processAnimations() {
                     // processed later
                     break;
                 case CMD_MOTION: {
-                    extractLinearMotion(
+                    extractLinearMotion(ctx, 
                         panim,
                         pcmd->u.motion.motiontype,
                         startframe,
@@ -228,7 +225,7 @@ void processAnimations() {
                 }
                 break;
                 case CMD_REFMOTION: {
-                    extractLinearMotion(
+                    extractLinearMotion(ctx, 
                         panim,
                         pcmd->u.motion.motiontype,
                         startframe,
@@ -240,34 +237,34 @@ void processAnimations() {
                 }
                 break;
                 case CMD_DERIVATIVE: {
-                    createDerivative(
+                    createDerivative(ctx, 
                         panim,
                         pcmd->u.derivative.scale);
                 }
                 break;
                 case CMD_NOANIMATION: {
-                    clearAnimations(panim);
+                    clearAnimations(ctx, panim);
                 }
                 break;
                 case CMD_NOANIM_KEEPDURATION: {
-                    clearAnimations(panim, true);
+                    clearAnimations(ctx, panim, true);
                 }
                 break;
                 case CMD_LINEARDELTA: {
                     panim->flags |= StudioSequenceFlags::Delta;
-                    linearDelta(panim, panim, panim->numframes - 1, pcmd->u.linear.flags);
+                    linearDelta(ctx, panim, panim, panim->numframes - 1, pcmd->u.linear.flags);
                 }
                 break;
                 case CMD_COMPRESS: {
-                    reencodeAnimation(panim, pcmd->u.compress.frames);
+                    reencodeAnimation(ctx, panim, pcmd->u.compress.frames);
                 }
                 break;
                 case CMD_NUMFRAMES: {
-                    forceNumframes(panim, pcmd->u.numframes.frames);
+                    forceNumframes(ctx, panim, pcmd->u.numframes.frames);
                 }
                 break;
                 case CMD_COUNTERROTATE: {
-                    const int bone = findGlobalBone(pcmd->u.counterrotate.pBonename);
+                    const int bone = findGlobalBone(ctx, pcmd->u.counterrotate.pBonename);
                     if (bone != -1) {
                         QAngle target;
 
@@ -275,7 +272,7 @@ void processAnimations() {
                             matrix3x4_t rootxform;
                             matrix3x4_t defaultBoneToWorld;
                             AngleMatrix(panim->rotation, rootxform);
-                            ConcatTransforms(rootxform, g_studiomdl.bones.bonetable[bone].boneToPose,
+                            ConcatTransforms(rootxform, ctx.bones.bonetable[bone].boneToPose,
                                              defaultBoneToWorld);
 
                             MatrixAngles(defaultBoneToWorld, target);
@@ -285,7 +282,7 @@ void processAnimations() {
                                         pcmd->u.counterrotate.targetAngle[2]);
                         }
 
-                        counterRotateBone(panim, bone, target);
+                        counterRotateBone(ctx, panim, bone, target);
                     }
                     else {
                         MdlError("unable to find bone {} to counterrotate\n", pcmd->u.counterrotate.pBonename);
@@ -293,20 +290,20 @@ void processAnimations() {
                 }
                 break;
                 case CMD_WORLDSPACEBLEND:
-                    worldspaceBlend(pcmd->u.world.ref, panim, pcmd->u.world.startframe, pcmd->u.world.loops);
+                    worldspaceBlend(ctx, pcmd->u.world.ref, panim, pcmd->u.world.startframe, pcmd->u.world.loops);
                     break;
                 case CMD_MATCHBLEND:
-                    matchBlend(panim, pcmd->u.match.ref, pcmd->u.match.srcframe, pcmd->u.match.destframe,
+                    matchBlend(ctx, panim, pcmd->u.match.ref, pcmd->u.match.srcframe, pcmd->u.match.destframe,
                                pcmd->u.match.destpre, pcmd->u.match.destpost);
                     break;
                 case CMD_LOCALHIERARCHY:
-                    localHierarchy(panim, pcmd->u.localhierarchy.pBonename, pcmd->u.localhierarchy.pParentname,
+                    localHierarchy(ctx, panim, pcmd->u.localhierarchy.pBonename, pcmd->u.localhierarchy.pParentname,
                                    pcmd->u.localhierarchy.start, pcmd->u.localhierarchy.peak,
                                    pcmd->u.localhierarchy.tail, pcmd->u.localhierarchy.end);
                     // localHierarchy( panim, char	*pBonename, char *pParentname, int start, int peak, int tail, int end );
                     break;
                 case CMD_FORCEBONEPOSROT: {
-                    const int bone = findGlobalBone(pcmd->u.forceboneposrot.pBonename);
+                    const int bone = findGlobalBone(ctx, pcmd->u.forceboneposrot.pBonename);
                     if (bone != -1) {
                         const Vector vecPos = Vector(pcmd->u.forceboneposrot.pos[0], pcmd->u.forceboneposrot.pos[1],
                                                      pcmd->u.forceboneposrot.pos[2]);
@@ -321,13 +318,13 @@ void processAnimations() {
                                 panim->sanim[i][bone].pos = vecPos;
 
                             if (pcmd->u.forceboneposrot.bDoRot) {
-                                const int nParent = g_studiomdl.bones.bonetable[bone].parent;
+                                const int nParent = ctx.bones.bonetable[bone].parent;
                                 if (nParent == -1 || pcmd->u.forceboneposrot.bRotIsLocal) {
                                     panim->sanim[i][bone].rot = RadianEuler(angRot);
                                 }
                                 else {
                                     matrix3x4_t srcBoneToWorld[MAXSTUDIOBONES];
-                                    CalcBoneTransforms(panim, i, srcBoneToWorld);
+                                    CalcBoneTransforms(ctx, panim, i, srcBoneToWorld);
 
                                     matrix3x4_t worldToBone;
                                     MatrixInvert(srcBoneToWorld[nParent], worldToBone);
@@ -349,7 +346,7 @@ void processAnimations() {
                 }
                 break;
                 case CMD_BONEDRIVER: {
-                    const int bone = findGlobalBone(pcmd->u.bonedriver.pBonename);
+                    const int bone = findGlobalBone(ctx, pcmd->u.bonedriver.pBonename);
                     if (bone != -1) {
                         for (int i = 0; i < panim->numframes; i++) {
                             float flCurrentValue = panim->sanim[i][bone].pos[pcmd->u.bonedriver.iAxis];
@@ -376,7 +373,7 @@ void processAnimations() {
                 case CMD_REVERSE: {
                     const int iCountFrames = panim->numframes - 1;
                     for (int i = 0; i < iCountFrames / 2; i++) {
-                        for (int n = std::ssize(g_studiomdl.bones.bonetable) - 1; n >= 0; n--) {
+                        for (int n = std::ssize(ctx.bones.bonetable) - 1; n >= 0; n--) {
                             Vector posTemp;
                             RadianEuler rotTemp;
 
@@ -396,10 +393,10 @@ void processAnimations() {
                     const s_animation_t* pAppendAnimation = pcmd->u.appendanim.ref;
 
                     const int iPrevNumFrames = panim->numframes;
-                    forceNumframes(panim, panim->numframes + pAppendAnimation->numframes);
+                    forceNumframes(ctx, panim, panim->numframes + pAppendAnimation->numframes);
 
                     for (int i = iPrevNumFrames; i < panim->numframes; i++) {
-                        for (int n = std::ssize(g_studiomdl.bones.bonetable) - 1; n >= 0; n--) {
+                        for (int n = std::ssize(ctx.bones.bonetable) - 1; n >= 0; n--) {
                             VectorCopy(pAppendAnimation->sanim[i - iPrevNumFrames][n].pos, panim->sanim[i][n].pos);
                             VectorCopy(pAppendAnimation->sanim[i - iPrevNumFrames][n].rot, panim->sanim[i][n].rot);
                         }
@@ -420,48 +417,48 @@ void processAnimations() {
             else {
                 lastframe = panim->numframes - 1;
             }
-            extractLinearMotion(panim, panim->motiontype, startframe, lastframe, panim->numframes - 1, panim,
+            extractLinearMotion(ctx, panim, panim->motiontype, startframe, lastframe, panim->numframes - 1, panim,
                                 startframe);
             startframe = panim->numframes - 1;
         }
 
-        realignLooping(panim);
+        realignLooping(ctx, panim);
 
         if (!HasFlag(panim->flags, StudioSequenceFlags::NoForceLoop)) {
-            forceAnimationLoop(panim);
+            forceAnimationLoop(ctx, panim);
         }
     }
 
     // merge weightlists
-    for (i = 0; i < std::ssize(g_studiomdl.anim.sequence); i++) {
+    for (i = 0; i < std::ssize(ctx.anim.sequence); i++) {
         int k, n;
-        for (n = 0; n < std::ssize(g_studiomdl.bones.bonetable); n++) {
-            g_studiomdl.anim.sequence[i].weight[n] = 0.0;
+        for (n = 0; n < std::ssize(ctx.bones.bonetable); n++) {
+            ctx.anim.sequence[i].weight[n] = 0.0;
 
-            for (j = 0; j < g_studiomdl.anim.sequence[i].groupsize[0]; j++) {
-                for (k = 0; k < g_studiomdl.anim.sequence[i].groupsize[1]; k++) {
-                    g_studiomdl.anim.sequence[i].weight[n] = MAX(g_studiomdl.anim.sequence[i].weight[n],
-                                                                 g_studiomdl.anim.sequence[i].panim[j][k]->weight[n]);
+            for (j = 0; j < ctx.anim.sequence[i].groupsize[0]; j++) {
+                for (k = 0; k < ctx.anim.sequence[i].groupsize[1]; k++) {
+                    ctx.anim.sequence[i].weight[n] = MAX(ctx.anim.sequence[i].weight[n],
+                                                                 ctx.anim.sequence[i].panim[j][k]->weight[n]);
                 }
             }
         }
         // force parent bones to non-zero weight if worldspace blend
-        if (HasFlag(g_studiomdl.anim.sequence[i].flags, StudioSequenceFlags::World)) {
-            for (n = std::ssize(g_studiomdl.bones.bonetable) - 1; n >= 0; n--) {
-                if (g_studiomdl.anim.sequence[i].weight[n] && g_studiomdl.bones.bonetable[n].parent != -1 &&
-                    g_studiomdl.anim.sequence[i].weight[g_studiomdl.bones.bonetable[n].parent] == 0.0) {
-                    g_studiomdl.anim.sequence[i].weight[g_studiomdl.bones.bonetable[n].parent] = 1.0;
-                    // printf("%s : %d %d\n", g_studiomdl.anim.sequence[i].name, n, g_studiomdl.bones.bonetable[n].parent );
+        if (HasFlag(ctx.anim.sequence[i].flags, StudioSequenceFlags::World)) {
+            for (n = std::ssize(ctx.bones.bonetable) - 1; n >= 0; n--) {
+                if (ctx.anim.sequence[i].weight[n] && ctx.bones.bonetable[n].parent != -1 &&
+                    ctx.anim.sequence[i].weight[ctx.bones.bonetable[n].parent] == 0.0) {
+                    ctx.anim.sequence[i].weight[ctx.bones.bonetable[n].parent] = 1.0;
+                    // printf("%s : %d %d\n", ctx.anim.sequence[i].name, n, ctx.bones.bonetable[n].parent );
                 }
-                for (j = 0; j < g_studiomdl.anim.sequence[i].groupsize[0]; j++) {
-                    for (k = 0; k < g_studiomdl.anim.sequence[i].groupsize[1]; k++) {
-                        if (g_studiomdl.anim.sequence[i].panim[j][k]->weight[n] && g_studiomdl.bones.bonetable[n].parent
+                for (j = 0; j < ctx.anim.sequence[i].groupsize[0]; j++) {
+                    for (k = 0; k < ctx.anim.sequence[i].groupsize[1]; k++) {
+                        if (ctx.anim.sequence[i].panim[j][k]->weight[n] && ctx.bones.bonetable[n].parent
                             != -1 &&
-                            g_studiomdl.anim.sequence[i].panim[j][k]->weight[g_studiomdl.bones.bonetable[n].parent] ==
+                            ctx.anim.sequence[i].panim[j][k]->weight[ctx.bones.bonetable[n].parent] ==
                             0.0) {
-                            g_studiomdl.anim.sequence[i].panim[j][k]->weight[g_studiomdl.bones.bonetable[n].parent] =
+                            ctx.anim.sequence[i].panim[j][k]->weight[ctx.bones.bonetable[n].parent] =
                                     0.001;
-                            // printf("%s : %d %d\n", g_studiomdl.anim.sequence[i].panim[j][k]->name, n, g_studiomdl.bones.bonetable[n].parent );
+                            // printf("%s : %d %d\n", ctx.anim.sequence[i].panim[j][k]->name, n, ctx.bones.bonetable[n].parent );
                         }
                     }
                 }
@@ -474,14 +471,14 @@ void processAnimations() {
 /*
 void lookupLinearMotion( s_animation_t *panim, int motiontype, int startframe, int endframe, Vector &p1, Vector &p2 )
 {
-	Vector p0 = panim->sanim[startframe][g_rootIndex].pos;
-	p2 = panim->sanim[endframe][g_rootIndex].pos[0];
+	Vector p0 = panim->sanim[startframe][ctx.simplify.rootIndex].pos;
+	p2 = panim->sanim[endframe][ctx.simplify.rootIndex].pos[0];
 
 	float fFrame = (startframe + endframe) / 2.0;
 	int iFrame = (int)fFrame;
 	float s = fFrame - iFrame;
 
-	p1 = panim->sanim[iFrame][g_rootIndex].pos * (1 - s) + panim->sanim[iFrame+1][g_rootIndex].pos * s;
+	p1 = panim->sanim[iFrame][ctx.simplify.rootIndex].pos * (1 - s) + panim->sanim[iFrame+1][ctx.simplify.rootIndex].pos * s;
 }
 */
 
@@ -522,7 +519,7 @@ void lookupLinearMotion( s_animation_t *panim, int motiontype, int startframe, i
 // iRefFrame	- frame of reference animation to match
 //-----------------------------------------------------------------------------
 
-void extractLinearMotion(s_animation_t* panim, StudioMotionFlags motiontype, int iStartFrame, int iEndFrame,
+void extractLinearMotion(StudioMdlState &ctx, s_animation_t* panim, StudioMotionFlags motiontype, int iStartFrame, int iEndFrame,
                          int iSrcFrame,
                          s_animation_t* pRefAnim, int iRefFrame /* , Vector pos, QAngle angles */) {
     int j, k;
@@ -558,9 +555,9 @@ void extractLinearMotion(s_animation_t* panim, StudioMotionFlags motiontype, int
     // find rotation
     RadianEuler rot(0, 0, 0);
 
-    int iRootIndex = g_rootIndex;
+    int iRootIndex = ctx.simplify.rootIndex;
 
-    int iCustomRootMotionBoneIndex = findGlobalBone(g_studiomdl.script.rootname);
+    int iCustomRootMotionBoneIndex = findGlobalBone(ctx, ctx.script.rootname);
     if (iCustomRootMotionBoneIndex != -1) {
         iRootIndex = iCustomRootMotionBoneIndex;
     }
@@ -650,7 +647,7 @@ void extractLinearMotion(s_animation_t* panim, StudioMotionFlags motiontype, int
         p1.z = 0;
     };
 
-    // printf("%s  %.1f %.1f %.1f\n", g_studiomdl.bones.bonetable[iRootIndex].name, p2.x, p2.y, p2.z );
+    // printf("%s  %.1f %.1f %.1f\n", ctx.bones.bonetable[iRootIndex].name, p2.x, p2.y, p2.z );
 
     float d1 = p1.Length();
     float d2 = p2.Length();
@@ -658,9 +655,9 @@ void extractLinearMotion(s_animation_t* panim, StudioMotionFlags motiontype, int
     float v0 = -1 * d2 + 4 * d1;
     float v1 = 3 * d2 - 4 * d1;
 
-    if (g_studiomdl.options.verbose) {
+    if (ctx.options.verbose) {
         std::print("{} : {} - {} : {:.1f} {:.1f} {:.1f} root: {}\n", panim->name, iStartFrame, iEndFrame, p2.x, p2.y,
-                   RAD2DEG(rot[2]), g_studiomdl.bones.bonetable[iRootIndex].name);
+                   RAD2DEG(rot[2]), ctx.bones.bonetable[iRootIndex].name);
     }
 
     int numframes = iEndFrame - iStartFrame + 1;
@@ -719,8 +716,8 @@ void extractLinearMotion(s_animation_t* panim, StudioMotionFlags motiontype, int
         AngleMatrix(adjangle, adjpos, adjmatrix);
         MatrixInvert(adjmatrix, adjmatrix);
 
-        for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
-            if (g_studiomdl.bones.bonetable[k].parent == -1) {
+        for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
+            if (ctx.bones.bonetable[k].parent == -1) {
                 // printf(" %.1f %.1f %.1f : ", adjpos[0], adjpos[1], RAD2DEG( adjangle[2] ));
 
                 // printf(" %.1f %.1f %.1f\n", adjpos[0], adjpos[1], adjpos[2] );
@@ -735,8 +732,8 @@ void extractLinearMotion(s_animation_t* panim, StudioMotionFlags motiontype, int
     }
 
     for (; j + iStartFrame < panim->numframes; j++) {
-        for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
-            if (g_studiomdl.bones.bonetable[k].parent == -1) {
+        for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
+            if (ctx.bones.bonetable[k].parent == -1) {
                 AngleMatrix(panim->sanim[j + iStartFrame][k].rot, panim->sanim[j + iStartFrame][k].pos, bonematrix);
                 ConcatTransforms(adjmatrix, bonematrix, bonematrix);
                 MatrixAngles(bonematrix, panim->sanim[j + iStartFrame][k].rot, panim->sanim[j + iStartFrame][k].pos);
@@ -849,9 +846,9 @@ pos= pos+ panim->piecewisemove [0].pos* (iFrame)/ (panim->numframes- 1.0f);
 // Purpose: try to calculate a "missing" frame of animation, i.e the overlapping frame
 //-----------------------------------------------------------------------------
 
-void fixupMissingFrame(s_animation_t* panim) {
+void fixupMissingFrame(StudioMdlState &ctx, s_animation_t* panim) {
     // the animations DIDN'T have the end frame the same as the start frame, so fudge it
-    const int size = std::ssize(g_studiomdl.bones.bonetable) * sizeof(s_bone_t);
+    const int size = std::ssize(ctx.bones.bonetable) * sizeof(s_bone_t);
     const int j = panim->numframes;
 
     const float scale = 1 / (j - 1.0f);
@@ -860,7 +857,7 @@ void fixupMissingFrame(s_animation_t* panim) {
 
     Vector deltapos;
 
-    for (int k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
+    for (int k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
         VectorSubtract(panim->sanim[j - 1][k].pos, panim->sanim[0][k].pos, deltapos);
         VectorMA(panim->sanim[j - 1][k].pos, scale, deltapos, panim->sanim[j][k].pos);
         VectorCopy(panim->sanim[0][k].rot, panim->sanim[j][k].rot);
@@ -874,7 +871,7 @@ void fixupMissingFrame(s_animation_t* panim) {
 // Purpose: shift the frames of the animation so that it starts on the desired frame
 //-----------------------------------------------------------------------------
 
-void realignLooping(s_animation_t* panim) {
+void realignLooping(StudioMdlState &ctx, s_animation_t* panim) {
     int j, k;
 
     // realign looping animations
@@ -896,7 +893,7 @@ void realignLooping(s_animation_t* panim) {
                      panim->numframes);
         }
 
-        for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
+        for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
             int n;
 
             Vector shiftpos[MAXSTUDIOANIMFRAMES];
@@ -922,13 +919,13 @@ void realignLooping(s_animation_t* panim) {
     }
 }
 
-void extractUnusedMotion(s_animation_t* panim) {
+void extractUnusedMotion(StudioMdlState &ctx, s_animation_t* panim) {
     int j, k;
 
     const StudioMotionFlags type = panim->motiontype;
 
-    for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
-        if (g_studiomdl.bones.bonetable[k].parent == -1) {
+    for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
+        if (ctx.bones.bonetable[k].parent == -1) {
             float motion[6];
             motion[0] = panim->sanim[0][k].pos[0];
             motion[1] = panim->sanim[0][k].pos[1];
@@ -960,14 +957,14 @@ void extractUnusedMotion(s_animation_t* panim) {
 //			difference to all the frames of the dest animation.
 //-----------------------------------------------------------------------------
 
-void processMatch(s_animation_t* psrc, s_animation_t* pdest, int flags) {
+void processMatch(StudioMdlState &ctx, s_animation_t* psrc, s_animation_t* pdest, int flags) {
     int j, k;
 
     // process "match"
     Vector delta_pos[MAXSTUDIOSRCBONES];
     Quaternion delta_q[MAXSTUDIOSRCBONES];
 
-    for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
+    for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
         if (flags)
             VectorSubtract(psrc->sanim[0][k].pos, pdest->sanim[0][k].pos, delta_pos[k]);
         QuaternionSM(-1, Quaternion(pdest->sanim[0][k].rot), Quaternion(psrc->sanim[0][k].rot), delta_q[k]);
@@ -975,7 +972,7 @@ void processMatch(s_animation_t* psrc, s_animation_t* pdest, int flags) {
 
     // printf("%.2f %.2f %.2f\n", adj.x, adj.y, adj.z );
     for (j = 0; j < pdest->numframes; j++) {
-        for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
+        for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
             if (pdest->weight[k] > 0) {
                 if (flags)
                     VectorAdd(pdest->sanim[j][k].pos, delta_pos[k], pdest->sanim[j][k].pos);
@@ -992,7 +989,7 @@ void processMatch(s_animation_t* psrc, s_animation_t* pdest, int flags) {
 //			Also, blend bone lengths, but only for non root animations.
 //-----------------------------------------------------------------------------
 
-void worldspaceBlend(s_animation_t* psrc, s_animation_t* pdest, int srcframe, int flags) {
+void worldspaceBlend(StudioMdlState &ctx, s_animation_t* psrc, s_animation_t* pdest, int srcframe, int flags) {
     int j, k, n;
 
     // process "match"
@@ -1004,8 +1001,8 @@ void worldspaceBlend(s_animation_t* psrc, s_animation_t* pdest, int srcframe, in
     matrix3x4_t destBoneToWorld[MAXSTUDIOBONES];
 
     if (!flags) {
-        CalcBoneTransforms(psrc, srcframe, srcBoneToWorld);
-        for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
+        CalcBoneTransforms(ctx, psrc, srcframe, srcBoneToWorld);
+        for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
             MatrixAngles(srcBoneToWorld[k], srcQ[k], tmp);
             srcPos[k] = psrc->sanim[srcframe][k].pos;
         }
@@ -1019,11 +1016,11 @@ void worldspaceBlend(s_animation_t* psrc, s_animation_t* pdest, int srcframe, in
             // pull from a looping source
             float flCycle = (float) j / (pdest->numframes - 1);
             flCycle += (float) srcframe / (psrc->numframes - 1);
-            CalcBoneTransformsCycle(psrc, psrc, flCycle, srcBoneToWorld);
-            for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
+            CalcBoneTransformsCycle(ctx, psrc, psrc, flCycle, srcBoneToWorld);
+            for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
                 MatrixAngles(srcBoneToWorld[k], srcQ[k], tmp);
 
-                n = g_studiomdl.bones.bonetable[k].parent;
+                n = ctx.bones.bonetable[k].parent;
                 if (n == -1) {
                     MatrixPosition(srcBoneToWorld[k], srcPos[k]);
                 }
@@ -1039,9 +1036,9 @@ void worldspaceBlend(s_animation_t* psrc, s_animation_t* pdest, int srcframe, in
         }
 
 
-        CalcBoneTransforms(pdest, j, destBoneToWorld);
+        CalcBoneTransforms(ctx, pdest, j, destBoneToWorld);
 
-        for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
+        for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
             if (pdest->weight[k] > 0) {
                 // blend the boneToWorld transforms in world space
                 MatrixAngles(destBoneToWorld[k], destQ, tmp);
@@ -1051,7 +1048,7 @@ void worldspaceBlend(s_animation_t* psrc, s_animation_t* pdest, int srcframe, in
             }
 
             // back solve
-            n = g_studiomdl.bones.bonetable[k].parent;
+            n = ctx.bones.bonetable[k].parent;
             if (n == -1) {
                 MatrixAngles(destBoneToWorld[k], pdest->sanim[j][k].rot, tmp);
 
@@ -1079,7 +1076,7 @@ void worldspaceBlend(s_animation_t* psrc, s_animation_t* pdest, int srcframe, in
 //-----------------------------------------------------------------------------
 
 void
-processAutoorigin(s_animation_t* psrc, s_animation_t* pdest, StudioMotionFlags motiontype, int srcframe, int destframe,
+processAutoorigin(StudioMdlState &ctx, s_animation_t* psrc, s_animation_t* pdest, StudioMotionFlags motiontype, int srcframe, int destframe,
                   int bone) {
     int j, k;
     matrix3x4_t adjmatrix;
@@ -1087,8 +1084,8 @@ processAutoorigin(s_animation_t* psrc, s_animation_t* pdest, StudioMotionFlags m
     matrix3x4_t srcBoneToWorld[MAXSTUDIOBONES];
     matrix3x4_t destBoneToWorld[MAXSTUDIOBONES];
 
-    CalcBoneTransforms(psrc, srcframe, srcBoneToWorld);
-    CalcBoneTransforms(pdest, destframe, destBoneToWorld);
+    CalcBoneTransforms(ctx, psrc, srcframe, srcBoneToWorld);
+    CalcBoneTransforms(ctx, pdest, destframe, destBoneToWorld);
 
     // find rotation
     RadianEuler rot(0, 0, 0);
@@ -1154,14 +1151,14 @@ processAutoorigin(s_animation_t* psrc, s_animation_t* pdest, StudioMotionFlags m
 
     PositionMatrix(adj, adjmatrix);
 
-    if (g_studiomdl.options.verbose && bone != g_rootIndex) {
-        std::print("{} aligning to {} - {:.2f} {:.2f} {:.2f}\n", pdest->name, g_studiomdl.bones.bonetable[bone].name,
+    if (ctx.options.verbose && bone != ctx.simplify.rootIndex) {
+        std::print("{} aligning to {} - {:.2f} {:.2f} {:.2f}\n", pdest->name, ctx.bones.bonetable[bone].name,
                    adj.x, adj.y,
                    adj.z);
     }
 
-    for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
-        if (g_studiomdl.bones.bonetable[k].parent == -1) {
+    for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
+        if (ctx.bones.bonetable[k].parent == -1) {
             for (j = 0; j < pdest->numframes; j++) {
                 matrix3x4_t bonematrix;
                 AngleMatrix(pdest->sanim[j][k].rot, pdest->sanim[j][k].pos, bonematrix);
@@ -1176,7 +1173,7 @@ processAutoorigin(s_animation_t* psrc, s_animation_t* pdest, StudioMotionFlags m
 // Purpose: subtract one animaiton from animation to create an animation of the "difference"
 //-----------------------------------------------------------------------------
 
-void subtractBaseAnimations(s_animation_t* psrc, s_animation_t* pdest, int srcframe, StudioSequenceFlags flags) {
+void subtractBaseAnimations(StudioMdlState &ctx, s_animation_t* psrc, s_animation_t* pdest, int srcframe, StudioSequenceFlags flags) {
     int j, k;
 
     // create delta animations
@@ -1186,12 +1183,12 @@ void subtractBaseAnimations(s_animation_t* psrc, s_animation_t* pdest, int srcfr
         MdlError("subtract frame {} out of range for {}\n", srcframe, psrc->name);
     }
 
-    for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
+    for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
         VectorCopy(psrc->sanim[srcframe][k].pos, src[k].pos);
         VectorCopy(psrc->sanim[srcframe][k].rot, src[k].rot);
     }
 
-    for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
+    for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
         for (j = 0; j < pdest->numframes; j++) {
             if (pdest->weight[k] > 0) {
                 /*
@@ -1230,12 +1227,12 @@ void subtractBaseAnimations(s_animation_t* psrc, s_animation_t* pdest, int srcfr
 
 #if 0
     // cleanup weightlists
-    for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
+    for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
         panim->weight[k] = 0.0;
     }
 
-    for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
-        if (g_studiomdl.anim.weightlist[panim->weightlist].weight[k] > 0.0) {
+    for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
+        if (ctx.anim.weightlist[panim->weightlist].weight[k] > 0.0) {
             for (j = 0; j < panim->numframes; j++) {
                 if (fabs(panim->sanim[j][k].pos[0]) > 0.001 ||
                     fabs(panim->sanim[j][k].pos[1]) > 0.001 ||
@@ -1243,7 +1240,7 @@ void subtractBaseAnimations(s_animation_t* psrc, s_animation_t* pdest, int srcfr
                     fabs(panim->sanim[j][k].rot[0]) > 0.001 ||
                     fabs(panim->sanim[j][k].rot[1]) > 0.001 ||
                     fabs(panim->sanim[j][k].rot[2]) > 0.001) {
-                    panim->weight[k] = g_studiomdl.anim.weightlist[panim->weightlist].weight[k];
+                    panim->weight[k] = ctx.anim.weightlist[panim->weightlist].weight[k];
                     break;
                 }
             }
@@ -1270,14 +1267,14 @@ void QuaternionSlerp(const RadianEuler &r0, const RadianEuler &r1, float t, Radi
 // Purpose: subtract each frame running interpolation of the first frame to the last frame
 //-----------------------------------------------------------------------------
 
-void linearDelta(s_animation_t* psrc, s_animation_t* pdest, int srcframe, AutoLayerFlags flags) {
+void linearDelta(StudioMdlState &ctx, s_animation_t* psrc, s_animation_t* pdest, int srcframe, AutoLayerFlags flags) {
     int j, k;
 
     // create delta animations
     s_bone_t src0[MAXSTUDIOSRCBONES];
     s_bone_t src1[MAXSTUDIOSRCBONES];
 
-    for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
+    for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
         VectorCopy(psrc->sanim[0][k].pos, src0[k].pos);
         VectorCopy(psrc->sanim[0][k].rot, src0[k].rot);
         VectorCopy(psrc->sanim[srcframe][k].pos, src1[k].pos);
@@ -1288,7 +1285,7 @@ void linearDelta(s_animation_t* psrc, s_animation_t* pdest, int srcframe, AutoLa
         MdlWarning("{} too short for splinedelta\n", pdest->name);
     }
 
-    for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
+    for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
         for (j = 0; j < pdest->numframes; j++) {
             float s = 1;
             if (pdest->numframes > 1) {
@@ -1346,13 +1343,13 @@ void linearDelta(s_animation_t* psrc, s_animation_t* pdest, int srcframe, AutoLa
 // Purpose: turn the animation into a lower fps encoded version
 //-----------------------------------------------------------------------------
 
-void reencodeAnimation(s_animation_t* panim, int frameskip) {
+void reencodeAnimation(StudioMdlState &ctx, s_animation_t* panim, int frameskip) {
     vstd::FunctionTimingRecorder _("Simplify");
     int j, k, n;
 
     n = 1;
     for (j = frameskip; j < panim->numframes; j += frameskip) {
-        for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
+        for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
             panim->sanim[n][k] = panim->sanim[j][k];
         }
         n++;
@@ -1367,10 +1364,10 @@ void reencodeAnimation(s_animation_t* panim, int frameskip) {
 // Purpose: clip or pad the animation as nessesary to be a specified number of frames
 //-----------------------------------------------------------------------------
 
-void forceNumframes(s_animation_t* panim, int numframes) {
+void forceNumframes(StudioMdlState &ctx, s_animation_t* panim, int numframes) {
     int j;
 
-    const int size = std::ssize(g_studiomdl.bones.bonetable) * sizeof(s_bone_t);
+    const int size = std::ssize(ctx.bones.bonetable) * sizeof(s_bone_t);
 
     // copy
     for (j = panim->numframes; j < numframes; j++) {
@@ -1386,7 +1383,7 @@ void forceNumframes(s_animation_t* panim, int numframes) {
 // Purpose: subtract each frame from the previous to calculate the animations derivative
 //-----------------------------------------------------------------------------
 
-void createDerivative(s_animation_t* panim, float scale) {
+void createDerivative(StudioMdlState &ctx, s_animation_t* panim, float scale) {
     int j, k;
 
     s_bone_t orig[MAXSTUDIOSRCBONES];
@@ -1396,7 +1393,7 @@ void createDerivative(s_animation_t* panim, float scale) {
         j--;
     }
 
-    for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
+    for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
         VectorCopy(panim->sanim[j][k].pos, orig[k].pos);
         VectorCopy(panim->sanim[j][k].rot, orig[k].rot);
     }
@@ -1413,7 +1410,7 @@ void createDerivative(s_animation_t* panim, float scale) {
         }
         pdest = panim->sanim[j];
 
-        for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
+        for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
             if (panim->weight[k] > 0) {
                 /*
 				{
@@ -1459,7 +1456,7 @@ void createDerivative(s_animation_t* panim, float scale) {
 // Purpose: subtract each frame from the previous to calculate the animations derivative
 //-----------------------------------------------------------------------------
 
-void clearAnimations(s_animation_t* panim, bool bRetainDuration) {
+void clearAnimations(StudioMdlState &ctx, s_animation_t* panim, bool bRetainDuration) {
     panim->flags |= StudioSequenceFlags::Delta;
     panim->flags |= StudioSequenceFlags::AllZeros;
 
@@ -1470,7 +1467,7 @@ void clearAnimations(s_animation_t* panim, bool bRetainDuration) {
 
         int k;
 
-        for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
+        for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
             panim->sanim[0][k].pos = Vector(0, 0, 0);
             panim->sanim[0][k].rot = RadianEuler(0, 0, 0);
             panim->weight[k] = 0.0;
@@ -1487,7 +1484,7 @@ void clearAnimations(s_animation_t* panim, bool bRetainDuration) {
 // Purpose: remove all world rotation from a bone
 //-----------------------------------------------------------------------------
 
-void counterRotateBone(s_animation_t* panim, int iBone, QAngle target) {
+void counterRotateBone(StudioMdlState &ctx, s_animation_t* panim, int iBone, QAngle target) {
     matrix3x4_t boneToWorld[MAXSTUDIOBONES];
     Vector pos;
     matrix3x4_t defaultBoneToWorld;
@@ -1497,13 +1494,13 @@ void counterRotateBone(s_animation_t* panim, int iBone, QAngle target) {
     AngleMatrix(target, defaultBoneToWorld);
 
     for (j = 0; j < panim->numframes; j++) {
-        CalcBoneTransforms(panim, j, boneToWorld);
+        CalcBoneTransforms(ctx, panim, j, boneToWorld);
 
         MatrixPosition(boneToWorld[iBone], pos);
         PositionMatrix(pos, defaultBoneToWorld);
         boneToWorld[iBone] = defaultBoneToWorld;
 
-        solveBone(panim, j, iBone, boneToWorld);
+        solveBone(ctx, panim, j, iBone, boneToWorld);
     }
 }
 
@@ -1584,25 +1581,25 @@ void BuildRawTransforms(const s_source_t* psource, const char* pAnimationName, i
 //-----------------------------------------------------------------------------
 // Purpose: convert source bone animation into global bone animation
 //-----------------------------------------------------------------------------
-void TranslateAnimations(const s_source_t* pSource, const matrix3x4_t* pSrcBoneToWorld, matrix3x4_t* pDestBoneToWorld) {
+void TranslateAnimations(StudioMdlState &ctx, const s_source_t* pSource, const matrix3x4_t* pSrcBoneToWorld, matrix3x4_t* pDestBoneToWorld) {
     matrix3x4_t bonematrix;
 
-    for (int k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
+    for (int k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
         const int q = pSource->boneGlobalToLocal[k];
         if (q == -1) {
             // unknown bone, copy over defaults
-            if (g_studiomdl.bones.bonetable[k].parent >= 0) {
-                AngleMatrix(g_studiomdl.bones.bonetable[k].rot, g_studiomdl.bones.bonetable[k].pos, bonematrix);
-                ConcatTransforms(pDestBoneToWorld[g_studiomdl.bones.bonetable[k].parent], bonematrix,
+            if (ctx.bones.bonetable[k].parent >= 0) {
+                AngleMatrix(ctx.bones.bonetable[k].rot, ctx.bones.bonetable[k].pos, bonematrix);
+                ConcatTransforms(pDestBoneToWorld[ctx.bones.bonetable[k].parent], bonematrix,
                                  pDestBoneToWorld[k]);
             }
             else {
-                AngleMatrix(g_studiomdl.bones.bonetable[k].rot, g_studiomdl.bones.bonetable[k].pos,
+                AngleMatrix(ctx.bones.bonetable[k].rot, ctx.bones.bonetable[k].pos,
                             pDestBoneToWorld[k]);
             }
         }
         else {
-            ConcatTransforms(pSrcBoneToWorld[q], g_studiomdl.bones.bonetable[k].srcRealign, pDestBoneToWorld[k]);
+            ConcatTransforms(pSrcBoneToWorld[q], ctx.bones.bonetable[k].srcRealign, pDestBoneToWorld[k]);
         }
     }
 }
@@ -1611,7 +1608,7 @@ void TranslateAnimations(const s_source_t* pSource, const matrix3x4_t* pSrcBoneT
 // Purpose: convert source bone animation into global bone animation
 //-----------------------------------------------------------------------------
 void
-ConvertAnimation(const s_source_t* psource, const char* pAnimationName, int frame, float scale, Vector const &shift,
+ConvertAnimation(StudioMdlState &ctx, const s_source_t* psource, const char* pAnimationName, int frame, float scale, Vector const &shift,
                  RadianEuler const &rotate, s_bone_t* dest) {
     int k;
     matrix3x4_t srcBoneToWorld[MAXSTUDIOSRCBONES];
@@ -1630,20 +1627,20 @@ ConvertAnimation(const s_source_t* psource, const char* pAnimationName, int fram
 	}
 	*/
 
-    TranslateAnimations(psource, srcBoneToWorld, destBoneToWorld);
+    TranslateAnimations(ctx, psource, srcBoneToWorld, destBoneToWorld);
 
-    for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
+    for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
         MatrixInvert(destBoneToWorld[k], destWorldToBone[k]);
     }
 
     // convert source_space_local_to_world transforms to shared_space_local_to_world transforms
-    for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
-        if (g_studiomdl.bones.bonetable[k].parent == -1) {
+    for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
+        if (ctx.bones.bonetable[k].parent == -1) {
             MatrixCopy(destBoneToWorld[k], bonematrix);
         }
         else {
             // convert my transform into parent relative space
-            ConcatTransforms(destWorldToBone[g_studiomdl.bones.bonetable[k].parent], destBoneToWorld[k], bonematrix);
+            ConcatTransforms(destWorldToBone[ctx.bones.bonetable[k].parent], destBoneToWorld[k], bonematrix);
 
             // printf("%s : %s\n", psource->localBone[q2].name, psource->localBone[q].name );
 
@@ -1660,88 +1657,88 @@ ConvertAnimation(const s_source_t* psource, const char* pAnimationName, int fram
 //-----------------------------------------------------------------------------
 // Purpose: copy the raw animation data from the source files into the individual animations
 //-----------------------------------------------------------------------------
-void RemapAnimations() {
+void RemapAnimations(StudioMdlState &ctx) {
     vstd::FunctionTimingRecorder _("Simplify");
     int i, j;
 
     // copy source animations
-    for (i = 0; i < g_studiomdl.anim.animations.size(); i++) {
-        s_animation_t* panim = g_studiomdl.anim.animations[i];
+    for (i = 0; i < ctx.anim.animations.size(); i++) {
+        s_animation_t* panim = ctx.anim.animations[i];
 
         s_source_t* psource = panim->source;
         const s_sourceanim_t* pSourceAnim = FindSourceAnim(psource, panim->animationname.view());
-        const int size = std::ssize(g_studiomdl.bones.bonetable) * sizeof(s_bone_t);
+        const int size = std::ssize(ctx.bones.bonetable) * sizeof(s_bone_t);
 
         const int n = panim->startframe - pSourceAnim->startframe;
-        // printf("%s %d:%d\n", g_studiomdl.panimation[i]->filename, g_studiomdl.panimation[i]->startframe, pSourceAnim->startframe );
+        // printf("%s %d:%d\n", ctx.panimation[i]->filename, ctx.panimation[i]->startframe, pSourceAnim->startframe );
         for (j = 0; j < panim->numframes; j++) {
             panim->sanim[j] = (s_bone_t*) calloc(1, size);
 
-            ConvertAnimation(psource, panim->animationname, n + j, panim->scale, panim->adjust, panim->rotation,
+            ConvertAnimation(ctx, psource, panim->animationname, n + j, panim->scale, panim->adjust, panim->rotation,
                              panim->sanim[j]);
         }
     }
 }
 
-void buildAnimationWeights() {
+void buildAnimationWeights(StudioMdlState &ctx) {
     int i, j, k;
 
     // rlink animation weights
-    for (i = 0; i < std::ssize(g_studiomdl.anim.weightlist); i++) {
+    for (i = 0; i < std::ssize(ctx.anim.weightlist); i++) {
         if (i == 0) {
             // initialize weights
-            for (j = 0; j < std::ssize(g_studiomdl.bones.bonetable); j++) {
-                if (g_studiomdl.bones.bonetable[j].parent != -1) {
+            for (j = 0; j < std::ssize(ctx.bones.bonetable); j++) {
+                if (ctx.bones.bonetable[j].parent != -1) {
                     // set child bones to uninitialized
-                    g_studiomdl.anim.weightlist[i].weight[j] = -1;
+                    ctx.anim.weightlist[i].weight[j] = -1;
                 }
                 else if (i == 0) {
                     // set root bones to 1
-                    g_studiomdl.anim.weightlist[i].weight[j] = 1;
-                    g_studiomdl.anim.weightlist[i].posweight[j] = 1;
+                    ctx.anim.weightlist[i].weight[j] = 1;
+                    ctx.anim.weightlist[i].posweight[j] = 1;
                 }
             }
         }
         else {
             // initialize weights
-            for (j = 0; j < std::ssize(g_studiomdl.bones.bonetable); j++) {
-                if (g_studiomdl.bones.bonetable[j].parent != -1) {
+            for (j = 0; j < std::ssize(ctx.bones.bonetable); j++) {
+                if (ctx.bones.bonetable[j].parent != -1) {
                     // set child bones to uninitialized
-                    g_studiomdl.anim.weightlist[i].weight[j] = g_studiomdl.anim.weightlist[0].weight[j];
-                    g_studiomdl.anim.weightlist[i].posweight[j] = g_studiomdl.anim.weightlist[0].posweight[j];
+                    ctx.anim.weightlist[i].weight[j] = ctx.anim.weightlist[0].weight[j];
+                    ctx.anim.weightlist[i].posweight[j] = ctx.anim.weightlist[0].posweight[j];
                 }
                 else {
                     // set root bones to 0
-                    g_studiomdl.anim.weightlist[i].weight[j] = 0;
-                    g_studiomdl.anim.weightlist[i].posweight[j] = 0;
+                    ctx.anim.weightlist[i].weight[j] = 0;
+                    ctx.anim.weightlist[i].posweight[j] = 0;
                 }
             }
         }
 
         // match up weights
-        for (j = 0; j < g_studiomdl.anim.weightlist[i].numbones; j++) {
-            k = findGlobalBone(g_studiomdl.anim.weightlist[i].bonename[j]);
+        for (j = 0; j < ctx.anim.weightlist[i].numbones; j++) {
+            k = findGlobalBone(ctx, ctx.anim.weightlist[i].bonename[j]);
             if (k == -1) {
                 MdlWarning("unknown bone reference '{}' in weightlist '{}'\n",
-                           g_studiomdl.anim.weightlist[i].bonename[j],
-                           g_studiomdl.anim.weightlist[i].name);
+                           ctx.anim.weightlist[i].bonename[j],
+                           ctx.anim.weightlist[i].name);
             }
             else {
-                g_studiomdl.anim.weightlist[i].weight[k] = g_studiomdl.anim.weightlist[i].boneweight[j];
-                g_studiomdl.anim.weightlist[i].posweight[k] = g_studiomdl.anim.weightlist[i].boneposweight[j];
+                ctx.anim.weightlist[i].weight[k] = ctx.anim.weightlist[i].boneweight[j];
+                ctx.anim.weightlist[i].posweight[k] = ctx.anim.weightlist[i].boneposweight[j];
             }
         }
     }
 
-    for (i = 0; i < std::ssize(g_studiomdl.anim.weightlist); i++) {
+    for (i = 0; i < std::ssize(ctx.anim.weightlist); i++) {
         // copy weights forward
-        for (j = 0; j < std::ssize(g_studiomdl.bones.bonetable); j++) {
-            if (g_studiomdl.anim.weightlist[i].weight[j] < 0.0) {
-                if (g_studiomdl.bones.bonetable[j].parent != -1) {
-                    g_studiomdl.anim.weightlist[i].weight[j] = g_studiomdl.anim.weightlist[i].weight[g_studiomdl.bones.
+        for (j = 0; j < std::ssize(ctx.bones.bonetable); j++) {
+            if (ctx.anim.weightlist[i].weight[j] < 0.0) {
+                if (ctx.bones.bonetable[j].parent != -1) {
+                    ctx.anim.weightlist[i].weight[j] = ctx.anim.weightlist[i].weight[ctx.bones.
                         bonetable[j].
                         parent];
-                    g_studiomdl.anim.weightlist[i].posweight[j] = g_studiomdl.anim.weightlist[i].posweight[g_studiomdl.
+                    ctx.anim.weightlist[i].posweight[j] = ctx.anim.weightlist[i].posweight[ctx.
                         bones.bonetable[
                             j].parent];
                 }
@@ -1750,16 +1747,16 @@ void buildAnimationWeights() {
     }
 }
 
-void setAnimationWeight(s_animation_t* panim, int index) {
+void setAnimationWeight(StudioMdlState &ctx, s_animation_t* panim, int index) {
     // copy weightlists to animations
-    for (int k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
-        panim->weight[k] = g_studiomdl.anim.weightlist[index].weight[k];
-        panim->posweight[k] = g_studiomdl.anim.weightlist[index].posweight[k];
+    for (int k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
+        panim->weight[k] = ctx.anim.weightlist[index].weight[k];
+        panim->posweight[k] = ctx.anim.weightlist[index].posweight[k];
     }
 }
 
-void addDeltas(s_animation_t* panim, int frame, float s, Vector delta_pos[], Quaternion delta_q[]) {
-    for (int k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
+void addDeltas(StudioMdlState &ctx, s_animation_t* panim, int frame, float s, Vector delta_pos[], Quaternion delta_q[]) {
+    for (int k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
         if (panim->weight[k] > 0) {
             QuaternionSMAngles(s, delta_q[k], Quaternion(panim->sanim[frame][k].rot), panim->sanim[frame][k].rot);
             VectorMA(panim->sanim[frame][k].pos, s, delta_pos[k], panim->sanim[frame][k].pos);
@@ -1774,7 +1771,7 @@ void addDeltas(s_animation_t* panim, int frame, float s, Vector delta_pos[], Qua
 // end:		positive number, specifies how many frames from the beginning to blend
 //-----------------------------------------------------------------------------
 
-void fixupLoopingDiscontinuities(s_animation_t* panim, int start, int end) {
+void fixupLoopingDiscontinuities(StudioMdlState &ctx, s_animation_t* panim, int start, int end) {
     int j, k, m, n;
 
     // fix C0 errors on looping animations
@@ -1787,7 +1784,7 @@ void fixupLoopingDiscontinuities(s_animation_t* panim, int start, int end) {
     if (m == 0)
         return;
 
-    for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
+    for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
         VectorSubtract(panim->sanim[m][k].pos, panim->sanim[0][k].pos, delta_pos[k]);
         QuaternionMA(Quaternion(panim->sanim[m][k].rot), -1, Quaternion(panim->sanim[0][k].rot), delta_q[k]);
         QAngle ang;
@@ -1797,8 +1794,8 @@ void fixupLoopingDiscontinuities(s_animation_t* panim, int start, int end) {
 
     // HACK: skip fixup for motion that'll be matched with linear extraction
     // FIXME: remove when "global" extraction moved into normal ordered processing loop
-    for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
-        if (g_studiomdl.bones.bonetable[k].parent == -1) {
+    for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
+        if (ctx.bones.bonetable[k].parent == -1) {
             if (HasFlag(panim->motiontype, StudioMotionFlags::LX))
                 delta_pos[k].x = 0.0;
             if (HasFlag(panim->motiontype, StudioMotionFlags::LY))
@@ -1827,7 +1824,7 @@ void fixupLoopingDiscontinuities(s_animation_t* panim, int start, int end) {
         s = (n / nf);
         s = 3 * s * s - 2 * s * s * s;
         // printf("%d : %d (%lf)\n", m+j, n, -s );
-        addDeltas(panim, m + j, -s, delta_pos, delta_q);
+        addDeltas(ctx, panim, m + j, -s, delta_pos, delta_q);
     }
 
     for (j = 0; j < end; j++) {
@@ -1835,13 +1832,13 @@ void fixupLoopingDiscontinuities(s_animation_t* panim, int start, int end) {
         s = (n / nf);
         s = 3 * s * s - 2 * s * s * s;
         //printf("%d : %d (%lf)\n", j, n, s );
-        addDeltas(panim, j, s, delta_pos, delta_q);
+        addDeltas(ctx, panim, j, s, delta_pos, delta_q);
     }
 }
 
 
 void
-matchBlend(s_animation_t* pDestAnim, s_animation_t* pSrcAnimation, int iSrcFrame, int iDestFrame, int iPre, int iPost) {
+matchBlend(StudioMdlState &ctx, s_animation_t* pDestAnim, s_animation_t* pSrcAnimation, int iSrcFrame, int iDestFrame, int iPre, int iPost) {
     int j, k;
 
     if (HasFlag(pDestAnim->flags, StudioSequenceFlags::Looping)) {
@@ -1856,7 +1853,7 @@ matchBlend(s_animation_t* pDestAnim, s_animation_t* pSrcAnimation, int iSrcFrame
     Vector delta_pos[MAXSTUDIOSRCBONES];
     Quaternion delta_q[MAXSTUDIOSRCBONES];
 
-    for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
+    for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
         VectorSubtract(pSrcAnimation->sanim[iSrcFrame][k].pos, pDestAnim->sanim[iDestFrame][k].pos, delta_pos[k]);
         QuaternionMA(Quaternion(pSrcAnimation->sanim[iSrcFrame][k].rot), -1,
                      Quaternion(pDestAnim->sanim[iDestFrame][k].rot), delta_q[k]);
@@ -1869,8 +1866,8 @@ matchBlend(s_animation_t* pDestAnim, s_animation_t* pSrcAnimation, int iSrcFrame
 
     // HACK: skip fixup for motion that'll be matched with linear extraction
     // FIXME: remove when "global" extraction moved into normal ordered processing loop
-    for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
-        if (g_studiomdl.bones.bonetable[k].parent == -1) {
+    for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
+        if (ctx.bones.bonetable[k].parent == -1) {
             if (HasFlag(pDestAnim->motiontype, StudioMotionFlags::LX))
                 delta_pos[k].x = 0.0;
             if (HasFlag(pDestAnim->motiontype, StudioMotionFlags::LY))
@@ -1900,10 +1897,10 @@ matchBlend(s_animation_t* pDestAnim, s_animation_t* pSrcAnimation, int iSrcFrame
             k = k % (pDestAnim->numframes - 1);
         }
         //printf("%d : %d (%lf)\n", iDestFrame + j, k, s );
-        addDeltas(pDestAnim, k, s, delta_pos, delta_q);
+        addDeltas(ctx, pDestAnim, k, s, delta_pos, delta_q);
         // make sure final frame of a looping animation matches frame 0
         if (HasFlag(pDestAnim->flags, StudioSequenceFlags::Looping) && k == 0) {
-            addDeltas(pDestAnim, pDestAnim->numframes - 1, s, delta_pos, delta_q);
+            addDeltas(ctx, pDestAnim, pDestAnim->numframes - 1, s, delta_pos, delta_q);
         }
     }
 }
@@ -1912,7 +1909,7 @@ matchBlend(s_animation_t* pDestAnim, s_animation_t* pSrcAnimation, int iSrcFrame
 // Purpose: copy the first frame overtop the last frame
 //-----------------------------------------------------------------------------
 
-void forceAnimationLoop(s_animation_t* panim) {
+void forceAnimationLoop(StudioMdlState &ctx, s_animation_t* panim) {
     int k, m, n;
 
     // force looping animations to be looping
@@ -1920,7 +1917,7 @@ void forceAnimationLoop(s_animation_t* panim) {
         n = 0;
         m = panim->numframes - 1;
 
-        for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
+        for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
             const StudioMotionFlags type = panim->motiontype;
 
             if (!HasFlag(type, StudioMotionFlags::LX))
@@ -1947,7 +1944,7 @@ void forceAnimationLoop(s_animation_t* panim) {
 // Purpose: calculate an single bones animation in a different parent's reference frame
 //-----------------------------------------------------------------------------
 
-void localHierarchy(s_animation_t* panim, char* pBonename, char* pParentname, int start, int peak, int tail, int end) {
+void localHierarchy(StudioMdlState &ctx, s_animation_t* panim, char* pBonename, char* pParentname, int start, int peak, int tail, int end) {
     auto &rule = panim->localhierarchies.emplace_back();
 
     rule.start = start;
@@ -2004,7 +2001,7 @@ void localHierarchy(s_animation_t* panim, char* pBonename, char* pParentname, in
     matrix3x4_t worldToBone;
     matrix3x4_t local;
 
-    rule.bone = findGlobalBone(pBonename);
+    rule.bone = findGlobalBone(ctx, pBonename);
     if (rule.bone == -1) {
         MdlError("anim '{}' references unknown bone '{}' in localhierarchy\n", panim->name, pBonename);
     }
@@ -2013,7 +2010,7 @@ void localHierarchy(s_animation_t* panim, char* pBonename, char* pParentname, in
         rule.newparent = -1;
     }
     else {
-        rule.newparent = findGlobalBone(pParentname);
+        rule.newparent = findGlobalBone(ctx, pParentname);
         if (rule.newparent == -1) {
             MdlError("anim '{}' references unknown bone '{}' in localhierarchy\n", panim->name, pParentname);
         }
@@ -2030,7 +2027,7 @@ void localHierarchy(s_animation_t* panim, char* pBonename, char* pParentname, in
                            k + rule.start + panim->startframe - pSourceAnim->startframe, panim->scale, panim->adjust,
                            panim->rotation, panim->flags, srcBoneToWorld);
 
-        TranslateAnimations(panim->source, srcBoneToWorld, boneToWorld);
+        TranslateAnimations(ctx, panim->source, srcBoneToWorld, boneToWorld);
 
         if (rule.newparent != -1) {
             MatrixInvert(boneToWorld[rule.newparent], worldToBone);
@@ -2059,7 +2056,7 @@ void localHierarchy(s_animation_t* panim, char* pBonename, char* pParentname, in
 //-----------------------------------------------------------------------------
 
 
-void makeAngle(s_animation_t* panim, float angle) {
+void makeAngle(StudioMdlState &ctx, s_animation_t* panim, float angle) {
     float da = 0.0f;
 
     if (!panim->piecewisemove.empty()) {
@@ -2078,7 +2075,7 @@ void makeAngle(s_animation_t* panim, float angle) {
     }
     else {
         // look for movement in root bone
-        Vector pos = panim->sanim[(panim->numframes - 1)][g_rootIndex].pos - panim->sanim[0][g_rootIndex].pos;
+        Vector pos = panim->sanim[(panim->numframes - 1)][ctx.simplify.rootIndex].pos - panim->sanim[0][ctx.simplify.rootIndex].pos;
         if (pos[0] != 0 || pos[1] != 0) {
             const float a = atan2(pos[1], pos[0]) * (180 / M_PI);
             da = angle - a;
@@ -2097,8 +2094,8 @@ void makeAngle(s_animation_t* panim, float angle) {
     AngleMatrix(QAngle(0, da, 0), rootxform);
 
     for (int j = 0; j < panim->numframes; j++) {
-        for (int k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
-            if (g_studiomdl.bones.bonetable[k].parent == -1) {
+        for (int k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
+            if (ctx.bones.bonetable[k].parent == -1) {
                 AngleMatrix(panim->sanim[j][k].rot, panim->sanim[j][k].pos, src);
                 ConcatTransforms(rootxform, src, dest);
                 MatrixAngles(dest, panim->sanim[j][k].rot, panim->sanim[j][k].pos);
@@ -2114,12 +2111,13 @@ void makeAngle(s_animation_t* panim, float angle) {
 //-----------------------------------------------------------------------------
 
 void solveBone(
+    StudioMdlState &ctx,
     s_animation_t* panim,
     int iFrame,
     int iBone,
     matrix3x4_t* pBoneToWorld
 ) {
-    const int iParent = g_studiomdl.bones.bonetable[iBone].parent;
+    const int iParent = ctx.bones.bonetable[iBone].parent;
 
     if (iParent == -1) {
         MatrixAngles(pBoneToWorld[iBone], panim->sanim[iFrame][iBone].rot, panim->sanim[iFrame][iBone].pos);
@@ -2167,7 +2165,7 @@ float IKRuleWeight(s_ikrule_t* pRule, float flCycle) {
 //-----------------------------------------------------------------------------
 // Purpose: Lock the ik target to a specific location in order to clean up bad animations (shouldn't be needed).
 //-----------------------------------------------------------------------------
-void fixupIKErrors(s_animation_t* panim, s_ikrule_t* pRule) {
+void fixupIKErrors(StudioMdlState &ctx, s_animation_t* panim, s_ikrule_t* pRule) {
     int k;
 
     if (pRule->start == 0 && pRule->peak == 0 && pRule->tail == 0 && pRule->end == 0) {
@@ -2206,7 +2204,7 @@ void fixupIKErrors(s_animation_t* panim, s_ikrule_t* pRule) {
                 Vector targetPos;
                 Quaternion targetQuat;
 
-                pRule->bone = findGlobalBone(pRule->bonename);
+                pRule->bone = findGlobalBone(ctx, pRule->bonename);
                 if (pRule->bone == -1) {
                     MdlError("unknown bone '{}' in ikrule\n", pRule->bonename);
                 }
@@ -2214,16 +2212,16 @@ void fixupIKErrors(s_animation_t* panim, s_ikrule_t* pRule) {
                 matrix3x4_t srcBoneToWorld[MAXSTUDIOSRCBONES];
                 BuildRawTransforms(panim->source, pRule->contact + panim->startframe - panim->source->startframe,
                                    srcBoneToWorld);
-                TranslateAnimations(panim->source, srcBoneToWorld, boneToWorld);
+                TranslateAnimations(ctx, panim->source, srcBoneToWorld, boneToWorld);
 
                 MatrixInvert(boneToWorld[pRule->bone], worldToBone);
-                ConcatTransforms(worldToBone, boneToWorld[g_studiomdl.anim.ikchain[pRule->chain].link[2].bone], local);
+                ConcatTransforms(worldToBone, boneToWorld[ctx.anim.ikchain[pRule->chain].link[2].bone], local);
                 MatrixAngles(local, targetQuat, targetPos);
 
                 for (k = 0; k < pRule->errorData.numerror; k++) {
                     BuildRawTransforms(panim->source, k + pRule->start + panim->startframe - panim->source->startframe,
                                        srcBoneToWorld);
-                    TranslateAnimations(panim->source, srcBoneToWorld, boneToWorld);
+                    TranslateAnimations(ctx, panim->source, srcBoneToWorld, boneToWorld);
 
                     float cycle = (panim->numframes <= 1) ? 0 : (k + pRule->start) / (panim->numframes - 1);
                     float s = IKRuleWeight(pRule, cycle);
@@ -2233,7 +2231,7 @@ void fixupIKErrors(s_animation_t* panim, s_ikrule_t* pRule) {
 
                     // convert into rule bone space
                     MatrixInvert(boneToWorld[pRule->bone], worldToBone);
-                    ConcatTransforms(worldToBone, boneToWorld[g_studiomdl.anim.ikchain[pRule->chain].link[2].bone],
+                    ConcatTransforms(worldToBone, boneToWorld[ctx.anim.ikchain[pRule->chain].link[2].bone],
                                      local);
                     MatrixAngles(local, curQuat, curPos);
 
@@ -2248,22 +2246,22 @@ void fixupIKErrors(s_animation_t* panim, s_ikrule_t* pRule) {
 
                     // printf("%d (%d) : %.1f %.1f %1.f\n", k + pRule->start, pRule->peak, pos.x, pos.y, pos.z );
                     Studio_SolveIK(
-                        g_studiomdl.anim.ikchain[pRule->chain].link[0].bone,
-                        g_studiomdl.anim.ikchain[pRule->chain].link[1].bone,
-                        g_studiomdl.anim.ikchain[pRule->chain].link[2].bone,
+                        ctx.anim.ikchain[pRule->chain].link[0].bone,
+                        ctx.anim.ikchain[pRule->chain].link[1].bone,
+                        ctx.anim.ikchain[pRule->chain].link[2].bone,
                         worldPos,
                         boneToWorld);
 
                     // slam final matrix
                     // FIXME: this isn't taking into account the IK may have failed
                     ConcatTransforms(boneToWorld[pRule->bone], local,
-                                     boneToWorld[g_studiomdl.anim.ikchain[pRule->chain].link[2].bone]);
+                                     boneToWorld[ctx.anim.ikchain[pRule->chain].link[2].bone]);
 
-                    solveBone(panim, k + pRule->start, g_studiomdl.anim.ikchain[pRule->chain].link[0].bone,
+                    solveBone(ctx, panim, k + pRule->start, ctx.anim.ikchain[pRule->chain].link[0].bone,
                               boneToWorld);
-                    solveBone(panim, k + pRule->start, g_studiomdl.anim.ikchain[pRule->chain].link[1].bone,
+                    solveBone(ctx, panim, k + pRule->start, ctx.anim.ikchain[pRule->chain].link[1].bone,
                               boneToWorld);
-                    solveBone(panim, k + pRule->start, g_studiomdl.anim.ikchain[pRule->chain].link[2].bone,
+                    solveBone(ctx, panim, k + pRule->start, ctx.anim.ikchain[pRule->chain].link[2].bone,
                               boneToWorld);
                 }
             }
@@ -2273,8 +2271,8 @@ void fixupIKErrors(s_animation_t* panim, s_ikrule_t* pRule) {
         case IkRuleType::Ground: {
             matrix3x4a_t boneToWorld[MAXSTUDIOBONES];
 
-            const int bone = g_studiomdl.anim.ikchain[pRule->chain].link[2].bone;
-            CalcBoneTransforms(panim, pRule->contact, boneToWorld);
+            const int bone = ctx.anim.ikchain[pRule->chain].link[2].bone;
+            CalcBoneTransforms(ctx, panim, pRule->contact, boneToWorld);
             // FIXME: add in motion
 
             Vector footfall;
@@ -2282,33 +2280,33 @@ void fixupIKErrors(s_animation_t* panim, s_ikrule_t* pRule) {
 
             //printf("%d %d %d %d (%d)\n", pRule->start, pRule->peak, pRule->tail, pRule->end, pRule->errorData.numerror );
             for (k = 0; k < pRule->errorData.errors.size(); k++) {
-                CalcBoneTransforms(panim, k + pRule->start, boneToWorld);
+                CalcBoneTransforms(ctx, panim, k + pRule->start, boneToWorld);
 
                 const float cycle = (panim->numframes <= 1) ? 0 : (float) (k + pRule->start) / (panim->numframes - 1);
                 float s = IKRuleWeight(pRule, cycle);
                 s = 1.0; // FIXME - the weight rule is wrong
 
                 Vector orig;
-                MatrixPosition(boneToWorld[g_studiomdl.anim.ikchain[pRule->chain].link[2].bone], orig);
+                MatrixPosition(boneToWorld[ctx.anim.ikchain[pRule->chain].link[2].bone], orig);
 
                 Vector pos = (footfall + calcMovement(panim, k + pRule->start, pRule->contact)) * s + orig * (1.0 - s);
 
                 //printf("%d (%.1f:%.1f) : %.1f %.1f %1.f\n", k + pRule->start, cycle, s, pos.x, pos.y, pos.z );
 
                 Studio_SolveIK(
-                    g_studiomdl.anim.ikchain[pRule->chain].link[0].bone,
-                    g_studiomdl.anim.ikchain[pRule->chain].link[1].bone,
-                    g_studiomdl.anim.ikchain[pRule->chain].link[2].bone,
+                    ctx.anim.ikchain[pRule->chain].link[0].bone,
+                    ctx.anim.ikchain[pRule->chain].link[1].bone,
+                    ctx.anim.ikchain[pRule->chain].link[2].bone,
                     pos,
                     boneToWorld);
 
-                solveBone(panim, k + pRule->start, g_studiomdl.anim.ikchain[pRule->chain].link[0].bone, boneToWorld);
-                solveBone(panim, k + pRule->start, g_studiomdl.anim.ikchain[pRule->chain].link[1].bone, boneToWorld);
-                solveBone(panim, k + pRule->start, g_studiomdl.anim.ikchain[pRule->chain].link[2].bone, boneToWorld);
+                solveBone(ctx, panim, k + pRule->start, ctx.anim.ikchain[pRule->chain].link[0].bone, boneToWorld);
+                solveBone(ctx, panim, k + pRule->start, ctx.anim.ikchain[pRule->chain].link[1].bone, boneToWorld);
+                solveBone(ctx, panim, k + pRule->start, ctx.anim.ikchain[pRule->chain].link[2].bone, boneToWorld);
             }
         }
     }
-    forceAnimationLoop(panim); // !!!
+    forceAnimationLoop(ctx, panim); // !!!
 }
 
 
@@ -2390,28 +2388,28 @@ static void ComputeVertexAnimationSpeed(s_flexkey_t &flexKey) {
 //-----------------------------------------------------------------------------
 // Purpose: map the vertex animations to their equivalent vertex in the base animations
 //-----------------------------------------------------------------------------
-static void BuildVAnimFlags(s_source_t* pVSource, s_sourceanim_t* pVSourceAnim, int nCurrentFlexKey) {
+static void BuildVAnimFlags(StudioMdlState &ctx, s_source_t* pVSource, s_sourceanim_t* pVSourceAnim, int nCurrentFlexKey) {
     pVSourceAnim->vanim_flag = (int*) calloc(pVSource->numvertices, sizeof(int));
-    for (int n = nCurrentFlexKey; n < g_studiomdl.flex.flexkeys.size(); n++) {
+    for (int n = nCurrentFlexKey; n < ctx.flex.flexkeys.size(); n++) {
         // make sure it's the current flex file and that it's not frame 0 (happens with eyeball stuff).
-        if (g_studiomdl.flex.flexkeys[n].source != pVSource)
+        if (ctx.flex.flexkeys[n].source != pVSource)
             continue;
 
-        if (!vstd::iequals(g_studiomdl.flex.flexkeys[n].animationname, pVSourceAnim->animationname))
+        if (!vstd::iequals(ctx.flex.flexkeys[n].animationname, pVSourceAnim->animationname))
             continue;
 
-        const s_sourceanim_t* pAnim = FindSourceAnim(g_studiomdl.flex.flexkeys[n].source,
-                                                     g_studiomdl.flex.flexkeys[n].animationname.view());
+        const s_sourceanim_t* pAnim = FindSourceAnim(ctx.flex.flexkeys[n].source,
+                                                     ctx.flex.flexkeys[n].animationname.view());
         if (!pAnim)
             continue;
 
         if (pAnim->newStyleVertexAnimations != pVSourceAnim->newStyleVertexAnimations)
             continue;
 
-        if (!pAnim->newStyleVertexAnimations && g_studiomdl.flex.flexkeys[n].frame == 0)
+        if (!pAnim->newStyleVertexAnimations && ctx.flex.flexkeys[n].frame == 0)
             continue;
 
-        const int k = g_studiomdl.flex.flexkeys[n].frame;
+        const int k = ctx.flex.flexkeys[n].frame;
         for (int m = 0; m < pVSourceAnim->numvanims[k]; m++) {
             pVSourceAnim->vanim_flag[pVSourceAnim->vanim[k][m].vertex] = 1;
         }
@@ -2473,11 +2471,11 @@ private:
 //-----------------------------------------------------------------------------
 // Purpose: Build an array indexed by model vertex which indicates which vanim vertex corresponds best to it
 //-----------------------------------------------------------------------------
-static void BuildModelToVAnimMap(s_source_t* pVSource, const s_sourceanim_t* pVSourceAnim,
+static void BuildModelToVAnimMap(StudioMdlState &ctx, s_source_t* pVSource, const s_sourceanim_t* pVSourceAnim,
                                  const s_loddata_t* pmLodSource,
                                  const bool newVertexAnimations, int* pModelToVAnim) {
-    static float imapdist[MAXSTUDIOSRCVERTS]; // distance from src vert to vanim vert
-    static float imapdot[MAXSTUDIOSRCVERTS]; // dot product of src norm to vanim normal
+    std::vector<float> imapdist(pmLodSource->numvertices); // distance from src vert to vanim vert
+    std::vector<float> imapdot(pmLodSource->numvertices); // dot product of src norm to vanim normal
 
     for (int j = 0; j < pmLodSource->numvertices; j++) {
         imapdist[j] = 1E30;
@@ -2487,7 +2485,7 @@ static void BuildModelToVAnimMap(s_source_t* pVSource, const s_sourceanim_t* pVS
 
     // Build a grid to accelerate this search process:
     CVertexGrid vertexGrid;
-    const int nMinLod = MIN(g_studiomdl.options.minLod, std::ssize(g_studiomdl.body.ScriptLODs) - 1);
+    const int nMinLod = MIN(ctx.options.minLod, std::ssize(ctx.body.ScriptLODs) - 1);
     for (int k = 0; k < pmLodSource->numvertices; k++) {
         // go ahead and skip vertices that are just going to be stripped later
         // TODO: take this out when the lod clamping stuff gets moved into the LOD code instead of being a post process
@@ -2563,7 +2561,7 @@ static void BuildModelToVAnimMap(s_source_t* pVSource, const s_sourceanim_t* pVS
 static void
 BuildVAnimMap(s_source_t* pVSource, s_sourceanim_t* pVSourceAnim, s_loddata_t* pmLodSource, const int* pModelToVAnim) {
     // indexed by vertex anim vertex index
-    static int* mapp[MAXSTUDIOVERTS * 4];
+    std::vector<int*> mapp(pVSource->numvertices);
 
     // count number of times each vanim vert connectes to a model vert
     int n = 0;
@@ -2626,7 +2624,7 @@ static void AllocateDestVAnim(s_flexkey_t &flexKey, s_sourceanim_t* pVSourceAnim
 //-----------------------------------------------------------------------------
 // Purpose: map the vertex animations to their equivalent vertex in the base animations
 //-----------------------------------------------------------------------------
-void RemapVertexAnimations() {
+void RemapVertexAnimations(StudioMdlState &ctx) {
     vstd::FunctionTimingRecorder _("Simplify");
     int i, j, k;
     int n, m;
@@ -2637,14 +2635,14 @@ void RemapVertexAnimations() {
     Vector tmp;
 
     // index by vertex in targets root LOD
-    static int model_to_vanim_vert_imap[MAXSTUDIOSRCVERTS]; // model vert to vanim vert mapping
+    std::vector<int> model_to_vanim_vert_imap(MAXSTUDIOSRCVERTS); // model vert to vanim vert mapping
 
     // for all the sources of flexes, find a mapping of vertex animations to base model.
     // There can be multiple "vertices" in the base model for each animated vertex since vertices
     // are duplicated along material boundaries.
-    for (i = 0; i < g_studiomdl.flex.flexkeys.size(); i++) {
-        s_source_t* pVSource = g_studiomdl.flex.flexkeys[i].source;
-        s_sourceanim_t* pVSourceAnim = FindSourceAnim(pVSource, g_studiomdl.flex.flexkeys[i].animationname.view());
+    for (i = 0; i < ctx.flex.flexkeys.size(); i++) {
+        s_source_t* pVSource = ctx.flex.flexkeys[i].source;
+        s_sourceanim_t* pVSourceAnim = FindSourceAnim(pVSource, ctx.flex.flexkeys[i].animationname.view());
 
         // We only do old-style vertex animations
         if (pVSourceAnim->newStyleVertexAnimations)
@@ -2655,37 +2653,37 @@ void RemapVertexAnimations() {
             continue;
 
         // flag all the vertices that animate (builds the vanim_flag field of the source anim)
-        BuildVAnimFlags(pVSource, pVSourceAnim, i);
+        BuildVAnimFlags(ctx, pVSource, pVSourceAnim, i);
 
-        s_loddata_t* pLodData = g_studiomdl.body.model[g_studiomdl.flex.flexkeys[i].imodel]->m_pLodData;
+        s_loddata_t* pLodData = ctx.body.model[ctx.flex.flexkeys[i].imodel]->m_pLodData;
 
         // Map vertex indices specified in the model to ones specified in the vanim data
-        BuildModelToVAnimMap(pVSource, pVSourceAnim, pLodData, false, model_to_vanim_vert_imap);
+        BuildModelToVAnimMap(ctx, pVSource, pVSourceAnim, pLodData, false, model_to_vanim_vert_imap.data());
 
         // Build the vanim_mapcount, vanim_map fields of the source anim
-        BuildVAnimMap(pVSource, pVSourceAnim, pLodData, model_to_vanim_vert_imap);
+        BuildVAnimMap(pVSource, pVSourceAnim, pLodData, model_to_vanim_vert_imap.data());
     }
 
 #if 0
     s_vertanim_t* defaultanims = NULL;
 
-    if (g_studiomdl.flex.defaultflexkey) {
-        defaultanims = g_studiomdl.flex.defaultflexkey->source->vanim[g_studiomdl.flex.defaultflexkey->frame];
+    if (ctx.flex.defaultflexkey) {
+        defaultanims = ctx.flex.defaultflexkey->source->vanim[ctx.flex.defaultflexkey->frame];
     }
     else {
-        defaultanims = g_studiomdl.flex.flexkeys[0].source->vanim[0];
+        defaultanims = ctx.flex.flexkeys[0].source->vanim[0];
     }
 #endif
 
     // reset model to be default animations
-    if (g_studiomdl.flex.defaultflexkey) {
-        pvsource = g_studiomdl.flex.defaultflexkey->source;
-        pAnimationName = g_studiomdl.flex.defaultflexkey->animationname;
+    if (ctx.flex.defaultflexkey) {
+        pvsource = ctx.flex.defaultflexkey->source;
+        pAnimationName = ctx.flex.defaultflexkey->animationname;
         pSourceAnim = FindSourceAnim(pvsource, pAnimationName);
-        pmLodSource = g_studiomdl.body.model[g_studiomdl.flex.defaultflexkey->imodel]->m_pLodData;
+        pmLodSource = ctx.body.model[ctx.flex.defaultflexkey->imodel]->m_pLodData;
 
-        const int numsrcanims = pSourceAnim->numvanims[g_studiomdl.flex.defaultflexkey->frame];
-        const s_vertanim_t* psrcanim = pSourceAnim->vanim[g_studiomdl.flex.defaultflexkey->frame];
+        const int numsrcanims = pSourceAnim->numvanims[ctx.flex.defaultflexkey->frame];
+        const s_vertanim_t* psrcanim = pSourceAnim->vanim[ctx.flex.defaultflexkey->frame];
 
         for (m = 0; m < numsrcanims; m++) {
             if (pSourceAnim->vanim_mapcount[psrcanim->vertex]) // bah, only do it for ones that found a match!
@@ -2707,36 +2705,34 @@ void RemapVertexAnimations() {
         }
     }
 
-    static bool doesMove[MAXSTUDIOSRCVERTS];
+    std::vector<bool> doesMove(MAXSTUDIOSRCVERTS);
     int numMoved;
-
-    memset(doesMove, 0, MAXSTUDIOSRCVERTS * sizeof(bool));
     numMoved = 0;
 
-    for (i = 0; i < g_studiomdl.flex.flexkeys.size(); i++) {
-        pvsource = g_studiomdl.flex.flexkeys[i].source;
-        pAnimationName = g_studiomdl.flex.flexkeys[i].animationname;
+    for (i = 0; i < ctx.flex.flexkeys.size(); i++) {
+        pvsource = ctx.flex.flexkeys[i].source;
+        pAnimationName = ctx.flex.flexkeys[i].animationname;
         pSourceAnim = FindSourceAnim(pvsource, pAnimationName);
         if (pSourceAnim->newStyleVertexAnimations)
             continue;
 
-        pmLodSource = g_studiomdl.body.model[g_studiomdl.flex.flexkeys[i].imodel]->m_pLodData;
+        pmLodSource = ctx.body.model[ctx.flex.flexkeys[i].imodel]->m_pLodData;
 
-        // Allocate g_studiomdl.flexkey[i].vanim
-        AllocateDestVAnim(g_studiomdl.flex.flexkeys[i], pSourceAnim);
+        // Allocate ctx.flexkey[i].vanim
+        AllocateDestVAnim(ctx.flex.flexkeys[i], pSourceAnim);
 
-        s_vertanim_t* psrcanim = pSourceAnim->vanim[g_studiomdl.flex.flexkeys[i].frame];
-        s_vertanim_t* pdestanim = g_studiomdl.flex.flexkeys[i].vanim;
+        s_vertanim_t* psrcanim = pSourceAnim->vanim[ctx.flex.flexkeys[i].frame];
+        s_vertanim_t* pdestanim = ctx.flex.flexkeys[i].vanim;
 
         // frame 0 is special.  Always assume zero vertex animations
-        const int numsrcanims = (g_studiomdl.flex.flexkeys[i].frame != 0)
-                                    ? pSourceAnim->numvanims[g_studiomdl.flex.flexkeys[i].frame]
+        const int numsrcanims = (ctx.flex.flexkeys[i].frame != 0)
+                                    ? pSourceAnim->numvanims[ctx.flex.flexkeys[i].frame]
                                     : 0;
 
         for (m = 0; m < numsrcanims; m++, psrcanim++) {
             Vector delta, ndelta;
             float flSide, flScale;
-            ComputeSideAndScale(g_studiomdl.flex.flexkeys[i], psrcanim, &flSide, &flScale);
+            ComputeSideAndScale(ctx.flex.flexkeys[i], psrcanim, &flSide, &flScale);
 
             // bah, only do it for ones that found a match!
             if (flScale <= 0.0f || !pSourceAnim->vanim_mapcount[psrcanim->vertex])
@@ -2780,18 +2776,18 @@ void RemapVertexAnimations() {
 				psrcanim->vertex,
 				pdestanim->pos[0], pdestanim->pos[1], pdestanim->pos[2] );
 				*/
-                g_studiomdl.flex.flexkeys[i].numvanims++;
+                ctx.flex.flexkeys[i].numvanims++;
                 pdestanim++;
             }
         }
 
-        ComputeVertexAnimationSpeed(g_studiomdl.flex.flexkeys[i]);
+        ComputeVertexAnimationSpeed(ctx.flex.flexkeys[i]);
     }
 
     if (numMoved > MAXSTUDIOFLEXVERTS) {
         MdlError("Too many flexed verts {} ({})\n", numMoved, MAXSTUDIOFLEXVERTS);
     }
-    else if (numMoved > 0 && !g_studiomdl.options.quiet) {
+    else if (numMoved > 0 && !ctx.options.quiet) {
         std::print("Max flex verts {}\n", numMoved);
     }
 }
@@ -2804,7 +2800,7 @@ void RemapVertexAnimations() {
 // search. Applies when the flex source is the model's root LOD source and every vertex of the LOD pool comes from
 // it (no vertex added by a lower LOD): UnifyLODs recorded in pMeshVertIndexMaps[0] where each root source vertex
 // landed in the pool. Returns false when it doesn't apply; pModelToVAnim is then unspecified.
-static bool BuildModelToVAnimMapFromRootLOD(const s_model_t* pModel, const s_source_t* pVSource, int* pModelToVAnim) {
+static bool BuildModelToVAnimMapFromRootLOD(StudioMdlState &ctx, const s_model_t* pModel, const s_source_t* pVSource, int* pModelToVAnim) {
     const s_loddata_t* pLodData = pModel->m_pLodData;
     if (!pLodData || pModel->m_LodSources.empty() || pModel->m_LodSources[0] != pVSource ||
         !pLodData->pMeshVertIndexMaps[0])
@@ -2832,7 +2828,7 @@ static bool BuildModelToVAnimMapFromRootLOD(const s_model_t* pModel, const s_sou
         return false; // lower LODs added vertices with no source vertex: they need the position search
 
     // same as BuildModelToVAnimMap: vertices $minlod strips get no vertex animation
-    const int nMinLod = MIN(g_studiomdl.options.minLod, std::ssize(g_studiomdl.body.ScriptLODs) - 1);
+    const int nMinLod = MIN(ctx.options.minLod, std::ssize(ctx.body.ScriptLODs) - 1);
     if (nMinLod) {
         for (int k = 0; k < pLodData->numvertices; k++) {
             if (!(pLodData->vertex[k].lodFlag & (0xFFFFFF << nMinLod)))
@@ -2842,20 +2838,20 @@ static bool BuildModelToVAnimMapFromRootLOD(const s_model_t* pModel, const s_sou
     return true;
 }
 
-// Index of a source in g_studiomdl.source: a stable sort key, unlike the source's address
-static uint32_t SourceIndex(const s_source_t* pSource) {
-    for (int i = 0; i < g_studiomdl.anim.sources.size(); i++) {
-        if (g_studiomdl.anim.sources[i] == pSource)
+// Index of a source in ctx.source: a stable sort key, unlike the source's address
+static uint32_t SourceIndex(StudioMdlState &ctx, const s_source_t* pSource) {
+    for (int i = 0; i < ctx.anim.sources.size(); i++) {
+        if (ctx.anim.sources[i] == pSource)
             return i;
     }
-    return g_studiomdl.anim.sources.size();
+    return ctx.anim.sources.size();
 }
 
 // Collects the flex keys with new-style vertex animations, grouped by source and animation (the grouping
 // RemapVertexAnimationsNewVersion relies on)
-static int SortFlexKeys(s_flexkey_t** ppSortedFlexKeys) {
+static int SortFlexKeys(StudioMdlState &ctx, s_flexkey_t** ppSortedFlexKeys) {
     int nSortedFlexKeyCount = 0;
-    for (auto & flexkey : g_studiomdl.flex.flexkeys) {
+    for (auto & flexkey : ctx.flex.flexkeys) {
         s_source_t* pVSource = flexkey.source;
         const s_sourceanim_t* pVSourceAnim = FindSourceAnim(pVSource, flexkey.animationname.view());
 
@@ -2869,8 +2865,8 @@ static int SortFlexKeys(s_flexkey_t** ppSortedFlexKeys) {
     // The qsort comparator used here before read the array elements (s_flexkey_t *) as s_flexkey_t and returned a
     // truncated pointer difference, so the keys were never grouped reliably
     std::stable_sort(ppSortedFlexKeys, ppSortedFlexKeys + nSortedFlexKeyCount,
-                     [](const s_flexkey_t* pKey1, const s_flexkey_t* pKey2) {
-                         const auto nSource1 = SourceIndex(pKey1->source), nSource2 = SourceIndex(pKey2->source);
+                     [&ctx](const s_flexkey_t* pKey1, const s_flexkey_t* pKey2) {
+                         const auto nSource1 = SourceIndex(ctx, pKey1->source), nSource2 = SourceIndex(ctx, pKey2->source);
                          if (nSource1 != nSource2)
                              return nSource1 < nSource2;
                          return Q_stricmp(pKey1->animationname, pKey2->animationname) < 0;
@@ -2879,14 +2875,14 @@ static int SortFlexKeys(s_flexkey_t** ppSortedFlexKeys) {
     return nSortedFlexKeyCount;
 }
 
-static void RemapVertexAnimationsNewVersion() {
+static void RemapVertexAnimationsNewVersion(StudioMdlState &ctx) {
     vstd::FunctionTimingRecorder _("Simplify");
     // index by vertex in targets root LOD
-    static int model_to_vanim_vert_imap[MAXSTUDIOSRCVERTS];
+    std::vector<int> model_to_vanim_vert_imap(MAXSTUDIOSRCVERTS);
 
     // Sort flexkeys by source
-    s_flexkey_t** ppSortedFlexKeys = (s_flexkey_t**) _alloca(g_studiomdl.flex.flexkeys.size() * sizeof(s_flexkey_t *));
-    const int nSortedFlexKeyCount = SortFlexKeys(ppSortedFlexKeys);
+    s_flexkey_t** ppSortedFlexKeys = (s_flexkey_t**) _alloca(ctx.flex.flexkeys.size() * sizeof(s_flexkey_t *));
+    const int nSortedFlexKeyCount = SortFlexKeys(ctx, ppSortedFlexKeys);
     if (nSortedFlexKeyCount == 0)
         return;
 
@@ -2898,14 +2894,14 @@ static void RemapVertexAnimationsNewVersion() {
         s_flexkey_t* pFlexKey = ppSortedFlexKeys[i];
         s_source_t* pVSource = pFlexKey->source;
         s_sourceanim_t* pVSourceAnim = FindSourceAnim(pVSource, pFlexKey->animationname.view());
-        s_loddata_t* pLodSource = g_studiomdl.body.model[pFlexKey->imodel]->m_pLodData;
+        s_loddata_t* pLodSource = ctx.body.model[pFlexKey->imodel]->m_pLodData;
 
         if (pVSource != pVLastSource) {
             // Map vertex indices specified in the model to ones specified in the vanim data: exactly when UnifyLODs'
             // index maps cover the whole pool, by position otherwise
-            if (!BuildModelToVAnimMapFromRootLOD(g_studiomdl.body.model[pFlexKey->imodel], pVSource,
-                                                 model_to_vanim_vert_imap))
-                BuildModelToVAnimMap(pVSource, nullptr, pLodSource, true, model_to_vanim_vert_imap);
+            if (!BuildModelToVAnimMapFromRootLOD(ctx, ctx.body.model[pFlexKey->imodel], pVSource,
+                                                 model_to_vanim_vert_imap.data()))
+                BuildModelToVAnimMap(ctx, pVSource, nullptr, pLodSource, true, model_to_vanim_vert_imap.data());
             pVLastSource = pVSource;
         }
 
@@ -2935,20 +2931,19 @@ static void RemapVertexAnimationsNewVersion() {
         --i;
 
         // Build the vanim_mapcount, vanim_map fields of the source anim
-        BuildVAnimMap(pVSource, pVSourceAnim, pLodSource, model_to_vanim_vert_imap);
+        BuildVAnimMap(pVSource, pVSourceAnim, pLodSource, model_to_vanim_vert_imap.data());
     }
 
     int nNumMoved = 0;
-    static bool pDoesMove[MAXSTUDIOSRCVERTS];
-    memset(pDoesMove, 0, MAXSTUDIOSRCVERTS * sizeof(bool));
+    std::vector<bool> pDoesMove(MAXSTUDIOSRCVERTS);
 
-    for (auto & flexkey : g_studiomdl.flex.flexkeys) {
+    for (auto & flexkey : ctx.flex.flexkeys) {
         s_source_t* pVSource = flexkey.source;
         s_sourceanim_t* pVSourceAnim = FindSourceAnim(pVSource, flexkey.animationname.view());
         if (!pVSourceAnim->newStyleVertexAnimations)
             continue;
 
-        // Allocate g_studiomdl.flexkey[i].vanim
+        // Allocate ctx.flexkey[i].vanim
         AllocateDestVAnim(flexkey, pVSourceAnim);
 
         const int nNumSrcVAnims = pVSourceAnim->numvanims[flexkey.frame];
@@ -2992,14 +2987,14 @@ static void RemapVertexAnimationsNewVersion() {
     if (nNumMoved > MAXSTUDIOFLEXVERTS) {
         MdlError("Too many flexed verts {} ({})\n", nNumMoved, MAXSTUDIOFLEXVERTS);
     }
-    else if (nNumMoved > 0 && !g_studiomdl.options.quiet) {
+    else if (nNumMoved > 0 && !ctx.options.quiet) {
         std::print("Max flex verts {}\n", nNumMoved);
     }
 }
 
 
 // Finds the bone index for a particular source
-int FindLocalBoneNamed(const s_source_t* pSource, const char* pName) {
+int FindLocalBoneNamed(StudioMdlState &ctx, const s_source_t* pSource, const char* pName) {
     if (pName && pSource) {
         int i;
         for (i = 0; i < pSource->numbones; i++) {
@@ -3007,7 +3002,7 @@ int FindLocalBoneNamed(const s_source_t* pSource, const char* pName) {
                 return i;
         }
 
-        pName = RenameBone(pName);
+        pName = RenameBone(ctx, pName);
 
         for (i = 0; i < pSource->numbones; i++) {
             if (vstd::iequals(pName, pSource->localBone[i].name))
@@ -3022,20 +3017,20 @@ int FindLocalBoneNamed(const s_source_t* pSource, const char* pName) {
 // Purpose: finds the bone index in the global bone table
 //-----------------------------------------------------------------------------
 
-int findGlobalBone(const char* name) {
-    name = RenameBone(name);
-    for (int k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
-        if (vstd::iequals(g_studiomdl.bones.bonetable[k].name, name))
+int findGlobalBone(StudioMdlState &ctx, const char* name) {
+    name = RenameBone(ctx, name);
+    for (int k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
+        if (vstd::iequals(ctx.bones.bonetable[k].name, name))
             return k;
     }
 
     return -1;
 }
 
-int findGlobalBone(std::string_view name) {
-    name = RenameBone(name);
-    for (int k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
-        if (vstd::iequals(g_studiomdl.bones.bonetable[k].name, name))
+int findGlobalBone(StudioMdlState &ctx, std::string_view name) {
+    name = RenameBone(ctx, name);
+    for (int k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
+        if (vstd::iequals(ctx.bones.bonetable[k].name, name))
             return k;
     }
 
@@ -3043,8 +3038,8 @@ int findGlobalBone(std::string_view name) {
 }
 
 
-bool IsGlobalBoneXSI(const char* name, const char* bonename) {
-    name = RenameBone(name);
+bool IsGlobalBoneXSI(StudioMdlState &ctx, const char* name, const char* bonename) {
+    name = RenameBone(ctx, name);
 
     const int len = strlen(name);
 
@@ -3064,13 +3059,13 @@ bool IsGlobalBoneXSI(const char* name, const char* bonename) {
 }
 
 
-int findGlobalBoneXSI(const char* name) {
+int findGlobalBoneXSI(StudioMdlState &ctx, const char* name) {
     int k;
 
-    name = RenameBone(name);
+    name = RenameBone(ctx, name);
 
-    for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
-        if (IsGlobalBoneXSI(name, g_studiomdl.bones.bonetable[k].name)) {
+    for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
+        if (IsGlobalBoneXSI(ctx, name, ctx.bones.bonetable[k].name)) {
             return k;
         }
     }
@@ -3083,19 +3078,19 @@ int findGlobalBoneXSI(const char* name) {
 //			so that a "midpoint" of the rotation area can be found
 //-----------------------------------------------------------------------------
 
-void findAnimQuaternionAlignment(int k, int i, Quaternion &qBase, Quaternion &qMin, Quaternion &qMax) {
+void findAnimQuaternionAlignment(StudioMdlState &ctx, int k, int i, Quaternion &qBase, Quaternion &qMin, Quaternion &qMax) {
     int j;
 
-    AngleQuaternion(g_studiomdl.anim.animations[i]->sanim[0][k].rot, qBase);
+    AngleQuaternion(ctx.anim.animations[i]->sanim[0][k].rot, qBase);
     qMin = qBase;
     float dMin = 1.0;
     qMax = qBase;
     float dMax = 1.0;
 
-    for (j = 1; j < g_studiomdl.anim.animations[i]->numframes; j++) {
+    for (j = 1; j < ctx.anim.animations[i]->numframes; j++) {
         Quaternion q;
 
-        AngleQuaternion(g_studiomdl.anim.animations[i]->sanim[j][k].rot, q);
+        AngleQuaternion(ctx.anim.animations[i]->sanim[j][k].rot, q);
         QuaternionAlign(qBase, q, q);
 
         const float d0 = QuaternionDotProduct(q, qBase);
@@ -3148,7 +3143,7 @@ void findAnimQuaternionAlignment(int k, int i, Quaternion &qBase, Quaternion &qM
         dMax = QuaternionDotProduct(qBase, qMax);
     }
 
-    // printf("%s (%s): %.3f :%.3f\n", g_studiomdl.bones.bonetable[k].name, g_studiomdl.panimation[i]->name, QuaternionDotProduct( qMin, qMax ), QuaternionDotProduct( qMin, qBase ) );
+    // printf("%s (%s): %.3f :%.3f\n", ctx.bones.bonetable[k].name, ctx.panimation[i]->name, QuaternionDotProduct( qMin, qMax ), QuaternionDotProduct( qMin, qBase ) );
     /*
 	if (i != 0)
 		exit(0);
@@ -3163,25 +3158,25 @@ void findAnimQuaternionAlignment(int k, int i, Quaternion &qBase, Quaternion &qM
 //			"short way round".
 //-----------------------------------------------------------------------------
 
-void limitBoneRotations() {
+void limitBoneRotations(StudioMdlState &ctx) {
     int i, j, k;
 
-    for (i = 0; i < std::ssize(g_studiomdl.bones.limitrotation); i++) {
+    for (i = 0; i < std::ssize(ctx.bones.limitrotation); i++) {
         Quaternion qBase;
 
-        k = findGlobalBone(g_studiomdl.bones.limitrotation[i].name);
+        k = findGlobalBone(ctx, ctx.bones.limitrotation[i].name);
         if (k == -1) {
-            MdlError("unknown bone \"{}\" in $limitrotation\n", g_studiomdl.bones.limitrotation[i].name);
+            MdlError("unknown bone \"{}\" in $limitrotation\n", ctx.bones.limitrotation[i].name);
         }
 
-        AngleQuaternion(g_studiomdl.bones.bonetable[k].rot, qBase);
+        AngleQuaternion(ctx.bones.bonetable[k].rot, qBase);
 
-        if (g_studiomdl.bones.limitrotation[i].numseq == 0) {
-            for (j = 0; j < g_studiomdl.anim.animations.size(); j++) {
-                if (!HasFlag(g_studiomdl.anim.animations[j]->flags, StudioSequenceFlags::Delta) && g_studiomdl.anim.
+        if (ctx.bones.limitrotation[i].numseq == 0) {
+            for (j = 0; j < ctx.anim.animations.size(); j++) {
+                if (!HasFlag(ctx.anim.animations[j]->flags, StudioSequenceFlags::Delta) && ctx.anim.
                     animations[j]->numframes > 3) {
                     Quaternion qBase2, qMin2, qMax2;
-                    findAnimQuaternionAlignment(k, j, qBase2, qMin2, qMax2);
+                    findAnimQuaternionAlignment(ctx, k, j, qBase2, qMin2, qMax2);
 
                     QuaternionAdd(qBase, qBase2, qBase);
                 }
@@ -3189,20 +3184,20 @@ void limitBoneRotations() {
             QuaternionNormalize(qBase);
         }
         else {
-            for (j = 0; j < g_studiomdl.bones.limitrotation[i].numseq; j++) {
+            for (j = 0; j < ctx.bones.limitrotation[i].numseq; j++) {
             }
         }
 
         /*
 		QAngle ang;
 		QuaternionAngles( qBase, ang );
-		printf("%s : (%.1f %.1f %.1f) \n", g_studiomdl.bones.bonetable[k].name, ang.x, ang.y, ang.z );
+		printf("%s : (%.1f %.1f %.1f) \n", ctx.bones.bonetable[k].name, ang.x, ang.y, ang.z );
 		*/
 
-        g_studiomdl.bones.bonetable[k].qAlignment = qBase;
-        g_studiomdl.bones.bonetable[k].flags |= BoneFlags::FixedAlignment;
+        ctx.bones.bonetable[k].qAlignment = qBase;
+        ctx.bones.bonetable[k].flags |= BoneFlags::FixedAlignment;
 
-        // QuaternionAngles( qBase, g_studiomdl.panimation[0]->sanim[0][k].rot );
+        // QuaternionAngles( qBase, ctx.panimation[0]->sanim[0][k].rot );
     }
 }
 
@@ -3214,21 +3209,21 @@ void limitBoneRotations() {
 //			"short way round".
 //-----------------------------------------------------------------------------
 
-void limitIKChainLength() {
+void limitIKChainLength(StudioMdlState &ctx) {
     int i, j, k;
     matrix3x4_t boneToWorld[MAXSTUDIOSRCBONES]; // bone transformation matrix
 
-    for (k = 0; k < std::ssize(g_studiomdl.anim.ikchain); k++) {
+    for (k = 0; k < std::ssize(ctx.anim.ikchain); k++) {
         bool needsFixup = false;
         bool hasKnees = false;
 
-        Vector kneeDir = g_studiomdl.anim.ikchain[k].link[0].kneeDir;
+        Vector kneeDir = ctx.anim.ikchain[k].link[0].kneeDir;
         if (kneeDir.Length() > 0.0) {
             hasKnees = true;
         }
         else {
-            for (i = 0; i < g_studiomdl.anim.animations.size(); i++) {
-                s_animation_t* panim = g_studiomdl.anim.animations[i];
+            for (i = 0; i < ctx.anim.animations.size(); i++) {
+                s_animation_t* panim = ctx.anim.animations[i];
 
                 if (HasFlag(panim->flags, StudioSequenceFlags::Delta))
                     continue;
@@ -3237,15 +3232,15 @@ void limitIKChainLength() {
                     continue;
 
                 for (j = 0; j < panim->numframes; j++) {
-                    CalcBoneTransforms(panim, j, boneToWorld);
+                    CalcBoneTransforms(ctx, panim, j, boneToWorld);
 
                     Vector worldThigh;
                     Vector worldKnee;
                     Vector worldFoot;
 
-                    MatrixPosition(boneToWorld[g_studiomdl.anim.ikchain[k].link[0].bone], worldThigh);
-                    MatrixPosition(boneToWorld[g_studiomdl.anim.ikchain[k].link[1].bone], worldKnee);
-                    MatrixPosition(boneToWorld[g_studiomdl.anim.ikchain[k].link[2].bone], worldFoot);
+                    MatrixPosition(boneToWorld[ctx.anim.ikchain[k].link[0].bone], worldThigh);
+                    MatrixPosition(boneToWorld[ctx.anim.ikchain[k].link[1].bone], worldKnee);
+                    MatrixPosition(boneToWorld[ctx.anim.ikchain[k].link[2].bone], worldFoot);
 
                     const float l1 = (worldKnee - worldThigh).Length();
                     const float l2 = (worldFoot - worldKnee).Length();
@@ -3265,7 +3260,7 @@ void limitIKChainLength() {
                     else {
                         // rotate knee into local space
                         Vector tmp;
-                        VectorIRotate(ikKneeDir, boneToWorld[g_studiomdl.anim.ikchain[k].link[0].bone], tmp);
+                        VectorIRotate(ikKneeDir, boneToWorld[ctx.anim.ikchain[k].link[0].bone], tmp);
                         const float bend =
                                 (((DotProduct(worldThigh - worldKnee, worldFoot - worldKnee)) / (l1 * l3)) + 1) / 2.0;
                         kneeDir += tmp * bend;
@@ -3279,41 +3274,41 @@ void limitIKChainLength() {
             continue;
 
         if (!hasKnees) {
-            MdlWarning("ik rules for {} but no clear knee direction\n", g_studiomdl.anim.ikchain[k].name);
+            MdlWarning("ik rules for {} but no clear knee direction\n", ctx.anim.ikchain[k].name);
             continue;
         }
 
         VectorNormalize(kneeDir);
-        g_studiomdl.anim.ikchain[k].link[0].kneeDir = kneeDir;
+        ctx.anim.ikchain[k].link[0].kneeDir = kneeDir;
 
-        if (g_studiomdl.options.verbose) {
-            std::print("knee {} {:f} {:f} {:f}\n", g_studiomdl.anim.ikchain[k].name, kneeDir.x, kneeDir.y, kneeDir.z);
+        if (ctx.options.verbose) {
+            std::print("knee {} {:f} {:f} {:f}\n", ctx.anim.ikchain[k].name, kneeDir.x, kneeDir.y, kneeDir.z);
         }
 
 #if 0
         // don't bother for now, storing the knee direction should fix the runtime problems.
-        for (i = 0; i < g_studiomdl.numani; i++) {
-            s_animation_t* panim = g_studiomdl.anim.animations[i];
+        for (i = 0; i < ctx.numani; i++) {
+            s_animation_t* panim = ctx.anim.animations[i];
 
             if (panim->flags & StudioSequenceFlags::Delta)
                 continue;
 
             for (j = 0; j < panim->numframes; j++) {
-                CalcBoneTransforms(panim, j, boneToWorld);
+                CalcBoneTransforms(ctx, panim, j, boneToWorld);
 
                 Vector worldFoot;
-                MatrixPosition(boneToWorld[g_studiomdl.anim.ikchain[k].link[2].bone], worldFoot);
+                MatrixPosition(boneToWorld[ctx.anim.ikchain[k].link[2].bone], worldFoot);
 
                 Vector targetKneeDir;
-                VectorRotate(kneeDir, boneToWorld[g_studiomdl.anim.ikchain[k].link[0].bone], targetKneeDir);
+                VectorRotate(kneeDir, boneToWorld[ctx.anim.ikchain[k].link[0].bone], targetKneeDir);
 
                 // run it through the normal IK solver, this should move the foot positions to someplace legal
-                Studio_SolveIK(g_studiomdl.anim.ikchain[k].link[0].bone, g_studiomdl.anim.ikchain[k].link[1].bone,
-                               g_studiomdl.anim.ikchain[k].link[2].bone, worldFoot, targetKneeDir, boneToWorld);
+                Studio_SolveIK(ctx.anim.ikchain[k].link[0].bone, ctx.anim.ikchain[k].link[1].bone,
+                               ctx.anim.ikchain[k].link[2].bone, worldFoot, targetKneeDir, boneToWorld);
 
-                solveBone(panim, j, g_studiomdl.anim.ikchain[k].link[0].bone, boneToWorld);
-                solveBone(panim, j, g_studiomdl.anim.ikchain[k].link[1].bone, boneToWorld);
-                solveBone(panim, j, g_studiomdl.anim.ikchain[k].link[2].bone, boneToWorld);
+                solveBone(ctx, panim, j, ctx.anim.ikchain[k].link[0].bone, boneToWorld);
+                solveBone(ctx, panim, j, ctx.anim.ikchain[k].link[1].bone, boneToWorld);
+                solveBone(ctx, panim, j, ctx.anim.ikchain[k].link[2].bone, boneToWorld);
             }
         }
 #endif
@@ -3325,21 +3320,21 @@ void limitIKChainLength() {
 // Purpose: build "next node" table that links every transition "node" to
 //			every other transition "node", if possible
 //-----------------------------------------------------------------------------
-void MakeTransitions() {
+void MakeTransitions(StudioMdlState &ctx) {
     vstd::FunctionTimingRecorder _("Simplify");
     int i, j, k;
-    bool iHit = g_studiomdl.options.multistageGraph;
+    bool iHit = ctx.options.multistageGraph;
 
     // add in direct node transitions
-    for (i = 0; i < std::ssize(g_studiomdl.anim.sequence); i++) {
-        if (g_studiomdl.anim.sequence[i].entrynode != g_studiomdl.anim.sequence[i].exitnode) {
-            g_studiomdl.anim.xnodes[g_studiomdl.anim.sequence[i].entrynode - 1][
-                        g_studiomdl.anim.sequence[i].exitnode - 1] =
-                    g_studiomdl.anim.sequence[i].exitnode;
-            if (g_studiomdl.anim.sequence[i].nodeflags) {
-                g_studiomdl.anim.xnodes[g_studiomdl.anim.sequence[i].exitnode - 1][
-                            g_studiomdl.anim.sequence[i].entrynode - 1] =
-                        g_studiomdl.anim.sequence[i].entrynode;
+    for (i = 0; i < std::ssize(ctx.anim.sequence); i++) {
+        if (ctx.anim.sequence[i].entrynode != ctx.anim.sequence[i].exitnode) {
+            ctx.anim.xnodes[ctx.anim.sequence[i].entrynode - 1][
+                        ctx.anim.sequence[i].exitnode - 1] =
+                    ctx.anim.sequence[i].exitnode;
+            if (ctx.anim.sequence[i].nodeflags) {
+                ctx.anim.xnodes[ctx.anim.sequence[i].exitnode - 1][
+                            ctx.anim.sequence[i].entrynode - 1] =
+                        ctx.anim.sequence[i].entrynode;
             }
         }
     }
@@ -3347,15 +3342,15 @@ void MakeTransitions() {
     // calculate multi-stage transitions
     while (iHit) {
         iHit = false;
-        for (i = 1; i <= g_studiomdl.anim.xnodenames.size(); i++) {
-            for (j = 1; j <= g_studiomdl.anim.xnodenames.size(); j++) {
+        for (i = 1; i <= ctx.anim.xnodenames.size(); i++) {
+            for (j = 1; j <= ctx.anim.xnodenames.size(); j++) {
                 // if I can't go there directly
-                if (i != j && g_studiomdl.anim.xnodes[i - 1][j - 1] == 0) {
-                    for (k = 1; k <= g_studiomdl.anim.xnodenames.size(); k++) {
+                if (i != j && ctx.anim.xnodes[i - 1][j - 1] == 0) {
+                    for (k = 1; k <= ctx.anim.xnodenames.size(); k++) {
                         // but I found someone who knows how that I can get to
-                        if (g_studiomdl.anim.xnodes[k - 1][j - 1] > 0 && g_studiomdl.anim.xnodes[i - 1][k - 1] > 0) {
+                        if (ctx.anim.xnodes[k - 1][j - 1] > 0 && ctx.anim.xnodes[i - 1][k - 1] > 0) {
                             // then go to them
-                            g_studiomdl.anim.xnodes[i - 1][j - 1] = -g_studiomdl.anim.xnodes[i - 1][k - 1];
+                            ctx.anim.xnodes[i - 1][j - 1] = -ctx.anim.xnodes[i - 1][k - 1];
                             iHit = true;
                             break;
                         }
@@ -3364,32 +3359,32 @@ void MakeTransitions() {
             }
         }
         // reset previous pass so the links can be used in the next pass
-        for (i = 1; i <= g_studiomdl.anim.xnodenames.size(); i++) {
-            for (j = 1; j <= g_studiomdl.anim.xnodenames.size(); j++) {
-                g_studiomdl.anim.xnodes[i - 1][j - 1] = abs(g_studiomdl.anim.xnodes[i - 1][j - 1]);
+        for (i = 1; i <= ctx.anim.xnodenames.size(); i++) {
+            for (j = 1; j <= ctx.anim.xnodenames.size(); j++) {
+                ctx.anim.xnodes[i - 1][j - 1] = abs(ctx.anim.xnodes[i - 1][j - 1]);
             }
         }
     }
 
     // add in allowed "skips"
-    for (i = 0; i < g_studiomdl.anim.xnodeskips.size(); i++) {
-        g_studiomdl.anim.xnodes[g_studiomdl.anim.xnodeskips[i][0] - 1][g_studiomdl.anim.xnodeskips[i][1] - 1] = 0;
+    for (i = 0; i < ctx.anim.xnodeskips.size(); i++) {
+        ctx.anim.xnodes[ctx.anim.xnodeskips[i][0] - 1][ctx.anim.xnodeskips[i][1] - 1] = 0;
     }
 
-    if (g_studiomdl.options.dumpGraph) {
-        for (j = 1; j <= g_studiomdl.anim.xnodenames.size(); j++) {
-            std::print("{:2} : {}\n", j, g_studiomdl.anim.xnodenames[j - 1]);
+    if (ctx.options.dumpGraph) {
+        for (j = 1; j <= ctx.anim.xnodenames.size(); j++) {
+            std::print("{:2} : {}\n", j, ctx.anim.xnodenames[j - 1]);
         }
         std::print("    ");
-        for (j = 1; j <= g_studiomdl.anim.xnodenames.size(); j++) {
+        for (j = 1; j <= ctx.anim.xnodenames.size(); j++) {
             std::print("{:2} ", j);
         }
         std::print("\n");
 
-        for (i = 1; i <= g_studiomdl.anim.xnodenames.size(); i++) {
+        for (i = 1; i <= ctx.anim.xnodenames.size(); i++) {
             std::print("{:2}: ", i);
-            for (j = 1; j <= g_studiomdl.anim.xnodenames.size(); j++) {
-                std::print("{:2} ", g_studiomdl.anim.xnodes[i - 1][j - 1]);
+            for (j = 1; j <= ctx.anim.xnodenames.size(); j++) {
+                std::print("{:2} ", ctx.anim.xnodes[i - 1][j - 1]);
             }
             std::print("\n");
         }
@@ -3438,27 +3433,27 @@ AnimationDifferent(const Vector &startPos, const RadianEuler &startRot, const Ve
     return false;
 }
 
-bool BoneHasAnimation(const char* pName) {
+bool BoneHasAnimation(StudioMdlState &ctx, const char* pName) {
     bool first = true;
     Vector pos;
     RadianEuler rot;
 
-    if (!g_studiomdl.anim.animations.size())
+    if (!ctx.anim.animations.size())
         return false;
 
-    const int globalIndex = findGlobalBone(pName);
+    const int globalIndex = findGlobalBone(ctx, pName);
 
     // don't check root bones for animation
-    if (globalIndex >= 0 && g_studiomdl.bones.bonetable[globalIndex].parent == -1)
+    if (globalIndex >= 0 && ctx.bones.bonetable[globalIndex].parent == -1)
         return true;
 
-    // find used bones per g_studiomdl.body.model
-    for (int i = 0; i < g_studiomdl.anim.animations.size(); i++) {
-        s_source_t* psource = g_studiomdl.anim.animations[i]->source;
-        const char* pAnimationName = g_studiomdl.anim.animations[i]->animationname;
+    // find used bones per ctx.body.model
+    for (int i = 0; i < ctx.anim.animations.size(); i++) {
+        s_source_t* psource = ctx.anim.animations[i]->source;
+        const char* pAnimationName = ctx.anim.animations[i]->animationname;
         s_sourceanim_t* pSourceAnim = FindSourceAnim(psource, pAnimationName);
 
-        const int boneIndex = FindLocalBoneNamed(psource, pName);
+        const int boneIndex = FindLocalBoneNamed(ctx, psource, pName);
 
         // not in this source?
         if (boneIndex < 0)
@@ -3467,9 +3462,9 @@ bool BoneHasAnimation(const char* pName) {
         // this is not right, but enough of the bones are moved unintentionally between
         // animations that I put this in to catch them.
         first = true;
-        const int n = g_studiomdl.anim.animations[i]->startframe - pSourceAnim->startframe;
-        // printf("%s %d:%d\n", g_studiomdl.panimation[i]->filename, g_studiomdl.panimation[i]->startframe, psource->startframe );
-        for (int j = 0; j < g_studiomdl.anim.animations[i]->numframes; j++) {
+        const int n = ctx.anim.animations[i]->startframe - pSourceAnim->startframe;
+        // printf("%s %d:%d\n", ctx.panimation[i]->filename, ctx.panimation[i]->startframe, psource->startframe );
+        for (int j = 0; j < ctx.anim.animations[i]->numframes; j++) {
             if (first) {
                 VectorCopy(pSourceAnim->rawanim[j + n][boneIndex].pos, pos);
                 VectorCopy(pSourceAnim->rawanim[j + n][boneIndex].rot, rot);
@@ -3485,54 +3480,54 @@ bool BoneHasAnimation(const char* pName) {
     return false;
 }
 
-bool BoneIsBonemerge(char const* pname) {
-    for (int k = 0; k < g_studiomdl.bones.bone_merge.size(); k++) {
-        if (vstd::iequals(g_studiomdl.bones.bone_merge[k].bonename, pname)) {
+bool BoneIsBonemerge(StudioMdlState &ctx, char const* pname) {
+    for (int k = 0; k < ctx.bones.bone_merge.size(); k++) {
+        if (vstd::iequals(ctx.bones.bone_merge[k].bonename, pname)) {
             return true;
         }
     }
     return false;
 }
 
-bool BoneHasAttachments(char const* pname) {
-    for (int k = 0; k < g_studiomdl.bones.attachments.size(); k++) {
-        if (vstd::iequals(g_studiomdl.bones.attachments[k].bonename, pname)) {
+bool BoneHasAttachments(StudioMdlState &ctx, char const* pname) {
+    for (int k = 0; k < ctx.bones.attachments.size(); k++) {
+        if (vstd::iequals(ctx.bones.attachments[k].bonename, pname)) {
             return true;
         }
     }
     return false;
 }
 
-bool BoneIsProcedural(char const* pname) {
+bool BoneIsProcedural(StudioMdlState &ctx, char const* pname) {
     int k;
 
-    for (k = 0; k < std::ssize(g_studiomdl.bones.axisinterpbones); k++) {
-        if (vstd::iequals(g_studiomdl.bones.axisinterpbones[k].bonename, pname)) {
+    for (k = 0; k < std::ssize(ctx.bones.axisinterpbones); k++) {
+        if (vstd::iequals(ctx.bones.axisinterpbones[k].bonename, pname)) {
             return true;
         }
     }
 
-    for (k = 0; k < std::ssize(g_studiomdl.bones.quatinterpbones); k++) {
-        if (IsGlobalBoneXSI(g_studiomdl.bones.quatinterpbones[k].bonename, pname)) {
+    for (k = 0; k < std::ssize(ctx.bones.quatinterpbones); k++) {
+        if (IsGlobalBoneXSI(ctx, ctx.bones.quatinterpbones[k].bonename, pname)) {
             return true;
         }
     }
 
-    for (k = 0; k < std::ssize(g_studiomdl.bones.aimatbones); k++) {
-        if (IsGlobalBoneXSI(g_studiomdl.bones.aimatbones[k].bonename, pname)) {
+    for (k = 0; k < std::ssize(ctx.bones.aimatbones); k++) {
+        if (IsGlobalBoneXSI(ctx, ctx.bones.aimatbones[k].bonename, pname)) {
             return true;
         }
     }
 
-    for (k = 0; k < std::ssize(g_studiomdl.bones.jigglebones); k++) {
-        if (vstd::iequals(g_studiomdl.bones.jigglebones[k].bonename, pname)) {
+    for (k = 0; k < std::ssize(ctx.bones.jigglebones); k++) {
+        if (vstd::iequals(ctx.bones.jigglebones[k].bonename, pname)) {
             return true;
         }
     }
 
-    for (k = 0; k < std::ssize(g_studiomdl.bones.twistbones); ++k) {
-        for (int i = 0; i < std::ssize(g_studiomdl.bones.twistbones[k].m_twistBoneTargets); ++i) {
-            if (IsGlobalBoneXSI(g_studiomdl.bones.twistbones[k].m_twistBoneTargets[i].m_szBoneName, pname)) {
+    for (k = 0; k < std::ssize(ctx.bones.twistbones); ++k) {
+        for (int i = 0; i < std::ssize(ctx.bones.twistbones[k].m_twistBoneTargets); ++i) {
+            if (IsGlobalBoneXSI(ctx, ctx.bones.twistbones[k].m_twistBoneTargets[i].m_szBoneName, pname)) {
                 return true;
             }
         }
@@ -3542,12 +3537,12 @@ bool BoneIsProcedural(char const* pname) {
 }
 
 
-bool BoneIsIK(char const* pname) {
+bool BoneIsIK(StudioMdlState &ctx, char const* pname) {
     int k;
 
     // tag bones used by ikchains
-    for (k = 0; k < std::ssize(g_studiomdl.anim.ikchain); k++) {
-        if (vstd::iequals(g_studiomdl.anim.ikchain[k].bonename, pname)) {
+    for (k = 0; k < std::ssize(ctx.anim.ikchain); k++) {
+        if (vstd::iequals(ctx.anim.ikchain[k].bonename, pname)) {
             return true;
         }
     }
@@ -3555,17 +3550,17 @@ bool BoneIsIK(char const* pname) {
     return false;
 }
 
-bool BoneShouldCollapse(char const* pname) {
+bool BoneShouldCollapse(StudioMdlState &ctx, char const* pname) {
     int k;
 
-    for (k = 0; k < std::ssize(g_studiomdl.bones.collapse); k++) {
-        if (vstd::iequals(g_studiomdl.bones.collapse[k], pname)) {
+    for (k = 0; k < std::ssize(ctx.bones.collapse); k++) {
+        if (vstd::iequals(ctx.bones.collapse[k], pname)) {
             return true;
         }
     }
 
-    return (!BoneHasAnimation(pname) && !BoneIsProcedural(pname) && !BoneIsIK(pname) && !BoneHasAttachments(pname) &&
-            !BoneIsBonemerge(pname));
+    return (!BoneHasAnimation(ctx, pname) && !BoneIsProcedural(ctx, pname) && !BoneIsIK(ctx, pname) && !BoneHasAttachments(ctx, pname) &&
+            !BoneIsBonemerge(ctx, pname));
 }
 
 //-----------------------------------------------------------------------------
@@ -3573,19 +3568,19 @@ bool BoneShouldCollapse(char const* pname) {
 //			This can optimize a model substantially if the animator is using
 //			lots of helper bones with no animation.
 //-----------------------------------------------------------------------------
-void CollapseBones() {
+void CollapseBones(StudioMdlState &ctx) {
     int j, k;
     int count = 0;
 
-    for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
-        if (g_studiomdl.bones.bonetable[k].bDontCollapse)
+    for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
+        if (ctx.bones.bonetable[k].bDontCollapse)
             continue;
 
-        const BoneFlags sBoneFlags = g_studiomdl.bones.bonetable[k].flags;
+        const BoneFlags sBoneFlags = ctx.bones.bonetable[k].flags;
 
         char szBoneReport[512] = "";
         V_strcat_safe(szBoneReport, " [");
-        V_strcat_safe(szBoneReport, g_studiomdl.bones.bonetable[k].name);
+        V_strcat_safe(szBoneReport, ctx.bones.bonetable[k].name);
 
         if (HasFlag(sBoneFlags, BoneFlags::UsedByAnything)) {
             V_strcat_safe(szBoneReport, "]\t\tflags: ");
@@ -3631,9 +3626,9 @@ void CollapseBones() {
         }
 
         // if it's being used by something other than a vertex, collapse it.
-        if (HasFlag(g_studiomdl.bones.bonetable[k].flags, BoneFlags::UsedByVertexMask) || !BoneShouldCollapse(
-                g_studiomdl.bones.bonetable[k].name)) {
-            if (g_studiomdl.options.collapse_bones_message) {
+        if (HasFlag(ctx.bones.bonetable[k].flags, BoneFlags::UsedByVertexMask) || !BoneShouldCollapse(ctx, 
+                ctx.bones.bonetable[k].name)) {
+            if (ctx.options.collapse_bones_message) {
                 Msg("[{:08x}] [keeping]    {} \n", std::to_underlying(sBoneFlags), szBoneReport);
             }
             continue;
@@ -3641,25 +3636,25 @@ void CollapseBones() {
 
         count++;
 
-        if (g_studiomdl.options.collapse_bones_message) {
+        if (ctx.options.collapse_bones_message) {
             Msg("[{:08x}] [collapsing] {} \n", std::to_underlying(sBoneFlags), szBoneReport);
         }
 
-        const int m = g_studiomdl.bones.bonetable[k].parent;
-        g_studiomdl.bones.bonetable.remove(k);
+        const int m = ctx.bones.bonetable[k].parent;
+        ctx.bones.bonetable.remove(k);
 
-        for (j = k; j < std::ssize(g_studiomdl.bones.bonetable); j++) {
-            if (g_studiomdl.bones.bonetable[j].parent == k) {
-                g_studiomdl.bones.bonetable[j].parent = m;
+        for (j = k; j < std::ssize(ctx.bones.bonetable); j++) {
+            if (ctx.bones.bonetable[j].parent == k) {
+                ctx.bones.bonetable[j].parent = m;
             }
-            else if (g_studiomdl.bones.bonetable[j].parent >= k) {
-                g_studiomdl.bones.bonetable[j].parent = g_studiomdl.bones.bonetable[j].parent - 1;
+            else if (ctx.bones.bonetable[j].parent >= k) {
+                ctx.bones.bonetable[j].parent = ctx.bones.bonetable[j].parent - 1;
             }
         }
         k--;
     }
 
-    if (!g_studiomdl.options.quiet && count) {
+    if (!ctx.options.quiet && count) {
         Msg("Collapsed {:d} bones\n", count);
     }
 }
@@ -3668,20 +3663,22 @@ void CollapseBones() {
 //-----------------------------------------------------------------------------
 // Purpose: replace all animation, rotation and translation, etc. with a single bone
 //-----------------------------------------------------------------------------
-void MakeStaticProp() {
+void MakeStaticProp(StudioMdlState &ctx) {
     int i, j, k;
     matrix3x4_t rotated;
     Vector tmp;
+    // this is computed once so render models and their physics hulls get translated by the same amount
+    Vector propCenterOffset(0, 0, 0);
 
-    AngleMatrix(g_studiomdl.script.defaultrotation, rotated);
-    VectorTransform(-g_studiomdl.script.defaultadjust, rotated, tmp);
+    AngleMatrix(ctx.script.defaultrotation, rotated);
+    VectorTransform(-ctx.script.defaultadjust, rotated, tmp);
     PositionMatrix(tmp, rotated);
 
     // FIXME: missing attachment point recalcs!
 
     // replace bone 0 with "static_prop" bone and attach everything to it.
-    for (i = 0; i < g_studiomdl.anim.sources.size(); i++) {
-        s_source_t* psource = g_studiomdl.anim.sources[i];
+    for (i = 0; i < ctx.anim.sources.size(); i++) {
+        s_source_t* psource = ctx.anim.sources[i];
 
         strcpy(psource->localBone[0].name, "static_prop");
         psource->localBone[0].parent = -1;
@@ -3717,34 +3714,34 @@ void MakeStaticProp() {
             AddPointToBounds(psource->vertex[j].position, mins, maxs);
         }
 
-        if (g_studiomdl.header.centerstaticprop) {
+        if (ctx.header.centerstaticprop) {
             const char* pAttachmentName = "placementOrigin";
             bool bFound = false;
-            for (k = 0; k < g_studiomdl.bones.attachments.size(); k++) {
-                if (vstd::iequals(g_studiomdl.bones.attachments[k].name, pAttachmentName)) {
+            for (k = 0; k < ctx.bones.attachments.size(); k++) {
+                if (vstd::iequals(ctx.bones.attachments[k].name, pAttachmentName)) {
                     bFound = true;
                     break;
                 }
             }
 
             if (!bFound) {
-                g_PropCenterOffset = -0.5f * (mins + maxs);
+                propCenterOffset = -0.5f * (mins + maxs);
             }
 
             for (j = 0; j < psource->numvertices; j++) {
-                psource->vertex[j].position += g_PropCenterOffset;
+                psource->vertex[j].position += propCenterOffset;
             }
 
             if (!bFound) {
                 // now add an attachment point to store this offset
-                auto &attachment = g_studiomdl.bones.attachments.emplace_back(s_attachment_t{
+                auto &attachment = ctx.bones.attachments.emplace_back(s_attachment_t{
                     .name = pAttachmentName,
                     .bonename = "static_prop",
                     .bone = 0,
                     .type = AttachmentType::None,
                     .flags = AttachmentFlags::None,
                 });
-                AngleMatrix(vec3_angle, g_PropCenterOffset, attachment.local);
+                AngleMatrix(vec3_angle, propCenterOffset, attachment.local);
             }
         }
 
@@ -3765,27 +3762,27 @@ void MakeStaticProp() {
     }
 
     // throw away all animations
-    g_studiomdl.anim.animations.resize(1);
-    g_studiomdl.anim.animations[0]->numframes = 1;
-    g_studiomdl.anim.animations[0]->startframe = 0;
-    g_studiomdl.anim.animations[0]->endframe = 1;
-    g_studiomdl.anim.animations[0]->animationname = "BindPose";
-    g_studiomdl.anim.animations[0]->rotation = RadianEuler(0, 0, 0);
-    g_studiomdl.anim.animations[0]->adjust = Vector(0, 0, 0);
+    ctx.anim.animations.resize(1);
+    ctx.anim.animations[0]->numframes = 1;
+    ctx.anim.animations[0]->startframe = 0;
+    ctx.anim.animations[0]->endframe = 1;
+    ctx.anim.animations[0]->animationname = "BindPose";
+    ctx.anim.animations[0]->rotation = RadianEuler(0, 0, 0);
+    ctx.anim.animations[0]->adjust = Vector(0, 0, 0);
 
     // throw away all vertex animations
-    g_studiomdl.flex.flexkeys.clear();
-    g_studiomdl.flex.defaultflexkey = nullptr;
+    ctx.flex.flexkeys.clear();
+    ctx.flex.defaultflexkey = nullptr;
 
     // Recalc attachment points:
-    for (i = 0; i < g_studiomdl.bones.attachments.size(); i++) {
-        if (g_studiomdl.header.centerstaticprop && (i == g_studiomdl.bones.attachments.size() - 1))
+    for (i = 0; i < ctx.bones.attachments.size(); i++) {
+        if (ctx.header.centerstaticprop && (i == ctx.bones.attachments.size() - 1))
             continue;
 
-        ConcatTransforms(rotated, g_studiomdl.bones.attachments[i].local, g_studiomdl.bones.attachments[i].local);
-        g_studiomdl.bones.attachments[i].bonename = "static_prop";
-        g_studiomdl.bones.attachments[i].bone = 0;
-        g_studiomdl.bones.attachments[i].type = AttachmentType::None;
+        ConcatTransforms(rotated, ctx.bones.attachments[i].local, ctx.bones.attachments[i].local);
+        ctx.bones.attachments[i].bonename = "static_prop";
+        ctx.bones.attachments[i].bone = 0;
+        ctx.bones.attachments[i].type = AttachmentType::None;
     }
 }
 
@@ -3814,18 +3811,18 @@ static void UpdateBonerefRecursive(s_source_t* psource, int nBoneIndex, BoneFlag
 //          have a parent then the $upaxis determines how the axes are mapped.
 //			Only $upaxis Y is supported (see comment in Cmd_UpAxis).
 //-----------------------------------------------------------------------------
-int GetRemappedBoneAxis(int nBoneIndex, int nAxis) {
-    if (nBoneIndex < 0 || nBoneIndex >= std::ssize(g_studiomdl.bones.bonetable))
+int GetRemappedBoneAxis(StudioMdlState &ctx, int nBoneIndex, int nAxis) {
+    if (nBoneIndex < 0 || nBoneIndex >= std::ssize(ctx.bones.bonetable))
         return nAxis;
 
-    if (g_studiomdl.bones.bonetable[nBoneIndex].parent >= 0)
+    if (ctx.bones.bonetable[nBoneIndex].parent >= 0)
         return nAxis;
 
     // Y Up
-    if (g_studiomdl.script.defaultrotation.x == static_cast<float>(M_PI / 2.0f) && g_studiomdl.script.defaultrotation.y
+    if (ctx.script.defaultrotation.x == static_cast<float>(M_PI / 2.0f) && ctx.script.defaultrotation.y
         == 0.0f &&
-        g_studiomdl.script.defaultrotation.z == static_cast<float>(M_PI / 2.0f)) {
-        static const int nAxisMap[3] = {1, 2, 0};
+        ctx.script.defaultrotation.z == static_cast<float>(M_PI / 2.0f)) {
+        static constexpr int nAxisMap[3] = {1, 2, 0};
         return nAxisMap[nAxis];
     }
 
@@ -3838,9 +3835,9 @@ int GetRemappedBoneAxis(int nBoneIndex, int nAxis) {
 // Purpose: Map the flex driver bones to the global bone table
 //          Also cleans up any that do not match to a global bone
 //-----------------------------------------------------------------------------
-void MapFlexDriveBonesToGlobalBoneTable() {
+void MapFlexDriveBonesToGlobalBoneTable(StudioMdlState &ctx) {
     CDmeBoneFlexDriverList* pDmeBoneFlexDriverList = GetElement<CDmeBoneFlexDriverList>(
-        g_studiomdl.flex.hDmeBoneFlexDriverList);
+        ctx.flex.hDmeBoneFlexDriverList);
     if (!pDmeBoneFlexDriverList)
         return;
 
@@ -3852,9 +3849,9 @@ void MapFlexDriveBonesToGlobalBoneTable() {
             continue;
         }
 
-        for (int j = 0; j < std::ssize(g_studiomdl.bones.bonetable); ++j) {
-            if (vstd::iequals(g_studiomdl.bones.bonetable[j].name, pDmeBoneFlexDriver->m_sBoneName.Get())) {
-                if (HasFlag(g_studiomdl.bones.bonetable[j].flags, BoneFlags::AlwaysProcedural)) {
+        for (int j = 0; j < std::ssize(ctx.bones.bonetable); ++j) {
+            if (vstd::iequals(ctx.bones.bonetable[j].name, pDmeBoneFlexDriver->m_sBoneName.Get())) {
+                if (HasFlag(ctx.bones.bonetable[j].flags, BoneFlags::AlwaysProcedural)) {
                     MdlWarning("DmeBoneFlexDriver Bone: {} is marked procedural, Ignoring flex drivers\n",
                                pDmeBoneFlexDriver->m_sBoneName.Get());
                     pDmeBoneFlexDriverList->m_eBoneFlexDriverList.Remove(i);
@@ -3864,7 +3861,7 @@ void MapFlexDriveBonesToGlobalBoneTable() {
                 pDmeBoneFlexDriver->SetValue("__boneIndex", j);
                 // Map the axis for Y up stuff
                 for (int k = 0; k < pDmeBoneFlexDriver->m_eControlList.size(); ++k) {
-                    pDmeBoneFlexDriver->m_eControlList[k]->m_nBoneComponent = GetRemappedBoneAxis(j,
+                    pDmeBoneFlexDriver->m_eControlList[k]->m_nBoneComponent = GetRemappedBoneAxis(ctx, j,
                         pDmeBoneFlexDriver->m_eControlList[k]->m_nBoneComponent);
                 }
                 break;
@@ -3893,9 +3890,9 @@ void MapFlexDriveBonesToGlobalBoneTable() {
 //          Also cleans up any empty bone flex driver elements
 //			Also tags the DmeBoneFlexDriverControl with
 //-----------------------------------------------------------------------------
-void TagFlexDriverBones(s_source_t* pSource) {
+void TagFlexDriverBones(StudioMdlState &ctx, s_source_t* pSource) {
     CDmeBoneFlexDriverList* pDmeBoneFlexDriverList = GetElement<CDmeBoneFlexDriverList>(
-        g_studiomdl.flex.hDmeBoneFlexDriverList);
+        ctx.flex.hDmeBoneFlexDriverList);
     if (!pDmeBoneFlexDriverList)
         return;
 
@@ -3924,8 +3921,8 @@ void TagFlexDriverBones(s_source_t* pSource) {
                 continue;
             }
 
-            for (int k = 0; k < g_studiomdl.flex.flexcontrollers.size(); ++k) {
-                if (vstd::iequals(g_studiomdl.flex.flexcontrollers[k].name,
+            for (int k = 0; k < ctx.flex.flexcontrollers.size(); ++k) {
+                if (vstd::iequals(ctx.flex.flexcontrollers[k].name,
                                   pDmeBoneFlexDriverControl->m_sFlexControllerName.Get())) {
                     pDmeBoneFlexDriverControl->SetValue("__flexControlIndex", k);
                     break;
@@ -3960,13 +3957,13 @@ void TagFlexDriverBones(s_source_t* pSource) {
 //-----------------------------------------------------------------------------
 // Purpose: set "boneref" for all the source bones used by vertices, attachments, eyeballs, etc.
 //-----------------------------------------------------------------------------
-void TagUsedBones() {
+void TagUsedBones(StudioMdlState &ctx) {
     int i, j, k;
     int n;
 
-    // find used bones per g_studiomdl.body.model
-    for (i = 0; i < g_studiomdl.anim.sources.size(); i++) {
-        s_source_t* psource = g_studiomdl.anim.sources[i];
+    // find used bones per ctx.body.model
+    for (i = 0; i < ctx.anim.sources.size(); i++) {
+        s_source_t* psource = ctx.anim.sources[i];
 
         for (k = 0; k < MAXSTUDIOSRCBONES; k++) {
             psource->boneflags[k] = BoneFlags::None;
@@ -3984,17 +3981,17 @@ void TagUsedBones() {
         }
     }
 
-    // find used bones per g_studiomdl.body.model
-    for (i = 0; i < g_studiomdl.anim.sources.size(); i++) {
-        s_source_t* psource = g_studiomdl.anim.sources[i];
+    // find used bones per ctx.body.model
+    for (i = 0; i < ctx.anim.sources.size(); i++) {
+        s_source_t* psource = ctx.anim.sources[i];
 
         // FIXME: this is in the wrong place.  The attachment may be rigid and it never defined in a reference file
-        for (k = 0; k < g_studiomdl.bones.attachments.size(); k++) {
+        for (k = 0; k < ctx.bones.attachments.size(); k++) {
             for (j = 0; j < psource->numbones; j++) {
-                if (vstd::iequals(g_studiomdl.bones.attachments[k].bonename, psource->localBone[j].name)) {
+                if (vstd::iequals(ctx.bones.attachments[k].bonename, psource->localBone[j].name)) {
                     // this bone is a keeper with or without associated vertices
                     // because an attachment point depends on it.
-                    if (HasFlag(g_studiomdl.bones.attachments[k].type, AttachmentType::Rigid)) {
+                    if (HasFlag(ctx.bones.attachments[k].type, AttachmentType::Rigid)) {
                         bool bBoneFlagged = false;
 
                         for (n = j; n != -1; n = psource->localBone[n].parent) {
@@ -4004,10 +4001,10 @@ void TagUsedBones() {
                                 break;
                             }
 
-                            // Check to see if the ancestor bone is in g_studiomdl.importbones because
-                            // all bones in g_studiomdl.importbones are kept
-                            for (int ib = 0; ib < std::ssize(g_studiomdl.bones.importbone); ++ib) {
-                                if (vstd::iequals(psource->localBone[n].name, g_studiomdl.bones.importbone[ib].name)) {
+                            // Check to see if the ancestor bone is in ctx.importbones because
+                            // all bones in ctx.importbones are kept
+                            for (int ib = 0; ib < std::ssize(ctx.bones.importbone); ++ib) {
+                                if (vstd::iequals(psource->localBone[n].name, ctx.bones.importbone[ib].name)) {
                                     psource->boneflags[n] |= BoneFlags::UsedByAttachment;
                                     bBoneFlagged = true;
                                 }
@@ -4029,9 +4026,9 @@ void TagUsedBones() {
             }
         }
 
-        for (k = 0; k < std::ssize(g_studiomdl.anim.ikchain); k++) {
+        for (k = 0; k < std::ssize(ctx.anim.ikchain); k++) {
             for (j = 0; j < psource->numbones; j++) {
-                if (vstd::iequals(g_studiomdl.anim.ikchain[k].bonename, psource->localBone[j].name)) {
+                if (vstd::iequals(ctx.anim.ikchain[k].bonename, psource->localBone[j].name)) {
                     // this bone is a keeper with or without associated vertices
                     // because a ikchain depends on it.
                     psource->boneflags[j] |= BoneFlags::UsedByAttachment;
@@ -4039,9 +4036,9 @@ void TagUsedBones() {
             }
         }
 
-        for (k = 0; k < std::ssize(g_studiomdl.flex.mouth); k++) {
+        for (k = 0; k < std::ssize(ctx.flex.mouth); k++) {
             for (j = 0; j < psource->numbones; j++) {
-                if (vstd::iequals(g_studiomdl.flex.mouth[k].bonename, psource->localBone[j].name)) {
+                if (vstd::iequals(ctx.flex.mouth[k].bonename, psource->localBone[j].name)) {
                     // this bone is a keeper with or without associated vertices
                     // because a mouth shader depends on it.
                     psource->boneflags[j] |= BoneFlags::UsedByAttachment;
@@ -4050,10 +4047,10 @@ void TagUsedBones() {
         }
 
         // Tag all bones marked as being used by bonemerge
-        const int nBoneMergeCount = g_studiomdl.bones.bone_merge.size();
+        const int nBoneMergeCount = ctx.bones.bone_merge.size();
         for (k = 0; k < nBoneMergeCount; ++k) {
             for (j = 0; j < psource->numbones; j++) {
-                if (!vstd::iequals(g_studiomdl.bones.bone_merge[k].bonename, psource->localBone[j].name))
+                if (!vstd::iequals(ctx.bones.bone_merge[k].bonename, psource->localBone[j].name))
                     continue;
 
                 psource->boneflags[j] |= BoneFlags::UsedByBoneMerge;
@@ -4061,7 +4058,7 @@ void TagUsedBones() {
         }
 
         // Tag bones used as bone flex drivers, these need to be client side only
-        TagFlexDriverBones(psource);
+        TagFlexDriverBones(ctx, psource);
 
         // NOTE: This must come last; after all flags have been set!
         // tag bonerefs as being used the union of the boneflags all their children
@@ -4074,10 +4071,10 @@ void TagUsedBones() {
         // because they are intended to be used on data-driving bones that are aren't
         // necessarily moving vertices or part of a hierarchy. They are NOT guaranteed
         // to be positioned correctly relative to their parents!!!
-        const int nBoneAlwaysSetupCount = g_studiomdl.bones.bone_always_setup.size();
+        const int nBoneAlwaysSetupCount = ctx.bones.bone_always_setup.size();
         for (k = 0; k < nBoneAlwaysSetupCount; ++k) {
             for (j = 0; j < psource->numbones; j++) {
-                if (!vstd::iequals(g_studiomdl.bones.bone_always_setup[k].bonename, psource->localBone[j].name))
+                if (!vstd::iequals(ctx.bones.bone_always_setup[k].bonename, psource->localBone[j].name))
                     continue;
 
                 psource->boneflags[j] |= BoneFlags::AlwaysSetup;
@@ -4088,9 +4085,9 @@ void TagUsedBones() {
     }
 
     // tag all eyeball bones
-    for (i = 0; i < g_studiomdl.body.nummodelsbeforeLOD; i++) {
-        s_source_t* psource = g_studiomdl.body.model[i]->source;
-        for (const auto &eyeball: g_studiomdl.body.model[i]->eyeballs) {
+    for (i = 0; i < ctx.body.nummodelsbeforeLOD; i++) {
+        s_source_t* psource = ctx.body.model[i]->source;
+        for (const auto &eyeball: ctx.body.model[i]->eyeballs) {
             psource->boneref[eyeball.bone] |= BoneFlags::UsedByAttachment;
         }
     }
@@ -4100,32 +4097,32 @@ void TagUsedBones() {
 //-----------------------------------------------------------------------------
 // Purpose: change the names in the source files for bones that max auto-renamed on us
 //-----------------------------------------------------------------------------
-void RenameBones() {
+void RenameBones(StudioMdlState &ctx) {
     vstd::FunctionTimingRecorder _("Simplify");
     int i, j, k;
 
     // rename source bones if needed
-    for (i = 0; i < g_studiomdl.anim.sources.size(); i++) {
-        for (j = 0; j < g_studiomdl.anim.sources[i]->numbones; j++) {
-            for (k = 0; k < std::ssize(g_studiomdl.bones.szRenameBoneSubstr); k++) {
+    for (i = 0; i < ctx.anim.sources.size(); i++) {
+        for (j = 0; j < ctx.anim.sources[i]->numbones; j++) {
+            for (k = 0; k < std::ssize(ctx.bones.szRenameBoneSubstr); k++) {
                 char temp[MAXSTUDIONAME];
-                if (vstd::ifind(g_studiomdl.anim.sources[i]->localBone[j].name,
-                                g_studiomdl.bones.szRenameBoneSubstr[k].from) != std::string_view::npos &&
-                    vstd::ifind(g_studiomdl.anim.sources[i]->localBone[j].name,
-                                g_studiomdl.bones.szRenameBoneSubstr[k].to) == std::string_view::npos) {
-                    V_strcpy(temp, g_studiomdl.anim.sources[i]->localBone[j].name);
-                    V_StrSubst(temp, g_studiomdl.bones.szRenameBoneSubstr[k].from,
-                               g_studiomdl.bones.szRenameBoneSubstr[k].to,
-                               g_studiomdl.anim.sources[i]->localBone[j].name,
-                               sizeof(g_studiomdl.anim.sources[i]->localBone[j].name));
+                if (vstd::ifind(ctx.anim.sources[i]->localBone[j].name,
+                                ctx.bones.szRenameBoneSubstr[k].from) != std::string_view::npos &&
+                    vstd::ifind(ctx.anim.sources[i]->localBone[j].name,
+                                ctx.bones.szRenameBoneSubstr[k].to) == std::string_view::npos) {
+                    V_strcpy(temp, ctx.anim.sources[i]->localBone[j].name);
+                    V_StrSubst(temp, ctx.bones.szRenameBoneSubstr[k].from,
+                               ctx.bones.szRenameBoneSubstr[k].to,
+                               ctx.anim.sources[i]->localBone[j].name,
+                               sizeof(ctx.anim.sources[i]->localBone[j].name));
                     continue;
                 }
             }
 
-            for (k = 0; k < std::ssize(g_studiomdl.bones.renamedbone); k++) {
-                if (vstd::iequals(g_studiomdl.anim.sources[i]->localBone[j].name,
-                                  g_studiomdl.bones.renamedbone[k].from)) {
-                    strcpy(g_studiomdl.anim.sources[i]->localBone[j].name, g_studiomdl.bones.renamedbone[k].to);
+            for (k = 0; k < std::ssize(ctx.bones.renamedbone); k++) {
+                if (vstd::iequals(ctx.anim.sources[i]->localBone[j].name,
+                                  ctx.bones.renamedbone[k].from)) {
+                    strcpy(ctx.anim.sources[i]->localBone[j].name, ctx.bones.renamedbone[k].to);
                     break;
                 }
             }
@@ -4134,99 +4131,99 @@ void RenameBones() {
 }
 
 
-const char* RenameBone(const char* pName) {
+const char* RenameBone(StudioMdlState &ctx, const char* pName) {
     // check for prefixes to strip
-    for (int k = 0; k < g_studiomdl.bones.szStripBonePrefix.size(); k++) {
-        if (!Q_strncmp(pName, g_studiomdl.bones.szStripBonePrefix[k],
-                       V_strlen(g_studiomdl.bones.szStripBonePrefix[k]))) {
-            //Msg("Stripping bone prefix {} from {}\n", g_studiomdl.bones.szStripBonePrefix[k], pName );
+    for (int k = 0; k < ctx.bones.szStripBonePrefix.size(); k++) {
+        if (!Q_strncmp(pName, ctx.bones.szStripBonePrefix[k],
+                       V_strlen(ctx.bones.szStripBonePrefix[k]))) {
+            //Msg("Stripping bone prefix {} from {}\n", ctx.bones.szStripBonePrefix[k], pName );
 
             // recurse in case we're removing more than one prefix? Not sure if this is necessary, but maybe you want to remove "Alpha" then "Beta" from bone "AlphaBetaCharlie" ?
-            return RenameBone(pName + V_strlen(g_studiomdl.bones.szStripBonePrefix[k]));
+            return RenameBone(ctx, pName + V_strlen(ctx.bones.szStripBonePrefix[k]));
         }
     }
 
-    for (int k = 0; k < std::ssize(g_studiomdl.bones.renamedbone); k++) {
-        if (vstd::iequals(pName, g_studiomdl.bones.renamedbone[k].from))
-            return g_studiomdl.bones.renamedbone[k].to;
+    for (int k = 0; k < std::ssize(ctx.bones.renamedbone); k++) {
+        if (vstd::iequals(pName, ctx.bones.renamedbone[k].from))
+            return ctx.bones.renamedbone[k].to;
     }
     return pName;
 }
 
-std::string_view RenameBone(const std::string_view name) {
+std::string_view RenameBone(StudioMdlState &ctx, const std::string_view name) {
     // check for prefixes to strip
-    for (auto &prefix: g_studiomdl.bones.szStripBonePrefix) {
+    for (auto &prefix: ctx.bones.szStripBonePrefix) {
         if (name.starts_with(prefix)) {
-            //Msg("Stripping bone prefix {} from {}\n", g_studiomdl.bones.szStripBonePrefix[k], pName );
+            //Msg("Stripping bone prefix {} from {}\n", ctx.bones.szStripBonePrefix[k], pName );
 
             // recurse in case we're removing more than one prefix? Not sure if this is necessary, but maybe you want to remove "Alpha" then "Beta" from bone "AlphaBetaCharlie" ?
-            return RenameBone(name.substr(prefix.size()));
+            return RenameBone(ctx, name.substr(prefix.size()));
         }
     }
 
-    for (int k = 0; k < std::ssize(g_studiomdl.bones.renamedbone); k++) {
-        if (vstd::iequals(name, g_studiomdl.bones.renamedbone[k].from))
-            return g_studiomdl.bones.renamedbone[k].to.view();
+    for (int k = 0; k < std::ssize(ctx.bones.renamedbone); k++) {
+        if (vstd::iequals(name, ctx.bones.renamedbone[k].from))
+            return ctx.bones.renamedbone[k].to.view();
     }
     return name;
 }
 
 // Appends a bone to the global bone table; its source realignment starts as identity
-static int AddGlobalBone() {
-    SetIdentityMatrix(g_studiomdl.bones.bonetable.emplace_back().srcRealign);
-    return static_cast<int>(g_studiomdl.bones.bonetable.size()) - 1;
+static int AddGlobalBone(StudioMdlState &ctx) {
+    SetIdentityMatrix(ctx.bones.bonetable.emplace_back().srcRealign);
+    return static_cast<int>(ctx.bones.bonetable.size()) - 1;
 }
 
-void InsertPredefinedBones(bool bUnlocked) {
+void InsertPredefinedBones(StudioMdlState &ctx, bool bUnlocked) {
     int i, k;
 
-    for (i = 0; i < std::ssize(g_studiomdl.bones.importbone); i++) {
-        if (g_studiomdl.bones.importbone[i].bUnlocked != bUnlocked)
+    for (i = 0; i < std::ssize(ctx.bones.importbone); i++) {
+        if (ctx.bones.importbone[i].bUnlocked != bUnlocked)
             continue;
 
-        k = findGlobalBone(g_studiomdl.bones.importbone[i].name);
+        k = findGlobalBone(ctx, ctx.bones.importbone[i].name);
         if (k == -1) {
-            k = AddGlobalBone();
-            if (strlen(g_studiomdl.bones.importbone[i].parent) == 0) {
-                g_studiomdl.bones.bonetable[k].parent = -1;
+            k = AddGlobalBone(ctx);
+            if (strlen(ctx.bones.importbone[i].parent) == 0) {
+                ctx.bones.bonetable[k].parent = -1;
             }
             else {
                 // FIXME: This won't work if the imported bone refers to
                 // another imported bone which is further along in the list
-                g_studiomdl.bones.bonetable[k].parent = findGlobalBone(g_studiomdl.bones.importbone[i].parent);
-                if (g_studiomdl.bones.bonetable[k].parent == -1) {
+                ctx.bones.bonetable[k].parent = findGlobalBone(ctx, ctx.bones.importbone[i].parent);
+                if (ctx.bones.bonetable[k].parent == -1) {
                     Warning("Imported bone {} tried to access parent bone {} and failed!\n",
-                            g_studiomdl.bones.importbone[i].name.c_str(),
-                            g_studiomdl.bones.importbone[i].parent.c_str());
+                            ctx.bones.importbone[i].name.c_str(),
+                            ctx.bones.importbone[i].parent.c_str());
                 }
             }
             // named after the parent lookup, which must not find the bone being added
-            strcpyn(g_studiomdl.bones.bonetable[k].name, g_studiomdl.bones.importbone[i].name);
-            g_studiomdl.bones.bonetable[k].bPreDefined = true;
-            g_studiomdl.bones.bonetable[k].rawLocal = g_studiomdl.bones.importbone[i].rawLocal;
-            g_studiomdl.bones.bonetable[k].rawLocalOriginal = g_studiomdl.bones.bonetable[k].rawLocal;
+            strcpyn(ctx.bones.bonetable[k].name, ctx.bones.importbone[i].name);
+            ctx.bones.bonetable[k].bPreDefined = true;
+            ctx.bones.bonetable[k].rawLocal = ctx.bones.importbone[i].rawLocal;
+            ctx.bones.bonetable[k].rawLocalOriginal = ctx.bones.bonetable[k].rawLocal;
         }
-        g_studiomdl.bones.bonetable[k].bDontCollapse = true;
-        g_studiomdl.bones.bonetable[k].srcRealign = g_studiomdl.bones.importbone[i].srcRealign;
-        g_studiomdl.bones.bonetable[k].bPreAligned = g_studiomdl.bones.importbone[i].bPreAligned;
+        ctx.bones.bonetable[k].bDontCollapse = true;
+        ctx.bones.bonetable[k].srcRealign = ctx.bones.importbone[i].srcRealign;
+        ctx.bones.bonetable[k].bPreAligned = ctx.bones.importbone[i].bPreAligned;
     }
 
     // ensure bonemerged bones are tagged
-    for (i = 0; i < std::ssize(g_studiomdl.bones.bonetable); i++) {
-        for (k = 0; k < g_studiomdl.bones.bone_merge.size(); k++) {
-            if (!HasFlag(g_studiomdl.bones.bonetable[i].flags, BoneFlags::UsedByBoneMerge) &&
-                vstd::iequals(g_studiomdl.bones.bone_merge[k].bonename, g_studiomdl.bones.bonetable[i].name)) {
-                g_studiomdl.bones.bonetable[i].flags |= BoneFlags::UsedByBoneMerge;
+    for (i = 0; i < std::ssize(ctx.bones.bonetable); i++) {
+        for (k = 0; k < ctx.bones.bone_merge.size(); k++) {
+            if (!HasFlag(ctx.bones.bonetable[i].flags, BoneFlags::UsedByBoneMerge) &&
+                vstd::iequals(ctx.bones.bone_merge[k].bonename, ctx.bones.bonetable[i].name)) {
+                ctx.bones.bonetable[i].flags |= BoneFlags::UsedByBoneMerge;
             }
         }
     }
 
     // ensure alwayssetup bones are tagged
-    for (i = 0; i < std::ssize(g_studiomdl.bones.bonetable); i++) {
-        for (k = 0; k < g_studiomdl.bones.bone_always_setup.size(); k++) {
-            if (!HasFlag(g_studiomdl.bones.bonetable[i].flags, BoneFlags::AlwaysSetup) &&
-                vstd::iequals(g_studiomdl.bones.bone_always_setup[k].bonename, g_studiomdl.bones.bonetable[i].name)) {
-                g_studiomdl.bones.bonetable[i].flags |= BoneFlags::AlwaysSetup;
+    for (i = 0; i < std::ssize(ctx.bones.bonetable); i++) {
+        for (k = 0; k < ctx.bones.bone_always_setup.size(); k++) {
+            if (!HasFlag(ctx.bones.bonetable[i].flags, BoneFlags::AlwaysSetup) &&
+                vstd::iequals(ctx.bones.bone_always_setup[k].bonename, ctx.bones.bonetable[i].name)) {
+                ctx.bones.bonetable[i].flags |= BoneFlags::AlwaysSetup;
             }
         }
     }
@@ -4235,17 +4232,17 @@ void InsertPredefinedBones(bool bUnlocked) {
 //-----------------------------------------------------------------------------
 // Purpose: look through all the sources and build a table of used bones
 //-----------------------------------------------------------------------------
-int BuildGlobalBonetable() {
+int BuildGlobalBonetable(StudioMdlState &ctx) {
     int i, j, k, n;
     const int iError = 0;
 
-    g_studiomdl.bones.bonetable.clear();
+    ctx.bones.bonetable.clear();
 
-    InsertPredefinedBones(false);
+    InsertPredefinedBones(ctx, false);
 
     // union of all used bones
-    for (i = 0; i < g_studiomdl.anim.sources.size(); i++) {
-        s_source_t* psource = g_studiomdl.anim.sources[i];
+    for (i = 0; i < ctx.anim.sources.size(); i++) {
+        s_source_t* psource = ctx.anim.sources[i];
 
         // skip sources with no bones
         if (psource->numbones == 0)
@@ -4259,7 +4256,7 @@ int BuildGlobalBonetable() {
         BuildRawTransforms(psource, pSourceAnim->animationname, 0, srcBoneToWorld);
 
         for (j = 0; j < psource->numbones; j++) {
-            if (g_studiomdl.options.collapse_bones_aggressive) {
+            if (ctx.options.collapse_bones_aggressive) {
                 if (psource->boneflags[j] == BoneFlags::None)
                     continue;
             }
@@ -4268,55 +4265,55 @@ int BuildGlobalBonetable() {
                     continue;
             }
 
-            k = findGlobalBone(psource->localBone[j].name);
+            k = findGlobalBone(ctx, psource->localBone[j].name);
             if (k == -1) {
                 // create new bone
-                k = AddGlobalBone();
+                k = AddGlobalBone(ctx);
                 if ((n = psource->localBone[j].parent) != -1)
-                    g_studiomdl.bones.bonetable[k].parent = findGlobalBone(psource->localBone[n].name);
+                    ctx.bones.bonetable[k].parent = findGlobalBone(ctx, psource->localBone[n].name);
                 else
-                    g_studiomdl.bones.bonetable[k].parent = -1;
-                strcpyn(g_studiomdl.bones.bonetable[k].name, psource->localBone[j].name);
-                g_studiomdl.bones.bonetable[k].bonecontroller = 0;
-                g_studiomdl.bones.bonetable[k].flags = psource->boneflags[j];
+                    ctx.bones.bonetable[k].parent = -1;
+                strcpyn(ctx.bones.bonetable[k].name, psource->localBone[j].name);
+                ctx.bones.bonetable[k].bonecontroller = 0;
+                ctx.bones.bonetable[k].flags = psource->boneflags[j];
 
-                if (g_studiomdl.bones.bonetable[k].parent == -1 || !g_studiomdl.bones.bonetable[g_studiomdl.bones.
+                if (ctx.bones.bonetable[k].parent == -1 || !ctx.bones.bonetable[ctx.bones.
                         bonetable[k].parent].
                     bPreAligned) {
                     AngleMatrix(pSourceAnim->rawanim[0][j].rot, pSourceAnim->rawanim[0][j].pos,
-                                g_studiomdl.bones.bonetable[k].rawLocal);
-                    g_studiomdl.bones.bonetable[k].rawLocalOriginal = g_studiomdl.bones.bonetable[k].rawLocal;
+                                ctx.bones.bonetable[k].rawLocal);
+                    ctx.bones.bonetable[k].rawLocalOriginal = ctx.bones.bonetable[k].rawLocal;
                 }
                 else {
                     // convert the local relative position into a realigned relative position
                     matrix3x4_t srcParentBoneToWorld;
                     ConcatTransforms(srcBoneToWorld[n],
-                                     g_studiomdl.bones.bonetable[g_studiomdl.bones.bonetable[k].parent].srcRealign,
+                                     ctx.bones.bonetable[ctx.bones.bonetable[k].parent].srcRealign,
                                      srcParentBoneToWorld);
                     matrix3x4_t invSrcParentBoneToWorld;
                     MatrixInvert(srcParentBoneToWorld, invSrcParentBoneToWorld);
                     ConcatTransforms(invSrcParentBoneToWorld, srcBoneToWorld[j],
-                                     g_studiomdl.bones.bonetable[k].rawLocal);
+                                     ctx.bones.bonetable[k].rawLocal);
                 }
 
-                g_studiomdl.bones.bonetable[k].boneToPose.Invalidate();
+                ctx.bones.bonetable[k].boneToPose.Invalidate();
 
-                for (int n = 0; n < std::ssize(g_studiomdl.bones.importbone); n++) {
-                    if (vstd::iequals(g_studiomdl.bones.bonetable[k].name, g_studiomdl.bones.importbone[n].name)) {
-                        g_studiomdl.bones.bonetable[k].bDontCollapse = true;
+                for (int n = 0; n < std::ssize(ctx.bones.importbone); n++) {
+                    if (vstd::iequals(ctx.bones.bonetable[k].name, ctx.bones.importbone[n].name)) {
+                        ctx.bones.bonetable[k].bDontCollapse = true;
                     }
                 }
 
-                // printf("%d : %s (%s)\n", k, g_studiomdl.bones.bonetable[k].name, g_studiomdl.bones.bonetable[g_studiomdl.bones.bonetable[k].parent].name );
+                // printf("%d : %s (%s)\n", k, ctx.bones.bonetable[k].name, ctx.bones.bonetable[ctx.bones.bonetable[k].parent].name );
                 continue;
             }
 
             // accumlate flags
-            g_studiomdl.bones.bonetable[k].flags |= psource->boneflags[j];
+            ctx.bones.bonetable[k].flags |= psource->boneflags[j];
         }
     }
 
-    InsertPredefinedBones(true);
+    InsertPredefinedBones(ctx, true);
 
     return iError;
 }
@@ -4325,18 +4322,18 @@ int BuildGlobalBonetable() {
 // Purpose:
 //-----------------------------------------------------------------------------
 
-void BuildGlobalBoneToPose() {
+void BuildGlobalBoneToPose(StudioMdlState &ctx) {
     int k;
 
     // build reference pose
-    for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
-        if (g_studiomdl.bones.bonetable[k].parent == -1) {
-            MatrixCopy(g_studiomdl.bones.bonetable[k].rawLocal, g_studiomdl.bones.bonetable[k].boneToPose);
+    for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
+        if (ctx.bones.bonetable[k].parent == -1) {
+            MatrixCopy(ctx.bones.bonetable[k].rawLocal, ctx.bones.bonetable[k].boneToPose);
         }
         else {
-            ConcatTransforms(g_studiomdl.bones.bonetable[g_studiomdl.bones.bonetable[k].parent].boneToPose,
-                             g_studiomdl.bones.bonetable[k].rawLocal,
-                             g_studiomdl.bones.bonetable[k].boneToPose);
+            ConcatTransforms(ctx.bones.bonetable[ctx.bones.bonetable[k].parent].boneToPose,
+                             ctx.bones.bonetable[k].rawLocal,
+                             ctx.bones.bonetable[k].boneToPose);
         }
     }
 }
@@ -4345,33 +4342,33 @@ void BuildGlobalBoneToPose() {
 // Purpose:
 //-----------------------------------------------------------------------------
 
-void RebuildLocalPose() {
+void RebuildLocalPose(StudioMdlState &ctx) {
     int k;
 
     matrix3x4_t boneToPose[MAXSTUDIOBONES];
 
     // build reference pose
-    for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
-        MatrixCopy(g_studiomdl.bones.bonetable[k].boneToPose, boneToPose[k]);
+    for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
+        MatrixCopy(ctx.bones.bonetable[k].boneToPose, boneToPose[k]);
     }
 
     matrix3x4_t poseToBone[MAXSTUDIOBONES];
 
     // rebuild local pose
-    for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
-        if (g_studiomdl.bones.bonetable[k].parent == -1) {
-            MatrixCopy(boneToPose[k], g_studiomdl.bones.bonetable[k].rawLocal);
+    for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
+        if (ctx.bones.bonetable[k].parent == -1) {
+            MatrixCopy(boneToPose[k], ctx.bones.bonetable[k].rawLocal);
         }
         else {
-            ConcatTransforms(poseToBone[g_studiomdl.bones.bonetable[k].parent], boneToPose[k],
-                             g_studiomdl.bones.bonetable[k].rawLocal);
+            ConcatTransforms(poseToBone[ctx.bones.bonetable[k].parent], boneToPose[k],
+                             ctx.bones.bonetable[k].rawLocal);
         }
-        MatrixAngles(g_studiomdl.bones.bonetable[k].rawLocal, g_studiomdl.bones.bonetable[k].rot,
-                     g_studiomdl.bones.bonetable[k].pos);
-        MatrixCopy(boneToPose[k], g_studiomdl.bones.bonetable[k].boneToPose);
+        MatrixAngles(ctx.bones.bonetable[k].rawLocal, ctx.bones.bonetable[k].rot,
+                     ctx.bones.bonetable[k].pos);
+        MatrixCopy(boneToPose[k], ctx.bones.bonetable[k].boneToPose);
         MatrixInvert(boneToPose[k], poseToBone[k]);
 
-        // printf("%d \"%s\" %d\n", k, g_studiomdl.bones.bonetable[k].name, g_studiomdl.bones.bonetable[k].parent );
+        // printf("%d \"%s\" %d\n", k, ctx.bones.bonetable[k].name, ctx.bones.bonetable[k].parent );
     }
     //exit(0);
 }
@@ -4381,59 +4378,59 @@ void RebuildLocalPose() {
 // Purpose: attach bones to different parents if needed
 //-----------------------------------------------------------------------------
 
-void EnforceHierarchy() {
+void EnforceHierarchy(StudioMdlState &ctx) {
     vstd::FunctionTimingRecorder _("Simplify");
     int i, j, k;
 
     // force changes to hierarchy
-    for (i = 0; i < std::ssize(g_studiomdl.bones.forcedhierarchy); i++) {
-        j = findGlobalBone(g_studiomdl.bones.forcedhierarchy[i].parentname);
-        k = findGlobalBone(g_studiomdl.bones.forcedhierarchy[i].childname);
+    for (i = 0; i < std::ssize(ctx.bones.forcedhierarchy); i++) {
+        j = findGlobalBone(ctx, ctx.bones.forcedhierarchy[i].parentname);
+        k = findGlobalBone(ctx, ctx.bones.forcedhierarchy[i].childname);
 
-        if (j == -1 && strlen(g_studiomdl.bones.forcedhierarchy[i].parentname) > 0) {
-            MdlError("unknown bone: \"{}\" in forced hierarchy\n", g_studiomdl.bones.forcedhierarchy[i].parentname);
+        if (j == -1 && strlen(ctx.bones.forcedhierarchy[i].parentname) > 0) {
+            MdlError("unknown bone: \"{}\" in forced hierarchy\n", ctx.bones.forcedhierarchy[i].parentname);
         }
         if (k == -1) {
-            MdlError("unknown bone: \"{}\" in forced hierarchy\n", g_studiomdl.bones.forcedhierarchy[i].childname);
+            MdlError("unknown bone: \"{}\" in forced hierarchy\n", ctx.bones.forcedhierarchy[i].childname);
         }
 
         /*
 		if (j > k)
 		{
-			MdlError( "parent \"%s\" declared after child \"%s\" in forced hierarchy\n", g_studiomdl.bones.forcedhierarchy[i].parentname, g_studiomdl.bones.forcedhierarchy[i].childname );
+			MdlError( "parent \"%s\" declared after child \"%s\" in forced hierarchy\n", ctx.bones.forcedhierarchy[i].parentname, ctx.bones.forcedhierarchy[i].childname );
 		}
 		*/
 
         /*
-		if (strlen(g_studiomdl.bones.forcedhierarchy[i].subparentname) != 0)
+		if (strlen(ctx.bones.forcedhierarchy[i].subparentname) != 0)
 		{
 			int n, m;
 
-			m = findGlobalBone( g_studiomdl.bones.forcedhierarchy[i].subparentname );
+			m = findGlobalBone( ctx.bones.forcedhierarchy[i].subparentname );
 			if (m != -1)
 			{
-				MdlError( "inserted bone \"%s\" matches name of existing bone in hierarchy\n", g_studiomdl.bones.forcedhierarchy[i].parentname, g_studiomdl.bones.forcedhierarchy[i].subparentname );
+				MdlError( "inserted bone \"%s\" matches name of existing bone in hierarchy\n", ctx.bones.forcedhierarchy[i].parentname, ctx.bones.forcedhierarchy[i].subparentname );
 			}
 
-			printf("inserting bone \"%s\"\n", g_studiomdl.bones.forcedhierarchy[i].subparentname );
+			printf("inserting bone \"%s\"\n", ctx.bones.forcedhierarchy[i].subparentname );
 
 			// shift the bone list up
-			for (n = std::ssize(g_studiomdl.bones.bonetable); n > k; n--)
+			for (n = std::ssize(ctx.bones.bonetable); n > k; n--)
 			{
-				g_studiomdl.bones.bonetable[n] = g_studiomdl.bones.bonetable[n-1];
-				if (g_studiomdl.bones.bonetable[n].parent >= k)
+				ctx.bones.bonetable[n] = ctx.bones.bonetable[n-1];
+				if (ctx.bones.bonetable[n].parent >= k)
 				{
-					g_studiomdl.bones.bonetable[n].parent = g_studiomdl.bones.bonetable[n].parent + 1;
+					ctx.bones.bonetable[n].parent = ctx.bones.bonetable[n].parent + 1;
 				}
 				MatrixCopy( boneToPose[n-1], boneToPose[n] );
 			}
 			numbones++;
 
 			// add the bone
-			strcpy( g_studiomdl.bones.bonetable[k].name, g_studiomdl.bones.forcedhierarchy[i].subparentname );
-			g_studiomdl.bones.bonetable[k].parent = j;
-			g_studiomdl.bones.bonetable[k].split = true;
-			g_studiomdl.bones.bonetable[k+1].parent = k;
+			strcpy( ctx.bones.bonetable[k].name, ctx.bones.forcedhierarchy[i].subparentname );
+			ctx.bones.bonetable[k].parent = j;
+			ctx.bones.bonetable[k].split = true;
+			ctx.bones.bonetable[k+1].parent = k;
 
 			// split the bone
 			Quaternion q1, q2;
@@ -4451,7 +4448,7 @@ void EnforceHierarchy() {
 		else
 		*/
         {
-            g_studiomdl.bones.bonetable[k].parent = j;
+            ctx.bones.bonetable[k].parent = j;
         }
     }
 
@@ -4463,22 +4460,22 @@ void EnforceHierarchy() {
     while (bSort) {
         count++;
         bSort = false;
-        for (i = 0; i < std::ssize(g_studiomdl.bones.bonetable); i++) {
-            if (g_studiomdl.bones.bonetable[i].parent > i) {
+        for (i = 0; i < std::ssize(ctx.bones.bonetable); i++) {
+            if (ctx.bones.bonetable[i].parent > i) {
                 // swap
-                j = g_studiomdl.bones.bonetable[i].parent;
+                j = ctx.bones.bonetable[i].parent;
                 s_bonetable_t tmp;
-                tmp = g_studiomdl.bones.bonetable[i];
-                g_studiomdl.bones.bonetable[i] = g_studiomdl.bones.bonetable[j];
-                g_studiomdl.bones.bonetable[j] = tmp;
+                tmp = ctx.bones.bonetable[i];
+                ctx.bones.bonetable[i] = ctx.bones.bonetable[j];
+                ctx.bones.bonetable[j] = tmp;
 
                 // relink parents
-                for (k = i; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
-                    if (g_studiomdl.bones.bonetable[k].parent == i) {
-                        g_studiomdl.bones.bonetable[k].parent = j;
+                for (k = i; k < std::ssize(ctx.bones.bonetable); k++) {
+                    if (ctx.bones.bonetable[k].parent == i) {
+                        ctx.bones.bonetable[k].parent = j;
                     }
-                    else if (g_studiomdl.bones.bonetable[k].parent == j) {
-                        g_studiomdl.bones.bonetable[k].parent = i;
+                    else if (ctx.bones.bonetable[k].parent == j) {
+                        ctx.bones.bonetable[k].parent = i;
                     }
                 }
 
@@ -4495,38 +4492,38 @@ void EnforceHierarchy() {
 //-----------------------------------------------------------------------------
 // Purpose: Find constraint bones and tag for inclusion
 //-----------------------------------------------------------------------------
-static void TagConstraintBones() {
+static void TagConstraintBones(StudioMdlState &ctx) {
     // Iterate backwards so invalid elements can be removed
-    for (int i = std::ssize(g_studiomdl.bones.constraintBones) - 1; i >= 0; --i) {
-        CConstraintBoneBase* pConstraintBone = g_studiomdl.bones.constraintBones[i];
+    for (int i = std::ssize(ctx.bones.constraintBones) - 1; i >= 0; --i) {
+        CConstraintBoneBase* pConstraintBone = ctx.bones.constraintBones[i];
         if (!pConstraintBone) {
-            g_studiomdl.bones.constraintBones.erase(g_studiomdl.bones.constraintBones.begin() + i);
+            ctx.bones.constraintBones.erase(ctx.bones.constraintBones.begin() + i);
             continue;
         }
 
-        pConstraintBone->m_slave.m_nBone = findGlobalBone(pConstraintBone->m_slave.m_szBoneName);
+        pConstraintBone->m_slave.m_nBone = findGlobalBone(ctx, pConstraintBone->m_slave.m_szBoneName);
         if (pConstraintBone->m_slave.m_nBone < 0) {
-            g_studiomdl.bones.constraintBones.erase(g_studiomdl.bones.constraintBones.begin() + i);
+            ctx.bones.constraintBones.erase(ctx.bones.constraintBones.begin() + i);
             continue;
         }
 
-        g_studiomdl.bones.bonetable[pConstraintBone->m_slave.m_nBone].flags |= BoneFlags::AlwaysProcedural;
+        ctx.bones.bonetable[pConstraintBone->m_slave.m_nBone].flags |= BoneFlags::AlwaysProcedural;
 
         for (int j = std::ssize(pConstraintBone->m_targets) - 1; j >= 0; --j) {
             s_constraintbonetarget_t &target = pConstraintBone->m_targets[j];
-            target.m_nBone = findGlobalBone(target.m_szBoneName);
+            target.m_nBone = findGlobalBone(ctx, target.m_szBoneName);
             if (target.m_nBone < 0) {
                 pConstraintBone->m_targets.erase(pConstraintBone->m_targets.begin() + j);
             }
         }
 
         if (pConstraintBone->m_targets.empty()) {
-            g_studiomdl.bones.constraintBones.erase(g_studiomdl.bones.constraintBones.begin() + i);
+            ctx.bones.constraintBones.erase(ctx.bones.constraintBones.begin() + i);
         }
 
         CAimConstraint* pAimConstraint = dynamic_cast<CAimConstraint*>(pConstraintBone);
         if (pAimConstraint) {
-            pAimConstraint->m_nUpSpaceTargetBone = findGlobalBone(pAimConstraint->m_szUpSpaceTargetBone);
+            pAimConstraint->m_nUpSpaceTargetBone = findGlobalBone(ctx, pAimConstraint->m_szUpSpaceTargetBone);
         }
     }
 }
@@ -4536,168 +4533,168 @@ static void TagConstraintBones() {
 // Purpose: find procedural bones and tag for inclusion even if they don't animate
 //-----------------------------------------------------------------------------
 
-void TagProceduralBones() {
+void TagProceduralBones(StudioMdlState &ctx) {
     int j;
 
     // look for AxisInterp bone definitions; the maps list the used definitions
-    g_studiomdl.bones.axisinterpbonemap.clear();
-    for (j = 0; j < std::ssize(g_studiomdl.bones.axisinterpbones); j++) {
-        g_studiomdl.bones.axisinterpbones[j].bone = findGlobalBone(g_studiomdl.bones.axisinterpbones[j].bonename);
-        g_studiomdl.bones.axisinterpbones[j].control = findGlobalBone(g_studiomdl.bones.axisinterpbones[j].controlname);
+    ctx.bones.axisinterpbonemap.clear();
+    for (j = 0; j < std::ssize(ctx.bones.axisinterpbones); j++) {
+        ctx.bones.axisinterpbones[j].bone = findGlobalBone(ctx, ctx.bones.axisinterpbones[j].bonename);
+        ctx.bones.axisinterpbones[j].control = findGlobalBone(ctx, ctx.bones.axisinterpbones[j].controlname);
 
-        if (g_studiomdl.bones.axisinterpbones[j].bone == -1) {
-            if (!g_studiomdl.options.quiet) {
-                std::print("axisinterpbone \"{}\" unused\n", g_studiomdl.bones.axisinterpbones[j].bonename);
+        if (ctx.bones.axisinterpbones[j].bone == -1) {
+            if (!ctx.options.quiet) {
+                std::print("axisinterpbone \"{}\" unused\n", ctx.bones.axisinterpbones[j].bonename);
             }
             continue; // optimized out, don't complain
         }
 
-        if (g_studiomdl.bones.axisinterpbones[j].control == -1) {
+        if (ctx.bones.axisinterpbones[j].control == -1) {
             MdlError("Missing control bone \"{}\" for procedural bone \"{}\"\n",
-                     g_studiomdl.bones.axisinterpbones[j].bonename,
-                     g_studiomdl.bones.axisinterpbones[j].controlname);
+                     ctx.bones.axisinterpbones[j].bonename,
+                     ctx.bones.axisinterpbones[j].controlname);
         }
 
-        g_studiomdl.bones.bonetable[g_studiomdl.bones.axisinterpbones[j].bone].flags |= BoneFlags::AlwaysProcedural;
+        ctx.bones.bonetable[ctx.bones.axisinterpbones[j].bone].flags |= BoneFlags::AlwaysProcedural;
         // ??? what about physics rules
-        g_studiomdl.bones.axisinterpbonemap.push_back(j);
+        ctx.bones.axisinterpbonemap.push_back(j);
     }
 
     // look for QuatInterp bone definitions
-    g_studiomdl.bones.quatinterpbonemap.clear();
-    for (j = 0; j < std::ssize(g_studiomdl.bones.quatinterpbones); j++) {
-        g_studiomdl.bones.quatinterpbones[j].bone = findGlobalBoneXSI(g_studiomdl.bones.quatinterpbones[j].bonename);
-        g_studiomdl.bones.quatinterpbones[j].control = findGlobalBoneXSI(
-            g_studiomdl.bones.quatinterpbones[j].controlname);
+    ctx.bones.quatinterpbonemap.clear();
+    for (j = 0; j < std::ssize(ctx.bones.quatinterpbones); j++) {
+        ctx.bones.quatinterpbones[j].bone = findGlobalBoneXSI(ctx, ctx.bones.quatinterpbones[j].bonename);
+        ctx.bones.quatinterpbones[j].control = findGlobalBoneXSI(ctx, 
+            ctx.bones.quatinterpbones[j].controlname);
 
-        if (g_studiomdl.bones.quatinterpbones[j].bone == -1) {
-            if (!g_studiomdl.options.quiet && !g_studiomdl.options.createMakefile) {
-                std::print("quatinterpbone \"{}\" unused\n", g_studiomdl.bones.quatinterpbones[j].bonename);
+        if (ctx.bones.quatinterpbones[j].bone == -1) {
+            if (!ctx.options.quiet && !ctx.options.createMakefile) {
+                std::print("quatinterpbone \"{}\" unused\n", ctx.bones.quatinterpbones[j].bonename);
             }
             continue; // optimized out, don't complain
         }
 
-        if (g_studiomdl.bones.quatinterpbones[j].control == -1) {
+        if (ctx.bones.quatinterpbones[j].control == -1) {
             MdlError("Missing control bone \"{}\" for procedural bone \"{}\"\n",
-                     g_studiomdl.bones.quatinterpbones[j].bonename,
-                     g_studiomdl.bones.quatinterpbones[j].controlname);
+                     ctx.bones.quatinterpbones[j].bonename,
+                     ctx.bones.quatinterpbones[j].controlname);
         }
 
-        g_studiomdl.bones.bonetable[g_studiomdl.bones.quatinterpbones[j].bone].flags |= BoneFlags::AlwaysProcedural;
+        ctx.bones.bonetable[ctx.bones.quatinterpbones[j].bone].flags |= BoneFlags::AlwaysProcedural;
         // ??? what about physics rules
-        g_studiomdl.bones.quatinterpbonemap.push_back(j);
+        ctx.bones.quatinterpbonemap.push_back(j);
     }
 
     // look for AimAt bone definitions
-    g_studiomdl.bones.aimatbonemap.clear();
-    for (j = 0; j < std::ssize(g_studiomdl.bones.aimatbones); j++) {
-        g_studiomdl.bones.aimatbones[j].bone = findGlobalBoneXSI(g_studiomdl.bones.aimatbones[j].bonename);
+    ctx.bones.aimatbonemap.clear();
+    for (j = 0; j < std::ssize(ctx.bones.aimatbones); j++) {
+        ctx.bones.aimatbones[j].bone = findGlobalBoneXSI(ctx, ctx.bones.aimatbones[j].bonename);
 
-        if (g_studiomdl.bones.aimatbones[j].bone == -1) {
-            if (!g_studiomdl.options.quiet && !g_studiomdl.options.createMakefile) {
-                std::print("<aimconstraint> \"{}\" unused\n", g_studiomdl.bones.aimatbones[j].bonename);
+        if (ctx.bones.aimatbones[j].bone == -1) {
+            if (!ctx.options.quiet && !ctx.options.createMakefile) {
+                std::print("<aimconstraint> \"{}\" unused\n", ctx.bones.aimatbones[j].bonename);
             }
             continue; // optimized out, don't complain
         }
 
-        g_studiomdl.bones.aimatbones[j].parent = findGlobalBoneXSI(g_studiomdl.bones.aimatbones[j].parentname);
+        ctx.bones.aimatbones[j].parent = findGlobalBoneXSI(ctx, ctx.bones.aimatbones[j].parentname);
 
-        if (g_studiomdl.bones.aimatbones[j].parent == -1) {
+        if (ctx.bones.aimatbones[j].parent == -1) {
             MdlError("Missing parent control bone \"{}\" for procedural bone \"{}\"\n",
-                     g_studiomdl.bones.aimatbones[j].parentname,
-                     g_studiomdl.bones.aimatbones[j].bonename);
+                     ctx.bones.aimatbones[j].parentname,
+                     ctx.bones.aimatbones[j].bonename);
         }
 
         // Look for the aim bone as an attachment first
 
-        g_studiomdl.bones.aimatbones[j].aimAttach = -1;
+        ctx.bones.aimatbones[j].aimAttach = -1;
 
-        for (int ai(0); ai < g_studiomdl.bones.attachments.size(); ++ai) {
-            if (strcmp(g_studiomdl.bones.attachments[ai].name, g_studiomdl.bones.aimatbones[j].aimname) == 0) {
-                g_studiomdl.bones.aimatbones[j].aimAttach = ai;
+        for (int ai(0); ai < ctx.bones.attachments.size(); ++ai) {
+            if (strcmp(ctx.bones.attachments[ai].name, ctx.bones.aimatbones[j].aimname) == 0) {
+                ctx.bones.aimatbones[j].aimAttach = ai;
                 break;
             }
         }
 
-        if (g_studiomdl.bones.aimatbones[j].aimAttach == -1) {
-            g_studiomdl.bones.aimatbones[j].aimBone = findGlobalBoneXSI(g_studiomdl.bones.aimatbones[j].aimname);
+        if (ctx.bones.aimatbones[j].aimAttach == -1) {
+            ctx.bones.aimatbones[j].aimBone = findGlobalBoneXSI(ctx, ctx.bones.aimatbones[j].aimname);
 
-            if (g_studiomdl.bones.aimatbones[j].aimBone == -1) {
+            if (ctx.bones.aimatbones[j].aimBone == -1) {
                 MdlError("Missing aim control attachment or bone \"{}\" for procedural bone \"{}\"\n",
-                         g_studiomdl.bones.aimatbones[j].aimname, g_studiomdl.bones.aimatbones[j].bonename);
+                         ctx.bones.aimatbones[j].aimname, ctx.bones.aimatbones[j].bonename);
             }
         }
 
-        g_studiomdl.bones.bonetable[g_studiomdl.bones.aimatbones[j].bone].flags |= BoneFlags::AlwaysProcedural;
+        ctx.bones.bonetable[ctx.bones.aimatbones[j].bone].flags |= BoneFlags::AlwaysProcedural;
         // ??? what about physics rules
-        g_studiomdl.bones.aimatbonemap.push_back(j);
+        ctx.bones.aimatbonemap.push_back(j);
     }
 
     // look for Jiggle bone definitions
-    g_studiomdl.bones.jigglebonemap.clear();
-    for (j = 0; j < std::ssize(g_studiomdl.bones.jigglebones); j++) {
-        g_studiomdl.bones.jigglebones[j].bone = findGlobalBone(g_studiomdl.bones.jigglebones[j].bonename);
+    ctx.bones.jigglebonemap.clear();
+    for (j = 0; j < std::ssize(ctx.bones.jigglebones); j++) {
+        ctx.bones.jigglebones[j].bone = findGlobalBone(ctx, ctx.bones.jigglebones[j].bonename);
 
-        if (g_studiomdl.bones.jigglebones[j].bone == -1) {
-            if (!g_studiomdl.options.quiet) {
-                std::print("jigglebone \"{}\" unused\n", g_studiomdl.bones.jigglebones[j].bonename);
+        if (ctx.bones.jigglebones[j].bone == -1) {
+            if (!ctx.options.quiet) {
+                std::print("jigglebone \"{}\" unused\n", ctx.bones.jigglebones[j].bonename);
             }
             continue; // optimized out, don't complain
         }
 
-        g_studiomdl.bones.bonetable[g_studiomdl.bones.jigglebones[j].bone].flags |= BoneFlags::AlwaysProcedural;
+        ctx.bones.bonetable[ctx.bones.jigglebones[j].bone].flags |= BoneFlags::AlwaysProcedural;
         // ??? what about physics rules
-        g_studiomdl.bones.jigglebonemap.push_back(j);
+        ctx.bones.jigglebonemap.push_back(j);
     }
 
     // Look for twist bone defintions
     // Iterate backwards so we can remove invalid elements
-    for (j = std::ssize(g_studiomdl.bones.twistbones) - 1; j >= 0; --j) {
-        CTwistBone &twistBone = g_studiomdl.bones.twistbones[j];
+    for (j = std::ssize(ctx.bones.twistbones) - 1; j >= 0; --j) {
+        CTwistBone &twistBone = ctx.bones.twistbones[j];
 
-        twistBone.m_nParentBone = findGlobalBone(twistBone.m_szParentBoneName);
+        twistBone.m_nParentBone = findGlobalBone(ctx, twistBone.m_szParentBoneName);
         if (twistBone.m_nParentBone < 0) {
-            g_studiomdl.bones.twistbones.erase(g_studiomdl.bones.twistbones.begin() + j);
+            ctx.bones.twistbones.erase(ctx.bones.twistbones.begin() + j);
             continue;
         }
 
-        twistBone.m_nChildBone = findGlobalBone(twistBone.m_szChildBoneName);
+        twistBone.m_nChildBone = findGlobalBone(ctx, twistBone.m_szChildBoneName);
         if (twistBone.m_nChildBone < 0) {
-            g_studiomdl.bones.twistbones.erase(g_studiomdl.bones.twistbones.begin() + j);
+            ctx.bones.twistbones.erase(ctx.bones.twistbones.begin() + j);
             continue;
         }
 
         for (int k = std::ssize(twistBone.m_twistBoneTargets) - 1; k >= 0; --k) {
             s_constraintbonetarget_t &twistBoneTarget = twistBone.m_twistBoneTargets[k];
-            twistBoneTarget.m_nBone = findGlobalBone(twistBoneTarget.m_szBoneName);
+            twistBoneTarget.m_nBone = findGlobalBone(ctx, twistBoneTarget.m_szBoneName);
             if (twistBoneTarget.m_nBone < 0) {
                 twistBone.m_twistBoneTargets.erase(twistBone.m_twistBoneTargets.begin() + k);
             }
             else {
-                g_studiomdl.bones.bonetable[twistBoneTarget.m_nBone].flags |= BoneFlags::AlwaysProcedural;
+                ctx.bones.bonetable[twistBoneTarget.m_nBone].flags |= BoneFlags::AlwaysProcedural;
             }
         }
 
         if (std::ssize(twistBone.m_twistBoneTargets) <= 0) {
-            g_studiomdl.bones.twistbones.erase(g_studiomdl.bones.twistbones.begin() + j);
+            ctx.bones.twistbones.erase(ctx.bones.twistbones.begin() + j);
         }
     }
 
-    TagConstraintBones();
+    TagConstraintBones(ctx);
 }
 
 
 //-----------------------------------------------------------------------------
 //
 //-----------------------------------------------------------------------------
-void RealignBoneTranslation(Vector &vRealigned, int nBoneIndex, const Vector &vInput) {
+void RealignBoneTranslation(StudioMdlState &ctx, Vector &vRealigned, int nBoneIndex, const Vector &vInput) {
     matrix3x4a_t mIdentity;
     SetIdentityMatrix(mIdentity);
 
     if (nBoneIndex < 0 || nBoneIndex >= MAXSTUDIOSRCBONES)
         return;
 
-    const s_bonetable_t* pBone = &g_studiomdl.bones.bonetable[nBoneIndex];
+    const s_bonetable_t* pBone = &ctx.bones.bonetable[nBoneIndex];
     if (!pBone)
         return;
 
@@ -4705,7 +4702,7 @@ void RealignBoneTranslation(Vector &vRealigned, int nBoneIndex, const Vector &vI
 
     const int nParentBoneIndex = pBone->parent;
     if (nParentBoneIndex >= 0 && nBoneIndex < MAXSTUDIOSRCBONES) {
-        const s_bonetable_t* pParentBone = &g_studiomdl.bones.bonetable[nParentBoneIndex];
+        const s_bonetable_t* pParentBone = &ctx.bones.bonetable[nParentBoneIndex];
         if (pParentBone) {
             if (!MatricesAreEqual(mIdentity, pParentBone->srcRealign)) {
                 QuaternionAligned qParentSrcRealign;
@@ -4728,14 +4725,14 @@ void RealignBoneTranslation(Vector &vRealigned, int nBoneIndex, const Vector &vI
 // Applies the inverse of the parent's srcRealign and then the it's srcRealign
 // if not the identity
 //-----------------------------------------------------------------------------
-void RealignBoneQuaternion(Quaternion &qRealigned, int nBoneIndex, const Quaternion &qInput) {
+void RealignBoneQuaternion(StudioMdlState &ctx, Quaternion &qRealigned, int nBoneIndex, const Quaternion &qInput) {
     matrix3x4a_t mIdentity;
     SetIdentityMatrix(mIdentity);
 
     if (nBoneIndex < 0 || nBoneIndex >= MAXSTUDIOSRCBONES)
         return;
 
-    const s_bonetable_t* pBone = &g_studiomdl.bones.bonetable[nBoneIndex];
+    const s_bonetable_t* pBone = &ctx.bones.bonetable[nBoneIndex];
     if (!pBone)
         return;
 
@@ -4743,7 +4740,7 @@ void RealignBoneQuaternion(Quaternion &qRealigned, int nBoneIndex, const Quatern
 
     const int nParentBoneIndex = pBone->parent;
     if (nParentBoneIndex >= 0 && nBoneIndex < MAXSTUDIOSRCBONES) {
-        const s_bonetable_t* pParentBone = &g_studiomdl.bones.bonetable[nParentBoneIndex];
+        const s_bonetable_t* pParentBone = &ctx.bones.bonetable[nParentBoneIndex];
         if (pParentBone) {
             if (!MatricesAreEqual(mIdentity, pParentBone->srcRealign)) {
                 matrix3x4a_t mSrcRealignInv;
@@ -4769,25 +4766,25 @@ void RealignBoneQuaternion(Quaternion &qRealigned, int nBoneIndex, const Quatern
 //-----------------------------------------------------------------------------
 //
 //-----------------------------------------------------------------------------
-static void RemapConstraintBones() {
-    const Quaternion qRot = Quaternion(g_studiomdl.script.defaultrotation);
+static void RemapConstraintBones(StudioMdlState &ctx) {
+    const Quaternion qRot = Quaternion(ctx.script.defaultrotation);
     Vector vTmp;
 
-    for (int i = 0; i < std::ssize(g_studiomdl.bones.constraintBones); ++i) {
-        CConstraintBoneBase* pConstraintBone = g_studiomdl.bones.constraintBones[i];
+    for (int i = 0; i < std::ssize(ctx.bones.constraintBones); ++i) {
+        CConstraintBoneBase* pConstraintBone = ctx.bones.constraintBones[i];
         if (!pConstraintBone)
             continue;
 
         for (size_t j = 0; j < pConstraintBone->m_targets.size(); ++j) {
             s_constraintbonetarget_t &target = pConstraintBone->m_targets[j];
-            const int nBoneIndex = findGlobalBone(target.m_szBoneName);
+            const int nBoneIndex = findGlobalBone(ctx, target.m_szBoneName);
             if (nBoneIndex < 0 || nBoneIndex != target.m_nBone) {
                 MdlError("<constraintbone> Can't find target bone \"{}\"\n", target.m_szBoneName);
             }
 
             if (!dynamic_cast<CPointConstraint*>(pConstraintBone)) {
-                RealignBoneTranslation(target.m_vOffset, nBoneIndex, target.m_vOffset);
-                RealignBoneQuaternion(target.m_qOffset, nBoneIndex, target.m_qOffset);
+                RealignBoneTranslation(ctx, target.m_vOffset, nBoneIndex, target.m_vOffset);
+                RealignBoneQuaternion(ctx, target.m_qOffset, nBoneIndex, target.m_qOffset);
             }
             else {
                 // target offsets are in world space...
@@ -4797,12 +4794,12 @@ static void RemapConstraintBones() {
         {
             s_constraintboneslave_t &slave = pConstraintBone->m_slave;
 
-            const int nBoneIndex = findGlobalBone(slave.m_szBoneName);
+            const int nBoneIndex = findGlobalBone(ctx, slave.m_szBoneName);
             if (nBoneIndex < 0 || nBoneIndex != slave.m_nBone) {
                 MdlError("<constraintbone> Can't find slave bone \"{}\"\n", slave.m_szBoneName);
             }
 
-            const s_bonetable_t* pBone = &g_studiomdl.bones.bonetable[nBoneIndex];
+            const s_bonetable_t* pBone = &ctx.bones.bonetable[nBoneIndex];
             if (pBone) {
                 if (pBone->parent < 0) {
                     // No parent
@@ -4810,10 +4807,10 @@ static void RemapConstraintBones() {
                     slave.m_vBaseTranslate = vTmp;
                 }
                 else {
-                    RealignBoneTranslation(slave.m_vBaseTranslate, nBoneIndex, slave.m_vBaseTranslate);
+                    RealignBoneTranslation(ctx, slave.m_vBaseTranslate, nBoneIndex, slave.m_vBaseTranslate);
                 }
 
-                RealignBoneQuaternion(slave.m_qBaseRotation, nBoneIndex, slave.m_qBaseRotation);
+                RealignBoneQuaternion(ctx, slave.m_qBaseRotation, nBoneIndex, slave.m_qBaseRotation);
             }
         }
     }
@@ -4823,16 +4820,16 @@ static void RemapConstraintBones() {
 //-----------------------------------------------------------------------------
 // Purpose: convert original procedural bone info into correct values for existing skeleton
 //-----------------------------------------------------------------------------
-void RemapProceduralBones() {
+void RemapProceduralBones(StudioMdlState &ctx) {
     vstd::FunctionTimingRecorder _("Simplify");
     int j;
 
     // look for QuatInterp bone definitions
-    for (const int index: g_studiomdl.bones.quatinterpbonemap) {
-        s_quatinterpbone_t* pInterp = &g_studiomdl.bones.quatinterpbones[index];
+    for (const int index: ctx.bones.quatinterpbonemap) {
+        s_quatinterpbone_t* pInterp = &ctx.bones.quatinterpbones[index];
 
-        const int origParent = findGlobalBoneXSI(pInterp->parentname);
-        const int origControlParent = findGlobalBoneXSI(pInterp->controlparentname);
+        const int origParent = findGlobalBoneXSI(ctx, pInterp->parentname);
+        const int origControlParent = findGlobalBoneXSI(ctx, pInterp->controlparentname);
 
         if (origParent == -1) {
             MdlError("procedural bone \"{}\", can't find orig parent \"{}\"\n\n", pInterp->bonename,
@@ -4844,28 +4841,28 @@ void RemapProceduralBones() {
                      pInterp->controlparentname);
         }
 
-        if (g_studiomdl.bones.bonetable[pInterp->bone].parent != origParent) {
+        if (ctx.bones.bonetable[pInterp->bone].parent != origParent) {
             MdlError("unknown procedural bone parent remapping\n");
         }
 
-        if (g_studiomdl.bones.bonetable[pInterp->control].parent != origControlParent) {
+        if (ctx.bones.bonetable[pInterp->control].parent != origControlParent) {
             MdlError("procedural bone \"{}\", parent remapping error, control parent was \"{}\", is now \"{}\"\n",
                      pInterp->bonename,
                      pInterp->controlparentname,
-                     g_studiomdl.bones.bonetable[g_studiomdl.bones.bonetable[pInterp->control].parent].name);
+                     ctx.bones.bonetable[ctx.bones.bonetable[pInterp->control].parent].name);
         }
 
         // remap triggers and movements/rotations due to skeleton changes and realignment
         for (int k = 0; k < pInterp->numtriggers; k++) {
-            int parent = g_studiomdl.bones.bonetable[pInterp->control].parent;
+            int parent = ctx.bones.bonetable[pInterp->control].parent;
 
             // triggers are the "control" bone relative to the control's parent bone
             if (parent != -1) {
                 matrix3x4_t invControlParentRealign;
-                MatrixInvert(g_studiomdl.bones.bonetable[parent].srcRealign, invControlParentRealign);
+                MatrixInvert(ctx.bones.bonetable[parent].srcRealign, invControlParentRealign);
 
                 matrix3x4_t srcControlParentBoneToPose;
-                ConcatTransforms(g_studiomdl.bones.bonetable[parent].boneToPose, invControlParentRealign,
+                ConcatTransforms(ctx.bones.bonetable[parent].boneToPose, invControlParentRealign,
                                  srcControlParentBoneToPose);
 
                 matrix3x4_t srcControlRelative;
@@ -4875,11 +4872,11 @@ void RemapProceduralBones() {
                 ConcatTransforms(srcControlParentBoneToPose, srcControlRelative, srcControlBoneToPose);
 
                 matrix3x4_t destControlParentBoneToPose;
-                ConcatTransforms(srcControlParentBoneToPose, g_studiomdl.bones.bonetable[parent].srcRealign,
+                ConcatTransforms(srcControlParentBoneToPose, ctx.bones.bonetable[parent].srcRealign,
                                  destControlParentBoneToPose);
 
                 matrix3x4_t destControlBoneToPose;
-                ConcatTransforms(srcControlBoneToPose, g_studiomdl.bones.bonetable[pInterp->control].srcRealign,
+                ConcatTransforms(srcControlBoneToPose, ctx.bones.bonetable[pInterp->control].srcRealign,
                                  destControlBoneToPose);
 
                 matrix3x4_t invDestControlParentBoneToPose;
@@ -4907,7 +4904,7 @@ void RemapProceduralBones() {
             }
 
             // movements are relative to the bone's parent
-            parent = g_studiomdl.bones.bonetable[pInterp->bone].parent;
+            parent = ctx.bones.bonetable[pInterp->bone].parent;
             if (parent != -1) {
                 //printf("procedural bone \"%s\"\n", pInterp->bonename );
                 //printf("pre  : %7.2f %7.2f %7.2f\n", pInterp->pos[k].x, pInterp->pos[k].y, pInterp->pos[k].z );
@@ -4917,9 +4914,9 @@ void RemapProceduralBones() {
 
                 // get original boneToPose
                 matrix3x4_t invSrcRealign;
-                MatrixInvert(g_studiomdl.bones.bonetable[parent].srcRealign, invSrcRealign);
+                MatrixInvert(ctx.bones.bonetable[parent].srcRealign, invSrcRealign);
                 matrix3x4_t origParentBoneToPose;
-                ConcatTransforms(g_studiomdl.bones.bonetable[parent].boneToPose, invSrcRealign, origParentBoneToPose);
+                ConcatTransforms(ctx.bones.bonetable[parent].boneToPose, invSrcRealign, origParentBoneToPose);
 
                 // move bone adjustment into world position
                 matrix3x4_t srcBoneToWorld;
@@ -4927,14 +4924,14 @@ void RemapProceduralBones() {
 
                 // calculate local transform
                 matrix3x4_t parentPoseToBone;
-                MatrixInvert(g_studiomdl.bones.bonetable[parent].boneToPose, parentPoseToBone);
+                MatrixInvert(ctx.bones.bonetable[parent].boneToPose, parentPoseToBone);
                 matrix3x4_t destBoneToWorld;
                 ConcatTransforms(parentPoseToBone, srcBoneToWorld, destBoneToWorld);
 
                 // save out the local transform
                 MatrixAngles(destBoneToWorld, pInterp->quat[k], pInterp->pos[k]);
 
-                pInterp->pos[k] += g_studiomdl.bones.bonetable[pInterp->control].pos * pInterp->percentage;
+                pInterp->pos[k] += ctx.bones.bonetable[pInterp->control].pos * pInterp->percentage;
 
                 //printf("post : %7.2f %7.2f %7.2f\n", pInterp->pos[k].x, pInterp->pos[k].y, pInterp->pos[k].z );
             }
@@ -4942,10 +4939,10 @@ void RemapProceduralBones() {
     }
 
     // look for aimatbones
-    for (const int index: g_studiomdl.bones.aimatbonemap) {
-        s_aimatbone_t* pAimAtBone = &g_studiomdl.bones.aimatbones[index];
+    for (const int index: ctx.bones.aimatbonemap) {
+        s_aimatbone_t* pAimAtBone = &ctx.bones.aimatbones[index];
 
-        const int origParent = findGlobalBoneXSI(pAimAtBone->parentname);
+        const int origParent = findGlobalBoneXSI(ctx, pAimAtBone->parentname);
 
         if (origParent == -1) {
             MdlError("<aimconstraint> bone \"{}\", can't find parent bone \"{}\"\n\n", pAimAtBone->bonename,
@@ -4954,8 +4951,8 @@ void RemapProceduralBones() {
 
         int origAim(-1);
 
-        for (int ai(0); ai < g_studiomdl.bones.attachments.size(); ++ai) {
-            if (strcmp(g_studiomdl.bones.attachments[ai].name, pAimAtBone->aimname) == 0) {
+        for (int ai(0); ai < ctx.bones.attachments.size(); ++ai) {
+            if (strcmp(ctx.bones.attachments[ai].name, pAimAtBone->aimname) == 0) {
                 origAim = ai;
                 break;
             }
@@ -4968,20 +4965,20 @@ void RemapProceduralBones() {
     }
 
     // Look at Twist bones
-    for (j = std::ssize(g_studiomdl.bones.twistbones) - 1; j >= 0; --j) {
-        CTwistBone &twistBone = g_studiomdl.bones.twistbones[j];
-        const int nParent = findGlobalBoneXSI(twistBone.m_szParentBoneName);
+    for (j = std::ssize(ctx.bones.twistbones) - 1; j >= 0; --j) {
+        CTwistBone &twistBone = ctx.bones.twistbones[j];
+        const int nParent = findGlobalBoneXSI(ctx, twistBone.m_szParentBoneName);
         if (nParent < 0) {
             MdlError("<twistbone> Can't find parent bone \"{}\"\n", twistBone.m_szParentBoneName);
         }
 
-        const int nChild = findGlobalBoneXSI(twistBone.m_szChildBoneName);
+        const int nChild = findGlobalBoneXSI(ctx, twistBone.m_szChildBoneName);
         if (nChild < 0) {
             MdlError("<twistbone> Can't find child bone \"{}\"\n", twistBone.m_szChildBoneName);
         }
 
         QuaternionAligned qParentSrcRealign;
-        MatrixQuaternion(g_studiomdl.bones.bonetable[nParent].srcRealign, qParentSrcRealign);
+        MatrixQuaternion(ctx.bones.bonetable[nParent].srcRealign, qParentSrcRealign);
 
         QuaternionAligned qParentSrcRealignInv;
         QuaternionInvert(qParentSrcRealign, qParentSrcRealignInv);
@@ -4990,19 +4987,19 @@ void RemapProceduralBones() {
         QuaternionAligned qTmp;
 
         if (twistBone.m_bInverse) {
-            RealignBoneQuaternion(twistBone.m_qBaseRotation, nParent, twistBone.m_qBaseRotation);
+            RealignBoneQuaternion(ctx, twistBone.m_qBaseRotation, nParent, twistBone.m_qBaseRotation);
 
             VectorRotate(twistBone.m_vUpVector, qParentSrcRealignInv, vTmp);
             twistBone.m_vUpVector = vTmp;
         }
         else {
             QuaternionAligned qChildSrcRealign;
-            MatrixQuaternion(g_studiomdl.bones.bonetable[nChild].srcRealign, qChildSrcRealign);
+            MatrixQuaternion(ctx.bones.bonetable[nChild].srcRealign, qChildSrcRealign);
 
             QuaternionAligned qChildSrcRealignInv;
             QuaternionInvert(qChildSrcRealign, qChildSrcRealignInv);
 
-            RealignBoneQuaternion(twistBone.m_qBaseRotation, nChild, twistBone.m_qBaseRotation);
+            RealignBoneQuaternion(ctx, twistBone.m_qBaseRotation, nChild, twistBone.m_qBaseRotation);
 
             VectorRotate(twistBone.m_vUpVector, qChildSrcRealignInv, vTmp);
             twistBone.m_vUpVector = vTmp;
@@ -5010,7 +5007,7 @@ void RemapProceduralBones() {
 
         for (int k = std::ssize(twistBone.m_twistBoneTargets) - 1; k >= 0; --k) {
             s_constraintbonetarget_t &twistBoneTarget = twistBone.m_twistBoneTargets[k];
-            const int nBoneIndex = findGlobalBoneXSI(twistBoneTarget.m_szBoneName);
+            const int nBoneIndex = findGlobalBoneXSI(ctx, twistBoneTarget.m_szBoneName);
             if (nBoneIndex < 0) {
                 MdlError("<twistbone> Can't find target bone \"{}\"\n", twistBoneTarget.m_szBoneName);
             }
@@ -5018,41 +5015,41 @@ void RemapProceduralBones() {
             VectorRotate(twistBoneTarget.m_vOffset, qParentSrcRealignInv, vTmp);
             twistBoneTarget.m_vOffset = vTmp;
 
-            RealignBoneQuaternion(twistBoneTarget.m_qOffset, nBoneIndex, twistBoneTarget.m_qOffset);
+            RealignBoneQuaternion(ctx, twistBoneTarget.m_qOffset, nBoneIndex, twistBoneTarget.m_qOffset);
         }
     }
 
     // Handle constraint bones
-    RemapConstraintBones();
+    RemapConstraintBones(ctx);
 }
 
 
 //-----------------------------------------------------------------------------
 // Purpose: propogate procedural bone usage up its chain
 //-----------------------------------------------------------------------------
-void MarkProceduralBoneChain() {
+void MarkProceduralBoneChain(StudioMdlState &ctx) {
     int j;
     int k;
     BoneFlags fBoneFlags;
 
     // look for QuatInterp bone definitions
-    for (const int index: g_studiomdl.bones.quatinterpbonemap) {
-        const s_quatinterpbone_t* pInterp = &g_studiomdl.bones.quatinterpbones[index];
+    for (const int index: ctx.bones.quatinterpbonemap) {
+        const s_quatinterpbone_t* pInterp = &ctx.bones.quatinterpbones[index];
 
-        fBoneFlags = g_studiomdl.bones.bonetable[pInterp->bone].flags & BoneFlags::UsedMask;
+        fBoneFlags = ctx.bones.bonetable[pInterp->bone].flags & BoneFlags::UsedMask;
 
         // propogate the procedural bone usage up its hierarchy
         k = pInterp->control;
         while (k != -1) {
-            g_studiomdl.bones.bonetable[k].flags |= fBoneFlags;
-            k = g_studiomdl.bones.bonetable[k].parent;
+            ctx.bones.bonetable[k].flags |= fBoneFlags;
+            k = ctx.bones.bonetable[k].parent;
         }
 
         // propogate the procedural bone usage up its hierarchy
         k = pInterp->bone;
         while (k != -1) {
-            g_studiomdl.bones.bonetable[k].flags |= fBoneFlags;
-            k = g_studiomdl.bones.bonetable[k].parent;
+            ctx.bones.bonetable[k].flags |= fBoneFlags;
+            k = ctx.bones.bonetable[k].parent;
         }
     }
 }
@@ -5060,19 +5057,19 @@ void MarkProceduralBoneChain() {
 //-----------------------------------------------------------------------------
 // Purpose: go through all source files and link local bone indices and global bonetable indicies
 //-----------------------------------------------------------------------------
-static int MapSourcesToGlobalBonetable() {
+static int MapSourcesToGlobalBonetable(StudioMdlState &ctx) {
     int i, j, k;
     const int iError = 0;
 
     // map each source bone list to master list
-    for (i = 0; i < g_studiomdl.anim.sources.size(); i++) {
-        s_source_t* pSource = g_studiomdl.anim.sources[i];
+    for (i = 0; i < ctx.anim.sources.size(); i++) {
+        s_source_t* pSource = ctx.anim.sources[i];
 
         memset(pSource->boneLocalToGlobal, 0xFF, sizeof(pSource->boneLocalToGlobal));
         memset(pSource->boneGlobalToLocal, 0xFF, sizeof(pSource->boneGlobalToLocal));
 
         for (j = 0; j < pSource->numbones; j++) {
-            k = findGlobalBone(pSource->localBone[j].name);
+            k = findGlobalBone(ctx, pSource->localBone[j].name);
             if (k >= 0) {
                 pSource->boneLocalToGlobal[j] = k;
                 pSource->boneGlobalToLocal[k] = j;
@@ -5080,12 +5077,12 @@ static int MapSourcesToGlobalBonetable() {
             }
 
             int m = pSource->localBone[j].parent;
-            while (m != -1 && (k = findGlobalBone(pSource->localBone[m].name)) == -1) {
+            while (m != -1 && (k = findGlobalBone(ctx, pSource->localBone[m].name)) == -1) {
                 m = pSource->localBone[m].parent;
             }
             if (k == -1) {
                 /*
-				if (!g_studiomdl.options.quiet)
+				if (!ctx.options.quiet)
 				{
 					printf("unable to find connection for collapsed bone \"%s\" \n", pSource->localBone[j].name );
 				}
@@ -5102,82 +5099,82 @@ static int MapSourcesToGlobalBonetable() {
 //-----------------------------------------------------------------------------
 // Purpose: go through bone and find any that arent aligned on the X axis
 //-----------------------------------------------------------------------------
-void RealignBones() {
+void RealignBones(StudioMdlState &ctx) {
     vstd::FunctionTimingRecorder _("Simplify");
     int k;
 
     int childbone[MAXSTUDIOBONES];
-    for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
+    for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
         childbone[k] = -1;
     }
 
     // force bones with IK rules to realign themselves
-    for (int i = 0; i < std::ssize(g_studiomdl.anim.ikchain); i++) {
-        k = g_studiomdl.anim.ikchain[i].link[0].bone;
-        if (childbone[k] == -1 || childbone[k] == g_studiomdl.anim.ikchain[i].link[1].bone) {
-            childbone[k] = g_studiomdl.anim.ikchain[i].link[1].bone;
+    for (int i = 0; i < std::ssize(ctx.anim.ikchain); i++) {
+        k = ctx.anim.ikchain[i].link[0].bone;
+        if (childbone[k] == -1 || childbone[k] == ctx.anim.ikchain[i].link[1].bone) {
+            childbone[k] = ctx.anim.ikchain[i].link[1].bone;
         }
         else {
             MdlError("Trying to realign bone \"{}\" with two children \"{}\", \"{}\"\n",
-                     g_studiomdl.bones.bonetable[k].name, g_studiomdl.bones.bonetable[childbone[k]].name,
-                     g_studiomdl.bones.bonetable[g_studiomdl.anim.ikchain[i].link[1].bone].name);
+                     ctx.bones.bonetable[k].name, ctx.bones.bonetable[childbone[k]].name,
+                     ctx.bones.bonetable[ctx.anim.ikchain[i].link[1].bone].name);
         }
 
-        k = g_studiomdl.anim.ikchain[i].link[1].bone;
-        if (childbone[k] == -1 || childbone[k] == g_studiomdl.anim.ikchain[i].link[2].bone) {
-            childbone[k] = g_studiomdl.anim.ikchain[i].link[2].bone;
+        k = ctx.anim.ikchain[i].link[1].bone;
+        if (childbone[k] == -1 || childbone[k] == ctx.anim.ikchain[i].link[2].bone) {
+            childbone[k] = ctx.anim.ikchain[i].link[2].bone;
         }
         else {
             MdlError("Trying to realign bone \"{}\" with two children \"{}\", \"{}\"\n",
-                     g_studiomdl.bones.bonetable[k].name, g_studiomdl.bones.bonetable[childbone[k]].name,
-                     g_studiomdl.bones.bonetable[g_studiomdl.anim.ikchain[i].link[2].bone].name);
+                     ctx.bones.bonetable[k].name, ctx.bones.bonetable[childbone[k]].name,
+                     ctx.bones.bonetable[ctx.anim.ikchain[i].link[2].bone].name);
         }
     }
 
-    if (g_studiomdl.options.realignbones) {
+    if (ctx.options.realignbones) {
         int children[MAXSTUDIOBONES];
 
         // count children
-        for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
+        for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
             children[k] = 0;
         }
-        for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
-            if (g_studiomdl.bones.bonetable[k].parent != -1) {
-                children[g_studiomdl.bones.bonetable[k].parent]++;
+        for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
+            if (ctx.bones.bonetable[k].parent != -1) {
+                children[ctx.bones.bonetable[k].parent]++;
             }
         }
 
         // if my parent bone only has one child, then tell it to align to me
-        for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
-            if (g_studiomdl.bones.bonetable[k].parent != -1 && children[g_studiomdl.bones.bonetable[k].parent] == 1) {
-                childbone[g_studiomdl.bones.bonetable[k].parent] = k;
+        for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
+            if (ctx.bones.bonetable[k].parent != -1 && children[ctx.bones.bonetable[k].parent] == 1) {
+                childbone[ctx.bones.bonetable[k].parent] = k;
             }
         }
     }
 
     matrix3x4_t boneToPose[MAXSTUDIOBONES];
 
-    for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
-        MatrixCopy(g_studiomdl.bones.bonetable[k].boneToPose, boneToPose[k]);
+    for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
+        MatrixCopy(ctx.bones.bonetable[k].boneToPose, boneToPose[k]);
     }
 
     // look for bones that aren't on a primary X axis
-    for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
-        // printf("%s  %.4f %.4f %.4f  (%d)\n", g_studiomdl.bones.bonetable[k].name, g_studiomdl.bones.bonetable[k].pos.x, g_studiomdl.bones.bonetable[k].pos.y, g_studiomdl.bones.bonetable[k].pos.z, children[k] );
-        if (!g_studiomdl.bones.bonetable[k].bPreAligned && childbone[k] != -1) {
-            float d = g_studiomdl.bones.bonetable[childbone[k]].pos.Length();
+    for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
+        // printf("%s  %.4f %.4f %.4f  (%d)\n", ctx.bones.bonetable[k].name, ctx.bones.bonetable[k].pos.x, ctx.bones.bonetable[k].pos.y, ctx.bones.bonetable[k].pos.z, children[k] );
+        if (!ctx.bones.bonetable[k].bPreAligned && childbone[k] != -1) {
+            float d = ctx.bones.bonetable[childbone[k]].pos.Length();
 
             // check to see that it's on positive X
-            if (d - g_studiomdl.bones.bonetable[childbone[k]].pos.x > 0.01) {
+            if (d - ctx.bones.bonetable[childbone[k]].pos.x > 0.01) {
                 Vector v2;
                 Vector v3;
-                // printf("%s:%s  %.4f %.4f %.4f\n", g_studiomdl.bones.bonetable[k].name, g_studiomdl.bones.bonetable[childbone[k]].name, g_studiomdl.bones.bonetable[childbone[k]].pos.x, g_studiomdl.bones.bonetable[childbone[k]].pos.y, g_studiomdl.bones.bonetable[childbone[k]].pos.z );
+                // printf("%s:%s  %.4f %.4f %.4f\n", ctx.bones.bonetable[k].name, ctx.bones.bonetable[childbone[k]].name, ctx.bones.bonetable[childbone[k]].pos.x, ctx.bones.bonetable[childbone[k]].pos.y, ctx.bones.bonetable[childbone[k]].pos.z );
 
                 Vector forward, left, up;
 
                 // calc X axis
-                MatrixGetColumn(g_studiomdl.bones.bonetable[childbone[k]].boneToPose, 3, v2);
-                MatrixGetColumn(g_studiomdl.bones.bonetable[k].boneToPose, 3, v3);
+                MatrixGetColumn(ctx.bones.bonetable[childbone[k]].boneToPose, 3, v2);
+                MatrixGetColumn(ctx.bones.bonetable[k].boneToPose, 3, v3);
                 forward = v2 - v3;
                 VectorNormalize(forward);
 
@@ -5218,7 +5215,7 @@ void RealignBones() {
                     + fabs(DotProduct(boneToPose[k][2], boneToPose[k][0]));
 
                 if (d > 0.0001) {
-                    MdlError("error with realigning bone {}\n", g_studiomdl.bones.bonetable[k].name);
+                    MdlError("error with realigning bone {}\n", ctx.bones.bonetable[k].name);
                 }
 
                 // printf("%f %f %f\n", DotProduct( boneToPose[k][0], boneToPose[k][1] ), DotProduct( boneToPose[k][1], boneToPose[k][2] ), DotProduct( boneToPose[k][2], boneToPose[k][0] ) );
@@ -5232,50 +5229,50 @@ void RealignBones() {
         }
     }
 
-    for (int i = 0; i < std::ssize(g_studiomdl.bones.forcedrealign); i++) {
-        k = findGlobalBone(g_studiomdl.bones.forcedrealign[i].name);
+    for (int i = 0; i < std::ssize(ctx.bones.forcedrealign); i++) {
+        k = findGlobalBone(ctx, ctx.bones.forcedrealign[i].name);
         if (k == -1) {
-            MdlWarning("unknown bone {} in $forcedrealign\n", g_studiomdl.bones.forcedrealign[i].name);
+            MdlWarning("unknown bone {} in $forcedrealign\n", ctx.bones.forcedrealign[i].name);
             continue;
         }
 
         matrix3x4_t local;
         matrix3x4_t tmp;
 
-        AngleMatrix(g_studiomdl.bones.forcedrealign[i].rot, local);
+        AngleMatrix(ctx.bones.forcedrealign[i].rot, local);
         ConcatTransforms(boneToPose[k], local, tmp);
         MatrixCopy(tmp, boneToPose[k]);
     }
 
     // build realignment transforms
-    for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
-        if (!g_studiomdl.bones.bonetable[k].bPreAligned) {
+    for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
+        if (!ctx.bones.bonetable[k].bPreAligned) {
             matrix3x4_t poseToBone;
 
-            MatrixInvert(g_studiomdl.bones.bonetable[k].boneToPose, poseToBone);
-            ConcatTransforms(poseToBone, boneToPose[k], g_studiomdl.bones.bonetable[k].srcRealign);
+            MatrixInvert(ctx.bones.bonetable[k].boneToPose, poseToBone);
+            ConcatTransforms(poseToBone, boneToPose[k], ctx.bones.bonetable[k].srcRealign);
 
-            MatrixCopy(boneToPose[k], g_studiomdl.bones.bonetable[k].boneToPose);
+            MatrixCopy(boneToPose[k], ctx.bones.bonetable[k].boneToPose);
         }
     }
 
     // printf("\n");
 
     // rebuild default angles, position, etc.
-    for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
-        if (!g_studiomdl.bones.bonetable[k].bPreAligned) {
+    for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
+        if (!ctx.bones.bonetable[k].bPreAligned) {
             matrix3x4_t bonematrix;
-            if (g_studiomdl.bones.bonetable[k].parent == -1) {
-                MatrixCopy(g_studiomdl.bones.bonetable[k].boneToPose, bonematrix);
+            if (ctx.bones.bonetable[k].parent == -1) {
+                MatrixCopy(ctx.bones.bonetable[k].boneToPose, bonematrix);
             }
             else {
                 matrix3x4_t poseToBone;
                 // convert my transform into parent relative space
-                MatrixInvert(g_studiomdl.bones.bonetable[g_studiomdl.bones.bonetable[k].parent].boneToPose, poseToBone);
-                ConcatTransforms(poseToBone, g_studiomdl.bones.bonetable[k].boneToPose, bonematrix);
+                MatrixInvert(ctx.bones.bonetable[ctx.bones.bonetable[k].parent].boneToPose, poseToBone);
+                ConcatTransforms(poseToBone, ctx.bones.bonetable[k].boneToPose, bonematrix);
             }
 
-            MatrixAngles(bonematrix, g_studiomdl.bones.bonetable[k].rot, g_studiomdl.bones.bonetable[k].pos);
+            MatrixAngles(bonematrix, ctx.bones.bonetable[k].rot, ctx.bones.bonetable[k].pos);
         }
     }
 
@@ -5284,39 +5281,39 @@ void RealignBones() {
     // printf("\n");
 
     // build reference pose
-    for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
+    for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
         matrix3x4_t bonematrix;
-        AngleMatrix(g_studiomdl.bones.bonetable[k].rot, g_studiomdl.bones.bonetable[k].pos, bonematrix);
-        // MatrixCopy( g_studiomdl.bones.bonetable[k].rawLocal, bonematrix );
-        if (g_studiomdl.bones.bonetable[k].parent == -1) {
-            MatrixCopy(bonematrix, g_studiomdl.bones.bonetable[k].boneToPose);
+        AngleMatrix(ctx.bones.bonetable[k].rot, ctx.bones.bonetable[k].pos, bonematrix);
+        // MatrixCopy( ctx.bones.bonetable[k].rawLocal, bonematrix );
+        if (ctx.bones.bonetable[k].parent == -1) {
+            MatrixCopy(bonematrix, ctx.bones.bonetable[k].boneToPose);
         }
         else {
-            ConcatTransforms(g_studiomdl.bones.bonetable[g_studiomdl.bones.bonetable[k].parent].boneToPose, bonematrix,
-                             g_studiomdl.bones.bonetable[k].boneToPose);
+            ConcatTransforms(ctx.bones.bonetable[ctx.bones.bonetable[k].parent].boneToPose, bonematrix,
+                             ctx.bones.bonetable[k].boneToPose);
         }
         /*
 		Vector v1;
-		MatrixGetColumn( g_studiomdl.bones.bonetable[k].boneToPose, 3, v1 );
-		printf("%s  %.4f %.4f %.4f\n", g_studiomdl.bones.bonetable[k].name, v1.x, v1.y, v1.z );
+		MatrixGetColumn( ctx.bones.bonetable[k].boneToPose, 3, v1 );
+		printf("%s  %.4f %.4f %.4f\n", ctx.bones.bonetable[k].name, v1.x, v1.y, v1.z );
 		*/
     }
 }
 
-void CenterBonesOnVerts() {
+void CenterBonesOnVerts(StudioMdlState &ctx) {
     Vector bmin[MAXSTUDIOBONES];
     Vector bmax[MAXSTUDIOBONES];
 
     int i, j, k, n;
 
-    for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
+    for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
         bmin[k] = Vector(1, 1, 1) * 99999999.0;
         bmax[k] = Vector(1, 1, 1) * -99999999.0;
     }
 
     // find domain of all the vertices
-    for (i = 0; i < g_studiomdl.anim.sources.size(); i++) {
-        s_source_t* pSource = g_studiomdl.anim.sources[i];
+    for (i = 0; i < ctx.anim.sources.size(); i++) {
+        s_source_t* pSource = ctx.anim.sources[i];
         if (!pSource->vertex)
             continue;
 
@@ -5340,10 +5337,10 @@ void CenterBonesOnVerts() {
     }
 
     // copy min/maxs up to parent
-    for (k = std::ssize(g_studiomdl.bones.bonetable) - 1; k >= 0; k--) {
+    for (k = std::ssize(ctx.bones.bonetable) - 1; k >= 0; k--) {
         if (bmin[k].x > bmax[k].x) {
-            for (j = k + 1; j < std::ssize(g_studiomdl.bones.bonetable); j++) {
-                if (g_studiomdl.bones.bonetable[j].parent == k) {
+            for (j = k + 1; j < std::ssize(ctx.bones.bonetable); j++) {
+                if (ctx.bones.bonetable[j].parent == k) {
                     bmin[k] = bmin[k].Min(bmin[j]);
                     bmax[k] = bmax[k].Max(bmax[j]);
                 }
@@ -5351,38 +5348,38 @@ void CenterBonesOnVerts() {
         }
     }
 
-    for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
+    for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
         if (bmin[k].x <= bmax[k].x) {
             Vector center = (bmin[k] + bmax[k]) * 0.5;
 
             // printf("%d %.1f %.1f %.1f\n", k, center.x, center.y, center.z );
             matrix3x4_t updateCenter;
-            MatrixCopy(g_studiomdl.bones.bonetable[k].boneToPose, updateCenter);
+            MatrixCopy(ctx.bones.bonetable[k].boneToPose, updateCenter);
             PositionMatrix(center, updateCenter);
 
             matrix3x4_t invPoseToBone;
-            MatrixInvert(g_studiomdl.bones.bonetable[k].boneToPose, invPoseToBone);
-            ConcatTransforms(invPoseToBone, updateCenter, g_studiomdl.bones.bonetable[k].srcRealign);
+            MatrixInvert(ctx.bones.bonetable[k].boneToPose, invPoseToBone);
+            ConcatTransforms(invPoseToBone, updateCenter, ctx.bones.bonetable[k].srcRealign);
 
-            MatrixCopy(updateCenter, g_studiomdl.bones.bonetable[k].boneToPose);
+            MatrixCopy(updateCenter, ctx.bones.bonetable[k].boneToPose);
         }
     }
 
     // rebuild default angles, position, etc.
-    for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
-        if (!g_studiomdl.bones.bonetable[k].bPreAligned) {
+    for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
+        if (!ctx.bones.bonetable[k].bPreAligned) {
             matrix3x4_t bonematrix;
-            if (g_studiomdl.bones.bonetable[k].parent == -1) {
-                MatrixCopy(g_studiomdl.bones.bonetable[k].boneToPose, bonematrix);
+            if (ctx.bones.bonetable[k].parent == -1) {
+                MatrixCopy(ctx.bones.bonetable[k].boneToPose, bonematrix);
             }
             else {
                 matrix3x4_t poseToBone;
                 // convert my transform into parent relative space
-                MatrixInvert(g_studiomdl.bones.bonetable[g_studiomdl.bones.bonetable[k].parent].boneToPose, poseToBone);
-                ConcatTransforms(poseToBone, g_studiomdl.bones.bonetable[k].boneToPose, bonematrix);
+                MatrixInvert(ctx.bones.bonetable[ctx.bones.bonetable[k].parent].boneToPose, poseToBone);
+                ConcatTransforms(poseToBone, ctx.bones.bonetable[k].boneToPose, bonematrix);
             }
 
-            MatrixAngles(bonematrix, g_studiomdl.bones.bonetable[k].rot, g_studiomdl.bones.bonetable[k].pos);
+            MatrixAngles(bonematrix, ctx.bones.bonetable[k].rot, ctx.bones.bonetable[k].pos);
         }
     }
 }
@@ -5393,11 +5390,11 @@ void CenterBonesOnVerts() {
 //          Remove those that are truly duplicates
 //			Leave ones that aren't duplicates but warn about them
 //-----------------------------------------------------------------------------
-void RemoveDuplicateAttachments() {
-    for (int i = 0; i < g_studiomdl.bones.attachments.size(); ++i) {
-        const s_attachment_t &iAtt = g_studiomdl.bones.attachments[i];
-        for (int j = g_studiomdl.bones.attachments.size() - 1; j > i; --j) {
-            const s_attachment_t &jAtt = g_studiomdl.bones.attachments[j];
+void RemoveDuplicateAttachments(StudioMdlState &ctx) {
+    for (int i = 0; i < ctx.bones.attachments.size(); ++i) {
+        const s_attachment_t &iAtt = ctx.bones.attachments[i];
+        for (int j = ctx.bones.attachments.size() - 1; j > i; --j) {
+            const s_attachment_t &jAtt = ctx.bones.attachments[j];
             if (Q_strcmp(iAtt.name, jAtt.name))
                 continue; // Not the same name
 
@@ -5422,10 +5419,10 @@ void RemoveDuplicateAttachments() {
             }
 
             // Delete attachment j by shifting j+1 to the end down overtop of j
-            g_studiomdl.bones.attachments[j] = g_studiomdl.bones.attachments.back();
-            g_studiomdl.bones.attachments.pop_back();
-            Q_memcpy(&(g_studiomdl.bones.attachments[j]), &(g_studiomdl.bones.attachments[j + 1]),
-                     (g_studiomdl.bones.attachments.size() - j - 1) * sizeof(s_attachment_t));
+            ctx.bones.attachments[j] = ctx.bones.attachments.back();
+            ctx.bones.attachments.pop_back();
+            Q_memcpy(&(ctx.bones.attachments[j]), &(ctx.bones.attachments[j + 1]),
+                     (ctx.bones.attachments.size() - j - 1) * sizeof(s_attachment_t));
         }
     }
 }
@@ -5435,89 +5432,89 @@ void RemoveDuplicateAttachments() {
 // Purpose: find all the different bones used in all the source files and map everything
 //			to a common bonetable.
 //-----------------------------------------------------------------------------
-void RemapBones() {
+void RemapBones(StudioMdlState &ctx) {
     vstd::FunctionTimingRecorder _("Simplify");
     int iError = 0;
 
-    if (g_studiomdl.header.staticprop) {
-        MakeStaticProp();
+    if (ctx.header.staticprop) {
+        MakeStaticProp(ctx);
     }
-    else if (g_studiomdl.header.centerstaticprop) {
+    else if (ctx.header.centerstaticprop) {
         MdlWarning("Ignoring option $autocenter.  Only supported on $staticprop models!!!\n");
     }
 
-    TagUsedBones();
+    TagUsedBones(ctx);
 
-    RenameBones();
+    RenameBones(ctx);
 
-    iError = BuildGlobalBonetable();
+    iError = BuildGlobalBonetable(ctx);
 
-    BuildGlobalBoneToPose();
+    BuildGlobalBoneToPose(ctx);
 
-    EnforceHierarchy();
+    EnforceHierarchy(ctx);
 
     {
         int k, n;
-        for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
+        for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
             // tag parent bones as being in the same way as their children
-            n = g_studiomdl.bones.bonetable[k].parent;
+            n = ctx.bones.bonetable[k].parent;
             while (n != -1) {
-                g_studiomdl.bones.bonetable[n].flags |= g_studiomdl.bones.bonetable[k].flags;
-                n = g_studiomdl.bones.bonetable[n].parent;
+                ctx.bones.bonetable[n].flags |= ctx.bones.bonetable[k].flags;
+                n = ctx.bones.bonetable[n].parent;
             }
         }
     }
 
-    if (g_studiomdl.options.collapse_bones || std::ssize(g_studiomdl.bones.importbone)) {
-        CollapseBones();
+    if (ctx.options.collapse_bones || std::ssize(ctx.bones.importbone)) {
+        CollapseBones(ctx);
     }
 
 
-    if (std::ssize(g_studiomdl.bones.bonetable) >= MAXSTUDIOBONES) {
+    if (std::ssize(ctx.bones.bonetable) >= MAXSTUDIOBONES) {
         // export bones
-        if (g_studiomdl.options.definebones) {
-            DumpDefineBones();
+        if (ctx.options.definebones) {
+            DumpDefineBones(ctx);
         }
 
-        MdlError("Too many bones used in model, used {}, max {}\n", std::ssize(g_studiomdl.bones.bonetable),
+        MdlError("Too many bones used in model, used {}, max {}\n", std::ssize(ctx.bones.bonetable),
                  MAXSTUDIOBONES);
     }
 
     /*
-	for (i = 0; i < std::ssize(g_studiomdl.bones.bonetable); i++)
+	for (i = 0; i < std::ssize(ctx.bones.bonetable); i++)
 	{
-		printf("%2d %s %d\n", i, g_studiomdl.bones.bonetable[i].name, g_studiomdl.bones.bonetable[i].parent );
+		printf("%2d %s %d\n", i, ctx.bones.bonetable[i].name, ctx.bones.bonetable[i].parent );
 	}
 	*/
 
-    RebuildLocalPose();
+    RebuildLocalPose(ctx);
 
-    TagProceduralBones();
+    TagProceduralBones(ctx);
 
-    if (iError && !(g_studiomdl.options.ignore_warnings)) {
+    if (iError && !(ctx.options.ignore_warnings)) {
         MdlError("Exiting due to errors\n");
     }
-    MapSourcesToGlobalBonetable();
+    MapSourcesToGlobalBonetable(ctx);
 
-    if (iError && !(g_studiomdl.options.ignore_warnings)) {
+    if (iError && !(ctx.options.ignore_warnings)) {
         MdlError("Exiting due to errors\n");
     }
 
     // Map the bone names to global bone indices for all BoneFlexDrivers
-    MapFlexDriveBonesToGlobalBoneTable();
+    MapFlexDriveBonesToGlobalBoneTable(ctx);
 }
 
 
 //-----------------------------------------------------------------------------
 // Purpose: calculate the bone to world transforms for a processed animation
 //-----------------------------------------------------------------------------
-void CalcBoneTransforms(s_animation_t* panimation, int frame, matrix3x4_t* pBoneToWorld) {
-    CalcBoneTransforms(panimation, g_studiomdl.anim.animations[0], frame, pBoneToWorld);
+void CalcBoneTransforms(StudioMdlState &ctx, s_animation_t* panimation, int frame, matrix3x4_t* pBoneToWorld) {
+    CalcBoneTransforms(ctx, panimation, ctx.anim.animations[0], frame, pBoneToWorld);
 }
 
 
 void
-CalcBoneTransforms(s_animation_t* panimation, s_animation_t* pbaseanimation, int frame, matrix3x4_t* pBoneToWorld) {
+CalcBoneTransforms(StudioMdlState &ctx, s_animation_t* panimation, s_animation_t* pbaseanimation, int frame, matrix3x4_t* pBoneToWorld) {
     if (HasFlag(panimation->flags, StudioSequenceFlags::Looping) && panimation->numframes > 1) {
         while (frame >= (panimation->numframes - 1)) {
             frame = frame - (panimation->numframes - 1);
@@ -5528,7 +5525,7 @@ CalcBoneTransforms(s_animation_t* panimation, s_animation_t* pbaseanimation, int
                  panimation->numframes);
     }
 
-    for (int k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
+    for (int k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
         Vector angle;
         matrix3x4_t bonematrix;
 
@@ -5539,14 +5536,14 @@ CalcBoneTransforms(s_animation_t* panimation, s_animation_t* pbaseanimation, int
             Quaternion q1, q2, q3;
             Vector p3;
 
-            //AngleQuaternion( g_studiomdl.bones.bonetable[k].rot, q1 );
+            //AngleQuaternion( ctx.bones.bonetable[k].rot, q1 );
             AngleQuaternion(pbaseanimation->sanim[0][k].rot, q1);
             AngleQuaternion(panimation->sanim[frame][k].rot, q2);
 
             const float s = panimation->weight[k];
 
             QuaternionMA(q1, s, q2, q3);
-            //p3 = g_studiomdl.bones.bonetable[k].pos + s * panimation->sanim[frame][k].pos;
+            //p3 = ctx.bones.bonetable[k].pos + s * panimation->sanim[frame][k].pos;
             p3 = pbaseanimation->sanim[0][k].pos + s * panimation->sanim[frame][k].pos;
 
             AngleMatrix(RadianEuler(q3), p3, bonematrix);
@@ -5555,23 +5552,23 @@ CalcBoneTransforms(s_animation_t* panimation, s_animation_t* pbaseanimation, int
             Quaternion q1, q2, q3;
             Vector p3;
 
-            AngleQuaternion(g_studiomdl.bones.bonetable[k].rot, q1);
+            AngleQuaternion(ctx.bones.bonetable[k].rot, q1);
             AngleQuaternion(panimation->sanim[frame][k].rot, q2);
 
             const float s = panimation->weight[k];
 
             QuaternionMA(q1, s, q2, q3);
-            //p3 = g_studiomdl.bones.bonetable[k].pos + s * panimation->sanim[frame][k].pos;
-            p3 = pbaseanimation->sanim[0][k].pos + s * g_studiomdl.bones.bonetable[k].pos;
+            //p3 = ctx.bones.bonetable[k].pos + s * panimation->sanim[frame][k].pos;
+            p3 = pbaseanimation->sanim[0][k].pos + s * ctx.bones.bonetable[k].pos;
 
             AngleMatrix(RadianEuler(q3), p3, bonematrix);
         }
 
-        if (g_studiomdl.bones.bonetable[k].parent == -1) {
+        if (ctx.bones.bonetable[k].parent == -1) {
             MatrixCopy(bonematrix, pBoneToWorld[k]);
         }
         else {
-            ConcatTransforms(pBoneToWorld[g_studiomdl.bones.bonetable[k].parent], bonematrix, pBoneToWorld[k]);
+            ConcatTransforms(pBoneToWorld[ctx.bones.bonetable[k].parent], bonematrix, pBoneToWorld[k]);
         }
     }
 }
@@ -5581,7 +5578,7 @@ CalcBoneTransforms(s_animation_t* panimation, s_animation_t* pbaseanimation, int
 // Purpose: calculate the bone to world transforms for a processed animation
 //-----------------------------------------------------------------------------
 
-void CalcBoneTransformsCycle(s_animation_t* panimation, s_animation_t* pbaseanimation, float flCycle,
+void CalcBoneTransformsCycle(StudioMdlState &ctx, s_animation_t* panimation, s_animation_t* pbaseanimation, float flCycle,
                              matrix3x4_t* pBoneToWorld) {
     const float fFrame = flCycle * (panimation->numframes - 1);
     const int iFrame = (int) fFrame;
@@ -5590,7 +5587,7 @@ void CalcBoneTransformsCycle(s_animation_t* panimation, s_animation_t* pbaseanim
     const int iFrame1 = iFrame % (panimation->numframes - 1);
     const int iFrame2 = (iFrame + 1) % (panimation->numframes - 1);
 
-    for (int k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
+    for (int k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
         Quaternion q1, q2, q3;
         Vector p3;
         matrix3x4_t bonematrix;
@@ -5610,25 +5607,25 @@ void CalcBoneTransformsCycle(s_animation_t* panimation, s_animation_t* pbaseanim
 		{
 			Vector p3;
 
-			//AngleQuaternion( g_studiomdl.bones.bonetable[k].rot, q1 );
+			//AngleQuaternion( ctx.bones.bonetable[k].rot, q1 );
 			AngleQuaternion( pbaseanimation->sanim[0][k].rot, q1 );
 			AngleQuaternion( panimation->sanim[frame][k].rot, q2 );
 
 			float s = panimation->weight[k];
 
 			QuaternionMA( q1, s, q2, q3 );
-			//p3 = g_studiomdl.bones.bonetable[k].pos + s * panimation->sanim[frame][k].pos;
+			//p3 = ctx.bones.bonetable[k].pos + s * panimation->sanim[frame][k].pos;
 			p3 = pbaseanimation->sanim[0][k].pos + s * panimation->sanim[frame][k].pos;
 
 			AngleMatrix( q3, p3, bonematrix );
 		}
 		*/
 
-        if (g_studiomdl.bones.bonetable[k].parent == -1) {
+        if (ctx.bones.bonetable[k].parent == -1) {
             MatrixCopy(bonematrix, pBoneToWorld[k]);
         }
         else {
-            ConcatTransforms(pBoneToWorld[g_studiomdl.bones.bonetable[k].parent], bonematrix, pBoneToWorld[k]);
+            ConcatTransforms(pBoneToWorld[ctx.bones.bonetable[k].parent], bonematrix, pBoneToWorld[k]);
         }
     }
 }
@@ -5640,6 +5637,7 @@ void CalcBoneTransformsCycle(s_animation_t* panimation, s_animation_t* pbaseanim
 
 
 void SlerpBones(
+    StudioMdlState &ctx,
     Quaternion q1[MAXSTUDIOBONES],
     Vector pos1[MAXSTUDIOBONES],
     int sequence,
@@ -5650,7 +5648,7 @@ void SlerpBones(
     Quaternion q3, q4;
     float s1, s2;
 
-    const s_sequence_t* pseqdesc = &g_studiomdl.anim.sequence[sequence];
+    const s_sequence_t* pseqdesc = &ctx.anim.sequence[sequence];
 
     if (s <= 0.0f) {
         return;
@@ -5660,7 +5658,7 @@ void SlerpBones(
     }
 
     if (HasFlag(pseqdesc->flags, StudioSequenceFlags::Delta)) {
-        for (i = 0; i < std::ssize(g_studiomdl.bones.bonetable); i++) {
+        for (i = 0; i < std::ssize(ctx.bones.bonetable); i++) {
             s2 = s * pseqdesc->weight[i]; // blend in based on this bones weight
             if (s2 > 0.0) {
                 if (HasFlag(pseqdesc->flags, StudioSequenceFlags::Post)) {
@@ -5683,12 +5681,12 @@ void SlerpBones(
         }
     }
     else {
-        for (i = 0; i < std::ssize(g_studiomdl.bones.bonetable); i++) {
+        for (i = 0; i < std::ssize(ctx.bones.bonetable); i++) {
             s2 = s * pseqdesc->weight[i]; // blend in based on this animations weights
             if (s2 > 0.0) {
                 s1 = 1.0 - s2;
 
-                if (HasFlag(g_studiomdl.bones.bonetable[i].flags, BoneFlags::FixedAlignment)) {
+                if (HasFlag(ctx.bones.bonetable[i].flags, BoneFlags::FixedAlignment)) {
                     QuaternionSlerpNoAlign(q2[i], q1[i], s1, q3);
                 }
                 else {
@@ -5707,38 +5705,38 @@ void SlerpBones(
 }
 
 
-void CalcPoseSingle(Vector pos[], Quaternion q[], int sequence, float frame) {
-    s_sequence_t* pseqdesc = &g_studiomdl.anim.sequence[sequence];
+void CalcPoseSingle(StudioMdlState &ctx, Vector pos[], Quaternion q[], int sequence, float frame) {
+    s_sequence_t* pseqdesc = &ctx.anim.sequence[sequence];
 
     const s_animation_t* panim = pseqdesc->panim[0][0];
 
     // FIXME: is this modulo correct?
     const int iframe = ((int) frame) % panim->numframes;
 
-    for (int k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
+    for (int k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
         // FIXME: this isn't doing a fractional frame
         AngleQuaternion(panim->sanim[iframe][k].rot, q[k]);
         pos[k] = panim->sanim[iframe][k].pos;
     }
 }
 
-void AccumulateSeqLayers(Vector pos[], Quaternion q[], int sequence, float frame, float flWeight);
+void AccumulateSeqLayers(StudioMdlState &ctx, Vector pos[], Quaternion q[], int sequence, float frame, float flWeight);
 
-void AccumulatePose(Vector pos[], Quaternion q[], int sequence, float frame, float flWeight) {
+void AccumulatePose(StudioMdlState &ctx, Vector pos[], Quaternion q[], int sequence, float frame, float flWeight) {
     Vector pos2[MAXSTUDIOBONES];
     Quaternion q2[MAXSTUDIOBONES];
 
-    // printf("accumulate %s : %.1f\n", g_studiomdl.anim.sequence[sequence].name, frame );
+    // printf("accumulate %s : %.1f\n", ctx.anim.sequence[sequence].name, frame );
 
-    CalcPoseSingle(pos2, q2, sequence, frame);
+    CalcPoseSingle(ctx, pos2, q2, sequence, frame);
 
-    SlerpBones(q, pos, sequence, q2, pos2, flWeight);
+    SlerpBones(ctx, q, pos, sequence, q2, pos2, flWeight);
 
-    AccumulateSeqLayers(pos, q, sequence, frame, flWeight);
+    AccumulateSeqLayers(ctx, pos, q, sequence, frame, flWeight);
 }
 
-void AccumulateSeqLayers(Vector pos[], Quaternion q[], int sequence, float frame, float flWeight) {
-    s_sequence_t* pseqdesc = &g_studiomdl.anim.sequence[sequence];
+void AccumulateSeqLayers(StudioMdlState &ctx, Vector pos[], Quaternion q[], int sequence, float frame, float flWeight) {
+    s_sequence_t* pseqdesc = &ctx.anim.sequence[sequence];
 
     for (const auto &layer: pseqdesc->autolayers) {
         float layerFrame = frame;
@@ -5789,55 +5787,55 @@ void AccumulateSeqLayers(Vector pos[], Quaternion q[], int sequence, float frame
 
             if (!HasFlag(layer.flags, AutoLayerFlags::Pose)) {
                 layerFrame = ((frame - layer.start) / (layer.end - layer.start)) *
-                             (g_studiomdl.anim.sequence[layer.sequence].panim[0][0]->numframes - 1);
+                             (ctx.anim.sequence[layer.sequence].panim[0][0]->numframes - 1);
             }
             else {
-                layerFrame = (frame / g_studiomdl.anim.sequence[sequence].panim[0][0]->numframes - 1) *
-                             (g_studiomdl.anim.sequence[layer.sequence].panim[0][0]->numframes - 1);
+                layerFrame = (frame / ctx.anim.sequence[sequence].panim[0][0]->numframes - 1) *
+                             (ctx.anim.sequence[layer.sequence].panim[0][0]->numframes - 1);
             }
         }
 
-        AccumulatePose(pos, q, layer.sequence, layerFrame, layerWeight);
+        AccumulatePose(ctx, pos, q, layer.sequence, layerFrame, layerWeight);
     }
 }
 
 
-void CalcSeqTransforms(int sequence, int frame, matrix3x4_t* pBoneToWorld) {
+void CalcSeqTransforms(StudioMdlState &ctx, int sequence, int frame, matrix3x4_t* pBoneToWorld) {
     int k;
     Vector pos[MAXSTUDIOBONES];
     Quaternion q[MAXSTUDIOBONES];
 
     // CalcPoseSingle( pos, q, 0, 0 );
     /*
-	for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++)
+	for (k = 0; k < std::ssize(ctx.bones.bonetable); k++)
 	{
-		//AngleQuaternion( g_studiomdl.bones.bonetable[k].rot, q[k] );
-		//pos[k] = g_studiomdl.bones.bonetable[k].pos;
-		AngleQuaternion( g_studiomdl.bones.bonetable[k].rot, q[k] );
-		pos[k] = g_studiomdl.bones.bonetable[k].pos;
+		//AngleQuaternion( ctx.bones.bonetable[k].rot, q[k] );
+		//pos[k] = ctx.bones.bonetable[k].pos;
+		AngleQuaternion( ctx.bones.bonetable[k].rot, q[k] );
+		pos[k] = ctx.bones.bonetable[k].pos;
 	}
 	*/
 
-    for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
-        //AngleQuaternion( g_studiomdl.bones.bonetable[k].rot, q[k] );
-        //pos[k] = g_studiomdl.bones.bonetable[k].pos;
-        AngleQuaternion(g_studiomdl.bones.bonetable[k].rot, q[k]);
-        pos[k] = g_studiomdl.bones.bonetable[k].pos;
+    for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
+        //AngleQuaternion( ctx.bones.bonetable[k].rot, q[k] );
+        //pos[k] = ctx.bones.bonetable[k].pos;
+        AngleQuaternion(ctx.bones.bonetable[k].rot, q[k]);
+        pos[k] = ctx.bones.bonetable[k].pos;
     }
 
 
-    AccumulatePose(pos, q, sequence, frame, 1.0);
+    AccumulatePose(ctx, pos, q, sequence, frame, 1.0);
 
-    for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
+    for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
         matrix3x4_t bonematrix;
 
         QuaternionMatrix(q[k], pos[k], bonematrix);
 
-        if (g_studiomdl.bones.bonetable[k].parent == -1) {
+        if (ctx.bones.bonetable[k].parent == -1) {
             MatrixCopy(bonematrix, pBoneToWorld[k]);
         }
         else {
-            ConcatTransforms(pBoneToWorld[g_studiomdl.bones.bonetable[k].parent], bonematrix, pBoneToWorld[k]);
+            ConcatTransforms(pBoneToWorld[ctx.bones.bonetable[k].parent], bonematrix, pBoneToWorld[k]);
         }
     }
 }
@@ -5927,7 +5925,7 @@ static void CalcTriangleTangentSpace(s_source_t* pSrc, int v1, int v2, int v3,
     */
 }
 
-void CalcModelTangentSpaces(s_source_t* pSrc) {
+void CalcModelTangentSpaces(StudioMdlState &ctx, s_source_t* pSrc) {
     // Build a map from vertex to a list of faces that share the vert
     int meshID;
     for (meshID = 0; meshID < pSrc->meshes.size(); meshID++) {
@@ -5971,7 +5969,7 @@ void CalcModelTangentSpaces(s_source_t* pSrc) {
             }
 
             // In the case of zbrush, everything needs to be treated as smooth.
-            if (g_studiomdl.options.ZBrush) {
+            if (ctx.options.ZBrush) {
                 Vector vertPos1(pSrc->vertex[vertID].position[0], pSrc->vertex[vertID].position[1],
                                 pSrc->vertex[vertID].position[2]);
                 for (int vertID2 = 0; vertID2 < pMesh->numvertices; vertID2++) {
@@ -6022,7 +6020,7 @@ void CalcModelTangentSpaces(s_source_t* pSrc) {
 //-----------------------------------------------------------------------------
 // Generate a model vertex from a source vertex
 //-----------------------------------------------------------------------------
-static void InitRemappedVertex(s_source_t* pSource, matrix3x4_t* pDestBoneToWorld, const s_vertexinfo_t &srcVertex,
+static void InitRemappedVertex(StudioMdlState &ctx, s_source_t* pSource, matrix3x4_t* pDestBoneToWorld, const s_vertexinfo_t &srcVertex,
                                s_vertexinfo_t &dstVertex) {
     Vector tmp1, tmp2, vdest, ndest;
 
@@ -6067,14 +6065,14 @@ static void InitRemappedVertex(s_source_t* pSource, matrix3x4_t* pDestBoneToWorl
         // convert vertex into original models' bone local space
         VectorITransform(srcVertex.position, pDestBoneToWorld[k], tmp1);
         // convert that into global world space using stardard pose
-        VectorTransform(tmp1, g_studiomdl.bones.bonetable[k].boneToPose, tmp2);
+        VectorTransform(tmp1, ctx.bones.bonetable[k].boneToPose, tmp2);
         // accumulate
         VectorMA(vdest, srcVertex.boneweight.weight[n], tmp2, vdest);
 
         // convert normal into original models' bone local space
         VectorIRotate(srcVertex.normal, pDestBoneToWorld[k], tmp1);
         // convert that into global world space using stardard pose
-        VectorRotate(tmp1, g_studiomdl.bones.bonetable[k].boneToPose, tmp2);
+        VectorRotate(tmp1, ctx.bones.bonetable[k].boneToPose, tmp2);
         // accumulate
         VectorMA(ndest, srcVertex.boneweight.weight[n], tmp2, ndest);
     }
@@ -6094,7 +6092,7 @@ static void InitRemappedVertex(s_source_t* pSource, matrix3x4_t* pDestBoneToWorl
 // When read off disk, s_source_t contains bone indices local to the source
 // we need to make the bone indices use the global bone list
 //-----------------------------------------------------------------------------
-void RemapVerticesToGlobalBones() {
+void RemapVerticesToGlobalBones(StudioMdlState &ctx) {
     vstd::FunctionTimingRecorder _("Simplify");
     matrix3x4_t srcBoneToWorld[MAXSTUDIOSRCBONES];
     matrix3x4_t destBoneToWorld[MAXSTUDIOSRCBONES];
@@ -6102,8 +6100,8 @@ void RemapVerticesToGlobalBones() {
     s_vertexinfo_t vTmpSrc;
     s_vertexinfo_t vTmpDst;
 
-    for (int i = 0; i < g_studiomdl.anim.sources.size(); i++) {
-        s_source_t* pSource = g_studiomdl.anim.sources[i];
+    for (int i = 0; i < ctx.anim.sources.size(); i++) {
+        s_source_t* pSource = ctx.anim.sources[i];
         if (!pSource->vertex)
             continue;
 
@@ -6112,12 +6110,12 @@ void RemapVerticesToGlobalBones() {
             pSourceAnim = &pSource->m_Animations[0];
         }
         BuildRawTransforms(pSource, pSourceAnim->animationname, 0, srcBoneToWorld);
-        TranslateAnimations(pSource, srcBoneToWorld, destBoneToWorld);
+        TranslateAnimations(ctx, pSource, srcBoneToWorld, destBoneToWorld);
 
         pSource->m_GlobalVertices.resize(pSource->m_GlobalVertices.size() + pSource->numvertices);
 
         for (int j = 0; j < pSource->numvertices; j++) {
-            InitRemappedVertex(pSource, destBoneToWorld, pSource->vertex[j], pSource->m_GlobalVertices[j]);
+            InitRemappedVertex(ctx, pSource, destBoneToWorld, pSource->vertex[j], pSource->m_GlobalVertices[j]);
         }
 
         // Loop through all animations on this source and remap vertex animations
@@ -6143,7 +6141,7 @@ void RemapVerticesToGlobalBones() {
                     VectorAdd(vertex.position, vertAnim.pos, vTmpSrc.position);
                     VectorAdd(vertex.normal, vertAnim.normal, vTmpSrc.normal);
 
-                    InitRemappedVertex(pSource, destBoneToWorld, vTmpSrc, vTmpDst);
+                    InitRemappedVertex(ctx, pSource, destBoneToWorld, vTmpSrc, vTmpDst);
 
                     const s_vertexinfo_t &globalVertex = pSource->m_GlobalVertices[vertAnim.vertex];
 
@@ -6160,21 +6158,21 @@ void RemapVerticesToGlobalBones() {
 // Links bone controllers
 //-----------------------------------------------------------------------------
 
-static void FindAutolayers() {
+static void FindAutolayers(StudioMdlState &ctx) {
     int i;
-    for (i = 0; i < std::ssize(g_studiomdl.anim.sequence); i++) {
+    for (i = 0; i < std::ssize(ctx.anim.sequence); i++) {
         int k;
-        for (k = 0; k < g_studiomdl.anim.sequence[i].autolayers.size(); k++) {
+        for (k = 0; k < ctx.anim.sequence[i].autolayers.size(); k++) {
             int j;
-            for (j = 0; j < std::ssize(g_studiomdl.anim.sequence); j++) {
-                if (vstd::iequals(g_studiomdl.anim.sequence[i].autolayers[k].name, g_studiomdl.anim.sequence[j].name)) {
-                    g_studiomdl.anim.sequence[i].autolayers[k].sequence = j;
+            for (j = 0; j < std::ssize(ctx.anim.sequence); j++) {
+                if (vstd::iequals(ctx.anim.sequence[i].autolayers[k].name, ctx.anim.sequence[j].name)) {
+                    ctx.anim.sequence[i].autolayers[k].sequence = j;
                     break;
                 }
             }
-            if (j == std::ssize(g_studiomdl.anim.sequence)) {
+            if (j == std::ssize(ctx.anim.sequence)) {
                 MdlError("sequence \"{}\" cannot find autolayer sequence \"{}\"\n",
-                         g_studiomdl.anim.sequence[i].name, g_studiomdl.anim.sequence[i].autolayers[k].name);
+                         ctx.anim.sequence[i].name, ctx.anim.sequence[i].autolayers[k].name);
             }
         }
     }
@@ -6184,13 +6182,13 @@ static void FindAutolayers() {
 // Links bone controllers
 //-----------------------------------------------------------------------------
 
-static void LinkBoneControllers() {
-    for (int i = 0; i < g_studiomdl.bones.bonecontrollers.size(); i++) {
-        const int j = findGlobalBone(g_studiomdl.bones.bonecontrollers[i].name);
+static void LinkBoneControllers(StudioMdlState &ctx) {
+    for (int i = 0; i < ctx.bones.bonecontrollers.size(); i++) {
+        const int j = findGlobalBone(ctx, ctx.bones.bonecontrollers[i].name);
         if (j == -1) {
-            MdlError("unknown g_studiomdl.bonecontroller link '{}'\n", g_studiomdl.bones.bonecontrollers[i].name);
+            MdlError("unknown ctx.bonecontroller link '{}'\n", ctx.bones.bonecontrollers[i].name);
         }
-        g_studiomdl.bones.bonecontrollers[i].bone = j;
+        ctx.bones.bonecontrollers[i].bone = j;
     }
 }
 
@@ -6198,18 +6196,18 @@ static void LinkBoneControllers() {
 // Links screen aligned bones
 //-----------------------------------------------------------------------------
 
-static void TagScreenAlignedBones() {
-    for (int i = 0; i < std::ssize(g_studiomdl.bones.screenalignedbone); i++) {
-        int j = findGlobalBone(g_studiomdl.bones.screenalignedbone[i].name);
+static void TagScreenAlignedBones(StudioMdlState &ctx) {
+    for (int i = 0; i < std::ssize(ctx.bones.screenalignedbone); i++) {
+        int j = findGlobalBone(ctx, ctx.bones.screenalignedbone[i].name);
         if (j == -1) {
-            MdlError("unknown g_studiomdl.bones.screenalignedbone link '{}'\n",
-                     g_studiomdl.bones.screenalignedbone[i].name);
+            MdlError("unknown ctx.bones.screenalignedbone link '{}'\n",
+                     ctx.bones.screenalignedbone[i].name);
         }
 
-        g_studiomdl.bones.bonetable[j].flags |= g_studiomdl.bones.screenalignedbone[i].flags;
-        std::print("tagging bone: {} as screen aligned (index {}, flags:{:x})\n", g_studiomdl.bones.bonetable[j].name,
+        ctx.bones.bonetable[j].flags |= ctx.bones.screenalignedbone[i].flags;
+        std::print("tagging bone: {} as screen aligned (index {}, flags:{:x})\n", ctx.bones.bonetable[j].name,
                    j,
-                   std::to_underlying(g_studiomdl.bones.bonetable[j].flags));
+                   std::to_underlying(ctx.bones.bonetable[j].flags));
     }
 }
 
@@ -6217,17 +6215,17 @@ static void TagScreenAlignedBones() {
 // world aligned bones
 //-----------------------------------------------------------------------------
 
-static void TagWorldAlignedBones() {
-    for (int i = 0; i < std::ssize(g_studiomdl.bones.worldalignedbone); i++) {
-        int j = findGlobalBone(g_studiomdl.bones.worldalignedbone[i].name);
+static void TagWorldAlignedBones(StudioMdlState &ctx) {
+    for (int i = 0; i < std::ssize(ctx.bones.worldalignedbone); i++) {
+        int j = findGlobalBone(ctx, ctx.bones.worldalignedbone[i].name);
         if (j == -1) {
-            MdlError("unknown g_studiomdl.bones.worldalignedbone link '{}'\n",
-                     g_studiomdl.bones.worldalignedbone[i].name);
+            MdlError("unknown ctx.bones.worldalignedbone link '{}'\n",
+                     ctx.bones.worldalignedbone[i].name);
         }
 
-        g_studiomdl.bones.bonetable[j].flags |= g_studiomdl.bones.worldalignedbone[i].flags;
-        std::print("tagging bone: {} as world aligned (index {}, flags:{:x})\n", g_studiomdl.bones.bonetable[j].name, j,
-                   std::to_underlying(g_studiomdl.bones.bonetable[j].flags));
+        ctx.bones.bonetable[j].flags |= ctx.bones.worldalignedbone[i].flags;
+        std::print("tagging bone: {} as world aligned (index {}, flags:{:x})\n", ctx.bones.bonetable[j].name, j,
+                   std::to_underlying(ctx.bones.bonetable[j].flags));
     }
 }
 
@@ -6235,7 +6233,7 @@ static void TagWorldAlignedBones() {
 // Links attachments
 //-----------------------------------------------------------------------------
 
-static void LinkAttachments() {
+static void LinkAttachments(StudioMdlState &ctx) {
     vstd::FunctionTimingRecorder _("Simplify");
     int i, j, k;
 
@@ -6246,15 +6244,15 @@ static void LinkAttachments() {
     matrix3x4_t world;
     matrix3x4_t poseToBone;
 
-    for (i = 0; i < g_studiomdl.bones.attachments.size(); i++) {
+    for (i = 0; i < ctx.bones.attachments.size(); i++) {
         bool found = false;
         // search through known bones
-        for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
-            if (vstd::iequals(g_studiomdl.bones.attachments[i].bonename, g_studiomdl.bones.bonetable[k].name)) {
-                g_studiomdl.bones.attachments[i].bone = k;
-                MatrixCopy(g_studiomdl.bones.bonetable[k].boneToPose, boneToPose);
+        for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
+            if (vstd::iequals(ctx.bones.attachments[i].bonename, ctx.bones.bonetable[k].name)) {
+                ctx.bones.attachments[i].bone = k;
+                MatrixCopy(ctx.bones.bonetable[k].boneToPose, boneToPose);
                 MatrixInvert(boneToPose, poseToBone);
-                // printf("%s : %d\n", g_studiomdl.bones.bonetable[k].name, k );
+                // printf("%s : %d\n", ctx.bones.bonetable[k].name, k );
                 found = true;
                 break;
             }
@@ -6262,26 +6260,26 @@ static void LinkAttachments() {
 
         if (!found) {
             // search all the loaded sources for the first occurance of the named bone
-            for (j = 0; j < g_studiomdl.anim.sources.size() && !found; j++) {
-                for (k = 0; k < g_studiomdl.anim.sources[j]->numbones && !found; k++) {
-                    if (vstd::iequals(g_studiomdl.bones.attachments[i].bonename,
-                                      g_studiomdl.anim.sources[j]->localBone[k].name)) {
-                        MatrixCopy(g_studiomdl.anim.sources[j]->boneToPose[k], boneToPose);
+            for (j = 0; j < ctx.anim.sources.size() && !found; j++) {
+                for (k = 0; k < ctx.anim.sources[j]->numbones && !found; k++) {
+                    if (vstd::iequals(ctx.bones.attachments[i].bonename,
+                                      ctx.anim.sources[j]->localBone[k].name)) {
+                        MatrixCopy(ctx.anim.sources[j]->boneToPose[k], boneToPose);
 
                         // check to make sure that this bone is actually referenced in the output model
                         // if not, try parent bone until we find a referenced bone in this chain
-                        while (k != -1 && g_studiomdl.anim.sources[j]->boneGlobalToLocal[g_studiomdl.anim.sources[j]->
+                        while (k != -1 && ctx.anim.sources[j]->boneGlobalToLocal[ctx.anim.sources[j]->
                                    boneLocalToGlobal[k]] != k) {
-                            k = g_studiomdl.anim.sources[j]->localBone[k].parent;
+                            k = ctx.anim.sources[j]->localBone[k].parent;
                         }
                         if (k == -1) {
                             MdlError("unable to find valid bone for attachment {}:{}\n",
-                                     g_studiomdl.bones.attachments[i].name,
-                                     g_studiomdl.bones.attachments[i].bonename);
+                                     ctx.bones.attachments[i].name,
+                                     ctx.bones.attachments[i].bonename);
                         }
 
-                        MatrixInvert(g_studiomdl.anim.sources[j]->boneToPose[k], poseToBone);
-                        g_studiomdl.bones.attachments[i].bone = g_studiomdl.anim.sources[j]->boneLocalToGlobal[k];
+                        MatrixInvert(ctx.anim.sources[j]->boneToPose[k], poseToBone);
+                        ctx.bones.attachments[i].bone = ctx.anim.sources[j]->boneLocalToGlobal[k];
                         found = true;
                     }
                 }
@@ -6289,28 +6287,28 @@ static void LinkAttachments() {
         }
 
         if (!found) {
-            MdlError("unknown attachment link '{}'\n", g_studiomdl.bones.attachments[i].bonename);
+            MdlError("unknown attachment link '{}'\n", ctx.bones.attachments[i].bonename);
         }
-        // printf("%s: %s / %s\n", g_studiomdl.attachment[i].name, g_studiomdl.attachment[i].bonename, g_studiomdl.bones.bonetable[g_studiomdl.attachment[i].bone].name );
+        // printf("%s: %s / %s\n", ctx.attachment[i].name, ctx.attachment[i].bonename, ctx.bones.bonetable[ctx.attachment[i].bone].name );
 
-        if (HasFlag(g_studiomdl.bones.attachments[i].type, AttachmentType::Absolute)) {
-            MatrixCopy(g_studiomdl.bones.attachments[i].local, world);
+        if (HasFlag(ctx.bones.attachments[i].type, AttachmentType::Absolute)) {
+            MatrixCopy(ctx.bones.attachments[i].local, world);
         }
         else {
-            ConcatTransforms(boneToPose, g_studiomdl.bones.attachments[i].local, world);
+            ConcatTransforms(boneToPose, ctx.bones.attachments[i].local, world);
         }
 
-        ConcatTransforms(poseToBone, world, g_studiomdl.bones.attachments[i].local);
+        ConcatTransforms(poseToBone, world, ctx.bones.attachments[i].local);
     }
 
-    RemoveDuplicateAttachments();
+    RemoveDuplicateAttachments(ctx);
 
     // flag all bones used by attachments
-    for (i = 0; i < g_studiomdl.bones.attachments.size(); i++) {
-        j = g_studiomdl.bones.attachments[i].bone;
+    for (i = 0; i < ctx.bones.attachments.size(); i++) {
+        j = ctx.bones.attachments[i].bone;
         while (j != -1) {
-            g_studiomdl.bones.bonetable[j].flags |= BoneFlags::UsedByAttachment;
-            j = g_studiomdl.bones.bonetable[j].parent;
+            ctx.bones.bonetable[j].flags |= BoneFlags::UsedByAttachment;
+            j = ctx.bones.bonetable[j].parent;
         }
     }
 }
@@ -6319,18 +6317,18 @@ static void LinkAttachments() {
 // Links mouths
 //-----------------------------------------------------------------------------
 
-static void LinkMouths() {
-    for (int i = 0; i < std::ssize(g_studiomdl.flex.mouth); i++) {
+static void LinkMouths(StudioMdlState &ctx) {
+    for (int i = 0; i < std::ssize(ctx.flex.mouth); i++) {
         int j;
-        for (j = 0; j < std::ssize(g_studiomdl.bones.bonetable); j++) {
-            if (g_studiomdl.flex.mouth[i].bonename[0] && vstd::iequals(g_studiomdl.flex.mouth[i].bonename,
-                                                                       g_studiomdl.bones.bonetable[j].name))
+        for (j = 0; j < std::ssize(ctx.bones.bonetable); j++) {
+            if (ctx.flex.mouth[i].bonename[0] && vstd::iequals(ctx.flex.mouth[i].bonename,
+                                                                       ctx.bones.bonetable[j].name))
                 break;
         }
-        if (j >= std::ssize(g_studiomdl.bones.bonetable)) {
-            MdlError("unknown mouth link '{}'\n", g_studiomdl.flex.mouth[i].bonename);
+        if (j >= std::ssize(ctx.bones.bonetable)) {
+            MdlError("unknown mouth link '{}'\n", ctx.flex.mouth[i].bonename);
         }
-        g_studiomdl.flex.mouth[i].bone = j;
+        ctx.flex.mouth[i].bone = j;
     }
 }
 
@@ -6357,21 +6355,21 @@ static float CalcPoseParameterValue(StudioMotionFlags control, RadianEuler &angl
     return 0.0;
 }
 
-static void CalcPoseParameters() {
+static void CalcPoseParameters(StudioMdlState &ctx) {
     int i;
     matrix3x4_t boneToWorld[MAXSTUDIOBONES];
     RadianEuler angles;
     Vector pos;
 
-    for (i = 0; i < std::ssize(g_studiomdl.anim.sequence); i++) {
-        s_sequence_t* pseq = &g_studiomdl.anim.sequence[i];
+    for (i = 0; i < std::ssize(ctx.anim.sequence); i++) {
+        s_sequence_t* pseq = &ctx.anim.sequence[i];
 
         for (int iPose = 0; iPose < 2; iPose++) {
             if (pseq->groupsize[iPose] > 1) {
                 if (pseq->paramattachment[iPose] != -1) {
                     const int j0 = pseq->paramindex[iPose];
                     const int n0 = pseq->paramattachment[iPose];
-                    const int k0 = g_studiomdl.bones.attachments[n0].bone;
+                    const int k0 = ctx.bones.attachments[n0].bone;
 
                     matrix3x4_t boneToWorldRel;
                     matrix3x4_t boneToWorldMid;
@@ -6381,7 +6379,7 @@ static void CalcPoseParameters() {
                     // printf("%s\n", pseq->name );
 
                     if (pseq->paramanim == nullptr) {
-                        pseq->paramanim = g_studiomdl.anim.animations[0];
+                        pseq->paramanim = ctx.anim.animations[0];
                     }
 
                     if (pseq->paramcompanim == nullptr) {
@@ -6390,14 +6388,14 @@ static void CalcPoseParameters() {
 
 
                     // calculate what "zero" looks like to the attachment
-                    CalcBoneTransforms(pseq->paramanim, 0, boneToWorld);
-                    ConcatTransforms(boneToWorld[k0], g_studiomdl.bones.attachments[n0].local, boneToWorldMid);
+                    CalcBoneTransforms(ctx, pseq->paramanim, 0, boneToWorld);
+                    ConcatTransforms(boneToWorld[k0], ctx.bones.attachments[n0].local, boneToWorldMid);
                     MatrixAngles(boneToWorldMid, angles, pos);
-                    // printf("%s : %s : %6.2f %6.2f %6.2f : %6.2f %6.2f %6.2f\n", pseq->name, g_studiomdl.anim.pose[j0].name, RAD2DEG( angles.x ), RAD2DEG( angles.y ), RAD2DEG( angles.z ), pos.x, pos.y, pos.z );
+                    // printf("%s : %s : %6.2f %6.2f %6.2f : %6.2f %6.2f %6.2f\n", pseq->name, ctx.anim.pose[j0].name, RAD2DEG( angles.x ), RAD2DEG( angles.y ), RAD2DEG( angles.z ), pos.x, pos.y, pos.z );
                     MatrixInvert(boneToWorldMid, worldToBoneMid);
 
-                    if (g_studiomdl.options.verbose) {
-                        std::print("{} : {}", pseq->name, g_studiomdl.anim.pose[j0].name);
+                    if (ctx.options.verbose) {
+                        std::print("{} : {}", pseq->name, ctx.anim.pose[j0].name);
                     }
 
                     // for 2D animation, figure out what opposite row/column to use
@@ -6421,15 +6419,15 @@ static void CalcPoseParameters() {
 
                     // find changes to attachment
                     for (m[iPose] = 0; m[iPose] < pseq->groupsize[iPose]; m[iPose]++) {
-                        CalcBoneTransforms(pseq->panim[m[0]][m[1]], pseq->paramcompanim, 0, boneToWorld);
-                        ConcatTransforms(boneToWorld[k0], g_studiomdl.bones.attachments[n0].local, boneToWorldRel);
+                        CalcBoneTransforms(ctx, pseq->panim[m[0]][m[1]], pseq->paramcompanim, 0, boneToWorld);
+                        ConcatTransforms(boneToWorld[k0], ctx.bones.attachments[n0].local, boneToWorldRel);
                         ConcatTransforms(worldToBoneMid, boneToWorldRel, boneRel);
                         MatrixAngles(boneRel, angles, pos);
                         // printf("%6.2f %6.2f %6.2f : %6.2f %6.2f %6.2f\n", RAD2DEG( angles.x ), RAD2DEG( angles.y ), RAD2DEG( angles.z ), pos.x, pos.y, pos.z );
 
                         float v = CalcPoseParameterValue(pseq->paramcontrol[iPose], angles, pos);
 
-                        if (g_studiomdl.options.verbose) {
+                        if (ctx.options.verbose) {
                             std::print(" {:6.2f}", v);
                         }
 
@@ -6451,7 +6449,7 @@ static void CalcPoseParameters() {
                         }
                     }
 
-                    if (g_studiomdl.options.verbose) {
+                    if (ctx.options.verbose) {
                         std::print("\n");
                     }
 
@@ -6459,10 +6457,10 @@ static void CalcPoseParameters() {
                         MdlError("calcblend failed in {}\n", pseq->name);
                     }
 
-                    g_studiomdl.anim.pose[j0].min = MIN(g_studiomdl.anim.pose[j0].min, pseq->paramstart[iPose]);
-                    g_studiomdl.anim.pose[j0].max = MAX(g_studiomdl.anim.pose[j0].max, pseq->paramstart[iPose]);
-                    g_studiomdl.anim.pose[j0].min = MIN(g_studiomdl.anim.pose[j0].min, pseq->paramend[iPose]);
-                    g_studiomdl.anim.pose[j0].max = MAX(g_studiomdl.anim.pose[j0].max, pseq->paramend[iPose]);
+                    ctx.anim.pose[j0].min = MIN(ctx.anim.pose[j0].min, pseq->paramstart[iPose]);
+                    ctx.anim.pose[j0].max = MAX(ctx.anim.pose[j0].max, pseq->paramstart[iPose]);
+                    ctx.anim.pose[j0].min = MIN(ctx.anim.pose[j0].min, pseq->paramend[iPose]);
+                    ctx.anim.pose[j0].max = MAX(ctx.anim.pose[j0].max, pseq->paramend[iPose]);
                 }
                 else {
                     for (int m = 0; m < pseq->groupsize[iPose]; m++) {
@@ -6486,35 +6484,35 @@ static void CalcPoseParameters() {
 // Link ikchains
 //-----------------------------------------------------------------------------
 
-static void LinkIKChains() {
+static void LinkIKChains(StudioMdlState &ctx) {
     vstd::FunctionTimingRecorder _("Simplify");
     int i, k;
 
     // create IK links
-    for (i = 0; i < std::ssize(g_studiomdl.anim.ikchain); i++) {
-        g_studiomdl.anim.ikchain[i].numlinks = 3;
+    for (i = 0; i < std::ssize(ctx.anim.ikchain); i++) {
+        ctx.anim.ikchain[i].numlinks = 3;
 
-        k = findGlobalBone(g_studiomdl.anim.ikchain[i].bonename);
+        k = findGlobalBone(ctx, ctx.anim.ikchain[i].bonename);
         if (k == -1) {
-            MdlError("unknown bone '{}' in ikchain '{}'\n", g_studiomdl.anim.ikchain[i].bonename,
-                     g_studiomdl.anim.ikchain[i].name);
+            MdlError("unknown bone '{}' in ikchain '{}'\n", ctx.anim.ikchain[i].bonename,
+                     ctx.anim.ikchain[i].name);
         }
-        g_studiomdl.anim.ikchain[i].link[2].bone = k;
-        g_studiomdl.bones.bonetable[k].flags |= BoneFlags::UsedByAttachment;
+        ctx.anim.ikchain[i].link[2].bone = k;
+        ctx.bones.bonetable[k].flags |= BoneFlags::UsedByAttachment;
 
-        k = g_studiomdl.bones.bonetable[k].parent;
+        k = ctx.bones.bonetable[k].parent;
         if (k == -1) {
-            MdlError("ikchain '{}' too close to root, no parent knee/elbow\n", g_studiomdl.anim.ikchain[i].name);
+            MdlError("ikchain '{}' too close to root, no parent knee/elbow\n", ctx.anim.ikchain[i].name);
         }
-        g_studiomdl.anim.ikchain[i].link[1].bone = k;
-        g_studiomdl.bones.bonetable[k].flags |= BoneFlags::UsedByAttachment;
+        ctx.anim.ikchain[i].link[1].bone = k;
+        ctx.bones.bonetable[k].flags |= BoneFlags::UsedByAttachment;
 
-        k = g_studiomdl.bones.bonetable[k].parent;
+        k = ctx.bones.bonetable[k].parent;
         if (k == -1) {
-            MdlError("ikchain '{}' too close to root, no parent hip/shoulder\n", g_studiomdl.anim.ikchain[i].name);
+            MdlError("ikchain '{}' too close to root, no parent hip/shoulder\n", ctx.anim.ikchain[i].name);
         }
-        g_studiomdl.anim.ikchain[i].link[0].bone = k;
-        g_studiomdl.bones.bonetable[k].flags |= BoneFlags::UsedByAttachment;
+        ctx.anim.ikchain[i].link[0].bone = k;
+        ctx.bones.bonetable[k].flags |= BoneFlags::UsedByAttachment;
 
         // FIXME: search for toes
     }
@@ -6524,38 +6522,38 @@ static void LinkIKChains() {
 // Link ikchains
 //-----------------------------------------------------------------------------
 
-static void LinkIKLocks() {
+static void LinkIKLocks(StudioMdlState &ctx) {
     vstd::FunctionTimingRecorder _("Simplify");
     int i, j;
 
     // create IK links
-    for (i = 0; i < std::ssize(g_studiomdl.anim.ikautoplaylock); i++) {
-        for (j = 0; j < std::ssize(g_studiomdl.anim.ikchain); j++) {
-            if (vstd::iequals(g_studiomdl.anim.ikchain[j].name, g_studiomdl.anim.ikautoplaylock[i].name)) {
+    for (i = 0; i < std::ssize(ctx.anim.ikautoplaylock); i++) {
+        for (j = 0; j < std::ssize(ctx.anim.ikchain); j++) {
+            if (vstd::iequals(ctx.anim.ikchain[j].name, ctx.anim.ikautoplaylock[i].name)) {
                 break;
             }
         }
-        if (j == std::ssize(g_studiomdl.anim.ikchain)) {
-            MdlError("unknown chain '{}' in ikautoplaylock\n", g_studiomdl.anim.ikautoplaylock[i].name);
+        if (j == std::ssize(ctx.anim.ikchain)) {
+            MdlError("unknown chain '{}' in ikautoplaylock\n", ctx.anim.ikautoplaylock[i].name);
         }
 
-        g_studiomdl.anim.ikautoplaylock[i].chain = j;
+        ctx.anim.ikautoplaylock[i].chain = j;
     }
 
     int k;
 
-    for (k = 0; k < std::ssize(g_studiomdl.anim.sequence); k++) {
-        for (i = 0; i < g_studiomdl.anim.sequence[k].iklocks.size(); i++) {
-            for (j = 0; j < std::ssize(g_studiomdl.anim.ikchain); j++) {
-                if (vstd::iequals(g_studiomdl.anim.ikchain[j].name, g_studiomdl.anim.sequence[k].iklocks[i].name)) {
+    for (k = 0; k < std::ssize(ctx.anim.sequence); k++) {
+        for (i = 0; i < ctx.anim.sequence[k].iklocks.size(); i++) {
+            for (j = 0; j < std::ssize(ctx.anim.ikchain); j++) {
+                if (vstd::iequals(ctx.anim.ikchain[j].name, ctx.anim.sequence[k].iklocks[i].name)) {
                     break;
                 }
             }
-            if (j == std::ssize(g_studiomdl.anim.ikchain)) {
-                MdlError("unknown chain '{}' in sequence iklock\n", g_studiomdl.anim.sequence[k].iklocks[i].name);
+            if (j == std::ssize(ctx.anim.ikchain)) {
+                MdlError("unknown chain '{}' in sequence iklock\n", ctx.anim.sequence[k].iklocks[i].name);
             }
 
-            g_studiomdl.anim.sequence[k].iklocks[i].chain = j;
+            ctx.anim.sequence[k].iklocks[i].chain = j;
         }
     }
 }
@@ -6595,30 +6593,30 @@ s_ikrule_t* FindNextIKRule(s_animation_t* panim, int iRule) {
 // Purpose: don't allow bones to change their length if they're predefined.
 //			go through all the animations and reset them, but move anything on an ikchain back to where it was.
 //-----------------------------------------------------------------------------
-static void LockBoneLengths() {
+static void LockBoneLengths(StudioMdlState &ctx) {
     int i, j, k;
 
     int n;
 
-    if (!g_studiomdl.options.lockBoneLengths)
+    if (!ctx.options.lockBoneLengths)
         return;
 
     Vector origLocalPos[MAXSTUDIOBONES];
 
     // find original lengths
-    for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
-        MatrixPosition(g_studiomdl.bones.bonetable[k].rawLocalOriginal, origLocalPos[k]);
+    for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
+        MatrixPosition(ctx.bones.bonetable[k].rawLocalOriginal, origLocalPos[k]);
 
-        if (g_studiomdl.options.verbose) {
+        if (ctx.options.verbose) {
             Vector prev, delta;
-            MatrixPosition(g_studiomdl.bones.bonetable[k].rawLocal, prev);
+            MatrixPosition(ctx.bones.bonetable[k].rawLocal, prev);
             delta = prev - origLocalPos[k];
-            std::print("{} - {:f} {:f} {:f}\n", g_studiomdl.bones.bonetable[k].name, delta.x, delta.y, delta.z);
+            std::print("{} - {:f} {:f} {:f}\n", ctx.bones.bonetable[k].name, delta.x, delta.y, delta.z);
         }
     }
 
-    for (i = 0; i < g_studiomdl.anim.animations.size(); i++) {
-        s_animation_t* panim = g_studiomdl.anim.animations[i];
+    for (i = 0; i < ctx.anim.animations.size(); i++) {
+        s_animation_t* panim = ctx.anim.animations[i];
 
         if (HasFlag(panim->flags, StudioSequenceFlags::Delta))
             continue;
@@ -6628,11 +6626,11 @@ static void LockBoneLengths() {
             matrix3x4a_t boneToWorld[MAXSTUDIOBONES];
 
             // calc original transformations
-            CalcBoneTransforms(panim, j, boneToWorldOriginal);
+            CalcBoneTransforms(ctx, panim, j, boneToWorldOriginal);
 
             // force bones back to original lengths
-            for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
-                if (g_studiomdl.bones.bonetable[k].parent != -1) {
+            for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
+                if (ctx.bones.bonetable[k].parent != -1) {
                     //Vector delta = panim->sanim[j][k].pos - origLocalPos[k];
                     //printf("%f %f %f\n", delta.x, delta.y, delta.z );
                     panim->sanim[j][k].pos = origLocalPos[k];
@@ -6640,23 +6638,23 @@ static void LockBoneLengths() {
             }
 
             // calc new transformations
-            CalcBoneTransforms(panim, j, boneToWorld);
+            CalcBoneTransforms(ctx, panim, j, boneToWorld);
 
-            for (n = 0; n < std::ssize(g_studiomdl.anim.ikchain); n++) {
-                if (panim->weight[g_studiomdl.anim.ikchain[n].link[2].bone] > 0) {
+            for (n = 0; n < std::ssize(ctx.anim.ikchain); n++) {
+                if (panim->weight[ctx.anim.ikchain[n].link[2].bone] > 0) {
                     Vector worldPos;
-                    MatrixPosition(boneToWorldOriginal[g_studiomdl.anim.ikchain[n].link[2].bone], worldPos);
+                    MatrixPosition(boneToWorldOriginal[ctx.anim.ikchain[n].link[2].bone], worldPos);
 
                     Studio_SolveIK(
-                        g_studiomdl.anim.ikchain[n].link[0].bone,
-                        g_studiomdl.anim.ikchain[n].link[1].bone,
-                        g_studiomdl.anim.ikchain[n].link[2].bone,
+                        ctx.anim.ikchain[n].link[0].bone,
+                        ctx.anim.ikchain[n].link[1].bone,
+                        ctx.anim.ikchain[n].link[2].bone,
                         worldPos,
                         boneToWorld);
 
-                    solveBone(panim, j, g_studiomdl.anim.ikchain[n].link[0].bone, boneToWorld);
-                    solveBone(panim, j, g_studiomdl.anim.ikchain[n].link[1].bone, boneToWorld);
-                    solveBone(panim, j, g_studiomdl.anim.ikchain[n].link[2].bone, boneToWorld);
+                    solveBone(ctx, panim, j, ctx.anim.ikchain[n].link[0].bone, boneToWorld);
+                    solveBone(ctx, panim, j, ctx.anim.ikchain[n].link[1].bone, boneToWorld);
+                    solveBone(ctx, panim, j, ctx.anim.ikchain[n].link[2].bone, boneToWorld);
                 }
             }
         }
@@ -6690,19 +6688,19 @@ struct s_footdown_t {
 // Purpose: go through all the IK rules and calculate the animated path the IK'd
 //			end point moves relative to its IK target.
 //-----------------------------------------------------------------------------
-static void ProcessIKRules() {
+static void ProcessIKRules(StudioMdlState &ctx) {
     vstd::FunctionTimingRecorder _("Simplify");
     int i, j, k;
 
     // copy source animations
-    for (i = 0; i < g_studiomdl.anim.animations.size(); i++) {
-        s_animation_t* panim = g_studiomdl.anim.animations[i];
-        const char* pAnimationName = g_studiomdl.anim.animations[i]->animationname;
+    for (i = 0; i < ctx.anim.animations.size(); i++) {
+        s_animation_t* panim = ctx.anim.animations[i];
+        const char* pAnimationName = ctx.anim.animations[i]->animationname;
         s_sourceanim_t* pSourceAnim = FindSourceAnim(panim->source, pAnimationName);
 
         for (j = 0; j < panim->cmds.size(); j++) {
             if (panim->cmds[j].cmd == CMD_IKFIXUP) {
-                fixupIKErrors(panim, panim->cmds[j].u.ikfixup.pRule);
+                fixupIKErrors(ctx, panim, panim->cmds[j].u.ikfixup.pRule);
             }
 
             if (panim->cmds[j].cmd != CMD_IKRULE)
@@ -6743,7 +6741,7 @@ static void ProcessIKRules() {
                 int nNumSteps = pRule.end;
 
                 matrix3x4_t boneToWorld[MAXSTUDIOBONES];
-                int nBone = findGlobalBone(pRule.bonename);
+                int nBone = findGlobalBone(ctx, pRule.bonename);
 
                 std::vector<float> vecPosAnim;
                 std::vector<float> vecPosAnimSorted;
@@ -6753,7 +6751,7 @@ static void ProcessIKRules() {
 
                 // gather z positions, find the lowest z
                 for (int nFrame = 0; nFrame < panim->numframes; nFrame++) {
-                    CalcBoneTransforms(panim, nFrame, boneToWorld);
+                    CalcBoneTransforms(ctx, panim, nFrame, boneToWorld);
                     Vector vecTemp;
                     MatrixPosition(boneToWorld[nBone], vecTemp);
 
@@ -6997,8 +6995,8 @@ static void ProcessIKRules() {
 
             if (pRule.usesequence) {
                 // FIXME: bah, this is horrendously hacky, add a damn back pointer
-                for (n = 0; n < std::ssize(g_studiomdl.anim.sequence); n++) {
-                    if (g_studiomdl.anim.sequence[n].panim[0][0] == panim)
+                for (n = 0; n < std::ssize(ctx.anim.sequence); n++) {
+                    if (ctx.anim.sequence[n].panim[0][0] == panim)
                         break;
                 }
             }
@@ -7013,7 +7011,7 @@ static void ProcessIKRules() {
                         pRule.bone = -1;
                     }
                     else {
-                        pRule.bone = findGlobalBone(pRule.bonename);
+                        pRule.bone = findGlobalBone(ctx, pRule.bonename);
                         if (pRule.bone == -1) {
                             MdlError("unknown bone '{}' in ikrule\n", pRule.bonename);
                         }
@@ -7021,7 +7019,7 @@ static void ProcessIKRules() {
 
                     for (k = 0; k < pRule.errorData.errors.size(); k++) {
                         if (pRule.usesequence) {
-                            CalcSeqTransforms(n, k + pRule.start, boneToWorld);
+                            CalcSeqTransforms(ctx, n, k + pRule.start, boneToWorld);
                         }
                         else if (pRule.usesource) {
                             matrix3x4_t srcBoneToWorld[MAXSTUDIOSRCBONES];
@@ -7029,21 +7027,21 @@ static void ProcessIKRules() {
                                                k + pRule.start + panim->startframe - pSourceAnim->startframe,
                                                panim->scale, panim->adjust, panim->rotation, panim->flags,
                                                srcBoneToWorld);
-                            TranslateAnimations(panim->source, srcBoneToWorld, boneToWorld);
+                            TranslateAnimations(ctx, panim->source, srcBoneToWorld, boneToWorld);
                         }
                         else {
-                            CalcBoneTransforms(panim, k + pRule.start, boneToWorld);
+                            CalcBoneTransforms(ctx, panim, k + pRule.start, boneToWorld);
                         }
 
 
                         if (pRule.bone != -1) {
                             MatrixInvert(boneToWorld[pRule.bone], worldToBone);
                             ConcatTransforms(worldToBone,
-                                             boneToWorld[g_studiomdl.anim.ikchain[pRule.chain].link[2].bone],
+                                             boneToWorld[ctx.anim.ikchain[pRule.chain].link[2].bone],
                                              local);
                         }
                         else {
-                            MatrixCopy(boneToWorld[g_studiomdl.anim.ikchain[pRule.chain].link[2].bone], local);
+                            MatrixCopy(boneToWorld[ctx.anim.ikchain[pRule.chain].link[2].bone], local);
                         }
 
                         MatrixAngles(local, pRule.errorData.errors[k].q, pRule.errorData.errors[k].pos);
@@ -7066,8 +7064,8 @@ static void ProcessIKRules() {
                     matrix3x4_t worldToBone;
                     matrix3x4_t local;
 
-                    int bone = g_studiomdl.anim.ikchain[pRule.chain].link[2].bone;
-                    CalcBoneTransforms(panim, pRule.contact, boneToWorld);
+                    int bone = ctx.anim.ikchain[pRule.chain].link[2].bone;
+                    CalcBoneTransforms(ctx, panim, pRule.contact, boneToWorld);
                     // FIXME: add in motion
 
                     // pRule->pos = footfall;
@@ -7079,7 +7077,7 @@ static void ProcessIKRules() {
                         }
                     }
                     else {
-                        pRule.bone = findGlobalBone(pRule.bonename);
+                        pRule.bone = findGlobalBone(ctx, pRule.bonename);
                         if (pRule.bone == -1) {
                             MdlError("unknown bone '{}' in ikrule\n", pRule.bonename);
                         }
@@ -7087,7 +7085,7 @@ static void ProcessIKRules() {
 
                     if (pRule.bone != -1) {
                         // FIXME: look for local bones...
-                        CalcBoneTransforms(panim, pRule.contact, boneToWorld);
+                        CalcBoneTransforms(ctx, panim, pRule.contact, boneToWorld);
                         MatrixAngles(boneToWorld[pRule.bone], pRule.q, pRule.pos);
                     }
 
@@ -7101,16 +7099,16 @@ static void ProcessIKRules() {
                         int t = k + pRule.start;
 
                         if (pRule.usesequence) {
-                            CalcSeqTransforms(n, t, boneToWorld);
+                            CalcSeqTransforms(ctx, n, t, boneToWorld);
                         }
                         else if (pRule.usesource) {
                             matrix3x4_t srcBoneToWorld[MAXSTUDIOSRCBONES];
                             BuildRawTransforms(panim->source, pAnimationName,
                                                t + panim->startframe - pSourceAnim->startframe, srcBoneToWorld);
-                            TranslateAnimations(panim->source, srcBoneToWorld, boneToWorld);
+                            TranslateAnimations(ctx, panim->source, srcBoneToWorld, boneToWorld);
                         }
                         else {
-                            CalcBoneTransforms(panim, t, boneToWorld);
+                            CalcBoneTransforms(ctx, panim, t, boneToWorld);
                         }
 
                         Vector pos = pRule.pos + calcMovement(panim, t, pRule.contact);
@@ -7142,26 +7140,26 @@ static void ProcessIKRules() {
                     matrix3x4_t worldToBone;
                     matrix3x4_t local;
 
-                    int bone = g_studiomdl.anim.ikchain[pRule.chain].link[2].bone;
+                    int bone = ctx.anim.ikchain[pRule.chain].link[2].bone;
 
                     if (pRule.usesequence) {
-                        CalcSeqTransforms(n, pRule.contact, boneToWorld);
+                        CalcSeqTransforms(ctx, n, pRule.contact, boneToWorld);
                     }
                     else if (pRule.usesource) {
                         matrix3x4_t srcBoneToWorld[MAXSTUDIOSRCBONES];
                         BuildRawTransforms(panim->source, pAnimationName,
                                            pRule.contact + panim->startframe - pSourceAnim->startframe, panim->scale,
                                            panim->adjust, panim->rotation, panim->flags, srcBoneToWorld);
-                        TranslateAnimations(panim->source, srcBoneToWorld, boneToWorld);
+                        TranslateAnimations(ctx, panim->source, srcBoneToWorld, boneToWorld);
                     }
                     else {
-                        CalcBoneTransforms(panim, pRule.contact, boneToWorld);
+                        CalcBoneTransforms(ctx, panim, pRule.contact, boneToWorld);
                     }
 
                     // FIXME: add in motion
 
                     Vector footfall;
-                    VectorTransform(g_studiomdl.anim.ikchain[pRule.chain].center, boneToWorld[bone], footfall);
+                    VectorTransform(ctx.anim.ikchain[pRule.chain].center, boneToWorld[bone], footfall);
                     footfall.z = pRule.floor;
 
                     AngleMatrix(RadianEuler(0, 0, 0), footfall, local);
@@ -7187,7 +7185,7 @@ static void ProcessIKRules() {
 						*/
 
                         if (pRule.usesequence) {
-                            CalcSeqTransforms(n, t, boneToWorld);
+                            CalcSeqTransforms(ctx, n, t, boneToWorld);
                         }
                         else if (pRule.usesource) {
                             matrix3x4_t srcBoneToWorld[MAXSTUDIOSRCBONES];
@@ -7195,16 +7193,16 @@ static void ProcessIKRules() {
                                                pRule.contact + panim->startframe - pSourceAnim->startframe,
                                                panim->scale, panim->adjust, panim->rotation, panim->flags,
                                                srcBoneToWorld);
-                            TranslateAnimations(panim->source, srcBoneToWorld, boneToWorld);
+                            TranslateAnimations(ctx, panim->source, srcBoneToWorld, boneToWorld);
                         }
                         else {
-                            CalcBoneTransforms(panim, t, boneToWorld);
+                            CalcBoneTransforms(ctx, panim, t, boneToWorld);
                         }
                         Vector pos = pRule.pos + calcMovement(panim, t, pRule.contact);
                         s = 0.0;
 
                         Vector cur;
-                        VectorTransform(g_studiomdl.anim.ikchain[pRule.chain].center, boneToWorld[bone], cur);
+                        VectorTransform(ctx.anim.ikchain[pRule.chain].center, boneToWorld[bone], cur);
                         cur.z = pos.z;
 
                         if (t < pRule.start || t >= pRule.end) {
@@ -7261,7 +7259,7 @@ static void ProcessIKRules() {
         // auto release ik chains that are moved but not referenced and have no explicit rules
         int count[16];
 
-        for (j = 0; j < std::ssize(g_studiomdl.anim.ikchain); j++) {
+        for (j = 0; j < std::ssize(ctx.anim.ikchain); j++) {
             count[j] = 0;
         }
 
@@ -7269,9 +7267,9 @@ static void ProcessIKRules() {
             count[rule.chain]++;
         }
 
-        for (j = 0; j < std::ssize(g_studiomdl.anim.ikchain); j++) {
-            if (count[j] == 0 && panim->weight[g_studiomdl.anim.ikchain[j].link[2].bone] > 0.0) {
-                // printf("%s - %s\n", panim->name, g_studiomdl.anim.ikchain[j].name );
+        for (j = 0; j < std::ssize(ctx.anim.ikchain); j++) {
+            if (count[j] == 0 && panim->weight[ctx.anim.ikchain[j].link[2].bone] > 0.0) {
+                // printf("%s - %s\n", panim->name, ctx.anim.ikchain[j].name );
                 panim->ikrules.emplace_back(s_ikrule_t{
                     .chain = j,
                     .type = IkRuleType::Release,
@@ -7288,22 +7286,22 @@ static void ProcessIKRules() {
 
 
     // realign IK across multiple animations
-    for (i = 0; i < std::ssize(g_studiomdl.anim.sequence); i++) {
-        for (j = 0; j < g_studiomdl.anim.sequence[i].groupsize[0]; j++) {
-            for (k = 0; k < g_studiomdl.anim.sequence[i].groupsize[1]; k++) {
-                g_studiomdl.anim.sequence[i].numikrules = MAX(g_studiomdl.anim.sequence[i].numikrules,
-                                                              g_studiomdl.anim.sequence[i].panim[j][k]->ikrules.size());
+    for (i = 0; i < std::ssize(ctx.anim.sequence); i++) {
+        for (j = 0; j < ctx.anim.sequence[i].groupsize[0]; j++) {
+            for (k = 0; k < ctx.anim.sequence[i].groupsize[1]; k++) {
+                ctx.anim.sequence[i].numikrules = MAX(ctx.anim.sequence[i].numikrules,
+                                                              ctx.anim.sequence[i].panim[j][k]->ikrules.size());
             }
         }
 
         // check for mismatched ik rules
-        s_animation_t* panim1 = g_studiomdl.anim.sequence[i].panim[0][0];
-        for (j = 0; j < g_studiomdl.anim.sequence[i].groupsize[0]; j++) {
-            for (k = 0; k < g_studiomdl.anim.sequence[i].groupsize[1]; k++) {
-                s_animation_t* panim2 = g_studiomdl.anim.sequence[i].panim[j][k];
+        s_animation_t* panim1 = ctx.anim.sequence[i].panim[0][0];
+        for (j = 0; j < ctx.anim.sequence[i].groupsize[0]; j++) {
+            for (k = 0; k < ctx.anim.sequence[i].groupsize[1]; k++) {
+                s_animation_t* panim2 = ctx.anim.sequence[i].panim[j][k];
                 if (panim1->ikrules.size() != panim2->ikrules.size()) {
                     MdlWarning("{} - mismatched number of IK rules: \"{}\"[{}] \"{}\"[{}]\n",
-                               g_studiomdl.anim.sequence[i].name, panim1->name, panim1->ikrules.size(),
+                               ctx.anim.sequence[i].name, panim1->name, panim1->ikrules.size(),
                                panim2->name,
                                panim2->ikrules.size());
 
@@ -7332,7 +7330,7 @@ static void ProcessIKRules() {
                         (panim1->ikrules[n].chain != panim2->ikrules[n].chain) ||
                         (panim1->ikrules[n].slot != panim2->ikrules[n].slot)) {
                         MdlError("{} - mismatched IK rule {}: \n\"{}\" : {} {} {}\n\"{}\" : {} {} {}\n",
-                                 g_studiomdl.anim.sequence[i].name, n,
+                                 ctx.anim.sequence[i].name, n,
                                  panim1->name, std::to_underlying(panim1->ikrules[n].type), panim1->ikrules[n].chain,
                                  panim1->ikrules[n].slot,
                                  panim2->name, std::to_underlying(panim2->ikrules[n].type), panim2->ikrules[n].chain,
@@ -7343,10 +7341,10 @@ static void ProcessIKRules() {
         }
 
         // FIXME: this doesn't check alignment!!!
-        for (j = 0; j < g_studiomdl.anim.sequence[i].groupsize[0]; j++) {
-            for (k = 0; k < g_studiomdl.anim.sequence[i].groupsize[1]; k++) {
-                for (int n = 0; n < g_studiomdl.anim.sequence[i].panim[j][k]->ikrules.size(); n++) {
-                    g_studiomdl.anim.sequence[i].panim[j][k]->ikrules[n].index = n;
+        for (j = 0; j < ctx.anim.sequence[i].groupsize[0]; j++) {
+            for (k = 0; k < ctx.anim.sequence[i].groupsize[1]; k++) {
+                for (int n = 0; n < ctx.anim.sequence[i].panim[j][k]->ikrules.size(); n++) {
+                    ctx.anim.sequence[i].panim[j][k]->ikrules[n].index = n;
                 }
             }
         }
@@ -7358,7 +7356,7 @@ static void ProcessIKRules() {
 // CompressAnimations
 //-----------------------------------------------------------------------------
 
-static void CompressAnimations() {
+static void CompressAnimations(StudioMdlState &ctx) {
     vstd::FunctionTimingRecorder _("Simplify");
     int i, j, k, n, m;
 
@@ -7369,8 +7367,8 @@ static void CompressAnimations() {
 
 
     // find scales for all bones
-    for (j = 0; j < std::ssize(g_studiomdl.bones.bonetable); j++) {
-        // printf("%s : ", g_studiomdl.bones.bonetable[j].name );
+    for (j = 0; j < std::ssize(ctx.bones.bonetable); j++) {
+        // printf("%s : ", ctx.bones.bonetable[j].name );
         for (k = 0; k < 6; k++) {
             float minv, maxv, scale;
             float total_minv, total_maxv;
@@ -7378,42 +7376,42 @@ static void CompressAnimations() {
             if (k < 3) {
                 minv = -128.0;
                 maxv = 128.0;
-                total_maxv = total_minv = g_studiomdl.bones.bonetable[j].pos[k];
+                total_maxv = total_minv = ctx.bones.bonetable[j].pos[k];
             }
             else {
                 minv = -M_PI / 8.0;
                 maxv = M_PI / 8.0;
-                total_maxv = total_minv = g_studiomdl.bones.bonetable[j].rot[k - 3];
+                total_maxv = total_minv = ctx.bones.bonetable[j].rot[k - 3];
             }
 
-            for (i = 0; i < g_studiomdl.anim.animations.size(); i++) {
-                for (n = 0; n < g_studiomdl.anim.animations[i]->numframes; n++) {
+            for (i = 0; i < ctx.anim.animations.size(); i++) {
+                for (n = 0; n < ctx.anim.animations[i]->numframes; n++) {
                     float v = 0.0f;
                     switch (k) {
                         case 0:
                         case 1:
                         case 2:
-                            if (HasFlag(g_studiomdl.anim.animations[i]->flags, StudioSequenceFlags::Delta)) {
-                                v = g_studiomdl.anim.animations[i]->sanim[n][j].pos[k];
+                            if (HasFlag(ctx.anim.animations[i]->flags, StudioSequenceFlags::Delta)) {
+                                v = ctx.anim.animations[i]->sanim[n][j].pos[k];
                             }
                             else {
-                                v = (g_studiomdl.anim.animations[i]->sanim[n][j].pos[k] - g_studiomdl.bones.bonetable[j]
+                                v = (ctx.anim.animations[i]->sanim[n][j].pos[k] - ctx.bones.bonetable[j]
                                      .pos[k]);
 
-                                if (g_studiomdl.anim.animations[i]->sanim[n][j].pos[k] < total_minv)
-                                    total_minv = g_studiomdl.anim.animations[i]->sanim[n][j].pos[k];
-                                if (g_studiomdl.anim.animations[i]->sanim[n][j].pos[k] > total_maxv)
-                                    total_maxv = g_studiomdl.anim.animations[i]->sanim[n][j].pos[k];
+                                if (ctx.anim.animations[i]->sanim[n][j].pos[k] < total_minv)
+                                    total_minv = ctx.anim.animations[i]->sanim[n][j].pos[k];
+                                if (ctx.anim.animations[i]->sanim[n][j].pos[k] > total_maxv)
+                                    total_maxv = ctx.anim.animations[i]->sanim[n][j].pos[k];
                             }
                             break;
                         case 3:
                         case 4:
                         case 5:
-                            if (HasFlag(g_studiomdl.anim.animations[i]->flags, StudioSequenceFlags::Delta)) {
-                                v = g_studiomdl.anim.animations[i]->sanim[n][j].rot[k - 3];
+                            if (HasFlag(ctx.anim.animations[i]->flags, StudioSequenceFlags::Delta)) {
+                                v = ctx.anim.animations[i]->sanim[n][j].rot[k - 3];
                             }
                             else {
-                                v = (g_studiomdl.anim.animations[i]->sanim[n][j].rot[k - 3] - g_studiomdl.bones.
+                                v = (ctx.anim.animations[i]->sanim[n][j].rot[k - 3] - ctx.bones.
                                      bonetable[j].rot[
                                          k - 3]);
                             }
@@ -7444,15 +7442,15 @@ static void CompressAnimations() {
                 case 0:
                 case 1:
                 case 2:
-                    g_studiomdl.bones.bonetable[j].posscale[k] = scale;
-                    g_studiomdl.bones.bonetable[j].posrange[k] = total_maxv - total_minv;
+                    ctx.bones.bonetable[j].posscale[k] = scale;
+                    ctx.bones.bonetable[j].posrange[k] = total_maxv - total_minv;
                     break;
                 case 3:
                 case 4:
                 case 5:
                     // printf("(%.1f %.1f)", RAD2DEG(minv), RAD2DEG(maxv) );
                     // printf("(%.1f)", RAD2DEG(maxv-minv) );
-                    g_studiomdl.bones.bonetable[j].rotscale[k - 3] = scale;
+                    ctx.bones.bonetable[j].rotscale[k - 3] = scale;
                     break;
             }
             // printf("%.0f ", 1.0 / scale );
@@ -7462,19 +7460,19 @@ static void CompressAnimations() {
 
 
     // reduce animations
-    for (i = 0; i < g_studiomdl.anim.animations.size(); i++) {
-        s_animation_t* panim = g_studiomdl.anim.animations[i];
+    for (i = 0; i < ctx.anim.animations.size(); i++) {
+        s_animation_t* panim = ctx.anim.animations[i];
         s_source_t* psource = panim->source;
 
-        if (g_studiomdl.options.checkLengths) {
+        if (ctx.options.checkLengths) {
             std::print("{}\n", panim->name);
         }
 
         // setup animation interior sections
         int iSectionFrames = panim->numframes;
-        if (panim->numframes >= g_studiomdl.options.minSectionFrameLimit) {
-            iSectionFrames = g_studiomdl.options.sectionFrames;
-            panim->sectionframes = g_studiomdl.options.sectionFrames;
+        if (panim->numframes >= ctx.options.minSectionFrameLimit) {
+            iSectionFrames = ctx.options.sectionFrames;
+            panim->sectionframes = ctx.options.sectionFrames;
             panim->numsections = (int) (panim->numframes / panim->sectionframes) + 2;
         }
         else {
@@ -7491,14 +7489,14 @@ static void CompressAnimations() {
 
             // printf("%s : %d %d\n", panim->name, iStartFrame, iEndFrame );
 
-            for (j = 0; j < std::ssize(g_studiomdl.bones.bonetable); j++) {
+            for (j = 0; j < std::ssize(ctx.bones.bonetable); j++) {
                 for (k = 0; k < 6; k++) {
                     panim->anim[w][j].num[k] = 0;
                     panim->anim[w][j].data[k].clear();
                 }
 
                 // skip bones that are always procedural
-                if (HasFlag(g_studiomdl.bones.bonetable[j].flags, BoneFlags::AlwaysProcedural)) {
+                if (HasFlag(ctx.bones.bonetable[j].flags, BoneFlags::AlwaysProcedural)) {
                     // panim->weight[j] = 0.0;
                     continue;
                 }
@@ -7527,13 +7525,13 @@ static void CompressAnimations() {
                             case 1: /* Y Position */
                             case 2: /* Z Position */
                                 if (HasFlag(panim->flags, StudioSequenceFlags::Delta)) {
-                                    value[n] = psrcdata->pos[k] / g_studiomdl.bones.bonetable[j].posscale[k];
+                                    value[n] = psrcdata->pos[k] / ctx.bones.bonetable[j].posscale[k];
                                     // pre-scale pos delta since format only has room for "overall" weight
                                     float r = panim->posweight[j] / panim->weight[j];
                                     value[n] *= r;
                                 }
                                 else {
-                                    value[n] = (psrcdata->pos[k] - g_studiomdl.bones.bonetable[j].pos[k]) / g_studiomdl.
+                                    value[n] = (psrcdata->pos[k] - ctx.bones.bonetable[j].pos[k]) / ctx.
                                                bones.bonetable[j].posscale[k];
                                 }
 
@@ -7545,7 +7543,7 @@ static void CompressAnimations() {
                                     v = psrcdata->rot[k - 3];
                                 }
                                 else {
-                                    v = (psrcdata->rot[k - 3] - g_studiomdl.bones.bonetable[j].rot[k - 3]);
+                                    v = (psrcdata->rot[k - 3] - ctx.bones.bonetable[j].rot[k - 3]);
                                 }
 
                                 while (v >= M_PI)
@@ -7553,7 +7551,7 @@ static void CompressAnimations() {
                                 while (v < -M_PI)
                                     v += M_PI * 2;
 
-                                value[n] = v / g_studiomdl.bones.bonetable[j].rotscale[k - 3];
+                                value[n] = v / ctx.bones.bonetable[j].rotscale[k - 3];
                                 break;
                         }
                         checkmin[k] = MIN(value[n], checkmin[k]);
@@ -7610,23 +7608,23 @@ static void CompressAnimations() {
                         panim->anim[w][j].data[k].resize(pvalue - data);
                         memmove(panim->anim[w][j].data[k].data(), data, (pvalue - data) * sizeof(mstudioanimvalue_t));
                     }
-                    // printf("%d(%d) ", g_studiomdl.source[i]->panim[q]->numanim[j][k], n );
+                    // printf("%d(%d) ", ctx.source[i]->panim[q]->numanim[j][k], n );
                 }
 
-                if (g_studiomdl.options.checkLengths) {
+                if (ctx.options.checkLengths) {
                     const char* tmp[6] = {"X", "Y", "Z", "XR", "YR", "ZR"};
                     n = 0;
                     float s = 0.0f;
                     for (k = 0; k < 6; k++) {
                         if (panim->anim[w][j].num[k]) {
                             if (n == 0)
-                                std::print("{:>30} :", g_studiomdl.bones.bonetable[j].name);
+                                std::print("{:>30} :", ctx.bones.bonetable[j].name);
 
-                            // printf("%2s (%8.3f: %8.3f %8.3f) ", tmp[k], g_studiomdl.bones.bonetable[j].pos[k], checkmin[k], checkmax[k] );
+                            // printf("%2s (%8.3f: %8.3f %8.3f) ", tmp[k], ctx.bones.bonetable[j].pos[k], checkmin[k], checkmax[k] );
                             if (k < 3)
-                                s = g_studiomdl.bones.bonetable[j].posscale[k];
+                                s = ctx.bones.bonetable[j].posscale[k];
                             else
-                                s = g_studiomdl.bones.bonetable[j].rotscale[k - 3];
+                                s = ctx.bones.bonetable[j].rotscale[k - 3];
 
                             // printf("%2s %8.5f (%d %d)  ", tmp[k], checkmax[k] - checkmin[k] );
                             std::print("{:>2} {:8.5f}  ", tmp[k], (checkmax[k] - checkmin[k]) * s);
@@ -7656,7 +7654,7 @@ static void CompressSingle(s_animationstream_t* pStream) {
     if (pStream->errors.empty())
         return;
 
-    // printf("%s : ", g_studiomdl.bones.bonetable[j].name );
+    // printf("%s : ", ctx.bones.bonetable[j].name );
     for (k = 0; k < 6; k++) {
         float minv, maxv, scale;
         RadianEuler ang;
@@ -7787,13 +7785,13 @@ static void CompressSingle(s_animationstream_t* pStream) {
 // Compress all the IK data
 //-----------------------------------------------------------------------------
 
-static void CompressIKErrors() {
+static void CompressIKErrors(StudioMdlState &ctx) {
     int i, j;
 
     // find scales for all bones
-    for (i = 0; i < g_studiomdl.anim.animations.size(); i++) {
-        for (j = 0; j < g_studiomdl.anim.animations[i]->ikrules.size(); j++) {
-            s_ikrule_t* pRule = &g_studiomdl.anim.animations[i]->ikrules[j];
+    for (i = 0; i < ctx.anim.animations.size(); i++) {
+        for (j = 0; j < ctx.anim.animations[i]->ikrules.size(); j++) {
+            s_ikrule_t* pRule = &ctx.anim.animations[i]->ikrules[j];
 
             if (pRule->errorData.errors.empty())
                 continue;
@@ -7807,11 +7805,11 @@ static void CompressIKErrors() {
 // Compress all the Local Hierarchy data
 //-----------------------------------------------------------------------------
 
-static void CompressLocalHierarchy() {
+static void CompressLocalHierarchy(StudioMdlState &ctx) {
     vstd::FunctionTimingRecorder _("Simplify");
 
     // find scales for all bones
-    for (auto* animation: g_studiomdl.anim.animations) {
+    for (auto* animation: ctx.anim.animations) {
         auto &localhierarchies = animation->localhierarchies;
         for (auto &localhierarchy: localhierarchies) {
             if (localhierarchy.localData.errors.empty())
@@ -7850,24 +7848,24 @@ int compareBonePriority(const void* a, const void* b) {
 //-----------------------------------------------------------------------------
 // Dump A $definebone line, ensuring any parents are already dumped
 //-----------------------------------------------------------------------------
-void DumpDefineBone(int nBoneId, bool* pBoneDumpedList) {
-    Assert(nBoneId < std::ssize(g_studiomdl.bones.bonetable));
+void DumpDefineBone(StudioMdlState &ctx, int nBoneId, bool* pBoneDumpedList) {
+    Assert(nBoneId < std::ssize(ctx.bones.bonetable));
 
     if (pBoneDumpedList[nBoneId])
         return;
 
-    const s_bonetable_t &bone = g_studiomdl.bones.bonetable[nBoneId];
+    const s_bonetable_t &bone = ctx.bones.bonetable[nBoneId];
 
     // Ensure the parent bone is dumped before the child
     if (bone.parent >= 0) {
-        DumpDefineBone(bone.parent, pBoneDumpedList);
+        DumpDefineBone(ctx, bone.parent, pBoneDumpedList);
     }
 
     std::print("$definebone ");
 
     std::print("\"{}\" ", bone.name);
     if (bone.parent != -1) {
-        std::print("\"{}\" ", g_studiomdl.bones.bonetable[bone.parent].name);
+        std::print("\"{}\" ", ctx.bones.bonetable[bone.parent].name);
     }
     else {
         std::print("\"\" ");
@@ -7894,25 +7892,25 @@ void DumpDefineBone(int nBoneId, bool* pBoneDumpedList) {
 // i.e. Bones that are removed or replaced in LODs are later in the list
 //      bones that are used all of the time are at the top of the list
 //-----------------------------------------------------------------------------
-void DumpDefineBones() {
+void DumpDefineBones(StudioMdlState &ctx) {
     BonePriority_s* pBonePriorityList = reinterpret_cast<BonePriority_s*>(stackalloc(
-        std::ssize(g_studiomdl.bones.bonetable) * sizeof(BonePriority_s)));
+        std::ssize(ctx.bones.bonetable) * sizeof(BonePriority_s)));
 
-    for (int i = 0; i < std::ssize(g_studiomdl.bones.bonetable); ++i) {
+    for (int i = 0; i < std::ssize(ctx.bones.bonetable); ++i) {
         BonePriority_s &bonePriority = pBonePriorityList[i];
         bonePriority.m_nGlobalBoneId = i;
         bonePriority.m_nGlobalBoneWeight = 0.0f;
     }
 
-    for (int i = 0; i < std::ssize(g_studiomdl.body.ScriptLODs); ++i) {
-        const LodScriptData_t &scriptLOD = g_studiomdl.body.ScriptLODs[i];
+    for (int i = 0; i < std::ssize(ctx.body.ScriptLODs); ++i) {
+        const LodScriptData_t &scriptLOD = ctx.body.ScriptLODs[i];
 
         for (int j = 0; j < std::ssize(scriptLOD.boneReplacements); ++j) {
             // Ignore Shadow LOD
             if (scriptLOD.switchValue <= 0.0f)
                 continue;
 
-            const int nBoneId = findGlobalBone(scriptLOD.boneReplacements[j].GetSrcName());
+            const int nBoneId = findGlobalBone(ctx, scriptLOD.boneReplacements[j].GetSrcName());
             if (nBoneId < 0) {
                 Warning("Can't Find BoneReplacement Bone {}\n", scriptLOD.boneReplacements[j].GetSrcName().c_str());
                 continue;
@@ -7923,63 +7921,63 @@ void DumpDefineBones() {
     }
 
     // bones used by hitboxes and attachments should always go first since they're used by the server
-    for (int i = 0; i < std::ssize(g_studiomdl.bones.bonetable); ++i) {
-        if (HasFlag(g_studiomdl.bones.bonetable[i].flags,
+    for (int i = 0; i < std::ssize(ctx.bones.bonetable); ++i) {
+        if (HasFlag(ctx.bones.bonetable[i].flags,
                     BoneFlags::UsedByHitbox | BoneFlags::UsedByAttachment | BoneFlags::UsedByBoneMerge)) {
             pBonePriorityList[i].m_nGlobalBoneWeight = -1.0f;
         }
     }
 
-    qsort(pBonePriorityList, std::ssize(g_studiomdl.bones.bonetable), sizeof(BonePriority_s), compareBonePriority);
+    qsort(pBonePriorityList, std::ssize(ctx.bones.bonetable), sizeof(BonePriority_s), compareBonePriority);
 
-    bool* pBoneDumpedList = reinterpret_cast<bool*>(stackalloc(std::ssize(g_studiomdl.bones.bonetable) * sizeof(bool)));
-    memset(pBoneDumpedList, 0, std::ssize(g_studiomdl.bones.bonetable) * sizeof(bool));
+    bool* pBoneDumpedList = reinterpret_cast<bool*>(stackalloc(std::ssize(ctx.bones.bonetable) * sizeof(bool)));
+    memset(pBoneDumpedList, 0, std::ssize(ctx.bones.bonetable) * sizeof(bool));
 
-    for (int i = 0; i < std::ssize(g_studiomdl.bones.bonetable); i++) {
+    for (int i = 0; i < std::ssize(ctx.bones.bonetable); i++) {
         const BonePriority_s &bonePriority = pBonePriorityList[i];
         const int nBoneId = bonePriority.m_nGlobalBoneId;
 
-        if (HasFlag(g_studiomdl.bones.bonetable[nBoneId].flags, BoneFlags::AlwaysProcedural)) {
+        if (HasFlag(ctx.bones.bonetable[nBoneId].flags, BoneFlags::AlwaysProcedural)) {
             pBoneDumpedList[nBoneId] = true;
             continue;
         }
 
-        DumpDefineBone(nBoneId, pBoneDumpedList);
+        DumpDefineBone(ctx, nBoneId, pBoneDumpedList);
     }
 }
 
 
-void ReLinkAttachments() {
+void ReLinkAttachments(StudioMdlState &ctx) {
     vstd::FunctionTimingRecorder _("Simplify");
     int i;
     int j;
     int k;
 
     // relink per-model attachments, eyeballs
-    for (i = 0; i < g_studiomdl.body.nummodelsbeforeLOD; i++) {
-        const s_source_t* psource = g_studiomdl.body.model[i]->source;
-        for (j = 0; j < g_studiomdl.body.model[i]->attachment.size(); j++) {
-            k = findGlobalBone(g_studiomdl.body.model[i]->attachment[j].bonename);
+    for (i = 0; i < ctx.body.nummodelsbeforeLOD; i++) {
+        const s_source_t* psource = ctx.body.model[i]->source;
+        for (j = 0; j < ctx.body.model[i]->attachment.size(); j++) {
+            k = findGlobalBone(ctx, ctx.body.model[i]->attachment[j].bonename);
             if (k == -1) {
-                MdlError("unknown model attachment link '{}'\n", g_studiomdl.body.model[i]->attachment[j].bonename);
+                MdlError("unknown model attachment link '{}'\n", ctx.body.model[i]->attachment[j].bonename);
             }
-            g_studiomdl.body.model[i]->attachment[j].bone = j;
+            ctx.body.model[i]->attachment[j].bone = j;
         }
 
-        for (auto &eyeball: g_studiomdl.body.model[i]->eyeballs) {
+        for (auto &eyeball: ctx.body.model[i]->eyeballs) {
             eyeball.bone = psource->boneLocalToGlobal[eyeball.bone];
         }
     }
 }
 
-void CheckEyeballSetup() {
-    for (int i = 0; i < g_studiomdl.body.nummodelsbeforeLOD; i++) {
-        for (auto & eyeball : g_studiomdl.body.model[i]->eyeballs) {
+void CheckEyeballSetup(StudioMdlState &ctx) {
+    for (int i = 0; i < ctx.body.nummodelsbeforeLOD; i++) {
+        for (auto & eyeball : ctx.body.model[i]->eyeballs) {
             s_eyeball_t* peyeball = &eyeball;
             if (peyeball->upperlidflexdesc == -1) {
                 //				MdlWarning( "eyeball %s missing upperlid data\n", peyeball->name );
 
-                const int dummy = Add_Flexdesc("dummy_eyelid");
+                const int dummy = Add_Flexdesc(ctx, "dummy_eyelid");
 
                 peyeball->upperlidflexdesc = dummy;
                 peyeball->upperflexdesc[0] = dummy;
@@ -7993,7 +7991,7 @@ void CheckEyeballSetup() {
             if (peyeball->lowerlidflexdesc == -1) {
                 //				MdlWarning( "eyeball %s missing lower data\n", peyeball->name );
 
-                const int dummy = Add_Flexdesc("dummy_eyelid");
+                const int dummy = Add_Flexdesc(ctx, "dummy_eyelid");
 
                 peyeball->lowerlidflexdesc = dummy;
                 peyeball->lowerflexdesc[0] = dummy;
@@ -8007,61 +8005,61 @@ void CheckEyeballSetup() {
     }
 }
 
-void SetupHitBoxes() {
+void SetupHitBoxes(StudioMdlState &ctx) {
     int i;
     int j;
     int k;
     int n;
 
     // set hitgroups
-    for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
-        g_studiomdl.bones.bonetable[k].group = -9999;
+    for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
+        ctx.bones.bonetable[k].group = -9999;
     }
-    for (j = 0; j < g_studiomdl.bones.hitgroups.size(); j++) {
-        k = findGlobalBone(g_studiomdl.bones.hitgroups[j].name);
+    for (j = 0; j < ctx.bones.hitgroups.size(); j++) {
+        k = findGlobalBone(ctx, ctx.bones.hitgroups[j].name);
         if (k != -1) {
-            g_studiomdl.bones.bonetable[k].group = g_studiomdl.bones.hitgroups[j].group;
+            ctx.bones.bonetable[k].group = ctx.bones.hitgroups[j].group;
         }
         else {
-            MdlError("cannot find bone {} for hitgroup {}\n", g_studiomdl.bones.hitgroups[j].name,
-                     g_studiomdl.bones.hitgroups[j].group);
+            MdlError("cannot find bone {} for hitgroup {}\n", ctx.bones.hitgroups[j].name,
+                     ctx.bones.hitgroups[j].group);
         }
     }
-    for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
-        if (g_studiomdl.bones.bonetable[k].group == -9999) {
-            if (g_studiomdl.bones.bonetable[k].parent != -1)
-                g_studiomdl.bones.bonetable[k].group = g_studiomdl.bones.bonetable[g_studiomdl.bones.bonetable[k].
+    for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
+        if (ctx.bones.bonetable[k].group == -9999) {
+            if (ctx.bones.bonetable[k].parent != -1)
+                ctx.bones.bonetable[k].group = ctx.bones.bonetable[ctx.bones.bonetable[k].
                     parent].group;
             else
-                g_studiomdl.bones.bonetable[k].group = 0;
+                ctx.bones.bonetable[k].group = 0;
         }
     }
 
-    if (g_studiomdl.bones.hitboxsets.size() == 0) {
-        g_studiomdl.bones.hitboxsets.emplace_back();
+    if (ctx.bones.hitboxsets.size() == 0) {
+        ctx.bones.hitboxsets.emplace_back();
 
-        s_hitboxset* set = &g_studiomdl.bones.hitboxsets.back();
+        s_hitboxset* set = &ctx.bones.hitboxsets.back();
         memset(set, 0, sizeof(*set));
         strcpy(set->hitboxsetname, "default");
 
-        g_studiomdl.header.gflags |= STUDIOHDR_FLAGS_AUTOGENERATED_HITBOX;
+        ctx.header.gflags |= STUDIOHDR_FLAGS_AUTOGENERATED_HITBOX;
 
         // find intersection box volume for each bone
-        for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
+        for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
             for (j = 0; j < 3; j++) {
-                if (g_studiomdl.options.useBoneInBBox) {
-                    g_studiomdl.bones.bonetable[k].bmin[j] = 0.0;
-                    g_studiomdl.bones.bonetable[k].bmax[j] = 0.0;
+                if (ctx.options.useBoneInBBox) {
+                    ctx.bones.bonetable[k].bmin[j] = 0.0;
+                    ctx.bones.bonetable[k].bmax[j] = 0.0;
                 }
                 else {
-                    g_studiomdl.bones.bonetable[k].bmin[j] = 9999.0;
-                    g_studiomdl.bones.bonetable[k].bmax[j] = -9999.0;
+                    ctx.bones.bonetable[k].bmin[j] = 9999.0;
+                    ctx.bones.bonetable[k].bmax[j] = -9999.0;
                 }
             }
         }
         // try all the connect vertices
-        for (i = 0; i < g_studiomdl.body.nummodelsbeforeLOD; i++) {
-            const s_loddata_t* pLodData = g_studiomdl.body.model[i]->m_pLodData;
+        for (i = 0; i < ctx.body.nummodelsbeforeLOD; i++) {
+            const s_loddata_t* pLodData = ctx.body.model[i]->m_pLodData;
             if (!pLodData)
                 continue;
 
@@ -8069,70 +8067,70 @@ void SetupHitBoxes() {
             for (j = 0; j < pLodData->numvertices; j++) {
                 for (n = 0; n < pLodData->vertex[j].boneweight.numbones; n++) {
                     k = pLodData->vertex[j].boneweight.bone[n];
-                    VectorITransform(pLodData->vertex[j].position, g_studiomdl.bones.bonetable[k].boneToPose, p);
+                    VectorITransform(pLodData->vertex[j].position, ctx.bones.bonetable[k].boneToPose, p);
 
-                    if (p[0] < g_studiomdl.bones.bonetable[k].bmin[0]) g_studiomdl.bones.bonetable[k].bmin[0] = p[0];
-                    if (p[1] < g_studiomdl.bones.bonetable[k].bmin[1]) g_studiomdl.bones.bonetable[k].bmin[1] = p[1];
-                    if (p[2] < g_studiomdl.bones.bonetable[k].bmin[2]) g_studiomdl.bones.bonetable[k].bmin[2] = p[2];
-                    if (p[0] > g_studiomdl.bones.bonetable[k].bmax[0]) g_studiomdl.bones.bonetable[k].bmax[0] = p[0];
-                    if (p[1] > g_studiomdl.bones.bonetable[k].bmax[1]) g_studiomdl.bones.bonetable[k].bmax[1] = p[1];
-                    if (p[2] > g_studiomdl.bones.bonetable[k].bmax[2]) g_studiomdl.bones.bonetable[k].bmax[2] = p[2];
+                    if (p[0] < ctx.bones.bonetable[k].bmin[0]) ctx.bones.bonetable[k].bmin[0] = p[0];
+                    if (p[1] < ctx.bones.bonetable[k].bmin[1]) ctx.bones.bonetable[k].bmin[1] = p[1];
+                    if (p[2] < ctx.bones.bonetable[k].bmin[2]) ctx.bones.bonetable[k].bmin[2] = p[2];
+                    if (p[0] > ctx.bones.bonetable[k].bmax[0]) ctx.bones.bonetable[k].bmax[0] = p[0];
+                    if (p[1] > ctx.bones.bonetable[k].bmax[1]) ctx.bones.bonetable[k].bmax[1] = p[1];
+                    if (p[2] > ctx.bones.bonetable[k].bmax[2]) ctx.bones.bonetable[k].bmax[2] = p[2];
                 }
             }
         }
         // add in all your children as well
-        for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
-            if ((j = g_studiomdl.bones.bonetable[k].parent) != -1) {
-                if (g_studiomdl.bones.bonetable[k].pos[0] < g_studiomdl.bones.bonetable[j].bmin[0])
-                    g_studiomdl.bones.bonetable[j].bmin[0] = g_studiomdl.bones.bonetable[k].pos[0];
-                if (g_studiomdl.bones.bonetable[k].pos[1] < g_studiomdl.bones.bonetable[j].bmin[1])
-                    g_studiomdl.bones.bonetable[j].bmin[1] = g_studiomdl.bones.bonetable[k].pos[1];
-                if (g_studiomdl.bones.bonetable[k].pos[2] < g_studiomdl.bones.bonetable[j].bmin[2])
-                    g_studiomdl.bones.bonetable[j].bmin[2] = g_studiomdl.bones.bonetable[k].pos[2];
-                if (g_studiomdl.bones.bonetable[k].pos[0] > g_studiomdl.bones.bonetable[j].bmax[0])
-                    g_studiomdl.bones.bonetable[j].bmax[0] = g_studiomdl.bones.bonetable[k].pos[0];
-                if (g_studiomdl.bones.bonetable[k].pos[1] > g_studiomdl.bones.bonetable[j].bmax[1])
-                    g_studiomdl.bones.bonetable[j].bmax[1] = g_studiomdl.bones.bonetable[k].pos[1];
-                if (g_studiomdl.bones.bonetable[k].pos[2] > g_studiomdl.bones.bonetable[j].bmax[2])
-                    g_studiomdl.bones.bonetable[j].bmax[2] = g_studiomdl.bones.bonetable[k].pos[2];
+        for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
+            if ((j = ctx.bones.bonetable[k].parent) != -1) {
+                if (ctx.bones.bonetable[k].pos[0] < ctx.bones.bonetable[j].bmin[0])
+                    ctx.bones.bonetable[j].bmin[0] = ctx.bones.bonetable[k].pos[0];
+                if (ctx.bones.bonetable[k].pos[1] < ctx.bones.bonetable[j].bmin[1])
+                    ctx.bones.bonetable[j].bmin[1] = ctx.bones.bonetable[k].pos[1];
+                if (ctx.bones.bonetable[k].pos[2] < ctx.bones.bonetable[j].bmin[2])
+                    ctx.bones.bonetable[j].bmin[2] = ctx.bones.bonetable[k].pos[2];
+                if (ctx.bones.bonetable[k].pos[0] > ctx.bones.bonetable[j].bmax[0])
+                    ctx.bones.bonetable[j].bmax[0] = ctx.bones.bonetable[k].pos[0];
+                if (ctx.bones.bonetable[k].pos[1] > ctx.bones.bonetable[j].bmax[1])
+                    ctx.bones.bonetable[j].bmax[1] = ctx.bones.bonetable[k].pos[1];
+                if (ctx.bones.bonetable[k].pos[2] > ctx.bones.bonetable[j].bmax[2])
+                    ctx.bones.bonetable[j].bmax[2] = ctx.bones.bonetable[k].pos[2];
             }
         }
 
-        for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
-            if (g_studiomdl.bones.bonetable[k].bmin[0] < g_studiomdl.bones.bonetable[k].bmax[0] - 1
-                && g_studiomdl.bones.bonetable[k].bmin[1] < g_studiomdl.bones.bonetable[k].bmax[1] - 1
-                && g_studiomdl.bones.bonetable[k].bmin[2] < g_studiomdl.bones.bonetable[k].bmax[2] - 1) {
+        for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
+            if (ctx.bones.bonetable[k].bmin[0] < ctx.bones.bonetable[k].bmax[0] - 1
+                && ctx.bones.bonetable[k].bmin[1] < ctx.bones.bonetable[k].bmax[1] - 1
+                && ctx.bones.bonetable[k].bmin[2] < ctx.bones.bonetable[k].bmax[2] - 1) {
                 auto &hitbox = set->hitboxes.emplace_back(s_bbox_t{
                     .name = "",
                     .bone = k,
-                    .group = g_studiomdl.bones.bonetable[k].group,
-                    .bmin = g_studiomdl.bones.bonetable[k].bmin,
-                    .bmax = g_studiomdl.bones.bonetable[k].bmax,
+                    .group = ctx.bones.bonetable[k].group,
+                    .bmin = ctx.bones.bonetable[k].bmin,
+                    .bmax = ctx.bones.bonetable[k].bmax,
                     .angOffsetOrientation = QAngle(0, 0, 0), // QAngle's default constructor leaves it uninitialized
                     .flCapsuleRadius = 0,
                 });
 
-                if (g_studiomdl.options.dump_hboxes) {
+                if (ctx.options.dump_hboxes) {
                     std::print("$hbox {} \"{}\" {:.2f} {:.2f} {:.2f}  {:.2f} {:.2f} {:.2f}\n",
                                hitbox.group,
-                               g_studiomdl.bones.bonetable[hitbox.bone].name,
+                               ctx.bones.bonetable[hitbox.bone].name,
                                hitbox.bmin[0], hitbox.bmin[1], hitbox.bmin[2],
                                hitbox.bmax[0], hitbox.bmax[1], hitbox.bmax[2]);
                 }
             }
             else {
                 // don't leave the invalid bounds in the table - future code will use it to compute sequence bounds for attachment points
-                g_studiomdl.bones.bonetable[k].bmin = vec3_origin;
-                g_studiomdl.bones.bonetable[k].bmax = vec3_origin;
+                ctx.bones.bonetable[k].bmin = vec3_origin;
+                ctx.bones.bonetable[k].bmax = vec3_origin;
             }
         }
     }
     else {
-        g_studiomdl.header.gflags &= ~STUDIOHDR_FLAGS_AUTOGENERATED_HITBOX;
+        ctx.header.gflags &= ~STUDIOHDR_FLAGS_AUTOGENERATED_HITBOX;
 
-        for (auto &set: g_studiomdl.bones.hitboxsets) {
+        for (auto &set: ctx.bones.hitboxsets) {
             for (auto &hitbox: set.hitboxes) {
-                k = findGlobalBone(hitbox.name);
+                k = findGlobalBone(ctx, hitbox.name);
                 if (k != -1) {
                     hitbox.bone = k;
                 }
@@ -8143,32 +8141,32 @@ void SetupHitBoxes() {
         }
     }
 
-    for (const auto &set: g_studiomdl.bones.hitboxsets) {
+    for (const auto &set: ctx.bones.hitboxsets) {
         for (const auto &hitbox: set.hitboxes) {
             k = hitbox.bone;
             while (k != -1) {
-                g_studiomdl.bones.bonetable[k].flags |= BoneFlags::UsedByHitbox;
-                k = g_studiomdl.bones.bonetable[k].parent;
+                ctx.bones.bonetable[k].flags |= BoneFlags::UsedByHitbox;
+                k = ctx.bones.bonetable[k].parent;
             }
         }
     }
 }
 
-void SetupFullBoneRenderBounds(std::vector<CBoneRenderBounds> &boneRenderBounds) {
-    boneRenderBounds.resize(g_studiomdl.bones.bonetable.size());
+void SetupFullBoneRenderBounds(StudioMdlState &ctx, std::vector<CBoneRenderBounds> &boneRenderBounds) {
+    boneRenderBounds.resize(ctx.bones.bonetable.size());
 
 
     // First, add the ones already calculated from vertices.
-    for (int i = 0; i < std::ssize(g_studiomdl.bones.bonetable); i++) {
+    for (int i = 0; i < std::ssize(ctx.bones.bonetable); i++) {
         CBoneRenderBounds* pOut = &boneRenderBounds[i];
-        pOut->m_Mins = g_studiomdl.bones.bonetable[i].bmin;
-        pOut->m_Maxs = g_studiomdl.bones.bonetable[i].bmax;
+        pOut->m_Mins = ctx.bones.bonetable[i].bmin;
+        pOut->m_Maxs = ctx.bones.bonetable[i].bmax;
     }
 
     // Note: shared animation files will need to include the hitboxes or else their sequence
     // boxes won't use this stuff.
     // Now add hitboxes.
-    for (const auto &set: g_studiomdl.bones.hitboxsets) {
+    for (const auto &set: ctx.bones.hitboxsets) {
         for (const auto &hitbox: set.hitboxes) {
             if (hitbox.bone >= 0) {
                 CBoneRenderBounds* pOut = &boneRenderBounds[hitbox.bone];
@@ -8180,7 +8178,7 @@ void SetupFullBoneRenderBounds(std::vector<CBoneRenderBounds> &boneRenderBounds)
 }
 
 
-void CalcSequenceBoundingBoxes() {
+void CalcSequenceBoundingBoxes(StudioMdlState &ctx) {
     int i;
     int j;
     int k;
@@ -8188,10 +8186,10 @@ void CalcSequenceBoundingBoxes() {
     int m;
 
     std::vector<CBoneRenderBounds> boneRenderBounds;
-    SetupFullBoneRenderBounds(boneRenderBounds);
+    SetupFullBoneRenderBounds(ctx, boneRenderBounds);
 
-    // find bounding box for each g_studiomdl.anim.sequence
-    for (i = 0; i < g_studiomdl.anim.animations.size(); i++) {
+    // find bounding box for each ctx.anim.sequence
+    for (i = 0; i < ctx.anim.animations.size(); i++) {
         Vector bmin, bmax;
 
         // find intersection box volume for each bone
@@ -8200,46 +8198,46 @@ void CalcSequenceBoundingBoxes() {
             bmax[j] = -9999.0;
         }
 
-        for (j = 0; j < g_studiomdl.anim.animations[i]->numframes; j++) {
+        for (j = 0; j < ctx.anim.animations[i]->numframes; j++) {
             matrix3x4_t bonetransform[MAXSTUDIOBONES]; // bone transformation matrix
             matrix3x4_t posetransform[MAXSTUDIOBONES]; // bone transformation matrix
             matrix3x4_t bonematrix; // local transformation matrix
             Vector pos;
 
-            CalcBoneTransforms(g_studiomdl.anim.animations[i], j, bonetransform);
+            CalcBoneTransforms(ctx, ctx.anim.animations[i], j, bonetransform);
 
-            for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
-                MatrixInvert(g_studiomdl.bones.bonetable[k].boneToPose, bonematrix);
+            for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
+                MatrixInvert(ctx.bones.bonetable[k].boneToPose, bonematrix);
                 ConcatTransforms(bonetransform[k], bonematrix, posetransform[k]);
             }
 
             // include hitboxes as well.
-            if (!g_studiomdl.header.bboxonlyverts) {
-                for (k = 0; k < std::ssize(g_studiomdl.bones.bonetable); k++) {
+            if (!ctx.header.bboxonlyverts) {
+                for (k = 0; k < std::ssize(ctx.bones.bonetable); k++) {
                     Vector tmpMin, tmpMax;
                     TransformAABB(bonetransform[k], boneRenderBounds[k].m_Mins, boneRenderBounds[k].m_Maxs, tmpMin,
                                   tmpMax);
                     VectorMin(tmpMin, bmin, bmin);
                     VectorMax(tmpMax, bmax, bmax);
 
-                    if (g_studiomdl.options.verbose &&
-                        (tmpMin.x < g_studiomdl.options.vecMinWorldspace.x ||
-                         tmpMin.y < g_studiomdl.options.vecMinWorldspace.y ||
-                         tmpMin.z < g_studiomdl.options.vecMinWorldspace.z ||
-                         tmpMax.x > g_studiomdl.options.vecMaxWorldspace.x ||
-                         tmpMax.y > g_studiomdl.options.vecMaxWorldspace.y ||
-                         tmpMax.z > g_studiomdl.options.vecMaxWorldspace.z)) {
+                    if (ctx.options.verbose &&
+                        (tmpMin.x < ctx.options.vecMinWorldspace.x ||
+                         tmpMin.y < ctx.options.vecMinWorldspace.y ||
+                         tmpMin.z < ctx.options.vecMinWorldspace.z ||
+                         tmpMax.x > ctx.options.vecMaxWorldspace.x ||
+                         tmpMax.y > ctx.options.vecMaxWorldspace.y ||
+                         tmpMax.z > ctx.options.vecMaxWorldspace.z)) {
                         MdlWarning(
                             "{} : bone \"{}\" has bounding box out of range : {:.0f} {:.0f} {:.0f} : {:.0f} {:.0f} {:.0f}\n",
-                            g_studiomdl.anim.animations[i]->name, g_studiomdl.bones.bonetable[k].name,
+                            ctx.anim.animations[i]->name, ctx.bones.bonetable[k].name,
                             tmpMin.x, tmpMin.y, tmpMin.z, tmpMax.z, tmpMax.y, tmpMax.z);
                     }
                 }
             }
 
             // include vertices
-            for (k = 0; k < g_studiomdl.body.nummodelsbeforeLOD; k++) {
-                const s_loddata_t* pLodData = g_studiomdl.body.model[k]->m_pLodData;
+            for (k = 0; k < ctx.body.nummodelsbeforeLOD; k++) {
+                const s_loddata_t* pLodData = ctx.body.model[k]->m_pLodData;
 
                 // skip blank empty model
                 if (!pLodData)
@@ -8261,32 +8259,32 @@ void CalcSequenceBoundingBoxes() {
             }
         }
 
-        if (bmin.x < g_studiomdl.options.vecMinWorldspace.x || bmin.y < g_studiomdl.options.vecMinWorldspace.y || bmin.z
+        if (bmin.x < ctx.options.vecMinWorldspace.x || bmin.y < ctx.options.vecMinWorldspace.y || bmin.z
             <
-            g_studiomdl.options.vecMinWorldspace.z ||
-            bmax.x > g_studiomdl.options.vecMaxWorldspace.x || bmax.y > g_studiomdl.options.vecMaxWorldspace.y || bmax.z
+            ctx.options.vecMinWorldspace.z ||
+            bmax.x > ctx.options.vecMaxWorldspace.x || bmax.y > ctx.options.vecMaxWorldspace.y || bmax.z
             >
-            g_studiomdl.options.vecMaxWorldspace.z) {
+            ctx.options.vecMaxWorldspace.z) {
             MdlWarning("{} : bounding box out of range : {:.0f} {:.0f} {:.0f} : {:.0f} {:.0f} {:.0f}\n",
-                       g_studiomdl.anim.animations[i]->name,
+                       ctx.anim.animations[i]->name,
                        bmin.x, bmin.y, bmin.z, bmax.z, bmax.y, bmax.z);
 
-            VectorMax(bmin, g_studiomdl.options.vecMinWorldspace, bmin);
-            VectorMin(bmax, g_studiomdl.options.vecMaxWorldspace, bmax);
+            VectorMax(bmin, ctx.options.vecMinWorldspace, bmin);
+            VectorMin(bmax, ctx.options.vecMaxWorldspace, bmax);
         }
 
-        VectorCopy(bmin, g_studiomdl.anim.animations[i]->bmin);
-        VectorCopy(bmax, g_studiomdl.anim.animations[i]->bmax);
+        VectorCopy(bmin, ctx.anim.animations[i]->bmin);
+        VectorCopy(bmax, ctx.anim.animations[i]->bmax);
 
         /*
 		printf("%s : %.0f %.0f %.0f %.0f %.0f %.0f\n",
-			g_studiomdl.panimation[i]->name, bmin[0], bmax[0], bmin[1], bmax[1], bmin[2], bmax[2] );
+			ctx.panimation[i]->name, bmin[0], bmax[0], bmin[1], bmax[1], bmin[2], bmax[2] );
 		*/
 
-        // printf("%s  %.2f\n", g_studiomdl.anim.sequence[i].name, g_studiomdl.anim.sequence[i].panim[0]->pos[9][0][0] / g_studiomdl.bones.bonetable[9].pos[0] );
+        // printf("%s  %.2f\n", ctx.anim.sequence[i].name, ctx.anim.sequence[i].panim[0]->pos[9][0][0] / ctx.bones.bonetable[9].pos[0] );
     }
 
-    for (i = 0; i < std::ssize(g_studiomdl.anim.sequence); i++) {
+    for (i = 0; i < std::ssize(ctx.anim.sequence); i++) {
         Vector bmin, bmax;
 
         // find intersection box volume for each bone
@@ -8295,9 +8293,9 @@ void CalcSequenceBoundingBoxes() {
             bmax[j] = -9999.0;
         }
 
-        for (j = 0; j < g_studiomdl.anim.sequence[i].groupsize[0]; j++) {
-            for (k = 0; k < g_studiomdl.anim.sequence[i].groupsize[1]; k++) {
-                s_animation_t* panim = g_studiomdl.anim.sequence[i].panim[j][k];
+        for (j = 0; j < ctx.anim.sequence[i].groupsize[0]; j++) {
+            for (k = 0; k < ctx.anim.sequence[i].groupsize[1]; k++) {
+                s_animation_t* panim = ctx.anim.sequence[i].panim[j][k];
 
                 if (panim->bmin[0] < bmin[0]) bmin[0] = panim->bmin[0];
                 if (panim->bmin[1] < bmin[1]) bmin[1] = panim->bmin[1];
@@ -8308,48 +8306,48 @@ void CalcSequenceBoundingBoxes() {
             }
         }
 
-        VectorCopy(bmin, g_studiomdl.anim.sequence[i].bmin);
-        VectorCopy(bmax, g_studiomdl.anim.sequence[i].bmax);
+        VectorCopy(bmin, ctx.anim.sequence[i].bmin);
+        VectorCopy(bmax, ctx.anim.sequence[i].bmax);
     }
 }
 
-void SetIlluminationPosition() {
+void SetIlluminationPosition(StudioMdlState &ctx) {
     // find center of domain
-    if (!g_studiomdl.header.illumpositionset) {
+    if (!ctx.header.illumpositionset) {
         // Only use the 0th sequence; that should be the idle sequence
-        VectorFill(g_studiomdl.header.illumposition, 0);
-        if (std::ssize(g_studiomdl.anim.sequence) != 0) {
-            VectorAdd(g_studiomdl.anim.sequence[0].bmin, g_studiomdl.anim.sequence[0].bmax,
-                      g_studiomdl.header.illumposition);
-            g_studiomdl.header.illumposition *= 0.5f;
+        VectorFill(ctx.header.illumposition, 0);
+        if (std::ssize(ctx.anim.sequence) != 0) {
+            VectorAdd(ctx.anim.sequence[0].bmin, ctx.anim.sequence[0].bmax,
+                      ctx.header.illumposition);
+            ctx.header.illumposition *= 0.5f;
         }
-        g_studiomdl.header.illumpositionset = true;
+        ctx.header.illumpositionset = true;
     }
 }
 
-void SimplifyModel() {
+void SimplifyModel(StudioMdlState &ctx) {
     vstd::FunctionTimingRecorder _("Simplify");
-    if (std::ssize(g_studiomdl.anim.sequence) == 0 && g_studiomdl.body.includemodels.empty()) {
+    if (std::ssize(ctx.anim.sequence) == 0 && ctx.body.includemodels.empty()) {
         MdlError("model has no sequences\n");
     }
 
     // have to load the lod sources before remapping bones so that the remap
     // happens for all LODs.
-    LoadLODSources();
+    LoadLODSources(ctx);
 
-    RemapBones();
+    RemapBones(ctx);
 
-    LinkIKChains();
+    LinkIKChains(ctx);
 
-    LinkIKLocks();
+    LinkIKLocks(ctx);
 
-    RealignBones();
+    RealignBones(ctx);
 
-    ConvertBoneTreeCollapsesToReplaceBones();
+    ConvertBoneTreeCollapsesToReplaceBones(ctx);
 
     // export bones
-    if (g_studiomdl.options.definebones) {
-        DumpDefineBones();
+    if (ctx.options.definebones) {
+        DumpDefineBones(ctx);
         exit(0);
     }
 
@@ -8361,87 +8359,87 @@ void SimplifyModel() {
     // replacebone "bone0" "bone3"
     // replacebone "bone1" "bone3"
     // replacebone "bone2" "bone3"
-    FixupReplacedBones();
+    FixupReplacedBones(ctx);
 
-    RemapVerticesToGlobalBones();
+    RemapVerticesToGlobalBones(ctx);
 
-    if (g_studiomdl.options.centerBonesOnVerts) {
-        CenterBonesOnVerts();
+    if (ctx.options.centerBonesOnVerts) {
+        CenterBonesOnVerts(ctx);
     }
 
     // remap lods to root, building aggregate final pools
     // mark bones used by an lod
-    UnifyLODs();
+    UnifyLODs(ctx);
 
-    if (g_studiomdl.options.printBones) {
+    if (ctx.options.printBones) {
         std::print("Hardware bone usage:\n");
     }
-    SpewBoneUsageStats();
+    SpewBoneUsageStats(ctx);
 
-    MarkParentBoneLODs();
+    MarkParentBoneLODs(ctx);
 
-    if (g_studiomdl.options.printBones) {
+    if (ctx.options.printBones) {
         std::print("CPU bone usage:\n");
     }
-    SpewBoneUsageStats();
+    SpewBoneUsageStats(ctx);
 
-    RemapAnimations();
+    RemapAnimations(ctx);
 
-    processAnimations();
+    processAnimations(ctx);
 
-    limitBoneRotations();
+    limitBoneRotations(ctx);
 
-    limitIKChainLength();
+    limitIKChainLength(ctx);
 
-    RemapProceduralBones();
+    RemapProceduralBones(ctx);
 
-    MakeTransitions();
-    RemapVertexAnimations();
-    RemapVertexAnimationsNewVersion();
+    MakeTransitions(ctx);
+    RemapVertexAnimations(ctx);
+    RemapVertexAnimationsNewVersion(ctx);
 
-    FindAutolayers();
+    FindAutolayers(ctx);
 
     // link bonecontrollers
-    LinkBoneControllers();
+    LinkBoneControllers(ctx);
 
     // link screen aligned bones
-    TagScreenAlignedBones();
+    TagScreenAlignedBones(ctx);
 
-    TagWorldAlignedBones();
+    TagWorldAlignedBones(ctx);
 
     // link attachments
-    LinkAttachments();
+    LinkAttachments(ctx);
 
     // link mouths
-    LinkMouths();
+    LinkMouths(ctx);
 
     // procedural bone needs to propogate its bone usage up its chain
     // ensures runtime sets up dependent bone hierarchy
-    MarkProceduralBoneChain();
+    MarkProceduralBoneChain(ctx);
 
-    LockBoneLengths();
+    LockBoneLengths(ctx);
 
-    ProcessIKRules();
+    ProcessIKRules(ctx);
 
-    CompressIKErrors();
+    CompressIKErrors(ctx);
 
-    CompressLocalHierarchy();
+    CompressLocalHierarchy(ctx);
 
-    CalcPoseParameters();
+    CalcPoseParameters(ctx);
 
-    ReLinkAttachments();
+    ReLinkAttachments(ctx);
 
-    CheckEyeballSetup();
+    CheckEyeballSetup(ctx);
 
-    SetupHitBoxes();
+    SetupHitBoxes(ctx);
 
-    CompressAnimations();
+    CompressAnimations(ctx);
 
-    CalcSequenceBoundingBoxes();
+    CalcSequenceBoundingBoxes(ctx);
 
-    SetIlluminationPosition();
+    SetIlluminationPosition(ctx);
 
-    if (g_studiomdl.options.buildPreview) {
-        g_studiomdl.header.gflags |= STUDIOHDR_FLAGS_BUILT_IN_PREVIEW_MODE;
+    if (ctx.options.buildPreview) {
+        ctx.header.gflags |= STUDIOHDR_FLAGS_BUILT_IN_PREVIEW_MODE;
     }
 }

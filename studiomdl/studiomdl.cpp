@@ -50,19 +50,15 @@
 #define strdup _strdup
 #endif
 
-// No "{}": value-initializing the state would memset the whole object (tens of MB of fixed arrays) at startup.
-// Static storage is already zero, and untouched pages are never faulted in.
-StudioMdlState g_studiomdl;
-
 //-----------------------------------------------------------------------------
 //  Stuff for writing a makefile to build models incrementally.
 //-----------------------------------------------------------------------------
-void CreateMakefile_AddDependency(const char *pFileName) {
-    if (!g_studiomdl.options.createMakefile) {
+void CreateMakefile_AddDependency(StudioMdlState &ctx, const char *pFileName) {
+    if (!ctx.options.createMakefile) {
         return;
     }
 
-    auto &dependencies = g_studiomdl.paths.CreateMakefileDependencies;
+    auto &dependencies = ctx.paths.CreateMakefileDependencies;
     if (std::ranges::find(dependencies, std::string_view(pFileName)) == dependencies.end()) {
         dependencies.emplace_back(pFileName);
     }
@@ -71,11 +67,11 @@ void CreateMakefile_AddDependency(const char *pFileName) {
 //-----------------------------------------------------------------------------
 // Read global input into common string
 //-----------------------------------------------------------------------------
-bool GetLineInput() {
-    while (g_studiomdl.input.inputFile->Gets(g_studiomdl.input.szLine, sizeof(g_studiomdl.input.szLine)) != nullptr) {
-        g_studiomdl.input.iLinecount++;
+bool GetLineInput(StudioMdlState &ctx) {
+    while (ctx.input.inputFile->Gets(ctx.input.szLine, sizeof(ctx.input.szLine)) != nullptr) {
+        ctx.input.iLinecount++;
         // skip comments
-        if (g_studiomdl.input.szLine[0] == '/' && g_studiomdl.input.szLine[1] == '/')
+        if (ctx.input.szLine[0] == '/' && ctx.input.szLine[1] == '/')
             continue;
 
         return true;
@@ -83,10 +79,10 @@ bool GetLineInput() {
     return false;
 }
 
-int LookupPoseParameter(const char *name) {
+int LookupPoseParameter(StudioMdlState &ctx, const char *name) {
     int i;
-    for (i = 0; i < std::ssize(g_studiomdl.anim.pose); i++) {
-        if (vstd::iequals(name, g_studiomdl.anim.pose[i].name)) {
+    for (i = 0; i < std::ssize(ctx.anim.pose); i++) {
+        if (vstd::iequals(name, ctx.anim.pose[i].name)) {
             return i;
         }
     }
@@ -94,7 +90,7 @@ int LookupPoseParameter(const char *name) {
     if (i >= MAXSTUDIOPOSEPARAM) {
         MdlError("too many pose parameters (max {})\n", MAXSTUDIOPOSEPARAM);
     }
-    strcpyn(g_studiomdl.anim.pose.emplace_back().name, name);
+    strcpyn(ctx.anim.pose.emplace_back().name, name);
 
     return i;
 }
@@ -135,57 +131,57 @@ s_sourceanim_t *FindOrAddSourceAnim(s_source_t *source, const char *animName) {
     return anim;
 }
 
-size_t LookupTexture(const std::string_view textureName, const bool relativePath) {
+size_t LookupTexture(StudioMdlState &ctx, const std::string_view textureName, const bool relativePath) {
     StudioPath textureNoExt = textureName;
     vstd::paths::strip_extension(textureNoExt);
     const StudioPath textureBase = vstd::paths::file_base(textureName);
 
     const int flags = relativePath ? RELATIVE_TEXTURE_PATH_SPECIFIED : 0;
-    for (size_t i = 0; i < g_studiomdl.materials.textures.size(); i++) {
-        if (g_studiomdl.materials.textures[i].flags == flags) {
-            if (vstd::iequals(textureNoExt, g_studiomdl.materials.textures[i].name))
+    for (size_t i = 0; i < ctx.materials.textures.size(); i++) {
+        if (ctx.materials.textures[i].flags == flags) {
+            if (vstd::iequals(textureNoExt, ctx.materials.textures[i].name))
                 return i;
             continue;
         }
 
         // Comparing relative vs non-relative
         if (relativePath) {
-            if (vstd::iequals(textureBase, g_studiomdl.materials.textures[i].name))
+            if (vstd::iequals(textureBase, ctx.materials.textures[i].name))
                 return i;
             continue;
         }
 
         // Comparing non-relative vs relative
-        if (vstd::iequals(textureNoExt, vstd::paths::file_base(g_studiomdl.materials.textures[i].name.view())))
+        if (vstd::iequals(textureNoExt, vstd::paths::file_base(ctx.materials.textures[i].name.view())))
             return i;
     }
 
-    if (g_studiomdl.materials.textures.size() >= g_studiomdl.materials.textures.capacity()) {
-        MdlError("Too many materials used, max {}\n", g_studiomdl.materials.textures.capacity());
+    if (ctx.materials.textures.size() >= ctx.materials.textures.capacity()) {
+        MdlError("Too many materials used, max {}\n", ctx.materials.textures.capacity());
     }
 
-    auto& newTexture = g_studiomdl.materials.textures.emplace();
+    auto& newTexture = ctx.materials.textures.emplace();
     newTexture.name = textureNoExt;
     newTexture.material = -1;
     newTexture.flags = flags;
-    return g_studiomdl.materials.textures.size() - 1;
+    return ctx.materials.textures.size() - 1;
 }
 
-size_t UseTextureAsMaterial(size_t textureIndex) {
-    if (g_studiomdl.materials.textures[textureIndex].material == -1) {
-        if (g_studiomdl.options.dumpMaterials) {
-            std::print("material {} {} {}\n", textureIndex, g_studiomdl.materials.materials.size(), g_studiomdl.materials.textures[textureIndex].name);
+size_t UseTextureAsMaterial(StudioMdlState &ctx, size_t textureIndex) {
+    if (ctx.materials.textures[textureIndex].material == -1) {
+        if (ctx.options.dumpMaterials) {
+            std::print("material {} {} {}\n", textureIndex, ctx.materials.materials.size(), ctx.materials.textures[textureIndex].name);
         }
-        g_studiomdl.materials.materials.emplace_back(textureIndex);
-        g_studiomdl.materials.textures[textureIndex].material = vstd::as_signed_checked<int>(g_studiomdl.materials.materials.size() - 1);
+        ctx.materials.materials.emplace_back(textureIndex);
+        ctx.materials.textures[textureIndex].material = vstd::as_signed_checked<int>(ctx.materials.materials.size() - 1);
     }
 
-    return g_studiomdl.materials.textures[textureIndex].material;
+    return ctx.materials.textures[textureIndex].material;
 }
 
-int32_t MaterialToTexture(const size_t material) {
-    for (int i = 0; i < g_studiomdl.materials.textures.size(); i++) {
-        if (g_studiomdl.materials.textures[i].material == material) {
+int32_t MaterialToTexture(StudioMdlState &ctx, const size_t material) {
+    for (int i = 0; i < ctx.materials.textures.size(); i++) {
+        if (ctx.materials.textures[i].material == material) {
             return i;
         }
     }
@@ -193,8 +189,8 @@ int32_t MaterialToTexture(const size_t material) {
 }
 
 //Wrong name for the use of it.
-void scale_vertex(Vector &org) {
-    org *= g_studiomdl.script.currentscale;
+void scale_vertex(StudioMdlState &ctx, Vector &org) {
+    org *= ctx.script.currentscale;
 }
 
 void Build_Reference(s_source_t *source, const std::string_view animName) {
@@ -224,7 +220,7 @@ void Build_Reference(s_source_t *source, const std::string_view animName) {
     }
 }
 
-int Grab_Nodes(std::array<s_node_t, MAXSTUDIOSRCBONES> &pnodes) {
+int Grab_Nodes(StudioMdlState &ctx, std::array<s_node_t, MAXSTUDIOSRCBONES> &pnodes) {
     vstd::FunctionTimingRecorder _("SMD");
     int index;
     char name[1024];
@@ -235,8 +231,8 @@ int Grab_Nodes(std::array<s_node_t, MAXSTUDIOSRCBONES> &pnodes) {
         pnodes[index].parent = -1;
     }
 
-    while (GetLineInput()) {
-        if (sscanf(g_studiomdl.input.szLine, "%d \"%[^\"]\" %d", &index, name, &parent) == 3) {
+    while (GetLineInput(ctx)) {
+        if (sscanf(ctx.input.szLine, "%d \"%[^\"]\" %d", &index, name, &parent) == 3) {
             // check for duplicated bones
             /*
 			if (strlen(pnodes[index].name) != 0)
@@ -254,7 +250,7 @@ int Grab_Nodes(std::array<s_node_t, MAXSTUDIOSRCBONES> &pnodes) {
             return numbones + 1;
         }
     }
-    MdlError("Unexpected EOF at line {}\n", g_studiomdl.input.iLinecount);
+    MdlError("Unexpected EOF at line {}\n", ctx.input.iLinecount);
     return 0;
 }
 
@@ -476,7 +472,7 @@ void CClampedSource::Copy(s_source_t *pDstSource) {
     m_Animations.clear();
 }
 
-void CClampedSource::CopyFlexKeys(const s_source_t *pOrigSource, s_source_t *newSource, int imodel) {
+void CClampedSource::CopyFlexKeys(StudioMdlState &ctx, const s_source_t *pOrigSource, s_source_t *newSource, int imodel) {
     // Only the flex keys are duplicated for the new piece (see below): flex controllers, controller remaps and flex
     // rules are global, they are added once for the original source and refer to flexdescs, which are shared.
     // A key is only needed for the pieces whose vertices it actually moves, so keys without any vertex animation in
@@ -501,7 +497,7 @@ void CClampedSource::CopyFlexKeys(const s_source_t *pOrigSource, s_source_t *new
     // Register the flex keys of the new piece (g_flexkey, flexdescs, m_nKeyStartIndex) but NOT its controllers,
     // remaps or rules: AddBodyFlexData(pNewSource, imodel, false)
     //   NOTE: we dont call AddBodyAttachments, since we're not duplicating those
-    AddBodyFlexData(newSource, imodel, false);
+    AddBodyFlexData(ctx, newSource, imodel, false);
 }
 
 void CClampedSource::Init(int numvertices, const s_source_t *pMeshLayout) {
@@ -522,15 +518,15 @@ void CClampedSource::Init(int numvertices, const s_source_t *pMeshLayout) {
 //-----------------------------------------------------------------------------
 // Post-processes a source (used when loading preprocessed files)
 //-----------------------------------------------------------------------------
-void PostProcessSource(s_source_t *pSource, int imodel) {
+void PostProcessSource(StudioMdlState &ctx, s_source_t *pSource, int imodel) {
     if (pSource) {
-        AddBodyFlexData(pSource, imodel);
-        AddBodyAttachments(pSource);
-        AddBodyFlexRules(pSource);
+        AddBodyFlexData(ctx, pSource, imodel);
+        AddBodyAttachments(ctx, pSource);
+        AddBodyFlexRules(ctx, pSource);
     }
 }
 
-void Grab_Animation(s_source_t *pSource, const char *pAnimName) {
+void Grab_Animation(StudioMdlState &ctx, s_source_t *pSource, const char *pAnimName) {
     vstd::FunctionTimingRecorder _("SMD");
     Vector pos;
     RadianEuler rot;
@@ -544,14 +540,14 @@ void Grab_Animation(s_source_t *pSource, const char *pAnimName) {
 
     size = pSource->numbones * sizeof(s_bone_t);
 
-    while (GetLineInput()) {
-        if (sscanf(g_studiomdl.input.szLine.c_str(), "%d %f %f %f %f %f %f", &index, &pos[0], &pos[1], &pos[2], &rot[0], &rot[1], &rot[2]) ==
+    while (GetLineInput(ctx)) {
+        if (sscanf(ctx.input.szLine.c_str(), "%d %f %f %f %f %f %f", &index, &pos[0], &pos[1], &pos[2], &rot[0], &rot[1], &rot[2]) ==
             7) {
             if (pAnim->startframe < 0) {
-                MdlError("Missing frame start({}) : {}", g_studiomdl.input.iLinecount, g_studiomdl.input.szLine);
+                MdlError("Missing frame start({}) : {}", ctx.input.iLinecount, ctx.input.szLine);
             }
 
-            scale_vertex(pos);
+            scale_vertex(ctx, pos);
             VectorCopy(pos, pAnim->rawanim[t][index].pos);
             VectorCopy(rot, pAnim->rawanim[t][index].rot);
 
@@ -559,8 +555,8 @@ void Grab_Animation(s_source_t *pSource, const char *pAnimName) {
             continue;
         }
 
-        if (sscanf(g_studiomdl.input.szLine.c_str(), "%1023s %d", cmd, &index) == 0) {
-            MdlError("MdlError({}) : {}", g_studiomdl.input.iLinecount, g_studiomdl.input.szLine);
+        if (sscanf(ctx.input.szLine.c_str(), "%1023s %d", cmd, &index) == 0) {
+            MdlError("MdlError({}) : {}", ctx.input.iLinecount, ctx.input.szLine);
             continue;
         }
 
@@ -570,7 +566,7 @@ void Grab_Animation(s_source_t *pSource, const char *pAnimName) {
                 pAnim->startframe = t;
             }
             if (t < pAnim->startframe) {
-                MdlError("Frame MdlError({}) : {}", g_studiomdl.input.iLinecount, g_studiomdl.input.szLine);
+                MdlError("Frame MdlError({}) : {}", ctx.input.iLinecount, ctx.input.szLine);
             }
             if (t > pAnim->endframe) {
                 pAnim->endframe = t;
@@ -610,7 +606,7 @@ void Grab_Animation(s_source_t *pSource, const char *pAnimName) {
             return;
         }
 
-        MdlError("MdlError({}) : {}", g_studiomdl.input.iLinecount, g_studiomdl.input.szLine);
+        MdlError("MdlError({}) : {}", ctx.input.iLinecount, ctx.input.szLine);
     }
 
     MdlError("unexpected EOF: {}\n", pSource->filename);
@@ -736,9 +732,9 @@ void AddSrcToSrc(s_source_t *pOrigSource, s_source_t *pAppendSource) {
 //-----------------------------------------------------------------------------
 // Loads an animation/model source
 //-----------------------------------------------------------------------------
-s_source_t *Load_Source(const std::string_view name, const char *ext, bool reverse, bool isActiveModel, bool bUseCache) {
+s_source_t *Load_Source(StudioMdlState &ctx, const std::string_view name, const char *ext, bool reverse, bool isActiveModel, bool bUseCache) {
     vstd::FunctionTimingRecorder _("Parse");
-    if (g_studiomdl.anim.sources.size() >= g_studiomdl.anim.sources.capacity()) {
+    if (ctx.anim.sources.size() >= ctx.anim.sources.capacity()) {
         MdlError("Load_Source( {} ) - overflowed g_studiomdl_global_state.numsources.", name);
     }
 
@@ -758,7 +754,7 @@ s_source_t *Load_Source(const std::string_view name, const char *ext, bool rever
     s_source_t *pSource = nullptr;
 
     if (bUseCache) {
-        pSource = FindCachedSource(tempName.c_str(), xext.c_str());
+        pSource = FindCachedSource(ctx, tempName.c_str(), xext.c_str());
         if (pSource) {
             if (isActiveModel) {
                 pSource->isActiveModel = true;
@@ -769,18 +765,18 @@ s_source_t *Load_Source(const std::string_view name, const char *ext, bool rever
 
     // NOTE: The load proc can potentially add other sources (for the MPP format)
     // So we have to deal with setting everything up in this source prior to
-    // calling the load func, and we cannot reference g_studiomdl_global_state.source anywhere below
+    // calling the load func, and we cannot reference ctx.anim.sources.back() anywhere below
     pSource = c_allocate<s_source_t>();
-    g_studiomdl.anim.sources.emplace_back(pSource);
+    ctx.anim.sources.emplace_back(pSource);
     if (isActiveModel) {
         pSource->isActiveModel = true;
     }
 
     // copy over default settings of when the model was loaded
     // (since there's no actual animation for some of the systems)
-    VectorCopy(g_studiomdl.script.defaultadjust, pSource->adjust);
+    VectorCopy(ctx.script.defaultadjust, pSource->adjust);
     pSource->scale = 1.0f;
-    pSource->rotation = g_studiomdl.script.defaultrotation;
+    pSource->rotation = ctx.script.defaultrotation;
 
     const std::array supported_formats = {
             std::make_pair("vrm", Load_VRM),
@@ -795,17 +791,17 @@ s_source_t *Load_Source(const std::string_view name, const char *ext, bool rever
     };
     for (int fmt_id = 0; fmt_id < supported_formats.size(); ++fmt_id) {
         if ((!result && xext.empty()) || xext == supported_formats[fmt_id].first) {
-            g_studiomdl.input.szFilename = g_studiomdl.paths.cddir.back() + tempName + "." + supported_formats[fmt_id].first;
-            pSource->filename = g_studiomdl.input.szFilename;
-            result = (supported_formats[fmt_id].second)(pSource);
+            ctx.input.szFilename = ctx.paths.cddir.back() + tempName + "." + supported_formats[fmt_id].first;
+            pSource->filename = ctx.input.szFilename;
+            result = (supported_formats[fmt_id].second)(ctx, pSource);
         }
     }
 
-    if (!g_studiomdl.options.createMakefile && !result) {
+    if (!ctx.options.createMakefile && !result) {
         if (xext.empty()) {
-            MdlError("could not load file '{}{}'\n", g_studiomdl.paths.cddir.back(), tempName);
+            MdlError("could not load file '{}{}'\n", ctx.paths.cddir.back(), tempName);
         } else {
-            MdlError("could not load file '{}{}.{}'\n", g_studiomdl.paths.cddir.back(), tempName, xext);
+            MdlError("could not load file '{}{}.{}'\n", ctx.paths.cddir.back(), tempName, xext);
         }
     }
 
@@ -820,20 +816,20 @@ s_source_t *Load_Source(const std::string_view name, const char *ext, bool rever
     return pSource;
 }
 
-int Add_Flexdesc(const char *name) {
+int Add_Flexdesc(StudioMdlState &ctx, const char *name) {
     int flexdesc;
-    for (flexdesc = 0; flexdesc < g_studiomdl.flex.flexdescs.size(); flexdesc++) {
-        if (vstd::iequals(name, g_studiomdl.flex.flexdescs[flexdesc].FACS)) {
+    for (flexdesc = 0; flexdesc < ctx.flex.flexdescs.size(); flexdesc++) {
+        if (vstd::iequals(name, ctx.flex.flexdescs[flexdesc].FACS)) {
             break;
         }
     }
 
-    if (flexdesc >= g_studiomdl.flex.flexdescs.capacity()) {
+    if (flexdesc >= ctx.flex.flexdescs.capacity()) {
         MdlError("Too many flex types, max {}\n", MAXSTUDIOFLEXDESC);
     }
 
-    if (flexdesc == g_studiomdl.flex.flexdescs.size()) {
-        g_studiomdl.flex.flexdescs.emplace_back(name);
+    if (flexdesc == ctx.flex.flexdescs.size()) {
+        ctx.flex.flexdescs.emplace_back(name);
     }
     return flexdesc;
 }
@@ -871,26 +867,27 @@ void AddFlexKey(s_source_t *pSource, CDmeCombinationOperator *pComboOp, const ch
     key.flexpair = pComboOp->IsDeltaStateStereo(pFlexKeyName);    // Signal used by AddBodyFlexData
 }
 
-void FindOrAddFlexController(
+static void FindOrAddFlexController(
+        StudioMdlState &ctx,
         const char *pszFlexControllerName,
         const char *pszFlexControllerType = "default",
         float flMin = 0.0f,
         float flMax = 1.0f) {
-    for (int i = 0; i < g_studiomdl.flex.flexcontrollers.size(); ++i) {
-        if (!V_strcmp(g_studiomdl.flex.flexcontrollers[i].name, pszFlexControllerName)) {
-            if (V_strcmp(g_studiomdl.flex.flexcontrollers[i].type, pszFlexControllerType) ||
-                g_studiomdl.flex.flexcontrollers[i].min != flMin ||
-                g_studiomdl.flex.flexcontrollers[i].max != flMax) {
+    for (int i = 0; i < ctx.flex.flexcontrollers.size(); ++i) {
+        if (!V_strcmp(ctx.flex.flexcontrollers[i].name, pszFlexControllerName)) {
+            if (V_strcmp(ctx.flex.flexcontrollers[i].type, pszFlexControllerType) ||
+                ctx.flex.flexcontrollers[i].min != flMin ||
+                ctx.flex.flexcontrollers[i].max != flMax) {
                 MdlWarning("Flex Controller {} Defined Twice With Different Params: {}, {:f} {:f} vs {}, {:f} {:f}\n",
                            pszFlexControllerName,
                            pszFlexControllerType, flMin, flMax,
-                           g_studiomdl.flex.flexcontrollers[i].type, g_studiomdl.flex.flexcontrollers[i].min, g_studiomdl.flex.flexcontrollers[i].max);
+                           ctx.flex.flexcontrollers[i].type, ctx.flex.flexcontrollers[i].min, ctx.flex.flexcontrollers[i].max);
             }
 
             return;
         }
     }
-    g_studiomdl.flex.flexcontrollers.emplace_back(s_flexcontroller_t{
+    ctx.flex.flexcontrollers.emplace_back(s_flexcontroller_t{
         .name = pszFlexControllerName,
         .type = pszFlexControllerType,
         .min = flMin,
@@ -901,7 +898,7 @@ void FindOrAddFlexController(
 //-----------------------------------------------------------------------------
 // Adds combination data to the source
 //-----------------------------------------------------------------------------
-void AddCombination(s_source_t *pSource, CDmeCombinationOperator *pCombination) {
+void AddCombination(StudioMdlState &ctx, s_source_t *pSource, CDmeCombinationOperator *pCombination) {
     CDmrElementArray<CDmElement> targets = pCombination->GetAttribute("targets");
 
     // See if all targets of the DmeCombinationOperator are DmeFlexRules
@@ -931,13 +928,13 @@ void AddCombination(s_source_t *pSource, CDmeCombinationOperator *pCombination) 
                 flMin = pControlElement->GetValue("flexMin", flMin);
                 flMax = pControlElement->GetValue("flexMax", flMax);
 
-                FindOrAddFlexController(pControlElement->GetName(), "default", flMin, flMax);
+                FindOrAddFlexController(ctx, pControlElement->GetName(), "default", flMin, flMax);
             }
         }
 
         // each rule is parsed by Option_Flexrule from its own buffer, independent of the QC being parsed
         std::string sTmpBuf{};
-        ScriptTokenizer ruleTokenizer;
+        ScriptTokenizer ruleTokenizer(ctx.paths.qdir, &ctx.paths.content);
         InstallMdlErrorHandler(ruleTokenizer);
 
         for (int i = 0; i < targets.Count(); ++i) {
@@ -970,10 +967,10 @@ void AddCombination(s_source_t *pSource, CDmeCombinationOperator *pCombination) 
 
                 ruleTokenizer.LoadMemory(sTmpBuf);
 
-                Add_Flexdesc(pDmeFlexRule->GetName());
+                Add_Flexdesc(ctx, pDmeFlexRule->GetName());
 
                 if (bFlexRule) {
-                    Option_Flexrule(ruleTokenizer, nullptr, pDmeFlexRule->GetName());
+                    Option_Flexrule(ctx, ruleTokenizer, nullptr, pDmeFlexRule->GetName());
                 }
 
                 ruleTokenizer.Close();
@@ -1060,38 +1057,38 @@ void AddCombination(s_source_t *pSource, CDmeCombinationOperator *pCombination) 
 //-----------------------------------------------------------------------------
 // Adds a joint surface property
 //-----------------------------------------------------------------------------
-void AddSurfaceProp(const char *pBoneName, const char *pSurfaceProperty) {
+void AddSurfaceProp(StudioMdlState &ctx, const char *pBoneName, const char *pSurfaceProperty) {
     // Search for the name in our list
     int i;
-    for (i = std::ssize(g_studiomdl.materials.JointSurfaceProp); --i >= 0;) {
-        if (vstd::iequals(g_studiomdl.materials.JointSurfaceProp[i].m_pJointName, pBoneName))
+    for (i = std::ssize(ctx.materials.JointSurfaceProp); --i >= 0;) {
+        if (vstd::iequals(ctx.materials.JointSurfaceProp[i].m_pJointName, pBoneName))
             break;
     }
 
     // Add new entry if we haven't seen this name before
     if (i < 0) {
-        g_studiomdl.materials.JointSurfaceProp.emplace_back();
-        i = std::ssize(g_studiomdl.materials.JointSurfaceProp) - 1;
-        Q_strncpy(g_studiomdl.materials.JointSurfaceProp[i].m_pJointName, pBoneName, sizeof(g_studiomdl.materials.JointSurfaceProp[i].m_pJointName));
+        ctx.materials.JointSurfaceProp.emplace_back();
+        i = std::ssize(ctx.materials.JointSurfaceProp) - 1;
+        Q_strncpy(ctx.materials.JointSurfaceProp[i].m_pJointName, pBoneName, sizeof(ctx.materials.JointSurfaceProp[i].m_pJointName));
     }
 
-    Q_strncpy(g_studiomdl.materials.JointSurfaceProp[i].m_pSurfaceProp, pSurfaceProperty, sizeof(g_studiomdl.materials.JointSurfaceProp[i].m_pSurfaceProp));
+    Q_strncpy(ctx.materials.JointSurfaceProp[i].m_pSurfaceProp, pSurfaceProperty, sizeof(ctx.materials.JointSurfaceProp[i].m_pSurfaceProp));
 }
 
 //-----------------------------------------------------------------------------
 // Returns the default surface prop name
 //-----------------------------------------------------------------------------
-char *GetDefaultSurfaceProp() {
-    return g_studiomdl.materials.pDefaultSurfaceProp;
+char *GetDefaultSurfaceProp(StudioMdlState &ctx) {
+    return ctx.materials.pDefaultSurfaceProp;
 }
 
 //-----------------------------------------------------------------------------
 // Returns surface property for a given joint
 //-----------------------------------------------------------------------------
-char *FindSurfaceProp(const char *pJointName) {
-    for (int i = std::ssize(g_studiomdl.materials.JointSurfaceProp); --i >= 0;) {
-        if (vstd::iequals(g_studiomdl.materials.JointSurfaceProp[i].m_pJointName, pJointName))
-            return g_studiomdl.materials.JointSurfaceProp[i].m_pSurfaceProp;
+char *FindSurfaceProp(StudioMdlState &ctx, const char *pJointName) {
+    for (int i = std::ssize(ctx.materials.JointSurfaceProp); --i >= 0;) {
+        if (vstd::iequals(ctx.materials.JointSurfaceProp[i].m_pJointName, pJointName))
+            return ctx.materials.JointSurfaceProp[i].m_pSurfaceProp;
     }
     return nullptr;
 }
@@ -1099,51 +1096,45 @@ char *FindSurfaceProp(const char *pJointName) {
 //-----------------------------------------------------------------------------
 // Returns surface property for a given joint
 //-----------------------------------------------------------------------------
-char *GetSurfaceProp(const char *pJointName) {
+char *GetSurfaceProp(StudioMdlState &ctx, const char *pJointName) {
     while (pJointName) {
         // First try to find this joint
-        char *pSurfaceProp = FindSurfaceProp(pJointName);
+        char *pSurfaceProp = FindSurfaceProp(ctx, pJointName);
         if (pSurfaceProp)
             return pSurfaceProp;
 
         // If we can't find the joint, then find it's parent...
-        if (!std::ssize(g_studiomdl.bones.bonetable))
-            return g_studiomdl.materials.pDefaultSurfaceProp;
+        if (!std::ssize(ctx.bones.bonetable))
+            return ctx.materials.pDefaultSurfaceProp;
 
-        int i = findGlobalBone(pJointName);
+        int i = findGlobalBone(ctx, pJointName);
 
-        if ((i >= 0) && (g_studiomdl.bones.bonetable[i].parent >= 0)) {
-            pJointName = g_studiomdl.bones.bonetable[g_studiomdl.bones.bonetable[i].parent].name;
+        if ((i >= 0) && (ctx.bones.bonetable[i].parent >= 0)) {
+            pJointName = ctx.bones.bonetable[ctx.bones.bonetable[i].parent].name;
         } else {
             pJointName = nullptr;
         }
     }
 
     // No match, return the default one
-    return g_studiomdl.materials.pDefaultSurfaceProp;
+    return ctx.materials.pDefaultSurfaceProp;
 }
 
 
 //-----------------------------------------------------------------------------
-// Assigns a default contents to the entire model
-//-----------------------------------------------------------------------------
-ContentType s_nDefaultContents = ContentType::SOLID;
-std::vector<ContentsName_t> s_JointContents;
-
-//-----------------------------------------------------------------------------
 // Returns the default contents
 //-----------------------------------------------------------------------------
-ContentType GetDefaultContents() {
-    return s_nDefaultContents;
+ContentType GetDefaultContents(StudioMdlState &ctx) {
+    return ctx.core.defaultContents;
 }
 
 //-----------------------------------------------------------------------------
 // Returns contents for a given joint
 //-----------------------------------------------------------------------------
-static ContentType FindContents(const char *pJointName) {
-    for (int i = std::ssize(s_JointContents); --i >= 0;) {
-        if (vstd::iequals(s_JointContents[i].m_pJointName, pJointName)) {
-            return s_JointContents[i].m_nContents;
+static ContentType FindContents(StudioMdlState &ctx, const char *pJointName) {
+    for (int i = std::ssize(ctx.core.jointContents); --i >= 0;) {
+        if (vstd::iequals(ctx.core.jointContents[i].m_pJointName, pJointName)) {
+            return ctx.core.jointContents[i].m_nContents;
         }
     }
     return ContentType::MISSING;
@@ -1152,34 +1143,34 @@ static ContentType FindContents(const char *pJointName) {
 //-----------------------------------------------------------------------------
 // Returns contents for a given joint
 //-----------------------------------------------------------------------------
-ContentType GetContents(const char *pJointName) {
+ContentType GetContents(StudioMdlState &ctx, const char *pJointName) {
     while (pJointName) {
         // First try to find this joint
-        ContentType nContents = FindContents(pJointName);
+        ContentType nContents = FindContents(ctx, pJointName);
         if (nContents != ContentType::MISSING)
             return nContents;
 
         // If we can't find the joint, then find it's parent...
-        if (!std::ssize(g_studiomdl.bones.bonetable))
-            return s_nDefaultContents;
+        if (!std::ssize(ctx.bones.bonetable))
+            return ctx.core.defaultContents;
 
-        int i = findGlobalBone(pJointName);
+        int i = findGlobalBone(ctx, pJointName);
 
-        if ((i >= 0) && (g_studiomdl.bones.bonetable[i].parent >= 0)) {
-            pJointName = g_studiomdl.bones.bonetable[g_studiomdl.bones.bonetable[i].parent].name;
+        if ((i >= 0) && (ctx.bones.bonetable[i].parent >= 0)) {
+            pJointName = ctx.bones.bonetable[ctx.bones.bonetable[i].parent].name;
         } else {
             pJointName = nullptr;
         }
     }
 
     // No match, return the default one
-    return s_nDefaultContents;
+    return ctx.core.defaultContents;
 }
 
-int LookupAttachment(const char *name) {
+int LookupAttachment(StudioMdlState &ctx, const char *name) {
     int i;
-    for (i = 0; i < g_studiomdl.bones.attachments.size(); i++) {
-        if (vstd::iequals(g_studiomdl.bones.attachments[i].name, name)) {
+    for (i = 0; i < ctx.bones.attachments.size(); i++) {
+        if (vstd::iequals(ctx.bones.attachments[i].name, name)) {
             return i;
         }
     }
@@ -1255,7 +1246,7 @@ int SortAndBalanceBones(uint32_t count, const uint32_t maxCount, std::span<int> 
     return count;
 }
 
-void Grab_Vertexanimation(s_source_t *psource, const char *pAnimName) {
+void Grab_Vertexanimation(StudioMdlState &ctx, s_source_t *psource, const char *pAnimName) {
     vstd::FunctionTimingRecorder _("SMD");
     char cmd[1024];
     int index;
@@ -1263,24 +1254,27 @@ void Grab_Vertexanimation(s_source_t *psource, const char *pAnimName) {
     Vector normal;
     int t = -1;
     int count = 0;
-    static s_vertanim_t tmpvanim[MAXSTUDIOVERTS * 4];
+    std::vector<s_vertanim_t> tmpvanim; // the current frame's vertex animations, [0, count)
 
     s_sourceanim_t *pAnim = FindSourceAnim(psource, pAnimName);
     if (!pAnim) {
-        MdlError("Unknown animation {}({}) : {}\n", pAnimName, g_studiomdl.input.iLinecount, g_studiomdl.input.szLine);
+        MdlError("Unknown animation {}({}) : {}\n", pAnimName, ctx.input.iLinecount, ctx.input.szLine);
     }
 
-    while (GetLineInput()) {
-        if (sscanf(g_studiomdl.input.szLine, "%d %f %f %f %f %f %f", &index, &pos[0], &pos[1], &pos[2], &normal[0], &normal[1],
+    while (GetLineInput(ctx)) {
+        if (sscanf(ctx.input.szLine, "%d %f %f %f %f %f %f", &index, &pos[0], &pos[1], &pos[2], &normal[0], &normal[1],
                    &normal[2]) == 7) {
             if (pAnim->startframe < 0) {
-                MdlError("Missing frame start({}) : {}", g_studiomdl.input.iLinecount, g_studiomdl.input.szLine);
+                MdlError("Missing frame start({}) : {}", ctx.input.iLinecount, ctx.input.szLine);
             }
 
             if (t < 0) {
-                MdlError("VTA Frame Sync ({}) : {}", g_studiomdl.input.iLinecount, g_studiomdl.input.szLine);
+                MdlError("VTA Frame Sync ({}) : {}", ctx.input.iLinecount, ctx.input.szLine);
             }
 
+            if (count >= std::ssize(tmpvanim)) {
+                tmpvanim.resize(count + 1);
+            }
             tmpvanim[count].vertex = index;
             VectorCopy(pos, tmpvanim[count].pos);
             VectorCopy(normal, tmpvanim[count].normal);
@@ -1297,22 +1291,22 @@ void Grab_Vertexanimation(s_source_t *psource, const char *pAnimName) {
 
                 pAnim->vanim[t] = (s_vertanim_t *) calloc(count, sizeof(s_vertanim_t));
 
-                memcpy(pAnim->vanim[t], tmpvanim, count * sizeof(s_vertanim_t));
+                memcpy(pAnim->vanim[t], tmpvanim.data(), count * sizeof(s_vertanim_t));
             } else if (t > 0) {
                 pAnim->numvanims[t] = 0;
             }
 
             // next command
-            if (sscanf(g_studiomdl.input.szLine, "%1023s %d", cmd, &index)) {
+            if (sscanf(ctx.input.szLine, "%1023s %d", cmd, &index)) {
                 if (stricmp(cmd, "time") == 0) {
                     t = index;
                     count = 0;
 
                     if (t < pAnim->startframe) {
-                        MdlError("Frame MdlError({}) : {}", g_studiomdl.input.iLinecount, g_studiomdl.input.szLine);
+                        MdlError("Frame MdlError({}) : {}", ctx.input.iLinecount, ctx.input.szLine);
                     }
                     if (t > pAnim->endframe) {
-                        MdlError("Frame MdlError({}) : {}", g_studiomdl.input.iLinecount, g_studiomdl.input.szLine);
+                        MdlError("Frame MdlError({}) : {}", ctx.input.iLinecount, ctx.input.szLine);
                     }
 
                     t -= pAnim->startframe;
@@ -1320,10 +1314,10 @@ void Grab_Vertexanimation(s_source_t *psource, const char *pAnimName) {
                     pAnim->numframes = pAnim->endframe - pAnim->startframe + 1;
                     return;
                 } else {
-                    MdlError("MdlError({}) : {}", g_studiomdl.input.iLinecount, g_studiomdl.input.szLine);
+                    MdlError("MdlError({}) : {}", ctx.input.iLinecount, ctx.input.szLine);
                 }
             } else {
-                MdlError("MdlError({}) : {}", g_studiomdl.input.iLinecount, g_studiomdl.input.szLine);
+                MdlError("MdlError({}) : {}", ctx.input.iLinecount, ctx.input.szLine);
             }
         }
     }
@@ -1331,11 +1325,11 @@ void Grab_Vertexanimation(s_source_t *psource, const char *pAnimName) {
 }
 
 // Where a source file can be: below every content base path when src is below one of them, else src itself
-static std::vector<std::string> SourceFileCandidates(const std::string &fileName) {
-    if (auto result = CmdLib_HasBasePath(fileName)) {
+static std::vector<std::string> SourceFileCandidates(StudioMdlState &ctx, const std::string &fileName) {
+    if (auto result = CmdLib_HasBasePath(ctx.paths.content, fileName)) {
         auto [_, remainder] = *result;
         std::vector<std::string> candidates;
-        for (const std::string &basePath: g_studiomdl.paths.contentBasePaths) {
+        for (const std::string &basePath: ctx.paths.content.basePaths) {
             candidates.push_back(vstd::paths::join(basePath, remainder));
         }
         return candidates;
@@ -1343,8 +1337,8 @@ static std::vector<std::string> SourceFileCandidates(const std::string &fileName
     return {fileName};
 }
 
-bool GetGlobalFilePath(std::string_view src, std::string &fullPath) {
-    for (const std::string &candidate: SourceFileCandidates(ExpandPath(src))) {
+bool GetGlobalFilePath(StudioMdlState &ctx, std::string_view src, std::string &fullPath) {
+    for (const std::string &candidate: SourceFileCandidates(ctx, ExpandPath(ctx.paths.qdir, src))) {
         FileStat_t stat{};
         if (FS_Stat(candidate.c_str(), stat) && !stat.bDirectory && stat.nSize > 0) {
             fullPath = candidate;
@@ -1354,30 +1348,30 @@ bool GetGlobalFilePath(std::string_view src, std::string &fullPath) {
     return false;
 }
 
-bool OpenGlobalFile(std::string_view src) {
-    std::string filename = ExpandPath(src);
+bool OpenGlobalFile(StudioMdlState &ctx, std::string_view src) {
+    std::string filename = ExpandPath(ctx.paths.qdir, src);
 
     // if the file doesn't exist it might be a relative content dir path
-    if (g_studiomdl.paths.contentRootRelative && !g_pFullFileSystem->FileExists(filename.c_str())) {
+    if (ctx.paths.contentRootRelative && !g_pFullFileSystem->FileExists(filename.c_str())) {
         char contentPath[4096] = {};
         g_pFullFileSystem->RelativePathToFullPath(std::string(src).c_str(), IBaseFileSystem::PathID::Content, contentPath, sizeof(contentPath));
         filename = contentPath;
     }
 
-    const auto bBelowBasePath = CmdLib_HasBasePath(filename);
-    for (const std::string &candidate: SourceFileCandidates(filename)) {
+    const auto bBelowBasePath = CmdLib_HasBasePath(ctx.paths.content, filename);
+    for (const std::string &candidate: SourceFileCandidates(ctx, filename)) {
         FileStat_t stat{};
         const bool bExists = FS_Stat(candidate.c_str(), stat);
-        if (g_studiomdl.options.createMakefile && (bExists || bBelowBasePath.has_value())) {
-            CreateMakefile_AddDependency(candidate.c_str());
+        if (ctx.options.createMakefile && (bExists || bBelowBasePath.has_value())) {
+            CreateMakefile_AddDependency(ctx, candidate.c_str());
             return false;
         }
         if (!bExists) {
             continue;
         }
 
-        g_studiomdl.input.inputFile.reset(CStdFile::Open(candidate.c_str(), "r", nullptr));
-        if (!g_studiomdl.input.inputFile) {
+        ctx.input.inputFile.reset(CStdFile::Open(candidate.c_str(), "r", nullptr));
+        if (!ctx.input.inputFile) {
             MdlWarning("reader: could not open file '{}'\n", std::string(src));
             return false;
         }
@@ -1386,21 +1380,21 @@ bool OpenGlobalFile(std::string_view src) {
     return false;
 }
 
-int Load_VTA(s_source_t *psource) {
+int Load_VTA(StudioMdlState &ctx, s_source_t *psource) {
     char cmd[1024];
     int option;
 
-    if (!OpenGlobalFile(psource->filename))
+    if (!OpenGlobalFile(ctx, psource->filename))
         return 0;
 
-    if (!g_studiomdl.options.quiet)
+    if (!ctx.options.quiet)
         std::print("VTA MODEL {}\n", psource->filename);
 
-    g_studiomdl.input.iLinecount = 0;
-    while (GetLineInput()) {
-        g_studiomdl.input.iLinecount++;
+    ctx.input.iLinecount = 0;
+    while (GetLineInput(ctx)) {
+        ctx.input.iLinecount++;
 
-        const int numRead = sscanf(g_studiomdl.input.szLine, "%s %d", cmd, &option);
+        const int numRead = sscanf(ctx.input.szLine, "%s %d", cmd, &option);
 
         // No Command Was Parsed, Blank Line Usually
         if ((numRead == EOF) || (numRead == 0))
@@ -1411,17 +1405,17 @@ int Load_VTA(s_source_t *psource) {
                 MdlError("bad version\n");
             }
         } else if (stricmp(cmd, "nodes") == 0) {
-            psource->numbones = Grab_Nodes(psource->localBone);
+            psource->numbones = Grab_Nodes(ctx, psource->localBone);
         } else if (stricmp(cmd, "skeleton") == 0) {
-            Grab_Animation(psource, "VertexAnimation");
+            Grab_Animation(ctx, psource, "VertexAnimation");
         } else if (stricmp(cmd, "vertexanimation") == 0) {
-            Grab_Vertexanimation(psource, "VertexAnimation");
+            Grab_Vertexanimation(ctx, psource, "VertexAnimation");
         } else {
             MdlWarning("unknown studio command \"{}\" in vta file: \"{}\" line: {}\n", cmd, psource->filename,
-                       g_studiomdl.input.iLinecount - 1);
+                       ctx.input.iLinecount - 1);
         }
     }
-    g_studiomdl.input.inputFile.reset();
+    ctx.input.inputFile.reset();
 
     return 1;
 }

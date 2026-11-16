@@ -26,6 +26,7 @@
 //-----------------------------------------------------------------------------
 class IDmElementFramework;
 class CDmElement;
+struct DmElementTypeInfo;
 
 enum DmHandleReleasePolicy {
     HR_ALWAYS,
@@ -177,15 +178,10 @@ public:
 
     void Shutdown() override;
 
+    // Registers the linked element classes (list from DmElementTypeInfo::s_pFirst) and sets their type symbols
+    void InstallElementTypes(const DmElementTypeInfo* pFirst);
+
     // Methods of IDataModel
-    void AddElementFactory(CDmElementFactoryHelper* pFactoryHelper) override;
-
-    CDmElementFactoryHelper* GetElementFactoryHelper(const char* pClassName) override;
-
-    bool HasElementFactory(const char* pElementType) const override;
-
-    void SetDefaultElementFactory(IDmElementFactory* pFactory) override;
-
     DmElementHandle_t CreateElement(CUtlSymbolLarge typeSymbol, const char* pElementName, DmFileId_t fileid,
                                     const DmObjectId_t* pObjectID = nullptr) override;
 
@@ -357,10 +353,6 @@ public:
     // Dump the symbol table to the console
     void DumpSymbolTable() override;
 
-    void AddOnElementCreatedCallback(const char* pElementType, IDmeElementCreated* callback) override;
-
-    void RemoveOnElementCreatedCallback(const char* pElementType, IDmeElementCreated* callback) override;
-
 public:
     // Commits symbols in symbol table
     void CommitSymbols();
@@ -446,11 +438,12 @@ private:
         }
     };
 
-private:
+    // Internals used by the rest of the datamodel library (attributes, handles, serializers)
+public:
     CDmElement* Unserialize(CUtlBuffer &buf);
 
-    // Factory registered for the type name (case-insensitive), nullptr if none or pElementType is null
-    CDmElementFactoryHelper* FindFactoryHelper(const char* pElementType) const;
+    // Registered type for the name (case-insensitive), nullptr if none
+    const DmElementTypeInfo* FindElementType(std::string_view elementType) const;
 
     void Serialize(CDmElement* element, CUtlBuffer &buf);
 
@@ -472,11 +465,6 @@ private:
 
     void SetFileModificationUTCTime(DmFileId_t fileid, int64_t fileModificationTime);
 
-    friend class CDmeElementRefHelper;
-    friend class CDmAttribute;
-    template<class T>
-    friend class CDmArrayAttributeOp;
-
     void OnElementReferenceAdded(DmElementHandle_t hElement, CDmAttribute* pAttribute);
 
     void OnElementReferenceRemoved(DmElementHandle_t hElement, CDmAttribute* pAttribute);
@@ -493,16 +481,17 @@ private:
     CUtlVector<IDmLegacyUpdater*> m_LegacyUpdaters;
     CUtlVector<IDmFormatUpdater*> m_FormatUpdaters;
 
-    IDmElementFactory* m_pDefaultFactory;
-    // Keyed by the helpers' class names (string literals of the factory macros), compared case-insensitively
-    std::map<std::string_view, CDmElementFactoryHelper*, vstd::iless> m_Factories;
+    // Keyed by the registered type names (string literals of the IMPLEMENT_* macros), compared case-insensitively
+    std::map<std::string_view, const DmElementTypeInfo*, vstd::iless> m_ElementTypes;
+    // Type given to elements whose type isn't registered (typed mode only, set by InstallElementTypes); empty keeps
+    // their own type name. Views a string literal, so data() is NUL-terminated.
+    std::string_view m_UnknownElementTypeName;
     CUtlSymbolTableLarge m_SymbolTable;
     CUtlHandleTable<CDmElement, 21> m_Handles;
     CUtlHandleTable<CDmAttribute, 21> m_AttributeHandles;
     CNotifyManager m_NotifyMgr;
 
     bool m_bIsUnserializing: 1;
-    bool m_bUnableToSetDefaultFactory: 1;
     bool m_bOnlyCreateUntypedElements: 1;
     bool m_bUnableToCreateOnlyUntypedElements: 1;
     bool m_bDeleteOrphanedElements: 1;
@@ -539,32 +528,3 @@ inline void CDataModel::NotifyState(int nNotifyFlags) {
     GetNotifyMgr()->NotifyState(nNotifyFlags);
 }
 
-
-//-----------------------------------------------------------------------------
-// Methods of DmElement which are public to datamodel
-//-----------------------------------------------------------------------------
-class CDmeElementAccessor {
-public:
-    static void Purge(CDmElement* pElement) { pElement->Purge(); }
-    static void SetId(CDmElement* pElement, const DmObjectId_t &id) { pElement->SetId(id); }
-    static bool IsDirty(const CDmElement* pElement) { return pElement->IsDirty(); }
-    static void MarkDirty(CDmElement* pElement, bool dirty = true) { pElement->MarkDirty(dirty); }
-    static void MarkAttributesClean(CDmElement* pElement) { pElement->MarkAttributesClean(); }
-    static void DisableOnChangedCallbacks(CDmElement* pElement) { pElement->DisableOnChangedCallbacks(); }
-    static void EnableOnChangedCallbacks(CDmElement* pElement) { pElement->EnableOnChangedCallbacks(); }
-    static bool AreOnChangedCallbacksEnabled(CDmElement* pElement) { return pElement->AreOnChangedCallbacksEnabled(); }
-    static void FinishUnserialization(CDmElement* pElement) { pElement->FinishUnserialization(); }
-    static void ChangeHandle(CDmElement* pElement, DmElementHandle_t handle) { pElement->ChangeHandle(handle); }
-    static DmElementReference_t* GetReference(CDmElement* pElement) { return pElement->GetReference(); }
-    static void SetReference(CDmElement* pElement, const DmElementReference_t &ref) { pElement->SetReference(ref); }
-
-    static int EstimateMemoryUsage(CDmElement* pElement, CUtlHash<DmElementHandle_t> &visited, TraversalDepth_t depth,
-                                   int* pCategories) {
-        return pElement->EstimateMemoryUsage(visited, depth, pCategories);
-    }
-
-    static void PerformConstruction(CDmElement* pElement) { pElement->PerformConstruction(); }
-    static void PerformDestruction(CDmElement* pElement) { pElement->PerformDestruction(); }
-    static void OnAdoptedFromUndo(CDmElement* pElement) { pElement->OnAdoptedFromUndo(); }
-    static void OnOrphanedToUndo(CDmElement* pElement) { pElement->OnOrphanedToUndo(); }
-};

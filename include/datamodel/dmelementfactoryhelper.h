@@ -1,6 +1,6 @@
 //====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
-//http://www.nfl.com/gamecenter/2010010900/2009/POST18/eagles@cowboys#tab:watch
-// Purpose: 
+//
+// Purpose: Registration of element classes with the datamodel
 //
 //=============================================================================
 
@@ -10,242 +10,70 @@
 #include "datamodel/idatamodel.h"
 #include "datamodel/dmelement.h"
 #include "datamodel/dmattribute.h"
-#include "mdlobjects/dmehitbox.h"
 #include "datamodel/dmattributevar.h"
-#include "tier1/utlvector.h"
 #include "tier1/utlsymbollarge.h"
+#include <cstddef>
+#include <string_view>
 
 
 //-----------------------------------------------------------------------------
-// Internal interface for IDmElementFactory
+// One per element class, defined by IMPLEMENT_ELEMENT_FACTORY / IMPLEMENT_ABSTRACT_ELEMENT. The constructors link
+// every type into a static list at static-initialization time; InstallDmElementFactories() hands the list to the
+// datamodel, which looks types up by name (case-insensitive) when creating elements.
 //-----------------------------------------------------------------------------
-class CDmElementFactoryInternal : public IDmElementFactory
-{
-public:
-	virtual void SetElementTypeSymbol( CUtlSymbolLarge sym ) = 0;
-	virtual bool IsAbstract() const = 0;
+struct DmElementTypeInfo {
+    using CreateFn = CDmElement *(*)(DmElementHandle_t handle, const char *pElementTypeName, const DmObjectId_t &id,
+                                     const char *pElementName, DmFileId_t fileid);
+    using SetTypeSymbolFn = void (*)(CUtlSymbolLarge typeSymbol);
 
-	virtual CUtlSymbolLarge GetElementTypeSymbol() const = 0;
-	virtual CUtlSymbolLarge GetParentElementTypeSymbol() const = 0;
+    // Takes a string literal only, so m_TypeName.data() is NUL-terminated for the const char* datamodel APIs
+    template<size_t N>
+    DmElementTypeInfo(const char (&typeName)[N], CreateFn pCreate, SetTypeSymbolFn pSetTypeSymbol)
+            : m_TypeName(typeName, N - 1), m_pCreate(pCreate), m_pSetTypeSymbol(pSetTypeSymbol), m_pNext(s_pFirst) {
+        s_pFirst = this;
+    }
 
-    void AddOnElementCreatedCallback( IDmeElementCreated *pCallback ) override;
+    std::string_view m_TypeName;       // lookup name, e.g. "DmeMesh"
+    CreateFn m_pCreate;                // nullptr for abstract types, which can't be instanced
+    SetTypeSymbolFn m_pSetTypeSymbol;  // sets the class's static type symbol, used by IsA()
+    const DmElementTypeInfo *m_pNext;
 
-    void RemoveOnElementCreatedCallback( IDmeElementCreated *pCallback ) override;
-
-    void OnElementCreated( CDmElement* pElement ) override;
-	
-private:
-	CUtlVector< IDmeElementCreated* > m_CallBackList;
-};
-
-
-
-
-
-
-//-----------------------------------------------------------------------------
-// Class used to register factories into a global list
-//-----------------------------------------------------------------------------
-class CDmElementFactoryHelper
-{
-public:
-	// Static list of helpers
-	static CDmElementFactoryHelper *s_pHelpers[2];
-
-	// Create all the hud elements
-	static void InstallFactories( );
-
-public:
-	// Construction
-	CDmElementFactoryHelper( const char *pClassName, CDmElementFactoryInternal *pFactory, bool bIsStandardFactory );
-
-	// Accessors
-	CDmElementFactoryHelper *GetNext   () { return m_pNext; }
-	CDmElementFactoryHelper *GetParent () { return m_pParent; }
-	CDmElementFactoryHelper *GetChild  () { return m_pChild; }
-	CDmElementFactoryHelper *GetSibling() { return m_pSibling; }
-
-	const char *GetClassname();
-	CDmElementFactoryInternal *GetFactory();
-
-private:
-	CDmElementFactoryHelper() {}
-
-	// Next factory in list
-	CDmElementFactoryHelper	*m_pNext;
-
-	// class hierarchy links
-	CDmElementFactoryHelper *m_pParent;
-	CDmElementFactoryHelper *m_pChild;
-	CDmElementFactoryHelper *m_pSibling;
-
-	// Creation function to use for this technology
-	CDmElementFactoryInternal *m_pFactory;
-	const char				*m_pszClassname;
+    // Most recently constructed first
+    static inline const DmElementTypeInfo *s_pFirst = nullptr;
 };
 
 
 //-----------------------------------------------------------------------------
-// Inline methods 
+// Element class registration, in the .cpp of the class (className must use DEFINE_ELEMENT)
 //-----------------------------------------------------------------------------
-inline const char *CDmElementFactoryHelper::GetClassname() 
-{ 
-	return m_pszClassname; 
-}
+#define DM_REGISTER_ELEMENT_TYPE_( lookupName, className, createFn ) \
+    DmElementTypeInfo g_##className##_TypeInfo( #lookupName, createFn, &className::SetTypeSymbol );
 
-inline CDmElementFactoryInternal *CDmElementFactoryHelper::GetFactory() 
-{ 
-	return m_pFactory; 
-}
+#define IMPLEMENT_ELEMENT_FACTORY( lookupName, className ) \
+    IMPLEMENT_ELEMENT( className )                          \
+    DM_REGISTER_ELEMENT_TYPE_( lookupName, className, &className::CreateInstance<> )
 
+// For a className that is an alias of a class template specialization
+#define IMPLEMENT_TEMPLATE_ELEMENT_FACTORY( lookupName, className ) \
+    IMPLEMENT_TEMPLATE_ELEMENT( className )                          \
+    DM_REGISTER_ELEMENT_TYPE_( lookupName, className, &className::CreateInstance<> )
 
-//-----------------------------------------------------------------------------
-// Helper Template factory for simple creation of factories
-//-----------------------------------------------------------------------------
-template < class T >
-class CDmElementFactory : public CDmElementFactoryInternal
-{
-public:
-	CDmElementFactory( const char *pLookupName ) : m_pLookupName( pLookupName ) {}
-
-	// Creation, destruction
-    CDmElement* Create( DmElementHandle_t handle, const char *pElementType, const char *pElementName, DmFileId_t fileid, const DmObjectId_t &id ) override {
-		return new T( handle, m_pLookupName, id, pElementName, fileid );
-	}
-
-    void Destroy( DmElementHandle_t hElement ) override {
-		CDmElement *pElement = g_pDataModel->GetElement( hElement );
-		if ( pElement )
-		{
-			T *pActualElement = static_cast< T* >( pElement );
-			delete pActualElement;
-		}
-	}
-
-	// Sets the type symbol, used for "isa" implementation
-    void SetElementTypeSymbol( CUtlSymbolLarge sym ) override {
-		T::SetTypeSymbol( sym );
-	}
-
-    bool IsAbstract() const override { return false; }
-
-    CUtlSymbolLarge GetElementTypeSymbol() const override {
-		return T::GetStaticTypeSymbol();
-	}
-
-    CUtlSymbolLarge GetParentElementTypeSymbol() const override {
-		CUtlSymbolLarge baseClassSym = T::BaseClass::GetStaticTypeSymbol();
-		if ( baseClassSym == T::GetStaticTypeSymbol() )
-			return UTL_INVAL_SYMBOL_LARGE; // only CDmElement has itself as it's BaseClass - this lets us know we're at the top of the hierarchy
-		return baseClassSym;
-	}
-
-private:
-	const char *m_pLookupName;
-};
-
-
-template < class T >
-class CDmAbstractElementFactory : public CDmElementFactoryInternal
-{
-public:
-	CDmAbstractElementFactory() {}
-
-	// Creation, destruction
-    CDmElement* Create( DmElementHandle_t handle, const char *pElementType, const char *pElementName, DmFileId_t fileid, const DmObjectId_t &id ) override {
-		return nullptr;
-	}
-
-    void Destroy( DmElementHandle_t hElement ) override {
-	}
-
-	// Sets the type symbol, used for "isa" implementation
-    void SetElementTypeSymbol( CUtlSymbolLarge sym ) override {
-		T::SetTypeSymbol( sym );
-	}
-
-    bool IsAbstract() const override { return true; }
-
-    CUtlSymbolLarge GetElementTypeSymbol() const override {
-		return T::GetStaticTypeSymbol();
-	}
-
-    CUtlSymbolLarge GetParentElementTypeSymbol() const override {
-		CUtlSymbolLarge baseClassSym = T::BaseClass::GetStaticTypeSymbol();
-		if ( baseClassSym == T::GetStaticTypeSymbol() )
-			return UTL_INVAL_SYMBOL_LARGE; // only CDmElement has itself as it's BaseClass - this lets us know we're at the top of the hierarchy
-		return baseClassSym;
-	}
-
-private:
-};
+// Known to the datamodel (IsA works) but never instanced
+#define IMPLEMENT_ABSTRACT_ELEMENT( lookupName, className ) \
+    IMPLEMENT_ELEMENT( className )                           \
+    DM_REGISTER_ELEMENT_TYPE_( lookupName, className, nullptr )
 
 
 //-----------------------------------------------------------------------------
-// Helper macro to create the class factory 
+// The element classes live in static libraries: an object file is only linked (and its registration constructed) if
+// something references it. USING_ELEMENT_FACTORY( DmeFoo ) references CDmeFoo's registration from the executable.
 //-----------------------------------------------------------------------------
-#if defined( MOVIEOBJECTS_LIB ) || defined ( DATAMODEL_LIB ) || defined ( DMECONTROLS_LIB ) || defined ( MDLOBJECTS_LIB )
-
-#define IMPLEMENT_ELEMENT_FACTORY( lookupName, className )	\
-	IMPLEMENT_ELEMENT( className )							\
-	CDmElementFactory< className > g_##className##_Factory( #lookupName );							\
-	CDmElementFactoryHelper g_##className##_Helper( #lookupName, &g_##className##_Factory, true );	\
-	className *g_##className##LinkerHack = NULL;
-
-#define IMPLEMENT_TEMPLATE_ELEMENT_FACTORY( lookupName, className )	\
-	IMPLEMENT_TEMPLATE_ELEMENT( className )					\
-	CDmElementFactory< className > g_##className##_Factory( #lookupName );							\
-	CDmElementFactoryHelper g_##className##_Helper( #lookupName, &g_##className##_Factory, true );	\
-	className *g_##className##LinkerHack = NULL;
-
-#define IMPLEMENT_ABSTRACT_ELEMENT( lookupName, className )	\
-	IMPLEMENT_ELEMENT( className )							\
-	CDmAbstractElementFactory< className > g_##className##_Factory;									\
-	CDmElementFactoryHelper g_##className##_Helper( #lookupName, &g_##className##_Factory, true );	\
-	className *g_##className##LinkerHack = NULL;
-
-#else
-
-#define IMPLEMENT_ELEMENT_FACTORY( lookupName, className )	\
-	IMPLEMENT_ELEMENT( className )							\
-	CDmElementFactory< className > g_##className##_Factory( #lookupName );						\
-	CDmElementFactoryHelper g_##className##_Helper( #lookupName, &g_##className##_Factory, false );	\
-	className *g_##className##LinkerHack = NULL;
-
-#define IMPLEMENT_TEMPLATE_ELEMENT_FACTORY( lookupName, className )	\
-	IMPLEMENT_TEMPLATE_ELEMENT( className )					\
-	CDmElementFactory< className > g_##className##_Factory( #lookupName );						\
-	CDmElementFactoryHelper g_##className##_Helper( #lookupName, &g_##className##_Factory, false );	\
-	className *g_##className##LinkerHack = NULL;
-
-#define IMPLEMENT_ABSTRACT_ELEMENT( lookupName, className )	\
-	IMPLEMENT_ELEMENT( className )							\
-	CDmAbstractElementFactory< className > g_##className##_Factory;									\
-	CDmElementFactoryHelper g_##className##_Helper( #lookupName, &g_##className##_Factory, false );	\
-	className *g_##className##LinkerHack = NULL;
-
-#endif
-
-
-// Used by classes defined in movieobjects or scenedatabase that must be explicitly installed
-#define IMPLEMENT_ELEMENT_FACTORY_INSTALL_EXPLICITLY( lookupName, className )	\
-	IMPLEMENT_ELEMENT( className )							\
-	CDmElementFactory< className > g_##className##_Factory( #lookupName );						\
-	CDmElementFactoryHelper g_##className##_Helper( #lookupName, &g_##className##_Factory, false );	\
-	className *g_##className##LinkerHack = NULL;
+#define USING_ELEMENT_FACTORY( className )                       \
+    extern DmElementTypeInfo g_C##className##_TypeInfo;            \
+    const DmElementTypeInfo *g_C##className##_PullInModule = &g_C##className##_TypeInfo;
 
 
 //-----------------------------------------------------------------------------
-// Used to instantiate classes in libs from dlls/exes
+// Registers every linked element class with the datamodel and sets their type symbols
 //-----------------------------------------------------------------------------
-#define USING_ELEMENT_FACTORY( className )			\
-	extern C##className *g_##C##className##LinkerHack;		\
-	C##className *g_##C##className##PullInModule = g_##C##className##LinkerHack;
-
-
-//-----------------------------------------------------------------------------
-// Installs dm element factories
-//-----------------------------------------------------------------------------
-void InstallDmElementFactories( );
-
-
+void InstallDmElementFactories();

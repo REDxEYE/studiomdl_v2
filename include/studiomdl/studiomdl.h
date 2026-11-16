@@ -28,6 +28,9 @@
 using StudioName = vstd::FixedString<MAXSTUDIONAME>;
 using StudioPath = vstd::FixedString<MAX_PATH>;
 
+// Per-compile state (studiomdl_global_state.hpp), passed explicitly as the first parameter: StudioMdlState &ctx
+struct StudioMdlState;
+
 struct LodScriptData_t;
 struct s_flexkey_t;
 struct s_flexcontroller_t;
@@ -43,7 +46,7 @@ int KeyValueTextSize(const std::string &pKeyValue);
 
 const char *KeyValueText(const std::string &pKeyValue);
 
-extern void WriteModelFiles();
+extern void WriteModelFiles(StudioMdlState &ctx);
 
 // --------------------------------------------------------------------
 
@@ -54,15 +57,6 @@ struct SurfacePropName_t {
     vstd::FixedString<128> m_pJointName;
     vstd::FixedString<128> m_pSurfaceProp;
 };
-
-//////////////////////////////////////////////////////////////////////////
-// Purpose: contains settings specified in gameinfo.txt
-//////////////////////////////////////////////////////////////////////////
-
-struct GameInfo_t {
-};
-
-extern GameInfo_t g_gameinfo;
 
 // --------------------------------------------------------------------
 
@@ -141,8 +135,8 @@ struct s_bonetable_t {
 };
 
 
-extern int findGlobalBone(const char *name); // finds a named bone in the global bone table
-extern int findGlobalBone(std::string_view name);
+extern int findGlobalBone(StudioMdlState &ctx, const char *name); // finds a named bone in the global bone table
+extern int findGlobalBone(StudioMdlState &ctx, std::string_view name);
 
 struct s_renamebone_t {
     StudioName from;
@@ -150,8 +144,8 @@ struct s_renamebone_t {
 };
 
 
-const char *RenameBone(const char *pName); // returns new name if available, else return pName.
-std::string_view RenameBone(std::string_view name);
+const char *RenameBone(StudioMdlState &ctx, const char *pName); // returns new name if available, else return pName.
+std::string_view RenameBone(StudioMdlState &ctx, std::string_view name);
 
 
 struct s_importbone_t {
@@ -902,7 +896,7 @@ struct s_flexdesc_t {
 };
 
 
-int Add_Flexdesc(const char *name);
+int Add_Flexdesc(StudioMdlState &ctx, const char *name);
 
 
 struct s_flexcontroller_t {
@@ -1147,7 +1141,7 @@ public:
 
     void Copy(s_source_t *pDstSource);
 
-    void CopyFlexKeys(const s_source_t *pOrigSource, s_source_t *newSource, int imodel);
+    void CopyFlexKeys(StudioMdlState &ctx, const s_source_t *pOrigSource, s_source_t *newSource, int imodel);
 };
 
 //-----------------------------------------------------------------------------
@@ -1269,17 +1263,17 @@ struct s_bonesaveframe_t {
 };
 
 
-// Opens a source file (UTF-8 path relative to qdir or a content base path) as g_studiomdl.input.inputFile.
+// Opens a source file (UTF-8 path relative to qdir or a content base path) as ctx.input.inputFile.
 // False if it doesn't exist or can't be read (or when only collecting makefile dependencies).
-bool OpenGlobalFile(std::string_view src);
+bool OpenGlobalFile(StudioMdlState &ctx, std::string_view src);
 
 // The full UTF-8 path of an existing, non-empty source file (same lookup as OpenGlobalFile)
-bool GetGlobalFilePath(std::string_view src, std::string &fullPath);
+bool GetGlobalFilePath(StudioMdlState &ctx, std::string_view src, std::string &fullPath);
 
 
 
-s_source_t *Load_Source(std::string_view filename, const char *ext, bool reverse = false, bool isActiveModel = false,
-                        bool bUseCache = true);
+s_source_t *Load_Source(StudioMdlState &ctx, std::string_view filename, const char *ext, bool reverse = false,
+                        bool isActiveModel = false, bool bUseCache = true);
 
 void ApplyOffsetToSrcVerts(s_source_t *pModel, matrix3x4_t matOffset);
 
@@ -1287,23 +1281,23 @@ void AddSrcToSrc(s_source_t *pOrigSource, s_source_t *pAppendSource, matrix3x4_t
 
 void AddSrcToSrc(s_source_t *pOrigSource, s_source_t *pAppendSource);
 
-int Load_VRM(s_source_t *psource);
+int Load_VRM(StudioMdlState &ctx, s_source_t *psource);
 
-int Load_SMD(s_source_t *psource);
+int Load_SMD(StudioMdlState &ctx, s_source_t *psource);
 
-int Load_VTA(s_source_t *psource);
+int Load_VTA(StudioMdlState &ctx, s_source_t *psource);
 
-int Load_OBJ(s_source_t *psource);
+int Load_OBJ(StudioMdlState &ctx, s_source_t *psource);
 
-int Load_DMX(s_source_t *psource);
+int Load_DMX(StudioMdlState &ctx, s_source_t *psource);
 
-int AppendVTAtoOBJ(s_source_t *psource, char *filename, int frame);
+int AppendVTAtoOBJ(StudioMdlState &ctx, s_source_t *psource, std::string_view filename, int frame);
 
 void Build_Reference(s_source_t *source, std::string_view animName);
 
-int Grab_Nodes(std::array<s_node_t, MAXSTUDIOSRCBONES> &pnodes);
+int Grab_Nodes(StudioMdlState &ctx, std::array<s_node_t, MAXSTUDIOSRCBONES> &pnodes);
 
-void Grab_Animation(s_source_t *psource, const char *pAnimName);
+void Grab_Animation(StudioMdlState &ctx, s_source_t *psource, const char *pAnimName);
 
 // Processes source comment line and extracts information about the data file
 void ProcessSourceComment(s_source_t *psource, const char *pCommentString);
@@ -1321,25 +1315,25 @@ s_sourceanim_t *FindOrAddSourceAnim(s_source_t *pSource, const char *pAnimName);
 void AddFlexKey(s_source_t *pSource, CDmeCombinationOperator *pComboOp, const char *pFlexKeyName);
 
 // Adds combination data to the source
-void AddCombination(s_source_t *pSource, CDmeCombinationOperator *pCombination);
+void AddCombination(StudioMdlState &ctx, s_source_t *pSource, CDmeCombinationOperator *pCombination);
 
-size_t LookupTexture(std::string_view textureName, bool relativePath = false);
+size_t LookupTexture(StudioMdlState &ctx, std::string_view textureName, bool relativePath = false);
 
-size_t UseTextureAsMaterial(size_t textureIndex);
+size_t UseTextureAsMaterial(StudioMdlState &ctx, size_t textureIndex);
 
-int32_t MaterialToTexture(size_t material);
+int32_t MaterialToTexture(StudioMdlState &ctx, size_t material);
 
-int LookupAttachment(const char *name);
+int LookupAttachment(StudioMdlState &ctx, const char *name);
 
 void ClearModel();
 
-void SimplifyModel();
+void SimplifyModel(StudioMdlState &ctx);
 
-void CollapseBones();
+void CollapseBones(StudioMdlState &ctx);
 
 void adjust_vertex(float *org);
 
-void scale_vertex(Vector &org);
+void scale_vertex(StudioMdlState &ctx, Vector &org);
 
 void clip_rotations(RadianEuler &rot);
 
@@ -1347,11 +1341,11 @@ void clip_rotations(Vector &rot);
 
 #define strcpyn(a, b) strncpy( a, b, sizeof( a ) )
 
-void CalcBoneTransforms(s_animation_t *panimation, int frame, matrix3x4_t *pBoneToWorld);
+void CalcBoneTransforms(StudioMdlState &ctx, s_animation_t *panimation, int frame, matrix3x4_t *pBoneToWorld);
 
-void CalcBoneTransforms(s_animation_t *panimation, s_animation_t *pbaseanimation, int frame, matrix3x4_t *pBoneToWorld);
+void CalcBoneTransforms(StudioMdlState &ctx, s_animation_t *panimation, s_animation_t *pbaseanimation, int frame, matrix3x4_t *pBoneToWorld);
 
-void CalcBoneTransformsCycle(s_animation_t *panimation, s_animation_t *pbaseanimation, float flCycle,
+void CalcBoneTransformsCycle(StudioMdlState &ctx, s_animation_t *panimation, s_animation_t *pbaseanimation, float flCycle,
                              matrix3x4_t *pBoneToWorld);
 
 void
@@ -1360,16 +1354,16 @@ BuildRawTransforms(const s_source_t *psource, const char *pAnimationName, int fr
 
 void BuildRawTransforms(const s_source_t *psource, const char *pAnimationName, int frame, matrix3x4_t *boneToWorld);
 
-void TranslateAnimations(const s_source_t *pSource, const matrix3x4_t *pSrcBoneToWorld, matrix3x4_t *pDestBoneToWorld);
+void TranslateAnimations(StudioMdlState &ctx, const s_source_t *pSource, const matrix3x4_t *pSrcBoneToWorld, matrix3x4_t *pDestBoneToWorld);
 
 // Returns surface property for a given joint
-char *GetSurfaceProp(const char *pJointName);
+char *GetSurfaceProp(StudioMdlState &ctx, const char *pJointName);
 
-ContentType GetContents(const char *pJointName);
+ContentType GetContents(StudioMdlState &ctx, const char *pJointName);
 
-char *GetDefaultSurfaceProp();
+char *GetDefaultSurfaceProp(StudioMdlState &ctx);
 
-ContentType GetDefaultContents();
+ContentType GetDefaultContents(StudioMdlState &ctx);
 
 // Did we read 'end'
 bool IsEnd(const char *pLine);
@@ -1377,26 +1371,26 @@ bool IsEnd(const char *pLine);
 class ScriptTokenizer;
 
 // Parses an LOD command
-void Cmd_LOD(ScriptTokenizer &qc, const char *cmdname);
+void Cmd_LOD(StudioMdlState &ctx, ScriptTokenizer &qc, const char *cmdname);
 
-void Cmd_ShadowLOD(ScriptTokenizer &qc);
+void Cmd_ShadowLOD(StudioMdlState &ctx, ScriptTokenizer &qc);
 
 // Get model LOD source
 s_source_t *GetModelLODSource(const char *pModelName,
                               const LodScriptData_t &scriptLOD, bool *pFound);
 
 
-void LoadLODSources();
+void LoadLODSources(StudioMdlState &ctx);
 
-void ConvertBoneTreeCollapsesToReplaceBones();
+void ConvertBoneTreeCollapsesToReplaceBones(StudioMdlState &ctx);
 
-void FixupReplacedBones();
+void FixupReplacedBones(StudioMdlState &ctx);
 
-void UnifyLODs();
+void UnifyLODs(StudioMdlState &ctx);
 
-void SpewBoneUsageStats();
+void SpewBoneUsageStats(StudioMdlState &ctx);
 
-void MarkParentBoneLODs();
+void MarkParentBoneLODs(StudioMdlState &ctx);
 
 //void CheckAutoShareAnimationGroup( const char *animation_name );
 
@@ -1405,7 +1399,7 @@ void MarkParentBoneLODs();
 =================
 */
 
-extern bool GetLineInput();
+extern bool GetLineInput(StudioMdlState &ctx);
 
 
 struct v_unify_t {
@@ -1421,9 +1415,9 @@ struct v_unify_t {
 
 int SortAndBalanceBones(uint32_t count, uint32_t maxCount, std::span<int> bones, std::span<float> weights);
 
-void Grab_Vertexanimation(s_source_t *psource, const char *pAnimationName);
+void Grab_Vertexanimation(StudioMdlState &ctx, s_source_t *psource, const char *pAnimationName);
 
-extern void BuildIndividualMeshes(s_source_t *psource);
+extern void BuildIndividualMeshes(StudioMdlState &ctx, s_source_t *psource);
 
 //-----------------------------------------------------------------------------
 // A little class used to deal with replacement commands
@@ -1479,17 +1473,17 @@ private:
 };
 
 
-void CreateMakefile_AddDependency(const char *pFileName);
+void CreateMakefile_AddDependency(StudioMdlState &ctx, const char *pFileName);
 
-void AddSurfaceProp(const char *pBoneName, const char *pSurfaceProperty);
+void AddSurfaceProp(StudioMdlState &ctx, const char *pBoneName, const char *pSurfaceProperty);
 
-char *FindSurfaceProp(const char *pBoneName);
+char *FindSurfaceProp(StudioMdlState &ctx, const char *pBoneName);
 
 bool ComparePath(const char *a, const char *b);
 
-void SetDefaultSurfaceProp(const char *pSurfaceProperty);
+void SetDefaultSurfaceProp(StudioMdlState &ctx, const char *pSurfaceProperty);
 
-void PostProcessSource(s_source_t *pSource, int imodel);
+void PostProcessSource(StudioMdlState &ctx, s_source_t *pSource, int imodel);
 
 uint8_t IsByte(int val);
 
@@ -1509,9 +1503,6 @@ struct ContentsName_t {
     ContentType m_nContents;
 };
 
-extern ContentType s_nDefaultContents; // in studiomdl.cpp
-extern std::vector<ContentsName_t> s_JointContents; // in studiomdl.cpp
-
 //-----------------------------------------------------------------------------
 //
 //-----------------------------------------------------------------------------
@@ -1523,19 +1514,14 @@ enum EyelidType_t {
 };
 
 
-//-----------------------------------------------------------------------------
-// Used to point to the current s_model_t when loading QcModelElements from DMX
-//-----------------------------------------------------------------------------
-extern s_model_t *g_pCurrentModel;
 
+int LookupPoseParameter(StudioMdlState &ctx, const char *name);
 
-int LookupPoseParameter(const char *name);
+void ProcessModelName(StudioMdlState &ctx, std::string_view modelName);
 
-void ProcessModelName(std::string_view modelName);
+s_animation_t *LookupAnimation(StudioMdlState &ctx, const char *name);
 
-s_animation_t *LookupAnimation(const char *name);
-
-int LookupXNode(const char *name);
+int LookupXNode(StudioMdlState &ctx, const char *name);
 
 enum FlexOptimizeMode_t : int {
     FLEXOPT_OFF,

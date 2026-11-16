@@ -1119,7 +1119,7 @@ inline CDmaString &CDmaString::operator=(const char *src) {
     return *this;
 }
 
-inline const CDmaString &CDmaString::operator=(const CDmaString &src) {
+inline CDmaString &CDmaString::operator=(const CDmaString &src) {
     Set(src.Get());
     return *this;
 }

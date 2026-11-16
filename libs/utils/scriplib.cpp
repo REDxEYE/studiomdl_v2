@@ -88,7 +88,12 @@ static bool EqualsNoCase(std::string_view a, std::string_view b) {
     return a.size() == b.size() && (a.empty() || !V_strnicmp(a.data(), b.data(), a.size()));
 }
 
-ScriptTokenizer::ScriptTokenizer() = default;
+// Used when the tokenizer was given no content roots: files are opened by their plain name.
+static const CmdLibContentPaths s_noContentPaths;
+
+ScriptTokenizer::ScriptTokenizer(std::string qdir, const CmdLibContentPaths *pContent)
+    : m_qdir(std::move(qdir)), m_pContent(pContent ? pContent : &s_noContentPaths) {
+}
 
 ScriptTokenizer::~ScriptTokenizer() = default;
 
@@ -143,9 +148,9 @@ AddScriptToStack
 ==============
 */
 void ScriptTokenizer::AddScriptToStack(const std::string_view filename, ScriptPathMode_t pathMode) {
-    std::string path = pathMode == SCRIPT_USE_RELATIVE_PATH ? std::string(filename) : std::string(ExpandPath(filename));
+    std::string path = pathMode == SCRIPT_USE_RELATIVE_PATH ? std::string(filename) : ExpandPath(m_qdir, filename);
 
-    const auto buffer = ::LoadFile(path);
+    const auto buffer = ::LoadFile(*m_pContent, path);
 
     const std::string includedFrom = m_stack.empty() ? std::string() : Current().filename;
     const int includeLine = m_stack.empty() ? 0 : Current().line;

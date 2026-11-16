@@ -17,6 +17,7 @@
 #include <vector>
 
 struct s_mesh_t;
+struct StudioMdlState;
 
 #define MAX_EXTRA_COLLISION_MODELS 24
 
@@ -30,15 +31,18 @@ struct extramodel_t
 class CCollisionModelSource
 {
 public:
+	explicit CCollisionModelSource( StudioMdlState &ctx ) : m_ctx( ctx ) {}
+
+	StudioMdlState			&m_ctx;
 	struct s_source_t		*m_pModel;
 	extramodel_t			m_ExtraModels[MAX_EXTRA_COLLISION_MODELS+1];
-	bool					m_isJointed;
-	bool					m_bAssumeWorldspace; // assume the model is already declared in worldspace, regardless of bone names
+	bool					m_isJointed = false;
+	bool					m_bAssumeWorldspace = false; // assume the model is already declared in worldspace, regardless of bone names
 	bool					m_allowConcave;
 	int						m_maxConvex;
 	char *					m_pOverrideName;
 	std::vector<int>			m_bonemap/*[MAXSTUDIOSRCBONES]*/;
-	char					m_rootName[128];
+	char					m_rootName[128]{};
 	bool					m_allowConcaveJoints;
 	bool					m_bRootCollisionIsEmpty;
 public:

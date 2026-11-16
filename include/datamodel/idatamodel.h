@@ -20,7 +20,6 @@ class CDmAttribute;
 class CDmElement;
 class IDmeOperator;
 class IElementForKeyValueCallback;
-class CDmElementFactoryHelper;
 
 struct DmValueBase_t;
 class CUtlBuffer;
@@ -91,14 +90,6 @@ public:
 };
 
 
-
-class IDmeElementCreated
-{
-	public:
-		virtual void OnElementCreated( CDmElement *pElement ) = 0;
-};
-
-
 //-----------------------------------------------------------------------------
 // Main interface
 //-----------------------------------------------------------------------------
@@ -123,21 +114,6 @@ public:
 	virtual void SetSortKey( int key ) = 0;
 	virtual int GetSortKey() const = 0;
 };
-
-//-----------------------------------------------------------------------------
-// Class factory methods: 
-//-----------------------------------------------------------------------------
-class IDmElementFactory
-{
-public:
-	// Creation, destruction
-	virtual CDmElement* Create( DmElementHandle_t handle, const char *pElementType, const char *pElementName, DmFileId_t fileid, const DmObjectId_t &id ) = 0;
-	virtual void Destroy( DmElementHandle_t hElement ) = 0;
-	virtual void AddOnElementCreatedCallback( IDmeElementCreated *callback ) = 0;
-	virtual void RemoveOnElementCreatedCallback( IDmeElementCreated *callback ) = 0;
-	virtual void OnElementCreated( CDmElement* pElement ) = 0;
-};
-
 
 //-----------------------------------------------------------------------------
 // Various serialization methods can be installed into the data model factory 
@@ -270,13 +246,6 @@ public:
 	// Called by the application at startup/exit (InitDataModel/ShutdownDataModel)
 	virtual bool			Init() = 0;
 	virtual void			Shutdown() = 0;
-
-	// Installs factories used to instance elements
-	virtual void			AddElementFactory( CDmElementFactoryHelper *pFactoryHelper ) = 0;
-	virtual CDmElementFactoryHelper	*GetElementFactoryHelper( const char *pClassName ) = 0;
-
-	// This factory will be used to instance all elements whose type name isn't found.
-	virtual void			SetDefaultElementFactory( IDmElementFactory *pFactory ) = 0;
 
 	// create/destroy element methods - proxies to installed element factories
 	virtual DmElementHandle_t	CreateElement( CUtlSymbolLarge typeSymbol, const char *pElementName, DmFileId_t fileid, const DmObjectId_t *pObjectID = nullptr) = 0;
@@ -411,8 +380,6 @@ public:
 	virtual void PushNotificationScope( const char *pReason, int nNotifySource, int nNotifyFlags ) = 0;
 	virtual void PopNotificationScope( bool bAbort = false ) = 0;
 
-	virtual bool HasElementFactory( const char *pElementType ) const = 0;
-
 	// Displays memory stats to the console (passing in invalid handle causes memory for all elements to be estimated, otherwise it's only
 	//  the element and it's recursive children)
 	virtual void DisplayMemoryStats( DmElementHandle_t hElement = DMELEMENT_HANDLE_INVALID ) = 0;
@@ -422,9 +389,6 @@ public:
 
 	// Dump the symbol table to the console
 	virtual void DumpSymbolTable() = 0;
-	
-	virtual void AddOnElementCreatedCallback( const char *pElementType, IDmeElementCreated *callback ) = 0;
-	virtual void RemoveOnElementCreatedCallback( const char *pElementType, IDmeElementCreated *callback ) = 0;
 };
 
 

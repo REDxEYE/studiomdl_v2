@@ -242,7 +242,6 @@ private:
 	static constexpr DmAttributeType_t ATTRIBUTE_TYPE = AT_TYPE_INVALID;
 
 	using StorageType_t = T;
-	friend class CDmxAttribute;
 
 	static DmAttributeType_t AttributeType()
 	{

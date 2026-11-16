@@ -78,9 +78,9 @@ int main(int argc, char** argv) {
 //-----------------------------------------------------------------------------
 // Purpose: search through the "GamePath" key and create a mirrored version in the content path searches
 //-----------------------------------------------------------------------------
-void AddContentPaths() {
+void AddContentPaths(StudioMdlState &ctx) {
     // look for the "content" in the path to the initial QC file
-    const std::string_view qdir = g_studiomdl.paths.qdir;
+    const std::string_view qdir = ctx.paths.qdir;
     constexpr std::string_view match = "content\\";
     const size_t contentPos = qdir.find(match);
     if (contentPos == std::string_view::npos)
@@ -97,7 +97,7 @@ void AddContentPaths() {
     std::string paths(g_pFullFileSystem->GetSearchPath(IBaseFileSystem::PathID::Game, false, nullptr, 0), '\0');
     g_pFullFileSystem->GetSearchPath(IBaseFileSystem::PathID::Game, false, paths.data(), static_cast<int>(paths.size()));
     paths.resize(std::strlen(paths.c_str()));
-    if (!g_studiomdl.options.quiet)
+    if (!ctx.options.quiet)
         std::print("all paths:{}\n", paths);
 
     // pull out the game names and insert them into a content path string
@@ -111,31 +111,22 @@ void AddContentPaths() {
         std::string contentPath(pre);
         contentPath.append(paths, nameStart, nameEnd - nameStart);
         contentPath += post;
-        CmdLib_AddBasePath(contentPath.c_str());
-        if (!g_studiomdl.options.quiet)
+        CmdLib_AddBasePath(ctx.paths.content, contentPath);
+        if (!ctx.options.quiet)
             std::print("content:{}\n", contentPath);
         gamePos = nameEnd;
     }
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: parses the game info file to retrieve relevant settings
+// Purpose: parses the game info file (no settings are taken from it)
 //-----------------------------------------------------------------------------
-struct GameInfo_t g_gameinfo;
-
-void ParseGameInfo() {
-    bool bParsed = false;
-
+static void ParseGameInfo() {
     auto* pKeyValues = new KeyValues("gameinfo.txt");
-    if (g_pFileSystem && pKeyValues->LoadFromFile(g_pFileSystem, "gameinfo.txt")) {
-        bParsed = true;
+    if (g_pFileSystem) {
+        pKeyValues->LoadFromFile(g_pFileSystem, "gameinfo.txt");
     }
     pKeyValues->deleteThis();
-
-    if (!bParsed) {
-        GameInfo_t gameinfoDefault{};
-        g_gameinfo = gameinfoDefault;
-    }
 }
 
 /*
@@ -143,7 +134,7 @@ void ParseGameInfo() {
 ParseScript
 ===============
 */
-static void ParseScript(ScriptTokenizer &qc) {
+static void ParseScript(StudioMdlState &ctx, ScriptTokenizer &qc) {
     vstd::FunctionTimingRecorder _("Parse");
     while (qc.GetToken(true)) {
         // Check all the commands we know about.
@@ -152,10 +143,10 @@ static void ParseScript(ScriptTokenizer &qc) {
             if (!vstd::iequals(g_Commands[i].m_pName, qc.token))
                 continue;
 
-            g_Commands[i].m_pCmd(qc);
+            g_Commands[i].m_pCmd(ctx, qc);
             break;
         }
-        if (i == g_nMDLCommandCount && !g_studiomdl.options.createMakefile) {
+        if (i == g_nMDLCommandCount && !ctx.options.createMakefile) {
             qc.Error("bad command {}", qc.token);
         }
     }
@@ -166,11 +157,11 @@ static void ParseScript(ScriptTokenizer &qc) {
 // Without a root "mdlPath" the output name is the .mpp's directory under <game>/models (content mapped to
 // game; a trailing "preprocess"/".preprocess" directory is skipped), as in Valve's mdlcompile.
 //-----------------------------------------------------------------------------
-static bool ParsePreprocessedFile(const std::string &fullPath) {
-    if (!LoadPreprocessedFile(fullPath.c_str(), 1.0f))
+static bool ParsePreprocessedFile(StudioMdlState &ctx, const std::string &fullPath) {
+    if (!LoadPreprocessedFile(ctx, fullPath.c_str(), 1.0f))
         return false;
 
-    if (g_studiomdl.paths.hasModelName)
+    if (ctx.paths.hasModelName)
         return true;
 
     char modPath[4096] = {};
@@ -196,7 +187,7 @@ static bool ParsePreprocessedFile(const std::string &fullPath) {
         outputName = relativeName.substr(7);
     }
     vstd::paths::set_extension(outputName, ".mdl");
-    ProcessModelName(outputName.c_str());
+    ProcessModelName(ctx, outputName.c_str());
     return true;
 }
 
@@ -247,7 +238,7 @@ bool HandlePrintSurfaceProps(int &returnValue) {
 
 // Used by the modelstats.pl script.
 // They specify the .mdl file and it prints out perf info.
-bool HandleMdlReport(int &returnValue) {
+bool HandleMdlReport(StudioMdlState &ctx, int &returnValue) {
     const auto filename = CommandLine()->ParmValue("-mdlreport");
     if (filename.has_value()) {
         std::vector<char> buf;
@@ -270,7 +261,7 @@ bool HandleMdlReport(int &returnValue) {
                 if (!CommandLine()->FindParm("-mdlreportspreadsheet").has_value()) {
                     flags |= SPEWPERFSTATS_SPREADSHEET;
                 }
-                SpewPerfStats(pHdr, *filename, flags);
+                SpewPerfStats(ctx, pHdr, *filename, flags);
 
                 returnValue = 0;
             }
@@ -292,29 +283,29 @@ bool HandleMdlReport(int &returnValue) {
     }
 }
 
-void CreateMakefile_OutputMakefile() {
-    if (!g_studiomdl.paths.hasModelName) {
+void CreateMakefile_OutputMakefile(StudioMdlState &ctx) {
+    if (!ctx.paths.hasModelName) {
         MdlError("Can't write makefile since a target mdl hasn't been specified!");
     }
     FILE* fp = fopen("makefile.tmp", "a");
     if (!fp) {
         MdlError("can't open makefile.tmp!\n");
     }
-    const std::string mdlname = OutputModelPath(".mdl");
+    const std::string mdlname = OutputModelPath(ctx, ".mdl");
 
     std::print(fp, "{}:", mdlname);
-    for (const std::string &dependency: g_studiomdl.paths.CreateMakefileDependencies) {
+    for (const std::string &dependency: ctx.paths.CreateMakefileDependencies) {
         std::print(fp, " {}", dependency);
     }
     std::print(fp, "\n");
     std::print(fp, "\tmkdir \"{}\"\n", std::string(vstd::paths::parent(mdlname)));
-    std::print(fp, "\t{} -quiet {}\n\n", CommandLine()->GetParm(0).value(), g_studiomdl.paths.fullpath);
+    std::print(fp, "\t{} -quiet {}\n\n", CommandLine()->GetParm(0).value(), ctx.paths.fullpath);
     fclose(fp);
 }
 
-void ClampMaxVerticesPerModel(s_source_t* pOrigSource) {
+void ClampMaxVerticesPerModel(StudioMdlState &ctx, s_source_t* pOrigSource) {
     // check for overage
-    if (pOrigSource->numvertices < g_studiomdl.options.maxVertexLimit)
+    if (pOrigSource->numvertices < ctx.options.maxVertexLimit)
         return;
 
     MdlWarning("model has too many verts, cutting into multiple models\n");
@@ -328,9 +319,9 @@ void ClampMaxVerticesPerModel(s_source_t* pOrigSource) {
     // put into the first pieces and the static faces into pieces of their own, which then carry no flex data.
     // Without it there is one pass over all faces, in source order.
     std::vector<bool> moving;
-    bool bSortByFlex = FlexOptimizeIsActive() && !pOrigSource->m_FlexKeys.empty();
+    bool bSortByFlex = FlexOptimizeIsActive(ctx) && !pOrigSource->m_FlexKeys.empty();
     if (bSortByFlex)
-        moving = FlexOptimizeMovingVertices(pOrigSource);
+        moving = FlexOptimizeMovingVertices(ctx, pOrigSource);
 
     auto isMovingFace = [&](const s_mesh_t* pMesh, const s_face_t &face) {
         const uint32_t base = pMesh->vertexoffset;
@@ -373,7 +364,7 @@ void ClampMaxVerticesPerModel(s_source_t* pOrigSource) {
                 if (bSortByFlex && isMovingFace(pOrigMesh, origFace) != bMovingPass)
                     continue;
                 int nVertsInFace = (origFace.d == 0) ? 3 : 4;
-                if ((std::ssize(newSource[ns].m_vertex) + nVertsInFace) > g_studiomdl.options.maxVertexClamp) {
+                if ((std::ssize(newSource[ns].m_vertex) + nVertsInFace) > ctx.options.maxVertexClamp) {
                     // go to the next model
                     ns = std::ssize(newSource);
                     newSource.emplace_back().Init(pOrigSource->numvertices, pOrigSource);
@@ -417,9 +408,9 @@ void ClampMaxVerticesPerModel(s_source_t* pOrigSource) {
     // Name of what was split, so the pieces can be told apart: the model using the source, or the source file
     char szOrigName[MAXSTUDIONAME];
     Q_FileBase(pOrigSource->filename.c_str(), szOrigName, sizeof(szOrigName));
-    for (int i = 0; i < std::ssize(g_studiomdl.body.model); i++) {
-        if (g_studiomdl.body.model[i]->source == pOrigSource && g_studiomdl.body.model[i]->name[0]) {
-            Q_FileBase(g_studiomdl.body.model[i]->name, szOrigName, sizeof(szOrigName));
+    for (int i = 0; i < std::ssize(ctx.body.model); i++) {
+        if (ctx.body.model[i]->source == pOrigSource && ctx.body.model[i]->name[0]) {
+            Q_FileBase(ctx.body.model[i]->name, szOrigName, sizeof(szOrigName));
             break;
         }
     }
@@ -432,7 +423,7 @@ void ClampMaxVerticesPerModel(s_source_t* pOrigSource) {
     for (size_t n = 1; n < newSource.size(); n++) {
         // create a new internal "source"
         s_source_t* pSource = c_allocate<s_source_t>();
-        g_studiomdl.anim.sources.emplace_back(pSource);
+        ctx.anim.sources.emplace_back(pSource);
 
         // copy all the members, in order
         pSource->filename = pOrigSource->filename;
@@ -474,62 +465,62 @@ void ClampMaxVerticesPerModel(s_source_t* pOrigSource) {
         pModel->source = pSource;
         pModel->name.format("{}_cmodel{}", szOrigName, n);
         pModel->filename = std::string(szOrigName) + "_cmesh" + std::to_string(n);
-        const int imodel = g_studiomdl.body.AddModel(pModel);
+        const int imodel = ctx.body.AddModel(pModel);
 
         // make it a new bodypart
-        s_bodypart_t &bodypart = g_studiomdl.body.AddBodyPart();
+        s_bodypart_t &bodypart = ctx.body.AddBodyPart();
         bodypart.name.format("{}_clamped{}", szOrigName, n);
         bodypart.pmodel.push_back(pModel);
 
         // finally, copy flex keys
-        newSource[n].CopyFlexKeys(pOrigSource, pSource, imodel);
+        newSource[n].CopyFlexKeys(ctx, pOrigSource, pSource, imodel);
 
         // NOTE: we leave attachments on the first sub-model, we don't want to duplicate those
     }
 }
 
-void SetSkinValues() {
+void SetSkinValues(StudioMdlState &ctx) {
     int i, j;
     int index;
 
     // Check all textures to see if we have relative paths specified
-    for (i = 0; i < g_studiomdl.materials.textures.size(); i++) {
-        if (g_studiomdl.materials.textures[i].flags & RELATIVE_TEXTURE_PATH_SPECIFIED) {
+    for (i = 0; i < ctx.materials.textures.size(); i++) {
+        if (ctx.materials.textures[i].flags & RELATIVE_TEXTURE_PATH_SPECIFIED) {
             // Add an empty path to prepend if anything specifies a relative path
-            g_studiomdl.materials.cdtextures.emplace_back();
+            ctx.materials.cdtextures.emplace_back();
             break;
         }
     }
 
-    if (g_studiomdl.materials.cdtextures.size() == 0) {
+    if (ctx.materials.cdtextures.size() == 0) {
         // the QC directory from "models" on, else models/<model name>/
         std::string name;
-        const size_t models = vstd::ifind(g_studiomdl.paths.fullpath, "models");
+        const size_t models = vstd::ifind(ctx.paths.fullpath, "models");
         if (models != std::string::npos) {
-            name = vstd::paths::parent(std::string_view(g_studiomdl.paths.fullpath).substr(models));
+            name = vstd::paths::parent(std::string_view(ctx.paths.fullpath).substr(models));
         }
         else {
             name = "models/";
-            name += vstd::paths::without_extension(g_studiomdl.paths.outname.view());
+            name += vstd::paths::without_extension(ctx.paths.outname.view());
         }
         name += '/';
-        g_studiomdl.materials.cdtextures.emplace_back(strdup(name.c_str()));
+        ctx.materials.cdtextures.emplace_back(strdup(name.c_str()));
     }
 
-    for (i = 0; i < g_studiomdl.materials.textures.size(); i++) {
+    for (i = 0; i < ctx.materials.textures.size(); i++) {
         char szName[256];
-        Q_StripExtension(g_studiomdl.materials.textures[i].name, szName, sizeof(szName));
-        Q_strncpy(g_studiomdl.materials.textures[i].name, szName, sizeof(g_studiomdl.materials.textures[i].name));
+        Q_StripExtension(ctx.materials.textures[i].name, szName, sizeof(szName));
+        Q_strncpy(ctx.materials.textures[i].name, szName, sizeof(ctx.materials.textures[i].name));
     }
 
     // build the skin families: one row per family, mapping every material of family 0 to the family's own;
     // only the first texture group is used
-    auto &skinref = g_studiomdl.materials.skinref;
-    const auto &groups = g_studiomdl.materials.texturegroups;
+    auto &skinref = ctx.materials.skinref;
+    const auto &groups = ctx.materials.texturegroups;
     const size_t numFamilies = groups.empty() || groups[0].empty() ? 1 : groups[0].size();
     skinref.clear();
     for (size_t family = 0; family < numFamilies; family++) {
-        auto &row = skinref.emplace_back(g_studiomdl.materials.textures.size());
+        auto &row = skinref.emplace_back(ctx.materials.textures.size());
         std::iota(row.begin(), row.end(), 0);
     }
     if (!groups.empty() && !groups[0].empty()) {
@@ -542,7 +533,7 @@ void SetSkinValues() {
         }
     }
 
-    FlexOptimizeFixupSkinFamilies();
+    FlexOptimizeFixupSkinFamilies(ctx);
 
     // printf ("width: %i  height: %i\n",width, height);
     /*
@@ -554,14 +545,14 @@ void SetSkinValues() {
 //-----------------------------------------------------------------------------
 // Returns surface property for a given joint
 //-----------------------------------------------------------------------------
-void ConsistencyCheckSurfaceProp() {
-    for (int i = std::ssize(g_studiomdl.materials.JointSurfaceProp); --i >= 0;) {
-        int j = findGlobalBone(g_studiomdl.materials.JointSurfaceProp[i].m_pJointName);
+void ConsistencyCheckSurfaceProp(StudioMdlState &ctx) {
+    for (int i = std::ssize(ctx.materials.JointSurfaceProp); --i >= 0;) {
+        int j = findGlobalBone(ctx, ctx.materials.JointSurfaceProp[i].m_pJointName);
 
         if (j < 0) {
             MdlWarning("You specified a joint surface property for joint\n"
                        "    \"{}\" which either doesn't exist or was optimized out.\n",
-                       g_studiomdl.materials.JointSurfaceProp[i].m_pJointName);
+                       ctx.materials.JointSurfaceProp[i].m_pJointName);
         }
     }
 }
@@ -569,14 +560,14 @@ void ConsistencyCheckSurfaceProp() {
 //-----------------------------------------------------------------------------
 // Checks specified contents
 //-----------------------------------------------------------------------------
-void ConsistencyCheckContents() {
-    for (int i = std::ssize(s_JointContents); --i >= 0;) {
-        int j = findGlobalBone(s_JointContents[i].m_pJointName);
+void ConsistencyCheckContents(StudioMdlState &ctx) {
+    for (int i = std::ssize(ctx.core.jointContents); --i >= 0;) {
+        int j = findGlobalBone(ctx, ctx.core.jointContents[i].m_pJointName);
 
         if (j < 0) {
             MdlWarning("You specified a joint contents for joint\n"
                        "    \"{}\" which either doesn't exist or was optimized out.\n",
-                       g_studiomdl.materials.JointSurfaceProp[i].m_pJointName);
+                       ctx.materials.JointSurfaceProp[i].m_pJointName);
         }
     }
 }
@@ -633,26 +624,27 @@ void UsageAndExit() {
 // The application object
 //-----------------------------------------------------------------------------
 int CStudioMDLApp::Main() {
+    StudioMdlState &ctx = *m_pState;
     {
         vstd::FunctionTimingRecorder _("main");
         // This bit of hackery allows us to access files on the harddrive
         g_pFullFileSystem->AddSearchPath("", IBaseFileSystem::PathID::Local, PATH_ADD_TO_HEAD);
 
         int nReturnValue;
-        if (HandleMdlReport(nReturnValue))
+        if (HandleMdlReport(ctx, nReturnValue))
             return false;
 
-        AddContentPaths();
+        AddContentPaths(ctx);
 
         ParseGameInfo();
 
-        if (!g_studiomdl.options.quiet) {
-            std::print("qdir:    \"{}\"\n", g_studiomdl.paths.qdir);
-            std::print("gamedir: \"{}\"\n", g_studiomdl.paths.gameDir);
-            std::print("g_path:  \"{}\"\n", g_studiomdl.paths.qcPath);
+        if (!ctx.options.quiet) {
+            std::print("qdir:    \"{}\"\n", ctx.paths.qdir);
+            std::print("gamedir: \"{}\"\n", ctx.paths.gameDir);
+            std::print("g_path:  \"{}\"\n", ctx.paths.qcPath);
         }
 
-        const std::string ext(vstd::paths::extension(g_studiomdl.paths.qcPath));
+        const std::string ext(vstd::paths::extension(ctx.paths.qcPath));
         // .mpp: DMX model description instead of a QC (Valve's mdlcompile input)
         const bool bPreprocessed = vstd::iequals(ext, "mpp");
 
@@ -662,24 +654,24 @@ int CStudioMDLApp::Main() {
             return 1;
         }
 
-        if (!g_studiomdl.options.quiet)
+        if (!ctx.options.quiet)
             std::print("Building binary model files...\n");
 
         // the input is read from qdir (its directory)
-        g_studiomdl.paths.qcPath = vstd::paths::file_base(g_studiomdl.paths.qcPath);
-        vstd::paths::default_extension(g_studiomdl.paths.qcPath, bPreprocessed ? ".mpp" : SRC_FILE_EXT);
+        ctx.paths.qcPath = vstd::paths::file_base(ctx.paths.qcPath);
+        vstd::paths::default_extension(ctx.paths.qcPath, bPreprocessed ? ".mpp" : SRC_FILE_EXT);
 
-        if (!g_studiomdl.options.quiet) {
-            std::print("Working on \"{}\"\n", g_studiomdl.paths.qcPath);
+        if (!ctx.options.quiet) {
+            std::print("Working on \"{}\"\n", ctx.paths.qcPath);
         }
 
-        g_studiomdl.paths.fullpath = ExpandArg(ExpandPath(g_studiomdl.paths.qcPath));
+        ctx.paths.fullpath = ExpandArg(ExpandPath(ctx.paths.qdir, ctx.paths.qcPath));
 
         // default to having one entry in the LOD list that doesn't do anything so
         // that we don't have to do any special cases for the first LOD.
-        g_studiomdl.body.ScriptLODs.clear();
-        g_studiomdl.body.ScriptLODs.emplace_back(); // add an empty one
-        g_studiomdl.body.ScriptLODs[0].switchValue = 0.0f;
+        ctx.body.ScriptLODs.clear();
+        ctx.body.ScriptLODs.emplace_back(); // add an empty one
+        ctx.body.ScriptLODs[0].switchValue = 0.0f;
 
         //
         // parse it
@@ -688,58 +680,58 @@ int CStudioMDLApp::Main() {
 
         //	strcpy( g_pPlatformName, "" );
         if (bPreprocessed) {
-            if (!ParsePreprocessedFile(g_studiomdl.paths.fullpath)) {
-                MdlError("Invalid MPP File: {}\n", g_studiomdl.paths.qcPath);
+            if (!ParsePreprocessedFile(ctx, ctx.paths.fullpath)) {
+                MdlError("Invalid MPP File: {}\n", ctx.paths.qcPath);
                 return 1;
             }
         }
         else {
-            ScriptTokenizer qc;
+            ScriptTokenizer qc(ctx.paths.qdir, &ctx.paths.content);
             InstallMdlErrorHandler(qc);
-            qc.LoadFile(g_studiomdl.paths.qcPath.c_str());
-            ParseScript(qc);
+            qc.LoadFile(ctx.paths.qcPath.c_str());
+            ParseScript(ctx, qc);
         }
 
-        if (!g_studiomdl.options.createMakefile) {
-            FlexOptimizeSources();
+        if (!ctx.options.createMakefile) {
+            FlexOptimizeSources(ctx);
 
-            size_t count = g_studiomdl.anim.sources.size();
+            size_t count = ctx.anim.sources.size();
             for (int i = 0; i < count; i++) {
-                if (g_studiomdl.anim.sources[i]->isActiveModel) {
-                    ClampMaxVerticesPerModel(g_studiomdl.anim.sources[i]);
+                if (ctx.anim.sources[i]->isActiveModel) {
+                    ClampMaxVerticesPerModel(ctx, ctx.anim.sources[i]);
                 }
             }
 
-            SetSkinValues();
+            SetSkinValues(ctx);
 
-            SimplifyModel();
+            SimplifyModel(ctx);
 
-            CheckFlexCacheBudget();
+            CheckFlexCacheBudget(ctx);
 
-            ConsistencyCheckSurfaceProp();
-            ConsistencyCheckContents();
+            ConsistencyCheckSurfaceProp(ctx);
+            ConsistencyCheckContents(ctx);
 
-            WriteModelFiles();
-            CollisionModel_Build();
-            CollisionModel_Write(g_studiomdl.header.checksum);
+            WriteModelFiles(ctx);
+            CollisionModel_Build(ctx);
+            CollisionModel_Write(ctx, ctx.header.checksum);
         }
 
-        if (g_studiomdl.options.createMakefile) {
-            CreateMakefile_OutputMakefile();
+        if (ctx.options.createMakefile) {
+            CreateMakefile_OutputMakefile(ctx);
         }
 
-        if (!g_studiomdl.options.quiet) {
-            std::print("\nCompleted \"{}\"\n", g_studiomdl.paths.qcPath);
+        if (!ctx.options.quiet) {
+            std::print("\nCompleted \"{}\"\n", ctx.paths.qcPath);
         }
 
-        if (g_studiomdl.options.parseable_completion_output) {
+        if (ctx.options.parseable_completion_output) {
             std::print("\nRESULT: SUCCESS\n");
         }
 
         g_pDataModel->UnloadFile(DMFILEID_INVALID);
     }
 
-    if (g_studiomdl.options.perf) {
+    if (ctx.options.perf) {
         vstd::print_function_timings();
     }
 
@@ -750,6 +742,10 @@ int CStudioMDLApp::Main() {
 // The application object
 //-----------------------------------------------------------------------------
 bool CStudioMDLApp::Create() {
+    // The compile state and its diagnostics scope live until Destroy()
+    m_pState = std::make_unique<StudioMdlState>();
+    m_pDiagnostics = std::make_unique<ScopedMdlDiagnostics>(*m_pState);
+
     // Ensure that cmdlib spew function & associated state is initialized
     InstallSpewFunction();
     // Override the cmdlib spew function
@@ -770,7 +766,7 @@ bool CStudioMDLApp::Create() {
     if (HandlePrintSurfaceProps(nReturnValue))
         return false;
 
-    if (!ParseArguments())
+    if (!ParseArguments(*m_pState))
         return false;
 
 
@@ -787,6 +783,8 @@ void CStudioMDLApp::Shutdown() {
 
 void CStudioMDLApp::Destroy() {
     LoggingSystem_PopLoggingState();
+    m_pDiagnostics.reset();
+    m_pState.reset();
 }
 
 // Absolute, normalized, native separators, with a trailing separator
@@ -799,23 +797,24 @@ static std::string AbsoluteDirectory(const std::filesystem::path &path) {
 }
 
 // Sets qdir from the QC path and gameDir from the gameinfo.txt directory
-static void SetupStandardDirectories(const char* pQCPath, const std::string_view pGameInfoPath) {
+static void SetupStandardDirectories(StudioMdlState &ctx, const char* pQCPath, const std::string_view pGameInfoPath) {
     std::error_code ec;
     const std::filesystem::path qc = std::filesystem::absolute(vstd::paths::to_fs(pQCPath), ec).lexically_normal();
-    g_studiomdl.paths.qdir = AbsoluteDirectory(qc.parent_path());
+    ctx.paths.qdir = AbsoluteDirectory(qc.parent_path());
 #if !(PLATFORM_LINUX)
-    vstd::make_lower_ascii(g_studiomdl.paths.qdir);
+    vstd::make_lower_ascii(ctx.paths.qdir);
 #endif
-    g_studiomdl.paths.gameDir = AbsoluteDirectory(vstd::paths::to_fs(pGameInfoPath));
+    ctx.paths.gameDir = AbsoluteDirectory(vstd::paths::to_fs(pGameInfoPath));
 }
 
 bool CStudioMDLApp::PreInit() {
+    StudioMdlState &ctx = *m_pState;
     g_pFileSystem = g_pFullFileSystem;
 
-    if (!SetupSearchPaths(g_studiomdl.paths.qcPath.c_str(), false, true))
+    if (!SetupSearchPaths(ctx.paths.qcPath.c_str(), false, true))
         return false;
 
-    SetupStandardDirectories(g_studiomdl.paths.qcPath.c_str(), GetGameInfoPath());
+    SetupStandardDirectories(ctx, ctx.paths.qcPath.c_str(), GetGameInfoPath());
     return true;
 }
 
@@ -848,33 +847,33 @@ static bool ParseFitWeightsPoses(const std::string_view text, int &fitPoses, int
 //-----------------------------------------------------------------------------
 // Method which parses arguments
 //-----------------------------------------------------------------------------
-bool CStudioMDLApp::ParseArguments() {
-    g_studiomdl.script.currentscale = g_studiomdl.script.defaultscale = 1.0;
-    g_studiomdl.script.defaultrotation = RadianEuler(0, 0, std::numbers::pi / 2);
+bool CStudioMDLApp::ParseArguments(StudioMdlState &ctx) {
+    ctx.script.currentscale = ctx.script.defaultscale = 1.0;
+    ctx.script.defaultrotation = RadianEuler(0, 0, std::numbers::pi / 2);
 
     // weightlist [0] is the default one ($defaultweightlist)
-    g_studiomdl.anim.weightlist.resize(1);
+    ctx.anim.weightlist.resize(1);
 
-    g_studiomdl.header.eyeposition = Vector(0, 0, 0);
-    g_studiomdl.header.gflags = 0;
+    ctx.header.eyeposition = Vector(0, 0, 0);
+    ctx.header.gflags = 0;
 
-    g_studiomdl.options.normal_blend = std::cos(vstd::deg2rad(2.0f));
+    ctx.options.normal_blend = std::cos(vstd::deg2rad(2.0f));
 
-    g_studiomdl.options.gamma = 2.2;
+    ctx.options.gamma = 2.2;
 
-    g_studiomdl.header.staticprop = false;
-    g_studiomdl.header.centerstaticprop = false;
+    ctx.header.staticprop = false;
+    ctx.header.centerstaticprop = false;
 
-    g_studiomdl.options.realignbones = false;
-    g_studiomdl.header.constdirectionalightdot = 0;
+    ctx.options.realignbones = false;
+    ctx.header.constdirectionalightdot = 0;
 
-    g_bDumpGLViewFiles = false;
-    g_studiomdl.options.quiet = false;
+    ctx.write.dumpGLViewFiles = false;
+    ctx.options.quiet = false;
 
-    g_studiomdl.header.illumpositionattachment = 0;
-    g_studiomdl.header.flMaxEyeDeflection = 0.0f;
+    ctx.header.illumpositionattachment = 0;
+    ctx.header.flMaxEyeDeflection = 0.0f;
 
-    g_studiomdl.options.collapse_bones_message = false;
+    ctx.options.collapse_bones_message = false;
 
     const uint32_t argc = CommandLine()->ParmCount();
     int i;
@@ -888,13 +887,13 @@ bool CStudioMDLApp::ParseArguments() {
             continue;
 
         if (vstd::iequals(argValue, "-collapsereport")) {
-            g_studiomdl.options.collapse_bones_message = true;
+            ctx.options.collapse_bones_message = true;
             continue;
         }
 
         if (vstd::iequals(argValue, "-parsecompletion")) {
             // reliably prints output we can parse for automatically
-            g_studiomdl.options.parseable_completion_output = true;
+            ctx.options.parseable_completion_output = true;
             continue;
         }
 
@@ -914,51 +913,51 @@ bool CStudioMDLApp::ParseArguments() {
         }
 
         if (vstd::iequals(argValue, "-overridedefinebones")) {
-            g_studiomdl.options.defineBonesLockedByDefault = false;
+            ctx.options.defineBonesLockedByDefault = false;
             continue;
         }
 
         if (vstd::iequals(argValue, "-striplods")) {
-            g_studiomdl.options.stripLods = true;
+            ctx.options.stripLods = true;
             continue;
         }
 
         if (vstd::iequals(argValue, "-quiet")) {
-            g_studiomdl.options.quiet = true;
-            g_studiomdl.options.verbose = false;
+            ctx.options.quiet = true;
+            ctx.options.verbose = false;
             continue;
         }
 
         if (vstd::iequals(argValue, "-verbose")) {
-            g_studiomdl.options.quiet = false;
-            g_studiomdl.options.verbose = true;
+            ctx.options.quiet = false;
+            ctx.options.verbose = true;
             continue;
         }
 
 
         if (vstd::iequals(argValue, "-checklengths")) {
-            g_studiomdl.options.checkLengths = true;
+            ctx.options.checkLengths = true;
             continue;
         }
 
         if (vstd::iequals(argValue, "-printbones")) {
-            g_studiomdl.options.printBones = true;
+            ctx.options.printBones = true;
             continue;
         }
 
         if (vstd::iequals(argValue, "-perf")) {
-            g_studiomdl.options.perf = true;
+            ctx.options.perf = true;
             continue;
         }
 
         if (vstd::iequals(argValue, "-fitweights")) {
-            g_studiomdl.options.fitWeights = true;
+            ctx.options.fitWeights = true;
             // optional pose counts (the last argument is the QC file, never a value)
             if (i + 1 < argc - 1) {
                 const auto optCounts = CommandLine()->GetParm(i + 1);
                 if (optCounts && !optCounts->empty() && (*optCounts)[0] >= '0' && (*optCounts)[0] <= '9') {
-                    if (!ParseFitWeightsPoses(*optCounts, g_studiomdl.options.fitWeightsFitPoses,
-                                              g_studiomdl.options.fitWeightsTestPoses)) {
+                    if (!ParseFitWeightsPoses(*optCounts, ctx.options.fitWeightsFitPoses,
+                                              ctx.options.fitWeightsTestPoses)) {
                         MdlError("-fitweights: expected <poses> or <fitting poses>,<test poses> (1-{} each), got \"{}\"\n",
                                  kMaxFitWeightsPoses, *optCounts);
                     }
@@ -969,28 +968,28 @@ bool CStudioMDLApp::ParseArguments() {
         }
 
         if (vstd::iequals(argValue, "-printgraph")) {
-            g_studiomdl.options.dumpGraph = true;
+            ctx.options.dumpGraph = true;
             continue;
         }
 
         if (vstd::iequals(argValue, "-definebones")) {
-            g_studiomdl.options.definebones = true;
+            ctx.options.definebones = true;
             continue;
         }
 
         if (vstd::iequals(argValue, "-makefile")) {
-            g_studiomdl.options.createMakefile = true;
-            g_studiomdl.options.quiet = true;
+            ctx.options.createMakefile = true;
+            ctx.options.quiet = true;
             continue;
         }
 
         if (vstd::iequals(argValue, "-verify")) {
-            g_studiomdl.options.verifyOnly = true;
+            ctx.options.verifyOnly = true;
             continue;
         }
 
         if (vstd::iequals(argValue, "-minlod")) {
-            g_studiomdl.options.minLod = vstd::str_to_int<int32_t>(CommandLine()->GetParm(++i).value());
+            ctx.options.minLod = vstd::str_to_int<int32_t>(CommandLine()->GetParm(++i).value());
             continue;
         }
 
@@ -1001,35 +1000,35 @@ bool CStudioMDLApp::ParseArguments() {
         }
 
         if (vstd::iequals(argValue, "-nowarnings")) {
-            g_studiomdl.options.noWarnings = true;
+            ctx.options.noWarnings = true;
             continue;
         }
 
         if (vstd::iequals(argValue, "-flexopt")) {
             const std::string_view pMode = CommandLine()->GetParm(++i).value();
-            if (!ParseFlexOptimizeMode(pMode, g_studiomdl.options.flexOptimizeMode)) {
+            if (!ParseFlexOptimizeMode(pMode, ctx.options.flexOptimizeMode)) {
                 MdlError("-flexopt expects auto, on or off, got \"{}\"\n", pMode);
             }
             continue;
         }
 
         if (vstd::iequals(argValue, "-flexopt_min_static")) {
-            g_studiomdl.options.flexOptimizeMinStatic = vstd::str_to_int<int32_t>(CommandLine()->GetParm(++i).value());
+            ctx.options.flexOptimizeMinStatic = vstd::str_to_int<int32_t>(CommandLine()->GetParm(++i).value());
             continue;
         }
 
         if (vstd::iequals(argValue, "-maxwarnings")) {
-            g_studiomdl.options.maxWarnings = vstd::str_to_int<int32_t>(CommandLine()->GetParm(++i).value());
+            ctx.options.maxWarnings = vstd::str_to_int<int32_t>(CommandLine()->GetParm(++i).value());
             continue;
         }
 
         if (vstd::iequals(argValue, "-preview")) {
-            g_studiomdl.options.buildPreview = true;
+            ctx.options.buildPreview = true;
             continue;
         }
 
         if (vstd::iequals(argValue, "-dumpmaterials")) {
-            g_studiomdl.options.dumpMaterials = true;
+            ctx.options.dumpMaterials = true;
             continue;
         }
 
@@ -1038,29 +1037,29 @@ bool CStudioMDLApp::ParseArguments() {
                 case 't': {
                     // -t <default texture> [<texture it replaces>]; without the second, every texture is replaced
                     i++;
-                    auto &default_texture = g_studiomdl.materials.defaulttextures.emplace_back();
-                    auto &source_texture = g_studiomdl.materials.sourcetextures.emplace_back();
+                    auto &default_texture = ctx.materials.defaulttextures.emplace_back();
+                    auto &source_texture = ctx.materials.sourcetextures.emplace_back();
                     default_texture = CommandLine()->GetParm(i).value();
                     if (i < argc - 2 && CommandLine()->GetParm(i + 1).value()[0] != '-') {
                         i++;
                         source_texture = CommandLine()->GetParm(i).value();
                         std::print("Replacing {} with {}\n", source_texture, default_texture);
                     }
-                    std::print("Using default texture: {}\n", g_studiomdl.materials.defaulttextures[0]);
+                    std::print("Using default texture: {}\n", ctx.materials.defaulttextures[0]);
                     break;
                 }
                 case 'a':
                     i++;
-                    g_studiomdl.options.normal_blend = cos(vstd::deg2rad(vstd::str_to_float<float>(argValue)));
+                    ctx.options.normal_blend = cos(vstd::deg2rad(vstd::str_to_float<float>(argValue)));
                     break;
                 case 'h':
-                    g_studiomdl.options.dump_hboxes = 1;
+                    ctx.options.dump_hboxes = 1;
                     break;
                 case 'i':
-                    g_studiomdl.options.ignore_warnings = 1;
+                    ctx.options.ignore_warnings = 1;
                     break;
                 case 'd':
-                    g_bDumpGLViewFiles = true;
+                    ctx.write.dumpGLViewFiles = true;
                     break;
                     //			case 'p':
                     //				i++;
@@ -1081,13 +1080,13 @@ bool CStudioMDLApp::ParseArguments() {
     if (!qcArgument) {
         UsageAndExit();
     }
-    g_studiomdl.paths.qcPath = *qcArgument;
+    ctx.paths.qcPath = *qcArgument;
     if (vstd::paths::is_absolute(*qcArgument)) {
         // Set the working directory to be the path of the qc file
         // so the relative-file fopen code works
         std::error_code ec;
         std::filesystem::current_path(vstd::paths::to_fs(vstd::paths::directory(*qcArgument)), ec);
     }
-    g_studiomdl.paths.outname = vstd::paths::without_extension(*qcArgument);
+    ctx.paths.outname = vstd::paths::without_extension(*qcArgument);
     return true;
 }

@@ -15,7 +15,10 @@
 #include "notifymanager.h"
 #include "tier2/utlstreambuffer.h"
 #include "tier2/fileutils.h"
+#include <array>
+#include <charconv>
 #include <ctime>
+#include <string_view>
 
 #include "tier1_v2/function_timing.hpp"
 
@@ -32,34 +35,6 @@ class KeyValues;
 #define UNNAMED_ELEMENT_NAME    "unnamed"
 
 
-//-----------------------------------------------------------------------------
-// Class factory for the default element
-//-----------------------------------------------------------------------------
-class CDmElementFactoryDefault : public IDmElementFactory {
-public:
-    // Creation, destruction
-    CDmElement *
-    Create(DmElementHandle_t handle, const char *pElementType, const char *pElementName, DmFileId_t fileid,
-           const DmObjectId_t &id) override {
-        return new CDmElement(handle, pElementType, id, pElementName, fileid);
-    }
-
-    void Destroy(DmElementHandle_t hElement) override {
-        if (hElement != DMELEMENT_HANDLE_INVALID) {
-            CDmElement *pElement = g_pDataModel->GetElement(hElement);
-            delete static_cast<CDmElement *>( pElement );
-        }
-    }
-
-    void AddOnElementCreatedCallback(IDmeElementCreated *callback) override {};
-
-    void RemoveOnElementCreatedCallback(IDmeElementCreated *callback) override {};
-
-    void OnElementCreated(CDmElement *pElement) override {};
-};
-
-static CDmElementFactoryDefault s_DefaultElementFactory;
-
 
 //-----------------------------------------------------------------------------
 // Singleton instance
@@ -75,8 +50,6 @@ IDataModel *g_pDataModel = &g_DataModel;
 CDataModel::CDataModel() :
         m_elementIds(4096),
         m_unloadedIdElementMap(16, 0, 0, ElementIdHandlePair_t::Compare, ElementIdHandlePair_t::HashKey) {
-    m_pDefaultFactory = &s_DefaultElementFactory;
-    m_bUnableToSetDefaultFactory = false;
     m_bOnlyCreateUntypedElements = false;
     m_bUnableToCreateOnlyUntypedElements = false;
     m_pKeyvaluesCallbackInterface = nullptr;
@@ -129,7 +102,8 @@ void CDataModel::Shutdown() {
         Warning("CDataModel:  {:d} elements left in memory!!!\n", c);
     }
 
-    m_Factories.clear();
+    m_ElementTypes.clear();
+    m_UnknownElementTypeName = {};
     m_Serializers.Purge();
 }
 
@@ -211,7 +185,7 @@ int CDataModel::EstimateMemoryUsage(DmElementHandle_t hElement, TraversalDepth_t
     if (!pElement)
         return 0;
 
-    return CDmeElementAccessor::EstimateMemoryUsage(pElement, visited, depth, nullptr);
+    return pElement->EstimateMemoryUsage(visited, depth, nullptr);
 }
 
 
@@ -282,7 +256,7 @@ void CDataModel::BuildHistogramForHandles(std::map<CUtlSymbolLarge, DmMemoryInfo
         // Value-initialized (zeroed) on first use
         DmMemoryInfo_t &info = typeHistogram[pElement->GetType()];
 
-        int nMemory = CDmeElementAccessor::EstimateMemoryUsage(pElement, visited, TD_NONE, info.m_pCategories);
+        int nMemory = pElement->EstimateMemoryUsage(visited, TD_NONE, info.m_pCategories);
 
         ++info.m_nCount;
         info.m_nSize += nMemory;
@@ -306,7 +280,7 @@ void CDataModel::DisplayMemoryStats(DmElementHandle_t hElement /*= DMELEMENT_HAN
     } else {
         // Do a recursive build
         if (!m_Handles.IsHandleValid(hElement)) {
-            Msg("CDataModel::DisplayMemoryStats with invalid handle {:d}\n", (int) hElement);
+            Msg("CDataModel::DisplayMemoryStats with invalid handle {:d}\n", static_cast<unsigned>(hElement));
             return;
         }
 
@@ -840,8 +814,8 @@ CDataModel::Serialize(CUtlBuffer &outBuf, const char *pEncodingName, const char 
         // 3rd-party XML readers can read the file without fail
 
         pActualOutBuf->Printf("%s encoding %s %d format %s %d %s\n",
-                              DMX_VERSION_STARTING_TOKEN, pEncodingName, pSerializer->GetCurrentVersion(),
-                              pFormatName, GetCurrentFormatVersion(pFormatName), DMX_VERSION_ENDING_TOKEN);
+                              DMX_VERSION_STARTING_TOKEN.c_str(), pEncodingName, pSerializer->GetCurrentVersion(),
+                              pFormatName, GetCurrentFormatVersion(pFormatName), DMX_VERSION_ENDING_TOKEN.c_str());
     }
 
     // Now write the file using the appropriate format
@@ -859,6 +833,36 @@ CDataModel::Serialize(CUtlBuffer &outBuf, const char *pEncodingName, const char 
 
 
 //-----------------------------------------------------------------------------
+// Parses the text between the DMX header tokens: "encoding <name> <int> format <name> <int>". Names longer than
+// the header fields fail instead of overflowing them.
+//-----------------------------------------------------------------------------
+static bool ParseDmxHeaderFields(const std::string_view text, DmxHeader_t &header) {
+    constexpr std::string_view kWhitespace = " \t\r\n";
+    std::array<std::string_view, 6> fields;
+    size_t count = 0;
+    for (size_t pos = 0; count < fields.size();) {
+        pos = text.find_first_not_of(kWhitespace, pos);
+        if (pos == std::string_view::npos)
+            break;
+        const size_t end = text.find_first_of(kWhitespace, pos);
+        fields[count++] = text.substr(pos, end - pos);
+        pos = end;
+    }
+    if (count < fields.size() || fields[0] != "encoding" || fields[3] != "format")
+        return false;
+
+    const auto parseInt = [](std::string_view field, int &value) {
+        if (field.starts_with('+'))
+            field.remove_prefix(1);
+        const auto [end, ec] = std::from_chars(field.data(), field.data() + field.size(), value);
+        return ec == std::errc() && end == field.data() + field.size();
+    };
+    return header.encodingName.assign(fields[1]) && parseInt(fields[2], header.nEncodingVersion) &&
+           header.formatName.assign(fields[4]) && parseInt(fields[5], header.nFormatVersion);
+}
+
+
+//-----------------------------------------------------------------------------
 // Read the header, return the version (or false if it's not a DMX file)
 //-----------------------------------------------------------------------------
 bool CDataModel::ReadDMXHeader(CUtlBuffer &inBuf, DmxHeader_t *pHeader) const {
@@ -872,23 +876,14 @@ bool CDataModel::ReadDMXHeader(CUtlBuffer &inBuf, DmxHeader_t *pHeader) const {
     inBuf.SetBufferType(true, !bIsText || bHasCRLF);
 
     char headerStr[DMX_MAX_HEADER_LENGTH];
-    bool bOk = inBuf.ParseToken(DMX_VERSION_STARTING_TOKEN, DMX_VERSION_ENDING_TOKEN, headerStr, sizeof(headerStr));
+    bool bOk = inBuf.ParseToken(DMX_VERSION_STARTING_TOKEN.c_str(), DMX_VERSION_ENDING_TOKEN.c_str(), headerStr, sizeof(headerStr));
     if (bOk) {
-#ifdef _WIN32
-        int nAssigned = sscanf_s(headerStr, "encoding %s %d format %s %d\n",
-                                 pHeader->encodingName, DMX_MAX_FORMAT_NAME_MAX_LENGTH, &(pHeader->nEncodingVersion),
-                                 pHeader->formatName, DMX_MAX_FORMAT_NAME_MAX_LENGTH, &(pHeader->nFormatVersion));
-#else
-        int nAssigned = sscanf( headerStr, "encoding %s %d format %s %d\n",
-			pHeader->encodingName, &( pHeader->nEncodingVersion ),
-			pHeader->formatName, &( pHeader->nFormatVersion ) );
-#endif
-        bOk = nAssigned == 4;
+        bOk = ParseDmxHeaderFields(headerStr, *pHeader);
     }
 
     if (!bOk) {
         inBuf.SeekGet(CUtlBuffer::SEEK_HEAD, 0);
-        bOk = inBuf.ParseToken(DMX_LEGACY_VERSION_STARTING_TOKEN, DMX_LEGACY_VERSION_ENDING_TOKEN, pHeader->formatName,
+        bOk = inBuf.ParseToken(DMX_LEGACY_VERSION_STARTING_TOKEN.c_str(), DMX_LEGACY_VERSION_ENDING_TOKEN.c_str(), pHeader->formatName,
                                DMX_MAX_FORMAT_NAME_MAX_LENGTH);
         if (bOk) {
             const char *pEncoding = GetEncodingFromLegacyFormat(pHeader->formatName);
@@ -1090,7 +1085,7 @@ bool CDataModel::UpdateUnserializedElements(const char *pSourceFormatName, int n
         }
 
         // if there's no legacy updater found, then this is already the latest legacy format
-        pSourceFormatName = GENERIC_DMX_FORMAT;
+        pSourceFormatName = GENERIC_DMX_FORMAT.c_str();
     }
 
     IDmFormatUpdater *pFormatUpdater = FindFormatUpdater(pSourceFormatName);
@@ -1365,7 +1360,7 @@ CDataModel::ChangeElementId(DmElementHandle_t hElement, const DmObjectId_t &oldI
     if (!pElement)
         return DMELEMENT_HANDLE_INVALID;
 
-    Assert(!CDmeElementAccessor::GetReference(pElement)->IsWeaklyReferenced());
+    Assert(!pElement->GetReference()->IsWeaklyReferenced());
 
     UtlHashHandle_t newHash = m_elementIds.Find(newId);
     if (newHash != m_elementIds.InvalidHandle())
@@ -1375,7 +1370,7 @@ CDataModel::ChangeElementId(DmElementHandle_t hElement, const DmObjectId_t &oldI
     m_elementIds.Remove(oldHash);
 
     // change the element id
-    CDmeElementAccessor::SetId(pElement, newId);
+    pElement->SetId(newId);
 
     newHash = m_unloadedIdElementMap.Find(ElementIdHandlePair_t(newId));
     if (newHash == m_unloadedIdElementMap.InvalidHandle()) {
@@ -1393,8 +1388,8 @@ CDataModel::ChangeElementId(DmElementHandle_t hElement, const DmObjectId_t &oldI
     Assert(!m_Handles.IsHandleValid(newHandle)); // unloaded elements shouldn't have valid handles
 
     m_Handles.SetHandle(newHandle, GetElement(hElement));
-    CDmeElementAccessor::ChangeHandle(pElement, newHandle);
-    CDmeElementAccessor::SetReference(pElement, newRef);
+    pElement->ChangeHandle(newHandle);
+    pElement->SetReference(newRef);
     ReleaseElementHandle(hElement);
 
     // move new element entry from the unloaded map to the loaded map
@@ -1411,7 +1406,7 @@ DmElementReference_t *CDataModel::FindElementReference(DmElementHandle_t hElemen
 
     CDmElement *pElement = GetElement(hElement);
     if (pElement)
-        return CDmeElementAccessor::GetReference(pElement);
+        return pElement->GetReference();
 
     for (UtlHashHandle_t h = m_unloadedIdElementMap.GetFirstHandle();
          h != m_unloadedIdElementMap.InvalidHandle(); h = m_unloadedIdElementMap.GetNextHandle(h)) {
@@ -1583,13 +1578,13 @@ void UpdateReferenceToElementsNotInUndoWithParityBitSet(CDmAttribute *pAttr, CDm
     if (pChild->IsOnlyInUndo() || !pChild->GetParity(nParityBit))
         return;
 
-    DmElementReference_t *pRef = CDmeElementAccessor::GetReference(pChild);
+    DmElementReference_t *pRef = pChild->GetReference();
 
     if (bDetach) {
 // 		Msg( "removing " );
         pRef->RemoveAttribute(pAttr);
     } else {
-        Assert(!CDmeElementAccessor::GetReference(pChild)->FindAttribute(pAttr));
+        Assert(!pChild->GetReference()->FindAttribute(pAttr));
 // 		Msg( "adding   " );
         pRef->AddAttribute(pAttr);
     }
@@ -1655,7 +1650,7 @@ void CDataModel::FindAndDeleteOrphanedElements() {
         if (fileid == DMFILEID_INVALID)
             continue;
 
-        if (CDmeElementAccessor::GetReference(pElement)->m_nUndoHandleCount == 0)
+        if (pElement->GetReference()->m_nUndoHandleCount == 0)
             continue;
 
         pElement->SetParity(true, TD_ALL, BIT_UNDO);
@@ -1688,7 +1683,7 @@ void CDataModel::FindAndDeleteOrphanedElements() {
             continue;
 
         // an element is deleted when its strong handle count goes to zero, but if it never leaves zero, it shouldn't be deleted
-        DmElementReference_t *pRef = CDmeElementAccessor::GetReference(pElement);
+        DmElementReference_t *pRef = pElement->GetReference();
         if (pRef->m_bHasEverBeenReferenced && pRef->m_nStrongHandleCount == 0)
             continue;
 
@@ -1746,13 +1741,13 @@ void CDataModel::FindAndDeleteOrphanedElements() {
             if (pElement->IsOnlyInUndo()) {
 // 				Msg( "adopting  {} 0x{:08x} '{}'\n", pElement->GetTypeString(), hElement, pElement->GetName() );
                 pElement->SetOnlyInUndo(false);
-                CDmeElementAccessor::OnAdoptedFromUndo(pElement);
+                pElement->OnAdoptedFromUndo();
             }
         } else if (pElement->GetParity(BIT_UNDO)) {
             if (!pElement->IsOnlyInUndo()) {
 // 				Msg( "orphaning {} 0x{:08x} '{}'\n", pElement->GetTypeString(), hElement, pElement->GetName() );
                 pElement->SetOnlyInUndo(true);
-                CDmeElementAccessor::OnOrphanedToUndo(pElement);
+                pElement->OnOrphanedToUndo();
             }
         } else {
 //			Msg( "deleting {} 0x{:08x} '{}'\n", pElement->GetTypeString(), hElement, pElement->GetName() );
@@ -1819,48 +1814,30 @@ void CDataModel::Serialize(CDmElement *element, CUtlBuffer &buf) {
 }
 
 
-//-----------------------------------------------------------------------------
-// Sets a factory to use if the element type can't be found
-//-----------------------------------------------------------------------------
-void CDataModel::SetDefaultElementFactory(IDmElementFactory *pFactory) {
-    if (m_bUnableToSetDefaultFactory) {
-        Assert(0);
-        return;
+// NOTE: The name of this extern is defined by the macro IMPLEMENT_ELEMENT_FACTORY
+extern DmElementTypeInfo g_CDmElement_TypeInfo;
+
+void CDataModel::InstallElementTypes(const DmElementTypeInfo *pFirst) {
+    if (!m_UnknownElementTypeName.empty())
+        return; // already installed
+
+    for (const DmElementTypeInfo *pType = pFirst; pType; pType = pType->m_pNext) {
+        auto [it, inserted] = m_ElementTypes.try_emplace(pType->m_TypeName, pType);
+        if (!inserted) {
+            it->second = pType;
+            Warning("Factory for element type '{}' already exists\n", pType->m_TypeName);
+        }
+        // Can't be done at static-init time: needs the datamodel's symbol table
+        pType->m_pSetTypeSymbol(GetSymbol(pType->m_TypeName.data()));
     }
 
-    m_pDefaultFactory = pFactory ? pFactory : &s_DefaultElementFactory;
+    // From now on (typed mode) elements of unregistered types are plain CDmElements of type "DmElement"
+    m_UnknownElementTypeName = g_CDmElement_TypeInfo.m_TypeName;
 }
 
-
-//-----------------------------------------------------------------------------
-// Purpose:
-// Input  : *elementName -
-//			factory -
-//-----------------------------------------------------------------------------
-void CDataModel::AddElementFactory(CDmElementFactoryHelper *pFactoryHelper) {
-    Assert(pFactoryHelper);
-    const char *pClassName = pFactoryHelper->GetClassname();
-    auto [it, inserted] = m_Factories.try_emplace(pClassName, pFactoryHelper);
-    if (!inserted) {
-        // Override the factory?
-        it->second = pFactoryHelper;
-        Warning("Factory for element type '{}' already exists\n", pClassName);
-    }
-}
-
-CDmElementFactoryHelper *CDataModel::FindFactoryHelper(const char *pElementType) const {
-    if (!pElementType)
-        return nullptr;
-    const auto it = m_Factories.find(pElementType);
-    return it != m_Factories.end() ? it->second : nullptr;
-}
-
-CDmElementFactoryHelper *CDataModel::GetElementFactoryHelper(const char *pElementType) {
-    return FindFactoryHelper(pElementType);
-}
-
-bool CDataModel::HasElementFactory(const char *pElementType) const {
-    return FindFactoryHelper(pElementType) != nullptr;
+const DmElementTypeInfo *CDataModel::FindElementType(std::string_view elementType) const {
+    const auto it = m_ElementTypes.find(elementType);
+    return it != m_ElementTypes.end() ? it->second : nullptr;
 }
 
 //-----------------------------------------------------------------------------
@@ -1928,36 +1905,19 @@ CDataModel::CreateElement(const DmElementReference_t &ref, const char *pElementT
         pElementName = UNNAMED_ELEMENT_NAME;
     }
 
-    IDmElementFactory *pFactory = nullptr;
-    if (m_bOnlyCreateUntypedElements) {
-        // As soon as we create something from the default factory,
-        // we can no longer change the default factory
-        m_bUnableToSetDefaultFactory = true;
-
-        pFactory = m_pDefaultFactory;
-    } else {
-        DMX_PROFILE_SCOPE(CreateElement_FindFactory);
-
-        CDmElementFactoryHelper *pHelper = FindFactoryHelper(pElementType);
-        if (!pHelper) {
-            if (!m_pDefaultFactory) {
-                Warning("Unable to create unknown element {}!\n", pElementType);
-                return nullptr;
-            }
-            m_bUnableToSetDefaultFactory = true;
-            pFactory = m_pDefaultFactory;
-        } else {
-            m_bUnableToCreateOnlyUntypedElements = true;
-            pFactory = pHelper->GetFactory();
-        }
-    }
-    Assert(pFactory);
-
     CDmElement *pElement = nullptr;
-
-    {
-        DMX_PROFILE_SCOPE(CreateElement_pFactoryCreate);
-        pElement = pFactory->Create(ref.m_hElement, pElementType, pElementName, fileid, *pObjectID);
+    if (m_bOnlyCreateUntypedElements) {
+        // Untyped mode (dmxconvert, old-version conversion) keeps every element's own type name
+        pElement = CDmElement::CreateInstance(ref.m_hElement, pElementType, *pObjectID, pElementName, fileid);
+    } else if (const DmElementTypeInfo *pType = pElementType ? FindElementType(pElementType) : nullptr) {
+        m_bUnableToCreateOnlyUntypedElements = true;
+        // Abstract types have no create function and can't be instanced
+        if (pType->m_pCreate) {
+            pElement = pType->m_pCreate(ref.m_hElement, pType->m_TypeName.data(), *pObjectID, pElementName, fileid);
+        }
+    } else {
+        const char *pTypeName = !m_UnknownElementTypeName.empty() ? m_UnknownElementTypeName.data() : pElementType;
+        pElement = CDmElement::CreateInstance(ref.m_hElement, pTypeName, *pObjectID, pElementName, fileid);
     }
 
     if (pElement) {
@@ -1966,17 +1926,14 @@ CDataModel::CreateElement(const DmElementReference_t &ref, const char *pElementT
         ++m_nElementsAllocatedSoFar;
         m_nMaxNumberOfElements = MAX(m_nMaxNumberOfElements, GetAllocatedElementCount());
 
-        CDmeElementAccessor::SetReference(pElement, ref);
+        pElement->SetReference(ref);
         m_Handles.SetHandle(ref.m_hElement, pElement);
         m_elementIds.Insert(ref.m_hElement);
 
-        CDmeElementAccessor::PerformConstruction(pElement);
-        CDmeElementAccessor::EnableOnChangedCallbacks(pElement);
+        pElement->PerformConstruction();
+        pElement->EnableOnChangedCallbacks();
 
         NotifyState(NOTIFY_CHANGE_TOPOLOGICAL);
-
-        // Notify any supplied callbacks of this element's creation
-        pFactory->OnElementCreated(pElement);
 
 #ifdef _ELEMENT_HISTOGRAM_
                                                                                                                                 CUtlSymbolLarge typeSym = GetSymbol( pElementType );
@@ -2025,42 +1982,27 @@ void CDataModel::DeleteElement(DmElementHandle_t hElement, DmHandleReleasePolicy
     if (pElement == nullptr)
         return;
 
-    // In order for DestroyElement to work, then, we need to cache off the element type
-    // because that's stored in an attribute
-
-    const char *pElementType = pElement->GetTypeString();
-    Assert(pElementType);
-
-// 	Msg( "Deleting {} element 0x{:x} \'{}\' in file \"{}\" - {:d} elements loaded\n", pElementType, hElement, pElement->GetName(), GetFileName( pElement->GetFileId() ), m_elementIds.Count() );
-
     UtlHashHandle_t h = m_elementIds.Find(pElement->GetId());
     Assert(h != m_elementIds.InvalidHandle());
     if (h != m_elementIds.InvalidHandle()) {
         m_elementIds.Remove(h);
     }
 
-    DmElementReference_t *pRef = CDmeElementAccessor::GetReference(pElement);
+    DmElementReference_t *pRef = pElement->GetReference();
     bool bReleaseHandle = hrp == HR_ALWAYS || (hrp == HR_IF_NOT_REFERENCED && !pRef->IsWeaklyReferenced());
     if (!bReleaseHandle) {
         m_unloadedIdElementMap.Insert(ElementIdHandlePair_t(GetElementId(hElement), *pRef));
     }
 
-    IDmElementFactory *pFactory = nullptr;
-    if (m_bOnlyCreateUntypedElements) {
-        pFactory = m_pDefaultFactory;
-    } else {
-        CDmElementFactoryHelper *pHelper = FindFactoryHelper(pElementType);
-        pFactory = pHelper ? pHelper->GetFactory() : m_pDefaultFactory;
-    }
-
-    CDmeElementAccessor::PerformDestruction(pElement);
+    pElement->PerformDestruction();
 
     // NOTE: Attribute destruction has to happen before the containing object is destroyed
     // because the inline optimization will crash otherwise, and after PerformDestruction
     // or else PerformDestruction will crash
-    CDmeElementAccessor::Purge(pElement);
+    pElement->Purge();
 
-    pFactory->Destroy(hElement);
+    // Virtual destructor: runs the element class's destructor and its pooled operator delete
+    delete pElement;
     if (bReleaseHandle) {
         ReleaseElementHandle(hElement);
     } else {
@@ -2194,35 +2136,3 @@ bool CDataModel::IsAttributeHandleValid(DmAttributeHandle_t h) const {
 void CDataModel::CommitSymbols() {
     m_SymbolTable.Commit();
 }
-
-
-void CDataModel::AddOnElementCreatedCallback(const char *pElementType, IDmeElementCreated *callback) {
-
-    IDmElementFactory *pFactory = nullptr;
-
-    CDmElementFactoryHelper *pHelper = FindFactoryHelper(pElementType);
-    if (!pHelper) return;
-
-    pFactory = pHelper->GetFactory();
-
-    Assert(pFactory);
-
-    pFactory->AddOnElementCreatedCallback(callback);
-
-}
-
-void CDataModel::RemoveOnElementCreatedCallback(const char *pElementType, IDmeElementCreated *callback) {
-
-    IDmElementFactory *pFactory = nullptr;
-
-    CDmElementFactoryHelper *pHelper = FindFactoryHelper(pElementType);
-    if (!pHelper) return;
-
-    pFactory = pHelper->GetFactory();
-
-    Assert(pFactory);
-
-    pFactory->RemoveOnElementCreatedCallback(callback);
-
-}
-

@@ -37,12 +37,11 @@ public:
 
 	const std::vector< IDmeOperator* > &GetSortedOperators() const { return m_operators; }
 
+	void Cleanup();
+
 private:
 	static bool GetOperatorOrdering( CUtlVector< COperatorNode* > &pOpNodes, std::vector< IDmeOperator * > &operators );
 
-	friend class CDmElementFramework;
-
-	void Cleanup();
 	void FindRoots();
 	CAttributeNode *FindAttrNode( CDmAttribute *pAttr );
 

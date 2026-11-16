@@ -31,8 +31,5 @@
 #include "movieobjects/dmerighandle.h"
 #include "movieobjects/dmeconnectionoperator.h"
 #include "movieobjects/dmeflexrules.h"
-
-#define USING_ELEMENT_FACTORY( className )			\
-	extern C##className *g_##C##className##LinkerHack;		\
-	C##className *g_##C##className##PullInModule = g_##C##className##LinkerHack;
+#include "datamodel/dmelementfactoryhelper.h"
 

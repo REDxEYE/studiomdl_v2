@@ -59,8 +59,8 @@ void CDmElementFramework::Resolve( bool clearDirtyFlags )
 
 		if ( clearDirtyFlags )
 		{
-			CDmeElementAccessor::MarkDirty( pElement, false ); // marks element clean
-			CDmeElementAccessor::MarkAttributesClean( pElement ); // marks all attributes clean
+			pElement->MarkDirty( false ); // marks element clean
+			pElement->MarkAttributesClean(); // marks all attributes clean
 		}
 	}
 
@@ -181,7 +181,7 @@ void CDmElementFramework::RemoveCleanElementsFromDirtyList()
 		if ( !pElement )
 			continue;
 
-		if ( !CDmeElementAccessor::IsDirty( pElement ) )
+		if ( !pElement->IsDirty() )
 		{
 			m_dirtyElements.FastRemove( nCount );
 		}

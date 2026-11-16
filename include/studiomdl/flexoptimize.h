@@ -18,24 +18,25 @@
 constexpr int FLEX_CACHE_MAX_VERTICES = 65535;
 
 struct s_source_t;
+struct StudioMdlState;
 enum FlexOptimizeMode_t : int;
 
 // Parses "auto", "on" or "off"; returns false (mode unchanged) for anything else
 bool ParseFlexOptimizeMode(std::string_view text, FlexOptimizeMode_t &mode);
 
 // Splits flexed meshes of all active sources; runs after the script is parsed, before ClampMaxVerticesPerModel
-void FlexOptimizeSources();
+void FlexOptimizeSources(StudioMdlState &ctx);
 
 // True once FlexOptimizeSources() decided to optimize this model (mode on, or auto and over budget)
-bool FlexOptimizeIsActive();
+bool FlexOptimizeIsActive(StudioMdlState &ctx);
 
 // Per source vertex: true if a flex of the source can move it (see FlexOptimizeSources)
-std::vector<bool> FlexOptimizeMovingVertices(s_source_t *pSource);
+std::vector<bool> FlexOptimizeMovingVertices(StudioMdlState &ctx, s_source_t *pSource);
 
 // Points the skin family columns of the alias materials created by FlexOptimizeSources() at the textures of their
 // base materials; runs at the end of SetSkinValues
-void FlexOptimizeFixupSkinFamilies();
+void FlexOptimizeFixupSkinFamilies(StudioMdlState &ctx);
 
 // Reports the flex cache budget of the processed models; runs after SimplifyModel
-void CheckFlexCacheBudget();
+void CheckFlexCacheBudget(StudioMdlState &ctx);
 

@@ -20,7 +20,7 @@
 
 static CBufferedLoggingListener s_BufferedLoggingListener;
 
-void SpewPerfStats(studiohdr_t* pStudioHdr, const std::string_view pFilename, unsigned int flags) {
+void SpewPerfStats(StudioMdlState &ctx, studiohdr_t* pStudioHdr, const std::string_view pFilename, unsigned int flags) {
     std::string fileName = std::string{pFilename};
 
     bool bExtraData = (pStudioHdr->flags & STUDIOHDR_FLAGS_EXTRA_VERTEX_DATA) != 0;
@@ -39,7 +39,7 @@ void SpewPerfStats(studiohdr_t* pStudioHdr, const std::string_view pFilename, un
     vstd::paths::strip_extension(fileName);
     fileName+= ".vvd";
 
-    auto vvdFileOpt = LoadOutputFile(fileName);
+    auto vvdFileOpt = LoadOutputFile(ctx, fileName);
     if (!vvdFileOpt)
         return;
     auto vvdFile = std::move(vvdFileOpt.value());
@@ -79,7 +79,7 @@ void SpewPerfStats(studiohdr_t* pStudioHdr, const std::string_view pFilename, un
     fileName+= ".dx90.vtx";
 
     // persist the vtx data
-    auto vtxFileOpt = LoadOutputFile(fileName);
+    auto vtxFileOpt = LoadOutputFile(ctx, fileName);
     if (!vtxFileOpt)
         return;
     auto vtxFile = std::move(vtxFileOpt.value());

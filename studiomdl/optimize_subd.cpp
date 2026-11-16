@@ -21,7 +21,7 @@ static Vector project_and_normalize( Vector v, Vector n )
 	return v;
 }
 
-static int MOD4[8] = {0,1,2,3,0,1,2,3};
+static constexpr int MOD4[8] = {0,1,2,3,0,1,2,3};
 
 namespace OptimizedModel
 {
@@ -797,7 +797,7 @@ namespace OptimizedModel
 			SubD_Face_t *pPatch = &m_faceList[f];
 
 			const Orientation &o = orientationArray[f];	// Determine edge from orientation flags.
-			static const int nTimesToRotate[4] = {0, 1, 3, 2};
+			static constexpr int nTimesToRotate[4] = {0, 1, 3, 2};
 			const int idx = nTimesToRotate[(o.v << 1) + o.u];
 
 			RotateFace( pPatch, idx );
@@ -806,7 +806,7 @@ namespace OptimizedModel
 
 	void COptimizeSubDBuilder::TagCreases()
 	{
-		static int MOD4[] = {0,1,2,3,0,1,2,3};
+		static constexpr int MOD4[] = {0,1,2,3,0,1,2,3};
 
 		for (unsigned short i=0; i<m_numPatches; i++)
 		{

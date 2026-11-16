@@ -10,13 +10,13 @@
 //-----------------------------------------------------------------------------
 // data file format info
 //-----------------------------------------------------------------------------
-#define DMX_LEGACY_VERSION_STARTING_TOKEN "<!-- DMXVersion"
-#define DMX_LEGACY_VERSION_ENDING_TOKEN "-->"
+constexpr std::string DMX_LEGACY_VERSION_STARTING_TOKEN =  "<!-- DMXVersion";
+constexpr std::string DMX_LEGACY_VERSION_ENDING_TOKEN =  "-->";
 
-#define DMX_VERSION_STARTING_TOKEN "<!-- dmx"
-#define DMX_VERSION_ENDING_TOKEN "-->"
+constexpr std::string DMX_VERSION_STARTING_TOKEN =  "<!-- dmx";
+constexpr std::string DMX_VERSION_ENDING_TOKEN =  "-->";
 
-#define GENERIC_DMX_FORMAT "dmx"
+constexpr std::string GENERIC_DMX_FORMAT =  "dmx";
 
 
 enum
@@ -27,9 +27,9 @@ enum
 
 struct DmxHeader_t
 {
-	char encodingName[ DMX_MAX_FORMAT_NAME_MAX_LENGTH ];
+	vstd::FixedString<DMX_MAX_FORMAT_NAME_MAX_LENGTH> encodingName;
 	int nEncodingVersion;
-	char formatName[ DMX_MAX_FORMAT_NAME_MAX_LENGTH ];
+	vstd::FixedString<DMX_MAX_FORMAT_NAME_MAX_LENGTH> formatName;
 	int nFormatVersion;
 
 	DmxHeader_t() : nEncodingVersion( -1 ), nFormatVersion( -1 )

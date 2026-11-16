@@ -30,26 +30,20 @@ class CVertexDictionary;
 
 struct VertexInfo_t;
 
-static void BuildBoneLODMapping(std::vector<int> &boneMap, int lodID);
-
-
-//-----------------------------------------------------------------------------
-// Globals
-//-----------------------------------------------------------------------------
-static int g_NumBonesInLOD[MAX_NUM_LODS];
+static void BuildBoneLODMapping(StudioMdlState &ctx, std::vector<int> &boneMap, int lodID);
 
 
 //-----------------------------------------------------------------------------
 // Makes sure all boneweights in a s_boneweight_t are valid
 //-----------------------------------------------------------------------------
-static void ValidateBoneWeight(const s_boneweight_t &boneWeight) {
+static void ValidateBoneWeight([[maybe_unused]] const StudioMdlState &ctx, const s_boneweight_t &boneWeight) {
 #ifdef _DEBUG
     int i;
     if (boneWeight.weight[0] == 1.0f) {
         Assert(boneWeight.numbones == 1);
     }
     for (i = 0; i < boneWeight.numbones; i++) {
-        Assert(boneWeight.bone[i] >= 0 && boneWeight.bone[i] < std::ssize(g_studiomdl.bones.bonetable));
+        Assert(boneWeight.bone[i] >= 0 && boneWeight.bone[i] < std::ssize(ctx.bones.bonetable));
     }
 
     float weight = 0.0f;
@@ -125,7 +119,7 @@ struct VertexInfo_t {
 //-----------------------------------------------------------------------------
 class CVertexDictionary {
 public:
-    CVertexDictionary();
+    explicit CVertexDictionary(StudioMdlState &ctx);
 
     // Adds a vertex to the dictionary
     int AddVertex(const VertexInfo_t &srcVertex);
@@ -152,6 +146,7 @@ public:
     void SetRootVertexRange(int start, int end);
 
 private:
+    StudioMdlState &m_ctx;
     std::vector<VertexInfo_t> m_Verts;
     int m_nPrevLODCount;
     int m_nRootLODStart;
@@ -162,7 +157,7 @@ private:
 //-----------------------------------------------------------------------------
 // Copies in a particular vertex from the s_source_t
 //-----------------------------------------------------------------------------
-CVertexDictionary::CVertexDictionary() {
+CVertexDictionary::CVertexDictionary(StudioMdlState &ctx) : m_ctx(ctx) {
     m_nPrevLODCount = 0;
 }
 
@@ -217,9 +212,9 @@ void CVertexDictionary::SetRootVertexRange(int start, int end) {
 int CVertexDictionary::AddVertex(const VertexInfo_t &srcVertex) {
     const int nDstVertID = std::ssize(m_Verts);
     VertexInfo_t &vertex = m_Verts.emplace_back(srcVertex);
-    ValidateBoneWeight(vertex.m_BoneWeight);
+    ValidateBoneWeight(m_ctx, vertex.m_BoneWeight);
     SortBoneWeightByIndex(vertex.m_BoneWeight);
-    ValidateBoneWeight(vertex.m_BoneWeight);
+    ValidateBoneWeight(m_ctx, vertex.m_BoneWeight);
 
     return nDstVertID;
 }
@@ -245,9 +240,9 @@ int CVertexDictionary::AddVertexFromSource(const s_source_t *pSrc, int nVertexIn
         vertex.m_TexCoord[i] = srcVertex.texcoord[i];
     }
 
-    ValidateBoneWeight(vertex.m_BoneWeight);
+    ValidateBoneWeight(m_ctx, vertex.m_BoneWeight);
     SortBoneWeightByIndex(vertex.m_BoneWeight);
-    ValidateBoneWeight(vertex.m_BoneWeight);
+    ValidateBoneWeight(m_ctx, vertex.m_BoneWeight);
 
     return nDstVertID;
 }
@@ -320,7 +315,7 @@ bool ComparePositionFuzzy(const Vector &p1, const Vector &p2, float &flError) {
 // Computes error between two normals; returns false if the error is too great
 //-----------------------------------------------------------------------------
 bool CompareNormalFuzzy(const Vector &n1, const Vector &n2, float &flError) {
-    static float flEpsilon = cos(DEG2RAD(NORMAL_EPSILON));
+    static const float flEpsilon = cos(DEG2RAD(NORMAL_EPSILON));
 
     Vector v1, v2;
     v1 = n1;
@@ -336,7 +331,7 @@ bool CompareNormalFuzzy(const Vector &n1, const Vector &n2, float &flError) {
 // Computes error between two tangentS vectors; returns false if the error is too great
 //-----------------------------------------------------------------------------
 bool CompareTangentSFuzzy(const Vector4D &n1, const Vector4D &n2, float &flError) {
-    static float flEpsilon = cos(DEG2RAD(TANGENT_EPSILON));
+    static const float flEpsilon = cos(DEG2RAD(TANGENT_EPSILON));
 
     Vector4D v1, v2;
     v1 = n1;
@@ -446,9 +441,9 @@ bool CompareBoneWeightsFuzzy(const s_boneweight_t &b1, const s_boneweight_t &b2,
 //-----------------------------------------------------------------------------
 // Searches for a material in the texture list
 //-----------------------------------------------------------------------------
-int FindMaterialByName(const std::string_view pMaterialName) {
-    for (int i = 0; i < g_studiomdl.materials.textures.size(); i++) {
-        if (vstd::iequals(pMaterialName, g_studiomdl.materials.textures[i].name)) {
+int FindMaterialByName(StudioMdlState &ctx, const std::string_view pMaterialName) {
+    for (int i = 0; i < ctx.materials.textures.size(); i++) {
+        if (vstd::iequals(pMaterialName, ctx.materials.textures[i].name)) {
             return i;
         }
     }
@@ -466,17 +461,17 @@ static s_mesh_t *FindMeshByMaterial(s_source_t *pSrc, int nMaterialID) {
 }
 
 
-static s_mesh_t *FindOrCullMesh(int nLodID, s_source_t *pSrc, int nMaterialID) {
+static s_mesh_t *FindOrCullMesh(StudioMdlState &ctx, int nLodID, s_source_t *pSrc, int nMaterialID) {
     // possibly marked for removal via $removemesh
     // determine mesh name
-    int nTextureID = MaterialToTexture(nMaterialID);
+    int nTextureID = MaterialToTexture(ctx, nMaterialID);
     if (nTextureID == -1) {
         MdlError("Unknown Texture for Material {}\n", nMaterialID);
     }
 
-    const StudioPath baseMeshName = vstd::paths::file_base(g_studiomdl.materials.textures[nTextureID].name.view());
-    for (int i = 0; i < std::ssize(g_studiomdl.body.ScriptLODs[nLodID].meshRemovals); i++) {
-        const auto meshRemovalName = g_studiomdl.body.ScriptLODs[nLodID].meshRemovals[i].GetSrcName();
+    const StudioPath baseMeshName = vstd::paths::file_base(ctx.materials.textures[nTextureID].name.view());
+    for (int i = 0; i < std::ssize(ctx.body.ScriptLODs[nLodID].meshRemovals); i++) {
+        const auto meshRemovalName = ctx.body.ScriptLODs[nLodID].meshRemovals[i].GetSrcName();
         const StudioPath baseRemovalName = vstd::paths::file_base(meshRemovalName);
 
         if (vstd::iequals(baseRemovalName, baseMeshName)) {
@@ -728,7 +723,7 @@ static void RemapBoneWeights(const std::vector<int> &boneMap, s_boneweight_t &bo
 // After the remapping, we may get multiple instances of the same bone
 // which we want to collapse into a single bone
 //-----------------------------------------------------------------------------
-static void CollapseBoneWeights(s_boneweight_t &boneWeight) {
+static void CollapseBoneWeights(const StudioMdlState &ctx, s_boneweight_t &boneWeight) {
     // We need the bones to be sorted by bone index for the loop right below
     SortBoneWeightByIndex(boneWeight);
 
@@ -750,21 +745,21 @@ static void CollapseBoneWeights(s_boneweight_t &boneWeight) {
         --i;
     }
 
-    ValidateBoneWeight(boneWeight);
+    ValidateBoneWeight(ctx, boneWeight);
 }
 
 
 //-----------------------------------------------------------------------------
 // Find a matching vertex within the root lod 
 //-----------------------------------------------------------------------------
-static void CalculateBoneWeightFromRootLod(const VertexInfo_t &searchVertex, CVertexDictionary &vertexDict,
+static void CalculateBoneWeightFromRootLod(StudioMdlState &ctx, const VertexInfo_t &searchVertex, CVertexDictionary &vertexDict,
                                            const s_source_t *pRootLODSrc, VertexInfo_t &idealVertex) {
     idealVertex = searchVertex;
 
     // Look through the part of the vertex dictionary associated with the root LODs for a match
     // bone weights are not defined properly in SMDs for lower LODs, so don't consider
     // we can only accept the boneweight from the root LOD
-    int nFlags = g_studiomdl.options.bSkinnedLODs ? IGNORE_TANGENTS : IGNORE_BONEWEIGHT | IGNORE_TANGENTS;
+    int nFlags = ctx.options.bSkinnedLODs ? IGNORE_TANGENTS : IGNORE_BONEWEIGHT | IGNORE_TANGENTS;
     int nVertexDictID = FindVertexWithinVertexDictionary(searchVertex, vertexDict,
                                                          vertexDict.RootLODVertexStart(), vertexDict.RootLODVertexEnd(),
                                                          nFlags);
@@ -791,7 +786,7 @@ static void CalculateBoneWeightFromRootLod(const VertexInfo_t &searchVertex, CVe
 
     // In this case, we didn't find anything within the tolerance, so we need to
     // do a *positional check only* to give us a bone weight to assign to this vertex.
-    if (!g_studiomdl.options.bSkinnedLODs) {
+    if (!ctx.options.bSkinnedLODs) {
         FindBoneWeightWithinModel(searchVertex, pRootLODSrc, idealVertex.m_BoneWeight,
                                   IGNORE_BONEWEIGHT | IGNORE_TANGENTS);
     }
@@ -922,10 +917,10 @@ static int FindOrCreateExactVertexInDictionary(CVertexDictionary &vertexDict,
 //-----------------------------------------------------------------------------
 // Indicates a particular set of bones is used by a particular LOD
 //-----------------------------------------------------------------------------
-static void MarkBonesUsedByLod(const s_boneweight_t &boneWeight, int nLodID) {
+static void MarkBonesUsedByLod(StudioMdlState &ctx, const s_boneweight_t &boneWeight, int nLodID) {
     for (int j = 0; j < boneWeight.numbones; ++j) {
         int nGlobalBoneID = boneWeight.bone[j];
-        s_bonetable_t *pBone = &g_studiomdl.bones.bonetable[nGlobalBoneID];
+        s_bonetable_t *pBone = &ctx.bones.bonetable[nGlobalBoneID];
         pBone->flags |= BoneUsedByVertexAtLod(nLodID);
     }
 }
@@ -937,7 +932,7 @@ static void MarkBonesUsedByLod(const s_boneweight_t &boneWeight, int nLodID) {
 // vertex dictionary, and use them if you find them, or add new vertices to the 
 // vertex dictionary if not and use those new vertices.
 //-----------------------------------------------------------------------------
-static void CreateLODVertsInDictionary(int nLodID, const s_source_t *pRootLODSrc, s_source_t *pCurrentLODSrc,
+static void CreateLODVertsInDictionary(StudioMdlState &ctx, int nLodID, const s_source_t *pRootLODSrc, s_source_t *pCurrentLODSrc,
                                        const s_mesh_t *pCurrLODMesh, s_mesh_t *pVertexDictMesh,
                                        CVertexDictionary &vertexDict, int *pMeshVertIndexMap) {
     // this function is specific to lods and not the root
@@ -949,7 +944,7 @@ static void CreateLODVertsInDictionary(int nLodID, const s_source_t *pRootLODSrc
     vertexDict.StartNewLOD();
 
     std::vector<int> boneMap;
-    BuildBoneLODMapping(boneMap, nLodID);
+    BuildBoneLODMapping(ctx, boneMap, nLodID);
 
     for (int nSrcVertID = 0; nSrcVertID < pCurrLODMesh->numvertices; ++nSrcVertID) {
         int nSrcID = nSrcVertID + pCurrLODMesh->vertexoffset;
@@ -969,7 +964,7 @@ static void CreateLODVertsInDictionary(int nLodID, const s_source_t *pRootLODSrc
             vertex.m_TexCoord[i] = srcVertex.texcoord[i];
         }
 
-        if (g_studiomdl.options.bSkinnedLODs) {
+        if (ctx.options.bSkinnedLODs) {
             vertex.m_BoneWeight = srcVertex.boneweight;
         } else {
 #ifdef _DEBUG
@@ -981,7 +976,7 @@ static void CreateLODVertsInDictionary(int nLodID, const s_source_t *pRootLODSrc
         // the root lod contains no bone remappings
         // this ensures we get a vertex with its matched proper boneweight assignment
         VertexInfo_t idealVertex;
-        CalculateBoneWeightFromRootLod(vertex, vertexDict, pRootLODSrc, idealVertex);
+        CalculateBoneWeightFromRootLod(ctx, vertex, vertexDict, pRootLODSrc, idealVertex);
 
         // try again to match the candidate vertex
         // determine the ideal vertex with desired remapped boneweight
@@ -990,11 +985,11 @@ static void CreateLODVertsInDictionary(int nLodID, const s_source_t *pRootLODSrc
 
         // remap bone
         RemapBoneWeights(boneMap, idealVertex.m_BoneWeight);
-        CollapseBoneWeights(idealVertex.m_BoneWeight);
+        CollapseBoneWeights(ctx, idealVertex.m_BoneWeight);
         SortBoneWeightByWeight(idealVertex.m_BoneWeight);
 
         // FIXME: this is marking bones based on the slammed vertex data
-        MarkBonesUsedByLod(idealVertex.m_BoneWeight, nLodID);
+        MarkBonesUsedByLod(ctx, idealVertex.m_BoneWeight, nLodID);
 
         // tag ideal vertex as being part of the current lod
         idealVertex.m_nLodFlag = 1 << nLodID;
@@ -1007,7 +1002,7 @@ static void CreateLODVertsInDictionary(int nLodID, const s_source_t *pRootLODSrc
     }
 
     int nNewVertsCreated = vertexDict.VertexCount() - nNumCurrentVerts;
-    if (!g_studiomdl.options.quiet && nNewVertsCreated) {
+    if (!ctx.options.quiet && nNewVertsCreated) {
         std::print("Lod {}: vertexes: {} ({} new)\n", nLodID, vertexDict.VertexCount(), nNewVertsCreated);
     }
 }
@@ -1066,45 +1061,45 @@ static void SetProcessedWithDictionary(s_model_t *pSrcModel, CVertexDictionary &
 // This fills out boneMap, which is a mapping from src bone to src bone replacement (or to itself
 // if there is no bone replacement.
 //-----------------------------------------------------------------------------
-static void BuildBoneLODMapping(std::vector<int> &boneMap, int lodID) {
-    boneMap.resize(boneMap.size() + g_studiomdl.bones.bonetable.size());
+static void BuildBoneLODMapping(StudioMdlState &ctx, std::vector<int> &boneMap, int lodID) {
+    boneMap.resize(boneMap.size() + ctx.bones.bonetable.size());
 
-    Assert(lodID < std::ssize(g_studiomdl.body.ScriptLODs));
-    LodScriptData_t &scriptLOD = g_studiomdl.body.ScriptLODs[lodID];
+    Assert(lodID < std::ssize(ctx.body.ScriptLODs));
+    LodScriptData_t &scriptLOD = ctx.body.ScriptLODs[lodID];
 
     // First, create a direct mapping where no bones are collapsed
     int i;
-    for (i = 0; i < std::ssize(g_studiomdl.bones.bonetable); i++) {
+    for (i = 0; i < std::ssize(ctx.bones.bonetable); i++) {
         boneMap[i] = i;
     }
 
     for (i = 0; i < std::ssize(scriptLOD.boneReplacements); i++) {
         std::string_view src = scriptLOD.boneReplacements[i].GetSrcName();
         std::string_view dst = scriptLOD.boneReplacements[i].GetDstName();
-        int j = findGlobalBone(src);
-        int k = findGlobalBone(dst);
+        int j = findGlobalBone(ctx, src);
+        int k = findGlobalBone(ctx, dst);
 
         if (j != -1 && k != -1) {
             boneMap[j] = k;
         } else if (j == -1) {
             // FIXME: is this really an error?  It could just be  replacement command for bone that doesnt' exist anymore.
-            if (g_studiomdl.options.verbose) {
+            if (ctx.options.verbose) {
                 MdlWarning("Couldn't replace unknown bone \"{}\" with \"{}\"\n", src, dst);
             }
         } else {
             // FIXME: is this really an error?  It could just be  replacement command for bone that doesnt' exist anymore.
-            if (g_studiomdl.options.verbose) {
+            if (ctx.options.verbose) {
                 MdlWarning("Couldn't replace bone \"{}\" with unknown \"{}\"\n", src, dst);
             }
         }
     }
 }
 
-static void MarkRootLODBones(CVertexDictionary &vertexDictionary) {
+static void MarkRootLODBones(StudioMdlState &ctx, CVertexDictionary &vertexDictionary) {
     // should result in an identity mapping
     // because their are no bone remaps at the root lod
     std::vector<int> boneMap;
-    BuildBoneLODMapping(boneMap, 0);
+    BuildBoneLODMapping(ctx, boneMap, 0);
 
     // iterate and mark bones
     for (int nVertDictID = vertexDictionary.RootLODVertexStart();
@@ -1112,10 +1107,10 @@ static void MarkRootLODBones(CVertexDictionary &vertexDictionary) {
         s_boneweight_t &boneWeight = vertexDictionary.Vertex(nVertDictID).m_BoneWeight;
 
         RemapBoneWeights(boneMap, boneWeight);
-        CollapseBoneWeights(boneWeight);
+        CollapseBoneWeights(ctx, boneWeight);
         SortBoneWeightByWeight(boneWeight);
 
-        MarkBonesUsedByLod(boneWeight, 0);
+        MarkBonesUsedByLod(ctx, boneWeight, 0);
     }
 }
 
@@ -1123,7 +1118,7 @@ static void MarkRootLODBones(CVertexDictionary &vertexDictionary) {
 //-----------------------------------------------------------------------------
 // Computes LOD vertices for a model piece.
 //-----------------------------------------------------------------------------
-static void UnifyModelLODs(s_model_t *pSrcModel) {
+static void UnifyModelLODs(StudioMdlState &ctx, s_model_t *pSrcModel) {
     if (vstd::iequals(pSrcModel->name, "blank"))
         return;
 
@@ -1144,7 +1139,7 @@ static void UnifyModelLODs(s_model_t *pSrcModel) {
     }
 
     // These hold the aggregate data for the model that grows as lods are processed
-    CVertexDictionary vertexDictionary;
+    CVertexDictionary vertexDictionary(ctx);
     std::vector<s_face_t> faces;
     std::vector<s_mesh_t> meshes(MAXSTUDIOSKINS);
 
@@ -1167,8 +1162,8 @@ static void UnifyModelLODs(s_model_t *pSrcModel) {
 
         // lookup the material used by this mesh
         int nMaterialID = pLOD0Source->meshes[nMeshID].material;
-        const char *pName = g_studiomdl.materials.textures[nMaterialID].name;
-        if (!g_studiomdl.options.quiet) {
+        const char *pName = ctx.materials.textures[nMaterialID].name;
+        if (!ctx.options.quiet) {
             std::print("Processing LOD for material: {}\n", pName);
         }
         s_mesh_t *pLOD0Mesh = FindMeshByMaterial(pLOD0Source, nMaterialID);
@@ -1180,7 +1175,7 @@ static void UnifyModelLODs(s_model_t *pSrcModel) {
         CopyVerts(0, pLOD0Source, pLOD0Mesh, vertexDictionary, pVertexDictMesh, pMeshVertIndexMaps[0]);
         vertexDictionary.SetRootVertexRange(nStart, vertexDictionary.VertexCount());
 
-        MarkRootLODBones(vertexDictionary);
+        MarkRootLODBones(ctx, vertexDictionary);
 
         // only fix up the faces for the highest lod since the lowest ones are going
         // to be reprocessed later.
@@ -1197,11 +1192,11 @@ static void UnifyModelLODs(s_model_t *pSrcModel) {
 
             // Find the mesh that matches the material
             // mesh may not be present or could be culled due to $removemesh commands
-            s_mesh_t *pCurrLODMesh = FindOrCullMesh(nLodID, pCurrLOD, nMaterialID);
+            s_mesh_t *pCurrLODMesh = FindOrCullMesh(ctx, nLodID, pCurrLOD, nMaterialID);
             if (!pCurrLODMesh)
                 continue;
 
-            CreateLODVertsInDictionary(nLodID, pLOD0Source, pCurrLOD, pCurrLODMesh, pVertexDictMesh, vertexDictionary,
+            CreateLODVertsInDictionary(ctx, nLodID, pLOD0Source, pCurrLOD, pCurrLODMesh, pVertexDictMesh, vertexDictionary,
                                        pMeshVertIndexMaps[nLodID]);
         }
     }
@@ -1221,11 +1216,11 @@ static void UnifyModelLODs(s_model_t *pSrcModel) {
 // Force the vertex array for a model to have all of the vertices that are needed
 // for all of the LODs of the model.
 //-----------------------------------------------------------------------------
-void UnifyLODs() {
+void UnifyLODs(StudioMdlState &ctx) {
     vstd::FunctionTimingRecorder _("Simplify");
     // todo: need to fixup the firstref/lastref stuff . . do we really need it anymore?
-    for (int modelID = 0; modelID < g_studiomdl.body.nummodelsbeforeLOD; modelID++) {
-        UnifyModelLODs(g_studiomdl.body.model[modelID]);
+    for (int modelID = 0; modelID < ctx.body.nummodelsbeforeLOD; modelID++) {
+        UnifyModelLODs(ctx, ctx.body.model[modelID]);
     }
 }
 
@@ -1237,23 +1232,23 @@ static void PrintSpaces(int numSpaces) {
     }
 }
 
-static void SpewBoneInfo(int globalBoneID, int depth) {
-    s_bonetable_t *pBone = &g_studiomdl.bones.bonetable[globalBoneID];
-    if (g_studiomdl.options.printBones) {
+static void SpewBoneInfo(StudioMdlState &ctx, std::array<int, MAX_NUM_LODS> &numBonesInLOD, int globalBoneID, int depth) {
+    s_bonetable_t *pBone = &ctx.bones.bonetable[globalBoneID];
+    if (ctx.options.printBones) {
         PrintSpaces(depth * 2);
         std::print("{} \"{}\" ", depth, pBone->name);
     }
     int i;
     for (i = 0; i < 8; i++) {
         if (HasFlag(pBone->flags, BoneUsedByVertexAtLod(i))) {
-            if (g_studiomdl.options.printBones) {
+            if (ctx.options.printBones) {
                 std::print("lod{} ", i);
             }
-            g_NumBonesInLOD[i]++;
+            numBonesInLOD[i]++;
         }
     }
 
-    if (g_studiomdl.options.printBones) {
+    if (ctx.options.printBones) {
         if (HasFlag(pBone->flags, BoneFlags::UsedByHitbox))
             std::print("hitbox ");
 
@@ -1267,36 +1262,36 @@ static void SpewBoneInfo(int globalBoneID, int depth) {
     }
 
     int j;
-    for (j = 0; j < std::ssize(g_studiomdl.bones.bonetable); j++) {
-        s_bonetable_t *pBone = &g_studiomdl.bones.bonetable[j];
+    for (j = 0; j < std::ssize(ctx.bones.bonetable); j++) {
+        s_bonetable_t *pBone = &ctx.bones.bonetable[j];
         if (pBone->parent == globalBoneID) {
-            SpewBoneInfo(j, depth + 1);
+            SpewBoneInfo(ctx, numBonesInLOD, j, depth + 1);
         }
     }
 }
 
-void SpewBoneUsageStats() {
-    memset(g_NumBonesInLOD, 0, sizeof(int) * MAX_NUM_LODS);
-    if (std::ssize(g_studiomdl.bones.bonetable) == 0) {
+void SpewBoneUsageStats(StudioMdlState &ctx) {
+    std::array<int, MAX_NUM_LODS> numBonesInLOD{};
+    if (std::ssize(ctx.bones.bonetable) == 0) {
         return;
     }
-    SpewBoneInfo(0, 0);
-    if (g_studiomdl.options.printBones) {
+    SpewBoneInfo(ctx, numBonesInLOD, 0, 0);
+    if (ctx.options.printBones) {
         int i;
-        for (i = 0; i < std::ssize(g_studiomdl.body.ScriptLODs); i++) {
-            std::print("\t{} bones used in lod {}\n", g_NumBonesInLOD[i], i);
+        for (i = 0; i < std::ssize(ctx.body.ScriptLODs); i++) {
+            std::print("\t{} bones used in lod {}\n", numBonesInLOD[i], i);
         }
     }
 }
 
-void MarkParentBoneLODs() {
+void MarkParentBoneLODs(StudioMdlState &ctx) {
     int i;
-    for (i = 0; i < std::ssize(g_studiomdl.bones.bonetable); i++) {
-        BoneFlags flags = g_studiomdl.bones.bonetable[i].flags & BoneFlags::UsedByVertexMask;
-        int globalBoneID = g_studiomdl.bones.bonetable[i].parent;
+    for (i = 0; i < std::ssize(ctx.bones.bonetable); i++) {
+        BoneFlags flags = ctx.bones.bonetable[i].flags & BoneFlags::UsedByVertexMask;
+        int globalBoneID = ctx.bones.bonetable[i].parent;
         while (globalBoneID != -1) {
-            g_studiomdl.bones.bonetable[globalBoneID].flags |= flags;
-            globalBoneID = g_studiomdl.bones.bonetable[globalBoneID].parent;
+            ctx.bones.bonetable[globalBoneID].flags |= flags;
+            globalBoneID = ctx.bones.bonetable[globalBoneID].parent;
         }
     }
 }
@@ -1305,12 +1300,12 @@ void MarkParentBoneLODs() {
 //-----------------------------------------------------------------------------
 // Returns the sources associated with the various LODs based on the script commands
 //-----------------------------------------------------------------------------
-static void GetLODSources(std::vector<s_source_t *> &lods, const s_model_t *pSrcModel) {
-    const int nNumLODs = std::ssize(g_studiomdl.body.ScriptLODs);
+static void GetLODSources(StudioMdlState &ctx, std::vector<s_source_t *> &lods, const s_model_t *pSrcModel) {
+    const int nNumLODs = std::ssize(ctx.body.ScriptLODs);
     if (std::ssize(lods) < nNumLODs)
         lods.resize(nNumLODs);
     for (int lodID = 0; lodID < nNumLODs; lodID++) {
-        LodScriptData_t &scriptLOD = g_studiomdl.body.ScriptLODs[lodID];
+        LodScriptData_t &scriptLOD = ctx.body.ScriptLODs[lodID];
 
         bool bFound;
         s_source_t *pSource = GetModelLODSource(pSrcModel->filename.c_str(), scriptLOD, &bFound);
@@ -1326,57 +1321,57 @@ static void GetLODSources(std::vector<s_source_t *> &lods, const s_model_t *pSrc
 //-----------------------------------------------------------------------------
 // Creates models to store converted data for the various LODs
 //-----------------------------------------------------------------------------
-void LoadLODSources() {
+void LoadLODSources(StudioMdlState &ctx) {
     vstd::FunctionTimingRecorder _("Simplify");
-    g_studiomdl.body.nummodelsbeforeLOD = std::ssize(g_studiomdl.body.model);
-    for (int modelID = 0; modelID < g_studiomdl.body.nummodelsbeforeLOD; modelID++) {
-        if (vstd::iequals(g_studiomdl.body.model[modelID]->name, "blank")) {
-            int nNumLODs = std::ssize(g_studiomdl.body.ScriptLODs);
-            g_studiomdl.body.model[modelID]->m_LodSources.assign(nNumLODs, nullptr);
+    ctx.body.nummodelsbeforeLOD = std::ssize(ctx.body.model);
+    for (int modelID = 0; modelID < ctx.body.nummodelsbeforeLOD; modelID++) {
+        if (vstd::iequals(ctx.body.model[modelID]->name, "blank")) {
+            int nNumLODs = std::ssize(ctx.body.ScriptLODs);
+            ctx.body.model[modelID]->m_LodSources.assign(nNumLODs, nullptr);
             continue;
         }
 
-        GetLODSources(g_studiomdl.body.model[modelID]->m_LodSources, g_studiomdl.body.model[modelID]);
+        GetLODSources(ctx, ctx.body.model[modelID]->m_LodSources, ctx.body.model[modelID]);
     }
 }
 
-static void ReplaceBonesRecursive(int globalBoneID, bool replaceThis,
+static void ReplaceBonesRecursive(StudioMdlState &ctx, int globalBoneID, bool replaceThis,
                                   std::vector<CLodScriptReplacement_t> &boneReplacements,
                                   const char *replacementName) {
     if (replaceThis) {
         CLodScriptReplacement_t &boneReplacement = boneReplacements.emplace_back();
-        boneReplacement.SetSrcName(g_studiomdl.bones.bonetable[globalBoneID].name);
+        boneReplacement.SetSrcName(ctx.bones.bonetable[globalBoneID].name);
         boneReplacement.SetDstName(replacementName);
     }
 
     // find children and recurse.
     int i;
-    for (i = 0; i < std::ssize(g_studiomdl.bones.bonetable); i++) {
-        if (g_studiomdl.bones.bonetable[i].parent == globalBoneID) {
-            ReplaceBonesRecursive(i, true, boneReplacements, replacementName);
+    for (i = 0; i < std::ssize(ctx.bones.bonetable); i++) {
+        if (ctx.bones.bonetable[i].parent == globalBoneID) {
+            ReplaceBonesRecursive(ctx, i, true, boneReplacements, replacementName);
         }
     }
 }
 
-static void ConvertSingleBoneTreeCollapseToReplaceBones(CLodScriptReplacement_t &boneTreeCollapse,
+static void ConvertSingleBoneTreeCollapseToReplaceBones(StudioMdlState &ctx, CLodScriptReplacement_t &boneTreeCollapse,
                                                         std::vector<CLodScriptReplacement_t> &boneReplacements) {
     // find the bone that we are starting with.
-    int i = findGlobalBone(boneTreeCollapse.GetSrcName());
+    int i = findGlobalBone(ctx, boneTreeCollapse.GetSrcName());
     if (i != -1) {
-        ReplaceBonesRecursive(i, false, boneReplacements, g_studiomdl.bones.bonetable[i].name);
+        ReplaceBonesRecursive(ctx, i, false, boneReplacements, ctx.bones.bonetable[i].name);
         return;
     }
     MdlWarning("Couldn't find bone {} for bonetreecollapse, skipping\n", boneTreeCollapse.GetSrcName());
 }
 
-void ConvertBoneTreeCollapsesToReplaceBones() {
+void ConvertBoneTreeCollapsesToReplaceBones(StudioMdlState &ctx) {
     vstd::FunctionTimingRecorder _("Simplify");
     int i;
-    for (i = 0; i < std::ssize(g_studiomdl.body.ScriptLODs); i++) {
-        LodScriptData_t &lod = g_studiomdl.body.ScriptLODs[i];
+    for (i = 0; i < std::ssize(ctx.body.ScriptLODs); i++) {
+        LodScriptData_t &lod = ctx.body.ScriptLODs[i];
         int j;
         for (j = 0; j < std::ssize(lod.boneTreeCollapses); j++) {
-            ConvertSingleBoneTreeCollapseToReplaceBones(lod.boneTreeCollapses[j],
+            ConvertSingleBoneTreeCollapseToReplaceBones(ctx, lod.boneTreeCollapses[j],
                                                         lod.boneReplacements);
         }
     }
@@ -1423,10 +1418,10 @@ void FixupReplacedBonesForLOD(LodScriptData_t &lod) {
 */
 }
 
-void FixupReplacedBones() {
+void FixupReplacedBones(StudioMdlState &ctx) {
     vstd::FunctionTimingRecorder _("Simplify");
     int i;
-    for (i = 0; i < std::ssize(g_studiomdl.body.ScriptLODs); i++) {
-        FixupReplacedBonesForLOD(g_studiomdl.body.ScriptLODs[i]);
+    for (i = 0; i < std::ssize(ctx.body.ScriptLODs); i++) {
+        FixupReplacedBonesForLOD(ctx.body.ScriptLODs[i]);
     }
 }

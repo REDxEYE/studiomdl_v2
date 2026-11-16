@@ -7,6 +7,7 @@
 
 #include "datamodel/dmelementfactoryhelper.h"
 #include "mdlobjects/dmehitboxset.h"
+#include "mdlobjects/dmehitbox.h"
 
 
 

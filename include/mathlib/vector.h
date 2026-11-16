@@ -130,7 +130,7 @@ public:
 	}
 
 	// return true if this vector is (0,0,0) within tolerance
-	bool IsZero( float tolerance = 0.01f ) const
+	bool IsZero(const float tolerance = 0.01f ) const
 	{
 		return (x > -tolerance && x < tolerance &&
 				y > -tolerance && y < tolerance &&
@@ -142,8 +142,8 @@ public:
 	inline bool IsZeroFast( ) const RESTRICT
 	{
 		COMPILE_TIME_ASSERT( sizeof(vec_t) == sizeof(int) );
-		return ( *reinterpret_cast<const int *>(&x) == 0 && 
-				 *reinterpret_cast<const int *>(&y) == 0 && 
+		return ( *reinterpret_cast<const int *>(&x) == 0 &&
+				 *reinterpret_cast<const int *>(&y) == 0 &&
 				 *reinterpret_cast<const int *>(&z) == 0 );
 	}
 
@@ -156,12 +156,12 @@ public:
 
 	// check if a vector is within the box defined by two other vectors
 	FORCEINLINE bool WithinAABox( Vector const &boxmin, Vector const &boxmax);
- 
+
 	// Get the distance from this vector to the other one.
 	vec_t	DistTo(const Vector &vOther) const;
 
 	// Get the distance from this vector to the other one squared.
-	// NJS: note, VC wasn't inlining it correctly in several deeply nested inlines due to being an 'out of line' inline.  
+	// NJS: note, VC wasn't inlining it correctly in several deeply nested inlines due to being an 'out of line' inline.
 	// may be able to tidy this up after switching to VC7
 	FORCEINLINE vec_t DistToSqr(const Vector &vOther) const
 	{
@@ -175,15 +175,15 @@ public:
 	}
 
 	// Copy
-	void	CopyToArray(float* rgfl) const;	
+	void	CopyToArray(float* rgfl) const;
 
 	// Multiply, add, and assign to this (ie: *this = a + b * scalar). This
 	// is about 12% faster than the actual vector equation (because it's done per-component
 	// rather than per-vector).
-	void	MulAdd(const Vector& a, const Vector& b, float scalar);	
+	void	MulAdd(const Vector& a, const Vector& b, float scalar);
 
 	// Dot product.
-	vec_t	Dot(const Vector& vOther) const;			
+	vec_t	Dot(const Vector& vOther) const;
 
 	// assignment
 	Vector& operator=(const Vector &vOther);
@@ -210,16 +210,16 @@ public:
 
 	// arithmetic operations
 	Vector	operator-() const;
-				
-	Vector	operator+(const Vector& v) const;	
-	Vector	operator-(const Vector& v) const;	
-	Vector	operator*(const Vector& v) const;	
-	Vector	operator/(const Vector& v) const;	
+
+	Vector	operator+(const Vector& v) const;
+	Vector	operator-(const Vector& v) const;
+	Vector	operator*(const Vector& v) const;
+	Vector	operator/(const Vector& v) const;
 	Vector	operator*(float fl) const;
-	Vector	operator/(float fl) const;			
-	
+	Vector	operator/(float fl) const;
+
 	// Cross product between two vectors.
-	Vector	Cross(const Vector &vOther) const;		
+	Vector	Cross(const Vector &vOther) const;
 
 	// Returns a vector with the min or max in X, Y, and Z.
 	Vector	Min(const Vector &vOther) const;
@@ -252,7 +252,7 @@ public:
 
 #if defined( PLATFORM_WINDOWS_PC )
 	__m64 &AsM64() { return *(__m64*)&x; }
-	const __m64 &AsM64() const { return *(const __m64*)&x; } 
+	const __m64 &AsM64() const { return *(const __m64*)&x; }
 #endif
 
 	// Setter
@@ -269,15 +269,15 @@ public:
 
 	// equality
 	bool operator==(const ShortVector& v) const;
-	bool operator!=(const ShortVector& v) const;	
+	bool operator!=(const ShortVector& v) const;
 
 	// Arithmetic operations
-	FORCEINLINE ShortVector& operator+=(const ShortVector &v);			
-	FORCEINLINE ShortVector& operator-=(const ShortVector &v);		
-	FORCEINLINE ShortVector& operator*=(const ShortVector &v);			
+	FORCEINLINE ShortVector& operator+=(const ShortVector &v);
+	FORCEINLINE ShortVector& operator-=(const ShortVector &v);
+	FORCEINLINE ShortVector& operator*=(const ShortVector &v);
 	FORCEINLINE ShortVector& operator*=(float s);
-	FORCEINLINE ShortVector& operator/=(const ShortVector &v);		
-	FORCEINLINE ShortVector& operator/=(float s);					
+	FORCEINLINE ShortVector& operator/=(const ShortVector &v);
+	FORCEINLINE ShortVector& operator/=(float s);
 	FORCEINLINE ShortVector operator*(float fl) const;
 
 private:
@@ -309,7 +309,7 @@ public:
 
 #if defined( PLATFORM_WINDOWS_PC )
 	__m64 &AsM64() { return *(__m64*)&x; }
-	const __m64 &AsM64() const { return *(const __m64*)&x; } 
+	const __m64 &AsM64() const { return *(const __m64*)&x; }
 #endif
 
 	// Setter
@@ -326,15 +326,15 @@ public:
 
 	// equality
 	bool operator==(const IntVector4D& v) const;
-	bool operator!=(const IntVector4D& v) const;	
+	bool operator!=(const IntVector4D& v) const;
 
 	// Arithmetic operations
-	FORCEINLINE IntVector4D& operator+=(const IntVector4D &v);			
-	FORCEINLINE IntVector4D& operator-=(const IntVector4D &v);		
-	FORCEINLINE IntVector4D& operator*=(const IntVector4D &v);			
+	FORCEINLINE IntVector4D& operator+=(const IntVector4D &v);
+	FORCEINLINE IntVector4D& operator-=(const IntVector4D &v);
+	FORCEINLINE IntVector4D& operator*=(const IntVector4D &v);
 	FORCEINLINE IntVector4D& operator*=(float s);
-	FORCEINLINE IntVector4D& operator/=(const IntVector4D &v);		
-	FORCEINLINE IntVector4D& operator/=(float s);					
+	FORCEINLINE IntVector4D& operator/=(const IntVector4D &v);
+	FORCEINLINE IntVector4D& operator/=(float s);
 	FORCEINLINE IntVector4D operator*(float fl) const;
 
 private:
@@ -357,7 +357,7 @@ class VectorByValue : public Vector
 public:
 	// Construction/destruction:
 	VectorByValue() : Vector() {}
-	VectorByValue(vec_t X, vec_t Y, vec_t Z) : Vector( X, Y, Z ) {}
+	VectorByValue(const vec_t X, const vec_t Y, const vec_t Z) : Vector( X, Y, Z ) {}
 	VectorByValue(const VectorByValue& vOther) { *this = vOther; }
 };
 
@@ -375,13 +375,13 @@ public:
 	operator const Vector &() const	{ return *((const Vector *)(this)); }
 
 	// array access...
-	inline vec_t& operator[](int i)
+	inline vec_t& operator[](const int i)
 	{
 		Assert( (i >= 0) && (i < 3) );
 		return ((vec_t*)this)[i];
 	}
 
-	inline vec_t operator[](int i) const
+	inline vec_t operator[](const int i) const
 	{
 		Assert( (i >= 0) && (i < 3) );
 		return ((vec_t*)this)[i];
@@ -397,7 +397,7 @@ class ALIGN16 VectorAligned : public Vector
 {
 public:
 	inline VectorAligned() {};
-	inline VectorAligned(vec_t X, vec_t Y, vec_t Z) 
+	inline VectorAligned(const vec_t X, const vec_t Y, const vec_t Z)
 	{
 		Init(X,Y,Z);
 	}
@@ -411,12 +411,12 @@ private:
 
 #else
 public:
-	explicit VectorAligned(const Vector &vOther) 
+	explicit VectorAligned(const Vector &vOther)
 	{
 		Init(vOther.x, vOther.y, vOther.z);
 	}
-	
-	VectorAligned& operator=(const Vector &vOther)	
+
+	VectorAligned& operator=(const Vector &vOther)
 	{
 		Init(vOther.x, vOther.y, vOther.z);
 		return *this;
@@ -437,22 +437,22 @@ public:
 #endif
 	float w;	// this space is used anyway
 
-	void* operator new[] ( size_t nSize)
+	void* operator new[] (const size_t nSize)
 	{
 		return MemAlloc_AllocAligned(nSize, 16);
 	}
 
-	void operator delete[] ( void* p) 
+	void operator delete[] ( void* p)
 	{
 		MemAlloc_FreeAligned(p);
 	}
 
 	// please don't allocate a single quaternion...
-	void* operator new   ( size_t nSize )
+	void* operator new   (const size_t nSize )
 	{
 		return MemAlloc_AllocAligned(nSize, 16);
 	}
-	void operator delete ( void* p) 
+	void operator delete ( void* p)
 	{
 		MemAlloc_FreeAligned(p);
 	}
@@ -505,18 +505,18 @@ void VectorMax( const Vector &a, const Vector &b, Vector &result );
 void VectorLerp(const Vector& src1, const Vector& src2, vec_t t, Vector& dest );
 Vector VectorLerp(const Vector& src1, const Vector& src2, vec_t t );
 
-FORCEINLINE Vector ReplicateToVector( float x )
+FORCEINLINE Vector ReplicateToVector(const float x )
 {
 	return Vector( x, x, x );
 }
 
-FORCEINLINE bool PointWithinViewAngle( Vector const &vecSrcPosition, 
-									   Vector const &vecTargetPosition, 
-									   Vector const &vecLookDirection, float flCosHalfFOV )
+FORCEINLINE bool PointWithinViewAngle( Vector const &vecSrcPosition,
+									   Vector const &vecTargetPosition,
+									   Vector const &vecLookDirection, const float flCosHalfFOV )
 {
 	Vector vecDelta = vecTargetPosition - vecSrcPosition;
 	float cosDiff = DotProduct( vecLookDirection, vecDelta );
-	
+
 	if ( flCosHalfFOV <= 0 ) // >180
 	{
 		// signs are different, answer is implicit
@@ -565,8 +565,8 @@ Vector RandomVector( vec_t minVal, vec_t maxVal );
 //-----------------------------------------------------------------------------
 // constructors
 //-----------------------------------------------------------------------------
-inline Vector::Vector(void)									
-{ 
+inline Vector::Vector(void)
+{
 #ifdef _DEBUG
 #ifdef VECTOR_PARANOIA
 	// Initialize to NAN to catch errors
@@ -575,26 +575,26 @@ inline Vector::Vector(void)
 #endif
 }
 
-inline Vector::Vector(vec_t X, vec_t Y, vec_t Z)						
-{ 
+inline Vector::Vector(const vec_t X, const vec_t Y, const vec_t Z)
+{
 	x = X; y = Y; z = Z;
 	CHECK_VALID(*this);
 }
 
-//inline Vector::Vector(const float *pFloat)					
+//inline Vector::Vector(const float *pFloat)
 //{
 //	Assert( pFloat );
-//	x = pFloat[0]; y = pFloat[1]; z = pFloat[2];	
+//	x = pFloat[0]; y = pFloat[1]; z = pFloat[2];
 //	CHECK_VALID(*this);
-//} 
+//}
 
 #if 0
 //-----------------------------------------------------------------------------
 // copy constructor
 //-----------------------------------------------------------------------------
 
-inline Vector::Vector(const Vector &vOther)					
-{ 
+inline Vector::Vector(const Vector &vOther)
+{
 	CHECK_VALID(vOther);
 	x = vOther.x; y = vOther.y; z = vOther.z;
 }
@@ -604,13 +604,13 @@ inline Vector::Vector(const Vector &vOther)
 // initialization
 //-----------------------------------------------------------------------------
 
-inline void Vector::Init( vec_t ix, vec_t iy, vec_t iz )    
-{ 
+inline void Vector::Init(const vec_t ix, const vec_t iy, const vec_t iz )
+{
 	x = ix; y = iy; z = iz;
 	CHECK_VALID(*this);
 }
 
-inline void Vector::Random( vec_t minVal, vec_t maxVal )
+inline void Vector::Random(const vec_t minVal, const vec_t maxVal )
 {
 	x = RandomFloat( minVal, maxVal );
 	y = RandomFloat( minVal, maxVal );
@@ -633,24 +633,24 @@ inline void VectorClear( Vector& a )
 // assignment
 //-----------------------------------------------------------------------------
 
-inline Vector& Vector::operator=(const Vector &vOther)	
+inline Vector& Vector::operator=(const Vector &vOther)
 {
 	CHECK_VALID(vOther);
-	x=vOther.x; y=vOther.y; z=vOther.z; 
-	return *this; 
+	x=vOther.x; y=vOther.y; z=vOther.z;
+	return *this;
 }
 
 
 //-----------------------------------------------------------------------------
 // Array access
 //-----------------------------------------------------------------------------
-inline vec_t& Vector::operator[](int i)
+inline vec_t& Vector::operator[](const int i)
 {
 	Assert( (i >= 0) && (i < 3) );
 	return ((vec_t*)this)[i];
 }
 
-inline vec_t Vector::operator[](int i) const
+inline vec_t Vector::operator[](const int i) const
 {
 	Assert( (i >= 0) && (i < 3) );
 	return ((vec_t*)this)[i];
@@ -696,7 +696,7 @@ inline bool Vector::IsValid() const
 //-----------------------------------------------------------------------------
 // IsReasonable?
 //-----------------------------------------------------------------------------
-inline bool Vector::IsReasonable( float range ) const
+inline bool Vector::IsReasonable(const float range ) const
 {
 	return ( Length() < range );
 }
@@ -745,11 +745,11 @@ FORCEINLINE void VectorCopy( const Vector& src, Vector& dst )
 	dst.z = src.z;
 }
 
-inline void	Vector::CopyToArray(float* rgfl) const		
-{ 
+inline void	Vector::CopyToArray(float* rgfl) const
+{
 	Assert( rgfl );
 	CHECK_VALID(*this);
-	rgfl[0] = x, rgfl[1] = y, rgfl[2] = z; 
+	rgfl[0] = x, rgfl[1] = y, rgfl[2] = z;
 }
 
 //-----------------------------------------------------------------------------
@@ -758,28 +758,28 @@ inline void	Vector::CopyToArray(float* rgfl) const
 // #pragma message("TODO: these should be SSE")
 
 inline void Vector::Negate()
-{ 
+{
 	CHECK_VALID(*this);
-	x = -x; y = -y; z = -z; 
-} 
+	x = -x; y = -y; z = -z;
+}
 
-FORCEINLINE  Vector& Vector::operator+=(const Vector& v)	
-{ 
+FORCEINLINE  Vector& Vector::operator+=(const Vector& v)
+{
 	CHECK_VALID(*this);
 	CHECK_VALID(v);
-	x+=v.x; y+=v.y; z += v.z;	
+	x+=v.x; y+=v.y; z += v.z;
 	return *this;
 }
 
-FORCEINLINE  Vector& Vector::operator-=(const Vector& v)	
-{ 
+FORCEINLINE  Vector& Vector::operator-=(const Vector& v)
+{
 	CHECK_VALID(*this);
 	CHECK_VALID(v);
-	x-=v.x; y-=v.y; z -= v.z;	
+	x-=v.x; y-=v.y; z -= v.z;
 	return *this;
 }
 
-FORCEINLINE  Vector& Vector::operator*=(float fl)	
+FORCEINLINE  Vector& Vector::operator*=(const float fl)
 {
 	x *= fl;
 	y *= fl;
@@ -788,8 +788,8 @@ FORCEINLINE  Vector& Vector::operator*=(float fl)
 	return *this;
 }
 
-FORCEINLINE  Vector& Vector::operator*=(const Vector& v)	
-{ 
+FORCEINLINE  Vector& Vector::operator*=(const Vector& v)
+{
 	CHECK_VALID(v);
 	x *= v.x;
 	y *= v.y;
@@ -799,7 +799,7 @@ FORCEINLINE  Vector& Vector::operator*=(const Vector& v)
 }
 
 // this ought to be an opcode.
-FORCEINLINE Vector&	Vector::operator+=(float fl) 
+FORCEINLINE Vector&	Vector::operator+=(const float fl)
 {
 	x += fl;
 	y += fl;
@@ -808,7 +808,7 @@ FORCEINLINE Vector&	Vector::operator+=(float fl)
 	return *this;
 }
 
-FORCEINLINE Vector&	Vector::operator-=(float fl) 
+FORCEINLINE Vector&	Vector::operator-=(const float fl)
 {
 	x -= fl;
 	y -= fl;
@@ -819,7 +819,7 @@ FORCEINLINE Vector&	Vector::operator-=(float fl)
 
 
 
-FORCEINLINE  Vector& Vector::operator/=(float fl)	
+FORCEINLINE  Vector& Vector::operator/=(const float fl)
 {
 	Assert( fl != 0.0f );
 	float oofl = 1.0f / fl;
@@ -830,8 +830,8 @@ FORCEINLINE  Vector& Vector::operator/=(float fl)
 	return *this;
 }
 
-FORCEINLINE  Vector& Vector::operator/=(const Vector& v)	
-{ 
+FORCEINLINE  Vector& Vector::operator/=(const Vector& v)
+{
 	CHECK_VALID(v);
 	Assert( v.x != 0.0f && v.y != 0.0f && v.z != 0.0f );
 	x /= v.x;
@@ -868,7 +868,7 @@ inline Vector Vector::ProjectOnto( const Vector& onto )
 // standard math operations
 //-----------------------------------------------------------------------------
 
-FORCEINLINE void ShortVectorMultiply( const ShortVector& src, float fl, ShortVector& res )
+FORCEINLINE void ShortVectorMultiply( const ShortVector& src, const float fl, ShortVector& res )
 {
 	Assert( IsFinite(fl) );
 	res.x = (short)(src.x * fl);
@@ -889,8 +889,8 @@ FORCEINLINE void ShortVectorMultiply( const ShortVector& src, float fl, ShortVec
 //-----------------------------------------------------------------------------
 
 
-inline void IntVector4D::Init( int ix, int iy, int iz, int iw )    
-{ 
+inline void IntVector4D::Init(const int ix, const int iy, const int iz, const int iw )
+{
 	x = ix; y = iy; z = iz; w = iw;
 }
 
@@ -914,13 +914,13 @@ FORCEINLINE void IntVector4D::Set( const int ix, const int iy, const int iz, con
 //-----------------------------------------------------------------------------
 // Array access
 //-----------------------------------------------------------------------------
-inline int IntVector4D::operator[](int i) const
+inline int IntVector4D::operator[](const int i) const
 {
 	Assert( (i >= 0) && (i < 4) );
 	return ((int*)this)[i];
 }
 
-inline int& IntVector4D::operator[](int i)
+inline int& IntVector4D::operator[](const int i)
 {
 	Assert( (i >= 0) && (i < 4) );
 	return ((int*)this)[i];
@@ -960,19 +960,19 @@ inline bool IntVector4D::operator!=( const IntVector4D& src ) const
 // standard math operations
 //-----------------------------------------------------------------------------
 
-FORCEINLINE  IntVector4D& IntVector4D::operator+=(const IntVector4D& v)	
-{ 
+FORCEINLINE  IntVector4D& IntVector4D::operator+=(const IntVector4D& v)
+{
 	x+=v.x; y+=v.y; z += v.z; w += v.w;
 	return *this;
 }
 
-FORCEINLINE  IntVector4D& IntVector4D::operator-=(const IntVector4D& v)	
-{ 
+FORCEINLINE  IntVector4D& IntVector4D::operator-=(const IntVector4D& v)
+{
 	x-=v.x; y-=v.y; z -= v.z; w -= v.w;
 	return *this;
 }
 
-FORCEINLINE  IntVector4D& IntVector4D::operator*=(float fl)	
+FORCEINLINE  IntVector4D& IntVector4D::operator*=(const float fl)
 {
 	x = (int)(x * fl);
 	y = (int)(y * fl);
@@ -981,8 +981,8 @@ FORCEINLINE  IntVector4D& IntVector4D::operator*=(float fl)
 	return *this;
 }
 
-FORCEINLINE  IntVector4D& IntVector4D::operator*=(const IntVector4D& v)	
-{ 
+FORCEINLINE  IntVector4D& IntVector4D::operator*=(const IntVector4D& v)
+{
 	x = (int)(x * v.x);
 	y = (int)(y * v.y);
 	z = (int)(z * v.z);
@@ -990,7 +990,7 @@ FORCEINLINE  IntVector4D& IntVector4D::operator*=(const IntVector4D& v)
 	return *this;
 }
 
-FORCEINLINE  IntVector4D& IntVector4D::operator/=(float fl)	
+FORCEINLINE  IntVector4D& IntVector4D::operator/=(const float fl)
 {
 	Assert( fl != 0.0f );
 	float oofl = 1.0f / fl;
@@ -1001,8 +1001,8 @@ FORCEINLINE  IntVector4D& IntVector4D::operator/=(float fl)
 	return *this;
 }
 
-FORCEINLINE  IntVector4D& IntVector4D::operator/=(const IntVector4D& v)	
-{ 
+FORCEINLINE  IntVector4D& IntVector4D::operator/=(const IntVector4D& v)
+{
 	Assert( v.x != 0 && v.y != 0 && v.z != 0 && v.w != 0 );
 	x = (int)(x / v.x);
 	y = (int)(y / v.y);
@@ -1011,7 +1011,7 @@ FORCEINLINE  IntVector4D& IntVector4D::operator/=(const IntVector4D& v)
 	return *this;
 }
 
-FORCEINLINE void IntVector4DMultiply( const IntVector4D& src, float fl, IntVector4D& res )
+FORCEINLINE void IntVector4DMultiply( const IntVector4D& src, const float fl, IntVector4D& res )
 {
 	Assert( IsFinite(fl) );
 	res.x = (int)(src.x * fl);
@@ -1020,11 +1020,11 @@ FORCEINLINE void IntVector4DMultiply( const IntVector4D& src, float fl, IntVecto
 	res.w = (int)(src.w * fl);
 }
 
-FORCEINLINE IntVector4D IntVector4D::operator*(float fl) const
-{ 
+FORCEINLINE IntVector4D IntVector4D::operator*(const float fl) const
+{
 	IntVector4D res;
 	IntVector4DMultiply( *this, fl, res );
-	return res;	
+	return res;
 }
 
 
@@ -1050,7 +1050,7 @@ FORCEINLINE void VectorSubtract( const Vector& a, const Vector& b, Vector& c )
 	c.z = a.z - b.z;
 }
 
-FORCEINLINE void VectorMultiply( const Vector& a, vec_t b, Vector& c )
+FORCEINLINE void VectorMultiply( const Vector& a, const vec_t b, Vector& c )
 {
 	CHECK_VALID(a);
 	Assert( IsFinite(b) );
@@ -1069,13 +1069,13 @@ FORCEINLINE void VectorMultiply( const Vector& a, const Vector& b, Vector& c )
 }
 
 // for backwards compatability
-inline void VectorScale ( const Vector& in, vec_t scale, Vector& result )
+inline void VectorScale ( const Vector& in, const vec_t scale, Vector& result )
 {
 	VectorMultiply( in, scale, result );
 }
 
 
-FORCEINLINE void VectorDivide( const Vector& a, vec_t b, Vector& c )
+FORCEINLINE void VectorDivide( const Vector& a, const vec_t b, Vector& c )
 {
 	CHECK_VALID(a);
 	Assert( b != 0.0f );
@@ -1097,7 +1097,7 @@ FORCEINLINE void VectorDivide( const Vector& a, const Vector& b, Vector& c )
 
 // FIXME: Remove
 // For backwards compatability
-inline void	Vector::MulAdd(const Vector& a, const Vector& b, float scalar)
+inline void	Vector::MulAdd(const Vector& a, const Vector& b, const float scalar)
 {
 	CHECK_VALID(a);
 	CHECK_VALID(b);
@@ -1106,7 +1106,7 @@ inline void	Vector::MulAdd(const Vector& a, const Vector& b, float scalar)
 	z = a.z + b.z * scalar;
 }
 
-inline void VectorLerp(const Vector& src1, const Vector& src2, vec_t t, Vector& dest )
+inline void VectorLerp(const Vector& src1, const Vector& src2, const vec_t t, Vector& dest )
 {
 	CHECK_VALID(src1);
 	CHECK_VALID(src2);
@@ -1115,7 +1115,7 @@ inline void VectorLerp(const Vector& src1, const Vector& src2, vec_t t, Vector& 
 	dest.z = src1.z + (src2.z - src1.z) * t;
 }
 
-inline Vector VectorLerp(const Vector& src1, const Vector& src2, vec_t t )
+inline Vector VectorLerp(const Vector& src1, const Vector& src2, const vec_t t )
 {
 	Vector result;
 	VectorLerp( src1, src2, t, result );
@@ -1127,11 +1127,11 @@ inline Vector VectorLerp(const Vector& src1, const Vector& src2, vec_t t )
 //-----------------------------------------------------------------------------
 // dot, cross
 //-----------------------------------------------------------------------------
-FORCEINLINE vec_t DotProduct(const Vector& a, const Vector& b) 
-{ 
+FORCEINLINE vec_t DotProduct(const Vector& a, const Vector& b)
+{
 	CHECK_VALID(a);
 	CHECK_VALID(b);
-	return( a.x*b.x + a.y*b.y + a.z*b.z ); 
+	return( a.x*b.x + a.y*b.y + a.z*b.z );
 }
 
 // for backwards compatability
@@ -1221,7 +1221,7 @@ inline vec_t DotProductAbs( const Vector &v0, const float *v1 )
 inline vec_t VectorLength( const Vector& v )
 {
 	CHECK_VALID(v);
-	return (vec_t)FastSqrt(v.x*v.x + v.y*v.y + v.z*v.z);		
+	return (vec_t)FastSqrt(v.x*v.x + v.y*v.y + v.z*v.z);
 }
 
 
@@ -1248,7 +1248,7 @@ inline vec_t VectorNormalize( Vector& v )
 	}
 	else
 	{
-		// FIXME: 
+		// FIXME:
 		// Just copying the existing implemenation; shouldn't res.z == 0?
 		v.x = v.y = 0.0f; v.z = 1.0f;
 	}
@@ -1260,7 +1260,7 @@ inline vec_t VectorNormalize( Vector& v )
 // check a point against a box
 bool Vector::WithinAABox( Vector const &boxmin, Vector const &boxmax)
 {
-	return ( 
+	return (
 		( x >= boxmin.x ) && ( x <= boxmax.x) &&
 		( y >= boxmin.y ) && ( y <= boxmax.y) &&
 		( z >= boxmin.z ) && ( z <= boxmax.z)
@@ -1268,7 +1268,7 @@ bool Vector::WithinAABox( Vector const &boxmin, Vector const &boxmax)
 }
 
 //-----------------------------------------------------------------------------
-// Get the distance from this vector to the other one 
+// Get the distance from this vector to the other one
 //-----------------------------------------------------------------------------
 inline vec_t Vector::DistTo(const Vector &vOther) const
 {
@@ -1281,10 +1281,10 @@ inline vec_t Vector::DistTo(const Vector &vOther) const
 //-----------------------------------------------------------------------------
 // Float equality with tolerance
 //-----------------------------------------------------------------------------
-inline bool FloatsAreEqual( float f1, float f2, float flTolerance )
+inline bool FloatsAreEqual(const float f1, const float f2, const float flTolerance )
 {
 	// Sergiy: the implementation in Source2 is very inefficient, trying to start with a clean slate here, hopefully will reintegrate back to Source2
-	const float flAbsToleranceThreshold = 0.000003814697265625; // 2 ^ -FLOAT_EQUALITY_NOISE_CUTOFF, 
+	const float flAbsToleranceThreshold = 0.000003814697265625; // 2 ^ -FLOAT_EQUALITY_NOISE_CUTOFF,
 	return fabsf( f1 - f2 ) <= flTolerance * ( fabsf( f1 ) + fabsf( f2 ) ) + flAbsToleranceThreshold;
 }
 
@@ -1294,7 +1294,7 @@ inline bool FloatsAreEqual( float f1, float f2, float flTolerance )
 // are all components within flPercentageTolerance (expressed as a percentage of the larger component, per component)?
 // and all components have the same sign
 //-----------------------------------------------------------------------------
-inline bool VectorsAreWithinPercentageTolerance( const Vector& src1, const Vector& src2, float flPercentageTolerance )
+inline bool VectorsAreWithinPercentageTolerance( const Vector& src1, const Vector& src2, const float flPercentageTolerance )
 {
 	if ( !FloatsAreEqual( src1.x, src2.x, flPercentageTolerance ) )
 		return false;
@@ -1310,7 +1310,7 @@ inline bool VectorsAreWithinPercentageTolerance( const Vector& src1, const Vecto
 //-----------------------------------------------------------------------------
 // Vector equality with tolerance
 //-----------------------------------------------------------------------------
-inline bool VectorsAreEqual( const Vector& src1, const Vector& src2, float tolerance )
+inline bool VectorsAreEqual( const Vector& src1, const Vector& src2, const float tolerance )
 {
 	if (FloatMakePositive(src1.x - src2.x) > tolerance)
 		return false;
@@ -1323,7 +1323,7 @@ inline bool VectorsAreEqual( const Vector& src1, const Vector& src2, float toler
 //-----------------------------------------------------------------------------
 // Computes the closest point to vecTarget no farther than flMaxDist from vecStart
 //-----------------------------------------------------------------------------
-inline void ComputeClosestPoint( const Vector& vecStart, float flMaxDist, const Vector& vecTarget, Vector *pResult )
+inline void ComputeClosestPoint( const Vector& vecStart, const float flMaxDist, const Vector& vecTarget, Vector *pResult )
 {
 	Vector vecDelta;
 	VectorSubtract( vecTarget, vecStart, vecDelta );
@@ -1352,7 +1352,7 @@ inline void VectorAbs( const Vector& src, Vector& dst )
 
 inline Vector VectorAbs( const Vector& src )
 {
-	return Vector( fabsf( src.x ), fabsf( src.y ), fabsf( src.z ) ); 
+	return Vector( fabsf( src.x ), fabsf( src.y ), fabsf( src.z ) );
 }
 
 
@@ -1369,15 +1369,15 @@ inline Vector VectorAbs( const Vector& src )
 //-----------------------------------------------------------------------------
 inline Vector Vector::Min(const Vector &vOther) const
 {
-	return Vector(x < vOther.x ? x : vOther.x, 
-		y < vOther.y ? y : vOther.y, 
+	return Vector(x < vOther.x ? x : vOther.x,
+		y < vOther.y ? y : vOther.y,
 		z < vOther.z ? z : vOther.z);
 }
 
 inline Vector Vector::Max(const Vector &vOther) const
 {
-	return Vector(x > vOther.x ? x : vOther.x, 
-		y > vOther.y ? y : vOther.y, 
+	return Vector(x > vOther.x ? x : vOther.x,
+		y > vOther.y ? y : vOther.y,
 		z > vOther.z ? z : vOther.z);
 }
 
@@ -1387,55 +1387,55 @@ inline Vector Vector::Max(const Vector &vOther) const
 //-----------------------------------------------------------------------------
 
 inline Vector Vector::operator-() const
-{ 
-	return Vector(-x,-y,-z);				
+{
+	return Vector(-x,-y,-z);
 }
 
-inline Vector Vector::operator+(const Vector& v) const	
-{ 
+inline Vector Vector::operator+(const Vector& v) const
+{
 	Vector res;
 	VectorAdd( *this, v, res );
-	return res;	
+	return res;
 }
 
-inline Vector Vector::operator-(const Vector& v) const	
-{ 
+inline Vector Vector::operator-(const Vector& v) const
+{
 	Vector res;
 	VectorSubtract( *this, v, res );
-	return res;	
+	return res;
 }
 
-inline Vector Vector::operator*(float fl) const	
-{ 
+inline Vector Vector::operator*(const float fl) const
+{
 	Vector res;
 	VectorMultiply( *this, fl, res );
-	return res;	
+	return res;
 }
 
-inline Vector Vector::operator*(const Vector& v) const	
-{ 
+inline Vector Vector::operator*(const Vector& v) const
+{
 	Vector res;
 	VectorMultiply( *this, v, res );
-	return res;	
+	return res;
 }
 
-inline Vector Vector::operator/(float fl) const	
-{ 
+inline Vector Vector::operator/(const float fl) const
+{
 	Vector res;
 	VectorDivide( *this, fl, res );
-	return res;	
+	return res;
 }
 
-inline Vector Vector::operator/(const Vector& v) const	
-{ 
+inline Vector Vector::operator/(const Vector& v) const
+{
 	Vector res;
 	VectorDivide( *this, v, res );
-	return res;	
+	return res;
 }
 
-inline Vector operator*(float fl, const Vector& v)	
-{ 
-	return v * fl; 
+inline Vector operator*(const float fl, const Vector& v)
+{
+	return v * fl;
 }
 
 //-----------------------------------------------------------------------------
@@ -1443,7 +1443,7 @@ inline Vector operator*(float fl, const Vector& v)
 //-----------------------------------------------------------------------------
 
 inline Vector Vector::Cross(const Vector& vOther) const
-{ 
+{
 	Vector res;
 	CrossProduct( *this, vOther, res );
 	return res;
@@ -1454,18 +1454,18 @@ inline Vector Vector::Cross(const Vector& vOther) const
 //-----------------------------------------------------------------------------
 
 inline vec_t Vector::Length2D() const
-{ 
-	return (vec_t)FastSqrt(x*x + y*y); 
+{
+	return (vec_t)FastSqrt(x*x + y*y);
 }
 
 inline vec_t Vector::Length2DSqr() const
-{ 
-	return (x*x + y*y); 
+{
+	return (x*x + y*y);
 }
 
-inline Vector CrossProduct(const Vector& a, const Vector& b) 
-{ 
-	return Vector( a.y*b.z - a.z*b.y, a.z*b.x - a.x*b.z, a.x*b.y - a.y*b.x ); 
+inline Vector CrossProduct(const Vector& a, const Vector& b)
+{
+	return Vector( a.y*b.z - a.z*b.y, a.z*b.x - a.x*b.z, a.x*b.y - a.y*b.x );
 }
 
 inline void VectorMin( const Vector &a, const Vector &b, Vector &result )
@@ -1501,7 +1501,7 @@ inline float ComputeVolume( const Vector &vecMins, const Vector &vecMaxs )
 }
 
 // Get a random vector.
-inline Vector RandomVector( float minVal, float maxVal )
+inline Vector RandomVector(const float minVal, const float maxVal )
 {
 	Vector random;
 	random.Random( minVal, maxVal );
@@ -1563,7 +1563,7 @@ typedef Vector AngularImpulse;
 
 #ifndef VECTOR_NO_SLOW_OPERATIONS
 
-inline AngularImpulse RandomAngularImpulse( float minVal, float maxVal )
+inline AngularImpulse RandomAngularImpulse(const float minVal, const float maxVal )
 {
 	AngularImpulse	angImp;
 	angImp.Random( minVal, maxVal );
@@ -1584,8 +1584,8 @@ class QAngle;
 class Quaternion				// same data-layout as engine's vec4_t,
 {								//		which is a vec_t[4]
 public:
-	inline Quaternion(void)	{ 
-	
+	inline Quaternion(void)	{
+
 	// Initialize to NAN to catch errors
 #ifdef _DEBUG
 #ifdef VECTOR_PARANOIA
@@ -1593,12 +1593,12 @@ public:
 #endif
 #endif
 	}
-	inline Quaternion(vec_t ix, vec_t iy, vec_t iz, vec_t iw) : x(ix), y(iy), z(iz), w(iw) { }
+	inline Quaternion(const vec_t ix, const vec_t iy, const vec_t iz, const vec_t iw) : x(ix), y(iy), z(iz), w(iw) { }
 	inline explicit Quaternion( RadianEuler const &angle );
 	inline explicit Quaternion( DegreeEuler const &angle );
 
-	inline void Init(vec_t ix=0.0f, vec_t iy=0.0f, vec_t iz=0.0f, vec_t iw=0.0f)	{ x = ix; y = iy; z = iz; w = iw; }
-	inline void Init( const Vector &vImaginaryPart, float flRealPart ){ x = vImaginaryPart.x; y = vImaginaryPart.y; z = vImaginaryPart.z; w = flRealPart; }
+	inline void Init(const vec_t ix=0.0f, const vec_t iy=0.0f, const vec_t iz=0.0f, const vec_t iw=0.0f)	{ x = ix; y = iy; z = iz; w = iw; }
+	inline void Init( const Vector &vImaginaryPart, const float flRealPart ){ x = vImaginaryPart.x; y = vImaginaryPart.y; z = vImaginaryPart.z; w = flRealPart; }
 
 	bool IsValid() const;
 	void Invalidate();
@@ -1608,7 +1608,7 @@ public:
 
 	inline Quaternion Conjugate() const { return Quaternion( -x, -y, -z, w );  }
 
-	// 
+	//
 	const Vector GetForward()const;
 	const Vector GetLeft()const;
 	const Vector GetUp()const;
@@ -1639,7 +1639,7 @@ public:
 
 // Random Quaternion that is UNIFORMLY distributed over the S^3
 // should be good for random generation of orientation for unit tests and for game
-// NOTE: Nothing trivial like Quaternion(RandomAngle(0,180)) will do the trick , 
+// NOTE: Nothing trivial like Quaternion(RandomAngle(0,180)) will do the trick ,
 //       one needs to take special care to generate a uniformly distributed quaternion.
 inline const Quaternion Conjugate( const Quaternion &q )
 {
@@ -1651,13 +1651,13 @@ inline const Quaternion Conjugate( const Quaternion &q )
 //-----------------------------------------------------------------------------
 // Array access
 //-----------------------------------------------------------------------------
-inline vec_t& Quaternion::operator[](int i)
+inline vec_t& Quaternion::operator[](const int i)
 {
 	Assert( (i >= 0) && (i < 4) );
 	return ((vec_t*)this)[i];
 }
 
-inline vec_t Quaternion::operator[](int i) const
+inline vec_t Quaternion::operator[](const int i) const
 {
 	Assert( (i >= 0) && (i < 4) );
 	return ((vec_t*)this)[i];
@@ -1684,7 +1684,7 @@ inline bool Quaternion::operator!=( const Quaternion &src ) const
 void Quaternion::Print() const
 {
 #ifndef _CERT
-	Msg("q{{{{ {{:.3f}}i + {{:.3f}}j + {{:.3f}}k + {{:.3f}} }}}}", x, y, z, w );
+	Msg("q{{ {:.3f}i + {:.3f}j + {:.3f}k + {:.3f} }}", x, y, z, w );
 #endif
 }
 
@@ -1696,35 +1696,35 @@ void Quaternion::Print() const
 //-----------------------------------------------------------------------------
 inline Quaternion operator+( const Quaternion& q1, const Quaternion& q2 )
 {
-	return Quaternion( q1.x + q2.x, q1.y + q2.y, q1.z + q2.z, q1.w + q2.w );
+	return { q1.x + q2.x, q1.y + q2.y, q1.z + q2.z, q1.w + q2.w };
 }
 
 inline Quaternion operator-( const Quaternion& q1, const Quaternion& q2 )
 {
-	return Quaternion( q1.x - q2.x, q1.y - q2.y, q1.z - q2.z, q1.w - q2.w );
+	return { q1.x - q2.x, q1.y - q2.y, q1.z - q2.z, q1.w - q2.w };
 }
 
-inline Quaternion operator*( float s, const Quaternion& q )
+inline Quaternion operator*(const float s, const Quaternion& q )
 {
-	return Quaternion( s * q.x, s * q.y, s * q.z, s * q.w );
+	return { s * q.x, s * q.y, s * q.z, s * q.w };
 }
 
-inline Quaternion operator*( const Quaternion& q, float s )
+inline Quaternion operator*( const Quaternion& q, const float s )
 {
-	return Quaternion( q.x * s, q.y * s, q.z * s, q.w * s );
+	return { q.x * s, q.y * s, q.z * s, q.w * s };
 }
 
-inline Quaternion operator/( const Quaternion& q, float s )
+inline Quaternion operator/( const Quaternion& q, const float s )
 {
 	Assert( s != 0.0f );
-	return Quaternion( q.x / s, q.y / s, q.z / s, q.w / s );
+	return { q.x / s, q.y / s, q.z / s, q.w / s };
 }
 
 
 //-----------------------------------------------------------------------------
 // Quaternion equality with tolerance
 //-----------------------------------------------------------------------------
-inline bool QuaternionsAreEqual( const Quaternion& src1, const Quaternion& src2, float tolerance )
+inline bool QuaternionsAreEqual( const Quaternion& src1, const Quaternion& src2, const float tolerance )
 {
 	if (FloatMakePositive(src1.x - src2.x) > tolerance)
 		return false;
@@ -1742,14 +1742,14 @@ inline bool QuaternionsAreEqual( const Quaternion& src1, const Quaternion& src2,
 class ALIGN16 QuaternionAligned : public Quaternion
 {
 public:
-	inline QuaternionAligned() {};
-	inline QuaternionAligned(vec_t X, vec_t Y, vec_t Z, vec_t W) 
+	inline QuaternionAligned() = default;
+	inline QuaternionAligned(const vec_t X, const vec_t Y, const vec_t Z, const vec_t W)
 	{
 		Init(X,Y,Z,W);
 	}
 
-	operator Quaternion * () { return this; } 
-	operator const Quaternion * () { return this; } 
+	operator Quaternion * () { return this; }
+	operator const Quaternion * () { return this; }
 
 #ifdef VECTOR_NO_SLOW_OPERATIONS
 
@@ -1760,12 +1760,12 @@ private:
 
 #else
 public:
-	explicit QuaternionAligned(const Quaternion &vOther) 
+	explicit QuaternionAligned(const Quaternion &vOther)
 	{
 		Init(vOther.x, vOther.y, vOther.z, vOther.w);
 	}
 
-	QuaternionAligned& operator=(const Quaternion &vOther)	
+	QuaternionAligned& operator=(const Quaternion &vOther)
 	{
 		Init(vOther.x, vOther.y, vOther.z, vOther.w);
 		return *this;
@@ -1785,22 +1785,22 @@ public:
 
 #endif
 
-	void* operator new[] ( size_t nSize)
+	void* operator new[] (const size_t nSize)
 	{
 		return MemAlloc_AllocAligned(nSize, 16);
 	}
 
-	void operator delete[] ( void* p) 
+	void operator delete[] ( void* p)
 	{
 		MemAlloc_FreeAligned(p);
 	}
 
 	// please don't allocate a single quaternion...
-	void* operator new   ( size_t nSize )
+	void* operator new   (const size_t nSize )
 	{
 		return MemAlloc_AllocAligned(nSize, 16);
 	}
-	void operator delete ( void* p) 
+	void operator delete ( void* p)
 	{
 		MemAlloc_FreeAligned(p);
 	}
@@ -1824,13 +1824,13 @@ class RadianEuler
 {
 public:
 	inline RadianEuler(void)							{ }
-	inline RadianEuler(vec_t X, vec_t Y, vec_t Z)		{ x = X; y = Y; z = Z; }
+	inline RadianEuler(const vec_t X, const vec_t Y, const vec_t Z)		{ x = X; y = Y; z = Z; }
 	inline explicit RadianEuler( Quaternion const &q );
 	inline explicit RadianEuler( QAngle const &angles );
 	inline explicit RadianEuler( DegreeEuler const &angles );
 
 	// Initialization
-	inline void Init(vec_t ix=0.0f, vec_t iy=0.0f, vec_t iz=0.0f)	{ x = ix; y = iy; z = iz; }
+	inline void Init(const vec_t ix=0.0f, const vec_t iy=0.0f, const vec_t iz=0.0f)	{ x = ix; y = iy; z = iz; }
 
 	//	conversion to qangle
 	QAngle ToQAngle( void ) const;
@@ -1838,7 +1838,7 @@ public:
 	void Invalidate();
 
 	inline vec_t *Base() { return &x; }
-	inline const vec_t *Base() const { return &x; } 
+	inline const vec_t *Base() const { return &x; }
 
 	// array access...
 	vec_t operator[](int i) const;
@@ -1866,7 +1866,7 @@ FORCEINLINE float QuaternionLength( const Quaternion &q )
 	return sqrtf( q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w );
 }
 
-FORCEINLINE bool QuaternionIsNormalized( const Quaternion &q, float  flTolerance = 1e-6f )
+FORCEINLINE bool QuaternionIsNormalized( const Quaternion &q, const float  flTolerance = 1e-6f )
 {
 	float flLen = QuaternionLength( q );
 	return ( fabs( flLen - 1.0 ) < flTolerance );
@@ -1894,7 +1894,7 @@ inline void VectorCopy( RadianEuler const& src, RadianEuler &dst )
 	dst.z = src.z;
 }
 
-inline void VectorScale( RadianEuler const& src, float b, RadianEuler &dst )
+inline void VectorScale( RadianEuler const& src, const float b, RadianEuler &dst )
 {
 	CHECK_VALID(src);
 	Assert( IsFinite(b) );
@@ -1921,13 +1921,13 @@ inline void RadianEuler::Invalidate()
 //-----------------------------------------------------------------------------
 // Array access
 //-----------------------------------------------------------------------------
-inline vec_t& RadianEuler::operator[](int i)
+inline vec_t& RadianEuler::operator[](const int i)
 {
 	Assert( (i >= 0) && (i < 3) );
 	return ((vec_t*)this)[i];
 }
 
-inline vec_t RadianEuler::operator[](int i) const
+inline vec_t RadianEuler::operator[](const int i) const
 {
 	Assert( (i >= 0) && (i < 3) );
 	return ((vec_t*)this)[i];
@@ -1940,7 +1940,7 @@ inline vec_t RadianEuler::operator[](int i) const
 class DegreeEuler
 {
 public:
-	///\name Initialization 
+	///\name Initialization
 	//@{
 	inline DegreeEuler() ///< Create with un-initialized components. If VECTOR_PARANOIA is set, will init with NANS.
 	{
@@ -1949,13 +1949,13 @@ public:
 		x = y = z = VEC_T_NAN;
 #endif
 	}
-	inline DegreeEuler( vec_t X, vec_t Y, vec_t Z )		{ x = X; y = Y; z = Z; }
-	inline explicit DegreeEuler( Quaternion const &q );	
-	inline explicit DegreeEuler( QAngle const &angles );	
-	inline explicit DegreeEuler( RadianEuler const &angles );	
+	inline DegreeEuler(const vec_t X, const vec_t Y, const vec_t Z )		{ x = X; y = Y; z = Z; }
+	inline explicit DegreeEuler( Quaternion const &q );
+	inline explicit DegreeEuler( QAngle const &angles );
+	inline explicit DegreeEuler( RadianEuler const &angles );
 
 	// Initialization
-	inline void Init(vec_t ix=0.0f, vec_t iy=0.0f, vec_t iz=0.0f)	{ x = ix; y = iy; z = iz; }
+	inline void Init(const vec_t ix=0.0f, const vec_t iy=0.0f, const vec_t iz=0.0f)	{ x = ix; y = iy; z = iz; }
 
 	inline QAngle ToQAngle() const;
 
@@ -1964,7 +1964,7 @@ public:
 	void Invalidate();
 
 	inline vec_t *Base() { return &x; }
-	inline const vec_t *Base() const { return &x; } 
+	inline const vec_t *Base() const { return &x; }
 
 	// array access...
 	vec_t operator[](int i) const;
@@ -1977,7 +1977,7 @@ public:
 //-----------------------------------------------------------------------------
 // DegreeEuler equality with tolerance
 //-----------------------------------------------------------------------------
-inline bool DegreeEulersAreEqual( const DegreeEuler& src1, const DegreeEuler& src2, float tolerance = 0.0f )
+inline bool DegreeEulersAreEqual( const DegreeEuler& src1, const DegreeEuler& src2, const float tolerance = 0.0f )
 {
 	if (FloatMakePositive(src1.x - src2.x) > tolerance)
 		return false;
@@ -2030,13 +2030,13 @@ inline void DegreeEuler::Invalidate()
 //-----------------------------------------------------------------------------
 // Array access
 //-----------------------------------------------------------------------------
-inline vec_t& DegreeEuler::operator[](int i)
+inline vec_t& DegreeEuler::operator[](const int i)
 {
 	AssertDbg( (i >= 0) && (i < 3) );
 	return ((vec_t*)this)[i];
 }
 
-inline vec_t DegreeEuler::operator[](int i) const
+inline vec_t DegreeEuler::operator[](const int i) const
 {
 	AssertDbg( (i >= 0) && (i < 3) );
 	return ((vec_t*)this)[i];
@@ -2049,7 +2049,7 @@ inline vec_t DegreeEuler::operator[](int i) const
 //-----------------------------------------------------------------------------
 class QAngleByValue;
 
-class QAngle					
+class QAngle
 {
 public:
 	// Members
@@ -2079,10 +2079,10 @@ public:
 	// Base address...
 	vec_t* Base();
 	vec_t const* Base() const;
-	
+
 	// equality
 	bool operator==(const QAngle& v) const;
-	bool operator!=(const QAngle& v) const;	
+	bool operator!=(const QAngle& v) const;
 
 	// arithmetic operations
 	QAngle&	operator+=(const QAngle &v);
@@ -2095,7 +2095,7 @@ public:
 	vec_t	LengthSqr() const;
 
 	// negate the QAngle components
-	//void	Negate(); 
+	//void	Negate();
 
 	// No assignment operators either...
 	QAngle& operator=( const QAngle& src );
@@ -2111,7 +2111,7 @@ public:
 
 	// arithmetic operations
 	QAngle	operator-() const;
-	
+
 	QAngle	operator+(const QAngle& v) const;
 	QAngle	operator-(const QAngle& v) const;
 	QAngle	operator*(float fl) const;
@@ -2136,7 +2136,7 @@ class QAngleByValue : public QAngle
 public:
 	// Construction/destruction:
 	QAngleByValue() : QAngle() {}
-	QAngleByValue(vec_t X, vec_t Y, vec_t Z) : QAngle( X, Y, Z ) {}
+	QAngleByValue(const vec_t X, const vec_t Y, const vec_t Z) : QAngle( X, Y, Z ) {}
 	QAngleByValue(const QAngleByValue& vOther) { *this = vOther; }
 };
 
@@ -2150,7 +2150,7 @@ inline void VectorAdd( const QAngle& a, const QAngle& b, QAngle& result )
 	result.z = a.z + b.z;
 }
 
-inline void VectorMA( const QAngle &start, float scale, const QAngle &direction, QAngle &dest )
+inline void VectorMA( const QAngle &start, const float scale, const QAngle &direction, QAngle &dest )
 {
 	CHECK_VALID(start);
 	CHECK_VALID(direction);
@@ -2163,8 +2163,8 @@ inline void VectorMA( const QAngle &start, float scale, const QAngle &direction,
 //-----------------------------------------------------------------------------
 // constructors
 //-----------------------------------------------------------------------------
-inline QAngle::QAngle(void)									
-{ 
+inline QAngle::QAngle(void)
+{
 #ifdef _DEBUG
 #ifdef VECTOR_PARANOIA
 	// Initialize to NAN to catch errors
@@ -2173,8 +2173,8 @@ inline QAngle::QAngle(void)
 #endif
 }
 
-inline QAngle::QAngle(vec_t X, vec_t Y, vec_t Z)						
-{ 
+inline QAngle::QAngle(const vec_t X, const vec_t Y, const vec_t Z)
+{
 	x = X; y = Y; z = Z;
 	CHECK_VALID(*this);
 }
@@ -2183,8 +2183,8 @@ inline QAngle::QAngle(vec_t X, vec_t Y, vec_t Z)
 //-----------------------------------------------------------------------------
 // initialization
 //-----------------------------------------------------------------------------
-inline void QAngle::Init( vec_t ix, vec_t iy, vec_t iz )    
-{ 
+inline void QAngle::Init(const vec_t ix, const vec_t iy, const vec_t iz )
+{
 	x = ix; y = iy; z = iz;
 	CHECK_VALID(*this);
 }
@@ -2208,7 +2208,7 @@ inline void QAngle::NormalizePositive()
 }
 
 
-inline void QAngle::Random( vec_t minVal, vec_t maxVal )
+inline void QAngle::Random(const vec_t minVal, const vec_t maxVal )
 {
 	x = RandomFloat( minVal, maxVal );
 	y = RandomFloat( minVal, maxVal );
@@ -2218,7 +2218,7 @@ inline void QAngle::Random( vec_t minVal, vec_t maxVal )
 
 #ifndef VECTOR_NO_SLOW_OPERATIONS
 
-inline QAngle RandomAngle( float minVal, float maxVal )
+inline QAngle RandomAngle(const float minVal, const float maxVal )
 {
 	Vector random;
 	random.Random( minVal, maxVal );
@@ -2232,7 +2232,7 @@ inline RadianEuler::RadianEuler(QAngle const &angles)
 {
 	Init(
 		angles.z * 3.14159265358979323846f / 180.f,
-		angles.x * 3.14159265358979323846f / 180.f, 
+		angles.x * 3.14159265358979323846f / 180.f,
 		angles.y * 3.14159265358979323846f / 180.f );
 }
 
@@ -2255,24 +2255,24 @@ inline QAngle DegreeEuler::ToQAngle() const
 //-----------------------------------------------------------------------------
 // assignment
 //-----------------------------------------------------------------------------
-inline QAngle& QAngle::operator=(const QAngle &vOther)	
+inline QAngle& QAngle::operator=(const QAngle &vOther)
 {
 	CHECK_VALID(vOther);
-	x=vOther.x; y=vOther.y; z=vOther.z; 
-	return *this; 
+	x=vOther.x; y=vOther.y; z=vOther.z;
+	return *this;
 }
 
 
 //-----------------------------------------------------------------------------
 // Array access
 //-----------------------------------------------------------------------------
-inline vec_t& QAngle::operator[](int i)
+inline vec_t& QAngle::operator[](const int i)
 {
 	Assert( (i >= 0) && (i < 3) );
 	return ((vec_t*)this)[i];
 }
 
-inline vec_t QAngle::operator[](int i) const
+inline vec_t QAngle::operator[](const int i) const
 {
 	Assert( (i >= 0) && (i < 3) );
 	return ((vec_t*)this)[i];
@@ -2347,23 +2347,23 @@ inline void VectorCopy( const QAngle& src, QAngle& dst )
 //-----------------------------------------------------------------------------
 // standard math operations
 //-----------------------------------------------------------------------------
-inline QAngle& QAngle::operator+=(const QAngle& v)	
-{ 
+inline QAngle& QAngle::operator+=(const QAngle& v)
+{
 	CHECK_VALID(*this);
 	CHECK_VALID(v);
-	x+=v.x; y+=v.y; z += v.z;	
+	x+=v.x; y+=v.y; z += v.z;
 	return *this;
 }
 
-inline QAngle& QAngle::operator-=(const QAngle& v)	
-{ 
+inline QAngle& QAngle::operator-=(const QAngle& v)
+{
 	CHECK_VALID(*this);
 	CHECK_VALID(v);
-	x-=v.x; y-=v.y; z -= v.z;	
+	x-=v.x; y-=v.y; z -= v.z;
 	return *this;
 }
 
-inline QAngle& QAngle::operator*=(float fl)	
+inline QAngle& QAngle::operator*=(const float fl)
 {
 	x *= fl;
 	y *= fl;
@@ -2372,7 +2372,7 @@ inline QAngle& QAngle::operator*=(float fl)
 	return *this;
 }
 
-inline QAngle& QAngle::operator/=(float fl)	
+inline QAngle& QAngle::operator/=(const float fl)
 {
 	Assert( fl != 0.0f );
 	float oofl = 1.0f / fl;
@@ -2390,7 +2390,7 @@ inline QAngle& QAngle::operator/=(float fl)
 inline vec_t QAngle::Length( ) const
 {
 	CHECK_VALID(*this);
-	return (vec_t)FastSqrt( LengthSqr( ) );		
+	return (vec_t)FastSqrt( LengthSqr( ) );
 }
 
 
@@ -2399,12 +2399,12 @@ inline vec_t QAngle::LengthSqr( ) const
 	CHECK_VALID(*this);
 	return x * x + y * y + z * z;
 }
-	
+
 
 //-----------------------------------------------------------------------------
 // Vector equality with tolerance
 //-----------------------------------------------------------------------------
-inline bool QAnglesAreEqual( const QAngle& src1, const QAngle& src2, float tolerance = 0.0f )
+inline bool QAnglesAreEqual( const QAngle& src1, const QAngle& src2, const float tolerance = 0.0f )
 {
 	if (FloatMakePositive(src1.x - src2.x) > tolerance)
 		return false;
@@ -2420,49 +2420,49 @@ inline bool QAnglesAreEqual( const QAngle& src1, const QAngle& src2, float toler
 #ifndef VECTOR_NO_SLOW_OPERATIONS
 
 inline QAngle QAngle::operator-() const
-{ 
+{
 	QAngle ret(-x,-y,-z);
 	return ret;
 }
 
-inline QAngle QAngle::operator+(const QAngle& v) const	
-{ 
+inline QAngle QAngle::operator+(const QAngle& v) const
+{
 	QAngle res;
 	res.x = x + v.x;
 	res.y = y + v.y;
 	res.z = z + v.z;
-	return res;	
+	return res;
 }
 
-inline QAngle QAngle::operator-(const QAngle& v) const	
-{ 
+inline QAngle QAngle::operator-(const QAngle& v) const
+{
 	QAngle res;
 	res.x = x - v.x;
 	res.y = y - v.y;
 	res.z = z - v.z;
-	return res;	
+	return res;
 }
 
-inline QAngle QAngle::operator*(float fl) const	
-{ 
+inline QAngle QAngle::operator*(const float fl) const
+{
 	QAngle res;
 	res.x = x * fl;
 	res.y = y * fl;
 	res.z = z * fl;
-	return res;	
+	return res;
 }
 
-inline QAngle QAngle::operator/(float fl) const	
-{ 
+inline QAngle QAngle::operator/(const float fl) const
+{
 	QAngle res;
 	res.x = x / fl;
 	res.y = y / fl;
 	res.z = z / fl;
-	return res;	
+	return res;
 }
 
-inline QAngle operator*(float fl, const QAngle& v)	
-{ 
+inline QAngle operator*(const float fl, const QAngle& v)
+{
         QAngle ret( v * fl );
 	return ret;
 }
@@ -2559,12 +2559,12 @@ inline Vector Vector::NormalizedSafe( const Vector &vFallback )const
 }
 
 
-inline bool Vector::IsLengthGreaterThan( float val ) const
+inline bool Vector::IsLengthGreaterThan(const float val ) const
 {
 	return LengthSqr() > val*val;
 }
 
-inline bool Vector::IsLengthLessThan( float val ) const
+inline bool Vector::IsLengthLessThan(const float val ) const
 {
 	return LengthSqr() < val*val;
 }
@@ -2622,12 +2622,12 @@ inline const Vector QuaternionLog( const Quaternion &q )
 
 
 
-inline float Snap( float a, float flSnap )
+inline float Snap(const float a, const float flSnap )
 {
 	return floorf( a / flSnap + 0.5f ) * flSnap;
 }
 
-inline  const Vector Snap( const Vector &a, float flSnap )
+inline  const Vector Snap( const Vector &a, const float flSnap )
 {
 	return Vector( Snap( a.x, flSnap ), Snap( a.y, flSnap ), Snap( a.z, flSnap ) );
 }

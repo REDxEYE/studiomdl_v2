@@ -6,6 +6,7 @@
 #include <string>
 #include <string_view>
 
+struct StudioMdlState;
 
 // <gameDir>models/<$modelname without extension><extension>: UTF-8, native separators
-std::string OutputModelPath(std::string_view extension);
+std::string OutputModelPath(StudioMdlState &ctx, std::string_view extension);

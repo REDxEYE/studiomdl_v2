@@ -723,7 +723,7 @@ bool CDmSerializerBinary::UnserializeElements(CUtlBuffer &buf, DmFileId_t fileid
         }
 
         CDmElement *pElement = g_pDataModel->GetElement(hElement);
-        CDmeElementAccessor::DisableOnChangedCallbacks(pElement);
+        pElement->DisableOnChangedCallbacks();
         elementList.AddToTail(pElement);
     }
 
@@ -747,8 +747,8 @@ bool CDmSerializerBinary::UnserializeElements(CUtlBuffer &buf, DmFileId_t fileid
             CDmElement *pElement = elementList[i];
             if (pElement->GetFileId() == fileid) {
                 // mark all unserialized elements as done unserializing, and call Resolve()
-                CDmeElementAccessor::EnableOnChangedCallbacks(pElement);
-                CDmeElementAccessor::FinishUnserialization(pElement);
+                pElement->EnableOnChangedCallbacks();
+                pElement->FinishUnserialization();
             }
         }
     }

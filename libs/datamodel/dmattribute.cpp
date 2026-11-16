@@ -610,7 +610,7 @@ bool CDmAttributeOp<T>::UnserializeElement( CDmAttribute *pData, int nElement, C
 template< class T >
 void CDmAttributeOp<T>::OnUnserializationFinished( CDmAttribute *pAttribute )
 {
-	CDmAttributeAccessor::OnChanged( pAttribute, false, true );
+	pAttribute->OnChanged( false, true );
 }
 
 
@@ -698,7 +698,7 @@ template< class T >
 void CDmArrayAttributeOp<T>::OnAttributeArrayElementAdded( int nFirstElem, int nLastElem, bool bUpdateElementReferences )
 {
 	CDmElement *pOwner = m_pAttribute->GetOwner();
-	if ( m_pAttribute->IsFlagSet( FATTRIB_HAS_CALLBACK ) && CDmeElementAccessor::AreOnChangedCallbacksEnabled( pOwner ) )
+	if ( m_pAttribute->IsFlagSet( FATTRIB_HAS_CALLBACK ) && pOwner->AreOnChangedCallbacksEnabled() )
 	{
 		pOwner->OnAttributeArrayElementAdded( m_pAttribute, nFirstElem, nLastElem );
 	}
@@ -707,7 +707,7 @@ void CDmArrayAttributeOp<T>::OnAttributeArrayElementAdded( int nFirstElem, int n
 template< > inline void CDmArrayAttributeOp< DmElementHandle_t >::OnAttributeArrayElementAdded( int nFirstElem, int nLastElem, bool bUpdateElementReferences )
 {
 	CDmElement *pOwner = m_pAttribute->GetOwner();
-	if ( m_pAttribute->IsFlagSet( FATTRIB_HAS_CALLBACK ) && CDmeElementAccessor::AreOnChangedCallbacksEnabled( pOwner ) )
+	if ( m_pAttribute->IsFlagSet( FATTRIB_HAS_CALLBACK ) && pOwner->AreOnChangedCallbacksEnabled() )
 	{
 		pOwner->OnAttributeArrayElementAdded( m_pAttribute, nFirstElem, nLastElem );
 	}
@@ -725,7 +725,7 @@ template< class T >
 void CDmArrayAttributeOp<T>::OnAttributeArrayElementRemoved( int nFirstElem, int nLastElem )
 {
 	CDmElement *pOwner = m_pAttribute->GetOwner();
-	if ( m_pAttribute->IsFlagSet( FATTRIB_HAS_CALLBACK ) && CDmeElementAccessor::AreOnChangedCallbacksEnabled( pOwner ) )
+	if ( m_pAttribute->IsFlagSet( FATTRIB_HAS_CALLBACK ) && pOwner->AreOnChangedCallbacksEnabled() )
 	{
 		pOwner->OnAttributeArrayElementRemoved( m_pAttribute, nFirstElem, nLastElem );
 	}
@@ -734,7 +734,7 @@ void CDmArrayAttributeOp<T>::OnAttributeArrayElementRemoved( int nFirstElem, int
 template< > void CDmArrayAttributeOp< DmElementHandle_t >::OnAttributeArrayElementRemoved( int nFirstElem, int nLastElem )
 {
 	CDmElement *pOwner = m_pAttribute->GetOwner();
-	if ( m_pAttribute->IsFlagSet( FATTRIB_HAS_CALLBACK ) && CDmeElementAccessor::AreOnChangedCallbacksEnabled( pOwner ) )
+	if ( m_pAttribute->IsFlagSet( FATTRIB_HAS_CALLBACK ) && pOwner->AreOnChangedCallbacksEnabled() )
 	{
 		pOwner->OnAttributeArrayElementRemoved( m_pAttribute, nFirstElem, nLastElem );
 	}
@@ -1124,7 +1124,7 @@ template<> bool CDmArrayAttributeOp<DmElementHandle_t>::Unserialize( CDmAttribut
 {
 	// Need to specialize this because element handles can't use SwapArray
 	// because it's incapable of doing type safety checks
-	if ( !CDmAttributeAccessor::MarkDirty( pAttribute ) )
+	if ( !pAttribute->MarkDirty() )
 		return false;
 
 
@@ -1150,7 +1150,7 @@ bool CDmArrayAttributeOp<T>::SerializeElement( const CDmAttribute *pAttribute, i
 template< class T >
 bool CDmArrayAttributeOp<T>::UnserializeElement( CDmAttribute *pAttribute, CUtlBuffer &buf )
 {
-	if ( !CDmAttributeAccessor::MarkDirty( pAttribute ) )
+	if ( !pAttribute->MarkDirty() )
 		return false;
 
 
@@ -1169,7 +1169,7 @@ bool CDmArrayAttributeOp<T>::UnserializeElement( CDmAttribute *pAttribute, CUtlB
 template<>
 bool CDmArrayAttributeOp< CUtlSymbolLarge >::UnserializeElement( CDmAttribute *pAttribute, CUtlBuffer &buf )
 {
-	if ( !CDmAttributeAccessor::MarkDirty( pAttribute ) )
+	if ( !pAttribute->MarkDirty() )
 		return false;
 
 
@@ -1188,7 +1188,7 @@ bool CDmArrayAttributeOp< CUtlSymbolLarge >::UnserializeElement( CDmAttribute *p
 template< class T >
 bool CDmArrayAttributeOp<T>::UnserializeElement( CDmAttribute *pAttribute, int nElement, CUtlBuffer &buf )
 {
-	if ( !CDmAttributeAccessor::MarkDirty( pAttribute ) )
+	if ( !pAttribute->MarkDirty() )
 		return false;
 
 	CDmrArray<T> array( pAttribute );
@@ -1207,7 +1207,7 @@ bool CDmArrayAttributeOp<T>::UnserializeElement( CDmAttribute *pAttribute, int n
 template<>
 bool CDmArrayAttributeOp< CUtlSymbolLarge >::UnserializeElement( CDmAttribute *pAttribute, int nElement, CUtlBuffer &buf )
 {
-	if ( !CDmAttributeAccessor::MarkDirty( pAttribute ) )
+	if ( !pAttribute->MarkDirty() )
 		return false;
 
 	CDmrStringArray array( pAttribute );
@@ -1236,7 +1236,7 @@ void CDmArrayAttributeOp<T>::OnUnserializationFinished( CDmAttribute *pAttribute
 	{
 		ref.OnAttributeArrayElementAdded( 0, nCount - 1, false );
 	}
-	CDmAttributeAccessor::OnChanged( pAttribute, true, true );
+	pAttribute->OnChanged( true, true );
 }
 
 
@@ -1553,7 +1553,7 @@ bool CDmAttribute::MarkDirty()
 	}
 
 	AddFlag( FATTRIB_DIRTY | FATTRIB_OPERATOR_DIRTY );
-	CDmeElementAccessor::MarkDirty( m_pOwner );
+	m_pOwner->MarkDirty();
 
 	return true;
 }
@@ -1564,7 +1564,7 @@ bool CDmAttribute::MarkDirty()
 //-----------------------------------------------------------------------------
 void CDmAttribute::OnChanged( bool bArrayCountChanged, bool bIsTopological )
 {
-	if ( IsFlagSet( FATTRIB_HAS_CALLBACK ) && CDmeElementAccessor::AreOnChangedCallbacksEnabled( m_pOwner ) )
+	if ( IsFlagSet( FATTRIB_HAS_CALLBACK ) && m_pOwner->AreOnChangedCallbacksEnabled() )
 	{
 		m_pOwner->OnAttributeChanged( this );
 	}
@@ -1924,7 +1924,7 @@ void CDmAttribute::SetValue( const T &value )
 
 	CopyData< T >( value );
 
-	if ( IsFlagSet( FATTRIB_HAS_CALLBACK ) && CDmeElementAccessor::AreOnChangedCallbacksEnabled( m_pOwner ) )
+	if ( IsFlagSet( FATTRIB_HAS_CALLBACK ) && m_pOwner->AreOnChangedCallbacksEnabled() )
 	{
 		m_pOwner->OnAttributeChanged( this );
 	}
@@ -1957,7 +1957,7 @@ void CDmAttribute::EndModifyValueInPlace( DmAttributeModifyHandle_t handle )
 	if ( (int)GetType() != (int)CDmAttributeInfo< T >::ATTRIBUTE_TYPE )
 		return;
 
-	if ( IsFlagSet( FATTRIB_HAS_CALLBACK ) && CDmeElementAccessor::AreOnChangedCallbacksEnabled( m_pOwner ) )
+	if ( IsFlagSet( FATTRIB_HAS_CALLBACK ) && m_pOwner->AreOnChangedCallbacksEnabled() )
 	{
 		m_pOwner->OnAttributeChanged( this );
 	}
@@ -2204,7 +2204,7 @@ int CDmAttribute::EstimateMemoryUsageInternal( CUtlHash< DmElementHandle_t > &vi
 			CDmElement *pElement = GetValueElement<CDmElement>();
 			if ( pElement )
 			{
-				nTotalMemory += CDmeElementAccessor::EstimateMemoryUsage( pElement, visited, depth, pCategories );
+				nTotalMemory += pElement->EstimateMemoryUsage( visited, depth, pCategories );
 			}
 		}
 		return nTotalMemory;
@@ -2218,7 +2218,7 @@ int CDmAttribute::EstimateMemoryUsageInternal( CUtlHash< DmElementHandle_t > &vi
 				CDmElement *pElement = array[ i ];
 				if ( pElement )
 				{
-					nTotalMemory += CDmeElementAccessor::EstimateMemoryUsage( pElement, visited, depth, pCategories );
+					nTotalMemory += pElement->EstimateMemoryUsage( visited, depth, pCategories );
 				}
 			}
 		}

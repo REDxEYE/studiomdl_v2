@@ -46,13 +46,11 @@
 #include <vector>
 #include "tier1_v2/string_utils.hpp"
 
-bool g_bDumpGLViewFiles;
-
 // flush bones between strips rather than deallocating the LRU.
 #define USE_FLUSH
 
 
-extern int FindMaterialByName(std::string_view pMaterialName);
+extern int FindMaterialByName(StudioMdlState &ctx, std::string_view pMaterialName);
 
 namespace OptimizedModel {
     //-----------------------------------------------------------------------------
@@ -222,9 +220,6 @@ namespace OptimizedModel {
         std::vector<std::vector<char>> m_Strings;
     };
 
-    // global string table for the whole vtx file.
-    static CStringTable s_StringTable;
-
     //-----------------------------------------------------------------------------
     // This is all the indices, vertices, and strips that make up this group
     // a group can be rendered all in one call to the material system
@@ -258,6 +253,10 @@ namespace OptimizedModel {
 
     class COptimizedModel {
     public:
+        // stringTable: the string table of the whole vtx file, filled before optimizing
+        COptimizedModel(StudioMdlState &ctx, CStringTable &stringTable) : m_ctx(ctx), m_StringTable(stringTable) {
+        }
+
         bool OptimizeFromStudioHdr(studiohdr_t *phdr, s_bodypart_t *pSrcBodyParts, int vertCacheSize,
                                    bool usesFixedFunction, bool bForceSoftwareSkin, bool bHWFlex, int maxBonesPerVert,
                                    int maxBonesPerFace,
@@ -484,50 +483,61 @@ namespace OptimizedModel {
         // SOURCE DATA
         //
 
+        StudioMdlState &m_ctx;
+
+        // string table for the whole vtx file.
+        CStringTable &m_StringTable;
+
+        // the model being optimized, passed to the vertex accessors (mstudiomodel_t::GetVertexData)
+        studiohdr_t *m_pStudioHdr = nullptr;
+
         // These are all the built models
         std::vector<Model_t> m_Models;
 
         // total number of bones in the studio model
-        int m_NumBones;
+        int m_NumBones = 0;
 
         // information about the hardware
-        int m_VertexCacheSize;
-        int m_MaxBonesPerFace;
-        int m_MaxBonesPerVert;
-        int m_MaxBonesPerStrip;
-        bool m_bUsesFixedFunction;
+        int m_VertexCacheSize = 0;
+        int m_MaxBonesPerFace = 0;
+        int m_MaxBonesPerVert = 0;
+        int m_MaxBonesPerStrip = 0;
+        bool m_bUsesFixedFunction = false;
 
         // stats
-        int m_NumSkinnedAndFlexedVerts;
+        int m_NumSkinnedAndFlexedVerts = 0;
 
         CHardwareMatrixState m_HardwareMatrixState;
 
         // a place to stick file output.
-        CFileBuffer *m_FileBuffer;
+        CFileBuffer *m_FileBuffer = nullptr;
 
         // offset for different items in the output file.
-        int m_BodyPartsOffset;
-        int m_ModelsOffset;
-        int m_ModelLODsOffset;
-        int m_MeshesOffset;
-        int m_StripGroupsOffset;
-        int m_StripsOffset;
-        int m_VertsOffset;
-        int m_IndicesOffset;
-        int m_TopologyOffset;
-        int m_BoneStateChangesOffset;
-        int m_StringTableOffset;
-        int m_MaterialReplacementsOffset;
-        int m_MaterialReplacementsListOffset;
-        int m_EndOfFileOffset;
+        int m_BodyPartsOffset = 0;
+        int m_ModelsOffset = 0;
+        int m_ModelLODsOffset = 0;
+        int m_MeshesOffset = 0;
+        int m_StripGroupsOffset = 0;
+        int m_StripsOffset = 0;
+        int m_VertsOffset = 0;
+        int m_IndicesOffset = 0;
+        int m_TopologyOffset = 0;
+        int m_BoneStateChangesOffset = 0;
+        int m_StringTableOffset = 0;
+        int m_MaterialReplacementsOffset = 0;
+        int m_MaterialReplacementsListOffset = 0;
+        int m_EndOfFileOffset = 0;
+
+        // GL view debug file state
+        int m_NumGLViewTrangles = 0;
+        int m_NumGLViewHWDegenerates = 0;
+        int m_DrawMode = 0;
+        int m_LastThreeIndices[3]{};
+        Vertex_t m_LastThreeVerts[3]{};
+        Vector m_LastThreePositions[3]{{0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
+        int m_ListID = 0;
+        bool m_Shrunk[3]{};
     };
-
-    //-----------------------------------------------------------------------------
-    // Singleton instance
-    //-----------------------------------------------------------------------------
-
-    static COptimizedModel s_OptimizedModel;
-
 
     //-----------------------------------------------------------------------------
     // Cleanup method
@@ -738,7 +748,7 @@ namespace OptimizedModel {
         int i;
         for (i = 0; i < std::ssize(list); i++) {
             pVert = &vertices[list[i]];
-            if (!g_staticprop) {
+            if (!m_ctx.header.staticprop) {
                 Assert(pVert->numBones != 0);
             }
             int j;
@@ -775,7 +785,7 @@ namespace OptimizedModel {
             *ppTopologyIndices = nullptr;
 
         // Skip the reordering phase if we're building in preview mode, rendering quads or not hardware skinning
-        if (bQuadSubd || g_studiomdl.options.buildPreview || !bIsHWSkinned || g_studiomdl.options.preserveTriangleOrder) {
+        if (bQuadSubd || m_ctx.options.buildPreview || !bIsHWSkinned || m_ctx.options.preserveTriangleOrder) {
             *pNumIndices = static_cast<int>(sourceIndices.size());
             *ppIndices = new unsigned short[*pNumIndices];
             memcpy(*ppIndices, sourceIndices.data(), (*pNumIndices) * sizeof(unsigned short));
@@ -1139,7 +1149,7 @@ namespace OptimizedModel {
         vstd::FunctionTimingRecorder _("Optimize");
         int vertIDs[4] = {pFace->a, pFace->b, pFace->c, pFace->d};
 
-        const mstudio_meshvertexdata_t *vertData = pStudioMesh->GetVertexData();
+        const mstudio_meshvertexdata_t *vertData = pStudioMesh->GetVertexData(m_pStudioHdr);
         Assert(vertData); // This can only return NULL on X360 for now
 
         bool bFaceIsFlexed = false;
@@ -1156,7 +1166,7 @@ namespace OptimizedModel {
             mstudioboneweight_t *pBoneWeight = vertData->BoneWeights(vertex);
 
             int bonesAffectingVertex = pBoneWeight->numbones;
-            if (!g_studiomdl.header.staticprop && bonesAffectingVertex <= 0) {
+            if (!m_ctx.header.staticprop && bonesAffectingVertex <= 0) {
                 MdlWarning("too few bones/vert ({}) : it has no bones!\n", bonesAffectingVertex);
             }
             else if (bonesAffectingVertex > MAX_NUM_BONES_PER_VERT) {
@@ -1240,28 +1250,28 @@ namespace OptimizedModel {
     }
 
 
-    // Use a hash table to accelerate ProcessStripGroup/PostProcessStripGroup (initialization is slow, so instantiate it once globally and clear it before use)
+    // A hash table accelerates ProcessStripGroup/PostProcessStripGroup
     struct StripVertLookup_t {
         int origMeshVertID;
         int vertID;
     };
 
     // Keyed on origMeshVertID only (the original hash compare function only compared origMeshVertID); first insert wins.
-    std::unordered_map<int, StripVertLookup_t> g_StripGroupVertexLookup;
+    using StripVertLookupMap_t = std::unordered_map<int, StripVertLookup_t>;
 
 
     //-----------------------------------------------------------------------------
     // Adds a vertex to the list of vertices to be added to the strip group
     //-----------------------------------------------------------------------------
 
-    static int FindOrCreateVertex(VertexList_t &list, Vertex_t const &vert) {
+    static int FindOrCreateVertex(StripVertLookupMap_t &vertexLookup, VertexList_t &list, Vertex_t const &vert) {
         StripVertLookup_t stripVertLookup = {vert.origMeshVertID, -1};
-        auto vertexHandle = g_StripGroupVertexLookup.find(stripVertLookup.origMeshVertID);
-        if (vertexHandle == g_StripGroupVertexLookup.end()) {
+        auto vertexHandle = vertexLookup.find(stripVertLookup.origMeshVertID);
+        if (vertexHandle == vertexLookup.end()) {
             int result = static_cast<int>(std::ssize(list));
             list.push_back(vert);
             stripVertLookup.vertID = result;
-            g_StripGroupVertexLookup.try_emplace(stripVertLookup.origMeshVertID, stripVertLookup);
+            vertexLookup.try_emplace(stripVertLookup.origMeshVertID, stripVertLookup);
             return result;
         }
         else {
@@ -1696,7 +1706,7 @@ namespace OptimizedModel {
         FaceList_t stripGroupSourceFaces;
         SubD_FaceList_t stripGroupSubDFaces;
         VertexList_t stripGroupVertices;
-        g_StripGroupVertexLookup.clear();
+        StripVertLookupMap_t vertexLookup;
 
         // FIXME: Flexed/HWSkinned state of faces don't change with each pass.
         // We could precompute those flags just once (instead of doing it 4 times)
@@ -1740,10 +1750,10 @@ namespace OptimizedModel {
 
             // Add a new face to our list of faces
             Face_t &newFace = stripGroupSourceFaces.emplace_back();
-            newFace.vertID[0] = FindOrCreateVertex(stripGroupVertices, stripGroupVert[0]);
-            newFace.vertID[1] = FindOrCreateVertex(stripGroupVertices, stripGroupVert[1]);
-            newFace.vertID[2] = FindOrCreateVertex(stripGroupVertices, stripGroupVert[2]);
-            newFace.vertID[3] = bQuadSubd ? FindOrCreateVertex(stripGroupVertices, stripGroupVert[3]) : -1;
+            newFace.vertID[0] = FindOrCreateVertex(vertexLookup, stripGroupVertices, stripGroupVert[0]);
+            newFace.vertID[1] = FindOrCreateVertex(vertexLookup, stripGroupVertices, stripGroupVert[1]);
+            newFace.vertID[2] = FindOrCreateVertex(vertexLookup, stripGroupVertices, stripGroupVert[2]);
+            newFace.vertID[3] = bQuadSubd ? FindOrCreateVertex(vertexLookup, stripGroupVertices, stripGroupVert[3]) : -1;
 
             BuildFaceBoneData(stripGroupVertices, newFace);
 
@@ -1760,7 +1770,7 @@ namespace OptimizedModel {
         // Condition subd mesh by computing vertex neighbors and valences
         if (bQuadSubd) {
             BuildSubDFaceList(stripGroupSourceFaces, stripGroupSubDFaces, stripGroupVertices,
-                              pStudioMesh->GetVertexData());
+                              pStudioMesh->GetVertexData(m_pStudioHdr));
         }
 
         // Build the actual strips
@@ -1783,7 +1793,7 @@ namespace OptimizedModel {
         int i;
         for (i = 0; i < pStrip->numStripGroupVerts; i++) {
             Vertex_t *pVert = &pStripGroup->verts[i + pStrip->stripGroupVertexOffset];
-            if (!g_studiomdl.header.staticprop) {
+            if (!m_ctx.header.staticprop) {
                 Assert(pVert->numBones != 0);
             }
             int j;
@@ -1810,6 +1820,8 @@ namespace OptimizedModel {
 
     void COptimizedModel::PostProcessStripGroup(mstudiomodel_t *pStudioModel, mstudiomesh_t *pStudioMesh,
                                                 StripGroup_t *pStripGroup) {
+        StripVertLookupMap_t vertexLookup;
+
         // Compile all of the vertices in the current strip into the strip group's vertex list
         for (int i = 0; i < std::ssize(pStripGroup->strips); i++) {
             // Create sorted strip verts and indices in the stripgroup
@@ -1838,10 +1850,10 @@ namespace OptimizedModel {
             }
 
             // Use a hash table to speed up this process:
-            g_StripGroupVertexLookup.clear();
+            vertexLookup.clear();
             for (int k = nSearch; k < std::ssize(pStripGroup->verts); k++) {
                 StripVertLookup_t stripVertLookup = {pStripGroup->verts[k].origMeshVertID, k};
-                g_StripGroupVertexLookup.try_emplace(stripVertLookup.origMeshVertID, stripVertLookup);
+                vertexLookup.try_emplace(stripVertLookup.origMeshVertID, stripVertLookup);
             }
 
             for (int j = 0; j < pStrip->numIndices; j++) {
@@ -1852,8 +1864,8 @@ namespace OptimizedModel {
 
                 // Does this vertex exist in the strip group?
                 StripVertLookup_t stripVertLookup = {pVert->origMeshVertID, -1};
-                auto vertexHandle = g_StripGroupVertexLookup.find(stripVertLookup.origMeshVertID);
-                if (vertexHandle != g_StripGroupVertexLookup.end()) {
+                auto vertexHandle = vertexLookup.find(stripVertLookup.origMeshVertID);
+                if (vertexHandle != vertexLookup.end()) {
                     newIndex = vertexHandle->second.vertID;
                 }
                 else {
@@ -1861,7 +1873,7 @@ namespace OptimizedModel {
                     newIndex = static_cast<int>(std::ssize(pStripGroup->verts));
                     pStripGroup->verts.push_back(*pVert);
                     stripVertLookup.vertID = newIndex;
-                    g_StripGroupVertexLookup.try_emplace(stripVertLookup.origMeshVertID, stripVertLookup);
+                    vertexLookup.try_emplace(stripVertLookup.origMeshVertID, stripVertLookup);
                 }
 
                 pStripGroup->indices.push_back(static_cast<unsigned short>(newIndex));
@@ -2023,7 +2035,7 @@ namespace OptimizedModel {
                                               const bool usesFixedFunction, int maxBonesPerVert, int maxBonesPerFace,
                                               int maxBonesPerStrip, const char *fileName) {
         vstd::FunctionTimingRecorder _("Optimize");
-        if (!g_studiomdl.options.quiet) {
+        if (!m_ctx.options.quiet) {
             std::print("---------------------\n");
             std::print("Generating optimized mesh \"{}\":\n", fileName);
 #ifdef _DEBUG
@@ -2292,7 +2304,7 @@ namespace OptimizedModel {
 		*/
         // need to find the mesh in the lod model that matches the original model.
         int i;
-        int textureSearchID = MaterialToTexture(pStudioMesh->material);
+        int textureSearchID = MaterialToTexture(m_ctx, pStudioMesh->material);
 
         // pSrc is the LOD's source, which can have fewer meshes than the root model (pStudioModel->nummeshes);
         // look through its own meshes (Valve read meshindex[] past nummeshes, getting material 0's slot)
@@ -2386,8 +2398,8 @@ namespace OptimizedModel {
                 Model_t &newModel = m_Models.emplace_back();
                 mstudiomodel_t *pStudioModel = pBodyPart->pModel(modelID);
                 s_model_t *pSrcModel = pSrcBodyPart->pmodel[modelID];
-                for (lodID = 0; lodID < std::ssize(g_studiomdl.body.ScriptLODs); lodID++, stats.m_TotalModelLODs++) {
-                    LodScriptData_t &scriptLOD = g_studiomdl.body.ScriptLODs[lodID];
+                for (lodID = 0; lodID < std::ssize(m_ctx.body.ScriptLODs); lodID++, stats.m_TotalModelLODs++) {
+                    LodScriptData_t &scriptLOD = m_ctx.body.ScriptLODs[lodID];
                     s_source_t *pLODSource = pSrcModel->m_LodSources[lodID];
 
                     Assert(std::ssize(newModel.modelLODs) == lodID);
@@ -2421,7 +2433,7 @@ namespace OptimizedModel {
                         //					const char *pDebugName = pHdr->pTexture( textureSearchID )->pszName( );
 #endif
                         // Process Quad-only meshes in software
-                        bool bQuadSubd = (g_studiomdl.header.gflags & STUDIOHDR_FLAGS_SUBDIVISION_SURFACE) != 0;
+                        bool bQuadSubd = (m_ctx.header.gflags & STUDIOHDR_FLAGS_SUBDIVISION_SURFACE) != 0;
                         bForceSoftwareSkin = bQuadSubd || bForceSoftwareSkin;
 
                         // Only one of these will actually get used, depending on topology type (tris or quads)
@@ -2569,7 +2581,7 @@ namespace OptimizedModel {
         fileHeader.numBodyParts = numBodyParts;
         fileHeader.bodyPartOffset = sizeof(FileHeader_t);
         fileHeader.checkSum = checkSum;
-        fileHeader.numLODs = std::ssize(g_studiomdl.body.ScriptLODs);
+        fileHeader.numLODs = std::ssize(m_ctx.body.ScriptLODs);
         fileHeader.materialReplacementListOffset = m_MaterialReplacementsListOffset;
         m_FileBuffer->WriteAt(0, &fileHeader, sizeof(FileHeader_t), "header");
 #ifdef _DEBUG
@@ -2594,7 +2606,7 @@ namespace OptimizedModel {
 
     void COptimizedModel::WriteModel(const int modelID, mstudiomodel_t *pModel, const int lodID) {
         ModelHeader_t model;
-        model.numLODs = IsChar(std::ssize(g_studiomdl.body.ScriptLODs));
+        model.numLODs = IsChar(std::ssize(m_ctx.body.ScriptLODs));
         int modelFileOffset = m_ModelsOffset + modelID * sizeof(ModelHeader_t);
         int lodFileOffset = m_ModelLODsOffset + lodID * sizeof(ModelLODHeader_t);
         model.lodOffset = lodFileOffset - modelFileOffset;
@@ -2767,12 +2779,12 @@ namespace OptimizedModel {
     }
 
     void COptimizedModel::WriteStringTable(const int stringTableOffset) {
-        int stringTableSize = s_StringTable.CalcSize();
+        int stringTableSize = m_StringTable.CalcSize();
         if (stringTableSize == 0) {
             return;
         }
         char *pTmp = new char[stringTableSize];
-        s_StringTable.WriteToMem(pTmp);
+        m_StringTable.WriteToMem(pTmp);
         m_FileBuffer->WriteAt(stringTableOffset, pTmp, stringTableSize, "string table");
         //	char *pDebug = ( char * )m_FileBuffer->GetPointer( stringTableOffset );
         delete[] pTmp;
@@ -2781,15 +2793,15 @@ namespace OptimizedModel {
     void COptimizedModel::WriteMaterialReplacements(const int materialReplacementsOffset) {
         int offset = materialReplacementsOffset;
         int i, j;
-        int numLODs = std::ssize(g_studiomdl.body.ScriptLODs);
+        int numLODs = std::ssize(m_ctx.body.ScriptLODs);
         for (i = 0; i < numLODs; i++) {
-            LodScriptData_t &scriptLOD = g_studiomdl.body.ScriptLODs[i];
+            LodScriptData_t &scriptLOD = m_ctx.body.ScriptLODs[i];
             for (j = 0; j < std::ssize(scriptLOD.materialReplacements); j++) {
                 CLodScriptReplacement_t &materialReplacement = scriptLOD.materialReplacements[j];
                 MaterialReplacementHeader_t tmpHeader;
-                tmpHeader.materialID = FindMaterialByName(materialReplacement.GetSrcName());
+                tmpHeader.materialID = FindMaterialByName(m_ctx, materialReplacement.GetSrcName());
                 tmpHeader.replacementMaterialNameOffset = m_StringTableOffset +
-                                                          s_StringTable.StringTableOffset(materialReplacement.GetDstName()) - offset;
+                                                          m_StringTable.StringTableOffset(materialReplacement.GetDstName()) - offset;
                 m_FileBuffer->WriteAt(offset, &tmpHeader, sizeof(tmpHeader), "material replacements");
                 offset += sizeof(MaterialReplacementHeader_t);
             }
@@ -2802,9 +2814,9 @@ namespace OptimizedModel {
         int replacementOffset = materialReplacementsOffset;
         int offset = materialReplacementListOffset;
         int i;
-        int numLODs = std::ssize(g_studiomdl.body.ScriptLODs);
+        int numLODs = std::ssize(m_ctx.body.ScriptLODs);
         for (i = 0; i < numLODs; i++) {
-            LodScriptData_t &scriptLOD = g_studiomdl.body.ScriptLODs[i];
+            LodScriptData_t &scriptLOD = m_ctx.body.ScriptLODs[i];
             MaterialReplacementListHeader_t tmpHeader;
             tmpHeader.numReplacements = IsChar(std::ssize(scriptLOD.materialReplacements));
             tmpHeader.replacementOffset = IsInt24(replacementOffset - offset);
@@ -2876,11 +2888,11 @@ namespace OptimizedModel {
         m_BoneStateChangesOffset = m_IndicesOffset + sizeof(unsigned short) * stats.m_TotalIndices;
         m_StringTableOffset =
                 m_BoneStateChangesOffset + sizeof(BoneStateChangeHeader_t) * stats.m_TotalBoneStateChanges;
-        m_MaterialReplacementsOffset = m_StringTableOffset + s_StringTable.CalcSize();
+        m_MaterialReplacementsOffset = m_StringTableOffset + m_StringTable.CalcSize();
         m_MaterialReplacementsListOffset =
                 m_MaterialReplacementsOffset + stats.m_TotalMaterialReplacements * sizeof(MaterialReplacementHeader_t);
         m_TopologyOffset =
-                m_MaterialReplacementsListOffset + std::ssize(g_studiomdl.body.ScriptLODs) * sizeof(
+                m_MaterialReplacementsListOffset + std::ssize(m_ctx.body.ScriptLODs) * sizeof(
                     MaterialReplacementListHeader_t);
         m_EndOfFileOffset = m_TopologyOffset + sizeof(unsigned short) * stats.m_TotalTopologyIndices;
 
@@ -2915,7 +2927,7 @@ namespace OptimizedModel {
             for (int modelID = 0; modelID < pBodyPart->nummodels; modelID++) {
                 mstudiomodel_t *pStudioModel = pBodyPart->pModel(modelID);
                 Model_t *pModel = &m_Models[curModel + deltaModel];
-                for (int lodID = 0; lodID < std::ssize(g_studiomdl.body.ScriptLODs); lodID++) {
+                for (int lodID = 0; lodID < std::ssize(m_ctx.body.ScriptLODs); lodID++) {
                     //				printf( "lod: %d\n", lodID );
                     ModelLOD_t *pLOD = &pModel->modelLODs[lodID];
                     for (int meshID = 0; meshID < pStudioModel->nummeshes; meshID++) {
@@ -2985,12 +2997,12 @@ namespace OptimizedModel {
         //	DebugCompareVerts( phdr );
         SanityCheckAgainstStudioHDR(pHdr);
 
-        if (!g_studiomdl.options.quiet) {
+        if (!m_ctx.options.quiet) {
             OutputMemoryUsage();
         }
 
         RemoveRedundantBoneStateChanges();
-        if (g_studiomdl.header.staticprop) {
+        if (m_ctx.header.staticprop) {
             ZeroNumBones();
         }
 
@@ -3051,7 +3063,7 @@ namespace OptimizedModel {
             for (modelID = 0; modelID < pBodyPart->nummodels; modelID++) {
                 mstudiomodel_t *pModel = pBodyPart->pModel(modelID);
                 for (vertID = 0; vertID < pModel->numvertices; vertID++) {
-                    const mstudio_modelvertexdata_t *vertData = pModel->GetVertexData();
+                    const mstudio_modelvertexdata_t *vertData = pModel->GetVertexData(pHdr);
                     Assert(vertData); // This can only return NULL on X360 for now
                     mstudioboneweight_t *pBoneWeight = vertData->BoneWeights(vertID);
                     MergeLikeBoneIndicesWithinVert(pBoneWeight);
@@ -3060,12 +3072,12 @@ namespace OptimizedModel {
         }
     }
 
-    static int CalcNumMaterialReplacements() {
+    static int CalcNumMaterialReplacements(StudioMdlState &ctx) {
         int i;
         int numReplacements = 0;
-        int numLODs = std::ssize(g_studiomdl.body.ScriptLODs);
+        int numLODs = std::ssize(ctx.body.ScriptLODs);
         for (i = 0; i < numLODs; i++) {
-            LodScriptData_t &scriptLOD = g_studiomdl.body.ScriptLODs[i];
+            LodScriptData_t &scriptLOD = ctx.body.ScriptLODs[i];
             numReplacements += std::ssize(scriptLOD.materialReplacements);
         }
         return numReplacements;
@@ -3087,6 +3099,8 @@ namespace OptimizedModel {
         Assert(maxBonesPerVert <= MAX_NUM_BONES_PER_VERT);
         Assert(maxBonesPerStrip <= MAX_NUM_BONES_PER_STRIP);
 
+        m_pStudioHdr = pHdr;
+
         MergeLikeBoneIndicesWithinVerts(pHdr);
 
         // Some initialization
@@ -3096,7 +3110,7 @@ namespace OptimizedModel {
         // The dude that does it all
         TotalMeshStats_t stats{};
         ProcessModel(pHdr, pSrcBodyParts, stats, bForceSoftwareSkin, bHWFlex);
-        stats.m_TotalMaterialReplacements = CalcNumMaterialReplacements();
+        stats.m_TotalMaterialReplacements = CalcNumMaterialReplacements(m_ctx);
 
         // Lay out and fill the vtx (stored in the output files below, after the debug files have read it)
         WriteVTXFile(pHdr, pFileName, stats);
@@ -3110,7 +3124,7 @@ namespace OptimizedModel {
         //	PrintVerts( pHdr, 1 );
 
         // nothing reads the file through m_FileBuffer anymore: hand the contents over for the final write
-        SaveOutputFile(pFileName, std::move(m_FileBuffer->Data()));
+        SaveOutputFile(m_ctx, pFileName, std::move(m_FileBuffer->Data()));
         delete m_FileBuffer;
         m_FileBuffer = nullptr;
 
@@ -3126,22 +3140,10 @@ namespace OptimizedModel {
     }
 
 
-    static int numGLViewTrangles = 0;
-    static int numGLViewSWDegenerates = 0;
-    static int numGLViewHWDegenerates = 0;
-
-
     enum {
         GLVIEWDRAW_TRILIST,
         GLVIEWDRAW_NONE
     };
-
-    static int s_DrawMode;
-    static int s_LastThreeIndices[3];
-    static Vertex_t s_LastThreeVerts[3];
-    static Vector s_LastThreePositions[3];
-    static int s_ListID = 0;
-    static bool s_Shrunk[3];
 
     //-----------------------------------------------------------------------------
     //
@@ -3163,7 +3165,7 @@ namespace OptimizedModel {
     COptimizedModel::GetOrigVertPosition(mstudiomodel_t *pStudioModel, mstudiomesh_t *pStudioMesh, Vertex_t *pVert) {
         Assert(pStudioMesh->pModel() == pStudioModel);
 
-        const mstudio_meshvertexdata_t *vertData = pStudioMesh->GetVertexData();
+        const mstudio_meshvertexdata_t *vertData = pStudioMesh->GetVertexData(m_pStudioHdr);
         Assert(vertData); // This can only return NULL on X360 for now
         return *vertData->Position(pVert->origMeshVertID);
     }
@@ -3172,7 +3174,7 @@ namespace OptimizedModel {
                                                       Vertex_t *pVert, const int boneID) {
         Assert(pStudioMesh->pModel() == pStudioModel);
 
-        const mstudio_meshvertexdata_t *vertData = pStudioMesh->GetVertexData();
+        const mstudio_meshvertexdata_t *vertData = pStudioMesh->GetVertexData(m_pStudioHdr);
         Assert(vertData); // This can only return NULL on X360 for now
         return vertData->BoneWeights(pVert->origMeshVertID)->weight[pVert->boneWeightIndex[boneID]];
     }
@@ -3181,7 +3183,7 @@ namespace OptimizedModel {
     COptimizedModel::GetOrigVertBoneWeight(mstudiomodel_t *pStudioModel, mstudiomesh_t *pStudioMesh, Vertex_t *pVert) {
         Assert(pStudioMesh->pModel() == pStudioModel);
 
-        const mstudio_meshvertexdata_t *vertData = pStudioMesh->GetVertexData();
+        const mstudio_meshvertexdata_t *vertData = pStudioMesh->GetVertexData(m_pStudioHdr);
         Assert(vertData); // This can only return NULL on X360 for now
         return *vertData->BoneWeights(pVert->origMeshVertID);
     }
@@ -3190,7 +3192,7 @@ namespace OptimizedModel {
                                               const int boneID) {
         Assert(pStudioMesh->pModel() == pStudioModel);
 
-        const mstudio_meshvertexdata_t *vertData = pStudioMesh->GetVertexData();
+        const mstudio_meshvertexdata_t *vertData = pStudioMesh->GetVertexData(m_pStudioHdr);
         Assert(vertData); // This can only return NULL on X360 for now
         return vertData->BoneWeights(pVert->origMeshVertID)->bone[pVert->boneWeightIndex[boneID]];
     }
@@ -3277,7 +3279,7 @@ namespace OptimizedModel {
 
     void COptimizedModel::DrawGLViewTriangle(FILE *fp, Vector &pos1, Vector &pos2, Vector &pos3,
                                              Vector &color1, Vector &color2, Vector &color3) {
-        numGLViewTrangles++;
+        m_NumGLViewTrangles++;
         std::print(fp, "3\n");
         std::print(fp, "{:f} {:f} {:f} {:f} {:f} {:f}\n", pos1[0], pos1[1], pos1[2], color1[0], color1[1], color1[2]);
         std::print(fp, "{:f} {:f} {:f} {:f} {:f} {:f}\n", pos2[0], pos2[1], pos2[2], color2[0], color2[1], color2[2]);
@@ -3292,61 +3294,61 @@ namespace OptimizedModel {
                                      Vector &color, mstudiomodel_t *pStudioModel, mstudiomesh_t *pStudioMesh,
                                      const bool showSubStrips, const float shrinkFactor) {
         //	CheckVertBoneWeights( &vert, pStudioModel, pStudioMesh );
-        Assert(s_DrawMode != GLVIEWDRAW_NONE);
-        int id = s_ListID % 3;
-        s_LastThreeIndices[id] = index;
-        s_LastThreeVerts[id] = vert;
-        s_Shrunk[id] = false;
-        VectorCopy(GetOrigVertPosition(pStudioModel, pStudioMesh, &s_LastThreeVerts[id]), s_LastThreePositions[id]);
-        if (s_DrawMode == GLVIEWDRAW_TRILIST) {
+        Assert(m_DrawMode != GLVIEWDRAW_NONE);
+        int id = m_ListID % 3;
+        m_LastThreeIndices[id] = index;
+        m_LastThreeVerts[id] = vert;
+        m_Shrunk[id] = false;
+        VectorCopy(GetOrigVertPosition(pStudioModel, pStudioMesh, &m_LastThreeVerts[id]), m_LastThreePositions[id]);
+        if (m_DrawMode == GLVIEWDRAW_TRILIST) {
             // trilist
             if (id == 2) {
                 ShrinkVerts(shrinkFactor);
                 DrawGLViewTriangle(fp,
-                                   s_LastThreePositions[0],
-                                   s_LastThreePositions[1],
-                                   s_LastThreePositions[2],
+                                   m_LastThreePositions[0],
+                                   m_LastThreePositions[1],
+                                   m_LastThreePositions[2],
                                    color, color, color);
             }
         }
         else {
             // tristrip
-            if (s_ListID >= 2) {
+            if (m_ListID >= 2) {
                 // spit out the face with both facings. . doesn't matter if we
                 // get the facing right for glview
-                if (s_LastThreeIndices[0] == s_LastThreeIndices[1] ||
-                    s_LastThreeIndices[1] == s_LastThreeIndices[2] ||
-                    s_LastThreeIndices[0] == s_LastThreeIndices[2]) {
+                if (m_LastThreeIndices[0] == m_LastThreeIndices[1] ||
+                    m_LastThreeIndices[1] == m_LastThreeIndices[2] ||
+                    m_LastThreeIndices[0] == m_LastThreeIndices[2]) {
                     // skip degenerate faces
-                    numGLViewHWDegenerates++;
+                    m_NumGLViewHWDegenerates++;
                     if (showSubStrips) {
                         RandomColor(color);
                     }
                 }
-                else if (!(s_ListID & 1)) {
+                else if (!(m_ListID & 1)) {
                     ShrinkVerts(shrinkFactor);
                     DrawGLViewTriangle(fp,
-                                       s_LastThreePositions[(id + 0 - 2 + 3) % 3],
-                                       s_LastThreePositions[(id + 1 - 2 + 3) % 3],
-                                       s_LastThreePositions[(id + 2 - 2 + 3) % 3],
+                                       m_LastThreePositions[(id + 0 - 2 + 3) % 3],
+                                       m_LastThreePositions[(id + 1 - 2 + 3) % 3],
+                                       m_LastThreePositions[(id + 2 - 2 + 3) % 3],
                                        color, color, color);
                 }
                 else {
                     ShrinkVerts(shrinkFactor);
                     DrawGLViewTriangle(fp,
-                                       s_LastThreePositions[(id + 2 - 2 + 3) % 3],
-                                       s_LastThreePositions[(id + 1 - 2 + 3) % 3],
-                                       s_LastThreePositions[(id + 0 - 2 + 3) % 3],
+                                       m_LastThreePositions[(id + 2 - 2 + 3) % 3],
+                                       m_LastThreePositions[(id + 1 - 2 + 3) % 3],
+                                       m_LastThreePositions[(id + 0 - 2 + 3) % 3],
                                        color, color, color);
                 }
             }
         }
 
-        s_ListID++;
+        m_ListID++;
     }
 
     void COptimizedModel::GLViewDrawEnd() {
-        s_DrawMode = GLVIEWDRAW_NONE;
+        m_DrawMode = GLVIEWDRAW_NONE;
     }
 
     /*
@@ -3556,7 +3558,7 @@ namespace OptimizedModel {
     //-----------------------------------------------------------------------------
 
     void COptimizedModel::WriteGLViewFiles(studiohdr_t *pHdr, char const *glViewFileName) {
-        if (!g_bDumpGLViewFiles)
+        if (!m_ctx.write.dumpGLViewFiles)
             return;
 
         char tmpFileName[128];
@@ -3594,28 +3596,28 @@ namespace OptimizedModel {
 
 
     void COptimizedModel::GLViewDrawBegin(const int mode) {
-        s_DrawMode = mode;
-        s_ListID = 0;
+        m_DrawMode = mode;
+        m_ListID = 0;
     }
 
     void COptimizedModel::ShrinkVerts(const float shrinkFactor) {
         Vector center;
         Vector delta;
 
-        VectorCopy(s_LastThreePositions[0], center);
-        VectorAdd(center, s_LastThreePositions[1], center);
-        VectorAdd(center, s_LastThreePositions[2], center);
+        VectorCopy(m_LastThreePositions[0], center);
+        VectorAdd(center, m_LastThreePositions[1], center);
+        VectorAdd(center, m_LastThreePositions[2], center);
         VectorScale(center, 1.0f / 3.0f, center);
 
         int i;
         for (i = 0; i < 3; i++) {
-            if (s_Shrunk[i]) {
+            if (m_Shrunk[i]) {
                 continue;
             }
-            VectorSubtract(s_LastThreePositions[i], center, delta);
+            VectorSubtract(m_LastThreePositions[i], center, delta);
             VectorScale(delta, shrinkFactor, delta);
-            VectorAdd(center, delta, s_LastThreePositions[i]);
-            s_Shrunk[i] = true;
+            VectorAdd(center, delta, m_LastThreePositions[i]);
+            m_Shrunk[i] = true;
         }
     }
 
@@ -3916,25 +3918,25 @@ namespace OptimizedModel {
         }
     }
 
-    static void AddMaterialReplacementsToStringTable() {
+    static void AddMaterialReplacementsToStringTable(StudioMdlState &ctx, CStringTable &stringTable) {
         int i, j;
-        int numLODs = std::ssize(g_studiomdl.body.ScriptLODs);
+        int numLODs = std::ssize(ctx.body.ScriptLODs);
         for (i = 0; i < numLODs; i++) {
-            LodScriptData_t &scriptLOD = g_studiomdl.body.ScriptLODs[i];
+            LodScriptData_t &scriptLOD = ctx.body.ScriptLODs[i];
             for (j = 0; j < std::ssize(scriptLOD.materialReplacements); j++) {
                 CLodScriptReplacement_t &materialReplacement = scriptLOD.materialReplacements[j];
-                s_StringTable.AddString(materialReplacement.GetDstName());
+                stringTable.AddString(materialReplacement.GetDstName());
             }
         }
     }
 
 
     // Check that all replacematerial/removemesh commands map to valid source materials
-    void ValidateLODReplacements(studiohdr_t *pHdr) {
+    static void ValidateLODReplacements(StudioMdlState &ctx, studiohdr_t *pHdr) {
         // return;
         bool failed = false;
-        for (int lodID = 0; lodID < std::ssize(g_studiomdl.body.ScriptLODs); lodID++) {
-            LodScriptData_t &scriptLOD = g_studiomdl.body.ScriptLODs[lodID];
+        for (int lodID = 0; lodID < std::ssize(ctx.body.ScriptLODs); lodID++) {
+            LodScriptData_t &scriptLOD = ctx.body.ScriptLODs[lodID];
             int j;
             for (j = 0; j < std::ssize(scriptLOD.meshRemovals); j++) {
                 const auto pName1 = scriptLOD.meshRemovals[j].GetSrcName();
@@ -3947,7 +3949,7 @@ namespace OptimizedModel {
                 }
 
                 // no match
-                MdlWarning("\"%s\" doesn't match any of the materals in the model\n", pName1);
+                MdlWarning("\"{}\" doesn't match any of the materals in the model\n", pName1);
                 failed = true;
                 got_one:;
             }
@@ -3955,41 +3957,42 @@ namespace OptimizedModel {
         if (failed) {
             MdlWarning("possible materials in model:\n");
             for (int i = 0; i < pHdr->numtextures; i++) {
-                MdlWarning("\t\"%s\"\n", pHdr->pTexture(i)->pszName());
+                MdlWarning("\t\"{}\"\n", pHdr->pTexture(i)->pszName());
             }
             MdlError("Exiting due to errors\n");
         }
     }
 
-    void WriteOptimizedFiles(studiohdr_t *phdr, s_bodypart_t *pSrcBodyParts) {
+    void WriteOptimizedFiles(StudioMdlState &ctx, studiohdr_t *phdr, s_bodypart_t *pSrcBodyParts) {
         vstd::FunctionTimingRecorder _("Write");
 
-        ValidateLODReplacements(phdr);
+        ValidateLODReplacements(ctx, phdr);
 
-        s_StringTable.Purge();
+        // string table for the whole vtx file.
+        CStringTable stringTable;
 
         // hack!  This should really go in the mdl file since it's common to all LODs.
-        AddMaterialReplacementsToStringTable();
+        AddMaterialReplacementsToStringTable(ctx, stringTable);
 
         // <game>/models/<name> without extension
-        const std::string filename = OutputModelPath("");
+        const std::string filename = OutputModelPath(ctx, "");
+
+        COptimizedModel optimizedModel(ctx, stringTable);
 
         if (true) // Always process dx90
         {
             const std::string tmpFileName = filename + ".dx90.vtx";
             const std::string glViewFilename = filename + ".dx90.glview";
-            s_OptimizedModel.OptimizeFromStudioHdr(phdr, pSrcBodyParts,
-                                                   24 /* vert cache size (real size, not effective!)*/,
-                                                   false, /* doesn't use fixed function */
-                                                   false, // don't force software skinning
-                                                   true, // Hardware flex on DX9 parts
-                                                   3 /* bones/vert */,
-                                                   9 /* bones/tri */,
-                                                   53 /* bones/strip */,
-                                                   tmpFileName.c_str(), glViewFilename.c_str());
+            optimizedModel.OptimizeFromStudioHdr(phdr, pSrcBodyParts,
+                                                 24 /* vert cache size (real size, not effective!)*/,
+                                                 false, /* doesn't use fixed function */
+                                                 false, // don't force software skinning
+                                                 true, // Hardware flex on DX9 parts
+                                                 3 /* bones/vert */,
+                                                 9 /* bones/tri */,
+                                                 53 /* bones/strip */,
+                                                 tmpFileName.c_str(), glViewFilename.c_str());
         }
-
-        s_StringTable.Purge();
     }
 }; // namespace OptimizedModel
 #pragma optimize( "", on )
