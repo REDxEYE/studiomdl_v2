@@ -92,7 +92,7 @@ namespace {
             if (key.source != pSource)
                 continue;
 
-            const s_sourceanim_t *pAnim = FindSourceAnim(pSource, key.animationname);
+            const s_sourceanim_t *pAnim = FindSourceAnim(pSource, key.animationname.view());
             if (!pAnim)
                 continue;
 
@@ -243,11 +243,10 @@ namespace {
         }
 
         std::vector<int> flexes(pSource->meshes.size(), 0);
-        for (int i = 0; i < g_studiomdl.flex.flexkeys.size(); i++) {
-            const s_flexkey_t &key = g_studiomdl.flex.flexkeys[i];
+        for (const auto & key : g_studiomdl.flex.flexkeys) {
             if (key.source != pSource || key.frame < 0 || key.frame >= MAXSTUDIOANIMFRAMES)
                 continue;
-            const s_sourceanim_t *pAnim = FindSourceAnim(pSource, key.animationname);
+            const s_sourceanim_t *pAnim = FindSourceAnim(pSource, key.animationname.view());
             if (!pAnim || !pAnim->newStyleVertexAnimations)
                 continue;
             std::vector<bool> touched(pSource->meshes.size(), false);

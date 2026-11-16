@@ -1110,6 +1110,10 @@ inline bool CDmaString::IsEmpty() const {
     return false;
 }
 
+inline CDmaString::operator std::string_view() const {
+    return this->Value().view();
+}
+
 inline CDmaString &CDmaString::operator=(const char *src) {
     Set(src);
     return *this;

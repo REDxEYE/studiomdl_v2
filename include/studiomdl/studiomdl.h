@@ -43,7 +43,7 @@ int KeyValueTextSize(const std::string &pKeyValue);
 
 const char *KeyValueText(const std::string &pKeyValue);
 
-extern void WriteModelFiles(void);
+extern void WriteModelFiles();
 
 // --------------------------------------------------------------------
 
@@ -1147,7 +1147,7 @@ public:
 
     void Copy(s_source_t *pDstSource);
 
-    void CopyFlexKeys(const s_source_t *pOrigSource, s_source_t *pNewSource, int imodel);
+    void CopyFlexKeys(const s_source_t *pOrigSource, s_source_t *newSource, int imodel);
 };
 
 //-----------------------------------------------------------------------------
@@ -1299,7 +1299,7 @@ int Load_DMX(s_source_t *psource);
 
 int AppendVTAtoOBJ(s_source_t *psource, char *filename, int frame);
 
-void Build_Reference(s_source_t *psource, const char *pAnimName);
+void Build_Reference(s_source_t *source, std::string_view animName);
 
 int Grab_Nodes(std::array<s_node_t, MAXSTUDIOSRCBONES> &pnodes);
 
@@ -1311,9 +1311,9 @@ void ProcessSourceComment(s_source_t *psource, const char *pCommentString);
 //-----------------------------------------------------------------------------
 // Utility methods to get or add animation data from sources
 //-----------------------------------------------------------------------------
-s_sourceanim_t *FindSourceAnim(s_source_t *pSource, const char *pAnimName);
+s_sourceanim_t *FindSourceAnim(s_source_t *source, std::string_view animName);
 
-const s_sourceanim_t *FindSourceAnim(const s_source_t *pSource, const char *pAnimName);
+const s_sourceanim_t *FindSourceAnim(const s_source_t *pSource, std::string_view pAnimName);
 
 s_sourceanim_t *FindOrAddSourceAnim(s_source_t *pSource, const char *pAnimName);
 
@@ -1323,19 +1323,19 @@ void AddFlexKey(s_source_t *pSource, CDmeCombinationOperator *pComboOp, const ch
 // Adds combination data to the source
 void AddCombination(s_source_t *pSource, CDmeCombinationOperator *pCombination);
 
-int LookupTexture(const char *pTextureName, bool bRelativePath = false);
+size_t LookupTexture(std::string_view textureName, bool relativePath = false);
 
-int UseTextureAsMaterial(int textureindex);
+size_t UseTextureAsMaterial(size_t textureIndex);
 
-int MaterialToTexture(int material);
+int32_t MaterialToTexture(size_t material);
 
 int LookupAttachment(const char *name);
 
-void ClearModel(void);
+void ClearModel();
 
-void SimplifyModel(void);
+void SimplifyModel();
 
-void CollapseBones(void);
+void CollapseBones();
 
 void adjust_vertex(float *org);
 
@@ -1386,17 +1386,17 @@ s_source_t *GetModelLODSource(const char *pModelName,
                               const LodScriptData_t &scriptLOD, bool *pFound);
 
 
-void LoadLODSources(void);
+void LoadLODSources();
 
-void ConvertBoneTreeCollapsesToReplaceBones(void);
+void ConvertBoneTreeCollapsesToReplaceBones();
 
-void FixupReplacedBones(void);
+void FixupReplacedBones();
 
-void UnifyLODs(void);
+void UnifyLODs();
 
-void SpewBoneUsageStats(void);
+void SpewBoneUsageStats();
 
-void MarkParentBoneLODs(void);
+void MarkParentBoneLODs();
 
 //void CheckAutoShareAnimationGroup( const char *animation_name );
 
@@ -1405,7 +1405,7 @@ void MarkParentBoneLODs(void);
 =================
 */
 
-extern bool GetLineInput(void);
+extern bool GetLineInput();
 
 
 struct v_unify_t {
@@ -1531,7 +1531,7 @@ extern s_model_t *g_pCurrentModel;
 
 int LookupPoseParameter(const char *name);
 
-void ProcessModelName(const char *pModelName);
+void ProcessModelName(std::string_view modelName);
 
 s_animation_t *LookupAnimation(const char *name);
 

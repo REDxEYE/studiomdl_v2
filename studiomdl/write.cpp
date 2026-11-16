@@ -3400,7 +3400,7 @@ static bool FixupVVDFile(const std::string_view fileName, const studiohdr_t* pSt
         auto pExtraIndex_new = buffer.allocate<ExtraVertexAttributeIndex_t>();
         *pExtraHeader_new = *pExtraHeader_old;
         *pExtraIndex_new = *pExtraIndex_old;
-        buffer.allocate<uint8_t>(pExtraHeader_old->m_totalbytes);
+        (void)buffer.allocate<uint8_t>(pExtraHeader_old->m_totalbytes);
     }
 
     // determine number of aggregate verts towards root lod

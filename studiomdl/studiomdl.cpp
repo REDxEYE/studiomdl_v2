@@ -40,6 +40,7 @@
 #include "interfaces/interfaces.h"
 #include "tier1_v2/function_timing.hpp"
 #include "studiomdl/studiomdl_global_state.hpp"
+#include "tier1_v2/math_utils.hpp"
 #include "tier1_v2/path_utils.hpp"
 #include "tier1_v2/string_utils.hpp"
 
@@ -101,100 +102,89 @@ int LookupPoseParameter(const char *name) {
 //-----------------------------------------------------------------------------
 // Stuff for writing a makefile to build models incrementally.
 //-----------------------------------------------------------------------------
-s_sourceanim_t *FindSourceAnim(s_source_t *pSource, const char *pAnimName) {
-    const int nCount = std::ssize(pSource->m_Animations);
-    for (int i = 0; i < nCount; ++i) {
-        s_sourceanim_t *pAnim = &pSource->m_Animations[i];
-        if (vstd::iequals(pAnimName, pAnim->animationname))
-            return pAnim;
+s_sourceanim_t *FindSourceAnim(s_source_t *source, const std::string_view animName) {
+    for (auto& anim: source->m_Animations) {
+        if (vstd::iequals(animName, anim.animationname))
+            return &anim;
     }
     return nullptr;
 }
 
-const s_sourceanim_t *FindSourceAnim(const s_source_t *pSource, const char *pAnimName) {
-    if (!pAnimName[0])
+const s_sourceanim_t *FindSourceAnim(const s_source_t *source, const std::string_view animName) {
+    if (!animName[0])
         return nullptr;
 
-    const int nCount = std::ssize(pSource->m_Animations);
-    for (int i = 0; i < nCount; ++i) {
-        const s_sourceanim_t *pAnim = &pSource->m_Animations[i];
-        if (vstd::iequals(pAnimName, pAnim->animationname))
-            return pAnim;
+    for (auto& anim: source->m_Animations) {
+        if (vstd::iequals(animName, anim.animationname))
+            return &anim;
     }
     return nullptr;
 }
 
-s_sourceanim_t *FindOrAddSourceAnim(s_source_t *pSource, const char *pAnimName) {
-    if (!pAnimName[0])
+s_sourceanim_t *FindOrAddSourceAnim(s_source_t *source, const char *animName) {
+    if (!animName[0])
         return nullptr;
 
-    const int nCount = std::ssize(pSource->m_Animations);
-    for (int i = 0; i < nCount; ++i) {
-        s_sourceanim_t *pAnim = &pSource->m_Animations[i];
-        if (vstd::iequals(pAnimName, pAnim->animationname))
-            return pAnim;
+    for (auto& anim: source->m_Animations) {
+        if (vstd::iequals(animName, anim.animationname))
+            return &anim;
     }
 
-    s_sourceanim_t *pAnim = &pSource->m_Animations.emplace_back();
-    Q_strncpy(pAnim->animationname, pAnimName, sizeof(pAnim->animationname));
-    return pAnim;
+    s_sourceanim_t *anim = &source->m_Animations.emplace_back();
+    anim->animationname = animName;
+    return anim;
 }
 
-int LookupTexture(const char *pTextureName, bool bRelativePath) {
-    char pTextureNoExt[MAX_PATH]{0};
-    char pTextureBase[MAX_PATH]{0};
-    char pTextureBase2[MAX_PATH]{0};
-    Q_StripExtension(pTextureName, pTextureNoExt, sizeof(pTextureNoExt));
-    Q_FileBase(pTextureName, pTextureBase, sizeof(pTextureBase));
+size_t LookupTexture(const std::string_view textureName, const bool relativePath) {
+    StudioPath textureNoExt = textureName;
+    vstd::paths::strip_extension(textureNoExt);
+    const StudioPath textureBase = vstd::paths::file_base(textureName);
 
-    int nFlags = bRelativePath ? RELATIVE_TEXTURE_PATH_SPECIFIED : 0;
+    const int flags = relativePath ? RELATIVE_TEXTURE_PATH_SPECIFIED : 0;
     for (size_t i = 0; i < g_studiomdl.materials.textures.size(); i++) {
-        if (g_studiomdl.materials.textures[i].flags == nFlags) {
-            if (vstd::iequals(pTextureNoExt, g_studiomdl.materials.textures[i].name))
+        if (g_studiomdl.materials.textures[i].flags == flags) {
+            if (vstd::iequals(textureNoExt, g_studiomdl.materials.textures[i].name))
                 return i;
             continue;
         }
 
         // Comparing relative vs non-relative
-        if (bRelativePath) {
-            if (vstd::iequals(pTextureBase, g_studiomdl.materials.textures[i].name))
+        if (relativePath) {
+            if (vstd::iequals(textureBase, g_studiomdl.materials.textures[i].name))
                 return i;
             continue;
         }
 
         // Comparing non-relative vs relative
-        Q_FileBase(g_studiomdl.materials.textures[i].name, pTextureBase2, sizeof(pTextureBase2));
-        if (!Q_stricmp(pTextureNoExt, pTextureBase2))
+        if (vstd::iequals(textureNoExt, vstd::paths::file_base(g_studiomdl.materials.textures[i].name.view())))
             return i;
     }
 
-    if (g_studiomdl.materials.textures.size() >= MAXSTUDIOSKINS) {
-        MdlError("Too many materials used, max {}\n", (int) MAXSTUDIOSKINS);
+    if (g_studiomdl.materials.textures.size() >= g_studiomdl.materials.textures.capacity()) {
+        MdlError("Too many materials used, max {}\n", g_studiomdl.materials.textures.capacity());
     }
 
     auto& newTexture = g_studiomdl.materials.textures.emplace();
-
-    Q_strncpy(newTexture.name, pTextureNoExt, sizeof(newTexture.name));
+    newTexture.name = textureNoExt;
     newTexture.material = -1;
-    newTexture.flags = nFlags;
-    return static_cast<int>(g_studiomdl.materials.textures.size() - 1);
+    newTexture.flags = flags;
+    return g_studiomdl.materials.textures.size() - 1;
 }
 
-int UseTextureAsMaterial(int textureindex) {
-    if (g_studiomdl.materials.textures[textureindex].material == -1) {
+size_t UseTextureAsMaterial(size_t textureIndex) {
+    if (g_studiomdl.materials.textures[textureIndex].material == -1) {
         if (g_studiomdl.options.dumpMaterials) {
-            std::print("material {} {} {}\n", textureindex, g_studiomdl.materials.materials.size(), g_studiomdl.materials.textures[textureindex].name);
+            std::print("material {} {} {}\n", textureIndex, g_studiomdl.materials.materials.size(), g_studiomdl.materials.textures[textureIndex].name);
         }
-        g_studiomdl.materials.materials.emplace_back(textureindex);
-        g_studiomdl.materials.textures[textureindex].material = static_cast<int>(g_studiomdl.materials.materials.size() - 1);
+        g_studiomdl.materials.materials.emplace_back(textureIndex);
+        g_studiomdl.materials.textures[textureIndex].material = vstd::as_signed_checked<int>(g_studiomdl.materials.materials.size() - 1);
     }
 
-    return g_studiomdl.materials.textures[textureindex].material;
+    return g_studiomdl.materials.textures[textureIndex].material;
 }
 
-int MaterialToTexture(int material) {
-    int i;
-    for (i = 0; i < g_studiomdl.materials.textures.size(); i++) {
+int32_t MaterialToTexture(const size_t material) {
+    for (int i = 0; i < g_studiomdl.materials.textures.size(); i++) {
         if (g_studiomdl.materials.textures[i].material == material) {
             return i;
         }
@@ -207,12 +197,9 @@ void scale_vertex(Vector &org) {
     org *= g_studiomdl.script.currentscale;
 }
 
-void Build_Reference(s_source_t *pSource, const char *pAnimName) {
-    int i, parent;
-    Vector angle;
-
-    s_sourceanim_t *pReferenceAnim = FindSourceAnim(pSource, pAnimName);
-    for (i = 0; i < pSource->numbones; i++) {
+void Build_Reference(s_source_t *source, const std::string_view animName) {
+    s_sourceanim_t *pReferenceAnim = FindSourceAnim(source, animName);
+    for (int i = 0; i < source->numbones; i++) {
         matrix3x4_t m;
         if (pReferenceAnim) {
             AngleMatrix(pReferenceAnim->rawanim[0][i].rot, m);
@@ -223,24 +210,17 @@ void Build_Reference(s_source_t *pSource, const char *pAnimName) {
             SetIdentityMatrix(m);
         }
 
-        parent = pSource->localBone[i].parent;
+        const int parent = source->localBone[i].parent;
         if (parent == -1) {
             // scale the done pos.
             // calc rotational matrices
-            MatrixCopy(m, pSource->boneToPose[i]);
+            MatrixCopy(m, source->boneToPose[i]);
         } else {
             // calc compound rotational matrices
             // FIXME : Hey, it's orthogical so inv(A) == transpose(A)
             Assert(parent < i);
-            ConcatTransforms(pSource->boneToPose[parent], m, pSource->boneToPose[i]);
+            ConcatTransforms(source->boneToPose[parent], m, source->boneToPose[i]);
         }
-        // printf("%3d %f %f %f\n", i, psource->bonefixup[i].worldorg[0], psource->bonefixup[i].worldorg[1], psource->bonefixup[i].worldorg[2] );
-        /*
-		AngleMatrix( angle, m );
-		printf("%8.4f %8.4f %8.4f\n", m[0][0], m[1][0], m[2][0] );
-		printf("%8.4f %8.4f %8.4f\n", m[0][1], m[1][1], m[2][1] );
-		printf("%8.4f %8.4f %8.4f\n", m[0][2], m[1][2], m[2][2] );
-		*/
     }
 }
 
@@ -496,34 +476,32 @@ void CClampedSource::Copy(s_source_t *pDstSource) {
     m_Animations.clear();
 }
 
-void CClampedSource::CopyFlexKeys(const s_source_t *pOrigSource, s_source_t *pNewSource, int imodel) {
+void CClampedSource::CopyFlexKeys(const s_source_t *pOrigSource, s_source_t *newSource, int imodel) {
     // Only the flex keys are duplicated for the new piece (see below): flex controllers, controller remaps and flex
     // rules are global, they are added once for the original source and refer to flexdescs, which are shared.
     // A key is only needed for the pieces whose vertices it actually moves, so keys without any vertex animation in
     // this piece are culled. This keeps numSubmodels*numFlexKeys well below MAXSTUDIOFLEXKEYS.
 
-    if (pOrigSource == pNewSource)
+    if (pOrigSource == newSource)
         return;
 
 // TODO: need to change g_defaultflexkey so it works with this (set a flag on the default flexkey (error if the user sets two defaults), duplicate the flag with that flexkey in here, update RemapVertexAnimations to use the flag)
 
-    pNewSource->m_FlexKeys.clear();
-    for (size_t i = 0; i < pOrigSource->m_FlexKeys.size(); i++) {
-        const s_flexkey_t &origKey = pOrigSource->m_FlexKeys[i];
-
+    newSource->m_FlexKeys.clear();
+    for (const auto & origKey : pOrigSource->m_FlexKeys) {
         // AddAnimations() already remapped the vertex animations to this piece (Copy() moved them into pNewSource)
-        const s_sourceanim_t *pAnim = FindSourceAnim(pNewSource, origKey.animationname);
+        const s_sourceanim_t *pAnim = FindSourceAnim(newSource, origKey.animationname.view());
         if (pAnim && pAnim->newStyleVertexAnimations && pAnim->numvanims[origKey.frame] == 0)
             continue;
 
-        s_flexkey_t &key = pNewSource->m_FlexKeys.emplace_back(origKey);
-        key.source = pNewSource;
+        s_flexkey_t &key = newSource->m_FlexKeys.emplace_back(origKey);
+        key.source = newSource;
     }
 
     // Register the flex keys of the new piece (g_flexkey, flexdescs, m_nKeyStartIndex) but NOT its controllers,
     // remaps or rules: AddBodyFlexData(pNewSource, imodel, false)
     //   NOTE: we dont call AddBodyAttachments, since we're not duplicating those
-    AddBodyFlexData(pNewSource, imodel, false);
+    AddBodyFlexData(newSource, imodel, false);
 }
 
 void CClampedSource::Init(int numvertices, const s_source_t *pMeshLayout) {

@@ -141,7 +141,7 @@ namespace vstd {
         }
 
         size_t size() const noexcept { return m_count; }
-        static constexpr size_t capacity() noexcept { return N; }
+        constexpr size_t capacity() noexcept { return N; }
         bool empty() const noexcept { return m_count == 0; }
         bool full() const noexcept { return m_count == N; }
 

@@ -32,8 +32,8 @@
 
 // DmeRig / DmeRigHandle dags appear in rigged DMX hierarchies and as constraint targets; nothing casts to
 // them, so their factories must be pulled out of the static library explicitly to keep them typed dags
-USING_ELEMENT_FACTORY( DmeRig );
-USING_ELEMENT_FACTORY( DmeRigHandle );
+USING_ELEMENT_FACTORY(DmeRig);
+USING_ELEMENT_FACTORY(DmeRigHandle);
 
 
 // Local includes
@@ -55,10 +55,10 @@ struct MeshInfo;
 //-----------------------------------------------------------------------------
 // The current model being loaded...
 //-----------------------------------------------------------------------------
-s_model_t *g_pCurrentModel = nullptr;
+s_model_t* g_pCurrentModel = nullptr;
 
 
-void UnifyIndices(s_source_t *psource);
+void UnifyIndices(s_source_t* psource);
 
 
 //-----------------------------------------------------------------------------
@@ -69,7 +69,7 @@ struct BoneTransformMap_t {
     int m_nBoneCount;
 
     // The order in which transforms appear in this list specifies their bone indices
-    CDmeTransform *m_ppTransforms[MAXSTUDIOSRCBONES];
+    CDmeTransform* m_ppTransforms[MAXSTUDIOSRCBONES];
 
     // m_pnDmeModelToMdl[bone index in DmeModel] == bone index in studiomdl
     int m_pnDmeModelToMdl[MAXSTUDIOSRCBONES];
@@ -148,7 +148,7 @@ static std::vector<DeltaState_t> s_DeltaStates;
 
 // Finds or adds delta states. These pointers are invalidated by calling FindOrAddDeltaState again
 //-----------------------------------------------------------------------------
-static DeltaState_t *FindOrAddDeltaState(const char *pDeltaStateName, const int nBaseStateVertexCount) {
+static DeltaState_t* FindOrAddDeltaState(const char* pDeltaStateName, const int nBaseStateVertexCount) {
     const int nCount = std::ssize(s_DeltaStates);
     for (int i = 0; i < nCount; ++i) {
         if (!Q_stricmp(s_DeltaStates[i].m_Name.c_str(), pDeltaStateName)) {
@@ -185,7 +185,7 @@ struct VertexLookupKeyHash_t {
 //-----------------------------------------------------------------------------
 // Loads the vertices from the model
 //-----------------------------------------------------------------------------
-static bool DefineUniqueVertices(const CDmeVertexData *pBindState) {
+static bool DefineUniqueVertices(const CDmeVertexData* pBindState) {
     const CUtlVector<int> &positionIndices = pBindState->GetVertexIndexData(CDmeVertexData::FIELD_POSITION);
     const CUtlVector<int> &normalIndices = pBindState->GetVertexIndexData(CDmeVertexData::FIELD_NORMAL);
     const CUtlVector<int> &texcoordIndices = pBindState->GetVertexIndexData(CDmeVertexData::FIELD_TEXCOORD);
@@ -199,7 +199,7 @@ static bool DefineUniqueVertices(const CDmeVertexData *pBindState) {
     size_t nSpeedCount = speedIndices.size();
 
     int nExtraTexcoordCount[MAXSTUDIOTEXCOORDS - 1];
-    const CUtlVector<int> *extraTexcoordIndices[MAXSTUDIOTEXCOORDS - 1];
+    const CUtlVector<int>* extraTexcoordIndices[MAXSTUDIOTEXCOORDS - 1];
 
     for (int i = 1; i < MAXSTUDIOTEXCOORDS; ++i) {
         FieldIndex_t nExtra = pBindState->FindFieldIndex(vstd::fx_formatted("texcoord${}", i));
@@ -244,12 +244,15 @@ static bool DefineUniqueVertices(const CDmeVertexData *pBindState) {
         VertIndices_t vert;
         vert.v = static_cast<int>(g_studiomdl.input.vertex.size()) + positionIndices[i];
         vert.n = (nNormalCount > 0) ? static_cast<int>(g_studiomdl.input.normal.size()) + normalIndices[i] : -1;
-        vert.t[0] = (nTexcoordCount > 0) ? static_cast<int>(g_studiomdl.input.texcoord[0].size()) + texcoordIndices[i] : -1;
+        vert.t[0] = (nTexcoordCount > 0)
+                        ? static_cast<int>(g_studiomdl.input.texcoord[0].size()) + texcoordIndices[i]
+                        : -1;
         vert.balance = std::ssize(s_Balance) + ((nBalanceCount > 0) ? balanceIndices[i] : 0);
         vert.speed = std::ssize(s_Speed) + ((nSpeedCount > 0) ? speedIndices[i] : 0);
         for (int j = 1; j < MAXSTUDIOTEXCOORDS; ++j) {
             vert.t[j] = (nExtraTexcoordCount[j - 1] > 0)
-                            ? static_cast<int>(g_studiomdl.input.texcoord[j].size()) + extraTexcoordIndices[j - 1]->at(i)
+                            ? static_cast<int>(g_studiomdl.input.texcoord[j].size()) + extraTexcoordIndices[j - 1]->at(
+                                  i)
                             : -1;
         }
 
@@ -269,8 +272,8 @@ static bool DefineUniqueVertices(const CDmeVertexData *pBindState) {
 // Loads the vertices from the model
 //-----------------------------------------------------------------------------
 static bool
-LoadVertices(CDmeDag *pDmeDag, CDmeVertexData *pBindState, const matrix3x4_t &mat, const float flScale, int nBoneAssign,
-             const int *pBoneRemap, s_source_t *pSource) {
+LoadVertices(CDmeDag* pDmeDag, CDmeVertexData* pBindState, const matrix3x4_t &mat, const float flScale, int nBoneAssign,
+             const int* pBoneRemap, s_source_t* pSource) {
     vstd::FunctionTimingRecorder _("DMX");
     // nBoneAssign is only used if the mesh has no skinning information
     // It's the DMX bone index, but it might be < 0, in which case
@@ -351,8 +354,8 @@ LoadVertices(CDmeDag *pDmeDag, CDmeVertexData *pBindState, const matrix3x4_t &ma
             boneWeight.weight[0] = 1.0;
         }
         else {
-            const float *pJointWeights = pBindState->GetJointWeightData(i);
-            const int *pJointIndices = pBindState->GetJointIndexData(i);
+            const float* pJointWeights = pBindState->GetJointWeightData(i);
+            const int* pJointIndices = pBindState->GetJointIndexData(i);
 
             memcpy(weightBuf.data(), pJointWeights, jointCount * sizeof(float));
             memcpy(indexBuf.data(), pJointIndices, jointCount * sizeof(int));
@@ -365,7 +368,8 @@ LoadVertices(CDmeDag *pDmeDag, CDmeVertexData *pBindState, const matrix3x4_t &ma
                     // without -fitweights the default path below reports unmapped joints
                     if (bFitWeights && nMapped < 0 && weightBuf[j] > 0 && indexBuf[j] < MAXSTUDIOBONES &&
                         !warnmap[indexBuf[j]]) {
-                        MdlWarning("DmeMesh[{}] Verts Assigned To DmeModel.jointList[{}] Which Isn't Mapped To The Dag Hierarchy\n",
+                        MdlWarning(
+                            "DmeMesh[{}] Verts Assigned To DmeModel.jointList[{}] Which Isn't Mapped To The Dag Hierarchy\n",
                             pDmeDag->GetName(), indexBuf[j]);
                         warnmap[indexBuf[j]] = true;
                     }
@@ -415,7 +419,8 @@ LoadVertices(CDmeDag *pDmeDag, CDmeVertexData *pBindState, const matrix3x4_t &ma
                 nBoneIndex = pBoneRemap[indexBuf[j]];
                 if (nBoneIndex < 0) {
                     if (indexBuf[j] < MAXSTUDIOBONES && !warnmap[indexBuf[j]]) {
-                        MdlWarning("DmeMesh[{}] Verts Assigned To DmeModel.jointList[{}] Which Isn't Mapped To The Dag Hierarchy\n",
+                        MdlWarning(
+                            "DmeMesh[{}] Verts Assigned To DmeModel.jointList[{}] Which Isn't Mapped To The Dag Hierarchy\n",
                             pDmeDag->GetName(), indexBuf[j]);
                         warnmap[indexBuf[j]] = true;
                     }
@@ -470,8 +475,9 @@ LoadVertices(CDmeDag *pDmeDag, CDmeVertexData *pBindState, const matrix3x4_t &ma
             positionCount = extraTexcoords.size();
             for (int j = 0; j < positionCount; ++j) {
                 g_studiomdl.input.texcoord[i].emplace_back(extraTexcoords[j].x,
-                                                           bFlipVCoordinate ? 1.0f - extraTexcoords[j].y
-                                                                            : extraTexcoords[j].y);
+                                                           bFlipVCoordinate
+                                                               ? 1.0f - extraTexcoords[j].y
+                                                               : extraTexcoords[j].y);
             }
         }
         else {
@@ -501,7 +507,7 @@ LoadVertices(CDmeDag *pDmeDag, CDmeVertexData *pBindState, const matrix3x4_t &ma
 //-----------------------------------------------------------------------------
 // Hook delta into delta list
 //-----------------------------------------------------------------------------
-static void AddToDeltaList(DeltaState_t *pDeltaStateData, const int nUniqueVertex) {
+static void AddToDeltaList(DeltaState_t* pDeltaStateData, const int nUniqueVertex) {
     DeltaIndex_t &index = pDeltaStateData->m_DeltaIndices[nUniqueVertex];
     if (!index.m_bInList) {
         index.m_nNextDelta = pDeltaStateData->m_nFirstDelta;
@@ -516,14 +522,14 @@ static void AddToDeltaList(DeltaState_t *pDeltaStateData, const int nUniqueVerte
 // Loads the vertices from the delta state
 //-----------------------------------------------------------------------------
 static bool LoadDeltaState(
-    CDmeVertexDeltaData *pDeltaState,
-    CDmeVertexData *pBindState,
+    CDmeVertexDeltaData* pDeltaState,
+    CDmeVertexData* pBindState,
     const matrix3x4_t &mat,
     const float flScale,
     const int nStartingUniqueVertex,
     const int nStartingUniqueVertexMap) {
     vstd::FunctionTimingRecorder _("DMX");
-    DeltaState_t *pDeltaStateData = FindOrAddDeltaState(pDeltaState->GetName(),
+    DeltaState_t* pDeltaStateData = FindOrAddDeltaState(pDeltaState->GetName(),
                                                         nStartingUniqueVertex + pBindState->VertexCount());
 
     matrix3x4_t normalMat;
@@ -632,8 +638,8 @@ struct MeshInfo {
 //-----------------------------------------------------------------------------
 // Reads the quad face data from the DMX data
 //-----------------------------------------------------------------------------
-static void ParseQuadFaceData(CDmeVertexData *pVertexData, const int material,
-                              int *pIndices, const int vi, const int ni, int *ti,
+static void ParseQuadFaceData(CDmeVertexData* pVertexData, const int material,
+                              int* pIndices, const int vi, const int ni, int* ti,
                               MeshInfo &meshInfo) {
     vstd::FunctionTimingRecorder _("DMX");
     auto &face = g_studiomdl.input.faces.emplace_back();
@@ -714,9 +720,9 @@ static void ParseQuadFaceData(CDmeVertexData *pVertexData, const int material,
 //-----------------------------------------------------------------------------
 // Reads the face data from the DMX data
 //-----------------------------------------------------------------------------
-static void ParseFaceData(CDmeVertexData *pVertexData, const int material,
+static void ParseFaceData(CDmeVertexData* pVertexData, const int material,
                           const int v1, const int v2, const int v3,
-                          const int vi, const int ni, int *ti,
+                          const int vi, const int ni, int* ti,
                           MeshInfo &meshInfo) {
     vstd::FunctionTimingRecorder _("DMX");
     s_tmpface_t &face = g_studiomdl.input.faces.emplace_back();
@@ -791,8 +797,8 @@ static void ParseFaceData(CDmeVertexData *pVertexData, const int material,
 // Reads the mesh data from the DMX data
 //-----------------------------------------------------------------------------
 static bool
-LoadMesh(CDmeDag *pDmeDag, CDmeMesh *pMesh, CDmeVertexData *pBindState, const matrix3x4_t &mat, const float flScale,
-         const int nBoneAssign, int *pBoneRemap, s_source_t *pSource) {
+LoadMesh(CDmeDag* pDmeDag, CDmeMesh* pMesh, CDmeVertexData* pBindState, const matrix3x4_t &mat, const float flScale,
+         const int nBoneAssign, int* pBoneRemap, s_source_t* pSource) {
     vstd::FunctionTimingRecorder _("DMX");
     pMesh->CollapseRedundantNormals(g_studiomdl.options.normal_blend);
 
@@ -812,7 +818,7 @@ LoadMesh(CDmeDag *pDmeDag, CDmeMesh *pMesh, CDmeVertexData *pBindState, const ma
     // Load the deltas
     int nDeltaStateCount = pMesh->DeltaStateCount();
     for (int i = 0; i < nDeltaStateCount; ++i) {
-        CDmeVertexDeltaData *pDeltaState = pMesh->GetDeltaState(i);
+        CDmeVertexDeltaData* pDeltaState = pMesh->GetDeltaState(i);
         if (!LoadDeltaState(pDeltaState, pBindState, mat, flScale, nStartingUniqueCount, nStartingUniqueMapCount))
             return false;
     }
@@ -824,8 +830,8 @@ LoadMesh(CDmeDag *pDmeDag, CDmeMesh *pMesh, CDmeVertexData *pBindState, const ma
 
     int nFaceSetCount = pMesh->FaceSetCount();
     for (int i = 0; i < nFaceSetCount; ++i) {
-        CDmeFaceSet *pFaceSet = pMesh->GetFaceSet(i);
-        CDmeMaterial *pMaterial = pFaceSet->GetMaterial();
+        CDmeFaceSet* pFaceSet = pMesh->GetFaceSet(i);
+        CDmeMaterial* pMaterial = pFaceSet->GetMaterial();
 
         // Get the material name
         Q_strncpy(pTextureName, pMaterial->GetMaterialName(), sizeof(pTextureName));
@@ -931,15 +937,15 @@ LoadMesh(CDmeDag *pDmeDag, CDmeMesh *pMesh, CDmeVertexData *pBindState, const ma
 // Method used to add mesh data
 //-----------------------------------------------------------------------------
 struct LoadMeshInfo_t {
-    s_source_t *m_pSource;
-    CDmeModel *m_pModel;
+    s_source_t* m_pSource;
+    CDmeModel* m_pModel;
     float m_flScale;
-    int *m_pBoneRemap;
+    int* m_pBoneRemap;
     matrix3x4_t m_pBindPose[MAXSTUDIOSRCBONES];
 };
 
 static bool
-LoadMeshes(const LoadMeshInfo_t &info, CDmeDag *pDag, const matrix3x4_t &parentToBindPose, int nBoneAssign) {
+LoadMeshes(const LoadMeshInfo_t &info, CDmeDag* pDag, const matrix3x4_t &parentToBindPose, int nBoneAssign) {
     // We want to create an aggregate matrix transforming from this dag to its closest
     // parent which actually is an animated joint. This is done so we can autoskin
     // meshes to their closest parents if they have not been skinned.
@@ -960,8 +966,8 @@ LoadMeshes(const LoadMeshInfo_t &info, CDmeDag *pDag, const matrix3x4_t &parentT
         ConcatTransforms(parentToBindPose, dagToParent, dagToBindPose);
     }
 
-    if (auto *pMesh = CastElement<CDmeMesh>(pDag->GetShape())) {
-        CDmeVertexData *pBindState = pMesh->FindBaseState("bind");
+    if (auto* pMesh = CastElement<CDmeMesh>(pDag->GetShape())) {
+        CDmeVertexData* pBindState = pMesh->FindBaseState("bind");
         if (!pBindState)
             return false;
 
@@ -972,7 +978,7 @@ LoadMeshes(const LoadMeshInfo_t &info, CDmeDag *pDag, const matrix3x4_t &parentT
 
     int nCount = pDag->GetChildCount();
     for (int i = 0; i < nCount; ++i) {
-        CDmeDag *pChild = pDag->GetChild(i);
+        CDmeDag* pChild = pDag->GetChild(i);
         if (!LoadMeshes(info, pChild, dagToBindPose, nBoneAssign))
             return false;
     }
@@ -984,7 +990,7 @@ LoadMeshes(const LoadMeshInfo_t &info, CDmeDag *pDag, const matrix3x4_t &parentT
 //-----------------------------------------------------------------------------
 // Method used to add mesh data
 //-----------------------------------------------------------------------------
-static bool LoadMeshes(CDmeModel *pModel, const float flScale, int *pBoneRemap, s_source_t *pSource) {
+static bool LoadMeshes(CDmeModel* pModel, const float flScale, int* pBoneRemap, s_source_t* pSource) {
     vstd::FunctionTimingRecorder _("DMX");
     matrix3x4_t mat;
     SetIdentityMatrix(mat);
@@ -995,10 +1001,10 @@ static bool LoadMeshes(CDmeModel *pModel, const float flScale, int *pBoneRemap, 
     info.m_pBoneRemap = pBoneRemap;
     info.m_pSource = pSource;
 
-    CDmeTransformList *pBindPose = pModel->FindBaseState("bind");
+    CDmeTransformList* pBindPose = pModel->FindBaseState("bind");
     int nCount = pBindPose ? pBindPose->GetTransformCount() : pModel->GetJointCount();
     for (int i = 0; i < nCount; ++i) {
-        CDmeTransform *pTransform = pBindPose ? pBindPose->GetTransform(i) : pModel->GetJointTransform(i);
+        CDmeTransform* pTransform = pBindPose ? pBindPose->GetTransform(i) : pModel->GetJointTransform(i);
 
         matrix3x4_t jointTransform;
         pTransform->GetTransform(info.m_pBindPose[i]);
@@ -1006,7 +1012,7 @@ static bool LoadMeshes(CDmeModel *pModel, const float flScale, int *pBoneRemap, 
 
     int nChildCount = pModel->GetChildCount();
     for (int i = 0; i < nChildCount; ++i) {
-        CDmeDag *pChild = pModel->GetChild(i);
+        CDmeDag* pChild = pModel->GetChild(i);
         if (!LoadMeshes(info, pChild, mat, -1))
             return false;
     }
@@ -1018,7 +1024,7 @@ static bool LoadMeshes(CDmeModel *pModel, const float flScale, int *pBoneRemap, 
 //-----------------------------------------------------------------------------
 // Builds s_vertanim_ts
 //-----------------------------------------------------------------------------
-static void BuildVertexAnimations(s_source_t *pSource) {
+static void BuildVertexAnimations(s_source_t* pSource) {
     vstd::FunctionTimingRecorder _("DMX");
     const int nCount = std::ssize(s_DeltaStates);
     if (nCount == 0)
@@ -1029,11 +1035,11 @@ static void BuildVertexAnimations(s_source_t *pSource) {
 
     const auto &entries = g_studiomdl.input.v_listdata;
     Assert(s_UniqueVertices.size() == entries.size());
-    s_vertanim_t *pVertAnim = (s_vertanim_t *) malloc(entries.size() * sizeof(s_vertanim_t));
+    s_vertanim_t* pVertAnim = (s_vertanim_t*) malloc(entries.size() * sizeof(s_vertanim_t));
     for (int i = 0; i < nCount; ++i) {
         DeltaState_t &state = s_DeltaStates[i];
 
-        s_sourceanim_t *pSourceAnim = FindOrAddSourceAnim(pSource, state.m_Name.c_str());
+        s_sourceanim_t* pSourceAnim = FindOrAddSourceAnim(pSource, state.m_Name.c_str());
         pSourceAnim->numframes = 1;
         pSourceAnim->startframe = 0;
         pSourceAnim->endframe = 0;
@@ -1083,7 +1089,7 @@ static void BuildVertexAnimations(s_source_t *pSource) {
             }
         }
         pSourceAnim->numvanims[0] = nVertAnimCount;
-        pSourceAnim->vanim[0] = (s_vertanim_t *) calloc(nVertAnimCount, sizeof(s_vertanim_t));
+        pSourceAnim->vanim[0] = (s_vertanim_t*) calloc(nVertAnimCount, sizeof(s_vertanim_t));
         memcpy(pSourceAnim->vanim[0], pVertAnim, nVertAnimCount * sizeof(s_vertanim_t));
     }
     free(pVertAnim);
@@ -1093,12 +1099,12 @@ static void BuildVertexAnimations(s_source_t *pSource) {
 //-----------------------------------------------------------------------------
 // Handles DmeJiggleBones
 //-----------------------------------------------------------------------------
-static void HandleDmeJiggleBone(const CDmeDag *pDmeDag) {
-    const auto *pDmeJiggleBone = CastElementConst<CDmeJiggleBone>(pDmeDag);
+static void HandleDmeJiggleBone(const CDmeDag* pDmeDag) {
+    const auto* pDmeJiggleBone = CastElementConst<CDmeJiggleBone>(pDmeDag);
     if (!pDmeJiggleBone)
         return;
 
-    const char *pName = pDmeJiggleBone->GetName();
+    const char* pName = pDmeJiggleBone->GetName();
     for (int i = 0; i < std::ssize(g_studiomdl.bones.jigglebones); ++i) {
         if (vstd::iequals(g_studiomdl.bones.jigglebones[i].bonename, pName)) {
             MdlWarning("2000: Jiggle Bone: {} already defined, ignoring additional declarations\n", pName);
@@ -1106,7 +1112,7 @@ static void HandleDmeJiggleBone(const CDmeDag *pDmeDag) {
         }
     }
 
-    s_jigglebone_t *pJiggleBone = &g_studiomdl.bones.jigglebones.emplace_back();
+    s_jigglebone_t* pJiggleBone = &g_studiomdl.bones.jigglebones.emplace_back();
 
     Q_strncpy(pJiggleBone->bonename, pName, sizeof(pJiggleBone->bonename));
 
@@ -1203,9 +1209,9 @@ static void HandleDmeJiggleBone(const CDmeDag *pDmeDag) {
 // Loads the skeletal hierarchy from the game model, returns bone count
 //-----------------------------------------------------------------------------
 static bool
-AddDagJoint(CDmeModel *pModel, CDmeDag *pDag, std::array<s_node_t,MAXSTUDIOSRCBONES> &pNodes, const int nParentIndex,
+AddDagJoint(CDmeModel* pModel, CDmeDag* pDag, std::array<s_node_t,MAXSTUDIOSRCBONES> &pNodes, const int nParentIndex,
             BoneTransformMap_t &boneMap) {
-    CDmeTransform *pDmeTransform = pDag->GetTransform();
+    CDmeTransform* pDmeTransform = pDag->GetTransform();
 
     if (!pDmeTransform)
         return true;
@@ -1239,7 +1245,7 @@ AddDagJoint(CDmeModel *pModel, CDmeDag *pDag, std::array<s_node_t,MAXSTUDIOSRCBO
 
     // Now deal with children
     for (int i = 0; i < pDag->GetChildCount(); ++i) {
-        CDmeDag *pChild = pDag->GetChild(i);
+        CDmeDag* pChild = pDag->GetChild(i);
         if (!pChild)
             continue;
 
@@ -1254,7 +1260,7 @@ AddDagJoint(CDmeModel *pModel, CDmeDag *pDag, std::array<s_node_t,MAXSTUDIOSRCBO
 //-----------------------------------------------------------------------------
 // Main entry point for loading the skeleton
 //-----------------------------------------------------------------------------
-static int LoadSkeleton(CDmeDag *pRoot, CDmeModel *pModel, std::array<s_node_t,MAXSTUDIOSRCBONES> &pNodes,
+static int LoadSkeleton(CDmeDag* pRoot, CDmeModel* pModel, std::array<s_node_t,MAXSTUDIOSRCBONES> &pNodes,
                         BoneTransformMap_t &boneMap) {
     vstd::FunctionTimingRecorder _("DMX");
     // Initialize bone indices
@@ -1269,7 +1275,7 @@ static int LoadSkeleton(CDmeDag *pRoot, CDmeModel *pModel, std::array<s_node_t,M
 
     // Don't create joints for the the root dag ever.. just deal with the children
     for (int i = 0; i < pRoot->GetChildCount(); ++i) {
-        CDmeDag *pChild = pRoot->GetChild(i);
+        CDmeDag* pChild = pRoot->GetChild(i);
         if (!pChild)
             continue;
 
@@ -1290,8 +1296,8 @@ static int LoadSkeleton(CDmeDag *pRoot, CDmeModel *pModel, std::array<s_node_t,M
 //-----------------------------------------------------------------------------
 // Loads the attachments found in the file
 //-----------------------------------------------------------------------------
-static void LoadAttachments(CDmeDag *pRoot, CDmeDag *pDag, s_source_t *pSource, const bool bStaticProp) {
-    CDmeAttachment *pAttachment = CastElement<CDmeAttachment>(pDag->GetShape());
+static void LoadAttachments(CDmeDag* pRoot, CDmeDag* pDag, s_source_t* pSource, const bool bStaticProp) {
+    CDmeAttachment* pAttachment = CastElement<CDmeAttachment>(pDag->GetShape());
     if (pAttachment && (pDag != pRoot)) {
         s_attachment_t &attachment = pSource->m_Attachments.emplace_back();
         Q_strncpy(attachment.name, pAttachment->GetName(), sizeof(attachment.name));
@@ -1317,7 +1323,7 @@ static void LoadAttachments(CDmeDag *pRoot, CDmeDag *pDag, s_source_t *pSource, 
     // Don't create joints for the the root dag ever.. just deal with the children
     int nChildCount = pDag->GetChildCount();
     for (int i = 0; i < nChildCount; ++i) {
-        CDmeDag *pChild = pDag->GetChild(i);
+        CDmeDag* pChild = pDag->GetChild(i);
         if (!pChild)
             continue;
 
@@ -1329,15 +1335,15 @@ static void LoadAttachments(CDmeDag *pRoot, CDmeDag *pDag, s_source_t *pSource, 
 //-----------------------------------------------------------------------------
 // Loads the bind pose
 //-----------------------------------------------------------------------------
-static void LoadBindPose(CDmeModel *pModel, const float flScale, const BoneTransformMap_t &boneMap,
-                         s_source_t *pSource) {
-    s_sourceanim_t *pSourceAnim = FindOrAddSourceAnim(pSource, "BindPose");
+static void LoadBindPose(CDmeModel* pModel, const float flScale, const BoneTransformMap_t &boneMap,
+                         s_source_t* pSource) {
+    s_sourceanim_t* pSourceAnim = FindOrAddSourceAnim(pSource, "BindPose");
     pSourceAnim->startframe = 0;
     pSourceAnim->endframe = 0;
     pSourceAnim->numframes = 1;
 
     // Default all transforms to identity
-    pSourceAnim->rawanim[0] = (s_bone_t *) calloc(pSource->numbones, sizeof(s_bone_t));
+    pSourceAnim->rawanim[0] = (s_bone_t*) calloc(pSource->numbones, sizeof(s_bone_t));
     for (int i = 0; i < pSource->numbones; ++i) {
         pSourceAnim->rawanim[0][i].pos.Init();
         pSourceAnim->rawanim[0][i].rot.Init();
@@ -1346,9 +1352,9 @@ static void LoadBindPose(CDmeModel *pModel, const float flScale, const BoneTrans
     {
         matrix3x4_t jointTransform;
 
-        CDmeTransformList *pBindPose = pModel->FindBaseState("bind");
+        CDmeTransformList* pBindPose = pModel->FindBaseState("bind");
         for (int nMdlBoneIndex = 0; nMdlBoneIndex < boneMap.m_nBoneCount; ++nMdlBoneIndex) {
-            CDmeTransform *pDmeTransform = nullptr;
+            CDmeTransform* pDmeTransform = nullptr;
 
             const int nDmeModelBoneIndex = boneMap.m_pnMdlToDmeModel[nMdlBoneIndex];
             if (nDmeModelBoneIndex < 0) {
@@ -1383,37 +1389,37 @@ static void LoadBindPose(CDmeModel *pModel, const float flScale, const BoneTrans
 //-----------------------------------------------------------------------------
 // Does a search through connection operators for dependent DmeOperators
 //-----------------------------------------------------------------------------
-static void GetDependentOperators(std::vector<IDmeOperator *> &operatorList, CDmeOperator *pDmeOperator) {
+static void GetDependentOperators(std::vector<IDmeOperator*> &operatorList, CDmeOperator* pDmeOperator) {
     if (!pDmeOperator || !CastElement<CDmeOperator>(pDmeOperator))
         return;
 
-    for (auto & op : operatorList) {
-        const auto *tmpDmeOperator = CastElement<CDmeOperator>(reinterpret_cast<CDmeOperator *>(op));
+    for (auto &op: operatorList) {
+        const auto* tmpDmeOperator = CastElement<CDmeOperator>(reinterpret_cast<CDmeOperator*>(op));
         if (tmpDmeOperator && tmpDmeOperator == pDmeOperator)
             return;
     }
 
     operatorList.push_back(pDmeOperator);
 
-    std::vector<CDmAttribute *> outAttrList;
+    std::vector<CDmAttribute*> outAttrList;
     pDmeOperator->GetOutputAttributes(outAttrList);
-    for (const auto & outAttr : outAttrList) {
-        CDmElement *pDmElement = outAttr->GetOwner();
+    for (const auto &outAttr: outAttrList) {
+        CDmElement* pDmElement = outAttr->GetOwner();
         if (!pDmElement)
             continue;
 
         if (pDmElement == pDmeOperator) {
-            std::vector<CDmElement *> reList0;
+            std::vector<CDmElement*> reList0;
             FindReferringElements(reList0, pDmElement, g_pDataModel->GetSymbol("element"));
-            for (const auto & reElem0 : reList0) {
-                const auto *re0 = CastElement<CDmeAttributeReference>(reElem0);
+            for (const auto &reElem0: reList0) {
+                const auto* re0 = CastElement<CDmeAttributeReference>(reElem0);
                 if (!re0)
                     continue;
 
-                std::vector<CDmElement *> reList1;
+                std::vector<CDmElement*> reList1;
                 FindReferringElements(reList1, re0, g_pDataModel->GetSymbol("input"));
-                for (const auto & reElem1 : reList1) {
-                    auto *re1 = CastElement<CDmeConnectionOperator>(reElem1);
+                for (const auto &reElem1: reList1) {
+                    auto* re1 = CastElement<CDmeConnectionOperator>(reElem1);
                     if (!re1)
                         continue;
 
@@ -1432,8 +1438,8 @@ static void GetDependentOperators(std::vector<IDmeOperator *> &operatorList, CDm
 // Main entry point for loading DMX files
 //-----------------------------------------------------------------------------
 static void PrepareChannels(
-    std::vector<IDmeOperator *> &operatorList,
-    CDmeChannelsClip *pAnimation) {
+    std::vector<IDmeOperator*> &operatorList,
+    CDmeChannelsClip* pAnimation) {
     int nChannelsCount = pAnimation->m_Channels.size();
     for (int i = 0; i < nChannelsCount; ++i) {
         pAnimation->m_Channels[i]->SetMode(CM_PLAY);
@@ -1445,7 +1451,7 @@ static void PrepareChannels(
 //-----------------------------------------------------------------------------
 // Update channels so they are in position for the next frame
 //-----------------------------------------------------------------------------
-static void UpdateChannels(std::vector<IDmeOperator *> &operators, CDmeChannelsClip *pAnimation,
+static void UpdateChannels(std::vector<IDmeOperator*> &operators, CDmeChannelsClip* pAnimation,
                            const DmeTime_t clipTime) {
     int nChannelsCount = pAnimation->m_Channels.size();
     DmeTime_t channelTime = pAnimation->ToChildMediaTime(clipTime);
@@ -1463,11 +1469,11 @@ static void UpdateChannels(std::vector<IDmeOperator *> &operators, CDmeChannelsC
 //-----------------------------------------------------------------------------
 // Initialize the pose for this frame
 //-----------------------------------------------------------------------------
-static void ComputeFramePose(s_sourceanim_t *pSourceAnim, const int nFrame, const float flScale,
+static void ComputeFramePose(s_sourceanim_t* pSourceAnim, const int nFrame, const float flScale,
                              BoneTransformMap_t &boneMap) {
     // LoadSkeleton appends the identity "defaultRoot" bone after the joints (numbones == m_nBoneCount + 1): the frame
     // needs a slot for it too, calloc leaves it at the identity
-    pSourceAnim->rawanim[nFrame] = (s_bone_t *) calloc(boneMap.m_nBoneCount + 1, sizeof(s_bone_t));
+    pSourceAnim->rawanim[nFrame] = (s_bone_t*) calloc(boneMap.m_nBoneCount + 1, sizeof(s_bone_t));
 
     for (int i = 0; i < boneMap.m_nBoneCount; ++i) {
         matrix3x4_t jointTransform;
@@ -1482,18 +1488,18 @@ static void ComputeFramePose(s_sourceanim_t *pSourceAnim, const int nFrame, cons
 // Main entry point for loading animations
 //-----------------------------------------------------------------------------
 void
-LoadAnimations(s_source_t *pSource, CDmeAnimationList *pAnimationList, const float flScale,
+LoadAnimations(s_source_t* pSource, CDmeAnimationList* pAnimationList, const float flScale,
                BoneTransformMap_t &boneMap) {
     int nAnimationCount = pAnimationList->GetAnimationCount();
     for (int i = 0; i < nAnimationCount; ++i) {
-        CDmeChannelsClip *pAnimation = pAnimationList->GetAnimation(i);
+        CDmeChannelsClip* pAnimation = pAnimationList->GetAnimation(i);
 
         if (!Q_stricmp(pAnimationList->GetName(), "BindPose")) {
             MdlError("Error: Cannot use \"BindPose\" as an animation name!\n");
             break;
         }
 
-        s_sourceanim_t *pSourceAnim = FindOrAddSourceAnim(pSource, pAnimation->GetName());
+        s_sourceanim_t* pSourceAnim = FindOrAddSourceAnim(pSource, pAnimation->GetName());
         DmeTime_t nStartTime = pAnimation->GetStartTime();
         DmeTime_t nEndTime = pAnimation->GetEndTime();
         int nFrameRateVal = pAnimation->GetValue<int>("frameRate");
@@ -1504,7 +1510,7 @@ LoadAnimations(s_source_t *pSource, CDmeAnimationList *pAnimationList, const flo
         pSourceAnim->startframe = nStartTime.CurrentFrame(nFrameRate);
         pSourceAnim->endframe = nEndTime.CurrentFrame(nFrameRate);
         pSourceAnim->numframes = pSourceAnim->endframe - pSourceAnim->startframe + 1;
-        std::vector<IDmeOperator *> operatorList;
+        std::vector<IDmeOperator*> operatorList;
         PrepareChannels(operatorList, pAnimation);
         float flOOFrameRate = 1.0f / (float) nFrameRateVal;
         int nFrame = 0;
@@ -1523,12 +1529,12 @@ LoadAnimations(s_source_t *pSource, CDmeAnimationList *pAnimationList, const flo
 //-----------------------------------------------------------------------------
 // Loads the skeletal hierarchy from the game model, returns bone count
 //-----------------------------------------------------------------------------
-static void AddFlexKeys(CDmeDag *pRoot, CDmeDag *pDag, CDmeCombinationOperator *pComboOp, s_source_t *pSource) {
-    CDmeMesh *pMesh = CastElement<CDmeMesh>(pDag->GetShape());
+static void AddFlexKeys(CDmeDag* pRoot, CDmeDag* pDag, CDmeCombinationOperator* pComboOp, s_source_t* pSource) {
+    CDmeMesh* pMesh = CastElement<CDmeMesh>(pDag->GetShape());
     if (pMesh && (pDag != pRoot)) {
         int nDeltaStateCount = pMesh->DeltaStateCount();
         for (int i = 0; i < nDeltaStateCount; ++i) {
-            CDmeVertexDeltaData *pDeltaState = pMesh->GetDeltaState(i);
+            CDmeVertexDeltaData* pDeltaState = pMesh->GetDeltaState(i);
             AddFlexKey(pSource, pComboOp, pDeltaState->GetName());
         }
     }
@@ -1536,7 +1542,7 @@ static void AddFlexKeys(CDmeDag *pRoot, CDmeDag *pDag, CDmeCombinationOperator *
     // Don't create joints for the the root dag ever.. just deal with the children
     int nChildCount = pDag->GetChildCount();
     for (int i = 0; i < nChildCount; ++i) {
-        CDmeDag *pChild = pDag->GetChild(i);
+        CDmeDag* pChild = pDag->GetChild(i);
         if (!pChild)
             continue;
 
@@ -1550,15 +1556,15 @@ static void AddFlexKeys(CDmeDag *pRoot, CDmeDag *pDag, CDmeCombinationOperator *
 //	*	Determine original source files used to generate
 //		the current DMX file and schedule them for processing.
 //-----------------------------------------------------------------------------
-void LoadModelInfo(CDmElement *pRoot, char const *pFullPath) {
+void LoadModelInfo(CDmElement* pRoot, char const* pFullPath) {
     return;
     // Determine original source files and schedule them for processing
-    if (CDmElement *pMakeFile = pRoot->GetValueElement<CDmElement>("makefile")) {
-        if (CDmAttribute *pSources = pMakeFile->GetAttribute("sources")) {
+    if (CDmElement* pMakeFile = pRoot->GetValueElement<CDmElement>("makefile")) {
+        if (CDmAttribute* pSources = pMakeFile->GetAttribute("sources")) {
             CDmrElementArray<CDmElement> arrSources(pSources);
             for (int kk = 0; kk < arrSources.Count(); ++kk) {
-                if (CDmElement *pModelSource = arrSources.Element(kk)) {
-                    if (char const *szName = pModelSource->GetName()) {
+                if (CDmElement* pModelSource = arrSources.Element(kk)) {
+                    if (char const* szName = pModelSource->GetName()) {
                         std::print("* {}{:c}{}\n", pFullPath, CORRECT_PATH_SEPARATOR, szName);
                     }
                 }
@@ -1571,16 +1577,16 @@ void LoadModelInfo(CDmElement *pRoot, char const *pFullPath) {
 //-----------------------------------------------------------------------------
 //
 //-----------------------------------------------------------------------------
-bool LoadTwistConstraint(CDmElement *pDmElement) {
-    CDmeRigTwistConstraintOperator *pDmeTwist = CastElement<CDmeRigTwistConstraintOperator>(pDmElement);
+bool LoadTwistConstraint(CDmElement* pDmElement) {
+    CDmeRigTwistConstraintOperator* pDmeTwist = CastElement<CDmeRigTwistConstraintOperator>(pDmElement);
     if (!pDmeTwist)
         return false;
 
     if (std::ssize(g_studiomdl.bones.twistbones) == MAXSTUDIOBONES)
         return false;
 
-    CDmeDag *pDmeDagParent = pDmeTwist->GetParentTarget();
-    CDmeDag *pDmeDagChild = pDmeTwist->GetChildTarget();
+    CDmeDag* pDmeDagParent = pDmeTwist->GetParentTarget();
+    CDmeDag* pDmeDagChild = pDmeTwist->GetChildTarget();
 
     if (!pDmeDagParent || !pDmeDagChild)
         return false;
@@ -1596,11 +1602,11 @@ bool LoadTwistConstraint(CDmElement *pDmElement) {
     V_strncpy(twistBone.m_szChildBoneName, pDmeDagChild->GetName(), ARRAYSIZE(twistBone.m_szChildBoneName));
 
     for (int i = 0; i < pDmeTwist->SlaveCount(); ++i) {
-        CDmeDag *pDmeTwistDag = pDmeTwist->GetSlaveDag(i);
+        CDmeDag* pDmeTwistDag = pDmeTwist->GetSlaveDag(i);
         if (!pDmeTwistDag)
             continue;
 
-        const char *pszTwistTargetName = pDmeTwistDag->GetName();
+        const char* pszTwistTargetName = pDmeTwistDag->GetName();
         if (!pszTwistTargetName || *pszTwistTargetName == '\0')
             continue;
 
@@ -1642,7 +1648,7 @@ bool LoadTwistConstraint(CDmElement *pDmElement) {
 //-----------------------------------------------------------------------------
 //
 //-----------------------------------------------------------------------------
-bool LoadBaseConstraintParams(CConstraintBoneBase *pConstraintBone, CDmeRigBaseConstraintOperator *pDmeBaseConstraint) {
+bool LoadBaseConstraintParams(CConstraintBoneBase* pConstraintBone, CDmeRigBaseConstraintOperator* pDmeBaseConstraint) {
     const CDmaElementArray<CDmeConstraintTarget> &constraintTargets = pDmeBaseConstraint->GetTargets();
 
     if (constraintTargets.size() <= 0)
@@ -1651,11 +1657,11 @@ bool LoadBaseConstraintParams(CConstraintBoneBase *pConstraintBone, CDmeRigBaseC
     const Quaternion qRot = Quaternion(g_studiomdl.script.defaultrotation);
 
     for (int i = 0; i < constraintTargets.size(); ++i) {
-        CDmeConstraintTarget *pDmeConstraintTarget = constraintTargets[i];
+        CDmeConstraintTarget* pDmeConstraintTarget = constraintTargets[i];
         if (!pDmeConstraintTarget)
             continue;
 
-        CDmeDag *pDmeTargetDag = pDmeConstraintTarget->GetDag();
+        CDmeDag* pDmeTargetDag = pDmeConstraintTarget->GetDag();
         if (!pDmeTargetDag)
             continue;
 
@@ -1680,11 +1686,11 @@ bool LoadBaseConstraintParams(CConstraintBoneBase *pConstraintBone, CDmeRigBaseC
     if (pConstraintBone->m_targets.empty())
         return false;
 
-    const CDmeConstraintSlave *pDmeConstraintSlave = pDmeBaseConstraint->GetConstraintSlave();
+    const CDmeConstraintSlave* pDmeConstraintSlave = pDmeBaseConstraint->GetConstraintSlave();
     if (!pDmeConstraintSlave)
         return false;
 
-    const CDmeDag *pDmeSlaveDag = pDmeBaseConstraint->GetSlave();
+    const CDmeDag* pDmeSlaveDag = pDmeBaseConstraint->GetSlave();
     if (!pDmeSlaveDag)
         return false;
 
@@ -1703,7 +1709,7 @@ bool LoadBaseConstraintParams(CConstraintBoneBase *pConstraintBone, CDmeRigBaseC
 // Most constraints don't have any specialized constraint parameters
 //-----------------------------------------------------------------------------
 template<class S, class T>
-static bool LoadSpecializedConstraintParams(S *pDmeConstraint, T *pConstraint) {
+static bool LoadSpecializedConstraintParams(S* pDmeConstraint, T* pConstraint) {
     return true;
 }
 
@@ -1712,7 +1718,7 @@ static bool LoadSpecializedConstraintParams(S *pDmeConstraint, T *pConstraint) {
 // Load specialized Aim Constraint parameters
 //-----------------------------------------------------------------------------
 template<>
-bool LoadSpecializedConstraintParams(CDmeRigAimConstraintOperator *pDmeConstraint, CAimConstraint *pConstraint) {
+bool LoadSpecializedConstraintParams(CDmeRigAimConstraintOperator* pDmeConstraint, CAimConstraint* pConstraint) {
     const Quaternion qRot = Quaternion(g_studiomdl.script.defaultrotation);
 
     // Set Aim Constraint Parameters
@@ -1721,7 +1727,7 @@ bool LoadSpecializedConstraintParams(CDmeRigAimConstraintOperator *pDmeConstrain
     // Up vectors are specified in world space
     VectorRotate(pDmeConstraint->GetValue<Vector>("upVector"), qRot, pConstraint->m_vUpVector);
 
-    CDmElement *pDmeUpSpaceTarget = pDmeConstraint->GetValueElement<CDmElement>("upSpaceTarget");
+    CDmElement* pDmeUpSpaceTarget = pDmeConstraint->GetValueElement<CDmElement>("upSpaceTarget");
     if (pDmeUpSpaceTarget) {
         V_strncpy(pConstraint->m_szUpSpaceTargetBone, pDmeUpSpaceTarget->GetName(),
                   ARRAYSIZE(pConstraint->m_szUpSpaceTargetBone));
@@ -1737,9 +1743,9 @@ bool LoadSpecializedConstraintParams(CDmeRigAimConstraintOperator *pDmeConstrain
 //-----------------------------------------------------------------------------
 //
 //-----------------------------------------------------------------------------
-static bool FindDuplicateConstraint(const CConstraintBoneBase *pConstraintA) {
+static bool FindDuplicateConstraint(const CConstraintBoneBase* pConstraintA) {
     for (int i = 0; i < std::ssize(g_studiomdl.bones.constraintBones); ++i) {
-        const CConstraintBoneBase *pConstraintB = g_studiomdl.bones.constraintBones[i];
+        const CConstraintBoneBase* pConstraintB = g_studiomdl.bones.constraintBones[i];
 
         if (*pConstraintA == *pConstraintB)
             return true;
@@ -1753,17 +1759,17 @@ static bool FindDuplicateConstraint(const CConstraintBoneBase *pConstraintA) {
 //
 //-----------------------------------------------------------------------------
 template<class S, class T>
-static bool LoadConstraint(CDmElement *pDmElement) {
+static bool LoadConstraint(CDmElement* pDmElement) {
     if (std::ssize(g_studiomdl.bones.constraintBones) == MAXSTUDIOBONES) {
         MdlError("Too Many Constraint Bones, Max: {}\n", MAXSTUDIOBONES);
         return false;
     }
 
-    S *pDmeConstraint = CastElement<S>(pDmElement);
+    S* pDmeConstraint = CastElement<S>(pDmElement);
     if (!pDmeConstraint)
         return false;
 
-    T *pConstraint = new T();
+    T* pConstraint = new T();
     if (!pConstraint)
         return false;
 
@@ -1792,11 +1798,11 @@ static bool LoadConstraint(CDmElement *pDmElement) {
 //-----------------------------------------------------------------------------
 //
 //-----------------------------------------------------------------------------
-void LoadConstraints(CDmElement *pDmeRoot) {
+void LoadConstraints(CDmElement* pDmeRoot) {
     if (!pDmeRoot)
         return;
 
-    CDmAttribute *pDmeConstraintsAttr = pDmeRoot->GetAttribute("constraints", AT_ELEMENT_ARRAY);
+    CDmAttribute* pDmeConstraintsAttr = pDmeRoot->GetAttribute("constraints", AT_ELEMENT_ARRAY);
     if (!pDmeConstraintsAttr)
         return;
 
@@ -1825,8 +1831,8 @@ void LoadConstraints(CDmElement *pDmeRoot) {
 //-----------------------------------------------------------------------------
 // Load model and skeleton
 //-----------------------------------------------------------------------------
-bool LoadModelAndSkeleton(s_source_t *pSource, BoneTransformMap_t &boneMap, CDmeDag *pSkeleton, CDmeModel *pModel,
-                          CDmeCombinationOperator *pCombinationOperator, const bool bStaticProp) {
+bool LoadModelAndSkeleton(s_source_t* pSource, BoneTransformMap_t &boneMap, CDmeDag* pSkeleton, CDmeModel* pModel,
+                          CDmeCombinationOperator* pCombinationOperator, const bool bStaticProp) {
     vstd::FunctionTimingRecorder _("DMX");
     s_DeltaStates.clear();
     s_Balance.clear();
@@ -1876,7 +1882,7 @@ bool LoadModelAndSkeleton(s_source_t *pSource, BoneTransformMap_t &boneMap, CDme
 // Given the s_model_t pointer, finds the index of it in g_studiomdl.body.model
 // Returns -1 if it cannot be found
 //-----------------------------------------------------------------------------
-static int FindModelIndex(s_model_t *pModel) {
+static int FindModelIndex(s_model_t* pModel) {
     if (pModel) {
         for (int i = 0; i < std::ssize(g_studiomdl.body.model); ++i) {
             if (g_studiomdl.body.model[i] == pModel)
@@ -1894,8 +1900,8 @@ static int FindModelIndex(s_model_t *pModel) {
 //
 //-----------------------------------------------------------------------------
 static bool AddFlexKey(
-    s_source_t *pSource, s_model_t *pModel,
-    const char *pszAnimationName,
+    s_source_t* pSource, s_model_t* pModel,
+    const char* pszAnimationName,
     const int nFlexDesc,
     const int nFlexPair,
     const EyelidType_t nEyelidType,
@@ -1913,7 +1919,7 @@ static bool AddFlexKey(
 
     const int nModelIndex = FindModelIndex(pModel);
 
-    s_flexkey_t *pFlexKey = &g_studiomdl.flex.flexkeys.emplace_back(s_flexkey_t{
+    s_flexkey_t* pFlexKey = &g_studiomdl.flex.flexkeys.emplace_back(s_flexkey_t{
         .flexdesc = nFlexDesc,
         .flexpair = nFlexPair,
         .source = pSource,
@@ -1947,7 +1953,7 @@ static bool AddFlexKey(
 
     // Check for a duplicate
     for (int i = 0; i < g_studiomdl.flex.flexkeys.size(); ++i) {
-        const s_flexkey_t *pTmpFlexKey = &(g_studiomdl.flex.flexkeys[i]);
+        const s_flexkey_t* pTmpFlexKey = &(g_studiomdl.flex.flexkeys[i]);
 
         if (vstd::iequals(pFlexKey->animationname, pTmpFlexKey->animationname) &&
             pFlexKey->flexdesc == pTmpFlexKey->flexdesc &&
@@ -1972,17 +1978,17 @@ static bool AddFlexKey(
 //-----------------------------------------------------------------------------
 // In studiomdl.cpp
 //-----------------------------------------------------------------------------
-const s_sourceanim_t *GetNewStyleSourceVertexAnim(s_source_t *pSource, const char *pszVertexAnimName);
+const s_sourceanim_t* GetNewStyleSourceVertexAnim(const s_source_t* source, std::string_view pszVertexAnimName);
 
 
 //-----------------------------------------------------------------------------
 //
 //-----------------------------------------------------------------------------
-static bool LoadEyelid(s_model_t *pModel, CDmeEyelid *pDmeEyelid) {
+static bool LoadEyelid(s_model_t* pModel, const CDmeEyelid* pDmeEyelid) {
     if (!pModel || !pDmeEyelid)
         return false;
 
-    s_source_t *pSource = pModel->source;
+    s_source_t* pSource = pModel->source;
     if (!pSource)
         return false;
 
@@ -1996,30 +2002,30 @@ static bool LoadEyelid(s_model_t *pModel, CDmeEyelid *pDmeEyelid) {
 
     struct EyelidData_t {
         int m_nFlexDesc[kRightLeftTypeCount];
-        const s_sourceanim_t *m_pSourceAnim;
+        const s_sourceanim_t* m_pSourceAnim;
         float m_flTarget;
-        const char *m_pszSuffix;
+        const char* m_pszSuffix;
     };
 
-    EyelidData_t eyelidData[3] =
+    std::array eyelidData =
     {
-        {{-1, -1}, nullptr, 0.0f, "lowerer"},
-        {{-1, -1}, nullptr, 0.0f, "neutral"},
-        {{-1, -1}, nullptr, 0.0f, "raiser"}
+        EyelidData_t{{-1, -1}, nullptr, 0.0f, "lowerer"},
+        EyelidData_t{{-1, -1}, nullptr, 0.0f, "neutral"},
+        EyelidData_t{{-1, -1}, nullptr, 0.0f, "raiser"}
     };
 
-    eyelidData[kLowerer].m_pSourceAnim = GetNewStyleSourceVertexAnim(pSource, pDmeEyelid->m_sLowererFlex.Get());
+    eyelidData[kLowerer].m_pSourceAnim = GetNewStyleSourceVertexAnim(pSource, pDmeEyelid->m_sLowererFlex);
     eyelidData[kLowerer].m_flTarget = pDmeEyelid->m_flLowererHeight.Get();
-    eyelidData[kNeutral].m_pSourceAnim = GetNewStyleSourceVertexAnim(pSource, pDmeEyelid->m_sNeutralFlex.Get());
+    eyelidData[kNeutral].m_pSourceAnim = GetNewStyleSourceVertexAnim(pSource, pDmeEyelid->m_sNeutralFlex);
     eyelidData[kNeutral].m_flTarget = pDmeEyelid->m_flNeutralHeight.Get();
-    eyelidData[kRaiser].m_pSourceAnim = GetNewStyleSourceVertexAnim(pSource, pDmeEyelid->m_sRaiserFlex.Get());
+    eyelidData[kRaiser].m_pSourceAnim = GetNewStyleSourceVertexAnim(pSource, pDmeEyelid->m_sRaiserFlex);
     eyelidData[kRaiser].m_flTarget = pDmeEyelid->m_flRaiserHeight.Get();
 
     // Add a flexdesc for <type>_right & <type>_left
     // Where <type> is "upper" or "lower"
     int nRightLeftBaseDesc[kRightLeftTypeCount] = {-1, -1};
 
-    const char *sRightBaseDesc = bUpper ? "upper_right" : "lower_right";
+    const char* sRightBaseDesc = bUpper ? "upper_right" : "lower_right";
     nRightLeftBaseDesc[kRight] = Add_Flexdesc(sRightBaseDesc);
 
     for (int i = 0; i < kEyelidTypeCount; ++i) {
@@ -2027,12 +2033,12 @@ static bool LoadEyelid(s_model_t *pModel, CDmeEyelid *pDmeEyelid) {
         eyelidData[i].m_nFlexDesc[kRight] = Add_Flexdesc(sRightLocalDesc.c_str());
     }
 
-    const char *sLeftBaseDesc = bUpper ? "upper_left" : "lower_left";
+    const char* sLeftBaseDesc = bUpper ? "upper_left" : "lower_left";
     nRightLeftBaseDesc[kLeft] = Add_Flexdesc(sLeftBaseDesc);
 
-    for (int i = 0; i < kEyelidTypeCount; ++i) {
-        const std::string sLeftLocalDesc = std::string(sLeftBaseDesc) + "_" + eyelidData[i].m_pszSuffix;
-        eyelidData[i].m_nFlexDesc[kLeft] = Add_Flexdesc(sLeftLocalDesc.c_str());
+    for (auto & eyelid : eyelidData) {
+        const std::string sLeftLocalDesc = std::string(sLeftBaseDesc) + "_" + eyelid.m_pszSuffix;
+        eyelid.m_nFlexDesc[kLeft] = Add_Flexdesc(sLeftLocalDesc.c_str());
     }
 
     for (int i = 0; i < kEyelidTypeCount; ++i) {
@@ -2040,7 +2046,7 @@ static bool LoadEyelid(s_model_t *pModel, CDmeEyelid *pDmeEyelid) {
                         eyelidData[i].m_pSourceAnim->animationname,
                         nRightLeftBaseDesc[kLeft],
                         nRightLeftBaseDesc[kRight],
-                        EyelidType_t(i),
+                        static_cast<EyelidType_t>(i),
                         eyelidData[kLowerer].m_flTarget,
                         eyelidData[kNeutral].m_flTarget,
                         eyelidData[kRaiser].m_flTarget)) {
@@ -2049,57 +2055,53 @@ static bool LoadEyelid(s_model_t *pModel, CDmeEyelid *pDmeEyelid) {
         }
     }
 
-    bool bRightOk = false;
-    bool bLeftOk = false;
+    bool rightOk = false;
+    bool leftOk = false;
 
-    for (int i = 0; i < pModel->eyeballs.size(); ++i) {
-        s_eyeball_t *pEyeball = &(pModel->eyeballs[i]);
-        if (!pEyeball)
-            continue;
-
+    for (auto &eyeball: pModel->eyeballs) {
         RightLeftType_t nRightLeftIndex = kRight;
-        if (vstd::iequals(pDmeEyelid->m_sRightEyeballName.Get(), pEyeball->name)) {
+        if (vstd::iequals(pDmeEyelid->m_sRightEyeballName->view(), eyeball.name)) {
             nRightLeftIndex = kRight;
-            bRightOk = true;
+            rightOk = true;
         }
-        else if (vstd::iequals(pDmeEyelid->m_sLeftEyeballName, pEyeball->name)) {
+        else if (vstd::iequals(pDmeEyelid->m_sLeftEyeballName->view(), eyeball.name)) {
             nRightLeftIndex = kLeft;
-            bLeftOk = true;
+            leftOk = true;
         }
         else {
-            MdlWarning("Unknown Eyeball: {}\n", pEyeball->name);
+            MdlWarning("Unknown Eyeball: {}\n", eyeball.name);
             continue;
         }
 
-        for (int j = 0; j < kEyelidTypeCount; ++j) {
-            if (fabs(eyelidData[j].m_flTarget) > pEyeball->radius) {
+        for (auto &eyelid: eyelidData) {
+            if (fabs(eyelid.m_flTarget) > eyeball.radius) {
                 MdlError("Eyelid \"{}\" {} {:.1f} out of range (+-{:.1f})\n", bUpper ? "upper" : "lower",
-                         eyelidData[j].m_pszSuffix, eyelidData[j].m_flTarget, pEyeball->radius);
+                         eyelid.m_pszSuffix, eyelid.m_flTarget, eyeball.radius);
             }
         }
 
         if (bUpper) {
-            pEyeball->upperlidflexdesc = nRightLeftBaseDesc[nRightLeftIndex];
+            eyeball.upperlidflexdesc = nRightLeftBaseDesc[nRightLeftIndex];
             for (int j = 0; j < kEyelidTypeCount; ++j) {
-                pEyeball->upperflexdesc[j] = eyelidData[j].m_nFlexDesc[nRightLeftIndex];
-                pEyeball->uppertarget[j] = eyelidData[j].m_flTarget;
+                eyeball.upperflexdesc[j] = eyelidData[j].m_nFlexDesc[nRightLeftIndex];
+                eyeball.uppertarget[j] = eyelidData[j].m_flTarget;
             }
         }
         else {
-            pEyeball->lowerlidflexdesc = nRightLeftBaseDesc[nRightLeftIndex];
+            eyeball.lowerlidflexdesc = nRightLeftBaseDesc[nRightLeftIndex];
             for (int j = 0; j < kEyelidTypeCount; ++j) {
-                pEyeball->lowerflexdesc[j] = eyelidData[j].m_nFlexDesc[nRightLeftIndex];
-                pEyeball->lowertarget[j] = eyelidData[j].m_flTarget;
+                eyeball.lowerflexdesc[j] = eyelidData[j].m_nFlexDesc[nRightLeftIndex];
+                eyeball.lowertarget[j] = eyelidData[j].m_flTarget;
             }
         }
     }
 
-    if (!bRightOk) {
+    if (!rightOk) {
         MdlError("Could not find right eye \"{}\"\n", pDmeEyelid->m_sRightEyeballName.Get());
         return false;
     }
 
-    if (!bLeftOk) {
+    if (!leftOk) {
         MdlError("Could not find left eye \"{}\"\n", pDmeEyelid->m_sLeftEyeballName.Get());
         return false;
     }
@@ -2111,7 +2113,7 @@ static bool LoadEyelid(s_model_t *pModel, CDmeEyelid *pDmeEyelid) {
 //-----------------------------------------------------------------------------
 //
 //-----------------------------------------------------------------------------
-static bool LoadMouth(CDmeMouth *pDmeMouth) {
+static bool LoadMouth(CDmeMouth* pDmeMouth) {
     if (!pDmeMouth)
         return false;
 
@@ -2123,7 +2125,7 @@ static bool LoadMouth(CDmeMouth *pDmeMouth) {
     if (std::ssize(g_studiomdl.flex.mouth) > nMouthIndex)
         return false;
 
-    s_mouth_t *pMouth = &g_studiomdl.flex.mouth[nMouthIndex]; // grows the mouth list
+    s_mouth_t* pMouth = &g_studiomdl.flex.mouth[nMouthIndex]; // grows the mouth list
     pMouth->flexdesc = Add_Flexdesc(pDmeMouth->m_sFlexControllerName.Get());
     V_strncpy(pMouth->bonename, pDmeMouth->m_sBoneName, sizeof(pMouth->bonename));
     pMouth->forward = pDmeMouth->m_vForward.Get(); // TODO: Adjust Y Up?
@@ -2134,7 +2136,7 @@ static bool LoadMouth(CDmeMouth *pDmeMouth) {
 //-----------------------------------------------------------------------------
 // Loads Eyeballs
 //-----------------------------------------------------------------------------
-void LoadEyeballs(s_source_t *pSource, s_model_t *pModel, CDmrElementArray<CDmElement> &elementArray) {
+void LoadEyeballs(s_source_t* pSource, s_model_t* pModel, CDmrElementArray<CDmElement> &elementArray) {
     if (!pSource || !pModel || elementArray.Count() <= 0)
         return;
 
@@ -2145,19 +2147,19 @@ void LoadEyeballs(s_source_t *pSource, s_model_t *pModel, CDmrElementArray<CDmEl
     Vector vTmp;
 
     for (int i = 0; i < elementArray.Count(); ++i) {
-        CDmeEyeball *pDmeEyeball = CastElement<CDmeEyeball>(elementArray.Element(i));
-        if (!pDmeEyeball)
+        const auto* dmeEyeball = CastElement<CDmeEyeball>(elementArray.Element(i));
+        if (!dmeEyeball)
             continue;
 
         if (pModel->eyeballs.full()) {
             MdlWarning("1100: Max number of eyeballs reached for model {}, ignoring eyeball {}\n", pModel->name,
-                       pDmeEyeball->GetName());
+                       dmeEyeball->GetName());
             continue;
         }
 
         int nFoundBoneIndex = -1;
         for (int nSearchBoneIndex = 0; nSearchBoneIndex < pSource->numbones; ++nSearchBoneIndex) {
-            if (vstd::iequals(pSource->localBone[nSearchBoneIndex].name, pDmeEyeball->m_sParentBoneName.Get())) {
+            if (vstd::iequals(pSource->localBone[nSearchBoneIndex].name, dmeEyeball->m_sParentBoneName.Get())) {
                 nFoundBoneIndex = nSearchBoneIndex;
                 break;
             }
@@ -2165,34 +2167,34 @@ void LoadEyeballs(s_source_t *pSource, s_model_t *pModel, CDmrElementArray<CDmEl
 
         if (nFoundBoneIndex < 0) {
             MdlWarning("1101: Couldn't find bone {} on model {}, ignoring eyeball {}\n",
-                       pDmeEyeball->m_sParentBoneName.Get(), pModel->name, pDmeEyeball->GetName());
+                       dmeEyeball->m_sParentBoneName.Get(), pModel->name, dmeEyeball->GetName());
             continue;
         }
 
-        const char *pszMaterialName = pDmeEyeball->m_sMaterialName.Get();
-        const bool bRelative = (strchr(pszMaterialName, '/') || strchr(pszMaterialName, '\\')) ? true : false;
+        const std::string_view materialName = dmeEyeball->m_sMaterialName;
+        const bool relative = materialName.contains('\\') || materialName.contains('/');
 
         const int nSearchMeshMatIndex = UseTextureAsMaterial(
-            LookupTexture(pDmeEyeball->m_sMaterialName.Get(), bRelative));
+            LookupTexture(dmeEyeball->m_sMaterialName, relative));
         const int nFoundMeshMatIndex = FindSourceMeshIndex(pSource, nSearchMeshMatIndex); // mesh slot
 
         if (nFoundMeshMatIndex < 0) {
             MdlWarning("1102: Couldn't find eyeball material {} on model {}, ignoring eyeball {}\n",
-                       pDmeEyeball->m_sMaterialName.Get(), pModel->name, pDmeEyeball->GetName());
+                       dmeEyeball->m_sMaterialName.Get(), pModel->name, dmeEyeball->GetName());
             continue;
         }
 
         s_eyeball_t eyeball{
-            .name = pDmeEyeball->GetName(),
+            .name = dmeEyeball->GetName(),
             .bone = nFoundBoneIndex,
-            .zoffset = tan(vstd::deg2rad(pDmeEyeball->m_flYawAngle.Get())),
-            .radius = pDmeEyeball->m_flRadius.Get(),
+            .zoffset = tan(vstd::deg2rad(dmeEyeball->m_flYawAngle.Get())),
+            .radius = dmeEyeball->m_flRadius.Get(),
             .mesh = nFoundMeshMatIndex,
-            .iris_scale = 1.0f / pDmeEyeball->m_flIrisScale,
+            .iris_scale = 1.0f / dmeEyeball->m_flIrisScale,
         };
 
         // translate eyeball into bone space
-        VectorITransform(pDmeEyeball->m_vPosition.Get(), pSource->boneToPose[eyeball.bone], eyeball.org);
+        VectorITransform(dmeEyeball->m_vPosition.Get(), pSource->boneToPose[eyeball.bone], eyeball.org);
 
         VectorIRotate(Vector(0, 0, 1), mDefRot, vTmp);
         VectorIRotate(vTmp, pSource->boneToPose[eyeball.bone], eyeball.up);
@@ -2207,9 +2209,8 @@ void LoadEyeballs(s_source_t *pSource, s_model_t *pModel, CDmrElementArray<CDmEl
         bool bOk = true;
 
         // Check for a duplicate eyeball
-        for (int j = 0; j < pModel->eyeballs.size(); ++j) {
-            s_eyeball_t *pTmp = &(pModel->eyeballs[j]);
-            if (vstd::iequals(eyeball.name, pTmp->name)) {
+        for (auto & existingEyeball : pModel->eyeballs) {
+            if (vstd::iequals(eyeball.name, existingEyeball.name)) {
                 // TODO: Check and warn about duplicate eyeballs with mis-matched parameters
                 bOk = false;
                 break;
@@ -2223,16 +2224,16 @@ void LoadEyeballs(s_source_t *pSource, s_model_t *pModel, CDmrElementArray<CDmEl
     }
 
     // Make the standard flex controllers for eyes if required
-    static const char *szEyesFlexControllers[] = {
+    static constexpr std::array<std::string_view, 2> eyesFlexControllers= {
         "eyes_updown",
         "eyes_rightleft"
     };
 
-    for (int nNewFlexIndex = 0; nNewFlexIndex < ARRAYSIZE(szEyesFlexControllers); ++nNewFlexIndex) {
+    for (auto& eyeFlexController : eyesFlexControllers){
         bool bHasEyeFlexController = false;
 
-        for (int nFlexIndex = 0; nFlexIndex < g_studiomdl.flex.flexcontrollers.size(); ++nFlexIndex) {
-            if (!Q_strcmp(szEyesFlexControllers[nNewFlexIndex], g_studiomdl.flex.flexcontrollers[nFlexIndex].name)) {
+        for (auto & flexcontroller : g_studiomdl.flex.flexcontrollers) {
+            if (flexcontroller.name==eyeFlexController) {
                 bHasEyeFlexController = true;
                 break;
             }
@@ -2245,11 +2246,11 @@ void LoadEyeballs(s_source_t *pSource, s_model_t *pModel, CDmrElementArray<CDmEl
         if (!bHasEyeFlexController) {
             if (g_studiomdl.flex.flexcontrollers.size() >= g_studiomdl.flex.flexcontrollers.capacity()) {
                 MdlWarning("1103: Couldn't make eyes flexcontroller {}, too many flex controllers defined\n",
-                           szEyesFlexControllers[nNewFlexIndex]);
+                           eyeFlexController);
                 continue;
             }
             g_studiomdl.flex.flexcontrollers.emplace_back(s_flexcontroller_t{
-                .name = szEyesFlexControllers[nNewFlexIndex],
+                .name = eyeFlexController,
                 .type = "eyes",
                 .min = -45.0f,
                 .max = 45.0f,
@@ -2262,11 +2263,11 @@ void LoadEyeballs(s_source_t *pSource, s_model_t *pModel, CDmrElementArray<CDmEl
 //-----------------------------------------------------------------------------
 //
 //-----------------------------------------------------------------------------
-void LoadQcModelElements(s_source_t *pSource, s_model_t *pModel, CDmeModel *pDmeModel) {
+void LoadQcModelElements(s_source_t* pSource, s_model_t* pModel, CDmeModel* pDmeModel) {
     if (!pModel || !pDmeModel)
         return;
 
-    CDmAttribute *pQcModelElementsAttr = pDmeModel->GetAttribute("qcModelElements", AT_ELEMENT_ARRAY);
+    CDmAttribute* pQcModelElementsAttr = pDmeModel->GetAttribute("qcModelElements", AT_ELEMENT_ARRAY);
     if (!pQcModelElementsAttr)
         return;
 
@@ -2287,7 +2288,7 @@ void LoadQcModelElements(s_source_t *pSource, s_model_t *pModel, CDmeModel *pDme
 //-----------------------------------------------------------------------------
 // Main entry point for loading DMX files
 //-----------------------------------------------------------------------------
-int Load_DMX(s_source_t *pSource) {
+int Load_DMX(s_source_t* pSource) {
     vstd::FunctionTimingRecorder _("Parse");
     DmFileId_t fileId;
 
@@ -2297,7 +2298,7 @@ int Load_DMX(s_source_t *pSource) {
         return 0;
     // When reading, keep the CRLF; this will make ReadFile read it in binary format
     // and also append a couple 0s to the end of the buffer.
-    CDmElement *pRoot;
+    CDmElement* pRoot;
     if (g_pDataModel->RestoreFromFile(fullPath.c_str(), nullptr, nullptr, &pRoot) == DMFILEID_INVALID)
         return 0;
 
@@ -2313,16 +2314,16 @@ int Load_DMX(s_source_t *pSource) {
 
     // Extract out the skeleton
     // BoneRemap[bone index in file] == bone index in studiomdl
-    CDmeDag *pSkeleton = pRoot->GetValueElement<CDmeDag>("skeleton");
-    CDmeModel *pModel = pRoot->GetValueElement<CDmeModel>("model");
-    CDmeCombinationOperator *pCombinationOperator = pRoot->GetValueElement<CDmeCombinationOperator>(
+    CDmeDag* pSkeleton = pRoot->GetValueElement<CDmeDag>("skeleton");
+    CDmeModel* pModel = pRoot->GetValueElement<CDmeModel>("model");
+    CDmeCombinationOperator* pCombinationOperator = pRoot->GetValueElement<CDmeCombinationOperator>(
         "combinationOperator");
     BoneTransformMap_t boneMap;
     if (!LoadModelAndSkeleton(pSource, boneMap, pSkeleton, pModel, pCombinationOperator, false))
         goto dmxError;
     LoadQcModelElements(pSource, g_pCurrentModel, pModel);
 
-    if (CDmeAnimationList *pAnimationList = pRoot->GetValueElement<CDmeAnimationList>("animationList")) {
+    if (CDmeAnimationList* pAnimationList = pRoot->GetValueElement<CDmeAnimationList>("animationList")) {
         LoadAnimations(pSource, pAnimationList, g_studiomdl.script.currentscale, boneMap);
     }
 
@@ -2341,17 +2342,17 @@ dmxError:
 // Main entry point for loading FBX files
 //-----------------------------------------------------------------------------
 #if FBX_SUPPORT
-int Load_FBX(s_source_t *pSource) {
+int Load_FBX(s_source_t* pSource) {
     // use the full search tree, including mod hierarchy to find the file
     std::string fullPath;
     if (!GetGlobalFilePath(pSource->filename, fullPath))
         return 0;
-    const char *pFullPath = fullPath.c_str();
+    const char* pFullPath = fullPath.c_str();
 
     CDmFbxSerializer dmFbxSerializer;
     dmFbxSerializer.m_eOptUpAxis = CDmeAxisSystem::AS_AXIS_Y;
     dmFbxSerializer.m_eOptForwardParity = CDmeAxisSystem::AS_PARITY_ODD;
-    CDmElement *pRoot = dmFbxSerializer.ReadFBX(pFullPath);
+    CDmElement* pRoot = dmFbxSerializer.ReadFBX(pFullPath);
     if (!pRoot)
         return 0;
 
@@ -2367,16 +2368,16 @@ int Load_FBX(s_source_t *pSource) {
 
     // Extract out the skeleton
     // BoneRemap[bone index in file] == bone index in studiomdl
-    CDmeDag *pSkeleton = pRoot->GetValueElement<CDmeDag>("skeleton");
-    CDmeModel *pModel = pRoot->GetValueElement<CDmeModel>("model");
-    CDmeCombinationOperator *pCombinationOperator = pRoot->GetValueElement<CDmeCombinationOperator>(
+    CDmeDag* pSkeleton = pRoot->GetValueElement<CDmeDag>("skeleton");
+    CDmeModel* pModel = pRoot->GetValueElement<CDmeModel>("model");
+    CDmeCombinationOperator* pCombinationOperator = pRoot->GetValueElement<CDmeCombinationOperator>(
         "combinationOperator");
     BoneTransformMap_t boneMap;
     int nReturn = 0;
     if (LoadModelAndSkeleton(pSource, boneMap, pSkeleton, pModel, pCombinationOperator, false)) {
         LoadQcModelElements(pSource, g_pCurrentModel, pModel);
 
-        CDmeAnimationList *pAnimationList = pRoot->GetValueElement<CDmeAnimationList>("animationList");
+        CDmeAnimationList* pAnimationList = pRoot->GetValueElement<CDmeAnimationList>("animationList");
         if (pAnimationList) {
             LoadAnimations(pSource, pAnimationList, g_studiomdl.script.currentscale, boneMap);
         }
@@ -2395,4 +2396,4 @@ int Load_FBX(s_source_t *pSource) {
 //-----------------------------------------------------------------------------
 // Declare it so we can call it, defined in studiomdl.cpp
 //-----------------------------------------------------------------------------
-extern void ProcessModelName(const char *pMdlName);
+extern void ProcessModelName(std::string_view pMdlName);

@@ -24,7 +24,7 @@ ConVar softbody_debug_substr( "softbody_debug_substr", "", FCVAR_CHEAT );
 
 mstudioanimdesc_t &studiohdr_t::pAnimdesc_Internal( int i ) const
 { 
-	virtualmodel_t *pVModel = (virtualmodel_t *)GetVirtualModel();
+	auto *pVModel = GetVirtualModel();
 	Assert( pVModel );
 
 	virtualgroup_t *pGroup = &pVModel->m_group[ pVModel->m_anim[i].group ];

@@ -33,7 +33,7 @@ public:
 		u.m_Id = UTL_INVAL_SYMBOL_LARGE;
 	}
 
-	CUtlSymbolLarge( UtlSymLargeId_t id )
+	CUtlSymbolLarge(const UtlSymLargeId_t id )
 	{
 		u.m_Id = id;
 	}
@@ -80,16 +80,22 @@ public:
 	}
 
 	// Gets the string associated with the symbol
-	inline const char* String( ) const
+    const char* String( ) const
 	{
 		if ( u.m_Id == UTL_INVAL_SYMBOL_LARGE )
 			return "";
 		return u.m_pAsString;
 	}
 
-	inline bool IsValid() const
+    std::string_view view() const {
+	    if ( u.m_Id == UTL_INVAL_SYMBOL_LARGE )
+	        return "";
+	    return u.m_pAsString;
+	}
+
+    bool IsValid() const
 	{
-		return u.m_Id != UTL_INVAL_SYMBOL_LARGE ? true : false;
+		return u.m_Id != UTL_INVAL_SYMBOL_LARGE;
 	}
 
 private:
@@ -101,7 +107,7 @@ private:
 	{
 		UtlSymLargeId_t m_Id;
 		char const *m_pAsString;
-	} u;
+	} u{UTL_INVAL_SYMBOL_LARGE};
 };
 
 #define MIN_STRING_POOL_SIZE	2048

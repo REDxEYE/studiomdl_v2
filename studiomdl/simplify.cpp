@@ -1669,7 +1669,7 @@ void RemapAnimations() {
         s_animation_t* panim = g_studiomdl.anim.animations[i];
 
         s_source_t* psource = panim->source;
-        const s_sourceanim_t* pSourceAnim = FindSourceAnim(psource, panim->animationname);
+        const s_sourceanim_t* pSourceAnim = FindSourceAnim(psource, panim->animationname.view());
         const int size = std::ssize(g_studiomdl.bones.bonetable) * sizeof(s_bone_t);
 
         const int n = panim->startframe - pSourceAnim->startframe;
@@ -2401,7 +2401,7 @@ static void BuildVAnimFlags(s_source_t* pVSource, s_sourceanim_t* pVSourceAnim, 
             continue;
 
         const s_sourceanim_t* pAnim = FindSourceAnim(g_studiomdl.flex.flexkeys[n].source,
-                                                     g_studiomdl.flex.flexkeys[n].animationname);
+                                                     g_studiomdl.flex.flexkeys[n].animationname.view());
         if (!pAnim)
             continue;
 
@@ -2644,7 +2644,7 @@ void RemapVertexAnimations() {
     // are duplicated along material boundaries.
     for (i = 0; i < g_studiomdl.flex.flexkeys.size(); i++) {
         s_source_t* pVSource = g_studiomdl.flex.flexkeys[i].source;
-        s_sourceanim_t* pVSourceAnim = FindSourceAnim(pVSource, g_studiomdl.flex.flexkeys[i].animationname);
+        s_sourceanim_t* pVSourceAnim = FindSourceAnim(pVSource, g_studiomdl.flex.flexkeys[i].animationname.view());
 
         // We only do old-style vertex animations
         if (pVSourceAnim->newStyleVertexAnimations)
@@ -2855,22 +2855,22 @@ static uint32_t SourceIndex(const s_source_t* pSource) {
 // RemapVertexAnimationsNewVersion relies on)
 static int SortFlexKeys(s_flexkey_t** ppSortedFlexKeys) {
     int nSortedFlexKeyCount = 0;
-    for (int i = 0; i < g_studiomdl.flex.flexkeys.size(); i++) {
-        s_source_t* pVSource = g_studiomdl.flex.flexkeys[i].source;
-        const s_sourceanim_t* pVSourceAnim = FindSourceAnim(pVSource, g_studiomdl.flex.flexkeys[i].animationname);
+    for (auto & flexkey : g_studiomdl.flex.flexkeys) {
+        s_source_t* pVSource = flexkey.source;
+        const s_sourceanim_t* pVSourceAnim = FindSourceAnim(pVSource, flexkey.animationname.view());
 
         // We only do new-style vertex animations
         if (!pVSourceAnim->newStyleVertexAnimations)
             continue;
 
-        ppSortedFlexKeys[nSortedFlexKeyCount++] = &g_studiomdl.flex.flexkeys[i];
+        ppSortedFlexKeys[nSortedFlexKeyCount++] = &flexkey;
     }
 
     // The qsort comparator used here before read the array elements (s_flexkey_t *) as s_flexkey_t and returned a
     // truncated pointer difference, so the keys were never grouped reliably
     std::stable_sort(ppSortedFlexKeys, ppSortedFlexKeys + nSortedFlexKeyCount,
                      [](const s_flexkey_t* pKey1, const s_flexkey_t* pKey2) {
-                         const int nSource1 = SourceIndex(pKey1->source), nSource2 = SourceIndex(pKey2->source);
+                         const auto nSource1 = SourceIndex(pKey1->source), nSource2 = SourceIndex(pKey2->source);
                          if (nSource1 != nSource2)
                              return nSource1 < nSource2;
                          return Q_stricmp(pKey1->animationname, pKey2->animationname) < 0;
@@ -2897,7 +2897,7 @@ static void RemapVertexAnimationsNewVersion() {
     for (int i = 0; i < nSortedFlexKeyCount; i++) {
         s_flexkey_t* pFlexKey = ppSortedFlexKeys[i];
         s_source_t* pVSource = pFlexKey->source;
-        s_sourceanim_t* pVSourceAnim = FindSourceAnim(pVSource, pFlexKey->animationname);
+        s_sourceanim_t* pVSourceAnim = FindSourceAnim(pVSource, pFlexKey->animationname.view());
         s_loddata_t* pLodSource = g_studiomdl.body.model[pFlexKey->imodel]->m_pLodData;
 
         if (pVSource != pVLastSource) {
@@ -2942,18 +2942,18 @@ static void RemapVertexAnimationsNewVersion() {
     static bool pDoesMove[MAXSTUDIOSRCVERTS];
     memset(pDoesMove, 0, MAXSTUDIOSRCVERTS * sizeof(bool));
 
-    for (int i = 0; i < g_studiomdl.flex.flexkeys.size(); i++) {
-        s_source_t* pVSource = g_studiomdl.flex.flexkeys[i].source;
-        s_sourceanim_t* pVSourceAnim = FindSourceAnim(pVSource, g_studiomdl.flex.flexkeys[i].animationname);
+    for (auto & flexkey : g_studiomdl.flex.flexkeys) {
+        s_source_t* pVSource = flexkey.source;
+        s_sourceanim_t* pVSourceAnim = FindSourceAnim(pVSource, flexkey.animationname.view());
         if (!pVSourceAnim->newStyleVertexAnimations)
             continue;
 
         // Allocate g_studiomdl.flexkey[i].vanim
-        AllocateDestVAnim(g_studiomdl.flex.flexkeys[i], pVSourceAnim);
+        AllocateDestVAnim(flexkey, pVSourceAnim);
 
-        const int nNumSrcVAnims = pVSourceAnim->numvanims[g_studiomdl.flex.flexkeys[i].frame];
-        s_vertanim_t* pSrcVAnim = pVSourceAnim->vanim[g_studiomdl.flex.flexkeys[i].frame];
-        s_vertanim_t* pDestVAnim = g_studiomdl.flex.flexkeys[i].vanim;
+        const int nNumSrcVAnims = pVSourceAnim->numvanims[flexkey.frame];
+        s_vertanim_t* pSrcVAnim = pVSourceAnim->vanim[flexkey.frame];
+        s_vertanim_t* pDestVAnim = flexkey.vanim;
 
         for (int m = 0; m < nNumSrcVAnims; m++, pSrcVAnim++) {
             // bah, only do it for ones that found a match!
@@ -2974,7 +2974,7 @@ static void RemapVertexAnimationsNewVersion() {
                 pDestVAnim->vertex = pVSourceAnim->vanim_map[pSrcVAnim->vertex][n];
 
                 if (pDestVAnim->wrinkle != 0.0f) {
-                    g_studiomdl.flex.flexkeys[i].vanimtype = Wrinkle;
+                    flexkey.vanimtype = Wrinkle;
                 }
 
                 // count all the unique verts that actually move
@@ -2983,7 +2983,7 @@ static void RemapVertexAnimationsNewVersion() {
                     nNumMoved++;
                 }
 
-                g_studiomdl.flex.flexkeys[i].numvanims++;
+                flexkey.numvanims++;
                 pDestVAnim++;
             }
         }

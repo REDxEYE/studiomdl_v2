@@ -1280,7 +1280,7 @@ void LoadAnimationEventList(CDmeSequenceBase *pDmeSequenceBase, s_sequence_t *pS
         });
 
         if (!pDmeAnimationEvent->m_sDataString.IsEmpty()) {
-            event.options = pDmeAnimationEvent->m_sDataString;
+            event.options = pDmeAnimationEvent->m_sDataString->view();
         }
     }
 }
@@ -1289,7 +1289,7 @@ void LoadLayerList(CDmeSequenceBase *pDmeSequenceBase, s_sequence_t *pSequence) 
     if (!pDmeSequenceBase || !pSequence)
         return;
 
-    const int nLayerCount = pDmeSequenceBase->m_eLayerList.size();
+    const auto nLayerCount = pDmeSequenceBase->m_eLayerList.size();
     for (int i = 0; i < nLayerCount; ++i) {
         CDmeSequenceLayerBase *pDmeLayerBase = pDmeSequenceBase->m_eLayerList[i];
         if (!pDmeLayerBase)
@@ -1869,16 +1869,13 @@ static void LoadHitboxSetList(const CDmeHitboxSetList *pDmeHitboxSetList) {
 
             // Find bone
             s_bonetable_t *pStudioBone = nullptr;
-            const int nBoneIndex = findGlobalBone(pSrcHitbox->m_sBoneName);
+            const int nBoneIndex = findGlobalBone(pSrcHitbox->m_sBoneName->view());
             if (nBoneIndex >= 0 && nBoneIndex < std::ssize(g_studiomdl.bones.bonetable)) {
                 pStudioBone = &g_studiomdl.bones.bonetable[nBoneIndex];
             }
 
-            // Find bone
-            for (int nBoneIndex = 0; nBoneIndex < std::ssize(g_studiomdl.bones.bonetable); ++nBoneIndex) {
-            }
-
             s_bbox_t *pHitbox = AllocateHitbox(pHitboxSet);
+            pHitbox->name = pSrcHitbox->m_sBoneName->view();
             Q_strncpy(pHitbox->name, pSrcHitbox->m_sBoneName, sizeof(pHitbox->name));
             Q_strncpy(pHitbox->hitboxname, pSrcHitbox->GetName(), sizeof(pHitbox->hitboxname));
             pHitbox->group = pSrcHitbox->m_nGroupId;

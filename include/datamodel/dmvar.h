@@ -7,87 +7,110 @@
 #pragma once
 
 
-
 class CDmAttribute;
 
 //-----------------------------------------------------------------------------
 // Helper template for external attributes
 //-----------------------------------------------------------------------------
-template< typename T >
-class CDmaVar
-{
-	typedef typename CDmAttributeInfo< T >::StorageType_t D;
+template<typename T>
+class CDmaVar {
+    typedef typename CDmAttributeInfo<T>::StorageType_t D;
 
 public:
-	CDmaVar( );
+    CDmaVar();
 
-	// Setup to be used in OnConstruction methods of DmElements
-	void Init( CDmElement *pOwner, const char *pAttributeName, int flags = 0 );
-	void InitAndSet( CDmElement *pOwner, const char *pAttributeName, const T &value, int flags = 0 );
+    // Setup to be used in OnConstruction methods of DmElements
+    void Init(CDmElement* pOwner, const char* pAttributeName, int flags = 0);
 
-	// Set/get
-	const T& Set( const T &val );
-	const T& Get() const;
+    void InitAndSet(CDmElement* pOwner, const char* pAttributeName, const T &value, int flags = 0);
 
-	// Cast operators
-	operator const T&() const;
-	const T* operator->() const;
+    // Set/get
+    const T& Set(const T &val);
 
-	// Assignment operator
-	const CDmaVar<T>& operator=( const CDmaVar<T>& src );
+    const T& Get() const;
 
-	// Math utility operations
-	const T& operator=( const T &val );
-	const T& operator+=( const T &val ); 
-	const T& operator-=( const T &val ); 
-	const T& operator/=( const T &val ); 
-	const T& operator*=( const T &val ); 
-	const T& operator^=( const T &val ); 
-	const T& operator|=( const T &val ); 
-	const T& operator&=( const T &val ); 
-	T operator++();
-	T operator--();
-	T operator++( int ); // postfix version..
-	T operator--( int ); // postfix version..
+    // Cast operators
+    operator const T &() const;
 
-	// Returns the attribute associated with the var
-	CDmAttribute *GetAttribute();
-	const CDmAttribute *GetAttribute() const;
+    const T* operator->() const;
 
-	// Is the attribute dirty?
-	bool IsDirty() const;
+    // Assignment operator
+    const CDmaVar<T>& operator=(const CDmaVar<T> &src);
+
+    // Math utility operations
+    const T& operator=(const T &val);
+
+    const T& operator+=(const T &val);
+
+    const T& operator-=(const T &val);
+
+    const T& operator/=(const T &val);
+
+    const T& operator*=(const T &val);
+
+    const T& operator^=(const T &val);
+
+    const T& operator|=(const T &val);
+
+    const T& operator&=(const T &val);
+
+    T operator++();
+
+    T operator--();
+
+    T operator++(int); // postfix version..
+    T operator--(int); // postfix version..
+
+    // Returns the attribute associated with the var
+    CDmAttribute* GetAttribute();
+
+    const CDmAttribute* GetAttribute() const;
+
+    // Is the attribute dirty?
+    bool IsDirty() const;
 
 protected:
-	const T& Value() const;
-	T& Value();
-	const D& Storage() const;
-	D& Storage();
+    const T& Value() const;
+
+    T& Value();
+
+    const D& Storage() const;
+
+    D& Storage();
 
 private:
-	D m_Storage;
+    D m_Storage;
 
 protected:
-	CDmAttribute *m_pAttribute;
+    CDmAttribute* m_pAttribute;
 };
 
 //-----------------------------------------------------------------------------
 // Specialization for string
 //-----------------------------------------------------------------------------
-class CDmaString : public CDmaVar< CUtlSymbolLarge >
-{
+class CDmaString : public CDmaVar<CUtlSymbolLarge> {
 public:
-	const char *GetString() const;
-	const char *Get( ) const;
-	operator const char*() const;
+    const char* GetString() const;
 
-	void InitAndSet( CDmElement *pOwner, const char *pAttributeName, const char *pValue, int flags = 0 );
-	void Set( const char *pValue );
-	CDmaString &operator=( const char *src );
-	const CDmaString& operator=( const CDmaString& src );
+    const char* Get() const;
 
-	// Returns strlen
-	int	Length() const;
-	bool IsEmpty() const;
+    operator const char*() const;
+
+    void InitAndSet(CDmElement* pOwner, const char* pAttributeName, const char* pValue, int flags = 0);
+
+    void Set(const char* pValue);
+
+    CDmaString& operator=(const char* src);
+
+    const CDmaString& operator=(const CDmaString &src);
+
+    // Returns strlen
+    int Length() const;
+
+    bool IsEmpty() const;
+
+    operator std::string_view() const;
+
 };
 
 //-----------------------------------------------------------------------------
@@ -96,7 +119,6 @@ public:
 //
 //-----------------------------------------------------------------------------
 
-inline const char *CDmaString::GetString() const
-{
-	return this->Value().String();
+inline const char* CDmaString::GetString() const {
+    return this->Value().String();
 }

@@ -53,28 +53,25 @@ static void ParseContents(ScriptTokenizer &qc, ContentType &addFlags, ContentTyp
     } while (qc.TokenAvailable());
 }
 
-void ProcessModelName(const char* pModelName) {
+void ProcessModelName(std::string_view modelName) {
     // Abort early if modelname is too big
-
-    const int nModelNameLen = Q_strlen(pModelName);
-    char* pTmpBuf = reinterpret_cast<char*>(_alloca((nModelNameLen + 1) * sizeof(char)));
-    Q_StripExtension(pModelName, pTmpBuf, nModelNameLen + 1);
+    std::string rawModelName(modelName);
+    vstd::paths::strip_extension(rawModelName);
     // write.cpp strips extension then adds .mdl and writes that into studiohdr_t::name
 
     // Need one for sizeof operation to work...
-    studiohdr_t shdr;
-    if (Q_strlen(pTmpBuf) + 4 >= (sizeof(g_studiomdl.paths.outname) / sizeof(g_studiomdl.paths.outname[0]))) {
+    if (rawModelName.size() + 4 >= g_studiomdl.paths.outname.capacity()) {
         MdlError("Model Name \"{}.mdl\" Too Big, {} Characters, Max {} Characters\n",
-                 pTmpBuf,
-                 Q_strlen(pTmpBuf) + 4,
-                 (sizeof(g_studiomdl.paths.outname) / sizeof(g_studiomdl.paths.outname)) - 1);
+                 rawModelName,
+                 rawModelName.size() + 4,
+                 g_studiomdl.paths.outname.capacity() - 1);
     }
 
     g_studiomdl.paths.hasModelName = true;
-    Q_strncpy(g_studiomdl.paths.outname, pModelName, sizeof(g_studiomdl.paths.outname));
+    g_studiomdl.paths.outname = modelName;
 #ifdef POSIX
     // "$modelname dir\\name.mdl" is common in QCs written on Windows; the output path is built from g_studiomdl.paths.outname
-    Q_FixSlashes(g_studiomdl.paths.outname, '/');
+    vstd::paths::fix_slashes(g_studiomdl.paths.outname);
 #endif
 }
 
@@ -358,7 +355,7 @@ void Cmd_Illumposition(ScriptTokenizer &qc) {
 
         AngleMatrix(QAngle(0, 0, 0), g_studiomdl.header.illumposition, attachment.local);
 
-        g_studiomdl.header.illumpositionattachment = g_studiomdl.bones.attachments.size();
+        g_studiomdl.header.illumpositionattachment = vstd::as_signed_checked<int>(g_studiomdl.bones.attachments.size());
         // No -1 because 0 is used as no illumposiotion attachment
     }
     else {
@@ -367,7 +364,7 @@ void Cmd_Illumposition(ScriptTokenizer &qc) {
         // rotate points into frame of reference so
         // g_studiomdl.body.model points down the positive x axis
         // FIXME: these coords are bogus
-        float flTemp = g_studiomdl.header.illumposition[0];
+        const float flTemp = g_studiomdl.header.illumposition[0];
         g_studiomdl.header.illumposition[0] = -g_studiomdl.header.illumposition[1];
         g_studiomdl.header.illumposition[1] = flTemp;
     }
@@ -386,7 +383,7 @@ static void Cmd_Modelname(ScriptTokenizer &qc) {
         ProcessModelName(&qc.token[1]);
     }
     else {
-        ProcessModelName(qc.token);
+        ProcessModelName(qc.token.view());
     }
 }
 
@@ -396,11 +393,11 @@ static void Cmd_InternalName(ScriptTokenizer &qc) {
 }
 
 
-static void Cmd_PreserveTriangleOrder(ScriptTokenizer &qc) {
+static void Cmd_PreserveTriangleOrder(ScriptTokenizer &_) {
     g_studiomdl.options.preserveTriangleOrder = true;
 }
 
-static void Cmd_Autocenter(ScriptTokenizer &qc) {
+static void Cmd_Autocenter(ScriptTokenizer &_) {
     g_studiomdl.header.centerstaticprop = true;
 }
 
@@ -409,7 +406,7 @@ static void Cmd_Autocenter(ScriptTokenizer &qc) {
 // Parse + process the studio options from a .qc file
 //-----------------------------------------------------------------------------
 void Option_Studio(ScriptTokenizer &qc, s_model_t* pmodel) {
-    CDmeSourceSkin* pSourceSkin = CreateElement<CDmeSourceSkin>("", DMFILEID_INVALID);
+    auto* pSourceSkin = CreateElement<CDmeSourceSkin>("", DMFILEID_INVALID);
 
     // Set defaults
     pSourceSkin->m_flScale = g_studiomdl.script.defaultscale;
@@ -425,7 +422,7 @@ void Option_Studio(ScriptTokenizer &qc, s_model_t* pmodel) {
 
 // Adds a "blank" model to the bodypart
 int Option_Blank(s_bodypart_t &bodypart) {
-    s_model_t* pmodel = c_allocate<s_model_t>();
+    auto* pmodel = c_allocate<s_model_t>();
     g_studiomdl.body.AddModel(pmodel);
 
     auto* source = c_allocate<s_source_t>();
@@ -457,7 +454,7 @@ void Cmd_Bodygroup(ScriptTokenizer &qc) {
             break;
         }
         else if (vstd::iequals("studio", qc.token)) {
-            s_model_t* pmodel = c_allocate<s_model_t>();
+            auto* pmodel = c_allocate<s_model_t>();
             const int imodel = g_studiomdl.body.AddModel(pmodel);
             bodypart.pmodel.push_back(pmodel);
 
@@ -767,10 +764,10 @@ void AddBodyFlexRemaps(s_source_t* pSource) {
 // Process a body command
 //-----------------------------------------------------------------------------
 void AddBodyFlexData(s_source_t* pSource, int imodel, bool bAddControllers) {
-    pSource->m_nKeyStartIndex = g_studiomdl.flex.flexkeys.size();
+    pSource->m_nKeyStartIndex = vstd::as_signed_checked<int>(g_studiomdl.flex.flexkeys.size());
 
     // Add flex keys
-    const int nCount = std::ssize(pSource->m_FlexKeys);
+    const auto nCount = std::ssize(pSource->m_FlexKeys);
     for (int i = 0; i < nCount; ++i) {
         s_flexkey_t &key = pSource->m_FlexKeys[i];
 
@@ -839,22 +836,22 @@ void Option_Eyeball(ScriptTokenizer &qc, s_model_t* pmodel) {
 
     // mesh material
     qc.ExpectStringToken(szMeshMaterial);
-    int mesh_material = UseTextureAsMaterial(LookupTexture(szMeshMaterial));
+    auto mesh_material = UseTextureAsMaterial(LookupTexture(szMeshMaterial.view()));
 
     // diameter
     qc.ExpectToken();
-    eyeball.radius = qc.TokenFloat() / 2.0;
+    eyeball.radius = qc.TokenFloat() / 2.0f;
 
     // Z angle offset
     qc.ExpectToken();
-    eyeball.zoffset = tan(DEG2RAD(qc.TokenFloat()));
+    eyeball.zoffset = tan(vstd::deg2rad(qc.TokenFloat()));
 
     // iris material (no longer used, but we need to remove the token)
     qc.ExpectToken();
 
     // pupil scale
     qc.ExpectToken();
-    eyeball.iris_scale = 1.0 / qc.TokenFloat();
+    eyeball.iris_scale = 1.0f / qc.TokenFloat();
 
     VectorCopy(tmp, eyeball.org);
 
@@ -1002,13 +999,11 @@ static void Option_VertexCacheAnimationFile(const std::string_view vtaFilePath, 
 
 void Option_Spherenormals(ScriptTokenizer &qc, s_source_t* psource) {
     Vector pos;
-    int i, j;
-    int mesh_material;
-    char szMeshMaterial[256];
+    vstd::FixedString<256> szMeshMaterial;
 
     // mesh material
     qc.ExpectStringToken(szMeshMaterial);
-    mesh_material = UseTextureAsMaterial(LookupTexture(qc.token));
+    const auto meshMaterial = UseTextureAsMaterial(LookupTexture(qc.token.view()));
 
     // X
     qc.ExpectFloatToken(pos[0]);
@@ -1019,35 +1014,25 @@ void Option_Spherenormals(ScriptTokenizer &qc, s_source_t* psource) {
     // Z
     qc.ExpectFloatToken(pos[2]);
 
-    for (i = 0; i < psource->meshes.size(); i++) {
-        const s_mesh_t &mesh = psource->meshes[i];
-
-        if (mesh.material == mesh_material) {
+    for (const auto &mesh: psource->meshes) {
+        if (mesh.material == meshMaterial) {
             s_vertexinfo_t* vertex = &psource->vertex[mesh.vertexoffset];
 
             for (int k = 0; k < mesh.numvertices; k++) {
                 Vector n = vertex[k].position - pos;
                 VectorNormalize(n);
-                if (DotProduct(n, vertex[k].normal) < 0.0) {
+                if (DotProduct(n, vertex[k].normal) < 0.0f) {
                     vertex[k].normal = -1 * n;
                 }
                 else {
                     vertex[k].normal = n;
                 }
-#if 0
-                vertex[k].normal[0] += 0.5f * (2.0f * ((float) rand()) / (float) VALVE_RAND_MAX) - 1.0f;
-                vertex[k].normal[1] += 0.5f * (2.0f * ((float) rand()) / (float) VALVE_RAND_MAX) - 1.0f;
-                vertex[k].normal[2] += 0.5f * (2.0f * ((float) rand()) / (float) VALVE_RAND_MAX) - 1.0f;
-                VectorNormalize(vertex[k].normal);
-#endif
             }
-            break;
+            return;
         }
     }
 
-    if (i >= psource->meshes.size()) {
-        qc.Error("can't find spherenormal texture \"{}\" on model\n", szMeshMaterial);
-    }
+    qc.Error("can't find spherenormal texture \"{}\" on model\n", szMeshMaterial);
 }
 
 //-----------------------------------------------------------------------------
@@ -1055,10 +1040,10 @@ void Option_Spherenormals(ScriptTokenizer &qc, s_source_t* psource) {
 //          that matches the specified animation name (case insensitive)
 //          and is also a new style (i.e. DMX) vertex animation
 //-----------------------------------------------------------------------------
-const s_sourceanim_t* GetNewStyleSourceVertexAnim(s_source_t* pSource, const char* pszVertexAnimName) {
-    for (size_t i = 0; i < pSource->m_Animations.size(); ++i) {
-        const s_sourceanim_t* pSourceAnim = &(pSource->m_Animations[i]);
-        if (!pSourceAnim || !pSourceAnim->newStyleVertexAnimations)
+const s_sourceanim_t* GetNewStyleSourceVertexAnim(const s_source_t* source, const std::string_view pszVertexAnimName) {
+    for (const auto & m_Animation : source->m_Animations) {
+        const s_sourceanim_t* pSourceAnim = &m_Animation;
+        if (!pSourceAnim->newStyleVertexAnimations)
             continue;
 
         if (vstd::iequals(pszVertexAnimName, pSourceAnim->animationname))
@@ -1128,13 +1113,13 @@ void Option_DmxEyelid(ScriptTokenizer &qc, int imodel) {
         qc.ExpectToken();
         bool bTokenHandled = false;
 
-        for (int i = 0; i < kEyelidTypeCount; ++i) {
-            if (vstd::iequals(qc.token, eyelidData[i].m_pszSuffix)) {
+        for (auto & eyelid : eyelidData) {
+            if (vstd::iequals(qc.token, eyelid.m_pszSuffix)) {
                 bTokenHandled = true;
 
                 qc.ExpectToken();
-                eyelidData[i].m_pSourceAnim = GetNewStyleSourceVertexAnim(pSource, qc.token);
-                if (eyelidData[i].m_pSourceAnim == nullptr) {
+                eyelid.m_pSourceAnim = GetNewStyleSourceVertexAnim(pSource, qc.token.view());
+                if (eyelid.m_pSourceAnim == nullptr) {
                     qc.Error("({}) : {}:  No DMX vertex animation named \"{}\" in source \"{}\"\n",
                              g_studiomdl.input.iLinecount,
                              g_studiomdl.input.szLine, qc.token, sSourceFile);
@@ -1142,7 +1127,7 @@ void Option_DmxEyelid(ScriptTokenizer &qc, int imodel) {
                 }
 
                 // target
-                qc.ExpectFloatToken(eyelidData[i].m_flTarget);
+                qc.ExpectFloatToken(eyelid.m_flTarget);
 
                 break;
             }
@@ -2666,7 +2651,7 @@ void Cmd_TextureGroup(ScriptTokenizer &qc) {
             index = 0;
         }
         else if (depth == 2) {
-            i = UseTextureAsMaterial(LookupTexture(qc.token));
+            i = UseTextureAsMaterial(LookupTexture(qc.token.view()));
             if (families.size() <= static_cast<size_t>(group))
                 families.resize(group + 1);
             families[group].push_back(i);
@@ -3182,7 +3167,7 @@ static void Cmd_ReplaceMaterial(ScriptTokenizer &qc, LodScriptData_t &lodData) {
 
     if (!lodData.IsStrippedFromModel()) {
         // make sure it goes into the master list
-        UseTextureAsMaterial(LookupTexture(qc.token));
+        UseTextureAsMaterial(LookupTexture(qc.token.view()));
     }
 }
 
@@ -5607,7 +5592,7 @@ bool ParseAnimationToken(ScriptTokenizer &qc, s_animation_t* panim) {
         }
 
         // NOTE: This always affects the first source anim read in
-        s_sourceanim_t* pSourceAnim = FindSourceAnim(panim->source, panim->animationname);
+        s_sourceanim_t* pSourceAnim = FindSourceAnim(panim->source, panim->animationname.view());
         if (pSourceAnim) {
             if (panim->startframe < pSourceAnim->startframe) {
                 panim->startframe = pSourceAnim->startframe;
@@ -5629,7 +5614,7 @@ bool ParseAnimationToken(ScriptTokenizer &qc, s_animation_t* panim) {
 
     if (vstd::iequals("blockname", qc.token)) {
         qc.ExpectToken();
-        s_sourceanim_t* pSourceAnim = FindSourceAnim(panim->source, qc.token);
+        s_sourceanim_t* pSourceAnim = FindSourceAnim(panim->source, qc.token.view());
 
         // NOTE: This always affects the first source anim read in
         if (pSourceAnim) {
@@ -5679,11 +5664,11 @@ bool ParseAnimationToken(ScriptTokenizer &qc, s_animation_t* panim) {
         if (i == g_studiomdl.anim.cmdlists.size())
             qc.Error("unknown cmdlist {}\n", qc.token);
 
-        for (int j = 0; j < g_studiomdl.anim.cmdlists[i].cmds.size(); j++) {
-            if (panim->cmds.size() >= MAXSTUDIOCMDS) {
+        for (auto & cmd : g_studiomdl.anim.cmdlists[i].cmds) {
+            if (panim->cmds.full()) {
                 qc.Error("Too many cmds in {}\n", panim->name);
             }
-            panim->cmds.emplace_back(g_studiomdl.anim.cmdlists[i].cmds[j]);
+            panim->cmds.emplace_back(cmd);
         }
         return true;
     }
@@ -5725,7 +5710,7 @@ bool ParseAnimationToken(ScriptTokenizer &qc, s_animation_t* panim) {
 int ParseAnimation(ScriptTokenizer &qc, s_animation_t* panim, bool isAppend) {
     int depth = 0;
 
-    while (1) {
+    while (true) {
         if (depth > 0) {
             if (!qc.GetToken(true))
                 qc.Error("missing '}}' at end of file");
