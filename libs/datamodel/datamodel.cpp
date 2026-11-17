@@ -32,10 +32,6 @@ class IDmEditMessage;
 
 class KeyValues;
 
-#define UNNAMED_ELEMENT_NAME    "unnamed"
-
-
-
 //-----------------------------------------------------------------------------
 // Singleton instance
 //-----------------------------------------------------------------------------
@@ -472,7 +468,7 @@ void CDataModel::DumpSymbolTable() {
 //-----------------------------------------------------------------------------
 // Global symbol table for the datamodel system
 //-----------------------------------------------------------------------------
-CUtlSymbolLarge CDataModel::GetSymbol(const char *pString) {
+CUtlSymbolLarge CDataModel::GetSymbol(const std::string_view pString) {
     return m_SymbolTable.AddString(pString);
 }
 
@@ -638,11 +634,11 @@ void CDataModel::SetKeyValuesElementCallback(IElementForKeyValueCallback *pCallb
 //-----------------------------------------------------------------------------
 // Purpose:
 //-----------------------------------------------------------------------------
-const char *CDataModel::GetKeyValuesElementName(const char *pszKeyName, int iNestingLevel) {
+std::optional<std::string_view> CDataModel::GetKeyValuesElementName(const std::string_view keyName, int iNestingLevel) {
     if (m_pKeyvaluesCallbackInterface)
-        return m_pKeyvaluesCallbackInterface->GetElementForKeyValue(pszKeyName, iNestingLevel);
+        return m_pKeyvaluesCallbackInterface->GetElementForKeyValue(keyName, iNestingLevel);
 
-    return nullptr;
+    return std::nullopt;
 }
 
 
@@ -1038,8 +1034,7 @@ CDataModel::Unserialize(CUtlBuffer &inBuf, const char *pEncodingName, const char
         DmFileId_t fileid = tmp.FindOrCreateFileId("tmp_convert.dmx");
         tmp.SetFileName(fileid, "tmp_convert.dmx");
 
-        auto hTmpRoot = tmp.CreateElement(CDmElement::GetStaticTypeSymbol(), "root",
-                                          fileid, nullptr);
+        auto hTmpRoot = tmp.CreateElement(CDmElement::GetStaticTypeSymbol().view(), "root", fileid, nullptr);
         inBuf.SeekGet(CUtlBuffer::SEEK_HEAD, 0);
         auto res = tmp.Unserialize(inBuf, pEncodingName, header.formatName, nullptr, pFileName,
                                    DmConflictResolution_t::CR_DELETE_OLD, hTmpRoot);
@@ -1091,10 +1086,13 @@ CDataModel::Unserialize(CUtlBuffer &inBuf, const char *pEncodingName, const char
     if (bOk) {
         hRoot = pRoot ? pRoot->GetHandle() : DMELEMENT_HANDLE_INVALID;
 
+        // Imported formats (vmt, vmf, actbusy, commentary, ...) have no format updater: their importers already
+        // produce current elements
         if (!bIsCurrentVersion) {
-            auto updater = g_pDataModel->FindFormatUpdater(header.formatName);
-            updater->Update(&pRoot, header.nFormatVersion);
-            header.nFormatVersion = updater->GetCurrentVersion();
+            if (IDmFormatUpdater *updater = FindFormatUpdater(header.formatName)) {
+                updater->Update(&pRoot, header.nFormatVersion);
+                header.nFormatVersion = updater->GetCurrentVersion();
+            }
         }
 
         SetFileModificationUTCTime(fileid, 0);
@@ -1877,12 +1875,7 @@ const DmElementTypeInfo *CDataModel::FindElementType(std::string_view elementTyp
 //-----------------------------------------------------------------------------
 // Purpose: Creates a scene object
 //-----------------------------------------------------------------------------
-DmElementHandle_t CDataModel::CreateElement(CUtlSymbolLarge typeSymbol, const char *pElementName, DmFileId_t fileid,
-                                            const DmObjectId_t *pObjectID) {
-    return CreateElement(typeSymbol.String(), pElementName, fileid, pObjectID);
-}
-
-DmElementHandle_t CDataModel::CreateElement(const char *pElementType, const char *pElementName, DmFileId_t fileid,
+DmElementHandle_t CDataModel::CreateElement(const std::string_view typeName, const std::string_view elementName, DmFileId_t fileid,
                                             const DmObjectId_t *pObjectID) {
     DMX_PROFILE_SCOPE(CDataModel_CreateElement1);
 
@@ -1891,7 +1884,7 @@ DmElementHandle_t CDataModel::CreateElement(const char *pElementType, const char
     UtlHashHandle_t h = pObjectID ? m_unloadedIdElementMap.Find(ElementIdHandlePair_t(*pObjectID))
                                   : m_unloadedIdElementMap.InvalidHandle();
     if (h != m_unloadedIdElementMap.InvalidHandle()) {
-        CDmElement *pElement = CreateElement(m_unloadedIdElementMap[h].m_ref, pElementType, pElementName, fileid,
+        CDmElement *pElement = CreateElement(m_unloadedIdElementMap[h].m_ref, typeName, elementName, fileid,
                                              pObjectID);
         if (pElement) {
             m_unloadedIdElementMap.Remove(h);
@@ -1899,7 +1892,7 @@ DmElementHandle_t CDataModel::CreateElement(const char *pElementType, const char
         }
     } else {
         DmElementHandle_t hElement = AcquireElementHandle();
-        CDmElement *pElement = CreateElement(DmElementReference_t(hElement), pElementType, pElementName, fileid,
+        CDmElement *pElement = CreateElement(DmElementReference_t(hElement), typeName, elementName, fileid,
                                              pObjectID);
         if (pElement)
             return pElement->GetHandle();
@@ -1915,11 +1908,11 @@ DmElementHandle_t CDataModel::CreateElement(const char *pElementType, const char
 // this is kosher because the ref either is created on the fly and has no attributes, or is being removed from m_unloadedIdElementMap
 //-----------------------------------------------------------------------------
 CDmElement *
-CDataModel::CreateElement(const DmElementReference_t &ref, const char *pElementType, const char *pElementName,
+CDataModel::CreateElement(const DmElementReference_t &ref, const std::string_view elementType, const std::string_view elementName,
                           DmFileId_t fileid, const DmObjectId_t *pObjectID) {
     DMX_PROFILE_SCOPE(CDataModel_CreateElement2);
 
-//	Msg( "Creating {} 0x{:x} '{}' in file \"{}\" - {:d} elements loaded\n", pElementType, ref.m_hElement, pElementName ? pElementName : "", GetFileName( fileid ), m_elementIds.Count() );
+//	Msg( "Creating {} 0x{:x} '{}' in file \"{}\" - {:d} elements loaded\n", elementType, ref.m_hElement, elementName, GetFileName( fileid ), m_elementIds.Count() );
 
 
     DmPhase_t phase = g_pDmElementFramework->GetPhase();
@@ -1935,23 +1928,19 @@ CDataModel::CreateElement(const DmElementReference_t &ref, const char *pElementT
         pObjectID = &newId;
     }
 
-    if (!pElementName) {
-        pElementName = UNNAMED_ELEMENT_NAME;
-    }
-
     CDmElement *pElement = nullptr;
     if (m_bOnlyCreateUntypedElements) {
         // Untyped mode (dmxconvert, old-version conversion) keeps every element's own type name
-        pElement = CDmElement::CreateInstance(ref.m_hElement, pElementType, *pObjectID, pElementName, fileid);
-    } else if (const DmElementTypeInfo *pType = pElementType ? FindElementType(pElementType) : nullptr) {
+        pElement = CDmElement::CreateInstance(ref.m_hElement, elementType, *pObjectID, elementName, fileid);
+    } else if (const DmElementTypeInfo *pType = !elementType.empty() ? FindElementType(elementType) : nullptr) {
         m_bUnableToCreateOnlyUntypedElements = true;
         // Abstract types have no create function and can't be instanced
         if (pType->m_pCreate) {
-            pElement = pType->m_pCreate(ref.m_hElement, pType->m_TypeName.data(), *pObjectID, pElementName, fileid);
+            pElement = pType->m_pCreate(ref.m_hElement, pType->m_TypeName.data(), *pObjectID, elementName, fileid);
         }
     } else {
-        const char *pTypeName = !m_UnknownElementTypeName.empty() ? m_UnknownElementTypeName.data() : pElementType;
-        pElement = CDmElement::CreateInstance(ref.m_hElement, pTypeName, *pObjectID, pElementName, fileid);
+        const std::string_view typeName = !m_UnknownElementTypeName.empty() ? m_UnknownElementTypeName : elementType;
+        pElement = CDmElement::CreateInstance(ref.m_hElement, typeName, *pObjectID, elementName, fileid);
     }
 
     if (pElement) {
@@ -1970,7 +1959,7 @@ CDataModel::CreateElement(const DmElementReference_t &ref, const char *pElementT
         NotifyState(NOTIFY_CHANGE_TOPOLOGICAL);
 
 #ifdef _ELEMENT_HISTOGRAM_
-                                                                                                                                CUtlSymbolLarge typeSym = GetSymbol( pElementType );
+                                                                                                                                CUtlSymbolLarge typeSym = GetSymbol( elementType );
 		++g_typeHistogram[ typeSym ];
 #endif _ELEMENT_HISTOGRAM_
     }

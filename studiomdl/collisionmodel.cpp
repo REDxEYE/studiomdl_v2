@@ -243,9 +243,8 @@ public:
 
     void AddConvexSrc(ScriptTokenizer &qc, const char *szFileName);
 
-    void AddText(const char *pText) {
-        int len = strlen(pText);
-        m_textCommands.insert(m_textCommands.end(), pText, pText + len);
+    void AddText(const std::string_view text) {
+        m_textCommands.insert(m_textCommands.end(), text.begin(), text.end());
     }
 
     void ComputeMass(void);

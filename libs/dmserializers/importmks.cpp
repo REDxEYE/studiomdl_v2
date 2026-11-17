@@ -38,7 +38,7 @@ public:
 
 private:
 
-	CDmElement *CreateDmeAmalgamatedTexture( const char *pName );
+	CDmElement *CreateDmeAmalgamatedTexture(std::string_view pName);
 	CDmElement *CreateDmeSequence( const char *pName );
 	CDmElement *CreateDmeSequenceFrame( const char *pName );
 	CDmElement *CreateDmeSheetImage( const char *pImageName );
@@ -333,7 +333,7 @@ bool CImportMKS::ValidateImagePacking( CDmElement *pBitmap, char *pImageName )
 //--------------------------------------------------
 // Functions to create dme elements
 //--------------------------------------------------
-CDmElement *CImportMKS::CreateDmeAmalgamatedTexture( const char *pName )
+CDmElement *CImportMKS::CreateDmeAmalgamatedTexture(const std::string_view pName)
 {
 	DmElementHandle_t hElement = g_pDataModel->CreateElement( "DmeAmalgamatedTexture", "CDmeAmalgamatedTexture", m_Fileid );
 	if ( hElement == DMELEMENT_HANDLE_INVALID )

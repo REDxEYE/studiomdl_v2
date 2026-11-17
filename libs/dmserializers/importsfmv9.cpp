@@ -17,125 +17,114 @@
 //-----------------------------------------------------------------------------
 // Format converter
 //-----------------------------------------------------------------------------
-class CImportSFMV9 : public CSFMBaseImporter
-{
-	typedef CSFMBaseImporter BaseClass;
+class CImportSFMV9 : public CSFMBaseImporter {
+    typedef CSFMBaseImporter BaseClass;
+
 public:
-	CImportSFMV9( const char *formatName, const char *nextFormatName );
+    CImportSFMV9(const char* formatName, const char* nextFormatName);
 
 private:
-    bool DoFixup( CDmElement *pSourceRoot ) override;
+    bool DoFixup(CDmElement* pSourceRoot) override;
 
 
-	void FixupElement( CDmElement *pElement );
-	// Fixes up all elements
-	void BuildList( CDmElement *pElement, CUtlRBTree< CDmElement *, int >& list );
+    void FixupElement(CDmElement* pElement);
+
+    // Fixes up all elements
+    void BuildList(CDmElement* pElement, CUtlRBTree<CDmElement*, int> &list);
 };
 
 
 //-----------------------------------------------------------------------------
 // Singleton instance
 //-----------------------------------------------------------------------------
-static CImportSFMV9 s_ImportSFMV9( "sfm_v9", "sfm_v10" );
+static CImportSFMV9 s_ImportSFMV9("sfm_v9", "sfm_v10");
 
-void InstallSFMV9Importer( IDataModel *pFactory )
-{
-	pFactory->AddLegacyUpdater( &s_ImportSFMV9 );
+void InstallSFMV9Importer(IDataModel* pFactory) {
+    pFactory->AddLegacyUpdater(&s_ImportSFMV9);
 }
 
 
 //-----------------------------------------------------------------------------
 // Constructor
 //-----------------------------------------------------------------------------
-CImportSFMV9::CImportSFMV9( const char *formatName, const char *nextFormatName ) : 
-BaseClass( formatName, nextFormatName )	
-{
+CImportSFMV9::CImportSFMV9(const char* formatName, const char* nextFormatName) : BaseClass(formatName, nextFormatName) {
 }
 
 
 //-----------------------------------------------------------------------------
 // Fixes up all elements
 //-----------------------------------------------------------------------------
-void CImportSFMV9::FixupElement( CDmElement *pElement )
-{
-	if ( !pElement )
-		return;
+void CImportSFMV9::FixupElement(CDmElement* pElement) {
+    if (!pElement)
+        return;
 
-	const char *pType = pElement->GetTypeString();
-	if ( !V_stricmp( pType, "DmeLight" ) ||
-		!V_stricmp( pType, "DmeDirectionalLight" ) ||
-		!V_stricmp( pType, "DmeProjectedLight" ) ||
-		!V_stricmp( pType, "DmePointLight" ) ||
-		!V_stricmp( pType, "DmeSpotLight" ) ||
-		!V_stricmp( pType, "DmeAmbientLight" ) )
-	{
-		const CDmAttribute *pOldAttr = pElement->GetAttribute( "color", AT_VECTOR4 );
-		if ( !pOldAttr )
-			return;
+    const auto pType = pElement->GetTypeString();
+    if (vstd::iequals(pType, "DmeLight") ||
+        vstd::iequals(pType, "DmeDirectionalLight") ||
+        vstd::iequals(pType, "DmeProjectedLight") ||
+        vstd::iequals(pType, "DmePointLight") ||
+        vstd::iequals(pType, "DmeSpotLight") ||
+        vstd::iequals(pType, "DmeAmbientLight")) {
+        const CDmAttribute* pOldAttr = pElement->GetAttribute("color", AT_VECTOR4);
+        if (!pOldAttr)
+            return;
 
-		Color color;
+        Color color;
 
-		{ // scoping this section of code since vecColor is invalid after RemoveAttribute
-			const Vector4D &vecColor = pOldAttr->GetValue< Vector4D >();
-			for ( int i = 0; i < 4; ++i )
-			{
-				color[ i ] = ( int )clamp( vecColor[ i ], 0.0f, 255.0f );
-			}
+        {
+            // scoping this section of code since vecColor is invalid after RemoveAttribute
+            const Vector4D &vecColor = pOldAttr->GetValue<Vector4D>();
+            for (int i = 0; i < 4; ++i) {
+                color[i] = (int) clamp(vecColor[i], 0.0f, 255.0f);
+            }
 
-			pElement->RemoveAttribute( "color" );
-		}
+            pElement->RemoveAttribute("color");
+        }
 
-		CDmAttribute *pNewAttr = pElement->AddAttribute( "color", AT_COLOR );
-		pNewAttr->SetValue( color );
-	}
+        CDmAttribute* pNewAttr = pElement->AddAttribute("color", AT_COLOR);
+        pNewAttr->SetValue(color);
+    }
 }
 
 
 //-----------------------------------------------------------------------------
 // Fixes up all elements
 //-----------------------------------------------------------------------------
-void CImportSFMV9::BuildList( CDmElement *pElement, CUtlRBTree< CDmElement *, int >& list )
-{
-	if ( !pElement )
-		return;
+void CImportSFMV9::BuildList(CDmElement* pElement, CUtlRBTree<CDmElement*, int> &list) {
+    if (!pElement)
+        return;
 
-	if ( list.Find( pElement ) != list.InvalidIndex() )
-		return;
+    if (list.Find(pElement) != list.InvalidIndex())
+        return;
 
-	list.Insert( pElement );
+    list.Insert(pElement);
 
-	// Descend to bottom of tree, then do fixup coming back up the tree
-	for ( CDmAttribute *pAttribute = pElement->FirstAttribute(); pAttribute; pAttribute = pAttribute->NextAttribute() )
-	{
-		if ( pAttribute->GetType() == AT_ELEMENT )
-		{
-			CDmElement *pElement = pAttribute->GetValueElement<CDmElement>( );
-			BuildList( pElement, list );
-			continue;
-		}
+    // Descend to bottom of tree, then do fixup coming back up the tree
+    for (CDmAttribute* pAttribute = pElement->FirstAttribute(); pAttribute; pAttribute = pAttribute->NextAttribute()) {
+        if (pAttribute->GetType() == AT_ELEMENT) {
+            CDmElement* pElement = pAttribute->GetValueElement<CDmElement>();
+            BuildList(pElement, list);
+            continue;
+        }
 
-		if ( pAttribute->GetType() == AT_ELEMENT_ARRAY )
-		{
-			CDmrElementArray<> array( pAttribute );
-			int nCount = array.Count();
-			for ( int i = 0; i < nCount; ++i )
-			{
-				CDmElement *pChild = array[ i ];
-				BuildList( pChild, list );
-			}
-			continue;
-		}
-	}
+        if (pAttribute->GetType() == AT_ELEMENT_ARRAY) {
+            CDmrElementArray<> array(pAttribute);
+            int nCount = array.Count();
+            for (int i = 0; i < nCount; ++i) {
+                CDmElement* pChild = array[i];
+                BuildList(pChild, list);
+            }
+            continue;
+        }
+    }
 }
 
-bool CImportSFMV9::DoFixup( CDmElement *pSourceRoot )
-{
-	CUtlRBTree< CDmElement *, int >	fixlist( 0, 0, DefLessFunc( CDmElement * ) );
-	BuildList( pSourceRoot, fixlist );
-	for ( int i = fixlist.FirstInorder(); i != fixlist.InvalidIndex() ; i = fixlist.NextInorder( i ) )
-	{
-		// Search and replace in the entire tree!
-		FixupElement( fixlist[ i ] );
-	}
-	return true;
+bool CImportSFMV9::DoFixup(CDmElement* pSourceRoot) {
+    CUtlRBTree<CDmElement*, int> fixlist(0, 0, DefLessFunc(CDmElement *));
+    BuildList(pSourceRoot, fixlist);
+    for (int i = fixlist.FirstInorder(); i != fixlist.InvalidIndex(); i = fixlist.NextInorder(i)) {
+        // Search and replace in the entire tree!
+        FixupElement(fixlist[i]);
+    }
+    return true;
 }

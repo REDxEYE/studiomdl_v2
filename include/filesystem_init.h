@@ -1,30 +1,15 @@
 //========= Copyright � 1996-2005, Valve Corporation, All rights reserved. ============//
 //
-// Purpose: 
+// Purpose: Game directory and search path setup from gameinfo.txt
 //
 //=============================================================================//
 
 #pragma once
 
-
+#include <string>
+#include <string_view>
 
 #include "filesystem.h"
-
-
-// If this option is on the command line, then filesystem_init won't bring up the vconfig
-// dialog even if FS_ERRORMODE_VCONFIG is used.
-#define CMDLINEOPTION_NOVCONFIG	"-NoVConfig"
-
-#define	GAMEDIR_TOKEN		"VProject"
-#define	GAMEROOT_TOKEN		"VGame"
-#define	CONTENTROOT_TOKEN	"VContent"
-
-
-#if defined( _WIN32 ) || defined( WIN32 )
-#define PATHSEPARATOR(c) ((c) == '\\' || (c) == '/')
-#else	//_WIN32
-#define PATHSEPARATOR(c) ((c) == '/')
-#endif	//_WIN32
 
 
 enum FSReturnCode_t {
@@ -32,129 +17,24 @@ enum FSReturnCode_t {
     FS_MISSING_GAMEINFO_FILE,
     FS_INVALID_GAMEINFO_FILE,
     FS_INVALID_PARAMETERS,
-    FS_UNABLE_TO_INIT,
-    FS_MISSING_STEAM_DLL
 };
 
+// Errors are printed and are fatal (Error()); the return codes are for callers that keep going in a later DLL mode.
 
-enum FSErrorMode_t {
-    FS_ERRORMODE_AUTO, // Call Error() in case of an error.
-    FS_ERRORMODE_VCONFIG, // Call Error() for errors and run vconfig when appropriate.
-    FS_ERRORMODE_NONE, // Just return FSReturnCode values and setup the string for FileSystem_GetLastErrorString.
-};
+// The game directory: -vproject, else -game (one of them is required, MdlError otherwise). It must contain
+// gameinfo.txt. gameInfoDir gets the absolute directory.
+FSReturnCode_t FileSystem_LocateGameInfo(std::string &gameInfoDir);
 
+// Adds the search paths listed in <gameInfoDir>/gameinfo.txt: entries starting with |gameinfo_path| are relative to
+// gameInfoDir, the others (and |all_source_engine_paths|) to the base directory (parent of the executable directory).
+// The first "game" path also becomes MOD and, last, DEFAULT_WRITE_PATH; "-tempcontent" adds <game path>_tempcontent.
+// Then <base>/platform as GAME, the CONTENT mirror of every GAME path, and the by-request-only marks.
+FSReturnCode_t FileSystem_LoadSearchPaths(IFileSystem *pFileSystem, std::string_view gameInfoDir);
 
-class CFSSteamSetupInfo {
-public:
-    CFSSteamSetupInfo();
+// EXECUTABLE_PATH = the directory of the executable (by request only)
+FSReturnCode_t FileSystem_SetBasePaths(IFileSystem *pFileSystem);
 
-    // Inputs.
-    // If this is set, then the init code will look in this directory up to the root for gameinfo.txt.
-    // It must be set for FileSystem_LoadSearchPaths to work.
-    //
-    // (default: null)
-    const char* m_pDirectoryName;
-
-    // If this is true, then it won't look at -vproject, -game, or the vproject environment variable
-    // to find gameinfo.txt. If this is true, then m_pDirectoryName must be set.
-    //
-    // (default: false)
-    bool m_bOnlyUseDirectoryName;
-
-    // If this is true, then:
-    // 1. It will set the environment variables that steam.dll looks at for startup info.
-    // 2. It will look for ToolsAppId in the gameinfo.txt file and load the
-    // steam caches associated with that cache if it's there. This is so apps like Hammer and hlmv
-    // can load the main steam caches (like for Counter-Strike or Half-Life 2), and also load the
-    // caches that include tools-specific materials (materials\editor, materials\debug, etc).
-    //
-    // (default: true - should be FALSE for the engine)
-    bool m_bToolsMode;
-
-    // If this is true, and m_bToolsMode is false, then it will append the path to steam.dll to the
-    // PATH environment variable. This makes it so you can run the engine under Steam without
-    // having to copy steam.dll up into your hl2.exe folder.
-    // (default: false)
-    bool m_bSetSteamDLLPath;
-
-    // Are we loading the Steam filesystem? (always false: the filesystem is the linked-in CFileSystem_Stdio)
-    bool m_bSteam;
-
-    // If this is true, then it won't look for a gameinfo.txt.
-    //
-    // (default: false)
-    bool m_bNoGameInfo;
-
-    // Outputs (if it returns FS_OK).
-    std::string m_GameInfoPath; // The directory that gameinfo.txt lives in.
-};
-
-
-class CFSMountContentInfo {
-public:
-    CFSMountContentInfo();
-
-    // Inputs.
-public:
-    // See CFSLoadModuleInfo::m_bToolsMode (this valid should always be the same as you passed to CFSLoadModuleInfo::m_bToolsMode).
-    bool m_bToolsMode;
-
-    // This specifies the directory where gameinfo.txt is. This must be set.
-    // It can come from CFSLoadModuleInfo::m_GameInfoPath.
-    std::string m_pDirectoryName;
-
-    // Gotten from CFSLoadModuleInfo::m_pFileSystem.
-    IFileSystem* m_pFileSystem;
-};
-
-
-class CFSSearchPathsInit {
-public:
-    CFSSearchPathsInit();
-
-    // Inputs.
-public:
-    // This specifies the directory where gameinfo.txt is. This must be set.
-    std::string m_pDirectoryName;
-
-    // This is the filesystem FileSystem_LoadSearchPaths is talking to.
-    IFileSystem* m_pFileSystem;
-
-    // Outputs.
-public:
-    // This is the location of the first search path called "game", which also becomes your "mod" search path.
-    std::string m_ModPath;
-};
-
-
-std::string_view GetVProjectCmdLineValue();
-
-
-// Step 1: set up the steam environment and get back the gameinfo.txt path
-FSReturnCode_t FileSystem_SetupSteamEnvironment(CFSSteamSetupInfo &info);
-
-// Step 2: Ask filesystem_init to set up the executable search path, and mount the steam content based on the mod gameinfo.txt file
-FSReturnCode_t FileSystem_MountContent(CFSMountContentInfo &fsInfo);
-
-// Step 3: Load the search paths out of pGameDirectory\gameinfo.txt.
-FSReturnCode_t FileSystem_LoadSearchPaths(CFSSearchPathsInit &initInfo);
-
-// Lets the application suggest the directory to start looking for gameinfo.txt from (studiomdl: the QC's directory)
-typedef bool (*SuggestGameInfoDirFn_t)(CFSSteamSetupInfo const* pFsSteamSetupInfo, char* pchPathBuffer,
-                                       int nBufferLength, bool* pbBubbleDirectories);
-
-SuggestGameInfoDirFn_t SetSuggestGameInfoDirFn(SuggestGameInfoDirFn_t pfnNewFn);
-
-// This is automatically done during step 3, but if you want to redo all the search
-// paths (like Hammer does), you can call this to reset executable_path.
-FSReturnCode_t FileSystem_SetBasePaths(IFileSystem* pFileSystem);
-
-// Utility function to add the PLATFORM search path.
-void FileSystem_AddSearchPath_Platform(IFileSystem* pFileSystem, std::string_view gameInfoPath);
-
-// See FSErrorMode_t. If you don't specify one here, then the default is FS_ERRORMODE_VCONFIG.
-void FileSystem_SetErrorMode(FSErrorMode_t errorMode = FS_ERRORMODE_VCONFIG);
+// PLATFORM = <gameInfoDir>/../platform
+void FileSystem_AddSearchPath_Platform(IFileSystem *pFileSystem, std::string_view gameInfoPath);
 
 bool FileSystem_GetExecutableDir(std::string &exedir);
-
-KeyValues* ReadKeyValuesFile(const char* pFilename);

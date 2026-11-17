@@ -38,27 +38,6 @@ CStudioMDLApp s_ApplicationObject;
 
 class CClampedSource;
 
-static bool
-CStudioMDLApp_SuggestGameInfoDirFn(CFSSteamSetupInfo const*, char* pchPathBuffer, int nBufferLength,
-                                   bool* pbBubbleDirectories) {
-    std::optional<std::string_view> processFileName;
-    uint32_t nParmCount = CommandLine()->ParmCount();
-    if (nParmCount > 1) {
-        processFileName = CommandLine()->GetParm(nParmCount - 1);
-    }
-
-    if (processFileName.has_value()) {
-        Q_MakeAbsolutePath(pchPathBuffer, nBufferLength, processFileName.value().data());
-
-        if (pbBubbleDirectories)
-            *pbBubbleDirectories = true;
-
-        return true;
-    }
-
-    return false;
-}
-
 int main(int argc, char** argv) {
     StudioMdlCompat::EnableUtf8Console();
 
@@ -70,8 +49,6 @@ int main(int argc, char** argv) {
         argPointers.push_back(arg.data());
     }
     argPointers.push_back(nullptr);
-
-    SetSuggestGameInfoDirFn(CStudioMDLApp_SuggestGameInfoDirFn);
 
     return s_ApplicationObject.Run(static_cast<int>(args.size()), argPointers.data());
 }
@@ -813,7 +790,7 @@ bool CStudioMDLApp::PreInit() {
     StudioMdlState &ctx = *m_pState;
     g_pFileSystem = g_pFullFileSystem;
 
-    if (!SetupSearchPaths(ctx.paths.qcPath.c_str(), false, true))
+    if (!SetupSearchPaths())
         return false;
 
     SetupStandardDirectories(ctx, ctx.paths.qcPath.c_str(), GetGameInfoPath());

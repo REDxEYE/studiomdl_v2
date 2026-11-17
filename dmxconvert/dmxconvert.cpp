@@ -70,13 +70,13 @@ int CDmxConvertApp::Main()
 	const auto parm = []( const std::string_view key ) { return std::string( CommandLine()->ParmValue( key, std::string_view() ) ); };
 	const std::string inFileName = parm( "-i" );
 	std::string outFileName = parm( "-o" );
-	const std::string inFormat = parm( "-if" );
+	const std::string inEncoding = parm( "-ie" );
 	std::string outFormat = parm( "-of" );
 	std::string outEncoding = parm( "-oe" );
 
 	if ( inFileName.empty() )
 	{
-		Msg( "Usage: dmxconvert -i <in file> [-if <in format_hint>] [-o <out file>] [-oe <out encoding>] [-of <out format>]\n" );
+		Msg( "Usage: dmxconvert -i <in file> [-ie <in encoding hint>] [-o <out file>] [-oe <out encoding>] [-of <out format>]\n" );
 		Msg( "If no output file is specified, dmx to dmx conversion will overwrite the input\n" );
 		Msg( "Supported DMX file encodings:\n" );
 		for ( int i = 0; i < g_pDataModel->GetEncodingCount(); ++i )
@@ -97,7 +97,7 @@ int CDmxConvertApp::Main()
 	// and also append a couple 0s to the end of the buffer.
 	DmxHeader_t header;
 	CDmElement *pRoot;
-	if ( g_pDataModel->RestoreFromFile( inFileName.c_str(), nullptr, inFormat.empty() ? nullptr : inFormat.c_str(), &pRoot, CR_DELETE_NEW, &header ) == DMFILEID_INVALID )
+	if ( g_pDataModel->RestoreFromFile( inFileName.c_str(), nullptr, inEncoding.empty() ? nullptr : inEncoding.c_str(), &pRoot, CR_DELETE_NEW, &header ) == DMFILEID_INVALID )
 	{
 		Error( "Encountered an error reading file \"{}\"!\n", inFileName.c_str() );
 		return -1;

@@ -2366,7 +2366,7 @@ bool Update2(CDmElement* pElement) {
                             // Build the pos and rot versions
                             for (int k = 0; k < 2; ++k) {
                                 CDmElement* control = CreateElement<CDmElement>(
-                                    vstd::fx_formatted("{} - {}", pchControlName, g_pSuffix[k]), pElement->GetFileId());
+                                    vstd::fx_formatted("{} - {}", pchControlName, g_pSuffix[k]).view(), pElement->GetFileId());
                                 control->SetParity(pElement->GetParity());
                                 control->SetValue<bool>("transform", true);
                                 control->SetValue<bool>(g_pControlType[k], true);
@@ -2398,7 +2398,7 @@ bool Update2(CDmElement* pElement) {
                                 added.AddToTail(control);
 
                                 CDmElement* groupControl = CreateElement<CDmElement>(
-                                    vstd::fx_formatted("{} - {}", pchControlName, g_pSuffix[k]), pElement->GetFileId());
+                                    vstd::fx_formatted("{} - {}", pchControlName, g_pSuffix[k]).view(), pElement->GetFileId());
                                 groupControl->SetParity(pElement->GetParity());
                                 groupControl->SetValue<bool>("isGroup", false);
                                 newControls.AddToTail(groupControl);

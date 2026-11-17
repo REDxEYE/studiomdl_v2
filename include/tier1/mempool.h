@@ -15,6 +15,8 @@
 
 
 
+#include <string_view>
+
 #include "tier0/memalloc.h"
 #include "tier0/platform.h"
 #include "tier1/utlvector.h"
@@ -199,9 +201,9 @@ inline void CClassMemoryPool<T>::Clear()
 #define DECLARE_FIXEDSIZE_ALLOCATOR( _class )									\
 	public:																		\
 		inline void* operator new( size_t size ) { return s_Allocator.Alloc(size); }   \
-		inline void* operator new( size_t size, int nBlockUse, const char *pFileName, int nLine ) { return s_Allocator.Alloc(size); }   \
+		inline void* operator new( size_t size, int nBlockUse, const std::string_view pFileName, int nLine ) { return s_Allocator.Alloc(size); }   \
 		inline void  operator delete( void* p ) { s_Allocator.Free(p); }		\
-		inline void  operator delete( void* p, int nBlockUse, const char *pFileName, int nLine ) { s_Allocator.Free(p); }   \
+		inline void  operator delete( void* p, int nBlockUse, const std::string_view pFileName, int nLine ) { s_Allocator.Free(p); }   \
 	private:																		\
 		static   CUtlMemoryPool   s_Allocator
     
@@ -214,9 +216,9 @@ inline void CClassMemoryPool<T>::Clear()
 #define DECLARE_FIXEDSIZE_ALLOCATOR_MT( _class )									\
 	public:																		\
 	   inline void* operator new( size_t size ) { return s_Allocator.Alloc(size); }   \
-	   inline void* operator new( size_t size, int nBlockUse, const char *pFileName, int nLine ) { return s_Allocator.Alloc(size); }   \
+	   inline void* operator new( size_t size, int nBlockUse, const std::string_view pFileName, int nLine ) { return s_Allocator.Alloc(size); }   \
 	   inline void  operator delete( void* p ) { s_Allocator.Free(p); }		\
-	   inline void  operator delete( void* p, int nBlockUse, const char *pFileName, int nLine ) { s_Allocator.Free(p); }   \
+	   inline void  operator delete( void* p, int nBlockUse, const std::string_view pFileName, int nLine ) { s_Allocator.Free(p); }   \
 	private:																		\
 		static   CMemoryPoolMT   s_Allocator
 
@@ -233,7 +235,7 @@ inline void CClassMemoryPool<T>::Clear()
 #define DECLARE_FIXEDSIZE_ALLOCATOR_EXTERNAL( _class )							\
    public:																		\
       inline void* operator new( size_t size )  { return s_pAllocator->Alloc(size); }   \
-      inline void* operator new( size_t size, int nBlockUse, const char *pFileName, int nLine )  { return s_pAllocator->Alloc(size); }   \
+      inline void* operator new( size_t size, int nBlockUse, const std::string_view pFileName, int nLine )  { return s_pAllocator->Alloc(size); }   \
       inline void  operator delete( void* p )   { s_pAllocator->Free(p); }		\
    private:																		\
       static   CUtlMemoryPool*   s_pAllocator

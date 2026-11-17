@@ -20,6 +20,8 @@
 #include "tier1/strtools.h"
 #include "tier1/utlsymbollarge.h"
 
+#include <cmath>
+
 
 			    
 
@@ -47,8 +49,17 @@ static void SerializeFloat( CUtlBuffer &buf, float f )
 	Assert( buf.IsText() );
 
 	// FIXME: Print this in a way that we never lose precision
+	// Valve's tools (MSVC CRT) round exact decimal ties away from zero, glibc rounds them to even. Rounding a float to
+	// 10 decimals ties only when it is an odd multiple of 2^-11 (the exact expansion then ends in 5 at the 11th
+	// place): nudge those one ulp of double away from zero so every platform prints what SFM prints.
+	double value = f;
+	const double scaled = std::ldexp( value, 11 );
+	if ( std::isfinite( scaled ) && scaled == std::trunc( scaled ) && std::fmod( scaled, 2.0 ) != 0.0 )
+	{
+		value = std::nextafter( value, value > 0.0 ? HUGE_VAL : -HUGE_VAL );
+	}
 	char pTemp[256];
-	int nLen = Q_snprintf( pTemp, sizeof(pTemp), "%.10f", f );
+	int nLen = Q_snprintf( pTemp, sizeof(pTemp), "%.10f", value );
 	while ( nLen > 0 && pTemp[nLen-1] == '0' )
 	{
 		--nLen;

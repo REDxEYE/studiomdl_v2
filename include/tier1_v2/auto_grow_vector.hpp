@@ -18,8 +18,8 @@ namespace vstd {
         using size_type = size_t;
         using reference = T &;
         using const_reference = const T &;
-        using iterator = typename std::vector<T>::iterator;
-        using const_iterator = typename std::vector<T>::const_iterator;
+        using iterator = std::vector<T>::iterator;
+        using const_iterator = std::vector<T>::const_iterator;
 
         AutoGrowVector() = default;
 

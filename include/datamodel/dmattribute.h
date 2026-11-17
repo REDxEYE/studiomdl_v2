@@ -7,6 +7,9 @@
 #pragma once
 
 
+#include <string>
+#include <string_view>
+
 #include "datamodel/attributeflags.h"
 #include "datamodel/idatamodel.h"
 #include "datamodel/dmattributetypes.h"
@@ -113,17 +116,17 @@ public:
 
 	// Datamodel internals, used by CDmElement, the attribute wrappers (CDma*/CDmr*) and the attribute ops
 	// Class factory
-	static CDmAttribute *CreateAttribute( CDmElement *pOwner, DmAttributeType_t type, const char *pAttributeName );
-	static CDmAttribute *CreateExternalAttribute( CDmElement *pOwner, DmAttributeType_t type, const char *pAttributeName, void *pExternalMemory );
+	static CDmAttribute *CreateAttribute(CDmElement *pOwner, DmAttributeType_t type, std::string_view attributeName);
+	static CDmAttribute *CreateExternalAttribute(CDmElement *pOwner, DmAttributeType_t type, std::string_view pAttributeName, void *pExternalMemory);
 	static void DestroyAttribute( CDmAttribute *pAttribute );
 
 	// Constructor, destructor
-	CDmAttribute( CDmElement *pOwner, DmAttributeType_t type, const char *pAttributeName );
-	CDmAttribute( CDmElement *pOwner, DmAttributeType_t type, const char *pAttributeName, void *pMemory );
+	CDmAttribute( CDmElement *pOwner, DmAttributeType_t type, std::string_view pAttributeName );
+	CDmAttribute( CDmElement *pOwner, DmAttributeType_t type, std::string_view pAttributeName, void *pMemory );
 	~CDmAttribute();
 
 	// Used when constructing CDmAttributes
-	void Init( CDmElement *pOwner, DmAttributeType_t type, const char *pAttributeName );
+	void Init(CDmElement *pOwner, DmAttributeType_t type, std::string_view pAttributeName);
 
 	// Used when shutting down, indicates DmAttributeHandle_t referring to this are invalid
 	void InvalidateHandle();
@@ -280,11 +283,23 @@ inline void CDmAttribute::SetValue( E* pValue )
 	}
 }
 
+// Strings are stored as symbols; a null pValue stores the invalid symbol (what GetSymbol( NULL ) returned)
+template<>
+inline void CDmAttribute::SetValue( const std::string_view &value )
+{
+	return SetValue( g_pDataModel->GetSymbol( value ) );
+}
+
+template<>
+inline void CDmAttribute::SetValue( const std::string &value )
+{
+	return SetValue( g_pDataModel->GetSymbol( value ) );
+}
+
 template<>
 inline void CDmAttribute::SetValue( const char *pValue )
 {
-	CUtlSymbolLarge symbol = g_pDataModel->GetSymbol( pValue );
-	return SetValue( symbol );
+	return SetValue( pValue ? g_pDataModel->GetSymbol( pValue ) : CUtlSymbolLarge() );
 }
 
 template<>

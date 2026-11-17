@@ -125,40 +125,15 @@ void MppSequenceIt::Reset()
 	Next();
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 //-----------------------------------------------------------------------------
-// Utility to return DmElement id as name:string
+// Utility to return DmElement id as type(name):"id"
 //-----------------------------------------------------------------------------
-CUtlString ComputeDmElementIdStr( const CDmElement *pDmElement )
+std::string ComputeDmElementIdStr(const CDmElement* pDmElement)
 {
 	if ( !pDmElement )
-		return CUtlString( "NULL(Unknown):\"Unknown\"" );
-
-	CUtlString sReturn;
-
-	sReturn = pDmElement->GetTypeString();
-	sReturn += "(";
-	sReturn = pDmElement->GetName();
-	sReturn += "):\"";
+		return "NULL(Unknown):\"Unknown\"";
 
 	char pszBuf[64];
-	UniqueIdToString( pDmElement->GetId(), pszBuf, ARRAYSIZE( pszBuf ) );
-	sReturn += pszBuf;
-
-	sReturn += "\"";
-
-	return sReturn;
+	UniqueIdToString( pDmElement->GetId(), pszBuf, std::size(pszBuf) );
+	return std::format("{}({}):\"{}\"", pDmElement->GetTypeString(), pDmElement->GetName(), pszBuf);
 }

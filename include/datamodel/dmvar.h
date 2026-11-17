@@ -20,9 +20,9 @@ public:
     CDmaVar();
 
     // Setup to be used in OnConstruction methods of DmElements
-    void Init(CDmElement* pOwner, const char* pAttributeName, int flags = 0);
+    void Init(CDmElement* pOwner, std::string_view pAttributeName, int flags = 0);
 
-    void InitAndSet(CDmElement* pOwner, const char* pAttributeName, const T &value, int flags = 0);
+    void InitAndSet(CDmElement* pOwner, std::string_view pAttributeName, const T &value, int flags = 0);
 
     // Set/get
     const T& Set(const T &val);
@@ -96,7 +96,7 @@ public:
 
     operator const char*() const;
 
-    void InitAndSet(CDmElement* pOwner, const char* pAttributeName, const char* pValue, int flags = 0);
+    void InitAndSet(CDmElement* pOwner, std::string_view pAttributeName, std::string_view pValue, int flags = 0);
 
     void Set(const char* pValue);
 

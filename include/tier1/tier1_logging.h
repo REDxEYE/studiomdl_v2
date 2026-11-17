@@ -6,10 +6,6 @@
 
 #pragma once
 
-#if defined( COMPILER_MSVC )
-#pragma once
-#endif
-
 #include "tier0/logging.h"
 #include "utlbuffer.h"
 

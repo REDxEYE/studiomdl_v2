@@ -3658,8 +3658,8 @@ inline int Studio_LoadVertexes(const vertexFileHeader_t *pTempVvdHdr, vertexFile
                    sizeof(ExtraVertexAttributesHeader_t) + sizeof(ExtraVertexAttributeIndex_t) * pExtraHeader->m_count);
             // copy extra data
             for (int e = 0; e < pExtraHeader->m_count; ++e) {
-                int offset = pExtraIndex[e].m_offset;
-                int bytesPerVertex = pExtraIndex[e].m_bytes;
+                const int offset = pExtraIndex[e].m_offset;
+                const int bytesPerVertex = pExtraIndex[e].m_bytes;
                 memcpy((uint8_t *) pNewExtraHeader + offset + target * bytesPerVertex,
                        (uint8_t *) pExtraHeader + offset + pFixupTable[i].sourceVertexID * bytesPerVertex,
                        pFixupTable[i].numVertexes * bytesPerVertex);

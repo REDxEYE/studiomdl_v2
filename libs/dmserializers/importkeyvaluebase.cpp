@@ -13,6 +13,8 @@
 #include "tier1/utlbuffer.h"
 
 
+#include <algorithm>
+
 //-----------------------------------------------------------------------------
 // Default serialization method
 //-----------------------------------------------------------------------------
@@ -26,13 +28,13 @@ bool CImportKeyValueBase::Serialize( CUtlBuffer &outBuf, CDmElement *pRoot )
 //-----------------------------------------------------------------------------
 // Creates a new element
 //-----------------------------------------------------------------------------
-CDmElement* CImportKeyValueBase::CreateDmElement( const char *pElementType, const char *pElementName, DmObjectId_t *pId )
+CDmElement* CImportKeyValueBase::CreateDmElement(const std::string_view elementType, const std::string_view elementName, DmObjectId_t *pId)
 {
 	// See if we can create an element of that type
-	DmElementHandle_t hElement = g_pDataModel->CreateElement( pElementType, pElementName, DMFILEID_INVALID, pId );
+	DmElementHandle_t hElement = g_pDataModel->CreateElement( elementType, elementName, m_fileid, pId );
 	if ( hElement == DMELEMENT_HANDLE_INVALID )
 	{
-		Warning("{}: Element uses unknown element type {}\n", m_pFileName, pElementType );
+		Warning("{}: Element uses unknown element type {}\n", m_pFileName, elementType );
 		return nullptr;
 	}
 
@@ -40,46 +42,56 @@ CDmElement* CImportKeyValueBase::CreateDmElement( const char *pElementType, cons
 }
 
 
+std::vector<CDmAttribute*> CImportKeyValueBase::AttributesInFileOrder( CDmElement* pElement )
+{
+	std::vector<CDmAttribute*> attributes;
+	for ( CDmAttribute *pAttribute = pElement->FirstAttribute(); pAttribute; pAttribute = pAttribute->NextAttribute() )
+		attributes.push_back( pAttribute );
+	std::reverse( attributes.begin(), attributes.end() );
+	return attributes;
+}
+
+
 //-----------------------------------------------------------------------------
 // Used to output typed attributes to keyvalues
 //-----------------------------------------------------------------------------
-void CImportKeyValueBase::PrintBoolAttribute( CDmElement* pElement, CUtlBuffer &outBuf, const char *pKeyName )
+void CImportKeyValueBase::PrintBoolAttribute( CDmElement* pElement, CUtlBuffer &outBuf, const std::string_view pKeyName )
 {
 	if ( pElement->HasAttribute( pKeyName ) )
 	{
 		CDmAttribute *pAttribute = pElement->GetAttribute( pKeyName );
 		if ( pAttribute->GetType() == AT_BOOL )
 		{
-			outBuf.Printf("\"%s\" \"%d\"\n", pKeyName, pAttribute->GetValue<bool>( ) );
+			outBuf.Printf("\"%.*s\" \"%d\"\n", static_cast<int>(pKeyName.size()), pKeyName.data(), pAttribute->GetValue<bool>( ) );
 		}
 	}
 }
 
-void CImportKeyValueBase::PrintIntAttribute( CDmElement* pElement, CUtlBuffer &outBuf, const char *pKeyName )
+void CImportKeyValueBase::PrintIntAttribute( CDmElement* pElement, CUtlBuffer &outBuf, const std::string_view pKeyName )
 {
 	if ( pElement->HasAttribute( pKeyName ) )
 	{
 		CDmAttribute *pAttribute = pElement->GetAttribute( pKeyName );
 		if ( pAttribute->GetType() == AT_INT )
 		{
-			outBuf.Printf("\"%s\" \"%d\"\n", pKeyName, pAttribute->GetValue<int>( ) );
+			outBuf.Printf("\"%.*s\" \"%d\"\n", static_cast<int>(pKeyName.size()), pKeyName.data(), pAttribute->GetValue<int>( ) );
 		}
 	}
 }
 
-void CImportKeyValueBase::PrintFloatAttribute( CDmElement* pElement, CUtlBuffer &outBuf, const char *pKeyName )
+void CImportKeyValueBase::PrintFloatAttribute( CDmElement* pElement, CUtlBuffer &outBuf, const std::string_view pKeyName )
 {
 	if ( pElement->HasAttribute( pKeyName ) )
 	{
 		CDmAttribute *pAttribute = pElement->GetAttribute( pKeyName );
 		if ( pAttribute->GetType() == AT_FLOAT )
 		{
-			outBuf.Printf("\"%s\" \"%.10f\"\n", pKeyName, pAttribute->GetValue<float>( ) );
+			outBuf.Printf("\"%.*s\" \"%.10f\"\n", static_cast<int>(pKeyName.size()), pKeyName.data(), pAttribute->GetValue<float>( ) );
 		}
 	}
 }
 
-void CImportKeyValueBase::PrintStringAttribute( CDmElement* pElement, CUtlBuffer &outBuf, const char *pKeyName, bool bSkipEmptryStrings, bool bPrintValueOnly )
+void CImportKeyValueBase::PrintStringAttribute( CDmElement* pElement, CUtlBuffer &outBuf, const std::string_view pKeyName, bool bSkipEmptryStrings, bool bPrintValueOnly )
 {
 	if ( pElement->HasAttribute( pKeyName ) )
 	{
@@ -91,7 +103,7 @@ void CImportKeyValueBase::PrintStringAttribute( CDmElement* pElement, CUtlBuffer
 			{
 				if ( !bPrintValueOnly )
 				{
-					outBuf.Printf("\"%s\" \"%s\"\n", pKeyName, pValue );
+					outBuf.Printf("\"%.*s\" \"%s\"\n", static_cast<int>(pKeyName.size()), pKeyName.data(), pValue );
 				}
 				else
 				{
@@ -106,7 +118,7 @@ void CImportKeyValueBase::PrintStringAttribute( CDmElement* pElement, CUtlBuffer
 //-----------------------------------------------------------------------------
 // Used to add typed attributes from keyvalues
 //-----------------------------------------------------------------------------
-bool CImportKeyValueBase::AddBoolAttribute( CDmElement* pElement, KeyValues *pKeyValues, const char *pKeyName, bool *pDefault )
+bool CImportKeyValueBase::AddBoolAttribute( CDmElement* pElement, KeyValues *pKeyValues, const std::string_view pKeyName, bool *pDefault )
 {
 	KeyValues *pKey = pKeyValues->FindKey( pKeyName );
 	bool bValue;
@@ -128,7 +140,7 @@ bool CImportKeyValueBase::AddBoolAttribute( CDmElement* pElement, KeyValues *pKe
 //-----------------------------------------------------------------------------
 // Used to add typed attributes from keyvalues
 //-----------------------------------------------------------------------------
-bool CImportKeyValueBase::AddIntAttribute( CDmElement* pElement, KeyValues *pKeyValues, const char *pKeyName, int *pDefault )
+bool CImportKeyValueBase::AddIntAttribute( CDmElement* pElement, KeyValues *pKeyValues, const std::string_view pKeyName, int *pDefault )
 {
 	KeyValues *pKey = pKeyValues->FindKey( pKeyName );
 	int nValue;
@@ -146,7 +158,7 @@ bool CImportKeyValueBase::AddIntAttribute( CDmElement* pElement, KeyValues *pKey
 	return pElement->SetValue( pKeyName, nValue ) != nullptr;
 }
 
-bool CImportKeyValueBase::AddFloatAttribute( CDmElement* pElement, KeyValues *pKeyValues, const char *pKeyName, float *pDefault )
+bool CImportKeyValueBase::AddFloatAttribute( CDmElement* pElement, KeyValues *pKeyValues, const std::string_view pKeyName, float *pDefault )
 {
 	KeyValues *pKey = pKeyValues->FindKey( pKeyName );
 	float flValue;
@@ -164,26 +176,26 @@ bool CImportKeyValueBase::AddFloatAttribute( CDmElement* pElement, KeyValues *pK
 	return pElement->SetValue( pKeyName, flValue ) != nullptr;
 }
 
-bool CImportKeyValueBase::AddStringAttribute( CDmElement* pElement, KeyValues *pKeyValues, const char *pKeyName, const char *pDefault )
+bool CImportKeyValueBase::AddStringAttribute( CDmElement* pElement, KeyValues *pKeyValues, const std::string_view pKeyName, const std::optional<std::string_view> pDefault )
 {
 	KeyValues *pKey = pKeyValues->FindKey( pKeyName );
-	const char *pValue = "";
+	std::string_view value;
 	if ( pKey )
 	{
-		pValue = pKey->GetString();
+		value = pKey->GetString();
 	}
 	else
 	{
 		if ( !pDefault )
 			return true;
-		pValue = pDefault;
+		value = *pDefault;
 	}
 
-	return pElement->SetValue( pKeyName, pValue ) != nullptr;
+	return pElement->SetValue( pKeyName, value ) != nullptr;
 }
 
 
-bool CImportKeyValueBase::AddIntAttributeFlags( CDmElement* pElement, KeyValues *pKeyValue, const char *pKeyName, int nFlags, int *pDefault )
+bool CImportKeyValueBase::AddIntAttributeFlags( CDmElement* pElement, KeyValues *pKeyValue, const std::string_view pKeyName, int nFlags, int *pDefault )
 {
 	if ( !AddIntAttribute( pElement, pKeyValue, pKeyName, pDefault ) )
 		return false;
@@ -193,7 +205,7 @@ bool CImportKeyValueBase::AddIntAttributeFlags( CDmElement* pElement, KeyValues 
 	return true;
 }
 
-bool CImportKeyValueBase::AddFloatAttributeFlags( CDmElement* pElement, KeyValues *pKeyValue, const char *pKeyName, int nFlags, float *pDefault )
+bool CImportKeyValueBase::AddFloatAttributeFlags( CDmElement* pElement, KeyValues *pKeyValue, const std::string_view pKeyName, int nFlags, float *pDefault )
 {
 	if ( !AddFloatAttribute( pElement, pKeyValue, pKeyName, pDefault ) )
 		return false;
@@ -203,7 +215,7 @@ bool CImportKeyValueBase::AddFloatAttributeFlags( CDmElement* pElement, KeyValue
 	return true;
 }
 
-bool CImportKeyValueBase::AddStringAttributeFlags( CDmElement* pElement, KeyValues *pKeyValue, const char *pKeyName, int nFlags, const char *pDefault )
+bool CImportKeyValueBase::AddStringAttributeFlags( CDmElement* pElement, KeyValues *pKeyValue, const std::string_view pKeyName, int nFlags, const std::optional<std::string_view> pDefault )
 {
 	if ( !AddStringAttribute( pElement, pKeyValue, pKeyName, pDefault ) )
 		return false;
@@ -262,7 +274,9 @@ bool CImportKeyValueBase::Unserialize( CUtlBuffer &buf, const char *pEncodingNam
 									   DmFileId_t fileid, DmConflictResolution_t idConflictResolution, CDmElement **ppRoot )
 {
 	*ppRoot = nullptr;
-	m_pFileName = g_pDataModel->GetFileName( fileid );
+	const char *pFileName = g_pDataModel->GetFileName( fileid );
+	m_pFileName = pFileName ? pFileName : "";
+	m_fileid = fileid;
 
 	KeyValues *kv = new KeyValues( "dmx file" );
 	if ( !kv )

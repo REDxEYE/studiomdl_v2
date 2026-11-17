@@ -241,7 +241,7 @@ private:
 
     TokenType_t ReadToken(CUtlBuffer &buf, CUtlBuffer &token);
 
-    DmElementDictHandle_t CreateDmElement(const char* pElementType);
+    DmElementDictHandle_t CreateDmElement(std::string_view pElementType);
 
     bool UnserializeAttributeValueFromToken(CDmAttribute* pAttribute, CUtlBuffer &tokenBuf);
 
@@ -291,7 +291,7 @@ void CDmSerializerKeyValues2::SerializeElementAttribute(CUtlBuffer &buf, CDmElem
                                                         CDmAttribute* pAttribute) {
     CDmElement* pElement = pAttribute->GetValueElement<CDmElement>();
     if (dict.ShouldInlineElement(pElement)) {
-        buf.Printf("\"%s\"\n{\n", pElement->GetTypeString());
+        buf.Printf("\"%s\"\n{\n", pElement->GetType().String());
         if (pElement) {
             SaveElement(buf, dict, pElement, false);
         }
@@ -321,7 +321,7 @@ void CDmSerializerKeyValues2::SerializeElementArrayAttribute(CUtlBuffer &buf, CD
     for (int i = 0; i < nCount; ++i) {
         CDmElement* pElement = array[i];
         if (dict.ShouldInlineElement(pElement)) {
-            buf.Printf("\"%s\"\n{\n", pElement->GetTypeString());
+            buf.Printf("\"%s\"\n{\n", pElement->GetType().String());
             if (pElement) {
                 SaveElement(buf, dict, pElement, false);
             }
@@ -451,7 +451,7 @@ bool CDmSerializerKeyValues2::SerializeAttributes(CUtlBuffer &buf, CDmElementSer
 bool CDmSerializerKeyValues2::SaveElement(CUtlBuffer &buf, CDmElementSerializationDictionary &dict,
                                           CDmElement* pElement, bool bWriteDelimiters) {
     if (bWriteDelimiters) {
-        buf.Printf("\"%s\"\n{\n", pElement->GetTypeString());
+        buf.Printf("\"%s\"\n{\n", pElement->GetType().String());
     }
     buf.PushTab();
 
@@ -618,11 +618,12 @@ CDmSerializerKeyValues2::TokenType_t CDmSerializerKeyValues2::ReadToken(CUtlBuff
 //-----------------------------------------------------------------------------
 // Creates a scene object, adds it to the element dictionary
 //-----------------------------------------------------------------------------
-DmElementDictHandle_t CDmSerializerKeyValues2::CreateDmElement(const char* pElementType) {
-    // See if we can create an element of that type
-    DmElementHandle_t hElement = g_pDataModel->CreateElement(pElementType, "", m_fileid);
+DmElementDictHandle_t CDmSerializerKeyValues2::CreateDmElement(const std::string_view elementType) {
+    // See if we can create an element of that type; the name is set later from the file's "name" attribute
+    DmElementHandle_t hElement = g_pDataModel->CreateElement(elementType, "", m_fileid);
     if (hElement == DMELEMENT_HANDLE_INVALID) {
-        g_KeyValues2ErrorStack.ReportError("Element uses unknown element type %s\n", pElementType);
+        g_KeyValues2ErrorStack.ReportError("Element uses unknown element type %.*s\n", static_cast<int>(elementType.size()),
+                                           elementType.data());
         return ELEMENT_DICT_HANDLE_INVALID;
     }
 

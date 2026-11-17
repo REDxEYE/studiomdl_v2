@@ -27,22 +27,15 @@
 #include "utlhash.h"
 
 
-
-
 //////// VPROF? //////////////////
-// For an example of how to mark up this file with VPROF nodes, see 
+// For an example of how to mark up this file with VPROF nodes, see
 // changelist 702984. However, be aware that calls to FindKey and Init
 // may occur outside of Vprof's usual hierarchy, which can cause strange
-// duplicate KeyValues::FindKey nodes at the root level and other 
+// duplicate KeyValues::FindKey nodes at the root level and other
 // confusing effects.
 //////////////////////////////////
 
-static char * s_LastFileLoadingFrom = "unknown"; // just needed for error messages
-
-// Statics for the growable string table
-int (*KeyValues::s_pfGetSymbolForString)( const char *name, bool bCreate ) = &KeyValues::GetSymbolForStringClassic;
-const char *(*KeyValues::s_pfGetStringForSymbol)( int symbol ) = &KeyValues::GetStringForSymbolClassic;
-CKeyValuesGrowableStringTable *KeyValues::s_pGrowableStringTable = nullptr;
+static char* s_LastFileLoadingFrom = "unknown"; // just needed for error messages
 
 #define KEYVALUES_TOKEN_SIZE	(1024 * 32)
 
@@ -56,264 +49,236 @@ CExpressionEvaluator g_ExpressionEvaluator;
 
 // a simple class to keep track of a stack of valid parsed symbols
 const int MAX_ERROR_STACK = 64;
-class CKeyValuesErrorStack
-{
+
+class CKeyValuesErrorStack {
 public:
-	CKeyValuesErrorStack() : m_pFilename("NULL"), m_errorIndex(0), m_maxErrorIndex(0), m_bEncounteredErrors(false) {}
+    CKeyValuesErrorStack() : m_pFilename("NULL"), m_errorIndex(0), m_maxErrorIndex(0), m_bEncounteredErrors(false) {
+    }
 
-	void SetFilename( const char *pFilename )
-	{
-		m_pFilename = pFilename;
-		m_maxErrorIndex = 0;
-	}
+    void SetFilename(const char* pFilename) {
+        m_pFilename = pFilename;
+        m_maxErrorIndex = 0;
+    }
 
-	// entering a new keyvalues block, save state for errors
-	// Not save symbols instead of pointers because the pointers can move!
-	int Push( int symName )
-	{
-		if ( m_errorIndex < MAX_ERROR_STACK )
-		{
-			m_errorStack[m_errorIndex] = symName;
-		}
-		m_errorIndex++;
-		m_maxErrorIndex = MAX( m_maxErrorIndex, (m_errorIndex-1) );
-		return m_errorIndex-1;
-	}
+    // entering a new keyvalues block, save state for errors
+    // Not save symbols instead of pointers because the pointers can move!
+    int Push(int symName) {
+        if (m_errorIndex < MAX_ERROR_STACK) {
+            m_errorStack[m_errorIndex] = symName;
+        }
+        m_errorIndex++;
+        m_maxErrorIndex = MAX(m_maxErrorIndex, (m_errorIndex-1));
+        return m_errorIndex - 1;
+    }
 
-	// exiting block, error isn't in this block, remove.
-	void Pop()
-	{
-		m_errorIndex--;
-		Assert(m_errorIndex>=0);
-	}
+    // exiting block, error isn't in this block, remove.
+    void Pop() {
+        m_errorIndex--;
+        Assert(m_errorIndex>=0);
+    }
 
-	// Allows you to keep the same stack level, but change the name as you parse peers
-	void Reset( int stackLevel, int symName )
-	{
-		Assert( stackLevel >= 0 && stackLevel < m_errorIndex );
-		if ( stackLevel < MAX_ERROR_STACK )
-			m_errorStack[stackLevel] = symName;
-	}
+    // Allows you to keep the same stack level, but change the name as you parse peers
+    void Reset(int stackLevel, int symName) {
+        Assert(stackLevel >= 0 && stackLevel < m_errorIndex);
+        if (stackLevel < MAX_ERROR_STACK)
+            m_errorStack[stackLevel] = symName;
+    }
 
-	// Hit an error, report it and the parsing stack for context
-	void ReportError( const char *pError )
-	{
-		Warning( "KeyValues Error: {} in file {}\n", pError, m_pFilename );
-		for ( int i = 0; i < m_maxErrorIndex; i++ )
-		{
-			if ( i < MAX_ERROR_STACK && m_errorStack[i] != INVALID_KEY_SYMBOL )
-			{
-				if ( i < m_errorIndex )
-				{
-					Warning( "{}, ", KeyValuesSystem()->GetStringForSymbol(m_errorStack[i]) );
-				}
-				else
-				{
-					Warning( "(*{}*), ", KeyValuesSystem()->GetStringForSymbol(m_errorStack[i]) );
-				}
-			}
-		}
-		Warning( "\n" );
-		m_bEncounteredErrors = true;
-	}
+    // Hit an error, report it and the parsing stack for context
+    void ReportError(const char* pError) {
+        Warning("KeyValues Error: {} in file {}\n", pError, m_pFilename);
+        for (int i = 0; i < m_maxErrorIndex; i++) {
+            if (i < MAX_ERROR_STACK && m_errorStack[i] != INVALID_KEY_SYMBOL) {
+                if (i < m_errorIndex) {
+                    Warning("{}, ", KeyValuesSystem()->GetStringForSymbol(m_errorStack[i]));
+                }
+                else {
+                    Warning("(*{}*), ", KeyValuesSystem()->GetStringForSymbol(m_errorStack[i]));
+                }
+            }
+        }
+        Warning("\n");
+        m_bEncounteredErrors = true;
+    }
 
-	bool EncounteredAnyErrors()
-	{
-		return m_bEncounteredErrors;
-	}
+    bool EncounteredAnyErrors() {
+        return m_bEncounteredErrors;
+    }
 
-	void ClearErrorFlag()
-	{
-		m_bEncounteredErrors = false;
-	}
+    void ClearErrorFlag() {
+        m_bEncounteredErrors = false;
+    }
 
 private:
-	int		m_errorStack[MAX_ERROR_STACK];
-	const char *m_pFilename;
-	int		m_errorIndex;
-	int		m_maxErrorIndex;
-	bool	m_bEncounteredErrors;
+    int m_errorStack[MAX_ERROR_STACK];
+    const char* m_pFilename;
+    int m_errorIndex;
+    int m_maxErrorIndex;
+    bool m_bEncounteredErrors;
 } g_KeyValuesErrorStack;
 
 
-
-
 // This class gets the tokens out of a CUtlBuffer for KeyValues.
-// Since KeyValues likes to seek backwards and seeking won't work with a text-mode CUtlStreamBuffer 
+// Since KeyValues likes to seek backwards and seeking won't work with a text-mode CUtlStreamBuffer
 // (which is what dmserializers uses), this class allows you to seek back one token.
-class CKeyValuesTokenReader
-{
+class CKeyValuesTokenReader {
 public:
-	CKeyValuesTokenReader( KeyValues *pKeyValues, CUtlBuffer &buf );
-	
-	const char* ReadToken( bool &wasQuoted, bool &wasConditional );
-	void SeekBackOneToken();
+    CKeyValuesTokenReader(KeyValues* pKeyValues, CUtlBuffer &buf);
+
+    const char* ReadToken(bool &wasQuoted, bool &wasConditional);
+
+    void SeekBackOneToken();
 
 private:
-	KeyValues *m_pKeyValues;
-	CUtlBuffer &m_Buffer;
+    KeyValues* m_pKeyValues;
+    CUtlBuffer &m_Buffer;
 
-	int m_nTokensRead;
-	bool m_bUsePriorToken;
-	bool m_bPriorTokenWasQuoted;
-	bool m_bPriorTokenWasConditional;
-	static char s_pTokenBuf[KEYVALUES_TOKEN_SIZE];
+    int m_nTokensRead;
+    bool m_bUsePriorToken;
+    bool m_bPriorTokenWasQuoted;
+    bool m_bPriorTokenWasConditional;
+    static char s_pTokenBuf[KEYVALUES_TOKEN_SIZE];
 };
 
 char CKeyValuesTokenReader::s_pTokenBuf[KEYVALUES_TOKEN_SIZE];
 
-CKeyValuesTokenReader::CKeyValuesTokenReader( KeyValues *pKeyValues, CUtlBuffer &buf ) : 
-	m_Buffer( buf )
-{
-	m_pKeyValues = pKeyValues;
-	m_nTokensRead = 0;
-	m_bUsePriorToken = false;
+CKeyValuesTokenReader::CKeyValuesTokenReader(KeyValues* pKeyValues, CUtlBuffer &buf) : m_Buffer(buf) {
+    m_pKeyValues = pKeyValues;
+    m_nTokensRead = 0;
+    m_bUsePriorToken = false;
 }
 
-const char* CKeyValuesTokenReader::ReadToken( bool &wasQuoted, bool &wasConditional )
-{
-	if ( m_bUsePriorToken )
-	{
-		m_bUsePriorToken = false;
-		wasQuoted = m_bPriorTokenWasQuoted;
-		wasConditional = m_bPriorTokenWasConditional;
-		return s_pTokenBuf;
-	}
+const char* CKeyValuesTokenReader::ReadToken(bool &wasQuoted, bool &wasConditional) {
+    if (m_bUsePriorToken) {
+        m_bUsePriorToken = false;
+        wasQuoted = m_bPriorTokenWasQuoted;
+        wasConditional = m_bPriorTokenWasConditional;
+        return s_pTokenBuf;
+    }
 
-	m_bPriorTokenWasQuoted = wasQuoted = false;
-	m_bPriorTokenWasConditional = wasConditional = false;
+    m_bPriorTokenWasQuoted = wasQuoted = false;
+    m_bPriorTokenWasConditional = wasConditional = false;
 
-	if ( !m_Buffer.IsValid() )
-		return nullptr; 
+    if (!m_Buffer.IsValid())
+        return nullptr;
 
-	// eating white spaces and remarks loop
-	while ( true )
-	{
-		m_Buffer.EatWhiteSpace();
-		if ( !m_Buffer.IsValid() )
-		{
-			return nullptr;	// file ends after reading whitespaces
-		}
+    // eating white spaces and remarks loop
+    while (true) {
+        m_Buffer.EatWhiteSpace();
+        if (!m_Buffer.IsValid()) {
+            return nullptr; // file ends after reading whitespaces
+        }
 
-		// stop if it's not a comment; a new token starts here
-		if ( !m_Buffer.EatCPPComment() )
-			break;
-	}
+        // stop if it's not a comment; a new token starts here
+        if (!m_Buffer.EatCPPComment())
+            break;
+    }
 
-	const char *c = (const char*)m_Buffer.PeekGet( sizeof(char), 0 );
-	if ( !c )
-	{
-		return nullptr;
-	}
+    const char* c = (const char*) m_Buffer.PeekGet(sizeof(char), 0);
+    if (!c) {
+        return nullptr;
+    }
 
-	// read quoted strings specially
-	if ( *c == '\"' )
-	{
-		m_bPriorTokenWasQuoted = wasQuoted = true;
-		m_Buffer.GetDelimitedString( m_pKeyValues->m_bHasEscapeSequences ? GetCStringCharConversion() : GetNoEscCharConversion(), 
-			s_pTokenBuf, KEYVALUES_TOKEN_SIZE );
+    // read quoted strings specially
+    if (*c == '\"') {
+        m_bPriorTokenWasQuoted = wasQuoted = true;
+        m_Buffer.GetDelimitedString(
+            m_pKeyValues->m_bHasEscapeSequences ? GetCStringCharConversion() : GetNoEscCharConversion(),
+            s_pTokenBuf, KEYVALUES_TOKEN_SIZE);
 
-		++m_nTokensRead;
-		return s_pTokenBuf;
-	}
+        ++m_nTokensRead;
+        return s_pTokenBuf;
+    }
 
-	if ( *c == '{' || *c == '}' || *c == '=' )
-	{
-		// it's a control char, just add this one char and stop reading
-		s_pTokenBuf[0] = *c;
-		s_pTokenBuf[1] = 0;
-		m_Buffer.GetChar();
-		++m_nTokensRead;
-		return s_pTokenBuf;
-	}
+    if (*c == '{' || *c == '}' || *c == '=') {
+        // it's a control char, just add this one char and stop reading
+        s_pTokenBuf[0] = *c;
+        s_pTokenBuf[1] = 0;
+        m_Buffer.GetChar();
+        ++m_nTokensRead;
+        return s_pTokenBuf;
+    }
 
-	// read in the token until we hit a whitespace or a control character
-	bool bReportedError = false;
-	bool bConditionalStart = false;
-	int nCount = 0;
-	while ( 1 )
-	{
-		c = (const char*)m_Buffer.PeekGet( sizeof(char), 0 );
+    // read in the token until we hit a whitespace or a control character
+    bool bReportedError = false;
+    bool bConditionalStart = false;
+    int nCount = 0;
+    while (1) {
+        c = (const char*) m_Buffer.PeekGet(sizeof(char), 0);
 
-		// end of file
-		if ( !c || *c == 0 )
-			break;
+        // end of file
+        if (!c || *c == 0)
+            break;
 
-		// break if any control character appears in non quoted tokens
-		if ( *c == '"' || *c == '{' || *c == '}' || *c == '=' )
-			break;
+        // break if any control character appears in non quoted tokens
+        if (*c == '"' || *c == '{' || *c == '}' || *c == '=')
+            break;
 
-		if ( *c == '[' )
-			bConditionalStart = true;
+        if (*c == '[')
+            bConditionalStart = true;
 
-		if ( *c == ']' && bConditionalStart )
-		{
-			m_bPriorTokenWasConditional = wasConditional = true;
-			bConditionalStart = false;
-		}
+        if (*c == ']' && bConditionalStart) {
+            m_bPriorTokenWasConditional = wasConditional = true;
+            bConditionalStart = false;
+        }
 
-		// break on whitespace
-		if ( V_isspace(*c) && !bConditionalStart )
-			break;
+        // break on whitespace
+        if (V_isspace(*c) && !bConditionalStart)
+            break;
 
-		if (nCount < (KEYVALUES_TOKEN_SIZE-1) )
-		{
-			s_pTokenBuf[nCount++] = *c;	// add char to buffer
-		}
-		else if ( !bReportedError )
-		{
-			bReportedError = true;
-			g_KeyValuesErrorStack.ReportError(" ReadToken overflow" );
-		}
+        if (nCount < (KEYVALUES_TOKEN_SIZE - 1)) {
+            s_pTokenBuf[nCount++] = *c; // add char to buffer
+        }
+        else if (!bReportedError) {
+            bReportedError = true;
+            g_KeyValuesErrorStack.ReportError(" ReadToken overflow");
+        }
 
-		m_Buffer.GetChar();
-	}
-	s_pTokenBuf[ nCount ] = 0;
-	++m_nTokensRead;
+        m_Buffer.GetChar();
+    }
+    s_pTokenBuf[nCount] = 0;
+    ++m_nTokensRead;
 
-	return s_pTokenBuf;
+    return s_pTokenBuf;
 }
 
-void CKeyValuesTokenReader::SeekBackOneToken()
-{
-	if ( m_bUsePriorToken )
-		Plat_FatalError( "CKeyValuesTokenReader::SeekBackOneToken: It is only possible to seek back one token at a time" );
-	
-	if ( m_nTokensRead == 0 )
-		Plat_FatalError( "CkeyValuesTokenReader::SeekBackOneToken: No tokens read yet" );
+void CKeyValuesTokenReader::SeekBackOneToken() {
+    if (m_bUsePriorToken)
+        Plat_FatalError(
+        "CKeyValuesTokenReader::SeekBackOneToken: It is only possible to seek back one token at a time");
 
-	m_bUsePriorToken = true;
+    if (m_nTokensRead == 0)
+        Plat_FatalError("CkeyValuesTokenReader::SeekBackOneToken: No tokens read yet");
+
+    m_bUsePriorToken = true;
 }
-
 
 
 // a simple helper that creates stack entries as it goes in & out of scope
-class CKeyErrorContext
-{
+class CKeyErrorContext {
 public:
-	~CKeyErrorContext()
-	{
-		g_KeyValuesErrorStack.Pop();
-	}
-	explicit CKeyErrorContext( int symName )
-	{
-		Init( symName );
-	}
-	void Reset( int symName )
-	{
-		g_KeyValuesErrorStack.Reset( m_stackLevel, symName );
-	}
-	int GetStackLevel() const
-	{
-		return m_stackLevel;
-	}
-private:
-	void Init( int symName )
-	{
-		m_stackLevel = g_KeyValuesErrorStack.Push( symName );
-	}
+    ~CKeyErrorContext() {
+        g_KeyValuesErrorStack.Pop();
+    }
 
-	int m_stackLevel;
+    explicit CKeyErrorContext(int symName) {
+        Init(symName);
+    }
+
+    void Reset(int symName) {
+        g_KeyValuesErrorStack.Reset(m_stackLevel, symName);
+    }
+
+    int GetStackLevel() const {
+        return m_stackLevel;
+    }
+
+private:
+    void Init(int symName) {
+        m_stackLevel = g_KeyValuesErrorStack.Push(symName);
+    }
+
+    int m_stackLevel;
 };
 
 // Uncomment this line to hit the ~CLeakTrack assert to see what's looking like it's leaking
@@ -321,49 +286,41 @@ private:
 
 #ifdef LEAKTRACK
 
-class CLeakTrack
-{
+class CLeakTrack {
 public:
-	CLeakTrack()
-	{
-	}
-	~CLeakTrack()
-	{
-		if ( keys.size() != 0 )
-		{
-			Assert( 0 );
-		}
-	}
+    CLeakTrack() {
+    }
 
-	struct kve
-	{
-		KeyValues *kv;
-		char		name[ 256 ];
-	};
+    ~CLeakTrack() {
+        if (keys.size() != 0) {
+            Assert(0);
+        }
+    }
 
-	void AddKv( KeyValues *kv, char const *name )
-	{
-		kve k;
-		V_strncpy( k.name, name ? name : "NULL", sizeof( k.name ) );
-		k.kv = kv;
+    struct kve {
+        KeyValues* kv;
+        char name[256];
+    };
 
-		keys.AddToTail( k );
-	}
+    void AddKv(KeyValues* kv, char const* name) {
+        kve k;
+        V_strncpy(k.name, name ? name : "NULL", sizeof(k.name));
+        k.kv = kv;
 
-	void RemoveKv( KeyValues *kv )
-	{
-		int c = keys.size();
-		for ( int i = 0; i < c; i++ )
-		{
-			if ( keys[i].kv == kv )
-			{
-				keys.Remove( i );
-				break;
-			}
-		}
-	}
+        keys.AddToTail(k);
+    }
 
-	CUtlVector< kve > keys;
+    void RemoveKv(KeyValues* kv) {
+        int c = keys.size();
+        for (int i = 0; i < c; i++) {
+            if (keys[i].kv == kv) {
+                keys.Remove(i);
+                break;
+            }
+        }
+    }
+
+    CUtlVector<kve> keys;
 };
 
 static CLeakTrack track;
@@ -373,265 +330,153 @@ static CLeakTrack track;
 
 #else
 
-#define TRACK_KV_ADD( ptr, name ) 
-#define TRACK_KV_REMOVE( ptr )	
+#define TRACK_KV_ADD( ptr, name )
+#define TRACK_KV_REMOVE( ptr )
 
 #endif
 
 
-//-----------------------------------------------------------------------------
-// Purpose: An arbitrarily growable string table for KeyValues key names. 
-//	See the comment in the header for more info.
-//-----------------------------------------------------------------------------
-class CKeyValuesGrowableStringTable
-{
-public: 
-	// Constructor
-	CKeyValuesGrowableStringTable() :
-	  m_vecStrings( 0u, 512 * 1024u ),
-	  m_hashLookup( 2048, 0, 0, m_Functor, m_Functor )
-	{
-		m_vecStrings.AddToTail( '\0' );
-	}
 
-	  // Translates a string to an index
-	  int GetSymbolForString( const char *name, bool bCreate = true )
-	  {
-		  // Put the current details into our hash functor
-		  m_Functor.SetCurString( name );
-		  m_Functor.SetCurStringBase( (const char *)m_vecStrings.data() );
-
-		  if ( bCreate )
-		  {
-			  bool bInserted = false;
-			  UtlHashHandle_t hElement = m_hashLookup.Insert( -1, &bInserted );
-			  if ( bInserted )
-			  {
-				  int iIndex = m_vecStrings.AddMultipleToTail( V_strlen( name ) + 1, name );
-				  m_hashLookup[ hElement ] = iIndex;
-			  }
-
-			  return m_hashLookup[ hElement ];
-		  }
-		  else
-		  {
-			  UtlHashHandle_t hElement = m_hashLookup.Find( -1 );
-			  if ( m_hashLookup.IsValidHandle( hElement ) )
-				  return m_hashLookup[ hElement ];
-			  else
-				  return -1;
-		  }
-	  }
-
-	  // Translates an index back to a string
-	  const char *GetStringForSymbol( int symbol )
-	  {
-		  return (const char *)m_vecStrings.data() + symbol;
-	  }
-
-private:
-
-	// A class plugged into CUtlHash that allows us to change the behavior of the table
-	// and store only the index in the table.
-	class CLookupFunctor
-	{
-	public:
-		CLookupFunctor() : m_pchCurString(nullptr), m_pchCurBase(nullptr) {}
-
-		// Sets what we are currently inserting or looking for.
-		void SetCurString( const char *pchCurString ) { m_pchCurString = pchCurString; }
-		void SetCurStringBase( const char *pchCurBase ) { m_pchCurBase = pchCurBase; }
-
-		// The compare function.
-		bool operator()( int nLhs, int nRhs ) const
-		{
-			const char *pchLhs = nLhs > 0 ? m_pchCurBase + nLhs : m_pchCurString;
-			const char *pchRhs = nRhs > 0 ? m_pchCurBase + nRhs : m_pchCurString;
-
-			return ( 0 == V_stricmp( pchLhs, pchRhs ) );
-		}
-
-		// The hash function.
-		unsigned int operator()( int nItem ) const
-		{
-			return HashStringCaseless( m_pchCurString );
-		}
-
-	private:
-		const char *m_pchCurString;
-		const char *m_pchCurBase;
-	};
-
-	CLookupFunctor	m_Functor;
-	CUtlHash<int, CLookupFunctor &, CLookupFunctor &> m_hashLookup;
-	CUtlVector<char> m_vecStrings;
-};
-
-
-
-//-----------------------------------------------------------------------------
-// Purpose: Bodys of the function pointers used for interacting with the key
-//	name string table
-//-----------------------------------------------------------------------------
-int KeyValues::GetSymbolForStringClassic( const char *name, bool bCreate )
-{
-	return KeyValuesSystem()->GetSymbolForString( name, bCreate );
-}
-
-const char *KeyValues::GetStringForSymbolClassic( int symbol )
-{
-	return KeyValuesSystem()->GetStringForSymbol( symbol );
-}
-
-
-
-//-----------------------------------------------------------------------------
-// Purpose: Constructor
-//-----------------------------------------------------------------------------
-KeyValues::KeyValues( const char *setName )
-{
-	TRACK_KV_ADD( this, setName );
-
-	Init();
-	SetName ( setName );
+KeyValues::KeyValues() {
+    Init();
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: Constructor
 //-----------------------------------------------------------------------------
-KeyValues::KeyValues( const char *setName, const char *firstKey, const char *firstValue )
-{
-	TRACK_KV_ADD( this, setName );
+KeyValues::KeyValues(const std::string_view setName) {
+    TRACK_KV_ADD(this, setName);
 
-	Init();
-	SetName( setName );
-	SetString( firstKey, firstValue );
+    Init();
+    SetName(setName);
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: Constructor
 //-----------------------------------------------------------------------------
-KeyValues::KeyValues( const char *setName, const char *firstKey, const wchar_t *firstValue )
-{
-	TRACK_KV_ADD( this, setName );
+KeyValues::KeyValues(const std::string_view setName, const std::string_view firstKey, const std::string_view firstValue) {
+    TRACK_KV_ADD(this, setName);
 
-	Init();
-	SetName( setName );
-	SetWString( firstKey, firstValue );
+    Init();
+    SetName(setName);
+    SetString(firstKey, firstValue);
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: Constructor
 //-----------------------------------------------------------------------------
-KeyValues::KeyValues( const char *setName, const char *firstKey, int firstValue )
-{
-	TRACK_KV_ADD( this, setName );
+KeyValues::KeyValues(std::string_view setName, std::string_view firstKey, const wchar_t* firstValue) {
+    TRACK_KV_ADD(this, setName);
 
-	Init();
-	SetName( setName );
-	SetInt( firstKey, firstValue );
+    Init();
+    SetName(setName);
+    SetWString(firstKey, firstValue);
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: Constructor
 //-----------------------------------------------------------------------------
-KeyValues::KeyValues( const char *setName, const char *firstKey, const char *firstValue, const char *secondKey, const char *secondValue )
-{
-	TRACK_KV_ADD( this, setName );
+KeyValues::KeyValues(std::string_view setName, std::string_view firstKey, int firstValue) {
+    TRACK_KV_ADD(this, setName);
 
-	Init();
-	SetName( setName );
-	SetString( firstKey, firstValue );
-	SetString( secondKey, secondValue );
+    Init();
+    SetName(setName);
+    SetInt(firstKey, firstValue);
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: Constructor
 //-----------------------------------------------------------------------------
-KeyValues::KeyValues( const char *setName, const char *firstKey, int firstValue, const char *secondKey, int secondValue )
-{
-	TRACK_KV_ADD( this, setName );
+KeyValues::KeyValues(std::string_view setName, std::string_view firstKey, std::string_view firstValue,
+                     std::string_view secondKey, std::string_view secondValue) {
+    TRACK_KV_ADD(this, setName);
 
-	Init();
-	SetName( setName );
-	SetInt( firstKey, firstValue );
-	SetInt( secondKey, secondValue );
+    Init();
+    SetName(setName);
+    SetString(firstKey, firstValue);
+    SetString(secondKey, secondValue);
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Constructor
+//-----------------------------------------------------------------------------
+KeyValues::KeyValues(std::string_view setName, std::string_view firstKey, int firstValue, std::string_view secondKey,
+                     int secondValue) {
+    TRACK_KV_ADD(this, setName);
+
+    Init();
+    SetName(setName);
+    SetInt(firstKey, firstValue);
+    SetInt(secondKey, secondValue);
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: Initialize member variables
 //-----------------------------------------------------------------------------
-void KeyValues::Init()
-{
-	m_iKeyName = 0;
-	m_iKeyNameCaseSensitive1 = 0;
-	m_iKeyNameCaseSensitive2 = 0;
-	m_iDataType = TYPE_NONE;
+void KeyValues::Init() {
+    m_iKeyName = 0;
+    m_iKeyNameCaseSensitive1 = 0;
+    m_iKeyNameCaseSensitive2 = 0;
+    m_iDataType = TYPE_NONE;
 
-	m_pSub = nullptr;
-	m_pPeer = nullptr;
-	m_pChain = nullptr;
+    m_pSub = nullptr;
+    m_pPeer = nullptr;
+    m_pChain = nullptr;
 
-	m_sValue = nullptr;
-	m_wsValue = nullptr;
-	m_pValue = nullptr;
+    m_sValue = nullptr;
+    m_wsValue = nullptr;
+    m_pValue = nullptr;
 
-	m_bHasEscapeSequences = 0;
+    m_bHasEscapeSequences = 0;
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: Destructor
 //-----------------------------------------------------------------------------
-KeyValues::~KeyValues()
-{
-	TRACK_KV_REMOVE( this );
+KeyValues::~KeyValues() {
+    TRACK_KV_REMOVE(this);
 
-	RemoveEverything();
+    RemoveEverything();
 }
 
 
 // for backwards compat - we used to need this to force the free to run from the same DLL
 // as the alloc
-void KeyValues::deleteThis()
-{ 
-	delete this; 
+void KeyValues::deleteThis() {
+    delete this;
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: remove everything
 //-----------------------------------------------------------------------------
-void KeyValues::RemoveEverything()
-{
-	KeyValues *dat;
-	KeyValues *datNext = nullptr;
-	for ( dat = m_pSub; dat != nullptr; dat = datNext )
-	{
-		datNext = dat->m_pPeer;
-		dat->m_pPeer = nullptr;
-		delete dat;
-	}
+void KeyValues::RemoveEverything() {
+    KeyValues* dat;
+    KeyValues* datNext = nullptr;
+    for (dat = m_pSub; dat != nullptr; dat = datNext) {
+        datNext = dat->m_pPeer;
+        dat->m_pPeer = nullptr;
+        delete dat;
+    }
 
-	for ( dat = m_pPeer; dat && dat != this; dat = datNext )
-	{
-		datNext = dat->m_pPeer;
-		dat->m_pPeer = nullptr;
-		delete dat;
-	}
+    for (dat = m_pPeer; dat && dat != this; dat = datNext) {
+        datNext = dat->m_pPeer;
+        dat->m_pPeer = nullptr;
+        delete dat;
+    }
 
-	delete [] m_sValue;
-	m_sValue = nullptr;
-	delete [] m_wsValue;
-	m_wsValue = nullptr;
+    delete [] m_sValue;
+    m_sValue = nullptr;
+    delete [] m_wsValue;
+    m_wsValue = nullptr;
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: 
-// Input  : *f - 
+// Purpose:
+// Input  : *f -
 //-----------------------------------------------------------------------------
 
-void KeyValues::RecursiveSaveToFile( CUtlBuffer& buf, int indentLevel )
-{
-	RecursiveSaveToFile(nullptr, FILESYSTEM_INVALID_HANDLE, &buf, indentLevel );
+void KeyValues::RecursiveSaveToFile(CUtlBuffer &buf, int indentLevel) {
+    RecursiveSaveToFile(nullptr, FILESYSTEM_INVALID_HANDLE, &buf, indentLevel);
 }
 
 //-----------------------------------------------------------------------------
@@ -642,591 +487,478 @@ void KeyValues::RecursiveSaveToFile( CUtlBuffer& buf, int indentLevel )
 //-----------------------------------------------------------------------------
 // Purpose: Get the name of the current key section
 //-----------------------------------------------------------------------------
-const char *KeyValues::GetName( ) const
-{
-	AssertMsg( this, "Member function called on NULL KeyValues" );
-	return this ? KeyValuesSystem()->GetStringForSymbol( MAKE_3_BYTES_FROM_1_AND_2( m_iKeyNameCaseSensitive1, m_iKeyNameCaseSensitive2 ) ) : "";
+std::string_view KeyValues::GetName() const {
+    AssertMsg(this, "Member function called on NULL KeyValues");
+    return KeyValuesSystem()->GetStringForSymbol(
+        MAKE_3_BYTES_FROM_1_AND_2(m_iKeyNameCaseSensitive1, m_iKeyNameCaseSensitive2));
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: Get the symbol name of the current key section
 //-----------------------------------------------------------------------------
-int KeyValues::GetNameSymbol() const
-{
-	AssertMsg( this, "Member function called on NULL KeyValues" );
-	return this ? m_iKeyName : INVALID_KEY_SYMBOL;
+int KeyValues::GetNameSymbol() const {
+    AssertMsg(this, "Member function called on NULL KeyValues");
+    return m_iKeyName;
 }
 
-int KeyValues::GetNameSymbolCaseSensitive() const
-{
-	AssertMsg( this, "Member function called on NULL KeyValues" );
-	return this ? MAKE_3_BYTES_FROM_1_AND_2( m_iKeyNameCaseSensitive1, m_iKeyNameCaseSensitive2 ) : INVALID_KEY_SYMBOL;
+int KeyValues::GetNameSymbolCaseSensitive() const {
+    AssertMsg(this, "Member function called on NULL KeyValues");
+    return MAKE_3_BYTES_FROM_1_AND_2(m_iKeyNameCaseSensitive1, m_iKeyNameCaseSensitive2);
 }
 
 
 //-----------------------------------------------------------------------------
 // Purpose: if parser should translate escape sequences ( /n, /t etc), set to true
 //-----------------------------------------------------------------------------
-void KeyValues::UsesEscapeSequences(bool state)
-{
-	m_bHasEscapeSequences = state;
+void KeyValues::UsesEscapeSequences(bool state) {
+    m_bHasEscapeSequences = state;
 }
 
 
 //-----------------------------------------------------------------------------
 // Purpose: Load keyValues from disk
 //-----------------------------------------------------------------------------
-bool KeyValues::LoadFromFile( IBaseFileSystem *filesystem, const char *resourceName, const char *pathID, GetSymbolProc_t pfnEvaluateSymbolProc )
-{
-	//TM_ZONE_FILTERED( TELEMETRY_LEVEL0, 50, TMZF_NONE, "%s %s", __FUNCTION__, tmDynamicString( TELEMETRY_LEVEL0, resourceName ) );
+bool KeyValues::LoadFromFile(IBaseFileSystem* filesystem, const char* resourceName, const char* pathID,
+                             GetSymbolProc_t pfnEvaluateSymbolProc) {
+    //TM_ZONE_FILTERED( TELEMETRY_LEVEL0, 50, TMZF_NONE, "%s %s", __FUNCTION__, tmDynamicString( TELEMETRY_LEVEL0, resourceName ) );
 
-	FileHandle_t f = filesystem->Open(resourceName ? resourceName : "", "rb", IBaseFileSystem::ToPathID(pathID));
-	if ( !f )
-		return false;
+    FileHandle_t f = filesystem->Open(resourceName ? resourceName : "", "rb", IBaseFileSystem::ToPathID(pathID));
+    if (!f)
+        return false;
 
-	s_LastFileLoadingFrom = (char*)resourceName;
+    s_LastFileLoadingFrom = (char*) resourceName;
 
-	// load file into a null-terminated buffer
-	int fileSize = filesystem->Size( f );
-	unsigned bufSize = ((IFileSystem *)filesystem)->GetOptimalReadSize( f, fileSize + 2 );
+    // load file into a null-terminated buffer
+    int fileSize = filesystem->Size(f);
+    unsigned bufSize = ((IFileSystem*) filesystem)->GetOptimalReadSize(f, fileSize + 2);
 
-	char *buffer = (char*)((IFileSystem *)filesystem)->AllocOptimalReadBuffer( f, bufSize );
-	Assert( buffer );
+    char* buffer = (char*) ((IFileSystem*) filesystem)->AllocOptimalReadBuffer(f, bufSize);
+    Assert(buffer);
 
-	// read into local buffer
-	bool bRetOK = ( ((IFileSystem *)filesystem)->ReadEx( buffer, bufSize, fileSize, f ) != 0 );
+    // read into local buffer
+    bool bRetOK = (((IFileSystem*) filesystem)->ReadEx(buffer, bufSize, fileSize, f) != 0);
 
-	filesystem->Close( f );	// close file after reading
+    filesystem->Close(f); // close file after reading
 
-	if ( bRetOK )
-	{
-		buffer[fileSize] = 0; // null terminate file as EOF
-		buffer[fileSize+1] = 0; // double NULL terminating in case this is a unicode file
-		bRetOK = LoadFromBuffer( resourceName, buffer, filesystem, pathID, pfnEvaluateSymbolProc );
-	}
+    if (bRetOK) {
+        buffer[fileSize] = 0; // null terminate file as EOF
+        buffer[fileSize + 1] = 0; // double NULL terminating in case this is a unicode file
+        bRetOK = LoadFromBuffer(resourceName, buffer, filesystem, pathID, pfnEvaluateSymbolProc);
+    }
 
-	((IFileSystem *)filesystem)->FreeOptimalReadBuffer( buffer );
+    ((IFileSystem*) filesystem)->FreeOptimalReadBuffer(buffer);
 
-	return bRetOK;
+    return bRetOK;
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: Save the keyvalues to disk
-//			Creates the path to the file if it doesn't exist 
+//			Creates the path to the file if it doesn't exist
 //-----------------------------------------------------------------------------
-bool KeyValues::SaveToFile( IBaseFileSystem *filesystem, const char *resourceName, const char *pathID, bool bWriteEmptySubkeys )
-{
-	// create a write file
-	FileHandle_t f = filesystem->Open(resourceName ? resourceName : "", "wb", IBaseFileSystem::ToPathID(pathID));
+bool KeyValues::SaveToFile(IBaseFileSystem* filesystem, const char* resourceName, const char* pathID,
+                           bool bWriteEmptySubkeys) {
+    // create a write file
+    FileHandle_t f = filesystem->Open(resourceName ? resourceName : "", "wb", IBaseFileSystem::ToPathID(pathID));
 
-	if ( f == FILESYSTEM_INVALID_HANDLE )
-	{
-		DevMsg( "KeyValues::SaveToFile: couldn't open file \"{}\" in path \"{}\".\n", 
-			resourceName?resourceName:"NULL", pathID?pathID:"NULL" );
-		return false;
-	}
+    if (f == FILESYSTEM_INVALID_HANDLE) {
+        DevMsg("KeyValues::SaveToFile: couldn't open file \"{}\" in path \"{}\".\n",
+               resourceName ? resourceName : "NULL", pathID ? pathID : "NULL");
+        return false;
+    }
 
-	RecursiveSaveToFile(filesystem, f, nullptr, 0, bWriteEmptySubkeys);
-	filesystem->Close(f);
+    RecursiveSaveToFile(filesystem, f, nullptr, 0, bWriteEmptySubkeys);
+    filesystem->Close(f);
 
-	return true;
+    return true;
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: Write out a set of indenting
 //-----------------------------------------------------------------------------
-void KeyValues::WriteIndents( IBaseFileSystem *filesystem, FileHandle_t f, CUtlBuffer *pBuf, int indentLevel )
-{
-	for ( int i = 0; i < indentLevel; i++ )
-	{
-		INTERNALWRITE( "\t", 1 );
-	}
+void KeyValues::WriteIndents(IBaseFileSystem* filesystem, FileHandle_t f, CUtlBuffer* pBuf, int indentLevel) {
+    for (int i = 0; i < indentLevel; i++) {
+        INTERNALWRITE("\t", 1);
+    }
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: Write out a string where we convert the double quotes to backslash double quote
 //-----------------------------------------------------------------------------
-void KeyValues::WriteConvertedString( IBaseFileSystem *filesystem, FileHandle_t f, CUtlBuffer *pBuf, const char *pszString )
-{
-	// handle double quote chars within the string
-	// the worst possible case is that the whole string is quotes
-	int len = V_strlen(pszString);
-	char *convertedString = (char *) alloca ((len + 1)  * sizeof(char) * 2);
-	int j=0;
-	for (int i=0; i <= len; i++)
-	{
-		if (pszString[i] == '\"')
-		{
-			convertedString[j] = '\\';
-			j++;
-		}
-		else if ( m_bHasEscapeSequences && pszString[i] == '\\' )
-		{
-			convertedString[j] = '\\';
-			j++;
-		}
-		convertedString[j] = pszString[i];
-		j++;
-	}		
+void KeyValues::WriteConvertedString(IBaseFileSystem* filesystem, FileHandle_t f, CUtlBuffer* pBuf,
+                                     const std::string_view pszString) {
+    // handle double quote chars within the string
+    // the worst possible case is that the whole string is quotes
+    const size_t len = pszString.size();
+    char* convertedString = (char*) alloca(len * 2 + 1);
+    size_t j = 0;
+    for (const char c : pszString) {
+        if (c == '\"') {
+            convertedString[j++] = '\\';
+        }
+        else if (m_bHasEscapeSequences && c == '\\') {
+            convertedString[j++] = '\\';
+        }
+        convertedString[j++] = c;
+    }
 
-	INTERNALWRITE(convertedString, V_strlen(convertedString));
+    INTERNALWRITE(convertedString, static_cast<int>(j));
 }
 
 
-void KeyValues::InternalWrite( IBaseFileSystem *filesystem, FileHandle_t f, CUtlBuffer *pBuf, const void *pData, int len )
-{
-	if ( filesystem )
-	{
-		filesystem->Write( pData, len, f );
-	}
+void KeyValues::InternalWrite(IBaseFileSystem* filesystem, FileHandle_t f, CUtlBuffer* pBuf, const void* pData,
+                              int len) {
+    if (filesystem) {
+        filesystem->Write(pData, len, f);
+    }
 
-	if ( pBuf )
-	{
-		pBuf->Put( pData, len );
-	}
-} 
+    if (pBuf) {
+        pBuf->Put(pData, len);
+    }
+}
 
 
 //-----------------------------------------------------------------------------
 // Purpose: Save keyvalues from disk, if subkey values are detected, calls
 //			itself to save those
 //-----------------------------------------------------------------------------
-void KeyValues::RecursiveSaveToFile( IBaseFileSystem *filesystem, FileHandle_t f, CUtlBuffer *pBuf, int indentLevel, bool bWriteEmptySubkeys )
-{
-	// write header
-	WriteIndents( filesystem, f, pBuf, indentLevel );
-	INTERNALWRITE("\"", 1);
-	WriteConvertedString(filesystem, f, pBuf, GetName());	
-	INTERNALWRITE("\"\n", 2);
-	WriteIndents( filesystem, f, pBuf, indentLevel );
-	INTERNALWRITE("{\n", 2);
+void KeyValues::RecursiveSaveToFile(IBaseFileSystem* filesystem, FileHandle_t f, CUtlBuffer* pBuf, int indentLevel,
+                                    bool bWriteEmptySubkeys) {
+    // write header
+    WriteIndents(filesystem, f, pBuf, indentLevel);
+    INTERNALWRITE("\"", 1);
+    WriteConvertedString(filesystem, f, pBuf, GetName());
+    INTERNALWRITE("\"\n", 2);
+    WriteIndents(filesystem, f, pBuf, indentLevel);
+    INTERNALWRITE("{\n", 2);
 
-	// loop through all our keys writing them to disk
-	for ( KeyValues *dat = m_pSub; dat != nullptr; dat = dat->m_pPeer )
-	{
-		if ( dat->m_pSub )
-		{
-			dat->RecursiveSaveToFile( filesystem, f, pBuf, indentLevel + 1, bWriteEmptySubkeys );
-		}
-		else
-		{
-			// only write non-empty keys
+    // loop through all our keys writing them to disk
+    for (KeyValues* dat = m_pSub; dat != nullptr; dat = dat->m_pPeer) {
+        if (dat->m_pSub) {
+            dat->RecursiveSaveToFile(filesystem, f, pBuf, indentLevel + 1, bWriteEmptySubkeys);
+        }
+        else {
+            // only write non-empty keys
 
-			switch (dat->m_iDataType)
-			{
-			case TYPE_NONE:
-				{
-					if ( bWriteEmptySubkeys )
-					{
-						dat->RecursiveSaveToFile( filesystem, f, pBuf, indentLevel + 1, bWriteEmptySubkeys );
-					}
-					break;
-				}
-			case TYPE_STRING:
-				{
-					if (dat->m_sValue && *(dat->m_sValue))
-					{
-						WriteIndents(filesystem, f, pBuf, indentLevel + 1);
-						INTERNALWRITE("\"", 1);
-						WriteConvertedString(filesystem, f, pBuf, dat->GetName());	
-						INTERNALWRITE("\"\t\t\"", 4);
+            switch (dat->m_iDataType) {
+                case TYPE_NONE: {
+                    if (bWriteEmptySubkeys) {
+                        dat->RecursiveSaveToFile(filesystem, f, pBuf, indentLevel + 1, bWriteEmptySubkeys);
+                    }
+                    break;
+                }
+                case TYPE_STRING: {
+                    if (dat->m_sValue && *(dat->m_sValue)) {
+                        WriteIndents(filesystem, f, pBuf, indentLevel + 1);
+                        INTERNALWRITE("\"", 1);
+                        WriteConvertedString(filesystem, f, pBuf, dat->GetName());
+                        INTERNALWRITE("\"\t\t\"", 4);
 
-						WriteConvertedString(filesystem, f, pBuf, dat->m_sValue);	
+                        WriteConvertedString(filesystem, f, pBuf, dat->m_sValue);
 
-						INTERNALWRITE("\"\n", 2);
-					}
-					break;
-				}
-			case TYPE_WSTRING:
-				{
-					if ( dat->m_wsValue )
-					{
-						static char buf[KEYVALUES_TOKEN_SIZE];
-						// make sure we have enough space
-						int result = V_UnicodeToUTF8( dat->m_wsValue, buf, KEYVALUES_TOKEN_SIZE);
-						if (result)
-						{
-							WriteIndents(filesystem, f, pBuf, indentLevel + 1);
-							INTERNALWRITE("\"", 1);
-							INTERNALWRITE(dat->GetName(), V_strlen(dat->GetName()));
-							INTERNALWRITE("\"\t\t\"", 4);
+                        INTERNALWRITE("\"\n", 2);
+                    }
+                    break;
+                }
+                case TYPE_WSTRING: {
+                    if (dat->m_wsValue) {
+                        static char buf[KEYVALUES_TOKEN_SIZE];
+                        // make sure we have enough space
+                        int result = V_UnicodeToUTF8(dat->m_wsValue, buf, KEYVALUES_TOKEN_SIZE);
+                        if (result) {
+                            WriteIndents(filesystem, f, pBuf, indentLevel + 1);
+                            INTERNALWRITE("\"", 1);
+                            INTERNALWRITE(dat->GetName().data(), dat->GetName().size());
+                            INTERNALWRITE("\"\t\t\"", 4);
 
-							WriteConvertedString(filesystem, f, pBuf, buf);
+                            WriteConvertedString(filesystem, f, pBuf, buf);
 
-							INTERNALWRITE("\"\n", 2);
-						}
-					}
-					break;
-				}
+                            INTERNALWRITE("\"\n", 2);
+                        }
+                    }
+                    break;
+                }
 
-			case TYPE_INT:
-				{
-					WriteIndents(filesystem, f, pBuf, indentLevel + 1);
-					INTERNALWRITE("\"", 1);
-					INTERNALWRITE(dat->GetName(), V_strlen(dat->GetName()));
-					INTERNALWRITE("\"\t\t\"", 4);
+                case TYPE_INT: {
+                    WriteIndents(filesystem, f, pBuf, indentLevel + 1);
+                    INTERNALWRITE("\"", 1);
+                    INTERNALWRITE(dat->GetName().data(), dat->GetName().size());
+                    INTERNALWRITE("\"\t\t\"", 4);
 
-					char buf[32];
-					V_snprintf(buf, sizeof( buf ), "%d", dat->m_iValue);
+                    char buf[32];
+                    V_snprintf(buf, sizeof(buf), "%d", dat->m_iValue);
 
-					INTERNALWRITE(buf, V_strlen(buf));
-					INTERNALWRITE("\"\n", 2);
-					break;
-				}
+                    INTERNALWRITE(buf, V_strlen(buf));
+                    INTERNALWRITE("\"\n", 2);
+                    break;
+                }
 
-			case TYPE_UINT64:
-				{
-					WriteIndents(filesystem, f, pBuf, indentLevel + 1);
-					INTERNALWRITE("\"", 1);
-					INTERNALWRITE(dat->GetName(), V_strlen(dat->GetName()));
-					INTERNALWRITE("\"\t\t\"", 4);
+                case TYPE_UINT64: {
+                    WriteIndents(filesystem, f, pBuf, indentLevel + 1);
+                    INTERNALWRITE("\"", 1);
+                    INTERNALWRITE(dat->GetName().data(), dat->GetName().size());
+                    INTERNALWRITE("\"\t\t\"", 4);
 
-					char buf[32];
-					// write "0x" + 16 char 0-padded hex encoded 64 bit value
-					V_snprintf( buf, sizeof( buf ), "0x%016llX", *( (uint64_t *)dat->m_sValue ) );
+                    char buf[32];
+                    // write "0x" + 16 char 0-padded hex encoded 64 bit value
+                    V_snprintf(buf, sizeof(buf), "0x%016llX", *((uint64_t*) dat->m_sValue));
 
-					INTERNALWRITE(buf, V_strlen(buf));
-					INTERNALWRITE("\"\n", 2);
-					break;
-				}
+                    INTERNALWRITE(buf, V_strlen(buf));
+                    INTERNALWRITE("\"\n", 2);
+                    break;
+                }
 
-			case TYPE_FLOAT:
-				{
-					WriteIndents(filesystem, f, pBuf, indentLevel + 1);
-					INTERNALWRITE("\"", 1);
-					INTERNALWRITE(dat->GetName(), V_strlen(dat->GetName()));
-					INTERNALWRITE("\"\t\t\"", 4);
+                case TYPE_FLOAT: {
+                    WriteIndents(filesystem, f, pBuf, indentLevel + 1);
+                    INTERNALWRITE("\"", 1);
+                    INTERNALWRITE(dat->GetName().data(), dat->GetName().size());
+                    INTERNALWRITE("\"\t\t\"", 4);
 
-					char buf[48];
-					V_snprintf(buf, sizeof( buf ), "%f", dat->m_flValue);
+                    char buf[48];
+                    V_snprintf(buf, sizeof(buf), "%f", dat->m_flValue);
 
-					INTERNALWRITE(buf, V_strlen(buf));
-					INTERNALWRITE("\"\n", 2);
-					break;
-				}
-			case TYPE_COLOR:
-				DevMsg( "KeyValues::RecursiveSaveToFile: TODO, missing code for TYPE_COLOR.\n" );
-				break;
+                    INTERNALWRITE(buf, V_strlen(buf));
+                    INTERNALWRITE("\"\n", 2);
+                    break;
+                }
+                case TYPE_COLOR:
+                    DevMsg("KeyValues::RecursiveSaveToFile: TODO, missing code for TYPE_COLOR.\n");
+                    break;
 
-			default:
-				break;
-			}
-		}
-	}
+                default:
+                    break;
+            }
+        }
+    }
 
-	// write tail
-	WriteIndents(filesystem, f, pBuf, indentLevel);
-	INTERNALWRITE("}\n", 2);
+    // write tail
+    WriteIndents(filesystem, f, pBuf, indentLevel);
+    INTERNALWRITE("}\n", 2);
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: looks up a key by symbol name
 //-----------------------------------------------------------------------------
-KeyValues *KeyValues::FindKey(int keySymbol) const
-{
-	AssertMsg( this, "Member function called on NULL KeyValues" );
-	for (KeyValues *dat = this ? m_pSub : nullptr; dat != nullptr; dat = dat->m_pPeer)
-	{
-		if ( dat->m_iKeyName == (uint32_t) keySymbol )
-			return dat;
-	}
+KeyValues* KeyValues::FindKey(int keySymbol) const {
+    AssertMsg(this, "Member function called on NULL KeyValues");
+    for (KeyValues* dat = this ? m_pSub : nullptr; dat != nullptr; dat = dat->m_pPeer) {
+        if (dat->m_iKeyName == (uint32_t) keySymbol)
+            return dat;
+    }
 
-	return nullptr;
+    return nullptr;
 }
 
-//-----------------------------------------------------------------------------
-// Purpose: Find a keyValue, create it if it is not found.
-//			Set bCreate to true to create the key if it doesn't already exist 
-//			(which ensures a valid pointer will be returned)
-//-----------------------------------------------------------------------------
-KeyValues *KeyValues::FindKey(const char *keyName, bool bCreate)
-{
-	// Validate NULL == this early out
-	if ( !this )
-	{
-		AssertMsg( false, "KeyValues::FindKey called on NULL pointer!" );  // Undefined behavior. Could blow up on a new platform. Don't do it.
-		Assert( !bCreate );
-		return nullptr;
-	}
 
-	// return the current key if a NULL subkey is asked for
-	if (!keyName || !keyName[0])
-		return this;
+KeyValues* KeyValues::FindKey(std::string_view keyName, bool bCreate) {
+    if (keyName.empty())
+        return this;
 
-	// look for '/' characters deliminating sub fields
-	CUtlVector< char > szBuf;
-	const char *subStr = strchr(keyName, '/');
-	const char *searchStr = keyName;
+    // look for '/' characters deliminating sub fields.
+    // If the key name is just '/', we don't treat is as a key with subfields, but use the '/' as a key name directly
+    const auto pos = keyName.find('/');
+    const bool hasSubKey = pos != std::string_view::npos;
 
-	// pull out the substring if it exists
-	if ( subStr )
-	{
-		int size = subStr - keyName;
-		Assert( size >= 0 );
-		Assert( size < 1024 * 1024 );
-		szBuf.EnsureCount( size + 1 );
-		V_memcpy( szBuf.data(), keyName, size );
-		szBuf[size] = 0;
-		if ( V_strlen( keyName ) > 1 )
-		{
-			// If the key name is just '/', we don't treat is as a key with subfields, but use the '/' as a key name directly
-			searchStr = szBuf.data();
-		}
-	}
+    std::string_view searchStr = keyName;
+    if (hasSubKey && keyName.size() > 1)
+        searchStr = keyName.substr(0, pos);
 
+    HKeySymbol iSearchStr = KeyValuesSystem()->GetSymbolForString(searchStr, bCreate);
+    if (iSearchStr == INVALID_KEY_SYMBOL)
+        return nullptr;
 
-	// lookup the symbol for the search string,
-	// we do not need the case-sensitive symbol at this time
-	// because if the key is found, then it will be found by case-insensitive lookup
-	// if the key is not found and needs to be created we will pass the actual searchStr
-	// and have the new KeyValues constructor get/create the case-sensitive symbol
-	HKeySymbol iSearchStr = KeyValuesSystem()->GetSymbolForString( searchStr, bCreate );
-	if ( iSearchStr == INVALID_KEY_SYMBOL )
-	{
-		// not found, couldn't possibly be in key value list
-		return nullptr;
-	}
+    KeyValues* lastItem = nullptr;
+    KeyValues* dat = nullptr;
 
-	KeyValues *lastItem = nullptr;
-	KeyValues *dat;
-	// find the searchStr in the current peer list
-	for (dat = m_pSub; dat != nullptr; dat = dat->m_pPeer)
-	{
-		lastItem = dat;	// record the last item looked at (for if we need to append to the end of the list)
+    for (dat = m_pSub; dat != nullptr; dat = dat->m_pPeer) {
+        lastItem = dat;
 
-		// symbol compare
-		if ( dat->m_iKeyName == ( uint32_t ) iSearchStr )
-		{
-			break;
-		}
-	}
+        if (dat->m_iKeyName == static_cast<uint32_t>(iSearchStr))
+            break;
+    }
 
-	if ( !dat && m_pChain )
-	{
-		dat = m_pChain->FindKey(keyName, false);
-	}
+    if (!dat && m_pChain)
+        dat = m_pChain->FindKey(keyName, false);
 
-	// make sure a key was found
-	if (!dat)
-	{
-		if (bCreate)
-		{
-			// we need to create a new key
-			dat = new KeyValues( searchStr );
-			//			Assert(dat != NULL);
+    if (!dat) {
+        if (!bCreate)
+            return nullptr;
 
-			// insert new key at end of list
-			if (lastItem)
-			{
-				lastItem->m_pPeer = dat;
-			}
-			else
-			{
-				m_pSub = dat;
-			}
-			dat->m_pPeer = nullptr;
+        dat = new KeyValues(searchStr);
 
-			// a key graduates to be a submsg as soon as it's m_pSub is set
-			// this should be the only place m_pSub is set
-			m_iDataType = TYPE_NONE;
-		}
-		else
-		{
-			return nullptr;
-		}
-	}
+        if (lastItem)
+            lastItem->m_pPeer = dat;
+        else
+            m_pSub = dat;
 
-	// if we've still got a subStr we need to keep looking deeper in the tree
-	if ( subStr )
-	{
-		// recursively chain down through the paths in the string
-		return dat->FindKey(subStr + 1, bCreate);
-	}
+        dat->m_pPeer = nullptr;
+        m_iDataType = TYPE_NONE;
+    }
 
-	return dat;
+    if (hasSubKey)
+        return dat->FindKey(keyName.substr(pos + 1), bCreate);
+
+    return dat;
 }
 
 
 //-----------------------------------------------------------------------------
-KeyValues* KeyValues::CreateKeyUsingKnownLastChild( const char *keyName, KeyValues *pLastChild )
-{
-	// Create a new key
-	KeyValues* dat = new KeyValues( keyName );
+KeyValues* KeyValues::CreateKeyUsingKnownLastChild(const std::string_view keyName, KeyValues* pLastChild) {
+    // Create a new key
+    KeyValues* dat = new KeyValues(keyName);
 
-	dat->UsesEscapeSequences( m_bHasEscapeSequences != 0 ); // use same format as parent does
+    dat->UsesEscapeSequences(m_bHasEscapeSequences != 0); // use same format as parent does
 
-	// add into subkey list
-	AddSubkeyUsingKnownLastChild( dat, pLastChild );
+    // add into subkey list
+    AddSubkeyUsingKnownLastChild(dat, pLastChild);
 
-	return dat;
+    return dat;
 }
 
 //-----------------------------------------------------------------------------
-void KeyValues::AddSubkeyUsingKnownLastChild( KeyValues *pSubkey, KeyValues *pLastChild )
-{
-	// Make sure the subkey isn't a child of some other keyvalues
-	Assert( pSubkey != NULL );
-	Assert( pSubkey->m_pPeer == NULL );
+void KeyValues::AddSubkeyUsingKnownLastChild(KeyValues* pSubkey, KeyValues* pLastChild) {
+    // Make sure the subkey isn't a child of some other keyvalues
+    Assert(pSubkey != NULL);
+    Assert(pSubkey->m_pPeer == NULL);
 
-	// Empty child list?
-	if ( pLastChild == nullptr)
-	{
-		Assert( m_pSub == NULL );
-		m_pSub = pSubkey;
-	}
-	else
-	{
-		Assert( m_pSub != NULL );
-		Assert( pLastChild->m_pPeer == NULL );
+    // Empty child list?
+    if (pLastChild == nullptr) {
+        Assert(m_pSub == NULL);
+        m_pSub = pSubkey;
+    }
+    else {
+        Assert(m_pSub != NULL);
+        Assert(pLastChild->m_pPeer == NULL);
 
-		pLastChild->SetNextKey( pSubkey );
-	}
+        pLastChild->SetNextKey(pSubkey);
+    }
 }
 
 
 //-----------------------------------------------------------------------------
 // Adds a subkey. Make sure the subkey isn't a child of some other keyvalues
 //-----------------------------------------------------------------------------
-void KeyValues::AddSubKey( KeyValues *pSubkey )
-{
-	// Make sure the subkey isn't a child of some other keyvalues
-	Assert( pSubkey != NULL );
-	Assert( pSubkey->m_pPeer == NULL );
+void KeyValues::AddSubKey(KeyValues* pSubkey) {
+    // Make sure the subkey isn't a child of some other keyvalues
+    Assert(pSubkey != NULL);
+    Assert(pSubkey->m_pPeer == NULL);
 
-	// add into subkey list
-	if ( m_pSub == nullptr)
-	{
-		m_pSub = pSubkey;
-	}
-	else
-	{
-		KeyValues *pTempDat = m_pSub;
-		while ( pTempDat->GetNextKey() != nullptr)
-		{
-			pTempDat = pTempDat->GetNextKey();
-		}
+    // add into subkey list
+    if (m_pSub == nullptr) {
+        m_pSub = pSubkey;
+    }
+    else {
+        KeyValues* pTempDat = m_pSub;
+        while (pTempDat->GetNextKey() != nullptr) {
+            pTempDat = pTempDat->GetNextKey();
+        }
 
-		pTempDat->SetNextKey( pSubkey );
-	}
+        pTempDat->SetNextKey(pSubkey);
+    }
 }
-
 
 
 //-----------------------------------------------------------------------------
 // Purpose: Remove a subkey from the list
 //-----------------------------------------------------------------------------
-void KeyValues::RemoveSubKey(KeyValues *subKey)
-{
-	if (!subKey)
-		return;
+void KeyValues::RemoveSubKey(KeyValues* subKey) {
+    if (!subKey)
+        return;
 
-	// check the list pointer
-	if (m_pSub == subKey)
-	{
-		m_pSub = subKey->m_pPeer;
-	}
-	else
-	{
-		// look through the list
-		KeyValues *kv = m_pSub;
-		while (kv->m_pPeer)
-		{
-			if (kv->m_pPeer == subKey)
-			{
-				kv->m_pPeer = subKey->m_pPeer;
-				break;
-			}
+    // check the list pointer
+    if (m_pSub == subKey) {
+        m_pSub = subKey->m_pPeer;
+    }
+    else {
+        // look through the list
+        KeyValues* kv = m_pSub;
+        while (kv->m_pPeer) {
+            if (kv->m_pPeer == subKey) {
+                kv->m_pPeer = subKey->m_pPeer;
+                break;
+            }
 
-			kv = kv->m_pPeer;
-		}
-	}
+            kv = kv->m_pPeer;
+        }
+    }
 
-	subKey->m_pPeer = nullptr;
+    subKey->m_pPeer = nullptr;
 }
 
 
 //-----------------------------------------------------------------------------
 // Purpose: Locate last child.  Returns NULL if we have no children
 //-----------------------------------------------------------------------------
-KeyValues *KeyValues::FindLastSubKey()
-{
-	// No children?
-	if ( m_pSub == nullptr)
-		return nullptr;
+KeyValues* KeyValues::FindLastSubKey() {
+    // No children?
+    if (m_pSub == nullptr)
+        return nullptr;
 
-	// Scan for the last one
-	KeyValues *pLastChild = m_pSub;
-	while ( pLastChild->m_pPeer )
-		pLastChild = pLastChild->m_pPeer;
-	return pLastChild;
+    // Scan for the last one
+    KeyValues* pLastChild = m_pSub;
+    while (pLastChild->m_pPeer)
+        pLastChild = pLastChild->m_pPeer;
+    return pLastChild;
 }
 
 
 //-----------------------------------------------------------------------------
 // Purpose: Return the first subkey in the list
 //-----------------------------------------------------------------------------
-KeyValues *KeyValues::GetFirstSubKey() const
-{
-	AssertMsg( this, "Member function called on NULL KeyValues" );
-	return this ? m_pSub : nullptr;
+KeyValues* KeyValues::GetFirstSubKey() const {
+    AssertMsg(this, "Member function called on NULL KeyValues");
+    return this ? m_pSub : nullptr;
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: Return the next subkey
 //-----------------------------------------------------------------------------
-KeyValues *KeyValues::GetNextKey() const
-{
-	AssertMsg( this, "Member function called on NULL KeyValues" );
-	return this ? m_pPeer : nullptr;
+KeyValues* KeyValues::GetNextKey() const {
+    AssertMsg(this, "Member function called on NULL KeyValues");
+    return this ? m_pPeer : nullptr;
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: Sets this key's peer to the KeyValues passed in
 //-----------------------------------------------------------------------------
-void KeyValues::SetNextKey( KeyValues *pDat )
-{
-	m_pPeer = pDat;
+void KeyValues::SetNextKey(KeyValues* pDat) {
+    m_pPeer = pDat;
 }
 
 
-KeyValues* KeyValues::GetFirstTrueSubKey()
-{
-	AssertMsg( this, "Member function called on NULL KeyValues" );
-	KeyValues *pRet = this ? m_pSub : nullptr;
-	while ( pRet && pRet->m_iDataType != TYPE_NONE )
-		pRet = pRet->m_pPeer;
+KeyValues* KeyValues::GetFirstTrueSubKey() {
+    AssertMsg(this, "Member function called on NULL KeyValues");
+    KeyValues* pRet = this ? m_pSub : nullptr;
+    while (pRet && pRet->m_iDataType != TYPE_NONE)
+        pRet = pRet->m_pPeer;
 
-	return pRet;
+    return pRet;
 }
 
-KeyValues* KeyValues::GetNextTrueSubKey()
-{
-	AssertMsg( this, "Member function called on NULL KeyValues" );
-	KeyValues *pRet = this ? m_pPeer : nullptr;
-	while ( pRet && pRet->m_iDataType != TYPE_NONE )
-		pRet = pRet->m_pPeer;
+KeyValues* KeyValues::GetNextTrueSubKey() {
+    AssertMsg(this, "Member function called on NULL KeyValues");
+    KeyValues* pRet = this ? m_pPeer : nullptr;
+    while (pRet && pRet->m_iDataType != TYPE_NONE)
+        pRet = pRet->m_pPeer;
 
-	return pRet;
+    return pRet;
 }
 
-KeyValues* KeyValues::GetFirstValue()
-{
-	AssertMsg( this, "Member function called on NULL KeyValues" );
-	KeyValues *pRet = this ? m_pSub : nullptr;
-	while ( pRet && pRet->m_iDataType == TYPE_NONE )
-		pRet = pRet->m_pPeer;
+KeyValues* KeyValues::GetFirstValue() {
+    AssertMsg(this, "Member function called on NULL KeyValues");
+    KeyValues* pRet = this ? m_pSub : nullptr;
+    while (pRet && pRet->m_iDataType == TYPE_NONE)
+        pRet = pRet->m_pPeer;
 
-	return pRet;
+    return pRet;
 }
 
-KeyValues* KeyValues::GetNextValue()
-{
-	AssertMsg( this, "Member function called on NULL KeyValues" );
-	KeyValues *pRet = this ? m_pPeer : nullptr;
-	while ( pRet && pRet->m_iDataType == TYPE_NONE )
-		pRet = pRet->m_pPeer;
+KeyValues* KeyValues::GetNextValue() {
+    AssertMsg(this, "Member function called on NULL KeyValues");
+    KeyValues* pRet = this ? m_pPeer : nullptr;
+    while (pRet && pRet->m_iDataType == TYPE_NONE)
+        pRet = pRet->m_pPeer;
 
-	return pRet;
+    return pRet;
 }
 
 
@@ -1234,1250 +966,1094 @@ KeyValues* KeyValues::GetNextValue()
 // Purpose: Get the integer value of a keyName. Default value is returned
 //			if the keyName can't be found.
 //-----------------------------------------------------------------------------
-int KeyValues::GetInt( const char *keyName, int defaultValue )
-{
-	KeyValues *dat = FindKey( keyName, false );
-	if ( dat )
-	{
-		switch ( dat->m_iDataType )
-		{
-		case TYPE_STRING:
-			return atoi(dat->m_sValue);
-		case TYPE_WSTRING:
-			return _wtoi(dat->m_wsValue);
-		case TYPE_FLOAT:
-			return (int)dat->m_flValue;
-		case TYPE_UINT64:
-			// can't convert, since it would lose data
-			Assert(0);
-			return 0;
-		case TYPE_INT:
-		case TYPE_PTR:
-		default:
-			return dat->m_iValue;
-		};
-	}
-	return defaultValue;
+int KeyValues::GetInt(const std::string_view keyName, int defaultValue) {
+    KeyValues* dat = FindKey(keyName, false);
+    if (dat) {
+        switch (dat->m_iDataType) {
+            case TYPE_STRING:
+                return atoi(dat->m_sValue);
+            case TYPE_WSTRING:
+                return _wtoi(dat->m_wsValue);
+            case TYPE_FLOAT:
+                return (int) dat->m_flValue;
+            case TYPE_UINT64:
+                // can't convert, since it would lose data
+                Assert(0);
+                return 0;
+            case TYPE_INT:
+            case TYPE_PTR:
+            default:
+                return dat->m_iValue;
+        };
+    }
+    return defaultValue;
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: Get the integer value of a keyName. Default value is returned
 //			if the keyName can't be found.
 //-----------------------------------------------------------------------------
-uint64_t KeyValues::GetUint64( const char *keyName, uint64_t defaultValue )
-{
-	KeyValues *dat = FindKey( keyName, false );
-	if ( dat )
-	{
-		switch ( dat->m_iDataType )
-		{
-		case TYPE_STRING:
-			{
-				uint64_t uiResult = 0ull;
-				sscanf( dat->m_sValue, "%lld", &uiResult );
-				return uiResult;
-			}
-		case TYPE_WSTRING:
-			{
-				uint64_t uiResult = 0ull;
-				swscanf( dat->m_wsValue, L"%lld", &uiResult );
-				return uiResult;
-			}
-		case TYPE_FLOAT:
-			return (int)dat->m_flValue;
-		case TYPE_UINT64:
-			return *((uint64_t *)dat->m_sValue);
-		case TYPE_PTR:
-			return (uint64_t)(uintptr_t)dat->m_pValue;
-		case TYPE_INT:
-		default:
-			return dat->m_iValue;
-		};
-	}
-	return defaultValue;
+uint64_t KeyValues::GetUint64(const std::string_view keyName, uint64_t defaultValue) {
+    KeyValues* dat = FindKey(keyName, false);
+    if (dat) {
+        switch (dat->m_iDataType) {
+            case TYPE_STRING: {
+                uint64_t uiResult = 0ull;
+                sscanf(dat->m_sValue, "%lld", &uiResult);
+                return uiResult;
+            }
+            case TYPE_WSTRING: {
+                uint64_t uiResult = 0ull;
+                swscanf(dat->m_wsValue, L"%lld", &uiResult);
+                return uiResult;
+            }
+            case TYPE_FLOAT:
+                return (int) dat->m_flValue;
+            case TYPE_UINT64:
+                return *((uint64_t*) dat->m_sValue);
+            case TYPE_PTR:
+                return (uint64_t) (uintptr_t) dat->m_pValue;
+            case TYPE_INT:
+            default:
+                return dat->m_iValue;
+        };
+    }
+    return defaultValue;
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: Get the pointer value of a keyName. Default value is returned
 //			if the keyName can't be found.
 //-----------------------------------------------------------------------------
-void *KeyValues::GetPtr( const char *keyName, void *defaultValue )
-{
-	KeyValues *dat = FindKey( keyName, false );
-	if ( dat )
-	{
-		switch ( dat->m_iDataType )
-		{
-		case TYPE_PTR:
-			return dat->m_pValue;
+void* KeyValues::GetPtr(const std::string_view keyName, void* defaultValue) {
+    KeyValues* dat = FindKey(keyName, false);
+    if (dat) {
+        switch (dat->m_iDataType) {
+            case TYPE_PTR:
+                return dat->m_pValue;
 
-		case TYPE_WSTRING:
-		case TYPE_STRING:
-		case TYPE_FLOAT:
-		case TYPE_INT:
-		case TYPE_UINT64:
-		default:
-			return nullptr;
-		};
-	}
-	return defaultValue;
+            case TYPE_WSTRING:
+            case TYPE_STRING:
+            case TYPE_FLOAT:
+            case TYPE_INT:
+            case TYPE_UINT64:
+            default:
+                return nullptr;
+        };
+    }
+    return defaultValue;
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: Get the float value of a keyName. Default value is returned
 //			if the keyName can't be found.
 //-----------------------------------------------------------------------------
-float KeyValues::GetFloat( const char *keyName, float defaultValue )
-{
-	KeyValues *dat = FindKey( keyName, false );
-	if ( dat )
-	{
-		switch ( dat->m_iDataType )
-		{
-		case TYPE_STRING:
-			return (float)atof(dat->m_sValue);
-		case TYPE_WSTRING:
+float KeyValues::GetFloat(const std::string_view keyName, float defaultValue) {
+    KeyValues* dat = FindKey(keyName, false);
+    if (dat) {
+        switch (dat->m_iDataType) {
+            case TYPE_STRING:
+                return (float) atof(dat->m_sValue);
+            case TYPE_WSTRING:
 #ifdef WIN32
-			return (float) _wtof(dat->m_wsValue);		// no wtof
+                return (float) _wtof(dat->m_wsValue); // no wtof
 #else
-			return (float) wcstof( dat->m_wsValue, (wchar_t **) nullptr); 
+                return (float) wcstof(dat->m_wsValue, (wchar_t**) nullptr);
 #endif
-		case TYPE_FLOAT:
-			return dat->m_flValue;
-		case TYPE_INT:
-			return (float)dat->m_iValue;
-		case TYPE_UINT64:
-			return (float)(*((uint64_t *)dat->m_sValue));
-		case TYPE_PTR:
-		default:
-			return 0.0f;
-		};
-	}
-	return defaultValue;
+            case TYPE_FLOAT:
+                return dat->m_flValue;
+            case TYPE_INT:
+                return (float) dat->m_iValue;
+            case TYPE_UINT64:
+                return (float) (*((uint64_t*) dat->m_sValue));
+            case TYPE_PTR:
+            default:
+                return 0.0f;
+        };
+    }
+    return defaultValue;
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: Get the string pointer of a keyName. Default value is returned
 //			if the keyName can't be found.
 //-----------------------------------------------------------------------------
-const char *KeyValues::GetString( const char *keyName, const char *defaultValue )
-{
-	KeyValues *dat = FindKey( keyName, false );
-	if ( dat )
-	{
-		// convert the data to string form then return it
-		char buf[64];
-		switch ( dat->m_iDataType )
-		{
-		case TYPE_FLOAT:
-			V_snprintf( buf, sizeof( buf ), "%f", dat->m_flValue );
-			SetString( keyName, buf );
-			break;
-		case TYPE_PTR:
-			V_snprintf( buf, sizeof( buf ), "%lld", CastPtrToInt64( dat->m_pValue ) );
-			SetString( keyName, buf );
-			break;
-		case TYPE_INT:
-			V_snprintf( buf, sizeof( buf ), "%d", dat->m_iValue );
-			SetString( keyName, buf );
-			break;
-		case TYPE_UINT64:
-			V_snprintf( buf, sizeof( buf ), "%lld", *((uint64_t *)(dat->m_sValue)) );
-			SetString( keyName, buf );
-			break;
-		case TYPE_COLOR:
-			V_snprintf( buf, sizeof( buf ), "%d %d %d %d", dat->m_Color[0], dat->m_Color[1], dat->m_Color[2], dat->m_Color[3] );
-			SetString( keyName, buf );
-			break;
+std::string_view KeyValues::GetString(const std::string_view keyName, const std::string_view defaultValue) {
+    KeyValues* dat = FindKey(keyName, false);
+    if (dat) {
+        // convert the data to string form then return it
+        char buf[64];
+        switch (dat->m_iDataType) {
+            case TYPE_FLOAT:
+                V_snprintf(buf, sizeof(buf), "%f", dat->m_flValue);
+                SetString(keyName, buf);
+                break;
+            case TYPE_PTR:
+                V_snprintf(buf, sizeof(buf), "%lld", CastPtrToInt64(dat->m_pValue));
+                SetString(keyName, buf);
+                break;
+            case TYPE_INT:
+                V_snprintf(buf, sizeof(buf), "%d", dat->m_iValue);
+                SetString(keyName, buf);
+                break;
+            case TYPE_UINT64:
+                V_snprintf(buf, sizeof(buf), "%lld", *((uint64_t*) (dat->m_sValue)));
+                SetString(keyName, buf);
+                break;
+            case TYPE_COLOR:
+                V_snprintf(buf, sizeof(buf), "%d %d %d %d", dat->m_Color[0], dat->m_Color[1], dat->m_Color[2],
+                           dat->m_Color[3]);
+                SetString(keyName, buf);
+                break;
 
-		case TYPE_WSTRING:
-			{
-				// convert the string to char *, set it for future use, and return it
-				char wideBuf[512];
-				int result = V_UnicodeToUTF8(dat->m_wsValue, wideBuf, 512);
-				if ( result )
-				{
-					// note: this will copy wideBuf
-					SetString( keyName, wideBuf );
-				}
-				else
-				{
-					return defaultValue;
-				}
-				break;
-			}
-		case TYPE_STRING:
-			break;
-		default:
-			return defaultValue;
-		};
+            case TYPE_WSTRING: {
+                // convert the string to char *, set it for future use, and return it
+                char wideBuf[512];
+                int result = V_UnicodeToUTF8(dat->m_wsValue, wideBuf, 512);
+                if (result) {
+                    // note: this will copy wideBuf
+                    SetString(keyName, wideBuf);
+                }
+                else {
+                    return defaultValue;
+                }
+                break;
+            }
+            case TYPE_STRING:
+                break;
+            default:
+                return defaultValue;
+        };
 
-		return dat->m_sValue;
-	}
-	return defaultValue;
+        return dat->m_sValue;
+    }
+    return defaultValue;
 }
 
 
-const wchar_t *KeyValues::GetWString( const char *keyName, const wchar_t *defaultValue)
-{
-	KeyValues *dat = FindKey( keyName, false );
-	if ( dat )
-	{
-		wchar_t wbuf[64];
-		switch ( dat->m_iDataType )
-		{
-		case TYPE_FLOAT:
-			swprintf(wbuf, Q_ARRAYSIZE(wbuf), L"%f", dat->m_flValue);
-			SetWString( keyName, wbuf);
-			break;
-		case TYPE_PTR:
-			swprintf( wbuf, Q_ARRAYSIZE(wbuf), L"%lld", (int64_t)(size_t)dat->m_pValue );
-			SetWString( keyName, wbuf );
-			break;
-		case TYPE_INT:
-			swprintf( wbuf, Q_ARRAYSIZE(wbuf), L"%d", dat->m_iValue );
-			SetWString( keyName, wbuf );
-			break;
-		case TYPE_UINT64:
-			{
-				swprintf( wbuf, Q_ARRAYSIZE(wbuf), L"%lld", *((uint64_t *)(dat->m_sValue)) );
-				SetWString( keyName, wbuf );
-			}
-			break;
-		case TYPE_COLOR:
-			swprintf( wbuf, Q_ARRAYSIZE(wbuf), L"%d %d %d %d", dat->m_Color[0], dat->m_Color[1], dat->m_Color[2], dat->m_Color[3] );
-			SetWString( keyName, wbuf );
-			break;
+const wchar_t* KeyValues::GetWString(const std::string_view keyName, const wchar_t* defaultValue) {
+    KeyValues* dat = FindKey(keyName, false);
+    if (dat) {
+        wchar_t wbuf[64];
+        switch (dat->m_iDataType) {
+            case TYPE_FLOAT:
+                swprintf(wbuf, Q_ARRAYSIZE(wbuf), L"%f", dat->m_flValue);
+                SetWString(keyName, wbuf);
+                break;
+            case TYPE_PTR:
+                swprintf(wbuf, Q_ARRAYSIZE(wbuf), L"%lld", (int64_t) (size_t) dat->m_pValue);
+                SetWString(keyName, wbuf);
+                break;
+            case TYPE_INT:
+                swprintf(wbuf, Q_ARRAYSIZE(wbuf), L"%d", dat->m_iValue);
+                SetWString(keyName, wbuf);
+                break;
+            case TYPE_UINT64: {
+                swprintf(wbuf, Q_ARRAYSIZE(wbuf), L"%lld", *((uint64_t*) (dat->m_sValue)));
+                SetWString(keyName, wbuf);
+            }
+            break;
+            case TYPE_COLOR:
+                swprintf(wbuf, Q_ARRAYSIZE(wbuf), L"%d %d %d %d", dat->m_Color[0], dat->m_Color[1], dat->m_Color[2],
+                         dat->m_Color[3]);
+                SetWString(keyName, wbuf);
+                break;
 
-		case TYPE_WSTRING:
-			break;
-		case TYPE_STRING:
-			{
-				int bufSize = V_strlen(dat->m_sValue) + 1;
-				wchar_t *pWBuf = new wchar_t[ bufSize ];
-				int result = V_UTF8ToUnicode(dat->m_sValue, pWBuf, bufSize * sizeof( wchar_t ) );
-				if ( result >= 0 ) // may be a zero length string
-				{
-					SetWString( keyName, pWBuf);
-				}
-				else
-				{
-					delete [] pWBuf;
-					return defaultValue;
-				}
-				delete [] pWBuf;
-				break;
-			}
-		default:
-			return defaultValue;
-		};
+            case TYPE_WSTRING:
+                break;
+            case TYPE_STRING: {
+                int bufSize = V_strlen(dat->m_sValue) + 1;
+                wchar_t* pWBuf = new wchar_t[bufSize];
+                int result = V_UTF8ToUnicode(dat->m_sValue, pWBuf, bufSize * sizeof(wchar_t));
+                if (result >= 0) // may be a zero length string
+                {
+                    SetWString(keyName, pWBuf);
+                }
+                else {
+                    delete [] pWBuf;
+                    return defaultValue;
+                }
+                delete [] pWBuf;
+                break;
+            }
+            default:
+                return defaultValue;
+        };
 
-		return (const wchar_t* )dat->m_wsValue;
-	}
-	return defaultValue;
+        return (const wchar_t*) dat->m_wsValue;
+    }
+    return defaultValue;
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: Gets a color
 //-----------------------------------------------------------------------------
-Color KeyValues::GetColor( const char *keyName , const Color& defaultColor )
-{
-	Color color = defaultColor;
-	KeyValues *dat = FindKey( keyName , false );
-	if ( dat )
-	{
-		if ( dat->m_iDataType == TYPE_COLOR )
-		{
-			color[0] = dat->m_Color[0];
-			color[1] = dat->m_Color[1];
-			color[2] = dat->m_Color[2];
-			color[3] = dat->m_Color[3];
-		}
-		else if ( dat->m_iDataType == TYPE_FLOAT )
-		{
-			color[0] = (unsigned char)dat->m_flValue;
-		}
-		else if ( dat->m_iDataType == TYPE_INT )
-		{
-			color[0] = (unsigned char)dat->m_iValue;
-		}
-		else if ( dat->m_iDataType == TYPE_STRING )
-		{
-			// parse the colors out of the string
-			float a = 0, b = 0, c = 0, d = 0;
-			sscanf(dat->m_sValue, "%f %f %f %f", &a, &b, &c, &d);
-			color[0] = (unsigned char)a;
-			color[1] = (unsigned char)b;
-			color[2] = (unsigned char)c;
-			color[3] = (unsigned char)d;
-		}
-	}
-	return color;
+Color KeyValues::GetColor(const std::string_view keyName, const Color &defaultColor) {
+    Color color = defaultColor;
+    KeyValues* dat = FindKey(keyName, false);
+    if (dat) {
+        if (dat->m_iDataType == TYPE_COLOR) {
+            color[0] = dat->m_Color[0];
+            color[1] = dat->m_Color[1];
+            color[2] = dat->m_Color[2];
+            color[3] = dat->m_Color[3];
+        }
+        else if (dat->m_iDataType == TYPE_FLOAT) {
+            color[0] = (unsigned char) dat->m_flValue;
+        }
+        else if (dat->m_iDataType == TYPE_INT) {
+            color[0] = (unsigned char) dat->m_iValue;
+        }
+        else if (dat->m_iDataType == TYPE_STRING) {
+            // parse the colors out of the string
+            float a = 0, b = 0, c = 0, d = 0;
+            sscanf(dat->m_sValue, "%f %f %f %f", &a, &b, &c, &d);
+            color[0] = (unsigned char) a;
+            color[1] = (unsigned char) b;
+            color[2] = (unsigned char) c;
+            color[3] = (unsigned char) d;
+        }
+    }
+    return color;
 }
 
-void KeyValues::SetStringValue( char const *strValue )
-{
-	// delete the old value
-	delete [] m_sValue;
-	// make sure we're not storing the WSTRING  - as we're converting over to STRING
-	delete [] m_wsValue;
-	m_wsValue = nullptr;
+void KeyValues::SetStringValue(const std::string_view strValue) {
+    // delete the old value
+    delete [] m_sValue;
+    // make sure we're not storing the WSTRING  - as we're converting over to STRING
+    delete [] m_wsValue;
+    m_wsValue = nullptr;
 
-	if (!strValue)
-	{
-		// ensure a valid value
-		strValue = "";
-	}
+    // allocate memory for the new value and copy it in
+    int len = strValue.size();
+    m_sValue = new char[len + 1]{};
+    std::memcpy(m_sValue, strValue.data(), len);
 
-	// allocate memory for the new value and copy it in
-	int len = V_strlen( strValue );
-	m_sValue = new char[len + 1];
-	V_memcpy( m_sValue, strValue, len+1 );
-
-	m_iDataType = TYPE_STRING;
+    m_iDataType = TYPE_STRING;
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: Set the string value of a keyName. 
+// Purpose: Set the string value of a keyName.
 //-----------------------------------------------------------------------------
-void KeyValues::SetString( const char *keyName, const char *value )
-{
-	if ( KeyValues *dat = FindKey( keyName, true ) )
-	{
-		dat->SetStringValue( value );
-	}
+void KeyValues::SetString(const std::string_view keyName, const std::string_view value) {
+    if (KeyValues* dat = FindKey(keyName, true)) {
+        dat->SetStringValue(value);
+    }
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: Set the string value of a keyName. 
+// Purpose: Set the string value of a keyName.
 //-----------------------------------------------------------------------------
-void KeyValues::SetWString( const char *keyName, const wchar_t *value )
-{
-	KeyValues *dat = FindKey( keyName, true );
-	if ( dat )
-	{
-		// delete the old value
-		delete [] dat->m_wsValue;
-		// make sure we're not storing the STRING  - as we're converting over to WSTRING
-		delete [] dat->m_sValue;
-		dat->m_sValue = nullptr;
+void KeyValues::SetWString(const std::string_view keyName, const wchar_t* value) {
+    KeyValues* dat = FindKey(keyName, true);
+    if (dat) {
+        // delete the old value
+        delete [] dat->m_wsValue;
+        // make sure we're not storing the STRING  - as we're converting over to WSTRING
+        delete [] dat->m_sValue;
+        dat->m_sValue = nullptr;
 
-		if (!value)
-		{
-			// ensure a valid value
-			value = L"";
-		}
+        if (!value) {
+            // ensure a valid value
+            value = L"";
+        }
 
-		// allocate memory for the new value and copy it in
-		int len = V_wcslen( value );
-		dat->m_wsValue = new wchar_t[len + 1];
-		V_memcpy( dat->m_wsValue, value, (len+1) * sizeof(wchar_t) );
+        // allocate memory for the new value and copy it in
+        int len = V_wcslen(value);
+        dat->m_wsValue = new wchar_t[len + 1];
+        V_memcpy(dat->m_wsValue, value, (len+1) * sizeof(wchar_t));
 
-		dat->m_iDataType = TYPE_WSTRING;
-	}
+        dat->m_iDataType = TYPE_WSTRING;
+    }
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: Set the integer value of a keyName. 
+// Purpose: Set the integer value of a keyName.
 //-----------------------------------------------------------------------------
-void KeyValues::SetInt( const char *keyName, int value )
-{
-	KeyValues *dat = FindKey( keyName, true );
+void KeyValues::SetInt(const std::string_view keyName, int value) {
+    KeyValues* dat = FindKey(keyName, true);
 
-	if ( dat )
-	{
-		dat->m_iValue = value;
-		dat->m_iDataType = TYPE_INT;
-	}
+    if (dat) {
+        dat->m_iValue = value;
+        dat->m_iDataType = TYPE_INT;
+    }
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: Set the integer value of a keyName. 
+// Purpose: Set the integer value of a keyName.
 //-----------------------------------------------------------------------------
-void KeyValues::SetUint64( const char *keyName, uint64_t value )
-{
-	KeyValues *dat = FindKey( keyName, true );
+void KeyValues::SetUint64(const std::string_view keyName, uint64_t value) {
+    KeyValues* dat = FindKey(keyName, true);
 
-	if ( dat )
-	{
-		// delete the old value
-		delete [] dat->m_sValue;
-		// make sure we're not storing the WSTRING  - as we're converting over to STRING
-		delete [] dat->m_wsValue;
-		dat->m_wsValue = nullptr;
+    if (dat) {
+        // delete the old value
+        delete [] dat->m_sValue;
+        // make sure we're not storing the WSTRING  - as we're converting over to STRING
+        delete [] dat->m_wsValue;
+        dat->m_wsValue = nullptr;
 
-		dat->m_sValue = new char[sizeof(uint64_t)];
-		*((uint64_t *)dat->m_sValue) = value;
-		dat->m_iDataType = TYPE_UINT64;
-	}
+        dat->m_sValue = new char[sizeof(uint64_t)];
+        *((uint64_t*) dat->m_sValue) = value;
+        dat->m_iDataType = TYPE_UINT64;
+    }
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: Set the float value of a keyName. 
+// Purpose: Set the float value of a keyName.
 //-----------------------------------------------------------------------------
-void KeyValues::SetFloat( const char *keyName, float value )
-{
-	KeyValues *dat = FindKey( keyName, true );
+void KeyValues::SetFloat(const std::string_view keyName, float value) {
+    KeyValues* dat = FindKey(keyName, true);
 
-	if ( dat )
-	{
-		dat->m_flValue = value;
-		dat->m_iDataType = TYPE_FLOAT;
-	}
+    if (dat) {
+        dat->m_flValue = value;
+        dat->m_iDataType = TYPE_FLOAT;
+    }
 }
 
-void KeyValues::SetName( const char * setName )
-{
-	HKeySymbol hCaseSensitiveKeyName = INVALID_KEY_SYMBOL, hCaseInsensitiveKeyName = INVALID_KEY_SYMBOL;
-	hCaseSensitiveKeyName = KeyValuesSystem()->GetSymbolForStringCaseSensitive( hCaseInsensitiveKeyName, setName );
+void KeyValues::SetName(std::string_view setName) {
+    HKeySymbol hCaseSensitiveKeyName = INVALID_KEY_SYMBOL, hCaseInsensitiveKeyName = INVALID_KEY_SYMBOL;
+    hCaseSensitiveKeyName = KeyValuesSystem()->GetSymbolForStringCaseSensitive(hCaseInsensitiveKeyName, setName);
 
-	m_iKeyName = hCaseInsensitiveKeyName;
-	SPLIT_3_BYTES_INTO_1_AND_2( m_iKeyNameCaseSensitive1, m_iKeyNameCaseSensitive2, hCaseSensitiveKeyName );
+    m_iKeyName = hCaseInsensitiveKeyName;
+    SPLIT_3_BYTES_INTO_1_AND_2(m_iKeyNameCaseSensitive1, m_iKeyNameCaseSensitive2, hCaseSensitiveKeyName);
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: Set the pointer value of a keyName. 
+// Purpose: Set the pointer value of a keyName.
 //-----------------------------------------------------------------------------
-void KeyValues::SetPtr( const char *keyName, void *value )
-{
-	KeyValues *dat = FindKey( keyName, true );
+void KeyValues::SetPtr(const std::string_view keyName, void* value) {
+    KeyValues* dat = FindKey(keyName, true);
 
-	if ( dat )
-	{
-		dat->m_pValue = value;
-		dat->m_iDataType = TYPE_PTR;
-	}
+    if (dat) {
+        dat->m_pValue = value;
+        dat->m_iDataType = TYPE_PTR;
+    }
 }
 
-void KeyValues::RecursiveCopyKeyValues( KeyValues& src )
-{
-	// garymcthack - need to check this code for possible buffer overruns.
+void KeyValues::RecursiveCopyKeyValues(KeyValues &src) {
+    // garymcthack - need to check this code for possible buffer overruns.
 
-	m_iKeyName = src.m_iKeyName;
-	m_iKeyNameCaseSensitive1 = src.m_iKeyNameCaseSensitive1;
-	m_iKeyNameCaseSensitive2 = src.m_iKeyNameCaseSensitive2;
+    m_iKeyName = src.m_iKeyName;
+    m_iKeyNameCaseSensitive1 = src.m_iKeyNameCaseSensitive1;
+    m_iKeyNameCaseSensitive2 = src.m_iKeyNameCaseSensitive2;
 
-	if( !src.m_pSub )
-	{
-		m_iDataType = src.m_iDataType;
-		char buf[256];
-		switch( src.m_iDataType )
-		{
-		case TYPE_NONE:
-			break;
-		case TYPE_STRING:
-			if( src.m_sValue )
-			{
-				int len = V_strlen(src.m_sValue) + 1;
-				m_sValue = new char[len];
-				V_strncpy( m_sValue, src.m_sValue, len );
-			}
-			break;
-		case TYPE_INT:
-			{
-				m_iValue = src.m_iValue;
-				V_snprintf( buf,sizeof(buf), "%d", m_iValue );
-				int len = V_strlen(buf) + 1;
-				m_sValue = new char[len];
-				V_strncpy( m_sValue, buf, len  );
-			}
-			break;
-		case TYPE_FLOAT:
-			{
-				m_flValue = src.m_flValue;
-				V_snprintf( buf,sizeof(buf), "%f", m_flValue );
-				int len = V_strlen(buf) + 1;
-				m_sValue = new char[len];
-				V_strncpy( m_sValue, buf, len );
-			}
-			break;
-		case TYPE_PTR:
-			{
-				m_pValue = src.m_pValue;
-			}
-			break;
-		case TYPE_UINT64:
-			{
-				m_sValue = new char[sizeof(uint64_t)];
-				V_memcpy( m_sValue, src.m_sValue, sizeof(uint64_t) );
-			}
-			break;
-		case TYPE_COLOR:
-			{
-				m_Color[0] = src.m_Color[0];
-				m_Color[1] = src.m_Color[1];
-				m_Color[2] = src.m_Color[2];
-				m_Color[3] = src.m_Color[3];
-			}
-			break;
+    if (!src.m_pSub) {
+        m_iDataType = src.m_iDataType;
+        char buf[256];
+        switch (src.m_iDataType) {
+            case TYPE_NONE:
+                break;
+            case TYPE_STRING:
+                if (src.m_sValue) {
+                    int len = V_strlen(src.m_sValue) + 1;
+                    m_sValue = new char[len];
+                    V_strncpy(m_sValue, src.m_sValue, len);
+                }
+                break;
+            case TYPE_INT: {
+                m_iValue = src.m_iValue;
+                V_snprintf(buf, sizeof(buf), "%d", m_iValue);
+                int len = V_strlen(buf) + 1;
+                m_sValue = new char[len];
+                V_strncpy(m_sValue, buf, len);
+            }
+            break;
+            case TYPE_FLOAT: {
+                m_flValue = src.m_flValue;
+                V_snprintf(buf, sizeof(buf), "%f", m_flValue);
+                int len = V_strlen(buf) + 1;
+                m_sValue = new char[len];
+                V_strncpy(m_sValue, buf, len);
+            }
+            break;
+            case TYPE_PTR: {
+                m_pValue = src.m_pValue;
+            }
+            break;
+            case TYPE_UINT64: {
+                m_sValue = new char[sizeof(uint64_t)];
+                V_memcpy(m_sValue, src.m_sValue, sizeof(uint64_t));
+            }
+            break;
+            case TYPE_COLOR: {
+                m_Color[0] = src.m_Color[0];
+                m_Color[1] = src.m_Color[1];
+                m_Color[2] = src.m_Color[2];
+                m_Color[3] = src.m_Color[3];
+            }
+            break;
 
-		default:
-			{
-				// do nothing . .what the heck is this?
-				Assert( 0 );
-			}
-			break;
-		}
-
-	}
+            default: {
+                // do nothing . .what the heck is this?
+                Assert(0);
+            }
+            break;
+        }
+    }
 #if 0
-	KeyValues *pDst = this;
-	for ( KeyValues *pSrc = src.m_pSub; pSrc; pSrc = pSrc->m_pPeer )
-	{
-		if ( pSrc->m_pSub )
-		{
-			pDst->m_pSub = new KeyValues( pSrc->m_pSub->getName() );
-			pDst->m_pSub->RecursiveCopyKeyValues( *pSrc->m_pSub );
-		}
-		else
-		{
-			// copy non-empty keys
-			if ( pSrc->m_sValue && *(pSrc->m_sValue) )
-			{
-				pDst->m_pPeer = new KeyValues( 
-			}
-		}
-	}
+    KeyValues* pDst = this;
+    for (KeyValues* pSrc = src.m_pSub; pSrc; pSrc = pSrc->m_pPeer) {
+        if (pSrc->m_pSub) {
+            pDst->m_pSub = new KeyValues(pSrc->m_pSub->getName());
+            pDst->m_pSub->RecursiveCopyKeyValues(*pSrc->m_pSub);
+        }
+        else {
+            // copy non-empty keys
+            if (pSrc->m_sValue && *(pSrc->m_sValue)) {
+                pDst->m_pPeer = new KeyValues(
+
+
+
+            }
+        }
+    }
 #endif
 
-	// Handle the immediate child
-	if( src.m_pSub )
-	{
-		m_pSub = new KeyValues(nullptr);
-		m_pSub->RecursiveCopyKeyValues( *src.m_pSub );
-	}
+    // Handle the immediate child
+    if (src.m_pSub) {
+        m_pSub = new KeyValues();
+        m_pSub->RecursiveCopyKeyValues(*src.m_pSub);
+    }
 
-	// Handle the immediate peer
-	if( src.m_pPeer )
-	{
-		m_pPeer = new KeyValues(nullptr);
-		m_pPeer->RecursiveCopyKeyValues( *src.m_pPeer );
-	}
+    // Handle the immediate peer
+    if (src.m_pPeer) {
+        m_pPeer = new KeyValues();
+        m_pPeer->RecursiveCopyKeyValues(*src.m_pPeer);
+    }
 }
 
-KeyValues& KeyValues::operator=( KeyValues& src )
-{
-	RemoveEverything();
-	Init();	// reset all values
-	RecursiveCopyKeyValues( src );
-	return *this;
+KeyValues& KeyValues::operator=(KeyValues &src) {
+    RemoveEverything();
+    Init(); // reset all values
+    RecursiveCopyKeyValues(src);
+    return *this;
 }
 
 
 //-----------------------------------------------------------------------------
 // Make a new copy of all subkeys, add them all to the passed-in keyvalues
 //-----------------------------------------------------------------------------
-void KeyValues::CopySubkeys( KeyValues *pParent ) const
-{
-	// recursively copy subkeys
-	// Also maintain ordering....
-	KeyValues *pPrev = nullptr;
-	for ( KeyValues *sub = m_pSub; sub != nullptr; sub = sub->m_pPeer )
-	{
-		// take a copy of the subkey
-		KeyValues *dat = sub->MakeCopy();
+void KeyValues::CopySubkeys(KeyValues* pParent) const {
+    // recursively copy subkeys
+    // Also maintain ordering....
+    KeyValues* pPrev = nullptr;
+    for (KeyValues* sub = m_pSub; sub != nullptr; sub = sub->m_pPeer) {
+        // take a copy of the subkey
+        KeyValues* dat = sub->MakeCopy();
 
-		// add into subkey list
-		if (pPrev)
-		{
-			pPrev->m_pPeer = dat;
-		}
-		else
-		{
-			pParent->m_pSub = dat;
-		}
-		dat->m_pPeer = nullptr;
-		pPrev = dat;
-	}
+        // add into subkey list
+        if (pPrev) {
+            pPrev->m_pPeer = dat;
+        }
+        else {
+            pParent->m_pSub = dat;
+        }
+        dat->m_pPeer = nullptr;
+        pPrev = dat;
+    }
 }
 
 
 //-----------------------------------------------------------------------------
 // Purpose: Makes a copy of the whole key-value pair set
 //-----------------------------------------------------------------------------
-KeyValues *KeyValues::MakeCopy( void ) const
-{
-	KeyValues *newKeyValue = new KeyValues(GetName());
+KeyValues* KeyValues::MakeCopy() const {
+    KeyValues* newKeyValue = new KeyValues(GetName());
 
-	// copy data
-	newKeyValue->m_iDataType = m_iDataType;
-	switch ( m_iDataType )
-	{
-	case TYPE_STRING:
-		{
-			if ( m_sValue )
-			{
-				int len = V_strlen( m_sValue );
-				Assert( !newKeyValue->m_sValue );
-				newKeyValue->m_sValue = new char[len + 1];
-				V_memcpy( newKeyValue->m_sValue, m_sValue, len+1 );
-			}
-		}
-		break;
-	case TYPE_WSTRING:
-		{
-			if ( m_wsValue )
-			{
-				int len = V_wcslen( m_wsValue );
-				newKeyValue->m_wsValue = new wchar_t[len+1];
-				V_memcpy( newKeyValue->m_wsValue, m_wsValue, (len+1)*sizeof(wchar_t));
-			}
-		}
-		break;
+    // copy data
+    newKeyValue->m_iDataType = m_iDataType;
+    switch (m_iDataType) {
+        case TYPE_STRING: {
+            if (m_sValue) {
+                int len = V_strlen(m_sValue);
+                Assert(!newKeyValue->m_sValue);
+                newKeyValue->m_sValue = new char[len + 1];
+                V_memcpy(newKeyValue->m_sValue, m_sValue, len+1);
+            }
+        }
+        break;
+        case TYPE_WSTRING: {
+            if (m_wsValue) {
+                int len = V_wcslen(m_wsValue);
+                newKeyValue->m_wsValue = new wchar_t[len + 1];
+                V_memcpy(newKeyValue->m_wsValue, m_wsValue, (len+1)*sizeof(wchar_t));
+            }
+        }
+        break;
 
-	case TYPE_INT:
-		newKeyValue->m_iValue = m_iValue;
-		break;
+        case TYPE_INT:
+            newKeyValue->m_iValue = m_iValue;
+            break;
 
-	case TYPE_FLOAT:
-		newKeyValue->m_flValue = m_flValue;
-		break;
+        case TYPE_FLOAT:
+            newKeyValue->m_flValue = m_flValue;
+            break;
 
-	case TYPE_PTR:
-		newKeyValue->m_pValue = m_pValue;
-		break;
+        case TYPE_PTR:
+            newKeyValue->m_pValue = m_pValue;
+            break;
 
-	case TYPE_COLOR:
-		newKeyValue->m_Color[0] = m_Color[0];
-		newKeyValue->m_Color[1] = m_Color[1];
-		newKeyValue->m_Color[2] = m_Color[2];
-		newKeyValue->m_Color[3] = m_Color[3];
-		break;
+        case TYPE_COLOR:
+            newKeyValue->m_Color[0] = m_Color[0];
+            newKeyValue->m_Color[1] = m_Color[1];
+            newKeyValue->m_Color[2] = m_Color[2];
+            newKeyValue->m_Color[3] = m_Color[3];
+            break;
 
-	case TYPE_UINT64:
-		newKeyValue->m_sValue = new char[sizeof(uint64_t)];
-		V_memcpy( newKeyValue->m_sValue, m_sValue, sizeof(uint64_t) );
-		break;
-	};
+        case TYPE_UINT64:
+            newKeyValue->m_sValue = new char[sizeof(uint64_t)];
+            V_memcpy(newKeyValue->m_sValue, m_sValue, sizeof(uint64_t));
+            break;
+    };
 
-	// recursively copy subkeys
-	CopySubkeys( newKeyValue );
-	return newKeyValue;
+    // recursively copy subkeys
+    CopySubkeys(newKeyValue);
+    return newKeyValue;
 }
 
 
 //-----------------------------------------------------------------------------
 // Purpose: Check if a keyName has no value assigned to it.
 //-----------------------------------------------------------------------------
-bool KeyValues::IsEmpty(const char *keyName)
-{
-	KeyValues *dat = FindKey(keyName, false);
-	if (!dat)
-		return true;
+bool KeyValues::IsEmpty(const std::string_view keyName) {
+    KeyValues* dat = FindKey(keyName, false);
+    if (!dat)
+        return true;
 
-	if (dat->m_iDataType == TYPE_NONE && dat->m_pSub == nullptr)
-		return true;
+    if (dat->m_iDataType == TYPE_NONE && dat->m_pSub == nullptr)
+        return true;
 
-	return false;
+    return false;
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: Clear out all subkeys, and the current value
 //-----------------------------------------------------------------------------
-void KeyValues::Clear( void )
-{
-	delete m_pSub;
-	m_pSub = nullptr;
-	m_iDataType = TYPE_NONE;
+void KeyValues::Clear(void) {
+    delete m_pSub;
+    m_pSub = nullptr;
+    m_iDataType = TYPE_NONE;
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: Get the data type of the value stored in a keyName
 //-----------------------------------------------------------------------------
-KeyValues::types_t KeyValues::GetDataType(const char *keyName)
-{
-	KeyValues *dat = FindKey(keyName, false);
-	if (dat)
-		return (types_t)dat->m_iDataType;
+KeyValues::types_t KeyValues::GetDataType(const std::string_view keyName) {
+    KeyValues* dat = FindKey(keyName, false);
+    if (dat)
+        return (types_t) dat->m_iDataType;
 
-	return TYPE_NONE;
+    return TYPE_NONE;
 }
 
-KeyValues::types_t KeyValues::GetDataType( void ) const
-{
-	return (types_t)m_iDataType;
+KeyValues::types_t KeyValues::GetDataType(void) const {
+    return (types_t) m_iDataType;
 }
 
 
 //-----------------------------------------------------------------------------
-// Purpose: 
-// Input  : includedKeys - 
+// Purpose:
+// Input  : includedKeys -
 //-----------------------------------------------------------------------------
-void KeyValues::AppendIncludedKeys( CUtlVector< KeyValues * >& includedKeys )
-{
-	// Append any included keys, too...
-	int includeCount = includedKeys.size();
-	int i;
-	for ( i = 0; i < includeCount; i++ )
-	{
-		KeyValues *kv = includedKeys[ i ];
-		Assert( kv );
+void KeyValues::AppendIncludedKeys(CUtlVector<KeyValues*> &includedKeys) {
+    // Append any included keys, too...
+    int includeCount = includedKeys.size();
+    int i;
+    for (i = 0; i < includeCount; i++) {
+        KeyValues* kv = includedKeys[i];
+        Assert(kv);
 
-		KeyValues *insertSpot = this;
-		while ( insertSpot->GetNextKey() )
-		{
-			insertSpot = insertSpot->GetNextKey();
-		}
+        KeyValues* insertSpot = this;
+        while (insertSpot->GetNextKey()) {
+            insertSpot = insertSpot->GetNextKey();
+        }
 
-		insertSpot->SetNextKey( kv );
-	}
+        insertSpot->SetNextKey(kv);
+    }
 }
 
-void KeyValues::ParseIncludedKeys( char const *resourceName, const char *filetoinclude, 
-	IBaseFileSystem* pFileSystem, const char *pPathID, CUtlVector< KeyValues * >& includedKeys, GetSymbolProc_t pfnEvaluateSymbolProc )
-{
-	Assert( resourceName );
-	Assert( filetoinclude );
-	Assert( pFileSystem );
+void KeyValues::ParseIncludedKeys(char const* resourceName, const char* filetoinclude,
+                                  IBaseFileSystem* pFileSystem, const char* pPathID,
+                                  CUtlVector<KeyValues*> &includedKeys, GetSymbolProc_t pfnEvaluateSymbolProc) {
+    Assert(resourceName);
+    Assert(filetoinclude);
+    Assert(pFileSystem);
 
-	// Load it...
-	if ( !pFileSystem )
-	{
-		return;
-	}
+    // Load it...
+    if (!pFileSystem) {
+        return;
+    }
 
-	// Get relative subdirectory
-	char fullpath[ 512 ];
-	V_strncpy( fullpath, resourceName, sizeof( fullpath ) );
+    // Get relative subdirectory
+    char fullpath[512];
+    V_strncpy(fullpath, resourceName, sizeof(fullpath));
 
-	// Strip off characters back to start or first /
-	bool done = false;
-	int len = V_strlen( fullpath );
-	while ( !done )
-	{
-		if ( len <= 0 )
-		{
-			break;
-		}
+    // Strip off characters back to start or first /
+    bool done = false;
+    int len = V_strlen(fullpath);
+    while (!done) {
+        if (len <= 0) {
+            break;
+        }
 
-		if ( fullpath[ len - 1 ] == '\\' || 
-			fullpath[ len - 1 ] == '/' )
-		{
-			break;
-		}
+        if (fullpath[len - 1] == '\\' ||
+            fullpath[len - 1] == '/') {
+            break;
+        }
 
-		// zero it
-		fullpath[ len - 1 ] = 0;
-		--len;
-	}
+        // zero it
+        fullpath[len - 1] = 0;
+        --len;
+    }
 
-	// Append included file
-	V_strncat( fullpath, filetoinclude, sizeof( fullpath ), COPY_ALL_CHARACTERS );
+    // Append included file
+    V_strncat(fullpath, filetoinclude, sizeof(fullpath), COPY_ALL_CHARACTERS);
 
-	KeyValues *newKV = new KeyValues( fullpath );
+    KeyValues* newKV = new KeyValues(fullpath);
 
-	// CUtlSymbol save = s_CurrentFileSymbol;	// did that had any use ???
+    // CUtlSymbol save = s_CurrentFileSymbol;	// did that had any use ???
 
-	newKV->UsesEscapeSequences( m_bHasEscapeSequences != 0 );	// use same format as parent
+    newKV->UsesEscapeSequences(m_bHasEscapeSequences != 0); // use same format as parent
 
-	if ( newKV->LoadFromFile( pFileSystem, fullpath, pPathID, pfnEvaluateSymbolProc ) )
-	{
-		includedKeys.AddToTail( newKV );
-	}
-	else
-	{
-		DevMsg( "KeyValues::ParseIncludedKeys: Couldn't load included keyvalue file {}\n", fullpath );
-		delete newKV;
-	}
+    if (newKV->LoadFromFile(pFileSystem, fullpath, pPathID, pfnEvaluateSymbolProc)) {
+        includedKeys.AddToTail(newKV);
+    }
+    else {
+        DevMsg("KeyValues::ParseIncludedKeys: Couldn't load included keyvalue file {}\n", fullpath);
+        delete newKV;
+    }
 
-	// s_CurrentFileSymbol = save;
+    // s_CurrentFileSymbol = save;
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: 
-// Input  : baseKeys - 
+// Purpose:
+// Input  : baseKeys -
 //-----------------------------------------------------------------------------
-void KeyValues::MergeBaseKeys( CUtlVector< KeyValues * >& baseKeys )
-{
-	int includeCount = baseKeys.size();
-	int i;
-	for ( i = 0; i < includeCount; i++ )
-	{
-		KeyValues *kv = baseKeys[ i ];
-		Assert( kv );
+void KeyValues::MergeBaseKeys(CUtlVector<KeyValues*> &baseKeys) {
+    int includeCount = baseKeys.size();
+    int i;
+    for (i = 0; i < includeCount; i++) {
+        KeyValues* kv = baseKeys[i];
+        Assert(kv);
 
-		RecursiveMergeKeyValues( kv );
-	}
+        RecursiveMergeKeyValues(kv);
+    }
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: 
+// Purpose:
 // Input  : baseKV - keyvalues we're basing ourselves on
 //-----------------------------------------------------------------------------
-void KeyValues::RecursiveMergeKeyValues( KeyValues *baseKV )
-{
-	// Merge ourselves
-	// we always want to keep our value, so nothing to do here
+void KeyValues::RecursiveMergeKeyValues(KeyValues* baseKV) {
+    // Merge ourselves
+    // we always want to keep our value, so nothing to do here
 
-	// Now merge our children
-	for ( KeyValues *baseChild = baseKV->m_pSub; baseChild != nullptr; baseChild = baseChild->m_pPeer )
-	{
-		// for each child in base, see if we have a matching kv
+    // Now merge our children
+    for (KeyValues* baseChild = baseKV->m_pSub; baseChild != nullptr; baseChild = baseChild->m_pPeer) {
+        // for each child in base, see if we have a matching kv
 
-		bool bFoundMatch = false;
+        bool bFoundMatch = false;
 
-		// If we have a child by the same name, merge those keys
-		for ( KeyValues *newChild = m_pSub; newChild != nullptr; newChild = newChild->m_pPeer )
-		{
-			if ( !V_strcmp( baseChild->GetName(), newChild->GetName() ) )
-			{
-				newChild->RecursiveMergeKeyValues( baseChild );
-				bFoundMatch = true;
-				break;
-			}	
-		}
+        // If we have a child by the same name, merge those keys
+        for (KeyValues* newChild = m_pSub; newChild != nullptr; newChild = newChild->m_pPeer) {
+            if (baseChild->GetName() == newChild->GetName()) {
+                newChild->RecursiveMergeKeyValues(baseChild);
+                bFoundMatch = true;
+                break;
+            }
+        }
 
-		// If not merged, append this key
-		if ( !bFoundMatch )
-		{
-			KeyValues *dat = baseChild->MakeCopy();
-			Assert( dat );
-			AddSubKey( dat );
-		}
-	}
+        // If not merged, append this key
+        if (!bFoundMatch) {
+            KeyValues* dat = baseChild->MakeCopy();
+            Assert(dat);
+            AddSubKey(dat);
+        }
+    }
 }
 
 //-----------------------------------------------------------------------------
 // Returns whether a keyvalues conditional expression string evaluates to true or false
 //-----------------------------------------------------------------------------
-bool KeyValues::EvaluateConditional( const char *pExpressionString, GetSymbolProc_t pfnEvaluateSymbolProc )
-{
-	// evaluate the infix expression, calling the symbol proc to resolve each symbol's value
-	bool bResult = false;
-	bool bValid = g_ExpressionEvaluator.Evaluate( bResult, pExpressionString, pfnEvaluateSymbolProc );
-	if ( !bValid )
-	{
-		g_KeyValuesErrorStack.ReportError( "KV Conditional Evaluation Error" );
-	}
+bool KeyValues::EvaluateConditional(const char* pExpressionString, GetSymbolProc_t pfnEvaluateSymbolProc) {
+    // evaluate the infix expression, calling the symbol proc to resolve each symbol's value
+    bool bResult = false;
+    bool bValid = g_ExpressionEvaluator.Evaluate(bResult, pExpressionString, pfnEvaluateSymbolProc);
+    if (!bValid) {
+        g_KeyValuesErrorStack.ReportError("KV Conditional Evaluation Error");
+    }
 
-	return bResult;
+    return bResult;
 }
 
 //-----------------------------------------------------------------------------
 // Read from a buffer...
 //-----------------------------------------------------------------------------
-bool KeyValues::LoadFromBuffer( char const *resourceName, CUtlBuffer &buf, IBaseFileSystem* pFileSystem, const char *pPathID, GetSymbolProc_t pfnEvaluateSymbolProc )
-{
+bool KeyValues::LoadFromBuffer(char const* resourceName, CUtlBuffer &buf, IBaseFileSystem* pFileSystem,
+                               const char* pPathID, GetSymbolProc_t pfnEvaluateSymbolProc) {
+    KeyValues* pPreviousKey = nullptr;
+    KeyValues* pCurrentKey = this;
+    CUtlVector<KeyValues*> includedKeys;
+    CUtlVector<KeyValues*> baseKeys;
+    bool wasQuoted;
+    bool wasConditional;
+    CKeyValuesTokenReader tokenReader(this, buf);
 
+    g_KeyValuesErrorStack.SetFilename(resourceName);
+    do {
+        bool bAccepted = true;
 
+        // the first thing must be a key
+        const char* s = tokenReader.ReadToken(wasQuoted, wasConditional);
+        if (!buf.IsValid() || !s)
+            break;
 
-	KeyValues *pPreviousKey = nullptr;
-	KeyValues *pCurrentKey = this;
-	CUtlVector< KeyValues * > includedKeys;
-	CUtlVector< KeyValues * > baseKeys;
-	bool wasQuoted;
-	bool wasConditional;
-	CKeyValuesTokenReader tokenReader( this, buf );
+        if (!wasQuoted && *s == '\0') {
+            // non quoted empty strings stop parsing
+            // quoted empty strings are allowed to support unnnamed KV sections
+            break;
+        }
 
-	g_KeyValuesErrorStack.SetFilename( resourceName );	
-	do 
-	{
-		bool bAccepted = true;
+        if (!V_stricmp(s, "#include")) // special include macro (not a key name)
+        {
+            s = tokenReader.ReadToken(wasQuoted, wasConditional);
+            // Name of subfile to load is now in s
 
-		// the first thing must be a key
-		const char *s = tokenReader.ReadToken( wasQuoted, wasConditional );
-		if ( !buf.IsValid() || !s )
-			break;
+            if (!s || *s == 0) {
+                g_KeyValuesErrorStack.ReportError("#include is NULL ");
+            }
+            else {
+                ParseIncludedKeys(resourceName, s, pFileSystem, pPathID, includedKeys, pfnEvaluateSymbolProc);
+            }
 
-		if ( !wasQuoted && *s == '\0' )
-		{
-			// non quoted empty strings stop parsing
-			// quoted empty strings are allowed to support unnnamed KV sections
-			break;
-		}
+            continue;
+        }
+        else if (!V_stricmp(s, "#base")) {
+            s = tokenReader.ReadToken(wasQuoted, wasConditional);
+            // Name of subfile to load is now in s
 
-		if ( !V_stricmp( s, "#include" ) )	// special include macro (not a key name)
-		{
-			s = tokenReader.ReadToken( wasQuoted, wasConditional );
-			// Name of subfile to load is now in s
+            if (!s || *s == 0) {
+                g_KeyValuesErrorStack.ReportError("#base is NULL ");
+            }
+            else {
+                ParseIncludedKeys(resourceName, s, pFileSystem, pPathID, baseKeys, pfnEvaluateSymbolProc);
+            }
 
-			if ( !s || *s == 0 )
-			{
-				g_KeyValuesErrorStack.ReportError("#include is NULL " );
-			}
-			else
-			{
-				ParseIncludedKeys( resourceName, s, pFileSystem, pPathID, includedKeys, pfnEvaluateSymbolProc );
-			}
+            continue;
+        }
 
-			continue;
-		}
-		else if ( !V_stricmp( s, "#base" ) )
-		{
-			s = tokenReader.ReadToken( wasQuoted, wasConditional );
-			// Name of subfile to load is now in s
+        if (!pCurrentKey) {
+            pCurrentKey = new KeyValues(s);
+            Assert(pCurrentKey);
 
-			if ( !s || *s == 0 )
-			{
-				g_KeyValuesErrorStack.ReportError("#base is NULL " );
-			}
-			else
-			{
-				ParseIncludedKeys( resourceName, s, pFileSystem, pPathID, baseKeys, pfnEvaluateSymbolProc );
-			}
+            pCurrentKey->UsesEscapeSequences(m_bHasEscapeSequences != 0); // same format has parent use
 
-			continue;
-		}
+            if (pPreviousKey) {
+                pPreviousKey->SetNextKey(pCurrentKey);
+            }
+        }
+        else {
+            pCurrentKey->SetName(s);
+        }
 
-		if ( !pCurrentKey )
-		{
-			pCurrentKey = new KeyValues( s );
-			Assert( pCurrentKey );
+        // get the '{'
+        s = tokenReader.ReadToken(wasQuoted, wasConditional);
 
-			pCurrentKey->UsesEscapeSequences( m_bHasEscapeSequences != 0 ); // same format has parent use
+        if (wasConditional) {
+            bAccepted = EvaluateConditional(s, pfnEvaluateSymbolProc);
 
-			if ( pPreviousKey )
-			{
-				pPreviousKey->SetNextKey( pCurrentKey );
-			}
-		}
-		else
-		{
-			pCurrentKey->SetName( s );
-		}
+            // Now get the '{'
+            s = tokenReader.ReadToken(wasQuoted, wasConditional);
+        }
 
-		// get the '{'
-		s = tokenReader.ReadToken( wasQuoted, wasConditional );
+        if (s && *s == '{' && !wasQuoted) {
+            // header is valid so load the file
+            pCurrentKey->RecursiveLoadFromBuffer(resourceName, tokenReader, pfnEvaluateSymbolProc);
+        }
+        else {
+            g_KeyValuesErrorStack.ReportError("LoadFromBuffer: missing {");
+        }
 
-		if ( wasConditional )
-		{
-			bAccepted = EvaluateConditional( s, pfnEvaluateSymbolProc );
+        if (!bAccepted) {
+            if (pPreviousKey) {
+                pPreviousKey->SetNextKey(nullptr);
+            }
+            pCurrentKey->Clear();
+        }
+        else {
+            pPreviousKey = pCurrentKey;
+            pCurrentKey = nullptr;
+        }
+    } while (buf.IsValid());
 
-			// Now get the '{'
-			s = tokenReader.ReadToken( wasQuoted, wasConditional );
-		}
+    AppendIncludedKeys(includedKeys);
+    {
+        // delete included keys!
+        int i;
+        for (i = includedKeys.size() - 1; i > 0; i--) {
+            KeyValues* kv = includedKeys[i];
+            delete kv;
+        }
+    }
 
-		if ( s && *s == '{' && !wasQuoted )
-		{
-			// header is valid so load the file
-			pCurrentKey->RecursiveLoadFromBuffer( resourceName, tokenReader, pfnEvaluateSymbolProc );
-		}
-		else
-		{
-			g_KeyValuesErrorStack.ReportError("LoadFromBuffer: missing {" );
-		}
+    MergeBaseKeys(baseKeys);
+    {
+        // delete base keys!
+        int i;
+        for (i = baseKeys.size() - 1; i >= 0; i--) {
+            KeyValues* kv = baseKeys[i];
+            delete kv;
+        }
+    }
 
-		if ( !bAccepted )
-		{
-			if ( pPreviousKey )
-			{
-				pPreviousKey->SetNextKey(nullptr);
-			}
-			pCurrentKey->Clear();
-		}
-		else
-		{
-			pPreviousKey = pCurrentKey;
-			pCurrentKey = nullptr;
-		}
-	} while ( buf.IsValid() );
-
-	AppendIncludedKeys( includedKeys );
-	{
-		// delete included keys!
-		int i;
-		for ( i = includedKeys.size() - 1; i > 0; i-- )
-		{
-			KeyValues *kv = includedKeys[ i ];
-			delete kv;
-		}
-	}
-
-	MergeBaseKeys( baseKeys );
-	{
-		// delete base keys!
-		int i;
-		for ( i = baseKeys.size() - 1; i >= 0; i-- )
-		{
-			KeyValues *kv = baseKeys[ i ];
-			delete kv;
-		}
-	}
-
-	bool bErrors = g_KeyValuesErrorStack.EncounteredAnyErrors();
-	g_KeyValuesErrorStack.SetFilename( "" );	
-	g_KeyValuesErrorStack.ClearErrorFlag();
-	return !bErrors;
+    bool bErrors = g_KeyValuesErrorStack.EncounteredAnyErrors();
+    g_KeyValuesErrorStack.SetFilename("");
+    g_KeyValuesErrorStack.ClearErrorFlag();
+    return !bErrors;
 }
 
 
 //-----------------------------------------------------------------------------
 // Read from a buffer...
 //-----------------------------------------------------------------------------
-bool KeyValues::LoadFromBuffer( char const *resourceName, const char *pBuffer, IBaseFileSystem* pFileSystem, const char *pPathID, GetSymbolProc_t pfnEvaluateSymbolProc )
-{
-	if ( !pBuffer )
-		return true;
+bool KeyValues::LoadFromBuffer(char const* resourceName, const char* pBuffer, IBaseFileSystem* pFileSystem,
+                               const char* pPathID, GetSymbolProc_t pfnEvaluateSymbolProc) {
+    if (!pBuffer)
+        return true;
 
-
-
-	int nLen = V_strlen( pBuffer );
-	CUtlBuffer buf( pBuffer, nLen, CUtlBuffer::READ_ONLY | CUtlBuffer::TEXT_BUFFER );
-	// Translate Unicode files into UTF-8 before proceeding
-	if ( nLen > 2 && (uint8_t)pBuffer[0] == 0xFF && (uint8_t)pBuffer[1] == 0xFE )
-	{
-		int nUTF8Len = V_UnicodeToUTF8( (wchar_t*)(pBuffer+2), nullptr, 0 );
-		char *pUTF8Buf = new char[nUTF8Len];
-		V_UnicodeToUTF8( (wchar_t*)(pBuffer+2), pUTF8Buf, nUTF8Len );
-		buf.AssumeMemory( pUTF8Buf, nUTF8Len, nUTF8Len, CUtlBuffer::READ_ONLY | CUtlBuffer::TEXT_BUFFER );
-	}
-	return LoadFromBuffer( resourceName, buf, pFileSystem, pPathID, pfnEvaluateSymbolProc );
+    int nLen = V_strlen(pBuffer);
+    CUtlBuffer buf(pBuffer, nLen, CUtlBuffer::READ_ONLY | CUtlBuffer::TEXT_BUFFER);
+    // Translate Unicode files into UTF-8 before proceeding
+    if (nLen > 2 && (uint8_t) pBuffer[0] == 0xFF && (uint8_t) pBuffer[1] == 0xFE) {
+        int nUTF8Len = V_UnicodeToUTF8((wchar_t*) (pBuffer + 2), nullptr, 0);
+        char* pUTF8Buf = new char[nUTF8Len];
+        V_UnicodeToUTF8((wchar_t*) (pBuffer + 2), pUTF8Buf, nUTF8Len);
+        buf.AssumeMemory(pUTF8Buf, nUTF8Len, nUTF8Len, CUtlBuffer::READ_ONLY | CUtlBuffer::TEXT_BUFFER);
+    }
+    return LoadFromBuffer(resourceName, buf, pFileSystem, pPathID, pfnEvaluateSymbolProc);
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: 
+// Purpose:
 //-----------------------------------------------------------------------------
-void KeyValues::RecursiveLoadFromBuffer( char const *resourceName, CKeyValuesTokenReader &tokenReader, GetSymbolProc_t pfnEvaluateSymbolProc )
-{
-	CKeyErrorContext errorReport( GetNameSymbolCaseSensitive() );
-	bool wasQuoted;
-	bool wasConditional;
-	if ( errorReport.GetStackLevel() > 100 )
-	{
-		g_KeyValuesErrorStack.ReportError( "RecursiveLoadFromBuffer:  recursion overflow" );
-		return;
-	}
+void KeyValues::RecursiveLoadFromBuffer(char const* resourceName, CKeyValuesTokenReader &tokenReader,
+                                        GetSymbolProc_t pfnEvaluateSymbolProc) {
+    CKeyErrorContext errorReport(GetNameSymbolCaseSensitive());
+    bool wasQuoted;
+    bool wasConditional;
+    if (errorReport.GetStackLevel() > 100) {
+        g_KeyValuesErrorStack.ReportError("RecursiveLoadFromBuffer:  recursion overflow");
+        return;
+    }
 
-	// keep this out of the stack until a key is parsed
-	CKeyErrorContext errorKey( INVALID_KEY_SYMBOL );
+    // keep this out of the stack until a key is parsed
+    CKeyErrorContext errorKey(INVALID_KEY_SYMBOL);
 
-	// Locate the last child.  (Almost always, we will not have any children.)
-	// We maintain the pointer to the last child here, so we don't have to re-locate
-	// it each time we append the next subkey, which causes O(N^2) time
-	KeyValues *pLastChild = FindLastSubKey();
+    // Locate the last child.  (Almost always, we will not have any children.)
+    // We maintain the pointer to the last child here, so we don't have to re-locate
+    // it each time we append the next subkey, which causes O(N^2) time
+    KeyValues* pLastChild = FindLastSubKey();
 
-	// Keep parsing until we hit the closing brace which terminates this block, or a parse error
-	while ( 1 )
-	{
-		bool bAccepted = true;
+    // Keep parsing until we hit the closing brace which terminates this block, or a parse error
+    while (1) {
+        bool bAccepted = true;
 
-		// get the key name
-		const char * name = tokenReader.ReadToken( wasQuoted, wasConditional );
+        // get the key name
+        const char* name = tokenReader.ReadToken(wasQuoted, wasConditional);
 
-		if ( !name )	// EOF stop reading
-		{
-			g_KeyValuesErrorStack.ReportError("RecursiveLoadFromBuffer:  got EOF instead of keyname" );
-			break;
-		}
+        if (!name) // EOF stop reading
+        {
+            g_KeyValuesErrorStack.ReportError("RecursiveLoadFromBuffer:  got EOF instead of keyname");
+            break;
+        }
 
-		if ( !*name ) // empty token, maybe "" or EOF
-		{
-			g_KeyValuesErrorStack.ReportError("RecursiveLoadFromBuffer:  got empty keyname" );
-			break;
-		}
+        if (!*name) // empty token, maybe "" or EOF
+        {
+            g_KeyValuesErrorStack.ReportError("RecursiveLoadFromBuffer:  got empty keyname");
+            break;
+        }
 
-		if ( *name == '}' && !wasQuoted )	// top level closed, stop reading
-			break;
+        if (*name == '}' && !wasQuoted) // top level closed, stop reading
+            break;
 
-		// Always create the key; note that this could potentially
-		// cause some duplication, but that's what we want sometimes
-		KeyValues *dat = CreateKeyUsingKnownLastChild( name, pLastChild );
+        // Always create the key; note that this could potentially
+        // cause some duplication, but that's what we want sometimes
+        KeyValues* dat = CreateKeyUsingKnownLastChild(name, pLastChild);
 
-		errorKey.Reset( dat->GetNameSymbolCaseSensitive() );
+        errorKey.Reset(dat->GetNameSymbolCaseSensitive());
 
-		// get the value
-		const char * value = tokenReader.ReadToken( wasQuoted, wasConditional );
+        // get the value
+        const char* value = tokenReader.ReadToken(wasQuoted, wasConditional);
 
-		bool bFoundConditional = wasConditional;
-		if ( wasConditional && value )
-		{
-			bAccepted = EvaluateConditional( value, pfnEvaluateSymbolProc );
+        bool bFoundConditional = wasConditional;
+        if (wasConditional && value) {
+            bAccepted = EvaluateConditional(value, pfnEvaluateSymbolProc);
 
-			// get the real value
-			value = tokenReader.ReadToken( wasQuoted, wasConditional );
-		}
+            // get the real value
+            value = tokenReader.ReadToken(wasQuoted, wasConditional);
+        }
 
-		if ( !value )
-		{
-			g_KeyValuesErrorStack.ReportError("RecursiveLoadFromBuffer:  got NULL key" );
-			break;
-		}
+        if (!value) {
+            g_KeyValuesErrorStack.ReportError("RecursiveLoadFromBuffer:  got NULL key");
+            break;
+        }
 
-		// support the '=' as an assignment, makes multiple-keys-on-one-line easier to read in a keyvalues file
-		if ( *value == '=' && !wasQuoted )
-		{
-			// just skip over it
-			value = tokenReader.ReadToken( wasQuoted, wasConditional );
-			bFoundConditional = wasConditional;
-			if ( wasConditional && value )
-			{
-				bAccepted = EvaluateConditional( value, pfnEvaluateSymbolProc );
+        // support the '=' as an assignment, makes multiple-keys-on-one-line easier to read in a keyvalues file
+        if (*value == '=' && !wasQuoted) {
+            // just skip over it
+            value = tokenReader.ReadToken(wasQuoted, wasConditional);
+            bFoundConditional = wasConditional;
+            if (wasConditional && value) {
+                bAccepted = EvaluateConditional(value, pfnEvaluateSymbolProc);
 
-				// get the real value
-				value = tokenReader.ReadToken( wasQuoted, wasConditional );
-			}
+                // get the real value
+                value = tokenReader.ReadToken(wasQuoted, wasConditional);
+            }
 
-			if ( bFoundConditional && bAccepted )
-			{
-				// if there is a conditional key see if we already have the key defined and blow it away, last one in the list wins
-				KeyValues *pExistingKey = this->FindKey( dat->GetNameSymbol() );
-				if ( pExistingKey && pExistingKey != dat )
-				{
-					this->RemoveSubKey( pExistingKey );
-					pExistingKey->deleteThis();
-				}
-			}
-		}
+            if (bFoundConditional && bAccepted) {
+                // if there is a conditional key see if we already have the key defined and blow it away, last one in the list wins
+                KeyValues* pExistingKey = this->FindKey(dat->GetNameSymbol());
+                if (pExistingKey && pExistingKey != dat) {
+                    this->RemoveSubKey(pExistingKey);
+                    pExistingKey->deleteThis();
+                }
+            }
+        }
 
-		if ( !value )
-		{
-			g_KeyValuesErrorStack.ReportError("RecursiveLoadFromBuffer:  got NULL key" );
-			break;
-		}
+        if (!value) {
+            g_KeyValuesErrorStack.ReportError("RecursiveLoadFromBuffer:  got NULL key");
+            break;
+        }
 
-		if ( *value == '}' && !wasQuoted )
-		{
-			g_KeyValuesErrorStack.ReportError("RecursiveLoadFromBuffer:  got } in key" );
-			break;
-		}
+        if (*value == '}' && !wasQuoted) {
+            g_KeyValuesErrorStack.ReportError("RecursiveLoadFromBuffer:  got } in key");
+            break;
+        }
 
-		if ( *value == '{' && !wasQuoted )
-		{
-			// this isn't a key, it's a section
-			errorKey.Reset( INVALID_KEY_SYMBOL );
-			// sub value list
-			dat->RecursiveLoadFromBuffer( resourceName, tokenReader, pfnEvaluateSymbolProc );
-		}
-		else 
-		{
-			if ( wasConditional )
-			{
-				g_KeyValuesErrorStack.ReportError("RecursiveLoadFromBuffer:  got conditional between key and value" );
-				break;
-			}
+        if (*value == '{' && !wasQuoted) {
+            // this isn't a key, it's a section
+            errorKey.Reset(INVALID_KEY_SYMBOL);
+            // sub value list
+            dat->RecursiveLoadFromBuffer(resourceName, tokenReader, pfnEvaluateSymbolProc);
+        }
+        else {
+            if (wasConditional) {
+                g_KeyValuesErrorStack.ReportError("RecursiveLoadFromBuffer:  got conditional between key and value");
+                break;
+            }
 
-			if (dat->m_sValue)
-			{
-				delete[] dat->m_sValue;
-				dat->m_sValue = nullptr;
-			}
+            if (dat->m_sValue) {
+                delete[] dat->m_sValue;
+                dat->m_sValue = nullptr;
+            }
 
-			int len = V_strlen( value );
+            int len = V_strlen(value);
 
-			// Here, let's determine if we got a float or an int....
-			char* pIEnd;	// pos where int scan ended
-			char* pFEnd;	// pos where float scan ended
-			const char* pSEnd = value + len ; // pos where token ends
+            // Here, let's determine if we got a float or an int....
+            char* pIEnd; // pos where int scan ended
+            char* pFEnd; // pos where float scan ended
+            const char* pSEnd = value + len; // pos where token ends
 
-			int64_t lval = strtoll( value, &pIEnd, 10 );
-			float fval = (float)strtod( value, &pFEnd );
-			bool bOverflow = ( lval == LLONG_MAX || lval == LLONG_MIN ) && errno == ERANGE;
+            int64_t lval = strtoll(value, &pIEnd, 10);
+            float fval = (float) strtod(value, &pFEnd);
+            bool bOverflow = (lval == LLONG_MAX || lval == LLONG_MIN) && errno == ERANGE;
 #ifdef POSIX
-			// strtod supports hex representation in strings under posix but we DON'T
-			// want that support in keyvalues, so undo it here if needed
-			if ( len > 1 &&  tolower(value[1]) == 'x' )
-			{
-				fval = 0.0f;
-				pFEnd = (char *)value;
-			}
+            // strtod supports hex representation and "inf"/"nan" in strings under posix but we DON'T
+            // want that support in keyvalues (Valve's MSVC CRT reads neither), so undo it here if needed
+            const char* pDigits = (*value == '-' || *value == '+') ? value + 1 : value;
+            if ((len > 1 && tolower(value[1]) == 'x') || V_isalpha(*pDigits)) {
+                fval = 0.0f;
+                pFEnd = (char*) value;
+            }
 #endif
 
-			if ( *value == 0 )
-			{
-				dat->m_iDataType = TYPE_STRING;	
-			}
-			else if ( ( 18 == len ) && ( value[0] == '0' ) && ( value[1] == 'x' ) )
-			{
-				// an 18-byte value prefixed with "0x" (followed by 16 hex digits) is an int64 value
-				int64_t retVal = 0;
-				for( int i=2; i < 2 + 16; i++ )
-				{
-					char digit = value[i];
-					if ( digit >= 'a' ) 
-						digit -= 'a' - ( '9' + 1 );
-					else
-						if ( digit >= 'A' )
-							digit -= 'A' - ( '9' + 1 );
-					retVal = ( retVal * 16 ) + ( digit - '0' );
-				}
-				dat->m_sValue = new char[sizeof(uint64_t)];
-				*((uint64_t *)dat->m_sValue) = retVal;
-				dat->m_iDataType = TYPE_UINT64;
-			}
-			else if ( (pFEnd > pIEnd) && (pFEnd == pSEnd) )
-			{
-				dat->m_flValue = fval; 
-				dat->m_iDataType = TYPE_FLOAT;
-			}
-			else if (pIEnd == pSEnd && !bOverflow)
-			{
-				dat->m_iValue = size_cast< int >( lval ); 
-				dat->m_iDataType = TYPE_INT;
-			}
-			else
-			{
-				dat->m_iDataType = TYPE_STRING;
-			}
+            if (*value == 0) {
+                dat->m_iDataType = TYPE_STRING;
+            }
+            else if ((18 == len) && (value[0] == '0') && (value[1] == 'x')) {
+                // an 18-byte value prefixed with "0x" (followed by 16 hex digits) is an int64 value
+                int64_t retVal = 0;
+                for (int i = 2; i < 2 + 16; i++) {
+                    char digit = value[i];
+                    if (digit >= 'a')
+                        digit -= 'a' - ('9' + 1);
+                    else if (digit >= 'A')
+                        digit -= 'A' - ('9' + 1);
+                    retVal = (retVal * 16) + (digit - '0');
+                }
+                dat->m_sValue = new char[sizeof(uint64_t)];
+                *((uint64_t*) dat->m_sValue) = retVal;
+                dat->m_iDataType = TYPE_UINT64;
+            }
+            else if ((pFEnd > pIEnd) && (pFEnd == pSEnd)) {
+                dat->m_flValue = fval;
+                dat->m_iDataType = TYPE_FLOAT;
+            }
+            else if (pIEnd == pSEnd && !bOverflow) {
+                dat->m_iValue = size_cast<int>(lval);
+                dat->m_iDataType = TYPE_INT;
+            }
+            else {
+                dat->m_iDataType = TYPE_STRING;
+            }
 
-			if (dat->m_iDataType == TYPE_STRING)
-			{
-				// copy in the string information
-				dat->m_sValue = new char[len+1];
-				V_memcpy( dat->m_sValue, value, len+1 );
-			}
+            if (dat->m_iDataType == TYPE_STRING) {
+                // copy in the string information
+                dat->m_sValue = new char[len + 1];
+                V_memcpy(dat->m_sValue, value, len+1);
+            }
 
-			// Look ahead one token for a conditional tag
-			const char *peek = tokenReader.ReadToken( wasQuoted, wasConditional );
-			if ( wasConditional )
-			{
-				bAccepted = EvaluateConditional( peek, pfnEvaluateSymbolProc );
-			}
-			else
-			{
-				tokenReader.SeekBackOneToken();
-			}
-		}
+            // Look ahead one token for a conditional tag
+            const char* peek = tokenReader.ReadToken(wasQuoted, wasConditional);
+            if (wasConditional) {
+                bAccepted = EvaluateConditional(peek, pfnEvaluateSymbolProc);
+            }
+            else {
+                tokenReader.SeekBackOneToken();
+            }
+        }
 
-		Assert( dat->m_pPeer == NULL );
-		if ( bAccepted )
-		{
-			Assert( pLastChild == NULL || pLastChild->m_pPeer == dat );
-			pLastChild = dat;
-		}
-		else
-		{
-			//this->RemoveSubKey( dat );
-			if ( pLastChild == nullptr)
-			{
-				Assert( this->m_pSub == dat );
-				this->m_pSub = nullptr;
-			}
-			else
-			{
-				Assert( pLastChild->m_pPeer == dat );
-				pLastChild->m_pPeer = nullptr;
-			}
+        Assert(dat->m_pPeer == NULL);
+        if (bAccepted) {
+            Assert(pLastChild == NULL || pLastChild->m_pPeer == dat);
+            pLastChild = dat;
+        }
+        else {
+            //this->RemoveSubKey( dat );
+            if (pLastChild == nullptr) {
+                Assert(this->m_pSub == dat);
+                this->m_pSub = nullptr;
+            }
+            else {
+                Assert(pLastChild->m_pPeer == dat);
+                pLastChild->m_pPeer = nullptr;
+            }
 
-			delete dat;
-			dat = nullptr;
-		}
-	}
+            delete dat;
+            dat = nullptr;
+        }
+    }
 }
 
 // DISABLED #include "tier0/memdbgoff.h"
 
-void *KeyValues::operator new( size_t iAllocSize )
-{
-	return KeyValuesSystem()->AllocKeyValuesMemory(iAllocSize);
+void* KeyValues::operator new(size_t iAllocSize) {
+    return KeyValuesSystem()->AllocKeyValuesMemory(iAllocSize);
 }
 
-void *KeyValues::operator new( size_t iAllocSize, int nBlockUse, const char *pFileName, int nLine )
-{
-	void *p = KeyValuesSystem()->AllocKeyValuesMemory(iAllocSize);
-	return p;
+void* KeyValues::operator new(size_t iAllocSize, int nBlockUse, const char* pFileName, int nLine) {
+    void* p = KeyValuesSystem()->AllocKeyValuesMemory(iAllocSize);
+    return p;
 }
 
-void KeyValues::operator delete( void *pMem )
-{
-	KeyValuesSystem()->FreeKeyValuesMemory( (KeyValues *)pMem );
+void KeyValues::operator delete(void* pMem) {
+    KeyValuesSystem()->FreeKeyValuesMemory((KeyValues*) pMem);
 }
 
-void KeyValues::operator delete( void *pMem, int nBlockUse, const char *pFileName, int nLine )
-{
-	KeyValuesSystem()->FreeKeyValuesMemory( (KeyValues *)pMem );
+void KeyValues::operator delete(void* pMem, int nBlockUse, const char* pFileName, int nLine) {
+    KeyValuesSystem()->FreeKeyValuesMemory((KeyValues*) pMem);
 }
-
-
 
 
 //
@@ -2492,180 +2068,156 @@ void KeyValues::operator delete( void *pMem, int nBlockUse, const char *pFileNam
 //
 // KeyValues dumping implementation
 //
-bool KeyValues::Dump( IKeyValuesDumpContext *pDump, int nIndentLevel /* = 0 */ )
-{
-	if ( !pDump->KvBeginKey( this, nIndentLevel ) )
-		return false;
+bool KeyValues::Dump(IKeyValuesDumpContext* pDump, int nIndentLevel /* = 0 */) {
+    if (!pDump->KvBeginKey(this, nIndentLevel))
+        return false;
 
-	// Dump values
-	for ( KeyValues *val = this ? GetFirstValue() : nullptr; val; val = val->GetNextValue() )
-	{
-		if ( !pDump->KvWriteValue( val, nIndentLevel + 1 ) )
-			return false;
-	}
+    // Dump values
+    for (KeyValues* val = this ? GetFirstValue() : nullptr; val; val = val->GetNextValue()) {
+        if (!pDump->KvWriteValue(val, nIndentLevel + 1))
+            return false;
+    }
 
-	// Dump subkeys
-	for ( KeyValues *sub = this ? GetFirstTrueSubKey() : nullptr; sub; sub = sub->GetNextTrueSubKey() )
-	{
-		if ( !sub->Dump( pDump, nIndentLevel + 1 ) )
-			return false;
-	}
+    // Dump subkeys
+    for (KeyValues* sub = this ? GetFirstTrueSubKey() : nullptr; sub; sub = sub->GetNextTrueSubKey()) {
+        if (!sub->Dump(pDump, nIndentLevel + 1))
+            return false;
+    }
 
-	return pDump->KvEndKey( this, nIndentLevel );
+    return pDump->KvEndKey(this, nIndentLevel);
 }
 
-bool IKeyValuesDumpContextAsText::KvBeginKey( KeyValues *pKey, int nIndentLevel )
-{
-	if ( pKey )
-	{
-		return
-			KvWriteIndent( nIndentLevel ) &&
-			KvWriteText( pKey->GetName() ) &&
-			KvWriteText( " {\n" );
-	}
-	else
-	{
-		return
-			KvWriteIndent( nIndentLevel ) &&
-			KvWriteText( "<< NULL >>\n" );
-	}
+bool IKeyValuesDumpContextAsText::KvBeginKey(KeyValues* pKey, int nIndentLevel) {
+    if (pKey) {
+        return
+                KvWriteIndent(nIndentLevel) &&
+                KvWriteText(pKey->GetName()) &&
+                KvWriteText(" {\n");
+    }
+    else {
+        return
+                KvWriteIndent(nIndentLevel) &&
+                KvWriteText("<< NULL >>\n");
+    }
 }
 
-bool IKeyValuesDumpContextAsText::KvWriteValue( KeyValues *val, int nIndentLevel )
-{
-	if ( !val )
-	{
-		return
-			KvWriteIndent( nIndentLevel ) &&
-			KvWriteText( "<< NULL >>\n" );
-	}
+bool IKeyValuesDumpContextAsText::KvWriteValue(KeyValues* val, int nIndentLevel) {
+    if (!val) {
+        return
+                KvWriteIndent(nIndentLevel) &&
+                KvWriteText("<< NULL >>\n");
+    }
 
-	if ( !KvWriteIndent( nIndentLevel ) )
-		return false;
+    if (!KvWriteIndent(nIndentLevel))
+        return false;
 
-	if ( !KvWriteText( val->GetName() ) )
-		return false;
+    if (!KvWriteText(val->GetName()))
+        return false;
 
-	if ( !KvWriteText( " " ) )
-		return false;
+    if (!KvWriteText(" "))
+        return false;
 
-	switch ( val->GetDataType() )
-	{
-	case KeyValues::TYPE_STRING:
-		{
-			if ( !KvWriteText( val->GetString() ) )
-				return false;
-		}
-		break;
+    switch (val->GetDataType()) {
+        case KeyValues::TYPE_STRING: {
+            if (!KvWriteText(val->GetString()))
+                return false;
+        }
+        break;
 
-	case KeyValues::TYPE_INT:
-		{
-			int n = val->GetInt();
-			char *chBuffer = ( char * ) stackalloc( 128 );
-			V_snprintf( chBuffer, 128, "int( %d = 0x%X )", n, n );
-			if ( !KvWriteText( chBuffer ) )
-				return false;
-		}
-		break;
+        case KeyValues::TYPE_INT: {
+            int n = val->GetInt();
+            char* chBuffer = (char*) stackalloc(128);
+            V_snprintf(chBuffer, 128, "int( %d = 0x%X )", n, n);
+            if (!KvWriteText(chBuffer))
+                return false;
+        }
+        break;
 
-	case KeyValues::TYPE_FLOAT:
-		{
-			float fl = val->GetFloat();
-			char *chBuffer = ( char * ) stackalloc( 128 );
-			V_snprintf( chBuffer, 128, "float( %f )", fl );
-			if ( !KvWriteText( chBuffer ) )
-				return false;
-		}
-		break;
+        case KeyValues::TYPE_FLOAT: {
+            float fl = val->GetFloat();
+            char* chBuffer = (char*) stackalloc(128);
+            V_snprintf(chBuffer, 128, "float( %f )", fl);
+            if (!KvWriteText(chBuffer))
+                return false;
+        }
+        break;
 
-	case KeyValues::TYPE_PTR:
-		{
-			void *ptr = val->GetPtr();
-			char *chBuffer = ( char * ) stackalloc( 128 );
-			V_snprintf( chBuffer, 128, "ptr( 0x%p )", ptr );
-			if ( !KvWriteText( chBuffer ) )
-				return false;
-		}
-		break;
+        case KeyValues::TYPE_PTR: {
+            void* ptr = val->GetPtr();
+            char* chBuffer = (char*) stackalloc(128);
+            V_snprintf(chBuffer, 128, "ptr( 0x%p )", ptr);
+            if (!KvWriteText(chBuffer))
+                return false;
+        }
+        break;
 
-	case KeyValues::TYPE_WSTRING:
-		{
-			wchar_t const *wsz = val->GetWString();
-			int nLen = V_wcslen( wsz );
-			int numBytes = nLen*2 + 64;
-			char *chBuffer = ( char * ) stackalloc( numBytes );
-			V_snprintf( chBuffer, numBytes, "%ls [wstring, len = %d]", wsz, nLen );
-			if ( !KvWriteText( chBuffer ) )
-				return false;
-		}
-		break;
+        case KeyValues::TYPE_WSTRING: {
+            wchar_t const* wsz = val->GetWString();
+            int nLen = V_wcslen(wsz);
+            int numBytes = nLen * 2 + 64;
+            char* chBuffer = (char*) stackalloc(numBytes);
+            V_snprintf(chBuffer, numBytes, "%ls [wstring, len = %d]", wsz, nLen);
+            if (!KvWriteText(chBuffer))
+                return false;
+        }
+        break;
 
-	case KeyValues::TYPE_UINT64:
-		{
-			uint64_t n = val->GetUint64();
-			char *chBuffer = ( char * ) stackalloc( 128 );
-			V_snprintf( chBuffer, 128, "u64( %lld = 0x%llX )", n, n );
-			if ( !KvWriteText( chBuffer ) )
-				return false;
-		}
-		break;
+        case KeyValues::TYPE_UINT64: {
+            uint64_t n = val->GetUint64();
+            char* chBuffer = (char*) stackalloc(128);
+            V_snprintf(chBuffer, 128, "u64( %lld = 0x%llX )", n, n);
+            if (!KvWriteText(chBuffer))
+                return false;
+        }
+        break;
 
-	default:
-		break;
+        default:
+            break;
 #if 0	// this code was accidentally stubbed out by a mis-integration in CL722860; it hasn't been tested
-		{
-			int n = val->GetDataType();
-			char *chBuffer = ( char * ) stackalloc( 128 );
-			V_snprintf( chBuffer, 128, "??kvtype[%d]", n );
-			if ( !KvWriteText( chBuffer ) )
-				return false;
-		}
-		break;
+            {
+                int n = val->GetDataType();
+                char* chBuffer = (char*) stackalloc(128);
+                V_snprintf(chBuffer, 128, "??kvtype[%d]", n);
+                if (!KvWriteText(chBuffer))
+                    return false;
+            }
+            break;
 #endif
-	}
+    }
 
-	return KvWriteText( "\n" );
+    return KvWriteText("\n");
 }
 
-bool IKeyValuesDumpContextAsText::KvEndKey( KeyValues *pKey, int nIndentLevel )
-{
-	if ( pKey )
-	{
-		return
-			KvWriteIndent( nIndentLevel ) &&
-			KvWriteText( "}\n" );
-	}
-	else
-	{
-		return true;
-	}
+bool IKeyValuesDumpContextAsText::KvEndKey(KeyValues* pKey, int nIndentLevel) {
+    if (pKey) {
+        return
+                KvWriteIndent(nIndentLevel) &&
+                KvWriteText("}\n");
+    }
+    else {
+        return true;
+    }
 }
 
-bool IKeyValuesDumpContextAsText::KvWriteIndent( int nIndentLevel )
-{
-	int numIndentBytes = ( nIndentLevel * 2 + 1 );
-	char *pchIndent = ( char * ) stackalloc( numIndentBytes );
-	memset( pchIndent, ' ', numIndentBytes - 1 );
-	pchIndent[ numIndentBytes - 1 ] = 0;
-	return KvWriteText( pchIndent );
+bool IKeyValuesDumpContextAsText::KvWriteIndent(int nIndentLevel) {
+    int numIndentBytes = (nIndentLevel * 2 + 1);
+    char* pchIndent = (char*) stackalloc(numIndentBytes);
+    memset(pchIndent, ' ', numIndentBytes - 1);
+    pchIndent[numIndentBytes - 1] = 0;
+    return KvWriteText(pchIndent);
 }
 
 
-bool CKeyValuesDumpContextAsDevMsg::KvBeginKey( KeyValues *pKey, int nIndentLevel )
-{
-	return IKeyValuesDumpContextAsText::KvBeginKey( pKey, nIndentLevel );
+bool CKeyValuesDumpContextAsDevMsg::KvBeginKey(KeyValues* pKey, int nIndentLevel) {
+    return IKeyValuesDumpContextAsText::KvBeginKey(pKey, nIndentLevel);
 }
 
-bool CKeyValuesDumpContextAsDevMsg::KvWriteText( char const *szText )
-{
-	if ( m_nDeveloperLevel > 0 )
-	{
-		DevMsg( "{}", szText );
-	}
-	else
-	{
-		Msg( "{}", szText );
-	}
-	return true;
+bool CKeyValuesDumpContextAsDevMsg::KvWriteText(const std::string_view szText) {
+    if (m_nDeveloperLevel > 0) {
+        DevMsg("{}", szText);
+    }
+    else {
+        Msg("{}", szText);
+    }
+    return true;
 }
-

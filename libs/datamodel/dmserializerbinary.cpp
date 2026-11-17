@@ -20,6 +20,7 @@
 #include <unordered_map>
 #include <vector>
 
+using namespace std::literals;
 
 //-----------------------------------------------------------------------------
 // Forward declarations
@@ -72,7 +73,7 @@ public:
 private:
     // For serialize: string -> index in the file's string table (case-sensitive; views into the gathered symbol table)
     typedef std::unordered_map<std::string_view, int> mapSymbolToIndex_t;
-    static int FindSymbolIndex(const mapSymbolToIndex_t *pStringValueSymbols, const char *pString);
+    static int FindSymbolIndex(const mapSymbolToIndex_t *pStringValueSymbols, std::string_view string);
     // For unserialize: the file's string table, indexed by string number
     typedef std::vector<CUtlSymbolLarge> mapIndexToSymbol_t;
 
@@ -113,17 +114,17 @@ private:
 
     void GetStringTable(CUtlBuffer &buf, uint32_t nStrings, uint32_t nEncodingVersion, mapIndexToSymbol_t *pMap);
 
+    // An index past the table (Valve writes all bits set, 0xFFFF / 0xFFFFFFFF) means "no string": nullptr / the
+    // invalid symbol, as in Valve's reader. Indexing the table with it read past the vector.
     inline char const *Dme_GetStringFromBuffer(CUtlBuffer &buf, bool bUseLargeSymbols, mapIndexToSymbol_t *pMap) {
-        unsigned int uSym = (bUseLargeSymbols) ? buf.GetInt() : buf.GetShort();
-        if (uSym == DMELEMENT_HANDLE_INVALID) {
-            return "";
-        }
-        return (*pMap)[uSym].String();
+        const CUtlSymbolLarge symbol = Dme_GetSymbolFromBuffer(buf, bUseLargeSymbols, pMap);
+        return symbol.IsValid() ? symbol.String() : nullptr;
     }
 
     inline CUtlSymbolLarge Dme_GetSymbolFromBuffer(CUtlBuffer &buf, bool bUseLargeSymbols, mapIndexToSymbol_t *pMap) {
-        unsigned int uSym = (bUseLargeSymbols) ? buf.GetInt() : buf.GetShort();
-        return (*pMap)[uSym];
+        const unsigned int uSym = bUseLargeSymbols ? static_cast<unsigned int>(buf.GetInt())
+                                                   : static_cast<unsigned short>(buf.GetShort());
+        return uSym < pMap->size() ? (*pMap)[uSym] : CUtlSymbolLarge();
     }
 };
 
@@ -199,10 +200,8 @@ void CDmSerializerBinary::SerializeElementArrayAttribute(CUtlBuffer &buf, CDmEle
     }
 }
 
-int CDmSerializerBinary::FindSymbolIndex(const mapSymbolToIndex_t *pStringValueSymbols, const char *pString) {
-    if (!pString)
-        return -1;
-    const auto it = pStringValueSymbols->find(pString);
+int CDmSerializerBinary::FindSymbolIndex(const mapSymbolToIndex_t *pStringValueSymbols, const std::string_view string) {
+    const auto it = pStringValueSymbols->find(string);
     return it != pStringValueSymbols->end() ? it->second : -1;
 }
 
@@ -445,6 +444,8 @@ bool CDmSerializerBinary::UnserializeAttributes(CUtlBuffer &buf, CDmElement *pEl
             DMX_PROFILE_SCOPE(UnserializeAttributes_GetNameString);
             if (pSymbolTable) {
                 pName = Dme_GetStringFromBuffer(buf, bUseLargeSymbols, pSymbolTable);
+                if (!pName)
+                    pName = "";
             }
             else {
                 buf.GetString(nameBuf, sizeof(nameBuf));
@@ -565,12 +566,12 @@ struct DmIdPair_t {
     }
 };
 
-DmElementHandle_t CreateElementWithFallback(const char *pType, const char *pName, DmFileId_t fileid,
+DmElementHandle_t CreateElementWithFallback(const std::string_view pType, const std::string_view pName, DmFileId_t fileid,
                                             const DmObjectId_t &id) {
     DmElementHandle_t hElement = g_pDataModel->CreateElement(pType, pName, fileid, &id);
     if (hElement == DMELEMENT_HANDLE_INVALID) {
         Warning("Binary: Element uses unknown element type {}\n", pType);
-        hElement = g_pDataModel->CreateElement("DmElement", pName, fileid, &id);
+        hElement = g_pDataModel->CreateElement("DmElement"sv, pName, fileid, &id);
         Assert(hElement != DMELEMENT_HANDLE_INVALID);
     }
     return hElement;
@@ -664,6 +665,8 @@ bool CDmSerializerBinary::UnserializeElements(CUtlBuffer &buf, DmFileId_t fileid
             DMX_PROFILE_SCOPE(UnserializeElements_TypeAndName_GetString);
             if (pSymbolTable) {
                 pType = Dme_GetStringFromBuffer(buf, bLargeSymbols, pSymbolTable);
+                if (!pType)
+                    pType = "";
             }
             else {
                 buf.GetString(typeBuf, sizeof(typeBuf));
@@ -672,7 +675,10 @@ bool CDmSerializerBinary::UnserializeElements(CUtlBuffer &buf, DmFileId_t fileid
 
 
             if (pSymbolTable && nEncodingVersion >= DM_BINARY_VER_GLOBAL_STRINGTABLE) {
+                // A missing name gets the datamodel's default name, as Valve's CreateElement does for NULL
                 pName = Dme_GetStringFromBuffer(buf, bLargeSymbols, pSymbolTable);
+                if (!pName)
+                    pName = UNNAMED_ELEMENT_NAME.data();
             }
             else {
                 buf.GetString(nameBuf, sizeof(nameBuf));

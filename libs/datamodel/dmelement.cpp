@@ -94,7 +94,7 @@ IMPLEMENT_ELEMENT_FACTORY( DmElement, CDmElement );
 // For backward compat: DmeElement -> creates a CDmElement of type "DmElement" and leaves CDmElement's type symbol alone
 //-----------------------------------------------------------------------------
 DmElementTypeInfo g_CDmeElement_TypeInfo( "DmeElement",
-	[]( DmElementHandle_t handle, const char *, const DmObjectId_t &id, const char *pElementName, DmFileId_t fileid )
+	[]( DmElementHandle_t handle, const std::string_view, const DmObjectId_t &id, const std::string_view pElementName, DmFileId_t fileid )
 	{
 		return CDmElement::CreateInstance( handle, "DmElement", id, pElementName, fileid );
 	},
@@ -104,7 +104,7 @@ DmElementTypeInfo g_CDmeElement_TypeInfo( "DmeElement",
 //-----------------------------------------------------------------------------
 // Constructor, destructor 
 //-----------------------------------------------------------------------------
-CDmElement::CDmElement( DmElementHandle_t handle, const char *pElementType, const DmObjectId_t &id, const char *pElementName, DmFileId_t fileid ) : 
+CDmElement::CDmElement( DmElementHandle_t handle, const std::string_view pElementType, const DmObjectId_t &id, const std::string_view pElementName, DmFileId_t fileid ) :
 	m_ref( handle ), m_Type( g_pDataModel->GetSymbol( pElementType ) ), m_fileId( fileid ),
 	m_pAttributes(nullptr), m_bDirty( false ), m_bOnChangedCallbacksEnabled( false ), m_nParityBits( 0 ), m_bOnlyInUndo( false )
 {
@@ -418,7 +418,7 @@ bool CDmElement::FindReferer( DmElementHandle_t hElement, CUtlVector< ElementPat
 //-----------------------------------------------------------------------------
 CDmElement* CDmElement::CopyInternal( TraversalDepth_t depth /* = TD_DEEP */ ) const
 {
-	CDmElement *pCopy = GetElement< CDmElement >( g_pDataModel->CreateElement( GetType(), GetName(), GetFileId() ) );
+	CDmElement *pCopy = GetElement< CDmElement >( g_pDataModel->CreateElement( GetType().view(), GetName(), GetFileId() ) );
 	if ( pCopy )
 	{
 		CopyAttributesTo( pCopy, depth );
@@ -478,7 +478,7 @@ void CDmElement::CopyElementAttribute( const CDmAttribute *pSrcAttr, CDmAttribut
 		DmElementHandle_t hDest = pDestAttr->GetValue<DmElementHandle_t>();
 		if ( hDest == DMELEMENT_HANDLE_INVALID )
 		{
-			hDest = g_pDataModel->CreateElement( pSrc->GetType(), pSrc->GetName(), pSrc->GetFileId() );
+			hDest = g_pDataModel->CreateElement( pSrc->GetType().view(), pSrc->GetName(), pSrc->GetFileId() );
 			pDestAttr->SetValue( hDest );
 		}
 
@@ -531,7 +531,7 @@ void CDmElement::CopyElementArrayAttribute( const CDmAttribute *pAttr, CDmAttrib
 
 		if ( bCopy )
 		{
-			DmElementHandle_t hDest = g_pDataModel->CreateElement( pSrc->GetType(), pSrc->GetName(), pSrc->GetFileId() );
+			DmElementHandle_t hDest = g_pDataModel->CreateElement( pSrc->GetType().view(), pSrc->GetName(), pSrc->GetFileId() );
 			destAttr.AddToTail( hDest );
 			CDmElement *pDest = GetElement< CDmElement >( hDest );
 			pSrc->CopyAttributesTo( pDest, refmap, depth );
@@ -780,7 +780,7 @@ const CDmAttribute*	CDmElement::FirstAttribute() const
 	return m_pAttributes;
 }
 
-bool CDmElement::HasAttribute( const char *pAttributeName, DmAttributeType_t type ) const
+bool CDmElement::HasAttribute(const std::string_view pAttributeName, DmAttributeType_t type) const
 {
 	CDmAttribute *pAttribute = FindAttribute( pAttributeName );
 	if ( !pAttribute )
@@ -861,7 +861,7 @@ void CDmElement::SetValueFromString( const char *pAttributeName, const char *pVa
 //-----------------------------------------------------------------------------
 // Adds, removes attributes
 //-----------------------------------------------------------------------------
-CDmAttribute *CDmElement::CreateAttribute( const char *pAttributeName, DmAttributeType_t type )
+CDmAttribute *CDmElement::CreateAttribute(const std::string_view pAttributeName, DmAttributeType_t type)
 {
 	Assert( !HasAttribute( pAttributeName ) );
 	MarkDirty( );
@@ -876,7 +876,7 @@ CDmAttribute *CDmElement::CreateAttribute( const char *pAttributeName, DmAttribu
 	return pAttribute;
 }
 
-CDmAttribute* CDmElement::AddExternalAttribute( const char *pAttributeName, DmAttributeType_t type, void *pMemory )
+CDmAttribute* CDmElement::AddExternalAttribute(const std::string_view pAttributeName, DmAttributeType_t type, void *pMemory)
 {
 	DMX_PROFILE_SCOPE( AddExternalAttribute );
 
@@ -913,9 +913,9 @@ CDmAttribute* CDmElement::AddExternalAttribute( const char *pAttributeName, DmAt
 //-----------------------------------------------------------------------------
 // Find an attribute in the list
 //-----------------------------------------------------------------------------
-CDmAttribute *CDmElement::FindAttribute( const char *pAttributeName ) const
+CDmAttribute *CDmElement::FindAttribute(const std::string_view attributeName) const
 {
-	CUtlSymbolLarge find = g_pDataModel->GetSymbol( pAttributeName );
+	CUtlSymbolLarge find = g_pDataModel->GetSymbol( attributeName );
 
 	for ( CDmAttribute *pAttr = m_pAttributes; pAttr; pAttr = pAttr->NextAttribute() )
 	{

@@ -113,10 +113,10 @@ class CDmaElement : public CDmaVar<DmElementHandle_t> {
 
 public:
     // Used to initialize the attribute in an element's OnConstruction method
-    void InitAndCreate(CDmElement *pOwner, const char *pAttributeName, const char *pElementName = nullptr,
+    void InitAndCreate(CDmElement *pOwner, std::string_view attributeName, std::string_view elementName = UNNAMED_ELEMENT_NAME,
                        int flags = 0);
 
-    void Init(CDmElement *pOwner, const char *pAttributeName, int flags = 0);
+    void Init(CDmElement *pOwner, std::string_view attributeName, int flags = 0);
 
     // Returns the type of elements allowed into this attribute. UTL_INVAL_SYMBOL allows everything.
     CUtlSymbolLarge GetElementType() const;
@@ -747,8 +747,8 @@ public:
         this->Init(pAttribute);
     }
 
-    CDmrElementArray(CDmElement *pElement, const char *pAttributeName, bool bAddAttribute = false) {
-        this->Init(pElement, pAttributeName, bAddAttribute);
+    CDmrElementArray(CDmElement *pElement, const std::string_view attributeName, bool bAddAttribute = false) {
+        this->Init(pElement, attributeName, bAddAttribute);
     }
 
     template<typename C>
@@ -772,12 +772,12 @@ public:
         }
     }
 
-    void Init(CDmElement *pElement, const char *pAttributeName, bool bAddAttribute = false) {
+    void Init(CDmElement *pElement, const std::string_view attributeName, bool bAddAttribute = false) {
         CDmAttribute *pAttribute = nullptr;
-        if (pElement && pAttributeName && pAttributeName[0]) {
-            pAttribute = pElement->GetAttribute(pAttributeName);
+        if (pElement && !attributeName.empty()) {
+            pAttribute = pElement->GetAttribute(attributeName);
             if (bAddAttribute && !pAttribute) {
-                pAttribute = pElement->CreateAttribute(pAttributeName, AT_ELEMENT_ARRAY);
+                pAttribute = pElement->CreateAttribute(attributeName, AT_ELEMENT_ARRAY);
 
                 // FIXME: Should we do this?
                 pAttribute->SetElementTypeSymbol(T::GetStaticTypeSymbol());
@@ -820,7 +820,7 @@ inline CDmaVar<T>::CDmaVar() {
 }
 
 template<class T>
-inline void CDmaVar<T>::Init(CDmElement *pOwner, const char *pAttributeName, int flags) {
+inline void CDmaVar<T>::Init(CDmElement *pOwner, const std::string_view pAttributeName, int flags) {
     Assert(pOwner);
     m_pAttribute = pOwner->AddExternalAttribute(pAttributeName, CDmAttributeInfo<T>::AttributeType(), &m_Storage);
     Assert(m_pAttribute);
@@ -830,7 +830,7 @@ inline void CDmaVar<T>::Init(CDmElement *pOwner, const char *pAttributeName, int
 }
 
 template<class T>
-inline void CDmaVar<T>::InitAndSet(CDmElement *pOwner, const char *pAttributeName, const T &value, int flags) {
+inline void CDmaVar<T>::InitAndSet(CDmElement *pOwner, const std::string_view pAttributeName, const T &value, int flags) {
     this->Init(pOwner, pAttributeName);
     this->Set(value);
 
@@ -1080,14 +1080,15 @@ inline CDmaString::operator const char *() const {
     return this->Value().String();
 }
 
-inline void CDmaString::InitAndSet(CDmElement *pOwner, const char *pAttributeName, const char *pValue, int flags) {
+inline void CDmaString::InitAndSet(CDmElement *pOwner, const std::string_view pAttributeName, const std::string_view pValue, int flags) {
     CUtlSymbolLarge symbol = g_pDataModel->GetSymbol(pValue);
     CDmaVar<CUtlSymbolLarge>::InitAndSet(pOwner, pAttributeName, symbol, flags);
 }
 
 
+// A null pValue stores the invalid symbol (what GetSymbol( NULL ) returned)
 inline void CDmaString::Set(const char *pValue) {
-    CUtlSymbolLarge symbol = g_pDataModel->GetSymbol(pValue);
+    CUtlSymbolLarge symbol = pValue ? g_pDataModel->GetSymbol(pValue) : CUtlSymbolLarge();
     m_pAttribute->SetValue(symbol);
 }
 
@@ -1158,13 +1159,13 @@ inline int CDmaBinaryBlock::Length() const {
 //
 //-----------------------------------------------------------------------------
 template<class T>
-inline void CDmaElement<T>::InitAndCreate(CDmElement *pOwner, const char *pAttributeName, const char *pElementName,
-                                          int flags) {
-    Init(pOwner, pAttributeName);
+inline void CDmaElement<T>::InitAndCreate(CDmElement *pOwner, const std::string_view attributeName,
+                                          const std::string_view elementName, int flags) {
+    Init(pOwner, attributeName);
 
     DmElementHandle_t hElement = DMELEMENT_HANDLE_INVALID;
     if (!g_pDataModel->IsUnserializing()) {
-        hElement = g_pDataModel->CreateElement(T::GetStaticTypeSymbol(), pElementName, pOwner->GetFileId());
+        hElement = g_pDataModel->CreateElement(T::GetStaticTypeSymbol().view(), elementName, pOwner->GetFileId());
     }
     Assert(this->m_pAttribute);
     this->m_pAttribute->SetValue(hElement);
@@ -1174,8 +1175,8 @@ inline void CDmaElement<T>::InitAndCreate(CDmElement *pOwner, const char *pAttri
 }
 
 template<class T>
-inline void CDmaElement<T>::Init(CDmElement *pOwner, const char *pAttributeName, int flags) {
-    BaseClass::Init(pOwner, pAttributeName);
+inline void CDmaElement<T>::Init(CDmElement *pOwner, const std::string_view attributeName, int flags) {
+    BaseClass::Init(pOwner, attributeName);
 
     Assert(this->m_pAttribute);
     this->m_pAttribute->SetElementTypeSymbol(T::GetStaticTypeSymbol());
@@ -1331,20 +1332,20 @@ inline int CDmaStringArrayConstBase<B>::Length(int i) const {
 
 template<class B>
 inline void CDmaStringArrayBase<B>::Set(int i, const char *pValue) {
-    CUtlSymbolLarge symbol = g_pDataModel->GetSymbol(pValue);
+    CUtlSymbolLarge symbol = pValue ? g_pDataModel->GetSymbol(pValue) : CUtlSymbolLarge();
     BaseClass::Set(i, symbol);
 }
 
 // Adds an element, uses copy constructor
 template<class B>
 inline int CDmaStringArrayBase<B>::AddToTail(const char *pValue) {
-    CUtlSymbolLarge symbol = g_pDataModel->GetSymbol(pValue);
+    CUtlSymbolLarge symbol = pValue ? g_pDataModel->GetSymbol(pValue) : CUtlSymbolLarge();
     return BaseClass::AddToTail(symbol);
 }
 
 template<class B>
 inline int CDmaStringArrayBase<B>::InsertBefore(int elem, const char *pValue) {
-    CUtlSymbolLarge symbol = g_pDataModel->GetSymbol(pValue);
+    CUtlSymbolLarge symbol = pValue ? g_pDataModel->GetSymbol(pValue) : CUtlSymbolLarge();
     return BaseClass::InsertBefore(elem, symbol);
 }
 

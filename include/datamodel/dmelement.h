@@ -7,6 +7,8 @@
 #pragma once
 
 
+#include <string_view>
+#include <type_traits>
 #include <unordered_map>
 #include "tier1/utlrbtree.h"
 #include "tier1/utlhash.h"
@@ -195,11 +197,10 @@ public:
 
     // Attribute iteration, finding
     // NOTE: Passing a type into GetAttribute will return NULL if the attribute exists but isn't that type
-    bool HasAttribute(const char *pAttributeName, DmAttributeType_t type = AT_UNKNOWN) const;
+    bool HasAttribute(std::string_view pAttributeName, DmAttributeType_t type = AT_UNKNOWN) const;
 
-    CDmAttribute *GetAttribute(const char *pAttributeName, DmAttributeType_t type = AT_UNKNOWN);
-
-    const CDmAttribute *GetAttribute(const char *pAttributeName, DmAttributeType_t type = AT_UNKNOWN) const;
+    CDmAttribute *GetAttribute(std::string_view pAttributeName, DmAttributeType_t type = AT_UNKNOWN);
+    const CDmAttribute *GetAttribute(std::string_view pAttributeName, DmAttributeType_t type = AT_UNKNOWN) const;
 
     int AttributeCount() const;
 
@@ -211,7 +212,7 @@ public:
     // WARNING: SetType() should only be used by format conversion methods (dmxconvert)
     CUtlSymbolLarge GetType() const;
 
-    const char *GetTypeString() const;
+    std::string_view GetTypeString() const;
 
     const char *GetName() const;
 
@@ -222,13 +223,13 @@ public:
     void SetName(const char *pName);
 
     // Attribute management
-    CDmAttribute *AddAttribute(const char *pAttributeName, DmAttributeType_t type);
+    CDmAttribute *AddAttribute(std::string_view attributeName, DmAttributeType_t type);
 
     template<class E>
-    CDmAttribute *AddAttributeElement(const char *pAttributeName);
+    CDmAttribute *AddAttributeElement(std::string_view attributeName);
 
     template<class E>
-    CDmAttribute *AddAttributeElementArray(const char *pAttributeName);
+    CDmAttribute *AddAttributeElementArray(std::string_view attributeName);
 
     void RemoveAttribute(const char *pAttributeName);
 
@@ -238,33 +239,43 @@ public:
 
     // get attribute value
     template<class T>
-    const T &GetValue(const char *pAttributeName) const;
+    const T &GetValue(std::string_view attributeName) const;
 
     template<class T>
-    const T &GetValue(const char *pAttributeName, const T &defaultValue) const;
+    const T &GetValue(std::string_view attributeName, const T &defaultValue) const;
 
-    const char *GetValueString(const char *pAttributeName) const;
+    const char *GetValueString(std::string_view attributeName) const;
 
     template<class E>
-    E *GetValueElement(const char *pAttributeName) const;
+    E *GetValueElement(std::string_view attributeName) const;
 
     // set attribute value
-    CDmAttribute *SetValue(const char *pAttributeName, const void *value, size_t size, bool bCreateIfNotFound = true);
+    // Strings are stored as symbols (AT_STRING); a null const char* stores the invalid symbol.
+    // Element pointers store the element's handle (AT_ELEMENT).
+    CDmAttribute *SetValue(std::string_view attributeName, const void *value, size_t size, bool bCreateIfNotFound = true);
 
-    template<class T>
-    CDmAttribute *SetValue(const char *pAttributeName, const T &value, bool bCreateIfNotFound = true);
+    CDmAttribute *SetValue(std::string_view attributeName, const char *pValue, bool bCreateIfNotFound = true);
 
-    template<class E>
-    CDmAttribute *SetValue(const char *pAttributeName, E *value, bool bCreateIfNotFound = true);
+    CDmAttribute *SetValue(std::string_view attributeName, std::string_view value, bool bCreateIfNotFound = true);
+
+    template<class T> requires (!std::is_convertible_v<const T &, std::string_view>)
+    CDmAttribute *SetValue(std::string_view attributeName, const T &value, bool bCreateIfNotFound = true);
+
+    template<class E> requires (!std::is_same_v<std::remove_cv_t<E>, char>)
+    CDmAttribute *SetValue(std::string_view attributeName, E *value, bool bCreateIfNotFound = true);
 
     // set attribute value if the attribute doesn't already exist
-    CDmAttribute *InitValue(const char *pAttributeName, const void *value, size_t size);
+    CDmAttribute *InitValue(std::string_view attributeName, const void *value, size_t size);
 
-    template<class T>
-    CDmAttribute *InitValue(const char *pAttributeName, const T &value);
+    CDmAttribute *InitValue(std::string_view attributeName, const char *pValue);
 
-    template<class E>
-    CDmAttribute *InitValue(const char *pAttributeName, E *value);
+    CDmAttribute *InitValue(std::string_view attributeName, std::string_view value);
+
+    template<class T> requires (!std::is_convertible_v<const T &, std::string_view>)
+    CDmAttribute *InitValue(std::string_view attributeName, const T &value);
+
+    template<class E> requires (!std::is_same_v<std::remove_cv_t<E>, char>)
+    CDmAttribute *InitValue(std::string_view attributeName, E *value);
 
     // Parses an attribute from a string
     // Doesn't create an attribute if it doesn't exist and always preserves attribute type
@@ -274,7 +285,7 @@ public:
     template<class E>
     bool IsA() const;
 
-    bool IsA(const char *pTypeName) const;
+    bool IsA(std::string_view typeName) const;
 
     static CUtlSymbolLarge GetStaticTypeSymbol();
 
@@ -318,8 +329,8 @@ public:
     // Lifecycle, driven by the datamodel: elements are created through their registered DmElementTypeInfo
     // (CreateInstance) and deleted by IDataModel::DestroyElement
     template<class Self = CDmElement>
-    static CDmElement *CreateInstance(DmElementHandle_t handle, const char *pElementTypeName, const DmObjectId_t &id,
-                                      const char *pElementName, DmFileId_t fileid) {
+    static CDmElement *CreateInstance(DmElementHandle_t handle, const std::string_view pElementTypeName, const DmObjectId_t &id,
+                                      const std::string_view pElementName, DmFileId_t fileid) {
         return new Self(handle, pElementTypeName, id, pElementName, fileid);
     }
 
@@ -337,7 +348,7 @@ public:
     static void SetTypeSymbol(CUtlSymbolLarge sym);
 
 protected:
-    CDmElement(DmElementHandle_t handle, const char *objectType, const DmObjectId_t &id, const char *objectName,
+    CDmElement(DmElementHandle_t handle, std::string_view objectType, const DmObjectId_t &id, std::string_view objectName,
                DmFileId_t fileid);
 
     // Used by derived classes to do construction and setting up CDmaVars
@@ -382,13 +393,13 @@ public:
     SetFileId_R(CUtlHashFast<DmElementHandle_t> &visited, DmFileId_t fileid, TraversalDepth_t depth, DmFileId_t match,
                 bool bOnlyIfMatch);
 
-    CDmAttribute *CreateAttribute(const char *pAttributeName, DmAttributeType_t type);
+    CDmAttribute *CreateAttribute(std::string_view pAttributeName, DmAttributeType_t type);
 
     void RemoveAttribute(CDmAttribute **pAttrRef);
 
-    CDmAttribute *AddExternalAttribute(const char *pAttributeName, DmAttributeType_t type, void *pMemory);
+    CDmAttribute *AddExternalAttribute(std::string_view pAttributeName, DmAttributeType_t type, void *pMemory);
 
-    CDmAttribute *FindAttribute(const char *pAttributeName) const;
+    CDmAttribute *FindAttribute(std::string_view attributeName) const;
 
     void Purge();
 
@@ -495,14 +506,14 @@ inline E* CDmAttribute::GetValueElement() const
 // Typesafe element creation + destruction
 //-----------------------------------------------------------------------------
 template<class E>
-inline E *CreateElement(const char *pObjectName, DmFileId_t fileid, const DmObjectId_t *pObjectID = nullptr) {
-    return GetElement<E>(g_pDataModel->CreateElement(E::GetStaticTypeSymbol(), pObjectName, fileid, pObjectID));
+inline E *CreateElement(const std::string_view objectName, DmFileId_t fileid, const DmObjectId_t *pObjectID = nullptr) {
+    return GetElement<E>(g_pDataModel->CreateElement(E::GetStaticTypeSymbol().view(), objectName, fileid, pObjectID));
 }
 
 template<class E>
-inline E *CreateElement(const char *pElementType, const char *pObjectName, DmFileId_t fileid,
+inline E *CreateElement(const std::string_view elementType, const std::string_view objectName, DmFileId_t fileid,
                         const DmObjectId_t *pObjectID = nullptr) {
-    return GetElement<E>(g_pDataModel->CreateElement(pElementType, pObjectName, fileid, pObjectID));
+    return GetElement<E>(g_pDataModel->CreateElement(elementType, objectName, fileid, pObjectID));
 }
 
 inline void DestroyElement(CDmElement *pElement) {
@@ -523,35 +534,34 @@ void InvokeOnAttributeChangedOnReferrers(DmElementHandle_t hElement, CDmAttribut
 //-----------------------------------------------------------------------------
 // Gets attributes
 //-----------------------------------------------------------------------------
-inline CDmAttribute *CDmElement::GetAttribute(const char *pAttributeName, DmAttributeType_t type) {
+inline CDmAttribute *CDmElement::GetAttribute(const std::string_view pAttributeName, DmAttributeType_t type) {
     CDmAttribute *pAttribute = FindAttribute(pAttributeName);
     if ((type != AT_UNKNOWN) && pAttribute && (pAttribute->GetType() != type))
         return nullptr;
     return pAttribute;
 }
 
-inline const CDmAttribute *CDmElement::GetAttribute(const char *pAttributeName, DmAttributeType_t type) const {
+inline const CDmAttribute *CDmElement::GetAttribute(const std::string_view pAttributeName, DmAttributeType_t type) const {
     CDmAttribute *pAttribute = FindAttribute(pAttributeName);
     if ((type != AT_UNKNOWN) && pAttribute && (pAttribute->GetType() != type))
         return nullptr;
     return pAttribute;
 }
-
 
 //-----------------------------------------------------------------------------
 // AddAttribute calls
 //-----------------------------------------------------------------------------
-inline CDmAttribute *CDmElement::AddAttribute(const char *pAttributeName, DmAttributeType_t type) {
-    CDmAttribute *pAttribute = FindAttribute(pAttributeName);
+inline CDmAttribute *CDmElement::AddAttribute(const std::string_view attributeName, DmAttributeType_t type) {
+    CDmAttribute *pAttribute = FindAttribute(attributeName);
     if (pAttribute)
         return (pAttribute->GetType() == type) ? pAttribute : nullptr;
-    pAttribute = CreateAttribute(pAttributeName, type);
+    pAttribute = CreateAttribute(attributeName, type);
     return pAttribute;
 }
 
 template<class E>
-inline CDmAttribute *CDmElement::AddAttributeElement(const char *pAttributeName) {
-    CDmAttribute *pAttribute = AddAttribute(pAttributeName, AT_ELEMENT);
+inline CDmAttribute *CDmElement::AddAttributeElement(const std::string_view attributeName) {
+    CDmAttribute *pAttribute = AddAttribute(attributeName, AT_ELEMENT);
     if (!pAttribute)
         return nullptr;
 
@@ -561,8 +571,8 @@ inline CDmAttribute *CDmElement::AddAttributeElement(const char *pAttributeName)
 }
 
 template<class E>
-inline CDmAttribute *CDmElement::AddAttributeElementArray(const char *pAttributeName) {
-    CDmAttribute *pAttribute = AddAttribute(pAttributeName, AT_ELEMENT_ARRAY);
+inline CDmAttribute *CDmElement::AddAttributeElementArray(const std::string_view attributeName) {
+    CDmAttribute *pAttribute = AddAttribute(attributeName, AT_ELEMENT_ARRAY);
     if (!pAttribute)
         return nullptr;
 
@@ -576,21 +586,21 @@ inline CDmAttribute *CDmElement::AddAttributeElementArray(const char *pAttribute
 // GetValue methods
 //-----------------------------------------------------------------------------
 template<class T>
-inline const T &CDmElement::GetValue(const char *pAttributeName, const T &defaultVal) const {
-    const CDmAttribute *pAttribute = FindAttribute(pAttributeName);
+inline const T &CDmElement::GetValue(const std::string_view attributeName, const T &defaultVal) const {
+    const CDmAttribute *pAttribute = FindAttribute(attributeName);
     if (pAttribute != nullptr)
         return pAttribute->GetValue<T>();
     return defaultVal;
 }
 
 template<class T>
-inline const T &CDmElement::GetValue(const char *pAttributeName) const {
+inline const T &CDmElement::GetValue(const std::string_view attributeName) const {
     static CDmaVar<T> defaultVal;
-    return GetValue(pAttributeName, defaultVal.Get());
+    return GetValue(attributeName, defaultVal.Get());
 }
 
-inline const char *CDmElement::GetValueString(const char *pAttributeName) const {
-    CUtlSymbolLarge symbol = GetValue<CUtlSymbolLarge>(pAttributeName);
+inline const char *CDmElement::GetValueString(const std::string_view attributeName) const {
+    CUtlSymbolLarge symbol = GetValue<CUtlSymbolLarge>(attributeName);
     if (symbol == UTL_INVAL_SYMBOL_LARGE)
         return nullptr;
 
@@ -598,8 +608,8 @@ inline const char *CDmElement::GetValueString(const char *pAttributeName) const 
 }
 
 template<class E>
-inline E *CDmElement::GetValueElement(const char *pAttributeName) const {
-    DmElementHandle_t h = GetValue<DmElementHandle_t>(pAttributeName);
+inline E *CDmElement::GetValueElement(const std::string_view attributeName) const {
+    DmElementHandle_t h = GetValue<DmElementHandle_t>(attributeName);
     return GetElement<E>(h);
 }
 
@@ -607,12 +617,12 @@ inline E *CDmElement::GetValueElement(const char *pAttributeName) const {
 //-----------------------------------------------------------------------------
 // SetValue methods
 //-----------------------------------------------------------------------------
-template<class T>
+template<class T> requires (!std::is_convertible_v<const T &, std::string_view>)
 inline CDmAttribute *
-CDmElement::SetValue(const char *pAttributeName, const T &value, bool bCreateIfNotFound /*= true*/ ) {
-    CDmAttribute *pAttribute = FindAttribute(pAttributeName);
+CDmElement::SetValue(const std::string_view attributeName, const T &value, bool bCreateIfNotFound /*= true*/) {
+    CDmAttribute *pAttribute = FindAttribute(attributeName);
     if (!pAttribute && bCreateIfNotFound) {
-        pAttribute = CreateAttribute(pAttributeName, CDmAttributeInfo<T>::AttributeType());
+        pAttribute = CreateAttribute(attributeName, CDmAttributeInfo<T>::AttributeType());
     }
     if (pAttribute) {
         pAttribute->SetValue(value);
@@ -621,66 +631,71 @@ CDmElement::SetValue(const char *pAttributeName, const T &value, bool bCreateIfN
     return nullptr;
 }
 
-template<class E>
-inline CDmAttribute *CDmElement::SetValue(const char *pAttributeName, E *pElement, bool bCreateIfNotFound /*= true*/ ) {
+template<class E> requires (!std::is_same_v<std::remove_cv_t<E>, char>)
+inline CDmAttribute *CDmElement::SetValue(const std::string_view attributeName, E *pElement, bool bCreateIfNotFound /*= true*/) {
     DmElementHandle_t hElement = pElement ? pElement->GetHandle() : DMELEMENT_HANDLE_INVALID;
-    return SetValue(pAttributeName, hElement, bCreateIfNotFound);
+    return SetValue(attributeName, hElement, bCreateIfNotFound);
 }
 
-template<>
 inline CDmAttribute *
-CDmElement::SetValue(const char *pAttributeName, const char *pValue, bool bCreateIfNotFound /*= true*/ ) {
+CDmElement::SetValue(const std::string_view attributeName, const std::string_view value, bool bCreateIfNotFound /*= true*/) {
     // We don't want to add any extra entries into the string table so if bCreateIfNotFound is
     // false, then check to see if the attribute exists before adding the string to the table.
-    if (!bCreateIfNotFound) {
-        if (HasAttribute(pAttributeName, AT_STRING) == false)
-            return nullptr;
-    }
+    if (!bCreateIfNotFound && !HasAttribute(attributeName, AT_STRING))
+        return nullptr;
 
-    CUtlSymbolLarge symbol = g_pDataModel->GetSymbol(pValue);
-    return SetValue(pAttributeName, symbol);
-}
-
-template<>
-inline CDmAttribute *
-CDmElement::SetValue(const char *pAttributeName, char *pValue, bool bCreateIfNotFound /*= true*/ ) {
-    return SetValue(pAttributeName, (const char *) pValue, bCreateIfNotFound);
+    return SetValue(attributeName, g_pDataModel->GetSymbol(value));
 }
 
 inline CDmAttribute *
-CDmElement::SetValue(const char *pAttributeName, const void *pValue, size_t nSize, bool bCreateIfNotFound /*= true*/ ) {
+CDmElement::SetValue(const std::string_view attributeName, const char *pValue, bool bCreateIfNotFound /*= true*/) {
+    if (pValue)
+        return SetValue(attributeName, std::string_view(pValue), bCreateIfNotFound);
+
+    // A null string stores the invalid symbol (what GetSymbol( NULL ) returned)
+    if (!bCreateIfNotFound && !HasAttribute(attributeName, AT_STRING))
+        return nullptr;
+
+    return SetValue(attributeName, CUtlSymbolLarge());
+}
+
+inline CDmAttribute *
+CDmElement::SetValue(const std::string_view attributeName, const void *pValue, size_t nSize, bool bCreateIfNotFound /*= true*/) {
     CUtlBinaryBlock buf(pValue, nSize);
-    return SetValue(pAttributeName, buf, bCreateIfNotFound);
+    return SetValue(attributeName, buf, bCreateIfNotFound);
 }
 
 
 //-----------------------------------------------------------------------------
 // AddValue methods( set value if not found )
 //-----------------------------------------------------------------------------
-template<class T>
-inline CDmAttribute *CDmElement::InitValue(const char *pAttributeName, const T &value) {
-    CDmAttribute *pAttribute = GetAttribute(pAttributeName);
+template<class T> requires (!std::is_convertible_v<const T &, std::string_view>)
+inline CDmAttribute *CDmElement::InitValue(const std::string_view attributeName, const T &value) {
+    CDmAttribute *pAttribute = GetAttribute(attributeName);
     if (!pAttribute)
-        return SetValue(pAttributeName, value);
+        return SetValue(attributeName, value);
     return pAttribute;
 }
 
-template<class E>
-inline CDmAttribute *CDmElement::InitValue(const char *pAttributeName, E *pElement) {
+template<class E> requires (!std::is_same_v<std::remove_cv_t<E>, char>)
+inline CDmAttribute *CDmElement::InitValue(const std::string_view attributeName, E *pElement) {
     DmElementHandle_t hElement = pElement ? pElement->GetHandle() : DMELEMENT_HANDLE_INVALID;
-    return InitValue(pAttributeName, hElement);
+    return InitValue(attributeName, hElement);
 }
 
-template<>
-inline CDmAttribute *CDmElement::InitValue(const char *pAttributeName, const char *pValue) {
-    CUtlSymbolLarge symbol = g_pDataModel->GetSymbol(pValue);
-    return InitValue(pAttributeName, symbol);
+inline CDmAttribute *CDmElement::InitValue(const std::string_view attributeName, const std::string_view value) {
+    return InitValue(attributeName, g_pDataModel->GetSymbol(value));
 }
 
-inline CDmAttribute *CDmElement::InitValue(const char *pAttributeName, const void *pValue, size_t size) {
-    CDmAttribute *pAttribute = GetAttribute(pAttributeName);
+inline CDmAttribute *CDmElement::InitValue(const std::string_view attributeName, const char *pValue) {
+    // A null string stores the invalid symbol (what GetSymbol( NULL ) returned)
+    return pValue ? InitValue(attributeName, std::string_view(pValue)) : InitValue(attributeName, CUtlSymbolLarge());
+}
+
+inline CDmAttribute *CDmElement::InitValue(const std::string_view attributeName, const void *pValue, size_t size) {
+    CDmAttribute *pAttribute = GetAttribute(attributeName);
     if (!pAttribute)
-        return SetValue(pAttributeName, pValue, size);
+        return SetValue(attributeName, pValue, size);
     return pAttribute;
 }
 
@@ -692,8 +707,8 @@ inline CUtlSymbolLarge CDmElement::GetType() const {
     return m_Type;
 }
 
-inline const char *CDmElement::GetTypeString() const {
-    return m_Type.String();
+inline std::string_view CDmElement::GetTypeString() const {
+    return m_Type.view();
 }
 
 inline const char *CDmElement::GetName() const {
@@ -752,8 +767,8 @@ inline CUtlSymbolLarge CDmElement::GetStaticTypeSymbol() {
     return m_classType;
 }
 
-inline bool CDmElement::IsA(const char *pTypeName) const {
-    CUtlSymbolLarge typeSymbol = g_pDataModel->GetSymbol(pTypeName);
+inline bool CDmElement::IsA(const std::string_view typeName) const {
+    CUtlSymbolLarge typeSymbol = g_pDataModel->GetSymbol(typeName);
     return IsA(typeSymbol);
 }
 
@@ -1051,7 +1066,7 @@ void CopyElements(const CUtlVector<T *> &from, CUtlVector<T *> &to, TraversalDep
                 pCopy = GetElement<T>(it->second);
             } else {
                 pCopy = GetElement<T>(
-                        g_pDataModel->CreateElement(pFrom->GetType(), pFrom->GetName(), pFrom->GetFileId()));
+                        g_pDataModel->CreateElement(pFrom->GetType().view(), pFrom->GetName(), pFrom->GetFileId()));
                 if (pCopy) {
                     pFrom->CopyAttributesTo(pCopy, refmap, depth);
                 }
@@ -1083,7 +1098,7 @@ void CopyElements(const CUtlVector<T *> &from, CUtlVector<T *> &to, TraversalDep
 //-----------------------------------------------------------------------------
 #define DEFINE_UNINSTANCEABLE_ELEMENT(className, baseClassName)    \
     protected:                                                        \
-        className( DmElementHandle_t handle, const char *pElementTypeName, const DmObjectId_t &id, const char *pElementName, DmFileId_t fileid ) :    \
+        className( DmElementHandle_t handle, const std::string_view pElementTypeName, const DmObjectId_t &id, const std::string_view pElementName, DmFileId_t fileid ) :    \
             baseClassName( handle, pElementTypeName, id, pElementName, fileid )                    \
         {                                                                                        \
         }                                                                                        \
@@ -1118,7 +1133,7 @@ void CopyElements(const CUtlVector<T *> &from, CUtlVector<T *> &to, TraversalDep
             return IsA_Implementation( typeSymbol );\
         }                                            \
                                                     \
-        bool IsA( const char *pTypeName ) const        \
+        bool IsA( const std::string_view pTypeName ) const        \
         {                                            \
             CUtlSymbolLarge typeSymbol = g_pDataModel->GetSymbol( pTypeName ); \
             return IsA( typeSymbol );                \
@@ -1145,7 +1160,7 @@ void CopyElements(const CUtlVector<T *> &from, CUtlVector<T *> &to, TraversalDep
         }                                                                \
                                                                         \
         template< class Self = className >                                \
-        static CDmElement *CreateInstance( DmElementHandle_t handle, const char *pElementTypeName, const DmObjectId_t &id, const char *pElementName, DmFileId_t fileid ) \
+        static CDmElement *CreateInstance( DmElementHandle_t handle, const std::string_view pElementTypeName, const DmObjectId_t &id, const std::string_view pElementName, DmFileId_t fileid ) \
         {                                                                \
             return new Self( handle, pElementTypeName, id, pElementName, fileid ); \
         }                                                                \
@@ -1155,7 +1170,7 @@ void CopyElements(const CUtlVector<T *> &from, CUtlVector<T *> &to, TraversalDep
             m_classType = typeSymbol;                                    \
         }                                                                \
     protected:                                                            \
-        className( DmElementHandle_t handle, const char *pElementTypeName, const DmObjectId_t &id, const char *pElementName, DmFileId_t fileid ) :    \
+        className( DmElementHandle_t handle, const std::string_view pElementTypeName, const DmObjectId_t &id, const std::string_view pElementName, DmFileId_t fileid ) :    \
             baseClassName( handle, pElementTypeName, id, pElementName, fileid )                    \
         {                                                                                        \
         }                                                                                        \

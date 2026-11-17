@@ -32,7 +32,7 @@ protected:
 
 class CSFMBaseImporter : public CDmeBaseImporter
 {
-	typedef CDmeBaseImporter BaseClass;
+	using BaseClass = CDmeBaseImporter;
 
 public:
 	CSFMBaseImporter( char const *formatName, char const *nextFormatName );

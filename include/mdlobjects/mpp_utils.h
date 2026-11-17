@@ -58,5 +58,5 @@ enum MppSkeletonMask_t
 };
 
 // Utility to return DmElement id as name:string
-CUtlString ComputeDmElementIdStr( const CDmElement *pDmElement );
+std::string ComputeDmElementIdStr(const CDmElement* pDmElement);
 

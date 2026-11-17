@@ -33,8 +33,8 @@ protected:
     virtual void PostShutdown() {}
     virtual void Destroy() {}
 
-    // Locates gameinfo.txt from pStartingDir and mounts its search paths on g_pFullFileSystem
-    bool SetupSearchPaths(const char *pStartingDir, bool bOnlyUseStartingDir, bool bIsTool);
+    // Locates gameinfo.txt (-game / -vproject) and mounts its search paths on g_pFullFileSystem
+    bool SetupSearchPaths();
     std::string_view GetGameInfoPath() const { return m_GameInfoPath; }
 
 private:

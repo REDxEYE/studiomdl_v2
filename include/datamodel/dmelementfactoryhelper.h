@@ -22,8 +22,8 @@
 // datamodel, which looks types up by name (case-insensitive) when creating elements.
 //-----------------------------------------------------------------------------
 struct DmElementTypeInfo {
-    using CreateFn = CDmElement *(*)(DmElementHandle_t handle, const char *pElementTypeName, const DmObjectId_t &id,
-                                     const char *pElementName, DmFileId_t fileid);
+    using CreateFn = CDmElement *(*)(DmElementHandle_t handle, std::string_view pElementTypeName, const DmObjectId_t &id,
+                                     std::string_view pElementName, DmFileId_t fileid);
     using SetTypeSymbolFn = void (*)(CUtlSymbolLarge typeSymbol);
 
     // Takes a string literal only, so m_TypeName.data() is NUL-terminated for the const char* datamodel APIs

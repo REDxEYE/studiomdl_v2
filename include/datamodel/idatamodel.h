@@ -7,6 +7,8 @@
 #pragma once
 
 
+#include <optional>
+#include <string_view>
 #include <vector>
 #include "tier1/utlvector.h"
 #include "tier1/utlsymbollarge.h"
@@ -36,6 +38,9 @@ class CElementIdHash;
 #else
 #define DMX_PROFILE_SCOPE( name )
 #endif
+
+// Name given to elements created without one (Valve's CreateElement( type, NULL ) default)
+inline constexpr std::string_view UNNAMED_ELEMENT_NAME = "unnamed";
 
 
 //-----------------------------------------------------------------------------
@@ -157,7 +162,9 @@ public:
 class IDmLegacyUpdater
 {
 public:
-	virtual const char *GetName() const = 0;
+    virtual ~IDmLegacyUpdater() = default;
+
+    virtual const char *GetName() const = 0;
 	virtual bool IsLatestVersion() const = 0;
 
 	// Updates ppRoot to first non-legacy generic dmx format, returns false if the conversion fails
@@ -185,7 +192,8 @@ public:
 class IElementForKeyValueCallback
 {
 public:
-	virtual const char *GetElementForKeyValue( const char *pszKeyName, int iNestingLevel ) = 0;
+	// Returns the element type to create for the key, or nullopt for the default (DmElement)
+	virtual std::optional<std::string_view> GetElementForKeyValue(std::string_view keyName, int iNestingLevel) = 0;
 };
 
 
@@ -248,8 +256,8 @@ public:
 	virtual void			Shutdown() = 0;
 
 	// create/destroy element methods - proxies to installed element factories
-	virtual DmElementHandle_t	CreateElement( CUtlSymbolLarge typeSymbol, const char *pElementName, DmFileId_t fileid, const DmObjectId_t *pObjectID = nullptr) = 0;
-	virtual DmElementHandle_t	CreateElement( const char *pTypeName, const char *pElementName, DmFileId_t fileid, const DmObjectId_t *pObjectID = nullptr) = 0;
+	// The name is used verbatim (an empty name stays empty); pass UNNAMED_ELEMENT_NAME for "no name"
+	virtual DmElementHandle_t	CreateElement(std::string_view typeName, std::string_view elementName, DmFileId_t fileid, const DmObjectId_t *pObjectID = nullptr) = 0;
 	virtual void				DestroyElement( DmElementHandle_t hElement ) = 0;
 
 	// element handle related methods
@@ -318,10 +326,10 @@ public:
 
 	// Sets the name of the DME element to create in keyvalues serialization
 	virtual void			SetKeyValuesElementCallback( IElementForKeyValueCallback *pCallbackInterface ) = 0;
-	virtual const char		*GetKeyValuesElementName( const char *pszKeyName, int iNestingLevel ) = 0;
+	virtual std::optional<std::string_view> GetKeyValuesElementName(std::string_view keyName, int iNestingLevel) = 0;
 
 	// Global symbol table for the datamodel system
-	virtual CUtlSymbolLarge		GetSymbol( const char *pString ) = 0;
+	virtual CUtlSymbolLarge		GetSymbol(std::string_view pString) = 0;
 	// Once you have a CUtlSymbolLarge, don't need an external API to get the char *, just use the String() method.
 
 	// Returns the total number of elements allocated at the moment

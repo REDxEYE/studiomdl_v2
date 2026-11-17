@@ -61,11 +61,11 @@ bool CImportCommentary::Serialize( CUtlBuffer &buf, CDmElement *pRoot )
 class CElementForKeyValueCallback : public IElementForKeyValueCallback
 {
 public:
-	const char *GetElementForKeyValue( const char *pszKeyName, int iNestingLevel ) override {
-		if ( iNestingLevel == 1 && !Q_strncmp(pszKeyName, "entity", 6) )
+	std::optional<std::string_view> GetElementForKeyValue(const std::string_view keyName, int iNestingLevel) override {
+		if ( iNestingLevel == 1 && keyName.starts_with("entity") )
 			return "DmeCommentaryNodeEntity";
 
-		return nullptr;
+		return std::nullopt;
 	}
 };
 

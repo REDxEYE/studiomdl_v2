@@ -49,8 +49,8 @@ public:
 private:
 	DmeFramerate_t( int nNumerator, int nDenominator );
 
-	unsigned short m_num;
-	unsigned short m_den;
+	unsigned short m_num{};
+	unsigned short m_den{};
 
 	friend class DmeTime_t;
 };
@@ -68,7 +68,7 @@ public:
 	explicit DmeTime_t( int tms ) : m_tms( tms ) {}
 	explicit DmeTime_t( float  sec ) : m_tms( RoundSecondsToTMS( sec ) ) {}
 	explicit DmeTime_t( double sec ) : m_tms( RoundSecondsToTMS( sec ) ) {}
-	DmeTime_t( int frame, DmeFramerate_t framerate );
+	DmeTime_t( int frame, const DmeFramerate_t& framerate );
 
 
 	// time operators

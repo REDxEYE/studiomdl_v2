@@ -1260,7 +1260,7 @@ CUtlMemoryPool g_AttrAlloc( sizeof( CDmAttribute ), 4096, CUtlMemoryPool::GROW_S
 // turn memdbg off temporarily so we can get at placement new
 //#include "tier0/memdbgoff.h"
 
-CDmAttribute *CDmAttribute::CreateAttribute( CDmElement *pOwner, DmAttributeType_t type, const char *pAttributeName )
+CDmAttribute *CDmAttribute::CreateAttribute(CDmElement *pOwner, DmAttributeType_t type, const std::string_view attributeName)
 {
 	switch( type )
 	{
@@ -1277,13 +1277,13 @@ CDmAttribute *CDmAttribute::CreateAttribute( CDmElement *pOwner, DmAttributeType
 			}
 			{
 				DMX_PROFILE_SCOPE( CreateAttribute_new_CDmAttribute );
-				return ::new( pMem ) CDmAttribute( pOwner, type, pAttributeName );
+				return ::new( pMem ) CDmAttribute( pOwner, type, attributeName );
 			}
 		}
 	}
 }
 
-CDmAttribute *CDmAttribute::CreateExternalAttribute( CDmElement *pOwner, DmAttributeType_t type, const char *pAttributeName, void *pExternalMemory )
+CDmAttribute *CDmAttribute::CreateExternalAttribute(CDmElement *pOwner, DmAttributeType_t type, const std::string_view pAttributeName, void *pExternalMemory)
 {
 	switch( type )
 	{
@@ -1335,7 +1335,7 @@ void CDmAttribute::DestroyAttribute( CDmAttribute *pAttribute )
 //-----------------------------------------------------------------------------
 // Constructor, destructor
 //-----------------------------------------------------------------------------
-CDmAttribute::CDmAttribute( CDmElement *pOwner, DmAttributeType_t type, const char *pAttributeName ) :
+CDmAttribute::CDmAttribute( CDmElement *pOwner, DmAttributeType_t type, const std::string_view pAttributeName ) :
 	m_pData(nullptr)
 {
 	{
@@ -1348,7 +1348,7 @@ CDmAttribute::CDmAttribute( CDmElement *pOwner, DmAttributeType_t type, const ch
 	}
 }
 
-CDmAttribute::CDmAttribute( CDmElement *pOwner, DmAttributeType_t type, const char *pAttributeName, void *pMemory ) :
+CDmAttribute::CDmAttribute( CDmElement *pOwner, DmAttributeType_t type, const std::string_view pAttributeName, void *pMemory ) :
 	m_pData( pMemory )
 {
 	{
@@ -1364,7 +1364,7 @@ CDmAttribute::CDmAttribute( CDmElement *pOwner, DmAttributeType_t type, const ch
 }
 
 
-void CDmAttribute::Init( CDmElement *pOwner, DmAttributeType_t type, const char *pAttributeName )
+void CDmAttribute::Init(CDmElement *pOwner, DmAttributeType_t type, const std::string_view pAttributeName)
 {
 	m_pOwner = pOwner;
 	{

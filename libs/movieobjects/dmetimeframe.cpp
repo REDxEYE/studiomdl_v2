@@ -20,9 +20,9 @@ IMPLEMENT_ELEMENT_FACTORY( DmeTimeFrame, CDmeTimeFrame );
 //-----------------------------------------------------------------------------
 void CDmeTimeFrame::OnConstruction()
 {
-	m_Start   .InitAndSet( this, "start",    DMETIME_ZERO, FATTRIB_HAS_CALLBACK );
+	m_Start   .InitAndSet( this, "start", DMETIME_ZERO, FATTRIB_HAS_CALLBACK );
 	m_Duration.InitAndSet( this, "duration", DMETIME_ZERO, FATTRIB_HAS_CALLBACK );
-	m_Offset  .InitAndSet( this, "offset",   DMETIME_ZERO );
+	m_Offset  .InitAndSet( this, "offset", DMETIME_ZERO);
 	m_Scale   .InitAndSet( this, "scale",    1.0f );
 }
 

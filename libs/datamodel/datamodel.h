@@ -182,10 +182,7 @@ public:
     void InstallElementTypes(const DmElementTypeInfo* pFirst);
 
     // Methods of IDataModel
-    DmElementHandle_t CreateElement(CUtlSymbolLarge typeSymbol, const char* pElementName, DmFileId_t fileid,
-                                    const DmObjectId_t* pObjectID = nullptr) override;
-
-    DmElementHandle_t CreateElement(const char* pTypeName, const char* pElementName, DmFileId_t fileid,
+    DmElementHandle_t CreateElement(std::string_view typeName, std::string_view elementName, DmFileId_t fileid,
                                     const DmObjectId_t* pObjectID = nullptr) override;
 
     void DestroyElement(DmElementHandle_t hElement) override;
@@ -260,9 +257,9 @@ public:
 
     void SetKeyValuesElementCallback(IElementForKeyValueCallback* pCallbackInterface) override;
 
-    const char* GetKeyValuesElementName(const char* pszKeyName, int iNestingLevel) override;
+    std::optional<std::string_view> GetKeyValuesElementName(std::string_view keyName, int iNestingLevel) override;
 
-    CUtlSymbolLarge GetSymbol(const char* pString) override;
+    CUtlSymbolLarge GetSymbol(std::string_view pString) override;
 
     int GetElementsAllocatedSoFar() override;
 
@@ -361,7 +358,7 @@ public:
     int GetCurrentFormatVersion(const char* pFormatName);
 
     // CreateElement references the attribute list passed in via ref, so don't edit or purge ref's attribute list afterwards
-    CDmElement* CreateElement(const DmElementReference_t &ref, const char* pElementType, const char* pElementName,
+    CDmElement* CreateElement(const DmElementReference_t &ref, std::string_view elementType, std::string_view elementName,
                               DmFileId_t fileid, const DmObjectId_t* pObjectID);
 
     void DeleteElement(DmElementHandle_t hElement, DmHandleReleasePolicy hrp = HR_ALWAYS);

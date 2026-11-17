@@ -63,12 +63,12 @@ CDmAttribute *CDmeAttributeReference::LookupAttributeHandle() const
 	m_AttributeHandle = DMATTRIBUTE_HANDLE_INVALID;
 
 	CDmElement *pElement = m_Element.GetElement();
-	const char *pName= m_AttributeName.Get();
+	const std::string_view attributeName = m_AttributeName->view();
 
-	if ( pElement == nullptr || pName == nullptr || !pName[0] )
+	if ( pElement == nullptr || attributeName.empty() )
 		return nullptr;
 
-	CDmAttribute *pAttr = pElement->GetAttribute( pName );
+	CDmAttribute *pAttr = pElement->GetAttribute( attributeName );
 	if ( !pAttr )
 		return nullptr;
 

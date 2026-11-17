@@ -187,7 +187,7 @@ namespace vstd::paths {
         }
         else {
             std::error_code ec;
-            const std::string dir = to_utf8(std::filesystem::current_path(ec));
+            out = to_utf8(std::filesystem::current_path(ec));
             if (ec)
                 throw std::runtime_error("make_absolute_path: can't get the current directory.");
 

@@ -42,10 +42,10 @@ private:
 	bool UnserializeShaderParam( CDmElement *pRoot, KeyValues* pKeyValue );
 
 	// Creates a matrix material var
-	bool CreateMatrixMaterialVarFromKeyValue( CDmElement *pRoot, const char *pParamName, const char *pString );
+	bool CreateMatrixMaterialVarFromKeyValue(CDmElement *pRoot, std::string_view pParamName, std::string_view pString);
 
 	// Creates a vector shader parameter
-	bool CreateVectorMaterialVarFromKeyValue( CDmElement *pRoot, const char *pParamName, const char *pString );
+	bool CreateVectorMaterialVarFromKeyValue(CDmElement *pRoot, std::string_view paramName, std::string_view string);
 
 	// Writes out a single shader parameter
 	bool SerializeShaderParameter( CUtlBuffer &buf, CDmAttribute *pAttribute );
@@ -158,7 +158,7 @@ bool CImportVMT::SerializeShaderParameter( CUtlBuffer &buf, CDmAttribute *pAttri
 //-----------------------------------------------------------------------------
 bool CImportVMT::SerializeShaderParameters( CUtlBuffer &buf, CDmElement *pRoot )
 {
-	for ( CDmAttribute *pAttribute = pRoot->FirstAttribute(); pAttribute; pAttribute = pAttribute->NextAttribute() )
+	for ( CDmAttribute *pAttribute : AttributesInFileOrder( pRoot ) )
 	{
 		// Skip the standard attributes
 		if ( pAttribute->IsStandard() )
@@ -204,7 +204,7 @@ bool CImportVMT::SerializeFallbacks( CUtlBuffer &buf, CDmElement *pRoot )
 		CDmElement *pFallback = array[i];
 		Assert( pFallback );
 
-		PrintStringAttribute( pFallback, buf, "shader", false, true );
+		buf.Printf( "\"%s\"\n", pFallback->GetName() );
 		buf.Printf( "{\n" );
 		buf.PushTab();
 		if ( !SerializeShaderParameters( buf, pFallback ) )
@@ -244,8 +244,16 @@ bool CImportVMT::SerializeProxies( CUtlBuffer &buf, CDmElement *pRoot )
 		PrintStringAttribute( pProxy, buf, "proxyType", false, true );
 		buf.Printf( "{\n" );
 		buf.PushTab();
-		if ( !SerializeShaderParameters( buf, pProxy ) )
-			return false;
+		// Every attribute other than the proxy bookkeeping is a proxy parameter (no $ prefix required)
+		for ( CDmAttribute *pAttribute : AttributesInFileOrder( pProxy ) )
+		{
+			if ( pAttribute->IsStandard() || pAttribute->IsFlagSet( FATTRIB_DONTSAVE ) )
+				continue;
+			if ( !Q_stricmp( pAttribute->GetName(), "proxyType" ) || !Q_stricmp( pAttribute->GetName(), "editorType" ) )
+				continue;
+			if ( !SerializeShaderParameter( buf, pAttribute ) )
+				return false;
+		}
 		buf.PopTab();
 		buf.Printf( "}\n" );
 	}
@@ -307,8 +315,12 @@ static inline bool IsVector( char const* v )
 //-----------------------------------------------------------------------------
 // Creates a vector material var
 //-----------------------------------------------------------------------------
-int ParseVectorFromKeyValueString( const char *pParamName, const char* pScan, const char *pMaterialName, float vecVal[4] )
+static int ParseVectorFromKeyValueString(const std::string_view paramName, const std::string_view value, const std::string_view materialName, float vecVal[4])
 {
+	// The scanner relies on the NUL terminator (IsEndline) and strtod, so parse a terminated copy
+	const std::string text(value);
+	const char *pScan = text.c_str();
+
 	bool divideBy255 = false;
 
 	// skip whitespace
@@ -342,7 +354,7 @@ int ParseVectorFromKeyValueString( const char *pParamName, const char* pScan, co
 			if (*pScan != ']' && *pScan != '}')
 			{
 				Warning( "Warning in .VMT file ({}): no ']' or '}}' found in vector key \"{}\".\n"
-					"Did you forget to surround the vector with \"s?\n", pMaterialName, pParamName );
+					"Did you forget to surround the vector with \"s?\n", materialName, paramName );
 			}
 
 			// allow for vec2's, etc.
@@ -355,7 +367,7 @@ int ParseVectorFromKeyValueString( const char *pParamName, const char* pScan, co
 		vecVal[i] = strtod( pScan, &pEnd );
 		if (pScan == pEnd)
 		{
-			Warning( "Error in .VMT file: error parsing vector element \"{}\" in \"{}\"\n", pParamName, pMaterialName );
+			Warning( "Error in .VMT file: error parsing vector element \"{}\" in \"{}\"\n", paramName, materialName );
 			return 0;
 		}
 
@@ -378,7 +390,7 @@ int ParseVectorFromKeyValueString( const char *pParamName, const char* pScan, co
 // Sets shader parameter attributes
 //-----------------------------------------------------------------------------
 template< class T >
-inline bool SetShaderParamAttribute( CDmElement *pElement, const char *pAttributeName, const T &value )
+inline bool SetShaderParamAttribute(CDmElement *pElement, const std::string_view pAttributeName, const T &value)
 {
 	if ( !pElement )
 		return false;
@@ -391,7 +403,7 @@ inline bool SetShaderParamAttribute( CDmElement *pElement, const char *pAttribut
 	return true;
 }
 
-inline bool SetShaderParamAttribute( CDmElement *pElement, const char *pAttributeName, const char *value )
+inline bool SetShaderParamAttribute(CDmElement *pElement, const std::string_view pAttributeName, const std::string_view value)
 {
 	if ( !pElement )
 		return false;
@@ -408,10 +420,10 @@ inline bool SetShaderParamAttribute( CDmElement *pElement, const char *pAttribut
 //-----------------------------------------------------------------------------
 // Creates a vector shader parameter
 //-----------------------------------------------------------------------------
-bool CImportVMT::CreateVectorMaterialVarFromKeyValue( CDmElement *pElement, const char *pParamName, const char *pString )
+bool CImportVMT::CreateVectorMaterialVarFromKeyValue(CDmElement *pElement, const std::string_view paramName, const std::string_view string)
 {
 	Vector4D vecVal;
-	int nDim = ParseVectorFromKeyValueString( pParamName, pString, FileName(), vecVal.Base() );
+	int nDim = ParseVectorFromKeyValueString( paramName, string, FileName(), vecVal.Base() );
 	if ( nDim == 0 )
 		return false;
 
@@ -419,13 +431,13 @@ bool CImportVMT::CreateVectorMaterialVarFromKeyValue( CDmElement *pElement, cons
 	switch ( nDim )
 	{
 	case 1:
-		return SetShaderParamAttribute( pElement, pParamName, vecVal[0] );
+		return SetShaderParamAttribute( pElement, paramName, vecVal[0] );
 	case 2:
-		return SetShaderParamAttribute( pElement, pParamName, vecVal.AsVector2D() );
+		return SetShaderParamAttribute( pElement, paramName, vecVal.AsVector2D() );
 	case 3:
-		return SetShaderParamAttribute( pElement, pParamName, vecVal.AsVector3D() );
+		return SetShaderParamAttribute( pElement, paramName, vecVal.AsVector3D() );
 	case 4:
-		return SetShaderParamAttribute( pElement, pParamName, vecVal );
+		return SetShaderParamAttribute( pElement, paramName, vecVal );
 	}
 
 	return false;
@@ -435,15 +447,15 @@ bool CImportVMT::CreateVectorMaterialVarFromKeyValue( CDmElement *pElement, cons
 //-----------------------------------------------------------------------------
 // Creates a matrix shader parameter
 //-----------------------------------------------------------------------------
-bool CImportVMT::CreateMatrixMaterialVarFromKeyValue( CDmElement *pElement, const char *pParamName, const char *pScan )
+bool CImportVMT::CreateMatrixMaterialVarFromKeyValue(CDmElement *pElement, const std::string_view pParamName, const std::string_view pScan)
 {
 	// Matrices can be specified one of two ways:
 	// [ # # # #  # # # #  # # # #  # # # # ]
 	// or
 	// center # # scale # # rotate # translate # #
-
+    std::string tmp(pScan);
 	VMatrix mat;
-	int count = sscanf( pScan, " [ %f %f %f %f  %f %f %f %f  %f %f %f %f  %f %f %f %f ]",
+	int count = sscanf( tmp.c_str(), " [ %f %f %f %f  %f %f %f %f  %f %f %f %f  %f %f %f %f ]",
 		&mat.m[0][0], &mat.m[0][1], &mat.m[0][2], &mat.m[0][3],
 		&mat.m[1][0], &mat.m[1][1], &mat.m[1][2], &mat.m[1][3],
 		&mat.m[2][0], &mat.m[2][1], &mat.m[2][2], &mat.m[2][3],
@@ -456,7 +468,7 @@ bool CImportVMT::CreateMatrixMaterialVarFromKeyValue( CDmElement *pElement, cons
 	Vector2D scale, center;
 	float angle;
 	Vector2D translation;
-	count = sscanf( pScan, " center %f %f scale %f %f rotate %f translate %f %f",
+	count = sscanf( tmp.c_str(), " center %f %f scale %f %f rotate %f translate %f %f",
 		&center.x, &center.y, &scale.x, &scale.y, &angle, &translation.x, &translation.y );
 	if (count != 7)
 		return false;
@@ -480,9 +492,8 @@ bool CImportVMT::CreateMatrixMaterialVarFromKeyValue( CDmElement *pElement, cons
 //-----------------------------------------------------------------------------
 bool CImportVMT::UnserializeShaderParam( CDmElement *pRoot, KeyValues* pKeyValues )
 {
-	char pParamName[512];
-	Q_strncpy( pParamName, pKeyValues->GetName(), sizeof(pParamName) );
-	Q_strlower( pParamName );
+	std::string pParamName(pKeyValues->GetName());
+    vstd::make_lower_ascii(pParamName);
 
 	switch( pKeyValues->GetDataType() )
 	{
@@ -494,22 +505,23 @@ bool CImportVMT::UnserializeShaderParam( CDmElement *pRoot, KeyValues* pKeyValue
 
 	case KeyValues::TYPE_STRING:
 		{
-			char const* pString = pKeyValues->GetString();
+			// IsVector scans up to the NUL terminator
+			const std::string value( pKeyValues->GetString() );
 
 			// Only valid if it's a texture attribute
-			if ( !pString || !pString[0] )
-				return SetShaderParamAttribute( pRoot, pParamName, pString );
+			if ( value.empty() )
+				return SetShaderParamAttribute( pRoot, pParamName, std::string_view( value ) );
 
 			// Look for matrices
-			if ( CreateMatrixMaterialVarFromKeyValue( pRoot, pParamName, pString ) )
+			if ( CreateMatrixMaterialVarFromKeyValue( pRoot, pParamName, value ) )
 				return true;
 
 			// Look for vectors
-			if ( !IsVector( pString ) )
-				return SetShaderParamAttribute( pRoot, pParamName, pString );
+			if ( !IsVector( value.c_str() ) )
+				return SetShaderParamAttribute( pRoot, pParamName, std::string_view( value ) );
 
 			// Parse the string as a vector...
-			return CreateVectorMaterialVarFromKeyValue( pRoot, pParamName, pString );
+			return CreateVectorMaterialVarFromKeyValue( pRoot, pParamName, value );
 		}
 	}
 
@@ -534,7 +546,7 @@ bool CImportVMT::UnserializeProxies( CDmElement *pElement, KeyValues *pKeyValues
 	{
 		CDmElement *pProxyElement = CreateDmElement( "DmElement", pProxy->GetName(), nullptr); 
 		array.AddToTail( pProxyElement );
-		pProxyElement->SetValue( "proxyType", pKeyValues->GetName() );
+		pProxyElement->SetValue( "proxyType", pProxy->GetName() );
 		pProxyElement->SetValue( "editorType", "vmtProxy" );
 
 		// Normal keys are proxy parameters
@@ -544,15 +556,15 @@ bool CImportVMT::UnserializeProxies( CDmElement *pElement, KeyValues *pKeyValues
 			{
 			case KeyValues::TYPE_INT:
 				pProxyElement->SetValue( pProxyParam->GetName(), pProxyParam->GetInt() );
-				return true;
+				break;
 
 			case KeyValues::TYPE_FLOAT:
 				pProxyElement->SetValue( pProxyParam->GetName(), pProxyParam->GetFloat() );
-				return true;
+				break;
 
 			case KeyValues::TYPE_STRING:
 				pProxyElement->SetValue( pProxyParam->GetName(), pProxyParam->GetString() );
-				return true;
+				break;
 
 			default:
 				Warning( "Unhandled proxy keyvalues type (proxy {} var {})\n", pProxy->GetName(), pProxyParam->GetName() );
@@ -646,14 +658,14 @@ void InsertKeyValues( KeyValues& dst, KeyValues& src, bool bCheckForExistence )
 void CImportVMT::ExpandPatchFile( KeyValues *pKeyValues )
 {
 	int count = 0;
-	while( count < 10 && stricmp( pKeyValues->GetName(), "patch" ) == 0 )
+	while( count < 10 && vstd::iequals( pKeyValues->GetName(), "patch" ) )
 	{
 //		WriteKeyValuesToFile( "patch.txt", keyValues );
-		const char *pIncludeFileName = pKeyValues->GetString( "include" );
-		if( pIncludeFileName )
+		// GetString never returns null, so this branch is always taken (as in Valve's code)
+		const std::string includeFileName( pKeyValues->GetString( "include" ) );
 		{
 			KeyValues * includeKeyValues = new KeyValues( "vmt" );
-			bool success = includeKeyValues->LoadFromFile( g_pFullFileSystem, pIncludeFileName, nullptr);
+			bool success = includeKeyValues->LoadFromFile( g_pFullFileSystem, includeFileName.c_str(), nullptr);
 			if( success )
 			{
 				KeyValues *pInsertSection = pKeyValues->FindKey( "insert" );
@@ -677,10 +689,6 @@ void CImportVMT::ExpandPatchFile( KeyValues *pKeyValues )
 				includeKeyValues->deleteThis();
 				return;
 			}
-		}
-		else
-		{
-			return;
 		}
 		count++;
 	}
@@ -728,7 +736,7 @@ CDmElement* CImportVMT::UnserializeFromKeyValues( KeyValues *pKeyValues )
 	// Subkeys are either proxies or fallbacks
 	for ( KeyValues *pSubKey = pKeyValues->GetFirstTrueSubKey(); pSubKey != nullptr; pSubKey = pSubKey->GetNextTrueSubKey() )
 	{
-		if ( !Q_stricmp( pSubKey->GetName(), "Proxies" ) )
+		if ( vstd::iequals( pSubKey->GetName(), "Proxies" ) )
 		{
 			UnserializeProxies( pRoot, pSubKey );
 		}
