@@ -1,0 +1,8 @@
+/* Linker version script of libstudiomdl.so (api/CMakeLists.txt): the C API is the whole interface.
+ * Everything else, including the libstdc++ template instantiations the library emits, stays local. */
+{
+    global:
+        smdl_*;
+    local:
+        *;
+};

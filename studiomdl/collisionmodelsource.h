@@ -14,6 +14,7 @@
 #ifndef COLLISION_MODEL_OPTIONS_H
 #define COLLISION_MODEL_OPTIONS_H
 
+#include <string>
 #include <vector>
 
 struct s_mesh_t;
@@ -40,7 +41,7 @@ public:
 	bool					m_bAssumeWorldspace = false; // assume the model is already declared in worldspace, regardless of bone names
 	bool					m_allowConcave;
 	int						m_maxConvex;
-	char *					m_pOverrideName;
+	std::string				m_OverrideName; // $collisionmodel name override for the .phy file; empty = the model's name
 	std::vector<int>			m_bonemap/*[MAXSTUDIOSRCBONES]*/;
 	char					m_rootName[128]{};
 	bool					m_allowConcaveJoints;

@@ -1,8 +1,24 @@
-cmake_minimum_required(VERSION 3.22)
+cmake_minimum_required(VERSION 3.24)
 project(studiomdl_v2)
 
+# This repository is also a library: add_subdirectory() / FetchContent it and link studiomdl::static (or
+# studiomdl::studiomdl, the shared library), see docs/LIBRARY.md. Tests, the command line tools and dmxconvert are only
+# built by default when this is the top level project.
+option(STUDIOMDL_BUILD_TESTS "Build the tests (ctest)" ${PROJECT_IS_TOP_LEVEL})
+option(STUDIOMDL_BUILD_CLI "Build the studiomdl_v2 and dmxconvert executables" ${PROJECT_IS_TOP_LEVEL})
+
+# Variables set here (language standard, visibility, ...) are scoped to this directory: they don't leak into a parent
+# project that add_subdirectory()s us.
 set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)  # for clang-tidy / clangd
+if (PROJECT_IS_TOP_LEVEL)
+    set(CMAKE_EXPORT_COMPILE_COMMANDS ON)  # for clang-tidy / clangd
+endif ()
+# Every static library is also linked into the studiomdl shared library (studiomdl/CMakeLists.txt): position
+# independent code, and symbols hidden unless exported explicitly
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+set(CMAKE_C_VISIBILITY_PRESET hidden)
+set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
 if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
 
     if (CMAKE_SIZEOF_VOID_P EQUAL 8)
@@ -58,7 +74,12 @@ elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif ()
 
 add_subdirectory(libs/appframework)
-add_subdirectory(libs/meshoptimizer)
+# meshoptimizer: only optimizeVertexCache is used (libs/meshoptimizer is a vendored subset of 1.3). A host project that
+# already has the target (pylib fetches 1.2: same function, same signature, same vcacheoptimizer.cpp) keeps its own, as
+# long as it is declared before this directory.
+if (NOT TARGET meshoptimizer)
+    add_subdirectory(libs/meshoptimizer)
+endif ()
 add_subdirectory(libs/tier0)
 add_subdirectory(libs/tier1)
 add_subdirectory(libs/tier2)
@@ -72,108 +93,40 @@ add_subdirectory(libs/utils)
 add_subdirectory(libs/bonesetup)
 add_subdirectory(libs/filesystem)
 add_subdirectory(libs/vphys_lite)
+add_subdirectory(studiomdl)
+add_subdirectory(api)
 
+# dmxconvert and the studiomdl_v2 executable (studiomdl/CMakeLists.txt) are the command line tools
+if (STUDIOMDL_BUILD_CLI)
+    add_executable(dmxconvert
+            dmxconvert/dmxconvert.cpp
+            studiomdl/filesystem_init.cpp
+            studiomdl/studiomdl_errors.cpp
+            studiomdl/studiomdl_helpers.cpp
+            include/studiomdl/studiomdl_helpers.hpp
+            studiomdl/processing.cpp
+            include/studiomdl/processing.hpp
+    )
 
-# Everything of studiomdl except the entry point (studiomdl/studiomdl_app.cpp), also built into tests/repeat_process
-set(STUDIOMDL_SOURCES
-        studiomdl/dmxsupport.cpp
-        studiomdl/mrmsupport.cpp
-        studiomdl/v1support.cpp
-        studiomdl/perfstats.cpp
-        studiomdl/hardwarematrixstate.cpp
-        studiomdl/hardwarevertexcache.cpp
-        studiomdl/objsupport.cpp
-        studiomdl/optimize.cpp
-        studiomdl/optimize_subd.cpp
-        studiomdl/simplify.cpp
-        studiomdl/UnifyLODs.cpp
-        studiomdl/write.cpp
-        studiomdl/flexoptimize.cpp
-        studiomdl/studiomdl.cpp
-        studiomdl/filesystem_init.cpp
-        studiomdl/collisionmodel.cpp
-        studiomdl/collisionmodelsource.cpp
-        studiomdl/studiomdl_commands.cpp
-        studiomdl/studiomdl_errors.cpp
-        studiomdl/studiomdl_app.h
-        include/studiomdl/studiomdl_global_state.hpp
-        studiomdl/mppsupport.cpp
-        studiomdl/output_files.cpp
-        include/studiomdl/output_files.hpp
-        studiomdl/weight_fit.cpp
-        include/studiomdl/weight_fit.hpp
-        # pulls every mdlobjects element factory out of the static library (.mpp elements are created by type name)
-        include/mdlobjects/mdlobjects.cpp
-        studiomdl/studiomdl_helpers.cpp
-        include/studiomdl/studiomdl_helpers.hpp
-        studiomdl/processing.cpp
-        include/studiomdl/processing.hpp
-)
-list(TRANSFORM STUDIOMDL_SOURCES PREPEND ${PROJECT_SOURCE_DIR}/)
-
-# Compile definitions, includes and libraries of a target built from STUDIOMDL_SOURCES
-function(studiomdl_configure target)
-    target_compile_definitions(${target} PRIVATE -DSTATIC_TIER0 -DMDLCOMPILE)
-    #target_compile_definitions(${target} PRIVATE -DFBX_SUPPORT)
-    target_include_directories(${target} PUBLIC ${PROJECT_SOURCE_DIR}/include)
-    target_link_libraries(${target} PRIVATE
+    set_property(TARGET dmxconvert APPEND_STRING PROPERTY COMPILE_FLAGS)
+    target_compile_definitions(dmxconvert PRIVATE -DSTATIC_TIER0)
+    target_include_directories(dmxconvert PUBLIC include)
+    target_link_libraries(dmxconvert PRIVATE
             tier0
             tier1
             tier2
-            mathlib
-            utils
+            appframework
             datamodel
             dmserializers
-            movieobjects
-            bonesetup
-            mdlobjects
-            appframework
-            meshoptimizer
+            mathlib
             filesystem_stdio_v2_static
-            vphys_lite
     )
-    if (WIN32)
-        # shell32: CommandLineToArgvW for the UTF-8 command line
-        target_link_libraries(${target} PRIVATE shlwapi shell32)
-    endif ()
     if (MINGW)
-        # libstdc++ keeps the Windows console part of std::print (__open_terminal, __write_to_terminal) in libstdc++exp
-        target_link_libraries(${target} PRIVATE stdc++exp)
+        # studiomdl_errors.cpp uses std::print, see studiomdl_v2 above
+        target_link_libraries(dmxconvert PRIVATE stdc++exp)
     endif ()
-endfunction()
-
-add_executable(studiomdl_v2 ${STUDIOMDL_SOURCES} studiomdl/studiomdl_app.cpp)
-studiomdl_configure(studiomdl_v2)
-
-add_executable(dmxconvert
-        dmxconvert/dmxconvert.cpp
-        studiomdl/filesystem_init.cpp
-        studiomdl/studiomdl_errors.cpp
-        studiomdl/studiomdl_helpers.cpp
-        include/studiomdl/studiomdl_helpers.hpp
-        studiomdl/processing.cpp
-        include/studiomdl/processing.hpp
-)
-
-set_property(TARGET dmxconvert APPEND_STRING PROPERTY COMPILE_FLAGS)
-target_compile_definitions(dmxconvert PRIVATE -DSTATIC_TIER0)
-target_include_directories(dmxconvert PUBLIC include)
-target_link_libraries(dmxconvert PRIVATE
-        tier0
-        tier1
-        tier2
-        appframework
-        datamodel
-        dmserializers
-        mathlib
-        filesystem_stdio_v2_static
-)
-if (MINGW)
-    # studiomdl_errors.cpp uses std::print, see studiomdl_v2 above
-    target_link_libraries(dmxconvert PRIVATE stdc++exp)
 endif ()
 
-option(STUDIOMDL_BUILD_TESTS "Build the tests (ctest)" ON)
 if (STUDIOMDL_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)

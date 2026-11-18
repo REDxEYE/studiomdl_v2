@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <vector>
 
 // emulate a hardware post T&L vertex fifo
 
@@ -20,7 +21,7 @@ public:
 	void Flush( void );
 private:
 	int m_Size;
-	int *m_Fifo;
+	std::vector<int> m_Fifo;
 	int m_HeadIndex;
 	int m_NumEntries;
 };

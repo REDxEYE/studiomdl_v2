@@ -100,15 +100,12 @@ uint32_t Plat_MSTime()
 
 #endif // PLATFORM_WINDOWS/PLATFORM_PS3
 
-void Plat_ExitProcess(int nCode) {
-#if defined( _WIN32 )
-    // We don't want global destructors in our process OR in any DLL to get executed.
-    // _exit() avoids calling global destructors in our module, but not in other DLLs.
-    TerminateProcess( GetCurrentProcess(), nCode );
-    _exit(nCode); // not reached: TerminateProcess on the current process does not return
-#else
-    _exit(nCode);
-#endif
+void Plat_ExitProcessWithMessage(const int nCode, const char *pMessage) {
+    throw Plat_ExitException(nCode, pMessage);
+}
+
+void Plat_ExitProcess(const int nCode) {
+    Plat_ExitProcessWithMessage(nCode, nullptr);
 }
 
 bool Plat_IsInDebugSession() {

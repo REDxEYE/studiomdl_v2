@@ -12,6 +12,7 @@
 #include <cstdarg>
 #include <cstdint>
 #include <fstream>
+#include <memory>
 #include <string>
 
 //-----------------------------------------------------------------------------
@@ -21,7 +22,8 @@ class CStdFile
 {
 public:
 	// pOptions is an fopen-style mode ("rb", "w", "a+", "r+b", ...); 't' is accepted and ignored.
-	// Read-only opens fall back to a case-insensitive path lookup.
+	// Read-only opens fall back to a case-insensitive path lookup, and are served from the installed IFileOverlay
+	// (file_overlay.h) before the disk.
 	// Returns NULL if the file can't be opened; *pSize receives the file size when given.
 	static CStdFile *Open( const char *pFileName, const char *pOptions, int64_t *pSize );
 
@@ -43,7 +45,9 @@ public:
 private:
 	CStdFile() = default;
 
-	std::filebuf m_Buf;
+	std::filebuf m_File;
+	std::unique_ptr<std::streambuf> m_pMemory;	// the contents of an overlay file instead of m_File
+	std::streambuf *m_pBuf = &m_File;
 	bool m_bEof = false;
 	bool m_bError = false;
 };

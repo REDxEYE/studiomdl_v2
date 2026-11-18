@@ -43,6 +43,8 @@
 #include "tier1_v2/math_utils.hpp"
 #include "tier1_v2/path_utils.hpp"
 #include "tier1_v2/string_utils.hpp"
+#include "studiomdl/flexoptimize.h"
+#include "studiomdl/studiomdl_helpers.hpp"
 
 
 #ifdef WIN32
@@ -170,7 +172,7 @@ size_t LookupTexture(StudioMdlState &ctx, const std::string_view textureName, co
 size_t UseTextureAsMaterial(StudioMdlState &ctx, size_t textureIndex) {
     if (ctx.materials.textures[textureIndex].material == -1) {
         if (ctx.options.dumpMaterials) {
-            std::print("material {} {} {}\n", textureIndex, ctx.materials.materials.size(), ctx.materials.textures[textureIndex].name);
+            MdlPrint("material {} {} {}\n", textureIndex, ctx.materials.materials.size(), ctx.materials.textures[textureIndex].name);
         }
         ctx.materials.materials.emplace_back(textureIndex);
         ctx.materials.textures[textureIndex].material = vstd::as_signed_checked<int>(ctx.materials.materials.size() - 1);
@@ -220,6 +222,18 @@ void Build_Reference(s_source_t *source, const std::string_view animName) {
     }
 }
 
+void InitSourceNodes(std::array<s_node_t, MAXSTUDIOSRCBONES> &pnodes) {
+    for (auto &node: pnodes) {
+        node.parent = -1;
+    }
+}
+
+void SetSourceNode(std::array<s_node_t, MAXSTUDIOSRCBONES> &pnodes, const int index, const std::string_view name,
+                   const int parent) {
+    pnodes[index].name = name;
+    pnodes[index].parent = parent;
+}
+
 int Grab_Nodes(StudioMdlState &ctx, std::array<s_node_t, MAXSTUDIOSRCBONES> &pnodes) {
     vstd::FunctionTimingRecorder _("SMD");
     int index;
@@ -227,9 +241,7 @@ int Grab_Nodes(StudioMdlState &ctx, std::array<s_node_t, MAXSTUDIOSRCBONES> &pno
     int parent;
     int numbones = 0;
 
-    for (index = 0; index < MAXSTUDIOSRCBONES; index++) {
-        pnodes[index].parent = -1;
-    }
+    InitSourceNodes(pnodes);
 
     while (GetLineInput(ctx)) {
         if (sscanf(ctx.input.szLine, "%d \"%[^\"]\" %d", &index, name, &parent) == 3) {
@@ -241,8 +253,7 @@ int Grab_Nodes(StudioMdlState &ctx, std::array<s_node_t, MAXSTUDIOSRCBONES> &pno
 			}
 			*/
 
-            strcpyn(pnodes[index].name, name);
-            pnodes[index].parent = parent;
+            SetSourceNode(pnodes, index, name, parent);
             if (index > numbones) {
                 numbones = index;
             }
@@ -380,7 +391,7 @@ int CClampedSource::AddNewVert(s_source_t *pOrigSource, int nVert, int nSrcMesh,
     return m_nOrigMap[nVert] - m_meshes[nDstMesh].vertexoffset;
 }
 
-void CClampedSource::AddAnimations(const s_source_t *pOrigSource) {
+void CClampedSource::AddAnimations(CompileArena &arena, const s_source_t *pOrigSource) {
     // invert the vertex mapping (maps the new index to the original index)
     const int numvertices = std::ssize(m_vertex);
     std::vector<int> nReverseMap(numvertices, -1);
@@ -416,7 +427,7 @@ void CClampedSource::AddAnimations(const s_source_t *pOrigSource) {
         dstAnim.rawanim.clear();
         dstAnim.rawanim.resize(srcAnim.rawanim.size());
         for (size_t i = 0; i < srcAnim.rawanim.size(); i++) {
-            dstAnim.rawanim[i] = new s_bone_t[pOrigSource->numbones];
+            dstAnim.rawanim[i] = arena.CreateArray<s_bone_t>(pOrigSource->numbones);
             memcpy(dstAnim.rawanim[i], srcAnim.rawanim[i], pOrigSource->numbones * sizeof(s_bone_t));
         }
 
@@ -435,7 +446,7 @@ void CClampedSource::AddAnimations(const s_source_t *pOrigSource) {
             }
             // ...and just copy those verts:
             if (dstAnim.numvanims[i]) {
-                dstAnim.vanim[i] = new s_vertanim_t[dstAnim.numvanims[i]];
+                dstAnim.vanim[i] = arena.CreateArray<s_vertanim_t>(dstAnim.numvanims[i]);
                 int nvanim = 0;
                 for (int j = 0; j < srcAnim.numvanims[i]; j++) {
                     int nMappedVert = m_nOrigMap[srcAnim.vanim[i][j].vertex];
@@ -450,16 +461,16 @@ void CClampedSource::AddAnimations(const s_source_t *pOrigSource) {
     }
 }
 
-void CClampedSource::Copy(s_source_t *pDstSource) {
+void CClampedSource::Copy(CompileArena &arena, s_source_t *pDstSource) {
     // copy over new meshes
     pDstSource->numfaces = std::ssize(m_face);
-    pDstSource->face = (s_face_t *) calloc(pDstSource->numfaces, sizeof(s_face_t));
+    pDstSource->face = arena.CreateArray<s_face_t>(pDstSource->numfaces);
     for (int i = 0; i < pDstSource->numfaces; i++) {
         pDstSource->face[i] = m_face[i];
     }
 
     pDstSource->numvertices = std::ssize(m_vertex);
-    pDstSource->vertex = (s_vertexinfo_t *) calloc(pDstSource->numvertices, sizeof(s_vertexinfo_t));
+    pDstSource->vertex = arena.CreateArray<s_vertexinfo_t>(pDstSource->numvertices);
     for (int i = 0; i < pDstSource->numvertices; i++) {
         pDstSource->vertex[i] = m_vertex[i];
     }
@@ -516,6 +527,184 @@ void CClampedSource::Init(int numvertices, const s_source_t *pMeshLayout) {
 }
 
 //-----------------------------------------------------------------------------
+// Splits a source with more vertices than the engine allows into pieces: the first keeps the source, every other
+// becomes a model of its own bodypart
+//-----------------------------------------------------------------------------
+void ClampMaxVerticesPerModel(StudioMdlState &ctx, s_source_t* pOrigSource) {
+    // check for overage
+    if (pOrigSource->numvertices < ctx.options.maxVertexLimit)
+        return;
+
+    MdlWarning("model has too many verts, cutting into multiple models\n");
+
+    std::vector<CClampedSource> newSource;
+
+    int ns = 0;
+    newSource.emplace_back().Init(pOrigSource->numvertices, pOrigSource);
+
+    // Flex optimization: only meshes with flexes count against the engine's flex cache, so faces a flex can move are
+    // put into the first pieces and the static faces into pieces of their own, which then carry no flex data.
+    // Without it there is one pass over all faces, in source order.
+    std::vector<bool> moving;
+    bool bSortByFlex = FlexOptimizeIsActive(ctx) && !pOrigSource->m_FlexKeys.empty();
+    if (bSortByFlex)
+        moving = FlexOptimizeMovingVertices(ctx, pOrigSource);
+
+    auto isMovingFace = [&](const s_mesh_t* pMesh, const s_face_t &face) {
+        const uint32_t base = pMesh->vertexoffset;
+        return moving[base + face.a] || moving[base + face.b] || moving[base + face.c] ||
+               (face.d != 0 && moving[base + face.d]);
+    };
+
+    if (bSortByFlex) {
+        // a second pass is only needed if the source has both moving and static faces
+        bool bAnyMoving = false, bAnyStatic = false;
+        for (const s_mesh_t &mesh: pOrigSource->meshes) {
+            const s_mesh_t* pMesh = &mesh;
+            for (int faceId = pMesh->faceoffset; faceId < pMesh->faceoffset + pMesh->numfaces; faceId++) {
+                if (isMovingFace(pMesh, pOrigSource->face[faceId]))
+                    bAnyMoving = true;
+                else
+                    bAnyStatic = true;
+            }
+        }
+        bSortByFlex = bAnyMoving && bAnyStatic;
+    }
+
+    const int nPasses = bSortByFlex ? 2 : 1;
+    for (int pass = 0; pass < nPasses; pass++) {
+        const bool bMovingPass = (pass == 0);
+        if (pass == 1 && !newSource[ns].m_face.empty()) {
+            // static faces never share a piece with moving ones; this also keeps the faces of every mesh of a piece
+            // contiguous (each pass walks the meshes in order)
+            ns = std::ssize(newSource);
+            newSource.emplace_back().Init(pOrigSource->numvertices, pOrigSource);
+        }
+
+        // Every piece has the original's meshes (same order and materials), so every face stays in the mesh of its
+        // material and the per-material bookkeeping (texmap) of the original source is preserved.
+        for (int nMesh = 0; nMesh < pOrigSource->meshes.size(); nMesh++) {
+            const s_mesh_t* pOrigMesh = &pOrigSource->meshes[nMesh];
+            for (int faceId = pOrigMesh->faceoffset; faceId < pOrigMesh->faceoffset + pOrigMesh->numfaces; faceId++) {
+                // make sure all the total for all the meshes in the model don't go over limit
+                const s_face_t &origFace = pOrigSource->face[faceId];
+                if (bSortByFlex && isMovingFace(pOrigMesh, origFace) != bMovingPass)
+                    continue;
+                int nVertsInFace = (origFace.d == 0) ? 3 : 4;
+                if ((std::ssize(newSource[ns].m_vertex) + nVertsInFace) > ctx.options.maxVertexClamp) {
+                    // go to the next model
+                    ns = std::ssize(newSource);
+                    newSource.emplace_back().Init(pOrigSource->numvertices, pOrigSource);
+                }
+
+                // build face
+                s_face_t face;
+                face.a = newSource[ns].AddNewVert(pOrigSource, origFace.a, nMesh, nMesh);
+                face.b = newSource[ns].AddNewVert(pOrigSource, origFace.b, nMesh, nMesh);
+                face.c = newSource[ns].AddNewVert(pOrigSource, origFace.c, nMesh, nMesh);
+                if (nVertsInFace == 4) {
+                    face.d = newSource[ns].AddNewVert(pOrigSource, origFace.d, nMesh, nMesh);
+                    if (face.d == 0) {
+                        // d == 0 means "triangle" in s_face_t, but this quad's last vertex is the first vertex of the
+                        // mesh in this piece: rotate the quad (keeps the winding) so that it stays a quad
+                        face.d = face.c;
+                        face.c = face.b;
+                        face.b = face.a;
+                        face.a = 0;
+                    }
+                }
+                else {
+                    face.d = 0;
+                }
+
+                s_mesh_t &dstMesh = newSource[ns].m_meshes[nMesh];
+                if (dstMesh.numfaces == 0) {
+                    dstMesh.faceoffset = std::ssize(newSource[ns].m_face);
+                }
+                newSource[ns].m_face.push_back(face);
+                dstMesh.numfaces++;
+            }
+        }
+    }
+
+    // Split animations into the new sub-models
+    for (size_t n = 0; n < newSource.size(); n++) {
+        newSource[n].AddAnimations(ctx.arena, pOrigSource);
+    }
+
+    // Name of what was split, so the pieces can be told apart: the model using the source, or the source file
+    char szOrigName[MAXSTUDIONAME];
+    Q_FileBase(pOrigSource->filename.c_str(), szOrigName, sizeof(szOrigName));
+    for (int i = 0; i < std::ssize(ctx.body.model); i++) {
+        if (ctx.body.model[i]->source == pOrigSource && ctx.body.model[i]->name[0]) {
+            Q_FileBase(ctx.body.model[i]->name, szOrigName, sizeof(szOrigName));
+            break;
+        }
+    }
+
+    // copy over new meshes and animations back into initial source (the old arrays stay in the arena)
+    newSource[0].Copy(ctx.arena, pOrigSource);
+
+    for (size_t n = 1; n < newSource.size(); n++) {
+        // create a new internal "source"
+        s_source_t* pSource = ctx.arena.Create<s_source_t>();
+        ctx.anim.sources.emplace_back(pSource);
+
+        // copy all the members, in order
+        pSource->filename = pOrigSource->filename;
+
+        // copy over the faces/vertices/animations
+        newSource[n].Copy(ctx.arena, pSource);
+
+        // copy settings
+        pSource->isActiveModel = true;
+
+        // copy skeleton
+        pSource->numbones = pOrigSource->numbones;
+        for (int i = 0; i < pSource->numbones; i++) {
+            pSource->localBone[i] = pOrigSource->localBone[i];
+            pSource->boneToPose[i] = pOrigSource->boneToPose[i];
+        }
+
+
+        // The following members are set up later on in the process, so we don't need to copy them here:
+        //   pSource->boneflags
+        //   pSource->boneref
+        //   pSource->boneLocalToGlobal
+        //   pSource->boneGlobalToLocal
+        //   pSource->m_GlobalVertices
+
+
+        // copy material data: texmap is indexed by material index, so it has to be copied as a whole
+        // (meshindex/mesh/nummeshes were set up by CClampedSource::Copy)
+        memcpy(pSource->texmap, pOrigSource->texmap, sizeof(pSource->texmap));
+
+        // copy settings
+        pSource->adjust = pOrigSource->adjust;
+        pSource->scale = pOrigSource->scale;
+        pSource->rotation = pOrigSource->rotation;
+        pSource->bNoAutoDMXRules = pOrigSource->bNoAutoDMXRules;
+
+        // allocate a model
+        s_model_t* pModel = ctx.arena.Create<s_model_t>();
+        pModel->source = pSource;
+        pModel->name.format("{}_cmodel{}", szOrigName, n);
+        pModel->filename = std::string(szOrigName) + "_cmesh" + std::to_string(n);
+        const int imodel = ctx.body.AddModel(pModel);
+
+        // make it a new bodypart
+        s_bodypart_t &bodypart = ctx.body.AddBodyPart();
+        bodypart.name.format("{}_clamped{}", szOrigName, n);
+        bodypart.pmodel.push_back(pModel);
+
+        // finally, copy flex keys
+        newSource[n].CopyFlexKeys(ctx, pOrigSource, pSource, imodel);
+
+        // NOTE: we leave attachments on the first sub-model, we don't want to duplicate those
+    }
+}
+
+//-----------------------------------------------------------------------------
 // Post-processes a source (used when loading preprocessed files)
 //-----------------------------------------------------------------------------
 void PostProcessSource(StudioMdlState &ctx, s_source_t *pSource, int imodel) {
@@ -526,6 +715,60 @@ void PostProcessSource(StudioMdlState &ctx, s_source_t *pSource, int imodel) {
     }
 }
 
+bool SetSourceAnimTime(StudioMdlState &ctx, const s_source_t *pSource, s_sourceanim_t *pAnim, const int time, int &relativeFrame) {
+    int t = time;
+    if (pAnim->startframe == -1) {
+        pAnim->startframe = t;
+    }
+    if (t < pAnim->startframe) {
+        return false;
+    }
+    if (t > pAnim->endframe) {
+        pAnim->endframe = t;
+    }
+    t -= pAnim->startframe;
+    relativeFrame = t;
+
+    if (t >= std::ssize(pAnim->rawanim)) {
+        pAnim->rawanim.resize(t + 1);
+    }
+
+    if (pAnim->rawanim[t] != nullptr) {
+        return true;
+    }
+
+    pAnim->rawanim[t] = ctx.arena.CreateArray<s_bone_t>(pSource->numbones);
+
+    // duplicate previous frames keys
+    if (t > 0 && pAnim->rawanim[t - 1]) {
+        for (int j = 0; j < pSource->numbones; j++) {
+            VectorCopy(pAnim->rawanim[t - 1][j].pos, pAnim->rawanim[t][j].pos);
+            VectorCopy(pAnim->rawanim[t - 1][j].rot, pAnim->rawanim[t][j].rot);
+        }
+    }
+    return true;
+}
+
+void SetSourceAnimBone(StudioMdlState &ctx, s_sourceanim_t *pAnim, const int relativeFrame, const int bone, Vector pos,
+                       const RadianEuler &rot) {
+    scale_vertex(ctx, pos);
+    VectorCopy(pos, pAnim->rawanim[relativeFrame][bone].pos);
+    VectorCopy(rot, pAnim->rawanim[relativeFrame][bone].rot);
+}
+
+int FinishSourceAnim(const s_source_t *pSource, s_sourceanim_t *pAnim, const std::string_view animName) {
+    pAnim->numframes = pAnim->endframe - pAnim->startframe + 1;
+
+    for (int t = 0; t < pAnim->numframes; t++) {
+        if (pAnim->rawanim[t] == nullptr) {
+            return t + pAnim->startframe;
+        }
+    }
+
+    Build_Reference(const_cast<s_source_t *>(pSource), animName);
+    return -1;
+}
+
 void Grab_Animation(StudioMdlState &ctx, s_source_t *pSource, const char *pAnimName) {
     vstd::FunctionTimingRecorder _("SMD");
     Vector pos;
@@ -533,12 +776,9 @@ void Grab_Animation(StudioMdlState &ctx, s_source_t *pSource, const char *pAnimN
     char cmd[1024];
     int index;
     int t = -99999999;
-    int size;
 
     s_sourceanim_t *pAnim = FindOrAddSourceAnim(pSource, pAnimName);
     pAnim->startframe = -1;
-
-    size = pSource->numbones * sizeof(s_bone_t);
 
     while (GetLineInput(ctx)) {
         if (sscanf(ctx.input.szLine.c_str(), "%d %f %f %f %f %f %f", &index, &pos[0], &pos[1], &pos[2], &rot[0], &rot[1], &rot[2]) ==
@@ -547,9 +787,7 @@ void Grab_Animation(StudioMdlState &ctx, s_source_t *pSource, const char *pAnimN
                 MdlError("Missing frame start({}) : {}", ctx.input.iLinecount, ctx.input.szLine);
             }
 
-            scale_vertex(ctx, pos);
-            VectorCopy(pos, pAnim->rawanim[t][index].pos);
-            VectorCopy(rot, pAnim->rawanim[t][index].rot);
+            SetSourceAnimBone(ctx, pAnim, t, index, pos, rot);
 
             clip_rotations(rot); // !!!
             continue;
@@ -561,48 +799,17 @@ void Grab_Animation(StudioMdlState &ctx, s_source_t *pSource, const char *pAnimN
         }
 
         if (!Q_stricmp(cmd, "time")) {
-            t = index;
-            if (pAnim->startframe == -1) {
-                pAnim->startframe = t;
-            }
-            if (t < pAnim->startframe) {
+            if (!SetSourceAnimTime(ctx, pSource, pAnim, index, t)) {
                 MdlError("Frame MdlError({}) : {}", ctx.input.iLinecount, ctx.input.szLine);
-            }
-            if (t > pAnim->endframe) {
-                pAnim->endframe = t;
-            }
-            t -= pAnim->startframe;
-
-            if (t >= std::ssize(pAnim->rawanim)) {
-                pAnim->rawanim.resize(t + 1);
-            }
-
-            if (pAnim->rawanim[t] != nullptr) {
-                continue;
-            }
-
-            pAnim->rawanim[t] = (s_bone_t *) calloc(1, size);
-
-            // duplicate previous frames keys
-            if (t > 0 && pAnim->rawanim[t - 1]) {
-                for (int j = 0; j < pSource->numbones; j++) {
-                    VectorCopy(pAnim->rawanim[t - 1][j].pos, pAnim->rawanim[t][j].pos);
-                    VectorCopy(pAnim->rawanim[t - 1][j].rot, pAnim->rawanim[t][j].rot);
-                }
             }
             continue;
         }
 
         if (!Q_stricmp(cmd, "end")) {
-            pAnim->numframes = pAnim->endframe - pAnim->startframe + 1;
-
-            for (t = 0; t < pAnim->numframes; t++) {
-                if (pAnim->rawanim[t] == nullptr) {
-                    MdlError("{} is missing frame {}\n", pSource->filename, t + pAnim->startframe);
-                }
+            const int missing = FinishSourceAnim(pSource, pAnim, pAnimName);
+            if (missing >= 0) {
+                MdlError("{} is missing frame {}\n", pSource->filename, missing);
             }
-
-            Build_Reference(pSource, pAnimName);
             return;
         }
 
@@ -612,7 +819,7 @@ void Grab_Animation(StudioMdlState &ctx, s_source_t *pSource, const char *pAnimN
     MdlError("unexpected EOF: {}\n", pSource->filename);
 }
 
-static void FlipFacing(s_source_t *pSrc) {
+void FlipFacing(s_source_t *pSrc) {
     unsigned short tmp;
 
     int i, j;
@@ -642,7 +849,7 @@ void ApplyOffsetToSrcVerts(s_source_t *pModel, matrix3x4_t matOffset) {
     }
 }
 
-void AddSrcToSrc(s_source_t *pOrigSource, s_source_t *pAppendSource, matrix3x4_t matOffset) {
+void AddSrcToSrc(StudioMdlState &ctx, s_source_t *pOrigSource, s_source_t *pAppendSource, matrix3x4_t matOffset) {
     // steps are:
     // only A exists
     // make a new source C
@@ -684,7 +891,7 @@ void AddSrcToSrc(s_source_t *pOrigSource, s_source_t *pAppendSource, matrix3x4_t
     }
 
     // just use src anim - we don't really care because it's for static props
-    newSource.AddAnimations(pOrigSource);
+    newSource.AddAnimations(ctx.arena, pOrigSource);
 
     // apply offset to appended vertices
     ApplyOffsetToSrcVerts(pAppendSource, matOffset); // no-op if matOffset is identity
@@ -718,15 +925,14 @@ void AddSrcToSrc(s_source_t *pOrigSource, s_source_t *pAppendSource, matrix3x4_t
         }
     }
 
-    free(pOrigSource->face);
-    free(pOrigSource->vertex);
-    newSource.Copy(pOrigSource);
+    // the old arrays stay in the arena until the compile state goes
+    newSource.Copy(ctx.arena, pOrigSource);
 }
 
-void AddSrcToSrc(s_source_t *pOrigSource, s_source_t *pAppendSource) {
+void AddSrcToSrc(StudioMdlState &ctx, s_source_t *pOrigSource, s_source_t *pAppendSource) {
     matrix3x4_t matNoop;
     matNoop.SetToIdentity();
-    AddSrcToSrc(pOrigSource, pAppendSource, matNoop);
+    AddSrcToSrc(ctx, pOrigSource, pAppendSource, matNoop);
 }
 
 //-----------------------------------------------------------------------------
@@ -766,7 +972,7 @@ s_source_t *Load_Source(StudioMdlState &ctx, const std::string_view name, const 
     // NOTE: The load proc can potentially add other sources (for the MPP format)
     // So we have to deal with setting everything up in this source prior to
     // calling the load func, and we cannot reference ctx.anim.sources.back() anywhere below
-    pSource = c_allocate<s_source_t>();
+    pSource = ctx.arena.Create<s_source_t>();
     ctx.anim.sources.emplace_back(pSource);
     if (isActiveModel) {
         pSource->isActiveModel = true;
@@ -1247,6 +1453,24 @@ int SortAndBalanceBones(uint32_t count, const uint32_t maxCount, std::span<int> 
     return count;
 }
 
+void MakeSourceBoneWeights(int count, const std::span<const int> bones, const std::span<const float> weights,
+                           s_sourceboneweight_t &out) {
+    out = {};
+    count = std::min({count, static_cast<int>(bones.size()), static_cast<int>(weights.size())});
+    if (count <= static_cast<int>(MAXSTUDIOBONEWEIGHTS))
+        return;
+    std::vector<int> sortedBones(bones.begin(), bones.begin() + count);
+    std::vector<float> sortedWeights(weights.begin(), weights.begin() + count);
+    const int kept = SortAndBalanceBones(count, MAXSTUDIOSOURCEBONEWEIGHTS, sortedBones, sortedWeights);
+    if (kept <= static_cast<int>(MAXSTUDIOBONEWEIGHTS))
+        return; // duplicates or zero weights: what is left fits the model as it is
+    out.numbones = kept;
+    for (int i = 0; i < kept; ++i) {
+        out.bone[i] = sortedBones[i];
+        out.weight[i] = sortedWeights[i];
+    }
+}
+
 void Grab_Vertexanimation(StudioMdlState &ctx, s_source_t *psource, const char *pAnimName) {
     vstd::FunctionTimingRecorder _("SMD");
     char cmd[1024];
@@ -1290,7 +1514,7 @@ void Grab_Vertexanimation(StudioMdlState &ctx, s_source_t *psource, const char *
             if (count) {
                 pAnim->numvanims[t] = count;
 
-                pAnim->vanim[t] = (s_vertanim_t *) calloc(count, sizeof(s_vertanim_t));
+                pAnim->vanim[t] = ctx.arena.CreateArray<s_vertanim_t>(count);
 
                 memcpy(pAnim->vanim[t], tmpvanim.data(), count * sizeof(s_vertanim_t));
             } else if (t > 0) {
@@ -1393,6 +1617,27 @@ bool OpenGlobalFile(StudioMdlState &ctx, std::string_view src) {
     return false;
 }
 
+// -makefile: appends the make rule of this model (its sources as dependencies) to makefile.tmp
+void CreateMakefile_OutputMakefile(StudioMdlState &ctx) {
+    if (!ctx.paths.hasModelName) {
+        MdlError("Can't write makefile since a target mdl hasn't been specified!");
+    }
+    FILE* fp = fopen("makefile.tmp", "a");
+    if (!fp) {
+        MdlError("can't open makefile.tmp!\n");
+    }
+    const std::string mdlname = OutputModelPath(ctx, ".mdl");
+
+    std::print(fp, "{}:", mdlname);
+    for (const std::string &dependency: ctx.paths.CreateMakefileDependencies) {
+        std::print(fp, " {}", dependency);
+    }
+    std::print(fp, "\n");
+    std::print(fp, "\tmkdir \"{}\"\n", std::string(vstd::paths::parent(mdlname)));
+    std::print(fp, "\t{} -quiet {}\n\n", ctx.paths.CreateMakefileCommand, ctx.paths.fullpath);
+    fclose(fp);
+}
+
 int Load_VTA(StudioMdlState &ctx, s_source_t *psource) {
     char cmd[1024];
     int option;
@@ -1401,7 +1646,7 @@ int Load_VTA(StudioMdlState &ctx, s_source_t *psource) {
         return 0;
 
     if (!ctx.options.quiet)
-        std::print("VTA MODEL {}\n", psource->filename);
+        MdlPrint("VTA MODEL {}\n", psource->filename);
 
     ctx.input.iLinecount = 0;
     while (GetLineInput(ctx)) {

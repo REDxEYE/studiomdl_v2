@@ -125,8 +125,8 @@ namespace OptimizedModel {
         std::vector<Vertex_t> verts;
         int32_t numIndices;
         int32_t numTopologyIndices;
-        uint16_t *pIndices;
-        uint16_t *pTopologyIndices;
+        std::vector<uint16_t> pIndices; // numIndices entries
+        std::vector<uint16_t> pTopologyIndices; // numTopologyIndices entries
 
         uint32_t flags;
         int32_t numBones;
@@ -334,7 +334,7 @@ namespace OptimizedModel {
         // Actually does the stripification
         void Stripify(VertexIndexList_t const &sourceIndices, IndexTopologyList_t const &sourceTopologyIndices,
                       bool bIsHWSkinned, int *pNumIndices, int *pNumTopologyIndices,
-                      unsigned short **ppIndices, unsigned short **ppTopologyIndices, bool bQuadSubd);
+                      std::vector<unsigned short> *pIndices, std::vector<unsigned short> *pTopologyIndices, bool bQuadSubd);
 
         // Makes sure our vertices are using the correct bones
         void SanityCheckVertBones(VertexIndexList_t const &list, VertexList_t const &vertices);
@@ -510,7 +510,7 @@ namespace OptimizedModel {
         CHardwareMatrixState m_HardwareMatrixState;
 
         // a place to stick file output.
-        CFileBuffer *m_FileBuffer = nullptr;
+        std::unique_ptr<CFileBuffer> m_FileBuffer;
 
         // offset for different items in the output file.
         int m_BodyPartsOffset = 0;
@@ -548,21 +548,21 @@ namespace OptimizedModel {
 
 
     void COptimizedModel::OutputMemoryUsage() {
-        std::print("body parts:   {:7} bytes\n", (uintptr_t) (m_ModelsOffset - m_BodyPartsOffset));
-        std::print("models:       {:7} bytes\n", (uintptr_t) (m_MeshesOffset - m_ModelsOffset));
-        std::print("model LODs:   {:7} bytes\n", (uintptr_t) (m_MeshesOffset - m_ModelLODsOffset));
-        std::print("meshes:       {:7} bytes\n", (uintptr_t) (m_StripGroupsOffset - m_MeshesOffset));
-        std::print("strip groups: {:7} bytes\n", (uintptr_t) (m_StripsOffset - m_StripGroupsOffset));
-        std::print("strips:       {:7} bytes\n", (uintptr_t) (m_VertsOffset - m_StripsOffset));
-        std::print("verts:        {:7} bytes\n", (uintptr_t) (m_IndicesOffset - m_VertsOffset));
-        std::print("indices:      {:7} bytes\n", (uintptr_t) (m_BoneStateChangesOffset - m_IndicesOffset));
-        std::print("bone changes: {:7} bytes\n", (uintptr_t) (m_EndOfFileOffset - m_BoneStateChangesOffset));
-        std::print("everything:   {:7} bytes\n", (uintptr_t) (m_EndOfFileOffset));
+        MdlPrint("body parts:   {:7} bytes\n", (uintptr_t) (m_ModelsOffset - m_BodyPartsOffset));
+        MdlPrint("models:       {:7} bytes\n", (uintptr_t) (m_MeshesOffset - m_ModelsOffset));
+        MdlPrint("model LODs:   {:7} bytes\n", (uintptr_t) (m_MeshesOffset - m_ModelLODsOffset));
+        MdlPrint("meshes:       {:7} bytes\n", (uintptr_t) (m_StripGroupsOffset - m_MeshesOffset));
+        MdlPrint("strip groups: {:7} bytes\n", (uintptr_t) (m_StripsOffset - m_StripGroupsOffset));
+        MdlPrint("strips:       {:7} bytes\n", (uintptr_t) (m_VertsOffset - m_StripsOffset));
+        MdlPrint("verts:        {:7} bytes\n", (uintptr_t) (m_IndicesOffset - m_VertsOffset));
+        MdlPrint("indices:      {:7} bytes\n", (uintptr_t) (m_BoneStateChangesOffset - m_IndicesOffset));
+        MdlPrint("bone changes: {:7} bytes\n", (uintptr_t) (m_EndOfFileOffset - m_BoneStateChangesOffset));
+        MdlPrint("everything:   {:7} bytes\n", (uintptr_t) (m_EndOfFileOffset));
     }
 
     void COptimizedModel::SanityCheckAgainstStudioHDR(studiohdr_t *phdr) {
 #if 0 // garymcthack
-        std::print("SanityCheckAgainstStudioHDR\n");
+        MdlPrint("SanityCheckAgainstStudioHDR\n");
         FileHeader_t *header = (FileHeader_t *) m_FileBuffer->GetPointer(0);
         Assert(header->numBodyParts == phdr->numbodyparts);
         for (int bodyPartID = 0; bodyPartID < header->numBodyParts; bodyPartID++) {
@@ -770,10 +770,10 @@ namespace OptimizedModel {
     //-----------------------------------------------------------------------------
     void COptimizedModel::Stripify(VertexIndexList_t const &sourceIndices,
                                    IndexTopologyList_t const &sourceTopologyIndices, const bool bIsHWSkinned,
-                                   int *pNumIndices, int *pNumTopologyIndices, unsigned short **ppIndices,
-                                   unsigned short **ppTopologyIndices, const bool bQuadSubd) {
+                                   int *pNumIndices, int *pNumTopologyIndices, std::vector<unsigned short> *pIndices,
+                                   std::vector<unsigned short> *pTopologyIndices, const bool bQuadSubd) {
         if (sourceIndices.empty()) {
-            *ppIndices = nullptr;
+            pIndices->clear();
             *pNumIndices = 0;
             return;
         }
@@ -781,21 +781,18 @@ namespace OptimizedModel {
         // Null out topology information by default
         if (pNumTopologyIndices)
             *pNumTopologyIndices = 0;
-        if (ppTopologyIndices)
-            *ppTopologyIndices = nullptr;
+        if (pTopologyIndices)
+            pTopologyIndices->clear();
 
         // Skip the reordering phase if we're building in preview mode, rendering quads or not hardware skinning
         if (bQuadSubd || m_ctx.options.buildPreview || !bIsHWSkinned || m_ctx.options.preserveTriangleOrder) {
             *pNumIndices = static_cast<int>(sourceIndices.size());
-            *ppIndices = new unsigned short[*pNumIndices];
-            memcpy(*ppIndices, sourceIndices.data(), (*pNumIndices) * sizeof(unsigned short));
+            pIndices->assign(sourceIndices.begin(), sourceIndices.end());
 
             // Quad lists have additional topology indexing information, copy it in
             if (bQuadSubd) {
                 *pNumTopologyIndices = static_cast<int>(sourceTopologyIndices.size());
-                *ppTopologyIndices = new unsigned short[*pNumTopologyIndices];
-                memcpy(*ppTopologyIndices, sourceTopologyIndices.data(),
-                       (*pNumTopologyIndices) * sizeof(unsigned short));
+                pTopologyIndices->assign(sourceTopologyIndices.begin(), sourceTopologyIndices.end());
             }
 
             return;
@@ -806,8 +803,8 @@ namespace OptimizedModel {
         for (int i = 0; i < std::ssize(sourceIndices); i++)
             maxVertex = std::max(maxVertex, sourceIndices[i]);
         *pNumIndices = static_cast<int>(sourceIndices.size());
-        *ppIndices = new unsigned short[*pNumIndices];
-        meshopt_optimizeVertexCache(*ppIndices, sourceIndices.data(), (size_t) *pNumIndices, (size_t) maxVertex + 1);
+        pIndices->resize(sourceIndices.size());
+        meshopt_optimizeVertexCache(pIndices->data(), sourceIndices.data(), (size_t) *pNumIndices, (size_t) maxVertex + 1);
     }
 
     //-----------------------------------------------------------------------------
@@ -2036,13 +2033,13 @@ namespace OptimizedModel {
                                               int maxBonesPerStrip, const char *fileName) {
         vstd::FunctionTimingRecorder _("Optimize");
         if (!m_ctx.options.quiet) {
-            std::print("---------------------\n");
-            std::print("Generating optimized mesh \"{}\":\n", fileName);
+            MdlPrint("---------------------\n");
+            MdlPrint("Generating optimized mesh \"{}\":\n", fileName);
 #ifdef _DEBUG
-            std::print("\tvertex cache size: {}\n", vertexCacheSize);
-            std::print("\tmax bones/tri:     {}\n", maxBonesPerFace);
-            std::print("\tmax bones/vert:    {}\n", maxBonesPerVert);
-            std::print("\tmax bones/strip:   {}\n", maxBonesPerStrip);
+            MdlPrint("\tvertex cache size: {}\n", vertexCacheSize);
+            MdlPrint("\tmax bones/tri:     {}\n", maxBonesPerFace);
+            MdlPrint("\tmax bones/vert:    {}\n", maxBonesPerVert);
+            MdlPrint("\tmax bones/strip:   {}\n", maxBonesPerStrip);
 #endif
         }
 
@@ -2412,6 +2409,10 @@ namespace OptimizedModel {
                             // This is nonsensical
                             Assert(lodID != 0);
                         }
+                        // The LOD keeps one (empty) mesh per mesh of the model, like a mesh a LOD removes: the
+                        // vertex sort and the writers expect every LOD to have the mesh count of the model
+                        newLOD.meshes.resize(pStudioModel->nummeshes);
+                        stats.m_TotalMeshes += pStudioModel->nummeshes;
                         continue;
                     }
 
@@ -2740,7 +2741,7 @@ namespace OptimizedModel {
         boneHeader.newBoneID = boneStateChange->newBoneID;
         int boneFileOffset = m_BoneStateChangesOffset + boneID * sizeof(BoneStateChangeHeader_t);
 #if 0
-        std::print("\tboneStateChange: hwid: {} boneID {}\n", (int) boneHeader.hardwareID,
+        MdlPrint("\tboneStateChange: hwid: {} boneID {}\n", (int) boneHeader.hardwareID,
                    (int) boneHeader.newBoneID);
 #endif
         m_FileBuffer->WriteAt(boneFileOffset, &boneHeader, sizeof(BoneStateChangeHeader_t), "bone");
@@ -2783,11 +2784,9 @@ namespace OptimizedModel {
         if (stringTableSize == 0) {
             return;
         }
-        char *pTmp = new char[stringTableSize];
-        m_StringTable.WriteToMem(pTmp);
-        m_FileBuffer->WriteAt(stringTableOffset, pTmp, stringTableSize, "string table");
-        //	char *pDebug = ( char * )m_FileBuffer->GetPointer( stringTableOffset );
-        delete[] pTmp;
+        std::vector<char> tmp(stringTableSize);
+        m_StringTable.WriteToMem(tmp.data());
+        m_FileBuffer->WriteAt(stringTableOffset, tmp.data(), stringTableSize, "string table");
     }
 
     void COptimizedModel::WriteMaterialReplacements(const int materialReplacementsOffset) {
@@ -2897,7 +2896,7 @@ namespace OptimizedModel {
         m_EndOfFileOffset = m_TopologyOffset + sizeof(unsigned short) * stats.m_TotalTopologyIndices;
 
         // the layout above is the whole file: allocate it exactly, every block is written at its offset
-        m_FileBuffer = new CFileBuffer(m_EndOfFileOffset);
+        m_FileBuffer = std::make_unique<CFileBuffer>(m_EndOfFileOffset);
 
         int curModel = 0;
         int curLOD = 0;
@@ -3125,8 +3124,7 @@ namespace OptimizedModel {
 
         // nothing reads the file through m_FileBuffer anymore: hand the contents over for the final write
         SaveOutputFile(m_ctx, pFileName, std::move(m_FileBuffer->Data()));
-        delete m_FileBuffer;
-        m_FileBuffer = nullptr;
+        m_FileBuffer.reset();
 
         if (m_NumSkinnedAndFlexedVerts != 0) {
             MdlWarning(
@@ -3429,10 +3427,10 @@ namespace OptimizedModel {
                 for (int lodID = 0; lodID < model->numLODs; lodID++) {
                     char tmp[256];
                     sprintf(tmp, "%s.lod%d", pFileName, lodID);
-                    std::print("writing {}\n", tmp);
+                    MdlPrint("writing {}\n", tmp);
                     FILE *fp = fopen(tmp, "w");
                     if (!fp) {
-                        std::print("can't write glview file {}\n", tmp);
+                        MdlPrint("can't write glview file {}\n", tmp);
                         return;
                     }
 
@@ -3640,19 +3638,19 @@ namespace OptimizedModel {
         hardwareVertexCache.Init(m_VertexCacheSize - CACHE_INEFFICIENCY);
 
         FileHeader_t *header = (FileHeader_t *) m_FileBuffer->GetPointer(0);
-        std::print("header: {} body parts\n", header->numBodyParts);
+        MdlPrint("header: {} body parts\n", header->numBodyParts);
         for (int bodyPartID = 0; bodyPartID < header->numBodyParts; bodyPartID++) {
             BodyPartHeader_t *bodyPart = header->pBodyPart(bodyPartID);
-            std::print("  bodyPart {}: {} models\n", bodyPartID, bodyPart->numModels);
+            MdlPrint("  bodyPart {}: {} models\n", bodyPartID, bodyPart->numModels);
             for (int modelID = 0; modelID < bodyPart->numModels; modelID++) {
                 ModelHeader_t *model = bodyPart->pModel(modelID);
-                std::print("    model: {} lods\n", model->numLODs);
+                MdlPrint("    model: {} lods\n", model->numLODs);
                 for (int lodID = 0; lodID < 1; lodID++) {
                     ModelLODHeader_t *pLOD = model->pLOD(lodID);
-                    std::print("     lod: {} meshes\n", pLOD->numMeshes);
+                    MdlPrint("     lod: {} meshes\n", pLOD->numMeshes);
                     for (int meshID = 0; meshID < pLOD->numMeshes; meshID++) {
                         MeshHeader_t *mesh = pLOD->pMesh(meshID);
-                        std::print("       mesh {}: {} stripsgroups\n", meshID, mesh->numStripGroups);
+                        MdlPrint("       mesh {}: {} stripsgroups\n", meshID, mesh->numStripGroups);
                         for (int stripGroupID = 0; stripGroupID < mesh->numStripGroups; stripGroupID++) {
                             StripGroupHeader_t *pStripGroup = mesh->pStripGroup(stripGroupID);
 
@@ -3663,7 +3661,7 @@ namespace OptimizedModel {
                                         int lastThreeIndices[3];
 
                                         StripHeader_t *pStrip = pStripGroup->pStrip(stripID);
-                                        std::print("         strip: {} numIndices: {} indexOffset: {}\n", stripID,
+                                        MdlPrint("         strip: {} numIndices: {} indexOffset: {}\n", stripID,
                                                    pStrip->numIndices, pStrip->indexOffset);
 
                                         hardwareVertexCache.Flush();
@@ -3702,24 +3700,24 @@ namespace OptimizedModel {
         }
         int totalRealHWTriangles = totalHWTriangles - totalHWDegenerates;
         int totalRealSWTriangles = totalSWTriangles - totalSWDegenerates;
-        std::print("TotalHWTriangles: {}\n", totalHWTriangles);
-        std::print("TotalHWDegenerates: {}\n", totalHWDegenerates);
-        std::print("TotalRealHWTriangles: {}\n", totalRealHWTriangles);
-        std::print("TotalHWIndices: {}\n", totalHWIndices);
-        std::print("HW real tris/index: {:f}\n", (float) totalRealHWTriangles / (float) totalHWIndices);
-        std::print("totalHWVertexCacheHits: {}\n", totalHWVertexCacheHits);
-        std::print("totalHWVertexCacheMisses: {}\n", totalHWVertexCacheMisses);
-        std::print("HW vertex cache hit/miss ratio: {:f}\n",
+        MdlPrint("TotalHWTriangles: {}\n", totalHWTriangles);
+        MdlPrint("TotalHWDegenerates: {}\n", totalHWDegenerates);
+        MdlPrint("TotalRealHWTriangles: {}\n", totalRealHWTriangles);
+        MdlPrint("TotalHWIndices: {}\n", totalHWIndices);
+        MdlPrint("HW real tris/index: {:f}\n", (float) totalRealHWTriangles / (float) totalHWIndices);
+        MdlPrint("totalHWVertexCacheHits: {}\n", totalHWVertexCacheHits);
+        MdlPrint("totalHWVertexCacheMisses: {}\n", totalHWVertexCacheMisses);
+        MdlPrint("HW vertex cache hit/miss ratio: {:f}\n",
                    (float) totalHWVertexCacheHits / (float) totalHWVertexCacheMisses);
 
-        std::print("TotalSWTriangles: {}\n", totalSWTriangles);
-        std::print("TotalSWDegenerates: {}\n", totalSWDegenerates);
-        std::print("TotalRealSWTriangles: {}\n", totalRealSWTriangles);
-        std::print("TotalSWIndices: {}\n", totalSWIndices);
-        std::print("SW real tris/index: {:f}\n", (float) totalRealSWTriangles / (float) totalSWIndices);
-        std::print("totalSWVertexCacheHits: {}\n", totalSWVertexCacheHits);
-        std::print("totalSWVertexCacheMisses: {}\n", totalSWVertexCacheMisses);
-        std::print("SW vertex cache hit/miss ratio: {:f}\n",
+        MdlPrint("TotalSWTriangles: {}\n", totalSWTriangles);
+        MdlPrint("TotalSWDegenerates: {}\n", totalSWDegenerates);
+        MdlPrint("TotalRealSWTriangles: {}\n", totalRealSWTriangles);
+        MdlPrint("TotalSWIndices: {}\n", totalSWIndices);
+        MdlPrint("SW real tris/index: {:f}\n", (float) totalRealSWTriangles / (float) totalSWIndices);
+        MdlPrint("totalSWVertexCacheHits: {}\n", totalSWVertexCacheHits);
+        MdlPrint("totalSWVertexCacheMisses: {}\n", totalSWVertexCacheMisses);
+        MdlPrint("SW vertex cache hit/miss ratio: {:f}\n",
                    (float) totalSWVertexCacheHits / (float) totalSWVertexCacheMisses);
     }
 
@@ -3782,8 +3780,8 @@ namespace OptimizedModel {
             //		if( vert->numBones > 1 )
             {
                 if (flexed) {
-                    std::print("boneWeight: {:f}\n", boneWeight);
-                    std::print("globalBoneIndex: {}\n", globalBoneIndex);
+                    MdlPrint("boneWeight: {:f}\n", boneWeight);
+                    MdlPrint("globalBoneIndex: {}\n", globalBoneIndex);
                 }
             }
             if (boneWeight > 0.0f) {
@@ -3806,9 +3804,9 @@ namespace OptimizedModel {
             int globalBoneIndex = GetOrigVertBoneIndex(pStudioModel, pStudioMesh, vert, i);
             if (flexed) {
                 Assert(boneWeight >= 0.0f && boneWeight <= 1.0f);
-                std::print("boneWeight: {:f} ", boneWeight);
-                std::print("globalBoneIndex: {} ", globalBoneIndex);
-                std::print("hardwareBoneID: {}\n", i);
+                MdlPrint("boneWeight: {:f} ", boneWeight);
+                MdlPrint("globalBoneIndex: {} ", globalBoneIndex);
+                MdlPrint("hardwareBoneID: {}\n", i);
             }
         }
         vert->numBones = maxBonesPerFace; // this may be different for software t&l stuff

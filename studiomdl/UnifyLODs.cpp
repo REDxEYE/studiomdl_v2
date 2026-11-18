@@ -1003,7 +1003,7 @@ static void CreateLODVertsInDictionary(StudioMdlState &ctx, int nLodID, const s_
 
     int nNewVertsCreated = vertexDict.VertexCount() - nNumCurrentVerts;
     if (!ctx.options.quiet && nNewVertsCreated) {
-        std::print("Lod {}: vertexes: {} ({} new)\n", nLodID, vertexDict.VertexCount(), nNewVertsCreated);
+        MdlPrint("Lod {}: vertexes: {} ({} new)\n", nLodID, vertexDict.VertexCount(), nNewVertsCreated);
     }
 }
 
@@ -1013,21 +1013,20 @@ static void CreateLODVertsInDictionary(StudioMdlState &ctx, int nLodID, const s_
 // Leaves the source data intact, necessary for later processes.
 // Routines can then choose which data they operate on
 //-----------------------------------------------------------------------------
-static void SetProcessedWithDictionary(s_model_t *pSrcModel, CVertexDictionary &vertexDict,
+static void SetProcessedWithDictionary(StudioMdlState &ctx, s_model_t *pSrcModel, CVertexDictionary &vertexDict,
                                        std::vector<s_face_t> &faces, std::vector<s_mesh_t> &meshes,
                                        int *pMeshVertIndexMaps[MAX_NUM_LODS]) {
     int i;
 
-    s_loddata_t *pLodData = new s_loddata_t;
-    memset(pLodData, 0, sizeof(s_loddata_t));
+    s_loddata_t *pLodData = ctx.arena.Create<s_loddata_t>();
 
     pSrcModel->m_pLodData = pLodData;
 
     int nVertexCount = vertexDict.VertexCount();
 
-    pLodData->vertex = (s_lodvertexinfo_t *) calloc(nVertexCount, sizeof(s_lodvertexinfo_t));
+    pLodData->vertex = ctx.arena.CreateArray<s_lodvertexinfo_t>(nVertexCount);
     pLodData->numvertices = nVertexCount;
-    pLodData->face = (s_face_t *) calloc(faces.size(), sizeof(s_face_t));
+    pLodData->face = ctx.arena.CreateArray<s_face_t>(faces.size());
     pLodData->numfaces = std::ssize(faces);
 
     for (i = 0; i < nVertexCount; ++i) {
@@ -1129,7 +1128,7 @@ static void UnifyModelLODs(StudioMdlState &ctx, s_model_t *pSrcModel) {
     for (nLodID = 0; nLodID < MAX_NUM_LODS; nLodID++) {
         if (nLodID < nNumLODs && pSrcModel->m_LodSources[nLodID]) {
             const int nVertexCount = std::ssize(pSrcModel->m_LodSources[nLodID]->m_GlobalVertices);
-            pMeshVertIndexMaps[nLodID] = new int[nVertexCount];
+            pMeshVertIndexMaps[nLodID] = ctx.arena.CreateArray<int>(nVertexCount);
 #ifdef _DEBUG
             memset(pMeshVertIndexMaps[nLodID], 0xDD, nVertexCount * sizeof(int));
 #endif
@@ -1164,7 +1163,7 @@ static void UnifyModelLODs(StudioMdlState &ctx, s_model_t *pSrcModel) {
         int nMaterialID = pLOD0Source->meshes[nMeshID].material;
         const char *pName = ctx.materials.textures[nMaterialID].name;
         if (!ctx.options.quiet) {
-            std::print("Processing LOD for material: {}\n", pName);
+            MdlPrint("Processing LOD for material: {}\n", pName);
         }
         s_mesh_t *pLOD0Mesh = FindMeshByMaterial(pLOD0Source, nMaterialID);
         if (!pLOD0Mesh)
@@ -1207,7 +1206,7 @@ static void UnifyModelLODs(StudioMdlState &ctx, s_model_t *pSrcModel) {
 
     // save the data we just built into the processed data section
     // The processed data has all of the verts that are needed for all LODs.
-    SetProcessedWithDictionary(pSrcModel, vertexDictionary, faces, meshes, pMeshVertIndexMaps);
+    SetProcessedWithDictionary(ctx, pSrcModel, vertexDictionary, faces, meshes, pMeshVertIndexMaps);
 //	PrintSourceVerts( pSrcModel->m_LodModels[0] );
 }
 
@@ -1228,7 +1227,7 @@ void UnifyLODs(StudioMdlState &ctx) {
 static void PrintSpaces(int numSpaces) {
     int i;
     for (i = 0; i < numSpaces; i++) {
-        std::print(" ");
+        MdlPrint(" ");
     }
 }
 
@@ -1236,13 +1235,13 @@ static void SpewBoneInfo(StudioMdlState &ctx, std::array<int, MAX_NUM_LODS> &num
     s_bonetable_t *pBone = &ctx.bones.bonetable[globalBoneID];
     if (ctx.options.printBones) {
         PrintSpaces(depth * 2);
-        std::print("{} \"{}\" ", depth, pBone->name);
+        MdlPrint("{} \"{}\" ", depth, pBone->name);
     }
     int i;
     for (i = 0; i < 8; i++) {
         if (HasFlag(pBone->flags, BoneUsedByVertexAtLod(i))) {
             if (ctx.options.printBones) {
-                std::print("lod{} ", i);
+                MdlPrint("lod{} ", i);
             }
             numBonesInLOD[i]++;
         }
@@ -1250,15 +1249,15 @@ static void SpewBoneInfo(StudioMdlState &ctx, std::array<int, MAX_NUM_LODS> &num
 
     if (ctx.options.printBones) {
         if (HasFlag(pBone->flags, BoneFlags::UsedByHitbox))
-            std::print("hitbox ");
+            MdlPrint("hitbox ");
 
         if (HasFlag(pBone->flags, BoneFlags::UsedByAttachment))
-            std::print("attachment ");
+            MdlPrint("attachment ");
 
         if (HasFlag(pBone->flags, BoneFlags::UsedByBoneMerge))
-            std::print("merge ");
+            MdlPrint("merge ");
 
-        std::print("\n");
+        MdlPrint("\n");
     }
 
     int j;
@@ -1279,7 +1278,7 @@ void SpewBoneUsageStats(StudioMdlState &ctx) {
     if (ctx.options.printBones) {
         int i;
         for (i = 0; i < std::ssize(ctx.body.ScriptLODs); i++) {
-            std::print("\t{} bones used in lod {}\n", numBonesInLOD[i], i);
+            MdlPrint("\t{} bones used in lod {}\n", numBonesInLOD[i], i);
         }
     }
 }

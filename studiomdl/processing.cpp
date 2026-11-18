@@ -1,5 +1,6 @@
 #include "studiomdl/processing.hpp"
 
+#include "tier1_v2/function_timing.hpp"
 #include "filesystem.h"
 #include "filesystem_init.h"
 #include "interfaces/interfaces.h"
@@ -9,6 +10,7 @@ static bool s_bProcessing = false;
 
 bool BeginProcessing() {
     EndProcessing();
+    vstd::reset_function_timings();
 
     // Only the base paths; the compile adds the paths of its game and content directories
     g_pFullFileSystem->RemoveAllSearchPaths();

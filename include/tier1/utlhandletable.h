@@ -35,6 +35,8 @@ public:
 	// Allocate, deallocate handles
 	UtlHandle_t AddHandle();
 	void RemoveHandle( UtlHandle_t h );
+	// Back to the state after construction: every handle (valid or not) is gone, serial numbers restart
+	void Purge();
 
 	// Set/get handle values
 	void SetHandle( UtlHandle_t h, T *pData );
@@ -206,6 +208,14 @@ template< class T, int HandleBits >
 unsigned int CUtlHandleTable<T, HandleBits>::GetValidHandleCount() const
 {
 	return m_nValidHandles;
+}
+
+template< class T, int HandleBits >
+void CUtlHandleTable<T, HandleBits>::Purge()
+{
+	m_list.Purge();
+	m_unused.Purge();
+	m_nValidHandles = 0;
 }
 
 template< class T, int HandleBits >

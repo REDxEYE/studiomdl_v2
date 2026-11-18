@@ -10,7 +10,9 @@
 #include "studiomdl/studiomdl_global_state.hpp"
 #include "tier1_v2/path_utils.hpp"
 
+#include <cstdio>
 #include <filesystem>
+#include <format>
 #include <print>
 #include <string>
 
@@ -22,11 +24,42 @@
 // state in studiomdl; nothing else may read it. nullptr (no scope, e.g. dmxconvert): print without the compile parts.
 static thread_local StudioMdlState *s_pDiagnosticsState = nullptr;
 
+// With a sink: the part of the last MdlPrint text that has no line end yet (callers print a line in several pieces).
+// It reaches the sink with the next message or when the scope ends, so no text is lost.
+static thread_local std::string s_PendingLine;
+
+static bool HasSink(const StudioMdlState *ctx) {
+    return ctx && ctx->diagnostics.sink;
+}
+
+static void FlushPendingLine(const StudioMdlState *ctx) {
+    if (s_PendingLine.empty())
+        return;
+    const std::string text = std::move(s_PendingLine);
+    s_PendingLine.clear();
+    if (HasSink(ctx))
+        ctx->diagnostics.sink(MdlSeverity::Message, text);
+}
+
+// One complete message to the sink (which must exist)
+static void EmitToSink(const StudioMdlState *ctx, const MdlSeverity severity, const std::string_view text) {
+    FlushPendingLine(ctx);
+    ctx->diagnostics.sink(severity, text);
+}
+
+// Message text of the exceptions: the text without its trailing line end
+static std::string TrimmedMessage(std::string_view text) {
+    while (!text.empty() && (text.back() == '\n' || text.back() == '\r' || text.back() == ' ' || text.back() == '\t'))
+        text.remove_suffix(1);
+    return std::string(text);
+}
+
 ScopedMdlDiagnostics::ScopedMdlDiagnostics(StudioMdlState &ctx) : m_pPrevious(s_pDiagnosticsState) {
     s_pDiagnosticsState = &ctx;
 }
 
 ScopedMdlDiagnostics::~ScopedMdlDiagnostics() {
+    FlushPendingLine(s_pDiagnosticsState);
     s_pDiagnosticsState = m_pPrevious;
 }
 
@@ -43,50 +76,83 @@ static void PrintQuietPrefix() {
 }
 
 void InstallMdlErrorHandler(ScriptTokenizer &tokenizer) {
-    tokenizer.SetErrorHandler([](const std::string &message) { MdlError("{}", message); });
+    tokenizer.SetErrorHandler([](const std::string &message, const std::string &file, const int line) {
+        MdlErrorAt(file, line, "{}", message);
+    });
 }
 
 void MdlErrorV(std::string_view fmt, std::format_args args) {
+    MdlErrorAtV({}, 0, fmt, args);
+}
+
+// "ERROR: <text>" to the sink, or to stdout (with the -quiet prefix)
+static void ReportError(StudioMdlState *ctx, const std::string &text) {
+    if (HasSink(ctx)) {
+        EmitToSink(ctx, MdlSeverity::Error, "ERROR: " + text);
+    }
+    else {
+        PrintQuietPrefix();
+        std::print("ERROR: {}", text);
+    }
+}
+
+void MdlErrorAtV(std::string_view file, int line, std::string_view fmt, std::format_args args) {
+    const std::string text = std::vformat(fmt, args);
+    ReportError(s_pDiagnosticsState, text);
+    throw MdlCompileError(TrimmedMessage(text), std::string(file), line);
+}
+
+int MdlDiscardDataModelContents() {
+    if (!g_pDataModel)
+        return 0;
+    for (int i = 0; i < g_pDataModel->NumFileIds(); ++i) {
+        g_pDataModel->UnloadFile(g_pDataModel->GetFileId(i));
+    }
+    const int unattached = g_pDataModel->GetAllocatedElementCount();
+    g_pDataModel->UnloadFile(DMFILEID_INVALID);
+    return unattached;
+}
+
+void MdlAbortCompile(StudioMdlState &ctx) {
     static constexpr const char *knownExtensions[] = {".mdl", ".ani", ".phy", ".sw.vtx", ".dx80.vtx", ".dx90.vtx", ".vvd"};
-
-    StudioMdlState *ctx = s_pDiagnosticsState;
-
-    PrintQuietPrefix();
-    std::print("ERROR: {}", std::vformat(fmt, args));
 
     // delete premature files
     // unforunately, content is built without verification
     // ensuring that targets are not available, prevents check-in
-    if (ctx && ctx->paths.hasModelName) {
-        if (ctx->options.quiet) {
-            std::print("\t");
+    if (ctx.paths.hasModelName) {
+        if (ctx.options.quiet) {
+            MdlPrint("\t");
         }
 
         // undescriptive errors in batch processes could be anonymous
-        std::print("ERROR: Aborted Processing on '{}'\n", ctx->paths.outname);
+        MdlPrint("ERROR: Aborted Processing on '{}'\n", ctx.paths.outname);
 
-        const std::string baseName = OutputModelPath(*ctx, "");
+        const std::string baseName = OutputModelPath(ctx, "");
         for (const char *pExtension: knownExtensions) {
             std::error_code ec;
             std::filesystem::remove(vstd::paths::to_fs(baseName + pExtension), ec);
         }
     }
 
-    for (int i = 0; i < g_pDataModel->NumFileIds(); ++i) {
-        g_pDataModel->UnloadFile(g_pDataModel->GetFileId(i));
+    if (ctx.options.parseable_completion_output) {
+        MdlPrint("\nRESULT: ERROR\n");
     }
-
-    if (ctx && ctx->options.parseable_completion_output) {
-        std::print("\nRESULT: ERROR\n");
-    }
-
-    exit(-1);
 }
 
 void MdlWarningV(std::string_view fmt, std::format_args args) {
     StudioMdlState *ctx = s_pDiagnosticsState;
     if (ctx && (ctx->options.noWarnings || ctx->options.maxWarnings == 0))
         return;
+
+    if (ctx)
+        ctx->diagnostics.warningCount++;
+
+    if (HasSink(ctx)) {
+        EmitToSink(ctx, MdlSeverity::Warning, "WARNING: " + std::vformat(fmt, args));
+        if (ctx->options.maxWarnings > 0 && --ctx->options.maxWarnings == 0)
+            EmitToSink(ctx, MdlSeverity::Warning, "suppressing further warnings...\n");
+        return;
+    }
 
     uint16_t old = SetConsoleTextColor(1, 1, 0, 1);
 
@@ -108,19 +174,47 @@ void MdlWarningV(std::string_view fmt, std::format_args args) {
     RestoreConsoleTextColor(old);
 }
 
+void MdlPrintV(std::string_view fmt, std::format_args args) {
+    StudioMdlState *ctx = s_pDiagnosticsState;
+    if (!HasSink(ctx)) {
+        std::vprint_unicode(stdout, fmt, args);
+        return;
+    }
+
+    s_PendingLine += std::vformat(fmt, args);
+    for (size_t end; (end = s_PendingLine.find('\n')) != std::string::npos;) {
+        const std::string line = s_PendingLine.substr(0, end + 1);
+        s_PendingLine.erase(0, end + 1);
+        ctx->diagnostics.sink(MdlSeverity::Message, line);
+    }
+}
+
 void MdlMessageV(std::string_view fmt, std::format_args args) {
     const StudioMdlState *ctx = s_pDiagnosticsState;
     if (!ctx || !ctx->options.quiet) {
-        std::vprint_unicode(stdout, fmt, args);
+        MdlPrintV(fmt, args);
     }
 }
 
 void CMdlLoggingListener::Log(const LoggingContext_t *pContext, const tchar *pMessage) {
-    const StudioMdlState *ctx = s_pDiagnosticsState;
-    if (pContext->m_Severity == LS_MESSAGE && ctx && ctx->options.quiet) {
+    StudioMdlState *ctx = s_pDiagnosticsState;
+    if (pContext->m_ChannelID == LOG_CONSOLE_OUTPUT) {
+        // ConsolePrint text (progress of the libraries): shown as it is, also with -quiet, as the printf it replaced
+        if (HasSink(ctx))
+            MdlPrintV("{}", std::make_format_args(pMessage));
+        else
+            CCmdLibStandardLoggingListener::Log(pContext, pMessage);
+    } else if (pContext->m_Severity == LS_MESSAGE && ctx && ctx->options.quiet) {
         // suppress
     } else if (pContext->m_Severity == LS_WARNING) {
         MdlWarning("{}", pMessage);
+    } else if (HasSink(ctx)) {
+        if ((pContext->m_Flags & LCF_DO_NOT_ECHO) != 0)
+            return;
+        if (pContext->m_Severity == LS_MESSAGE)
+            MdlPrintV("{}", std::make_format_args(pMessage));
+        else // LS_ERROR: fatal (Plat_ExitException follows), LS_ASSERT: reported, execution continues
+            EmitToSink(ctx, pContext->m_Severity == LS_ERROR ? MdlSeverity::Error : MdlSeverity::Warning, pMessage);
     } else {
         CCmdLibStandardLoggingListener::Log(pContext, pMessage);
     }
@@ -128,8 +222,16 @@ void CMdlLoggingListener::Log(const LoggingContext_t *pContext, const tchar *pMe
 
 //#ifndef _DEBUG
 
-void MdlHandleCrash(const char *pMessage, bool bAssert) {
-    MdlError("'{}' (assert: {:d})\n", pMessage, bAssert);
+// Called from a signal handler / exception filter, which an exception can't leave: reports like MdlError, does what the
+// console tool does after one and ends the process. (Only the console tool installs the crash handlers.)
+[[noreturn]] static void MdlHandleCrash(const char *pMessage, bool bAssert) {
+    StudioMdlState *ctx = s_pDiagnosticsState;
+    ReportError(ctx, std::format("'{}' (assert: {:d})\n", pMessage, bAssert));
+    if (ctx)
+        MdlAbortCompile(*ctx);
+    MdlDiscardDataModelContents();
+    std::fflush(stdout);
+    _exit(255);
 }
 
 // This is called if we crash inside our crash handler. It just terminates the process immediately.

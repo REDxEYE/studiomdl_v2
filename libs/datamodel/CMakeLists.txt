@@ -26,4 +26,5 @@ add_library(datamodel
 target_include_directories(datamodel PUBLIC ../../include)
 target_include_directories(datamodel PRIVATE ../../include/datamodel)
 target_compile_definitions(datamodel PRIVATE -DSTATIC_TIER0)
-target_link_libraries(datamodel PRIVATE)
+# dmconnect.cpp initializes the serializers (g_pDmSerializers); the two static libraries depend on each other
+target_link_libraries(datamodel PRIVATE dmserializers)

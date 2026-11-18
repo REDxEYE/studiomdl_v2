@@ -11,15 +11,16 @@
 #include <malloc.h>
 #include <type_traits>
 #include <cstdio>
+#include <new>
 
 #include "tier0/platform.h"
 
+// Allocation failure is std::bad_alloc, never the end of the process (the entry points handle it).
 template<typename T> requires std::is_pod_v<T>
 T* allocate() {
 	auto raw = malloc(sizeof(T));
 	if (raw==nullptr) {
-		(void) std::fputs("Out of memory", stderr);
-		std::exit(-1);
+		throw std::bad_alloc();
 	}
 	return static_cast<T*>(raw);
 }
@@ -28,8 +29,7 @@ template<typename T>
 T* c_allocate() {
 	auto raw = malloc(sizeof(T));
 	if (raw==nullptr) {
-		(void) std::fputs("Out of memory", stderr);
-		std::exit(-1);
+		throw std::bad_alloc();
 	}
 	memset(raw, 0, sizeof(T));
 	// T() (value-initialization) zeroes members without default initializers; with "new T" the compiler may treat
@@ -41,8 +41,7 @@ template<typename T> requires std::is_pod_v<T>
 T* allocate(const size_t count) {
 	auto raw = malloc(sizeof(T) * count);
 	if (raw==nullptr) {
-		(void) std::fputs("Out of memory", stderr);
-		std::exit(-1);
+		throw std::bad_alloc();
 	}
 	return static_cast<T*>(raw);
 }
@@ -51,8 +50,7 @@ template<typename T>
 T* c_allocate(const size_t count) {
 	auto* raw = static_cast<char *>(malloc(sizeof(T) * count));
 	if (raw==nullptr) {
-		(void) std::fputs("Out of memory", stderr);
-		std::exit(-1);
+		throw std::bad_alloc();
 	}
 	memset(raw, 0, sizeof(T) * count);
 	for (int i = 0; i < count; ++i) {
@@ -120,16 +118,13 @@ inline void *MemAlloc_ReallocAligned( void *pMem, size_t nSize, size_t nAlign )
 #endif
 }
 
-// Allocation failed: break into an attached debugger, otherwise exit.
+// Allocation failed: break into an attached debugger, then std::bad_alloc.
 inline void MemAlloc_OutOfMemory()
 {
 	if ( Plat_IsInDebugSession() )
 	{
 		DebuggerBreak();
 	}
-	else
-	{
-		Plat_ExitProcess( EXIT_FAILURE );
-	}
+	throw std::bad_alloc();
 }
 

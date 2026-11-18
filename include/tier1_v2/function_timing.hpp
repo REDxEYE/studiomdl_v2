@@ -37,6 +37,14 @@ namespace vstd {
     // inline: code in any library can record without linking the printer's translation unit
     inline FunctionTimings function_timings;
 
+    // Forgets the recorded rows (a new unit of work starts: repeated compiles in one process must not add up).
+    // Not while a recorder is live: its row index would dangle.
+    inline void reset_function_timings() {
+        assert(function_timings.depth == 0);
+        function_timings.rows.clear();
+        function_timings.depth = 0;
+    }
+
     // Prints rows of at least 0.1 ms as an indented tree to stdout (libs/tier1/function_timing.cpp)
     void print_function_timings();
 

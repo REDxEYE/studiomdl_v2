@@ -15,13 +15,6 @@
 
 #include "tier0/basetypes.h"
 
-// This can go away when everything is in bin.
-#if defined( CMDLIB_NODBGLIB )
-	void Error( char const *pMsg, ... );
-#else
-
-#endif
-
 #include <cstring>
 #include <cstdlib>
 #include <ctime>
@@ -96,10 +89,6 @@ qboolean	FileExists ( const char *filename );
 
 // Initialize spew output.
 void InstallSpewFunction();
-
-
-// Install allocation hooks so we error out if an allocation can't happen.
-void InstallAllocationFunctions();
 
 // entrypoint if chaining spew functions
 unsigned short SetConsoleTextColor( int red, int green, int blue, int intensity );

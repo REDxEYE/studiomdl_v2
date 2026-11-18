@@ -14,6 +14,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <format>
+#include <print>
 #include <string>
 #include "color.h"
 #include "tier0/dbg.h"
@@ -77,10 +78,13 @@ void WarningV( std::string_view fmt, std::format_args args )
 
 void ErrorV( std::string_view fmt, std::format_args args )
 {
-	LogFormatted( LOG_GENERAL, LS_ERROR, nullptr, fmt, args );
+	const std::string message = std::vformat( fmt, args );
+	CLoggingSystem *pLoggingSystem = GetGlobalLoggingSystem();
+	if ( pLoggingSystem->IsChannelEnabled( LOG_GENERAL, LS_ERROR ) )
+		pLoggingSystem->LogDirect( LOG_GENERAL, LS_ERROR, pLoggingSystem->GetChannelColor( LOG_GENERAL ), message.c_str() );
 	// Many places that call Error assume that execution will not continue afterwards so it
 	// is important to exit here. The function prototype promises that this will happen.
-	Plat_ExitProcess( 100 );
+	Plat_ExitProcessWithMessage( 100, message.c_str() );
 }
 
 void DevMsgV( std::string_view fmt, std::format_args args )
@@ -101,4 +105,9 @@ void ConColorMsgV( const Color &clr, std::string_view fmt, std::format_args args
 void ConMsgV( std::string_view fmt, std::format_args args )
 {
 	LogFormatted( LOG_CONSOLE, LS_MESSAGE, nullptr, fmt, args );
+}
+
+void ConsolePrintV( std::string_view fmt, std::format_args args )
+{
+	LogFormatted( LOG_CONSOLE_OUTPUT, LS_MESSAGE, nullptr, fmt, args );
 }

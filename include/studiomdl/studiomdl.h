@@ -30,6 +30,7 @@ using StudioPath = vstd::FixedString<MAX_PATH>;
 
 // Per-compile state (studiomdl_global_state.hpp), passed explicitly as the first parameter: StudioMdlState &ctx
 struct StudioMdlState;
+class CompileArena; // compile_arena.hpp: owns what the compile allocates and hands around by pointer
 
 struct LodScriptData_t;
 struct s_flexkey_t;
@@ -73,6 +74,22 @@ struct s_boneweight_t {
     std::array<float, MAXSTUDIOBONEWEIGHTS> weight;
 };
 
+// All the influences a source vertex was given (up to MAXSTUDIOSOURCEBONEWEIGHTS; the largest are kept when there are
+// more), collapsed per bone, sorted by descending weight and summing to 1; unused slots are bone 0, weight 0.
+// numbones 0 = nothing recorded (the loader gave the vertex at most MAXSTUDIOBONEWEIGHTS influences, boneweight has
+// them all). FitSourceWeights (weight_fit.hpp) reduces vertices with more to MAXSTUDIOBONEWEIGHTS before the model is
+// processed; the loaders already store the plain cut in boneweight.
+struct s_sourceboneweight_t {
+    int numbones = 0;
+    std::array<int, MAXSTUDIOSOURCEBONEWEIGHTS> bone{};
+    std::array<float, MAXSTUDIOSOURCEBONEWEIGHTS> weight{};
+};
+
+// Fills `out` from `count` influences (any count; the inputs are not changed). Leaves numbones 0 when count is at
+// most MAXSTUDIOBONEWEIGHTS: nothing to fit.
+void MakeSourceBoneWeights(int count, std::span<const int> bones, std::span<const float> weights,
+                           s_sourceboneweight_t &out);
+
 struct s_tmpface_t {
     int material{};
     uint32_t a, b, c, d;
@@ -103,6 +120,7 @@ struct s_vertexinfo_t {
     Vector4D tangentS;
     vstd::FixedVector<Vector2D, MAXSTUDIOTEXCOORDS> texcoord;
     s_boneweight_t boneweight;
+    s_sourceboneweight_t sourceWeights; // the full influence list, see s_sourceboneweight_t
 };
 
 
@@ -1137,12 +1155,17 @@ public:
 
     int AddNewVert(s_source_t *pOrigSource, int nVert, int nSrcMesh, int nDstMesh, int nPreOffset = 0);
 
-    void AddAnimations(const s_source_t *pOrigSource);
+    // The arrays of the piece (animations, then Copy: faces and vertices) are allocated from the arena
+    void AddAnimations(CompileArena &arena, const s_source_t *pOrigSource);
 
-    void Copy(s_source_t *pDstSource);
+    void Copy(CompileArena &arena, s_source_t *pDstSource);
 
     void CopyFlexKeys(StudioMdlState &ctx, const s_source_t *pOrigSource, s_source_t *newSource, int imodel);
 };
+
+// Splits an active source with more than ctx.options.maxVertexLimit vertices into pieces of at most maxVertexClamp
+// (studiomdl.cpp)
+void ClampMaxVerticesPerModel(StudioMdlState &ctx, s_source_t *pOrigSource);
 
 //-----------------------------------------------------------------------------
 //
@@ -1249,8 +1272,7 @@ struct s_forcedrealign_t {
 
 struct s_limitrotation_t {
     char name[MAXSTUDIONAME];
-    int numseq;
-    char *sequencename[64];
+    std::vector<std::string> sequencenames; // $limitrotation <bone> <sequence>...; the compiler only checks for any
 };
 
 
@@ -1277,9 +1299,10 @@ s_source_t *Load_Source(StudioMdlState &ctx, std::string_view filename, const ch
 
 void ApplyOffsetToSrcVerts(s_source_t *pModel, matrix3x4_t matOffset);
 
-void AddSrcToSrc(s_source_t *pOrigSource, s_source_t *pAppendSource, matrix3x4_t matOffset);
+// Appends pAppendSource's geometry to pOrigSource (the new arrays belong to ctx.arena)
+void AddSrcToSrc(StudioMdlState &ctx, s_source_t *pOrigSource, s_source_t *pAppendSource, matrix3x4_t matOffset);
 
-void AddSrcToSrc(s_source_t *pOrigSource, s_source_t *pAppendSource);
+void AddSrcToSrc(StudioMdlState &ctx, s_source_t *pOrigSource, s_source_t *pAppendSource);
 
 int Load_VRM(StudioMdlState &ctx, s_source_t *psource);
 
@@ -1298,6 +1321,59 @@ void Build_Reference(s_source_t *source, std::string_view animName);
 int Grab_Nodes(StudioMdlState &ctx, std::array<s_node_t, MAXSTUDIOSRCBONES> &pnodes);
 
 void Grab_Animation(StudioMdlState &ctx, s_source_t *psource, const char *pAnimName);
+
+// ---------------------------------------------------------------------------------------------------------------
+// Source construction helpers shared by the SMD loader (Grab_Nodes / Grab_Animation / Grab_Triangles) and the builder
+// API (BuildSourceFromGeometry): the loader parses text into these calls, the builder feeds them from its data.
+// ---------------------------------------------------------------------------------------------------------------
+
+// All nodes of a source skeleton are parentless and unnamed until SetSourceNode sets them
+void InitSourceNodes(std::array<s_node_t, MAXSTUDIOSRCBONES> &pnodes);
+void SetSourceNode(std::array<s_node_t, MAXSTUDIOSRCBONES> &pnodes, int index, std::string_view name, int parent);
+
+// The "time <t>" line of an animation block: makes frame t (relative to the first frame given) exist, a new frame
+// starts as a copy of the previous one. The first frame given sets startframe. Returns false when t is before
+// startframe (the caller reports it); relativeFrame receives the frame index.
+bool SetSourceAnimTime(StudioMdlState &ctx, const s_source_t *pSource, s_sourceanim_t *pAnim, int time,
+                       int &relativeFrame);
+// One bone line of a frame: the position is scaled with ctx.script.currentscale
+void SetSourceAnimBone(StudioMdlState &ctx, s_sourceanim_t *pAnim, int relativeFrame, int bone, Vector pos,
+                       const RadianEuler &rot);
+// The "end" line: fixes numframes and builds the reference pose of the source from the animation. Returns the first
+// frame (absolute) that has no data, or -1 when the animation is complete.
+int FinishSourceAnim(const s_source_t *pSource, s_sourceanim_t *pAnim, std::string_view animName);
+
+// A vertex of a triangle corner as an SMD "triangles" block has it
+struct SourceCorner {
+    int bone = 0;                       // the bone a vertex without links is rigidly attached to
+    Vector position;
+    Vector normal;
+    Vector2D uv;                        // as in the file: v is flipped when the corner is added
+    int numLinks = 0;                   // 0: rigid to `bone`
+    std::array<int, MAXSTUDIOSRCBONES> bones{};
+    std::array<float, MAXSTUDIOSRCBONES> weights{};
+    int numExtras = 0;                  // extra floats = additional texcoord sets (u, v pairs, not flipped)
+    std::array<float, (MAXSTUDIOTEXCOORDS - 1) * 2> extras{};
+};
+
+// The texture of a triangle as the SMD loader resolves it: the -t replacements, skipping the null textures, then
+// LookupTexture / UseTextureAsMaterial. Returns the material, or -1 when the triangle is skipped.
+int ResolveSourceMaterial(StudioMdlState &ctx, s_source_t *psource, std::string_view textureName);
+
+// Triangles: Begin, then ResolveSourceMaterial + AddSourceCorner x3 + AddSourceTriangle per triangle, then End.
+void BeginSourceTriangles(StudioMdlState &ctx);
+// Scale, v flip and the reduction to MAXSTUDIOBONEWEIGHTS influences, then the unification of lookup_index. Returns
+// the unified vertex index.
+int AddSourceCorner(StudioMdlState &ctx, s_source_t *psource, int material, SourceCorner &corner);
+// The unified vertices of the corners 0, 1, 2 as read; the face stores them as (0, 2, 1). False when the triangle
+// is degenerate (dropped).
+bool AddSourceTriangle(StudioMdlState &ctx, int material, const std::array<int, 3> &corners);
+// Subd quad (corners as written to the face: a, b, c, d)
+void AddSourceQuad(StudioMdlState &ctx, int material, const std::array<int, 4> &corners);
+void EndSourceTriangles(StudioMdlState &ctx, s_source_t *psource);
+
+// $body ... reverse: swaps the winding of every face
+void FlipFacing(s_source_t *pSrc);
 
 // Processes source comment line and extracts information about the data file
 void ProcessSourceComment(s_source_t *psource, const char *pCommentString);
@@ -1327,7 +1403,9 @@ int LookupAttachment(StudioMdlState &ctx, const char *name);
 
 void ClearModel();
 
-void SimplifyModel(StudioMdlState &ctx);
+// Processes the parsed model for writing. Returns false when the compile ends here because -definebones only lists the
+// bones; true otherwise.
+bool SimplifyModel(StudioMdlState &ctx);
 
 void CollapseBones(StudioMdlState &ctx);
 
@@ -1474,6 +1552,9 @@ private:
 
 
 void CreateMakefile_AddDependency(StudioMdlState &ctx, const char *pFileName);
+
+// -makefile: appends the make rule of this model to makefile.tmp (the command is ctx.paths.CreateMakefileCommand)
+void CreateMakefile_OutputMakefile(StudioMdlState &ctx);
 
 void AddSurfaceProp(StudioMdlState &ctx, const char *pBoneName, const char *pSurfaceProperty);
 

@@ -81,7 +81,7 @@ void CCollisionModelSource::ConvertToWorldSpace( std::vector<Vector> &worldVerts
 	if ( m_ctx.header.collisionPrecision > 0 )
 	{
 #ifdef DEBUG
-		std::print("Applying collision precision truncation: {:f}\n", g_flCollisionPrecision );
+		MdlPrint("Applying collision precision truncation: {:f}\n", g_flCollisionPrecision );
 #endif
 		for ( size_t i = 0; i < worldVerts.size(); i++ )
 		{

@@ -10,7 +10,7 @@
 
 CHardwareVertexCache::CHardwareVertexCache()
 {
-	m_Fifo = nullptr;
+	m_Fifo.clear();
 	m_Size = 0;
 	Flush();
 }
@@ -18,7 +18,7 @@ CHardwareVertexCache::CHardwareVertexCache()
 void CHardwareVertexCache::Init( int size )
 {
 	m_Size = size;
-	m_Fifo = new int[size];
+	m_Fifo.assign( size, 0 );
 	Flush();
 }
 

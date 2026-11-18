@@ -21,6 +21,7 @@
 #include "appframework/app.h"
 #include "dmserializers/idmserializers.h"
 #include "tier1/utlstring.h"
+#include "studiomdl/platform_compat.h"
 #include "datamodel/dmelement.h"
 #include "tier2/tier2.h"
 #include "tier2/tier2dm.h"
@@ -44,8 +45,18 @@ protected:
 
 int main( int argc, char **argv )
 {
-	CDmxConvertApp app;
-	return app.Run( argc, argv );
+	try
+	{
+		CDmxConvertApp app;
+		return app.Run( argc, argv );
+	}
+	catch ( const Plat_ExitException &e )
+	{
+		// Error() / LR_ABORT: the message was logged. The process ends right here, as it always did: no static
+		// destructors and no flush of the stdio buffers
+		TerminateProcess( GetCurrentProcess(), e.exitCode() );
+		return e.exitCode();
+	}
 }
 
 

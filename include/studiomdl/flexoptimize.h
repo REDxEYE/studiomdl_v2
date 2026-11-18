@@ -7,7 +7,8 @@
 //
 // FlexOptimizeSources() splits every flexed mesh into a mesh with the faces that touch a moving vertex (keeps the flex
 // data) and a mesh with the remaining faces (no flex data, does not count against the cache), inside the same model so
-// bodygroups keep working. CheckFlexCacheBudget() reports the final budget: the flexed meshes of all models of all bodyparts.
+// bodygroups keep working. CheckFlexCacheBudget() reports the final budget: per bodypart the model with the most
+// flexed-mesh vertices (only the active bodygroup choice is drawn), summed over bodyparts.
 //
 
 #pragma once

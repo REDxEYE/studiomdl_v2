@@ -2089,7 +2089,7 @@ void CBaseFileSystem::FileSystemWarning(FileWarningLevel_t level, const char* fm
     va_end(argptr);
 
     // Dump to stdio
-    printf("%s", warningtext);
+    ConsolePrint("{}", warningtext);
     if (m_pfnWarning) {
         (*m_pfnWarning)(warningtext);
     }

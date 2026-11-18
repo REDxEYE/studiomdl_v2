@@ -24,7 +24,8 @@
 #define MAXSTUDIOEVENTS            1024
 #define MAXSTUDIOFLEXKEYS        512
 #define MAXSTUDIOFLEXRULES        1024
-#define MAXSTUDIOBONEWEIGHTS    3u
+#define MAXSTUDIOBONEWEIGHTS    3u      // influences per vertex in the .vvd (the model's limit)
+#define MAXSTUDIOSOURCEBONEWEIGHTS 16u  // influences per vertex a source keeps until FitSourceWeights reduces them
 #define MAXSTUDIOCMDS            64
 #define MAXSTUDIOMOVEKEYS        64
 #define MAXSTUDIOIKRULES        64

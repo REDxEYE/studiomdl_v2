@@ -59,6 +59,13 @@ CDataModel::~CDataModel() {
     if (GetAllocatedElementCount() > 0) {
         Warning("Leaking {:d} elements\n", GetAllocatedElementCount());
     }
+
+    // Files still listed (the temporary model of Unserialize's legacy conversion): the sets are owned here
+    for (int i = 0; i < static_cast<int>(m_openFiles.GetHandleCount()); ++i) {
+        const DmFileId_t fileid = static_cast<DmFileId_t>(m_openFiles.GetHandleFromIndex(i));
+        if (fileid != DMFILEID_INVALID)
+            delete m_openFiles.GetHandle(fileid);
+    }
 }
 
 
@@ -121,6 +128,8 @@ void CDataModel::Shutdown() {
             RemoveFileId(fileid);
         }
     }
+    // No stale slots: file ids are handed out as in a new process (the file table is walked by NumFileIds/GetFileId)
+    m_openFiles.Purge();
     m_elementIds.RemoveAll();
     m_unloadedIdElementMap.RemoveAll();
 
@@ -1026,26 +1035,35 @@ CDataModel::Unserialize(CUtlBuffer &inBuf, const char *pEncodingName, const char
             tmp.AddLegacyUpdater(item);
         }
         tmp.Init();
-        auto orig = g_pDataModel;
-        g_pDataModelImp = &tmp;
-        g_pDataModel = &tmp;
-
-        tmp.OnlyCreateUntypedElements(true);
-        DmFileId_t fileid = tmp.FindOrCreateFileId("tmp_convert.dmx");
-        tmp.SetFileName(fileid, "tmp_convert.dmx");
-
-        auto hTmpRoot = tmp.CreateElement(CDmElement::GetStaticTypeSymbol().view(), "root", fileid, nullptr);
-        inBuf.SeekGet(CUtlBuffer::SEEK_HEAD, 0);
-        auto res = tmp.Unserialize(inBuf, pEncodingName, header.formatName, nullptr, pFileName,
-                                   DmConflictResolution_t::CR_DELETE_OLD, hTmpRoot);
         CUtlBuffer outBuf;
-        tmp.Serialize(outBuf, "binary", header.formatName, hTmpRoot);
-        for (int i = 0; i < tmp.NumFileIds(); ++i)
-            tmp.UnloadFile(tmp.GetFileId(i), true);
+        {
+            // restores the real datamodel also when the conversion throws
+            struct DataModelSwitch {
+                IDataModel *original = g_pDataModel;
+                explicit DataModelSwitch(CDataModel &to) {
+                    g_pDataModelImp = &to;
+                    g_pDataModel = &to;
+                }
+                ~DataModelSwitch() {
+                    g_pDataModelImp = dynamic_cast<CDataModel *>(original);
+                    g_pDataModel = original;
+                }
+            } use(tmp);
+
+            tmp.OnlyCreateUntypedElements(true);
+            const DmFileId_t tmpFileId = tmp.FindOrCreateFileId("tmp_convert.dmx");
+            tmp.SetFileName(tmpFileId, "tmp_convert.dmx");
+
+            auto hTmpRoot = tmp.CreateElement(CDmElement::GetStaticTypeSymbol().view(), "root", tmpFileId, nullptr);
+            inBuf.SeekGet(CUtlBuffer::SEEK_HEAD, 0);
+            tmp.Unserialize(inBuf, pEncodingName, header.formatName, nullptr, pFileName,
+                            DmConflictResolution_t::CR_DELETE_OLD, hTmpRoot);
+            tmp.Serialize(outBuf, "binary", header.formatName, hTmpRoot);
+            for (int i = 0; i < tmp.NumFileIds(); ++i)
+                tmp.UnloadFile(tmp.GetFileId(i), true);
+        }
 
         outBuf.SeekGet(CUtlBuffer::SEEK_HEAD, 0);
-        g_pDataModelImp = dynamic_cast<CDataModel *>(orig);
-        g_pDataModel = orig;
         auto bSuccess = Unserialize(outBuf, "binary", header.formatName, header.formatName, pFileName,
                                     idConflictResolution, hRoot);
         return bSuccess;

@@ -19,17 +19,41 @@ int CApplication::Run(const int argc, char **argv) {
     }
 
     int nRetVal = -1;
-    if (Create() && PreInit() && Init()) {
-        nRetVal = Main();
-        Shutdown();
-        PostShutdown();
+    std::exception_ptr failure;
+    try {
+        if (Create() && PreInit() && Init()) {
+            nRetVal = Main();
+            Shutdown();
+            PostShutdown();
+        }
+    }
+    catch (...) {
+        failure = std::current_exception();
+    }
+
+    if (failure) {
+        // The application reports the failure and returns the exit code; one that doesn't handle it lets it
+        // propagate once the application is destroyed
+        try {
+            nRetVal = OnException(failure);
+            failure = nullptr;
+        }
+        catch (...) {
+            failure = std::current_exception();
+        }
     }
 
     // The logging listeners registered by the application may be gone after Destroy
     LoggingSystem_ResetCurrentLoggingState();
     LoggingSystem_RegisterLoggingListener(&s_SimpleLoggingListener);
     Destroy();
+    if (failure)
+        std::rethrow_exception(failure);
     return nRetVal;
+}
+
+int CApplication::OnException(const std::exception_ptr &error) {
+    std::rethrow_exception(error);
 }
 
 bool CApplication::SetupSearchPaths() {

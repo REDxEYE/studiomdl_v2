@@ -294,7 +294,7 @@ int Load_OBJ( StudioMdlState &ctx, s_source_t *psource )
 
 	if( !ctx.options.quiet )
 	{
-		std::print( "grabbing {}\n", psource->filename );
+		MdlPrint( "grabbing {}\n", psource->filename );
 	}
 
     ctx.input.iLinecount = 0;
@@ -307,7 +307,7 @@ int Load_OBJ( StudioMdlState &ctx, s_source_t *psource )
 	pSourceAnim->numframes = 1;
 	pSourceAnim->startframe = 0;
 	pSourceAnim->endframe = 0;
-	pSourceAnim->rawanim[0] = (s_bone_t *)calloc( 1, sizeof( s_bone_t ) );
+	pSourceAnim->rawanim[0] = ctx.arena.CreateArray<s_bone_t>( 1 );
 	pSourceAnim->rawanim[0][0].pos.Init();
 	pSourceAnim->rawanim[0][0].rot.Init();
 	Build_Reference( psource, "BindPose" );
@@ -327,6 +327,7 @@ int Load_OBJ( StudioMdlState &ctx, s_source_t *psource )
 			boneWeight.numbones = 1;
 			boneWeight.bone[0] = 0;
 			boneWeight.weight[0] = 1.0;
+			ctx.input.sourceBone[ctx.input.bone.size() - 1] = {};
 			continue;
 		}
 		
@@ -447,13 +448,14 @@ int AppendVTAtoOBJ( StudioMdlState &ctx, s_source_t *psource, std::string_view f
 
 	if( !ctx.options.quiet )
 	{
-		std::print("grabbing {}\n", filename );
+		MdlPrint("grabbing {}\n", filename );
 	}
 
     ctx.input.iLinecount = 0;
 
 	ctx.input.vertex.clear();
 	ctx.input.bone.clear();
+	ctx.input.sourceBone.clear();
 	ctx.input.normal.clear();
 	ctx.input.texcoord[0].clear();
 	ctx.input.faces.clear();
@@ -471,6 +473,7 @@ int AppendVTAtoOBJ( StudioMdlState &ctx, s_source_t *psource, std::string_view f
 			boneWeight.numbones = 1;
 			boneWeight.bone[0] = 0;
 			boneWeight.weight[0] = 1.0;
+			ctx.input.sourceBone[ctx.input.bone.size() - 1] = {};
 		}
 		else if (strncmp( ctx.input.szLine, "vn ", 3 ) == 0)
 		{
@@ -530,7 +533,7 @@ int AppendVTAtoOBJ( StudioMdlState &ctx, s_source_t *psource, std::string_view f
 		pSourceAnim->numframes = 1;
 		pSourceAnim->startframe = 0;
 		pSourceAnim->endframe = 0;
-		pSourceAnim->rawanim[0] = (s_bone_t *)calloc( 1, sizeof( s_bone_t ) );
+		pSourceAnim->rawanim[0] = ctx.arena.CreateArray<s_bone_t>( 1 );
 		pSourceAnim->rawanim[0][0].pos.Init();
 		pSourceAnim->rawanim[0][0].rot = RadianEuler( 1.570796, 0.0, 0.0 );
 		Build_Reference( psource, "BindPose" );
@@ -542,7 +545,7 @@ int AppendVTAtoOBJ( StudioMdlState &ctx, s_source_t *psource, std::string_view f
 	int count = static_cast<int>( ctx.input.v_listdata.size() );
 
 	pSourceAnim->numvanims[t] = count;
-	pSourceAnim->vanim[t] = (s_vertanim_t *)calloc( count, sizeof( s_vertanim_t ) );
+	pSourceAnim->vanim[t] = ctx.arena.CreateArray<s_vertanim_t>( count );
 	for (i = 0; i < count; i++)
 	{
 		pSourceAnim->vanim[t][i].vertex = i;

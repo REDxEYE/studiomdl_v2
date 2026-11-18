@@ -32,4 +32,4 @@ add_library(dmserializers
 target_include_directories(dmserializers PUBLIC ../../include)
 target_include_directories(dmserializers PRIVATE ../../include/dmserializers)
 target_compile_definitions(dmserializers PRIVATE -DSTATIC_TIER0)
-target_link_libraries(dmserializers PRIVATE)
+target_link_libraries(dmserializers PRIVATE datamodel)

@@ -81,8 +81,10 @@ static void Grab_Vertexlist(StudioMdlState &ctx, s_source_t *psource) {
                 boneWeight.numbones = 1;
                 boneWeight.bone[0] = bone;
                 boneWeight.weight[0] = 1.0;
+                ctx.input.sourceBone[j] = {};
             }
             else if (i > 5) {
+                MakeSourceBoneWeights(iCount, bones, weights, ctx.input.sourceBone[j]);
                 iCount = SortAndBalanceBones(iCount, MAXSTUDIOBONEWEIGHTS, bones, weights);
 
                 VectorCopy(p, ctx.input.vertex[j]);
@@ -378,7 +380,7 @@ void CalcModelTangentSpaces(StudioMdlState &ctx, s_source_t *pSrc);
 //-----------------------------------------------------------------------------
 static void BuildUniqueVertexList(StudioMdlState &ctx, s_source_t *pSource, const int *pDesiredToVList) {
     // allocate memory
-    pSource->vertex = (s_vertexinfo_t *) calloc(pSource->numvertices, sizeof(s_vertexinfo_t));
+    pSource->vertex = ctx.arena.CreateArray<s_vertexinfo_t>(pSource->numvertices);
 
     int numValidTexcoords = 1;
 
@@ -405,6 +407,9 @@ static void BuildUniqueVertexList(StudioMdlState &ctx, s_source_t *pSource, cons
             vertex.boneweight.bone[k] = ctx.input.bone[ctx.input.v_listdata[j].v].bone[k];
             vertex.boneweight.weight[k] = ctx.input.bone[ctx.input.v_listdata[j].v].weight[k];
         }
+        const int v = ctx.input.v_listdata[j].v;
+        vertex.sourceWeights = v < static_cast<int>(ctx.input.sourceBone.size()) ? ctx.input.sourceBone[v]
+                                                                                    : s_sourceboneweight_t{};
 
         vertex.texcoord.resize(numValidTexcoords);
 
@@ -541,7 +546,7 @@ static void PointMeshesToVertexAndFaceData(StudioMdlState &ctx, s_source_t *pSou
 // Builds the face list in the mesh
 //-----------------------------------------------------------------------------
 static void BuildFaceList(StudioMdlState &ctx, s_source_t *pSource, int *pVListToDesired, int *pDesiredToSrcFace) {
-    pSource->face = (s_face_t *) calloc(pSource->numfaces, sizeof(s_face_t));
+    pSource->face = ctx.arena.CreateArray<s_face_t>(pSource->numfaces);
     for (const s_mesh_t &mesh: pSource->meshes) {
         for (int i = mesh.faceoffset; i < mesh.numfaces + mesh.faceoffset; i++) {
             int j = pDesiredToSrcFace[i];
@@ -602,25 +607,23 @@ static void RemapVertexAnimations(s_source_t *pSource, int *pVListToDesired) {
 void BuildIndividualMeshes(StudioMdlState &ctx, s_source_t *pSource) {
     vstd::FunctionTimingRecorder _("DMX");
     const size_t numvlist = ctx.input.v_listdata.size();
-    int *v_listsort = (int *) malloc(numvlist * sizeof(int)); // map desired order to vlist entry
-    int *v_ilistsort = (int *) malloc(numvlist * sizeof(int)); // map vlist entry to desired order
-    int *facesort = (int *) malloc(ctx.input.faces.size() * sizeof(int)); // map desired order to src_face entry
+    std::vector<int> v_listsort(numvlist); // map desired order to vlist entry
+    std::vector<int> v_ilistsort(numvlist); // map vlist entry to desired order
+    std::vector<int> facesort(ctx.input.faces.size()); // map desired order to src_face entry
 
-    SortVerticesByMaterial(ctx, v_listsort, v_ilistsort);
-    SortFacesByMaterial(ctx, facesort);
+    SortVerticesByMaterial(ctx, v_listsort.data(), v_ilistsort.data());
+    SortFacesByMaterial(ctx, facesort.data());
 
     pSource->numvertices = static_cast<int>(numvlist);
     pSource->numfaces = ctx.input.faces.size();
 
-    BuildUniqueVertexList(ctx, pSource, v_listsort);
-    PointMeshesToVertexAndFaceData(ctx, pSource, facesort);
-    BuildFaceList(ctx, pSource, v_ilistsort, facesort);
-    RemapVertexAnimations(pSource, v_ilistsort);
+    BuildUniqueVertexList(ctx, pSource, v_listsort.data());
+    PointMeshesToVertexAndFaceData(ctx, pSource, facesort.data());
+    BuildFaceList(ctx, pSource, v_ilistsort.data(), facesort.data());
+    RemapVertexAnimations(pSource, v_ilistsort.data());
     CalcModelTangentSpaces(ctx, pSource);
 
-    free(facesort);
-    free(v_ilistsort);
-    free(v_listsort);
+    ctx.input.unifiedVertexOrder = std::move(v_listsort);
 }
 
 
@@ -646,7 +649,7 @@ int Load_VRM(StudioMdlState &ctx, s_source_t *psource) {
     }
 
     if (!ctx.options.quiet) {
-        std::print("grabbing {}\n", psource->filename);
+        MdlPrint("grabbing {}\n", psource->filename);
     }
 
     ctx.input.iLinecount = 0;

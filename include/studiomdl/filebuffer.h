@@ -35,7 +35,7 @@ public:
 		{
 			if ( !m_Used[i] )
 			{
-				std::print( "offset {} not written, end of file invalid!\n", i );
+				MdlPrint( "offset {} not written, end of file invalid!\n", i );
 				Assert( 0 );
 			}
 		}
@@ -57,7 +57,7 @@ public:
 			{
 				if ( !reported )
 				{
-					std::print( "overwrite at {}! (overwriting \"{}\" with \"{}\")\n", i, m_Used[i], name );
+					MdlPrint( "overwrite at {}! (overwriting \"{}\" with \"{}\")\n", i, m_Used[i], name );
 					Assert( 0 );
 					reported = true;
 				}

@@ -23,6 +23,9 @@ DEFINE_LOGGING_CHANNEL( LOG_CONSOLE, "Console", LCF_CONSOLE_ONLY, LS_ERROR );
 // Corresponds to DevMsg/DevWarning. Only errors are spewed by default.
 DEFINE_LOGGING_CHANNEL( LOG_DEVELOPER, "Developer", LCF_CONSOLE_ONLY, LS_ERROR );
 
+// Corresponds to ConsolePrint: console text of the libraries that is not a log message. Not written to log files.
+DEFINE_LOGGING_CHANNEL( LOG_CONSOLE_OUTPUT, "ConsoleOutput", LCF_CONSOLE_ONLY );
+
 //////////////////////////////////////////////////////////////////////////
 // Implementation
 //////////////////////////////////////////////////////////////////////////
@@ -184,7 +187,7 @@ LoggingResponse_t CLoggingSystem::LogDirect( LoggingChannelID_t channelID, Loggi
 		break;
 
 	case LR_ABORT:
-		Plat_ExitProcess( EXIT_FAILURE );
+		Plat_ExitProcessWithMessage( EXIT_FAILURE, pMessage );
 		break;
 
 	default:

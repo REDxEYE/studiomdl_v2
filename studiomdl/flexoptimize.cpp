@@ -19,6 +19,7 @@
 #include <ranges>
 
 #include "studiomdl/studiomdl_global_state.hpp"
+#include "tier1_v2/math_utils.hpp"
 
 
 namespace {
@@ -85,8 +86,7 @@ namespace {
         SourceFlexInfo info;
         info.moving.assign(pSource->numvertices, false);
 
-        for (int i = 0; i < ctx.flex.flexkeys.size(); i++) {
-            const s_flexkey_t &key = ctx.flex.flexkeys[i];
+        for (const auto & key : ctx.flex.flexkeys) {
             if (key.source != pSource)
                 continue;
 
@@ -143,7 +143,7 @@ namespace {
         for (const s_mesh_t &mesh: pSource->meshes) {
             for (uint32_t v = 0; v < mesh.numvertices; v++) {
                 if (moving[mesh.vertexoffset + v]) {
-                    cost += (int) mesh.numvertices;
+                    cost += vstd::as_signed_checked<int>(mesh.numvertices);
                     break;
                 }
             }
@@ -151,14 +151,29 @@ namespace {
         return cost;
     }
 
-    // The engine budget counts the flexed meshes of every model in every bodypart, whichever bodygroups are active
-    // (observed in HLMV: hiding a bodygroup does not help)
+    // The engine budget counts the flexed meshes of the models that are drawn: one model per bodypart, the active
+    // bodygroup choice (user, HLMV: hiding a bodygroup helps). The budget of the model is its worst combination: per
+    // bodypart the model with the most flexed-mesh vertices.
+    template<typename ModelCost>
+    const s_model_t *CostliestModel(const s_bodypart_t &bodypart, ModelCost modelCost) {
+        const s_model_t *pWorst = nullptr;
+        int worst = 0;
+        for (const s_model_t *pModel: bodypart.pmodel) {
+            const int cost = modelCost(pModel);
+            if (cost > worst) {
+                worst = cost;
+                pWorst = pModel;
+            }
+        }
+        return pWorst;
+    }
+
     template<typename ModelCost>
     int TotalFlexCacheCost(StudioMdlState &ctx, ModelCost modelCost) {
         int total = 0;
-        for (int b = 0; b < std::ssize(ctx.body.bodypart); b++) {
-            for (int m = 0; m < std::ssize(ctx.body.bodypart[b].pmodel); m++)
-                total += modelCost(ctx.body.bodypart[b].pmodel[m]);
+        for (const s_bodypart_t &bodypart: ctx.body.bodypart) {
+            if (const s_model_t *pModel = CostliestModel(bodypart, modelCost))
+                total += modelCost(pModel);
         }
         return total;
     }
@@ -167,11 +182,11 @@ namespace {
         if (ctx.options.quiet)
             return;
         if (nBudget > FLEX_CACHE_MAX_VERTICES) {
-            std::print("  {}: {} / {} (over by {} flexed-mesh verts)\n", pLabel, nBudget, FLEX_CACHE_MAX_VERTICES,
+            MdlPrint("  {}: {} / {} (over by {} flexed-mesh verts)\n", pLabel, nBudget, FLEX_CACHE_MAX_VERTICES,
                    nBudget - FLEX_CACHE_MAX_VERTICES);
         }
         else {
-            std::print("  {}: {} / {} ({} left)\n", pLabel, nBudget, FLEX_CACHE_MAX_VERTICES,
+            MdlPrint("  {}: {} / {} ({} left)\n", pLabel, nBudget, FLEX_CACHE_MAX_VERTICES,
                    FLEX_CACHE_MAX_VERTICES - nBudget);
         }
     }
@@ -216,8 +231,8 @@ namespace {
             return (a.flexes > 0 ? a.verts : 0) > (b.flexes > 0 ? b.verts : 0);
         });
 
-        std::print("  {}\n", pTitle);
-        std::print("    {:<16} {:<22} {:<24} {:>7} {:>7} {:>6} {:>7}\n", "bodypart", "model", "mesh", "verts", "flexed", "flexes",
+        MdlPrint("  {}\n", pTitle);
+        MdlPrint("    {:<16} {:<22} {:<24} {:>7} {:>7} {:>6} {:>7}\n", "bodypart", "model", "mesh", "verts", "flexed", "flexes",
                "cache");
         for (const MeshStats &row: rows) {
             if (row.verts == 0)
@@ -225,7 +240,7 @@ namespace {
             char meshName[MAX_PATH]{};
             V_snprintf(meshName, sizeof(meshName), "%s%s", MaterialName(ctx, row.material),
                        IsAliasMaterial(ctx, row.material) ? " (static)" : "");
-            std::print("    {:<16.16} {:<22.22} {:<24.24} {:7} {:7} {:6} {:7}\n", row.bodypart, row.model, meshName, row.verts,
+            MdlPrint("    {:<16.16} {:<22.22} {:<24.24} {:7} {:7} {:6} {:7}\n", row.bodypart, row.model, meshName, row.verts,
                    row.flexedVerts, row.flexes, row.flexes > 0 ? row.verts : 0);
         }
     }
@@ -404,14 +419,13 @@ namespace {
             }
         }
 
-        free(pSource->vertex);
-        free(pSource->face);
+        // the old arrays stay in the arena until the compile state goes
         pSource->numvertices = (int) vertices.size();
-        pSource->vertex = static_cast<s_vertexinfo_t *>(calloc(vertices.size(), sizeof(s_vertexinfo_t)));
+        pSource->vertex = ctx.arena.CreateArray<s_vertexinfo_t>(vertices.size());
         for (size_t i = 0; i < vertices.size(); i++)
             pSource->vertex[i] = vertices[i];
         pSource->numfaces = (int) faces.size();
-        pSource->face = static_cast<s_face_t *>(calloc(faces.size(), sizeof(s_face_t)));
+        pSource->face = ctx.arena.CreateArray<s_face_t>(faces.size());
         for (size_t i = 0; i < faces.size(); i++)
             pSource->face[i] = faces[i];
 
@@ -461,11 +475,11 @@ namespace {
             }
             else if (eyeballMaterial[split.material]) {
                 if (!ctx.options.quiet)
-                    std::print("  skipped {} mesh \"{}\": used by an eyeball\n", pSource->filename, pMaterialName);
+                    MdlPrint("  skipped {} mesh \"{}\": used by an eyeball\n", pSource->filename, pMaterialName);
             }
             else if (split.staticVertexCount < nMinStatic) {
                 if (!ctx.options.quiet)
-                    std::print("  skipped {} mesh \"{}\": static part {} verts < {}\n", pSource->filename,
+                    MdlPrint("  skipped {} mesh \"{}\": static part {} verts < {}\n", pSource->filename,
                            pMaterialName, split.staticVertexCount, nMinStatic);
             }
             else {
@@ -486,7 +500,7 @@ namespace {
             // after ApplySplits the original meshes keep their slots, the static parts follow
             const s_mesh_t &flexed = pSource->meshes[split.slot];
             const s_mesh_t &statik = pSource->meshes[FindSourceMeshIndex(pSource, split.aliasMaterial)];
-            std::print("  {} mesh \"{}\": flexed {} + static {} verts\n", pSource->filename,
+            MdlPrint("  {} mesh \"{}\": flexed {} + static {} verts\n", pSource->filename,
                    MaterialName(ctx, split.material), flexed.numvertices, statik.numvertices);
         }
     }
@@ -539,7 +553,7 @@ void FlexOptimizeSources(StudioMdlState &ctx) {
     const int nBudgetBefore = TotalFlexCacheCost(ctx, modelCost);
 
     if (!ctx.options.quiet) {
-        std::print("Flex optimization\n");
+        MdlPrint("Flex optimization\n");
 
         std::vector<MeshStats> rows;
         for (int b = 0; b < std::ssize(ctx.body.bodypart); b++) {
@@ -556,11 +570,11 @@ void FlexOptimizeSources(StudioMdlState &ctx) {
         }
         PrintMeshStats(ctx, "meshes of models with flexes, before:", rows);
     }
-    PrintBudget(ctx, "flex cache budget (all bodygroups)", nBudgetBefore);
+    PrintBudget(ctx, "flex cache budget (worst bodygroup combination)", nBudgetBefore);
 
     if (ctx.options.flexOptimizeMode == FLEXOPT_AUTO && nBudgetBefore <= FLEX_CACHE_MAX_VERTICES) {
         if (!ctx.options.quiet)
-            std::print("  within budget, meshes are left as they are\n");
+            MdlPrint("  within budget, meshes are left as they are\n");
         return;
     }
 
@@ -679,7 +693,7 @@ void CheckFlexCacheBudget(StudioMdlState &ctx) {
     const int nBudget = TotalFlexCacheCost(ctx, modelCost);
 
     if (!ctx.options.quiet) {
-        std::print("Flex optimization: result\n");
+        MdlPrint("Flex optimization: result\n");
         // every mesh of every model that has flexes or whose source had flexes (static parts, clamped pieces)
         std::vector<MeshStats> rows;
         for (int b = 0; b < std::ssize(ctx.body.bodypart); b++) {
@@ -703,14 +717,14 @@ void CheckFlexCacheBudget(StudioMdlState &ctx) {
         }
         PrintMeshStats(ctx, "meshes of models with flexes, after:", rows);
     }
-    PrintBudget(ctx, "flex cache budget (all bodygroups)", nBudget);
+    PrintBudget(ctx, "flex cache budget (worst bodygroup combination)", nBudget);
 
     if (nBudget <= FLEX_CACHE_MAX_VERTICES)
         return;
 
     MdlWarning(
-        "flex cache budget {} exceeds {} vertices by {}: flexes will move vertices of other meshes in the engine. "
-        "Models with flexed meshes, largest first:\n", nBudget, FLEX_CACHE_MAX_VERTICES,
+        "flex cache budget {} exceeds {} vertices by {}: flexes will move vertices of other meshes in the engine when "
+        "these bodygroups are shown together. Worst combination, largest first:\n", nBudget, FLEX_CACHE_MAX_VERTICES,
         nBudget - FLEX_CACHE_MAX_VERTICES);
     struct ModelEntry {
         const char *bodypart;
@@ -718,13 +732,9 @@ void CheckFlexCacheBudget(StudioMdlState &ctx) {
         int cost;
     };
     std::vector<ModelEntry> entries;
-    for (int b = 0; b < std::ssize(ctx.body.bodypart); b++) {
-        for (int m = 0; m < std::ssize(ctx.body.bodypart[b].pmodel); m++) {
-            const s_model_t *pModel = ctx.body.bodypart[b].pmodel[m];
-            const int cost = modelCost(pModel);
-            if (cost > 0)
-                entries.push_back({ctx.body.bodypart[b].name, pModel, cost});
-        }
+    for (const s_bodypart_t &bodypart: ctx.body.bodypart) {
+        if (const s_model_t *pModel = CostliestModel(bodypart, modelCost))
+            entries.push_back({bodypart.name, pModel, modelCost(pModel)});
     }
     std::stable_sort(entries.begin(), entries.end(),
                      [](const ModelEntry &a, const ModelEntry &b) { return a.cost > b.cost; });

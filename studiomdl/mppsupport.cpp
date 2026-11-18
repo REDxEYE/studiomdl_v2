@@ -3,6 +3,7 @@
 //
 
 #include "dmxsupport.hpp"
+#include "studiomdl/apply_anim.hpp"
 #include "movieobjects/dmeattributereference.h"
 #include "movieobjects/dmemodel.h"
 #include "movieobjects/dmemesh.h"
@@ -11,6 +12,7 @@
 #include "movieobjects/dmeanimationlist.h"
 #include "movieobjects/dmecombinationoperator.h"
 #include "mdlobjects/dmeeyeball.h"
+#include "tier2/fileutils.h"
 
 
 // Local includes
@@ -67,7 +69,7 @@ struct BoneTransformMap_t {
 
 static s_source_t *AllocateDmxSource(StudioMdlState &ctx, const char *pSourceName) {
     // Allocate a new source
-    s_source_t *pSource = c_allocate<s_source_t>();
+    s_source_t *pSource = ctx.arena.Create<s_source_t>();
     ctx.anim.sources.emplace_back(pSource);
     pSource->filename = pSourceName;
     vstd::paths::set_extension(pSource->filename, "dmx");
@@ -364,7 +366,7 @@ static bool LoadBodyGroupList(StudioMdlState &ctx, s_source_t **ppMainSource, CD
         // Load all body parts for this body group
         const int nDmeBodyPartCount = pDmeBodyGroup->m_BodyParts.size();
         for (int j = 0; j < nDmeBodyPartCount; ++j) {
-            s_model_t *pModel = c_allocate<s_model_t>();
+            s_model_t *pModel = ctx.arena.Create<s_model_t>();
             const int nModel = ctx.body.AddModel(pModel);
             pBodyPart->pmodel.push_back(pModel);
             pModel->scale = 1.0f;
@@ -590,7 +592,7 @@ static void LoadBoneMaskList(StudioMdlState &ctx, CDmeBoneMaskList *pDmeBoneMask
                 continue;
             }
 
-            pWeightList->bonename[nBoneWeightIndex] = strdup(pDmeBoneWeight->GetName());
+            pWeightList->bonename[nBoneWeightIndex] = const_cast<char *>(InternName(ctx, pDmeBoneWeight->GetName()));
 
             // 'weight' attribute is normally used for both rotation and position weight
             pWeightList->boneweight[nBoneWeightIndex] = pDmeBoneWeight->m_flWeight.Get();
@@ -732,7 +734,7 @@ static void CreateAnimFromSkeleton(StudioMdlState &ctx, s_source_t *pSource, con
     pSourceAnim->numframes = 1;
 
     // Default all transforms to identity
-    pSourceAnim->rawanim[0] = static_cast<s_bone_t *>(calloc(pSource->numbones, sizeof(s_bone_t)));
+    pSourceAnim->rawanim[0] = ctx.arena.CreateArray<s_bone_t>(pSource->numbones);
     for (int i = 0; i < pSource->numbones; ++i) {
         pSourceAnim->rawanim[0][i].pos.Init();
         pSourceAnim->rawanim[0][i].rot.Init();
@@ -850,7 +852,7 @@ bool HandleDmeAnimCmdAlign(StudioMdlState &ctx, s_animcmd_t *pAnimCmd, CDmeAnimC
     pAnimCmd->u.ao.ref = pExtAnim;
     pAnimCmd->u.ao.pBonename = pDmeAnimCmdAlign->m_sBoneName.IsEmpty()
                                    ? nullptr
-                                   : strdup(pDmeAnimCmdAlign->m_sBoneName);
+                                   : const_cast<char *>(InternName(ctx, pDmeAnimCmdAlign->m_sBoneName.Get()));
     pAnimCmd->u.ao.srcframe = pDmeAnimCmdAlign->m_nSourceFrame;
     pAnimCmd->u.ao.destframe = pDmeAnimCmdAlign->m_nDestinatonFrame;
     pAnimCmd->u.ao.motiontype = MotionControlFlags(pDmeAnimCmdAlign->m_eMotionControl.GetElement());
@@ -986,8 +988,8 @@ void LoadAnimationCommands(StudioMdlState &ctx, CDmeSequence *pDmeSimpleSequence
             CDmeAnimCmdLocalHierarchy *pDmeAnimCmdLocalHierarchy = CastElement<CDmeAnimCmdLocalHierarchy>(pDmeAnimCmd);
 
             pAnimCmd->cmd = CMD_LOCALHIERARCHY;
-            pAnimCmd->u.localhierarchy.pBonename = strdup(pDmeAnimCmdLocalHierarchy->m_sBoneName.Get());
-            pAnimCmd->u.localhierarchy.pParentname = strdup(pDmeAnimCmdLocalHierarchy->m_sParentBoneName.Get());
+            pAnimCmd->u.localhierarchy.pBonename = const_cast<char *>(InternName(ctx, pDmeAnimCmdLocalHierarchy->m_sBoneName.Get()));
+            pAnimCmd->u.localhierarchy.pParentname = const_cast<char *>(InternName(ctx, pDmeAnimCmdLocalHierarchy->m_sParentBoneName.Get()));
             pAnimCmd->u.localhierarchy.start = pDmeAnimCmdLocalHierarchy->m_flStartFrame;
             pAnimCmd->u.localhierarchy.peak = pDmeAnimCmdLocalHierarchy->m_flPeakFrame;
             pAnimCmd->u.localhierarchy.tail = pDmeAnimCmdLocalHierarchy->m_flTailFrame;
@@ -1049,13 +1051,7 @@ void LoadIkRuleList(StudioMdlState &ctx, CDmeSequence *pDmeSimpleSequence, s_ani
             continue;
         }
 
-        // calloc sets memory to 0
-        s_ikrule_t *pIkRule = reinterpret_cast<s_ikrule_t *>(calloc(1, sizeof(s_ikrule_t)));
-        if (!pIkRule) {
-            MdlWarning("1502: Cannot allocate memory for IkRule {}:{}, ignoring\n", pDmeIkRule->GetName(),
-                       pDmeIkRule->GetTypeString());
-            return;
-        }
+        s_ikrule_t *pIkRule = ctx.arena.Create<s_ikrule_t>();
 
         pIkRule->chain = nIkChainIndex;
         pIkRule->slot = nIkChainIndex; // Default slot
@@ -1450,7 +1446,7 @@ static int LoadAndCreateSequences(StudioMdlState &ctx, s_source_t *pMainSource, 
 
                 if (pDmeAnimationList) {
                     // Simple sequence created from animation data
-                    LoadAnimations(pSource, pDmeAnimationList, ctx.script.currentscale, boneMap);
+                    LoadAnimations(ctx, pSource, pDmeAnimationList, ctx.script.currentscale, boneMap);
 
                     // Check for various CDmeAnimCmd's which may or may not be flagged with bDelta
                     bool bDmeAnimCmdDelta = false;
@@ -1470,7 +1466,7 @@ static int LoadAndCreateSequences(StudioMdlState &ctx, s_source_t *pMainSource, 
 
                     {
                         // allocate animation entry
-                        auto *anim = ctx.anim.animations.emplace_back(c_allocate<s_animation_t>());
+                        auto *anim = ctx.anim.animations.emplace_back(ctx.arena.Create<s_animation_t>());
                         anim->index = ctx.anim.animations.size() - 1;
                         pAnim = anim;
 
@@ -2150,4 +2146,42 @@ bool LoadPreprocessedFile(StudioMdlState &ctx, std::string_view fileName, float 
     g_pDataModel->RemoveFileId(pRoot->GetFileId());
     return bLoaded;
 #endif // MDLCOMPILE
+}
+
+//-----------------------------------------------------------------------------
+// Without a root "mdlPath" the output name is the .mpp's directory under <game>/models (content mapped to
+// game; a trailing "preprocess"/".preprocess" directory is skipped), as in Valve's mdlcompile.
+//-----------------------------------------------------------------------------
+bool ParsePreprocessedFile(StudioMdlState &ctx, const std::string &fullPath) {
+    if (!LoadPreprocessedFile(ctx, fullPath, 1.0f))
+        return false;
+
+    if (ctx.paths.hasModelName)
+        return true;
+
+    char modPath[4096] = {};
+    ComputeModFilename(fullPath.c_str(), modPath, sizeof(modPath));
+    std::string outputName(vstd::paths::parent(modPath));
+    const std::string_view dirName = vstd::paths::file_name(outputName);
+    if (vstd::iequals(dirName, "preprocess") || vstd::iequals(dirName, ".preprocess")) {
+        outputName = vstd::paths::parent(outputName);
+    }
+
+    if (vstd::paths::is_absolute(outputName)) {
+        char relative[4096] = {};
+        if (!g_pFullFileSystem->FullPathToRelativePathEx(outputName.c_str(), IBaseFileSystem::PathID::Game, relative, sizeof(relative))) {
+            MdlError("Full path {} is not associated with the current mod!\n", outputName);
+            return false;
+        }
+        std::string relativeName = relative;
+        vstd::paths::fix_slashes(relativeName, '/');
+        if (!vstd::istarts_with(relativeName, "models/")) {
+            MdlError("Full path {} is not under the 'models' directory\n", outputName);
+            return false;
+        }
+        outputName = relativeName.substr(7);
+    }
+    vstd::paths::set_extension(outputName, ".mdl");
+    ProcessModelName(ctx, outputName.c_str());
+    return true;
 }

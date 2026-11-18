@@ -5,10 +5,12 @@
 //===========================================================================//
 
 #include "filesystem/stdfile.h"
+#include "filesystem/file_overlay.h"
 #include "tier1_v2/path_utils.hpp"
 #include "tier1_v2/string_utils.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <chrono>
 #include <cstdio>
@@ -19,6 +21,81 @@
 #include "tier1_v2/function_timing.hpp"
 
 namespace fs = std::filesystem;
+
+//-----------------------------------------------------------------------------
+// Host-provided files (file_overlay.h)
+//-----------------------------------------------------------------------------
+static std::atomic<IFileOverlay *> s_pOverlay{nullptr};
+
+std::string FS_NormalizeOverlayPath( std::string_view path )
+{
+	std::error_code ec;
+	fs::path normalized = vstd::paths::to_fs( path );
+	const fs::path absolute = fs::absolute( normalized, ec );
+	if ( !ec )
+	{
+		normalized = absolute;
+	}
+	std::string text = vstd::paths::to_utf8( normalized.lexically_normal() );
+	std::replace( text.begin(), text.end(), '\\', '/' );
+#ifdef _WIN32
+	vstd::make_lower_ascii( text );
+#endif
+	return text;
+}
+
+ScopedFileOverlay::ScopedFileOverlay( IFileOverlay &overlay ) : m_pPrevious( s_pOverlay.exchange( &overlay ) )
+{
+}
+
+ScopedFileOverlay::~ScopedFileOverlay()
+{
+	s_pOverlay = m_pPrevious;
+}
+
+// The overlay's file at pPath, or null (no overlay installed, or it doesn't provide the file)
+static FileOverlayData FindOverlayFile( const char *pPath )
+{
+	IFileOverlay *pOverlay = s_pOverlay.load();
+	if ( !pOverlay )
+	{
+		return nullptr;
+	}
+	return pOverlay->Find( FS_NormalizeOverlayPath( pPath ) );
+}
+
+// A read-only stream over the bytes of an overlay file (shared with the overlay, so they outlive the stream)
+class COverlayBuf : public std::streambuf
+{
+public:
+	explicit COverlayBuf( FileOverlayData data ) : m_Data( std::move( data ) )
+	{
+		char *pBegin = const_cast<char *>( reinterpret_cast<const char *>( m_Data->data() ) );
+		setg( pBegin, pBegin, pBegin + m_Data->size() );
+	}
+
+protected:
+	pos_type seekoff( off_type off, std::ios::seekdir dir, std::ios::openmode ) override
+	{
+		const off_type size = egptr() - eback();
+		const off_type base = dir == std::ios::cur ? gptr() - eback() : dir == std::ios::end ? size : 0;
+		const off_type pos = base + off;
+		if ( pos < 0 || pos > size )
+		{
+			return pos_type( off_type( -1 ) );
+		}
+		setg( eback(), eback() + pos, egptr() );
+		return pos_type( pos );
+	}
+
+	pos_type seekpos( pos_type pos, std::ios::openmode which ) override
+	{
+		return seekoff( off_type( pos ), std::ios::beg, which );
+	}
+
+private:
+	FileOverlayData m_Data;
+};
 
 //-----------------------------------------------------------------------------
 // CStdFile
@@ -39,14 +116,29 @@ CStdFile *CStdFile::Open( const char *pFileName, const char *pOptions, int64_t *
 		mode |= std::ios::binary;
 	}
 
+	const bool bReadOnly = pOptions[0] == 'r' && !bPlus;
+	if ( bReadOnly )
+	{
+		if ( FileOverlayData data = FindOverlayFile( pFileName ) )
+		{
+			CStdFile *pOverlayFile = new CStdFile;
+			pOverlayFile->m_pMemory = std::make_unique<COverlayBuf>( data );
+			pOverlayFile->m_pBuf = pOverlayFile->m_pMemory.get();
+			if ( pSize )
+			{
+				*pSize = (int64_t)data->size();
+			}
+			return pOverlayFile;
+		}
+	}
+
 	fs::path path = vstd::paths::to_fs(pFileName);
 	CStdFile *pFile = new CStdFile;
-	if ( !pFile->m_Buf.open( path, mode ) )
+	if ( !pFile->m_File.open( path, mode ) )
 	{
 		// Content paths are often written with the wrong case; only look them up for reading.
 		std::string resolved;
-		const bool bReadOnly = pOptions[0] == 'r' && !bPlus;
-		if ( !bReadOnly || !FS_ResolvePathCaseInsensitive( pFileName, resolved ) || !pFile->m_Buf.open( vstd::paths::to_fs(resolved), mode ) )
+		if ( !bReadOnly || !FS_ResolvePathCaseInsensitive( pFileName, resolved ) || !pFile->m_File.open( vstd::paths::to_fs(resolved), mode ) )
 		{
 			delete pFile;
 			return nullptr;
@@ -66,18 +158,18 @@ CStdFile *CStdFile::Open( const char *pFileName, const char *pOptions, int64_t *
 void CStdFile::Seek( int64_t nPos, int nSeekType )
 {
 	const std::ios::seekdir dir = ( nSeekType == SEEK_CUR ) ? std::ios::cur : ( nSeekType == SEEK_END ) ? std::ios::end : std::ios::beg;
-	m_Buf.pubseekoff( nPos, dir, std::ios::in | std::ios::out );
+	m_pBuf->pubseekoff( nPos, dir, std::ios::in | std::ios::out );
 	m_bEof = false;
 }
 
 int64_t CStdFile::Tell()
 {
-	return (int64_t)m_Buf.pubseekoff( 0, std::ios::cur, std::ios::in | std::ios::out );
+	return (int64_t)m_pBuf->pubseekoff( 0, std::ios::cur, std::ios::in | std::ios::out );
 }
 
 size_t CStdFile::Read( void *pDest, size_t nSize )
 {
-	const std::streamsize nRead = m_Buf.sgetn( static_cast<char *>( pDest ), (std::streamsize)nSize );
+	const std::streamsize nRead = m_pBuf->sgetn( static_cast<char *>( pDest ), (std::streamsize)nSize );
 	if ( (size_t)nRead < nSize )
 	{
 		m_bEof = true;
@@ -87,7 +179,7 @@ size_t CStdFile::Read( void *pDest, size_t nSize )
 
 size_t CStdFile::Write( const void *pSrc, size_t nSize )
 {
-	const std::streamsize nWritten = m_Buf.sputn( static_cast<const char *>( pSrc ), (std::streamsize)nSize );
+	const std::streamsize nWritten = m_pBuf->sputn( static_cast<const char *>( pSrc ), (std::streamsize)nSize );
 	if ( (size_t)nWritten < nSize )
 	{
 		m_bError = true;
@@ -123,7 +215,7 @@ int CStdFile::Printf( const char *pFormat, ... )
 
 bool CStdFile::Flush()
 {
-	return m_Buf.pubsync() == 0;
+	return m_pBuf->pubsync() == 0;
 }
 
 char *CStdFile::Gets( char *pDest, int nDestSize )
@@ -136,7 +228,7 @@ char *CStdFile::Gets( char *pDest, int nDestSize )
 	int n = 0;
 	while ( n < nDestSize - 1 )
 	{
-		const std::filebuf::int_type c = m_Buf.sbumpc();
+		const std::filebuf::int_type c = m_pBuf->sbumpc();
 		if ( std::filebuf::traits_type::eq_int_type( c, std::filebuf::traits_type::eof() ) )
 		{
 			m_bEof = true;
@@ -220,6 +312,15 @@ static bool ExistingPath( const char *pPath, fs::path &path )
 
 bool FS_Stat( const char *pPath, FileStat_t &stat )
 {
+	if ( FileOverlayData data = FindOverlayFile( pPath ) )
+	{
+		stat.nSize = (int64_t)data->size();
+		stat.nModifyTime = 0;
+		stat.bDirectory = false;
+		stat.bWritable = false;
+		return true;
+	}
+
 	std::error_code ec;
 	fs::path path;
 	if ( !ExistingPath( pPath, path ) )

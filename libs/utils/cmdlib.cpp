@@ -165,19 +165,6 @@ void RestoreConsoleTextColor(WORD color) {
 }
 
 
-#if defined( CMDLIB_NODBGLIB )
-
-// This can go away when everything is in bin.
-void Error(char const* pMsg, ...) {
-    va_list marker;
-    va_start(marker, pMsg);
-    vprintf(pMsg, marker);
-    va_end(marker);
-
-    exit(-1);
-}
-
-#else
 
 bool g_bSuppressPrintfOutput = false;
 
@@ -301,32 +288,6 @@ void InstallSpewFunction() {
     }
 }
 
-void CmdLib_AllocError(size_t size) {
-    Error("Error trying to allocate {:d} bytes.\n", size);
-}
-
-
-int CmdLib_NewHandler(size_t size) {
-    CmdLib_AllocError(size);
-    return 0;
-}
-
-void CmdLib_NewHandler_CPP() {
-    CmdLib_NewHandler(0);
-    std::abort();
-}
-
-void InstallAllocationFunctions() {
-
-
-
-#if defined(_MSC_VER) && !defined(__clang__)
-_set_new_mode (1);
-#endif
-std::set_new_handler (CmdLib_NewHandler_CPP);
-}
-#endif
-
 
 #endif
 
@@ -378,7 +339,7 @@ FileHandle_t SafeOpenWrite(const std::string_view filename) {
 }
 
 void CmdLib_AddBasePath(CmdLibContentPaths &content, const std::string_view path) {
-    printf("CmdLib_AddBasePath( \"%.*s\" )\n", static_cast<int>(path.size()), path.data());
+    ConsolePrint("CmdLib_AddBasePath( \"{}\" )\n", path);
     vstd::paths::fix_slashes(content.basePaths.emplace_back(path));
 }
 

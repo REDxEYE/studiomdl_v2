@@ -1315,7 +1315,7 @@ static void WriteAnimations(StudioMdlState &ctx, StringTable &strings, vstd::Buf
     size_t blockData = blocks ? blocks->size() : 0;
     //      ------------ ------- ------- : ------- (-------)
     if (ctx.options.verbose && ctx.anim.animations.size() > 0) {
-        std::print("   animation       x       y       ips    angle\n");
+        MdlPrint("   animation       x       y       ips    angle\n");
     }
 
     for (i = 0; i < ctx.anim.animations.size(); i++) {
@@ -1348,7 +1348,7 @@ static void WriteAnimations(StudioMdlState &ctx, StringTable &strings, vstd::Buf
 
                 float a = atan2(srcanim->piecewisemove[j].pos[1], srcanim->piecewisemove[j].pos[0]) * (180 / M_PI);
                 float d = sqrt(DotProduct(srcanim->piecewisemove[j].pos, srcanim->piecewisemove[j].pos));
-                std::print("{:>12} {:7.2f} {:7.2f} : {:7.2f} ({:7.2f}) {:.1f}\n", srcanim->name,
+                MdlPrint("{:>12} {:7.2f} {:7.2f} : {:7.2f} ({:7.2f}) {:.1f}\n", srcanim->name,
                            srcanim->piecewisemove[j].pos[0],
                            srcanim->piecewisemove[j].pos[1], d * r, a, t);
             }
@@ -1503,22 +1503,22 @@ static void WriteAnimations(StudioMdlState &ctx, StringTable &strings, vstd::Buf
             if ((!ctx.options.quiet) && HasFlag(ctx.bones.bonetable[j].flags,
                                                        BoneFlags::HasSaveframePos | BoneFlags::HasSaveframeRot64 |
                                                        BoneFlags::HasSaveframeRot32)) {
-                std::print("$BoneSaveFrame \"{}\"", ctx.bones.bonetable[j].name);
+                MdlPrint("$BoneSaveFrame \"{}\"", ctx.bones.bonetable[j].name);
                 if (HasFlag(ctx.bones.bonetable[j].flags, BoneFlags::HasSaveframePos)) {
-                    std::print(" position");
+                    MdlPrint(" position");
                 }
                 if (HasFlag(ctx.bones.bonetable[j].flags, BoneFlags::HasSaveframeRot64)) {
-                    std::print(" rotation64");
+                    MdlPrint(" rotation64");
                 }
                 else if (HasFlag(ctx.bones.bonetable[j].flags, BoneFlags::HasSaveframeRot32)) {
-                    std::print(" rotation");
+                    MdlPrint(" rotation");
                 }
                 if (!HasFlag(ctx.bones.bonetable[j].flags, BoneFlags::HasSaveframePos) && ctx.bones.bonetable[j].
                     posrange.
                     Length() > 0.1) {
-                    std::print(" // ({:.2f})", ctx.bones.bonetable[j].posrange.Length());
+                    MdlPrint(" // ({:.2f})", ctx.bones.bonetable[j].posrange.Length());
                 }
-                std::print("\n");
+                MdlPrint("\n");
             }
         }
     }
@@ -1853,8 +1853,8 @@ static void WriteVertices(StudioMdlState &ctx, const studiohdr_t* hdr, const int
     const std::string fileName = OutputModelPath(ctx, ".vvd");
 
     if (!ctx.options.quiet) {
-        std::print("---------------------\n");
-        std::print("writing {}:\n", fileName);
+        MdlPrint("---------------------\n");
+        MdlPrint("writing {}:\n", fileName);
     }
 
     auto buffer = vstd::Buffer();
@@ -1908,7 +1908,7 @@ static void WriteVertices(StudioMdlState &ctx, const studiohdr_t* hdr, const int
         fileHeader->numLODVertexes[0] += pLodData->numvertices;
 
         if (!ctx.options.quiet) {
-            std::print("{} vertices \n", pLodData->numvertices);
+            MdlPrint("{} vertices \n", pLodData->numvertices);
         }
     }
 
@@ -1934,7 +1934,7 @@ static void WriteVertices(StudioMdlState &ctx, const studiohdr_t* hdr, const int
         }
 
         if (!ctx.options.quiet) {
-            std::print("{} tangents\n", pLodData->numvertices);
+            MdlPrint("{} tangents\n", pLodData->numvertices);
         }
     }
 
@@ -1972,7 +1972,7 @@ static void WriteVertices(StudioMdlState &ctx, const studiohdr_t* hdr, const int
                 }
 
                 if (!ctx.options.quiet) {
-                    std::print("extra vertex data   {:7} bytes ({} vertices)\n",
+                    MdlPrint("extra vertex data   {:7} bytes ({} vertices)\n",
                                buffer.end_ptr().offset_from<int>(pExtraTexcoord),
                                pLodData->numvertices);
                 }
@@ -1982,7 +1982,7 @@ static void WriteVertices(StudioMdlState &ctx, const studiohdr_t* hdr, const int
     }
 
     if (!ctx.options.quiet) {
-        std::print("total      {:7} bytes\n", buffer.size());
+        MdlPrint("total      {:7} bytes\n", buffer.size());
     }
 
     SaveOutputFile(ctx, fileName, std::move(buffer));
@@ -2308,7 +2308,7 @@ static void WriteModel(StudioMdlState &ctx, StringTable &strings, vstd::Buffer &
     }
 
     if (!ctx.options.quiet) {
-        std::print("ik/pose    {:7} bytes\n", buffer.size());
+        MdlPrint("ik/pose    {:7} bytes\n", buffer.size());
     }
 
     const float flVertAnimFixedPointScale = ComputeVertAnimFixedPointScale(ctx, phdr.get());
@@ -2416,7 +2416,7 @@ static void WriteModel(StudioMdlState &ctx, StringTable &strings, vstd::Buffer &
         }
 
         if (!ctx.options.quiet) {
-            std::print("eyeballs   {:7} bytes ({} eyeballs)\n", buffer.size(), ctx.body.model[i]->eyeballs.size());
+            MdlPrint("eyeballs   {:7} bytes ({} eyeballs)\n", buffer.size(), ctx.body.model[i]->eyeballs.size());
         }
 
         // move flexes into individual meshes
@@ -2499,7 +2499,7 @@ static void WriteModel(StudioMdlState &ctx, StringTable &strings, vstd::Buffer &
         }
 
         if (!ctx.options.quiet) {
-            std::print("flexes     {:7} bytes ({} flexes)\n", buffer.size(), ctx.flex.flexkeys.size());
+            MdlPrint("flexes     {:7} bytes ({} flexes)\n", buffer.size(), ctx.flex.flexkeys.size());
         }
     }
 
@@ -2579,11 +2579,16 @@ void CapKeyValues(StudioMdlState &ctx) {
 }
 
 void WriteQCPath(StudioMdlState &ctx) {
-    char relativeQCDir[4096] = {};
-    g_pFullFileSystem->FullPathToRelativePathEx(ctx.paths.qdir.c_str(), IBaseFileSystem::PathID::Content, relativeQCDir,
-                                                sizeof(relativeQCDir));
-    const std::string relativeQCPath = std::string(relativeQCDir) + std::string(
-                                           vstd::paths::file_name(ctx.paths.fullpath));
+    std::string relativeQCPath;
+    if (ctx.paths.qcPathEntry) {
+        relativeQCPath = *ctx.paths.qcPathEntry;
+    }
+    else {
+        char relativeQCDir[4096] = {};
+        g_pFullFileSystem->FullPathToRelativePathEx(ctx.paths.qdir.c_str(), IBaseFileSystem::PathID::Content,
+                                                    relativeQCDir, sizeof(relativeQCDir));
+        relativeQCPath = std::string(relativeQCDir) + std::string(vstd::paths::file_name(ctx.paths.fullpath));
+    }
 
     if (!relativeQCPath.empty()) {
         const std::string block = "qc_path {\n\"value\" \"" + relativeQCPath + "\" }\n";
@@ -2670,8 +2675,8 @@ void WriteModelFiles(StudioMdlState &ctx) {
 
 
     if (!ctx.options.quiet) {
-        std::print("---------------------\n");
-        std::print("writing {}:\n", filename);
+        MdlPrint("---------------------\n");
+        MdlPrint("writing {}:\n", filename);
     }
 
     LoadPreexistingSequenceOrder(ctx, filename, preexistingSequences);
@@ -2680,7 +2685,7 @@ void WriteModelFiles(StudioMdlState &ctx) {
     if (ctx.options.parseable_completion_output) {
         char szRelativePath[260];
         V_MakeRelativePath(filename.c_str(), getenv("VGAME"), szRelativePath, sizeof(szRelativePath));
-        std::print("\nOUTPUT MODEL: {}\n", szRelativePath);
+        MdlPrint("\nOUTPUT MODEL: {}\n", szRelativePath);
     }
 
 
@@ -2733,13 +2738,13 @@ void WriteModelFiles(StudioMdlState &ctx) {
 
     WriteBoneInfo(ctx, strings, model_data, phdr);
     if (!ctx.options.quiet) {
-        std::print("bones      {:7} bytes ({})\n", model_data.size() - total, std::ssize(ctx.bones.bonetable));
+        MdlPrint("bones      {:7} bytes ({})\n", model_data.size() - total, std::ssize(ctx.bones.bonetable));
     }
     total = model_data.size();
 
     WriteAnimations(ctx, strings, model_data, blocks, phdr, totalframes, totalseconds);
     if (!ctx.options.quiet) {
-        std::print("animations {:7} bytes ({} anims) ({} frames) [{}:{:02}]\n", model_data.size() - total,
+        MdlPrint("animations {:7} bytes ({} anims) ({} frames) [{}:{:02}]\n", model_data.size() - total,
                    ctx.anim.animations.size(),
                    totalframes,
                    (int) totalseconds / 60, (int) totalseconds % 60);
@@ -2748,21 +2753,21 @@ void WriteModelFiles(StudioMdlState &ctx) {
 
     WriteSequenceInfo(ctx, strings, model_data, phdr, preexistingSequences);
     if (!ctx.options.quiet) {
-        std::print("sequences  {:7} bytes ({} seq) \n", model_data.size() - total, std::ssize(ctx.anim.sequence));
+        MdlPrint("sequences  {:7} bytes ({} seq) \n", model_data.size() - total, std::ssize(ctx.anim.sequence));
     }
     total = model_data.size();
 
     WriteModel(ctx, strings, model_data, phdr, extraTexcoordsToWrite);
 
     if (!ctx.options.quiet) {
-        std::print("models     {:7} bytes\n", model_data.size() - total);
+        MdlPrint("models     {:7} bytes\n", model_data.size() - total);
     }
 
     total = model_data.size();
 
     WriteTextures(ctx, strings, model_data, phdr);
     if (!ctx.options.quiet) {
-        std::print("textures   {:7} bytes\n", model_data.size() - total);
+        MdlPrint("textures   {:7} bytes\n", model_data.size() - total);
     }
     total = model_data.size();
 
@@ -2772,25 +2777,25 @@ void WriteModelFiles(StudioMdlState &ctx) {
 
     WriteKeyValues(model_data, phdr, ctx.header.KeyValueText);
     if (!ctx.options.quiet) {
-        std::print("keyvalues  {:7} bytes\n", model_data.size() - total);
+        MdlPrint("keyvalues  {:7} bytes\n", model_data.size() - total);
     }
     total = model_data.size();
 
     WriteBoneTransforms(ctx, strings, model_data, phdr, phdr2);
     if (!ctx.options.quiet) {
-        std::print("bone transforms  {:7} bytes\n", model_data.size() - total);
+        MdlPrint("bone transforms  {:7} bytes\n", model_data.size() - total);
     }
     total = model_data.size();
 
     WriteBoneFlexDrivers(ctx, model_data, phdr2);
     if (!ctx.options.quiet) {
-        std::print("bone flex driver {:7} bytes\n", model_data.size() - total);
+        MdlPrint("bone flex driver {:7} bytes\n", model_data.size() - total);
     }
     total = model_data.size();
 
     WriteBodyGroupPresets(ctx, strings, model_data, phdr2);
     if (!ctx.options.quiet) {
-        std::print("bodygroup presets {:7} bytes\n", model_data.size() - total);
+        MdlPrint("bodygroup presets {:7} bytes\n", model_data.size() - total);
     }
     total = model_data.size();
 
@@ -2815,7 +2820,7 @@ void WriteModelFiles(StudioMdlState &ctx) {
 
 
     if (!ctx.options.quiet) {
-        std::print("collision  {:7} bytes\n", model_data.size() - total);
+        MdlPrint("collision  {:7} bytes\n", model_data.size() - total);
     }
 
     // the .mdl data is complete: nothing allocates in it anymore, so raw pointers into it stay valid
@@ -2825,7 +2830,7 @@ void WriteModelFiles(StudioMdlState &ctx) {
 
     pStudioHdr->length = static_cast<int>(model_data.size());
     if (!ctx.options.quiet) {
-        std::print("total      {:7}\n", pStudioHdr->length);
+        MdlPrint("total      {:7}\n", pStudioHdr->length);
     }
 
     SaveOutputFile(ctx, filename, model_data.data(), pStudioHdr->length);
@@ -2835,10 +2840,10 @@ void WriteModelFiles(StudioMdlState &ctx) {
         pblockhdr->length = length;
 
         if (!ctx.options.quiet) {
-            std::print("---------------------\n");
-            std::print("writing {}:\n", ctx.anim.animblockname);
-            std::print("blocks	   {:7}\n", ctx.anim.animblocks.size());
-            std::print("total      {:7}\n", length);
+            MdlPrint("---------------------\n");
+            MdlPrint("writing {}:\n", ctx.anim.animblockname);
+            MdlPrint("blocks	   {:7}\n", ctx.anim.animblocks.size());
+            MdlPrint("total      {:7}\n", length);
         }
 
         // nothing reads the .ani data after this
@@ -2900,8 +2905,6 @@ void WriteModelFiles(StudioMdlState &ctx) {
         SpewPerfStats(ctx, pStudioHdr, filename.c_str(), spewFlags);
     }
 
-    // everything above read back and rewrote the outputs in memory; this is the only write to disk
-    CommitOutputFiles(ctx);
 }
 
 const vertexFileHeader_t* mstudiomodel_t::CacheVertexData(void* pModelData) {
@@ -3825,9 +3828,9 @@ static void Clamp_VVD_LODS(StudioMdlState &ctx, const std::string &fileName, con
     Studio_LoadVertexes(pTempVvdHdr, pNewVvdHdr, rootLOD, true, bExtraData);
 
     if (!ctx.options.quiet) {
-        std::print("---------------------\n");
-        std::print("writing {}:\n", fileName);
-        std::print("vertices   ({} vertices)\n", pNewVvdHdr->numLODVertexes[0]);
+        MdlPrint("---------------------\n");
+        MdlPrint("writing {}:\n", fileName);
+        MdlPrint("vertices   ({} vertices)\n", pNewVvdHdr->numLODVertexes[0]);
     }
 
     SaveOutputFile(ctx, fileName, std::move(newData));
@@ -3995,8 +3998,8 @@ static void Clamp_VTX_LODS(StudioMdlState &ctx, const std::string &fileName, con
     }
 
     if (!ctx.options.quiet) {
-        std::print("writing {}:\n", fileName);
-        std::print("everything ({} bytes)\n", buffer.size());
+        MdlPrint("writing {}:\n", fileName);
+        MdlPrint("everything ({} bytes)\n", buffer.size());
     }
 
     SaveOutputFile(ctx, fileName, std::move(buffer));

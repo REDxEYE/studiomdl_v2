@@ -166,7 +166,7 @@ public:
 	CUtlBuffer( int growSize = 0, int initSize = 0, int nFlags = 0 );
 	CUtlBuffer( const void* pBuffer, int size, int nFlags = 0 );
 	// This one isn't actually defined so that we catch contructors that are trying to pass a bool in as the third param.
-	CUtlBuffer( const void *pBuffer, int size, bool crap ) = delete;
+	// CUtlBuffer( const void *pBuffer, int size, bool crap ) = delete;
 
 	// UtlBuffer objects should not be copyable; we do a slow copy if you use this but it asserts.
 	// (REI: I'd like to delete these but we have some python bindings that currently rely on being able to copy these objects)

@@ -22,6 +22,7 @@
 #include <fstream>
 #include <iterator>
 #include <string>
+#include "filesystem/stdfile.h"
 #include "tier1/strtools.h"
 #include "tier1_v2/path_utils.hpp"
 #include "filesystem_init.h"
@@ -41,18 +42,19 @@ static FSReturnCode_t SetupFileSystemError(const FSReturnCode_t retVal, std::for
     return retVal;
 }
 
-static KeyValues* ReadKeyValuesFile(const char* pFilename) {
-    // Read in the gameinfo.txt file and null-terminate it.
-    std::ifstream file(vstd::paths::to_fs(pFilename), std::ios::binary);
+static std::unique_ptr<KeyValues> ReadKeyValuesFile(const char* pFilename) {
+    // Read in the gameinfo.txt file and null-terminate it. Through the filesystem layer (CStdFile), so a file the
+    // library host provides (file_overlay.h) is found too.
+    int64_t size = 0;
+    const std::unique_ptr<CStdFile> file(CStdFile::Open(pFilename, "rb", &size));
     if (!file)
         return nullptr;
-    const std::string text((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    std::string text(static_cast<size_t>(size), '\0');
+    text.resize(file->Read(text.data(), text.size()));
 
-    KeyValues* kv = new KeyValues("");
-    if (!kv->LoadFromBuffer(pFilename, text.c_str())) {
-        kv->deleteThis();
+    auto kv = std::make_unique<KeyValues>("");
+    if (!kv->LoadFromBuffer(pFilename, text.c_str()))
         return nullptr;
-    }
 
     return kv;
 }
@@ -149,7 +151,7 @@ FSReturnCode_t FileSystem_LocateGameInfo(std::string &gameInfoDir) {
     return FS_OK;
 }
 
-static FSReturnCode_t LoadGameInfoFile(const std::string_view directoryName, KeyValues*&pMainFile,
+static FSReturnCode_t LoadGameInfoFile(const std::string_view directoryName, std::unique_ptr<KeyValues> &pMainFile,
                                        KeyValues*&pSearchPaths) {
     // If GameInfo.txt exists under pBaseDir, then this is their game directory.
     // All the filesystem mappings will be in this file.
@@ -164,17 +166,13 @@ static FSReturnCode_t LoadGameInfoFile(const std::string_view directoryName, Key
     }
 
     KeyValues* pFileSystemInfo = pMainFile->FindKey("FileSystem");
-    if (!pFileSystemInfo) {
-        pMainFile->deleteThis();
+    if (!pFileSystemInfo)
         return SetupFileSystemError(FS_INVALID_GAMEINFO_FILE, "{} is not a valid format.", gameinfoFilename);
-    }
 
     // Now read in all the search paths.
     pSearchPaths = pFileSystemInfo->FindKey("SearchPaths");
-    if (!pSearchPaths) {
-        pMainFile->deleteThis();
+    if (!pSearchPaths)
         return SetupFileSystemError(FS_INVALID_GAMEINFO_FILE, "{} is not a valid format.", gameinfoFilename);
-    }
     return FS_OK;
 }
 
@@ -211,7 +209,8 @@ FSReturnCode_t FileSystem_LoadSearchPaths(IFileSystem* pFileSystem, const std::s
     if (!pFileSystem || gameInfoDir.empty())
         return SetupFileSystemError(FS_INVALID_PARAMETERS, "FileSystem_LoadSearchPaths: Invalid parameters specified.");
 
-    KeyValues *pMainFile, *pSearchPaths;
+    std::unique_ptr<KeyValues> pMainFile;
+    KeyValues* pSearchPaths = nullptr;
     if (const auto retVal = LoadGameInfoFile(gameInfoDir, pMainFile, pSearchPaths); retVal != FS_OK)
         return retVal;
 
@@ -229,7 +228,7 @@ FSReturnCode_t FileSystem_LoadSearchPaths(IFileSystem* pFileSystem, const std::s
 
     for (KeyValues* pCur = pSearchPaths->GetFirstValue(); pCur; pCur = pCur->GetNextValue()) {
         const IBaseFileSystem::PathID pathID = IBaseFileSystem::ToPathID(pCur->GetName());
-        // Views pCur's string storage: valid until pMainFile->deleteThis() below
+        // Views pCur's string storage: valid until pMainFile goes
         std::string_view location = pCur->GetString();
 
         if (vstd::istarts_with(location, GAMEINFOPATH_TOKEN)) {
@@ -251,7 +250,7 @@ FSReturnCode_t FileSystem_LoadSearchPaths(IFileSystem* pFileSystem, const std::s
         }
     }
 
-    pMainFile->deleteThis();
+    pMainFile.reset();
 
     // Add the "platform" directory as a game searchable path
     char pPlatformPath[MAX_PATH];

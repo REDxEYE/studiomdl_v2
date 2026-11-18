@@ -103,17 +103,20 @@ void ScriptTokenizer::SetErrorHandler(ErrorHandler handler) {
 
 void ScriptTokenizer::ErrorV(std::string_view fmt, std::format_args args) const {
     std::string message = std::vformat(fmt, args);
+    std::string file;
+    int line = 0;
     if (!m_stack.empty()) {
         const Script &s = Current();
-        message = std::format("{}({}): - {}", s.filename, s.line, message);
+        file = s.filename;
+        line = s.line;
+        message = std::format("{}({}): - {}", file, line, message);
     }
     if (!message.ends_with('\n'))
         message += '\n';
 
     if (m_errorHandler)
-        m_errorHandler(message);
+        m_errorHandler(message, file, line);
     ::Error("{}", message);
-    exit(-1);
 }
 
 void ScriptTokenizer::BadNumber(std::string_view kind, std::string_view what) const {
@@ -482,15 +485,15 @@ void ScriptTokenizer::AttemptConditionalInclude() {
                 bConditionSuccess = g_pFullFileSystem->FileExists(token) != 0;
             }
 
-            printf("Condition 'iffileexists' for input '%s' is %s.\n", token.c_str(),
-                   bConditionSuccess ? "True" : "False");
+            ConsolePrint("Condition 'iffileexists' for input '{}' is {}.\n", token.c_str(),
+                         bConditionSuccess ? "True" : "False");
         }
         else {
             Error("Unknown $include parameter {}", token);
         }
     }
 
-    printf("%s: %s\n", bConditionSuccess ? "Including" : "SKIPPING", savedPath.c_str());
+    ConsolePrint("{}: {}\n", bConditionSuccess ? "Including" : "SKIPPING", savedPath.c_str());
     if (bConditionSuccess)
         AddScriptToStack(savedPath.c_str(), SCRIPT_USE_ABSOLUTE_PATH);
 }

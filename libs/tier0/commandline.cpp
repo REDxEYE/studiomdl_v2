@@ -470,7 +470,7 @@ void CCommandLine::SetParm(const uint32_t index, const std::string_view param) {
 // Returns the argument after the one specified, or the default if not found
 //-----------------------------------------------------------------------------
 std::optional<std::string_view> CCommandLine::ParmValue(const std::string_view key) const {
-    if (const auto index = FindParm(key)) {
+    if (const auto index = FindParm(key); index && *index + 1 < m_ppParms.size()) {
         // Probably another cmdline parameter instead of a valid arg if it starts with '+' or '-'
         const auto &param = m_ppParms[*index + 1];
         if (param[0] == '-' || param[0] == '+')
@@ -482,7 +482,7 @@ std::optional<std::string_view> CCommandLine::ParmValue(const std::string_view k
 }
 
 int CCommandLine::ParmValue(const std::string_view key, const int default_value) const {
-    if (const auto index = FindParm(key)) {
+    if (const auto index = FindParm(key); index && *index + 1 < m_ppParms.size()) {
         // Probably another cmdline parameter instead of a valid arg if it starts with '+' or '-'
         const auto &param = m_ppParms[*index + 1];
         if (param[0] == '-' || param[0] == '+')
@@ -494,7 +494,7 @@ int CCommandLine::ParmValue(const std::string_view key, const int default_value)
 }
 
 float CCommandLine::ParmValue(const std::string_view key, float default_value) const {
-    if (const auto index = FindParm(key)) {
+    if (const auto index = FindParm(key); index && *index + 1 < m_ppParms.size()) {
         // Probably another cmdline parameter instead of a valid arg if it starts with '+' or '-'
         const auto &param = m_ppParms[*index + 1];
         if (param[0] == '-' || param[0] == '+')

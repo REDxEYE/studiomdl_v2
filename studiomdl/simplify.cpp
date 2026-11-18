@@ -26,6 +26,7 @@
 #include "mdlobjects/dmeboneflexdriver.h"
 #include "tier1_v2/function_timing.hpp"
 #include "studiomdl/studiomdl_global_state.hpp"
+#include "studiomdl/weight_fit.hpp"
 
 #include <cmath>
 #include <unordered_map>
@@ -656,7 +657,7 @@ void extractLinearMotion(StudioMdlState &ctx, s_animation_t* panim, StudioMotion
     float v1 = 3 * d2 - 4 * d1;
 
     if (ctx.options.verbose) {
-        std::print("{} : {} - {} : {:.1f} {:.1f} {:.1f} root: {}\n", panim->name, iStartFrame, iEndFrame, p2.x, p2.y,
+        MdlPrint("{} : {} - {} : {:.1f} {:.1f} {:.1f} root: {}\n", panim->name, iStartFrame, iEndFrame, p2.x, p2.y,
                    RAD2DEG(rot[2]), ctx.bones.bonetable[iRootIndex].name);
     }
 
@@ -848,12 +849,11 @@ pos= pos+ panim->piecewisemove [0].pos* (iFrame)/ (panim->numframes- 1.0f);
 
 void fixupMissingFrame(StudioMdlState &ctx, s_animation_t* panim) {
     // the animations DIDN'T have the end frame the same as the start frame, so fudge it
-    const int size = std::ssize(ctx.bones.bonetable) * sizeof(s_bone_t);
     const int j = panim->numframes;
 
     const float scale = 1 / (j - 1.0f);
 
-    panim->sanim[j] = (s_bone_t*) calloc(1, size);
+    panim->sanim[j] = ctx.arena.CreateArray<s_bone_t>(ctx.bones.bonetable.size());
 
     Vector deltapos;
 
@@ -1152,7 +1152,7 @@ processAutoorigin(StudioMdlState &ctx, s_animation_t* psrc, s_animation_t* pdest
     PositionMatrix(adj, adjmatrix);
 
     if (ctx.options.verbose && bone != ctx.simplify.rootIndex) {
-        std::print("{} aligning to {} - {:.2f} {:.2f} {:.2f}\n", pdest->name, ctx.bones.bonetable[bone].name,
+        MdlPrint("{} aligning to {} - {:.2f} {:.2f} {:.2f}\n", pdest->name, ctx.bones.bonetable[bone].name,
                    adj.x, adj.y,
                    adj.z);
     }
@@ -1371,7 +1371,7 @@ void forceNumframes(StudioMdlState &ctx, s_animation_t* panim, int numframes) {
 
     // copy
     for (j = panim->numframes; j < numframes; j++) {
-        panim->sanim[j] = (s_bone_t*) calloc(1, size);
+        panim->sanim[j] = ctx.arena.CreateArray<s_bone_t>(ctx.bones.bonetable.size());
         memcpy(panim->sanim[j], panim->sanim[panim->numframes - 1], size);
     }
 
@@ -1667,12 +1667,10 @@ void RemapAnimations(StudioMdlState &ctx) {
 
         s_source_t* psource = panim->source;
         const s_sourceanim_t* pSourceAnim = FindSourceAnim(psource, panim->animationname.view());
-        const int size = std::ssize(ctx.bones.bonetable) * sizeof(s_bone_t);
-
         const int n = panim->startframe - pSourceAnim->startframe;
         // printf("%s %d:%d\n", ctx.panimation[i]->filename, ctx.panimation[i]->startframe, pSourceAnim->startframe );
         for (j = 0; j < panim->numframes; j++) {
-            panim->sanim[j] = (s_bone_t*) calloc(1, size);
+            panim->sanim[j] = ctx.arena.CreateArray<s_bone_t>(ctx.bones.bonetable.size());
 
             ConvertAnimation(ctx, psource, panim->animationname, n + j, panim->scale, panim->adjust, panim->rotation,
                              panim->sanim[j]);
@@ -2389,7 +2387,7 @@ static void ComputeVertexAnimationSpeed(s_flexkey_t &flexKey) {
 // Purpose: map the vertex animations to their equivalent vertex in the base animations
 //-----------------------------------------------------------------------------
 static void BuildVAnimFlags(StudioMdlState &ctx, s_source_t* pVSource, s_sourceanim_t* pVSourceAnim, int nCurrentFlexKey) {
-    pVSourceAnim->vanim_flag = (int*) calloc(pVSource->numvertices, sizeof(int));
+    pVSourceAnim->vanim_flag = ctx.arena.CreateArray<int>(pVSource->numvertices);
     for (int n = nCurrentFlexKey; n < ctx.flex.flexkeys.size(); n++) {
         // make sure it's the current flex file and that it's not frame 0 (happens with eyeball stuff).
         if (ctx.flex.flexkeys[n].source != pVSource)
@@ -2558,14 +2556,14 @@ static void BuildModelToVAnimMap(StudioMdlState &ctx, s_source_t* pVSource, cons
 //-----------------------------------------------------------------------------
 // Purpose: Build an array indexed by model vertex which indicates which vanim vertex corresponds best to it
 //-----------------------------------------------------------------------------
-static void
-BuildVAnimMap(s_source_t* pVSource, s_sourceanim_t* pVSourceAnim, s_loddata_t* pmLodSource, const int* pModelToVAnim) {
+static void BuildVAnimMap(StudioMdlState &ctx, s_source_t* pVSource, s_sourceanim_t* pVSourceAnim,
+                          s_loddata_t* pmLodSource, const int* pModelToVAnim) {
     // indexed by vertex anim vertex index
     std::vector<int*> mapp(pVSource->numvertices);
 
     // count number of times each vanim vert connectes to a model vert
     int n = 0;
-    pVSourceAnim->vanim_mapcount = (int*) calloc(pVSource->numvertices, sizeof(int));
+    pVSourceAnim->vanim_mapcount = ctx.arena.CreateArray<int>(pVSource->numvertices);
     for (int j = 0; j < pmLodSource->numvertices; j++) {
         if (pModelToVAnim[j] != -1) {
             pVSourceAnim->vanim_mapcount[pModelToVAnim[j]]++;
@@ -2573,8 +2571,8 @@ BuildVAnimMap(s_source_t* pVSource, s_sourceanim_t* pVSourceAnim, s_loddata_t* p
         }
     }
 
-    pVSourceAnim->vanim_map = (int**) calloc(pVSource->numvertices, sizeof(int*));
-    int* vmap = (int*) calloc(n, sizeof(int));
+    pVSourceAnim->vanim_map = ctx.arena.CreateArray<int*>(pVSource->numvertices);
+    int* vmap = ctx.arena.CreateArray<int>(n);
 
     // build mapping arrays
     for (int j = 0; j < pVSource->numvertices; j++) {
@@ -2599,7 +2597,7 @@ BuildVAnimMap(s_source_t* pVSource, s_sourceanim_t* pVSourceAnim, s_loddata_t* p
 //-----------------------------------------------------------------------------
 // Computes the number of unique desination vanims, allocates space for it
 //-----------------------------------------------------------------------------
-static void AllocateDestVAnim(s_flexkey_t &flexKey, s_sourceanim_t* pVSourceAnim) {
+static void AllocateDestVAnim(StudioMdlState &ctx, s_flexkey_t &flexKey, s_sourceanim_t* pVSourceAnim) {
     int nVAnimCount = pVSourceAnim->numvanims[flexKey.frame];
     const s_vertanim_t* pVAnim = pVSourceAnim->vanim[flexKey.frame];
 
@@ -2615,7 +2613,7 @@ static void AllocateDestVAnim(s_flexkey_t &flexKey, s_sourceanim_t* pVSourceAnim
     }
 
     // allocate room to all possible resulting deltas
-    s_vertanim_t* pDestAnim = (s_vertanim_t*) calloc(nNumDestVAnims, sizeof(s_vertanim_t));
+    s_vertanim_t* pDestAnim = ctx.arena.CreateArray<s_vertanim_t>(nNumDestVAnims);
     flexKey.vanim = pDestAnim;
     flexKey.vanimtype = Normal; // default
 }
@@ -2661,7 +2659,7 @@ void RemapVertexAnimations(StudioMdlState &ctx) {
         BuildModelToVAnimMap(ctx, pVSource, pVSourceAnim, pLodData, false, model_to_vanim_vert_imap.data());
 
         // Build the vanim_mapcount, vanim_map fields of the source anim
-        BuildVAnimMap(pVSource, pVSourceAnim, pLodData, model_to_vanim_vert_imap.data());
+        BuildVAnimMap(ctx, pVSource, pVSourceAnim, pLodData, model_to_vanim_vert_imap.data());
     }
 
 #if 0
@@ -2719,7 +2717,7 @@ void RemapVertexAnimations(StudioMdlState &ctx) {
         pmLodSource = ctx.body.model[ctx.flex.flexkeys[i].imodel]->m_pLodData;
 
         // Allocate ctx.flexkey[i].vanim
-        AllocateDestVAnim(ctx.flex.flexkeys[i], pSourceAnim);
+        AllocateDestVAnim(ctx, ctx.flex.flexkeys[i], pSourceAnim);
 
         s_vertanim_t* psrcanim = pSourceAnim->vanim[ctx.flex.flexkeys[i].frame];
         s_vertanim_t* pdestanim = ctx.flex.flexkeys[i].vanim;
@@ -2751,7 +2749,8 @@ void RemapVertexAnimations(StudioMdlState &ctx) {
             // if the changes are too small, skip 'em
             // FIXME: the clamp needs to be paired with the other matching positions.
             // currently this is set to the float16 min value.  Sucky.
-            if (DotProduct(delta, delta) <= (0.001f * 0.001f) /* 0.0001 */ && DotProduct(ndelta, ndelta) <= 0.001) {
+            if (DotProduct(delta, delta) <= (0.001f * 0.001f) /* 0.0001 */ && DotProduct(ndelta, ndelta) <= 0.001 &&
+                std::abs(psrcanim->wrinkle) <= 0.001f) {
                 // printf("%4d  %6.4f %6.4f %6.4f\n", pdestanim->vertex, delta.x, delta.y, delta.z );
                 continue;
             }
@@ -2761,6 +2760,11 @@ void RemapVertexAnimations(StudioMdlState &ctx) {
                 VectorScale(delta, flScale, pdestanim->pos);
                 VectorScale(ndelta, flScale, pdestanim->normal);
                 pdestanim->side = flSide;
+                // a VTA has no wrinkle (0); the builder's shapes may carry wrinkle values
+                pdestanim->wrinkle = psrcanim->wrinkle * flScale;
+                if (pdestanim->wrinkle != 0.0f) {
+                    ctx.flex.flexkeys[i].vanimtype = Wrinkle;
+                }
 
                 // count all the unique verts that actually move
                 if (!doesMove[pdestanim->vertex]) {
@@ -2788,7 +2792,7 @@ void RemapVertexAnimations(StudioMdlState &ctx) {
         MdlError("Too many flexed verts {} ({})\n", numMoved, MAXSTUDIOFLEXVERTS);
     }
     else if (numMoved > 0 && !ctx.options.quiet) {
-        std::print("Max flex verts {}\n", numMoved);
+        MdlPrint("Max flex verts {}\n", numMoved);
     }
 }
 
@@ -2912,7 +2916,7 @@ static void RemapVertexAnimationsNewVersion(StudioMdlState &ctx) {
         if (pVSourceAnim->vanim_flag)
             continue;
 
-        pVSourceAnim->vanim_flag = (int*) calloc(pVSource->numvertices, sizeof(int));
+        pVSourceAnim->vanim_flag = ctx.arena.CreateArray<int>(pVSource->numvertices);
 
         // flag all the vertices that animate (builds the vanim_flag field of the source anim)
         int j;
@@ -2931,7 +2935,7 @@ static void RemapVertexAnimationsNewVersion(StudioMdlState &ctx) {
         --i;
 
         // Build the vanim_mapcount, vanim_map fields of the source anim
-        BuildVAnimMap(pVSource, pVSourceAnim, pLodSource, model_to_vanim_vert_imap.data());
+        BuildVAnimMap(ctx, pVSource, pVSourceAnim, pLodSource, model_to_vanim_vert_imap.data());
     }
 
     int nNumMoved = 0;
@@ -2944,7 +2948,7 @@ static void RemapVertexAnimationsNewVersion(StudioMdlState &ctx) {
             continue;
 
         // Allocate ctx.flexkey[i].vanim
-        AllocateDestVAnim(flexkey, pVSourceAnim);
+        AllocateDestVAnim(ctx, flexkey, pVSourceAnim);
 
         const int nNumSrcVAnims = pVSourceAnim->numvanims[flexkey.frame];
         s_vertanim_t* pSrcVAnim = pVSourceAnim->vanim[flexkey.frame];
@@ -2988,7 +2992,7 @@ static void RemapVertexAnimationsNewVersion(StudioMdlState &ctx) {
         MdlError("Too many flexed verts {} ({})\n", nNumMoved, MAXSTUDIOFLEXVERTS);
     }
     else if (nNumMoved > 0 && !ctx.options.quiet) {
-        std::print("Max flex verts {}\n", nNumMoved);
+        MdlPrint("Max flex verts {}\n", nNumMoved);
     }
 }
 
@@ -3171,7 +3175,7 @@ void limitBoneRotations(StudioMdlState &ctx) {
 
         AngleQuaternion(ctx.bones.bonetable[k].rot, qBase);
 
-        if (ctx.bones.limitrotation[i].numseq == 0) {
+        if (ctx.bones.limitrotation[i].sequencenames.empty()) {
             for (j = 0; j < ctx.anim.animations.size(); j++) {
                 if (!HasFlag(ctx.anim.animations[j]->flags, StudioSequenceFlags::Delta) && ctx.anim.
                     animations[j]->numframes > 3) {
@@ -3184,7 +3188,7 @@ void limitBoneRotations(StudioMdlState &ctx) {
             QuaternionNormalize(qBase);
         }
         else {
-            for (j = 0; j < ctx.bones.limitrotation[i].numseq; j++) {
+            for (j = 0; j < ctx.bones.limitrotation[i].sequencenames.size(); j++) {
             }
         }
 
@@ -3282,7 +3286,7 @@ void limitIKChainLength(StudioMdlState &ctx) {
         ctx.anim.ikchain[k].link[0].kneeDir = kneeDir;
 
         if (ctx.options.verbose) {
-            std::print("knee {} {:f} {:f} {:f}\n", ctx.anim.ikchain[k].name, kneeDir.x, kneeDir.y, kneeDir.z);
+            MdlPrint("knee {} {:f} {:f} {:f}\n", ctx.anim.ikchain[k].name, kneeDir.x, kneeDir.y, kneeDir.z);
         }
 
 #if 0
@@ -3373,20 +3377,20 @@ void MakeTransitions(StudioMdlState &ctx) {
 
     if (ctx.options.dumpGraph) {
         for (j = 1; j <= ctx.anim.xnodenames.size(); j++) {
-            std::print("{:2} : {}\n", j, ctx.anim.xnodenames[j - 1]);
+            MdlPrint("{:2} : {}\n", j, ctx.anim.xnodenames[j - 1]);
         }
-        std::print("    ");
+        MdlPrint("    ");
         for (j = 1; j <= ctx.anim.xnodenames.size(); j++) {
-            std::print("{:2} ", j);
+            MdlPrint("{:2} ", j);
         }
-        std::print("\n");
+        MdlPrint("\n");
 
         for (i = 1; i <= ctx.anim.xnodenames.size(); i++) {
-            std::print("{:2}: ", i);
+            MdlPrint("{:2}: ", i);
             for (j = 1; j <= ctx.anim.xnodenames.size(); j++) {
-                std::print("{:2} ", ctx.anim.xnodes[i - 1][j - 1]);
+                MdlPrint("{:2} ", ctx.anim.xnodes[i - 1][j - 1]);
             }
-            std::print("\n");
+            MdlPrint("\n");
         }
     }
 }
@@ -4544,7 +4548,7 @@ void TagProceduralBones(StudioMdlState &ctx) {
 
         if (ctx.bones.axisinterpbones[j].bone == -1) {
             if (!ctx.options.quiet) {
-                std::print("axisinterpbone \"{}\" unused\n", ctx.bones.axisinterpbones[j].bonename);
+                MdlPrint("axisinterpbone \"{}\" unused\n", ctx.bones.axisinterpbones[j].bonename);
             }
             continue; // optimized out, don't complain
         }
@@ -4569,7 +4573,7 @@ void TagProceduralBones(StudioMdlState &ctx) {
 
         if (ctx.bones.quatinterpbones[j].bone == -1) {
             if (!ctx.options.quiet && !ctx.options.createMakefile) {
-                std::print("quatinterpbone \"{}\" unused\n", ctx.bones.quatinterpbones[j].bonename);
+                MdlPrint("quatinterpbone \"{}\" unused\n", ctx.bones.quatinterpbones[j].bonename);
             }
             continue; // optimized out, don't complain
         }
@@ -4592,7 +4596,7 @@ void TagProceduralBones(StudioMdlState &ctx) {
 
         if (ctx.bones.aimatbones[j].bone == -1) {
             if (!ctx.options.quiet && !ctx.options.createMakefile) {
-                std::print("<aimconstraint> \"{}\" unused\n", ctx.bones.aimatbones[j].bonename);
+                MdlPrint("<aimconstraint> \"{}\" unused\n", ctx.bones.aimatbones[j].bonename);
             }
             continue; // optimized out, don't complain
         }
@@ -4637,7 +4641,7 @@ void TagProceduralBones(StudioMdlState &ctx) {
 
         if (ctx.bones.jigglebones[j].bone == -1) {
             if (!ctx.options.quiet) {
-                std::print("jigglebone \"{}\" unused\n", ctx.bones.jigglebones[j].bonename);
+                MdlPrint("jigglebone \"{}\" unused\n", ctx.bones.jigglebones[j].bonename);
             }
             continue; // optimized out, don't complain
         }
@@ -6205,7 +6209,7 @@ static void TagScreenAlignedBones(StudioMdlState &ctx) {
         }
 
         ctx.bones.bonetable[j].flags |= ctx.bones.screenalignedbone[i].flags;
-        std::print("tagging bone: {} as screen aligned (index {}, flags:{:x})\n", ctx.bones.bonetable[j].name,
+        MdlPrint("tagging bone: {} as screen aligned (index {}, flags:{:x})\n", ctx.bones.bonetable[j].name,
                    j,
                    std::to_underlying(ctx.bones.bonetable[j].flags));
     }
@@ -6224,7 +6228,7 @@ static void TagWorldAlignedBones(StudioMdlState &ctx) {
         }
 
         ctx.bones.bonetable[j].flags |= ctx.bones.worldalignedbone[i].flags;
-        std::print("tagging bone: {} as world aligned (index {}, flags:{:x})\n", ctx.bones.bonetable[j].name, j,
+        MdlPrint("tagging bone: {} as world aligned (index {}, flags:{:x})\n", ctx.bones.bonetable[j].name, j,
                    std::to_underlying(ctx.bones.bonetable[j].flags));
     }
 }
@@ -6395,7 +6399,7 @@ static void CalcPoseParameters(StudioMdlState &ctx) {
                     MatrixInvert(boneToWorldMid, worldToBoneMid);
 
                     if (ctx.options.verbose) {
-                        std::print("{} : {}", pseq->name, ctx.anim.pose[j0].name);
+                        MdlPrint("{} : {}", pseq->name, ctx.anim.pose[j0].name);
                     }
 
                     // for 2D animation, figure out what opposite row/column to use
@@ -6428,7 +6432,7 @@ static void CalcPoseParameters(StudioMdlState &ctx) {
                         float v = CalcPoseParameterValue(pseq->paramcontrol[iPose], angles, pos);
 
                         if (ctx.options.verbose) {
-                            std::print(" {:6.2f}", v);
+                            MdlPrint(" {:6.2f}", v);
                         }
 
                         if (iPose == 0) {
@@ -6450,7 +6454,7 @@ static void CalcPoseParameters(StudioMdlState &ctx) {
                     }
 
                     if (ctx.options.verbose) {
-                        std::print("\n");
+                        MdlPrint("\n");
                     }
 
                     if (fabs(pseq->paramstart[iPose] - pseq->paramend[iPose]) < 0.01) {
@@ -6611,7 +6615,7 @@ static void LockBoneLengths(StudioMdlState &ctx) {
             Vector prev, delta;
             MatrixPosition(ctx.bones.bonetable[k].rawLocal, prev);
             delta = prev - origLocalPos[k];
-            std::print("{} - {:f} {:f} {:f}\n", ctx.bones.bonetable[k].name, delta.x, delta.y, delta.z);
+            MdlPrint("{} - {:f} {:f} {:f}\n", ctx.bones.bonetable[k].name, delta.x, delta.y, delta.z);
         }
     }
 
@@ -7090,7 +7094,7 @@ static void ProcessIKRules(StudioMdlState &ctx) {
                     }
 
 #if 0
-                    std::print("{}  {:.1f} {:.1f} {:.1f}\n",
+                    MdlPrint("{}  {:.1f} {:.1f} {:.1f}\n",
                                pRule.peak,
                                pRule.pos.x, pRule.pos.y, pRule.pos.z);
 #endif
@@ -7126,7 +7130,7 @@ static void ProcessIKRules(StudioMdlState &ctx) {
 #if 0
                         QAngle ang;
                         QuaternionAngles(pRule.errorData.pError[k].q, ang);
-                        std::print("{}  {:.1f} {:.1f} {:.1f} : {:.1f} {:.1f} {:.1f}\n",
+                        MdlPrint("{}  {:.1f} {:.1f} {:.1f} : {:.1f} {:.1f} {:.1f}\n",
                                    k + pRule.start,
                                    pRule.errorData.pError[k].pos.x, pRule.errorData.pError[k].pos.y,
                                    pRule.errorData.pError[k].pos.z,
@@ -7169,7 +7173,7 @@ static void ProcessIKRules(StudioMdlState &ctx) {
                     pRule.q = Quaternion(RadianEuler(0, 0, 0));
 
 #if 0
-                    std::print("{}  {:.1f} {:.1f} {:.1f}\n",
+                    MdlPrint("{}  {:.1f} {:.1f} {:.1f}\n",
                                pRule.peak,
                                pRule.pos.x, pRule.pos.y, pRule.pos.z);
 #endif
@@ -7238,7 +7242,7 @@ static void ProcessIKRules(StudioMdlState &ctx) {
 #if 0
                         QAngle ang;
                         QuaternionAngles(pRule.errorData.pError[k].q, ang);
-                        std::print("{}  {:.1f} {:.1f} {:.1f} : {:.1f} {:.1f} {:.1f}\n",
+                        MdlPrint("{}  {:.1f} {:.1f} {:.1f} : {:.1f} {:.1f} {:.1f}\n",
                                    k + pRule.start,
                                    pRule.errorData.pError[k].pos.x, pRule.errorData.pError[k].pos.y,
                                    pRule.errorData.pError[k].pos.z,
@@ -7465,7 +7469,7 @@ static void CompressAnimations(StudioMdlState &ctx) {
         s_source_t* psource = panim->source;
 
         if (ctx.options.checkLengths) {
-            std::print("{}\n", panim->name);
+            MdlPrint("{}\n", panim->name);
         }
 
         // setup animation interior sections
@@ -7618,7 +7622,7 @@ static void CompressAnimations(StudioMdlState &ctx) {
                     for (k = 0; k < 6; k++) {
                         if (panim->anim[w][j].num[k]) {
                             if (n == 0)
-                                std::print("{:>30} :", ctx.bones.bonetable[j].name);
+                                MdlPrint("{:>30} :", ctx.bones.bonetable[j].name);
 
                             // printf("%2s (%8.3f: %8.3f %8.3f) ", tmp[k], ctx.bones.bonetable[j].pos[k], checkmin[k], checkmax[k] );
                             if (k < 3)
@@ -7627,12 +7631,12 @@ static void CompressAnimations(StudioMdlState &ctx) {
                                 s = ctx.bones.bonetable[j].rotscale[k - 3];
 
                             // printf("%2s %8.5f (%d %d)  ", tmp[k], checkmax[k] - checkmin[k] );
-                            std::print("{:>2} {:8.5f}  ", tmp[k], (checkmax[k] - checkmin[k]) * s);
+                            MdlPrint("{:>2} {:8.5f}  ", tmp[k], (checkmax[k] - checkmin[k]) * s);
                             n = 1;
                         }
                     }
                     if (n)
-                        std::print("\n");
+                        MdlPrint("\n");
                 }
             }
         }
@@ -7861,14 +7865,14 @@ void DumpDefineBone(StudioMdlState &ctx, int nBoneId, bool* pBoneDumpedList) {
         DumpDefineBone(ctx, bone.parent, pBoneDumpedList);
     }
 
-    std::print("$definebone ");
+    MdlPrint("$definebone ");
 
-    std::print("\"{}\" ", bone.name);
+    MdlPrint("\"{}\" ", bone.name);
     if (bone.parent != -1) {
-        std::print("\"{}\" ", ctx.bones.bonetable[bone.parent].name);
+        MdlPrint("\"{}\" ", ctx.bones.bonetable[bone.parent].name);
     }
     else {
-        std::print("\"\" ");
+        MdlPrint("\"\" ");
     }
 
     Vector pos;
@@ -7876,12 +7880,12 @@ void DumpDefineBone(StudioMdlState &ctx, int nBoneId, bool* pBoneDumpedList) {
 
     pos = bone.pos;
     angles.Init(RAD2DEG(bone.rot.y), RAD2DEG(bone.rot.z), RAD2DEG(bone.rot.x));
-    std::print("{:f} {:f} {:f} {:f} {:f} {:f}", pos.x, pos.y, pos.z, angles.x, angles.y, angles.z);
+    MdlPrint("{:f} {:f} {:f} {:f} {:f} {:f}", pos.x, pos.y, pos.z, angles.x, angles.y, angles.z);
 
     MatrixAngles(bone.srcRealign, angles, pos);
-    std::print(" {:f} {:f} {:f} {:f} {:f} {:f}", pos.x, pos.y, pos.z, angles.x, angles.y, angles.z);
+    MdlPrint(" {:f} {:f} {:f} {:f} {:f} {:f}", pos.x, pos.y, pos.z, angles.x, angles.y, angles.z);
 
-    std::print("\n");
+    MdlPrint("\n");
 
     pBoneDumpedList[nBoneId] = true;
 }
@@ -8111,7 +8115,7 @@ void SetupHitBoxes(StudioMdlState &ctx) {
                 });
 
                 if (ctx.options.dump_hboxes) {
-                    std::print("$hbox {} \"{}\" {:.2f} {:.2f} {:.2f}  {:.2f} {:.2f} {:.2f}\n",
+                    MdlPrint("$hbox {} \"{}\" {:.2f} {:.2f} {:.2f}  {:.2f} {:.2f} {:.2f}\n",
                                hitbox.group,
                                ctx.bones.bonetable[hitbox.bone].name,
                                hitbox.bmin[0], hitbox.bmin[1], hitbox.bmin[2],
@@ -8325,7 +8329,7 @@ void SetIlluminationPosition(StudioMdlState &ctx) {
     }
 }
 
-void SimplifyModel(StudioMdlState &ctx) {
+bool SimplifyModel(StudioMdlState &ctx) {
     vstd::FunctionTimingRecorder _("Simplify");
     if (std::ssize(ctx.anim.sequence) == 0 && ctx.body.includemodels.empty()) {
         MdlError("model has no sequences\n");
@@ -8334,6 +8338,9 @@ void SimplifyModel(StudioMdlState &ctx) {
     // have to load the lod sources before remapping bones so that the remap
     // happens for all LODs.
     LoadLODSources(ctx);
+
+    // every source is loaded and its bones are still its own: reduce the influences to what the model stores
+    FitSourceWeights(ctx);
 
     RemapBones(ctx);
 
@@ -8348,7 +8355,7 @@ void SimplifyModel(StudioMdlState &ctx) {
     // export bones
     if (ctx.options.definebones) {
         DumpDefineBones(ctx);
-        exit(0);
+        return false;
     }
 
     // translate:
@@ -8372,14 +8379,14 @@ void SimplifyModel(StudioMdlState &ctx) {
     UnifyLODs(ctx);
 
     if (ctx.options.printBones) {
-        std::print("Hardware bone usage:\n");
+        MdlPrint("Hardware bone usage:\n");
     }
     SpewBoneUsageStats(ctx);
 
     MarkParentBoneLODs(ctx);
 
     if (ctx.options.printBones) {
-        std::print("CPU bone usage:\n");
+        MdlPrint("CPU bone usage:\n");
     }
     SpewBoneUsageStats(ctx);
 
@@ -8442,4 +8449,6 @@ void SimplifyModel(StudioMdlState &ctx) {
     if (ctx.options.buildPreview) {
         ctx.header.gflags |= STUDIOHDR_FLAGS_BUILT_IN_PREVIEW_MODE;
     }
+
+    return true;
 }

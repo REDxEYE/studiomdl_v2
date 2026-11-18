@@ -16,14 +16,8 @@ int ParseAnimation(StudioMdlState &ctx, ScriptTokenizer &qc, s_animation_t *pani
 int ParseEmpty(ScriptTokenizer &qc);
 int ParseSequence(StudioMdlState &ctx, ScriptTokenizer &qc, s_sequence_t *pseq, bool isAppend);
 
-struct MDLCommand_t {
-    const char *m_pName;
-    void (*m_pCmd)(StudioMdlState &ctx, ScriptTokenizer &qc);
-};
-
-// The QC command table (constant, defined in studiomdl_commands.cpp)
-extern const MDLCommand_t g_Commands[];
-extern const int g_nMDLCommandCount;
+// Runs every command of a QC script (the command table is in studiomdl_commands.cpp)
+void ParseScript(StudioMdlState &ctx, ScriptTokenizer &qc);
 
 void ProcessSequence(s_sequence_t *pseq, int numblends, s_animation_t **animations, bool isAppend);
 void ProcessStaticProp(StudioMdlState &ctx);

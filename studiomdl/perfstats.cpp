@@ -4,7 +4,10 @@
 //
 //===========================================================================//
 
+#include <cstdio>
+#include <print>
 #include <stdlib.h>
+#include <vector>
 
 #include "studio.h"
 #include "studiomdl/optimize.h"
@@ -12,6 +15,7 @@
 #include "studiomdl/studiomdl.h"
 #include "studiomdl/perfstats.h"
 #include "studiomdl/output_files.hpp"
+#include "studiomdl/studiomdl_log.hpp"
 
 #include "studiomdl/studiomdl_global_state.hpp"
 #include "tier1/tier1_logging.h"
@@ -99,4 +103,50 @@ void SpewPerfStats(StudioMdlState &ctx, studiohdr_t* pStudioHdr, const std::stri
         LoggingSystem_PopLoggingState();
         s_BufferedLoggingListener.EmitBufferedSpew();
     }
+}
+
+// Reads a whole .mdl and converts its header to the current version; the message prefix is the option name
+static bool LoadStudioModel(const std::string_view option, const std::string_view mdlPath, std::vector<char> &buf) {
+    FILE* fp = vstd::paths::open_file(mdlPath, "rb");
+    if (!fp) {
+        MdlPrint("{}: can't open '{}'\n", option, mdlPath);
+        return false;
+    }
+    fseek(fp, 0, SEEK_END);
+    buf.resize(ftell(fp));
+    fseek(fp, 0, SEEK_SET);
+    fread(buf.data(), 1, buf.size(), fp);
+    fclose(fp);
+
+    studiohdr_t* pHdr = reinterpret_cast<studiohdr_t*>(buf.data());
+    Studio_ConvertStudioHdrToNewVersion(pHdr);
+    if (pHdr->version != STUDIO_VERSION) {
+        MdlPrint("{}: '{}' is wrong version ({} should be {}).\n", option, mdlPath, pHdr->version, STUDIO_VERSION);
+        return false;
+    }
+    return true;
+}
+
+int PrintModelSurfaceProps(const std::string_view mdlPath) {
+    std::vector<char> buf;
+    if (!LoadStudioModel("-PrintSurfaceProps", mdlPath, buf))
+        return 1;
+
+    const studiohdr_t* pHdr = reinterpret_cast<const studiohdr_t*>(buf.data());
+    for (int i = 0; i < pHdr->numbones; i++) {
+        MdlPrint("{}\n", pHdr->pBone(i)->pszSurfaceProp());
+    }
+    return 0;
+}
+
+int ReportModelPerf(StudioMdlState &ctx, const std::string_view mdlPath, const bool spreadsheet) {
+    std::vector<char> buf;
+    if (!LoadStudioModel("-mdlreport", mdlPath, buf))
+        return 1;
+
+    unsigned int flags = SPEWPERFSTATS_SHOWPERF;
+    if (spreadsheet)
+        flags |= SPEWPERFSTATS_SPREADSHEET;
+    SpewPerfStats(ctx, reinterpret_cast<studiohdr_t*>(buf.data()), mdlPath, flags);
+    return 0;
 }

@@ -5,8 +5,11 @@
 #pragma once
 #include <array>
 #include <deque>
+#include <functional>
 #include <memory>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "studiomdl_constants.hpp"
@@ -19,6 +22,7 @@
 #include "tier1_v2/fixed_string.hpp"
 #include "tier1_v2/fixed_vector.hpp"
 #include "tier1_v2/buffer.hpp"
+#include "studiomdl/compile_arena.hpp"
 #include "common/cmdlib.h"
 
 // The whole state of one studiomdl compile. Created by the entry point and passed explicitly (StudioMdlState &ctx)
@@ -102,6 +106,9 @@ struct StudioMdlOptions {
 struct StudioMdlPaths {
     std::string qcPath; // the QC as given on the command line, later its file name
     std::string fullpath; // absolute UTF-8 path of the QC
+    // The value of the `qc_path` key value written into the .mdl. Unset (the CLI): derived from the QC's location
+    // (write.cpp WriteQCPath). A library host sets it: the text to record, "" = no entry (a builder has no QC).
+    std::optional<std::string> qcPathEntry;
     std::string qdir; // absolute QC directory, native separators, trailing separator; sources are relative to it
     std::string gameDir; // absolute game directory (outputs go to <gameDir>/models/), trailing separator
     CmdLibContentPaths content; // content roots that mirror the game search paths (CmdLib_AddBasePath / CmdLib_AddNewSearchPath)
@@ -117,6 +124,7 @@ struct StudioMdlPaths {
     bool hasModelName = false; // $modelname was given
 
     std::vector<std::string> CreateMakefileDependencies; // -makefile: every source file read, once
+    std::string CreateMakefileCommand; // -makefile: the studiomdl executable written into the rule
 };
 
 // QC parse state that applies to the commands after it
@@ -138,7 +146,8 @@ struct StudioMdlInput {
 
     // Raw geometry of the loaded sources; faces index into it. DMX and OBJ append, SMD and VRM write by index.
     vstd::AutoGrowVector<Vector> vertex;
-    vstd::AutoGrowVector<s_boneweight_t> bone; // per vertex
+    vstd::AutoGrowVector<s_boneweight_t> bone; // per vertex (at most MAXSTUDIOBONEWEIGHTS influences)
+    vstd::AutoGrowVector<s_sourceboneweight_t> sourceBone; // per vertex: the full influence list, when longer
     vstd::AutoGrowVector<Vector> normal;
     std::array<vstd::AutoGrowVector<Vector2D>, MAXSTUDIOTEXCOORDS> texcoord;
 
@@ -149,6 +158,9 @@ struct StudioMdlInput {
     std::vector<v_unify_t> v_listdata;
     // Per source position: v_listdata index of its first entry, -1 = none; entries chain through v_unify_t::next
     std::vector<int> v_list;
+    // Set by BuildIndividualMeshes: vertex i of the source it built is the unified entry unifiedVertexOrder[i] of
+    // v_listdata (the builder API maps its per-vertex data through it)
+    std::vector<int> unifiedVertexOrder;
 };
 
 // Model wide values written to the .mdl header
@@ -340,7 +352,21 @@ struct StudioMdlCollisionState {
     ~StudioMdlCollisionState();
 };
 
+// How the messages of a compile leave the compiler (studiomdl_errors.cpp). The CLI leaves `sink` empty: messages print
+// to stdout as studiomdl always did. A library host sets `sink`: every message goes there, nothing to stdout.
+// Errors are exceptions either way (MdlError throws MdlCompileError, see compile_error.hpp).
+enum class MdlSeverity : int { Message = 0, Warning = 1, Error = 2 };
+
+struct StudioMdlDiagnostics {
+    // text is one complete message as it would have been printed (with its trailing newline, if any)
+    std::function<void(MdlSeverity severity, std::string_view text)> sink;
+    int warningCount = 0; // warnings reported in this compile (counted with or without a sink)
+};
+
 struct StudioMdlState {
+    // Declared first: destroyed last (the sources, models and animations the other members point to)
+    CompileArena arena;
+
     StudioMdlOptions options;
     StudioMdlPaths paths;
     StudioMdlScriptState script;
@@ -358,4 +384,5 @@ struct StudioMdlState {
     StudioMdlImportState importers;
     StudioMdlCoreState core;
     StudioMdlCollisionState collision;
+    StudioMdlDiagnostics diagnostics;
 };

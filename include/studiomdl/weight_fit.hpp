@@ -15,6 +15,16 @@
 #include "mathlib/mathlib.h"
 
 struct s_source_t;
+struct StudioMdlState;
+
+// Largest pose count -fitweights accepts (fitting or test)
+inline constexpr int kMaxFitWeightsPoses = 4096;
+
+// The pipeline step (SimplifyModel, after every source including the LODs is loaded and before bones are remapped):
+// for each source vertex with more than MAXSTUDIOBONEWEIGHTS influences (s_vertexinfo_t::sourceWeights), measures
+// what the plain trim in boneweight loses and, with -fitweights, writes the fitted weights instead when the fit is
+// better over the source. Clears sourceWeights. Prints one line per source that had such vertices (unless -quiet).
+void FitSourceWeights(StudioMdlState &ctx);
 
 class CWeightFitter {
 public:
@@ -35,8 +45,13 @@ public:
     // better on average (on the test poses). Otherwise the caller should write the trim.
     bool FitIsBetter() const;
 
-    // Prints the recorded distances (measured on poses not used for fitting)
-    void Report(std::string_view meshName) const;
+    // What was recorded; the distances are measured on the test poses (not used for fitting)
+    struct Stats {
+        int reduced = 0; // vertices
+        int fitUsed = 0; // of those, vertices whose fitted weights differ from the trim
+        double cutMean = 0, cutMax = 0, fitMean = 0, fitMax = 0;
+    };
+    Stats GetStats() const;
 
 private:
     const matrix3x4_t &Skin(const int pose, const int bone) const { return m_skin[pose * m_numBones + bone]; }

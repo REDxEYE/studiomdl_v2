@@ -50,8 +50,10 @@ public:
     // Called after a script file is loaded: (loaded path, including file or nullptr for the root, line of the $include
     // or 0). Paths are UTF-8.
     using LoadedCallback = std::function<void(const char *loaded, const char *includedFrom, int includeLine)>;
-    // Receives the complete message. Must not return; if it does, the process exits.
-    using ErrorHandler = std::function<void(const std::string &message)>;
+    // Receives the complete message ("<file>(<line>): - <message>\n") and the position it refers to (file and line of
+    // the script being read; empty and 0 when no script is loaded). Must not return (throw); if it does, the
+    // error goes to ::Error.
+    using ErrorHandler = std::function<void(const std::string &message, const std::string &file, int line)>;
 
     // The current token. Callers may modify it in place (strlwr, ...).
     vstd::FixedString<MAXTOKEN> token;

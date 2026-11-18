@@ -42,10 +42,7 @@ USING_ELEMENT_FACTORY(DmeRigHandle);
 
 #include "tier1_v2/function_timing.hpp"
 #include "studiomdl/studiomdl_global_state.hpp"
-#include "studiomdl/weight_fit.hpp"
-
-#include <optional>
-
+#include "studiomdl/apply_flex.hpp"
 #include "tier1_v2/math_utils.hpp"
 #include "tier1_v2/path_utils.hpp"
 #include "tier1_v2/string_utils.hpp"
@@ -314,33 +311,19 @@ LoadVertices(StudioMdlState &ctx, DmxLoadState &load, CDmeDag* pDmeDag, CDmeVert
     }
 
     std::array<bool, MAXSTUDIOBONES> warnmap{};
-    // Any number of joints per vertex is accepted; SortAndBalanceBones keeps the MAXSTUDIOBONEWEIGHTS largest
+    // Any number of joints per vertex is accepted; SortAndBalanceBones keeps the MAXSTUDIOBONEWEIGHTS largest. Vertices
+    // with more keep their full list (on source bones) for FitSourceWeights.
     std::vector<float> weightBuf(jointCount);
     std::vector<int> indexBuf(jointCount);
-
-    // Meshes with more influences per vertex than fit: measures what trimming loses, and with -fitweights refits
-    // the kept weights instead of just rescaling them
-    const bool bFitWeights = ctx.options.fitWeights;
-    std::optional<CWeightFitter> fitter;
-    std::vector<float> fullWeights;
-    std::vector<int> fullBones;
-    struct TrimmedVertex {
-        int vertex;
-        s_boneweight_t boneweight;
-    };
-    std::vector<TrimmedVertex> trimmedVertices;
-    if (jointCount > static_cast<int>(MAXSTUDIOBONEWEIGHTS)) {
-        fitter.emplace(*pSource, bFitWeights, ctx.options.fitWeightsFitPoses,
-                       ctx.options.fitWeightsTestPoses);
-        fullWeights.resize(jointCount);
-        fullBones.resize(jointCount);
-    }
+    std::vector<int> fullBones(jointCount > static_cast<int>(MAXSTUDIOBONEWEIGHTS) ? jointCount : 0);
 
     // Copy positions + bone info
     for (int i = 0; i < positionCount; ++i) {
         const int vertexIndex = static_cast<int>(ctx.input.vertex.size());
         Vector &vertex = ctx.input.vertex.emplace_back();
         s_boneweight_t &boneWeight = ctx.input.bone.emplace_back();
+        s_sourceboneweight_t &sourceWeights = ctx.input.sourceBone[vertexIndex];
+        sourceWeights = {};
         // NOTE: The transform transforms the positions into the bind space
         VectorTransform(positions[i], mat, vertex);
         vertex *= flScale;
@@ -353,61 +336,20 @@ LoadVertices(StudioMdlState &ctx, DmxLoadState &load, CDmeDag* pDmeDag, CDmeVert
             const float* pJointWeights = pBindState->GetJointWeightData(i);
             const int* pJointIndices = pBindState->GetJointIndexData(i);
 
+            if (!fullBones.empty()) {
+                // the full influence list on source bones, so joints mapped to the same bone collapse
+                for (int j = 0; j < jointCount; ++j) {
+                    const int nMapped = pBoneRemap[pJointIndices[j]];
+                    fullBones[j] = nMapped < 0 ? nBoneAssign : nMapped;
+                }
+                MakeSourceBoneWeights(jointCount, fullBones, std::span<const float>(pJointWeights, jointCount),
+                                      sourceWeights);
+            }
+
             memcpy(weightBuf.data(), pJointWeights, jointCount * sizeof(float));
             memcpy(indexBuf.data(), pJointIndices, jointCount * sizeof(int));
 
-            int boneCount;
-            if (fitter) {
-                // The full influence list on source bones, so joints mapped to the same bone collapse
-                for (int j = 0; j < jointCount; ++j) {
-                    const int nMapped = pBoneRemap[indexBuf[j]];
-                    // without -fitweights the default path below reports unmapped joints
-                    if (bFitWeights && nMapped < 0 && weightBuf[j] > 0 && indexBuf[j] < MAXSTUDIOBONES &&
-                        !warnmap[indexBuf[j]]) {
-                        MdlWarning(
-                            "DmeMesh[{}] Verts Assigned To DmeModel.jointList[{}] Which Isn't Mapped To The Dag Hierarchy\n",
-                            pDmeDag->GetName(), indexBuf[j]);
-                        warnmap[indexBuf[j]] = true;
-                    }
-                    fullBones[j] = nMapped < 0 ? nBoneAssign : nMapped;
-                    fullWeights[j] = weightBuf[j];
-                }
-
-                // sorted, nothing dropped yet, summing to 1
-                int nUsed = SortAndBalanceBones(jointCount, jointCount, fullBones, fullWeights);
-                while (nUsed > 0 && fullWeights[nUsed - 1] <= 0) {
-                    --nUsed;
-                }
-                if (nUsed > static_cast<int>(MAXSTUDIOBONEWEIGHTS)) {
-                    if (bFitWeights) {
-                        // the plain trim, in case the fit turns out not to be better on this mesh
-                        TrimmedVertex &trimmed = trimmedVertices.emplace_back();
-                        trimmed.vertex = vertexIndex;
-                        trimmed.boneweight.numbones = MAXSTUDIOBONEWEIGHTS;
-                        const float flKeptSum = fullWeights[0] + fullWeights[1] + fullWeights[2];
-                        for (int j = 0; j < static_cast<int>(MAXSTUDIOBONEWEIGHTS); ++j) {
-                            trimmed.boneweight.bone[j] = fullBones[j];
-                            trimmed.boneweight.weight[j] = fullWeights[j] / flKeptSum;
-                        }
-                    }
-                    fitter->Reduce(vertex, fullBones, fullWeights, nUsed);
-                }
-
-                if (bFitWeights) {
-                    // sorts the kept ones again; influences past nUsed have zero weight
-                    boneCount = SortAndBalanceBones(MAXSTUDIOBONEWEIGHTS, MAXSTUDIOBONEWEIGHTS, fullBones,
-                                                    fullWeights);
-
-                    boneWeight.numbones = boneCount;
-                    for (int j = 0; j < boneCount; ++j) {
-                        boneWeight.bone[j] = fullBones[j];
-                        boneWeight.weight[j] = fullWeights[j];
-                    }
-                    continue;
-                }
-            }
-
-            boneCount = SortAndBalanceBones(jointCount, MAXSTUDIOBONEWEIGHTS, indexBuf, weightBuf);
+            const int boneCount = SortAndBalanceBones(jointCount, MAXSTUDIOBONEWEIGHTS, indexBuf, weightBuf);
             int nBoneIndex = -1;
 
             boneWeight.numbones = boneCount;
@@ -427,17 +369,6 @@ LoadVertices(StudioMdlState &ctx, DmxLoadState &load, CDmeDag* pDmeDag, CDmeVert
                 }
                 boneWeight.weight[j] = weightBuf[j];
             }
-        }
-    }
-    if (fitter) {
-        if (bFitWeights && !fitter->FitIsBetter()) {
-            // not worth it on this mesh: back to the plain trim
-            for (const TrimmedVertex &trimmed: trimmedVertices) {
-                ctx.input.bone[trimmed.vertex] = trimmed.boneweight;
-            }
-        }
-        if (!ctx.options.quiet) {
-            fitter->Report(pDmeDag ? pDmeDag->GetName() : pSource->filename.c_str());
         }
     }
 
@@ -1033,7 +964,8 @@ static void BuildVertexAnimations(StudioMdlState &ctx, DmxLoadState &load, s_sou
 
     const auto &entries = ctx.input.v_listdata;
     Assert(load.uniqueVertices.size() == entries.size());
-    s_vertanim_t* pVertAnim = (s_vertanim_t*) malloc(entries.size() * sizeof(s_vertanim_t));
+    std::vector<s_vertanim_t> vertAnims(entries.size());
+    s_vertanim_t* pVertAnim = vertAnims.data();
     for (int i = 0; i < nCount; ++i) {
         DeltaState_t &state = load.deltaStates[i];
 
@@ -1087,10 +1019,9 @@ static void BuildVertexAnimations(StudioMdlState &ctx, DmxLoadState &load, s_sou
             }
         }
         pSourceAnim->numvanims[0] = nVertAnimCount;
-        pSourceAnim->vanim[0] = (s_vertanim_t*) calloc(nVertAnimCount, sizeof(s_vertanim_t));
+        pSourceAnim->vanim[0] = ctx.arena.CreateArray<s_vertanim_t>(nVertAnimCount);
         memcpy(pSourceAnim->vanim[0], pVertAnim, nVertAnimCount * sizeof(s_vertanim_t));
     }
-    free(pVertAnim);
 }
 
 
@@ -1333,7 +1264,7 @@ static void LoadAttachments(CDmeDag* pRoot, CDmeDag* pDag, s_source_t* pSource, 
 //-----------------------------------------------------------------------------
 // Loads the bind pose
 //-----------------------------------------------------------------------------
-static void LoadBindPose(CDmeModel* pModel, const float flScale, const BoneTransformMap_t &boneMap,
+static void LoadBindPose(StudioMdlState &ctx, CDmeModel* pModel, const float flScale, const BoneTransformMap_t &boneMap,
                          s_source_t* pSource) {
     s_sourceanim_t* pSourceAnim = FindOrAddSourceAnim(pSource, "BindPose");
     pSourceAnim->startframe = 0;
@@ -1341,7 +1272,7 @@ static void LoadBindPose(CDmeModel* pModel, const float flScale, const BoneTrans
     pSourceAnim->numframes = 1;
 
     // Default all transforms to identity
-    pSourceAnim->rawanim[0] = (s_bone_t*) calloc(pSource->numbones, sizeof(s_bone_t));
+    pSourceAnim->rawanim[0] = ctx.arena.CreateArray<s_bone_t>(pSource->numbones);
     for (int i = 0; i < pSource->numbones; ++i) {
         pSourceAnim->rawanim[0][i].pos.Init();
         pSourceAnim->rawanim[0][i].rot.Init();
@@ -1467,11 +1398,11 @@ static void UpdateChannels(std::vector<IDmeOperator*> &operators, CDmeChannelsCl
 //-----------------------------------------------------------------------------
 // Initialize the pose for this frame
 //-----------------------------------------------------------------------------
-static void ComputeFramePose(s_sourceanim_t* pSourceAnim, const int nFrame, const float flScale,
+static void ComputeFramePose(StudioMdlState &ctx, s_sourceanim_t* pSourceAnim, const int nFrame, const float flScale,
                              BoneTransformMap_t &boneMap) {
     // LoadSkeleton appends the identity "defaultRoot" bone after the joints (numbones == m_nBoneCount + 1): the frame
-    // needs a slot for it too, calloc leaves it at the identity
-    pSourceAnim->rawanim[nFrame] = (s_bone_t*) calloc(boneMap.m_nBoneCount + 1, sizeof(s_bone_t));
+    // needs a slot for it too, the arena block is zero-filled (the identity)
+    pSourceAnim->rawanim[nFrame] = ctx.arena.CreateArray<s_bone_t>(boneMap.m_nBoneCount + 1);
 
     for (int i = 0; i < boneMap.m_nBoneCount; ++i) {
         matrix3x4_t jointTransform;
@@ -1486,7 +1417,7 @@ static void ComputeFramePose(s_sourceanim_t* pSourceAnim, const int nFrame, cons
 // Main entry point for loading animations
 //-----------------------------------------------------------------------------
 void
-LoadAnimations(s_source_t* pSource, CDmeAnimationList* pAnimationList, const float flScale,
+LoadAnimations(StudioMdlState &ctx, s_source_t* pSource, CDmeAnimationList* pAnimationList, const float flScale,
                BoneTransformMap_t &boneMap) {
     int nAnimationCount = pAnimationList->GetAnimationCount();
     for (int i = 0; i < nAnimationCount; ++i) {
@@ -1517,7 +1448,7 @@ LoadAnimations(s_source_t* pSource, CDmeAnimationList* pAnimationList, const flo
             int nFraction = nFrame - nSecond * nFrameRateVal;
             DmeTime_t t = nStartTime + DmeTime_t(nSecond * 10000) + DmeTime_t((float) nFraction * flOOFrameRate);
             UpdateChannels(operatorList, pAnimation, t);
-            ComputeFramePose(pSourceAnim, nFrame, flScale, boneMap);
+            ComputeFramePose(ctx, pSourceAnim, nFrame, flScale, boneMap);
             ++nFrame;
         }
     }
@@ -1563,7 +1494,7 @@ void LoadModelInfo(CDmElement* pRoot, char const* pFullPath) {
             for (int kk = 0; kk < arrSources.Count(); ++kk) {
                 if (CDmElement* pModelSource = arrSources.Element(kk)) {
                     if (char const* szName = pModelSource->GetName()) {
-                        std::print("* {}{:c}{}\n", pFullPath, CORRECT_PATH_SEPARATOR, szName);
+                        MdlPrint("* {}{:c}{}\n", pFullPath, CORRECT_PATH_SEPARATOR, szName);
                     }
                 }
             }
@@ -1767,27 +1698,17 @@ static bool LoadConstraint(StudioMdlState &ctx, CDmElement* pDmElement) {
     if (!pDmeConstraint)
         return false;
 
-    T* pConstraint = new T();
-    if (!pConstraint)
+    auto pConstraint = std::make_unique<T>();
+
+    if (!LoadBaseConstraintParams(ctx, pConstraint.get(), pDmeConstraint))
         return false;
 
-    if (!LoadBaseConstraintParams(ctx, pConstraint, pDmeConstraint)) {
-        delete pConstraint;
+    if (!LoadSpecializedConstraintParams(ctx, pDmeConstraint, pConstraint.get()))
         return false;
-    }
 
-    if (!LoadSpecializedConstraintParams(ctx, pDmeConstraint, pConstraint)) {
-        delete pConstraint;
-        return false;
-    }
-
-    if (FindDuplicateConstraint(ctx, pConstraint)) {
-        // Delete this
-        delete pConstraint;
-    }
-    else {
-        ctx.bones.constraintBones.push_back(pConstraint);
-    }
+    // a duplicate is dropped here, the others belong to the compile
+    if (!FindDuplicateConstraint(ctx, pConstraint.get()))
+        ctx.bones.constraintBones.push_back(ctx.arena.Adopt(std::move(pConstraint)));
 
     return true;
 }
@@ -1847,7 +1768,7 @@ bool LoadModelAndSkeleton(StudioMdlState &ctx, s_source_t* pSource, BoneTransfor
         if (pCombinationOperator) {
             pCombinationOperator->GenerateWrinkleDeltas(false);
         }
-        LoadBindPose(pModel, ctx.script.currentscale, boneMap, pSource);
+        LoadBindPose(ctx, pModel, ctx.script.currentscale, boneMap, pSource);
         if (!LoadMeshes(ctx, load, pModel, ctx.script.currentscale, boneMap.m_pnDmeModelToMdl, pSource))
             return false;
 
@@ -1970,9 +1891,8 @@ static bool AddFlexKey(StudioMdlState &ctx,
 
 
 //-----------------------------------------------------------------------------
-// In studiomdl.cpp
+// FindNewStyleVertexAnim: studiomdl/apply_flex.cpp
 //-----------------------------------------------------------------------------
-const s_sourceanim_t* GetNewStyleSourceVertexAnim(const s_source_t* source, std::string_view pszVertexAnimName);
 
 
 //-----------------------------------------------------------------------------
@@ -2008,11 +1928,11 @@ static bool LoadEyelid(StudioMdlState &ctx, s_model_t* pModel, const CDmeEyelid*
         EyelidData_t{{-1, -1}, nullptr, 0.0f, "raiser"}
     };
 
-    eyelidData[kLowerer].m_pSourceAnim = GetNewStyleSourceVertexAnim(pSource, pDmeEyelid->m_sLowererFlex);
+    eyelidData[kLowerer].m_pSourceAnim = FindNewStyleVertexAnim(pSource, pDmeEyelid->m_sLowererFlex);
     eyelidData[kLowerer].m_flTarget = pDmeEyelid->m_flLowererHeight.Get();
-    eyelidData[kNeutral].m_pSourceAnim = GetNewStyleSourceVertexAnim(pSource, pDmeEyelid->m_sNeutralFlex);
+    eyelidData[kNeutral].m_pSourceAnim = FindNewStyleVertexAnim(pSource, pDmeEyelid->m_sNeutralFlex);
     eyelidData[kNeutral].m_flTarget = pDmeEyelid->m_flNeutralHeight.Get();
-    eyelidData[kRaiser].m_pSourceAnim = GetNewStyleSourceVertexAnim(pSource, pDmeEyelid->m_sRaiserFlex);
+    eyelidData[kRaiser].m_pSourceAnim = FindNewStyleVertexAnim(pSource, pDmeEyelid->m_sRaiserFlex);
     eyelidData[kRaiser].m_flTarget = pDmeEyelid->m_flRaiserHeight.Get();
 
     // Add a flexdesc for <type>_right & <type>_left
@@ -2318,7 +2238,7 @@ int Load_DMX(StudioMdlState &ctx, s_source_t* pSource) {
     LoadQcModelElements(ctx, pSource, ctx.importers.pCurrentModel, pModel);
 
     if (CDmeAnimationList* pAnimationList = pRoot->GetValueElement<CDmeAnimationList>("animationList")) {
-        LoadAnimations(pSource, pAnimationList, ctx.script.currentscale, boneMap);
+        LoadAnimations(ctx, pSource, pAnimationList, ctx.script.currentscale, boneMap);
     }
 
     fileId = pRoot->GetFileId();
@@ -2373,7 +2293,7 @@ int Load_FBX(StudioMdlState &ctx, s_source_t* pSource) {
 
         CDmeAnimationList* pAnimationList = pRoot->GetValueElement<CDmeAnimationList>("animationList");
         if (pAnimationList) {
-            LoadAnimations(pSource, pAnimationList, ctx.script.currentscale, boneMap);
+            LoadAnimations(ctx, pSource, pAnimationList, ctx.script.currentscale, boneMap);
         }
 
         if (CommandLine()->FindParm("-debugfbx2dmx"))

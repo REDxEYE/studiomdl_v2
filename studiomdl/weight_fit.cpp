@@ -9,6 +9,7 @@
 #include <string>
 
 #include "studiomdl/studiomdl.h"
+#include "studiomdl/studiomdl_global_state.hpp"
 #include "tier1_v2/function_timing.hpp"
 
 static_assert(MAXSTUDIOBONEWEIGHTS == 3, "the solver below fits exactly three weights");
@@ -204,21 +205,102 @@ bool CWeightFitter::FitIsBetter() const {
     return m_fit && m_fitErrorMax <= m_cutErrorMax && m_fitErrorSum < m_cutErrorSum;
 }
 
-void CWeightFitter::Report(const std::string_view meshName) const {
-    if (m_reduced == 0)
-        return;
-    const double samples = static_cast<double>(m_reduced) * m_testPoses;
-    if (m_fit) {
-        std::print("{}: {} vertices reduced to {} bones (-fitweights, {} fitting poses); distance from the full "
-                   "weights on {} test poses: trim mean {:.4f} max {:.4f}, fit mean {:.4f} max {:.4f} -> {}\n",
-                   meshName, m_reduced, kKept, m_fitPoses, m_testPoses, m_cutErrorSum / samples, m_cutErrorMax,
-                   m_fitErrorSum / samples, m_fitErrorMax,
-                   FitIsBetter() ? std::format("fit written ({} vertices differ from the trim)", m_fitUsed)
-                                 : std::string("fit is not better, trim written"));
+CWeightFitter::Stats CWeightFitter::GetStats() const {
+    Stats stats;
+    stats.reduced = m_reduced;
+    stats.fitUsed = m_fitUsed;
+    if (m_reduced > 0) {
+        const double samples = static_cast<double>(m_reduced) * m_testPoses;
+        stats.cutMean = m_cutErrorSum / samples;
+        stats.fitMean = m_fitErrorSum / samples;
     }
-    else {
-        std::print("{}: {} vertices trimmed to {} bones; distance from the full weights on {} test poses: "
-                   "mean {:.4f} max {:.4f}\n",
-                   meshName, m_reduced, kKept, m_testPoses, m_cutErrorSum / samples, m_cutErrorMax);
+    stats.cutMax = m_cutErrorMax;
+    stats.fitMax = m_fitErrorMax;
+    return stats;
+}
+
+namespace {
+    struct SourceWeightRow {
+        std::string_view source;
+        CWeightFitter::Stats stats;
+        bool fitWritten;
+    };
+
+    // One row per source that had vertices with more than MAXSTUDIOBONEWEIGHTS influences. Distances (source units)
+    // between a vertex skinned with its full weights and with the reduced ones, over the test poses.
+    void PrintSourceWeightRows(const StudioMdlState &ctx, const std::vector<SourceWeightRow> &rows) {
+        if (ctx.options.quiet || rows.empty())
+            return;
+        const bool fit = ctx.options.fitWeights;
+        if (fit) {
+            MdlPrint("Weight fitting (-fitweights): {} influences per vertex, {} fitting poses, {} test poses\n", kKept,
+                     ctx.options.fitWeightsFitPoses, ctx.options.fitWeightsTestPoses);
+            MdlPrint("    {:<32} {:>7} {:>9} {:>9} {:>9} {:>9} {:>7} {}\n", "source", "verts", "trim mean", "trim max",
+                     "fit mean", "fit max", "differ", "written");
+        }
+        else {
+            MdlPrint("Weight trimming: {} influences per vertex, {} test poses (-fitweights fits them)\n", kKept,
+                     ctx.options.fitWeightsTestPoses);
+            MdlPrint("    {:<32} {:>7} {:>9} {:>9}\n", "source", "verts", "trim mean", "trim max");
+        }
+        for (const SourceWeightRow &row: rows) {
+            const CWeightFitter::Stats &s = row.stats;
+            if (fit) {
+                MdlPrint("    {:<32.32} {:7} {:9.4f} {:9.4f} {:9.4f} {:9.4f} {:7} {}\n", row.source, s.reduced,
+                         s.cutMean, s.cutMax, s.fitMean, s.fitMax, s.fitUsed,
+                         row.fitWritten ? "fit" : "trim");
+            }
+            else {
+                MdlPrint("    {:<32.32} {:7} {:9.4f} {:9.4f}\n", row.source, s.reduced, s.cutMean, s.cutMax);
+            }
+        }
     }
+}
+
+void FitSourceWeights(StudioMdlState &ctx) {
+    const bool fit = ctx.options.fitWeights;
+    std::vector<SourceWeightRow> rows;
+    for (s_source_t *source: ctx.anim.sources) {
+        const std::span<s_vertexinfo_t> vertices(source->vertex, source->vertex ? source->numvertices : 0);
+        const auto hasMore = [](const s_vertexinfo_t &v) {
+            return v.sourceWeights.numbones > static_cast<int>(MAXSTUDIOBONEWEIGHTS);
+        };
+        if (std::ranges::none_of(vertices, hasMore)) {
+            continue;
+        }
+
+        CWeightFitter fitter(*source, fit, ctx.options.fitWeightsFitPoses, ctx.options.fitWeightsTestPoses);
+        struct Fitted {
+            s_vertexinfo_t *vertex;
+            s_boneweight_t boneweight;
+        };
+        std::vector<Fitted> fitted;
+        for (s_vertexinfo_t &vertex: vertices) {
+            s_sourceboneweight_t &full = vertex.sourceWeights;
+            if (hasMore(vertex)) {
+                fitter.Reduce(vertex.position, full.bone, full.weight, full.numbones);
+                if (fit) {
+                    // sorts the kept ones again (the fit leaves them unsorted, possibly with zero weights)
+                    Fitted &f = fitted.emplace_back(&vertex);
+                    f.boneweight.numbones = SortAndBalanceBones(MAXSTUDIOBONEWEIGHTS, MAXSTUDIOBONEWEIGHTS, full.bone,
+                                                                full.weight);
+                    for (int j = 0; j < static_cast<int>(MAXSTUDIOBONEWEIGHTS); ++j) {
+                        const bool used = j < f.boneweight.numbones;
+                        f.boneweight.bone[j] = used ? full.bone[j] : 0;
+                        f.boneweight.weight[j] = used ? full.weight[j] : 0.0f;
+                    }
+                }
+            }
+            full = {}; // reduced now; the full list isn't needed past this point
+        }
+        // boneweight already holds the plain trim; the fit replaces it only where it is better over the source
+        const bool fitWritten = fit && fitter.FitIsBetter();
+        if (fitWritten) {
+            for (const Fitted &f: fitted) {
+                f.vertex->boneweight = f.boneweight;
+            }
+        }
+        rows.push_back({source->filename, fitter.GetStats(), fitWritten});
+    }
+    PrintSourceWeightRows(ctx, rows);
 }

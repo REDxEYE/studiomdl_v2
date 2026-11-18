@@ -7,6 +7,7 @@
 #pragma once
 
 
+#include <memory>
 #include <string_view>
 #include <type_traits>
 #include <unordered_map>
@@ -520,6 +521,20 @@ inline void DestroyElement(CDmElement *pElement) {
     if (pElement) {
         g_pDataModel->DestroyElement(pElement->GetHandle());
     }
+}
+
+// Owns an element that belongs to no file (scratch elements): destroyed when the owner goes out of scope, also when
+// an error unwinds past it. Create with MakeScratchElement<E>(name).
+struct DmElementDeleter {
+    void operator()(CDmElement *pElement) const { DestroyElement(pElement); }
+};
+
+template<class E>
+using DmElementPtr = std::unique_ptr<E, DmElementDeleter>;
+
+template<class E>
+DmElementPtr<E> MakeScratchElement(const std::string_view objectName) {
+    return DmElementPtr<E>(CreateElement<E>(objectName, DMFILEID_INVALID));
 }
 
 void DestroyElement(CDmElement *pElement, TraversalDepth_t depth);

@@ -12,6 +12,8 @@
 #define PLATFORM_64BITS 1
 #endif
 #include <cstdarg>
+#include <exception>
+#include <string>
 
 #ifdef LINUX
 #pragma GCC diagnostic ignored "-Wconversion-null"	// passing NULL to non-pointer argument 1
@@ -634,7 +636,24 @@ inline int64_t CastPtrToInt64( const void *p )
 PLATFORM_INTERFACE double			Plat_FloatTime();		// Returns time in seconds since the module was loaded.
 PLATFORM_INTERFACE uint32_t			Plat_MSTime();			// Time in milliseconds.
 
+// Plat_ExitProcess does not end the process: it throws Plat_ExitException, so that a process which runs tools as a
+// library (several compiles, a host application) survives a fatal error and unwinds cleanly. The entry point of a
+// program catches it, cleans up and returns the exit code (Error(), an LR_ABORT log response and Plat_FatalError end
+// up here). The message is the text that was already reported through the logging system (empty if none).
+class Plat_ExitException : public std::exception {
+public:
+	Plat_ExitException( int nCode, const char *pMessage ) : m_nCode( nCode ), m_Message( pMessage ? pMessage : "" ) {}
+
+	int exitCode() const { return m_nCode; }
+	const char *what() const noexcept override { return m_Message.c_str(); }
+
+private:
+	int m_nCode;
+	std::string m_Message;
+};
+
 [[noreturn]] PLATFORM_INTERFACE void	Plat_ExitProcess( int nCode );
+[[noreturn]] PLATFORM_INTERFACE void	Plat_ExitProcessWithMessage( int nCode, const char *pMessage );
 
 #define Plat_FastMemset memset
 
