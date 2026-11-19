@@ -1,0 +1,8 @@
+.idea/
+.codegraph/
+build*/
+cmake-build-*/
+__pycache__/
+.venv/
+tests/regression/work/
+agent_scratch/

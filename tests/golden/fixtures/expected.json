@@ -1,0 +1,62 @@
+{
+  "attachment_redefine.qc": {
+    "files": {
+      "golden/attachment_redefine.dx90.vtx": "17ab0d1debc6a5a284852d0b1098215d915bc90f229a6ca14dae171afdb95304",
+      "golden/attachment_redefine.mdl": "703760d0b2f7d16147afe7fc708974d0909f0f23d6899fa6ed674afca899f443",
+      "golden/attachment_redefine.vvd": "19d454d2a000d9147791a2a9ca35e0524b44ca6d1b033a51ae37aadafe1a8461"
+    },
+    "rc": 0
+  },
+  "character.qc": {
+    "files": {
+      "golden/character.dx90.vtx": "b28e23283cc0435dfc61b69f1d9b7b02e0a847e5086d77224c3b56edaee7ea06",
+      "golden/character.mdl": "06f83888de5c86a0cb3675ff6a3f4647f4e3ca561cc5e8a9dbb89a09c8b7b6e1",
+      "golden/character.vvd": "43ecb47db2b9d8e17e7cff96f7c940a3473a8397a21ffa9b230567212831ecdb"
+    },
+    "rc": 0
+  },
+  "error_missing_source.qc": {
+    "files": {},
+    "rc": 255
+  },
+  "prop_static.qc": {
+    "files": {
+      "golden/prop_static.dx90.vtx": "e5b1c341919e709ecef085a98acc1b0334839724bd9008ff2672f6dd008b3d1f",
+      "golden/prop_static.mdl": "76e2f5292571bfc86c4429cad4d9882b72b5800a16aadf6a93e050d60e1f6b82",
+      "golden/prop_static.vvd": "974de99e045bca76806f85a510de3d9fce33c5f4f728cff3b79a4288221052c4"
+    },
+    "rc": 0
+  },
+  "smd_vta.qc": {
+    "files": {
+      "golden/smd_vta.dx90.vtx": "eb426950817ccb5f6c77cafc5428c1b47bf45571b9dfd0fb8ff349bfd40d1dce",
+      "golden/smd_vta.mdl": "67fba4c3264c6309ff29d251b1ab574f202f164b6c085ff661bd2ea0bcced8ce",
+      "golden/smd_vta.vvd": "7ef8992be4116b301bca6ea853a573c818252d6003ce7fd30a58fde56d45787d"
+    },
+    "rc": 0
+  },
+  "split_flexopt_off.qc": {
+    "files": {
+      "golden/split_flexopt_off.dx90.vtx": "8441311756b4269d92f3cec42ad5a6745637e171ff0621d112af50e34dde24f2",
+      "golden/split_flexopt_off.mdl": "2437f8774866ead940c9ddf5a3e7ae6585017f5c5fcf450b58049b19a6176c94",
+      "golden/split_flexopt_off.vvd": "4a88f2c4bf78aee0f4121f7b7ba4027ed4a19dbb1490168d963982e582cdead6"
+    },
+    "rc": 0
+  },
+  "split_flexopt_on.qc": {
+    "files": {
+      "golden/split_flexopt_on.dx90.vtx": "b9e1f80a0dd235e896a90d2df40c30f09b43d88511a2247a90e8882fd46fed8c",
+      "golden/split_flexopt_on.mdl": "c7c9e59c82556775c8347262bf840b4f849e4bf73196106943e723079bce14e3",
+      "golden/split_flexopt_on.vvd": "845cf1b135a8dbb9771b2deb857619de2c21f3319e8019c8d9328048bc2bbbc3"
+    },
+    "rc": 0
+  },
+  "suzanne_binary_dmx.qc": {
+    "files": {
+      "golden/suzanne.dx90.vtx": "b21c1026de20fa1a120333e691833a01428e6f174061562192ea92a83260b7f9",
+      "golden/suzanne.mdl": "3f47484dddca1c0691ebf61ad69565f24b0c64c306acccafe29887ffaaddaa32",
+      "golden/suzanne.vvd": "972a72664371bdbfb50aaf2dfe39fe5869917e14975db15272818641c1ee7ed1"
+    },
+    "rc": 0
+  }
+}

@@ -1,0 +1,807 @@
+<!-- dmx encoding keyvalues2 1 format model 18 -->
+"DmElement"
+{
+	"id" "elementid" "7dd36d34-1036-5e79-9c71-13294050dcea"
+	"name" "string" "Scene"
+	"skeleton" "element" "fe3af924-eafd-5366-82db-7f41ceaf6e82"
+	"combinationOperator" "DmeCombinationOperator"
+	{
+		"id" "elementid" "a21669a3-0d7a-52c6-a3cf-dec633fa850d"
+		"name" "string" "combinationOperator"
+		"controls" "element_array" 
+		[
+			"DmeCombinationInputControl"
+			{
+				"id" "elementid" "c198c128-e67e-5ebb-b57e-fa80ed96a009"
+				"name" "string" "brow"
+				"rawControlNames" "string_array" 
+				[
+					"browDown",
+					"browUp"
+				]
+				"stereo" "bool" "0"
+				"eyelid" "bool" "0"
+				"flexMax" "float" "1.000000"
+				"flexMin" "float" "-1.000000"
+				"wrinkleScales" "float_array" 
+				[
+					"0",
+					"0"
+				]
+			},
+			"DmeCombinationInputControl"
+			{
+				"id" "elementid" "9d5659f1-e7cd-5cd1-aca2-d5cbf2274131"
+				"name" "string" "smile"
+				"rawControlNames" "string_array" 
+				[
+					"smile"
+				]
+				"stereo" "bool" "1"
+				"eyelid" "bool" "0"
+				"flexMax" "float" "1.000000"
+				"flexMin" "float" "0.000000"
+				"wrinkleScales" "float_array" 
+				[
+					"0"
+				]
+			},
+			"DmeCombinationInputControl"
+			{
+				"id" "elementid" "c034f889-e5f7-5d8d-9b79-0eca78d333d7"
+				"name" "string" "jaw"
+				"rawControlNames" "string_array" 
+				[
+					"jaw"
+				]
+				"stereo" "bool" "0"
+				"eyelid" "bool" "0"
+				"flexMax" "float" "1.000000"
+				"flexMin" "float" "0.000000"
+				"wrinkleScales" "float_array" 
+				[
+					"0"
+				]
+			},
+			"DmeCombinationInputControl"
+			{
+				"id" "elementid" "6784c96d-a659-5992-b748-64a45fd23214"
+				"name" "string" "vowel"
+				"rawControlNames" "string_array" 
+				[
+					"oo",
+					"ee",
+					"aa"
+				]
+				"stereo" "bool" "0"
+				"eyelid" "bool" "0"
+				"flexMax" "float" "1.000000"
+				"flexMin" "float" "-1.000000"
+				"wrinkleScales" "float_array" 
+				[
+					"0",
+					"0",
+					"0"
+				]
+			},
+			"DmeCombinationInputControl"
+			{
+				"id" "elementid" "064200d5-a07a-5998-9b2d-81d2937de465"
+				"name" "string" "lid"
+				"rawControlNames" "string_array" 
+				[
+					"lowLid",
+					"upLid"
+				]
+				"stereo" "bool" "0"
+				"eyelid" "bool" "1"
+				"flexMax" "float" "1.000000"
+				"flexMin" "float" "-1.000000"
+				"wrinkleScales" "float_array" 
+				[
+					"0",
+					"0"
+				]
+			}
+		]
+		"controlValues" "vector3_array" 
+		[
+			"0 0 0.5",
+			"0 0 0.5",
+			"0 0 0.5",
+			"0 0 0.5",
+			"0 0 0.5"
+		]
+		"controlValuesLagged" "vector3_array" 
+		[
+			"0 0 0.5",
+			"0 0 0.5",
+			"0 0 0.5",
+			"0 0 0.5",
+			"0 0 0.5"
+		]
+		"usesLaggedValues" "bool" "0"
+		"dominators" "element_array" 
+		[
+			"DmeCombinationDominationRule"
+			{
+				"id" "elementid" "81ca86b4-55ea-51b0-aced-a606449cc86e"
+				"name" "string" "dominator"
+				"dominators" "string_array" 
+				[
+					"jaw"
+				]
+				"suppressed" "string_array" 
+				[
+					"smile"
+				]
+			}
+		]
+		"targets" "element_array" 
+		[
+			"element" "fe619cc6-8f06-563a-b7f0-f97301be5060"
+		]
+	}
+	
+	"model" "element" "fe3af924-eafd-5366-82db-7f41ceaf6e82"
+}
+
+"DmeModel"
+{
+	"id" "elementid" "fe3af924-eafd-5366-82db-7f41ceaf6e82"
+	"name" "string" "combo"
+	"children" "element_array" 
+	[
+		"element" "7638241c-ba65-5874-9627-b5912eabf5e5"
+	]
+	"baseStates" "element_array" 
+	[
+		"DmeTransformList"
+		{
+			"id" "elementid" "e7b476cc-1b57-5098-8a31-5e58b531da89"
+			"name" "string" "base"
+			"transforms" "element_array" 
+			[
+				"DmeTransform"
+				{
+					"id" "elementid" "d8b86db9-4fef-5097-87f1-d8240b9c9fae"
+					"name" "string" "root"
+					"position" "vector3" "0 0 0"
+					"orientation" "quaternion" "0 0 0 1"
+				}
+			]
+		}
+	]
+	"transform" "DmeTransform"
+	{
+		"id" "elementid" "e5422895-ca62-5ea7-9184-f846615dd243"
+		"name" "string" ""
+		"position" "vector3" "0 0 0"
+		"orientation" "quaternion" "0 0 0 1"
+	}
+	
+	"jointList" "element_array" 
+	[
+		"element" "7638241c-ba65-5874-9627-b5912eabf5e5"
+	]
+}
+
+"DmeDag"
+{
+	"id" "elementid" "7638241c-ba65-5874-9627-b5912eabf5e5"
+	"name" "string" "root"
+	"shape" "element" "2752dd29-7a1a-50ea-89ef-3747ffef98fd"
+	"transform" "DmeTransform"
+	{
+		"id" "elementid" "23ac5b96-06ff-5422-9a55-08cd7c36f332"
+		"name" "string" "root"
+		"position" "vector3" "0 0 0"
+		"orientation" "quaternion" "0 0 0 1"
+	}
+	
+}
+
+"DmeMesh"
+{
+	"id" "elementid" "2752dd29-7a1a-50ea-89ef-3747ffef98fd"
+	"name" "string" "combo"
+	"visible" "bool" "1"
+	"bindState" "element" "1ff1f638-9698-5538-b305-9a8e8cc31c80"
+	"currentState" "element" "1ff1f638-9698-5538-b305-9a8e8cc31c80"
+	"baseStates" "element_array" 
+	[
+		"element" "1ff1f638-9698-5538-b305-9a8e8cc31c80"
+	]
+	"faceSets" "element_array" 
+	[
+		"DmeFaceSet"
+		{
+			"id" "elementid" "2299767b-fc0c-5e8d-acf2-fc4f40244487"
+			"name" "string" "combo_mat"
+			"material" "DmeMaterial"
+			{
+				"id" "elementid" "37ec9684-5241-5843-af1e-dbc64cb23b0c"
+				"name" "string" "combo_mat"
+				"mtlName" "string" "combo_mat"
+			}
+			
+			"faces" "int_array" 
+			[
+				"0",
+				"1",
+				"2",
+				"-1",
+				"3",
+				"4",
+				"5",
+				"-1",
+				"6",
+				"7",
+				"8",
+				"-1",
+				"9",
+				"10",
+				"11",
+				"-1",
+				"12",
+				"13",
+				"14",
+				"-1",
+				"15",
+				"16",
+				"17",
+				"-1",
+				"18",
+				"19",
+				"20",
+				"-1",
+				"21",
+				"22",
+				"23",
+				"-1",
+				"24",
+				"25",
+				"26",
+				"-1",
+				"27",
+				"28",
+				"29",
+				"-1"
+			]
+		}
+	]
+	"deltaStates" "element_array" 
+	[
+		"DmeVertexDeltaData"
+		{
+			"id" "elementid" "7feabaf6-22bc-5f4d-b6aa-df4ab68b75ae"
+			"name" "string" "browDown"
+			"vertexFormat" "string_array" 
+			[
+				"positions"
+			]
+			"positions" "vector3_array" 
+			[
+				"0.000000 0.000000 -0.500000",
+				"0.000000 0.000000 -0.500000",
+				"0.000000 0.000000 -0.500000",
+				"0.000000 0.000000 -0.500000",
+				"0.000000 0.000000 -0.500000",
+				"0.000000 0.000000 -0.500000"
+			]
+			"positionsIndices" "int_array" 
+			[
+				"1",
+				"3",
+				"5",
+				"7",
+				"9",
+				"11"
+			]
+		},
+		"DmeVertexDeltaData"
+		{
+			"id" "elementid" "0aa44000-0097-5af4-936b-0263ca7a9c93"
+			"name" "string" "browUp"
+			"vertexFormat" "string_array" 
+			[
+				"positions"
+			]
+			"positions" "vector3_array" 
+			[
+				"0.000000 0.000000 1.000000",
+				"0.000000 0.000000 1.000000",
+				"0.000000 0.000000 1.000000",
+				"0.000000 0.000000 1.000000",
+				"0.000000 0.000000 1.000000",
+				"0.000000 0.000000 1.000000"
+			]
+			"positionsIndices" "int_array" 
+			[
+				"1",
+				"3",
+				"5",
+				"7",
+				"9",
+				"11"
+			]
+		},
+		"DmeVertexDeltaData"
+		{
+			"id" "elementid" "d535aa5d-a8cb-5e3b-aeba-df53efb45e76"
+			"name" "string" "smile"
+			"vertexFormat" "string_array" 
+			[
+				"positions"
+			]
+			"positions" "vector3_array" 
+			[
+				"-0.500000 0.000000 0.250000",
+				"-0.500000 0.000000 0.250000",
+				"0.500000 0.000000 0.250000",
+				"0.500000 0.000000 0.250000"
+			]
+			"positionsIndices" "int_array" 
+			[
+				"0",
+				"1",
+				"10",
+				"11"
+			]
+		},
+		"DmeVertexDeltaData"
+		{
+			"id" "elementid" "a71a00ae-6c13-55fa-a2a4-2043a9b896e4"
+			"name" "string" "jaw"
+			"vertexFormat" "string_array" 
+			[
+				"positions"
+			]
+			"positions" "vector3_array" 
+			[
+				"0.000000 -1.000000 0.000000",
+				"0.000000 -1.000000 0.000000",
+				"0.000000 -1.000000 0.000000",
+				"0.000000 -1.000000 0.000000",
+				"0.000000 -1.000000 0.000000",
+				"0.000000 -1.000000 0.000000"
+			]
+			"positionsIndices" "int_array" 
+			[
+				"0",
+				"2",
+				"4",
+				"6",
+				"8",
+				"10"
+			]
+		},
+		"DmeVertexDeltaData"
+		{
+			"id" "elementid" "e320cccf-c754-5f30-b069-5eb0bf3dd862"
+			"name" "string" "oo"
+			"vertexFormat" "string_array" 
+			[
+				"positions"
+			]
+			"positions" "vector3_array" 
+			[
+				"0.000000 0.000000 0.500000",
+				"0.000000 0.000000 0.500000",
+				"0.000000 0.000000 0.500000",
+				"0.000000 0.000000 0.500000"
+			]
+			"positionsIndices" "int_array" 
+			[
+				"4",
+				"5",
+				"6",
+				"7"
+			]
+		},
+		"DmeVertexDeltaData"
+		{
+			"id" "elementid" "9a898121-e3d7-5106-ba02-9f695f120062"
+			"name" "string" "ee"
+			"vertexFormat" "string_array" 
+			[
+				"positions"
+			]
+			"positions" "vector3_array" 
+			[
+				"0.250000 0.000000 0.000000",
+				"-0.250000 0.000000 0.000000"
+			]
+			"positionsIndices" "int_array" 
+			[
+				"4",
+				"6"
+			]
+		},
+		"DmeVertexDeltaData"
+		{
+			"id" "elementid" "87158f25-1abf-5ac5-a7ed-b626ead4de71"
+			"name" "string" "aa"
+			"vertexFormat" "string_array" 
+			[
+				"positions"
+			]
+			"positions" "vector3_array" 
+			[
+				"0.000000 -0.250000 0.000000",
+				"0.000000 -0.250000 0.000000"
+			]
+			"positionsIndices" "int_array" 
+			[
+				"5",
+				"7"
+			]
+		},
+		"DmeVertexDeltaData"
+		{
+			"id" "elementid" "7109acb1-9a9f-50be-8f0c-4beb5ce21d3e"
+			"name" "string" "lowLid"
+			"vertexFormat" "string_array" 
+			[
+				"positions"
+			]
+			"positions" "vector3_array" 
+			[
+				"0.000000 0.000000 0.250000",
+				"0.000000 0.000000 0.250000"
+			]
+			"positionsIndices" "int_array" 
+			[
+				"2",
+				"4"
+			]
+		},
+		"DmeVertexDeltaData"
+		{
+			"id" "elementid" "b939f80e-fc5d-541f-a939-a5a07980d02a"
+			"name" "string" "upLid"
+			"vertexFormat" "string_array" 
+			[
+				"positions"
+			]
+			"positions" "vector3_array" 
+			[
+				"0.000000 0.000000 -0.250000",
+				"0.000000 0.000000 -0.250000"
+			]
+			"positionsIndices" "int_array" 
+			[
+				"3",
+				"5"
+			]
+		},
+		"DmeVertexDeltaData"
+		{
+			"id" "elementid" "748f9b5f-9663-5e8a-a672-c5374be85f6d"
+			"name" "string" "smile_jaw"
+			"vertexFormat" "string_array" 
+			[
+				"positions"
+			]
+			"positions" "vector3_array" 
+			[
+				"0.250000 0.000000 0.000000",
+				"-0.250000 0.000000 0.000000"
+			]
+			"positionsIndices" "int_array" 
+			[
+				"0",
+				"10"
+			]
+		},
+		"DmeVertexDeltaData"
+		{
+			"id" "elementid" "3b7178e0-11d6-5cf4-8317-7f6881d65353"
+			"name" "string" "browUp_smile"
+			"vertexFormat" "string_array" 
+			[
+				"positions"
+			]
+			"positions" "vector3_array" 
+			[
+				"0.000000 0.250000 0.250000",
+				"0.000000 0.250000 0.250000"
+			]
+			"positionsIndices" "int_array" 
+			[
+				"1",
+				"11"
+			]
+		}
+	]
+	"deltaStateWeights" "vector2_array" 
+	[
+		"0 0",
+		"0 0",
+		"0 0",
+		"0 0",
+		"0 0",
+		"0 0",
+		"0 0",
+		"0 0",
+		"0 0",
+		"0 0",
+		"0 0"
+	]
+	"deltaStateWeightsLagged" "vector2_array" 
+	[
+		"0 0",
+		"0 0",
+		"0 0",
+		"0 0",
+		"0 0",
+		"0 0",
+		"0 0",
+		"0 0",
+		"0 0",
+		"0 0",
+		"0 0"
+	]
+}
+
+"DmeVertexData"
+{
+	"id" "elementid" "1ff1f638-9698-5538-b305-9a8e8cc31c80"
+	"name" "string" "bind"
+	"vertexFormat" "string_array" 
+	[
+		"positions",
+		"normals",
+		"textureCoordinates",
+		"balance"
+	]
+	"flipVCoordinates" "bool" "1"
+	"jointCount" "int" "0"
+	"positions" "vector3_array" 
+	[
+		"0.000000 0.000000 0.000000",
+		"0.000000 2.000000 0.000000",
+		"2.000000 0.000000 0.000000",
+		"2.000000 2.000000 0.000000",
+		"4.000000 0.000000 0.000000",
+		"4.000000 2.000000 0.000000",
+		"6.000000 0.000000 0.000000",
+		"6.000000 2.000000 0.000000",
+		"8.000000 0.000000 0.000000",
+		"8.000000 2.000000 0.000000",
+		"10.000000 0.000000 0.000000",
+		"10.000000 2.000000 0.000000"
+	]
+	"positionsIndices" "int_array" 
+	[
+		"0",
+		"2",
+		"1",
+		"1",
+		"2",
+		"3",
+		"2",
+		"4",
+		"3",
+		"3",
+		"4",
+		"5",
+		"4",
+		"6",
+		"5",
+		"5",
+		"6",
+		"7",
+		"6",
+		"8",
+		"7",
+		"7",
+		"8",
+		"9",
+		"8",
+		"10",
+		"9",
+		"9",
+		"10",
+		"11"
+	]
+	"normals" "vector3_array" 
+	[
+		"0 0 1"
+	]
+	"normalsIndices" "int_array" 
+	[
+		"0",
+		"0",
+		"0",
+		"0",
+		"0",
+		"0",
+		"0",
+		"0",
+		"0",
+		"0",
+		"0",
+		"0",
+		"0",
+		"0",
+		"0",
+		"0",
+		"0",
+		"0",
+		"0",
+		"0",
+		"0",
+		"0",
+		"0",
+		"0",
+		"0",
+		"0",
+		"0",
+		"0",
+		"0",
+		"0"
+	]
+	"textureCoordinates" "vector2_array" 
+	[
+		"0.000000 0.000000",
+		"0.000000 0.500000",
+		"0.125000 0.000000",
+		"0.125000 0.500000",
+		"0.250000 0.000000",
+		"0.250000 0.500000",
+		"0.375000 0.000000",
+		"0.375000 0.500000",
+		"0.500000 0.000000",
+		"0.500000 0.500000",
+		"0.625000 0.000000",
+		"0.625000 0.500000"
+	]
+	"textureCoordinatesIndices" "int_array" 
+	[
+		"0",
+		"2",
+		"1",
+		"1",
+		"2",
+		"3",
+		"2",
+		"4",
+		"3",
+		"3",
+		"4",
+		"5",
+		"4",
+		"6",
+		"5",
+		"5",
+		"6",
+		"7",
+		"6",
+		"8",
+		"7",
+		"7",
+		"8",
+		"9",
+		"8",
+		"10",
+		"9",
+		"9",
+		"10",
+		"11"
+	]
+	"balance" "float_array" 
+	[
+		"0.000000",
+		"0.000000",
+		"0.125000",
+		"0.125000",
+		"0.250000",
+		"0.250000",
+		"0.750000",
+		"0.750000",
+		"0.875000",
+		"0.875000",
+		"1.000000",
+		"1.000000"
+	]
+	"balanceIndices" "int_array" 
+	[
+		"0",
+		"2",
+		"1",
+		"1",
+		"2",
+		"3",
+		"2",
+		"4",
+		"3",
+		"3",
+		"4",
+		"5",
+		"4",
+		"6",
+		"5",
+		"5",
+		"6",
+		"7",
+		"6",
+		"8",
+		"7",
+		"7",
+		"8",
+		"9",
+		"8",
+		"10",
+		"9",
+		"9",
+		"10",
+		"11"
+	]
+}
+
+"DmeFlexRules"
+{
+	"id" "elementid" "fe619cc6-8f06-563a-b7f0-f97301be5060"
+	"name" "string" "flexRules"
+	"deltaStates" "element_array" 
+	[
+		"DmeFlexRuleLocalVar"
+		{
+			"id" "elementid" "6b640418-03c0-5f2f-a233-60a6213fafbc"
+			"name" "string" "amount"
+			"result" "float" "0"
+		},
+		"DmeFlexRuleExpression"
+		{
+			"id" "elementid" "8ded6337-9bc4-55f4-8b6e-983581117986"
+			"name" "string" "amount"
+			"result" "float" "0"
+			"expr" "string" "smile * 0.5 + 0.25"
+		},
+		"DmeFlexRuleExpression"
+		{
+			"id" "elementid" "385ae2da-229d-595f-956b-9ce5a4cd5e39"
+			"name" "string" "smileR"
+			"result" "float" "0"
+			"expr" "string" "smile"
+		},
+		"DmeFlexRuleExpression"
+		{
+			"id" "elementid" "2db11258-b07e-53c0-8d95-949b331b8eb6"
+			"name" "string" "smileL"
+			"result" "float" "0"
+			"expr" "string" "smile * 0.5 + %amount * 0.5"
+		},
+		"DmeFlexRulePassThrough"
+		{
+			"id" "elementid" "3db2eb66-4dbf-599c-88bd-4610a576f88a"
+			"name" "string" "jaw"
+			"result" "float" "0"
+		},
+		"DmeFlexRuleExpression"
+		{
+			"id" "elementid" "16c08b3a-1087-534e-9b65-31293f8b8c25"
+			"name" "string" "browUp"
+			"result" "float" "0"
+			"expr" "string" "max(brow, 0)"
+		},
+		"DmeFlexRuleExpression"
+		{
+			"id" "elementid" "d486bcbe-5ae7-57c0-bbcd-8acd62c532ab"
+			"name" "string" "browDown"
+			"result" "float" "0"
+			"expr" "string" "max(-brow, 0)"
+		}
+	]
+	"deltaStateWeights" "vector2_array" 
+	[
+		"0 0",
+		"0 0",
+		"0 0",
+		"0 0",
+		"0 0",
+		"0 0",
+		"0 0"
+	]
+}
