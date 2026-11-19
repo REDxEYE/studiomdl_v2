@@ -3638,8 +3638,8 @@ inline int Studio_LoadVertexes(const vertexFileHeader_t *pTempVvdHdr, vertexFile
         }
 
         // copy vertexes
-        memcpy(
-            (mstudiovertex_t *) ((uint8_t *) pNewVvdHdr + pNewVvdHdr->vertexDataStart) + target,
+        memcpy( // byte copy of plain data (void * destination: these types only lack trivial copy by declaration)
+            static_cast<void *>((mstudiovertex_t *) ((uint8_t *) pNewVvdHdr + pNewVvdHdr->vertexDataStart) + target),
             (mstudiovertex_t *) ((uint8_t *) pTempVvdHdr + pTempVvdHdr->vertexDataStart) + pFixupTable[i].
             sourceVertexID,
             pFixupTable[i].numVertexes * sizeof(mstudiovertex_t));
@@ -3647,7 +3647,7 @@ inline int Studio_LoadVertexes(const vertexFileHeader_t *pTempVvdHdr, vertexFile
         if (bNeedsTangentS) {
             // copy tangents
             memcpy(
-                (Vector4D *) ((uint8_t *) pNewVvdHdr + pNewVvdHdr->tangentDataStart) + target,
+                static_cast<void *>((Vector4D *) ((uint8_t *) pNewVvdHdr + pNewVvdHdr->tangentDataStart) + target),
                 (Vector4D *) ((uint8_t *) pTempVvdHdr + pTempVvdHdr->tangentDataStart) + pFixupTable[i].sourceVertexID,
                 pFixupTable[i].numVertexes * sizeof(Vector4D));
         }

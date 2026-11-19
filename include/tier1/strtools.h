@@ -14,6 +14,7 @@
 #include "color.h"
 
 #include <cctype>
+#include <cinttypes>
 #if POSIX
 #include <cmath>
 #include <cwctype>
@@ -1117,8 +1118,9 @@ DECLARE_POD_TYPE_PARSE_SMALLINT(uint16_t, "%u", 7, uint32_t);
 DECLARE_POD_TYPE_PARSE(int32_t, "%d", 12); //MIN_INT
 DECLARE_POD_TYPE_PARSE(uint32_t, "%u", 12); //UINT_MAX
 
-DECLARE_POD_TYPE_PARSE(int64_t, "%lld", 21); // 18446744073709551615  -9223372036854775808
-DECLARE_POD_TYPE_PARSE(uint64_t, "%llu", 21);
+// int64_t is long on LP64 Linux/macOS and long long on Windows: the <cinttypes> macros match it everywhere
+DECLARE_POD_TYPE_PARSE_BASE(int64_t, "%" PRId64, 21, { return ( sscanf( pString, "%" SCNd64, pValue ) == 1 ); }); // 18446744073709551615  -9223372036854775808
+DECLARE_POD_TYPE_PARSE_BASE(uint64_t, "%" PRIu64, 21, { return ( sscanf( pString, "%" SCNu64, pValue ) == 1 ); });
 
 DECLARE_POD_TYPE_PARSE(float32, "%f", 48); // -FLT32_MAX
 DECLARE_POD_TYPE_PARSE(float64, "%lf", 318); // -FLOAT64_MAX (it's got a lot of zeros)
