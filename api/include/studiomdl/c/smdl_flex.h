@@ -153,6 +153,89 @@ SMDL_API smdl_status smdl_mesh_add_sphere_normals(smdl_mesh *mesh, const char *m
  * defined before it is applied (mesh calls run before the model's controllers). */
 SMDL_API smdl_status smdl_mesh_set_no_auto_dmx_rules(smdl_mesh *mesh, int enabled);
 
+/* ---------------------------------------------------------------------------------------------------------------
+ * DMX combination operator (the DmeCombinationOperator of a DMX model file) and flex rules of a mesh
+ *
+ * What the DMX loader builds from the delta states of the mesh and the combination operator, built from the shapes of
+ * the mesh's geometry (smdl_shapes.h): the first call below gives the mesh a combination operator. The compile then
+ * does exactly what loading a DMX file with the same data does, before any other option of the mesh is applied:
+ *   - every shape of the geometry is a delta state: a flex named like the shape, `<name>R` and `<name>L` when the
+ *     shape involves a stereo raw control (see below). The shapes are new-style vertex animations of the mesh's source,
+ *     weighted left/right by the geometry's balance (smdl_geometry_set_balance);
+ *   - a control is a flex controller `name`, driven by one or more raw controls: 1 raw control = slider 0..1, 2 =
+ *     slider -1..1 (the first raw control is the negative side), 3 or more = an n-way slider -1..1 plus a
+ *     `multi_<name>` controller; stereo controls make `right_<name>` and `left_<name>` instead of `<name>`;
+ *   - a shape named `a_b_c` is the corrective shape of the combination of the raw controls a, b and c (matched
+ *     case-insensitively): its flex follows the product of them. A single raw control's name makes a plain flex.
+ *     A shape whose name has a part that is no raw control gets no rule (the flex exists, nothing drives it);
+ *   - a domination rule {dominators} / {suppressed} is given to the DMX tools' combination logic as is: the compiled
+ *     rule of a combined shape gets a domination operation over the dominators' values (see
+ *     CDmeCombinationOperator::FindDominators in libs/movieobjects, whose selection of the affected shapes is the DMX
+ *     loader's and is reused unchanged);
+ *   - the flex rules of these flexes are the ones the DMX loader generates for the controls (they are not generated
+ *     with smdl_mesh_set_no_auto_dmx_rules), and the controllers are added in the order of the controls, before the
+ *     controllers of the model-wide parts.
+ * Raw control and control names must be unique (case-insensitive), a raw control belongs to one control. The flexes of
+ * a combination are not in the model's flex list (smdl_model_find_flex) and have no ids: name them in expressions.
+ * Wrinkle scales of the DMX controls are not supported; give the shapes wrinkle values (smdl_geometry_set_shape_wrinkle).
+ *
+ * "Advanced flex" (DmeFlexRules, the DMX route's flex rule text): as soon as one of the smdl_mesh_add_combination_
+ * expression / _pass_through / _local_var calls is made, the combination operator targets flex rules instead of
+ * the corrective shapes, exactly like the DMX loader: the controls only add their flex controllers (range from
+ * smdl_mesh_set_combination_control_range, default 0..1, type "default"; stereo, eyelid, raw controls, dominators
+ * and corrective shape names are not used for rules), then each rule in call order defines its flex (a pass-through
+ * `x` reads the controller `x`) and parses its expression with the rules' parser (names resolve against the flexes
+ * and controllers defined before: controllers of all controls and rules before it, flexes of earlier meshes and
+ * rules). The shapes still become flexes (stereo-ness decided by the controls) after that.
+ * ------------------------------------------------------------------------------------------------------------- */
+
+/* A control with `raw_control_count` raw controls (>= 1, none empty). The calls need no shapes yet. out_control (may
+ * be NULL) is the index of the control in this mesh. SMDL_ERROR_DUPLICATE_NAME for a name or raw control used
+ * already, SMDL_ERROR_LIMIT for names of 122 characters or more. */
+SMDL_API smdl_status smdl_mesh_add_combination_control(smdl_mesh *mesh, const char *name,
+                                                       const char *const *raw_controls, size_t raw_control_count,
+                                                       int stereo, uint32_t *out_control);
+
+/* Makes the control an eyelid control (needs exactly two raw controls: the lower lid's, then the upper lid's); the
+ * controllers `blink` and `multi_<name>` are added and the flex controller `eyes_up_down_flex` (NULL or "" =
+ * "eyes_updown") makes the lids follow the eyes. */
+SMDL_API smdl_status smdl_mesh_set_combination_control_eyelid(smdl_mesh *mesh, uint32_t control,
+                                                              const char *eyes_up_down_flex);
+
+/* The range of the control's flex controller (DMX flexMin / flexMax, default 0..1). Only used by "advanced flex"
+ * (see above); the other controllers get their range from the number of raw controls. */
+SMDL_API smdl_status smdl_mesh_set_combination_control_range(smdl_mesh *mesh, uint32_t control, float min, float max);
+
+/* A domination rule: both lists name raw controls (checked by the compile) and must not be empty. */
+SMDL_API smdl_status smdl_mesh_add_combination_dominator(smdl_mesh *mesh, const char *const *dominators,
+                                                         size_t dominator_count, const char *const *suppressed,
+                                                         size_t suppressed_count);
+
+/* Flex rules of "advanced flex". The expression is the right-hand side of a QC `%flex = <expression>` (see the
+ * header comment): SMDL_ERROR_SYNTAX for a malformed one (names are resolved by the compile),
+ * SMDL_ERROR_DUPLICATE_NAME for a flex that has a rule (or a local variable) in this mesh already; a local variable and
+ * the expression that gives it its value may share a name. */
+SMDL_API smdl_status smdl_mesh_add_combination_expression(smdl_mesh *mesh, const char *flex, const char *expression);
+/* The flex's rule is the controller of the same name. */
+SMDL_API smdl_status smdl_mesh_add_combination_pass_through(smdl_mesh *mesh, const char *flex);
+/* A flex without vertex data (`localvar`). */
+SMDL_API smdl_status smdl_mesh_add_combination_local_var(smdl_mesh *mesh, const char *name);
+
+/* ---------------------------------------------------------------------------------------------------------------
+ * Vertex cache animation (`$model` option `vcafile`)
+ * ------------------------------------------------------------------------------------------------------------- */
+
+/* `vcafile <vta>`: the shapes (indices of the mesh geometry's shapes, strided like the other arrays; at least one) are
+ * the frames 1, 2, ... of a vertex cache animation whose frame 0 is the base pose. The compile makes the flexes `default`
+ * (the base pose) and `f0`, `f1`, ... (one per shape), one n-way flex controller `name` (range -1..1, with its
+ * `multi_<name>` controller; the QC takes the name from the VTA file's base name) that plays the frames as it
+ * goes from -1 to 1, and the rule of every frame flex: a vertex animation driven by one slider. Like the QC option it
+ * must be the only flex option of the model: SMDL_ERROR_INVALID_ARGUMENT when the mesh has any other flex item or
+ * combination, or already has a vertex cache animation; the compile reports flexes of other meshes. The shapes
+ * must be listed in the order of the frames. */
+SMDL_API smdl_status smdl_mesh_add_vertex_cache_animation(smdl_mesh *mesh, const char *name, const uint32_t *shapes,
+                                                          size_t shape_count, size_t shapes_stride_bytes);
+
 #ifdef __cplusplus
 }
 #endif

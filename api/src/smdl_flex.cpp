@@ -56,7 +56,7 @@ namespace {
     }
 
     // Defines every name (the model's flex list) unless that would pass the limit; nothing is defined on failure
-    smdl_status DefineFlexNames(smdl_model &model, std::initializer_list<std::string> names, uint32_t *firstId = nullptr) {
+    smdl_status DefineFlexNameList(smdl_model &model, const std::vector<std::string> &names, uint32_t *firstId = nullptr) {
         FlexDesc &flex = model.flex;
         size_t added = 0;
         for (const std::string &name: names) {
@@ -75,6 +75,10 @@ namespace {
         return SMDL_OK;
     }
 
+    smdl_status DefineFlexNames(smdl_model &model, std::initializer_list<std::string> names, uint32_t *firstId = nullptr) {
+        return DefineFlexNameList(model, std::vector<std::string>(names), firstId);
+    }
+
     MeshFlexDesc &MeshOf(smdl_mesh &mesh) { return mesh.model->flex.meshes[&mesh]; }
 
     // Flex keys the mesh items will add (the compile checks the exact limit again)
@@ -82,6 +86,10 @@ namespace {
         size_t total = newKeys;
         for (const auto &[mesh, desc]: model.flex.meshes) {
             total += desc.flexKeys.size() + 3 * desc.eyelids.size() + 3 * desc.dmxEyelids.size();
+            for (const VertexCacheDesc &cache: desc.vertexCaches)
+                total += cache.frames.size() + 1;
+            if (desc.combination)
+                total += mesh->geometry->shapes.size();
         }
         if (total > MAXSTUDIOFLEXKEYS)
             return Fail(&model, SMDL_ERROR_LIMIT, "too many flex keys (at most {})", MAXSTUDIOFLEXKEYS);
@@ -188,6 +196,89 @@ namespace {
                 *out_left = static_cast<smdl_flex_id>(model->flex.findFlex(key.name + "L"));
             return Ok(model);
         });
+    }
+
+    // ---- combination operator / vertex cache animation ----
+
+    // A control makes controllers named `right_<name>`, `left_<name>`, `multi_<name>`: they must fit too
+    constexpr size_t kControllerPrefix = 6;
+
+    smdl_status ReadNames(const smdl_model &model, std::span<const std::string_view> names, const char *what,
+                          std::vector<std::string> &out) {
+        for (const std::string_view view: names) {
+            const std::string name(view);
+            if (const auto status = CheckName(model, name.c_str(), what))
+                return status;
+            out.push_back(name);
+        }
+        return SMDL_OK;
+    }
+
+    // A vertex cache animation excludes the other flex keys of its model (Option_VertexCacheAnimationFile); the
+    // combination operator and the vertex cache animation of a mesh exclude each other
+    smdl_status CheckNoVertexCache(const smdl_model &model, const smdl_mesh &mesh, const MeshFlexDesc &desc,
+                                   const char *what) {
+        if (!desc.vertexCaches.empty())
+            return Fail(&model, SMDL_ERROR_INVALID_ARGUMENT,
+                        "mesh '{}': {}: the mesh has a vertex cache animation, which must be its only flex option",
+                        mesh.name, what);
+        return SMDL_OK;
+    }
+
+    CombinationDesc &CombinationOf(MeshFlexDesc &desc) {
+        if (!desc.combination)
+            desc.combination.emplace();
+        return *desc.combination;
+    }
+
+    // Index of the control with this name or using this raw control; -1 = none
+    int FindControl(const CombinationDesc &combination, std::string_view name) {
+        for (size_t i = 0; i < combination.controls.size(); ++i) {
+            if (IEquals(combination.controls[i].name, name))
+                return static_cast<int>(i);
+        }
+        return -1;
+    }
+
+    int FindRawControl(const CombinationDesc &combination, std::string_view name) {
+        for (size_t i = 0; i < combination.controls.size(); ++i) {
+            for (const std::string &raw: combination.controls[i].rawControls) {
+                if (IEquals(raw, name))
+                    return static_cast<int>(i);
+            }
+        }
+        return -1;
+    }
+
+    smdl_status AddCombinationRule(smdl_mesh *mesh, CombinationFlexRuleDesc::Kind kind, const char *flex,
+                                   const char *expression, const char *what) {
+        smdl_model *model = mesh->model;
+        if (const auto status = CheckName(*model, flex, "combination flex name"))
+            return status;
+        MeshFlexDesc &desc = MeshOf(*mesh);
+        if (const auto status = CheckNoVertexCache(*model, *mesh, desc, what))
+            return status;
+        if (desc.combination) {
+            for (const CombinationFlexRuleDesc &rule: desc.combination->rules) {
+                // a local variable and the rule that gives it its value are two entries of one name
+                const bool sameCategory = (rule.kind == CombinationFlexRuleDesc::Kind::LocalVar) ==
+                                          (kind == CombinationFlexRuleDesc::Kind::LocalVar);
+                if (sameCategory && IEquals(rule.flex, flex))
+                    return Fail(model, SMDL_ERROR_DUPLICATE_NAME,
+                                "mesh '{}': combination flex '{}' has a {} already", mesh->name, flex,
+                                kind == CombinationFlexRuleDesc::Kind::LocalVar ? "local variable" : "rule");
+            }
+        }
+        if (kind == CombinationFlexRuleDesc::Kind::Expression) {
+            if (!expression)
+                return Fail(model, SMDL_ERROR_INVALID_ARGUMENT, "mesh '{}': flex rule for '{}': expression is null",
+                            mesh->name, flex);
+            const FlexRuleCheck check = CheckFlexRuleSyntax(flex, expression);
+            if (check.status != SMDL_OK)
+                return Fail(model, check.status, "mesh '{}': {}", mesh->name, check.message);
+        }
+        CombinationOf(desc).rules.push_back({kind, flex, expression ? expression : ""});
+        return Ok(model);
     }
 }
 
@@ -669,6 +760,196 @@ void MeshFlexApi::setNoAutoDmxRules(bool enabled) const {
     });
 }
 
+// ---------------------------------------------------------------------------------------------------------------
+// DMX combination operator, flex rules, vertex cache animation
+// ---------------------------------------------------------------------------------------------------------------
+CombinationControlId MeshFlexApi::addCombinationControl(std::string_view nameView,
+                                                        std::span<const std::string_view> rawControls,
+                                                        bool stereo) const {
+    const std::string name(nameView);
+    smdl_mesh *mesh = this->mesh();
+    smdl_model *model = mesh->model;
+    uint32_t result = SMDL_NO_ID;
+    RunBody(model, [&] {
+        if (const auto status = CheckName(*model, name.c_str(), "combination control name"))
+            return status;
+        if (name.size() + kControllerPrefix >= MAXSTUDIONAME)
+            return Fail(model, SMDL_ERROR_LIMIT, "combination control name '{}' is too long (at most {} characters)", name,
+                        MAXSTUDIONAME - kControllerPrefix - 1);
+        if (rawControls.empty())
+            return Fail(model, SMDL_ERROR_INVALID_ARGUMENT, "mesh '{}': combination control '{}' has no raw controls",
+                        mesh->name, name);
+        std::vector<std::string> raws;
+        if (const auto status = ReadNames(*model, rawControls, "raw control name", raws))
+            return status;
+        for (size_t i = 0; i < raws.size(); ++i) {
+            for (size_t j = 0; j < i; ++j) {
+                if (IEquals(raws[i], raws[j]))
+                    return Fail(model, SMDL_ERROR_DUPLICATE_NAME, "mesh '{}': combination control '{}': raw control '{}' is listed twice",
+                                mesh->name, name, raws[i]);
+            }
+        }
+        MeshFlexDesc &desc = MeshOf(*mesh);
+        if (const auto status = CheckNoVertexCache(*model, *mesh, desc, "combination control"))
+            return status;
+        if (desc.combination) {
+            if (FindControl(*desc.combination, name) >= 0)
+                return Fail(model, SMDL_ERROR_DUPLICATE_NAME, "mesh '{}': combination control '{}' exists already",
+                            mesh->name, name);
+            for (const std::string &raw: raws) {
+                if (const int owner = FindRawControl(*desc.combination, raw); owner >= 0)
+                    return Fail(model, SMDL_ERROR_DUPLICATE_NAME,
+                                "mesh '{}': raw control '{}' belongs to combination control '{}' already", mesh->name,
+                                raw, desc.combination->controls[owner].name);
+            }
+        }
+        CombinationDesc &combination = CombinationOf(desc);
+        CombinationControlDesc control;
+        control.name = name;
+        control.rawControls = std::move(raws);
+        control.stereo = stereo;
+        combination.controls.push_back(std::move(control));
+        result = static_cast<uint32_t>(combination.controls.size() - 1);
+        return Ok(model);
+    });
+    return result;
+}
+
+void MeshFlexApi::setCombinationControlEyelid(CombinationControlId control, std::string_view eyesUpDownFlex) const {
+    const std::string flex(eyesUpDownFlex);
+    smdl_mesh *mesh = this->mesh();
+    smdl_model *model = mesh->model;
+    RunBody(model, [&] {
+        MeshFlexDesc &desc = MeshOf(*mesh);
+        CombinationControlDesc *desc_control = desc.combination ? At(desc.combination->controls, control) : nullptr;
+        if (!desc_control)
+            return Fail(model, SMDL_ERROR_OUT_OF_RANGE, "mesh '{}': combination control {} does not exist", mesh->name,
+                        control);
+        if (desc_control->rawControls.size() != 2)
+            return Fail(model, SMDL_ERROR_INVALID_ARGUMENT,
+                        "mesh '{}': combination control '{}': an eyelid control has two raw controls (lower lid, upper lid), not {}",
+                        mesh->name, desc_control->name, desc_control->rawControls.size());
+        if (!flex.empty()) {
+            if (const auto status = CheckName(*model, flex.c_str(), "eyes up/down flex controller name"))
+                return status;
+        }
+        desc_control->eyelid = true;
+        desc_control->eyesUpDownFlex = flex;
+        return Ok(model);
+    });
+}
+
+void MeshFlexApi::setCombinationControlRange(CombinationControlId control, float min, float max) const {
+    smdl_mesh *mesh = this->mesh();
+    smdl_model *model = mesh->model;
+    RunBody(model, [&] {
+        MeshFlexDesc &desc = MeshOf(*mesh);
+        CombinationControlDesc *desc_control = desc.combination ? At(desc.combination->controls, control) : nullptr;
+        if (!desc_control)
+            return Fail(model, SMDL_ERROR_OUT_OF_RANGE, "mesh '{}': combination control {} does not exist", mesh->name,
+                        control);
+        if (!std::isfinite(min) || !std::isfinite(max))
+            return Fail(model, SMDL_ERROR_INVALID_ARGUMENT, "mesh '{}': combination control '{}': range is not finite",
+                        mesh->name, desc_control->name);
+        desc_control->hasRange = true;
+        desc_control->min = min;
+        desc_control->max = max;
+        return Ok(model);
+    });
+}
+
+void MeshFlexApi::addCombinationDominator(std::span<const std::string_view> dominators,
+                                          std::span<const std::string_view> suppressed) const {
+    smdl_mesh *mesh = this->mesh();
+    smdl_model *model = mesh->model;
+    RunBody(model, [&] {
+        if (dominators.empty() || suppressed.empty())
+            return Fail(model, SMDL_ERROR_INVALID_ARGUMENT,
+                        "mesh '{}': combination dominator rule needs dominators and suppressed raw controls", mesh->name);
+        CombinationDominatorDesc rule;
+        if (const auto status = ReadNames(*model, dominators, "dominator raw control name", rule.dominators))
+            return status;
+        if (const auto status = ReadNames(*model, suppressed, "suppressed raw control name", rule.suppressed))
+            return status;
+        MeshFlexDesc &desc = MeshOf(*mesh);
+        if (const auto status = CheckNoVertexCache(*model, *mesh, desc, "combination dominator"))
+            return status;
+        CombinationOf(desc).dominators.push_back(std::move(rule));
+        return Ok(model);
+    });
+}
+
+void MeshFlexApi::addCombinationExpression(std::string_view flexView, std::string_view expressionView) const {
+    const std::string flex(flexView);
+    const std::string expression(expressionView);
+    smdl_mesh *mesh = this->mesh();
+    RunBody(mesh->model, [&] {
+        return AddCombinationRule(mesh, CombinationFlexRuleDesc::Kind::Expression, flex.c_str(), expression.c_str(),
+                                  "combination expression");
+    });
+}
+
+void MeshFlexApi::addCombinationPassThrough(std::string_view flexView) const {
+    const std::string flex(flexView);
+    smdl_mesh *mesh = this->mesh();
+    RunBody(mesh->model, [&] {
+        return AddCombinationRule(mesh, CombinationFlexRuleDesc::Kind::PassThrough, flex.c_str(), nullptr,
+                                  "combination pass-through");
+    });
+}
+
+void MeshFlexApi::addCombinationLocalVar(std::string_view nameView) const {
+    const std::string name(nameView);
+    smdl_mesh *mesh = this->mesh();
+    RunBody(mesh->model, [&] {
+        return AddCombinationRule(mesh, CombinationFlexRuleDesc::Kind::LocalVar, name.c_str(), nullptr,
+                                  "combination local variable");
+    });
+}
+
+void MeshFlexApi::addVertexCacheAnimation(std::string_view nameView, std::span<const ShapeId> shapes) const {
+    const std::string name(nameView);
+    smdl_mesh *mesh = this->mesh();
+    smdl_model *model = mesh->model;
+    RunBody(model, [&] {
+        if (const auto status = CheckName(*model, name.c_str(), "vertex cache animation name"))
+            return status;
+        if (name.size() + kControllerPrefix >= MAXSTUDIONAME)
+            return Fail(model, SMDL_ERROR_LIMIT, "vertex cache animation name '{}' is too long (at most {} characters)",
+                        name, MAXSTUDIONAME - kControllerPrefix - 1);
+        if (shapes.empty())
+            return Fail(model, SMDL_ERROR_INVALID_ARGUMENT, "mesh '{}': vertex cache animation '{}' has no frames",
+                        mesh->name, name);
+        MeshFlexDesc &desc = MeshOf(*mesh);
+        if (!desc.vertexCaches.empty())
+            return Fail(model, SMDL_ERROR_INVALID_ARGUMENT, "mesh '{}': the mesh has a vertex cache animation already",
+                        mesh->name);
+        bool hasKeys = desc.combination.has_value();
+        for (const MeshFlexItem &item: desc.items) {
+            hasKeys |= item.kind == MeshFlexItem::Kind::Flex || item.kind == MeshFlexItem::Kind::DefaultFlex ||
+                       item.kind == MeshFlexItem::Kind::Eyelid || item.kind == MeshFlexItem::Kind::DmxEyelid;
+        }
+        if (hasKeys)
+            return Fail(model, SMDL_ERROR_INVALID_ARGUMENT,
+                        "mesh '{}': a vertex cache animation must be the only flex option of the mesh (vcafile)",
+                        mesh->name);
+        for (const ShapeId shape: shapes) {
+            if (const auto status = CheckShape(*mesh, shape, false, "vertex cache animation"))
+                return status;
+        }
+        if (const auto status = CheckKeyRoom(*model, shapes.size() + 1))
+            return status;
+        std::vector<std::string> names{"default"};
+        for (size_t i = 0; i < shapes.size(); ++i)
+            names.push_back("f" + std::to_string(i));
+        if (const auto status = DefineFlexNameList(*model, names))
+            return status;
+        desc.vertexCaches.push_back({name, std::vector<uint32_t>(shapes.begin(), shapes.end())});
+        desc.items.push_back({MeshFlexItem::Kind::VertexCache, static_cast<uint32_t>(desc.vertexCaches.size() - 1)});
+        return Ok(model);
+    });
+}
+
 } // namespace detail
 } // namespace smdl
 
@@ -681,6 +962,15 @@ namespace {
     }
 
     smdl::Mesh MeshView(const smdl_mesh *mesh) { return smdl::Mesh(const_cast<smdl_mesh *>(mesh), mesh->model); }
+
+    // A C array of names as views; a null array or entry becomes "" (rejected like an empty name)
+    std::vector<std::string_view> NameViews(const char *const *names, size_t count) {
+        std::vector<std::string_view> views;
+        views.reserve(count);
+        for (size_t i = 0; i < count; ++i)
+            views.emplace_back(names && names[i] ? names[i] : "");
+        return views;
+    }
 }
 
 extern "C" {
@@ -927,6 +1217,85 @@ SMDL_API smdl_status smdl_mesh_set_no_auto_dmx_rules(smdl_mesh *mesh, int enable
     if (!OwnedMesh(mesh))
         return SMDL_ERROR_INVALID_ARGUMENT;
     return CallCpp(mesh->model, [&] { MeshView(mesh).setNoAutoDmxRules(enabled != 0); });
+}
+
+SMDL_API smdl_status smdl_mesh_add_combination_control(smdl_mesh *mesh, const char *name,
+                                                       const char *const *raw_controls, size_t raw_control_count,
+                                                       int stereo, uint32_t *out_control) {
+    if (out_control)
+        *out_control = SMDL_NO_ID;
+    if (!OwnedMesh(mesh))
+        return SMDL_ERROR_INVALID_ARGUMENT;
+    return CallCpp(mesh->model, [&] {
+        const std::vector<std::string_view> raws = NameViews(raw_controls, raw_control_count);
+        const uint32_t id = MeshView(mesh).addCombinationControl(name ? name : "", raws, stereo != 0);
+        if (out_control)
+            *out_control = id;
+    });
+}
+
+SMDL_API smdl_status smdl_mesh_set_combination_control_eyelid(smdl_mesh *mesh, uint32_t control,
+                                                              const char *eyes_up_down_flex) {
+    if (!OwnedMesh(mesh))
+        return SMDL_ERROR_INVALID_ARGUMENT;
+    return CallCpp(mesh->model, [&] {
+        MeshView(mesh).setCombinationControlEyelid(control, eyes_up_down_flex ? eyes_up_down_flex : "");
+    });
+}
+
+SMDL_API smdl_status smdl_mesh_set_combination_control_range(smdl_mesh *mesh, uint32_t control, float min, float max) {
+    if (!OwnedMesh(mesh))
+        return SMDL_ERROR_INVALID_ARGUMENT;
+    return CallCpp(mesh->model, [&] { MeshView(mesh).setCombinationControlRange(control, min, max); });
+}
+
+SMDL_API smdl_status smdl_mesh_add_combination_dominator(smdl_mesh *mesh, const char *const *dominators,
+                                                         size_t dominator_count, const char *const *suppressed,
+                                                         size_t suppressed_count) {
+    if (!OwnedMesh(mesh))
+        return SMDL_ERROR_INVALID_ARGUMENT;
+    return CallCpp(mesh->model, [&] {
+        const std::vector<std::string_view> dominating = NameViews(dominators, dominator_count);
+        const std::vector<std::string_view> suppressing = NameViews(suppressed, suppressed_count);
+        MeshView(mesh).addCombinationDominator(dominating, suppressing);
+    });
+}
+
+SMDL_API smdl_status smdl_mesh_add_combination_expression(smdl_mesh *mesh, const char *flex, const char *expression) {
+    if (!OwnedMesh(mesh))
+        return SMDL_ERROR_INVALID_ARGUMENT;
+    if (!expression)
+        return Fail(mesh->model, SMDL_ERROR_INVALID_ARGUMENT, "flex rule for '{}': expression is null", flex ? flex : "");
+    return CallCpp(mesh->model, [&] { MeshView(mesh).addCombinationExpression(flex ? flex : "", expression); });
+}
+
+SMDL_API smdl_status smdl_mesh_add_combination_pass_through(smdl_mesh *mesh, const char *flex) {
+    if (!OwnedMesh(mesh))
+        return SMDL_ERROR_INVALID_ARGUMENT;
+    return CallCpp(mesh->model, [&] { MeshView(mesh).addCombinationPassThrough(flex ? flex : ""); });
+}
+
+SMDL_API smdl_status smdl_mesh_add_combination_local_var(smdl_mesh *mesh, const char *name) {
+    if (!OwnedMesh(mesh))
+        return SMDL_ERROR_INVALID_ARGUMENT;
+    return CallCpp(mesh->model, [&] { MeshView(mesh).addCombinationLocalVar(name ? name : ""); });
+}
+
+SMDL_API smdl_status smdl_mesh_add_vertex_cache_animation(smdl_mesh *mesh, const char *name, const uint32_t *shapes,
+                                                          size_t shape_count, size_t shapes_stride_bytes) {
+    if (!OwnedMesh(mesh))
+        return SMDL_ERROR_INVALID_ARGUMENT;
+    return CallCpp(mesh->model, [&] {
+        std::vector<uint32_t> frames;
+        RunBody(mesh->model, [&] {
+            smdl_status status = SMDL_OK;
+            if (!ReadUints(shapes, shape_count, shapes_stride_bytes, 1, frames, mesh->model,
+                           "vertex cache animation shapes", status))
+                return status;
+            return Ok(mesh->model);
+        });
+        MeshView(mesh).addVertexCacheAnimation(name ? name : "", frames);
+    });
 }
 
 } // extern "C"

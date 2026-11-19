@@ -123,6 +123,30 @@ void GeometryShapesApi::setShapeWrinkle(ShapeId shape, const float *values, size
     });
 }
 
+void GeometryShapesApi::setBalance(const float *values, size_t count, size_t stride_bytes) const {
+    smdl_geometry *geometry = handle();
+    smdl_model *model = geometry->model;
+    RunBody(model, [&] {
+        if (geometry->positions.empty())
+            return Fail(model, SMDL_ERROR_INVALID_ARGUMENT, "{}: set the positions first (smdl_geometry_set_positions)",
+                        geometry->owner);
+        if (count != geometry->positions.size())
+            return Fail(model, SMDL_ERROR_INVALID_ARGUMENT, "{}: {} balance values for {} vertices", geometry->owner,
+                        count, geometry->positions.size());
+        smdl_status status = SMDL_OK;
+        std::vector<float> read;
+        if (!ReadFloats(values, count, stride_bytes, 1, read, model, "balance values", status))
+            return status;
+        for (size_t i = 0; i < read.size(); ++i) {
+            if (read[i] < 0.0f || read[i] > 1.0f)
+                return Fail(model, SMDL_ERROR_INVALID_ARGUMENT, "{}: balance of vertex {} is {}, not in 0..1",
+                            geometry->owner, i, read[i]);
+        }
+        geometry->balance = std::move(read);
+        return Ok(model);
+    });
+}
+
 uint32_t GeometryShapesApi::shapeCount() const { return static_cast<uint32_t>(handle()->shapes.size()); }
 
 ShapeId GeometryShapesApi::findShape(std::string_view nameView) const {
@@ -186,6 +210,13 @@ SMDL_API smdl_status smdl_geometry_set_shape_wrinkle(smdl_geometry *geometry, ui
     if (!geometry)
         return SMDL_ERROR_INVALID_ARGUMENT;
     return CallCpp(geometry->model, [&] { View(geometry).setShapeWrinkle(shape, values, count, stride_bytes); });
+}
+
+SMDL_API smdl_status smdl_geometry_set_balance(smdl_geometry *geometry, const float *values, size_t count,
+                                               size_t stride_bytes) {
+    if (!geometry)
+        return SMDL_ERROR_INVALID_ARGUMENT;
+    return CallCpp(geometry->model, [&] { View(geometry).setBalance(values, count, stride_bytes); });
 }
 
 SMDL_API uint32_t smdl_geometry_shape_count(const smdl_geometry *geometry) {

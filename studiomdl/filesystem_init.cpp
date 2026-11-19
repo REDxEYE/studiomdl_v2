@@ -15,6 +15,9 @@
 #include <windows.h>
 #elif defined( POSIX )
 #include <unistd.h>
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#endif
 #endif
 #include <cstdio>
 #include <filesystem>
@@ -74,6 +77,15 @@ static bool Sys_GetExecutableName(std::string &out) {
 
     buffer.resize(length);
     executablePath = fs::path(buffer);
+
+#elif defined(__APPLE__)
+    uint32_t size = 0;
+    _NSGetExecutablePath(nullptr, &size); // fails with the required size
+    std::string raw(size, '\0');
+    if (_NSGetExecutablePath(raw.data(), &size) != 0)
+        return false;
+    raw.resize(std::strlen(raw.c_str()));
+    executablePath = fs::path(raw);
 
 #else
     std::vector<char> buffer(256);

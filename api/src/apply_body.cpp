@@ -1,7 +1,7 @@
 // Builder front end, Core part: body groups, meshes, blanks, presets, skins. The sequence of calls is that of
 // Cmd_Body / Cmd_Bodygroup / ProcessCmdBody: a bodypart, a model per choice whose source comes from the geometry
-// (BuildSourceFromGeometry instead of Load_Source), the flex part of the mesh, PostProcessSource. Presets, skins and
-// the material override follow, as a QC lists them after the bodies.
+// (BuildSourceFromGeometry instead of Load_Source), the combination operator and flex part of the mesh, the flex data
+// and rules of the source. Presets, skins and the material override follow, as a QC lists them after the bodies.
 #include <format>
 
 #include "apply.hpp"
@@ -10,6 +10,7 @@
 #include "studiomdl/compile_error.hpp"
 #include "studiomdl/studiomdl.h"
 #include "studiomdl/studiomdl_global_state.hpp"
+#include "studiomdl_commands.h"
 #include "studiomdl_errors.h"
 
 namespace {
@@ -51,10 +52,16 @@ namespace {
         state.meshModels[&mesh] = pmodel;
         state.meshModelIndex[&mesh] = imodel;
 
+        // What Cmd_Model does with a DMX source: its combination operator and the flexes of the source, then the
+        // options of the block, then the rules of the source's controls
+        ApplyMeshCombination(ctx, state, mesh, pmodel);
+        AddBodyFlexData(ctx, pmodel->source, imodel);
+        AddBodyAttachments(ctx, pmodel->source);
+
         ApplyMeshFlex(ctx, state, mesh, pmodel, imodel);
 
-        // Body command should add any flex commands in the source loaded
-        PostProcessSource(ctx, pmodel->source, imodel);
+        if (!pmodel->source->bNoAutoDMXRules)
+            AddBodyFlexRules(ctx, pmodel->source);
     }
 
     void ApplyBodyGroups(StudioMdlState &ctx, ApplyState &state) {

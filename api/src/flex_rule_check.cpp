@@ -67,20 +67,45 @@ namespace {
     }
 }
 
+namespace {
+    // `lookup` records unknown names in `notFound`
+    FlexRuleCheck CheckWith(const std::string_view flexName, const int flexIndex, const std::string_view expression,
+                            const FlexRuleLookup &lookup, const bool &notFound) {
+        FlexRuleCheck result;
+        auto fail = [&](smdl_status status, const std::string &what) {
+            result.status = status;
+            result.message = std::format("flex rule for '{}': {} (expression: {})", flexName, what, expression);
+            return result;
+        };
+
+        if (expression.find_first_not_of(" \t") == std::string_view::npos)
+            return fail(SMDL_ERROR_SYNTAX, "the expression is empty");
+        if (const std::string forbidden = FindForbidden(expression); !forbidden.empty())
+            return fail(SMDL_ERROR_SYNTAX, forbidden);
+
+        ScriptTokenizer tokenizer;
+        tokenizer.SetErrorHandler([](const std::string &message, const std::string &, int) {
+            throw RuleParseError{message};
+        });
+        std::string buffer = "= ";
+        buffer += expression;
+        tokenizer.LoadMemory(buffer);
+
+        s_flexrule_t rule{};
+        try {
+            ParseFlexRule(tokenizer, flexName, flexIndex, lookup, rule);
+        }
+        catch (const RuleParseError &error) {
+            return fail(notFound ? SMDL_ERROR_NOT_FOUND : SMDL_ERROR_SYNTAX, Trimmed(error.message));
+        }
+        if (const std::string arity = CheckArity(rule); !arity.empty())
+            return fail(SMDL_ERROR_SYNTAX, arity);
+        return result;
+    }
+}
+
 FlexRuleCheck CheckFlexRule(const FlexDesc &desc, const std::string_view flexName, const int flexIndex,
                             const std::string_view expression) {
-    FlexRuleCheck result;
-    auto fail = [&](smdl_status status, const std::string &what) {
-        result.status = status;
-        result.message = std::format("flex rule for '{}': {} (expression: {})", flexName, what, expression);
-        return result;
-    };
-
-    if (expression.find_first_not_of(" \t") == std::string_view::npos)
-        return fail(SMDL_ERROR_SYNTAX, "the expression is empty");
-    if (const std::string forbidden = FindForbidden(expression); !forbidden.empty())
-        return fail(SMDL_ERROR_SYNTAX, forbidden);
-
     bool notFound = false;
     const FlexRuleLookup lookup{
         .flex = [&](std::string_view name) {
@@ -94,23 +119,14 @@ FlexRuleCheck CheckFlexRule(const FlexDesc &desc, const std::string_view flexNam
             return index;
         },
     };
+    return CheckWith(flexName, flexIndex, expression, lookup, notFound);
+}
 
-    ScriptTokenizer tokenizer;
-    tokenizer.SetErrorHandler([](const std::string &message, const std::string &, int) {
-        throw RuleParseError{message};
-    });
-    std::string buffer = "= ";
-    buffer += expression;
-    tokenizer.LoadMemory(buffer);
-
-    s_flexrule_t rule{};
-    try {
-        ParseFlexRule(tokenizer, flexName, flexIndex, lookup, rule);
-    }
-    catch (const RuleParseError &error) {
-        return fail(notFound ? SMDL_ERROR_NOT_FOUND : SMDL_ERROR_SYNTAX, Trimmed(error.message));
-    }
-    if (const std::string arity = CheckArity(rule); !arity.empty())
-        return fail(SMDL_ERROR_SYNTAX, arity);
-    return result;
+FlexRuleCheck CheckFlexRuleSyntax(const std::string_view flexName, const std::string_view expression) {
+    const bool notFound = false;
+    const FlexRuleLookup lookup{
+        .flex = [](std::string_view) { return 0; },
+        .controller = [](std::string_view) { return 0; },
+    };
+    return CheckWith(flexName, 0, expression, lookup, notFound);
 }

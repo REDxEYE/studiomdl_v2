@@ -35,8 +35,9 @@ set_target_properties(studiomdl_shared PROPERTIES
 if (WIN32)
     set_target_properties(studiomdl_shared PROPERTIES PREFIX "")  # studiomdl.dll, also with MinGW
 endif ()
-if (NOT MSVC)
-    # Every symbol must resolve inside the library (shared libraries allow undefined ones by default on Linux)
+if (NOT MSVC AND NOT APPLE)
+    # Every symbol must resolve inside the library (shared libraries allow undefined ones by default on Linux; the
+    # Apple linker reports them by default and MSVC always does)
     target_link_options(studiomdl_shared PRIVATE LINKER:--no-undefined)
 endif ()
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")

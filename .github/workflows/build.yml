@@ -1,0 +1,176 @@
+name: Build studiomdl_v2
+
+# MSVC on Windows, Clang on Linux (manylinux_2_28 container: glibc 2.28 baseline, libstdc++ linked statically) and macOS
+# (Apple clang). Every job configures with CMake (Release), builds the library, the command line tools and the test
+# executables (never `all`: tests/clamp_split does not build) and runs the portable ctest subset.
+#
+# Not run in CI: `golden*` (the expected hashes cover the .mdl's qc_path entry, which holds the absolute path of the
+# QC: they only match in the directory they were recorded in) and `clamp_split` (does not build).
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # studiomdl_repeat_test and path_utils_test are executables of ctest entries (repeat_process, path_utils)
+  BUILD_TARGETS: studiomdl_v2 dmxconvert studiomdl_shared studiomdl_static smdl_api_tests api_c_host smdl_example_cube studiomdl_repeat_test path_utils_test
+  # api_exports exists on Linux only (nm -D); api_consumer configures and builds a second project against this one
+  CTEST_TESTS: ^(api|api_c|api_ctypes|api_exports|api_consumer|repeat_process|path_utils)$
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Configure
+        run: >
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_C_COMPILER=cl
+          -DCMAKE_CXX_COMPILER=cl
+
+      - name: Build
+        shell: bash
+        run: cmake --build build --target $BUILD_TARGETS
+
+      - name: Test
+        shell: bash
+        run: ctest --test-dir build --output-on-failure -R "$CTEST_TESTS"
+
+      - name: Collect artifacts
+        shell: bash
+        run: |
+          mkdir -p dist/bin dist/lib dist/include
+          cp build/studiomdl_v2.exe build/dmxconvert.exe build/studiomdl.dll dist/bin/
+          # studiomdl.lib: import library of studiomdl.dll; studiomdl_static.lib and the bundled static libraries
+          cp build/api/studiomdl.lib dist/lib/
+          find build -name '*.lib' -not -path 'build/api/studiomdl.lib' -not -path '*/CMakeFiles/*' \
+            -not -path 'build/consumer_build/*' -exec cp {} dist/lib/ \;
+          cp -r api/include/studiomdl dist/include/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64
+          path: dist
+
+  build-linux:
+    runs-on: ubuntu-latest
+    container: quay.io/pypa/manylinux_2_28_x86_64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Clang and Ninja
+        run: |
+          dnf install -y clang
+          /opt/python/cp312-cp312/bin/python -m pip install ninja
+          echo "/opt/python/cp312-cp312/bin" >> "$GITHUB_PATH"
+
+      - name: Configure
+        run: |
+          clang++ --version
+          cmake --version
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            "-DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -static-libgcc" \
+            "-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -static-libgcc"
+
+      - name: Build
+        run: cmake --build build --target $BUILD_TARGETS
+
+      - name: Check glibc / libstdc++ requirements
+        run: |
+          for file in build/studiomdl_v2 build/dmxconvert build/libstudiomdl.so; do
+            echo "$file: highest GLIBC $(objdump -T "$file" | grep -oE 'GLIBC_[0-9.]+' | sort -V | uniq | tail -1)," \
+                 "highest GLIBCXX '$(objdump -T "$file" | grep -oE 'GLIBCXX_[0-9.]+' | sort -V | uniq | tail -1)'"
+          done
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure -R "$CTEST_TESTS"
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p dist/bin dist/lib dist/include
+          cp build/studiomdl_v2 build/dmxconvert dist/bin/
+          cp build/libstudiomdl.so dist/lib/
+          # libstudiomdl.a and the bundled static libraries it links
+          find build -name '*.a' -not -path '*/CMakeFiles/*' -not -path 'build/consumer_build/*' -exec cp {} dist/lib/ \;
+          cp -r api/include/studiomdl dist/include/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-x86_64
+          path: dist
+
+  build-macos:
+    # x86_64 only, no arm64 and so no universal binary: 231 of the 280 sources include the x86 SSE intrinsics (mathlib/
+    # vector.h, ssemath.h; -target arm64 fails in <xmmintrin.h>) and mathlib.h has x87 inline assembly. macos-latest is
+    # an arm64 runner: the x86_64 build is cross compiled and its tests run under Rosetta 2.
+    runs-on: macos-latest
+    env:
+      CMAKE_OSX_ARCHITECTURES: x86_64
+      # std::format / std::print of floating point need macOS 13.3 or newer in libc++
+      CMAKE_OSX_DEPLOYMENT_TARGET: '14.0'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Ninja and Rosetta
+        run: |
+          brew install ninja
+          softwareupdate --install-rosetta --agree-to-license || true
+
+      - name: Configure
+        run: |
+          clang++ --version
+          cmake --version
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES="$CMAKE_OSX_ARCHITECTURES" \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET="$CMAKE_OSX_DEPLOYMENT_TARGET"
+
+      - name: Build
+        run: cmake --build build --target $BUILD_TARGETS
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure -R "$CTEST_TESTS"
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p dist/bin dist/lib dist/include
+          cp build/studiomdl_v2 build/dmxconvert dist/bin/
+          cp build/libstudiomdl.dylib dist/lib/
+          lipo -info dist/bin/studiomdl_v2 dist/lib/libstudiomdl.dylib
+          # libstudiomdl.a and the bundled static libraries it links
+          find build -name '*.a' -not -path '*/CMakeFiles/*' -not -path 'build/consumer_build/*' -exec cp {} dist/lib/ \;
+          cp -r api/include/studiomdl dist/include/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-x86_64
+          path: dist

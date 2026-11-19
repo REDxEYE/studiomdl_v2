@@ -8,7 +8,11 @@
 #pragma once
 
 #include <cstring>
+#ifdef __APPLE__
+#include <malloc/malloc.h>
+#else
 #include <malloc.h>
+#endif
 #include <type_traits>
 #include <cstdio>
 #include <new>
@@ -77,6 +81,8 @@ inline size_t MemAlloc_GetSize( void *pMem )
 {
 #ifdef _WIN32
 	return _msize( pMem );
+#elif defined( __APPLE__ )
+	return malloc_size( pMem );
 #else
 	return malloc_usable_size( pMem );
 #endif
@@ -110,7 +116,7 @@ inline void *MemAlloc_ReallocAligned( void *pMem, size_t nSize, size_t nAlign )
 	void *pNew = MemAlloc_AllocAligned( nSize, nAlign );
 	if ( pNew && pMem )
 	{
-		size_t nOldSize = malloc_usable_size( pMem );
+		size_t nOldSize = MemAlloc_GetSize( pMem );
 		memcpy( pNew, pMem, nSize < nOldSize ? nSize : nOldSize );
 		free( pMem );
 	}

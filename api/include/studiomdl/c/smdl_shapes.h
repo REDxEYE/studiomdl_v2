@@ -46,6 +46,17 @@ SMDL_API smdl_status smdl_geometry_set_shape_normal_deltas(smdl_geometry *geomet
 SMDL_API smdl_status smdl_geometry_set_shape_wrinkle(smdl_geometry *geometry, uint32_t shape, const float *values,
                                                      size_t count, size_t stride_bytes);
 
+/* Stereo balance per vertex (the DMX vertex data field `balance`): one float in 0..1 per vertex of the geometry, set
+ * after the positions (`count` must equal the vertex count: SMDL_ERROR_INVALID_ARGUMENT otherwise, also for a value
+ * outside 0..1 or not finite). It is the weighting between the left and right half of a stereo flex stored in the MDL's
+ * per-vertex `side` field (255 * value), exactly like the DMX route stores it: it only reaches the MDL through shapes
+ * built as DMX delta states, i.e. the shapes of a mesh with a combination operator (smdl_mesh_add_combination_control)
+ * and the DMX eyelids; flexes made with smdl_mesh_add_flex_pair split at an x position instead and ignore it. Without
+ * balance every vertex has 1. Vertices at one position share the balance of the first of them. The compile checks the
+ * count again against the final positions. */
+SMDL_API smdl_status smdl_geometry_set_balance(smdl_geometry *geometry, const float *values, size_t count,
+                                               size_t stride_bytes);
+
 SMDL_API uint32_t smdl_geometry_shape_count(const smdl_geometry *geometry);
 
 /* Shape index by name (exact match); SMDL_ERROR_NOT_FOUND when there is none. */

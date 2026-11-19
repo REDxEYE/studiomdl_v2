@@ -8,6 +8,8 @@
 #pragma once
 
 #include <algorithm>
+#include <charconv>
+#include <system_error>
 #include <format>
 #include <iostream>
 #include <string>

@@ -35,7 +35,11 @@
 #include "wchartypes.h"
 
 
+#ifdef __APPLE__
+	#include <malloc/malloc.h>
+#else
 	#include <malloc.h>
+#endif
 	#include <memory.h>
 	#include <limits.h>
 	#include <float.h>
@@ -485,7 +489,7 @@ FORCEINLINE double fsel(double fComparand, double fValGE, double fLT)
 //-----------------------------------------------------------------------------
 // Returns true if debugger attached, false otherwise
 //-----------------------------------------------------------------------------
-#if defined( PLATFORM_WINDOWS ) || LINUX
+#if defined( PLATFORM_WINDOWS ) || defined( LINUX ) || defined( OSX )
 PLATFORM_INTERFACE void Plat_DebugString( const tchar * );
 #else
 #define Plat_DebugString(s) ((void)0)

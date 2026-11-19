@@ -33,6 +33,7 @@ namespace {
     std::string SourceFileName(const smdl_geometry &geometry) {
         std::string key = geometry.sourceName.empty() ? geometry.owner : geometry.sourceName;
         vstd::paths::strip_extension(key);
+        vstd::paths::fix_slashes(key); // LoadSource looks the name up with the platform's slashes
         return key + ".smd";
     }
 
@@ -170,8 +171,10 @@ s_source_t *BuildSourceFromGeometry(StudioMdlState &ctx, ApplyState &state, cons
     source->rotation = ctx.script.defaultrotation;
     source->filename = SourceFileName(geometry);
 
-    // Load_SMD: version, nodes, skeleton, triangles. Version 3 is the one with additional texcoord sets.
-    source->version = UvSetCount(geometry) > 1 ? 3 : 1;
+    // Load_SMD: version, nodes, skeleton, triangles. Version 3 is the one with additional texcoord sets; version 2 the
+    // one with materials relative to materials/ (what the materials of a DMX file are: ResolveSourceMaterial). Neither
+    // is read anywhere else in the builder's path, so version 2 also serves a geometry with additional sets.
+    source->version = geometry.relativeMaterials ? 2 : (UvSetCount(geometry) > 1 ? 3 : 1);
     BuildSkeleton(ctx, state, geometry, source);
 
     BeginSourceTriangles(ctx);

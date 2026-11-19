@@ -29,6 +29,8 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
     elseif (CMAKE_SIZEOF_VOID_P EQUAL 4)
         set(PLATFORM_DEFINES COMPILER_MSVC32 COMPILER_MSVC _X86_)
     endif ()
+    # windows.h must not define min/max macros: they break std::numeric_limits<T>::max() and std::min/std::max
+    list(APPEND PLATFORM_DEFINES NOMINMAX)
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     if (CMAKE_SIZEOF_VOID_P EQUAL 8)
         set(PLATFORM_DEFINES LINUX COMPILER_GCC POSIX _AMD64_)
@@ -36,9 +38,16 @@ elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
         set(PLATFORM_DEFINES LINUX COMPILER_GCC POSIX _X86_)
     endif ()
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-    # Do something on macOS
+    # x86_64 only: the sources use SSE intrinsics and x87 inline assembly (see .github/workflows/build.yml)
+    set(PLATFORM_DEFINES OSX POSIX COMPILER_GCC _AMD64_)
 else ()
     # Do something on other operating systems
+endif ()
+
+if (MSVC)
+    # /utf-8: the sources and test fixtures contain UTF-8 (Cyrillic paths) and a few Latin-1 comments;
+    # /Zc:__cplusplus: report the real language version; /bigobj: the template heavy API sources
+    add_compile_options(/utf-8 /bigobj $<$<COMPILE_LANGUAGE:CXX>:/Zc:__cplusplus>)
 endif ()
 
 foreach (flag_var

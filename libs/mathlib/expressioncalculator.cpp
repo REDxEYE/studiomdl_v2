@@ -45,8 +45,9 @@ static bool ParseString(std::string_view &expr, const std::string_view str) {
 }
 
 static bool ParseStringList(std::string_view &expr, const std::vector<std::string> &parts, size_t &matchIndex) {
-    for (auto [index, op]: parts | std::views::enumerate | std::views::reverse) {
-        if (ParseString(expr, op)) {
+    // last entry first
+    for (size_t index = parts.size(); index-- > 0;) {
+        if (ParseString(expr, parts[index])) {
             matchIndex = index;
             return true;
         }
@@ -636,7 +637,7 @@ rescale (X,Xa,Xb,Ya,Yb) : lerp(ramp(X,Xa,Xb),Ya,Yb)
 crescale(X,Xa,Xb,Ya,Yb) : clamp(rescale(X,Xa,Xb,Ya,Yb),Ya,Yb)
 */
 static float rescale(const float x, const float a, const float b, const float c, const float d) {
-    return lerp(ramp(x, a, b), c, d);
+    return std::lerp(ramp(x, a, b), c, d);
 }
 
 bool CExpressionCalculator::Parse5ArgFunc(std::string_view &expr) {

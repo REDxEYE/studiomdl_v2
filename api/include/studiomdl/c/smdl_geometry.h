@@ -101,6 +101,11 @@ SMDL_API smdl_status smdl_geometry_set_rest_pose_euler(smdl_geometry *geometry, 
 /* Reverses the winding of every triangle (the `reverse` option of $body / studio). Default 0. */
 SMDL_API smdl_status smdl_geometry_set_flip_triangles(smdl_geometry *geometry, int flip);
 
+/* The material names of this geometry are paths relative to the materials directory, as the materials of a DMX file
+ * (and of a version 2 SMD) are: the compile then also searches an empty $cdmaterials path, after the model's own. Needed
+ * for an MDL byte-identical to the compile of a DMX file. Default 0. */
+SMDL_API smdl_status smdl_geometry_set_relative_materials(smdl_geometry *geometry, int relative);
+
 /* Scale applied to positions and rest poses of this geometry (the `scale` option of $body / studio).
  * 0 (the default) uses the model scale (smdl_model_set_scale, $scale). Not allowed on geometries created by
  * smdl_mesh_append_geometry (use smdl_geometry_set_append_offset). */

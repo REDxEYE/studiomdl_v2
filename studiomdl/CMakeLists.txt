@@ -76,6 +76,11 @@ target_link_libraries(studiomdl_core PUBLIC
         filesystem_stdio_v2_static
         vphys_lite
 )
+# The API serializes compiles with std::mutex and std::call_once (api/src/compile_driver.hpp). With a statically linked
+# libstdc++ on glibc older than 2.34 nothing else pulls in libpthread: libstdc++ then treats threads as inactive and
+# std::call_once throws "Unknown error -1"
+find_package(Threads REQUIRED)
+target_link_libraries(studiomdl_core PUBLIC Threads::Threads)
 if (WIN32)
     # shell32: CommandLineToArgvW for the UTF-8 command line
     target_link_libraries(studiomdl_core PUBLIC shlwapi shell32)

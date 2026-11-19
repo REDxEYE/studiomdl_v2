@@ -43,6 +43,13 @@ namespace detail {
 
         void setShapeWrinkle(ShapeId shape, const float *values, size_t count, size_t stride) const;
 
+        // Stereo balance per vertex (DmeVertexData `balance`), one value in 0..1 per vertex (see smdl_shapes.h)
+        void setBalance(std::span<const float> balance) const {
+            setBalance(balance.data(), balance.size(), 0);
+        }
+
+        void setBalance(const float *values, size_t count, size_t stride) const;
+
         uint32_t shapeCount() const;
 
         // Throws Error(SMDL_ERROR_NOT_FOUND) when there is no such shape

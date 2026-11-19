@@ -336,6 +336,10 @@ void Geometry::setFlipTriangles(bool flip) {
     g->flipTriangles = flip;
 }
 
+void Geometry::setRelativeMaterials(bool relative) {
+    handle()->relativeMaterials = relative;
+}
+
 void Geometry::setScale(float scale) {
     smdl_geometry *g = handle();
     RunBody(g->model, [&] {
@@ -485,6 +489,12 @@ SMDL_API smdl_status smdl_geometry_set_flip_triangles(smdl_geometry *g, int flip
     if (!g)
         return SMDL_ERROR_INVALID_ARGUMENT;
     return CallCpp(g->model, [&] { View(g).setFlipTriangles(flip != 0); });
+}
+
+SMDL_API smdl_status smdl_geometry_set_relative_materials(smdl_geometry *g, int relative) {
+    if (!g)
+        return SMDL_ERROR_INVALID_ARGUMENT;
+    return CallCpp(g->model, [&] { View(g).setRelativeMaterials(relative != 0); });
 }
 
 SMDL_API smdl_status smdl_geometry_set_scale(smdl_geometry *g, float scale) {

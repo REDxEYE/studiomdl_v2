@@ -7,6 +7,7 @@
 #include "datamodel/idatamodel.h"
 #include "mdlobjects/dmeboneflexdriver.h"
 #include "studiomdl/studiomdl.h"
+#include "studiomdl_commands.h"
 #include "studiomdl_errors.h"
 #include "tier1_v2/math_utils.hpp"
 #include "tier1_v2/string_utils.hpp"
@@ -350,6 +351,97 @@ std::string ApplyDefaultFlexKey(StudioMdlState &ctx, const FlexKeyParams &params
         ctx.flex.defaultflexkey = &ctx.flex.flexkeys.back();
     }
     return error;
+}
+
+// The option's name in the messages (they were written with __FUNCTION__ of the QC option parser)
+static constexpr const char *kVertexCacheOption = "Option_VertexCacheAnimationFile";
+
+void CheckVertexCacheAnimationAllowed(StudioMdlState &ctx) {
+    if (!ctx.flex.flexkeys.empty()) {
+        MdlError("{}: Flexes already defined.  vcafile can be only flex option in $model block\n",
+                 kVertexCacheOption);
+    }
+}
+
+void ApplyVertexCacheAnimation(StudioMdlState &ctx, const size_t modelIndex, s_source_t *vtaSource,
+                               const std::string_view name, const std::span<const int> frames) {
+    s_source_t *pSource = ctx.body.model[modelIndex]->source;
+
+    {
+        ctx.flex.flexkeys.emplace(s_flexkey_t{
+            .flexdesc = Add_Flexdesc(ctx, "default"),
+            .flexpair = 0,
+            .source = vtaSource,
+            .animationname = vtaSource->m_Animations[0].animationname,
+            .imodel = static_cast<int>(modelIndex),
+            .frame = 0,
+            .target0 = 0.0,
+            .target1 = 1.0,
+            .target2 = 10,
+            .target3 = 11,
+            .split = 0,
+            .decay = 0.0
+        });
+    }
+
+    for (size_t i = 0; i < frames.size(); ++i) {
+        ctx.flex.flexkeys.emplace(s_flexkey_t{
+            .flexdesc = Add_Flexdesc(ctx, std::format("f{}", i).c_str()),
+            .flexpair = 0,
+            .source = vtaSource,
+            .animationname = vtaSource->m_Animations[0].animationname,
+            .imodel = static_cast<int>(modelIndex),
+            .frame = frames[i],
+            .target0 = 0.0,
+            .target1 = 1.0,
+            .target2 = 10,
+            .target3 = 11,
+            .split = 0,
+            .decay = 0.0,
+        });
+    }
+
+    s_flexcontrollerremap_t &flexRemap = pSource->m_FlexControllerRemaps.emplace_back(s_flexcontrollerremap_t{
+        .m_Name = std::string(name),
+        .m_RemapType = Nway,
+        .m_bIsStereo = false,
+        .m_Index = -1, // Don't know this right now
+        .m_LeftIndex = -1, // Don't know this right now
+        .m_RightIndex = -1, // Don't know this right now
+        .m_MultiIndex = -1, // Don't know this right now
+        .m_EyesUpDownFlexController = -1,
+        .m_BlinkController = -1,
+    });
+
+    for (size_t i = 0; i < frames.size(); ++i) {
+        flexRemap.m_RawControls.emplace_back(std::format("f{}", i));
+    }
+
+    for (auto &m_RawControl: flexRemap.m_RawControls) {
+        int nFlexKey = -1;
+        for (int j = 0; j < ctx.flex.flexkeys.size(); ++j) {
+            if (vstd::iequals(ctx.flex.flexdescs[ctx.flex.flexkeys[j].flexdesc].FACS, m_RawControl)) {
+                nFlexKey = j;
+                break;
+            }
+        }
+
+        if (nFlexKey < 0) {
+            MdlError("{} Cannot find flex to group \"{}\"\n", kVertexCacheOption, m_RawControl);
+            pSource->m_FlexControllerRemaps.pop_back();
+            return;
+        }
+
+        pSource->m_CombinationControls.emplace_back(m_RawControl);
+
+        s_combinationrule_t &combinationRule = pSource->m_CombinationRules.emplace_back();
+        combinationRule.m_nFlex = nFlexKey;
+        combinationRule.m_Combination.push_back(nFlexKey - 1);
+    }
+
+    AddFlexControllers(ctx, pSource);
+
+    AddBodyFlexRemaps(ctx, pSource);
 }
 
 // ---------------------------------------------------------------------------------------------------------------

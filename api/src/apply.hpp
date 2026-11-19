@@ -5,7 +5,8 @@
 //   ApplyGlobals       Core     model path, material paths, flags, transforms (before any source is built)
 //   ApplySkeleton      Core     bone options that must exist before sources ($definebone-like rest poses, ...)
 //   ApplyBody          Core     body groups and meshes -> s_model_t + s_source_t (BuildSourceFromGeometry),
-//                               ApplyMeshFlex per mesh, PostProcessSource; presets, skins
+//                               ApplyMeshCombination (what loading a DMX does to its source), AddBodyFlexData,
+//                               ApplyMeshFlex per mesh, attachments, AddBodyFlexRules; presets, skins
 //   ApplyFlex          Flex     model-level flex: controllers, rules, local vars, mouths, ...
 //   ApplyLods          LodPhys  LODs
 //   ApplyRig           Anim     attachments, hitboxes, pose params, IK chains, weight lists
@@ -90,6 +91,11 @@ s_source_t *BuildSourceFromGeometry(StudioMdlState &ctx, ApplyState &state, cons
 // DMX delta states produce). Called by BuildSourceFromGeometry once the base vertices exist.
 void BuildShapeAnimations(StudioMdlState &ctx, ApplyState &state, const smdl_geometry &geometry, s_source_t *source);
 
+// Flex (apply_flex.cpp): the DMX part of a mesh: the combination operator built from the geometry's shapes (delta
+// states, flex keys, controls, domination rules, flex rules), what LoadModelAndSkeleton does to a DMX source after
+// loading its meshes. Called by ApplyBody once the mesh's s_model_t and source exist, before AddBodyFlexData.
+void ApplyMeshCombination(StudioMdlState &ctx, ApplyState &state, const smdl_mesh &mesh, s_model_t *pmodel);
+
 // Flex (apply_flex.cpp): the per-mesh part of the $model block (flex keys, eyeballs, eyelids, mesh flex rules...),
-// called by ApplyBody after the mesh's s_model_t and source exist and before PostProcessSource.
+// called by ApplyBody after AddBodyFlexData (the flexes of the loaded source) and before the source's flex rules.
 void ApplyMeshFlex(StudioMdlState &ctx, ApplyState &state, const smdl_mesh &mesh, s_model_t *pmodel, int imodel);

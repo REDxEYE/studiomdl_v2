@@ -12,6 +12,7 @@
 #include <vector>
 #include <deque>
 #include <array>
+#include <span>
 #include <string>
 #include <string_view>
 

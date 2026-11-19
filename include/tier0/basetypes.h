@@ -263,9 +263,10 @@ inline float FloatMakePositive( vec_t f )
 	return fabsf( f );
 }
 #else
+#include <cmath>
 inline float FloatMakePositive( vec_t f )
 {
-	return std::fabsf(f); // was since 2002: BitsToFloat( FloatBits(f) & 0x7FFFFFFF ); fixed in 2010
+	return std::fabs(f); // was since 2002: BitsToFloat( FloatBits(f) & 0x7FFFFFFF ); fixed in 2010
 }
 #endif
 

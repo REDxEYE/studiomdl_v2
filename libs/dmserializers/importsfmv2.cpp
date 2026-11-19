@@ -4,6 +4,7 @@
 //
 //=============================================================================
 
+#include <array>
 #include "dmserializers.h"
 #include "dmebaseimporter.h"
 #include "datamodel/idatamodel.h"

@@ -7278,6 +7278,10 @@ static void ProcessIKRules(StudioMdlState &ctx) {
                     .chain = j,
                     .type = IkRuleType::Release,
                     .slot = j,
+                    // Vector / Quaternion default constructors leave their components uninitialized; the rule is
+                    // written to the .mdl, a zeroed s_ikrule_t (calloc, as in the original) holds zeros
+                    .pos = Vector(0, 0, 0),
+                    .q = Quaternion(0, 0, 0, 0),
                     .start = 0,
                     .peak = 0,
                     .tail = panim->numframes - 1,

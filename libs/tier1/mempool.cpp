@@ -9,7 +9,11 @@
 
 #include "tier1/strtools.h"
 
+#ifdef __APPLE__
+#include <malloc/malloc.h>
+#else
 #include <malloc.h>
+#endif
 
 // Should be last include
 //#include "tier0/memdbgon.h"

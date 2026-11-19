@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstring>
 #include <initializer_list>
 #include <memory>
@@ -145,7 +146,7 @@ namespace vstd {
         bool empty() const noexcept { return m_count == 0; }
         bool full() const noexcept { return m_count == N; }
 
-        ssize_t index(T* item) const noexcept {
+        std::ptrdiff_t index(T* item) const noexcept {
             return item >= m_items && item < m_items + N ? item - m_items : -1;
         }
 

@@ -30,7 +30,11 @@
 #include "studiomdl/hardwarematrixstate.h"
 #include "studiomdl/hardwarevertexcache.h"
 #include "studiomdl/optimize.h"
+#ifdef __APPLE__
+#include <malloc/malloc.h>
+#else
 #include <malloc.h>
+#endif
 #include "meshoptimizer.h"
 #include "studiomdl/filebuffer.h"
 #include "studiomdl/output_files.hpp"

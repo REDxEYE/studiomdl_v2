@@ -741,12 +741,8 @@ void Option_Eyeball(StudioMdlState &ctx, ScriptTokenizer &qc, s_model_t* pmodel)
 // as an animation as the controller goes from [0,1]
 //-----------------------------------------------------------------------------
 static void Option_VertexCacheAnimationFile(StudioMdlState &ctx, const std::string_view vtaFilePath, const size_t modelIndex) {
-    if (!ctx.flex.flexkeys.empty()) {
-        MdlError("{}: Flexes already defined.  vcafile can be only flex option in $model block\n", __FUNCTION__);
-        return;
-    }
+    CheckVertexCacheAnimationAllowed(ctx);
 
-    s_source_t* pSource = ctx.body.model[modelIndex]->source;
     s_source_t* pVtaSource = Load_Source(ctx, vtaFilePath, "vta");
 
     if (pVtaSource->m_Animations.empty()) {
@@ -754,91 +750,14 @@ static void Option_VertexCacheAnimationFile(StudioMdlState &ctx, const std::stri
         return;
     }
 
-    {
-        ctx.flex.flexkeys.emplace(s_flexkey_t{
-            .flexdesc = Add_Flexdesc(ctx, "default"),
-            .flexpair = 0,
-            .source = pVtaSource,
-            .animationname = pVtaSource->m_Animations[0].animationname,
-            .imodel = vstd::as_signed_checked<int>(modelIndex),
-            .frame = 0,
-            .target0 = 0.0,
-            .target1 = 1.0,
-            .target2 = 10,
-            .target3 = 11,
-            .split = 0,
-            .decay = 0.0
-        });
-    }
-
-    vstd::FixedString<256> sTmp;
-
+    // frames 1.. of the VTA, one flex each
+    std::vector<int> frames;
     const int nActualFrameCount = pVtaSource->m_Animations.front().numframes - 1;
-
     for (int i = 0; i < nActualFrameCount; ++i) {
-        sTmp.format("f{}", i);
-
-        {
-            ctx.flex.flexkeys.emplace(s_flexkey_t{
-                .flexdesc = Add_Flexdesc(ctx, sTmp),
-                .flexpair = 0,
-                .source = pVtaSource,
-                .animationname = pVtaSource->m_Animations[0].animationname,
-                .imodel = vstd::as_signed_checked<int>(modelIndex),
-                .frame = (i + 1),
-                .target0 = 0.0,
-                .target1 = 1.0,
-                .target2 = 10,
-                .target3 = 11,
-                .split = 0,
-                .decay = 0.0,
-            });
-        }
+        frames.push_back(i + 1);
     }
 
-    s_flexcontrollerremap_t &flexRemap = pSource->m_FlexControllerRemaps.emplace_back(s_flexcontrollerremap_t{
-        .m_Name = std::string(vstd::paths::file_base(pVtaSource->filename)),
-        .m_RemapType = Nway,
-        .m_bIsStereo = false,
-        .m_Index = -1, // Don't know this right now
-        .m_LeftIndex = -1, // Don't know this right now
-        .m_RightIndex = -1, // Don't know this right now
-        .m_MultiIndex = -1, // Don't know this right now
-        .m_EyesUpDownFlexController = -1,
-        .m_BlinkController = -1,
-    });
-
-
-    for (int i = 0; i < nActualFrameCount; ++i) {
-        sTmp.format("f{}", i);
-        flexRemap.m_RawControls.emplace_back(sTmp);
-    }
-
-    for (auto &m_RawControl: flexRemap.m_RawControls) {
-        int nFlexKey = -1;
-        for (int j = 0; j < ctx.flex.flexkeys.size(); ++j) {
-            if (vstd::iequals(ctx.flex.flexdescs[ctx.flex.flexkeys[j].flexdesc].FACS, m_RawControl)) {
-                nFlexKey = j;
-                break;
-            }
-        }
-
-        if (nFlexKey < 0) {
-            MdlError("{} Cannot find flex to group \"{}\"\n", __FUNCTION__, m_RawControl);
-            pSource->m_FlexControllerRemaps.pop_back();
-            return;
-        }
-
-        pSource->m_CombinationControls.emplace_back(m_RawControl);
-
-        s_combinationrule_t &combinationRule = pSource->m_CombinationRules.emplace_back();
-        combinationRule.m_nFlex = nFlexKey;
-        combinationRule.m_Combination.push_back(nFlexKey - 1);
-    }
-
-    AddFlexControllers(ctx, pSource);
-
-    AddBodyFlexRemaps(ctx, pSource);
+    ApplyVertexCacheAnimation(ctx, modelIndex, pVtaSource, vstd::paths::file_base(pVtaSource->filename), frames);
 }
 
 
@@ -2124,7 +2043,10 @@ void Cmd_Skiptransition(StudioMdlState &ctx, ScriptTokenizer &qc) {
 // Checks to see if the model source was already loaded
 //-----------------------------------------------------------------------------
 s_source_t* FindCachedSource(StudioMdlState &ctx, const char* name, const char* xext) {
-    const std::string base = ctx.paths.cddir.back() + name + ".";
+    // source names are stored with the platform's slashes (LoadSource); QC tokens use either
+    std::string relative(name);
+    vstd::paths::fix_slashes(relative);
+    const std::string base = ctx.paths.cddir.back() + relative + ".";
     const auto find = [&ctx, &base](const std::string_view ext) -> s_source_t* {
         ctx.input.szFilename = base;
         ctx.input.szFilename += ext;

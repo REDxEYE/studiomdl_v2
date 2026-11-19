@@ -533,7 +533,7 @@ void CDmeCombinationOperator::FindDominators(CombinationOperation_t &op) {
         auto nCount = info.m_SuppressedIndices.size();
         int j;
         for (j = 0; j < nCount; ++j) {
-            if (std::ranges::contains(op.m_ControlIndices, info.m_SuppressedIndices[j]))
+            if (!std::ranges::contains(op.m_ControlIndices, info.m_SuppressedIndices[j]))
                 break;
         }
         if (j != nCount)

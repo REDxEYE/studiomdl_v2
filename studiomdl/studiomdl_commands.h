@@ -9,6 +9,8 @@
 
 s_source_t *FindCachedSource(StudioMdlState &ctx, const char *name, const char *xext);
 void AddBodyFlexData(StudioMdlState &ctx, s_source_t *pSource, int imodel, bool bAddControllers = true);
+void AddFlexControllers(StudioMdlState &ctx, s_source_t *pSource);
+void AddBodyFlexRemaps(StudioMdlState &ctx, s_source_t *pSource);
 void AddBodyAttachments(StudioMdlState &ctx, s_source_t *pSource);
 void AddBodyFlexRules(StudioMdlState &ctx, s_source_t *pSource);
 void Option_Flexrule(StudioMdlState &ctx, ScriptTokenizer &qc, s_model_t * pmodel , const char *name);

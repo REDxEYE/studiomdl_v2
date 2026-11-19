@@ -5,7 +5,8 @@
 // A shape is one frame of a VTA: the first request of a flex/eyelid creates a bone-copy source "<mesh>.vta" with the
 // animation "VertexAnimation" (frame 0 = the base pose of the pooled vertices, frame k+1 = shape k) and the flex keys
 // point at it, exactly as Load_VTA's source looks after `flexfile`. DMX eyelids get the shapes as new-style (delta
-// state) animations of the mesh's own source instead.
+// state) animations of the mesh's own source instead, and so does the combination operator (ApplyMeshCombination): a
+// scratch DmeCombinationOperator is filled from the description and handed to the loader's AddFlexKey/AddCombination.
 #include <algorithm>
 #include <array>
 #include <cstring>
@@ -17,6 +18,9 @@
 
 #include "apply.hpp"
 #include "common/scriplib.h"
+#include "datamodel/dmelement.h"
+#include "movieobjects/dmecombinationoperator.h"
+#include "movieobjects/dmeflexrules.h"
 #include "studiomdl/apply_flex.hpp"
 #include "studiomdl/compile_error.hpp"
 #include "studiomdl/studiomdl.h"
@@ -24,6 +28,7 @@
 #include "studiomdl_commands.h"
 #include "studiomdl_errors.h"
 #include "tier1_v2/path_utils.hpp"
+#include "tier1_v2/string_utils.hpp"
 
 namespace {
     constexpr const char *kStateName[kEyelidTypeCount] = {"lowerer", "neutral", "raiser"};
@@ -109,7 +114,9 @@ namespace {
         Vector position{0, 0, 0}; // unscaled delta
         Vector normal{0, 0, 0};
         float wrinkle = 0.0f;
+        float side = 1.0f;       // the stereo balance of the vertex (geometry balance, 1 without)
         uint32_t vertex = 0; // the geometry vertex the values came from (messages)
+        size_t order = 0;    // its place in the shape's vertex list
     };
 
     // The shape's deltas by pooled index (position -> index through `lookup`). Two vertices at one position must give
@@ -129,11 +136,14 @@ namespace {
                 continue; // a vertex no triangle of the source uses
             Delta delta;
             delta.vertex = vertex;
+            delta.order = i;
             delta.position = shape.positionDeltas[i];
             if (!shape.normalDeltas.empty())
                 delta.normal = shape.normalDeltas[i];
             if (!shape.wrinkle.empty())
                 delta.wrinkle = shape.wrinkle[i];
+            if (!g.balance.empty())
+                delta.side = g.balance[vertex];
             const auto [it, inserted] = result.emplace(*found, delta);
             if (!inserted) {
                 const Vector difference = it->second.position - delta.position;
@@ -152,6 +162,8 @@ namespace {
     }
 
     void CheckShapes(const smdl_geometry &g) {
+        if (!g.balance.empty() && g.balance.size() != g.positions.size())
+            MdlError("{}: {} balance values for {} vertices", g.owner, g.balance.size(), g.positions.size());
         for (const GeometryShapeDesc &shape: g.shapes) {
             for (const uint32_t vertex: shape.vertices) {
                 if (vertex >= g.positions.size())
@@ -283,7 +295,10 @@ namespace {
             for (const int vertex: verticesAt[id])
                 entries.push_back({vertex, delta});
         }
-        std::ranges::sort(entries, {}, &Entry::vertex);
+        // the DMX loader walks its delta list from the last vertex it added to the first (BuildVertexAnimations)
+        std::ranges::sort(entries, [](const Entry &a, const Entry &b) {
+            return a.delta.order != b.delta.order ? a.delta.order > b.delta.order : a.vertex < b.vertex;
+        });
 
         s_sourceanim_t *anim = FindOrAddSourceAnim(source, shape.name.c_str());
         anim->numframes = 1;
@@ -296,7 +311,7 @@ namespace {
             s_vertanim_t &vanim = anim->vanim[0][i];
             vanim.vertex = entries[i].vertex;
             vanim.speed = 1.0f;
-            vanim.side = 1.0f;
+            vanim.side = entries[i].delta.side;
             vanim.pos = Scaled(entries[i].delta.position, GeometryScale(ctx, g));
             vanim.normal = entries[i].delta.normal;
             vanim.wrinkle = entries[i].delta.wrinkle;
@@ -350,6 +365,152 @@ namespace {
         params.leftEyeball = desc.eyeballs[lid.leftEyeball].name;
         Check(ApplyDmxEyelid(ctx, imodel, params, pmodel->source));
     }
+}
+
+namespace {
+    // Scratch datamodel elements that live while the combination operator is applied. The operator is created first,
+    // so it is the first to go (its attributes refer to the others).
+    class ScratchElements {
+    public:
+        ScratchElements() = default;
+        ScratchElements(const ScratchElements &) = delete;
+        ScratchElements &operator=(const ScratchElements &) = delete;
+        ~ScratchElements() {
+            for (auto &element: m_Elements)
+                element.reset();
+        }
+
+        template<class E>
+        E *Create(const std::string_view name) {
+            DmElementPtr<E> element = MakeScratchElement<E>(name);
+            if (!element)
+                MdlError("could not create the datamodel element '{}' of the combination operator", name);
+            E *raw = element.get();
+            m_Elements.emplace_back(element.release());
+            return raw;
+        }
+
+    private:
+        std::vector<DmElementPtr<CDmElement>> m_Elements;
+    };
+
+    CDmeCombinationOperator *BuildCombinationOperator(ScratchElements &scratch, const smdl_geometry &g,
+                                                      const CombinationDesc &desc) {
+        CDmeCombinationOperator *op = scratch.Create<CDmeCombinationOperator>("combinationOperator");
+
+        // the controls: DmeCombinationInputControl (name, rawControlNames, stereo, eyelid, eyesUpDownFlex, flexMin/Max)
+        CDmrElementArray<> controls(op->GetAttribute("controls"));
+        for (const CombinationControlDesc &control: desc.controls) {
+            CDmeCombinationInputControl *element = scratch.Create<CDmeCombinationInputControl>(control.name);
+            CDmrStringArray rawNames(element, "rawControlNames");
+            for (const std::string &raw: control.rawControls)
+                rawNames.AddToTail(raw.c_str());
+            element->SetValue("stereo", control.stereo);
+            element->SetValue("eyelid", control.eyelid);
+            if (control.eyelid && !control.eyesUpDownFlex.empty())
+                element->SetValue("eyesUpDownFlex", std::string_view(control.eyesUpDownFlex));
+            if (control.hasRange) {
+                element->SetValue("flexMin", control.min);
+                element->SetValue("flexMax", control.max);
+            }
+            controls.AddToTail(element);
+        }
+
+        CDmrElementArray<> dominators(op->GetAttribute("dominators"));
+        for (const CombinationDominatorDesc &dominator: desc.dominators) {
+            CDmeCombinationDominationRule *element = scratch.Create<CDmeCombinationDominationRule>("dominationRule");
+            CDmrStringArray dominating(element, "dominators");
+            for (const std::string &raw: dominator.dominators)
+                dominating.AddToTail(raw.c_str());
+            CDmrStringArray suppressed(element, "suppressed");
+            for (const std::string &raw: dominator.suppressed)
+                suppressed.AddToTail(raw.c_str());
+            dominators.AddToTail(element);
+        }
+
+        CDmrElementArray<> targets(op->GetAttribute("targets"));
+        if (!desc.rules.empty()) {
+            // "advanced flex": the only target is a DmeFlexRules
+            CDmeFlexRules *flexRules = scratch.Create<CDmeFlexRules>("flexRules");
+            CDmrElementArray<> rules(flexRules->GetAttribute("deltaStates"));
+            for (const CombinationFlexRuleDesc &rule: desc.rules) {
+                CDmeFlexRuleBase *element = nullptr;
+                switch (rule.kind) {
+                    case CombinationFlexRuleDesc::Kind::Expression: {
+                        CDmeFlexRuleExpression *expression = scratch.Create<CDmeFlexRuleExpression>(rule.flex);
+                        expression->SetValue("expr", std::string_view(rule.expression));
+                        element = expression;
+                        break;
+                    }
+                    case CombinationFlexRuleDesc::Kind::PassThrough:
+                        element = scratch.Create<CDmeFlexRulePassThrough>(rule.flex);
+                        break;
+                    case CombinationFlexRuleDesc::Kind::LocalVar:
+                        element = scratch.Create<CDmeFlexRuleLocalVar>(rule.flex);
+                        break;
+                }
+                rules.AddToTail(element);
+            }
+            targets.AddToTail(flexRules);
+        }
+        else {
+            // the shapes: an element with the delta states and their (unused here) weights, like a DmeMesh
+            CDmElement *mesh = scratch.Create<CDmElement>("mesh");
+            CDmrElementArray<> deltaStates(mesh, "deltaStates", true);
+            CDmrArray<Vector2D> weights(mesh, "deltaStateWeights", true);
+            for (const GeometryShapeDesc &shape: g.shapes) {
+                deltaStates.AddToTail(scratch.Create<CDmElement>(shape.name));
+                weights.AddToTail(Vector2D(0.0f, 0.0f));
+            }
+            targets.AddToTail(mesh);
+        }
+
+        // like the unserialization of a DMX file: the raw control list and the combinations are built by Resolve
+        op->Resolve();
+        return op;
+    }
+
+    bool HasRawControl(const CombinationDesc &desc, std::string_view name) {
+        for (const CombinationControlDesc &control: desc.controls) {
+            for (const std::string &raw: control.rawControls) {
+                if (vstd::iequals(raw, name))
+                    return true;
+            }
+        }
+        return false;
+    }
+}
+
+void ApplyMeshCombination(StudioMdlState &ctx, ApplyState &state, const smdl_mesh &mesh, s_model_t *pmodel) {
+    const auto found = state.model.flex.meshes.find(&mesh);
+    if (found == state.model.flex.meshes.end() || !found->second.combination)
+        return;
+    const CombinationDesc &desc = *found->second.combination;
+    ScopedApplyObject object(state, std::format("combination operator of mesh '{}'", mesh.name));
+
+    const smdl_geometry &g = *mesh.geometry;
+    s_source_t *source = pmodel->source;
+
+    for (const CombinationDominatorDesc &dominator: desc.dominators) {
+        for (const auto *names: {&dominator.dominators, &dominator.suppressed}) {
+            for (const std::string &name: *names) {
+                if (!HasRawControl(desc, name))
+                    MdlError("domination rule: '{}' is not a raw control of any combination control", name);
+            }
+        }
+    }
+
+    // BuildVertexAnimations: every shape is a delta state of the source
+    for (size_t k = 0; k < g.shapes.size(); ++k)
+        EnsureDeltaState(ctx, mesh, source, static_cast<uint32_t>(k));
+
+    ScratchElements scratch;
+    CDmeCombinationOperator *op = BuildCombinationOperator(scratch, g, desc);
+
+    // LoadModelAndSkeleton: AddFlexKeys for the delta states, then AddCombination
+    for (const GeometryShapeDesc &shape: g.shapes)
+        AddFlexKey(source, op, shape.name.c_str());
+    AddCombination(ctx, source, op);
 }
 
 void BuildShapeAnimations(StudioMdlState &, ApplyState &, const smdl_geometry &geometry, s_source_t *) {
@@ -416,6 +577,18 @@ void ApplyMeshFlex(StudioMdlState &ctx, ApplyState &state, const smdl_mesh &mesh
             case MeshFlexItem::Kind::NoAutoDmxRules:
                 ApplyNoAutoDmxRules(ctx, pmodel->source);
                 break;
+            case MeshFlexItem::Kind::VertexCache: {
+                const VertexCacheDesc &cache = desc.vertexCaches[item.index];
+                ScopedApplyObject object(state, std::format("vertex cache animation '{}'", cache.name));
+                CheckVertexCacheAnimationAllowed(ctx);
+                std::vector<int> frames;
+                frames.reserve(cache.frames.size());
+                for (const uint32_t shape: cache.frames)
+                    frames.push_back(FrameOf(shape));
+                ApplyVertexCacheAnimation(ctx, static_cast<size_t>(imodel), EnsureShapeSource(ctx, mesh, pmodel),
+                                          cache.name, frames);
+                break;
+            }
         }
     }
 }

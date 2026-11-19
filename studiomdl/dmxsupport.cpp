@@ -1557,7 +1557,7 @@ bool LoadTwistConstraint(StudioMdlState &ctx, CDmElement* pDmElement) {
             continue;
 
         s_constraintbonetarget_t &twistBoneTarget = twistBone.m_twistBoneTargets.emplace_back();
-        V_strncpy(twistBoneTarget.m_szBoneName, pDmeTwistDag->GetName(), ARRAYSIZE(twistBoneTarget.m_szBoneName));
+        V_strncpy(twistBoneTarget.m_szBoneName, pDmeTwistDag->GetName(), sizeof(twistBoneTarget.m_szBoneName));
         twistBoneTarget.m_nBone = -1;
         twistBoneTarget.m_flWeight = pDmeTwist->GetSlaveWeight(i);
         twistBoneTarget.m_vOffset = pDmeTwistDag->GetTransform()->GetPosition();
@@ -1596,7 +1596,7 @@ bool LoadBaseConstraintParams(StudioMdlState &ctx, CConstraintBoneBase* pConstra
 
         // Load targets
         s_constraintbonetarget_t &target = pConstraintBone->m_targets.emplace_back();
-        V_strncpy(target.m_szBoneName, pDmeTargetDag->GetName(), ARRAYSIZE(target.m_szBoneName));
+        V_strncpy(target.m_szBoneName, pDmeTargetDag->GetName(), sizeof(target.m_szBoneName));
         target.m_nBone = -1;
         target.m_flWeight = pDmeConstraintTarget->GetWeight();
         target.m_qOffset = pDmeConstraintTarget->GetOrientationOffset();
@@ -1625,7 +1625,7 @@ bool LoadBaseConstraintParams(StudioMdlState &ctx, CConstraintBoneBase* pConstra
 
     s_constraintboneslave_t &slave = pConstraintBone->m_slave;
 
-    V_strncpy(slave.m_szBoneName, pDmeSlaveDag->GetName(), ARRAYSIZE(slave.m_szBoneName));
+    V_strncpy(slave.m_szBoneName, pDmeSlaveDag->GetName(), sizeof(slave.m_szBoneName));
     slave.m_nBone = -1;
     slave.m_vBaseTranslate = pDmeConstraintSlave->GetBasePosition();
     slave.m_qBaseRotation = pDmeConstraintSlave->GetBaseOrientation();

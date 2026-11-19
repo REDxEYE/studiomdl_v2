@@ -340,8 +340,14 @@ bool FS_Stat( const char *pPath, FileStat_t &stat )
 	stat.nSize = ec ? 0 : (int64_t)nSize;
 
 	const fs::file_time_type modifyTime = fs::last_write_time( path, ec );
+#if defined( _LIBCPP_VERSION )
+	// libc++ has no clock_cast: shift by the offset between the two clocks (sampled back to back)
+	const auto systemTime = std::chrono::system_clock::now() + ( modifyTime - fs::file_time_type::clock::now() );
+	stat.nModifyTime = ec ? 0 : std::chrono::duration_cast<std::chrono::seconds>( systemTime.time_since_epoch() ).count();
+#else
 	stat.nModifyTime = ec ? 0 : std::chrono::duration_cast<std::chrono::seconds>(
 		std::chrono::clock_cast<std::chrono::system_clock>( modifyTime ).time_since_epoch() ).count();
+#endif
 	return true;
 }
 

@@ -6,6 +6,7 @@
 #pragma once
 
 #include <array>
+#include <optional>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -84,10 +85,47 @@ struct SphereNormalsDesc {
     Vector position{0, 0, 0};
 };
 
+// DMX combination operator (smdl_mesh_add_combination_control and friends): the controls, the domination rules and the
+// flex rules ("advanced flex") of the mesh's DmeCombinationOperator. Applied before every other item of the mesh.
+struct CombinationControlDesc {
+    std::string name;                    // the control (flex controller) name
+    std::vector<std::string> rawControls; // names the shapes are named after (`a_b_c` combines raw controls a, b, c)
+    bool stereo = false;
+    bool eyelid = false;
+    std::string eyesUpDownFlex;          // eyelid only; empty = "eyes_updown"
+    bool hasRange = false;               // flexMin / flexMax (only used with flex rules)
+    float min = 0.0f;
+    float max = 1.0f;
+};
+
+struct CombinationDominatorDesc {
+    std::vector<std::string> dominators;
+    std::vector<std::string> suppressed;
+};
+
+struct CombinationFlexRuleDesc {
+    enum class Kind { Expression, PassThrough, LocalVar };
+    Kind kind = Kind::Expression;
+    std::string flex;       // the flex the rule defines (the controller read by a pass-through has the same name)
+    std::string expression; // Expression only
+};
+
+struct CombinationDesc {
+    std::vector<CombinationControlDesc> controls;
+    std::vector<CombinationDominatorDesc> dominators;
+    std::vector<CombinationFlexRuleDesc> rules;
+};
+
+// `vcafile`: the shapes (in frame order) are the frames after frame 0 of a vertex cache animation
+struct VertexCacheDesc {
+    std::string name; // the Nway controller's name (the VTA file's base name in a QC)
+    std::vector<uint32_t> frames;
+};
+
 // One call of the mesh's options, in call order. `index` addresses the vector of that kind in MeshFlexDesc
 // (the default flex and noautodmxrules have no payload / their own field).
 struct MeshFlexItem {
-    enum class Kind { Eyeball, Flex, DefaultFlex, Eyelid, DmxEyelid, SphereNormals, NoAutoDmxRules };
+    enum class Kind { Eyeball, Flex, DefaultFlex, Eyelid, DmxEyelid, SphereNormals, NoAutoDmxRules, VertexCache };
     Kind kind;
     uint32_t index = 0;
 };
@@ -99,6 +137,8 @@ struct MeshFlexDesc {
     std::vector<EyelidDesc> eyelids;
     std::vector<DmxEyelidDesc> dmxEyelids;
     std::vector<SphereNormalsDesc> sphereNormals;
+    std::vector<VertexCacheDesc> vertexCaches;
+    std::optional<CombinationDesc> combination; // set by the first combination call
     uint32_t defaultShape = SMDL_NO_ID;
     bool hasDefaultFlex = false;
     bool noAutoDmxRules = false;

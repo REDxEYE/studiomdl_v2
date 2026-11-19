@@ -1829,7 +1829,7 @@ static void LoadDefineBoneList(StudioMdlState &ctx, CDmeDefineBoneList *pDmeDefi
             if (!pContentsName) {
                 pContentsName = &ctx.core.jointContents.emplace_back();
                 Q_strncpy(pContentsName->m_pJointName, pDmeDefineBone->GetName(),
-                          ARRAYSIZE(pContentsName->m_pJointName));
+                          sizeof(pContentsName->m_pJointName));
             }
 
             pContentsName->m_nContents = nContentsDescription;

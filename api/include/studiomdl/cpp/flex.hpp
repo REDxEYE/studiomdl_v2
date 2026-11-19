@@ -2,6 +2,8 @@
 #pragma once
 
 #include <cstdint>
+#include <initializer_list>
+#include <span>
 #include <string_view>
 
 #include "common.hpp"
@@ -14,6 +16,7 @@ namespace smdl {
 using EyeballId = uint32_t;  // per mesh, call order
 using FlexKeyId = uint32_t;  // per mesh, call order (the key index of addFlex / addFlexPair)
 using EyelidId = uint32_t;   // per mesh, call order (addEyelid; addDmxEyelid has its own numbering)
+using CombinationControlId = uint32_t; // per mesh, call order (addCombinationControl)
 
 enum class BoneFlexComponent : int { TX = SMDL_BONE_FLEX_TX, TY = SMDL_BONE_FLEX_TY, TZ = SMDL_BONE_FLEX_TZ };
 enum class EyelidKind : int { Upper = SMDL_EYELID_UPPER, Lower = SMDL_EYELID_LOWER };
@@ -101,6 +104,50 @@ namespace detail {
 
         // noautodmxrules
         void setNoAutoDmxRules(bool enabled = true) const;
+
+        // ---- DMX combination operator (see smdl_flex.h): every shape of the mesh's geometry becomes a delta state ----
+
+        // A control (flex controller `name`) driven by the raw controls the shapes are named after (`a_b_c` combines
+        // the raw controls a, b, c). stereo: `right_<name>` / `left_<name>` controllers and L/R flexes.
+        CombinationControlId addCombinationControl(std::string_view name, std::span<const std::string_view> rawControls,
+                                                   bool stereo = false) const;
+
+        CombinationControlId addCombinationControl(std::string_view name, std::initializer_list<std::string_view> rawControls,
+                                                   bool stereo = false) const {
+            return addCombinationControl(name, std::span<const std::string_view>(rawControls.begin(), rawControls.size()),
+                                         stereo);
+        }
+
+        // Makes the control an eyelid control (two raw controls: the lower lid's, then the upper lid's); the flex
+        // controller `eyesUpDownFlex` ("" = "eyes_updown") moves the lids with the eyes
+        void setCombinationControlEyelid(CombinationControlId control, std::string_view eyesUpDownFlex = {}) const;
+
+        // The range of the control's flex controller (only used together with combination flex rules)
+        void setCombinationControlRange(CombinationControlId control, float min, float max) const;
+
+        // Domination rule: while the dominators are on, the combined shapes containing all `suppressed` raw controls
+        // are suppressed
+        void addCombinationDominator(std::span<const std::string_view> dominators,
+                                     std::span<const std::string_view> suppressed) const;
+
+        void addCombinationDominator(std::initializer_list<std::string_view> dominators,
+                                     std::initializer_list<std::string_view> suppressed) const {
+            addCombinationDominator(std::span<const std::string_view>(dominators.begin(), dominators.size()),
+                                    std::span<const std::string_view>(suppressed.begin(), suppressed.size()));
+        }
+
+        // "Advanced flex" (DmeFlexRules): the flex's rule is this expression (the text of a QC `%flex = <expression>`)
+        void addCombinationExpression(std::string_view flex, std::string_view expression) const;
+
+        // The flex's rule is the value of the control of the same name (DmeFlexRulePassThrough)
+        void addCombinationPassThrough(std::string_view flex) const;
+
+        // A flex without vertex data that expressions can read (DmeFlexRuleLocalVar)
+        void addCombinationLocalVar(std::string_view name) const;
+
+        // vcafile: a vertex cache animation. `shapes` are the frames after frame 0 (the base pose); one Nway
+        // controller `name` plays them as the flexes f0, f1, ... (the only flex option of the mesh)
+        void addVertexCacheAnimation(std::string_view name, std::span<const ShapeId> shapes) const;
 
     private:
         smdl_mesh *mesh() const; // api/src/cpp_api.cpp

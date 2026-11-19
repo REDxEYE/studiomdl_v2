@@ -72,6 +72,9 @@ public:
 
     void setFlipTriangles(bool flip);
 
+    // Material names relative to materials/ like those of a DMX file (see smdl_geometry.h)
+    void setRelativeMaterials(bool relative);
+
     // 0 = the model scale
     void setScale(float scale);
 

@@ -10,6 +10,7 @@
 
 #include <array>
 #include <functional>
+#include <span>
 #include <string>
 #include <string_view>
 
@@ -71,6 +72,16 @@ std::string ApplyFlexKey(StudioMdlState &ctx, const FlexKeyParams &params, s_sou
 
 // `defaultflex`: a key named "default" that is also the model's default pose (ctx.flex.defaultflexkey)
 std::string ApplyDefaultFlexKey(StudioMdlState &ctx, const FlexKeyParams &params, s_source_t *source, int imodel);
+
+// `$model ... { vcafile <vta> }`, a vertex cache animation: frame 0 of the VTA `vtaSource` is the base pose (flex
+// "default"), each of `frames` (VTA frames, in order) is a flex "f<i>" driven by one slider, an Nway flex controller
+// `name`, that plays the frames as it goes from -1 to 1. The flex keys, the remap and its rules belong to the model
+// `modelIndex` (the model's own source gets the remap, the controllers are added now, the rules by AddBodyFlexRules).
+// Both throw MdlError like the original option did.
+// CheckVertexCacheAnimationAllowed: the option must be the first flex of the model file ("Flexes already defined").
+void CheckVertexCacheAnimationAllowed(StudioMdlState &ctx);
+void ApplyVertexCacheAnimation(StudioMdlState &ctx, size_t modelIndex, s_source_t *vtaSource, std::string_view name,
+                               std::span<const int> frames);
 
 // ---------------------------------------------------------------------------------------------------------------
 // Eyeballs and eyelids

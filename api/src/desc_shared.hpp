@@ -85,8 +85,10 @@ struct smdl_geometry {
     std::vector<RestPoseOverride> restOverrides;           // bones whose bind pose differs in this geometry
 
     std::vector<GeometryShapeDesc> shapes;                 // Flex part
+    std::vector<float> balance;                            // Flex part: stereo balance per vertex (DmeVertexData "balance"), empty = none
 
     bool flipTriangles = false;
+    bool relativeMaterials = false;                        // material names are relative to materials/ (DMX materials, SMD version 2)
     float scale = 0.0f;                                    // 0 = the model's $scale (like a `studio` without `scale`)
 
     // $appendsource: set on the geometries created by smdl_mesh_append_geometry
