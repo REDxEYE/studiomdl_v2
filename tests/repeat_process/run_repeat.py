@@ -36,6 +36,8 @@ def make_games(root, count):
 
 
 def normalize(log, root):
+    # Windows consoles write \r\n
+    log = log.replace("\r\n", "\n")
     return log.replace(root, "<root>").replace(root.replace("/", "\\"), "<root>")
 
 

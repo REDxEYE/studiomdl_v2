@@ -203,7 +203,7 @@ void SetupCompileDirectories(StudioMdlState &ctx, const std::string_view qcPath,
     std::error_code ec;
     const std::filesystem::path qc = std::filesystem::absolute(vstd::paths::to_fs(qcPath), ec).lexically_normal();
     ctx.paths.qdir = AbsoluteDirectory(qc.parent_path());
-#if !(PLATFORM_LINUX)
+#ifdef _WIN32 // like Valve's Windows build (case-insensitive paths); POSIX keeps the case
     vstd::make_lower_ascii(ctx.paths.qdir);
 #endif
     ctx.paths.gameDir = AbsoluteDirectory(vstd::paths::to_fs(gameInfoPath));

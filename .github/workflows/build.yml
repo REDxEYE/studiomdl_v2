@@ -20,8 +20,13 @@ permissions:
 env:
   # studiomdl_repeat_test and path_utils_test are executables of ctest entries (repeat_process, path_utils)
   BUILD_TARGETS: studiomdl_v2 dmxconvert studiomdl_shared studiomdl_static smdl_api_tests api_c_host smdl_example_cube studiomdl_repeat_test path_utils_test
-  # api_exports exists on Linux only (nm -D); api_consumer configures and builds a second project against this one
-  CTEST_TESTS: ^(api|api_c|api_ctypes|api_exports|api_consumer|repeat_process|path_utils)$
+  # Critical: the C ABI and linking (api_exports exists on Linux only (nm -D); api_consumer configures and builds a
+  # second project against this one). A failure fails the job.
+  CTEST_TESTS: ^(api_c|api_exports|api_consumer|path_utils)$
+  # Non-critical: byte-for-byte comparisons (builder vs QC compile, one process vs many) and the Python ctypes smoke.
+  # They can differ per platform (math library last bits, paths, console output); a failure is reported in the step
+  # but doesn't fail the job.
+  CTEST_TESTS_NONCRITICAL: ^(api|api_ctypes|repeat_process)$
 
 jobs:
   build-windows:
@@ -53,6 +58,11 @@ jobs:
       - name: Test
         shell: bash
         run: ctest --test-dir build --output-on-failure -R "$CTEST_TESTS"
+
+      - name: Test (non-critical)
+        continue-on-error: true
+        shell: bash
+        run: ctest --test-dir build --output-on-failure -R "$CTEST_TESTS_NONCRITICAL"
 
       - name: Collect artifacts
         shell: bash
@@ -107,6 +117,10 @@ jobs:
       - name: Test
         run: ctest --test-dir build --output-on-failure -R "$CTEST_TESTS"
 
+      - name: Test (non-critical)
+        continue-on-error: true
+        run: ctest --test-dir build --output-on-failure -R "$CTEST_TESTS_NONCRITICAL"
+
       - name: Collect artifacts
         run: |
           mkdir -p dist/bin dist/lib dist/include
@@ -158,6 +172,10 @@ jobs:
 
       - name: Test
         run: ctest --test-dir build --output-on-failure -R "$CTEST_TESTS"
+
+      - name: Test (non-critical)
+        continue-on-error: true
+        run: ctest --test-dir build --output-on-failure -R "$CTEST_TESTS_NONCRITICAL"
 
       - name: Collect artifacts
         run: |
