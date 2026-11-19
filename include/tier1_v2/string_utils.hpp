@@ -16,6 +16,7 @@
 #include <string_view>
 #include <vector>
 #include "fixed_string.hpp"
+#include "charconv_float.hpp"
 #include "studiomdl/studiomdl_log.hpp"
 
 namespace vstd {
@@ -131,7 +132,7 @@ namespace vstd {
     template<std::floating_point T>
     T str_to_float(std::string_view view) {
         T val = 0;
-        auto [ptr, ec] = std::from_chars(view.data(), view.data() + view.size(), val);
+        auto [ptr, ec] = vstd::from_chars_float(view.data(), view.data() + view.size(), val);
 
         if (ec == std::errc()) {
             return val;

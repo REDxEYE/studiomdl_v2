@@ -22,6 +22,7 @@
 
 #include "tier1/utlvector.h"
 #include "tier1_v2/fixed_string.hpp"
+#include "tier1_v2/charconv_float.hpp"
 
 struct CmdLibContentPaths;
 
@@ -193,7 +194,7 @@ public:
     T TokenFloat(const std::string_view what = {}) const {
         T value{};
         const std::string_view text = token.view();
-        const auto [end, ec] = std::from_chars(text.data(), text.data() + text.size(), value);
+        const auto [end, ec] = vstd::from_chars_float(text.data(), text.data() + text.size(), value);
         if (text.empty() || ec != std::errc{} || end != text.data() + text.size() || !std::isfinite(value))
             BadNumber("number", what);
         return value;

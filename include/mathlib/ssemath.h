@@ -1939,19 +1939,19 @@ FORCEINLINE void RotateLeftDoubleSIMD( fltx4 &a, fltx4 &b )
 #if !defined( POSIX ) && !defined( SPU ) && !defined( __clang__ )
 #if 1  // TODO: verify generation of non-bad code. 
 // Componentwise add
-FORCEINLINE fltx4 operator+( fltx4& a, fltx4& b )
+FORCEINLINE fltx4 operator+( const fltx4& a, const fltx4& b )
 {
 	return AddSIMD( a, b );
 }
 
 // Componentwise subtract
-FORCEINLINE fltx4 operator-( fltx4& a, fltx4& b )
+FORCEINLINE fltx4 operator-( const fltx4& a, const fltx4& b )
 {
 	return SubSIMD( a, b );
 }
 
 // Componentwise multiply
-FORCEINLINE fltx4 operator*( fltx4& a, fltx4& b )
+FORCEINLINE fltx4 operator*( const fltx4& a, const fltx4& b )
 {
 	return MulSIMD( a, b );
 }
@@ -1960,25 +1960,25 @@ FORCEINLINE fltx4 operator*( fltx4& a, fltx4& b )
 // or a reciprocal estimate.
 
 // bitwise and
-FORCEINLINE fltx4 operator&( fltx4& a, fltx4& b )
+FORCEINLINE fltx4 operator&( const fltx4& a, const fltx4& b )
 {
 	return AndSIMD( a ,b );
 }
 
 // bitwise or
-FORCEINLINE fltx4 operator|( fltx4& a, fltx4& b )
+FORCEINLINE fltx4 operator|( const fltx4& a, const fltx4& b )
 {
 	return OrSIMD( a, b );
 }
 
 // bitwise xor
-FORCEINLINE fltx4 operator^( fltx4& a, fltx4& b )
+FORCEINLINE fltx4 operator^( const fltx4& a, const fltx4& b )
 {
 	return XorSIMD( a, b );
 }
 
 // unary negate
-FORCEINLINE fltx4 operator-( fltx4& a )
+FORCEINLINE fltx4 operator-( const fltx4& a )
 {
 	return NegSIMD( a );
 }

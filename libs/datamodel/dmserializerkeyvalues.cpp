@@ -15,6 +15,7 @@
 #include "DmElementFramework.h"
 
 #include <charconv>
+#include "tier1_v2/charconv_float.hpp"
 #include <cstring>
 #include <string>
 
@@ -226,7 +227,7 @@ static int ScanFloats(const char* p, float* pOut, int nMax) {
         const char* pDigits = *pNumber == '-' ? pNumber + 1 : pNumber;
         if (!V_isdigit(*pDigits) && !(*pDigits == '.' && V_isdigit(pDigits[1])))
             break;
-        const auto [ptr, ec] = std::from_chars(pNumber, pNumber + strlen(pNumber), pOut[n], std::chars_format::general);
+        const auto [ptr, ec] = vstd::from_chars_float(pNumber, pNumber + strlen(pNumber), pOut[n], std::chars_format::general);
         if (ec == std::errc::invalid_argument)
             break;
         p = ptr; // out of range still consumes the number, as sscanf does
