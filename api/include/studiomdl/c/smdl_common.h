@@ -30,6 +30,10 @@ extern "C" {
 
 #define SMDL_API_VERSION 1u
 
+/* Most bone influences per vertex smdl_geometry_set_weights accepts. studiomdl blends them down to the 3 the .vvd
+ * stores (see smdl_geometry.h). */
+#define SMDL_MAX_INFLUENCES 16u
+
 typedef enum smdl_status {
     SMDL_OK = 0,
     SMDL_ERROR_INVALID_ARGUMENT = 1, /* null handle/pointer, bad enum value, wrong array length, NaN */

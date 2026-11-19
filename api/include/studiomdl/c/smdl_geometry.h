@@ -51,7 +51,8 @@ SMDL_API smdl_status smdl_geometry_set_tangents(smdl_geometry *geometry, const f
 SMDL_API smdl_status smdl_geometry_set_uvs(smdl_geometry *geometry, uint32_t set, const float *uv, size_t count,
                                            size_t stride);
 
-/* Bone weights: `influences_per_vertex` (1..1024) bone ids and weights per vertex. bones/weights are arrays of
+/* Bone weights: `influences_per_vertex` (1..SMDL_MAX_INFLUENCES, i.e. 1..16) bone ids and weights per vertex; more is
+ * SMDL_ERROR_INVALID_ARGUMENT (trim to the 16 largest first). bones/weights are arrays of
  * vertex_count rows of influences_per_vertex uint32/float each; bones_stride / weights_stride is the distance in
  * bytes between two rows (0 = packed). A vertex with fewer influences pads its row with weight 0 (any valid bone).
  * vertex_count must equal the vertex count, bone ids must exist (add the bones first), weights must be >= 0. */

@@ -361,6 +361,20 @@ SMDL_TEST(core_geometry_checks) {
     error = CaptureError([&] { geometry.setUVs(8, std::vector<smdl::Vec2>(3)); });
     Require(error.status() == SMDL_ERROR_OUT_OF_RANGE && Contains(error.what(), "UV set 8"), "uv set range");
 
+    // weights: at most SMDL_MAX_INFLUENCES (16) per vertex
+    {
+        const std::vector<smdl::BoneId> bones(3 * smdl::MaxInfluences, root);
+        const std::vector<float> weights(3 * smdl::MaxInfluences, 1.0f / smdl::MaxInfluences);
+        geometry.setWeights(smdl::MaxInfluences, bones, weights);
+    }
+    error = CaptureError([&] {
+        const std::vector<smdl::BoneId> bones(3 * (smdl::MaxInfluences + 1), root);
+        const std::vector<float> weights(3 * (smdl::MaxInfluences + 1), 0.0f);
+        geometry.setWeights(smdl::MaxInfluences + 1, bones, weights);
+    });
+    Require(error.status() == SMDL_ERROR_INVALID_ARGUMENT && Contains(error.what(), "must be 1..16, got 17"),
+            "influences per vertex over SMDL_MAX_INFLUENCES");
+
     // weights: bone out of range, negative weight
     error = CaptureError([&] {
         const std::vector<smdl::BoneId> bones = {root, root, 5};

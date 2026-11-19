@@ -8,6 +8,9 @@
 #include "core_util.hpp"
 #include "studiomdl/studiomdl_constants.hpp"
 
+// The builder keeps every influence it accepts until FitSourceWeights blends them down.
+static_assert(SMDL_MAX_INFLUENCES == MAXSTUDIOSOURCEBONEWEIGHTS);
+
 using namespace smdl_api;
 
 namespace {
@@ -229,9 +232,9 @@ void Geometry::setWeights(uint32_t influences_per_vertex, const BoneId *bones, s
                           const float *weights, size_t weights_stride, size_t vertex_count) {
     smdl_geometry *g = handle();
     RunBody(g->model, [&] {
-        if (influences_per_vertex == 0 || influences_per_vertex > MAXSTUDIOSRCBONES)
+        if (influences_per_vertex == 0 || influences_per_vertex > SMDL_MAX_INFLUENCES)
             return Fail(g->model, SMDL_ERROR_INVALID_ARGUMENT, "{}: weights: influences per vertex must be 1..{}, got {}",
-                        g->owner, MAXSTUDIOSRCBONES, influences_per_vertex);
+                        g->owner, SMDL_MAX_INFLUENCES, influences_per_vertex);
         std::vector<uint32_t> newBones;
         std::vector<float> newWeights;
         smdl_status status = SMDL_OK;

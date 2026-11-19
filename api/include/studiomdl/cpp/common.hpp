@@ -25,6 +25,8 @@ using HitboxSetId = smdl_hitbox_set_id;
 
 inline constexpr BoneId NoBone = SMDL_NO_BONE;
 inline constexpr uint32_t NoId = SMDL_NO_ID;
+// Most bone influences per vertex Geometry::setWeights accepts
+inline constexpr uint32_t MaxInfluences = SMDL_MAX_INFLUENCES;
 
 using Vec2 = std::array<float, 2>;
 using Vec3 = std::array<float, 3>;

@@ -31,7 +31,8 @@ public:
     void setUVs(uint32_t set, std::span<const Vec2> uv) { setUVs(set, floats(uv.data()), uv.size(), 0); }
     void setUVs(uint32_t set, const float *uv, size_t count, size_t strideBytes = 0);
 
-    // bones/weights: influencesPerVertex entries per vertex, rows of the same length (padding weight 0).
+    // bones/weights: influencesPerVertex (1..MaxInfluences) entries per vertex, rows of the same length (padding
+    // weight 0).
     void setWeights(uint32_t influencesPerVertex, std::span<const BoneId> bones, std::span<const float> weights) {
         if (influencesPerVertex == 0 || bones.size() % influencesPerVertex != 0 || bones.size() != weights.size())
             throw Error(SMDL_ERROR_INVALID_ARGUMENT, "setWeights: bones and weights must hold influencesPerVertex entries per vertex");
