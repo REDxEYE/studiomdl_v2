@@ -35,7 +35,7 @@
 // confusing effects.
 //////////////////////////////////
 
-static char* s_LastFileLoadingFrom = "unknown"; // just needed for error messages
+static const char* s_LastFileLoadingFrom = "unknown"; // just needed for error messages
 
 #define KEYVALUES_TOKEN_SIZE	(1024 * 32)
 
@@ -526,7 +526,7 @@ bool KeyValues::LoadFromFile(IBaseFileSystem* filesystem, const char* resourceNa
     if (!f)
         return false;
 
-    s_LastFileLoadingFrom = (char*) resourceName;
+    s_LastFileLoadingFrom = resourceName;
 
     // load file into a null-terminated buffer
     int fileSize = filesystem->Size(f);

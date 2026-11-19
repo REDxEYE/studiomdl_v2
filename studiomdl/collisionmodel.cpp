@@ -2037,7 +2037,7 @@ void ParseCollisionCommands(ScriptTokenizer &qc, CJointedModel &joints) {
         }
         else if (!stricmp(command, "$jointconstrain")) {
             argCount = ReadArgs(qc, args, 6);
-            char *pFriction = args[5];
+            const char *pFriction = args[5];
             if (argCount < 6) {
                 pFriction = "1.0";
             }
