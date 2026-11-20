@@ -7,6 +7,7 @@
 
 #include "core_util.hpp"
 #include "studiomdl/studiomdl_constants.hpp"
+#include "tier1_v2/function_timing.hpp"
 
 // The builder keeps every influence it accepts until FitSourceWeights blends them down.
 static_assert(SMDL_MAX_INFLUENCES == MAXSTUDIOSOURCEBONEWEIGHTS);
@@ -176,6 +177,7 @@ namespace {
 namespace smdl {
 
 void Geometry::setPositions(const float *xyz, size_t count, size_t stride) {
+    vstd::FunctionTimingRecorder _("API");
     smdl_geometry *g = handle();
     RunBody(g->model, [&] {
         if (count > MAXSTUDIOSRCVERTS)
@@ -189,6 +191,7 @@ void Geometry::setPositions(const float *xyz, size_t count, size_t stride) {
 }
 
 void Geometry::setNormals(const float *xyz, size_t count, size_t stride) {
+    vstd::FunctionTimingRecorder _("API");
     smdl_geometry *g = handle();
     RunBody(g->model, [&] {
         std::vector<Vector> data;
@@ -200,6 +203,7 @@ void Geometry::setNormals(const float *xyz, size_t count, size_t stride) {
 }
 
 void Geometry::setTangents(const float *xyzw, size_t count, size_t stride) {
+    vstd::FunctionTimingRecorder _("API");
     smdl_geometry *g = handle();
     RunBody(g->model, [&] {
         std::vector<float> floats;
@@ -215,6 +219,7 @@ void Geometry::setTangents(const float *xyzw, size_t count, size_t stride) {
 }
 
 void Geometry::setUVs(uint32_t set, const float *uv, size_t count, size_t stride) {
+    vstd::FunctionTimingRecorder _("API");
     smdl_geometry *g = handle();
     RunBody(g->model, [&] {
         if (set >= kMaxUvSets)
@@ -230,6 +235,7 @@ void Geometry::setUVs(uint32_t set, const float *uv, size_t count, size_t stride
 
 void Geometry::setWeights(uint32_t influences_per_vertex, const BoneId *bones, size_t bones_stride,
                           const float *weights, size_t weights_stride, size_t vertex_count) {
+    vstd::FunctionTimingRecorder _("API");
     smdl_geometry *g = handle();
     RunBody(g->model, [&] {
         if (influences_per_vertex == 0 || influences_per_vertex > SMDL_MAX_INFLUENCES)
@@ -289,17 +295,20 @@ MaterialId Geometry::addMaterial(std::string_view name) {
 
 void Geometry::setTriangles(const uint32_t *indices, size_t triangle_count, size_t stride, const MaterialId *materials,
                             size_t materials_stride) {
+    vstd::FunctionTimingRecorder _("API");
     smdl_geometry *g = handle();
     RunBody(g->model, [&] { return SetPolygons(g, indices, triangle_count, stride, 3, materials, materials_stride, false); });
 }
 
 void Geometry::setQuads(const uint32_t *indices, size_t quad_count, size_t stride, const MaterialId *materials,
                         size_t materials_stride) {
+    vstd::FunctionTimingRecorder _("API");
     smdl_geometry *g = handle();
     RunBody(g->model, [&] { return SetPolygons(g, indices, quad_count, stride, 4, materials, materials_stride, true); });
 }
 
 void Geometry::setCornerNormals(const float *xyz, size_t corner_count, size_t stride) {
+    vstd::FunctionTimingRecorder _("API");
     smdl_geometry *g = handle();
     RunBody(g->model, [&] {
         std::vector<Vector> data;
@@ -311,6 +320,7 @@ void Geometry::setCornerNormals(const float *xyz, size_t corner_count, size_t st
 }
 
 void Geometry::setCornerUVs(uint32_t set, const float *uv, size_t corner_count, size_t stride) {
+    vstd::FunctionTimingRecorder _("API");
     smdl_geometry *g = handle();
     RunBody(g->model, [&] {
         if (set >= kMaxUvSets)

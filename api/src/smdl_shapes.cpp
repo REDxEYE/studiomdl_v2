@@ -6,6 +6,7 @@
 
 #include "api_util.hpp"
 #include "studiomdl/studiomdl_constants.hpp"
+#include "tier1_v2/function_timing.hpp"
 
 using namespace smdl_api;
 
@@ -30,6 +31,7 @@ namespace detail {
 ShapeId GeometryShapesApi::addShape(std::string_view nameView, const uint32_t *vertices, size_t count,
                                     size_t vertices_stride_bytes, const float *position_deltas,
                                     size_t position_deltas_stride_bytes) const {
+    vstd::FunctionTimingRecorder _("API");
     smdl_geometry *geometry = handle();
     smdl_model *model = geometry->model;
     const std::string nameStorage(nameView);
@@ -84,6 +86,7 @@ ShapeId GeometryShapesApi::addShape(std::string_view nameView, const uint32_t *v
 }
 
 void GeometryShapesApi::setShapeNormalDeltas(ShapeId shape, const float *xyz, size_t count, size_t stride_bytes) const {
+    vstd::FunctionTimingRecorder _("API");
     smdl_geometry *geometry = handle();
     smdl_model *model = geometry->model;
     RunBody(model, [&] {
@@ -105,6 +108,7 @@ void GeometryShapesApi::setShapeNormalDeltas(ShapeId shape, const float *xyz, si
 }
 
 void GeometryShapesApi::setShapeWrinkle(ShapeId shape, const float *values, size_t count, size_t stride_bytes) const {
+    vstd::FunctionTimingRecorder _("API");
     smdl_geometry *geometry = handle();
     smdl_model *model = geometry->model;
     RunBody(model, [&] {
@@ -124,6 +128,7 @@ void GeometryShapesApi::setShapeWrinkle(ShapeId shape, const float *values, size
 }
 
 void GeometryShapesApi::setBalance(const float *values, size_t count, size_t stride_bytes) const {
+    vstd::FunctionTimingRecorder _("API");
     smdl_geometry *geometry = handle();
     smdl_model *model = geometry->model;
     RunBody(model, [&] {
