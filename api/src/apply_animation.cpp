@@ -11,6 +11,7 @@
 #include "studiomdl/studiomdl.h"
 #include "studiomdl/studiomdl_global_state.hpp"
 #include "studiomdl_errors.h"
+#include "tier1_v2/function_timing.hpp"
 
 namespace {
     // The compile's $scale applies to animation positions (SetSourceAnimBone scales with currentscale)
@@ -327,6 +328,7 @@ namespace {
 }
 
 void ApplyAnimations(StudioMdlState &ctx, ApplyState &state) {
+    vstd::FunctionTimingRecorder _("API");
     for (const std::unique_ptr<smdl_animation> &entry: state.model.animations.list) {
         const smdl_animation &animation = *entry;
         ScopedApplyObject object(state, std::format("animation '{}'", animation.name));

@@ -11,6 +11,7 @@
 #include "studiomdl/studiomdl_global_state.hpp"
 #include "studiomdl_commands.h"
 #include "studiomdl_errors.h"
+#include "tier1_v2/function_timing.hpp"
 
 namespace {
     s_animation_t *FindApplied(StudioMdlState &ctx, const smdl_animation &animation) {
@@ -132,6 +133,7 @@ namespace {
 }
 
 void ApplySequences(StudioMdlState &ctx, ApplyState &state) {
+    vstd::FunctionTimingRecorder _("API");
     for (const std::unique_ptr<smdl_sequence> &entry: state.model.sequences.list) {
         const smdl_sequence &sequence = *entry;
         ScopedApplyObject object(state, std::format("sequence '{}'", sequence.name));

@@ -856,7 +856,7 @@ void AddSrcToSrc(StudioMdlState &ctx, s_source_t *pOrigSource, s_source_t *pAppe
     // append A to C
     // append B to C
     // replace A with C
-
+    vstd::FunctionTimingRecorder _("API");
     CClampedSource newSource;
 
     // everything goes into one mesh, with material 0

@@ -10,6 +10,7 @@
 #include "studiomdl/studiomdl.h"
 #include "studiomdl/studiomdl_global_state.hpp"
 #include "studiomdl_errors.h"
+#include "tier1_v2/function_timing.hpp"
 
 namespace {
     using Kind = CollisionOp::Kind;
@@ -149,6 +150,7 @@ namespace {
 }
 
 void ApplyCollision(StudioMdlState &ctx, ApplyState &state) {
+    vstd::FunctionTimingRecorder _("API");
     const smdl_collision *collision = state.model.collision.collision.get();
     if (!collision || !collision->present())
         return;

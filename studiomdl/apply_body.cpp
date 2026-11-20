@@ -3,6 +3,7 @@
 #include <format>
 
 #include "studiomdl/studiomdl.h"
+#include "tier1_v2/function_timing.hpp"
 
 s_bodypart_t &ApplyBodyPart(StudioMdlState &ctx, const std::string_view name) {
     s_bodypart_t &bodypart = ctx.body.AddBodyPart();
@@ -83,6 +84,7 @@ void ApplyBodyGroupPreset(StudioMdlState &ctx, const BodyGroupPresetBuilder &pre
 
 void ApplyAppendSource(StudioMdlState &ctx, s_source_t *original, s_source_t *append,
                        const std::optional<AppendSourceOffset> &offset) {
+    vstd::FunctionTimingRecorder _("API");
     matrix3x4_t matTemp;
     matTemp.SetToIdentity();
     matTemp.ScaleUpper3x3Matrix(ctx.script.currentscale);

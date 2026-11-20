@@ -107,6 +107,11 @@ SMDL_API smdl_status smdl_geometry_set_flip_triangles(smdl_geometry *geometry, i
  * for an MDL byte-identical to the compile of a DMX file. Default 0. */
 SMDL_API smdl_status smdl_geometry_set_relative_materials(smdl_geometry *geometry, int relative);
 
+/* Opt in to using the position indices of this geometry to unify triangle corners, rather than scanning vertices
+ * by position as the SMD loader does. Corners of the same input vertex still split at material, normal and UV seams.
+ * Default 0 preserves byte-for-byte parity with the SMD text loader. Useful for direct indexed Blender/DMX meshes. */
+SMDL_API smdl_status smdl_geometry_set_indexed_corners(smdl_geometry *geometry, int indexed);
+
 /* File name of the source built from this geometry, as the compile's messages and log name it ("body.blend"), used as
  * it is. Without it the name is the mesh name with the extension ".smd". */
 SMDL_API smdl_status smdl_geometry_set_source_name(smdl_geometry *geometry, const char *name);

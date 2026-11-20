@@ -4,12 +4,14 @@
 // equal data gives a byte-identical source.
 #include <algorithm>
 #include <format>
+#include <optional>
 
 #include "apply.hpp"
 #include "studiomdl/compile_error.hpp"
 #include "studiomdl/studiomdl.h"
 #include "studiomdl/studiomdl_global_state.hpp"
 #include "studiomdl_errors.h"
+#include "tier1_v2/function_timing.hpp"
 #include "tier1_v2/path_utils.hpp"
 
 namespace {
@@ -76,6 +78,7 @@ namespace {
     // The skeleton of the source: the model skeleton with the rest pose overrides of the geometry (SMD "nodes" and the
     // "skeleton" block with the single frame `time 0`, loaded as the "BindPose" animation)
     void BuildSkeleton(StudioMdlState &ctx, const ApplyState &state, const smdl_geometry &g, s_source_t *source) {
+        vstd::FunctionTimingRecorder _("API skeleton");
         const std::vector<BoneDesc> &bones = state.model.skeleton.bones;
         source->numbones = static_cast<int>(bones.size());
 
@@ -151,6 +154,7 @@ namespace {
 
 s_source_t *BuildSourceFromGeometry(StudioMdlState &ctx, ApplyState &state, const smdl_geometry &geometry,
                                     bool isActiveModel) {
+    vstd::FunctionTimingRecorder _("API");
     if (const auto cached = state.sources.find(&geometry); cached != state.sources.end()) {
         if (isActiveModel)
             cached->second->isActiveModel = true;
@@ -182,56 +186,86 @@ s_source_t *BuildSourceFromGeometry(StudioMdlState &ctx, ApplyState &state, cons
 
     BeginSourceTriangles(ctx);
 
-    // geometry vertices of each unified vertex (for the user tangents and the DMX delta states); corners of different
-    // vertices with equal data unify into one
-    std::vector<std::vector<uint32_t>> entryVertices;
+    // The default retains SMD value-based welding (and its byte-identical QC output). Direct indexed meshes opt in:
+    // only corners of the same input vertex can unify, while material/UV/normal seams remain separate.
+    std::optional<SourceCornerIndex> indexed;
+    std::vector<uint32_t> indexedEntries;
+    std::vector<std::vector<uint32_t>> legacyEntries;
+    if (geometry.indexedCorners) {
+        indexed.emplace(geometry.positions.size());
+        indexedEntries.reserve(geometry.positions.size());
+    }
     SourceCorner corner;
     auto addCorner = [&](int material, uint32_t vertex, int64_t cornerIndex) {
         FillCorner(geometry, vertex, cornerIndex, corner);
-        const int index = AddSourceCorner(ctx, source, material, corner);
-        if (static_cast<size_t>(index) >= entryVertices.size())
-            entryVertices.resize(static_cast<size_t>(index) + 1);
-        std::vector<uint32_t> &vertices = entryVertices[static_cast<size_t>(index)];
-        if (std::ranges::find(vertices, vertex) == vertices.end())
-            vertices.push_back(vertex);
+        const int index = AddSourceCorner(ctx, source, material, corner, indexed ? &*indexed : nullptr, vertex);
+        if (indexed) {
+            if (static_cast<size_t>(index) == indexedEntries.size())
+                indexedEntries.push_back(vertex);
+            else
+                Assert(indexedEntries[index] == vertex);
+        }
+        else {
+            if (static_cast<size_t>(index) >= legacyEntries.size())
+                legacyEntries.resize(static_cast<size_t>(index) + 1);
+            std::vector<uint32_t> &vertices = legacyEntries[static_cast<size_t>(index)];
+            if (std::ranges::find(vertices, vertex) == vertices.end())
+                vertices.push_back(vertex);
+        }
         return index;
     };
 
-    const size_t triangleCount = geometry.indices.size() / 3;
-    for (size_t t = 0; t < triangleCount; ++t) {
-        const smdl_material_id materialId = geometry.triangleMaterials.empty() ? 0 : geometry.triangleMaterials[t];
-        const int material = ResolveSourceMaterial(ctx, source, geometry.materials[materialId]);
-        if (material < 0)
-            continue;
-        std::array<int, 3> indices;
-        for (size_t c = 0; c < 3; ++c)
-            indices[c] = addCorner(material, geometry.indices[t * 3 + c], static_cast<int64_t>(t * 3 + c));
-        AddSourceTriangle(ctx, material, indices);
-    }
+    {
+        // Source material resolution, corner unification and face insertion.
+        vstd::FunctionTimingRecorder _("API corners");
+        const size_t triangleCount = geometry.indices.size() / 3;
+        for (size_t t = 0; t < triangleCount; ++t) {
+            const smdl_material_id materialId = geometry.triangleMaterials.empty() ? 0 : geometry.triangleMaterials[t];
+            const int material = ResolveSourceMaterial(ctx, source, geometry.materials[materialId]);
+            if (material < 0)
+                continue;
+            std::array<int, 3> indices;
+            for (size_t c = 0; c < 3; ++c)
+                indices[c] = addCorner(material, geometry.indices[t * 3 + c], static_cast<int64_t>(t * 3 + c));
+            AddSourceTriangle(ctx, material, indices);
+        }
 
-    const size_t quadCount = geometry.quadIndices.size() / 4;
-    for (size_t q = 0; q < quadCount; ++q) {
-        const smdl_material_id materialId = geometry.quadMaterials.empty() ? 0 : geometry.quadMaterials[q];
-        const int material = ResolveSourceMaterial(ctx, source, geometry.materials[materialId]);
-        if (material < 0)
-            continue;
-        std::array<int, 4> indices;
-        for (size_t c = 0; c < 4; ++c)
-            indices[c] = addCorner(material, geometry.quadIndices[q * 4 + c], -1);
-        // the order of the DMX loader's quads: corners 0, 3, 2, 1
-        AddSourceQuad(ctx, material, {indices[0], indices[3], indices[2], indices[1]});
+        const size_t quadCount = geometry.quadIndices.size() / 4;
+        for (size_t q = 0; q < quadCount; ++q) {
+            const smdl_material_id materialId = geometry.quadMaterials.empty() ? 0 : geometry.quadMaterials[q];
+            const int material = ResolveSourceMaterial(ctx, source, geometry.materials[materialId]);
+            if (material < 0)
+                continue;
+            std::array<int, 4> indices;
+            for (size_t c = 0; c < 4; ++c)
+                indices[c] = addCorner(material, geometry.quadIndices[q * 4 + c], -1);
+            // the order of the DMX loader's quads: corners 0, 3, 2, 1
+            AddSourceQuad(ctx, material, {indices[0], indices[3], indices[2], indices[1]});
+        }
     }
 
     EndSourceTriangles(ctx, source);
 
-    std::vector<std::vector<int>> &sourceVertices = state.sourceVertices[&geometry];
-    sourceVertices.assign(geometry.positions.size(), {});
-    for (int i = 0; i < source->numvertices; ++i) {
-        const std::vector<uint32_t> &vertices = entryVertices[ctx.input.unifiedVertexOrder[i]];
-        for (const uint32_t vertex: vertices)
-            sourceVertices[vertex].push_back(i);
-        if (!geometry.tangents.empty())
-            source->vertex[i].tangentS = geometry.tangents[vertices.front()];
+    {
+        vstd::FunctionTimingRecorder _("API vertex map");
+        std::vector<std::vector<int>> &sourceVertices = state.sourceVertices[&geometry];
+        sourceVertices.assign(geometry.positions.size(), {});
+        for (int i = 0; i < source->numvertices; ++i) {
+            const int entry = ctx.input.unifiedVertexOrder[i];
+            if (indexed) {
+                const uint32_t vertex = indexedEntries[entry];
+                sourceVertices[vertex].push_back(i);
+                if (!geometry.tangents.empty())
+                    source->vertex[i].tangentS = geometry.tangents[vertex];
+            }
+            else {
+                const std::vector<uint32_t> &vertices = legacyEntries[entry];
+                for (const uint32_t vertex: vertices)
+                    sourceVertices[vertex].push_back(i);
+                if (!geometry.tangents.empty())
+                    source->vertex[i].tangentS = geometry.tangents[vertices.front()];
+            }
+        }
     }
 
     // Load_Source: `reverse`

@@ -353,6 +353,10 @@ void Geometry::setRelativeMaterials(bool relative) {
     handle()->relativeMaterials = relative;
 }
 
+void Geometry::setIndexedCorners(bool indexed) {
+    handle()->indexedCorners = indexed;
+}
+
 void Geometry::setSourceName(std::string_view nameView) {
     smdl_geometry *g = handle();
     const std::string name(nameView);
@@ -519,6 +523,12 @@ SMDL_API smdl_status smdl_geometry_set_relative_materials(smdl_geometry *g, int 
     if (!g)
         return SMDL_ERROR_INVALID_ARGUMENT;
     return CallCpp(g->model, [&] { View(g).setRelativeMaterials(relative != 0); });
+}
+
+SMDL_API smdl_status smdl_geometry_set_indexed_corners(smdl_geometry *g, int indexed) {
+    if (!g)
+        return SMDL_ERROR_INVALID_ARGUMENT;
+    return CallCpp(g->model, [&] { View(g).setIndexedCorners(indexed != 0); });
 }
 
 SMDL_API smdl_status smdl_geometry_set_source_name(smdl_geometry *g, const char *name) {

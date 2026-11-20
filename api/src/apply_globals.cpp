@@ -10,6 +10,7 @@
 #include "studiomdl/studiomdl.h"
 #include "studiomdl/studiomdl_global_state.hpp"
 #include "studiomdl_commands.h"
+#include "tier1_v2/function_timing.hpp"
 
 namespace {
     FlexOptimizeMode_t FlexOptimizeMode(smdl_flex_optimize_mode mode) {
@@ -218,6 +219,7 @@ namespace {
 }
 
 void ApplyGlobals(StudioMdlState &ctx, ApplyState &state) {
+    vstd::FunctionTimingRecorder _("API");
     const GlobalsDesc &g = state.model.globals;
     ScopedApplyObject object(state, "model settings");
 
@@ -236,6 +238,7 @@ void ApplyGlobals(StudioMdlState &ctx, ApplyState &state) {
 }
 
 void ApplyFinish(StudioMdlState &ctx, ApplyState &state) {
+    vstd::FunctionTimingRecorder _("API");
     const GlobalsDesc &g = state.model.globals;
     ScopedApplyObject object(state, "model settings");
 

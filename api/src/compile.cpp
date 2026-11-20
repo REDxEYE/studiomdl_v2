@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <fstream>
 #include <mutex>
+#include <optional>
 
 #include "api_util.hpp"
 #include "apply.hpp"
@@ -59,10 +60,13 @@ namespace {
         };
 
         ApplyState state(model);
+        // BeginProcessing resets the timing rows. Start the API scope only after that reset.
+        std::optional<vstd::FunctionTimingRecorder> timing;
         try {
             if (!BeginProcessing())
                 throw MdlCompileError("could not initialize the datamodel");
             processing.active = true;
+            timing.emplace("API", false, std::source_location::current());
             g_pFileSystem = g_pFullFileSystem;
 
             SetCompileDefaults(ctx);
@@ -139,6 +143,8 @@ namespace {
             result.errorObject = state.failedObject;
             result.files.clear();
         }
+        // Finish the outer API scope before formatting: its own/total durations are finalized in the destructor.
+        timing.reset();
         result.warningCount = ctx.diagnostics.warningCount;
         // Whatever a failed compile left in the datamodel (files, elements that belong to none) goes now, so
         // EndProcessing finds nothing leaked

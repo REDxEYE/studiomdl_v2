@@ -154,11 +154,12 @@ namespace {
 // Separate vertices at one position (closed lips: the upper and the lower lip's corner) move apart, as the DMX loader
 // keeps the delta of every position index; vertices studiomdl unifies into one (equal data) need equal deltas.
 SMDL_TEST(combination_coincident_vertices_keep_their_deltas) {
-    auto build = [](float lowerU) {
+    auto build = [](float lowerU, bool indexed = false) {
         smdl::Model model = ComboModel("api/lips");
         const smdl::BoneId root = model.addBoneEuler("root", smdl::NoBone, {0, 0, 0}, {0, 0, 0});
         smdl::Mesh mesh = model.addBodyGroup("lips").createMesh("lips");
         smdl::Geometry geometry = mesh.geometry();
+        geometry.setIndexedCorners(indexed);
         const smdl::MaterialId material = geometry.addMaterial("lips_mat");
         // vertices 1 and 4 share the mouth corner
         const std::vector<smdl::Vec3> positions = {{0, 0, 1}, {2, 0, 0}, {4, 0, 1}, {0, 0, -1}, {2, 0, 0}, {4, 0, -1}};
@@ -181,6 +182,9 @@ SMDL_TEST(combination_coincident_vertices_keep_their_deltas) {
     smdl::Model unified = build(0.5f); // equal data: one vertex, which can't take both deltas
     const smdl::Error error = CaptureError([&] { unified.compile(); });
     Require(Contains(error.what(), "one studiomdl vertex"), "names the unified vertex: " + std::string(error.what()));
+    // Indexed geometry retains the two coincident input vertices even when every corner attribute matches.
+    smdl::Model indexed = build(0.5f, true);
+    indexed.compile();
 }
 
 // ---------------------------------------------------------------------------------------------------------------

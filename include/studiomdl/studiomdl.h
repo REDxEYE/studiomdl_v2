@@ -1361,11 +1361,21 @@ struct SourceCorner {
 // LookupTexture / UseTextureAsMaterial. Returns the material, or -1 when the triangle is skipped.
 int ResolveSourceMaterial(StudioMdlState &ctx, s_source_t *psource, std::string_view textureName);
 
+// The API already has position indices. For each input vertex, keep a small chain of its corner variants in
+// insertion order (UV/normal/material seams); the SMD text loader still searches by vertex values.
+struct SourceCornerIndex {
+    explicit SourceCornerIndex(size_t vertexCount) : first(vertexCount, -1), last(vertexCount, -1) {
+        next.reserve(vertexCount);
+    }
+    std::vector<int> first, last, next;
+};
+
 // Triangles: Begin, then ResolveSourceMaterial + AddSourceCorner x3 + AddSourceTriangle per triangle, then End.
 void BeginSourceTriangles(StudioMdlState &ctx);
-// Scale, v flip and the reduction to MAXSTUDIOBONEWEIGHTS influences, then the unification of lookup_index. Returns
-// the unified vertex index.
-int AddSourceCorner(StudioMdlState &ctx, s_source_t *psource, int material, SourceCorner &corner);
+// Scale, v flip and the reduction to MAXSTUDIOBONEWEIGHTS influences, then unification. With `indexed` the lookup
+// considers only earlier corners of `vertex` (no position matching); null retains the SMD text loader's value search.
+int AddSourceCorner(StudioMdlState &ctx, s_source_t *psource, int material, SourceCorner &corner,
+                    SourceCornerIndex *indexed = nullptr, uint32_t vertex = 0);
 // The unified vertices of the corners 0, 1, 2 as read; the face stores them as (0, 2, 1). False when the triangle
 // is degenerate (dropped).
 bool AddSourceTriangle(StudioMdlState &ctx, int material, const std::array<int, 3> &corners);

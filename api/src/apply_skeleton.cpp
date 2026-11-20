@@ -5,6 +5,7 @@
 
 #include "studiomdl/apply_bones.hpp"
 #include "studiomdl/studiomdl_global_state.hpp"
+#include "tier1_v2/function_timing.hpp"
 
 namespace {
     // bone name + object path context for errors
@@ -28,6 +29,7 @@ namespace {
 }
 
 void ApplySkeleton(StudioMdlState &ctx, ApplyState &state) {
+    vstd::FunctionTimingRecorder _("API");
     const BoneOptionsDesc &options = state.model.boneOptions;
 
     // $unlockdefinebones changes the default of every $definebone that follows it

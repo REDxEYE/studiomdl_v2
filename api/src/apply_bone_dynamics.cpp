@@ -8,6 +8,7 @@
 #include "studiomdl/studiomdl.h"
 #include "studiomdl/studiomdl_global_state.hpp"
 #include "studiomdl_errors.h"
+#include "tier1_v2/function_timing.hpp"
 
 namespace {
     void ApplyJiggle(StudioMdlState &ctx, ApplyState &state, const smdl_jiggle &desc) {
@@ -107,6 +108,7 @@ namespace {
 }
 
 void ApplyBoneDynamics(StudioMdlState &ctx, ApplyState &state) {
+    vstd::FunctionTimingRecorder _("API");
     const BoneDynamicsDesc &dynamics = state.model.boneDynamics;
     for (const auto &jiggle: dynamics.jiggles)
         ApplyJiggle(ctx, state, *jiggle);

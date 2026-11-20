@@ -5,6 +5,7 @@
 
 #include "common/scriplib.h"
 #include "studiomdl_errors.h"
+#include "tier1_v2/function_timing.hpp"
 #include "tier1_v2/math_utils.hpp"
 #include "tier1_v2/string_utils.hpp"
 
@@ -491,6 +492,7 @@ void ApplySkipTransition(StudioMdlState &ctx, const std::vector<std::string> &no
 void ApplyTextureGroup(StudioMdlState &ctx, const std::vector<std::vector<std::string>> &rows,
                        const bool relativePaths) {
     // [skin family][index] = material
+    vstd::FunctionTimingRecorder _("API");
     auto &families = ctx.materials.texturegroups.emplace_back();
 
     for (size_t group = 0; group < rows.size(); group++) {
@@ -506,10 +508,11 @@ void ApplyTextureGroup(StudioMdlState &ctx, const std::vector<std::vector<std::s
 }
 
 void ApplyOverrideMaterial(StudioMdlState &ctx, const std::string_view name) {
+    vstd::FunctionTimingRecorder _("API");
     Msg("$overridematerial is replacing ALL material references with {}.\n", name);
 
-    for (size_t i = 0; i < ctx.materials.textures.size(); i++) {
-        ctx.materials.textures[i].name = name;
+    for (auto & texture : ctx.materials.textures) {
+        texture.name = name;
     }
 }
 

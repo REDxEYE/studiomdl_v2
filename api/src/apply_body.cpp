@@ -12,11 +12,13 @@
 #include "studiomdl/studiomdl_global_state.hpp"
 #include "studiomdl_commands.h"
 #include "studiomdl_errors.h"
+#include "tier1_v2/function_timing.hpp"
 
 namespace {
     // $appendsource: the appended geometries of the mesh are merged into its source (everything ends up in one mesh
     // with material 0)
     void AppendGeometries(StudioMdlState &ctx, ApplyState &state, const smdl_mesh &mesh, s_source_t *source) {
+        vstd::FunctionTimingRecorder _("API");
         for (const smdl_geometry *appended: mesh.appended) {
             ScopedApplyObject object(state, appended->owner);
             if (!mesh.geometry->shapes.empty())
@@ -37,6 +39,7 @@ namespace {
     }
 
     void ApplyMesh(StudioMdlState &ctx, ApplyState &state, const smdl_mesh &mesh, s_bodypart_t &bodypart) {
+        vstd::FunctionTimingRecorder _("API");
         ScopedApplyObject object(state, std::format("mesh '{}'", mesh.name));
 
         int imodel;
@@ -65,6 +68,7 @@ namespace {
     }
 
     void ApplyBodyGroups(StudioMdlState &ctx, ApplyState &state) {
+        vstd::FunctionTimingRecorder _("API");
         for (const auto &group: state.model.bodygroups) {
             ScopedApplyObject object(state, std::format("bodygroup '{}'", group->name));
             if (group->choices.empty())
@@ -82,6 +86,7 @@ namespace {
 
     // $bodygrouppreset: the group values baked into a value and a mask
     void ApplyPresets(StudioMdlState &ctx, ApplyState &state) {
+        vstd::FunctionTimingRecorder _("API");
         const auto &groups = state.model.bodygroups;
         for (const BodyGroupPresetDesc &desc: state.model.body.presets) {
             ScopedApplyObject object(state, std::format("bodygroup preset '{}'", desc.name));
@@ -102,6 +107,7 @@ namespace {
 }
 
 void ApplyBody(StudioMdlState &ctx, ApplyState &state) {
+    vstd::FunctionTimingRecorder _("API");
     ApplyBodyGroups(ctx, state);
     ApplyPresets(ctx, state);
 

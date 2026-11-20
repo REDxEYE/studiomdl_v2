@@ -8,6 +8,7 @@
 
 #include "studiomdl/apply_anim.hpp"
 #include "studiomdl/studiomdl_global_state.hpp"
+#include "tier1_v2/function_timing.hpp"
 
 namespace {
     const std::string &BoneName(const ApplyState &state, smdl_bone_id bone) {
@@ -61,6 +62,7 @@ namespace {
 }
 
 void ApplyRig(StudioMdlState &ctx, ApplyState &state) {
+    vstd::FunctionTimingRecorder _("API");
     const RigDesc &rig = state.model.rig;
 
     for (const AttachmentDesc &attachment: rig.attachments) {

@@ -35,15 +35,19 @@ static bool SameSourceWeights(const s_sourceboneweight_t &a, const s_sourcebonew
 // Without it, a vertex keeps the full list of the first corner that made it.
 static int lookup_index(StudioMdlState &ctx, s_source_t *psource, int material, Vector &vertex, Vector &normal,
                         Vector2D texcoord, int iCount, const std::span<int> &bones, const std::span<float> &weights,
-                        const s_sourceboneweight_t &sourceWeights, int iExtras, const float *extras) {
+                        const s_sourceboneweight_t &sourceWeights, int iExtras, const float *extras,
+                        SourceCornerIndex *indexed, uint32_t sourceVertex) {
+    vstd::FunctionTimingRecorder _("SMD lookup");
     int i, j, k;
     auto &entries = ctx.input.v_listdata;
     const int count = static_cast<int>(entries.size());
 
-    for (i = 0; i < count; i++) {
+    for (i = indexed ? indexed->first[sourceVertex] : 0;
+         indexed ? i >= 0 : i < count;
+         i = indexed ? indexed->next[i] : i + 1) {
         if (entries[i].m == material
             && DotProduct(ctx.input.normal[i], normal) > ctx.options.normal_blend
-            && VectorCompare(ctx.input.vertex[i], vertex)
+            && (indexed || VectorCompare(ctx.input.vertex[i], vertex))
             && ctx.input.texcoord[0][i].x == texcoord[0]
             && ctx.input.texcoord[0][i].y == texcoord[1]) {
             if (ctx.input.bone[i].numbones == iCount) {
@@ -71,6 +75,7 @@ static int lookup_index(StudioMdlState &ctx, s_source_t *psource, int material, 
             }
         }
     }
+    i = count; // the indexed chain ends at -1; new entries always follow the existing source vertices
     if (i >= MAXSTUDIOSRCVERTS) {
         MdlError("too many indices in source: \"{}\"\n", psource->filename);
     }
@@ -108,6 +113,15 @@ static int lookup_index(StudioMdlState &ctx, s_source_t *psource, int material, 
 
 
     entry.lastref = count;
+    if (indexed) {
+        indexed->next.push_back(-1);
+        int &last = indexed->last[sourceVertex];
+        if (last < 0)
+            indexed->first[sourceVertex] = i;
+        else
+            indexed->next[last] = i;
+        last = i;
+    }
 
     return i;
 }
@@ -142,7 +156,8 @@ static char *GetNextFaceItem(char *pCurrentItem) {
     return pChar;
 }
 
-int AddSourceCorner(StudioMdlState &ctx, s_source_t *psource, const int material, SourceCorner &corner) {
+int AddSourceCorner(StudioMdlState &ctx, s_source_t *psource, const int material, SourceCorner &corner,
+                    SourceCornerIndex *indexed, uint32_t sourceVertex) {
     // Scale face pos
     scale_vertex(ctx, corner.position);
 
@@ -162,7 +177,7 @@ int AddSourceCorner(StudioMdlState &ctx, s_source_t *psource, const int material
     }
 
     return lookup_index(ctx, psource, material, corner.position, corner.normal, corner.uv, iCount, corner.bones,
-                        corner.weights, sourceWeights, corner.numExtras, corner.extras.data());
+                        corner.weights, sourceWeights, corner.numExtras, corner.extras.data(), indexed, sourceVertex);
 }
 
 bool AddSourceTriangle(StudioMdlState &ctx, const int material, const std::array<int, 3> &corners) {

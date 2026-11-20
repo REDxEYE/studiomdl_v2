@@ -61,6 +61,7 @@ struct smdl_geometry {
     std::string sourceName;
     // Source file name for messages and the log, used as it is (smdl_geometry_set_source_name); empty = derived above
     std::string sourceFile;
+    bool indexedCorners = false; // opt-in: keep geometry vertex identities instead of SMD position-based welding
 
     // indexed vertices (all arrays have positions.size() entries, or are empty when optional)
     std::vector<Vector> positions;

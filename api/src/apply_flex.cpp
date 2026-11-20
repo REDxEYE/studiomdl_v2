@@ -27,6 +27,7 @@
 #include "studiomdl/studiomdl_global_state.hpp"
 #include "studiomdl_commands.h"
 #include "studiomdl_errors.h"
+#include "tier1_v2/function_timing.hpp"
 #include "tier1_v2/path_utils.hpp"
 #include "tier1_v2/string_utils.hpp"
 
@@ -500,6 +501,7 @@ namespace {
 }
 
 void ApplyMeshCombination(StudioMdlState &ctx, ApplyState &state, const smdl_mesh &mesh, s_model_t *pmodel) {
+    vstd::FunctionTimingRecorder _("API");
     const auto found = state.model.flex.meshes.find(&mesh);
     if (found == state.model.flex.meshes.end() || !found->second.combination)
         return;
@@ -547,6 +549,7 @@ void BuildShapeAnimations(StudioMdlState &, ApplyState &, const smdl_geometry &g
 }
 
 void ApplyMeshFlex(StudioMdlState &ctx, ApplyState &state, const smdl_mesh &mesh, s_model_t *pmodel, int imodel) {
+    vstd::FunctionTimingRecorder _("API");
     const auto found = state.model.flex.meshes.find(&mesh);
     if (found == state.model.flex.meshes.end())
         return;
@@ -621,6 +624,7 @@ void ApplyMeshFlex(StudioMdlState &ctx, ApplyState &state, const smdl_mesh &mesh
 }
 
 void ApplyFlex(StudioMdlState &ctx, ApplyState &state) {
+    vstd::FunctionTimingRecorder _("API");
     const FlexDesc &flex = state.model.flex;
 
     for (const FlexControllerDesc &controller: flex.controllers) {

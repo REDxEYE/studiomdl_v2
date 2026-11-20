@@ -648,6 +648,7 @@ void AddBodyFlexRemaps(StudioMdlState &ctx, s_source_t* pSource) {
 // Process a body command
 //-----------------------------------------------------------------------------
 void AddBodyFlexData(StudioMdlState &ctx, s_source_t* pSource, int imodel, bool bAddControllers) {
+    vstd::FunctionTimingRecorder _("API");
     pSource->m_nKeyStartIndex = vstd::as_signed_checked<int>(ctx.flex.flexkeys.size());
 
     // Add flex keys
@@ -1254,8 +1255,8 @@ void AddBodyFlexRule(StudioMdlState &ctx,
 
 
 void AddBodyFlexRules(StudioMdlState &ctx, s_source_t* pSource) {
-    const int nRemapCount = std::ssize(pSource->m_FlexControllerRemaps);
-    for (int i = 0; i < nRemapCount; ++i) {
+    vstd::FunctionTimingRecorder _("API");
+    for (int i = 0; i < std::ssize(pSource->m_FlexControllerRemaps); ++i) {
         s_flexcontrollerremap_t &remap = pSource->m_FlexControllerRemaps[i];
         if (remap.m_RemapType == Eyelid && !remap.m_EyesUpDownFlexName.empty()) {
             for (int j = 0; j < ctx.flex.flexcontrollers.size(); ++j) {
@@ -1268,10 +1269,9 @@ void AddBodyFlexRules(StudioMdlState &ctx, s_source_t* pSource) {
         }
     }
 
-    const int nCount = std::ssize(pSource->m_CombinationRules);
-    for (int i = 0; i < nCount; ++i) {
+    for (int i = 0; i < std::ssize(pSource->m_CombinationRules); ++i) {
         s_combinationrule_t &rule = pSource->m_CombinationRules[i];
-        s_flexkey_t &flexKey = ctx.flex.flexkeys[pSource->m_nKeyStartIndex + rule.m_nFlex];
+        const s_flexkey_t &flexKey = ctx.flex.flexkeys[pSource->m_nKeyStartIndex + rule.m_nFlex];
         AddBodyFlexRule(ctx, pSource, rule, flexKey.flexdesc,
                         pSource->m_rawIndexToRemapSourceIndex, pSource->m_rawIndexToRemapLocalIndex,
                         pSource->m_leftRemapIndexToGlobalFlexControllIndex);
