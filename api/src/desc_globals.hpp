@@ -47,6 +47,7 @@ struct GlobalsDesc {
     bool subd = false;
     bool obsolete = false;
     bool forcePhonemeCrossfade = false;
+    bool dumpPerf = false;
     std::optional<float> constantDirectionalLight;          // dot product
 
     // header values

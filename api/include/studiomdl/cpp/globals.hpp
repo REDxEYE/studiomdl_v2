@@ -125,6 +125,8 @@ namespace detail {
         void setStripLods(bool enabled);
         void setBuildPreview(bool enabled);
 
+        void setDumpPerf(bool enabled);
+
     private:
         smdl_model *model() const; // api/src/cpp_api.cpp
     };

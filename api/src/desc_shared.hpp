@@ -59,6 +59,8 @@ struct smdl_geometry {
     // Name of the source built from this geometry (BuildSourceFromGeometry): "<sourceName>.smd" is the source's file
     // name, the name sequences and LODs look it up by. Empty = derived from `owner`. Meshes set it to the mesh name.
     std::string sourceName;
+    // Source file name for messages and the log, used as it is (smdl_geometry_set_source_name); empty = derived above
+    std::string sourceFile;
 
     // indexed vertices (all arrays have positions.size() entries, or are empty when optional)
     std::vector<Vector> positions;

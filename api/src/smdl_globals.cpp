@@ -569,6 +569,10 @@ void ModelGlobalsApi::setBuildPreview(bool enabled) {
     RunBody(model, [&] { return SetFlag(model, &GlobalsDesc::buildPreview, enabled); });
 }
 
+void ModelGlobalsApi::setDumpPerf(bool enabled) {
+    this->model()->globals.dumpPerf = enabled;
+}
+
 void ModelGlobalsApi::setOriginAngle(float degrees) {
     smdl_model *model = this->model();
     RunBody(model, [&] { return OptionalFloat(model, "origin angle", degrees, &GlobalsDesc::originAngle, false); });
@@ -1109,3 +1113,8 @@ SMDL_API smdl_status smdl_model_set_fit_weights(smdl_model *model, int enabled, 
 }
 
 } // extern "C"
+SMDL_API smdl_status smdl_model_set_dump_perf(smdl_model* model, int enabled) {
+    if (!model)
+        return SMDL_ERROR_INVALID_ARGUMENT;
+    return CallCpp(model, [&] { smdl::detail::BorrowModel(model).setDumpPerf(enabled != 0); });
+}

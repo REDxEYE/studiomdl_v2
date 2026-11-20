@@ -343,6 +343,17 @@ void Geometry::setRelativeMaterials(bool relative) {
     handle()->relativeMaterials = relative;
 }
 
+void Geometry::setSourceName(std::string_view nameView) {
+    smdl_geometry *g = handle();
+    const std::string name(nameView);
+    RunBody(g->model, [&] {
+        if (name.empty() || name.find('\0') != std::string::npos)
+            return Fail(g->model, SMDL_ERROR_INVALID_ARGUMENT, "{}: the source name is empty", g->owner);
+        g->sourceFile = name;
+        return Ok(g->model);
+    });
+}
+
 void Geometry::setScale(float scale) {
     smdl_geometry *g = handle();
     RunBody(g->model, [&] {
@@ -498,6 +509,12 @@ SMDL_API smdl_status smdl_geometry_set_relative_materials(smdl_geometry *g, int 
     if (!g)
         return SMDL_ERROR_INVALID_ARGUMENT;
     return CallCpp(g->model, [&] { View(g).setRelativeMaterials(relative != 0); });
+}
+
+SMDL_API smdl_status smdl_geometry_set_source_name(smdl_geometry *g, const char *name) {
+    if (!g)
+        return SMDL_ERROR_INVALID_ARGUMENT;
+    return CallCpp(g->model, [&] { View(g).setSourceName(name ? name : ""); });
 }
 
 SMDL_API smdl_status smdl_geometry_set_scale(smdl_geometry *g, float scale) {

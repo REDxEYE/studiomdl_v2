@@ -23,6 +23,7 @@
 #include "studiomdl/studiomdl_global_state.hpp"
 #include "studiomdl_errors.h"
 #include "tier0/logging.h"
+#include "tier1_v2/function_timing.hpp"
 #include "tier1_v2/path_utils.hpp"
 
 using namespace smdl_api;
@@ -143,6 +144,9 @@ namespace {
         // EndProcessing finds nothing leaked
         if (processing.active)
             MdlDiscardDataModelContents();
+        if (ctx.options.perf) {
+            result.messages.emplace_back(SMDL_SEVERITY_MESSAGE, vstd::format_function_timings());
+        }
     }
 
     smdl_status SaveFiles(const smdl_result *result, const char *root) {

@@ -265,6 +265,8 @@ SMDL_API smdl_status smdl_model_set_strip_lods(smdl_model *model, int enabled);
 /* -preview: builds the model in preview mode (triangle order is kept, the file is flagged as a preview build) */
 SMDL_API smdl_status smdl_model_set_build_preview(smdl_model *model, int enabled);
 
+SMDL_API smdl_status smdl_model_set_dump_perf(smdl_model *model, int enabled);
+
 #ifdef __cplusplus
 }
 #endif

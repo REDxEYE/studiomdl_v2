@@ -80,6 +80,8 @@ namespace {
             ApplyMinLod(ctx, *g.minLod);
         if (g.allowRootLods)
             ApplyAllowRootLods(ctx, *g.allowRootLods);
+        if (g.dumpPerf)
+            ctx.options.perf = true;
     }
 
     void ApplyTransform(StudioMdlState &ctx, const GlobalsDesc &g) {

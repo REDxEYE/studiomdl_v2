@@ -76,6 +76,9 @@ public:
     // Material names relative to materials/ like those of a DMX file (see smdl_geometry.h)
     void setRelativeMaterials(bool relative);
 
+    // File name of the source built from this geometry, for messages and the log (see smdl_geometry.h)
+    void setSourceName(std::string_view name);
+
     // 0 = the model scale
     void setScale(float scale);
 

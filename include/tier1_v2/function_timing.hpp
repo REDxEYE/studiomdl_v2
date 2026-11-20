@@ -47,6 +47,8 @@ namespace vstd {
 
     // Prints rows of at least 0.1 ms as an indented tree to stdout (libs/tier1/function_timing.cpp)
     void print_function_timings();
+    // The report print_function_timings prints: the call tree, then the per-function totals
+    std::string format_function_timings();
 
     // Records the call into function_timings. Consecutive calls of the same site at the same nesting level
     // merge into one row; own time is the total minus the totals of the timed calls made directly from this one.

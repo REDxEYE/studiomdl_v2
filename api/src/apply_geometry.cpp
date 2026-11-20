@@ -28,10 +28,12 @@ namespace {
         float m_Previous;
     };
 
-    // "<key>.smd": the key is the mesh name without an extension, as Load_Source derives it from a studio path, so a
-    // later Load_Source of that name finds this source in the cache. Geometries of other parts without a name use their
-    // owner text.
+    // The file name set with smdl_geometry_set_source_name, else "<key>.smd": the key is the mesh name without an
+    // extension, as Load_Source derives it from a studio path, so a later Load_Source of that name finds this source in
+    // the cache. Geometries of other parts without a name use their owner text.
     std::string SourceFileName(const smdl_geometry &geometry) {
+        if (!geometry.sourceFile.empty())
+            return geometry.sourceFile;
         std::string key = geometry.sourceName.empty() ? geometry.owner : geometry.sourceName;
         vstd::paths::strip_extension(key);
         vstd::paths::fix_slashes(key); // LoadSource looks the name up with the platform's slashes

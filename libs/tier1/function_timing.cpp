@@ -30,26 +30,27 @@ namespace {
         return std::format("{:.03f}us", milliseconds * 1000.0);
     }
 
-    void print_tree() {
+    void format_tree(std::string &out) {
+        const auto sink = std::back_inserter(out);
         for (const auto &timing: vstd::function_timings.rows) {
             if (timing.duration < 0.1) // Skip too short timings
                 continue;
             for (uint32_t i = 0; i < timing.depth; ++i)
-                std::print("  ");
-            std::print("[{}]: {}: ", timing.stage_name, timing.function_name);
+                out += "  ";
+            std::format_to(sink, "[{}]: {}: ", timing.stage_name, timing.function_name);
             const auto duration = timing.duration;
             if (duration < 1000.0)
-                std::print("calls: {}, own: {:.03f}ms, total: {:.03f}ms\n", timing.calls, timing.own_duration,
-                           duration);
+                std::format_to(sink, "calls: {}, own: {:.03f}ms, total: {:.03f}ms\n", timing.calls,
+                               timing.own_duration, duration);
             else
-                std::print("calls: {}, own: {:.03f}s, total: {:.03f}s\n", timing.calls, timing.own_duration / 1000.0,
-                           duration / 1000.0);
+                std::format_to(sink, "calls: {}, own: {:.03f}s, total: {:.03f}s\n", timing.calls,
+                               timing.own_duration / 1000.0, duration / 1000.0);
         }
     }
 
     // Every row of a function (it appears once per distinct caller path) merged into one line,
     // sorted by own time per call
-    void print_per_function() {
+    void format_per_function(std::string &out) {
         std::map<SiteKey, FunctionTotal> totals;
         for (const auto &timing: vstd::function_timings.rows) {
             const SiteKey key{timing.location.file_name(), timing.location.line(), timing.location.column()};
@@ -72,17 +73,24 @@ namespace {
                    rhs->own_duration / static_cast<double>(rhs->calls);
         });
 
-        std::print("\nPer function, by own time per call:\n");
+        auto sink = std::back_inserter(out);
+        out += "\nPer function, by own time per call:\n";
         for (const FunctionTotal *total: sorted) {
             const std::string name = std::format("[{}] {}", total->first->stage_name, total->first->function_name);
             const double per_call = total->own_duration / static_cast<double>(total->calls);
-            std::print("  {:<{}}  own/call: {:>10}, calls: {:>7}, own: {:>10}\n", name, name_width,
-                       format_duration(per_call), total->calls, format_duration(total->own_duration));
+            std::format_to(sink, "  {:<{}}  own/call: {:>10}, calls: {:>7}, own: {:>10}\n", name, name_width,
+                           format_duration(per_call), total->calls, format_duration(total->own_duration));
         }
     }
 }
 
+std::string vstd::format_function_timings() {
+    std::string out;
+    format_tree(out);
+    format_per_function(out);
+    return out;
+}
+
 void vstd::print_function_timings() {
-    print_tree();
-    print_per_function();
+    std::print("{}", format_function_timings());
 }

@@ -107,6 +107,10 @@ SMDL_API smdl_status smdl_geometry_set_flip_triangles(smdl_geometry *geometry, i
  * for an MDL byte-identical to the compile of a DMX file. Default 0. */
 SMDL_API smdl_status smdl_geometry_set_relative_materials(smdl_geometry *geometry, int relative);
 
+/* File name of the source built from this geometry, as the compile's messages and log name it ("body.blend"), used as
+ * it is. Without it the name is the mesh name with the extension ".smd". */
+SMDL_API smdl_status smdl_geometry_set_source_name(smdl_geometry *geometry, const char *name);
+
 /* Scale applied to positions and rest poses of this geometry (the `scale` option of $body / studio).
  * 0 (the default) uses the model scale (smdl_model_set_scale, $scale). Not allowed on geometries created by
  * smdl_mesh_append_geometry (use smdl_geometry_set_append_offset). */
