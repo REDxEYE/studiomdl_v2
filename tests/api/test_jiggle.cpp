@@ -4,6 +4,9 @@
 
 #include "anim_helpers.hpp"
 
+#include <algorithm>
+#include <cstring>
+
 using namespace coretest;
 using namespace animtest;
 
@@ -67,4 +70,47 @@ SMDL_TEST(jiggle_call_checks) {
     CaptureError([&] { jiggle.setFlexible(); });         // not with is_rigid
     CaptureError([&] { jiggle.setLength(std::nanf("")); });
     Require(model.jiggleBoneCount() == 1, "one jiggle bone");
+}
+
+namespace {
+    // Bone names of a compiled MDL (studiohdr_t numbones/boneindex at 156/160, mstudiobone_t is 216 bytes with the
+    // name offset first)
+    std::vector<std::string> MdlBoneNames(const std::vector<std::byte> &mdl) {
+        auto read = [&](size_t offset) {
+            int32_t value;
+            std::memcpy(&value, mdl.data() + offset, sizeof(value));
+            return value;
+        };
+        std::vector<std::string> names;
+        const int32_t count = read(156), index = read(160);
+        for (int32_t i = 0; i < count; ++i) {
+            const size_t bone = static_cast<size_t>(index) + 216u * static_cast<size_t>(i);
+            names.emplace_back(reinterpret_cast<const char *>(mdl.data() + bone + read(bone)));
+        }
+        return names;
+    }
+}
+
+// Bones without vertices that other parts name are kept: jiggle bones, procedural bones and their control, explicit
+// hitboxes and bone controllers. A bone nothing names still goes.
+SMDL_TEST(referenced_bones_without_vertices_are_kept) {
+    smdl::Model model("api/kept_bones");
+    BasicGlobals(model, "flesh");
+    AddBody(model, "tube", "src/chain_ref.smd", "src/chain_ref.smd", VertexMode::Indexed);
+    const smdl::BoneId tip = model.findBone("tip");
+    auto loose = [&](const char *name) { return model.addBone(name, tip, {0, 0, 2}, {0, 0, 0, 1}); };
+    model.addJiggleBone(loose("loose_jiggle")).setRigid().setLength(4.0f);
+    const smdl::BoneId control = loose("loose_control");
+    model.addQuatInterp(loose("loose_helper"), tip, tip, control).addTrigger(90.0f, {0, 0, 0}, {0, 0, 0}, {0, 0, 0});
+    model.addHitbox(model.addHitboxSet("default"), 0, loose("loose_hitbox"), {-1, -1, -1}, {1, 1, 1});
+    model.addBoneController(0, loose("loose_controller"), SMDL_BONE_CONTROLLER_ZR, -90.0f, 90.0f);
+    loose("loose_unused");
+    smdl::Animation idle = AddAnimationFromSmd(model, "@idle", "src/chain_ref.smd", 30.0f);
+    model.createSequence("idle").addAnimation(idle);
+
+    const Outputs outputs = ResultFiles(model.compile());
+    const std::vector<std::string> names = MdlBoneNames(outputs.at("models/api/kept_bones.mdl"));
+    for (const char *name: {"loose_jiggle", "loose_control", "loose_helper", "loose_hitbox", "loose_controller"})
+        Require(std::ranges::find(names, name) != names.end(), std::string(name) + " is kept");
+    Require(std::ranges::find(names, "loose_unused") == names.end(), "an unreferenced bone is still removed");
 }

@@ -189,7 +189,9 @@ SMDL_API smdl_status smdl_mesh_set_no_auto_dmx_rules(smdl_mesh *mesh, int enable
  * rules). The shapes still become flexes (stereo-ness decided by the controls) after that.
  * ------------------------------------------------------------------------------------------------------------- */
 
-/* A control with `raw_control_count` raw controls (>= 1, none empty). The calls need no shapes yet. out_control (may
+/* A control with `raw_control_count` raw controls (none empty). The calls need no shapes yet. A control without raw
+ * controls only adds its flex controller for "advanced flex" rules (the DMX loader accepts it only when every target
+ * is a DmeFlexRules); the compile reports it when the mesh has no flex rules. out_control (may
  * be NULL) is the index of the control in this mesh. SMDL_ERROR_DUPLICATE_NAME for a name or raw control used
  * already, SMDL_ERROR_LIMIT for names of 122 characters or more. */
 SMDL_API smdl_status smdl_mesh_add_combination_control(smdl_mesh *mesh, const char *name,

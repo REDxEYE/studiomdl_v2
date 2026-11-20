@@ -776,9 +776,6 @@ CombinationControlId MeshFlexApi::addCombinationControl(std::string_view nameVie
         if (name.size() + kControllerPrefix >= MAXSTUDIONAME)
             return Fail(model, SMDL_ERROR_LIMIT, "combination control name '{}' is too long (at most {} characters)", name,
                         MAXSTUDIONAME - kControllerPrefix - 1);
-        if (rawControls.empty())
-            return Fail(model, SMDL_ERROR_INVALID_ARGUMENT, "mesh '{}': combination control '{}' has no raw controls",
-                        mesh->name, name);
         std::vector<std::string> raws;
         if (const auto status = ReadNames(*model, rawControls, "raw control name", raws))
             return status;

@@ -281,9 +281,8 @@ SMDL_TEST(combination_validation) {
             "a raw control belongs to one control (case-insensitive)");
     Require(StatusOf([&] { mesh.addCombinationControl("twice", {"a", "A"}); }) == SMDL_ERROR_DUPLICATE_NAME,
             "a raw control is listed once");
-    Require(StatusOf([&] { mesh.addCombinationControl("none", std::span<const std::string_view>()); }) ==
-                    SMDL_ERROR_INVALID_ARGUMENT,
-            "a control has raw controls");
+    // a control without raw controls only adds its controller for flex rules (checked by the compile)
+    mesh.addCombinationControl("driver", std::span<const std::string_view>());
     Require(StatusOf([&] { mesh.addCombinationControl("", {"x"}); }) == SMDL_ERROR_INVALID_ARGUMENT, "control name");
     Require(StatusOf([&] { mesh.addCombinationControl("y", {""}); }) == SMDL_ERROR_INVALID_ARGUMENT, "raw control name");
     Require(StatusOf([&] { mesh.addCombinationControl(std::string(125, 'n'), {"x"}); }) == SMDL_ERROR_LIMIT,
@@ -332,6 +331,17 @@ SMDL_TEST(combination_compile_errors) {
     Require(Contains(error.object(), "combination operator of mesh 'src/combo.dmx'"),
             "names the combination operator: " + error.object());
     Require(Contains(error.what(), "nothing"), "names the raw control: " + std::string(error.what()));
+
+    // a control without raw controls needs flex rules
+    smdl::Model ruleless = ComboModel("api/combo");
+    smdl::Mesh rulelessMesh = AddComboGrid(ruleless);
+    AddComboShapes(rulelessMesh.geometry());
+    rulelessMesh.addCombinationControl("brow", {"browDown", "browUp"});
+    rulelessMesh.addCombinationControl("driver", std::span<const std::string_view>());
+    error = CaptureError([&] { ruleless.compile(); });
+    Require(Contains(error.what(), "'driver' has no raw controls"), "names the control: " + std::string(error.what()));
+    rulelessMesh.addCombinationExpression("browUp", "driver * 0.5");
+    ruleless.compile(); // with a rule the controller just feeds expressions
 
     // balance: one value per vertex, in 0..1
     smdl::Model other = ComboModel("api/combo");

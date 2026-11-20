@@ -491,6 +491,15 @@ void ApplyMeshCombination(StudioMdlState &ctx, ApplyState &state, const smdl_mes
     const smdl_geometry &g = *mesh.geometry;
     s_source_t *source = pmodel->source;
 
+    if (desc.rules.empty()) {
+        // without flex rules the controls drive the shapes through their raw controls (DMX: a control without
+        // rawControlNames is only valid when every target is a DmeFlexRules)
+        for (const CombinationControlDesc &control: desc.controls) {
+            if (control.rawControls.empty())
+                MdlError("combination control '{}' has no raw controls; only flex rules can use such a control",
+                         control.name);
+        }
+    }
     for (const CombinationDominatorDesc &dominator: desc.dominators) {
         for (const auto *names: {&dominator.dominators, &dominator.suppressed}) {
             for (const std::string &name: *names) {

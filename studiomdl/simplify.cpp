@@ -3957,6 +3957,58 @@ void TagFlexDriverBones(StudioMdlState &ctx, s_source_t* pSource) {
     }
 }
 
+//-----------------------------------------------------------------------------
+// Purpose: Bones that other model parts refer to by name must survive even without vertices: explicit hitboxes,
+//          jiggle bones, procedural bones (and the bones they read), constraint bones and bone controllers. A bone
+//          that is not used otherwise is tagged like an attachment bone (UsedByHitbox for hitboxes), so it and its
+//          parents are kept and set up at every LOD; bones already in use keep their flags.
+//-----------------------------------------------------------------------------
+static void TagReferencedBones(StudioMdlState &ctx, s_source_t* psource) {
+    auto keep = [&](const char* name, bool bXSI, BoneFlags flag) {
+        if (!name || !name[0])
+            return;
+        for (int j = 0; j < psource->numbones; j++) {
+            const char* pBoneName = psource->localBone[j].name;
+            if (bXSI ? !IsGlobalBoneXSI(ctx, name, pBoneName) : !vstd::iequals(name, pBoneName))
+                continue;
+            if (!HasFlag(psource->boneflags[j], BoneFlags::UsedByAnything))
+                psource->boneflags[j] |= flag;
+        }
+    };
+
+    for (const auto &set: ctx.bones.hitboxsets) {
+        for (const auto &hitbox: set.hitboxes)
+            keep(hitbox.name, false, BoneFlags::UsedByHitbox);
+    }
+    for (const auto &bone: ctx.bones.jigglebones)
+        keep(bone.bonename, false, BoneFlags::UsedByAttachment);
+    for (const auto &bone: ctx.bones.axisinterpbones) {
+        keep(bone.bonename, false, BoneFlags::UsedByAttachment);
+        keep(bone.controlname, false, BoneFlags::UsedByAttachment);
+    }
+    // quaternion and aim bones are matched like ProcessProceduralBones finds them
+    for (const auto &bone: ctx.bones.quatinterpbones) {
+        keep(bone.bonename, true, BoneFlags::UsedByAttachment);
+        keep(bone.parentname, true, BoneFlags::UsedByAttachment);
+        keep(bone.controlparentname, true, BoneFlags::UsedByAttachment);
+        keep(bone.controlname, true, BoneFlags::UsedByAttachment);
+    }
+    for (const auto &bone: ctx.bones.aimatbones) {
+        keep(bone.bonename, true, BoneFlags::UsedByAttachment);
+        keep(bone.parentname, true, BoneFlags::UsedByAttachment);
+        keep(bone.aimname, true, BoneFlags::UsedByAttachment);
+    }
+    for (const CConstraintBoneBase* pConstraint: ctx.bones.constraintBones) {
+        if (!pConstraint)
+            continue;
+        keep(pConstraint->m_slave.m_szBoneName, false, BoneFlags::UsedByAttachment);
+        for (const auto &target: pConstraint->m_targets)
+            keep(target.m_szBoneName, false, BoneFlags::UsedByAttachment);
+    }
+    for (const auto &controller: ctx.bones.bonecontrollers)
+        keep(controller.name, false, BoneFlags::UsedByAttachment);
+}
+
 
 //-----------------------------------------------------------------------------
 // Purpose: set "boneref" for all the source bones used by vertices, attachments, eyeballs, etc.
@@ -4064,6 +4116,9 @@ void TagUsedBones(StudioMdlState &ctx) {
         // Tag bones used as bone flex drivers, these need to be client side only
         TagFlexDriverBones(ctx, psource);
 
+        // Bones other parts name are keepers with or without vertices
+        TagReferencedBones(ctx, psource);
+
         // NOTE: This must come last; after all flags have been set!
         // tag bonerefs as being used the union of the boneflags all their children
         for (k = 0; k < psource->numbones; k++) {
@@ -4082,6 +4137,8 @@ void TagUsedBones(StudioMdlState &ctx) {
                     continue;
 
                 psource->boneflags[j] |= BoneFlags::AlwaysSetup;
+                // kept like any used bone (with its parents), only the flag is not propagated
+                UpdateBonerefRecursive(psource, j, BoneFlags::AlwaysSetup);
             }
         }
 
