@@ -38,6 +38,9 @@ struct ApplyState {
 
     // filled by BuildSourceFromGeometry / ApplyBody, read by later parts
     std::unordered_map<const smdl_geometry *, s_source_t *> sources;
+    // per geometry: the source vertices each geometry vertex became (BuildSourceFromGeometry); DMX delta states
+    // follow them like the DMX loader follows position indices
+    std::unordered_map<const smdl_geometry *, std::vector<std::vector<int>>> sourceVertices;
     std::unordered_map<const smdl_mesh *, s_model_t *> meshModels;
     std::unordered_map<const smdl_mesh *, int> meshModelIndex; // index in ctx.body.model (imodel)
 

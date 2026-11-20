@@ -2,6 +2,7 @@
 // (skeleton nodes, the "BindPose" frame, the triangles through the same vertex unification, FlipFacing for `reverse`),
 // calling the helpers the loader itself uses (studiomdl.h: SetSourceNode, SetSourceAnimBone, AddSourceCorner, ...), so
 // equal data gives a byte-identical source.
+#include <algorithm>
 #include <format>
 
 #include "apply.hpp"
@@ -179,15 +180,18 @@ s_source_t *BuildSourceFromGeometry(StudioMdlState &ctx, ApplyState &state, cons
 
     BeginSourceTriangles(ctx);
 
-    // source vertex of each unified vertex (for the user tangents)
-    std::vector<uint32_t> entryVertex;
-    const bool wantTangents = !geometry.tangents.empty();
+    // geometry vertices of each unified vertex (for the user tangents and the DMX delta states); corners of different
+    // vertices with equal data unify into one
+    std::vector<std::vector<uint32_t>> entryVertices;
     SourceCorner corner;
     auto addCorner = [&](int material, uint32_t vertex, int64_t cornerIndex) {
         FillCorner(geometry, vertex, cornerIndex, corner);
         const int index = AddSourceCorner(ctx, source, material, corner);
-        if (wantTangents && static_cast<size_t>(index) == entryVertex.size())
-            entryVertex.push_back(vertex);
+        if (static_cast<size_t>(index) >= entryVertices.size())
+            entryVertices.resize(static_cast<size_t>(index) + 1);
+        std::vector<uint32_t> &vertices = entryVertices[static_cast<size_t>(index)];
+        if (std::ranges::find(vertices, vertex) == vertices.end())
+            vertices.push_back(vertex);
         return index;
     };
 
@@ -218,12 +222,14 @@ s_source_t *BuildSourceFromGeometry(StudioMdlState &ctx, ApplyState &state, cons
 
     EndSourceTriangles(ctx, source);
 
-    if (wantTangents) {
-        for (int i = 0; i < source->numvertices; ++i) {
-            const uint32_t vertex = entryVertex[ctx.input.unifiedVertexOrder[i]];
-            const Vector4D &tangent = geometry.tangents[vertex];
-            source->vertex[i].tangentS = tangent;
-        }
+    std::vector<std::vector<int>> &sourceVertices = state.sourceVertices[&geometry];
+    sourceVertices.assign(geometry.positions.size(), {});
+    for (int i = 0; i < source->numvertices; ++i) {
+        const std::vector<uint32_t> &vertices = entryVertices[ctx.input.unifiedVertexOrder[i]];
+        for (const uint32_t vertex: vertices)
+            sourceVertices[vertex].push_back(i);
+        if (!geometry.tangents.empty())
+            source->vertex[i].tangentS = geometry.tangents[vertices.front()];
     }
 
     // Load_Source: `reverse`

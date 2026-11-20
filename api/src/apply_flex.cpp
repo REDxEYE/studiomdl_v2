@@ -256,8 +256,12 @@ namespace {
         return source;
     }
 
-    // The shape as a new-style vertex animation (DMX delta state) of the mesh's own source, named like the shape
-    void EnsureDeltaState(StudioMdlState &ctx, const smdl_mesh &mesh, s_source_t *source, uint32_t shapeIndex) {
+    // The shape as a new-style vertex animation (DMX delta state) of the mesh's own source, named like the shape. Like
+    // the DMX loader, which applies a delta to the vertices made from its position index, a shape vertex moves the
+    // source vertices made from that geometry vertex: separate vertices at one position (closed lips) keep their own
+    // deltas.
+    void EnsureDeltaState(StudioMdlState &ctx, const ApplyState &state, const smdl_mesh &mesh, s_source_t *source,
+                          uint32_t shapeIndex) {
         const smdl_geometry &g = *mesh.geometry;
         if (!mesh.appended.empty())
             MdlError("{}: shapes cannot be combined with appended geometries", g.owner);
@@ -267,34 +271,48 @@ namespace {
                 MdlError("{}: shape '{}': the source has an animation of that name already", g.owner, shape.name);
             return;
         }
+        const auto found = state.sourceVertices.find(&g);
+        if (found == state.sourceVertices.end())
+            MdlError("{}: shape '{}': the geometry has no source", g.owner, shape.name);
+        const std::vector<std::vector<int>> &sourceOf = found->second;
 
-        // an id per distinct position of the source's vertices, and the vertices at each
-        std::unordered_map<PositionKey, uint32_t, PositionKeyHash> ids;
-        std::vector<std::vector<int>> verticesAt;
-        for (int i = 0; i < source->numvertices; ++i) {
-            const auto [it, inserted] = ids.emplace(PositionKey(source->vertex[i].position),
-                                                    static_cast<uint32_t>(verticesAt.size()));
-            if (inserted)
-                verticesAt.emplace_back();
-            verticesAt[it->second].push_back(i);
+        // a source vertex made from several geometry vertices (equal corners) gets the first one's values
+        std::map<int, Delta> bySource;
+        for (size_t i = 0; i < shape.vertices.size(); ++i) {
+            const uint32_t vertex = shape.vertices[i];
+            if (vertex >= sourceOf.size())
+                MdlError("{}: shape '{}': vertex index {} is not a vertex ({} vertices)", g.owner, shape.name, vertex,
+                         sourceOf.size());
+            Delta delta;
+            delta.vertex = vertex;
+            delta.order = i;
+            delta.position = shape.positionDeltas[i];
+            if (!shape.normalDeltas.empty())
+                delta.normal = shape.normalDeltas[i];
+            if (!shape.wrinkle.empty())
+                delta.wrinkle = shape.wrinkle[i];
+            if (!g.balance.empty())
+                delta.side = g.balance[vertex];
+            for (const int sourceVertex: sourceOf[vertex]) {
+                const auto [it, inserted] = bySource.emplace(sourceVertex, delta);
+                if (inserted)
+                    continue;
+                const Vector difference = it->second.position - delta.position;
+                if (std::abs(difference.x) > 1e-4f || std::abs(difference.y) > 1e-4f || std::abs(difference.z) > 1e-4f)
+                    MdlError("{}: shape '{}': vertices {} and {} have equal position, normal, uv and weights (one "
+                             "studiomdl vertex) but different position deltas",
+                             g.owner, shape.name, it->second.vertex, vertex);
+            }
         }
-        auto lookup = [&ids](const PositionKey &key) -> std::optional<uint32_t> {
-            const auto it = ids.find(key);
-            if (it == ids.end())
-                return std::nullopt;
-            return it->second;
-        };
-        const std::map<uint32_t, Delta> byPosition = ShapeDeltas(ctx, g, shape, lookup);
 
         struct Entry {
             int vertex;
             Delta delta;
         };
         std::vector<Entry> entries;
-        for (const auto &[id, delta]: byPosition) {
-            for (const int vertex: verticesAt[id])
-                entries.push_back({vertex, delta});
-        }
+        entries.reserve(bySource.size());
+        for (const auto &[vertex, delta]: bySource)
+            entries.push_back({vertex, delta});
         // the DMX loader walks its delta list from the last vertex it added to the first (BuildVertexAnimations)
         std::ranges::sort(entries, [](const Entry &a, const Entry &b) {
             return a.delta.order != b.delta.order ? a.delta.order > b.delta.order : a.vertex < b.vertex;
@@ -357,7 +375,7 @@ namespace {
             if (lid.shape[i] >= mesh.geometry->shapes.size())
                 MdlError("the {} state: shape {} does not exist ({} shapes)", kStateName[i], lid.shape[i],
                          mesh.geometry->shapes.size());
-            EnsureDeltaState(ctx, mesh, pmodel->source, lid.shape[i]);
+            EnsureDeltaState(ctx, state, mesh, pmodel->source, lid.shape[i]);
             params.animation[i] = mesh.geometry->shapes[lid.shape[i]].name;
             params.target[i] = lid.target[i];
         }
@@ -511,7 +529,7 @@ void ApplyMeshCombination(StudioMdlState &ctx, ApplyState &state, const smdl_mes
 
     // BuildVertexAnimations: every shape is a delta state of the source
     for (size_t k = 0; k < g.shapes.size(); ++k)
-        EnsureDeltaState(ctx, mesh, source, static_cast<uint32_t>(k));
+        EnsureDeltaState(ctx, state, mesh, source, static_cast<uint32_t>(k));
 
     ScratchElements scratch;
     CDmeCombinationOperator *op = BuildCombinationOperator(scratch, g, desc);

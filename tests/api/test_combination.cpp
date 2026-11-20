@@ -151,6 +151,38 @@ namespace {
     smdl_status StatusOf(const std::function<void()> &call) { return CaptureError(call).status(); }
 }
 
+// Separate vertices at one position (closed lips: the upper and the lower lip's corner) move apart, as the DMX loader
+// keeps the delta of every position index; vertices studiomdl unifies into one (equal data) need equal deltas.
+SMDL_TEST(combination_coincident_vertices_keep_their_deltas) {
+    auto build = [](float lowerU) {
+        smdl::Model model = ComboModel("api/lips");
+        const smdl::BoneId root = model.addBoneEuler("root", smdl::NoBone, {0, 0, 0}, {0, 0, 0});
+        smdl::Mesh mesh = model.addBodyGroup("lips").createMesh("lips");
+        smdl::Geometry geometry = mesh.geometry();
+        const smdl::MaterialId material = geometry.addMaterial("lips_mat");
+        // vertices 1 and 4 share the mouth corner
+        const std::vector<smdl::Vec3> positions = {{0, 0, 1}, {2, 0, 0}, {4, 0, 1}, {0, 0, -1}, {2, 0, 0}, {4, 0, -1}};
+        geometry.setPositions(positions);
+        geometry.setNormals(std::vector<smdl::Vec3>(positions.size(), {0, -1, 0}));
+        const std::vector<smdl::Vec2> uvs = {{0, 1}, {0.5f, 0.5f}, {1, 1}, {0, 0}, {lowerU, 0.5f}, {1, 0}};
+        geometry.setUVs(0, uvs);
+        geometry.setWeights(1, std::vector<smdl::BoneId>(positions.size(), root),
+                            std::vector<float>(positions.size(), 1.0f));
+        const std::vector<uint32_t> indices = {0, 1, 2, 3, 5, 4};
+        geometry.setTriangles(indices, std::vector<smdl::MaterialId>(2, material));
+        const std::vector<uint32_t> moved = {1, 4};
+        const std::vector<smdl::Vec3> deltas = {{0, 0, 0.5f}, {0, 0, -0.5f}};
+        geometry.addShape("open", moved, deltas);
+        mesh.addCombinationControl("open", {"open"});
+        return model;
+    };
+    smdl::Model lips = build(0.25f); // a different uv: two studiomdl vertices
+    lips.compile();
+    smdl::Model unified = build(0.5f); // equal data: one vertex, which can't take both deltas
+    const smdl::Error error = CaptureError([&] { unified.compile(); });
+    Require(Contains(error.what(), "one studiomdl vertex"), "names the unified vertex: " + std::string(error.what()));
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 // Equivalence with the DMX compile
 // ---------------------------------------------------------------------------------------------------------------

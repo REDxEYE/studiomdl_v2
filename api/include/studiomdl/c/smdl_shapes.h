@@ -6,11 +6,15 @@
  * accepts it.
  *
  * What the compile builds from them is what studiomdl builds from a VTA file (one frame per shape, frame 0 = the
- * base pose) or, for DMX eyelids, from the delta states of a DMX file:
- *   - the vertices of the vertex animation are the distinct positions of the vertices the triangles/quads use (in the
- *     order of their first corner), with the normal of the first corner at that position; vertices with the same
- *     position share their deltas. A shape that gives different position deltas to two vertices at one position is a
- *     compile error (differences below 1e-4 are tolerated, the first vertex wins);
+ * base pose) or, for combination operators and DMX eyelids, from the delta states of a DMX file:
+ *   - VTA-style (the flexes of smdl_mesh_add_flex*, eyelids, vertex cache animations): the vertices of the vertex
+ *     animation are the distinct positions of the vertices the triangles/quads use (in the order of their first
+ *     corner), with the normal of the first corner at that position; vertices with the same position share their
+ *     deltas. A shape that gives different position deltas to two vertices at one position is a compile error
+ *     (differences below 1e-4 are tolerated, the first vertex wins);
+ *   - delta states: a shape vertex moves the studiomdl vertices made from that geometry vertex, like the DMX loader
+ *     follows position indices, so separate vertices at one position (closed lips) keep their own deltas. Vertices
+ *     with equal position, normal, uv and weights become one studiomdl vertex and must have equal deltas;
  *   - positions and deltas are in the geometry's units: the compile applies the geometry's scale like it does to the
  *     positions (a VTA file's data is not scaled);
  *   - wrinkle values only reach the MDL for the flexes of smdl_mesh_add_flex* when a value is not zero (the flex
