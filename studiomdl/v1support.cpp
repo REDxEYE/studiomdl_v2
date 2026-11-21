@@ -162,7 +162,7 @@ int AddSourceCorner(StudioMdlState &ctx, s_source_t *psource, const int material
     scale_vertex(ctx, corner.position);
 
     // invert v
-    corner.uv[1] = 1.0 - corner.uv[1];
+    corner.uv[1] = 1.0f - corner.uv[1];
 
     int iCount = corner.numLinks;
     s_sourceboneweight_t sourceWeights;

@@ -13,7 +13,6 @@ add_library(mathlib
         expressioncalculator.cpp
         sparse_convolution_noise.cpp
         mathlib_base.cpp
-        randsse.cpp
         vmatrix.cpp
 )
 target_include_directories(mathlib PUBLIC ../../include)

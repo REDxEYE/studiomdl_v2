@@ -290,53 +290,6 @@ float Studio_CPS( const CStudioHdr *pStudioHdr, mstudioseqdesc_t &seqdesc, int i
 
 // void Studio_Movement( const CStudioHdr *pStudioHdr, int iSequence, const float poseParameter[], Vector *pVec );
 
-FORWARD_DECLARE_HANDLE( memhandle_t );
-struct bonecacheparams_t
-{
-	CStudioHdr		*pStudioHdr;
-	matrix3x4a_t	*pBoneToWorld;
-	float			curtime;
-	BoneFlags				boneMask;
-};
-
-class CBoneCache
-{
-public:
-
-	// you must implement these static functions for the ResourceManager
-	// -----------------------------------------------------------
-	// -----------------------------------------------------------
-	// member functions that must be present for the ResourceManager
-	void			DestroyResource();
-	CBoneCache		*GetData() { return this; }
-	unsigned int	Size() { return m_size; }
-	// -----------------------------------------------------------
-
-					CBoneCache();
-
-	// was constructor, but placement new is messy wrt memdebug - so cast & init instead
-	void			Init( const bonecacheparams_t &params, unsigned int size, short *pStudioToCached, short *pCachedToStudio, int cachedBoneCount );
-	
-	void			UpdateBones( const matrix3x4a_t *pBoneToWorld, int numbones, float curtime );
-
-	bool			IsValid( float curtime, float dt = 0.1f );
-
-public:
-	float			m_timeValid;
-	BoneFlags				m_boneMask;
-
-private:
-	matrix3x4a_t	*BoneArray();
-	short			*StudioToCached();
-	short			*CachedToStudio();
-
-	unsigned int	m_size;
-	unsigned short	m_cachedBoneCount;
-	unsigned short	m_matrixOffset;
-	unsigned short	m_cachedToStudioOffset;
-	unsigned short	m_boneOutOffset;
-};
-
 
 void QuaternionSM( float s, const Quaternion &p, const Quaternion &q, Quaternion &qt );
 void QuaternionMA( const Quaternion &p, float s, const Quaternion &q, Quaternion &qt );

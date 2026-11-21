@@ -46,7 +46,7 @@ inline std::mutex &CompileMutex() {
 
 inline void InitProcessOnce() {
     static std::once_flag once;
-    std::call_once(once, [] { MathLib_Init(2.2f, 2.2f, 0.0f, 2.0f, false, true, true, true); });
+    std::call_once(once, [] { MathLib_Init(2.2f, 2.2f, 0.0f, 2.0f); });
 }
 
 // Absolute directory with '/' separators and a trailing '/', as ctx.paths.gameDir is everywhere

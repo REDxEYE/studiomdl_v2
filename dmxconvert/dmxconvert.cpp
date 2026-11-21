@@ -72,7 +72,7 @@ bool CDmxConvertApp::PreInit( )
 //-----------------------------------------------------------------------------
 int CDmxConvertApp::Main()
 {
-    MathLib_Init(2.2f, 2.2f, 0.0f, 2.0f, false, false, false, false);
+    MathLib_Init(2.2f, 2.2f, 0.0f, 2.0f);
 	g_pDataModel->OnlyCreateUntypedElements( true );
 
 	// This bit of hackery allows us to access files on the harddrive

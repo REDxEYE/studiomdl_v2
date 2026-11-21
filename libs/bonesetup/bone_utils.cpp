@@ -19,84 +19,6 @@
 
 
 
-void CBoneCache::DestroyResource()
-{
-	MemAlloc_FreeAligned( this );
-}
-
-
-CBoneCache::CBoneCache()
-{
-	m_size = 0;
-	m_cachedBoneCount = 0;
-}
-
-void CBoneCache::Init( const bonecacheparams_t &params, unsigned int size, short *pStudioToCached, short *pCachedToStudio, int cachedBoneCount )
-{
-	m_cachedBoneCount = cachedBoneCount;
-	m_size = size;
-	m_timeValid = params.curtime;
-	m_boneMask = params.boneMask;
-
-	int studioTableSize = params.pStudioHdr->numbones() * sizeof(short);
-	m_cachedToStudioOffset = studioTableSize;
-	memcpy( StudioToCached(), pStudioToCached, studioTableSize );
-
-	int cachedTableSize = cachedBoneCount * sizeof(short);
-	memcpy( CachedToStudio(), pCachedToStudio, cachedTableSize );
-
-	m_matrixOffset = AlignValue( sizeof(CBoneCache) + m_cachedToStudioOffset + cachedTableSize, 16 );
-
-	UpdateBones( params.pBoneToWorld, params.pStudioHdr->numbones(), params.curtime );
-}
-
-void CBoneCache::UpdateBones( const matrix3x4a_t *pBoneToWorld, int numbones, float curtime )
-{
-	matrix3x4a_t *pBones = BoneArray();
-	const short *pCachedToStudio = CachedToStudio();
-
-	for ( int i = 0; i < m_cachedBoneCount; i++ )
-	{
-		int index = pCachedToStudio[i];
-		//MatrixCopy( pBoneToWorld[index], pBones[i] );
-
-		const float *pInput = pBoneToWorld[index].Base();
-		float *pOutput = pBones[i].Base();
-
-		fltx4 fl4Tmp0 = LoadAlignedSIMD( pInput );
-		StoreAlignedSIMD( pOutput, fl4Tmp0 );
-		fltx4 fl4Tmp1 = LoadAlignedSIMD( pInput + 4 );
-		StoreAlignedSIMD( pOutput+4, fl4Tmp1 );
-		fltx4 fl4Tmp2 = LoadAlignedSIMD( pInput + 8 );
-		StoreAlignedSIMD( pOutput+8, fl4Tmp2 );
-	}
-	m_timeValid = curtime;
-}
-
-bool CBoneCache::IsValid( float curtime, float dt )
-{
-	if ( curtime - m_timeValid <= dt )
-		return true;
-	return false;
-}
-
-
-// private functions
-matrix3x4a_t *CBoneCache::BoneArray()
-{
-	return (matrix3x4a_t *)( (uint8_t *)(this) + m_matrixOffset );
-}
-
-short *CBoneCache::StudioToCached()
-{
-	return (short *)( (char *)(this+1) );
-}
-
-short *CBoneCache::CachedToStudio()
-{
-	return (short *)( (char *)(this+1) + m_cachedToStudioOffset );
-}
-
 
 //-----------------------------------------------------------------------------
 // Purpose:
@@ -181,21 +103,6 @@ void QuaternionSM( float s, const Quaternion &p, const Quaternion &q, Quaternion
 	qt[3] = q1[3];
 }
 
-#if ALLOW_SIMD_QUATERNION_MATH
-FORCEINLINE fltx4 QuaternionSMSIMD( const fltx4 &s, const fltx4 &p, const fltx4 &q )
-{
-	fltx4 p1, q1, result;
-	p1 = QuaternionScaleSIMD( p, s );
-	q1 = QuaternionMultSIMD( p1, q );
-	result = QuaternionNormalizeSIMD( q1 );
-	return result;
-}
-
-FORCEINLINE fltx4 QuaternionSMSIMD( float s, const fltx4 &p, const fltx4 &q )
-{
-	return QuaternionSMSIMD( ReplicateX4(s), p, q );
-}
-#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: qt = p * ( s * q )
@@ -213,22 +120,6 @@ void QuaternionMA( const Quaternion &p, float s, const Quaternion &q, Quaternion
 	qt[3] = p1[3];
 }
 
-#if ALLOW_SIMD_QUATERNION_MATH
-
-FORCEINLINE fltx4 QuaternionMASIMD( const fltx4 &p, const fltx4 &s, const fltx4 &q )
-{
-	fltx4 p1, q1, result;
-	q1 = QuaternionScaleSIMD( q, s );
-	p1 = QuaternionMultSIMD( p, q1 );
-	result = QuaternionNormalizeSIMD( p1 );
-	return result;
-}
-
-FORCEINLINE fltx4 QuaternionMASIMD( const fltx4 &p, float s, const fltx4 &q )
-{
-	return QuaternionMASIMD(p, ReplicateX4(s), q);
-}
-#endif
 
 
 //-----------------------------------------------------------------------------
@@ -245,109 +136,8 @@ void QuaternionAccumulate( const Quaternion &p, float s, const Quaternion &q, Qu
 	qt[3] = p[3] + s * q2[3];
 }
 
-#if ALLOW_SIMD_QUATERNION_MATH
-FORCEINLINE fltx4 QuaternionAccumulateSIMD( const fltx4 &p, float s, const fltx4 &q )
-{
-	fltx4 q2, s4, result;
-	q2 = QuaternionAlignSIMD( p, q );
-	s4 = ReplicateX4( s );
-	result = MaddSIMD( s4, q2, p );
-	return result;
-}
-#endif
 
 
-#define PARANOID_SIMD_DOUBLECHECK 0  // set this to one to perform both SIMD and scalar bones every frame,
-									 // then compare the results.
-#define PARANOID_SIMD_TIMING_TEST 0 // enable to allow running many iterations of SlerpBones per frame
-									// for timing purposes
-
-
-
-#if PARANOID_SIMD_TIMING_TEST
-static ConVar cl_bones_simd_timing_iter( "cl_bones_simd_timing_iter", "100", FCVAR_REPLICATED, "number of times to run SlerpBones." );
-void SlerpBones(
-				const CStudioHdr *pStudioHdr,
-				Quaternion q1[MAXSTUDIOBONES],
-				BoneVector pos1[MAXSTUDIOBONES],
-				mstudioseqdesc_t &seqdesc,  // source of q2 and pos2
-				int sequence,
-				const BoneQuaternionAligned q2[MAXSTUDIOBONES],
-				const BoneVector pos2[MAXSTUDIOBONES],
-				float s,
-				BoneFlags boneMask )
-{
-	// copy off the input arrays for safety
-	int numBones =  pStudioHdr->numbones();
-	BoneQuaternionAligned fake_q1[MAXSTUDIOBONES];
-	BoneVector fake_pos1[MAXSTUDIOBONES];
-	bool version = cl_bones_simd_timing_version.GetBool();
-
-	// fruitlessly run as many times as specified
-	for (int i = cl_bones_simd_timing_iter.GetInt() ; i > 0 ; --i )
-	{
-		memcpy( fake_q1, q1, numBones * sizeof(Quaternion) );
-		memcpy( fake_pos1, pos1, numBones * sizeof(BoneVector) );
-
-		if (version) // 1 = simd  0 = scalar
-		{
-			SlerpBonesSpeedy(pStudioHdr,
-				fake_q1,
-				fake_pos1,
-				seqdesc,
-				sequence,
-				q2,
-				pos2,
-				s,
-				boneMask
-				);
-		}
-		else
-		{
-
-			SlerpBonesSlow(pStudioHdr,
-				fake_q1,
-				fake_pos1,
-				seqdesc,
-				sequence,
-				q2,
-				pos2,
-				s,
-				boneMask
-				);
-		}
-	}
-
-	// run once for real
-	if (version) // 1 = simd  0 = scalar
-	{
-		SlerpBonesSpeedy(pStudioHdr,
-			static_cast<BoneQuaternionAligned *>(q1),
-			pos1,
-			seqdesc,
-			sequence,
-			q2,
-			pos2,
-			s,
-			boneMask
-			);
-	}
-	else
-	{
-
-		SlerpBonesSlow(pStudioHdr,
-			q1,
-			pos1,
-			seqdesc,
-			sequence,
-			q2,
-			pos2,
-			s,
-			boneMask
-			);
-	}
-}
-#endif
 
 template <int N>
 struct GetLog2_t

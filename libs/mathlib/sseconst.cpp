@@ -45,15 +45,6 @@ const fltx4 Four_GammaToLinearCoefficients_B = { .8717, .8717, .8717, .8717 };
 const fltx4 Four_GammaToLinearCoefficients_C = { -.0452, -.0452, -.0452, -.0452 };
 const fltx4 Four_GammaToLinearCoefficients_D = { .0012, .0012, .0012, .0012 };
 
-const fltx4 g_QuatMultRowSign[4] =
-{
-	{  1.0f,  1.0f, -1.0f, 1.0f },
-	{ -1.0f,  1.0f,  1.0f, 1.0f },
-	{  1.0f, -1.0f,  1.0f, 1.0f },
-	{ -1.0f, -1.0f, -1.0f, 1.0f }
-};
-
-
 const uint32_t ALIGN16 g_SIMD_clear_signmask[4] ALIGN16_POST = {0x7fffffff,0x7fffffff,0x7fffffff,0x7fffffff};
 const uint32_t ALIGN16 g_SIMD_signmask[4] ALIGN16_POST = { 0x80000000, 0x80000000, 0x80000000, 0x80000000 };
 const uint32_t ALIGN16 g_SIMD_lsbmask[4] ALIGN16_POST = { 0xfffffffe, 0xfffffffe, 0xfffffffe, 0xfffffffe };
@@ -79,8 +70,6 @@ const uint32_t ALIGN16 g_SIMD_SkipTailMask[4][4] ALIGN16_POST =
 	{ 0xffffffff, 0xffffffff, 0x00000000, 0x00000000 },
 	{ 0xffffffff, 0xffffffff, 0xffffffff, 0x00000000 },
 };
-
-const int32_t ALIGN16 g_SIMD_EveryOtherMask[4] = { 0, ~0, 0, ~0 };
 
 
 

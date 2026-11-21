@@ -82,6 +82,12 @@ elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-Werror=non-pod-varargs>)
 endif ()
 
+# No fused multiply-add anywhere: arm64 clang contracts a*b+c by default, which changes the bits of the output.
+# (MSVC /fp:precise does not contract on x64; clang-cl defaults to off.)
+if (NOT MSVC)
+    add_compile_options(-ffp-contract=off)
+endif ()
+
 add_subdirectory(libs/appframework)
 # meshoptimizer: only optimizeVertexCache is used (libs/meshoptimizer is a vendored subset of 1.3). A host project that
 # already has the target (pylib fetches 1.2: same function, same signature, same vcacheoptimizer.cpp) keeps its own, as

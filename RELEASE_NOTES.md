@@ -1,6 +1,7 @@
 # studiomdl_v2 — Release Notes
 
-A cross-platform (Linux, Windows) 64-bit port of Valve's Source Filmmaker `studiomdl`, plus `dmxconvert`.
+A cross-platform (Linux, Windows, macOS x86_64/arm64) 64-bit port of Valve's Source Filmmaker `studiomdl`, plus
+`dmxconvert`.
 
 ## New features
 - **`.mpp` compile (DMX model description):** pass an `.mpp` instead of a QC; Valve's `mdlcompile` loaders are restored.

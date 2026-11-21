@@ -8,7 +8,7 @@
 
 #pragma once
 
-#if defined(__x86_64__) || defined(_WIN64)
+#if defined(__x86_64__) || defined(_WIN64) || defined(__aarch64__)
 #define PLATFORM_64BITS 1
 #endif
 #include <cstdarg>
@@ -46,9 +46,9 @@
 	#include <stdlib.h>
 	#include <string.h>
 #if defined( OSX ) || defined ( _LINUX )
-	#include <signal.h>
 	#include <stdarg.h>
 #endif
+	#include <signal.h>
 
 
 #ifdef __cplusplus
@@ -439,20 +439,12 @@ typedef void * HINSTANCE;
 //-----------------------------------------------------------------------------
 // Used to break into the debugger
 //-----------------------------------------------------------------------------
-#ifdef COMPILER_MSVC64
+#if defined( COMPILER_MSVC64 ) || defined( COMPILER_MSVC32 )
 	#define DebuggerBreak()		__debugbreak()
-#elif COMPILER_MSVC32
-	#define DebuggerBreak()		__debugbreak() //__asm { int 3 }
-#elif COMPILER_GCC
-	#if   defined( OSX )
-		#define DebuggerBreak()  if ( Plat_IsInDebugSession() ) asm( "int3" ); else { raise(SIGTRAP); }
-	#elif defined( PLATFORM_CYGWIN ) || defined( PLATFORM_POSIX )
-		#define DebuggerBreak()		__asm__( "int $0x3;")
-	#else
-		#define DebuggerBreak()	raise(SIGTRAP)
-	#endif
+#elif defined( __clang__ )
+	#define DebuggerBreak()		__builtin_debugtrap()
 #else
-#error DebuggerBreak() is not defined for this platform!
+	#define DebuggerBreak()		raise(SIGTRAP)
 #endif
 
 

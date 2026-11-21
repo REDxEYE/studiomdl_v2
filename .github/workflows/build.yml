@@ -137,12 +137,15 @@ jobs:
           path: dist
 
   build-macos:
-    # x86_64 only, no arm64 and so no universal binary: 231 of the 280 sources include the x86 SSE intrinsics (mathlib/
-    # vector.h, ssemath.h; -target arm64 fails in <xmmintrin.h>) and mathlib.h has x87 inline assembly. macos-latest is
-    # an arm64 runner: the x86_64 build is cross compiled and its tests run under Rosetta 2.
+    # macos-latest is an arm64 runner: arm64 builds and tests natively; x86_64 is cross compiled and its tests run
+    # under Rosetta 2. The math library is plain C++ now (no SSE intrinsics / x87 asm).
     runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [arm64, x86_64]
     env:
-      CMAKE_OSX_ARCHITECTURES: x86_64
+      CMAKE_OSX_ARCHITECTURES: ${{ matrix.arch }}
       # std::format / std::print of floating point need macOS 13.3 or newer in libc++
       CMAKE_OSX_DEPLOYMENT_TARGET: '14.0'
     steps:
@@ -190,5 +193,5 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: macos-x86_64
+          name: macos-${{ matrix.arch }}
           path: dist

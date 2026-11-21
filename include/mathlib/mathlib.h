@@ -7,6 +7,7 @@
 #pragma once
 
 #include <math.h>
+#include <cmath>
 #include "tier0/basetypes.h"
 #include "mathlib/vector.h"
 #include "mathlib/vector2d.h"
@@ -78,16 +79,11 @@ enum
 	FRUSTUM_NUMPLANES	= 6
 };
 
-class Frustum_t;
-
 // Computes Y fov from an X fov and a screen aspect ratio + X from Y
 
 // Generate a frustum based on perspective view parameters
 // NOTE: FOV is specified in degrees, as the *full* view angle (not half-angle)
 class VPlane;
-// Cull the world-space bounding box to the specified frustum.
-// bool R_CullBox( const Vector& mins, const Vector& maxs, const Frustum_t &frustum );
-// bool R_CullBoxSkipNear( const Vector& mins, const Vector& maxs, const Frustum_t &frustum );
 
 class CTransform;
 class matrix3x4a_t;
@@ -454,31 +450,12 @@ inline vec_t RoundInt (vec_t in)
 
 size_t Q_log2( unsigned int val );
 
-// Math routines done in optimized assembly math package routines
-void inline SinCos( float radians, float * RESTRICT sine, float * RESTRICT cosine )
+// Sine and cosine of an angle in radians
+inline void SinCos( float radians, float * RESTRICT sine, float * RESTRICT cosine )
 {
-#if   defined( COMPILER_MSVC32 )
-	_asm
-	{
-		fld		DWORD PTR [radians]
-		fsincos
-
-		mov edx, DWORD PTR [cosine]
-		mov eax, DWORD PTR [sine]
-
-		fstp DWORD PTR [edx]
-		fstp DWORD PTR [eax]
-	}
-#elif defined( GNUC )
-	double __cosr, __sinr;
- 	__asm __volatile__ ("fsincos" : "=t" (__cosr), "=u" (__sinr) : "0" (radians));
-
-  	*sine = __sinr;
-  	*cosine = __cosr;
-#else
-	*sine = sinf(radians);
-	*cosine = cosf(radians);
-#endif
+	// double precision, then round to float: same results as the former x87 fsincos (extended -> double -> float)
+	*sine = static_cast<float>( sin( static_cast<double>( radians ) ) );
+	*cosine = static_cast<float>( cos( static_cast<double>( radians ) ) );
 }
 
 #define SIN_TABLE_SIZE	256
@@ -1319,43 +1296,15 @@ inline float SimpleSplineRemapValClamped( float val, float A, float B, float C, 
 }
 
 
+// Round to nearest, ties to even (current FP rounding mode), like the former x87 fistp
 FORCEINLINE int RoundFloatToInt(float f)
 {
-	int nResult;
-#if defined( COMPILER_MSVC32 )
-	__asm
-	{
-		fld f
-		fistp nResult
-	}
-#elif GNUC
-	__asm __volatile__ (
-		"fistpl %0;": "=m" (nResult): "t" (f) : "st"
-	);
-#else
-	nResult = static_cast<int>(f);
-#endif
-	return nResult;
+	return static_cast<int>( std::lrintf( f ) );
 }
 
 FORCEINLINE unsigned char RoundFloatToByte(float f)
 {
-	
-	int nResult;
-
-#if defined( COMPILER_MSVC32 )
-	__asm
-	{
-		fld f
-		fistp nResult
-	}
-#elif GNUC
-	__asm __volatile__ (
-		"fistpl %0;": "=m" (nResult): "t" (f) : "st"
-	);
-#else
-	nResult = static_cast<unsigned int> (f) & 0xff;
-#endif
+	int nResult = RoundFloatToInt( f );
 
 #ifdef Assert
 	Assert( nResult >= 0 && nResult <= 255 );
@@ -1366,25 +1315,7 @@ FORCEINLINE unsigned char RoundFloatToByte(float f)
 
 FORCEINLINE uint32_t RoundFloatToUnsignedLong(float f)
 {
-	
-#if defined( COMPILER_MSVC32 )
-	unsigned char nResult[8];
-	__asm
-	{
-		fld f
-		fistp       qword ptr nResult
-	}
-	return *((uint32_t*)nResult);
-#elif defined( COMPILER_GCC )
-	unsigned char nResult[8];
-	__asm __volatile__ (
-		"fistpl %0;": "=m" (nResult): "t" (f) : "st"
-	);
-	return *((uint32_t*)nResult);
-#else
-	return static_cast<uint32_t>(f);
-#endif
-
+	return static_cast<uint32_t>( RoundFloatToInt( f ) );
 }
 
 FORCEINLINE bool IsIntegralValue( float flValue, float flTolerance = 0.001f )
@@ -1395,29 +1326,7 @@ FORCEINLINE bool IsIntegralValue( float flValue, float flTolerance = 0.001f )
 // Fast, accurate ftol:
 FORCEINLINE int Float2Int( float a )
 {
-	
-	int RetVal;
-
-#if defined( COMPILER_MSVC32 )
-	int CtrlwdHolder;
-	int CtrlwdSetter;
-	__asm 
-	{
-		fld    a					// push 'a' onto the FP stack
-		fnstcw CtrlwdHolder		// store FPU control word
-		movzx  eax, CtrlwdHolder	// move and zero extend word into eax
-		and    eax, 0xFFFFF3FF	// set all bits except rounding bits to 1
-		or     eax, 0x00000C00	// set rounding mode bits to round towards zero
-		mov    CtrlwdSetter, eax	// Prepare to set the rounding mode -- prepare to enter plaid!
-		fldcw  CtrlwdSetter		// Entering plaid!
-		fistp  RetVal				// Store and converted (to int) result
-		fldcw  CtrlwdHolder		// Restore control word
-	}
-#else
-	RetVal = static_cast<int>( a );
-#endif
-
-	return RetVal;
+	return static_cast<int>( a );
 }
 
 
@@ -1425,28 +1334,7 @@ FORCEINLINE int Float2Int( float a )
 // Over 15x faster than: (int)floor(value)
 inline int Floor2Int( float a )
 {
-   int RetVal;
-
-#if   defined( COMPILER_MSVC32 )
-   int CtrlwdHolder;
-   int CtrlwdSetter;
-   __asm 
-   {
-      fld    a					// push 'a' onto the FP stack
-      fnstcw CtrlwdHolder		// store FPU control word
-      movzx  eax, CtrlwdHolder	// move and zero extend word into eax
-      and    eax, 0xFFFFF3FF	// set all bits except rounding bits to 1
-      or     eax, 0x00000400	// set rounding mode bits to round down
-      mov    CtrlwdSetter, eax	// Prepare to set the rounding mode -- prepare to enter plaid!
-      fldcw  CtrlwdSetter		// Entering plaid!
-      fistp  RetVal				// Store floored and converted (to int) result
-      fldcw  CtrlwdHolder		// Restore control word
-   }
-#else
-	RetVal = static_cast<int>( floor(a) );
-#endif
-
-	return RetVal;
+	return static_cast<int>( floor(a) );
 }
 
 //-----------------------------------------------------------------------------
@@ -1477,28 +1365,7 @@ inline float ClampToMsec( float in )
 // Over 15x faster than: (int)ceil(value)
 inline int Ceil2Int( float a )
 {
-   int RetVal;
-
-#if   defined( COMPILER_MSVC32 )
-   int CtrlwdHolder;
-   int CtrlwdSetter;
-   __asm 
-   {
-      fld    a					// push 'a' onto the FP stack
-      fnstcw CtrlwdHolder		// store FPU control word
-      movzx  eax, CtrlwdHolder	// move and zero extend word into eax
-      and    eax, 0xFFFFF3FF	// set all bits except rounding bits to 1
-      or     eax, 0x00000800	// set rounding mode bits to round down
-      mov    CtrlwdSetter, eax	// Prepare to set the rounding mode -- prepare to enter plaid!
-      fldcw  CtrlwdSetter		// Entering plaid!
-      fistp  RetVal				// Store floored and converted (to int) result
-      fldcw  CtrlwdHolder		// Restore control word
-   }
-#else
-	RetVal = static_cast<int>( ceil(a) );
-#endif
-
-	return RetVal;
+	return static_cast<int>( ceil(a) );
 }
 
 
@@ -1773,7 +1640,7 @@ inline float CalcDistanceToAABB( const Vector &mins, const Vector &maxs, const V
 // The above functions in 2D
 
 // Init the mathlib
-void MathLib_Init( float gamma = 2.2f, float texGamma = 2.2f, float brightness = 0.0f, int overbright = 2.0f, bool bAllow3DNow = true, bool bAllowSSE = true, bool bAllowSSE2 = true, bool bAllowMMX = true );
+void MathLib_Init( float gamma = 2.2f, float texGamma = 2.2f, float brightness = 0.0f, int overbright = 2.0f );
 
 inline float Approach( float target, float value, float speed );
 float AngleNormalize( float angle );

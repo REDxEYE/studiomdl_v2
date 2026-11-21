@@ -153,7 +153,7 @@ bool CStudioMDLApp::Create() {
     LoggingSystem_PushLoggingState();
     LoggingSystem_RegisterLoggingListener(&s_MdlLoggingListener);
 
-    MathLib_Init(2.2f, 2.2f, 0.0f, 2.0f, false, true, true, true);
+    MathLib_Init(2.2f, 2.2f, 0.0f, 2.0f);
 
     if (!m_Library)
         SetUnhandledExceptionFilter(VExceptionFilter);

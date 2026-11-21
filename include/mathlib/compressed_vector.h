@@ -21,17 +21,12 @@
 
 #include "mathlib/vector.h"
 
-#include "mathlib/ssemath.h"
-
 
 #ifdef OSX
 #pragma GCC diagnostic ignored "-Wtautological-compare"
 #endif
 
 class Quaternion48;
-
-
-FORCEINLINE fltx4 UnpackQuaternion48SIMD( const Quaternion48 * RESTRICT pVec );
 
 
 //=========================================================
@@ -62,7 +57,6 @@ public:
 	// Quaternion& operator=(const Quaternion64 &vOther);
 	Quaternion64& operator=(const Quaternion &vOther);
 	operator Quaternion () const;
-	inline fltx4 LoadUnalignedSIMD() const; // load onto a SIMD register without assumptions of being on a 16byte boundary  
 
 private:
 	Quaternion64(const uint64_t xx, const uint64_t yy, const uint64_t zz, const uint64_t ww ) : x(xx), y(yy), z(zz), wneg(ww) {}; // stricly for static construction
@@ -99,26 +93,6 @@ inline Quaternion64& Quaternion64::operator=(const Quaternion &vOther)
 	return *this; 
 }
 
-inline fltx4 Quaternion64::LoadUnalignedSIMD() const 
-{
-#if   0 // basic C implementation (which ends up being slower than writing the whole Q onto the stack and then reading it back at once)
-	struct { float x; float y; float z; float w; } tmp;
-
-	tmp.x = ((int)x - 1048576) * (1 / 1048576.5f);
-	tmp.y = ((int)y - 1048576) * (1 / 1048576.5f);
-	tmp.z = ((int)z - 1048576) * (1 / 1048576.5f);
-	tmp.w = sqrt( 1 - tmp.x * tmp.x - tmp.y * tmp.y - tmp.z * tmp.z );
-	if (wneg)
-		tmp.w = -tmp.w;
-	
-	fltx4 ret = { tmp.x, tmp.y, tmp.z, tmp.w };
-	return ret;
-#else // naive implementation (which ends up being faster than the explicit c imp above)
-	const QuaternionAligned q(Quaternion(*this)) ;
-	return LoadAlignedSIMD( &q );
-#endif
-}
-
 //=========================================================
 // 48 bit Quaternion
 //=========================================================
@@ -134,7 +108,6 @@ public:
 	// Quaternion& operator=(const Quaternion48 &vOther);
 	Quaternion48& operator=(const Quaternion &vOther);
 	operator Quaternion () const;
-	inline fltx4 LoadUnalignedSIMD() const; // load onto a SIMD register without assumptions of being on a 16byte boundary  
 
 //private:
 	unsigned short x:16;
@@ -171,26 +144,6 @@ inline Quaternion48& Quaternion48::operator=(const Quaternion &vOther)
 	return *this; 
 }
 
-inline fltx4 Quaternion48::LoadUnalignedSIMD() const 
-{
-#if   0 // basic C implementation (which ends up being slower than writing the whole Q onto the stack and then reading it back at once)
-	struct { float x; float y; float z; float w; } tmp;
-
-	tmp.x = ((int)x - 32768) * (1 / 32768.5);
-	tmp.y = ((int)y - 32768) * (1 / 32768.5);
-	tmp.z = ((int)z - 16384) * (1 / 16384.5);
-	tmp.w = sqrt( 1 - tmp.x * tmp.x - tmp.y * tmp.y - tmp.z * tmp.z );
-	if (wneg)
-		tmp.w = -tmp.w;
-	
-	fltx4 ret = { tmp.x, tmp.y, tmp.z, tmp.w };
-	return ret;
-#else // naive implementation (which ends up being faster than the explicit c imp above)
-	const QuaternionAligned q(Quaternion(*this)) ;
-	return LoadAlignedSIMD( &q );
-#endif
-}
-
 
 //=========================================================
 // 48 bit sorted Quaternion
@@ -208,7 +161,6 @@ public:
 	// Quaternion& operator=(const Quaternion48 &vOther);
 	Quaternion48S& operator=(const Quaternion &vOther);
 	operator Quaternion () const;
-	operator fltx4 () const RESTRICT ;
 //private:
 	// shift the quaternion so that the largest value is recreated by the sqrt()
 	// abcd maps modulo into quaternion xyzw starting at "offset"
@@ -280,17 +232,6 @@ inline Quaternion48S& Quaternion48S::operator=(const Quaternion &vOther)
 }
 
 
-// decode onto a SIMD register
-inline Quaternion48S::operator fltx4 ()	const RESTRICT
-{
-	AssertMsg1( (((uintptr_t) this) & 1) == 0, "Quaternion48S is unaligned at %p\n", this );
-	AssertMsg( false, "Quaternion48S::operator fltx4  is slow on this platform and should not be used.\n" );
-    Quaternion tmp = (Quaternion &&) *this;
-	QuaternionAligned q( tmp );
-	return LoadAlignedSIMD( &q );
-}
-
-
 //=========================================================
 // 32 bit Quaternion
 //=========================================================
@@ -306,7 +247,6 @@ public:
 	// Quaternion& operator=(const Quaternion48 &vOther);
 	Quaternion32& operator=(const Quaternion &vOther);
 	operator Quaternion ();
-	inline fltx4 LoadUnalignedSIMD() const; // load onto a SIMD register without assumptions of being on a 16byte boundary  
 
 private:
 	unsigned int x:11;
@@ -342,24 +282,6 @@ inline Quaternion32& Quaternion32::operator=(const Quaternion &vOther)
 	return *this; 
 }
 
-
-
-inline fltx4 Quaternion32::LoadUnalignedSIMD() const 
-{
-
-	struct { float x; float y; float z; float w; } tmp;
-
-	tmp.x = ((int)x - 1024) * (1 / 1024.0);
-	tmp.y = ((int)y - 512) * (1 / 512.0);
-	tmp.z = ((int)z - 512) * (1 / 512.0);
-	tmp.w = sqrt( 1 - tmp.x * tmp.x - tmp.y * tmp.y - tmp.z * tmp.z );
-	if (wneg)
-		tmp.w = -tmp.w;
-
-	fltx4 ret = { tmp.x, tmp.y, tmp.z, tmp.w };
-	return ret;
-
-}
 
 
 //=========================================================
@@ -415,12 +337,6 @@ public:
 	template< bool BRANCHLESS > // allows you to force branchy/branchless implementation regardless of the current platform
 	static unsigned short ConvertFloatTo16bitsNonDefault( float input );
 	static float Convert16bitFloatTo32bits( unsigned short input );
-	
-	// a special case useful for the pixel writer: take four input float values, which are already in memory (not on registers),
-	// convert them all at once and write them sequentially through the output pointer.
-	static void ConvertFourFloatsTo16BitsAtOnce( float16 * RESTRICT pOut,
-		const float *a, const float *b, const float *c, const float *d  );
-	
 	// unfortunately, function templates can't have default template parameters in 2010-era C++ 
 	inline static unsigned short ConvertFloatTo16bits(const float input )
 	{	// default to branchless on ppc and branchy on x86
@@ -486,81 +402,6 @@ public:
 	float16 z;
 };
 
-// The uses of isel below are malformed because the first expression is unsigned and thus always >= 0,
-// so this whole expression maps to a simple assignment. This was found through a noisy clang
-// warning. I am preprocessing this out until it is needed.
-#if 0
-inline void float16::ConvertFourFloatsTo16BitsAtOnce( float16 * RESTRICT pOut,
-											const float *a, const float *b, const float *c, const float *d  )
-{
-	COMPILE_TIME_ASSERT( sizeof(float) == 4 );
-	// being meant for use on the PPC, this is tuned for that. 
-	// it is mostly branchless, except for the large outer for loop,
-	// since there's enough instructions inside that unrolling is
-	// a bad idea. This fucntion is four-at-once to simplify SIMDifying in the
-	// future should a convenient SIMD way to decimate emerge
-	// Also, because this is only used for the special case of converting
-	// float arrays into float16 GPU textures, this turns denorms into zeroes
-	// and infinities into MAXFLTs, since the shader can't deal with nonfinite
-	// numbers anyway.
-
-	// alias the input floats onto a union giving their mantissa etc
-	const float32bits * const inFloat[4] = {  
-		reinterpret_cast<const float32bits *>(a),
-		reinterpret_cast<const float32bits *>(b),
-		reinterpret_cast<const float32bits *>(c),
-		reinterpret_cast<const float32bits *>(d) };
-
-	const static unsigned int maxfloat16bitsAsInt = 0x477FE000; // 65504.0f
-
-	const static unsigned int SIGNBIT = 0x80000000;
-
-	
-	for ( int i = 0 ; i < 4 ; ++i ) // performs better not unrolled (less stack spilling)
-	{	
-		unsigned int onGPR = inFloat[i]->rawAsInt;
-
-		// make a mask for each word; will be all 1's if the float is 
-		// negative, all 0s if it is positive. Can do this just by
-		// using arithmetic shift to smear out the sign bit.
-		int isNegative = ((int) onGPR) >> 31;
-
-		// clamp to be within -maxfloat16bits, maxfloat16bits
-		// can't just use isel because IEEE754 floats are sign-magnitude, not two's comp. However,
-		// positive IEEE754s can be compared as if they were ints. So, we need to do a little extra
-		// work to test the negative case efficiently.
-		// clamp to -maxfloat16
-#error See above for explanation of why this and other uses of isel in this file are broken.
-		int clampedNeg = isel( ((int)(onGPR & ~SIGNBIT)) -  maxfloat16bitsAsInt, // -in >= maxfloatbits so in <= -maxfloat
-			maxfloat16bitsAsInt | SIGNBIT, // -65504.0f
-			onGPR	);
-		// clamp to +maxfloat16
-		int clampedPos = isel( ((int)(onGPR)) -  maxfloat16bitsAsInt, // in >= maxfloatbits 
-			maxfloat16bitsAsInt , // -65504.0f
-			onGPR	);
-
-		// take advantage of PPC's andc operator to effectively do a masked-move
-		onGPR = ( clampedNeg & isNegative ) | ( clampedPos & ~isNegative );
-	
-
-		// fish out the input exponent and mantis fields directly (using the union induces an LHS)
-		int inExponent = (onGPR & 0x7f800000) >> 23;
-		unsigned int inMantissa = (onGPR & 0x007FFFFF);
-
-		int exponent = inExponent - 127 + 15; // rebias the exponent
-		unsigned int mantissa = isel( exponent, inMantissa >> 13, (unsigned) 0 ); // squash the mantissa to zero if the number is too small to represent (no denorms)
-
-		float16bits output;
-		// saturate the mantissa if rebiased exponent >= 31 (too big to store) 
-		output.bits.mantissa = isel( exponent - 31, (unsigned) 0x3ff, mantissa );
-		// clamp the exponent to 0..30
-		output.bits.biased_exponent = isel( exponent, isel( exponent - 31, 30, exponent ), 0 );
-		output.bits.sign = isNegative; //  this doesn't lhs, but instead issues the insrdi op to a word on GPR
-		pOut[i].m_storage.rawWord = output.rawWord;
-	}
-}
-#endif
-
 
 template< bool BRANCHLESS >
 inline unsigned short float16::ConvertFloatTo16bitsNonDefault( float input )
@@ -578,40 +419,6 @@ inline unsigned short float16::ConvertFloatTo16bitsNonDefault( float input )
 		inFloat.rawFloat = input;
 
 	}
-	/*
-	// The use of isel is incorrect because the first expression is unsigned and therefore always passes
-	// the test.
-	else // PPC code
-	{
-		// force the float onto the stack and then a GPR so we eat the LHS only once.
-		// you can't just write to one union member and then read back another; 
-		// the compiler is inconsistent about supporting that kind of type-punning. 
-		// (ie, it will work in one file, but not another.)
-		memcpy(&inFloat.rawFloat, &input, sizeof(inFloat.rawFloat));
-		// inFloat.rawFloat = input;
-		// clamp using the GPR
-		{
-			const unsigned int maxfloat16bitsAsInt = 0x477FE000; // 65504.0f
-			// clamp to be <= maxfloat16bits
-			uint32 &rawint = inFloat.rawAsInt; // <--- lhs
-			if ( rawint & 0x80000000 ) // negative
-			{
-				// because floats are sign-magnitude, not two's comp, need to 
-				// flip the int positive briefly to do the isel comparison
-#error See above for explanation of why this and other uses of isel in this file are broken.
-				rawint = isel( ((int)(rawint & ~0x80000000)) -  maxfloat16bitsAsInt, // -in >= maxfloatbits so in <= -maxfloat
-					maxfloat16bitsAsInt | 0x80000000, // -65504.0f
-					rawint	);
-			}
-			else // positive
-			{
-				rawint = isel( ((int)(rawint)) -  maxfloat16bitsAsInt, // in >= maxfloatbits 
-					maxfloat16bitsAsInt , // -65504.0f
-					rawint	);
-			}
-		}
-	}
-	*/
 	output.bits.sign = inFloat.bits.sign;
 
 	if ( inFloat.bits.biased_exponent==0u )
@@ -647,16 +454,6 @@ inline unsigned short float16::ConvertFloatTo16bitsNonDefault( float input )
 				// NaN maps to zero
 				output.bits.mantissa = 0;
 				output.bits.biased_exponent = 0;
-			}
-		}
-		else // branchless, only meant for PPC really bc needing the cntlzw op.
-		{
-			// else if ( inFloat.bits.biased_exponent==0xff )  // either infinity (biased_exponent is 0xff) or NaN.
-			{
-				int mantissamask = output.bits.mantissa ? -1 : 0;
-				output.bits.mantissa		= isel( mantissamask, 0x3ff, 0 ); //infinity maps to maxfloat, NaN to zero
-				output.bits.biased_exponent = isel( mantissamask, 0x1e, 0 );
-				output.bits.sign = inFloat.bits.sign;
 			}
 		}
 	}
@@ -775,10 +572,6 @@ inline Vector48::operator Vector ()
 
 
 
-
-//=========================================================
-//      FAST SIMD BATCH OPERATIONS
-//=========================================================
 
 
 

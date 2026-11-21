@@ -6,38 +6,33 @@
 
 #pragma once
 
-#if defined(GNUC)
-#define USE_STDC_FOR_SIMD 0
+#include <cstdint>
+
+// The SIMD helpers (ssemath.h) are plain scalar code over the four lanes, so the same
+// results come out on every target. The packed integer and float views of a register are
+// separate union members because the nature of SIMD code which includes comparisons is to
+// blur the relationship between packed floats and packed integer types.
+//
+// may_alias: matrix rows, constant masks etc. are reinterpreted as fltx4 through pointers.
+#if defined( __GNUC__ ) || defined( __clang__ )
+#define FLTX4_MAY_ALIAS __attribute__(( __may_alias__ ))
 #else
-#define USE_STDC_FOR_SIMD 0
+#define FLTX4_MAY_ALIAS
 #endif
 
-// I thought about defining a class/union for the SIMD packed floats instead of using fltx4,
-// but decided against it because (a) the nature of SIMD code which includes comparisons is to blur
-// the relationship between packed floats and packed integer types and (b) not sure that the
-// compiler would handle generating good code for the intrinsics.
-
-#if USE_STDC_FOR_SIMD
-#error "hello"
-typedef union
+union alignas( 16 ) FLTX4_MAY_ALIAS fltx4
 {
-	float  m128_f32[4];
+	float    m128_f32[4];
 	uint32_t m128_u32[4];
-} fltx4;
+	int32_t  m128_i32[4];
+};
 
 typedef fltx4 i32x4;
 typedef fltx4 u32x4;
-
 typedef fltx4 bi32x4;
 
-#else
-
-typedef __m128 fltx4;
-typedef __m128 i32x4;
-typedef __m128 u32x4;
-
-typedef __m128i shortx8;
-typedef fltx4 bi32x4;
-
-#endif
-
+union alignas( 16 ) FLTX4_MAY_ALIAS shortx8
+{
+	int16_t m128i_i16[8];
+	int32_t m128i_i32[4];
+};

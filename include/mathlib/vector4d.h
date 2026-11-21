@@ -12,7 +12,6 @@
 
 #include <math.h>
 #include <float.h>
-#include <xmmintrin.h>	// for sse
 #include "tier0/basetypes.h"	// For vec_t, put this somewhere else?
 
 #include "mathlib/math_pfns.h"
@@ -143,9 +142,6 @@ public:
 
 	inline void Set( vec_t X, vec_t Y, vec_t Z, vec_t W );
 	inline void InitZero( void );
-
-	inline __m128 &AsM128() { return *(__m128*)&x; }
-	inline const __m128 &AsM128() const { return *(const __m128*)&x; } 
 
 private:
 	// No copy constructors allowed if we're in optimal mode
@@ -668,7 +664,7 @@ inline void Vector4DAligned::Set( vec_t X, vec_t Y, vec_t Z, vec_t W )
 
 inline void Vector4DAligned::InitZero( void )
 { 
-	this->AsM128() = _mm_set1_ps( 0.0f );
+	x = y = z = w = 0.0f;
 	Assert( IsValid() );
 }
 
@@ -694,18 +690,6 @@ inline void Vector4DWeightMAD( vec_t w, Vector4DAligned const& vInA, Vector4DAli
 	vOutB.y += vInB.y * w;
 	vOutB.z += vInB.z * w;
 	vOutB.w += vInB.w * w;
-}
-
-inline void Vector4DWeightMADSSE( vec_t w, Vector4DAligned const& vInA, Vector4DAligned& vOutA, Vector4DAligned const& vInB, Vector4DAligned& vOutB )
-{
-	Assert( vInA.IsValid() && vInB.IsValid() && IsFinite(w) );
-
-	// Replicate scalar float out to 4 components
-	__m128 packed = _mm_set1_ps( w );
-
-	// 4D SSE Vector MAD
-	vOutA.AsM128() = _mm_add_ps( vOutA.AsM128(), _mm_mul_ps( vInA.AsM128(), packed ) );
-	vOutB.AsM128() = _mm_add_ps( vOutB.AsM128(), _mm_mul_ps( vInB.AsM128(), packed ) );
 }
 
 

@@ -16,9 +16,6 @@
 #include "tier0/basetypes.h"
 
 
-// For MMX intrinsics
-#include <xmmintrin.h>
-
 #ifndef ALIGN16_POST
 #define ALIGN16_POST
 #endif
@@ -120,13 +117,6 @@ public:
 	{ 
 		CHECK_VALID(*this);
 		return (x*x + y*y + z*z);		
-	}
-
-	// Get one over the vector's length
-	// via fast hardware approximation
-	inline vec_t LengthRecipFast() const
-	{ 
-		return FastRSqrtFast( LengthSqr() );
 	}
 
 	// return true if this vector is (0,0,0) within tolerance
@@ -424,13 +414,7 @@ public:
 
 	VectorAligned& operator=(const VectorAligned &vOther)
 	{
-		// we know we're aligned, so use simd
-		// we can't use the convenient abstract interface coz it gets declared later
-#ifdef _WIN32
-		_mm_store_ps(Base(), _mm_load_ps( vOther.Base() ));
-#else
 		Init(vOther.x, vOther.y, vOther.z);
-#endif
 		return *this;
 	}
 
@@ -1773,13 +1757,7 @@ public:
 
 	QuaternionAligned& operator=(const QuaternionAligned &vOther)
 	{
-		// we know we're aligned, so use simd
-		// we can't use the convenient abstract interface coz it gets declared later
-#if   _WIN32
-		_mm_store_ps(Base(), _mm_load_ps( vOther.Base() ));
-#else
 		Init(vOther.x, vOther.y, vOther.z, vOther.w);
-#endif
 		return *this;
 	}
 
@@ -2518,15 +2496,6 @@ FORCEINLINE float VectorNormalize( float * v )
 	return VectorNormalize(*(reinterpret_cast<Vector *>(v)));
 }
 
-
-FORCEINLINE void VectorNormalizeFast (Vector& vec)
-{
-	float ool = FastRSqrt( FLT_EPSILON + vec.x * vec.x + vec.y * vec.y + vec.z * vec.z );
-
-	vec.x *= ool;
-	vec.y *= ool;
-	vec.z *= ool;
-}
 
 inline vec_t Vector::NormalizeInPlace()
 {

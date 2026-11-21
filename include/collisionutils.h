@@ -10,10 +10,6 @@
 
 #include "tier0/platform.h"
 
-
-
-#include "mathlib/ssemath.h"
-
 //-----------------------------------------------------------------------------
 // forward declarations
 //-----------------------------------------------------------------------------
@@ -178,25 +174,6 @@ bool IsBoxIntersectingSphere( const Vector& boxMin, const Vector& boxMax,
 						      const Vector& center, float radius );
 
 
-//-----------------------------------------------------------------------------
-// Returns true if a box intersects with a sphere
-// NOTE: f4RadiusSq must have the radius sq in all components
-//-----------------------------------------------------------------------------
-FORCEINLINE bool IsBoxIntersectingSphere( const Vector& boxMin, const Vector& boxMax, 
-											 const fltx4& f4Center, const fltx4& f4RadiusSq )
-{
-	// See Graphics Gems, box-sphere intersection
-	fltx4 f4Mins = LoadUnalignedSIMD( &boxMin.x );
-	fltx4 f4Maxs = LoadUnalignedSIMD( &boxMax.x );
-	fltx4 f4MinDelta = SubSIMD( f4Mins, f4Center );
-	fltx4 f4MaxDelta = SubSIMD( f4Center, f4Maxs );
-	f4MinDelta = MaxSIMD( f4MinDelta, Four_Zeros );
-	f4MaxDelta = MaxSIMD( f4MaxDelta, Four_Zeros );
-	fltx4 f4Delta = AddSIMD( f4MinDelta, f4MaxDelta );
-	fltx4 f4DistSq = Dot3SIMD( f4Delta, f4Delta );
-	return IsAllGreaterThan( f4RadiusSq, f4DistSq );
-}
-
 
 
 //-----------------------------------------------------------------------------
@@ -252,29 +229,6 @@ bool FASTCALL IsBoxIntersectingRay( const Vector& boxMin, const Vector& boxMax,
 									const Vector& invDelta, float flTolerance = 0.0f );
 
 
-// On the PC, we can't pass fltx4's in registers like this. On the x360, it is 
-// much better if we do.
-bool FASTCALL IsBoxIntersectingRay( const fltx4 &boxMin, const fltx4 &boxMax, 
-								   const fltx4 & origin, const fltx4 & delta, const fltx4 & invDelta, // ray parameters
-								   const fltx4 & vTolerance = Four_Zeros ///< eg from ReplicateX4(flTolerance)
-								   );
-
-bool inline FASTCALL IsBoxIntersectingRay( const fltx4& boxMin, const fltx4& boxMax, 
-								   const fltx4& origin, const fltx4& delta, float flTolerance = 0.0f )
-{
-	return IsBoxIntersectingRay( boxMin, boxMax, origin, delta, ReciprocalSIMD(delta), ReplicateX4(flTolerance) );
-}
-
-
-bool FASTCALL IsBoxIntersectingRay( const fltx4& boxMin, const fltx4& boxMax, 
-								   const Ray_t& ray, const fltx4 &fl4Tolerance = LoadZeroSIMD() );
-
-FORCEINLINE bool IsBoxIntersectingRay( const Vector& boxMin, const Vector& boxMax, const Ray_t& ray )
-{
-	return IsBoxIntersectingRay( LoadUnaligned3SIMD(boxMin.Base()), LoadUnaligned3SIMD(boxMax.Base()), ray, LoadZeroSIMD() );
-}
-
-
 //-----------------------------------------------------------------------------
 // 
 // IsPointInBox
@@ -283,15 +237,6 @@ FORCEINLINE bool IsBoxIntersectingRay( const Vector& boxMin, const Vector& boxMa
 //
 //-----------------------------------------------------------------------------
 bool IsPointInBox( const Vector& pt, const Vector& boxMin, const Vector& boxMax );
-
-
-// SIMD version
-FORCEINLINE bool IsPointInBox( const fltx4& pt, const fltx4& boxMin, const fltx4& boxMax )
-{
-	bi32x4 greater = CmpGtSIMD( pt,boxMax );
-	bi32x4 less = CmpLtSIMD( pt, boxMin );
-	return (IsAllZeros(SetWToZeroSIMD(OrSIMD(greater,less))));
-}
 
 
 
