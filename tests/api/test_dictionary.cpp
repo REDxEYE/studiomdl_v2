@@ -12,7 +12,7 @@ SMDL_TEST(dictionary_copy_id_remap) {
     CDmElementDictionary dictionary;
     DmObjectId_t firstId = g_pDataModel->GetElementId(first);
     DmObjectId_t secondId = firstId;
-    secondId.m_Value[15] ^= 1; // Same hash bucket, distinct full UUID.
+    secondId.m_Value[15] ^= 1; // Only the last UUID byte differs.
 
     dictionary.SetElementId(dictionary.InsertElement(g_pDataModel->GetElement(first)), firstId, CR_FORCE_COPY);
     dictionary.SetElementId(dictionary.InsertElement(g_pDataModel->GetElement(second)), secondId, CR_FORCE_COPY);

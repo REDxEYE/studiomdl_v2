@@ -9,8 +9,8 @@
 
 
 
-#include <cstdint>
-#include <cstring>
+#include <functional>
+#include <string_view>
 #include <unordered_map>
 #include "tier1/utlvector.h"
 #include "datamodel/idatamodel.h"
@@ -82,9 +82,7 @@ private:
 	{
 		size_t operator()( const DmObjectId_t &id ) const noexcept
 		{
-			uint32_t hash;
-			std::memcpy( &hash, id.m_Value, sizeof( hash ) );
-			return hash;
+			return std::hash<std::string_view>{}( { reinterpret_cast<const char *>( id.m_Value ), sizeof( id.m_Value ) } );
 		}
 	};
 
