@@ -7,10 +7,6 @@
 
 #pragma once
 
-
-
-
-
 #include "datamodel/dmattributevar.h"
 #include "mdlobjects/dmemdllist.h"
 

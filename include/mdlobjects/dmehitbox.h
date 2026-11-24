@@ -5,10 +5,6 @@
 //===========================================================================//
 
 #pragma once
-
-
-
-
 // Valve includes
 #include "mdlobjects/dmebbox.h"
 

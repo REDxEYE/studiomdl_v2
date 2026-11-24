@@ -11,10 +11,6 @@
 //=============================================================================
 
 #pragma once
-
-
-
-
 #include "datamodel/idatamodel.h"
 #include "datamodel/dmelement.h"
 

@@ -6,10 +6,6 @@
 
 #pragma once
 
-
-
-
-
 #include "mdlobjects/dmemdllist.h"
 #include "mdlobjects/dmebbox.h"
 #include "mdlobjects/dmehitbox.h"

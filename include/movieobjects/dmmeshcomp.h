@@ -5,10 +5,6 @@
 //=============================================================================
 
 #pragma once
-
-
-
-
 // Valve includes
 #include "mathlib/mathlib.h"
 #include "tier1/utlvector.h"

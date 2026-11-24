@@ -5,10 +5,6 @@
 //=============================================================================
 
 #pragma once
-
-
-
-
 #include "datamodel/dmelement.h"
 #include "datamodel/dmattributevar.h"
 

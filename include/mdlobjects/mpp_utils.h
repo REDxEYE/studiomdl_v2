@@ -7,12 +7,6 @@
 
 #pragma once
 
-
-#if defined( _WIN32 )
-#pragma once
-#endif
-
-
 // Valve includes
 #include "movieobjects/dmemodel.h"
 #include "mdlobjects/dmeasset.h"

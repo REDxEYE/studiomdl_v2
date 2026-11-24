@@ -6,10 +6,6 @@
 
 #pragma once
 
-
-
-
-
 #include "datamodel/dmattributevar.h"
 #include "mdlobjects/dmecollisionmodel.h"
 

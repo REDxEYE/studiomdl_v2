@@ -8,9 +8,7 @@
 #pragma once
 #include "interfaces/interfaces.h"
 
-#if defined( _WIN32 )
-#pragma once
-#endif
+
 
 #ifndef TIER2_H
 #include "tier2/tier2.h"

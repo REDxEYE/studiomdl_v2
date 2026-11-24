@@ -7,9 +7,7 @@
 
 #pragma once
 
-#if defined( _WIN32 )
-#pragma once
-#endif
+
 
 static const char OR_OP   = '|';
 static const char AND_OP  = '&';

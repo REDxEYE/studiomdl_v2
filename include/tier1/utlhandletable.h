@@ -5,10 +5,6 @@
 //=============================================================================
 
 #pragma once
-
-
-
-
 #include "tier1/utlvector.h"
 #include "tier1/utlqueue.h"
 

@@ -6,10 +6,6 @@
 
 #pragma once
 
-
-
-
-
 // Valve includes
 #include "datamodel/dmelement.h"
 #include "datamodel/dmattributevar.h"

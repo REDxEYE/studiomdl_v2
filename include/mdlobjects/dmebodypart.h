@@ -11,10 +11,6 @@
 
 #pragma once
 
-
-
-
-
 #include "datamodel/dmelement.h"
 #include "mdlobjects/dmelod.h"
 

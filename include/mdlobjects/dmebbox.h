@@ -6,10 +6,6 @@
 
 #pragma once
 
-
-
-
-
 // Valve includes
 #include "movieobjects/dmeshape.h"
 
