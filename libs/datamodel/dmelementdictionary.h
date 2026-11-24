@@ -9,11 +9,13 @@
 
 
 
+#include <cstdint>
+#include <cstring>
+#include <unordered_map>
 #include "tier1/utlvector.h"
 #include "datamodel/idatamodel.h"
 #include "datamodel/dmattribute.h"
 #include "tier1/utlrbtree.h"
-#include "tier1/utlhash.h"
 
 
 //-----------------------------------------------------------------------------
@@ -76,34 +78,13 @@ private:
 	typedef CUtlVector<AttributeInfo_t> AttributeList_t;
 
 
-	struct DmIdPair_t
+	struct DmIdHash
 	{
-		DmObjectId_t m_oldId;
-		DmObjectId_t m_newId;
-		DmIdPair_t() {}
-		DmIdPair_t( const DmObjectId_t &id )
+		size_t operator()( const DmObjectId_t &id ) const noexcept
 		{
-			CopyUniqueId( id, &m_oldId );
-		}
-		DmIdPair_t( const DmObjectId_t &oldId, const DmObjectId_t &newId )
-		{
-			CopyUniqueId( oldId, &m_oldId );
-			CopyUniqueId( newId, &m_newId );
-		}
-		DmIdPair_t &operator=( const DmIdPair_t &that )
-		{
-			CopyUniqueId( that.m_oldId, &m_oldId );
-			CopyUniqueId( that.m_newId, &m_newId );
-			return *this;
-		}
-		static unsigned int HashKey( const DmIdPair_t& that )
-		{
-			return *( unsigned int* )&that.m_oldId.m_Value;
-		}
-		static bool Compare( const DmIdPair_t& a, const DmIdPair_t& b )
-		{
-			// caveat emptor: this comparison facilitates searching by just 'from' ID, but also means that ( A -> B ) will match ( A -> C )
-			return IsUniqueIdEqual( a.m_oldId, b.m_oldId );
+			uint32_t hash;
+			std::memcpy( &hash, id.m_Value, sizeof( hash ) );
+			return hash;
 		}
 	};
 
@@ -129,7 +110,7 @@ private:
 	AttributeList_t m_ArrayAttributes;
 
 	CUtlVector< DeletionInfo_t > m_elementsToDelete;
-	CUtlHash< DmIdPair_t > m_idmap;
+	std::unordered_map<DmObjectId_t, DmObjectId_t, DmIdHash> m_idmap;
 };
 
 

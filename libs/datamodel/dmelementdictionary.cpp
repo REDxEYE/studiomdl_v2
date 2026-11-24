@@ -15,10 +15,7 @@
 //-----------------------------------------------------------------------------
 // Constructor
 //-----------------------------------------------------------------------------
-CDmElementDictionary::CDmElementDictionary()
-	: m_idmap( 1024, 0, 0, DmIdPair_t::Compare, DmIdPair_t::HashKey )
-{
-}
+CDmElementDictionary::CDmElementDictionary() = default;
 
 
 //-----------------------------------------------------------------------------
@@ -30,7 +27,7 @@ void CDmElementDictionary::Clear()
 	m_Attributes.Purge();
 	m_ArrayAttributes.Purge();
 	m_elementsToDelete.Purge();
-	m_idmap.Purge();
+	m_idmap.clear();
 }
 
 	
@@ -119,7 +116,7 @@ DmElementHandle_t CDmElementDictionary::SetElementId( DmElementDictHandle_t hDic
 
 	if ( idConflictResolution == CR_FORCE_COPY )
 	{
-		m_idmap.Insert( DmIdPair_t( newId, oldId ) ); // map the newId back to the old id, and keep the old id
+		m_idmap.emplace( newId, oldId ); // map the newId back to the old id, and keep the old id
 		return hElement;
 	}
 
@@ -177,7 +174,7 @@ DmElementHandle_t CDmElementDictionary::SetElementId( DmElementDictHandle_t hDic
 
 	if ( idConflictResolution == CR_COPY_NEW )
 	{
-		m_idmap.Insert( DmIdPair_t( newId, oldId ) ); // map the newId back to the old id, and keep the old id
+		m_idmap.emplace( newId, oldId ); // map the newId back to the old id, and keep the old id
 		return hElement;
 	}
 
@@ -198,8 +195,8 @@ void CDmElementDictionary::HookUpElementAttributes()
 		Assert( m_Attributes[i].m_pAttribute->GetType() == AT_ELEMENT );
 		Assert( m_Attributes[i].m_bId );
 
-		UtlHashHandle_t h = m_idmap.Find( DmIdPair_t( m_Attributes[i].m_ObjectId ) );
-		DmObjectId_t &id = h == m_idmap.InvalidHandle() ? m_Attributes[i].m_ObjectId : m_idmap[ h ].m_newId;
+		const auto it = m_idmap.find( m_Attributes[i].m_ObjectId );
+		const DmObjectId_t &id = it == m_idmap.end() ? m_Attributes[i].m_ObjectId : it->second;
 
 		// search id->handle table (both loaded and unloaded) for id, and if not found, create a new handle, map it to the id and return it
 		DmElementHandle_t hElement = g_pDataModelImp->FindOrCreateElementHandle( id );
@@ -242,8 +239,8 @@ void CDmElementDictionary::HookUpElementArrayAttributes()
 		}
 		else
 		{
-			UtlHashHandle_t h = m_idmap.Find( DmIdPair_t( m_ArrayAttributes[i].m_ObjectId ) );
-			DmObjectId_t &id = ( h == m_idmap.InvalidHandle() ) ? m_ArrayAttributes[i].m_ObjectId : m_idmap[ h ].m_newId;
+			const auto it = m_idmap.find( m_ArrayAttributes[i].m_ObjectId );
+			const DmObjectId_t &id = it == m_idmap.end() ? m_ArrayAttributes[i].m_ObjectId : it->second;
 
 			// search id->handle table (both loaded and unloaded) for id, and if not found, create a new handle, map it to the id and return it
 			DmElementHandle_t hElement = g_pDataModelImp->FindOrCreateElementHandle( id );

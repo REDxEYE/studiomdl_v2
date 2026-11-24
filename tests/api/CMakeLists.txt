@@ -7,7 +7,8 @@ add_executable(smdl_api_tests ${SMDL_API_TEST_SOURCES} ${SMDL_API_TEST_HEADERS})
 # The C++ API is implemented in the library and not exported by the shared one: the tests link the static library
 # (the C API is covered against the shared library by tests/api_c)
 target_link_libraries(smdl_api_tests PRIVATE studiomdl_static)
-target_include_directories(smdl_api_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(smdl_api_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/include)
+target_compile_definitions(smdl_api_tests PRIVATE STATIC_TIER0)
 set_target_properties(smdl_api_tests PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON)
 # The reference compiler (CompileQcReference) and the fixtures are found through paths baked in at build time
 target_compile_definitions(smdl_api_tests PRIVATE
