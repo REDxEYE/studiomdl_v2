@@ -25,6 +25,7 @@
 #include "studiomdl/studiomdl.h"
 #include "studiomdl/studiomdl_global_state.hpp"
 #include "tier1_v2/string_utils.hpp"
+#include "line_parser.h"
 
 static bool SameSourceWeights(const s_sourceboneweight_t &a, const s_sourceboneweight_t &b) {
     return a.numbones == b.numbones && std::equal(a.bone.begin(), a.bone.begin() + a.numbones, b.bone.begin()) &&
@@ -126,36 +127,6 @@ static int lookup_index(StudioMdlState &ctx, s_source_t *psource, int material, 
     return i;
 }
 
-// GetNextFaceItem
-// Get next item from string of space separated data
-static char *GetNextFaceItem(char *pCurrentItem) {
-    if (!pCurrentItem) {
-        return nullptr;
-    }
-
-    char *pChar = pCurrentItem;
-
-    //Skip any leading spaces
-    while (*pChar == ' ') {
-        pChar++;
-    }
-
-    pChar = strchr(pChar, ' ');
-
-    if (!pChar) {
-        return nullptr;
-    }
-
-    while (*pChar == ' ') {
-        pChar++;
-    }
-
-    if ((*pChar == 0) || (*pChar == '\n')) {
-        return nullptr;
-    }
-    return pChar;
-}
-
 int AddSourceCorner(StudioMdlState &ctx, s_source_t *psource, const int material, SourceCorner &corner,
                     SourceCornerIndex *indexed, uint32_t sourceVertex) {
     // Scale face pos
@@ -215,7 +186,7 @@ void AddSourceQuad(StudioMdlState &ctx, const int material, const std::array<int
 static std::array<int, 3> ParseFaceData(StudioMdlState &ctx, s_source_t *psource, int material) {
     vstd::FunctionTimingRecorder _("SMD");
     std::array<int, 3> index{};
-    int i, j;
+    int j;
     SourceCorner corner;
 
     for (j = 0; j < 3; j++) {
@@ -229,71 +200,59 @@ static std::array<int, 3> ParseFaceData(StudioMdlState &ctx, s_source_t *psource
         corner.numLinks = 0;
         corner.numExtras = 0;
 
-        i = sscanf(ctx.input.szLine, "%d %f %f %f %f %f %f %f %f",
-                   &corner.bone,
-                   &corner.position[0], &corner.position[1], &corner.position[2],
-                   &corner.normal[0], &corner.normal[1], &corner.normal[2],
-                   &corner.uv[0], &corner.uv[1]);
-
-        if (i < 9)
-            continue;
+        LineParser line(ctx.input.szLine.view());
+        if (!line.Read(corner.bone,
+                       corner.position[0], corner.position[1], corner.position[2],
+                       corner.normal[0], corner.normal[1], corner.normal[2],
+                       corner.uv[0], corner.uv[1])) {
+            MdlError("malformed vertex\n{} {} :\n{}", ctx.input.iLinecount, ctx.input.szFilename,
+                     ctx.input.szLine);
+        }
 
         if (corner.bone < 0 || corner.bone >= psource->numbones) {
             MdlError("bogus bone index\n{} {} :\n{}", ctx.input.iLinecount, ctx.input.szFilename,
                      ctx.input.szLine);
         }
 
-        // Parse bones.
-        int k;
-        char *pItem = ctx.input.szLine;
-        // Skip first 9 items already parsed via sscanf above
-        for (k = 0; k < 9; k++) {
-            pItem = GetNextFaceItem(pItem);
-        }
-        // Read bone count
-        if (pItem) {
-            const int iCount = atoi(pItem);
+        // Optional trailing fields: bone links, then (version 3) extra texcoords
+        if (!line.Empty()) {
+            int iCount;
+            if (!line.Number(iCount) || iCount < 0 || iCount > MAXSTUDIOSRCBONES) {
+                MdlError("Bad bone link count\n{} {} :\n{}", ctx.input.iLinecount, ctx.input.szFilename,
+                         ctx.input.szLine);
+            }
             corner.numLinks = iCount;
-            if (iCount > 0) {
-                for (k = 0; k < iCount && k < MAXSTUDIOSRCBONES; k++) {
-                    pItem = GetNextFaceItem(pItem);
-                    if (!pItem) {
-                        MdlError("Bone ID {} not found\n{} {} :\n{}", k, ctx.input.iLinecount,
-                                 ctx.input.szFilename, ctx.input.szLine);
-                    }
-                    corner.bones[k] = atoi(pItem);
-
-                    pItem = GetNextFaceItem(pItem);
-                    if (!pItem) {
-                        MdlError("Bone weight {} not found\n{} {} :\n{}", k, ctx.input.iLinecount,
-                                 ctx.input.szFilename, ctx.input.szLine);
-                    }
-                    corner.weights[k] = atof(pItem);
+            for (int k = 0; k < iCount; k++) {
+                if (!line.Number(corner.bones[k])) {
+                    MdlError("Bone ID {} not found\n{} {} :\n{}", k, ctx.input.iLinecount,
+                             ctx.input.szFilename, ctx.input.szLine);
+                }
+                if (corner.bones[k] < 0 || corner.bones[k] >= psource->numbones) {
+                    MdlError("bogus bone index {}\n{} {} :\n{}", corner.bones[k], ctx.input.iLinecount,
+                             ctx.input.szFilename, ctx.input.szLine);
+                }
+                if (!line.Number(corner.weights[k])) {
+                    MdlError("Bone weight {} not found\n{} {} :\n{}", k, ctx.input.iLinecount,
+                             ctx.input.szFilename, ctx.input.szLine);
                 }
             }
-            if (psource->version >= 3) {
-                pItem = GetNextFaceItem(pItem);
-                if (pItem) {
-                    int iExtras = atoi(pItem);
-                    if (iExtras > 0) {
-                        iExtras = MIN(iExtras, (MAXSTUDIOTEXCOORDS - 1) * 2);
-                        corner.numExtras = iExtras;
-                        for (int e = 0; e < iExtras; e++) {
-                            pItem = GetNextFaceItem(pItem);
-                            if (!pItem) {
-                                MdlError("Extra data item {} not found\n{} {} :\n{}", e, ctx.input.iLinecount,
-                                         ctx.input.szFilename,
-                                         ctx.input.szLine);
-                            }
-                            corner.extras[e] = atof(pItem);
+            if (psource->version >= 3 && !line.Empty()) {
+                int iExtras;
+                if (!line.Number(iExtras)) {
+                    MdlError("Bad extra data count\n{} {} :\n{}", ctx.input.iLinecount, ctx.input.szFilename,
+                             ctx.input.szLine);
+                }
+                if (iExtras > 0) {
+                    iExtras = MIN(iExtras, (MAXSTUDIOTEXCOORDS - 1) * 2);
+                    corner.numExtras = iExtras;
+                    for (int e = 0; e < iExtras; e++) {
+                        if (!line.Number(corner.extras[e])) {
+                            MdlError("Extra data item {} not found\n{} {} :\n{}", e, ctx.input.iLinecount,
+                                     ctx.input.szFilename, ctx.input.szLine);
                         }
                     }
                 }
             }
-            // printf("%d ", iCount );
-
-            //printf("\n");
-            //exit(1);
         }
 
         // adjust_vertex( p );
@@ -420,8 +379,6 @@ void Grab_Triangles(StudioMdlState &ctx, s_source_t *psource) {
 
 int Load_SMD(StudioMdlState &ctx, s_source_t *psource) {
     vstd::FunctionTimingRecorder _("Parse");
-    char cmd[1024];
-    int option;
 
     // Reset smdVersion
     psource->version = 1;
@@ -436,32 +393,33 @@ int Load_SMD(StudioMdlState &ctx, s_source_t *psource) {
     ctx.input.iLinecount = 0;
 
     while (GetLineInput(ctx)) {
-        int numRead = sscanf(ctx.input.szLine, "%s %d", cmd, &option);
+        LineParser line(ctx.input.szLine.view());
+        const std::string_view cmd = line.Word();
 
         // Blank line
-        if ((numRead == EOF) || (numRead == 0))
+        if (cmd.empty())
             continue;
 
-        if (stricmp(cmd, "version") == 0) {
-            if (option < 1 || option > 3) {
+        if (vstd::iequals(cmd, "version")) {
+            int option;
+            if (!line.Number(option) || option < 1 || option > 3) {
                 MdlError("bad version\n");
             }
             psource->version = option;
         }
-        else if (stricmp(cmd, "nodes") == 0) {
+        else if (vstd::iequals(cmd, "nodes")) {
             psource->numbones = Grab_Nodes(ctx, psource->localBone);
         }
-        else if (stricmp(cmd, "skeleton") == 0) {
+        else if (vstd::iequals(cmd, "skeleton")) {
             Grab_Animation(ctx, psource, "BindPose");
         }
-        else if (stricmp(cmd, "triangles") == 0) {
+        else if (vstd::iequals(cmd, "triangles")) {
             Grab_Triangles(ctx, psource);
         }
-        else if (stricmp(cmd, "vertexanimation") == 0) {
+        else if (vstd::iequals(cmd, "vertexanimation")) {
             Grab_Vertexanimation(ctx, psource, "BindPose");
         }
-        else if ((strncmp(cmd, "//", 2) == 0) || (strncmp(cmd, ";", 1) == 0) || (strncmp(cmd, "#", 1) == 0)) {
-            ProcessSourceComment(psource, cmd);
+        else if (cmd.starts_with("//") || cmd.starts_with(';') || cmd.starts_with('#')) {
             continue;
         }
         else {

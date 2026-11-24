@@ -1386,9 +1386,6 @@ void EndSourceTriangles(StudioMdlState &ctx, s_source_t *psource);
 // $body ... reverse: swaps the winding of every face
 void FlipFacing(s_source_t *pSrc);
 
-// Processes source comment line and extracts information about the data file
-void ProcessSourceComment(s_source_t *psource, const char *pCommentString);
-
 //-----------------------------------------------------------------------------
 // Utility methods to get or add animation data from sources
 //-----------------------------------------------------------------------------

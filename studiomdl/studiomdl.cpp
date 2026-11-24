@@ -45,6 +45,7 @@
 #include "tier1_v2/string_utils.hpp"
 #include "studiomdl/flexoptimize.h"
 #include "studiomdl/studiomdl_helpers.hpp"
+#include "line_parser.h"
 
 
 #ifdef WIN32
@@ -236,29 +237,36 @@ void SetSourceNode(std::array<s_node_t, MAXSTUDIOSRCBONES> &pnodes, const int in
 
 int Grab_Nodes(StudioMdlState &ctx, std::array<s_node_t, MAXSTUDIOSRCBONES> &pnodes) {
     vstd::FunctionTimingRecorder _("SMD");
-    int index;
-    char name[1024];
-    int parent;
     int numbones = 0;
 
     InitSourceNodes(pnodes);
 
     while (GetLineInput(ctx)) {
-        if (sscanf(ctx.input.szLine, "%d \"%[^\"]\" %d", &index, name, &parent) == 3) {
-            // check for duplicated bones
-            /*
-			if (strlen(pnodes[index].name) != 0)
-			{
-				MdlError( "bone \"%s\" exists more than once\n", name );
-			}
-			*/
+        LineParser line(ctx.input.szLine.view());
+        int index;
+        int parent;
+        std::string_view name;
+        if (line.Number(index) && !(name = line.Quoted()).empty() && line.Number(parent)) {
+            if (index < 0 || index >= std::ssize(pnodes)) {
+                MdlError("bogus bone index {}({}) : {}\n", index, ctx.input.iLinecount, ctx.input.szLine);
+            }
+            if (parent < -1 || parent >= std::ssize(pnodes)) {
+                MdlError("bogus parent bone index {}({}) : {}\n", parent, ctx.input.iLinecount, ctx.input.szLine);
+            }
+            if (name.size() >= sizeof(StudioName)) {
+                MdlError("bone name too long({}) : {}\n", ctx.input.iLinecount, ctx.input.szLine);
+            }
 
             SetSourceNode(pnodes, index, name, parent);
             if (index > numbones) {
                 numbones = index;
             }
         } else {
-            return numbones + 1;
+            const auto command = LineParser(ctx.input.szLine.view()).Word();
+            if (vstd::iequals(command, "end"))
+                return numbones + 1;
+            if (!command.empty() && !command.starts_with("//") && !command.starts_with('#') && !command.starts_with(';'))
+                MdlError("Malformed bone record({}) : {}\n", ctx.input.iLinecount, ctx.input.szLine);
         }
     }
     MdlError("Unexpected EOF at line {}\n", ctx.input.iLinecount);
@@ -773,39 +781,46 @@ void Grab_Animation(StudioMdlState &ctx, s_source_t *pSource, const char *pAnimN
     vstd::FunctionTimingRecorder _("SMD");
     Vector pos;
     RadianEuler rot;
-    char cmd[1024];
-    int index;
     int t = -99999999;
 
     s_sourceanim_t *pAnim = FindOrAddSourceAnim(pSource, pAnimName);
     pAnim->startframe = -1;
 
     while (GetLineInput(ctx)) {
-        if (sscanf(ctx.input.szLine.c_str(), "%d %f %f %f %f %f %f", &index, &pos[0], &pos[1], &pos[2], &rot[0], &rot[1], &rot[2]) ==
-            7) {
+        LineParser line(ctx.input.szLine.view());
+        int index;
+        if (line.Read(index, pos[0], pos[1], pos[2], rot[0], rot[1], rot[2])) {
             if (pAnim->startframe < 0) {
                 MdlError("Missing frame start({}) : {}", ctx.input.iLinecount, ctx.input.szLine);
             }
+            if (index < 0 || index >= pSource->numbones) {
+                MdlError("bogus bone index {}({}) : {}", index, ctx.input.iLinecount, ctx.input.szLine);
+            }
 
             SetSourceAnimBone(ctx, pAnim, t, index, pos, rot);
-
-            clip_rotations(rot); // !!!
             continue;
         }
 
-        if (sscanf(ctx.input.szLine.c_str(), "%1023s %d", cmd, &index) == 0) {
+        LineParser command(ctx.input.szLine.view());
+        const std::string_view cmd = command.Word();
+        if (cmd.empty()) {
             MdlError("MdlError({}) : {}", ctx.input.iLinecount, ctx.input.szLine);
             continue;
         }
 
-        if (!Q_stricmp(cmd, "time")) {
-            if (!SetSourceAnimTime(ctx, pSource, pAnim, index, t)) {
+        if (vstd::iequals(cmd, "time")) {
+            int time;
+            if (!command.Number(time) || time < 0 ||
+                (pAnim->startframe >= 0 && time - pAnim->startframe >= MAXSTUDIOANIMFRAMES) ||
+                !SetSourceAnimTime(ctx, pSource, pAnim, time, t)) {
                 MdlError("Frame MdlError({}) : {}", ctx.input.iLinecount, ctx.input.szLine);
             }
             continue;
         }
 
-        if (!Q_stricmp(cmd, "end")) {
+        if (vstd::iequals(cmd, "end")) {
+            if (pAnim->startframe < 0)
+                MdlError("Missing frame start({}) : {}", ctx.input.iLinecount, ctx.input.szLine);
             const int missing = FinishSourceAnim(pSource, pAnim, pAnimName);
             if (missing >= 0) {
                 MdlError("{} is missing frame {}\n", pSource->filename, missing);
@@ -832,10 +847,6 @@ void FlipFacing(s_source_t *pSrc) {
             f.c = tmp;
         }
     }
-}
-
-// Processes source comment line and extracts information about the data file
-void ProcessSourceComment(s_source_t *psource, const char *pCommentString) {
 }
 
 void ApplyOffsetToSrcVerts(s_source_t *pModel, matrix3x4_t matOffset) {
@@ -1473,7 +1484,6 @@ void MakeSourceBoneWeights(int count, const std::span<const int> bones, const st
 
 void Grab_Vertexanimation(StudioMdlState &ctx, s_source_t *psource, const char *pAnimName) {
     vstd::FunctionTimingRecorder _("SMD");
-    char cmd[1024];
     int index;
     Vector pos;
     Vector normal;
@@ -1487,14 +1497,18 @@ void Grab_Vertexanimation(StudioMdlState &ctx, s_source_t *psource, const char *
     }
 
     while (GetLineInput(ctx)) {
-        if (sscanf(ctx.input.szLine, "%d %f %f %f %f %f %f", &index, &pos[0], &pos[1], &pos[2], &normal[0], &normal[1],
-                   &normal[2]) == 7) {
+        LineParser line(ctx.input.szLine.view());
+        if (line.Read(index, pos[0], pos[1], pos[2], normal[0], normal[1], normal[2])) {
             if (pAnim->startframe < 0) {
                 MdlError("Missing frame start({}) : {}", ctx.input.iLinecount, ctx.input.szLine);
             }
 
             if (t < 0) {
                 MdlError("VTA Frame Sync ({}) : {}", ctx.input.iLinecount, ctx.input.szLine);
+            }
+
+            if (index < 0 || index >= MAXSTUDIOSRCVERTS) {
+                MdlError("bogus vertex index {}({}) : {}", index, ctx.input.iLinecount, ctx.input.szLine);
             }
 
             if (count >= std::ssize(tmpvanim)) {
@@ -1522,25 +1536,28 @@ void Grab_Vertexanimation(StudioMdlState &ctx, s_source_t *psource, const char *
             }
 
             // next command
-            if (sscanf(ctx.input.szLine, "%1023s %d", cmd, &index)) {
-                if (stricmp(cmd, "time") == 0) {
-                    t = index;
-                    count = 0;
-
-                    if (t < pAnim->startframe) {
-                        MdlError("Frame MdlError({}) : {}", ctx.input.iLinecount, ctx.input.szLine);
-                    }
-                    if (t > pAnim->endframe) {
-                        MdlError("Frame MdlError({}) : {}", ctx.input.iLinecount, ctx.input.szLine);
-                    }
-
-                    t -= pAnim->startframe;
-                } else if (!Q_stricmp(cmd, "end")) {
-                    pAnim->numframes = pAnim->endframe - pAnim->startframe + 1;
-                    return;
-                } else {
-                    MdlError("MdlError({}) : {}", ctx.input.iLinecount, ctx.input.szLine);
+            LineParser command(ctx.input.szLine.view());
+            const std::string_view cmd = command.Word();
+            if (vstd::iequals(cmd, "time")) {
+                if (!command.Number(t)) {
+                    MdlError("Frame MdlError({}) : {}", ctx.input.iLinecount, ctx.input.szLine);
                 }
+                count = 0;
+
+                if (t < pAnim->startframe) {
+                    MdlError("Frame MdlError({}) : {}", ctx.input.iLinecount, ctx.input.szLine);
+                }
+                if (t > pAnim->endframe) {
+                    MdlError("Frame MdlError({}) : {}", ctx.input.iLinecount, ctx.input.szLine);
+                }
+
+                t -= pAnim->startframe;
+                if (t >= MAXSTUDIOANIMFRAMES) {
+                    MdlError("Frame MdlError({}) : {}", ctx.input.iLinecount, ctx.input.szLine);
+                }
+            } else if (vstd::iequals(cmd, "end")) {
+                pAnim->numframes = pAnim->endframe - pAnim->startframe + 1;
+                return;
             } else {
                 MdlError("MdlError({}) : {}", ctx.input.iLinecount, ctx.input.szLine);
             }
@@ -1639,8 +1656,6 @@ void CreateMakefile_OutputMakefile(StudioMdlState &ctx) {
 }
 
 int Load_VTA(StudioMdlState &ctx, s_source_t *psource) {
-    char cmd[1024];
-    int option;
 
     if (!OpenGlobalFile(ctx, psource->filename))
         return 0;
@@ -1652,21 +1667,23 @@ int Load_VTA(StudioMdlState &ctx, s_source_t *psource) {
     while (GetLineInput(ctx)) {
         ctx.input.iLinecount++;
 
-        const int numRead = sscanf(ctx.input.szLine, "%s %d", cmd, &option);
+        LineParser line(ctx.input.szLine.view());
+        const std::string_view cmd = line.Word();
 
         // No Command Was Parsed, Blank Line Usually
-        if ((numRead == EOF) || (numRead == 0))
+        if (cmd.empty())
             continue;
 
-        if (stricmp(cmd, "version") == 0) {
-            if (option != 1) {
+        if (vstd::iequals(cmd, "version")) {
+            int option;
+            if (!line.Number(option) || option != 1) {
                 MdlError("bad version\n");
             }
-        } else if (stricmp(cmd, "nodes") == 0) {
+        } else if (vstd::iequals(cmd, "nodes")) {
             psource->numbones = Grab_Nodes(ctx, psource->localBone);
-        } else if (stricmp(cmd, "skeleton") == 0) {
+        } else if (vstd::iequals(cmd, "skeleton")) {
             Grab_Animation(ctx, psource, "VertexAnimation");
-        } else if (stricmp(cmd, "vertexanimation") == 0) {
+        } else if (vstd::iequals(cmd, "vertexanimation")) {
             Grab_Vertexanimation(ctx, psource, "VertexAnimation");
         } else {
             MdlWarning("unknown studio command \"{}\" in vta file: \"{}\" line: {}\n", cmd, psource->filename,

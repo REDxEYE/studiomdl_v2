@@ -20,6 +20,9 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
+#include <iterator>
+#include <utility>
 #include <sys/stat.h>
 
 #include "common/scriplib.h"
@@ -29,6 +32,7 @@
 #include "studiomdl/studiomdl.h"
 #include "studiomdl/studiomdl_global_state.hpp"
 #include "tier1_v2/sort_utils.hpp"
+#include "line_parser.h"
 
 bool IsEnd(char const *pLine) {
     if (strncmp("end", pLine, 3) != 0)
@@ -39,6 +43,14 @@ bool IsEnd(char const *pLine) {
             return false;
     }
     return true;
+}
+
+static bool InRange(const int index, const size_t size) {
+    return index >= 0 && static_cast<size_t>(index) < size;
+}
+
+[[noreturn]] static void BadRecord(StudioMdlState &ctx) {
+    MdlError("{}: error on line {}: {}", ctx.input.szFilename, ctx.input.iLinecount, ctx.input.szLine);
 }
 
 
@@ -60,15 +72,28 @@ static void Grab_Vertexlist(StudioMdlState &ctx, s_source_t *psource) {
                 return;
 
 
-            int i = sscanf(ctx.input.szLine, "%d %d %f %f %f %d %d %f %d %f %d %f %d %f",
-                           &j,
-                           &bone,
-                           &p[0], &p[1], &p[2],
-                           &iCount,
-                           &bones[0], &weights[0], &bones[1], &weights[1], &bones[2], &weights[2], &bones[3],
-                           &weights[3]);
+            LineParser parser(ctx.input.szLine.view());
+            if (!parser.Read(j, bone, p[0], p[1], p[2]) || !InRange(j, ctx.input.vertex.size()))
+                BadRecord(ctx);
 
-            if (i == 5) {
+            // optional influences: the count, then up to bones.size() (bone, weight) pairs; a shortened list keeps what it has
+            const bool hasInfluences = parser.Number(iCount);
+            if (hasInfluences) {
+                if (iCount < 0 || iCount > static_cast<int>(bones.size()))
+                    BadRecord(ctx);
+                for (int k = 0; k < static_cast<int>(bones.size()); k++) {
+                    if (!parser.Number(bones[k]))
+                        break;
+                    if (k < iCount && !InRange(bones[k], psource->numbones))
+                        BadRecord(ctx);
+                    if (!parser.Number(weights[k]))
+                        break;
+                }
+            }
+            if (!parser.Empty())
+                BadRecord(ctx);
+
+            if (!hasInfluences) {
                 if (bone < 0 || bone >= psource->numbones) {
                     MdlWarning("bogus bone index\n");
                     MdlWarning("{} {} :\n{}", ctx.input.iLinecount, ctx.input.szFilename,
@@ -83,22 +108,21 @@ static void Grab_Vertexlist(StudioMdlState &ctx, s_source_t *psource) {
                 boneWeight.weight[0] = 1.0;
                 ctx.input.sourceBone[j] = {};
             }
-            else if (i > 5) {
+            else {
                 MakeSourceBoneWeights(iCount, bones, weights, ctx.input.sourceBone[j]);
                 iCount = SortAndBalanceBones(iCount, MAXSTUDIOBONEWEIGHTS, bones, weights);
 
                 VectorCopy(p, ctx.input.vertex[j]);
                 s_boneweight_t &boneWeight = ctx.input.bone[j];
                 boneWeight.numbones = iCount;
-                for (i = 0; i < iCount; i++) {
-                    boneWeight.bone[i] = bones[i];
-                    boneWeight.weight[i] = weights[i];
+                for (int n = 0; n < iCount; n++) {
+                    boneWeight.bone[n] = bones[n];
+                    boneWeight.weight[n] = weights[n];
                 }
             }
-            else {
-                MdlError("{}: error on line {}: {}", ctx.input.szFilename,
-                         ctx.input.iLinecount, ctx.input.szLine);
-            }
+        }
+        else {
+            BadRecord(ctx);
         }
     }
 }
@@ -117,15 +141,17 @@ static void Grab_Facelist(StudioMdlState &ctx, s_source_t *psource) {
             if (IsEnd(ctx.input.szLine))
                 return;
 
-            if (sscanf(ctx.input.szLine, "%d %d %d %d",
-                       &j,
-                       &f.a, &f.b, &f.c) == 4) {
+            if (LineParser parser(ctx.input.szLine.view());
+                parser.Read(j, f.a, f.b, f.c) && InRange(j, ctx.input.faces.size())) {
                 ctx.input.faces[j] = f;
             }
             else {
                 MdlError("{}: error on line {}: {}", ctx.input.szFilename,
                          ctx.input.iLinecount, ctx.input.szLine);
             }
+        }
+        else {
+            BadRecord(ctx);
         }
     }
 }
@@ -136,7 +162,6 @@ static void Grab_Materiallist(StudioMdlState &ctx, s_source_t *psource) {
         if (ctx.input.inputFile->Gets(ctx.input.szLine, sizeof(ctx.input.szLine)) !=
             nullptr) {
             // char name[256];
-            char path[MAX_PATH];
             rgb2_t a, d, s;
             float g;
             int j;
@@ -147,23 +172,18 @@ static void Grab_Materiallist(StudioMdlState &ctx, s_source_t *psource) {
             if (IsEnd(ctx.input.szLine))
                 return;
 
-            if (sscanf(ctx.input.szLine, "%d  %f %f %f %f   %f %f %f %f  %f %f %f %f  %f \"%[^\"]s",
-                       &j,
-                       &a.r, &a.g, &a.b, &a.a,
-                       &d.r, &d.g, &d.b, &d.a,
-                       &s.r, &s.g, &s.b, &s.a,
-                       &g,
-                       path) == 15) {
-                if (path[0] == '\0') {
-                    psource->texmap[j] = -1;
-                }
-                else if (j < sizeof(psource->texmap)) {
-                    psource->texmap[j] = LookupTexture(ctx, path);
-                }
-                else {
-                    MdlError("Too many materials, max {}\n", sizeof(psource->texmap));
-                }
-            }
+            LineParser parser(ctx.input.szLine.view());
+            if (!parser.Read(j, a.r, a.g, a.b, a.a, d.r, d.g, d.b, d.a, s.r, s.g, s.b, s.a, g))
+                BadRecord(ctx);
+            const auto path = parser.Quoted();
+            if (j < 0 || path.empty() || path.size() >= MAX_PATH)
+                BadRecord(ctx);
+            if (static_cast<size_t>(j) >= std::size(psource->texmap))
+                MdlError("Too many materials, max {}\n", std::size(psource->texmap));
+            psource->texmap[j] = LookupTexture(ctx, path);
+        }
+        else {
+            BadRecord(ctx);
         }
     }
 }
@@ -182,9 +202,8 @@ static void Grab_Texcoordlist(StudioMdlState &ctx, s_source_t *psource) {
             if (IsEnd(ctx.input.szLine))
                 return;
 
-            if (sscanf(ctx.input.szLine, "%d %f %f",
-                       &j,
-                       &t[0], &t[1]) == 3) {
+            if (LineParser parser(ctx.input.szLine.view());
+                parser.Read(j, t[0], t[1]) && InRange(j, ctx.input.texcoord[0].size())) {
                 t[1] = 1.0 - t[1];
                 ctx.input.texcoord[0][j] = t;
             }
@@ -192,6 +211,9 @@ static void Grab_Texcoordlist(StudioMdlState &ctx, s_source_t *psource) {
                 MdlError("{}: error on line {}: {}", ctx.input.szFilename,
                          ctx.input.iLinecount, ctx.input.szLine);
             }
+        }
+        else {
+            BadRecord(ctx);
         }
     }
 }
@@ -212,10 +234,8 @@ static void Grab_Normallist(StudioMdlState &ctx, s_source_t *psource) {
                 return;
 
 
-            if (sscanf(ctx.input.szLine, "%d %d %f %f %f",
-                       &j,
-                       &bone,
-                       &n[0], &n[1], &n[2]) == 5) {
+            if (LineParser parser(ctx.input.szLine.view());
+                parser.Read(j, bone, n[0], n[1], n[2]) && InRange(j, ctx.input.normal.size())) {
                 if (bone < 0 || bone >= psource->numbones) {
                     MdlWarning("bogus bone index\n");
                     MdlWarning("{} {} :\n{}", ctx.input.iLinecount, ctx.input.szFilename,
@@ -230,6 +250,9 @@ static void Grab_Normallist(StudioMdlState &ctx, s_source_t *psource) {
                          ctx.input.iLinecount, ctx.input.szLine);
             }
         }
+        else {
+            BadRecord(ctx);
+        }
     }
 }
 
@@ -242,7 +265,6 @@ static void Grab_Faceattriblist(StudioMdlState &ctx, s_source_t *psource) {
             int smooth;
             int material;
             s_tmpface_t f;
-            unsigned short s;
 
             ctx.input.iLinecount++;
 
@@ -250,12 +272,16 @@ static void Grab_Faceattriblist(StudioMdlState &ctx, s_source_t *psource) {
             if (IsEnd(ctx.input.szLine))
                 return;
 
-            if (sscanf(ctx.input.szLine, "%d %d %d %d %d %d %d %d %d",
-                       &j,
-                       &material,
-                       &smooth,
-                       &f.ta[0], &f.tb[0], &f.tc[0],
-                       &f.na, &f.nb, &f.nc) == 9) {
+            int ta, tb, tc, na, nb, nc; // -1 is the "none" index, stored as 0xFFFFFFFF
+            LineParser parser(ctx.input.szLine.view());
+            if (parser.Read(j, material, smooth, ta, tb, tc, na, nb, nc) &&
+                InRange(j, ctx.input.faces.size()) && InRange(material, std::size(psource->texmap))) {
+                f.ta[0] = static_cast<uint32_t>(ta);
+                f.tb[0] = static_cast<uint32_t>(tb);
+                f.tc[0] = static_cast<uint32_t>(tc);
+                f.na = static_cast<uint32_t>(na);
+                f.nb = static_cast<uint32_t>(nb);
+                f.nc = static_cast<uint32_t>(nc);
                 f.a = ctx.input.faces[j].a;
                 f.b = ctx.input.faces[j].b;
                 f.c = ctx.input.faces[j].c;
@@ -265,17 +291,9 @@ static void Grab_Faceattriblist(StudioMdlState &ctx, s_source_t *psource) {
                     MdlError("face {} references NULL texture {}\n", j, material);
                 }
 
-                if (1) {
-                    s = f.b;
-                    f.b = f.c;
-                    f.c = s;
-                    s = f.tb[0];
-                    f.tb[0] = f.tc[0];
-                    f.tc[0] = s;
-                    s = f.nb;
-                    f.nb = f.nc;
-                    f.nc = s;
-                }
+                std::swap(f.b, f.c);
+                std::swap(f.tb[0], f.tc[0]);
+                std::swap(f.nb, f.nc);
 
                 ctx.input.faces[j] = f;
             }
@@ -283,6 +301,9 @@ static void Grab_Faceattriblist(StudioMdlState &ctx, s_source_t *psource) {
                 MdlError("{}: error on line {}: {}", ctx.input.szFilename,
                          ctx.input.iLinecount, ctx.input.szLine);
             }
+        }
+        else {
+            BadRecord(ctx);
         }
     }
 }
@@ -637,12 +658,14 @@ static void Grab_MRMFaceupdates(StudioMdlState &ctx, s_source_t *psource) {
             if (IsEnd(ctx.input.szLine))
                 return;
         }
+        else {
+            BadRecord(ctx);
+        }
     }
 }
 
 int Load_VRM(StudioMdlState &ctx, s_source_t *psource) {
     char cmd[1024];
-    int option;
 
     if (!OpenGlobalFile(ctx, psource->filename)) {
         return 0;
@@ -657,31 +680,45 @@ int Load_VRM(StudioMdlState &ctx, s_source_t *psource) {
     while (ctx.input.inputFile->Gets(ctx.input.szLine, sizeof(ctx.input.szLine)) !=
            nullptr) {
         ctx.input.iLinecount++;
-        sscanf(ctx.input.szLine, "%1023s %d", cmd, &option);
+        LineParser parser(ctx.input.szLine.view());
+        const std::string_view word = parser.Word();
+        if (word.empty())
+            continue;
+        if (word.size() >= sizeof(cmd))
+            MdlError("unknown VRM command : {} \n", word);
+        std::memcpy(cmd, word.data(), word.size());
+        cmd[word.size()] = '\0';
+        int option = 0;
+        const bool hasOption = parser.Number(option);
+        auto requireCount = [&] {
+            if (!hasOption || option < 0)
+                BadRecord(ctx);
+            return option;
+        };
         if (stricmp(cmd, "version") == 0) {
-            if (option != 2) {
+            if (!hasOption || option != 2) {
                 MdlError("bad version\n");
             }
         }
         else if (stricmp(cmd, "name") == 0) {
         }
         else if (stricmp(cmd, "vertices") == 0) {
-            ctx.input.vertex.resize(option);
+            ctx.input.vertex.resize(requireCount());
             ctx.input.bone.resize(option);
         }
         else if (stricmp(cmd, "faces") == 0) {
-            ctx.input.faces.resize(option);
+            ctx.input.faces.resize(requireCount());
         }
         else if (stricmp(cmd, "materials") == 0) {
             // doesn't matter;
         }
         else if (stricmp(cmd, "texcoords") == 0) {
-            ctx.input.texcoord[0].resize(option);
+            ctx.input.texcoord[0].resize(requireCount());
             if (option == 0)
                 MdlError("model has no texture coordinates\n");
         }
         else if (stricmp(cmd, "normals") == 0) {
-            ctx.input.normal.resize(option);
+            ctx.input.normal.resize(requireCount());
         }
         else if (stricmp(cmd, "tristrips") == 0) {
             // should be 0;
@@ -730,6 +767,14 @@ int Load_VRM(StudioMdlState &ctx, s_source_t *psource) {
         else {
             MdlError("unknown VRM command : {} \n", cmd);
         }
+    }
+
+    for (const auto &face : ctx.input.faces) {
+        if (face.a >= ctx.input.vertex.size() || face.b >= ctx.input.vertex.size() || face.c >= ctx.input.vertex.size() ||
+            face.na >= ctx.input.normal.size() || face.nb >= ctx.input.normal.size() || face.nc >= ctx.input.normal.size() ||
+            face.ta[0] >= ctx.input.texcoord[0].size() || face.tb[0] >= ctx.input.texcoord[0].size() ||
+            face.tc[0] >= ctx.input.texcoord[0].size())
+            MdlError("{}: face index out of range", ctx.input.szFilename);
     }
 
     UnifyIndices(ctx, psource);

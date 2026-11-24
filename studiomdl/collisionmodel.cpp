@@ -43,6 +43,8 @@
 #include "tier1_v2/string_utils.hpp"
 #include "studiomdl/output_files.hpp"
 #include "studiomdl/apply_collision.hpp"
+#include "studiomdl/apply_body.hpp"
+#include "studiomdl_commands.h"
 #include <cstring>
 #include <span>
 #include <filesystem>
@@ -506,20 +508,10 @@ void CJointedModel::AddConvexSrc(ScriptTokenizer &qc, const char *szFileName) {
     if (qc.TokenAvailable()) {
         qc.ExpectToken();
 
-        if (!V_strncmp(qc.token, "offset", 6)) {
-            Vector vecOffsetPosition;
-            vecOffsetPosition.Init();
-            QAngle angOffsetAngle;
-            angOffsetAngle.Init();
-            float flScale = 1;
-
-            int nCount = sscanf(qc.token, "offset pos[ %f %f %f ] angle[ %f %f %f ] scale[ %f ]",
-                                &vecOffsetPosition.x, &vecOffsetPosition.y, &vecOffsetPosition.z,
-                                &angOffsetAngle.x, &angOffsetAngle.y, &angOffsetAngle.z,
-                                &flScale);
-
-            if (nCount == 7) {
-                ApplyCollisionConvexOffset(m_ctx, slot, vecOffsetPosition, angOffsetAngle, flScale);
+        if (qc.token.view().starts_with("offset")) {
+            AppendSourceOffset offset;
+            if (ParseSourceOffset(qc.token.view(), offset)) {
+                ApplyCollisionConvexOffset(m_ctx, slot, offset.position, offset.angles, offset.scale);
             }
             else {
                 qc.Error("Malformed offset parameters to $addconvexsrc.");

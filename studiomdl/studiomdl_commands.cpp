@@ -11,6 +11,7 @@
 #include "studiomdl/apply_bone_dynamics.hpp"
 #include "studiomdl/platform_compat.h"
 #include "studiomdl_commands.h"
+#include "line_parser.h"
 #include "studiomdl/flexoptimize.h"
 #include "tier1_v2/function_timing.hpp"
 #include "datamodel/idatamodel.h"
@@ -2654,46 +2655,36 @@ bool ParseJigglePitchConstraint(ScriptTokenizer &qc, s_jigglebone_t* jiggleInfo)
 }
 
 void Grab_AxisInterpBones(StudioMdlState &ctx) {
-    char cmd[1024], tmp[1025];
-    Vector basepos;
-    s_axisinterpbone_t* pAxis = nullptr;
-    // parsed into a scratch entry that is appended once its "bone" line matched
-    auto scratch = s_axisinterpbone_t(); // () zero-fills; {} would leave the Vector members uninitialized
-    s_axisinterpbone_t* pBone = &scratch;
+    Vector basepos(0, 0, 0);
+    s_axisinterpbone_t* axisBone = nullptr;
 
     while (GetLineInput(ctx)) {
         if (IsEnd(ctx.input.szLine)) {
             return;
         }
-        int i = sscanf(ctx.input.szLine, "%1023s \"%[^\"]\" \"%[^\"]\" \"%[^\"]\" \"%[^\"]\" %d", cmd,
-                       pBone->bonename.data(), tmp,
-                       pBone->controlname.data(), tmp, &pBone->axis);
-        if (i == 6 && stricmp(cmd, "bone") == 0) {
-            // printf( "\"%s\" \"%s\" \"%s\" \"%s\"\n", cmd, pBone->bonename, tmp, pBone->controlname );
-            pAxis = &ApplyAxisInterpBegin(ctx, scratch.bonename.view(), scratch.controlname.view(), scratch.axis);
-            scratch = s_axisinterpbone_t();
-        }
-        else if (stricmp(cmd, "display") == 0) {
-            // skip all display info
-        }
-        else if (stricmp(cmd, "type") == 0) {
-            // skip all type info
-        }
-        else if (stricmp(cmd, "basepos") == 0) {
-            i = sscanf(ctx.input.szLine, "basepos %f %f %f", &basepos.x, &basepos.y, &basepos.z);
-            // skip all type info
-        }
-        else if (stricmp(cmd, "axis") == 0) {
-            Vector pos;
-            QAngle rot;
-            int j;
-            i = sscanf(ctx.input.szLine, "axis %d %f %f %f %f %f %f", &j, &pos[0], &pos[1], &pos[2], &rot[2],
-                       &rot[0], &rot[1]);
-            if (i == 7) {
-                if (!ApplyAxisInterpAxis(*pAxis, j, basepos, pos, rot)) {
-                    MdlError("Line {}: procedural bone axis index {} out of range (0..5)", ctx.input.iLinecount, j);
-                }
-            }
+        LineParser line(ctx.input.szLine.view());
+        const auto command = line.Word();
+        if (vstd::iequals(command, "bone")) {
+            const auto bone = line.Quoted();
+            const auto boneDisplay = line.Quoted();
+            const auto control = line.Quoted();
+            const auto controlDisplay = line.Quoted();
+            int axis;
+            if (bone.empty() || boneDisplay.empty() || control.empty() || controlDisplay.empty() ||
+                bone.size() > StudioName::capacity() || control.size() > StudioName::capacity() || !line.Read(axis))
+                MdlError("Line {}: malformed procedural bone: {}", ctx.input.iLinecount, ctx.input.szLine);
+            axisBone = &ApplyAxisInterpBegin(ctx, bone, control, axis);
+        } else if (vstd::iequals(command, "basepos")) {
+            if (!line.Read(basepos.x, basepos.y, basepos.z))
+                MdlError("Line {}: malformed procedural basepos: {}", ctx.input.iLinecount, ctx.input.szLine);
+        } else if (vstd::iequals(command, "axis")) {
+            Vector position;
+            QAngle rotation;
+            int index;
+            if (!axisBone || !line.Read(index, position.x, position.y, position.z, rotation.z, rotation.x, rotation.y))
+                MdlError("Line {}: malformed procedural axis: {}", ctx.input.iLinecount, ctx.input.szLine);
+            if (!ApplyAxisInterpAxis(*axisBone, index, basepos, position, rotation))
+                MdlError("Line {}: procedural bone axis index {} out of range (0..5)", ctx.input.iLinecount, index);
         }
     }
 }
@@ -3402,6 +3393,16 @@ void Cmd_AnimBlockSize(StudioMdlState &ctx, ScriptTokenizer &qc) {
     ApplyAnimBlockSize(ctx, settings);
 }
 
+bool ParseSourceOffset(std::string_view text, AppendSourceOffset &offset) {
+    LineParser line(text);
+    return line.Consume("offset") && line.Consume("pos[") &&
+           line.Read(offset.position.x, offset.position.y) && line.Number(offset.position.z, ']') &&
+           line.Consume("]") && line.Consume("angle[") &&
+           line.Read(offset.angles.x, offset.angles.y) && line.Number(offset.angles.z, ']') &&
+           line.Consume("]") && line.Consume("scale[") &&
+           line.Number(offset.scale, ']') && line.Consume("]") && line.Empty();
+}
+
 void Cmd_AppendSource(StudioMdlState &ctx, ScriptTokenizer &qc) {
     qc.ExpectToken();
 
@@ -3415,17 +3416,9 @@ void Cmd_AppendSource(StudioMdlState &ctx, ScriptTokenizer &qc) {
     if (qc.TokenAvailable()) {
         qc.ExpectToken();
 
-        if (!V_strncmp(qc.token, "offset", 6)) {
+        if (qc.token.view().starts_with("offset")) {
             AppendSourceOffset parsed;
-            parsed.position.Init();
-            parsed.angles.Init();
-
-            int nCount = sscanf(qc.token, "offset pos[ %f %f %f ] angle[ %f %f %f ] scale[ %f ]",
-                                &parsed.position.x, &parsed.position.y, &parsed.position.z,
-                                &parsed.angles.x, &parsed.angles.y, &parsed.angles.z,
-                                &parsed.scale);
-
-            if (nCount == 7) {
+            if (ParseSourceOffset(qc.token.view(), parsed)) {
                 offset = parsed;
             }
             else {
@@ -5028,73 +5021,48 @@ void Cmd_DeclareAnimation(StudioMdlState &ctx, ScriptTokenizer &qc) {
 }
 
 bool Grab_AimAtBones(StudioMdlState &ctx) {
-    // parsed into a scratch entry that is appended once the names matched
-    auto scratch = s_aimatbone_t(); // () zero-fills; {} would leave the Vector members uninitialized
+    LineParser header(ctx.input.szLine.view());
+    header.Word(); // <aimconstraint>
+    const auto bone = header.Word();
+    const auto parent = header.Word();
+    const auto aim = header.Word();
+    if (bone.empty() || parent.empty() || aim.empty() || !header.Empty() ||
+        bone.size() > StudioName::capacity() || parent.size() > StudioName::capacity() ||
+        aim.size() > StudioName::capacity())
+        MdlError("Line {}: malformed procedural aim constraint: {}", ctx.input.iLinecount, ctx.input.szLine);
+    auto &aimBone = ApplyAimAtBegin(ctx, bone, parent, aim);
 
-    // Already know it's <aimconstraint> in the first string, otherwise wouldn't be here
-    if (sscanf(ctx.input.szLine, "%*s %127s %127s %127s", scratch.bonename.data(),
-               scratch.parentname.data(),
-               scratch.aimname.data()) ==
-        3) {
-        s_aimatbone_t* pAimAtBone = &ApplyAimAtBegin(ctx, scratch.bonename.view(), scratch.parentname.view(),
-                                                     scratch.aimname.view());
+    while (GetLineInput(ctx)) {
+        ctx.input.iLinecount++;
+        if (IsEnd(ctx.input.szLine))
+            return false;
 
-        char cmd[1024];
+        LineParser line(ctx.input.szLine.view());
+        const auto command = line.Word();
+        if (command.empty())
+            continue;
+        if (!vstd::iequals(command, "<aimvector>") && !vstd::iequals(command, "<upvector>") &&
+            !vstd::iequals(command, "<basepos>"))
+            return true; // Leave the next record for Grab_QuatInterpBones.
+
         Vector vector;
-
-        while (GetLineInput(ctx)) {
-            ctx.input.iLinecount++;
-
-            if (IsEnd(ctx.input.szLine)) {
-                return false;
-            }
-
-            if (sscanf(ctx.input.szLine, "%1024s %f %f %f", cmd, &vector[0], &vector[1], &vector[2]) != 4) {
-                // Allow blank lines to be skipped without error
-                bool allSpace(true);
-                for (const char* pC(ctx.input.szLine); *pC != '\0' && pC < (ctx.input.szLine + 4096);
-                     ++pC) {
-                    if (!V_isspace(*pC)) {
-                        allSpace = false;
-                        break;
-                    }
-                }
-
-                if (allSpace) {
-                    continue;
-                }
-
-                return true;
-            }
-
-            if (stricmp(cmd, "<aimvector>") == 0) {
-                ApplyAimAtAimVector(*pAimAtBone, vector);
-            }
-            else if (stricmp(cmd, "<upvector>") == 0) {
-                ApplyAimAtUpVector(*pAimAtBone, vector);
-            }
-            else if (stricmp(cmd, "<basepos>") == 0) {
-                ApplyAimAtBasePosition(*pAimAtBone, vector);
-            }
-            else {
-                return true;
-            }
-        }
+        if (!line.Read(vector.x, vector.y, vector.z))
+            MdlError("Line {}: malformed procedural aim vector: {}", ctx.input.iLinecount, ctx.input.szLine);
+        if (vstd::iequals(command, "<aimvector>"))
+            ApplyAimAtAimVector(aimBone, vector);
+        else if (vstd::iequals(command, "<upvector>"))
+            ApplyAimAtUpVector(aimBone, vector);
+        else
+            ApplyAimAtBasePosition(aimBone, vector);
     }
-
-    // If we get here, we're at EOF
     return false;
 }
 
 void Grab_QuatInterpBones(StudioMdlState &ctx) {
-    char cmd[1024];
-    Vector basepos;
-    Vector rotateaxis(0.0f, 0.0f, 0.0f); // degrees, as written
-    Vector jointorient(0.0f, 0.0f, 0.0f); // degrees, as written
-    s_quatinterpbone_t* pAxis = nullptr;
-    // parsed into a scratch entry that is appended once its "<helper>" line matched
-    auto scratch = s_quatinterpbone_t(); // () zero-fills; {} would leave the Vector members uninitialized
-    s_quatinterpbone_t* pBone = &scratch;
+    Vector basepos(0, 0, 0);
+    Vector rotateaxis(0, 0, 0); // degrees, as written
+    Vector jointorient(0, 0, 0); // degrees, as written
+    s_quatinterpbone_t* axisBone = nullptr;
 
     while (GetLineInput(ctx)) {
         ctx.input.iLinecount++;
@@ -5102,121 +5070,58 @@ void Grab_QuatInterpBones(StudioMdlState &ctx) {
             return;
         }
 
-        int i = sscanf(ctx.input.szLine, "%s %s %s %s %s", cmd, pBone->bonename.data(),
-                       pBone->parentname.data(),
-                       pBone->controlparentname.data(),
-                       pBone->controlname.data());
-
-        while (i == 4 && stricmp(cmd, "<aimconstraint>") == 0) {
-            // If Grab_AimAtBones() returns false, there file is at EOF
-            if (!Grab_AimAtBones(ctx)) {
+        LineParser line(ctx.input.szLine.view());
+        auto command = line.Word();
+        while (vstd::iequals(command, "<aimconstraint>")) {
+            if (!Grab_AimAtBones(ctx))
                 return;
-            }
-
-            // Grab_AimAtBones will read input into ctx.input.szLine same as here until it gets a line it doesn't understand, at which point
-            // it will exit leaving that line in ctx.input.szLine, so check for the end and scan the current buffer again and continue on with
-            // the normal QuatInterpBones process
-
-            i = sscanf(ctx.input.szLine, "%s %s %s %s %s", cmd, pBone->bonename.data(),
-                       pBone->parentname.data(),
-                       pBone->controlparentname.data(),
-                       pBone->controlname.data());
+            line = LineParser(ctx.input.szLine.view());
+            command = line.Word();
         }
 
-        if (i == 5 && stricmp(cmd, "<helper>") == 0) {
-            // printf( "\"%s\" \"%s\" \"%s\" \"%s\"\n", cmd, pBone->bonename, tmp, pBone->controlname );
-            pAxis = &ApplyQuatInterpBegin(ctx, scratch.bonename.view(), scratch.parentname.view(),
-                                          scratch.controlparentname.view(), scratch.controlname.view());
-            scratch = s_quatinterpbone_t();
-        }
-        else if (i > 0) {
-            // There was a bug before which could cause the same command to be parsed twice
-            // because if the sscanf above completely fails, it will return 0 and not
-            // change the contents of cmd, so i should be greater than 0 in order for
-            // any of these checks to be valid... Still kind of buggy as these checks
-            // do case insensitive stricmp but then the sscanf does case sensitive
-            // matching afterwards... Should probably change those to
-            // sscanf( ctx.input.szLine, "%*s %f ... ) etc...
-
-            if (stricmp(cmd, "<display>") == 0) {
-                // skip all display info
-                Vector size;
-                float distance;
-
-                i = sscanf(ctx.input.szLine, "<display> %f %f %f %f",
-                           &size[0], &size[1], &size[2],
-                           &distance);
-
-                if (i == 4) {
-                    ApplyQuatInterpDisplay(*pAxis, size, distance);
-                }
-                else {
-                    MdlError("Line {}: Unable to parse procedual <display> bone: {}", ctx.input.iLinecount,
-                             ctx.input.szLine);
-                }
-            }
-            else if (stricmp(cmd, "<basepos>") == 0) {
-                i = sscanf(ctx.input.szLine, "<basepos> %f %f %f", &basepos.x, &basepos.y, &basepos.z);
-                // skip all type info
-            }
-            else if (stricmp(cmd, "<rotateaxis>") == 0) {
-                i = sscanf(ctx.input.szLine, "%*s %f %f %f", &rotateaxis.x, &rotateaxis.y, &rotateaxis.z);
-            }
-            else if (stricmp(cmd, "<jointorient>") == 0) {
-                i = sscanf(ctx.input.szLine, "%*s %f %f %f", &jointorient.x, &jointorient.y, &jointorient.z);
-            }
-            else if (stricmp(cmd, "<trigger>") == 0) {
-                float tolerance;
-                Vector trigger;
-                Vector pos;
-                Vector ang;
-
-                i = sscanf(ctx.input.szLine, "<trigger> %f %f %f %f %f %f %f %f %f %f",
-                           &tolerance,
-                           &trigger.x, &trigger.y, &trigger.z,
-                           &ang.x, &ang.y, &ang.z,
-                           &pos.x, &pos.y, &pos.z);
-
-                if (i == 10) {
-                    if (!ApplyQuatInterpTrigger(*pAxis, basepos, rotateaxis, jointorient, tolerance, trigger, ang,
-                                                pos)) {
-                        MdlError("Line {}: too many procedual <trigger> entries (at most 32): {}",
-                                 ctx.input.iLinecount, ctx.input.szLine);
-                    }
-                }
-                else {
-                    MdlError("Line {}: Unable to parse procedual <trigger> bone: {}", ctx.input.iLinecount,
-                             ctx.input.szLine);
-                }
-            }
-            else {
-                MdlError("Line {}: Unable to parse procedual bone data: {}", ctx.input.iLinecount,
-                         ctx.input.szLine);
-            }
-        }
-        else {
-            // Allow blank lines to be skipped without error
-            bool allSpace(true);
-            for (const char* pC(ctx.input.szLine); *pC != '\0' && pC < (ctx.input.szLine + 4096); ++
-                 pC) {
-                if (!V_isspace(*pC)) {
-                    allSpace = false;
-                    break;
-                }
-            }
-
-            if (!allSpace) {
-                MdlError("Line {}: Unable to parse procedual bone data: {}", ctx.input.iLinecount,
-                         ctx.input.szLine);
-            }
+        if (command.empty())
+            continue;
+        if (vstd::iequals(command, "<helper>")) {
+            const auto bone = line.Word();
+            const auto parent = line.Word();
+            const auto controlParent = line.Word();
+            const auto control = line.Word();
+            if (bone.empty() || parent.empty() || controlParent.empty() || control.empty() ||
+                bone.size() > StudioName::capacity() || parent.size() > StudioName::capacity() ||
+                controlParent.size() > StudioName::capacity() || control.size() > StudioName::capacity())
+                MdlError("Line {}: malformed procedural helper: {}", ctx.input.iLinecount, ctx.input.szLine);
+            axisBone = &ApplyQuatInterpBegin(ctx, bone, parent, controlParent, control);
+        } else if (vstd::iequals(command, "<display>")) {
+            Vector size;
+            float distance;
+            if (!axisBone || !line.Read(size.x, size.y, size.z, distance))
+                MdlError("Line {}: Unable to parse procedural <display> bone: {}", ctx.input.iLinecount, ctx.input.szLine);
+            ApplyQuatInterpDisplay(*axisBone, size, distance);
+        } else if (vstd::iequals(command, "<basepos>")) {
+            if (!line.Read(basepos.x, basepos.y, basepos.z))
+                MdlError("Line {}: malformed procedural <basepos>: {}", ctx.input.iLinecount, ctx.input.szLine);
+        } else if (vstd::iequals(command, "<rotateaxis>")) {
+            if (!line.Read(rotateaxis.x, rotateaxis.y, rotateaxis.z))
+                MdlError("Line {}: malformed procedural <rotateaxis>: {}", ctx.input.iLinecount, ctx.input.szLine);
+        } else if (vstd::iequals(command, "<jointorient>")) {
+            if (!line.Read(jointorient.x, jointorient.y, jointorient.z))
+                MdlError("Line {}: malformed procedural <jointorient>: {}", ctx.input.iLinecount, ctx.input.szLine);
+        } else if (vstd::iequals(command, "<trigger>")) {
+            float tolerance;
+            Vector trigger, angles, position;
+            if (!axisBone || !line.Read(tolerance, trigger.x, trigger.y, trigger.z, angles.x, angles.y, angles.z,
+                                        position.x, position.y, position.z))
+                MdlError("Line {}: Unable to parse procedural <trigger> bone: {}", ctx.input.iLinecount, ctx.input.szLine);
+            if (!ApplyQuatInterpTrigger(*axisBone, basepos, rotateaxis, jointorient, tolerance, trigger, angles, position))
+                MdlError("Line {}: too many procedural <trigger> entries (at most 32): {}",
+                         ctx.input.iLinecount, ctx.input.szLine);
+        } else {
+            MdlError("Line {}: Unable to parse procedural bone data: {}", ctx.input.iLinecount, ctx.input.szLine);
         }
     }
 }
 
 void Load_ProceduralBones(StudioMdlState &ctx, ScriptTokenizer &qc) {
-    char cmd[1024];
-    int option;
-
     qc.ExpectToken();
     const std::string filename = qc.token.str();
 
@@ -5233,18 +5138,13 @@ void Load_ProceduralBones(StudioMdlState &ctx, ScriptTokenizer &qc) {
     else {
         while (GetLineInput(ctx)) {
             ctx.input.iLinecount++;
-            const int numRead = sscanf(ctx.input.szLine, "%s", cmd, &option);
-
-            // No Command Was Parsed, Blank Line Usually
-            if ((numRead == EOF) || (numRead == 0))
-                continue;
-
-            if (stricmp(cmd, "version") == 0) {
-                if (option != 1) {
+            LineParser line(ctx.input.szLine.view());
+            const auto command = line.Word();
+            if (vstd::iequals(command, "version")) {
+                int version;
+                if (!line.Read(version) || version != 1)
                     qc.Error("bad version\n");
-                }
-            }
-            else if (stricmp(cmd, "proceduralbones") == 0) {
+            } else if (vstd::iequals(command, "proceduralbones")) {
                 Grab_AxisInterpBones(ctx);
             }
         }

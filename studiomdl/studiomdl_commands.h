@@ -18,6 +18,9 @@ int ParseAnimation(StudioMdlState &ctx, ScriptTokenizer &qc, s_animation_t *pani
 int ParseEmpty(ScriptTokenizer &qc);
 int ParseSequence(StudioMdlState &ctx, ScriptTokenizer &qc, s_sequence_t *pseq, bool isAppend);
 
+struct AppendSourceOffset;
+bool ParseSourceOffset(std::string_view text, AppendSourceOffset &offset);
+
 // Runs every command of a QC script (the command table is in studiomdl_commands.cpp)
 void ParseScript(StudioMdlState &ctx, ScriptTokenizer &qc);
 
