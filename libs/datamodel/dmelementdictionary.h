@@ -12,6 +12,7 @@
 #include <functional>
 #include <string_view>
 #include <unordered_map>
+#include <vector>
 #include "tier1/utlvector.h"
 #include "datamodel/idatamodel.h"
 #include "datamodel/dmattribute.h"
@@ -149,9 +150,9 @@ private:
 
 	// Creates the list of all things to serialize
 	void BuildElementList_R( CDmElement *pRoot, bool bFlatMode, bool bIsRoot );
-	static bool LessFunc( const ElementInfo_t &lhs, const ElementInfo_t &rhs );
 
-	CUtlBlockRBTree< ElementInfo_t, DmElementDictHandle_t > m_Dict;
+	std::vector<ElementInfo_t> m_Dict;
+	std::unordered_map<CDmElement *, DmElementDictHandle_t> m_indices;
 };
 
 

@@ -30,3 +30,27 @@ SMDL_TEST(dictionary_copy_id_remap) {
     g_pDataModel->DestroyElement(first);
     g_pDataModel->DestroyElement(second);
 }
+
+SMDL_TEST(dictionary_serialization_roots) {
+    const auto root = g_pDataModel->CreateElement("TestDictionary", "root", DMFILEID_INVALID);
+    const auto child = g_pDataModel->CreateElement("TestDictionary", "child", DMFILEID_INVALID);
+    Require(root != DMELEMENT_HANDLE_INVALID && child != DMELEMENT_HANDLE_INVALID, "create serialization elements");
+
+    auto *parent = g_pDataModel->GetElement(root);
+    auto *descendant = g_pDataModel->GetElement(child);
+    parent->AddAttribute("first", AT_ELEMENT)->SetValue(child);
+    parent->AddAttribute("again", AT_ELEMENT)->SetValue(child);
+
+    CDmElementSerializationDictionary dictionary;
+    dictionary.BuildElementList(parent, false);
+    const auto first = dictionary.FirstRootElement();
+    const auto second = dictionary.NextRootElement(first);
+    Require(dictionary.RootElementCount() == 2 && dictionary.GetRootElement(first) == parent &&
+            dictionary.GetRootElement(second) == descendant &&
+            dictionary.NextRootElement(second) == ELEMENT_DICT_HANDLE_INVALID,
+            "serialize root first, then a multiply referenced child");
+
+    dictionary.Clear();
+    g_pDataModel->DestroyElement(root);
+    g_pDataModel->DestroyElement(child);
+}

@@ -276,19 +276,7 @@ void CDmElementDictionary::HookUpElementReferences()
 // Element dictionary used in serialization
 //
 //-----------------------------------------------------------------------------
-CDmElementSerializationDictionary::CDmElementSerializationDictionary() :
-	m_Dict( 1024, 0, CDmElementSerializationDictionary::LessFunc )
-{
-}
-
-
-//-----------------------------------------------------------------------------
-// Used to sort the list of elements
-//-----------------------------------------------------------------------------
-bool CDmElementSerializationDictionary::LessFunc( const ElementInfo_t &lhs, const ElementInfo_t &rhs )
-{
-	return lhs.m_pElement < rhs.m_pElement;
-}
+CDmElementSerializationDictionary::CDmElementSerializationDictionary() = default;
 
 
 //-----------------------------------------------------------------------------
@@ -296,9 +284,8 @@ bool CDmElementSerializationDictionary::LessFunc( const ElementInfo_t &lhs, cons
 //-----------------------------------------------------------------------------
 DmElementDictHandle_t CDmElementSerializationDictionary::Find( CDmElement *pElement )
 {
-	ElementInfo_t find;
-	find.m_pElement = pElement;
-	return m_Dict.Find( find );
+	const auto it = m_indices.find( pElement );
+	return it == m_indices.end() ? ELEMENT_DICT_HANDLE_INVALID : it->second;
 }
 
 	
@@ -316,16 +303,14 @@ void CDmElementSerializationDictionary::BuildElementList_R( CDmElement *pElement
 	// This means we've already encountered this guy.
 	// Therefore, he can never be a root element
 	DmElementDictHandle_t h = Find( pElement );
-	if ( h != m_Dict.InvalidIndex() )
+	if ( h != ELEMENT_DICT_HANDLE_INVALID )
 	{
 		m_Dict[h].m_bRoot = true;
 		return;
 	}
 
-	ElementInfo_t info;
-	info.m_bRoot = bFlatMode || bIsRoot;
-	info.m_pElement = pElement;
-	m_Dict.Insert( info );
+	m_indices.emplace( pElement, static_cast<DmElementDictHandle_t>( m_Dict.size() ) );
+	m_Dict.push_back( { bFlatMode || bIsRoot, pElement } );
 
 	// Tell the element we're about to serialize it
 	pElement->OnElementSerialized();
@@ -379,7 +364,7 @@ bool CDmElementSerializationDictionary::ShouldInlineElement( CDmElement *pElemen
 	// This means we've already encountered this guy.
 	// Therefore, he can never be a root element
 	DmElementDictHandle_t h = Find( pElement );
-	if ( h != m_Dict.InvalidIndex() )
+	if ( h != ELEMENT_DICT_HANDLE_INVALID )
 		return !m_Dict[h].m_bRoot;
 
 	// If we didn't find the element, it means it's a reference to an external
@@ -393,7 +378,8 @@ bool CDmElementSerializationDictionary::ShouldInlineElement( CDmElement *pElemen
 //-----------------------------------------------------------------------------
 void CDmElementSerializationDictionary::Clear()
 {
-	m_Dict.RemoveAll();
+	m_Dict.clear();
+	m_indices.clear();
 }
 
 
@@ -403,14 +389,10 @@ void CDmElementSerializationDictionary::Clear()
 int CDmElementSerializationDictionary::RootElementCount() const
 {
 	int nCount = 0;
-	DmElementDictHandle_t h = m_Dict.FirstInorder();
-	while( h != m_Dict.InvalidIndex() )
+	for ( const auto &info : m_Dict )
 	{
-		if ( m_Dict[h].m_bRoot )
-		{
+		if ( info.m_bRoot )
 			++nCount;
-		}
-		h = m_Dict.NextInorder( h );
 	}
 	return nCount;
 }
@@ -421,11 +403,6 @@ int CDmElementSerializationDictionary::RootElementCount() const
 //-----------------------------------------------------------------------------
 DmElementDictHandle_t CDmElementSerializationDictionary::FirstRootElement() const
 {
-	// NOTE - this code only works with BlockMemory or Memory (NOT FixedMemory)
-
-	// NOTE: I don't have to use First/NextInorder here because there
-	// are guaranteed to be no removals from the dictionary.
-	// Also, using inorder traversal won't get my actual root element to be first in the file
 	int nCount = m_Dict.size();
 	for ( DmElementDictHandle_t h = 0; h < nCount; ++h )
 	{
@@ -437,11 +414,6 @@ DmElementDictHandle_t CDmElementSerializationDictionary::FirstRootElement() cons
 
 DmElementDictHandle_t CDmElementSerializationDictionary::NextRootElement( DmElementDictHandle_t h ) const
 {
-	// NOTE - this code only works with BlockMemory or Memory (NOT FixedMemory)
-
-	// NOTE: I don't have to use First/NextInorder here because there
-	// are guaranteed to be no removals from the dictionary.
-	// Also, using inorder traversal won't get my actual root element to be first in the file
 	++h;
 	int nCount = m_Dict.size();
 	for ( ; h < nCount; ++h )
