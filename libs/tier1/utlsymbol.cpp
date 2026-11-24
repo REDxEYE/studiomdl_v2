@@ -11,9 +11,7 @@
 #include "utlsymbol.h"
 
 
-#define INVALID_STRING_INDEX CStringPoolIndex( 0xFFFF, 0xFFFF )
-
-#define MIN_STRING_POOL_SIZE	2048
+#include <cctype>
 
 //-----------------------------------------------------------------------------
 // globals
@@ -95,158 +93,41 @@ bool CUtlSymbol::operator==( const char* pStr ) const
 //-----------------------------------------------------------------------------
 // symbol table stuff
 //-----------------------------------------------------------------------------
-inline const char* CUtlSymbolTable::DecoratedStringFromIndex( const CStringPoolIndex &index ) const
+bool CUtlSymbolTable::Equal::operator()( std::string_view a, std::string_view b ) const
 {
-	Assert( index.m_iPool < m_StringPools.Count() );
-	Assert( index.m_iOffset < m_StringPools[index.m_iPool]->m_TotalLen );
+	if ( !m_insensitive )
+		return a == b;
 
-	// step over the hash decorating the beginning of the string
-	return (&m_StringPools[index.m_iPool]->m_Data[index.m_iOffset]);
-}
+	if ( a.size() != b.size() )
+		return false;
 
-inline const char* CUtlSymbolTable::StringFromIndex( const CStringPoolIndex &index ) const
-{
-	// step over the hash decorating the beginning of the string
-	return DecoratedStringFromIndex(index)+sizeof(hashDecoration_t);
-}
-
-// The first two bytes of each string in the pool are actually the hash for that string.
-// Thus we compare hashes rather than entire strings for a significant perf benefit.
-// However since there is a high rate of hash collision we must still compare strings
-// if the hashes match.
-bool CUtlSymbolTable::CLess::operator()( const CStringPoolIndex &i1, const CStringPoolIndex &i2 ) const
-{
-	// Need to do pointer math because CUtlSymbolTable is used in CUtlVectors, and hence
-	// can be arbitrarily moved in memory on a realloc. Yes, this is portable. In reality,
-	// right now at least, because m_LessFunc is the first member of CUtlRBTree, and m_Lookup
-	// is the first member of CUtlSymbolTabke, this == pTable
-	CUtlSymbolTable *pTable = (CUtlSymbolTable *)( (uint8_t *)this - offsetof(CUtlSymbolTable::CTree, m_LessFunc) ) - offsetof(CUtlSymbolTable, m_Lookup );
-
-#if 1 // using the hashes
-	const char *str1, *str2;
-	hashDecoration_t hash1, hash2;
-
-	if (i1 == INVALID_STRING_INDEX)
+	for ( size_t i = 0; i < a.size(); i++ )
 	{
-		str1 = pTable->m_pUserSearchString;
-		hash1 = pTable->m_nUserSearchStringHash;
+		if ( std::toupper( (unsigned char)a[i] ) != std::toupper( (unsigned char)b[i] ) )
+			return false;
 	}
-	else
-	{
-		str1 = pTable->DecoratedStringFromIndex( i1 );
-		hashDecoration_t storedHash = *reinterpret_cast<const hashDecoration_t *>(str1);
-		str1 += sizeof(hashDecoration_t);
-		AssertMsg2( storedHash == ( !pTable->m_bInsensitive ? HashString(str1) : HashStringCaseless(str1) ),
-			"The stored hash (%d) for symbol %s is not correct.", storedHash, str1 );
-		hash1 = storedHash;
-	}
-
-	if (i2 == INVALID_STRING_INDEX)
-	{
-		str2 = pTable->m_pUserSearchString;
-		hash2 = pTable->m_nUserSearchStringHash;
-	}
-	else
-	{
-		str2 = pTable->DecoratedStringFromIndex( i2 );
-		hashDecoration_t storedHash = *reinterpret_cast<const hashDecoration_t *>(str2);
-		str2 += sizeof(hashDecoration_t);
-		AssertMsg2( storedHash == ( !pTable->m_bInsensitive ? HashString(str2) : HashStringCaseless(str2) ),
-			"The stored hash (%d) for symbol '%s' is not correct.", storedHash, str2 );
-		hash2 = storedHash;
-	}
-
-	// compare the hashes
-	if ( hash1 == hash2 )
-	{
-		if ( !str1 && str2 )
-			return 1;
-		if ( !str2 && str1 )
-			return -1;
-		if ( !str1 && !str2 )
-			return 0;
-		
-		// if the hashes match compare the strings
-		if ( !pTable->m_bInsensitive )
-			return strcmp( str1, str2 ) < 0;
-		else
-			return V_stricmp( str1, str2 ) < 0;
-	}
-	else
-	{
-		return hash1 < hash2;
-	}
-
-#else // not using the hashes, just comparing strings
-	const char* str1 = (i1 == INVALID_STRING_INDEX) ? pTable->m_pUserSearchString :
-		pTable->StringFromIndex( i1 );
-	const char* str2 = (i2 == INVALID_STRING_INDEX) ? pTable->m_pUserSearchString :
-		pTable->StringFromIndex( i2 );
-
-	if ( !str1 && str2 )
-		return 1;
-	if ( !str2 && str1 )
-		return -1;
-	if ( !str1 && !str2 )
-		return 0;
-	if ( !pTable->m_bInsensitive )
-		return strcmp( str1, str2 ) < 0;
-	else
-		return strcmpi( str1, str2 ) < 0;
-#endif
+	return true;
 }
 
 
 //-----------------------------------------------------------------------------
 // constructor, destructor
 //-----------------------------------------------------------------------------
-CUtlSymbolTable::CUtlSymbolTable( int growSize, int initSize, bool caseInsensitive ) : 
-	m_Lookup( growSize, initSize ), m_bInsensitive( caseInsensitive ), m_StringPools( 8 )
+CUtlSymbolTable::CUtlSymbolTable( int /*growSize*/, int initSize, bool caseInsensitive ) :
+	m_lookup( initSize > 0 ? initSize : 0, Hash{ caseInsensitive }, Equal{ caseInsensitive } )
 {
 }
 
-CUtlSymbolTable::~CUtlSymbolTable()
-{
-	// Release the stringpool string data
-	RemoveAll();
-}
+CUtlSymbolTable::~CUtlSymbolTable() = default;
 
 
 CUtlSymbol CUtlSymbolTable::Find( const char* pString ) const
-{	
+{
 	if (!pString)
 		return CUtlSymbol();
-	
-	// Store a special context used to help with insertion
-	m_pUserSearchString = pString;
-	m_nUserSearchStringHash = m_bInsensitive ? HashStringCaseless(pString) : HashString(pString) ;
-	
-	// Passing this special invalid symbol makes the comparison function
-	// use the string passed in the context
-	UtlSymId_t idx = m_Lookup.Find( INVALID_STRING_INDEX );
 
-#ifdef _DEBUG
-	m_pUserSearchString = NULL;
-	m_nUserSearchStringHash = 0;
-#endif
-
-	return CUtlSymbol( idx );
-}
-
-
-int CUtlSymbolTable::FindPoolWithSpace( int len )	const
-{
-	for ( int i=0; i < m_StringPools.size(); i++ )
-	{
-		StringPool_t *pPool = m_StringPools[i];
-
-		if ( (pPool->m_TotalLen - pPool->m_SpaceUsed) >= len )
-		{
-			return i;
-		}
-	}
-
-	return -1;
+	auto it = m_lookup.find( std::string_view( pString ) );
+	return it == m_lookup.end() ? CUtlSymbol() : CUtlSymbol( it->second );
 }
 
 
@@ -259,107 +140,28 @@ CUtlSymbol CUtlSymbolTable::AddString( const char* pString )
 	if (!pString)
 		return CUtlSymbol( UTL_INVAL_SYMBOL );
 
-	CUtlSymbol id = Find( pString );
-	
-	if (id.IsValid())
-		return id;
-
-	int lenString = strlen(pString) + 1; // length of just the string
-	int lenDecorated = lenString + sizeof(hashDecoration_t); // and with its hash decoration
-	// make sure that all strings are aligned on 2-byte boundaries so the hashes will read correctly
-	COMPILE_TIME_ASSERT(sizeof(hashDecoration_t) == 2);
-	lenDecorated = (lenDecorated + 1) & (~0x01); // round up to nearest multiple of 2
-
-	// Find a pool with space for this string, or allocate a new one.
-	int iPool = FindPoolWithSpace( lenDecorated );
-	if ( iPool == -1 )
-	{
-		// Add a new pool.
-		int newPoolSize = MAX( lenDecorated + sizeof( StringPool_t ), MIN_STRING_POOL_SIZE );
-		StringPool_t *pPool = (StringPool_t*)malloc( newPoolSize );
-		pPool->m_TotalLen = newPoolSize - sizeof( StringPool_t );
-		pPool->m_SpaceUsed = 0;
-		iPool = m_StringPools.AddToTail( pPool );
-	}
-
-	// Compute a hash
-	hashDecoration_t hash = m_bInsensitive ? HashStringCaseless(pString) : HashString(pString) ;
-
-	// Copy the string in.
-	StringPool_t *pPool = m_StringPools[iPool];
-	Assert( pPool->m_SpaceUsed < 0xFFFF );	// This should never happen, because if we had a string > 64k, it
-											// would have been given its entire own pool.
-	
-	unsigned short iStringOffset = pPool->m_SpaceUsed;
-	const char *startingAddr = &pPool->m_Data[pPool->m_SpaceUsed];
-
-	// store the hash at the head of the string
-	*((hashDecoration_t *)(startingAddr)) = hash;
-	// and then the string's data
-	memcpy( (void *)(startingAddr + sizeof(hashDecoration_t)), pString, lenString );
-	pPool->m_SpaceUsed += lenDecorated;
-
-	// insert the string into the vector.
-	CStringPoolIndex index;
-	index.m_iPool = iPool;
-	index.m_iOffset = iStringOffset;
-
-	UtlSymId_t idx = m_Lookup.Insert( index );
-	return CUtlSymbol( idx );
+	return AddStringView( pString );
 }
 
 CUtlSymbol CUtlSymbolTable::AddString(std::string_view string) {
-    if (string.empty())
-        return CUtlSymbol( UTL_INVAL_SYMBOL );
+	if (string.empty())
+		return CUtlSymbol( UTL_INVAL_SYMBOL );
 
-    std::string tmp = std::string{string};
-    CUtlSymbol id = Find( tmp.c_str() );
+	return AddStringView( string );
+}
 
-    if (id.IsValid())
-        return id;
+CUtlSymbol CUtlSymbolTable::AddStringView( std::string_view string )
+{
+	auto it = m_lookup.find( string );
+	if ( it != m_lookup.end() )
+		return CUtlSymbol( it->second );
 
-    int lenString = string.size() + 1; // length of just the string
-    int lenDecorated = lenString + sizeof(hashDecoration_t); // and with its hash decoration
-    // make sure that all strings are aligned on 2-byte boundaries so the hashes will read correctly
-    COMPILE_TIME_ASSERT(sizeof(hashDecoration_t) == 2);
-    lenDecorated = (lenDecorated + 1) & (~0x01); // round up to nearest multiple of 2
-
-    // Find a pool with space for this string, or allocate a new one.
-    int iPool = FindPoolWithSpace( lenDecorated );
-    if ( iPool == -1 )
-    {
-        // Add a new pool.
-        int newPoolSize = MAX( lenDecorated + sizeof( StringPool_t ), MIN_STRING_POOL_SIZE );
-        StringPool_t *pPool = (StringPool_t*)malloc( newPoolSize );
-        pPool->m_TotalLen = newPoolSize - sizeof( StringPool_t );
-        pPool->m_SpaceUsed = 0;
-        iPool = m_StringPools.AddToTail( pPool );
-    }
-
-    // Compute a hash
-    hashDecoration_t hash = m_bInsensitive ? HashStringCaseless(string) : HashString(string) ;
-
-    // Copy the string in.
-    StringPool_t *pPool = m_StringPools[iPool];
-    Assert( pPool->m_SpaceUsed < 0xFFFF );	// This should never happen, because if we had a string > 64k, it
-    // would have been given its entire own pool.
-
-    unsigned short iStringOffset = pPool->m_SpaceUsed;
-    const char *startingAddr = &pPool->m_Data[pPool->m_SpaceUsed];
-
-    // store the hash at the head of the string
-    *((hashDecoration_t *)(startingAddr)) = hash;
-    // and then the string's data
-    memcpy( (void *)(startingAddr + sizeof(hashDecoration_t)), string.data(), lenString );
-    pPool->m_SpaceUsed += lenDecorated;
-
-    // insert the string into the vector.
-    CStringPoolIndex index;
-    index.m_iPool = iPool;
-    index.m_iOffset = iStringOffset;
-
-    UtlSymId_t idx = m_Lookup.Insert( index );
-    return CUtlSymbol( idx );
+	if ( m_strings.size() == UTL_INVAL_SYMBOL )
+		return CUtlSymbol();
+	const auto id = static_cast<UtlSymId_t>( m_strings.size() );
+	const std::string& stored = m_strings.emplace_back( string );
+	m_lookup.emplace( std::string_view( stored ), id );
+	return CUtlSymbol( id );
 }
 
 
@@ -372,8 +174,8 @@ const char* CUtlSymbolTable::String( CUtlSymbol id ) const
 	if (!id.IsValid()) 
 		return "";
 	
-	Assert( m_Lookup.IsValidIndex((UtlSymId_t)id) );
-	return StringFromIndex( m_Lookup[id] );
+	Assert( (size_t)(UtlSymId_t)id < m_strings.size() );
+	return m_strings[id].c_str();
 }
 
 
@@ -383,12 +185,8 @@ const char* CUtlSymbolTable::String( CUtlSymbol id ) const
 
 void CUtlSymbolTable::RemoveAll()
 {
-	m_Lookup.Purge();
-	
-	for ( int i=0; i < m_StringPools.size(); i++ )
-		free( m_StringPools[i] );
-
-	m_StringPools.RemoveAll();
+	m_lookup.clear();
+	m_strings.clear();
 }
 
 

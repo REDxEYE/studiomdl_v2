@@ -12,8 +12,12 @@
 
 #include "tier0/platform.h"
 
-#include "tier1/utlrbtree.h"
-#include "tier1/utlvector.h"
+#include <deque>
+#include <string>
+#include <string_view>
+#include <unordered_map>
+
+#include "tier1/generichash.h"
 #include "tier1/utlbuffer.h"
 #include "tier1/stringpool.h"
 
@@ -84,9 +88,8 @@ protected:
 //    a static version of this class for creating global strings, but this
 //    class can also be instanced to create local symbol tables.
 // 
-//    This class stores the strings in a series of string pools. The first
-//    two bytes of each string are decorated with a hash to speed up
-//	  comparisons.
+//    Strings live in a std::deque (stable addresses) and are looked up through a
+//    hash map keyed by string_view, so Find() never allocates.
 //-----------------------------------------------------------------------------
 
 class CUtlSymbolTable
@@ -116,74 +119,35 @@ public:
 
 	int GetNumStrings( void ) const
 	{
-		return m_Lookup.size();
+		return static_cast<int>( m_strings.size() );
 	}
 
-	// We store one of these at the beginning of every string to speed
-	// up comparisons.
-	typedef unsigned short hashDecoration_t; 
-
-protected:
-	class CStringPoolIndex
-	{
-	public:
-		inline CStringPoolIndex()
-		{
-		}
-
-		inline CStringPoolIndex( unsigned short iPool, unsigned short iOffset )
-			: 	m_iPool(iPool), m_iOffset(iOffset)
-		{}
-
-		inline bool operator==( const CStringPoolIndex &other )	const
-		{
-			return m_iPool == other.m_iPool && m_iOffset == other.m_iOffset;
-		}
-
-		unsigned short m_iPool;		// Index into m_StringPools.
-		unsigned short m_iOffset;	// Index into the string pool.
-	};
-
-	class CLess
-	{
-	public:
-		CLess( int ignored = 0 ) {} // permits default initialization to NULL in CUtlRBTree
-		bool operator!() const { return false; }
-		bool operator()( const CStringPoolIndex &left, const CStringPoolIndex &right ) const;
-	};
-
-	// Stores the symbol lookup
-	class CTree : public CUtlRBTree<CStringPoolIndex, unsigned short, CLess>
-	{
-	public:
-		CTree(  int growSize, int initSize ) : CUtlRBTree<CStringPoolIndex, unsigned short, CLess>( growSize, initSize ) {}
-		friend class CUtlSymbolTable::CLess; // Needed to allow CLess to calculate pointer to symbol table
-	};
-
-	struct StringPool_t
-	{	
-		int m_TotalLen;		// How large is 
-		int m_SpaceUsed;
-		char m_Data[1];
-	};
-
-	CTree m_Lookup;
-
-	bool m_bInsensitive;
-	mutable unsigned short m_nUserSearchStringHash;
-	mutable const char* m_pUserSearchString;
-
-	// stores the string data
-	CUtlVector<StringPool_t*> m_StringPools;
-
 private:
-	int FindPoolWithSpace( int len ) const;
-	const char* StringFromIndex( const CStringPoolIndex &index ) const;
-	const char* DecoratedStringFromIndex( const CStringPoolIndex &index ) const;
+	// Shared by both AddString overloads; the caller has already rejected "no string".
+	CUtlSymbol AddStringView( std::string_view string );
 
-	friend class CLess;
-	friend class CSymbolHash;
+	struct Hash
+	{
+		bool m_insensitive;
+		size_t operator()( std::string_view s ) const
+		{
+			return m_insensitive ? HashStringCaseless( s ) : HashString( s );
+		}
+	};
 
+	struct Equal
+	{
+		bool m_insensitive;
+		bool operator()( std::string_view a, std::string_view b ) const;
+	};
+
+	CUtlSymbolTable( const CUtlSymbolTable& ) = delete;
+	CUtlSymbolTable& operator=( const CUtlSymbolTable& ) = delete;
+
+	// Symbol id == index. A deque never relocates elements, so c_str() pointers (and the
+	// string_view keys of m_lookup that alias them) stay valid until RemoveAll().
+	std::deque<std::string> m_strings;
+	std::unordered_map<std::string_view, UtlSymId_t, Hash, Equal> m_lookup;
 };
 
 //-----------------------------------------------------------------------------
