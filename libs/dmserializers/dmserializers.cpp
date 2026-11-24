@@ -22,6 +22,7 @@
 
 #include <map>
 #include <string>
+#include <vector>
 
 //-----------------------------------------------------------------------------
 // format updater macros
@@ -87,7 +88,7 @@ CDmElement* FindChannelsClipForChannel(CDmElement* pFilmClip, CDmElement* pChann
         CDmAttribute* pAttribute = g_pDataModel->GetAttribute(i);
         CDmElement* pParent = pAttribute->GetOwner();
         if (pParent && pParent->GetType() == channelsClipSym && pAttribute->GetNameSymbol() == channelsSym) {
-            CUtlVector<ElementPathItem_t> path;
+            std::vector<ElementPathItem_t> path;
             if (pParent->FindReferer(pFilmClip->GetHandle(), path, TD_ALL))
                 // NOTE - with non-typed elements, TD_SHALLOW == TD_NONE and TD_DEEP == TD_ALL
                 return pParent;

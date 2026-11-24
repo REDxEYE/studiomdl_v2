@@ -12,8 +12,7 @@
 #include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
-#include "tier1/utlrbtree.h"
-#include "tier1/utlvector.h"
+#include <vector>
 #include "tier1/utlsymbol.h"
 #include "tier1/mempool.h"
 #include "datamodel/idatamodel.h"
@@ -318,7 +317,7 @@ public:
     void SetOnlyInUndo(bool bOnlyInUndo);
 
     bool
-    FindReferer(DmElementHandle_t hElement, CUtlVector<ElementPathItem_t> &elementPath, TraversalDepth_t depth) const;
+    FindReferer(DmElementHandle_t hElement, std::vector<ElementPathItem_t> &elementPath, TraversalDepth_t depth) const;
 
     bool IsStronglyReferenced() { return m_ref.IsStronglyReferenced(); }
 
@@ -898,11 +897,9 @@ T *FindAncestorReferencingElement(const CDmElement *target) {
 }
 
 template<class T>
-T *FindAncestorReferencingElement_R_Impl(CUtlRBTree<CDmElement *> &visited, CDmElement *check) {
-    if (visited.Find(check) != visited.InvalidIndex())
+T *FindAncestorReferencingElement_R_Impl(std::unordered_set<CDmElement *> &visited, CDmElement *check) {
+    if (!visited.insert(check).second)
         return nullptr;
-
-    visited.Insert(check);
 
     // Pass one, see if it's in this ancestor list
     for (CAttributeReferenceIterator it(check); it; ++it) {
@@ -925,24 +922,22 @@ T *FindAncestorReferencingElement_R(CDmElement *target) {
     if (!target)
         return nullptr;
 
-    CUtlRBTree<CDmElement *> visited(0, 0, DefLessFunc(CDmElement *));
+    std::unordered_set<CDmElement *> visited;
     return FindAncestorReferencingElement_R_Impl<T>(visited, target);
 }
 
 // finds elements of type T that indirectly reference pElement
 template<class T>
-void FindAncestorsOfElement_Impl(CUtlRBTree<CDmElement *> &visited, CDmElement *pElement, CUtlVector<T *> &ancestors,
+void FindAncestorsOfElement_Impl(std::unordered_set<CDmElement *> &visited, CDmElement *pElement, std::vector<T *> &ancestors,
                                  bool bRecursePastFoundAncestors) {
     // Pass one, see if it's in this ancestor list
     for (CAttributeReferenceIterator it(pElement); it; ++it) {
         if (CDmElement *pParent = it.GetOwner()) {
-            if (visited.Find(pParent) != visited.InvalidIndex())
+            if (!visited.insert(pParent).second)
                 continue;
 
-            visited.Insert(pParent);
-
             if (T *pT = CastElement<T>(pParent)) {
-                ancestors.AddToTail(pT);
+                ancestors.push_back(pT);
                 if (!bRecursePastFoundAncestors)
                     continue;
             }
@@ -953,11 +948,11 @@ void FindAncestorsOfElement_Impl(CUtlRBTree<CDmElement *> &visited, CDmElement *
 
 // finds elements of type T that indirectly reference pElement
 template<class T>
-void FindAncestorsOfElement(CDmElement *pElement, CUtlVector<T *> &ancestors, bool bRecursePastFoundAncestors) {
+void FindAncestorsOfElement(CDmElement *pElement, std::vector<T *> &ancestors, bool bRecursePastFoundAncestors) {
     if (!pElement)
         return;
 
-    CUtlRBTree<CDmElement *> visited(0, 0, DefLessFunc(CDmElement *));
+    std::unordered_set<CDmElement *> visited;
     FindAncestorsOfElement_Impl<T>(visited, pElement, ancestors, bRecursePastFoundAncestors);
 }
 
@@ -978,11 +973,11 @@ public:
 
     void Reset(CDmElement *pRoot, const char *pAttrName);
 
-    bool IsValid() { return m_state.size() > 0; }
+    bool IsValid() { return !m_state.empty(); }
 
     CDmElement *Next(bool bSkipChildren = false);
 
-    int CurrentDepth() { return m_state.size() - 1; }
+    int CurrentDepth() { return static_cast<int>(m_state.size()) - 1; }
 
     CDmElement *GetElement();
 
@@ -994,7 +989,7 @@ private:
         int nIndex; // -2: not yet visited, -1: visiting self, 0+: visiting children
     };
 
-    CUtlVector<State_t> m_state;
+    std::vector<State_t> m_state;
     const char *m_pAttrName;
 };
 
@@ -1007,7 +1002,7 @@ private:
 
 template<class T>
 struct ElementArrayNameAccessor {
-    ElementArrayNameAccessor(const CUtlVector<T> &array) : m_array(array) {}
+    ElementArrayNameAccessor(const std::vector<T> &array) : m_array(array) {}
 
     int Count() const {
         return m_array.size();
@@ -1019,12 +1014,12 @@ struct ElementArrayNameAccessor {
     }
 
 private:
-    const CUtlVector<T> &m_array;
+    const std::vector<T> &m_array;
 };
 
 template<class E>
 struct ElementArrayNameAccessor<E *> {
-    ElementArrayNameAccessor(const CUtlVector<E *> &array) : m_array(array) {}
+    ElementArrayNameAccessor(const std::vector<E *> &array) : m_array(array) {}
 
     int Count() const {
         return m_array.size();
@@ -1036,7 +1031,7 @@ struct ElementArrayNameAccessor<E *> {
     }
 
 private:
-    const CUtlVector<E *> &m_array;
+    const std::vector<E *> &m_array;
 };
 
 
@@ -1063,14 +1058,15 @@ int DmeEstimateMemorySize(T *pElement) {
 }
 
 //-----------------------------------------------------------------------------
-// copy groups of elements together so that references between them are maintained
+// Append copies to the destination and remap references within the copied group.
 //-----------------------------------------------------------------------------
 template<class T>
-void CopyElements(const CUtlVector<T *> &from, CUtlVector<T *> &to, TraversalDepth_t depth) {
+void CopyElements(const std::vector<T *> &from, std::vector<T *> &to, TraversalDepth_t depth) {
     std::unordered_map<DmElementHandle_t, DmElementHandle_t> refmap;
 
-    int c = from.size();
-    for (int i = 0; i < c; ++i) {
+    const auto count = from.size();
+    const auto firstCopy = to.size();
+    for (size_t i = 0; i < count; ++i) {
         T *pCopy = nullptr;
 
         if (CDmElement *pFrom = from[i]) {
@@ -1086,18 +1082,15 @@ void CopyElements(const CUtlVector<T *> &from, CUtlVector<T *> &to, TraversalDep
             }
         }
 
-        to.AddToTail(pCopy);
+        to.push_back(pCopy);
     }
 
     std::unordered_set<DmElementHandle_t> visited;
     visited.reserve(refmap.size());
 
-    for (int i = 0; i < c; ++i) {
-        CDmElement *pTo = to[i];
-        if (!pTo)
-            continue;
-
-        to[i]->FixupReferences(visited, refmap, depth);
+    for (size_t i = firstCopy; i < to.size(); ++i) {
+        if (CDmElement *copy = to[i])
+            copy->FixupReferences(visited, refmap, depth);
     }
 }
 

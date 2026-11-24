@@ -15,6 +15,8 @@
 #include "datamodel/dmattributevar.h"
 #include "DmElementFramework.h"
 
+#include <algorithm>
+
 
 //-----------------------------------------------------------------------------
 // helper class to allow CDmeHandle access to g_pDataModelImp
@@ -367,7 +369,7 @@ void CDmElement::SetOnlyInUndo( bool bOnlyInUndo )
 // returns the first path to the element found traversing all element/element array attributes - not necessarily the shortest
 //-----------------------------------------------------------------------------
 
-bool CDmElement::FindReferer( DmElementHandle_t hElement, CUtlVector< ElementPathItem_t > &elementPath, TraversalDepth_t depth /* = TD_SHALLOW */ ) const
+bool CDmElement::FindReferer( DmElementHandle_t hElement, std::vector< ElementPathItem_t > &elementPath, TraversalDepth_t depth /* = TD_SHALLOW */ ) const
 {
 	DmElementHandle_t hThis = GetHandle();
 
@@ -382,19 +384,16 @@ bool CDmElement::FindReferer( DmElementHandle_t hElement, CUtlVector< ElementPat
 			continue;
 
 		DmElementHandle_t hOwner = pAttr->GetOwner()->GetHandle();
-		if ( elementPath.Find( ElementPathItem_t( hOwner ) ) != elementPath.InvalidIndex() )
+		if ( std::ranges::find( elementPath, ElementPathItem_t( hOwner ) ) != elementPath.end() )
 			return false;
 
-		int i = elementPath.AddToTail();
-		ElementPathItem_t &item = elementPath[ i ];
-		item.hElement = hOwner;
-		item.hAttribute = pAttr->GetHandle();
-		item.nIndex = -1;
+		int index = -1;
 		if ( pAttr->GetType() == AT_ELEMENT_ARRAY )
 		{
 			CDmrElementArray<> array( pAttr );
-			item.nIndex = array.Find( hThis );
+			index = array.Find( hThis );
 		}
+		elementPath.emplace_back( hOwner, pAttr->GetHandle(), index );
 
 		if ( hOwner == hElement )
 			return true;
@@ -403,7 +402,7 @@ bool CDmElement::FindReferer( DmElementHandle_t hElement, CUtlVector< ElementPat
 		if ( pOwner->FindReferer( hElement, elementPath, depth ) )
 			return true;
 
-		elementPath.Remove( i );
+		elementPath.pop_back();
 	}
 
 	return false;
@@ -1018,8 +1017,8 @@ CElementTreeTraversal::CElementTreeTraversal( CDmElement *pRoot, const char *pAt
 
 void CElementTreeTraversal::Reset( CDmElement *pRoot, const char *pAttrName )
 {
-	m_state.RemoveAll();
-	m_state.AddToTail( State_t( pRoot, NOT_VISITED ) );
+	m_state.clear();
+	m_state.emplace_back( pRoot, NOT_VISITED );
 	m_pAttrName = pAttrName;
 }
 
@@ -1031,14 +1030,14 @@ CDmElement *CElementTreeTraversal::Next( bool bSkipChildren /*= false*/ )
 		return m_state[ 0 ].pElement;
 	}
 
-	if ( bSkipChildren )
+	if ( bSkipChildren && !m_state.empty() )
 	{
-		m_state.Remove( m_state.size() - 1 );
+		m_state.pop_back();
 	}
 
-	while ( int nCount = m_state.size() )
+	while ( !m_state.empty() )
 	{
-		State_t &state = m_state[ nCount - 1 ];
+		State_t &state = m_state.back();
 		Assert( state.pElement );
 		if ( !state.pElement )
 			return nullptr;
@@ -1051,13 +1050,13 @@ CDmElement *CElementTreeTraversal::Next( bool bSkipChildren /*= false*/ )
 			{
 				if ( CDmElement *pElement = children[ state.nIndex ] )
 				{
-					m_state.AddToTail( State_t( pElement, VISITING ) );
+					m_state.emplace_back( pElement, VISITING );
 					return pElement;
 				}
 			}
 		}
 
-		m_state.Remove( nCount - 1 );
+		m_state.pop_back();
 	}
 
 	return nullptr;
@@ -1065,11 +1064,10 @@ CDmElement *CElementTreeTraversal::Next( bool bSkipChildren /*= false*/ )
 
 CDmElement *CElementTreeTraversal::GetElement()
 {
-	int nCount = m_state.size();
-	if ( nCount < 1 )
+	if ( m_state.empty() )
 		return nullptr;
 
-	State_t &state = m_state[ nCount - 1 ];
+	const State_t &state = m_state.back();
 	Assert( state.nIndex == NOT_VISITED || state.nIndex == VISITING );
 	return state.nIndex == NOT_VISITED ? nullptr : state.pElement;
 }
