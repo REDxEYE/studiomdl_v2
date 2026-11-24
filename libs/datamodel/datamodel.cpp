@@ -44,9 +44,8 @@ IDataModel *g_pDataModel = &g_DataModel;
 //-----------------------------------------------------------------------------
 // Constructor, destructor
 //-----------------------------------------------------------------------------
-CDataModel::CDataModel() :
-        m_elementIds(4096),
-        m_unloadedIdElementMap(16, 0, 0, ElementIdHandlePair_t::Compare, ElementIdHandlePair_t::HashKey) {
+CDataModel::CDataModel() {
+    m_elementIds.reserve(4096);
     m_bOnlyCreateUntypedElements = false;
     m_bUnableToCreateOnlyUntypedElements = false;
     m_pKeyvaluesCallbackInterface = nullptr;
@@ -131,8 +130,8 @@ void CDataModel::Shutdown() {
     }
     // No stale slots: file ids are handed out as in a new process (the file table is walked by NumFileIds/GetFileId)
     m_openFiles.Purge();
-    m_elementIds.RemoveAll();
-    m_unloadedIdElementMap.RemoveAll();
+    m_elementIds.clear();
+    m_unloadedIdElementMap.clear();
 
     m_ElementTypes.clear();
     m_UnknownElementTypeName = {};
@@ -1373,16 +1372,16 @@ void CDataModel::AddElementToFile(DmElementHandle_t hElement, DmFileId_t fileid)
 
 // search id->handle table (both loaded and unloaded) for id, and if not found, create a new handle, map it to the id and return it
 DmElementHandle_t CDataModel::FindOrCreateElementHandle(const DmObjectId_t &id) {
-    UtlHashHandle_t h = m_elementIds.Find(id);
-    if (h != m_elementIds.InvalidHandle())
-        return m_elementIds[h];
+    auto it = m_elementIds.find(id);
+    if (it != m_elementIds.end())
+        return it->second;
 
-    h = m_unloadedIdElementMap.Find(ElementIdHandlePair_t(id)); // TODO - consider optimizing find to take just an id
-    if (h != m_unloadedIdElementMap.InvalidHandle())
-        return m_unloadedIdElementMap[h].m_ref.m_hElement;
+    auto unloadedIt = m_unloadedIdElementMap.find(id);
+    if (unloadedIt != m_unloadedIdElementMap.end())
+        return unloadedIt->second.m_hElement;
 
     DmElementHandle_t hElement = AcquireElementHandle();
-    m_unloadedIdElementMap.Insert(ElementIdHandlePair_t(id, DmElementReference_t(hElement)));
+    m_unloadedIdElementMap.emplace(id, DmElementReference_t(hElement));
     MarkHandleInvalid(hElement);
     return hElement;
 }
@@ -1390,12 +1389,12 @@ DmElementHandle_t CDataModel::FindOrCreateElementHandle(const DmObjectId_t &id) 
 // changes an element's id and associated mappings - generally during unserialization
 DmElementHandle_t
 CDataModel::ChangeElementId(DmElementHandle_t hElement, const DmObjectId_t &oldId, const DmObjectId_t &newId) {
-    UtlHashHandle_t oldHash = m_elementIds.Find(oldId);
-    Assert(oldHash != m_elementIds.InvalidHandle());
-    if (oldHash == m_elementIds.InvalidHandle())
+    auto oldIt = m_elementIds.find(oldId);
+    Assert(oldIt != m_elementIds.end());
+    if (oldIt == m_elementIds.end())
         return hElement;
 
-    Assert(m_elementIds[oldHash] == hElement);
+    Assert(oldIt->second == hElement);
 
     // can't change an element's id once it has attributes or handles linked to it
     CDmElement *pElement = GetElement(hElement);
@@ -1405,27 +1404,26 @@ CDataModel::ChangeElementId(DmElementHandle_t hElement, const DmObjectId_t &oldI
 
     Assert(!pElement->GetReference()->IsWeaklyReferenced());
 
-    UtlHashHandle_t newHash = m_elementIds.Find(newId);
-    if (newHash != m_elementIds.InvalidHandle())
+    if (m_elementIds.find(newId) != m_elementIds.end())
         return DMELEMENT_HANDLE_INVALID; // can't change an element's id to the id of an existing element
 
     // remove old element entry
-    m_elementIds.Remove(oldHash);
+    m_elementIds.erase(oldIt);
 
     // change the element id
     pElement->SetId(newId);
 
-    newHash = m_unloadedIdElementMap.Find(ElementIdHandlePair_t(newId));
-    if (newHash == m_unloadedIdElementMap.InvalidHandle()) {
+    auto newIt = m_unloadedIdElementMap.find(newId);
+    if (newIt == m_unloadedIdElementMap.end()) {
         // the newId has never been seen before - keep the element handle the same and rehash into the id->handle map
-        m_elementIds.Insert(hElement);
+        m_elementIds.emplace(newId, hElement);
         return hElement;
     }
 
     // else, the newId is being referenced by some other element
     // change element to use newId and the associated handle from an element reference
 
-    DmElementReference_t &newRef = m_unloadedIdElementMap[newHash].m_ref;
+    DmElementReference_t &newRef = newIt->second;
     DmElementHandle_t newHandle = newRef.m_hElement;
     Assert(newHandle != hElement); // no two ids should have the same handle
     Assert(!m_Handles.IsHandleValid(newHandle)); // unloaded elements shouldn't have valid handles
@@ -1436,13 +1434,13 @@ CDataModel::ChangeElementId(DmElementHandle_t hElement, const DmObjectId_t &oldI
     ReleaseElementHandle(hElement);
 
     // move new element entry from the unloaded map to the loaded map
-    m_elementIds.Insert(newHandle);
-    m_unloadedIdElementMap.Remove(newHash);
+    m_elementIds.emplace(newId, newHandle);
+    m_unloadedIdElementMap.erase(newIt);
 
     return newHandle;
 }
 
-DmElementReference_t *CDataModel::FindElementReference(DmElementHandle_t hElement, DmObjectId_t **ppId /* = NULL */ ) {
+DmElementReference_t *CDataModel::FindElementReference(DmElementHandle_t hElement, const DmObjectId_t **ppId /* = NULL */ ) {
     if (ppId) {
         *ppId = nullptr;
     }
@@ -1451,12 +1449,10 @@ DmElementReference_t *CDataModel::FindElementReference(DmElementHandle_t hElemen
     if (pElement)
         return pElement->GetReference();
 
-    for (UtlHashHandle_t h = m_unloadedIdElementMap.GetFirstHandle();
-         h != m_unloadedIdElementMap.InvalidHandle(); h = m_unloadedIdElementMap.GetNextHandle(h)) {
-        DmElementReference_t &ref = m_unloadedIdElementMap[h].m_ref;
+    for (auto &[id, ref]: m_unloadedIdElementMap) {
         if (ref.m_hElement == hElement) {
             if (ppId) {
-                *ppId = &m_unloadedIdElementMap[h].m_id;
+                *ppId = &id;
             }
             return &ref;
         }
@@ -1801,16 +1797,13 @@ void CDataModel::FindAndDeleteOrphanedElements() {
 
 
 DmElementHandle_t CDataModel::FindElement(const DmObjectId_t &id) {
-    UtlHashHandle_t h = m_elementIds.Find(id);
-    if (h == m_elementIds.InvalidHandle())
-        return DMELEMENT_HANDLE_INVALID;
-
-    return m_elementIds[h];
+    auto it = m_elementIds.find(id);
+    return it == m_elementIds.end() ? DMELEMENT_HANDLE_INVALID : it->second;
 }
 
-void CDataModel::GetExistingElements(CElementIdHash &hash) const {
+void CDataModel::GetExistingElements(DmElementIdMap_t &elements) const {
     DMX_PROFILE_SCOPE(GetExistingElements_Copy);
-    hash = m_elementIds;
+    elements = m_elementIds;
 }
 
 
@@ -1890,15 +1883,14 @@ DmElementHandle_t CDataModel::CreateElement(const std::string_view typeName, con
                                             const DmObjectId_t *pObjectID) {
     DMX_PROFILE_SCOPE(CDataModel_CreateElement1);
 
-    Assert(!pObjectID || m_elementIds.Find(*pObjectID) == m_elementIds.InvalidHandle());
+    Assert(!pObjectID || m_elementIds.find(*pObjectID) == m_elementIds.end());
 
-    UtlHashHandle_t h = pObjectID ? m_unloadedIdElementMap.Find(ElementIdHandlePair_t(*pObjectID))
-                                  : m_unloadedIdElementMap.InvalidHandle();
-    if (h != m_unloadedIdElementMap.InvalidHandle()) {
-        CDmElement *pElement = CreateElement(m_unloadedIdElementMap[h].m_ref, typeName, elementName, fileid,
+    auto unloadedIt = pObjectID ? m_unloadedIdElementMap.find(*pObjectID) : m_unloadedIdElementMap.end();
+    if (unloadedIt != m_unloadedIdElementMap.end()) {
+        CDmElement *pElement = CreateElement(unloadedIt->second, typeName, elementName, fileid,
                                              pObjectID);
         if (pElement) {
-            m_unloadedIdElementMap.Remove(h);
+            m_unloadedIdElementMap.erase(unloadedIt);
             return pElement->GetHandle();
         }
     } else {
@@ -1962,7 +1954,7 @@ CDataModel::CreateElement(const DmElementReference_t &ref, const std::string_vie
 
         pElement->SetReference(ref);
         m_Handles.SetHandle(ref.m_hElement, pElement);
-        m_elementIds.Insert(ref.m_hElement);
+        m_elementIds.emplace(*pObjectID, ref.m_hElement);
 
         pElement->PerformConstruction();
         pElement->EnableOnChangedCallbacks();
@@ -2016,16 +2008,16 @@ void CDataModel::DeleteElement(DmElementHandle_t hElement, DmHandleReleasePolicy
     if (pElement == nullptr)
         return;
 
-    UtlHashHandle_t h = m_elementIds.Find(pElement->GetId());
-    Assert(h != m_elementIds.InvalidHandle());
-    if (h != m_elementIds.InvalidHandle()) {
-        m_elementIds.Remove(h);
+    auto idIt = m_elementIds.find(pElement->GetId());
+    Assert(idIt != m_elementIds.end());
+    if (idIt != m_elementIds.end()) {
+        m_elementIds.erase(idIt);
     }
 
     DmElementReference_t *pRef = pElement->GetReference();
     bool bReleaseHandle = hrp == HR_ALWAYS || (hrp == HR_IF_NOT_REFERENCED && !pRef->IsWeaklyReferenced());
     if (!bReleaseHandle) {
-        m_unloadedIdElementMap.Insert(ElementIdHandlePair_t(GetElementId(hElement), *pRef));
+        m_unloadedIdElementMap.emplace(GetElementId(hElement), *pRef);
     }
 
     pElement->PerformDestruction();

@@ -434,13 +434,8 @@ void CDmElement::CopyAttributesTo( CDmElement *pCopy, TraversalDepth_t depth ) c
 	CRefMap refmap;
 	CopyAttributesTo( pCopy, refmap, depth );
 
-	CUtlHashFast< DmElementHandle_t > visited;
-	uint32_t nPow2Size = 1;
-	while( nPow2Size < refmap.size() )
-	{
-		nPow2Size <<= 1;
-	}
-	visited.Init( nPow2Size );
+	std::unordered_set< DmElementHandle_t > visited;
+	visited.reserve( refmap.size() );
 	pCopy->FixupReferences( visited, refmap, depth );
 }
 
@@ -604,12 +599,10 @@ void CDmElement::CopyAttributesTo( CDmElement *pCopy, CRefMap &refmap, Traversal
 //	but the targets parent might decide to copy it, (later on in the travesal)
 //	so the channel needs to change to refer to the copy
 //-----------------------------------------------------------------------------
-void CDmElement::FixupReferences( CUtlHashFast< DmElementHandle_t > &visited, const CRefMap &refmap, TraversalDepth_t depth )
+void CDmElement::FixupReferences( std::unordered_set< DmElementHandle_t > &visited, const CRefMap &refmap, TraversalDepth_t depth )
 {
-	if ( visited.Find( GetHandle() ) != visited.InvalidHandle() )
+	if ( !visited.insert( GetHandle() ).second )
 		return;
-
-	visited.Insert( GetHandle(), DMELEMENT_HANDLE_INVALID ); // ignore data arguement - we're just using it as a set
 
 	// loop attrs, copying - element (and element array) attrs can be marked to always copy deep(er)
 	for ( CDmAttribute *pAttr = FirstAttribute(); pAttr != nullptr; pAttr = pAttr->NextAttribute() )
@@ -693,8 +686,8 @@ void CDmElement::SetFileId( DmFileId_t fileid, TraversalDepth_t depth, bool bOnl
 {
 	if ( depth != TD_NONE )
 	{
-		CUtlHashFast< DmElementHandle_t > visited;
-		visited.Init( 4096 ); // this will make visited behave reasonably (perf-wise) for trees w/ around 4k elements in them
+		std::unordered_set< DmElementHandle_t > visited;
+		visited.reserve( 4096 ); // reasonable perf for trees w/ around 4k elements in them
 		SetFileId_R( visited, fileid, depth, GetFileId(), bOnlyIfMatch );
 	}
 	else
@@ -703,15 +696,13 @@ void CDmElement::SetFileId( DmFileId_t fileid, TraversalDepth_t depth, bool bOnl
 	}
 }
 
-void CDmElement::SetFileId_R( CUtlHashFast< DmElementHandle_t > &visited, DmFileId_t fileid, TraversalDepth_t depth, DmFileId_t match, bool bOnlyIfMatch )
+void CDmElement::SetFileId_R( std::unordered_set< DmElementHandle_t > &visited, DmFileId_t fileid, TraversalDepth_t depth, DmFileId_t match, bool bOnlyIfMatch )
 {
 	if ( bOnlyIfMatch && match != GetFileId() )
 		return;
 
-	if ( visited.Find( GetHandle() ) != visited.InvalidHandle() )
+	if ( !visited.insert( GetHandle() ).second )
 		return;
-
-	visited.Insert( GetHandle(), DMELEMENT_HANDLE_INVALID ); // ignore data arguement - we're just using it as a set
 
 	SetFileId( fileid );
 

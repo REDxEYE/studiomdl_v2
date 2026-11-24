@@ -160,7 +160,7 @@ void CDmSerializerBinary::SerializeElementIndex(CUtlBuffer &buf, CDmElementSeria
             }
         }
         else {
-            DmObjectId_t *pId = nullptr;
+            const DmObjectId_t *pId = nullptr;
             DmElementReference_t *pRef = g_pDataModelImp->FindElementReference(hElement, &pId);
             if (pRef && pId) {
                 buf.PutInt(ELEMENT_INDEX_EXTERNAL);
@@ -644,12 +644,11 @@ bool CDmSerializerBinary::UnserializeElements(CUtlBuffer &buf, DmFileId_t fileid
     if (!nElementCount)
         return true;
 
-    CElementIdHash hashExistingElements;
+    DmElementIdMap_t existingElements;
     if (CR_FORCE_COPY != idConflictResolution) {
         DMX_PROFILE_SCOPE(UnserializeElements_GetExistingElements);
-        g_pDataModel->GetExistingElements(hashExistingElements);
+        g_pDataModel->GetExistingElements(existingElements);
     }
-    const UtlHashHandle_t hashInvalidHandle = CElementIdHash::InvalidHandle();
 
     // Read + create all elements
     char nameBuf[2048];
@@ -695,10 +694,10 @@ bool CDmSerializerBinary::UnserializeElements(CUtlBuffer &buf, DmFileId_t fileid
         else {
             DMX_PROFILE_SCOPE(UnserializeElements_ConflictCheck);
 
-            UtlHashHandle_t search = hashExistingElements.Find(id);
-            DmElementHandle_t hExistingElement = (search == hashInvalidHandle
-                                                      ? DMELEMENT_HANDLE_INVALID
-                                                      : hashExistingElements[search]);
+            auto existing = existingElements.find(id);
+            DmElementHandle_t hExistingElement = existing == existingElements.end()
+                                                     ? DMELEMENT_HANDLE_INVALID
+                                                     : existing->second;
             if (hExistingElement != DMELEMENT_HANDLE_INVALID) {
                 // id is already in use - need to resolve conflict
 

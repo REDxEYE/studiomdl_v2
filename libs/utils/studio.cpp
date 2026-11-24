@@ -824,21 +824,14 @@ void CStudioHdr::CActivityToSequenceMapping::Initialize( const CStudioHdr * __re
 		{
 			bFoundOne = true;
 
-			// look up if we already have an entry. First we need to make a speculative one --
-			HashValueType entry(seqdesc.activity, 0, 1, iabs(seqdesc.actweight));
-			UtlHashHandle_t handle = m_ActToSeqHash.Find(entry);
-			if ( m_ActToSeqHash.IsValidHandle(handle) )
+			// look up if we already have an entry; update it, else create one
+			const int weight = iabs(seqdesc.actweight);
+			auto [it, inserted] = m_actToSeq.try_emplace(seqdesc.activity, activity_sequence_range{0, 1, weight});
+			if ( !inserted )
 			{
-				// we already have an entry and must update it by incrementing count
-				HashValueType * __restrict toUpdate = &m_ActToSeqHash.Element(handle);
-				toUpdate->count += 1;
-				toUpdate->totalWeight += iabs(seqdesc.actweight);
-				Assert( toUpdate->totalWeight > 0 );
-			}
-			else
-			{
-				// we do not have an entry yet; create one.
-				m_ActToSeqHash.Insert(entry);
+				it->second.count += 1;
+				it->second.totalWeight += weight;
+				Assert( it->second.totalWeight > 0 );
 			}
 		}
 	}
@@ -851,14 +844,11 @@ void CStudioHdr::CActivityToSequenceMapping::Initialize( const CStudioHdr * __re
 	// the starting index is of course the sum of counts [0..n-1].
 	int sequenceCount = 0;
 	int topActivity = 0; // this will store the highest seen activity number (used later to make an ad hoc map on the stack)
-	for ( UtlHashHandle_t handle = m_ActToSeqHash.GetFirstHandle() ;
-		  m_ActToSeqHash.IsValidHandle(handle) ;
-		  handle = m_ActToSeqHash.GetNextHandle(handle) )
+	for ( auto &[activityIdx, element] : m_actToSeq )
 	{
-		HashValueType &element = m_ActToSeqHash[handle];
 		element.startingIdx = sequenceCount;
 		sequenceCount += element.count;
-		topActivity = MAX(topActivity, element.activityIdx);
+		topActivity = MAX(topActivity, activityIdx);
 	}
 
 
@@ -889,7 +879,7 @@ void CStudioHdr::CActivityToSequenceMapping::Initialize( const CStudioHdr * __re
 		const mstudioseqdesc_t &seqdesc = ((CStudioHdr *)pstudiohdr)->pSeqdesc( i );
 		if (seqdesc.activity >= 0)
 		{
-			const HashValueType &element = m_ActToSeqHash[m_ActToSeqHash.Find(HashValueType(seqdesc.activity, 0, 0, 0))];
+			const activity_sequence_range &element = m_actToSeq.at(seqdesc.activity);
 
 			// If this assert trips, we've written more sequences per activity than we allocated
 			// (therefore there must have been a miscount in the first for loop above).
@@ -949,16 +939,8 @@ int CStudioHdr::CActivityToSequenceMapping::NumSequencesForActivity( int forActi
 	if ( m_pSequenceTuples == nullptr)
 		return 0;
 
-	HashValueType entry(forActivity, 0, 0, 0);
-	UtlHashHandle_t handle = m_ActToSeqHash.Find(entry);
-	if (m_ActToSeqHash.IsValidHandle(handle))
-	{
-		return m_ActToSeqHash[handle].count;
-	}
-	else
-	{
-		return 0;
-	}
+	auto it = m_actToSeq.find(forActivity);
+	return it != m_actToSeq.end() ? it->second.count : 0;
 }
 
 static CStudioHdr::CActivityToSequenceMapping emptyMapping;

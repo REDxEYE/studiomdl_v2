@@ -22,7 +22,8 @@
 
 #include "mathlib/mathlib.h"
 #include "tier1/utlvector.h"
-#include "tier1/utlhash.h"
+#include <map>
+#include <unordered_set>
 #include "tier1/utlsymbol.h"
 #include "tier1/generichash.h"
 #include "localflexcontroller.h"
@@ -2005,13 +2006,12 @@ struct studiohwdata_t {
 
 #ifndef _CERT
     // Each model counts how many rendered faces it accounts for each frame:
-    void UpdateFacesRenderedCount(studiohdr_t *pStudioHdr, CUtlHash<studiohwdata_t *> &hwDataHash, int nLOD,
+    void UpdateFacesRenderedCount(studiohdr_t *pStudioHdr, std::unordered_set<studiohwdata_t *> &hwDataSet, int nLOD,
                                   int nInstances, int nFacesOverride = -1) {
-        if (hwDataHash.Find(this) == hwDataHash.InvalidHandle()) {
+        if (hwDataSet.insert(this).second) {
             m_NumFacesRenderedThisFrame = 0;
             m_NumTimesRenderedThisFrame = 0;
             m_pStudioHdr = pStudioHdr;
-            hwDataHash.Insert(this);
         }
         Assert(m_pStudioHdr && ( m_pStudioHdr == pStudioHdr ));
         if (nFacesOverride == -1) {
@@ -3171,65 +3171,21 @@ public:
             int iNumActivityModifiers;
         };
 
-        // The type of the hash's stored data, a composite of both key and value
-        // (because that's how CUtlHash works):
-        // key: an int, the activity #
-        // values: an index into the m_pSequenceTuples array, a count of the
+        // Per-activity value stored in m_actToSeq (keyed by activity #):
+        // an index into the m_pSequenceTuples array, a count of the
         // total sequences present for an activity, and the sum of their
         // weights.
-        // Note this struct is 128-bits wide, exactly coincident to a PowerPC
-        // cache line and VMX register. Please consider very carefully the
-        // performance implications before adding any additional fields to this.
-        // You could probably do away with totalWeight if you really had to.
-        struct HashValueType {
-            // KEY (hashed)
-            int activityIdx;
-
-            // VALUE (not hashed)
+        struct activity_sequence_range {
             int startingIdx;
             int count;
             int totalWeight;
-
-            HashValueType(int _actIdx, int _stIdx, int _ct, int _tW) : activityIdx(_actIdx), startingIdx(_stIdx),
-                                                                       count(_ct), totalWeight(_tW) {
-            }
-
-            // default constructor (ought not to be actually used)
-            HashValueType() : activityIdx(-1), startingIdx(-1), count(-1), totalWeight(-1) {
-                AssertMsg(false, "Don't use default HashValueType()!");
-            }
-
-
-            class HashFuncs {
-            public:
-                // dummy constructor (gndn)
-                HashFuncs(int) {
-                }
-
-                // COMPARE
-                // compare two entries for uniqueness. We should never have two different
-                // entries for the same activity, so we only compare the activity index;
-                // this allows us to use the utlhash as a dict by constructing dummy entries
-                // as hash lookup keys.
-                bool operator()(const HashValueType &lhs, const HashValueType &rhs) const {
-                    return lhs.activityIdx == rhs.activityIdx;
-                }
-
-                // HASH
-                // We only hash on the activity index; everything else is data.
-                unsigned int operator()(const HashValueType &item) const {
-                    return HashInt(item.activityIdx);
-                }
-            };
         };
-
-        typedef CUtlHash<HashValueType, HashValueType::HashFuncs, HashValueType::HashFuncs> ActivityToValueIdxHash;
 
         // These must be here because IFM does not compile/link studio.cpp (?!?)
 
         // ctor
         CActivityToSequenceMapping()
-            : m_pSequenceTuples(nullptr), m_iSequenceTuplesCount(0), m_ActToSeqHash(8, 0, 0), m_expectedVModel(nullptr),
+            : m_pSequenceTuples(nullptr), m_iSequenceTuplesCount(0), m_expectedVModel(nullptr),
               m_pStudioHdr(nullptr) {
         };
 
@@ -3272,7 +3228,7 @@ public:
         // export its interface outside the studio header anyway.
         // CStudioHdr * const m_pOuter;
 
-        ActivityToValueIdxHash m_ActToSeqHash;
+        std::map<int, activity_sequence_range> m_actToSeq;
 
         const studiohdr_t *m_pStudioHdr;
 

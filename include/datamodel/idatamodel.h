@@ -7,8 +7,11 @@
 #pragma once
 
 
+#include <cstdint>
+#include <functional>
 #include <optional>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 #include "tier1/utlvector.h"
 #include "tier1/utlsymbollarge.h"
@@ -27,7 +30,7 @@ struct DmValueBase_t;
 class CUtlBuffer;
 class KeyValues;
 class CUtlCharConversion;
-class CElementIdHash;
+
 
 // Use this for profiling dmx binary unserialization times
 //#define DMX_PROFILE_UNSERIALIZE 2
@@ -41,6 +44,17 @@ class CElementIdHash;
 
 // Name given to elements created without one (Valve's CreateElement( type, NULL ) default)
 inline constexpr std::string_view UNNAMED_ELEMENT_NAME = "unnamed";
+
+// Hash all 16 bytes of the object id, including the zero bytes.
+struct DmObjectIdHash
+{
+	size_t operator()( const DmObjectId_t &id ) const noexcept
+	{
+		return std::hash<std::string_view>{}( { reinterpret_cast<const char *>( id.m_Value ), sizeof( id.m_Value ) } );
+	}
+};
+
+using DmElementIdMap_t = std::unordered_map<DmObjectId_t, DmElementHandle_t, DmObjectIdHash>;
 
 
 //-----------------------------------------------------------------------------
@@ -374,7 +388,7 @@ public:
 	virtual void			MarkHandleValid( DmElementHandle_t hElement ) = 0;
 
 	virtual DmElementHandle_t	FindElement( const DmObjectId_t &id ) = 0;
-	virtual void				GetExistingElements( CElementIdHash &hash ) const = 0;
+	virtual void				GetExistingElements( DmElementIdMap_t &elements ) const = 0;
 
 	virtual	DmAttributeReferenceIterator_t	FirstAttributeReferencingElement( DmElementHandle_t hElement ) = 0;
 	virtual DmAttributeReferenceIterator_t	NextAttributeReferencingElement( DmAttributeReferenceIterator_t hAttrIter ) = 0;

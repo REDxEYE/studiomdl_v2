@@ -9,8 +9,6 @@
 
 
 
-#include <functional>
-#include <string_view>
 #include <unordered_map>
 #include <vector>
 #include "tier1/utlvector.h"
@@ -79,13 +77,6 @@ private:
 	typedef CUtlVector<AttributeInfo_t> AttributeList_t;
 
 
-	struct DmIdHash
-	{
-		size_t operator()( const DmObjectId_t &id ) const noexcept
-		{
-			return std::hash<std::string_view>{}( { reinterpret_cast<const char *>( id.m_Value ), sizeof( id.m_Value ) } );
-		}
-	};
 
 	struct DeletionInfo_t
 	{
@@ -109,7 +100,7 @@ private:
 	AttributeList_t m_ArrayAttributes;
 
 	CUtlVector< DeletionInfo_t > m_elementsToDelete;
-	std::unordered_map<DmObjectId_t, DmObjectId_t, DmIdHash> m_idmap;
+	std::unordered_map<DmObjectId_t, DmObjectId_t, DmObjectIdHash> m_idmap;
 };
 
 

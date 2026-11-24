@@ -13,7 +13,6 @@
 #include <unordered_map>
 #include <unordered_set>
 #include "tier1/utlrbtree.h"
-#include "tier1/utlhash.h"
 #include "tier1/utlvector.h"
 #include "tier1/utlsymbol.h"
 #include "tier1/mempool.h"
@@ -387,12 +386,12 @@ public:
     void CopyElementArrayAttribute(const CDmAttribute *pAttr, CDmAttribute *pCopyAttr, CRefMap &refmap,
                                    TraversalDepth_t depth) const;
 
-    void FixupReferences(CUtlHashFast<DmElementHandle_t> &visited, const CRefMap &refmap, TraversalDepth_t depth);
+    void FixupReferences(std::unordered_set<DmElementHandle_t> &visited, const CRefMap &refmap, TraversalDepth_t depth);
 
     void SetFileId(DmFileId_t fileid);
 
     void
-    SetFileId_R(CUtlHashFast<DmElementHandle_t> &visited, DmFileId_t fileid, TraversalDepth_t depth, DmFileId_t match,
+    SetFileId_R(std::unordered_set<DmElementHandle_t> &visited, DmFileId_t fileid, TraversalDepth_t depth, DmFileId_t match,
                 bool bOnlyIfMatch);
 
     CDmAttribute *CreateAttribute(std::string_view pAttributeName, DmAttributeType_t type);
@@ -1092,12 +1091,8 @@ void CopyElements(const CUtlVector<T *> &from, CUtlVector<T *> &to, TraversalDep
         to.AddToTail(pCopy);
     }
 
-    CUtlHashFast<DmElementHandle_t> visited;
-    uint32_t nPow2Size = 1;
-    while (nPow2Size < refmap.size()) {
-        nPow2Size <<= 1;
-    }
-    visited.Init(nPow2Size);
+    std::unordered_set<DmElementHandle_t> visited;
+    visited.reserve(refmap.size());
 
     for (int i = 0; i < c; ++i) {
         CDmElement *pTo = to[i];

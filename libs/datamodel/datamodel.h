@@ -17,7 +17,7 @@
 #include <map>
 #include <string_view>
 #include "tier1/utlhandletable.h"
-#include "tier1/utlhash.h"
+#include <unordered_map>
 #include "notifymanager.h"
 
 
@@ -51,87 +51,6 @@ enum {
     MEMORY_CATEGORY_COUNT,
 };
 
-
-//-----------------------------------------------------------------------------
-// hash map of id->element, with the id storage optimized out
-//-----------------------------------------------------------------------------
-class CElementIdHash : public CUtlHash<DmElementHandle_t> {
-public:
-    CElementIdHash(int nBucketCount = 0, int nGrowCount = 0, int nInitCount = 0)
-        : CUtlHash<DmElementHandle_t>(nBucketCount, nGrowCount, nInitCount, CompareFunc, KeyFunc) {
-    }
-
-protected:
-    typedef CUtlHash<DmElementHandle_t> BaseClass;
-
-    static bool CompareFunc(DmElementHandle_t const &a, DmElementHandle_t const &b) { return a == b; }
-
-    static bool IdCompareFunc(DmElementHandle_t const &hElement, DmObjectId_t const &id) {
-        CDmElement* pElement = g_pDataModel->GetElement(hElement);
-        Assert(pElement);
-        if (!pElement)
-            return false;
-
-        return IsUniqueIdEqual(id, pElement->GetId());
-    }
-
-    static unsigned int KeyFunc(DmElementHandle_t const &hElement) {
-        CDmElement* pElement = g_pDataModel->GetElement(hElement);
-        Assert(pElement);
-        if (!pElement)
-            return 0;
-
-        return *(unsigned int*) &pElement->GetId();
-    }
-
-    static unsigned int IdKeyFunc(DmObjectId_t const &src) {
-        return *(unsigned int*) &src;
-    }
-
-protected:
-    bool DoFind(DmObjectId_t const &src, unsigned int* pBucket, int* pIndex) {
-        // generate the data "key"
-        unsigned int key = IdKeyFunc(src);
-
-        // hash the "key" - get the correct hash table "bucket"
-        unsigned int ndxBucket;
-        if (m_bPowerOfTwo) {
-            *pBucket = ndxBucket = (key & m_ModMask);
-        }
-        else {
-            int bucketCount = m_Buckets.size();
-            *pBucket = ndxBucket = key % bucketCount;
-        }
-
-        int ndxKeyData;
-        CUtlVector<DmElementHandle_t> &bucket = m_Buckets[ndxBucket];
-        int keyDataCount = bucket.size();
-        for (ndxKeyData = 0; ndxKeyData < keyDataCount; ndxKeyData++) {
-            if (IdCompareFunc(bucket.at(ndxKeyData), src))
-                break;
-        }
-
-        if (ndxKeyData == keyDataCount)
-            return false;
-
-        *pIndex = ndxKeyData;
-        return true;
-    }
-
-public:
-    UtlHashHandle_t Find(DmElementHandle_t const &src) { return BaseClass::Find(src); }
-
-    UtlHashHandle_t Find(DmObjectId_t const &src) {
-        vstd::FunctionTimingRecorder _("DMX");
-        unsigned int ndxBucket;
-        int ndxKeyData;
-
-        if (DoFind(src, &ndxBucket, &ndxKeyData))
-            return BuildHandle(ndxBucket, ndxKeyData);
-
-        return InvalidHandle();
-    }
-};
 
 //-----------------------------------------------------------------------------
 // struct to hold the set of elements in any given file
@@ -325,7 +244,7 @@ public:
 
     DmElementHandle_t FindElement(const DmObjectId_t &id) override;
 
-    void GetExistingElements(CElementIdHash &hash) const override;
+    void GetExistingElements(DmElementIdMap_t &elements) const override;
 
     DmAttributeReferenceIterator_t FirstAttributeReferencingElement(DmElementHandle_t hElement) override;
 
@@ -382,7 +301,7 @@ public:
     // changes an element's id and associated mappings - generally during unserialization
     DmElementHandle_t ChangeElementId(DmElementHandle_t hElement, const DmObjectId_t &oldId, const DmObjectId_t &newId);
 
-    DmElementReference_t* FindElementReference(DmElementHandle_t hElement, DmObjectId_t** ppId = nullptr);
+    DmElementReference_t* FindElementReference(DmElementHandle_t hElement, const DmObjectId_t** ppId = nullptr);
 
     void RemoveUnreferencedElements();
 
@@ -399,40 +318,6 @@ public:
 private:
     struct MailingList_t {
         CUtlVector<DmElementHandle_t> m_Elements;
-    };
-
-    struct ElementIdHandlePair_t {
-        DmObjectId_t m_id;
-        DmElementReference_t m_ref;
-
-        ElementIdHandlePair_t() {
-        }
-
-        explicit ElementIdHandlePair_t(const DmObjectId_t &id) : m_ref() {
-            CopyUniqueId(id, &m_id);
-        }
-
-        ElementIdHandlePair_t(const DmObjectId_t &id, const DmElementReference_t &ref) : m_ref(ref) {
-            CopyUniqueId(id, &m_id);
-        }
-
-        ElementIdHandlePair_t(const ElementIdHandlePair_t &that) : m_ref(that.m_ref) {
-            CopyUniqueId(that.m_id, &m_id);
-        }
-
-        ElementIdHandlePair_t& operator=(const ElementIdHandlePair_t &that) {
-            CopyUniqueId(that.m_id, &m_id);
-            m_ref = that.m_ref;
-            return *this;
-        }
-
-        static unsigned int HashKey(const ElementIdHandlePair_t &that) {
-            return *(unsigned int*) &that.m_id.m_Value;
-        }
-
-        static bool Compare(const ElementIdHandlePair_t &a, const ElementIdHandlePair_t &b) {
-            return IsUniqueIdEqual(a.m_id, b.m_id);
-        }
     };
 
     // Internals used by the rest of the datamodel library (attributes, handles, serializers)
@@ -495,8 +380,8 @@ private:
 
     CUtlHandleTable<FileElementSet_t, 20> m_openFiles;
 
-    CElementIdHash m_elementIds;
-    CUtlHash<ElementIdHandlePair_t> m_unloadedIdElementMap;
+    DmElementIdMap_t m_elementIds;
+    std::unordered_map<DmObjectId_t, DmElementReference_t, DmObjectIdHash> m_unloadedIdElementMap;
 
     IElementForKeyValueCallback* m_pKeyvaluesCallbackInterface;
 
