@@ -2076,7 +2076,7 @@ const char *CDataModel::GetElementName(DmElementHandle_t hElement) const {
     CDmElement *pElement = (hElement != DMELEMENT_HANDLE_INVALID) ? m_Handles.GetHandle(hElement) : nullptr;
     if (pElement == nullptr)
         return "";
-    return pElement->GetName();
+    return pElement->GetName().data();
 }
 
 const DmObjectId_t &CDataModel::GetElementId(DmElementHandle_t hElement) const {

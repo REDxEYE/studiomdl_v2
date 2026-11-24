@@ -47,7 +47,7 @@ float CDmeBoneMask::GetBoneWeight( const char *pszBoneName )
 		if ( !pDmeBoneWeight )
 			continue;
 
-		if ( !V_stricmp( pszBoneName, pDmeBoneWeight->GetName() ) )
+		if ( !V_stricmp( pszBoneName, pDmeBoneWeight->GetName().data() ) )
 			return pDmeBoneWeight->m_flWeight.Get();
 	}
 

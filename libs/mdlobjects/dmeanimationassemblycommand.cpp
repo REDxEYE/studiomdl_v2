@@ -356,7 +356,7 @@ bool CDmeSubtract::Apply(CDmElement* pDmElement) {
         if (!pDmeLogDst)
             continue;
 
-        const char* pszDmeChannelName = pDmeChannelDst->GetName();
+        const char* pszDmeChannelName = pDmeChannelDst->GetName().data();
 
         CDmeVector3Log* pDmeVector3LogDst = CastElement<CDmeVector3Log>(pDmeLogDst);
         CDmeQuaternionLog* pDmeQuaternionLogDst = CastElement<CDmeQuaternionLog>(pDmeLogDst);
@@ -365,7 +365,7 @@ bool CDmeSubtract::Apply(CDmElement* pDmElement) {
 
         for (int j = 0; j < pDmeChannelsClipSrc->m_Channels.size(); ++j) {
             CDmeChannel* pDmeChannelSrc = pDmeChannelsClipSrc->m_Channels[j];
-            if (!pDmeChannelSrc || Q_stricmp(pszDmeChannelName, pDmeChannelSrc->GetName()))
+            if (!pDmeChannelSrc || Q_stricmp(pszDmeChannelName, pDmeChannelSrc->GetName().data()))
                 continue;
 
             CDmeLog* pDmeLogSrc = pDmeChannelSrc->GetLog();
@@ -833,7 +833,7 @@ void CDmeBoneMaskCmd::SubApply(CDmeChannelsClip* pDmeChannelsClip, CDmeDag* pDme
     if (!pDmeChannelsClip || !pDmeDag || !pDmeBoneMask)
         return;
 
-    const float flWeight = pDmeBoneMask->GetBoneWeight(pDmeDag->GetName());
+    const float flWeight = pDmeBoneMask->GetBoneWeight(pDmeDag->GetName().data());
 
     // Nothing to do if full weight
     if (flWeight == 1.0f)

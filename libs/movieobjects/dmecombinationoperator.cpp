@@ -208,7 +208,7 @@ ControlIndex_t CDmeCombinationOperator::FindControlIndex(const char* pControlNam
         if (!m_InputControls[i])
             continue;
 
-        if (!Q_stricmp(pControlName, m_InputControls[i]->GetName()))
+        if (!Q_stricmp(pControlName, m_InputControls[i]->GetName().data()))
             return i;
     }
     return -1;
@@ -297,7 +297,7 @@ int CDmeCombinationOperator::GetControlCount() const {
 }
 
 const char* CDmeCombinationOperator::GetControlName(ControlIndex_t i) const {
-    return m_InputControls[i]->GetName();
+    return m_InputControls[i]->GetName().data();
 }
 
 
@@ -595,7 +595,7 @@ void CDmeCombinationOperator::ComputeCombinationInfo(int nIndex) {
         if (!pDeltaElement)
             continue;
 
-        int nControlCount = ParseDeltaName(pDeltaElement->GetName(), pTemp);
+        int nControlCount = ParseDeltaName(pDeltaElement->GetName().data(), pTemp);
         if (nControlCount == 0)
             continue;
 
@@ -925,7 +925,7 @@ void CDmeCombinationOperator::Purge() {
                 const int nRawControlCount = GetRawControlCount(j);
                 for (int k = 0; bDelete && k < nRawControlCount; ++k) {
                     for (int l = 0; l < nDeltaCount; ++l) {
-                        if (!Q_strcmp(GetRawControlName( j, k ), deltas[ l ]->GetName())) {
+                        if (!Q_strcmp(GetRawControlName( j, k ), deltas[ l ]->GetName().data())) {
                             bDelete = false;
                             break;
                         }

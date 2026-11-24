@@ -2629,7 +2629,7 @@ void ParseCollisionCommands(CJointedModel &joints, CDmeCollisionModel *pCollisio
                 continue;
             }
 
-            const char *pJointName = pCollisionJoint->GetName();
+            const char *pJointName = pCollisionJoint->GetName().data();
 
             const int nJointIndex = FindLocalBoneNamed(joints.m_ctx, joints.m_pModel, pJointName);
             if (!joints.m_ctx.options.createMakefile && nJointIndex < 0) {

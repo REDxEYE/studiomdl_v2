@@ -190,7 +190,7 @@ bool CDmeRigBaseConstraintOperator::IsSlaveObject( char const *pchName ) const
 	if ( !m_Slave->m_Dag )
 		return false;
 
-	return !Q_stricmp( m_Slave->m_Dag->GetName(), pchName );
+	return !Q_stricmp( m_Slave->m_Dag->GetName().data(), pchName );
 }
 
 
@@ -1761,7 +1761,7 @@ bool CDmeRigTwistConstraintOperator::IsSlaveObject( char const *pchName ) const
 		if ( !pDmeConstraintSlave )
 			continue;
 
-		if ( !V_stricmp( pchName, pDmeConstraintSlave->GetName() ) )
+		if ( !V_stricmp( pchName, pDmeConstraintSlave->GetName().data() ) )
 			return true;
 	}
 

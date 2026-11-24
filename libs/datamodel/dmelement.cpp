@@ -655,7 +655,7 @@ void CDmElement::FixupReferences( std::unordered_set< DmElementHandle_t > &visit
 //-----------------------------------------------------------------------------
 // Change type (only possible when versioning file formats)
 //-----------------------------------------------------------------------------
-void CDmElement::SetType( const char *pType )
+void CDmElement::SetType( std::string_view type )
 {
 	if ( !g_pDataModelImp->IsCreatingUntypedElements() )
 	{
@@ -663,7 +663,7 @@ void CDmElement::SetType( const char *pType )
 		return;
 	}
 
-	m_Type = g_pDataModel->GetSymbol( pType );
+	m_Type = g_pDataModel->GetSymbol( type );
 }
 
 
@@ -806,9 +806,9 @@ void CDmElement::RemoveAttribute( CDmAttribute **pAttrRef )
 }
 
 
-void CDmElement::RemoveAttribute( const char *pAttributeName )
+void CDmElement::RemoveAttribute( std::string_view attributeName )
 {
-	CUtlSymbolLarge find = g_pDataModel->GetSymbol( pAttributeName );
+	CUtlSymbolLarge find = g_pDataModel->GetSymbol( attributeName );
 	for ( CDmAttribute **ppAttr = &m_pAttributes; *ppAttr; ppAttr = ( *ppAttr )->GetNextAttributeRef() )
 	{
 		if ( find == ( *ppAttr )->GetNameSymbol() )
@@ -836,9 +836,9 @@ void CDmElement::RemoveAttributeByPtr( CDmAttribute *pAttribute )
 //-----------------------------------------------------------------------------
 // Sets an attribute from a string
 //-----------------------------------------------------------------------------
-void CDmElement::SetValueFromString( const char *pAttributeName, const char *pValue )
+void CDmElement::SetValueFromString( std::string_view attributeName, const char *pValue )
 {
-	CDmAttribute *pAttribute = FindAttribute( pAttributeName );
+	CDmAttribute *pAttribute = FindAttribute( attributeName );
 	if ( pAttribute )
 	{
 		pAttribute->SetValueFromString( pValue );
@@ -919,12 +919,12 @@ CDmAttribute *CDmElement::FindAttribute(const std::string_view attributeName) co
 //-----------------------------------------------------------------------------
 // attribute renaming
 //-----------------------------------------------------------------------------
-bool CDmElement::RenameAttribute( const char *pAttributeName, const char *pNewName )
+bool CDmElement::RenameAttribute( std::string_view attributeName, std::string_view newName )
 {
-	CDmAttribute *pAttr = FindAttribute( pAttributeName );
+	CDmAttribute *pAttr = FindAttribute( attributeName );
 	if ( pAttr )
 	{
-		pAttr->SetName( pNewName );
+		pAttr->SetName( newName );
         return true;
 	}
     return false;
@@ -1010,16 +1010,16 @@ void DestroyElement( CDmElement *pElement, TraversalDepth_t depth )
 //
 //-----------------------------------------------------------------------------
 
-CElementTreeTraversal::CElementTreeTraversal( CDmElement *pRoot, const char *pAttrName )
+CElementTreeTraversal::CElementTreeTraversal( CDmElement *root, std::string_view attributeName )
 {
-	Reset( pRoot, pAttrName );
+	Reset( root, attributeName );
 }
 
-void CElementTreeTraversal::Reset( CDmElement *pRoot, const char *pAttrName )
+void CElementTreeTraversal::Reset( CDmElement *root, std::string_view attributeName )
 {
 	m_state.clear();
-	m_state.emplace_back( pRoot, NOT_VISITED );
-	m_pAttrName = pAttrName;
+	m_state.emplace_back( root, NOT_VISITED );
+	m_attributeName = attributeName;
 }
 
 CDmElement *CElementTreeTraversal::Next( bool bSkipChildren /*= false*/ )
@@ -1042,7 +1042,7 @@ CDmElement *CElementTreeTraversal::Next( bool bSkipChildren /*= false*/ )
 		if ( !state.pElement )
 			return nullptr;
 
-		CDmrElementArray<> children( state.pElement, m_pAttrName );
+		CDmrElementArray<> children( state.pElement, m_attributeName );
 		if ( children.IsValid() )
 		{
 			int nChildren = children.Count();

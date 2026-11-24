@@ -1135,7 +1135,7 @@ void AddCombination(StudioMdlState &ctx, s_source_t *pSource, CDmeCombinationOpe
                 flMin = pControlElement->GetValue("flexMin", flMin);
                 flMax = pControlElement->GetValue("flexMax", flMax);
 
-                FindOrAddFlexController(ctx, pControlElement->GetName(), "default", flMin, flMax);
+                FindOrAddFlexController(ctx, pControlElement->GetName().data(), "default", flMin, flMax);
             }
         }
 
@@ -1174,10 +1174,10 @@ void AddCombination(StudioMdlState &ctx, s_source_t *pSource, CDmeCombinationOpe
 
                 ruleTokenizer.LoadMemory(sTmpBuf);
 
-                Add_Flexdesc(ctx, pDmeFlexRule->GetName());
+                Add_Flexdesc(ctx, pDmeFlexRule->GetName().data());
 
                 if (bFlexRule) {
-                    Option_Flexrule(ctx, ruleTokenizer, nullptr, pDmeFlexRule->GetName());
+                    Option_Flexrule(ctx, ruleTokenizer, nullptr, pDmeFlexRule->GetName().data());
                 }
 
                 ruleTokenizer.Close();
@@ -1202,7 +1202,7 @@ void AddCombination(StudioMdlState &ctx, s_source_t *pSource, CDmeCombinationOpe
             if (!pDeltaState)
                 continue;
 
-            int nFlex = FindSourceFlexKey(pSource, pDeltaState->GetName());
+            int nFlex = FindSourceFlexKey(pSource, pDeltaState->GetName().data());
             if (nFlex < 0)
                 continue;
 

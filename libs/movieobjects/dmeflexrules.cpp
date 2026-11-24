@@ -246,7 +246,7 @@ void CDmeFlexRules::Resolve() {
                 continue;
 
             for (int j = 0; j < targetStates.Count(); ++j) {
-                if (!V_strcmp(targetStates[j]->GetName(), pDmeFlexRuleBase->GetName())) {
+                if (!V_strcmp(targetStates[j]->GetName().data(), pDmeFlexRuleBase->GetName().data())) {
                     m_deltaToTargetMap[i] = j;
                     break;
                 }

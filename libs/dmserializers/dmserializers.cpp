@@ -113,7 +113,8 @@ CDmElement* FindChannelTargettingElement(CDmElement* pTarget, const char* pTarge
         if (!pParent || pParent->GetType() != channelSym)
             continue;
 
-        if (!V_strcmp(pParent->GetValueString( bFromTarget ? "fromAttribute" : "toAttribute" ), pTargetAttr))
+        const auto targetAttr = pParent->GetValueString(bFromTarget ? "fromAttribute" : "toAttribute");
+        if (targetAttr && *targetAttr == pTargetAttr)
             return pParent;
     }
 
@@ -197,7 +198,7 @@ CDmElement* FindChildControlGroup(CDmElement* pGroup, const char* pName, bool bR
     for (int iChild = 0; iChild < nNumChildren; ++iChild) {
         CDmElement* pChild = children[iChild];
         if (pChild) {
-            if (V_stricmp(pChild->GetName(), pName) == 0)
+            if (V_stricmp(pChild->GetName().data(), pName) == 0)
                 return pChild;
 
             if (bRecursive) {
@@ -565,7 +566,7 @@ bool Update18(CDmElement* pElement) {
             int nNumPresetGroups = presetGroups.Count();
             for (int i = nNumPresetGroups - 1; i >= 0; --i) {
                 if (CDmElement* pPresetGroup = presetGroups[i]) {
-                    if (V_strcmp(pPresetGroup->GetName(), "procedural") != 0 && V_strcmp(pPresetGroup->GetName(),
+                    if (V_strcmp(pPresetGroup->GetName().data(), "procedural") != 0 && V_strcmp(pPresetGroup->GetName().data(),
                             "Procedural") != 0)
                         continue;
                 }
@@ -645,7 +646,7 @@ bool Update17(CDmElement* pElement) {
                     bool bPos = pControlValue->HasAttribute("valuePosition");
                     bool bRot = pControlValue->HasAttribute("valueOrientation");
                     const char* pComponentStart = nullptr;
-                    const char* pName = pControlValue->GetName();
+                    const char* pName = pControlValue->GetName().data();
 
                     // Must have a position or rotation value, but not both
                     if (bPos && !bRot) {
@@ -711,7 +712,8 @@ void UnifyTransformControl(CDmElement* pTransformControl, CDmElement* pAnimSet) 
     const CUtlSymbolLarge symDisplaySetElements = g_pDataModel->GetSymbol("displaySetElements");
 
     if (pTransformControl->GetType() == symDmeTransformControl) {
-        const char* baseName = pTransformControl->GetValueString("baseName");
+        const auto baseNameView = pTransformControl->GetValueString("baseName");
+        const char* baseName = baseNameView ? baseNameView->data() : nullptr;
 
         // Find the control group containing the specified control
         CDmElement* pTransformControlGroup = nullptr;
@@ -1005,7 +1007,7 @@ CDmElement* CollapseControlGroup(CDmElement* pControlGroup, CDmElement* pRootGro
 //-----------------------------------------------------------------------------
 bool Update16(CDmElement* pElement) {
     // remove manipulatorsettings from sfm sessions
-    if (!V_strcmp(pElement->GetName(), "sessionSettings")) {
+    if (pElement->GetName() == "sessionSettings") {
         pElement->RemoveAttribute("manipulatorSettings");
 
         CDmElement* pRenderSettings = pElement->GetValueElement<CDmElement>("renderSettings");
@@ -1164,7 +1166,7 @@ void MoveBookmarksFromAnimSetGroups(CDmrElementArray<CDmElement> bookmarkSets, C
     if (!pSrcAnimSetGroup || !bookmarkSets.IsValid())
         return;
 
-    CreateBookmarkSetAndMoveBookmarks(bookmarkSets, pSrcAnimSetGroup, pSrcAnimSetGroup->GetName(), false);
+    CreateBookmarkSetAndMoveBookmarks(bookmarkSets, pSrcAnimSetGroup, pSrcAnimSetGroup->GetName().data(), false);
 
     CDmrElementArray<CDmElement> children(pSrcAnimSetGroup, "children");
     int nChildren = children.IsValid() ? children.Count() : 0;
@@ -1387,7 +1389,7 @@ bool ConvertControlGroup_R(CDmrElementArray<> &animSetControls, CDmElement* pCon
             if (pMultiChannel) {
                 // create new multi control
                 char multiName[256];
-                V_snprintf(multiName, sizeof(multiName), MULTI_CONTROL_FORMAT_STRING, pControl->GetName());
+                V_snprintf(multiName, sizeof(multiName), MULTI_CONTROL_FORMAT_STRING, pControl->GetName().data());
                 CDmElement* pMultiControl = CreateElement<CDmElement>("DmElement", multiName, pControl->GetFileId());
                 pMultiControl->SetParity(pControlGroup->GetParity());
                 pMultiControl->SetValue("value", pControl->GetValue<float>("multilevel"));
@@ -1410,7 +1412,7 @@ bool ConvertControlGroup_R(CDmrElementArray<> &animSetControls, CDmElement* pCon
                 pMultiChannel->SetValue("fromAttribute", "value");
 
                 // create control group to contain both controls and add it to the parent group
-                CDmElement* pNewControlGroup = CreateControlGroup(pControl->GetName(), pControlGroup);
+                CDmElement* pNewControlGroup = CreateControlGroup(pControl->GetName().data(), pControlGroup);
 
                 // add original and multi control to new control group
                 CDmrElementArray<> newControls(pNewControlGroup, "controls");
@@ -1470,7 +1472,7 @@ bool Update10(CDmElement* pElement) {
 
             // create new multi control value
             char multiName[256];
-            V_snprintf(multiName, sizeof(multiName), MULTI_CONTROL_FORMAT_STRING, pControlValue->GetName());
+            V_snprintf(multiName, sizeof(multiName), MULTI_CONTROL_FORMAT_STRING, pControlValue->GetName().data());
             CDmElement* pMultiControlValue = CreateElement<CDmElement>("DmElement", multiName,
                                                                        pControlValue->GetFileId());
             pMultiControlValue->SetParity(pElement->GetParity());
@@ -1505,7 +1507,7 @@ CDmElement* FindAnimSetControl(CDmElement* pAnimSet, const char* pchControlName)
     for (int iControl = 0; iControl < nControls; ++iControl) {
         CDmElement* pElement = controls[iControl];
         if (pElement) {
-            if (V_stricmp(pchControlName, pElement->GetName()) == 0) {
+            if (V_stricmp(pchControlName, pElement->GetName().data()) == 0) {
                 return pElement;
             }
         }
@@ -1526,7 +1528,7 @@ void ConvertSelectionGroup_R(CDmElement* pAnimSet, CDmElement* pParentControlGro
     bool isGroup = pSelectionElement->GetValue<bool>("isGroup");
     if (isGroup) {
         // Create a control group and add it to the parent group.
-        CDmElement* pControlGroup = CreateControlGroup(pSelectionElement->GetName(), pParentControlGroup);
+        CDmElement* pControlGroup = CreateControlGroup(pSelectionElement->GetName().data(), pParentControlGroup);
         if (pControlGroup) {
             // Copy the tree color of the element to the group color of the control group
             if (pSelectionElement->HasAttribute("treeColor", AT_COLOR)) {
@@ -1548,7 +1550,7 @@ void ConvertSelectionGroup_R(CDmElement* pAnimSet, CDmElement* pParentControlGro
     else {
         // If the selection element is not a group, it is a control selection element which shares
         // its name with the control it targets. Find that control and add it to the parent group.
-        CDmElement* pControl = FindAnimSetControl(pAnimSet, pSelectionElement->GetName());
+        CDmElement* pControl = FindAnimSetControl(pAnimSet, pSelectionElement->GetName().data());
         if (pControl) {
             CDmAttribute* pControlsAttr = pParentControlGroup->GetAttribute("controls");
             if (pControlsAttr) {
@@ -1819,7 +1821,7 @@ bool Update4(CDmElement* pElement) {
             continue;
         }
 
-        CDmElement* pAnimSetGroup = CreateElement<CDmElement>("DmeAnimationSetGroup", pAnimSet->GetName(),
+        CDmElement* pAnimSetGroup = CreateElement<CDmElement>("DmeAnimationSetGroup", pAnimSet->GetName().data(),
                                                               pAnimSet->GetFileId());
         pAnimSetGroup->SetParity(pElement->GetParity());
         animSetGroups.AddToTail(pAnimSetGroup);
@@ -1921,7 +1923,7 @@ bool UpdatePreset(CDmElement* pPreset) {
     if (!pControlValuesAttr)
         return true;
 
-    const char* pPresetName = pPreset->GetName();
+    const char* pPresetName = pPreset->GetName().data();
     bool bFixupBalance = !V_stricmp(pPresetName, "zero") || !V_stricmp(pPresetName, "one");
 
     CDmrElementArray<> controlValues(pControlValuesAttr);
@@ -1932,7 +1934,7 @@ bool UpdatePreset(CDmElement* pPreset) {
             return true;
 
         if (pControlValue->HasAttribute("balance")) {
-            float flDefaultValue = GetDefaultControlValue(pControlValue->GetName());
+            float flDefaultValue = GetDefaultControlValue(pControlValue->GetName().data());
 
             float flValue = pControlValue->GetValue<float>("value");
             float flBalance = pControlValue->GetValue<float>("balance");
@@ -2283,7 +2285,7 @@ static CDmElement* FindAnimSetControlByName(CDmrElementArray<> &array, char cons
 
     for (int i = 0; i < array.Count(); ++i) {
         CDmElement* e = array[i];
-        if (!Q_stricmp(e->GetName(), pchControlName)) {
+        if (!Q_stricmp(e->GetName().data(), pchControlName)) {
             *pIndex = i;
             return e;
         }
@@ -2351,7 +2353,7 @@ bool Update2(CDmElement* pElement) {
                 if (pControlsAttr) {
                     CDmrElementArray<CDmElement> controlsInGroup(pControlsAttr);
                     for (int j = 0; j < controlsInGroup.Count(); ++j) {
-                        char const* pchControlName = controlsInGroup[j]->GetName();
+                        char const* pchControlName = controlsInGroup[j]->GetName().data();
 
                         // Now that we have a control, we'll see if it corresponds to a transform
                         int nIndex = controls.InvalidIndex();
@@ -2574,7 +2576,8 @@ bool Update5(CDmElement* pElement) {
     CUtlSymbolLarge typeSym = pElement->GetType();
 
     if (typeSym == ParticleOperatorSym) {
-        const char* pOpName = pElement->GetValueString("functionName");
+        const auto opName = pElement->GetValueString("functionName");
+        const char* pOpName = opName ? opName->data() : nullptr;
         for (int i = 0; i < ARRAYSIZE(s_RemapOperatorNameTable); i += 2) {
             if (Q_stricmp(pOpName, s_RemapOperatorNameTable[i]) == 0) {
                 pElement->SetValueFromString("functionName", s_RemapOperatorNameTable[i + 1]);

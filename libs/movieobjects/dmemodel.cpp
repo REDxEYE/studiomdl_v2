@@ -88,7 +88,7 @@ CDmeTransformList *CDmeModel::FindBaseState( const char *pBaseStateName )
 	int nCount = m_BaseStates.size();
 	for ( int i = 0; i < nCount; ++i )
 	{
-		if ( !V_stricmp( m_BaseStates[i]->GetName(), pBaseStateName ) )
+		if ( !V_stricmp( m_BaseStates[i]->GetName().data(), pBaseStateName ) )
 			return m_BaseStates[i];
 	}
 	return nullptr;

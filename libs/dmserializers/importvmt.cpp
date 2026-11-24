@@ -204,7 +204,7 @@ bool CImportVMT::SerializeFallbacks( CUtlBuffer &buf, CDmElement *pRoot )
 		CDmElement *pFallback = array[i];
 		Assert( pFallback );
 
-		buf.Printf( "\"%s\"\n", pFallback->GetName() );
+		buf.Printf( "\"%s\"\n", pFallback->GetName().data() );
 		buf.Printf( "{\n" );
 		buf.PushTab();
 		if ( !SerializeShaderParameters( buf, pFallback ) )

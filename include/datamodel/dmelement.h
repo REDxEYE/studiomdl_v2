@@ -8,6 +8,8 @@
 
 
 #include <memory>
+#include <optional>
+#include <string>
 #include <string_view>
 #include <type_traits>
 #include <unordered_map>
@@ -214,13 +216,15 @@ public:
 
     std::string_view GetTypeString() const;
 
-    const char *GetName() const;
+    // The name points into the datamodel symbol table and is NUL-terminated.
+    std::string_view GetName() const;
 
     const DmObjectId_t &GetId() const;
 
-    void SetType(const char *pType);
+    void SetType(std::string_view type);
 
-    void SetName(const char *pName);
+    // std::nullopt clears the name symbol; an empty view stores an empty name.
+    void SetName(std::optional<std::string_view> name);
 
     // Attribute management
     CDmAttribute *AddAttribute(std::string_view attributeName, DmAttributeType_t type);
@@ -231,11 +235,11 @@ public:
     template<class E>
     CDmAttribute *AddAttributeElementArray(std::string_view attributeName);
 
-    void RemoveAttribute(const char *pAttributeName);
+    void RemoveAttribute(std::string_view attributeName);
 
     void RemoveAttributeByPtr(CDmAttribute *pAttributeName);
 
-    bool RenameAttribute(const char *pAttributeName, const char *pNewName);
+    bool RenameAttribute(std::string_view attributeName, std::string_view newName);
 
     // get attribute value
     template<class T>
@@ -244,7 +248,8 @@ public:
     template<class T>
     const T &GetValue(std::string_view attributeName, const T &defaultValue) const;
 
-    const char *GetValueString(std::string_view attributeName) const;
+    // A missing string is distinct from a stored empty string.
+    std::optional<std::string_view> GetValueString(std::string_view attributeName) const;
 
     template<class E>
     E *GetValueElement(std::string_view attributeName) const;
@@ -277,9 +282,9 @@ public:
     template<class E> requires (!std::is_same_v<std::remove_cv_t<E>, char>)
     CDmAttribute *InitValue(std::string_view attributeName, E *value);
 
-    // Parses an attribute from a string
+    // Parses a NUL-terminated value using the attribute's existing type.
     // Doesn't create an attribute if it doesn't exist and always preserves attribute type
-    void SetValueFromString(const char *pAttributeName, const char *value);
+    void SetValueFromString(std::string_view attributeName, const char *value);
 
     // Helpers for our RTTI
     template<class E>
@@ -611,12 +616,12 @@ inline const T &CDmElement::GetValue(const std::string_view attributeName) const
     return GetValue(attributeName, defaultVal.Get());
 }
 
-inline const char *CDmElement::GetValueString(const std::string_view attributeName) const {
-    CUtlSymbolLarge symbol = GetValue<CUtlSymbolLarge>(attributeName);
-    if (symbol == UTL_INVAL_SYMBOL_LARGE)
-        return nullptr;
+inline std::optional<std::string_view> CDmElement::GetValueString(std::string_view attributeName) const {
+    const auto symbol = GetValue<CUtlSymbolLarge>(attributeName);
+    if (!symbol.IsValid())
+        return std::nullopt;
 
-    return symbol.String();
+    return symbol.view();
 }
 
 template<class E>
@@ -723,12 +728,12 @@ inline std::string_view CDmElement::GetTypeString() const {
     return m_Type.view();
 }
 
-inline const char *CDmElement::GetName() const {
-    return m_Name.Get();
+inline std::string_view CDmElement::GetName() const {
+    return static_cast<std::string_view>(m_Name);
 }
 
-inline void CDmElement::SetName(const char *pName) {
-    m_Name.Set(pName);
+inline void CDmElement::SetName(std::optional<std::string_view> name) {
+    m_Name.GetAttribute()->SetValue(name ? g_pDataModel->GetSymbol(*name) : CUtlSymbolLarge());
 }
 
 inline const DmObjectId_t &CDmElement::GetId() const {
@@ -965,13 +970,13 @@ void FindAncestorsOfElement(CDmElement *pElement, std::vector<T *> &ancestors, b
 
 class CElementTreeTraversal {
 public:
-    CElementTreeTraversal(CDmElement *pRoot, const char *pAttrName);
+    CElementTreeTraversal(CDmElement *root, std::string_view attributeName);
 
     enum {
         NOT_VISITED = -2, VISITING = -1
     };
 
-    void Reset(CDmElement *pRoot, const char *pAttrName);
+    void Reset(CDmElement *root, std::string_view attributeName);
 
     bool IsValid() { return !m_state.empty(); }
 
@@ -990,7 +995,7 @@ private:
     };
 
     std::vector<State_t> m_state;
-    const char *m_pAttrName;
+    std::string m_attributeName;
 };
 
 
@@ -1008,9 +1013,10 @@ struct ElementArrayNameAccessor {
         return m_array.size();
     }
 
-    const char *operator[](int i) const {
-        CDmElement *pElement = GetElement<CDmElement>(m_array[i]);
-        return pElement ? pElement->GetName() : nullptr;
+    std::optional<std::string_view> operator[](int i) const {
+        if (const auto *element = GetElement<CDmElement>(m_array[i]))
+            return element->GetName();
+        return std::nullopt;
     }
 
 private:
@@ -1025,9 +1031,10 @@ struct ElementArrayNameAccessor<E *> {
         return m_array.size();
     }
 
-    const char *operator[](int i) const {
-        E *pElement = m_array[i];
-        return pElement ? pElement->GetName() : NULL;
+    std::optional<std::string_view> operator[](int i) const {
+        if (const auto *element = m_array[i])
+            return element->GetName();
+        return std::nullopt;
     }
 
 private:

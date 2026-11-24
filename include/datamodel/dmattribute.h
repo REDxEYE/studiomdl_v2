@@ -49,7 +49,7 @@ public:
 	// can be turned into a string by using g_pDataModel->String();
 	const char *GetName() const;
 	CUtlSymbolLarge	GetNameSymbol() const;
-	void		SetName( const char *newName );
+	void		SetName( std::string_view newName );
 
 	// Gets the attribute value
 	// NOTE: GetValueUntyped is used with GetType() for use w/ SetValue( type, void* )

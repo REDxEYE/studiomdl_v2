@@ -488,7 +488,7 @@ CDmElement *CImportMKS::FindImage( const char *pFrameName )
 	int nCount = images.Count();
 	for ( int i = 0; i < nCount; ++i )
 	{
-		if ( !Q_stricmp( pFrameName, images[i]->GetName() ) ) 
+		if ( !Q_stricmp( pFrameName, images[i]->GetName().data() ) ) 
 			return images[i];
 	}
 	return nullptr;

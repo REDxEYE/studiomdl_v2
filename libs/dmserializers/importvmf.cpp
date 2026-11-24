@@ -129,7 +129,7 @@ bool CImportVMF::SerializeOther(CUtlBuffer &buf, CDmAttribute* pOther, const cha
     int nCount = array.Count();
     for (int i = 0; i < nCount; ++i) {
         CDmElement* pElement = array[i];
-        const char* pElementName = pElement->GetName();
+        const char* pElementName = pElement->GetName().data();
         if (ppFilter) {
             int j;
             for (j = 0; ppFilter[j]; ++j) {
@@ -225,7 +225,7 @@ bool CImportVMF::SerializeEntities(CUtlBuffer &buf, CDmAttribute* pEntities) {
         buf.Printf("entity\n");
         buf.Printf("{\n");
         buf.PushTab();
-        buf.Printf("\"id\" \"%s\"\n", pElement->GetName());
+        buf.Printf("\"id\" \"%s\"\n", pElement->GetName().data());
 
         for (CDmAttribute* pAttribute : AttributesInFileOrder(pElement)) {
             // Do 'editor' at the end to preserve ordering and not make terrible diffs

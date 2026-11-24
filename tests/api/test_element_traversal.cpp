@@ -2,6 +2,8 @@
 #include "datamodel/dmattributevar.h"
 #include "datamodel/dmelement.h"
 
+#include <string>
+#include <string_view>
 #include <vector>
 
 SMDL_TEST(element_traversal_and_group_copy) {
@@ -19,7 +21,9 @@ SMDL_TEST(element_traversal_and_group_copy) {
     rootChildren.AddToTail(secondHandle);
     CDmrElementArray<>(first->AddAttribute("children", AT_ELEMENT_ARRAY)).AddToTail(secondHandle);
 
-    CElementTreeTraversal traversal(root, "children");
+    std::string attributeName = "childrenSuffix";
+    CElementTreeTraversal traversal(root, std::string_view(attributeName).substr(0, 8));
+    attributeName[0] = 'X';
     Require(traversal.Next() == root && traversal.CurrentDepth() == 0 &&
             traversal.Next() == first && traversal.CurrentDepth() == 1 &&
             traversal.Next(true) == second && traversal.CurrentDepth() == 1 &&
@@ -49,4 +53,27 @@ SMDL_TEST(element_traversal_and_group_copy) {
     g_pDataModel->DestroyElement(rootHandle);
     g_pDataModel->DestroyElement(firstHandle);
     g_pDataModel->DestroyElement(secondHandle);
+}
+
+SMDL_TEST(element_strings_preserve_view_bounds_and_absence) {
+    const auto handle = g_pDataModel->CreateElement("TestStrings", "original", DMFILEID_INVALID);
+    auto *element = g_pDataModel->GetElement(handle);
+    Require(element, "create element for string operations");
+
+    element->SetName(std::string_view("renamed-suffix").substr(0, 7));
+    Require(element->GetName() == "renamed", "element names must respect the view length");
+
+    element->SetValue("before", "");
+    Require(element->GetValueString("before") == std::string_view{} &&
+            !element->GetValueString("missing"), "an empty string must not be reported as missing");
+
+    const auto after = std::string_view("after-suffix").substr(0, 5);
+    Require(element->RenameAttribute("before", after) && !element->HasAttribute("before") &&
+            element->HasAttribute("after"), "attribute rename must respect the view length");
+    element->SetValueFromString(after, "value");
+    Require(element->GetValueString("after") == "value", "bounded attribute names must work with the string parser");
+    element->RemoveAttribute(after);
+    Require(!element->HasAttribute("after"), "bounded attribute names must work with removal");
+
+    g_pDataModel->DestroyElement(handle);
 }

@@ -272,7 +272,7 @@ void CDmeSequenceBase::OnConstruction()
 
 	if ( m_eActivity.GetElement() )
 	{
-		if ( !Q_strcmp( "unnamed", m_eActivity.GetElement()->GetName() ) )
+		if ( !Q_strcmp( "unnamed", m_eActivity.GetElement()->GetName().data() ) )
 		{
 			m_eActivity.GetElement()->SetName( "" );
 		}

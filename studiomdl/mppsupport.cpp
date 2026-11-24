@@ -66,6 +66,12 @@ struct BoneTransformMap_t {
     int m_pnMdlToDmeModel[MAXSTUDIOSRCBONES];
 };
 
+// Nullable C-string view of a string attribute: nullptr when missing (symbol storage is NUL-terminated).
+static const char *GetValueCString(const CDmElement *pElement, const std::string_view attributeName) {
+    const auto value = pElement->GetValueString(attributeName);
+    return value ? value->data() : nullptr;
+}
+
 
 static s_source_t *AllocateDmxSource(StudioMdlState &ctx, const char *pSourceName) {
     // Allocate a new source
@@ -113,9 +119,9 @@ static bool LoadLODs(StudioMdlState &ctx, s_source_t **ppRootLODSource, CDmeLODL
     if (pRootLOD && bSetUpAxis) {
         CDmeModel *pDmeModel = pRootLOD->GetValueElement<CDmeModel>("model");
         if (pDmeModel) {
-            const char *pUpAxis = pDmeModel->GetValueString("upAxis");
+            const auto pUpAxis = pDmeModel->GetValueString("upAxis");
             if (pUpAxis) {
-                if (StringHasPrefix(pUpAxis, "Y")) {
+                if (string_after_prefix(*pUpAxis, "Y").has_value()) {
                     // rotate 90 degrees around x to move y into z
                     ctx.script.defaultrotation = RadianEuler(M_PI / 2.0f, 0.0f, M_PI / 2.0f);
                 }
@@ -125,7 +131,7 @@ static bool LoadLODs(StudioMdlState &ctx, s_source_t **ppRootLODSource, CDmeLODL
     }
 
     char pSrcLODName[MAX_PATH];
-    Q_StripExtension(pRootLOD->GetName(), pSrcLODName, sizeof(pSrcLODName));
+    Q_StripExtension(pRootLOD->GetName().data(), pSrcLODName, sizeof(pSrcLODName));
     for (int i = 0; i < nCount; ++i) {
         CDmeLOD *pLOD = ppLODs[i];
 
@@ -282,7 +288,7 @@ static void LoadEyeballs(StudioMdlState &ctx, s_model_t *ps_model_t, CDmeLODList
         }
 
         s_eyeball_t *ps_eyeball_t = &ps_model_t->eyeballs.emplace_back();
-        Q_strncpy(ps_eyeball_t->name, pDmeEyeball->GetName(), sizeof(ps_eyeball_t->name));
+        Q_strncpy(ps_eyeball_t->name, pDmeEyeball->GetName().data(), sizeof(ps_eyeball_t->name));
         ps_eyeball_t->bone = nFoundBoneIndex;
         ps_eyeball_t->mesh = nFoundMeshMatIndex;
         ps_eyeball_t->radius = pDmeEyeball->m_flRadius.Get();
@@ -379,7 +385,7 @@ static bool LoadBodyGroupList(StudioMdlState &ctx, s_source_t **ppMainSource, CD
                 Q_strncpy(pModel->name, "blank", sizeof(pModel->name));
             }
             else {
-                Q_strncpy(pModel->name, pDmeLODList->GetName(), sizeof(pModel->name));
+                Q_strncpy(pModel->name, pDmeLODList->GetName().data(), sizeof(pModel->name));
 
                 ctx.importers.pCurrentModel = pModel;
 
@@ -428,7 +434,7 @@ bool LoadCollisionModel(StudioMdlState &ctx, CDmeCollisionModel *pCollisionInfo,
         return false;
     }
 
-    s_source_t *pCollisionSource = AllocateDmxSource(ctx, pCollisionInfo->GetName());
+    s_source_t *pCollisionSource = AllocateDmxSource(ctx, pCollisionInfo->GetName().data());
     if (!pCollisionSource)
         return false;
 
@@ -467,7 +473,7 @@ bool LoadCollisionModel(StudioMdlState &ctx, CDmeCollisionModel *pCollisionInfo,
     if (DoCollisionModel(ctx, pCollisionSource, pCollisionInfo, bStaticProp) == 0)
         return false;
 
-    const char *pSurfaceProperty = pCollisionInfo->GetValueString("surfaceProperty");
+    const char *pSurfaceProperty = GetValueCString(pCollisionInfo, "surfaceProperty");
     if (pSurfaceProperty && pSurfaceProperty[0]) {
         SetDefaultSurfaceProp(ctx, pSurfaceProperty);
     }
@@ -577,7 +583,7 @@ static void LoadBoneMaskList(StudioMdlState &ctx, CDmeBoneMaskList *pDmeBoneMask
                                           ? &ctx.anim.weightlist[0]
                                           : &ctx.anim.weightlist.emplace_back();
 
-        Q_strncpy(pWeightList->name, pDmeBoneMask->GetName(), sizeof(pWeightList->name));
+        Q_strncpy(pWeightList->name, pDmeBoneMask->GetName().data(), sizeof(pWeightList->name));
         pWeightList->numbones = 0;
         for (int j = 0; j < pDmeBoneMask->m_BoneWeights.size(); ++j) {
             CDmeBoneWeight *pDmeBoneWeight = pDmeBoneMask->m_BoneWeights.Element(j);
@@ -630,10 +636,10 @@ static void LoadPoseParameterList(StudioMdlState &ctx, CDmePoseParameterList *pD
         }
 
         // This is like FindOrCreatePoseParamater, name is copied into g_pose[].name
-        const int nPoseParameterIndex = LookupPoseParameter(ctx, pDmePoseParameter->GetName());
+        const int nPoseParameterIndex = LookupPoseParameter(ctx, pDmePoseParameter->GetName().data());
 
         s_poseparameter_t *pPoseParameter = &ctx.anim.pose[nPoseParameterIndex];
-        Q_strncpy(pPoseParameter->name, pDmePoseParameter->GetName(), sizeof(pPoseParameter->name));
+        Q_strncpy(pPoseParameter->name, pDmePoseParameter->GetName().data(), sizeof(pPoseParameter->name));
         pPoseParameter->min = pDmePoseParameter->m_flMin;
         pPoseParameter->max = pDmePoseParameter->m_flMax;
         if (pDmePoseParameter->m_bWrap) {
@@ -692,7 +698,7 @@ static void LoadIkChainList(StudioMdlState &ctx, CDmeSequenceList *pDmeSequenceL
         if (!pDmeIkChain)
             continue;
 
-        const char *pIkChainName = pDmeIkChain->GetName();
+        const std::string_view pIkChainName = pDmeIkChain->GetName();
 
         // Check for duplicates
         int j;
@@ -716,7 +722,7 @@ static void LoadIkChainList(StudioMdlState &ctx, CDmeSequenceList *pDmeSequenceL
         ikchain.floor = 0.0;
         ikchain.radius = 0.0;
 
-        Q_strncpy(ikchain.name, pIkChainName, sizeof(ikchain.name));
+        Q_strncpy(ikchain.name, pIkChainName.data(), sizeof(ikchain.name));
         Q_strncpy(ikchain.bonename, pDmeIkChain->m_sEndJoint, sizeof(ikchain.bonename));
         ikchain.height = pDmeIkChain->m_flHeight;
         ikchain.floor = pDmeIkChain->m_flFloor;
@@ -839,7 +845,7 @@ bool HandleDmeAnimCmdAlign(StudioMdlState &ctx, s_animcmd_t *pAnimCmd, CDmeAnimC
         return false;
     }
 
-    s_animation_t *pExtAnim = LookupAnimation(ctx, pDmeSequenceBase->GetName());
+    s_animation_t *pExtAnim = LookupAnimation(ctx, pDmeSequenceBase->GetName().data());
     if (!pExtAnim) {
         MdlWarning("1604: Unknown animation \"{}\" specified for {}:{}\n",
                    pDmeSequenceBase->GetName(),
@@ -906,7 +912,7 @@ void LoadAnimationCommands(StudioMdlState &ctx, CDmeSequence *pDmeSimpleSequence
             CDmeAnimCmdSubtract *pDmeAnimCmdSubtract = CastElement<CDmeAnimCmdSubtract>(pDmeAnimCmd);
             CDmeSequenceBase *pDmeSequenceBase = pDmeAnimCmdSubtract->m_eAnimation.GetElement();
             if (pDmeSequenceBase) {
-                s_animation_t *pExtAnim = LookupAnimation(ctx, pDmeSequenceBase->GetName());
+                s_animation_t *pExtAnim = LookupAnimation(ctx, pDmeSequenceBase->GetName().data());
                 if (pExtAnim) {
                     pAnimCmd->cmd = CMD_SUBTRACT;
                     pAnimCmd->u.subtract.ref = pExtAnim;
@@ -1080,7 +1086,7 @@ void LoadIkRuleList(StudioMdlState &ctx, CDmeSequence *pDmeSimpleSequence, s_ani
             Q_strncpy(pIkRule->attachment, pDmeIkAttachmentRule->m_sAttachmentName, sizeof(pIkRule->attachment));
 
             if (pDmeIkAttachmentRule->HasAttribute("fallbackBone", AT_STRING)) {
-                Q_strncpy(pIkRule->bonename, pDmeIkAttachmentRule->GetValueString("fallbackBone"),
+                Q_strncpy(pIkRule->bonename, GetValueCString(pDmeIkAttachmentRule, "fallbackBone"),
                           sizeof(pIkRule->bonename));
             }
 
@@ -1147,7 +1153,7 @@ static void LoadSequenceList(StudioMdlState &ctx, CDmeMultiSequence *pDmeMultiSe
         if (!pDmeSubSequence)
             continue;
 
-        s_animation_t *pAnim = LookupAnimation(ctx, pDmeSubSequence->GetName());
+        s_animation_t *pAnim = LookupAnimation(ctx, pDmeSubSequence->GetName().data());
         if (!pAnim) {
             MdlWarning("1208: DmeSequence {}: Couldn't find referenced animation: {}\n", pDmeMultiSequence->GetName(),
                        pDmeSubSequence->GetName());
@@ -1213,8 +1219,8 @@ void LoadBlendRefCompCenter(StudioMdlState &ctx, CDmeMultiSequence *pDmeMultiSeq
 
     CDmeSequence *pDmeBlendRefSequence = CastElement<CDmeSequence>(pDmeMultiSequence->m_eBlendRef.GetElement());
     if (pDmeBlendRefSequence) {
-        const char *pszBlendRef = pDmeBlendRefSequence->GetName();
-        if (pszBlendRef && *pszBlendRef) {
+        const char *pszBlendRef = pDmeBlendRefSequence->GetName().data();
+        if (*pszBlendRef) {
             pSequence->paramanim = LookupAnimation(ctx, pszBlendRef);
             if (pSequence->paramanim == nullptr) {
                 MdlWarning("1202: DmeSequence {}: Unknown .blendRef animation: {}\n", pDmeMultiSequence->GetName(),
@@ -1225,8 +1231,8 @@ void LoadBlendRefCompCenter(StudioMdlState &ctx, CDmeMultiSequence *pDmeMultiSeq
 
     CDmeSequence *pDmeBlendRefComp = CastElement<CDmeSequence>(pDmeMultiSequence->m_eBlendComp.GetElement());
     if (pDmeBlendRefComp) {
-        const char *pszBlendComp = pDmeBlendRefComp->GetName();
-        if (pszBlendComp && *pszBlendComp) {
+        const char *pszBlendComp = pDmeBlendRefComp->GetName().data();
+        if (*pszBlendComp) {
             pSequence->paramcompanim = LookupAnimation(ctx, pszBlendComp);
             if (pSequence->paramcompanim == nullptr) {
                 MdlWarning("1203: DmeSequence {}: Unknown .blendComp animation: {}\n", pDmeMultiSequence->GetName(),
@@ -1237,8 +1243,8 @@ void LoadBlendRefCompCenter(StudioMdlState &ctx, CDmeMultiSequence *pDmeMultiSeq
 
     CDmeSequence *pDmeBlendRefCenter = CastElement<CDmeSequence>(pDmeMultiSequence->m_eBlendCenter.GetElement());
     if (pDmeBlendRefCenter) {
-        const char *pszBlendCenter = pDmeBlendRefCenter->GetName();
-        if (pszBlendCenter && *pszBlendCenter) {
+        const char *pszBlendCenter = pDmeBlendRefCenter->GetName().data();
+        if (*pszBlendCenter) {
             pSequence->paramcenter = LookupAnimation(ctx, pszBlendCenter);
             if (pSequence->paramcenter == nullptr) {
                 MdlWarning("1204: DmeSequence {}: Unknown .blendCenter animation: {}\n", pDmeMultiSequence->GetName(),
@@ -1379,8 +1385,8 @@ static int LoadAndCreateSequences(StudioMdlState &ctx, s_source_t *pMainSource, 
             continue;
         }
 
-        const char *pszSeqName = pDmeSequenceBase->GetName();
-        if (pszSeqName == nullptr || *pszSeqName == '\0') {
+        const std::string_view pszSeqName = pDmeSequenceBase->GetName();
+        if (pszSeqName.empty()) {
             MdlWarning("1200: Ignoring Unnamed Sequence On {}[{}]\n", pSequenceList->GetName(), nSequenceIndex);
             continue;
         }
@@ -1398,7 +1404,7 @@ static int LoadAndCreateSequences(StudioMdlState &ctx, s_source_t *pMainSource, 
         CDmeSequenceBase *pDmeSequenceBase = sortedSequenceList[nSequenceIndex];
         // Already checked for NULL & unnamed
 
-        const char *pszSeqName = pDmeSequenceBase->GetName();
+        const char *pszSeqName = pDmeSequenceBase->GetName().data();
         Q_StripExtension(pszSeqName, szSeqName, sizeof(szSeqName));
 
         s_sequence_t *pSeq = ProcessCmdSequence(ctx, szSeqName);
@@ -1416,9 +1422,9 @@ static int LoadAndCreateSequences(StudioMdlState &ctx, s_source_t *pMainSource, 
                 CDmeModel *pDmeModel = CastElement<CDmeModel>(pDmeSimpleSequence->m_eSkeleton.GetElement());
 
                 if (bSetUpAxis && pDmeModel) {
-                    const char *pUpAxis = pDmeModel->GetValueString("upAxis");
+                    const auto pUpAxis = pDmeModel->GetValueString("upAxis");
                     if (pUpAxis) {
-                        if (StringHasPrefix(pUpAxis, "Y")) {
+                        if (string_after_prefix(*pUpAxis, "Y").has_value()) {
                             // rotate 90 degrees around x to move y into z
                             ctx.script.defaultrotation = RadianEuler(M_PI / 2.0f, 0.0f, M_PI / 2.0f);
                         }
@@ -1553,9 +1559,9 @@ static int LoadAndCreateSequences(StudioMdlState &ctx, s_source_t *pMainSource, 
         // Same As ParseSequence
         CDmeSequenceActivity *pDmeSequenceActivity = pDmeSequenceBase->m_eActivity.GetElement();
         if (pDmeSequenceActivity) {
-            const char *pszActivityName = pDmeSequenceActivity->GetName();
-            if (pszActivityName && Q_strlen(pszActivityName) > 0) {
-                Q_strncpy(pSeq->activityname, pszActivityName, sizeof(pSeq->activityname));
+            const std::string_view pszActivityName = pDmeSequenceActivity->GetName();
+            if (!pszActivityName.empty()) {
+                Q_strncpy(pSeq->activityname, pszActivityName.data(), sizeof(pSeq->activityname));
                 pSeq->actweight = pDmeSequenceActivity->m_nWeight.Get();
 
                 for (int nModifierIndex = 0; nModifierIndex < pDmeSequenceActivity->m_sModifierList.size(); ++
@@ -1798,7 +1804,7 @@ static void LoadDefineBoneList(StudioMdlState &ctx, CDmeDefineBoneList *pDmeDefi
 
         pImportBone = &ctx.bones.importbone.emplace_back();
 
-        Q_strncpy(pImportBone->name, pDmeDefineBone->GetName(), MAXSTUDIONAME);
+        Q_strncpy(pImportBone->name, pDmeDefineBone->GetName().data(), MAXSTUDIONAME);
         Q_strncpy(pImportBone->parent, pDmeDefineBone->m_Parent.Get(), MAXSTUDIONAME);
 
         AngleMatrix(pDmeDefineBone->m_Rotation.Get(), pDmeDefineBone->m_Translation.Get(), pImportBone->rawLocal);
@@ -1828,7 +1834,7 @@ static void LoadDefineBoneList(StudioMdlState &ctx, CDmeDefineBoneList *pDmeDefi
 
             if (!pContentsName) {
                 pContentsName = &ctx.core.jointContents.emplace_back();
-                Q_strncpy(pContentsName->m_pJointName, pDmeDefineBone->GetName(),
+                Q_strncpy(pContentsName->m_pJointName, pDmeDefineBone->GetName().data(),
                           sizeof(pContentsName->m_pJointName));
             }
 
@@ -1861,7 +1867,7 @@ static void LoadHitboxSetList(StudioMdlState &ctx, const CDmeHitboxSetList *pDme
 
         // Add a new hitboxset
         s_hitboxset *pHitboxSet = AllocateHitboxSet(ctx);
-        Q_strncpy(pHitboxSet->hitboxsetname, pSrcHitboxSet->GetName(), sizeof(pHitboxSet->hitboxsetname));
+        Q_strncpy(pHitboxSet->hitboxsetname, pSrcHitboxSet->GetName().data(), sizeof(pHitboxSet->hitboxsetname));
 
         int nHitboxCount = pSrcHitboxSet->m_HitboxList.size();
         for (int nHitboxIndex = 0; nHitboxIndex < nHitboxCount; ++nHitboxIndex) {
@@ -1877,7 +1883,7 @@ static void LoadHitboxSetList(StudioMdlState &ctx, const CDmeHitboxSetList *pDme
             s_bbox_t *pHitbox = AllocateHitbox(pHitboxSet);
             pHitbox->name = pSrcHitbox->m_sBoneName->view();
             Q_strncpy(pHitbox->name, pSrcHitbox->m_sBoneName, sizeof(pHitbox->name));
-            Q_strncpy(pHitbox->hitboxname, pSrcHitbox->GetName(), sizeof(pHitbox->hitboxname));
+            Q_strncpy(pHitbox->hitboxname, pSrcHitbox->GetName().data(), sizeof(pHitbox->hitboxname));
             pHitbox->group = pSrcHitbox->m_nGroupId;
             pHitbox->bmin = pSrcHitbox->m_vMinBounds;
             pHitbox->bmax = pSrcHitbox->m_vMaxBounds;
@@ -2007,7 +2013,7 @@ static void LoadGlobalFlags(StudioMdlState &ctx, CDmElement *pDmeRoot) {
 #ifdef MDLCOMPILE
 // Everything in the root of a loaded .mpp; false (after MdlError) on failure
 static bool LoadPreprocessedRoot(StudioMdlState &ctx, CDmElement *pRoot, const std::string &fullPath) {
-    const char *pMdlPath = pRoot->GetValueString("mdlPath");
+    const char *pMdlPath = GetValueCString(pRoot, "mdlPath");
     if (pMdlPath && *pMdlPath) {
         // This is a hack... really the model path should be able to be anywhere relative to the game
         // directory but currently "models/" is prepended everywhere... would like to get rid of that
@@ -2043,7 +2049,7 @@ static bool LoadPreprocessedRoot(StudioMdlState &ctx, CDmElement *pRoot, const s
         if (pCollisionModel && !LoadCollisionModel(ctx, pCollisionModel, bStaticProp))
             return false;
 
-        LoadCollisionText(ctx, pRoot->GetValueString("collisionText"));
+        LoadCollisionText(ctx, GetValueCString(pRoot, "collisionText"));
 
         // Deal with material groups.  Ok to pass NULL for CDmeMaterialGroupList
         LoadMaterialGroups(ctx, pRoot->GetValueElement<CDmeMaterialGroupList>("materialGroupList"));
@@ -2108,7 +2114,7 @@ static bool LoadPreprocessedRoot(StudioMdlState &ctx, CDmElement *pRoot, const s
     // At this point, reorienting of skeleton defined stuff will likely be required
 
     // Deal with KeyValues, Ok to pass NULL or empty string
-    LoadKeyValues(ctx, pRoot->GetValueString("keyValues"));
+    LoadKeyValues(ctx, GetValueCString(pRoot, "keyValues"));
 
     LoadGlobalFlags(ctx, pRoot);
 

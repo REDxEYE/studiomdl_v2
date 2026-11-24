@@ -250,7 +250,7 @@ CDmeVertexData *CDmeMesh::FindBaseState(const char *pStateName) const {
     const int nBaseStateCount = BaseStateCount();
     for (int i = 0; i < nBaseStateCount; ++i) {
         CDmeVertexData *pBaseState = GetBaseState(i);
-        if (!Q_stricmp(pStateName, pBaseState->GetName()))
+        if (!Q_stricmp(pStateName, pBaseState->GetName().data()))
             return pBaseState;
     }
 
@@ -414,7 +414,7 @@ int CDmeMesh::FindDeltaStateIndex(const char *inDeltaName, bool bSortDeltaName /
     const int nDeltaStateCount = DeltaStateCount();
     for (int i = 0; i < nDeltaStateCount; ++i) {
         CDmeVertexDeltaData *pDeltaState = GetDeltaState(i);
-        if (!V_stricmp(sDeltaName.Get(), pDeltaState->GetName()))
+        if (!V_stricmp(sDeltaName.Get(), pDeltaState->GetName().data()))
             return i;
     }
 
@@ -424,7 +424,7 @@ int CDmeMesh::FindDeltaStateIndex(const char *inDeltaName, bool bSortDeltaName /
 
     for (int i = 0; i < nDeltaStateCount; ++i) {
         CDmeVertexDeltaData *pDeltaState = GetDeltaState(i);
-        if (!V_stricmp(sDeltaName.Get(), pDeltaState->GetName()))
+        if (!V_stricmp(sDeltaName.Get(), pDeltaState->GetName().data()))
             return i;
     }
 
@@ -530,7 +530,7 @@ bool CDmeMesh::GetControlDeltaIndices(
     CDmeVertexDeltaData *pDeltaState,
     CUtlVector<int> &controlDeltaIndices) const {
     Assert(pDeltaState);
-    return GetControlDeltaIndices(pDeltaState->GetName(), controlDeltaIndices);
+    return GetControlDeltaIndices(pDeltaState->GetName().data(), controlDeltaIndices);
 }
 
 

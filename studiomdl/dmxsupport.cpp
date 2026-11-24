@@ -303,7 +303,7 @@ LoadVertices(StudioMdlState &ctx, DmxLoadState &load, CDmeDag* pDmeDag, CDmeVert
     if (jointCount <= 0 && nBoneAssign == load.nDefaultRootNode && pDmeDag) {
         // Use the bone created for the DmeDag node of the DmeMesh
         for (int i = 0; i < pSource->numbones; ++i) {
-            if (!Q_strcmp(pDmeDag->GetName(), pSource->localBone[i].name)) {
+            if (!Q_strcmp(pDmeDag->GetName().data(), pSource->localBone[i].name)) {
                 nBoneAssign = i;
                 break;
             }
@@ -456,7 +456,7 @@ static bool LoadDeltaState(DmxLoadState &load,
     const int nStartingUniqueVertex,
     const int nStartingUniqueVertexMap) {
     vstd::FunctionTimingRecorder _("DMX");
-    DeltaState_t* pDeltaStateData = FindOrAddDeltaState(load, pDeltaState->GetName(),
+    DeltaState_t* pDeltaStateData = FindOrAddDeltaState(load, pDeltaState->GetName().data(),
                                                         nStartingUniqueVertex + pBindState->VertexCount());
 
     matrix3x4_t normalMat;
@@ -1033,17 +1033,17 @@ static void HandleDmeJiggleBone(StudioMdlState &ctx, const CDmeDag* pDmeDag) {
     if (!pDmeJiggleBone)
         return;
 
-    const char* pName = pDmeJiggleBone->GetName();
+    const auto name = pDmeJiggleBone->GetName();
     for (int i = 0; i < std::ssize(ctx.bones.jigglebones); ++i) {
-        if (vstd::iequals(ctx.bones.jigglebones[i].bonename, pName)) {
-            MdlWarning("2000: Jiggle Bone: {} already defined, ignoring additional declarations\n", pName);
+        if (vstd::iequals(ctx.bones.jigglebones[i].bonename, name)) {
+            MdlWarning("2000: Jiggle Bone: {} already defined, ignoring additional declarations\n", name);
             return;
         }
     }
 
     s_jigglebone_t* pJiggleBone = &ctx.bones.jigglebones.emplace_back();
 
-    Q_strncpy(pJiggleBone->bonename, pName, sizeof(pJiggleBone->bonename));
+    Q_strncpy(pJiggleBone->bonename, name.data(), sizeof(pJiggleBone->bonename));
 
     // default values
     memset(&pJiggleBone->data, 0, sizeof(mstudiojigglebone_t));
@@ -1086,7 +1086,7 @@ static void HandleDmeJiggleBone(StudioMdlState &ctx, const CDmeDag* pDmeDag) {
 
     if (pDmeJiggleBone->m_bFlexible) {
         if (pDmeJiggleBone->m_bRigid) {
-            MdlWarning("2001: Jiggle Bone {}: Both flexible and rigid set, ignoring rigid\n", pName);
+            MdlWarning("2001: Jiggle Bone {}: Both flexible and rigid set, ignoring rigid\n", name);
         }
 
         pJiggleBone->data.flags |= (JiggleBoneFlags::IsFlexible);
@@ -1169,7 +1169,7 @@ AddDagJoint(StudioMdlState &ctx, CDmeModel* pModel, CDmeDag* pDag, std::array<s_
 
     HandleDmeJiggleBone(ctx, pDag);
 
-    Q_strncpy(pNodes[nJointIndex].name, pDag->GetName(), sizeof(pNodes[nJointIndex].name));
+    Q_strncpy(pNodes[nJointIndex].name, pDag->GetName().data(), sizeof(pNodes[nJointIndex].name));
     pNodes[nJointIndex].parent = nParentIndex;
 
     // Now deal with children
@@ -1229,8 +1229,8 @@ static void LoadAttachments(CDmeDag* pRoot, CDmeDag* pDag, s_source_t* pSource, 
     CDmeAttachment* pAttachment = CastElement<CDmeAttachment>(pDag->GetShape());
     if (pAttachment && (pDag != pRoot)) {
         s_attachment_t &attachment = pSource->m_Attachments.emplace_back();
-        Q_strncpy(attachment.name, pAttachment->GetName(), sizeof(attachment.name));
-        Q_strncpy(attachment.bonename, pDag->GetName(), sizeof(attachment.bonename));
+        Q_strncpy(attachment.name, pAttachment->GetName().data(), sizeof(attachment.name));
+        Q_strncpy(attachment.bonename, pDag->GetName().data(), sizeof(attachment.bonename));
         SetIdentityMatrix(attachment.local);
 
         if (bStaticProp) {
@@ -1423,12 +1423,12 @@ LoadAnimations(StudioMdlState &ctx, s_source_t* pSource, CDmeAnimationList* pAni
     for (int i = 0; i < nAnimationCount; ++i) {
         CDmeChannelsClip* pAnimation = pAnimationList->GetAnimation(i);
 
-        if (!Q_stricmp(pAnimationList->GetName(), "BindPose")) {
+        if (!Q_stricmp(pAnimationList->GetName().data(), "BindPose")) {
             MdlError("Error: Cannot use \"BindPose\" as an animation name!\n");
             break;
         }
 
-        s_sourceanim_t* pSourceAnim = FindOrAddSourceAnim(pSource, pAnimation->GetName());
+        s_sourceanim_t* pSourceAnim = FindOrAddSourceAnim(pSource, pAnimation->GetName().data());
         DmeTime_t nStartTime = pAnimation->GetStartTime();
         DmeTime_t nEndTime = pAnimation->GetEndTime();
         int nFrameRateVal = pAnimation->GetValue<int>("frameRate");
@@ -1464,7 +1464,7 @@ static void AddFlexKeys(CDmeDag* pRoot, CDmeDag* pDag, CDmeCombinationOperator* 
         int nDeltaStateCount = pMesh->DeltaStateCount();
         for (int i = 0; i < nDeltaStateCount; ++i) {
             CDmeVertexDeltaData* pDeltaState = pMesh->GetDeltaState(i);
-            AddFlexKey(pSource, pComboOp, pDeltaState->GetName());
+            AddFlexKey(pSource, pComboOp, pDeltaState->GetName().data());
         }
     }
 
@@ -1493,9 +1493,7 @@ void LoadModelInfo(CDmElement* pRoot, char const* pFullPath) {
             CDmrElementArray<CDmElement> arrSources(pSources);
             for (int kk = 0; kk < arrSources.Count(); ++kk) {
                 if (CDmElement* pModelSource = arrSources.Element(kk)) {
-                    if (char const* szName = pModelSource->GetName()) {
-                        MdlPrint("* {}{:c}{}\n", pFullPath, CORRECT_PATH_SEPARATOR, szName);
-                    }
+                    MdlPrint("* {}{:c}{}\n", pFullPath, CORRECT_PATH_SEPARATOR, pModelSource->GetName());
                 }
             }
         }
@@ -1524,19 +1522,19 @@ bool LoadTwistConstraint(StudioMdlState &ctx, CDmElement* pDmElement) {
 
     twistBone.m_bInverse = pDmeTwist->GetInverse();
     twistBone.m_vUpVector = pDmeTwist->GetUpAxis();
-    V_strncpy(twistBone.m_szParentBoneName, pDmeDagParent->GetName(), ARRAYSIZE(twistBone.m_szParentBoneName));
+    V_strncpy(twistBone.m_szParentBoneName, pDmeDagParent->GetName().data(), ARRAYSIZE(twistBone.m_szParentBoneName));
     twistBone.m_qBaseRotation = twistBone.m_bInverse
                                     ? pDmeTwist->GetParentBindRotation()
                                     : pDmeTwist->GetChildBindRotation();
-    V_strncpy(twistBone.m_szChildBoneName, pDmeDagChild->GetName(), ARRAYSIZE(twistBone.m_szChildBoneName));
+    V_strncpy(twistBone.m_szChildBoneName, pDmeDagChild->GetName().data(), ARRAYSIZE(twistBone.m_szChildBoneName));
 
     for (int i = 0; i < pDmeTwist->SlaveCount(); ++i) {
         CDmeDag* pDmeTwistDag = pDmeTwist->GetSlaveDag(i);
         if (!pDmeTwistDag)
             continue;
 
-        const char* pszTwistTargetName = pDmeTwistDag->GetName();
-        if (!pszTwistTargetName || *pszTwistTargetName == '\0')
+        const std::string_view pszTwistTargetName = pDmeTwistDag->GetName();
+        if (pszTwistTargetName.empty())
             continue;
 
         bool bFound = false;
@@ -1557,7 +1555,7 @@ bool LoadTwistConstraint(StudioMdlState &ctx, CDmElement* pDmElement) {
             continue;
 
         s_constraintbonetarget_t &twistBoneTarget = twistBone.m_twistBoneTargets.emplace_back();
-        V_strncpy(twistBoneTarget.m_szBoneName, pDmeTwistDag->GetName(), sizeof(twistBoneTarget.m_szBoneName));
+        V_strncpy(twistBoneTarget.m_szBoneName, pDmeTwistDag->GetName().data(), sizeof(twistBoneTarget.m_szBoneName));
         twistBoneTarget.m_nBone = -1;
         twistBoneTarget.m_flWeight = pDmeTwist->GetSlaveWeight(i);
         twistBoneTarget.m_vOffset = pDmeTwistDag->GetTransform()->GetPosition();
@@ -1596,7 +1594,7 @@ bool LoadBaseConstraintParams(StudioMdlState &ctx, CConstraintBoneBase* pConstra
 
         // Load targets
         s_constraintbonetarget_t &target = pConstraintBone->m_targets.emplace_back();
-        V_strncpy(target.m_szBoneName, pDmeTargetDag->GetName(), sizeof(target.m_szBoneName));
+        V_strncpy(target.m_szBoneName, pDmeTargetDag->GetName().data(), sizeof(target.m_szBoneName));
         target.m_nBone = -1;
         target.m_flWeight = pDmeConstraintTarget->GetWeight();
         target.m_qOffset = pDmeConstraintTarget->GetOrientationOffset();
@@ -1625,7 +1623,7 @@ bool LoadBaseConstraintParams(StudioMdlState &ctx, CConstraintBoneBase* pConstra
 
     s_constraintboneslave_t &slave = pConstraintBone->m_slave;
 
-    V_strncpy(slave.m_szBoneName, pDmeSlaveDag->GetName(), sizeof(slave.m_szBoneName));
+    V_strncpy(slave.m_szBoneName, pDmeSlaveDag->GetName().data(), sizeof(slave.m_szBoneName));
     slave.m_nBone = -1;
     slave.m_vBaseTranslate = pDmeConstraintSlave->GetBasePosition();
     slave.m_qBaseRotation = pDmeConstraintSlave->GetBaseOrientation();
@@ -1658,7 +1656,7 @@ bool LoadSpecializedConstraintParams(StudioMdlState &ctx, CDmeRigAimConstraintOp
 
     CDmElement* pDmeUpSpaceTarget = pDmeConstraint->GetValueElement<CDmElement>("upSpaceTarget");
     if (pDmeUpSpaceTarget) {
-        V_strncpy(pConstraint->m_szUpSpaceTargetBone, pDmeUpSpaceTarget->GetName(),
+        V_strncpy(pConstraint->m_szUpSpaceTargetBone, pDmeUpSpaceTarget->GetName().data(),
                   ARRAYSIZE(pConstraint->m_szUpSpaceTargetBone));
     }
     pConstraint->m_nUpSpaceTargetBone = -1;

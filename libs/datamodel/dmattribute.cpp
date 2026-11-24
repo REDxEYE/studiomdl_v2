@@ -19,6 +19,7 @@
 #include "tier1/mempool.h"
 #include "mathlib/vmatrix.h"
 #include "datamodel/dmattributevar.h"
+#include "tier1_v2/string_utils.hpp"
 
 
 //-----------------------------------------------------------------------------
@@ -2053,19 +2054,19 @@ bool CDmAttribute::IsStandard() const
 	return m_Name == nameSym;
 }
 
-void CDmAttribute::SetName( const char *pNewName )
+void CDmAttribute::SetName( std::string_view newName )
 {
-	if ( m_pOwner->HasAttribute( pNewName ) && Q_stricmp( GetName(), pNewName ) )
+	if ( m_pOwner->HasAttribute( newName ) && !vstd::iequals( m_Name.view(), newName ) )
 	{
 		Warning( "Tried to rename from '{}' to '{}', but '{}' already exists\n",
-			GetName(), pNewName, pNewName );
+			GetName(), newName, newName );
 		return;
 	}
 
 	if ( !MarkDirty() )
 		return;
 
-	m_Name = g_pDataModel->GetSymbol( pNewName );
+	m_Name = g_pDataModel->GetSymbol( newName );
 	g_pDataModelImp->NotifyState( NOTIFY_CHANGE_TOPOLOGICAL );
 }
 

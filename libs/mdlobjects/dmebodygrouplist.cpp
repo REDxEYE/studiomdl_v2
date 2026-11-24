@@ -39,7 +39,7 @@ CDmeBodyGroup *CDmeBodyGroupList::FindBodyGroup( const char *pName )
 	int nCount = m_BodyGroups.size();
 	for ( int i = 0; i < nCount; ++i )
 	{
-		if ( !Q_stricmp( pName, m_BodyGroups[i]->GetName() ) )
+		if ( !Q_stricmp( pName, m_BodyGroups[i]->GetName().data() ) )
 			return m_BodyGroups[i];
 	}
 	return nullptr;

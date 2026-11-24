@@ -172,7 +172,7 @@ bool CDmSerializerKeyValues::SerializeAttributes(CUtlBuffer &buf, CDmElement* pE
 }
 
 bool CDmSerializerKeyValues::SerializeElement(CUtlBuffer &buf, CDmElement* pElement) {
-    buf.Printf("\"%s\"\n{\n", pElement->GetName());
+    buf.Printf("\"%s\"\n{\n", pElement->GetName().data());
     buf.PushTab();
     SerializeAttributes(buf, pElement);
     buf.PopTab();
