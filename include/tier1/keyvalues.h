@@ -299,7 +299,7 @@ public:
 
     void SetStringValue(std::string_view strValue);
 
-    // Dump keyvalues recursively into a dump context
+    // Dump this key recursively. Use KeyValuesDumpAsDevMsg for a nullable root.
     bool Dump(IKeyValuesDumpContext* pDump, int nIndentLevel = 0);
 
     // Merge operations describing how two keyvalues can be combined
@@ -434,5 +434,7 @@ protected:
 
 inline bool KeyValuesDumpAsDevMsg(KeyValues* pKeyValues, int nIndentLevel = 0, int nDeveloperLevel = 1) {
     CKeyValuesDumpContextAsDevMsg ctx(nDeveloperLevel);
-    return pKeyValues->Dump(&ctx, nIndentLevel);
+    if (pKeyValues)
+        return pKeyValues->Dump(&ctx, nIndentLevel);
+    return ctx.KvBeginKey(nullptr, nIndentLevel) && ctx.KvEndKey(nullptr, nIndentLevel);
 }

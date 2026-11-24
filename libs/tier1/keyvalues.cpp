@@ -487,7 +487,6 @@ void KeyValues::RecursiveSaveToFile(CUtlBuffer &buf, int indentLevel) {
 // Purpose: Get the name of the current key section
 //-----------------------------------------------------------------------------
 std::string_view KeyValues::GetName() const {
-    AssertMsg(this, "Member function called on NULL KeyValues");
     return KeyValuesSystem()->GetStringForSymbol(
         MAKE_3_BYTES_FROM_1_AND_2(m_iKeyNameCaseSensitive1, m_iKeyNameCaseSensitive2));
 }
@@ -496,12 +495,10 @@ std::string_view KeyValues::GetName() const {
 // Purpose: Get the symbol name of the current key section
 //-----------------------------------------------------------------------------
 int KeyValues::GetNameSymbol() const {
-    AssertMsg(this, "Member function called on NULL KeyValues");
     return m_iKeyName;
 }
 
 int KeyValues::GetNameSymbolCaseSensitive() const {
-    AssertMsg(this, "Member function called on NULL KeyValues");
     return MAKE_3_BYTES_FROM_1_AND_2(m_iKeyNameCaseSensitive1, m_iKeyNameCaseSensitive2);
 }
 
@@ -738,8 +735,7 @@ void KeyValues::RecursiveSaveToFile(IBaseFileSystem* filesystem, FileHandle_t f,
 // Purpose: looks up a key by symbol name
 //-----------------------------------------------------------------------------
 KeyValues* KeyValues::FindKey(int keySymbol) const {
-    AssertMsg(this, "Member function called on NULL KeyValues");
-    for (KeyValues* dat = this ? m_pSub : nullptr; dat != nullptr; dat = dat->m_pPeer) {
+    for (KeyValues* dat = m_pSub; dat != nullptr; dat = dat->m_pPeer) {
         if (dat->m_iKeyName == (uint32_t) keySymbol)
             return dat;
     }
@@ -904,16 +900,14 @@ KeyValues* KeyValues::FindLastSubKey() {
 // Purpose: Return the first subkey in the list
 //-----------------------------------------------------------------------------
 KeyValues* KeyValues::GetFirstSubKey() const {
-    AssertMsg(this, "Member function called on NULL KeyValues");
-    return this ? m_pSub : nullptr;
+    return m_pSub;
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: Return the next subkey
 //-----------------------------------------------------------------------------
 KeyValues* KeyValues::GetNextKey() const {
-    AssertMsg(this, "Member function called on NULL KeyValues");
-    return this ? m_pPeer : nullptr;
+    return m_pPeer;
 }
 
 //-----------------------------------------------------------------------------
@@ -925,8 +919,7 @@ void KeyValues::SetNextKey(KeyValues* pDat) {
 
 
 KeyValues* KeyValues::GetFirstTrueSubKey() {
-    AssertMsg(this, "Member function called on NULL KeyValues");
-    KeyValues* pRet = this ? m_pSub : nullptr;
+    KeyValues* pRet = m_pSub;
     while (pRet && pRet->m_iDataType != TYPE_NONE)
         pRet = pRet->m_pPeer;
 
@@ -934,8 +927,7 @@ KeyValues* KeyValues::GetFirstTrueSubKey() {
 }
 
 KeyValues* KeyValues::GetNextTrueSubKey() {
-    AssertMsg(this, "Member function called on NULL KeyValues");
-    KeyValues* pRet = this ? m_pPeer : nullptr;
+    KeyValues* pRet = m_pPeer;
     while (pRet && pRet->m_iDataType != TYPE_NONE)
         pRet = pRet->m_pPeer;
 
@@ -943,8 +935,7 @@ KeyValues* KeyValues::GetNextTrueSubKey() {
 }
 
 KeyValues* KeyValues::GetFirstValue() {
-    AssertMsg(this, "Member function called on NULL KeyValues");
-    KeyValues* pRet = this ? m_pSub : nullptr;
+    KeyValues* pRet = m_pSub;
     while (pRet && pRet->m_iDataType == TYPE_NONE)
         pRet = pRet->m_pPeer;
 
@@ -952,8 +943,7 @@ KeyValues* KeyValues::GetFirstValue() {
 }
 
 KeyValues* KeyValues::GetNextValue() {
-    AssertMsg(this, "Member function called on NULL KeyValues");
-    KeyValues* pRet = this ? m_pPeer : nullptr;
+    KeyValues* pRet = m_pPeer;
     while (pRet && pRet->m_iDataType == TYPE_NONE)
         pRet = pRet->m_pPeer;
 
@@ -2072,13 +2062,13 @@ bool KeyValues::Dump(IKeyValuesDumpContext* pDump, int nIndentLevel /* = 0 */) {
         return false;
 
     // Dump values
-    for (KeyValues* val = this ? GetFirstValue() : nullptr; val; val = val->GetNextValue()) {
+    for (KeyValues* val = GetFirstValue(); val; val = val->GetNextValue()) {
         if (!pDump->KvWriteValue(val, nIndentLevel + 1))
             return false;
     }
 
     // Dump subkeys
-    for (KeyValues* sub = this ? GetFirstTrueSubKey() : nullptr; sub; sub = sub->GetNextTrueSubKey()) {
+    for (KeyValues* sub = GetFirstTrueSubKey(); sub; sub = sub->GetNextTrueSubKey()) {
         if (!sub->Dump(pDump, nIndentLevel + 1))
             return false;
     }
