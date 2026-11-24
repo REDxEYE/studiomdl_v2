@@ -11,6 +11,7 @@
 #include <string_view>
 #include <type_traits>
 #include <unordered_map>
+#include <unordered_set>
 #include "tier1/utlrbtree.h"
 #include "tier1/utlhash.h"
 #include "tier1/utlvector.h"
@@ -425,7 +426,7 @@ public:
     void SetReference(const DmElementReference_t &ref);
 
     // Estimates memory usage
-    int EstimateMemoryUsage(CUtlHash<DmElementHandle_t> &visited, TraversalDepth_t depth, int *pCategories);
+    int EstimateMemoryUsage(std::unordered_set<DmElementHandle_t> &visited, TraversalDepth_t depth, int *pCategories);
 
 private:
     DmObjectId_t m_Id; // UUID's like to be quad-aligned

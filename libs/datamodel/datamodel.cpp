@@ -19,6 +19,7 @@
 #include <charconv>
 #include <ctime>
 #include <string_view>
+#include <unordered_set>
 
 #include "tier1_v2/function_timing.hpp"
 
@@ -210,16 +211,9 @@ int CDataModel::EstimateMemoryOverhead() const {
     return nHandlesOverhead + nElementIdsOverhead;
 }
 
-static bool HandleCompare(const DmElementHandle_t &a, const DmElementHandle_t &b) {
-    return a == b;
-}
-
-static unsigned int HandleHash(const DmElementHandle_t &h) {
-    return (unsigned int) h;
-}
 
 int CDataModel::EstimateMemoryUsage(DmElementHandle_t hElement, TraversalDepth_t depth) {
-    CUtlHash<DmElementHandle_t> visited(1024, 0, 0, HandleCompare, HandleHash);
+    std::unordered_set<DmElementHandle_t> visited;
     CDmElement *pElement = m_Handles.GetHandle(hElement);
     if (!pElement)
         return 0;
@@ -250,12 +244,11 @@ int DmMemorySortFunc(const void *lhs, const void *rhs) {
 
 // this method assumes that all elements that should be traversed have a parity of !bParity
 static void
-GatherElements_R(CDmElement *pElement, CUtlVector<DmElementHandle_t> &list, CUtlHash<DmElementHandle_t> &visited) {
+GatherElements_R(CDmElement *pElement, CUtlVector<DmElementHandle_t> &list, std::unordered_set<DmElementHandle_t> &visited) {
     DmElementHandle_t h = pElement->GetHandle();
 
-    if (visited.Find(h) != visited.InvalidHandle())
+    if (!visited.insert(h).second)
         return;
-    visited.Insert(h);
 
     list.AddToTail(h);
 
@@ -280,7 +273,7 @@ GatherElements_R(CDmElement *pElement, CUtlVector<DmElementHandle_t> &list, CUtl
 
 void CDataModel::BuildHistogramForHandles(std::map<CUtlSymbolLarge, DmMemoryInfo_t> &typeHistogram,
                                           CUtlVector<DmElementHandle_t> &handles) {
-    CUtlHash<DmElementHandle_t> visited(1024, 0, 0, HandleCompare, HandleHash);
+    std::unordered_set<DmElementHandle_t> visited;
 
     int c = handles.size();
     for (int i = 0; i < c; ++i) {
@@ -304,7 +297,7 @@ void CDataModel::BuildHistogramForHandles(std::map<CUtlSymbolLarge, DmMemoryInfo
 
 void CDataModel::DisplayMemoryStats(DmElementHandle_t hElement /*= DMELEMENT_HANDLE_INVALID*/ ) {
     std::map<CUtlSymbolLarge, DmMemoryInfo_t> typeHistogram;
-    CUtlHash<DmElementHandle_t> visited(1024, 0, 0, HandleCompare, HandleHash);
+    std::unordered_set<DmElementHandle_t> visited;
 
     CUtlVector<DmElementHandle_t> handles;
 

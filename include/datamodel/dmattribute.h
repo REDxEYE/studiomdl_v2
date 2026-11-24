@@ -9,12 +9,12 @@
 
 #include <string>
 #include <string_view>
+#include <unordered_set>
 
 #include "datamodel/attributeflags.h"
 #include "datamodel/idatamodel.h"
 #include "datamodel/dmattributetypes.h"
 #include "datamodel/dmvar.h"
-#include "tier1/utlhash.h"
 
 //-----------------------------------------------------------------------------
 // Forward declarations
@@ -159,7 +159,7 @@ public:
 	CDmAttribute **GetNextAttributeRef();
 
 	// Implementational function used for memory consumption estimation computation
-	int EstimateMemoryUsageInternal( CUtlHash< DmElementHandle_t > &visited, TraversalDepth_t depth, int *pCategories ) const;
+	int EstimateMemoryUsageInternal( std::unordered_set<DmElementHandle_t> &visited, TraversalDepth_t depth, int *pCategories ) const;
 
 	// Called by elements after unserialization of their attributes is complete
 	void OnUnserializationFinished();

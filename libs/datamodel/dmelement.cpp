@@ -275,11 +275,10 @@ void CDmElement::SetReference( const DmElementReference_t &ref )
 }
 
 
-int CDmElement::EstimateMemoryUsage( CUtlHash< DmElementHandle_t > &visited, TraversalDepth_t depth, int *pCategories )
+int CDmElement::EstimateMemoryUsage( std::unordered_set<DmElementHandle_t> &visited, TraversalDepth_t depth, int *pCategories )
 {
-	if ( visited.Find( m_ref.m_hElement ) != visited.InvalidHandle() )
+	if ( !visited.insert( m_ref.m_hElement ).second )
 		return 0;
-	visited.Insert( m_ref.m_hElement );
 
 	int nDataModelUsage = g_pDataModelImp->EstimateMemoryOverhead( );
 	int nReferenceUsage = m_ref.EstimateMemoryOverhead();

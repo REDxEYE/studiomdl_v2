@@ -2129,17 +2129,8 @@ void CDmAttribute::InvalidateHandle()
 //-----------------------------------------------------------------------------
 // Memory usage estimations
 //-----------------------------------------------------------------------------
-bool HandleCompare( const DmElementHandle_t &a, const DmElementHandle_t &b )
-{
-	return a == b;
-}
 
-unsigned int HandleHash( const DmElementHandle_t &h )
-{
-	return (unsigned int)h;
-}
-
-int CDmAttribute::EstimateMemoryUsageInternal( CUtlHash< DmElementHandle_t > &visited, TraversalDepth_t depth, int *pCategories ) const
+int CDmAttribute::EstimateMemoryUsageInternal( std::unordered_set<DmElementHandle_t> &visited, TraversalDepth_t depth, int *pCategories ) const
 {
 	int nOverhead = sizeof( *this );
 	int nAttributeDataSize = s_pAttrInfo[ GetType() ]->DataSize();
