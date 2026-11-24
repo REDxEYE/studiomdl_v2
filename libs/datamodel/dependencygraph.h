@@ -7,9 +7,9 @@
 #pragma once
 
 
+#include <unordered_map>
 #include <vector>
 #include "tier1/utlvector.h"
-#include "tier1/utlhash.h"
 
 //-----------------------------------------------------------------------------
 // Forward declarations
@@ -50,7 +50,7 @@ private:
 
 	CUtlVector< COperatorNode* > m_opNodes;
 
-	CUtlHash< CAttributeNode* > m_attrNodes;
+	std::unordered_map<CDmAttribute *, CAttributeNode *> m_attrNodes;
 
 	std::vector< IDmeOperator* > m_operators;
 };

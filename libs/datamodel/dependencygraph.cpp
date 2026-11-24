@@ -52,24 +52,11 @@ public:
 CClassMemoryPool< CAttributeNode >	g_AttrNodePool( 1000 );
 CClassMemoryPool< COperatorNode >	g_OperatorNodePool( 1000 );
 
-bool HashEntryCompareFunc( CAttributeNode *const& lhs, CAttributeNode *const& rhs )
-{
-	return lhs->m_attribute == rhs->m_attribute;
-}
-
-uint32_t HashEntryKeyFunc( CAttributeNode *const& keyinfo )
-{
-	uintptr_t i = (uintptr_t)keyinfo->m_attribute;
-	return uint32_t( i >> 2 ); // since memory is allocated on a 4-byte (at least!) boundary
-}
 
 //-----------------------------------------------------------------------------
 // CDependencyGraph constructor - builds dependency graph from operators
 //-----------------------------------------------------------------------------
-CDependencyGraph::CDependencyGraph() :
-	m_attrNodes( 4096, 0, 0, HashEntryCompareFunc, HashEntryKeyFunc )
-{
-}
+CDependencyGraph::CDependencyGraph() = default;
 
 void CDependencyGraph::Reset( const std::vector< IDmeOperator * > &operators )
 {
@@ -154,15 +141,14 @@ void CDependencyGraph::Cleanup()
 		g_OperatorNodePool.Free( m_opNodes[ oi ] );
 	}
 
-	UtlHashHandle_t h = m_attrNodes.GetFirstHandle();
-	for ( ; h != m_attrNodes.InvalidHandle(); h = m_attrNodes.GetNextHandle( h ) )
+	for ( const auto &[attribute, node] : m_attrNodes )
 	{
-		g_AttrNodePool.Free( m_attrNodes[ h ] );
+		g_AttrNodePool.Free( node );
 	}
 
 	m_opRoots.RemoveAll();
 	m_opNodes.RemoveAll();
-	m_attrNodes.RemoveAll();
+	m_attrNodes.clear();
 	m_operators.clear();
 }
 
@@ -194,10 +180,8 @@ void CDependencyGraph::FindRoots()
 	
 
 	// Do we have an attribute which is an input to us which is not an output to some other op?
-	UtlHashHandle_t h = m_attrNodes.GetFirstHandle();
-	for ( ; h != m_attrNodes.InvalidHandle(); h = m_attrNodes.GetNextHandle( h ) )
+	for ( const auto &[attribute, pAttrNode] : m_attrNodes )
 	{
-		CAttributeNode *pAttrNode = m_attrNodes[ h ];
 		//Msg( "attrib {} {}\n", pAttrNode->m_attribute->GetName(), pAttrNode->m_attribute );
 		if ( !pAttrNode->m_bIsOutputToOperator &&
 			pAttrNode->m_attribute->IsFlagSet( FATTRIB_OPERATOR_DIRTY ) )
@@ -299,23 +283,12 @@ CAttributeNode *CDependencyGraph::FindAttrNode( CDmAttribute *pAttr )
 
 	Assert( pAttr );
 
-	CAttributeNode search( pAttr );
-	UtlHashHandle_t idx = m_attrNodes.Find( &search );
-	if ( idx != m_attrNodes.InvalidHandle() )
-	{
-		return m_attrNodes.Element( idx );
-	}
+	if ( const auto it = m_attrNodes.find( pAttr ); it != m_attrNodes.end() )
+		return it->second;
 
-	CAttributeNode *pAttrNode = nullptr;
-	{
-
-		pAttrNode = g_AttrNodePool.Alloc();
-		pAttrNode->m_attribute = pAttr;
-	}
-	{
-
-		m_attrNodes.Insert( pAttrNode );
-	}
+	CAttributeNode *pAttrNode = g_AttrNodePool.Alloc();
+	pAttrNode->m_attribute = pAttr;
+	m_attrNodes.emplace( pAttr, pAttrNode );
 	return pAttrNode;
 }
 
