@@ -466,9 +466,7 @@ struct mstudioikconstraint_t {
     mstudioikconstraint_t() {
     }
 
-private:
-    // No copy constructors allowed
-    mstudioikconstraint_t(const mstudioaimconstraint_t &vOther);
+    mstudioikconstraint_t(const mstudioaimconstraint_t &) = delete;
 };
 
 
@@ -1539,9 +1537,7 @@ struct mstudiovertex_t {
     mstudiovertex_t() {
     }
 
-private:
-    // No copy constructors allowed
-    mstudiovertex_t(const mstudiovertex_t &vOther);
+    mstudiovertex_t(const mstudiovertex_t &) = delete;
 };
 
 // skin info
@@ -1596,9 +1592,7 @@ struct mstudioeyeball_t {
     mstudioeyeball_t() {
     }
 
-private:
-    // No copy constructors allowed
-    mstudioeyeball_t(const mstudioeyeball_t &vOther);
+    mstudioeyeball_t(const mstudioeyeball_t &) = delete;
 };
 
 
@@ -1611,9 +1605,7 @@ struct mstudioiklink_t {
     mstudioiklink_t() {
     }
 
-private:
-    // No copy constructors allowed
-    mstudioiklink_t(const mstudioiklink_t &vOther);
+    mstudioiklink_t(const mstudioiklink_t &) = delete;
 };
 
 struct mstudioikchain_t {
@@ -1756,9 +1748,7 @@ struct mstudiomesh_t {
     mstudiomesh_t() {
     }
 
-private:
-    // No copy constructors allowed
-    mstudiomesh_t(const mstudiomesh_t &vOther);
+    mstudiomesh_t(const mstudiomesh_t &) = delete;
 };
 
 // studio models
@@ -2056,9 +2046,7 @@ struct mstudiomouth_t {
     mstudiomouth_t() {
     }
 
-private:
-    // No copy constructors allowed
-    mstudiomouth_t(const mstudiomouth_t &vOther);
+    mstudiomouth_t(const mstudiomouth_t &) = delete;
 };
 
 struct mstudiohitboxset_t {
@@ -2924,10 +2912,9 @@ struct studiohdr_t {
     studiohdr_t() {
     }
 
-private:
-    // No copy constructors allowed
-    studiohdr_t(const studiohdr_t &vOther);
+    studiohdr_t(const studiohdr_t &) = delete;
 
+private:
     friend struct virtualmodel_t;
 };
 

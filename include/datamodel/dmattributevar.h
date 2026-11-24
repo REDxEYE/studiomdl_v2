@@ -638,8 +638,8 @@ public:
 //-----------------------------------------------------------------------------
 template<>
 class CDmaArray<DmElementHandle_t> {
-private:
-    CDmaArray();
+public:
+    CDmaArray() = delete;
 };
 
 
@@ -672,9 +672,8 @@ public:
         return *this;
     }
 
-private:
     template<class C>
-    CDmaElementArray(const CDmaElementArray<C> &var);
+    CDmaElementArray(const CDmaElementArray<C> &) = delete;
 };
 
 template<class E = CDmElement>

@@ -222,9 +222,7 @@ struct ikcontextikrule_t
 
 	ikcontextikrule_t() {}
 
-private:
-	// No copy constructors allowed
-	ikcontextikrule_t(const ikcontextikrule_t& vOther);
+	ikcontextikrule_t(const ikcontextikrule_t&) = delete;
 };
 
 

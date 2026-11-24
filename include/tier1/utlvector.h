@@ -47,6 +47,7 @@ public:
     // Initialize with separately allocated buffer, setting the capacity and count.
     // The container will not be growable.
     CUtlVector(T* pMemory, uint32_t initialCapacity, uint32_t initialCount = 0);
+    CUtlVector(const CUtlVector &) = delete;
 
     ~CUtlVector();
 
@@ -215,9 +216,6 @@ public:
     void SortPredicate(F &&predicate);
 
 protected:
-    // Can't copy this unless we explicitly do it!
-    CUtlVector(CUtlVector const &vec) { Assert(0); }
-
     // Grows the vector
     void GrowVector(int num = 1);
 

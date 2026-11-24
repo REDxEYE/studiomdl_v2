@@ -217,9 +217,7 @@ public:
 
 #else
 
-private:
-	// No copy constructors allowed if we're in optimal mode
-	Vector(const Vector& vOther);
+	Vector(const Vector&) = delete;
 #endif
 };
 
@@ -394,10 +392,8 @@ public:
 
 #ifdef VECTOR_NO_SLOW_OPERATIONS
 
-private:
-	// No copy constructors allowed if we're in optimal mode
-	VectorAligned(const VectorAligned& vOther);
-	VectorAligned(const Vector &vOther);
+	VectorAligned(const VectorAligned&) = delete;
+	VectorAligned(const Vector&) = delete;
 
 #else
 public:
@@ -1737,10 +1733,8 @@ public:
 
 #ifdef VECTOR_NO_SLOW_OPERATIONS
 
-private:
-	// No copy constructors allowed if we're in optimal mode
-	QuaternionAligned(const QuaternionAligned& vOther);
-	QuaternionAligned(const Quaternion &vOther);
+	QuaternionAligned(const QuaternionAligned&) = delete;
+	QuaternionAligned(const Quaternion&) = delete;
 
 #else
 public:
@@ -2096,9 +2090,7 @@ public:
 	QAngle	operator/(float fl) const;
 #else
 
-private:
-	// No copy constructors allowed if we're in optimal mode
-	QAngle(const QAngle& vOther);
+	QAngle(const QAngle&) = delete;
 
 #endif
 };

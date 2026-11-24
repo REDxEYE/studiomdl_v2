@@ -36,9 +36,7 @@ struct cplane_t
 #ifdef VECTOR_NO_SLOW_OPERATIONS
 	cplane_t() {}
 
-private:
-	// No copy constructors allowed if we're in optimal mode
-	cplane_t(const cplane_t& vOther);
+	cplane_t(const cplane_t&) = delete;
 #endif
 };
 

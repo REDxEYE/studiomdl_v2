@@ -37,6 +37,7 @@ public:
 	class CVert
 	{
 	public:
+		CVert() = delete;
 		CVert( int nPositionIndex, const CUtlVector< int > *pVertexIndices, const Vector *pPosition );
 
 		CVert( const CVert &src );
@@ -52,9 +53,6 @@ public:
 		const CUtlVector< int > *m_pVertexIndices;	// Pointer to a list of the vertex indices for this vertex
 		const Vector *m_pPosition;
 		CUtlVector< CEdge * > m_edges;				// An array of pointers to the edges containing this vertex
-
-	private:
-		CVert(); // Not used
 	};
 
 	class CEdge

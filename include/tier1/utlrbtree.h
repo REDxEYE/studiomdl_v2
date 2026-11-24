@@ -152,6 +152,7 @@ public:
     explicit CUtlRBTree(int growSize = 0, int initSize = 0, const LessFunc_t &lessfunc = 0);
 
     explicit CUtlRBTree(const LessFunc_t &lessfunc);
+    CUtlRBTree(const CUtlRBTree &) = delete;
 
     ~CUtlRBTree();
 
@@ -323,9 +324,6 @@ protected:
 
     // Insertion, removal
     I InsertAt(I parent, bool leftchild);
-
-    // copy constructors not allowed
-    CUtlRBTree(CUtlRBTree<T, I, L, M> const &tree);
 
     // Inserts a node into the tree, doesn't copy the data in.
     void FindInsertionPosition(T const &insert, I &parent, bool &leftchild);

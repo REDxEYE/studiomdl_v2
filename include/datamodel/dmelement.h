@@ -369,12 +369,10 @@ protected:
     template<class T>
     static void DeleteAttributeVarElementArray(T &array);
 
-private:
-    // Bogus constructor
-    CDmElement();
-
     // Datamodel internals, used by the attribute wrappers, serializers and the datamodel itself
 public:
+    CDmElement() = delete;
+
     typedef std::unordered_map<DmElementHandle_t, DmElementHandle_t> CRefMap;
 
     // internal recursive copy method - builds refmap of old element's handle -> copy's handle, and uses it to fixup references

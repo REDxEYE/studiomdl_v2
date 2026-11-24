@@ -143,12 +143,8 @@ public:
 	inline void Set( vec_t X, vec_t Y, vec_t Z, vec_t W );
 	inline void InitZero( void );
 
-private:
-	// No copy constructors allowed if we're in optimal mode
-	Vector4DAligned( Vector4DAligned const& vOther );
-
-	// No assignment operators either...
-	Vector4DAligned& operator=( Vector4DAligned const& src );
+	Vector4DAligned( const Vector4DAligned& ) = delete;
+	Vector4DAligned& operator=( const Vector4DAligned& ) = delete;
 } ALIGN16_POST;
 
 //-----------------------------------------------------------------------------

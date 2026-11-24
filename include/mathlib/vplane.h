@@ -64,9 +64,7 @@ public:
 	vec_t		m_Dist;
 
 #ifdef VECTOR_NO_SLOW_OPERATIONS
-private:
-	// No copy constructors allowed if we're in optimal mode
-	VPlane(const VPlane& vOther);
+	VPlane(const VPlane&) = delete;
 #endif
 };
 

@@ -147,9 +147,7 @@ public:
 
 #else
 
-private:
-	// No copy constructors allowed if we're in optimal mode
-	Vector2D(const Vector2D& vOther);
+	Vector2D(const Vector2D&) = delete;
 #endif
 };
 

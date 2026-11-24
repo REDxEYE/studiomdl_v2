@@ -40,12 +40,11 @@ class CExpressionEvaluator
 {
 public:
 	CExpressionEvaluator();
+	CExpressionEvaluator( CExpressionEvaluator& ) = delete;
 	~CExpressionEvaluator();
 	bool Evaluate( bool &result, const char *pInfixExpression, GetSymbolProc_t pGetSymbolProc = nullptr, SyntaxErrorProc_t pSyntaxErrorProc = nullptr );
 
 private:
-	CExpressionEvaluator( CExpressionEvaluator& );	// prevent copy constructor being used
-
 	char GetNextToken( void );
 	void FreeNode( ExprNode *pNode );
 	ExprNode *AllocateNode( void );

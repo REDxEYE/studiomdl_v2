@@ -49,6 +49,7 @@ public:
 	// constructor, destructor
 	CUtlMultiList( int growSize = 0, int initSize = 0 );
 	CUtlMultiList( void *pMemory, int memsize );
+	CUtlMultiList( const CUtlMultiList& ) = delete;
 	~CUtlMultiList( );
 
 	// gets particular elements
@@ -132,9 +133,6 @@ protected:
 	// A test for debug mode only...
 	bool IsElementInList( ListHandle_t list, I elem ) const;
 
-	// copy constructors not allowed
-	CUtlMultiList( CUtlMultiList<T, I> const& list ) { Assert(0); }
-	   
 	M							m_Memory;
 	CUtlLinkedList<List_t, I>	m_List;
 	I*	m_pElementList;

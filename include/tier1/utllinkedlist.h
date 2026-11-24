@@ -44,9 +44,7 @@ struct UtlLinkedListElem_t
 	I  m_Previous;
 	I  m_Next;
 
-private:
-	// No copy constructor for these...
-	UtlLinkedListElem_t( const UtlLinkedListElem_t& );
+	UtlLinkedListElem_t( const UtlLinkedListElem_t& ) = delete;
 };
 
 

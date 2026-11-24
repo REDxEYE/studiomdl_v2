@@ -97,6 +97,8 @@ class CUtlSymbolTable
 public:
 	// constructor, destructor
 	CUtlSymbolTable( int growSize = 0, int initSize = 16, bool caseInsensitive = false );
+	CUtlSymbolTable( const CUtlSymbolTable& ) = delete;
+	CUtlSymbolTable& operator=( const CUtlSymbolTable& ) = delete;
 	~CUtlSymbolTable();
 	
 	// Finds and/or creates a symbol based on the string
@@ -140,9 +142,6 @@ private:
 		bool m_insensitive;
 		bool operator()( std::string_view a, std::string_view b ) const;
 	};
-
-	CUtlSymbolTable( const CUtlSymbolTable& ) = delete;
-	CUtlSymbolTable& operator=( const CUtlSymbolTable& ) = delete;
 
 	// Symbol id == index. A deque never relocates elements, so c_str() pointers (and the
 	// string_view keys of m_lookup that alias them) stay valid until RemoveAll().

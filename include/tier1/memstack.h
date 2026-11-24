@@ -24,6 +24,8 @@ class CMemoryStack
 {
 public:
 	CMemoryStack();
+	CMemoryStack( const CMemoryStack& ) = delete;
+	CMemoryStack& operator=( const CMemoryStack& ) = delete;
 	~CMemoryStack();
 
 	bool Init( const char *pszAllocOwner, unsigned maxSize = 0, unsigned commitIncrement = 0, unsigned initialCommit = 0, unsigned alignment = 16 );
@@ -68,11 +70,6 @@ private:
 	unsigned m_commitIncrement;
 	unsigned m_minCommit;
 #endif
-
-private:
-	// Make the assignment operator and copy constructor private and unimplemented.
-	CMemoryStack& operator=( const CMemoryStack& );
-	CMemoryStack( const CMemoryStack& );
 };
 
 //-------------------------------------
