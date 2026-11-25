@@ -412,47 +412,46 @@ FieldIndex_t CDmeVertexDataBase::FindFieldIndex( const char *pFieldName ) const
 //-----------------------------------------------------------------------------
 // Returns well-known vertex data
 //-----------------------------------------------------------------------------
-static CUtlVector<Vector4D> s_EmptyVector4D; 
-static CUtlVector<Vector> s_EmptyVector; 
-static CUtlVector<Vector2D> s_EmptyVector2D; 
-static CUtlVector<Color> s_EmptyColor; 
-static CUtlVector<float> s_EmptyFloat; 
+static const std::vector<Vector4D> s_emptyVector4D;
+static const std::vector<Vector> s_emptyVector;
+static const std::vector<Vector2D> s_emptyVector2D;
+static const std::vector<float> s_emptyFloat;
 
-const CUtlVector<Vector> &CDmeVertexDataBase::GetPositionData( ) const
+const std::vector<Vector> &CDmeVertexDataBase::GetPositionData() const
 {
 	FieldIndex_t nFieldIndex = m_pStandardFieldIndex[ FIELD_POSITION ];
 	if ( nFieldIndex < 0 || nFieldIndex >= m_FieldInfo.size() )
-		return s_EmptyVector;
+		return s_emptyVector;
 
 	CDmrArrayConst<Vector> vertexData = GetVertexData( nFieldIndex );
 	return vertexData.Get(); 
 }
 
-const CUtlVector<Vector> &CDmeVertexDataBase::GetNormalData( ) const
+const std::vector<Vector> &CDmeVertexDataBase::GetNormalData() const
 {
 	FieldIndex_t nFieldIndex = m_pStandardFieldIndex[ FIELD_NORMAL ];
 	if ( nFieldIndex < 0 || nFieldIndex >= m_FieldInfo.size() )
-		return s_EmptyVector;
+		return s_emptyVector;
 
 	CDmrArrayConst<Vector> vertexData = GetVertexData( nFieldIndex );
 	return vertexData.Get(); 
 }
 
-const CUtlVector<Vector4D> &CDmeVertexDataBase::GetTangentData( ) const
+const std::vector<Vector4D> &CDmeVertexDataBase::GetTangentData() const
 {
 	FieldIndex_t nFieldIndex = m_pStandardFieldIndex[ FIELD_TANGENT ];
 	if ( nFieldIndex < 0 || nFieldIndex >= m_FieldInfo.size() )
-		return s_EmptyVector4D;
+		return s_emptyVector4D;
 
 	CDmrArrayConst<Vector4D> vertexData = GetVertexData( nFieldIndex );
 	return vertexData.Get(); 
 }
 
-const CUtlVector<Vector2D> &CDmeVertexDataBase::GetTextureCoordData( ) const
+const std::vector<Vector2D> &CDmeVertexDataBase::GetTextureCoordData() const
 {
 	FieldIndex_t nFieldIndex = m_pStandardFieldIndex[ FIELD_TEXCOORD ];
 	if ( nFieldIndex < 0 || nFieldIndex >= m_FieldInfo.size() )
-		return s_EmptyVector2D;
+		return s_emptyVector2D;
 
 	CDmrArrayConst<Vector2D> vertexData = GetVertexData( nFieldIndex );
 	return vertexData.Get(); 
@@ -478,31 +477,31 @@ const int *CDmeVertexDataBase::GetJointIndexData( int nDataIndex ) const
 	return &vertexData.at( nDataIndex * m_nJointCount );
 }
 
-const CUtlVector<float> &CDmeVertexDataBase::GetBalanceData( ) const
+const std::vector<float> &CDmeVertexDataBase::GetBalanceData() const
 {
 	FieldIndex_t nFieldIndex = m_pStandardFieldIndex[ FIELD_BALANCE ];
 	if ( nFieldIndex < 0 || nFieldIndex >= m_FieldInfo.size() )
-		return s_EmptyFloat;
+		return s_emptyFloat;
 
 	CDmrArrayConst<float> vertexData = GetVertexData( nFieldIndex );
 	return vertexData.Get(); 
 }
 
-const CUtlVector<float> &CDmeVertexDataBase::GetMorphSpeedData( ) const
+const std::vector<float> &CDmeVertexDataBase::GetMorphSpeedData() const
 {
 	FieldIndex_t nFieldIndex = m_pStandardFieldIndex[ FIELD_MORPH_SPEED ];
 	if ( nFieldIndex < 0 || nFieldIndex >= m_FieldInfo.size() )
-		return s_EmptyFloat;
+		return s_emptyFloat;
 
 	CDmrArrayConst<float> vertexData = GetVertexData( nFieldIndex );
 	return vertexData.Get(); 
 }
 
-const CUtlVector<float> &CDmeVertexDataBase::GetWrinkleData( ) const
+const std::vector<float> &CDmeVertexDataBase::GetWrinkleData() const
 {
 	FieldIndex_t nFieldIndex = m_pStandardFieldIndex[ FIELD_WRINKLE ];
 	if ( nFieldIndex < 0 || nFieldIndex >= m_FieldInfo.size() )
-		return s_EmptyFloat;
+		return s_emptyFloat;
 
 	CDmrArrayConst<float> vertexData = GetVertexData( nFieldIndex );
 	return vertexData.Get(); 
@@ -512,17 +511,17 @@ const CUtlVector<float> &CDmeVertexDataBase::GetWrinkleData( ) const
 //-----------------------------------------------------------------------------
 // Returns well-known index data
 //-----------------------------------------------------------------------------
-static CUtlVector<int> s_EmptyInt; 
-const CUtlVector<int> &CDmeVertexDataBase::GetVertexIndexData( FieldIndex_t nFieldIndex ) const
+static const std::vector<int> s_emptyIndices;
+const std::vector<int> &CDmeVertexDataBase::GetVertexIndexData(FieldIndex_t nFieldIndex) const
 {
 	if ( nFieldIndex < 0 || nFieldIndex >= m_FieldInfo.size() )
-		return s_EmptyInt;
+		return s_emptyIndices;
 
 	CDmrArrayConst<int> indexData = GetIndexData( nFieldIndex );
 	return indexData.Get(); 
 }
 
-const CUtlVector<int> &CDmeVertexDataBase::GetVertexIndexData( StandardFields_t fieldId ) const
+const std::vector<int> &CDmeVertexDataBase::GetVertexIndexData(StandardFields_t fieldId) const
 {
 	return GetVertexIndexData( m_pStandardFieldIndex[fieldId] );
 }
@@ -534,7 +533,10 @@ const CUtlVector<int> &CDmeVertexDataBase::GetVertexIndexData( StandardFields_t 
 const CUtlVector< int > &CDmeVertexDataBase::FindVertexIndicesFromDataIndex( FieldIndex_t nFieldIndex, int nDataIndex )
 {
 	if ( nFieldIndex < 0 )
-		return s_EmptyInt;
+	{
+		static const CUtlVector<int> empty;
+		return empty;
+	}
 
 	FieldInfo_t &info = m_FieldInfo[nFieldIndex]; 
 	if ( info.m_bInverseMapDirty )
@@ -674,7 +676,7 @@ float CDmeVertexDeltaData::ComputeMaxDeflection( )
 {
 	float flMaxDeflection = 0.0f;
 
-	const CUtlVector<Vector> &pos = GetPositionData();
+	const auto &pos = GetPositionData();
 	int nCount = pos.size();
 	for ( int i = 0; i < nCount; ++i )
 	{
@@ -727,9 +729,9 @@ void CDmeVertexDeltaData::GenerateWrinkleDelta(
 
 	const double scaledInverseMaxDeflection = static_cast< double >( flScale ) / static_cast< double >( flMaxDeflection );
 
-	const CUtlVector<int> &positionIndices = GetVertexIndexData( nPosIndex );
-	const CUtlVector<Vector> &pos = GetPositionData();
-	const CUtlVector<int> &baseTexCoordIndices = pBindState->GetVertexIndexData( nBaseTexCoordIndex );
+	const auto &positionIndices = GetVertexIndexData( nPosIndex );
+	const auto &pos = GetPositionData();
+	const auto &baseTexCoordIndices = pBindState->GetVertexIndexData( nBaseTexCoordIndex );
 
 	CDmrArrayConst<Vector2D> texData( pBindState->GetVertexData( nBaseTexCoordIndex ) );
 	int nBaseTexCoordCount = texData.size();
@@ -741,8 +743,8 @@ void CDmeVertexDeltaData::GenerateWrinkleDelta(
 
 	if ( bUseNormalForSign )
 	{
-		const CUtlVector<int> &normalIndices = pBindState->GetVertexIndexData( nNormalIndex );
-		const CUtlVector<Vector> &normals = pBindState->GetNormalData();
+		const auto &normalIndices = pBindState->GetVertexIndexData( nNormalIndex );
+		const auto &normals = pBindState->GetNormalData();
 
 		for ( int i = 0; i < nCount; ++i )
 		{

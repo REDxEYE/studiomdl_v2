@@ -152,8 +152,8 @@ public:
 	const void*	GetAttributeData() const;
 	template < class T > CDmAttributeInfo< T >::StorageType_t* GetData();
 	template < class T > const CDmAttributeInfo< T >::StorageType_t* GetData() const;
-	template < class T > CDmAttributeInfo< CUtlVector< T > >::StorageType_t* GetArrayData();
-	template < class T > const CDmAttributeInfo< CUtlVector< T > >::StorageType_t* GetArrayData() const;
+	template < class T > CDmAttributeInfo< DmArray<T> >::StorageType_t* GetArrayData();
+	template < class T > const CDmAttributeInfo< DmArray<T> >::StorageType_t* GetArrayData() const;
 
 	// Used by CDmElement to manage the list of attributes it owns
 	CDmAttribute **GetNextAttributeRef();
@@ -234,7 +234,7 @@ template< class T >
  const T& CDmAttribute::GetValue( const T& defaultValue ) const
 {
 	if ( static_cast<int>(GetType()) == static_cast<int>(CDmAttributeInfo<T>::ATTRIBUTE_TYPE) )
-		return *reinterpret_cast< const T* >( m_pData );
+		return static_cast<const T&>(*GetData<T>());
 
 	if ( IsTypeConvertable< T >() )
 	{
@@ -370,9 +370,9 @@ template < class T >
 }
 
 template < class T >
- CDmAttributeInfo< CUtlVector< T > >::StorageType_t* CDmAttribute::GetArrayData()
+ CDmAttributeInfo< DmArray<T> >::StorageType_t* CDmAttribute::GetArrayData()
 {
-	return static_cast<CDmAttributeInfo<CUtlVector<T> >::StorageType_t*>(m_pData);
+	return static_cast<CDmAttributeInfo<DmArray<T>>::StorageType_t*>(m_pData);
 }
 
 template < class T >
@@ -382,9 +382,9 @@ template < class T >
 }
 
 template < class T >
- const CDmAttributeInfo< CUtlVector< T > >::StorageType_t* CDmAttribute::GetArrayData() const
+ const CDmAttributeInfo< DmArray<T> >::StorageType_t* CDmAttribute::GetArrayData() const
 {
-	return static_cast<const CDmAttributeInfo<CUtlVector<T> >::StorageType_t*>(m_pData);
+	return static_cast<const CDmAttributeInfo<DmArray<T>>::StorageType_t*>(m_pData);
 }
 
 

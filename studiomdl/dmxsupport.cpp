@@ -179,11 +179,11 @@ struct VertexLookupKeyHash_t {
 // Loads the vertices from the model
 //-----------------------------------------------------------------------------
 static bool DefineUniqueVertices(StudioMdlState &ctx, DmxLoadState &load, const CDmeVertexData* pBindState) {
-    const CUtlVector<int> &positionIndices = pBindState->GetVertexIndexData(CDmeVertexData::FIELD_POSITION);
-    const CUtlVector<int> &normalIndices = pBindState->GetVertexIndexData(CDmeVertexData::FIELD_NORMAL);
-    const CUtlVector<int> &texcoordIndices = pBindState->GetVertexIndexData(CDmeVertexData::FIELD_TEXCOORD);
-    const CUtlVector<int> &balanceIndices = pBindState->GetVertexIndexData(CDmeVertexData::FIELD_BALANCE);
-    const CUtlVector<int> &speedIndices = pBindState->GetVertexIndexData(CDmeVertexData::FIELD_MORPH_SPEED);
+    const auto &positionIndices = pBindState->GetVertexIndexData(CDmeVertexData::FIELD_POSITION);
+    const auto &normalIndices = pBindState->GetVertexIndexData(CDmeVertexData::FIELD_NORMAL);
+    const auto &texcoordIndices = pBindState->GetVertexIndexData(CDmeVertexData::FIELD_TEXCOORD);
+    const auto &balanceIndices = pBindState->GetVertexIndexData(CDmeVertexData::FIELD_BALANCE);
+    const auto &speedIndices = pBindState->GetVertexIndexData(CDmeVertexData::FIELD_MORPH_SPEED);
 
     size_t nPositionCount = positionIndices.size();
     size_t nNormalCount = normalIndices.size();
@@ -192,7 +192,7 @@ static bool DefineUniqueVertices(StudioMdlState &ctx, DmxLoadState &load, const 
     size_t nSpeedCount = speedIndices.size();
 
     int nExtraTexcoordCount[MAXSTUDIOTEXCOORDS - 1];
-    const CUtlVector<int>* extraTexcoordIndices[MAXSTUDIOTEXCOORDS - 1];
+    const std::vector<int>* extraTexcoordIndices[MAXSTUDIOTEXCOORDS - 1];
 
     for (int i = 1; i < MAXSTUDIOTEXCOORDS; ++i) {
         FieldIndex_t nExtra = pBindState->FindFieldIndex(vstd::fx_formatted("texcoord${}", i));
@@ -290,11 +290,11 @@ LoadVertices(StudioMdlState &ctx, DmxLoadState &load, CDmeDag* pDmeDag, CDmeVert
     matrix3x4_t normalMat;
     MatrixInverseTranspose(mat, normalMat);
 
-    const CUtlVector<Vector> &positions = pBindState->GetPositionData();
-    const CUtlVector<Vector> &normals = pBindState->GetNormalData();
-    const CUtlVector<Vector2D> &texcoords = pBindState->GetTextureCoordData();
-    const CUtlVector<float> &balances = pBindState->GetBalanceData();
-    const CUtlVector<float> &speeds = pBindState->GetMorphSpeedData();
+    const auto &positions = pBindState->GetPositionData();
+    const auto &normals = pBindState->GetNormalData();
+    const auto &texcoords = pBindState->GetTextureCoordData();
+    const auto &balances = pBindState->GetBalanceData();
+    const auto &speeds = pBindState->GetMorphSpeedData();
 
     int positionCount = positions.size();
 
@@ -398,7 +398,7 @@ LoadVertices(StudioMdlState &ctx, DmxLoadState &load, CDmeDag* pDmeDag, CDmeVert
         const FieldIndex_t fieldIndex = pBindState->FindFieldIndex(vstd::fx_formatted("texcoord${}", i));
         if (fieldIndex >= 0) {
             CDmrArrayConst<Vector2D> vertexData = pBindState->GetVertexData(fieldIndex);
-            const CUtlVector<Vector2D> &extraTexcoords = vertexData.Get();
+            const auto &extraTexcoords = vertexData.Get();
             positionCount = extraTexcoords.size();
             for (int j = 0; j < positionCount; ++j) {
                 ctx.input.texcoord[i].emplace_back(extraTexcoords[j].x,
@@ -462,12 +462,12 @@ static bool LoadDeltaState(DmxLoadState &load,
     matrix3x4_t normalMat;
     MatrixInverseTranspose(mat, normalMat);
 
-    const CUtlVector<Vector> &positions = pDeltaState->GetPositionData();
-    const CUtlVector<int> &positionIndices = pDeltaState->GetVertexIndexData(CDmeVertexDataBase::FIELD_POSITION);
-    const CUtlVector<Vector> &normals = pDeltaState->GetNormalData();
-    const CUtlVector<int> &normalIndices = pDeltaState->GetVertexIndexData(CDmeVertexDataBase::FIELD_NORMAL);
-    const CUtlVector<float> &wrinkle = pDeltaState->GetWrinkleData();
-    const CUtlVector<int> &wrinkleIndices = pDeltaState->GetVertexIndexData(CDmeVertexDataBase::FIELD_WRINKLE);
+    const auto &positions = pDeltaState->GetPositionData();
+    const auto &positionIndices = pDeltaState->GetVertexIndexData(CDmeVertexDataBase::FIELD_POSITION);
+    const auto &normals = pDeltaState->GetNormalData();
+    const auto &normalIndices = pDeltaState->GetVertexIndexData(CDmeVertexDataBase::FIELD_NORMAL);
+    const auto &wrinkle = pDeltaState->GetWrinkleData();
+    const auto &wrinkleIndices = pDeltaState->GetVertexIndexData(CDmeVertexDataBase::FIELD_WRINKLE);
 
     if (positions.size() != positionIndices.size()) {
         MdlError("DeltaState {} contains a different number of positions + position indices!\n",

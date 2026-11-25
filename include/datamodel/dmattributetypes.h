@@ -19,6 +19,13 @@
 #include "tier1/utlsymbollarge.h"
 #include "tier1/timeutils.h"
 
+#include <type_traits>
+#include <vector>
+
+// Boolean attributes expose real bool references and contiguous bool pointers.
+template<class T>
+using DmArray = std::conditional_t<std::is_same_v<T, bool>, CUtlVector<bool>, std::vector<T>>;
+
 
 //-----------------------------------------------------------------------------
 // Object Id
@@ -49,7 +56,7 @@ struct DmElementAttribute_t
 	CUtlSymbolLarge m_ElementType;
 };
 
-struct DmElementArray_t : public CUtlVector< DmElementHandle_t >
+struct DmElementArray_t : public std::vector<DmElementHandle_t>
 {
 	DmElementArray_t() : m_ElementType( UTL_INVAL_SYMBOL_LARGE ) {}
 
@@ -297,21 +304,21 @@ public:
 	};																		\
 
 #define DECLARE_ATTRIBUTE_ARRAY_TYPE_INTERNAL( _className, _storageType, _attributeType, _attributeName ) \
-	template< > class CDmAttributeInfo< CUtlVector<_className> >				\
+	template< > class CDmAttributeInfo< DmArray<_className> >				\
 	{																			\
 	public:																		\
 		static const DmAttributeType_t ATTRIBUTE_TYPE = _attributeType;			\
 		using StorageType_t = _storageType;										\
 		static DmAttributeType_t AttributeType() { return _attributeType; }		\
 		static const char *AttributeTypeName() { return _attributeName; }		\
-		static void SetDefaultValue( CUtlVector< _className >& value ) { value.RemoveAll(); }	\
+		static void SetDefaultValue( DmArray<_className>& value ) { value.clear(); } \
 	};																			\
 
 #define DECLARE_ATTRIBUTE_TYPE( _className, _attributeType, _attributeName, _defaultSetStatement ) \
 	DECLARE_ATTRIBUTE_TYPE_INTERNAL( _className, _className, _attributeType, _attributeName, _defaultSetStatement )
 
 #define DECLARE_ATTRIBUTE_ARRAY_TYPE( _className, _attributeType, _attributeName )\
-	DECLARE_ATTRIBUTE_ARRAY_TYPE_INTERNAL( _className, CUtlVector< _className >, _attributeType, _attributeName )
+	DECLARE_ATTRIBUTE_ARRAY_TYPE_INTERNAL( _className, DmArray<_className>, _attributeType, _attributeName )
 
 // NOTE: If you add an attribute type here, also add it to the list of DEFINE_ATTRIBUTE_TYPES in dmattribute.cpp
 DECLARE_ATTRIBUTE_TYPE( int,					AT_INT,					"int",			value = 0; )
@@ -331,7 +338,7 @@ DECLARE_ATTRIBUTE_TYPE_INTERNAL( DmElementHandle_t, DmElementAttribute_t, AT_ELE
 
 DECLARE_ATTRIBUTE_ARRAY_TYPE( int,				AT_INT_ARRAY,			"int_array" )
 DECLARE_ATTRIBUTE_ARRAY_TYPE( float,			AT_FLOAT_ARRAY,			"float_array" )
-DECLARE_ATTRIBUTE_ARRAY_TYPE( bool,				AT_BOOL_ARRAY,			"bool_array" )
+DECLARE_ATTRIBUTE_TYPE( DmArray<bool>, AT_BOOL_ARRAY, "bool_array", value.RemoveAll(); )
 DECLARE_ATTRIBUTE_ARRAY_TYPE( Color,			AT_COLOR_ARRAY,			"color_array" )
 DECLARE_ATTRIBUTE_ARRAY_TYPE( Vector2D,			AT_VECTOR2_ARRAY,		"vector2_array" )
 DECLARE_ATTRIBUTE_ARRAY_TYPE( Vector,			AT_VECTOR3_ARRAY,		"vector3_array" )

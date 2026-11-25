@@ -126,7 +126,7 @@ CDmElement* GetLogLayerFromChannel(CDmElement* pChannel) {
     if (!pLog)
         return nullptr;
 
-    const CUtlVector<DmElementHandle_t> &layers = pLog->GetValue<CUtlVector<DmElementHandle_t> >("layers");
+    const auto &layers = pLog->GetValue<std::vector<DmElementHandle_t> >("layers");
     if (layers.size() != 1)
         return nullptr;
 
@@ -2145,10 +2145,10 @@ bool Update3(CDmElement* pElement) {
                     !ConvertIntArrayToTimeArray(pBalanceLog->GetAttribute("times")))
                     return false;
 
-                const CUtlVector<DmeTime_t> &valueTimes = pValueLog->GetValue<CUtlVector<DmeTime_t> >("times");
-                const CUtlVector<float> &valueValues = pValueLog->GetValue<CUtlVector<float> >("values");
-                const CUtlVector<DmeTime_t> &balanceTimes = pBalanceLog->GetValue<CUtlVector<DmeTime_t> >("times");
-                const CUtlVector<float> &balanceValues = pBalanceLog->GetValue<CUtlVector<float> >("values");
+                const auto &valueTimes = pValueLog->GetValue<std::vector<DmeTime_t> >("times");
+                const auto &valueValues = pValueLog->GetValue<std::vector<float> >("values");
+                const auto &balanceTimes = pBalanceLog->GetValue<std::vector<DmeTime_t> >("times");
+                const auto &balanceValues = pBalanceLog->GetValue<std::vector<float> >("values");
 
                 CDmAttribute* pLeftTimesAttr = pLeftLog->GetAttribute("times");
                 CDmAttribute* pLeftValuesAttr = pLeftLog->GetAttribute("values", AT_FLOAT_ARRAY);

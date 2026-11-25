@@ -9,7 +9,6 @@
 
 
 #include "datamodel/dmattribute.h"
-#include "tier1/utlvector.h"
 #include "color.h"
 #include "datamodel/dmelement.h"
 #include "datamodel/dmehandle.h"
@@ -238,7 +237,7 @@ template<class T, class B>
 class CDmaArrayConstBase : public B {
 public:
     // Accessors
-    const CUtlVector<T> &Get() const;
+    const DmArray<T> &Get() const;
 
     const T *data() const;
 
@@ -303,7 +302,7 @@ public:
 
     // this is basically just a faster version of CopyArray which uses pointer swap
     // NOTE: This doesn't work for element arrays
-    void SwapArray(CUtlVector<T> &array);
+    void SwapArray(DmArray<T> &array);
 
     // Removal
     void FastRemove(int elem);
@@ -342,7 +341,7 @@ public:
 
     const char *Get(int i) const;
 
-    const CUtlVector<CUtlSymbolLarge> &Get() const;
+    const std::vector<CUtlSymbolLarge> &Get() const;
 
     // Returns strlen of element i
     int Length(int i) const;
@@ -385,7 +384,7 @@ public:
 
     const DmElementHandle_t &GetHandle(int i) const;
 
-    const CUtlVector<DmElementHandle_t> &Get() const;
+    const std::vector<DmElementHandle_t> &Get() const;
 
     // Search
     int Find(const E *pValue) const;
@@ -529,7 +528,7 @@ class CDmaArray;
 // Versions for access, or for attribute vars
 //-----------------------------------------------------------------------------
 template<class T>
-class CDmaArray : public CDmaDecorator<T, CDmaArrayBase<T, CDmaDataInternal<CUtlVector<T> > > > {
+class CDmaArray : public CDmaDecorator<T, CDmaArrayBase<T, CDmaDataInternal<DmArray<T>>>> {
     DECLARE_ATTRIBUTE_ARRAY_VARIABLE(CDmaArray, T);
 
 public:
@@ -551,15 +550,15 @@ private:
 
 
 template<class T>
-class CDmrArrayConst : public CDmrDecoratorConst<T, CDmaArrayConstBase<T, CDmaDataExternal<CUtlVector<T> > > > {
-    typedef CDmrDecoratorConst<T, CDmaArrayConstBase<T, CDmaDataExternal<CUtlVector<T> > > > BaseClass;
+class CDmrArrayConst : public CDmrDecoratorConst<T, CDmaArrayConstBase<T, CDmaDataExternal<DmArray<T>>>> {
+    using BaseClass = CDmrDecoratorConst<T, CDmaArrayConstBase<T, CDmaDataExternal<DmArray<T>>>>;
     DECLARE_ATTRIBUTE_ARRAY_CONST_REFERENCE(CDmrArrayConst, T);
 };
 
 
 template<class T>
-class CDmrArray : public CDmrDecorator<T, CDmaArrayBase<T, CDmaDataExternal<CUtlVector<T> > > > {
-    typedef CDmrDecorator<T, CDmaArrayBase<T, CDmaDataExternal<CUtlVector<T> > > > BaseClass;
+class CDmrArray : public CDmrDecorator<T, CDmaArrayBase<T, CDmaDataExternal<DmArray<T>>>> {
+    using BaseClass = CDmrDecorator<T, CDmaArrayBase<T, CDmaDataExternal<DmArray<T>>>>;
     DECLARE_ATTRIBUTE_ARRAY_REFERENCE(CDmrArray, T);
 
 public:
@@ -577,8 +576,8 @@ public:
 
 class CDmrStringArray;
 
-class CDmaStringArray : public CDmaDecorator<CUtlSymbolLarge, CDmaStringArrayBase<CDmaDataInternal<CUtlVector<
-            CUtlSymbolLarge> > > > {
+class CDmaStringArray : public CDmaDecorator<CUtlSymbolLarge,
+    CDmaStringArrayBase<CDmaDataInternal<std::vector<CUtlSymbolLarge>>>> {
     DECLARE_ATTRIBUTE_ARRAY_VARIABLE(CDmaStringArray, CUtlSymbolLarge);
 
 public:
@@ -598,10 +597,10 @@ private:
     }
 };
 
-class CDmrStringArray : public CDmrDecorator<CUtlSymbolLarge, CDmaStringArrayBase<CDmaDataExternal<CUtlVector<
-            CUtlSymbolLarge> > > > {
-    typedef CDmrDecorator<CUtlSymbolLarge, CDmaStringArrayBase<CDmaDataExternal<CUtlVector<CUtlSymbolLarge> > > >
-    BaseClass;
+class CDmrStringArray : public CDmrDecorator<CUtlSymbolLarge,
+    CDmaStringArrayBase<CDmaDataExternal<std::vector<CUtlSymbolLarge>>>> {
+    using BaseClass = CDmrDecorator<CUtlSymbolLarge,
+        CDmaStringArrayBase<CDmaDataExternal<std::vector<CUtlSymbolLarge>>>>;
     DECLARE_ATTRIBUTE_ARRAY_REFERENCE(CDmrStringArray, CUtlSymbolLarge);
 
 public:
@@ -621,9 +620,9 @@ public:
 };
 
 class CDmrStringArrayConst : public CDmrDecoratorConst<CUtlSymbolLarge, CDmaStringArrayConstBase<CDmaArrayConstBase<
-            CUtlSymbolLarge, CDmaDataExternal<CUtlVector<CUtlSymbolLarge> > > > > {
-    typedef CDmrDecoratorConst<CUtlSymbolLarge, CDmaStringArrayConstBase<CDmaArrayConstBase<CUtlSymbolLarge,
-        CDmaDataExternal<CUtlVector<CUtlSymbolLarge> > > > > BaseClass;
+            CUtlSymbolLarge, CDmaDataExternal<std::vector<CUtlSymbolLarge>>>>> {
+    using BaseClass = CDmrDecoratorConst<CUtlSymbolLarge, CDmaStringArrayConstBase<CDmaArrayConstBase<CUtlSymbolLarge,
+        CDmaDataExternal<std::vector<CUtlSymbolLarge>>>>>;
     DECLARE_ATTRIBUTE_ARRAY_CONST_REFERENCE(CDmrStringArrayConst, CUtlSymbolLarge);
 
 public:
@@ -647,13 +646,13 @@ template<class E>
 class CDmrElementArray;
 
 template<class E = CDmElement>
-class CDmaElementArray : public CDmaElementArrayBase<E, CDmaDataInternal<CUtlVector<DmElementHandle_t> > > {
+class CDmaElementArray : public CDmaElementArrayBase<E, CDmaDataInternal<std::vector<DmElementHandle_t>>> {
     DECLARE_ATTRIBUTE_ARRAY_VARIABLE(CDmaElementArray, DmElementHandle_t);
 
 public:
     void Init(CDmElement *pOwner, const char *pAttributeName, int flags = 0) {
         Assert(pOwner);
-        this->m_pAttribute = pOwner->AddExternalAttribute(pAttributeName, AT_ELEMENT_ARRAY, &this->Value());
+        this->m_pAttribute = pOwner->AddExternalAttribute(pAttributeName, AT_ELEMENT_ARRAY, &this->Data());
         this->m_pAttribute->SetElementTypeSymbol(E::GetStaticTypeSymbol());
         if (flags) {
             this->m_pAttribute->AddFlag(flags);
@@ -678,7 +677,7 @@ public:
 
 template<class E = CDmElement>
 class CDmrElementArrayConst : public CDmaElementArrayConstBase<E, CDmaArrayConstBase<DmElementHandle_t, CDmaDataExternal
-            <CUtlVector<DmElementHandle_t> > > > {
+            <std::vector<DmElementHandle_t>>>> {
 public:
     CDmrElementArrayConst() {
         this->m_pAttribute = NULL;
@@ -736,7 +735,7 @@ public:
 };
 
 template<class T = CDmElement>
-class CDmrElementArray : public CDmaElementArrayBase<T, CDmaDataExternal<CUtlVector<DmElementHandle_t> > > {
+class CDmrElementArray : public CDmaElementArrayBase<T, CDmaDataExternal<std::vector<DmElementHandle_t>>> {
 public:
     CDmrElementArray() {
         this->m_pAttribute = NULL;
@@ -1224,7 +1223,7 @@ inline bool CDmaElement<T>::operator!() const {
 //
 //-----------------------------------------------------------------------------
 template<class T, class B>
-inline const CUtlVector<T> &CDmaArrayConstBase<T, B>::Get() const {
+inline const DmArray<T> &CDmaArrayConstBase<T, B>::Get() const {
     return this->Value();
 }
 
@@ -1260,12 +1259,12 @@ inline size_t CDmaArrayConstBase<T, B>::size() const {
 
 template<class T, class B>
 inline bool CDmaArrayConstBase<T, B>::IsValidIndex(size_t i) const {
-    return this->Value().IsValidIndex(i);
+    return i < size();
 }
 
 template<class T, class B>
 inline int CDmaArrayConstBase<T, B>::InvalidIndex(void) const {
-    return this->Value().InvalidIndex();
+    return -1;
 }
 
 template<class T, class B>
@@ -1319,7 +1318,7 @@ inline const char *CDmaStringArrayConstBase<B>::Get(int i) const {
 }
 
 template<class B>
-inline const CUtlVector<CUtlSymbolLarge> &CDmaStringArrayConstBase<B>::Get() const {
+inline const std::vector<CUtlSymbolLarge> &CDmaStringArrayConstBase<B>::Get() const {
     return this->Value();
 }
 
@@ -1380,7 +1379,7 @@ inline const DmElementHandle_t &CDmaElementArrayConstBase<E, B>::GetHandle(int i
 }
 
 template<class E, class B>
-inline const CUtlVector<DmElementHandle_t> &CDmaElementArrayConstBase<E, B>::Get() const {
+inline const std::vector<DmElementHandle_t> &CDmaElementArrayConstBase<E, B>::Get() const {
     return this->Value();
 }
 

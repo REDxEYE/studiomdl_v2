@@ -223,7 +223,7 @@ inline void CDmeSingleIndexedComponent::Clear()
 //-----------------------------------------------------------------------------
 int CDmeSingleIndexedComponent::BinarySearch( int component ) const
 {
-	const CUtlVector< int > &components( m_Components.Get() );
+	const auto &components( m_Components.Get() );
 	const int nComponents( components.size() );
 
 	int left( 0 );

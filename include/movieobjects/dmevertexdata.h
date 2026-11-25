@@ -97,19 +97,19 @@ public:
 	const CDmAttribute* GetIndexData( FieldIndex_t nFieldIndex ) const;
 
 	// Returns well-known vertex data
-	const CUtlVector<Vector> &GetPositionData( ) const;
-	const CUtlVector<Vector> &GetNormalData( ) const;
-	const CUtlVector<Vector4D> &GetTangentData( ) const;
-	const CUtlVector<Vector2D> &GetTextureCoordData( ) const;
+	const std::vector<Vector> &GetPositionData() const;
+	const std::vector<Vector> &GetNormalData() const;
+	const std::vector<Vector4D> &GetTangentData() const;
+	const std::vector<Vector2D> &GetTextureCoordData() const;
 	const float *GetJointWeightData( int nDataIndex ) const;
 	const int *GetJointIndexData( int nDataIndex ) const;
-	const CUtlVector<float> &GetBalanceData( ) const;
-	const CUtlVector<float> &GetMorphSpeedData( ) const;
-	const CUtlVector<float> &GetWrinkleData( ) const;
+	const std::vector<float> &GetBalanceData() const;
+	const std::vector<float> &GetMorphSpeedData() const;
+	const std::vector<float> &GetWrinkleData() const;
 
 	// Returns well-known index data
-	const CUtlVector<int> &GetVertexIndexData( FieldIndex_t nFieldIndex ) const;
-	const CUtlVector<int> &GetVertexIndexData( StandardFields_t fieldId ) const;
+	const std::vector<int> &GetVertexIndexData(FieldIndex_t nFieldIndex) const;
+	const std::vector<int> &GetVertexIndexData(StandardFields_t fieldId) const;
 
 	// Do we have skinning data?
 	bool HasSkinningData() const;
@@ -171,7 +171,7 @@ protected:
 template< class T >
 inline FieldIndex_t CDmeVertexDataBase::CreateField( const char *pFieldName )
 {
-	return CreateField( pFieldName, CDmAttributeInfo< CUtlVector<T> >::AttributeType() );
+	return CreateField( pFieldName, CDmAttributeInfo<DmArray<T>>::AttributeType() );
 }
 
 

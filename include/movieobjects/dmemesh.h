@@ -240,7 +240,7 @@ private:
 
 	template< class T_t > bool InterpMaskedData(
 		CDmrArray< T_t > &aData,
-		const CUtlVector< T_t > &bData,
+		const std::vector<T_t> &bData,
 		float weight,
 		const CDmeSingleIndexedComponent *pMask ) const;
 
@@ -336,12 +336,12 @@ public:
 	inline bool HasNormalData() const { return m_bHasNormalData; }
 	inline bool HasTangentData() const { return m_bHasTangentData; }
 private:
-	const CUtlVector<int>& m_PositionIndices;
-	const CUtlVector<Vector>& m_PositionData;
-	const CUtlVector<int>& m_NormalIndices;
-	const CUtlVector<Vector>& m_NormalData;
-	const CUtlVector<int>& m_TangentIndices;
-	const CUtlVector<Vector4D>& m_TangentData;
+	const std::vector<int>& m_PositionIndices;
+	const std::vector<Vector>& m_PositionData;
+	const std::vector<int>& m_NormalIndices;
+	const std::vector<Vector>& m_NormalData;
+	const std::vector<int>& m_TangentIndices;
+	const std::vector<Vector4D>& m_TangentData;
 	const CDmeVertexData *m_pBaseState;
 	int m_nJointCount;
 	bool m_bHasPositionData;

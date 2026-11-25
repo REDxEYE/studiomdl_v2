@@ -2317,6 +2317,23 @@ void CDmeTypedLogLayer<T>::SetKeyValue(int nKey, const T &value) {
 }
 
 
+// DmArray<T> is std::vector<T>, except CUtlVector<bool> for bool; these hide the API difference.
+template<class C>
+static void ReserveElements(C &array, int count) {
+    if constexpr (requires { array.reserve(count); })
+        array.reserve(count);
+    else
+        array.EnsureCapacity(count);
+}
+
+template<class C, class V>
+static void AppendElement(C &array, const V &value) {
+    if constexpr (requires { array.push_back(value); })
+        array.push_back(value);
+    else
+        array.AddToTail(value);
+}
+
 //-----------------------------------------------------------------------------
 // resampling and filtering
 //-----------------------------------------------------------------------------
@@ -2332,13 +2349,13 @@ void CDmeTypedLogLayer<T>::Resample(DmeFramerate_t samplerate) {
     DmeTime_t end = GetEndTime(false);
     int nSamples = 2 + FrameForTime(end - begin, samplerate);
 
-    CUtlVector<DmeTime_t> resampledTimes;
-    CUtlVector<T> resampledValues;
-    CUtlVector<int> resampledCurveTypes;
+    std::vector<DmeTime_t> resampledTimes;
+    DmArray<T> resampledValues;
+    std::vector<int> resampledCurveTypes;
     CUtlVector<bool> resampledNoInterpSegments;
 
-    resampledValues.EnsureCapacity(nSamples);
-    resampledTimes.EnsureCapacity(nSamples);
+    ReserveElements(resampledValues, nSamples);
+    resampledTimes.reserve(nSamples);
     bool bHasNonInterpSegments = (m_NonInterpolatedSegments.size() > 0);
     if (bHasNonInterpSegments) {
         resampledNoInterpSegments.EnsureCapacity(nSamples);
@@ -2347,10 +2364,10 @@ void CDmeTypedLogLayer<T>::Resample(DmeFramerate_t samplerate) {
     DmeTime_t time(begin);
     DmeTime_t lastInterpSampleTime = time;
     for (int i = 0; i < nSamples; ++i) {
-        resampledTimes.AddToTail(time);
-        resampledValues.AddToTail(GetValue(time));
+        resampledTimes.push_back(time);
+        AppendElement(resampledValues, GetValue(time));
         if (IsUsingCurveTypes()) {
-            resampledCurveTypes.AddToTail(CURVE_DEFAULT);
+            resampledCurveTypes.push_back(CURVE_DEFAULT);
         }
 
         time = time.TimeAtNextFrame(samplerate);
@@ -2381,15 +2398,15 @@ void CDmeTypedLogLayer<T>::Filter(int nSampleRadius) {
 
     // Doesn't mess with curvetypes!!!
 
-    const CUtlVector<T> &values = m_values.Get();
-    CUtlVector<T> filteredValues;
+    const DmArray<T> &values = m_values.Get();
+    DmArray<T> filteredValues;
 
     int nValues = values.size();
-    filteredValues.EnsureCapacity(nValues);
+    ReserveElements(filteredValues, nValues);
 
     for (int i = 0; i < nValues; ++i) {
         int nSamples = MIN(nSampleRadius, MIN( i, nValues - i - 1 ));
-        filteredValues.AddToTail(Average(values.data() + i - nSamples, 2 * nSamples + 1));
+        AppendElement(filteredValues, Average(values.data() + i - nSamples, 2 * nSamples + 1));
     }
 
     m_values.SwapArray(filteredValues);
@@ -2401,11 +2418,11 @@ void CDmeTypedLogLayer<T>::Filter2(DmeTime_t sampleRadius) {
 
     // Doesn't mess with curvetypes!!!
 
-    const CUtlVector<T> &values = m_values.Get();
-    CUtlVector<T> filteredValues;
+    const DmArray<T> &values = m_values.Get();
+    DmArray<T> filteredValues;
 
     int nValues = values.size();
-    filteredValues.EnsureCapacity(nValues);
+    ReserveElements(filteredValues, nValues);
 
     DmeTime_t earliest = DMETIME_ZERO;
     if (nValues > 0) {
@@ -2427,10 +2444,10 @@ void CDmeTypedLogLayer<T>::Filter2(DmeTime_t sampleRadius) {
         vals[2] = GetValue(t1);
 
         if (i == 0 || i == nValues - 1) {
-            filteredValues.AddToTail(values[i]);
+            AppendElement(filteredValues, values[i]);
         }
         else {
-            filteredValues.AddToTail(Average(vals, 3));
+            AppendElement(filteredValues, Average(vals, 3));
         }
     }
 
@@ -6524,8 +6541,8 @@ void CDmeTypedLog<T>::StaggerUsingTimeSelection(const DmeLog_TimeSelection_t &pa
 }
 
 // returns -1 if no elements in vector are less than value
-template<class T>
-int FindLessInSortedVector(const T &value, const CUtlVector<T> &vector) {
+template<class T, class C>
+int FindLessInSortedVector(const T &value, const C &vector) {
     int n = vector.size();
     for (int i = 0; i < n; ++i) {
         if (vector[i] >= value)

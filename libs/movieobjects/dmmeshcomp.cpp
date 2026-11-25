@@ -30,8 +30,8 @@ CDmMeshComp::CDmMeshComp( CDmeMesh *pMesh, CDmeVertexData *pPassedBase )
 	if ( pIndex < 0 )
 		return;
 
-	const CUtlVector< Vector > &pPositionData( m_pBase->GetPositionData() );
-	const CUtlVector<int> &pPositionIndices( m_pBase->GetVertexIndexData( CDmeVertexData::FIELD_POSITION ) );
+	const auto &pPositionData = m_pBase->GetPositionData();
+	const auto &pPositionIndices = m_pBase->GetVertexIndexData( CDmeVertexData::FIELD_POSITION );
 
 	const int nVertices( pPositionData.size() );
 	if ( nVertices <= 0 )
