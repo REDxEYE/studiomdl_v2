@@ -9,12 +9,14 @@
 #pragma once
 
 #include <span>
-#include <string_view>
+#include <string>
 #include <vector>
 
 #include "mathlib/mathlib.h"
 
 struct s_source_t;
+struct s_boneweight_t;
+struct s_sourceboneweight_t;
 struct StudioMdlState;
 
 // Largest pose count -fitweights accepts (fitting or test)
@@ -40,6 +42,7 @@ public:
     // Records how far the reduced vertex ends up from the full weights. When fitting, also overwrites the first
     // MAXSTUDIOBONEWEIGHTS weights with the fitted ones; they are not sorted anymore.
     void Reduce(const Vector &position, std::span<const int> bones, std::span<float> weights, int count);
+    s_boneweight_t FitVertex(const Vector &position, s_sourceboneweight_t &weights);
 
     // True when fitting and, over the mesh, the written fit is no worse than the plain trim at the worst vertex and
     // better on average (on the test poses). Otherwise the caller should write the trim.
@@ -68,3 +71,15 @@ private:
     int m_fitUsed = 0; // of those, vertices where the fitted weights were written (not the plain cut)
     double m_cutErrorSum = 0, m_fitErrorSum = 0, m_cutErrorMax = 0, m_fitErrorMax = 0; // over vertices x evaluation poses
 };
+
+struct SourceWeightRow {
+    std::string source;
+    CWeightFitter::Stats stats;
+    bool fitWritten;
+};
+
+// Fit original indexed positions while the loader still has them, before corner expansion.
+void FitInputWeights(StudioMdlState &ctx, const s_source_t &source);
+std::vector<s_boneweight_t> FitGeometryWeights(StudioMdlState &ctx, const s_source_t &source,
+                                            std::span<const Vector> positions, std::span<const uint32_t> bones,
+                                            std::span<const float> weights, uint32_t stride);

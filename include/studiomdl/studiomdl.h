@@ -1375,7 +1375,8 @@ void BeginSourceTriangles(StudioMdlState &ctx);
 // Scale, v flip and the reduction to MAXSTUDIOBONEWEIGHTS influences, then unification. With `indexed` the lookup
 // considers only earlier corners of `vertex` (no position matching); null retains the SMD text loader's value search.
 int AddSourceCorner(StudioMdlState &ctx, s_source_t *psource, int material, SourceCorner &corner,
-                    SourceCornerIndex *indexed = nullptr, uint32_t vertex = 0);
+                    SourceCornerIndex *indexed = nullptr, uint32_t vertex = 0,
+                    const s_boneweight_t *fitted = nullptr);
 // The unified vertices of the corners 0, 1, 2 as read; the face stores them as (0, 2, 1). False when the triangle
 // is degenerate (dropped).
 bool AddSourceTriangle(StudioMdlState &ctx, int material, const std::array<int, 3> &corners);

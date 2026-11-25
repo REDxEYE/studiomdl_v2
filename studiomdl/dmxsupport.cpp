@@ -1770,6 +1770,7 @@ bool LoadModelAndSkeleton(StudioMdlState &ctx, s_source_t* pSource, BoneTransfor
         if (!LoadMeshes(ctx, load, pModel, ctx.script.currentscale, boneMap.m_pnDmeModelToMdl, pSource))
             return false;
 
+        FitInputWeights(ctx, *pSource);
         UnifyIndices(ctx, pSource);
         BuildVertexAnimations(ctx, load, pSource);
         BuildIndividualMeshes(ctx, pSource);

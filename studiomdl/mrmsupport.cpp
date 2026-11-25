@@ -777,6 +777,7 @@ int Load_VRM(StudioMdlState &ctx, s_source_t *psource) {
             MdlError("{}: face index out of range", ctx.input.szFilename);
     }
 
+    FitInputWeights(ctx, *psource);
     UnifyIndices(ctx, psource);
     BuildIndividualMeshes(ctx, psource);
 

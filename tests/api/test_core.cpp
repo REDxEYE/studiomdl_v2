@@ -571,6 +571,7 @@ namespace {
     struct VvdVertex {
         smdl::Vec3 position, normal;
         smdl::Vec4 tangent;
+        std::array<std::byte, 16> weights;
     };
 
     std::vector<VvdVertex> ReadVvd(const std::vector<std::byte> &bytes) {
@@ -586,6 +587,7 @@ namespace {
         Require(fixups == 0, "single LOD vvd without fixups");
         std::vector<VvdVertex> vertices(static_cast<size_t>(count));
         for (size_t i = 0; i < vertices.size(); ++i) {
+            read(static_cast<size_t>(vertexStart) + i * 48, vertices[i].weights.data(), 16);
             read(static_cast<size_t>(vertexStart) + i * 48 + 16, vertices[i].position.data(), 12);
             read(static_cast<size_t>(vertexStart) + i * 48 + 28, vertices[i].normal.data(), 12);
             read(static_cast<size_t>(tangentStart) + i * 16, vertices[i].tangent.data(), 16);
@@ -606,6 +608,45 @@ namespace {
 
     // The source transform of a Z up model: a quarter turn about Z, (x, y, z) -> (-y, x, z)
     smdl::Vec3 QuarterTurn(const smdl::Vec3 &v) { return {-v[1], v[0], v[2]}; }
+}
+
+SMDL_TEST(core_fitweights_ignores_corner_splits) {
+    const SmdFile smd = ReadSmd(FixturePath("src/fit_ref.smd"));
+    const GeometryData data = BuildGeometryData(smd, VertexMode::Corners);
+    const auto compile = [&](bool split) {
+        smdl::Model model("api/core_fitweights");
+        BasicGlobals(model, "flesh");
+        NoSequences(model);
+        auto mesh = AddBody(model, "tube", "src/fit_ref", "src/fit_ref.smd", VertexMode::Corners);
+        mesh.geometry().setIndexedCorners(true);
+        if (split) {
+            auto uvs = data.cornerUvs[0];
+            for (size_t i = 0; i < uvs.size(); ++i)
+                uvs[i][0] += static_cast<float>(i / 3);
+            mesh.geometry().setCornerUVs(0, uvs);
+        }
+        model.setFitWeights(true, 100, 100);
+        return model.compile();
+    };
+    const auto joined = compile(false), split = compile(true);
+    const auto vertices = [](const smdl::Result &result) {
+        return ReadVvd(ResultFiles(result).at("models/api/core_fitweights.vvd"));
+    };
+    const auto a = vertices(joined), b = vertices(split);
+    Require(b.size() > a.size(), "UV seams create extra output vertices");
+    std::map<smdl::Vec3, std::array<std::byte, 16>> weights;
+    for (const auto &v : a)
+        weights.emplace(v.position, v.weights);
+    for (const auto &v : b)
+        Require(weights.at(v.position) == v.weights, "UV seam copies inherit the same fitted weights");
+
+    const auto fitRow = [](const smdl::Result &result) {
+        for (const auto &message : result.messages())
+            if (Contains(message.text, "fit_ref.smd") && message.text.ends_with(" fit\n"))
+                return std::string(message.text);
+        throw TestFailure("expected the fitted weights to be accepted");
+    };
+    Require(fitRow(joined) == fitRow(split), "the fit decision counts each original vertex once");
 }
 
 // smdl_geometry_set_tangents: the .vvd carries the given tangent of each vertex (rotated with the model like the

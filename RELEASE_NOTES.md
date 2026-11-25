@@ -12,6 +12,7 @@ A cross-platform (Linux, Windows, macOS x86_64/arm64) 64-bit port of Valve's Sou
 - **Weight fitting** (`-fitweights`, experimental): reduces each vertex to the maximum number of bone influences with a
   least-squares fit over sample poses, instead of dropping the smallest weights. Works for every source format (SMD,
   DMX, VRM, builder API) on up to 16 influences per vertex.
+  Indexed builder, DMX and VRM sources fit each input vertex once before splitting material, UV and normal seams.
 - **UTF-8 paths everywhere:** non-ASCII (e.g. Cyrillic) QC, source and output paths work on Windows and Linux.
 - **Rig constraints in DMX:** point, orient, aim, parent and twist constraints, including targets under `DmeRig`/`DmeRigHandle`.
 - **No external DLLs:** a single static executable, with no Steam or game binaries required.

@@ -128,7 +128,7 @@ static int lookup_index(StudioMdlState &ctx, s_source_t *psource, int material, 
 }
 
 int AddSourceCorner(StudioMdlState &ctx, s_source_t *psource, const int material, SourceCorner &corner,
-                    SourceCornerIndex *indexed, uint32_t sourceVertex) {
+                    SourceCornerIndex *indexed, uint32_t sourceVertex, const s_boneweight_t *fitted) {
     // Scale face pos
     scale_vertex(ctx, corner.position);
 
@@ -137,13 +137,19 @@ int AddSourceCorner(StudioMdlState &ctx, s_source_t *psource, const int material
 
     int iCount = corner.numLinks;
     s_sourceboneweight_t sourceWeights;
-    if (iCount == 0) {
+    if (fitted && fitted->numbones) {
+        iCount = fitted->numbones;
+        std::copy_n(fitted->bone.begin(), iCount, corner.bones.begin());
+        std::copy_n(fitted->weight.begin(), iCount, corner.weights.begin());
+    }
+    else if (iCount == 0) {
         iCount = 1;
         corner.bones[0] = corner.bone;
         corner.weights[0] = 1.0;
     }
     else {
-        MakeSourceBoneWeights(iCount, corner.bones, corner.weights, sourceWeights);
+        if (!indexed || !ctx.options.fitWeights)
+            MakeSourceBoneWeights(iCount, corner.bones, corner.weights, sourceWeights);
         iCount = SortAndBalanceBones(iCount, MAXSTUDIOBONEWEIGHTS, corner.bones, corner.weights);
     }
 

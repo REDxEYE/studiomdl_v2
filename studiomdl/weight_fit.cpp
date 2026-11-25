@@ -201,6 +201,15 @@ void CWeightFitter::Reduce(const Vector &position, const std::span<const int> bo
     }
 }
 
+s_boneweight_t CWeightFitter::FitVertex(const Vector &position, s_sourceboneweight_t &full) {
+    Reduce(position, full.bone, full.weight, full.numbones);
+    s_boneweight_t fitted{};
+    fitted.numbones = SortAndBalanceBones(kKept, kKept, full.bone, full.weight);
+    std::copy_n(full.bone.begin(), fitted.numbones, fitted.bone.begin());
+    std::copy_n(full.weight.begin(), fitted.numbones, fitted.weight.begin());
+    return fitted;
+}
+
 bool CWeightFitter::FitIsBetter() const {
     return m_fit && m_fitErrorMax <= m_cutErrorMax && m_fitErrorSum < m_cutErrorSum;
 }
@@ -220,11 +229,16 @@ CWeightFitter::Stats CWeightFitter::GetStats() const {
 }
 
 namespace {
-    struct SourceWeightRow {
-        std::string_view source;
-        CWeightFitter::Stats stats;
-        bool fitWritten;
-    };
+    CWeightFitter MakeFitter(const StudioMdlState &ctx, const s_source_t &source) {
+        return CWeightFitter(source, ctx.options.fitWeights, ctx.options.fitWeightsFitPoses,
+                             ctx.options.fitWeightsTestPoses);
+    }
+
+    bool RecordFit(StudioMdlState &ctx, const s_source_t &source, const CWeightFitter &fitter) {
+        const bool written = fitter.FitIsBetter();
+        ctx.weightFitRows.push_back({source.filename, fitter.GetStats(), written});
+        return written;
+    }
 
     // One row per source that had vertices with more than MAXSTUDIOBONEWEIGHTS influences. Distances (source units)
     // between a vertex skinned with its full weights and with the reduced ones, over the test poses.
@@ -257,9 +271,74 @@ namespace {
     }
 }
 
+void FitInputWeights(StudioMdlState &ctx, const s_source_t &source) {
+    if (!ctx.options.fitWeights || std::ranges::none_of(ctx.input.sourceBone, [](const auto &full) {
+        return full.numbones > kKept;
+    }))
+        return;
+
+    // Count a position once, regardless of how many corners use it.
+    const size_t count = ctx.input.vertex.size();
+    std::vector<bool> used(count);
+    const auto mark = [&](uint32_t index) {
+        if (index >= count)
+            MdlError("{}: face vertex index {} out of range\n", source.filename, index);
+        used[index] = true;
+    };
+    for (const s_tmpface_t &face : ctx.input.faces) {
+        mark(face.a);
+        mark(face.b);
+        mark(face.c);
+        if (face.d != 0xFFFFFFFF)
+            mark(face.d);
+    }
+    std::optional<CWeightFitter> fitter;
+    std::vector<std::pair<size_t, s_boneweight_t>> fitted;
+    for (size_t i = 0; i < std::min(count, ctx.input.sourceBone.size()); ++i) {
+        auto &full = ctx.input.sourceBone[i];
+        if (!used[i] || full.numbones <= kKept)
+            continue;
+        if (!fitter)
+            fitter.emplace(MakeFitter(ctx, source));
+        fitted.emplace_back(i, fitter->FitVertex(ctx.input.vertex[i], full));
+    }
+    ctx.input.sourceBone.clear();
+    if (fitter && RecordFit(ctx, source, *fitter))
+        for (const auto &[i, weight] : fitted)
+            ctx.input.bone[i] = weight;
+}
+
+std::vector<s_boneweight_t> FitGeometryWeights(StudioMdlState &ctx, const s_source_t &source,
+                                            std::span<const Vector> positions, std::span<const uint32_t> bones,
+                                            std::span<const float> weights, uint32_t stride) {
+    if (!ctx.options.fitWeights || stride <= kKept)
+        return {};
+
+    std::optional<CWeightFitter> fitter;
+    std::vector<s_boneweight_t> fitted;
+    std::array<int, MAXSTUDIOSOURCEBONEWEIGHTS> indices;
+    for (size_t i = 0; i < positions.size(); ++i) {
+        const size_t base = i * stride;
+        std::copy_n(bones.begin() + base, stride, indices.begin());
+        s_sourceboneweight_t full;
+        MakeSourceBoneWeights(stride, indices, weights.subspan(base, stride), full);
+        if (full.numbones <= kKept)
+            continue;
+        if (!fitter) {
+            fitter.emplace(MakeFitter(ctx, source));
+            fitted.resize(positions.size());
+        }
+        Vector position = positions[i];
+        scale_vertex(ctx, position);
+        fitted[i] = fitter->FitVertex(position, full);
+    }
+    if (!fitter || !RecordFit(ctx, source, *fitter))
+        return {};
+    return fitted;
+}
+
 void FitSourceWeights(StudioMdlState &ctx) {
     const bool fit = ctx.options.fitWeights;
-    std::vector<SourceWeightRow> rows;
     for (s_source_t *source: ctx.anim.sources) {
         const std::span<s_vertexinfo_t> vertices(source->vertex, source->vertex ? source->numvertices : 0);
         const auto hasMore = [](const s_vertexinfo_t &v) {
@@ -269,7 +348,7 @@ void FitSourceWeights(StudioMdlState &ctx) {
             continue;
         }
 
-        CWeightFitter fitter(*source, fit, ctx.options.fitWeightsFitPoses, ctx.options.fitWeightsTestPoses);
+        CWeightFitter fitter = MakeFitter(ctx, *source);
         struct Fitted {
             s_vertexinfo_t *vertex;
             s_boneweight_t boneweight;
@@ -278,29 +357,19 @@ void FitSourceWeights(StudioMdlState &ctx) {
         for (s_vertexinfo_t &vertex: vertices) {
             s_sourceboneweight_t &full = vertex.sourceWeights;
             if (hasMore(vertex)) {
-                fitter.Reduce(vertex.position, full.bone, full.weight, full.numbones);
-                if (fit) {
-                    // sorts the kept ones again (the fit leaves them unsorted, possibly with zero weights)
-                    Fitted &f = fitted.emplace_back(&vertex);
-                    f.boneweight.numbones = SortAndBalanceBones(MAXSTUDIOBONEWEIGHTS, MAXSTUDIOBONEWEIGHTS, full.bone,
-                                                                full.weight);
-                    for (int j = 0; j < static_cast<int>(MAXSTUDIOBONEWEIGHTS); ++j) {
-                        const bool used = j < f.boneweight.numbones;
-                        f.boneweight.bone[j] = used ? full.bone[j] : 0;
-                        f.boneweight.weight[j] = used ? full.weight[j] : 0.0f;
-                    }
-                }
+                if (fit)
+                    fitted.push_back({&vertex, fitter.FitVertex(vertex.position, full)});
+                else
+                    fitter.Reduce(vertex.position, full.bone, full.weight, full.numbones);
             }
             full = {}; // reduced now; the full list isn't needed past this point
         }
         // boneweight already holds the plain trim; the fit replaces it only where it is better over the source
-        const bool fitWritten = fit && fitter.FitIsBetter();
-        if (fitWritten) {
+        if (RecordFit(ctx, *source, fitter)) {
             for (const Fitted &f: fitted) {
                 f.vertex->boneweight = f.boneweight;
             }
         }
-        rows.push_back({source->filename, fitter.GetStats(), fitWritten});
     }
-    PrintSourceWeightRows(ctx, rows);
+    PrintSourceWeightRows(ctx, ctx.weightFitRows);
 }

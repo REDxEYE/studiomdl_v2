@@ -195,10 +195,14 @@ s_source_t *BuildSourceFromGeometry(StudioMdlState &ctx, ApplyState &state, cons
         indexed.emplace(geometry.positions.size());
         indexedEntries.reserve(geometry.positions.size());
     }
+    const auto fitted = indexed ? FitGeometryWeights(ctx, *source, geometry.positions, geometry.weightBones,
+                                                     geometry.weights, geometry.influencesPerVertex)
+                                : std::vector<s_boneweight_t>{};
     SourceCorner corner;
     auto addCorner = [&](int material, uint32_t vertex, int64_t cornerIndex) {
         FillCorner(geometry, vertex, cornerIndex, corner);
-        const int index = AddSourceCorner(ctx, source, material, corner, indexed ? &*indexed : nullptr, vertex);
+        const int index = AddSourceCorner(ctx, source, material, corner, indexed ? &*indexed : nullptr, vertex,
+                                          fitted.empty() ? nullptr : &fitted[vertex]);
         if (indexed) {
             if (static_cast<size_t>(index) == indexedEntries.size())
                 indexedEntries.push_back(vertex);

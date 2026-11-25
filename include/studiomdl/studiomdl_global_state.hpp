@@ -14,6 +14,7 @@
 
 #include "studiomdl_constants.hpp"
 #include "studiomdl.h"
+#include "weight_fit.hpp"
 #include "worldsize.h"
 #include "mathlib/vector.h"
 #include "tier0/platform.h"
@@ -371,6 +372,7 @@ struct StudioMdlState {
     StudioMdlPaths paths;
     StudioMdlScriptState script;
     StudioMdlInput input;
+    std::vector<SourceWeightRow> weightFitRows;
     StudioMdlHeader header;
     StudioMdlMaterials materials;
     StudioMdlBones bones;
