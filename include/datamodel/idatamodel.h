@@ -461,8 +461,7 @@ public:
 		}
 	}
 
-private:
-	CNotifyScopeGuard( const CNotifyScopeGuard& g );
+	CNotifyScopeGuard( const CNotifyScopeGuard& g ) = delete;
 
 private:
 	IDmNotify *m_pNotify;

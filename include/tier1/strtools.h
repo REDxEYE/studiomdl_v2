@@ -233,7 +233,7 @@ inline bool StringHasPrefixCaseSensitive(const char* str, const char* prefix) {
 
 
 template<bool CASE_SENSITIVE>
-inline bool _V_strEndsWithInner(const char* pStr, const char* pSuffix) {
+bool _V_strEndsWithInner(const char* pStr, const char* pSuffix) {
     int nSuffixLen = V_strlen(pSuffix);
     int nStringLen = V_strlen(pStr);
     if (nSuffixLen == 0)
@@ -702,31 +702,31 @@ class CUtlString;
 int _V_UTF8ToUnicode(const char* pUTF8, OUT_Z_BYTECAP(cubDestSizeInBytes) wchar_t* pwchDest, int cubDestSizeInBytes);
 
 template<typename T>
-inline int V_UTF8ToUnicode(const char* pUTF8, OUT_Z_BYTECAP(cubDestSizeInBytes) wchar_t* pwchDest,
-                           T cubDestSizeInBytes) {
+int V_UTF8ToUnicode(const char* pUTF8, OUT_Z_BYTECAP(cubDestSizeInBytes) wchar_t* pwchDest,
+                    T cubDestSizeInBytes) {
     return _V_UTF8ToUnicode(pUTF8, pwchDest, static_cast<int>(cubDestSizeInBytes));
 }
 
 int _V_UnicodeToUTF8(const wchar_t* pUnicode, OUT_Z_BYTECAP(cubDestSizeInBytes) char* pUTF8, int cubDestSizeInBytes);
 
 template<typename T>
-inline int V_UnicodeToUTF8(const wchar_t* pUnicode, OUT_Z_BYTECAP(cubDestSizeInBytes) char* pUTF8,
-                           T cubDestSizeInBytes) {
+int V_UnicodeToUTF8(const wchar_t* pUnicode, OUT_Z_BYTECAP(cubDestSizeInBytes) char* pUTF8,
+                    T cubDestSizeInBytes) {
     return _V_UnicodeToUTF8(pUnicode, pUTF8, static_cast<int>(cubDestSizeInBytes));
 }
 
 int _V_UCS2ToUnicode(const ucs2* pUCS2, OUT_Z_BYTECAP(cubDestSizeInBytes) wchar_t* pUnicode, int cubDestSizeInBytes);
 
 template<typename T>
-inline int V_UCS2ToUnicode(const ucs2* pUCS2, OUT_Z_BYTECAP(cubDestSizeInBytes) wchar_t* pUnicode,
-                           T cubDestSizeInBytes) {
+int V_UCS2ToUnicode(const ucs2* pUCS2, OUT_Z_BYTECAP(cubDestSizeInBytes) wchar_t* pUnicode,
+                    T cubDestSizeInBytes) {
     return _V_UCS2ToUnicode(pUCS2, pUnicode, static_cast<int>(cubDestSizeInBytes));
 }
 
 int _V_UCS2ToUTF8(const ucs2* pUCS2, OUT_Z_BYTECAP(cubDestSizeInBytes) char* pUTF8, int cubDestSizeInBytes);
 
 template<typename T>
-inline int V_UCS2ToUTF8(const ucs2* pUCS2, OUT_Z_BYTECAP(cubDestSizeInBytes) char* pUTF8, T cubDestSizeInBytes) {
+int V_UCS2ToUTF8(const ucs2* pUCS2, OUT_Z_BYTECAP(cubDestSizeInBytes) char* pUTF8, T cubDestSizeInBytes) {
     return _V_UCS2ToUTF8(pUCS2, pUTF8, static_cast<int>(cubDestSizeInBytes));
 }
 
@@ -734,8 +734,8 @@ int _V_UnicodeToUCS2(const wchar_t* pUnicode, int cubSrcInBytes, OUT_Z_BYTECAP(c
                      int cubDestSizeInBytes);
 
 template<typename T, typename U>
-inline int V_UnicodeToUCS2(const wchar_t* pUnicode, T cubSrcInBytes, OUT_Z_BYTECAP(cubDestSizeInBytes) char* pUCS2,
-                           U cubDestSizeInBytes) {
+int V_UnicodeToUCS2(const wchar_t* pUnicode, T cubSrcInBytes, OUT_Z_BYTECAP(cubDestSizeInBytes) char* pUCS2,
+                    U cubDestSizeInBytes) {
     return _V_UnicodeToUCS2(pUnicode, static_cast<int>(cubSrcInBytes), pUCS2, static_cast<int>(cubDestSizeInBytes));
 }
 
@@ -743,8 +743,8 @@ int _V_UTF8ToUCS2(const char* pUTF8, int cubSrcInBytes, OUT_Z_BYTECAP(cubDestSiz
                   int cubDestSizeInBytes);
 
 template<typename T, typename U>
-inline int V_UTF8ToUCS2(const char* pUTF8, T cubSrcInBytes, OUT_Z_BYTECAP(cubDestSizeInBytes) ucs2* pUCS2,
-                        U cubDestSizeInBytes) {
+int V_UTF8ToUCS2(const char* pUTF8, T cubSrcInBytes, OUT_Z_BYTECAP(cubDestSizeInBytes) ucs2* pUCS2,
+                 U cubDestSizeInBytes) {
     return _V_UTF8ToUCS2(pUTF8, static_cast<int>(cubSrcInBytes), pUCS2, static_cast<int>(cubDestSizeInBytes));
 }
 
@@ -922,229 +922,23 @@ inline void V_RemoveFormatSpecifications(const char* pszFrom, char* pszTo, size_
 }
 
 
-//-----------------------------------------------------------------------------
-// generic unique name helper functions
-//-----------------------------------------------------------------------------
-
-// returns -1 if no match, nDefault if pName==prefix, and N if pName==prefix+N
-inline int V_IndexAfterPrefix(const char* pName, const char* prefix, int nDefault = 0) {
-    if (!pName || !prefix)
-        return -1;
-
-    const auto indexStrOpt = string_after_prefix(pName, prefix);
-    if (!indexStrOpt)
-        return -1;
-
-    if (indexStrOpt->empty())
-        return nDefault;
-
-    return vstd::str_to_int<int32_t>(indexStrOpt.value());
-}
-
-// returns startindex if none found, 2 if "prefix" found, and n+1 if "prefixn" found
-template<class NameArray>
-int V_GenerateUniqueNameIndex(const char* prefix, const NameArray &nameArray, int startindex = 0) {
-    if (!prefix)
-        return 0;
-
-    int freeindex = startindex;
-
-    int nNames = nameArray.size();
-    for (int i = 0; i < nNames; ++i) {
-        int index = V_IndexAfterPrefix(nameArray[i], prefix, 1); // returns -1 if no match, 0 for exact match, N for
-        if (index >= freeindex) {
-            // TODO - check that there isn't more junk after the index in pElementName
-            freeindex = index + 1;
-        }
-    }
-
-    return freeindex;
-}
-
-template<class NameArray>
-bool V_GenerateUniqueName(char* name, int memsize, const char* prefix, const NameArray &nameArray) {
-    if (name == nullptr || memsize == 0)
-        return false;
-
-    if (prefix == nullptr) {
-        name[0] = '\0';
-        return false;
-    }
-
-    int prefixLength = V_strlen(prefix);
-    if (prefixLength + 1 > memsize) {
-        name[0] = '\0';
-        return false;
-    }
-
-    int i = V_GenerateUniqueNameIndex(prefix, nameArray);
-    if (i <= 0) {
-        V_strncpy(name, prefix, memsize);
-        return true;
-    }
-
-    int newlen = prefixLength + (int) std::log10((float) i) + 1;
-    if (newlen + 1 > memsize) {
-        V_strncpy(name, prefix, memsize);
-        return false;
-    }
-
-    V_snprintf(name, memsize, "%s%d", prefix, i);
-    return true;
-}
-
-
-template<typename T>
-struct BinString_t {
-    BinString_t() {
-    }
-
-    explicit BinString_t(const char* pStr) {
-        V_strncpy(m_string, pStr, sizeof(m_string));
-        ToBin();
-    }
-
-    explicit BinString_t(const T &that) {
-        m_bin = that;
-        ToString();
-    }
-
-    bool ToBin() {
-        return V_StringToBin(m_string, &m_bin, sizeof(m_bin));
-    }
-
-    void ToString() {
-        V_BinToString(m_string, &m_bin, sizeof(m_bin));
-    }
-
-    T m_bin;
-    char m_string[sizeof(T) * 2 + 2]; // 0-terminated string representing the binary data in hex
-};
-
-template<typename T>
-inline BinString_t<T> MakeBinString(const T &that) {
-    return BinString_t<T>(that);
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose: Utility class to allow parsing of various types of data
-//-----------------------------------------------------------------------------
-
-template<class V>
-struct TypeParser_t {
-    static int ComputeMaxStringSize(const V* pValue) { return 1; }
-
-    static bool WriteToString(const V* pValue, OUT_Z_CAP(nBufLen) char* pBuf, int nBufLen) {
-        *pBuf = 0;
-        return false;
-    }
-
-    static bool ParseFromString(const char* pString, V* pValue) { return false; }
-};
-
-// Used to put TypeParser_t function calls in arrays w/ common prototypes
-template<class V>
-struct TypeParserAdapter_t {
-    static bool WriteToString(const void* pValue, OUT_Z_CAP(nBufLen) char* pBuf, int nBufLen) {
-        return TypeParser_t<V>::WriteToString((const V*) pValue, pBuf, nBufLen);
-    }
-
-    static int ComputeMaxStringSize(const void* pValue) {
-        return TypeParser_t<V>::ComputeMaxStringSize((const V*) pValue);
-    }
-
-    static bool ParseFromString(const char* pString, void* pValue) {
-        return TypeParser_t<V>::ParseFromString(pString, (V*) pValue);
-    }
-};
-
-template<>
-struct TypeParser_t<bool> {
-    static int ComputeMaxStringSize(const bool* pValue) { return 6; } //"false"
-
-    static bool WriteToString(const bool* pValue, OUT_Z_CAP(nBufLen) char* pBuf, int nBufLen) {
-        int nLenWritten = V_snprintf(pBuf, (int) nBufLen, (*pValue) ? "true" : "false");
-        return (nLenWritten < nBufLen);
-    }
-
-    static bool ParseFromString(const char* pString, bool* pValue) {
-        if (!V_stricmp(pString, "true")) {
-            *pValue = true;
-            return true;
-        }
-        if (!V_stricmp(pString, "false")) {
-            *pValue = false;
-            return true;
-        }
-        int nValue;
-        if (sscanf(pString, "%d", &nValue) != 1)
-            return false;
-        if (nValue != 0 && nValue != 1)
-            return false;
-        *pValue = (nValue == 1);
-        return true;
-    }
-};
-
-#define DECLARE_POD_TYPE_PARSE_BASE( type, formatspecifier, maxstringdigits, SCAN ) \
-	template <> struct TypeParser_t< type >							\
-	{																	\
-		static int ComputeMaxStringSize( const type *pValue ) { return maxstringdigits; }	\
-																								\
-		static bool WriteToString( const type *pValue, OUT_Z_CAP(nBufLen) char *pBuf, int nBufLen )			\
-		{																						\
-			int nLenWritten = V_snprintf( pBuf, nBufLen, formatspecifier, *pValue );		\
-			return ( nLenWritten < nBufLen );													\
-		}																						\
-		static bool ParseFromString( const char *pString, type *pValue )					\
-		{																						\
-			SCAN							\
-		}																						\
-	};
-
-
-#define DECLARE_POD_TYPE_PARSE( type, formatspecifier, maxstringdigits )  DECLARE_POD_TYPE_PARSE_BASE( type, formatspecifier, maxstringdigits, { return ( sscanf( pString, formatspecifier, pValue ) == 1 ); } )
-#define DECLARE_POD_TYPE_PARSE_SMALLINT( type, formatspecifier, maxstringdigits, BIGINT )  DECLARE_POD_TYPE_PARSE_BASE( type, formatspecifier, maxstringdigits, { BIGINT nScannedValue; if( sscanf( pString, formatspecifier, &nScannedValue ) == 1 ) { *pValue = ( type )nScannedValue; return true; } else return false; } )
 
 // NOTE: MS compiler won't allow sscanf of a 1-byte int, and will override memory if you try to sscanf( %d, int8 )
 
-DECLARE_POD_TYPE_PARSE_SMALLINT(int8_t, "%d", 5, int); // -127
-DECLARE_POD_TYPE_PARSE_SMALLINT(uint8_t, "%u", 5, uint32_t);
+; // -127
+;
 
-DECLARE_POD_TYPE_PARSE_SMALLINT(int16_t, "%d", 7, int); // -32767
-DECLARE_POD_TYPE_PARSE_SMALLINT(uint16_t, "%u", 7, uint32_t);
+; // -32767
+;
 
-DECLARE_POD_TYPE_PARSE(int32_t, "%d", 12); //MIN_INT
-DECLARE_POD_TYPE_PARSE(uint32_t, "%u", 12); //UINT_MAX
+; //MIN_INT
+; //UINT_MAX
 
-// int64_t is long on LP64 Linux/macOS and long long on Windows: the <cinttypes> macros match it everywhere
-DECLARE_POD_TYPE_PARSE_BASE(int64_t, "%" PRId64, 21, { return ( sscanf( pString, "%" SCNd64, pValue ) == 1 ); }); // 18446744073709551615  -9223372036854775808
-DECLARE_POD_TYPE_PARSE_BASE(uint64_t, "%" PRIu64, 21, { return ( sscanf( pString, "%" SCNu64, pValue ) == 1 ); });
+; // 18446744073709551615  -9223372036854775808
+;
 
-DECLARE_POD_TYPE_PARSE(float32, "%f", 48); // -FLT32_MAX
-DECLARE_POD_TYPE_PARSE(float64, "%lf", 318); // -FLOAT64_MAX (it's got a lot of zeros)
-
-template<>
-struct TypeParser_t<Color> {
-    static int ComputeMaxStringSize(const Color* pValue) { return 18; } //{255 255 255 255}
-
-    static bool WriteToString(const Color* pValue, OUT_Z_CAP(nBufLen) char* pBuf, int nBufLen) {
-        int nLenWritten = V_snprintf(pBuf, (int) nBufLen, "{%d %d %d %d}", pValue->r(), pValue->g(), pValue->b(),
-                                     pValue->a());
-        return (nLenWritten < nBufLen);
-    }
-
-    static bool ParseFromString(const char* pString, Color* pValue) {
-        int r, g, b, a;
-        if (sscanf(pString, "{%d %d %d %d}", &r, &g, &b, &a) != 4)
-            return false;
-        if (r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255 || a < 0 || a > 255)
-            return false;
-        pValue->SetColor(r, g, b, a);
-        return true;
-    }
-};
+; // -FLT32_MAX
+; // -FLOAT64_MAX (it's got a lot of zeros)
 
 //---------------------------------------------------------------------------------------------------------------------------------------------------
 // This will return a char* valid for the current expression that will make a number comma separated:
@@ -1331,7 +1125,4 @@ inline int V_strcspn(const char* s1, const char* search) { return (int) (strcspn
 #endif
 
 namespace AsianWordWrap {
-
 }
-
-

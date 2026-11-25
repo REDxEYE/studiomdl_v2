@@ -25,105 +25,122 @@
 //-----------------------------------------------------------------------------
 // Tests equality
 //-----------------------------------------------------------------------------
-template< class T >
-bool IsAttributeEqual( const T& src1, const T& src2 )
-{
-	return src1 == src2;
+template<class T>
+bool IsAttributeEqual(const T &src1, const T &src2) {
+    return src1 == src2;
 }
 
-template< class T >
-bool IsAttributeEqual( const CUtlVector<T> &src1, const CUtlVector<T> &src2 )
-{
-	if ( src1.size() != src2.size() )
-		return false;
-		
-	for ( int i=0; i < src1.size(); i++ )
-	{
-		if ( !( src1[i] == src2[i] ) )
-			return false;
-	}
-	
-	return true;
+template<class T>
+bool IsAttributeEqual(const CUtlVector<T> &src1, const CUtlVector<T> &src2) {
+    if (src1.size() != src2.size())
+        return false;
+
+    for (int i = 0; i < src1.size(); i++) {
+        if (!(src1[i] == src2[i]))
+            return false;
+    }
+
+    return true;
 }
 
 
 //-----------------------------------------------------------------------------
 // Typesafety check for element handles
 //-----------------------------------------------------------------------------
-static inline bool IsA( DmElementHandle_t hElement, CUtlSymbolLarge type )
-{
-	// treat NULL, deleted, and unloaded elements as being of any type - 
-	// when set, undeleted or loaded, this should be checked again
-	CDmElement *pElement = g_pDataModel->GetElement( hElement );
-	return pElement ? pElement->IsA( type ) : true;
+static inline bool IsA(DmElementHandle_t hElement, CUtlSymbolLarge type) {
+    // treat NULL, deleted, and unloaded elements as being of any type -
+    // when set, undeleted or loaded, this should be checked again
+    CDmElement* pElement = g_pDataModel->GetElement(hElement);
+    return pElement ? pElement->IsA(type) : true;
 }
 
 
 //-----------------------------------------------------------------------------
 // Element attributes are never directly unserialized
 //-----------------------------------------------------------------------------
-static bool Serialize( CUtlBuffer &buf, DmElementHandle_t src )
-{
-	Assert( 0 );
-	return false;
+static bool Serialize(CUtlBuffer &buf, DmElementHandle_t src) {
+    Assert(0);
+    return false;
 }
 
-static bool Unserialize( CUtlBuffer &buf, DmElementHandle_t &dest )
-{
-	Assert( 0 );
-	return false;
+static bool Unserialize(CUtlBuffer &buf, DmElementHandle_t &dest) {
+    Assert(0);
+    return false;
 }
 
-static bool Serialize( CUtlBuffer &buf, const DmUnknownAttribute_t& src )
-{
-	Assert( 0 );
-	return false;
+static bool Serialize(CUtlBuffer &buf, const DmUnknownAttribute_t &src) {
+    Assert(0);
+    return false;
 }
 
-static bool Unserialize( CUtlBuffer &buf, DmUnknownAttribute_t &dest )
-{
-	Assert( 0 );
-	return false;
+static bool Unserialize(CUtlBuffer &buf, DmUnknownAttribute_t &dest) {
+    Assert(0);
+    return false;
 }
 
 // The element attribute storage converts to DmElementHandle_t, which made ::Serialize/::Unserialize ambiguous in the
 // (never executed) element instantiations of the array attribute templates.
-inline bool Serialize( CUtlBuffer &buf, const DmElementAttribute_t &src ) { return ::Serialize( buf, static_cast< int >( static_cast< const DmElementHandle_t & >( src ) ) ); }
-inline bool Unserialize( CUtlBuffer &buf, DmElementAttribute_t &dest ) { int n = 0; if ( !::Unserialize( buf, n ) ) return false; dest.m_Handle = static_cast< DmElementHandle_t >( n ); return true; }
+inline bool Serialize(CUtlBuffer &buf, const DmElementAttribute_t &src) {
+    return ::Serialize(buf, static_cast<int>(static_cast<const DmElementHandle_t &>(src)));
+}
+
+inline bool Unserialize(CUtlBuffer &buf, DmElementAttribute_t &dest) {
+    int n = 0;
+    if (!::Unserialize(buf, n)) return false;
+    dest.m_Handle = static_cast<DmElementHandle_t>(n);
+    return true;
+}
 
 //-----------------------------------------------------------------------------
 // Internal interface for dealing with generic attribute operations
 //-----------------------------------------------------------------------------
-class IDmAttributeOp
-{
+class IDmAttributeOp {
 public:
-	virtual void* CreateAttributeData() = 0;
-	virtual void DestroyAttributeData( void *pData ) = 0;
-	virtual void SetDefaultValue( void *pData ) = 0;
-	virtual int DataSize() = 0;
-	virtual int ValueSize() = 0;
-	virtual bool SerializesOnMultipleLines() = 0;
-	virtual bool SkipUnserialize( CUtlBuffer& buf ) = 0;
-	virtual const char *AttributeTypeName() = 0;
+    virtual void* CreateAttributeData() = 0;
 
-	virtual void SetValue( CDmAttribute *pAttribute, DmAttributeType_t valueType, const void *pValue ) = 0;
-	virtual void SetMultiple( CDmAttribute *pAttribute, int i, int nCount, DmAttributeType_t valueType, const void *pValue ) = 0;
-	virtual void Set( CDmAttribute *pAttribute, int i, DmAttributeType_t valueType, const void *pValue ) = 0;
-	virtual void SetToDefaultValue( CDmAttribute *pAttribute ) = 0;
-	virtual bool Serialize( const CDmAttribute *pAttribute, CUtlBuffer &buf ) = 0;
-	virtual bool Unserialize( CDmAttribute *pAttribute, CUtlBuffer &buf ) = 0;
-	virtual bool SerializeElement( const CDmAttribute *pAttribute, int nElement, CUtlBuffer &buf ) = 0;
-	virtual bool UnserializeElement( CDmAttribute *pAttribute, CUtlBuffer &buf ) = 0;
-	virtual bool UnserializeElement( CDmAttribute *pAttribute, int nElement, CUtlBuffer &buf ) = 0;
-	virtual void OnUnserializationFinished( CDmAttribute *pAttribute ) = 0;
-	virtual bool IsIdenticalToSerializedValue( const CDmAttribute *pAttribute, CUtlBuffer &buf ) const = 0;
+    virtual void DestroyAttributeData(void* pData) = 0;
+
+    virtual void SetDefaultValue(void* pData) = 0;
+
+    virtual int DataSize() = 0;
+
+    virtual int ValueSize() = 0;
+
+    virtual bool SerializesOnMultipleLines() = 0;
+
+    virtual bool SkipUnserialize(CUtlBuffer &buf) = 0;
+
+    virtual const char* AttributeTypeName() = 0;
+
+    virtual void SetValue(CDmAttribute* pAttribute, DmAttributeType_t valueType, const void* pValue) = 0;
+
+    virtual void SetMultiple(CDmAttribute* pAttribute, int i, int nCount, DmAttributeType_t valueType,
+                             const void* pValue) = 0;
+
+    virtual void Set(CDmAttribute* pAttribute, int i, DmAttributeType_t valueType, const void* pValue) = 0;
+
+    virtual void SetToDefaultValue(CDmAttribute* pAttribute) = 0;
+
+    virtual bool Serialize(const CDmAttribute* pAttribute, CUtlBuffer &buf) = 0;
+
+    virtual bool Unserialize(CDmAttribute* pAttribute, CUtlBuffer &buf) = 0;
+
+    virtual bool SerializeElement(const CDmAttribute* pAttribute, int nElement, CUtlBuffer &buf) = 0;
+
+    virtual bool UnserializeElement(CDmAttribute* pAttribute, CUtlBuffer &buf) = 0;
+
+    virtual bool UnserializeElement(CDmAttribute* pAttribute, int nElement, CUtlBuffer &buf) = 0;
+
+    virtual void OnUnserializationFinished(CDmAttribute* pAttribute) = 0;
+
+    virtual bool IsIdenticalToSerializedValue(const CDmAttribute* pAttribute, CUtlBuffer &buf) const = 0;
 };
 
 
 //-----------------------------------------------------------------------------
 // Global table of generic attribute operations looked up by type
 //-----------------------------------------------------------------------------
-static IDmAttributeOp* s_pAttrInfo[ AT_TYPE_COUNT ];
+static IDmAttributeOp* s_pAttrInfo[AT_TYPE_COUNT];
 
 
 //-----------------------------------------------------------------------------
@@ -131,15 +148,14 @@ static IDmAttributeOp* s_pAttrInfo[ AT_TYPE_COUNT ];
 // Implementation of IDmAttributeOp for single-valued attributes
 //
 //-----------------------------------------------------------------------------
-template< class T >
-class CDmAttributeOp : public IDmAttributeOp
-{
+template<class T>
+class CDmAttributeOp : public IDmAttributeOp {
 public:
     void* CreateAttributeData() override;
 
-    void DestroyAttributeData( void *pData ) override;
+    void DestroyAttributeData(void* pData) override;
 
-    void SetDefaultValue( void *pData ) override;
+    void SetDefaultValue(void* pData) override;
 
     int DataSize() override;
 
@@ -147,31 +163,32 @@ public:
 
     bool SerializesOnMultipleLines() override;
 
-    bool SkipUnserialize( CUtlBuffer& buf ) override;
+    bool SkipUnserialize(CUtlBuffer &buf) override;
 
-    const char *AttributeTypeName() override;
+    const char* AttributeTypeName() override;
 
-    void SetValue( CDmAttribute *pAttribute, DmAttributeType_t valueType, const void *pValue ) override;
+    void SetValue(CDmAttribute* pAttribute, DmAttributeType_t valueType, const void* pValue) override;
 
-    void SetMultiple( CDmAttribute *pAttribute, int i, int nCount, DmAttributeType_t valueType, const void *pValue ) override;
+    void SetMultiple(CDmAttribute* pAttribute, int i, int nCount, DmAttributeType_t valueType,
+                     const void* pValue) override;
 
-    void Set( CDmAttribute *pAttribute, int i, DmAttributeType_t valueType, const void *pValue ) override;
+    void Set(CDmAttribute* pAttribute, int i, DmAttributeType_t valueType, const void* pValue) override;
 
-    void SetToDefaultValue( CDmAttribute *pAttribute ) override;
+    void SetToDefaultValue(CDmAttribute* pAttribute) override;
 
-    bool Serialize( const CDmAttribute *pData, CUtlBuffer &buf ) override;
+    bool Serialize(const CDmAttribute* pData, CUtlBuffer &buf) override;
 
-    bool Unserialize( CDmAttribute *pAttribute, CUtlBuffer &buf ) override;
+    bool Unserialize(CDmAttribute* pAttribute, CUtlBuffer &buf) override;
 
-    bool SerializeElement( const CDmAttribute *pAttribute, int nElement, CUtlBuffer &buf ) override;
+    bool SerializeElement(const CDmAttribute* pAttribute, int nElement, CUtlBuffer &buf) override;
 
-    bool UnserializeElement( CDmAttribute *pAttribute, CUtlBuffer &buf ) override;
+    bool UnserializeElement(CDmAttribute* pAttribute, CUtlBuffer &buf) override;
 
-    bool UnserializeElement( CDmAttribute *pAttribute, int nElement, CUtlBuffer &buf ) override;
+    bool UnserializeElement(CDmAttribute* pAttribute, int nElement, CUtlBuffer &buf) override;
 
-    void OnUnserializationFinished( CDmAttribute *pAttribute ) override;
+    void OnUnserializationFinished(CDmAttribute* pAttribute) override;
 
-    bool IsIdenticalToSerializedValue( const CDmAttribute *pAttribute, CUtlBuffer &buf ) const override;
+    bool IsIdenticalToSerializedValue(const CDmAttribute* pAttribute, CUtlBuffer &buf) const override;
 };
 
 
@@ -179,20 +196,20 @@ public:
 // Memory pools used for CDmAttribute data
 // Over 8 bytes, use the small-block allocator (it aligns to 16 bytes)
 //-----------------------------------------------------------------------------
-CUtlMemoryPool g_DataAlloc4( 4, 1024, CUtlMemoryPool::GROW_SLOW, "4-byte data pool" );
-CUtlMemoryPool g_DataAlloc8( 8, 1024, CUtlMemoryPool::GROW_SLOW, "8-byte data pool" );
+CUtlMemoryPool g_DataAlloc4(4, 1024, CUtlMemoryPool::GROW_SLOW, "4-byte data pool");
+CUtlMemoryPool g_DataAlloc8(8, 1024, CUtlMemoryPool::GROW_SLOW, "8-byte data pool");
 #if defined( PLATFORM_64BITS )
-CUtlMemoryPool g_DataAlloc16( 16, 1024, CUtlMemoryPool::GROW_SLOW, "16-byte data pool" );
+CUtlMemoryPool g_DataAlloc16(16, 1024, CUtlMemoryPool::GROW_SLOW, "16-byte data pool");
 #endif
 
-template< class T > void* NewData()
-{
-	return new typename CDmAttributeInfo< T >::StorageType_t;
+template<class T>
+void* NewData() {
+    return new typename CDmAttributeInfo<T>::StorageType_t;
 }
 
-template< class T > void DeleteData( void *pData )
-{
-	delete reinterpret_cast< typename CDmAttributeInfo< T >::StorageType_t * >( pData );
+template<class T>
+void DeleteData(void* pData) {
+    delete reinterpret_cast<typename CDmAttributeInfo<T>::StorageType_t*>(pData);
 }
 
 #define USE_SPECIAL_ALLOCATOR( _className, _allocator )		\
@@ -209,131 +226,118 @@ template< class T > void DeleteData( void *pData )
 	}
 
 // make sure that the attribute data type sizes are what we think they are to choose the right allocator
-struct CSizeTest
-{
-	CSizeTest()
-	{
-		// test internal value attribute sizes
-		COMPILE_TIME_ASSERT( sizeof( int )			== 4 );
-		COMPILE_TIME_ASSERT( sizeof( float )		== 4 );
-		COMPILE_TIME_ASSERT( sizeof( bool )			<= 4 );
-		COMPILE_TIME_ASSERT( sizeof( Color )		== 4 );
+struct CSizeTest {
+    CSizeTest() {
+        // test internal value attribute sizes
+        COMPILE_TIME_ASSERT(sizeof( int ) == 4);
+        COMPILE_TIME_ASSERT(sizeof( float ) == 4);
+        COMPILE_TIME_ASSERT(sizeof( bool ) <= 4);
+        COMPILE_TIME_ASSERT(sizeof( Color ) == 4);
 #if defined( PLATFORM_64BITS )
-		COMPILE_TIME_ASSERT( sizeof( DmElementAttribute_t ) <= 16 );
+        COMPILE_TIME_ASSERT(sizeof( DmElementAttribute_t ) <= 16);
 #else
-		COMPILE_TIME_ASSERT( sizeof( DmElementAttribute_t ) <= 8 );
+        COMPILE_TIME_ASSERT(sizeof( DmElementAttribute_t ) <= 8);
 #endif
-		COMPILE_TIME_ASSERT( sizeof( Vector2D )		== 8 );
-	}
+        COMPILE_TIME_ASSERT(sizeof( Vector2D ) == 8);
+    }
 };
+
 static CSizeTest g_sizeTest;
 
 // turn memdbg off temporarily so we can get at placement new
 //#include "tier0/memdbgoff.h"
 
-USE_SPECIAL_ALLOCATOR( bool, g_DataAlloc4 )
-USE_SPECIAL_ALLOCATOR( int, g_DataAlloc4 )
-USE_SPECIAL_ALLOCATOR( float, g_DataAlloc4 )
+USE_SPECIAL_ALLOCATOR(bool, g_DataAlloc4)
+USE_SPECIAL_ALLOCATOR(int, g_DataAlloc4)
+USE_SPECIAL_ALLOCATOR(float, g_DataAlloc4)
 #if defined( PLATFORM_64BITS )
-USE_SPECIAL_ALLOCATOR( DmElementHandle_t, g_DataAlloc16 )
+USE_SPECIAL_ALLOCATOR(DmElementHandle_t, g_DataAlloc16)
 #else
-USE_SPECIAL_ALLOCATOR( DmElementHandle_t, g_DataAlloc8 )
+USE_SPECIAL_ALLOCATOR(DmElementHandle_t, g_DataAlloc8)
 #endif
-USE_SPECIAL_ALLOCATOR( Color, g_DataAlloc4 )
-USE_SPECIAL_ALLOCATOR( DmeTime_t, g_DataAlloc4 )
-USE_SPECIAL_ALLOCATOR( Vector2D, g_DataAlloc8 )
-
-
+USE_SPECIAL_ALLOCATOR(Color, g_DataAlloc4)
+USE_SPECIAL_ALLOCATOR(DmeTime_t, g_DataAlloc4)
+USE_SPECIAL_ALLOCATOR(Vector2D, g_DataAlloc8)
 
 
 //-----------------------------------------------------------------------------
 // Create, destroy attribute data
 //-----------------------------------------------------------------------------
-template< class T >
-void* CDmAttributeOp<T>::CreateAttributeData()
-{
-	void *pData = NewData< T >();
-	CDmAttributeInfo< T >::SetDefaultValue( *reinterpret_cast<T*>( pData ) );
-	return pData;
+template<class T>
+void* CDmAttributeOp<T>::CreateAttributeData() {
+    void* pData = NewData<T>();
+    CDmAttributeInfo<T>::SetDefaultValue(*reinterpret_cast<T*>(pData));
+    return pData;
 }
 
-template<> void* CDmAttributeOp< DmUnknownAttribute_t >::CreateAttributeData()
-{
-	// Fail if someone tries to create an AT_UNKNOWN attribute
-	Assert(0);
-	return nullptr;
+template<>
+void* CDmAttributeOp<DmUnknownAttribute_t>::CreateAttributeData() {
+    // Fail if someone tries to create an AT_UNKNOWN attribute
+    Assert(0);
+    return nullptr;
 }
 
-template< class T >
-void CDmAttributeOp<T>::DestroyAttributeData( void *pData )
-{
-	DeleteData< T >( pData );
+template<class T>
+void CDmAttributeOp<T>::DestroyAttributeData(void* pData) {
+    DeleteData<T>(pData);
 }
 
 
 //-----------------------------------------------------------------------------
 // Sets the data to a default value (used for construction)
 //-----------------------------------------------------------------------------
-template< class T >
-void CDmAttributeOp<T>::SetDefaultValue( void *pData )
-{
-	CDmAttributeInfo< T >::SetDefaultValue( *reinterpret_cast<T*>( pData ) );
+template<class T>
+void CDmAttributeOp<T>::SetDefaultValue(void* pData) {
+    CDmAttributeInfo<T>::SetDefaultValue(*reinterpret_cast<T*>(pData));
 }
 
 
 //-----------------------------------------------------------------------------
 // Attribute type name, data size, value size
 //-----------------------------------------------------------------------------
-template< class T >
-const char *CDmAttributeOp<T>::AttributeTypeName()
-{
-	return CDmAttributeInfo<T>::AttributeTypeName();
+template<class T>
+const char* CDmAttributeOp<T>::AttributeTypeName() {
+    return CDmAttributeInfo<T>::AttributeTypeName();
 }
 
-template< class T >
-int CDmAttributeOp<T>::DataSize()
-{
-	return sizeof( typename CDmAttributeInfo< T >::StorageType_t );
+template<class T>
+int CDmAttributeOp<T>::DataSize() {
+    return sizeof(typename CDmAttributeInfo<T>::StorageType_t);
 }
 
-template< class T >
-int CDmAttributeOp<T>::ValueSize()
-{
-	return sizeof( T );
+template<class T>
+int CDmAttributeOp<T>::ValueSize() {
+    return sizeof(T);
 }
 
 
 //-----------------------------------------------------------------------------
 // Value-setting methods
 //-----------------------------------------------------------------------------
-template< class T >
-void CDmAttributeOp<T>::SetToDefaultValue( CDmAttribute *pAttribute )
-{
-	T newValue;
-	CDmAttributeInfo< T >::SetDefaultValue( newValue );
-	pAttribute->SetValue( newValue );
+template<class T>
+void CDmAttributeOp<T>::SetToDefaultValue(CDmAttribute* pAttribute) {
+    T newValue;
+    CDmAttributeInfo<T>::SetDefaultValue(newValue);
+    pAttribute->SetValue(newValue);
 }
 
-template< class T >
-void CDmAttributeOp<T>::SetMultiple( CDmAttribute *pAttribute, int i, int nCount, DmAttributeType_t valueType, const void *pValue )
-{
-	Assert(0);
+template<class T>
+void CDmAttributeOp<T>::SetMultiple(CDmAttribute* pAttribute, int i, int nCount, DmAttributeType_t valueType,
+                                    const void* pValue) {
+    Assert(0);
 }
 
-template< class T >
-void CDmAttributeOp<T>::Set( CDmAttribute *pAttribute, int i, DmAttributeType_t valueType, const void *pValue )
-{
-	Assert(0);
+template<class T>
+void CDmAttributeOp<T>::Set(CDmAttribute* pAttribute, int i, DmAttributeType_t valueType, const void* pValue) {
+    Assert(0);
 }
 
-template< class T >
-void CDmAttributeOp<T>::SetValue( CDmAttribute *pAttribute, DmAttributeType_t valueType, const void *pValue )
-{
-	Assert( pAttribute->GetType() == valueType );
-	if ( pAttribute->GetType() == valueType )
-	{
-		pAttribute->SetValue( *reinterpret_cast< const T* >( pValue ) );
-	}
+template<class T>
+void CDmAttributeOp<T>::SetValue(CDmAttribute* pAttribute, DmAttributeType_t valueType, const void* pValue) {
+    Assert(pAttribute->GetType() == valueType);
+    if (pAttribute->GetType() == valueType) {
+        pAttribute->SetValue(*reinterpret_cast<const T*>(pValue));
+    }
 }
 
 #define SET_VALUE_TYPE( _srcType )												\
@@ -342,200 +346,177 @@ void CDmAttributeOp<T>::SetValue( CDmAttribute *pAttribute, DmAttributeType_t va
 	break;
 
 template<>
-void CDmAttributeOp<int>::SetValue( CDmAttribute *pAttribute, DmAttributeType_t valueType, const void *pValue )
-{
-	switch( valueType )
-	{
-	SET_VALUE_TYPE( int );
-	SET_VALUE_TYPE( float );
-	SET_VALUE_TYPE( bool );
-	SET_VALUE_TYPE( DmeTime_t );
+void CDmAttributeOp<int>::SetValue(CDmAttribute* pAttribute, DmAttributeType_t valueType, const void* pValue) {
+    switch (valueType) {
+        SET_VALUE_TYPE(int);
+        SET_VALUE_TYPE(float);
+        SET_VALUE_TYPE(bool);
+        SET_VALUE_TYPE(DmeTime_t);
 
-	default:
-		Assert(0);
-		break;
-	}
+        default:
+            Assert(0);
+            break;
+    }
 }
 
 template<>
-void CDmAttributeOp<float>::SetValue( CDmAttribute *pAttribute, DmAttributeType_t valueType, const void *pValue )
-{
-	switch( valueType )
-	{
-	SET_VALUE_TYPE( int );
-	SET_VALUE_TYPE( float );
-	SET_VALUE_TYPE( bool );
-	SET_VALUE_TYPE( DmeTime_t );
+void CDmAttributeOp<float>::SetValue(CDmAttribute* pAttribute, DmAttributeType_t valueType, const void* pValue) {
+    switch (valueType) {
+        SET_VALUE_TYPE(int);
+        SET_VALUE_TYPE(float);
+        SET_VALUE_TYPE(bool);
+        SET_VALUE_TYPE(DmeTime_t);
 
-	default:
-		Assert(0);
-		break;
-	}
+        default:
+            Assert(0);
+            break;
+    }
 }
 
 template<>
-void CDmAttributeOp<bool>::SetValue( CDmAttribute *pAttribute, DmAttributeType_t valueType, const void *pValue )
-{
-	switch( valueType )
-	{
-	SET_VALUE_TYPE( int );
-	SET_VALUE_TYPE( float );
-	SET_VALUE_TYPE( bool );
-	SET_VALUE_TYPE( DmeTime_t );
+void CDmAttributeOp<bool>::SetValue(CDmAttribute* pAttribute, DmAttributeType_t valueType, const void* pValue) {
+    switch (valueType) {
+        SET_VALUE_TYPE(int);
+        SET_VALUE_TYPE(float);
+        SET_VALUE_TYPE(bool);
+        SET_VALUE_TYPE(DmeTime_t);
 
-	default:
-		Assert(0);
-		break;			 			  
-	}
+        default:
+            Assert(0);
+            break;
+    }
 }
 
 template<>
-void CDmAttributeOp<DmeTime_t>::SetValue( CDmAttribute *pAttribute, DmAttributeType_t valueType, const void *pValue )
-{
-	switch( valueType )
-	{
-		SET_VALUE_TYPE( int );
-		SET_VALUE_TYPE( float );
-		SET_VALUE_TYPE( bool );
-		SET_VALUE_TYPE( DmeTime_t );
+void CDmAttributeOp<DmeTime_t>::SetValue(CDmAttribute* pAttribute, DmAttributeType_t valueType, const void* pValue) {
+    switch (valueType) {
+        SET_VALUE_TYPE(int);
+        SET_VALUE_TYPE(float);
+        SET_VALUE_TYPE(bool);
+        SET_VALUE_TYPE(DmeTime_t);
 
-	default:
-		Assert(0);
-		break;			 			  
-	}
+        default:
+            Assert(0);
+            break;
+    }
 }
 
 
 template<>
-void CDmAttributeOp<QAngle>::SetValue( CDmAttribute *pAttribute, DmAttributeType_t valueType, const void *pValue )
-{
-	switch( valueType )
-	{
-		SET_VALUE_TYPE( QAngle );
-		SET_VALUE_TYPE( Quaternion );
+void CDmAttributeOp<QAngle>::SetValue(CDmAttribute* pAttribute, DmAttributeType_t valueType, const void* pValue) {
+    switch (valueType) {
+        SET_VALUE_TYPE(QAngle);
+        SET_VALUE_TYPE(Quaternion);
 
-	default:
-		Assert(0);
-		break;
-	}
+        default:
+            Assert(0);
+            break;
+    }
 }
 
 template<>
-void CDmAttributeOp<Quaternion>::SetValue( CDmAttribute *pAttribute, DmAttributeType_t valueType, const void *pValue )
-{
-	switch( valueType )
-	{
-		SET_VALUE_TYPE( QAngle );
-		SET_VALUE_TYPE( Quaternion );
+void CDmAttributeOp<Quaternion>::SetValue(CDmAttribute* pAttribute, DmAttributeType_t valueType, const void* pValue) {
+    switch (valueType) {
+        SET_VALUE_TYPE(QAngle);
+        SET_VALUE_TYPE(Quaternion);
 
-	default:
-		Assert(0);
-		break;
-	}
+        default:
+            Assert(0);
+            break;
+    }
 }
 
 //-----------------------------------------------------------------------------
 // CUtlSymbolLarge specialization of utlvector unserialize function defined by
-// utlBufferUtil, allows the unserialize to correctly add the string to the 
+// utlBufferUtil, allows the unserialize to correctly add the string to the
 // global symbol table.
 //-----------------------------------------------------------------------------
 template<>
-bool Unserialize( CUtlBuffer &buf, CUtlVector< CUtlSymbolLarge > &dest )
-{
-	dest.RemoveAll();
+bool Unserialize(CUtlBuffer &buf, CUtlVector<CUtlSymbolLarge> &dest) {
+    dest.RemoveAll();
 
 
-	CUtlString tempString;
+    CUtlString tempString;
 
-	if ( !buf.IsText() )
-	{
-		int nCount = buf.GetInt();
-		if ( nCount )
-		{
-			dest.EnsureCapacity( nCount );
-			for ( int i = 0; i < nCount; ++i )
-			{
-				if ( !::Unserialize( buf, tempString ) )
-					return false;
+    if (!buf.IsText()) {
+        int nCount = buf.GetInt();
+        if (nCount) {
+            dest.EnsureCapacity(nCount);
+            for (int i = 0; i < nCount; ++i) {
+                if (!::Unserialize(buf, tempString))
+                    return false;
 
-				dest.AddToTail( g_pDataModel->GetSymbol( tempString.Get() ) );
-			}
-		}
-		return buf.IsValid();
-	}
+                dest.AddToTail(g_pDataModel->GetSymbol(tempString.Get()));
+            }
+        }
+        return buf.IsValid();
+    }
 
-	while ( true )
-	{
-		buf.EatWhiteSpace();
-		if ( !buf.IsValid() )
-			break;
+    while (true) {
+        buf.EatWhiteSpace();
+        if (!buf.IsValid())
+            break;
 
-		if ( ! ::Unserialize( buf, tempString ) )
-			return false;
+        if (!::Unserialize(buf, tempString))
+            return false;
 
-		dest.AddToTail( g_pDataModel->GetSymbol( tempString.Get() ) );
-	}
-	return true;
+        dest.AddToTail(g_pDataModel->GetSymbol(tempString.Get()));
+    }
+    return true;
 }
 
 
 //-----------------------------------------------------------------------------
 // Methods related to serialization
 //-----------------------------------------------------------------------------
-template< class T >
-bool CDmAttributeOp<T>::SerializesOnMultipleLines()
-{
-	return ::SerializesOnMultipleLines< T >();
+template<class T>
+bool CDmAttributeOp<T>::SerializesOnMultipleLines() {
+    return ::SerializesOnMultipleLines<T>();
 }
 
-template< class T >
-bool CDmAttributeOp<T>::SkipUnserialize( CUtlBuffer& buf )
-{
-	T dummy;
-	return ::Unserialize( buf, dummy );
-}
-
-template<>
-bool CDmAttributeOp< CUtlSymbolLarge >::SkipUnserialize( CUtlBuffer& buf )
-{
-	CUtlString dummy;
-	return ::Unserialize( buf, dummy );
-}
-
-template< class T >
-bool CDmAttributeOp<T>::Serialize( const CDmAttribute *pAttribute, CUtlBuffer &buf )
-{
-	// NOTE: For this to work, the class must have a function defined of type
-	// bool Serialize( CUtlBuffer &buf, T &src )
-	return ::Serialize( buf, pAttribute->GetValue<T>() );
-}
-
-template< class T >
-bool CDmAttributeOp<T>::Unserialize( CDmAttribute *pAttribute, CUtlBuffer &buf )
-{
-	// NOTE: For this to work, the class must have a function defined of type
-	// bool Unserialize( CUtlBuffer &buf, T &src )
-
-	T tempVal;
-	if ( !::Unserialize( buf, tempVal ) )
-		return false;
-
-	// Note: this goes through SetValue route
-	pAttribute->SetValue( tempVal );
-
-	return true;
+template<class T>
+bool CDmAttributeOp<T>::SkipUnserialize(CUtlBuffer &buf) {
+    T dummy;
+    return ::Unserialize(buf, dummy);
 }
 
 template<>
-bool CDmAttributeOp< CUtlSymbolLarge >::Unserialize( CDmAttribute *pAttribute, CUtlBuffer &buf )
-{
-	CUtlString tempString;
-	if ( !::Unserialize( buf, tempString ) )
-		return false;
+bool CDmAttributeOp<CUtlSymbolLarge>::SkipUnserialize(CUtlBuffer &buf) {
+    CUtlString dummy;
+    return ::Unserialize(buf, dummy);
+}
 
-	pAttribute->SetValue( tempString.Get() );
-	
-	return true;
+template<class T>
+bool CDmAttributeOp<T>::Serialize(const CDmAttribute* pAttribute, CUtlBuffer &buf) {
+    // NOTE: For this to work, the class must have a function defined of type
+    // bool Serialize( CUtlBuffer &buf, T &src )
+    return ::Serialize(buf, pAttribute->GetValue<T>());
+}
+
+template<class T>
+bool CDmAttributeOp<T>::Unserialize(CDmAttribute* pAttribute, CUtlBuffer &buf) {
+    // NOTE: For this to work, the class must have a function defined of type
+    // bool Unserialize( CUtlBuffer &buf, T &src )
+
+    T tempVal;
+    if (!::Unserialize(buf, tempVal))
+        return false;
+
+    // Note: this goes through SetValue route
+    pAttribute->SetValue(tempVal);
+
+    return true;
+}
+
+template<>
+bool CDmAttributeOp<CUtlSymbolLarge>::Unserialize(CDmAttribute* pAttribute, CUtlBuffer &buf) {
+    CUtlString tempString;
+    if (!::Unserialize(buf, tempString))
+        return false;
+
+    pAttribute->SetValue(tempString.Get());
+
+    return true;
 }
 
 
@@ -543,77 +524,69 @@ bool CDmAttributeOp< CUtlSymbolLarge >::Unserialize( CDmAttribute *pAttribute, C
 // Needs to be done in a separate function because we can't do templated template specialization
 // Otherwise we'd do: template< class T > bool CDmAttributeOp< CUtlVector<T> >
 // So instead we use function overload resolution to do the dirty work for us...
-template< class T > bool CompareAttrValuesHelper( const T& A, const T& B )
-{
-	return ( A == B );
+template<class T>
+bool CompareAttrValuesHelper(const T &A, const T &B) {
+    return (A == B);
 }
 
-template< class T > bool CompareAttrValuesHelper( const CUtlVector<T>& A, const CUtlVector<T>& B )
-{
-	if ( A.size() != B.size() )
-		return false;
+template<class T>
+bool CompareAttrValuesHelper(const CUtlVector<T> &A, const CUtlVector<T> &B) {
+    if (A.size() != B.size())
+        return false;
 
-	for ( int i = 0; i < A.size(); ++i )
-	{
-		if ( !CompareAttrValuesHelper( A[i], B[i] ) )
-		{
-			return false;
-		}
-	}
+    for (int i = 0; i < A.size(); ++i) {
+        if (!CompareAttrValuesHelper(A[i], B[i])) {
+            return false;
+        }
+    }
 
-	return true;
+    return true;
 }
 
-template< class T >
-bool CDmAttributeOp<T>::IsIdenticalToSerializedValue( const CDmAttribute *pAttribute, CUtlBuffer &buf ) const
-{
-	T tempVal;
-	if ( !::Unserialize( buf, tempVal ) )
-		return false;
+template<class T>
+bool CDmAttributeOp<T>::IsIdenticalToSerializedValue(const CDmAttribute* pAttribute, CUtlBuffer &buf) const {
+    T tempVal;
+    if (!::Unserialize(buf, tempVal))
+        return false;
 
-	return CompareAttrValuesHelper( tempVal, pAttribute->GetValue<T>() );
+    return CompareAttrValuesHelper(tempVal, pAttribute->GetValue<T>());
 }
 
-template <>
-bool CDmAttributeOp< CUtlSymbolLarge >::IsIdenticalToSerializedValue( const CDmAttribute *pAttribute, CUtlBuffer &buf ) const
-{
-	CUtlString tempVal;
-	if ( !::Unserialize( buf, tempVal ) )
-		return false;
+template<>
+bool CDmAttributeOp<CUtlSymbolLarge>::IsIdenticalToSerializedValue(const CDmAttribute* pAttribute,
+                                                                   CUtlBuffer &buf) const {
+    CUtlString tempVal;
+    if (!::Unserialize(buf, tempVal))
+        return false;
 
-	if ( V_stricmp( pAttribute->GetValue< CUtlSymbolLarge >().String(), tempVal.Get() ) != 0 )
-		return false;
+    if (V_stricmp(pAttribute->GetValue< CUtlSymbolLarge >().String(), tempVal.Get()) != 0)
+        return false;
 
-	return true;
+    return true;
 }
 
-template< class T >
-bool CDmAttributeOp<T>::SerializeElement( const CDmAttribute *pData, int nElement, CUtlBuffer &buf )
-{
-	Assert( 0 );
-	return false;
+template<class T>
+bool CDmAttributeOp<T>::SerializeElement(const CDmAttribute* pData, int nElement, CUtlBuffer &buf) {
+    Assert(0);
+    return false;
 }
 
-template< class T >
-bool CDmAttributeOp<T>::UnserializeElement( CDmAttribute *pData, CUtlBuffer &buf )
-{
-	Assert( 0 );
-	return false;
+template<class T>
+bool CDmAttributeOp<T>::UnserializeElement(CDmAttribute* pData, CUtlBuffer &buf) {
+    Assert(0);
+    return false;
 }
 
-template< class T >
-bool CDmAttributeOp<T>::UnserializeElement( CDmAttribute *pData, int nElement, CUtlBuffer &buf )
-{
-	Assert( 0 );
-	return false;
+template<class T>
+bool CDmAttributeOp<T>::UnserializeElement(CDmAttribute* pData, int nElement, CUtlBuffer &buf) {
+    Assert(0);
+    return false;
 }
 
-template< class T >
-void CDmAttributeOp<T>::OnUnserializationFinished( CDmAttribute *pAttribute )
-{
-	pAttribute->OnChanged( false, true );
+template<class T>
+void CDmAttributeOp<T>::OnUnserializationFinished(CDmAttribute* pAttribute) {
+    pAttribute->OnChanged(false, true);
 }
-
 
 
 //-----------------------------------------------------------------------------
@@ -621,69 +594,86 @@ void CDmAttributeOp<T>::OnUnserializationFinished( CDmAttribute *pAttribute )
 // Implementation of IDmAttributeOp for array attributes
 //
 //-----------------------------------------------------------------------------
-template< class T >
-class CDmArrayAttributeOp : public CDmAttributeOp< CUtlVector< T > >
-{
-	typedef typename CDmAttributeInfo< CUtlVector< T > >::StorageType_t D;
+template<class T>
+class CDmArrayAttributeOp : public CDmAttributeOp<CUtlVector<T> > {
+    typedef typename CDmAttributeInfo<CUtlVector<T> >::StorageType_t D;
 
 public:
-	// Inherited from IDmAttributeOp
-    void SetValue( CDmAttribute *pAttribute, DmAttributeType_t valueType, const void *pValue ) override;
+    // Inherited from IDmAttributeOp
+    void SetValue(CDmAttribute* pAttribute, DmAttributeType_t valueType, const void* pValue) override;
 
-    void SetMultiple( CDmAttribute *pAttribute, int i, int nCount, DmAttributeType_t valueType, const void *pValue ) override;
+    void SetMultiple(CDmAttribute* pAttribute, int i, int nCount, DmAttributeType_t valueType,
+                     const void* pValue) override;
 
-    void Set( CDmAttribute *pAttribute, int i, DmAttributeType_t valueType, const void *pValue ) override;
+    void Set(CDmAttribute* pAttribute, int i, DmAttributeType_t valueType, const void* pValue) override;
 
-    bool Unserialize( CDmAttribute *pAttribute, CUtlBuffer &buf ) override;
+    bool Unserialize(CDmAttribute* pAttribute, CUtlBuffer &buf) override;
 
-    bool SerializeElement( const CDmAttribute *pData, int nElement, CUtlBuffer &buf ) override;
+    bool SerializeElement(const CDmAttribute* pData, int nElement, CUtlBuffer &buf) override;
 
-    bool UnserializeElement( CDmAttribute *pData, CUtlBuffer &buf ) override;
+    bool UnserializeElement(CDmAttribute* pData, CUtlBuffer &buf) override;
 
-    bool UnserializeElement( CDmAttribute *pData, int nElement, CUtlBuffer &buf ) override;
+    bool UnserializeElement(CDmAttribute* pData, int nElement, CUtlBuffer &buf) override;
 
-    void OnUnserializationFinished( CDmAttribute *pAttribute ) override;
+    void OnUnserializationFinished(CDmAttribute* pAttribute) override;
 
-	// Other methods used by CDmaArrayBase
-	CDmArrayAttributeOp() : m_pAttribute(nullptr), m_pData(nullptr) {}
-	CDmArrayAttributeOp( CDmAttribute *pAttribute ) : m_pAttribute( pAttribute ), m_pData( (D*)m_pAttribute->GetAttributeData() ) {}
+    // Other methods used by CDmaArrayBase
+    CDmArrayAttributeOp() : m_pAttribute(nullptr), m_pData(nullptr) {
+    }
 
-	// Count
-	int		Count() const;
+    CDmArrayAttributeOp(CDmAttribute* pAttribute) : m_pAttribute(pAttribute),
+                                                    m_pData((D*) m_pAttribute->GetAttributeData()) {
+    }
 
-	// Insertion
-	int		AddToTail( const T& src );
-	int		InsertBefore( int elem, const T& src );
-	int		InsertMultipleBefore( int elem, int num );
+    // Count
+    int Count() const;
 
-	// Removal
-	void	FastRemove( int elem );
-	void	Remove( int elem );
-	void	RemoveAll();
-	void	RemoveMultiple( int elem, int num );
-	void	Purge();
+    // Insertion
+    int AddToTail(const T &src);
 
-	// Element Modification
-	void	Set( int i, const T& value );
-	void	SetMultiple( int i, int nCount, const T* pValue );
-	void	Swap( int i, int j );
+    int InsertBefore(int elem, const T &src);
 
-	// Copy related methods
-	void	CopyArray( const T *pArray, int size );
-	void	SwapArray( CUtlVector< T >& src );	// Performs a pointer swap
+    int InsertMultipleBefore(int elem, int num);
 
-	void	OnAttributeArrayElementAdded( int nFirstElem, int nLastElem, bool bUpdateElementReferences = true );
-	void	OnAttributeArrayElementRemoved( int nFirstElem, int nLastElem );
+    // Removal
+    void FastRemove(int elem);
+
+    void Remove(int elem);
+
+    void RemoveAll();
+
+    void RemoveMultiple(int elem, int num);
+
+    void Purge();
+
+    // Element Modification
+    void Set(int i, const T &value);
+
+    void SetMultiple(int i, int nCount, const T* pValue);
+
+    void Swap(int i, int j);
+
+    // Copy related methods
+    void CopyArray(const T* pArray, int size);
+
+    void SwapArray(CUtlVector<T> &src); // Performs a pointer swap
+
+    void OnAttributeArrayElementAdded(int nFirstElem, int nLastElem, bool bUpdateElementReferences = true);
+
+    void OnAttributeArrayElementRemoved(int nFirstElem, int nLastElem);
 
 private:
-	bool	ShouldInsertElement( const T& src );
-	bool	ShouldInsert( const T& src );
-	void	PerformCopyArray( const T *pArray, int nCount );
-	D& Data() { return *m_pData; }
-	const D& Data() const { return *m_pData; }
+    bool ShouldInsertElement(const T &src);
 
-	CDmAttribute *m_pAttribute;
-	D* m_pData;
+    bool ShouldInsert(const T &src);
+
+    void PerformCopyArray(const T* pArray, int nCount);
+
+    D& Data() { return *m_pData; }
+    const D& Data() const { return *m_pData; }
+
+    CDmAttribute* m_pAttribute;
+    D* m_pData;
 };
 
 
@@ -695,549 +685,501 @@ private:
 //-----------------------------------------------------------------------------
 // Callbacks when elements are added + removed
 //-----------------------------------------------------------------------------
-template< class T >
-void CDmArrayAttributeOp<T>::OnAttributeArrayElementAdded( int nFirstElem, int nLastElem, bool bUpdateElementReferences )
-{
-	CDmElement *pOwner = m_pAttribute->GetOwner();
-	if ( m_pAttribute->IsFlagSet( FATTRIB_HAS_CALLBACK ) && pOwner->AreOnChangedCallbacksEnabled() )
-	{
-		pOwner->OnAttributeArrayElementAdded( m_pAttribute, nFirstElem, nLastElem );
-	}
+template<class T>
+void CDmArrayAttributeOp<
+    T>::OnAttributeArrayElementAdded(int nFirstElem, int nLastElem, bool bUpdateElementReferences) {
+    CDmElement* pOwner = m_pAttribute->GetOwner();
+    if (m_pAttribute->IsFlagSet(FATTRIB_HAS_CALLBACK) && pOwner->AreOnChangedCallbacksEnabled()) {
+        pOwner->OnAttributeArrayElementAdded(m_pAttribute, nFirstElem, nLastElem);
+    }
 }
 
-template< > inline void CDmArrayAttributeOp< DmElementHandle_t >::OnAttributeArrayElementAdded( int nFirstElem, int nLastElem, bool bUpdateElementReferences )
-{
-	CDmElement *pOwner = m_pAttribute->GetOwner();
-	if ( m_pAttribute->IsFlagSet( FATTRIB_HAS_CALLBACK ) && pOwner->AreOnChangedCallbacksEnabled() )
-	{
-		pOwner->OnAttributeArrayElementAdded( m_pAttribute, nFirstElem, nLastElem );
-	}
+template<>
+inline void CDmArrayAttributeOp<DmElementHandle_t>::OnAttributeArrayElementAdded(
+    int nFirstElem, int nLastElem, bool bUpdateElementReferences) {
+    CDmElement* pOwner = m_pAttribute->GetOwner();
+    if (m_pAttribute->IsFlagSet(FATTRIB_HAS_CALLBACK) && pOwner->AreOnChangedCallbacksEnabled()) {
+        pOwner->OnAttributeArrayElementAdded(m_pAttribute, nFirstElem, nLastElem);
+    }
 
-	if ( bUpdateElementReferences )
-	{
-		for ( int i = nFirstElem; i <= nLastElem; ++i )
-		{
-			g_pDataModelImp->OnElementReferenceAdded( Data()[ i ], m_pAttribute );
-		}
-	}
+    if (bUpdateElementReferences) {
+        for (int i = nFirstElem; i <= nLastElem; ++i) {
+            g_pDataModelImp->OnElementReferenceAdded(Data()[i], m_pAttribute);
+        }
+    }
 }
 
-template< class T >
-void CDmArrayAttributeOp<T>::OnAttributeArrayElementRemoved( int nFirstElem, int nLastElem )
-{
-	CDmElement *pOwner = m_pAttribute->GetOwner();
-	if ( m_pAttribute->IsFlagSet( FATTRIB_HAS_CALLBACK ) && pOwner->AreOnChangedCallbacksEnabled() )
-	{
-		pOwner->OnAttributeArrayElementRemoved( m_pAttribute, nFirstElem, nLastElem );
-	}
+template<class T>
+void CDmArrayAttributeOp<T>::OnAttributeArrayElementRemoved(int nFirstElem, int nLastElem) {
+    CDmElement* pOwner = m_pAttribute->GetOwner();
+    if (m_pAttribute->IsFlagSet(FATTRIB_HAS_CALLBACK) && pOwner->AreOnChangedCallbacksEnabled()) {
+        pOwner->OnAttributeArrayElementRemoved(m_pAttribute, nFirstElem, nLastElem);
+    }
 }
 
-template< > void CDmArrayAttributeOp< DmElementHandle_t >::OnAttributeArrayElementRemoved( int nFirstElem, int nLastElem )
-{
-	CDmElement *pOwner = m_pAttribute->GetOwner();
-	if ( m_pAttribute->IsFlagSet( FATTRIB_HAS_CALLBACK ) && pOwner->AreOnChangedCallbacksEnabled() )
-	{
-		pOwner->OnAttributeArrayElementRemoved( m_pAttribute, nFirstElem, nLastElem );
-	}
+template<>
+void CDmArrayAttributeOp<DmElementHandle_t>::OnAttributeArrayElementRemoved(int nFirstElem, int nLastElem) {
+    CDmElement* pOwner = m_pAttribute->GetOwner();
+    if (m_pAttribute->IsFlagSet(FATTRIB_HAS_CALLBACK) && pOwner->AreOnChangedCallbacksEnabled()) {
+        pOwner->OnAttributeArrayElementRemoved(m_pAttribute, nFirstElem, nLastElem);
+    }
 
-	for ( int i = nFirstElem; i <= nLastElem; ++i )
-	{
-		g_pDataModelImp->OnElementReferenceRemoved( Data()[ i ], m_pAttribute );
-	}
+    for (int i = nFirstElem; i <= nLastElem; ++i) {
+        g_pDataModelImp->OnElementReferenceRemoved(Data()[i], m_pAttribute);
+    }
 }
 
 
 //-----------------------------------------------------------------------------
 // Count
 //-----------------------------------------------------------------------------
-template< class T >
-int CDmArrayAttributeOp<T>::Count() const
-{
-	return Data().size();
+template<class T>
+int CDmArrayAttributeOp<T>::Count() const {
+    return Data().size();
 }
 
 
 //-----------------------------------------------------------------------------
 // Should we insert this element into the list?
 //-----------------------------------------------------------------------------
-template< class T >
-inline bool CDmArrayAttributeOp<T>::ShouldInsertElement( const T& src )
-{
-	return true;
+template<class T>
+inline bool CDmArrayAttributeOp<T>::ShouldInsertElement(const T &src) {
+    return true;
 }
 
-template<> inline bool CDmArrayAttributeOp<DmElementHandle_t>::ShouldInsertElement( const DmElementHandle_t& src )
-{
-	// For element, we need to check that the type matches
-	if ( !IsA( src, Data().m_ElementType ) )
-		return false;
+template<>
+inline bool CDmArrayAttributeOp<DmElementHandle_t>::ShouldInsertElement(const DmElementHandle_t &src) {
+    // For element, we need to check that the type matches
+    if (!IsA(src, Data().m_ElementType))
+        return false;
 
-	return true;
+    return true;
 }
 
-template< class T >
-inline bool CDmArrayAttributeOp<T>::ShouldInsert( const T& src )
-{
-	if ( !ShouldInsertElement( src ) )
-		return false;
+template<class T>
+inline bool CDmArrayAttributeOp<T>::ShouldInsert(const T &src) {
+    if (!ShouldInsertElement(src))
+        return false;
 
-	return m_pAttribute->MarkDirty();
+    return m_pAttribute->MarkDirty();
 }
 
 
 //-----------------------------------------------------------------------------
 // Insert Before
 //-----------------------------------------------------------------------------
-template< class T >
-int CDmArrayAttributeOp<T>::InsertBefore( int elem, const T& src )
-{
-	if ( !ShouldInsert( src ) )
-		return Data().InvalidIndex();
+template<class T>
+int CDmArrayAttributeOp<T>::InsertBefore(int elem, const T &src) {
+    if (!ShouldInsert(src))
+        return Data().InvalidIndex();
 
-	int nIndex = Data().InsertBefore( elem, src );
-	OnAttributeArrayElementAdded( nIndex, nIndex );
-	m_pAttribute->OnChanged( true );
-	return nIndex;
+    int nIndex = Data().InsertBefore(elem, src);
+    OnAttributeArrayElementAdded(nIndex, nIndex);
+    m_pAttribute->OnChanged(true);
+    return nIndex;
 }
 
-template< class T >
-inline int CDmArrayAttributeOp<T>::AddToTail( const T& src )
-{
-	return InsertBefore( Data().size(), src );
+template<class T>
+inline int CDmArrayAttributeOp<T>::AddToTail(const T &src) {
+    return InsertBefore(Data().size(), src);
 }
 
 
 //-----------------------------------------------------------------------------
 // Insert Multiple Before
 //-----------------------------------------------------------------------------
-template< class T >
-int CDmArrayAttributeOp<T>::InsertMultipleBefore( int elem, int num )
-{
-	if ( !m_pAttribute->MarkDirty() )
-		return Data().InvalidIndex();
+template<class T>
+int CDmArrayAttributeOp<T>::InsertMultipleBefore(int elem, int num) {
+    if (!m_pAttribute->MarkDirty())
+        return Data().InvalidIndex();
 
-	int index = Data().InsertMultipleBefore( elem, num );
-	for ( int i = 0; i < num; ++i )
-	{
-		CDmAttributeInfo<T>::SetDefaultValue( Data()[ index + i ] );	
-	}
-	OnAttributeArrayElementAdded( index, index + num - 1 );
-	m_pAttribute->OnChanged( true );
-	return index;
+    int index = Data().InsertMultipleBefore(elem, num);
+    for (int i = 0; i < num; ++i) {
+        CDmAttributeInfo<T>::SetDefaultValue(Data()[index + i]);
+    }
+    OnAttributeArrayElementAdded(index, index + num - 1);
+    m_pAttribute->OnChanged(true);
+    return index;
 }
 
 
 //-----------------------------------------------------------------------------
 // Removal
 //-----------------------------------------------------------------------------
-template< class T >
-void CDmArrayAttributeOp<T>::FastRemove( int elem )
-{
-	if ( !m_pAttribute->MarkDirty() )
-		return;
+template<class T>
+void CDmArrayAttributeOp<T>::FastRemove(int elem) {
+    if (!m_pAttribute->MarkDirty())
+        return;
 
-	OnAttributeArrayElementRemoved( elem, elem );
-	Data().FastRemove( elem );
-	m_pAttribute->OnChanged( true );
+    OnAttributeArrayElementRemoved(elem, elem);
+    Data().FastRemove(elem);
+    m_pAttribute->OnChanged(true);
 }
 
-template< class T >
-void CDmArrayAttributeOp<T>::Remove( int elem )
-{
-	if ( !Data().IsValidIndex( elem ) )
-		return;
+template<class T>
+void CDmArrayAttributeOp<T>::Remove(int elem) {
+    if (!Data().IsValidIndex(elem))
+        return;
 
-	if ( !m_pAttribute->MarkDirty() )
-		return;
+    if (!m_pAttribute->MarkDirty())
+        return;
 
-	OnAttributeArrayElementRemoved( elem, elem );
-	Data().Remove( elem );
-	m_pAttribute->OnChanged( true );
+    OnAttributeArrayElementRemoved(elem, elem);
+    Data().Remove(elem);
+    m_pAttribute->OnChanged(true);
 }
 
-template< class T >
-void CDmArrayAttributeOp<T>::RemoveAll()
-{
-	if ( !m_pAttribute->MarkDirty() )
-		return;
+template<class T>
+void CDmArrayAttributeOp<T>::RemoveAll() {
+    if (!m_pAttribute->MarkDirty())
+        return;
 
-	OnAttributeArrayElementRemoved( 0, Data().size() - 1 );
-	Data().RemoveAll();
-	m_pAttribute->OnChanged( true );
+    OnAttributeArrayElementRemoved(0, Data().size() - 1);
+    Data().RemoveAll();
+    m_pAttribute->OnChanged(true);
 }
 
-template< class T >
-void CDmArrayAttributeOp<T>::RemoveMultiple( int elem, int num )
-{
-	if ( !m_pAttribute->MarkDirty() )
-		return;
+template<class T>
+void CDmArrayAttributeOp<T>::RemoveMultiple(int elem, int num) {
+    if (!m_pAttribute->MarkDirty())
+        return;
 
-	OnAttributeArrayElementRemoved( elem, elem + num - 1 );
-	Data().RemoveMultiple( elem, num );
-	m_pAttribute->OnChanged( true );
+    OnAttributeArrayElementRemoved(elem, elem + num - 1);
+    Data().RemoveMultiple(elem, num);
+    m_pAttribute->OnChanged(true);
 }
 
 // Memory deallocation
-template< class T >
-void CDmArrayAttributeOp<T>::Purge()
-{
-	if ( !m_pAttribute->MarkDirty() )
-		return;
+template<class T>
+void CDmArrayAttributeOp<T>::Purge() {
+    if (!m_pAttribute->MarkDirty())
+        return;
 
-	OnAttributeArrayElementRemoved( 0, Data().size() - 1 );
-	Data().Purge();
-	m_pAttribute->OnChanged( true );
+    OnAttributeArrayElementRemoved(0, Data().size() - 1);
+    Data().Purge();
+    m_pAttribute->OnChanged(true);
 }
 
 
 //-----------------------------------------------------------------------------
 // Copy Array
 //-----------------------------------------------------------------------------
-template< class T >
-void CDmArrayAttributeOp<T>::PerformCopyArray( const T *pArray, int nCount )
-{
-	Data().CopyArray( pArray, nCount );
+template<class T>
+void CDmArrayAttributeOp<T>::PerformCopyArray(const T* pArray, int nCount) {
+    Data().CopyArray(pArray, nCount);
 }
 
-template<> void CDmArrayAttributeOp<DmElementHandle_t>::PerformCopyArray( const DmElementHandle_t *pArray, int nCount )
-{
-	Data().RemoveAll();
-	for ( int i = 0; i < nCount; ++i )
-	{
-		if ( ShouldInsertElement( pArray[ i ] ) )
-		{
-			Data().AddToTail( pArray[ i ] );
-		}
-	}
+template<>
+void CDmArrayAttributeOp<DmElementHandle_t>::PerformCopyArray(const DmElementHandle_t* pArray, int nCount) {
+    Data().RemoveAll();
+    for (int i = 0; i < nCount; ++i) {
+        if (ShouldInsertElement(pArray[i])) {
+            Data().AddToTail(pArray[i]);
+        }
+    }
 }
 
-template< class T >
-void CDmArrayAttributeOp<T>::CopyArray( const T *pArray, int nCount )
-{
-	if ( Data().data() == pArray )
-	{
-		int nCurrentCount = Data().size();
-		if ( nCurrentCount > nCount )
-		{
-			RemoveMultiple( nCount, nCurrentCount - nCount );
-		}
-		else if ( nCurrentCount < nCount )
-		{
-			InsertMultipleBefore( nCurrentCount, nCount - nCurrentCount );
-		}
-		return;
-	}
+template<class T>
+void CDmArrayAttributeOp<T>::CopyArray(const T* pArray, int nCount) {
+    if (Data().data() == pArray) {
+        int nCurrentCount = Data().size();
+        if (nCurrentCount > nCount) {
+            RemoveMultiple(nCount, nCurrentCount - nCount);
+        }
+        else if (nCurrentCount < nCount) {
+            InsertMultipleBefore(nCurrentCount, nCount - nCurrentCount);
+        }
+        return;
+    }
 
-	if ( !m_pAttribute->MarkDirty() )
-		return;
+    if (!m_pAttribute->MarkDirty())
+        return;
 
-	OnAttributeArrayElementRemoved( 0, Data().size() - 1 );
-	PerformCopyArray( pArray, nCount );
-	OnAttributeArrayElementAdded( 0, Data().size() - 1 );
-	m_pAttribute->OnChanged( true );
+    OnAttributeArrayElementRemoved(0, Data().size() - 1);
+    PerformCopyArray(pArray, nCount);
+    OnAttributeArrayElementAdded(0, Data().size() - 1);
+    m_pAttribute->OnChanged(true);
 }
 
 
 //-----------------------------------------------------------------------------
 // Swap Array
 //-----------------------------------------------------------------------------
-template< class T >
-void CDmArrayAttributeOp<T>::SwapArray( CUtlVector< T >& src )
-{
-	// this is basically just a faster version of CopyArray
-	// the end result is the same
-	// but there's no copy - just a pointer/etc swap
-	if ( !m_pAttribute->MarkDirty() )
-		return;
+template<class T>
+void CDmArrayAttributeOp<T>::SwapArray(CUtlVector<T> &src) {
+    // this is basically just a faster version of CopyArray
+    // the end result is the same
+    // but there's no copy - just a pointer/etc swap
+    if (!m_pAttribute->MarkDirty())
+        return;
 
-	OnAttributeArrayElementRemoved( 0, Data().size() - 1 );
-	Data().Swap( src );
-	OnAttributeArrayElementAdded( 0, Data().size() - 1 );
-	m_pAttribute->OnChanged( true );
+    OnAttributeArrayElementRemoved(0, Data().size() - 1);
+    Data().Swap(src);
+    OnAttributeArrayElementAdded(0, Data().size() - 1);
+    m_pAttribute->OnChanged(true);
 }
 
 
-template< > void CDmArrayAttributeOp<DmElementHandle_t>::SwapArray( CUtlVector< DmElementHandle_t >& src )
-{
-	// This feature doesn't work for elements..
-	// Can't do it owing to typesafety reasons as well as supporting the NODUPLICATES feature.
-	Assert( 0 );
+template<>
+void CDmArrayAttributeOp<DmElementHandle_t>::SwapArray(CUtlVector<DmElementHandle_t> &src) {
+    // This feature doesn't work for elements..
+    // Can't do it owing to typesafety reasons as well as supporting the NODUPLICATES feature.
+    Assert(0);
 }
 
 
 //-----------------------------------------------------------------------------
 // Set value
 //-----------------------------------------------------------------------------
-template< class T >
-void CDmArrayAttributeOp<T>::Set( int i, const T& value )
-{
-	if ( i < 0 || i >= Data().size() )
-	{
-		Assert( !"CDmAttributeArray<T>::Set out of range value!\n" );
-		return;
-	}
+template<class T>
+void CDmArrayAttributeOp<T>::Set(int i, const T &value) {
+    if (i < 0 || i >= Data().size()) {
+        Assert(!"CDmAttributeArray<T>::Set out of range value!\n");
+        return;
+    }
 
-	// Don't bother doing anything if the attribute is equal
-	if ( IsAttributeEqual( Data()[i], value ) )
-		return;
+    // Don't bother doing anything if the attribute is equal
+    if (IsAttributeEqual(Data()[i], value))
+        return;
 
-	if ( !ShouldInsert( value ) )
-		return;
+    if (!ShouldInsert(value))
+        return;
 
-	OnAttributeArrayElementRemoved( i, i ); 
-	Data()[i] = value;
-	OnAttributeArrayElementAdded( i, i ); 
-	m_pAttribute->OnChanged( false );
+    OnAttributeArrayElementRemoved(i, i);
+    Data()[i] = value;
+    OnAttributeArrayElementAdded(i, i);
+    m_pAttribute->OnChanged(false);
 }
 
-template< class T >
-void CDmArrayAttributeOp<T>::Set( CDmAttribute *pAttribute, int i, DmAttributeType_t valueType, const void *pValue )
-{
-	if ( valueType == ArrayTypeToValueType( pAttribute->GetType() ) )
-	{
-		// This version is in IDmAttributeOp
-		CDmArrayAttributeOp< T > array( pAttribute );
-		array.Set( i, *(const T*)pValue );
-	}
+template<class T>
+void CDmArrayAttributeOp<T>::Set(CDmAttribute* pAttribute, int i, DmAttributeType_t valueType, const void* pValue) {
+    if (valueType == ArrayTypeToValueType(pAttribute->GetType())) {
+        // This version is in IDmAttributeOp
+        CDmArrayAttributeOp<T> array(pAttribute);
+        array.Set(i, *(const T*) pValue);
+    }
 }
-	// the end result is the same
+
+// the end result is the same
 
 //-----------------------------------------------------------------------------
 // Set multiple values
 //-----------------------------------------------------------------------------
-template< class T >
-void CDmArrayAttributeOp<T>::SetMultiple( int i, int nCount, const T* pValue )
-{
-	if ( i < 0 || ( i+nCount ) > Data().size() )
-	{
-		AssertMsg( 0, "CDmAttributeArray<T>::SetMultiple out of range value!\n" );
-		return;
-	}
+template<class T>
+void CDmArrayAttributeOp<T>::SetMultiple(int i, int nCount, const T* pValue) {
+    if (i < 0 || (i + nCount) > Data().size()) {
+        AssertMsg(0, "CDmAttributeArray<T>::SetMultiple out of range value!\n");
+        return;
+    }
 
-	// Test for equality
-	bool bEqual = true;
-	for ( int j = 0; j < nCount; ++j )
-	{
-		if ( !IsAttributeEqual( Data()[i+j], pValue[j] ) )
-		{
-			bEqual = false;
-			break;
-		}
-	}
-	if ( bEqual )
-		return;
+    // Test for equality
+    bool bEqual = true;
+    for (int j = 0; j < nCount; ++j) {
+        if (!IsAttributeEqual(Data()[i + j], pValue[j])) {
+            bEqual = false;
+            break;
+        }
+    }
+    if (bEqual)
+        return;
 
-	if ( !m_pAttribute->MarkDirty() )
-		return;
+    if (!m_pAttribute->MarkDirty())
+        return;
 
-	OnAttributeArrayElementRemoved( i, i+nCount-1 ); 
-	for ( int j = 0; j < nCount; ++j )
-	{
-		if ( ShouldInsertElement( pValue[j] ) )
-		{
-			Data()[i+j] = pValue[j];
-		}
-	}
-	OnAttributeArrayElementAdded( i, i+nCount-1 ); 
-	m_pAttribute->OnChanged( false );
+    OnAttributeArrayElementRemoved(i, i + nCount - 1);
+    for (int j = 0; j < nCount; ++j) {
+        if (ShouldInsertElement(pValue[j])) {
+            Data()[i + j] = pValue[j];
+        }
+    }
+    OnAttributeArrayElementAdded(i, i + nCount - 1);
+    m_pAttribute->OnChanged(false);
 }
 
-template< class T >
-void CDmArrayAttributeOp<T>::SetMultiple( CDmAttribute *pAttribute, int i, int nCount, DmAttributeType_t valueType, const void *pValue )
-{
-	if ( valueType == ArrayTypeToValueType( pAttribute->GetType() ) )
-	{
-		// This version is in IDmAttributeOp
-		CDmArrayAttributeOp< T > array( pAttribute );
-		array.SetMultiple( i, nCount, (const T*)pValue );
-	}
+template<class T>
+void CDmArrayAttributeOp<T>::SetMultiple(CDmAttribute* pAttribute, int i, int nCount, DmAttributeType_t valueType,
+                                         const void* pValue) {
+    if (valueType == ArrayTypeToValueType(pAttribute->GetType())) {
+        // This version is in IDmAttributeOp
+        CDmArrayAttributeOp<T> array(pAttribute);
+        array.SetMultiple(i, nCount, (const T*) pValue);
+    }
 }
 
 
 //-----------------------------------------------------------------------------
 // Version of SetValue that's in IDmAttributeOp
 //-----------------------------------------------------------------------------
-template< class T >
-void CDmArrayAttributeOp<T>::SetValue( CDmAttribute *pAttribute, DmAttributeType_t valueType, const void *pValue )
-{
-	Assert( pAttribute->GetType() == valueType );
-	if ( pAttribute->GetType() == valueType )
-	{
-		CDmArrayAttributeOp<T> accessor( pAttribute );
-		const CUtlVector<T>* pArray = reinterpret_cast< const CUtlVector<T>* >( pValue );
-		accessor.CopyArray( pArray->data(), pArray->size() );
-	}
+template<class T>
+void CDmArrayAttributeOp<T>::SetValue(CDmAttribute* pAttribute, DmAttributeType_t valueType, const void* pValue) {
+    Assert(pAttribute->GetType() == valueType);
+    if (pAttribute->GetType() == valueType) {
+        CDmArrayAttributeOp<T> accessor(pAttribute);
+        const CUtlVector<T>* pArray = reinterpret_cast<const CUtlVector<T>*>(pValue);
+        accessor.CopyArray(pArray->data(), pArray->size());
+    }
 }
 
 
 //-----------------------------------------------------------------------------
 // Swap
 //-----------------------------------------------------------------------------
-template< class T >
-void CDmArrayAttributeOp<T>::Swap( int i, int j )
-{
-	if ( i == j )
-		return;
+template<class T>
+void CDmArrayAttributeOp<T>::Swap(int i, int j) {
+    if (i == j)
+        return;
 
-	// TODO - define Swap<T> for all attribute types to make swapping strings 
-	// and voids fast (via pointer swaps, rather than 3 copies!)
-	T vk = Data()[ i ];
-	if ( IsAttributeEqual( vk, Data()[j] ) )
-		return;
+    // TODO - define Swap<T> for all attribute types to make swapping strings
+    // and voids fast (via pointer swaps, rather than 3 copies!)
+    T vk = Data()[i];
+    if (IsAttributeEqual(vk, Data()[j]))
+        return;
 
-	if ( !m_pAttribute->MarkDirty() )
-		return;
+    if (!m_pAttribute->MarkDirty())
+        return;
 
-	OnAttributeArrayElementRemoved( i, i ); 
-	Data()[i] = Data()[j];
-	OnAttributeArrayElementAdded( i, i ); 
+    OnAttributeArrayElementRemoved(i, i);
+    Data()[i] = Data()[j];
+    OnAttributeArrayElementAdded(i, i);
 
-	OnAttributeArrayElementRemoved( j, j ); 
-	Data()[j] = vk;
-	OnAttributeArrayElementAdded( j, j ); 
+    OnAttributeArrayElementRemoved(j, j);
+    Data()[j] = vk;
+    OnAttributeArrayElementAdded(j, j);
 
-	m_pAttribute->OnChanged( false );
+    m_pAttribute->OnChanged(false);
 }
 
 
 //-----------------------------------------------------------------------------
 // Methods related to serialization
 //-----------------------------------------------------------------------------
-template< class T >
-bool CDmArrayAttributeOp<T>::Unserialize( CDmAttribute *pAttribute, CUtlBuffer &buf )
-{
-	if ( !pAttribute->MarkDirty() )
-		return false;
+template<class T>
+bool CDmArrayAttributeOp<T>::Unserialize(CDmAttribute* pAttribute, CUtlBuffer &buf) {
+    if (!pAttribute->MarkDirty())
+        return false;
 
 
-	CUtlVector< T > tempVal;
-	if ( !::Unserialize( buf, tempVal ) )
-		return false;
+    CUtlVector<T> tempVal;
+    if (!::Unserialize(buf, tempVal))
+        return false;
 
-	// Note: this goes through Swap route
-	CDmArrayAttributeOp<T> accessor( pAttribute );
-	accessor.SwapArray( tempVal );
+    // Note: this goes through Swap route
+    CDmArrayAttributeOp<T> accessor(pAttribute);
+    accessor.SwapArray(tempVal);
 
-	return true;
+    return true;
 }
 
-template<> bool CDmArrayAttributeOp<DmElementHandle_t>::Unserialize( CDmAttribute *pAttribute, CUtlBuffer &buf )
-{
-	// Need to specialize this because element handles can't use SwapArray
-	// because it's incapable of doing type safety checks
-	if ( !pAttribute->MarkDirty() )
-		return false;
+template<>
+bool CDmArrayAttributeOp<DmElementHandle_t>::Unserialize(CDmAttribute* pAttribute, CUtlBuffer &buf) {
+    // Need to specialize this because element handles can't use SwapArray
+    // because it's incapable of doing type safety checks
+    if (!pAttribute->MarkDirty())
+        return false;
 
 
-	CUtlVector< DmElementHandle_t > tempVal;
-	if ( !::Unserialize( buf, tempVal ) )
-		return false;
+    CUtlVector<DmElementHandle_t> tempVal;
+    if (!::Unserialize(buf, tempVal))
+        return false;
 
-	// Note: this goes through copy route
-	CDmArrayAttributeOp<DmElementHandle_t> accessor( pAttribute );
-	accessor.CopyArray( tempVal.data(), tempVal.size() );
+    // Note: this goes through copy route
+    CDmArrayAttributeOp<DmElementHandle_t> accessor(pAttribute);
+    accessor.CopyArray(tempVal.data(), tempVal.size());
 
-	return true;
+    return true;
 }
 
 // Serialization of a single element
-template< class T >
-bool CDmArrayAttributeOp<T>::SerializeElement( const CDmAttribute *pAttribute, int nElement, CUtlBuffer &buf )
-{
-	CDmrArrayConst<T> array( pAttribute );
-	return ::Serialize( buf, array[ nElement ] );
+template<class T>
+bool CDmArrayAttributeOp<T>::SerializeElement(const CDmAttribute* pAttribute, int nElement, CUtlBuffer &buf) {
+    CDmrArrayConst<T> array(pAttribute);
+    return ::Serialize(buf, array[nElement]);
 }
 
-template< class T >
-bool CDmArrayAttributeOp<T>::UnserializeElement( CDmAttribute *pAttribute, CUtlBuffer &buf )
-{
-	if ( !pAttribute->MarkDirty() )
-		return false;
+template<class T>
+bool CDmArrayAttributeOp<T>::UnserializeElement(CDmAttribute* pAttribute, CUtlBuffer &buf) {
+    if (!pAttribute->MarkDirty())
+        return false;
 
 
-	T temp;
-	if ( !::Unserialize( buf, temp ) )
-		return false;
+    T temp;
+    if (!::Unserialize(buf, temp))
+        return false;
 
-	CDmArrayAttributeOp<T> accessor( pAttribute );
-	accessor.AddToTail( temp );
+    CDmArrayAttributeOp<T> accessor(pAttribute);
+    accessor.AddToTail(temp);
 
-	pAttribute->OnChanged( true );
+    pAttribute->OnChanged(true);
 
-	return true;
-}
-
-template<>
-bool CDmArrayAttributeOp< CUtlSymbolLarge >::UnserializeElement( CDmAttribute *pAttribute, CUtlBuffer &buf )
-{
-	if ( !pAttribute->MarkDirty() )
-		return false;
-
-
-	CUtlString tempString;
-	if ( !::Unserialize( buf, tempString ) )
-		return false;
-
-	CDmrStringArray stringArray( pAttribute );
-	stringArray.AddToTail( tempString.Get() );
-
-	pAttribute->OnChanged( true );
-
-	return true;
-}
-
-template< class T >
-bool CDmArrayAttributeOp<T>::UnserializeElement( CDmAttribute *pAttribute, int nElement, CUtlBuffer &buf )
-{
-	if ( !pAttribute->MarkDirty() )
-		return false;
-
-	CDmrArray<T> array( pAttribute );
-	if ( array.size() <= nElement )
-		return false;
-
-
-	if ( !::Unserialize( buf, *const_cast<T*>( &array[nElement] ) ) )
-		return false;
-
-	pAttribute->OnChanged();
-
-	return true;
+    return true;
 }
 
 template<>
-bool CDmArrayAttributeOp< CUtlSymbolLarge >::UnserializeElement( CDmAttribute *pAttribute, int nElement, CUtlBuffer &buf )
-{
-	if ( !pAttribute->MarkDirty() )
-		return false;
-
-	CDmrStringArray array( pAttribute );
-	if ( array.size() <= nElement )
-		return false;
+bool CDmArrayAttributeOp<CUtlSymbolLarge>::UnserializeElement(CDmAttribute* pAttribute, CUtlBuffer &buf) {
+    if (!pAttribute->MarkDirty())
+        return false;
 
 
-	CUtlString tempString;
-	if ( !::Unserialize( buf, tempString ) )
-		return false;
+    CUtlString tempString;
+    if (!::Unserialize(buf, tempString))
+        return false;
 
-	array.Set( nElement, tempString.Get() );
+    CDmrStringArray stringArray(pAttribute);
+    stringArray.AddToTail(tempString.Get());
 
-	pAttribute->OnChanged();
+    pAttribute->OnChanged(true);
 
-	return true;
+    return true;
+}
+
+template<class T>
+bool CDmArrayAttributeOp<T>::UnserializeElement(CDmAttribute* pAttribute, int nElement, CUtlBuffer &buf) {
+    if (!pAttribute->MarkDirty())
+        return false;
+
+    CDmrArray<T> array(pAttribute);
+    if (array.size() <= nElement)
+        return false;
+
+
+    if (!::Unserialize(buf, *const_cast<T*>(&array[nElement])))
+        return false;
+
+    pAttribute->OnChanged();
+
+    return true;
+}
+
+template<>
+bool CDmArrayAttributeOp<CUtlSymbolLarge>::UnserializeElement(CDmAttribute* pAttribute, int nElement, CUtlBuffer &buf) {
+    if (!pAttribute->MarkDirty())
+        return false;
+
+    CDmrStringArray array(pAttribute);
+    if (array.size() <= nElement)
+        return false;
+
+
+    CUtlString tempString;
+    if (!::Unserialize(buf, tempString))
+        return false;
+
+    array.Set(nElement, tempString.Get());
+
+    pAttribute->OnChanged();
+
+    return true;
 }
 
 
-template< class T >
-void CDmArrayAttributeOp<T>::OnUnserializationFinished( CDmAttribute *pAttribute )
-{
-	CDmArrayAttributeOp<T> ref( pAttribute );
-	int nCount = ref.Count();
-	if ( nCount > 0 )
-	{
-		ref.OnAttributeArrayElementAdded( 0, nCount - 1, false );
-	}
-	pAttribute->OnChanged( true, true );
+template<class T>
+void CDmArrayAttributeOp<T>::OnUnserializationFinished(CDmAttribute* pAttribute) {
+    CDmArrayAttributeOp<T> ref(pAttribute);
+    int nCount = ref.Count();
+    if (nCount > 0) {
+        ref.OnAttributeArrayElementAdded(0, nCount - 1, false);
+    }
+    pAttribute->OnChanged(true, true);
 }
 
 
@@ -1251,7 +1193,7 @@ void CDmArrayAttributeOp<T>::OnUnserializationFinished( CDmAttribute *pAttribute
 //-----------------------------------------------------------------------------
 // Memory pool used for CDmAttribute
 //-----------------------------------------------------------------------------
-CUtlMemoryPool g_AttrAlloc( sizeof( CDmAttribute ), 4096, CUtlMemoryPool::GROW_SLOW, "CDmAttribute pool" );
+CUtlMemoryPool g_AttrAlloc(sizeof(CDmAttribute), 4096, CUtlMemoryPool::GROW_SLOW, "CDmAttribute pool");
 
 
 //-----------------------------------------------------------------------------
@@ -1261,709 +1203,660 @@ CUtlMemoryPool g_AttrAlloc( sizeof( CDmAttribute ), 4096, CUtlMemoryPool::GROW_S
 // turn memdbg off temporarily so we can get at placement new
 //#include "tier0/memdbgoff.h"
 
-CDmAttribute *CDmAttribute::CreateAttribute(CDmElement *pOwner, DmAttributeType_t type, const std::string_view attributeName)
-{
-	switch( type )
-	{
-	case AT_UNKNOWN:
-		Assert( 0 );
-		return nullptr;
+CDmAttribute* CDmAttribute::CreateAttribute(CDmElement* pOwner, DmAttributeType_t type,
+                                            const std::string_view attributeName) {
+    switch (type) {
+        case AT_UNKNOWN:
+            Assert(0);
+            return nullptr;
 
-	default:
-		{
-			void *pMem = nullptr;
-			{
-				DMX_PROFILE_SCOPE( CreateAttribute_Alloc );
-				pMem = g_AttrAlloc.Alloc( sizeof( CDmAttribute ) );
-			}
-			{
-				DMX_PROFILE_SCOPE( CreateAttribute_new_CDmAttribute );
-				return ::new( pMem ) CDmAttribute( pOwner, type, attributeName );
-			}
-		}
-	}
+        default: {
+            void* pMem = nullptr;
+            {
+                DMX_PROFILE_SCOPE(CreateAttribute_Alloc);
+                pMem = g_AttrAlloc.Alloc(sizeof(CDmAttribute));
+            }
+            {
+                DMX_PROFILE_SCOPE(CreateAttribute_new_CDmAttribute);
+                return ::new(pMem) CDmAttribute(pOwner, type, attributeName);
+            }
+        }
+    }
 }
 
-CDmAttribute *CDmAttribute::CreateExternalAttribute(CDmElement *pOwner, DmAttributeType_t type, const std::string_view pAttributeName, void *pExternalMemory)
-{
-	switch( type )
-	{
-	case AT_UNKNOWN:
-		Assert( 0 );
-		return nullptr;
+CDmAttribute* CDmAttribute::CreateExternalAttribute(CDmElement* pOwner, DmAttributeType_t type,
+                                                    const std::string_view pAttributeName, void* pExternalMemory) {
+    switch (type) {
+        case AT_UNKNOWN:
+            Assert(0);
+            return nullptr;
 
-	default:
-		{
-			void *pMem = nullptr;
-			{
-				DMX_PROFILE_SCOPE( CreateExternalAttribute_Alloc );
-				pMem = g_AttrAlloc.Alloc( sizeof( CDmAttribute ) );
-			}
-			{
-				DMX_PROFILE_SCOPE( CreateExternalAttribute_new_CDmAttribute );
-				return ::new( pMem ) CDmAttribute( pOwner, type, pAttributeName, pExternalMemory );
-			}
-		}
-	}
+        default: {
+            void* pMem = nullptr;
+            {
+                DMX_PROFILE_SCOPE(CreateExternalAttribute_Alloc);
+                pMem = g_AttrAlloc.Alloc(sizeof(CDmAttribute));
+            }
+            {
+                DMX_PROFILE_SCOPE(CreateExternalAttribute_new_CDmAttribute);
+                return ::new(pMem) CDmAttribute(pOwner, type, pAttributeName, pExternalMemory);
+            }
+        }
+    }
 }
 
-void CDmAttribute::DestroyAttribute( CDmAttribute *pAttribute )
-{
-	if ( !pAttribute )
-		return;
+void CDmAttribute::DestroyAttribute(CDmAttribute* pAttribute) {
+    if (!pAttribute)
+        return;
 
-	switch( pAttribute->GetType() )
-	{
-	case AT_UNKNOWN:
-		break;
+    switch (pAttribute->GetType()) {
+        case AT_UNKNOWN:
+            break;
 
-	default:
-		pAttribute->~CDmAttribute();
+        default:
+            pAttribute->~CDmAttribute();
 
 #ifdef _DEBUG
-		memset( pAttribute, 0xDD, sizeof(CDmAttribute) );
+            memset(pAttribute, 0xDD, sizeof(CDmAttribute));
 #endif
 
-		g_AttrAlloc.Free( pAttribute );
-		break;
-	}
+            g_AttrAlloc.Free(pAttribute);
+            break;
+    }
 }
 
 // turn memdbg back on after using placement new
 
 
-
 //-----------------------------------------------------------------------------
 // Constructor, destructor
 //-----------------------------------------------------------------------------
-CDmAttribute::CDmAttribute( CDmElement *pOwner, DmAttributeType_t type, const std::string_view pAttributeName ) :
-	m_pData(nullptr)
-{
-	{
-		DMX_PROFILE_SCOPE( CDmAttribute_Init );
-		Init( pOwner, type, pAttributeName );
-	}
-	{
-		DMX_PROFILE_SCOPE( CDmAttribute_CreateAttributeData );
-		CreateAttributeData();
-	}
+CDmAttribute::CDmAttribute(CDmElement* pOwner, DmAttributeType_t type, const std::string_view pAttributeName) : m_pData(
+    nullptr) {
+    {
+        DMX_PROFILE_SCOPE(CDmAttribute_Init);
+        Init(pOwner, type, pAttributeName);
+    }
+    {
+        DMX_PROFILE_SCOPE(CDmAttribute_CreateAttributeData);
+        CreateAttributeData();
+    }
 }
 
-CDmAttribute::CDmAttribute( CDmElement *pOwner, DmAttributeType_t type, const std::string_view pAttributeName, void *pMemory ) :
-	m_pData( pMemory )
-{
-	{
-		DMX_PROFILE_SCOPE( CDmAttributeExternal_Init );
-		Init( pOwner, type, pAttributeName );
-	}
-	{
-		DMX_PROFILE_SCOPE( CDmAttributeExternal_SetDefaultValue );
-		s_pAttrInfo[ GetType() ]->SetDefaultValue( m_pData );
-	}
+CDmAttribute::CDmAttribute(CDmElement* pOwner, DmAttributeType_t type, const std::string_view pAttributeName,
+                           void* pMemory) : m_pData(pMemory) {
+    {
+        DMX_PROFILE_SCOPE(CDmAttributeExternal_Init);
+        Init(pOwner, type, pAttributeName);
+    }
+    {
+        DMX_PROFILE_SCOPE(CDmAttributeExternal_SetDefaultValue);
+        s_pAttrInfo[GetType()]->SetDefaultValue(m_pData);
+    }
 
-	AddFlag( FATTRIB_EXTERNAL );
+    AddFlag(FATTRIB_EXTERNAL);
 }
 
 
-void CDmAttribute::Init(CDmElement *pOwner, DmAttributeType_t type, const std::string_view pAttributeName)
-{
-	m_pOwner = pOwner;
-	{
-		DMX_PROFILE_SCOPE( CDmAttribute_m_Name_GetSymbol );
-		m_Name = g_pDataModel->GetSymbol( pAttributeName );
-	}
-	m_nFlags = type;
-	m_Handle = DMATTRIBUTE_HANDLE_INVALID;
-	m_pNext = nullptr;
+void CDmAttribute::Init(CDmElement* pOwner, DmAttributeType_t type, const std::string_view pAttributeName) {
+    m_pOwner = pOwner;
+    {
+        DMX_PROFILE_SCOPE(CDmAttribute_m_Name_GetSymbol);
+        m_Name = g_pDataModel->GetSymbol(pAttributeName);
+    }
+    m_nFlags = type;
+    m_Handle = DMATTRIBUTE_HANDLE_INVALID;
+    m_pNext = nullptr;
 
-	switch ( type )
-	{
-	case AT_ELEMENT:
-	case AT_ELEMENT_ARRAY:
-		m_nFlags |= FATTRIB_TOPOLOGICAL;
-		break;
-	}
+    switch (type) {
+        case AT_ELEMENT:
+        case AT_ELEMENT_ARRAY:
+            m_nFlags |= FATTRIB_TOPOLOGICAL;
+            break;
+    }
 }
 
-CDmAttribute::~CDmAttribute()
-{
-	switch( GetType() )
-	{
-	case AT_ELEMENT:
-		g_pDataModelImp->OnElementReferenceRemoved( GetValue<DmElementHandle_t>(), this );
-		break;
-	
-	case AT_ELEMENT_ARRAY:
-		{
-			CDmrElementArray<> array( this );
-			int nElements = array.Count();
-			for ( int i = 0; i < nElements; ++i )
-			{
-				g_pDataModelImp->OnElementReferenceRemoved( array.GetHandle( i ), this );
-			}
-		}
-		break;
-	}
-	
-	InvalidateHandle();
-	DeleteAttributeData();
+CDmAttribute::~CDmAttribute() {
+    switch (GetType()) {
+        case AT_ELEMENT:
+            g_pDataModelImp->OnElementReferenceRemoved(GetValue<DmElementHandle_t>(), this);
+            break;
+
+        case AT_ELEMENT_ARRAY: {
+            CDmrElementArray<> array(this);
+            int nElements = array.Count();
+            for (int i = 0; i < nElements; ++i) {
+                g_pDataModelImp->OnElementReferenceRemoved(array.GetHandle(i), this);
+            }
+        }
+        break;
+    }
+
+    InvalidateHandle();
+    DeleteAttributeData();
 }
 
 
 //-----------------------------------------------------------------------------
 // Creates the attribute data
 //-----------------------------------------------------------------------------
-void CDmAttribute::CreateAttributeData()
-{
-	// Free the attribute memory
-	if ( !IsFlagSet( FATTRIB_EXTERNAL ) )
-	{
-		Assert( !m_pData );
-		m_pData = s_pAttrInfo[ GetType() ]->CreateAttributeData( );
-	}
+void CDmAttribute::CreateAttributeData() {
+    // Free the attribute memory
+    if (!IsFlagSet(FATTRIB_EXTERNAL)) {
+        Assert(!m_pData);
+        m_pData = s_pAttrInfo[GetType()]->CreateAttributeData();
+    }
 }
 
 
 //-----------------------------------------------------------------------------
 // Deletes the attribute data
 //-----------------------------------------------------------------------------
-void CDmAttribute::DeleteAttributeData()
-{
-	// Free the attribute memory
-	if ( m_pData && !IsFlagSet( FATTRIB_EXTERNAL ) )
-	{
-		s_pAttrInfo[ GetType() ]->DestroyAttributeData( m_pData );
-		m_pData = nullptr;
-	}
+void CDmAttribute::DeleteAttributeData() {
+    // Free the attribute memory
+    if (m_pData && !IsFlagSet(FATTRIB_EXTERNAL)) {
+        s_pAttrInfo[GetType()]->DestroyAttributeData(m_pData);
+        m_pData = nullptr;
+    }
 }
 
 // ChangeType fails (and returns false) for external attributes (ones who's data is owned by their element)
-bool CDmAttribute::ChangeType_UNSAFE( DmAttributeType_t type )
-{
-	DmAttributeType_t oldType = GetType();
-	if ( type == oldType )
-		return true;
+bool CDmAttribute::ChangeType_UNSAFE(DmAttributeType_t type) {
+    DmAttributeType_t oldType = GetType();
+    if (type == oldType)
+        return true;
 
-	if ( IsFlagSet( FATTRIB_EXTERNAL ) )
-		return false;
+    if (IsFlagSet(FATTRIB_EXTERNAL))
+        return false;
 
-	if ( IsArrayType( oldType ) || IsArrayType( type ) )
-	{
-		if ( !IsArrayType( oldType ) || !IsArrayType( type ) )
-			return false;
+    if (IsArrayType(oldType) || IsArrayType(type)) {
+        if (!IsArrayType(oldType) || !IsArrayType(type))
+            return false;
 
-		// shortcut the conversion and callbacks for array type changes - this only works for bitwise exact type changes (currently only int <-> time)
-		m_nFlags = ( m_nFlags & ( 0xffff & ~FATTRIB_TYPEMASK ) ) | type;
-		return true;
-	}
+        // shortcut the conversion and callbacks for array type changes - this only works for bitwise exact type changes (currently only int <-> time)
+        m_nFlags = (m_nFlags & (0xffff & ~FATTRIB_TYPEMASK)) | type;
+        return true;
+    }
 
-	int nNewSize = s_pAttrInfo[ type ]->DataSize();
-	int nOldSize = s_pAttrInfo[ oldType ]->DataSize();
-	void *pOldData = stackalloc( nOldSize );
-	V_memcpy( pOldData, m_pData, nOldSize );
+    int nNewSize = s_pAttrInfo[type]->DataSize();
+    int nOldSize = s_pAttrInfo[oldType]->DataSize();
+    void* pOldData = stackalloc(nOldSize);
+    V_memcpy(pOldData, m_pData, nOldSize);
 
-	// force any necessary callbacks to be called (ie OnElementReferenceRemoved)
-	s_pAttrInfo[ oldType ]->SetToDefaultValue( this ); // may trigger callbacks
+    // force any necessary callbacks to be called (ie OnElementReferenceRemoved)
+    s_pAttrInfo[oldType]->SetToDefaultValue(this); // may trigger callbacks
 
-	uint16_t nFlags = ( m_nFlags & ( 0xffff & ~FATTRIB_TYPEMASK ) ) | type;
-	if ( nOldSize != nNewSize )
-	{
-		DeleteAttributeData();
-		m_nFlags = nFlags;
-		CreateAttributeData();
-	}
-	else
-	{
-		m_nFlags = nFlags;
-	}
+    uint16_t nFlags = (m_nFlags & (0xffff & ~FATTRIB_TYPEMASK)) | type;
+    if (nOldSize != nNewSize) {
+        DeleteAttributeData();
+        m_nFlags = nFlags;
+        CreateAttributeData();
+    }
+    else {
+        m_nFlags = nFlags;
+    }
 
-	// put data in state s.t. when callbacks are called, no harm is done (OnElementReferenceAdded)
-	void *pDefaultData = stackalloc( nNewSize );
-	s_pAttrInfo[ type ]->SetDefaultValue( pDefaultData ); // does NOT trigger callbacks
+    // put data in state s.t. when callbacks are called, no harm is done (OnElementReferenceAdded)
+    void* pDefaultData = stackalloc(nNewSize);
+    s_pAttrInfo[type]->SetDefaultValue(pDefaultData); // does NOT trigger callbacks
 
-	SetValue( oldType, pOldData ); // may trigger callbacks, but only if the types are convertable
-	return true;
+    SetValue(oldType, pOldData); // may trigger callbacks, but only if the types are convertable
+    return true;
 }
 
 
 //-----------------------------------------------------------------------------
 // Used only in attribute element arrays
 //-----------------------------------------------------------------------------
-void CDmAttribute::SetElementTypeSymbol( CUtlSymbolLarge typeSymbol )
-{
-	switch ( GetType() )
-	{
-	case AT_ELEMENT:
-		{
-			DmElementAttribute_t *pData = GetData< DmElementHandle_t >();
-			Assert( pData->m_Handle == DMELEMENT_HANDLE_INVALID || ::IsA( pData->m_Handle, typeSymbol ) );
-			pData->m_ElementType = typeSymbol;
-		}
-		break;
+void CDmAttribute::SetElementTypeSymbol(CUtlSymbolLarge typeSymbol) {
+    switch (GetType()) {
+        case AT_ELEMENT: {
+            DmElementAttribute_t* pData = GetData<DmElementHandle_t>();
+            Assert(pData->m_Handle == DMELEMENT_HANDLE_INVALID || ::IsA( pData->m_Handle, typeSymbol ));
+            pData->m_ElementType = typeSymbol;
+        }
+        break;
 
-	case AT_ELEMENT_ARRAY:
-		{
+        case AT_ELEMENT_ARRAY: {
 #ifdef _DEBUG
-			CDmrElementArray<> array( this );
-			if ( array.GetElementType() != UTL_INVAL_SYMBOL_LARGE )
-			{
-				int i;
-				int c = array.Count();
-				for ( i = 0; i < c; ++i )
-				{
-					Assert( array.GetHandle( i ) == DMELEMENT_HANDLE_INVALID || ::IsA( array.GetHandle( i ), typeSymbol ) );
-				}
-			}
+            CDmrElementArray<> array(this);
+            if (array.GetElementType() != UTL_INVAL_SYMBOL_LARGE) {
+                int i;
+                int c = array.Count();
+                for (i = 0; i < c; ++i) {
+                    Assert(
+                        array.GetHandle( i ) == DMELEMENT_HANDLE_INVALID || ::IsA( array.GetHandle( i ), typeSymbol ));
+                }
+            }
 #endif
 
-			DmElementArray_t *pData = GetArrayData< DmElementHandle_t >();
-			pData->m_ElementType = typeSymbol;
-		}
-		break;
+            DmElementArray_t* pData = GetArrayData<DmElementHandle_t>();
+            pData->m_ElementType = typeSymbol;
+        }
+        break;
 
-	default:
-		Assert(0);
-		break;
-	}
+        default:
+            Assert(0);
+            break;
+    }
 }
 
 
 //-----------------------------------------------------------------------------
 // Is modification allowed in this phase?
 //-----------------------------------------------------------------------------
-bool CDmAttribute::ModificationAllowed() const 
-{ 
-	if ( IsFlagSet( FATTRIB_READONLY ) )
-		return false;
+bool CDmAttribute::ModificationAllowed() const {
+    if (IsFlagSet(FATTRIB_READONLY))
+        return false;
 
-	DmPhase_t phase = g_pDmElementFramework->GetPhase();
-	if ( phase == PH_EDIT || phase == PH_EDIT_APPLY || phase == PH_EDIT_RESOLVE )
-		return true;
-	if ( ( phase == PH_OPERATE ) && !IsFlagSet( FATTRIB_TOPOLOGICAL ) )
-		return true;
+    DmPhase_t phase = g_pDmElementFramework->GetPhase();
+    if (phase == PH_EDIT || phase == PH_EDIT_APPLY || phase == PH_EDIT_RESOLVE)
+        return true;
+    if ((phase == PH_OPERATE) && !IsFlagSet(FATTRIB_TOPOLOGICAL))
+        return true;
 
-	return false;
+    return false;
 }
 
-bool CDmAttribute::MarkDirty() 
-{ 
-	if ( !ModificationAllowed() )
-	{
-		Assert( 0 );
-		return false;
-	}
+bool CDmAttribute::MarkDirty() {
+    if (!ModificationAllowed()) {
+        Assert(0);
+        return false;
+    }
 
-	AddFlag( FATTRIB_DIRTY | FATTRIB_OPERATOR_DIRTY );
-	m_pOwner->MarkDirty();
+    AddFlag(FATTRIB_DIRTY | FATTRIB_OPERATOR_DIRTY);
+    m_pOwner->MarkDirty();
 
-	return true;
+    return true;
 }
 
 
 //-----------------------------------------------------------------------------
 // Called after the attribute has changed
 //-----------------------------------------------------------------------------
-void CDmAttribute::OnChanged( bool bArrayCountChanged, bool bIsTopological )
-{
-	if ( IsFlagSet( FATTRIB_HAS_CALLBACK ) && m_pOwner->AreOnChangedCallbacksEnabled() )
-	{
-		m_pOwner->OnAttributeChanged( this );
-	}
+void CDmAttribute::OnChanged(bool bArrayCountChanged, bool bIsTopological) {
+    if (IsFlagSet(FATTRIB_HAS_CALLBACK) && m_pOwner->AreOnChangedCallbacksEnabled()) {
+        m_pOwner->OnAttributeChanged(this);
+    }
 
-	if ( bIsTopological || IsTopological( GetType() ) )
-	{
-		g_pDataModelImp->NotifyState( NOTIFY_CHANGE_TOPOLOGICAL );
-	}
-	else
-	{
-		g_pDataModelImp->NotifyState( bArrayCountChanged ? NOTIFY_CHANGE_ATTRIBUTE_ARRAY_SIZE : NOTIFY_CHANGE_ATTRIBUTE_VALUE );
-	}
+    if (bIsTopological || IsTopological(GetType())) {
+        g_pDataModelImp->NotifyState(NOTIFY_CHANGE_TOPOLOGICAL);
+    }
+    else {
+        g_pDataModelImp->NotifyState(bArrayCountChanged
+                                         ? NOTIFY_CHANGE_ATTRIBUTE_ARRAY_SIZE
+                                         : NOTIFY_CHANGE_ATTRIBUTE_VALUE);
+    }
 }
 
 
 //-----------------------------------------------------------------------------
 // Type conversion related methods
 //-----------------------------------------------------------------------------
-template< class T > bool CDmAttribute::IsTypeConvertable() const
-{
-	return CDmAttributeInfo< T >::ATTRIBUTE_TYPE == GetType();
+template<class T>
+bool CDmAttribute::IsTypeConvertable() const {
+    return CDmAttributeInfo<T>::ATTRIBUTE_TYPE == GetType();
 }
 
-template<> bool CDmAttribute::IsTypeConvertable<bool>() const
-{
-	DmAttributeType_t type = GetType();
-	return type == AT_TIME || type == AT_FLOAT || type == AT_INT || type == AT_BOOL;
+template<>
+bool CDmAttribute::IsTypeConvertable<bool>() const {
+    DmAttributeType_t type = GetType();
+    return type == AT_TIME || type == AT_FLOAT || type == AT_INT || type == AT_BOOL;
 }
 
-template<> bool CDmAttribute::IsTypeConvertable<int>() const
-{
-	DmAttributeType_t type = GetType();
-	return type == AT_TIME || type == AT_FLOAT || type == AT_INT || type == AT_BOOL;
+template<>
+bool CDmAttribute::IsTypeConvertable<int>() const {
+    DmAttributeType_t type = GetType();
+    return type == AT_TIME || type == AT_FLOAT || type == AT_INT || type == AT_BOOL;
 }
 
-template<> bool CDmAttribute::IsTypeConvertable<float>() const
-{
-	DmAttributeType_t type = GetType();
-	return type == AT_TIME || type == AT_FLOAT || type == AT_INT || type == AT_BOOL;
+template<>
+bool CDmAttribute::IsTypeConvertable<float>() const {
+    DmAttributeType_t type = GetType();
+    return type == AT_TIME || type == AT_FLOAT || type == AT_INT || type == AT_BOOL;
 }
 
-template<> bool CDmAttribute::IsTypeConvertable<DmeTime_t>() const
-{
-	DmAttributeType_t type = GetType();
-	return type == AT_TIME || type == AT_FLOAT || type == AT_INT || type == AT_BOOL;
+template<>
+bool CDmAttribute::IsTypeConvertable<DmeTime_t>() const {
+    DmAttributeType_t type = GetType();
+    return type == AT_TIME || type == AT_FLOAT || type == AT_INT || type == AT_BOOL;
 }
 
-template<> bool CDmAttribute::IsTypeConvertable<QAngle>() const
-{
-	DmAttributeType_t type = GetType();
-	return type == AT_QANGLE || type == AT_QUATERNION;
+template<>
+bool CDmAttribute::IsTypeConvertable<QAngle>() const {
+    DmAttributeType_t type = GetType();
+    return type == AT_QANGLE || type == AT_QUATERNION;
 }
 
-template<> bool CDmAttribute::IsTypeConvertable<Quaternion>() const
-{
-	DmAttributeType_t type = GetType();
-	return type == AT_QUATERNION || type == AT_QANGLE;
+template<>
+bool CDmAttribute::IsTypeConvertable<Quaternion>() const {
+    DmAttributeType_t type = GetType();
+    return type == AT_QUATERNION || type == AT_QANGLE;
 }
 
-template< class T > void CDmAttribute::CopyData( const T& value )
-{
-	*reinterpret_cast< T* >( m_pData ) = value;
+template<class T>
+void CDmAttribute::CopyData(const T &value) {
+    *reinterpret_cast<T*>(m_pData) = value;
 }
 
-template< class T > void CDmAttribute::CopyDataOut( T& value ) const
-{
-	value = *reinterpret_cast< const T* >( m_pData );
+template<class T>
+void CDmAttribute::CopyDataOut(T &value) const {
+    value = *reinterpret_cast<const T*>(m_pData);
 }
 
-template<> void CDmAttribute::CopyData( const bool& value )
-{
-	switch( GetType() )
-	{
-	case AT_BOOL:
-		*reinterpret_cast< bool* >( m_pData ) = value;
-		break;
+template<>
+void CDmAttribute::CopyData(const bool &value) {
+    switch (GetType()) {
+        case AT_BOOL:
+            *reinterpret_cast<bool*>(m_pData) = value;
+            break;
 
-	case AT_INT:
-		*reinterpret_cast< int* >( m_pData ) = value ? 1 : 0;
-		break;
+        case AT_INT:
+            *reinterpret_cast<int*>(m_pData) = value ? 1 : 0;
+            break;
 
-	case AT_FLOAT:
-		*reinterpret_cast< float* >( m_pData ) = value ? 1.0f : 0.0f;
-		break;
+        case AT_FLOAT:
+            *reinterpret_cast<float*>(m_pData) = value ? 1.0f : 0.0f;
+            break;
 
-	case AT_TIME:
-		*reinterpret_cast< DmeTime_t* >( m_pData ) = value ? DmeTime_t( 1.0f ) : DMETIME_ZERO;
-		break;
-	}
+        case AT_TIME:
+            *reinterpret_cast<DmeTime_t*>(m_pData) = value ? DmeTime_t(1.0f) : DMETIME_ZERO;
+            break;
+    }
 }
 
-template<> void CDmAttribute::CopyDataOut( bool& value ) const
-{
-	switch( GetType() )
-	{
-	case AT_BOOL:
-		value = *reinterpret_cast< bool* >( m_pData );
-		break;
+template<>
+void CDmAttribute::CopyDataOut(bool &value) const {
+    switch (GetType()) {
+        case AT_BOOL:
+            value = *reinterpret_cast<bool*>(m_pData);
+            break;
 
-	case AT_INT:
-		value = *reinterpret_cast< int* >( m_pData ) != 0;
-		break;
+        case AT_INT:
+            value = *reinterpret_cast<int*>(m_pData) != 0;
+            break;
 
-	case AT_FLOAT:
-		value = *reinterpret_cast< float* >( m_pData ) != 0.0f;
-		break;
+        case AT_FLOAT:
+            value = *reinterpret_cast<float*>(m_pData) != 0.0f;
+            break;
 
-	case AT_TIME:
-		value = *reinterpret_cast< DmeTime_t* >( m_pData ) != DMETIME_ZERO;
-		break;
-	}
+        case AT_TIME:
+            value = *reinterpret_cast<DmeTime_t*>(m_pData) != DMETIME_ZERO;
+            break;
+    }
 }
 
-template<> void CDmAttribute::CopyData( const int& value )
-{
-	switch( GetType() )
-	{
-	case AT_BOOL:
-		*reinterpret_cast< bool* >( m_pData ) = value != 0;
-		break;
+template<>
+void CDmAttribute::CopyData(const int &value) {
+    switch (GetType()) {
+        case AT_BOOL:
+            *reinterpret_cast<bool*>(m_pData) = value != 0;
+            break;
 
-	case AT_INT:
-		*reinterpret_cast< int* >( m_pData ) = value;
-		break;
+        case AT_INT:
+            *reinterpret_cast<int*>(m_pData) = value;
+            break;
 
-	case AT_FLOAT:
-		*reinterpret_cast< float* >( m_pData ) = value;
-		break;
+        case AT_FLOAT:
+            *reinterpret_cast<float*>(m_pData) = value;
+            break;
 
-	case AT_TIME:
-		reinterpret_cast< DmeTime_t* >( m_pData )->SetTenthsOfMS( value );
-		break;
-	}
+        case AT_TIME:
+            reinterpret_cast<DmeTime_t*>(m_pData)->SetTenthsOfMS(value);
+            break;
+    }
 }
 
-template<> void CDmAttribute::CopyDataOut( int& value ) const
-{
-	switch( GetType() )
-	{
-	case AT_BOOL:
-		value = *reinterpret_cast< bool* >( m_pData ) ? 1 : 0;
-		break;
+template<>
+void CDmAttribute::CopyDataOut(int &value) const {
+    switch (GetType()) {
+        case AT_BOOL:
+            value = *reinterpret_cast<bool*>(m_pData) ? 1 : 0;
+            break;
 
-	case AT_INT:
-		value = *reinterpret_cast< int* >( m_pData );
-		break;
+        case AT_INT:
+            value = *reinterpret_cast<int*>(m_pData);
+            break;
 
-	case AT_FLOAT:
-		value = *reinterpret_cast< float* >( m_pData );
-		break;
+        case AT_FLOAT:
+            value = *reinterpret_cast<float*>(m_pData);
+            break;
 
-	case AT_TIME:
-		value = reinterpret_cast< DmeTime_t* >( m_pData )->GetTenthsOfMS();
-		break;
-	}
+        case AT_TIME:
+            value = reinterpret_cast<DmeTime_t*>(m_pData)->GetTenthsOfMS();
+            break;
+    }
 }
 
-template<> void CDmAttribute::CopyData( const float& value )
-{
-	switch( GetType() )
-	{
-	case AT_BOOL:
-		*reinterpret_cast< bool* >( m_pData ) = value != 0.0f;
-		break;
+template<>
+void CDmAttribute::CopyData(const float &value) {
+    switch (GetType()) {
+        case AT_BOOL:
+            *reinterpret_cast<bool*>(m_pData) = value != 0.0f;
+            break;
 
-	case AT_INT:
-		*reinterpret_cast< int* >( m_pData ) = value;
-		break;
+        case AT_INT:
+            *reinterpret_cast<int*>(m_pData) = value;
+            break;
 
-	case AT_FLOAT:
-		*reinterpret_cast< float* >( m_pData ) = value;
-		break;
+        case AT_FLOAT:
+            *reinterpret_cast<float*>(m_pData) = value;
+            break;
 
-	case AT_TIME:
-		reinterpret_cast< DmeTime_t* >( m_pData )->SetSeconds( value );
-		break;
-	}
+        case AT_TIME:
+            reinterpret_cast<DmeTime_t*>(m_pData)->SetSeconds(value);
+            break;
+    }
 }
 
-template<> void CDmAttribute::CopyDataOut( float& value ) const
-{
-	switch( GetType() )
-	{
-	case AT_BOOL:
-		value = *reinterpret_cast< bool* >( m_pData ) ? 1.0f : 0.0f;
-		break;
+template<>
+void CDmAttribute::CopyDataOut(float &value) const {
+    switch (GetType()) {
+        case AT_BOOL:
+            value = *reinterpret_cast<bool*>(m_pData) ? 1.0f : 0.0f;
+            break;
 
-	case AT_INT:
-		value = *reinterpret_cast< int* >( m_pData );
-		break;
+        case AT_INT:
+            value = *reinterpret_cast<int*>(m_pData);
+            break;
 
-	case AT_FLOAT:
-		value = *reinterpret_cast< float* >( m_pData );
-		break;
+        case AT_FLOAT:
+            value = *reinterpret_cast<float*>(m_pData);
+            break;
 
-	case AT_TIME:
-		value = reinterpret_cast< DmeTime_t* >( m_pData )->GetSeconds();
-		break;
-	}
+        case AT_TIME:
+            value = reinterpret_cast<DmeTime_t*>(m_pData)->GetSeconds();
+            break;
+    }
 }
 
-template<> void CDmAttribute::CopyData( const DmeTime_t& value )
-{
-	switch( GetType() )
-	{
-	case AT_BOOL:
-		*reinterpret_cast< bool* >( m_pData ) = value != DMETIME_ZERO;
-		break;
+template<>
+void CDmAttribute::CopyData(const DmeTime_t &value) {
+    switch (GetType()) {
+        case AT_BOOL:
+            *reinterpret_cast<bool*>(m_pData) = value != DMETIME_ZERO;
+            break;
 
-	case AT_INT:
-		*reinterpret_cast< int* >( m_pData ) = value.GetTenthsOfMS();
-		break;
+        case AT_INT:
+            *reinterpret_cast<int*>(m_pData) = value.GetTenthsOfMS();
+            break;
 
-	case AT_FLOAT:
-		*reinterpret_cast< float* >( m_pData ) = value.GetSeconds();
-		break;
+        case AT_FLOAT:
+            *reinterpret_cast<float*>(m_pData) = value.GetSeconds();
+            break;
 
-	case AT_TIME:
-		*reinterpret_cast< DmeTime_t* >( m_pData ) = value;
-		break;
-	}
+        case AT_TIME:
+            *reinterpret_cast<DmeTime_t*>(m_pData) = value;
+            break;
+    }
 }
 
-template<> void CDmAttribute::CopyDataOut( DmeTime_t& value ) const
-{
-	switch( GetType() )
-	{
-	case AT_BOOL:
-		value = *reinterpret_cast< bool* >( m_pData ) ? DmeTime_t( 1.0f ) : DMETIME_ZERO;
-		break;
+template<>
+void CDmAttribute::CopyDataOut(DmeTime_t &value) const {
+    switch (GetType()) {
+        case AT_BOOL:
+            value = *reinterpret_cast<bool*>(m_pData) ? DmeTime_t(1.0f) : DMETIME_ZERO;
+            break;
 
-	case AT_INT:
-		value.SetTenthsOfMS( *reinterpret_cast< int* >( m_pData ) );
-		break;
+        case AT_INT:
+            value.SetTenthsOfMS(*reinterpret_cast<int*>(m_pData));
+            break;
 
-	case AT_FLOAT:
-		value.SetSeconds( *reinterpret_cast< float* >( m_pData ) );
-		break;
+        case AT_FLOAT:
+            value.SetSeconds(*reinterpret_cast<float*>(m_pData));
+            break;
 
-	case AT_TIME:
-		value = *reinterpret_cast< DmeTime_t* >( m_pData );
-		break;
-	}
+        case AT_TIME:
+            value = *reinterpret_cast<DmeTime_t*>(m_pData);
+            break;
+        default:
+            throw std::runtime_error("Unsupported attribute type");
+    }
 }
 
-template<> void CDmAttribute::CopyData( const QAngle& value )
-{
-	switch( GetType() )
-	{
-	case AT_QANGLE:
-		*reinterpret_cast< QAngle* >( m_pData ) = value;
-		break;
+template<>
+void CDmAttribute::CopyData(const QAngle &value) {
+    switch (GetType()) {
+        case AT_QANGLE:
+            *reinterpret_cast<QAngle*>(m_pData) = value;
+            break;
 
-	case AT_QUATERNION:
-		{
-			Quaternion qValue;
-			AngleQuaternion( value, qValue );
-			*reinterpret_cast< Quaternion* >( m_pData ) = qValue;
-		}
-		break;
-	}
+        case AT_QUATERNION: {
+            Quaternion qValue;
+            AngleQuaternion(value, qValue);
+            *reinterpret_cast<Quaternion*>(m_pData) = qValue;
+        }
+        break;
+        default:
+            throw std::runtime_error("Unsupported attribute type");
+    }
 }
 
-template<> void CDmAttribute::CopyDataOut( QAngle& value ) const
-{
-	switch( GetType() )
-	{
-	case AT_QANGLE:
-		value = *reinterpret_cast< QAngle* >( m_pData );
-		break;
+template<>
+void CDmAttribute::CopyDataOut(QAngle &value) const {
+    switch (GetType()) {
+        case AT_QANGLE:
+            value = *reinterpret_cast<QAngle*>(m_pData);
+            break;
 
-	case AT_QUATERNION:
-		QuaternionAngles( *reinterpret_cast< Quaternion* >( m_pData ), value );
-		break;
-	}
+        case AT_QUATERNION:
+            QuaternionAngles(*reinterpret_cast<Quaternion*>(m_pData), value);
+            break;
+    }
 }
 
-template<> void CDmAttribute::CopyData( const Quaternion& value )
-{
-	switch( GetType() )
-	{
-	case AT_QANGLE:
-		{
-			QAngle aValue;
-			QuaternionAngles( value, aValue );
-			*reinterpret_cast< QAngle* >( m_pData ) = aValue;
-		}
-		break;
+template<>
+void CDmAttribute::CopyData(const Quaternion &value) {
+    switch (GetType()) {
+        case AT_QANGLE: {
+            QAngle aValue;
+            QuaternionAngles(value, aValue);
+            *reinterpret_cast<QAngle*>(m_pData) = aValue;
+        }
+        break;
 
-	case AT_QUATERNION:
-		*reinterpret_cast< Quaternion* >( m_pData ) = value;
-		break;
-	}
+        case AT_QUATERNION:
+            *reinterpret_cast<Quaternion*>(m_pData) = value;
+            break;
+    }
 }
 
-template<> void CDmAttribute::CopyDataOut( Quaternion& value ) const
-{
-	switch( GetType() )
-	{
-	case AT_QANGLE:
-		AngleQuaternion( *reinterpret_cast< QAngle* >( m_pData ), value );
-		break;
+template<>
+void CDmAttribute::CopyDataOut(Quaternion &value) const {
+    switch (GetType()) {
+        case AT_QANGLE:
+            AngleQuaternion(*reinterpret_cast<QAngle*>(m_pData), value);
+            break;
 
-	case AT_QUATERNION:
-		value = *reinterpret_cast< Quaternion* >( m_pData );
-		break;
-	}
+        case AT_QUATERNION:
+            value = *reinterpret_cast<Quaternion*>(m_pData);
+            break;
+    }
 }
 
-template<> void CDmAttribute::CopyData( const DmElementHandle_t& value )
-{
-	g_pDataModelImp->OnElementReferenceRemoved( GetValue<DmElementHandle_t>(), this );
-	*reinterpret_cast< DmElementHandle_t* >( m_pData ) = value;
-	g_pDataModelImp->OnElementReferenceAdded( value, this );
+template<>
+void CDmAttribute::CopyData(const DmElementHandle_t &value) {
+    g_pDataModelImp->OnElementReferenceRemoved(GetValue<DmElementHandle_t>(), this);
+    *reinterpret_cast<DmElementHandle_t*>(m_pData) = value;
+    g_pDataModelImp->OnElementReferenceAdded(value, this);
 }
 
 
 //-----------------------------------------------------------------------------
 // Should we be allowed to modify the attribute data?
 //-----------------------------------------------------------------------------
-template< class T > 
-bool CDmAttribute::ShouldModify( const T& value )
-{
-	if ( !IsTypeConvertable<T>() )
-		return false;
+template<class T>
+bool CDmAttribute::ShouldModify(const T &value) {
+    if (!IsTypeConvertable<T>())
+        return false;
 
-	if ( ( GetType() == CDmAttributeInfo<T>::ATTRIBUTE_TYPE ) && IsAttributeEqual( GetValue<T>(), value ) )
-		return false;
+    if ((GetType() == CDmAttributeInfo<T>::ATTRIBUTE_TYPE) && IsAttributeEqual(GetValue<T>(), value))
+        return false;
 
-	return MarkDirty();
+    return MarkDirty();
 }
 
-template<> bool CDmAttribute::ShouldModify( const DmElementHandle_t& value )
-{
-	if ( !IsTypeConvertable<DmElementHandle_t>() )
-		return false;
+template<>
+bool CDmAttribute::ShouldModify(const DmElementHandle_t &value) {
+    if (!IsTypeConvertable<DmElementHandle_t>())
+        return false;
 
-	if ( IsAttributeEqual( GetValue<DmElementHandle_t>(), value ) )
-		return false;
+    if (IsAttributeEqual(GetValue<DmElementHandle_t>(), value))
+        return false;
 
-	DmElementAttribute_t *pData = GetData<DmElementHandle_t>();
-	if ( pData->m_ElementType != UTL_INVAL_SYMBOL_LARGE && !::IsA( value, pData->m_ElementType ) )
-		return false;
+    DmElementAttribute_t* pData = GetData<DmElementHandle_t>();
+    if (pData->m_ElementType != UTL_INVAL_SYMBOL_LARGE && !::IsA(value, pData->m_ElementType))
+        return false;
 
-	return MarkDirty();
-}
-
-
-//-----------------------------------------------------------------------------
-// Main entry point for single-valued SetValue
-//-----------------------------------------------------------------------------
-template< class T >
-void CDmAttribute::SetValue( const T &value )
-{
-	if ( !ShouldModify( value ) )
-		return;
-
-	CopyData< T >( value );
-
-	if ( IsFlagSet( FATTRIB_HAS_CALLBACK ) && m_pOwner->AreOnChangedCallbacksEnabled() )
-	{
-		m_pOwner->OnAttributeChanged( this );
-	}
-
-	g_pDataModelImp->NotifyState( IsTopological( GetType() ) ? NOTIFY_CHANGE_TOPOLOGICAL : NOTIFY_CHANGE_ATTRIBUTE_VALUE );
+    return MarkDirty();
 }
 
 
 //-----------------------------------------------------------------------------
 // Main entry point for single-valued SetValue
 //-----------------------------------------------------------------------------
-template< class T > T& 
-CDmAttribute::BeginModifyValueInPlace( DmAttributeModifyHandle_t *pHandle )
-{
-	*pHandle = nullptr;
+template<class T>
+void CDmAttribute::SetValue(const T &value) {
+    if (!ShouldModify(value))
+        return;
 
-	// Type conversion is not allowed
-	if ( (int)GetType() != (int)CDmAttributeInfo< T >::ATTRIBUTE_TYPE )
-	{
-		Assert( 0 );
-		return *( T* ) nullptr;
-	}
+    CopyData<T>(value);
 
-	return *reinterpret_cast< T* >( m_pData );
+    if (IsFlagSet(FATTRIB_HAS_CALLBACK) && m_pOwner->AreOnChangedCallbacksEnabled()) {
+        m_pOwner->OnAttributeChanged(this);
+    }
+
+    g_pDataModelImp->NotifyState(IsTopological(GetType()) ? NOTIFY_CHANGE_TOPOLOGICAL : NOTIFY_CHANGE_ATTRIBUTE_VALUE);
 }
 
-template< class T >
-void CDmAttribute::EndModifyValueInPlace( DmAttributeModifyHandle_t handle )
-{
-	if ( (int)GetType() != (int)CDmAttributeInfo< T >::ATTRIBUTE_TYPE )
-		return;
 
-	if ( IsFlagSet( FATTRIB_HAS_CALLBACK ) && m_pOwner->AreOnChangedCallbacksEnabled() )
-	{
-		m_pOwner->OnAttributeChanged( this );
-	}
+//-----------------------------------------------------------------------------
+// Main entry point for single-valued SetValue
+//-----------------------------------------------------------------------------
+template<class T>
+T&
+CDmAttribute::BeginModifyValueInPlace(DmAttributeModifyHandle_t* pHandle) {
+    *pHandle = nullptr;
 
-	g_pDataModelImp->NotifyState( IsTopological( GetType() ) ? NOTIFY_CHANGE_TOPOLOGICAL : NOTIFY_CHANGE_ATTRIBUTE_VALUE );
+    // Type conversion is not allowed
+    if ((int) GetType() != (int) CDmAttributeInfo<T>::ATTRIBUTE_TYPE) {
+        Assert(0);
+        return *(T*) nullptr;
+    }
+
+    return *reinterpret_cast<T*>(m_pData);
+}
+
+template<class T>
+void CDmAttribute::EndModifyValueInPlace(DmAttributeModifyHandle_t handle) {
+    if ((int) GetType() != (int) CDmAttributeInfo<T>::ATTRIBUTE_TYPE)
+        return;
+
+    if (IsFlagSet(FATTRIB_HAS_CALLBACK) && m_pOwner->AreOnChangedCallbacksEnabled()) {
+        m_pOwner->OnAttributeChanged(this);
+    }
+
+    g_pDataModelImp->NotifyState(IsTopological(GetType()) ? NOTIFY_CHANGE_TOPOLOGICAL : NOTIFY_CHANGE_ATTRIBUTE_VALUE);
 }
 
 
@@ -1977,153 +1870,130 @@ void CDmAttribute::EndModifyValueInPlace( DmAttributeModifyHandle_t handle )
 		accessor.CopyArray( value.data(), value.size() );						\
 	}
 
-void CDmAttribute::SetValue( const CDmAttribute *pAttribute )
-{
-	s_pAttrInfo[ GetType() ]->SetValue( this, pAttribute->GetType(), pAttribute->GetAttributeData() );
+void CDmAttribute::SetValue(const CDmAttribute* pAttribute) {
+    s_pAttrInfo[GetType()]->SetValue(this, pAttribute->GetType(), pAttribute->GetAttributeData());
 }
 
-void CDmAttribute::SetValue( CDmAttribute *pAttribute )
-{
-	s_pAttrInfo[ GetType() ]->SetValue( this, pAttribute->GetType(), pAttribute->GetAttributeData() );
+void CDmAttribute::SetValue(CDmAttribute* pAttribute) {
+    s_pAttrInfo[GetType()]->SetValue(this, pAttribute->GetType(), pAttribute->GetAttributeData());
 }
 
-void CDmAttribute::SetValue( DmAttributeType_t valueType, const void *pValue )
-{
-	s_pAttrInfo[ GetType() ]->SetValue( this, valueType, pValue );
+void CDmAttribute::SetValue(DmAttributeType_t valueType, const void* pValue) {
+    s_pAttrInfo[GetType()]->SetValue(this, valueType, pValue);
 }
 
 
 //-----------------------------------------------------------------------------
 // Sets the attribute to its default value based on its type
 //-----------------------------------------------------------------------------
-void CDmAttribute::SetToDefaultValue()
-{
-	s_pAttrInfo[ GetType() ]->SetToDefaultValue( this );
+void CDmAttribute::SetToDefaultValue() {
+    s_pAttrInfo[GetType()]->SetToDefaultValue(this);
 }
 
 
 //-----------------------------------------------------------------------------
 // Convert to and from string
 //-----------------------------------------------------------------------------
-void CDmAttribute::SetValueFromString( const char *pValue )
-{
-	switch ( GetType() )
-	{
-	case AT_STRING:
-		SetValue( pValue );
-		break;
+void CDmAttribute::SetValueFromString(const char* pValue) {
+    switch (GetType()) {
+        case AT_STRING:
+            SetValue(pValue);
+            break;
 
-	default:
-		{
-			int nLen = pValue ? Q_strlen( pValue ) : 0;
-			if ( nLen == 0 )
-			{
-				SetToDefaultValue();
-				break;
-			}
+        default: {
+            int nLen = pValue ? Q_strlen(pValue) : 0;
+            if (nLen == 0) {
+                SetToDefaultValue();
+                break;
+            }
 
-			CUtlBuffer buf( pValue, nLen + 1, CUtlBuffer::TEXT_BUFFER | CUtlBuffer::READ_ONLY );
-			if ( !Unserialize( buf ) )
-			{
-				SetToDefaultValue();
-			}
-		}
-		break;
-	}
+            CUtlBuffer buf(pValue, nLen + 1, CUtlBuffer::TEXT_BUFFER | CUtlBuffer::READ_ONLY);
+            if (!Unserialize(buf)) {
+                SetToDefaultValue();
+            }
+        }
+        break;
+    }
 }
 
 
 //-----------------------------------------------------------------------------
 // Name, type
 //-----------------------------------------------------------------------------
-const char* CDmAttribute::GetTypeString() const
-{
-	return ::GetTypeString( GetType() );
+const char* CDmAttribute::GetTypeString() const {
+    return ::GetTypeString(GetType());
 }
 
-const char *GetTypeString( DmAttributeType_t type )
-{
-	if ( ( type >= 0 ) && ( type < AT_TYPE_COUNT ) )
-		return s_pAttrInfo[ type ]->AttributeTypeName();
-	return "unknown";
+const char* GetTypeString(DmAttributeType_t type) {
+    if ((type >= 0) && (type < AT_TYPE_COUNT))
+        return s_pAttrInfo[type]->AttributeTypeName();
+    return "unknown";
 }
 
-bool CDmAttribute::IsStandard() const
-{
-	static CUtlSymbolLarge nameSym = g_pDataModel->GetSymbol( "name" );
-	return m_Name == nameSym;
+bool CDmAttribute::IsStandard() const {
+    static CUtlSymbolLarge nameSym = g_pDataModel->GetSymbol("name");
+    return m_Name == nameSym;
 }
 
-void CDmAttribute::SetName( std::string_view newName )
-{
-	if ( m_pOwner->HasAttribute( newName ) && !vstd::iequals( m_Name.view(), newName ) )
-	{
-		Warning( "Tried to rename from '{}' to '{}', but '{}' already exists\n",
-			GetName(), newName, newName );
-		return;
-	}
+void CDmAttribute::SetName(std::string_view newName) {
+    if (m_pOwner->HasAttribute(newName) && !vstd::iequals(m_Name.view(), newName)) {
+        Warning("Tried to rename from '{}' to '{}', but '{}' already exists\n",
+                GetName(), newName, newName);
+        return;
+    }
 
-	if ( !MarkDirty() )
-		return;
+    if (!MarkDirty())
+        return;
 
-	m_Name = g_pDataModel->GetSymbol( newName );
-	g_pDataModelImp->NotifyState( NOTIFY_CHANGE_TOPOLOGICAL );
+    m_Name = g_pDataModel->GetSymbol(newName);
+    g_pDataModelImp->NotifyState(NOTIFY_CHANGE_TOPOLOGICAL);
 }
 
 
 //-----------------------------------------------------------------------------
 // Serialization
 //-----------------------------------------------------------------------------
-bool CDmAttribute::SerializesOnMultipleLines() const
-{
-	return s_pAttrInfo[ GetType() ]->SerializesOnMultipleLines();
+bool CDmAttribute::SerializesOnMultipleLines() const {
+    return s_pAttrInfo[GetType()]->SerializesOnMultipleLines();
 }
 
-bool CDmAttribute::Serialize( CUtlBuffer &buf ) const
-{
-	return s_pAttrInfo[ GetType() ]->Serialize( this, buf );
+bool CDmAttribute::Serialize(CUtlBuffer &buf) const {
+    return s_pAttrInfo[GetType()]->Serialize(this, buf);
 }
 
-bool CDmAttribute::Unserialize( CUtlBuffer &buf )
-{
-	return s_pAttrInfo[ GetType() ]->Unserialize( this, buf );
+bool CDmAttribute::Unserialize(CUtlBuffer &buf) {
+    return s_pAttrInfo[GetType()]->Unserialize(this, buf);
 }
 
-bool CDmAttribute::SerializeElement( int nElement, CUtlBuffer &buf ) const
-{
-	return s_pAttrInfo[ GetType() ]->SerializeElement( this, nElement, buf );
+bool CDmAttribute::SerializeElement(int nElement, CUtlBuffer &buf) const {
+    return s_pAttrInfo[GetType()]->SerializeElement(this, nElement, buf);
 }
 
-bool CDmAttribute::UnserializeElement( CUtlBuffer &buf )
-{
-	return s_pAttrInfo[ GetType() ]->UnserializeElement( this, buf );
+bool CDmAttribute::UnserializeElement(CUtlBuffer &buf) {
+    return s_pAttrInfo[GetType()]->UnserializeElement(this, buf);
 }
 
 // Called by elements after unserialization of their attributes is complete
-void CDmAttribute::OnUnserializationFinished()
-{
-	return s_pAttrInfo[ GetType() ]->OnUnserializationFinished( this );
+void CDmAttribute::OnUnserializationFinished() {
+    return s_pAttrInfo[GetType()]->OnUnserializationFinished(this);
 }
 
 
 //-----------------------------------------------------------------------------
 // Get the attribute/create an attribute handle
 //-----------------------------------------------------------------------------
-DmAttributeHandle_t CDmAttribute::GetHandle( bool bCreate )
-{
-	if ( (m_Handle == DMATTRIBUTE_HANDLE_INVALID) && bCreate )
-	{
-		m_Handle = g_pDataModelImp->AcquireAttributeHandle( this );
-	}
+DmAttributeHandle_t CDmAttribute::GetHandle(bool bCreate) {
+    if ((m_Handle == DMATTRIBUTE_HANDLE_INVALID) && bCreate) {
+        m_Handle = g_pDataModelImp->AcquireAttributeHandle(this);
+    }
 
-	Assert( (m_Handle == DMATTRIBUTE_HANDLE_INVALID) || g_pDataModel->IsAttributeHandleValid( m_Handle ) );
-	return m_Handle;
+    Assert((m_Handle == DMATTRIBUTE_HANDLE_INVALID) || g_pDataModel->IsAttributeHandleValid( m_Handle ));
+    return m_Handle;
 }
 
-void CDmAttribute::InvalidateHandle()
-{
-	g_pDataModelImp->ReleaseAttributeHandle( m_Handle );
-	m_Handle = DMATTRIBUTE_HANDLE_INVALID;
+void CDmAttribute::InvalidateHandle() {
+    g_pDataModelImp->ReleaseAttributeHandle(m_Handle);
+    m_Handle = DMATTRIBUTE_HANDLE_INVALID;
 }
 
 
@@ -2131,93 +2001,79 @@ void CDmAttribute::InvalidateHandle()
 // Memory usage estimations
 //-----------------------------------------------------------------------------
 
-int CDmAttribute::EstimateMemoryUsageInternal( std::unordered_set<DmElementHandle_t> &visited, TraversalDepth_t depth, int *pCategories ) const
-{
-	int nOverhead = sizeof( *this );
-	int nAttributeDataSize = s_pAttrInfo[ GetType() ]->DataSize();
-	int nTotalMemory = nOverhead + nAttributeDataSize;
-	int nAttributeExtraDataSize = 0;
+int CDmAttribute::EstimateMemoryUsageInternal(std::unordered_set<DmElementHandle_t> &visited, TraversalDepth_t depth,
+                                              int* pCategories) const {
+    int nOverhead = sizeof(*this);
+    int nAttributeDataSize = s_pAttrInfo[GetType()]->DataSize();
+    int nTotalMemory = nOverhead + nAttributeDataSize;
+    int nAttributeExtraDataSize = 0;
 
-	if ( IsArrayType( GetType() ) )
-	{
-		CDmrGenericArrayConst array( this );
-		int nCount = array.Count();
-		DmAttributeType_t valueType = ArrayTypeToValueType( GetType() );
-		nAttributeExtraDataSize = nCount * s_pAttrInfo[ valueType ]->ValueSize();	// Data in the UtlVector
-		int nMallocOverhead = ( nCount == 0 ) ? 0 : 8;	// malloc overhead inside the vector
-		nOverhead += nMallocOverhead;
-		nTotalMemory += nAttributeExtraDataSize + nMallocOverhead;
-	}
+    if (IsArrayType(GetType())) {
+        CDmrGenericArrayConst array(this);
+        int nCount = array.Count();
+        DmAttributeType_t valueType = ArrayTypeToValueType(GetType());
+        nAttributeExtraDataSize = nCount * s_pAttrInfo[valueType]->ValueSize(); // Data in the UtlVector
+        int nMallocOverhead = (nCount == 0) ? 0 : 8; // malloc overhead inside the vector
+        nOverhead += nMallocOverhead;
+        nTotalMemory += nAttributeExtraDataSize + nMallocOverhead;
+    }
 
-	if ( pCategories )
-	{
-		++pCategories[MEMORY_CATEGORY_ATTRIBUTE_COUNT];
-		pCategories[MEMORY_CATEGORY_ATTRIBUTE_DATA] += nAttributeDataSize + nAttributeExtraDataSize;
-		pCategories[MEMORY_CATEGORY_ATTRIBUTE_OVERHEAD] += nOverhead;
-		if ( !IsDataInline() )
-		{
-			pCategories[MEMORY_CATEGORY_OUTER] -= nAttributeDataSize;
-			Assert( pCategories[MEMORY_CATEGORY_OUTER] >= 0 );
-			nTotalMemory -= nAttributeDataSize;
-		}
-	}
+    if (pCategories) {
+        ++pCategories[MEMORY_CATEGORY_ATTRIBUTE_COUNT];
+        pCategories[MEMORY_CATEGORY_ATTRIBUTE_DATA] += nAttributeDataSize + nAttributeExtraDataSize;
+        pCategories[MEMORY_CATEGORY_ATTRIBUTE_OVERHEAD] += nOverhead;
+        if (!IsDataInline()) {
+            pCategories[MEMORY_CATEGORY_OUTER] -= nAttributeDataSize;
+            Assert(pCategories[MEMORY_CATEGORY_OUTER] >= 0);
+            nTotalMemory -= nAttributeDataSize;
+        }
+    }
 
-	switch ( GetType() )
-	{
-	case AT_VOID:
-		{
-			const CUtlBinaryBlock &value = GetValue< CUtlBinaryBlock >();
-			if ( pCategories )
-			{
-				pCategories[MEMORY_CATEGORY_ATTRIBUTE_DATA] += value.Length();
-				pCategories[MEMORY_CATEGORY_ATTRIBUTE_OVERHEAD] += 8;
-			}
-			return nTotalMemory + value.Length() + 8;
-		}
+    switch (GetType()) {
+        case AT_VOID: {
+            const CUtlBinaryBlock &value = GetValue<CUtlBinaryBlock>();
+            if (pCategories) {
+                pCategories[MEMORY_CATEGORY_ATTRIBUTE_DATA] += value.Length();
+                pCategories[MEMORY_CATEGORY_ATTRIBUTE_OVERHEAD] += 8;
+            }
+            return nTotalMemory + value.Length() + 8;
+        }
 
-	case AT_VOID_ARRAY:
-		{
-			const CUtlVector< CUtlBinaryBlock > &array = GetValue< CUtlVector< CUtlBinaryBlock > >();
-			for ( int i = 0; i < array.size(); ++i )
-			{
-				if ( pCategories )
-				{
-					pCategories[MEMORY_CATEGORY_ATTRIBUTE_DATA] += array[ i ].Length();
-					pCategories[MEMORY_CATEGORY_ATTRIBUTE_OVERHEAD] += 8;
-				}
-				nTotalMemory += array[ i ].Length() + 8;
-			}
-			return nTotalMemory;
-		}
+        case AT_VOID_ARRAY: {
+            const CUtlVector<CUtlBinaryBlock> &array = GetValue<CUtlVector<CUtlBinaryBlock> >();
+            for (int i = 0; i < array.size(); ++i) {
+                if (pCategories) {
+                    pCategories[MEMORY_CATEGORY_ATTRIBUTE_DATA] += array[i].Length();
+                    pCategories[MEMORY_CATEGORY_ATTRIBUTE_OVERHEAD] += 8;
+                }
+                nTotalMemory += array[i].Length() + 8;
+            }
+            return nTotalMemory;
+        }
 
-	case AT_ELEMENT:
-		if ( ShouldTraverse( this, depth ) )
-		{
-			CDmElement *pElement = GetValueElement<CDmElement>();
-			if ( pElement )
-			{
-				nTotalMemory += pElement->EstimateMemoryUsage( visited, depth, pCategories );
-			}
-		}
-		return nTotalMemory;
+        case AT_ELEMENT:
+            if (ShouldTraverse(this, depth)) {
+                CDmElement* pElement = GetValueElement<CDmElement>();
+                if (pElement) {
+                    nTotalMemory += pElement->EstimateMemoryUsage(visited, depth, pCategories);
+                }
+            }
+            return nTotalMemory;
 
-	case AT_ELEMENT_ARRAY:
-		if ( ShouldTraverse( this, depth ) )
-		{
-			CDmrElementArrayConst<> array( this );
-			for ( int i = 0; i < array.Count(); ++i )
-			{
-				CDmElement *pElement = array[ i ];
-				if ( pElement )
-				{
-					nTotalMemory += pElement->EstimateMemoryUsage( visited, depth, pCategories );
-				}
-			}
-		}
-		return nTotalMemory;
-	}
+        case AT_ELEMENT_ARRAY:
+            if (ShouldTraverse(this, depth)) {
+                CDmrElementArrayConst<> array(this);
+                for (int i = 0; i < array.Count(); ++i) {
+                    CDmElement* pElement = array[i];
+                    if (pElement) {
+                        nTotalMemory += pElement->EstimateMemoryUsage(visited, depth, pCategories);
+                    }
+                }
+            }
+            return nTotalMemory;
+    }
 
-	return nTotalMemory;
+    return nTotalMemory;
 }
 
 
@@ -2231,264 +2087,228 @@ int CDmAttribute::EstimateMemoryUsageInternal( std::unordered_set<DmElementHandl
 //-----------------------------------------------------------------------------
 // Constructor
 //-----------------------------------------------------------------------------
-template< class T, class B >
-CDmaArrayConstBase<T,B>::CDmaArrayConstBase( )
-{
-	m_pAttribute = nullptr;
+template<class T, class B>
+CDmaArrayConstBase<T, B>::CDmaArrayConstBase() {
+    m_pAttribute = nullptr;
 }
 
 
 //-----------------------------------------------------------------------------
 // Search
 //-----------------------------------------------------------------------------
-template< class T, class B >
-int CDmaArrayConstBase<T,B>::Find( const T &value ) const
-{
-	return this->Value().Find( value );
+template<class T, class B>
+int CDmaArrayConstBase<T, B>::Find(const T &value) const {
+    return this->Value().Find(value);
 }
 
 
 //-----------------------------------------------------------------------------
 // Insertion
 //-----------------------------------------------------------------------------
-template< class T, class B >
-int CDmaArrayBase<T,B>::AddToTail()
-{
-	T defaultVal;
-	CDmAttributeInfo<T>::SetDefaultValue( defaultVal );	
-	CDmArrayAttributeOp<T> accessor( this->m_pAttribute );
-	return accessor.InsertBefore( this->Value().size(), defaultVal );
+template<class T, class B>
+int CDmaArrayBase<T, B>::AddToTail() {
+    T defaultVal;
+    CDmAttributeInfo<T>::SetDefaultValue(defaultVal);
+    CDmArrayAttributeOp<T> accessor(this->m_pAttribute);
+    return accessor.InsertBefore(this->Value().size(), defaultVal);
 }
 
-template< class T, class B >
-int	CDmaArrayBase<T,B>::InsertBefore( int elem )
-{
-	T defaultVal;
-	CDmAttributeInfo<T>::SetDefaultValue( defaultVal );	
-	CDmArrayAttributeOp<T> accessor( this->m_pAttribute );
-	return accessor.InsertBefore( elem, defaultVal );
+template<class T, class B>
+int CDmaArrayBase<T, B>::InsertBefore(int elem) {
+    T defaultVal;
+    CDmAttributeInfo<T>::SetDefaultValue(defaultVal);
+    CDmArrayAttributeOp<T> accessor(this->m_pAttribute);
+    return accessor.InsertBefore(elem, defaultVal);
 }
 
-template< class T, class B >
-int	CDmaArrayBase<T,B>::AddToTail( const T& src )
-{
-	CDmArrayAttributeOp<T> accessor( this->m_pAttribute );
-	return accessor.InsertBefore( this->Value().size(), src );
+template<class T, class B>
+int CDmaArrayBase<T, B>::AddToTail(const T &src) {
+    CDmArrayAttributeOp<T> accessor(this->m_pAttribute);
+    return accessor.InsertBefore(this->Value().size(), src);
 }
 
-template< class T, class B >
-int	CDmaArrayBase<T,B>::InsertBefore( int elem, const T& src )
-{
-	CDmArrayAttributeOp<T> accessor( this->m_pAttribute );
-	return accessor.InsertBefore( elem, src );
+template<class T, class B>
+int CDmaArrayBase<T, B>::InsertBefore(int elem, const T &src) {
+    CDmArrayAttributeOp<T> accessor(this->m_pAttribute);
+    return accessor.InsertBefore(elem, src);
 }
 
-template< class T, class B >
-int	CDmaArrayBase<T,B>::AddMultipleToTail( int num )
-{
-	CDmArrayAttributeOp<T> accessor( this->m_pAttribute );
-	return accessor.InsertMultipleBefore( this->Value().size(), num );
+template<class T, class B>
+int CDmaArrayBase<T, B>::AddMultipleToTail(int num) {
+    CDmArrayAttributeOp<T> accessor(this->m_pAttribute);
+    return accessor.InsertMultipleBefore(this->Value().size(), num);
 }
 
-template< class T, class B >
-int CDmaArrayBase<T,B>::InsertMultipleBefore( int elem, int num )
-{
-	CDmArrayAttributeOp<T> accessor( this->m_pAttribute );
-	return accessor.InsertMultipleBefore( elem, num );
+template<class T, class B>
+int CDmaArrayBase<T, B>::InsertMultipleBefore(int elem, int num) {
+    CDmArrayAttributeOp<T> accessor(this->m_pAttribute);
+    return accessor.InsertMultipleBefore(elem, num);
 }
 
-template< class T, class B >
-void CDmaArrayBase<T,B>::EnsureCount( int num )
-{
-	int nCurrentCount = this->Value().size();
-	if ( nCurrentCount < num )
-	{
-		AddMultipleToTail( num - nCurrentCount );
-	}
+template<class T, class B>
+void CDmaArrayBase<T, B>::EnsureCount(int num) {
+    int nCurrentCount = this->Value().size();
+    if (nCurrentCount < num) {
+        AddMultipleToTail(num - nCurrentCount);
+    }
 }
 
 
 //-----------------------------------------------------------------------------
 // Element modification
 //-----------------------------------------------------------------------------
-template< class T, class B >
-void CDmaArrayBase<T,B>::Set( int i, const T& value )
-{
-	CDmArrayAttributeOp<T> accessor( this->m_pAttribute );
-	return accessor.Set( i, value );
+template<class T, class B>
+void CDmaArrayBase<T, B>::Set(int i, const T &value) {
+    CDmArrayAttributeOp<T> accessor(this->m_pAttribute);
+    return accessor.Set(i, value);
 }
 
-template< class T, class B >
-void CDmaArrayBase<T,B>::SetMultiple( int i, int nCount, const T* pValue )
-{
-	CDmArrayAttributeOp<T> accessor( this->m_pAttribute );
-	accessor.SetMultiple( i, nCount, pValue );
+template<class T, class B>
+void CDmaArrayBase<T, B>::SetMultiple(int i, int nCount, const T* pValue) {
+    CDmArrayAttributeOp<T> accessor(this->m_pAttribute);
+    accessor.SetMultiple(i, nCount, pValue);
 }
 
-template< class T, class B >
-void CDmaArrayBase<T,B>::Swap( int i, int j )
-{
-	CDmArrayAttributeOp<T> accessor( this->m_pAttribute );
-	accessor.Swap( i, j );
+template<class T, class B>
+void CDmaArrayBase<T, B>::Swap(int i, int j) {
+    CDmArrayAttributeOp<T> accessor(this->m_pAttribute);
+    accessor.Swap(i, j);
 }
 
-template< class T, class B >
-void CDmaArrayBase<T,B>::SwapArray( CUtlVector< T > &array )
-{
-	CDmArrayAttributeOp<T> accessor( this->m_pAttribute );
-	accessor.SwapArray( array );
+template<class T, class B>
+void CDmaArrayBase<T, B>::SwapArray(CUtlVector<T> &array) {
+    CDmArrayAttributeOp<T> accessor(this->m_pAttribute);
+    accessor.SwapArray(array);
 }
 
 
 //-----------------------------------------------------------------------------
 // Copy
 //-----------------------------------------------------------------------------
-template< class T, class B >
-void CDmaArrayBase<T,B>::CopyArray( const T *pArray, int nCount )
-{
-	CDmArrayAttributeOp<T> accessor( this->m_pAttribute );
-	accessor.CopyArray( pArray, nCount );
+template<class T, class B>
+void CDmaArrayBase<T, B>::CopyArray(const T* pArray, int nCount) {
+    CDmArrayAttributeOp<T> accessor(this->m_pAttribute);
+    accessor.CopyArray(pArray, nCount);
 }
 
 
 //-----------------------------------------------------------------------------
 // Removal
 //-----------------------------------------------------------------------------
-template< class T, class B >
-void CDmaArrayBase<T,B>::FastRemove( int elem )
-{
-	CDmArrayAttributeOp<T> accessor( this->m_pAttribute );
-	accessor.FastRemove( elem );
+template<class T, class B>
+void CDmaArrayBase<T, B>::FastRemove(int elem) {
+    CDmArrayAttributeOp<T> accessor(this->m_pAttribute);
+    accessor.FastRemove(elem);
 }
 
-template< class T, class B >
-void CDmaArrayBase<T,B>::Remove( int elem )
-{
-	CDmArrayAttributeOp<T> accessor( this->m_pAttribute );
-	accessor.Remove( elem );
+template<class T, class B>
+void CDmaArrayBase<T, B>::Remove(int elem) {
+    CDmArrayAttributeOp<T> accessor(this->m_pAttribute);
+    accessor.Remove(elem);
 }
 
-template< class T, class B >
-void CDmaArrayBase<T,B>::RemoveAll()
-{
-	CDmArrayAttributeOp<T> accessor( this->m_pAttribute );
-	accessor.RemoveAll();
+template<class T, class B>
+void CDmaArrayBase<T, B>::RemoveAll() {
+    CDmArrayAttributeOp<T> accessor(this->m_pAttribute);
+    accessor.RemoveAll();
 }
 
-template< class T, class B >
-void CDmaArrayBase<T,B>::RemoveMultiple( int elem, int num )
-{
-	CDmArrayAttributeOp<T> accessor( this->m_pAttribute );
-	accessor.RemoveMultiple( elem, num );
+template<class T, class B>
+void CDmaArrayBase<T, B>::RemoveMultiple(int elem, int num) {
+    CDmArrayAttributeOp<T> accessor(this->m_pAttribute);
+    accessor.RemoveMultiple(elem, num);
 }
 
 
 //-----------------------------------------------------------------------------
 // Memory management
 //-----------------------------------------------------------------------------
-template< class T, class B >
-void CDmaArrayBase<T,B>::EnsureCapacity( int num )
-{
-	this->Value().EnsureCapacity( num );
+template<class T, class B>
+void CDmaArrayBase<T, B>::EnsureCapacity(int num) {
+    this->Value().EnsureCapacity(num);
 }
 
-template< class T, class B >
-void CDmaArrayBase<T,B>::Purge()
-{
-	CDmArrayAttributeOp<T> accessor( this->m_pAttribute );
-	accessor.Purge();
+template<class T, class B>
+void CDmaArrayBase<T, B>::Purge() {
+    CDmArrayAttributeOp<T> accessor(this->m_pAttribute);
+    accessor.Purge();
 }
 
 
 //-----------------------------------------------------------------------------
 // Attribute initialization
 //-----------------------------------------------------------------------------
-template< class T, class B >
-void CDmaDecorator<T,B>::Init( CDmElement *pOwner, const char *pAttributeName, int nFlags )
-{
-	Assert( pOwner );
-	this->m_pAttribute = pOwner->AddExternalAttribute( pAttributeName, CDmAttributeInfo<CUtlVector<T> >::AttributeType(), &this->Value() );
-	Assert( this->m_pAttribute );
-	if ( nFlags )
-	{
-		this->m_pAttribute->AddFlag( nFlags );
-	}
+template<class T, class B>
+void CDmaDecorator<T, B>::Init(CDmElement* pOwner, const char* pAttributeName, int nFlags) {
+    Assert(pOwner);
+    this->m_pAttribute = pOwner->AddExternalAttribute(pAttributeName, CDmAttributeInfo<CUtlVector<T> >::AttributeType(),
+                                                      &this->Value());
+    Assert(this->m_pAttribute);
+    if (nFlags) {
+        this->m_pAttribute->AddFlag(nFlags);
+    }
 }
 
 
 //-----------------------------------------------------------------------------
 // Attribute attribute reference
 //-----------------------------------------------------------------------------
-template< class T, class BaseClass >
-void CDmrDecoratorConst<T,BaseClass>::Init( const CDmAttribute* pAttribute )
-{
-	if ( pAttribute && pAttribute->GetType() == CDmAttributeInfo< CUtlVector< T > >::AttributeType() )
-	{
-		this->m_pAttribute = const_cast<CDmAttribute*>( pAttribute );
-		this->Attach( this->m_pAttribute->GetAttributeData() );
-	}
-	else
-	{
-		this->m_pAttribute = NULL;
-		this->Attach( NULL );
-	}
+template<class T, class BaseClass>
+void CDmrDecoratorConst<T, BaseClass>::Init(const CDmAttribute* pAttribute) {
+    if (pAttribute && pAttribute->GetType() == CDmAttributeInfo<CUtlVector<T> >::AttributeType()) {
+        this->m_pAttribute = const_cast<CDmAttribute*>(pAttribute);
+        this->Attach(this->m_pAttribute->GetAttributeData());
+    }
+    else {
+        this->m_pAttribute = NULL;
+        this->Attach(NULL);
+    }
 }
 
-template< class T, class BaseClass >
-void CDmrDecoratorConst<T,BaseClass>::Init( const CDmElement *pElement, const char *pAttributeName )
-{
-	const CDmAttribute *pAttribute = nullptr;
-	if ( pElement && pAttributeName && pAttributeName[0] )
-	{
-		pAttribute = pElement->GetAttribute( pAttributeName );
-	}
-	Init( pAttribute );
+template<class T, class BaseClass>
+void CDmrDecoratorConst<T, BaseClass>::Init(const CDmElement* pElement, const char* pAttributeName) {
+    const CDmAttribute* pAttribute = nullptr;
+    if (pElement && pAttributeName && pAttributeName[0]) {
+        pAttribute = pElement->GetAttribute(pAttributeName);
+    }
+    Init(pAttribute);
 }
 
-template< class T, class BaseClass >
-bool CDmrDecoratorConst<T,BaseClass>::IsValid() const
-{
-	return this->m_pAttribute != NULL;
+template<class T, class BaseClass>
+bool CDmrDecoratorConst<T, BaseClass>::IsValid() const {
+    return this->m_pAttribute != NULL;
 }
 
 
-template< class T, class BaseClass >
-void CDmrDecorator<T,BaseClass>::Init( CDmAttribute* pAttribute )
-{
-	if ( pAttribute && pAttribute->GetType() == CDmAttributeInfo< CUtlVector< T > >::AttributeType() )
-	{
-		this->m_pAttribute = pAttribute;
-		this->Attach( this->m_pAttribute->GetAttributeData() );
-	}
-	else
-	{
-		this->m_pAttribute = NULL;
-		this->Attach( NULL );
-	}
+template<class T, class BaseClass>
+void CDmrDecorator<T, BaseClass>::Init(CDmAttribute* pAttribute) {
+    if (pAttribute && pAttribute->GetType() == CDmAttributeInfo<CUtlVector<T> >::AttributeType()) {
+        this->m_pAttribute = pAttribute;
+        this->Attach(this->m_pAttribute->GetAttributeData());
+    }
+    else {
+        this->m_pAttribute = NULL;
+        this->Attach(NULL);
+    }
 }
 
-template< class T, class BaseClass >
-void CDmrDecorator<T,BaseClass>::Init( CDmElement *pElement, const char *pAttributeName, bool bAddAttribute )
-{
-	CDmAttribute *pAttribute = nullptr;
-	if ( pElement && pAttributeName && pAttributeName[0] )
-	{
-		if ( bAddAttribute )
-		{
-			pAttribute = pElement->AddAttribute( pAttributeName, CDmAttributeInfo< CUtlVector< T > >::AttributeType() );
-		}
-		else
-		{
-			pAttribute = pElement->GetAttribute( pAttributeName );
-		}
-	}
-	Init( pAttribute );
+template<class T, class BaseClass>
+void CDmrDecorator<T, BaseClass>::Init(CDmElement* pElement, const char* pAttributeName, bool bAddAttribute) {
+    CDmAttribute* pAttribute = nullptr;
+    if (pElement && pAttributeName && pAttributeName[0]) {
+        if (bAddAttribute) {
+            pAttribute = pElement->AddAttribute(pAttributeName, CDmAttributeInfo<CUtlVector<T> >::AttributeType());
+        }
+        else {
+            pAttribute = pElement->GetAttribute(pAttributeName);
+        }
+    }
+    Init(pAttribute);
 }
 
-template< class T, class BaseClass >
-bool CDmrDecorator<T,BaseClass>::IsValid() const
-{
-	return this->m_pAttribute != NULL;
+template<class T, class BaseClass>
+bool CDmrDecorator<T, BaseClass>::IsValid() const {
+    return this->m_pAttribute != NULL;
 }
 
 
@@ -2499,7 +2319,7 @@ bool CDmrDecorator<T,BaseClass>::IsValid() const
 //-----------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------
-// Helper macros to make switch statements based on type 
+// Helper macros to make switch statements based on type
 //-----------------------------------------------------------------------------
 #define ARRAY_METHOD_VOID( _type, _func )														\
 	case CDmAttributeInfo< CUtlVector< _type > >::ATTRIBUTE_TYPE:								\
@@ -2562,148 +2382,127 @@ bool CDmrDecorator<T,BaseClass>::IsValid() const
 			break;										\
 	}
 
-CDmrGenericArrayConst::CDmrGenericArrayConst() : m_pAttribute(nullptr)
-{
+CDmrGenericArrayConst::CDmrGenericArrayConst() : m_pAttribute(nullptr) {
 }
 
-CDmrGenericArrayConst::CDmrGenericArrayConst( const CDmAttribute* pAttribute )
-{
-	Init( pAttribute );
+CDmrGenericArrayConst::CDmrGenericArrayConst(const CDmAttribute* pAttribute) {
+    Init(pAttribute);
 }
 
-CDmrGenericArrayConst::CDmrGenericArrayConst( const CDmElement *pElement, const char *pAttributeName )
-{
-	Init( pElement, pAttributeName );
+CDmrGenericArrayConst::CDmrGenericArrayConst(const CDmElement* pElement, const char* pAttributeName) {
+    Init(pElement, pAttributeName);
 }
 
-void CDmrGenericArrayConst::Init( const CDmAttribute *pAttribute )
-{
-	if ( pAttribute && IsArrayType( pAttribute->GetType() ) )
-	{
-		m_pAttribute = const_cast<CDmAttribute*>( pAttribute );
-	}
-	else
-	{
-		m_pAttribute = nullptr;
-	}
+void CDmrGenericArrayConst::Init(const CDmAttribute* pAttribute) {
+    if (pAttribute && IsArrayType(pAttribute->GetType())) {
+        m_pAttribute = const_cast<CDmAttribute*>(pAttribute);
+    }
+    else {
+        m_pAttribute = nullptr;
+    }
 }
 
-void CDmrGenericArrayConst::Init( const CDmElement *pElement, const char *pAttributeName )
-{
-	const CDmAttribute *pAttribute = ( pElement && pAttributeName && pAttributeName[0] ) ? pElement->GetAttribute( pAttributeName ) : nullptr;
-	Init( pAttribute );
+void CDmrGenericArrayConst::Init(const CDmElement* pElement, const char* pAttributeName) {
+    const CDmAttribute* pAttribute = (pElement && pAttributeName && pAttributeName[0])
+                                         ? pElement->GetAttribute(pAttributeName)
+                                         : nullptr;
+    Init(pAttribute);
 }
 
-int CDmrGenericArrayConst::Count() const
-{
-	APPLY_ARRAY_METHOD_RET( size() );
-	return 0;
+int CDmrGenericArrayConst::Count() const {
+    APPLY_ARRAY_METHOD_RET(size());
+    return 0;
 }
 
-const void* CDmrGenericArrayConst::GetUntyped( int i ) const
-{
-	APPLY_ARRAY_METHOD_RET( GetUntyped( i ) );
-	return nullptr;
+const void* CDmrGenericArrayConst::GetUntyped(int i) const {
+    APPLY_ARRAY_METHOD_RET(GetUntyped( i ));
+    return nullptr;
 }
 
 
-CDmrGenericArray::CDmrGenericArray( CDmAttribute* pAttribute )
-{
-	Init( pAttribute );
+CDmrGenericArray::CDmrGenericArray(CDmAttribute* pAttribute) {
+    Init(pAttribute);
 }
 
-CDmrGenericArray::CDmrGenericArray( CDmElement *pElement, const char *pAttributeName )
-{
-	Init( pElement, pAttributeName );
+CDmrGenericArray::CDmrGenericArray(CDmElement* pElement, const char* pAttributeName) {
+    Init(pElement, pAttributeName);
 }
 
-void CDmrGenericArray::EnsureCount( int num )
-{
-	APPLY_ARRAY_METHOD_VOID( EnsureCount(num) );
+void CDmrGenericArray::EnsureCount(int num) {
+    APPLY_ARRAY_METHOD_VOID(EnsureCount(num));
 }
 
-int CDmrGenericArray::AddToTail()
-{
-	APPLY_ARRAY_METHOD_RET( AddToTail() );
-	return -1;
+int CDmrGenericArray::AddToTail() {
+    APPLY_ARRAY_METHOD_RET(AddToTail());
+    return -1;
 }
 
-void CDmrGenericArray::Remove( int elem )
-{
-	APPLY_ARRAY_METHOD_VOID( Remove(elem) );
+void CDmrGenericArray::Remove(int elem) {
+    APPLY_ARRAY_METHOD_VOID(Remove(elem));
 }
 
-void CDmrGenericArray::RemoveAll()
-{
-	APPLY_ARRAY_METHOD_VOID( RemoveAll() );
+void CDmrGenericArray::RemoveAll() {
+    APPLY_ARRAY_METHOD_VOID(RemoveAll());
 }
 
-void CDmrGenericArray::SetMultiple( int i, int nCount, DmAttributeType_t valueType, const void *pValue )
-{
-	s_pAttrInfo[ m_pAttribute->GetType() ]->SetMultiple( m_pAttribute, i, nCount, valueType, pValue );
+void CDmrGenericArray::SetMultiple(int i, int nCount, DmAttributeType_t valueType, const void* pValue) {
+    s_pAttrInfo[m_pAttribute->GetType()]->SetMultiple(m_pAttribute, i, nCount, valueType, pValue);
 }
 
-void CDmrGenericArray::Set( int i, DmAttributeType_t valueType, const void *pValue )
-{
-	s_pAttrInfo[ m_pAttribute->GetType() ]->Set( m_pAttribute, i, valueType, pValue );
+void CDmrGenericArray::Set(int i, DmAttributeType_t valueType, const void* pValue) {
+    s_pAttrInfo[m_pAttribute->GetType()]->Set(m_pAttribute, i, valueType, pValue);
 }
 
 
 //-----------------------------------------------------------------------------
 // Skip unserialization for an attribute type (unserialize into a dummy variable)
 //-----------------------------------------------------------------------------
-bool SkipUnserialize( CUtlBuffer &buf, DmAttributeType_t type )
-{
-	if ( type == AT_UNKNOWN )
-		return false;
+bool SkipUnserialize(CUtlBuffer &buf, DmAttributeType_t type) {
+    if (type == AT_UNKNOWN)
+        return false;
 
-	return s_pAttrInfo[ type ]->SkipUnserialize( buf );
+    return s_pAttrInfo[type]->SkipUnserialize(buf);
 }
 
 
 //-----------------------------------------------------------------------------
 // returns the number of attributes currently allocated
 //-----------------------------------------------------------------------------
-int GetAllocatedAttributeCount()
-{
-	return g_AttrAlloc.Count();
+int GetAllocatedAttributeCount() {
+    return g_AttrAlloc.Count();
 }
 
 
 //-----------------------------------------------------------------------------
 // Attribute type->name and name->attribute type
 //-----------------------------------------------------------------------------
-const char *AttributeTypeName( DmAttributeType_t type )
-{
-	if ( ( type >= 0 ) && ( type < AT_TYPE_COUNT ) ) 
-		return s_pAttrInfo[ type ]->AttributeTypeName();
-	return "unknown";
+const char* AttributeTypeName(DmAttributeType_t type) {
+    if ((type >= 0) && (type < AT_TYPE_COUNT))
+        return s_pAttrInfo[type]->AttributeTypeName();
+    return "unknown";
 }
 
-DmAttributeType_t AttributeType( const char *pName )
-{
-	for ( int i = 0; i < AT_TYPE_COUNT; ++i )
-	{
-		if ( !Q_stricmp( s_pAttrInfo[ i ]->AttributeTypeName(), pName ) )
-			return (DmAttributeType_t)i;
-	}
+DmAttributeType_t AttributeType(const char* pName) {
+    for (int i = 0; i < AT_TYPE_COUNT; ++i) {
+        if (!Q_stricmp(s_pAttrInfo[ i ]->AttributeTypeName(), pName))
+            return (DmAttributeType_t) i;
+    }
 
-	return AT_UNKNOWN;
+    return AT_UNKNOWN;
 }
 
 
 //-----------------------------------------------------------------------------
 // Explicit template instantiation for the known attribute types
 //-----------------------------------------------------------------------------
-template <class T>
-class CInstantiateOp
-{
+template<class T>
+class CInstantiateOp {
 public:
-	CInstantiateOp()
-	{
-		s_pAttrInfo[ CDmAttributeInfo<T>::ATTRIBUTE_TYPE ] = new CDmAttributeOp< T >;
-	}
+    CInstantiateOp() {
+        s_pAttrInfo[CDmAttributeInfo<T>::ATTRIBUTE_TYPE] = new CDmAttributeOp<T>;
+    }
 };
+
 static CInstantiateOp<DmUnknownAttribute_t> __s_AttrDmUnknownAttribute_t;
 
 #define INSTANTIATE_GENERIC_OPS( _className )	\
@@ -2716,7 +2515,7 @@ static CInstantiateOp<DmUnknownAttribute_t> __s_AttrDmUnknownAttribute_t;
 		}													\
 	};														\
 	static CInstantiateOp< _className > __s_Attr ## _className;	\
-	static CInstantiateOp< CUtlVector< _className > > __s_AttrArray ## _className;	
+	static CInstantiateOp< CUtlVector< _className > > __s_AttrArray ## _className;
 
 #define DEFINE_ATTRIBUTE_TYPE( _type )	\
 	INSTANTIATE_GENERIC_OPS( _type )	\
@@ -2734,46 +2533,66 @@ static CInstantiateOp<DmUnknownAttribute_t> __s_AttrDmUnknownAttribute_t;
 	template class CDmrDecoratorConst< _type, CDmaArrayConstBase< _type, CDmaDataExternal< CUtlVector< _type > > > >;
 
 
-DEFINE_ATTRIBUTE_TYPE( int )
-DEFINE_ATTRIBUTE_TYPE( float )
-DEFINE_ATTRIBUTE_TYPE( bool )
-DEFINE_ATTRIBUTE_TYPE( Color )
-DEFINE_ATTRIBUTE_TYPE( Vector2D )
-DEFINE_ATTRIBUTE_TYPE( Vector )
-DEFINE_ATTRIBUTE_TYPE( Vector4D )
-DEFINE_ATTRIBUTE_TYPE( QAngle )
-DEFINE_ATTRIBUTE_TYPE( Quaternion )
-DEFINE_ATTRIBUTE_TYPE( VMatrix )
-DEFINE_ATTRIBUTE_TYPE( CUtlSymbolLarge )
-DEFINE_ATTRIBUTE_TYPE( CUtlBinaryBlock )
-DEFINE_ATTRIBUTE_TYPE( DmeTime_t )
-DEFINE_ATTRIBUTE_TYPE( DmElementHandle_t )
+DEFINE_ATTRIBUTE_TYPE(int)
+DEFINE_ATTRIBUTE_TYPE(float)
+DEFINE_ATTRIBUTE_TYPE(bool)
+DEFINE_ATTRIBUTE_TYPE(Color)
+DEFINE_ATTRIBUTE_TYPE(Vector2D)
+DEFINE_ATTRIBUTE_TYPE(Vector)
+DEFINE_ATTRIBUTE_TYPE(Vector4D)
+DEFINE_ATTRIBUTE_TYPE(QAngle)
+DEFINE_ATTRIBUTE_TYPE(Quaternion)
+DEFINE_ATTRIBUTE_TYPE(VMatrix)
+DEFINE_ATTRIBUTE_TYPE(CUtlSymbolLarge)
+DEFINE_ATTRIBUTE_TYPE(CUtlBinaryBlock)
+DEFINE_ATTRIBUTE_TYPE(DmeTime_t)
+DEFINE_ATTRIBUTE_TYPE(DmElementHandle_t)
 
-template class CDmaDecorator< CUtlSymbolLarge, CDmaStringArrayBase< CDmaDataInternal< CUtlVector< CUtlSymbolLarge > > > >;
-template class CDmrDecorator< CUtlSymbolLarge, CDmaStringArrayBase< CDmaDataExternal< CUtlVector< CUtlSymbolLarge > > > >;
-template class CDmrDecoratorConst< CUtlSymbolLarge, CDmaStringArrayConstBase< CDmaArrayConstBase< CUtlSymbolLarge, CDmaDataExternal< CUtlVector< CUtlSymbolLarge > > > > >;
+template class CDmaDecorator<CUtlSymbolLarge, CDmaStringArrayBase<CDmaDataInternal<CUtlVector<CUtlSymbolLarge> > > >;
+template class CDmrDecorator<CUtlSymbolLarge, CDmaStringArrayBase<CDmaDataExternal<CUtlVector<CUtlSymbolLarge> > > >;
+template class CDmrDecoratorConst<CUtlSymbolLarge, CDmaStringArrayConstBase<CDmaArrayConstBase<CUtlSymbolLarge,
+    CDmaDataExternal<CUtlVector<CUtlSymbolLarge> > > > >;
 
 //-----------------------------------------------------------------------------
 // Explicit instantiations of the generic CDmAttribute accessors used by the inline GetValue<T> in headers;
 // they have to follow the member template definitions above.
 //-----------------------------------------------------------------------------
-template bool CDmAttribute::IsTypeConvertable< Vector >() const;
-template void CDmAttribute::CopyDataOut< Vector >( Vector& ) const;
-template bool CDmAttribute::IsTypeConvertable< Vector2D >() const;
-template void CDmAttribute::CopyDataOut< Vector2D >( Vector2D& ) const;
-template bool CDmAttribute::IsTypeConvertable< Vector4D >() const;
-template void CDmAttribute::CopyDataOut< Vector4D >( Vector4D& ) const;
-template bool CDmAttribute::IsTypeConvertable< Color >() const;
-template void CDmAttribute::CopyDataOut< Color >( Color& ) const;
-template bool CDmAttribute::IsTypeConvertable< VMatrix >() const;
-template void CDmAttribute::CopyDataOut< VMatrix >( VMatrix& ) const;
-template bool CDmAttribute::IsTypeConvertable< CUtlSymbolLarge >() const;
-template void CDmAttribute::CopyDataOut< CUtlSymbolLarge >( CUtlSymbolLarge& ) const;
-template bool CDmAttribute::IsTypeConvertable< DmElementHandle_t >() const;
-template void CDmAttribute::CopyDataOut< DmElementHandle_t >( DmElementHandle_t& ) const;
-template bool CDmAttribute::IsTypeConvertable< CUtlVector< float > >() const;
-template void CDmAttribute::CopyDataOut< CUtlVector< float > >( CUtlVector< float >& ) const;
-template bool CDmAttribute::IsTypeConvertable< CUtlVector< DmeTime_t > >() const;
-template void CDmAttribute::CopyDataOut< CUtlVector< DmeTime_t > >( CUtlVector< DmeTime_t >& ) const;
-template bool CDmAttribute::IsTypeConvertable< CUtlVector< DmElementHandle_t > >() const;
-template void CDmAttribute::CopyDataOut< CUtlVector< DmElementHandle_t > >( CUtlVector< DmElementHandle_t >& ) const;
+template bool CDmAttribute::IsTypeConvertable<Vector>() const;
+
+template void CDmAttribute::CopyDataOut<Vector>(Vector &) const;
+
+template bool CDmAttribute::IsTypeConvertable<Vector2D>() const;
+
+template void CDmAttribute::CopyDataOut<Vector2D>(Vector2D &) const;
+
+template bool CDmAttribute::IsTypeConvertable<Vector4D>() const;
+
+template void CDmAttribute::CopyDataOut<Vector4D>(Vector4D &) const;
+
+template bool CDmAttribute::IsTypeConvertable<Color>() const;
+
+template void CDmAttribute::CopyDataOut<Color>(Color &) const;
+
+template bool CDmAttribute::IsTypeConvertable<VMatrix>() const;
+
+template void CDmAttribute::CopyDataOut<VMatrix>(VMatrix &) const;
+
+template bool CDmAttribute::IsTypeConvertable<CUtlSymbolLarge>() const;
+
+template void CDmAttribute::CopyDataOut<CUtlSymbolLarge>(CUtlSymbolLarge &) const;
+
+template bool CDmAttribute::IsTypeConvertable<DmElementHandle_t>() const;
+
+template void CDmAttribute::CopyDataOut<DmElementHandle_t>(DmElementHandle_t &) const;
+
+template bool CDmAttribute::IsTypeConvertable<CUtlVector<float> >() const;
+
+template void CDmAttribute::CopyDataOut<CUtlVector<float> >(CUtlVector<float> &) const;
+
+template bool CDmAttribute::IsTypeConvertable<CUtlVector<DmeTime_t> >() const;
+
+template void CDmAttribute::CopyDataOut<CUtlVector<DmeTime_t> >(CUtlVector<DmeTime_t> &) const;
+
+template bool CDmAttribute::IsTypeConvertable<CUtlVector<DmElementHandle_t> >() const;
+
+template void CDmAttribute::CopyDataOut<CUtlVector<DmElementHandle_t> >(CUtlVector<DmElementHandle_t> &) const;
