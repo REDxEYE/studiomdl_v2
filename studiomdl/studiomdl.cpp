@@ -1105,6 +1105,10 @@ static void FindOrAddFlexController(
             return;
         }
     }
+    if (ctx.flex.flexcontrollers.full()) {
+        MdlError("Too many flex controllers, max {}, cannot add control {}",
+                 ctx.flex.flexcontrollers.capacity(), pszFlexControllerName);
+    }
     ctx.flex.flexcontrollers.emplace_back(s_flexcontroller_t{
         .name = pszFlexControllerName,
         .type = pszFlexControllerType,

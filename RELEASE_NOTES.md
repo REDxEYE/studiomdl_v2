@@ -23,6 +23,7 @@ A cross-platform (Linux, Windows, macOS x86_64/arm64) 64-bit port of Valve's Sou
 - Flexed vertices per model: 65,534 (`MAXSTUDIOFLEXVERTS`)
 
 ## Fixes vs SFM's `studiomdl.exe`
+- Explicit DMX flex rules report the controller that exceeds the limit instead of an internal vector overflow.
 - **Model splitting (vertex clamp):** no crash for materials other than index 0; faces keep their material; flex
   controllers and rules are no longer duplicated per piece; flex keys that move nothing in a piece are culled.
   Pieces are named `<model>_clamped<N>`.

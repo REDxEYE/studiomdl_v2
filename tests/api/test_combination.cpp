@@ -203,6 +203,21 @@ SMDL_TEST(combination_equiv_dmx_flex_rules) {
     RequireSameAsQc(model, "combo_rules.qc");
 }
 
+SMDL_TEST(combination_explicit_flex_controller_limit) {
+    smdl::Model model = ComboModel("api/combo_limit");
+    smdl::Mesh mesh = AddComboGrid(model);
+    AddComboShapes(mesh.geometry());
+    mesh.addCombinationExpression("browUp", "control0");
+    for (int i = 0; i < 128; ++i)
+        mesh.addCombinationControl("control" + std::to_string(i), std::span<const std::string_view>());
+    Require(model.compile().ok(), "128 explicit flex controllers compile");
+
+    mesh.addCombinationControl("overflow", std::span<const std::string_view>());
+    const smdl::Error error = CaptureError([&] { model.compile(); });
+    Require(Contains(error.what(), "Too many flex controllers, max 128, cannot add control overflow"),
+            std::string(error.what()));
+}
+
 // The balance reaches the MDL: the same model without it is not the DMX compile
 SMDL_TEST(combination_balance_is_stored) {
     smdl::Model withBalance = BuildCombo(true);
