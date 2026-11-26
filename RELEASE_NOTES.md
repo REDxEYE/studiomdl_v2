@@ -18,7 +18,8 @@ A cross-platform (Linux, Windows, macOS x86_64/arm64) 64-bit port of Valve's Sou
 - **No external DLLs:** a single static executable, with no Steam or game binaries required.
 
 ## Raised limits
-- Flex controllers: 128 (`MAXSTUDIOFLEXCTRL`)
+- Flex controllers: 512 (`MAXSTUDIOFLEXCTRL`). SFM loads and drives all 511 controllers of a test model; SFM's HLMV
+  crashes on models with more than 128 controllers (its own fixed-size slider array).
 - Materials/skins: 128 (`MAXSTUDIOSKINS`, was 32)
 - Flexed vertices per model: 65,534 (`MAXSTUDIOFLEXVERTS`)
 

@@ -27,6 +27,7 @@
 #include "tier1/utlsymbol.h"
 #include "tier1/generichash.h"
 #include "localflexcontroller.h"
+#include "studiomdl/studiomdl_constants.hpp"
 
 // flex rule opcodes (mstudioflexop_t::op)
 enum class StudioOpcode : uint32_t {
@@ -152,24 +153,6 @@ Studio models are position independent, so the cache manager can move them.
 
 struct studiohdr_t;
 
-#define MAXSTUDIOTRIANGLES	65536	// TODO: tune this
-#define MAXSTUDIOVERTS		65536	// TODO: tune this
-#define	MAXSTUDIOFLEXVERTS	(MAXSTUDIOVERTS - 1)	// max number of verts that can be flexed per model (the engine flex cache addresses 65535 verts)
-
-
-
-#define MAXSTUDIOSKINS		128		// total textures (compiler side limit; SFM renders models with more than 32)
-#define MAXSTUDIOBONES		256		// total bones actually used
-#define MAXSTUDIOFLEXDESC	1024	// maximum number of low level flexes (actual morph targets)
-#define MAXSTUDIOFLEXCTRL	128		// maximum number of flexcontrollers (input sliders)
-#define MAXSTUDIOPOSEPARAM	24
-#define MAXSTUDIOBONECTRLS	4
-#define MAXSTUDIOANIMBLOCKS 256
-
-#define MAXSTUDIOBONEBITS	8		// NOTE: MUST MATCH MAXSTUDIOBONES
-
-// NOTE!!! : Changing this number also changes the vtx file format!!!!!
-#define MAX_NUM_BONES_PER_VERT 3
 
 // mstudioevent_t::type
 enum class StudioEventType : int {
