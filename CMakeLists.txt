@@ -6,6 +6,7 @@ project(studiomdl_v2)
 # built by default when this is the top level project.
 option(STUDIOMDL_BUILD_TESTS "Build the tests (ctest)" ${PROJECT_IS_TOP_LEVEL})
 option(STUDIOMDL_BUILD_CLI "Build the studiomdl_v2 and dmxconvert executables" ${PROJECT_IS_TOP_LEVEL})
+option(STUDIOMDL_BUILD_SFM_GL_PROBE "Build the Qt/OpenGL SFM shader probe" OFF)
 
 # Variables set here (language standard, visibility, ...) are scoped to this directory: they don't leak into a parent
 # project that add_subdirectory()s us.
@@ -139,6 +140,31 @@ if (STUDIOMDL_BUILD_CLI)
     if (MINGW)
         # studiomdl_errors.cpp uses std::print, see studiomdl_v2 above
         target_link_libraries(dmxconvert PRIVATE stdc++exp)
+    endif ()
+
+    # vcs2glsl: translates the shaders in .vcs files to GLSL with the CS:GO togl translator (libs/togl). The .vcs
+    # blocks are LZMA compressed, so it needs liblzma (xz)
+    find_package(LibLZMA)
+    if (LibLZMA_FOUND)
+        add_subdirectory(libs/togl)
+        add_executable(vcs2glsl vcs2glsl/vcs2glsl.cpp)
+        target_link_libraries(vcs2glsl PRIVATE togl_translator LibLZMA::LibLZMA)
+        if (MINGW)
+            target_link_libraries(vcs2glsl PRIVATE stdc++exp)
+        endif ()
+    else ()
+        message(STATUS "liblzma not found: vcs2glsl is not built")
+    endif ()
+endif ()
+
+if (STUDIOMDL_BUILD_SFM_GL_PROBE)
+    find_package(Qt6 REQUIRED COMPONENTS OpenGL)
+    add_executable(sfm_gl_probe sfm_gl_probe/main.cpp sfm_gl_probe/mdl_mesh.cpp sfm_gl_probe/source_texture.cpp)
+    target_include_directories(sfm_gl_probe PRIVATE include)
+    target_compile_definitions(sfm_gl_probe PRIVATE STATIC_TIER0)
+    target_link_libraries(sfm_gl_probe PRIVATE Qt6::OpenGL tier1)
+    if (MINGW)
+        target_link_libraries(sfm_gl_probe PRIVATE stdc++exp)
     endif ()
 endif ()
 
