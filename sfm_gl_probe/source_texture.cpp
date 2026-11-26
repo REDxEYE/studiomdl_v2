@@ -161,6 +161,60 @@ void UploadVtf(Texture &texture, const QString &path, bool srgb)
     texture.setMinMagFilters(!nearest && mipCount > 1 && !(flags & 0x100) ? Texture::LinearMipMapLinear : filter, filter);
     texture.setMipLevelRange(0, mipCount - 1);
 }
+// Game directories in Source search order, from SFM's usermod/gameinfo.txt when present (SFM runs
+// -game usermod, which mounts every mod) or else the model's own mod. Loose files only: VPKs are skipped.
+QStringList MountedGameDirs(const QDir &modDir)
+{
+    QDir root = modDir;
+    root.cdUp();
+    const auto usermod = root.filePath(QStringLiteral("usermod/gameinfo.txt"));
+    const auto info = QFileInfo::exists(usermod) ? usermod : modDir.filePath(QStringLiteral("gameinfo.txt"));
+    QStringList dirs;
+    const auto add = [&](const QString &path) {
+        const auto canonical = QFileInfo(path).canonicalFilePath();
+        if (!canonical.isEmpty() && QFileInfo(canonical).isDir() && !dirs.contains(canonical))
+            dirs.append(canonical);
+    };
+    if (QFileInfo::exists(info))
+    {
+        KeyValues kv("GameInfo");
+        const auto text = ReadFile(info, 1024 * 1024);
+        auto *fileSystem = kv.LoadFromBuffer(info.toUtf8().constData(), text.constData()) ? kv.FindKey("FileSystem") : nullptr;
+        auto *searchPaths = fileSystem ? fileSystem->FindKey("SearchPaths") : nullptr;
+        for (auto *entry = searchPaths ? searchPaths->GetFirstValue() : nullptr; entry; entry = entry->GetNextValue())
+        {
+            // Keys are '+'-joined path IDs such as "Game", "game+mod" or "platform".
+            const auto ids = QString::fromUtf8(entry->GetName()).toLower().split('+');
+            if (!ids.contains(QStringLiteral("game")))
+                continue;
+            auto path = QString::fromUtf8(entry->GetString()).replace('\\', '/');
+            path.replace(QStringLiteral("|gameinfo_path|"), QFileInfo(info).absolutePath() + '/', Qt::CaseInsensitive);
+            path.replace(QStringLiteral("|all_source_engine_paths|"), root.absolutePath() + '/', Qt::CaseInsensitive);
+            if (QFileInfo(path).isRelative())
+                path = root.filePath(path);
+            if (path.endsWith(QStringLiteral(".vpk"), Qt::CaseInsensitive))
+                continue; // shortcut: VPK archives are not mounted; add vpklib reading when needed
+            if (path.endsWith(QStringLiteral("/*")))
+            {
+                const QDir parent(path.chopped(2));
+                for (const auto &child : parent.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name))
+                    add(parent.filePath(child));
+            }
+            else
+                add(path);
+        }
+    }
+    add(modDir.absolutePath()); // the model's own mod even when gameinfo does not list it
+    return dirs;
+}
+
+QString FindMaterialAsset(const QStringList &gameDirs, const QString &relative)
+{
+    for (const auto &dir : gameDirs)
+        if (auto path = FindAsset(QDir(dir).filePath(QStringLiteral("materials")), relative); !path.isEmpty())
+            return path;
+    return {};
+}
 } // namespace
 
 QString LoadSourceMaterial(SourceMaterial &out, const QString &modelPath, const QString &material,
@@ -171,17 +225,17 @@ QString LoadSourceMaterial(SourceMaterial &out, const QString &modelPath, const 
         if (!root.cdUp())
             Fail(modelPath, QStringLiteral("expected the model under a game directory's models/ folder"));
     root.cdUp();
-    const auto materials = root.filePath(QStringLiteral("materials"));
+    const auto gameDirs = MountedGameDirs(root);
     QString vmt;
     for (const auto &path : searchPaths)
     {
         const auto name = path.isEmpty() ? material : path + '/' + material;
-        vmt = FindAsset(materials, name + QStringLiteral(".vmt"));
+        vmt = FindMaterialAsset(gameDirs, name + QStringLiteral(".vmt"));
         if (!vmt.isEmpty())
             break;
     }
     if (vmt.isEmpty())
-        Fail(modelPath, QStringLiteral("could not find loose VMT for %1").arg(material));
+        Fail(modelPath, QStringLiteral("could not find loose VMT for %1 in %2").arg(material, gameDirs.join(QStringLiteral(", "))));
 
     const auto text = ReadFile(vmt, 1024 * 1024);
     KeyValues kv("material");
@@ -191,36 +245,76 @@ QString LoadSourceMaterial(SourceMaterial &out, const QString &modelPath, const 
     if (shader.compare(QStringLiteral("VertexLitGeneric"), Qt::CaseInsensitive) != 0 &&
         shader.compare(QStringLiteral("UnlitGeneric"), Qt::CaseInsensitive) != 0)
         Fail(vmt, QStringLiteral("unsupported material shader %1").arg(shader));
-    out.shader = shader.compare(QStringLiteral("UnlitGeneric"), Qt::CaseInsensitive) == 0
-        ? MaterialShader::Unlit : kv.GetInt("$phong") ? MaterialShader::Phong : MaterialShader::Diffuse;
-    const auto upload = [&](Texture &texture, QString name, bool srgb) {
+    const bool unlit = shader.compare(QStringLiteral("UnlitGeneric"), Qt::CaseInsensitive) == 0;
+    out.shader = unlit ? MaterialShader::Unlit : kv.GetInt("$phong") ? MaterialShader::Phong : MaterialShader::Diffuse;
+
+    // [r g b] in 0..1 or {r g b} in 0..255, like Source's material vector parser.
+    const auto parseVector = [&](const char *key, QVector4D &value) {
+        const auto text = kv.GetString(key);
+        if (text.empty())
+            return;
+        const bool bytes = text.front() == '{';
+        if (text.size() < 2 || (text.front() != '[' && !bytes) || text.back() != (bytes ? '}' : ']'))
+            Fail(vmt, QStringLiteral("expected [r g b] or {r g b} for %1").arg(QString::fromLatin1(key)));
+        std::istringstream input(std::string(text.substr(1, text.size() - 2)));
+        float x, y, z;
+        if (!(input >> x >> y >> z) || !std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z))
+            Fail(vmt, QStringLiteral("invalid %1").arg(QString::fromLatin1(key)));
+        const float scale = bytes ? 1.f / 255.f : 1.f;
+        value = {x * scale, y * scale, z * scale, value.w()};
+    };
+
+    // Source binds its white texture when $basetexture is absent (SFM HLMV renders such meshes white).
+    const auto uploadOrDefault = [&](Texture &texture, const char *key, QColor fallback, bool srgb) {
+        auto name = QString::fromUtf8(kv.GetString(key));
+        if (name.isEmpty())
+        {
+            QImage image(1, 1, QImage::Format_RGBA8888);
+            image.fill(fallback);
+            texture.setFormat(srgb ? Texture::SRGB8_Alpha8 : Texture::RGBA8_UNorm);
+            texture.setData(image, Texture::DontGenerateMipMaps);
+            texture.setMinMagFilters(Texture::Nearest, Texture::Nearest);
+            return QStringLiteral("(white)");
+        }
         if (!name.endsWith(QStringLiteral(".vtf"), Qt::CaseInsensitive))
             name += QStringLiteral(".vtf");
-        const auto path = FindAsset(materials, name);
+        const auto path = FindMaterialAsset(gameDirs, name);
         if (path.isEmpty())
             Fail(vmt, QStringLiteral("could not find %1").arg(name));
         UploadVtf(texture, path, srgb);
         return path;
     };
-    const auto base = QString::fromUtf8(kv.GetString("$basetexture"));
-    if (base.isEmpty())
-        Fail(vmt, QStringLiteral("no $basetexture"));
-    const auto vtf = upload(out.base, base, true);
+    const auto vtf = uploadOrDefault(out.base, "$basetexture", Qt::white, true);
+
+    // Pixel shader c1 (SetModulationPixelShaderDynamicState_LinearColorSpace): GammaToLinear($color * $color2), $alpha.
+    QVector4D color{1, 1, 1, 1}, color2{1, 1, 1, 1};
+    parseVector("$color", color);
+    parseVector("$color2", color2);
+    const auto linear = [](float gamma) {
+        gamma = std::clamp(gamma, 0.f, 1.f);
+        return gamma <= 0.04045f ? gamma / 12.92f : std::pow((gamma + 0.055f) / 1.055f, 2.4f);
+    };
+    const auto tint = color * color2;
+    out.modulation = {linear(tint.x()), linear(tint.y()), linear(tint.z()), std::clamp(kv.GetFloat("$alpha", 1), 0.f, 1.f)};
+
+    const bool translucent = kv.GetInt("$translucent") != 0, additive = kv.GetInt("$additive") != 0;
+    out.blend = additive ? (translucent ? MaterialBlend::TranslucentAdditive : MaterialBlend::Additive)
+        : translucent ? MaterialBlend::Translucent
+        : kv.GetInt("$alphatest") ? MaterialBlend::AlphaTest : MaterialBlend::Opaque;
+    if (const float reference = kv.GetFloat("$alphatestreference"); reference > 0 && reference <= 1)
+        out.alphaTestReference = reference;
+
+    ComboFeatures features;
+    features.unlit = unlit;
+    features.phong = out.shader == MaterialShader::Phong;
+    features.halfLambert = kv.GetInt("$halflambert") != 0;
+    // SFM phong draw (0x100380F0): bPhongHalfLambert is true unless $phongdisablehalflambert is set.
+    features.phongHalfLambert = kv.GetInt("$phongdisablehalflambert") == 0;
+    features.pixelFog = kv.GetInt("$vertexfog") == 0;
+    out.combo = SelectCombo(features);
+
     if (out.shader == MaterialShader::Phong)
     {
-        // shortcut: the original no-warp/no-rim/no-cubemap combo; add shader selection before supporting those features.
-        const auto parseVector = [&](const char *key, QVector4D &value) {
-            const auto text = kv.GetString(key);
-            if (text.empty())
-                return;
-            if (text.size() < 2 || text.front() != '[' || text.back() != ']')
-                Fail(vmt, QStringLiteral("expected [r g b] for %1").arg(QString::fromLatin1(key)));
-            std::istringstream input(std::string(text.substr(1, text.size() - 2)));
-            float x, y, z;
-            if (!(input >> x >> y >> z) || !std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z))
-                Fail(vmt, QStringLiteral("invalid %1").arg(QString::fromLatin1(key)));
-            value = {x, y, z, value.w()};
-        };
         out.exponent = kv.GetFloat("$phongexponent");
         out.fresnelBoost.setW(kv.GetFloat("$phongboost", 1));
         if (!std::isfinite(out.exponent) || out.exponent < 0 || !std::isfinite(out.fresnelBoost.w()))
@@ -229,20 +323,22 @@ QString LoadSourceMaterial(SourceMaterial &out, const QString &modelPath, const 
         parseVector("$phongtint", out.tint);
         out.alphaMask = kv.GetInt("$basemapalphaphongmask") != 0;
         out.luminanceMask = kv.GetInt("$basemapluminancephongmask") != 0;
-        const auto uploadOrDefault = [&](Texture &texture, const char *key, QColor fallback) {
-            const auto name = QString::fromUtf8(kv.GetString(key));
-            if (!name.isEmpty())
-                upload(texture, name, false);
-            else
-            {
-                QImage image(1, 1, QImage::Format_RGBA8888);
-                image.fill(fallback);
-                texture.setData(image, Texture::DontGenerateMipMaps);
-                texture.setMinMagFilters(Texture::Nearest, Texture::Nearest);
-            }
-        };
-        uploadOrDefault(out.normal, "$bumpmap", QColor(128, 128, 255));
-        uploadOrDefault(out.exponentMap, "$phongexponenttexture", Qt::white);
+        uploadOrDefault(out.normal, "$bumpmap", QColor(128, 128, 255), false);
+        uploadOrDefault(out.exponentMap, "$phongexponenttexture", Qt::white, false);
+    }
+
+    // Report what the selected combo ignores, so missing features are visible instead of silently wrong.
+    static const QStringList applied = {
+        "$basetexture", "$color", "$color2", "$alpha", "$translucent", "$additive", "$alphatest",
+        "$alphatestreference", "$halflambert", "$model", "$surfaceprop", "$nocull", "$phong", "$vertexfog",
+        "$phongexponent", "$phongboost", "$phongfresnelranges", "$phongtint", "$basemapalphaphongmask",
+        "$basemapluminancephongmask", "$bumpmap", "$phongexponenttexture", "$phongdisablehalflambert"};
+    for (auto *key = kv.GetFirstValue(); key; key = key->GetNextValue())
+    {
+        const auto name = QString::fromUtf8(key->GetName()).toLower();
+        const bool phongOnly = name == "$bumpmap" || name.startsWith("$phong") || name.startsWith("$basemap");
+        if (name.startsWith('$') && (!applied.contains(name) || (phongOnly && out.shader != MaterialShader::Phong)))
+            out.ignored.append(name);
     }
     return vtf;
 }

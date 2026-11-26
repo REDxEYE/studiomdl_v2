@@ -7,6 +7,8 @@
 #include <QStringList>
 #include <QVector3D>
 
+#include "mdl_flex.h"
+
 struct Vertex
 {
     float position[4];
@@ -22,6 +24,14 @@ struct MeshBatch
     int texture;
 };
 
+// Header data shown by HLMV's Model, Sequence, Bones and Attachments tabs.
+struct MdlInfo
+{
+    QStringList bones, attachments, bodyParts, sequences;
+    int boneControllers = 0, hitboxes = 0, hitboxSets = 0, skinFamilies = 0;
+    QVector3D hullMin, hullMax;
+};
+
 struct MdlMesh
 {
     std::vector<Vertex> vertices;
@@ -32,6 +42,9 @@ struct MdlMesh
     QVector3D center;
     bool hasTangents;
     float radius;
+    MdlInfo info;
+    MdlFlexData flex;
+    std::vector<std::array<float, 9>> skinLinear; // per vertex, row-major; empty for static props
 };
 
 MdlMesh LoadMdlMesh(const QString &path);

@@ -11,10 +11,14 @@
 struct ViewportSettings
 {
     QColor background{64, 64, 64};
+    QColor light{255, 255, 255};
+    QColor ambient{77, 77, 77}; // HLMV default 0.3
     bool specular = true;
     bool wireframe = false;
     bool centerView = false;
     std::function<void(const QString &)> reportError;
+    std::vector<float> flexRaw; // per flex controller, 0..1 like HLMV's StudioModel::m_flexweight
+    int flexRevision = 0;       // bump after changing flexRaw
 };
 
 void ConfigureSfmViewport();

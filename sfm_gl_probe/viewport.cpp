@@ -43,11 +43,11 @@ constexpr Vertex quad[] = {
     {{ 0.75f,  0.75f, 0.0f, 1.0f}, {1.0f, 1.0f}},
 };
 
-constexpr auto missingSlot = static_cast<size_t>(MaterialShader::Missing);
-
 struct ModelProgram
 {
     QOpenGLShaderProgram gl;
+    ShaderCombo combo;
+    bool missing = false;
     bool phong = false;
     int position = -1, uv = -1, normal = -1, tangent = -1, color = -1;
 };
@@ -92,6 +92,7 @@ protected:
         qWarning().noquote() << "Using pink/black checker for" << name << ':' << error;
         material = std::make_unique<SourceMaterial>();
         material->shader = MaterialShader::Missing;
+        material->combo = {};
     }
 
     void initializeGL() override
@@ -106,7 +107,11 @@ protected:
             m_vertices.allocate(quad, sizeof(quad));
         else
         {
-            const auto vertices = std::exchange(m_mesh.vertices, {});
+            // Flexed models keep the unflexed vertices to rebuild the buffer whenever controller values change.
+            const bool flexed = !m_mesh.flex.flexes.empty();
+            const auto vertices = flexed ? m_mesh.vertices : std::exchange(m_mesh.vertices, {});
+            if (flexed)
+                m_vertices.setUsagePattern(QOpenGLBuffer::DynamicDraw);
             const auto indices = std::exchange(m_mesh.indices, {});
             m_vertices.allocate(vertices.data(), int(vertices.size() * sizeof(Vertex)));
             if (!m_indices.create() || !m_indices.bind())
@@ -141,6 +146,9 @@ protected:
                         qInfo().noquote() << "Loaded base texture:" << path << texture->base.width() << 'x' << texture->base.height();
                         if (texture->shader == MaterialShader::Phong)
                             qInfo() << "Phong exponent override:" << texture->exponent << "boost:" << texture->fresnelBoost.w();
+                        if (!texture->ignored.isEmpty())
+                            qWarning().noquote() << "Not applied in" << m_mesh.textures[batch.texture] << ':'
+                                                 << texture->ignored.join(QStringLiteral(", "));
                     }
                     catch (const std::runtime_error &error)
                     {
@@ -177,51 +185,62 @@ protected:
 
         try
         {
+            m_materialProgram.assign(m_materialTextures.size(), -1);
             if (m_shaderDirectory.isEmpty())
             {
-                auto &state = *(m_programs[0] = std::make_unique<ModelProgram>());
-                initProgram(state, MaterialShader::Unlit);
-                for (const auto &material : m_materialTextures)
-                    if (material && (material->shader == MaterialShader::Phong) != state.phong)
-                        throw std::runtime_error("Material $phong does not match the supplied shader pair");
+                // Standalone probe: one program from the given GLSL files for every material.
+                m_programs.push_back(std::make_unique<ModelProgram>());
+                initProgram(*m_programs.back(), nullptr, false);
+                for (size_t i = 0; i < m_materialTextures.size(); ++i)
+                    if (const auto &material = m_materialTextures[i])
+                    {
+                        if ((material->shader == MaterialShader::Phong) != m_programs.back()->phong)
+                            throw std::runtime_error("Material $phong does not match the supplied shader pair");
+                        m_materialProgram[i] = 0;
+                    }
             }
             else
             {
-                std::array<std::string, missingSlot> errors;
-                bool needsChecker = false;
+                // One program per distinct combo; a combo that fails to load turns its materials into the checker.
+                std::vector<std::pair<ShaderCombo, std::string>> failed;
                 for (size_t i = 0; i < m_materialTextures.size(); ++i)
                 {
                     auto &material = m_materialTextures[i];
-                    if (!material)
+                    if (!material || material->shader == MaterialShader::Missing)
                         continue;
-                    if (material->shader != MaterialShader::Missing)
+                    const auto existing = std::ranges::find_if(m_programs, [&](const auto &p) { return p->combo == material->combo; });
+                    if (existing != m_programs.end())
                     {
-                        const auto index = static_cast<size_t>(material->shader);
-                        auto &slot = m_programs[index];
-                        if (!slot && errors[index].empty())
-                        {
-                            try
-                            {
-                                auto program = std::make_unique<ModelProgram>();
-                                initProgram(*program, material->shader);
-                                slot = std::move(program);
-                            }
-                            catch (const std::runtime_error &error)
-                            {
-                                errors[index] = error.what();
-                            }
-                        }
-                        if (!slot)
-                            markMissing(material, m_mesh.textures[i], errors[index].c_str());
+                        m_materialProgram[i] = int(existing - m_programs.begin());
+                        continue;
                     }
-                    needsChecker |= material->shader == MaterialShader::Missing;
+                    const auto error = std::ranges::find(failed, material->combo, &std::pair<ShaderCombo, std::string>::first);
+                    if (error == failed.end())
+                        try
+                        {
+                            auto program = std::make_unique<ModelProgram>();
+                            initProgram(*program, &material->combo, false);
+                            m_materialProgram[i] = int(m_programs.size());
+                            m_programs.push_back(std::move(program));
+                            continue;
+                        }
+                        catch (const std::runtime_error &e)
+                        {
+                            failed.emplace_back(material->combo, e.what());
+                        }
+                    markMissing(material, m_mesh.textures[i], (error == failed.end() ? failed.back() : *error).second.c_str());
                 }
-                if (needsChecker)
-                {
-                    auto &slot = m_programs[missingSlot];
-                    slot = std::make_unique<ModelProgram>();
-                    initProgram(*slot, MaterialShader::Missing);
-                }
+                for (size_t i = 0; i < m_materialTextures.size(); ++i)
+                    if (m_materialTextures[i] && m_materialTextures[i]->shader == MaterialShader::Missing)
+                    {
+                        if (m_checkerProgram < 0)
+                        {
+                            m_checkerProgram = int(m_programs.size());
+                            m_programs.push_back(std::make_unique<ModelProgram>());
+                            initProgram(*m_programs.back(), nullptr, true);
+                        }
+                        m_materialProgram[i] = m_checkerProgram;
+                    }
             }
             m_ready = true;
         }
@@ -231,10 +250,13 @@ protected:
         }
     }
 
-    void initProgram(ModelProgram &state, MaterialShader shader)
+    void initProgram(ModelProgram &state, const ShaderCombo *combo, bool missing)
     {
         auto &program = state.gl;
-        if (shader == MaterialShader::Missing)
+        state.missing = missing;
+        if (combo)
+            state.combo = *combo;
+        if (missing)
         {
             // Independent of the VCS archive: even a failed shader pair can show the affected mesh.
             program.addShaderFromSourceCode(QOpenGLShader::Vertex,
@@ -248,25 +270,22 @@ protected:
                 "void main() { vec2 cell = floor(uv * 2.0); float pink = mod(cell.x + cell.y, 2.0);\n"
                 "gl_FragColor = vec4(pink, 0.0, pink, 1.0); }\n");
         }
-        else if (m_shaderDirectory.isEmpty())
+        else if (!combo)
         {
             program.addShaderFromSourceFile(QOpenGLShader::Vertex, m_vertexPath);
             program.addShaderFromSourceFile(QOpenGLShader::Fragment, m_fragmentPath);
         }
         else
         {
-            // shortcut: base-texture SM3 variants only; add the recovered SFM flag layouts before selecting richer materials.
-            const bool phong = shader == MaterialShader::Phong;
-            const bool lit = shader == MaterialShader::Diffuse;
-            const auto add = [&](QOpenGLShader::ShaderType stage, const char *name, uint32_t s, uint32_t d) {
-                const auto path = QDir(m_shaderDirectory).filePath(QString::fromLatin1(name));
+            const auto add = [&](QOpenGLShader::ShaderType stage, const std::string &name, uint32_t s, uint32_t d) {
+                const auto path = QDir(m_shaderDirectory).filePath(QString::fromStdString(name + ".vcs"));
                 const auto text = togl::LoadVcsShader(std::filesystem::path(path.toStdU16String()), s, d);
                 if (!program.addShaderFromSourceCode(stage, text.c_str()))
                     throw std::runtime_error(program.log().toStdString());
-                qInfo().noquote() << "Loaded VCS:" << name << "static" << s << "dynamic" << d;
+                qInfo().noquote() << "Loaded VCS:" << QString::fromStdString(name) << "static" << s << "dynamic" << d;
             };
-            add(QOpenGLShader::Vertex, phong ? "phong_vs30.vcs" : "vertexlit_and_unlit_generic_vs30.vcs", 0, lit ? 2 : 0);
-            add(QOpenGLShader::Fragment, phong ? "phong_ps30.vcs" : "vertexlit_and_unlit_generic_ps30.vcs", lit ? 4 : 0, phong ? 4 : 0);
+            add(QOpenGLShader::Vertex, combo->vs, combo->vsStatic, combo->vsDynamic);
+            add(QOpenGLShader::Fragment, combo->ps, combo->psStatic, combo->psDynamic);
         }
         if (program.shaders().size() != 2 || !program.link() || !program.bind())
             throw std::runtime_error(("Shader setup failed: " + program.log()).toStdString());
@@ -274,7 +293,7 @@ protected:
         state.phong = phong;
         if (phong && (m_checker || !m_mesh.hasTangents || !m_indexCount))
             throw std::runtime_error("Phong needs a textured MDL with VVD tangents");
-        if (shader != MaterialShader::Missing && m_indexCount && !m_checker)
+        if (!missing && m_indexCount && !m_checker)
         {
             const int srgbWrite = program.uniformLocation("flSRGBWrite");
             if (srgbWrite < 0)
@@ -288,7 +307,7 @@ protected:
         state.color = phong ? -1 : program.attributeLocation("v2");
         if (state.position < 0 || state.uv < 0 || (phong && state.tangent < 0))
             throw std::runtime_error("Shader does not have the expected SFM vertex inputs");
-        if (shader == MaterialShader::Missing)
+        if (missing)
         {
             program.release();
             return;
@@ -419,7 +438,7 @@ protected:
         const auto mvp = projection * view;
         const QVector4D rows[] = {mvp.row(0), -mvp.row(1), (mvp.row(2) + mvp.row(3)) * 0.5f, mvp.row(3)};
         for (const auto &slot : m_programs)
-            if (slot)
+            if (!slot->missing)
             {
                 auto &program = slot->gl;
                 program.bind();
@@ -448,19 +467,76 @@ protected:
         if (gl21)
             gl21->glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         uploadCamera();
-        for (size_t i = 0; i < m_programs.size(); ++i)
-            if (m_programs[i])
-                drawPass(*m_programs[i], static_cast<MaterialShader>(i), specular);
+        // Opaque and alpha-tested meshes first, then blended ones without depth writes, as Source sorts them.
+        for (const bool blended : {false, true})
+            for (size_t i = 0; i < m_programs.size(); ++i)
+                drawPass(*m_programs[i], int(i), specular, blended);
         if (gl21)
             gl21->glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         if (m_indexCount)
             glDisable(GL_DEPTH_TEST);
     }
 
-    void drawPass(ModelProgram &state, MaterialShader shader, bool specular)
+    static bool IsBlended(MaterialBlend blend)
     {
+        return blend == MaterialBlend::Translucent || blend == MaterialBlend::Additive || blend == MaterialBlend::TranslucentAdditive;
+    }
+
+    void applyBlend(const SourceMaterial &material)
+    {
+        auto *gl21 = QOpenGLVersionFunctionsFactory::get<QOpenGLFunctions_2_1>(context());
+        glDepthMask(IsBlended(material.blend) ? GL_FALSE : GL_TRUE);
+        if (IsBlended(material.blend))
+        {
+            glEnable(GL_BLEND);
+            switch (material.blend)
+            {
+            case MaterialBlend::Translucent: glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); break;
+            case MaterialBlend::Additive: glBlendFunc(GL_ONE, GL_ONE); break;
+            default: glBlendFunc(GL_SRC_ALPHA, GL_ONE); break;
+            }
+        }
+        else
+            glDisable(GL_BLEND);
+        // D3D9 alpha test is fixed-function state; the GL compatibility profile still applies it after the shader.
+        if (gl21 && material.blend == MaterialBlend::AlphaTest)
+        {
+            gl21->glEnable(GL_ALPHA_TEST);
+            gl21->glAlphaFunc(GL_GEQUAL, material.alphaTestReference);
+        }
+        else if (gl21)
+            gl21->glDisable(GL_ALPHA_TEST);
+    }
+
+    void drawPass(ModelProgram &state, int programIndex, bool specular, bool blended)
+    {
+        if (!m_materialTextures.empty() &&
+            std::ranges::none_of(m_mesh.batches, [&](const MeshBatch &batch) {
+                const auto &material = m_materialTextures[batch.texture];
+                return m_materialProgram[batch.texture] == programIndex && IsBlended(material->blend) == blended;
+            }))
+            return;
+        if (m_materialTextures.empty() && blended)
+            return;
         auto &program = state.gl;
         program.bind();
+        if (m_settings && !state.missing)
+        {
+            // HLMV's Options → Light/Ambient Color: one directional light plus a uniform ambient cube.
+            const QVector4D light(m_settings->light.redF(), m_settings->light.greenF(), m_settings->light.blueF(), 1);
+            const QVector4D ambient(m_settings->ambient.redF(), m_settings->ambient.greenF(), m_settings->ambient.blueF(), 1);
+            const std::array<QVector4D, 6> cube{ambient, ambient, ambient, ambient, ambient, ambient};
+            if (program.uniformLocation("i0") >= 0)
+            {
+                program.setUniformValueArray("vc[21]", cube.data(), 6);
+                program.setUniformValue("vc[27]", light);
+            }
+            if (state.phong)
+            {
+                program.setUniformValueArray("pc[4]", cube.data(), 6);
+                program.setUniformValue("pc[20]", QVector4D(light.toVector3D(), 0));
+            }
+        }
         m_vertices.bind();
         if (m_materialTextures.empty())
             m_texture.bind(0);
@@ -490,10 +566,14 @@ protected:
                 for (const auto &batch : m_mesh.batches)
                 {
                     auto &material = *m_materialTextures[batch.texture];
-                    if (!m_shaderDirectory.isEmpty() && material.shader != shader)
+                    if (m_materialProgram[batch.texture] != programIndex || IsBlended(material.blend) != blended)
                         continue;
-                    if (shader != MaterialShader::Missing)
+                    applyBlend(material);
+                    if (!state.missing)
+                    {
                         material.base.bind(0);
+                        program.setUniformValue("pc[1]", material.modulation);
+                    }
                     if (state.phong)
                     {
                         material.normal.bind(3);
@@ -512,6 +592,8 @@ protected:
             if (state.phong)
                 glActiveTexture(GL_TEXTURE0);
             m_indices.release();
+            if (!m_materialTextures.empty())
+                applyBlend(SourceMaterial{}); // restore opaque state for the next pass and readback
             if (state.normal >= 0)
                 program.disableAttributeArray(state.normal);
         }
@@ -527,10 +609,29 @@ protected:
         program.release();
     }
 
+    // HLMV stores controller values normalized to 0..1 (StudioModel::m_flexweight); RunFlexRules wants them in
+    // controller units, as StudioModel::RunFlexRules remaps.
+    void applyFlexes()
+    {
+        const auto &flex = m_mesh.flex;
+        if (!m_settings || flex.flexes.empty() || m_flexRevision == m_settings->flexRevision ||
+            m_settings->flexRaw.size() != flex.controllers.size())
+            return;
+        m_flexRevision = m_settings->flexRevision;
+        std::vector<float> controllers(flex.controllers.size());
+        for (size_t i = 0; i < controllers.size(); ++i)
+            controllers[i] = m_settings->flexRaw[i] * (flex.controllers[i].max - flex.controllers[i].min) + flex.controllers[i].min;
+        ApplyFlexes(flex, RunFlexRules(flex, controllers), m_mesh.vertices, m_mesh.skinLinear, m_flexedVertices);
+        m_vertices.bind();
+        m_vertices.write(0, m_flexedVertices.data(), int(m_flexedVertices.size() * sizeof(Vertex)));
+        m_vertices.release();
+    }
+
     void paintGL() override
     {
         if (!m_ready)
             return;
+        applyFlexes();
         if (m_settings && std::exchange(m_settings->centerView, false))
         {
             m_yaw = defaultYaw;
@@ -585,14 +686,13 @@ protected:
                             sawSpecular = rendered != diffuse;
                         }
                     }
-                    const bool onlyChecker = m_programs[missingSlot] &&
-                        std::none_of(m_programs.begin(), m_programs.begin() + missingSlot, [](const auto &slot) { return bool(slot); });
+                    const bool onlyChecker = m_checkerProgram >= 0 && m_programs.size() == 1;
                     const bool pass = glGetError() == GL_NO_ERROR && covered > area / 100 &&
                         covered < 3 * area / 4 && (onlyChecker ? pinkPixels > 0 && shades.test(0) : shades.count() > 16) &&
                         sawSpecular;
                     qInfo() << (pass ? "PASS:" : "FAIL:") << "textured MDL pixels" << covered << "of" << area
                             << "with" << shades.count() << "shades";
-                    if (m_programs[missingSlot])
+                    if (m_checkerProgram >= 0)
                         qInfo() << "Missing material checker: " << pinkPixels << "visible magenta pixels";
                     if (m_phong)
                         qInfo() << "Phong highlight changes framebuffer:" << sawSpecular;
@@ -664,6 +764,8 @@ private:
     QString m_modelPath;
     QString m_shaderDirectory;
     MdlMesh m_mesh;
+    std::vector<Vertex> m_flexedVertices;
+    int m_flexRevision = -1;
     bool m_check;
     bool m_checker;
     ViewportSettings *m_settings;
@@ -678,7 +780,9 @@ private:
     QPointF m_mouse;
     QVector3D m_pan;
     GLsizei m_indexCount = 0;
-    std::array<std::unique_ptr<ModelProgram>, missingSlot + 1> m_programs;
+    std::vector<std::unique_ptr<ModelProgram>> m_programs;
+    std::vector<int> m_materialProgram; // program index per MDL texture
+    int m_checkerProgram = -1;
     QOpenGLBuffer m_vertices;
     QOpenGLBuffer m_indices{QOpenGLBuffer::IndexBuffer};
     QOpenGLTexture m_texture{QOpenGLTexture::Target2D};

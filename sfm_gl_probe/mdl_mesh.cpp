@@ -12,6 +12,7 @@
 
 #include <QFile>
 #include <QFileInfo>
+#include <QFloat16>
 #include <QMatrix4x4>
 #include <QQuaternion>
 
@@ -134,7 +135,7 @@ std::vector<QMatrix4x4> ReadDefaultSkinMatrices(const ModelFile &mdl)
 }
 
 std::vector<Vertex> ReadVertices(const ModelFile &vvd, const vertexFileHeader_t &header,
-                                 std::span<const QMatrix4x4> skinMatrices)
+                                 std::span<const QMatrix4x4> skinMatrices, std::vector<std::array<float, 9>> &skinLinear)
 {
     const int count = header.numLODVertexes[0];
     const auto data = vvd.table(0, header.vertexDataStart, count, sizeof(mstudiovertex_t));
@@ -161,6 +162,7 @@ std::vector<Vertex> ReadVertices(const ModelFile &vvd, const vertexFileHeader_t 
                 const QVector3D p(pos[0], pos[1], pos[2]), n(normal[0], normal[1], normal[2]), t(tangent[0], tangent[1], tangent[2]);
                 QVector3D skinnedPos, skinnedNormal, skinnedTangent;
                 float total = 0;
+                std::array<float, 9> linear{};
                 for (int j = 0; j < weights.numbones; ++j)
                 {
                     const auto bone = weights.bone[j];
@@ -175,10 +177,16 @@ std::vector<Vertex> ReadVertices(const ModelFile &vvd, const vertexFileHeader_t 
                     if (tangents)
                         skinnedTangent += weight * matrix.mapVector(t);
                     total += weight;
+                    for (int r = 0; r < 3; ++r)
+                        for (int c = 0; c < 3; ++c)
+                            linear[r * 3 + c] += weight * matrix(r, c);
                 }
                 if (std::abs(total - 1) > 0.01f)
                     vvd.fail(QStringLiteral("vertex bone weights do not sum to one"));
                 skinnedPos /= total;
+                for (auto &value : linear)
+                    value /= total;
+                skinLinear.push_back(linear); // moves bind-space flex deltas into the baked pose
                 skinnedNormal.normalize();
                 skinnedTangent.normalize();
                 pos = {skinnedPos.x(), skinnedPos.y(), skinnedPos.z()};
@@ -245,6 +253,160 @@ void AppendMeshIndices(const ModelFile &vtx, size_t mesh, uint32_t firstVertex, 
         }
     }
 }
+
+// Names of `count` records of `stride` bytes at `index`, each naming itself via an int offset at
+// `nameField` relative to the record.
+QStringList ReadNames(const ModelFile &mdl, int count, int index, size_t stride, size_t nameField)
+{
+    const auto table = mdl.table(0, index, count, stride);
+    QStringList names;
+    for (int i = 0; i < count; ++i)
+    {
+        const auto record = table + i * stride;
+        names.append(mdl.string(mdl.table(record, mdl.read<int>(record + nameField), 1, 1)));
+    }
+    return names;
+}
+
+MdlInfo ReadInfo(const ModelFile &mdl)
+{
+    static_assert(sizeof(mstudioattachment_t) == 92 && sizeof(mstudioseqdesc_t) == 212 &&
+                  sizeof(mstudiohitboxset_t) == 12 && sizeof(mstudiobodyparts_t) == 16);
+    const auto field = [&](size_t offset) { return mdl.read<int>(offset); };
+    MdlInfo info;
+    info.bones = ReadNames(mdl, field(offsetof(studiohdr_t, numbones)), field(offsetof(studiohdr_t, boneindex)),
+                           sizeof(mstudiobone_t), offsetof(mstudiobone_t, sznameindex));
+    info.attachments = ReadNames(mdl, field(offsetof(studiohdr_t, numlocalattachments)),
+                                 field(offsetof(studiohdr_t, localattachmentindex)), sizeof(mstudioattachment_t),
+                                 offsetof(mstudioattachment_t, sznameindex));
+    info.bodyParts = ReadNames(mdl, field(offsetof(studiohdr_t, numbodyparts)), field(offsetof(studiohdr_t, bodypartindex)),
+                               sizeof(mstudiobodyparts_t), offsetof(mstudiobodyparts_t, sznameindex));
+    info.sequences = ReadNames(mdl, field(offsetof(studiohdr_t, numlocalseq)), field(offsetof(studiohdr_t, localseqindex)),
+                               sizeof(mstudioseqdesc_t), offsetof(mstudioseqdesc_t, szlabelindex));
+    info.boneControllers = field(offsetof(studiohdr_t, numbonecontrollers));
+    info.skinFamilies = field(offsetof(studiohdr_t, numskinfamilies));
+    info.hitboxSets = field(offsetof(studiohdr_t, numhitboxsets));
+    const auto sets = mdl.table(0, field(offsetof(studiohdr_t, hitboxsetindex)), info.hitboxSets, sizeof(mstudiohitboxset_t));
+    for (int i = 0; i < info.hitboxSets; ++i)
+        info.hitboxes += mdl.read<int>(sets + i * sizeof(mstudiohitboxset_t) + offsetof(mstudiohitboxset_t, numhitboxes));
+    const auto vec = [&](size_t offset) {
+        const auto v = mdl.read<std::array<float, 3>>(offset);
+        return QVector3D(v[0], v[1], v[2]);
+    };
+    info.hullMin = vec(offsetof(studiohdr_t, hull_min));
+    info.hullMax = vec(offsetof(studiohdr_t, hull_max));
+    return info;
+}
+
+// Flex descriptors, controllers and rules (studiohdr_t), with every rule's stack use checked up front so
+// RunFlexRules can index without bounds checks except for stack-supplied controller indices.
+MdlFlexData ReadFlexHeader(const ModelFile &mdl)
+{
+    static_assert(sizeof(mstudioflexcontroller_t) == 20 && sizeof(mstudioflexrule_t) == 12 && sizeof(mstudioflexop_t) == 8);
+    const auto field = [&](size_t offset) { return mdl.read<int>(offset); };
+    MdlFlexData flex;
+    flex.descs = ReadNames(mdl, field(offsetof(studiohdr_t, numflexdesc)), field(offsetof(studiohdr_t, flexdescindex)),
+                           sizeof(mstudioflexdesc_t), offsetof(mstudioflexdesc_t, szFACSindex));
+    const int controllerCount = field(offsetof(studiohdr_t, numflexcontrollers));
+    const auto controllers = mdl.table(0, field(offsetof(studiohdr_t, flexcontrollerindex)), controllerCount,
+                                       sizeof(mstudioflexcontroller_t));
+    for (int i = 0; i < controllerCount; ++i)
+    {
+        const auto record = controllers + i * sizeof(mstudioflexcontroller_t);
+        FlexController controller;
+        controller.name = mdl.string(mdl.table(record, mdl.read<int>(record + offsetof(mstudioflexcontroller_t, sznameindex)), 1, 1));
+        controller.type = mdl.string(mdl.table(record, mdl.read<int>(record + offsetof(mstudioflexcontroller_t, sztypeindex)), 1, 1));
+        controller.min = mdl.read<float>(record + offsetof(mstudioflexcontroller_t, min));
+        controller.max = mdl.read<float>(record + offsetof(mstudioflexcontroller_t, max));
+        if (!std::isfinite(controller.min) || !std::isfinite(controller.max))
+            mdl.fail(QStringLiteral("invalid flex controller range"));
+        flex.controllers.push_back(controller);
+    }
+    const int ruleCount = field(offsetof(studiohdr_t, numflexrules));
+    const auto rules = mdl.table(0, field(offsetof(studiohdr_t, flexruleindex)), ruleCount, sizeof(mstudioflexrule_t));
+    for (int i = 0; i < ruleCount; ++i)
+    {
+        const auto record = rules + i * sizeof(mstudioflexrule_t);
+        FlexRule rule;
+        rule.flex = mdl.read<int>(record + offsetof(mstudioflexrule_t, flex));
+        const int opCount = mdl.read<int>(record + offsetof(mstudioflexrule_t, numops));
+        const auto ops = mdl.table(record, mdl.read<int>(record + offsetof(mstudioflexrule_t, opindex)), opCount, sizeof(mstudioflexop_t));
+        if (rule.flex < 0 || rule.flex >= flex.descs.size())
+            mdl.fail(QStringLiteral("flex rule writes outside the flex descriptors"));
+        int depth = 0;
+        const auto require = [&](bool ok) {
+            if (!ok)
+                mdl.fail(QStringLiteral("malformed flex rule"));
+        };
+        for (int j = 0; j < opCount; ++j)
+        {
+            const auto opRecord = ops + j * sizeof(mstudioflexop_t);
+            FlexOp op{mdl.read<uint32_t>(opRecord), mdl.read<int32_t>(opRecord + 4), mdl.read<float>(opRecord + 4)};
+            const bool controllerIndex = op.index >= 0 && op.index < controllerCount;
+            switch (StudioOpcode(op.op))
+            {
+            case StudioOpcode::Const: require(depth < 32 && std::isfinite(op.value)); ++depth; break;
+            case StudioOpcode::Fetch1:
+            case StudioOpcode::TwoWay0:
+            case StudioOpcode::TwoWay1: require(depth < 32 && controllerIndex); ++depth; break;
+            case StudioOpcode::Fetch2: require(depth < 32 && op.index >= 0 && op.index < flex.descs.size()); ++depth; break;
+            case StudioOpcode::Add:
+            case StudioOpcode::Sub:
+            case StudioOpcode::Mul:
+            case StudioOpcode::Div:
+            case StudioOpcode::Max:
+            case StudioOpcode::Min: require(depth >= 2); --depth; break;
+            case StudioOpcode::Neg: require(depth >= 1); break;
+            case StudioOpcode::Combo: require(op.index >= 1 && depth >= op.index); depth -= op.index - 1; break;
+            case StudioOpcode::Dominate: require(op.index >= 1 && depth > op.index); depth -= op.index; break;
+            case StudioOpcode::NWay: require(controllerIndex && depth >= 5); depth -= 4; break;
+            case StudioOpcode::DmeLowerEyelid:
+            case StudioOpcode::DmeUpperEyelid: require(controllerIndex && depth >= 3); depth -= 2; break;
+            default: break; // Exp/Open/Close/Comma are skipped by Source's evaluator too
+            }
+            rule.ops.push_back(op);
+        }
+        flex.rules.push_back(std::move(rule));
+    }
+    return flex;
+}
+
+// One mesh's vertex animations; vertex indices are mesh-relative, like studiorender's mesh vertex data.
+void ReadMeshFlexes(const ModelFile &mdl, size_t mesh, size_t firstVertex, int meshVertexCount, MdlFlexData &flex)
+{
+    static_assert(sizeof(mstudioflex_t) == 60 && sizeof(mstudiovertanim_t) == 16 && sizeof(mstudiovertanim_wrinkle_t) == 18);
+    const int count = mdl.read<int>(mesh + offsetof(mstudiomesh_t, numflexes));
+    const auto flexes = mdl.table(mesh, mdl.read<int>(mesh + offsetof(mstudiomesh_t, flexindex)), count, sizeof(mstudioflex_t));
+    for (int i = 0; i < count; ++i)
+    {
+        const auto record = flexes + i * sizeof(mstudioflex_t);
+        MeshFlex meshFlex;
+        meshFlex.desc = mdl.read<int>(record + offsetof(mstudioflex_t, flexdesc));
+        meshFlex.pair = mdl.read<int>(record + offsetof(mstudioflex_t, flexpair));
+        const auto targets = mdl.read<std::array<float, 4>>(record + offsetof(mstudioflex_t, target0));
+        std::copy(targets.begin(), targets.end(), meshFlex.target);
+        const auto type = mdl.read<uint8_t>(record + offsetof(mstudioflex_t, vertanimtype));
+        if (meshFlex.desc < 0 || meshFlex.desc >= flex.descs.size() || meshFlex.pair < 0 || meshFlex.pair >= flex.descs.size() ||
+            !std::ranges::all_of(targets, finite) || type > 1)
+            mdl.fail(QStringLiteral("invalid flex"));
+        const size_t stride = type ? sizeof(mstudiovertanim_wrinkle_t) : sizeof(mstudiovertanim_t);
+        const int vertexCount = mdl.read<int>(record + offsetof(mstudioflex_t, numverts));
+        const auto anims = mdl.table(record, mdl.read<int>(record + offsetof(mstudioflex_t, vertindex)), vertexCount, stride);
+        for (int j = 0; j < vertexCount; ++j)
+        {
+            const auto anim = anims + j * stride;
+            const auto index = mdl.read<uint16_t>(anim);
+            // On disk the deltas are float16 (studiorender converts them to fixed point at load time).
+            const auto halves = mdl.read<std::array<qfloat16, 6>>(anim + 4);
+            FlexVertex vertex{uint32_t(firstVertex + index), {halves[0], halves[1], halves[2]}, {halves[3], halves[4], halves[5]},
+                              mdl.read<uint8_t>(anim + 2) / 255.f, mdl.read<uint8_t>(anim + 3) / 255.f};
+            if (index >= meshVertexCount || !std::ranges::all_of(vertex.position, finite) || !std::ranges::all_of(vertex.normal, finite))
+                mdl.fail(QStringLiteral("invalid flex vertex"));
+            meshFlex.vertices.push_back(vertex);
+        }
+        flex.flexes.push_back(std::move(meshFlex));
+    }
+}
 } // namespace
 
 MdlMesh LoadMdlMesh(const QString &path)
@@ -270,7 +432,8 @@ MdlMesh LoadMdlMesh(const QString &path)
 
     MdlMesh result{};
     result.hasTangents = vertexHeader.tangentDataStart != 0;
-    result.vertices = ReadVertices(vvd, vertexHeader, skinMatrices);
+    result.vertices = ReadVertices(vvd, vertexHeader, skinMatrices, result.skinLinear);
+    result.flex = ReadFlexHeader(mdl);
     const int textureCount = mdl.read<int>(offsetof(studiohdr_t, numtextures));
     const auto textures = mdl.table(0, mdl.read<int>(offsetof(studiohdr_t, textureindex)), textureCount, sizeof(mstudiotexture_t));
     const int pathCount = mdl.read<int>(offsetof(studiohdr_t, numcdtextures));
@@ -326,6 +489,7 @@ MdlMesh LoadMdlMesh(const QString &path)
                 mdl.fail(QStringLiteral("mesh vertices outside model"));
             const auto indexStart = result.indices.size();
             AppendMeshIndices(vtx, vtxMeshes + meshID * sizeof(MeshHeader_t), modelFirst + first, count, result.indices);
+            ReadMeshFlexes(mdl, mesh, modelFirst + first, count, result.flex);
             if (result.indices.size() != indexStart)
             {
                 const int slot = mdl.read<int>(mesh + offsetof(mstudiomesh_t, material));
@@ -357,5 +521,6 @@ MdlMesh LoadMdlMesh(const QString &path)
     result.radius = (0.5f * hi - 0.5f * lo).length();
     if (!std::isfinite(result.radius) || result.radius < 1e-6f)
         mdl.fail(QStringLiteral("invalid or degenerate mesh bounds"));
+    result.info = ReadInfo(mdl);
     return result;
 }
