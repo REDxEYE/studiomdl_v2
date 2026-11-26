@@ -54,8 +54,8 @@ typedef enum smdl_eyelid_state {
  * ------------------------------------------------------------------------------------------------------------- */
 
 /* `flexcontroller <group> range <min> <max> <name>`: a slider. `group` is the controller's type (QC: "default",
- * "eyes", ...). Names are unique (SMDL_ERROR_DUPLICATE_NAME); SMDL_ERROR_LIMIT at 128 controllers or a name of 128
- * characters or more. */
+ * "eyes", ...). Names are unique (SMDL_ERROR_DUPLICATE_NAME); SMDL_ERROR_LIMIT if adding a 513th controller or if
+ * the name is 128 characters or more. */
 SMDL_API smdl_status smdl_model_add_flex_controller(smdl_model *model, const char *group, const char *name, float min,
                                                     float max, smdl_flex_controller_id *out_id);
 SMDL_API smdl_status smdl_model_find_flex_controller(const smdl_model *model, const char *name,

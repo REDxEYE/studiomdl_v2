@@ -217,10 +217,10 @@ SMDL_TEST(flex_call_validation) {
     Require(StatusOf([&] { model.findFlexController("nope"); }) == SMDL_ERROR_NOT_FOUND, "unknown controller");
     Require(StatusOf([&] { model.addFlexController("default", std::string(200, 'x'), 0.0f, 1.0f); }) == SMDL_ERROR_LIMIT,
             "long controller name");
-    for (int i = 1; i < 128; ++i)
+    for (int i = 1; i < 512; ++i)
         model.addFlexController("default", "c" + std::to_string(i), 0.0f, 1.0f);
     Require(StatusOf([&] { model.addFlexController("default", "one_more", 0.0f, 1.0f); }) == SMDL_ERROR_LIMIT,
-            "128 controllers");
+            "513th controller exceeds the limit");
 
     // flexes
     face.addFlex("blink", 0);
@@ -264,7 +264,7 @@ SMDL_TEST(flex_call_validation) {
     Require(StatusOf([&] { model.addFlexRule("blink", "ctl"); }) == SMDL_ERROR_DUPLICATE_NAME, "a flex has one rule");
 
     // bone flex drivers
-    Require(StatusOf([&] { model.addBoneFlexDriver(jaw, smdl::BoneFlexComponent::TX, 500, 0.0f, 1.0f); }) ==
+    Require(StatusOf([&] { model.addBoneFlexDriver(jaw, smdl::BoneFlexComponent::TX, 512, 0.0f, 1.0f); }) ==
                 SMDL_ERROR_OUT_OF_RANGE,
             "driver controller id");
     Require(StatusOf([&] { model.addBoneFlexDriver(99, smdl::BoneFlexComponent::TX, ctl, 0.0f, 1.0f); }) ==

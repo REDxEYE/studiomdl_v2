@@ -208,13 +208,13 @@ SMDL_TEST(combination_explicit_flex_controller_limit) {
     smdl::Mesh mesh = AddComboGrid(model);
     AddComboShapes(mesh.geometry());
     mesh.addCombinationExpression("browUp", "control0");
-    for (int i = 0; i < 128; ++i)
+    for (int i = 0; i < 512; ++i)
         mesh.addCombinationControl("control" + std::to_string(i), std::span<const std::string_view>());
-    Require(model.compile().ok(), "128 explicit flex controllers compile");
+    Require(model.compile().ok(), "512 explicit flex controllers compile");
 
     mesh.addCombinationControl("overflow", std::span<const std::string_view>());
     const smdl::Error error = CaptureError([&] { model.compile(); });
-    Require(Contains(error.what(), "Too many flex controllers, max 128, cannot add control overflow"),
+    Require(Contains(error.what(), "Too many flex controllers, max 512, cannot add control overflow"),
             std::string(error.what()));
 }
 
