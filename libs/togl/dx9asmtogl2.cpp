@@ -1911,7 +1911,7 @@ void D3DToGL::Handle_DCL()
 
 static bool IsFloatNaN( float f )
 {
-	const uint32 nBits = *reinterpret_cast<uint*>(&f);
+	const uint32 nBits = *reinterpret_cast<const uint32*>(&f);
 	const uint32 nExponent = ( nBits >> 23 ) & 0xFF;
 
 	return ( nExponent == 255 );
@@ -3669,8 +3669,7 @@ int D3DToGL::TranslateShader( uint32* code, CUtlBuffer *pBufDisassembledCode, bo
 		StrcatToParamCode( "vec4 va_r;\n" );
 	}
 
-	char *pTempVarStr = "TEMP";
-	pTempVarStr = "vec4";
+	const char *const pTempVarStr = "vec4";
 	
 	// Declare temps in Param code buffer
 	for( int i=0; i<32; i++ )
