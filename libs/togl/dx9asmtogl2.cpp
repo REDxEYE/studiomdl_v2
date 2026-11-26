@@ -37,11 +37,11 @@
 //#define Assert(n) if( !(n) ){ TranslationError(); }
 
 
-static char *g_szVecZeros[] = { NULL, "0.0", "vec2( 0.0, 0.0 )", "vec3( 0.0, 0.0, 0.0 )", "vec4( 0.0, 0.0, 0.0, 0.0 )" };
-static char *g_szVecOnes[] = { NULL, "1.0", "vec2( 1.0, 1.0 )", "vec3( 1.0, 1.0, 1.0 )", "vec4( 1.0, 1.0, 1.0, 1.0 )" };
-static char *g_szDefaultSwizzle = "xyzw";
-static char *g_szDefaultSwizzleStrings[] = { "x", "y", "z", "w" };
-static char *g_szSamplerStrings[] = { "2D", "CUBE", "3D" };
+static const char * g_szVecZeros[] = { nullptr, "0.0", "vec2( 0.0, 0.0 )", "vec3( 0.0, 0.0, 0.0 )", "vec4( 0.0, 0.0, 0.0, 0.0 )" };
+static const char *g_szVecOnes[] = { nullptr, "1.0", "vec2( 1.0, 1.0 )", "vec3( 1.0, 1.0, 1.0 )", "vec4( 1.0, 1.0, 1.0, 1.0 )" };
+static const char *g_szDefaultSwizzle = "xyzw";
+static const char *g_szDefaultSwizzleStrings[] = { "x", "y", "z", "w" };
+static const char *g_szSamplerStrings[] = { "2D", "CUBE", "3D" };
 
 static const char *g_pAtomicTempVarName = "atomic_temp_var";
 static const char *g_pTangentAttributeName = "g_tangent";
@@ -1727,15 +1727,15 @@ void D3DToGL::AddTokenHexCode()
 uint32 D3DToGL::MaintainAttributeMap( uint32 dwToken, uint32 dwRegToken )
 {
 	// Check that this reg index has not been used before - if it has, let Houston know
-	uint dwRegIndex = dwRegToken & D3DSP_REGNUM_MASK;
+	uint32 dwRegIndex = dwRegToken & D3DSP_REGNUM_MASK;
 	if ( m_dwAttribMap[ dwRegIndex ] == 0xFFFFFFFF )
 	{
 		// log it
 		// semantic/usage in the higher nibble
 		// usage index in the low nibble
 
-		uint usage		= dwToken & D3DSP_DCL_USAGE_MASK;
-		uint usageindex	= ( dwToken & D3DSP_DCL_USAGEINDEX_MASK ) >> D3DSP_DCL_USAGEINDEX_SHIFT;
+		uint32 usage		= dwToken & D3DSP_DCL_USAGE_MASK;
+		uint32 usageindex	= ( dwToken & D3DSP_DCL_USAGEINDEX_MASK ) >> D3DSP_DCL_USAGEINDEX_SHIFT;
 
 		m_dwAttribMap[ dwRegIndex ] = ( usage << 4 ) | usageindex;
 
@@ -1911,8 +1911,8 @@ void D3DToGL::Handle_DCL()
 
 static bool IsFloatNaN( float f )
 {
-	const uint nBits = *reinterpret_cast<uint*>(&f);
-	const uint nExponent = ( nBits >> 23 ) & 0xFF;
+	const uint32 nBits = *reinterpret_cast<uint*>(&f);
+	const uint32 nExponent = ( nBits >> 23 ) & 0xFF;
 
 	return ( nExponent == 255 );
 }
@@ -2011,7 +2011,7 @@ struct HighPrec
 		T remainder = 0;
 
 #ifdef DEBUG
-		for (uint j = 0; j < m_nLowestNonZeroIndex; ++j)
+		for (uint32 j = 0; j < m_nLowestNonZeroIndex; ++j)
 		{
 			Assert( m_data[j] == 0 );
 		}
@@ -2038,7 +2038,7 @@ struct HighPrec
 	// make up the number. The most-significant digit is in m_data[0].
 	T m_data[count];
 	
-	uint m_nLowestNonZeroIndex;
+	uint32 m_nLowestNonZeroIndex;
 };
 
 union Double_t
@@ -2053,7 +2053,7 @@ union Double_t
 	double f;
 };
 
-static uint PrintDoubleInt( char *pBuf, uint nBufSize, double f, uint nMinChars )
+static uint32 PrintDoubleInt( char *pBuf, uint32 nBufSize, double f, uint32 nMinChars )
 {
 	static const char *pDigits = "00010203040506070809101112131415161718192021222324252627282930313233343536373839404142434445464748495051525354555657585960616263646566676869707172737475767778798081828384858687888990919293949596979899";
 
@@ -2102,14 +2102,14 @@ static uint PrintDoubleInt( char *pBuf, uint nBufSize, double f, uint nMinChars 
 	bool bAnyDigitsLeft;
 	do
 	{
-		uint remainder = intPart.DivReturnRemainder( 1000000 ); // 10^6
-		uint origRemainer = remainder; (void)origRemainer;
+		uint32 remainder = intPart.DivReturnRemainder( 1000000 ); // 10^6
+		uint32 origRemainer = remainder; (void)origRemainer;
 
 		bAnyDigitsLeft = !intPart.IsZero();
 
 		if ( bAnyDigitsLeft )
 		{
-			uint n = remainder % 100U; remainder /= 100U; *reinterpret_cast<uint16*>(pDst - 1) = reinterpret_cast<const uint16*>(pDigits)[n]; 
+			uint32 n = remainder % 100U; remainder /= 100U; *reinterpret_cast<uint16*>(pDst - 1) = reinterpret_cast<const uint16*>(pDigits)[n];
 			n = remainder % 100U; remainder /= 100U; *reinterpret_cast<uint16*>(pDst - 1 - 2) = reinterpret_cast<const uint16*>(pDigits)[n]; 
 			Assert( remainder < 100U );
 			*reinterpret_cast<uint16*>(pDst - 1 - 4) = reinterpret_cast<const uint16*>(pDigits)[remainder]; 
@@ -2117,7 +2117,7 @@ static uint PrintDoubleInt( char *pBuf, uint nBufSize, double f, uint nMinChars 
 		}
 		else
 		{
-			uint n = remainder % 100U; remainder /= 100U; *reinterpret_cast<uint16*>(pDst - 1) = reinterpret_cast<const uint16*>(pDigits)[n]; --pDst; if ( ( n >= 10 ) || ( remainder ) ) --pDst;
+			uint32 n = remainder % 100U; remainder /= 100U; *reinterpret_cast<uint16*>(pDst - 1) = reinterpret_cast<const uint16*>(pDigits)[n]; --pDst; if ( ( n >= 10 ) || ( remainder ) ) --pDst;
 			if ( remainder )
 			{
 				n = remainder % 100U; remainder /= 100U; *reinterpret_cast<uint16*>(pDst - 1) = reinterpret_cast<const uint16*>(pDigits)[n]; --pDst; if ( ( n >= 10 ) || ( remainder ) ) --pDst;
@@ -2132,7 +2132,7 @@ static uint PrintDoubleInt( char *pBuf, uint nBufSize, double f, uint nMinChars 
 
 	} while ( bAnyDigitsLeft );
 
-	uint l = pLastChar - pDst;
+	uint32 l = pLastChar - pDst;
 	
 	while ( ( l - 1 ) < nMinChars )
 	{
@@ -2151,7 +2151,7 @@ static uint PrintDoubleInt( char *pBuf, uint nBufSize, double f, uint nMinChars 
 // FloatToString is equivalent to sprintf( "%.12f" ), but doesn't have any dependencies on the current locale setting.
 // Unfortunately, high accuracy radix conversion is actually pretty tricky to do right. 
 // Most importantly, this function has the same max roundtrip (IEEE->ASCII->IEEE) error as the MS CRT functions and can reliably handle extremely large inputs.
-static void FloatToString( char *pBuf, uint nBufSize, double fConst )
+static void FloatToString( char *pBuf, uint32 nBufSize, double fConst )
 {
 	char *pEnd = pBuf + nBufSize;
 	char *pDst = pBuf;
@@ -2179,7 +2179,7 @@ static void FloatToString( char *pBuf, uint nBufSize, double fConst )
 	}
 	else
 	{
-		uint l = PrintDoubleInt( pDst, pEnd - pDst, flInt, 0 );
+		uint32 l = PrintDoubleInt( pDst, pEnd - pDst, flInt, 0 );
 		pDst += l;
 	}
 
@@ -2191,7 +2191,7 @@ static void FloatToString( char *pBuf, uint nBufSize, double fConst )
 	}
 	else
 	{
-		uint l = PrintDoubleInt( pDst, pEnd - pDst, flFract, 12 );
+		uint32 l = PrintDoubleInt( pDst, pEnd - pDst, flFract, 12 );
 		pDst += l;
 					
 		StripExtraTrailingZeros( pBuf );	// Turn 1.00000 into 1.0
@@ -2268,10 +2268,10 @@ void D3DToGL::Handle_DEFIB( uint32 instruction )
 	{
 		m_dwDefConstIntUsageMask |= ( 1 << nRegNum );
 
-		uint x = GetNextToken();
-		uint y = GetNextToken();
-		uint z = GetNextToken();
-		uint w = GetNextToken();
+		uint32 x = GetNextToken();
+		uint32 y = GetNextToken();
+		uint32 z = GetNextToken();
+		uint32 w = GetNextToken();
 		NOTE_UNUSED(y); NOTE_UNUSED(z);	NOTE_UNUSED(w);
 
 		Assert( nRegNum < 32 );
@@ -2631,7 +2631,7 @@ void D3DToGL::Handle_TexCoord()
 
 void D3DToGL::Handle_BREAKC( uint32 dwToken )
 {
-	uint nComparison = ( dwToken & D3DSHADER_COMPARISON_MASK ) >> D3DSHADER_COMPARISON_SHIFT;
+	uint32 nComparison = ( dwToken & D3DSHADER_COMPARISON_MASK ) >> D3DSHADER_COMPARISON_SHIFT;
 
 	const char *pComparison = "?";
 	switch ( nComparison )
@@ -3576,7 +3576,7 @@ int D3DToGL::TranslateShader( uint32* code, CUtlBuffer *pBufDisassembledCode, bo
 	// Stick in the sampler mask in hex
 	PrintToBuf( *m_pBufHeaderCode, "%sSAMPLERMASK-%x\n", "//", m_dwSamplerUsageMask );
 
-	uint nSamplerTypes = 0;
+	uint32 nSamplerTypes = 0;
 	for ( int i = 0; i < 16; i++ )
 	{
 		Assert( m_dwSamplerTypes[i] < 4);
@@ -3586,7 +3586,7 @@ int D3DToGL::TranslateShader( uint32* code, CUtlBuffer *pBufDisassembledCode, bo
 	PrintToBuf( *m_pBufHeaderCode, "%sSAMPLERTYPES-%x\n", "//", nSamplerTypes );
 
 	// fragData outputs referenced
-	uint nFragDataMask = 0;
+	uint32 nFragDataMask = 0;
 	for ( int i = 0; i < 4; i++ )
 	{
 		nFragDataMask |= m_bOutputColorRegister[ i ] ? ( 1 << i ) : 0;
