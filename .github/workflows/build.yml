@@ -81,6 +81,62 @@ jobs:
           name: windows-x64
           path: dist
 
+  # Native Qt HLMV (hlmv, sfm_gl_probe, vcs2glsl): needs Qt 6 (OpenGL, Widgets) and liblzma, which the main
+  # Windows job does not install, so it stays separate and keeps the command-line build independent of Qt.
+  build-windows-hlmv:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.*'
+          arch: win64_msvc2022_64
+          cache: true
+
+      - name: Install liblzma
+        shell: bash
+        run: vcpkg install liblzma:x64-windows
+
+      - name: Configure
+        shell: bash
+        run: >
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_C_COMPILER=cl
+          -DCMAKE_CXX_COMPILER=cl
+          "-DCMAKE_TOOLCHAIN_FILE=$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+          -DSTUDIOMDL_BUILD_HLMV=ON
+          -DSTUDIOMDL_BUILD_SFM_GL_PROBE=ON
+
+      - name: Build
+        shell: bash
+        run: |
+          # Configure skips the viewers silently when Qt or liblzma is missing; fail loudly instead.
+          grep -q '^hlmv:' <(cmake --build build --target help) || { echo "hlmv target not configured"; exit 1; }
+          cmake --build build --target hlmv sfm_gl_probe vcs2glsl
+
+      - name: Collect artifacts
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp build/hlmv/hlmv.exe build/sfm_gl_probe/sfm_gl_probe.exe dist/
+          cp "$(find build -name vcs2glsl.exe | head -1)" dist/
+          cp "$VCPKG_INSTALLATION_ROOT"/installed/x64-windows/bin/liblzma.dll dist/
+          windeployqt --release --no-translations dist/hlmv.exe
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64-hlmv
+          path: dist
+
   build-linux:
     runs-on: ubuntu-latest
     container: quay.io/pypa/manylinux_2_28_x86_64
