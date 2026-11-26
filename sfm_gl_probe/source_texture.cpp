@@ -164,7 +164,7 @@ void UploadVtf(Texture &texture, const QString &path, bool srgb)
 } // namespace
 
 QString LoadSourceMaterial(SourceMaterial &out, const QString &modelPath, const QString &material,
-                           const QStringList &searchPaths, bool phong)
+                           const QStringList &searchPaths)
 {
     QDir root = QFileInfo(modelPath).absoluteDir();
     while (root.dirName().compare(QStringLiteral("models"), Qt::CaseInsensitive) != 0)
@@ -191,9 +191,8 @@ QString LoadSourceMaterial(SourceMaterial &out, const QString &modelPath, const 
     if (shader.compare(QStringLiteral("VertexLitGeneric"), Qt::CaseInsensitive) != 0 &&
         shader.compare(QStringLiteral("UnlitGeneric"), Qt::CaseInsensitive) != 0)
         Fail(vmt, QStringLiteral("unsupported material shader %1").arg(shader));
-    if ((kv.GetInt("$phong") != 0) != phong)
-        Fail(vmt, phong ? QStringLiteral("material does not enable $phong") :
-                         QStringLiteral("$phong requires the Phong shader pair"));
+    out.shader = shader.compare(QStringLiteral("UnlitGeneric"), Qt::CaseInsensitive) == 0
+        ? MaterialShader::Unlit : kv.GetInt("$phong") ? MaterialShader::Phong : MaterialShader::Diffuse;
     const auto upload = [&](Texture &texture, QString name, bool srgb) {
         if (!name.endsWith(QStringLiteral(".vtf"), Qt::CaseInsensitive))
             name += QStringLiteral(".vtf");
@@ -207,7 +206,7 @@ QString LoadSourceMaterial(SourceMaterial &out, const QString &modelPath, const 
     if (base.isEmpty())
         Fail(vmt, QStringLiteral("no $basetexture"));
     const auto vtf = upload(out.base, base, true);
-    if (phong)
+    if (out.shader == MaterialShader::Phong)
     {
         // shortcut: the original no-warp/no-rim/no-cubemap combo; add shader selection before supporting those features.
         const auto parseVector = [&](const char *key, QVector4D &value) {

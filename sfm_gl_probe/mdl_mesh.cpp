@@ -6,11 +6,14 @@
 #include <cmath>
 #include <cstddef>
 #include <cstring>
+#include <span>
 #include <stdexcept>
 #include <type_traits>
 
 #include <QFile>
 #include <QFileInfo>
+#include <QMatrix4x4>
+#include <QQuaternion>
 
 #include "studiomdl/optimize.h"
 
@@ -28,6 +31,7 @@ static_assert(std::endian::native == std::endian::little);
 static_assert(sizeof(mstudiovertex_t) == 48 && sizeof(mstudiomodel_t) == 148 && sizeof(mstudiomesh_t) == 116);
 static_assert(sizeof(StripGroupHeader_t) == 33 && sizeof(StripHeader_t) == 35);
 static_assert(sizeof(mstudiotexture_t) == 64);
+static_assert(sizeof(mstudiobone_t) == 216 && sizeof(mstudioboneweight_t) == 16);
 
 class ModelFile
 {
@@ -87,7 +91,50 @@ private:
     QByteArray m_data;
 };
 
-std::vector<Vertex> ReadVertices(const ModelFile &vvd, const vertexFileHeader_t &header)
+constexpr auto finite = [](float value) { return std::isfinite(value); };
+
+std::vector<QMatrix4x4> ReadDefaultSkinMatrices(const ModelFile &mdl)
+{
+    const int count = mdl.read<int>(offsetof(studiohdr_t, numbones));
+    if (count < 1 || count > int(MAXSTUDIOBONES))
+        mdl.fail(QStringLiteral("invalid studio bone count"));
+    const auto bones = mdl.table(0, mdl.read<int>(offsetof(studiohdr_t, boneindex)), count, sizeof(mstudiobone_t));
+    std::vector<QMatrix4x4> boneToModel(count), skinToModel(count);
+    for (int i = 0; i < count; ++i)
+    {
+        const auto bone = bones + i * sizeof(mstudiobone_t);
+        const int parent = mdl.read<int>(bone + offsetof(mstudiobone_t, parent));
+        if (parent < -1 || parent >= i)
+            mdl.fail(QStringLiteral("invalid studio bone parent"));
+        const auto pos = mdl.read<std::array<float, 3>>(bone + offsetof(mstudiobone_t, pos));
+        const auto quat = mdl.read<std::array<float, 4>>(bone + offsetof(mstudiobone_t, quat));
+        const auto inverseBind = mdl.read<std::array<float, 12>>(bone + offsetof(mstudiobone_t, poseToBone));
+        const QQuaternion rotation(quat[3], quat[0], quat[1], quat[2]);
+        const float length = rotation.lengthSquared();
+        if (!std::ranges::all_of(pos, finite) || !std::ranges::all_of(inverseBind, finite) ||
+            !std::isfinite(length) || length < 1e-8f)
+            mdl.fail(QStringLiteral("invalid studio bone transform"));
+
+        auto &world = boneToModel[i];
+        world.translate(pos[0], pos[1], pos[2]);
+        world.rotate(rotation.normalized());
+        if (parent >= 0)
+            world = boneToModel[parent] * world;
+        QMatrix4x4 bind;
+        for (int row = 0; row < 3; ++row)
+        {
+            const auto *r = inverseBind.data() + 4 * row;
+            bind.setRow(row, QVector4D(r[0], r[1], r[2], r[3]));
+        }
+        skinToModel[i] = world * bind;
+        if (!std::ranges::all_of(std::span(skinToModel[i].constData(), 16), finite))
+            mdl.fail(QStringLiteral("studio bone transform overflow"));
+    }
+    return skinToModel;
+}
+
+std::vector<Vertex> ReadVertices(const ModelFile &vvd, const vertexFileHeader_t &header,
+                                 std::span<const QMatrix4x4> skinMatrices)
 {
     const int count = header.numLODVertexes[0];
     const auto data = vvd.table(0, header.vertexDataStart, count, sizeof(mstudiovertex_t));
@@ -102,11 +149,42 @@ std::vector<Vertex> ReadVertices(const ModelFile &vvd, const vertexFileHeader_t 
         for (int i = first; i < first + length; ++i)
         {
             const auto offset = data + i * sizeof(mstudiovertex_t);
-            const auto pos = vvd.read<std::array<float, 3>>(offset + offsetof(mstudiovertex_t, m_vecPosition));
-            const auto normal = vvd.read<std::array<float, 3>>(offset + offsetof(mstudiovertex_t, m_vecNormal));
+            auto pos = vvd.read<std::array<float, 3>>(offset + offsetof(mstudiovertex_t, m_vecPosition));
+            auto normal = vvd.read<std::array<float, 3>>(offset + offsetof(mstudiovertex_t, m_vecNormal));
             const auto uv = vvd.read<std::array<float, 2>>(offset + offsetof(mstudiovertex_t, m_vecTexCoord));
-            const auto finite = [](float x) { return std::isfinite(x); };
-            const auto tangent = tangents ? vvd.read<std::array<float, 4>>(tangents + i * sizeof(float) * 4) : std::array<float, 4>{};
+            auto tangent = tangents ? vvd.read<std::array<float, 4>>(tangents + i * sizeof(float) * 4) : std::array<float, 4>{};
+            if (!skinMatrices.empty())
+            {
+                const auto weights = vvd.read<mstudioboneweight_t>(offset + offsetof(mstudiovertex_t, m_BoneWeights));
+                if (weights.numbones == 0 || weights.numbones > MAX_NUM_BONES_PER_VERT)
+                    vvd.fail(QStringLiteral("invalid vertex bone count"));
+                const QVector3D p(pos[0], pos[1], pos[2]), n(normal[0], normal[1], normal[2]), t(tangent[0], tangent[1], tangent[2]);
+                QVector3D skinnedPos, skinnedNormal, skinnedTangent;
+                float total = 0;
+                for (int j = 0; j < weights.numbones; ++j)
+                {
+                    const auto bone = weights.bone[j];
+                    const auto weight = weights.weight[j];
+                    if (bone >= skinMatrices.size() || !std::isfinite(weight) || weight < 0 || weight > 1)
+                        vvd.fail(QStringLiteral("invalid vertex bone influence"));
+                    if (weight == 0)
+                        continue;
+                    const auto &matrix = skinMatrices[bone];
+                    skinnedPos += weight * matrix.map(p);
+                    skinnedNormal += weight * matrix.mapVector(n);
+                    if (tangents)
+                        skinnedTangent += weight * matrix.mapVector(t);
+                    total += weight;
+                }
+                if (std::abs(total - 1) > 0.01f)
+                    vvd.fail(QStringLiteral("vertex bone weights do not sum to one"));
+                skinnedPos /= total;
+                skinnedNormal.normalize();
+                skinnedTangent.normalize();
+                pos = {skinnedPos.x(), skinnedPos.y(), skinnedPos.z()};
+                normal = {skinnedNormal.x(), skinnedNormal.y(), skinnedNormal.z()};
+                tangent = {skinnedTangent.x(), skinnedTangent.y(), skinnedTangent.z(), tangent[3]};
+            }
             if (!std::ranges::all_of(pos, finite) || !std::ranges::all_of(normal, finite) ||
                 !std::ranges::all_of(uv, finite) || !std::ranges::all_of(tangent, finite))
                 vvd.fail(QStringLiteral("non-finite vertex data"));
@@ -186,13 +264,13 @@ MdlMesh LoadMdlMesh(const QString &path)
         vvd.fail(QStringLiteral("invalid VVD header or MDL checksum mismatch"));
     if (indexHeader.version != OPTIMIZED_MODEL_FILE_VERSION || indexHeader.checkSum != checksum || indexHeader.numLODs <= 0)
         vtx.fail(QStringLiteral("invalid VTX header or MDL checksum mismatch"));
-    // shortcut: static props only; add bone matrices and animation before accepting skinned models.
-    if (!(mdl.read<uint32_t>(offsetof(studiohdr_t, flags)) & STUDIOHDR_FLAGS_STATIC_PROP))
-        mdl.fail(QStringLiteral("the preview only supports static props"));
+    const bool rigid = mdl.read<uint32_t>(offsetof(studiohdr_t, flags)) & STUDIOHDR_FLAGS_STATIC_PROP;
+    // shortcut: bake the default pose once; retain skeletal data when adding sequence playback.
+    const auto skinMatrices = rigid ? std::vector<QMatrix4x4>{} : ReadDefaultSkinMatrices(mdl);
 
     MdlMesh result{};
     result.hasTangents = vertexHeader.tangentDataStart != 0;
-    result.vertices = ReadVertices(vvd, vertexHeader);
+    result.vertices = ReadVertices(vvd, vertexHeader, skinMatrices);
     const int textureCount = mdl.read<int>(offsetof(studiohdr_t, numtextures));
     const auto textures = mdl.table(0, mdl.read<int>(offsetof(studiohdr_t, textureindex)), textureCount, sizeof(mstudiotexture_t));
     const int pathCount = mdl.read<int>(offsetof(studiohdr_t, numcdtextures));

@@ -4,8 +4,11 @@
 #include <QStringList>
 #include <QVector4D>
 
+enum class MaterialShader { Unlit, Diffuse, Phong, Missing };
+
 struct SourceMaterial
 {
+    MaterialShader shader;
     QOpenGLTexture base{QOpenGLTexture::Target2D};
     QOpenGLTexture normal{QOpenGLTexture::Target2D};
     QOpenGLTexture exponentMap{QOpenGLTexture::Target2D};
@@ -17,4 +20,4 @@ struct SourceMaterial
 };
 
 QString LoadSourceMaterial(SourceMaterial &out, const QString &modelPath, const QString &material,
-                           const QStringList &searchPaths, bool phong);
+                           const QStringList &searchPaths);
