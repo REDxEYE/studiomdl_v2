@@ -428,13 +428,16 @@ protected:
         m_cameraDirty = false;
         const auto radius = m_mesh.radius;
         const auto target = m_mesh.center + m_pan;
-        const auto eye = target + cameraDirection() * (3 * radius);
+        constexpr float orbitDistanceInRadii = 3.0f;
+        const auto eye = target + cameraDirection() * (orbitDistanceInRadii * radius);
         const float aspect = float(width()) / float(height());
-        const float halfWidth = radius * m_zoom * 1.1f * (aspect > 1 ? aspect : 1);
-        const float halfHeight = radius * m_zoom * 1.1f * (aspect < 1 ? 1 / aspect : 1);
+        // Scale the near plane so zoom and pan retain their scale at the orbit target.
+        const float halfNear = radius * m_zoom * (1.1f / orbitDistanceInRadii);
+        const float halfWidth = halfNear * std::max(1.0f, aspect);
+        const float halfHeight = halfNear * std::max(1.0f, 1.0f / aspect);
         QMatrix4x4 view, projection;
         view.lookAt(eye, target, QVector3D(0, 0, 1));
-        projection.ortho(-halfWidth, halfWidth, -halfHeight, halfHeight, radius, 5 * radius);
+        projection.frustum(-halfWidth, halfWidth, -halfHeight, halfHeight, radius, 5 * radius);
         m_mvp = projection * view;
         const QVector4D rows[] = {m_mvp.row(0), -m_mvp.row(1), (m_mvp.row(2) + m_mvp.row(3)) * 0.5f, m_mvp.row(3)};
         for (const auto &slot : m_programs)

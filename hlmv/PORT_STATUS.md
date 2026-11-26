@@ -37,6 +37,7 @@ playback, **M** model data (`mdl_mesh.cpp`), **P** physics (.phy), **S** sound, 
 | Item | Status | Needs | Notes |
 |---|---|---|---|
 | Left drag orbit, middle/right drag pan, wheel zoom, Ctrl+left drag light | Done | | Controls differ from HLMV (HLMV rotates the model, right-drag zooms, Shift pans) |
+| Perspective camera | Done | | Wheel zoom changes the lens without moving the orbit target |
 | Drag-and-drop of .mdl / .qc onto the viewport | Stub | | Upstream loads models and adds QCs to the Compile tab |
 | Frame slider (bottom) | Stub | A | Updates its label only |
 
@@ -54,7 +55,7 @@ playback, **M** model data (`mdl_mesh.cpp`), **P** physics (.phy), **S** sound, 
 | Physics Model + highlight bone | Stub | P, R | |
 | Normal Mapping, Displacement, Software Skin, Enable Overbrightening | Stub | R | |
 | Enable IK, Head Turn, Illum. Position, Play Sounds | Stub | A, S | |
-| FOV | Stub | R | Our camera is orthographic |
+| FOV | Stub | R | The camera is perspective; the FOV field is not wired |
 | Inspect bone weights | Stub | R | Index list is filled |
 | Included Models | Stub | M | Disabled until a model has includes |
 
@@ -121,7 +122,7 @@ playback, **M** model data (`mdl_mesh.cpp`), **P** physics (.phy), **S** sound, 
 
 1. Model tab choices: bodygroups, skins, LOD (data already read; renderer support only).
 2. Remaining debug overlays: bones, attachments, normals/tangents, hitboxes.
-3. Ground and background, FOV with a perspective camera, HLMV-style mouse controls.
+3. Ground and background, FOV control, HLMV-style mouse controls.
 4. Sequence playback (frame slider, layers, speed, pose parameters), then IK/head turn.
 5. Materials tab editing, Compile tab with studiomdl, drag-and-drop.
 6. Physics and cloth (.phy).
