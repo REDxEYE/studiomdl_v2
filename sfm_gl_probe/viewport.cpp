@@ -813,9 +813,11 @@ protected:
             if (pass)
                 qInfo() << "PASS: red and green texels, black background";
             else
-                qCritical() << "FAIL: GL error" << Qt::hex << error << Qt::dec
-                            << "viewport" << viewport[2] << viewport[3]
-                            << "pixels (RGBA)" << left << right << outside;
+                qCritical("FAIL: GL error %x viewport %d %d pixels (RGBA) (%d, %d, %d, %d) (%d, %d, %d, %d) (%d, %d, %d, %d)",
+                          unsigned(error), viewport[2], viewport[3],
+                          left[0], left[1], left[2], left[3],
+                          right[0], right[1], right[2], right[3],
+                          outside[0], outside[1], outside[2], outside[3]);
             QCoreApplication::exit(pass ? 0 : 1);
         }
     }
