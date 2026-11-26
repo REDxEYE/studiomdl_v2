@@ -15,7 +15,11 @@ struct ViewportSettings
     QColor ambient{77, 77, 77}; // HLMV default 0.3
     bool specular = true;
     bool wireframe = false;
+    bool wireframeOverlay = false;
+    bool showOriginAxis = false;
+    float originAxisLength = 10.0f;
     bool centerView = false;
+    bool centerVerts = false;
     std::function<void(const QString &)> reportError;
     std::vector<float> flexRaw; // per flex controller, 0..1 like HLMV's StudioModel::m_flexweight
     int flexRevision = 0;       // bump after changing flexRaw

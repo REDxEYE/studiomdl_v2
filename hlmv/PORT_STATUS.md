@@ -21,7 +21,7 @@ playback, **M** model data (`mdl_mesh.cpp`), **P** physics (.phy), **S** sound, 
 | Options → Ground Color... | Partial | R | Stored and saved; no ground plane to draw |
 | Options → Secondary Lights | Stub | R | Toggles the check only; needs the extra HLMV lights |
 | Options → Center View | Partial | | Resets our orbit camera, not HLMV's model transform |
-| Options → Center Verts | Stub | R | Center on vertex bounds |
+| Options → Center Verts | Done | | Recenter on vertex bounds without changing orbit angle or zoom |
 | Options → Viewmodel Mode | Stub | R | Viewmodel camera/FOV preset |
 | Options → Make Screenshot... | Done | | Saves the GL framebuffer as BMP |
 | View → File Associations... | Disabled | | Disabled upstream too |
@@ -29,7 +29,7 @@ playback, **M** model data (`mdl_mesh.cpp`), **P** physics (.phy), **S** sound, 
 | View → Show orbit circle / Enable orbit yaw | Stub | R | Upstream camera modes |
 | View → DotA View Mode | Stub | R | Camera preset |
 | Help → Goto Homepage..., About... | Done | | |
-| Ctrl-key accelerators | Partial | | Toggle their Render checkboxes, which are mostly stubs |
+| Ctrl-key accelerators | Partial | | Ctrl+W draws the wireframe overlay; most other accelerators toggle stub controls |
 | Ctrl+Up / Ctrl+Down (tessellation) | Stub | R | No tessellation |
 
 ## Viewport
@@ -49,7 +49,8 @@ playback, **M** model data (`mdl_mesh.cpp`), **P** physics (.phy), **S** sound, 
 | Specular | Done | | |
 | Ground, Background, Shadow, Movement | Stub | R, A | |
 | Hit Boxes, Seq. Boxes, HitBox Set/HitBox | Stub | R, M | Hitbox data is read for counts only |
-| Bones, Attachments, Normals, Tangents, Wireframe overlay, Show Origin Axis + Axis Len | Stub | R | Debug overlays |
+| Wireframe overlay, Show Origin Axis + Axis Len | Done | | Overlay draws mesh edges over filled modes; axis shows model-space X/Y/Z in red/green/blue |
+| Bones, Attachments, Normals, Tangents | Stub | R | Debug overlays |
 | Physics Model + highlight bone | Stub | P, R | |
 | Normal Mapping, Displacement, Software Skin, Enable Overbrightening | Stub | R | |
 | Enable IK, Head Turn, Illum. Position, Play Sounds | Stub | A, S | |
@@ -119,7 +120,7 @@ playback, **M** model data (`mdl_mesh.cpp`), **P** physics (.phy), **S** sound, 
 ## Suggested order
 
 1. Model tab choices: bodygroups, skins, LOD (data already read; renderer support only).
-2. Debug overlays: bones, attachments, normals/tangents, wireframe overlay, origin axis, hitboxes.
+2. Remaining debug overlays: bones, attachments, normals/tangents, hitboxes.
 3. Ground and background, FOV with a perspective camera, HLMV-style mouse controls.
 4. Sequence playback (frame slider, layers, speed, pose parameters), then IK/head turn.
 5. Materials tab editing, Compile tab with studiomdl, drag-and-drop.

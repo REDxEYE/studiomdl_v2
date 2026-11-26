@@ -880,6 +880,21 @@ int ControlPanel::handleEvent(mxEvent *event)
         redraw();
         break;
 
+    case IDC_OVERLAY_WIREFRAME:
+        m_settings.wireframeOverlay = cbOverlayWireframe->isChecked();
+        redraw();
+        break;
+
+    case IDC_SHOWORIGINAXIS:
+        m_settings.showOriginAxis = cbShowOriginAxis->isChecked();
+        redraw();
+        break;
+
+    case IDC_ORIGINAXISLENGTH:
+        m_settings.originAxisLength = leOriginAxisLength->getValue();
+        redraw();
+        break;
+
     case IDC_SPECULAR:
         m_settings.specular = cbSpecular->isChecked();
         redraw();

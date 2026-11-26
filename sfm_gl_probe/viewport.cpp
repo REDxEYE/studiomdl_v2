@@ -435,15 +435,16 @@ protected:
         QMatrix4x4 view, projection;
         view.lookAt(eye, target, QVector3D(0, 0, 1));
         projection.ortho(-halfWidth, halfWidth, -halfHeight, halfHeight, radius, 5 * radius);
-        const auto mvp = projection * view;
-        const QVector4D rows[] = {mvp.row(0), -mvp.row(1), (mvp.row(2) + mvp.row(3)) * 0.5f, mvp.row(3)};
+        m_mvp = projection * view;
+        const QVector4D rows[] = {m_mvp.row(0), -m_mvp.row(1), (m_mvp.row(2) + m_mvp.row(3)) * 0.5f, m_mvp.row(3)};
         for (const auto &slot : m_programs)
+        {
+            auto &program = slot->gl;
+            program.bind();
+            program.setUniformValueArray("vc[8]", rows, 4);
             if (!slot->missing)
             {
-                auto &program = slot->gl;
-                program.bind();
                 program.setUniformValue("vc[2]", QVector4D(eye, 0));
-                program.setUniformValueArray("vc[8]", rows, 4);
                 program.setUniformValue("vc[28]", QVector4D(m_lightDirection, 0));
                 if (slot->phong)
                 {
@@ -451,8 +452,9 @@ protected:
                     // Source's pixel shader packs a directional light as a distant point.
                     program.setUniformValue("pc[21]", QVector4D(m_mesh.center - m_lightDirection * 10000, 0));
                 }
-                program.release();
             }
+            program.release();
+        }
     }
 
     void drawScene(bool specular)
@@ -473,8 +475,64 @@ protected:
                 drawPass(*m_programs[i], int(i), specular, blended);
         if (gl21)
             gl21->glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        if (m_indexCount && m_settings && ((m_settings->wireframeOverlay && !m_settings->wireframe) || m_settings->showOriginAxis))
+            if (auto *debugGl = gl21 ? gl21 : QOpenGLVersionFunctionsFactory::get<QOpenGLFunctions_2_1>(context()))
+                drawOverlays(*debugGl);
         if (m_indexCount)
             glDisable(GL_DEPTH_TEST);
+    }
+
+    void drawOverlays(QOpenGLFunctions_2_1 &gl)
+    {
+        gl.glMatrixMode(GL_PROJECTION);
+        gl.glPushMatrix();
+        gl.glLoadMatrixf(m_mvp.constData());
+        gl.glMatrixMode(GL_MODELVIEW);
+        gl.glPushMatrix();
+        gl.glLoadIdentity();
+        glDepthMask(GL_FALSE);
+
+        if (m_settings->wireframeOverlay && !m_settings->wireframe)
+        {
+            m_vertices.bind();
+            m_indices.bind();
+            gl.glEnableClientState(GL_VERTEX_ARRAY);
+            gl.glVertexPointer(4, GL_FLOAT, sizeof(Vertex), nullptr);
+            gl.glColor3f(1, 1, 1);
+            // Pull coplanar lines forward without showing edges behind the model.
+            gl.glPolygonOffset(-1, -1);
+            gl.glEnable(GL_POLYGON_OFFSET_LINE);
+            gl.glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+            glDrawElements(GL_TRIANGLES, m_indexCount, GL_UNSIGNED_INT, nullptr);
+            gl.glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+            gl.glDisable(GL_POLYGON_OFFSET_LINE);
+            gl.glDisableClientState(GL_VERTEX_ARRAY);
+            m_indices.release();
+            m_vertices.release();
+        }
+
+        if (m_settings->showOriginAxis)
+        {
+            const float length = m_settings->originAxisLength;
+            gl.glBegin(GL_LINES);
+            gl.glColor3f(1, 0, 0);
+            gl.glVertex3f(0, 0, 0);
+            gl.glVertex3f(length, 0, 0);
+            gl.glColor3f(0, 1, 0);
+            gl.glVertex3f(0, 0, 0);
+            gl.glVertex3f(0, length, 0);
+            gl.glColor3f(0, 0, 1);
+            gl.glVertex3f(0, 0, 0);
+            gl.glVertex3f(0, 0, length);
+            gl.glEnd();
+        }
+
+        gl.glColor3f(1, 1, 1);
+        glDepthMask(GL_TRUE);
+        gl.glPopMatrix();
+        gl.glMatrixMode(GL_PROJECTION);
+        gl.glPopMatrix();
+        gl.glMatrixMode(GL_MODELVIEW);
     }
 
     static bool IsBlended(MaterialBlend blend)
@@ -637,6 +695,10 @@ protected:
             m_yaw = defaultYaw;
             m_pitch = defaultPitch;
             m_zoom = 1;
+            m_settings->centerVerts = true;
+        }
+        if (m_settings && std::exchange(m_settings->centerVerts, false))
+        {
             m_pan = {};
             m_cameraDirty = true;
         }
@@ -779,6 +841,7 @@ private:
     QVector3D m_lightDirection{-1, 0, 0}; // HLMV default lightrot (0, 180, 0).
     QPointF m_mouse;
     QVector3D m_pan;
+    QMatrix4x4 m_mvp;
     GLsizei m_indexCount = 0;
     std::vector<std::unique_ptr<ModelProgram>> m_programs;
     std::vector<int> m_materialProgram; // program index per MDL texture

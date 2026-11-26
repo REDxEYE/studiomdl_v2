@@ -348,6 +348,14 @@ int MDLViewer::handleEvent(mxEvent *event)
         redraw();
         break;
 
+    case IDC_OPTIONS_CENTERVERTS:
+        if (m_viewport && !menuView->isChecked(IDC_VIEW_DOTA))
+        {
+            m_settings.centerVerts = true;
+            redraw();
+        }
+        break;
+
     case IDC_OPTIONS_MAKESCREENSHOT:
     {
         if (!m_viewport)
@@ -423,7 +431,7 @@ int MDLViewer::handleEvent(mxEvent *event)
         break;
 
     default:
-        // Recompile, .mvscript, textures, Center Verts, Viewmodel Mode, tessellation: not ported yet.
+        // Recompile, .mvscript, textures, Viewmodel Mode, tessellation: not ported yet.
         break;
     }
     return 1;
