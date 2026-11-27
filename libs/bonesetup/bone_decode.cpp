@@ -362,12 +362,272 @@ void CalcDecompressedAnimation( const mstudiocompressedikerror_t *pCompressed, i
 }
 
 
+//-----------------------------------------------------------------------------
+// Purpose: translate animations done in a non-standard parent space
+//-----------------------------------------------------------------------------
+static void CalcLocalHierarchyAnimation( 
+	const CStudioHdr *pStudioHdr,
+	matrix3x4a_t *boneToWorld,
+	CBoneBitList &boneComputed,
+	BoneVector *pos, 
+	BoneQuaternion *q,
+	//const mstudioanimdesc_t &animdesc,
+	const mstudiobone_t *pbone,
+	mstudiolocalhierarchy_t *pHierarchy,
+	int iBone,
+	int iNewParent,
+	float cycle, 
+	int iFrame,
+	float flFraq,
+	BoneFlags boneMask
+	)
+{
+	BoneVector localPos;
+	BoneQuaternion localQ;
+
+	// make fake root transform
+	static matrix3x4a_t rootXform;
+	SetIdentityMatrix( rootXform );
+
+	// FIXME: missing check to see if seq has a weight for this bone
+	float weight = 1.0f;
+
+	// check to see if there's a ramp on the influence
+	if ( pHierarchy->tail - pHierarchy->peak < 1.0f  )
+	{
+		float index = cycle;
+
+		if (pHierarchy->end > 1.0f && index < pHierarchy->start)
+			index += 1.0f;
+
+		if (index < pHierarchy->start)
+			return;
+		if (index >= pHierarchy->end)
+			return;
+
+		if (index < pHierarchy->peak && pHierarchy->start != pHierarchy->peak)
+		{
+			weight = (index - pHierarchy->start) / (pHierarchy->peak - pHierarchy->start);
+		}
+		else if (index > pHierarchy->tail && pHierarchy->end != pHierarchy->tail)
+		{
+			weight = (pHierarchy->end - index) / (pHierarchy->end - pHierarchy->tail);
+		}
+
+		weight = SimpleSpline( weight );
+	}
+
+	CalcDecompressedAnimation( pHierarchy->pLocalAnim(), iFrame - pHierarchy->iStart, flFraq, localPos, localQ );
+
+	// find first common root bone
+	int iRoot1 = iBone;
+	int iRoot2 = iNewParent;
+	while (iRoot1 != iRoot2 && iRoot1 != -1)
+	{
+		if (iRoot1 > iRoot2)
+			iRoot1 = pStudioHdr->boneParent( iRoot1 );
+		else
+			iRoot2 = pStudioHdr->boneParent( iRoot2 );
+	}
+
+	// BUGBUG: pos and q only valid if local weight
+	BuildBoneChainPartial( pStudioHdr, rootXform, pos, q, iBone, boneToWorld, boneComputed, iRoot1 );
+	BuildBoneChainPartial( pStudioHdr, rootXform, pos, q, iNewParent, boneToWorld, boneComputed, iRoot1 );
+
+	matrix3x4a_t localXform;
+	AngleMatrix( RadianEuler(localQ), localPos, localXform );
+
+	ConcatTransforms_Aligned( boneToWorld[iNewParent], localXform, boneToWorld[iBone] );
+
+	// back solve
+	BoneVector p1;
+	BoneQuaternion q1;
+	int n = pbone[iBone].parent;
+	if (n == -1)
+	{
+		if (weight == 1.0f)
+		{
+			MatrixAngles( boneToWorld[iBone], q[iBone], pos[iBone] );
+		}
+		else
+		{
+			MatrixAngles( boneToWorld[iBone], q1, p1 );
+			QuaternionSlerp( q[iBone], q1, weight, q[iBone] );
+			//pos[iBone] = Lerp( weight, p1, pos[iBone] );
+			pos[iBone] = p1 + (pos[iBone] - p1) * weight;
+		}
+	}
+	else
+	{
+		matrix3x4a_t worldToBone;
+		MatrixInvert( boneToWorld[n], worldToBone );
+
+		matrix3x4a_t local;
+		ConcatTransforms_Aligned( worldToBone, boneToWorld[iBone], local );
+		if (weight == 1.0f)
+		{
+			MatrixAngles( local, q[iBone], pos[iBone] );
+		}
+		else
+		{
+			MatrixAngles( local, q1, p1 );
+			QuaternionSlerp( q[iBone], q1, weight, q[iBone] );
+			//pos[iBone] = Lerp( weight, p1, pos[iBone] );
+			pos[iBone] = p1 + (pos[iBone] - p1) * weight;
+		}
+	}
+}
+
 
 
 //-----------------------------------------------------------------------------
 // Purpose: Calc Zeroframe Data
 //-----------------------------------------------------------------------------
 
+static void CalcZeroframeData( const CStudioHdr *pStudioHdr, const studiohdr_t *pAnimStudioHdr, const virtualgroup_t *pAnimGroup, const mstudiobone_t *pAnimbone, mstudioanimdesc_t &animdesc, float fFrame, BoneVector *pos, BoneQuaternion *q, BoneFlags boneMask, float flWeight )
+{
+	uint8_t *pData = animdesc.pZeroFrameData();
+
+	if (!pData)
+		return;
+
+	int i, j;
+
+	// Msg("zeroframe %s\n", animdesc.pszName() );
+	if (animdesc.zeroframecount == 1)
+	{
+		for (j = 0; j < pAnimStudioHdr->numbones; j++)
+		{
+			if (pAnimGroup)
+				i = pAnimGroup->masterBone[j];
+			else
+				i = j;
+
+			if (HasFlag(pAnimbone[j].flags, BoneFlags::HasSaveframePos))
+			{
+				if ((i >= 0) && HasFlag(pStudioHdr->boneFlags(i), boneMask))
+				{
+					Vector p = *(Vector48 *)pData;
+					pos[i] = pos[i] * (1.0f - flWeight) + p * flWeight;
+					Assert( pos[i].IsValid() );
+				}
+				pData += sizeof( Vector48 );
+			}
+			if (HasFlag(pAnimbone[j].flags, BoneFlags::HasSaveframeRot64))
+			{
+				if ((i >= 0) && HasFlag(pStudioHdr->boneFlags(i), boneMask))
+				{
+					Quaternion q0 = *(Quaternion64 *)pData;
+					QuaternionBlend( q[i], q0, flWeight, q[i] );
+					Assert( q[i].IsValid() );
+				}
+				pData += sizeof( Quaternion64 );
+			}
+			else if (HasFlag(pAnimbone[j].flags, BoneFlags::HasSaveframeRot32))
+			{
+				if ((i >= 0) && HasFlag(pStudioHdr->boneFlags(i), boneMask))
+				{
+					Quaternion q0 = *(Quaternion32 *)pData;
+					QuaternionBlend( q[i], q0, flWeight, q[i] );
+					Assert( q[i].IsValid() );
+				}
+				pData += sizeof( Quaternion32 );
+			}
+		}
+	}
+	else
+	{
+		float s1;
+		int index = fFrame / animdesc.zeroframespan;
+		if (index >= animdesc.zeroframecount - 1)
+		{
+			index = animdesc.zeroframecount - 2;
+			s1 = 1.0f;
+		}
+		else
+		{
+			s1 = clamp( (fFrame - index * animdesc.zeroframespan) / animdesc.zeroframespan, 0.0f, 1.0f );
+		}
+		int i0 = MAX( index - 1, 0 );
+		int i1 = index;
+		int i2 = MIN( index + 1, animdesc.zeroframecount - 1 );
+		for (j = 0; j < pAnimStudioHdr->numbones; j++)
+		{
+			if (pAnimGroup)
+				i = pAnimGroup->masterBone[j];
+			else
+				i = j;
+
+			if (HasFlag(pAnimbone[j].flags, BoneFlags::HasSaveframePos))
+			{
+				if ((i >= 0) && HasFlag(pStudioHdr->boneFlags(i), boneMask))
+				{
+					Vector p0 = *(((Vector48 *)pData) + i0);
+					Vector p1 = *(((Vector48 *)pData) + i1);
+					Vector p2 = *(((Vector48 *)pData) + i2);
+					if (flWeight == 1.0f)
+					{
+						// don't blend into an uninitialized value
+						Hermite_Spline( p0, p1, p2, s1, pos[i] );
+					}
+					else
+					{
+						Vector p3;
+						Hermite_Spline( p0, p1, p2, s1, p3 );
+						pos[i] = pos[i] * (1.0f - flWeight) + p3 * flWeight;
+					}
+
+					Assert( pos[i].IsValid() );
+				}
+				pData += sizeof( Vector48 ) * animdesc.zeroframecount;
+			}
+			if (HasFlag(pAnimbone[j].flags, BoneFlags::HasSaveframeRot64))
+			{
+				if ((i >= 0) && HasFlag(pStudioHdr->boneFlags(i), boneMask))
+				{
+					Quaternion q0 = *(((Quaternion64 *)pData) + i0);
+					Quaternion q1 = *(((Quaternion64 *)pData) + i1);
+					Quaternion q2 = *(((Quaternion64 *)pData) + i2);
+					if (flWeight == 1.0f)
+					{
+						// don't blend into an uninitialized value
+						Hermite_Spline( q0, q1, q2, s1, q[i] );
+					}
+					else
+					{
+						Quaternion q3;
+						Hermite_Spline( q0, q1, q2, s1, q3 );
+						QuaternionBlend( q[i], q3, flWeight, q[i] );
+					}
+					Assert( q[i].IsValid() );
+				}
+				pData += sizeof( Quaternion64 ) * animdesc.zeroframecount;
+			}
+			else if (HasFlag(pAnimbone[j].flags, BoneFlags::HasSaveframeRot32))
+			{
+				if ((i >= 0) && HasFlag(pStudioHdr->boneFlags(i), boneMask))
+				{
+					Quaternion q0 = *(((Quaternion32 *)pData) + i0);
+					Quaternion q1 = *(((Quaternion32 *)pData) + i1);
+					Quaternion q2 = *(((Quaternion32 *)pData) + i2);
+					if (flWeight == 1.0f)
+					{
+						// don't blend into an uninitialized value
+						Hermite_Spline( q0, q1, q2, s1, q[i] );
+					}
+					else
+					{
+						Quaternion q3;
+						Hermite_Spline( q0, q1, q2, s1, q3 );
+						QuaternionBlend( q[i], q3, flWeight, q[i] );
+					}
+					Assert( q[i].IsValid() );
+				}
+				pData += sizeof( Quaternion32 ) * animdesc.zeroframecount;
+			}
+		}
+	}
+}
 //-----------------------------------------------------------------------------
 // Purpose: Extract and blend two frames from a mstudio_frame_anim_t block of data
 //-----------------------------------------------------------------------------
@@ -596,6 +856,527 @@ inline uint8_t *SkipBoneFrame( StudioFrameFlags flags, uint8_t * RESTRICT pFrame
 // Purpose: Extract a single bone of animation
 //-----------------------------------------------------------------------------
 
+void SetupSingleBoneMatrix( 
+	CStudioHdr *pOwnerHdr, 
+	int nSequence, 
+	int iFrame,
+	int iBone, 
+	matrix3x4_t &mBoneLocal )
+{
+	// FIXME: why does anyone call this instead of just looking up that entities cached animation?
+	// Reading the callers, I don't see how what it returns is of any use
+
+	mstudioseqdesc_t &seqdesc = pOwnerHdr->pSeqdesc( nSequence );
+	mstudioanimdesc_t &animdesc = pOwnerHdr->pAnimdesc( seqdesc.anim( 0, 0 ) );
+	int iLocalFrame = iFrame;
+	float s = 0;
+	const mstudiobone_t *pbone = pOwnerHdr->pBone( iBone );
+
+	BoneQuaternion boneQuat;
+	BoneVector bonePos;
+
+	bool bFound = false;
+
+	if (HasFlag(animdesc.flags, StudioSequenceFlags::FrameAnim))
+	{
+		/*
+		mstudio_frame_anim_t *pFrameanim = (mstudio_frame_anim_t *)animdesc.pAnim( &iLocalFrame );
+
+		if (pFrameanim)
+		{
+			StudioFrameFlags *pBoneFlags = pFrameanim->pBoneFlags( );
+			byte *pConstantData = pFrameanim->pConstantData( );
+			byte *pFrameData = pFrameanim->pFrameData( iLocalFrame );
+
+			// FIXME: this is the local bone index, not the global bone index
+			for (int i = 0; i < iBone; i++, pBoneFlags++)
+			{
+				pFrameData = SkipBoneFrame( *pBoneFlags, pFrameData, pConstantData );
+			}
+			pFrameData = ExtractSingleFrame( *pBoneFlags, pFrameData, pConstantData, boneQuat, bonePos );
+			bFound = true;
+		}
+		*/
+	}
+	else
+	{
+		mstudio_rle_anim_t *panim = (mstudio_rle_anim_t *)animdesc.pAnim( &iLocalFrame );
+
+		// search for bone
+		// FIXME: this is the local bone index, not the global bone index
+		while (panim && panim->bone != iBone)
+		{
+			panim = panim->pNext();
+		}
+
+		// look up animation if found, if not, initialize
+		if (panim && seqdesc.weight(iBone) > 0)
+		{
+			CalcBoneQuaternion( iLocalFrame, s, pbone, nullptr, panim, boneQuat );
+			CalcBonePosition  ( iLocalFrame, s, pbone, nullptr, panim, bonePos );
+			bFound = true;
+		}
+	}
+
+	if (!bFound)
+	{
+		if (HasFlag(animdesc.flags, StudioSequenceFlags::Delta))
+		{
+			boneQuat.Init( 0.0f, 0.0f, 0.0f, 1.0f );
+			bonePos.Init( 0.0f, 0.0f, 0.0f );
+		}
+		else
+		{
+			boneQuat = pbone->quat;
+			bonePos = pbone->pos;
+		}
+	}
+
+	QuaternionMatrix( boneQuat, bonePos, mBoneLocal );
+}
 
 
+//-----------------------------------------------------------------------------
+// Purpose: Find and decode a sub-frame of animation, remapping the skeleton bone indexes
+//-----------------------------------------------------------------------------
+static void CalcVirtualAnimation( virtualmodel_t *pVModel, const CStudioHdr *pStudioHdr, BoneVector *pos, BoneQuaternion *q, 
+	mstudioseqdesc_t &seqdesc, int sequence, int animation,
+	float cycle, BoneFlags boneMask )
+{
+	BONE_PROFILE_FUNC(); // ex: x360: up to 1.4ms 
+
+	int	i, j, k;
+
+	const mstudiobone_t *pbone;
+	const virtualgroup_t *pSeqGroup;
+	const studiohdr_t *pSeqStudioHdr;
+	const mstudiolinearbone_t *pSeqLinearBones;
+	const mstudiobone_t *pSeqbone;
+	const studiohdr_t *pAnimStudioHdr;
+	const mstudiolinearbone_t *pAnimLinearBones;
+	const mstudiobone_t *pAnimbone;
+	const virtualgroup_t *pAnimGroup;
+
+	pSeqGroup = pVModel->pSeqGroup( sequence );
+	int baseanimation = pStudioHdr->iRelativeAnim( sequence, animation );
+	mstudioanimdesc_t &animdesc = ((CStudioHdr *)pStudioHdr)->pAnimdesc( baseanimation );
+	pSeqStudioHdr = ((CStudioHdr *)pStudioHdr)->pSeqStudioHdr( sequence );
+	pSeqLinearBones = pSeqStudioHdr->pLinearBones();
+	pSeqbone = pSeqStudioHdr->pBone( 0 );
+	pAnimGroup = pVModel->pAnimGroup( baseanimation );
+	pAnimStudioHdr = ((CStudioHdr *)pStudioHdr)->pAnimStudioHdr( baseanimation );
+	pAnimLinearBones = pAnimStudioHdr->pLinearBones();
+	pAnimbone = pAnimStudioHdr->pBone( 0 );
+
+	int					iFrame;
+	float				s;
+
+	float fFrame = cycle * (animdesc.numframes - 1);
+
+	iFrame = (int)fFrame;
+	s = (fFrame - iFrame);
+
+	int iLocalFrame = iFrame;
+	float flStall;
+
+	const mstudio_rle_anim_t *panim = nullptr;
+	const mstudio_frame_anim_t *pFrameanim = nullptr;
+	
+	StudioFrameFlags *pBoneFlags = nullptr;
+	uint8_t *pConstantData = nullptr;
+	uint8_t *pFrameData = nullptr;
+	uint8_t *pFrameDataNext = nullptr;
+	int framelength = 0;
+	
+	if (HasFlag(animdesc.flags, StudioSequenceFlags::FrameAnim))
+	{
+		pFrameanim = (mstudio_frame_anim_t *)animdesc.pAnim( &iLocalFrame, flStall );
+		if ( pFrameanim )
+		{
+			pBoneFlags = pFrameanim->pBoneFlags( );
+			pConstantData = pFrameanim->pConstantData( );
+			pFrameData = pFrameanim->pFrameData( iLocalFrame );
+			framelength = pFrameanim->framelength;
+			pFrameDataNext = pFrameData + framelength;
+
+
+
+
+
+		}
+	}
+	else
+	{
+		panim = (mstudio_rle_anim_t *)animdesc.pAnim( &iLocalFrame, flStall );
+	}
+
+	float *pweight = seqdesc.pBoneweight( 0 );
+	pbone = pStudioHdr->pBone( 0 );
+
+	int nBoneList[MAXSTUDIOBONES];
+	int nBoneListCount = 0;
+	for (i = 0; i < pStudioHdr->numbones(); i++)
+	{
+		if (HasFlag(pStudioHdr->boneFlags(i), boneMask))
+		{
+			int j = pSeqGroup->boneMap[i];
+			if (j >= 0 && pweight[j] > 0.0f)
+			{
+				nBoneList[nBoneListCount++] = i;
+			}
+		}
+	}
+
+	if ( HasFlag(animdesc.flags, StudioSequenceFlags::Delta) )
+	{
+		for ( i = 0; i < nBoneListCount; i++ )
+		{
+			int nBone = nBoneList[i];
+			q[nBone].Init( 0.0f, 0.0f, 0.0f, 1.0f );
+			pos[nBone].Init( 0.0f, 0.0f, 0.0f );
+		}
+	}
+	else if (pSeqLinearBones)
+	{
+		const Quaternion *pLinearQuat = &pSeqLinearBones->quat( 0 );
+		const Vector *pLinearPos = &pSeqLinearBones->pos( 0 );
+		for ( i = 0; i < nBoneListCount; i++ )
+		{
+			int nBone = nBoneList[i];
+			int j = pSeqGroup->boneMap[nBone];
+			q[nBone] = pLinearQuat[j];
+			pos[nBone] = pLinearPos[j];
+		}
+	}
+	else
+	{
+		for ( i = 0; i < nBoneListCount; i++ )
+		{
+			int nBone = nBoneList[i];
+			int j = pSeqGroup->boneMap[nBone];
+			q[nBone] = pSeqbone[j].quat;
+			pos[nBone] = pSeqbone[j].pos;
+		}
+	}
+#ifdef STUDIO_ENABLE_PERF_COUNTERS
+	pStudioHdr->m_nPerfUsedBones += nBoneListCount;
+#endif
+
+	// decode frame animation
+	if (pFrameanim)
+	{
+// 		byte *pBoneFlags = pFrameanim->pBoneFlags( );
+// 		byte *pConstantData = pFrameanim->pConstantData( );
+// 		byte *pFrameData = pFrameanim->pFrameData( iLocalFrame );
+// 		int framelength = pFrameanim->framelength;
+
+		if (s > 0.0)
+		{
+			for (i = 0; i < pAnimStudioHdr->numbones; i++)
+			{
+				j = pAnimGroup->masterBone[i];
+				if ( j >= 0 && HasFlag(pStudioHdr->boneFlags(j), boneMask) )
+				{
+					pFrameData = ExtractTwoFrames( *pBoneFlags, s, pFrameData, pConstantData, framelength, q[j], pos[j] );
+	#ifdef STUDIO_ENABLE_PERF_COUNTERS
+					pStudioHdr->m_nPerfAnimatedBones++;
+	#endif
+				}
+				else
+				{
+					pFrameData = SkipBoneFrame( *pBoneFlags, pFrameData, pConstantData );
+				}
+				pBoneFlags++;
+			}
+		}
+		else
+		{
+			for (i = 0; i < pAnimStudioHdr->numbones; i++)
+			{
+				j = pAnimGroup->masterBone[i];
+				if ( j >= 0 && HasFlag(pStudioHdr->boneFlags(j), boneMask) )
+				{
+					pFrameData = ExtractSingleFrame( *pBoneFlags, pFrameData, pConstantData, q[j], pos[j] );
+	#ifdef STUDIO_ENABLE_PERF_COUNTERS
+					pStudioHdr->m_nPerfAnimatedBones++;
+	#endif
+				}
+				else
+				{
+					pFrameData = SkipBoneFrame( *pBoneFlags, pFrameData, pConstantData );
+				}
+				pBoneFlags++;
+			}
+		}
+	}
+	else if (panim)
+	{
+		// FIXME: change encoding so that bone -1 is never the case
+		while (panim && panim->bone < 255)
+		{
+			j = pAnimGroup->masterBone[panim->bone];
+			if ( j >= 0 && HasFlag(pStudioHdr->boneFlags(j), boneMask) )
+			{
+				k = pSeqGroup->boneMap[j];
+
+				if (k >= 0 && pweight[k] > 0.0f)
+				{
+					CalcBoneQuaternion( iLocalFrame, s, &pAnimbone[panim->bone], pAnimLinearBones, panim, q[j] );
+					CalcBonePosition  ( iLocalFrame, s, &pAnimbone[panim->bone], pAnimLinearBones, panim, pos[j] );
+	#ifdef STUDIO_ENABLE_PERF_COUNTERS
+					pStudioHdr->m_nPerfAnimatedBones++;
+	#endif
+				}
+			}
+			panim = panim->pNext();
+		}
+	}
+	else
+	{
+		CalcZeroframeData( pStudioHdr, pAnimStudioHdr, pAnimGroup, pAnimbone, animdesc, fFrame, pos, q, boneMask, 1.0 );
+		return;
+	}
+
+	// cross fade in previous zeroframe data
+	if (flStall > 0.0f)
+	{
+		CalcZeroframeData( pStudioHdr, pAnimStudioHdr, pAnimGroup, pAnimbone, animdesc, fFrame, pos, q, boneMask, flStall );
+	}
+
+	// calculate a local hierarchy override
+	if (animdesc.numlocalhierarchy)
+	{
+        matrix3x4a_t *boneToWorld = g_MatrixPool.Alloc();
+		CBoneBitList boneComputed;
+
+		int i;
+		for (i = 0; i < animdesc.numlocalhierarchy; i++)
+		{
+			mstudiolocalhierarchy_t *pHierarchy = animdesc.pHierarchy( i );
+
+			if ( !pHierarchy )
+				break;
+
+			int iBone = pAnimGroup->masterBone[pHierarchy->iBone];
+			if (iBone >= 0 && HasFlag(pStudioHdr->boneFlags(iBone), boneMask))
+			{
+				int iNewParent = pAnimGroup->masterBone[pHierarchy->iNewParent];
+				if (iNewParent >= 0 && HasFlag(pStudioHdr->boneFlags(iNewParent), boneMask))
+				{
+					CalcLocalHierarchyAnimation( pStudioHdr, boneToWorld, boneComputed, pos, q, pbone, pHierarchy, iBone, iNewParent, cycle, iFrame, s, boneMask );
+				}
+			}
+		}
+
+        g_MatrixPool.Free(boneToWorld);
+	}
+}
+
+
+
+//-----------------------------------------------------------------------------
+// Purpose: Find and decode a sub-frame of animation
+//-----------------------------------------------------------------------------
+void CalcAnimation( const CStudioHdr *pStudioHdr, BoneVector *pos, BoneQuaternion *q, 
+	mstudioseqdesc_t &seqdesc,
+	int sequence, int animation,
+	float cycle, BoneFlags boneMask )
+{
+#ifdef STUDIO_ENABLE_PERF_COUNTERS
+	pStudioHdr->m_nPerfAnimationLayers++;
+#endif
+
+	virtualmodel_t *pVModel = pStudioHdr->GetVirtualModel();
+
+	if (pVModel)
+	{
+		CalcVirtualAnimation( pVModel, pStudioHdr, pos, q, seqdesc, sequence, animation, cycle, boneMask );
+		return;
+	}
+
+	mstudioanimdesc_t &animdesc = ((CStudioHdr *)pStudioHdr)->pAnimdesc( animation );
+	const mstudiobone_t *pbone = pStudioHdr->pBone( 0 );
+	const mstudiolinearbone_t *pLinearBones = pStudioHdr->pLinearBones();
+
+	int					i;
+	int					iFrame;
+	float				s;
+
+	float fFrame = cycle * (animdesc.numframes - 1);
+
+	iFrame = (int)fFrame;
+	s = (fFrame - iFrame);
+
+	int iLocalFrame = iFrame;
+	float flStall = 0.0f;
+
+	const mstudio_rle_anim_t *panim = nullptr;
+	const mstudio_frame_anim_t *pFrameanim = nullptr;
+	
+	StudioFrameFlags *pBoneFlags = nullptr;
+	uint8_t *pConstantData = nullptr;
+	uint8_t *pFrameData = nullptr;
+	uint8_t *pFrameDataNext = nullptr;
+	int framelength = NULL;
+
+	if (HasFlag(animdesc.flags, StudioSequenceFlags::FrameAnim))
+	{
+		pFrameanim = (mstudio_frame_anim_t *)animdesc.pAnim( &iLocalFrame, flStall );
+		if ( pFrameanim )
+		{
+			pBoneFlags = pFrameanim->pBoneFlags( );
+			pConstantData = pFrameanim->pConstantData( );
+			pFrameData = pFrameanim->pFrameData( iLocalFrame );
+			framelength = pFrameanim->framelength;
+			pFrameDataNext = pFrameData + framelength;
+		}
+	}
+	else
+	{
+		panim = (mstudio_rle_anim_t *)animdesc.pAnim( &iLocalFrame, flStall );
+	}
+
+	float *pweight = seqdesc.pBoneweight( 0 );
+	bool bIsDelta = HasFlag(animdesc.flags, StudioSequenceFlags::Delta);
+
+	// if the animation isn't available, look for the zero frame cache
+	if (!panim && !pFrameanim)
+	{
+		// Msg("zeroframe %s\n", animdesc.pszName() );
+		// pre initialize
+		for (i = 0; i < pStudioHdr->numbones(); i++, pbone++, pweight++)
+		{
+			if (*pweight > 0 && HasFlag(pStudioHdr->boneFlags(i), boneMask))
+			{
+				if (bIsDelta)
+				{
+					q[i].Init( 0.0f, 0.0f, 0.0f, 1.0f );
+					pos[i].Init( 0.0f, 0.0f, 0.0f );
+				}
+				else
+				{
+					q[i] = pbone->quat;
+					pos[i] = pbone->pos;
+				}
+			}
+		}
+
+		CalcZeroframeData( pStudioHdr, pStudioHdr->GetRenderHdr(), nullptr, pStudioHdr->pBone( 0 ), animdesc, fFrame, pos, q, boneMask, 1.0 );
+
+		return;
+	}
+
+	// decode frame animation
+	if (pFrameanim)
+	{
+// 		byte *pBoneFlags = pFrameanim->pBoneFlags( );
+// 		byte *pConstantData = pFrameanim->pConstantData( );
+// 		byte *pFrameData = pFrameanim->pFrameData( iLocalFrame );
+// 		int framelength = pFrameanim->framelength;
+
+		if (s > 0.0)
+		{
+			for (i = 0; i < pStudioHdr->numbones(); i++, pBoneFlags++, pweight++)
+			{
+				if (*pweight > 0 && HasFlag(pStudioHdr->boneFlags(i), boneMask))
+				{
+					pFrameData = ExtractTwoFrames( *pBoneFlags, s, pFrameData, pConstantData, framelength, q[i], pos[i], bIsDelta, pLinearBones, i );
+	#ifdef STUDIO_ENABLE_PERF_COUNTERS
+					pStudioHdr->m_nPerfAnimatedBones++;
+	#endif
+				}
+				else
+				{
+					pFrameData = SkipBoneFrame( *pBoneFlags, pFrameData, pConstantData );
+				}
+				pStudioHdr->m_nPerfUsedBones++;
+			}
+		}
+		else
+		{
+			for (i = 0; i < pStudioHdr->numbones(); i++, pBoneFlags++, pweight++)
+			{
+				if (*pweight > 0 && HasFlag(pStudioHdr->boneFlags(i), boneMask))
+				{
+					pFrameData = ExtractSingleFrame( *pBoneFlags, pFrameData, pConstantData, q[i], pos[i], bIsDelta, pLinearBones, i );
+	#ifdef STUDIO_ENABLE_PERF_COUNTERS
+					pStudioHdr->m_nPerfAnimatedBones++;
+	#endif
+				}
+				else
+				{
+					pFrameData = SkipBoneFrame( *pBoneFlags, pFrameData, pConstantData );
+				}
+				pStudioHdr->m_nPerfUsedBones++;
+			}
+		}
+	}
+	else
+	{
+		// BUGBUG: the sequence, the anim, and the model can have all different bone mappings.
+		for (i = 0; i < pStudioHdr->numbones(); i++, pbone++, pweight++)
+		{
+			if (panim && panim->bone == i)
+			{
+				if (*pweight > 0 && HasFlag(pStudioHdr->boneFlags(i), boneMask))
+				{
+					CalcBoneQuaternion( iLocalFrame, s, pbone, pLinearBones, panim, q[i] );
+					CalcBonePosition  ( iLocalFrame, s, pbone, pLinearBones, panim, pos[i] );
+	#ifdef STUDIO_ENABLE_PERF_COUNTERS
+					pStudioHdr->m_nPerfAnimatedBones++;
+					pStudioHdr->m_nPerfUsedBones++;
+	#endif
+				}
+				panim = panim->pNext();
+			}
+			else if (*pweight > 0 && HasFlag(pStudioHdr->boneFlags(i), boneMask))
+			{
+				if (bIsDelta)
+				{
+					q[i].Init( 0.0f, 0.0f, 0.0f, 1.0f );
+					pos[i].Init( 0.0f, 0.0f, 0.0f );
+				}
+				else
+				{
+					q[i] = pbone->quat;
+					pos[i] = pbone->pos;
+				}
+	#ifdef STUDIO_ENABLE_PERF_COUNTERS
+				pStudioHdr->m_nPerfUsedBones++;
+	#endif
+			}
+		}
+	}
+
+	// cross fade in previous zeroframe data
+	if (flStall > 0.0f)
+	{
+		CalcZeroframeData( pStudioHdr, pStudioHdr->GetRenderHdr(), nullptr, pStudioHdr->pBone( 0 ), animdesc, fFrame, pos, q, boneMask, flStall );
+	}
+
+	if (animdesc.numlocalhierarchy)
+	{
+		matrix3x4a_t *boneToWorld = g_MatrixPool.Alloc();
+		CBoneBitList boneComputed;
+
+		int i;
+		for (i = 0; i < animdesc.numlocalhierarchy; i++)
+		{
+			mstudiolocalhierarchy_t *pHierarchy = animdesc.pHierarchy( i );
+
+			if ( !pHierarchy )
+				break;
+
+			if (HasFlag(pStudioHdr->boneFlags(pHierarchy->iBone), boneMask))
+			{
+				if (HasFlag(pStudioHdr->boneFlags(pHierarchy->iNewParent), boneMask))
+				{
+					CalcLocalHierarchyAnimation( pStudioHdr, boneToWorld, boneComputed, pos, q, pbone, pHierarchy, pHierarchy->iBone, pHierarchy->iNewParent, cycle, iFrame, s, boneMask );
+				}
+			}
+		}
+
+        g_MatrixPool.Free( boneToWorld );
+	}
+}
 

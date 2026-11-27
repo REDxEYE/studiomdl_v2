@@ -209,6 +209,28 @@ mstudioikrule_t *mstudioanimdesc_t::pIKRule( int i ) const
 }
 
 
+mstudiolocalhierarchy_t *mstudioanimdesc_t::pHierarchy( int i ) const
+{
+	if (localhierarchyindex)
+	{
+		if (animblock == 0)
+		{
+			return  (mstudiolocalhierarchy_t *)(((uint8_t *)this) + localhierarchyindex) + i;
+		}
+		else
+		{
+			uint8_t *pAnimBlock = pStudiohdr()->GetAnimBlock( animblock );
+
+			if ( pAnimBlock )
+			{
+				return (mstudiolocalhierarchy_t *)(pAnimBlock + localhierarchyindex) + i;
+			}
+		}
+	}
+
+	return nullptr;
+}
+
 //-----------------------------------------------------------------------------
 // Purpose:
 //-----------------------------------------------------------------------------
@@ -274,10 +296,33 @@ int studiohdr_t::iRelativeAnim_Internal( int baseseq, int relanim ) const
 // Purpose:
 //-----------------------------------------------------------------------------
 
+int studiohdr_t::iRelativeSeq_Internal( int baseseq, int relseq ) const
+{
+	virtualmodel_t *pVModel = (virtualmodel_t *)GetVirtualModel();
+	Assert( pVModel );
+
+	virtualgroup_t *pGroup = &pVModel->m_group[ pVModel->m_seq[baseseq].group ];
+
+	return pGroup->masterSeq[ relseq ];
+}
+
 
 //-----------------------------------------------------------------------------
 // Purpose:
 //-----------------------------------------------------------------------------
+
+int	studiohdr_t::GetNumPoseParameters( void ) const
+{
+	if (numincludemodels == 0)
+	{
+		return numlocalposeparameters;
+	}
+
+	virtualmodel_t *pVModel = (virtualmodel_t *)GetVirtualModel();
+	Assert( pVModel );
+
+	return pVModel->m_pose.size();
+}
 
 
 
@@ -334,35 +379,22 @@ int studiohdr_t::GetSharedPoseParameter( int iSequence, int iLocalPose ) const
 // Purpose:
 //-----------------------------------------------------------------------------
 
+int studiohdr_t::EntryNode( int iSequence )
+{
+	mstudioseqdesc_t &seqdesc = pSeqdesc( iSequence );
 
-//-----------------------------------------------------------------------------
-// Purpose:
-//-----------------------------------------------------------------------------
+	if (numincludemodels == 0 || seqdesc.localentrynode == 0)
+	{
+		return seqdesc.localentrynode;
+	}
 
+	virtualmodel_t *pVModel = (virtualmodel_t *)GetVirtualModel();
+	Assert( pVModel );
 
+	virtualgroup_t *pGroup = &pVModel->m_group[ pVModel->m_seq[iSequence].group ];
 
-//-----------------------------------------------------------------------------
-// Purpose:
-//-----------------------------------------------------------------------------
-
-
-
-//-----------------------------------------------------------------------------
-// Purpose:
-//-----------------------------------------------------------------------------
-
-//-----------------------------------------------------------------------------
-// Purpose:
-//-----------------------------------------------------------------------------
-
-
-//-----------------------------------------------------------------------------
-// Purpose:
-//-----------------------------------------------------------------------------
-
-//-----------------------------------------------------------------------------
-// Purpose:
-//-----------------------------------------------------------------------------
+	return pGroup->masterNode[seqdesc.localentrynode-1]+1;
+}
 
 
 //-----------------------------------------------------------------------------
@@ -370,11 +402,232 @@ int studiohdr_t::GetSharedPoseParameter( int iSequence, int iLocalPose ) const
 //-----------------------------------------------------------------------------
 
 
+int studiohdr_t::ExitNode( int iSequence )
+{
+	mstudioseqdesc_t &seqdesc = pSeqdesc( iSequence );
+
+	if (numincludemodels == 0 || seqdesc.localexitnode == 0)
+	{
+		return seqdesc.localexitnode;
+	}
+
+	virtualmodel_t *pVModel = (virtualmodel_t *)GetVirtualModel();
+	Assert( pVModel );
+
+	virtualgroup_t *pGroup = &pVModel->m_group[ pVModel->m_seq[iSequence].group ];
+
+	return pGroup->masterNode[seqdesc.localexitnode-1]+1;
+}
+
 
 //-----------------------------------------------------------------------------
 // Purpose:
 //-----------------------------------------------------------------------------
 
+int	studiohdr_t::GetNumAttachments( void ) const
+{
+	if (numincludemodels == 0)
+	{
+		return numlocalattachments;
+	}
+
+	virtualmodel_t *pVModel = (virtualmodel_t *)GetVirtualModel();
+	Assert( pVModel );
+
+	return pVModel->m_attachment.size();
+}
+
+
+
+//-----------------------------------------------------------------------------
+// Purpose:
+//-----------------------------------------------------------------------------
+
+const mstudioattachment_t &studiohdr_t::pAttachment( int i ) const
+{
+	if (numincludemodels == 0)
+	{
+		return *pLocalAttachment( i );
+	}
+
+	virtualmodel_t *pVModel = (virtualmodel_t *)GetVirtualModel();
+	Assert( pVModel );
+
+	virtualgroup_t *pGroup = &pVModel->m_group[ pVModel->m_attachment[i].group ];
+	const studiohdr_t *pStudioHdr = pGroup->GetStudioHdr();
+	Assert( pStudioHdr );
+
+	return *pStudioHdr->pLocalAttachment( pVModel->m_attachment[i].index );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose:
+//-----------------------------------------------------------------------------
+
+int	studiohdr_t::GetAttachmentBone( int i )
+{
+	const mstudioattachment_t &attachment = pAttachment( i );
+
+	// remap bone
+	virtualmodel_t *pVModel = GetVirtualModel();
+	if (pVModel)
+	{
+		virtualgroup_t *pGroup = &pVModel->m_group[ pVModel->m_attachment[i].group ];
+		int iBone = pGroup->masterBone[attachment.localbone];
+		if (iBone == -1)
+			return 0;
+		return iBone;
+	}
+	return attachment.localbone;
+}
+
+
+//-----------------------------------------------------------------------------
+// Purpose:
+//-----------------------------------------------------------------------------
+
+void studiohdr_t::SetAttachmentBone( int iAttachment, int iBone )
+{
+	mstudioattachment_t &attachment = (mstudioattachment_t &)pAttachment( iAttachment );
+
+	// remap bone
+	virtualmodel_t *pVModel = GetVirtualModel();
+	if (pVModel)
+	{
+		virtualgroup_t *pGroup = &pVModel->m_group[ pVModel->m_attachment[iAttachment].group ];
+		iBone = pGroup->boneMap[iBone];
+	}
+	attachment.localbone = iBone;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose:
+//-----------------------------------------------------------------------------
+
+char *studiohdr_t::pszNodeName( int iNode )
+{
+	if (numincludemodels == 0)
+	{
+		return pszLocalNodeName( iNode );
+	}
+
+	virtualmodel_t *pVModel = (virtualmodel_t *)GetVirtualModel();
+	Assert( pVModel );
+
+	if ( pVModel->m_node.size() <= iNode-1 )
+		return "Invalid node";
+
+	return pVModel->m_group[ pVModel->m_node[iNode-1].group ].GetStudioHdr()->pszLocalNodeName( pVModel->m_node[iNode-1].index );
+}
+
+
+//-----------------------------------------------------------------------------
+// Purpose:
+//-----------------------------------------------------------------------------
+
+int studiohdr_t::GetTransition( int iFrom, int iTo ) const
+{
+	if (numincludemodels == 0)
+	{
+		return *pLocalTransition( (iFrom-1)*numlocalnodes + (iTo - 1) );
+	}
+
+	return iTo;
+	/*
+	FIXME: not connected
+	virtualmodel_t *pVModel = (virtualmodel_t *)GetVirtualModel();
+	Assert( pVModel );
+
+	return pVModel->m_transition.Element( iFrom ).Element( iTo );
+	*/
+}
+
+
+int	studiohdr_t::GetActivityListVersion( void )
+{
+	if (numincludemodels == 0)
+	{
+		return activitylistversion;
+	}
+
+	virtualmodel_t *pVModel = (virtualmodel_t *)GetVirtualModel();
+	Assert( pVModel );
+
+	int version = activitylistversion;
+
+	int i;
+	for (i = 1; i < pVModel->m_group.size(); i++)
+	{
+		virtualgroup_t *pGroup = &pVModel->m_group[ i ];
+		const studiohdr_t *pStudioHdr = pGroup->GetStudioHdr();
+
+		Assert( pStudioHdr );
+
+		version = MIN( version, pStudioHdr->activitylistversion );
+	}
+
+	return version;
+}
+
+void studiohdr_t::SetActivityListVersion( int version ) const
+{
+	activitylistversion = version;
+
+	if (numincludemodels == 0)
+	{
+		return;
+	}
+
+	virtualmodel_t *pVModel = (virtualmodel_t *)GetVirtualModel();
+	Assert( pVModel );
+
+	int i;
+	for (i = 1; i < pVModel->m_group.size(); i++)
+	{
+		virtualgroup_t *pGroup = &pVModel->m_group[ i ];
+		const studiohdr_t *pStudioHdr = pGroup->GetStudioHdr();
+
+		Assert( pStudioHdr );
+
+		pStudioHdr->SetActivityListVersion( version );
+	}
+}
+
+
+//-----------------------------------------------------------------------------
+// Purpose:
+//-----------------------------------------------------------------------------
+
+
+int studiohdr_t::GetNumIKAutoplayLocks( void ) const
+{
+	if (numincludemodels == 0)
+	{
+		return numlocalikautoplaylocks;
+	}
+
+	virtualmodel_t *pVModel = (virtualmodel_t *)GetVirtualModel();
+	Assert( pVModel );
+
+	return pVModel->m_iklock.size();
+}
+
+const mstudioiklock_t &studiohdr_t::pIKAutoplayLock( int i )
+{
+	if (numincludemodels == 0)
+	{
+		return *pLocalIKAutoplayLock( i );
+	}
+
+	virtualmodel_t *pVModel = (virtualmodel_t *)GetVirtualModel();
+	Assert( pVModel );
+
+	virtualgroup_t *pGroup = &pVModel->m_group[ pVModel->m_iklock[i].group ];
+	const studiohdr_t *pStudioHdr = pGroup->GetStudioHdr();
+	Assert( pStudioHdr );
+
+	return *pStudioHdr->pLocalIKAutoplayLock( pVModel->m_iklock[i].index );
+}
 
 int	studiohdr_t::CountAutoplaySequences() const
 {
@@ -417,6 +670,18 @@ int	studiohdr_t::RemapSeqBone( int iSequence, int iLocalBone ) const
 	{
 		const virtualgroup_t *pSeqGroup = pVModel->pSeqGroup( iSequence );
 		return pSeqGroup->masterBone[iLocalBone];
+	}
+	return iLocalBone;
+}
+
+int	studiohdr_t::RemapAnimBone( int iAnim, int iLocalBone ) const
+{
+	// remap bone
+	virtualmodel_t *pVModel = GetVirtualModel();
+	if (pVModel)
+	{
+		const virtualgroup_t *pAnimGroup = pVModel->pAnimGroup( iAnim );
+		return pAnimGroup->masterBone[iLocalBone];
 	}
 	return iLocalBone;
 }
@@ -546,6 +811,30 @@ const studiohdr_t *CStudioHdr::GroupStudioHdr( int i )
 }
 
 
+const studiohdr_t *CStudioHdr::pSeqStudioHdr( int sequence )
+{
+	if (m_pVModel == nullptr)
+	{
+		return m_pStudioHdr;
+	}
+
+	const studiohdr_t *pStudioHdr = GroupStudioHdr( m_pVModel->m_seq[sequence].group );
+
+	return pStudioHdr;
+}
+
+
+const studiohdr_t *CStudioHdr::pAnimStudioHdr( int animation )
+{
+	if (m_pVModel == nullptr)
+	{
+		return m_pStudioHdr;
+	}
+
+	const studiohdr_t *pStudioHdr = GroupStudioHdr( m_pVModel->m_anim[animation].group );
+
+	return pStudioHdr;
+}
 
 
 
@@ -617,6 +906,21 @@ int CStudioHdr::iRelativeSeq( int baseseq, int relseq ) const
 // Purpose:
 //-----------------------------------------------------------------------------
 
+int	CStudioHdr::GetNumPoseParameters( void ) const
+{
+	if (m_pVModel == nullptr)
+	{
+		if ( m_pStudioHdr )
+			return m_pStudioHdr->numlocalposeparameters;
+		else
+			return 0;
+	}
+
+	Assert( m_pVModel );
+
+	return m_pVModel->m_pose.size();
+}
+
 
 
 //-----------------------------------------------------------------------------
@@ -665,54 +969,270 @@ int CStudioHdr::GetSharedPoseParameter( int iSequence, int iLocalPose ) const
 // Purpose:
 //-----------------------------------------------------------------------------
 
+int CStudioHdr::EntryNode( int iSequence )
+{
+	mstudioseqdesc_t &seqdesc = pSeqdesc( iSequence );
 
-//-----------------------------------------------------------------------------
-// Purpose:
-//-----------------------------------------------------------------------------
+	if (m_pVModel == nullptr || seqdesc.localentrynode == 0)
+	{
+		return seqdesc.localentrynode;
+	}
 
+	Assert( m_pVModel );
 
+	virtualgroup_t *pGroup = &m_pVModel->m_group[ m_pVModel->m_seq[iSequence].group ];
 
-//-----------------------------------------------------------------------------
-// Purpose:
-//-----------------------------------------------------------------------------
-
-
-
-//-----------------------------------------------------------------------------
-// Purpose:
-//-----------------------------------------------------------------------------
-
-//-----------------------------------------------------------------------------
-// Purpose:
-//-----------------------------------------------------------------------------
+	return pGroup->masterNode[seqdesc.localentrynode-1]+1;
+}
 
 
 //-----------------------------------------------------------------------------
 // Purpose:
 //-----------------------------------------------------------------------------
 
-//-----------------------------------------------------------------------------
-// Purpose:
-//-----------------------------------------------------------------------------
+
+int CStudioHdr::ExitNode( int iSequence )
+{
+	mstudioseqdesc_t &seqdesc = pSeqdesc( iSequence );
+
+	if (m_pVModel == nullptr || seqdesc.localexitnode == 0)
+	{
+		return seqdesc.localexitnode;
+	}
+
+	Assert( m_pVModel );
+
+	virtualgroup_t *pGroup = &m_pVModel->m_group[ m_pVModel->m_seq[iSequence].group ];
+
+	return pGroup->masterNode[seqdesc.localexitnode-1]+1;
+}
 
 
 //-----------------------------------------------------------------------------
 // Purpose:
 //-----------------------------------------------------------------------------
 
+int	CStudioHdr::GetNumAttachments( void ) const
+{
+	if (m_pVModel == nullptr)
+	{
+		return m_pStudioHdr->numlocalattachments;
+	}
+
+	Assert( m_pVModel );
+
+	return m_pVModel->m_attachment.size();
+}
+
+
+
+//-----------------------------------------------------------------------------
+// Purpose:
+//-----------------------------------------------------------------------------
+
+const mstudioattachment_t &CStudioHdr::pAttachment( int i )
+{
+	if (m_pVModel == nullptr)
+	{
+		return *m_pStudioHdr->pLocalAttachment( i );
+	}
+
+	Assert( m_pVModel );
+
+	const studiohdr_t *pStudioHdr = GroupStudioHdr( m_pVModel->m_attachment[i].group );
+
+	return *pStudioHdr->pLocalAttachment( m_pVModel->m_attachment[i].index );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose:
+//-----------------------------------------------------------------------------
+
+int	CStudioHdr::GetAttachmentBone( int i )
+{
+	if (m_pVModel == nullptr)
+	{
+		return m_pStudioHdr->pLocalAttachment( i )->localbone;
+	}
+
+	virtualgroup_t *pGroup = &m_pVModel->m_group[ m_pVModel->m_attachment[i].group ];
+	const mstudioattachment_t &attachment = pAttachment( i );
+	int iBone = pGroup->masterBone[attachment.localbone];
+	if (iBone == -1)
+		return 0;
+	return iBone;
+}
+
+
+//-----------------------------------------------------------------------------
+// Purpose:
+//-----------------------------------------------------------------------------
+
+void CStudioHdr::SetAttachmentBone( int iAttachment, int iBone )
+{
+	mstudioattachment_t &attachment = (mstudioattachment_t &)m_pStudioHdr->pAttachment( iAttachment );
+
+	// remap bone
+	if (m_pVModel)
+	{
+		virtualgroup_t *pGroup = &m_pVModel->m_group[ m_pVModel->m_attachment[iAttachment].group ];
+		iBone = pGroup->boneMap[iBone];
+	}
+	attachment.localbone = iBone;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose:
+//-----------------------------------------------------------------------------
+
+char *CStudioHdr::pszNodeName( int iNode )
+{
+	if (m_pVModel == nullptr)
+	{
+		return m_pStudioHdr->pszLocalNodeName( iNode );
+	}
+
+	if ( m_pVModel->m_node.size() <= iNode-1 )
+		return "Invalid node";
+
+	const studiohdr_t *pStudioHdr = GroupStudioHdr( m_pVModel->m_node[iNode-1].group );
+
+	return pStudioHdr->pszLocalNodeName( m_pVModel->m_node[iNode-1].index );
+}
+
+
+//-----------------------------------------------------------------------------
+// Purpose:
+//-----------------------------------------------------------------------------
+
+int CStudioHdr::GetTransition( int iFrom, int iTo ) const
+{
+	if (m_pVModel == nullptr)
+	{
+		return *m_pStudioHdr->pLocalTransition( (iFrom-1)*m_pStudioHdr->numlocalnodes + (iTo - 1) );
+	}
+
+	return iTo;
+	/*
+	FIXME: not connected
+	virtualmodel_t *pVModel = (virtualmodel_t *)GetVirtualModel();
+	Assert( pVModel );
+
+	return pVModel->m_transition.Element( iFrom ).Element( iTo );
+	*/
+}
+
+//-----------------------------------------------------------------------------
+// Purpose:
+//-----------------------------------------------------------------------------
+
+int	CStudioHdr::GetActivityListVersion( void )
+{
+	if (m_pVModel == nullptr)
+	{
+		return m_pStudioHdr->activitylistversion;
+	}
+
+	int version = m_pStudioHdr->activitylistversion;
+
+	int i;
+	for (i = 1; i < m_pVModel->m_group.size(); i++)
+	{
+		const studiohdr_t *pStudioHdr = GroupStudioHdr( i );
+		Assert( pStudioHdr );
+		version = MIN( version, pStudioHdr->activitylistversion );
+	}
+
+	return version;
+}
+
+void CStudioHdr::SetActivityListVersion( int version )
+{
+	m_pStudioHdr->activitylistversion = version;
+
+	if (m_pVModel == nullptr)
+	{
+		return;
+	}
+
+	int i;
+	for (i = 1; i < m_pVModel->m_group.size(); i++)
+	{
+		const studiohdr_t *pStudioHdr = GroupStudioHdr( i );
+		Assert( pStudioHdr );
+		pStudioHdr->SetActivityListVersion( version );
+	}
+}
+
+
+//-----------------------------------------------------------------------------
+// Purpose:
+//-----------------------------------------------------------------------------
+
+int	CStudioHdr::GetEventListVersion( void )
+{
+	if (m_pVModel == nullptr)
+	{
+		return m_pStudioHdr->eventsindexed;
+	}
+
+	int version = m_pStudioHdr->eventsindexed;
+
+	int i;
+	for (i = 1; i < m_pVModel->m_group.size(); i++)
+	{
+		const studiohdr_t *pStudioHdr = GroupStudioHdr( i );
+		Assert( pStudioHdr );
+		version = MIN( version, pStudioHdr->eventsindexed );
+	}
+
+	return version;
+}
+
+void CStudioHdr::SetEventListVersion( int version )
+{
+	m_pStudioHdr->eventsindexed = version;
+
+	if (m_pVModel == nullptr)
+	{
+		return;
+	}
+
+	int i;
+	for (i = 1; i < m_pVModel->m_group.size(); i++)
+	{
+		const studiohdr_t *pStudioHdr = GroupStudioHdr( i );
+		Assert( pStudioHdr );
+		pStudioHdr->eventsindexed = version;
+	}
+}
+
 //-----------------------------------------------------------------------------
 // Purpose:
 //-----------------------------------------------------------------------------
 
 
-//-----------------------------------------------------------------------------
-// Purpose:
-//-----------------------------------------------------------------------------
+int CStudioHdr::GetNumIKAutoplayLocks( void ) const
+{
+	if (m_pVModel == nullptr)
+	{
+		return m_pStudioHdr->numlocalikautoplaylocks;
+	}
 
-//-----------------------------------------------------------------------------
-// Purpose:
-//-----------------------------------------------------------------------------
+	return m_pVModel->m_iklock.size();
+}
 
+const mstudioiklock_t &CStudioHdr::pIKAutoplayLock( int i )
+{
+	if (m_pVModel == nullptr)
+	{
+		return *m_pStudioHdr->pLocalIKAutoplayLock( i );
+	}
+
+	const studiohdr_t *pStudioHdr = GroupStudioHdr( m_pVModel->m_iklock[i].group );
+	Assert( pStudioHdr );
+	return *pStudioHdr->pLocalIKAutoplayLock( m_pVModel->m_iklock[i].index );
+}
 
 #if 0
 int	CStudioHdr::CountAutoplaySequences() const
@@ -761,12 +1281,512 @@ int	CStudioHdr::RemapSeqBone( int iSequence, int iLocalBone ) const
 	return iLocalBone;
 }
 
+int	CStudioHdr::RemapAnimBone( int iAnim, int iLocalBone ) const
+{
+	// remap bone
+	if (m_pVModel)
+	{
+		const virtualgroup_t *pAnimGroup = m_pVModel->pAnimGroup( iAnim );
+		return pAnimGroup->masterBone[iLocalBone];
+	}
+	return iLocalBone;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: run the interpreted FAC's expressions, converting flex_controller
+//			values into FAC weights
+//-----------------------------------------------------------------------------
+void CStudioHdr::RunFlexRulesOld( const float *src, float *dest )
+{
+	int i, j;
+
+	// FIXME: this shouldn't be needed, flex without rules should be stripped in studiomdl
+	for (i = 0; i < numflexdesc(); i++)
+	{
+		dest[i] = 0;
+	}
+
+	for (i = 0; i < numflexrules(); i++)
+	{
+		float stack[32] = { 0.0 };
+		int k = 0;
+		mstudioflexrule_t *prule = pFlexRule( i );
+
+		mstudioflexop_t *pops = prule->iFlexOp( 0 );
+
+		// debugoverlay->AddTextOverlay( GetAbsOrigin() + Vector( 0, 0, 64 ), i + 1, 0, "%2d:%d\n", i, prule->flex );
+
+		for (j = 0; j < prule->numops; j++)
+		{
+			switch (pops->op)
+			{
+			case StudioOpcode::Add: stack[k-2] = stack[k-2] + stack[k-1]; k--; break;
+			case StudioOpcode::Sub: stack[k-2] = stack[k-2] - stack[k-1]; k--; break;
+			case StudioOpcode::Mul: stack[k-2] = stack[k-2] * stack[k-1]; k--; break;
+			case StudioOpcode::Div:
+				if (stack[k-1] > 0.0001)
+				{
+					stack[k-2] = stack[k-2] / stack[k-1];
+				}
+				else
+				{
+					stack[k-2] = 0;
+				}
+				k--;
+				break;
+			case StudioOpcode::Neg: stack[k-1] = -stack[k-1]; break;
+			case StudioOpcode::Max: stack[k-2] = MAX( stack[k-2], stack[k-1] ); k--; break;
+			case StudioOpcode::Min: stack[k-2] = MIN( stack[k-2], stack[k-1] ); k--; break;
+			case StudioOpcode::Const: stack[k] = pops->d.value; k++; break;
+			case StudioOpcode::Fetch1:
+				{
+				int m = pFlexcontroller( (LocalFlexController_t)pops->d.index)->localToGlobal;
+				stack[k] = src[m];
+				k++;
+				break;
+				}
+			case StudioOpcode::Fetch2:
+				{
+					stack[k] = dest[pops->d.index]; k++; break;
+				}
+			case StudioOpcode::Combo:
+				{
+					int m = pops->d.index;
+					int km = k - m;
+					for ( int i = km + 1; i < k; ++i )
+					{
+						stack[ km ] *= stack[ i ];
+					}
+					k = k - m + 1;
+				}
+				break;
+			case StudioOpcode::Dominate:
+				{
+					int m = pops->d.index;
+					int km = k - m;
+					float dv = stack[ km ];
+					for ( int i = km + 1; i < k; ++i )
+					{
+						dv *= stack[ i ];
+					}
+					stack[ km - 1 ] *= 1.0f - dv;
+					k -= m;
+				}
+				break;
+			case StudioOpcode::TwoWay0:
+				{
+					int m = pFlexcontroller( (LocalFlexController_t)pops->d.index )->localToGlobal;
+					stack[ k ] = RemapValClamped( src[m], -1.0f, 0.0f, 1.0f, 0.0f );
+					k++;
+				}
+				break;
+			case StudioOpcode::TwoWay1:
+				{
+					int m = pFlexcontroller( (LocalFlexController_t)pops->d.index )->localToGlobal;
+					stack[ k ] = RemapValClamped( src[m], 0.0f, 1.0f, 0.0f, 1.0f );
+					k++;
+				}
+				break;
+			case StudioOpcode::NWay:
+				{
+					LocalFlexController_t valueControllerIndex = static_cast< LocalFlexController_t >( (int)stack[ k - 1 ] );
+					int m = pFlexcontroller( valueControllerIndex )->localToGlobal;
+					float flValue = src[ m ];
+					int v = pFlexcontroller( (LocalFlexController_t)pops->d.index )->localToGlobal;
+
+					const Vector4D filterRamp( stack[ k - 5 ], stack[ k - 4 ], stack[ k - 3 ], stack[ k - 2 ] );
+
+					// Apply multicontrol remapping
+					if ( flValue <= filterRamp.x || flValue >= filterRamp.w )
+					{
+						flValue = 0.0f;
+					}
+					else if ( flValue < filterRamp.y )
+					{
+						flValue = RemapValClamped( flValue, filterRamp.x, filterRamp.y, 0.0f, 1.0f );
+					}
+					else if ( flValue > filterRamp.z )
+					{
+						flValue = RemapValClamped( flValue, filterRamp.z, filterRamp.w, 1.0f, 0.0f );
+					}
+					else
+					{
+						flValue = 1.0f;
+					}
+
+					stack[ k - 5 ] = flValue * src[ v ];
+
+					k -= 4;
+				}
+				break;
+			case StudioOpcode::DmeLowerEyelid:
+				{
+					const mstudioflexcontroller_t *const pCloseLidV = pFlexcontroller( (LocalFlexController_t)pops->d.index );
+					const float flCloseLidV = RemapValClamped( src[ pCloseLidV->localToGlobal ], pCloseLidV->min, pCloseLidV->max, 0.0f, 1.0f );
+
+					const mstudioflexcontroller_t *const pCloseLid = pFlexcontroller( static_cast< LocalFlexController_t >( (int)stack[ k - 1 ] ) );
+					const float flCloseLid = RemapValClamped( src[ pCloseLid->localToGlobal ], pCloseLid->min, pCloseLid->max, 0.0f, 1.0f );
+
+					int nBlinkIndex = static_cast< int >( stack[ k - 2 ] );
+					float flBlink = 0.0f;
+					if ( nBlinkIndex >= 0 )
+					{
+						const mstudioflexcontroller_t *const pBlink = pFlexcontroller( static_cast< LocalFlexController_t >( (int)stack[ k - 2 ] ) );
+						flBlink = RemapValClamped( src[ pBlink->localToGlobal ], pBlink->min, pBlink->max, 0.0f, 1.0f );
+					}
+
+					int nEyeUpDownIndex = static_cast< int >( stack[ k - 3 ] );
+					float flEyeUpDown = 0.0f;
+					if ( nEyeUpDownIndex >= 0 )
+					{
+						const mstudioflexcontroller_t *const pEyeUpDown = pFlexcontroller( static_cast< LocalFlexController_t >( (int)stack[ k - 3 ] ) );
+						flEyeUpDown = RemapValClamped( src[ pEyeUpDown->localToGlobal ], pEyeUpDown->min, pEyeUpDown->max, -1.0f, 1.0f );
+					}
+
+					if ( flEyeUpDown > 0.0 )
+					{
+						stack [ k - 3 ] = ( 1.0f - flEyeUpDown ) * ( 1.0f - flCloseLidV ) * flCloseLid;
+					}
+					else
+					{
+						stack [ k - 3 ] = ( 1.0f - flCloseLidV ) * flCloseLid;
+					}
+					k -= 2;
+				}
+				break;
+			case StudioOpcode::DmeUpperEyelid:
+				{
+					const mstudioflexcontroller_t *const pCloseLidV = pFlexcontroller( (LocalFlexController_t)pops->d.index );
+					const float flCloseLidV = RemapValClamped( src[ pCloseLidV->localToGlobal ], pCloseLidV->min, pCloseLidV->max, 0.0f, 1.0f );
+
+					const mstudioflexcontroller_t *const pCloseLid = pFlexcontroller( static_cast< LocalFlexController_t >( (int)stack[ k - 1 ] ) );
+					const float flCloseLid = RemapValClamped( src[ pCloseLid->localToGlobal ], pCloseLid->min, pCloseLid->max, 0.0f, 1.0f );
+
+					int nBlinkIndex = static_cast< int >( stack[ k - 2 ] );
+					float flBlink = 0.0f;
+					if ( nBlinkIndex >= 0 )
+					{
+						const mstudioflexcontroller_t *const pBlink = pFlexcontroller( static_cast< LocalFlexController_t >( (int)stack[ k - 2 ] ) );
+						flBlink = RemapValClamped( src[ pBlink->localToGlobal ], pBlink->min, pBlink->max, 0.0f, 1.0f );
+					}
+
+					int nEyeUpDownIndex = static_cast< int >( stack[ k - 3 ] );
+					float flEyeUpDown = 0.0f;
+					if ( nEyeUpDownIndex >= 0 )
+					{
+						const mstudioflexcontroller_t *const pEyeUpDown = pFlexcontroller( static_cast< LocalFlexController_t >( (int)stack[ k - 3 ] ) );
+						flEyeUpDown = RemapValClamped( src[ pEyeUpDown->localToGlobal ], pEyeUpDown->min, pEyeUpDown->max, -1.0f, 1.0f );
+					}
+
+					if ( flEyeUpDown < 0.0f )
+					{
+						stack [ k - 3 ] = ( 1.0f + flEyeUpDown ) * flCloseLidV * flCloseLid;
+					}
+					else
+					{
+						stack [ k - 3 ] = flCloseLidV * flCloseLid;
+					}
+					k -= 2;
+				}
+				break;
+			}
+
+			pops++;
+		}
+
+		dest[prule->flex] = stack[0];
+	}
+}
+
+void CStudioHdr::RunFlexRulesNew( const float *src, float *dest )
+{
+	// FIXME: this shouldn't be needed, flex without rules should be stripped in studiomdl
+	memset( dest, 0, sizeof( dest[0] ) * numflexdesc() );
+
+	for (int i = 0; i < numflexrules(); i++)
+	{
+		float stack[32];
+		float *pSP = stack + ARRAYSIZE( stack );
+		mstudioflexrule_t *prule = pFlexRule( i );
+
+		mstudioflexop_t *pops = prule->iFlexOp( 0 );
+
+		int nOps = prule->numops;
+		float flTOS = 0.;
+		if ( nOps )
+			do
+			{
+				switch (pops->op)
+				{
+					case StudioOpcode::Add:
+						flTOS += *(pSP++);
+						break;
+
+					case StudioOpcode::Sub:
+						flTOS = *(pSP++) - flTOS;
+						break;
+
+					case StudioOpcode::Mul:
+						flTOS *= *(pSP++);
+						break;
+					case StudioOpcode::Div:
+						if (flTOS > 0.0001)
+						{
+							flTOS = *(pSP) / flTOS;
+						}
+						else
+						{
+							flTOS = 0.;
+						}
+						pSP++;
+						break;
+
+					case StudioOpcode::Neg:
+						flTOS = -flTOS;
+						break;
+
+					case StudioOpcode::Max:
+					{
+						float flNos = *(pSP++);
+						flTOS = MAX( flTOS, flNos );
+						break;
+					}
+
+					case StudioOpcode::Min:
+					{
+						float flNos = *(pSP++);
+						flTOS = MIN( flTOS, flNos);
+						break;
+					}
+					case StudioOpcode::Const:
+						*(--pSP) = flTOS;
+						flTOS = pops->d.value;
+						break;
+
+					case StudioOpcode::Fetch1:
+					{
+						*(--pSP ) = flTOS;
+						int m = pFlexcontroller( (LocalFlexController_t)pops->d.index)->localToGlobal;
+						flTOS = src[m];
+						break;
+					}
+
+					case StudioOpcode::Fetch2:
+					{
+						*(--pSP) = flTOS;
+						flTOS = dest[pops->d.index];
+						break;
+					}
+					case StudioOpcode::Combo:
+					{
+ 						// tos = prod( top m elements on stack)
+						int m = pops->d.index;
+						while( --m )
+						{
+							flTOS *= *(pSP++);
+						}
+						break;
+					}
+					break;
+
+					case StudioOpcode::Dominate:
+					{
+						// tos *= 1-prod( next top m elements on stack)
+						int m = pops->d.index;
+						float dv = *(pSP++);
+						while( --m )
+						{
+							dv *= *(pSP++);
+						}
+						flTOS *= 1.0 - dv;
+						break;
+					}
+					break;
+					case StudioOpcode::TwoWay0:
+					{
+						int m = pFlexcontroller( (LocalFlexController_t)pops->d.index )->localToGlobal;
+						*(--pSP) = flTOS;
+						flTOS = RemapValClamped( src[m], -1.0f, 0.0f, 1.0f, 0.0f );
+					}
+					break;
+
+					case StudioOpcode::TwoWay1:
+					{
+						int m = pFlexcontroller( (LocalFlexController_t)pops->d.index )->localToGlobal;
+						*(--pSP) = flTOS;
+						flTOS = RemapValClamped( src[m], 0.0f, 1.0f, 0.0f, 1.0f );
+					}
+					break;
+
+					case StudioOpcode::NWay:
+					{
+						LocalFlexController_t valueControllerIndex = static_cast< LocalFlexController_t >( (int) flTOS );
+						int m = pFlexcontroller( valueControllerIndex )->localToGlobal;
+						float flValue = src[ m ];
+						int v = pFlexcontroller( (LocalFlexController_t)pops->d.index )->localToGlobal;
+
+						const Vector4D filterRamp( pSP[3], pSP[2], pSP[1], pSP[0] );
+
+						// Apply multicontrol remapping
+						if ( flValue <= filterRamp.x || flValue >= filterRamp.w )
+						{
+							flValue = 0.0f;
+						}
+						else if ( flValue < filterRamp.y )
+						{
+							flValue = RemapValClamped( flValue, filterRamp.x, filterRamp.y, 0.0f, 1.0f );
+						}
+						else if ( flValue > filterRamp.z )
+						{
+							flValue = RemapValClamped( flValue, filterRamp.z, filterRamp.w, 1.0f, 0.0f );
+						}
+						else
+						{
+							flValue = 1.0f;
+						}
+
+						pSP+= 4;
+						flTOS  = flValue * src[ v ];
+					}
+					break;
+
+					case StudioOpcode::DmeLowerEyelid:
+					{
+						const mstudioflexcontroller_t *const pCloseLidV =
+							pFlexcontroller( (LocalFlexController_t)pops->d.index );
+						const float flCloseLidV =
+							RemapValClamped( src[ pCloseLidV->localToGlobal ], pCloseLidV->min, pCloseLidV->max, 0.0f, 1.0f );
+
+						const mstudioflexcontroller_t *const pCloseLid =
+							pFlexcontroller( static_cast< LocalFlexController_t >( (int)flTOS ) );
+						const float flCloseLid =
+							RemapValClamped( src[ pCloseLid->localToGlobal ], pCloseLid->min, pCloseLid->max, 0.0f, 1.0f );
+
+						int nBlinkIndex = static_cast< int >( pSP[0] );
+						float flBlink = 0.0f;
+						if ( nBlinkIndex >= 0 )
+						{
+							const mstudioflexcontroller_t *const pBlink =
+								pFlexcontroller( static_cast< LocalFlexController_t >( nBlinkIndex ) );
+							flBlink = RemapValClamped( src[ pBlink->localToGlobal ], pBlink->min, pBlink->max, 0.0f, 1.0f );
+						}
+
+						int nEyeUpDownIndex = static_cast< int >( pSP[1] );
+						float flEyeUpDown = 0.0f;
+						if ( nEyeUpDownIndex >= 0 )
+						{
+							const mstudioflexcontroller_t *const pEyeUpDown =
+								pFlexcontroller( static_cast< LocalFlexController_t >( nEyeUpDownIndex ) );
+							flEyeUpDown = RemapValClamped( src[ pEyeUpDown->localToGlobal ], pEyeUpDown->min, pEyeUpDown->max, -1.0f, 1.0f );
+						}
+
+						if ( flEyeUpDown > 0.0 )
+						{
+							flTOS = ( 1.0f - flEyeUpDown ) * ( 1.0f - flCloseLidV ) * flCloseLid;
+						}
+						else
+						{
+							flTOS = ( 1.0f - flCloseLidV ) * flCloseLid;
+						}
+						pSP += 2;
+					}
+					break;
+
+					case StudioOpcode::DmeUpperEyelid:
+					{
+						const mstudioflexcontroller_t *const pCloseLidV = pFlexcontroller( (LocalFlexController_t)pops->d.index );
+						const float flCloseLidV = RemapValClamped( src[ pCloseLidV->localToGlobal ], pCloseLidV->min, pCloseLidV->max, 0.0f, 1.0f );
+
+						const mstudioflexcontroller_t *const pCloseLid = pFlexcontroller( static_cast< LocalFlexController_t >( (int)flTOS ) );
+						const float flCloseLid = RemapValClamped( src[ pCloseLid->localToGlobal ], pCloseLid->min, pCloseLid->max, 0.0f, 1.0f );
+
+						int nBlinkIndex = static_cast< int >( pSP[0] );
+						float flBlink = 0.0f;
+						if ( nBlinkIndex >= 0 )
+						{
+							const mstudioflexcontroller_t *const pBlink = pFlexcontroller( static_cast< LocalFlexController_t >( nBlinkIndex ) );
+							flBlink = RemapValClamped( src[ pBlink->localToGlobal ], pBlink->min, pBlink->max, 0.0f, 1.0f );
+						}
+
+						int nEyeUpDownIndex = static_cast< int >( pSP[1] );
+						float flEyeUpDown = 0.0f;
+						if ( nEyeUpDownIndex >= 0 )
+						{
+							const mstudioflexcontroller_t *const pEyeUpDown = pFlexcontroller( static_cast< LocalFlexController_t >( nEyeUpDownIndex ) );
+							flEyeUpDown = RemapValClamped( src[ pEyeUpDown->localToGlobal ], pEyeUpDown->min, pEyeUpDown->max, -1.0f, 1.0f );
+						}
+
+						if ( flEyeUpDown < 0.0f )
+						{
+							flTOS = ( 1.0f + flEyeUpDown ) * flCloseLidV * flCloseLid;
+						}
+						else
+						{
+							flTOS = flCloseLidV * flCloseLid;
+						}
+						pSP += 2;
+					}
+					break;
+				}
+
+				pops++;
+			} while( --nOps );
+		dest[prule->flex] = flTOS;
+	}
+}
+
 #define USE_OLD_FLEX_RULES_INTERPRETER
+
+void CStudioHdr::RunFlexRules( const float *src, float *dest )
+{
+#ifndef USE_OLD_FLEX_RULES_INTERPRETER
+	RunFlexRulesNew( src, dest );
+#else
+	RunFlexRulesOld( src, dest );
+#endif
+
+#if defined(_DEBUG) && !defined(USE_OLD_FLEX_RULES_INTERPRETER)
+	float d1[ MAXSTUDIOFLEXDESC ];
+	RunFlexRulesOld( src, d1 );
+
+	for ( int i =0; i < numflexdesc(); i++)
+	{
+		if ( fabs( d1[i] - dest[i] ) > 0.001 )
+		{
+			Warning("bad %d old =%f new=%f\n", i, dest[i], d1[i] );
+		}
+	}
+#endif // _DEBUG
+}
 
 
 //-----------------------------------------------------------------------------
 //	propagate flags all the way down
 //-----------------------------------------------------------------------------
+
+void CStudioHdr::setBoneFlags( int iBone, BoneFlags flags )
+{
+	((mstudiobone_t *)pBone( iBone ))->flags |= flags;
+	mstudiolinearbone_t *pLinear = pLinearBones();
+	if ( pLinear )
+	{
+		*(pLinear->pflags( iBone )) |= flags;
+	}
+
+	m_boneFlags[ iBone ] |= flags;
+}
+
+void CStudioHdr::clearBoneFlags( int iBone, BoneFlags flags )
+{
+	((mstudiobone_t *)pBone( iBone ))->flags &= ~flags;
+	mstudiolinearbone_t *pLinear = pLinearBones();
+	if ( pLinear )
+	{
+		*(pLinear->pflags( iBone )) &= ~flags;
+	}
+
+	m_boneFlags[ iBone ] &= ~flags;
+}
 
 
 //-----------------------------------------------------------------------------
@@ -926,6 +1946,42 @@ void CStudioHdr::CActivityToSequenceMapping::Initialize( const CStudioHdr * __re
 
 }
 
+/// Force Initialize() to occur again, even if it has already occured.
+void CStudioHdr::CActivityToSequenceMapping::Reinitialize( CStudioHdr *pstudiohdr )
+{
+	if (m_pSequenceTuples)
+	{
+		delete m_pSequenceTuples;
+		m_pSequenceTuples = nullptr;
+	}
+	m_actToSeq.clear();
+
+	Initialize(pstudiohdr);
+}
+
+// Look up relevant data for an activity's sequences. This isn't terribly efficient, due to the
+// load-hit-store on the output parameters, so the most common case -- SelectWeightedSequence --
+// is specially implemented.
+const CStudioHdr::CActivityToSequenceMapping::SequenceTuple *CStudioHdr::CActivityToSequenceMapping::GetSequences( int forActivity, int * __restrict outSequenceCount, int * __restrict outTotalWeight )
+{
+	auto it = m_actToSeq.find(forActivity);
+	if (it != m_actToSeq.end())
+	{
+		const activity_sequence_range &element = it->second;
+		const SequenceTuple *retval = m_pSequenceTuples + element.startingIdx;
+		*outSequenceCount = element.count;
+		*outTotalWeight = element.totalWeight;
+
+		return retval;
+	}
+	else
+	{
+		// not found; return NULL.
+		// this is actually a legit use case, so no need to assert.
+		return nullptr;
+	}
+}
+
 int CStudioHdr::CActivityToSequenceMapping::NumSequencesForActivity( int forActivity )
 {
 	// If this trips, you've called this function on something that doesn't
@@ -939,6 +1995,13 @@ int CStudioHdr::CActivityToSequenceMapping::NumSequencesForActivity( int forActi
 }
 
 static CStudioHdr::CActivityToSequenceMapping emptyMapping;
+
+// double-check that the data I point to hasn't changed
+bool CStudioHdr::CActivityToSequenceMapping::ValidateAgainst( const CStudioHdr * RESTRICT pstudiohdr ) RESTRICT
+{
+	return ( this == &emptyMapping || 
+			 ( m_pStudioHdr == pstudiohdr->m_pStudioHdr && m_expectedVModel == pstudiohdr->GetVirtualModel() ) );
+}
 
 void CStudioHdr::CActivityToSequenceMapping::SetValidation( const CStudioHdr *RESTRICT pstudiohdr ) RESTRICT
 {
@@ -1012,11 +2075,91 @@ void CStudioHdr::CActivityToSequenceMapping::ReleaseMapping( CActivityToSequence
 	}
 }
 
+void CStudioHdr::CActivityToSequenceMapping::ResetMappings()
+{
+	for ( auto &[hdr, entry] : g_StudioHdrToActivityMaps )
+	{
+		if ( entry.nRefs == 0 )
+		{
+			delete entry.pMap;
+		}
+		else
+		{
+			Msg( "****************************************************************\n" );
+			Msg( "****************************************************************\n" );
+			Msg( "*************  DO NOT IGNORE ME  *******************************\n" );
+			Msg( "****************************************************************\n" );
+			Msg( "****************************************************************\n" );
+			Warning( "Studio activity sequence mapping leak! (%s, %d)\n", entry.name, entry.nRefs );
+			Msg( "****************************************************************\n" );
+			Msg( "****************************************************************\n" );
+			Msg( "****************************************************************\n" );
+			Msg( "****************************************************************\n" );
+			Msg( "****************************************************************\n" );
+		}
+	}
+	g_StudioHdrToActivityMaps.clear();
+}
 
+CSoftbody * CStudioHdr::InitSoftbody( CSoftbodyEnvironment *pSoftbodyEnvironment )
+{
+#if defined( CLIENT_DLL ) || defined( ENABLE_STUDIO_SOFTBODY )
 
+	if ( m_pSoftbody )
+	{
+		ExecuteOnce( Warning( "InitSoftbody is called with Softbody already existing. This pattern is suspicious and will not work if skeleton has changed, please show Sergiy a repro.\n" ) );
+		return m_pSoftbody;
+	}
 
+	if ( m_pStudioHdr->studiohdr2index )
+	{
+		const studiohdr2_t *pHdr2 = m_pStudioHdr->pStudioHdr2();
+		if ( const PhysFeModelDesc_t *pFeModelDesc = pHdr2->m_pFeModel.GetPtr() )
+		{
+			uint32_t numCtrlNames = pFeModelDesc->m_CtrlName.Count();
+			CBufferStrider feModelData( MemAlloc_AllocAligned( sizeof( CFeModel ) + sizeof( CSoftbody ) + sizeof( char* ) * numCtrlNames, 16 ) );
+			CFeModel *pFeModel = feModelData.Stride<CFeModel>();
+			m_pSoftbody = feModelData.Stride< CSoftbody >();
+			Construct( m_pSoftbody );
+#ifdef _DEBUG
+			if ( softbody_debug.GetInt() )
+			{
+				const char *pSubstr = softbody_debug_substr.GetString();
+				Msg( "InitSoftbody%s %s %p\n", ( *pSubstr && V_stristr( name(), pSubstr ) ) ? "!":"", name(), m_pSoftbody );
+			}
+#endif
+			char **pCtrlNames = feModelData.Stride< char* >( numCtrlNames );
+			Clone( pFeModelDesc, 0, pCtrlNames, pFeModel );
+			int numModelBones = numbones();
 
-//-----------------------------------------------------------------------------
-//	
-//-----------------------------------------------------------------------------
+			m_pSoftbody->Init( pSoftbodyEnvironment, pFeModel, numModelBones );
+			for ( uint32_t nCtrl = 0; nCtrl < pFeModel->m_nCtrlCount; ++nCtrl )
+			{
+				int nModelBone = Studio_BoneIndexByName( this, pFeModel->m_pCtrlName[ nCtrl ] );
+				m_pSoftbody->BindModelBoneToCtrl( nModelBone, nCtrl );
+				//m_pStudioHdr->setBoneFlags( nModelBone, BoneFlags::AlwaysProcedural );
+				//const_cast< mstudiobone_t* >( m_pStudioHdr->pBone( nModelBone ) )->proctype = STUDIO_PROC_SOFTBODY;						
+			}
+		}
+	}
+#endif
+	return m_pSoftbody;
+}
 
+void CStudioHdr::FreeSoftbody()
+{
+#if defined( CLIENT_DLL ) || defined( ENABLE_STUDIO_SOFTBODY )
+	if ( m_pSoftbody )
+	{
+#ifdef _DEBUG
+		if ( softbody_debug.GetInt() )
+			Msg("FreeSoftbody %s %p\n", name(), m_pSoftbody);
+#endif
+		CFeModel *pFeModel = m_pSoftbody->GetFeModel();
+		m_pSoftbody->Shutdown();
+		Assert( pFeModel );
+		MemAlloc_FreeAligned( pFeModel );
+		m_pSoftbody = NULL;
+	}
+#endif
+}

@@ -13,6 +13,7 @@ add_library(utils
         filesystem_tools.cpp
         scriplib.cpp
         studio.cpp
+        studio_virtualmodel.cpp
         interpolatortypes.cpp
 )
 target_include_directories(utils PUBLIC ../../include)

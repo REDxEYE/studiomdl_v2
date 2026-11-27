@@ -913,6 +913,10 @@ int studiohdr_t::GetAutoplayList(unsigned short** pOut) const {
     return 0;
 }
 
+const studiohdr_t* studiohdr_t::FindModel(void** cache, char const* modelname) const {
+    return nullptr;
+}
+
 
 // out: the buffer the section is appended to, the .mdl data or the .ani block data
 void WriteRLEAnimationData(StudioMdlState &ctx, s_animation_t* srcanim, vstd::Buffer &out, int w) {

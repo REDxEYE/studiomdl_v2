@@ -1,8 +1,61 @@
+// Profiling is compiled out, as in CS:GO when the mini-profiler is disabled.
+#define BONE_PROFILE(ID)
+#define BONE_PROFILE_LOOP(ID,COUNT)
+#define BONE_PROFILE_FUNC()
 
+// Removed from tier1/utlvector.h; the restored bone setup code still iterates this way.
+#ifndef FOR_EACH_VEC
+#define FOR_EACH_VEC( vecName, iteratorName ) \
+	for ( int iteratorName = 0; iteratorName < (vecName).size(); iteratorName++ )
+#endif
+
+#include <mutex>
+#include <vector>
+
+// Scratch buffers of MAXSTUDIOBONES elements, recycled instead of freed (CS:GO used a lock-free TSList).
+template <typename T>
+class CBoneSetupMemoryPool
+{
+public:
+	T *Alloc()
+	{
+		{
+			std::lock_guard<std::mutex> lock( m_Mutex );
+			if ( !m_FreeBlocks.empty() )
+			{
+				T *p = static_cast<T *>( m_FreeBlocks.back() );
+				m_FreeBlocks.pop_back();
+				return p;
+			}
+		}
+
+		T *p = static_cast<T *>( MemAlloc_AllocAligned( sizeof( T ) * MAXSTUDIOBONES, 16 ) );
+		Assert( ( (size_t)p ) % 16 == 0 );
+		return p;
+	}
+
+	void Free( T *p )
+	{
+		std::lock_guard<std::mutex> lock( m_Mutex );
+		m_FreeBlocks.push_back( p );
+	}
+
+private:
+	std::mutex m_Mutex;
+	std::vector<void *> m_FreeBlocks;
+};
+
+extern CBoneSetupMemoryPool<BoneQuaternionAligned> g_QuaternionPool;
+extern CBoneSetupMemoryPool<BoneVector> g_VectorPool;
+extern CBoneSetupMemoryPool<matrix3x4a_t> g_MatrixPool;
 
 void CalcDecompressedAnimation( const mstudiocompressedikerror_t *pCompressed, int iFrame, float fraq, BoneVector &pos, BoneQuaternion &q );
 void QuaternionAccumulate( const Quaternion &p, float s, const Quaternion &q, Quaternion &qt );
+void CalcAnimation( const CStudioHdr *pStudioHdr, BoneVector *pos, BoneQuaternion *q, mstudioseqdesc_t &seqdesc, int sequence, int animation, float cycle, BoneFlags boneMask );
+void BlendBones( const CStudioHdr *pStudioHdr, BoneQuaternionAligned q1[MAXSTUDIOBONES], BoneVector pos1[MAXSTUDIOBONES], mstudioseqdesc_t &seqdesc, int sequence, const BoneQuaternionAligned q2[MAXSTUDIOBONES], const BoneVector pos2[MAXSTUDIOBONES], float s, BoneFlags boneMask );
+void ScaleBones( const CStudioHdr *pStudioHdr, BoneQuaternion q1[MAXSTUDIOBONES], BoneVector pos1[MAXSTUDIOBONES], int sequence, float s, BoneFlags boneMask );
 
+void CalcPose( const CStudioHdr *pStudioHdr, CIKContext *pIKContext, BoneVector pos[], BoneQuaternionAligned q[], int sequence, float cycle, const float poseParameter[], BoneFlags boneMask, float flWeight = 1.0f, float flTime = 0.0f );
 bool CalcPoseSingle( const CStudioHdr *pStudioHdr, BoneVector pos[], BoneQuaternionAligned q[], mstudioseqdesc_t &seqdesc, int sequence, float cycle, const float poseParameter[], BoneFlags boneMask, float flTime );
 
 void CalcBoneAdj( const CStudioHdr *pStudioHdr, BoneVector pos[], BoneQuaternion q[], const float controllers[], BoneFlags boneMask );
@@ -26,6 +79,8 @@ public:
 	void AccumulatePose( BoneVector pos[], BoneQuaternion q[], int sequence, float cycle, float flWeight, float flTime, CIKContext *pIKContext );
 	void CalcAutoplaySequences(	BoneVector pos[], BoneQuaternion q[], float flRealTime, CIKContext *pIKContext );
 private:
+	void AddSequenceLayers( BoneVector pos[], BoneQuaternion q[], mstudioseqdesc_t &seqdesc, int sequence, float cycle, float flWeight, float flTime, CIKContext *pIKContext );
+	void AddLocalLayers( BoneVector pos[], BoneQuaternion q[], mstudioseqdesc_t &seqdesc, int sequence, float cycle, float flWeight, float flTime, CIKContext *pIKContext );
 public:
 	const CStudioHdr *m_pStudioHdr;
 	BoneFlags m_boneMask;

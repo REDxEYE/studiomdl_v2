@@ -593,6 +593,7 @@ void QuaternionBlendNoAlign( const Quaternion &p, const Quaternion &q, float t, 
 float QuaternionAngleDiff( const Quaternion &p, const Quaternion &q );
 void QuaternionScale( const Quaternion &p, float t, Quaternion &q );
 void QuaternionAlign( const Quaternion &p, const Quaternion &q, Quaternion &qt );
+void QuaternionIdentityBlend( const Quaternion &p, float t, Quaternion &qt );
 float QuaternionDotProduct( const Quaternion &p, const Quaternion &q );
 void QuaternionConjugate( const Quaternion &p, Quaternion &q );
 void QuaternionInvert( const Quaternion &p, Quaternion &q );
@@ -607,6 +608,7 @@ void AngleQuaternion( const QAngle& angles, Quaternion &qt );
 void QuaternionAngles( const Quaternion &q, RadianEuler &angles );
 void AngleQuaternion( RadianEuler const &angles, Quaternion &qt );
 void AxisAngleQuaternion( const Vector &axis, float angle, Quaternion &q );
+void QuaternionAxisAngle( const Quaternion &q, Vector &axis, float &angle );
 void BasisToQuaternion( const Vector &vecForward, const Vector &vecRight, const Vector &vecUp, Quaternion &q );
 void MatrixQuaternion( const matrix3x4_t &mat, Quaternion &q );
 
@@ -1019,6 +1021,7 @@ void AngleMatrix( const QAngle &angles, const Vector &position, matrix3x4_t &mat
 void AngleMatrix (const RadianEuler &angles, matrix3x4_t &mat );
 void AngleMatrix( RadianEuler const &angles, const Vector &position, matrix3x4_t &mat );
 void AngleIMatrix (const QAngle &angles, matrix3x4_t &mat );
+void AngleIMatrix (const QAngle &angles, const Vector &position, matrix3x4_t &mat );
 void AngleIMatrix (const RadianEuler &angles, matrix3x4_t &mat );
 void VectorAngles( const Vector &forward, QAngle &angles );
 void SetIdentityMatrix( matrix3x4_t &mat );
@@ -1225,6 +1228,22 @@ void AddPointToBounds (const Vector& v, Vector& mins, Vector& maxs);
 
 // solves for "a, b, c" where "a x^2 + b x + c = y", return true if solution exists
 bool SolveInverseQuadratic( float x1, float y1, float x2, float y2, float x3, float y3, float &a, float &b, float &c );
+
+// solve a x^2 + b x + c = 0
+bool SolveQuadratic( float a, float b, float c, float &root1, float &root2 );
+
+void RotationDeltaAxisAngle( const QAngle &srcAngles, const QAngle &destAngles, Vector &deltaAxis, float &deltaAngle );
+
+// Interpolate a Hermite spline.
+// t is a [0,1] value and interpolates a curve between p1 and p2 with the deltas d1 and d2.
+void Hermite_Spline( const Vector &p1, const Vector &p2, const Vector &d1, const Vector &d2, float t, Vector& output );
+float Hermite_Spline( float p1, float p2, float d1, float d2, float t );
+
+// t is a [0,1] value and interpolates a curve between p1 and p2 with the slopes p0->p1 and p1->p2
+void Hermite_Spline( const Vector &p0, const Vector &p1, const Vector &p2, float t, Vector& output );
+float Hermite_Spline( float p0, float p1, float p2, float t );
+void Hermite_Spline( const Quaternion &q0, const Quaternion &q1, const Quaternion &q2, float t, Quaternion &output );
+
 
 
 

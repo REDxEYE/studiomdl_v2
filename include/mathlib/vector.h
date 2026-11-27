@@ -2488,6 +2488,15 @@ FORCEINLINE float VectorNormalize( float * v )
 	return VectorNormalize(*(reinterpret_cast<Vector *>(v)));
 }
 
+// Exact 1/sqrt, matching the portable-math policy of the rest of mathlib (CS:GO used an SSE rsqrt estimate + 1 Newton step).
+FORCEINLINE void VectorNormalizeFast (Vector& vec)
+{
+	float ool = 1.0f / sqrtf( FLT_EPSILON + vec.x * vec.x + vec.y * vec.y + vec.z * vec.z );
+
+	vec.x *= ool;
+	vec.y *= ool;
+	vec.z *= ool;
+}
 
 inline vec_t Vector::NormalizeInPlace()
 {

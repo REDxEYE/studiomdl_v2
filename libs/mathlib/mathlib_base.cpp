@@ -912,6 +912,16 @@ void AngleIMatrix (const QAngle& angles, matrix3x4_t& matrix )
 	matrix[2][3] = 0.f;
 }
 
+void AngleIMatrix (const QAngle &angles, const Vector &position, matrix3x4_t &mat )
+{
+	AngleIMatrix( angles, mat );
+
+	Vector vecTranslation;
+	VectorRotate( position, mat, vecTranslation );
+	vecTranslation *= -1.0f;
+	MatrixSetColumn( vecTranslation, 3, mat );
+}
+
 //-----------------------------------------------------------------------------
 // Bounding box construction methods
 //-----------------------------------------------------------------------------
@@ -955,6 +965,184 @@ bool SolveInverseQuadratic( float x1, float y1, float x2, float y2, float x3, fl
     c = (x1*x3*(-x1 + x3)*y2 + x2*x2*(x3*y1 - x1*y3) + x2*(-(x3*x3*y1) + x1*x1*y3)) / det;
 
 	return true;
+}
+
+// solve a x^2 + b x + c = 0
+bool SolveQuadratic( float a, float b, float c, float &root1, float &root2 )
+{
+	Assert( s_bMathlibInitialized );
+	if (a == 0)
+	{
+		if (b != 0)
+		{
+			// no x^2 component, it's a linear system
+			root1 = root2 = -c / b;
+			return true;
+		}
+		if (c == 0)
+		{
+			// all zero's
+			root1 = root2 = 0;
+			return true;
+		}
+		return false;
+	}
+
+	float tmp = b * b - 4.0f * a * c;
+
+	if (tmp < 0)
+	{
+		// imaginary number, bah, no solution.
+		return false;
+	}
+
+	tmp = sqrt( tmp );
+	root1 = (-b + tmp) / (2.0f * a);
+	root2 = (-b - tmp) / (2.0f * a);
+	return true;
+}
+
+void QuaternionIdentityBlend( const Quaternion &p, float t, Quaternion &qt )
+{
+	Assert( s_bMathlibInitialized );
+	float sclp;
+
+	sclp = 1.0f - t;
+
+	qt.x = p.x * sclp;
+	qt.y = p.y * sclp;
+	qt.z = p.z * sclp;
+	if (qt.w < 0.0)
+	{
+		qt.w = p.w * sclp - t;
+	}
+	else
+	{
+		qt.w = p.w * sclp + t;
+	}
+	QuaternionNormalize( qt );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Converts a quaternion to an axis / angle in degrees
+//			(exponential map)
+//-----------------------------------------------------------------------------
+void QuaternionAxisAngle( const Quaternion &q, Vector &axis, float &angle )
+{
+	angle = RAD2DEG(2 * acos(q.w));
+	if ( angle > 180 )
+	{
+		angle -= 360;
+	}
+	axis.x = q.x;
+	axis.y = q.y;
+	axis.z = q.z;
+	VectorNormalize( axis );
+}
+
+void RotationDeltaAxisAngle( const QAngle &srcAngles, const QAngle &destAngles, Vector &deltaAxis, float &deltaAngle )
+{
+	Quaternion srcQuat, destQuat, srcQuatInv, out;
+	AngleQuaternion( srcAngles, srcQuat );
+	AngleQuaternion( destAngles, destQuat );
+	QuaternionScale( srcQuat, -1, srcQuatInv );
+	QuaternionMult( destQuat, srcQuatInv, out );
+
+	QuaternionNormalize( out );
+	QuaternionAxisAngle( out, deltaAxis, deltaAngle );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: basic hermite spline.  t = 0 returns p1, t = 1 returns p2, 
+//			d1 and d2 are used to entry and exit slope of curve
+//-----------------------------------------------------------------------------
+void Hermite_Spline(
+	const Vector &p1,
+	const Vector &p2,
+	const Vector &d1,
+	const Vector &d2,
+	float t, 
+	Vector& output )
+{
+	Assert( s_bMathlibInitialized );
+	float tSqr = t*t;
+	float tCube = t*tSqr;
+
+	Assert( &output != &p1 );
+	Assert( &output != &p2 );
+	Assert( &output != &d1 );
+	Assert( &output != &d2 );
+
+	float b1 = 2.0f*tCube-3.0f*tSqr+1.0f;
+	float b2 = 1.0f - b1; // -2*tCube+3*tSqr;
+	float b3 = tCube-2*tSqr+t;
+	float b4 = tCube-tSqr;
+
+	VectorScale( p1, b1, output );
+	VectorMA( output, b2, p2, output );
+	VectorMA( output, b3, d1, output );
+	VectorMA( output, b4, d2, output );
+}
+
+float Hermite_Spline(
+	float p1,
+	float p2,
+	float d1,
+	float d2,
+	float t )
+{
+	Assert( s_bMathlibInitialized );
+	float output;
+	float tSqr = t*t;
+	float tCube = t*tSqr;
+
+	float b1 = 2.0f*tCube-3.0f*tSqr+1.0f;
+	float b2 = 1.0f - b1; // -2*tCube+3*tSqr;
+	float b3 = tCube-2*tSqr+t;
+	float b4 = tCube-tSqr;
+
+	output = p1 * b1;
+	output += p2 * b2;
+	output += d1 * b3;
+	output += d2 * b4;
+
+	return output;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: simple three data point hermite spline.  
+//			t = 0 returns p1, t = 1 returns p2, 
+//			slopes are generated from the p0->p1 and p1->p2 segments
+//			this is reasonable C1 method when there's no "p3" data yet.
+//-----------------------------------------------------------------------------
+void Hermite_Spline( const Vector &p0, const Vector &p1, const Vector &p2, float t, Vector& output )
+{
+	Vector e10, e21;
+	VectorSubtract( p1, p0, e10 );
+	VectorSubtract( p2, p1, e21 );
+	Hermite_Spline( p1, p2, e10, e21, t, output );
+}
+
+float Hermite_Spline( float p0, float p1, float p2,	float t )
+{
+	return Hermite_Spline( p1, p2, p1 - p0, p2 - p1, t );
+}
+
+void Hermite_Spline( const Quaternion &q0, const Quaternion &q1, const Quaternion &q2, float t, Quaternion &output )
+{
+	// cheap, hacked version of quaternions
+	Quaternion q0a;
+	Quaternion q1a;
+
+	QuaternionAlign( q2, q0, q0a );
+	QuaternionAlign( q2, q1, q1a );
+
+	output.x = Hermite_Spline( q0a.x, q1a.x, q2.x, t );
+	output.y = Hermite_Spline( q0a.y, q1a.y, q2.y, t );
+	output.z = Hermite_Spline( q0a.z, q1a.z, q2.z, t );
+	output.w = Hermite_Spline( q0a.w, q1a.w, q2.w, t );
+
+	QuaternionNormalize( output );
 }
 
 

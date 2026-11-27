@@ -1047,6 +1047,8 @@ struct mstudioanimdesc_t {
     int numlocalhierarchy;
     int localhierarchyindex;
 
+    mstudiolocalhierarchy_t *pHierarchy(int i) const;
+
     int sectionindex;
     int sectionframes; // number of frames used in each fast lookup section, zero if not used
     mstudioanimsections_t *const pSection(int i) const {
@@ -1897,6 +1899,12 @@ inline mstudiovertex_t *mstudio_meshvertexdata_t::Vertex(int i) const {
     return modelvertexdata->Vertex(GetModelVertexIndex(i));
 }
 
+// a group of studio model data
+enum studiomeshgroupflags_t {
+    MESHGROUP_IS_HWSKINNED = 0x2,
+    MESHGROUP_IS_DELTA_FLEXED = 0x4
+};
+
 
 // ----------------------------------------------------------
 // Runtime stuff
@@ -2089,6 +2097,25 @@ struct virtualgeneric_t {
 
 
 struct virtualmodel_t {
+    void AppendSequences(int group, const studiohdr_t *pStudioHdr);
+
+    void AppendAnimations(int group, const studiohdr_t *pStudioHdr);
+
+    void AppendAttachments(int ground, const studiohdr_t *pStudioHdr);
+
+    void AppendPoseParameters(int group, const studiohdr_t *pStudioHdr);
+
+    void AppendBonemap(int group, const studiohdr_t *pStudioHdr);
+
+    void AppendNodes(int group, const studiohdr_t *pStudioHdr);
+
+    void AppendTransitions(int group, const studiohdr_t *pStudioHdr);
+
+    void AppendIKLocks(int group, const studiohdr_t *pStudioHdr);
+
+    void AppendModels(int group, const studiohdr_t *pStudioHdr);
+
+    void UpdateAutoplaySequences(const studiohdr_t *pStudioHdr);
 
     virtualgroup_t *pAnimGroup(int animation) { return &m_group[m_anim[animation].group]; };
     // Note: user must manage mutex for this
@@ -2633,6 +2660,14 @@ struct studiohdr_t {
 
     void SetSequenceActivity(int iSequence, int iActivity);
 
+    int GetActivityListVersion();
+
+    void SetActivityListVersion(int version) const;
+
+    int GetEventListVersion();
+
+    void SetEventListVersion(int version);
+
     // raw textures
     int numtextures;
     int textureindex;
@@ -2674,6 +2709,16 @@ struct studiohdr_t {
         return (mstudioattachment_t *) (((uint8_t *) this) + localattachmentindex) + i;
     };
 
+    //public:
+    int GetNumAttachments() const;
+
+    const mstudioattachment_t &pAttachment(int i) const;
+
+    int GetAttachmentBone(int i);
+
+    // used on my tools in hlmv, not persistant
+    void SetAttachmentBone(int iAttachment, int iBone);
+
     // animation node to animation node transition graph
     //private:
     int numlocalnodes;
@@ -2689,6 +2734,15 @@ struct studiohdr_t {
         Assert(i >= 0 && i < (numlocalnodes * numlocalnodes));
         return (uint8_t *) this + localnodeindex + i;
     };
+
+    //public:
+    int EntryNode(int iSequence);
+
+    int ExitNode(int iSequence);
+
+    char *pszNodeName(int iNode);
+
+    int GetTransition(int iFrom, int iTo) const;
 
     int numflexdesc;
     int flexdescindex;
@@ -2739,6 +2793,9 @@ struct studiohdr_t {
         return (mstudioposeparamdesc_t *) (((uint8_t *) this) + localposeparamindex) + i;
     };
 
+    //public:
+    int GetNumPoseParameters() const;
+
     const mstudioposeparamdesc_t &pPoseParameter(int i);
 
     int GetSharedPoseParameter(int iSequence, int iLocalPose) const;
@@ -2763,6 +2820,10 @@ struct studiohdr_t {
         return (mstudioiklock_t *) (((uint8_t *) this) + localikautoplaylockindex) + i;
     };
 
+    int GetNumIKAutoplayLocks() const;
+
+    const mstudioiklock_t &pIKAutoplayLock(int i);
+
     int CountAutoplaySequences() const;
 
     int CopyAutoplaySequences(unsigned short *pOut, int outCount) const;
@@ -2781,6 +2842,9 @@ struct studiohdr_t {
         Assert(i >= 0 && i < numincludemodels);
         return (mstudiomodelgroup_t *) (((uint8_t *) this) + includemodelindex) + i;
     };
+
+    // implementation specific call to get a named model
+    const studiohdr_t *FindModel(void **cache, char const *modelname) const;
 
     // implementation specific back pointer to virtual data. Relocated to studiohdr2_t
     int unused_virtualModel;
@@ -2962,9 +3026,17 @@ public:
     virtualmodel_t *GetVirtualModel() const { return m_pVModel; };
     const studiohdr_t *GetRenderHdr() const { return m_pStudioHdr; };
 
+    const studiohdr_t *pSeqStudioHdr(int sequence);
+
+    const studiohdr_t *pAnimStudioHdr(int animation);
+
     //CFeModel *GetFeModel() { return m_pSoftbody? m_pSoftbody->GetFeModel(); }
     CSoftbody *GetSoftbody() const { return m_pSoftbody; }
     void SetSoftbody(CSoftbody *pSoftbody) { m_pSoftbody = pSoftbody; }
+
+    CSoftbody *InitSoftbody(CSoftbodyEnvironment *pSoftbodyEnvironment);
+
+    void FreeSoftbody();
 
 private:
     mutable const studiohdr_t *m_pStudioHdr;
@@ -3024,9 +3096,41 @@ public:
 
     void SetSequenceActivity(int iSequence, int iActivity);
 
+    int GetActivityListVersion();
+
+    void SetActivityListVersion(int version);
+
+    int GetEventListVersion();
+
+    void SetEventListVersion(int version);
+
+    int GetNumAttachments() const;
+
+    const mstudioattachment_t &pAttachment(int i);
+
+    int GetAttachmentBone(int i);
+
+    // used on my tools in hlmv, not persistant
+    void SetAttachmentBone(int iAttachment, int iBone);
+
+    int EntryNode(int iSequence);
+
+    int ExitNode(int iSequence);
+
+    char *pszNodeName(int iNode);
+
+    // FIXME: where should this one be?
+    int GetTransition(int iFrom, int iTo) const;
+
+    int GetNumPoseParameters() const;
+
     const mstudioposeparamdesc_t &pPoseParameter(int i);
 
     int GetSharedPoseParameter(int iSequence, int iLocalPose) const;
+
+    int GetNumIKAutoplayLocks() const;
+
+    const mstudioiklock_t &pIKAutoplayLock(int i);
 
     int CountAutoplaySequences() const { return m_pStudioHdr->CountAutoplaySequences(); };
 
@@ -3110,9 +3214,22 @@ public:
     const mstudiobodygrouppreset_t *GetBodyGroupPreset(int i) const { return m_pStudioHdr->BodyGroupPreset(i); }
 
 public:
+    int IsSequenceLooping(int iSequence);
+
+    float GetSequenceCycleRate(int iSequence);
+
+    void RunFlexRules(const float *src, float *dest);
+
+    void RunFlexRulesOld(const float *src, float *dest);
+
+    void RunFlexRulesNew(const float *src, float *dest);
 
 public:
     BoneFlags boneFlags(int iBone) const { return m_boneFlags[iBone]; }
+
+    void setBoneFlags(int iBone, BoneFlags flags);
+
+    void clearBoneFlags(int iBone, BoneFlags flags);
 
     int boneParent(int iBone) const { return m_boneParent[iBone]; }
 
@@ -3169,6 +3286,13 @@ public:
             }
         }
 
+        /// Get the list of sequences for an activity. Returns the pointer to the
+        /// first sequence tuple. Output parameters are a count of sequences present,
+        /// and the total weight of all the sequences. (it would be more LHS-friendly
+        /// to return these on registers, if only C++ offered more than one return
+        /// value....)
+        const SequenceTuple *GetSequences(int forActivity, int *outSequenceCount, int *outTotalWeight);
+
         /// The number of sequences available for an activity.
         int NumSequencesForActivity(int forActivity);
 
@@ -3176,10 +3300,15 @@ public:
 
         static void ReleaseMapping(CActivityToSequenceMapping *pMap);
 
+        static void ResetMappings();
+
     private:
         /// Allocate my internal array. (It is freed in the destructor.) Also,
         /// build the hash of activities to sequences and populate m_pSequenceTuples.
         void Initialize(const CStudioHdr *pstudiohdr);
+
+        /// Force Initialize() to occur again, even if it has already occured.
+        void Reinitialize(CStudioHdr *pstudiohdr);
 
         /// A more efficient version of the old SelectWeightedSequence() function in animation.cpp.
         int SelectWeightedSequence(CStudioHdr *pstudiohdr, int activity, int curSequence);
@@ -3250,6 +3379,7 @@ public:
         }
         m_pActivityToSequence = CActivityToSequenceMapping::FindMapping(this);
     }
+
 #ifdef STUDIO_ENABLE_PERF_COUNTERS
 
 public:
@@ -3293,6 +3423,106 @@ private:
 // Purpose:
 //-----------------------------------------------------------------------------
 
+struct flexweight_t {
+    int key;
+    float weight;
+    float influence;
+};
+
+struct flexsetting_t {
+    int nameindex;
+
+    char *pszName() const {
+        return (char *) (((uint8_t *) this) + nameindex);
+    }
+
+    // Leaving this for legacy support
+    int obsolete1;
+
+    // Number of flex settings
+    int numsettings;
+    int index;
+
+    // OBSOLETE:
+    int obsolete2;
+
+    // Index of start of contiguous array of flexweight_t structures
+    int settingindex;
+
+    //-----------------------------------------------------------------------------
+    // Purpose: Retrieves a pointer to the flexweight_t, including resolving
+    //  any markov chain hierarchy.  Because of this possibility, we return
+    //  the number of settings in the weights array returned.  We'll generally
+    //  call this function with i == 0
+    // Input  : *base -
+    //			i -
+    //			**weights -
+    // Output : int
+    //-----------------------------------------------------------------------------
+    inline int psetting(uint8_t *base, int i, flexweight_t **weights) const;
+};
+
+
+struct flexsettinghdr_t {
+    int id;
+    int version;
+
+    const char *pszName() const { return name; }
+    char name[64];
+    int length;
+
+    int numflexsettings;
+    int flexsettingindex;
+
+    flexsetting_t *pSetting(int i) const {
+        return (flexsetting_t *) (((uint8_t *) this) + flexsettingindex) + i;
+    };
+    int nameindex;
+
+    // look up flex settings by "index"
+    int numindexes;
+    int indexindex;
+
+    flexsetting_t *pIndexedSetting(int index) const {
+        if (index < 0 || index >= numindexes) {
+            return nullptr;
+        }
+
+        int i = *((int *) (((uint8_t *) this) + indexindex) + index);
+
+        if (i == -1) {
+            return nullptr;
+        }
+
+        return pSetting(i);
+    }
+
+    // index names of "flexcontrollers"
+    int numkeys;
+    int keynameindex;
+
+    char *pLocalName(int i) const {
+        return (char *) (((uint8_t *) this) + *((int *) (((uint8_t *) this) + keynameindex) + i));
+    };
+
+    int keymappingindex;
+    int *pLocalToGlobal(int i) const { return (int *) (((uint8_t *) this) + keymappingindex) + i; };
+    int LocalToGlobal(int i) const { return *pLocalToGlobal(i); };
+};
+
+//-----------------------------------------------------------------------------
+// Purpose: Retrieves a pointer to the flexweight_t.
+// Input  : *base - flexsettinghdr_t * pointer
+//			i - index of flex setting to retrieve
+//			**weights - destination for weights array starting at index i.
+// Output : int
+//-----------------------------------------------------------------------------
+inline int flexsetting_t::psetting(uint8_t *base, int i, flexweight_t **weights) const {
+    // Grab array pointer
+    *weights = (flexweight_t *) (((uint8_t *) this) + settingindex) + i;
+    // Return true number of settings
+    return numsettings;
+};
 
 
 //-----------------------------------------------------------------------------

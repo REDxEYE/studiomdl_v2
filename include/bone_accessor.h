@@ -32,6 +32,8 @@ public:
 	BoneFlags GetWritableBones();
 	void SetWritableBones( BoneFlags flags );
 
+	bool isBoneAvailableForRead( int iBone ) const;
+	bool isBoneAvailableForWrite( int iBone ) const;
 
 	// Get bones for read or write access.
 	const matrix3x4a_t&	GetBone( int iBone ) const;
