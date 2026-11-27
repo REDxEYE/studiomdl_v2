@@ -25,9 +25,9 @@ public:
     int BoneCount() const;
     int SequenceCount() const;
     QString SequenceName(int sequence) const;
-    QString ActivityName(int sequence) const;
-    bool IsHidden(int sequence) const;     // STUDIO_HIDDEN
-    int FacePoserType(int sequence) const; // keyvalues faceposer { type }: 2 posture, 1 gesture, 0 other
+    QString ActivityName(int64_t sequence) const;
+    bool IsHidden(int64_t sequence) const;     // STUDIO_HIDDEN
+    int FacePoserType(int64_t sequence) const; // keyvalues faceposer { type }: 2 posture, 1 gesture, 0 other
     QStringList ActivityModifiers(int sequence) const;
 
     int PoseParameterCount() const;

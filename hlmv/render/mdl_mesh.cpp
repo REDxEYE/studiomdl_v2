@@ -344,9 +344,9 @@ namespace {
             };
             for (int j = 0; j < record->numops; ++j) {
                 const auto* opRecord = record->iFlexOp(j);
-                const FlexOp op{.op = static_cast<uint32_t>(opRecord->op), .index = opRecord->d.index, .value = opRecord->d.value};
+                const FlexOp op{.op = opRecord->op, .index = opRecord->d.index, .value = opRecord->d.value};
                 const bool controllerIndex = op.index >= 0 && op.index < controllerCount;
-                switch (StudioOpcode(op.op)) {
+                switch (op.op) {
                     case StudioOpcode::Const: require(depth < 32 && std::isfinite(op.value));
                         ++depth;
                         break;
@@ -586,16 +586,14 @@ MdlMesh LoadMdlMesh(const QString &path) {
     return result;
 }
 
-bool FrameVertices(MdlMesh &mesh, std::span<const Vertex> vertices)
-{
+bool FrameVertices(MdlMesh &mesh, const std::span<const Vertex> vertices) {
     if (mesh.indices.empty())
         return false;
-    std::array<float, 3> mins, maxs;
+    std::array<float, 3> mins{}, maxs{};
     std::copy_n(vertices[mesh.indices.front()].position, 3, mins.begin());
     maxs = mins;
-    for (const auto index : mesh.indices)
-        for (int axis = 0; axis < 3; ++axis)
-        {
+    for (const auto index: mesh.indices)
+        for (int axis = 0; axis < 3; ++axis) {
             const auto value = vertices[index].position[axis];
             mins[axis] = std::min(mins[axis], value);
             maxs[axis] = std::max(maxs[axis], value);
@@ -610,22 +608,20 @@ bool FrameVertices(MdlMesh &mesh, std::span<const Vertex> vertices)
     return true;
 }
 
-void SkinVertices(const MdlMesh &mesh, std::span<const Vertex> base, std::span<const QMatrix4x4> boneToModel,
-                  std::vector<Vertex> &out)
-{
+void SkinVertices(const MdlMesh &mesh, const std::span<const Vertex> base,
+                  const std::span<const QMatrix4x4> boneToModel,
+                  std::vector<Vertex> &out) {
     std::vector<QMatrix4x4> skin(boneToModel.size());
     for (size_t i = 0; i < skin.size() && i < mesh.poseToBone.size(); ++i)
         skin[i] = boneToModel[i] * mesh.poseToBone[i];
     out.resize(base.size());
-    for (size_t v = 0; v < base.size(); ++v)
-    {
+    for (size_t v = 0; v < base.size(); ++v) {
         const auto &in = base[v];
         const auto &weights = mesh.weights[v];
         const QVector3D p(in.position[0], in.position[1], in.position[2]), n(in.normal[0], in.normal[1], in.normal[2]),
-            t(in.tangent[0], in.tangent[1], in.tangent[2]);
+                t(in.tangent[0], in.tangent[1], in.tangent[2]);
         QVector3D position, normal, tangent;
-        for (int j = 0; j < weights.count; ++j)
-        {
+        for (int j = 0; j < weights.count; ++j) {
             const auto &matrix = skin[weights.bone[j]];
             position += weights.weight[j] * matrix.map(p);
             normal += weights.weight[j] * matrix.mapVector(n);
@@ -633,7 +629,11 @@ void SkinVertices(const MdlMesh &mesh, std::span<const Vertex> base, std::span<c
         }
         normal.normalize();
         tangent.normalize();
-        out[v] = {{position.x(), position.y(), position.z(), 1}, {in.uv[0], in.uv[1]}, {normal.x(), normal.y(), normal.z()},
-                  {tangent.x(), tangent.y(), tangent.z(), in.tangent[3]}};
+        out[v] = {
+            .position = {position.x(), position.y(), position.z(), 1},
+            .uv = {in.uv[0], in.uv[1]},
+            .normal = {normal.x(), normal.y(), normal.z()},
+            .tangent = {tangent.x(), tangent.y(), tangent.z(), in.tangent[3]}
+        };
     }
 }

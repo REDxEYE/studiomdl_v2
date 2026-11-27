@@ -10,6 +10,8 @@
 
 #include <QStringList>
 
+#include "studio.h"
+
 struct Vertex;
 
 struct FlexController
@@ -21,7 +23,7 @@ struct FlexController
 
 struct FlexOp
 {
-    uint32_t op;     // StudioOpcode
+    StudioOpcode op;     // StudioOpcode
     int32_t index;   // for index operands
     float value;     // for StudioOpcode::Const
 };
@@ -43,7 +45,7 @@ struct FlexVertex
 struct MeshFlex
 {
     int desc, pair;      // flex descriptor and stereo partner (0 = none)
-    float target[4];     // RampFlexWeight targets
+    std::array<float, 4> target;     // RampFlexWeight targets
     std::vector<FlexVertex> vertices;
 };
 

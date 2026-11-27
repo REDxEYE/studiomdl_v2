@@ -653,9 +653,6 @@ private:
 
 #define Plat_FastMemset memset
 
-// DVD sector size, used for BSP lump alignment
-#define XBOX_DVD_SECTORSIZE			2048
-
 #define PLATFORM_EXT ""
 
 //-----------------------------------------------------------------------------

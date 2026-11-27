@@ -25,7 +25,6 @@
 #include <map>
 #include <unordered_set>
 #include "tier1/utlsymbol.h"
-#include "tier1/generichash.h"
 #include "localflexcontroller.h"
 #include "studiomdl/studiomdl_constants.hpp"
 

@@ -5,7 +5,7 @@
 add_library(hlmv_render STATIC
         render/viewport.cpp render/mdl_mesh.cpp render/mdl_flex.cpp render/studio_anim.cpp render/game_filesystem.cpp
         render/texture_upload.cpp render/material_system.cpp render/sfm_shaders.cpp ${PROJECT_SOURCE_DIR}/studiomdl/filesystem_init.cpp)
-target_include_directories(hlmv_render PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/render PRIVATE ${PROJECT_SOURCE_DIR}/include)
+target_include_directories(hlmv_render PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/render ${PROJECT_SOURCE_DIR}/include)
 target_compile_definitions(hlmv_render PUBLIC STATIC_TIER0) # consumers include SDK headers through mdl_mesh.h
 # bonesetup/utils/mathlib: the engine's animation code (IBoneSetup, CIKContext, CStudioHdr) used by studio_anim.cpp
 target_link_libraries(hlmv_render PUBLIC Qt6::OpenGL Qt6::OpenGLWidgets
@@ -17,6 +17,7 @@ endif ()
 if (STUDIOMDL_BUILD_HLMV)
     add_executable(hlmv main.cpp mdlviewer.cpp controlpanel.cpp mx.cpp)
     target_link_libraries(hlmv PRIVATE hlmv_render Qt6::Widgets)
+    target_compile_definitions(hlmv PRIVATE STATIC_TIER0)
     # Upstream HLMV's MX_ICON, as the window/taskbar icon (X11 _NET_WM_ICON, Wayland xdg-toplevel-icon)
     qt_add_resources(hlmv "icon" PREFIX "/hlmv" BASE upstream FILES upstream/icon1.ico)
 endif ()

@@ -110,11 +110,12 @@ struct MdlMesh
     std::vector<MdlMouth> mouths;
     float maxEyeDeflection = 0.866f; // studiohdr2_t::MaxEyeDeflection (cos 30 when unset)
 
-    int Texture(const MeshBatch &batch, int family) const
+    int Texture(const MeshBatch &batch, const int32_t family) const
     {
-        const int count = skinRefs ? int(skinTable.size()) / skinRefs : 0;
-        return family > 0 && family < count ? skinTable[size_t(family) * skinRefs + batch.slot] : batch.texture;
-    }};
+        const size_t count = skinRefs ? skinTable.size() / skinRefs : 0;
+        return family > 0 && family < count ? skinTable[family * skinRefs + batch.slot] : batch.texture;
+    }
+};
 
 MdlMesh LoadMdlMesh(const QString &path);
 

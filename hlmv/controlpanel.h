@@ -108,10 +108,11 @@ private:
     void UpdateIKRuleWindow();
     void BuildIKRuleQCString();
     void BuildEventQCString();
-    void SetFlexController(int index, float value); // value in controller units, like StudioModel::SetFlexController
+    void SetFlexController(size_t index, float value) const; // value in controller units, like StudioModel::SetFlexController
     void UpdateFlexSliders();
     void UpdateFlexPage();
-    int FlexIndex(int slot) const; // controller shown by slider `slot` on the current page, or -1
+
+    int32_t FlexIndex(int32_t slot) const; // controller shown by slider `slot` on the current page, or -1
     void SetBodypart(int part);
     void UpdateBodyInfo();
     std::vector<FlexController> m_flexControllers;
@@ -119,11 +120,13 @@ private:
     int m_materialCount = 0;
     // Sequence tab (upstream ControlPanel sequence helpers)
     StudioAnimation *anim() const;
-    QString ComposeSequenceDisplayName(int sequence) const;
+    QString ComposeSequenceDisplayName(int64_t sequence) const;
     void initSequenceChoices(int onlySlot = -1);
     void initBoneControllers();
-    int GetSequenceForSelection(int slot, int selection) const;
-    int GetSelectionForSequence(int slot, int sequence) const;
+
+    int64_t GetSequenceForSelection(int64_t slot, int64_t selection) const;
+
+    int64_t GetSelectionForSequence(int64_t slot, int64_t sequence) const;
     void setSequence(int sequence);
     void setOverlaySequence(int num, int sequence, float weight);
     void showActivityModifiers(int sequence);

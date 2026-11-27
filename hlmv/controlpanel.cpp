@@ -18,6 +18,7 @@
 
 #include "mdl_mesh.h"
 #include "viewport.h"
+#include "../include/tier1_v2/math_utils.hpp"
 
 namespace {
     void AddScrollableTab(mxTab *tabs, QWidget *page, const char *title) {
@@ -957,8 +958,7 @@ void ControlPanel::SetupCompileWindow(mxTab* pTab) {
     layout->addWidget(lblCompileWarningOrError, 3, 0, 1, 2);
 }
 
-void ControlPanel::BuildEventQCString()
-{
+void ControlPanel::BuildEventQCString() {
     std::string qc = "{ event AE_CL_PLAYSOUND ";
     qc += leEventSoundFrame->getLabel();
     qc += " \"";
@@ -967,41 +967,35 @@ void ControlPanel::BuildEventQCString()
     leEventQCString->setText(qc.c_str());
 }
 
-void ControlPanel::BuildIKRuleQCString()
-{
+void ControlPanel::BuildIKRuleQCString() {
     std::string qc = "ikrule ";
     qc += cIKChain->getLabel();
     qc += " ";
     const std::string type = cIKType->getLabel();
     qc += type;
 
-    if (type == "touch")
-    {
+    if (type == "touch") {
         qc += " \"";
         if (cIKTouch->getSelectedIndex() > 0)
             qc += cIKTouch->getLabel();
         qc += "\"";
     }
-    else if (type == "attachment")
-    {
+    else if (type == "attachment") {
         qc += " \"";
         qc += leIKAttachment->getLabel();
         qc += "\"";
     }
 
-    if (cbIKRangeToggle->isChecked())
-    {
+    if (cbIKRangeToggle->isChecked()) {
         qc += " range ";
-        for (auto *edit : {leIKRangeStart, leIKRangePeak, leIKRangeTail})
-        {
+        for (auto* edit: {leIKRangeStart, leIKRangePeak, leIKRangeTail}) {
             qc += edit->getLabel();
             qc += " ";
         }
         qc += leIKRangeEnd->getLabel();
     }
 
-    if (cbIKContactToggle->isChecked())
-    {
+    if (cbIKContactToggle->isChecked()) {
         qc += " contact ";
         qc += leIKContactFrame->getLabel();
     }
@@ -1015,8 +1009,7 @@ void ControlPanel::BuildIKRuleQCString()
     leIKQCString->setText(qc.c_str());
 }
 
-void ControlPanel::UpdateIKRuleWindow()
-{
+void ControlPanel::UpdateIKRuleWindow() {
     const std::string type = cIKType->getLabel();
     const bool bIsTouch = type == "touch";
     const bool bIsAttachment = type == "attachment";
@@ -1029,24 +1022,20 @@ void ControlPanel::UpdateIKRuleWindow()
     BuildIKRuleQCString();
 }
 
-void ControlPanel::redraw()
-{
+void ControlPanel::redraw() {
     if (m_viewport)
         m_viewport->update();
 }
 
-void ControlPanel::toggle(int id)
-{
-    for (auto *box : findChildren<QCheckBox *>())
-        if (auto *check = dynamic_cast<mxCheckBox *>(box); check && check->getId() == id)
-        {
+void ControlPanel::toggle(int id) {
+    for (auto* box: findChildren<QCheckBox*>())
+        if (auto* check = dynamic_cast<mxCheckBox*>(box); check && check->getId() == id) {
             check->click(); // reports the change like a user click, as upstream's setShow* + handler did
             return;
         }
 }
 
-void ControlPanel::OnLoadModel(const MdlMesh &mesh)
-{
+void ControlPanel::OnLoadModel(const MdlMesh &mesh) {
     const auto &info = mesh.info;
     char str[512];
     std::snprintf(str, sizeof(str),
@@ -1060,7 +1049,7 @@ void ControlPanel::OnLoadModel(const MdlMesh &mesh)
     UpdateBodyInfo();
 
     cBodypart->removeAll();
-    for (const auto &part : info.bodyParts)
+    for (const auto &part: info.bodyParts)
         cBodypart->add(part.toUtf8().constData());
     cBodypart->select(0);
     SetBodypart(0);
@@ -1073,7 +1062,7 @@ void ControlPanel::OnLoadModel(const MdlMesh &mesh)
     cLODChoice->select(0);
 
     cMaterials->removeAll();
-    for (const auto &material : mesh.textures)
+    for (const auto &material: mesh.textures)
         cMaterials->add(material.toUtf8().constData());
     cMaterials->select(0);
     Fill(cMessageList, mesh.textures, "None");
@@ -1099,8 +1088,7 @@ void ControlPanel::OnLoadModel(const MdlMesh &mesh)
     UpdateFlexPage();
 }
 
-void ControlPanel::SetFlexController(int index, float value)
-{
+void ControlPanel::SetFlexController(const size_t index, float value) const {
     const auto &controller = m_flexControllers[index];
     if (controller.min != controller.max)
         value = (value - controller.min) / (controller.max - controller.min);
@@ -1108,39 +1096,32 @@ void ControlPanel::SetFlexController(int index, float value)
     ++m_settings.flexRevision;
 }
 
-StudioAnimation *ControlPanel::anim() const
-{
+StudioAnimation* ControlPanel::anim() const {
     return m_settings.animation.get();
 }
 
 // upstream ComposeSequenceDisplayName
-QString ControlPanel::ComposeSequenceDisplayName(int sequence) const
-{
+QString ControlPanel::ComposeSequenceDisplayName(const int64_t sequence) const {
     const auto name = m_showActivities ? anim()->ActivityName(sequence) : anim()->SequenceName(sequence);
     return m_showSequenceIndices ? QStringLiteral("[%1] %2").arg(sequence).arg(name) : name;
 }
 
-int ControlPanel::GetSequenceForSelection(int slot, int selection) const
-{
+int64_t ControlPanel::GetSequenceForSelection(const int64_t slot, const int64_t selection) const {
     const auto &table = m_selectionToSequence[slot];
-    return selection >= 0 && size_t(selection) < table.size() ? table[selection] : 0;
+    return selection >= 0 && selection < table.size() ? table[selection] : 0;
 }
 
-int ControlPanel::GetSelectionForSequence(int slot, int sequence) const
-{
+int64_t ControlPanel::GetSelectionForSequence(const int64_t slot, const int64_t sequence) const {
     const auto &table = m_sequenceToSelection[slot];
-    return sequence >= 0 && size_t(sequence) < table.size() ? table[sequence] : -1;
+    return sequence >= 0 && sequence < table.size() ? table[sequence] : -1;
 }
 
 // upstream initSequenceChoices: optional faceposer-type/name sort, hidden sequences and per-slot filters.
-void ControlPanel::initSequenceChoices(int onlySlot)
-{
-    if (!anim())
-    {
-        for (auto *choice : cSequence)
-        {
+void ControlPanel::initSequenceChoices(int onlySlot) {
+    if (!anim()) {
+        for (auto* choice: cSequence) {
             choice->removeAll();
-            for (const auto &sequence : m_info.sequences)
+            for (const auto &sequence: m_info.sequences)
                 choice->add(sequence.toUtf8().constData());
             choice->select(0);
         }
@@ -1149,9 +1130,8 @@ void ControlPanel::initSequenceChoices(int onlySlot)
     const int count = anim()->SequenceCount();
     // upstream CreateSortedSequenceList: other sequences, then gestures, then postures, each by name
     std::vector<int> order(count);
-    std::vector<std::pair<int, QString>> keys(count);
-    for (int j = 0; j < count; j++)
-    {
+    std::vector<std::pair<int, QString> > keys(count);
+    for (int j = 0; j < count; j++) {
         order[j] = j;
         keys[j] = {anim()->FacePoserType(j), ComposeSequenceDisplayName(j)};
     }
@@ -1162,8 +1142,7 @@ void ControlPanel::initSequenceChoices(int onlySlot)
             return keys[a].second.compare(keys[b].second, Qt::CaseInsensitive) < 0;
         });
 
-    for (int i = 0; i < MAX_SEQUENCES; i++)
-    {
+    for (int i = 0; i < MAX_SEQUENCES; i++) {
         if (onlySlot >= 0 && i != onlySlot)
             continue;
         auto &toSequence = m_selectionToSequence[i];
@@ -1172,13 +1151,11 @@ void ControlPanel::initSequenceChoices(int onlySlot)
         toSelection.assign(count, 0);
         const auto filter = leSequenceFilter[i]->text();
         cSequence[i]->removeAll();
-        for (const int sequence : order)
-        {
+        for (const int sequence: order) {
             const auto &name = keys[sequence].second;
             const bool filteredOut = !filter.isEmpty() && !name.contains(filter, Qt::CaseInsensitive);
             const bool hidden = anim()->IsHidden(sequence);
-            if (!filteredOut && (m_showHidden || !hidden))
-            {
+            if (!filteredOut && (m_showHidden || !hidden)) {
                 cSequence[i]->add(name.toUtf8().constData());
                 toSelection[sequence] = int(toSequence.size());
                 toSequence.push_back(sequence);
@@ -1186,8 +1163,7 @@ void ControlPanel::initSequenceChoices(int onlySlot)
             else
                 toSelection[sequence] = toSequence.empty() ? 0 : int(toSequence.size()) - 1; // previous valid selection
         }
-        if (toSequence.empty() && count > 0)
-        {
+        if (toSequence.empty() && count > 0) {
             cSequence[i]->add(ComposeSequenceDisplayName(0).toUtf8().constData());
             toSequence.push_back(0);
         }
@@ -1195,8 +1171,7 @@ void ControlPanel::initSequenceChoices(int onlySlot)
         if (onlySlot == -1)
             slSequence[i]->setValue(0);
         const int sequence = GetSequenceForSelection(i, 0);
-        if (i == 0)
-        {
+        if (i == 0) {
             setSequence(sequence);
             showActivityModifiers(sequence);
         }
@@ -1204,14 +1179,11 @@ void ControlPanel::initSequenceChoices(int onlySlot)
             setOverlaySequence(i, sequence, slSequence[i]->getValue());
     }
 
-    if (onlySlot == -1)
-    {
-        for (int i = 0; i < NUM_POSEPARAMETERS; i++)
-        {
+    if (onlySlot == -1) {
+        for (int i = 0; i < NUM_POSEPARAMETERS; i++) {
             float min, max;
             const bool used = anim()->GetPoseParameterRange(i, &min, &max);
-            if (used)
-            {
+            if (used) {
                 cPoseParameter[i]->removeAll();
                 for (int j = 0; j < anim()->PoseParameterCount(); j++)
                     cPoseParameter[i]->add(anim()->PoseParameterName(j).toUtf8().constData());
@@ -1220,8 +1192,9 @@ void ControlPanel::initSequenceChoices(int onlySlot)
                 mxToolTip::add(slPoseParameter[i], anim()->PoseParameterName(i).toUtf8().constData());
                 lePoseParameter[i]->setLabel("%.1f", 0.0);
             }
-            for (QWidget *widget : std::initializer_list<QWidget *>{cPoseParameter[i], slPoseParameter[i], lePoseParameter[i]})
-            {
+            for (QWidget* widget: std::initializer_list<QWidget*>{
+                     cPoseParameter[i], slPoseParameter[i], lePoseParameter[i]
+                 }) {
                 widget->setEnabled(used);
                 widget->setVisible(used);
             }
@@ -1234,32 +1207,27 @@ void ControlPanel::initSequenceChoices(int onlySlot)
 }
 
 // upstream initBoneControllers
-void ControlPanel::initBoneControllers()
-{
+void ControlPanel::initBoneControllers() {
     const int count = anim() ? anim()->ControllerCount() : 0;
     cController->setEnabled(count > 0);
     slController->setEnabled(count > 0);
     cController->removeAll();
     for (int i = 0; i < count; i++)
         cController->add(("Controller " + std::to_string(anim()->GetController(i).inputfield)).c_str());
-    if (count > 0)
-    {
+    if (count > 0) {
         cController->select(0);
         slController->setRange(anim()->GetController(0).start, anim()->GetController(0).end);
         slController->setValue(0);
     }
 }
 
-void ControlPanel::setSequence(int sequence)
-{
+void ControlPanel::setSequence(int sequence) {
     const int selection = GetSelectionForSequence(0, sequence);
-    if (selection >= 0)
-    {
+    if (selection >= 0) {
         cSequence[0]->select(selection);
         anim()->SetSequence(sequence);
     }
-    else
-    {
+    else {
         cSequence[0]->select(0);
         anim()->SetSequence(GetSequenceForSelection(0, selection));
     }
@@ -1267,13 +1235,11 @@ void ControlPanel::setSequence(int sequence)
     updateGroundSpeed();
 }
 
-void ControlPanel::setOverlaySequence(int num, int sequence, float weight)
-{
+void ControlPanel::setOverlaySequence(int num, int sequence, float weight) {
     const int selection = GetSelectionForSequence(num, sequence);
     if (selection >= 0)
         cSequence[num]->select(selection);
-    else
-    {
+    else {
         cSequence[num]->select(0);
         sequence = GetSequenceForSelection(num, 0);
     }
@@ -1282,73 +1248,63 @@ void ControlPanel::setOverlaySequence(int num, int sequence, float weight)
     updateFrameSelection();
 }
 
-void ControlPanel::showActivityModifiers(int sequence)
-{
+void ControlPanel::showActivityModifiers(int sequence) {
     const auto modifiers = anim()->ActivityModifiers(sequence);
     cActivityModifiers->setEnabled(!modifiers.isEmpty());
     cActivityModifiers->removeAll();
-    for (const auto &modifier : modifiers)
+    for (const auto &modifier: modifiers)
         cActivityModifiers->add(modifier.toUtf8().constData());
     cActivityModifiers->select(0);
 }
 
-int ControlPanel::getFrameSelection() const
-{
+int ControlPanel::getFrameSelection() const {
     for (int i = 0; i < MAX_SEQUENCES; i++)
         if (rbFrameSelection[i]->isChecked())
             return i;
     return 0;
 }
 
-void ControlPanel::setFrame(float frame)
-{
+void ControlPanel::setFrame(float frame) {
     const int shown = anim()->SetFrame(getFrameSelection(), int(frame));
     lForcedFrame->setLabel("%3d", shown);
 }
 
-void ControlPanel::updateFrameSelection()
-{
+void ControlPanel::updateFrameSelection() {
     const int maxFrame = anim()->GetMaxFrame(getFrameSelection());
     slForceFrame->setRange(0, maxFrame, maxFrame);
     slForceFrame->setSteps(1, 1);
 }
 
-void ControlPanel::updateFrameSlider()
-{
+void ControlPanel::updateFrameSlider() {
     const float frame = anim()->GetFrame(getFrameSelection());
     lForcedFrame->setLabel("%3.1f", frame);
     slForceFrame->setValue(frame);
 }
 
-void ControlPanel::setSpeedScale(float scale)
-{
+void ControlPanel::setSpeedScale(float scale) {
     slSpeedScale->setValue(scale);
     m_settings.speedScale = scale;
     updateSpeedScale();
 }
 
-void ControlPanel::updateSpeedScale()
-{
-    laFPS->setLabel("x %.2f = %.1f fps", m_settings.speedScale, anim() ? m_settings.speedScale * anim()->GetFPS() : 0.0f);
+void ControlPanel::updateSpeedScale() {
+    laFPS->setLabel("x %.2f = %.1f fps", m_settings.speedScale,
+                    anim() ? m_settings.speedScale * anim()->GetFPS() : 0.0f);
 }
 
-void ControlPanel::setBlend(int index, float value)
-{
+void ControlPanel::setBlend(int index, float value) {
     anim()->SetPoseParameter(index, value);
     // reset number of frames....
     updateFrameSelection();
     updateGroundSpeed();
 }
 
-void ControlPanel::updateGroundSpeed()
-{
+void ControlPanel::updateGroundSpeed() {
     laGroundSpeed->setLabel("Speed: %.2f", anim()->GetGroundSpeed());
 }
 
-void ControlPanel::SaveSelectedSequences()
-{
-    for (int i = 0; i < MAX_SEQUENCES; i++)
-    {
+void ControlPanel::SaveSelectedSequences() {
+    for (int i = 0; i < MAX_SEQUENCES; i++) {
         const int index = cSequence[i]->getSelectedIndex();
         m_savedSequences[i] = index >= 0 ? GetSequenceForSelection(i, index) : 0;
         if (i > 0)
@@ -1356,8 +1312,7 @@ void ControlPanel::SaveSelectedSequences()
     }
 }
 
-void ControlPanel::RestoreSelectedSequences()
-{
+void ControlPanel::RestoreSelectedSequences() {
     for (int i = 0; i < MAX_SEQUENCES; i++)
         if (i == 0)
             setSequence(m_savedSequences[i]);
@@ -1365,8 +1320,7 @@ void ControlPanel::RestoreSelectedSequences()
             setOverlaySequence(i, m_savedSequences[i], m_savedWeights[i]);
 }
 
-void ControlPanel::OnAnimationTick()
-{
+void ControlPanel::OnAnimationTick() {
     if (!anim())
         return;
     updateFrameSlider();
@@ -1374,12 +1328,14 @@ void ControlPanel::OnAnimationTick()
     laBlendAmount->setLabel("%.3f %%", 100.0f * anim()->GetTransitionAmount());
 }
 
-void ControlPanel::setSequenceListOption(int id, bool on)
-{
-    bool &option = id == IDC_VIEW_ACTIVITIES ? m_showActivities
-                 : id == IDC_VIEW_HIDDEN ? m_showHidden
-                 : id == IDC_VIEW_SEQUENCE_INDICES ? m_showSequenceIndices
-                                                   : m_sortSequences;
+void ControlPanel::setSequenceListOption(int id, bool on) {
+    bool &option = id == IDC_VIEW_ACTIVITIES
+                       ? m_showActivities
+                       : id == IDC_VIEW_HIDDEN
+                             ? m_showHidden
+                             : id == IDC_VIEW_SEQUENCE_INDICES
+                                   ? m_showSequenceIndices
+                                   : m_sortSequences;
     option = on;
     if (!anim())
         return;
@@ -1389,49 +1345,44 @@ void ControlPanel::setSequenceListOption(int id, bool on)
 }
 
 // upstream ControlPanel::setBodypart: list the part's submodels and select its current one.
-void ControlPanel::SetBodypart(int part)
-{
+void ControlPanel::SetBodypart(int part) {
     cSubmodel->removeAll();
     if (part < 0 || size_t(part) >= m_info.bodyModels.size())
         return;
-    for (const auto &model : m_info.bodyModels[part])
+    for (const auto &model: m_info.bodyModels[part])
         cSubmodel->add(model.isEmpty() ? "blank" : model.toUtf8().constData());
     cSubmodel->select(m_settings.bodygroups[part]);
 }
 
-void ControlPanel::UpdateBodyInfo()
-{
+void ControlPanel::UpdateBodyInfo() {
     // StudioModel::SetBodygroup's body index: each part's submodel times the product of earlier parts' counts.
-    int body = 0, base = 1;
-    for (size_t i = 0; i < m_info.bodyModels.size() && i < m_settings.bodygroups.size(); ++i)
-    {
+    int64_t body = 0, base = 1;
+    for (size_t i = 0; i < m_info.bodyModels.size() && i < m_settings.bodygroups.size(); ++i) {
         body += m_settings.bodygroups[i] * base;
-        base *= int(m_info.bodyModels[i].size());
+        base *= m_info.bodyModels[i].size();
     }
     const auto extent = m_info.hullMax - m_info.hullMin;
     char str[512];
     std::snprintf(str, sizeof(str),
-                  "Materials: %d\nSkin Families: %d\nBodyparts: %d\nAttachments: %d\nBody index: %d\n",
+                  "Materials: %d\nSkin Families: %d\nBodyparts: %lld\nAttachments: %lld\nBody index: %ld\n",
                   //"Hull extent (X): %.2f\nHull extent (Y): %.2f\nHull extent (Z): %.2f\n",
-                  m_materialCount, m_info.skinFamilies, int(m_info.bodyParts.size()), int(m_info.attachments.size()), body
+                  m_materialCount, m_info.skinFamilies, m_info.bodyParts.size(), m_info.attachments.size(), body
                   //std::abs(extent.x()), std::abs(extent.y()), std::abs(extent.z())
-                  );
+    );
     lModelInfo2->setLabel("%s", str);
 }
 
-int ControlPanel::FlexIndex(int slot) const
-{
+int32_t ControlPanel::FlexIndex(const int32_t slot) const {
     const int index = m_flexPage * NUM_FLEX_SLIDERS + slot;
-    return index < int(m_flexControllers.size()) ? index : -1;
+    return index < static_cast<int32_t>(m_flexControllers.size()) ? index : -1;
 }
 
-void ControlPanel::UpdateFlexPage()
-{
-    const int pages = std::max(1, (int(m_flexControllers.size()) + NUM_FLEX_SLIDERS - 1) / NUM_FLEX_SLIDERS);
+void ControlPanel::UpdateFlexPage() {
+    const int32_t pages = std::max(
+        1, (vstd::as_signed_checked<int32_t>(m_flexControllers.size()) + NUM_FLEX_SLIDERS - 1) / NUM_FLEX_SLIDERS);
     m_flexPage = std::clamp(m_flexPage, 0, pages - 1);
-    for (int i = 0; i < NUM_FLEX_SLIDERS; i++)
-    {
-        const int index = FlexIndex(i);
+    for (int32_t i = 0; i < NUM_FLEX_SLIDERS; i++) {
+        const int32_t index = FlexIndex(i);
         const auto name = index >= 0 ? m_flexControllers[index].name : QString();
         lFlex[i]->setText(name);
         lFlex[i]->setToolTip(name);
@@ -1443,321 +1394,309 @@ void ControlPanel::UpdateFlexPage()
     UpdateFlexSliders();
 }
 
-void ControlPanel::UpdateFlexSliders()
-{
-    for (int i = 0; i < NUM_FLEX_SLIDERS; i++)
-    {
+void ControlPanel::UpdateFlexSliders() {
+    for (int i = 0; i < NUM_FLEX_SLIDERS; i++) {
         const int index = FlexIndex(i);
         slFlexScale[i]->setValue(index >= 0 ? m_settings.flexRaw[index] : 0.f);
     }
     redraw();
 }
 
-void ControlPanel::OnUnloadModel()
-{
+void ControlPanel::OnUnloadModel() {
     lModelInfo1->setLabel("No Model.");
     lModelInfo2->setLabel("");
     m_info = {};
     m_settings.bodygroups.clear();
 }
 
-int ControlPanel::handleEvent(mxEvent *event)
-{
+int ControlPanel::handleEvent(mxEvent* event) {
     if (event->event != mxEvent::Action)
         return 0;
 
-    switch (event->action)
-    {
-    case IDC_SKINS:
-        if (const int skin = cSkin->getSelectedIndex(); skin >= 0)
-        {
-            m_settings.skin = skin;
-            redraw();
-        }
-        break;
-
-    case IDC_BODYPART:
-        SetBodypart(cBodypart->getSelectedIndex());
-        break;
-
-    case IDC_SUBMODEL:
-        if (const int part = cBodypart->getSelectedIndex(), model = cSubmodel->getSelectedIndex();
-            part >= 0 && size_t(part) < m_settings.bodygroups.size() && model >= 0)
-        {
-            m_settings.bodygroups[part] = model;
-            UpdateBodyInfo();
-            redraw();
-        }
-        break;
-
-    case IDC_ROLL_BODYGROUPS:
-        for (size_t i = 0; i < m_settings.bodygroups.size(); ++i)
-            m_settings.bodygroups[i] = int(QRandomGenerator::global()->bounded(qsizetype(m_info.bodyModels[i].size())));
-        SetBodypart(cBodypart->getSelectedIndex());
-        UpdateBodyInfo();
-        redraw();
-        break;
-
-    case IDC_RENDERMODE:
-        // shortcut: only Wireframe and Textured have renderer paths; other modes draw textured until ported.
-        m_settings.wireframe = cRenderMode->getSelectedIndex() == 0;
-        redraw();
-        break;
-
-    case IDC_OVERLAY_WIREFRAME:
-        m_settings.wireframeOverlay = cbOverlayWireframe->isChecked();
-        redraw();
-        break;
-
-    case IDC_EYELOOK:
-        m_settings.eyeLook = dynamic_cast<QCheckBox *>(event->widget)->isChecked();
-        redraw();
-        break;
-
-    case IDC_SHOWORIGINAXIS:
-        m_settings.showOriginAxis = cbShowOriginAxis->isChecked();
-        redraw();
-        break;
-
-    case IDC_ORIGINAXISLENGTH:
-        m_settings.originAxisLength = leOriginAxisLength->getValue();
-        redraw();
-        break;
-
-    case IDC_BONES:
-        m_settings.showBones = cbBones->isChecked();
-        redraw();
-        break;
-
-    case IDC_ATTACHMENTS:
-        m_settings.showAttachments = cbAttachments->isChecked();
-        redraw();
-        break;
-
-    case IDC_HITBOXES:
-        m_settings.showHitboxes = cbHitBoxes->isChecked();
-        redraw();
-        break;
-
-    case IDC_NORMALS:
-        m_settings.showNormals = cbNormals->isChecked();
-        redraw();
-        break;
-
-    case IDC_TANGENTFRAME:
-        m_settings.showTangents = cbTangentFrame->isChecked();
-        redraw();
-        break;
-
-    case IDC_RENDER_FOV:
-    {
-        // Ignore partial input while typing; tan() is unusable outside (0, 180).
-        bool ok = false;
-        const float fov = leFOV->text().toFloat(&ok);
-        if (ok && fov > 0 && fov < 180)
-        {
-            m_settings.fov = fov;
-            redraw();
-        }
-        break;
-    }
-
-    case IDC_SPECULAR:
-        m_settings.specular = cbSpecular->isChecked();
-        redraw();
-        break;
-
-    case IDC_FORCEFRAME:
-        if (anim())
-        {
-            setFrame(slForceFrame->getValue());
-            setSpeedScale(0); // stop the animation
-        }
-        break;
-
-    case IDC_SPEEDSCALE:
-        setSpeedScale(slSpeedScale->getValue());
-        break;
-
-    case IDC_BLENDTIME:
-        laBlendTime->setLabel("%.2f s", slBlendTime->getValue());
-        if (anim())
-            anim()->SetBlendTime(slBlendTime->getValue());
-        break;
-
-    case IDC_BLENDSEQUENCECHANGES:
-        if (anim())
-            anim()->blendSequenceChanges = dynamic_cast<QCheckBox *>(event->widget)->isChecked();
-        break;
-
-    case IDC_BLENDNOW:
-        if (anim())
-            anim()->StartBlending();
-        break;
-
-    case IDC_RUNIK:
-        if (anim())
-            anim()->enableIK = cbRunIK->isChecked();
-        break;
-
-    case IDC_CONTROLLER:
-        if (const int index = cController->getSelectedIndex(); anim() && index >= 0)
-        {
-            slController->setRange(anim()->GetController(index).start, anim()->GetController(index).end);
-            slController->setValue(0);
-        }
-        break;
-
-    case IDC_CONTROLLERVALUE:
-        if (const int index = cController->getSelectedIndex(); anim() && index >= 0)
-            anim()->SetController(anim()->GetController(index).inputfield, slController->getValue());
-        break;
-
-    case IDC_PHYS_CON_FRICTION:
-        lPhysicsFriction->setLabel("%d", int(slPhysicsFriction->getValue()));
-        break;
-
-    case IDC_PHYS_CON_MIN:
-        lPhysicsConMin->setLabel("%d", int(slPhysicsConMin->getValue()));
-        break;
-
-    case IDC_PHYS_CON_MAX:
-        lPhysicsConMax->setLabel("%d", int(slPhysicsConMax->getValue()));
-        break;
-
-    case IDC_PHYS_P_MASSBIAS:
-        lPhysicsParamMassBias->setLabel("%.1f", slPhysicsParamMassBias->getValue());
-        break;
-
-    case IDC_PHYS_P_INERTIA:
-        lPhysicsParamInertia->setLabel("%.1f", slPhysicsParamInertia->getValue());
-        break;
-
-    case IDC_PHYS_P_DAMPING:
-        lPhysicsParamDamping->setLabel("%.2f", slPhysicsParamDamping->getValue());
-        break;
-
-    case IDC_PHYS_P_ROT_DAMPING:
-        lPhysicsParamRotDamping->setLabel("%.2f", slPhysicsParamRotDamping->getValue());
-        break;
-
-    case IDC_IKRULE_CHOICE:
-        UpdateIKRuleWindow();
-        break;
-
-    case IDC_IKRULE_CHAIN:
-    case IDC_IKRULE_TOUCH:
-    case IDC_IKRULE_ATTACHMENT:
-    case IDC_IKRULE_RANGE_TOGGLE:
-    case IDC_IKRULE_RANGE_START:
-    case IDC_IKRULE_RANGE_PEAK:
-    case IDC_IKRULE_RANGE_TAIL:
-    case IDC_IKRULE_RANGE_END:
-    case IDC_IKRULE_CONTACT_TOGGLE:
-    case IDC_IKRULE_CONTACT_FRAME:
-    case IDC_IKRULE_USING:
-        BuildIKRuleQCString();
-        break;
-
-    case IDC_EVENT_SOUND_FRAME:
-    case IDC_EVENT_SOUND_NAME:
-        BuildEventQCString();
-        break;
-
-    case IDC_COMPILE_SELECTEDTOGGLE:
-        bCompileSelectedToggle = !bCompileSelectedToggle;
-        bCompileQCWhenSelected->setLabel(bCompileSelectedToggle ? "One-click compile [ON]" : "One-click compile [OFF]");
-        break;
-
-    case IDC_FLEXDEFAULTS:
-    case IDC_FLEXZERO:
-    case IDC_FLEXONE:
-    case IDC_FLEXRANDOM:
-        for (int i = 0; i < int(m_flexControllers.size()); i++)
-            SetFlexController(i, event->action == IDC_FLEXONE ? 1.0f
-                                 : event->action == IDC_FLEXRANDOM ? float(std::rand()) / float(RAND_MAX)
-                                 : 0.0f);
-        UpdateFlexSliders();
-        break;
-
-    case IDC_FLEXPREV:
-    case IDC_FLEXNEXT:
-        m_flexPage += event->action == IDC_FLEXNEXT ? 1 : -1;
-        UpdateFlexPage();
-        break;
-
-    default:
-        if (event->action >= IDC_FLEXSCALE && event->action < IDC_FLEXSCALE + NUM_FLEX_SLIDERS)
-        {
-            // SetFlexControllerRaw: the slider value is already normalized.
-            const int index = FlexIndex(event->action - IDC_FLEXSCALE);
-            if (index >= 0)
-            {
-                m_settings.flexRaw[index] = std::clamp(slFlexScale[event->action - IDC_FLEXSCALE]->getValue(), 0.0f, 1.0f);
-                ++m_settings.flexRevision;
+    switch (event->action) {
+        case IDC_SKINS:
+            if (const int skin = cSkin->getSelectedIndex(); skin >= 0) {
+                m_settings.skin = skin;
                 redraw();
             }
-        }
-        else if (!anim())
             break;
-        else if (event->action >= IDC_SEQUENCE0 && event->action < IDC_SEQUENCE0 + MAX_SEQUENCES ||
-                 event->action >= IDC_SEQUENCESCALE0 && event->action < IDC_SEQUENCESCALE0 + MAX_SEQUENCES)
-        {
-            const int i = event->action < IDC_SEQUENCESCALE0 ? event->action - IDC_SEQUENCE0 : event->action - IDC_SEQUENCESCALE0;
-            const int index = cSequence[i]->getSelectedIndex();
-            const int sequence = index >= 0 ? GetSequenceForSelection(i, index) : 0;
-            if (i == 0)
-            {
-                if (index >= 0)
-                {
-                    setSequence(sequence);
-                    showActivityModifiers(sequence);
+
+        case IDC_BODYPART:
+            SetBodypart(cBodypart->getSelectedIndex());
+            break;
+
+        case IDC_SUBMODEL:
+            if (const int part = cBodypart->getSelectedIndex(), model = cSubmodel->getSelectedIndex();
+                part >= 0 && size_t(part) < m_settings.bodygroups.size() && model >= 0) {
+                m_settings.bodygroups[part] = model;
+                UpdateBodyInfo();
+                redraw();
+            }
+            break;
+
+        case IDC_ROLL_BODYGROUPS:
+            for (size_t i = 0; i < m_settings.bodygroups.size(); ++i)
+                m_settings.bodygroups[i] = int(
+                    QRandomGenerator::global()->bounded(qsizetype(m_info.bodyModels[i].size())));
+            SetBodypart(cBodypart->getSelectedIndex());
+            UpdateBodyInfo();
+            redraw();
+            break;
+
+        case IDC_RENDERMODE:
+            // shortcut: only Wireframe and Textured have renderer paths; other modes draw textured until ported.
+            m_settings.wireframe = cRenderMode->getSelectedIndex() == 0;
+            redraw();
+            break;
+
+        case IDC_OVERLAY_WIREFRAME:
+            m_settings.wireframeOverlay = cbOverlayWireframe->isChecked();
+            redraw();
+            break;
+
+        case IDC_EYELOOK:
+            m_settings.eyeLook = dynamic_cast<QCheckBox*>(event->widget)->isChecked();
+            redraw();
+            break;
+
+        case IDC_SHOWORIGINAXIS:
+            m_settings.showOriginAxis = cbShowOriginAxis->isChecked();
+            redraw();
+            break;
+
+        case IDC_ORIGINAXISLENGTH:
+            m_settings.originAxisLength = leOriginAxisLength->getValue();
+            redraw();
+            break;
+
+        case IDC_BONES:
+            m_settings.showBones = cbBones->isChecked();
+            redraw();
+            break;
+
+        case IDC_ATTACHMENTS:
+            m_settings.showAttachments = cbAttachments->isChecked();
+            redraw();
+            break;
+
+        case IDC_HITBOXES:
+            m_settings.showHitboxes = cbHitBoxes->isChecked();
+            redraw();
+            break;
+
+        case IDC_NORMALS:
+            m_settings.showNormals = cbNormals->isChecked();
+            redraw();
+            break;
+
+        case IDC_TANGENTFRAME:
+            m_settings.showTangents = cbTangentFrame->isChecked();
+            redraw();
+            break;
+
+        case IDC_RENDER_FOV: {
+            // Ignore partial input while typing; tan() is unusable outside (0, 180).
+            bool ok = false;
+            const float fov = leFOV->text().toFloat(&ok);
+            if (ok && fov > 0 && fov < 180) {
+                m_settings.fov = fov;
+                redraw();
+            }
+            break;
+        }
+
+        case IDC_SPECULAR:
+            m_settings.specular = cbSpecular->isChecked();
+            redraw();
+            break;
+
+        case IDC_FORCEFRAME:
+            if (anim()) {
+                setFrame(slForceFrame->getValue());
+                setSpeedScale(0); // stop the animation
+            }
+            break;
+
+        case IDC_SPEEDSCALE:
+            setSpeedScale(slSpeedScale->getValue());
+            break;
+
+        case IDC_BLENDTIME:
+            laBlendTime->setLabel("%.2f s", slBlendTime->getValue());
+            if (anim())
+                anim()->SetBlendTime(slBlendTime->getValue());
+            break;
+
+        case IDC_BLENDSEQUENCECHANGES:
+            if (anim())
+                anim()->blendSequenceChanges = dynamic_cast<QCheckBox*>(event->widget)->isChecked();
+            break;
+
+        case IDC_BLENDNOW:
+            if (anim())
+                anim()->StartBlending();
+            break;
+
+        case IDC_RUNIK:
+            if (anim())
+                anim()->enableIK = cbRunIK->isChecked();
+            break;
+
+        case IDC_CONTROLLER:
+            if (const int index = cController->getSelectedIndex(); anim() && index >= 0) {
+                slController->setRange(anim()->GetController(index).start, anim()->GetController(index).end);
+                slController->setValue(0);
+            }
+            break;
+
+        case IDC_CONTROLLERVALUE:
+            if (const int index = cController->getSelectedIndex(); anim() && index >= 0)
+                anim()->SetController(anim()->GetController(index).inputfield, slController->getValue());
+            break;
+
+        case IDC_PHYS_CON_FRICTION:
+            lPhysicsFriction->setLabel("%d", int(slPhysicsFriction->getValue()));
+            break;
+
+        case IDC_PHYS_CON_MIN:
+            lPhysicsConMin->setLabel("%d", int(slPhysicsConMin->getValue()));
+            break;
+
+        case IDC_PHYS_CON_MAX:
+            lPhysicsConMax->setLabel("%d", int(slPhysicsConMax->getValue()));
+            break;
+
+        case IDC_PHYS_P_MASSBIAS:
+            lPhysicsParamMassBias->setLabel("%.1f", slPhysicsParamMassBias->getValue());
+            break;
+
+        case IDC_PHYS_P_INERTIA:
+            lPhysicsParamInertia->setLabel("%.1f", slPhysicsParamInertia->getValue());
+            break;
+
+        case IDC_PHYS_P_DAMPING:
+            lPhysicsParamDamping->setLabel("%.2f", slPhysicsParamDamping->getValue());
+            break;
+
+        case IDC_PHYS_P_ROT_DAMPING:
+            lPhysicsParamRotDamping->setLabel("%.2f", slPhysicsParamRotDamping->getValue());
+            break;
+
+        case IDC_IKRULE_CHOICE:
+            UpdateIKRuleWindow();
+            break;
+
+        case IDC_IKRULE_CHAIN:
+        case IDC_IKRULE_TOUCH:
+        case IDC_IKRULE_ATTACHMENT:
+        case IDC_IKRULE_RANGE_TOGGLE:
+        case IDC_IKRULE_RANGE_START:
+        case IDC_IKRULE_RANGE_PEAK:
+        case IDC_IKRULE_RANGE_TAIL:
+        case IDC_IKRULE_RANGE_END:
+        case IDC_IKRULE_CONTACT_TOGGLE:
+        case IDC_IKRULE_CONTACT_FRAME:
+        case IDC_IKRULE_USING:
+            BuildIKRuleQCString();
+            break;
+
+        case IDC_EVENT_SOUND_FRAME:
+        case IDC_EVENT_SOUND_NAME:
+            BuildEventQCString();
+            break;
+
+        case IDC_COMPILE_SELECTEDTOGGLE:
+            bCompileSelectedToggle = !bCompileSelectedToggle;
+            bCompileQCWhenSelected->setLabel(bCompileSelectedToggle
+                                                 ? "One-click compile [ON]"
+                                                 : "One-click compile [OFF]");
+            break;
+
+        case IDC_FLEXDEFAULTS:
+        case IDC_FLEXZERO:
+        case IDC_FLEXONE:
+        case IDC_FLEXRANDOM:
+            for (auto i = 0; i < m_flexControllers.size(); i++)
+                SetFlexController(i, event->action == IDC_FLEXONE
+                                         ? 1.0f
+                                         : event->action == IDC_FLEXRANDOM
+                                               ? vstd::rand_float(0.0f, 1.0f)
+                                               : 0.0f);
+            UpdateFlexSliders();
+            break;
+
+        case IDC_FLEXPREV:
+        case IDC_FLEXNEXT:
+            m_flexPage += event->action == IDC_FLEXNEXT ? 1 : -1;
+            UpdateFlexPage();
+            break;
+
+        default:
+            if (event->action >= IDC_FLEXSCALE && event->action < IDC_FLEXSCALE + NUM_FLEX_SLIDERS) {
+                // SetFlexControllerRaw: the slider value is already normalized.
+                const int index = FlexIndex(event->action - IDC_FLEXSCALE);
+                if (index >= 0) {
+                    m_settings.flexRaw[index] = std::clamp(slFlexScale[event->action - IDC_FLEXSCALE]->getValue(), 0.0f,
+                                                           1.0f);
+                    ++m_settings.flexRevision;
+                    redraw();
                 }
             }
-            else
-                setOverlaySequence(i, sequence, slSequence[i]->getValue());
-        }
-        else if (event->action >= IDC_SEQUENCEFILTER0 && event->action < IDC_SEQUENCEFILTER0 + MAX_SEQUENCES)
-        {
-            SaveSelectedSequences();
-            initSequenceChoices(event->action - IDC_SEQUENCEFILTER0);
-            RestoreSelectedSequences();
-        }
-        else if (event->action >= IDC_FRAMESELECTION0 && event->action < IDC_FRAMESELECTION0 + MAX_SEQUENCES)
-            updateFrameSelection();
-        else if (event->action >= IDC_POSEPARAMETER && event->action < IDC_POSEPARAMETER + NUM_POSEPARAMETERS)
-        {
-            const int index = event->action - IDC_POSEPARAMETER;
-            const int poseparam = cPoseParameter[index]->getSelectedIndex();
-            float min, max;
-            if (anim()->GetPoseParameterRange(poseparam, &min, &max))
-            {
-                slPoseParameter[index]->setRange(min, max, 1000);
-                slPoseParameter[index]->setValue(anim()->GetPoseParameter(poseparam));
-                lePoseParameter[index]->setLabel("%.1f", anim()->GetPoseParameter(poseparam));
+            else if (!anim())
+                break;
+            else if (event->action >= IDC_SEQUENCE0 && event->action < IDC_SEQUENCE0 + MAX_SEQUENCES ||
+                     event->action >= IDC_SEQUENCESCALE0 && event->action < IDC_SEQUENCESCALE0 + MAX_SEQUENCES) {
+                const int i = event->action < IDC_SEQUENCESCALE0
+                                  ? event->action - IDC_SEQUENCE0
+                                  : event->action - IDC_SEQUENCESCALE0;
+                const int index = cSequence[i]->getSelectedIndex();
+                const int sequence = index >= 0 ? GetSequenceForSelection(i, index) : 0;
+                if (i == 0) {
+                    if (index >= 0) {
+                        setSequence(sequence);
+                        showActivityModifiers(sequence);
+                    }
+                }
+                else
+                    setOverlaySequence(i, sequence, slSequence[i]->getValue());
             }
-        }
-        else if (event->action >= IDC_POSEPARAMETER_SCALE && event->action < IDC_POSEPARAMETER_SCALE + NUM_POSEPARAMETERS)
-        {
-            const int index = event->action - IDC_POSEPARAMETER_SCALE;
-            setBlend(cPoseParameter[index]->getSelectedIndex(), slPoseParameter[index]->getValue());
-            lePoseParameter[index]->setLabel("%.1f", slPoseParameter[index]->getValue());
-        }
-        else if (event->action >= IDC_POSEPARAMETER_VALUE && event->action < IDC_POSEPARAMETER_VALUE + NUM_POSEPARAMETERS)
-        {
-            // upstream applies the typed value on key press; the Qt line edit reports every edit
-            const int index = event->action - IDC_POSEPARAMETER_VALUE;
-            const int poseparam = cPoseParameter[index]->getSelectedIndex();
-            bool ok = false;
-            const float value = lePoseParameter[index]->text().toFloat(&ok);
-            if (ok)
-            {
-                setBlend(poseparam, value);
-                slPoseParameter[index]->setValue(anim()->GetPoseParameter(poseparam));
+            else if (event->action >= IDC_SEQUENCEFILTER0 && event->action < IDC_SEQUENCEFILTER0 + MAX_SEQUENCES) {
+                SaveSelectedSequences();
+                initSequenceChoices(event->action - IDC_SEQUENCEFILTER0);
+                RestoreSelectedSequences();
             }
-        }
-        // Remaining controls need physics or compilation, which the port lacks so far.
-        break;
+            else if (event->action >= IDC_FRAMESELECTION0 && event->action < IDC_FRAMESELECTION0 + MAX_SEQUENCES)
+                updateFrameSelection();
+            else if (event->action >= IDC_POSEPARAMETER && event->action < IDC_POSEPARAMETER + NUM_POSEPARAMETERS) {
+                const int index = event->action - IDC_POSEPARAMETER;
+                const int poseparam = cPoseParameter[index]->getSelectedIndex();
+                float min, max;
+                if (anim()->GetPoseParameterRange(poseparam, &min, &max)) {
+                    slPoseParameter[index]->setRange(min, max, 1000);
+                    slPoseParameter[index]->setValue(anim()->GetPoseParameter(poseparam));
+                    lePoseParameter[index]->setLabel("%.1f", anim()->GetPoseParameter(poseparam));
+                }
+            }
+            else if (event->action >= IDC_POSEPARAMETER_SCALE && event->action < IDC_POSEPARAMETER_SCALE +
+                     NUM_POSEPARAMETERS) {
+                const int index = event->action - IDC_POSEPARAMETER_SCALE;
+                setBlend(cPoseParameter[index]->getSelectedIndex(), slPoseParameter[index]->getValue());
+                lePoseParameter[index]->setLabel("%.1f", slPoseParameter[index]->getValue());
+            }
+            else if (event->action >= IDC_POSEPARAMETER_VALUE && event->action < IDC_POSEPARAMETER_VALUE +
+                     NUM_POSEPARAMETERS) {
+                // upstream applies the typed value on key press; the Qt line edit reports every edit
+                const int index = event->action - IDC_POSEPARAMETER_VALUE;
+                const int poseparam = cPoseParameter[index]->getSelectedIndex();
+                bool ok = false;
+                const float value = lePoseParameter[index]->text().toFloat(&ok);
+                if (ok) {
+                    setBlend(poseparam, value);
+                    slPoseParameter[index]->setValue(anim()->GetPoseParameter(poseparam));
+                }
+            }
+            // Remaining controls need physics or compilation, which the port lacks so far.
+            break;
     }
     return 1;
 }
@@ -1910,24 +1849,24 @@ void CBoneControlWindow::Init() {
     layout->addLayout(files, 1, 0, 1, 3);
 }
 
-std::vector<MdlHitbox> *CBoneControlWindow::CurrentSet()
-{
+std::vector<MdlHitbox>* CBoneControlWindow::CurrentSet() {
     auto &sets = m_settings.hitboxSets;
-    return m_settings.hitboxSet >= 0 && size_t(m_settings.hitboxSet) < sets.size() ? &sets[m_settings.hitboxSet].boxes : nullptr;
+    return m_settings.hitboxSet >= 0 && size_t(m_settings.hitboxSet) < sets.size()
+               ? &sets[m_settings.hitboxSet].boxes
+               : nullptr;
 }
 
-void CBoneControlWindow::OnLoadModel(const MdlMesh &mesh)
-{
+void CBoneControlWindow::OnLoadModel(const MdlMesh &mesh) {
     m_bones = mesh.info.bones;
     m_surfaceProps = mesh.info.surfaceProps;
     m_parents = mesh.boneParents;
     // shortcut: lists "default" plus the model's own surface props; read surfaceproperties*.txt when vphysics is ported.
     QStringList props{QStringLiteral("default")};
-    for (const auto &prop : m_surfaceProps)
+    for (const auto &prop: m_surfaceProps)
         if (!props.contains(prop, Qt::CaseInsensitive))
             props.append(prop);
     m_cSurfaceProp->removeAll();
-    for (const auto &prop : props)
+    for (const auto &prop: props)
         m_cSurfaceProp->add(prop.toUtf8().constData());
 
     m_cAutoHitbox->setChecked(mesh.info.autoHitboxes);
@@ -1937,24 +1876,21 @@ void CBoneControlWindow::OnLoadModel(const MdlMesh &mesh)
     OnBoneSelected(0);
 }
 
-void CBoneControlWindow::ComputeHitboxSetList(int select)
-{
+void CBoneControlWindow::ComputeHitboxSetList(int select) {
     m_cHitboxSet->removeAll();
-    for (const auto &set : m_settings.hitboxSets)
+    for (const auto &set: m_settings.hitboxSets)
         m_cHitboxSet->add(set.name.toUtf8().constData());
     m_cHitboxSet->select(select);
     m_settings.hitboxSet = select;
 }
 
 // upstream ComputeHitboxList: the hitboxes of the current set that hang off the selected bone.
-void CBoneControlWindow::ComputeHitboxList()
-{
+void CBoneControlWindow::ComputeHitboxList() {
     m_boneHitboxes.clear();
     m_cHitbox->removeAll();
-    if (const auto *boxes = CurrentSet())
+    if (const auto* boxes = CurrentSet())
         for (size_t i = 0; i < boxes->size(); ++i)
-            if ((*boxes)[i].bone == m_bone)
-            {
+            if ((*boxes)[i].bone == m_bone) {
                 m_boneHitboxes.push_back(int(i));
                 m_cHitbox->add(std::to_string(i).c_str());
             }
@@ -1963,8 +1899,7 @@ void CBoneControlWindow::ComputeHitboxList()
     OnHitboxSelected(0);
 }
 
-void CBoneControlWindow::OnBoneSelected(int bone)
-{
+void CBoneControlWindow::OnBoneSelected(int bone) {
     if (bone < 0 || bone >= m_bones.size())
         return;
     m_bone = bone;
@@ -1973,62 +1908,62 @@ void CBoneControlWindow::OnBoneSelected(int bone)
     ComputeHitboxList();
 }
 
-void CBoneControlWindow::OnHitboxSelected(int index)
-{
+void CBoneControlWindow::OnHitboxSelected(int index) {
     m_cHitbox->select(index);
-    const auto *boxes = CurrentSet();
+    const auto* boxes = CurrentSet();
     m_hitbox = boxes && index >= 0 && size_t(index) < m_boneHitboxes.size() ? m_boneHitboxes[index] : -1;
-    if (m_hitbox >= 0)
-    {
+    if (m_hitbox >= 0) {
         m_eHitboxGroup->setLabel("%d", (*boxes)[m_hitbox].group);
         m_eHitboxName->setText((*boxes)[m_hitbox].name.toUtf8().constData());
     }
-    else
-    {
+    else {
         m_eHitboxGroup->setText("");
         m_eHitboxName->setText("");
     }
     UpdateHighlights();
 }
 
-void CBoneControlWindow::OnAutogenerateHitboxes(bool checked)
-{
-    for (QWidget *widget : std::initializer_list<QWidget *>{m_eHitboxGroup, m_eHitboxName, m_bUpdateHitbox, m_bAddHitbox, m_bDeleteHitbox,
-                                                             m_cHitboxSet, m_eHitboxSetName, m_bHitboxSetUpdateName,
-                                                             m_bAddHitboxSet, m_bDeleteHitboxSet})
+void CBoneControlWindow::OnAutogenerateHitboxes(bool checked) {
+    for (QWidget* widget: std::initializer_list<QWidget*>{
+             m_eHitboxGroup, m_eHitboxName, m_bUpdateHitbox, m_bAddHitbox, m_bDeleteHitbox,
+             m_cHitboxSet, m_eHitboxSetName, m_bHitboxSetUpdateName,
+             m_bAddHitboxSet, m_bDeleteHitboxSet
+         })
         widget->setEnabled(!checked);
 }
 
-void CBoneControlWindow::UpdateHighlights()
-{
+void CBoneControlWindow::UpdateHighlights() {
     m_settings.highlightBone = m_cBoneHighlight->isChecked() ? m_bone : -1;
     // Without a selected hitbox, an out-of-range index dims every box, as upstream's numbones + 1.
-    const auto *boxes = CurrentSet();
-    m_settings.highlightHitbox = !m_cHitboxHighlight->isChecked() ? -1 : m_hitbox >= 0 ? m_hitbox : int(boxes ? boxes->size() : 0);
+    const auto* boxes = CurrentSet();
+    m_settings.highlightHitbox = !m_cHitboxHighlight->isChecked()
+                                     ? -1
+                                     : m_hitbox >= 0
+                                           ? m_hitbox
+                                           : int(boxes ? boxes->size() : 0);
     m_panel->redraw();
 }
 
 // upstream SerializeQC: surface props (only where they differ from the parent) and, unless autogenerated, every hitbox set.
-QString CBoneControlWindow::SerializeQC() const
-{
+QString CBoneControlWindow::SerializeQC() const {
     QString qc = QStringLiteral("// .qc block generated by HLMV begins.\n\n");
     qc += QStringLiteral("$surfaceprop \"%1\"\n").arg(m_surfaceProps.value(0));
     for (qsizetype i = 1; i < m_surfaceProps.size(); ++i)
-        if (const int parent = m_parents[i]; parent < 0 || m_surfaceProps[i].compare(m_surfaceProps[parent], Qt::CaseInsensitive))
+        if (const int parent = m_parents[i]; parent < 0 || m_surfaceProps[i].compare(
+                                                 m_surfaceProps[parent], Qt::CaseInsensitive))
             qc += QStringLiteral("$jointsurfaceprop \"%1\"\t \"%2\"\n").arg(m_bones[i], m_surfaceProps[i]);
-    if (!m_cAutoHitbox->isChecked())
-    {
+    if (!m_cAutoHitbox->isChecked()) {
         qc += QLatin1Char('\n');
-        for (const auto &set : m_settings.hitboxSets)
-        {
+        for (const auto &set: m_settings.hitboxSets) {
             qc += QStringLiteral("\n$hboxset \"%1\"\n\n").arg(set.name);
-            for (const auto &box : set.boxes)
-            {
+            for (const auto &box: set.boxes) {
                 char numbers[256];
-                std::snprintf(numbers, sizeof(numbers), "  %7.2f %7.2f %7.2f  %7.2f %7.2f %7.2f  %7.2f %7.2f %7.2f %7.2f",
+                std::snprintf(numbers, sizeof(numbers),
+                              "  %7.2f %7.2f %7.2f  %7.2f %7.2f %7.2f  %7.2f %7.2f %7.2f %7.2f",
                               box.min.x(), box.min.y(), box.min.z(), box.max.x(), box.max.y(), box.max.z(),
                               box.angles.x(), box.angles.y(), box.angles.z(), box.radius);
-                qc += QStringLiteral("$hbox %1 \"%2\"\t").arg(box.group).arg(m_bones.value(box.bone)) + QLatin1String(numbers);
+                qc += QStringLiteral("$hbox %1 \"%2\"\t").arg(box.group).arg(m_bones.value(box.bone)) +
+                        QLatin1String(numbers);
                 if (!box.name.isEmpty())
                     qc += QStringLiteral(" \"%1\"").arg(box.name);
                 qc += QLatin1Char('\n');
@@ -2039,121 +1974,115 @@ QString CBoneControlWindow::SerializeQC() const
     return qc;
 }
 
-int CBoneControlWindow::handleEvent(mxEvent *event)
-{
+int CBoneControlWindow::handleEvent(mxEvent* event) {
     if (event->event != mxEvent::Action)
         return 0;
     const bool loaded = !m_bones.isEmpty();
-    auto *boxes = CurrentSet();
-    switch (event->action)
-    {
-    case IDC_BONE_BONELIST:
-        OnBoneSelected(m_cBone->getSelectedIndex());
-        break;
+    auto* boxes = CurrentSet();
+    switch (event->action) {
+        case IDC_BONE_BONELIST:
+            OnBoneSelected(m_cBone->getSelectedIndex());
+            break;
 
-    case IDC_BONE_NAMES:
-        m_settings.showBoneNames = m_cBoneNames->isChecked();
-        m_panel->redraw();
-        break;
-
-    case IDC_BONE_HIGHLIGHT_BONE:
-    case IDC_BONE_HIGHLIGHT_HITBOX:
-        UpdateHighlights();
-        break;
-
-    case IDC_BONE_HITBOXLIST:
-        OnHitboxSelected(m_cHitbox->getSelectedIndex());
-        break;
-
-    case IDC_BONE_HITBOXSET:
-        m_settings.hitboxSet = m_cHitboxSet->getSelectedIndex();
-        ComputeHitboxList();
-        break;
-
-    case IDC_BONE_HITBOXADDSET:
-        if (loaded)
-        {
-            m_settings.hitboxSets.push_back({QString::asprintf("set%02d", int(m_settings.hitboxSets.size()) + 1), {}});
-            ComputeHitboxSetList(int(m_settings.hitboxSets.size()) - 1);
-            ComputeHitboxList();
-        }
-        break;
-
-    case IDC_BONE_HITBOXDELETESET:
-        if (m_settings.hitboxSet > 0) // upstream never deletes the first set
-        {
-            m_settings.hitboxSets.erase(m_settings.hitboxSets.begin() + m_settings.hitboxSet);
-            ComputeHitboxSetList(0);
-            ComputeHitboxList();
-        }
-        break;
-
-    case IDC_BONE_HITBOXSETNAME:
-        if (boxes && !m_eHitboxSetName->text().isEmpty())
-        {
-            const int set = m_settings.hitboxSet;
-            m_settings.hitboxSets[set].name = m_eHitboxSetName->text();
-            ComputeHitboxSetList(set);
-        }
-        break;
-
-    case IDC_BONE_HITBOX_GROUP:
-    case IDC_BONE_UPDATE_HITBOX:
-        if (boxes && m_hitbox >= 0)
-        {
-            auto &box = (*boxes)[m_hitbox];
-            box.group = m_eHitboxGroup->text().toInt();
-            if (event->action == IDC_BONE_UPDATE_HITBOX)
-                box.name = m_eHitboxName->text();
+        case IDC_BONE_NAMES:
+            m_settings.showBoneNames = m_cBoneNames->isChecked();
             m_panel->redraw();
-        }
-        break;
+            break;
 
-    case IDC_BONE_ADD_HITBOX:
-        if (boxes && loaded)
-        {
-            boxes->push_back({m_bone, 0, QVector3D(-8, -8, -8), QVector3D(8, 8, 8), QVector3D(), 0, QString()});
+        case IDC_BONE_HIGHLIGHT_BONE:
+        case IDC_BONE_HIGHLIGHT_HITBOX:
+            UpdateHighlights();
+            break;
+
+        case IDC_BONE_HITBOXLIST:
+            OnHitboxSelected(m_cHitbox->getSelectedIndex());
+            break;
+
+        case IDC_BONE_HITBOXSET:
+            m_settings.hitboxSet = m_cHitboxSet->getSelectedIndex();
             ComputeHitboxList();
-            OnHitboxSelected(int(m_boneHitboxes.size()) - 1);
-        }
-        break;
+            break;
 
-    case IDC_BONE_DELETE_HITBOX:
-        if (boxes && m_hitbox >= 0)
-        {
-            boxes->erase(boxes->begin() + m_hitbox);
-            ComputeHitboxList();
-        }
-        break;
+        case IDC_BONE_HITBOXADDSET:
+            if (loaded) {
+                m_settings.hitboxSets.push_back({
+                    QString::asprintf("set%02d", int(m_settings.hitboxSets.size()) + 1), {}
+                });
+                ComputeHitboxSetList(int(m_settings.hitboxSets.size()) - 1);
+                ComputeHitboxList();
+            }
+            break;
 
-    case IDC_BONE_USE_AUTOGENERATED_HITBOXES:
-        OnAutogenerateHitboxes(m_cAutoHitbox->isChecked());
-        break;
+        case IDC_BONE_HITBOXDELETESET:
+            if (m_settings.hitboxSet > 0) // upstream never deletes the first set
+            {
+                m_settings.hitboxSets.erase(m_settings.hitboxSets.begin() + m_settings.hitboxSet);
+                ComputeHitboxSetList(0);
+                ComputeHitboxList();
+            }
+            break;
 
-    case IDC_BONE_SURFACEPROP:
-        if (m_bone < m_surfaceProps.size())
-            m_surfaceProps[m_bone] = m_cSurfaceProp->getLabel();
-        break;
+        case IDC_BONE_HITBOXSETNAME:
+            if (boxes && !m_eHitboxSetName->text().isEmpty()) {
+                const int set = m_settings.hitboxSet;
+                m_settings.hitboxSets[set].name = m_eHitboxSetName->text();
+                ComputeHitboxSetList(set);
+            }
+            break;
 
-    case IDC_BONE_APPLY_TO_CHILDREN:
-        // Bones are stored parent-first, so one forward pass reaches every descendant.
-        for (qsizetype i = m_bone + 1; i < m_surfaceProps.size(); ++i)
-            for (int parent = m_parents[i]; parent >= 0; parent = m_parents[parent])
-                if (parent == m_bone)
-                {
-                    m_surfaceProps[i] = m_surfaceProps[m_bone];
-                    break;
-                }
-        break;
+        case IDC_BONE_HITBOX_GROUP:
+        case IDC_BONE_UPDATE_HITBOX:
+            if (boxes && m_hitbox >= 0) {
+                auto &box = (*boxes)[m_hitbox];
+                box.group = m_eHitboxGroup->text().toInt();
+                if (event->action == IDC_BONE_UPDATE_HITBOX)
+                    box.name = m_eHitboxName->text();
+                m_panel->redraw();
+            }
+            break;
 
-    case IDC_BONE_GENERATEQC:
-        if (loaded)
-            QGuiApplication::clipboard()->setText(SerializeQC());
-        break;
+        case IDC_BONE_ADD_HITBOX:
+            if (boxes && loaded) {
+                boxes->push_back({m_bone, 0, QVector3D(-8, -8, -8), QVector3D(8, 8, 8), QVector3D(), 0, QString()});
+                ComputeHitboxList();
+                OnHitboxSelected(int(m_boneHitboxes.size()) - 1);
+            }
+            break;
 
-    default:
-        // Show Default Pose needs physics; Edit Hitbox needs the viewport drag widget; .HBX needs the datamodel.
-        return 0;
+        case IDC_BONE_DELETE_HITBOX:
+            if (boxes && m_hitbox >= 0) {
+                boxes->erase(boxes->begin() + m_hitbox);
+                ComputeHitboxList();
+            }
+            break;
+
+        case IDC_BONE_USE_AUTOGENERATED_HITBOXES:
+            OnAutogenerateHitboxes(m_cAutoHitbox->isChecked());
+            break;
+
+        case IDC_BONE_SURFACEPROP:
+            if (m_bone < m_surfaceProps.size())
+                m_surfaceProps[m_bone] = m_cSurfaceProp->getLabel();
+            break;
+
+        case IDC_BONE_APPLY_TO_CHILDREN:
+            // Bones are stored parent-first, so one forward pass reaches every descendant.
+            for (qsizetype i = m_bone + 1; i < m_surfaceProps.size(); ++i)
+                for (int parent = m_parents[i]; parent >= 0; parent = m_parents[parent])
+                    if (parent == m_bone) {
+                        m_surfaceProps[i] = m_surfaceProps[m_bone];
+                        break;
+                    }
+            break;
+
+        case IDC_BONE_GENERATEQC:
+            if (loaded)
+                QGuiApplication::clipboard()->setText(SerializeQC());
+            break;
+
+        default:
+            // Show Default Pose needs physics; Edit Hitbox needs the viewport drag widget; .HBX needs the datamodel.
+            return 0;
     }
     return 1;
 }
