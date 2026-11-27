@@ -515,8 +515,8 @@ void StudioAnimation::SetUpBones(std::vector<QMatrix4x4> &boneToModel, const QMa
         QAngle deltaAngles;
         d->GetMovement(d->prevIKCycles, deltaPos, deltaAngles);
         pIK->UpdateTargets(pos, q, d->boneToWorld, boneComputed);
-        for (int i = 0; i < pIK->m_target.size(); i++) {
-            CIKTarget* pTarget = &pIK->m_target[i];
+        for (auto & target : pIK->m_target) {
+            CIKTarget* pTarget = &target;
             if (pTarget->type == IkRuleType::Ground) {
                 // hack in movement; with an identity view transform the target drops straight onto its floor
                 pTarget->est.pos -= deltaPos;

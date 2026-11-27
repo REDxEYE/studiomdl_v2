@@ -1,8 +1,12 @@
 #include "material_system.h"
 
 #include <cmath>
+#include <map>
 #include <sstream>
 
+#include <QDebug>
+
+#include "material_proxies.h"
 #include "texture_upload.h"
 #include "tier0/dbg.h"
 #include "tier1/keyvalues.h"
@@ -69,7 +73,11 @@ QString MaterialParams::getTexture(QOpenGLTexture &texture, const char *key, QCo
     }
     if (name.endsWith(QStringLiteral(".vtf"), Qt::CaseInsensitive))
         name.chop(4);
-    return loadTexture(texture, name, srgb, hasAlpha);
+    const auto path = loadTexture(texture, name, srgb, hasAlpha);
+    if (m_kv.FindKey("Proxies") || m_kv.FindKey("$frame") || m_kv.FindKey("$detailframe") ||
+        m_kv.FindKey("$bumpframe") || m_kv.FindKey("$envmapmaskframe"))
+        m_textures.push_back({QString::fromLatin1(key).toLower(), path, srgb, &texture});
+    return path;
 }
 
 QString MaterialParams::loadTexture(QOpenGLTexture &texture, const QString &name, bool srgb, bool *hasAlpha)
@@ -96,6 +104,72 @@ QStringList MaterialParams::unread() const
         if (const auto name = QString::fromUtf8(key->GetName()).toLower(); name.startsWith('$') && !m_read.contains(name))
             names.append(name);
     return names;
+}
+
+// A texture animated through a frame variable, its other frames uploaded on first use from the bytes read at load.
+struct MaterialAnimatedTexture
+{
+    QOpenGLTexture *target;
+    std::string frameVar;
+    QString path;
+    QByteArray bytes;
+    bool srgb, failed = false;
+    std::vector<std::unique_ptr<QOpenGLTexture>> frames; // [0] unused: the target itself is frame 0
+};
+
+Material::Material() = default;
+Material::~Material() = default;
+
+MaterialBlend Material::effectiveBlend() const
+{
+    const auto alpha = proxies ? proxies->alpha() : std::nullopt;
+    if (!alpha || *alpha >= 1)
+        return blend;
+    return blend == MaterialBlend::None ? MaterialBlend::Blend : blend == MaterialBlend::Add ? MaterialBlend::BlendAdd : blend;
+}
+
+void Material::UpdateProxies(double seconds)
+{
+    if (proxies)
+        proxies->update(seconds);
+}
+
+bool Material::HasTimeVaryingProxies() const { return proxies && proxies->timeVarying(); }
+std::optional<QVector4D> Material::ProxyValue(const char *key) const { return proxies ? proxies->value(key) : std::nullopt; }
+std::optional<QMatrix4x4> Material::ProxyTransform(const char *key) const { return proxies ? proxies->transform(key) : std::nullopt; }
+
+void Material::BindBaseTexture() { BindTexture(base, 0); }
+
+void Material::BindTexture(QOpenGLTexture &texture, int unit)
+{
+    for (auto &animation : animated)
+    {
+        if (animation.target != &texture || animation.failed)
+            continue;
+        const int count = int(animation.frames.size());
+        const int frame = ((proxies->intValue(animation.frameVar.c_str()) % count) + count) % count;
+        if (!frame)
+            break;
+        auto &shown = animation.frames[frame];
+        if (!shown)
+            try
+            {
+                auto fresh = std::make_unique<QOpenGLTexture>(texture.target());
+                UploadVtf(*fresh, animation.path, animation.bytes, animation.srgb, frame);
+                if (QOpenGLTexture::hasFeature(QOpenGLTexture::Swizzle) &&
+                    texture.swizzleMask(QOpenGLTexture::SwizzleAlpha) == QOpenGLTexture::OneValue)
+                    fresh->setSwizzleMask(QOpenGLTexture::SwizzleAlpha, QOpenGLTexture::OneValue);
+                shown = std::move(fresh);
+            }
+            catch (const std::exception &error)
+            {
+                animation.failed = true; // keep showing frame 0
+                qWarning().noquote() << animation.path << "could not upload frame" << frame << ':' << error.what();
+                break;
+            }
+        return shown->bind(unit);
+    }
+    texture.bind(unit);
 }
 
 namespace
@@ -185,10 +259,54 @@ std::unique_ptr<Material> LoadMaterial(const ShaderSet &shaders, const QString &
     ApplyFallbackBlock(kv);
     MaterialParams params(vmt, kv, files);
     auto out = shaders.CreateMaterial(params);
+    // Frame variable each texture key is animated through.
+    static const std::pair<const char *, const char *> frameVars[] = {
+        {"$basetexture", "$frame"}, {"$basetexture2", "$frame2"}, {"$detail", "$detailframe"}, {"$bumpmap", "$bumpframe"},
+        {"$envmapmask", "$envmapmaskframe"}};
+    std::map<QString, QByteArray> textureFiles; // bytes are retained only for an animated texture
+    const auto bytesOf = [&](const MaterialParams::LoadedTexture &texture) -> const QByteArray & {
+        auto &bytes = textureFiles[texture.path];
+        if (bytes.isEmpty())
+            bytes = ReadAssetFile(texture.path, 128 * 1024 * 1024);
+        return bytes;
+    };
+    const auto frameVarOf = [&](const QString &key) -> const char * {
+        for (const auto &[texture, frame] : frameVars)
+            if (key == QLatin1String(texture))
+                return frame;
+        return nullptr;
+    };
+    if (kv.FindKey("Proxies") || !params.loadedTextures().empty())
+    {
+        auto proxies = std::make_unique<MaterialProxies>(kv, [&](const QString &var) {
+            for (const auto &texture : params.loadedTextures())
+                if (texture.key == var && frameVarOf(var))
+                    return VtfFrameCount(bytesOf(texture));
+            return 0;
+        });
+        for (const auto &texture : params.loadedTextures())
+            if (const char *frameVar = frameVarOf(texture.key);
+                frameVar && (proxies->writes(frameVar) || proxies->intValue(frameVar) != 0))
+            {
+                const auto &bytes = bytesOf(texture);
+                if (const int count = VtfFrameCount(bytes); count > 1)
+                {
+                    params.accept({frameVar});
+                    out->animated.push_back({texture.texture, frameVar, texture.path, bytes, texture.srgb, false, {}});
+                    out->animated.back().frames.resize(count);
+                }
+            }
+        if (proxies->declared() || !out->animated.empty())
+        {
+            out->ignored += proxies->unsupported();
+            out->proxies = std::move(proxies);
+            out->UpdateProxies(0);
+        }
+    }
     // CBaseShader::SetInitialShadowState, for every shader
     out->noCull = params.getInt("$nocull") != 0;
     out->decal = params.getInt("$decal") != 0;
     out->ignoreZ = params.getInt("$ignorez") != 0;
-    out->ignored = params.unread();
+    out->ignored += params.unread();
     return out;
 }

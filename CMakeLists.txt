@@ -163,6 +163,10 @@ if (STUDIOMDL_BUILD_CLI)
     endif ()
 endif ()
 
+if (STUDIOMDL_BUILD_TESTS)
+    enable_testing()
+endif ()
+
 # The viewers are on by default but skipped with a notice when Qt 6 or liblzma is missing (e.g. CI runners)
 if (STUDIOMDL_BUILD_SFM_GL_PROBE OR STUDIOMDL_BUILD_HLMV)
     find_package(Qt6 COMPONENTS OpenGL OpenGLWidgets Widgets)
@@ -174,6 +178,5 @@ if (STUDIOMDL_BUILD_SFM_GL_PROBE OR STUDIOMDL_BUILD_HLMV)
 endif ()
 
 if (STUDIOMDL_BUILD_TESTS)
-    enable_testing()
     add_subdirectory(tests)
 endif ()

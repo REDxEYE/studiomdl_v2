@@ -13,6 +13,7 @@
 #include <QDebug>
 #include <QDir>
 #include <QFileInfo>
+#include <QElapsedTimer>
 #include <QImage>
 #include <QMatrix4x4>
 #include <QMouseEvent>
@@ -26,6 +27,7 @@
 #include <QOpenGLTexture>
 #include <QOpenGLWidget>
 #include <QSurfaceFormat>
+#include <QTimer>
 #include <QVector4D>
 #include <QWheelEvent>
 
@@ -273,6 +275,19 @@ protected:
                         }
                         m_materialProgram[i] = m_checkerProgram;
                     }
+            }
+            for (const auto &material : m_materials)
+                if (material && material->HasTimeVaryingProxies())
+                    m_animatedMaterials.push_back(material.get());
+            if (!m_check && !m_animatedMaterials.empty())
+            {
+                m_materialClock.start();
+                if (!m_settings || !m_settings->animation)
+                {
+                    auto *timer = new QTimer(this);
+                    connect(timer, &QTimer::timeout, this, qOverload<>(&ModelViewport::update));
+                    timer->start(16);
+                }
             }
             m_ready = true;
         }
@@ -671,7 +686,7 @@ protected:
     void applyMaterialState(const Material *material)
     {
         auto *gl21 = QOpenGLVersionFunctionsFactory::get<QOpenGLFunctions_2_1>(context());
-        const auto blend = material ? material->blend : MaterialBlend::None;
+        const auto blend = material ? material->effectiveBlend() : MaterialBlend::None;
         if (blend == MaterialBlend::None)
             glDisable(GL_BLEND);
         else
@@ -1008,6 +1023,12 @@ protected:
             m_fov = m_settings->fov;
             m_cameraDirty = true;
         }
+        if (m_materialClock.isValid())
+        {
+            const double seconds = double(m_materialClock.nsecsElapsed()) * 1e-9;
+            for (auto *material : m_animatedMaterials)
+                material->UpdateProxies(seconds);
+        }
         drawScene(!m_settings || m_settings->specular);
         reportStats();
         if (m_indexCount && m_settings && m_settings->showBoneNames && (m_settings->showBones || m_settings->highlightBone >= 0))
@@ -1175,6 +1196,8 @@ private:
     // shortcut: always SFM's stdshader_dx9; choose the set per game (e.g. a Garry's Mod port) once one exists.
     std::unique_ptr<ShaderSet> m_shaders = CreateSfmShaderSet(); // outlives m_materials, which point at its shaders
     std::vector<std::unique_ptr<Material>> m_materials;
+    std::vector<Material *> m_animatedMaterials; // owned by m_materials
+    QElapsedTimer m_materialClock;
 };
 } // namespace
 

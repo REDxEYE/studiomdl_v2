@@ -4,7 +4,8 @@
 # sibling of sfm_shaders.cpp. Search paths come from gameinfo.txt through studiomdl's filesystem_init, as dmxconvert does.
 add_library(hlmv_render STATIC
         render/viewport.cpp render/mdl_mesh.cpp render/mdl_flex.cpp render/studio_anim.cpp render/game_filesystem.cpp
-        render/texture_upload.cpp render/material_system.cpp render/sfm_shaders.cpp ${PROJECT_SOURCE_DIR}/studiomdl/filesystem_init.cpp)
+        render/texture_upload.cpp render/material_system.cpp render/material_proxies.cpp render/sfm_shaders.cpp
+        ${PROJECT_SOURCE_DIR}/studiomdl/filesystem_init.cpp)
 target_include_directories(hlmv_render PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/render ${PROJECT_SOURCE_DIR}/include)
 target_compile_definitions(hlmv_render PUBLIC STATIC_TIER0) # consumers include SDK headers through mdl_mesh.h
 # bonesetup/utils/mathlib: the engine's animation code (IBoneSetup, CIKContext, CStudioHdr) used by studio_anim.cpp
@@ -26,4 +27,10 @@ endif ()
 if (STUDIOMDL_BUILD_SFM_GL_PROBE)
     add_executable(sfm_gl_probe render/probe_main.cpp)
     target_link_libraries(sfm_gl_probe PRIVATE hlmv_render)
+endif ()
+
+if (STUDIOMDL_BUILD_TESTS)
+    add_executable(hlmv_material_proxies_test render/material_proxies_test.cpp)
+    target_link_libraries(hlmv_material_proxies_test PRIVATE hlmv_render)
+    add_test(NAME hlmv_material_proxies COMMAND hlmv_material_proxies_test)
 endif ()

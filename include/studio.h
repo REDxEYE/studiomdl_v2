@@ -2739,7 +2739,7 @@ struct studiohdr_t {
 
     int ExitNode(int iSequence);
 
-    char *pszNodeName(int iNode);
+    const char* pszNodeName(int iNode);
 
     int GetTransition(int iFrom, int iTo) const;
 
@@ -3116,7 +3116,7 @@ public:
 
     int ExitNode(int iSequence);
 
-    char *pszNodeName(int iNode);
+    const char* pszNodeName(int iNode);
 
     // FIXME: where should this one be?
     int GetTransition(int iFrom, int iTo) const;

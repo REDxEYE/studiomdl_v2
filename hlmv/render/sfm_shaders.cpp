@@ -86,6 +86,7 @@ uint32_t StaticComboId(std::string_view shader, std::initializer_list<std::pair<
 // phong_ps30: NUM_LIGHTS has weight 4 (one light => 4).
 constexpr uint32_t genericVsDynamicLight = 2;
 constexpr uint32_t phongPsOneLight = 4;
+constexpr uint32_t bumpPsOneLightAmbient = 2 + 10;
 // Eyes_dx9 (0x1001AD10) VS dynamic: DYNAMIC_LIGHT weight 8 (COMPRESSED_VERTS 1, SKINNING 2, fog 4 below it).
 constexpr uint32_t eyesVsDynamicLight = 8;
 // EyeRefract_dx9 (0x10018420) VS dynamic: DYNAMIC_LIGHT weight 8, NUM_LIGHTS weight 16; PS dynamic NUM_LIGHTS weight 2.
@@ -101,6 +102,11 @@ struct GenericMaterial : Material
 {
     std::vector<std::pair<int, std::unique_ptr<QOpenGLTexture>>> textures; // sampler unit, texture
     std::map<int, QVector4D> psConstants, vsConstants;                   // pc / vc register, value
+    bool opacityFromBaseAlpha = false;
+    // c1's inputs before GammaToLinear, so proxies can replace $color/$color2/$alpha per frame
+    QVector4D color{1, 1, 1, 1}, color2{1, 1, 1, 1};
+    float alpha = 1;
+    bool hasDetail = false;
 
     QOpenGLTexture &addTexture(int unit, QOpenGLTexture::Target target = QOpenGLTexture::Target2D)
     {
@@ -135,7 +141,7 @@ bool LoadEnvmap(MaterialParams &params, QOpenGLTexture &texture, bool required =
 // BaseVSShader::EvaluateBlendRequirements(BASETEXTURE): blend for alpha modulation (`alpha` < 1), $vertexalpha, or
 // base alpha that means translucency (CBaseShader::TextureIsTranslucent: an alpha channel, $translucent or $alphatest,
 // alpha not used for self-illumination or envmap masking) unless alpha tested; $additive picks the additive pair.
-void EvaluateBlend(MaterialParams &params, Material &material, bool baseAlpha, float alpha)
+bool EvaluateBlend(MaterialParams &params, Material &material, bool baseAlpha, float alpha)
 {
     const bool alphaTest = params.getInt("$alphatest") != 0;
     const bool alphaUsedElsewhere =
@@ -148,6 +154,7 @@ void EvaluateBlend(MaterialParams &params, Material &material, bool baseAlpha, f
     material.alphaTest = alphaTest;
     if (const float reference = params.getFloat("$alphatestreference"); reference > 0)
         material.alphaTestReference = reference;
+    return textureTranslucent;
 }
 
 // A colour parameter written as [r g b], {r g b} or one float for all channels (Source's material var parser
@@ -210,7 +217,7 @@ struct ConstantTextures
     }
 };
 
-enum class Inputs { Generic, Phong, Eye, Teeth, TeethBump };
+enum class Inputs { Generic, Phong, Bump, Eye, Teeth, TeethBump };
 
 // Vertex inputs and the constants every SFM program starts with: Source math constants, an identity
 // view-projection for the probe quad, HLMV's default lights, and sampler units.
@@ -218,16 +225,22 @@ void InitStandard(ShaderProgram &state, Inputs inputs, bool lights)
 {
     auto &program = state.gl;
     const bool phong = inputs == Inputs::Phong, eye = inputs == Inputs::Eye;
+    const bool tangents = phong || inputs == Inputs::Bump; // same vertex layout: uv v2, normal v1, tangent v4
     const bool teeth = inputs == Inputs::Teeth || inputs == Inputs::TeethBump, teethBump = inputs == Inputs::TeethBump;
     state.position = program.attributeLocation("v0");
-    state.uv = program.attributeLocation(phong ? "v2" : eye ? "v1" : teeth ? "v2" : "v3");
+    state.uv = program.attributeLocation(tangents ? "v2" : eye ? "v1" : teeth ? "v2" : "v3");
     state.normal = eye ? -1 : program.attributeLocation("v1");
-    state.tangent = phong ? program.attributeLocation("v4") : teethBump ? program.attributeLocation("v3") : -1;
+    state.tangent = tangents ? program.attributeLocation("v4") : teethBump ? program.attributeLocation("v3") : -1;
     state.color = inputs == Inputs::Generic ? program.attributeLocation("v2") : -1;
     // Flex delta streams (POSITION1, NORMAL1): vertices arrive already flexed.
     state.delta = eye ? program.attributeLocation("v2") : teeth ? program.attributeLocation(teethBump ? "v4" : "v3") : -1;
     state.deltaNormal = teeth ? program.attributeLocation(teethBump ? "v5" : "v4") : -1;
-    if (state.position < 0 || state.uv < 0 || ((phong || teethBump) && state.tangent < 0))
+    if (inputs == Inputs::Bump)
+    {
+        state.delta = program.attributeLocation("v5");
+        state.deltaNormal = program.attributeLocation("v6");
+    }
+    if (state.position < 0 || state.uv < 0 || ((tangents || teethBump) && state.tangent < 0))
         throw std::runtime_error("Shader does not have the expected SFM vertex inputs");
 
     const int lightCount = program.uniformLocation("i0");
@@ -288,11 +301,48 @@ void SetStandardFrame(ShaderProgram &state, const FrameState &frame)
     program.setUniformValue("vc[27]", frame.light);
 }
 
+// Proxy outputs that replace static values (Material::UpdateProxies ran for this frame): $color/$color2/$alpha rebuild
+// c1 (SetModulationPixelShaderDynamicState_LinearColorSpace) and $basetexturetransform replaces vc48/vc49
+// (SetVertexShaderTextureTransform). Only for the generic/phong/bump vertex shaders, whose vc48 is that transform.
+void ApplyProxies(QOpenGLShaderProgram &program, GenericMaterial &material, int detailRegister)
+{
+    if (!material.proxies)
+        return;
+    auto color = material.color, color2 = material.color2;
+    float alpha = material.alpha;
+    bool modulated = false;
+    for (const auto &[key, target] : {std::pair{"$color", &color}, std::pair{"$color2", &color2}})
+        if (const auto value = material.ProxyValue(key))
+        {
+            *target = {value->x(), value->y(), value->z(), 1};
+            modulated = true;
+        }
+    if (const auto value = material.ProxyValue("$alpha"))
+    {
+        alpha = std::clamp(value->x(), 0.f, 1.f);
+        modulated = true;
+    }
+    if (modulated)
+        program.setUniformValue("pc[1]", GammaToLinear(QVector4D((color * color2).toVector3D(), alpha)));
+    if (const auto transform = material.ProxyTransform("$basetexturetransform"))
+    {
+        program.setUniformValue("vc[48]", transform->row(0));
+        program.setUniformValue("vc[49]", transform->row(1));
+    }
+    if (material.hasDetail)
+        if (const auto factor = material.ProxyValue("$detailblendfactor"))
+        {
+            auto color = material.psConstants.at(detailRegister);
+            color.setW(factor->x());
+            program.setUniformValue(detailRegister == 0 ? "pc[0]" : "pc[4]", color);
+        }
+}
+
 void BindMaterial(QOpenGLShaderProgram &program, GenericMaterial &material)
 {
-    material.base.bind(0);
+    material.BindBaseTexture();
     for (auto &[unit, texture] : material.textures)
-        texture->bind(unit);
+        material.BindTexture(*texture, unit);
     for (const auto &[reg, value] : material.psConstants)
         program.setUniformValue(QStringLiteral("pc[%1]").arg(reg).toLatin1().constData(), value);
     for (const auto &[reg, value] : material.vsConstants)
@@ -311,8 +361,11 @@ public:
 
     void SetDraw(ShaderProgram &program, Material &material, const FrameState &frame, const EyeState &) const override
     {
-        BindMaterial(program.gl, static_cast<GenericMaterial &>(material));
-        program.gl.setUniformValue("pc[20]", QVector4D(frame.camera, 0)); // StoreEyePosInPixelShaderConstant(20)
+        auto &generic = static_cast<GenericMaterial &>(material);
+        BindMaterial(program.gl, generic);
+        ApplyProxies(program.gl, generic, 4);
+        // The generic pixel shader uses c20.w to select texture alpha instead of 1 before modulation.
+        program.gl.setUniformValue("pc[20]", QVector4D(frame.camera, generic.opacityFromBaseAlpha));
     }
 };
 
@@ -341,8 +394,40 @@ public:
     {
         auto &material = static_cast<GenericMaterial &>(base);
         BindMaterial(state.gl, material);
+        ApplyProxies(state.gl, material, 0);
         if (!frame.specular) // the probe's highlight check: Phong boost off
             state.gl.setUniformValue("pc[19]", QVector4D(material.psConstants[19].toVector3D(), 0));
+    }
+};
+
+// vertexlit_and_unlit_generic_bump_vs30/ps30: VertexLitGeneric with a $bumpmap or $lightwarptexture. The pixel shader
+// lights per pixel: ambient cube c5..c10, one light as colour c13 and packed position c14, eye c20, fog c21 (off).
+class BumpShader : public Shader
+{
+public:
+    void InitProgram(ShaderProgram &program, const ProgramContext &context) const override
+    {
+        if (!context.textured || !context.hasTangents)
+            throw std::runtime_error("Bumped VertexLitGeneric needs a textured MDL with VVD tangents");
+        InitStandard(program, Inputs::Bump, true);
+    }
+
+    void SetFrame(ShaderProgram &state, const FrameState &frame) const override
+    {
+        SetStandardFrame(state, frame);
+        auto &program = state.gl;
+        const std::array<QVector4D, 6> cube{frame.ambient, frame.ambient, frame.ambient, frame.ambient, frame.ambient, frame.ambient};
+        program.setUniformValueArray("pc[5]", cube.data(), 6);
+        program.setUniformValue("pc[13]", QVector4D(frame.light.toVector3D(), 0));
+        program.setUniformValue("pc[14]", PackedLight(frame));
+    }
+
+    void SetDraw(ShaderProgram &state, Material &base, const FrameState &frame, const EyeState &) const override
+    {
+        auto &material = static_cast<GenericMaterial &>(base);
+        BindMaterial(state.gl, material);
+        ApplyProxies(state.gl, material, 4);
+        state.gl.setUniformValue("pc[20]", QVector4D(frame.camera, material.opacityFromBaseAlpha));
     }
 };
 
@@ -376,7 +461,7 @@ public:
         auto &material = static_cast<EyeMaterial &>(base);
         auto &program = state.gl;
         SetEyeVertexState(program, eye);
-        material.base.bind(0);
+        material.BindBaseTexture();
         material.iris.bind(1);
         m_constants.black.bind(2); // shortcut: no procedural glint (studiorender's R_StudioEyeballGlint render target)
         program.setUniformValue("vc[49]", eye.up);
@@ -516,12 +601,14 @@ private:
 
     // VertexLitGeneric/UnlitGeneric and $phong. Registers and samplers follow the SFM shaders (SDK 2013 layout,
     // checked against the translated GLSL); parameter handling ports CS:GO's vertexlitgeneric_dx9_helper.cpp and
-    // phong_dx9_helper.cpp. No flashlight, bumped non-Phong variant, seamless mapping or distance alpha.
+    // phong_dx9_helper.cpp. No flashlight, seamless mapping or distance alpha.
     std::unique_ptr<Material> CreateGenericMaterial(MaterialParams &params, bool unlit) const
     {
         const bool phong = !unlit && params.getInt("$phong");
         auto out = std::make_unique<GenericMaterial>();
-        out->shader = phong ? static_cast<const Shader *>(&m_phong) : &m_generic;
+        const bool bump = !phong && !unlit && params.has("$bumpmap");
+        const bool diffuseWarp = !phong && !unlit && params.has("$lightwarptexture");
+        out->shader = phong ? static_cast<const Shader *>(&m_phong) : bump || diffuseWarp ? static_cast<const Shader *>(&m_bump) : &m_generic;
         auto &ps = out->psConstants;
         // Source binds its white texture when $basetexture is absent (SFM HLMV renders such meshes white).
         bool baseAlpha = false;
@@ -529,11 +616,16 @@ private:
         params.accept({"$model", "$surfaceprop", "$nodecal"});
 
         // c1 (SetModulationPixelShaderDynamicState_LinearColorSpace): GammaToLinear($color * $color2), $alpha.
-        auto modulation = GetColor(params, "$color", {1, 1, 1, 1}) * GetColor(params, "$color2", {1, 1, 1, 1});
-        modulation.setW(std::clamp(params.getFloat("$alpha", 1), 0.f, 1.f));
+        out->color = GetColor(params, "$color", {1, 1, 1, 1});
+        out->color2 = GetColor(params, "$color2", {1, 1, 1, 1});
+        out->alpha = std::clamp(params.getFloat("$alpha", 1), 0.f, 1.f);
+        const auto modulation = QVector4D((out->color * out->color2).toVector3D(), out->alpha);
+        // Materials sharing a program must reset the transform after another draw's TextureScroll.
+        out->vsConstants[48] = {1, 0, 0, 0};
+        out->vsConstants[49] = {0, 1, 0, 0};
         ps[1] = GammaToLinear(modulation);
 
-        EvaluateBlend(params, *out, baseAlpha, modulation.w());
+        out->opacityFromBaseAlpha = EvaluateBlend(params, *out, baseAlpha, modulation.w());
 
         const auto texture = [&](int unit, const char *key, QColor fallback, bool srgb) {
             if (!params.has(key))
@@ -554,6 +646,7 @@ private:
             const auto scale = DetailScale(params);
             out->vsConstants[52] = {scale.x(), 0, 0, 0};
             out->vsConstants[53] = {0, scale.y(), 0, 0};
+            out->hasDetail = true;
             return mode;
         };
         const bool halfLambert = params.getInt("$halflambert") != 0;
@@ -565,6 +658,44 @@ private:
             return params.has("$envmap") && LoadEnvmap(params, out->addTexture(unit, QOpenGLTexture::TargetCubeMap));
         };
         auto &combo = out->combo;
+        if (bump || diffuseWarp)
+        {
+            const int detailMode = detail(2, 7);
+            const bool selfIllumFresnel = selfIllum && detailMode < 0 && params.getInt("$selfillumfresnel") != 0;
+            const bool envmapFromNormal = bump && !selfIllumFresnel && params.getInt("$normalmapalphaenvmapmask") != 0;
+            // An explicit or base-alpha mask cannot be sampled by the bump variant; normal alpha takes precedence.
+            const bool envmap = (!bump || envmapFromNormal ||
+                                 (!params.getInt("$basealphaenvmapmask") && !params.has("$envmapmask"))) && loadEnvmap(1);
+            const bool lightwarp = diffuseWarp && !selfIllumFresnel && texture(9, "$lightwarptexture", Qt::white, false);
+            params.getTexture(out->addTexture(3), "$bumpmap", QColor(128, 128, 255), false);
+            if (envmap)
+            {
+                ps[0] = GammaToLinear(GetColor(params, "$envmaptint", {1, 1, 1, 0}));
+                const float contrast = params.getFloat("$envmapcontrast");
+                ps[2] = {contrast, contrast, contrast, 0};
+                ps[3] = GetColor(params, "$envmapsaturation", {1, 1, 1, 0});
+            }
+            ps[4] = QVector4D(selfIllumTint.toVector3D(), detailMode >= 0 ? params.getFloat("$detailblendfactor", 1) : 1);
+            if (selfIllumFresnel)
+            {
+                QVector4D minMaxExp{0, 1, 1, 0};
+                params.getVector("$selfillumfresnelminmaxexp", minMaxExp);
+                const float bias = minMaxExp.y() != 0 ? minMaxExp.x() / minMaxExp.y() : 0;
+                ps[11] = {1 - bias, bias, minMaxExp.z(), minMaxExp.y()};
+            }
+            ps[12] = {tintFactor, 0, 0, 0};
+            combo.vs = "vertexlit_and_unlit_generic_bump_vs30";
+            combo.ps = "vertexlit_and_unlit_generic_bump_ps30";
+            combo.vsStatic = StaticComboId(combo.vs, {{"HALFLAMBERT", halfLambert}, {"USE_WITH_2B", 1},
+                                                       {"DECAL", params.getInt("$decal") != 0}, {"DOPIXELFOG", pixelFog}});
+            combo.psStatic = StaticComboId(combo.ps, {
+                {"CUBEMAP", envmap}, {"DIFFUSELIGHTING", 1}, {"LIGHTWARPTEXTURE", lightwarp},
+                {"SELFILLUM", selfIllum && (baseAlpha || selfIllumFresnel)}, {"SELFILLUMFRESNEL", selfIllumFresnel},
+                {"NORMALMAPALPHAENVMAPMASK", envmap && envmapFromNormal}, {"HALFLAMBERT", halfLambert},
+                {"DETAILTEXTURE", detailMode >= 0}, {"DETAIL_BLEND_MODE", uint32_t(std::max(detailMode, 0))}, {"DOPIXELFOG", pixelFog}});
+            combo.psDynamic = bumpPsOneLightAmbient;
+            return out;
+        }
         if (!phong)
         {
             const int detailMode = detail(2, 10);
@@ -599,13 +730,25 @@ private:
 
         // SFM phong draw (0x100380F0): bPhongHalfLambert is true unless $phongdisablehalflambert is set.
         const bool phongHalfLambert = params.getInt("$phongdisablehalflambert") == 0;
-        params.getTexture(out->addTexture(3), "$bumpmap", QColor(128, 128, 255), false);
+        auto &normalMap = out->addTexture(3);
+        params.getTexture(normalMap, "$bumpmap", QColor(128, 128, 255), false);
         const bool exponentTexture = params.has("$phongexponenttexture");
         params.getTexture(out->addTexture(7), "$phongexponenttexture", Qt::white, false);
         const bool lightwarp = texture(2, "$lightwarptexture", Qt::white, false);
         const bool phongWarp = texture(1, "$phongwarptexture", Qt::white, false);
         const int detailMode = detail(13, 7);
         const bool envmap = loadEnvmap(8);
+        const bool normalAlphaEnvmapMask = envmap && params.getInt("$normalmapalphaenvmapmask") != 0;
+        const bool baseAlphaPhongMask = params.getInt("$basemapalphaphongmask") != 0;
+        const bool baseLuminancePhongMask = params.getInt("$basemapluminancephongmask") != 0;
+        // SFM uses normal alpha by default. Force opaque alpha for TF materials disabling it when no other term needs it.
+        if (params.getInt("$bumpmapalphaphongmask", 1) == 0 && !baseAlphaPhongMask && !baseLuminancePhongMask && params.has("$bumpmap"))
+        {
+            if (!normalAlphaEnvmapMask && QOpenGLTexture::hasFeature(QOpenGLTexture::Swizzle))
+                normalMap.setSwizzleMask(QOpenGLTexture::SwizzleAlpha, QOpenGLTexture::OneValue);
+            else
+                out->ignored.append(QStringLiteral("$bumpmapalphaphongmask (SFM cannot separate Phong and envmap normal alpha, or GL lacks swizzle)"));
+        }
         const bool selfIllumMask = selfIllum && texture(14, "$selfillummask", Qt::white, false);
         if (selfIllum && !selfIllumMask)
             UploadSolidColor(out->addTexture(14), Qt::black);
@@ -627,7 +770,7 @@ private:
         ps[0] = QVector4D(selfIllumTint.toVector3D(),
                           detailMode >= 0 ? params.getFloat("$detailblendfactor", 1) : params.getFloat("$phongalbedoboost", 1));
         if (envmap)
-            ps[2] = QVector4D(GetColor(params, "$envmaptint", {1, 1, 1, 0}).toVector3D(), params.getInt("$normalmapalphaenvmapmask") != 0);
+            ps[2] = QVector4D(GetColor(params, "$envmaptint", {1, 1, 1, 0}).toVector3D(), normalAlphaEnvmapMask);
         if (selfIllumFresnel)
         {
             QVector4D minMaxExp{0, 1, 1, 0};
@@ -635,14 +778,14 @@ private:
             const float bias = minMaxExp.y() != 0 ? minMaxExp.x() / minMaxExp.y() : 0;
             ps[3] = {1 - bias, bias, minMaxExp.z(), minMaxExp.y()};
         }
-        ps[10] = {envmap ? params.getFloat("$envmapfresnel") : 0, float(params.getInt("$basemapluminancephongmask") != 0), exponent,
+        ps[10] = {envmap ? params.getFloat("$envmapfresnel") : 0, float(baseLuminancePhongMask), exponent,
                   float(selfIllumMask)};
         if (rimLight)
             ps[13] = {float(exponentTexture && params.getInt("$rimmask") != 0), 0, 0, 0};
         ps[14] = {1, 1, 1, rimLight ? params.getFloat("$rimlightboost", 1) : 1};
         ps[19] = fresnelBoost;
         ps[26] = tint;
-        ps[27] = {float(params.getInt("$basemapalphaphongmask") != 0), 0, tintFactor, float(params.getInt("$invertphongmask") != 0)};
+        ps[27] = {float(baseAlphaPhongMask), 0, tintFactor, float(params.getInt("$invertphongmask") != 0)};
         combo.vs = "phong_vs30";
         combo.ps = "phong_ps30";
         combo.vsStatic = StaticComboId(combo.vs, {{"DOPIXELFOG", pixelFog}});
@@ -698,6 +841,7 @@ private:
 
     mutable ConstantTextures m_constants;
     GenericShader m_generic;
+    BumpShader m_bump;
     PhongShader m_phong;
     EyesShader m_eyes{m_constants};
     EyeRefractShader m_eyeRefract{m_constants};

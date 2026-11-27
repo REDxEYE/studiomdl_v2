@@ -45,7 +45,17 @@ Format VtfFormat(uint32_t id, const QString &path, bool srgb = false)
 
 uint32_t UploadVtf(Texture &texture, const QString &path, bool srgb)
 {
-    const auto bytes = ReadAssetFile(path, 128 * 1024 * 1024);
+    return UploadVtf(texture, path, ReadAssetFile(path, 128 * 1024 * 1024), srgb);
+}
+
+int VtfFrameCount(const QByteArray &bytes)
+{
+    const auto *data = reinterpret_cast<const uchar *>(bytes.constData());
+    return bytes.size() < 64 || qFromLittleEndian<uint32_t>(data) != 0x00465456 ? 0 : qFromLittleEndian<uint16_t>(data + 24);
+}
+
+uint32_t UploadVtf(Texture &texture, const QString &path, const QByteArray &bytes, bool srgb, int frame)
+{
     const auto *data = reinterpret_cast<const uchar *>(bytes.constData());
     const auto u32 = [&](int offset) { return qFromLittleEndian<uint32_t>(data + offset); };
     const auto u16 = [&](int offset) { return qFromLittleEndian<uint16_t>(data + offset); };
@@ -60,8 +70,7 @@ uint32_t UploadVtf(Texture &texture, const QString &path, bool srgb)
     const int faces = !cube ? 1 : version < 5 && u16(26) != 0xffff ? 7 : 6;
     if (cube != (texture.target() == Texture::TargetCubeMap))
         ThrowAssetError(path, cube ? QStringLiteral("cube map where a 2D texture is expected") : QStringLiteral("2D texture where a cube map is expected"));
-    // shortcut: animated textures show frame 0 ($frame/$detailframe and texture proxies are not run); volume textures
-    // are rejected. Upgrade when material proxies are ported.
+    // Volume textures are rejected; `frame` selects the animation frame (proxies and $frame choose it).
     const int frames = u16(24);
     if (headerSize < (version >= 3 ? 80u : version >= 2 ? 65u : 64u) || headerSize > bytes.size() ||
         !width || !height || !mipCount || mipCount > std::bit_width(unsigned(std::max(width, height))) ||
@@ -91,6 +100,8 @@ uint32_t UploadVtf(Texture &texture, const QString &path, bool srgb)
         end += qsizetype(frames) * faces * format.size(std::max(1, width >> mip), std::max(1, height >> mip));
     if (offset < headerSize || end > bytes.size())
         ThrowAssetError(path, QStringLiteral("VTF image data outside file bounds"));
+    if (frame < 0 || frame >= frames)
+        ThrowAssetError(path, QStringLiteral("VTF frame %1 out of range").arg(frame));
 
     texture.setFormat(format.internal);
     texture.setSize(width, height);
@@ -105,6 +116,7 @@ uint32_t UploadVtf(Texture &texture, const QString &path, bool srgb)
     for (int mip = mipCount - 1; mip >= 0; --mip)
     {
         const auto length = format.size(std::max(1, width >> mip), std::max(1, height >> mip));
+        offset += qsizetype(frame) * faces * length; // frames come first within a mip
         for (int face = 0; face < faces; ++face, offset += length)
         {
             if (face == 6)
@@ -115,7 +127,7 @@ uint32_t UploadVtf(Texture &texture, const QString &path, bool srgb)
             else
                 texture.setData(mip, 0, glFace, format.source, Texture::UInt8, data + offset, &unpack);
         }
-        offset += qsizetype(frames - 1) * faces * length; // skip the other frames
+        offset += qsizetype(frames - 1 - frame) * faces * length; // skip the remaining frames
     }
     texture.setWrapMode(Texture::DirectionS, flags & 4 ? Texture::ClampToEdge : Texture::Repeat);
     texture.setWrapMode(Texture::DirectionT, flags & 8 ? Texture::ClampToEdge : Texture::Repeat);
