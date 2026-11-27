@@ -1,37 +1,24 @@
 #include "game_filesystem.h"
 
-#include <algorithm>
 #include <stdexcept>
 
 #include <QFile>
 #include <QFileInfo>
 
-#include "tier1/keyvalues.h"
+#include "filesystem.h"
+#include "filesystem/stdfile.h"
+#include "filesystem_init.h"
+#include "interfaces/interfaces.h"
 
 namespace
 {
-QString FindAsset(QString root, QString relative)
+// `path` as given, or its case-insensitive match (FS_ResolvePathCaseInsensitive), as the SDK's CStdFile opens it.
+QString ResolveCase(const QString &path)
 {
-    relative.replace('\\', '/');
-    if (relative.startsWith('/') || relative.contains(':'))
-        return {};
-    for (const auto &part : relative.split('/', Qt::SkipEmptyParts))
-    {
-        if (part == QStringLiteral("..") || part == QStringLiteral("."))
-            return {};
-        QDir dir(root);
-        if (dir.exists(part))
-        {
-            root = dir.filePath(part);
-            continue;
-        }
-        const auto entries = dir.entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
-        const auto match = std::ranges::find_if(entries, [&](const auto &name) { return name.compare(part, Qt::CaseInsensitive) == 0; });
-        if (match == entries.end())
-            return {};
-        root = dir.filePath(*match);
-    }
-    return QFileInfo(root).isFile() ? root : QString();
+    if (QFileInfo::exists(path))
+        return path;
+    std::string resolved;
+    return FS_ResolvePathCaseInsensitive(path.toUtf8().constData(), resolved) ? QString::fromStdString(resolved) : path;
 }
 } // namespace
 
@@ -42,7 +29,7 @@ void ThrowAssetError(const QString &path, const QString &reason)
 
 QByteArray ReadAssetFile(const QString &path, qint64 limit)
 {
-    QFile file(path);
+    QFile file(ResolveCase(path));
     if (!file.open(QIODevice::ReadOnly))
         ThrowAssetError(path, file.errorString());
     const auto size = file.size();
@@ -64,54 +51,46 @@ GameFileSystem GameFileSystem::ForModel(const QString &modelPath)
     return GameFileSystem(root);
 }
 
-// Game directories in Source search order. Loose files only: VPKs are skipped.
+// Mounts the SDK filesystem's GAME paths like the engine: SFM runs -game usermod, whose gameinfo.txt mounts every mod,
+// so its usermod/gameinfo.txt wins over the model's own mod. Remounts only when the mod changes.
+// shortcut: a gameinfo.txt without FileSystem/SearchPaths ends the process (filesystem_init's Error); make its
+// errors recoverable if broken mods turn up.
 GameFileSystem::GameFileSystem(const QDir &modDir)
 {
+    static QString mounted;
+    const auto mod = modDir.absolutePath();
+    if (mod == mounted)
+        return;
     QDir root = modDir;
     root.cdUp();
-    const auto usermod = root.filePath(QStringLiteral("usermod/gameinfo.txt"));
-    const auto info = QFileInfo::exists(usermod) ? usermod : modDir.filePath(QStringLiteral("gameinfo.txt"));
-    const auto add = [&](const QString &path) {
-        const auto canonical = QFileInfo(path).canonicalFilePath();
-        if (!canonical.isEmpty() && QFileInfo(canonical).isDir() && !m_dirs.contains(canonical))
-            m_dirs.append(canonical);
-    };
-    if (QFileInfo::exists(info))
-    {
-        KeyValues kv("GameInfo");
-        const auto text = ReadAssetFile(info, 1024 * 1024);
-        auto *fileSystem = kv.LoadFromBuffer(info.toUtf8().constData(), text.constData()) ? kv.FindKey("FileSystem") : nullptr;
-        auto *searchPaths = fileSystem ? fileSystem->FindKey("SearchPaths") : nullptr;
-        for (auto *entry = searchPaths ? searchPaths->GetFirstValue() : nullptr; entry; entry = entry->GetNextValue())
-        {
-            // Keys are '+'-joined path IDs such as "Game", "game+mod" or "platform".
-            const auto ids = QString::fromUtf8(entry->GetName()).toLower().split('+');
-            if (!ids.contains(QStringLiteral("game")))
-                continue;
-            auto path = QString::fromUtf8(entry->GetString()).replace('\\', '/');
-            path.replace(QStringLiteral("|gameinfo_path|"), QFileInfo(info).absolutePath() + '/', Qt::CaseInsensitive);
-            path.replace(QStringLiteral("|all_source_engine_paths|"), root.absolutePath() + '/', Qt::CaseInsensitive);
-            if (QFileInfo(path).isRelative())
-                path = root.filePath(path);
-            if (path.endsWith(QStringLiteral(".vpk"), Qt::CaseInsensitive))
-                continue; // shortcut: VPK archives are not mounted; add vpklib reading when needed
-            if (path.endsWith(QStringLiteral("/*")))
-            {
-                const QDir parent(path.chopped(2));
-                for (const auto &child : parent.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name))
-                    add(parent.filePath(child));
-            }
-            else
-                add(path);
-        }
-    }
-    add(modDir.absolutePath()); // the model's own mod even when gameinfo does not list it
+    const auto usermod = root.filePath(QStringLiteral("usermod"));
+    const auto gameInfoDir = QFileInfo::exists(usermod + QStringLiteral("/gameinfo.txt")) ? usermod : mod;
+    g_pFullFileSystem->RemoveAllSearchPaths();
+    if (QFileInfo::exists(gameInfoDir + QStringLiteral("/gameinfo.txt")))
+        FileSystem_LoadSearchPaths(g_pFullFileSystem, gameInfoDir.toStdString(), root.absolutePath().toStdString());
+    // The model's own mod even when the gameinfo does not list it.
+    g_pFullFileSystem->AddSearchPath(mod.toStdString(), IBaseFileSystem::PathID::Game, PATH_ADD_TO_TAIL);
+    mounted = mod;
 }
 
-QString GameFileSystem::FindMaterial(const QString &relative) const
+QStringList GameFileSystem::dirs() const
 {
-    for (const auto &dir : m_dirs)
-        if (auto path = FindAsset(QDir(dir).filePath(QStringLiteral("materials")), relative); !path.isEmpty())
-            return path;
-    return {};
+    const int length = g_pFullFileSystem->GetSearchPath(IBaseFileSystem::PathID::Game, false, nullptr, 0);
+    std::string paths(length, '\0');
+    g_pFullFileSystem->GetSearchPath(IBaseFileSystem::PathID::Game, false, paths.data(), length);
+    return QString::fromStdString(paths).remove(QChar(0)).split(';', Qt::SkipEmptyParts);
 }
+
+QString GameFileSystem::Find(const QString &relative) const
+{
+    // The engine filesystem collapses "dir//../name" (MDL texture names may climb out of $cdmaterials).
+    const auto clean = QDir::cleanPath(QString(relative).replace('\\', '/'));
+    if (clean.isEmpty() || clean.startsWith(QStringLiteral("..")) || QDir::isAbsolutePath(clean))
+        return {};
+    char path[MAX_PATH];
+    if (!g_pFullFileSystem->RelativePathToFullPath(clean.toUtf8().constData(), IBaseFileSystem::PathID::Game, path, sizeof(path)))
+        return {};
+    return ResolveCase(QString::fromUtf8(path));
+}
+
+QString GameFileSystem::FindMaterial(const QString &relative) const { return Find(QStringLiteral("materials/") + relative); }

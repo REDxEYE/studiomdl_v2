@@ -6,8 +6,9 @@
 #include <stdexcept>
 #include <unordered_map>
 
-#include <QFile>
 #include <QFileInfo>
+
+#include "game_filesystem.h"
 
 #include "studio.h"
 #include "bone_accessor.h"
@@ -44,16 +45,19 @@ struct HostSet
 
 std::unordered_map<const studiohdr_t *, HostModel *> g_hostModels;
 
+// Model files case-insensitively, like the SDK filesystem; an absent optional file reads as empty.
 QByteArray ReadFile(const QString &path, bool required)
 {
-    QFile file(path);
-    if (!file.open(QIODevice::ReadOnly))
+    try
+    {
+        return ReadAssetFile(path, 512 * 1024 * 1024);
+    }
+    catch (const std::runtime_error &)
     {
         if (required)
-            throw std::runtime_error((path + QStringLiteral(": ") + file.errorString()).toStdString());
+            throw;
         return {};
     }
-    return file.readAll();
 }
 
 HostModel &LoadHostModel(HostSet &set, const QString &path)

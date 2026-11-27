@@ -43,7 +43,7 @@ Format VtfFormat(uint32_t id, const QString &path, bool srgb = false)
 }
 } // namespace
 
-void UploadVtf(Texture &texture, const QString &path, bool srgb)
+uint32_t UploadVtf(Texture &texture, const QString &path, bool srgb)
 {
     const auto bytes = ReadAssetFile(path, 128 * 1024 * 1024);
     const auto *data = reinterpret_cast<const uchar *>(bytes.constData());
@@ -60,11 +60,13 @@ void UploadVtf(Texture &texture, const QString &path, bool srgb)
     const int faces = !cube ? 1 : version < 5 && u16(26) != 0xffff ? 7 : 6;
     if (cube != (texture.target() == Texture::TargetCubeMap))
         ThrowAssetError(path, cube ? QStringLiteral("cube map where a 2D texture is expected") : QStringLiteral("2D texture where a cube map is expected"));
-    // shortcut: only single-frame textures; add frame/volume selection when materials need it.
+    // shortcut: animated textures show frame 0 ($frame/$detailframe and texture proxies are not run); volume textures
+    // are rejected. Upgrade when material proxies are ported.
+    const int frames = u16(24);
     if (headerSize < (version >= 3 ? 80u : version >= 2 ? 65u : 64u) || headerSize > bytes.size() ||
         !width || !height || !mipCount || mipCount > std::bit_width(unsigned(std::max(width, height))) ||
-        u16(24) != 1 || (version >= 2 && u16(63) != 1))
-        ThrowAssetError(path, QStringLiteral("invalid header or unsupported animated or volume texture"));
+        !frames || (version >= 2 && u16(63) != 1))
+        ThrowAssetError(path, QStringLiteral("invalid header or unsupported volume texture"));
 
     qsizetype offset = headerSize;
     if (version >= 3)
@@ -86,7 +88,7 @@ void UploadVtf(Texture &texture, const QString &path, bool srgb)
     const auto format = VtfFormat(u32(52), path, srgb);
     qsizetype end = offset;
     for (int mip = mipCount - 1; mip >= 0; --mip)
-        end += faces * format.size(std::max(1, width >> mip), std::max(1, height >> mip));
+        end += qsizetype(frames) * faces * format.size(std::max(1, width >> mip), std::max(1, height >> mip));
     if (offset < headerSize || end > bytes.size())
         ThrowAssetError(path, QStringLiteral("VTF image data outside file bounds"));
 
@@ -113,6 +115,7 @@ void UploadVtf(Texture &texture, const QString &path, bool srgb)
             else
                 texture.setData(mip, 0, glFace, format.source, Texture::UInt8, data + offset, &unpack);
         }
+        offset += qsizetype(frames - 1) * faces * length; // skip the other frames
     }
     texture.setWrapMode(Texture::DirectionS, flags & 4 ? Texture::ClampToEdge : Texture::Repeat);
     texture.setWrapMode(Texture::DirectionT, flags & 8 ? Texture::ClampToEdge : Texture::Repeat);
@@ -120,6 +123,7 @@ void UploadVtf(Texture &texture, const QString &path, bool srgb)
     const auto filter = nearest ? Texture::Nearest : Texture::Linear;
     texture.setMinMagFilters(!nearest && mipCount > 1 && !(flags & 0x100) ? Texture::LinearMipMapLinear : filter, filter);
     texture.setMipLevelRange(0, mipCount - 1);
+    return flags;
 }
 
 void UploadSolidColor(Texture &texture, QColor color, bool srgb)

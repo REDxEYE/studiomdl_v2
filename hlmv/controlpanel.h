@@ -9,7 +9,7 @@
 
 struct ViewportSettings;
 class StudioAnimation;
-class QOpenGLWindow;
+class QOpenGLWidget;
 
 class CBoneControlWindow : public mxWindow
 {
@@ -79,7 +79,7 @@ public:
     ControlPanel(mxWindow *parent, ViewportSettings &settings);
     int handleEvent(mxEvent *event) override;
 
-    void setViewport(QOpenGLWindow *viewport) { m_viewport = viewport; }
+    void setViewport(QOpenGLWidget *viewport) { m_viewport = viewport; }
     void OnLoadModel(const MdlMesh &mesh);
     void OnUnloadModel();
 
@@ -105,7 +105,6 @@ private:
     void SetupMatVarWindow(mxTab *pTab);
     void SetupSubmodelWindow(mxTab *pTab);
     void SetupCompileWindow(mxTab *pTab);
-    void updateSequenceSizes(int tabWidth);
     void UpdateIKRuleWindow();
     void BuildIKRuleQCString();
     void BuildEventQCString();
@@ -145,7 +144,7 @@ private:
     void redraw() override;
 
     ViewportSettings &m_settings;
-    QOpenGLWindow *m_viewport = nullptr;
+    QOpenGLWidget *m_viewport = nullptr;
     mxTab *tab = nullptr;
     mxSlider *slForceFrame = nullptr;
     mxLabel *lForcedFrame = nullptr;
@@ -169,7 +168,7 @@ private:
     mxSlider *slSequence[MAX_SEQUENCES] = {};
     mxRadioButton *rbFrameSelection[MAX_SEQUENCES] = {};
     mxLineEdit *leSequenceFilter[MAX_SEQUENCES] = {};
-    mxLabel *laFilters = nullptr, *laGroundSpeed = nullptr, *laFPS = nullptr, *laBlendAmount = nullptr, *laBlendTime = nullptr;
+    mxLabel *laGroundSpeed = nullptr, *laFPS = nullptr, *laBlendAmount = nullptr, *laBlendTime = nullptr;
     mxChoice *cPoseParameter[NUM_POSEPARAMETERS] = {};
     mxSlider *slPoseParameter[NUM_POSEPARAMETERS] = {};
     mxLineEdit *lePoseParameter[NUM_POSEPARAMETERS] = {};

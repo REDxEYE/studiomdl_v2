@@ -51,6 +51,14 @@ struct MdlEyeball
     float zoffset, radius, irisScale;
 };
 
+// mstudiomouth_t: the bone and direction studiorender lights Teeth materials with, and the flex driving them.
+struct MdlMouth
+{
+    int bone;
+    QVector3D forward;
+    int flexdesc;
+};
+
 // Header data shown by HLMV's Model, Sequence, Bones and Attachments tabs.
 struct MdlInfo
 {
@@ -99,14 +107,14 @@ struct MdlMesh
     std::vector<MdlAttachment> attachments;
     std::vector<MdlHitboxSet> hitboxSets;
     std::vector<MdlEyeball> eyeballs;
+    std::vector<MdlMouth> mouths;
     float maxEyeDeflection = 0.866f; // studiohdr2_t::MaxEyeDeflection (cos 30 when unset)
 
     int Texture(const MeshBatch &batch, int family) const
     {
         const int count = skinRefs ? int(skinTable.size()) / skinRefs : 0;
         return family > 0 && family < count ? skinTable[size_t(family) * skinRefs + batch.slot] : batch.texture;
-    }
-};
+    }};
 
 MdlMesh LoadMdlMesh(const QString &path);
 

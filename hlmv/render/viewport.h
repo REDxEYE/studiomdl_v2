@@ -4,7 +4,7 @@
 #include <memory>
 
 #include <QColor>
-#include <QOpenGLWindow>
+#include <QOpenGLWidget>
 
 #include "mdl_mesh.h"
 
@@ -53,7 +53,7 @@ struct ViewportSettings
 };
 
 void ConfigureSfmViewport();
-std::unique_ptr<QOpenGLWindow> CreateSfmViewport(QString vertexShader, QString fragmentShader, QString modelPath,
-                                           MdlMesh mesh, bool check, bool checker, ViewportSettings *settings = nullptr);
-std::unique_ptr<QOpenGLWindow> CreateSfmVcsViewport(QString shaderDirectory, QString modelPath, MdlMesh mesh,
-                                                   bool check, ViewportSettings &settings);
+std::unique_ptr<QOpenGLWidget> CreateSfmViewport(QString vertexShader, QString fragmentShader, QString modelPath,
+                                                 MdlMesh mesh, bool check, bool checker, ViewportSettings *settings = nullptr);
+std::unique_ptr<QOpenGLWidget> CreateSfmVcsViewport(QString shaderDirectory, QString modelPath, MdlMesh mesh,
+                                                    bool check, ViewportSettings &settings);

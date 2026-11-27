@@ -165,7 +165,7 @@ endif ()
 
 # The viewers are on by default but skipped with a notice when Qt 6 or liblzma is missing (e.g. CI runners)
 if (STUDIOMDL_BUILD_SFM_GL_PROBE OR STUDIOMDL_BUILD_HLMV)
-    find_package(Qt6 COMPONENTS OpenGL Widgets)
+    find_package(Qt6 COMPONENTS OpenGL OpenGLWidgets Widgets)
     if (Qt6_FOUND AND TARGET togl_translator)
         add_subdirectory(hlmv) # hlmv and the sfm_gl_probe shader probe share hlmv/render
     else ()

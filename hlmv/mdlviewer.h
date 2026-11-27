@@ -11,7 +11,6 @@
 #include "viewport.h"
 
 class ControlPanel;
-class QOpenGLWindow;
 
 class MDLViewer : public mxWindow
 {
@@ -35,7 +34,7 @@ private:
     mxMenu *menuView = nullptr;
     mxWindow *d_MatSysWindow = nullptr;
     ControlPanel *d_cpl = nullptr;
-    QOpenGLWindow *m_viewport = nullptr;
+    QOpenGLWidget *m_viewport = nullptr;
     ViewportSettings m_settings;
     QColor m_groundColor{217, 217, 176}; // HLMV default gColor 0.85 0.85 0.69
     QString m_shaderDirectory;

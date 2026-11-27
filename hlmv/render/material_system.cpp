@@ -57,25 +57,29 @@ void MaterialParams::getVector(const char *key, QVector4D &value)
     value = {x * scale, y * scale, z * scale, value.w()};
 }
 
-QString MaterialParams::getTexture(QOpenGLTexture &texture, const char *key, QColor fallback, bool srgb)
+QString MaterialParams::getTexture(QOpenGLTexture &texture, const char *key, QColor fallback, bool srgb, bool *hasAlpha)
 {
     auto name = getString(key);
     if (name.isEmpty())
     {
         UploadSolidColor(texture, fallback, srgb);
+        if (hasAlpha)
+            *hasAlpha = fallback.alpha() != 255;
         return QStringLiteral("(default)");
     }
     if (name.endsWith(QStringLiteral(".vtf"), Qt::CaseInsensitive))
         name.chop(4);
-    return loadTexture(texture, name, srgb);
+    return loadTexture(texture, name, srgb, hasAlpha);
 }
 
-QString MaterialParams::loadTexture(QOpenGLTexture &texture, const QString &name, bool srgb)
+QString MaterialParams::loadTexture(QOpenGLTexture &texture, const QString &name, bool srgb, bool *hasAlpha)
 {
     const auto path = m_files.FindMaterial(name + QStringLiteral(".vtf"));
     if (path.isEmpty())
         fail(QStringLiteral("could not find %1.vtf").arg(name));
-    UploadVtf(texture, path, srgb);
+    const auto flags = UploadVtf(texture, path, srgb);
+    if (hasAlpha)
+        *hasAlpha = VtfHasAlpha(flags);
     return path;
 }
 
@@ -94,6 +98,73 @@ QStringList MaterialParams::unread() const
     return names;
 }
 
+namespace
+{
+// CMaterial's fallback blocks (cmaterial.cpp FindBuiltinFallbackBlock, then the shader's _DX9 fallback): the first
+// matching sub-block, named "<condition>" or "<shader>_<condition>", overrides the root parameters.
+// shortcut: fixed SFM hardware (dxlevel 95, no gpu_level/hdr/srgb blocks); make it per-game config with other games.
+void ApplyFallbackBlock(KeyValues &kv)
+{
+    const std::string shader(kv.GetName());
+    KeyValues *block = nullptr;
+    for (const std::string condition : {">=DX90_20b", ">=DX90", ">DX90", "dx9", "DX9"})
+        if ((block = kv.FindKey(condition)) || (block = kv.FindKey(shader + '_' + condition)))
+            break;
+    if (!block)
+        return;
+    for (auto *value = block->GetFirstValue(); value; value = value->GetNextValue())
+        kv.SetString(value->GetName(), value->GetString());
+}
+
+void LoadVmt(KeyValues &kv, const QString &path)
+{
+    const auto text = ReadAssetFile(path, 1024 * 1024);
+    if (!kv.LoadFromBuffer(path.toUtf8().constData(), text.constData()))
+        ThrowAssetError(path, QStringLiteral("invalid VMT"));
+}
+
+// cmaterial.cpp InsertKeyValues: src's values into dst (only keys dst already has when `existing`); "replace" also
+// recurses into sub-blocks both sides have.
+void InsertKeyValues(KeyValues &dst, KeyValues &src, bool existing)
+{
+    for (auto *value = src.GetFirstValue(); value; value = value->GetNextValue())
+        if (!existing || dst.FindKey(value->GetName()))
+            dst.SetString(value->GetName(), value->GetString());
+    if (existing)
+        for (auto *block = dst.GetFirstTrueSubKey(); block; block = block->GetNextTrueSubKey())
+            if (auto *from = src.FindKey(block->GetName()); from && from->GetDataType() == KeyValues::TYPE_NONE)
+                InsertKeyValues(*block, *from, true);
+}
+
+// cmaterial.cpp ExpandPatchFile: a "patch" VMT includes another VMT (at most 10 deep); every patch's insert/replace
+// values accumulate (included files overwrite keys, as MergeKeyValues does) and apply to the final VMT.
+void ExpandPatch(KeyValues &kv, const GameFileSystem &files, const QString &vmt)
+{
+    KeyValues insert("insert"), replace("replace");
+    auto path = vmt;
+    for (int depth = 0; QString::fromUtf8(kv.GetName()).compare(QStringLiteral("patch"), Qt::CaseInsensitive) == 0; ++depth)
+    {
+        if (depth == 10)
+            ThrowAssetError(vmt, QStringLiteral("patch includes nest deeper than 10"));
+        for (auto [section, into] : {std::pair{"insert", &insert}, std::pair{"replace", &replace}})
+            if (auto *from = kv.FindKey(section))
+                for (auto *value = from->GetFirstValue(); value; value = value->GetNextValue())
+                    into->SetString(value->GetName(), value->GetString());
+        const auto include = QString::fromUtf8(kv.GetString("include"));
+        if (include.isEmpty())
+            ThrowAssetError(path, QStringLiteral("patch VMT without include"));
+        const auto next = files.Find(include);
+        if (next.isEmpty())
+            ThrowAssetError(path, QStringLiteral("could not find patch include %1").arg(include));
+        path = next;
+        kv.Clear();
+        LoadVmt(kv, path);
+    }
+    InsertKeyValues(kv, insert, false);
+    InsertKeyValues(kv, replace, true);
+}
+} // namespace
+
 std::unique_ptr<Material> LoadMaterial(const ShaderSet &shaders, const QString &modelPath, const QString &material,
                                        const QStringList &searchPaths)
 {
@@ -108,12 +179,16 @@ std::unique_ptr<Material> LoadMaterial(const ShaderSet &shaders, const QString &
     if (vmt.isEmpty())
         ThrowAssetError(modelPath, QStringLiteral("could not find loose VMT for %1 in %2").arg(material, files.dirs().join(QStringLiteral(", "))));
 
-    const auto text = ReadAssetFile(vmt, 1024 * 1024);
     KeyValues kv("material");
-    if (!kv.LoadFromBuffer(vmt.toUtf8().constData(), text.constData()))
-        ThrowAssetError(vmt, QStringLiteral("invalid VMT"));
+    LoadVmt(kv, vmt);
+    ExpandPatch(kv, files, vmt);
+    ApplyFallbackBlock(kv);
     MaterialParams params(vmt, kv, files);
     auto out = shaders.CreateMaterial(params);
+    // CBaseShader::SetInitialShadowState, for every shader
+    out->noCull = params.getInt("$nocull") != 0;
+    out->decal = params.getInt("$decal") != 0;
+    out->ignoreZ = params.getInt("$ignorez") != 0;
     out->ignored = params.unread();
     return out;
 }

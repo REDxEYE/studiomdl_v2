@@ -1,9 +1,9 @@
 # Qt HLMV port status
 
-Every control from upstream HLMV exists in the Qt UI with its original id and position. This list
-tracks what each one does today. **Stub** = laid out, accepts input, no effect. **Partial** = works
-for some cases. Upstream behaviour lives in `upstream/mdlviewer.cpp` (menus) and
-`upstream/controlpanel.cpp` (panel), keyed by the `IDC_*` id.
+All control-panel tabs use native Qt layouts, with scrollbars when needed. Controls keep their
+original `IDC_*` IDs. **Stub** = laid out, accepts input, no effect. **Partial** = works for some
+cases. Upstream behaviour lives in `upstream/mdlviewer.cpp` (menus) and
+`upstream/controlpanel.cpp` (panel).
 
 Start `hlmv` without arguments to choose the Source Filmmaker installation (or its `game` or
 `platform/shaders/fxc` directory). HLMV remembers the selection and prompts again if it becomes invalid.
@@ -42,10 +42,13 @@ playback, **M** model data (`render/mdl_mesh.cpp`), **P** physics (.phy), **S** 
 |---|---|---|---|
 | Left drag orbit, middle/right drag pan, wheel zoom, Ctrl+left drag light | Done | | Controls differ from HLMV (HLMV rotates the model, right-drag zooms, Shift pans) |
 | Perspective camera | Done | | Wheel zoom dollies toward the orbit target |
-| Drag-and-drop of .mdl onto the viewport | Done | | |
+| Drag-and-drop of .mdl onto the viewport | Done | | The empty viewer starts with an OpenGL surface so the first drop does not switch the window's composition mode. |
 | Drag-and-drop of .qc onto the viewport | Stub | C | Upstream adds QCs to the Compile tab |
 | Frame slider (bottom) | Done | | Follows the layer picked by the Sequence tab's radio buttons; dragging sets the frame and stops playback, as upstream |
 | Animation playback | Done | | Engine bone setup (CS:GO IBoneSetup/CIKContext, procedural and jiggle bones, $includemodel and .ani blocks) with CPU skinning; clock clamped to 100 fps like upstream |
+| VertexLitGeneric / UnlitGeneric / Phong materials | Partial | | SFM vertexlit_and_unlit_generic_*30 and phong_*30 with $detail (+scale, blend mode/factor, tint), $envmap (+tint, mask, contrast, saturation), $selfillum (+tint, mask, fresnel), $halflambert, Phong $lightwarptexture, $phongwarptexture, $rimlight, $phongalbedotint; dx90 fallback blocks applied; animated VTFs show frame 0. Not done: bumped non-Phong variant ($bumpmap/$lightwarptexture without $phong), flashlight, material proxies, $envmapfresnel on non-Phong |
+| VMT loading and render state | Done | | SDK filesystem (gameinfo.txt search paths via filesystem_init, case-insensitive lookups); `patch` include/insert/replace chains and dx90 fallback blocks as cmaterial.cpp; blending from EvaluateBlendRequirements ($alpha, $vertexalpha, $translucent/$alphatest with base alpha, $additive) without depth writes, alpha test (reference 0.7 by default), backface culling with $nocull, $decal, $ignorez; translucent meshes drawn after opaque ones in mesh order (studiorender's two passes). Not done: material proxies, `replacements` files |
+| Teeth materials | Done | | SFM teeth_*30 / teeth_bump_*30 lit by studiorender's mouth 0 ($forward from its bone, $illumfactor from its flex), so teeth stay dark until the mouth flex opens |
 | Eyes / EyeRefract materials | Done | | SFM eyes_*30 / eye_refract_*30 shaders with eyeball tracking toward the HLMV view target; Render tab's Enable Eye Look (from SFM hlmv) aims them at the camera; Eyes glint, flashlight and intro/cloak passes not rendered |
 
 ## Render tab
@@ -76,7 +79,7 @@ playback, **M** model data (`render/mdl_mesh.cpp`), **P** physics (.phy), **S** 
 |---|---|---|---|
 | Sequence lists (5 layers), layer weights, frame radio buttons, sequence filters | Done | | Port of initSequenceChoices/setSequence/setOverlaySequence |
 | Pose parameters | Done | | Up to 8 sliders with value fields; ranges from the model |
-| Speed scale, FPS label, ground speed, blend sequence changes/time/Blend Now, activity modifiers | Done | | |
+| Speed scale, FPS label, ground speed, blend sequence changes/time/Blend Now, activity modifiers | Done | | Timing and activity controls share rows to fit alongside all eight pose controls. |
 | Animate weapons | Stub | M | Needs merged models |
 
 ## Model tab

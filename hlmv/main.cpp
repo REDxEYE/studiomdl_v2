@@ -1,4 +1,5 @@
 #include <QApplication>
+#include <QIcon>
 #include <QDebug>
 #include <QFileInfo>
 #include <QDir>
@@ -55,6 +56,8 @@ int main(int argc, char **argv)
 {
     ConfigureSfmViewport();
     QApplication app(argc, argv);
+    QGuiApplication::setDesktopFileName(QStringLiteral("hlmv")); // Wayland app id
+    QApplication::setWindowIcon(QIcon(QStringLiteral(":/hlmv/icon1.ico")));
     auto args = app.arguments();
     const bool check = args.removeOne(QStringLiteral("--check"));
     if (args.size() > 3 || (check && args.size() != 3))

@@ -26,10 +26,12 @@ enum FSReturnCode_t {
 FSReturnCode_t FileSystem_LocateGameInfo(std::string &gameInfoDir);
 
 // Adds the search paths listed in <gameInfoDir>/gameinfo.txt: entries starting with |gameinfo_path| are relative to
-// gameInfoDir, the others (and |all_source_engine_paths|) to the base directory (parent of the executable directory).
-// The first "game" path also becomes MOD and, last, DEFAULT_WRITE_PATH; "-tempcontent" adds <game path>_tempcontent.
-// Then <base>/platform as GAME, the CONTENT mirror of every GAME path, and the by-request-only marks.
-FSReturnCode_t FileSystem_LoadSearchPaths(IFileSystem *pFileSystem, std::string_view gameInfoDir);
+// gameInfoDir, the others (and |all_source_engine_paths|) to `baseDir`, by default the parent of the executable
+// directory. The first "game" path also becomes MOD and, last, DEFAULT_WRITE_PATH; "-tempcontent" adds
+// <game path>_tempcontent. Then <base>/platform as GAME, the CONTENT mirror of every GAME path, and the
+// by-request-only marks.
+FSReturnCode_t FileSystem_LoadSearchPaths(IFileSystem *pFileSystem, std::string_view gameInfoDir,
+                                          std::string_view baseDir = {});
 
 // EXECUTABLE_PATH = the directory of the executable (by request only)
 FSReturnCode_t FileSystem_SetBasePaths(IFileSystem *pFileSystem);

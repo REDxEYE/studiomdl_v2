@@ -17,6 +17,7 @@
 #include <QDropEvent>
 #include <QMimeData>
 #include <QTimer>
+#include <QPainter>
 #include <QUrl>
 
 #include "studio_anim.h"
@@ -27,10 +28,24 @@
 namespace
 {
 constexpr const char *appTitle = "Half-Life Model Viewer";
-constexpr int panelHeight = 240; // upstream: #define HEIGHT 240 (Win32)
+constexpr int panelHeight = 352; // Native controls can scroll inside the panel on larger fonts.
 constexpr int recentCount = 8;
 
-// Hosts the OpenGL viewport container, like upstream's MatSysWindow child of the main window.
+// Keep the top-level window in OpenGL composition mode before the first model is dropped.
+class EmptyViewport final : public QOpenGLWidget
+{
+public:
+    using QOpenGLWidget::QOpenGLWidget;
+
+private:
+    void paintGL() override
+    {
+        QPainter painter(this);
+        painter.fillRect(rect(), palette().window());
+    }
+};
+
+// Hosts the viewport, like upstream's MatSysWindow child of the main window.
 class MatSysWindow : public mxWindow
 {
 public:
@@ -151,6 +166,8 @@ MDLViewer::MDLViewer(QString shaderDirectory, bool check)
     QPalette palette = d_MatSysWindow->palette();
     palette.setColor(QPalette::Window, m_settings.background);
     d_MatSysWindow->setPalette(palette);
+    auto *emptyViewport = new EmptyViewport(d_MatSysWindow);
+    emptyViewport->setGeometry(d_MatSysWindow->rect());
 
     // upstream clamps the restored window to at least 640x700
     const QRect bounds = settings.value(QStringLiteral("bounds"), QRect(20, 20, 640, 700)).toRect();
@@ -159,7 +176,7 @@ MDLViewer::MDLViewer(QString shaderDirectory, bool check)
     m_settings.reportError = [this](const QString &error) {
         qWarning().noquote() << error;
         if (m_check)
-            QCoreApplication::exit(1);
+            QMetaObject::invokeMethod(qApp, [] { QCoreApplication::exit(1); }, Qt::QueuedConnection); // may run before exec()
     };
 
     // upstream accelTable; both letter cases map to the same Ctrl shortcut in Qt
@@ -247,14 +264,16 @@ bool MDLViewer::LoadModelFile(const QString &path)
         }
         d_cpl->OnLoadModel(mesh);
         auto next = CreateSfmVcsViewport(m_shaderDirectory, path, std::move(mesh), m_check, m_settings);
-        qDeleteAll(d_MatSysWindow->findChildren<QWidget *>(Qt::FindDirectChildrenOnly));
-        m_viewport = next.get();
+        auto *previousViewport = d_MatSysWindow->findChild<QOpenGLWidget *>(Qt::FindDirectChildrenOnly);
+        m_viewport = next.release();
+        m_viewport->setParent(d_MatSysWindow);
         m_viewport->installEventFilter(this);
-        auto *container = QWidget::createWindowContainer(next.release(), d_MatSysWindow);
-        container->setFocusPolicy(Qt::StrongFocus);
-        container->setGeometry(d_MatSysWindow->rect());
-        container->show();
+        m_viewport->setFocusPolicy(Qt::StrongFocus);
+        m_viewport->setGeometry(d_MatSysWindow->rect());
+        m_viewport->show();
         d_cpl->setViewport(m_viewport);
+        // Keep an OpenGL child present while replacing the viewport.
+        delete previousViewport;
     }
     catch (const std::exception &error)
     {

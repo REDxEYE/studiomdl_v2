@@ -7,6 +7,9 @@
 #include <array>
 #include <cmath>
 #include <format>
+#include <map>
+#include <memory>
+#include <vector>
 #include <initializer_list>
 #include <span>
 #include <stdexcept>
@@ -88,22 +91,97 @@ constexpr uint32_t eyesVsDynamicLight = 8;
 // EyeRefract_dx9 (0x10018420) VS dynamic: DYNAMIC_LIGHT weight 8, NUM_LIGHTS weight 16; PS dynamic NUM_LIGHTS weight 2.
 constexpr uint32_t eyeRefractVsOneLight = 8 + 16;
 constexpr uint32_t eyeRefractPsOneLight = 2;
+// Teeth_DX9 (0x10049FF0): teeth_vs30 DYNAMIC_LIGHT weight 8 (COMPRESSED_VERTS 1, fog 2, SKINNING 4, STATIC_LIGHT 16,
+// MORPHING 32); teeth_bump_ps30 NUM_LIGHTS weight 2 and AMBIENT_LIGHT weight 10 (fog 1, WRITE_DEPTH_TO_DESTALPHA 20).
+constexpr uint32_t teethVsDynamicLight = 8;
+constexpr uint32_t teethBumpPsOneLightAmbient = 2 + 10;
 
+// What a VertexLitGeneric/UnlitGeneric/Phong material binds on every draw, in the registers the SFM shader reads.
 struct GenericMaterial : Material
 {
-    QVector4D modulation{1, 1, 1, 1}; // pixel shader c1: linear($color * $color2), $alpha
+    std::vector<std::pair<int, std::unique_ptr<QOpenGLTexture>>> textures; // sampler unit, texture
+    std::map<int, QVector4D> psConstants, vsConstants;                   // pc / vc register, value
+
+    QOpenGLTexture &addTexture(int unit, QOpenGLTexture::Target target = QOpenGLTexture::Target2D)
+    {
+        return *textures.emplace_back(unit, std::make_unique<QOpenGLTexture>(target)).second;
+    }
 };
 
-struct PhongMaterial : GenericMaterial
+float GammaToLinear(float gamma)
 {
-    QOpenGLTexture normal{QOpenGLTexture::Target2D};
-    QOpenGLTexture exponentMap{QOpenGLTexture::Target2D};
-    QVector4D fresnelBoost{0, 0.5f, 1, 1};
-    QVector4D tint{1, 1, 1, 4};
-    float exponent = 0;
-    bool alphaMask = false;
-    bool luminanceMask = false;
-};
+    gamma = std::clamp(gamma, 0.f, 1.f);
+    return gamma <= 0.04045f ? gamma / 12.92f : std::pow((gamma + 0.055f) / 1.055f, 2.4f);
+}
+
+QVector4D GammaToLinear(const QVector4D &color)
+{
+    return {GammaToLinear(color.x()), GammaToLinear(color.y()), GammaToLinear(color.z()), color.w()};
+}
+
+// $envmap into `texture`; HLMV binds hlmv/cubemap as the local cubemap env_cubemap resolves to. False without $envmap
+// unless `required` (EyeRefract always samples one).
+bool LoadEnvmap(MaterialParams &params, QOpenGLTexture &texture, bool required = false)
+{
+    auto name = params.getString("$envmap");
+    if (name.isEmpty() && !required)
+        return false;
+    if (name.isEmpty() || name.compare(QStringLiteral("env_cubemap"), Qt::CaseInsensitive) == 0)
+        name = QStringLiteral("hlmv/cubemap");
+    params.loadTexture(texture, name, true);
+    return true;
+}
+
+// BaseVSShader::EvaluateBlendRequirements(BASETEXTURE): blend for alpha modulation (`alpha` < 1), $vertexalpha, or
+// base alpha that means translucency (CBaseShader::TextureIsTranslucent: an alpha channel, $translucent or $alphatest,
+// alpha not used for self-illumination or envmap masking) unless alpha tested; $additive picks the additive pair.
+void EvaluateBlend(MaterialParams &params, Material &material, bool baseAlpha, float alpha)
+{
+    const bool alphaTest = params.getInt("$alphatest") != 0;
+    const bool alphaUsedElsewhere =
+        (params.getInt("$selfillum") && !params.has("$selfillummask")) || params.getInt("$basealphaenvmapmask");
+    const bool textureTranslucent = baseAlpha && !params.getInt("$opaquetexture") && !alphaUsedElsewhere &&
+                                    (params.getInt("$translucent") || alphaTest);
+    const bool blend = alpha < 1 || params.getInt("$vertexalpha") || (textureTranslucent && !alphaTest);
+    material.blend = params.getInt("$additive") ? (blend ? MaterialBlend::BlendAdd : MaterialBlend::Add)
+                     : blend ? MaterialBlend::Blend : MaterialBlend::None;
+    material.alphaTest = alphaTest;
+    if (const float reference = params.getFloat("$alphatestreference"); reference > 0)
+        material.alphaTestReference = reference;
+}
+
+// A colour parameter written as [r g b], {r g b} or one float for all channels (Source's material var parser
+// accepts both); keeps `value.w`.
+QVector4D GetColor(MaterialParams &params, const char *key, QVector4D value)
+{
+    const auto text = params.getString(key).trimmed();
+    if (text.isEmpty())
+        return value;
+    if (text.front() == '[' || text.front() == '{')
+    {
+        params.getVector(key, value);
+        return value;
+    }
+    const float scalar = params.getFloat(key);
+    return {scalar, scalar, scalar, value.w()};
+}
+
+// $detailscale as one float or [x y]; Source's default is 4.
+QVector2D DetailScale(MaterialParams &params)
+{
+    auto text = params.getString("$detailscale").trimmed();
+    if (text.isEmpty())
+        return {4, 4};
+    if (text.front() == '[' || text.front() == '{')
+        text = text.mid(1, text.size() - 2);
+    const auto parts = text.split(' ', Qt::SkipEmptyParts);
+    bool okX = false, okY = true;
+    const float x = parts.value(0).toFloat(&okX);
+    const float y = parts.size() > 1 ? parts[1].toFloat(&okY) : x;
+    if (!okX || !okY || parts.size() > 2 || !std::isfinite(x) || !std::isfinite(y))
+        params.fail(QStringLiteral("invalid $detailscale"));
+    return {x, y};
+}
 
 // Eyes_dx9 0x1001AD10, EyeRefract_dx9 0x10018420
 struct EyeMaterial : Material
@@ -132,21 +210,24 @@ struct ConstantTextures
     }
 };
 
-enum class Inputs { Generic, Phong, Eye };
+enum class Inputs { Generic, Phong, Eye, Teeth, TeethBump };
 
 // Vertex inputs and the constants every SFM program starts with: Source math constants, an identity
 // view-projection for the probe quad, HLMV's default lights, and sampler units.
-void InitStandard(ShaderProgram &state, Inputs inputs, bool lights, std::initializer_list<int> samplers)
+void InitStandard(ShaderProgram &state, Inputs inputs, bool lights)
 {
     auto &program = state.gl;
     const bool phong = inputs == Inputs::Phong, eye = inputs == Inputs::Eye;
+    const bool teeth = inputs == Inputs::Teeth || inputs == Inputs::TeethBump, teethBump = inputs == Inputs::TeethBump;
     state.position = program.attributeLocation("v0");
-    state.uv = program.attributeLocation(phong ? "v2" : eye ? "v1" : "v3");
+    state.uv = program.attributeLocation(phong ? "v2" : eye ? "v1" : teeth ? "v2" : "v3");
     state.normal = eye ? -1 : program.attributeLocation("v1");
-    state.tangent = phong ? program.attributeLocation("v4") : -1;
+    state.tangent = phong ? program.attributeLocation("v4") : teethBump ? program.attributeLocation("v3") : -1;
     state.color = inputs == Inputs::Generic ? program.attributeLocation("v2") : -1;
-    state.delta = eye ? program.attributeLocation("v2") : -1;
-    if (state.position < 0 || state.uv < 0 || (phong && state.tangent < 0))
+    // Flex delta streams (POSITION1, NORMAL1): vertices arrive already flexed.
+    state.delta = eye ? program.attributeLocation("v2") : teeth ? program.attributeLocation(teethBump ? "v4" : "v3") : -1;
+    state.deltaNormal = teeth ? program.attributeLocation(teethBump ? "v5" : "v4") : -1;
+    if (state.position < 0 || state.uv < 0 || ((phong || teethBump) && state.tangent < 0))
         throw std::runtime_error("Shader does not have the expected SFM vertex inputs");
 
     const int lightCount = program.uniformLocation("i0");
@@ -170,7 +251,7 @@ void InitStandard(ShaderProgram &state, Inputs inputs, bool lights, std::initial
         }
         if (state.lit)
             program.setUniformValue(lightCount, 1);
-        if (phong)
+        if (program.uniformLocation("b0") >= 0) // static control flow light switches: one light
             program.setUniformValue("b0", 1);
     }
     vc[2] = {0, 0, 2, 0}; // Camera.
@@ -185,13 +266,12 @@ void InitStandard(ShaderProgram &state, Inputs inputs, bool lights, std::initial
     constexpr QVector4D bones[] = {{1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}};
     std::array<QVector4D, 31> pc{};
     pc[1] = {1, 1, 1, 1};  // White modulation, opaque alpha; Eyes: glint damping (ambient luminance above 0.01).
-    pc[30] = {1, 0, 0, 0}; // Identity output scale; fog is disabled by zero VS fog constants.
+    pc[30] = {1, 1, 1, 1}; // LDR tone-mapping scales (x output, z envmap); fog is disabled by zero VS fog constants.
     program.setUniformValueArray("vc", vc.data(), state.lit ? int(vc.size()) : 67);
     program.setUniformValueArray("vcbones", bones, 3);
     program.setUniformValue("vcscreen", QVector4D{});
     program.setUniformValueArray("pc", pc.data(), pc.size());
-    program.setUniformValue("sampler0", 0);
-    for (const int unit : samplers)
+    for (int unit = 0; unit < 16; ++unit) // units match register numbers; unused names resolve to no uniform
         program.setUniformValue(QStringLiteral("sampler%1").arg(unit).toLatin1().constData(), unit);
 }
 
@@ -208,31 +288,42 @@ void SetStandardFrame(ShaderProgram &state, const FrameState &frame)
     program.setUniformValue("vc[27]", frame.light);
 }
 
+void BindMaterial(QOpenGLShaderProgram &program, GenericMaterial &material)
+{
+    material.base.bind(0);
+    for (auto &[unit, texture] : material.textures)
+        texture->bind(unit);
+    for (const auto &[reg, value] : material.psConstants)
+        program.setUniformValue(QStringLiteral("pc[%1]").arg(reg).toLatin1().constData(), value);
+    for (const auto &[reg, value] : material.vsConstants)
+        program.setUniformValue(QStringLiteral("vc[%1]").arg(reg).toLatin1().constData(), value);
+}
+
 class GenericShader : public Shader
 {
 public:
     void InitProgram(ShaderProgram &program, const ProgramContext &) const override
     {
-        InitStandard(program, Inputs::Generic, false, {});
+        InitStandard(program, Inputs::Generic, false);
     }
 
     void SetFrame(ShaderProgram &program, const FrameState &frame) const override { SetStandardFrame(program, frame); }
 
-    void SetDraw(ShaderProgram &program, Material &material, const FrameState &, const EyeState &) const override
+    void SetDraw(ShaderProgram &program, Material &material, const FrameState &frame, const EyeState &) const override
     {
-        material.base.bind(0);
-        program.gl.setUniformValue("pc[1]", static_cast<GenericMaterial &>(material).modulation);
+        BindMaterial(program.gl, static_cast<GenericMaterial &>(material));
+        program.gl.setUniformValue("pc[20]", QVector4D(frame.camera, 0)); // StoreEyePosInPixelShaderConstant(20)
     }
 };
 
-class PhongShader : public GenericShader
+class PhongShader : public Shader
 {
 public:
     void InitProgram(ShaderProgram &program, const ProgramContext &context) const override
     {
         if (!context.textured || !context.hasTangents)
             throw std::runtime_error("Phong needs a textured MDL with VVD tangents");
-        InitStandard(program, Inputs::Phong, true, {3, 7});
+        InitStandard(program, Inputs::Phong, true);
     }
 
     void SetFrame(ShaderProgram &state, const FrameState &frame) const override
@@ -246,20 +337,12 @@ public:
         program.setUniformValue("pc[21]", PackedLight(frame));
     }
 
-    void SetDraw(ShaderProgram &state, Material &base, const FrameState &frame, const EyeState &eye) const override
+    void SetDraw(ShaderProgram &state, Material &base, const FrameState &frame, const EyeState &) const override
     {
-        GenericShader::SetDraw(state, base, frame, eye);
-        auto &material = static_cast<PhongMaterial &>(base);
-        auto &program = state.gl;
-        material.normal.bind(3);
-        material.exponentMap.bind(7);
-        auto fresnelBoost = material.fresnelBoost;
-        if (!frame.specular)
-            fresnelBoost.setW(0);
-        program.setUniformValue("pc[10]", QVector4D(0, material.luminanceMask, material.exponent, 0));
-        program.setUniformValue("pc[19]", fresnelBoost);
-        program.setUniformValue("pc[26]", material.tint);
-        program.setUniformValue("pc[27]", QVector4D(material.alphaMask, 0, 1, 0));
+        auto &material = static_cast<GenericMaterial &>(base);
+        BindMaterial(state.gl, material);
+        if (!frame.specular) // the probe's highlight check: Phong boost off
+            state.gl.setUniformValue("pc[19]", QVector4D(material.psConstants[19].toVector3D(), 0));
     }
 };
 
@@ -279,7 +362,7 @@ public:
     void InitProgram(ShaderProgram &program, const ProgramContext &) const override
     {
         m_constants.create();
-        InitStandard(program, Inputs::Eye, false, {1, 2});
+        InitStandard(program, Inputs::Eye, false);
     }
 
     void SetFrame(ShaderProgram &state, const FrameState &frame) const override
@@ -314,7 +397,7 @@ public:
     void InitProgram(ShaderProgram &program, const ProgramContext &) const override
     {
         m_constants.create();
-        InitStandard(program, Inputs::Eye, true, {1, 2, 3, 4, 8});
+        InitStandard(program, Inputs::Eye, true);
     }
 
     void SetFrame(ShaderProgram &state, const FrameState &frame) const override
@@ -353,6 +436,40 @@ private:
     ConstantTextures &m_constants;
 };
 
+// Teeth_DX9 (0x10049FF0), SM3 branch: teeth_vs30/ps30, or teeth_bump_vs30/ps30 with $bumpmap (per-pixel lighting
+// and specular). vc48 = $forward, $illumfactor from studiorender's mouth; ps c11 = camera, bump $phongexponent.
+class TeethShader : public Shader
+{
+public:
+    void InitProgram(ShaderProgram &program, const ProgramContext &context) const override
+    {
+        const bool bump = program.combo.vs == "teeth_bump_vs30";
+        if (bump && !context.hasTangents)
+            throw std::runtime_error("Bumped Teeth needs VVD tangents");
+        InitStandard(program, bump ? Inputs::TeethBump : Inputs::Teeth, true);
+    }
+
+    void SetFrame(ShaderProgram &state, const FrameState &frame) const override
+    {
+        SetStandardFrame(state, frame);
+        auto &program = state.gl;
+        // The bumped pixel shader lights per pixel: ambient cube c4..c9, light c20/c21 (PI_SetPixelShader*).
+        const std::array<QVector4D, 6> cube{frame.ambient, frame.ambient, frame.ambient, frame.ambient, frame.ambient, frame.ambient};
+        program.setUniformValueArray("pc[4]", cube.data(), 6);
+        program.setUniformValue("pc[20]", QVector4D(frame.light.toVector3D(), 0));
+        program.setUniformValue("pc[21]", PackedLight(frame));
+    }
+
+    void SetDraw(ShaderProgram &state, Material &base, const FrameState &frame, const EyeState &) const override
+    {
+        auto &material = static_cast<GenericMaterial &>(base);
+        auto &program = state.gl;
+        BindMaterial(program, material);
+        program.setUniformValue("vc[48]", frame.mouth.value_or(material.vsConstants[48]));
+        program.setUniformValue("pc[11]", QVector4D(frame.camera, material.psConstants[11].w()));
+    }
+};
+
 class SfmShaderSet final : public ShaderSet
 {
 public:
@@ -360,6 +477,8 @@ public:
     {
         if (params.isShader("Eyes") || params.isShader("EyeRefract"))
             return CreateEyeMaterial(params, params.isShader("EyeRefract"));
+        if (params.isShader("Teeth"))
+            return CreateTeethMaterial(params);
         const bool unlit = params.isShader("UnlitGeneric");
         if (!unlit && !params.isShader("VertexLitGeneric"))
             params.fail(QStringLiteral("unsupported material shader %1").arg(params.shaderName()));
@@ -369,65 +488,169 @@ public:
     const Shader &FallbackShader() const override { return m_generic; }
 
 private:
+    // Teeth_DX9 (0x10049FF0) static/dynamic state; the shader's own params are $illumfactor, $forward, $bumpmap and
+    // $phongexponent (studiorender overwrites the first two for models with a mouth).
+    std::unique_ptr<Material> CreateTeethMaterial(MaterialParams &params) const
+    {
+        auto out = std::make_unique<GenericMaterial>();
+        out->shader = &m_teeth;
+        bool baseAlpha = false;
+        params.getTexture(out->base, "$basetexture", Qt::white, true, &baseAlpha);
+        params.accept({"$model", "$surfaceprop", "$nodecal", "$clientshader"});
+        const bool bump = params.has("$bumpmap");
+        if (bump)
+            params.getTexture(out->addTexture(1), "$bumpmap", QColor(128, 128, 255), false);
+        QVector4D forward{1, 0, 0, 0};
+        params.getVector("$forward", forward);
+        out->vsConstants[48] = QVector4D(forward.toVector3D(), params.getFloat("$illumfactor", 1));
+        out->psConstants[11] = {0, 0, 0, bump ? params.getFloat("$phongexponent", 100) : 0};
+        EvaluateBlend(params, *out, baseAlpha, std::clamp(params.getFloat("$alpha", 1), 0.f, 1.f));
+        auto &combo = out->combo;
+        combo.vs = bump ? "teeth_bump_vs30" : "teeth_vs30";
+        combo.ps = bump ? "teeth_bump_ps30" : "teeth_ps30";
+        combo.vsStatic = StaticComboId(combo.vs, {{"DOPIXELFOG", 1}});
+        combo.vsDynamic = bump ? 0 : teethVsDynamicLight;
+        combo.psDynamic = bump ? teethBumpPsOneLightAmbient : 0;
+        return out;
+    }
+
+    // VertexLitGeneric/UnlitGeneric and $phong. Registers and samplers follow the SFM shaders (SDK 2013 layout,
+    // checked against the translated GLSL); parameter handling ports CS:GO's vertexlitgeneric_dx9_helper.cpp and
+    // phong_dx9_helper.cpp. No flashlight, bumped non-Phong variant, seamless mapping or distance alpha.
     std::unique_ptr<Material> CreateGenericMaterial(MaterialParams &params, bool unlit) const
     {
         const bool phong = !unlit && params.getInt("$phong");
-        std::unique_ptr<GenericMaterial> out = phong ? std::make_unique<PhongMaterial>() : std::make_unique<GenericMaterial>();
+        auto out = std::make_unique<GenericMaterial>();
         out->shader = phong ? static_cast<const Shader *>(&m_phong) : &m_generic;
+        auto &ps = out->psConstants;
         // Source binds its white texture when $basetexture is absent (SFM HLMV renders such meshes white).
-        params.getTexture(out->base, "$basetexture", Qt::white, true);
-        params.accept({"$model", "$surfaceprop", "$nocull"});
+        bool baseAlpha = false;
+        params.getTexture(out->base, "$basetexture", Qt::white, true, &baseAlpha);
+        params.accept({"$model", "$surfaceprop", "$nodecal"});
 
-        // Pixel shader c1 (SetModulationPixelShaderDynamicState_LinearColorSpace): GammaToLinear($color * $color2), $alpha.
-        QVector4D color{1, 1, 1, 1}, color2{1, 1, 1, 1};
-        params.getVector("$color", color);
-        params.getVector("$color2", color2);
-        const auto linear = [](float gamma) {
-            gamma = std::clamp(gamma, 0.f, 1.f);
-            return gamma <= 0.04045f ? gamma / 12.92f : std::pow((gamma + 0.055f) / 1.055f, 2.4f);
+        // c1 (SetModulationPixelShaderDynamicState_LinearColorSpace): GammaToLinear($color * $color2), $alpha.
+        auto modulation = GetColor(params, "$color", {1, 1, 1, 1}) * GetColor(params, "$color2", {1, 1, 1, 1});
+        modulation.setW(std::clamp(params.getFloat("$alpha", 1), 0.f, 1.f));
+        ps[1] = GammaToLinear(modulation);
+
+        EvaluateBlend(params, *out, baseAlpha, modulation.w());
+
+        const auto texture = [&](int unit, const char *key, QColor fallback, bool srgb) {
+            if (!params.has(key))
+                return false;
+            params.getTexture(out->addTexture(unit), key, fallback, srgb);
+            return true;
         };
-        const auto tint = color * color2;
-        out->modulation = {linear(tint.x()), linear(tint.y()), linear(tint.z()), std::clamp(params.getFloat("$alpha", 1), 0.f, 1.f)};
-
-        const bool translucent = params.getInt("$translucent") != 0, additive = params.getInt("$additive") != 0;
-        const bool alphaTest = params.getInt("$alphatest") != 0;
-        out->blend = additive ? (translucent ? MaterialBlend::TranslucentAdditive : MaterialBlend::Additive)
-            : translucent ? MaterialBlend::Translucent
-            : alphaTest ? MaterialBlend::AlphaTest : MaterialBlend::Opaque;
-        if (const float reference = params.getFloat("$alphatestreference"); reference > 0 && reference <= 1)
-            out->alphaTestReference = reference;
-
+        // $detail on sampler `unit`; $detailscale scales the base UVs into vc[52..53]
+        // (SetVertexShaderTextureScaledTransform). Returns the blend mode, or -1 without a detail texture.
+        const auto detail = [&](int unit, int modes) {
+            if (!params.has("$detail"))
+                return -1;
+            const int mode = params.getInt("$detailblendmode");
+            if (mode < 0 || mode >= modes)
+                params.fail(QStringLiteral("unsupported $detailblendmode %1").arg(mode));
+            // IsSRGBDetailTexture: detail over base, fade and base over detail blend colours.
+            texture(unit, "$detail", Qt::gray, mode == 2 || mode == 3 || mode == 4);
+            const auto scale = DetailScale(params);
+            out->vsConstants[52] = {scale.x(), 0, 0, 0};
+            out->vsConstants[53] = {0, scale.y(), 0, 0};
+            return mode;
+        };
         const bool halfLambert = params.getInt("$halflambert") != 0;
         const bool pixelFog = params.getInt("$vertexfog") == 0; // !( $flags & MATERIAL_VAR_VERTEXFOG )
+        const bool selfIllum = params.getInt("$selfillum") != 0;
+        const auto selfIllumTint = GetColor(params, "$selfillumtint", {1, 1, 1, 0});
+        const float tintFactor = params.getInt("$notint") ? -1.f : params.getInt("$blendtintbybasealpha") ? 0.f : 1.f;
+        const auto loadEnvmap = [&](int unit) {
+            return params.has("$envmap") && LoadEnvmap(params, out->addTexture(unit, QOpenGLTexture::TargetCubeMap));
+        };
         auto &combo = out->combo;
         if (!phong)
         {
+            const int detailMode = detail(2, 10);
+            const bool envmap = loadEnvmap(1);
+            const bool envmapMask = texture(4, "$envmapmask", Qt::white, false);
+            const bool selfIllumMask = selfIllum && texture(11, "$selfillummask", Qt::white, false);
+            const bool selfIllumInEnvmapMask = params.getInt("$selfillum_envmapmask_alpha") != 0 && envmapMask;
+            const bool baseAlphaEnvmapMask = params.getInt("$basealphaenvmapmask") != 0;
+            if (envmap)
+            {
+                ps[0] = GammaToLinear(GetColor(params, "$envmaptint", {1, 1, 1, 0}));
+                const float contrast = params.getFloat("$envmapcontrast");
+                ps[2] = {contrast, contrast, contrast, 0};
+            }
+            ps[3] = QVector4D(GetColor(params, "$envmapsaturation", {1, 1, 1, 0}).toVector3D(), selfIllumMask);
+            ps[4] = QVector4D(selfIllumTint.toVector3D(), detailMode >= 0 ? params.getFloat("$detailblendfactor", 1) : 1);
+            if (detailMode >= 0)
+                ps[10] = GammaToLinear(GetColor(params, "$detailtint", {1, 1, 1, 0}));
+            ps[11] = {params.getFloat("$selfillummaskscale", 1), 0, 0, 0};
+            ps[12] = {tintFactor, 0, 0, 0}; // shader controls: tint by base alpha, no depth/fog alpha, no vertex alpha
             combo.vs = "vertexlit_and_unlit_generic_vs30";
             combo.ps = "vertexlit_and_unlit_generic_ps30";
-            combo.vsStatic = StaticComboId(combo.vs, {{"HALFLAMBERT", halfLambert && !unlit}, {"DOPIXELFOG", pixelFog}});
+            combo.vsStatic = StaticComboId(combo.vs, {{"CUBEMAP", envmap}, {"HALFLAMBERT", halfLambert && !unlit}, {"DOPIXELFOG", pixelFog}});
             combo.vsDynamic = unlit ? 0 : genericVsDynamicLight;
-            combo.psStatic = StaticComboId(combo.ps, {{"DIFFUSELIGHTING", !unlit}, {"DOPIXELFOG", pixelFog}});
+            combo.psStatic = StaticComboId(combo.ps, {
+                {"DETAILTEXTURE", detailMode >= 0}, {"DETAIL_BLEND_MODE", uint32_t(std::max(detailMode, 0))}, {"CUBEMAP", envmap},
+                {"DIFFUSELIGHTING", !unlit}, {"ENVMAPMASK", envmapMask && (envmap || selfIllumInEnvmapMask)},
+                {"BASEALPHAENVMAPMASK", baseAlphaEnvmapMask && envmap}, {"SELFILLUM", selfIllum},
+                {"SELFILLUM_ENVMAPMASK_ALPHA", selfIllumInEnvmapMask}, {"DOPIXELFOG", pixelFog}});
             return out;
         }
 
-        auto &material = static_cast<PhongMaterial &>(*out);
         // SFM phong draw (0x100380F0): bPhongHalfLambert is true unless $phongdisablehalflambert is set.
         const bool phongHalfLambert = params.getInt("$phongdisablehalflambert") == 0;
+        params.getTexture(out->addTexture(3), "$bumpmap", QColor(128, 128, 255), false);
+        const bool exponentTexture = params.has("$phongexponenttexture");
+        params.getTexture(out->addTexture(7), "$phongexponenttexture", Qt::white, false);
+        const bool lightwarp = texture(2, "$lightwarptexture", Qt::white, false);
+        const bool phongWarp = texture(1, "$phongwarptexture", Qt::white, false);
+        const int detailMode = detail(13, 7);
+        const bool envmap = loadEnvmap(8);
+        const bool selfIllumMask = selfIllum && texture(14, "$selfillummask", Qt::white, false);
+        if (selfIllum && !selfIllumMask)
+            UploadSolidColor(out->addTexture(14), Qt::black);
+        const bool selfIllumFresnel = selfIllum && params.getInt("$selfillumfresnel") != 0;
+        const bool rimLight = params.getInt("$rimlight") != 0;
+
+        const float exponent = params.getFloat("$phongexponent");
+        QVector4D fresnelBoost{0, 0.5f, 1, params.getFloat("$phongboost", 1)};
+        if (!std::isfinite(exponent) || exponent < 0 || !std::isfinite(fresnelBoost.w()))
+            params.fail(QStringLiteral("invalid Phong exponent or boost"));
+        params.getVector("$phongfresnelranges", fresnelBoost);
+        auto tint = GetColor(params, "$phongtint", {1, 1, 1, 4});
+        if (rimLight)
+            tint.setW(std::max(params.getFloat("$rimlightexponent", 4), 1.f));
+        const bool albedoTint = params.getInt("$phongalbedotint") != 0;
+        if (tint.toVector3D().isNull()) // no constant tint: the exponent map's albedo tint, or white
+            tint = albedoTint && exponentTexture ? QVector4D(-1, 0, 0, tint.w()) : QVector4D(1, 1, 1, tint.w());
+
+        ps[0] = QVector4D(selfIllumTint.toVector3D(),
+                          detailMode >= 0 ? params.getFloat("$detailblendfactor", 1) : params.getFloat("$phongalbedoboost", 1));
+        if (envmap)
+            ps[2] = QVector4D(GetColor(params, "$envmaptint", {1, 1, 1, 0}).toVector3D(), params.getInt("$normalmapalphaenvmapmask") != 0);
+        if (selfIllumFresnel)
+        {
+            QVector4D minMaxExp{0, 1, 1, 0};
+            params.getVector("$selfillumfresnelminmaxexp", minMaxExp);
+            const float bias = minMaxExp.y() != 0 ? minMaxExp.x() / minMaxExp.y() : 0;
+            ps[3] = {1 - bias, bias, minMaxExp.z(), minMaxExp.y()};
+        }
+        ps[10] = {envmap ? params.getFloat("$envmapfresnel") : 0, float(params.getInt("$basemapluminancephongmask") != 0), exponent,
+                  float(selfIllumMask)};
+        if (rimLight)
+            ps[13] = {float(exponentTexture && params.getInt("$rimmask") != 0), 0, 0, 0};
+        ps[14] = {1, 1, 1, rimLight ? params.getFloat("$rimlightboost", 1) : 1};
+        ps[19] = fresnelBoost;
+        ps[26] = tint;
+        ps[27] = {float(params.getInt("$basemapalphaphongmask") != 0), 0, tintFactor, float(params.getInt("$invertphongmask") != 0)};
         combo.vs = "phong_vs30";
         combo.ps = "phong_ps30";
         combo.vsStatic = StaticComboId(combo.vs, {{"DOPIXELFOG", pixelFog}});
-        combo.psStatic = StaticComboId(combo.ps, {{"PHONG_HALFLAMBERT", phongHalfLambert}});
+        combo.psStatic = StaticComboId(combo.ps, {
+            {"CUBEMAP", envmap}, {"SELFILLUM", selfIllum}, {"SELFILLUMFRESNEL", selfIllumFresnel}, {"LIGHTWARPTEXTURE", lightwarp},
+            {"PHONGWARPTEXTURE", phongWarp}, {"DETAIL_BLEND_MODE", uint32_t(std::max(detailMode, 0))}, {"DETAILTEXTURE", detailMode >= 0},
+            {"RIMLIGHT", rimLight}, {"PHONG_HALFLAMBERT", phongHalfLambert}});
         combo.psDynamic = phongPsOneLight;
-        material.exponent = params.getFloat("$phongexponent");
-        material.fresnelBoost.setW(params.getFloat("$phongboost", 1));
-        if (!std::isfinite(material.exponent) || material.exponent < 0 || !std::isfinite(material.fresnelBoost.w()))
-            params.fail(QStringLiteral("invalid Phong exponent or boost"));
-        params.getVector("$phongfresnelranges", material.fresnelBoost);
-        params.getVector("$phongtint", material.tint);
-        material.alphaMask = params.getInt("$basemapalphaphongmask") != 0;
-        material.luminanceMask = params.getInt("$basemapluminancephongmask") != 0;
-        params.getTexture(material.normal, "$bumpmap", QColor(128, 128, 255), false);
-        params.getTexture(material.exponentMap, "$phongexponenttexture", Qt::white, false);
         return out;
     }
 
@@ -452,11 +675,7 @@ private:
 
         params.getTexture(out->cornea, "$corneatexture", QColor(128, 128, 0, 0), false);
         params.getTexture(out->ambientOccl, "$ambientoccltexture", Qt::white, true);
-        // HLMV binds hlmv/cubemap as the local cubemap that env_cubemap resolves to.
-        auto envmap = params.getString("$envmap");
-        if (envmap.isEmpty() || envmap.compare(QStringLiteral("env_cubemap"), Qt::CaseInsensitive) == 0)
-            envmap = QStringLiteral("hlmv/cubemap");
-        params.loadTexture(out->envmap, envmap, true);
+        LoadEnvmap(params, out->envmap, true);
         const bool lightwarp = params.has("$lightwarptexture");
         if (lightwarp)
             params.getTexture(out->lightwarp, "$lightwarptexture", Qt::white, false);
@@ -482,6 +701,7 @@ private:
     PhongShader m_phong;
     EyesShader m_eyes{m_constants};
     EyeRefractShader m_eyeRefract{m_constants};
+    TeethShader m_teeth;
 };
 } // namespace
 

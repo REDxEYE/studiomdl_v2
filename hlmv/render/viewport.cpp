@@ -24,7 +24,7 @@
 #include <QOpenGLShaderProgram>
 #include <QQuaternion>
 #include <QOpenGLTexture>
-#include <QOpenGLWindow>
+#include <QOpenGLWidget>
 #include <QSurfaceFormat>
 #include <QVector4D>
 #include <QWheelEvent>
@@ -60,16 +60,18 @@ struct RenderProgram
     const Shader *shader = nullptr;
 };
 
-class ModelViewport final : public QOpenGLWindow, protected QOpenGLFunctions
+// A QOpenGLWidget, not a QOpenGLWindow in a window container: on Wayland with NVIDIA's EGL a desktop-GL QWindow
+// never reaches the screen, while the widget's FBO is composed by the widget stack.
+class ModelViewport final : public QOpenGLWidget, protected QOpenGLFunctions
 {
 public:
     ModelViewport(QString vertexPath, QString fragmentPath, QString modelPath, MdlMesh mesh, bool check, bool checker,
                   ViewportSettings *settings, QString shaderDirectory = {})
-        : QOpenGLWindow(PartialUpdateBlit), m_vertexPath(std::move(vertexPath)),
+        : m_vertexPath(std::move(vertexPath)),
           m_fragmentPath(std::move(fragmentPath)), m_modelPath(std::move(modelPath)),
           m_shaderDirectory(std::move(shaderDirectory)), m_mesh(std::move(mesh)), m_check(check), m_checker(checker), m_settings(settings)
     {
-        setTitle(m_modelPath.isEmpty() ? QStringLiteral("SFM shader probe") :
+        setWindowTitle(m_modelPath.isEmpty() ? QStringLiteral("SFM shader probe") :
             QStringLiteral("SFM model preview — ") + QFileInfo(m_modelPath).fileName());
         resize(640, 480);
     }
@@ -87,13 +89,20 @@ public:
     }
 
 protected:
+    // The self-checks finish in paintGL, which the widget stack may run synchronously on first show, before
+    // app.exec() starts; a direct QCoreApplication::exit would then be ignored, so queue it.
+    static void QuitWith(int code)
+    {
+        QMetaObject::invokeMethod(qApp, [code] { QCoreApplication::exit(code); }, Qt::QueuedConnection);
+    }
+
     void reportFailure(const QString &error)
     {
         qCritical().noquote() << error;
         if (m_settings)
             m_settings->reportError(error);
         else
-            QCoreApplication::exit(1);
+            QuitWith(1);
     }
 
     void markMissing(std::unique_ptr<Material> &material, const QString &name, const char *error)
@@ -105,6 +114,7 @@ protected:
     void initializeGL() override
     {
         initializeOpenGLFunctions();
+        glFrontFace(GL_CW); // Source culls D3D-style: counter-clockwise triangles are back faces
         if (!m_vertices.create() || !m_vertices.bind())
         {
             reportFailure(QStringLiteral("Could not allocate SFM geometry"));
@@ -441,10 +451,32 @@ protected:
             gl21->glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         uploadCamera();
         updateEyes();
-        // Opaque and alpha-tested meshes first, then blended ones without depth writes, as Source sorts them.
-        for (const bool blended : {false, true})
-            for (size_t i = 0; i < m_programs.size(); ++i)
-                drawPass(*m_programs[i], int(i), specular, blended);
+        // studiorender's R_StudioRenderModel: opaque meshes first (grouped by program here), then the translucent ones
+        // in mesh order, switching programs between runs.
+        const auto translucent = [&](size_t b) {
+            const int texture = textureOf(m_mesh.batches[b]);
+            return visible(m_mesh.batches[b]) && m_materials[texture]->translucent();
+        };
+        const auto programOf = [&](size_t b) { return m_materialProgram[textureOf(m_mesh.batches[b])]; };
+        for (size_t i = 0; i < m_programs.size(); ++i)
+            drawPass(*m_programs[i], int(i), specular, [&](size_t b) {
+                return visible(m_mesh.batches[b]) && programOf(b) == int(i) && !m_materials[textureOf(m_mesh.batches[b])]->translucent();
+            });
+        for (size_t first = 0; !m_materials.empty() && first < m_mesh.batches.size();)
+        {
+            if (!translucent(first) || programOf(first) < 0)
+            {
+                ++first;
+                continue;
+            }
+            const int program = programOf(first);
+            size_t last = first + 1;
+            while (last < m_mesh.batches.size() && (!translucent(last) || programOf(last) == program))
+                ++last;
+            drawPass(*m_programs[program], program, specular,
+                     [&](size_t b) { return b >= first && b < last && translucent(b) && programOf(b) == program; });
+            first = last;
+        }
         if (gl21)
             gl21->glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         if (m_indexCount && m_settings && anyOverlay())
@@ -633,32 +665,46 @@ protected:
         }
     }
 
-    static bool IsBlended(MaterialBlend blend)
-    {
-        return blend == MaterialBlend::Translucent || blend == MaterialBlend::Additive || blend == MaterialBlend::TranslucentAdditive;
-    }
-
-    void applyBlend(MaterialBlend blend, float alphaTestReference = 0.5f)
+    // The material's shadow state (CBaseShader): blending without depth writes (EnableAlphaBlending), D3D9's
+    // fixed-function alpha test (the GL compatibility profile still applies it after the shader), and
+    // SetInitialShadowState's $nocull, $decal and $ignorez. Null restores the defaults used by overlays.
+    void applyMaterialState(const Material *material)
     {
         auto *gl21 = QOpenGLVersionFunctionsFactory::get<QOpenGLFunctions_2_1>(context());
-        glDepthMask(IsBlended(blend) ? GL_FALSE : GL_TRUE);
-        if (IsBlended(blend))
+        const auto blend = material ? material->blend : MaterialBlend::None;
+        if (blend == MaterialBlend::None)
+            glDisable(GL_BLEND);
+        else
         {
             glEnable(GL_BLEND);
             switch (blend)
             {
-            case MaterialBlend::Translucent: glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); break;
-            case MaterialBlend::Additive: glBlendFunc(GL_ONE, GL_ONE); break;
+            case MaterialBlend::Blend: glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); break;
+            case MaterialBlend::Add: glBlendFunc(GL_ONE, GL_ONE); break;
             default: glBlendFunc(GL_SRC_ALPHA, GL_ONE); break;
             }
         }
+        const bool decal = material && material->decal, ignoreZ = material && material->ignoreZ;
+        glDepthMask(blend == MaterialBlend::None && !decal && !ignoreZ ? GL_TRUE : GL_FALSE);
+        if (ignoreZ)
+            glDisable(GL_DEPTH_TEST);
         else
-            glDisable(GL_BLEND);
-        // D3D9 alpha test is fixed-function state; the GL compatibility profile still applies it after the shader.
-        if (gl21 && blend == MaterialBlend::AlphaTest)
+            glEnable(GL_DEPTH_TEST);
+        if (decal) // SHADER_POLYOFFSET_DECAL
+        {
+            glEnable(GL_POLYGON_OFFSET_FILL);
+            glPolygonOffset(-1, -1);
+        }
+        else
+            glDisable(GL_POLYGON_OFFSET_FILL);
+        if (material && !material->noCull)
+            glEnable(GL_CULL_FACE);
+        else
+            glDisable(GL_CULL_FACE);
+        if (gl21 && material && material->alphaTest)
         {
             gl21->glEnable(GL_ALPHA_TEST);
-            gl21->glAlphaFunc(GL_GEQUAL, alphaTestReference);
+            gl21->glAlphaFunc(GL_GEQUAL, material->alphaTestReference);
         }
         else if (gl21)
             gl21->glDisable(GL_ALPHA_TEST);
@@ -686,7 +732,7 @@ protected:
             {
                 stats.indices += int(batch.count);
                 if (const int texture = textureOf(batch); size_t(texture) < m_materials.size() && m_materials[texture])
-                    stats.transparent |= IsBlended(m_materials[texture]->blend);
+                    stats.transparent |= m_materials[texture]->translucent();
             }
         if (stats != m_stats)
             m_settings->reportStats(m_stats = stats);
@@ -790,15 +836,18 @@ protected:
         }
     }
 
-    void drawPass(RenderProgram &state, int programIndex, bool specular, bool blended)
+    // Draws the batches `draws` selects with one program; without model materials, every visible batch.
+    void drawPass(RenderProgram &state, int programIndex, bool specular, const std::function<bool(size_t)> &draws)
     {
-        if (!m_materials.empty() &&
-            std::ranges::none_of(m_mesh.batches, [&](const MeshBatch &batch) {
-                const int texture = textureOf(batch);
-                return visible(batch) && m_materialProgram[texture] == programIndex && IsBlended(m_materials[texture]->blend) == blended;
-            }))
-            return;
-        if (m_materials.empty() && blended)
+        if (!m_materials.empty())
+        {
+            bool any = false;
+            for (size_t b = 0; b < m_mesh.batches.size() && !any; ++b)
+                any = draws(b);
+            if (!any)
+                return;
+        }
+        else if (programIndex != 0)
             return;
         auto &inputs = state.program;
         auto &program = inputs.gl;
@@ -813,6 +862,14 @@ protected:
             // HLMV's Options → Light/Ambient Color: one directional light plus a uniform ambient cube.
             frame.light = {float(m_settings->light.redF()), float(m_settings->light.greenF()), float(m_settings->light.blueF()), 1};
             frame.ambient = {float(m_settings->ambient.redF()), float(m_settings->ambient.greenF()), float(m_settings->ambient.blueF()), 1};
+        }
+        // studiorender's R_MouthSetupVertexShader, mouth 0: forward rotated by its bone and negated, flex weight clamped.
+        if (!m_mesh.mouths.empty())
+        {
+            const auto &mouth = m_mesh.mouths.front();
+            const float weight = size_t(mouth.flexdesc) < m_flexWeights.size() ? m_flexWeights[mouth.flexdesc] : 0.f;
+            const auto forward = size_t(mouth.bone) < m_pose.size() ? m_pose[mouth.bone].mapVector(mouth.forward) : mouth.forward;
+            frame.mouth = QVector4D(-forward, std::clamp(weight, 0.f, 1.f));
         }
         // The probe quad keeps the program's static camera and lights.
         if (state.shader && m_indexCount)
@@ -837,21 +894,22 @@ protected:
             attribute(inputs.tangent, offsetof(Vertex, tangent), 4);
         if (inputs.color >= 0)
             program.setAttributeValue(inputs.color, QVector4D{1, 1, 1, 1});
-        if (inputs.delta >= 0)
-            program.setAttributeValue(inputs.delta, QVector4D{});
+        for (const int delta : {inputs.delta, inputs.deltaNormal})
+            if (delta >= 0)
+                program.setAttributeValue(delta, QVector4D{});
         if (m_indexCount)
         {
             m_indices.bind();
             if (m_materials.empty())
                 drawVisibleBatches();
             else
-                for (const auto &batch : m_mesh.batches)
+                for (size_t b = 0; b < m_mesh.batches.size(); ++b)
                 {
-                    const int texture = textureOf(batch);
-                    auto &material = *m_materials[texture];
-                    if (!visible(batch) || m_materialProgram[texture] != programIndex || IsBlended(material.blend) != blended)
+                    if (!draws(b))
                         continue;
-                    applyBlend(material.blend, material.alphaTestReference);
+                    const auto &batch = m_mesh.batches[b];
+                    auto &material = *m_materials[textureOf(batch)];
+                    applyMaterialState(&material);
                     if (state.shader)
                     {
                         const bool eyeball = batch.eyeball >= 0 && size_t(batch.eyeball) < m_eyeStates.size();
@@ -864,7 +922,7 @@ protected:
             glActiveTexture(GL_TEXTURE0);
             m_indices.release();
             if (!m_materials.empty())
-                applyBlend(MaterialBlend::Opaque); // restore opaque state for the next pass and readback
+                applyMaterialState(nullptr); // restore defaults for the next pass, overlays and readback
             if (inputs.normal >= 0)
                 program.disableAttributeArray(inputs.normal);
         }
@@ -892,7 +950,8 @@ protected:
         std::vector<float> controllers(flex.controllers.size());
         for (size_t i = 0; i < controllers.size(); ++i)
             controllers[i] = m_settings->flexRaw[i] * (flex.controllers[i].max - flex.controllers[i].min) + flex.controllers[i].min;
-        ApplyFlexes(flex, RunFlexRules(flex, controllers), m_mesh.vertices, m_flexedVertices);
+        m_flexWeights = RunFlexRules(flex, controllers);
+        ApplyFlexes(flex, m_flexWeights, m_mesh.vertices, m_flexedVertices);
         m_geometryDirty = true;
     }
 
@@ -965,7 +1024,7 @@ protected:
                 if (rendered.isNull())
                 {
                     qCritical() << "Could not allocate framebuffer readback";
-                    QCoreApplication::exit(1);
+                    QuitWith(1);
                     return;
                 }
                 glReadPixels(0, 0, rendered.width(), rendered.height(), GL_RGBA, GL_UNSIGNED_BYTE, rendered.bits());
@@ -1008,7 +1067,7 @@ protected:
                         qInfo() << "Missing material checker: " << pinkPixels << "visible magenta pixels";
                     if (m_phong)
                         qInfo() << "Phong highlight changes framebuffer:" << sawSpecular;
-                    QCoreApplication::exit(pass ? 0 : 1);
+                    QuitWith(pass ? 0 : 1);
                     return;
                 }
                 int light = 0, dark = 0;
@@ -1045,7 +1104,7 @@ protected:
                         << "with" << depthBits << "depth bits";
                 if (m_vertexLit)
                     qInfo() << "HLMV lighting: gold-channel ambient/highlight" << ambient << highlight;
-                QCoreApplication::exit(pass ? 0 : 1);
+                QuitWith(pass ? 0 : 1);
                 return;
             }
             const auto pixel = [&](int x) {
@@ -1068,7 +1127,7 @@ protected:
                           left[0], left[1], left[2], left[3],
                           right[0], right[1], right[2], right[3],
                           outside[0], outside[1], outside[2], outside[3]);
-            QCoreApplication::exit(pass ? 0 : 1);
+            QuitWith(pass ? 0 : 1);
         }
     }
 
@@ -1087,6 +1146,7 @@ private:
     int m_drawCalls = 0;                        // glDrawElements calls in the last drawScene
     ViewportStats m_stats;                      // last reported
     int m_flexRevision = -1;
+    std::vector<float> m_flexWeights; // flex descriptor weights from the last RunFlexRules
     bool m_check;
     bool m_checker;
     ViewportSettings *m_settings;
@@ -1123,19 +1183,18 @@ void ConfigureSfmViewport()
     QSurfaceFormat format;
     format.setRenderableType(QSurfaceFormat::OpenGL);
     format.setVersion(2, 1); // GLSL 1.20 uses compatibility built-ins.
-    format.setAlphaBufferSize(8);
     format.setDepthBufferSize(24);
     QSurfaceFormat::setDefaultFormat(format);
 }
 
-std::unique_ptr<QOpenGLWindow> CreateSfmViewport(QString vertexShader, QString fragmentShader, QString modelPath,
+std::unique_ptr<QOpenGLWidget> CreateSfmViewport(QString vertexShader, QString fragmentShader, QString modelPath,
                                            MdlMesh mesh, bool check, bool checker, ViewportSettings *settings)
 {
     return std::make_unique<ModelViewport>(std::move(vertexShader), std::move(fragmentShader), std::move(modelPath),
                                            std::move(mesh), check, checker, settings);
 }
 
-std::unique_ptr<QOpenGLWindow> CreateSfmVcsViewport(QString shaderDirectory, QString modelPath, MdlMesh mesh,
+std::unique_ptr<QOpenGLWidget> CreateSfmVcsViewport(QString shaderDirectory, QString modelPath, MdlMesh mesh,
                                                    bool check, ViewportSettings &settings)
 {
     return std::make_unique<ModelViewport>(QString(), QString(), std::move(modelPath), std::move(mesh),

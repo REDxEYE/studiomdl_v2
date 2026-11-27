@@ -217,7 +217,8 @@ static void FileSystem_AddLoadedSearchPath(IFileSystem* pFileSystem, std::string
     pFileSystem->AddSearchPath(fullLocationPath.view(), pathID, PATH_ADD_TO_TAIL);
 }
 
-FSReturnCode_t FileSystem_LoadSearchPaths(IFileSystem* pFileSystem, const std::string_view gameInfoDir) {
+FSReturnCode_t FileSystem_LoadSearchPaths(IFileSystem* pFileSystem, const std::string_view gameInfoDir,
+                                          const std::string_view baseDirOverride) {
     if (!pFileSystem || gameInfoDir.empty())
         return SetupFileSystemError(FS_INVALID_PARAMETERS, "FileSystem_LoadSearchPaths: Invalid parameters specified.");
 
@@ -227,9 +228,10 @@ FSReturnCode_t FileSystem_LoadSearchPaths(IFileSystem* pFileSystem, const std::s
         return retVal;
 
     // All paths except those marked with |gameinfo_path| are relative to the base dir.
-    std::string baseDir;
-    if (!FileSystem_GetBaseDir(baseDir))
+    std::string baseDir(baseDirOverride);
+    if (baseDir.empty() && !FileSystem_GetBaseDir(baseDir))
         return SetupFileSystemError(FS_INVALID_PARAMETERS, "FileSystem_GetBaseDir failed.");
+    vstd::paths::append_slash(baseDir);
 
     constexpr std::string_view GAMEINFOPATH_TOKEN = "|gameinfo_path|";
     constexpr std::string_view BASESOURCEPATHS_TOKEN = "|all_source_engine_paths|";

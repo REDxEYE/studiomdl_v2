@@ -56,6 +56,13 @@ constexpr ComboSlot k_eye_refract_ps30_slots[] = {
     {"WORLD_NORMAL", 48, 2},
 };
 
+// teeth_vs30 / teeth_bump_vs30, Teeth_DX9 draw function 0x10049FF0 (SM3 branch):
+//   ( INTRO + 2 * ( dxlevel >= 92 ) ) << 6 and 32 * ( INTRO + 2 * ( dxlevel >= 92 ) ); pixel shaders static 0.
+constexpr ComboSlot k_teeth_vs30_slots[] = {
+    {"INTRO", 1, 2},
+    {"DOPIXELFOG", 2, 2},
+};
+
 constexpr ComboLayout k_manualLayouts[] = {
     {"phong_vs30", 8, 48, k_phong_vs30_slots},
     {"vertexlit_and_unlit_generic_bump_vs30", 64, 48, k_vertexlit_and_unlit_generic_bump_vs30_slots},
@@ -63,4 +70,8 @@ constexpr ComboLayout k_manualLayouts[] = {
     {"eyes_ps30", 1, 4, {}},
     {"eye_refract_vs30", 64, 480, k_eye_refract_vs30_slots},
     {"eye_refract_ps30", 96, 40, k_eye_refract_ps30_slots},
+    {"teeth_vs30", 4, 64, k_teeth_vs30_slots},
+    {"teeth_ps30", 1, 4, {}},
+    {"teeth_bump_vs30", 4, 32, k_teeth_vs30_slots},
+    {"teeth_bump_ps30", 1, 40, {}},
 };

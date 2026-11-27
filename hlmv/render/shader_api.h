@@ -8,6 +8,7 @@
 #include <compare>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 
 #include <QOpenGLShaderProgram>
@@ -31,7 +32,7 @@ struct ShaderProgram
     QOpenGLShaderProgram gl;
     ShaderCombo combo;
     int position = -1, uv = -1, normal = -1, tangent = -1, color = -1;
-    int delta = -1;        // POSITION1 flex delta stream, fed a constant zero
+    int delta = -1, deltaNormal = -1; // POSITION1 / NORMAL1 flex delta streams, fed a constant zero
     bool lit = false;      // vertex lighting applied (the probe's lighting check)
     bool specular = false; // output depends on FrameState::specular (the probe's highlight check)
 };
@@ -52,6 +53,9 @@ struct FrameState
     QVector3D center;
     QVector4D light{1, 1, 1, 1}, ambient{0.3f, 0.3f, 0.3f, 1};
     bool specular = true;
+    // studiorender's R_MouthSetupVertexShader for mouth 0: -forward in model space and the mouth flex weight
+    // (Teeth's $forward, $illumfactor); unset for models without mouths, where the VMT values apply.
+    std::optional<QVector4D> mouth;
 };
 
 // studiorender's per-eyeball state (R_StudioEyeballPosition) as SetEyeMaterialVars hands it to eye shaders.

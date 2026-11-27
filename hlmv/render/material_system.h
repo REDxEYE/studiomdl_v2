@@ -17,7 +17,8 @@
 
 class KeyValues;
 
-enum class MaterialBlend { Opaque, AlphaTest, Translucent, Additive, TranslucentAdditive };
+// BaseVSShader's BlendType_t: none, SRC_ALPHA/ONE_MINUS_SRC_ALPHA, ONE/ONE, SRC_ALPHA/ONE.
+enum class MaterialBlend { None, Blend, Add, BlendAdd };
 
 // What the renderer needs of every material; shader sets derive their parameter blocks from it.
 class Material
@@ -26,8 +27,13 @@ public:
     virtual ~Material() = default;
     const Shader *shader = nullptr; // null: draw the missing-material checker
     ShaderCombo combo;
-    MaterialBlend blend = MaterialBlend::Opaque;
-    float alphaTestReference = 0.5f;
+    MaterialBlend blend = MaterialBlend::None; // blending also disables depth writes (CBaseShader::EnableAlphaBlending)
+    bool alphaTest = false;
+    float alphaTestReference = 0.7f; // CShaderShadowDX8::SetDefaultState's GEQUAL reference
+    // CBaseShader::SetInitialShadowState flags, read for every shader
+    bool noCull = false, decal = false, ignoreZ = false;
+    // studiorender draws these meshes in its second, translucent pass (R_StudioRenderModel)
+    bool translucent() const { return blend != MaterialBlend::None; }
     QOpenGLTexture base{QOpenGLTexture::Target2D}; // $basetexture, or the 1x1 default
     QStringList ignored;                           // VMT parameters the shader did not read
 };
@@ -50,10 +56,10 @@ public:
     // [r g b] in 0..1 or {r g b} in 0..255, like Source's material vector parser; leaves `value` when absent.
     void getVector(const char *key, QVector4D &value);
     // Loads texture `key`, or a 1x1 `fallback` when absent (Source binds its default textures). Returns the
-    // file path, or "(default)".
-    QString getTexture(QOpenGLTexture &texture, const char *key, QColor fallback, bool srgb);
+    // file path, or "(default)"; `hasAlpha` receives ITexture::IsTranslucent.
+    QString getTexture(QOpenGLTexture &texture, const char *key, QColor fallback, bool srgb, bool *hasAlpha = nullptr);
     // Loads materials/<name>.vtf directly, e.g. what a $envmap name resolves to; returns the file path.
-    QString loadTexture(QOpenGLTexture &texture, const QString &name, bool srgb);
+    QString loadTexture(QOpenGLTexture &texture, const QString &name, bool srgb, bool *hasAlpha = nullptr);
     void accept(std::initializer_list<const char *> keys); // parameters without a visible effect here
     QStringList unread() const;
 

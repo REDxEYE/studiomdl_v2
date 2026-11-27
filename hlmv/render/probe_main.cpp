@@ -3,12 +3,12 @@
 #include <exception>
 
 #include <QDebug>
-#include <QGuiApplication>
+#include <QApplication>
 
 int main(int argc, char **argv)
 {
     ConfigureSfmViewport();
-    QGuiApplication app(argc, argv);
+    QApplication app(argc, argv); // the viewport is a QOpenGLWidget
     auto args = app.arguments();
     const bool check = args.removeOne(QStringLiteral("--check"));
     const bool checker = args.removeOne(QStringLiteral("--checker"));
