@@ -5,6 +5,10 @@ tracks what each one does today. **Stub** = laid out, accepts input, no effect. 
 for some cases. Upstream behaviour lives in `upstream/mdlviewer.cpp` (menus) and
 `upstream/controlpanel.cpp` (panel), keyed by the `IDC_*` id.
 
+Start `hlmv` without arguments to choose the Source Filmmaker installation (or its `game` or
+`platform/shaders/fxc` directory). HLMV remembers the selection and prompts again if it becomes invalid.
+An explicit shader directory still overrides the saved location for that launch.
+
 Backend each item needs: **R** renderer (`render/viewport.cpp`), **A** animation/sequence
 playback, **M** model data (`render/mdl_mesh.cpp`), **P** physics (.phy), **S** sound, **C** compile.
 
