@@ -1,4 +1,6 @@
 #include <QApplication>
+#include <QDebug>
+#include <QFileInfo>
 
 #include "mdlviewer.h"
 
@@ -14,7 +16,20 @@ int main(int argc, char **argv)
         return 2;
     }
 
-    MDLViewer viewer(args[1], check);
+    QString shaderPath = args[1];
+#ifdef Q_OS_WIN
+    // Legacy PowerShell argument passing can turn a trailing backslash into a literal quote.
+    if (shaderPath.endsWith(u'"'))
+        shaderPath.chop(1);
+#endif
+    const QFileInfo shaderDirectory(shaderPath);
+    if (!shaderDirectory.isDir())
+    {
+        qCritical().noquote() << "Shader directory does not exist:" << shaderPath;
+        return 2;
+    }
+
+    MDLViewer viewer(shaderDirectory.absoluteFilePath(), check);
     if (args.size() == 3 && !viewer.LoadModelFile(args[2]) && check)
         return 1;
     viewer.show();
