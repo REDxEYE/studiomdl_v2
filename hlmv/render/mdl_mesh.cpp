@@ -573,6 +573,30 @@ MdlMesh LoadMdlMesh(const QString &path)
                 mdl.fail(QStringLiteral("invalid model vertex or mesh range"));
             const auto meshes = mdl.table(model, mdl.read<int>(model + offsetof(mstudiomodel_t, meshindex)), meshCount, sizeof(mstudiomesh_t));
             const auto vtxMeshes = vtx.table(vtxModel + modelHeader.lodOffset, lod.meshOffset, meshCount, sizeof(MeshHeader_t));
+            // studiorender's eyeball path: meshes with materialtype 1 draw eyeball[materialparam] of their model.
+            const int eyeballCount = mdl.read<int>(model + offsetof(mstudiomodel_t, numeyeballs));
+            const auto eyeballs = mdl.table(model, mdl.read<int>(model + offsetof(mstudiomodel_t, eyeballindex)), eyeballCount,
+                                            sizeof(mstudioeyeball_t));
+            const int firstEyeball = int(result.eyeballs.size());
+            for (int i = 0; i < eyeballCount; ++i)
+            {
+                const auto eyeball = eyeballs + i * sizeof(mstudioeyeball_t);
+                const auto vec = [&](size_t offset) {
+                    const auto v = mdl.read<std::array<float, 3>>(eyeball + offset);
+                    if (!std::ranges::all_of(v, [](float x) { return std::isfinite(x); }))
+                        mdl.fail(QStringLiteral("invalid eyeball"));
+                    return QVector3D(v[0], v[1], v[2]);
+                };
+                MdlEyeball out{mdl.read<int>(eyeball + offsetof(mstudioeyeball_t, bone)), vec(offsetof(mstudioeyeball_t, org)),
+                               vec(offsetof(mstudioeyeball_t, up)), vec(offsetof(mstudioeyeball_t, forward)),
+                               mdl.read<float>(eyeball + offsetof(mstudioeyeball_t, zoffset)),
+                               mdl.read<float>(eyeball + offsetof(mstudioeyeball_t, radius)),
+                               mdl.read<float>(eyeball + offsetof(mstudioeyeball_t, iris_scale))};
+                if (out.bone < 0 || size_t(out.bone) >= result.bones.size() || !std::isfinite(out.zoffset) ||
+                    !std::isfinite(out.irisScale) || out.irisScale == 0)
+                    mdl.fail(QStringLiteral("invalid eyeball"));
+                result.eyeballs.push_back(out);
+            }
             for (int meshID = 0; meshID < meshCount; ++meshID)
             {
                 const auto mesh = meshes + meshID * sizeof(mstudiomesh_t);
@@ -591,7 +615,12 @@ MdlMesh LoadMdlMesh(const QString &path)
                     const int texture = mdl.read<int16_t>(skins + slot * sizeof(int16_t));
                     if (texture < 0 || texture >= textureCount)
                         mdl.fail(QStringLiteral("material outside texture table"));
-                    result.batches.push_back({indexStart, result.indices.size() - indexStart, texture, slot, bodyID, modelID, 0});
+                    const int materialType = mdl.read<int>(mesh + offsetof(mstudiomesh_t, materialtype));
+                    const int materialParam = mdl.read<int>(mesh + offsetof(mstudiomesh_t, materialparam));
+                    if (materialType == 1 && (materialParam < 0 || materialParam >= eyeballCount))
+                        mdl.fail(QStringLiteral("eyeball mesh refers to a missing eyeball"));
+                    result.batches.push_back({indexStart, result.indices.size() - indexStart, texture, slot, bodyID, modelID, 0,
+                                              materialType == 1 ? firstEyeball + materialParam : -1});
                 }
             }
         }
@@ -605,6 +634,10 @@ MdlMesh LoadMdlMesh(const QString &path)
         SkinVertices(result, result.vertices, result.bones, rest);
     if (!FrameVertices(result, result.weights.empty() ? result.vertices : rest))
         mdl.fail(QStringLiteral("invalid or degenerate mesh bounds"));
+    if (const int hdr2 = mdl.read<int>(offsetof(studiohdr_t, studiohdr2index)))
+        if (const float deflection = mdl.read<float>(hdr2 + offsetof(studiohdr2_t, flMaxEyeDeflection));
+            std::isfinite(deflection) && deflection != 0.0f)
+            result.maxEyeDeflection = deflection;
     result.info = ReadInfo(mdl);
     return result;
 }

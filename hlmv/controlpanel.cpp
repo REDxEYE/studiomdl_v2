@@ -131,6 +131,7 @@ void ControlPanel::SetupRenderWindow(mxTab *pTab)
     cbIllumPosition = new mxCheckBox(wRender, 275, 105, 150, 20, "Illum. Position", IDC_ILLUMPOSITION);
     cbPlaySounds = new mxCheckBox(wRender, 275, 125, 150, 20, "Play Sounds", IDC_PLAYSOUNDS);
     cbShowOriginAxis = new mxCheckBox(wRender, 275, 145, 150, 20, "Show Origin Axis", IDC_SHOWORIGINAXIS);
+    new mxCheckBox(wRender, 450, 145, 150, 20, "Enable Eye Look", IDC_EYELOOK); // SFM hlmv: eyes follow the camera
 
     new mxLabel(wRender, 275, 170, 45, 18, "Axis Len:");
     leOriginAxisLength = new mxSlider(wRender, 320, 165, 105, 22, IDC_ORIGINAXISLENGTH);
@@ -273,8 +274,14 @@ void ControlPanel::SetupBodyWindow(mxTab *pTab)
     cMaterials = new mxChoice(wBody, 105, 166, 350, 22, IDC_MATERIALS);
     mxToolTip::add(cMaterials, "Select material for UV Chart view");
 
-    lModelInfo3 = new mxLabel(wBody, 220, 100, 120, 22, "");
-    lModelInfo4 = new mxLabel(wBody, 220, 118, 120, 22, "");
+    // SFM HLMV's stats lines; repositioned below both info columns because Qt fonts make those taller.
+    lModelInfo3 = new mxLabel(wBody, 220, 104, 280, 32, "");
+    lModelInfo4 = new mxLabel(wBody, 220, 136, 160, 18, "");
+    m_settings.reportStats = [this](const ViewportStats &stats) {
+        lModelInfo3->setLabel("Shader Draw Count: %d\nVerts: %d  Indexes: %d  Triangles: %d", stats.drawCalls, stats.vertices,
+                              stats.indices, stats.indices / 3);
+        lModelInfo4->setLabel("Model is: %s", stats.transparent ? "transparent" : "opaque");
+    };
 
     cbAutoLOD = new mxCheckBox(wBody, 5, 80, 100, 20, "Auto LOD", IDC_AUTOLOD);
     cLODChoice = new mxChoice(wBody, 5, 101, 100, 22, IDC_LODCHOICE);
@@ -314,8 +321,7 @@ void ControlPanel::SetupFlexWindow(mxTab *pTab)
     {
         const int w = (i / FLEX_ROWS_OF_SLIDERS) * (FLEX_SLIDER_WIDTH + FLEX_DROPDOWN_WIDTH + 4) + 5;
         const int h = (i % FLEX_ROWS_OF_SLIDERS) * 20 + 5;
-        cFlex[i] = new mxChoice(wFlex, w, h, FLEX_DROPDOWN_WIDTH, 22, IDC_FLEX + i);
-        mxToolTip::add(cFlex[i], "Select Flex");
+        lFlex[i] = new mxLabel(wFlex, w, h + 2, FLEX_DROPDOWN_WIDTH - 4, 18, "");
         slFlexScale[i] = new mxSlider(wFlex, w + FLEX_DROPDOWN_WIDTH, h, FLEX_SLIDER_WIDTH, 18, IDC_FLEXSCALE + i);
         slFlexScale[i]->setRange(0, 1.0);
         slFlexScale[i]->setValue(0);
@@ -330,6 +336,10 @@ void ControlPanel::SetupFlexWindow(mxTab *pTab)
     new mxButton(wFlex, w, h + 1, FLEX_DROPDOWN_WIDTH - 2, 18, "Zero", IDC_FLEXZERO);
     w += (FLEX_DROPDOWN_WIDTH + 4) + 5;
     new mxButton(wFlex, w, h + 1, FLEX_DROPDOWN_WIDTH - 2, 18, "One", IDC_FLEXONE);
+    w += (FLEX_DROPDOWN_WIDTH + 4) + 5;
+    bFlexPrev = new mxButton(wFlex, w, h + 1, 24, 18, "<", IDC_FLEXPREV);
+    lFlexPage = new mxLabel(wFlex, w + 28, h + 3, 80, 18, "");
+    bFlexNext = new mxButton(wFlex, w + 110, h + 1, 24, 18, ">", IDC_FLEXNEXT);
 }
 
 void ControlPanel::SetupPhysicsWindow(mxTab *pTab)
@@ -820,20 +830,13 @@ void ControlPanel::OnLoadModel(const MdlMesh &mesh)
     m_pAttachmentsWindow->OnLoadModel(info);
     UpdateIKRuleWindow();
 
-    // upstream ControlPanel flex setup: every slider lists all controllers and shows the last 48 by default.
     m_flexControllers = mesh.flex.controllers;
     const int controllerCount = int(m_flexControllers.size());
-    for (int j = 0; j < NUM_FLEX_SLIDERS; j++)
-    {
-        cFlex[j]->removeAll();
-        for (const auto &controller : m_flexControllers)
-            cFlex[j]->add(controller.name.toUtf8().constData());
-        cFlex[j]->select(controllerCount - NUM_FLEX_SLIDERS + j); // negative selects nothing, as on Win32
-    }
+    m_flexPage = 0;
     m_settings.flexRaw.assign(m_flexControllers.size(), 0.f);
     for (int i = 0; i < controllerCount; i++)
         SetFlexController(i, 0.0f);
-    UpdateFlexSliders();
+    UpdateFlexPage();
 }
 
 void ControlPanel::SetFlexController(int index, float value)
@@ -1148,18 +1151,43 @@ void ControlPanel::UpdateBodyInfo()
     const auto extent = m_info.hullMax - m_info.hullMin;
     char str[512];
     std::snprintf(str, sizeof(str),
-                  "Materials: %d\nSkin Families: %d\nBodyparts: %d\nAttachments: %d\nBody index: %d\n"
-                  "Hull extent (X): %.2f\nHull extent (Y): %.2f\nHull extent (Z): %.2f\n",
-                  m_materialCount, m_info.skinFamilies, int(m_info.bodyParts.size()), int(m_info.attachments.size()), body,
-                  std::abs(extent.x()), std::abs(extent.y()), std::abs(extent.z()));
+                  "Materials: %d\nSkin Families: %d\nBodyparts: %d\nAttachments: %d\nBody index: %d\n",
+                  //"Hull extent (X): %.2f\nHull extent (Y): %.2f\nHull extent (Z): %.2f\n",
+                  m_materialCount, m_info.skinFamilies, int(m_info.bodyParts.size()), int(m_info.attachments.size()), body
+                  //std::abs(extent.x()), std::abs(extent.y()), std::abs(extent.z())
+                  );
     lModelInfo2->setLabel("%s", str);
+}
+
+int ControlPanel::FlexIndex(int slot) const
+{
+    const int index = m_flexPage * NUM_FLEX_SLIDERS + slot;
+    return index < int(m_flexControllers.size()) ? index : -1;
+}
+
+void ControlPanel::UpdateFlexPage()
+{
+    const int pages = std::max(1, (int(m_flexControllers.size()) + NUM_FLEX_SLIDERS - 1) / NUM_FLEX_SLIDERS);
+    m_flexPage = std::clamp(m_flexPage, 0, pages - 1);
+    for (int i = 0; i < NUM_FLEX_SLIDERS; i++)
+    {
+        const int index = FlexIndex(i);
+        const auto name = index >= 0 ? m_flexControllers[index].name : QString();
+        lFlex[i]->setText(lFlex[i]->fontMetrics().elidedText(name, Qt::ElideRight, lFlex[i]->width()));
+        lFlex[i]->setToolTip(name);
+        slFlexScale[i]->setEnabled(index >= 0);
+    }
+    lFlexPage->setLabel("Page %d / %d", m_flexPage + 1, pages);
+    bFlexPrev->setEnabled(m_flexPage > 0);
+    bFlexNext->setEnabled(m_flexPage + 1 < pages);
+    UpdateFlexSliders();
 }
 
 void ControlPanel::UpdateFlexSliders()
 {
     for (int i = 0; i < NUM_FLEX_SLIDERS; i++)
     {
-        const int index = cFlex[i]->getSelectedIndex();
+        const int index = FlexIndex(i);
         slFlexScale[i]->setValue(index >= 0 ? m_settings.flexRaw[index] : 0.f);
     }
     redraw();
@@ -1224,6 +1252,11 @@ int ControlPanel::handleEvent(mxEvent *event)
 
     case IDC_OVERLAY_WIREFRAME:
         m_settings.wireframeOverlay = cbOverlayWireframe->isChecked();
+        redraw();
+        break;
+
+    case IDC_EYELOOK:
+        m_settings.eyeLook = dynamic_cast<QCheckBox *>(event->widget)->isChecked();
         redraw();
         break;
 
@@ -1393,17 +1426,17 @@ int ControlPanel::handleEvent(mxEvent *event)
         UpdateFlexSliders();
         break;
 
+    case IDC_FLEXPREV:
+    case IDC_FLEXNEXT:
+        m_flexPage += event->action == IDC_FLEXNEXT ? 1 : -1;
+        UpdateFlexPage();
+        break;
+
     default:
-        if (event->action >= IDC_FLEX && event->action < IDC_FLEX + NUM_FLEX_SLIDERS)
-        {
-            const int index = cFlex[event->action - IDC_FLEX]->getSelectedIndex();
-            if (index >= 0)
-                slFlexScale[event->action - IDC_FLEX]->setValue(m_settings.flexRaw[index]);
-        }
-        else if (event->action >= IDC_FLEXSCALE && event->action < IDC_FLEXSCALE + NUM_FLEX_SLIDERS)
+        if (event->action >= IDC_FLEXSCALE && event->action < IDC_FLEXSCALE + NUM_FLEX_SLIDERS)
         {
             // SetFlexControllerRaw: the slider value is already normalized.
-            const int index = cFlex[event->action - IDC_FLEXSCALE]->getSelectedIndex();
+            const int index = FlexIndex(event->action - IDC_FLEXSCALE);
             if (index >= 0)
             {
                 m_settings.flexRaw[index] = std::clamp(slFlexScale[event->action - IDC_FLEXSCALE]->getValue(), 0.0f, 1.0f);

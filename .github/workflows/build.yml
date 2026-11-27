@@ -126,7 +126,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist
-          cp build/hlmv/hlmv.exe build/sfm_gl_probe/sfm_gl_probe.exe dist/
+          cp build/hlmv/hlmv.exe build/hlmv/sfm_gl_probe.exe dist/
           cp "$(find build -name vcs2glsl.exe | head -1)" dist/
           cp "$VCPKG_INSTALLATION_ROOT"/installed/x64-windows/bin/liblzma.dll dist/
           windeployqt --release --no-translations dist/hlmv.exe

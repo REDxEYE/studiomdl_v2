@@ -66,8 +66,8 @@ public:
     bool blendSequenceChanges = false;
     bool enableIK = false;
 
-    // Bone-to-model matrices for the current pose (upstream m_pBoneToWorld with an identity view transform).
-    void SetUpBones(std::vector<QMatrix4x4> &boneToModel);
+    // Bone-to-model matrices for the current pose. `modelToView` is the camera transform jiggle bones react to.
+    void SetUpBones(std::vector<QMatrix4x4> &boneToModel, const QMatrix4x4 &modelToView = {});
 
 private:
     struct Impl;

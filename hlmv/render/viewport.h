@@ -8,6 +8,14 @@
 
 #include "mdl_mesh.h"
 
+// Per-frame numbers SFM's HLMV shows on the Model tab.
+struct ViewportStats
+{
+    int drawCalls = 0, vertices = 0, indices = 0;
+    bool transparent = false;
+    bool operator==(const ViewportStats &) const = default;
+};
+
 class StudioAnimation;
 
 struct ViewportSettings
@@ -25,6 +33,7 @@ struct ViewportSettings
     bool showHitboxes = false;
     bool showNormals = false;
     bool showTangents = false;
+    bool eyeLook = false; // SFM hlmv's Enable Eye Look: eyes aim at the camera instead of straight ahead
     std::vector<int> bodygroups; // selected submodel per body part
     int skin = 0;                // skin family
     std::vector<MdlHitboxSet> hitboxSets; // Bones tab's editable copy of the model's sets
@@ -38,6 +47,7 @@ struct ViewportSettings
     float speedScale = 1.0f;                    // HLMV's speedScale: animation clock multiplier
     float fov = 65.0f; // horizontal degrees, like HLMV's PerspectiveX
     std::function<void(const QString &)> reportError;
+    std::function<void(const ViewportStats &)> reportStats;
     std::vector<float> flexRaw; // per flex controller, 0..1 like HLMV's StudioModel::m_flexweight
     int flexRevision = 0;       // bump after changing flexRaw
 };

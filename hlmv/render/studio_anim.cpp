@@ -89,6 +89,13 @@ void ToQt(const matrix3x4_t &m, QMatrix4x4 &out)
                      m[2][0], m[2][1], m[2][2], m[2][3],
                      0, 0, 0, 1);
 }
+
+matrix3x4_t FromQt(const QMatrix4x4 &m)
+{
+    return matrix3x4_t(m(0, 0), m(0, 1), m(0, 2), m(0, 3),
+                       m(1, 0), m(1, 1), m(1, 2), m(1, 3),
+                       m(2, 0), m(2, 1), m(2, 2), m(2, 3));
+}
 } // namespace
 
 // Host side of the engine's studiohdr_t <-> mdlcache link (engine: datacache/mdlcache.cpp).
@@ -182,6 +189,10 @@ struct alignas(16) StudioAnimation::Impl
     float prevIKCycles[5] = {};
     CIKContext ik;
     CJiggleBones jiggle;
+    // Repaints between clock ticks (camera drags) must not step the simulation: CJiggleBones clamps a zero
+    // time step up to 1 ms, so each extra step turns the camera's motion into huge velocities.
+    float jiggleTime = -1;
+    matrix3x4a_t jiggleOffset[MAXSTUDIOBONES]; // goal-to-jiggled, from the last step
     BoneVector pos[MAXSTUDIOBONES];
     BoneQuaternionAligned q[MAXSTUDIOBONES];
     matrix3x4a_t boneToWorld[MAXSTUDIOBONES];
@@ -493,9 +504,10 @@ float StudioAnimation::GetTransitionAmount() const
     return 0.0f;
 }
 
-// upstream StudioModel::SetUpBones without the viewer-only parts: the view transform is identity, and
-// physics preview, merged models and head turn are not ported.
-void StudioAnimation::SetUpBones(std::vector<QMatrix4x4> &boneToModel)
+// upstream StudioModel::SetUpBones without the viewer-only parts: bones stay in model space, and physics
+// preview, merged models and head turn are not ported. Jiggle bones simulate in `modelToView` space, as upstream
+// does through g_viewtransform, so orbiting or panning the camera swings them like moving the model.
+void StudioAnimation::SetUpBones(std::vector<QMatrix4x4> &boneToModel, const QMatrix4x4 &modelToView)
 {
     CStudioHdr *pStudioHdr = &d->hdr;
     const mstudioseqdesc_t &seqdesc = pStudioHdr->pSeqdesc(d->sequence);
@@ -594,8 +606,19 @@ void StudioAnimation::SetUpBones(std::vector<QMatrix4x4> &boneToModel)
                 goalMX = bonematrix;
             else
                 ConcatTransforms(d->boneToWorld[pbones[i].parent], bonematrix, goalMX);
-            const auto *jiggleInfo = static_cast<const mstudiojigglebone_t *>(pbones[i].pProcedure());
-            d->jiggle.BuildJiggleTransformations(i, d->realtime, jiggleInfo, goalMX, d->boneToWorld[i], false);
+            if (d->realtime != d->jiggleTime)
+            {
+                const auto *jiggleInfo = static_cast<const mstudiojigglebone_t *>(pbones[i].pProcedure());
+                const matrix3x4_t toView = FromQt(modelToView), toModel = FromQt(modelToView.inverted());
+                matrix3x4a_t goalView, jiggledView, jiggled, goalInverse;
+                ConcatTransforms(toView, goalMX, goalView);
+                d->jiggle.BuildJiggleTransformations(i, d->realtime, jiggleInfo, goalView, jiggledView, false);
+                ConcatTransforms(toModel, jiggledView, jiggled);
+                MatrixInvert(goalMX, goalInverse);
+                ConcatTransforms(goalInverse, jiggled, d->jiggleOffset[i]);
+            }
+            // Between steps (camera drags, frame scrubbing while paused) keep the last offset on the current goal.
+            ConcatTransforms(goalMX, d->jiggleOffset[i], d->boneToWorld[i]);
         }
         else if (pbones[i].parent == -1)
             d->boneToWorld[i] = bonematrix;
@@ -608,6 +631,7 @@ void StudioAnimation::SetUpBones(std::vector<QMatrix4x4> &boneToModel)
             d->boneToWorld[i].Init(Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1), vecOrigin);
         }
     }
+    d->jiggleTime = d->realtime;
 
     boneToModel.resize(pStudioHdr->numbones());
     for (int i = 0; i < pStudioHdr->numbones(); i++)

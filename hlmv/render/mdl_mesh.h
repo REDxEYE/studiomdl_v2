@@ -26,6 +26,7 @@ struct MeshBatch
     int texture;  // texture in skin family 0
     int slot;     // skin reference (mstudiomesh_t::material)
     int bodyPart, model, lod;
+    int eyeball = -1; // index into MdlMesh::eyeballs for mstudiomesh_t::materialtype 1 (eyeball) meshes
 };
 
 // mstudioboneweight_t without zero-weight slots, weights renormalized.
@@ -40,6 +41,14 @@ struct MdlAttachment
 {
     int bone;
     QMatrix4x4 local; // attachment to bone
+};
+
+// mstudioeyeball_t fields studiorender's R_StudioEyeballPosition reads.
+struct MdlEyeball
+{
+    int bone;
+    QVector3D org, up, forward;
+    float zoffset, radius, irisScale;
 };
 
 // Header data shown by HLMV's Model, Sequence, Bones and Attachments tabs.
@@ -89,6 +98,8 @@ struct MdlMesh
     std::vector<int> boneParents;
     std::vector<MdlAttachment> attachments;
     std::vector<MdlHitboxSet> hitboxSets;
+    std::vector<MdlEyeball> eyeballs;
+    float maxEyeDeflection = 0.866f; // studiohdr2_t::MaxEyeDeflection (cos 30 when unset)
 
     int Texture(const MeshBatch &batch, int family) const
     {

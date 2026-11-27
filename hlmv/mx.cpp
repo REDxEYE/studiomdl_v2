@@ -107,6 +107,9 @@ mxLabel::mxLabel(mxWindow *parent, int x, int y, int w, int h, const char *label
 void mxLabel::setLabel(const char *format, ...)
 {
     MX_FORMAT_LABEL(setText);
+    // Upstream sizes labels for Win32's 8pt dialog font; grow taller instead of clipping lines in a larger Qt font.
+    if (const int needed = sizeHint().height(); needed > height())
+        resize(width(), needed);
 }
 
 const char *mxLabel::getLabel() const

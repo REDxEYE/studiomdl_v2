@@ -30,9 +30,13 @@
 #include <QWheelEvent>
 
 #include "viewport.h"
-#include "source_texture.h"
+#include "material_system.h"
 #include "studio_anim.h"
 #include "togl/vcs.h"
+
+// Render system: geometry, skinning, camera, passes, overlays and the probe self-checks. Material and shader
+// knowledge stays behind material_system.h / shader_api.h; this file links one program per ShaderCombo and
+// feeds the Shader hooks engine state.
 
 namespace
 {
@@ -49,20 +53,18 @@ constexpr Vertex quad[] = {
     {{ 0.75f,  0.75f, 0.0f, 1.0f}, {1.0f, 1.0f}},
 };
 
-struct ModelProgram
+// A linked program and the Shader that drives it; no shader means the missing-material checker.
+struct RenderProgram
 {
-    QOpenGLShaderProgram gl;
-    ShaderCombo combo;
-    bool missing = false;
-    bool phong = false;
-    int position = -1, uv = -1, normal = -1, tangent = -1, color = -1;
+    ShaderProgram program;
+    const Shader *shader = nullptr;
 };
 
-class ShaderProbe final : public QOpenGLWindow, protected QOpenGLFunctions
+class ModelViewport final : public QOpenGLWindow, protected QOpenGLFunctions
 {
 public:
-    ShaderProbe(QString vertexPath, QString fragmentPath, QString modelPath, MdlMesh mesh, bool check, bool checker,
-                ViewportSettings *settings, QString shaderDirectory = {})
+    ModelViewport(QString vertexPath, QString fragmentPath, QString modelPath, MdlMesh mesh, bool check, bool checker,
+                  ViewportSettings *settings, QString shaderDirectory = {})
         : QOpenGLWindow(PartialUpdateBlit), m_vertexPath(std::move(vertexPath)),
           m_fragmentPath(std::move(fragmentPath)), m_modelPath(std::move(modelPath)),
           m_shaderDirectory(std::move(shaderDirectory)), m_mesh(std::move(mesh)), m_check(check), m_checker(checker), m_settings(settings)
@@ -72,12 +74,13 @@ public:
         resize(640, 480);
     }
 
-    ~ShaderProbe() override
+    ~ModelViewport() override
     {
         if (context())
         {
             makeCurrent();
-            m_materialTextures.clear();
+            m_materials.clear();
+            m_shaders.reset();
             m_texture.destroy();
             doneCurrent();
         }
@@ -93,12 +96,10 @@ protected:
             QCoreApplication::exit(1);
     }
 
-    void markMissing(std::unique_ptr<SourceMaterial> &material, const QString &name, const char *error)
+    void markMissing(std::unique_ptr<Material> &material, const QString &name, const char *error)
     {
         qWarning().noquote() << "Using pink/black checker for" << name << ':' << error;
-        material = std::make_unique<SourceMaterial>();
-        material->shader = MaterialShader::Missing;
-        material->combo = {};
+        material = std::make_unique<Material>();
     }
 
     void initializeGL() override
@@ -145,7 +146,7 @@ protected:
         {
             try
             {
-                m_materialTextures.resize(m_mesh.textures.size());
+                m_materials.resize(m_mesh.textures.size());
                 // The viewer loads every skin family up front so the Skin choice never reloads; the probe needs only family 0.
                 const int families = m_settings && m_mesh.skinRefs ? int(m_mesh.skinTable.size()) / m_mesh.skinRefs : 1;
                 std::vector<int> used;
@@ -154,28 +155,25 @@ protected:
                         used.push_back(m_mesh.Texture(batch, family));
                 for (const int index : used)
                 {
-                    auto &texture = m_materialTextures[index];
-                    if (texture)
+                    auto &material = m_materials[index];
+                    if (material)
                         continue;
                     try
                     {
-                        texture = std::make_unique<SourceMaterial>();
-                        const auto path = LoadSourceMaterial(*texture, m_modelPath, m_mesh.textures[index],
-                                                             m_mesh.materialPaths);
+                        material = LoadMaterial(*m_shaders, m_modelPath, m_mesh.textures[index], m_mesh.materialPaths);
                         if (glGetError() != GL_NO_ERROR)
-                            throw std::runtime_error((path + QStringLiteral(": OpenGL texture upload failed")).toStdString());
-                        qInfo().noquote() << "Loaded base texture:" << path << texture->base.width() << 'x' << texture->base.height();
-                        if (texture->shader == MaterialShader::Phong)
-                            qInfo() << "Phong exponent override:" << texture->exponent << "boost:" << texture->fresnelBoost.w();
-                        if (!texture->ignored.isEmpty())
+                            throw std::runtime_error((m_mesh.textures[index] + QStringLiteral(": OpenGL texture upload failed")).toStdString());
+                        qInfo().noquote() << "Loaded material:" << m_mesh.textures[index] << "base" << material->base.width() << 'x'
+                                          << material->base.height();
+                        if (!material->ignored.isEmpty())
                             qWarning().noquote() << "Not applied in" << m_mesh.textures[index] << ':'
-                                                 << texture->ignored.join(QStringLiteral(", "));
+                                                 << material->ignored.join(QStringLiteral(", "));
                     }
                     catch (const std::runtime_error &error)
                     {
                         if (m_shaderDirectory.isEmpty())
                             throw;
-                        markMissing(texture, m_mesh.textures[index], error.what());
+                        markMissing(material, m_mesh.textures[index], error.what());
                     }
                 }
             }
@@ -203,20 +201,21 @@ protected:
             m_texture.setMinMagFilters(QOpenGLTexture::Nearest, QOpenGLTexture::Nearest);
             m_texture.setWrapMode(m_indexCount ? QOpenGLTexture::Repeat : QOpenGLTexture::ClampToEdge);
         }
-
         try
         {
-            m_materialProgram.assign(m_materialTextures.size(), -1);
+            m_materialProgram.assign(m_materials.size(), -1);
             if (m_shaderDirectory.isEmpty())
             {
-                // Standalone probe: one program from the given GLSL files for every material.
-                m_programs.push_back(std::make_unique<ModelProgram>());
-                initProgram(*m_programs.back(), nullptr, false);
-                for (size_t i = 0; i < m_materialTextures.size(); ++i)
-                    if (const auto &material = m_materialTextures[i])
+                // Standalone probe: one program from the given GLSL files, driven by the materials' common shader.
+                const auto first = std::ranges::find_if(m_materials, [](const auto &m) { return m != nullptr; });
+                const Shader *shader = first != m_materials.end() ? (*first)->shader : &m_shaders->FallbackShader();
+                m_programs.push_back(std::make_unique<RenderProgram>());
+                initProgram(*m_programs.back(), shader, nullptr);
+                for (size_t i = 0; i < m_materials.size(); ++i)
+                    if (const auto &material = m_materials[i])
                     {
-                        if ((material->shader == MaterialShader::Phong) != m_programs.back()->phong)
-                            throw std::runtime_error("Material $phong does not match the supplied shader pair");
+                        if (material->shader != shader)
+                            throw std::runtime_error("Materials need different shaders; the probe drives one supplied shader pair");
                         m_materialProgram[i] = 0;
                     }
             }
@@ -224,12 +223,12 @@ protected:
             {
                 // One program per distinct combo; a combo that fails to load turns its materials into the checker.
                 std::vector<std::pair<ShaderCombo, std::string>> failed;
-                for (size_t i = 0; i < m_materialTextures.size(); ++i)
+                for (size_t i = 0; i < m_materials.size(); ++i)
                 {
-                    auto &material = m_materialTextures[i];
-                    if (!material || material->shader == MaterialShader::Missing)
+                    auto &material = m_materials[i];
+                    if (!material || !material->shader)
                         continue;
-                    const auto existing = std::ranges::find_if(m_programs, [&](const auto &p) { return p->combo == material->combo; });
+                    const auto existing = std::ranges::find_if(m_programs, [&](const auto &p) { return p->program.combo == material->combo; });
                     if (existing != m_programs.end())
                     {
                         m_materialProgram[i] = int(existing - m_programs.begin());
@@ -239,8 +238,8 @@ protected:
                     if (error == failed.end())
                         try
                         {
-                            auto program = std::make_unique<ModelProgram>();
-                            initProgram(*program, &material->combo, false);
+                            auto program = std::make_unique<RenderProgram>();
+                            initProgram(*program, material->shader, &material->combo);
                             m_materialProgram[i] = int(m_programs.size());
                             m_programs.push_back(std::move(program));
                             continue;
@@ -253,14 +252,14 @@ protected:
                         }
                     markMissing(material, m_mesh.textures[i], error->second.c_str());
                 }
-                for (size_t i = 0; i < m_materialTextures.size(); ++i)
-                    if (m_materialTextures[i] && m_materialTextures[i]->shader == MaterialShader::Missing)
+                for (size_t i = 0; i < m_materials.size(); ++i)
+                    if (m_materials[i] && !m_materials[i]->shader)
                     {
                         if (m_checkerProgram < 0)
                         {
                             m_checkerProgram = int(m_programs.size());
-                            m_programs.push_back(std::make_unique<ModelProgram>());
-                            initProgram(*m_programs.back(), nullptr, true);
+                            m_programs.push_back(std::make_unique<RenderProgram>());
+                            initProgram(*m_programs.back(), nullptr, nullptr);
                         }
                         m_materialProgram[i] = m_checkerProgram;
                     }
@@ -273,13 +272,14 @@ protected:
         }
     }
 
-    void initProgram(ModelProgram &state, const ShaderCombo *combo, bool missing)
+    // `shader` null: the missing-material checker; `combo` null: the probe's supplied GLSL files.
+    void initProgram(RenderProgram &state, const Shader *shader, const ShaderCombo *combo)
     {
-        auto &program = state.gl;
-        state.missing = missing;
+        auto &program = state.program.gl;
+        state.shader = shader;
         if (combo)
-            state.combo = *combo;
-        if (missing)
+            state.program.combo = *combo;
+        if (!shader)
         {
             // Independent of the VCS archive: even a failed shader pair can show the affected mesh.
             program.addShaderFromSourceCode(QOpenGLShader::Vertex,
@@ -312,78 +312,24 @@ protected:
         }
         if (program.shaders().size() != 2 || !program.link() || !program.bind())
             throw std::runtime_error(("Shader setup failed: " + program.log()).toStdString());
-        const bool phong = program.uniformLocation("sampler3") >= 0 && program.uniformLocation("sampler7") >= 0;
-        state.phong = phong;
-        if (phong && (m_checker || !m_mesh.hasTangents || !m_indexCount))
-            throw std::runtime_error("Phong needs a textured MDL with VVD tangents");
-        if (!missing && m_indexCount && !m_checker)
+        if (!shader)
+        {
+            state.program.position = program.attributeLocation("v0");
+            state.program.uv = program.attributeLocation("v3");
+            program.release();
+            return;
+        }
+        const bool textured = m_indexCount && !m_checker;
+        if (textured)
         {
             const int srgbWrite = program.uniformLocation("flSRGBWrite");
             if (srgbWrite < 0)
                 throw std::runtime_error("Regenerate the fragment GLSL with the current vcs2glsl for sRGB output");
             program.setUniformValue(srgbWrite, 1.0f);
         }
-        state.position = program.attributeLocation("v0");
-        state.uv = program.attributeLocation(phong ? "v2" : "v3");
-        state.normal = program.attributeLocation("v1");
-        state.tangent = phong ? program.attributeLocation("v4") : -1;
-        state.color = phong ? -1 : program.attributeLocation("v2");
-        if (state.position < 0 || state.uv < 0 || (phong && state.tangent < 0))
-            throw std::runtime_error("Shader does not have the expected SFM vertex inputs");
-        if (missing)
-        {
-            program.release();
-            return;
-        }
-        m_phong |= phong;
-
-        // shortcut: bindings cover the SFM generic SM3 base-texture variants only; expand with VMT feature support.
-        const int lightCount = program.uniformLocation("i0");
-        const bool vertexLit = lightCount >= 0;
-        m_vertexLit |= vertexLit;
-        std::array<QVector4D, 97> vc{};
-        vc[0] = {0, 1, 2, 0.5f}; // Source math constants, including the D3D-to-GL Z fixup.
-        if (vertexLit || phong)
-        {
-            // HLMV defaults: six equal ambient faces and one white directional light at yaw 180°.
-            std::fill_n(vc.begin() + 21, 6, QVector4D(0.3f, 0.3f, 0.3f, 1));
-            vc[27] = {1, 1, 1, 1}; // RGB, directional flag.
-            vc[28] = {-1, 0, 0, 0}; // Direction of travel, spot flag.
-            vc[29] = {0, 0, 0, 1}; // Position (unused for directional lights).
-            vc[30] = {0, 1, 1, 1}; // Non-spot defaults.
-            vc[31] = {1, 0, 0, 0}; // Constant attenuation.
-            if (vertexLit)
-                program.setUniformValue(lightCount, 1);
-            if (phong)
-                program.setUniformValue("b0", 1);
-        }
-        vc[2] = {0, 0, 2, 0}; // Camera.
-        vc[8] = {1, 0, 0, 0};
-        vc[9] = {0, 1, 0, 0};
-        vc[10] = {0, 0, 0, 0.5f}; // Put the quad halfway through the D3D clip depth range.
-        vc[11] = {0, 0, 0, 1};
-        vc[48] = {1, 0, 0, 0}; // Identity base-texture transform.
-        vc[49] = {0, 1, 0, 0};
-        vc[52] = vc[48];
-        vc[53] = vc[49];
-        constexpr QVector4D bones[] = {{1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}};
-        std::array<QVector4D, 31> pc{};
-        pc[1] = {1, 1, 1, 1}; // White modulation, opaque alpha.
-        pc[30] = {1, 0, 0, 0}; // Identity output scale; fog is disabled by zero VS fog constants.
-        if (phong)
-        {
-            std::fill_n(pc.begin() + 4, 6, QVector4D(0.3f, 0.3f, 0.3f, 1));
-            pc[20] = {1, 1, 1, 0};
-            // Source's pixel shader packs a directional light as a distant point.
-            pc[21] = QVector4D(m_mesh.center + QVector3D(10000, 0, 0), 0);
-            program.setUniformValue("sampler3", 3);
-            program.setUniformValue("sampler7", 7);
-        }
-        program.setUniformValueArray("vc", vc.data(), vertexLit ? int(vc.size()) : 67);
-        program.setUniformValueArray("vcbones", bones, 3);
-        program.setUniformValue("vcscreen", QVector4D{});
-        program.setUniformValueArray("pc", pc.data(), pc.size());
-        program.setUniformValue("sampler0", 0);
+        shader->InitProgram(state.program, {textured, m_mesh.hasTangents, m_mesh.center});
+        m_phong |= state.program.specular;
+        m_vertexLit |= state.program.lit;
         program.release();
     }
 
@@ -465,39 +411,36 @@ protected:
         view.lookAt(eye, target, QVector3D(0, 0, 1));
         projection.frustum(-zNear * tanX, zNear * tanX, -zNear * tanY, zNear * tanY, zNear, distance + reach);
         m_mvp = projection * view;
+        m_view = view;
         const QVector4D rows[] = {m_mvp.row(0), -m_mvp.row(1), (m_mvp.row(2) + m_mvp.row(3)) * 0.5f, m_mvp.row(3)};
         for (const auto &slot : m_programs)
         {
-            auto &program = slot->gl;
+            auto &program = slot->program.gl;
             program.bind();
-            program.setUniformValueArray("vc[8]", rows, 4);
-            if (!slot->missing)
-            {
-                program.setUniformValue("vc[2]", QVector4D(eye, 0));
-                program.setUniformValue("vc[28]", QVector4D(m_lightDirection, 0));
-                if (slot->phong)
-                {
-                    program.setUniformValue("pc[11]", QVector4D(eye, 0));
-                    // Source's pixel shader packs a directional light as a distant point.
-                    program.setUniformValue("pc[21]", QVector4D(m_mesh.center - m_lightDirection * 10000, 0));
-                }
-            }
+            program.setUniformValueArray("vc[8]", rows, 4); // shaderapi's model-view-projection rows
             program.release();
         }
+        m_eye = eye;
     }
 
     void drawScene(bool specular)
     {
+        m_drawCalls = 0;
         const auto background = m_settings ? m_settings->background : QColor(Qt::black);
         glClearColor(background.redF(), background.greenF(), background.blueF(), 1);
         if (m_indexCount)
             glEnable(GL_DEPTH_TEST);
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        // Source shaders write depth or material alpha to dest alpha (eye shaders: c29.w * depth); the viewer
+        // shows the window opaque, and premultiplied readback (screenshots) would turn those pixels black.
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_FALSE);
         auto *gl21 = m_settings && m_settings->wireframe
             ? QOpenGLVersionFunctionsFactory::get<QOpenGLFunctions_2_1>(context()) : nullptr;
         if (gl21)
             gl21->glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         uploadCamera();
+        updateEyes();
         // Opaque and alpha-tested meshes first, then blended ones without depth writes, as Source sorts them.
         for (const bool blended : {false, true})
             for (size_t i = 0; i < m_programs.size(); ++i)
@@ -509,6 +452,7 @@ protected:
                 drawOverlays(*debugGl);
         if (m_indexCount)
             glDisable(GL_DEPTH_TEST);
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     }
 
     bool anyOverlay() const
@@ -694,14 +638,14 @@ protected:
         return blend == MaterialBlend::Translucent || blend == MaterialBlend::Additive || blend == MaterialBlend::TranslucentAdditive;
     }
 
-    void applyBlend(const SourceMaterial &material)
+    void applyBlend(MaterialBlend blend, float alphaTestReference = 0.5f)
     {
         auto *gl21 = QOpenGLVersionFunctionsFactory::get<QOpenGLFunctions_2_1>(context());
-        glDepthMask(IsBlended(material.blend) ? GL_FALSE : GL_TRUE);
-        if (IsBlended(material.blend))
+        glDepthMask(IsBlended(blend) ? GL_FALSE : GL_TRUE);
+        if (IsBlended(blend))
         {
             glEnable(GL_BLEND);
-            switch (material.blend)
+            switch (blend)
             {
             case MaterialBlend::Translucent: glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); break;
             case MaterialBlend::Additive: glBlendFunc(GL_ONE, GL_ONE); break;
@@ -711,10 +655,10 @@ protected:
         else
             glDisable(GL_BLEND);
         // D3D9 alpha test is fixed-function state; the GL compatibility profile still applies it after the shader.
-        if (gl21 && material.blend == MaterialBlend::AlphaTest)
+        if (gl21 && blend == MaterialBlend::AlphaTest)
         {
             gl21->glEnable(GL_ALPHA_TEST);
-            gl21->glAlphaFunc(GL_GEQUAL, material.alphaTestReference);
+            gl21->glAlphaFunc(GL_GEQUAL, alphaTestReference);
         }
         else if (gl21)
             gl21->glDisable(GL_ALPHA_TEST);
@@ -730,12 +674,33 @@ protected:
         return batch.model == (groups && size_t(batch.bodyPart) < groups->size() ? (*groups)[batch.bodyPart] : 0);
     }
 
+    // SFM HLMV's Model tab stats: draw calls, the visible submodels' vertices and indexes, and translucency.
+    void reportStats()
+    {
+        if (!m_indexCount || !m_settings || !m_settings->reportStats)
+            return;
+        updateDrawnVertices();
+        ViewportStats stats{m_drawCalls, int(m_drawnVertices.size())};
+        for (const auto &batch : m_mesh.batches)
+            if (visible(batch))
+            {
+                stats.indices += int(batch.count);
+                if (const int texture = textureOf(batch); size_t(texture) < m_materials.size() && m_materials[texture])
+                    stats.transparent |= IsBlended(m_materials[texture]->blend);
+            }
+        if (stats != m_stats)
+            m_settings->reportStats(m_stats = stats);
+    }
+
     void drawVisibleBatches()
     {
         for (const auto &batch : m_mesh.batches)
             if (visible(batch))
+            {
                 glDrawElements(GL_TRIANGLES, GLsizei(batch.count), GL_UNSIGNED_INT,
                                reinterpret_cast<const void *>(batch.first * sizeof(uint32_t)));
+                ++m_drawCalls;
+            }
     }
 
     void updateDrawnVertices()
@@ -752,103 +717,164 @@ protected:
         m_drawnVertices.erase(std::ranges::unique(m_drawnVertices).begin(), m_drawnVertices.end());
     }
 
-    void drawPass(ModelProgram &state, int programIndex, bool specular, bool blended)
+    // HLMV's StudioModel::SetViewTarget: look 32 units ahead of the "eyes" attachment, or at the camera with
+    // Enable Eye Look, deflected by the eyes_updown / eyes_rightleft flex controllers and clamped to the
+    // model's max eye deflection.
+    QVector3D eyeViewTarget() const
     {
-        if (!m_materialTextures.empty() &&
+        const auto name = std::ranges::find_if(m_mesh.info.attachments, [](const QString &n) { return n.compare(QLatin1String("eyes"), Qt::CaseInsensitive) == 0; });
+        if (name == m_mesh.info.attachments.end())
+            return m_eye; // shortcut: no "eyes" attachment, so look at the camera; studiorender keeps its last target
+        const auto &attachment = m_mesh.attachments[name - m_mesh.info.attachments.begin()];
+        const auto attToWorld = m_pose[attachment.bone] * attachment.local;
+        QVector3D local = m_settings && m_settings->eyeLook ? attToWorld.inverted().map(m_eye) : QVector3D(32, 0, 0);
+        const float distance = local.length();
+        local.normalize();
+        const auto controller = [&](QLatin1String key) {
+            const auto &controllers = m_mesh.flex.controllers;
+            for (size_t i = 0; i < controllers.size(); ++i)
+                if (controllers[i].name.compare(key, Qt::CaseInsensitive) == 0)
+                {
+                    const float raw = m_settings && i < m_settings->flexRaw.size() ? m_settings->flexRaw[i] : 0.f;
+                    return raw * (controllers[i].max - controllers[i].min) + controllers[i].min;
+                }
+            return 0.f;
+        };
+        // AngleVectors(QAngle(updown, rightleft, 0)) forward with x dropped, scaled by local.x^2
+        const float pitch = qDegreesToRadians(controller(QLatin1String("eyes_updown")));
+        const float yaw = qDegreesToRadians(controller(QLatin1String("eyes_rightleft")));
+        local += QVector3D(0, std::cos(pitch) * std::sin(yaw), -std::sin(pitch)) * (local.x() * local.x());
+        local.normalize();
+        const float maxDeflection = m_mesh.maxEyeDeflection;
+        if (local.x() < maxDeflection)
+        {
+            const float d2 = local.lengthSquared() - local.x() * local.x();
+            if (d2 > 0)
+            {
+                const float d = std::sqrt((1 - maxDeflection * maxDeflection) / d2);
+                local = {maxDeflection, local.y() * d, local.z() * d};
+            }
+            else
+                local = {1, 0, 0};
+        }
+        return attToWorld.map(local * distance);
+    }
+
+    // studiorender's R_StudioEyeballPosition for every eyeball (r_studioflex.cpp), as SetEyeMaterialVars hands it
+    // to the eye shaders.
+    void updateEyes()
+    {
+        m_eyeStates.resize(m_mesh.eyeballs.size());
+        if (m_mesh.eyeballs.empty())
+            return;
+        const auto target = eyeViewTarget();
+        for (size_t i = 0; i < m_mesh.eyeballs.size(); ++i)
+        {
+            const auto &eyeball = m_mesh.eyeballs[i];
+            const auto &bone = m_pose[eyeball.bone];
+            // HLMV's studiorender config: no eye shift, eyes move, no extra eye size.
+            const auto org = bone.map(eyeball.org);
+            auto up = bone.mapVector(eyeball.up);
+            auto forward = (target - org).normalized();
+            auto right = QVector3D::crossProduct(forward, up).normalized();
+            forward = (forward + (eyeball.zoffset + eyeball.zoffset) * right).normalized(); // shift N degrees off the target
+            right = QVector3D::crossProduct(forward, up).normalized();
+            up = QVector3D::crossProduct(right, forward).normalized();
+            float scale = 1.0f / eyeball.irisScale;
+            if (scale > 0)
+                scale = 1.0f / scale;
+            const auto u = right * -scale, v = up * -scale;
+            // $eyeorigin is the unshifted eyeball origin; $eyeup is mstudioeyeball_t::up as stored.
+            m_eyeStates[i] = {QVector4D(org, 0), QVector4D(eyeball.up, 0), QVector4D(u, -QVector3D::dotProduct(org, u) + 0.5f),
+                              QVector4D(v, -QVector3D::dotProduct(org, v) + 0.5f)};
+        }
+    }
+
+    void drawPass(RenderProgram &state, int programIndex, bool specular, bool blended)
+    {
+        if (!m_materials.empty() &&
             std::ranges::none_of(m_mesh.batches, [&](const MeshBatch &batch) {
                 const int texture = textureOf(batch);
-                return visible(batch) && m_materialProgram[texture] == programIndex && IsBlended(m_materialTextures[texture]->blend) == blended;
+                return visible(batch) && m_materialProgram[texture] == programIndex && IsBlended(m_materials[texture]->blend) == blended;
             }))
             return;
-        if (m_materialTextures.empty() && blended)
+        if (m_materials.empty() && blended)
             return;
-        auto &program = state.gl;
+        auto &inputs = state.program;
+        auto &program = inputs.gl;
         program.bind();
-        if (m_settings && !state.missing)
+        FrameState frame;
+        frame.camera = m_eye;
+        frame.lightDirection = m_lightDirection;
+        frame.center = m_mesh.center;
+        frame.specular = specular;
+        if (m_settings)
         {
             // HLMV's Options → Light/Ambient Color: one directional light plus a uniform ambient cube.
-            const QVector4D light(m_settings->light.redF(), m_settings->light.greenF(), m_settings->light.blueF(), 1);
-            const QVector4D ambient(m_settings->ambient.redF(), m_settings->ambient.greenF(), m_settings->ambient.blueF(), 1);
-            const std::array<QVector4D, 6> cube{ambient, ambient, ambient, ambient, ambient, ambient};
-            if (program.uniformLocation("i0") >= 0)
-            {
-                program.setUniformValueArray("vc[21]", cube.data(), 6);
-                program.setUniformValue("vc[27]", light);
-            }
-            if (state.phong)
-            {
-                program.setUniformValueArray("pc[4]", cube.data(), 6);
-                program.setUniformValue("pc[20]", QVector4D(light.toVector3D(), 0));
-            }
+            frame.light = {float(m_settings->light.redF()), float(m_settings->light.greenF()), float(m_settings->light.blueF()), 1};
+            frame.ambient = {float(m_settings->ambient.redF()), float(m_settings->ambient.greenF()), float(m_settings->ambient.blueF()), 1};
         }
+        // The probe quad keeps the program's static camera and lights.
+        if (state.shader && m_indexCount)
+            state.shader->SetFrame(inputs, frame);
         m_vertices.bind();
-        if (m_materialTextures.empty())
+        if (m_materials.empty())
             m_texture.bind(0);
         const auto attribute = [&](int location, size_t offset, int count) {
             program.enableAttributeArray(location);
             program.setAttributeBuffer(location, GL_FLOAT, int(offset), count, sizeof(Vertex));
         };
-        attribute(state.position, offsetof(Vertex, position), 4);
-        attribute(state.uv, offsetof(Vertex, uv), 2);
-        if (state.normal >= 0)
+        attribute(inputs.position, offsetof(Vertex, position), 4);
+        attribute(inputs.uv, offsetof(Vertex, uv), 2);
+        if (inputs.normal >= 0)
         {
             if (m_indexCount)
-                attribute(state.normal, offsetof(Vertex, normal), 3);
+                attribute(inputs.normal, offsetof(Vertex, normal), 3);
             else
-                program.setAttributeValue(state.normal, QVector4D{0, 0, 1, 0});
+                program.setAttributeValue(inputs.normal, QVector4D{0, 0, 1, 0});
         }
-        if (state.tangent >= 0)
-            attribute(state.tangent, offsetof(Vertex, tangent), 4);
-        if (state.color >= 0)
-            program.setAttributeValue(state.color, QVector4D{1, 1, 1, 1});
+        if (inputs.tangent >= 0)
+            attribute(inputs.tangent, offsetof(Vertex, tangent), 4);
+        if (inputs.color >= 0)
+            program.setAttributeValue(inputs.color, QVector4D{1, 1, 1, 1});
+        if (inputs.delta >= 0)
+            program.setAttributeValue(inputs.delta, QVector4D{});
         if (m_indexCount)
         {
             m_indices.bind();
-            if (m_materialTextures.empty())
+            if (m_materials.empty())
                 drawVisibleBatches();
             else
                 for (const auto &batch : m_mesh.batches)
                 {
                     const int texture = textureOf(batch);
-                    auto &material = *m_materialTextures[texture];
+                    auto &material = *m_materials[texture];
                     if (!visible(batch) || m_materialProgram[texture] != programIndex || IsBlended(material.blend) != blended)
                         continue;
-                    applyBlend(material);
-                    if (!state.missing)
+                    applyBlend(material.blend, material.alphaTestReference);
+                    if (state.shader)
                     {
-                        material.base.bind(0);
-                        program.setUniformValue("pc[1]", material.modulation);
-                    }
-                    if (state.phong)
-                    {
-                        material.normal.bind(3);
-                        material.exponentMap.bind(7);
-                        auto fresnelBoost = material.fresnelBoost;
-                        if (!specular)
-                            fresnelBoost.setW(0);
-                        program.setUniformValue("pc[10]", QVector4D(0, material.luminanceMask, material.exponent, 0));
-                        program.setUniformValue("pc[19]", fresnelBoost);
-                        program.setUniformValue("pc[26]", material.tint);
-                        program.setUniformValue("pc[27]", QVector4D(material.alphaMask, 0, 1, 0));
+                        const bool eyeball = batch.eyeball >= 0 && size_t(batch.eyeball) < m_eyeStates.size();
+                        state.shader->SetDraw(inputs, material, frame, eyeball ? m_eyeStates[batch.eyeball] : EyeState{});
                     }
                     glDrawElements(GL_TRIANGLES, GLsizei(batch.count), GL_UNSIGNED_INT,
                                    reinterpret_cast<const void *>(batch.first * sizeof(uint32_t)));
+                    ++m_drawCalls;
                 }
-            if (state.phong)
-                glActiveTexture(GL_TEXTURE0);
+            glActiveTexture(GL_TEXTURE0);
             m_indices.release();
-            if (!m_materialTextures.empty())
-                applyBlend(SourceMaterial{}); // restore opaque state for the next pass and readback
-            if (state.normal >= 0)
-                program.disableAttributeArray(state.normal);
+            if (!m_materials.empty())
+                applyBlend(MaterialBlend::Opaque); // restore opaque state for the next pass and readback
+            if (inputs.normal >= 0)
+                program.disableAttributeArray(inputs.normal);
         }
         else
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-        if (state.tangent >= 0)
-            program.disableAttributeArray(state.tangent);
-        program.disableAttributeArray(state.uv);
-        program.disableAttributeArray(state.position);
-        if (m_materialTextures.empty())
+        if (inputs.tangent >= 0)
+            program.disableAttributeArray(inputs.tangent);
+        program.disableAttributeArray(inputs.uv);
+        program.disableAttributeArray(inputs.position);
+        if (m_materials.empty())
             m_texture.release();
         m_vertices.release();
         program.release();
@@ -885,7 +911,7 @@ protected:
         if (m_settings && m_settings->animation && !m_mesh.weights.empty() &&
             m_settings->animation->BoneCount() == int(m_mesh.bones.size()))
         {
-            m_settings->animation->SetUpBones(m_pose);
+            m_settings->animation->SetUpBones(m_pose, m_view);
             m_geometryDirty = true;
         }
         if (!m_geometryDirty)
@@ -924,6 +950,7 @@ protected:
             m_cameraDirty = true;
         }
         drawScene(!m_settings || m_settings->specular);
+        reportStats();
         if (m_indexCount && m_settings && m_settings->showBoneNames && (m_settings->showBones || m_settings->highlightBone >= 0))
             drawBoneNames();
 
@@ -942,7 +969,7 @@ protected:
                     return;
                 }
                 glReadPixels(0, 0, rendered.width(), rendered.height(), GL_RGBA, GL_UNSIGNED_BYTE, rendered.bits());
-                if (!m_materialTextures.empty())
+                if (!m_materials.empty())
                 {
                     std::bitset<256> shades;
                     int covered = 0;
@@ -1057,6 +1084,8 @@ private:
     bool m_geometryDirty = false;
     std::vector<uint32_t> m_drawnVertices; // vertices of the selected submodels, for normal overlays
     std::optional<std::vector<int>> m_drawnFor; // bodygroups m_drawnVertices was built for
+    int m_drawCalls = 0;                        // glDrawElements calls in the last drawScene
+    ViewportStats m_stats;                      // last reported
     int m_flexRevision = -1;
     bool m_check;
     bool m_checker;
@@ -1073,14 +1102,19 @@ private:
     QPointF m_mouse;
     QVector3D m_pan;
     QMatrix4x4 m_mvp;
+    QMatrix4x4 m_view; // model to camera; jiggle bones treat camera motion as model motion, like upstream
+    QVector3D m_eye;                   // camera position in model space
+    std::vector<EyeState> m_eyeStates; // per MdlMesh::eyeballs, for the current pose and camera
     GLsizei m_indexCount = 0;
-    std::vector<std::unique_ptr<ModelProgram>> m_programs;
+    std::vector<std::unique_ptr<RenderProgram>> m_programs;
     std::vector<int> m_materialProgram; // program index per MDL texture
     int m_checkerProgram = -1;
     QOpenGLBuffer m_vertices;
     QOpenGLBuffer m_indices{QOpenGLBuffer::IndexBuffer};
     QOpenGLTexture m_texture{QOpenGLTexture::Target2D};
-    std::vector<std::unique_ptr<SourceMaterial>> m_materialTextures;
+    // shortcut: always SFM's stdshader_dx9; choose the set per game (e.g. a Garry's Mod port) once one exists.
+    std::unique_ptr<ShaderSet> m_shaders = CreateSfmShaderSet(); // outlives m_materials, which point at its shaders
+    std::vector<std::unique_ptr<Material>> m_materials;
 };
 } // namespace
 
@@ -1097,13 +1131,13 @@ void ConfigureSfmViewport()
 std::unique_ptr<QOpenGLWindow> CreateSfmViewport(QString vertexShader, QString fragmentShader, QString modelPath,
                                            MdlMesh mesh, bool check, bool checker, ViewportSettings *settings)
 {
-    return std::make_unique<ShaderProbe>(std::move(vertexShader), std::move(fragmentShader), std::move(modelPath),
-                                         std::move(mesh), check, checker, settings);
+    return std::make_unique<ModelViewport>(std::move(vertexShader), std::move(fragmentShader), std::move(modelPath),
+                                           std::move(mesh), check, checker, settings);
 }
 
 std::unique_ptr<QOpenGLWindow> CreateSfmVcsViewport(QString shaderDirectory, QString modelPath, MdlMesh mesh,
                                                    bool check, ViewportSettings &settings)
 {
-    return std::make_unique<ShaderProbe>(QString(), QString(), std::move(modelPath), std::move(mesh),
-                                         check, false, &settings, std::move(shaderDirectory));
+    return std::make_unique<ModelViewport>(QString(), QString(), std::move(modelPath), std::move(mesh),
+                                           check, false, &settings, std::move(shaderDirectory));
 }

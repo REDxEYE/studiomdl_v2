@@ -133,7 +133,7 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('shaders', type=Path, help='SFM game/platform/shaders/fxc directory')
     p.add_argument('--port', type=int, default=13338)
-    p.add_argument('--cpp', action='store_true', help='emit the C++ table for sfm_gl_probe/sfm_shader_combos.inc')
+    p.add_argument('--cpp', action='store_true', help='emit the C++ table for hlmv/render/sfm_shader_combos.inc')
     args = p.parse_args()
     health = upstream(args.port, 'tools/call', {'name': 'server_health', 'arguments': {}})['structuredContent']
     if health['module'].lower() != 'stdshader_dx9.dll':

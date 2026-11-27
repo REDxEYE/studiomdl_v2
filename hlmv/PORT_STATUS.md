@@ -5,8 +5,8 @@ tracks what each one does today. **Stub** = laid out, accepts input, no effect. 
 for some cases. Upstream behaviour lives in `upstream/mdlviewer.cpp` (menus) and
 `upstream/controlpanel.cpp` (panel), keyed by the `IDC_*` id.
 
-Backend each item needs: **R** renderer (`sfm_gl_probe/viewport.cpp`), **A** animation/sequence
-playback, **M** model data (`mdl_mesh.cpp`), **P** physics (.phy), **S** sound, **C** compile.
+Backend each item needs: **R** renderer (`render/viewport.cpp`), **A** animation/sequence
+playback, **M** model data (`render/mdl_mesh.cpp`), **P** physics (.phy), **S** sound, **C** compile.
 
 ## Menus (mdlviewer.cpp)
 
@@ -42,6 +42,7 @@ playback, **M** model data (`mdl_mesh.cpp`), **P** physics (.phy), **S** sound, 
 | Drag-and-drop of .qc onto the viewport | Stub | C | Upstream adds QCs to the Compile tab |
 | Frame slider (bottom) | Done | | Follows the layer picked by the Sequence tab's radio buttons; dragging sets the frame and stops playback, as upstream |
 | Animation playback | Done | | Engine bone setup (CS:GO IBoneSetup/CIKContext, procedural and jiggle bones, $includemodel and .ani blocks) with CPU skinning; clock clamped to 100 fps like upstream |
+| Eyes / EyeRefract materials | Done | | SFM eyes_*30 / eye_refract_*30 shaders with eyeball tracking toward the HLMV view target; Render tab's Enable Eye Look (from SFM hlmv) aims them at the camera; Eyes glint, flashlight and intro/cloak passes not rendered |
 
 ## Render tab
 

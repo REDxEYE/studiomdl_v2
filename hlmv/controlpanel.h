@@ -111,6 +111,8 @@ private:
     void BuildEventQCString();
     void SetFlexController(int index, float value); // value in controller units, like StudioModel::SetFlexController
     void UpdateFlexSliders();
+    void UpdateFlexPage();
+    int FlexIndex(int slot) const; // controller shown by slider `slot` on the current page, or -1
     void SetBodypart(int part);
     void UpdateBodyInfo();
     std::vector<FlexController> m_flexControllers;
@@ -184,9 +186,12 @@ private:
     mxListBox *cMessageList = nullptr, *cShaderUsed = nullptr;
     mxButton *m_bExploreToMaterial = nullptr, *m_bRandomizeWeaponModuleSlots = nullptr;
 
-    // Flex
-    mxChoice *cFlex[NUM_FLEX_SLIDERS] = {};
+    // Flex: pages of NUM_FLEX_SLIDERS controllers instead of upstream's per-slider controller dropdowns
+    mxLabel *lFlex[NUM_FLEX_SLIDERS] = {};
     mxSlider *slFlexScale[NUM_FLEX_SLIDERS] = {};
+    mxLabel *lFlexPage = nullptr;
+    mxButton *bFlexPrev = nullptr, *bFlexNext = nullptr;
+    int m_flexPage = 0;
 
     // Physics
     mxLineEdit *leMass = nullptr;
