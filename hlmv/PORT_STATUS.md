@@ -25,7 +25,7 @@ playback, **M** model data (`mdl_mesh.cpp`), **P** physics (.phy), **S** sound, 
 | Options → Viewmodel Mode | Stub | R | Viewmodel camera/FOV preset |
 | Options → Make Screenshot... | Done | | Saves the GL framebuffer as BMP |
 | View → File Associations... | Disabled | | Disabled upstream too |
-| View → Show Activities / Show hidden / Show sequence numbers / Sort sequences | Stub | A | Checks toggle; must change the sequence lists' labels and order |
+| View → Show Activities / Show hidden / Show sequence numbers / Sort sequences | Done | | Rebuild the sequence lists, keeping the selected sequences and weights |
 | View → Show orbit circle / Enable orbit yaw | Stub | R | Upstream camera modes |
 | View → DotA View Mode | Stub | R | Camera preset |
 | Help → Goto Homepage..., About... | Done | | |
@@ -37,9 +37,11 @@ playback, **M** model data (`mdl_mesh.cpp`), **P** physics (.phy), **S** sound, 
 | Item | Status | Needs | Notes |
 |---|---|---|---|
 | Left drag orbit, middle/right drag pan, wheel zoom, Ctrl+left drag light | Done | | Controls differ from HLMV (HLMV rotates the model, right-drag zooms, Shift pans) |
-| Perspective camera | Done | | Wheel zoom changes the lens without moving the orbit target |
-| Drag-and-drop of .mdl / .qc onto the viewport | Stub | | Upstream loads models and adds QCs to the Compile tab |
-| Frame slider (bottom) | Stub | A | Updates its label only |
+| Perspective camera | Done | | Wheel zoom dollies toward the orbit target |
+| Drag-and-drop of .mdl onto the viewport | Done | | |
+| Drag-and-drop of .qc onto the viewport | Stub | C | Upstream adds QCs to the Compile tab |
+| Frame slider (bottom) | Done | | Follows the layer picked by the Sequence tab's radio buttons; dragging sets the frame and stops playback, as upstream |
+| Animation playback | Done | | Engine bone setup (CS:GO IBoneSetup/CIKContext, procedural and jiggle bones, $includemodel and .ani blocks) with CPU skinning; clock clamped to 100 fps like upstream |
 
 ## Render tab
 
@@ -49,13 +51,17 @@ playback, **M** model data (`mdl_mesh.cpp`), **P** physics (.phy), **S** sound, 
 | Render mode: Smoothshaded, BoneWeights, BadVertexData, UV Chart, Co-LocatedVerts | Stub | R | Draw textured |
 | Specular | Done | | |
 | Ground, Background, Shadow, Movement | Stub | R, A | |
-| Hit Boxes, Seq. Boxes, HitBox Set/HitBox | Stub | R, M | Hitbox data is read for counts only |
+| Hit Boxes | Done | | Current Bones-tab hitbox set as wire boxes in HLMV's group colors; capsules draw as grown bounds |
+| Seq. Boxes | Stub | A | Needs sequence selection |
 | Wireframe overlay, Show Origin Axis + Axis Len | Done | | Overlay draws mesh edges over filled modes; axis shows model-space X/Y/Z in red/green/blue |
-| Bones, Attachments, Normals, Tangents | Stub | R | Debug overlays |
+| Bones, Attachments | Done | | Current pose; cyan parent links and RGB axes scaled by Axis Len, drawn through the mesh like HLMV |
+| Normals, Tangents | Done | | Blue normals; red tangents and green bitangents; length is Axis Len / 10 |
+| Bone names, highlight bone | Done | | Driven by the Bones tab, as upstream |
 | Physics Model + highlight bone | Stub | P, R | |
 | Normal Mapping, Displacement, Software Skin, Enable Overbrightening | Stub | R | |
-| Enable IK, Head Turn, Illum. Position, Play Sounds | Stub | A, S | |
-| FOV | Stub | R | The camera is perspective; the FOV field is not wired |
+| Enable IK | Done | | Ground targets drop onto their floor height, as upstream with no world |
+| Head Turn, Illum. Position, Play Sounds | Stub | A, S | |
+| FOV | Done | | Horizontal degrees like HLMV; values outside (0, 180) are ignored |
 | Inspect bone weights | Stub | R | Index list is filled |
 | Included Models | Stub | M | Disabled until a model has includes |
 
@@ -63,19 +69,21 @@ playback, **M** model data (`mdl_mesh.cpp`), **P** physics (.phy), **S** sound, 
 
 | Item | Status | Needs | Notes |
 |---|---|---|---|
-| Sequence lists (5 layers) | Partial | A | Filled with sequence names; selection has no effect |
-| Layer weights, frame radio buttons, sequence filters | Stub | A | |
-| Pose parameters | Stub | A, M | Hidden until pose parameters are read |
-| Speed scale, FPS label, blend controls, activity modifiers, animate weapons | Stub | A | |
+| Sequence lists (5 layers), layer weights, frame radio buttons, sequence filters | Done | | Port of initSequenceChoices/setSequence/setOverlaySequence |
+| Pose parameters | Done | | Up to 8 sliders with value fields; ranges from the model |
+| Speed scale, FPS label, ground speed, blend sequence changes/time/Blend Now, activity modifiers | Done | | |
+| Animate weapons | Stub | M | Needs merged models |
 
 ## Model tab
 
 | Item | Status | Needs | Notes |
 |---|---|---|---|
 | Model info labels | Done | | HW bones shows total bones |
-| Bodypart / submodel, skin, LOD choice | Partial | M, R | Lists filled; renderer always draws bodygroup 0, skin 0, LOD 0 |
-| Bone controllers | Stub | A | |
-| Bodygroup presets, Roll bodygroups | Stub | M | |
+| Bodypart / submodel picker, Roll bodygroups | Done | | Body index label follows the selection |
+| Skin choice | Done | | Every family's materials load with the model |
+| LOD choice | Partial | M, R | List filled; renderer always draws LOD 0 |
+| Bone controllers | Done | | Controller list and slider, as upstream initBoneControllers |
+| Bodygroup presets | Stub | M | Preset data is not read |
 | Auto LOD, LOD switch, LOD metric | Stub | R | |
 | Materials used, VMTs Loaded, Shader | Partial | | Lists filled; selection, Explore to material and shader name are not wired |
 
@@ -96,8 +104,10 @@ playback, **M** model data (`mdl_mesh.cpp`), **P** physics (.phy), **S** sound, 
 
 | Item | Status | Needs | Notes |
 |---|---|---|---|
-| Bone list | Partial | | Filled; selection does nothing |
-| Highlight, names, surface prop, hitbox editing, .HBX load/save, Generate QC | Stub | R, M | |
+| Bone list, Highlight, Names | Done | | Names draw only while bones are shown or highlighted, as upstream |
+| Surface prop, Apply to Children, Generate QC | Done | | Surface prop list is "default" plus the model's own props (no vphysics surfaceproperties) |
+| Hitbox sets (choose, add, delete, rename), hitbox list, highlight, group/name, add/delete, Autogenerate | Done | | Edits live in the viewer and feed Generate QC |
+| Edit Hitbox drag modes, Show Default Pose, .HBX load/save | Stub | R, P | Need a viewport drag widget, physics, and the datamodel in hlmv |
 | Attachment and bone lists | Partial | | Filled; selection does nothing |
 | Translation/rotation fields, nudge buttons, QC string | Stub | M | Needs attachment transforms |
 
@@ -120,9 +130,9 @@ playback, **M** model data (`mdl_mesh.cpp`), **P** physics (.phy), **S** sound, 
 
 ## Suggested order
 
-1. Model tab choices: bodygroups, skins, LOD (data already read; renderer support only).
-2. Remaining debug overlays: bones, attachments, normals/tangents, hitboxes.
-3. Ground and background, FOV control, HLMV-style mouse controls.
-4. Sequence playback (frame slider, layers, speed, pose parameters), then IK/head turn.
-5. Materials tab editing, Compile tab with studiomdl, drag-and-drop.
+1. Model tab: LOD choice (renderer support only).
+2. Remaining debug overlays: sequence boxes; hitbox drag editing and .HBX files.
+3. Ground and background, HLMV-style mouse controls.
+4. Head turn, event history, sequence boxes, Movement (root motion) display.
+5. Materials tab editing, Compile tab with studiomdl, .qc drag-and-drop.
 6. Physics and cloth (.phy).

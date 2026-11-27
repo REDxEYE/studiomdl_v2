@@ -58,7 +58,6 @@ struct MdlFlexData
 // Controller values in controller units (min..max) -> one weight per flex descriptor.
 std::vector<float> RunFlexRules(const MdlFlexData &flex, std::span<const float> controllers);
 
-// base + weighted deltas -> out (same size as base). skinLinear (row-major 3x3 per vertex, empty for
-// rigid models) moves bind-space deltas into the baked default pose.
+// base + weighted deltas -> out (same size as base), in bind space; skinning follows, as in studiorender.
 void ApplyFlexes(const MdlFlexData &flex, std::span<const float> descWeights, std::span<const Vertex> base,
-                 std::span<const std::array<float, 9>> skinLinear, std::vector<Vertex> &out);
+                 std::vector<Vertex> &out);

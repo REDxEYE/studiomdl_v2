@@ -1,5 +1,6 @@
 #include <array>
 #include <algorithm>
+#include <optional>
 #include <cstddef>
 #include <exception>
 #include <bitset>
@@ -18,6 +19,7 @@
 #include <QOpenGLBuffer>
 #include <QOpenGLFunctions>
 #include <QOpenGLFunctions_2_1>
+#include <QPainter>
 #include <QOpenGLVersionFunctionsFactory>
 #include <QOpenGLShaderProgram>
 #include <QQuaternion>
@@ -29,12 +31,16 @@
 
 #include "viewport.h"
 #include "source_texture.h"
+#include "studio_anim.h"
 #include "togl/vcs.h"
 
 namespace
 {
 constexpr float defaultYaw = -0.915f;
 constexpr float defaultPitch = 0.454f;
+constexpr float defaultFov = 65.0f; // HLMV default; frames the model at zoom 1
+
+static float halfFovTan(float degrees) { return std::tan(qDegreesToRadians(degrees) * 0.5f); }
 
 constexpr Vertex quad[] = {
     {{-0.75f, -0.75f, 0.0f, 1.0f}, {0.0f, 0.0f}},
@@ -107,12 +113,21 @@ protected:
             m_vertices.allocate(quad, sizeof(quad));
         else
         {
-            // Flexed models keep the unflexed vertices to rebuild the buffer whenever controller values change.
-            const bool flexed = !m_mesh.flex.flexes.empty();
-            const auto vertices = flexed ? m_mesh.vertices : std::exchange(m_mesh.vertices, {});
-            if (flexed)
+            // Skinned or flexed models rebuild the buffer from the bind pose every pose change; normal overlays read it.
+            m_pose = m_mesh.bones;
+            const bool skinned = !m_mesh.weights.empty();
+            // The engine draws sequence poses, not mstudiobone_t's default pose, so frame what is drawn.
+            if (skinned && m_settings && m_settings->animation && m_settings->animation->BoneCount() == int(m_pose.size()))
+                m_settings->animation->SetUpBones(m_pose);
+            if (skinned)
+            {
+                SkinVertices(m_mesh, m_mesh.vertices, m_pose, m_skinnedVertices);
+                FrameVertices(m_mesh, m_skinnedVertices);
+            }
+            const auto &vertices = skinned ? m_skinnedVertices : m_mesh.vertices;
+            const auto &indices = m_mesh.indices; // kept to list the selected submodels' vertices for normal overlays
+            if (skinned || !m_mesh.flex.flexes.empty())
                 m_vertices.setUsagePattern(QOpenGLBuffer::DynamicDraw);
-            const auto indices = std::exchange(m_mesh.indices, {});
             m_vertices.allocate(vertices.data(), int(vertices.size() * sizeof(Vertex)));
             if (!m_indices.create() || !m_indices.bind())
             {
@@ -131,15 +146,21 @@ protected:
             try
             {
                 m_materialTextures.resize(m_mesh.textures.size());
+                // The viewer loads every skin family up front so the Skin choice never reloads; the probe needs only family 0.
+                const int families = m_settings && m_mesh.skinRefs ? int(m_mesh.skinTable.size()) / m_mesh.skinRefs : 1;
+                std::vector<int> used;
                 for (const auto &batch : m_mesh.batches)
+                    for (int family = 0; family < families; ++family)
+                        used.push_back(m_mesh.Texture(batch, family));
+                for (const int index : used)
                 {
-                    auto &texture = m_materialTextures[batch.texture];
+                    auto &texture = m_materialTextures[index];
                     if (texture)
                         continue;
                     try
                     {
                         texture = std::make_unique<SourceMaterial>();
-                        const auto path = LoadSourceMaterial(*texture, m_modelPath, m_mesh.textures[batch.texture],
+                        const auto path = LoadSourceMaterial(*texture, m_modelPath, m_mesh.textures[index],
                                                              m_mesh.materialPaths);
                         if (glGetError() != GL_NO_ERROR)
                             throw std::runtime_error((path + QStringLiteral(": OpenGL texture upload failed")).toStdString());
@@ -147,14 +168,14 @@ protected:
                         if (texture->shader == MaterialShader::Phong)
                             qInfo() << "Phong exponent override:" << texture->exponent << "boost:" << texture->fresnelBoost.w();
                         if (!texture->ignored.isEmpty())
-                            qWarning().noquote() << "Not applied in" << m_mesh.textures[batch.texture] << ':'
+                            qWarning().noquote() << "Not applied in" << m_mesh.textures[index] << ':'
                                                  << texture->ignored.join(QStringLiteral(", "));
                     }
                     catch (const std::runtime_error &error)
                     {
                         if (m_shaderDirectory.isEmpty())
                             throw;
-                        markMissing(texture, m_mesh.textures[batch.texture], error.what());
+                        markMissing(texture, m_mesh.textures[index], error.what());
                     }
                 }
             }
@@ -214,7 +235,7 @@ protected:
                         m_materialProgram[i] = int(existing - m_programs.begin());
                         continue;
                     }
-                    const auto error = std::ranges::find(failed, material->combo, &std::pair<ShaderCombo, std::string>::first);
+                    auto error = std::ranges::find(failed, material->combo, &std::pair<ShaderCombo, std::string>::first);
                     if (error == failed.end())
                         try
                         {
@@ -226,9 +247,11 @@ protected:
                         }
                         catch (const std::runtime_error &e)
                         {
+                            // emplace_back invalidates `error`; point it at the new entry
                             failed.emplace_back(material->combo, e.what());
+                            error = failed.end() - 1;
                         }
-                    markMissing(material, m_mesh.textures[i], (error == failed.end() ? failed.back() : *error).second.c_str());
+                    markMissing(material, m_mesh.textures[i], error->second.c_str());
                 }
                 for (size_t i = 0; i < m_materialTextures.size(); ++i)
                     if (m_materialTextures[i] && m_materialTextures[i]->shader == MaterialShader::Missing)
@@ -389,7 +412,9 @@ protected:
             const auto offset = cameraDirection();
             const auto right = QVector3D::crossProduct(QVector3D(0, 0, 1), offset).normalized();
             const auto up = QVector3D::crossProduct(offset, right);
-            const float scale = 2.2f * m_mesh.radius * m_zoom / std::max(1, std::min(width(), height()));
+            // World units per pixel at the orbit target, so the model follows the cursor.
+            const float scale = 2.2f * m_mesh.radius * m_zoom * halfFovTan(m_fov) / halfFovTan(defaultFov) /
+                                std::max(1, std::min(width(), height()));
             m_pan += (right * -float(delta.x()) + up * float(delta.y())) * scale;
         }
         else
@@ -428,16 +453,17 @@ protected:
         m_cameraDirty = false;
         const auto radius = m_mesh.radius;
         const auto target = m_mesh.center + m_pan;
-        constexpr float orbitDistanceInRadii = 3.0f;
-        const auto eye = target + cameraDirection() * (orbitDistanceInRadii * radius);
-        const float aspect = float(width()) / float(height());
-        // Scale the near plane so zoom and pan retain their scale at the orbit target.
-        const float halfNear = radius * m_zoom * (1.1f / orbitDistanceInRadii);
-        const float halfWidth = halfNear * std::max(1.0f, aspect);
-        const float halfHeight = halfNear * std::max(1.0f, 1.0f / aspect);
+        // HLMV's PerspectiveX: the FOV spans the viewport width.
+        const float tanX = halfFovTan(m_fov);
+        const float tanY = tanX * float(height()) / float(width());
+        // Like HLMV, the distance ignores the FOV: a wider lens shows the model smaller.
+        const float distance = 1.1f * radius * m_zoom / (halfFovTan(defaultFov) * std::min(1.0f, float(height()) / float(width())));
+        const auto eye = target + cameraDirection() * distance;
+        const float reach = m_pan.length() + 2 * radius;
+        const float zNear = std::max(distance - reach, distance * 0.01f);
         QMatrix4x4 view, projection;
         view.lookAt(eye, target, QVector3D(0, 0, 1));
-        projection.frustum(-halfWidth, halfWidth, -halfHeight, halfHeight, radius, 5 * radius);
+        projection.frustum(-zNear * tanX, zNear * tanX, -zNear * tanY, zNear * tanY, zNear, distance + reach);
         m_mvp = projection * view;
         const QVector4D rows[] = {m_mvp.row(0), -m_mvp.row(1), (m_mvp.row(2) + m_mvp.row(3)) * 0.5f, m_mvp.row(3)};
         for (const auto &slot : m_programs)
@@ -478,11 +504,19 @@ protected:
                 drawPass(*m_programs[i], int(i), specular, blended);
         if (gl21)
             gl21->glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        if (m_indexCount && m_settings && ((m_settings->wireframeOverlay && !m_settings->wireframe) || m_settings->showOriginAxis))
+        if (m_indexCount && m_settings && anyOverlay())
             if (auto *debugGl = gl21 ? gl21 : QOpenGLVersionFunctionsFactory::get<QOpenGLFunctions_2_1>(context()))
                 drawOverlays(*debugGl);
         if (m_indexCount)
             glDisable(GL_DEPTH_TEST);
+    }
+
+    bool anyOverlay() const
+    {
+        const auto &s = *m_settings;
+        return (s.wireframeOverlay && !s.wireframe) || s.showOriginAxis || s.showBones || s.showAttachments ||
+               s.showHitboxes || s.showNormals || (s.showTangents && m_mesh.hasTangents) || s.highlightBone >= 0 ||
+               s.highlightHitbox >= 0;
     }
 
     void drawOverlays(QOpenGLFunctions_2_1 &gl)
@@ -506,7 +540,7 @@ protected:
             gl.glPolygonOffset(-1, -1);
             gl.glEnable(GL_POLYGON_OFFSET_LINE);
             gl.glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-            glDrawElements(GL_TRIANGLES, m_indexCount, GL_UNSIGNED_INT, nullptr);
+            drawVisibleBatches();
             gl.glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
             gl.glDisable(GL_POLYGON_OFFSET_LINE);
             gl.glDisableClientState(GL_VERTEX_ARRAY);
@@ -530,12 +564,129 @@ protected:
             gl.glEnd();
         }
 
+        const auto &s = *m_settings;
+        if (s.showNormals || (s.showTangents && m_mesh.hasTangents))
+            updateDrawnVertices();
+        const auto vertex = [&](const QVector3D &p) { gl.glVertex3f(p.x(), p.y(), p.z()); };
+        const auto line = [&](const QVector3D &from, const QVector3D &to) { vertex(from); vertex(to); };
+        // HLMV's drawTransform: the matrix axes in red, green and blue.
+        const auto axes = [&](const QMatrix4x4 &m, float length) {
+            const auto origin = m.column(3).toVector3D();
+            for (int axis = 0; axis < 3; ++axis)
+            {
+                gl.glColor3f(axis == 0, axis == 1, axis == 2);
+                line(origin, origin + m.column(axis).toVector3D().normalized() * length);
+            }
+        };
+
+        if (s.showNormals || (s.showTangents && m_mesh.hasTangents))
+        {
+            // shortcut: immediate-mode lines every frame; cache a line buffer if dense models get slow.
+            const auto &vertices = currentVertices();
+            const float length = s.originAxisLength * 0.1f;
+            gl.glBegin(GL_LINES);
+            for (const auto index : m_drawnVertices)
+            {
+                const auto &v = vertices[index];
+                const QVector3D position(v.position[0], v.position[1], v.position[2]);
+                const QVector3D normal(v.normal[0], v.normal[1], v.normal[2]);
+                if (s.showNormals)
+                {
+                    gl.glColor3f(0, 0, 1);
+                    line(position, position + normal * length);
+                }
+                if (s.showTangents && m_mesh.hasTangents)
+                {
+                    const QVector3D tangent(v.tangent[0], v.tangent[1], v.tangent[2]);
+                    gl.glColor3f(1, 0, 0);
+                    line(position, position + tangent * length);
+                    gl.glColor3f(0, 1, 0);
+                    line(position, position + QVector3D::crossProduct(normal, tangent) * (v.tangent[3] * length));
+                }
+            }
+            gl.glEnd();
+        }
+
+        // Skeleton overlays show through the mesh, like HLMV's debug materials.
+        glDisable(GL_DEPTH_TEST);
+        gl.glBegin(GL_LINES);
+        const auto &sets = m_settings->hitboxSets;
+        const int highlight = s.highlightHitbox;
+        if ((s.showHitboxes || highlight >= 0) && s.hitboxSet >= 0 && size_t(s.hitboxSet) < sets.size())
+        {
+            static constexpr float hullColor[8][3] = {{1, 1, 1}, {1, .5f, .5f}, {.5f, 1, .5f}, {1, 1, .5f},
+                                                      {.5f, .5f, 1}, {1, .5f, 1}, {.5f, 1, 1}, {1, 1, 1}};
+            const auto &boxes = sets[s.hitboxSet].boxes;
+            for (size_t i = 0; i < boxes.size(); ++i)
+            {
+                const auto &box = boxes[i];
+                if (box.bone < 0 || size_t(box.bone) >= m_pose.size())
+                    continue;
+                // HLMV dims every box but the highlighted one.
+                const float dim = highlight >= 0 && size_t(highlight) != i ? 0.6f : 1.0f;
+                const auto *color = hullColor[(box.group % 8 + 8) % 8];
+                gl.glColor3f(color[0] * dim, color[1] * dim, color[2] * dim);
+                // Source AngleMatrix: yaw about Z, then pitch about Y, then roll about X.
+                QMatrix4x4 transform = m_pose[box.bone];
+                transform.rotate(box.angles.y(), 0, 0, 1);
+                transform.rotate(box.angles.x(), 0, 1, 0);
+                transform.rotate(box.angles.z(), 1, 0, 0);
+                // shortcut: capsules draw as their bounds grown by the radius; draw true capsules if CS:GO models need it.
+                const QVector3D grow(std::max(box.radius, 0.0f), std::max(box.radius, 0.0f), std::max(box.radius, 0.0f));
+                const auto min = box.min - grow, max = box.max + grow;
+                const auto corner = [&](int c) {
+                    return transform.map(QVector3D(c & 1 ? max.x() : min.x(), c & 2 ? max.y() : min.y(), c & 4 ? max.z() : min.z()));
+                };
+                for (int c = 0; c < 8; ++c)
+                    for (int bit = 1; bit < 8; bit <<= 1)
+                        if (!(c & bit))
+                            line(corner(c), corner(c | bit));
+            }
+        }
+        // HLMV's DrawBones: a highlighted bone shows alone, with yellow links to its children.
+        const int highlightBone = s.highlightBone;
+        if (s.showBones || highlightBone >= 0)
+            for (size_t i = 0; i < m_pose.size(); ++i)
+            {
+                const auto &bone = m_pose[i];
+                if (const int parent = m_mesh.boneParents[i]; parent >= 0 && (highlightBone < 0 || parent == highlightBone))
+                {
+                    axes(bone, s.originAxisLength * 0.1f);
+                    gl.glColor3f(highlightBone >= 0, 1, highlightBone < 0);
+                    line(m_pose[parent].column(3).toVector3D(), bone.column(3).toVector3D());
+                }
+                if (highlightBone < 0 || size_t(highlightBone) == i)
+                    axes(bone, s.originAxisLength * 0.4f);
+            }
+        if (s.showAttachments)
+            for (const auto &attachment : m_mesh.attachments)
+                axes(m_pose[attachment.bone] * attachment.local, s.originAxisLength * 0.4f);
+        gl.glEnd();
+        glEnable(GL_DEPTH_TEST);
+
         gl.glColor3f(1, 1, 1);
         glDepthMask(GL_TRUE);
         gl.glPopMatrix();
         gl.glMatrixMode(GL_PROJECTION);
         gl.glPopMatrix();
         gl.glMatrixMode(GL_MODELVIEW);
+    }
+
+    void drawBoneNames()
+    {
+        const auto &s = *m_settings;
+        QPainter painter(this);
+        painter.setPen(Qt::white);
+        for (qsizetype i = 0; i < m_mesh.info.bones.size() && size_t(i) < m_pose.size(); ++i)
+        {
+            if (s.highlightBone >= 0 && i != s.highlightBone)
+                continue;
+            const auto clip = m_mvp * QVector4D(m_pose[i].column(3).toVector3D(), 1);
+            if (clip.w() <= 0)
+                continue;
+            const QPointF at((clip.x() / clip.w() + 1) * 0.5 * width(), (1 - clip.y() / clip.w()) * 0.5 * height());
+            painter.drawText(at, QStringLiteral("~") + m_mesh.info.bones[i]); // HLMV's "silly bone icon"
+        }
     }
 
     static bool IsBlended(MaterialBlend blend)
@@ -569,12 +720,44 @@ protected:
             gl21->glDisable(GL_ALPHA_TEST);
     }
 
+    // HLMV's Skin choice remaps each mesh's material slot through the selected skin family.
+    int textureOf(const MeshBatch &batch) const { return m_mesh.Texture(batch, m_settings ? m_settings->skin : 0); }
+
+    // Bodygroups: each body part draws only its selected submodel (HLMV's SetBodygroup); default submodel 0.
+    bool visible(const MeshBatch &batch) const
+    {
+        const auto *groups = m_settings ? &m_settings->bodygroups : nullptr;
+        return batch.model == (groups && size_t(batch.bodyPart) < groups->size() ? (*groups)[batch.bodyPart] : 0);
+    }
+
+    void drawVisibleBatches()
+    {
+        for (const auto &batch : m_mesh.batches)
+            if (visible(batch))
+                glDrawElements(GL_TRIANGLES, GLsizei(batch.count), GL_UNSIGNED_INT,
+                               reinterpret_cast<const void *>(batch.first * sizeof(uint32_t)));
+    }
+
+    void updateDrawnVertices()
+    {
+        if (m_drawnFor == m_settings->bodygroups)
+            return;
+        m_drawnFor = m_settings->bodygroups;
+        m_drawnVertices.clear();
+        for (const auto &batch : m_mesh.batches)
+            if (visible(batch))
+                m_drawnVertices.insert(m_drawnVertices.end(), m_mesh.indices.begin() + batch.first,
+                                       m_mesh.indices.begin() + batch.first + batch.count);
+        std::ranges::sort(m_drawnVertices);
+        m_drawnVertices.erase(std::ranges::unique(m_drawnVertices).begin(), m_drawnVertices.end());
+    }
+
     void drawPass(ModelProgram &state, int programIndex, bool specular, bool blended)
     {
         if (!m_materialTextures.empty() &&
             std::ranges::none_of(m_mesh.batches, [&](const MeshBatch &batch) {
-                const auto &material = m_materialTextures[batch.texture];
-                return m_materialProgram[batch.texture] == programIndex && IsBlended(material->blend) == blended;
+                const int texture = textureOf(batch);
+                return visible(batch) && m_materialProgram[texture] == programIndex && IsBlended(m_materialTextures[texture]->blend) == blended;
             }))
             return;
         if (m_materialTextures.empty() && blended)
@@ -622,12 +805,13 @@ protected:
         {
             m_indices.bind();
             if (m_materialTextures.empty())
-                glDrawElements(GL_TRIANGLES, m_indexCount, GL_UNSIGNED_INT, nullptr);
+                drawVisibleBatches();
             else
                 for (const auto &batch : m_mesh.batches)
                 {
-                    auto &material = *m_materialTextures[batch.texture];
-                    if (m_materialProgram[batch.texture] != programIndex || IsBlended(material.blend) != blended)
+                    const int texture = textureOf(batch);
+                    auto &material = *m_materialTextures[texture];
+                    if (!visible(batch) || m_materialProgram[texture] != programIndex || IsBlended(material.blend) != blended)
                         continue;
                     applyBlend(material);
                     if (!state.missing)
@@ -682,9 +866,37 @@ protected:
         std::vector<float> controllers(flex.controllers.size());
         for (size_t i = 0; i < controllers.size(); ++i)
             controllers[i] = m_settings->flexRaw[i] * (flex.controllers[i].max - flex.controllers[i].min) + flex.controllers[i].min;
-        ApplyFlexes(flex, RunFlexRules(flex, controllers), m_mesh.vertices, m_mesh.skinLinear, m_flexedVertices);
+        ApplyFlexes(flex, RunFlexRules(flex, controllers), m_mesh.vertices, m_flexedVertices);
+        m_geometryDirty = true;
+    }
+
+    // Vertices as drawn: skinned to the current pose, else flexed, else as loaded.
+    const std::vector<Vertex> &currentVertices() const
+    {
+        if (!m_mesh.weights.empty())
+            return m_skinnedVertices;
+        return m_flexedVertices.empty() ? m_mesh.vertices : m_flexedVertices;
+    }
+
+    // HLMV's SetUpBones + software skinning: pose the skeleton, then rebuild the vertex buffer.
+    void updateGeometry()
+    {
+        applyFlexes();
+        if (m_settings && m_settings->animation && !m_mesh.weights.empty() &&
+            m_settings->animation->BoneCount() == int(m_mesh.bones.size()))
+        {
+            m_settings->animation->SetUpBones(m_pose);
+            m_geometryDirty = true;
+        }
+        if (!m_geometryDirty)
+            return;
+        m_geometryDirty = false;
+        const auto &base = m_flexedVertices.empty() ? m_mesh.vertices : m_flexedVertices;
+        if (!m_mesh.weights.empty())
+            SkinVertices(m_mesh, base, m_pose, m_skinnedVertices);
+        const auto &vertices = currentVertices();
         m_vertices.bind();
-        m_vertices.write(0, m_flexedVertices.data(), int(m_flexedVertices.size() * sizeof(Vertex)));
+        m_vertices.write(0, vertices.data(), int(vertices.size() * sizeof(Vertex)));
         m_vertices.release();
     }
 
@@ -692,7 +904,8 @@ protected:
     {
         if (!m_ready)
             return;
-        applyFlexes();
+        if (m_indexCount)
+            updateGeometry();
         if (m_settings && std::exchange(m_settings->centerView, false))
         {
             m_yaw = defaultYaw;
@@ -705,7 +918,14 @@ protected:
             m_pan = {};
             m_cameraDirty = true;
         }
+        if (m_settings && m_settings->fov != m_fov)
+        {
+            m_fov = m_settings->fov;
+            m_cameraDirty = true;
+        }
         drawScene(!m_settings || m_settings->specular);
+        if (m_indexCount && m_settings && m_settings->showBoneNames && (m_settings->showBones || m_settings->highlightBone >= 0))
+            drawBoneNames();
 
         if (m_check)
         {
@@ -832,6 +1052,11 @@ private:
     QString m_shaderDirectory;
     MdlMesh m_mesh;
     std::vector<Vertex> m_flexedVertices;
+    std::vector<Vertex> m_skinnedVertices;
+    std::vector<QMatrix4x4> m_pose; // bone-to-model for the drawn pose
+    bool m_geometryDirty = false;
+    std::vector<uint32_t> m_drawnVertices; // vertices of the selected submodels, for normal overlays
+    std::optional<std::vector<int>> m_drawnFor; // bodygroups m_drawnVertices was built for
     int m_flexRevision = -1;
     bool m_check;
     bool m_checker;
@@ -843,6 +1068,7 @@ private:
     float m_yaw = defaultYaw;
     float m_pitch = defaultPitch;
     float m_zoom = 1;
+    float m_fov = defaultFov;
     QVector3D m_lightDirection{-1, 0, 0}; // HLMV default lightrot (0, 180, 0).
     QPointF m_mouse;
     QVector3D m_pan;

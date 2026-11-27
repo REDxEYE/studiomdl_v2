@@ -94,19 +94,32 @@ private:
 
 constexpr auto finite = [](float value) { return std::isfinite(value); };
 
-std::vector<QMatrix4x4> ReadDefaultSkinMatrices(const ModelFile &mdl)
+struct Skeleton
+{
+    std::vector<QMatrix4x4> skinToModel, boneToModel, modelToBone;
+    std::vector<int> parents;
+};
+
+// Rest pose from mstudiobone_t pos/quat, plus the bind pose (poseToBone).
+Skeleton ReadSkeleton(const ModelFile &mdl)
 {
     const int count = mdl.read<int>(offsetof(studiohdr_t, numbones));
     if (count < 1 || count > int(MAXSTUDIOBONES))
         mdl.fail(QStringLiteral("invalid studio bone count"));
     const auto bones = mdl.table(0, mdl.read<int>(offsetof(studiohdr_t, boneindex)), count, sizeof(mstudiobone_t));
-    std::vector<QMatrix4x4> boneToModel(count), skinToModel(count);
+    Skeleton skeleton;
+    auto &[skinToModel, boneToModel, modelToBone, parents] = skeleton;
+    skinToModel.resize(count);
+    boneToModel.resize(count);
+    modelToBone.resize(count);
+    parents.resize(count);
     for (int i = 0; i < count; ++i)
     {
         const auto bone = bones + i * sizeof(mstudiobone_t);
         const int parent = mdl.read<int>(bone + offsetof(mstudiobone_t, parent));
         if (parent < -1 || parent >= i)
             mdl.fail(QStringLiteral("invalid studio bone parent"));
+        parents[i] = parent;
         const auto pos = mdl.read<std::array<float, 3>>(bone + offsetof(mstudiobone_t, pos));
         const auto quat = mdl.read<std::array<float, 4>>(bone + offsetof(mstudiobone_t, quat));
         const auto inverseBind = mdl.read<std::array<float, 12>>(bone + offsetof(mstudiobone_t, poseToBone));
@@ -127,15 +140,16 @@ std::vector<QMatrix4x4> ReadDefaultSkinMatrices(const ModelFile &mdl)
             const auto *r = inverseBind.data() + 4 * row;
             bind.setRow(row, QVector4D(r[0], r[1], r[2], r[3]));
         }
+        modelToBone[i] = bind;
         skinToModel[i] = world * bind;
         if (!std::ranges::all_of(std::span(skinToModel[i].constData(), 16), finite))
             mdl.fail(QStringLiteral("studio bone transform overflow"));
     }
-    return skinToModel;
+    return skeleton;
 }
 
-std::vector<Vertex> ReadVertices(const ModelFile &vvd, const vertexFileHeader_t &header,
-                                 std::span<const QMatrix4x4> skinMatrices, std::vector<std::array<float, 9>> &skinLinear)
+std::vector<Vertex> ReadVertices(const ModelFile &vvd, const vertexFileHeader_t &header, int boneCount,
+                                 std::vector<VertexWeights> &weightsOut)
 {
     const int count = header.numLODVertexes[0];
     const auto data = vvd.table(0, header.vertexDataStart, count, sizeof(mstudiovertex_t));
@@ -154,44 +168,31 @@ std::vector<Vertex> ReadVertices(const ModelFile &vvd, const vertexFileHeader_t 
             auto normal = vvd.read<std::array<float, 3>>(offset + offsetof(mstudiovertex_t, m_vecNormal));
             const auto uv = vvd.read<std::array<float, 2>>(offset + offsetof(mstudiovertex_t, m_vecTexCoord));
             auto tangent = tangents ? vvd.read<std::array<float, 4>>(tangents + i * sizeof(float) * 4) : std::array<float, 4>{};
-            if (!skinMatrices.empty())
+            if (boneCount)
             {
                 const auto weights = vvd.read<mstudioboneweight_t>(offset + offsetof(mstudiovertex_t, m_BoneWeights));
                 if (weights.numbones == 0 || weights.numbones > MAX_NUM_BONES_PER_VERT)
                     vvd.fail(QStringLiteral("invalid vertex bone count"));
-                const QVector3D p(pos[0], pos[1], pos[2]), n(normal[0], normal[1], normal[2]), t(tangent[0], tangent[1], tangent[2]);
-                QVector3D skinnedPos, skinnedNormal, skinnedTangent;
+                VertexWeights out{};
                 float total = 0;
-                std::array<float, 9> linear{};
                 for (int j = 0; j < weights.numbones; ++j)
                 {
                     const auto bone = weights.bone[j];
                     const auto weight = weights.weight[j];
-                    if (bone >= skinMatrices.size() || !std::isfinite(weight) || weight < 0 || weight > 1)
+                    // studiomdl writes some single-bone weights as 1.0000001
+                    if (bone >= boneCount || !std::isfinite(weight) || weight < 0 || weight > 1.001f)
                         vvd.fail(QStringLiteral("invalid vertex bone influence"));
                     if (weight == 0)
                         continue;
-                    const auto &matrix = skinMatrices[bone];
-                    skinnedPos += weight * matrix.map(p);
-                    skinnedNormal += weight * matrix.mapVector(n);
-                    if (tangents)
-                        skinnedTangent += weight * matrix.mapVector(t);
+                    out.bone[out.count] = bone;
+                    out.weight[out.count++] = weight;
                     total += weight;
-                    for (int r = 0; r < 3; ++r)
-                        for (int c = 0; c < 3; ++c)
-                            linear[r * 3 + c] += weight * matrix(r, c);
                 }
                 if (std::abs(total - 1) > 0.01f)
                     vvd.fail(QStringLiteral("vertex bone weights do not sum to one"));
-                skinnedPos /= total;
-                for (auto &value : linear)
-                    value /= total;
-                skinLinear.push_back(linear); // moves bind-space flex deltas into the baked pose
-                skinnedNormal.normalize();
-                skinnedTangent.normalize();
-                pos = {skinnedPos.x(), skinnedPos.y(), skinnedPos.z()};
-                normal = {skinnedNormal.x(), skinnedNormal.y(), skinnedNormal.z()};
-                tangent = {skinnedTangent.x(), skinnedTangent.y(), skinnedTangent.z(), tangent[3]};
+                for (int j = 0; j < out.count; ++j)
+                    out.weight[j] /= total;
+                weightsOut.push_back(out);
             }
             if (!std::ranges::all_of(pos, finite) || !std::ranges::all_of(normal, finite) ||
                 !std::ranges::all_of(uv, finite) || !std::ranges::all_of(tangent, finite))
@@ -283,6 +284,22 @@ MdlInfo ReadInfo(const ModelFile &mdl)
                                sizeof(mstudiobodyparts_t), offsetof(mstudiobodyparts_t, sznameindex));
     info.sequences = ReadNames(mdl, field(offsetof(studiohdr_t, numlocalseq)), field(offsetof(studiohdr_t, localseqindex)),
                                sizeof(mstudioseqdesc_t), offsetof(mstudioseqdesc_t, szlabelindex));
+    info.surfaceProps = ReadNames(mdl, field(offsetof(studiohdr_t, numbones)), field(offsetof(studiohdr_t, boneindex)),
+                                  sizeof(mstudiobone_t), offsetof(mstudiobone_t, surfacepropidx));
+    info.autoHitboxes = mdl.read<uint32_t>(offsetof(studiohdr_t, flags)) & STUDIOHDR_FLAGS_AUTOGENERATED_HITBOX;
+    const auto bodies = mdl.table(0, field(offsetof(studiohdr_t, bodypartindex)), int(info.bodyParts.size()), sizeof(mstudiobodyparts_t));
+    for (qsizetype part = 0; part < info.bodyParts.size(); ++part)
+    {
+        const auto body = bodies + part * sizeof(mstudiobodyparts_t);
+        const int modelCount = mdl.read<int>(body + offsetof(mstudiobodyparts_t, nummodels));
+        const auto models = mdl.table(body, mdl.read<int>(body + offsetof(mstudiobodyparts_t, modelindex)), modelCount, sizeof(mstudiomodel_t));
+        auto &names = info.bodyModels.emplace_back();
+        for (int i = 0; i < modelCount; ++i)
+        {
+            const auto name = mdl.read<std::array<char, 64>>(models + i * sizeof(mstudiomodel_t) + offsetof(mstudiomodel_t, name));
+            names.append(QString::fromUtf8(name.data(), qsizetype(std::find(name.begin(), name.end(), 0) - name.begin())));
+        }
+    }
     info.boneControllers = field(offsetof(studiohdr_t, numbonecontrollers));
     info.skinFamilies = field(offsetof(studiohdr_t, numskinfamilies));
     info.hitboxSets = field(offsetof(studiohdr_t, numhitboxsets));
@@ -296,6 +313,59 @@ MdlInfo ReadInfo(const ModelFile &mdl)
     info.hullMin = vec(offsetof(studiohdr_t, hull_min));
     info.hullMax = vec(offsetof(studiohdr_t, hull_max));
     return info;
+}
+
+// Attachments and hitbox sets in the space the vertices were baked into.
+void ReadOverlays(const ModelFile &mdl, std::span<const QMatrix4x4> bones, MdlMesh &result)
+{
+    static_assert(sizeof(mstudiobbox_t) == 68);
+    const auto field = [&](size_t offset) { return mdl.read<int>(offset); };
+    const int boneCount = int(bones.size());
+    const int attachmentCount = field(offsetof(studiohdr_t, numlocalattachments));
+    const auto attachments = mdl.table(0, field(offsetof(studiohdr_t, localattachmentindex)), attachmentCount,
+                                       sizeof(mstudioattachment_t));
+    for (int i = 0; i < attachmentCount; ++i)
+    {
+        const auto record = attachments + i * sizeof(mstudioattachment_t);
+        const int bone = mdl.read<int>(record + offsetof(mstudioattachment_t, localbone));
+        const auto local = mdl.read<std::array<float, 12>>(record + offsetof(mstudioattachment_t, local));
+        if (bone < 0 || bone >= boneCount || !std::ranges::all_of(local, finite))
+            mdl.fail(QStringLiteral("invalid attachment"));
+        QMatrix4x4 matrix;
+        for (int row = 0; row < 3; ++row)
+            matrix.setRow(row, QVector4D(local[4 * row], local[4 * row + 1], local[4 * row + 2], local[4 * row + 3]));
+        result.attachments.push_back({bone, matrix});
+    }
+
+    const int setCount = field(offsetof(studiohdr_t, numhitboxsets));
+    const auto sets = mdl.table(0, field(offsetof(studiohdr_t, hitboxsetindex)), setCount, sizeof(mstudiohitboxset_t));
+    for (int s = 0; s < setCount; ++s)
+    {
+        const auto set = sets + s * sizeof(mstudiohitboxset_t);
+        auto &hitboxSet = result.hitboxSets.emplace_back();
+        hitboxSet.name = mdl.string(mdl.table(set, mdl.read<int>(set + offsetof(mstudiohitboxset_t, sznameindex)), 1, 1));
+        const int hitboxCount = mdl.read<int>(set + offsetof(mstudiohitboxset_t, numhitboxes));
+        const auto boxes = mdl.table(set, mdl.read<int>(set + offsetof(mstudiohitboxset_t, hitboxindex)), hitboxCount,
+                                     sizeof(mstudiobbox_t));
+        for (int i = 0; i < hitboxCount; ++i)
+        {
+            const auto record = boxes + i * sizeof(mstudiobbox_t);
+            const auto vec = [&](size_t offset) {
+                const auto v = mdl.read<std::array<float, 3>>(record + offset);
+                if (!std::ranges::all_of(v, finite))
+                    mdl.fail(QStringLiteral("invalid hitbox"));
+                return QVector3D(v[0], v[1], v[2]);
+            };
+            MdlHitbox box{mdl.read<int>(record + offsetof(mstudiobbox_t, bone)), mdl.read<int>(record + offsetof(mstudiobbox_t, group)),
+                          vec(offsetof(mstudiobbox_t, bbmin)), vec(offsetof(mstudiobbox_t, bbmax)),
+                          vec(offsetof(mstudiobbox_t, angOffsetOrientation)), mdl.read<float>(record + offsetof(mstudiobbox_t, flCapsuleRadius))};
+            if (box.bone < 0 || box.bone >= boneCount || !std::isfinite(box.radius))
+                mdl.fail(QStringLiteral("invalid hitbox"));
+            if (const int name = mdl.read<int>(record + offsetof(mstudiobbox_t, szhitboxnameindex)))
+                box.name = mdl.string(mdl.table(record, name, 1, 1));
+            hitboxSet.boxes.push_back(std::move(box));
+        }
+    }
 }
 
 // Flex descriptors, controllers and rules (studiohdr_t), with every rule's stack use checked up front so
@@ -427,12 +497,22 @@ MdlMesh LoadMdlMesh(const QString &path)
     if (indexHeader.version != OPTIMIZED_MODEL_FILE_VERSION || indexHeader.checkSum != checksum || indexHeader.numLODs <= 0)
         vtx.fail(QStringLiteral("invalid VTX header or MDL checksum mismatch"));
     const bool rigid = mdl.read<uint32_t>(offsetof(studiohdr_t, flags)) & STUDIOHDR_FLAGS_STATIC_PROP;
-    // shortcut: bake the default pose once; retain skeletal data when adding sequence playback.
-    const auto skinMatrices = rigid ? std::vector<QMatrix4x4>{} : ReadDefaultSkinMatrices(mdl);
+    const auto skeleton = ReadSkeleton(mdl);
 
     MdlMesh result{};
     result.hasTangents = vertexHeader.tangentDataStart != 0;
-    result.vertices = ReadVertices(vvd, vertexHeader, skinMatrices, result.skinLinear);
+    // Static props keep bind-space vertices, so their bones sit at the inverse bind pose.
+    if (rigid)
+        for (const auto &bind : skeleton.modelToBone)
+            result.bones.push_back(bind.inverted());
+    else
+    {
+        result.bones = skeleton.boneToModel;
+        result.poseToBone = skeleton.modelToBone;
+    }
+    result.boneParents = skeleton.parents;
+    ReadOverlays(mdl, result.bones, result);
+    result.vertices = ReadVertices(vvd, vertexHeader, rigid ? 0 : int(result.bones.size()), result.weights);
     result.flex = ReadFlexHeader(mdl);
     const int textureCount = mdl.read<int>(offsetof(studiohdr_t, numtextures));
     const auto textures = mdl.table(0, mdl.read<int>(offsetof(studiohdr_t, textureindex)), textureCount, sizeof(mstudiotexture_t));
@@ -446,11 +526,20 @@ MdlMesh LoadMdlMesh(const QString &path)
         const auto record = textures + i * sizeof(mstudiotexture_t);
         result.textures.append(mdl.string(mdl.table(record, mdl.read<int>(record), 1, 1)));
     }
-    // Skin family 0 is the default; mesh materials index into this remap table.
+    // Skin family 0 is the default; mesh materials index into this remap table, one row per family.
     const int skinCount = mdl.read<int>(offsetof(studiohdr_t, numskinref));
-    if (mdl.read<int>(offsetof(studiohdr_t, numskinfamilies)) < 1)
+    const int familyCount = mdl.read<int>(offsetof(studiohdr_t, numskinfamilies));
+    if (familyCount < 1)
         mdl.fail(QStringLiteral("missing default skin"));
-    const auto skins = mdl.table(0, mdl.read<int>(offsetof(studiohdr_t, skinindex)), skinCount, sizeof(int16_t));
+    const auto skins = mdl.table(0, mdl.read<int>(offsetof(studiohdr_t, skinindex)), familyCount * skinCount, sizeof(int16_t));
+    for (int i = 0; i < familyCount * skinCount; ++i)
+    {
+        const auto texture = mdl.read<int16_t>(skins + i * sizeof(int16_t));
+        if (texture < 0 || texture >= textureCount)
+            mdl.fail(QStringLiteral("skin family entry outside texture table"));
+        result.skinTable.push_back(texture);
+    }
+    result.skinRefs = skinCount;
     const int bodyCount = mdl.read<int>(offsetof(studiohdr_t, numbodyparts));
     if (bodyCount != indexHeader.numBodyParts)
         vtx.fail(QStringLiteral("body part count does not match MDL"));
@@ -464,63 +553,110 @@ MdlMesh LoadMdlMesh(const QString &path)
         const auto modelCount = mdl.read<int>(body + offsetof(mstudiobodyparts_t, nummodels));
         if (modelCount <= 0 || modelCount != bodyHeader.numModels)
             vtx.fail(QStringLiteral("model count does not match MDL"));
-        // shortcut: preview bodygroup selection 0 and LOD 0; add selectors when the viewer exposes those controls.
-        const auto model = mdl.table(body, mdl.read<int>(body + offsetof(mstudiobodyparts_t, modelindex)), modelCount, sizeof(mstudiomodel_t));
-        const auto vtxModel = vtx.table(vtxBody, bodyHeader.modelOffset, modelCount, sizeof(ModelHeader_t));
-        const auto modelHeader = vtx.read<ModelHeader_t>(vtxModel);
-        if (modelHeader.numLODs <= 0)
-            vtx.fail(QStringLiteral("missing LOD 0"));
-        const auto lod = vtx.read<ModelLODHeader_t>(vtx.table(vtxModel, modelHeader.lodOffset, modelHeader.numLODs, sizeof(ModelLODHeader_t)));
-        const int meshCount = mdl.read<int>(model + offsetof(mstudiomodel_t, nummeshes));
-        const int vertexBytes = mdl.read<int>(model + offsetof(mstudiomodel_t, vertexindex));
-        const int modelVertices = mdl.read<int>(model + offsetof(mstudiomodel_t, numvertices));
-        const size_t modelFirst = size_t(vertexBytes) / sizeof(mstudiovertex_t);
-        if (meshCount != lod.numMeshes || vertexBytes < 0 || vertexBytes % int(sizeof(mstudiovertex_t)) ||
-            modelVertices < 0 || modelFirst > result.vertices.size() || size_t(modelVertices) > result.vertices.size() - modelFirst)
-            mdl.fail(QStringLiteral("invalid model vertex or mesh range"));
-        const auto meshes = mdl.table(model, mdl.read<int>(model + offsetof(mstudiomodel_t, meshindex)), meshCount, sizeof(mstudiomesh_t));
-        const auto vtxMeshes = vtx.table(vtxModel + modelHeader.lodOffset, lod.meshOffset, meshCount, sizeof(MeshHeader_t));
-        for (int meshID = 0; meshID < meshCount; ++meshID)
+        const auto models = mdl.table(body, mdl.read<int>(body + offsetof(mstudiobodyparts_t, modelindex)), modelCount, sizeof(mstudiomodel_t));
+        const auto vtxModels = vtx.table(vtxBody, bodyHeader.modelOffset, modelCount, sizeof(ModelHeader_t));
+        for (int modelID = 0; modelID < modelCount; ++modelID)
         {
-            const auto mesh = meshes + meshID * sizeof(mstudiomesh_t);
-            const int first = mdl.read<int>(mesh + offsetof(mstudiomesh_t, vertexoffset));
-            const int count = mdl.read<int>(mesh + offsetof(mstudiomesh_t, numvertices));
-            if (first < 0 || count < 0 || first > modelVertices || count > modelVertices - first)
-                mdl.fail(QStringLiteral("mesh vertices outside model"));
-            const auto indexStart = result.indices.size();
-            AppendMeshIndices(vtx, vtxMeshes + meshID * sizeof(MeshHeader_t), modelFirst + first, count, result.indices);
-            ReadMeshFlexes(mdl, mesh, modelFirst + first, count, result.flex);
-            if (result.indices.size() != indexStart)
+            // shortcut: LOD 0 only; read the other LODs when the LOD choice is wired.
+            const auto model = models + modelID * sizeof(mstudiomodel_t);
+            const auto vtxModel = vtxModels + modelID * sizeof(ModelHeader_t);
+            const auto modelHeader = vtx.read<ModelHeader_t>(vtxModel);
+            if (modelHeader.numLODs <= 0)
+                vtx.fail(QStringLiteral("missing LOD 0"));
+            const auto lod = vtx.read<ModelLODHeader_t>(vtx.table(vtxModel, modelHeader.lodOffset, modelHeader.numLODs, sizeof(ModelLODHeader_t)));
+            const int meshCount = mdl.read<int>(model + offsetof(mstudiomodel_t, nummeshes));
+            const int vertexBytes = mdl.read<int>(model + offsetof(mstudiomodel_t, vertexindex));
+            const int modelVertices = mdl.read<int>(model + offsetof(mstudiomodel_t, numvertices));
+            const size_t modelFirst = size_t(vertexBytes) / sizeof(mstudiovertex_t);
+            if (meshCount != lod.numMeshes || vertexBytes < 0 || vertexBytes % int(sizeof(mstudiovertex_t)) ||
+                modelVertices < 0 || modelFirst > result.vertices.size() || size_t(modelVertices) > result.vertices.size() - modelFirst)
+                mdl.fail(QStringLiteral("invalid model vertex or mesh range"));
+            const auto meshes = mdl.table(model, mdl.read<int>(model + offsetof(mstudiomodel_t, meshindex)), meshCount, sizeof(mstudiomesh_t));
+            const auto vtxMeshes = vtx.table(vtxModel + modelHeader.lodOffset, lod.meshOffset, meshCount, sizeof(MeshHeader_t));
+            for (int meshID = 0; meshID < meshCount; ++meshID)
             {
-                const int slot = mdl.read<int>(mesh + offsetof(mstudiomesh_t, material));
-                if (slot < 0 || slot >= skinCount)
-                    mdl.fail(QStringLiteral("material slot outside default skin"));
-                const int texture = mdl.read<int16_t>(skins + slot * sizeof(int16_t));
-                if (texture < 0 || texture >= textureCount)
-                    mdl.fail(QStringLiteral("material outside texture table"));
-                result.batches.push_back({indexStart, result.indices.size() - indexStart, texture});
+                const auto mesh = meshes + meshID * sizeof(mstudiomesh_t);
+                const int first = mdl.read<int>(mesh + offsetof(mstudiomesh_t, vertexoffset));
+                const int count = mdl.read<int>(mesh + offsetof(mstudiomesh_t, numvertices));
+                if (first < 0 || count < 0 || first > modelVertices || count > modelVertices - first)
+                    mdl.fail(QStringLiteral("mesh vertices outside model"));
+                const auto indexStart = result.indices.size();
+                AppendMeshIndices(vtx, vtxMeshes + meshID * sizeof(MeshHeader_t), modelFirst + first, count, result.indices);
+                ReadMeshFlexes(mdl, mesh, modelFirst + first, count, result.flex);
+                if (result.indices.size() != indexStart)
+                {
+                    const int slot = mdl.read<int>(mesh + offsetof(mstudiomesh_t, material));
+                    if (slot < 0 || slot >= skinCount)
+                        mdl.fail(QStringLiteral("material slot outside default skin"));
+                    const int texture = mdl.read<int16_t>(skins + slot * sizeof(int16_t));
+                    if (texture < 0 || texture >= textureCount)
+                        mdl.fail(QStringLiteral("material outside texture table"));
+                    result.batches.push_back({indexStart, result.indices.size() - indexStart, texture, slot, bodyID, modelID, 0});
+                }
             }
         }
     }
     if (result.indices.empty())
         mdl.fail(QStringLiteral("no drawable triangles"));
 
+    // Frame the rest pose; the viewer reframes once it has posed the first sequence.
+    std::vector<Vertex> rest;
+    if (!result.weights.empty())
+        SkinVertices(result, result.vertices, result.bones, rest);
+    if (!FrameVertices(result, result.weights.empty() ? result.vertices : rest))
+        mdl.fail(QStringLiteral("invalid or degenerate mesh bounds"));
+    result.info = ReadInfo(mdl);
+    return result;
+}
+
+bool FrameVertices(MdlMesh &mesh, std::span<const Vertex> vertices)
+{
+    if (mesh.indices.empty())
+        return false;
     std::array<float, 3> mins, maxs;
-    std::copy_n(result.vertices[result.indices.front()].position, 3, mins.begin());
+    std::copy_n(vertices[mesh.indices.front()].position, 3, mins.begin());
     maxs = mins;
-    for (const auto index : result.indices)
+    for (const auto index : mesh.indices)
         for (int axis = 0; axis < 3; ++axis)
         {
-            const auto value = result.vertices[index].position[axis];
+            const auto value = vertices[index].position[axis];
             mins[axis] = std::min(mins[axis], value);
             maxs[axis] = std::max(maxs[axis], value);
         }
     const QVector3D lo(mins[0], mins[1], mins[2]);
     const QVector3D hi(maxs[0], maxs[1], maxs[2]);
-    result.center = 0.5f * lo + 0.5f * hi;
-    result.radius = (0.5f * hi - 0.5f * lo).length();
-    if (!std::isfinite(result.radius) || result.radius < 1e-6f)
-        mdl.fail(QStringLiteral("invalid or degenerate mesh bounds"));
-    result.info = ReadInfo(mdl);
-    return result;
+    const float radius = (0.5f * hi - 0.5f * lo).length();
+    if (!std::isfinite(radius) || radius < 1e-6f)
+        return false;
+    mesh.center = 0.5f * lo + 0.5f * hi;
+    mesh.radius = radius;
+    return true;
+}
+
+void SkinVertices(const MdlMesh &mesh, std::span<const Vertex> base, std::span<const QMatrix4x4> boneToModel,
+                  std::vector<Vertex> &out)
+{
+    std::vector<QMatrix4x4> skin(boneToModel.size());
+    for (size_t i = 0; i < skin.size() && i < mesh.poseToBone.size(); ++i)
+        skin[i] = boneToModel[i] * mesh.poseToBone[i];
+    out.resize(base.size());
+    for (size_t v = 0; v < base.size(); ++v)
+    {
+        const auto &in = base[v];
+        const auto &weights = mesh.weights[v];
+        const QVector3D p(in.position[0], in.position[1], in.position[2]), n(in.normal[0], in.normal[1], in.normal[2]),
+            t(in.tangent[0], in.tangent[1], in.tangent[2]);
+        QVector3D position, normal, tangent;
+        for (int j = 0; j < weights.count; ++j)
+        {
+            const auto &matrix = skin[weights.bone[j]];
+            position += weights.weight[j] * matrix.map(p);
+            normal += weights.weight[j] * matrix.mapVector(n);
+            tangent += weights.weight[j] * matrix.mapVector(t);
+        }
+        normal.normalize();
+        tangent.normalize();
+        out[v] = {{position.x(), position.y(), position.z(), 1}, {in.uv[0], in.uv[1]}, {normal.x(), normal.y(), normal.z()},
+                  {tangent.x(), tangent.y(), tangent.z(), in.tangent[3]}};
+    }
 }

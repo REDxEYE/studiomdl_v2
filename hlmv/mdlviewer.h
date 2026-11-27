@@ -4,6 +4,7 @@
 // and the viewport-over-control-panel layout.
 
 #include <QColor>
+#include <QElapsedTimer>
 #include <QStringList>
 
 #include "mx.h"
@@ -20,6 +21,9 @@ public:
     int handleEvent(mxEvent *event) override;
     bool LoadModelFile(const QString &path);
     bool hasModel() const { return m_viewport; }
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
     void Refresh();
@@ -39,4 +43,5 @@ private:
     QStringList m_recentFiles;
     bool m_check;
     bool m_secondaryLights = false;
+    QElapsedTimer m_clockTime; // animation clock (upstream MatSysWindow idle dt)
 };

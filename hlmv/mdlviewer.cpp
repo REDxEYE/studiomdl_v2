@@ -5,6 +5,7 @@
 
 #include <exception>
 #include <utility>
+#include <algorithm>
 
 #include <QColorDialog>
 #include <QCoreApplication>
@@ -13,7 +14,12 @@
 #include <QFileInfo>
 #include <QSettings>
 #include <QShortcut>
+#include <QDropEvent>
+#include <QMimeData>
+#include <QTimer>
 #include <QUrl>
+
+#include "studio_anim.h"
 
 #include "controlpanel.h"
 #include "hlmv_ids.h"
@@ -130,6 +136,8 @@ MDLViewer::MDLViewer(QString shaderDirectory, bool check)
         mb->setChecked(id, false);
 
     d_MatSysWindow = new MatSysWindow(this);
+    d_MatSysWindow->setAcceptDrops(true);
+    d_MatSysWindow->installEventFilter(this);
     d_cpl = new ControlPanel(this, m_settings);
 
     auto settings = Settings();
@@ -182,6 +190,22 @@ MDLViewer::MDLViewer(QString shaderDirectory, bool check)
             handleEvent(&event);
         });
     }
+
+    // upstream MatSysWindow idle handler: advance the model by real time * speedScale, update the
+    // frame slider, redraw. It runs at most at 100 fps.
+    auto *clock = new QTimer(this);
+    clock->setTimerType(Qt::PreciseTimer);
+    QObject::connect(clock, &QTimer::timeout, this, [this] {
+        const float dt = float(m_clockTime.nsecsElapsed()) * 1e-9f;
+        m_clockTime.restart();
+        if (!m_settings.animation || !m_viewport)
+            return;
+        m_settings.animation->Advance(dt, m_settings.speedScale);
+        d_cpl->OnAnimationTick();
+        m_viewport->update();
+    });
+    m_clockTime.start();
+    clock->start(10);
 }
 
 MDLViewer::~MDLViewer()
@@ -208,13 +232,24 @@ void MDLViewer::initRecentFiles()
 
 bool MDLViewer::LoadModelFile(const QString &path)
 {
+    auto previousAnimation = m_settings.animation;
     try
     {
         auto mesh = LoadMdlMesh(path);
+        try
+        {
+            m_settings.animation = std::make_shared<StudioAnimation>(path);
+        }
+        catch (const std::exception &error)
+        {
+            m_settings.animation.reset();
+            qWarning("Sequences unavailable: %s", error.what());
+        }
         d_cpl->OnLoadModel(mesh);
         auto next = CreateSfmVcsViewport(m_shaderDirectory, path, std::move(mesh), m_check, m_settings);
         qDeleteAll(d_MatSysWindow->findChildren<QWidget *>(Qt::FindDirectChildrenOnly));
         m_viewport = next.get();
+        m_viewport->installEventFilter(this);
         auto *container = QWidget::createWindowContainer(next.release(), d_MatSysWindow);
         container->setFocusPolicy(Qt::StrongFocus);
         container->setGeometry(d_MatSysWindow->rect());
@@ -223,6 +258,7 @@ bool MDLViewer::LoadModelFile(const QString &path)
     }
     catch (const std::exception &error)
     {
+        m_settings.animation = previousAnimation;
         qCritical("%s", error.what());
         if (m_check)
             QCoreApplication::exit(1);
@@ -241,6 +277,25 @@ bool MDLViewer::LoadModelFile(const QString &path)
         m_recentFiles.removeLast();
     initRecentFiles();
     setLabel("%s", path.toUtf8().constData());
+    return true;
+}
+
+bool MDLViewer::eventFilter(QObject *watched, QEvent *event)
+{
+    const auto type = event->type();
+    if (type != QEvent::DragEnter && type != QEvent::DragMove && type != QEvent::Drop)
+        return mxWindow::eventFilter(watched, event);
+    auto *drop = static_cast<QDropEvent *>(event);
+    const auto urls = drop->mimeData()->urls();
+    const auto model = std::ranges::find_if(urls, [](const QUrl &url) {
+        return url.isLocalFile() && url.toLocalFile().endsWith(QStringLiteral(".mdl"), Qt::CaseInsensitive);
+    });
+    if (model == urls.end())
+        return false;
+    drop->acceptProposedAction();
+    if (type == QEvent::Drop)
+        // Loading replaces the viewport window that is delivering this event.
+        QTimer::singleShot(0, this, [this, path = model->toLocalFile()] { LoadModelFile(path); });
     return true;
 }
 
@@ -374,6 +429,10 @@ int MDLViewer::handleEvent(mxEvent *event)
     case IDC_VIEW_HIDDEN:
     case IDC_VIEW_SEQUENCE_INDICES:
     case IDC_VIEW_SORT_SEQUENCES:
+        // Qt already flipped the checkable item.
+        d_cpl->setSequenceListOption(event->action, menuView->isChecked(event->action));
+        break;
+
     case IDC_VIEW_ORBIT_CIRCLE:
     case IDC_VIEW_ORBIT_YAW:
     case IDC_VIEW_DOTA:

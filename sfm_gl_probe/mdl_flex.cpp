@@ -120,17 +120,11 @@ std::vector<float> RunFlexRules(const MdlFlexData &flex, std::span<const float> 
 }
 
 void ApplyFlexes(const MdlFlexData &flex, std::span<const float> weights, std::span<const Vertex> base,
-                 std::span<const std::array<float, 9>> skinLinear, std::vector<Vertex> &out)
+                 std::vector<Vertex> &out)
 {
     out.assign(base.begin(), base.end());
     std::vector<bool> touched(base.size());
-    const auto toPose = [&](uint32_t vertex, const float *d) {
-        if (skinLinear.empty())
-            return QVector3D(d[0], d[1], d[2]);
-        const auto &m = skinLinear[vertex];
-        return QVector3D(m[0] * d[0] + m[1] * d[1] + m[2] * d[2], m[3] * d[0] + m[4] * d[1] + m[5] * d[2],
-                         m[6] * d[0] + m[7] * d[1] + m[8] * d[2]);
-    };
+    const auto delta = [](const float *d) { return QVector3D(d[0], d[1], d[2]); };
     for (const auto &mesh : flex.flexes)
     {
         // A static viewer has no lagged weights, so studiorender's w2/w4 equal w1/w3.
@@ -142,8 +136,8 @@ void ApplyFlexes(const MdlFlexData &flex, std::span<const float> weights, std::s
         {
             const float w = w1 * (1 - v.side) + v.side * w3;
             auto &target = out[v.vertex];
-            const auto dp = toPose(v.vertex, v.position) * w;
-            const auto dn = toPose(v.vertex, v.normal) * w;
+            const auto dp = delta(v.position) * w;
+            const auto dn = delta(v.normal) * w;
             for (int i = 0; i < 3; ++i)
             {
                 target.position[i] += dp[i];

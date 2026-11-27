@@ -5,21 +5,38 @@
 
 #include "hlmv_ids.h"
 #include "mx.h"
-#include "mdl_flex.h"
+#include "mdl_mesh.h"
 
-struct MdlInfo;
-struct MdlMesh;
 struct ViewportSettings;
+class StudioAnimation;
 class QOpenGLWindow;
 
 class CBoneControlWindow : public mxWindow
 {
 public:
-    explicit CBoneControlWindow(mxWindow *parent) : mxWindow(parent, 0, 0, 0, 0) {}
+    CBoneControlWindow(mxWindow *panel, ViewportSettings &settings)
+        : mxWindow(panel, 0, 0, 0, 0), m_panel(panel), m_settings(settings) {}
     void Init();
-    void OnLoadModel(const MdlInfo &info);
+    void OnLoadModel(const MdlMesh &mesh);
+    int handleEvent(mxEvent *event) override;
 
 private:
+    void OnBoneSelected(int bone);
+    void ComputeHitboxSetList(int select);
+    void ComputeHitboxList();
+    void OnHitboxSelected(int index);
+    void OnAutogenerateHitboxes(bool checked);
+    void UpdateHighlights();
+    QString SerializeQC() const;
+    std::vector<MdlHitbox> *CurrentSet();
+
+    mxWindow *m_panel; // redraws the viewport
+    ViewportSettings &m_settings;
+    QStringList m_bones, m_surfaceProps; // surface props are edited here and only feed Generate QC
+    std::vector<int> m_parents;
+    int m_bone = 0;
+    int m_hitbox = -1;                   // index in the current set, -1 = none
+    std::vector<int> m_boneHitboxes;     // current set's hitboxes on m_bone, in m_cHitbox order
     mxChoice *m_cBone = nullptr;
     mxCheckBox *m_cBoneHighlight = nullptr;
     mxCheckBox *m_cBoneNames = nullptr;
@@ -69,6 +86,11 @@ public:
     // Accelerator targets from MDLViewer (upstream ControlPanel::setShow* family).
     void toggle(int id);
 
+    // Sequence tab, driven by MDLViewer's animation clock (upstream updateFrameSlider/updateGroundSpeed/updateTransitionAmount).
+    void OnAnimationTick();
+    // View menu: Show Activities / Show hidden / Show sequence numbers / Sort sequences.
+    void setSequenceListOption(int id, bool on);
+
 private:
     void SetupRenderWindow(mxTab *pTab);
     void SetupSequenceWindow(mxTab *pTab);
@@ -89,7 +111,35 @@ private:
     void BuildEventQCString();
     void SetFlexController(int index, float value); // value in controller units, like StudioModel::SetFlexController
     void UpdateFlexSliders();
+    void SetBodypart(int part);
+    void UpdateBodyInfo();
     std::vector<FlexController> m_flexControllers;
+    MdlInfo m_info;          // loaded model's header data, for the Model tab
+    int m_materialCount = 0;
+    // Sequence tab (upstream ControlPanel sequence helpers)
+    StudioAnimation *anim() const;
+    QString ComposeSequenceDisplayName(int sequence) const;
+    void initSequenceChoices(int onlySlot = -1);
+    void initBoneControllers();
+    int GetSequenceForSelection(int slot, int selection) const;
+    int GetSelectionForSequence(int slot, int sequence) const;
+    void setSequence(int sequence);
+    void setOverlaySequence(int num, int sequence, float weight);
+    void showActivityModifiers(int sequence);
+    int getFrameSelection() const;
+    void setFrame(float frame);
+    void updateFrameSelection();
+    void updateFrameSlider();
+    void setSpeedScale(float scale);
+    void updateSpeedScale();
+    void setBlend(int index, float value);
+    void updateGroundSpeed();
+    void SaveSelectedSequences();
+    void RestoreSelectedSequences();
+    std::vector<int> m_selectionToSequence[MAX_SEQUENCES], m_sequenceToSelection[MAX_SEQUENCES];
+    int m_savedSequences[MAX_SEQUENCES] = {};
+    float m_savedWeights[MAX_SEQUENCES] = {};
+    bool m_showActivities = false, m_showHidden = false, m_showSequenceIndices = false, m_sortSequences = false;
     void redraw() override;
 
     ViewportSettings &m_settings;
