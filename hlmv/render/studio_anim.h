@@ -11,6 +11,8 @@
 #include <QString>
 #include <QStringList>
 
+#include "mdl_jiggle.h"
+
 class StudioAnimation
 {
 public:
@@ -68,6 +70,11 @@ public:
 
     // Bone-to-model matrices for the current pose. `modelToView` is the camera transform jiggle bones react to.
     void SetUpBones(std::vector<QMatrix4x4> &boneToModel, const QMatrix4x4 &modelToView = {});
+
+    // The main model's jiggle rule of `bone`, and changing it in the viewer's copy of the MDL (SaveMdlJiggles writes
+    // the files). SetJiggle returns false, changing nothing, when the bone has another procedural rule.
+    std::optional<JiggleParams> GetJiggle(int bone) const;
+    bool SetJiggle(int bone, const std::optional<JiggleParams> &params);
 
 private:
     struct Impl;

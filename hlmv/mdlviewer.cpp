@@ -262,7 +262,7 @@ bool MDLViewer::LoadModelFile(const QString &path)
             m_settings.animation.reset();
             qWarning("Sequences unavailable: %s", error.what());
         }
-        d_cpl->OnLoadModel(mesh);
+        d_cpl->OnLoadModel(mesh, path);
         auto next = CreateSfmVcsViewport(m_shaderDirectory, path, std::move(mesh), m_check, m_settings);
         auto *previousViewport = d_MatSysWindow->findChild<QOpenGLWidget *>(Qt::FindDirectChildrenOnly);
         m_viewport = next.release();

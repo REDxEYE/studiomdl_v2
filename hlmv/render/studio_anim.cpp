@@ -29,6 +29,7 @@ namespace {
         QByteArray ani;
         std::vector<unsigned short> autoplay;
         std::unique_ptr<virtualmodel_t> vmodel;
+        JiggleStorage jiggles; // room after the file for jiggle rules the viewer adds
         QString path;
         struct HostSet* set = nullptr;
         const studiohdr_t* hdr() const { return reinterpret_cast<const studiohdr_t*>(mdl.get()); }
@@ -59,9 +60,14 @@ namespace {
         const auto bytes = ReadFile(path, true);
         if (bytes.size() < qsizetype(sizeof(studiohdr_t)))
             throw std::runtime_error((path + QStringLiteral(": truncated MDL header")).toStdString());
-        // Engine code reads the header and its tables in place, with SIMD loads on aligned data.
-        host->mdl.reset(static_cast<std::byte*>(::operator new[](bytes.size(), std::align_val_t(16))));
+        // Engine code reads the header and its tables in place, with SIMD loads on aligned data. The slack holds a
+        // jiggle rule per bone, so the Jiggle tab can add rules without moving the model.
+        const int bones = std::clamp<int>(reinterpret_cast<const studiohdr_t*>(bytes.constData())->numbones, 0, MAXSTUDIOBONES);
+        const size_t capacity = size_t(bytes.size()) + size_t(bones) * sizeof(mstudiojigglebone_t);
+        host->mdl.reset(static_cast<std::byte*>(::operator new[](capacity, std::align_val_t(16))));
         std::memcpy(host->mdl.get(), bytes.constData(), bytes.size());
+        std::memset(host->mdl.get() + bytes.size(), 0, capacity - bytes.size());
+        host->jiggles = {size_t(bytes.size()), capacity, {}};
         const auto* studio = host->hdr();
         if (studio->id != IDSTUDIOHEADER || studio->version != STUDIO_VERSION || studio->length != bytes.size())
             throw std::runtime_error((path + QStringLiteral(": expected an intact IDST MDL v49")).toStdString());
@@ -583,4 +589,34 @@ void StudioAnimation::SetUpBones(std::vector<QMatrix4x4> &boneToModel, const QMa
     boneToModel.resize(pStudioHdr->numbones());
     for (int i = 0; i < pStudioHdr->numbones(); i++)
         ToQt(d->boneToWorld[i], boneToModel[i]);
+}
+
+std::optional<JiggleParams> StudioAnimation::GetJiggle(int bone) const {
+    const auto* hdr = d->hosts.models.front()->hdr(); // the viewer model; includes come after it
+    if (bone < 0 || bone >= hdr->numbones)
+        return std::nullopt;
+    const auto* pbone = hdr->pBone(bone);
+    if (!pbone->procindex || pbone->proctype != ProcBoneType::Jiggle)
+        return std::nullopt;
+    JiggleParams params;
+    std::memcpy(&params, pbone->pProcedure(), sizeof(params));
+    return params;
+}
+
+bool StudioAnimation::SetJiggle(int bone, const std::optional<JiggleParams> &params) {
+    auto &host = *d->hosts.models.front();
+    const bool added = params && !GetJiggle(bone);
+    if (!ApplyJiggle(host.mdl.get(), host.jiggles, bone, params))
+        return false;
+    // CStudioHdr copies the bone flags at Init; these setters also rewrite the bytes ApplyJiggle just set.
+    if (params)
+        d->hdr.setBoneFlags(bone, BoneFlags::AlwaysProcedural);
+    else
+        d->hdr.clearBoneFlags(bone, BoneFlags::AlwaysProcedural);
+    if (added) {
+        // no stale offset from before the bone jiggled; step the simulation on the next pose even while paused
+        d->jiggleOffset[bone].Init(Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1), Vector(0, 0, 0));
+        d->jiggleTime = -1;
+    }
+    return true;
 }

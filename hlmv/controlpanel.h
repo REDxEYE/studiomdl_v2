@@ -6,10 +6,20 @@
 #include "hlmv_ids.h"
 #include "mx.h"
 #include "mdl_mesh.h"
+#include "material_system.h"
+#include "mdl_jiggle.h"
 
 struct ViewportSettings;
 class StudioAnimation;
 class QOpenGLWidget;
+class QDoubleSpinBox;
+class QFormLayout;
+class QCheckBox;
+class QComboBox;
+class QGroupBox;
+class QLabel;
+class QListWidget;
+class QPushButton;
 
 class CBoneControlWindow : public mxWindow
 {
@@ -73,6 +83,44 @@ private:
     mxLineEdit2 *m_cQCString = nullptr;
 };
 
+// Jiggle Bones tab: the loaded model's $jigglebone rules. Edits (including new rules on plain bones) apply to the
+// viewer's copy of the model at once; Save rebuilds the .mdl and moves its new checksum into the .vvd/.vtx/.phy.
+class CJiggleWindow : public mxWindow
+{
+public:
+    CJiggleWindow(mxWindow *panel, ViewportSettings &settings) : mxWindow(panel, 0, 0, 0, 0), m_panel(panel), m_settings(settings) {}
+    void Init();
+    void OnLoadModel(const QString &path, const QStringList &bones);
+
+private:
+    int Selected() const;
+    void Apply(int bone, const std::optional<JiggleParams> &rule); // to the preview and m_current
+    void UpdateRows();
+    void ShowRule();
+    void Save();
+
+    struct Field
+    {
+        QDoubleSpinBox *spin;
+        float JiggleParams::*member;
+        bool angle; // shown in degrees, stored in radians
+    };
+    mxWindow *m_panel; // redraws the viewport
+    ViewportSettings &m_settings;
+    QString m_path;
+    QStringList m_bones;
+    std::vector<JiggleState> m_states;
+    std::vector<std::optional<JiggleParams>> m_saved, m_current, m_stash; // on disk, previewed, last removed
+    std::vector<Field> m_fields;
+    std::vector<std::pair<QGroupBox *, uint32_t>> m_groups;
+    QLineEdit *m_filter = nullptr;
+    QListWidget *m_list = nullptr;
+    QCheckBox *m_enabled = nullptr, *m_highlight = nullptr, *m_lengthFlex = nullptr;
+    QWidget *m_editor = nullptr;
+    QPushButton *m_revert = nullptr, *m_save = nullptr;
+    QLabel *m_status = nullptr;
+};
+
 class ControlPanel : public mxWindow
 {
 public:
@@ -80,7 +128,7 @@ public:
     int handleEvent(mxEvent *event) override;
 
     void setViewport(QOpenGLWidget *viewport) { m_viewport = viewport; }
-    void OnLoadModel(const MdlMesh &mesh);
+    void OnLoadModel(const MdlMesh &mesh, const QString &path);
     void OnUnloadModel();
 
     // Accelerator targets from MDLViewer (upstream ControlPanel::setShow* family).
@@ -99,6 +147,7 @@ private:
     void SetupPhysicsWindow(mxTab *pTab);
     void SetupSoftbodyWindow(mxTab *pTab);
     void SetupBoneControlWindow(mxTab *pTab);
+    void SetupJiggleWindow(mxTab *pTab);
     void SetupAttachmentsWindow(mxTab *pTab);
     void SetupIKRuleWindow(mxTab *pTab);
     void SetupEventWindow(mxTab *pTab);
@@ -118,6 +167,31 @@ private:
     std::vector<FlexController> m_flexControllers;
     MdlInfo m_info;          // loaded model's header data, for the Model tab
     int m_materialCount = 0;
+    // Materials tab: the VMT each MDL texture reads, what the viewport reported when building it, and the edits.
+    enum class ParamType { Text, Scalar, Bool, Vec2, Vec3, Color, Transform }; // Type choice order
+    struct MaterialEntry
+    {
+        QString name;          // MDL texture name
+        MaterialSource source; // vmt empty when sourceError is set
+        QString sourceError, buildError;
+        QStringList ignored; // parameters the shader did not read
+    };
+    std::vector<MaterialEntry> m_materials;
+    QString m_modelPath;
+    QStringList m_materialSearchPaths;
+    QStringList m_paramKeys;                   // cMaterialParamList rows, lower-case
+    std::map<QString, ParamType> m_paramTypes; // Type choice overrides by lower-case name
+    int SelectedMaterial() const;
+    std::vector<int> TargetMaterials() const; // the selected material, or all with "Affect all loaded materials"
+    QString SelectedParam() const;
+    std::optional<QString> MaterialParamValue(int material, const QString &key) const; // edited, else the VMT's
+    ParamType MaterialParamType(const QString &key) const;
+    void SetMaterialParam(const std::vector<int> &materials, const QString &key, const std::optional<QString> &value);
+    void ReadMaterialSources();
+    void FillMaterialParams(const QString &select = {});
+    void UpdateMaterialParamRows();
+    void ShowMaterialParamEditor();
+    void SyncMaterials();
     // Sequence tab (upstream ControlPanel sequence helpers)
     StudioAnimation *anim() const;
     QString ComposeSequenceDisplayName(int64_t sequence) const;
@@ -218,6 +292,7 @@ private:
     // Bones, attachments
     CBoneControlWindow *m_pBoneWindow = nullptr;
     CAttachmentsWindow *m_pAttachmentsWindow = nullptr;
+    CJiggleWindow *m_pJiggleWindow = nullptr;
 
     // IKRule
     mxChoice *cIKChain = nullptr, *cIKType = nullptr, *cIKTouch = nullptr, *cIKUsing = nullptr;
@@ -241,7 +316,15 @@ private:
     mxSlider *slMaterialParamMatrixSliderScaleY = nullptr, *slMaterialParamMatrixSliderTranslateX = nullptr;
     mxSlider *slMaterialParamMatrixSliderTranslateY = nullptr, *slMaterialParamFloat = nullptr;
     mxButton *bMaterialParamColor = nullptr, *bMaterialParamLoad = nullptr, *bMaterialParamCopyToClipboard = nullptr;
-    mxCheckBox *cbMaterialParamMultiEdit = nullptr;
+    mxCheckBox *cbMaterialParamMultiEdit = nullptr, *cbMaterialParamBool = nullptr;
+    mxChoice *cMaterialParamType = nullptr, *cMaterialNewParamType = nullptr;
+    mxLineEdit *leMaterialParamName = nullptr;
+    mxButton *bMaterialParamAdd = nullptr, *bMaterialParamRemove = nullptr, *bMaterialRevert = nullptr, *bMaterialSync = nullptr;
+    mxLabel *lMaterialParamType = nullptr, *lMaterialStatus = nullptr;
+    QFormLayout *m_materialParamForm = nullptr;
+    QWidget *wMaterialParamComponents = nullptr;   // component spin boxes (+ colour picker) of Vec2/Vec3/Color
+    QDoubleSpinBox *sbMaterialParamComponents[3] = {};
+    QLineEdit *leMaterialParamFilter = nullptr;
 
     // Submodels
     mxButton *bSubmodelAdd = nullptr, *bSubmodelAddSteam = nullptr, *bSubmodelRemoveAll = nullptr, *bSubmodelRemoveSelected = nullptr;

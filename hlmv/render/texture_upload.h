@@ -7,10 +7,9 @@
 #include <QOpenGLTexture>
 #include <QString>
 
-// A PC VTF 7.0-7.5 file: 2D, or a cube map (TEXTUREFLAGS_ENVMAP) when `texture` targets cube maps. Returns the VTF
+// The PC VTF 7.0-7.5 file `bytes` (read from `path`, named in errors), showing animation frame `frame`
+// (0 .. VtfFrameCount-1): 2D, or a cube map (TEXTUREFLAGS_ENVMAP) when `texture` targets cube maps. Returns the VTF
 // flags. Throws std::runtime_error with the path for unsupported formats or a mismatched target.
-uint32_t UploadVtf(QOpenGLTexture &texture, const QString &path, bool srgb);
-// The same for the already-read file `bytes`, showing animation frame `frame` (0 .. VtfFrameCount-1).
 uint32_t UploadVtf(QOpenGLTexture &texture, const QString &path, const QByteArray &bytes, bool srgb, int frame = 0);
 // Animation frames in a VTF's header; 0 when it is not a VTF.
 int VtfFrameCount(const QByteArray &bytes);

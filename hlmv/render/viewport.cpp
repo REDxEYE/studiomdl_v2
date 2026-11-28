@@ -107,10 +107,95 @@ protected:
             QuitWith(1);
     }
 
-    void markMissing(std::unique_ptr<Material> &material, const QString &name, const char *error)
+    void reportMaterial(size_t index, const QString &error, const QStringList &ignored = {})
     {
-        qWarning().noquote() << "Using pink/black checker for" << name << ':' << error;
+        if (m_settings && m_settings->reportMaterial)
+            m_settings->reportMaterial(int(index), error, ignored);
+    }
+
+    void markMissing(std::unique_ptr<Material> &material, size_t index, const char *error)
+    {
+        qWarning().noquote() << "Using pink/black checker for" << m_mesh.textures[index] << ':' << error;
         material = std::make_unique<Material>();
+        reportMaterial(index, QString::fromUtf8(error));
+    }
+
+    // Loads MDL texture `index`'s material with `edits` and the program it draws with; throws std::runtime_error.
+    std::unique_ptr<Material> loadMaterial(size_t index, const MaterialEdits &edits)
+    {
+        auto material = LoadMaterial(*m_shaders, m_modelPath, m_mesh.textures[index], m_mesh.materialPaths, m_textureCache, edits);
+        if (glGetError() != GL_NO_ERROR)
+            throw std::runtime_error((m_mesh.textures[index] + QStringLiteral(": OpenGL texture upload failed")).toStdString());
+        return material;
+    }
+
+    // The program drawing `material`: one per combo, the checker for materials without a shader. Throws
+    // std::runtime_error when the combo's shaders cannot be loaded or linked.
+    int programFor(const Material &material)
+    {
+        if (!material.shader)
+        {
+            if (m_checkerProgram < 0)
+            {
+                auto program = std::make_unique<RenderProgram>();
+                initProgram(*program, nullptr, nullptr);
+                m_checkerProgram = int(m_programs.size());
+                m_programs.push_back(std::move(program));
+            }
+            return m_checkerProgram;
+        }
+        const auto existing = std::ranges::find_if(m_programs, [&](const auto &p) { return p->shader && p->program.combo == material.combo; });
+        if (existing != m_programs.end())
+            return int(existing - m_programs.begin());
+        auto program = std::make_unique<RenderProgram>();
+        initProgram(*program, material.shader, &material.combo);
+        m_programs.push_back(std::move(program));
+        return int(m_programs.size()) - 1;
+    }
+
+    // Materials with clock-driven proxies; the clock (and a redraw timer without animation) starts with the first.
+    void collectAnimatedMaterials()
+    {
+        m_animatedMaterials.clear();
+        for (const auto &material : m_materials)
+            if (material && material->HasTimeVaryingProxies())
+                m_animatedMaterials.push_back(material.get());
+        if (m_check || m_animatedMaterials.empty() || m_materialClock.isValid())
+            return;
+        m_materialClock.start();
+        if (!m_settings || !m_settings->animation)
+        {
+            auto *timer = new QTimer(this);
+            connect(timer, &QTimer::timeout, this, qOverload<>(&ModelViewport::update));
+            timer->start(16);
+        }
+    }
+
+    // Materials tab edits: rebuilds every material whose edits changed; a failed rebuild keeps the previous material.
+    void applyMaterialEdits()
+    {
+        static const MaterialEdits none;
+        const auto &edits = m_settings->materialEdits;
+        m_appliedEdits.resize(m_materials.size());
+        for (size_t i = 0; i < m_materials.size(); ++i)
+        {
+            const auto &wanted = i < edits.size() ? edits[i] : none;
+            if (!m_materials[i] || wanted == m_appliedEdits[i])
+                continue;
+            m_appliedEdits[i] = wanted;
+            try
+            {
+                auto material = loadMaterial(i, wanted);
+                m_materialProgram[i] = programFor(*material);
+                m_materials[i] = std::move(material);
+                reportMaterial(i, {}, m_materials[i]->ignored);
+            }
+            catch (const std::exception &error)
+            {
+                reportMaterial(i, QString::fromUtf8(error.what()));
+            }
+        }
+        collectAnimatedMaterials();
     }
 
     void initializeGL() override
@@ -172,20 +257,19 @@ protected:
                         continue;
                     try
                     {
-                        material = LoadMaterial(*m_shaders, m_modelPath, m_mesh.textures[index], m_mesh.materialPaths);
-                        if (glGetError() != GL_NO_ERROR)
-                            throw std::runtime_error((m_mesh.textures[index] + QStringLiteral(": OpenGL texture upload failed")).toStdString());
-                        qInfo().noquote() << "Loaded material:" << m_mesh.textures[index] << "base" << material->base.width() << 'x'
-                                          << material->base.height();
+                        material = loadMaterial(index, {});
+                        const auto &base = material->Resolve(material->base);
+                        qInfo().noquote() << "Loaded material:" << m_mesh.textures[index] << "base" << base.width() << 'x' << base.height();
                         if (!material->ignored.isEmpty())
                             qWarning().noquote() << "Not applied in" << m_mesh.textures[index] << ':'
                                                  << material->ignored.join(QStringLiteral(", "));
+                        reportMaterial(index, {}, material->ignored);
                     }
                     catch (const std::runtime_error &error)
                     {
                         if (m_shaderDirectory.isEmpty())
                             throw;
-                        markMissing(material, m_mesh.textures[index], error.what());
+                        markMissing(material, index, error.what());
                     }
                 }
             }
@@ -238,57 +322,29 @@ protected:
                 for (size_t i = 0; i < m_materials.size(); ++i)
                 {
                     auto &material = m_materials[i];
-                    if (!material || !material->shader)
+                    if (!material)
                         continue;
-                    const auto existing = std::ranges::find_if(m_programs, [&](const auto &p) { return p->program.combo == material->combo; });
-                    if (existing != m_programs.end())
+                    if (material->shader)
                     {
-                        m_materialProgram[i] = int(existing - m_programs.begin());
-                        continue;
-                    }
-                    auto error = std::ranges::find(failed, material->combo, &std::pair<ShaderCombo, std::string>::first);
-                    if (error == failed.end())
+                        const auto error = std::ranges::find(failed, material->combo, &std::pair<ShaderCombo, std::string>::first);
                         try
                         {
-                            auto program = std::make_unique<RenderProgram>();
-                            initProgram(*program, material->shader, &material->combo);
-                            m_materialProgram[i] = int(m_programs.size());
-                            m_programs.push_back(std::move(program));
+                            if (error != failed.end())
+                                throw std::runtime_error(error->second);
+                            m_materialProgram[i] = programFor(*material);
                             continue;
                         }
                         catch (const std::runtime_error &e)
                         {
-                            // emplace_back invalidates `error`; point it at the new entry
-                            failed.emplace_back(material->combo, e.what());
-                            error = failed.end() - 1;
+                            if (error == failed.end())
+                                failed.emplace_back(material->combo, e.what());
+                            markMissing(material, i, e.what());
                         }
-                    markMissing(material, m_mesh.textures[i], error->second.c_str());
-                }
-                for (size_t i = 0; i < m_materials.size(); ++i)
-                    if (m_materials[i] && !m_materials[i]->shader)
-                    {
-                        if (m_checkerProgram < 0)
-                        {
-                            m_checkerProgram = int(m_programs.size());
-                            m_programs.push_back(std::make_unique<RenderProgram>());
-                            initProgram(*m_programs.back(), nullptr, nullptr);
-                        }
-                        m_materialProgram[i] = m_checkerProgram;
                     }
-            }
-            for (const auto &material : m_materials)
-                if (material && material->HasTimeVaryingProxies())
-                    m_animatedMaterials.push_back(material.get());
-            if (!m_check && !m_animatedMaterials.empty())
-            {
-                m_materialClock.start();
-                if (!m_settings || !m_settings->animation)
-                {
-                    auto *timer = new QTimer(this);
-                    connect(timer, &QTimer::timeout, this, qOverload<>(&ModelViewport::update));
-                    timer->start(16);
+                    m_materialProgram[i] = programFor(*material);
                 }
             }
+            collectAnimatedMaterials();
             m_ready = true;
         }
         catch (const std::exception &error)
@@ -1023,6 +1079,11 @@ protected:
             m_fov = m_settings->fov;
             m_cameraDirty = true;
         }
+        if (m_settings && !m_shaderDirectory.isEmpty() && m_materialRevision != m_settings->materialRevision)
+        {
+            m_materialRevision = m_settings->materialRevision;
+            applyMaterialEdits();
+        }
         if (m_materialClock.isValid())
         {
             const double seconds = double(m_materialClock.nsecsElapsed()) * 1e-9;
@@ -1196,8 +1257,11 @@ private:
     // shortcut: always SFM's stdshader_dx9; choose the set per game (e.g. a Garry's Mod port) once one exists.
     std::unique_ptr<ShaderSet> m_shaders = CreateSfmShaderSet(); // outlives m_materials, which point at its shaders
     std::vector<std::unique_ptr<Material>> m_materials;
+    TextureCache m_textureCache; // VTF uploads shared by m_materials, kept across Materials tab rebuilds
     std::vector<Material *> m_animatedMaterials; // owned by m_materials
     QElapsedTimer m_materialClock;
+    std::vector<MaterialEdits> m_appliedEdits; // per MDL texture, what m_materials were built with
+    int m_materialRevision = 0;                // ViewportSettings::materialRevision applied
 };
 } // namespace
 

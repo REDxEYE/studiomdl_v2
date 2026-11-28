@@ -43,11 +43,6 @@ Format VtfFormat(uint32_t id, const QString &path, bool srgb = false)
 }
 } // namespace
 
-uint32_t UploadVtf(Texture &texture, const QString &path, bool srgb)
-{
-    return UploadVtf(texture, path, ReadAssetFile(path, 128 * 1024 * 1024), srgb);
-}
-
 int VtfFrameCount(const QByteArray &bytes)
 {
     const auto *data = reinterpret_cast<const uchar *>(bytes.constData());

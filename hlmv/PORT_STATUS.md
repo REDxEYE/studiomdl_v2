@@ -110,7 +110,7 @@ playback, **M** model data (`render/mdl_mesh.cpp`), **P** physics (.phy), **S** 
 | Physics bone, constraints, mass, materials, Generate QC | Stub | P | Slider labels update |
 | Cloth (softbody) controls | Stub | P | |
 
-## Bones, Attachments tabs
+## Bones, Jiggle Bones, Attachments tabs
 
 | Item | Status | Needs | Notes |
 |---|---|---|---|
@@ -118,6 +118,7 @@ playback, **M** model data (`render/mdl_mesh.cpp`), **P** physics (.phy), **S** 
 | Surface prop, Apply to Children, Generate QC | Done | | Surface prop list is "default" plus the model's own props (no vphysics surfaceproperties) |
 | Hitbox sets (choose, add, delete, rename), hitbox list, highlight, group/name, add/delete, Autogenerate | Done | | Edits live in the viewer and feed Generate QC |
 | Edit Hitbox drag modes, Show Default Pose, .HBX load/save | Stub | R, P | Need a viewport drag widget, physics, and the datamodel in hlmv |
+| Jiggle Bones tab (not in upstream HLMV) | Done | | Filter or highlight bones, add and remove rules, or revert edits. The [SFM `$jigglebone` groups](https://developer.valvesoftware.com/wiki/$jigglebone) have separate Flexible, Rigid and Base Spring tabs, each with an enable checkbox. Flexible and Rigid share tip length, mass and angular constraints (in degrees); enabling either disables the other. Base Spring can run alone or alongside either tip type. Source 2013's `is_boing` is not an SFM group. Edits preview on the loaded model. **Save MDL** rebuilds the model, reusing freed rule slots and appending when needed, and writes its new checksum to the required matching .vvd and .dx90.vtx and any other matching .vtx and .phy files. Stale companions are skipped and reported; all files are staged before replacement. New bones cannot be created. |
 | Attachment and bone lists | Partial | | Filled; selection does nothing |
 | Translation/rotation fields, nudge buttons, QC string | Stub | M | Needs attachment transforms |
 
@@ -133,8 +134,9 @@ playback, **M** model data (`render/mdl_mesh.cpp`), **P** physics (.phy), **S** 
 
 | Item | Status | Needs | Notes |
 |---|---|---|---|
-| Material list | Partial | | Filled; parameter list and editors not wired |
-| Material parameter editing, Replace VMT, Copy to clipboard | Stub | | Needs material parameter access in the renderer |
+| Material list | Done | | MDL textures (`*` unsaved edits, `!` load error); the selected material's VMT parameters after patch and fallback expansion with a filter, marked when edited or ignored by the shader |
+| Material parameter editing, Copy to clipboard | Done | | Text, Scalar (slider), Bool, Vec2, Vec3, Color (component spin boxes, live picker) and Transform (sliders) editors, Add/Remove of any `$parameter`, Revert, "Apply edits to all materials". Edits rebuild the material in the viewport immediately, reusing the GL textures of unchanged texture parameters (a shared texture cache, which also shares VTFs between materials); a failed rebuild keeps the previous material and shows the error. **Sync to disk** writes the edits into each VMT, keeping comments and layout (values go where they win: root, the dx90 fallback block, or a patch's insert/replace), and refuses files that would not read back as edited. Copy to clipboard copies the edited VMT text. Unsynced edits are lost on Refresh or model load. |
+| Replace VMT | Stub | | |
 | Submodels (merged models) | Stub | M, R | |
 | Compile: recent QC list, Recompile, logs, one-click toggle | Partial | C | Toggle label works only |
 
@@ -144,5 +146,5 @@ playback, **M** model data (`render/mdl_mesh.cpp`), **P** physics (.phy), **S** 
 2. Remaining debug overlays: sequence boxes; hitbox drag editing and .HBX files.
 3. Ground and background, HLMV-style mouse controls.
 4. Head turn, event history, sequence boxes, Movement (root motion) display.
-5. Materials tab editing, Compile tab with studiomdl, .qc drag-and-drop.
+5. Compile tab with studiomdl, .qc drag-and-drop.
 6. Physics and cloth (.phy).

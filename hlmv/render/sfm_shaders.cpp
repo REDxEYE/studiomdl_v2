@@ -462,7 +462,7 @@ public:
         auto &program = state.gl;
         SetEyeVertexState(program, eye);
         material.BindBaseTexture();
-        material.iris.bind(1);
+        material.BindTexture(material.iris, 1);
         m_constants.black.bind(2); // shortcut: no procedural glint (studiorender's R_StudioEyeballGlint render target)
         program.setUniformValue("vc[49]", eye.up);
         program.setUniformValue("vc[52]", QVector4D()); // $glintu/$glintv project onto the unused glint
@@ -503,11 +503,14 @@ public:
         auto &material = static_cast<EyeMaterial &>(base);
         auto &program = state.gl;
         SetEyeVertexState(program, eye);
-        material.cornea.bind(0);
-        material.iris.bind(1);
-        material.envmap.bind(2);
-        material.ambientOccl.bind(3);
-        (material.lightwarp.isCreated() ? material.lightwarp : m_constants.white).bind(4);
+        material.BindTexture(material.cornea, 0);
+        material.BindTexture(material.iris, 1);
+        material.BindTexture(material.envmap, 2);
+        material.BindTexture(material.ambientOccl, 3);
+        if (auto &lightwarp = material.Resolve(material.lightwarp); lightwarp.isCreated())
+            lightwarp.bind(4);
+        else
+            m_constants.white.bind(4);
         m_constants.white.bind(8); // no screen-space ambient occlusion buffer
         program.setUniformValue("pc[0]", material.const0);
         program.setUniformValue("pc[1]", eye.origin);
@@ -730,8 +733,6 @@ private:
 
         // SFM phong draw (0x100380F0): bPhongHalfLambert is true unless $phongdisablehalflambert is set.
         const bool phongHalfLambert = params.getInt("$phongdisablehalflambert") == 0;
-        auto &normalMap = out->addTexture(3);
-        params.getTexture(normalMap, "$bumpmap", QColor(128, 128, 255), false);
         const bool exponentTexture = params.has("$phongexponenttexture");
         params.getTexture(out->addTexture(7), "$phongexponenttexture", Qt::white, false);
         const bool lightwarp = texture(2, "$lightwarptexture", Qt::white, false);
@@ -741,14 +742,17 @@ private:
         const bool normalAlphaEnvmapMask = envmap && params.getInt("$normalmapalphaenvmapmask") != 0;
         const bool baseAlphaPhongMask = params.getInt("$basemapalphaphongmask") != 0;
         const bool baseLuminancePhongMask = params.getInt("$basemapluminancephongmask") != 0;
-        // SFM uses normal alpha by default. Force opaque alpha for TF materials disabling it when no other term needs it.
+        // SFM reads the Phong mask from normal alpha by default. TF materials that disable it get opaque normal alpha when
+        // nothing else reads that channel and GL can swizzle.
+        bool opaqueNormalAlpha = false;
         if (params.getInt("$bumpmapalphaphongmask", 1) == 0 && !baseAlphaPhongMask && !baseLuminancePhongMask && params.has("$bumpmap"))
         {
             if (!normalAlphaEnvmapMask && QOpenGLTexture::hasFeature(QOpenGLTexture::Swizzle))
-                normalMap.setSwizzleMask(QOpenGLTexture::SwizzleAlpha, QOpenGLTexture::OneValue);
+                opaqueNormalAlpha = true;
             else
                 out->ignored.append(QStringLiteral("$bumpmapalphaphongmask (SFM cannot separate Phong and envmap normal alpha, or GL lacks swizzle)"));
         }
+        params.getTexture(out->addTexture(3), "$bumpmap", QColor(128, 128, 255), false, nullptr, opaqueNormalAlpha);
         const bool selfIllumMask = selfIllum && texture(14, "$selfillummask", Qt::white, false);
         if (selfIllum && !selfIllumMask)
             UploadSolidColor(out->addTexture(14), Qt::black);

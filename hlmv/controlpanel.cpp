@@ -9,10 +9,17 @@
 
 #include <QClipboard>
 #include <QGuiApplication>
+#include <QDoubleSpinBox>
+#include <QFormLayout>
+#include <QGroupBox>
+#include <QColorDialog>
 #include <QGridLayout>
 #include <QHBoxLayout>
+#include <QRegularExpression>
 #include <QOpenGLWidget>
 #include <QRandomGenerator>
+#include <QPixmap>
+#include <QSignalBlocker>
 #include <QScrollArea>
 #include <QVBoxLayout>
 
@@ -67,6 +74,69 @@ namespace {
         for (const auto &item: items)
             list->add(item.toUtf8().constData());
     }
+
+    // VMT number lists: "[x y z]" or "{r g b}" (0..255 stays as written).
+    QList<float> ParseNumbers(QString value) {
+        value = value.trimmed();
+        if (value.startsWith('[') || value.startsWith('{'))
+            value = value.mid(1);
+        if (value.endsWith(']') || value.endsWith('}'))
+            value.chop(1);
+        QList<float> numbers;
+        for (const auto &part: value.split(' ', Qt::SkipEmptyParts)) {
+            bool ok = false;
+            if (const float number = part.toFloat(&ok); ok)
+                numbers.append(number);
+        }
+        return numbers;
+    }
+
+    QString FormatNumber(float value) { return QString::number(value, 'g', 5); }
+
+    QColor ParseColor(const QString &value) {
+        const auto numbers = ParseNumbers(value);
+        if (numbers.size() < 3)
+            return Qt::white;
+        const float scale = value.trimmed().startsWith('{') ? 1.f / 255.f : 1.f;
+        const auto channel = [&](int i) { return std::clamp(numbers[i] * scale, 0.f, 1.f); };
+        return QColor::fromRgbF(channel(0), channel(1), channel(2));
+    }
+
+    QString FormatColor(const QColor &color) {
+        return QStringLiteral("[%1 %2 %3]").arg(FormatNumber(color.redF()), FormatNumber(color.greenF()),
+                                                FormatNumber(color.blueF()));
+    }
+
+    // "$...transform" text: "center .5 .5 scale 1 1 rotate 0 translate 0 0", any order, missing parts at defaults.
+    struct UvTransform {
+        float center[2] = {.5f, .5f}, scale[2] = {1, 1}, rotate = 0, translate[2] = {0, 0};
+    };
+
+    UvTransform ParseTransform(const QString &value) {
+        UvTransform t;
+        const auto words = value.split(' ', Qt::SkipEmptyParts);
+        for (qsizetype i = 0; i < words.size(); ++i) {
+            const auto word = words[i].toLower();
+            float *target = word == QLatin1String("center") ? t.center : word == QLatin1String("scale") ? t.scale
+                          : word == QLatin1String("translate") ? t.translate : word == QLatin1String("rotate") ? &t.rotate
+                          : nullptr;
+            for (int c = 0; target && c < (target == &t.rotate ? 1 : 2) && i + 1 < words.size(); ++c) {
+                bool ok = false;
+                const float number = words[i + 1].toFloat(&ok);
+                if (!ok)
+                    break;
+                target[c] = number;
+                ++i;
+            }
+        }
+        return t;
+    }
+
+    QString FormatTransform(const UvTransform &t) {
+        return QStringLiteral("center %1 %2 scale %3 %4 rotate %5 translate %6 %7")
+            .arg(FormatNumber(t.center[0]), FormatNumber(t.center[1]), FormatNumber(t.scale[0]), FormatNumber(t.scale[1]),
+                 FormatNumber(t.rotate), FormatNumber(t.translate[0]), FormatNumber(t.translate[1]));
+    }
 } // namespace
 
 ControlPanel::ControlPanel(mxWindow* parent, ViewportSettings &settings)
@@ -94,6 +164,7 @@ ControlPanel::ControlPanel(mxWindow* parent, ViewportSettings &settings)
     SetupPhysicsWindow(tab);
     SetupSoftbodyWindow(tab);
     SetupBoneControlWindow(tab);
+    SetupJiggleWindow(tab);
     SetupAttachmentsWindow(tab);
     SetupIKRuleWindow(tab);
     SetupEventWindow(tab);
@@ -752,6 +823,12 @@ void ControlPanel::SetupBoneControlWindow(mxTab* pTab) {
     m_pBoneWindow->Init();
 }
 
+void ControlPanel::SetupJiggleWindow(mxTab* pTab) {
+    m_pJiggleWindow = new CJiggleWindow(this, m_settings);
+    AddScrollableTab(pTab, m_pJiggleWindow, "Jiggle Bones");
+    m_pJiggleWindow->Init();
+}
+
 void ControlPanel::SetupAttachmentsWindow(mxTab* pTab) {
     m_pAttachmentsWindow = new CAttachmentsWindow(this);
     AddScrollableTab(pTab, m_pAttachmentsWindow, "Attachments");
@@ -773,7 +850,16 @@ void ControlPanel::SetupMatVarWindow(mxTab* pTab) {
     cMaterialParamList->select(1);
     mxToolTip::add(cMaterialParamList, "Material parameters of this material");
 
-    auto *modify = new mxLabel(wMatVars, 0, 0, 0, 0, "Modify Parameter:");
+    lMaterialParamType = new mxLabel(wMatVars, 0, 0, 0, 0, "Type:");
+    cMaterialParamType = new mxChoice(wMatVars, 0, 0, 0, 0, IDC_MATVARTYPE);
+    cMaterialNewParamType = new mxChoice(wMatVars, 0, 0, 0, 0);
+    for (const char *type: {"Text", "Scalar", "Bool", "Vec2", "Vec3", "Color", "Transform"}) {
+        cMaterialParamType->add(type);
+        cMaterialNewParamType->add(type);
+    }
+    cMaterialNewParamType->select(int(ParamType::Scalar));
+    mxToolTip::add(cMaterialParamType, "How the selected parameter is edited; the VMT stores the text either way");
+    cbMaterialParamBool = new mxCheckBox(wMatVars, 0, 0, 0, 0, "Enabled", IDC_MATVARBOOL);
     leMaterialParamText = new mxLineEdit2(wMatVars, 0, 0, 0, 0, "", IDC_MATVAREDIT);
     leMaterialParamText->setVisible(false);
 
@@ -793,15 +879,17 @@ void ControlPanel::SetupMatVarWindow(mxTab* pTab) {
     matrixSlider(lblMatrixTranslateX, slMaterialParamMatrixSliderTranslateX, "Translate X:", -2.0, 2.0, 0.0);
     matrixSlider(lblMatrixTranslateY, slMaterialParamMatrixSliderTranslateY, "Translate Y:", -2.0, 2.0, 0.0);
 
-    bMaterialParamColor = new mxButton(wMatVars, 0, 0, 0, 0, "Color picker", IDC_MATVARCOLORPICKER);
-    bMaterialParamColor->setVisible(false);
+    bMaterialParamColor = new mxButton(wMatVars, 0, 0, 0, 0, "Pick…", IDC_MATVARCOLORPICKER);
+    mxToolTip::add(bMaterialParamColor, "Pick the colour with a live preview; Cancel restores it");
 
     slMaterialParamFloat = new mxSlider(wMatVars, 0, 0, 0, 0, IDC_MATVARSLIDERFLOAT);
     slMaterialParamFloat->setRange(-1.0, 1.0);
     slMaterialParamFloat->setValue(0.0);
     slMaterialParamFloat->setVisible(false);
 
-    cbMaterialParamMultiEdit = new mxCheckBox(wMatVars, 0, 0, 0, 0, "Affect all loaded materials", 0);
+    cbMaterialParamMultiEdit = new mxCheckBox(wMatVars, 0, 0, 0, 0, "Apply edits to all materials", 0);
+    mxToolTip::add(cbMaterialParamMultiEdit, "Edit, add, remove and revert parameters in every loaded material at once");
+    QObject::connect(cbMaterialParamMultiEdit, &QCheckBox::toggled, this, [this] { UpdateMaterialParamRows(); });
 
     bMaterialParamLoad = new mxButton(wMatVars, 0, 0, 0, 0, "Replace VMT", IDC_MATVARLOAD);
     mxToolTip::add(bMaterialParamLoad, "Temporarily replace this material with a custom set of VMT parameters.");
@@ -809,45 +897,111 @@ void ControlPanel::SetupMatVarWindow(mxTab* pTab) {
 
     bMaterialParamCopyToClipboard = new mxButton(wMatVars, 0, 0, 0, 0, "Copy to clipboard",
                                                  IDC_MATVARCOPYTOCLIPBOARD);
-    bMaterialParamCopyToClipboard->setVisible(false);
+    mxToolTip::add(bMaterialParamCopyToClipboard, "Copy the VMT text with the unsaved edits");
 
+    leMaterialParamName = new mxLineEdit(wMatVars, 0, 0, 0, 0, "");
+    leMaterialParamName->setPlaceholderText(QStringLiteral("$parameter"));
+    bMaterialParamAdd = new mxButton(wMatVars, 0, 0, 0, 0, "Add", IDC_MATVARADD);
+    mxToolTip::add(bMaterialParamAdd, "Add (or select) a VMT parameter of the chosen type");
+    bMaterialParamRemove = new mxButton(wMatVars, 0, 0, 0, 0, "Remove", IDC_MATVARREMOVE);
+    bMaterialRevert = new mxButton(wMatVars, 0, 0, 0, 0, "Revert", IDC_MATVARREVERT);
+    mxToolTip::add(bMaterialRevert, "Discard the unsaved edits of this material");
+    bMaterialSync = new mxButton(wMatVars, 0, 0, 0, 0, "Sync to disk", IDC_MATVARSYNC);
+    mxToolTip::add(bMaterialSync, "Write every material's unsaved edits into its VMT file");
+    QObject::connect(leMaterialParamName, &QLineEdit::returnPressed, bMaterialParamAdd, &QPushButton::click);
+    leMaterialParamFilter = new QLineEdit(wMatVars);
+    leMaterialParamFilter->setPlaceholderText(QStringLiteral("Filter parameters"));
+    leMaterialParamFilter->setClearButtonEnabled(true);
+    QObject::connect(leMaterialParamFilter, &QLineEdit::textChanged, this, [this] { UpdateMaterialParamRows(); });
+    wMaterialParamComponents = new QWidget(wMatVars);
+    auto *components = new QHBoxLayout(wMaterialParamComponents);
+    components->setContentsMargins(0, 0, 0, 0);
+    for (auto *&spin: sbMaterialParamComponents) {
+        spin = new QDoubleSpinBox(wMaterialParamComponents);
+        spin->setRange(-100000, 100000);
+        spin->setDecimals(3);
+        components->addWidget(spin, 1);
+        QObject::connect(spin, &QDoubleSpinBox::valueChanged, this, [this] {
+            const auto key = SelectedParam();
+            const int material = SelectedMaterial();
+            if (key.isEmpty() || material < 0)
+                return;
+            const bool bytes = MaterialParamValue(material, key).value_or(QString()).trimmed().startsWith('{');
+            QStringList parts;
+            for (int i = 0; i < (MaterialParamType(key) == ParamType::Vec2 ? 2 : 3); ++i)
+                parts.append(FormatNumber(float(sbMaterialParamComponents[i]->value())));
+            const auto value = QString(bytes ? QChar('{') : QChar('[')) + parts.join(' ') + (bytes ? QChar('}') : QChar(']'));
+            SetMaterialParam(TargetMaterials(), key, value);
+            // Not ShowMaterialParamEditor: resetting the spin boxes would fight the typing.
+            leMaterialParamText->setText(value.toUtf8().constData());
+            QPixmap swatch(14, 14);
+            swatch.fill(ParseColor(value));
+            bMaterialParamColor->setIcon(swatch);
+        });
+    }
+    components->addWidget(bMaterialParamColor);
+    lMaterialStatus = new mxLabel(wMatVars, 0, 0, 0, 0, "");
+    lMaterialStatus->setWordWrap(true);
+    lMaterialStatus->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    m_settings.reportMaterial = [this](int index, const QString &error, const QStringList &ignored) {
+        if (index < 0 || size_t(index) >= m_materials.size())
+            return;
+        m_materials[index].buildError = error;
+        if (error.isEmpty())
+            m_materials[index].ignored = ignored;
+        if (index == SelectedMaterial())
+            UpdateMaterialParamRows();
+    };
+
+    // Left: materials; middle: their parameters and adding one; right: the selected parameter's editor and saving.
     auto *layout = new QGridLayout(wMatVars);
-    layout->setColumnStretch(0, 1);
-    layout->setColumnStretch(1, 1);
-    layout->setColumnStretch(2, 2);
+    layout->setColumnStretch(0, 2);
+    layout->setColumnStretch(1, 3);
+    layout->setColumnStretch(2, 4);
     layout->addWidget(names, 0, 0);
     layout->addWidget(parameters, 0, 1);
-    layout->addWidget(cMaterialList, 1, 0);
-    layout->addWidget(cMaterialParamList, 1, 1);
+    layout->addWidget(cMaterialList, 1, 0, 3, 1);
+    layout->addWidget(leMaterialParamFilter, 1, 1);
+    layout->addWidget(cMaterialParamList, 2, 1);
+    layout->setRowStretch(2, 1);
+    auto *add = new QHBoxLayout;
+    add->addWidget(leMaterialParamName, 1);
+    add->addWidget(cMaterialNewParamType);
+    add->addWidget(bMaterialParamAdd);
+    layout->addLayout(add, 3, 1);
 
+    auto *parameter = new QGroupBox(QStringLiteral("Selected parameter"), wMatVars);
+    m_materialParamForm = new QFormLayout(parameter);
+    auto *typeRow = new QWidget(parameter);
+    auto *type = new QHBoxLayout(typeRow);
+    type->setContentsMargins(0, 0, 0, 0);
+    type->addWidget(cMaterialParamType, 1);
+    type->addWidget(bMaterialParamRemove);
+    m_materialParamForm->addRow(lMaterialParamType, typeRow);
+    m_materialParamForm->addRow(QStringLiteral("Value:"), leMaterialParamText);
+    m_materialParamForm->addRow(QString(), cbMaterialParamBool);
+    m_materialParamForm->addRow(QStringLiteral("Amount:"), slMaterialParamFloat);
+    m_materialParamForm->addRow(QStringLiteral("Components:"), wMaterialParamComponents);
+    for (const auto &[label, slider]: {std::pair{lblMatrixRotation, slMaterialParamMatrixSliderRotation},
+                                       std::pair{lblMatrixScaleX, slMaterialParamMatrixSliderScaleX},
+                                       std::pair{lblMatrixScaleY, slMaterialParamMatrixSliderScaleY},
+                                       std::pair{lblMatrixTranslateX, slMaterialParamMatrixSliderTranslateX},
+                                       std::pair{lblMatrixTranslateY, slMaterialParamMatrixSliderTranslateY}})
+        m_materialParamForm->addRow(label, slider);
     auto *editor = new QVBoxLayout;
-    auto *title = new QHBoxLayout;
-    title->addWidget(modify);
-    title->addWidget(cbMaterialParamMultiEdit);
-    editor->addLayout(title);
-    editor->addWidget(leMaterialParamText);
-    editor->addWidget(bMaterialParamColor, 0, Qt::AlignLeft);
-    editor->addWidget(slMaterialParamFloat);
-    auto *matrix = new QGridLayout;
-    const std::pair<mxLabel *, mxSlider *> rows[] = {
-        {lblMatrixRotation, slMaterialParamMatrixSliderRotation},
-        {lblMatrixScaleX, slMaterialParamMatrixSliderScaleX},
-        {lblMatrixScaleY, slMaterialParamMatrixSliderScaleY},
-        {lblMatrixTranslateX, slMaterialParamMatrixSliderTranslateX},
-        {lblMatrixTranslateY, slMaterialParamMatrixSliderTranslateY}
-    };
-    for (int i = 0; i < 5; ++i) {
-        matrix->addWidget(rows[i].first, i, 0);
-        matrix->addWidget(rows[i].second, i, 1);
-    }
-    editor->addLayout(matrix);
+    editor->addWidget(parameter);
+    editor->addWidget(lMaterialStatus);
+    editor->addStretch();
+    layout->addLayout(editor, 0, 2, 3, 1);
+
     auto *buttons = new QHBoxLayout;
+    buttons->addWidget(cbMaterialParamMultiEdit);
+    buttons->addStretch();
+    buttons->addWidget(bMaterialRevert);
     buttons->addWidget(bMaterialParamLoad);
     buttons->addWidget(bMaterialParamCopyToClipboard);
-    buttons->addStretch();
-    editor->addLayout(buttons);
-    editor->addStretch();
-    layout->addLayout(editor, 0, 2, 2, 1);
+    buttons->addWidget(bMaterialSync);
+    layout->addLayout(buttons, 3, 2);
 }
 
 void ControlPanel::SetupSubmodelWindow(mxTab* pTab) {
@@ -1035,7 +1189,7 @@ void ControlPanel::toggle(int id) {
         }
 }
 
-void ControlPanel::OnLoadModel(const MdlMesh &mesh) {
+void ControlPanel::OnLoadModel(const MdlMesh &mesh, const QString &path) {
     const auto &info = mesh.info;
     char str[512];
     std::snprintf(str, sizeof(str),
@@ -1067,6 +1221,17 @@ void ControlPanel::OnLoadModel(const MdlMesh &mesh) {
     cMaterials->select(0);
     Fill(cMessageList, mesh.textures, "None");
     Fill(cMaterialList, mesh.textures, "None");
+    m_modelPath = path;
+    m_materialSearchPaths = mesh.materialPaths;
+    m_materials.assign(mesh.textures.size(), {});
+    for (size_t i = 0; i < m_materials.size(); ++i)
+        m_materials[i].name = mesh.textures[int(i)];
+    m_settings.materialEdits.assign(mesh.textures.size(), {});
+    ++m_settings.materialRevision;
+    m_paramTypes.clear();
+    ReadMaterialSources();
+    cMaterialList->select(0);
+    FillMaterialParams();
 
     initSequenceChoices();
     initBoneControllers();
@@ -1077,6 +1242,7 @@ void ControlPanel::OnLoadModel(const MdlMesh &mesh) {
     m_settings.hitboxSets = mesh.hitboxSets;
     m_pBoneWindow->OnLoadModel(mesh);
     m_pAttachmentsWindow->OnLoadModel(info);
+    m_pJiggleWindow->OnLoadModel(path, info.bones);
     UpdateIKRuleWindow();
 
     m_flexControllers = mesh.flex.controllers;
@@ -1407,6 +1573,229 @@ void ControlPanel::OnUnloadModel() {
     lModelInfo2->setLabel("");
     m_info = {};
     m_settings.bodygroups.clear();
+    m_materials.clear();
+    m_settings.materialEdits.clear();
+    ++m_settings.materialRevision;
+    FillMaterialParams();
+}
+
+int ControlPanel::SelectedMaterial() const {
+    const int row = cMaterialList->getSelectedIndex();
+    return row >= 0 && size_t(row) < m_materials.size() ? row : -1;
+}
+
+std::vector<int> ControlPanel::TargetMaterials() const {
+    std::vector<int> targets;
+    for (int i = 0; i < int(m_materials.size()); ++i)
+        if (!m_materials[i].source.vmt.isEmpty() && (cbMaterialParamMultiEdit->isChecked() || i == SelectedMaterial()))
+            targets.push_back(i);
+    return targets;
+}
+
+QString ControlPanel::SelectedParam() const {
+    const int row = cMaterialParamList->getSelectedIndex();
+    return row >= 0 && row < m_paramKeys.size() ? m_paramKeys[row] : QString();
+}
+
+std::optional<QString> ControlPanel::MaterialParamValue(int material, const QString &key) const {
+    const auto &edits = m_settings.materialEdits[material];
+    if (const auto it = edits.find(key); it != edits.end())
+        return it->second;
+    for (const auto &[name, value]: m_materials[material].source.params)
+        if (name.compare(key, Qt::CaseInsensitive) == 0)
+            return value;
+    return std::nullopt;
+}
+
+ControlPanel::ParamType ControlPanel::MaterialParamType(const QString &key) const {
+    if (const auto it = m_paramTypes.find(key); it != m_paramTypes.end())
+        return it->second;
+    const int material = SelectedMaterial();
+    const auto value = material >= 0 ? MaterialParamValue(material, key).value_or(QString()).trimmed() : QString();
+    if (key.endsWith(QLatin1String("transform")))
+        return ParamType::Transform;
+    if (value.startsWith('[') || value.startsWith('{')) {
+        const auto count = ParseNumbers(value).size();
+        if (count == 2)
+            return ParamType::Vec2;
+        if (count >= 3)
+            return key.contains(QLatin1String("color")) || key.contains(QLatin1String("tint")) ? ParamType::Color : ParamType::Vec3;
+        return ParamType::Text;
+    }
+    bool number = false;
+    value.toFloat(&number);
+    if (!number)
+        return ParamType::Text;
+    return value == QLatin1String("0") || value == QLatin1String("1") ? ParamType::Bool : ParamType::Scalar;
+}
+
+void ControlPanel::SetMaterialParam(const std::vector<int> &materials, const QString &key, const std::optional<QString> &value) {
+    for (const int i: materials) {
+        if (size_t(i) >= m_settings.materialEdits.size())
+            continue;
+        auto &edits = m_settings.materialEdits[i];
+        edits.erase(key); // MaterialParamValue now reads the VMT's value
+        if (MaterialParamValue(i, key) != value)
+            edits[key] = value;
+    }
+    ++m_settings.materialRevision;
+    redraw();
+    UpdateMaterialParamRows();
+}
+
+void ControlPanel::ReadMaterialSources() {
+    for (size_t i = 0; i < m_materials.size(); ++i) {
+        auto &entry = m_materials[i];
+        try {
+            entry.source = ReadMaterialSource(m_modelPath, entry.name, m_materialSearchPaths);
+            entry.sourceError.clear();
+        }
+        catch (const std::exception &error) {
+            entry.source = {};
+            entry.sourceError = QString::fromUtf8(error.what());
+        }
+    }
+}
+
+void ControlPanel::FillMaterialParams(const QString &select) {
+    m_paramKeys.clear();
+    if (const int material = SelectedMaterial(); material >= 0) {
+        for (const auto &[name, value]: m_materials[material].source.params)
+            m_paramKeys.append(name.toLower());
+        for (const auto &[key, value]: m_settings.materialEdits[material])
+            if (!m_paramKeys.contains(key))
+                m_paramKeys.append(key);
+        m_paramKeys.removeIf([&](const QString &key) { return !MaterialParamValue(material, key); });
+    }
+    cMaterialParamList->removeAll();
+    for (qsizetype i = 0; i < m_paramKeys.size(); ++i)
+        cMaterialParamList->add("");
+    if (m_paramKeys.isEmpty())
+        cMaterialParamList->add("None");
+    UpdateMaterialParamRows();
+    cMaterialParamList->select(int(m_paramKeys.indexOf(select)));
+    ShowMaterialParamEditor();
+}
+
+void ControlPanel::UpdateMaterialParamRows() {
+    // Materials list: * unsaved edits, ! failed to read or build.
+    size_t unsaved = 0;
+    for (size_t i = 0; i < m_materials.size() && int(i) < cMaterialList->count(); ++i) {
+        const auto &entry = m_materials[i];
+        unsaved += m_settings.materialEdits[i].size();
+        const auto marker = QString(m_settings.materialEdits[i].empty() ? QString() : QStringLiteral("* ")) +
+                            (entry.sourceError.isEmpty() && entry.buildError.isEmpty() ? QString() : QStringLiteral("! "));
+        cMaterialList->setItemText(int(i), (marker + entry.name).toUtf8().constData());
+    }
+    bMaterialSync->setEnabled(unsaved);
+    bMaterialSync->setLabel(unsaved ? "Sync to disk (%d)" : "Sync to disk", int(unsaved));
+    const auto targets = TargetMaterials();
+    bMaterialRevert->setEnabled(std::ranges::any_of(targets, [&](int i) { return !m_settings.materialEdits[i].empty(); }));
+
+    const int material = SelectedMaterial();
+    bMaterialParamCopyToClipboard->setEnabled(material >= 0 && !m_materials[material].source.vmt.isEmpty());
+    if (material < 0) {
+        lMaterialStatus->setLabel("");
+        return;
+    }
+    const auto &entry = m_materials[material];
+    const auto &edits = m_settings.materialEdits[material];
+    const auto filter = leMaterialParamFilter->text().trimmed();
+    for (qsizetype row = 0; row < m_paramKeys.size(); ++row) {
+        const auto &key = m_paramKeys[row];
+        QString name = key;
+        for (const auto &param: entry.source.params)
+            if (param.first.compare(key, Qt::CaseInsensitive) == 0)
+                name = param.first;
+        const auto value = MaterialParamValue(material, key).value_or(QString());
+        auto text = (edits.contains(key) ? QStringLiteral("* ") : QString()) + name + QStringLiteral("  =  ") + value;
+        if (entry.ignored.contains(key))
+            text += QStringLiteral("   (ignored by shader)");
+        cMaterialParamList->setItemText(int(row), text.toUtf8().constData());
+        cMaterialParamList->item(int(row))->setHidden(!filter.isEmpty() && !name.contains(filter, Qt::CaseInsensitive) &&
+                                                      !value.contains(filter, Qt::CaseInsensitive));
+    }
+    const auto error = [](const QString &text) { return QStringLiteral("<span style=\"color:#e05252\">%1</span>").arg(text.toHtmlEscaped()); };
+    QString status = !entry.sourceError.isEmpty() ? error(entry.sourceError)
+                     : QStringLiteral("<b>%1</b><br>%2").arg(entry.source.shader.toHtmlEscaped(), entry.source.vmt.toHtmlEscaped());
+    if (!entry.buildError.isEmpty())
+        status += QStringLiteral("<br>") + error(QStringLiteral("Not applied: ") + entry.buildError);
+    if (!edits.empty())
+        status += QStringLiteral("<br>%1 unsaved change(s) in this material").arg(edits.size());
+    lMaterialStatus->setText(status);
+}
+
+void ControlPanel::ShowMaterialParamEditor() {
+    const int material = SelectedMaterial();
+    const auto key = SelectedParam();
+    const bool any = material >= 0 && !key.isEmpty();
+    const auto type = any ? MaterialParamType(key) : ParamType::Text;
+    const auto value = any ? MaterialParamValue(material, key).value_or(QString()) : QString();
+    for (QWidget *row: std::initializer_list<QWidget *>{lMaterialParamType, leMaterialParamText})
+        m_materialParamForm->setRowVisible(row, any);
+    cMaterialParamType->select(int(type));
+    if (leMaterialParamText->text() != value) // keeps the cursor while typing
+        leMaterialParamText->setText(value.toUtf8().constData());
+    m_materialParamForm->setRowVisible(cbMaterialParamBool, any && type == ParamType::Bool);
+    cbMaterialParamBool->setChecked(value.toFloat() != 0);
+    const bool vector = any && (type == ParamType::Vec2 || type == ParamType::Vec3 || type == ParamType::Color);
+    m_materialParamForm->setRowVisible(wMaterialParamComponents, vector);
+    if (vector) {
+        const auto numbers = ParseNumbers(value);
+        const bool bytes = value.trimmed().startsWith('{');
+        for (int i = 0; i < 3; ++i) {
+            const QSignalBlocker quiet(sbMaterialParamComponents[i]);
+            sbMaterialParamComponents[i]->setVisible(i < (type == ParamType::Vec2 ? 2 : 3));
+            sbMaterialParamComponents[i]->setSingleStep(bytes ? 1 : 0.05);
+            sbMaterialParamComponents[i]->setValue(i < numbers.size() ? numbers[i] : 0);
+        }
+        bMaterialParamColor->setVisible(type == ParamType::Color);
+        QPixmap swatch(14, 14);
+        swatch.fill(ParseColor(value));
+        bMaterialParamColor->setIcon(swatch);
+    }
+    m_materialParamForm->setRowVisible(slMaterialParamFloat, any && type == ParamType::Scalar);
+    if (type == ParamType::Scalar) {
+        const float number = value.toFloat();
+        slMaterialParamFloat->setRange(std::min(0.f, 2 * number), std::max(1.f, 2 * number), 1000);
+        slMaterialParamFloat->setValue(number);
+    }
+    const bool transform = any && type == ParamType::Transform;
+    for (QWidget *slider: std::initializer_list<QWidget *>{slMaterialParamMatrixSliderRotation, slMaterialParamMatrixSliderScaleX,
+                                                           slMaterialParamMatrixSliderScaleY, slMaterialParamMatrixSliderTranslateX,
+                                                           slMaterialParamMatrixSliderTranslateY})
+        m_materialParamForm->setRowVisible(slider, transform);
+    if (transform) {
+        const auto t = ParseTransform(value);
+        slMaterialParamMatrixSliderRotation->setValue(t.rotate);
+        slMaterialParamMatrixSliderScaleX->setValue(t.scale[0]);
+        slMaterialParamMatrixSliderScaleY->setValue(t.scale[1]);
+        slMaterialParamMatrixSliderTranslateX->setValue(t.translate[0]);
+        slMaterialParamMatrixSliderTranslateY->setValue(t.translate[1]);
+    }
+}
+
+void ControlPanel::SyncMaterials() {
+    QStringList failures;
+    for (size_t i = 0; i < m_materials.size(); ++i) {
+        auto &edits = m_settings.materialEdits[i];
+        if (edits.empty())
+            continue;
+        try {
+            SaveMaterialEdits(m_modelPath, m_materials[i].source.vmt, edits);
+            edits.clear();
+        }
+        catch (const std::exception &error) {
+            failures.append(QString::fromUtf8(error.what()));
+        }
+    }
+    ReadMaterialSources(); // also refreshes other materials sharing a written VMT
+    ++m_settings.materialRevision;
+    redraw();
+    FillMaterialParams(SelectedParam());
+    if (!failures.isEmpty())
+        mxMessageBox(this, ("Some edits were not written:\n" + failures.join('\n')).toUtf8().constData(), "Sync materials",
+                     MX_MBERROR | MX_MBOK);
 }
 
 int ControlPanel::handleEvent(mxEvent* event) {
@@ -1414,6 +1803,131 @@ int ControlPanel::handleEvent(mxEvent* event) {
         return 0;
 
     switch (event->action) {
+        case IDC_MATERIALVARMATS:
+            FillMaterialParams(SelectedParam());
+            break;
+
+        case IDC_MATERIALVARPARAMS:
+            ShowMaterialParamEditor();
+            break;
+
+        case IDC_MATVARTYPE:
+            if (const auto key = SelectedParam(); !key.isEmpty()) {
+                m_paramTypes[key] = ParamType(cMaterialParamType->getSelectedIndex());
+                ShowMaterialParamEditor();
+            }
+            break;
+
+        case IDC_MATVAREDIT:
+            if (const auto key = SelectedParam(); !key.isEmpty()) {
+                SetMaterialParam(TargetMaterials(), key, leMaterialParamText->text().isNull() ? QStringLiteral("") : leMaterialParamText->text());
+                ShowMaterialParamEditor(); // sliders, check box and components follow the typed text
+            }
+            break;
+
+        case IDC_MATVARBOOL:
+            if (const auto key = SelectedParam(); !key.isEmpty()) {
+                SetMaterialParam(TargetMaterials(), key, cbMaterialParamBool->isChecked() ? QStringLiteral("1") : QStringLiteral("0"));
+                leMaterialParamText->setText(cbMaterialParamBool->isChecked() ? "1" : "0");
+            }
+            break;
+
+        case IDC_MATVARSLIDERFLOAT:
+            if (const auto key = SelectedParam(); !key.isEmpty()) {
+                const auto value = FormatNumber(slMaterialParamFloat->getValue());
+                SetMaterialParam(TargetMaterials(), key, value);
+                leMaterialParamText->setText(value.toUtf8().constData());
+            }
+            break;
+
+        case IDC_MATVARSLIDERMATRIX:
+            if (const auto key = SelectedParam(); !key.isEmpty() && SelectedMaterial() >= 0) {
+                auto t = ParseTransform(MaterialParamValue(SelectedMaterial(), key).value_or(QString()));
+                t.rotate = slMaterialParamMatrixSliderRotation->getValue();
+                t.scale[0] = slMaterialParamMatrixSliderScaleX->getValue();
+                t.scale[1] = slMaterialParamMatrixSliderScaleY->getValue();
+                t.translate[0] = slMaterialParamMatrixSliderTranslateX->getValue();
+                t.translate[1] = slMaterialParamMatrixSliderTranslateY->getValue();
+                const auto value = FormatTransform(t);
+                SetMaterialParam(TargetMaterials(), key, value);
+                leMaterialParamText->setText(value.toUtf8().constData());
+            }
+            break;
+
+        case IDC_MATVARCOLORPICKER:
+            if (const auto key = SelectedParam(); !key.isEmpty() && SelectedMaterial() >= 0) {
+                // Live preview while picking; Cancel restores the edits as they were.
+                const auto targets = TargetMaterials();
+                auto *dialog = new QColorDialog(ParseColor(MaterialParamValue(SelectedMaterial(), key).value_or(QString())), this);
+                dialog->setAttribute(Qt::WA_DeleteOnClose);
+                QObject::connect(dialog, &QColorDialog::currentColorChanged, this, [this, targets, key](const QColor &color) {
+                    SetMaterialParam(targets, key, FormatColor(color));
+                    ShowMaterialParamEditor();
+                });
+                QObject::connect(dialog, &QDialog::rejected, this, [this, saved = m_settings.materialEdits] {
+                    if (saved.size() != m_settings.materialEdits.size())
+                        return; // another model was loaded meanwhile
+                    m_settings.materialEdits = saved;
+                    ++m_settings.materialRevision;
+                    redraw();
+                    FillMaterialParams(SelectedParam());
+                });
+                dialog->open();
+            }
+            break;
+
+        case IDC_MATVARADD: {
+            const auto name = leMaterialParamName->text().trimmed();
+            static const QRegularExpression valid(QStringLiteral(R"(^[$%][^\s"{}]+$)"));
+            if (!valid.match(name).hasMatch()) {
+                lMaterialStatus->setText(QStringLiteral("Parameter names start with $ (or %) and have no spaces, quotes or braces."));
+                break;
+            }
+            const auto key = name.toLower();
+            const auto type = ParamType(cMaterialNewParamType->getSelectedIndex());
+            static const char *defaults[] = {"", "0", "1", "[0 0]", "[0 0 0]", "[1 1 1]", "center .5 .5 scale 1 1 rotate 0 translate 0 0"};
+            m_paramTypes[key] = type;
+            std::vector<int> missing;
+            for (const int i: TargetMaterials())
+                if (!MaterialParamValue(i, key))
+                    missing.push_back(i);
+            SetMaterialParam(missing, key, QString::fromLatin1(defaults[int(type)]));
+            FillMaterialParams(key);
+            break;
+        }
+
+        case IDC_MATVARREMOVE:
+            if (const auto key = SelectedParam(); !key.isEmpty()) {
+                SetMaterialParam(TargetMaterials(), key, std::nullopt);
+                FillMaterialParams();
+            }
+            break;
+
+        case IDC_MATVARREVERT:
+            for (const int i: TargetMaterials())
+                m_settings.materialEdits[i].clear();
+            ++m_settings.materialRevision;
+            redraw();
+            FillMaterialParams(SelectedParam());
+            break;
+
+        case IDC_MATVARSYNC:
+            SyncMaterials();
+            break;
+
+        case IDC_MATVARCOPYTOCLIPBOARD:
+            if (const int material = SelectedMaterial(); material >= 0 && !m_materials[material].source.vmt.isEmpty()) {
+                const auto &vmt = m_materials[material].source.vmt;
+                try {
+                    QGuiApplication::clipboard()->setText(
+                        PatchVmtText(QString::fromUtf8(ReadAssetFile(vmt, 1024 * 1024)), m_settings.materialEdits[material]));
+                }
+                catch (const std::exception &error) {
+                    lMaterialStatus->setText(QString::fromUtf8(error.what()));
+                }
+            }
+            break;
+
         case IDC_SKINS:
             if (const int skin = cSkin->getSelectedIndex(); skin >= 0) {
                 m_settings.skin = skin;

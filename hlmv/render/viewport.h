@@ -7,6 +7,7 @@
 #include <QOpenGLWidget>
 
 #include "mdl_mesh.h"
+#include "vmt_patch.h"
 
 // Per-frame numbers SFM's HLMV shows on the Model tab.
 struct ViewportStats
@@ -50,6 +51,11 @@ struct ViewportSettings
     std::function<void(const ViewportStats &)> reportStats;
     std::vector<float> flexRaw; // per flex controller, 0..1 like HLMV's StudioModel::m_flexweight
     int flexRevision = 0;       // bump after changing flexRaw
+    // Materials tab: VMT parameter edits per MDL texture, rebuilt into the viewport's materials when the revision changes.
+    std::vector<MaterialEdits> materialEdits;
+    int materialRevision = 0;
+    // After each (re)build of MDL texture `index`'s material: its load error, or the VMT parameters its shader ignores.
+    std::function<void(int index, const QString &error, const QStringList &ignored)> reportMaterial;
 };
 
 void ConfigureSfmViewport();
